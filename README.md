@@ -1,36 +1,58 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Novotech Systems B2B Partner Platform
 
-## Getting Started
+Partner-facing B2B portal for Novotech Systems distribution business.
 
-First, run the development server:
+This project is separate from the Engineering CRM project. It is designed as a partner portal, cache layer, access-control layer, order creation layer, and automation layer around 1C.
+
+## Core Principles
+
+- 1C is the source of truth for products, prices, stock, partners, documents, orders, invoices, debts, and credit limits.
+- The portal may write to 1C only for new orders and product reservations in the MVP.
+- Partner access depth is assigned manually by Novotech managers and administrators.
+- A partner company may have multiple users.
+- A user belongs to only one partner company.
+- Different partner companies may see different information based on their assigned access profile.
+
+## Tech Stack
+
+- Next.js App Router
+- TypeScript
+- Tailwind CSS
+- Supabase
+- Vercel
+- GitHub
+- Future 1C API integration
+
+## Project Structure
+
+- `docs/` - architecture, roadmap, and development rules.
+- `src/lib/supabase` - future Supabase client and server helpers.
+- `src/lib/onec` - future 1C integration boundary.
+- `src/lib/auth` - future authentication helpers.
+- `src/lib/access` - future access-control helpers.
+- `src/modules/*` - feature domains for catalog, orders, partners, pricing, inventory, documents, and admin.
+- `src/types` - shared TypeScript types.
+
+## Documentation
+
+- `docs/ARCHITECTURE.md`
+- `docs/ROADMAP.md`
+- `docs/DEVELOPMENT_RULES.md`
+
+## Development
+
+Install dependencies and run the development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Current Scope
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+The repository currently contains only the initial foundation. Authentication, database schema, Supabase keys, 1C integration, and business features are intentionally not implemented yet.
 
-## Learn More
+## Security
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Do not commit secrets. Supabase keys, 1C credentials, API tokens, service-role keys, and private URLs must be provided through environment variables only.
