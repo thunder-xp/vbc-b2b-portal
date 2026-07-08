@@ -17,6 +17,9 @@ export default function Home() {
           1C remains the source of truth. The portal starts as a clean
           foundation for partner access, catalog visibility, and order creation.
         </div>
+        <p className="mt-4 text-sm font-medium text-zinc-700">
+          Platform foundation is ready.
+        </p>
       </section>
     </main>
   );

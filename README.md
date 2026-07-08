@@ -49,9 +49,21 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## Local Environment
+
+Create a local `.env.local` file for development. Do not commit this file.
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=your-supabase-project-url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
+```
+
+Only `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` are safe for browser use. `SUPABASE_SERVICE_ROLE_KEY` is server-only and must never be imported into Client Components, browser utilities, or exposed through API responses.
+
 ## Current Scope
 
-The repository currently contains only the initial foundation. Authentication, database schema, Supabase keys, 1C integration, and business features are intentionally not implemented yet.
+The repository currently contains only the initial foundation. Authentication pages, database schema, Supabase keys, 1C integration, and business features are intentionally not implemented yet.
 
 ## Security
 
