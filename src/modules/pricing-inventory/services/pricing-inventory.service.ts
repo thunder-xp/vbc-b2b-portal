@@ -12,11 +12,20 @@ export type ProductPriceViewDto = {
   label: string;
 };
 
-export type ProductStockAvailability = "available" | "unavailable";
+export type ProductStockAvailability =
+  | "in_stock"
+  | "low_stock"
+  | "out_of_stock"
+  | "expected";
 
 export type ProductStockViewDto = {
   status: ProductStockAvailability;
   label: string;
+  availableQuantity: number;
+  expectedQuantity: number | null;
+  expectedAt: string | null;
+  warehouseCount: number;
+  lastUpdatedAt: string | null;
 };
 
 export type ProductCommercialViewDto = {
@@ -35,6 +44,7 @@ export interface PricingInventoryService {
 
 const PRICE_PERMISSION = "prices.view";
 const STOCK_PERMISSION = "stock.view";
+const LOW_STOCK_THRESHOLD = 5;
 
 export class DefaultPricingInventoryService implements PricingInventoryService {
   constructor(
@@ -197,22 +207,98 @@ function stockAvailabilityForProduct(
   );
 
   if (availableQuantity > 0) {
+    const status =
+      availableQuantity > LOW_STOCK_THRESHOLD ? "in_stock" : "low_stock";
+
     return {
-      status: "available",
-      label: "Available",
+      status,
+      label:
+        status === "in_stock"
+          ? `In Stock: ${formatQuantity(availableQuantity)} available`
+          : `Low Stock: ${formatQuantity(availableQuantity)} available`,
+      availableQuantity,
+      expectedQuantity: totalExpectedQuantity(productStock),
+      expectedAt: earliestExpectedAt(productStock),
+      warehouseCount: activeWarehouseCount(productStock),
+      lastUpdatedAt: latestUpdatedAt(productStock),
+    };
+  }
+
+  const expectedQuantity = totalExpectedQuantity(productStock);
+  const expectedAt = earliestExpectedAt(productStock);
+
+  if (expectedQuantity !== null && expectedQuantity > 0) {
+    return {
+      status: "expected",
+      label: `Expected: ${formatQuantity(expectedQuantity)}`,
+      availableQuantity,
+      expectedQuantity,
+      expectedAt,
+      warehouseCount: activeWarehouseCount(productStock),
+      lastUpdatedAt: latestUpdatedAt(productStock),
     };
   }
 
   return {
-    status: "unavailable",
-    label: "Unavailable",
+    status: "out_of_stock",
+    label: "Out of Stock",
+    availableQuantity,
+    expectedQuantity,
+    expectedAt,
+    warehouseCount: activeWarehouseCount(productStock),
+    lastUpdatedAt: latestUpdatedAt(productStock),
   };
+}
+
+function formatQuantity(quantity: number): string {
+  return new Intl.NumberFormat("en", {
+    maximumFractionDigits: 3,
+  }).format(quantity);
+}
+
+function totalExpectedQuantity(
+  stockBalances: ProductStockBalance[],
+): number | null {
+  const expected = stockBalances
+    .map((stockBalance) => stockBalance.expectedQuantity)
+    .filter((quantity): quantity is number => quantity !== null);
+
+  if (expected.length === 0) {
+    return null;
+  }
+
+  return expected.reduce((total, quantity) => total + quantity, 0);
+}
+
+function earliestExpectedAt(stockBalances: ProductStockBalance[]): string | null {
+  return (
+    stockBalances
+      .map((stockBalance) => stockBalance.expectedAt)
+      .filter((value): value is string => value !== null)
+      .sort((left, right) => Date.parse(left) - Date.parse(right))[0] ?? null
+  );
+}
+
+function latestUpdatedAt(stockBalances: ProductStockBalance[]): string | null {
+  return (
+    stockBalances
+      .map((stockBalance) => stockBalance.updatedFrom1cAt)
+      .filter((value): value is string => value !== null)
+      .sort((left, right) => Date.parse(right) - Date.parse(left))[0] ?? null
+  );
+}
+
+function activeWarehouseCount(stockBalances: ProductStockBalance[]): number {
+  return new Set(stockBalances.map((stockBalance) => stockBalance.warehouseName))
+    .size;
 }
 
 type DemoCommercialViewSource = {
   price: ProductPriceViewDto;
   stock: ProductStockViewDto;
 };
+
+const demoNow = "2026-07-09T00:00:00.000Z";
 
 function createDemoCommercialView(
   productId: string,
@@ -243,8 +329,13 @@ const demoCommercialViews = new Map<string, DemoCommercialViewSource>([
         label: "Demo price: 100.00 BGN",
       },
       stock: {
-        status: "available",
-        label: "Demo availability: Available",
+        status: "in_stock",
+        label: "Demo availability: In Stock: 24 available",
+        availableQuantity: 24,
+        expectedQuantity: null,
+        expectedAt: null,
+        warehouseCount: 1,
+        lastUpdatedAt: demoNow,
       },
     },
   ],
@@ -257,8 +348,13 @@ const demoCommercialViews = new Map<string, DemoCommercialViewSource>([
         label: "Demo price: 150.00 BGN",
       },
       stock: {
-        status: "available",
-        label: "Demo availability: Available",
+        status: "low_stock",
+        label: "Demo availability: Low Stock: 2 available",
+        availableQuantity: 2,
+        expectedQuantity: null,
+        expectedAt: null,
+        warehouseCount: 1,
+        lastUpdatedAt: demoNow,
       },
     },
   ],
@@ -271,8 +367,13 @@ const demoCommercialViews = new Map<string, DemoCommercialViewSource>([
         label: "Demo price: 200.00 BGN",
       },
       stock: {
-        status: "unavailable",
-        label: "Demo availability: Check availability",
+        status: "expected",
+        label: "Demo availability: Expected: 10",
+        availableQuantity: 0,
+        expectedQuantity: 10,
+        expectedAt: "2026-07-20T00:00:00.000Z",
+        warehouseCount: 1,
+        lastUpdatedAt: demoNow,
       },
     },
   ],

@@ -43,8 +43,9 @@ export class DefaultAccessRequestService implements AccessRequestService {
       return await this.accessRequestRepository.create({
         userId: input.userId,
         companyId: input.companyId,
-        requestedExternal1cId: input.requestedExternal1cId,
         requestedCompanyName: input.requestedCompanyName,
+        requestedFiscalCode: input.requestedFiscalCode,
+        contactPhone: input.contactPhone,
         message: input.message,
       });
     } catch (error) {
@@ -70,8 +71,10 @@ export class DefaultAccessRequestService implements AccessRequestService {
       throw new ForbiddenError("Access request belongs to another user.");
     }
 
-    if (request.status !== AccessRequestStatus.Pending) {
-      throw new InvalidStateError("Only pending access requests can be cancelled.");
+    if (request.status !== AccessRequestStatus.PendingReview) {
+      throw new InvalidStateError(
+        "Only pending review access requests can be cancelled.",
+      );
     }
 
     try {
@@ -107,8 +110,8 @@ export class DefaultAccessRequestService implements AccessRequestService {
       return await this.accessRequestRepository.findPendingDuplicate({
         userId: input.userId,
         companyId: input.companyId,
-        requestedExternal1cId: input.requestedExternal1cId,
         requestedCompanyName: input.requestedCompanyName,
+        requestedFiscalCode: input.requestedFiscalCode,
       });
     } catch (error) {
       throw this.mapRepositoryError(error);

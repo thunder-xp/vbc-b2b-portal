@@ -20,6 +20,8 @@ export type CancelledAccessRequestDto = {
   id: string;
   companyId: string | null;
   requestedCompanyName: string | null;
+  requestedFiscalCode: string | null;
+  contactPhone: string | null;
   message: string | null;
   status: AccessRequestStatus;
   createdAt: string;
@@ -64,6 +66,8 @@ function toCancelledAccessRequestDto(
     id: request.id,
     companyId: request.companyId,
     requestedCompanyName: request.requestedCompanyName,
+    requestedFiscalCode: request.requestedFiscalCode,
+    contactPhone: request.contactPhone,
     message: request.message,
     status: request.status,
     createdAt: request.createdAt,

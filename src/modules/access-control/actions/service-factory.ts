@@ -18,15 +18,29 @@ import {
   DefaultUserProfileService,
 } from "../services/implementations";
 
-export async function getAuthenticatedUserId(): Promise<string> {
+export type AuthenticatedUser = {
+  id: string;
+  email: string;
+};
+
+export async function getAuthenticatedUser(): Promise<AuthenticatedUser> {
   const supabase = await createClient();
   const { data, error } = await supabase.auth.getUser();
 
-  if (error || !data.user) {
+  if (error || !data.user?.email) {
     throw new UnauthenticatedError();
   }
 
-  return data.user.id;
+  return {
+    id: data.user.id,
+    email: data.user.email,
+  };
+}
+
+export async function getAuthenticatedUserId(): Promise<string> {
+  const user = await getAuthenticatedUser();
+
+  return user.id;
 }
 
 export function createUserProfileService(): UserProfileService {

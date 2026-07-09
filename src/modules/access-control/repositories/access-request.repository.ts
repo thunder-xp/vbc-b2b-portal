@@ -5,6 +5,7 @@ export interface FindPendingAccessRequestDuplicateInput {
   companyId?: string | null;
   requestedExternal1cId?: string | null;
   requestedCompanyName?: string | null;
+  requestedFiscalCode?: string | null;
 }
 
 export interface CreateAccessRequestInput {
@@ -12,6 +13,8 @@ export interface CreateAccessRequestInput {
   companyId?: string | null;
   requestedExternal1cId?: string | null;
   requestedCompanyName?: string | null;
+  requestedFiscalCode?: string | null;
+  contactPhone?: string | null;
   message?: string | null;
 }
 

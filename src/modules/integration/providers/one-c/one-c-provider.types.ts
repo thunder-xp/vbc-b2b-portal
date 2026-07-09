@@ -64,6 +64,8 @@ export type OneCStockBalancePayload = {
   warehouseName: string;
   availableQuantity: number;
   reservedQuantity: number | null;
+  expectedQuantity: number | null;
+  expectedAt: string | null;
   sourceUpdatedAt: string | null;
   active: boolean;
   metadata: OneCMetadataPayload;

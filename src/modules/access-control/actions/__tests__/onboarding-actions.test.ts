@@ -21,11 +21,13 @@ import {
 } from "../../types";
 
 const mocks = vi.hoisted(() => ({
+  getAuthenticatedUser: vi.fn<() => Promise<{ id: string; email: string }>>(),
   getAuthenticatedUserId: vi.fn<() => Promise<string>>(),
   createUserProfileService: vi.fn(),
   createAccessRequestService: vi.fn(),
   createCompanyAccessService: vi.fn(),
   userProfileService: {
+    createProfileAfterSignup: vi.fn(),
     getCurrentProfile: vi.fn(),
     updateOwnProfile: vi.fn(),
   },
@@ -40,6 +42,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("../service-factory", () => ({
+  getAuthenticatedUser: mocks.getAuthenticatedUser,
   getAuthenticatedUserId: mocks.getAuthenticatedUserId,
   createUserProfileService: mocks.createUserProfileService,
   createAccessRequestService: mocks.createAccessRequestService,
@@ -48,6 +51,7 @@ vi.mock("../service-factory", () => ({
 
 import { failureFromError } from "../action-result";
 import { cancelOwnAccessRequestAction } from "../cancel-access-request.action";
+import { createProfileAction } from "../create-profile.action";
 import { getCurrentProfileAction } from "../current-profile.action";
 import { getOwnAccessRequestsAction } from "../get-access-requests.action";
 import { getOwnMembershipsAction } from "../get-memberships.action";
@@ -59,6 +63,10 @@ describe("onboarding Server Actions", () => {
     vi.clearAllMocks();
 
     mocks.getAuthenticatedUserId.mockResolvedValue("user-1");
+    mocks.getAuthenticatedUser.mockResolvedValue({
+      id: "user-1",
+      email: "partner@example.com",
+    });
     mocks.createUserProfileService.mockReturnValue(mocks.userProfileService);
     mocks.createAccessRequestService.mockReturnValue(
       mocks.accessRequestService,
@@ -69,6 +77,7 @@ describe("onboarding Server Actions", () => {
   });
 
   it.each([
+    ["createProfileAction", () => createProfileAction({})],
     ["getCurrentProfileAction", () => getCurrentProfileAction()],
     ["updateOwnProfileAction", () => updateOwnProfileAction()],
     ["submitAccessRequestAction", () => submitAccessRequestAction()],
@@ -80,6 +89,7 @@ describe("onboarding Server Actions", () => {
     ["getOwnMembershipsAction", () => getOwnMembershipsAction()],
   ])("%s returns a safe error when unauthenticated", async (_name, action) => {
     mocks.getAuthenticatedUserId.mockRejectedValue(new UnauthenticatedError());
+    mocks.getAuthenticatedUser.mockRejectedValue(new UnauthenticatedError());
 
     await expect(action()).resolves.toEqual({
       success: false,
@@ -87,6 +97,43 @@ describe("onboarding Server Actions", () => {
       message: "Authentication is required.",
       data: null,
     });
+  });
+
+  it("createProfileAction creates a safe external profile for authenticated user", async () => {
+    const profile = makeUserProfile({
+      status: UserStatus.Registered,
+      userType: UserType.External,
+      fullName: "Partner User",
+      phone: "+359 1 234",
+    });
+    mocks.userProfileService.createProfileAfterSignup.mockResolvedValue(profile);
+
+    const result = await createProfileAction({
+      fullName: "  Partner User  ",
+      phone: "  +359 1 234  ",
+    });
+
+    expect(mocks.userProfileService.createProfileAfterSignup).toHaveBeenCalledWith({
+      userId: "user-1",
+      email: "partner@example.com",
+      fullName: "Partner User",
+      phone: "+359 1 234",
+    });
+    expect(result).toEqual({
+      success: true,
+      errorCode: null,
+      message: "Profile created.",
+      data: {
+        id: profile.id,
+        email: profile.email,
+        fullName: profile.fullName,
+        phone: profile.phone,
+        status: profile.status,
+        createdAt: profile.createdAt,
+        updatedAt: profile.updatedAt,
+      },
+    });
+    expect(JSON.stringify(result)).not.toContain("userType");
   });
 
   it("getCurrentProfileAction returns profile data", async () => {
@@ -142,25 +189,28 @@ describe("onboarding Server Actions", () => {
     });
   });
 
-  it("submitAccessRequestAction submits request data without treating external 1C id as proof of access", async () => {
+  it("submitAccessRequestAction submits partner request data without ERP reference input", async () => {
     const request = makeAccessRequest({
-      requestedExternal1cId: "C-100",
       requestedCompanyName: "Partner Company",
+      requestedFiscalCode: "BG123456789",
+      contactPhone: "+359 1 234",
       message: "Please approve.",
     });
     mocks.accessRequestService.submitAccessRequest.mockResolvedValue(request);
 
     const result = await submitAccessRequestAction({
-      requestedExternal1cId: "  C-100  ",
       requestedCompanyName: "  Partner Company  ",
+      requestedFiscalCode: "  BG123456789  ",
+      contactPhone: "  +359 1 234  ",
       message: "  Please approve.  ",
     });
 
     expect(mocks.accessRequestService.submitAccessRequest).toHaveBeenCalledWith({
       userId: "user-1",
       companyId: null,
-      requestedExternal1cId: "C-100",
       requestedCompanyName: "Partner Company",
+      requestedFiscalCode: "BG123456789",
+      contactPhone: "+359 1 234",
       message: "Please approve.",
     });
     expect(result).toEqual({
@@ -171,6 +221,8 @@ describe("onboarding Server Actions", () => {
         id: request.id,
         companyId: request.companyId,
         requestedCompanyName: request.requestedCompanyName,
+        requestedFiscalCode: request.requestedFiscalCode,
+        contactPhone: request.contactPhone,
         message: request.message,
         status: request.status,
         createdAt: request.createdAt,
@@ -334,8 +386,10 @@ function makeAccessRequest(
     companyId: null,
     requestedExternal1cId: null,
     requestedCompanyName: "Partner Company",
+    requestedFiscalCode: null,
+    contactPhone: null,
     message: null,
-    status: AccessRequestStatus.Pending,
+    status: AccessRequestStatus.PendingReview,
     reviewedBy: null,
     reviewedAt: null,
     createdAt: "2026-07-09T00:00:00.000Z",

@@ -116,31 +116,45 @@ The UI must display this report. It must not infer success from console logs or 
 
 ## Pricing Sync Flow
 
-Future pricing sync flow:
+Manual pricing sync flow:
 
-1. Trigger creates a pricing sync job.
-2. Sync Engine resolves ERP provider.
-3. Sync Engine calls pricing provider with product and partner-company scope when needed.
-4. Provider returns `ProductPriceDTO` values.
-5. Sync Engine passes DTOs to pricing read-model update boundary.
-6. Pricing boundary writes only cache/snapshot data and preserves source metadata.
-7. Partner visibility remains enforced later by access-control and pricing services.
+1. Internal admin opens the manual integration sync page.
+2. Admin Server Action authenticates the user and requires an active `internal` or `admin` profile.
+3. Server Action creates the configured ERP provider.
+4. Server Action creates the pricing read-model updater.
+5. Sync Engine calls the neutral pricing provider and follows `nextCursor` until all pages are read.
+6. Provider returns `ProductPriceDTO` values.
+7. Sync Engine passes DTOs to the pricing updater.
+8. Pricing updater resolves catalog products by external 1C product id or SKU and resolves partner company scope by external 1C company id when present.
+9. Pricing repository upserts cached rows into `product_prices`.
+10. Partner visibility remains enforced by pricing services and Supabase RLS.
 
 Pricing sync must not decide who may see prices and must not treat cached prices as order commitment.
 
+If product or partner company matching fails, the updater skips the price and returns a warning. Empty provider responses do not delete existing cached prices.
+
+Manual price sync returns `provider`, `target`, `status`, `startedAt`, `finishedAt`, `durationMs`, `pricesReceived`, `pricesCreated`, `pricesUpdated`, `pricesSkipped`, `failed`, `errors`, and `warnings`.
+
 ## Inventory Sync Flow
 
-Future inventory sync flow:
+Manual inventory sync flow:
 
-1. Trigger creates inventory sync job.
-2. Sync Engine resolves ERP provider.
-3. Sync Engine calls inventory provider.
-4. Provider returns `StockBalanceDTO` values.
-5. Sync Engine passes DTOs to inventory read-model update boundary.
-6. Inventory boundary stores stock snapshots and freshness metadata.
-7. Partner-facing services translate snapshots into permitted visibility depth.
+1. Internal admin opens the manual integration sync page.
+2. Admin Server Action authenticates the user and requires an active `internal` or `admin` profile.
+3. Server Action creates the configured ERP provider.
+4. Server Action creates the inventory read-model updater.
+5. Sync Engine calls the neutral inventory provider and follows `nextCursor` until all pages are read.
+6. Provider returns `StockBalanceDTO` values.
+7. Sync Engine passes DTOs to the inventory updater.
+8. Inventory updater resolves catalog products by external 1C product id or SKU.
+9. Inventory repository upserts cached rows into `product_stock_balances`.
+10. Partner-facing pricing/inventory service translates snapshots into permitted stock status, quantity, expected quantity, warehouse count, and freshness DTOs.
 
 Inventory sync must not create reservations, warehouse management workflows, or fulfillment promises.
+
+If product matching fails, the updater skips the stock row and returns a warning. Empty provider responses do not delete existing cached stock.
+
+Manual stock sync returns `provider`, `target`, `status`, `startedAt`, `finishedAt`, `durationMs`, `stockReceived`, `stockCreated`, `stockUpdated`, `stockSkipped`, `failed`, `errors`, and `warnings`.
 
 ## Partner and Company Sync Flow
 

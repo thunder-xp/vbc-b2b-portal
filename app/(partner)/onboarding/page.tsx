@@ -10,16 +10,7 @@ export default async function OnboardingPage() {
   const profileResult = await getCurrentProfileAction();
 
   if (!profileResult.success) {
-    return (
-      <OnboardingShell>
-        <OnboardingStateCard
-          message={profileResult.message}
-          primaryHref="/"
-          primaryLabel="Back to home"
-          title="Sign in required"
-        />
-      </OnboardingShell>
-    );
+    redirect("/auth/sign-in");
   }
 
   if (!profileResult.data) {
@@ -46,18 +37,7 @@ export default async function OnboardingPage() {
   const membershipsResult = await getOwnMembershipsAction();
 
   if (membershipsResult.success && membershipsResult.data.length > 0) {
-    return (
-      <OnboardingShell>
-        <OnboardingStateCard
-          message="Your account has partner company membership. Partner workspace features will be added in the next product slices."
-          primaryHref="/onboarding/profile"
-          primaryLabel="Profile"
-          secondaryHref="/onboarding/waiting"
-          secondaryLabel="Request status"
-          title="Partner access recognized"
-        />
-      </OnboardingShell>
-    );
+    redirect("/cabinet");
   }
 
   const requestsResult = await getOwnAccessRequestsAction();
@@ -65,7 +45,7 @@ export default async function OnboardingPage() {
   if (
     requestsResult.success &&
     requestsResult.data.some(
-      (request) => request.status === AccessRequestStatus.Pending,
+      (request) => request.status === AccessRequestStatus.PendingReview,
     )
   ) {
     redirect("/onboarding/waiting");

@@ -77,6 +77,8 @@ export interface AccessRequestRow {
   company_id: string | null;
   requested_external_1c_id: string | null;
   requested_company_name: string | null;
+  requested_fiscal_code: string | null;
+  contact_phone: string | null;
   message: string | null;
   status: AccessRequestStatus;
   reviewed_by: string | null;
@@ -175,6 +177,8 @@ export function mapAccessRequestRow(row: AccessRequestRow): AccessRequest {
     companyId: row.company_id,
     requestedExternal1cId: row.requested_external_1c_id,
     requestedCompanyName: row.requested_company_name,
+    requestedFiscalCode: row.requested_fiscal_code,
+    contactPhone: row.contact_phone,
     message: row.message,
     status: row.status,
     reviewedBy: row.reviewed_by,

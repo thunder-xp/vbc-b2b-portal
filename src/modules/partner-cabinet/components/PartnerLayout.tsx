@@ -25,7 +25,7 @@ export function PartnerLayout({
   return (
     <div className="min-h-screen bg-zinc-50 text-zinc-950">
       <div className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:block lg:w-72">
-        <PartnerSidebar />
+        <PartnerSidebar hasActiveCompany={Boolean(companyContext)} />
       </div>
 
       {isDrawerOpen && (
@@ -37,7 +37,10 @@ export function PartnerLayout({
             type="button"
           />
           <div className="relative h-full w-72 max-w-[85vw]">
-            <PartnerSidebar onNavigate={() => setIsDrawerOpen(false)} />
+            <PartnerSidebar
+              hasActiveCompany={Boolean(companyContext)}
+              onNavigate={() => setIsDrawerOpen(false)}
+            />
           </div>
         </div>
       )}

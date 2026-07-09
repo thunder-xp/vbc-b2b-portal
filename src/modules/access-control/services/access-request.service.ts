@@ -3,8 +3,9 @@ import type { AccessRequest } from "../types";
 export interface SubmitAccessRequestInput {
   userId: string;
   companyId?: string | null;
-  requestedExternal1cId?: string | null;
   requestedCompanyName?: string | null;
+  requestedFiscalCode?: string | null;
+  contactPhone?: string | null;
   message?: string | null;
 }
 

@@ -3,6 +3,10 @@ export type {
   CatalogSyncReportStatus,
 } from "./catalog-sync-engine";
 export { DefaultCatalogSyncEngine } from "./catalog-sync-engine";
+export type { PriceSyncReport, PriceSyncReportStatus } from "./price-sync-engine";
+export { DefaultPriceSyncEngine } from "./price-sync-engine";
+export type { StockSyncReport, StockSyncReportStatus } from "./stock-sync-engine";
+export { DefaultStockSyncEngine } from "./stock-sync-engine";
 export type {
   CatalogReadModelUpdater,
   DocumentsReadModelUpdater,

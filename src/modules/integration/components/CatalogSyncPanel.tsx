@@ -1,49 +1,156 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useState, useTransition } from "react";
 
-import { syncCatalogFromOneCAction } from "../actions";
-import type { CatalogSyncReport } from "../sync";
+import {
+  syncCatalogFromOneCAction,
+  syncPricesFromOneCAction,
+  syncStockFromOneCAction,
+} from "../actions";
+import type { CatalogSyncReport, PriceSyncReport, StockSyncReport } from "../sync";
 
 export function CatalogSyncPanel() {
-  const [isPending, startTransition] = useTransition();
-  const [report, setReport] = useState<CatalogSyncReport | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [isCatalogPending, startCatalogTransition] = useTransition();
+  const [isPricePending, startPriceTransition] = useTransition();
+  const [isStockPending, startStockTransition] = useTransition();
+  const [catalogReport, setCatalogReport] = useState<CatalogSyncReport | null>(
+    null,
+  );
+  const [priceReport, setPriceReport] = useState<PriceSyncReport | null>(null);
+  const [stockReport, setStockReport] = useState<StockSyncReport | null>(null);
+  const [catalogError, setCatalogError] = useState<string | null>(null);
+  const [priceError, setPriceError] = useState<string | null>(null);
+  const [stockError, setStockError] = useState<string | null>(null);
 
-  function handleSync() {
-    setError(null);
-    startTransition(async () => {
+  function handleCatalogSync() {
+    setCatalogError(null);
+    startCatalogTransition(async () => {
       const result = await syncCatalogFromOneCAction();
 
       if (!result.success) {
-        setReport(null);
-        setError(result.message);
+        setCatalogReport(null);
+        setCatalogError(result.message);
         return;
       }
 
-      setReport(result.data);
+      setCatalogReport(result.data);
+    });
+  }
+
+  function handlePriceSync() {
+    setPriceError(null);
+    startPriceTransition(async () => {
+      const result = await syncPricesFromOneCAction();
+
+      if (!result.success) {
+        setPriceReport(null);
+        setPriceError(result.message);
+        return;
+      }
+
+      setPriceReport(result.data);
+    });
+  }
+
+  function handleStockSync() {
+    setStockError(null);
+    startStockTransition(async () => {
+      const result = await syncStockFromOneCAction();
+
+      if (!result.success) {
+        setStockReport(null);
+        setStockError(result.message);
+        return;
+      }
+
+      setStockReport(result.data);
     });
   }
 
   return (
-    <section className="space-y-5 rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+    <section className="space-y-6 rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="text-lg font-semibold text-slate-950">
-            Catalog synchronization
+            ERP synchronization
           </h2>
           <p className="mt-1 max-w-2xl text-sm text-slate-600">
-            Manual import of categories, brands, and products from the
-            configured ERP provider into the catalog read model.
+            Manual import from the configured ERP provider into approved portal
+            read models.
+          </p>
+        </div>
+      </div>
+
+      <SyncSection
+        buttonLabel={isCatalogPending ? "Synchronizing..." : "Run catalog sync"}
+        description="Imports categories, brands, and products. Does not import prices, stock, orders, documents, or finance."
+        disabled={isCatalogPending}
+        error={catalogError}
+        onRun={handleCatalogSync}
+        title="Catalog synchronization"
+      >
+        {catalogReport ? <CatalogSyncReportView report={catalogReport} /> : null}
+      </SyncSection>
+
+      <SyncSection
+        buttonLabel={isPricePending ? "Synchronizing..." : "Run price sync"}
+        description="Imports product price snapshots into the pricing read model. Does not calculate discounts or official commercial terms."
+        disabled={isPricePending}
+        error={priceError}
+        onRun={handlePriceSync}
+        title="Price synchronization"
+      >
+        {priceReport ? <PriceSyncReportView report={priceReport} /> : null}
+      </SyncSection>
+
+      <SyncSection
+        buttonLabel={isStockPending ? "Synchronizing..." : "Run stock sync"}
+        description="Imports product stock snapshots into the inventory read model. Does not create reservations, orders, or warehouse workflows."
+        disabled={isStockPending}
+        error={stockError}
+        onRun={handleStockSync}
+        title="Stock synchronization"
+      >
+        {stockReport ? <StockSyncReportView report={stockReport} /> : null}
+      </SyncSection>
+    </section>
+  );
+}
+
+function SyncSection({
+  buttonLabel,
+  children,
+  description,
+  disabled,
+  error,
+  onRun,
+  title,
+}: {
+  buttonLabel: string;
+  children: ReactNode;
+  description: string;
+  disabled: boolean;
+  error: string | null;
+  onRun: () => void;
+  title: string;
+}) {
+  return (
+    <div className="space-y-4 rounded-md border border-slate-200 p-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h3 className="text-base font-semibold text-slate-950">{title}</h3>
+          <p className="mt-1 max-w-2xl text-sm text-slate-600">
+            {description}
           </p>
         </div>
         <button
           type="button"
-          onClick={handleSync}
-          disabled={isPending}
+          onClick={onRun}
+          disabled={disabled}
           className="inline-flex items-center justify-center rounded-md bg-emerald-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-slate-400"
         >
-          {isPending ? "Synchronizing..." : "Run catalog sync"}
+          {buttonLabel}
         </button>
       </div>
 
@@ -53,8 +160,8 @@ export function CatalogSyncPanel() {
         </div>
       ) : null}
 
-      {report ? <CatalogSyncReportView report={report} /> : null}
-    </section>
+      {children}
+    </div>
   );
 }
 
@@ -119,6 +226,68 @@ function CatalogSyncReportView({ report }: { report: CatalogSyncReport }) {
           <p className="font-medium">Sync notices</p>
           <ul className="mt-2 list-disc space-y-1 pl-5">
             {report.errors.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function PriceSyncReportView({ report }: { report: PriceSyncReport }) {
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-3 sm:grid-cols-4">
+        <Metric label="Provider" value={report.provider} />
+        <Metric label="Status" value={report.status} />
+        <Metric label="Failed" value={String(report.failed)} />
+        <Metric label="Duration" value={`${report.durationMs} ms`} />
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-4">
+        <Metric label="Received" value={String(report.pricesReceived)} />
+        <Metric label="Created" value={String(report.pricesCreated)} />
+        <Metric label="Updated" value={String(report.pricesUpdated)} />
+        <Metric label="Skipped" value={String(report.pricesSkipped)} />
+      </div>
+
+      {report.errors.length > 0 || report.warnings.length > 0 ? (
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <p className="font-medium">Sync notices</p>
+          <ul className="mt-2 list-disc space-y-1 pl-5">
+            {[...report.errors, ...report.warnings].map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function StockSyncReportView({ report }: { report: StockSyncReport }) {
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-3 sm:grid-cols-4">
+        <Metric label="Provider" value={report.provider} />
+        <Metric label="Status" value={report.status} />
+        <Metric label="Failed" value={String(report.failed)} />
+        <Metric label="Duration" value={`${report.durationMs} ms`} />
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-4">
+        <Metric label="Received" value={String(report.stockReceived)} />
+        <Metric label="Created" value={String(report.stockCreated)} />
+        <Metric label="Updated" value={String(report.stockUpdated)} />
+        <Metric label="Skipped" value={String(report.stockSkipped)} />
+      </div>
+
+      {report.errors.length > 0 || report.warnings.length > 0 ? (
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <p className="font-medium">Sync notices</p>
+          <ul className="mt-2 list-disc space-y-1 pl-5">
+            {[...report.errors, ...report.warnings].map((item) => (
               <li key={item}>{item}</li>
             ))}
           </ul>

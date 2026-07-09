@@ -169,6 +169,10 @@ class FakeCatalogRepository implements CatalogRepository {
     return this.products.get(external1cId) ?? null;
   }
 
+  async findProductBySku(sku: string): Promise<CatalogProduct | null> {
+    return [...this.products.values()].find((item) => item.sku === sku) ?? null;
+  }
+
   async upsertCategory(input: {
     external1cId: string;
     parentId: string | null;

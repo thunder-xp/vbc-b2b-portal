@@ -20,6 +20,8 @@ export interface ProductStockBalanceRow {
   warehouse_name: string;
   available_quantity: number | string;
   reserved_quantity: number | string | null;
+  expected_quantity: number | string | null;
+  expected_at: string | null;
   updated_from_1c_at: string | null;
   is_active: boolean;
   created_at: string;
@@ -52,6 +54,9 @@ export function mapProductStockBalanceRow(
     availableQuantity: Number(row.available_quantity),
     reservedQuantity:
       row.reserved_quantity === null ? null : Number(row.reserved_quantity),
+    expectedQuantity:
+      row.expected_quantity === null ? null : Number(row.expected_quantity),
+    expectedAt: row.expected_at,
     updatedFrom1cAt: row.updated_from_1c_at,
     isActive: row.is_active,
     createdAt: row.created_at,

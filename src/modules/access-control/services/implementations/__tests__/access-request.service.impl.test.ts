@@ -61,6 +61,8 @@ class FakeAccessRequestRepository implements AccessRequestRepository {
       companyId: input.companyId ?? null,
       requestedExternal1cId: input.requestedExternal1cId ?? null,
       requestedCompanyName: input.requestedCompanyName ?? null,
+      requestedFiscalCode: input.requestedFiscalCode ?? null,
+      contactPhone: input.contactPhone ?? null,
       message: input.message ?? null,
     });
   }
@@ -109,25 +111,28 @@ describe("DefaultAccessRequestService", () => {
 
     const result = await service.submitAccessRequest({
       userId: "user-1",
-      requestedExternal1cId: "C-100",
       requestedCompanyName: "Partner Company",
+      requestedFiscalCode: "BG123456789",
+      contactPhone: "+359 1 234",
       message: "Please approve access.",
     });
 
-    expect(result.status).toBe(AccessRequestStatus.Pending);
+    expect(result.status).toBe(AccessRequestStatus.PendingReview);
     expect(repository.lastFindPendingDuplicateInput).toEqual({
       userId: "user-1",
       companyId: undefined,
-      requestedExternal1cId: "C-100",
       requestedCompanyName: "Partner Company",
+      requestedFiscalCode: "BG123456789",
     });
     expect(repository.lastCreateInput).toEqual({
       userId: "user-1",
       companyId: undefined,
-      requestedExternal1cId: "C-100",
       requestedCompanyName: "Partner Company",
+      requestedFiscalCode: "BG123456789",
+      contactPhone: "+359 1 234",
       message: "Please approve access.",
     });
+    expect(repository.lastCreateInput).not.toHaveProperty("requestedExternal1cId");
     expect(result.reviewedBy).toBeNull();
     expect(result.reviewedAt).toBeNull();
   });
@@ -165,11 +170,12 @@ describe("DefaultAccessRequestService", () => {
     expect(repository.lastCreateInput).toEqual({
       userId: "user-1",
       companyId: "company-1",
-      requestedExternal1cId: undefined,
       requestedCompanyName: undefined,
+      requestedFiscalCode: undefined,
+      contactPhone: undefined,
       message: undefined,
     });
-    expect(result.status).toBe(AccessRequestStatus.Pending);
+    expect(result.status).toBe(AccessRequestStatus.PendingReview);
     expect(result.reviewedBy).toBeNull();
     expect(result.reviewedAt).toBeNull();
   });
@@ -195,7 +201,7 @@ describe("DefaultAccessRequestService", () => {
     repository.requestById = makeAccessRequest({
       id: "request-1",
       userId: "user-1",
-      status: AccessRequestStatus.Pending,
+      status: AccessRequestStatus.PendingReview,
     });
     const service = new DefaultAccessRequestService(
       repository,
@@ -215,7 +221,7 @@ describe("DefaultAccessRequestService", () => {
     const repository = new FakeAccessRequestRepository();
     repository.requestById = makeAccessRequest({
       userId: "other-user",
-      status: AccessRequestStatus.Pending,
+      status: AccessRequestStatus.PendingReview,
     });
     const service = new DefaultAccessRequestService(
       repository,
@@ -280,8 +286,10 @@ function makeAccessRequest(
     companyId: null,
     requestedExternal1cId: null,
     requestedCompanyName: "Partner Company",
+    requestedFiscalCode: null,
+    contactPhone: null,
     message: null,
-    status: AccessRequestStatus.Pending,
+    status: AccessRequestStatus.PendingReview,
     reviewedBy: null,
     reviewedAt: null,
     createdAt: "2026-07-09T00:00:00.000Z",

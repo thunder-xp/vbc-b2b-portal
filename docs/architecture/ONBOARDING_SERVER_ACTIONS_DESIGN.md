@@ -96,7 +96,7 @@ The action:
 - Does not create a partner company.
 - Does not create company membership.
 - Does not call 1C.
-- Does not treat `requestedExternal1cId` as proof of access.
+- Does not accept partner-entered 1C references.
 
 ### 5. User sees waiting-for-approval state
 
@@ -104,7 +104,7 @@ After submission, the portal should show a waiting-for-approval state based on `
 
 The state is partner-facing only:
 
-- Pending request exists.
+- `pending_review` request exists.
 - Novotech review is required.
 - No approval details are exposed.
 - No admin workflow is available in this slice.
@@ -173,8 +173,9 @@ Purpose:
 Input:
 
 - Optional portal company ID when the user is requesting access to a known company.
-- Optional requested company name.
-- Optional requested external 1C ID as a review hint only.
+- Requested company name.
+- Fiscal code, VAT number, or IDNO when available.
+- Contact phone.
 - Optional message.
 
 Service dependency:
@@ -183,7 +184,7 @@ Service dependency:
 
 Safe output:
 
-- Created pending access request summary.
+- Created `pending_review` access request summary.
 
 Must not:
 
@@ -191,7 +192,8 @@ Must not:
 - Create partner companies.
 - Create memberships.
 - Call 1C.
-- Trust `requestedExternal1cId` as security evidence.
+- Accept a partner-entered 1C reference.
+- Let the partner assign company role, access profile, price group, or approval state.
 - Reveal whether a 1C company or another partner company exists.
 
 ### `getOwnAccessRequestsAction`
@@ -328,7 +330,8 @@ The onboarding Server Actions must follow these rules:
 - Authentication is required for every action.
 - Authenticated user ID comes only from trusted server auth context.
 - Client-provided user IDs are ignored or rejected.
-- `requestedExternal1cId` is a review hint only and never proof of partner access.
+- Partner-facing onboarding never accepts 1C references; manager/admin approval may bind the 1C reference later.
+- Partners cannot self-assign company role, access profile, price group, or approval state.
 - No approval workflow exists in this slice.
 - No admin actions exist in this slice.
 - No commercial data is returned.

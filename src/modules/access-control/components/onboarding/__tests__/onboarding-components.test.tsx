@@ -16,9 +16,14 @@ import { OnboardingStateCard } from "../OnboardingStateCard";
 import { ProfileForm } from "../ProfileForm";
 
 const mocks = vi.hoisted(() => ({
+  createProfileAction: vi.fn(),
   updateOwnProfileAction: vi.fn(),
   submitAccessRequestAction: vi.fn(),
   cancelOwnAccessRequestAction: vi.fn(),
+}));
+
+vi.mock("../../../actions/create-profile.action", () => ({
+  createProfileAction: mocks.createProfileAction,
 }));
 
 vi.mock("../../../actions/update-profile.action", () => ({
@@ -43,6 +48,30 @@ describe("ProfileForm", () => {
 
     expect(screen.getByLabelText("Full name")).toHaveValue("Partner User");
     expect(screen.getByLabelText("Phone")).toHaveValue("+359 1 234");
+  });
+
+  it("creates a missing profile instead of showing an unavailable state", async () => {
+    const user = userEvent.setup();
+    mocks.createProfileAction.mockResolvedValue({
+      success: true,
+      errorCode: null,
+      message: "Profile created.",
+      data: makeProfile({
+        fullName: "New Partner",
+        phone: "+359 8 888",
+      }),
+    });
+    render(<ProfileForm profile={null} />);
+
+    await user.type(screen.getByLabelText("Full name"), "New Partner");
+    await user.type(screen.getByLabelText("Phone"), "+359 8 888");
+    await user.click(screen.getByRole("button", { name: "Create profile" }));
+
+    expect(mocks.createProfileAction).toHaveBeenCalledWith({
+      fullName: "New Partner",
+      phone: "+359 8 888",
+    });
+    expect(await screen.findByText("Profile created.")).toBeInTheDocument();
   });
 
   it("submits safe profile fields only", async () => {
@@ -110,15 +139,17 @@ describe("AccessRequestForm", () => {
     vi.clearAllMocks();
   });
 
-  it("renders requestedCompanyName, requestedExternal1cId, and message fields", () => {
+  it("renders partner-facing request fields without ERP reference input", () => {
     render(<AccessRequestForm />);
 
     expect(screen.getByLabelText("Partner company name")).toBeInTheDocument();
-    expect(screen.getByLabelText("1C reference")).toBeInTheDocument();
-    expect(screen.getByLabelText("Message")).toBeInTheDocument();
+    expect(screen.getByLabelText("Fiscal code / VAT / IDNO")).toBeInTheDocument();
+    expect(screen.getByLabelText("Contact phone")).toBeInTheDocument();
+    expect(screen.getByLabelText("Message / comment")).toBeInTheDocument();
+    expect(screen.queryByLabelText("1C reference")).not.toBeInTheDocument();
   });
 
-  it("submits requestedExternal1cId as request data only", async () => {
+  it("submits partner request data without ERP reference", async () => {
     const user = userEvent.setup();
     mocks.submitAccessRequestAction.mockResolvedValue({
       success: true,
@@ -129,15 +160,20 @@ describe("AccessRequestForm", () => {
     render(<AccessRequestForm />);
 
     await user.type(screen.getByLabelText("Partner company name"), "Partner Company");
-    await user.type(screen.getByLabelText("1C reference"), "C-100");
-    await user.type(screen.getByLabelText("Message"), "Please approve.");
+    await user.type(screen.getByLabelText("Fiscal code / VAT / IDNO"), "BG123456789");
+    await user.type(screen.getByLabelText("Contact phone"), "+359 1 234");
+    await user.type(screen.getByLabelText("Message / comment"), "Please approve.");
     await user.click(screen.getByRole("button", { name: "Submit request" }));
 
     expect(mocks.submitAccessRequestAction).toHaveBeenCalledWith({
       requestedCompanyName: "Partner Company",
-      requestedExternal1cId: "C-100",
+      requestedFiscalCode: "BG123456789",
+      contactPhone: "+359 1 234",
       message: "Please approve.",
     });
+    expect(mocks.submitAccessRequestAction).not.toHaveBeenCalledWith(
+      expect.objectContaining({ requestedExternal1cId: expect.anything() }),
+    );
   });
 
   it("displays success result", async () => {
@@ -201,7 +237,7 @@ describe("AccessRequestStatusList", () => {
           makeAccessRequest({
             id: "pending",
             requestedCompanyName: "Pending Company",
-            status: AccessRequestStatus.Pending,
+            status: AccessRequestStatus.PendingReview,
           }),
           makeAccessRequest({
             id: "approved",
@@ -319,7 +355,9 @@ function makeAccessRequest(
     companyId: null,
     requestedCompanyName: "Partner Company",
     message: null,
-    status: AccessRequestStatus.Pending,
+    requestedFiscalCode: null,
+    contactPhone: null,
+    status: AccessRequestStatus.PendingReview,
     createdAt: "2026-07-09T00:00:00.000Z",
     updatedAt: "2026-07-09T00:00:00.000Z",
     ...overrides,

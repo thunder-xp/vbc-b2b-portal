@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 type PartnerSidebarProps = {
+  hasActiveCompany?: boolean;
   onNavigate?: () => void;
 };
 
@@ -23,16 +24,17 @@ const navItems: NavItem[] = [
   { href: "/cabinet/profile", label: "Profile" },
   { href: "/cabinet/company", label: "Company" },
   { href: "/cabinet/memberships", label: "Memberships" },
-  { href: "/cabinet/notifications", label: "Notifications" },
-  { href: "/cabinet/catalog", label: "Catalog" },
-  { label: "Orders", disabled: true },
-  { label: "Documents", disabled: true },
-  { label: "Finance", disabled: true },
-  { label: "Settings", disabled: true },
 ];
 
-export function PartnerSidebar({ onNavigate }: PartnerSidebarProps) {
+export function PartnerSidebar({ hasActiveCompany = true, onNavigate }: PartnerSidebarProps) {
   const pathname = usePathname();
+  const visibleItems = hasActiveCompany
+    ? [
+        ...navItems,
+        { href: "/cabinet/notifications", label: "Notifications" },
+        { href: "/cabinet/catalog", label: "Catalog" },
+      ]
+    : navItems;
 
   return (
     <aside className="flex h-full flex-col border-r border-zinc-200 bg-zinc-950 text-white">
@@ -43,7 +45,7 @@ export function PartnerSidebar({ onNavigate }: PartnerSidebarProps) {
         <p className="mt-2 text-lg font-semibold">Partner Cabinet</p>
       </div>
       <nav className="flex-1 space-y-1 px-3 py-4">
-        {navItems.map((item) => {
+        {visibleItems.map((item) => {
           if (item.disabled) {
             return (
               <span

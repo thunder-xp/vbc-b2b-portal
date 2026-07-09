@@ -6,7 +6,8 @@ import { submitAccessRequestAction } from "../../actions/submit-access-request.a
 
 export function AccessRequestForm() {
   const [requestedCompanyName, setRequestedCompanyName] = useState("");
-  const [requestedExternal1cId, setRequestedExternal1cId] = useState("");
+  const [requestedFiscalCode, setRequestedFiscalCode] = useState("");
+  const [contactPhone, setContactPhone] = useState("");
   const [message, setMessage] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -20,14 +21,16 @@ export function AccessRequestForm() {
     startTransition(async () => {
       const result = await submitAccessRequestAction({
         requestedCompanyName,
-        requestedExternal1cId,
+        requestedFiscalCode,
+        contactPhone,
         message,
       });
 
       if (result.success) {
         setNotice(result.message);
         setRequestedCompanyName("");
-        setRequestedExternal1cId("");
+        setRequestedFiscalCode("");
+        setContactPhone("");
         setMessage("");
         return;
       }
@@ -62,17 +65,27 @@ export function AccessRequestForm() {
         </label>
 
         <label className="grid gap-2 text-sm font-medium text-zinc-800">
-          1C reference
+          Fiscal code / VAT / IDNO
           <input
             className="h-10 rounded-md border border-zinc-300 px-3 text-sm outline-none focus:border-zinc-950"
-            name="requestedExternal1cId"
-            onChange={(event) => setRequestedExternal1cId(event.target.value)}
-            value={requestedExternal1cId}
+            name="requestedFiscalCode"
+            onChange={(event) => setRequestedFiscalCode(event.target.value)}
+            value={requestedFiscalCode}
           />
         </label>
 
         <label className="grid gap-2 text-sm font-medium text-zinc-800">
-          Message
+          Contact phone
+          <input
+            className="h-10 rounded-md border border-zinc-300 px-3 text-sm outline-none focus:border-zinc-950"
+            name="contactPhone"
+            onChange={(event) => setContactPhone(event.target.value)}
+            value={contactPhone}
+          />
+        </label>
+
+        <label className="grid gap-2 text-sm font-medium text-zinc-800">
+          Message / comment
           <textarea
             className="min-h-28 rounded-md border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-zinc-950"
             name="message"

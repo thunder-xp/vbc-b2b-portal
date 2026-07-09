@@ -68,11 +68,21 @@ export function AccessRequestStatusList({
                 <p className="mt-1 text-sm text-zinc-600">
                   Status: {request.status}
                 </p>
+                {request.requestedFiscalCode && (
+                  <p className="mt-2 text-sm text-zinc-500">
+                    Fiscal code / VAT / IDNO: {request.requestedFiscalCode}
+                  </p>
+                )}
+                {request.contactPhone && (
+                  <p className="mt-1 text-sm text-zinc-500">
+                    Contact phone: {request.contactPhone}
+                  </p>
+                )}
                 {request.message && (
                   <p className="mt-2 text-sm text-zinc-500">{request.message}</p>
                 )}
               </div>
-              {request.status === AccessRequestStatus.Pending && (
+              {request.status === AccessRequestStatus.PendingReview && (
                 <button
                   className="inline-flex h-9 items-center justify-center rounded-md border border-zinc-300 px-3 text-sm font-medium text-zinc-800 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:text-zinc-400"
                   disabled={isPending}

@@ -207,6 +207,21 @@ export class SupabaseCatalogRepository implements CatalogRepository {
     return data ? mapCatalogProductRow(data as CatalogProductRow) : null;
   }
 
+  async findProductBySku(sku: string): Promise<CatalogProduct | null> {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("catalog_products")
+      .select(CATALOG_PRODUCT_COLUMNS)
+      .eq("sku", sku)
+      .maybeSingle();
+
+    if (error) {
+      throw new CatalogRepositoryUnexpectedError();
+    }
+
+    return data ? mapCatalogProductRow(data as CatalogProductRow) : null;
+  }
+
   async upsertCategory(
     input: UpsertCatalogCategoryInput,
   ): Promise<CatalogUpsertResult<CatalogCategory>> {

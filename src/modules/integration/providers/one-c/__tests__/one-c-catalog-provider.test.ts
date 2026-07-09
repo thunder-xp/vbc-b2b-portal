@@ -1,8 +1,17 @@
 import { describe, expect, it } from "vitest";
 
 import { IntegrationProviderNotImplementedError } from "../one-c-provider";
-import { DefaultOneCCatalogMapper, OneCProvider } from "../index";
-import type { OneCCatalogProductPayload } from "../one-c-provider.types";
+import {
+  DefaultOneCCatalogMapper,
+  DefaultOneCInventoryMapper,
+  DefaultOneCPricingMapper,
+  OneCProvider,
+} from "../index";
+import type {
+  OneCCatalogProductPayload,
+  OneCProductPricePayload,
+  OneCStockBalancePayload,
+} from "../one-c-provider.types";
 
 describe("1C catalog provider", () => {
   it("maps 1C product payloads to neutral catalog DTOs", () => {
@@ -50,6 +59,75 @@ describe("1C catalog provider", () => {
 
     await expect(provider.catalog.fetchProducts({})).rejects.toBeInstanceOf(
       IntegrationProviderNotImplementedError,
+    );
+  });
+
+  it("maps 1C price payloads to neutral price DTOs", () => {
+    const mapper = new DefaultOneCPricingMapper();
+    const payload: OneCProductPricePayload = {
+      reference: { ref: "PRICE-1", type: "product-price" },
+      productReference: { ref: "PRODUCT-1", type: "catalog-product" },
+      partnerCompanyReference: { ref: "PARTNER-1", type: "partner-company" },
+      priceTypeReference: { ref: "BASE", type: "price-type" },
+      currency: "BGN",
+      amount: 123.45,
+      validFrom: "2026-07-09T00:00:00.000Z",
+      validTo: null,
+      active: true,
+      metadata: { sourceUpdatedAt: "2026-07-09T00:00:00.000Z" },
+    };
+
+    const dto = mapper.priceMapper.toPlatformDTO(payload);
+
+    expect(dto.reference.externalId).toBe("PRICE-1");
+    expect(dto.productReference.externalId).toBe("PRODUCT-1");
+    expect(dto.partnerCompanyReference?.externalId).toBe("PARTNER-1");
+    expect(dto.priceTypeReference?.externalId).toBe("BASE");
+    expect(dto.money).toEqual({ currency: "BGN", amount: 123.45 });
+  });
+
+  it("uses mock pricing without HTTP configuration", async () => {
+    const provider = new OneCProvider({ useMockPricing: true });
+
+    await expect(provider.pricing.fetchProductPrices({})).resolves.toMatchObject(
+      {
+        nextCursor: null,
+      },
+    );
+  });
+
+  it("maps 1C stock payloads to neutral stock DTOs", () => {
+    const mapper = new DefaultOneCInventoryMapper();
+    const payload: OneCStockBalancePayload = {
+      reference: { ref: "STOCK-1", type: "stock-balance" },
+      productReference: { ref: "PRODUCT-1", type: "catalog-product" },
+      warehouseReference: { ref: "MAIN", type: "warehouse" },
+      warehouseName: "Main warehouse",
+      availableQuantity: 4,
+      reservedQuantity: 1,
+      expectedQuantity: 10,
+      expectedAt: "2026-07-20T00:00:00.000Z",
+      sourceUpdatedAt: "2026-07-09T00:00:00.000Z",
+      active: true,
+      metadata: { sourceUpdatedAt: "2026-07-09T00:00:00.000Z" },
+    };
+
+    const dto = mapper.toPlatformDTO(payload);
+
+    expect(dto.reference.externalId).toBe("STOCK-1");
+    expect(dto.productReference.externalId).toBe("PRODUCT-1");
+    expect(dto.warehouseName).toBe("Main warehouse");
+    expect(dto.availableQuantity).toBe(4);
+    expect(dto.expectedQuantity).toBe(10);
+  });
+
+  it("uses mock inventory without HTTP configuration", async () => {
+    const provider = new OneCProvider({ useMockInventory: true });
+
+    await expect(provider.inventory.fetchStockBalances({})).resolves.toMatchObject(
+      {
+        nextCursor: null,
+      },
     );
   });
 });

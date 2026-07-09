@@ -1,19 +1,13 @@
 import { getCurrentProfileAction } from "@/src/modules/access-control/actions/current-profile.action";
 import { ProfileForm } from "@/src/modules/access-control/components/onboarding";
 import { EmptyState } from "@/src/modules/partner-cabinet/components";
+import { redirect } from "next/navigation";
 
 export default async function CabinetProfilePage() {
   const profileResult = await getCurrentProfileAction();
 
   if (!profileResult.success) {
-    return (
-      <EmptyState
-        actionHref="/onboarding"
-        actionLabel="Open onboarding"
-        message={profileResult.message}
-        title="Profile unavailable"
-      />
-    );
+    redirect("/auth/sign-in");
   }
 
   if (!profileResult.data) {

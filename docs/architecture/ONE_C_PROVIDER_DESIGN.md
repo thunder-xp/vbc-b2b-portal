@@ -62,11 +62,15 @@ The provider may later read product prices, price types, currencies, validity wi
 
 The provider must not decide whether a partner may see a price. Price visibility belongs to portal access-control and pricing services.
 
+The implemented manual price sync reads 1C-specific price payloads only inside `src/modules/integration/providers/one-c/`, maps them to neutral `ProductPriceDTO`, and never writes to Supabase directly. Partner-specific scope is carried as an external partner company reference for the Pricing updater to resolve through portal-owned company records.
+
 ### Inventory
 
 The provider may later read stock balances and warehouse references from 1C and map them to `StockBalanceDTO`.
 
 The provider must not decide whether a partner sees exact quantity, availability-only status, or warehouse-level detail. Stock visibility belongs to portal access-control and inventory/pricing services.
+
+The implemented manual stock sync reads 1C-specific stock payloads only inside `src/modules/integration/providers/one-c/`, maps them to neutral `StockBalanceDTO`, and never writes to Supabase directly. Expected quantity/date may be carried as cached source fields, but the portal must not treat them as reservation, order, or delivery commitments.
 
 ### Documents
 
@@ -132,9 +136,17 @@ Current server-only environment names:
 - `ONEC_CATALOG_CATEGORIES_PATH`
 - `ONEC_CATALOG_BRANDS_PATH`
 - `ONEC_CATALOG_PRODUCTS_PATH`
+- `ONEC_PRODUCT_PRICES_PATH`
+- `ONEC_STOCK_BALANCES_PATH`
 - `ONEC_USE_MOCK_CATALOG`
+- `ONEC_USE_MOCK_PRICING`
+- `ONEC_USE_MOCK_INVENTORY`
 
 If no `ONEC_BASE_URL` is configured, catalog provider mock mode is enabled by default so the manual sync path can be validated without calling 1C. Mock mode imports only safe non-commercial catalog identity data and must be disabled for real production synchronization.
+
+Price mock mode follows the same rule. It imports safe sample price snapshots for already imported mock catalog references and must be disabled for production price synchronization.
+
+Inventory mock mode follows the same rule. It imports safe sample stock snapshots for already imported mock catalog references and must be disabled for production stock synchronization.
 
 ## Error Handling Strategy
 

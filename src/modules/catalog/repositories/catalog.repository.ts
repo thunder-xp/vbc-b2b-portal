@@ -67,6 +67,7 @@ export interface CatalogRepository {
   findProductByExternal1cId(
     external1cId: string,
   ): Promise<CatalogProduct | null>;
+  findProductBySku(sku: string): Promise<CatalogProduct | null>;
   upsertCategory(
     input: UpsertCatalogCategoryInput,
   ): Promise<CatalogUpsertResult<CatalogCategory>>;

@@ -1,3 +1,5 @@
+import { redirect } from "next/navigation";
+
 import { getCurrentProfileAction } from "@/src/modules/access-control/actions/current-profile.action";
 import {
   AccessRequestForm,
@@ -7,9 +9,16 @@ import { UserStatus } from "@/src/modules/access-control/types";
 
 export default async function OnboardingAccessRequestPage() {
   const profileResult = await getCurrentProfileAction();
+
+  if (!profileResult.success) {
+    redirect("/auth/sign-in");
+  }
+
+  if (!profileResult.data) {
+    redirect("/onboarding/profile");
+  }
+
   const canRequestAccess =
-    profileResult.success &&
-    profileResult.data &&
     profileResult.data.status !== UserStatus.Suspended &&
     profileResult.data.status !== UserStatus.Revoked &&
     profileResult.data.status !== UserStatus.Rejected;
@@ -17,25 +26,7 @@ export default async function OnboardingAccessRequestPage() {
   return (
     <main className="min-h-screen bg-zinc-50 px-6 py-12 text-zinc-950">
       <div className="mx-auto grid w-full max-w-3xl gap-6">
-        {!profileResult.success && (
-          <OnboardingStateCard
-            message={profileResult.message}
-            primaryHref="/"
-            primaryLabel="Back to home"
-            title="Sign in required"
-          />
-        )}
-
-        {profileResult.success && !profileResult.data && (
-          <OnboardingStateCard
-            message="A portal profile is required before submitting a partner access request. Profile creation is not enabled in this slice."
-            primaryHref="/onboarding/profile"
-            primaryLabel="View profile state"
-            title="Profile required"
-          />
-        )}
-
-        {profileResult.success && profileResult.data && !canRequestAccess && (
+        {!canRequestAccess && (
           <OnboardingStateCard
             message="Your profile state does not allow partner access requests."
             primaryHref="/onboarding"

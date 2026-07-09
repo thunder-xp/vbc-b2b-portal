@@ -6,12 +6,12 @@ import type {
   UserProfileRepository,
 } from "../index";
 import type { UserProfile } from "../../types";
+import { UserStatus, UserType } from "../../types";
 import {
   mapUserProfileRow,
   type UserProfileRow,
 } from "./mappers";
 import {
-  RepositoryOperationNotAvailableError,
   RepositoryUnexpectedError,
 } from "../index";
 
@@ -50,8 +50,25 @@ export class SupabaseUserProfileRepository implements UserProfileRepository {
   }
 
   async create(input: CreateUserProfileInput): Promise<UserProfile> {
-    void input;
-    throw new RepositoryOperationNotAvailableError("user_profiles.create");
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("user_profiles")
+      .insert({
+        id: input.id,
+        email: input.email,
+        full_name: input.fullName ?? null,
+        phone: input.phone ?? null,
+        status: UserStatus.Registered,
+        user_type: UserType.External,
+      })
+      .select(USER_PROFILE_COLUMNS)
+      .single();
+
+    if (error) {
+      throw new RepositoryUnexpectedError();
+    }
+
+    return mapUserProfileRow(data as UserProfileRow);
   }
 
   async updateOwnSafeFields(

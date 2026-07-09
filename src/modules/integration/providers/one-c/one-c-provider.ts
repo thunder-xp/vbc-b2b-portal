@@ -31,6 +31,8 @@ import type {
 import { IntegrationUnsupportedOperationError } from "../../errors";
 import { AbstractERPProvider } from "../abstract-erp-provider";
 import { DefaultOneCCatalogMapper } from "./one-c-catalog.mapper";
+import { DefaultOneCInventoryMapper } from "./one-c-inventory.mapper";
+import { DefaultOneCPricingMapper } from "./one-c-pricing.mapper";
 import {
   ONE_C_PROVIDER_CODE,
   oneCProviderDefaultCapabilities,
@@ -41,6 +43,8 @@ import type {
   OneCCatalogCategoryPayload,
   OneCCatalogProductPayload,
   OneCCatalogResponsePayload,
+  OneCProductPricePayload,
+  OneCStockBalancePayload,
 } from "./one-c-provider.types";
 
 export class IntegrationProviderNotImplementedError extends IntegrationUnsupportedOperationError {
@@ -77,12 +81,17 @@ export class OneCProvider extends AbstractERPProvider {
         config.catalogCategoriesPath ?? "/catalog/categories",
       catalogBrandsPath: config.catalogBrandsPath ?? "/catalog/brands",
       catalogProductsPath: config.catalogProductsPath ?? "/catalog/products",
+      productPricesPath: config.productPricesPath ?? "/pricing/product-prices",
+      stockBalancesPath:
+        config.stockBalancesPath ?? "/inventory/stock-balances",
       useMockCatalog: config.useMockCatalog ?? true,
+      useMockPricing: config.useMockPricing ?? true,
+      useMockInventory: config.useMockInventory ?? true,
     };
     this.capabilities = this.config.capabilities;
     this.catalog = new OneCCatalogProvider(this.config);
-    this.pricing = new OneCPricingProvider();
-    this.inventory = new OneCInventoryProvider();
+    this.pricing = new OneCPricingProvider(this.config);
+    this.inventory = new OneCInventoryProvider(this.config);
     this.orders = new OneCOrderProvider();
     this.documents = new OneCDocumentProvider();
     this.finance = new OneCFinanceProvider();
@@ -155,18 +164,50 @@ class OneCCatalogProvider implements CatalogProvider {
 }
 
 class OneCPricingProvider implements PricingProvider {
+  private readonly mapper = new DefaultOneCPricingMapper();
+
+  constructor(private readonly config: OneCProviderConfig) {}
+
   async fetchProductPrices(
-    _input: ProductPriceFetchRequestDTO,
+    input: ProductPriceFetchRequestDTO,
   ): Promise<IntegrationPageResultDTO<ProductPriceDTO>> {
-    throw new IntegrationProviderNotImplementedError("1C price import");
+    const response = this.config.useMockPricing
+      ? mockProductPrices
+      : await requestOneCCatalog<OneCProductPricePayload>(
+          this.config,
+          this.config.productPricesPath,
+          input,
+          isProductPricePayload,
+        );
+
+    return {
+      items: response.items.map(this.mapper.priceMapper.toPlatformDTO),
+      nextCursor: response.nextCursor ?? null,
+    };
   }
 }
 
 class OneCInventoryProvider implements InventoryProvider {
+  private readonly mapper = new DefaultOneCInventoryMapper();
+
+  constructor(private readonly config: OneCProviderConfig) {}
+
   async fetchStockBalances(
-    _input: StockBalanceFetchRequestDTO,
+    input: StockBalanceFetchRequestDTO,
   ): Promise<IntegrationPageResultDTO<StockBalanceDTO>> {
-    throw new IntegrationProviderNotImplementedError("1C inventory import");
+    const response = this.config.useMockInventory
+      ? mockStockBalances
+      : await requestOneCCatalog<OneCStockBalancePayload>(
+          this.config,
+          this.config.stockBalancesPath,
+          input,
+          isStockBalancePayload,
+        );
+
+    return {
+      items: response.items.map(this.mapper.toPlatformDTO),
+      nextCursor: response.nextCursor ?? null,
+    };
   }
 }
 
@@ -362,6 +403,45 @@ function isProductPayload(value: unknown): value is OneCCatalogProductPayload {
   );
 }
 
+function isProductPricePayload(value: unknown): value is OneCProductPricePayload {
+  return (
+    isRecord(value) &&
+    isReference(value.reference) &&
+    isReference(value.productReference) &&
+    (isReference(value.partnerCompanyReference) ||
+      value.partnerCompanyReference === null) &&
+    (isReference(value.priceTypeReference) ||
+      value.priceTypeReference === null) &&
+    typeof value.currency === "string" &&
+    typeof value.amount === "number" &&
+    typeof value.validFrom === "string" &&
+    (typeof value.validTo === "string" || value.validTo === null) &&
+    typeof value.active === "boolean" &&
+    isMetadata(value.metadata)
+  );
+}
+
+function isStockBalancePayload(value: unknown): value is OneCStockBalancePayload {
+  return (
+    isRecord(value) &&
+    isReference(value.reference) &&
+    isReference(value.productReference) &&
+    (isReference(value.warehouseReference) ||
+      value.warehouseReference === null) &&
+    typeof value.warehouseName === "string" &&
+    typeof value.availableQuantity === "number" &&
+    (typeof value.reservedQuantity === "number" ||
+      value.reservedQuantity === null) &&
+    (typeof value.expectedQuantity === "number" ||
+      value.expectedQuantity === null) &&
+    (typeof value.expectedAt === "string" || value.expectedAt === null) &&
+    (typeof value.sourceUpdatedAt === "string" ||
+      value.sourceUpdatedAt === null) &&
+    typeof value.active === "boolean" &&
+    isMetadata(value.metadata)
+  );
+}
+
 const mockCatalogCategories: OneCCatalogResponsePayload<OneCCatalogCategoryPayload> =
   {
     items: [
@@ -439,3 +519,78 @@ const mockCatalogProducts: OneCCatalogResponsePayload<OneCCatalogProductPayload>
     ],
     nextCursor: null,
   };
+
+const mockProductPrices: OneCCatalogResponsePayload<OneCProductPricePayload> = {
+  items: [
+    {
+      reference: { ref: "MOCK-PRICE-CAM-001", type: "product-price" },
+      productReference: { ref: "MOCK-PRODUCT-CAM-001", type: "catalog-product" },
+      partnerCompanyReference: null,
+      priceTypeReference: { ref: "MOCK-RECOMMENDED", type: "price-type" },
+      currency: "BGN",
+      amount: 100,
+      validFrom: "2026-07-09T00:00:00.000Z",
+      validTo: null,
+      active: true,
+      metadata: { sourceUpdatedAt: "2026-07-09T00:00:00.000Z" },
+    },
+    {
+      reference: { ref: "MOCK-PRICE-ACC-001", type: "product-price" },
+      productReference: { ref: "MOCK-PRODUCT-ACC-001", type: "catalog-product" },
+      partnerCompanyReference: null,
+      priceTypeReference: { ref: "MOCK-RECOMMENDED", type: "price-type" },
+      currency: "BGN",
+      amount: 150,
+      validFrom: "2026-07-09T00:00:00.000Z",
+      validTo: null,
+      active: true,
+      metadata: { sourceUpdatedAt: "2026-07-09T00:00:00.000Z" },
+    },
+  ],
+  nextCursor: null,
+};
+
+const mockStockBalances: OneCCatalogResponsePayload<OneCStockBalancePayload> = {
+  items: [
+    {
+      reference: { ref: "MOCK-STOCK-CAM-001", type: "stock-balance" },
+      productReference: { ref: "MOCK-PRODUCT-CAM-001", type: "catalog-product" },
+      warehouseReference: { ref: "MAIN", type: "warehouse" },
+      warehouseName: "Main warehouse",
+      availableQuantity: 24,
+      reservedQuantity: 0,
+      expectedQuantity: null,
+      expectedAt: null,
+      sourceUpdatedAt: "2026-07-09T00:00:00.000Z",
+      active: true,
+      metadata: { sourceUpdatedAt: "2026-07-09T00:00:00.000Z" },
+    },
+    {
+      reference: { ref: "MOCK-STOCK-ACC-001", type: "stock-balance" },
+      productReference: { ref: "MOCK-PRODUCT-ACC-001", type: "catalog-product" },
+      warehouseReference: { ref: "MAIN", type: "warehouse" },
+      warehouseName: "Main warehouse",
+      availableQuantity: 2,
+      reservedQuantity: 0,
+      expectedQuantity: null,
+      expectedAt: null,
+      sourceUpdatedAt: "2026-07-09T00:00:00.000Z",
+      active: true,
+      metadata: { sourceUpdatedAt: "2026-07-09T00:00:00.000Z" },
+    },
+    {
+      reference: { ref: "MOCK-STOCK-POE-001", type: "stock-balance" },
+      productReference: { ref: "DEMO-CAT-003", type: "catalog-product" },
+      warehouseReference: { ref: "MAIN", type: "warehouse" },
+      warehouseName: "Main warehouse",
+      availableQuantity: 0,
+      reservedQuantity: 0,
+      expectedQuantity: 10,
+      expectedAt: "2026-07-20T00:00:00.000Z",
+      sourceUpdatedAt: "2026-07-09T00:00:00.000Z",
+      active: true,
+      metadata: { sourceUpdatedAt: "2026-07-09T00:00:00.000Z" },
+    },
+  ],
+  nextCursor: null,
+};

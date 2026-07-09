@@ -9,6 +9,8 @@ type ProductCardProps = {
 };
 
 export function ProductCard({ commercialView, product }: ProductCardProps) {
+  const stockTone = getStockTone(commercialView?.stock?.status);
+
   return (
     <Link className="block h-full" href={`/cabinet/catalog/${product.slug}`}>
       <article className="flex h-full flex-col rounded-lg border border-zinc-200 bg-white shadow-sm transition hover:border-emerald-500">
@@ -45,12 +47,68 @@ export function ProductCard({ commercialView, product }: ProductCardProps) {
             <div className="rounded-md bg-emerald-50 px-3 py-2 font-medium text-emerald-800">
               {commercialView?.price?.label ?? "Price available on request"}
             </div>
-            <div className="rounded-md bg-zinc-50 px-3 py-2 text-zinc-700">
-              {commercialView?.stock?.label ?? "Check availability"}
+            <div
+              className={`rounded-md px-3 py-2 font-medium ${stockTone.card}`}
+            >
+              <span
+                className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${stockTone.badge}`}
+              >
+                {commercialView?.stock?.label ?? "Check availability"}
+              </span>
+              {commercialView?.stock ? (
+                <p className="mt-2 text-xs font-normal">
+                  {commercialView.stock.warehouseCount} warehouse
+                  {commercialView.stock.warehouseCount === 1 ? "" : "s"}
+                  {commercialView.stock.lastUpdatedAt
+                    ? ` / updated ${formatDate(commercialView.stock.lastUpdatedAt)}`
+                    : ""}
+                </p>
+              ) : null}
             </div>
           </div>
         </div>
       </article>
     </Link>
   );
+}
+
+function getStockTone(status: ProductCommercialViewDto["stock"] extends infer T
+  ? T extends { status: infer S }
+    ? S | undefined
+    : undefined
+  : undefined) {
+  switch (status) {
+    case "in_stock":
+      return {
+        card: "bg-emerald-50 text-emerald-800",
+        badge: "bg-emerald-600 text-white",
+      };
+    case "low_stock":
+      return {
+        card: "bg-amber-50 text-amber-900",
+        badge: "bg-amber-500 text-white",
+      };
+    case "expected":
+      return {
+        card: "bg-sky-50 text-sky-900",
+        badge: "bg-sky-600 text-white",
+      };
+    case "out_of_stock":
+      return {
+        card: "bg-rose-50 text-rose-900",
+        badge: "bg-rose-600 text-white",
+      };
+    default:
+      return {
+        card: "bg-zinc-50 text-zinc-700",
+        badge: "bg-zinc-200 text-zinc-700",
+      };
+  }
+}
+
+function formatDate(value: string): string {
+  return new Intl.DateTimeFormat("en", {
+    month: "short",
+    day: "numeric",
+  }).format(new Date(value));
 }

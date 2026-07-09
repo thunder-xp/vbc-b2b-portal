@@ -249,7 +249,7 @@ Coordinates:
 
 Main methods:
 
-- `submitAccessRequest(authUserId, input)`: creates a pending access request for the authenticated user.
+- `submitAccessRequest(authUserId, input)`: creates a `pending_review` access request for the authenticated user.
 - `listOwnAccessRequests(authUserId)`: returns the user's own requests.
 - `cancelOwnPendingRequest(authUserId, requestId)`: cancels a user's own pending request.
 - `preventDuplicatePendingRequest(authUserId, requestedCompanyReference)`: checks duplicate pending request conditions before insert.
@@ -261,7 +261,8 @@ Main methods:
 
 Input expectations:
 
-- Submitted company name, message, and requested 1C reference are untrusted user input.
+- Submitted company name, fiscal code/VAT/IDNO, contact phone, and message are untrusted user input.
+- 1C reference is internal-only and must be assigned later by manager/admin approval workflow.
 - Review and approval calls require internal/admin actor context.
 - Cancellation requires authenticated owner context.
 
@@ -275,8 +276,9 @@ Rules:
 
 - Request submission does not grant access.
 - Submitted company data is untrusted until reviewed.
-- Requested 1C IDs are review hints, not access scope.
+- Partner-facing services must not accept requested 1C IDs.
 - Only authorized internal/admin workflows may approve or reject requests.
+- Only authorized internal/admin workflows may bind the request or company to a 1C partner reference.
 - Approval should create or update portal-owned access records; it must not edit 1C commercial truth.
 - Duplicate pending requests should be handled as conflicts or clear user-safe messages.
 - Admin/internal review can be designed later, but partner self-service request submission and cancellation must stay owner-scoped.
@@ -285,7 +287,8 @@ Forbidden behavior:
 
 - The service must not create active membership without approval rules.
 - The service must not let users approve their own request.
-- The service must not treat `requested_external_1c_id` as validated access scope.
+- The service must not let partners submit or bind `requested_external_1c_id`.
+- The service must not let partners choose role, access profile, price group, or approval state.
 
 ### `InvitationService`
 

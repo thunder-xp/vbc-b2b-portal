@@ -2,16 +2,18 @@
 
 import { type FormEvent, useState, useTransition } from "react";
 
+import { createProfileAction } from "../../actions/create-profile.action";
 import { updateOwnProfileAction } from "../../actions/update-profile.action";
 import type { CurrentProfileDto } from "../../actions/current-profile.action";
 
 type ProfileFormProps = {
-  profile: CurrentProfileDto;
+  profile: CurrentProfileDto | null;
 };
 
 export function ProfileForm({ profile }: ProfileFormProps) {
-  const [fullName, setFullName] = useState(profile.fullName ?? "");
-  const [phone, setPhone] = useState(profile.phone ?? "");
+  const isNewProfile = !profile;
+  const [fullName, setFullName] = useState(profile?.fullName ?? "");
+  const [phone, setPhone] = useState(profile?.phone ?? "");
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -22,10 +24,10 @@ export function ProfileForm({ profile }: ProfileFormProps) {
     setError(null);
 
     startTransition(async () => {
-      const result = await updateOwnProfileAction({
-        fullName,
-        phone,
-      });
+      const payload = { fullName, phone };
+      const result = isNewProfile
+        ? await createProfileAction(payload)
+        : await updateOwnProfileAction(payload);
 
       if (result.success) {
         setFullName(result.data.fullName ?? "");
@@ -48,7 +50,9 @@ export function ProfileForm({ profile }: ProfileFormProps) {
           Profile
         </h1>
         <p className="mt-2 text-sm text-zinc-600">
-          Update your contact details for Novotech partner onboarding.
+          {isNewProfile
+            ? "Create your contact profile to start partner onboarding."
+            : "Update your contact details for Novotech partner onboarding."}
         </p>
       </div>
 
@@ -90,7 +94,11 @@ export function ProfileForm({ profile }: ProfileFormProps) {
         disabled={isPending}
         type="submit"
       >
-        {isPending ? "Saving..." : "Save profile"}
+        {isPending
+          ? "Saving..."
+          : isNewProfile
+            ? "Create profile"
+            : "Save profile"}
       </button>
     </form>
   );

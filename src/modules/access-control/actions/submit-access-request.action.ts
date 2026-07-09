@@ -13,8 +13,9 @@ import {
 
 export type SubmitAccessRequestActionInput = {
   companyId?: string | null;
-  requestedExternal1cId?: string | null;
   requestedCompanyName?: string | null;
+  requestedFiscalCode?: string | null;
+  contactPhone?: string | null;
   message?: string | null;
 };
 
@@ -22,6 +23,8 @@ export type AccessRequestDto = {
   id: string;
   companyId: string | null;
   requestedCompanyName: string | null;
+  requestedFiscalCode: string | null;
+  contactPhone: string | null;
   message: string | null;
   status: AccessRequestStatus;
   createdAt: string;
@@ -36,8 +39,9 @@ export async function submitAccessRequestAction(
     const request = await createAccessRequestService().submitAccessRequest({
       userId,
       companyId: normalizeOptionalText(input.companyId),
-      requestedExternal1cId: normalizeOptionalText(input.requestedExternal1cId),
       requestedCompanyName: normalizeOptionalText(input.requestedCompanyName),
+      requestedFiscalCode: normalizeOptionalText(input.requestedFiscalCode),
+      contactPhone: normalizeOptionalText(input.contactPhone),
       message: normalizeOptionalText(input.message),
     });
 
@@ -61,6 +65,8 @@ function toAccessRequestDto(request: AccessRequest): AccessRequestDto {
     id: request.id,
     companyId: request.companyId,
     requestedCompanyName: request.requestedCompanyName,
+    requestedFiscalCode: request.requestedFiscalCode,
+    contactPhone: request.contactPhone,
     message: request.message,
     status: request.status,
     createdAt: request.createdAt,

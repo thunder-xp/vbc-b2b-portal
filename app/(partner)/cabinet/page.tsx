@@ -6,6 +6,7 @@ import {
   EmptyState,
   StatusBadge,
 } from "@/src/modules/partner-cabinet/components";
+import { redirect } from "next/navigation";
 
 export default async function CabinetPage() {
   const profileResult = await getCurrentProfileAction();
@@ -17,14 +18,7 @@ export default async function CabinetPage() {
     : [];
 
   if (!profileResult.success) {
-    return (
-      <EmptyState
-        actionHref="/onboarding"
-        actionLabel="Open onboarding"
-        message={profileResult.message}
-        title="Sign in required"
-      />
-    );
+    redirect("/auth/sign-in");
   }
 
   if (!profileResult.data) {

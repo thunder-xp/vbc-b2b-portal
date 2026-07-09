@@ -17,7 +17,7 @@ import {
 } from "../index";
 
 const ACCESS_REQUEST_COLUMNS =
-  "id, user_id, company_id, requested_external_1c_id, requested_company_name, message, status, reviewed_by, reviewed_at, created_at, updated_at";
+  "id, user_id, company_id, requested_external_1c_id, requested_company_name, requested_fiscal_code, contact_phone, message, status, reviewed_by, reviewed_at, created_at, updated_at";
 
 export class SupabaseAccessRequestRepository
   implements AccessRequestRepository
@@ -59,7 +59,7 @@ export class SupabaseAccessRequestRepository
       .from("access_requests")
       .select(ACCESS_REQUEST_COLUMNS)
       .eq("user_id", input.userId)
-      .eq("status", AccessRequestStatus.Pending);
+      .eq("status", AccessRequestStatus.PendingReview);
 
     if (input.companyId) {
       query = query.eq("company_id", input.companyId);
@@ -71,6 +71,10 @@ export class SupabaseAccessRequestRepository
 
     if (input.requestedCompanyName) {
       query = query.eq("requested_company_name", input.requestedCompanyName);
+    }
+
+    if (input.requestedFiscalCode) {
+      query = query.eq("requested_fiscal_code", input.requestedFiscalCode);
     }
 
     const { data, error } = await query
@@ -94,6 +98,8 @@ export class SupabaseAccessRequestRepository
         company_id: input.companyId ?? null,
         requested_external_1c_id: input.requestedExternal1cId ?? null,
         requested_company_name: input.requestedCompanyName ?? null,
+        requested_fiscal_code: input.requestedFiscalCode ?? null,
+        contact_phone: input.contactPhone ?? null,
         message: input.message ?? null,
       })
       .select(ACCESS_REQUEST_COLUMNS)
@@ -122,7 +128,7 @@ export class SupabaseAccessRequestRepository
         status: input.status,
       })
       .eq("id", input.id)
-      .eq("status", AccessRequestStatus.Pending)
+      .eq("status", AccessRequestStatus.PendingReview)
       .select(ACCESS_REQUEST_COLUMNS)
       .single();
 

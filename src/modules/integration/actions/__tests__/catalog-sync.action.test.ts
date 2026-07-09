@@ -9,7 +9,11 @@ const mocks = vi.hoisted(() => ({
   createUserProfileService: vi.fn(),
   ensureActiveUser: vi.fn(),
   createCatalogSyncEngine: vi.fn(),
+  createPriceSyncEngine: vi.fn(),
+  createStockSyncEngine: vi.fn(),
   syncCatalog: vi.fn(),
+  syncPrices: vi.fn(),
+  syncStock: vi.fn(),
 }));
 
 vi.mock("../../../../lib/env", () => ({
@@ -23,9 +27,13 @@ vi.mock("../../../access-control/actions/service-factory", () => ({
 
 vi.mock("../../services", () => ({
   createCatalogSyncEngine: mocks.createCatalogSyncEngine,
+  createPriceSyncEngine: mocks.createPriceSyncEngine,
+  createStockSyncEngine: mocks.createStockSyncEngine,
 }));
 
 import { syncCatalogFromOneCAction } from "../catalog-sync.action";
+import { syncPricesFromOneCAction } from "../price-sync.action";
+import { syncStockFromOneCAction } from "../stock-sync.action";
 
 describe("syncCatalogFromOneCAction", () => {
   beforeEach(() => {
@@ -33,6 +41,12 @@ describe("syncCatalogFromOneCAction", () => {
     mocks.getAuthenticatedUserId.mockResolvedValue("user-1");
     mocks.createCatalogSyncEngine.mockReturnValue({
       syncCatalog: mocks.syncCatalog,
+    });
+    mocks.createPriceSyncEngine.mockReturnValue({
+      syncPrices: mocks.syncPrices,
+    });
+    mocks.createStockSyncEngine.mockReturnValue({
+      syncStock: mocks.syncStock,
     });
     mocks.createUserProfileService.mockReturnValue({
       ensureActiveUser: mocks.ensureActiveUser,
@@ -67,6 +81,36 @@ describe("syncCatalogFromOneCAction", () => {
       productsUpdated: 0,
       failed: 0,
       errors: [],
+    });
+    mocks.syncPrices.mockResolvedValue({
+      provider: "one-c",
+      target: "pricing",
+      status: "succeeded",
+      startedAt: "2026-07-09T00:00:00.000Z",
+      finishedAt: "2026-07-09T00:00:00.001Z",
+      durationMs: 1,
+      pricesReceived: 1,
+      pricesCreated: 1,
+      pricesUpdated: 0,
+      pricesSkipped: 0,
+      failed: 0,
+      errors: [],
+      warnings: [],
+    });
+    mocks.syncStock.mockResolvedValue({
+      provider: "one-c",
+      target: "inventory",
+      status: "succeeded",
+      startedAt: "2026-07-09T00:00:00.000Z",
+      finishedAt: "2026-07-09T00:00:00.001Z",
+      durationMs: 1,
+      stockReceived: 1,
+      stockCreated: 1,
+      stockUpdated: 0,
+      stockSkipped: 0,
+      failed: 0,
+      errors: [],
+      warnings: [],
     });
   });
 
@@ -118,6 +162,74 @@ describe("syncCatalogFromOneCAction", () => {
       },
     });
     expect(mocks.syncCatalog).toHaveBeenCalledOnce();
+  });
+
+  it("returns a safe price sync error when unauthenticated", async () => {
+    mocks.getAuthenticatedUserId.mockRejectedValue(new UnauthenticatedError());
+
+    await expect(syncPricesFromOneCAction()).resolves.toMatchObject({
+      success: false,
+      errorCode: "AUTH_REQUIRED",
+    });
+    expect(mocks.syncPrices).not.toHaveBeenCalled();
+  });
+
+  it("rejects partner users from price sync", async () => {
+    mocks.ensureActiveUser.mockResolvedValue(makeProfile(UserType.External));
+
+    await expect(syncPricesFromOneCAction()).resolves.toMatchObject({
+      success: false,
+      errorCode: "FORBIDDEN",
+    });
+    expect(mocks.syncPrices).not.toHaveBeenCalled();
+  });
+
+  it("runs price sync for active internal admins", async () => {
+    const result = await syncPricesFromOneCAction();
+
+    expect(result).toMatchObject({
+      success: true,
+      data: {
+        provider: "one-c",
+        target: "pricing",
+        status: "succeeded",
+      },
+    });
+    expect(mocks.syncPrices).toHaveBeenCalledOnce();
+  });
+
+  it("returns a safe stock sync error when unauthenticated", async () => {
+    mocks.getAuthenticatedUserId.mockRejectedValue(new UnauthenticatedError());
+
+    await expect(syncStockFromOneCAction()).resolves.toMatchObject({
+      success: false,
+      errorCode: "AUTH_REQUIRED",
+    });
+    expect(mocks.syncStock).not.toHaveBeenCalled();
+  });
+
+  it("rejects partner users from stock sync", async () => {
+    mocks.ensureActiveUser.mockResolvedValue(makeProfile(UserType.External));
+
+    await expect(syncStockFromOneCAction()).resolves.toMatchObject({
+      success: false,
+      errorCode: "FORBIDDEN",
+    });
+    expect(mocks.syncStock).not.toHaveBeenCalled();
+  });
+
+  it("runs stock sync for active internal admins", async () => {
+    const result = await syncStockFromOneCAction();
+
+    expect(result).toMatchObject({
+      success: true,
+      data: {
+        provider: "one-c",
+        target: "inventory",
+        status: "succeeded",
+      },
+    });
+    expect(mocks.syncStock).toHaveBeenCalledOnce();
   });
 });
 

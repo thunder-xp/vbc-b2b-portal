@@ -39,6 +39,52 @@ The portal controls:
 - How raw cached stock is translated into safe partner-facing labels.
 - Safe fallback behavior when cached data is missing.
 
+## Implemented Manual Price Sync
+
+The first implemented pricing sync slice imports product price snapshots only.
+
+Flow:
+
+1. Internal/admin user triggers manual price sync from the admin integrations page.
+2. Server Action validates authentication and active `internal`/`admin` profile.
+3. Sync Engine calls the neutral pricing provider.
+4. 1C provider maps 1C price payloads to neutral `ProductPriceDTO`.
+5. Pricing updater resolves products by external 1C product id or SKU.
+6. Pricing updater resolves optional partner company scope by external 1C company id.
+7. Pricing repository upserts `product_prices`.
+8. Partner catalog/product UI reads prices only through existing pricing service and RLS.
+
+The updater must not delete existing prices when the provider returns an empty page. If a product or partner company cannot be matched, the row is skipped and returned as a warning.
+
+## Implemented Manual Stock Sync
+
+The first implemented inventory sync slice imports product stock snapshots only.
+
+Flow:
+
+1. Internal/admin user triggers manual stock sync from the admin integrations page.
+2. Server Action validates authentication and active `internal`/`admin` profile.
+3. Sync Engine calls the neutral inventory provider.
+4. 1C provider maps 1C stock payloads to neutral `StockBalanceDTO`.
+5. Inventory updater resolves products by external 1C product id or SKU.
+6. Inventory repository upserts `product_stock_balances`.
+7. Partner catalog/product UI reads stock only through existing pricing/inventory service and RLS.
+
+The updater must not delete existing stock when the provider returns an empty page. If a product cannot be matched, the row is skipped and returned as a warning.
+
+## Availability Mapping
+
+Availability status belongs in the pricing/inventory service, not React components.
+
+Current service-owned mapping:
+
+- `availableQuantity > low stock threshold` -> `In Stock`.
+- `availableQuantity > 0` -> `Low Stock`.
+- `availableQuantity = 0` and expected quantity exists -> `Expected`.
+- `availableQuantity = 0` and no expected quantity -> `Out of Stock`.
+
+React components may style the returned status but must not recalculate it.
+
 ## Partner and Company Scoped Visibility
 
 Pricing and stock visibility must be scoped by authenticated user, active user profile, active company membership, active partner company, and explicit permission.
@@ -144,6 +190,8 @@ Key fields:
 - Warehouse display name or source warehouse label.
 - Available quantity snapshot.
 - Optional reserved quantity snapshot from source.
+- Optional expected quantity snapshot from source.
+- Optional expected arrival timestamp from source.
 - Timestamp of source refresh from 1C.
 - Active flag.
 - Created and updated timestamps.
@@ -167,8 +215,11 @@ Policy direction:
 - Company-specific price rows must be scoped to the same active partner company.
 - Generic price rows require at least one active company context with pricing permission.
 - Stock rows require active company context with stock permission.
-- Authenticated users must not insert, update, or delete read-model cache rows.
-- Future sync writes require isolated server-side system operations and are outside partner-facing UI.
+- Ordinary authenticated partner users must not insert, update, or delete read-model cache rows.
+- Manual price sync adds insert/update only for active `internal`/`admin` users through `public.can_sync_pricing_read_model()`.
+- Manual stock sync adds insert/update only for active `internal`/`admin` users through `public.can_sync_inventory_read_model()`.
+- No delete policy is added for pricing sync.
+- No delete policy is added for inventory sync.
 
 Small read-only helper functions may be used to keep policies auditable. Helpers must not expose data and must not use `external_1c_id` for security.
 

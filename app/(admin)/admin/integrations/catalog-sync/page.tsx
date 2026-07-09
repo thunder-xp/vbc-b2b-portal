@@ -12,8 +12,9 @@ export default function CatalogSyncPage() {
             Manual catalog sync
           </h1>
           <p className="mt-2 max-w-3xl text-sm text-slate-600">
-            Imports category, brand, and product read-model data. Pricing,
-            stock, documents, orders, and finance are outside this sync.
+            Imports catalog, price, and stock read-model data. Documents,
+            orders, reservations, finance, queues, and cron are outside this
+            sync.
           </p>
         </div>
 
