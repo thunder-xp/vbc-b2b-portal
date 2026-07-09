@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export default function Home() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-zinc-50 px-6 py-16 text-zinc-950">
@@ -20,6 +22,14 @@ export default function Home() {
         <p className="mt-4 text-sm font-medium text-zinc-700">
           Platform foundation is ready.
         </p>
+        <div className="mt-8">
+          <Link
+            className="inline-flex items-center justify-center rounded-md bg-zinc-950 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
+            href="/onboarding"
+          >
+            Open onboarding
+          </Link>
+        </div>
       </section>
     </main>
   );
