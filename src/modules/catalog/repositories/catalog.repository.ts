@@ -2,6 +2,8 @@ import type {
   CatalogBrand,
   CatalogCategory,
   CatalogProduct,
+  CatalogProductDocument,
+  CatalogProductImage,
 } from "../types";
 
 export type ListCatalogProductsInput = {
@@ -18,4 +20,6 @@ export interface CatalogRepository {
   listProducts(input: ListCatalogProductsInput): Promise<CatalogProduct[]>;
   getProductBySlug(slug: string): Promise<CatalogProduct | null>;
   getProductById(id: string): Promise<CatalogProduct | null>;
+  listProductImages(productId: string): Promise<CatalogProductImage[]>;
+  listProductDocuments(productId: string): Promise<CatalogProductDocument[]>;
 }

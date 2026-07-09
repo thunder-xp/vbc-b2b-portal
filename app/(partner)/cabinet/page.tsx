@@ -92,6 +92,12 @@ export default async function CabinetPage() {
           meta={<StatusBadge label="planned" tone="zinc" />}
           title="Notifications"
         />
+        <DashboardCard
+          description="Browse the read-only product catalog foundation."
+          href="/cabinet/catalog"
+          meta={<StatusBadge label="ready" tone="green" />}
+          title="Catalog"
+        />
       </div>
     </div>
   );

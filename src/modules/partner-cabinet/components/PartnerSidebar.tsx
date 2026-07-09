@@ -24,7 +24,7 @@ const navItems: NavItem[] = [
   { href: "/cabinet/company", label: "Company" },
   { href: "/cabinet/memberships", label: "Memberships" },
   { href: "/cabinet/notifications", label: "Notifications" },
-  { label: "Catalog", disabled: true },
+  { href: "/cabinet/catalog", label: "Catalog" },
   { label: "Orders", disabled: true },
   { label: "Documents", disabled: true },
   { label: "Finance", disabled: true },
