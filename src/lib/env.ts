@@ -7,6 +7,19 @@ const REQUIRED_SUPABASE_ENV = [
 ] as const;
 
 type RequiredSupabaseEnvName = (typeof REQUIRED_SUPABASE_ENV)[number];
+export type OneCAuthMode = "token" | "basic" | "none";
+
+export type OneCEnv = {
+  baseUrl: string | null;
+  username: string | null;
+  password: string | null;
+  apiToken: string | null;
+  catalogCategoriesPath: string;
+  catalogBrandsPath: string;
+  catalogProductsPath: string;
+  authMode: OneCAuthMode;
+  useMockCatalog: boolean;
+};
 
 export type SupabaseEnvStatus = {
   configured: boolean;
@@ -43,5 +56,26 @@ export function getSupabaseEnvStatus(): SupabaseEnvStatus {
   return {
     configured: missing.length === 0,
     missing,
+  };
+}
+
+export function getOneCEnv(): OneCEnv {
+  const apiToken = process.env.ONEC_API_TOKEN || null;
+  const username = process.env.ONEC_USERNAME || null;
+  const password = process.env.ONEC_PASSWORD || null;
+  const explicitMock = process.env.ONEC_USE_MOCK_CATALOG === "true";
+
+  return {
+    baseUrl: process.env.ONEC_BASE_URL || null,
+    username,
+    password,
+    apiToken,
+    catalogCategoriesPath:
+      process.env.ONEC_CATALOG_CATEGORIES_PATH || "/catalog/categories",
+    catalogBrandsPath: process.env.ONEC_CATALOG_BRANDS_PATH || "/catalog/brands",
+    catalogProductsPath:
+      process.env.ONEC_CATALOG_PRODUCTS_PATH || "/catalog/products",
+    authMode: apiToken ? "token" : username && password ? "basic" : "none",
+    useMockCatalog: explicitMock || !process.env.ONEC_BASE_URL,
   };
 }

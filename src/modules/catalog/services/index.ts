@@ -10,3 +10,8 @@ export type {
   CatalogService,
 } from "./catalog.service";
 export { DefaultCatalogService } from "./catalog.service";
+export type {
+  CatalogReadModelUpdateInput,
+  CatalogUpdaterService,
+} from "./catalog-updater.service";
+export { DefaultCatalogUpdaterService } from "./catalog-updater.service";

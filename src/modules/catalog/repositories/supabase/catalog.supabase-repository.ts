@@ -2,7 +2,11 @@ import { createClient } from "@/src/lib/supabase/server";
 
 import type {
   CatalogRepository,
+  CatalogUpsertResult,
   ListCatalogProductsInput,
+  UpsertCatalogBrandInput,
+  UpsertCatalogCategoryInput,
+  UpsertCatalogProductInput,
 } from "../catalog.repository";
 import type {
   CatalogBrand,
@@ -150,6 +154,162 @@ export class SupabaseCatalogRepository implements CatalogRepository {
     }
 
     return data ? mapCatalogProductRow(data as CatalogProductRow) : null;
+  }
+
+  async findCategoryByExternal1cId(
+    external1cId: string,
+  ): Promise<CatalogCategory | null> {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("catalog_categories")
+      .select(CATALOG_CATEGORY_COLUMNS)
+      .eq("external_1c_id", external1cId)
+      .maybeSingle();
+
+    if (error) {
+      throw new CatalogRepositoryUnexpectedError();
+    }
+
+    return data ? mapCatalogCategoryRow(data as CatalogCategoryRow) : null;
+  }
+
+  async findBrandByExternal1cId(
+    external1cId: string,
+  ): Promise<CatalogBrand | null> {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("catalog_brands")
+      .select(CATALOG_BRAND_COLUMNS)
+      .eq("external_1c_id", external1cId)
+      .maybeSingle();
+
+    if (error) {
+      throw new CatalogRepositoryUnexpectedError();
+    }
+
+    return data ? mapCatalogBrandRow(data as CatalogBrandRow) : null;
+  }
+
+  async findProductByExternal1cId(
+    external1cId: string,
+  ): Promise<CatalogProduct | null> {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("catalog_products")
+      .select(CATALOG_PRODUCT_COLUMNS)
+      .eq("external_1c_id", external1cId)
+      .maybeSingle();
+
+    if (error) {
+      throw new CatalogRepositoryUnexpectedError();
+    }
+
+    return data ? mapCatalogProductRow(data as CatalogProductRow) : null;
+  }
+
+  async upsertCategory(
+    input: UpsertCatalogCategoryInput,
+  ): Promise<CatalogUpsertResult<CatalogCategory>> {
+    const supabase = await createClient();
+    const existing = await this.findCategoryByExternal1cId(input.external1cId);
+    const payload = {
+      external_1c_id: input.external1cId,
+      parent_id: input.parentId,
+      name: input.name,
+      slug: input.slug,
+      description: input.description,
+      sort_order: input.sortOrder ?? 0,
+      is_active: input.isActive,
+    };
+    const query = existing
+      ? supabase
+          .from("catalog_categories")
+          .update(payload)
+          .eq("external_1c_id", input.external1cId)
+      : supabase.from("catalog_categories").insert(payload);
+    const { data, error } = await query
+      .select(CATALOG_CATEGORY_COLUMNS)
+      .single();
+
+    if (error || !data) {
+      throw new CatalogRepositoryUnexpectedError();
+    }
+
+    return {
+      record: mapCatalogCategoryRow(data as CatalogCategoryRow),
+      created: !existing,
+    };
+  }
+
+  async upsertBrand(
+    input: UpsertCatalogBrandInput,
+  ): Promise<CatalogUpsertResult<CatalogBrand>> {
+    const supabase = await createClient();
+    const existing = await this.findBrandByExternal1cId(input.external1cId);
+    const payload = {
+      external_1c_id: input.external1cId,
+      name: input.name,
+      slug: input.slug,
+      description: input.description,
+      logo_url: input.logoUrl,
+      sort_order: input.sortOrder ?? 0,
+      is_active: input.isActive,
+    };
+    const query = existing
+      ? supabase
+          .from("catalog_brands")
+          .update(payload)
+          .eq("external_1c_id", input.external1cId)
+      : supabase.from("catalog_brands").insert(payload);
+    const { data, error } = await query.select(CATALOG_BRAND_COLUMNS).single();
+
+    if (error || !data) {
+      throw new CatalogRepositoryUnexpectedError();
+    }
+
+    return {
+      record: mapCatalogBrandRow(data as CatalogBrandRow),
+      created: !existing,
+    };
+  }
+
+  async upsertProduct(
+    input: UpsertCatalogProductInput,
+  ): Promise<CatalogUpsertResult<CatalogProduct>> {
+    const supabase = await createClient();
+    const existing = await this.findProductByExternal1cId(input.external1cId);
+    const payload = {
+      external_1c_id: input.external1cId,
+      category_id: input.categoryId,
+      brand_id: input.brandId,
+      sku: input.sku,
+      name: input.name,
+      slug: input.slug,
+      short_description: input.shortDescription,
+      description: input.description,
+      image_url: input.imageUrl,
+      sort_order: input.sortOrder ?? 0,
+      is_active: input.isActive,
+      is_visible: input.isVisible,
+    };
+    const query = existing
+      ? supabase
+          .from("catalog_products")
+          .update(payload)
+          .eq("external_1c_id", input.external1cId)
+      : supabase.from("catalog_products").insert(payload);
+    const { data, error } = await query
+      .select(CATALOG_PRODUCT_COLUMNS)
+      .single();
+
+    if (error || !data) {
+      throw new CatalogRepositoryUnexpectedError();
+    }
+
+    return {
+      record: mapCatalogProductRow(data as CatalogProductRow),
+      created: !existing,
+    };
   }
 
   async listProductImages(productId: string): Promise<CatalogProductImage[]> {

@@ -1,14 +1,16 @@
 import Link from "next/link";
 
+import type { ProductCommercialViewDto } from "../../pricing-inventory";
 import type { CatalogProductDetailDto } from "../services";
 
 import { ProductImageGallery } from "./ProductImageGallery";
 
 type ProductDetailProps = {
+  commercialView?: ProductCommercialViewDto;
   product: CatalogProductDetailDto;
 };
 
-export function ProductDetail({ product }: ProductDetailProps) {
+export function ProductDetail({ commercialView, product }: ProductDetailProps) {
   return (
     <article className="grid gap-6 lg:grid-cols-[minmax(0,420px)_1fr]">
       <ProductImageGallery
@@ -36,6 +38,23 @@ export function ProductDetail({ product }: ProductDetailProps) {
             product.shortDescription ??
             "Product description is not available yet."}
         </p>
+
+        <section className="mt-8 grid gap-3 border-t border-zinc-200 pt-6 sm:grid-cols-2">
+          <div className="rounded-lg border border-emerald-100 bg-emerald-50 p-4">
+            <h2 className="text-sm font-semibold text-emerald-950">Price</h2>
+            <p className="mt-2 text-lg font-semibold text-emerald-800">
+              {commercialView?.price?.label ?? "Price available on request"}
+            </p>
+          </div>
+          <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
+            <h2 className="text-sm font-semibold text-zinc-950">
+              Availability
+            </h2>
+            <p className="mt-2 text-lg font-semibold text-zinc-800">
+              {commercialView?.stock?.label ?? "Check availability"}
+            </p>
+          </div>
+        </section>
 
         <section className="mt-8 border-t border-zinc-200 pt-6">
           <h2 className="text-base font-semibold text-zinc-950">Documents</h2>

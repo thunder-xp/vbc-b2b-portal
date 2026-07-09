@@ -12,6 +12,8 @@ import {
   ProductGrid,
   SearchBox,
 } from "@/src/modules/catalog/components";
+import { getProductCommercialViewsAction } from "@/src/modules/pricing-inventory/actions";
+import type { ProductCommercialViewDto } from "@/src/modules/pricing-inventory";
 
 type CatalogPageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -61,6 +63,13 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
     );
   }
 
+  const commercialViewsResult = await getProductCommercialViewsAction(
+    productsResult.data.products.map((product) => product.id),
+  );
+  const commercialViews = commercialViewsResult.success
+    ? createCommercialViewMap(commercialViewsResult.data)
+    : {};
+
   return (
     <div className="space-y-6">
       <section className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
@@ -99,7 +108,10 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
           />
           {productsResult.data.products.length > 0 ? (
             <>
-              <ProductGrid products={productsResult.data.products} />
+              <ProductGrid
+                commercialViews={commercialViews}
+                products={productsResult.data.products}
+              />
               <CatalogPagination
                 brandId={brandId}
                 categoryId={categoryId}
@@ -219,4 +231,15 @@ function parsePage(value: string | undefined): number {
 
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 1;
+}
+
+function createCommercialViewMap(
+  commercialViews: ProductCommercialViewDto[],
+): Record<string, ProductCommercialViewDto> {
+  return Object.fromEntries(
+    commercialViews.map((commercialView) => [
+      commercialView.productId,
+      commercialView,
+    ]),
+  );
 }

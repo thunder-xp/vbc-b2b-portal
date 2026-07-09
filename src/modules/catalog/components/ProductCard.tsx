@@ -1,12 +1,14 @@
 import Link from "next/link";
 
+import type { ProductCommercialViewDto } from "../../pricing-inventory";
 import type { CatalogProductCardDto } from "../services";
 
 type ProductCardProps = {
   product: CatalogProductCardDto;
+  commercialView?: ProductCommercialViewDto;
 };
 
-export function ProductCard({ product }: ProductCardProps) {
+export function ProductCard({ commercialView, product }: ProductCardProps) {
   return (
     <Link className="block h-full" href={`/cabinet/catalog/${product.slug}`}>
       <article className="flex h-full flex-col rounded-lg border border-zinc-200 bg-white shadow-sm transition hover:border-emerald-500">
@@ -39,6 +41,14 @@ export function ProductCard({ product }: ProductCardProps) {
           <p className="mt-3 line-clamp-3 text-sm leading-6 text-zinc-600">
             {product.shortDescription ?? "Catalog description pending."}
           </p>
+          <div className="mt-auto grid gap-2 pt-5 text-sm">
+            <div className="rounded-md bg-emerald-50 px-3 py-2 font-medium text-emerald-800">
+              {commercialView?.price?.label ?? "Price available on request"}
+            </div>
+            <div className="rounded-md bg-zinc-50 px-3 py-2 text-zinc-700">
+              {commercialView?.stock?.label ?? "Check availability"}
+            </div>
+          </div>
         </div>
       </article>
     </Link>
