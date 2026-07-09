@@ -14,22 +14,23 @@ This index is the table of contents for the Novotech Partner Platform Architectu
 8. `docs/architecture/ACCESS_CONTROL_REPOSITORY_DESIGN.md`
 9. `docs/architecture/ACCESS_CONTROL_SERVICE_DESIGN.md`
 10. `docs/architecture/ONBOARDING_SERVER_ACTIONS_DESIGN.md`
-11. `docs/architecture/INTEGRATION_ARCHITECTURE.md`
-12. `docs/domain/PARTNER_DOMAIN.md`
-13. `docs/domain/ACCESS_CONTROL_DOMAIN.md`
-14. `docs/domain/CATALOG_DOMAIN.md`
-15. `docs/domain/PRICING_INVENTORY_DOMAIN.md`
-16. `docs/domain/ORDERS_DOMAIN.md`
-17. `docs/domain/DOCUMENTS_DOMAIN.md`
-18. `docs/domain/FINANCE_DOMAIN.md`
-19. `docs/domain/NOTIFICATIONS_DOMAIN.md`
-20. `docs/architecture/EVENT_FLOWS.md`
-21. `docs/architecture/BACKEND_ARCHITECTURE.md`
-22. `docs/architecture/FRONTEND_ARCHITECTURE.md`
-23. `docs/architecture/MODULE_COMMUNICATION.md`
-24. `docs/architecture/REPOSITORY_PATTERN.md`
-25. `docs/ROADMAP.md`
-26. `docs/DEVELOPMENT_RULES.md`
+11. `docs/architecture/CATALOG_READ_MODEL_DESIGN.md`
+12. `docs/architecture/INTEGRATION_ARCHITECTURE.md`
+13. `docs/domain/PARTNER_DOMAIN.md`
+14. `docs/domain/ACCESS_CONTROL_DOMAIN.md`
+15. `docs/domain/CATALOG_DOMAIN.md`
+16. `docs/domain/PRICING_INVENTORY_DOMAIN.md`
+17. `docs/domain/ORDERS_DOMAIN.md`
+18. `docs/domain/DOCUMENTS_DOMAIN.md`
+19. `docs/domain/FINANCE_DOMAIN.md`
+20. `docs/domain/NOTIFICATIONS_DOMAIN.md`
+21. `docs/architecture/EVENT_FLOWS.md`
+22. `docs/architecture/BACKEND_ARCHITECTURE.md`
+23. `docs/architecture/FRONTEND_ARCHITECTURE.md`
+24. `docs/architecture/MODULE_COMMUNICATION.md`
+25. `docs/architecture/REPOSITORY_PATTERN.md`
+26. `docs/ROADMAP.md`
+27. `docs/DEVELOPMENT_RULES.md`
 
 ## Business Domains
 
@@ -54,6 +55,7 @@ This index is the table of contents for the Novotech Partner Platform Architectu
 - `docs/architecture/ACCESS_CONTROL_REPOSITORY_DESIGN.md` - Access Control repository boundaries, proposed repositories, methods, query scoping, RLS assumptions, error handling, and service boundaries.
 - `docs/architecture/ACCESS_CONTROL_SERVICE_DESIGN.md` - Access Control service responsibilities, proposed services, methods, business rules, permission checks, state transitions, errors, and Server Action boundaries.
 - `docs/architecture/ONBOARDING_SERVER_ACTIONS_DESIGN.md` - First onboarding Server Actions slice for profile state, safe profile updates, partner access requests, own memberships, action boundaries, error mapping, and security rules.
+- `docs/architecture/CATALOG_READ_MODEL_DESIGN.md` - Catalog read-model ownership, conceptual tables, 1C ID strategy, access control, repository/service boundaries, UI scope, risks, and phased implementation plan.
 - `docs/architecture/PROJECT_PRINCIPLES.md` - Project constitution and decision rules.
 - `docs/architecture/MODULE_COMMUNICATION.md` - Module dependency direction, allowed communication, forbidden communication, event propagation, and admin/partner portal communication.
 
@@ -65,6 +67,7 @@ This index is the table of contents for the Novotech Partner Platform Architectu
 - `docs/architecture/ACCESS_CONTROL_REPOSITORY_DESIGN.md` - Repository-layer safety rules for user profiles, partner companies, memberships, roles, permissions, requests, invitations, RLS, and Service Role boundaries.
 - `docs/architecture/ACCESS_CONTROL_SERVICE_DESIGN.md` - Service-layer access enforcement, permission evaluation, state transitions, safe denial, and Server Action boundaries.
 - `docs/architecture/ONBOARDING_SERVER_ACTIONS_DESIGN.md` - Authenticated onboarding action rules, safe action result mapping, no Service Role, no admin workflow, no 1C calls, and no commercial data.
+- `docs/architecture/CATALOG_READ_MODEL_DESIGN.md` - Catalog-specific security boundaries, no prices/stock/commercial terms, visibility-ready structure, and access-safe read model rules.
 - `docs/domain/FINANCE_DOMAIN.md` - Finance visibility and sensitive data rules.
 - `docs/domain/DOCUMENTS_DOMAIN.md` - Document permission and download rules.
 - `docs/architecture/SECURITY_AND_DATABASE_ARCHITECTURE.md` - Security model, Supabase service-role rules, RLS principles, auth/identity principles, commercial data protection, and implementation gate.
@@ -78,6 +81,7 @@ No SQL schema or migration document exists yet.
 Related references:
 
 - `docs/architecture/ACCESS_CONTROL_DATABASE_DESIGN.md` - Defines the conceptual access-control database design before SQL, including tables, relationships, statuses, roles, permissions, RLS readiness, audit fields, and migration checklist.
+- `docs/architecture/CATALOG_READ_MODEL_DESIGN.md` - Defines the conceptual catalog read-model tables before SQL, including ownership, key fields, excluded commercial fields, RLS expectations, and implementation phases.
 - `docs/architecture/ACCESS_CONTROL_REPOSITORY_DESIGN.md` - Defines how future Access Control repositories should read and write access-control tables safely.
 - `docs/architecture/ACCESS_CONTROL_SERVICE_DESIGN.md` - Defines service-owned state transitions and repository usage rules that protect access-control persistence.
 - `docs/architecture/SECURITY_AND_DATABASE_ARCHITECTURE.md` - Defines database security principles, RLS expectations, ownership rules, external IDs, audit fields, soft delete guidance, and schema implementation gate.
@@ -90,6 +94,7 @@ Future schema documentation should be created before SQL implementation.
 ## Frontend
 
 - `docs/architecture/FRONTEND_ARCHITECTURE.md` - Pages, layouts, navigation, dashboards, component hierarchy, state management, loading, errors, permissions, and mobile compatibility.
+- `docs/architecture/CATALOG_READ_MODEL_DESIGN.md` - Defines future read-only catalog landing, category list, brand list, product list, and product detail placeholder scope.
 - `docs/architecture/EVENT_FLOWS.md` - User-facing and manager-facing flow expectations.
 - `docs/domain/*` - Domain-specific visibility and behavior rules that UI must respect.
 
@@ -102,12 +107,14 @@ Future schema documentation should be created before SQL implementation.
 - `docs/architecture/ACCESS_CONTROL_REPOSITORY_DESIGN.md` - Access Control repository design for persistence adapters, query scoping, RLS assumptions, errors, and service boundaries.
 - `docs/architecture/ACCESS_CONTROL_SERVICE_DESIGN.md` - Access Control service design for identity resolution, company context, permissions, access requests, invitations, state transitions, and safe errors.
 - `docs/architecture/ONBOARDING_SERVER_ACTIONS_DESIGN.md` - First onboarding Server Actions design for authenticated profile state, own access requests, own memberships, safe result shapes, and service-only boundaries.
+- `docs/architecture/CATALOG_READ_MODEL_DESIGN.md` - Catalog repository/service boundary design, DTO safety expectations, access control, and implementation phases.
 - `docs/architecture/REPOSITORY_PATTERN.md` - Repository, service, DTO, mapping, validation, caching, and testing rules.
 - `docs/architecture/MODULE_COMMUNICATION.md` - Dependency rules and service communication.
 
 ## Integration
 
 - `docs/architecture/INTEGRATION_ARCHITECTURE.md` - 1C integration philosophy, synchronized domains, read/write operations, sync strategy, cache strategy, failure handling, logging, monitoring, async future, and MVP limits.
+- `docs/architecture/CATALOG_READ_MODEL_DESIGN.md` - Catalog cache and future 1C sync boundary rules for product, category, brand, and image read models.
 - `docs/architecture/DATA_OWNERSHIP_MATRIX.md` - Defines which data can be read, cached, edited, and written to 1C.
 - `docs/architecture/EVENT_FLOWS.md` - Defines integration-related flows such as sync, order creation, reservation, status sync, and 1C outage.
 
@@ -127,6 +134,7 @@ Future schema documentation should be created before SQL implementation.
 - `docs/architecture/ACCESS_CONTROL_REPOSITORY_DESIGN.md` - Access Control repository implementation preparation before writing repository classes or methods.
 - `docs/architecture/ACCESS_CONTROL_SERVICE_DESIGN.md` - Access Control service implementation preparation before writing service classes, Server Actions, or domain integrations.
 - `docs/architecture/ONBOARDING_SERVER_ACTIONS_DESIGN.md` - Onboarding Server Actions implementation preparation before creating partner self-service actions or onboarding UI.
+- `docs/architecture/CATALOG_READ_MODEL_DESIGN.md` - Catalog read-model implementation preparation before SQL migrations, types, repositories, services, Server Actions, UI shell, or tests.
 - `docs/architecture/MODULE_COMMUNICATION.md` - Module wiring and dependency rules.
 - `docs/architecture/REPOSITORY_PATTERN.md` - Persistence and service implementation pattern.
 - `docs/architecture/EVENT_FLOWS.md` - Workflow implementation reference.
