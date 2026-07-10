@@ -26,7 +26,6 @@ export type ActiveCompanyContextDto = {
   };
   company: {
     id: string;
-    external1cId: string;
     displayName: string;
     status: PartnerCompany["status"];
   };
@@ -64,7 +63,6 @@ export async function getActiveCompanyContextAction(
       },
       company: {
         id: context.company.id,
-        external1cId: context.company.external1cId,
         displayName: context.company.displayName,
         status: context.company.status,
       },

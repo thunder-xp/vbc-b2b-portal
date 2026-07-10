@@ -71,6 +71,25 @@ export class SupabaseUserProfileRepository implements UserProfileRepository {
     return mapUserProfileRow(data as UserProfileRow);
   }
 
+  async activatePartnerProfile(userId: string): Promise<UserProfile> {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("user_profiles")
+      .update({
+        status: UserStatus.Active,
+        user_type: UserType.Partner,
+      })
+      .eq("id", userId)
+      .select(USER_PROFILE_COLUMNS)
+      .single();
+
+    if (error) {
+      throw new RepositoryUnexpectedError();
+    }
+
+    return mapUserProfileRow(data as UserProfileRow);
+  }
+
   async updateOwnSafeFields(
     userId: string,
     input: UpdateOwnSafeUserProfileFieldsInput,

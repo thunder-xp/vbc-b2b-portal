@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { type FormEvent, useState, useTransition } from "react";
 
 import { createProfileAction } from "../../actions/create-profile.action";
@@ -11,6 +12,7 @@ type ProfileFormProps = {
 };
 
 export function ProfileForm({ profile }: ProfileFormProps) {
+  const router = useRouter();
   const isNewProfile = !profile;
   const [fullName, setFullName] = useState(profile?.fullName ?? "");
   const [phone, setPhone] = useState(profile?.phone ?? "");
@@ -30,6 +32,11 @@ export function ProfileForm({ profile }: ProfileFormProps) {
         : await updateOwnProfileAction(payload);
 
       if (result.success) {
+        if (isNewProfile) {
+          router.replace("/onboarding/access-request");
+          return;
+        }
+
         setFullName(result.data.fullName ?? "");
         setPhone(result.data.phone ?? "");
         setMessage(result.message);

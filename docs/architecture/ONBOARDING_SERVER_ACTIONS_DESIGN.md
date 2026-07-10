@@ -313,7 +313,7 @@ Server Actions should map service domain errors to stable, user-safe action erro
 | `MembershipRequiredError` | `MEMBERSHIP_REQUIRED` | Active company membership is required. |
 | `PermissionRequiredError` | `PERMISSION_REQUIRED` | Required permission is missing. |
 | `OperationNotAvailableError` | `OPERATION_NOT_AVAILABLE` | The operation is not available yet. |
-| Other `AccessControlError` | `ACCESS_CONTROL_ERROR` | Access control failed safely. |
+| Other `AccessControlError` | `ACCESS_CONTROL_ERROR` | We could not submit your request. Please check your profile or contact Novotech support. |
 | Unknown error | `SYSTEM_ERROR` | Unexpected system failure. |
 
 Error responses must:

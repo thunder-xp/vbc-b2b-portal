@@ -49,6 +49,14 @@ class FakeUserProfileRepository implements UserProfileRepository {
     });
   }
 
+  async activatePartnerProfile(userId: string): Promise<UserProfile> {
+    return makeProfile({
+      id: userId,
+      status: UserStatus.Active,
+      userType: UserType.Partner,
+    });
+  }
+
   async updateOwnSafeFields(
     userId: string,
     input: UpdateOwnSafeUserProfileFieldsInput,

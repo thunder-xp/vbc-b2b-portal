@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -17,9 +17,16 @@ import { ProfileForm } from "../ProfileForm";
 
 const mocks = vi.hoisted(() => ({
   createProfileAction: vi.fn(),
+  routerReplace: vi.fn(),
   updateOwnProfileAction: vi.fn(),
   submitAccessRequestAction: vi.fn(),
   cancelOwnAccessRequestAction: vi.fn(),
+}));
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({
+    replace: mocks.routerReplace,
+  }),
 }));
 
 vi.mock("../../../actions/create-profile.action", () => ({
@@ -40,7 +47,7 @@ vi.mock("../../../actions/cancel-access-request.action", () => ({
 
 describe("ProfileForm", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
   });
 
   it("renders fullName and phone fields", () => {
@@ -71,7 +78,9 @@ describe("ProfileForm", () => {
       fullName: "New Partner",
       phone: "+359 8 888",
     });
-    expect(await screen.findByText("Profile created.")).toBeInTheDocument();
+    expect(mocks.routerReplace).toHaveBeenCalledWith(
+      "/onboarding/access-request",
+    );
   });
 
   it("submits safe profile fields only", async () => {
@@ -136,7 +145,7 @@ describe("ProfileForm", () => {
 
 describe("AccessRequestForm", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
   });
 
   it("renders partner-facing request fields without ERP reference input", () => {
@@ -176,7 +185,7 @@ describe("AccessRequestForm", () => {
     );
   });
 
-  it("displays success result", async () => {
+  it("redirects to waiting after successful submit", async () => {
     const user = userEvent.setup();
     mocks.submitAccessRequestAction.mockResolvedValue({
       success: true,
@@ -188,12 +197,12 @@ describe("AccessRequestForm", () => {
 
     await user.click(screen.getByRole("button", { name: "Submit request" }));
 
-    expect(
-      await screen.findByText("Access request submitted."),
-    ).toBeInTheDocument();
+    await waitFor(() => {
+      expect(mocks.routerReplace).toHaveBeenCalledWith("/onboarding/waiting");
+    });
   });
 
-  it("displays error result", async () => {
+  it("redirects duplicate pending request to waiting", async () => {
     const user = userEvent.setup();
     mocks.submitAccessRequestAction.mockResolvedValue({
       success: false,
@@ -205,15 +214,41 @@ describe("AccessRequestForm", () => {
 
     await user.click(screen.getByRole("button", { name: "Submit request" }));
 
+    await waitFor(() => {
+      expect(mocks.routerReplace).toHaveBeenCalledWith("/onboarding/waiting");
+    });
     expect(
-      await screen.findByText("A pending request already exists."),
+      screen.queryByText("A pending request already exists."),
+    ).not.toBeInTheDocument();
+  });
+
+  it("displays error result", async () => {
+    const user = userEvent.setup();
+    mocks.submitAccessRequestAction.mockResolvedValue({
+      success: false,
+      errorCode: "ACCESS_CONTROL_ERROR",
+      message:
+        "We could not submit your request. Please check your profile or contact Novotech support.",
+      data: null,
+    });
+    render(<AccessRequestForm />);
+
+    await user.click(screen.getByRole("button", { name: "Submit request" }));
+
+    expect(
+      await screen.findByText(
+        "We could not submit your request. Please check your profile or contact Novotech support.",
+      ),
     ).toBeInTheDocument();
+    await waitFor(() => {
+      expect(mocks.routerReplace).not.toHaveBeenCalled();
+    });
   });
 });
 
 describe("AccessRequestStatusList", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
   });
 
   it("renders existing requests", () => {
@@ -358,6 +393,7 @@ function makeAccessRequest(
     requestedFiscalCode: null,
     contactPhone: null,
     status: AccessRequestStatus.PendingReview,
+    decisionReason: null,
     createdAt: "2026-07-09T00:00:00.000Z",
     updatedAt: "2026-07-09T00:00:00.000Z",
     ...overrides,

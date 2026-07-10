@@ -31,7 +31,7 @@ export class DefaultAccessRequestService implements AccessRequestService {
   async submitAccessRequest(
     input: SubmitAccessRequestInput,
   ): Promise<AccessRequest> {
-    await this.ensureUserCanSubmitRequest(input.userId);
+    await this.ensureCanSubmitAccessRequest(input.userId);
 
     const duplicateRequest = await this.findPendingDuplicate(input);
 
@@ -42,7 +42,6 @@ export class DefaultAccessRequestService implements AccessRequestService {
     try {
       return await this.accessRequestRepository.create({
         userId: input.userId,
-        companyId: input.companyId,
         requestedCompanyName: input.requestedCompanyName,
         requestedFiscalCode: input.requestedFiscalCode,
         contactPhone: input.contactPhone,
@@ -87,8 +86,17 @@ export class DefaultAccessRequestService implements AccessRequestService {
     }
   }
 
-  private async ensureUserCanSubmitRequest(userId: string): Promise<void> {
+  private async ensureCanSubmitAccessRequest(userId: string): Promise<void> {
     const profile = await this.userProfileService.getCurrentProfile(userId);
+
+    console.info("[access-request-submit] service profile check", {
+      permission: "CanSubmitAccessRequest",
+      userId,
+      profileFound: Boolean(profile),
+      profileId: profile?.id ?? null,
+      profileBelongsToAuthUser: profile?.id === userId,
+      profileStatus: profile?.status ?? null,
+    });
 
     if (!profile) {
       throw new NotFoundError("User profile was not found.");
@@ -109,7 +117,6 @@ export class DefaultAccessRequestService implements AccessRequestService {
     try {
       return await this.accessRequestRepository.findPendingDuplicate({
         userId: input.userId,
-        companyId: input.companyId,
         requestedCompanyName: input.requestedCompanyName,
         requestedFiscalCode: input.requestedFiscalCode,
       });
@@ -136,10 +143,12 @@ export class DefaultAccessRequestService implements AccessRequestService {
 
   private mapRepositoryError(error: unknown): AccessControlError {
     if (error instanceof RepositoryOperationNotAvailableError) {
+      logAccessRequestServiceError("access_requests.repository_unavailable", error);
       return new OperationNotAvailableError(error.message);
     }
 
     if (error instanceof RepositoryUnexpectedError) {
+      logAccessRequestServiceError("access_requests.repository_unexpected", error);
       return new AccessControlError();
     }
 
@@ -149,4 +158,39 @@ export class DefaultAccessRequestService implements AccessRequestService {
 
     return new AccessControlError();
   }
+}
+
+function logAccessRequestServiceError(
+  operation: string,
+  error: RepositoryOperationNotAvailableError | RepositoryUnexpectedError,
+) {
+  const cause = error.cause;
+
+  console.error("[access-request-submit] service wrapping repository error", {
+    operation,
+    repositoryOperation:
+      error instanceof RepositoryUnexpectedError ? error.operation : undefined,
+    table: error instanceof RepositoryUnexpectedError ? error.table : undefined,
+    payloadKeys:
+      error instanceof RepositoryUnexpectedError ? error.payloadKeys ?? [] : [],
+    errorConstructor: error.constructor.name,
+    errorName: error.name,
+    errorMessage: error.message,
+    causeConstructor: cause instanceof Error ? cause.constructor.name : null,
+    causeName: cause instanceof Error ? cause.name : null,
+    causeCode: getErrorField(cause, "code"),
+    causeMessage: getErrorField(cause, "message"),
+    causeDetails: getErrorField(cause, "details"),
+    causeHint: getErrorField(cause, "hint"),
+    causeStack: cause instanceof Error ? cause.stack : null,
+    stack: error.stack,
+  });
+}
+
+function getErrorField(error: unknown, field: string): unknown {
+  if (!error || typeof error !== "object" || !(field in error)) {
+    return null;
+  }
+
+  return (error as Record<string, unknown>)[field];
 }

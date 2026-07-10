@@ -1,21 +1,21 @@
 "use client";
 
 import { type FormEvent, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 
 import { submitAccessRequestAction } from "../../actions/submit-access-request.action";
 
 export function AccessRequestForm() {
+  const router = useRouter();
   const [requestedCompanyName, setRequestedCompanyName] = useState("");
   const [requestedFiscalCode, setRequestedFiscalCode] = useState("");
   const [contactPhone, setContactPhone] = useState("");
   const [message, setMessage] = useState("");
-  const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setNotice(null);
     setError(null);
 
     startTransition(async () => {
@@ -27,11 +27,12 @@ export function AccessRequestForm() {
       });
 
       if (result.success) {
-        setNotice(result.message);
-        setRequestedCompanyName("");
-        setRequestedFiscalCode("");
-        setContactPhone("");
-        setMessage("");
+        router.replace("/onboarding/waiting");
+        return;
+      }
+
+      if (result.errorCode === "DUPLICATE_REQUEST") {
+        router.replace("/onboarding/waiting");
         return;
       }
 
@@ -95,11 +96,6 @@ export function AccessRequestForm() {
         </label>
       </div>
 
-      {notice && (
-        <p className="mt-4 rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-          {notice}
-        </p>
-      )}
       {error && (
         <p className="mt-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-800">
           {error}

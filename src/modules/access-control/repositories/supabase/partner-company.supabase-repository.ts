@@ -1,7 +1,12 @@
 import { createClient } from "@/src/lib/supabase/server";
 
-import type { PartnerCompanyRepository } from "../partner-company.repository";
+import type {
+  CreatePartnerCompanyInput,
+  PartnerCompanyRepository,
+  UpdatePartnerCompanyApprovalBindingInput,
+} from "../partner-company.repository";
 import type { PartnerCompany } from "../../types";
+import { CompanyStatus } from "../../types";
 import {
   mapPartnerCompanyRow,
   type PartnerCompanyRow,
@@ -9,7 +14,7 @@ import {
 import { RepositoryUnexpectedError } from "../index";
 
 const PARTNER_COMPANY_COLUMNS =
-  "id, external_1c_id, display_name, status, created_at, updated_at";
+  "id, external_1c_id, external_1c_contract_id, external_1c_price_type_id, display_name, status, created_at, updated_at";
 const COMPANY_MEMBERSHIP_COMPANY_COLUMNS = "company_id";
 
 interface CompanyMembershipCompanyIdRow {
@@ -80,5 +85,59 @@ export class SupabasePartnerCompanyRepository
     }
 
     return (data as PartnerCompanyRow[]).map(mapPartnerCompanyRow);
+  }
+
+  async create(input: CreatePartnerCompanyInput): Promise<PartnerCompany> {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("partner_companies")
+      .insert({
+        external_1c_id: input.external1cId,
+        external_1c_contract_id: input.external1cContractId ?? null,
+        external_1c_price_type_id: input.external1cPriceTypeId ?? null,
+        display_name: input.displayName,
+        status: CompanyStatus.Active,
+      })
+      .select(PARTNER_COMPANY_COLUMNS)
+      .single();
+
+    if (error) {
+      throw new RepositoryUnexpectedError();
+    }
+
+    return mapPartnerCompanyRow(data as PartnerCompanyRow);
+  }
+
+  async updateApprovalBinding(
+    input: UpdatePartnerCompanyApprovalBindingInput,
+  ): Promise<PartnerCompany> {
+    const supabase = await createClient();
+    const updatePayload: {
+      external_1c_contract_id: string;
+      external_1c_price_type_id: string;
+      display_name?: string;
+      status: CompanyStatus;
+    } = {
+      external_1c_contract_id: input.external1cContractId,
+      external_1c_price_type_id: input.external1cPriceTypeId,
+      status: CompanyStatus.Active,
+    };
+
+    if (input.displayName) {
+      updatePayload.display_name = input.displayName;
+    }
+
+    const { data, error } = await supabase
+      .from("partner_companies")
+      .update(updatePayload)
+      .eq("id", input.companyId)
+      .select(PARTNER_COMPANY_COLUMNS)
+      .single();
+
+    if (error) {
+      throw new RepositoryUnexpectedError();
+    }
+
+    return mapPartnerCompanyRow(data as PartnerCompanyRow);
   }
 }

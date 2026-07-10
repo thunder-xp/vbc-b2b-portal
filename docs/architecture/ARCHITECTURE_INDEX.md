@@ -15,26 +15,27 @@ This index is the table of contents for the Novotech Partner Platform Architectu
 9. `docs/architecture/ACCESS_CONTROL_SERVICE_DESIGN.md`
 10. `docs/architecture/ONBOARDING_SERVER_ACTIONS_DESIGN.md`
 11. `docs/architecture/FIRST_USER_EXPERIENCE_DESIGN.md`
-12. `docs/architecture/CATALOG_READ_MODEL_DESIGN.md`
-13. `docs/architecture/PRICING_INVENTORY_READ_MODEL_DESIGN.md`
-14. `docs/architecture/INTEGRATION_ARCHITECTURE.md`
-15. `docs/architecture/ONE_C_PROVIDER_DESIGN.md`
-16. `docs/architecture/SYNC_ENGINE_DESIGN.md`
-17. `docs/domain/PARTNER_DOMAIN.md`
-18. `docs/domain/ACCESS_CONTROL_DOMAIN.md`
-19. `docs/domain/CATALOG_DOMAIN.md`
-20. `docs/domain/PRICING_INVENTORY_DOMAIN.md`
-21. `docs/domain/ORDERS_DOMAIN.md`
-22. `docs/domain/DOCUMENTS_DOMAIN.md`
-23. `docs/domain/FINANCE_DOMAIN.md`
-24. `docs/domain/NOTIFICATIONS_DOMAIN.md`
-25. `docs/architecture/EVENT_FLOWS.md`
-26. `docs/architecture/BACKEND_ARCHITECTURE.md`
-27. `docs/architecture/FRONTEND_ARCHITECTURE.md`
-28. `docs/architecture/MODULE_COMMUNICATION.md`
-29. `docs/architecture/REPOSITORY_PATTERN.md`
-30. `docs/ROADMAP.md`
-31. `docs/DEVELOPMENT_RULES.md`
+12. `docs/architecture/INTERNAL_PARTNER_APPROVAL_CONSOLE_DESIGN.md`
+13. `docs/architecture/CATALOG_READ_MODEL_DESIGN.md`
+14. `docs/architecture/PRICING_INVENTORY_READ_MODEL_DESIGN.md`
+15. `docs/architecture/INTEGRATION_ARCHITECTURE.md`
+16. `docs/architecture/ONE_C_PROVIDER_DESIGN.md`
+17. `docs/architecture/SYNC_ENGINE_DESIGN.md`
+18. `docs/domain/PARTNER_DOMAIN.md`
+19. `docs/domain/ACCESS_CONTROL_DOMAIN.md`
+20. `docs/domain/CATALOG_DOMAIN.md`
+21. `docs/domain/PRICING_INVENTORY_DOMAIN.md`
+22. `docs/domain/ORDERS_DOMAIN.md`
+23. `docs/domain/DOCUMENTS_DOMAIN.md`
+24. `docs/domain/FINANCE_DOMAIN.md`
+25. `docs/domain/NOTIFICATIONS_DOMAIN.md`
+26. `docs/architecture/EVENT_FLOWS.md`
+27. `docs/architecture/BACKEND_ARCHITECTURE.md`
+28. `docs/architecture/FRONTEND_ARCHITECTURE.md`
+29. `docs/architecture/MODULE_COMMUNICATION.md`
+30. `docs/architecture/REPOSITORY_PATTERN.md`
+31. `docs/ROADMAP.md`
+32. `docs/DEVELOPMENT_RULES.md`
 
 ## Business Domains
 
@@ -60,6 +61,7 @@ This index is the table of contents for the Novotech Partner Platform Architectu
 - `docs/architecture/ACCESS_CONTROL_SERVICE_DESIGN.md` - Access Control service responsibilities, proposed services, methods, business rules, permission checks, state transitions, errors, and Server Action boundaries.
 - `docs/architecture/ONBOARDING_SERVER_ACTIONS_DESIGN.md` - First onboarding Server Actions slice for profile state, safe profile updates, partner access requests, own memberships, action boundaries, error mapping, and security rules.
 - `docs/architecture/FIRST_USER_EXPERIENCE_DESIGN.md` - Public landing, authentication flow, onboarding state machine, Partner Cabinet gating, header identity, adaptive navigation, and empty state rules.
+- `docs/architecture/INTERNAL_PARTNER_APPROVAL_CONSOLE_DESIGN.md` - Internal/admin approval console, 1C binding rules, company/membership activation flow, rejection flow, RLS/security rules, and future extensions.
 - `docs/architecture/CATALOG_READ_MODEL_DESIGN.md` - Catalog read-model ownership, conceptual tables, 1C ID strategy, access control, repository/service boundaries, UI scope, risks, and phased implementation plan.
 - `docs/architecture/PRICING_INVENTORY_READ_MODEL_DESIGN.md` - Pricing and inventory read-model ownership, visibility rules, manual price and stock sync flows, availability mapping, conceptual tables, RLS approach, repository/service/action/UI boundaries, risks, and implementation plan.
 - `docs/architecture/ONE_C_PROVIDER_DESIGN.md` - 1C provider adapter boundary, data ownership, supported read/write flows, mapping strategy, security risks, and implementation phases.
@@ -76,6 +78,7 @@ This index is the table of contents for the Novotech Partner Platform Architectu
 - `docs/architecture/ACCESS_CONTROL_SERVICE_DESIGN.md` - Service-layer access enforcement, permission evaluation, state transitions, safe denial, and Server Action boundaries.
 - `docs/architecture/ONBOARDING_SERVER_ACTIONS_DESIGN.md` - Authenticated onboarding action rules, safe action result mapping, no Service Role, no admin workflow, no 1C calls, and no commercial data.
 - `docs/architecture/FIRST_USER_EXPERIENCE_DESIGN.md` - First-user routing, self-profile creation constraints, company request boundaries, and private workspace state gating.
+- `docs/architecture/INTERNAL_PARTNER_APPROVAL_CONSOLE_DESIGN.md` - Internal/admin-only access request approval, 1C reference binding, partner self-approval prevention, and review RLS rules.
 - `docs/architecture/CATALOG_READ_MODEL_DESIGN.md` - Catalog-specific security boundaries, no prices/stock/commercial terms, visibility-ready structure, and access-safe read model rules.
 - `docs/architecture/PRICING_INVENTORY_READ_MODEL_DESIGN.md` - Price and stock visibility boundaries, company-scoped commercial access, no Service Role, no 1C UI calls, and no order/reservation workflows.
 - `docs/architecture/ONE_C_PROVIDER_DESIGN.md` - 1C adapter security boundaries, payload isolation, no direct UI/Supabase use, credential placeholder rules, and provider-specific risks.

@@ -4,9 +4,11 @@ import {
   SupabaseAccessRequestRepository,
   SupabaseCompanyMembershipRepository,
   SupabasePartnerCompanyRepository,
+  SupabaseRolePermissionRepository,
   SupabaseUserProfileRepository,
 } from "../repositories/supabase";
 import type {
+  AccessApprovalService,
   AccessRequestService,
   CompanyAccessService,
   UserProfileService,
@@ -14,6 +16,7 @@ import type {
 import { UnauthenticatedError } from "../services";
 import {
   DefaultAccessRequestService,
+  DefaultAccessApprovalService,
   DefaultCompanyAccessService,
   DefaultUserProfileService,
 } from "../services/implementations";
@@ -51,6 +54,16 @@ export function createAccessRequestService(): AccessRequestService {
   return new DefaultAccessRequestService(
     new SupabaseAccessRequestRepository(),
     createUserProfileService(),
+  );
+}
+
+export function createAccessApprovalService(): AccessApprovalService {
+  return new DefaultAccessApprovalService(
+    new SupabaseAccessRequestRepository(),
+    new SupabaseUserProfileRepository(),
+    new SupabasePartnerCompanyRepository(),
+    new SupabaseCompanyMembershipRepository(),
+    new SupabaseRolePermissionRepository(),
   );
 }
 

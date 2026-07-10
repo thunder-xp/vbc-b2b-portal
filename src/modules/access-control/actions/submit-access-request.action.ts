@@ -12,7 +12,6 @@ import {
 } from "./service-factory";
 
 export type SubmitAccessRequestActionInput = {
-  companyId?: string | null;
   requestedCompanyName?: string | null;
   requestedFiscalCode?: string | null;
   contactPhone?: string | null;
@@ -36,17 +35,34 @@ export async function submitAccessRequestAction(
 ): Promise<ActionResult<AccessRequestDto>> {
   try {
     const userId = await getAuthenticatedUserId();
-    const request = await createAccessRequestService().submitAccessRequest({
-      userId,
-      companyId: normalizeOptionalText(input.companyId),
+    const normalizedInput = {
       requestedCompanyName: normalizeOptionalText(input.requestedCompanyName),
       requestedFiscalCode: normalizeOptionalText(input.requestedFiscalCode),
       contactPhone: normalizeOptionalText(input.contactPhone),
       message: normalizeOptionalText(input.message),
+    };
+
+    console.info("[access-request-submit] action auth/input", {
+      hasAuthenticatedUserId: Boolean(userId),
+      userId,
+      requestedCompanyNamePresent: Boolean(normalizedInput.requestedCompanyName),
+      requestedFiscalCodePresent: Boolean(normalizedInput.requestedFiscalCode),
+      contactPhonePresent: Boolean(normalizedInput.contactPhone),
+      messagePresent: Boolean(normalizedInput.message),
+    });
+
+    const request = await createAccessRequestService().submitAccessRequest({
+      userId,
+      ...normalizedInput,
     });
 
     return success("Access request submitted.", toAccessRequestDto(request));
   } catch (error) {
+    console.error("[access-request-submit] action failed", {
+      errorName: error instanceof Error ? error.name : "Unknown",
+      errorMessage: error instanceof Error ? error.message : "Unknown error",
+    });
+
     return failureFromError(error);
   }
 }

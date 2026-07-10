@@ -72,7 +72,10 @@ export function failureFromError(error: unknown): FailedActionResult {
   }
 
   if (error instanceof AccessControlError) {
-    return failure("ACCESS_CONTROL_ERROR", "Access control failed safely.");
+    return failure(
+      "ACCESS_CONTROL_ERROR",
+      "We could not submit your request. Please check your profile or contact Novotech support.",
+    );
   }
 
   return failure("SYSTEM_ERROR", "Unexpected system failure.");

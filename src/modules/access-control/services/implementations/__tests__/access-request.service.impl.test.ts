@@ -19,6 +19,7 @@ import {
   DuplicateRequestError,
   ForbiddenError,
   InvalidStateError,
+  NotFoundError,
   OperationNotAvailableError,
 } from "../../errors";
 import { DefaultAccessRequestService } from "../access-request.service.impl";
@@ -42,6 +43,12 @@ class FakeAccessRequestRepository implements AccessRequestRepository {
     return this.requestsByUser;
   }
 
+  async findPendingReview(): Promise<AccessRequest[]> {
+    return this.requestsByUser.filter(
+      (request) => request.status === AccessRequestStatus.PendingReview,
+    );
+  }
+
   async findPendingDuplicate(
     input: FindPendingAccessRequestDuplicateInput,
   ): Promise<AccessRequest | null> {
@@ -58,7 +65,6 @@ class FakeAccessRequestRepository implements AccessRequestRepository {
 
     return makeAccessRequest({
       userId: input.userId,
-      companyId: input.companyId ?? null,
       requestedExternal1cId: input.requestedExternal1cId ?? null,
       requestedCompanyName: input.requestedCompanyName ?? null,
       requestedFiscalCode: input.requestedFiscalCode ?? null,
@@ -104,7 +110,7 @@ class FakeUserProfileService implements UserProfileService {
 }
 
 describe("DefaultAccessRequestService", () => {
-  it("submitAccessRequest succeeds for active user with no duplicate", async () => {
+  it("submitAccessRequest succeeds for user with profile and no company membership", async () => {
     const repository = new FakeAccessRequestRepository();
     const profileService = new FakeUserProfileService();
     const service = new DefaultAccessRequestService(repository, profileService);
@@ -120,13 +126,11 @@ describe("DefaultAccessRequestService", () => {
     expect(result.status).toBe(AccessRequestStatus.PendingReview);
     expect(repository.lastFindPendingDuplicateInput).toEqual({
       userId: "user-1",
-      companyId: undefined,
       requestedCompanyName: "Partner Company",
       requestedFiscalCode: "BG123456789",
     });
     expect(repository.lastCreateInput).toEqual({
       userId: "user-1",
-      companyId: undefined,
       requestedCompanyName: "Partner Company",
       requestedFiscalCode: "BG123456789",
       contactPhone: "+359 1 234",
@@ -155,7 +159,22 @@ describe("DefaultAccessRequestService", () => {
     expect(repository.lastCreateInput).toBeNull();
   });
 
-  it("submitAccessRequest does not approve, create company, create membership, or call 1C", async () => {
+  it("submitAccessRequest throws NotFoundError when own profile is missing", async () => {
+    const repository = new FakeAccessRequestRepository();
+    const profileService = new FakeUserProfileService();
+    profileService.profile = null;
+    const service = new DefaultAccessRequestService(repository, profileService);
+
+    await expect(
+      service.submitAccessRequest({
+        userId: "user-1",
+        requestedCompanyName: "Partner Company",
+      }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+    expect(repository.lastCreateInput).toBeNull();
+  });
+
+  it("submitAccessRequest does not accept company, approve, create membership, or call 1C", async () => {
     const repository = new FakeAccessRequestRepository();
     const service = new DefaultAccessRequestService(
       repository,
@@ -165,11 +184,16 @@ describe("DefaultAccessRequestService", () => {
     const result = await service.submitAccessRequest({
       userId: "user-1",
       companyId: "company-1",
+    } as never);
+
+    expect(repository.lastFindPendingDuplicateInput).toEqual({
+      userId: "user-1",
+      requestedCompanyName: undefined,
+      requestedFiscalCode: undefined,
     });
 
     expect(repository.lastCreateInput).toEqual({
       userId: "user-1",
-      companyId: "company-1",
       requestedCompanyName: undefined,
       requestedFiscalCode: undefined,
       contactPhone: undefined,
@@ -292,6 +316,7 @@ function makeAccessRequest(
     status: AccessRequestStatus.PendingReview,
     reviewedBy: null,
     reviewedAt: null,
+    decisionReason: null,
     createdAt: "2026-07-09T00:00:00.000Z",
     updatedAt: "2026-07-09T00:00:00.000Z",
     ...overrides,

@@ -81,6 +81,11 @@ export function AccessRequestStatusList({
                 {request.message && (
                   <p className="mt-2 text-sm text-zinc-500">{request.message}</p>
                 )}
+                {request.decisionReason && (
+                  <p className="mt-2 rounded-md bg-zinc-50 px-3 py-2 text-sm text-zinc-700">
+                    Review note: {request.decisionReason}
+                  </p>
+                )}
               </div>
               {request.status === AccessRequestStatus.PendingReview && (
                 <button

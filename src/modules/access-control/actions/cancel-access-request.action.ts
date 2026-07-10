@@ -24,6 +24,7 @@ export type CancelledAccessRequestDto = {
   contactPhone: string | null;
   message: string | null;
   status: AccessRequestStatus;
+  decisionReason: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -70,6 +71,7 @@ function toCancelledAccessRequestDto(
     contactPhone: request.contactPhone,
     message: request.message,
     status: request.status,
+    decisionReason: request.decisionReason,
     createdAt: request.createdAt,
     updatedAt: request.updatedAt,
   };

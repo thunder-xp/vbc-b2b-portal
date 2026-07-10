@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  AccessControlError,
   DuplicateRequestError,
   ForbiddenError,
   InvalidStateError,
@@ -207,7 +208,6 @@ describe("onboarding Server Actions", () => {
 
     expect(mocks.accessRequestService.submitAccessRequest).toHaveBeenCalledWith({
       userId: "user-1",
-      companyId: null,
       requestedCompanyName: "Partner Company",
       requestedFiscalCode: "BG123456789",
       contactPhone: "+359 1 234",
@@ -241,14 +241,44 @@ describe("onboarding Server Actions", () => {
     await submitAccessRequestAction({
       companyId: "company-1",
       requestedCompanyName: "Partner Company",
-    });
+    } as never);
 
     expect(mocks.accessRequestService.submitAccessRequest).toHaveBeenCalledOnce();
+    expect(mocks.accessRequestService.submitAccessRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: "user-1",
+      }),
+    );
+    expect(
+      mocks.accessRequestService.submitAccessRequest,
+    ).not.toHaveBeenCalledWith(expect.objectContaining({ companyId: "company-1" }));
     expect(mocks.accessRequestService.getOwnAccessRequests).not.toHaveBeenCalled();
     expect(
       mocks.accessRequestService.cancelOwnPendingRequest,
     ).not.toHaveBeenCalled();
     expect(mocks.companyAccessService.getOwnMemberships).not.toHaveBeenCalled();
+  });
+
+  it("submitAccessRequestAction ignores partner-supplied approval and ERP fields", async () => {
+    const request = makeAccessRequest();
+    mocks.accessRequestService.submitAccessRequest.mockResolvedValue(request);
+
+    await submitAccessRequestAction({
+      requestedCompanyName: "Partner Company",
+      status: AccessRequestStatus.Approved,
+      requestedExternal1cId: "PARTNER-1C",
+      external1cContractId: "CONTRACT-1C",
+      external1cPriceTypeId: "PRICE-TYPE-1C",
+      userId: "other-user",
+    } as never);
+
+    expect(mocks.accessRequestService.submitAccessRequest).toHaveBeenCalledWith({
+      userId: "user-1",
+      requestedCompanyName: "Partner Company",
+      requestedFiscalCode: null,
+      contactPhone: null,
+      message: null,
+    });
   });
 
   it("getOwnAccessRequestsAction returns own requests", async () => {
@@ -349,6 +379,7 @@ describe("failureFromError", () => {
       new OperationNotAvailableError("raw unavailable detail"),
       "OPERATION_NOT_AVAILABLE",
     ],
+    [new AccessControlError("raw access detail"), "ACCESS_CONTROL_ERROR"],
     [new Error("raw stack detail"), "SYSTEM_ERROR"],
   ])("maps %s safely", (error, errorCode) => {
     const result = failureFromError(error);
@@ -360,6 +391,18 @@ describe("failureFromError", () => {
     expect(result.message).not.toContain("stack");
     expect(result.message).not.toContain("Supabase");
     expect(result.message).not.toContain("repository");
+  });
+
+  it("maps generic access-control failures to request-specific support guidance", () => {
+    const result = failureFromError(new AccessControlError("raw RLS detail"));
+
+    expect(result).toEqual({
+      success: false,
+      errorCode: "ACCESS_CONTROL_ERROR",
+      message:
+        "We could not submit your request. Please check your profile or contact Novotech support.",
+      data: null,
+    });
   });
 });
 
@@ -392,6 +435,7 @@ function makeAccessRequest(
     status: AccessRequestStatus.PendingReview,
     reviewedBy: null,
     reviewedAt: null,
+    decisionReason: null,
     createdAt: "2026-07-09T00:00:00.000Z",
     updatedAt: "2026-07-09T00:00:00.000Z",
     ...overrides,

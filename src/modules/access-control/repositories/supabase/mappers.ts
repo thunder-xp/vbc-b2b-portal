@@ -30,6 +30,8 @@ export interface UserProfileRow {
 export interface PartnerCompanyRow {
   id: string;
   external_1c_id: string;
+  external_1c_contract_id: string | null;
+  external_1c_price_type_id: string | null;
   display_name: string;
   status: CompanyStatus;
   created_at: string;
@@ -73,7 +75,7 @@ export interface RolePermissionRow {
 
 export interface AccessRequestRow {
   id: string;
-  user_id: string;
+  user_profile_id: string;
   company_id: string | null;
   requested_external_1c_id: string | null;
   requested_company_name: string | null;
@@ -83,6 +85,7 @@ export interface AccessRequestRow {
   status: AccessRequestStatus;
   reviewed_by: string | null;
   reviewed_at: string | null;
+  decision_reason: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -118,6 +121,8 @@ export function mapPartnerCompanyRow(row: PartnerCompanyRow): PartnerCompany {
   return {
     id: row.id,
     external1cId: row.external_1c_id,
+    external1cContractId: row.external_1c_contract_id,
+    external1cPriceTypeId: row.external_1c_price_type_id,
     displayName: row.display_name,
     status: row.status,
     createdAt: row.created_at,
@@ -173,7 +178,7 @@ export function mapRolePermissionRow(row: RolePermissionRow): RolePermission {
 export function mapAccessRequestRow(row: AccessRequestRow): AccessRequest {
   return {
     id: row.id,
-    userId: row.user_id,
+    userId: row.user_profile_id,
     companyId: row.company_id,
     requestedExternal1cId: row.requested_external_1c_id,
     requestedCompanyName: row.requested_company_name,
@@ -183,6 +188,7 @@ export function mapAccessRequestRow(row: AccessRequestRow): AccessRequest {
     status: row.status,
     reviewedBy: row.reviewed_by,
     reviewedAt: row.reviewed_at,
+    decisionReason: row.decision_reason,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

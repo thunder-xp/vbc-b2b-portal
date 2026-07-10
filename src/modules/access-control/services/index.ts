@@ -1,3 +1,4 @@
+export * from "./access-approval.service";
 export * from "./access-request.service";
 export * from "./company-access.service";
 export * from "./errors";

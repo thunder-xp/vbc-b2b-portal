@@ -12,6 +12,10 @@ export default async function OnboardingProfilePage() {
     redirect("/auth/sign-in");
   }
 
+  if (profileResult.success && profileResult.data) {
+    redirect("/onboarding/access-request");
+  }
+
   return (
     <main className="min-h-screen bg-zinc-50 px-6 py-12 text-zinc-950">
       <div className="mx-auto grid w-full max-w-3xl gap-6">
@@ -28,20 +32,6 @@ export default async function OnboardingProfilePage() {
 
         {profileResult.success && !profileResult.data && (
           <ProfileForm profile={null} />
-        )}
-
-        {profileResult.success && profileResult.data && (
-          <>
-            <ProfileForm profile={profileResult.data} />
-            <OnboardingStateCard
-              message="After your profile is ready, submit or review your partner access request."
-              primaryHref="/onboarding/access-request"
-              primaryLabel="Request access"
-              secondaryHref="/onboarding/waiting"
-              secondaryLabel="View status"
-              title="Next step"
-            />
-          </>
         )}
       </div>
     </main>

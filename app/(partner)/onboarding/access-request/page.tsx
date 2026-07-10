@@ -1,11 +1,12 @@
 import { redirect } from "next/navigation";
 
 import { getCurrentProfileAction } from "@/src/modules/access-control/actions/current-profile.action";
+import { getOwnAccessRequestsAction } from "@/src/modules/access-control/actions/get-access-requests.action";
 import {
   AccessRequestForm,
   OnboardingStateCard,
 } from "@/src/modules/access-control/components/onboarding";
-import { UserStatus } from "@/src/modules/access-control/types";
+import { AccessRequestStatus, UserStatus } from "@/src/modules/access-control/types";
 
 export default async function OnboardingAccessRequestPage() {
   const profileResult = await getCurrentProfileAction();
@@ -23,6 +24,19 @@ export default async function OnboardingAccessRequestPage() {
     profileResult.data.status !== UserStatus.Revoked &&
     profileResult.data.status !== UserStatus.Rejected;
 
+  if (canRequestAccess) {
+    const requestsResult = await getOwnAccessRequestsAction();
+
+    if (
+      requestsResult.success &&
+      requestsResult.data.some(
+        (request) => request.status === AccessRequestStatus.PendingReview,
+      )
+    ) {
+      redirect("/onboarding/waiting");
+    }
+  }
+
   return (
     <main className="min-h-screen bg-zinc-50 px-6 py-12 text-zinc-950">
       <div className="mx-auto grid w-full max-w-3xl gap-6">
@@ -36,17 +50,7 @@ export default async function OnboardingAccessRequestPage() {
         )}
 
         {canRequestAccess && (
-          <>
-            <AccessRequestForm />
-            <OnboardingStateCard
-              message="Submitted requests stay pending until a Novotech manager reviews them."
-              primaryHref="/onboarding/waiting"
-              primaryLabel="View request status"
-              secondaryHref="/onboarding/profile"
-              secondaryLabel="Profile"
-              title="Waiting for approval"
-            />
-          </>
+          <AccessRequestForm />
         )}
       </div>
     </main>

@@ -23,10 +23,6 @@ export function CompanyCard({ context }: CompanyCardProps) {
 
       <dl className="mt-6 grid gap-4 text-sm sm:grid-cols-2">
         <div>
-          <dt className="font-medium text-zinc-500">External 1C id</dt>
-          <dd className="mt-1 text-zinc-950">{context.company.external1cId}</dd>
-        </div>
-        <div>
           <dt className="font-medium text-zinc-500">Membership role</dt>
           <dd className="mt-1 text-zinc-950">{context.membership.roleId}</dd>
         </div>

@@ -58,10 +58,25 @@ export class SupabaseCompanyMembershipRepository
   async create(
     input: CreateCompanyMembershipInput,
   ): Promise<CompanyMembership> {
-    void input;
-    throw new RepositoryOperationNotAvailableError(
-      "company_memberships.create",
-    );
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("company_memberships")
+      .insert({
+        user_id: input.userId,
+        company_id: input.companyId,
+        role_id: input.roleId,
+        status: input.status ?? MembershipStatus.PendingApproval,
+        approved_by: input.approvedBy ?? null,
+        approved_at: input.approvedAt ?? null,
+      })
+      .select(COMPANY_MEMBERSHIP_COLUMNS)
+      .single();
+
+    if (error) {
+      throw new RepositoryUnexpectedError();
+    }
+
+    return mapCompanyMembershipRow(data as CompanyMembershipRow);
   }
 
   async updateStatus(

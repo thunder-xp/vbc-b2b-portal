@@ -77,7 +77,6 @@ function makeCompanyContext(): ActiveCompanyContextDto {
   return {
     company: {
       id: "company-1",
-      external1cId: "C-100",
       displayName: "Partner Company",
       status: CompanyStatus.Active,
     },

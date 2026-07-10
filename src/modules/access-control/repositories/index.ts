@@ -13,8 +13,21 @@ export class RepositoryOperationNotAvailableError extends Error {
 }
 
 export class RepositoryUnexpectedError extends Error {
-  constructor() {
+  readonly operation?: string;
+  readonly table?: string;
+  readonly payloadKeys?: string[];
+
+  constructor(input: {
+    operation?: string;
+    table?: string;
+    payloadKeys?: string[];
+    cause?: unknown;
+  } = {}) {
     super("Access control repository operation failed.");
     this.name = "RepositoryUnexpectedError";
+    this.operation = input.operation;
+    this.table = input.table;
+    this.payloadKeys = input.payloadKeys;
+    this.cause = input.cause;
   }
 }

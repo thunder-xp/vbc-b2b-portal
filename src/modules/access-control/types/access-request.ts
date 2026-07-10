@@ -17,6 +17,7 @@ export interface AccessRequest {
   status: AccessRequestStatus;
   reviewedBy: string | null;
   reviewedAt: string | null;
+  decisionReason: string | null;
   createdAt: string;
   updatedAt: string;
 }

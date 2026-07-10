@@ -254,6 +254,14 @@ class FakePartnerCompanyRepository implements PartnerCompanyRepository {
   async findCompaniesForUser(): Promise<PartnerCompany[]> {
     return [];
   }
+
+  async create(): Promise<PartnerCompany> {
+    throw new Error("Not needed");
+  }
+
+  async updateApprovalBinding(): Promise<PartnerCompany> {
+    throw new Error("Not needed");
+  }
 }
 
 const now = "2026-07-09T00:00:00.000Z";
