@@ -53,12 +53,33 @@ Excluded:
 3. Internal/admin user opens approval console.
 4. Internal/admin user reviews submitted data.
 5. Internal/admin user validates real partner/contract/price type in 1C manually.
-6. Internal/admin user enters references into approval form.
-7. Service creates or updates portal partner company.
-8. Service creates active membership for requester.
-9. Service activates requester profile as partner.
-10. Service marks request `approved`.
-11. Partner can enter Partner Cabinet.
+6. Internal/admin user searches 1C and selects the existing partner record.
+7. The form automatically populates partner, contract, and price type references from the selected 1C result.
+8. Service creates or updates the portal partner company binding. This alone must not grant portal access.
+9. Service marks the access request `approved` with the company and 1C reference binding.
+10. Service creates or reuses one active membership for the requester and approved company.
+11. Service activates requester profile as partner.
+12. Partner can enter Partner Cabinet only when both conditions are true: the request is `approved` and an active membership exists.
+
+## Approval Ordering And Idempotency
+
+The current implementation does not use a database transaction or RPC. Until that exists, approval must use this strict ordering:
+
+1. Validate internal/admin reviewer.
+2. Trim and require 1C partner reference, contract reference, and price type reference.
+3. Load a `pending_review` request, or continue an already `approved` request as an idempotent retry.
+4. Create or reuse the portal company by 1C partner reference.
+5. Mark the request `approved` before creating active access.
+6. Create or reuse the active company membership.
+7. Activate the requester profile.
+
+Retry rules:
+
+- Repeating approval for the same already approved request must not create duplicate companies.
+- Repeating approval for the same already approved request must not create duplicate memberships.
+- If company creation succeeds but request approval fails, the company may remain, but no membership or active profile is created.
+- If request approval succeeds but membership/profile activation fails, retry resumes from the approved request and completes missing access.
+- Partner Cabinet access must check approved request plus active membership, not membership alone.
 
 ## Rejection Flow
 
@@ -78,7 +99,6 @@ Excluded:
 
 ## Future Extensions
 
-- Search 1C partner records from the admin console through Integration Layer.
 - Controlled contract picker.
 - Controlled price type picker.
 - Audit log entries for approvals/rejections.

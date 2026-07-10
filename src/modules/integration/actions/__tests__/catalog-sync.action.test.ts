@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { UserStatus, UserType } from "../../../access-control/types";
 import { UnauthenticatedError } from "../../../access-control/services";
@@ -9,8 +9,10 @@ const mocks = vi.hoisted(() => ({
   createUserProfileService: vi.fn(),
   ensureActiveUser: vi.fn(),
   createCatalogSyncEngine: vi.fn(),
+  createPartnerLookupService: vi.fn(),
   createPriceSyncEngine: vi.fn(),
   createStockSyncEngine: vi.fn(),
+  searchPartners: vi.fn(),
   syncCatalog: vi.fn(),
   syncPrices: vi.fn(),
   syncStock: vi.fn(),
@@ -27,15 +29,21 @@ vi.mock("../../../access-control/actions/service-factory", () => ({
 
 vi.mock("../../services", () => ({
   createCatalogSyncEngine: mocks.createCatalogSyncEngine,
+  createPartnerLookupService: mocks.createPartnerLookupService,
   createPriceSyncEngine: mocks.createPriceSyncEngine,
   createStockSyncEngine: mocks.createStockSyncEngine,
 }));
 
 import { syncCatalogFromOneCAction } from "../catalog-sync.action";
+import { searchOneCPartnersAction } from "../partner-search.action";
 import { syncPricesFromOneCAction } from "../price-sync.action";
 import { syncStockFromOneCAction } from "../stock-sync.action";
 
 describe("syncCatalogFromOneCAction", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.getAuthenticatedUserId.mockResolvedValue("user-1");
@@ -44,6 +52,9 @@ describe("syncCatalogFromOneCAction", () => {
     });
     mocks.createPriceSyncEngine.mockReturnValue({
       syncPrices: mocks.syncPrices,
+    });
+    mocks.createPartnerLookupService.mockReturnValue({
+      searchPartners: mocks.searchPartners,
     });
     mocks.createStockSyncEngine.mockReturnValue({
       syncStock: mocks.syncStock,
@@ -60,8 +71,14 @@ describe("syncCatalogFromOneCAction", () => {
       catalogCategoriesPath: "/catalog/categories",
       catalogBrandsPath: "/catalog/brands",
       catalogProductsPath: "/catalog/products",
+      productPricesPath: "/pricing/product-prices",
+      stockBalancesPath: "/inventory/stock-balances",
+      partnerSearchPath: "/partners/search",
       authMode: "none",
       useMockCatalog: true,
+      useMockPricing: true,
+      useMockInventory: true,
+      useMockPartners: true,
     });
     mocks.syncCatalog.mockResolvedValue({
       provider: "one-c",
@@ -111,6 +128,57 @@ describe("syncCatalogFromOneCAction", () => {
       failed: 0,
       errors: [],
       warnings: [],
+    });
+    mocks.searchPartners.mockResolvedValue({
+      items: [
+        {
+          reference: {
+            providerCode: "one-c",
+            externalId: "PARTNER-1",
+            externalType: "partner-company",
+          },
+          displayName: "Partner Company",
+          legalName: "Partner Company Ltd.",
+          taxId: "BG123456789",
+          status: "active",
+          managerReference: null,
+          contracts: [
+            {
+              reference: {
+                providerCode: "one-c",
+                externalId: "CONTRACT-1",
+                externalType: "partner-contract",
+              },
+              name: "Default contract",
+              active: true,
+              isDefault: true,
+            },
+          ],
+          priceTypes: [
+            {
+              reference: {
+                providerCode: "one-c",
+                externalId: "PRICE-1",
+                externalType: "price-type",
+              },
+              name: "Wholesale",
+              currency: "BGN",
+              active: true,
+              isDefault: true,
+            },
+          ],
+          metadata: {
+            sourceReference: {
+              providerCode: "one-c",
+              externalId: "PARTNER-1",
+              externalType: "partner-company",
+            },
+            sourceUpdatedAt: null,
+            importedAt: null,
+          },
+        },
+      ],
+      nextCursor: null,
     });
   });
 
@@ -230,6 +298,77 @@ describe("syncCatalogFromOneCAction", () => {
       },
     });
     expect(mocks.syncStock).toHaveBeenCalledOnce();
+  });
+
+  it("returns a safe partner search error when unauthenticated", async () => {
+    mocks.getAuthenticatedUserId.mockRejectedValue(new UnauthenticatedError());
+
+    await expect(
+      searchOneCPartnersAction({ query: "partner" }),
+    ).resolves.toMatchObject({
+      success: false,
+      errorCode: "AUTH_REQUIRED",
+    });
+    expect(mocks.searchPartners).not.toHaveBeenCalled();
+  });
+
+  it("rejects partner users from 1C partner search", async () => {
+    mocks.ensureActiveUser.mockResolvedValue(makeProfile(UserType.External));
+
+    await expect(
+      searchOneCPartnersAction({ query: "partner" }),
+    ).resolves.toMatchObject({
+      success: false,
+      errorCode: "FORBIDDEN",
+    });
+    expect(mocks.searchPartners).not.toHaveBeenCalled();
+  });
+
+  it("allows configured development test manager to search 1C partners", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("DEV_TEST_MODE", "true");
+    vi.stubEnv("DEV_TEST_MANAGER_EMAIL", "manager@example.com");
+    mocks.ensureActiveUser.mockResolvedValue({
+      ...makeProfile(UserType.External),
+      email: "manager@example.com",
+    });
+
+    const result = await searchOneCPartnersAction({ query: "partner" });
+
+    expect(result).toMatchObject({
+      success: true,
+      data: [{ external1cId: "PARTNER-1" }],
+    });
+    expect(mocks.searchPartners).toHaveBeenCalledOnce();
+  });
+
+  it("searches 1C partners for active internal admins", async () => {
+    const result = await searchOneCPartnersAction({ query: " BG123456789 " });
+
+    expect(result).toMatchObject({
+      success: true,
+      data: [
+        {
+          external1cId: "PARTNER-1",
+          contract: { external1cContractId: "CONTRACT-1" },
+          priceType: { external1cPriceTypeId: "PRICE-1" },
+        },
+      ],
+    });
+    expect(mocks.searchPartners).toHaveBeenCalledWith({
+      query: "BG123456789",
+      limit: 10,
+    });
+  });
+
+  it("validates short 1C partner search input before integration call", async () => {
+    const result = await searchOneCPartnersAction({ query: "x" });
+
+    expect(result).toMatchObject({
+      success: false,
+      errorCode: "INVALID_INPUT",
+    });
+    expect(mocks.searchPartners).not.toHaveBeenCalled();
   });
 });
 

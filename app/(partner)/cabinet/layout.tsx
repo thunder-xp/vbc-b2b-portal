@@ -25,14 +25,19 @@ export default async function CabinetLayout({
   }
 
   const membershipsResult = await getOwnMembershipsAction();
+  const requestsResult = await getOwnAccessRequestsAction();
   const activeMembership = membershipsResult.success
     ? membershipsResult.data.find(
         (membership) => membership.status === MembershipStatus.Active,
       )
     : null;
+  const hasApprovedRequest =
+    requestsResult.success &&
+    requestsResult.data.some(
+      (request) => request.status === AccessRequestStatus.Approved,
+    );
 
-  if (!activeMembership) {
-    const requestsResult = await getOwnAccessRequestsAction();
+  if (!activeMembership || !hasApprovedRequest) {
     const hasPendingRequest =
       requestsResult.success &&
       requestsResult.data.some(

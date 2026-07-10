@@ -4,11 +4,13 @@ import { IntegrationProviderNotImplementedError } from "../one-c-provider";
 import {
   DefaultOneCCatalogMapper,
   DefaultOneCInventoryMapper,
+  DefaultOneCPartnerMapper,
   DefaultOneCPricingMapper,
   OneCProvider,
 } from "../index";
 import type {
   OneCCatalogProductPayload,
+  OneCPartnerSearchPayload,
   OneCProductPricePayload,
   OneCStockBalancePayload,
 } from "../one-c-provider.types";
@@ -128,6 +130,61 @@ describe("1C catalog provider", () => {
       {
         nextCursor: null,
       },
+    );
+  });
+
+  it("maps 1C partner search payloads to neutral partner DTOs", () => {
+    const mapper = new DefaultOneCPartnerMapper();
+    const payload: OneCPartnerSearchPayload = {
+      reference: { ref: "PARTNER-1", type: "partner-company" },
+      displayName: "Security Partner",
+      legalName: "Security Partner Ltd.",
+      taxId: "BG123456789",
+      status: "active",
+      managerReference: null,
+      contracts: [
+        {
+          reference: { ref: "CONTRACT-1", type: "partner-contract" },
+          name: "Default contract",
+          active: true,
+          default: true,
+        },
+      ],
+      priceTypes: [
+        {
+          reference: { ref: "PRICE-1", type: "price-type" },
+          name: "Wholesale",
+          currency: "BGN",
+          active: true,
+          default: true,
+        },
+      ],
+      metadata: { sourceUpdatedAt: "2026-07-09T00:00:00.000Z" },
+    };
+
+    const dto = mapper.toSearchResultDTO(payload);
+
+    expect(dto.reference.externalId).toBe("PARTNER-1");
+    expect(dto.contracts[0]?.reference.externalId).toBe("CONTRACT-1");
+    expect(dto.priceTypes[0]?.reference.externalId).toBe("PRICE-1");
+  });
+
+  it("uses mock partner search without HTTP configuration", async () => {
+    const provider = new OneCProvider({ useMockPartners: true });
+
+    const result = await provider.partners.searchPartners({
+      query: "BG123456789",
+    });
+
+    expect(result.items[0]).toMatchObject({
+      displayName: "Novotech Demo Partner",
+      taxId: "BG123456789",
+    });
+    expect(result.items[0]?.contracts[0]?.reference.externalId).toBe(
+      "MOCK-CONTRACT-001",
+    );
+    expect(result.items[0]?.priceTypes[0]?.reference.externalId).toBe(
+      "MOCK-PRICE-TYPE-001",
     );
   });
 });

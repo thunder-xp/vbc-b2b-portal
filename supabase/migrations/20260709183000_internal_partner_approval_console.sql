@@ -72,9 +72,9 @@ create policy "Users can cancel own pending review access requests"
 on public.access_requests
 for update
 to authenticated
-using (user_id = auth.uid() and status = 'pending_review')
+using (user_profile_id = auth.uid() and status = 'pending_review')
 with check (
-  user_id = auth.uid()
+  user_profile_id = auth.uid()
   and status = 'cancelled'
   and company_id is null
   and requested_external_1c_id is null
@@ -83,11 +83,17 @@ with check (
   and decision_reason is null
 );
 
+drop policy if exists "Internal users can select user profiles for approval"
+on public.user_profiles;
+
 create policy "Internal users can select user profiles for approval"
 on public.user_profiles
 for select
 to authenticated
 using (public.can_review_access_requests());
+
+drop policy if exists "Internal users can update user profile approval state"
+on public.user_profiles;
 
 create policy "Internal users can update user profile approval state"
 on public.user_profiles
@@ -96,17 +102,26 @@ to authenticated
 using (public.can_review_access_requests())
 with check (public.can_review_access_requests());
 
+drop policy if exists "Internal users can select partner companies"
+on public.partner_companies;
+
 create policy "Internal users can select partner companies"
 on public.partner_companies
 for select
 to authenticated
 using (public.can_review_access_requests());
 
+drop policy if exists "Internal users can insert partner companies"
+on public.partner_companies;
+
 create policy "Internal users can insert partner companies"
 on public.partner_companies
 for insert
 to authenticated
 with check (public.can_review_access_requests());
+
+drop policy if exists "Internal users can update partner companies"
+on public.partner_companies;
 
 create policy "Internal users can update partner companies"
 on public.partner_companies
@@ -115,11 +130,17 @@ to authenticated
 using (public.can_review_access_requests())
 with check (public.can_review_access_requests());
 
+drop policy if exists "Internal users can select company memberships"
+on public.company_memberships;
+
 create policy "Internal users can select company memberships"
 on public.company_memberships
 for select
 to authenticated
 using (public.can_review_access_requests());
+
+drop policy if exists "Internal users can insert company memberships"
+on public.company_memberships;
 
 create policy "Internal users can insert company memberships"
 on public.company_memberships
@@ -127,11 +148,17 @@ for insert
 to authenticated
 with check (public.can_review_access_requests());
 
+drop policy if exists "Internal users can select access requests for review"
+on public.access_requests;
+
 create policy "Internal users can select access requests for review"
 on public.access_requests
 for select
 to authenticated
 using (public.can_review_access_requests());
+
+drop policy if exists "Internal users can review access requests"
+on public.access_requests;
 
 create policy "Internal users can review access requests"
 on public.access_requests

@@ -20,22 +20,23 @@ This index is the table of contents for the Novotech Partner Platform Architectu
 14. `docs/architecture/PRICING_INVENTORY_READ_MODEL_DESIGN.md`
 15. `docs/architecture/INTEGRATION_ARCHITECTURE.md`
 16. `docs/architecture/ONE_C_PROVIDER_DESIGN.md`
-17. `docs/architecture/SYNC_ENGINE_DESIGN.md`
-18. `docs/domain/PARTNER_DOMAIN.md`
-19. `docs/domain/ACCESS_CONTROL_DOMAIN.md`
-20. `docs/domain/CATALOG_DOMAIN.md`
-21. `docs/domain/PRICING_INVENTORY_DOMAIN.md`
-22. `docs/domain/ORDERS_DOMAIN.md`
-23. `docs/domain/DOCUMENTS_DOMAIN.md`
-24. `docs/domain/FINANCE_DOMAIN.md`
-25. `docs/domain/NOTIFICATIONS_DOMAIN.md`
-26. `docs/architecture/EVENT_FLOWS.md`
-27. `docs/architecture/BACKEND_ARCHITECTURE.md`
-28. `docs/architecture/FRONTEND_ARCHITECTURE.md`
-29. `docs/architecture/MODULE_COMMUNICATION.md`
-30. `docs/architecture/REPOSITORY_PATTERN.md`
-31. `docs/ROADMAP.md`
-32. `docs/DEVELOPMENT_RULES.md`
+17. `docs/architecture/ONE_C_PARTNER_SEARCH_BINDING_DESIGN.md`
+18. `docs/architecture/SYNC_ENGINE_DESIGN.md`
+19. `docs/domain/PARTNER_DOMAIN.md`
+20. `docs/domain/ACCESS_CONTROL_DOMAIN.md`
+21. `docs/domain/CATALOG_DOMAIN.md`
+22. `docs/domain/PRICING_INVENTORY_DOMAIN.md`
+23. `docs/domain/ORDERS_DOMAIN.md`
+24. `docs/domain/DOCUMENTS_DOMAIN.md`
+25. `docs/domain/FINANCE_DOMAIN.md`
+26. `docs/domain/NOTIFICATIONS_DOMAIN.md`
+27. `docs/architecture/EVENT_FLOWS.md`
+28. `docs/architecture/BACKEND_ARCHITECTURE.md`
+29. `docs/architecture/FRONTEND_ARCHITECTURE.md`
+30. `docs/architecture/MODULE_COMMUNICATION.md`
+31. `docs/architecture/REPOSITORY_PATTERN.md`
+32. `docs/ROADMAP.md`
+33. `docs/DEVELOPMENT_RULES.md`
 
 ## Business Domains
 
@@ -65,6 +66,7 @@ This index is the table of contents for the Novotech Partner Platform Architectu
 - `docs/architecture/CATALOG_READ_MODEL_DESIGN.md` - Catalog read-model ownership, conceptual tables, 1C ID strategy, access control, repository/service boundaries, UI scope, risks, and phased implementation plan.
 - `docs/architecture/PRICING_INVENTORY_READ_MODEL_DESIGN.md` - Pricing and inventory read-model ownership, visibility rules, manual price and stock sync flows, availability mapping, conceptual tables, RLS approach, repository/service/action/UI boundaries, risks, and implementation plan.
 - `docs/architecture/ONE_C_PROVIDER_DESIGN.md` - 1C provider adapter boundary, data ownership, supported read/write flows, mapping strategy, security risks, and implementation phases.
+- `docs/architecture/ONE_C_PARTNER_SEARCH_BINDING_DESIGN.md` - Internal/admin 1C partner search and approval binding flow, neutral provider contract, UI boundaries, and security rules.
 - `docs/architecture/SYNC_ENGINE_DESIGN.md` - Sync Engine responsibilities, read-model update boundaries, implemented manual catalog sync slice, catalog/pricing/inventory/partner/document flows, idempotency, errors, logging, trigger strategy, and implementation phases.
 - `docs/architecture/PROJECT_PRINCIPLES.md` - Project constitution and decision rules.
 - `docs/architecture/MODULE_COMMUNICATION.md` - Module dependency direction, allowed communication, forbidden communication, event propagation, and admin/partner portal communication.
@@ -82,6 +84,7 @@ This index is the table of contents for the Novotech Partner Platform Architectu
 - `docs/architecture/CATALOG_READ_MODEL_DESIGN.md` - Catalog-specific security boundaries, no prices/stock/commercial terms, visibility-ready structure, and access-safe read model rules.
 - `docs/architecture/PRICING_INVENTORY_READ_MODEL_DESIGN.md` - Price and stock visibility boundaries, company-scoped commercial access, no Service Role, no 1C UI calls, and no order/reservation workflows.
 - `docs/architecture/ONE_C_PROVIDER_DESIGN.md` - 1C adapter security boundaries, payload isolation, no direct UI/Supabase use, credential placeholder rules, and provider-specific risks.
+- `docs/architecture/ONE_C_PARTNER_SEARCH_BINDING_DESIGN.md` - Partner search authorization, selected-reference binding rules, no partner ERP editing, and no raw 1C payload leakage.
 - `docs/architecture/SYNC_ENGINE_DESIGN.md` - Sync security boundaries, no direct provider-to-database writes, no hidden workers, no service role in foundation, and safe logging rules.
 - `docs/domain/FINANCE_DOMAIN.md` - Finance visibility and sensitive data rules.
 - `docs/domain/DOCUMENTS_DOMAIN.md` - Document permission and download rules.
@@ -135,6 +138,7 @@ Future schema documentation should be created before SQL implementation.
 
 - `docs/architecture/INTEGRATION_ARCHITECTURE.md` - 1C integration philosophy, synchronized domains, read/write operations, sync strategy, cache strategy, failure handling, logging, monitoring, async future, and MVP limits.
 - `docs/architecture/ONE_C_PROVIDER_DESIGN.md` - Provider-specific 1C adapter design that keeps 1C payloads behind neutral integration contracts.
+- `docs/architecture/ONE_C_PARTNER_SEARCH_BINDING_DESIGN.md` - 1C partner lookup flow for internal approval, selected reference binding, and provider DTO boundaries.
 - `docs/architecture/SYNC_ENGINE_DESIGN.md` - Provider-neutral sync orchestration design for importing ERP data into portal read models without implementing runtime workers.
 - `docs/architecture/CATALOG_READ_MODEL_DESIGN.md` - Catalog cache and future 1C sync boundary rules for product, category, brand, and image read models.
 - `docs/architecture/PRICING_INVENTORY_READ_MODEL_DESIGN.md` - Price and stock cache boundaries, future 1C refresh rules, and source-of-truth constraints.
@@ -160,6 +164,7 @@ Future schema documentation should be created before SQL implementation.
 - `docs/architecture/CATALOG_READ_MODEL_DESIGN.md` - Catalog read-model implementation preparation before SQL migrations, types, repositories, services, Server Actions, UI shell, or tests.
 - `docs/architecture/PRICING_INVENTORY_READ_MODEL_DESIGN.md` - Pricing and inventory read-model implementation preparation before SQL migration, types, repositories, services, Server Actions, catalog UI integration, or tests.
 - `docs/architecture/ONE_C_PROVIDER_DESIGN.md` - 1C provider adapter implementation reference for provider-isolated transport, credentials, mappers, and manual catalog sync.
+- `docs/architecture/ONE_C_PARTNER_SEARCH_BINDING_DESIGN.md` - Partner approval search implementation reference for Server Actions, Integration Service, provider search, and UI binding.
 - `docs/architecture/SYNC_ENGINE_DESIGN.md` - Sync Engine implementation reference for catalog read-model updates, manual triggers, queues, workers, and scheduled synchronization.
 - `docs/architecture/MODULE_COMMUNICATION.md` - Module wiring and dependency rules.
 - `docs/architecture/REPOSITORY_PATTERN.md` - Persistence and service implementation pattern.

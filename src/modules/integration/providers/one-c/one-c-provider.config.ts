@@ -14,9 +14,11 @@ export type OneCProviderConfig = {
   catalogProductsPath: string;
   productPricesPath: string;
   stockBalancesPath: string;
+  partnerSearchPath: string;
   useMockCatalog: boolean;
   useMockPricing: boolean;
   useMockInventory: boolean;
+  useMockPartners: boolean;
 };
 
 export const ONE_C_PROVIDER_CODE = "one-c";

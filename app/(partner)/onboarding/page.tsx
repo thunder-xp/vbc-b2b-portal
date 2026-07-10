@@ -4,7 +4,11 @@ import { getCurrentProfileAction } from "@/src/modules/access-control/actions/cu
 import { getOwnAccessRequestsAction } from "@/src/modules/access-control/actions/get-access-requests.action";
 import { getOwnMembershipsAction } from "@/src/modules/access-control/actions/get-memberships.action";
 import { OnboardingStateCard } from "@/src/modules/access-control/components/onboarding";
-import { AccessRequestStatus, UserStatus } from "@/src/modules/access-control/types";
+import {
+  AccessRequestStatus,
+  MembershipStatus,
+  UserStatus,
+} from "@/src/modules/access-control/types";
 
 export default async function OnboardingPage() {
   const profileResult = await getCurrentProfileAction();
@@ -35,12 +39,22 @@ export default async function OnboardingPage() {
   }
 
   const membershipsResult = await getOwnMembershipsAction();
+  const requestsResult = await getOwnAccessRequestsAction();
 
-  if (membershipsResult.success && membershipsResult.data.length > 0) {
+  const hasActiveMembership =
+    membershipsResult.success &&
+    membershipsResult.data.some(
+      (membership) => membership.status === MembershipStatus.Active,
+    );
+  const hasApprovedRequest =
+    requestsResult.success &&
+    requestsResult.data.some(
+      (request) => request.status === AccessRequestStatus.Approved,
+    );
+
+  if (hasActiveMembership && hasApprovedRequest) {
     redirect("/cabinet");
   }
-
-  const requestsResult = await getOwnAccessRequestsAction();
 
   if (
     requestsResult.success &&

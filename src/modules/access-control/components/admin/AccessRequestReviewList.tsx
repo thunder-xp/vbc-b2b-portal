@@ -53,7 +53,7 @@ export function AccessRequestReviewList({
               </div>
               <Link
                 className="inline-flex h-9 items-center justify-center rounded-md bg-zinc-950 px-3 text-sm font-medium text-white hover:bg-zinc-800"
-                href={`/admin/access-requests/${request.id}`}
+                href={`/admin/partner-requests/${request.id}`}
               >
                 Review
               </Link>

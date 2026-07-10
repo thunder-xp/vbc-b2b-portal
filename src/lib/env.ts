@@ -19,10 +19,12 @@ export type OneCEnv = {
   catalogProductsPath: string;
   productPricesPath: string;
   stockBalancesPath: string;
+  partnerSearchPath: string;
   authMode: OneCAuthMode;
   useMockCatalog: boolean;
   useMockPricing: boolean;
   useMockInventory: boolean;
+  useMockPartners: boolean;
 };
 
 export type SupabaseEnvStatus = {
@@ -70,6 +72,7 @@ export function getOneCEnv(): OneCEnv {
   const explicitMock = process.env.ONEC_USE_MOCK_CATALOG === "true";
   const explicitPricingMock = process.env.ONEC_USE_MOCK_PRICING === "true";
   const explicitInventoryMock = process.env.ONEC_USE_MOCK_INVENTORY === "true";
+  const explicitPartnersMock = process.env.ONEC_USE_MOCK_PARTNERS === "true";
 
   return {
     baseUrl: process.env.ONEC_BASE_URL || null,
@@ -85,9 +88,11 @@ export function getOneCEnv(): OneCEnv {
       process.env.ONEC_PRODUCT_PRICES_PATH || "/pricing/product-prices",
     stockBalancesPath:
       process.env.ONEC_STOCK_BALANCES_PATH || "/inventory/stock-balances",
+    partnerSearchPath: process.env.ONEC_PARTNER_SEARCH_PATH || "/partners/search",
     authMode: apiToken ? "token" : username && password ? "basic" : "none",
     useMockCatalog: explicitMock || !process.env.ONEC_BASE_URL,
     useMockPricing: explicitPricingMock || !process.env.ONEC_BASE_URL,
     useMockInventory: explicitInventoryMock || !process.env.ONEC_BASE_URL,
+    useMockPartners: explicitPartnersMock || !process.env.ONEC_BASE_URL,
   };
 }

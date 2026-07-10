@@ -81,6 +81,26 @@ export type OneCPartnerCompanyPayload = {
   metadata: OneCMetadataPayload;
 };
 
+export type OneCPartnerContractPayload = {
+  reference: OneCReferencePayload;
+  name: string;
+  active: boolean;
+  default: boolean;
+};
+
+export type OneCPartnerPriceTypePayload = {
+  reference: OneCReferencePayload;
+  name: string;
+  currency: string | null;
+  active: boolean;
+  default: boolean;
+};
+
+export type OneCPartnerSearchPayload = OneCPartnerCompanyPayload & {
+  contracts: OneCPartnerContractPayload[];
+  priceTypes: OneCPartnerPriceTypePayload[];
+};
+
 export type OneCSalesOrderItemPayload = {
   productReference: OneCReferencePayload;
   sku: string;

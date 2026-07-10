@@ -4,7 +4,7 @@
 
 This document defines the adapter boundary for connecting the Novotech Partner Platform Integration Platform to 1C in a future implementation.
 
-The goal is to design the provider shape before writing real integration logic. The first implementation adds a controlled provider transport path for manual catalog import only. This document still does not approve scheduled jobs, queues, broad synchronization execution, direct database writes from the provider, or direct 1C usage from business modules.
+The goal is to design the provider shape before writing real integration logic. The first implementations add controlled provider transport paths for manual catalog/pricing/inventory import and internal partner search. This document still does not approve scheduled jobs, queues, broad synchronization execution, direct database writes from the provider, or direct 1C usage from business modules.
 
 ## 1C as Provider Implementation
 
@@ -46,7 +46,13 @@ The portal may cache selected data as read models, but cache ownership does not 
 
 ### Partners
 
-The provider may later read partner company master references from 1C and map them to `PartnerCompanyDTO`.
+The implemented partner search flow reads partner company master references from 1C and maps them to neutral partner search DTOs. Search supports company name, fiscal code/VAT/IDNO, and 1C reference through a provider-normalized query.
+
+Partner search results may include available contracts and price types so an internal/admin manager can select a 1C partner and let the portal automatically bind:
+
+- partner reference
+- contract reference
+- price type reference
 
 The provider must not create portal memberships, roles, access profiles, or portal partner status. Those remain portal-owned access-control data.
 
@@ -122,8 +128,8 @@ Provider configuration supports:
 
 - Static API token stored only in server-side environment variables.
 - Basic authentication values stored only in server-side environment variables.
-- Per-environment endpoint paths for catalog categories, brands, and products.
-- Mock catalog mode for local validation when no 1C endpoint is configured.
+- Per-environment endpoint paths for catalog categories, brands, products, pricing, inventory, and partner search.
+- Mock catalog/pricing/inventory/partner mode for local validation when no 1C endpoint is configured.
 
 Provider code receives already-resolved configuration from a trusted server-side factory. Provider code must not import `.env` helpers directly.
 
@@ -138,15 +144,19 @@ Current server-only environment names:
 - `ONEC_CATALOG_PRODUCTS_PATH`
 - `ONEC_PRODUCT_PRICES_PATH`
 - `ONEC_STOCK_BALANCES_PATH`
+- `ONEC_PARTNER_SEARCH_PATH`
 - `ONEC_USE_MOCK_CATALOG`
 - `ONEC_USE_MOCK_PRICING`
 - `ONEC_USE_MOCK_INVENTORY`
+- `ONEC_USE_MOCK_PARTNERS`
 
 If no `ONEC_BASE_URL` is configured, catalog provider mock mode is enabled by default so the manual sync path can be validated without calling 1C. Mock mode imports only safe non-commercial catalog identity data and must be disabled for real production synchronization.
 
 Price mock mode follows the same rule. It imports safe sample price snapshots for already imported mock catalog references and must be disabled for production price synchronization.
 
 Inventory mock mode follows the same rule. It imports safe sample stock snapshots for already imported mock catalog references and must be disabled for production stock synchronization.
+
+Partner mock mode follows the same rule. It returns safe sample partner, contract, and price type references for approval-console validation and must be disabled for production 1C partner binding.
 
 ## Error Handling Strategy
 
@@ -182,6 +192,7 @@ All 1C payloads must stay inside `src/modules/integration/providers/one-c/`.
 Mapping rules:
 
 - 1C product payloads map to catalog DTOs.
+- 1C partner search payloads map to neutral partner search DTOs with contract and price type references.
 - 1C price payloads map to pricing DTOs.
 - 1C stock payloads map to inventory DTOs.
 - 1C partner payloads map to partner DTOs.

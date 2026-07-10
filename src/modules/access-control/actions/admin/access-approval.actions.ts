@@ -108,6 +108,8 @@ export async function approveAccessRequestAction(
 
     revalidatePath("/admin/access-requests");
     revalidatePath(`/admin/access-requests/${requestId}`);
+    revalidatePath("/admin/partner-requests");
+    revalidatePath(`/admin/partner-requests/${requestId}`);
     revalidatePath("/onboarding/waiting");
     revalidatePath("/cabinet");
 
@@ -147,6 +149,8 @@ export async function rejectAccessRequestAction(
 
     revalidatePath("/admin/access-requests");
     revalidatePath(`/admin/access-requests/${requestId}`);
+    revalidatePath("/admin/partner-requests");
+    revalidatePath(`/admin/partner-requests/${requestId}`);
     revalidatePath("/onboarding/waiting");
 
     return success("Access request rejected.", {

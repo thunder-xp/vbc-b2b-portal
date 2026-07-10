@@ -13,7 +13,6 @@ import {
   AccessRequestStatus,
   MembershipStatus,
   UserStatus,
-  UserType,
   type AccessRequest,
   type UserProfile,
 } from "../../types";
@@ -31,6 +30,7 @@ import {
   NotFoundError,
   OperationNotAvailableError,
 } from "../errors";
+import { canApprovePartnerRequests } from "../internal-authorization";
 
 const PARTNER_OWNER_ROLE_CODE = "partner_owner";
 
@@ -79,10 +79,16 @@ export class DefaultAccessApprovalService implements AccessApprovalService {
     input: ApproveAccessRequestInput,
   ): Promise<ApprovedAccessRequestResult> {
     await this.ensureInternalReviewer(input.actorUserId);
+    const approvalBinding = this.normalizeApprovalBinding(input);
     const request = await this.findRequest(input.requestId);
 
-    if (request.status !== AccessRequestStatus.PendingReview) {
-      throw new InvalidStateError("Only pending review requests can be approved.");
+    if (
+      request.status !== AccessRequestStatus.PendingReview &&
+      request.status !== AccessRequestStatus.Approved
+    ) {
+      throw new InvalidStateError(
+        "Only pending or approved requests can continue approval.",
+      );
     }
 
     const requester = await this.findRequester(request.userId);
@@ -99,13 +105,29 @@ export class DefaultAccessApprovalService implements AccessApprovalService {
       throw new NotFoundError("Partner owner role was not found.");
     }
 
-    const company = await this.findOrCreateApprovedCompany({
-      external1cId: input.external1cId,
-      external1cContractId: input.external1cContractId,
-      external1cPriceTypeId: input.external1cPriceTypeId,
-      displayName: request.requestedCompanyName ?? input.external1cId,
-    });
+    const company =
+      request.status === AccessRequestStatus.Approved
+        ? await this.findApprovedRequestCompany(request, approvalBinding.external1cId)
+        : await this.findOrCreateApprovedCompany({
+            external1cId: approvalBinding.external1cId,
+            external1cContractId: approvalBinding.external1cContractId,
+            external1cPriceTypeId: approvalBinding.external1cPriceTypeId,
+            displayName:
+              request.requestedCompanyName ?? approvalBinding.external1cId,
+          });
     const reviewedAt = new Date().toISOString();
+    const approvedRequest =
+      request.status === AccessRequestStatus.Approved
+        ? request
+        : await this.accessRequestRepository.updateStatus({
+            id: request.id,
+            status: AccessRequestStatus.Approved,
+            companyId: company.id,
+            requestedExternal1cId: approvalBinding.external1cId,
+            reviewedBy: input.actorUserId,
+            reviewedAt,
+            decisionReason: approvalBinding.decisionReason,
+          });
 
     const activeMembership =
       await this.companyMembershipRepository.findActiveMembership(
@@ -125,15 +147,6 @@ export class DefaultAccessApprovalService implements AccessApprovalService {
 
     const activatedRequester =
       await this.userProfileRepository.activatePartnerProfile(request.userId);
-    const approvedRequest = await this.accessRequestRepository.updateStatus({
-      id: request.id,
-      status: AccessRequestStatus.Approved,
-      companyId: company.id,
-      requestedExternal1cId: input.external1cId,
-      reviewedBy: input.actorUserId,
-      reviewedAt,
-      decisionReason: input.decisionReason ?? null,
-    });
 
     return {
       request: approvedRequest,
@@ -147,6 +160,7 @@ export class DefaultAccessApprovalService implements AccessApprovalService {
     input: RejectAccessRequestInput,
   ): Promise<AccessRequest> {
     await this.ensureInternalReviewer(input.actorUserId);
+    this.ensureRejectionReason(input.reason);
     const request = await this.findRequest(input.requestId);
 
     if (request.status !== AccessRequestStatus.PendingReview) {
@@ -173,14 +187,45 @@ export class DefaultAccessApprovalService implements AccessApprovalService {
       throw new NotFoundError("Reviewer profile was not found.");
     }
 
-    if (
-      profile.status !== UserStatus.Active ||
-      (profile.userType !== UserType.Internal && profile.userType !== UserType.Admin)
-    ) {
+    if (!canApprovePartnerRequests(profile)) {
       throw new ForbiddenError("Internal approval access is required.");
     }
 
     return profile;
+  }
+
+  private normalizeApprovalBinding(input: ApproveAccessRequestInput): {
+    external1cId: string;
+    external1cContractId: string;
+    external1cPriceTypeId: string;
+    decisionReason: string | null;
+  } {
+    const external1cId = input.external1cId.trim();
+    const external1cContractId = input.external1cContractId.trim();
+    const external1cPriceTypeId = input.external1cPriceTypeId.trim();
+
+    if (
+      external1cId.length === 0 ||
+      external1cContractId.length === 0 ||
+      external1cPriceTypeId.length === 0
+    ) {
+      throw new InvalidStateError(
+        "1C partner, contract, and price type references are required.",
+      );
+    }
+
+    return {
+      external1cId,
+      external1cContractId,
+      external1cPriceTypeId,
+      decisionReason: input.decisionReason?.trim() || null,
+    };
+  }
+
+  private ensureRejectionReason(reason: string): void {
+    if (reason.trim().length === 0) {
+      throw new InvalidStateError("Rejection reason is required.");
+    }
   }
 
   private async findRequest(requestId: string): Promise<AccessRequest> {
@@ -237,6 +282,40 @@ export class DefaultAccessApprovalService implements AccessApprovalService {
     } catch (error) {
       throw this.mapRepositoryError(error);
     }
+  }
+
+  private async findApprovedRequestCompany(
+    request: AccessRequest,
+    external1cId: string,
+  ) {
+    if (request.companyId) {
+      try {
+        const company = await this.partnerCompanyRepository.findById(
+          request.companyId,
+        );
+
+        if (company) {
+          return company;
+        }
+      } catch (error) {
+        throw this.mapRepositoryError(error);
+      }
+    }
+
+    try {
+      const company =
+        await this.partnerCompanyRepository.findByExternal1cId(external1cId);
+
+      if (company) {
+        return company;
+      }
+    } catch (error) {
+      throw this.mapRepositoryError(error);
+    }
+
+    throw new InvalidStateError(
+      "Approved access request is missing company binding.",
+    );
   }
 
   private mapRepositoryError(error: unknown): AccessControlError {

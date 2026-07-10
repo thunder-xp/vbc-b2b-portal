@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type {
   AccessRequestRepository,
@@ -30,6 +30,10 @@ import { ForbiddenError, InvalidStateError } from "../../errors";
 import { DefaultAccessApprovalService } from "../access-approval.service.impl";
 
 describe("DefaultAccessApprovalService", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it("blocks partner users from approval console operations", async () => {
     const fixtures = makeFixtures({
       reviewer: makeUserProfile({
@@ -45,7 +49,45 @@ describe("DefaultAccessApprovalService", () => {
     ).rejects.toBeInstanceOf(ForbiddenError);
   });
 
-  it("approves a pending request by binding 1C references and creating active access", async () => {
+  it("allows active internal manager users to access approval console", async () => {
+    const fixtures = makeFixtures({
+      reviewer: makeUserProfile({
+        id: "reviewer-1",
+        email: "manager@novotech.local",
+        status: UserStatus.Active,
+        userType: UserType.Internal,
+      }),
+    });
+    const service = makeService(fixtures);
+
+    await expect(
+      service.listPendingReviewRequests("reviewer-1"),
+    ).resolves.toHaveLength(1);
+  });
+
+  it("allows configured development test manager without changing stored role", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("DEV_TEST_MODE", "true");
+    vi.stubEnv("DEV_TEST_MANAGER_EMAIL", "manager@example.com");
+    const fixtures = makeFixtures({
+      reviewer: makeUserProfile({
+        id: "reviewer-1",
+        email: "manager@example.com",
+        status: UserStatus.Active,
+        userType: UserType.External,
+      }),
+    });
+    const service = makeService(fixtures);
+
+    const result = await service.listPendingReviewRequests("reviewer-1");
+
+    expect(result).toHaveLength(1);
+    expect(fixtures.userProfileRepository.profiles["reviewer-1"]?.userType).toBe(
+      UserType.External,
+    );
+  });
+
+  it("approves request before creating active access", async () => {
     const fixtures = makeFixtures();
     const service = makeService(fixtures);
 
@@ -64,14 +106,6 @@ describe("DefaultAccessApprovalService", () => {
       external1cPriceTypeId: "PRICE-TYPE-1C",
       displayName: "Partner Company",
     });
-    expect(fixtures.companyMembershipRepository.lastCreateInput).toMatchObject({
-      userId: "partner-1",
-      companyId: "company-1",
-      roleId: "role-partner-owner",
-      status: MembershipStatus.Active,
-      approvedBy: "reviewer-1",
-    });
-    expect(fixtures.userProfileRepository.activatedUserId).toBe("partner-1");
     expect(fixtures.accessRequestRepository.lastUpdateInput).toMatchObject({
       id: "request-1",
       status: AccessRequestStatus.Approved,
@@ -80,6 +114,21 @@ describe("DefaultAccessApprovalService", () => {
       reviewedBy: "reviewer-1",
       decisionReason: "Validated in 1C.",
     });
+    expect(fixtures.accessRequestRepository.updateCalls).toBe(1);
+    expect(fixtures.accessRequestRepository.updateCalls).toBeLessThan(
+      fixtures.companyMembershipRepository.createCallOrder ?? Number.POSITIVE_INFINITY,
+    );
+    expect(fixtures.accessRequestRepository.updateCalls).toBeLessThan(
+      fixtures.userProfileRepository.activateCallOrder ?? Number.POSITIVE_INFINITY,
+    );
+    expect(fixtures.companyMembershipRepository.lastCreateInput).toMatchObject({
+      userId: "partner-1",
+      companyId: "company-1",
+      roleId: "role-partner-owner",
+      status: MembershipStatus.Active,
+      approvedBy: "reviewer-1",
+    });
+    expect(fixtures.userProfileRepository.activatedUserId).toBe("partner-1");
     expect(result.request.status).toBe(AccessRequestStatus.Approved);
     expect(result.membership.status).toBe(MembershipStatus.Active);
     expect(result.requester.status).toBe(UserStatus.Active);
@@ -106,9 +155,9 @@ describe("DefaultAccessApprovalService", () => {
     expect(result.status).toBe(AccessRequestStatus.Rejected);
   });
 
-  it("does not approve non-pending-review requests", async () => {
+  it("does not approve rejected requests", async () => {
     const fixtures = makeFixtures({
-      request: makeAccessRequest({ status: AccessRequestStatus.Approved }),
+      request: makeAccessRequest({ status: AccessRequestStatus.Rejected }),
     });
     const service = makeService(fixtures);
 
@@ -122,6 +171,226 @@ describe("DefaultAccessApprovalService", () => {
       }),
     ).rejects.toBeInstanceOf(InvalidStateError);
     expect(fixtures.companyMembershipRepository.lastCreateInput).toBeNull();
+  });
+
+  it("requires non-whitespace 1C partner, contract, and price type references on approval", async () => {
+    const fixtures = makeFixtures();
+    const service = makeService(fixtures);
+
+    await expect(
+      service.approveAccessRequest({
+        actorUserId: "reviewer-1",
+        requestId: "request-1",
+        external1cId: " ",
+        external1cContractId: "CONTRACT-1C",
+        external1cPriceTypeId: "PRICE-TYPE-1C",
+      }),
+    ).rejects.toBeInstanceOf(InvalidStateError);
+    expect(fixtures.partnerCompanyRepository.lastCreateInput).toBeNull();
+  });
+
+  it("trims internal references before storing approval binding", async () => {
+    const fixtures = makeFixtures();
+    const service = makeService(fixtures);
+
+    await service.approveAccessRequest({
+      actorUserId: "reviewer-1",
+      requestId: "request-1",
+      external1cId: " PARTNER-1C ",
+      external1cContractId: " CONTRACT-1C ",
+      external1cPriceTypeId: " PRICE-TYPE-1C ",
+      decisionReason: " Approved ",
+    });
+
+    expect(fixtures.partnerCompanyRepository.lastCreateInput).toMatchObject({
+      external1cId: "PARTNER-1C",
+      external1cContractId: "CONTRACT-1C",
+      external1cPriceTypeId: "PRICE-TYPE-1C",
+    });
+    expect(fixtures.accessRequestRepository.lastUpdateInput).toMatchObject({
+      requestedExternal1cId: "PARTNER-1C",
+      decisionReason: "Approved",
+    });
+  });
+
+  it("requires rejection reason", async () => {
+    const fixtures = makeFixtures();
+    const service = makeService(fixtures);
+
+    await expect(
+      service.rejectAccessRequest({
+        actorUserId: "reviewer-1",
+        requestId: "request-1",
+        reason: " ",
+      }),
+    ).rejects.toBeInstanceOf(InvalidStateError);
+    expect(fixtures.accessRequestRepository.lastUpdateInput).toBeNull();
+  });
+
+  it("reuses existing company by 1C reference and does not create duplicate company", async () => {
+    const existingCompany = makePartnerCompany({
+      id: "existing-company",
+      external1cId: "PARTNER-1C",
+    });
+    const fixtures = makeFixtures({ existingCompany });
+    const service = makeService(fixtures);
+
+    const result = await service.approveAccessRequest({
+      actorUserId: "reviewer-1",
+      requestId: "request-1",
+      external1cId: "PARTNER-1C",
+      external1cContractId: "CONTRACT-NEW",
+      external1cPriceTypeId: "PRICE-NEW",
+    });
+
+    expect(fixtures.partnerCompanyRepository.lastCreateInput).toBeNull();
+    expect(fixtures.partnerCompanyRepository.lastUpdateBindingInput).toEqual({
+      companyId: "existing-company",
+      external1cContractId: "CONTRACT-NEW",
+      external1cPriceTypeId: "PRICE-NEW",
+      displayName: "Partner Company",
+    });
+    expect(result.company.id).toBe("existing-company");
+  });
+
+  it("does not create duplicate active membership", async () => {
+    const existingMembership = makeCompanyMembership({
+      id: "existing-membership",
+      userId: "partner-1",
+      companyId: "company-1",
+      status: MembershipStatus.Active,
+    });
+    const fixtures = makeFixtures({ existingMembership });
+    const service = makeService(fixtures);
+
+    const result = await service.approveAccessRequest({
+      actorUserId: "reviewer-1",
+      requestId: "request-1",
+      external1cId: "PARTNER-1C",
+      external1cContractId: "CONTRACT-1C",
+      external1cPriceTypeId: "PRICE-TYPE-1C",
+    });
+
+    expect(fixtures.companyMembershipRepository.lastCreateInput).toBeNull();
+    expect(result.membership.id).toBe("existing-membership");
+  });
+
+  it("approval retry does not duplicate company or membership", async () => {
+    const existingCompany = makePartnerCompany({
+      id: "company-1",
+      external1cId: "PARTNER-1C",
+    });
+    const existingMembership = makeCompanyMembership({
+      id: "membership-1",
+      userId: "partner-1",
+      companyId: "company-1",
+      status: MembershipStatus.Active,
+    });
+    const fixtures = makeFixtures({
+      existingCompany,
+      existingMembership,
+      request: makeAccessRequest({
+        status: AccessRequestStatus.Approved,
+        companyId: "company-1",
+        requestedExternal1cId: "PARTNER-1C",
+      }),
+    });
+    const service = makeService(fixtures);
+
+    const result = await service.approveAccessRequest({
+      actorUserId: "reviewer-1",
+      requestId: "request-1",
+      external1cId: "PARTNER-1C",
+      external1cContractId: "CONTRACT-1C",
+      external1cPriceTypeId: "PRICE-TYPE-1C",
+    });
+
+    expect(fixtures.partnerCompanyRepository.lastCreateInput).toBeNull();
+    expect(fixtures.companyMembershipRepository.lastCreateInput).toBeNull();
+    expect(fixtures.accessRequestRepository.lastUpdateInput).toBeNull();
+    expect(result.company.id).toBe("company-1");
+    expect(result.membership.id).toBe("membership-1");
+  });
+
+  it("does not create membership or activate profile when final request approval fails", async () => {
+    const fixtures = makeFixtures({ failRequestApproval: true });
+    const service = makeService(fixtures);
+
+    await expect(
+      service.approveAccessRequest({
+        actorUserId: "reviewer-1",
+        requestId: "request-1",
+        external1cId: "PARTNER-1C",
+        external1cContractId: "CONTRACT-1C",
+        external1cPriceTypeId: "PRICE-TYPE-1C",
+      }),
+    ).rejects.toThrow();
+
+    expect(fixtures.partnerCompanyRepository.lastCreateInput).not.toBeNull();
+    expect(fixtures.companyMembershipRepository.lastCreateInput).toBeNull();
+    expect(fixtures.userProfileRepository.activatedUserId).toBeNull();
+  });
+
+  it("does not approve request or activate access when company binding fails", async () => {
+    const fixtures = makeFixtures({ failCompanyCreate: true });
+    const service = makeService(fixtures);
+
+    await expect(
+      service.approveAccessRequest({
+        actorUserId: "reviewer-1",
+        requestId: "request-1",
+        external1cId: "PARTNER-1C",
+        external1cContractId: "CONTRACT-1C",
+        external1cPriceTypeId: "PRICE-TYPE-1C",
+      }),
+    ).rejects.toThrow();
+
+    expect(fixtures.accessRequestRepository.lastUpdateInput).toBeNull();
+    expect(fixtures.companyMembershipRepository.lastCreateInput).toBeNull();
+    expect(fixtures.userProfileRepository.activatedUserId).toBeNull();
+  });
+
+  it("keeps approved request but does not activate profile when membership creation fails", async () => {
+    const fixtures = makeFixtures({ failMembershipCreate: true });
+    const service = makeService(fixtures);
+
+    await expect(
+      service.approveAccessRequest({
+        actorUserId: "reviewer-1",
+        requestId: "request-1",
+        external1cId: "PARTNER-1C",
+        external1cContractId: "CONTRACT-1C",
+        external1cPriceTypeId: "PRICE-TYPE-1C",
+      }),
+    ).rejects.toThrow();
+
+    expect(fixtures.accessRequestRepository.lastUpdateInput).toMatchObject({
+      status: AccessRequestStatus.Approved,
+    });
+    expect(fixtures.userProfileRepository.activatedUserId).toBeNull();
+  });
+
+  it("keeps approved request and membership when profile activation fails for safe retry", async () => {
+    const fixtures = makeFixtures({ failProfileActivation: true });
+    const service = makeService(fixtures);
+
+    await expect(
+      service.approveAccessRequest({
+        actorUserId: "reviewer-1",
+        requestId: "request-1",
+        external1cId: "PARTNER-1C",
+        external1cContractId: "CONTRACT-1C",
+        external1cPriceTypeId: "PRICE-TYPE-1C",
+      }),
+    ).rejects.toThrow();
+
+    expect(fixtures.accessRequestRepository.lastUpdateInput).toMatchObject({
+      status: AccessRequestStatus.Approved,
+    });
+    expect(fixtures.companyMembershipRepository.lastCreateInput).toMatchObject({
+      status: MembershipStatus.Active,
+    });
+    expect(fixtures.userProfileRepository.activatedUserId).toBe("partner-1");
   });
 });
 
@@ -142,10 +411,17 @@ function makeFixtures(
     request?: AccessRequest;
     requester?: UserProfile;
     reviewer?: UserProfile;
+    existingCompany?: PartnerCompany;
+    existingMembership?: CompanyMembership;
+    failRequestApproval?: boolean;
+    failCompanyCreate?: boolean;
+    failMembershipCreate?: boolean;
+    failProfileActivation?: boolean;
   } = {},
 ) {
   const accessRequestRepository = new FakeAccessRequestRepository(
     overrides.request ?? makeAccessRequest(),
+    overrides.failRequestApproval ?? false,
   );
   const userProfileRepository = new FakeUserProfileRepository({
     "partner-1": overrides.requester ?? makeUserProfile({ id: "partner-1" }),
@@ -156,21 +432,31 @@ function makeFixtures(
         status: UserStatus.Active,
         userType: UserType.Admin,
       }),
-  });
+  }, overrides.failProfileActivation ?? false);
 
   return {
     accessRequestRepository,
     userProfileRepository,
-    partnerCompanyRepository: new FakePartnerCompanyRepository(),
-    companyMembershipRepository: new FakeCompanyMembershipRepository(),
+    partnerCompanyRepository: new FakePartnerCompanyRepository(
+      overrides.existingCompany,
+      overrides.failCompanyCreate ?? false,
+    ),
+    companyMembershipRepository: new FakeCompanyMembershipRepository(
+      overrides.existingMembership,
+      overrides.failMembershipCreate ?? false,
+    ),
     rolePermissionRepository: new FakeRolePermissionRepository(),
   };
 }
 
 class FakeAccessRequestRepository implements AccessRequestRepository {
   lastUpdateInput: UpdateAccessRequestStatusInput | null = null;
+  updateCalls = 0;
 
-  constructor(private request: AccessRequest) {}
+  constructor(
+    private request: AccessRequest,
+    private readonly failApproval = false,
+  ) {}
 
   async findById(): Promise<AccessRequest | null> {
     return this.request;
@@ -195,6 +481,11 @@ class FakeAccessRequestRepository implements AccessRequestRepository {
   }
 
   async updateStatus(input: UpdateAccessRequestStatusInput): Promise<AccessRequest> {
+    if (this.failApproval && input.status === AccessRequestStatus.Approved) {
+      throw new Error("Approval update failed");
+    }
+
+    this.updateCalls += 1;
     this.lastUpdateInput = input;
     this.request = makeAccessRequest({
       ...this.request,
@@ -213,8 +504,12 @@ class FakeAccessRequestRepository implements AccessRequestRepository {
 
 class FakeUserProfileRepository implements UserProfileRepository {
   activatedUserId: string | null = null;
+  activateCallOrder: number | null = null;
 
-  constructor(private readonly profiles: Record<string, UserProfile>) {}
+  constructor(
+    readonly profiles: Record<string, UserProfile>,
+    private readonly failActivation = false,
+  ) {}
 
   async findById(userId: string): Promise<UserProfile | null> {
     return this.profiles[userId] ?? null;
@@ -230,6 +525,12 @@ class FakeUserProfileRepository implements UserProfileRepository {
 
   async activatePartnerProfile(userId: string): Promise<UserProfile> {
     this.activatedUserId = userId;
+    this.activateCallOrder = 3;
+
+    if (this.failActivation) {
+      throw new Error("Profile activation failed");
+    }
+
     const profile = this.profiles[userId] ?? makeUserProfile({ id: userId });
     this.profiles[userId] = {
       ...profile,
@@ -247,13 +548,25 @@ class FakeUserProfileRepository implements UserProfileRepository {
 
 class FakePartnerCompanyRepository implements PartnerCompanyRepository {
   lastCreateInput: CreatePartnerCompanyInput | null = null;
+  lastUpdateBindingInput: UpdatePartnerCompanyApprovalBindingInput | null = null;
 
-  async findById(): Promise<PartnerCompany | null> {
+  constructor(
+    private readonly existingCompany?: PartnerCompany,
+    private readonly failCreate = false,
+  ) {}
+
+  async findById(companyId: string): Promise<PartnerCompany | null> {
+    if (this.existingCompany?.id === companyId) {
+      return this.existingCompany;
+    }
+
     return null;
   }
 
-  async findByExternal1cId(): Promise<PartnerCompany | null> {
-    return null;
+  async findByExternal1cId(external1cId: string): Promise<PartnerCompany | null> {
+    return this.existingCompany?.external1cId === external1cId
+      ? this.existingCompany
+      : null;
   }
 
   async findCompaniesForUser(): Promise<PartnerCompany[]> {
@@ -261,6 +574,10 @@ class FakePartnerCompanyRepository implements PartnerCompanyRepository {
   }
 
   async create(input: CreatePartnerCompanyInput): Promise<PartnerCompany> {
+    if (this.failCreate) {
+      throw new Error("Company create failed");
+    }
+
     this.lastCreateInput = input;
 
     return makePartnerCompany({
@@ -272,25 +589,51 @@ class FakePartnerCompanyRepository implements PartnerCompanyRepository {
   }
 
   async updateApprovalBinding(
-    _input: UpdatePartnerCompanyApprovalBindingInput,
+    input: UpdatePartnerCompanyApprovalBindingInput,
   ): Promise<PartnerCompany> {
-    throw new Error("Not needed");
+    this.lastUpdateBindingInput = input;
+
+    return makePartnerCompany({
+      ...(this.existingCompany ?? {}),
+      id: input.companyId,
+      external1cContractId: input.external1cContractId,
+      external1cPriceTypeId: input.external1cPriceTypeId,
+      displayName: input.displayName ?? this.existingCompany?.displayName,
+    });
   }
 }
 
 class FakeCompanyMembershipRepository implements CompanyMembershipRepository {
   lastCreateInput: CreateCompanyMembershipInput | null = null;
+  createCallOrder: number | null = null;
+
+  constructor(
+    private readonly existingMembership?: CompanyMembership,
+    private readonly failCreate = false,
+  ) {}
 
   async findByUserId(): Promise<CompanyMembership[]> {
     return [];
   }
 
-  async findActiveMembership(): Promise<CompanyMembership | null> {
-    return null;
+  async findActiveMembership(
+    userId: string,
+    companyId: string,
+  ): Promise<CompanyMembership | null> {
+    return this.existingMembership?.userId === userId &&
+      this.existingMembership.companyId === companyId &&
+      this.existingMembership.status === MembershipStatus.Active
+      ? this.existingMembership
+      : null;
   }
 
   async create(input: CreateCompanyMembershipInput): Promise<CompanyMembership> {
+    if (this.failCreate) {
+      throw new Error("Membership create failed");
+    }
+
     this.lastCreateInput = input;
+    this.createCallOrder = 2;
 
     return makeCompanyMembership({
       userId: input.userId,

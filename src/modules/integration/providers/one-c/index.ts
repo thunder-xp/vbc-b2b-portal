@@ -7,7 +7,10 @@ export {
   type OneCInventoryMapper,
 } from "./one-c-inventory.mapper";
 export type { OneCOrderMapper } from "./one-c-order.mapper";
-export type { OneCPartnerMapper } from "./one-c-partner.mapper";
+export {
+  DefaultOneCPartnerMapper,
+  type OneCPartnerMapper,
+} from "./one-c-partner.mapper";
 export {
   DefaultOneCPricingMapper,
   type OneCPricingMapper,

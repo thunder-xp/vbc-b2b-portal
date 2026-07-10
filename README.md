@@ -61,6 +61,41 @@ SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
 
 Only `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` are safe for browser use. `SUPABASE_SERVICE_ROLE_KEY` is server-only and must never be imported into Client Components, browser utilities, or exposed through API responses.
 
+### Development Test Mode
+
+Development Test Mode lets a configured local user exercise the internal partner approval flow without permanently changing database roles.
+
+It works only when both conditions are true:
+
+- `NODE_ENV=development`
+- `DEV_TEST_MODE=true`
+
+Example `.env.local`:
+
+```bash
+DEV_TEST_MODE=true
+DEV_TEST_MANAGER_EMAIL=vasil@example.com
+```
+
+When enabled, the authenticated user with `DEV_TEST_MANAGER_EMAIL` is evaluated as an Internal Manager for partner approval authorization only. The portal does not update `user_type`, create fake users, create memberships, or modify production data for this override. In production, this override is disabled regardless of environment variables.
+
+### Development Internal Manager Bootstrap
+
+For product demos that need real authorization records, run:
+
+```bash
+npm run bootstrap:dev
+```
+
+The command uses `.env.local` Supabase configuration and creates or updates one development internal manager account:
+
+```text
+Email: manager@novotech.local
+Password: Manager123!
+```
+
+The command is idempotent. It ensures the auth user, active internal user profile, `internal_manager` role, `CanApprovePartner` permission, and role-permission assignment exist. It does not create partner accounts; partners must still register through the normal journey.
+
 ## Current Scope
 
 The repository currently contains only the initial foundation. Authentication pages, database schema, Supabase keys, 1C integration, and business features are intentionally not implemented yet.
