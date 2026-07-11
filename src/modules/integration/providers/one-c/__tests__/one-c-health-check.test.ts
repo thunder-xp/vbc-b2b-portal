@@ -9,7 +9,10 @@ vi.mock("../../../services", () => ({
   createPartnerLookupService: mocks.createPartnerLookupService,
 }));
 
-import { runOneCODataHealthCheck } from "../one-c-health-check";
+import {
+  ONE_C_DIAGNOSTIC_VERSION,
+  runOneCODataHealthCheck,
+} from "../one-c-health-check";
 import { categorizeOneCHealthError } from "../one-c-health-check";
 import { IntegrationMappingError, IntegrationValidationError } from "../../../errors";
 import { OneCODataResponseValidationError } from "../one-c-odata-client";
@@ -24,6 +27,7 @@ describe("1C OData health check", () => {
   });
 
   it("classifies provider validation and mapping failures without transport", () => {
+    expect(ONE_C_DIAGNOSTIC_VERSION).toBe("2026-07-11-v3");
     expect(categorizeOneCHealthError(new IntegrationValidationError())).toBe("invalid_response");
     expect(categorizeOneCHealthError(new IntegrationMappingError())).toBe("mapping");
   });
@@ -118,6 +122,47 @@ describe("1C OData health check", () => {
       event: "one_c_health_check_failed",
       stage: "provider",
     }));
+  });
+
+  it("falls back to provider_unknown for an unclassified validation error", async () => {
+    mocks.createPartnerLookupService.mockReturnValue({ searchPartners: mocks.searchPartners });
+    mocks.searchPartners.mockRejectedValue(new IntegrationValidationError("x"));
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(collection([])));
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    const report = await runOneCODataHealthCheck(oneCEnv());
+
+    expect(report.provider).toMatchObject({
+      passed: false,
+      failedStage: "provider_unknown",
+      errorType: "IntegrationValidationError",
+      errorName: "IntegrationValidationError",
+    });
+    if (!report.provider.passed) {
+      expect(report.provider.failedStage).not.toBeNull();
+    }
+    expect(errorSpy).toHaveBeenCalledWith(expect.objectContaining({
+      event: "one_c_provider_unclassified_error",
+      errorType: "IntegrationValidationError",
+      errorName: "IntegrationValidationError",
+      failedStage: "provider_unknown",
+      hasCause: false,
+      ownPropertyNames: expect.arrayContaining(["stack", "message", "name"]),
+    }));
+  });
+
+  it("never returns a null failed stage for a failed provider model", async () => {
+    mocks.createPartnerLookupService.mockReturnValue({ searchPartners: mocks.searchPartners });
+    mocks.searchPartners.mockRejectedValue("unknown failure");
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(collection([])));
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    const report = await runOneCODataHealthCheck(oneCEnv());
+
+    expect(report.provider.passed).toBe(false);
+    expect(report.provider.failedStage).toBe("provider_unknown");
+    expect(report.provider.errorType).toBe("string");
+    expect(report.provider.errorName).toBeNull();
   });
 });
 

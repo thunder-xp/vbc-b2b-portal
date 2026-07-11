@@ -23,6 +23,7 @@ import { getPartnerPipelineDiagnostic } from "../../services/partner-search-vali
 const PARTNERS_RESOURCE = ONE_C_RESOURCES.partners;
 const MINIMAL_FIELDS = "Ref_Key,Code,Description,DeletionMark";
 const NAME_SEARCH_FIELDS = ONE_C_PARTNER_FIELDS.join(",");
+export const ONE_C_DIAGNOSTIC_VERSION = "2026-07-11-v3";
 export type OneCHealthErrorCategory =
   | "configuration"
   | "timeout"
@@ -88,6 +89,8 @@ export type OneCHealthReport = {
     bodyLength: number | null;
     bomDetected: boolean;
     emptyBody: boolean;
+    errorType: string | null;
+    errorName: string | null;
     errorCategory: OneCHealthErrorCategory | null;
     message: string;
   };
@@ -227,6 +230,8 @@ async function runProviderCheck(oneCEnv: OneCEnv): Promise<OneCHealthReport["pro
       bodyLength: null,
       bomDetected: false,
       emptyBody: false,
+      errorType: null,
+      errorName: null,
       errorCategory: null,
       message: "Provider lookup completed.",
     };
@@ -235,6 +240,17 @@ async function runProviderCheck(oneCEnv: OneCEnv): Promise<OneCHealthReport["pro
     const diagnostic = getOneCSafeDiagnostic(error);
     const errorCategory = categorizeOneCHealthError(error);
     const message = safeMessage(errorCategory);
+    const errorType = getErrorType(error);
+    const errorName = error instanceof Error ? error.name : null;
+    const failedStage = diagnostic?.failedStage ?? "provider_unknown";
+    console.error({
+      event: "one_c_provider_unclassified_error",
+      errorType,
+      errorName,
+      failedStage,
+      hasCause: hasErrorCause(error),
+      ownPropertyNames: getOwnPropertyNames(error),
+    });
     logFailure("provider", null, errorCategory, message, parseHostname(oneCEnv.baseUrl));
     return {
       passed: false,
@@ -243,7 +259,7 @@ async function runProviderCheck(oneCEnv: OneCEnv): Promise<OneCHealthReport["pro
       providerOutputCount: pipelineDiagnostic?.stage === "provider_output" ? pipelineDiagnostic.resultCount : null,
       serviceOutputShape: pipelineDiagnostic?.stage === "service_input" || pipelineDiagnostic?.stage === "service_output" ? pipelineDiagnostic.resultShape : null,
       serviceOutputCount: pipelineDiagnostic?.stage === "service_input" || pipelineDiagnostic?.stage === "service_output" ? pipelineDiagnostic.resultCount : null,
-      failedStage: diagnostic?.failedStage ?? null,
+      failedStage,
       issuePaths: pipelineDiagnostic?.issuePaths ?? [],
       receivedContentType: diagnostic?.receivedContentType ?? null,
       requestKind: diagnostic?.requestKind ?? null,
@@ -255,10 +271,30 @@ async function runProviderCheck(oneCEnv: OneCEnv): Promise<OneCHealthReport["pro
       bodyLength: diagnostic?.bodyLength ?? null,
       bomDetected: diagnostic?.bomDetected ?? false,
       emptyBody: diagnostic?.emptyBody ?? false,
+      errorType,
+      errorName,
       errorCategory,
       message,
     };
   }
+}
+
+function getErrorType(error: unknown): string {
+  if (error !== null && (typeof error === "object" || typeof error === "function")) {
+    const constructor = error.constructor;
+    if (typeof constructor === "function" && constructor.name) return constructor.name;
+  }
+  return typeof error;
+}
+
+function hasErrorCause(error: unknown): boolean {
+  return error !== null && typeof error === "object" && "cause" in error;
+}
+
+function getOwnPropertyNames(error: unknown): string[] {
+  return error !== null && (typeof error === "object" || typeof error === "function")
+    ? Object.getOwnPropertyNames(error)
+    : [];
 }
 
 function fromProbe(

@@ -5,6 +5,7 @@ import type {
   OneCHealthCheck,
   OneCNameQueryHealth,
 } from "@/src/modules/integration/providers/one-c/one-c-health-check";
+import { ONE_C_DIAGNOSTIC_VERSION } from "@/src/modules/integration/providers/one-c/one-c-health-check";
 
 export default async function OneCHealthPage() {
   const result = await runOneCHealthCheckAction();
@@ -12,6 +13,9 @@ export default async function OneCHealthPage() {
   if (!result.success && result.errorCode === "AUTH_REQUIRED") {
     redirect("/auth/sign-in");
   }
+
+  const commitSha = process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) || "Not available";
+  const deploymentId = process.env.VERCEL_DEPLOYMENT_ID || "Not available";
 
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-8 text-slate-950 sm:px-6 lg:px-8">
@@ -22,6 +26,11 @@ export default async function OneCHealthPage() {
           <p className="mt-2 max-w-3xl text-sm text-slate-600">
             Internal diagnostic summary. Credentials, query values, response bodies, and counterparty data are never displayed.
           </p>
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            <Metric label="Diagnostic version" value={ONE_C_DIAGNOSTIC_VERSION} />
+            <Metric label="Commit SHA" value={commitSha} />
+            <Metric label="Deployment ID" value={deploymentId} />
+          </div>
         </div>
 
         {!result.success ? (
@@ -113,7 +122,7 @@ function NameQueryCard({ check }: { check: OneCNameQueryHealth }) {
   );
 }
 
-function ProviderCard({ provider }: { provider: { passed: boolean; resultCount: number; providerOutputShape: string | null; providerOutputCount: number | null; serviceOutputShape: string | null; serviceOutputCount: number | null; failedStage: string | null; issuePaths: string[]; receivedContentType: string | null; requestKind: string | null; resourceName: string | null; queryParameterNames: string[]; statusCode: number | null; jsonParseFailure: boolean; parseErrorName: string | null; bodyLength: number | null; bomDetected: boolean; emptyBody: boolean; errorCategory: string | null; message: string } }) {
+function ProviderCard({ provider }: { provider: { passed: boolean; resultCount: number; providerOutputShape: string | null; providerOutputCount: number | null; serviceOutputShape: string | null; serviceOutputCount: number | null; failedStage: string | null; issuePaths: string[]; receivedContentType: string | null; requestKind: string | null; resourceName: string | null; queryParameterNames: string[]; statusCode: number | null; jsonParseFailure: boolean; parseErrorName: string | null; bodyLength: number | null; bomDetected: boolean; emptyBody: boolean; errorType: string | null; errorName: string | null; errorCategory: string | null; message: string } }) {
   return (
     <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
       <SectionTitle passed={provider.passed} title="Provider-level test" />
@@ -132,6 +141,8 @@ function ProviderCard({ provider }: { provider: { passed: boolean; resultCount: 
         <Metric label="Body length" value={provider.bodyLength?.toString() ?? "Not available"} />
         <Metric label="UTF-8 BOM" value={String(provider.bomDetected)} />
         <Metric label="Empty body" value={String(provider.emptyBody)} />
+        <Metric label="Error type" value={provider.errorType ?? "Not available"} />
+        <Metric label="Error name" value={provider.errorName ?? "Not available"} />
         <Metric label="Error category" value={provider.errorCategory ?? "None"} />
         <Metric label="Result" value={provider.message} />
       </div>
