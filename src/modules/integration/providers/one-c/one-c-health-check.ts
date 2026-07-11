@@ -131,7 +131,7 @@ function inspectConfiguration(oneCEnv: OneCEnv): OneCConfigurationHealth {
 
 async function runMetadataCheck(client: OneCODataClient): Promise<OneCHealthCheck> {
   try {
-    const result = await client.probe("$metadata");
+    const result = await client.probe("$metadata", {}, { expectJson: false });
     return fromProbe("metadata", result, result.statusCode >= 200 && result.statusCode < 300);
   } catch (error) {
     return failedCheck("metadata", error, null);

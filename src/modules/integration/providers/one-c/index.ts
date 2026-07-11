@@ -24,7 +24,12 @@ export {
   IntegrationProviderNotImplementedError,
   OneCProvider,
 } from "./one-c-provider";
-export { OneCODataClient } from "./one-c-odata-client";
+export {
+  OneCODataClient,
+  OneCODataResponseValidationError,
+  type OneCODataProbeOptions,
+  type OneCODataProbeResult,
+} from "./one-c-odata-client";
 export {
   ONE_C_CONTRACT_FIELDS,
   ONE_C_PARTNER_FIELDS,

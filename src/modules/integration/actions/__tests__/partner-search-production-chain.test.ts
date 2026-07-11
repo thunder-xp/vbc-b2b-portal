@@ -24,7 +24,8 @@ describe("partner search production call chain", () => {
       partnerRow(PARTNER_ONE),
       partnerRow(PARTNER_TWO),
     ])];
-    vi.stubGlobal("fetch", vi.fn().mockImplementation(async () => responses.shift() ?? collection([])));
+    const fetchMock = vi.fn().mockImplementation(async () => responses.shift() ?? collection([]));
+    vi.stubGlobal("fetch", fetchMock);
     const provider = new OneCProvider({
       baseUrl: "https://erp-api.nsd.md/novotech/odata/standard.odata",
       username: "odata-user",
@@ -41,6 +42,10 @@ describe("partner search production call chain", () => {
 
     expect(page).toMatchObject({ nextCursor: null });
     expect(page.items).toHaveLength(2);
+    for (const [url, init] of fetchMock.mock.calls as [URL, RequestInit][]) {
+      expect(url.searchParams.getAll("$format")).toEqual(["json"]);
+      expect(new Headers(init.headers).get("Accept")).toBe("application/json");
+    }
     expect(actionData).toEqual([
       expect.objectContaining({ displayName: "NOVOTECH SYSTEMS", external1cId: PARTNER_ONE }),
       expect.objectContaining({ displayName: "NOVOTECH SYSTEMS 2", external1cId: PARTNER_TWO }),
@@ -60,7 +65,9 @@ describe("partner search production call chain", () => {
 });
 
 function collection(value: unknown[]): Response {
-  return new Response(JSON.stringify({ "odata.metadata": "metadata", value }));
+  return new Response(JSON.stringify({ "odata.metadata": "metadata", value }), {
+    headers: { "content-type": "application/json; charset=utf-8" },
+  });
 }
 
 function partnerRow(reference: string) {
