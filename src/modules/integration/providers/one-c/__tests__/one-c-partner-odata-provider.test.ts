@@ -6,6 +6,7 @@ import {
   IntegrationTimeoutError,
   IntegrationValidationError,
 } from "../../../errors";
+import { ONE_C_RESOURCES } from "../one-c-odata-identifiers";
 import { OneCProvider } from "../one-c-provider";
 
 const PARTNER_ID = "11111111-1111-4111-8111-111111111111";
@@ -42,7 +43,7 @@ describe("1C OData partner provider", () => {
     vi.stubGlobal("fetch", fetchMock);
     const result = await provider().partners.searchPartners({ query: PARTNER_ID });
     const [url] = fetchMock.mock.calls[0] as [URL];
-    expect(decodeURIComponent(url.pathname)).toContain(`Catalog_Контрагенты(guid'${PARTNER_ID}')`);
+    expect(decodeURIComponent(url.pathname)).toContain(`${ONE_C_RESOURCES.partners}(guid'${PARTNER_ID}')`);
     expect(result.items[0]).toMatchObject({ code: "000152", fullName: "Partner Company SRL", buyer: true, supplier: false });
   });
 
@@ -65,6 +66,20 @@ describe("1C OData partner provider", () => {
     await provider().partners.searchPartners({ query: "A'15", limit: 1 });
     const [url] = fetchMock.mock.calls[0] as [URL];
     expect(url.searchParams.get("$filter")).toBe("Code eq 'A''15'");
+  });
+
+  it("generates the exact UTF-8 counterparty URL without mojibake", async () => {
+    const fetchMock = sequence(collection([partnerRow()]));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await provider().partners.searchPartners({ query: "NOVOTECH", limit: 1 });
+
+    const [url] = fetchMock.mock.calls[0] as [URL];
+    const decodedUrl = decodeURIComponent(url.toString());
+    expect(decodedUrl).toContain(ONE_C_RESOURCES.partners);
+    expect(decodedUrl).toContain("НаименованиеПолное");
+    expect(decodedUrl).toContain("Покупатель");
+    expect(decodedUrl).not.toContain(String.fromCharCode(0x0420, 0x0459));
   });
 
   it("uses description substring after an empty code result", async () => {

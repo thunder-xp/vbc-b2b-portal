@@ -25,6 +25,12 @@ import {
   parseRequiredOneCGuid,
 } from "./one-c-guid";
 import {
+  ONE_C_CONTRACT_FIELDS,
+  ONE_C_PARTNER_FIELDS,
+  ONE_C_PRICE_TYPE_FIELDS,
+  ONE_C_RESOURCES,
+} from "./one-c-odata-identifiers";
+import {
   logPipelineProgress,
   validatePartnerSearchPage,
 } from "../../services/partner-search-validation";
@@ -36,22 +42,12 @@ import type {
   OneCPartnerPriceTypePayload,
 } from "./one-c-provider.types";
 
-const PARTNERS_RESOURCE = "Catalog_Контрагенты";
-const CONTRACTS_RESOURCE = "Catalog_ДоговорыКонтрагентов";
-const PRICE_TYPES_RESOURCE = "Catalog_ВидыЦен";
-const PARTNER_FIELDS = [
-  "Ref_Key", "Code", "Description", "НаименованиеПолное", "ИНН",
-  "Покупатель", "Поставщик", "Недействителен", "DeletionMark", "IsFolder",
-].join(",");
-const CONTRACT_FIELDS = [
-  "Ref_Key", "Code", "Description", "Owner_Key", "НомерДоговора",
-  "ДатаДоговора", "ВидДоговора", "ВидЦен_Key",
-  "ВидЦенКонтрагента_Key", "Организация_Key", "Недействителен", "DeletionMark",
-].join(",");
-const PRICE_TYPE_FIELDS = [
-  "Ref_Key", "Code", "Description", "ВалютаЦены_Key", "ЦенаВключаетНДС",
-  "ТипВидаЦен", "ЦеныАктуальны", "DeletionMark",
-].join(",");
+const PARTNERS_RESOURCE = ONE_C_RESOURCES.partners;
+const CONTRACTS_RESOURCE = ONE_C_RESOURCES.contracts;
+const PRICE_TYPES_RESOURCE = ONE_C_RESOURCES.priceTypes;
+const PARTNER_FIELDS = ONE_C_PARTNER_FIELDS.join(",");
+const CONTRACT_FIELDS = ONE_C_CONTRACT_FIELDS.join(",");
+const PRICE_TYPE_FIELDS = ONE_C_PRICE_TYPE_FIELDS.join(",");
 
 export class OneCPartnerODataProvider implements PartnerProvider {
   private readonly mapper = new DefaultOneCPartnerMapper();
@@ -116,7 +112,7 @@ export class OneCPartnerODataProvider implements PartnerProvider {
 
     const page = {
       items: [...matches.values()]
-        .sort((left, right) => Number(right.Покупатель) - Number(left.Покупатель))
+        .sort((left, right) => Number(right["Покупатель"]) - Number(left["Покупатель"]))
         .slice(0, limit)
         .map((item) => this.mapSearchResult(item)),
       nextCursor: null,
@@ -195,7 +191,7 @@ export class OneCPartnerODataProvider implements PartnerProvider {
         $skip: String(page * this.config.partnerSearchPageSize),
       });
       normalizePartnerRows(rows)
-        .filter((row) => row.ИНН.trim() === normalizedQuery)
+        .filter((row) => row["ИНН"].trim() === normalizedQuery)
         .forEach((row) => matches.push(row));
       if (rows.length < this.config.partnerSearchPageSize) break;
     }
@@ -308,8 +304,8 @@ function requireUuid(value: string, label: string): string {
   if (!guid) throw new IntegrationValidationError(`${label} must be a 1C GUID.`);
   return guid;
 }
-function isActiveContract(row: OneCPartnerContractPayload): boolean { return row.DeletionMark !== true && row.Недействителен !== true; }
-function isActivePriceType(row: OneCPartnerPriceTypePayload): boolean { return row.DeletionMark !== true && row.ЦеныАктуальны !== false; }
+function isActiveContract(row: OneCPartnerContractPayload): boolean { return row.DeletionMark !== true && row["Недействителен"] !== true; }
+function isActivePriceType(row: OneCPartnerPriceTypePayload): boolean { return row.DeletionMark !== true && row["ЦеныАктуальны"] !== false; }
 function isContractRow(value: unknown): value is OneCPartnerContractPayload { return isRecord(value) && parseRequiredOneCGuid(value.Ref_Key) !== null && typeof value.Code === "string" && typeof value.Description === "string" && parseRequiredOneCGuid(value.Owner_Key) !== null; }
 function isPriceTypeRow(value: unknown): value is OneCPartnerPriceTypePayload { return isRecord(value) && parseRequiredOneCGuid(value.Ref_Key) !== null && typeof value.Code === "string" && typeof value.Description === "string"; }
 function assertRows<T>(rows: unknown[], guard: (value: unknown) => value is T): asserts rows is T[] {
@@ -349,11 +345,11 @@ function normalizePartnerRow(
     Ref_Key: parseRequiredOneCGuid(reference)!,
     Code: normalizeString(row.Code),
     Description: normalizeString(row.Description),
-    НаименованиеПолное: normalizeString(row.НаименованиеПолное),
-    ИНН: normalizeString(row.ИНН),
-    Покупатель: row.Покупатель === true,
-    Поставщик: row.Поставщик === true,
-    Недействителен: row.Недействителен === true,
+    НаименованиеПолное: normalizeString(row["НаименованиеПолное"]),
+    ИНН: normalizeString(row["ИНН"]),
+    Покупатель: row["Покупатель"] === true,
+    Поставщик: row["Поставщик"] === true,
+    Недействителен: row["Недействителен"] === true,
     DeletionMark: row.DeletionMark === true,
     IsFolder: row.IsFolder === true,
   };
@@ -366,7 +362,7 @@ function normalizePartnerRow(
     logSkippedPartnerRow("deleted");
     return null;
   }
-  if (normalized.Недействителен) {
+  if (normalized["Недействителен"]) {
     logSkippedPartnerRow("inactive");
     return null;
   }
@@ -410,5 +406,5 @@ const mockPriceTypes: OneCPartnerPriceTypePayload[] = [{
 }];
 function filterMockPartners(input: PartnerSearchInputDTO): OneCPartnerCompanyPayload[] {
   const query = input.query.trim().toLowerCase();
-  return mockPartners.filter((row) => [row.Ref_Key, row.Code, row.Description, row.ИНН].some((value) => value?.toLowerCase().includes(query))).slice(0, input.limit ?? 10);
+  return mockPartners.filter((row) => [row.Ref_Key, row.Code, row.Description, row["ИНН"]].some((value) => value?.toLowerCase().includes(query))).slice(0, input.limit ?? 10);
 }

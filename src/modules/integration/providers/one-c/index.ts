@@ -26,6 +26,12 @@ export {
 } from "./one-c-provider";
 export { OneCODataClient } from "./one-c-odata-client";
 export {
+  ONE_C_CONTRACT_FIELDS,
+  ONE_C_PARTNER_FIELDS,
+  ONE_C_PRICE_TYPE_FIELDS,
+  ONE_C_RESOURCES,
+} from "./one-c-odata-identifiers";
+export {
   ONE_C_ZERO_GUID,
   isOneCGuid,
   oneCGuidSchema,

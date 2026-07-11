@@ -13,22 +13,15 @@ import {
 import { createPartnerLookupService } from "../../services";
 import { OneCODataClient } from "./one-c-odata-client";
 import { parseRequiredOneCGuid } from "./one-c-guid";
+import {
+  ONE_C_PARTNER_FIELDS,
+  ONE_C_RESOURCES,
+} from "./one-c-odata-identifiers";
 import { getPartnerPipelineDiagnostic } from "../../services/partner-search-validation";
 
-const PARTNERS_RESOURCE = "Catalog_Контрагенты";
+const PARTNERS_RESOURCE = ONE_C_RESOURCES.partners;
 const MINIMAL_FIELDS = "Ref_Key,Code,Description,DeletionMark";
-const NAME_SEARCH_FIELDS = [
-  "Ref_Key",
-  "Code",
-  "Description",
-  "НаименованиеПолное",
-  "ИНН",
-  "Покупатель",
-  "Поставщик",
-  "Недействителен",
-  "DeletionMark",
-  "IsFolder",
-].join(",");
+const NAME_SEARCH_FIELDS = ONE_C_PARTNER_FIELDS.join(",");
 export type OneCHealthErrorCategory =
   | "configuration"
   | "timeout"
@@ -285,7 +278,7 @@ function inspectPartnerRow(value: unknown): { valid: boolean; validationFailures
   const description = typeof value.Description === "string" ? value.Description.trim() : "";
   const folder = value.IsFolder === true;
   const deleted = value.DeletionMark === true;
-  const inactive = value.Недействителен === true;
+  const inactive = value["Недействителен"] === true;
   return { valid: validationFailures.length === 0 && !folder && !deleted && !inactive && description.length > 0, validationFailures };
 }
 
