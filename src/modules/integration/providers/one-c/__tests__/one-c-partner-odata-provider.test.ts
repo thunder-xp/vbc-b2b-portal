@@ -13,7 +13,10 @@ const PRICE_TYPE_ID = "33333333-3333-4333-8333-333333333333";
 const FALLBACK_PRICE_TYPE_ID = "44444444-4444-4444-8444-444444444444";
 
 describe("1C OData partner provider", () => {
-  afterEach(() => vi.unstubAllGlobals());
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
 
   it("uses Basic Auth without exposing credentials in failures", async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response("{}", { status: 500 }));
@@ -72,12 +75,72 @@ describe("1C OData partner provider", () => {
     expect(lastUrl.searchParams.get("$filter")).toBeNull();
   });
 
+  it("includes IsFolder in every counterparty OData select", async () => {
+    const fetchMock = sequence(collection([partnerRow()]));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await provider().partners.searchPartners({ query: "Partner", limit: 1 });
+
+    const [url] = fetchMock.mock.calls[0] as [URL];
+    expect(url.searchParams.get("$select")).toContain("IsFolder");
+  });
+
+  it("skips nullable folder rows and finds a valid fiscal-code match on the same page", async () => {
+    const logSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const folderRow = {
+      Ref_Key: "55555555-5555-4555-8555-555555555555",
+      Code: null,
+      Description: "Покупатели",
+      НаименованиеПолное: null,
+      ИНН: null,
+      Покупатель: null,
+      Поставщик: null,
+      Недействителен: null,
+      DeletionMark: false,
+      IsFolder: true,
+    };
+    const fetchMock = sequence(collection([]), collection([]), collection([
+      folderRow,
+      { ...partnerRow(), Description: "NOVOTECH SYSTEMS", ИНН: "1018600013048" },
+    ]));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await provider().partners.searchPartners({ query: "1018600013048" });
+
+    expect(result.items).toMatchObject([{ displayName: "NOVOTECH SYSTEMS", taxId: "1018600013048" }]);
+    expect(logSpy).toHaveBeenCalledWith({
+      event: "one_c_odata_row_skipped",
+      resource: "Catalog_Контрагенты",
+      reason: "folder",
+    });
+  });
+
+  it("skips malformed rows without failing the fiscal-code page", async () => {
+    const logSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    vi.stubGlobal("fetch", sequence(collection([]), collection([]), collection([
+      { Ref_Key: null, Description: null },
+      { ...partnerRow(), ИНН: "00123456" },
+    ])));
+
+    const result = await provider().partners.searchPartners({ query: "00123456" });
+
+    expect(result.items[0]?.taxId).toBe("00123456");
+    expect(logSpy).toHaveBeenCalledWith({
+      event: "one_c_odata_row_skipped",
+      resource: "Catalog_Контрагенты",
+      reason: "invalid_reference",
+    });
+  });
+
   it("excludes deleted and inactive counterparties", async () => {
+    const logSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     vi.stubGlobal("fetch", sequence(collection([
-      { ...partnerRow(), Ref_Key: "deleted", DeletionMark: true },
-      { ...partnerRow(), Ref_Key: "inactive", Недействителен: true },
+      { ...partnerRow(), Ref_Key: "66666666-6666-4666-8666-666666666666", DeletionMark: true },
+      { ...partnerRow(), Ref_Key: "77777777-7777-4777-8777-777777777777", Недействителен: true },
     ]), collection([])));
     await expect(provider().partners.searchPartners({ query: "Partner" })).resolves.toMatchObject({ items: [] });
+    expect(logSpy).toHaveBeenCalledWith(expect.objectContaining({ reason: "deleted" }));
+    expect(logSpy).toHaveBeenCalledWith(expect.objectContaining({ reason: "inactive" }));
   });
 
   it("loads contracts by owner and prefers counterparty price type", async () => {

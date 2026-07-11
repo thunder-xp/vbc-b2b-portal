@@ -77,15 +77,29 @@ export type OneCODataCollectionPayload<T> = {
 };
 
 export type OneCPartnerCompanyPayload = {
+  Ref_Key?: string | null;
+  Code?: string | null;
+  Description?: string | null;
+  НаименованиеПолное?: string | null;
+  ИНН?: string | null;
+  Покупатель?: boolean | null;
+  Поставщик?: boolean | null;
+  Недействителен?: boolean | null;
+  DeletionMark?: boolean | null;
+  IsFolder?: boolean | null;
+};
+
+export type OneCNormalizedPartnerCompanyPayload = {
   Ref_Key: string;
   Code: string;
   Description: string;
-  НаименованиеПолное?: string | null;
-  ИНН?: string | null;
-  Покупатель?: boolean;
-  Поставщик?: boolean;
-  Недействителен?: boolean;
-  DeletionMark?: boolean;
+  НаименованиеПолное: string;
+  ИНН: string;
+  Покупатель: boolean;
+  Поставщик: boolean;
+  Недействителен: boolean;
+  DeletionMark: boolean;
+  IsFolder: boolean;
 };
 
 export type OneCPartnerCompanySyncPayload = {
@@ -124,7 +138,7 @@ export type OneCPartnerPriceTypePayload = {
   DeletionMark?: boolean;
 };
 
-export type OneCPartnerSearchPayload = OneCPartnerCompanyPayload;
+export type OneCPartnerSearchPayload = OneCNormalizedPartnerCompanyPayload;
 
 export type OneCSalesOrderItemPayload = {
   productReference: OneCReferencePayload;

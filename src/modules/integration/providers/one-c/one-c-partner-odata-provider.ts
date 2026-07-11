@@ -21,6 +21,7 @@ import type {
   OneCODataCollectionPayload,
   OneCPartnerCompanyPayload,
   OneCPartnerContractPayload,
+  OneCNormalizedPartnerCompanyPayload,
   OneCPartnerPriceTypePayload,
 } from "./one-c-provider.types";
 
@@ -29,7 +30,7 @@ const CONTRACTS_RESOURCE = "Catalog_ДоговорыКонтрагентов";
 const PRICE_TYPES_RESOURCE = "Catalog_ВидыЦен";
 const PARTNER_FIELDS = [
   "Ref_Key", "Code", "Description", "НаименованиеПолное", "ИНН",
-  "Покупатель", "Поставщик", "Недействителен", "DeletionMark",
+  "Покупатель", "Поставщик", "Недействителен", "DeletionMark", "IsFolder",
 ].join(",");
 const CONTRACT_FIELDS = [
   "Ref_Key", "Code", "Description", "Owner_Key", "НомерДоговора",
@@ -60,19 +61,25 @@ export class OneCPartnerODataProvider implements PartnerProvider {
     input: PartnerSearchInputDTO,
   ): Promise<IntegrationPageResultDTO<PartnerSearchResultDTO>> {
     if (this.config.useMockPartners) {
-      return { items: filterMockPartners(input).map((item) => this.mapper.toSearchResultDTO(item)), nextCursor: null };
+      return {
+        items: filterMockPartners(input)
+          .map(normalizePartnerRow)
+          .filter((item): item is OneCNormalizedPartnerCompanyPayload => item !== null)
+          .map((item) => this.mapper.toSearchResultDTO(item)),
+        nextCursor: null,
+      };
     }
 
     const query = input.query.trim();
     const limit = Math.min(input.limit ?? 10, 50);
-    const matches = new Map<string, OneCPartnerCompanyPayload>();
+    const matches = new Map<string, OneCNormalizedPartnerCompanyPayload>();
 
     if (UUID_PATTERN.test(query)) {
       const direct = await this.getSingle<OneCPartnerCompanyPayload>(
         `${PARTNERS_RESOURCE}(guid'${query}')`,
       );
-      if (direct && !isPartnerRow(direct)) throw new IntegrationValidationError("Invalid 1C counterparty response.");
-      if (direct) matches.set(direct.Ref_Key, direct);
+      const partner = direct ? normalizePartnerRow(direct) : null;
+      if (partner) matches.set(partner.Ref_Key, partner);
     } else {
       await this.collectPartners(matches, {
         $select: PARTNER_FIELDS,
@@ -94,8 +101,7 @@ export class OneCPartnerODataProvider implements PartnerProvider {
 
     return {
       items: [...matches.values()]
-        .filter(isActivePartner)
-        .sort((left, right) => Number(right.Покупатель === true) - Number(left.Покупатель === true))
+        .sort((left, right) => Number(right.Покупатель) - Number(left.Покупатель))
         .slice(0, limit)
         .map((item) => this.mapper.toSearchResultDTO(item)),
       nextCursor: null,
@@ -155,22 +161,23 @@ export class OneCPartnerODataProvider implements PartnerProvider {
     return { items: rows.filter(isActivePriceType).map((row, index) => this.mapper.toPriceTypeDTO(row, index)), nextCursor: null };
   }
 
-  private async collectPartners(target: Map<string, OneCPartnerCompanyPayload>, params: Record<string, string>): Promise<void> {
+  private async collectPartners(target: Map<string, OneCNormalizedPartnerCompanyPayload>, params: Record<string, string>): Promise<void> {
     const rows = await this.getCollection<OneCPartnerCompanyPayload>(PARTNERS_RESOURCE, params);
-    assertRows(rows, isPartnerRow);
-    rows.filter(isActivePartner).forEach((row) => target.set(row.Ref_Key, row));
+    normalizePartnerRows(rows).forEach((row) => target.set(row.Ref_Key, row));
   }
 
-  private async scanPartnersByFiscalCode(query: string, limit: number): Promise<OneCPartnerCompanyPayload[]> {
-    const matches: OneCPartnerCompanyPayload[] = [];
+  private async scanPartnersByFiscalCode(query: string, limit: number): Promise<OneCNormalizedPartnerCompanyPayload[]> {
+    const matches: OneCNormalizedPartnerCompanyPayload[] = [];
+    const normalizedQuery = query.trim();
     for (let page = 0; page < this.config.partnerSearchMaxPages && matches.length < limit; page += 1) {
       const rows = await this.getCollection<OneCPartnerCompanyPayload>(PARTNERS_RESOURCE, {
         $select: PARTNER_FIELDS,
         $top: String(this.config.partnerSearchPageSize),
         $skip: String(page * this.config.partnerSearchPageSize),
       });
-      assertRows(rows, isPartnerRow);
-      rows.filter((row) => isActivePartner(row) && row.ИНН === query).forEach((row) => matches.push(row));
+      normalizePartnerRows(rows)
+        .filter((row) => row.ИНН.trim() === normalizedQuery)
+        .forEach((row) => matches.push(row));
       if (rows.length < this.config.partnerSearchPageSize) break;
     }
     return matches.slice(0, limit);
@@ -228,14 +235,86 @@ function requireUuid(value: string, label: string): string {
   if (!UUID_PATTERN.test(value)) throw new IntegrationValidationError(`${label} must be a GUID.`);
   return value;
 }
-function isActivePartner(row: OneCPartnerCompanyPayload): boolean { return row.DeletionMark !== true && row.Недействителен !== true; }
 function isActiveContract(row: OneCPartnerContractPayload): boolean { return row.DeletionMark !== true && row.Недействителен !== true; }
 function isActivePriceType(row: OneCPartnerPriceTypePayload): boolean { return row.DeletionMark !== true && row.ЦеныАктуальны !== false; }
-function isPartnerRow(value: unknown): value is OneCPartnerCompanyPayload { return isRecord(value) && typeof value.Ref_Key === "string" && typeof value.Code === "string" && typeof value.Description === "string"; }
 function isContractRow(value: unknown): value is OneCPartnerContractPayload { return isRecord(value) && typeof value.Ref_Key === "string" && typeof value.Code === "string" && typeof value.Description === "string" && typeof value.Owner_Key === "string"; }
 function isPriceTypeRow(value: unknown): value is OneCPartnerPriceTypePayload { return isRecord(value) && typeof value.Ref_Key === "string" && typeof value.Code === "string" && typeof value.Description === "string"; }
 function assertRows<T>(rows: unknown[], guard: (value: unknown) => value is T): asserts rows is T[] {
   if (!rows.every(guard)) throw new IntegrationValidationError("Invalid 1C OData row response.");
+}
+
+type PartnerRowSkipReason =
+  | "folder"
+  | "deleted"
+  | "inactive"
+  | "invalid_reference"
+  | "invalid_shape";
+
+function normalizePartnerRows(
+  rows: OneCPartnerCompanyPayload[],
+): OneCNormalizedPartnerCompanyPayload[] {
+  return rows
+    .map(normalizePartnerRow)
+    .filter((row): row is OneCNormalizedPartnerCompanyPayload => row !== null);
+}
+
+function normalizePartnerRow(
+  row: OneCPartnerCompanyPayload,
+): OneCNormalizedPartnerCompanyPayload | null {
+  if (!isRecord(row)) {
+    logSkippedPartnerRow("invalid_shape");
+    return null;
+  }
+
+  const reference = normalizeString(row.Ref_Key);
+  if (!reference || !UUID_PATTERN.test(reference)) {
+    logSkippedPartnerRow("invalid_reference");
+    return null;
+  }
+
+  const normalized: OneCNormalizedPartnerCompanyPayload = {
+    Ref_Key: reference,
+    Code: normalizeString(row.Code),
+    Description: normalizeString(row.Description),
+    НаименованиеПолное: normalizeString(row.НаименованиеПолное),
+    ИНН: normalizeString(row.ИНН),
+    Покупатель: row.Покупатель === true,
+    Поставщик: row.Поставщик === true,
+    Недействителен: row.Недействителен === true,
+    DeletionMark: row.DeletionMark === true,
+    IsFolder: row.IsFolder === true,
+  };
+
+  if (normalized.IsFolder) {
+    logSkippedPartnerRow("folder");
+    return null;
+  }
+  if (normalized.DeletionMark) {
+    logSkippedPartnerRow("deleted");
+    return null;
+  }
+  if (normalized.Недействителен) {
+    logSkippedPartnerRow("inactive");
+    return null;
+  }
+  if (!normalized.Description) {
+    logSkippedPartnerRow("invalid_shape");
+    return null;
+  }
+
+  return normalized;
+}
+
+function normalizeString(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function logSkippedPartnerRow(reason: PartnerRowSkipReason): void {
+  console.warn({
+    event: "one_c_odata_row_skipped",
+    resource: PARTNERS_RESOURCE,
+    reason,
+  });
 }
 
 const mockPartners: OneCPartnerCompanyPayload[] = [{

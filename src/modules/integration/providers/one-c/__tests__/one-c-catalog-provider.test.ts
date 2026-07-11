@@ -154,6 +154,7 @@ describe("1C catalog provider", () => {
       Поставщик: false,
       Недействителен: false,
       DeletionMark: false,
+      IsFolder: false,
     };
 
     const dto = mapper.toSearchResultDTO(payload);
