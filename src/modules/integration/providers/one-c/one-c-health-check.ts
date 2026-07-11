@@ -13,6 +13,7 @@ import {
 import { createPartnerLookupService } from "../../services";
 import { OneCODataClient } from "./one-c-odata-client";
 import { parseRequiredOneCGuid } from "./one-c-guid";
+import { getPartnerPipelineDiagnostic } from "../../services/partner-search-validation";
 
 const PARTNERS_RESOURCE = "Catalog_Контрагенты";
 const MINIMAL_FIELDS = "Ref_Key,Code,Description,DeletionMark";
@@ -77,6 +78,12 @@ export type OneCHealthReport = {
   provider: {
     passed: boolean;
     resultCount: number;
+    providerOutputShape: string | null;
+    providerOutputCount: number | null;
+    serviceOutputShape: string | null;
+    serviceOutputCount: number | null;
+    failedStage: string | null;
+    issuePaths: string[];
     errorCategory: OneCHealthErrorCategory | null;
     message: string;
   };
@@ -194,12 +201,35 @@ async function runNameQueryCheck(client: OneCODataClient): Promise<OneCNameQuery
 async function runProviderCheck(oneCEnv: OneCEnv): Promise<OneCHealthReport["provider"]> {
   try {
     const result = await createPartnerLookupService(oneCEnv).searchPartners({ query: "NOVOTECH", limit: 20 });
-    return { passed: true, resultCount: result.items.length, errorCategory: null, message: "Provider lookup completed." };
+    return {
+      passed: true,
+      resultCount: result.items.length,
+      providerOutputShape: "integration_page_result",
+      providerOutputCount: result.items.length,
+      serviceOutputShape: "integration_page_result",
+      serviceOutputCount: result.items.length,
+      failedStage: null,
+      issuePaths: [],
+      errorCategory: null,
+      message: "Provider lookup completed.",
+    };
   } catch (error) {
+    const diagnostic = getPartnerPipelineDiagnostic(error);
     const errorCategory = categorizeOneCHealthError(error);
     const message = safeMessage(errorCategory);
     logFailure("provider", null, errorCategory, message, parseHostname(oneCEnv.baseUrl));
-    return { passed: false, resultCount: 0, errorCategory, message };
+    return {
+      passed: false,
+      resultCount: 0,
+      providerOutputShape: diagnostic?.stage === "provider_output" ? diagnostic.resultShape : null,
+      providerOutputCount: diagnostic?.stage === "provider_output" ? diagnostic.resultCount : null,
+      serviceOutputShape: diagnostic?.stage === "service_input" || diagnostic?.stage === "service_output" ? diagnostic.resultShape : null,
+      serviceOutputCount: diagnostic?.stage === "service_input" || diagnostic?.stage === "service_output" ? diagnostic.resultCount : null,
+      failedStage: diagnostic?.stage ?? null,
+      issuePaths: diagnostic?.issuePaths ?? [],
+      errorCategory,
+      message,
+    };
   }
 }
 

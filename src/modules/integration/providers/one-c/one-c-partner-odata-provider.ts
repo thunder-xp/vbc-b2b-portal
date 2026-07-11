@@ -24,6 +24,10 @@ import {
 import {
   parseRequiredOneCGuid,
 } from "./one-c-guid";
+import {
+  logPipelineProgress,
+  validatePartnerSearchPage,
+} from "../../services/partner-search-validation";
 import type {
   OneCODataCollectionPayload,
   OneCPartnerCompanyPayload,
@@ -67,13 +71,17 @@ export class OneCPartnerODataProvider implements PartnerProvider {
     input: PartnerSearchInputDTO,
   ): Promise<IntegrationPageResultDTO<PartnerSearchResultDTO>> {
     if (this.config.useMockPartners) {
-      return {
+      const page = {
         items: filterMockPartners(input)
           .map(normalizePartnerRow)
           .filter((item): item is OneCNormalizedPartnerCompanyPayload => item !== null)
           .map((item) => this.mapSearchResult(item)),
         nextCursor: null,
       };
+      logPipelineProgress("dto_mapping", "integration_page_result", page.items.length);
+      const validated = validatePartnerSearchPage(page, "provider_output");
+      logPipelineProgress("provider_return", "integration_page_result", validated.items.length);
+      return validated;
     }
 
     const query = input.query.trim();
@@ -106,13 +114,17 @@ export class OneCPartnerODataProvider implements PartnerProvider {
       }
     }
 
-    return {
+    const page = {
       items: [...matches.values()]
         .sort((left, right) => Number(right.Покупатель) - Number(left.Покупатель))
         .slice(0, limit)
         .map((item) => this.mapSearchResult(item)),
       nextCursor: null,
     };
+    logPipelineProgress("dto_mapping", "integration_page_result", page.items.length);
+    const validated = validatePartnerSearchPage(page, "provider_output");
+    logPipelineProgress("provider_return", "integration_page_result", validated.items.length);
+    return validated;
   }
 
   async fetchPartnerContracts(
@@ -207,7 +219,13 @@ export class OneCPartnerODataProvider implements PartnerProvider {
 
   private async getCollection<T>(resource: string, params: Record<string, string>): Promise<T[]> {
     const payload = await this.client.get(resource, params);
-    if (!isCollectionPayload<T>(payload)) throw new IntegrationValidationError("Invalid 1C OData collection response.");
+    logPipelineProgress("odata_response", collectionShape(payload), collectionSize(payload));
+    if (!isCollectionPayload<T>(payload)) {
+      logPartnerPipelineFailure("odata_envelope", collectionShape(payload), collectionSize(payload));
+      throw new IntegrationValidationError("Invalid 1C OData collection response.");
+    }
+    logPipelineProgress("odata_envelope", "odata_collection", payload.value.length);
+    logPipelineProgress("raw_rows", "odata_rows", payload.value.length);
     return payload.value;
   }
 
@@ -238,6 +256,7 @@ export class OneCPartnerODataProvider implements PartnerProvider {
     try {
       return this.mapper.toSearchResultDTO(row);
     } catch {
+      logPartnerPipelineFailure("dto_mapping", "normalized_partner_row", 1);
       throw new IntegrationMappingError("1C partner mapping failed.");
     }
   }
@@ -252,6 +271,31 @@ export class OneCPartnerODataProvider implements PartnerProvider {
       throw new IntegrationMappingError("1C contract mapping failed.");
     }
   }
+}
+
+function logPartnerPipelineFailure(
+  stage: "odata_envelope" | "dto_mapping",
+  resultShape: string,
+  resultCount: number | null,
+): void {
+  console.error({
+    event: "one_c_partner_pipeline_validation_failed",
+    stage,
+    errorCategory: "invalid_response",
+    resultShape,
+    resultCount,
+    issuePaths: [],
+    expectedTypes: [],
+    receivedTypes: [],
+  });
+}
+
+function collectionShape(value: unknown): string {
+  return Array.isArray(value) ? "array" : value === null ? "null" : typeof value;
+}
+
+function collectionSize(value: unknown): number | null {
+  return isCollectionPayload<unknown>(value) ? value.value.length : null;
 }
 
 function isCollectionPayload<T>(value: unknown): value is OneCODataCollectionPayload<T> {

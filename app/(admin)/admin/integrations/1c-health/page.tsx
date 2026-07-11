@@ -113,15 +113,24 @@ function NameQueryCard({ check }: { check: OneCNameQueryHealth }) {
   );
 }
 
-function ProviderCard({ provider }: { provider: { passed: boolean; resultCount: number; errorCategory: string | null; message: string } }) {
+function ProviderCard({ provider }: { provider: { passed: boolean; resultCount: number; providerOutputShape: string | null; providerOutputCount: number | null; serviceOutputShape: string | null; serviceOutputCount: number | null; failedStage: string | null; issuePaths: string[]; errorCategory: string | null; message: string } }) {
   return (
     <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
       <SectionTitle passed={provider.passed} title="Provider-level test" />
       <div className="mt-4 grid gap-3 sm:grid-cols-3">
         <Metric label="Result count" value={String(provider.resultCount)} />
+        <Metric label="Provider output" value={provider.providerOutputShape ? `${provider.providerOutputShape} (${provider.providerOutputCount ?? 0})` : "Not available"} />
+        <Metric label="Service output" value={provider.serviceOutputShape ? `${provider.serviceOutputShape} (${provider.serviceOutputCount ?? 0})` : "Not available"} />
+        <Metric label="Failed stage" value={provider.failedStage ?? "None"} />
         <Metric label="Error category" value={provider.errorCategory ?? "None"} />
         <Metric label="Result" value={provider.message} />
       </div>
+      {provider.issuePaths.length > 0 ? (
+        <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+          <p className="font-medium">Issue paths</p>
+          <ul className="mt-2 space-y-1">{provider.issuePaths.map((path) => <li key={path}>{path}</li>)}</ul>
+        </div>
+      ) : null}
     </section>
   );
 }

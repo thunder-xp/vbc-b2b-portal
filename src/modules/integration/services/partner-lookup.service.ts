@@ -7,6 +7,10 @@ import type {
 } from "../dto";
 import type { PartnerProvider } from "../contracts";
 import { IntegrationValidationError } from "../errors";
+import {
+  logPipelineProgress,
+  validatePartnerSearchPage,
+} from "./partner-search-validation";
 
 export interface PartnerLookupService {
   searchPartners(
@@ -33,10 +37,14 @@ export class DefaultPartnerLookupService implements PartnerLookupService {
       );
     }
 
-    return this.partnerProvider.searchPartners({
+    const providerOutput = await this.partnerProvider.searchPartners({
       query,
       limit: input.limit ?? 10,
     });
+    logPipelineProgress("service_input", "integration_page_result", providerOutput.items.length);
+    const validatedInput = validatePartnerSearchPage(providerOutput, "service_input");
+    logPipelineProgress("service_output", "integration_page_result", validatedInput.items.length);
+    return validatePartnerSearchPage(validatedInput, "service_output");
   }
 
   async getPartnerContracts(

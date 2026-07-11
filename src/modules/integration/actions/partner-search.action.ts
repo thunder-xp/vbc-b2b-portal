@@ -12,7 +12,7 @@ import {
 } from "../../access-control/actions/service-factory";
 import { ForbiddenError } from "../../access-control/services";
 import { canApprovePartnerRequests } from "../../access-control/services/internal-authorization";
-import type { PartnerContractDTO, PartnerPriceTypeDTO, PartnerSearchResultDTO } from "../dto";
+import type { PartnerContractDTO, PartnerPriceTypeDTO } from "../dto";
 import {
   IntegrationProviderUnavailableError,
   IntegrationForbiddenError,
@@ -25,17 +25,12 @@ import {
 import { categorizeOneCHealthError } from "../providers/one-c/one-c-health-check";
 import { createPartnerLookupService } from "../services";
 import { getOneCEnv } from "../../../lib/env";
+import {
+  mapPartnerSearchResultToActionDto,
+  type PartnerSearchResultActionDto,
+} from "./partner-search-result.mapper";
 
-export type PartnerSearchResultActionDto = {
-  displayName: string;
-  legalName: string | null;
-  taxId: string | null;
-  external1cId: string;
-  code: string;
-  fullName: string | null;
-  buyer: boolean;
-  supplier: boolean;
-};
+export type { PartnerSearchResultActionDto } from "./partner-search-result.mapper";
 
 export type PartnerContractActionDto = {
   external1cContractId: string;
@@ -73,7 +68,7 @@ export async function searchOneCPartnersAction(input: {
 
     return success(
       "1C partner search completed.",
-      result.items.map(toActionDto),
+      result.items.map(mapPartnerSearchResultToActionDto),
     );
   } catch (error) {
     const errorCategory = categorizeOneCHealthError(error);
@@ -119,21 +114,6 @@ export async function listOneCPriceTypesAction(): Promise<ActionResult<PartnerPr
   } catch (error) {
     return integrationFailure(error);
   }
-}
-
-function toActionDto(
-  partner: PartnerSearchResultDTO,
-): PartnerSearchResultActionDto {
-  return {
-    displayName: partner.displayName,
-    legalName: partner.legalName,
-    taxId: partner.taxId,
-    external1cId: partner.reference.externalId,
-    code: partner.code,
-    fullName: partner.fullName,
-    buyer: partner.buyer,
-    supplier: partner.supplier,
-  };
 }
 
 async function ensurePartnerApprovalAccess(): Promise<void> {
