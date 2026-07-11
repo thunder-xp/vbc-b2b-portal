@@ -8,7 +8,6 @@ import { DefaultStockSyncEngine } from "../sync";
 export function createStockSyncEngine(oneCEnv: OneCEnv) {
   const provider = new OneCProvider({
     baseUrl: oneCEnv.baseUrl,
-    apiToken: oneCEnv.apiToken,
     username: oneCEnv.username,
     password: oneCEnv.password,
     stockBalancesPath: oneCEnv.stockBalancesPath,

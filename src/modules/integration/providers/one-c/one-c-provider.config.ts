@@ -6,7 +6,6 @@ export type OneCProviderConfig = {
   capabilities: ERPProviderCapabilities;
   requestTimeoutMs: number;
   baseUrl: string | null;
-  apiToken: string | null;
   username: string | null;
   password: string | null;
   catalogCategoriesPath: string;
@@ -14,7 +13,8 @@ export type OneCProviderConfig = {
   catalogProductsPath: string;
   productPricesPath: string;
   stockBalancesPath: string;
-  partnerSearchPath: string;
+  partnerSearchPageSize: number;
+  partnerSearchMaxPages: number;
   useMockCatalog: boolean;
   useMockPricing: boolean;
   useMockInventory: boolean;

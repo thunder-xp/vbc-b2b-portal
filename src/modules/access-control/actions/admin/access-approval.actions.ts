@@ -33,6 +33,7 @@ export type AccessRequestReviewDto = {
 export type ApproveAccessRequestActionInput = {
   requestId?: string | null;
   external1cId?: string | null;
+  external1cCode?: string | null;
   external1cContractId?: string | null;
   external1cPriceTypeId?: string | null;
   decisionReason?: string | null;
@@ -84,6 +85,7 @@ export async function approveAccessRequestAction(
 ): Promise<ActionResult<AccessRequestReviewDto>> {
   const requestId = normalizeRequiredText(input.requestId);
   const external1cId = normalizeRequiredText(input.external1cId);
+  const external1cCode = normalizeRequiredText(input.external1cCode);
   const external1cContractId = normalizeRequiredText(input.external1cContractId);
   const external1cPriceTypeId = normalizeRequiredText(input.external1cPriceTypeId);
 
@@ -91,7 +93,7 @@ export async function approveAccessRequestAction(
     return invalidInput("Access request is required.");
   }
 
-  if (!external1cId || !external1cContractId || !external1cPriceTypeId) {
+  if (!external1cId || !external1cCode || !external1cContractId || !external1cPriceTypeId) {
     return invalidInput("1C partner, contract, and price type are required.");
   }
 
@@ -101,6 +103,7 @@ export async function approveAccessRequestAction(
       actorUserId,
       requestId,
       external1cId,
+      external1cCode,
       external1cContractId,
       external1cPriceTypeId,
       decisionReason: normalizeOptionalText(input.decisionReason),

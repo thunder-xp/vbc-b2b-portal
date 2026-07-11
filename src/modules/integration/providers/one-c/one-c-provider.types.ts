@@ -71,7 +71,24 @@ export type OneCStockBalancePayload = {
   metadata: OneCMetadataPayload;
 };
 
+export type OneCODataCollectionPayload<T> = {
+  "odata.metadata"?: string;
+  value: T[];
+};
+
 export type OneCPartnerCompanyPayload = {
+  Ref_Key: string;
+  Code: string;
+  Description: string;
+  НаименованиеПолное?: string | null;
+  ИНН?: string | null;
+  Покупатель?: boolean;
+  Поставщик?: boolean;
+  Недействителен?: boolean;
+  DeletionMark?: boolean;
+};
+
+export type OneCPartnerCompanySyncPayload = {
   reference: OneCReferencePayload;
   displayName: string;
   legalName: string | null;
@@ -82,24 +99,32 @@ export type OneCPartnerCompanyPayload = {
 };
 
 export type OneCPartnerContractPayload = {
-  reference: OneCReferencePayload;
-  name: string;
-  active: boolean;
-  default: boolean;
+  Ref_Key: string;
+  Code: string;
+  Description: string;
+  Owner_Key: string;
+  НомерДоговора?: string | null;
+  ДатаДоговора?: string | null;
+  ВидДоговора?: string | null;
+  ВидЦен_Key?: string | null;
+  ВидЦенКонтрагента_Key?: string | null;
+  Организация_Key?: string | null;
+  Недействителен?: boolean;
+  DeletionMark?: boolean;
 };
 
 export type OneCPartnerPriceTypePayload = {
-  reference: OneCReferencePayload;
-  name: string;
-  currency: string | null;
-  active: boolean;
-  default: boolean;
+  Ref_Key: string;
+  Code: string;
+  Description: string;
+  ВалютаЦены_Key?: string | null;
+  ЦенаВключаетНДС?: boolean;
+  ТипВидаЦен?: string | null;
+  ЦеныАктуальны?: boolean;
+  DeletionMark?: boolean;
 };
 
-export type OneCPartnerSearchPayload = OneCPartnerCompanyPayload & {
-  contracts: OneCPartnerContractPayload[];
-  priceTypes: OneCPartnerPriceTypePayload[];
-};
+export type OneCPartnerSearchPayload = OneCPartnerCompanyPayload;
 
 export type OneCSalesOrderItemPayload = {
   productReference: OneCReferencePayload;

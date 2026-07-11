@@ -2,6 +2,7 @@ import type { PartnerCompany } from "../types";
 
 export interface CreatePartnerCompanyInput {
   external1cId: string;
+  external1cCode?: string | null;
   external1cContractId?: string | null;
   external1cPriceTypeId?: string | null;
   displayName: string;
@@ -9,6 +10,7 @@ export interface CreatePartnerCompanyInput {
 
 export interface UpdatePartnerCompanyApprovalBindingInput {
   companyId: string;
+  external1cCode?: string | null;
   external1cContractId: string;
   external1cPriceTypeId: string;
   displayName?: string | null;

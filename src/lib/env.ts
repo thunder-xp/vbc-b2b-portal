@@ -7,19 +7,20 @@ const REQUIRED_SUPABASE_ENV = [
 ] as const;
 
 type RequiredSupabaseEnvName = (typeof REQUIRED_SUPABASE_ENV)[number];
-export type OneCAuthMode = "token" | "basic" | "none";
+export type OneCAuthMode = "basic" | "none";
 
 export type OneCEnv = {
   baseUrl: string | null;
   username: string | null;
   password: string | null;
-  apiToken: string | null;
   catalogCategoriesPath: string;
   catalogBrandsPath: string;
   catalogProductsPath: string;
   productPricesPath: string;
   stockBalancesPath: string;
-  partnerSearchPath: string;
+  partnerSearchPageSize: number;
+  partnerSearchMaxPages: number;
+  requestTimeoutMs: number;
   authMode: OneCAuthMode;
   useMockCatalog: boolean;
   useMockPricing: boolean;
@@ -66,7 +67,6 @@ export function getSupabaseEnvStatus(): SupabaseEnvStatus {
 }
 
 export function getOneCEnv(): OneCEnv {
-  const apiToken = process.env.ONEC_API_TOKEN || null;
   const username = process.env.ONEC_USERNAME || null;
   const password = process.env.ONEC_PASSWORD || null;
   const explicitMock = process.env.ONEC_USE_MOCK_CATALOG === "true";
@@ -78,7 +78,6 @@ export function getOneCEnv(): OneCEnv {
     baseUrl: process.env.ONEC_BASE_URL || null,
     username,
     password,
-    apiToken,
     catalogCategoriesPath:
       process.env.ONEC_CATALOG_CATEGORIES_PATH || "/catalog/categories",
     catalogBrandsPath: process.env.ONEC_CATALOG_BRANDS_PATH || "/catalog/brands",
@@ -88,11 +87,27 @@ export function getOneCEnv(): OneCEnv {
       process.env.ONEC_PRODUCT_PRICES_PATH || "/pricing/product-prices",
     stockBalancesPath:
       process.env.ONEC_STOCK_BALANCES_PATH || "/inventory/stock-balances",
-    partnerSearchPath: process.env.ONEC_PARTNER_SEARCH_PATH || "/partners/search",
-    authMode: apiToken ? "token" : username && password ? "basic" : "none",
+    partnerSearchPageSize: readPositiveIntegerEnv("ONEC_PARTNER_SEARCH_PAGE_SIZE", 50),
+    partnerSearchMaxPages: readPositiveIntegerEnv("ONEC_PARTNER_SEARCH_MAX_PAGES", 10),
+    requestTimeoutMs: readPositiveIntegerEnv("ONEC_TIMEOUT_MS", 10000),
+    authMode:
+      process.env.ONEC_AUTH_MODE === "basic" || (username && password)
+        ? "basic"
+        : "none",
     useMockCatalog: explicitMock || !process.env.ONEC_BASE_URL,
     useMockPricing: explicitPricingMock || !process.env.ONEC_BASE_URL,
     useMockInventory: explicitInventoryMock || !process.env.ONEC_BASE_URL,
-    useMockPartners: explicitPartnersMock || !process.env.ONEC_BASE_URL,
+    useMockPartners: explicitPartnersMock,
   };
+}
+
+function readPositiveIntegerEnv(name: string, fallback: number): number {
+  const rawValue = process.env[name];
+
+  if (!rawValue) {
+    return fallback;
+  }
+
+  const value = Number.parseInt(rawValue, 10);
+  return Number.isFinite(value) && value > 0 ? value : fallback;
 }

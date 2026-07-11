@@ -2,6 +2,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { UserStatus, UserType } from "../../../access-control/types";
 import { UnauthenticatedError } from "../../../access-control/services";
+import {
+  IntegrationProviderUnavailableError,
+  IntegrationTimeoutError,
+  IntegrationValidationError,
+} from "../../errors";
 
 const mocks = vi.hoisted(() => ({
   getOneCEnv: vi.fn(),
@@ -65,7 +70,6 @@ describe("syncCatalogFromOneCAction", () => {
     mocks.ensureActiveUser.mockResolvedValue(makeProfile(UserType.Admin));
     mocks.getOneCEnv.mockReturnValue({
       baseUrl: null,
-      apiToken: null,
       username: null,
       password: null,
       catalogCategoriesPath: "/catalog/categories",
@@ -73,7 +77,9 @@ describe("syncCatalogFromOneCAction", () => {
       catalogProductsPath: "/catalog/products",
       productPricesPath: "/pricing/product-prices",
       stockBalancesPath: "/inventory/stock-balances",
-      partnerSearchPath: "/partners/search",
+      partnerSearchPageSize: 50,
+      partnerSearchMaxPages: 10,
+      requestTimeoutMs: 10000,
       authMode: "none",
       useMockCatalog: true,
       useMockPricing: true,
@@ -152,6 +158,12 @@ describe("syncCatalogFromOneCAction", () => {
               name: "Default contract",
               active: true,
               isDefault: true,
+              priceTypeReference: {
+                providerCode: "one-c",
+                externalId: "PRICE-1",
+                externalType: "price-type",
+              },
+              priceTypeName: "Wholesale",
             },
           ],
           priceTypes: [
@@ -350,8 +362,6 @@ describe("syncCatalogFromOneCAction", () => {
       data: [
         {
           external1cId: "PARTNER-1",
-          contract: { external1cContractId: "CONTRACT-1" },
-          priceType: { external1cPriceTypeId: "PRICE-1" },
         },
       ],
     });
@@ -369,6 +379,51 @@ describe("syncCatalogFromOneCAction", () => {
       errorCode: "INVALID_INPUT",
     });
     expect(mocks.searchPartners).not.toHaveBeenCalled();
+  });
+
+  it("returns safe unavailable error for 1C partner search failures", async () => {
+    mocks.searchPartners.mockRejectedValue(
+      new IntegrationProviderUnavailableError("Bearer SECRET failed."),
+    );
+
+    const result = await searchOneCPartnersAction({ query: "partner" });
+
+    expect(result).toMatchObject({
+      success: false,
+      errorCode: "ONEC_UNAVAILABLE",
+      message: "1C is temporarily unavailable.",
+    });
+    expect(result.message).not.toContain("SECRET");
+  });
+
+  it("returns a safe timeout message without provider details", async () => {
+    mocks.searchPartners.mockRejectedValue(
+      new IntegrationTimeoutError("Request to internal-host:8080 timed out."),
+    );
+
+    const result = await searchOneCPartnersAction({ query: "partner" });
+
+    expect(result).toMatchObject({
+      success: false,
+      errorCode: "ONEC_TIMEOUT",
+      message: "Search request timed out.",
+    });
+    expect(result.message).not.toContain("internal-host");
+  });
+
+  it("returns safe invalid response error for malformed 1C partner search payloads", async () => {
+    mocks.searchPartners.mockRejectedValue(
+      new IntegrationValidationError("Raw invalid payload"),
+    );
+
+    const result = await searchOneCPartnersAction({ query: "partner" });
+
+    expect(result).toMatchObject({
+      success: false,
+      errorCode: "ONEC_INVALID_RESPONSE",
+      message: "Invalid server response from 1C.",
+    });
+    expect(result.message).not.toContain("Raw");
   });
 });
 

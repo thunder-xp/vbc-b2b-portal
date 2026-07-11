@@ -102,6 +102,7 @@ describe("DefaultAccessApprovalService", () => {
 
     expect(fixtures.partnerCompanyRepository.lastCreateInput).toEqual({
       external1cId: "PARTNER-1C",
+      external1cCode: "PARTNER-1C",
       external1cContractId: "CONTRACT-1C",
       external1cPriceTypeId: "PRICE-TYPE-1C",
       displayName: "Partner Company",
@@ -246,6 +247,7 @@ describe("DefaultAccessApprovalService", () => {
     expect(fixtures.partnerCompanyRepository.lastCreateInput).toBeNull();
     expect(fixtures.partnerCompanyRepository.lastUpdateBindingInput).toEqual({
       companyId: "existing-company",
+      external1cCode: "PARTNER-1C",
       external1cContractId: "CONTRACT-NEW",
       external1cPriceTypeId: "PRICE-NEW",
       displayName: "Partner Company",

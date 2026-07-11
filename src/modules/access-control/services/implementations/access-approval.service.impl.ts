@@ -107,9 +107,10 @@ export class DefaultAccessApprovalService implements AccessApprovalService {
 
     const company =
       request.status === AccessRequestStatus.Approved
-        ? await this.findApprovedRequestCompany(request, approvalBinding.external1cId)
+          ? await this.findApprovedRequestCompany(request, approvalBinding.external1cId)
         : await this.findOrCreateApprovedCompany({
             external1cId: approvalBinding.external1cId,
+            external1cCode: approvalBinding.external1cCode,
             external1cContractId: approvalBinding.external1cContractId,
             external1cPriceTypeId: approvalBinding.external1cPriceTypeId,
             displayName:
@@ -196,16 +197,19 @@ export class DefaultAccessApprovalService implements AccessApprovalService {
 
   private normalizeApprovalBinding(input: ApproveAccessRequestInput): {
     external1cId: string;
+    external1cCode: string;
     external1cContractId: string;
     external1cPriceTypeId: string;
     decisionReason: string | null;
   } {
     const external1cId = input.external1cId.trim();
+    const external1cCode = (input.external1cCode ?? input.external1cId).trim();
     const external1cContractId = input.external1cContractId.trim();
     const external1cPriceTypeId = input.external1cPriceTypeId.trim();
 
     if (
       external1cId.length === 0 ||
+      external1cCode.length === 0 ||
       external1cContractId.length === 0 ||
       external1cPriceTypeId.length === 0
     ) {
@@ -216,6 +220,7 @@ export class DefaultAccessApprovalService implements AccessApprovalService {
 
     return {
       external1cId,
+      external1cCode,
       external1cContractId,
       external1cPriceTypeId,
       decisionReason: input.decisionReason?.trim() || null,
@@ -254,6 +259,7 @@ export class DefaultAccessApprovalService implements AccessApprovalService {
 
   private async findOrCreateApprovedCompany(input: {
     external1cId: string;
+    external1cCode: string;
     external1cContractId: string;
     external1cPriceTypeId: string;
     displayName: string;
@@ -267,6 +273,7 @@ export class DefaultAccessApprovalService implements AccessApprovalService {
       if (existingCompany) {
         return this.partnerCompanyRepository.updateApprovalBinding({
           companyId: existingCompany.id,
+          external1cCode: input.external1cCode,
           external1cContractId: input.external1cContractId,
           external1cPriceTypeId: input.external1cPriceTypeId,
           displayName: input.displayName,
@@ -275,6 +282,7 @@ export class DefaultAccessApprovalService implements AccessApprovalService {
 
       return this.partnerCompanyRepository.create({
         external1cId: input.external1cId,
+        external1cCode: input.external1cCode,
         external1cContractId: input.external1cContractId,
         external1cPriceTypeId: input.external1cPriceTypeId,
         displayName: input.displayName,

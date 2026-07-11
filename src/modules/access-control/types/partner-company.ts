@@ -9,6 +9,7 @@ export enum CompanyStatus {
 export interface PartnerCompany {
   id: string;
   external1cId: string;
+  external1cCode?: string | null;
   external1cContractId?: string | null;
   external1cPriceTypeId?: string | null;
   displayName: string;

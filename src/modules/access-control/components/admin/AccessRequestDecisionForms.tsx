@@ -7,7 +7,11 @@ import {
   rejectAccessRequestAction,
 } from "../../actions/admin/access-approval.actions";
 import {
+  getOneCPartnerContractsAction,
+  listOneCPriceTypesAction,
   searchOneCPartnersAction,
+  type PartnerContractActionDto,
+  type PartnerPriceTypeActionDto,
   type PartnerSearchResultActionDto,
 } from "@/src/modules/integration/actions";
 
@@ -19,10 +23,15 @@ export function AccessRequestDecisionForms({
   requestId,
 }: AccessRequestDecisionFormsProps) {
   const [external1cId, setExternal1cId] = useState("");
+  const [external1cCode, setExternal1cCode] = useState("");
   const [external1cContractId, setExternal1cContractId] = useState("");
   const [external1cPriceTypeId, setExternal1cPriceTypeId] = useState("");
   const [selectedPartner, setSelectedPartner] =
     useState<PartnerSearchResultActionDto | null>(null);
+  const [selectedContractName, setSelectedContractName] = useState("");
+  const [selectedPriceTypeName, setSelectedPriceTypeName] = useState("");
+  const [contracts, setContracts] = useState<PartnerContractActionDto[]>([]);
+  const [priceTypes, setPriceTypes] = useState<PartnerPriceTypeActionDto[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<
     PartnerSearchResultActionDto[]
@@ -44,6 +53,7 @@ export function AccessRequestDecisionForms({
       const result = await approveAccessRequestAction({
         requestId,
         external1cId,
+        external1cCode,
         external1cContractId,
         external1cPriceTypeId,
         decisionReason,
@@ -66,6 +76,7 @@ export function AccessRequestDecisionForms({
 
       if (result.success) {
         setSearchResults(result.data);
+        setSearchError(result.data.length === 0 ? "No matching counterparty found." : null);
         return;
       }
 
@@ -75,17 +86,56 @@ export function AccessRequestDecisionForms({
   }
 
   function selectPartner(partner: PartnerSearchResultActionDto) {
-    if (!partner.contract || !partner.priceType) {
-      setSearchError("Selected partner has no active contract or price type.");
-      return;
-    }
-
     setSelectedPartner(partner);
     setExternal1cId(partner.external1cId);
-    setExternal1cContractId(partner.contract.external1cContractId);
-    setExternal1cPriceTypeId(partner.priceType.external1cPriceTypeId);
-    setIsSearchOpen(false);
+    setExternal1cCode(partner.code);
+    setExternal1cContractId("");
+    setExternal1cPriceTypeId("");
+    setSelectedContractName("");
+    setSelectedPriceTypeName("");
+    setContracts([]);
+    setPriceTypes([]);
     setSearchError(null);
+    startTransition(async () => {
+      const result = await getOneCPartnerContractsAction({ partnerReference: partner.external1cId });
+      if (!result.success) {
+        setSearchError(result.message);
+        return;
+      }
+      setContracts(result.data);
+      if (result.data.length === 0) {
+        setSearchError("No active contracts found.");
+        return;
+      }
+      if (result.data.length === 1) selectContract(result.data[0]);
+    });
+  }
+
+  function selectContract(contract: PartnerContractActionDto) {
+    setExternal1cContractId(contract.external1cContractId);
+    setSelectedContractName(contract.name);
+    setSearchError(null);
+    if (contract.priceType) {
+      selectPriceType(contract.priceType);
+      setIsSearchOpen(false);
+      return;
+    }
+    setExternal1cPriceTypeId("");
+    setSelectedPriceTypeName("");
+    startTransition(async () => {
+      const result = await listOneCPriceTypesAction();
+      if (result.success) {
+        setPriceTypes(result.data);
+        setSearchError(result.data.length === 0 ? "Price type is not configured for this contract." : null);
+      } else {
+        setSearchError(result.message);
+      }
+    });
+  }
+
+  function selectPriceType(priceType: PartnerPriceTypeActionDto) {
+    setExternal1cPriceTypeId(priceType.external1cPriceTypeId);
+    setSelectedPriceTypeName(priceType.name);
   }
 
   function reject(event: FormEvent<HTMLFormElement>) {
@@ -154,6 +204,11 @@ export function AccessRequestDecisionForms({
                 <BindingValue
                   label="Price type / price group reference"
                   value={external1cPriceTypeId}
+                />
+                <BindingValue label="Contract" value={selectedContractName} />
+                <BindingValue
+                  label="Price type"
+                  value={selectedPriceTypeName}
                 />
               </dl>
             )}
@@ -231,27 +286,76 @@ export function AccessRequestDecisionForms({
 
             <div className="mt-5 grid max-h-96 gap-3 overflow-auto">
               {searchResults.map((partner) => (
-                <button
-                  className="rounded-md border border-zinc-200 p-4 text-left hover:border-emerald-600 hover:bg-emerald-50"
+                <div
+                  className="rounded-md border border-zinc-200 p-4"
                   key={partner.external1cId}
-                  onClick={() => selectPartner(partner)}
-                  type="button"
                 >
                   <p className="font-medium text-zinc-950">
                     {partner.displayName}
                   </p>
                   <p className="mt-1 text-sm text-zinc-600">
-                    {partner.taxId ?? "No fiscal code"} ·{" "}
-                    {partner.external1cId}
+                    {partner.fullName ?? "No full legal name"}
                   </p>
-                  <p className="mt-2 text-sm text-zinc-700">
-                    Contract: {partner.contract?.name ?? "Not available"}
+                  <p className="mt-1 text-sm text-zinc-600">
+                    Fiscal code: {partner.taxId ?? "Not available"} · Code: {partner.code}
                   </p>
-                  <p className="text-sm text-zinc-700">
-                    Price type: {partner.priceType?.name ?? "Not available"}
+                  <p className="mt-1 text-sm text-zinc-600">
+                    {partner.buyer ? "Buyer" : "Not marked as buyer"} · {partner.supplier ? "Supplier" : "Not marked as supplier"}
                   </p>
-                </button>
+                  <button
+                    className="mt-3 rounded-md border border-emerald-600 px-3 py-2 text-sm font-medium text-emerald-800 hover:bg-emerald-50"
+                    onClick={() => selectPartner(partner)}
+                    type="button"
+                  >
+                    Select counterparty
+                  </button>
+                </div>
               ))}
+
+              {selectedPartner && contracts.length > 0 && (
+                <div className="rounded-md border border-zinc-200 p-4">
+                  <p className="font-medium text-zinc-950">Active contracts</p>
+                  <div className="mt-3 grid gap-2">
+                    {contracts.map((contract) => (
+                      <button
+                        className="rounded-md border border-zinc-200 px-3 py-2 text-left text-sm hover:border-emerald-600 hover:bg-emerald-50"
+                        key={contract.external1cContractId}
+                        onClick={() => selectContract(contract)}
+                        type="button"
+                      >
+                        <span className="font-medium text-zinc-900">{contract.name}</span>
+                        <span className="mt-1 block text-zinc-600">
+                          {contract.number ?? contract.code} · {contract.date ?? "No date"} · {contract.contractType ?? "No contract type"}
+                        </span>
+                        <span className="mt-1 block text-zinc-600">
+                          Price type: {contract.priceType?.name ?? "Requires selection"}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {external1cContractId && !external1cPriceTypeId && priceTypes.length > 0 && (
+                <div className="rounded-md border border-amber-200 bg-amber-50 p-4">
+                  <p className="font-medium text-zinc-950">Select active price type</p>
+                  <div className="mt-3 grid gap-2">
+                    {priceTypes.map((priceType) => (
+                      <button
+                        className="rounded-md border border-amber-300 bg-white px-3 py-2 text-left text-sm hover:border-emerald-600"
+                        key={priceType.external1cPriceTypeId}
+                        onClick={() => {
+                          selectPriceType(priceType);
+                          setIsSearchOpen(false);
+                        }}
+                        type="button"
+                      >
+                        {priceType.name} · {priceType.external1cPriceTypeId}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

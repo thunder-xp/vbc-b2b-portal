@@ -79,6 +79,21 @@ DEV_TEST_MANAGER_EMAIL=vasil@example.com
 
 When enabled, the authenticated user with `DEV_TEST_MANAGER_EMAIL` is evaluated as an Internal Manager for partner approval authorization only. The portal does not update `user_type`, create fake users, create memberships, or modify production data for this override. In production, this override is disabled regardless of environment variables.
 
+### Production 1C OData
+
+Partner approval lookup uses server-only HTTP Basic authentication:
+
+```bash
+ONEC_BASE_URL=https://erp-api.nsd.md/novotech/odata/standard.odata
+ONEC_AUTH_MODE=basic
+ONEC_USERNAME=your-odata-user
+ONEC_PASSWORD=your-odata-password
+ONEC_TIMEOUT_MS=10000
+ONEC_USE_MOCK_PARTNERS=false
+```
+
+Never prefix these variables with `NEXT_PUBLIC_`. The browser receives only neutral partner, contract, and price-type DTOs.
+
 ### Development Internal Manager Bootstrap
 
 For product demos that need real authorization records, run:

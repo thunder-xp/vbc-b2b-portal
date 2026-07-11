@@ -21,7 +21,9 @@ export type { SalesOrderDTO, SalesOrderExportResultDTO, SalesOrderItemDTO } from
 export type {
   PartnerCompanyDTO,
   PartnerContractDTO,
+  PartnerContractLookupInputDTO,
   PartnerPriceTypeDTO,
+  PartnerPriceTypeLookupInputDTO,
   PartnerSearchInputDTO,
   PartnerSearchResultDTO,
 } from "./partners";

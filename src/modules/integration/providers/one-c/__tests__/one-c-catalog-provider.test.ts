@@ -1,5 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
+import {
+  IntegrationProviderUnavailableError,
+  IntegrationTimeoutError,
+  IntegrationValidationError,
+} from "../../../errors";
 import { IntegrationProviderNotImplementedError } from "../one-c-provider";
 import {
   DefaultOneCCatalogMapper,
@@ -16,6 +21,10 @@ import type {
 } from "../one-c-provider.types";
 
 describe("1C catalog provider", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it("maps 1C product payloads to neutral catalog DTOs", () => {
     const mapper = new DefaultOneCCatalogMapper();
     const payload: OneCCatalogProductPayload = {
@@ -136,55 +145,164 @@ describe("1C catalog provider", () => {
   it("maps 1C partner search payloads to neutral partner DTOs", () => {
     const mapper = new DefaultOneCPartnerMapper();
     const payload: OneCPartnerSearchPayload = {
-      reference: { ref: "PARTNER-1", type: "partner-company" },
-      displayName: "Security Partner",
-      legalName: "Security Partner Ltd.",
-      taxId: "BG123456789",
-      status: "active",
-      managerReference: null,
-      contracts: [
-        {
-          reference: { ref: "CONTRACT-1", type: "partner-contract" },
-          name: "Default contract",
-          active: true,
-          default: true,
-        },
-      ],
-      priceTypes: [
-        {
-          reference: { ref: "PRICE-1", type: "price-type" },
-          name: "Wholesale",
-          currency: "BGN",
-          active: true,
-          default: true,
-        },
-      ],
-      metadata: { sourceUpdatedAt: "2026-07-09T00:00:00.000Z" },
+      Ref_Key: "11111111-1111-4111-8111-111111111111",
+      Code: "PARTNER-1",
+      Description: "Security Partner",
+      НаименованиеПолное: "Security Partner SRL",
+      ИНН: "BG123456789",
+      Покупатель: true,
+      Поставщик: false,
+      Недействителен: false,
+      DeletionMark: false,
     };
 
     const dto = mapper.toSearchResultDTO(payload);
 
-    expect(dto.reference.externalId).toBe("PARTNER-1");
-    expect(dto.contracts[0]?.reference.externalId).toBe("CONTRACT-1");
-    expect(dto.priceTypes[0]?.reference.externalId).toBe("PRICE-1");
+    expect(dto.reference.externalId).toBe("11111111-1111-4111-8111-111111111111");
+    expect(dto.code).toBe("PARTNER-1");
+    expect(dto.buyer).toBe(true);
   });
 
   it("uses mock partner search without HTTP configuration", async () => {
     const provider = new OneCProvider({ useMockPartners: true });
 
     const result = await provider.partners.searchPartners({
-      query: "BG123456789",
+      query: "1018600013048",
     });
 
     expect(result.items[0]).toMatchObject({
       displayName: "Novotech Demo Partner",
-      taxId: "BG123456789",
+      taxId: "1018600013048",
     });
-    expect(result.items[0]?.contracts[0]?.reference.externalId).toBe(
-      "MOCK-CONTRACT-001",
+  });
+
+  it("calls the real partner search endpoint with bearer auth and encoded query", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () =>
+      new Response(
+        JSON.stringify({
+          "odata.metadata": "metadata",
+          value: [
+            {
+              Ref_Key: "11111111-1111-4111-8111-111111111111",
+              Code: "000000152",
+              Description: "NOVOTECH SYSTEMS SRL",
+              НаименованиеПолное: "NOVOTECH SYSTEMS SRL",
+              ИНН: "1018600013048",
+              Покупатель: true,
+              Поставщик: false,
+              Недействителен: false,
+              DeletionMark: false,
+            },
+          ],
+        }),
+        { status: 200 },
+      ),
     );
-    expect(result.items[0]?.priceTypes[0]?.reference.externalId).toBe(
-      "MOCK-PRICE-TYPE-001",
+    vi.stubGlobal("fetch", fetchMock);
+
+    const provider = new OneCProvider({
+      baseUrl: "https://erp-api.novotech.md",
+      username: "odata-user",
+      password: "odata-password",
+      requestTimeoutMs: 10000,
+      useMockPartners: false,
+    });
+
+    const result = await provider.partners.searchPartners({
+      query: "NOVOTECH SYSTEMS",
+    });
+
+    const [url, init] = fetchMock.mock.calls[0] as [URL, RequestInit];
+    expect(decodeURIComponent(url.toString())).toContain("Catalog_Контрагенты");
+    expect(url.searchParams.get("$filter")).toBe("Code eq 'NOVOTECH SYSTEMS'");
+    expect(init.headers).toMatchObject({
+      Accept: "application/json",
+      Authorization: `Basic ${Buffer.from("odata-user:odata-password").toString("base64")}`,
+    });
+    expect(result.items[0]).toMatchObject({
+      displayName: "NOVOTECH SYSTEMS SRL",
+      taxId: "1018600013048",
+    });
+  });
+
+  it("returns empty partner search results from real endpoint", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockImplementation(async () =>
+      new Response(JSON.stringify({ value: [] })),
+    ));
+
+    const provider = newRealPartnerProvider();
+
+    await expect(
+      provider.partners.searchPartners({ query: "missing" }),
+    ).resolves.toEqual({
+      items: [],
+      nextCursor: null,
+    });
+  });
+
+  it("fails partner search on timeout", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockRejectedValue(Object.assign(new Error("timeout"), {
+        name: "TimeoutError",
+      })),
     );
+
+    await expect(
+      newRealPartnerProvider().partners.searchPartners({ query: "partner" }),
+    ).rejects.toBeInstanceOf(IntegrationTimeoutError);
+  });
+
+  it.each([401, 403, 500])(
+    "fails partner search safely for HTTP %i",
+    async (status) => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue(new Response("{}", { status })),
+      );
+
+      await expect(
+        newRealPartnerProvider().partners.searchPartners({ query: "partner" }),
+      ).rejects.toBeInstanceOf(IntegrationProviderUnavailableError);
+    },
+  );
+
+  it("fails partner search on invalid JSON", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => {
+          throw new SyntaxError("invalid json");
+        },
+      }),
+    );
+
+    await expect(
+      newRealPartnerProvider().partners.searchPartners({ query: "partner" }),
+    ).rejects.toBeInstanceOf(IntegrationValidationError);
+  });
+
+  it("does not use mock partner data unless explicitly enabled", async () => {
+    const provider = new OneCProvider({
+      baseUrl: null,
+      username: null,
+      password: null,
+      useMockPartners: false,
+    });
+
+    await expect(
+      provider.partners.searchPartners({ query: "BG123456789" }),
+    ).rejects.toBeInstanceOf(IntegrationProviderUnavailableError);
   });
 });
+
+function newRealPartnerProvider(): OneCProvider {
+  return new OneCProvider({
+    baseUrl: "https://erp-api.novotech.md",
+    username: "odata-user",
+    password: "odata-password",
+    requestTimeoutMs: 10000,
+    useMockPartners: false,
+  });
+}

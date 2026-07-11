@@ -24,4 +24,5 @@ export {
   IntegrationProviderNotImplementedError,
   OneCProvider,
 } from "./one-c-provider";
+export { OneCODataClient } from "./one-c-odata-client";
 export type * from "./one-c-provider.types";

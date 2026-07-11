@@ -30,7 +30,12 @@ import type {
   SalesOrderExportResultDTO,
   StockBalanceDTO,
 } from "../../dto";
-import { IntegrationUnsupportedOperationError } from "../../errors";
+import {
+  IntegrationProviderUnavailableError,
+  IntegrationTimeoutError,
+  IntegrationUnsupportedOperationError,
+  IntegrationValidationError,
+} from "../../errors";
 import { AbstractERPProvider } from "../abstract-erp-provider";
 import { DefaultOneCCatalogMapper } from "./one-c-catalog.mapper";
 import { DefaultOneCInventoryMapper } from "./one-c-inventory.mapper";
@@ -47,10 +52,9 @@ import type {
   OneCCatalogProductPayload,
   OneCCatalogResponsePayload,
   OneCProductPricePayload,
-  OneCPartnerCompanyPayload,
-  OneCPartnerSearchPayload,
   OneCStockBalancePayload,
 } from "./one-c-provider.types";
+import { OneCPartnerODataProvider } from "./one-c-partner-odata-provider";
 
 export class IntegrationProviderNotImplementedError extends IntegrationUnsupportedOperationError {
   constructor(operation: string) {
@@ -77,9 +81,8 @@ export class OneCProvider extends AbstractERPProvider {
       providerCode: ONE_C_PROVIDER_CODE,
       displayName: "1C ERP",
       capabilities: config.capabilities ?? oneCProviderDefaultCapabilities,
-      requestTimeoutMs: config.requestTimeoutMs ?? 15000,
+      requestTimeoutMs: config.requestTimeoutMs ?? 10000,
       baseUrl: config.baseUrl ?? null,
-      apiToken: config.apiToken ?? null,
       username: config.username ?? null,
       password: config.password ?? null,
       catalogCategoriesPath:
@@ -89,11 +92,12 @@ export class OneCProvider extends AbstractERPProvider {
       productPricesPath: config.productPricesPath ?? "/pricing/product-prices",
       stockBalancesPath:
         config.stockBalancesPath ?? "/inventory/stock-balances",
-      partnerSearchPath: config.partnerSearchPath ?? "/partners/search",
+      partnerSearchPageSize: config.partnerSearchPageSize ?? 50,
+      partnerSearchMaxPages: config.partnerSearchMaxPages ?? 10,
       useMockCatalog: config.useMockCatalog ?? true,
       useMockPricing: config.useMockPricing ?? true,
       useMockInventory: config.useMockInventory ?? true,
-      useMockPartners: config.useMockPartners ?? true,
+      useMockPartners: config.useMockPartners ?? false,
     };
     this.capabilities = this.config.capabilities;
     this.catalog = new OneCCatalogProvider(this.config);
@@ -102,7 +106,7 @@ export class OneCProvider extends AbstractERPProvider {
     this.orders = new OneCOrderProvider();
     this.documents = new OneCDocumentProvider();
     this.finance = new OneCFinanceProvider();
-    this.partners = new OneCPartnerProvider(this.config);
+    this.partners = new OneCPartnerODataProvider(this.config);
   }
 
   async checkHealth(): Promise<ERPProviderHealth> {
@@ -254,69 +258,6 @@ class OneCFinanceProvider implements FinanceProvider {
   }
 }
 
-class OneCPartnerProvider implements PartnerProvider {
-  private readonly mapper = new DefaultOneCPartnerMapper();
-
-  constructor(private readonly config: OneCProviderConfig) {}
-
-  async fetchPartnerCompanies(
-    _input: IntegrationSyncWindowDTO,
-  ): Promise<IntegrationPageResultDTO<PartnerCompanyDTO>> {
-    throw new IntegrationProviderNotImplementedError("1C partner import");
-  }
-
-  async searchPartners(
-    input: PartnerSearchInputDTO,
-  ): Promise<IntegrationPageResultDTO<PartnerSearchResultDTO>> {
-    const response = this.config.useMockPartners
-      ? filterMockPartnerSearch(input)
-      : await requestOneCPartnerSearch(
-          this.config,
-          this.config.partnerSearchPath,
-          input,
-        );
-
-    return {
-      items: response.items.map((item) => this.mapper.toSearchResultDTO(item)),
-      nextCursor: response.nextCursor ?? null,
-    };
-  }
-}
-
-async function requestOneCPartnerSearch(
-  config: OneCProviderConfig,
-  path: string,
-  input: PartnerSearchInputDTO,
-): Promise<OneCCatalogResponsePayload<OneCPartnerSearchPayload>> {
-  if (!config.baseUrl) {
-    throw new IntegrationProviderNotImplementedError(
-      "1C partner search endpoint configuration",
-    );
-  }
-
-  const url = new URL(path, config.baseUrl);
-  url.searchParams.set("query", input.query);
-
-  if (input.limit !== undefined) {
-    url.searchParams.set("limit", String(input.limit));
-  }
-
-  const response = await fetch(url, {
-    method: "GET",
-    headers: buildHeaders(config),
-    signal: AbortSignal.timeout(config.requestTimeoutMs),
-  });
-
-  if (!response.ok) {
-    throw new IntegrationProviderNotImplementedError(
-      `1C partner search request failed with status ${response.status}`,
-    );
-  }
-
-  const payload: unknown = await response.json();
-  return parseCatalogResponse(payload, isPartnerSearchPayload);
-}
-
 async function requestOneCCatalog<TPayload>(
   config: OneCProviderConfig,
   path: string,
@@ -363,11 +304,6 @@ function buildHeaders(config: OneCProviderConfig): HeadersInit {
   const headers: Record<string, string> = {
     Accept: "application/json",
   };
-
-  if (config.apiToken) {
-    headers.Authorization = `Bearer ${config.apiToken}`;
-    return headers;
-  }
 
   if (config.username && config.password) {
     headers.Authorization = `Basic ${Buffer.from(
@@ -502,78 +438,6 @@ function isStockBalancePayload(value: unknown): value is OneCStockBalancePayload
     typeof value.active === "boolean" &&
     isMetadata(value.metadata)
   );
-}
-
-function isPartnerContractPayload(value: unknown): boolean {
-  return (
-    isRecord(value) &&
-    isReference(value.reference) &&
-    typeof value.name === "string" &&
-    typeof value.active === "boolean" &&
-    typeof value.default === "boolean"
-  );
-}
-
-function isPartnerPriceTypePayload(value: unknown): boolean {
-  return (
-    isRecord(value) &&
-    isReference(value.reference) &&
-    typeof value.name === "string" &&
-    (typeof value.currency === "string" || value.currency === null) &&
-    typeof value.active === "boolean" &&
-    typeof value.default === "boolean"
-  );
-}
-
-function isPartnerCompanyPayload(value: unknown): value is OneCPartnerCompanyPayload {
-  return (
-    isRecord(value) &&
-    isReference(value.reference) &&
-    typeof value.displayName === "string" &&
-    (typeof value.legalName === "string" || value.legalName === null) &&
-    (typeof value.taxId === "string" || value.taxId === null) &&
-    typeof value.status === "string" &&
-    (isReference(value.managerReference) || value.managerReference === null) &&
-    isMetadata(value.metadata)
-  );
-}
-
-function isPartnerSearchPayload(value: unknown): value is OneCPartnerSearchPayload {
-  if (!isPartnerCompanyPayload(value) || !isRecord(value)) {
-    return false;
-  }
-  const record: Record<string, unknown> = value;
-
-  return (
-    Array.isArray(record.contracts) &&
-    record.contracts.every(isPartnerContractPayload) &&
-    Array.isArray(record.priceTypes) &&
-    record.priceTypes.every(isPartnerPriceTypePayload)
-  );
-}
-
-function filterMockPartnerSearch(
-  input: PartnerSearchInputDTO,
-): OneCCatalogResponsePayload<OneCPartnerSearchPayload> {
-  const query = input.query.trim().toLowerCase();
-  const limit = input.limit ?? 10;
-
-  return {
-    items: mockPartnerSearch.items
-      .filter((partner) =>
-        (
-          [
-          partner.displayName,
-          partner.legalName,
-          partner.taxId,
-          partner.reference.ref,
-          ].filter((value): value is string => typeof value === "string")
-        )
-          .some((value) => value.toLowerCase().includes(query)),
-      )
-      .slice(0, limit),
-    nextCursor: null,
-  };
 }
 
 const mockCatalogCategories: OneCCatalogResponsePayload<OneCCatalogCategoryPayload> =
@@ -723,64 +587,6 @@ const mockStockBalances: OneCCatalogResponsePayload<OneCStockBalancePayload> = {
       expectedAt: "2026-07-20T00:00:00.000Z",
       sourceUpdatedAt: "2026-07-09T00:00:00.000Z",
       active: true,
-      metadata: { sourceUpdatedAt: "2026-07-09T00:00:00.000Z" },
-    },
-  ],
-  nextCursor: null,
-};
-
-const mockPartnerSearch: OneCCatalogResponsePayload<OneCPartnerSearchPayload> = {
-  items: [
-    {
-      reference: { ref: "MOCK-PARTNER-001", type: "partner-company" },
-      displayName: "Novotech Demo Partner",
-      legalName: "Novotech Demo Partner Ltd.",
-      taxId: "BG123456789",
-      status: "active",
-      managerReference: null,
-      contracts: [
-        {
-          reference: { ref: "MOCK-CONTRACT-001", type: "partner-contract" },
-          name: "Default distribution contract",
-          active: true,
-          default: true,
-        },
-      ],
-      priceTypes: [
-        {
-          reference: { ref: "MOCK-PRICE-TYPE-001", type: "price-type" },
-          name: "Partner wholesale",
-          currency: "BGN",
-          active: true,
-          default: true,
-        },
-      ],
-      metadata: { sourceUpdatedAt: "2026-07-09T00:00:00.000Z" },
-    },
-    {
-      reference: { ref: "MOCK-PARTNER-002", type: "partner-company" },
-      displayName: "Security Systems Distribution",
-      legalName: "Security Systems Distribution AD",
-      taxId: "BG987654321",
-      status: "active",
-      managerReference: null,
-      contracts: [
-        {
-          reference: { ref: "MOCK-CONTRACT-002", type: "partner-contract" },
-          name: "Strategic partner contract",
-          active: true,
-          default: true,
-        },
-      ],
-      priceTypes: [
-        {
-          reference: { ref: "MOCK-PRICE-TYPE-002", type: "price-type" },
-          name: "Strategic wholesale",
-          currency: "BGN",
-          active: true,
-          default: true,
-        },
-      ],
       metadata: { sourceUpdatedAt: "2026-07-09T00:00:00.000Z" },
     },
   ],

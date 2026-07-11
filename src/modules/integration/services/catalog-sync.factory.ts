@@ -7,7 +7,6 @@ import type { OneCEnv } from "../../../lib/env";
 export function createCatalogSyncEngine(oneCEnv: OneCEnv) {
   const provider = new OneCProvider({
     baseUrl: oneCEnv.baseUrl,
-    apiToken: oneCEnv.apiToken,
     username: oneCEnv.username,
     password: oneCEnv.password,
     catalogCategoriesPath: oneCEnv.catalogCategoriesPath,

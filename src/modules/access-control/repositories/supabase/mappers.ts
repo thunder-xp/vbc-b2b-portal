@@ -30,6 +30,7 @@ export interface UserProfileRow {
 export interface PartnerCompanyRow {
   id: string;
   external_1c_id: string;
+  external_1c_code: string | null;
   external_1c_contract_id: string | null;
   external_1c_price_type_id: string | null;
   display_name: string;
@@ -121,6 +122,7 @@ export function mapPartnerCompanyRow(row: PartnerCompanyRow): PartnerCompany {
   return {
     id: row.id,
     external1cId: row.external_1c_id,
+    external1cCode: row.external_1c_code,
     external1cContractId: row.external_1c_contract_id,
     external1cPriceTypeId: row.external_1c_price_type_id,
     displayName: row.display_name,

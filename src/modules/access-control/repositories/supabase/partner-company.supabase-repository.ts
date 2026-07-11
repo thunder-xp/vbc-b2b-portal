@@ -14,7 +14,7 @@ import {
 import { RepositoryUnexpectedError } from "../index";
 
 const PARTNER_COMPANY_COLUMNS =
-  "id, external_1c_id, external_1c_contract_id, external_1c_price_type_id, display_name, status, created_at, updated_at";
+  "id, external_1c_id, external_1c_code, external_1c_contract_id, external_1c_price_type_id, display_name, status, created_at, updated_at";
 const COMPANY_MEMBERSHIP_COMPANY_COLUMNS = "company_id";
 
 interface CompanyMembershipCompanyIdRow {
@@ -93,6 +93,7 @@ export class SupabasePartnerCompanyRepository
       .from("partner_companies")
       .insert({
         external_1c_id: input.external1cId,
+        external_1c_code: input.external1cCode ?? null,
         external_1c_contract_id: input.external1cContractId ?? null,
         external_1c_price_type_id: input.external1cPriceTypeId ?? null,
         display_name: input.displayName,
@@ -115,6 +116,7 @@ export class SupabasePartnerCompanyRepository
     const updatePayload: {
       external_1c_contract_id: string;
       external_1c_price_type_id: string;
+      external_1c_code?: string;
       display_name?: string;
       status: CompanyStatus;
     } = {
@@ -122,6 +124,10 @@ export class SupabasePartnerCompanyRepository
       external_1c_price_type_id: input.external1cPriceTypeId,
       status: CompanyStatus.Active,
     };
+
+    if (input.external1cCode) {
+      updatePayload.external_1c_code = input.external1cCode;
+    }
 
     if (input.displayName) {
       updatePayload.display_name = input.displayName;

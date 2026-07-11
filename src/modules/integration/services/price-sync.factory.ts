@@ -9,7 +9,6 @@ import { DefaultPriceSyncEngine } from "../sync";
 export function createPriceSyncEngine(oneCEnv: OneCEnv) {
   const provider = new OneCProvider({
     baseUrl: oneCEnv.baseUrl,
-    apiToken: oneCEnv.apiToken,
     username: oneCEnv.username,
     password: oneCEnv.password,
     productPricesPath: oneCEnv.productPricesPath,

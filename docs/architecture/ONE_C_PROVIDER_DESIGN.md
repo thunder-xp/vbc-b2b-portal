@@ -122,12 +122,11 @@ The 1C provider must never:
 
 ## Authentication Strategy Placeholder
 
-Authentication is implemented only as server-resolved provider configuration for the manual catalog sync slice.
+Authentication is resolved in server-only configuration and passed into the provider factory.
 
 Provider configuration supports:
 
-- Static API token stored only in server-side environment variables.
-- Basic authentication values stored only in server-side environment variables.
+- HTTP Basic authentication stored only in server-side environment variables.
 - Per-environment endpoint paths for catalog categories, brands, products, pricing, inventory, and partner search.
 - Mock catalog/pricing/inventory/partner mode for local validation when no 1C endpoint is configured.
 
@@ -136,7 +135,7 @@ Provider code receives already-resolved configuration from a trusted server-side
 Current server-only environment names:
 
 - `ONEC_BASE_URL`
-- `ONEC_API_TOKEN`
+- `ONEC_AUTH_MODE` (`basic` for the production OData provider)
 - `ONEC_USERNAME`
 - `ONEC_PASSWORD`
 - `ONEC_CATALOG_CATEGORIES_PATH`
@@ -144,7 +143,9 @@ Current server-only environment names:
 - `ONEC_CATALOG_PRODUCTS_PATH`
 - `ONEC_PRODUCT_PRICES_PATH`
 - `ONEC_STOCK_BALANCES_PATH`
-- `ONEC_PARTNER_SEARCH_PATH`
+- `ONEC_PARTNER_SEARCH_PAGE_SIZE` (default `50`)
+- `ONEC_PARTNER_SEARCH_MAX_PAGES` (default `10`)
+- `ONEC_TIMEOUT_MS`
 - `ONEC_USE_MOCK_CATALOG`
 - `ONEC_USE_MOCK_PRICING`
 - `ONEC_USE_MOCK_INVENTORY`
@@ -156,7 +157,19 @@ Price mock mode follows the same rule. It imports safe sample price snapshots fo
 
 Inventory mock mode follows the same rule. It imports safe sample stock snapshots for already imported mock catalog references and must be disabled for production stock synchronization.
 
-Partner mock mode follows the same rule. It returns safe sample partner, contract, and price type references for approval-console validation and must be disabled for production 1C partner binding.
+Partner search uses the real 1C OData v3 endpoint when `ONEC_USE_MOCK_PARTNERS` is not `true`.
+
+Current partner search endpoint contract:
+
+- Method: `GET`
+- Base URL: `https://erp-api.nsd.md/novotech/odata/standard.odata`
+- Resources: `Catalog_Контрагенты`, `Catalog_ДоговорыКонтрагентов`, and `Catalog_ВидыЦен`
+- Authentication: HTTP Basic using `ONEC_USERNAME` and `ONEC_PASSWORD`
+- Timeout: `ONEC_TIMEOUT_MS`, default `10000`
+- Response envelope: OData v3 `{ "odata.metadata": "...", "value": [...] }`
+- Fiscal-code and rejected-owner-filter fallbacks are bounded by page size and maximum page count.
+
+The raw Cyrillic 1C field names and OData URL syntax remain isolated inside the `one-c` provider. Partner search, contract loading, and price-type loading are separate provider operations. Mock partner mode is allowed only when `ONEC_USE_MOCK_PARTNERS=true`; real endpoint failures never return mock partners.
 
 ## Error Handling Strategy
 
