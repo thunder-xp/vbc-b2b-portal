@@ -15,6 +15,7 @@ import type {
   OneCPartnerSearchPayload,
   OneCReferencePayload,
 } from "./one-c-provider.types";
+import { parseOptionalOneCGuid } from "./one-c-guid";
 
 export interface OneCPartnerMapper
   extends ERPMapper<OneCPartnerCompanySyncPayload, PartnerCompanyDTO> {}
@@ -61,8 +62,9 @@ export class DefaultOneCPartnerMapper implements OneCPartnerMapper {
   }
 
   toContractDTO(payload: OneCPartnerContractPayload, index = 0): PartnerContractDTO {
-    const counterpartyPriceType = nonZeroGuid(payload.ВидЦенКонтрагента_Key);
-    const contractPriceType = nonZeroGuid(payload.ВидЦен_Key);
+    const counterpartyPriceType = parseOptionalOneCGuid(payload.ВидЦенКонтрагента_Key);
+    const contractPriceType = parseOptionalOneCGuid(payload.ВидЦен_Key);
+    const organizationReference = parseOptionalOneCGuid(payload.Организация_Key);
     const priceTypeReference = counterpartyPriceType ?? contractPriceType;
     return {
       reference: mapRawReference(payload.Ref_Key, "partner-contract"),
@@ -71,8 +73,8 @@ export class DefaultOneCPartnerMapper implements OneCPartnerMapper {
       number: payload.НомерДоговора ?? null,
       date: payload.ДатаДоговора ?? null,
       contractType: payload.ВидДоговора ?? null,
-      organizationReference: nonZeroGuid(payload.Организация_Key)
-        ? mapRawReference(payload.Организация_Key!, "organization")
+      organizationReference: organizationReference
+        ? mapRawReference(organizationReference, "organization")
         : null,
       active: !payload.DeletionMark && !payload.Недействителен,
       isDefault: index === 0,
@@ -92,7 +94,7 @@ export class DefaultOneCPartnerMapper implements OneCPartnerMapper {
     return {
       reference: mapRawReference(payload.Ref_Key, "price-type"),
       name: payload.Description,
-      currency: payload.ВалютаЦены_Key ?? null,
+      currency: parseOptionalOneCGuid(payload.ВалютаЦены_Key),
       includesVat: payload.ЦенаВключаетНДС ?? null,
       type: payload.ТипВидаЦен ?? null,
       active: !payload.DeletionMark && payload.ЦеныАктуальны !== false,
@@ -103,12 +105,6 @@ export class DefaultOneCPartnerMapper implements OneCPartnerMapper {
   toProviderPayload(_dto: PartnerCompanyDTO): OneCPartnerCompanySyncPayload {
     throw new Error("Partner writes to 1C are outside partner search scope.");
   }
-}
-
-const ZERO_GUID = "00000000-0000-0000-0000-000000000000";
-
-function nonZeroGuid(value: string | null | undefined): string | null {
-  return value && value !== ZERO_GUID ? value : null;
 }
 
 function mapReference(payload: OneCReferencePayload): ExternalReferenceDTO {

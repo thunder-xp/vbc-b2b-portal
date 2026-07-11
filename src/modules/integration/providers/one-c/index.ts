@@ -25,4 +25,12 @@ export {
   OneCProvider,
 } from "./one-c-provider";
 export { OneCODataClient } from "./one-c-odata-client";
+export {
+  ONE_C_ZERO_GUID,
+  isOneCGuid,
+  oneCGuidSchema,
+  parseOneCGuid,
+  parseOptionalOneCGuid,
+  parseRequiredOneCGuid,
+} from "./one-c-guid";
 export type * from "./one-c-provider.types";

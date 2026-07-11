@@ -1,8 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  IntegrationForbiddenError,
+  IntegrationHttpError,
   IntegrationProviderUnavailableError,
   IntegrationTimeoutError,
+  IntegrationUnauthorizedError,
   IntegrationValidationError,
 } from "../../../errors";
 import { IntegrationProviderNotImplementedError } from "../one-c-provider";
@@ -262,9 +265,16 @@ describe("1C catalog provider", () => {
         vi.fn().mockResolvedValue(new Response("{}", { status })),
       );
 
+      const expectedError =
+        status === 401
+          ? IntegrationUnauthorizedError
+          : status === 403
+            ? IntegrationForbiddenError
+            : IntegrationHttpError;
+
       await expect(
         newRealPartnerProvider().partners.searchPartners({ query: "partner" }),
-      ).rejects.toBeInstanceOf(IntegrationProviderUnavailableError);
+      ).rejects.toBeInstanceOf(expectedError);
     },
   );
 

@@ -15,7 +15,11 @@ import { canApprovePartnerRequests } from "../../access-control/services/interna
 import type { PartnerContractDTO, PartnerPriceTypeDTO, PartnerSearchResultDTO } from "../dto";
 import {
   IntegrationProviderUnavailableError,
+  IntegrationForbiddenError,
+  IntegrationHttpError,
+  IntegrationODataError,
   IntegrationTimeoutError,
+  IntegrationUnauthorizedError,
   IntegrationValidationError,
 } from "../errors";
 import { categorizeOneCHealthError } from "../providers/one-c/one-c-health-check";
@@ -85,7 +89,11 @@ export async function searchOneCPartnersAction(input: {
 function actionFailureMessage(errorCategory: ReturnType<typeof categorizeOneCHealthError>): string {
   if (errorCategory === "timeout") return "1C partner search timed out.";
   if (errorCategory === "transport") return "1C partner search transport failed.";
-  if (errorCategory === "invalid_envelope" || errorCategory === "invalid_json") return "1C partner search response was invalid.";
+  if (
+    errorCategory === "invalid_response" ||
+    errorCategory === "invalid_json" ||
+    errorCategory === "mapping"
+  ) return "1C partner search response was invalid.";
   return "1C partner search failed.";
 }
 
@@ -161,7 +169,13 @@ function integrationFailure<T>(error: unknown): ActionResult<T> {
   if (error instanceof IntegrationTimeoutError) {
     return { success: false, errorCode: "ONEC_TIMEOUT", message: "Search request timed out.", data: null };
   }
-  if (error instanceof IntegrationProviderUnavailableError) {
+  if (
+    error instanceof IntegrationProviderUnavailableError ||
+    error instanceof IntegrationUnauthorizedError ||
+    error instanceof IntegrationForbiddenError ||
+    error instanceof IntegrationODataError ||
+    error instanceof IntegrationHttpError
+  ) {
     return { success: false, errorCode: "ONEC_UNAVAILABLE", message: "1C is temporarily unavailable.", data: null };
   }
   if (error instanceof IntegrationValidationError) {

@@ -10,13 +10,20 @@ import type {
   PartnerSearchInputDTO,
   PartnerSearchResultDTO,
 } from "../../dto";
-import { IntegrationUnsupportedOperationError, IntegrationValidationError } from "../../errors";
+import {
+  IntegrationMappingError,
+  IntegrationUnsupportedOperationError,
+  IntegrationValidationError,
+} from "../../errors";
 import type { OneCProviderConfig } from "./one-c-provider.config";
 import { DefaultOneCPartnerMapper } from "./one-c-partner.mapper";
 import {
   OneCODataClient,
   OneCODataFilterUnsupportedError,
 } from "./one-c-odata-client";
+import {
+  parseRequiredOneCGuid,
+} from "./one-c-guid";
 import type {
   OneCODataCollectionPayload,
   OneCPartnerCompanyPayload,
@@ -41,7 +48,6 @@ const PRICE_TYPE_FIELDS = [
   "Ref_Key", "Code", "Description", "ВалютаЦены_Key", "ЦенаВключаетНДС",
   "ТипВидаЦен", "ЦеныАктуальны", "DeletionMark",
 ].join(",");
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export class OneCPartnerODataProvider implements PartnerProvider {
   private readonly mapper = new DefaultOneCPartnerMapper();
@@ -65,7 +71,7 @@ export class OneCPartnerODataProvider implements PartnerProvider {
         items: filterMockPartners(input)
           .map(normalizePartnerRow)
           .filter((item): item is OneCNormalizedPartnerCompanyPayload => item !== null)
-          .map((item) => this.mapper.toSearchResultDTO(item)),
+          .map((item) => this.mapSearchResult(item)),
         nextCursor: null,
       };
     }
@@ -74,9 +80,10 @@ export class OneCPartnerODataProvider implements PartnerProvider {
     const limit = Math.min(input.limit ?? 10, 50);
     const matches = new Map<string, OneCNormalizedPartnerCompanyPayload>();
 
-    if (UUID_PATTERN.test(query)) {
+    const guidQuery = parseRequiredOneCGuid(query);
+    if (guidQuery) {
       const direct = await this.getSingle<OneCPartnerCompanyPayload>(
-        `${PARTNERS_RESOURCE}(guid'${query}')`,
+        `${PARTNERS_RESOURCE}(guid'${guidQuery}')`,
       );
       const partner = direct ? normalizePartnerRow(direct) : null;
       if (partner) matches.set(partner.Ref_Key, partner);
@@ -103,7 +110,7 @@ export class OneCPartnerODataProvider implements PartnerProvider {
       items: [...matches.values()]
         .sort((left, right) => Number(right.Покупатель) - Number(left.Покупатель))
         .slice(0, limit)
-        .map((item) => this.mapper.toSearchResultDTO(item)),
+        .map((item) => this.mapSearchResult(item)),
       nextCursor: null,
     };
   }
@@ -113,7 +120,7 @@ export class OneCPartnerODataProvider implements PartnerProvider {
   ): Promise<IntegrationPageResultDTO<PartnerContractDTO>> {
     const reference = requireUuid(input.partnerReference, "Partner reference");
     if (this.config.useMockPartners) {
-      return { items: mockContracts.filter((row) => row.Owner_Key === reference).map((row, index) => this.mapper.toContractDTO(row, index)), nextCursor: null };
+      return { items: mockContracts.filter((row) => row.Owner_Key === reference).map((row, index) => this.mapContract(row, index)), nextCursor: null };
     }
     let rows: OneCPartnerContractPayload[];
     try {
@@ -129,7 +136,7 @@ export class OneCPartnerODataProvider implements PartnerProvider {
 
     const active = rows.filter((row) => row.Owner_Key.toLowerCase() === reference.toLowerCase() && isActiveContract(row));
     const items = await Promise.all(active.map(async (row, index) => {
-      const contract = this.mapper.toContractDTO(row, index);
+      const contract = this.mapContract(row, index);
       if (!contract.priceTypeReference) return contract;
       const priceType = await this.fetchPriceType({ reference: contract.priceTypeReference.externalId });
       return { ...contract, priceTypeName: priceType?.name ?? null };
@@ -224,6 +231,27 @@ export class OneCPartnerODataProvider implements PartnerProvider {
     if (isRecord(payload)) return payload as T;
     throw new IntegrationValidationError("Invalid 1C OData record response.");
   }
+
+  private mapSearchResult(
+    row: OneCNormalizedPartnerCompanyPayload,
+  ): PartnerSearchResultDTO {
+    try {
+      return this.mapper.toSearchResultDTO(row);
+    } catch {
+      throw new IntegrationMappingError("1C partner mapping failed.");
+    }
+  }
+
+  private mapContract(
+    row: OneCPartnerContractPayload,
+    index: number,
+  ): PartnerContractDTO {
+    try {
+      return this.mapper.toContractDTO(row, index);
+    } catch {
+      throw new IntegrationMappingError("1C contract mapping failed.");
+    }
+  }
 }
 
 function isCollectionPayload<T>(value: unknown): value is OneCODataCollectionPayload<T> {
@@ -232,13 +260,14 @@ function isCollectionPayload<T>(value: unknown): value is OneCODataCollectionPay
 function isRecord(value: unknown): value is Record<string, unknown> { return typeof value === "object" && value !== null; }
 function escapeODataString(value: string): string { return value.replaceAll("'", "''"); }
 function requireUuid(value: string, label: string): string {
-  if (!UUID_PATTERN.test(value)) throw new IntegrationValidationError(`${label} must be a GUID.`);
-  return value;
+  const guid = parseRequiredOneCGuid(value);
+  if (!guid) throw new IntegrationValidationError(`${label} must be a 1C GUID.`);
+  return guid;
 }
 function isActiveContract(row: OneCPartnerContractPayload): boolean { return row.DeletionMark !== true && row.Недействителен !== true; }
 function isActivePriceType(row: OneCPartnerPriceTypePayload): boolean { return row.DeletionMark !== true && row.ЦеныАктуальны !== false; }
-function isContractRow(value: unknown): value is OneCPartnerContractPayload { return isRecord(value) && typeof value.Ref_Key === "string" && typeof value.Code === "string" && typeof value.Description === "string" && typeof value.Owner_Key === "string"; }
-function isPriceTypeRow(value: unknown): value is OneCPartnerPriceTypePayload { return isRecord(value) && typeof value.Ref_Key === "string" && typeof value.Code === "string" && typeof value.Description === "string"; }
+function isContractRow(value: unknown): value is OneCPartnerContractPayload { return isRecord(value) && parseRequiredOneCGuid(value.Ref_Key) !== null && typeof value.Code === "string" && typeof value.Description === "string" && parseRequiredOneCGuid(value.Owner_Key) !== null; }
+function isPriceTypeRow(value: unknown): value is OneCPartnerPriceTypePayload { return isRecord(value) && parseRequiredOneCGuid(value.Ref_Key) !== null && typeof value.Code === "string" && typeof value.Description === "string"; }
 function assertRows<T>(rows: unknown[], guard: (value: unknown) => value is T): asserts rows is T[] {
   if (!rows.every(guard)) throw new IntegrationValidationError("Invalid 1C OData row response.");
 }
@@ -267,13 +296,13 @@ function normalizePartnerRow(
   }
 
   const reference = normalizeString(row.Ref_Key);
-  if (!reference || !UUID_PATTERN.test(reference)) {
+  if (!parseRequiredOneCGuid(reference)) {
     logSkippedPartnerRow("invalid_reference");
     return null;
   }
 
   const normalized: OneCNormalizedPartnerCompanyPayload = {
-    Ref_Key: reference,
+    Ref_Key: parseRequiredOneCGuid(reference)!,
     Code: normalizeString(row.Code),
     Description: normalizeString(row.Description),
     НаименованиеПолное: normalizeString(row.НаименованиеПолное),

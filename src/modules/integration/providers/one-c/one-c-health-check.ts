@@ -2,11 +2,17 @@ import type { OneCEnv } from "@/src/lib/env";
 
 import {
   IntegrationProviderUnavailableError,
+  IntegrationForbiddenError,
+  IntegrationHttpError,
+  IntegrationMappingError,
+  IntegrationODataError,
   IntegrationTimeoutError,
+  IntegrationUnauthorizedError,
   IntegrationValidationError,
 } from "../../errors";
 import { createPartnerLookupService } from "../../services";
 import { OneCODataClient } from "./one-c-odata-client";
+import { parseRequiredOneCGuid } from "./one-c-guid";
 
 const PARTNERS_RESOURCE = "Catalog_Контрагенты";
 const MINIMAL_FIELDS = "Ref_Key,Code,Description,DeletionMark";
@@ -22,15 +28,16 @@ const NAME_SEARCH_FIELDS = [
   "DeletionMark",
   "IsFolder",
 ].join(",");
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
 export type OneCHealthErrorCategory =
   | "configuration"
   | "timeout"
   | "transport"
-  | "http"
+  | "unauthorized"
+  | "forbidden"
+  | "odata_error"
   | "invalid_json"
-  | "invalid_envelope"
+  | "invalid_response"
+  | "mapping"
   | "unknown";
 
 export type OneCHealthCheck = {
@@ -201,11 +208,7 @@ function fromProbe(
   result: Awaited<ReturnType<OneCODataClient["probe"]>>,
   passed: boolean,
 ): OneCHealthCheck {
-  const errorCategory: OneCHealthErrorCategory | null = passed
-    ? null
-    : result.jsonParsed
-      ? "http"
-      : "invalid_json";
+  const errorCategory = passed ? null : categorizeProbeFailure(result);
   const message = errorCategory ? safeMessage(errorCategory) : null;
   if (errorCategory) {
     logFailure(stage, result.statusCode, errorCategory, safeMessage(errorCategory), result.hostname);
@@ -246,7 +249,7 @@ function inspectPartnerRow(value: unknown): { valid: boolean; validationFailures
     validateNullableBoolean(value, "IsFolder"),
   ].filter((item): item is { field: string; receivedType: string } => item !== null);
   const reference = value.Ref_Key;
-  if (typeof reference !== "string" || !UUID_PATTERN.test(reference.trim())) {
+  if (!parseRequiredOneCGuid(reference)) {
     validationFailures.push({ field: "Ref_Key", receivedType: receivedType(reference) });
   }
   const description = typeof value.Description === "string" ? value.Description.trim() : "";
@@ -281,7 +284,12 @@ function receivedType(value: unknown): string {
 export function categorizeOneCHealthError(error: unknown): OneCHealthErrorCategory {
   if (error instanceof IntegrationTimeoutError) return "timeout";
   if (error instanceof IntegrationProviderUnavailableError) return "transport";
-  if (error instanceof IntegrationValidationError) return "invalid_envelope";
+  if (error instanceof IntegrationUnauthorizedError) return "unauthorized";
+  if (error instanceof IntegrationForbiddenError) return "forbidden";
+  if (error instanceof IntegrationODataError) return "odata_error";
+  if (error instanceof IntegrationHttpError) return "invalid_response";
+  if (error instanceof IntegrationValidationError) return "invalid_response";
+  if (error instanceof IntegrationMappingError) return "mapping";
   return "unknown";
 }
 
@@ -290,12 +298,29 @@ function safeMessage(category: OneCHealthErrorCategory): string {
     configuration: "1C OData configuration is incomplete.",
     timeout: "1C request timed out.",
     transport: "1C transport is unavailable.",
-    http: "1C returned a non-success HTTP status.",
+    unauthorized: "1C rejected the configured credentials.",
+    forbidden: "1C rejected access for the configured credentials.",
+    odata_error: "1C returned an OData error.",
     invalid_json: "1C response was not valid JSON.",
-    invalid_envelope: "1C response envelope was invalid.",
+    invalid_response: "1C response was invalid.",
+    mapping: "1C response could not be mapped.",
     unknown: "1C diagnostic failed unexpectedly.",
   };
   return messages[category];
+}
+
+function categorizeProbeFailure(
+  result: Awaited<ReturnType<OneCODataClient["probe"]>>,
+): OneCHealthErrorCategory {
+  if (result.statusCode === 401) return "unauthorized";
+  if (result.statusCode === 403) return "forbidden";
+  if (!result.jsonParsed) return "invalid_json";
+  if (isODataErrorEnvelope(result.payload)) return "odata_error";
+  return "invalid_response";
+}
+
+function isODataErrorEnvelope(value: unknown): boolean {
+  return isRecord(value) && "error" in value;
 }
 
 function parseHostname(baseUrl: string | null): string | null {

@@ -1,6 +1,10 @@
 import {
   IntegrationProviderUnavailableError,
+  IntegrationForbiddenError,
+  IntegrationHttpError,
+  IntegrationODataError,
   IntegrationTimeoutError,
+  IntegrationUnauthorizedError,
   IntegrationValidationError,
 } from "../../errors";
 
@@ -34,11 +38,25 @@ export class OneCODataClient {
     const result = await this.probe(resource, params);
 
     if (result.statusCode === 400) {
+      if (isODataErrorEnvelope(result.payload)) {
+        throw new IntegrationODataError();
+      }
       throw new OneCODataFilterUnsupportedError();
     }
 
+    if (result.statusCode === 401) {
+      throw new IntegrationUnauthorizedError();
+    }
+
+    if (result.statusCode === 403) {
+      throw new IntegrationForbiddenError();
+    }
+
     if (result.statusCode < 200 || result.statusCode >= 300) {
-      throw new IntegrationProviderUnavailableError("1C OData request failed.");
+      if (isODataErrorEnvelope(result.payload)) {
+        throw new IntegrationODataError();
+      }
+      throw new IntegrationHttpError();
     }
 
     if (!result.jsonParsed) {
@@ -98,6 +116,10 @@ export class OneCODataClient {
       };
     }
   }
+}
+
+function isODataErrorEnvelope(value: unknown): boolean {
+  return typeof value === "object" && value !== null && "error" in value;
 }
 
 function isAbortError(error: unknown): boolean {

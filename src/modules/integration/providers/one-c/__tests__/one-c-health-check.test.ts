@@ -10,6 +10,8 @@ vi.mock("../../../services", () => ({
 }));
 
 import { runOneCODataHealthCheck } from "../one-c-health-check";
+import { categorizeOneCHealthError } from "../one-c-health-check";
+import { IntegrationMappingError, IntegrationValidationError } from "../../../errors";
 
 const PARTNER_ID = "11111111-1111-4111-8111-111111111111";
 
@@ -18,6 +20,11 @@ describe("1C OData health check", () => {
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
+  });
+
+  it("classifies provider validation and mapping failures without transport", () => {
+    expect(categorizeOneCHealthError(new IntegrationValidationError())).toBe("invalid_response");
+    expect(categorizeOneCHealthError(new IntegrationMappingError())).toBe("mapping");
   });
 
   it("reports safe independent checks without returning OData rows or credentials", async () => {
