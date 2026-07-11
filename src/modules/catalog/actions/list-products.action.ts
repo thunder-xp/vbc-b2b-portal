@@ -27,6 +27,7 @@ export async function listCatalogProductsAction(
       search: normalizeOptionalText(input.search),
       page: input.page,
       pageSize: input.pageSize,
+      sort: input.sort,
     });
 
     return success("Catalog products loaded.", products);

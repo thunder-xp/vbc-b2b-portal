@@ -23,6 +23,7 @@ export type WorkspaceNavigationItem = {
 export type ProductCardCapabilityModel = {
   showPrice: boolean;
   showStock: boolean;
+  showExactQuantity: boolean;
   showWarehouseAvailability: boolean;
   showExpectedArrival: boolean;
   showProjectPriceEligibility: boolean;
@@ -45,6 +46,7 @@ export type WorkspaceCapabilityConfiguration = {
   modules?: Partial<Record<WorkspaceCapabilityKey, "enabled" | "coming_soon" | "hidden">>;
   priceVisibility?: boolean;
   stockVisibility?: boolean;
+  exactStockVisibility?: boolean;
   warehouseVisibility?: boolean;
   expectedArrivalVisibility?: boolean;
   projectPriceAccess?: boolean;
@@ -102,6 +104,7 @@ export function resolveWorkspaceCapabilities(
     productCard: {
       showPrice: configuration.priceVisibility !== false && hasPermission("prices.view"),
       showStock: configuration.stockVisibility !== false && hasPermission("stock.view"),
+      showExactQuantity: configuration.exactStockVisibility !== false && hasPermission("stock.view"),
       showWarehouseAvailability: configuration.warehouseVisibility !== false && hasPermission("stock.view"),
       showExpectedArrival: configuration.expectedArrivalVisibility !== false && hasPermission("stock.view"),
       showProjectPriceEligibility: configuration.projectPriceAccess === true,

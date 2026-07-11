@@ -186,6 +186,8 @@ class FakeCatalogRepository implements CatalogRepository {
     return [];
   }
 
+  async countProducts(): Promise<number> { return 0; }
+
   async getProductBySlug(): Promise<CatalogProduct | null> {
     return null;
   }
@@ -229,6 +231,8 @@ class FakeCatalogRepository implements CatalogRepository {
   async listProductDocuments(): Promise<CatalogProductDocument[]> {
     return [];
   }
+
+  async listProductDocumentsForProducts(): Promise<CatalogProductDocument[]> { return []; }
 }
 
 class FakePartnerCompanyRepository implements PartnerCompanyRepository {

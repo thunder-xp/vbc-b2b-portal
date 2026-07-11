@@ -89,7 +89,9 @@ export class SupabaseCatalogRepository implements CatalogRepository {
       .eq("is_active", true)
       .eq("is_visible", true);
 
-    if (input.categoryId) {
+    if (input.categoryIds?.length) {
+      query = query.in("category_id", input.categoryIds);
+    } else if (input.categoryId) {
       query = query.eq("category_id", input.categoryId);
     }
 
@@ -101,12 +103,16 @@ export class SupabaseCatalogRepository implements CatalogRepository {
 
     if (normalizedSearch) {
       const searchPattern = `%${normalizedSearch}%`;
-      query = query.or(`name.ilike.${searchPattern},sku.ilike.${searchPattern}`);
+      const brandFilter = input.searchBrandIds?.length
+        ? `,brand_id.in.(${input.searchBrandIds.join(",")})`
+        : "";
+      query = query.or(`name.ilike.${searchPattern},sku.ilike.${searchPattern},short_description.ilike.${searchPattern}${brandFilter}`);
     }
 
-    query = query
-      .order("sort_order", { ascending: true })
-      .order("name", { ascending: true });
+    if (input.sort === "name_desc") query = query.order("name", { ascending: false });
+    else if (input.sort === "name_asc") query = query.order("name", { ascending: true });
+    else if (input.sort === "sku_asc") query = query.order("sku", { ascending: true });
+    else query = query.order("sort_order", { ascending: true }).order("name", { ascending: true });
 
     if (input.limit !== undefined) {
       const offset = input.offset ?? 0;
@@ -120,6 +126,29 @@ export class SupabaseCatalogRepository implements CatalogRepository {
     }
 
     return (data as CatalogProductRow[]).map(mapCatalogProductRow);
+  }
+
+  async countProducts(input: ListCatalogProductsInput): Promise<number> {
+    const supabase = await createClient();
+    let query = supabase
+      .from("catalog_products")
+      .select("id", { count: "exact", head: true })
+      .eq("is_active", true)
+      .eq("is_visible", true);
+
+    if (input.categoryIds?.length) query = query.in("category_id", input.categoryIds);
+    else if (input.categoryId) query = query.eq("category_id", input.categoryId);
+    if (input.brandId) query = query.eq("brand_id", input.brandId);
+    const normalizedSearch = input.search?.trim();
+    if (normalizedSearch) {
+      const searchPattern = `%${normalizedSearch}%`;
+      const brandFilter = input.searchBrandIds?.length ? `,brand_id.in.(${input.searchBrandIds.join(",")})` : "";
+      query = query.or(`name.ilike.${searchPattern},sku.ilike.${searchPattern},short_description.ilike.${searchPattern}${brandFilter}`);
+    }
+
+    const { count, error } = await query;
+    if (error) throw new CatalogRepositoryUnexpectedError();
+    return count ?? 0;
   }
 
   async getProductBySlug(slug: string): Promise<CatalogProduct | null> {
@@ -360,5 +389,21 @@ export class SupabaseCatalogRepository implements CatalogRepository {
     return (data as CatalogProductDocumentRow[]).map(
       mapCatalogProductDocumentRow,
     );
+  }
+
+  async listProductDocumentsForProducts(
+    productIds: string[],
+  ): Promise<CatalogProductDocument[]> {
+    if (productIds.length === 0) return [];
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("catalog_product_documents")
+      .select(CATALOG_PRODUCT_DOCUMENT_COLUMNS)
+      .in("product_id", productIds)
+      .eq("is_active", true)
+      .order("sort_order", { ascending: true });
+
+    if (error) throw new CatalogRepositoryUnexpectedError();
+    return (data as CatalogProductDocumentRow[]).map(mapCatalogProductDocumentRow);
   }
 }

@@ -6,12 +6,13 @@ import {
   listCatalogProductsAction,
 } from "@/src/modules/catalog/actions";
 import {
-  BrandFilter,
-  CategorySidebar,
+  CatalogBreadcrumb,
+  CatalogFilters,
+  CatalogSearch,
+  CategoryMegaMenu,
   EmptyCatalog,
   ProductGrid,
   RESTRICTED_PRODUCT_CARD_CAPABILITIES,
-  SearchBox,
 } from "@/src/modules/catalog/components";
 import { getProductCommercialViewsAction } from "@/src/modules/pricing-inventory/actions";
 import type { ProductCommercialViewDto } from "@/src/modules/pricing-inventory";
@@ -28,6 +29,7 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
   const categoryId = getSingleParam(params?.category);
   const brandId = getSingleParam(params?.brand);
   const search = getSingleParam(params?.search);
+  const sort = parseSort(getSingleParam(params?.sort));
   const page = parsePage(getSingleParam(params?.page));
   const [categoriesResult, brandsResult, productsResult, workspaceContextResult] = await Promise.all([
     listCatalogCategoriesAction(),
@@ -38,6 +40,7 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
       search,
       page,
       pageSize: PAGE_SIZE,
+      sort,
     }),
     getPartnerWorkspaceContextAction(),
   ]);
@@ -72,43 +75,19 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
   const commercialViews = commercialViewsResult.success
     ? createCommercialViewMap(commercialViewsResult.data)
     : {};
+  const selectedCategory = categoriesResult.data.find((category) => category.id === categoryId);
+  const selectedBrand = brandsResult.data.find((brand) => brand.id === brandId);
 
   return (
     <div className="space-y-6">
-      <section className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <p className="text-sm font-medium uppercase tracking-[0.14em] text-emerald-700">
-            Product catalog
-          </p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-zinc-950">
-            Browse products
-          </h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-600">
-            Read-only product information for approved partner browsing.
-          </p>
-        </div>
-        {productsResult.data.isDemoData && (
-          <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-sm font-medium text-amber-800">
-            Demo catalog
-          </span>
-        )}
-      </section>
+      <div className="flex gap-3"><CategoryMegaMenu categories={categoriesResult.data} /><CatalogSearch categoryId={categoryId} initialSearch={search} /></div>
+      <CatalogBreadcrumb categories={categoriesResult.data} selectedId={categoryId} />
+      <section className="flex flex-col gap-3 border-b border-zinc-200 pb-5 sm:flex-row sm:items-end sm:justify-between"><div><h1 className="text-2xl font-semibold text-zinc-950">{selectedCategory?.name ?? "Каталог оборудования"}</h1><p className="mt-1 text-sm text-zinc-500">Найдено товаров: {productsResult.data.totalCount}</p></div><form action="/cabinet/catalog">{categoryId && <input name="category" type="hidden" value={categoryId} />}{brandId && <input name="brand" type="hidden" value={brandId} />}{search && <input name="search" type="hidden" value={search} />}<label className="flex items-center gap-2 text-sm text-zinc-600">Сортировка<select className="h-10 rounded-md border border-zinc-300 bg-white px-3" defaultValue={sort} name="sort"><option value="default">По умолчанию</option><option value="name_asc">Название: А–Я</option><option value="name_desc">Название: Я–А</option><option value="sku_asc">По SKU</option></select><button className="h-10 rounded-md border border-zinc-300 px-3 font-medium" type="submit">Применить</button></label></form></section>
+      {(search || selectedBrand || selectedCategory) && <div className="flex flex-wrap items-center gap-2 text-sm"><span className="text-zinc-500">Активные фильтры:</span>{selectedCategory && <FilterChip href={createCatalogHref({ brandId, page: 1, search, sort })} label={selectedCategory.name} />}{selectedBrand && <FilterChip href={createCatalogHref({ categoryId, page: 1, search, sort })} label={selectedBrand.name} />}{search && <FilterChip href={createCatalogHref({ brandId, categoryId, page: 1, sort })} label={`Поиск: ${search}`} />}<Link className="text-sm font-medium text-emerald-700" href="/cabinet/catalog">Очистить всё</Link></div>}
 
       <div className="grid gap-6 lg:grid-cols-[260px_1fr]">
-        <CategorySidebar
-          brandId={brandId}
-          categories={categoriesResult.data}
-          search={search}
-          selectedCategoryId={categoryId}
-        />
+        <CatalogFilters brands={brandsResult.data} categoryId={categoryId} search={search} selectedBrandId={brandId} sort={sort} />
         <section className="space-y-5">
-          <SearchBox brandId={brandId} categoryId={categoryId} search={search} />
-          <BrandFilter
-            brands={brandsResult.data}
-            categoryId={categoryId}
-            search={search}
-            selectedBrandId={brandId}
-          />
           {productsResult.data.products.length > 0 ? (
             <>
               <ProductGrid
@@ -123,12 +102,13 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
                 hasNextPage={productsResult.data.hasNextPage}
                 page={productsResult.data.page}
                 search={search}
+                sort={sort}
               />
             </>
           ) : (
             <EmptyCatalog
-              message="No products match the selected catalog filters."
-              title="No products found"
+              message={search ? "По вашему запросу товары не найдены." : "В выбранной категории пока нет товаров."}
+              title="Товары не найдены"
             />
           )}
         </section>
@@ -143,12 +123,14 @@ function CatalogPagination({
   hasNextPage,
   page,
   search,
+  sort,
 }: {
   brandId?: string;
   categoryId?: string;
   hasNextPage: boolean;
   page: number;
   search?: string;
+  sort?: string;
 }) {
   if (page === 1 && !hasNextPage) {
     return null;
@@ -164,6 +146,7 @@ function CatalogPagination({
             categoryId,
             page: page - 1,
             search,
+            sort,
           })}
         >
           Previous
@@ -180,6 +163,7 @@ function CatalogPagination({
             categoryId,
             page: page + 1,
             search,
+            sort,
           })}
         >
           Next
@@ -196,6 +180,7 @@ function createCatalogHref(params: {
   categoryId?: string;
   page: number;
   search?: string;
+  sort?: string;
 }) {
   const searchParams = new URLSearchParams();
 
@@ -210,6 +195,7 @@ function createCatalogHref(params: {
   if (params.search) {
     searchParams.set("search", params.search);
   }
+  if (params.sort && params.sort !== "default") searchParams.set("sort", params.sort);
 
   if (params.page > 1) {
     searchParams.set("page", String(params.page));
@@ -218,6 +204,10 @@ function createCatalogHref(params: {
   const query = searchParams.toString();
   return query ? `/cabinet/catalog?${query}` : "/cabinet/catalog";
 }
+
+function parseSort(value: string | undefined): "default" | "name_asc" | "name_desc" | "sku_asc" { return value === "name_asc" || value === "name_desc" || value === "sku_asc" ? value : "default"; }
+
+function FilterChip({ href, label }: { href: string; label: string }) { return <Link className="rounded-full border border-zinc-300 bg-white px-3 py-1.5 text-zinc-700 hover:border-emerald-500" href={href}>{label} ×</Link>; }
 
 function getSingleParam(
   value: string | string[] | undefined,

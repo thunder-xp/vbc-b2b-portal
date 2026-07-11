@@ -31,6 +31,7 @@ export type CatalogProductListInput = {
   search?: string;
   page?: number;
   pageSize?: number;
+  sort?: "default" | "name_asc" | "name_desc" | "sku_asc";
 };
 
 export type CatalogProductCardDto = {
@@ -42,6 +43,8 @@ export type CatalogProductCardDto = {
   imageUrl: string | null;
   brand: CatalogBrandDto | null;
   category: CatalogCategoryDto | null;
+  keyCharacteristics: Array<{ label: string; value: string }>;
+  datasheet: CatalogProductDocumentDto | null;
 };
 
 export type CatalogProductListResult = {
@@ -50,6 +53,7 @@ export type CatalogProductListResult = {
   pageSize: number;
   hasNextPage: boolean;
   isDemoData: boolean;
+  totalCount: number;
 };
 
 export type CatalogProductImageDto = {
@@ -123,14 +127,30 @@ export class DefaultCatalogService implements CatalogService {
     await this.ensureCatalogAccess(userId);
     const page = normalizePage(input.page);
     const pageSize = normalizePageSize(input.pageSize);
+    const [brands, categories] = await Promise.all([
+      this.catalogRepository.listBrands(),
+      this.catalogRepository.listCategories(),
+    ]);
+    const categoryIds = input.categoryId
+      ? collectCategoryAndDescendantIds(input.categoryId, categories)
+      : undefined;
+    const normalizedSearch = input.search?.trim().toLowerCase();
+    const searchBrandIds = normalizedSearch
+      ? brands.filter((brand) => brand.name.toLowerCase().includes(normalizedSearch)).map((brand) => brand.id)
+      : undefined;
     const repositoryInput: ListCatalogProductsInput = {
-      categoryId: input.categoryId,
+      categoryIds,
       brandId: input.brandId,
+      searchBrandIds,
       search: input.search,
+      sort: input.sort,
       limit: pageSize + 1,
       offset: (page - 1) * pageSize,
     };
-    const products = await this.catalogRepository.listProducts(repositoryInput);
+    const [products, totalCount] = await Promise.all([
+      this.catalogRepository.listProducts(repositoryInput),
+      this.catalogRepository.countProducts(repositoryInput),
+    ]);
     const isEmptyCatalog = products.length === 0 && (await this.isCatalogEmpty());
 
     if (isEmptyCatalog) {
@@ -153,24 +173,33 @@ export class DefaultCatalogService implements CatalogService {
         pageSize,
         hasNextPage: pagedDemoProducts.length > pageSize,
         isDemoData: true,
+        totalCount: filteredDemoProducts.length,
       };
     }
-
-    const [brands, categories] = await Promise.all([
-      this.catalogRepository.listBrands(),
-      this.catalogRepository.listCategories(),
-    ]);
     const brandMap = createBrandMap(brands);
     const categoryMap = createCategoryMap(categories);
+    const visibleProducts = products.slice(0, pageSize);
+    const documents = await this.catalogRepository.listProductDocumentsForProducts(
+      visibleProducts.map((product) => product.id),
+    );
+    const datasheetByProduct = new Map(
+      documents
+        .filter((document) => document.documentType === "datasheet")
+        .map((document) => [document.productId, document]),
+    );
 
     return {
-      products: products
-        .slice(0, pageSize)
-        .map((product) => this.toProductCardDto(product, brandMap, categoryMap)),
+      products: visibleProducts.map((product) => this.toProductCardDto(
+        product,
+        brandMap,
+        categoryMap,
+        datasheetByProduct.get(product.id) ?? null,
+      )),
       page,
       pageSize,
       hasNextPage: products.length > pageSize,
       isDemoData: false,
+      totalCount,
     };
   }
 
@@ -247,6 +276,7 @@ export class DefaultCatalogService implements CatalogService {
     product: CatalogProduct,
     brandMap: Map<string, CatalogBrand>,
     categoryMap: Map<string, CatalogCategory>,
+    datasheet: CatalogProductDocument | null = null,
   ): CatalogProductCardDto {
     const brand = product.brandId
       ? brandMap.get(product.brandId) ?? null
@@ -264,6 +294,13 @@ export class DefaultCatalogService implements CatalogService {
       imageUrl: product.imageUrl,
       brand: brand ? toBrandDto(brand) : null,
       category: category ? toCategoryDto(category) : null,
+      keyCharacteristics: [],
+      datasheet: datasheet ? {
+        id: datasheet.id,
+        title: datasheet.title,
+        documentType: datasheet.documentType,
+        url: datasheet.url,
+      } : null,
     };
   }
 
@@ -301,6 +338,19 @@ function createCategoryMap(
   categories: CatalogCategory[],
 ): Map<string, CatalogCategory> {
   return new Map(categories.map((category) => [category.id, category]));
+}
+
+function collectCategoryAndDescendantIds(
+  categoryId: string,
+  categories: CatalogCategory[],
+): string[] {
+  const result = new Set([categoryId]);
+  for (let depth = 0; depth < 2; depth += 1) {
+    for (const category of categories) {
+      if (category.parentId && result.has(category.parentId)) result.add(category.id);
+    }
+  }
+  return [...result];
 }
 
 function normalizePage(page: number | undefined): number {

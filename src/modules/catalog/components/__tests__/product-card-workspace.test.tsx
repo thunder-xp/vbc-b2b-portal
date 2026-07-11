@@ -15,6 +15,8 @@ const product = {
   imageUrl: null,
   brand: { id: "brand-1", name: "Novotech", slug: "novotech", description: null, logoUrl: null },
   category: { id: "category-1", parentId: null, name: "Cameras", slug: "cameras", description: null },
+  keyCharacteristics: [],
+  datasheet: null,
 };
 
 const commercialView = {
@@ -42,5 +44,22 @@ describe("ProductCard workspace context", () => {
 
     expect(screen.queryByText("100 MDL")).not.toBeInTheDocument();
     expect(screen.queryByText("Expected")).not.toBeInTheDocument();
+  });
+
+  it("shows a datasheet action only when a current document and permission exist", () => {
+    const capabilities = resolveWorkspaceCapabilities(new Set(["catalog.view", "documents.view_company"])).productCard;
+    const withDatasheet = { ...product, datasheet: { id: "doc-1", title: "Datasheet", documentType: "datasheet", url: "https://example.com/current.pdf" } };
+    const { rerender } = render(<ProductCard capabilities={capabilities} priceTypeName={null} product={withDatasheet} />);
+    expect(screen.getByRole("link", { name: "Datasheet" })).toHaveAttribute("href", "https://example.com/current.pdf");
+    rerender(<ProductCard capabilities={capabilities} priceTypeName={null} product={product} />);
+    expect(screen.queryByRole("link", { name: "Datasheet" })).not.toBeInTheDocument();
+  });
+
+  it("hides exact quantity, warehouse, and arrivals when capability settings disable them", () => {
+    const capabilities = resolveWorkspaceCapabilities(new Set(["catalog.view", "stock.view"]), { exactStockVisibility: false, warehouseVisibility: false, expectedArrivalVisibility: false }).productCard;
+    render(<ProductCard capabilities={capabilities} commercialView={commercialView} priceTypeName={null} product={product} />);
+    expect(screen.queryByText(/Доступно:/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/склад/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Ожидается:/)).not.toBeInTheDocument();
   });
 });

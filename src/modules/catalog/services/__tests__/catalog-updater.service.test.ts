@@ -143,6 +143,8 @@ class FakeCatalogRepository implements CatalogRepository {
     return [...this.products.values()];
   }
 
+  async countProducts(): Promise<number> { return this.products.size; }
+
   async getProductBySlug(slug: string): Promise<CatalogProduct | null> {
     return [...this.products.values()].find((item) => item.slug === slug) ?? null;
   }
@@ -249,6 +251,8 @@ class FakeCatalogRepository implements CatalogRepository {
   async listProductDocuments(): Promise<CatalogProductDocument[]> {
     return [];
   }
+
+  async listProductDocumentsForProducts(): Promise<CatalogProductDocument[]> { return []; }
 }
 
 const now = "2026-07-09T00:00:00.000Z";

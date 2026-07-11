@@ -13,6 +13,7 @@ export type ProductCardWorkspaceContext = {
 export const RESTRICTED_PRODUCT_CARD_CAPABILITIES: ProductCardCapabilityModel = {
   showPrice: false,
   showStock: false,
+  showExactQuantity: false,
   showWarehouseAvailability: false,
   showExpectedArrival: false,
   showProjectPriceEligibility: false,

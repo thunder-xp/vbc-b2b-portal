@@ -3,6 +3,10 @@ export { CategorySidebar } from "./CategorySidebar";
 export { EmptyCatalog } from "./EmptyCatalog";
 export { LoadingSkeleton } from "./LoadingSkeleton";
 export { ProductCard } from "./ProductCard";
+export { CatalogBreadcrumb } from "./CatalogBreadcrumb";
+export { CatalogFilters, catalogHref } from "./CatalogFilters";
+export { CatalogSearch } from "./CatalogSearch";
+export { CategoryMegaMenu, buildCategoryTree, type CatalogCategoryNode } from "./CategoryMegaMenu";
 export {
   RESTRICTED_PRODUCT_CARD_CAPABILITIES,
   type ProductCardWorkspaceContext,

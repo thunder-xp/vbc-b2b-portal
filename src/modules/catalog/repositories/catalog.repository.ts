@@ -8,8 +8,11 @@ import type {
 
 export type ListCatalogProductsInput = {
   categoryId?: string;
+  categoryIds?: string[];
   brandId?: string;
+  searchBrandIds?: string[];
   search?: string;
+  sort?: "default" | "name_asc" | "name_desc" | "sku_asc";
   limit?: number;
   offset?: number;
 };
@@ -58,6 +61,7 @@ export interface CatalogRepository {
   listCategories(): Promise<CatalogCategory[]>;
   listBrands(): Promise<CatalogBrand[]>;
   listProducts(input: ListCatalogProductsInput): Promise<CatalogProduct[]>;
+  countProducts(input: ListCatalogProductsInput): Promise<number>;
   getProductBySlug(slug: string): Promise<CatalogProduct | null>;
   getProductById(id: string): Promise<CatalogProduct | null>;
   findCategoryByExternal1cId(
@@ -79,4 +83,5 @@ export interface CatalogRepository {
   ): Promise<CatalogUpsertResult<CatalogProduct>>;
   listProductImages(productId: string): Promise<CatalogProductImage[]>;
   listProductDocuments(productId: string): Promise<CatalogProductDocument[]>;
+  listProductDocumentsForProducts(productIds: string[]): Promise<CatalogProductDocument[]>;
 }

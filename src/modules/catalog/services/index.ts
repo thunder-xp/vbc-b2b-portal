@@ -10,6 +10,11 @@ export type {
   CatalogService,
 } from "./catalog.service";
 export { DefaultCatalogService } from "./catalog.service";
+export {
+  resolveCategoryFilters,
+  type CatalogFilterDefinition,
+  type CatalogNavigationConfiguration,
+} from "./catalog-configuration";
 export type {
   CatalogReadModelUpdateInput,
   CatalogUpdaterService,
