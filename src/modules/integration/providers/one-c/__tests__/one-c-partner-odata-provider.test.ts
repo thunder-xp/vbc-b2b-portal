@@ -1,12 +1,15 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  IntegrationForbiddenError,
   IntegrationHttpError,
   IntegrationProviderUnavailableError,
   IntegrationTimeoutError,
+  IntegrationUnauthorizedError,
   IntegrationValidationError,
 } from "../../../errors";
 import { ONE_C_RESOURCES } from "../one-c-odata-identifiers";
+import { isLikelyOneCPartnerCode } from "../one-c-partner-odata-provider";
 import { OneCProvider } from "../one-c-provider";
 
 const PARTNER_ID = "11111111-1111-4111-8111-111111111111";
@@ -60,12 +63,19 @@ describe("1C OData partner provider", () => {
     expect(result.items[0]?.reference.externalId).toBe(NON_RFC_PARTNER_ID);
   });
 
-  it("searches by code before description and escapes OData strings", async () => {
+  it("recognizes only conservative 1C partner codes", () => {
+    expect(isLikelyOneCPartnerCode("UU-000954")).toBe(true);
+    expect(isLikelyOneCPartnerCode("NOVOTECH")).toBe(false);
+    expect(isLikelyOneCPartnerCode("1018600013048")).toBe(false);
+    expect(isLikelyOneCPartnerCode("f7df2069-884d-11ea-97e0-000c29cf9dd4")).toBe(false);
+  });
+
+  it("attempts an exact Code query for a likely 1C partner code", async () => {
     const fetchMock = sequence(collection([partnerRow()]));
     vi.stubGlobal("fetch", fetchMock);
-    await provider().partners.searchPartners({ query: "A'15", limit: 1 });
+    await provider().partners.searchPartners({ query: "UU-000954", limit: 1 });
     const [url] = fetchMock.mock.calls[0] as [URL];
-    expect(url.searchParams.get("$filter")).toBe("Code eq 'A''15'");
+    expect(url.searchParams.get("$filter")).toBe("Code eq 'UU-000954'");
   });
 
   it("generates the exact UTF-8 counterparty URL without mojibake", async () => {
@@ -82,44 +92,86 @@ describe("1C OData partner provider", () => {
     expect(decodedUrl).not.toContain(String.fromCharCode(0x0420, 0x0459));
   });
 
-  it("uses description substring after an empty code result", async () => {
-    const fetchMock = sequence(collection([]), collection([partnerRow()]));
+  it("skips the Code query for ordinary text", async () => {
+    const fetchMock = sequence(collection([partnerRow()]));
     vi.stubGlobal("fetch", fetchMock);
     await provider().partners.searchPartners({ query: "Partner", limit: 1 });
-    const [url] = fetchMock.mock.calls[1] as [URL];
+    const [url] = fetchMock.mock.calls[0] as [URL];
     expect(url.searchParams.get("$filter")).toBe("substringof('Partner',Description) eq true");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("maps two real name-search rows with 1C GUID-shaped references", async () => {
-    const fetchMock = sequence(
-      collection([]),
-      collection([
-        { ...partnerRow(), Ref_Key: NON_RFC_PARTNER_ID, Description: "NOVOTECH SYSTEMS" },
-        { ...partnerRow(), Ref_Key: "2ce36ea4-f68f-11f0-4393-7239d3b7bd5c", Description: "NOVOTECH SYSTEMS 2" },
-      ]),
-    );
+    const fetchMock = sequence(collection([
+      { ...partnerRow(), Ref_Key: NON_RFC_PARTNER_ID, Description: "NOVOTECH SYSTEMS" },
+      { ...partnerRow(), Ref_Key: "2ce36ea4-f68f-11f0-4393-7239d3b7bd5c", Description: "NOVOTECH SYSTEMS 2" },
+    ]));
     vi.stubGlobal("fetch", fetchMock);
 
     const result = await provider().partners.searchPartners({ query: "NOVOTECH", limit: 20 });
 
     expect(result.items).toHaveLength(2);
-    expect((fetchMock.mock.calls[0]?.[0] as URL).searchParams.get("$filter")).toBe("Code eq 'NOVOTECH'");
-    expect((fetchMock.mock.calls[1]?.[0] as URL).searchParams.get("$filter")).toBe("substringof('NOVOTECH',Description) eq true");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect((fetchMock.mock.calls[0]?.[0] as URL).searchParams.get("$filter")).toBe("substringof('NOVOTECH',Description) eq true");
     expect((fetchMock.mock.calls[0]?.[0] as URL).searchParams.getAll("$format")).toEqual(["json"]);
-    expect((fetchMock.mock.calls[1]?.[0] as URL).searchParams.getAll("$format")).toEqual(["json"]);
+  });
+
+  it("falls back from a rejected Code query to Description search", async () => {
+    const warningSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const fetchMock = sequence(
+      odataError(500),
+      collection([{ ...partnerRow(), Code: "UU-000954" }]),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await provider().partners.searchPartners({ query: "UU-000954", limit: 1 });
+
+    expect(result.items).toHaveLength(1);
+    expect((fetchMock.mock.calls[1]?.[0] as URL).searchParams.get("$filter")).toBe("substringof('UU-000954',Description) eq true");
+    expect(warningSpy).toHaveBeenCalledWith({
+      event: "one_c_partner_code_query_fallback",
+      failedStage: "partner_code_query",
+      statusCode: 500,
+      resourceName: "Catalog_Контрагенты",
+      queryParameterNames: ["$select", "$filter", "$top", "$format"],
+    });
+  });
+
+  it.each([
+    [401, IntegrationUnauthorizedError],
+    [403, IntegrationForbiddenError],
+  ])("does not fall back from HTTP %i", async (status, ErrorType) => {
+    const fetchMock = sequence(new Response(JSON.stringify({}), {
+      status,
+      headers: { "content-type": "application/json" },
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(provider().partners.searchPartners({ query: "UU-000954" })).rejects.toBeInstanceOf(ErrorType);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    [Object.assign(new Error("timeout"), { name: "TimeoutError" }), IntegrationTimeoutError],
+    [new Error("transport"), IntegrationProviderUnavailableError],
+  ])("does not fall back from transport failures", async (failure, ErrorType) => {
+    const fetchMock = vi.fn().mockRejectedValue(failure);
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(provider().partners.searchPartners({ query: "UU-000954" })).rejects.toBeInstanceOf(ErrorType);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("performs bounded local fiscal-code matching", async () => {
     const fetchMock = sequence(
-      collection([]), collection([]),
       collection([{ ...partnerRow(), ИНН: "other" }]),
       collection([{ ...partnerRow(), ИНН: "1018600013048" }]),
     );
     vi.stubGlobal("fetch", fetchMock);
     const result = await provider({ partnerSearchPageSize: 1, partnerSearchMaxPages: 2 }).partners.searchPartners({ query: "1018600013048", limit: 1 });
     expect(result.items).toHaveLength(1);
-    expect(fetchMock).toHaveBeenCalledTimes(4);
-    const [lastUrl] = fetchMock.mock.calls[3] as [URL];
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const [lastUrl] = fetchMock.mock.calls[1] as [URL];
     expect(lastUrl.searchParams.get("$skip")).toBe("1");
     expect(lastUrl.searchParams.get("$filter")).toBeNull();
   });
@@ -148,7 +200,7 @@ describe("1C OData partner provider", () => {
       DeletionMark: false,
       IsFolder: true,
     };
-    const fetchMock = sequence(collection([]), collection([]), collection([
+    const fetchMock = sequence(collection([
       folderRow,
       { ...partnerRow(), Description: "NOVOTECH SYSTEMS", ИНН: "1018600013048" },
     ]));
@@ -166,7 +218,7 @@ describe("1C OData partner provider", () => {
 
   it("skips malformed rows without failing the fiscal-code page", async () => {
     const logSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
-    vi.stubGlobal("fetch", sequence(collection([]), collection([]), collection([
+    vi.stubGlobal("fetch", sequence(collection([
       { Ref_Key: null, Description: null },
       { ...partnerRow(), ИНН: "00123456" },
     ])));
@@ -288,6 +340,7 @@ function provider(overrides: Record<string, unknown> = {}): OneCProvider {
 function collection(value: unknown[]): Response { return new Response(JSON.stringify({ "odata.metadata": "metadata", value }), { headers: { "content-type": "application/json;charset=utf-8", DataServiceVersion: "3.0" } }); }
 function record(value: unknown): Response { return new Response(JSON.stringify(value), { headers: { "content-type": "application/json;charset=utf-8", DataServiceVersion: "3.0" } }); }
 function sequence(...responses: Response[]) { return vi.fn().mockImplementation(async () => responses.shift() ?? collection([])); }
+function odataError(status: number): Response { return new Response(JSON.stringify({ "odata.error": { code: "-1", message: { lang: "ru", value: "not exposed" } } }), { status, headers: { "content-type": "application/json;charset=utf-8" } }); }
 function partnerRow() { return { Ref_Key: PARTNER_ID, Code: "000152", Description: "Partner Company", НаименованиеПолное: "Partner Company SRL", ИНН: "1018600013048", Покупатель: true, Поставщик: false, Недействителен: false, DeletionMark: false }; }
 function contractRow() { return { Ref_Key: CONTRACT_ID, Code: "C-001", Description: "Main contract", Owner_Key: PARTNER_ID, НомерДоговора: "001", ДатаДоговора: "2026-01-01", ВидДоговора: "Buyer", ВидЦенКонтрагента_Key: PRICE_TYPE_ID, ВидЦен_Key: FALLBACK_PRICE_TYPE_ID, Организация_Key: null, Недействителен: false, DeletionMark: false }; }
 function priceTypeRow(reference = PRICE_TYPE_ID) { return { Ref_Key: reference, Code: "PT-1", Description: "Distributor", ВалютаЦены_Key: "MDL", ЦенаВключаетНДС: true, ТипВидаЦен: "Wholesale", ЦеныАктуальны: true, DeletionMark: false }; }

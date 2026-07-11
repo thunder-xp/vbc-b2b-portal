@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { IntegrationODataError } from "../../../errors";
 import {
   OneCODataClient,
   OneCODataResponseValidationError,
@@ -60,6 +61,36 @@ describe("OneCODataClient", () => {
       "odata.metadata": "metadata",
       value: [{ Ref_Key: "reference" }],
     });
+  });
+
+  it("recognizes the live odata.error envelope and preserves request diagnostics", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      "odata.error": {
+        code: "-1",
+        message: { lang: "ru", value: "not exposed" },
+      },
+    }), {
+      status: 500,
+      headers: { "content-type": "application/json;charset=utf-8" },
+    })));
+
+    try {
+      await client().get("Catalog_Контрагенты", {
+        $select: "Ref_Key,Code",
+        $filter: "Code eq 'UU-000954'",
+        $top: "10",
+      }, { requestKind: "partner_code_query" });
+      throw new Error("Expected an OData error.");
+    } catch (error) {
+      expect(error).toBeInstanceOf(IntegrationODataError);
+      expect(getOneCSafeDiagnostic(error)).toMatchObject({
+        failedStage: "partner_code_query",
+        statusCode: 500,
+        resourceName: "Catalog_Контрагенты",
+        queryParameterNames: ["$select", "$filter", "$top", "$format"],
+        jsonParseFailure: false,
+      });
+    }
   });
 
   it.each([

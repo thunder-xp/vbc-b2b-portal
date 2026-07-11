@@ -15,7 +15,10 @@ import {
 } from "../one-c-health-check";
 import { categorizeOneCHealthError } from "../one-c-health-check";
 import { IntegrationMappingError, IntegrationValidationError } from "../../../errors";
-import { OneCODataResponseValidationError } from "../one-c-odata-client";
+import {
+  OneCODataProviderError,
+  OneCODataResponseValidationError,
+} from "../one-c-odata-client";
 
 const PARTNER_ID = "11111111-1111-4111-8111-111111111111";
 
@@ -122,6 +125,38 @@ describe("1C OData health check", () => {
       event: "one_c_health_check_failed",
       stage: "provider",
     }));
+  });
+
+  it("reports the rejected partner Code query with HTTP 500 diagnostics", async () => {
+    mocks.createPartnerLookupService.mockReturnValue({ searchPartners: mocks.searchPartners });
+    mocks.searchPartners.mockRejectedValue(new OneCODataProviderError({
+      failedStage: "partner_code_query",
+      receivedContentType: "application/json;charset=utf-8",
+      requestKind: "partner_code_query",
+      resourceName: "Catalog_Контрагенты",
+      queryParameterNames: ["$select", "$filter", "$top", "$format"],
+      statusCode: 500,
+      jsonParseFailure: false,
+      parseErrorName: null,
+      bodyLength: 128,
+      bomDetected: false,
+      emptyBody: false,
+    }));
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(collection([])));
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    const report = await runOneCODataHealthCheck(oneCEnv());
+
+    expect(report.provider).toMatchObject({
+      passed: false,
+      failedStage: "partner_code_query",
+      receivedContentType: "application/json;charset=utf-8",
+      requestKind: "partner_code_query",
+      resourceName: "Catalog_Контрагенты",
+      queryParameterNames: ["$select", "$filter", "$top", "$format"],
+      statusCode: 500,
+      jsonParseFailure: false,
+    });
   });
 
   it("falls back to provider_unknown for an unclassified validation error", async () => {

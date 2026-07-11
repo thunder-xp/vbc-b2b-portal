@@ -11,7 +11,9 @@ import type {
   PartnerSearchResultDTO,
 } from "../../dto";
 import {
+  IntegrationHttpError,
   IntegrationMappingError,
+  IntegrationODataError,
   IntegrationUnsupportedOperationError,
   IntegrationValidationError,
 } from "../../errors";
@@ -21,6 +23,7 @@ import {
   OneCODataClient,
   OneCODataFilterUnsupportedError,
 } from "./one-c-odata-client";
+import { getOneCSafeDiagnostic } from "./one-c-safe-diagnostic";
 import {
   parseRequiredOneCGuid,
 } from "./one-c-guid";
@@ -91,22 +94,29 @@ export class OneCPartnerODataProvider implements PartnerProvider {
       );
       const partner = direct ? normalizePartnerRow(direct) : null;
       if (partner) matches.set(partner.Ref_Key, partner);
+    } else if (isFiscalCodeQuery(query)) {
+      const fiscalMatches = await this.scanPartnersByFiscalCode(query, limit);
+      fiscalMatches.forEach((item) => matches.set(item.Ref_Key, item));
     } else {
-      await this.collectPartners(matches, {
-        $select: PARTNER_FIELDS,
-        $filter: `Code eq '${escapeODataString(query)}'`,
-        $top: String(limit),
-      }, "partner_code_query");
+      if (isLikelyOneCPartnerCode(query)) {
+        try {
+          await this.collectPartners(matches, {
+            $select: PARTNER_FIELDS,
+            $filter: `Code eq '${escapeODataString(query)}'`,
+            $top: String(limit),
+          }, "partner_code_query");
+        } catch (error) {
+          if (!isCodeQueryFallbackError(error)) throw error;
+          logCodeQueryFallback(error);
+        }
+      }
+
       if (matches.size < limit) {
         await this.collectPartners(matches, {
           $select: PARTNER_FIELDS,
           $filter: `substringof('${escapeODataString(query)}',Description) eq true`,
           $top: String(limit),
         }, "partner_name_query");
-      }
-      if (/^\d{6,}$/.test(query) && matches.size < limit) {
-        const fiscalMatches = await this.scanPartnersByFiscalCode(query, limit - matches.size);
-        fiscalMatches.forEach((item) => matches.set(item.Ref_Key, item));
       }
     }
 
@@ -277,6 +287,31 @@ export class OneCPartnerODataProvider implements PartnerProvider {
       throw new IntegrationMappingError("1C contract mapping failed.");
     }
   }
+}
+
+export function isLikelyOneCPartnerCode(query: string): boolean {
+  return /^[A-Z]{2}-\d{6}$/.test(query.trim());
+}
+
+function isFiscalCodeQuery(query: string): boolean {
+  return /^\d{6,}$/.test(query.trim());
+}
+
+function isCodeQueryFallbackError(error: unknown): boolean {
+  return error instanceof OneCODataFilterUnsupportedError ||
+    error instanceof IntegrationODataError ||
+    error instanceof IntegrationHttpError;
+}
+
+function logCodeQueryFallback(error: unknown): void {
+  const diagnostic = getOneCSafeDiagnostic(error);
+  console.warn({
+    event: "one_c_partner_code_query_fallback",
+    failedStage: diagnostic?.failedStage ?? "partner_code_query",
+    statusCode: diagnostic?.statusCode ?? null,
+    resourceName: diagnostic?.resourceName ?? PARTNERS_RESOURCE,
+    queryParameterNames: diagnostic?.queryParameterNames ?? [],
+  });
 }
 
 function logPartnerPipelineFailure(

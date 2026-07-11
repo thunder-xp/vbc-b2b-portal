@@ -26,6 +26,8 @@ export {
 } from "./one-c-provider";
 export {
   OneCODataClient,
+  OneCODataHttpError,
+  OneCODataProviderError,
   OneCODataResponseValidationError,
   type OneCODataProbeOptions,
   type OneCODataProbeResult,

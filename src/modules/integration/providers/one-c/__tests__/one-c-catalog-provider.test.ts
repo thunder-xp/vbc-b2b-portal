@@ -180,7 +180,7 @@ describe("1C catalog provider", () => {
     });
   });
 
-  it("calls the real partner search endpoint with bearer auth and encoded query", async () => {
+  it("calls the real partner search endpoint with auth and a description query", async () => {
     const fetchMock = vi.fn().mockImplementation(async () =>
       new Response(
         JSON.stringify({
@@ -218,7 +218,8 @@ describe("1C catalog provider", () => {
 
     const [url, init] = fetchMock.mock.calls[0] as [URL, RequestInit];
     expect(decodeURIComponent(url.toString())).toContain("Catalog_Контрагенты");
-    expect(url.searchParams.get("$filter")).toBe("Code eq 'NOVOTECH SYSTEMS'");
+    expect(url.searchParams.get("$filter")).toBe("substringof('NOVOTECH SYSTEMS',Description) eq true");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(init.headers).toMatchObject({
       Accept: "application/json",
       Authorization: `Basic ${Buffer.from("odata-user:odata-password").toString("base64")}`,

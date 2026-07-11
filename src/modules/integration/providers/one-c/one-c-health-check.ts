@@ -414,7 +414,7 @@ function categorizeProbeFailure(
 }
 
 function isODataErrorEnvelope(value: unknown): boolean {
-  return isRecord(value) && "error" in value;
+  return isRecord(value) && ("error" in value || "odata.error" in value);
 }
 
 function parseHostname(baseUrl: string | null): string | null {

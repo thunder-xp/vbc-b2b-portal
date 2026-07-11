@@ -22,7 +22,7 @@ export type OneCSafeDiagnostic = OneCODataSafeDiagnostic | {
 
 export function getOneCSafeDiagnostic(error: unknown): OneCSafeDiagnostic | null {
   for (const candidate of errorChain(error)) {
-    if (candidate instanceof OneCODataResponseValidationError) {
+    if (candidate instanceof OneCODataResponseValidationError || hasOneCDiagnostic(candidate)) {
       return candidate.diagnostic;
     }
 
@@ -63,6 +63,20 @@ export function getOneCSafeDiagnostic(error: unknown): OneCSafeDiagnostic | null
   }
 
   return null;
+}
+
+function hasOneCDiagnostic(
+  value: unknown,
+): value is { diagnostic: OneCODataSafeDiagnostic } {
+  return value !== null && typeof value === "object" &&
+    "diagnostic" in value && isOneCDiagnostic(value.diagnostic);
+}
+
+function isOneCDiagnostic(value: unknown): value is OneCODataSafeDiagnostic {
+  return value !== null && typeof value === "object" &&
+    "failedStage" in value && typeof value.failedStage === "string" &&
+    "queryParameterNames" in value && Array.isArray(value.queryParameterNames) &&
+    "statusCode" in value && typeof value.statusCode === "number";
 }
 
 function* errorChain(error: unknown): Generator<unknown> {

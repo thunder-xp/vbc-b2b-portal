@@ -37,13 +37,13 @@ export type OneCODataProbeOptions = {
 };
 
 export type OneCODataSafeDiagnostic = {
-  failedStage: "odata_response";
+  failedStage: string;
   receivedContentType: string | null;
   requestKind: string;
   resourceName: string;
   queryParameterNames: string[];
   statusCode: number;
-  jsonParseFailure: true;
+  jsonParseFailure: boolean;
   parseErrorName: string | null;
   bodyLength: number | null;
   bomDetected: boolean;
@@ -64,9 +64,23 @@ export class OneCODataResponseValidationError extends IntegrationValidationError
 }
 
 export class OneCODataFilterUnsupportedError extends Error {
-  constructor() {
+  constructor(readonly diagnostic: OneCODataSafeDiagnostic) {
     super("1C OData rejected the requested filter.");
     this.name = "OneCODataFilterUnsupportedError";
+  }
+}
+
+export class OneCODataProviderError extends IntegrationODataError {
+  constructor(readonly diagnostic: OneCODataSafeDiagnostic) {
+    super();
+    this.name = "OneCODataProviderError";
+  }
+}
+
+export class OneCODataHttpError extends IntegrationHttpError {
+  constructor(readonly diagnostic: OneCODataSafeDiagnostic) {
+    super();
+    this.name = "OneCODataHttpError";
   }
 }
 
@@ -79,12 +93,13 @@ export class OneCODataClient {
     options: OneCODataProbeOptions = {},
   ): Promise<unknown> {
     const result = await this.probe(resource, params, options);
+    const requestDiagnostic = toSafeDiagnostic(result, result.requestKind);
 
     if (result.statusCode === 400) {
       if (isODataErrorEnvelope(result.payload)) {
-        throw new IntegrationODataError();
+        throw new OneCODataProviderError(requestDiagnostic);
       }
-      throw new OneCODataFilterUnsupportedError();
+      throw new OneCODataFilterUnsupportedError(requestDiagnostic);
     }
 
     if (result.statusCode === 401) {
@@ -97,9 +112,9 @@ export class OneCODataClient {
 
     if (result.statusCode < 200 || result.statusCode >= 300) {
       if (isODataErrorEnvelope(result.payload)) {
-        throw new IntegrationODataError();
+        throw new OneCODataProviderError(requestDiagnostic);
       }
-      throw new IntegrationHttpError();
+      throw new OneCODataHttpError(requestDiagnostic);
     }
 
     if (!result.jsonParsed) {
@@ -243,15 +258,18 @@ async function parseJsonBody(response: Response): Promise<Pick<
   }
 }
 
-function toSafeDiagnostic(result: OneCODataProbeResult): OneCODataSafeDiagnostic {
+function toSafeDiagnostic(
+  result: OneCODataProbeResult,
+  failedStage = "odata_response",
+): OneCODataSafeDiagnostic {
   return {
-    failedStage: "odata_response",
+    failedStage,
     receivedContentType: result.contentType,
     requestKind: result.requestKind,
     resourceName: result.resourceName,
     queryParameterNames: result.queryParameterNames,
     statusCode: result.statusCode,
-    jsonParseFailure: true,
+    jsonParseFailure: !result.jsonParsed,
     parseErrorName: result.parseErrorName,
     bodyLength: result.bodyLength,
     bomDetected: result.bomDetected,
@@ -267,7 +285,8 @@ function safeErrorName(error: unknown): string {
 }
 
 function isODataErrorEnvelope(value: unknown): boolean {
-  return typeof value === "object" && value !== null && "error" in value;
+  return typeof value === "object" && value !== null &&
+    ("error" in value || "odata.error" in value);
 }
 
 function isExplicitlyNonJsonContentType(contentType: string | null): boolean {

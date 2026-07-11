@@ -20,7 +20,7 @@ const PARTNER_TWO = "2ce36ea4-f68f-11f0-4393-7239d3b7bd5c";
 
 describe("partner search production call chain", () => {
   it("maps two real OData rows through provider, service, and action result mapper", async () => {
-    const responses = [collection([]), collection([
+    const responses = [collection([
       partnerRow(PARTNER_ONE),
       partnerRow(PARTNER_TWO),
     ])];
@@ -42,6 +42,8 @@ describe("partner search production call chain", () => {
 
     expect(page).toMatchObject({ nextCursor: null });
     expect(page.items).toHaveLength(2);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect((fetchMock.mock.calls[0]?.[0] as URL).searchParams.get("$filter")).toBe("substringof('NOVOTECH',Description) eq true");
     for (const [url, init] of fetchMock.mock.calls as [URL, RequestInit][]) {
       expect(url.searchParams.getAll("$format")).toEqual(["json"]);
       expect(new Headers(init.headers).get("Accept")).toBe("application/json");
