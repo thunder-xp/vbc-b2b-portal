@@ -29,9 +29,11 @@ describe("Partner workspace shell", () => {
     render(<PartnerSidebar hasWorkspaceAccess />);
 
     expect(screen.getByRole("link", { name: "Рабочее пространство" })).toHaveAttribute("href", "/cabinet");
-    expect(screen.getByRole("link", { name: "Каталог" })).toHaveAttribute("href", "/cabinet/catalog");
-    expect(screen.getByText("Заказы")).toBeInTheDocument();
-    expect(screen.getByText("Финансы")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Точные остатки" })).toHaveAttribute("href", "/cabinet/catalog");
+    expect(screen.getByRole("link", { name: "Персональные цены" })).toHaveAttribute("href", "/cabinet/catalog");
+    expect(screen.getByText("Заказы поставщику")).toBeInTheDocument();
+    expect(screen.getByText("Проектное оборудование")).toBeInTheDocument();
+    expect(screen.queryByText("Финансы")).not.toBeInTheDocument();
     expect(screen.queryByText("Admin")).not.toBeInTheDocument();
   });
 
@@ -39,6 +41,7 @@ describe("Partner workspace shell", () => {
     render(<PartnerSidebar hasWorkspaceAccess={false} />);
 
     expect(screen.getByRole("link", { name: "Рабочее пространство" })).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Каталог" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Точные остатки" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Персональные цены" })).not.toBeInTheDocument();
   });
 });

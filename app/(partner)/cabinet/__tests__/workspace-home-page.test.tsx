@@ -32,9 +32,11 @@ describe("Partner Workspace home page", () => {
     expect(screen.getAllByText("Partner Company").length).toBeGreaterThan(0);
     expect(screen.getByText("Владелец компании")).toBeInTheDocument();
     expect(screen.getAllByText("GOLD").length).toBeGreaterThan(0);
-    expect(screen.getByText("Операционная сводка")).toBeInTheDocument();
     expect(screen.getByText("Рабочие модули")).toBeInTheDocument();
-    expect(screen.getByText("Недавних действий пока нет.")).toBeInTheDocument();
+    expect(screen.getAllByText("Проверить остатки").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Посмотреть свои цены").length).toBeGreaterThan(0);
+    expect(screen.getByText("Создать заказ поставщику")).toBeInTheDocument();
+    expect(screen.getByText("Подобрать проектное оборудование")).toBeInTheDocument();
   });
 
   it("does not expose raw 1C GUIDs and controls unavailable modules", async () => {
@@ -42,11 +44,12 @@ describe("Partner Workspace home page", () => {
 
     expect(screen.queryByText("33333333-3333-4333-8333-333333333333")).not.toBeInTheDocument();
     expect(screen.queryByText("f7df2069-884d-11ea-97e0-000c29cf9dd4")).not.toBeInTheDocument();
-    expect(screen.getAllByText("Заказы").length).toBeGreaterThan(0);
-    expect(screen.getByText("Проекты")).toBeInTheDocument();
-    expect(screen.getByText("Финансы")).toBeInTheDocument();
+    expect(screen.queryByText("Финансы")).not.toBeInTheDocument();
+    expect(screen.queryByText("Документы")).not.toBeInTheDocument();
+    expect(screen.queryByText("Сервис и гарантия")).not.toBeInTheDocument();
+    expect(screen.queryByText("Поддержка")).not.toBeInTheDocument();
     expect(screen.getAllByText("Скоро").length).toBeGreaterThan(0);
-    expect(screen.queryByRole("link", { name: "Заказы" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Создать заказ поставщику" })).not.toBeInTheDocument();
   });
 
   it("shows an actionable state when price type is missing", async () => {
@@ -58,7 +61,7 @@ describe("Partner Workspace home page", () => {
     });
 
     render(await CabinetPage());
-    expect(screen.getByText("Коммерческие условия компании ещё не настроены. Обратитесь к вашему менеджеру.")).toBeInTheDocument();
+    expect(screen.getByText("Коммерческие условия компании ещё не настроены. Обратитесь к менеджеру Novotech.")).toBeInTheDocument();
   });
 
   it("redirects unauthenticated users", async () => {
@@ -77,14 +80,11 @@ function workspaceData() {
     operational: { activeOrders: 0, openProjects: 0, documentsRequiringAttention: 0, supportRequests: 0 },
     activity: [],
     modules: [
-      { key: "catalog", title: "Каталог", description: "Поиск оборудования.", href: "/cabinet/catalog", availability: "available" },
-      { key: "pricing_inventory", title: "Цены и остатки", description: "Цены и склад.", href: "/cabinet/catalog", availability: "available" },
-      { key: "orders", title: "Заказы", description: "Заказы партнёра.", href: null, availability: "coming_soon" },
-      { key: "projects", title: "Проекты", description: "Проектные поставки.", href: null, availability: "coming_soon" },
-      { key: "documents", title: "Документы", description: "Документы.", href: null, availability: "coming_soon" },
-      { key: "finance", title: "Финансы", description: "Финансы.", href: null, availability: "coming_soon" },
-      { key: "service", title: "Сервис и гарантия", description: "Сервис.", href: null, availability: "coming_soon" },
-      { key: "support", title: "Поддержка", description: "Поддержка.", href: null, availability: "coming_soon" },
+      { key: "inventory", title: "Проверить остатки", description: "Остатки.", href: "/cabinet/catalog", availability: "available" },
+      { key: "pricing", title: "Посмотреть свои цены", description: "Цены.", href: "/cabinet/catalog", availability: "available" },
+      { key: "supplier_orders", title: "Создать заказ поставщику", description: "Закупочный процесс.", href: null, availability: "coming_soon" },
+      { key: "project_equipment", title: "Подобрать проектное оборудование", description: "Проектный подбор.", href: null, availability: "coming_soon" },
+      { key: "company", title: "Моя компания", description: "Компания.", href: "/cabinet/company", availability: "available" },
     ],
     commercialConfigurationMissing: false,
   };

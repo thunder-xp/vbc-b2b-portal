@@ -40,15 +40,15 @@ export type PartnerWorkspaceContext = {
   userId: string;
   userDisplayName: string;
   userEmail: string;
+  profileStatus: string | null;
   accessState: PartnerWorkspaceAccessState;
   companyId: string | null;
   companyName: string | null;
   companyStatus: string | null;
   membershipId: string | null;
+  membershipStatus: string | null;
   membershipRole: string | null;
-  external1cId: string | null;
   external1cCode: string | null;
-  external1cContractId: string | null;
   external1cPriceTypeId: string | null;
   priceTypeName: string | null;
   availableModules: PartnerWorkspaceModule[];
@@ -76,55 +76,39 @@ export class DefaultPartnerWorkspaceContextService
 
     const displayName = profile.fullName ?? profile.email;
     if (profile.userType === UserType.Internal || profile.userType === UserType.Admin) {
-      return emptyContext(profile.id, displayName, profile.email, "internal");
+      return emptyContext(profile.id, displayName, profile.email, "internal", profile.status);
     }
     if (profile.status === UserStatus.Rejected) {
-      return emptyContext(profile.id, displayName, profile.email, "rejected");
+      return emptyContext(profile.id, displayName, profile.email, "rejected", profile.status);
     }
     if (profile.status === UserStatus.PendingApproval || profile.status === UserStatus.Registered) {
-      return emptyContext(profile.id, displayName, profile.email, "pending_approval");
+      return emptyContext(profile.id, displayName, profile.email, "pending_approval", profile.status);
     }
     if (profile.status === UserStatus.Suspended || profile.status === UserStatus.Revoked) {
-      return emptyContext(profile.id, displayName, profile.email, "suspended");
+      return emptyContext(profile.id, displayName, profile.email, "suspended", profile.status);
     }
 
-    const [memberships, requests] = await Promise.all([
-      this.companyAccessService.getOwnMemberships(userId),
-      this.accessRequestService.getOwnAccessRequests(userId),
-    ]);
-    const pendingRequest = requests.some((request) => request.status === AccessRequestStatus.PendingReview);
-    const rejectedRequest = requests.some((request) => request.status === AccessRequestStatus.Rejected);
-    const approvedRequests = requests.filter((request) => request.status === AccessRequestStatus.Approved);
+    const memberships = await this.companyAccessService.getOwnMemberships(userId);
     const membership = memberships.find((item) => item.status === MembershipStatus.Active) ?? memberships[0];
 
     if (!membership) {
+      const requests = await this.accessRequestService.getOwnAccessRequests(userId);
+      const pendingRequest = requests.some((request) => request.status === AccessRequestStatus.PendingReview);
+      const rejectedRequest = requests.some((request) => request.status === AccessRequestStatus.Rejected);
       return emptyContext(
         profile.id,
         displayName,
         profile.email,
         pendingRequest ? "pending_approval" : rejectedRequest ? "rejected" : "missing_membership",
+        profile.status,
       );
     }
 
     if (membership.status !== MembershipStatus.Active) {
       return {
-        ...emptyContext(profile.id, displayName, profile.email, "suspended"),
+        ...emptyContext(profile.id, displayName, profile.email, "suspended", profile.status),
         membershipId: membership.id,
-      };
-    }
-
-    const hasApprovedAccess = approvedRequests.some(
-      (request) => request.companyId === membership.companyId,
-    );
-    if (!hasApprovedAccess) {
-      return {
-        ...emptyContext(
-          profile.id,
-          displayName,
-          profile.email,
-          pendingRequest ? "pending_approval" : rejectedRequest ? "rejected" : "missing_membership",
-        ),
-        membershipId: membership.id,
+        membershipStatus: membership.status,
       };
     }
 
@@ -134,13 +118,13 @@ export class DefaultPartnerWorkspaceContextService
     } catch (error) {
       if (error instanceof ForbiddenError || error instanceof InvalidStateError) {
         return {
-          ...emptyContext(profile.id, displayName, profile.email, "suspended"),
+          ...emptyContext(profile.id, displayName, profile.email, "suspended", profile.status),
           membershipId: membership.id,
         };
       }
       if (!(error instanceof NotFoundError)) throw error;
       return {
-        ...emptyContext(profile.id, displayName, profile.email, "missing_company"),
+        ...emptyContext(profile.id, displayName, profile.email, "missing_company", profile.status),
         membershipId: membership.id,
       };
     }
@@ -158,15 +142,15 @@ export class DefaultPartnerWorkspaceContextService
       userId: profile.id,
       userDisplayName: displayName,
       userEmail: profile.email,
+      profileStatus: profile.status,
       accessState,
       companyId: activeContext.company.id,
       companyName: activeContext.company.displayName,
       companyStatus: activeContext.company.status,
       membershipId: membership.id,
+      membershipStatus: membership.status,
       membershipRole: role?.name ?? "Партнёр",
-      external1cId: activeContext.company.external1cId,
       external1cCode: activeContext.company.external1cCode ?? null,
-      external1cContractId: activeContext.company.external1cContractId ?? null,
       external1cPriceTypeId: priceTypeReference,
       priceTypeName,
       availableModules: workspaceModules(
@@ -192,20 +176,21 @@ function emptyContext(
   userDisplayName: string,
   userEmail: string,
   accessState: PartnerWorkspaceAccessState,
+  profileStatus: string | null = null,
 ): PartnerWorkspaceContext {
   return {
     userId,
     userDisplayName,
     userEmail,
+    profileStatus,
     accessState,
     companyId: null,
     companyName: null,
     companyStatus: null,
     membershipId: null,
+    membershipStatus: null,
     membershipRole: null,
-    external1cId: null,
     external1cCode: null,
-    external1cContractId: null,
     external1cPriceTypeId: null,
     priceTypeName: null,
     availableModules: workspaceModules(false),
@@ -223,13 +208,10 @@ function workspaceModules(
       : "coming_soon";
 
   return [
-    { key: "catalog", title: "Каталог", description: "Поиск и просмотр оборудования Novotech.", href: "/cabinet/catalog", availability: "available" },
-    { key: "pricing_inventory", title: "Цены и остатки", description: "Доступные цены и складская информация в каталоге.", href: commercialAvailability === "available" ? "/cabinet/catalog" : null, availability: commercialAvailability },
-    { key: "orders", title: "Заказы", description: "Создание и контроль заказов партнёра.", href: null, availability: "coming_soon" },
-    { key: "projects", title: "Проекты", description: "Работа с проектными поставками.", href: null, availability: "coming_soon" },
-    { key: "documents", title: "Документы", description: "Коммерческие и продуктовые документы.", href: null, availability: "coming_soon" },
-    { key: "finance", title: "Финансы", description: "Разрешённая финансовая информация компании.", href: null, availability: "coming_soon" },
-    { key: "service", title: "Сервис и гарантия", description: "Сервисные и гарантийные обращения.", href: null, availability: "coming_soon" },
-    { key: "support", title: "Поддержка", description: "Связь с командой Novotech.", href: null, availability: "coming_soon" },
+    { key: "inventory", title: "Проверить остатки", description: "Наличие товаров, складские остатки и ожидаемые поступления.", href: commercialAvailability === "available" ? "/cabinet/catalog" : null, availability: commercialAvailability },
+    { key: "pricing", title: "Посмотреть свои цены", description: "Назначенный вид цены 1С и персональные цены на товары.", href: commercialAvailability === "available" ? "/cabinet/catalog" : null, availability: commercialAvailability },
+    { key: "supplier_orders", title: "Создать заказ поставщику", description: "Закупочный процесс партнёра: черновик, заказ и контроль статуса.", href: null, availability: "coming_soon" },
+    { key: "project_equipment", title: "Подобрать проектное оборудование", description: "Спецификация оборудования и подбор в контексте проекта.", href: null, availability: "coming_soon" },
+    { key: "company", title: "Моя компания", description: "Профиль компании, роль и назначенные коммерческие условия.", href: "/cabinet/company", availability: "available" },
   ];
 }

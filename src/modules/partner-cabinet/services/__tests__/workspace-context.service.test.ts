@@ -6,7 +6,7 @@ import type {
   PermissionService,
   UserProfileService,
 } from "../../../access-control/services";
-import { NotFoundError } from "../../../access-control/services";
+import { InvalidStateError, NotFoundError } from "../../../access-control/services";
 import {
   AccessRequestStatus,
   CompanyStatus,
@@ -55,18 +55,39 @@ describe("DefaultPartnerWorkspaceContextService", () => {
     expect(context.accessState).toBe("suspended");
   });
 
+  it("blocks an inactive company", async () => {
+    const context = await service({ company: company({ status: CompanyStatus.Suspended }) }).getWorkspaceContext("partner-1");
+    expect(context.accessState).toBe("suspended");
+  });
+
+  it("blocks a suspended profile", async () => {
+    const context = await service({ profile: profile({ status: UserStatus.Suspended }) }).getWorkspaceContext("partner-1");
+    expect(context.accessState).toBe("suspended");
+  });
+
   it("returns a controlled state for missing membership", async () => {
     const context = await service({ memberships: [], requests: [request(AccessRequestStatus.Approved)] }).getWorkspaceContext("partner-1");
     expect(context.accessState).toBe("missing_membership");
   });
 
-  it("does not grant access when approval belongs to another company", async () => {
+  it("does not require an exact approved-request company binding at runtime", async () => {
     const approvedForAnotherCompany = {
       ...request(AccessRequestStatus.Approved),
       companyId: "company-2",
     };
     const context = await service({ requests: [approvedForAnotherCompany] }).getWorkspaceContext("partner-1");
-    expect(context.accessState).toBe("missing_membership");
+    expect(context.accessState).toBe("active");
+  });
+
+  it("does not let a historical approved request with null company block active access", async () => {
+    const historicalRequest = { ...request(AccessRequestStatus.Approved), companyId: null };
+    const context = await service({ requests: [historicalRequest] }).getWorkspaceContext("partner-1");
+    expect(context.accessState).toBe("active");
+  });
+
+  it("does not query onboarding history for an active membership", async () => {
+    const context = await service({ accessRequestLookupFails: true }).getWorkspaceContext("partner-1");
+    expect(context.accessState).toBe("active");
   });
 
   it("returns a controlled state for missing company", async () => {
@@ -82,7 +103,7 @@ describe("DefaultPartnerWorkspaceContextService", () => {
 
   it("does not advertise commercial access without pricing or stock permission", async () => {
     const context = await service({ hasCommercialPermission: false }).getWorkspaceContext("partner-1");
-    expect(context.availableModules.find((module) => module.key === "pricing_inventory")).toMatchObject({
+    expect(context.availableModules.find((module) => module.key === "pricing")).toMatchObject({
       availability: "coming_soon",
       href: null,
     });
@@ -103,6 +124,7 @@ type Fixtures = {
   company?: PartnerCompany;
   companyMissing?: boolean;
   hasCommercialPermission?: boolean;
+  accessRequestLookupFails?: boolean;
 };
 
 function service(fixtures: Fixtures = {}) {
@@ -119,13 +141,17 @@ function service(fixtures: Fixtures = {}) {
   };
   const accessRequestService: AccessRequestService = {
     async submitAccessRequest() { return currentRequests[0]!; },
-    async getOwnAccessRequests() { return currentRequests; },
+    async getOwnAccessRequests() {
+      if (fixtures.accessRequestLookupFails) throw new Error("onboarding history unavailable");
+      return currentRequests;
+    },
     async cancelOwnPendingRequest() { return currentRequests[0]!; },
   };
   const companyAccessService: CompanyAccessService = {
     async getOwnMemberships() { return currentMemberships; },
     async getActiveCompanyContext() {
       if (fixtures.companyMissing) throw new NotFoundError("missing company");
+      if (currentCompany.status !== CompanyStatus.Active) throw new InvalidStateError("inactive company");
       return { user: currentProfile, company: currentCompany, membership: currentMemberships[0]! };
     },
     async validateCompanyAccess() { return { isAllowed: true, context: null }; },

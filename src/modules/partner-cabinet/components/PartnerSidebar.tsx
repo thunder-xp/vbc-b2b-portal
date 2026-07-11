@@ -5,11 +5,10 @@ import { usePathname } from "next/navigation";
 
 const navigation = [
   { href: "/cabinet", label: "Рабочее пространство", available: true },
-  { href: "/cabinet/catalog", label: "Каталог", available: true },
-  { href: null, label: "Заказы", available: false },
-  { href: null, label: "Проекты", available: false },
-  { href: null, label: "Документы", available: false },
-  { href: null, label: "Финансы", available: false },
+  { href: "/cabinet/catalog", label: "Точные остатки", available: true },
+  { href: "/cabinet/catalog", label: "Персональные цены", available: true },
+  { href: null, label: "Заказы поставщику", available: false },
+  { href: null, label: "Проектное оборудование", available: false },
   { href: "/cabinet/company", label: "Моя компания", available: true },
   { href: "/cabinet/profile", label: "Настройки профиля", available: true },
 ] as const;
