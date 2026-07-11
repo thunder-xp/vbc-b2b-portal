@@ -104,7 +104,7 @@ export function AccessRequestDecisionForms({
       }
       setContracts(result.data);
       if (result.data.length === 0) {
-        setSearchError("No active contracts found.");
+        setSearchError("Для выбранного контрагента договоры в 1С не найдены.");
         return;
       }
       if (result.data.length === 1) selectContract(result.data[0]);

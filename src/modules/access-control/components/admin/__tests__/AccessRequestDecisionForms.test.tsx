@@ -124,6 +124,29 @@ describe("AccessRequestDecisionForms", () => {
     expect(screen.getByRole("button", { name: "Approve" })).toBeDisabled();
   });
 
+  it("shows a specific empty-contract message after selecting a counterparty", async () => {
+    const user = userEvent.setup();
+    mocks.getOneCPartnerContractsAction.mockResolvedValue({
+      success: true,
+      errorCode: null,
+      message: "1C contracts loaded.",
+      data: [],
+    });
+    render(<AccessRequestDecisionForms requestId="request-1" />);
+
+    await user.click(screen.getByRole("button", { name: "Search in 1C" }));
+    await user.type(
+      screen.getByPlaceholderText("Company name, VAT/IDNO, or 1C reference"),
+      "Partner",
+    );
+    await user.click(screen.getByRole("button", { name: "Search" }));
+    await user.click(await screen.findByRole("button", { name: "Select counterparty" }));
+
+    expect(await screen.findByText("Для выбранного контрагента договоры в 1С не найдены.")).toBeInTheDocument();
+    expect(screen.queryByText("1C is temporarily unavailable.")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Approve" })).toBeDisabled();
+  });
+
   it("uses the selected contract price type for approval binding", async () => {
     const user = userEvent.setup();
     mocks.searchOneCPartnersAction.mockResolvedValue({

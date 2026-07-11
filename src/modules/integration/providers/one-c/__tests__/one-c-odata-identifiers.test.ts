@@ -33,6 +33,8 @@ describe("1C OData identifiers", () => {
       "Недействителен",
     ]));
     expect(ONE_C_CONTRACT_FIELDS).toEqual(expect.arrayContaining([
+      "Owner",
+      "Owner_Type",
       "НомерДоговора",
       "ДатаДоговора",
       "ВидДоговора",

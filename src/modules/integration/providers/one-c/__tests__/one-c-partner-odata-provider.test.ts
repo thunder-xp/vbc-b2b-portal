@@ -244,12 +244,17 @@ describe("1C OData partner provider", () => {
     expect(logSpy).toHaveBeenCalledWith(expect.objectContaining({ reason: "inactive" }));
   });
 
-  it("loads contracts by owner and prefers counterparty price type", async () => {
+  it("scans contracts locally without an Owner filter and prefers counterparty price type", async () => {
     const fetchMock = sequence(collection([contractRow()]), record(priceTypeRow()));
     vi.stubGlobal("fetch", fetchMock);
     const result = await provider().partners.fetchPartnerContracts({ partnerReference: PARTNER_ID });
     const [url] = fetchMock.mock.calls[0] as [URL];
-    expect(url.searchParams.get("$filter")).toBe(`Owner_Key eq guid'${PARTNER_ID}'`);
+    expect(url.searchParams.get("$filter")).toBeNull();
+    expect(url.searchParams.get("$select")).toContain("Owner");
+    expect(url.searchParams.get("$select")).toContain("Owner_Type");
+    expect(url.searchParams.get("$top")).toBe("50");
+    expect(url.searchParams.get("$skip")).toBe("0");
+    expect(url.searchParams.get("$format")).toBe("json");
     expect(result.items[0]).toMatchObject({
       reference: { externalId: CONTRACT_ID },
       priceTypeReference: { externalId: PRICE_TYPE_ID },
@@ -258,28 +263,76 @@ describe("1C OData partner provider", () => {
     });
   });
 
-  it("falls back to contract price type and excludes inactive contracts", async () => {
+  it("filters contracts locally by owner, owner type, and active state", async () => {
     vi.stubGlobal("fetch", sequence(collection([
       { ...contractRow(), ВидЦенКонтрагента_Key: "00000000-0000-0000-0000-000000000000", ВидЦен_Key: FALLBACK_PRICE_TYPE_ID },
       { ...contractRow(), Ref_Key: "55555555-5555-4555-8555-555555555555", DeletionMark: true },
       { ...contractRow(), Ref_Key: "66666666-6666-4666-8666-666666666666", Недействителен: true },
+      { ...contractRow(), Ref_Key: "77777777-7777-4777-8777-777777777777", Owner: "99999999-9999-4999-8999-999999999999" },
+      { ...contractRow(), Ref_Key: "88888888-8888-4888-8888-888888888888", Owner_Type: "StandardODATA.Catalog_Организации" },
     ]), record(priceTypeRow(FALLBACK_PRICE_TYPE_ID))));
     const result = await provider().partners.fetchPartnerContracts({ partnerReference: PARTNER_ID });
     expect(result.items).toHaveLength(1);
     expect(result.items[0]).toMatchObject({ priceTypeReference: { externalId: FALLBACK_PRICE_TYPE_ID }, priceTypeSource: "contract" });
   });
 
-  it("uses bounded local contract owner fallback when Owner_Key filter is rejected", async () => {
+  it("paginates the local contract scan with top and skip", async () => {
     const fetchMock = sequence(
-      new Response("{}", { status: 400 }),
-      collection([{ ...contractRow(), Owner_Key: "99999999-9999-4999-8999-999999999999" }]),
+      collection([{ ...contractRow(), Owner: "99999999-9999-4999-8999-999999999999" }]),
       collection([contractRow()]),
       record(priceTypeRow()),
     );
     vi.stubGlobal("fetch", fetchMock);
     const result = await provider({ partnerSearchPageSize: 1, partnerSearchMaxPages: 2 }).partners.fetchPartnerContracts({ partnerReference: PARTNER_ID });
     expect(result.items).toHaveLength(1);
-    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    const firstUrl = fetchMock.mock.calls[0]?.[0] as URL;
+    const secondUrl = fetchMock.mock.calls[1]?.[0] as URL;
+    expect(firstUrl.searchParams.get("$filter")).toBeNull();
+    expect(secondUrl.searchParams.get("$filter")).toBeNull();
+    expect(firstUrl.searchParams.get("$top")).toBe("1");
+    expect(firstUrl.searchParams.get("$skip")).toBe("0");
+    expect(secondUrl.searchParams.get("$top")).toBe("1");
+    expect(secondUrl.searchParams.get("$skip")).toBe("1");
+  });
+
+  it("stops the contract scan at the configured maximum page count", async () => {
+    const fetchMock = sequence(
+      collection([{ ...contractRow(), Owner: "99999999-9999-4999-8999-999999999999" }]),
+      collection([{ ...contractRow(), Owner: "88888888-8888-4888-8888-888888888888" }]),
+      collection([contractRow()]),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await provider({ partnerSearchPageSize: 1, partnerSearchMaxPages: 2 }).partners.fetchPartnerContracts({ partnerReference: PARTNER_ID });
+
+    expect(result.items).toEqual([]);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([
+    [401, IntegrationUnauthorizedError],
+    [403, IntegrationForbiddenError],
+  ])("keeps contract scan HTTP %i failures fatal", async (status, ErrorType) => {
+    const fetchMock = sequence(new Response(JSON.stringify({}), {
+      status,
+      headers: { "content-type": "application/json" },
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(provider().partners.fetchPartnerContracts({ partnerReference: PARTNER_ID })).rejects.toBeInstanceOf(ErrorType);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    [Object.assign(new Error("timeout"), { name: "TimeoutError" }), IntegrationTimeoutError],
+    [new Error("transport"), IntegrationProviderUnavailableError],
+  ])("keeps contract scan transport failures fatal", async (failure, ErrorType) => {
+    const fetchMock = vi.fn().mockRejectedValue(failure);
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(provider().partners.fetchPartnerContracts({ partnerReference: PARTNER_ID })).rejects.toBeInstanceOf(ErrorType);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("returns null price type when neither contract field is configured", async () => {
@@ -342,5 +395,5 @@ function record(value: unknown): Response { return new Response(JSON.stringify(v
 function sequence(...responses: Response[]) { return vi.fn().mockImplementation(async () => responses.shift() ?? collection([])); }
 function odataError(status: number): Response { return new Response(JSON.stringify({ "odata.error": { code: "-1", message: { lang: "ru", value: "not exposed" } } }), { status, headers: { "content-type": "application/json;charset=utf-8" } }); }
 function partnerRow() { return { Ref_Key: PARTNER_ID, Code: "000152", Description: "Partner Company", НаименованиеПолное: "Partner Company SRL", ИНН: "1018600013048", Покупатель: true, Поставщик: false, Недействителен: false, DeletionMark: false }; }
-function contractRow() { return { Ref_Key: CONTRACT_ID, Code: "C-001", Description: "Main contract", Owner_Key: PARTNER_ID, НомерДоговора: "001", ДатаДоговора: "2026-01-01", ВидДоговора: "Buyer", ВидЦенКонтрагента_Key: PRICE_TYPE_ID, ВидЦен_Key: FALLBACK_PRICE_TYPE_ID, Организация_Key: null, Недействителен: false, DeletionMark: false }; }
+function contractRow() { return { Ref_Key: CONTRACT_ID, Code: "C-001", Description: "Main contract", Owner: PARTNER_ID, Owner_Type: "StandardODATA.Catalog_Контрагенты", НомерДоговора: "001", ДатаДоговора: "2026-01-01", ВидДоговора: "Buyer", ВидЦенКонтрагента_Key: PRICE_TYPE_ID, ВидЦен_Key: FALLBACK_PRICE_TYPE_ID, Организация_Key: null, Недействителен: false, DeletionMark: false }; }
 function priceTypeRow(reference = PRICE_TYPE_ID) { return { Ref_Key: reference, Code: "PT-1", Description: "Distributor", ВалютаЦены_Key: "MDL", ЦенаВключаетНДС: true, ТипВидаЦен: "Wholesale", ЦеныАктуальны: true, DeletionMark: false }; }

@@ -116,7 +116,8 @@ export type OneCPartnerContractPayload = {
   Ref_Key: string;
   Code: string;
   Description: string;
-  Owner_Key: string;
+  Owner: string;
+  Owner_Type: string;
   НомерДоговора?: string | null;
   ДатаДоговора?: string | null;
   ВидДоговора?: string | null;
