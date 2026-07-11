@@ -102,7 +102,7 @@ describe("DefaultAccessApprovalService", () => {
 
     expect(fixtures.partnerCompanyRepository.lastCreateInput).toEqual({
       external1cId: "PARTNER-1C",
-      external1cCode: "PARTNER-1C",
+      external1cCode: null,
       external1cContractId: "CONTRACT-1C",
       external1cPriceTypeId: "PRICE-TYPE-1C",
       displayName: "Partner Company",
@@ -174,7 +174,7 @@ describe("DefaultAccessApprovalService", () => {
     expect(fixtures.companyMembershipRepository.lastCreateInput).toBeNull();
   });
 
-  it("requires non-whitespace 1C partner, contract, and price type references on approval", async () => {
+  it("requires a non-whitespace 1C partner reference on approval", async () => {
     const fixtures = makeFixtures();
     const service = makeService(fixtures);
 
@@ -188,6 +188,43 @@ describe("DefaultAccessApprovalService", () => {
       }),
     ).rejects.toBeInstanceOf(InvalidStateError);
     expect(fixtures.partnerCompanyRepository.lastCreateInput).toBeNull();
+  });
+
+  it("requires a non-whitespace price type reference on approval", async () => {
+    const fixtures = makeFixtures();
+    const service = makeService(fixtures);
+
+    await expect(
+      service.approveAccessRequest({
+        actorUserId: "reviewer-1",
+        requestId: "request-1",
+        external1cId: "PARTNER-1C",
+        external1cContractId: null,
+        external1cPriceTypeId: " ",
+      }),
+    ).rejects.toBeInstanceOf(InvalidStateError);
+    expect(fixtures.partnerCompanyRepository.lastCreateInput).toBeNull();
+  });
+
+  it("approves with a null contract when partner and price type are selected", async () => {
+    const fixtures = makeFixtures();
+    const service = makeService(fixtures);
+
+    await service.approveAccessRequest({
+      actorUserId: "reviewer-1",
+      requestId: "request-1",
+      external1cId: "PARTNER-1C",
+      external1cCode: null,
+      external1cContractId: null,
+      external1cPriceTypeId: "PRICE-TYPE-1C",
+    });
+
+    expect(fixtures.partnerCompanyRepository.lastCreateInput).toMatchObject({
+      external1cId: "PARTNER-1C",
+      external1cCode: null,
+      external1cContractId: null,
+      external1cPriceTypeId: "PRICE-TYPE-1C",
+    });
   });
 
   it("trims internal references before storing approval binding", async () => {
@@ -247,7 +284,7 @@ describe("DefaultAccessApprovalService", () => {
     expect(fixtures.partnerCompanyRepository.lastCreateInput).toBeNull();
     expect(fixtures.partnerCompanyRepository.lastUpdateBindingInput).toEqual({
       companyId: "existing-company",
-      external1cCode: "PARTNER-1C",
+      external1cCode: null,
       external1cContractId: "CONTRACT-NEW",
       external1cPriceTypeId: "PRICE-NEW",
       displayName: "Partner Company",

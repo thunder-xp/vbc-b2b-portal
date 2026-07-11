@@ -114,20 +114,17 @@ export class SupabasePartnerCompanyRepository
   ): Promise<PartnerCompany> {
     const supabase = await createClient();
     const updatePayload: {
-      external_1c_contract_id: string;
+      external_1c_contract_id: string | null;
       external_1c_price_type_id: string;
-      external_1c_code?: string;
+      external_1c_code: string | null;
       display_name?: string;
       status: CompanyStatus;
     } = {
-      external_1c_contract_id: input.external1cContractId,
+      external_1c_contract_id: input.external1cContractId ?? null,
       external_1c_price_type_id: input.external1cPriceTypeId,
+      external_1c_code: input.external1cCode ?? null,
       status: CompanyStatus.Active,
     };
-
-    if (input.external1cCode) {
-      updatePayload.external_1c_code = input.external1cCode;
-    }
 
     if (input.displayName) {
       updatePayload.display_name = input.displayName;

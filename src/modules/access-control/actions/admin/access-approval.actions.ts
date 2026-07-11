@@ -85,16 +85,20 @@ export async function approveAccessRequestAction(
 ): Promise<ActionResult<AccessRequestReviewDto>> {
   const requestId = normalizeRequiredText(input.requestId);
   const external1cId = normalizeRequiredText(input.external1cId);
-  const external1cCode = normalizeRequiredText(input.external1cCode);
-  const external1cContractId = normalizeRequiredText(input.external1cContractId);
+  const external1cCode = normalizeOptionalText(input.external1cCode);
+  const external1cContractId = normalizeOptionalText(input.external1cContractId);
   const external1cPriceTypeId = normalizeRequiredText(input.external1cPriceTypeId);
 
   if (!requestId) {
     return invalidInput("Access request is required.");
   }
 
-  if (!external1cId || !external1cCode || !external1cContractId || !external1cPriceTypeId) {
-    return invalidInput("1C partner, contract, and price type are required.");
+  if (!external1cId) {
+    return invalidInput("Выберите контрагента в 1С.");
+  }
+
+  if (!external1cPriceTypeId) {
+    return invalidInput("Выберите вид цены.");
   }
 
   try {

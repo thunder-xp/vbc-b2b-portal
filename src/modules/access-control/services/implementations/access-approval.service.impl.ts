@@ -197,24 +197,22 @@ export class DefaultAccessApprovalService implements AccessApprovalService {
 
   private normalizeApprovalBinding(input: ApproveAccessRequestInput): {
     external1cId: string;
-    external1cCode: string;
-    external1cContractId: string;
+    external1cCode: string | null;
+    external1cContractId: string | null;
     external1cPriceTypeId: string;
     decisionReason: string | null;
   } {
     const external1cId = input.external1cId.trim();
-    const external1cCode = (input.external1cCode ?? input.external1cId).trim();
-    const external1cContractId = input.external1cContractId.trim();
+    const external1cCode = input.external1cCode?.trim() || null;
+    const external1cContractId = input.external1cContractId?.trim() || null;
     const external1cPriceTypeId = input.external1cPriceTypeId.trim();
 
     if (
       external1cId.length === 0 ||
-      external1cCode.length === 0 ||
-      external1cContractId.length === 0 ||
       external1cPriceTypeId.length === 0
     ) {
       throw new InvalidStateError(
-        "1C partner, contract, and price type references are required.",
+        "1C partner and price type references are required.",
       );
     }
 
@@ -259,8 +257,8 @@ export class DefaultAccessApprovalService implements AccessApprovalService {
 
   private async findOrCreateApprovedCompany(input: {
     external1cId: string;
-    external1cCode: string;
-    external1cContractId: string;
+    external1cCode: string | null;
+    external1cContractId: string | null;
     external1cPriceTypeId: string;
     displayName: string;
   }) {

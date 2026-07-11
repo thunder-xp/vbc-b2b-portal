@@ -9,8 +9,8 @@ export interface ApproveAccessRequestInput {
   actorUserId: string;
   requestId: string;
   external1cId: string;
-  external1cCode?: string;
-  external1cContractId: string;
+  external1cCode?: string | null;
+  external1cContractId?: string | null;
   external1cPriceTypeId: string;
   decisionReason?: string | null;
 }

@@ -142,9 +142,23 @@ describe("AccessRequestDecisionForms", () => {
     await user.click(screen.getByRole("button", { name: "Search" }));
     await user.click(await screen.findByRole("button", { name: "Select counterparty" }));
 
-    expect(await screen.findByText("Для выбранного контрагента договоры в 1С не найдены.")).toBeInTheDocument();
+    expect(await screen.findByText(/Для выбранного контрагента активные договоры в 1С не найдены/)).toBeInTheDocument();
+    expect(screen.getByText("Договор не обязателен, если активных договоров нет.")).toBeInTheDocument();
     expect(screen.queryByText("1C is temporarily unavailable.")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Approve" })).toBeDisabled();
+
+    await user.click(screen.getByRole("button", { name: /Manual wholesale/ }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Approve" })).toBeEnabled());
+    await user.click(screen.getByRole("button", { name: "Approve" }));
+
+    expect(mocks.approveAccessRequestAction).toHaveBeenCalledWith({
+      requestId: "request-1",
+      external1cId: "PARTNER-1",
+      external1cCode: "000001",
+      external1cContractId: null,
+      external1cPriceTypeId: "PRICE-MANUAL",
+      decisionReason: "",
+    });
   });
 
   it("uses the selected contract price type for approval binding", async () => {
@@ -194,6 +208,26 @@ describe("AccessRequestDecisionForms", () => {
       external1cPriceTypeId: "PRICE-DISTRIBUTOR",
       decisionReason: "",
     });
+  });
+
+  it("allows a manager to override a contract price type", async () => {
+    const user = userEvent.setup();
+    render(<AccessRequestDecisionForms requestId="request-1" />);
+
+    await user.click(screen.getByRole("button", { name: "Search in 1C" }));
+    await user.type(screen.getByPlaceholderText("Company name, VAT/IDNO, or 1C reference"), "Partner");
+    await user.click(screen.getByRole("button", { name: "Search" }));
+    await user.click(await screen.findByRole("button", { name: "Select counterparty" }));
+
+    expect(await screen.findByText("From contract")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /Manual wholesale/ }));
+    expect(await screen.findByText("Manual override")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Approve" }));
+
+    expect(mocks.approveAccessRequestAction).toHaveBeenCalledWith(expect.objectContaining({
+      external1cContractId: "CONTRACT-1",
+      external1cPriceTypeId: "PRICE-MANUAL",
+    }));
   });
 
   it("requires manual price type selection when the contract has none", async () => {

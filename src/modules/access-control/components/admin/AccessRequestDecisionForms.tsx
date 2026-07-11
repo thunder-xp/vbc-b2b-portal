@@ -30,6 +30,7 @@ export function AccessRequestDecisionForms({
     useState<PartnerSearchResultActionDto | null>(null);
   const [selectedContractName, setSelectedContractName] = useState("");
   const [selectedPriceTypeName, setSelectedPriceTypeName] = useState("");
+  const [selectedPriceTypeSource, setSelectedPriceTypeSource] = useState("");
   const [contracts, setContracts] = useState<PartnerContractActionDto[]>([]);
   const [priceTypes, setPriceTypes] = useState<PartnerPriceTypeActionDto[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -37,6 +38,7 @@ export function AccessRequestDecisionForms({
     PartnerSearchResultActionDto[]
   >([]);
   const [searchError, setSearchError] = useState<string | null>(null);
+  const [bindingNotice, setBindingNotice] = useState<string | null>(null);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [decisionReason, setDecisionReason] = useState("");
   const [rejectReason, setRejectReason] = useState("");
@@ -53,8 +55,8 @@ export function AccessRequestDecisionForms({
       const result = await approveAccessRequestAction({
         requestId,
         external1cId,
-        external1cCode,
-        external1cContractId,
+        external1cCode: external1cCode || null,
+        external1cContractId: external1cContractId || null,
         external1cPriceTypeId,
         decisionReason,
       });
@@ -93,49 +95,60 @@ export function AccessRequestDecisionForms({
     setExternal1cPriceTypeId("");
     setSelectedContractName("");
     setSelectedPriceTypeName("");
+    setSelectedPriceTypeSource("");
     setContracts([]);
     setPriceTypes([]);
     setSearchError(null);
+    setBindingNotice(null);
     startTransition(async () => {
-      const result = await getOneCPartnerContractsAction({ partnerReference: partner.external1cId });
-      if (!result.success) {
-        setSearchError(result.message);
+      const [contractsResult, priceTypesResult] = await Promise.all([
+        getOneCPartnerContractsAction({ partnerReference: partner.external1cId }),
+        listOneCPriceTypesAction(),
+      ]);
+
+      if (!contractsResult.success) {
+        setSearchError(contractsResult.message);
         return;
       }
-      setContracts(result.data);
-      if (result.data.length === 0) {
-        setSearchError("Для выбранного контрагента договоры в 1С не найдены.");
+
+      if (!priceTypesResult.success) {
+        setSearchError(priceTypesResult.message);
         return;
       }
-      if (result.data.length === 1) selectContract(result.data[0]);
+
+      setContracts(contractsResult.data);
+      setPriceTypes(priceTypesResult.data);
+      if (contractsResult.data.length === 0) {
+        setBindingNotice("Для выбранного контрагента активные договоры в 1С не найдены.\nВыберите вид цены вручную.");
+      }
+      if (priceTypesResult.data.length === 0) {
+        setSearchError("В 1С не найдены доступные виды цены.");
+      }
+      if (contractsResult.data.length === 1) selectContract(contractsResult.data[0]);
     });
   }
 
   function selectContract(contract: PartnerContractActionDto) {
     setExternal1cContractId(contract.external1cContractId);
     setSelectedContractName(contract.name);
+    setBindingNotice(null);
     setSearchError(null);
     if (contract.priceType) {
-      selectPriceType(contract.priceType);
-      setIsSearchOpen(false);
+      selectPriceType(contract.priceType, "From contract");
       return;
     }
     setExternal1cPriceTypeId("");
     setSelectedPriceTypeName("");
-    startTransition(async () => {
-      const result = await listOneCPriceTypesAction();
-      if (result.success) {
-        setPriceTypes(result.data);
-        setSearchError(result.data.length === 0 ? "Price type is not configured for this contract." : null);
-      } else {
-        setSearchError(result.message);
-      }
-    });
+    setSelectedPriceTypeSource("");
   }
 
-  function selectPriceType(priceType: PartnerPriceTypeActionDto) {
+  function selectPriceType(
+    priceType: PartnerPriceTypeActionDto,
+    source = "Manual override",
+  ) {
     setExternal1cPriceTypeId(priceType.external1cPriceTypeId);
     setSelectedPriceTypeName(priceType.name);
+    setSelectedPriceTypeSource(source);
   }
 
   function reject(event: FormEvent<HTMLFormElement>) {
@@ -210,6 +223,10 @@ export function AccessRequestDecisionForms({
                   label="Price type"
                   value={selectedPriceTypeName}
                 />
+                <BindingValue
+                  label="Price type source"
+                  value={selectedPriceTypeSource}
+                />
               </dl>
             )}
           </div>
@@ -221,13 +238,19 @@ export function AccessRequestDecisionForms({
               value={decisionReason}
             />
           </label>
+          <div className="grid gap-1 text-sm">
+            {!external1cId && <p className="text-red-700">Выберите контрагента в 1С.</p>}
+            {external1cId && !external1cPriceTypeId && <p className="text-red-700">Выберите вид цены.</p>}
+            {selectedPartner && contracts.length === 0 && (
+              <p className="text-zinc-600">Договор не обязателен, если активных договоров нет.</p>
+            )}
+          </div>
         </div>
         <button
           className="mt-5 inline-flex h-10 items-center justify-center rounded-md bg-emerald-700 px-4 text-sm font-medium text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-zinc-400"
           disabled={
             isPending ||
             !external1cId ||
-            !external1cContractId ||
             !external1cPriceTypeId
           }
           type="submit"
@@ -284,6 +307,12 @@ export function AccessRequestDecisionForms({
               </p>
             )}
 
+            {bindingNotice && (
+              <p className="mt-3 whitespace-pre-line rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                {bindingNotice}
+              </p>
+            )}
+
             <div className="mt-5 grid max-h-96 gap-3 overflow-auto">
               {searchResults.map((partner) => (
                 <div
@@ -336,7 +365,7 @@ export function AccessRequestDecisionForms({
                 </div>
               )}
 
-              {external1cContractId && !external1cPriceTypeId && priceTypes.length > 0 && (
+              {selectedPartner && priceTypes.length > 0 && (
                 <div className="rounded-md border border-amber-200 bg-amber-50 p-4">
                   <p className="font-medium text-zinc-950">Select active price type</p>
                   <div className="mt-3 grid gap-2">
@@ -346,11 +375,11 @@ export function AccessRequestDecisionForms({
                         key={priceType.external1cPriceTypeId}
                         onClick={() => {
                           selectPriceType(priceType);
-                          setIsSearchOpen(false);
                         }}
                         type="button"
                       >
                         {priceType.name} · {priceType.external1cPriceTypeId}
+                        {priceType.external1cPriceTypeId === external1cPriceTypeId ? " · Selected" : ""}
                       </button>
                     ))}
                   </div>
@@ -414,7 +443,7 @@ function BindingValue({
   return (
     <div>
       <dt className="font-medium text-zinc-800">{label}</dt>
-      <dd className="mt-1 break-all text-zinc-600">{value}</dd>
+      <dd className="mt-1 break-all text-zinc-600">{value || "Not selected"}</dd>
     </div>
   );
 }

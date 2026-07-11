@@ -11,7 +11,7 @@ export interface CreatePartnerCompanyInput {
 export interface UpdatePartnerCompanyApprovalBindingInput {
   companyId: string;
   external1cCode?: string | null;
-  external1cContractId: string;
+  external1cContractId?: string | null;
   external1cPriceTypeId: string;
   displayName?: string | null;
 }
