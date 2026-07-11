@@ -12,6 +12,7 @@ vi.mock("../../../services", () => ({
 import { runOneCODataHealthCheck } from "../one-c-health-check";
 import { categorizeOneCHealthError } from "../one-c-health-check";
 import { IntegrationMappingError, IntegrationValidationError } from "../../../errors";
+import { OneCODataResponseValidationError } from "../one-c-odata-client";
 
 const PARTNER_ID = "11111111-1111-4111-8111-111111111111";
 
@@ -78,6 +79,45 @@ describe("1C OData health check", () => {
     expect(report.provider).toMatchObject({ passed: false, errorCategory: "unknown", resultCount: 0 });
     expect(errorSpy).toHaveBeenCalledWith(expect.objectContaining({ event: "one_c_health_check_failed", stage: "metadata" }));
     expect(JSON.stringify(report)).not.toContain("internal.example.invalid/odata");
+  });
+
+  it("reports a provider response failure with its request stage and safe parse diagnostics", async () => {
+    mocks.createPartnerLookupService.mockReturnValue({ searchPartners: mocks.searchPartners });
+    mocks.searchPartners.mockRejectedValue(new OneCODataResponseValidationError({
+      failedStage: "odata_response",
+      receivedContentType: "application/json;charset=utf-8",
+      requestKind: "partner_code_query",
+      resourceName: "Catalog_Контрагенты",
+      queryParameterNames: ["$select", "$filter", "$top", "$format"],
+      statusCode: 200,
+      jsonParseFailure: true,
+      parseErrorName: "SyntaxError",
+      bodyLength: 24,
+      bomDetected: false,
+      emptyBody: false,
+    }));
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(collection([])));
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    const report = await runOneCODataHealthCheck(oneCEnv());
+
+    expect(report.provider).toMatchObject({
+      passed: false,
+      failedStage: "odata_response",
+      receivedContentType: "application/json;charset=utf-8",
+      requestKind: "partner_code_query",
+      resourceName: "Catalog_Контрагенты",
+      statusCode: 200,
+      jsonParseFailure: true,
+      parseErrorName: "SyntaxError",
+      bodyLength: 24,
+      bomDetected: false,
+      emptyBody: false,
+    });
+    expect(errorSpy).toHaveBeenCalledWith(expect.objectContaining({
+      event: "one_c_health_check_failed",
+      stage: "provider",
+    }));
   });
 });
 

@@ -12,6 +12,7 @@ import {
 } from "../../errors";
 import { createPartnerLookupService } from "../../services";
 import { OneCODataClient } from "./one-c-odata-client";
+import { getOneCSafeDiagnostic } from "./one-c-safe-diagnostic";
 import { parseRequiredOneCGuid } from "./one-c-guid";
 import {
   ONE_C_PARTNER_FIELDS,
@@ -77,6 +78,16 @@ export type OneCHealthReport = {
     serviceOutputCount: number | null;
     failedStage: string | null;
     issuePaths: string[];
+    receivedContentType: string | null;
+    requestKind: string | null;
+    resourceName: string | null;
+    queryParameterNames: string[];
+    statusCode: number | null;
+    jsonParseFailure: boolean;
+    parseErrorName: string | null;
+    bodyLength: number | null;
+    bomDetected: boolean;
+    emptyBody: boolean;
     errorCategory: OneCHealthErrorCategory | null;
     message: string;
   };
@@ -131,7 +142,10 @@ function inspectConfiguration(oneCEnv: OneCEnv): OneCConfigurationHealth {
 
 async function runMetadataCheck(client: OneCODataClient): Promise<OneCHealthCheck> {
   try {
-    const result = await client.probe("$metadata", {}, { expectJson: false });
+    const result = await client.probe("$metadata", {}, {
+      expectJson: false,
+      requestKind: "health_metadata",
+    });
     return fromProbe("metadata", result, result.statusCode >= 200 && result.statusCode < 300);
   } catch (error) {
     return failedCheck("metadata", error, null);
@@ -146,7 +160,7 @@ async function runMinimalQueryCheck(
       $format: "json",
       $top: "1",
       $select: MINIMAL_FIELDS,
-    });
+    }, { requestKind: "health_minimal_query" });
     const rows = valueRows(result.payload);
     const valueArray = rows !== null;
     const rowCount = rows?.length ?? 0;
@@ -164,7 +178,7 @@ async function runNameQueryCheck(client: OneCODataClient): Promise<OneCNameQuery
       $top: "20",
       $select: NAME_SEARCH_FIELDS,
       $filter: "substringof('NOVOTECH',Description) eq true",
-    });
+    }, { requestKind: "health_name_query" });
     const valueRowsResult = valueRows(result.payload);
     const valueArray = valueRowsResult !== null;
     const rows = valueRowsResult ?? [];
@@ -203,23 +217,44 @@ async function runProviderCheck(oneCEnv: OneCEnv): Promise<OneCHealthReport["pro
       serviceOutputCount: result.items.length,
       failedStage: null,
       issuePaths: [],
+      receivedContentType: null,
+      requestKind: null,
+      resourceName: null,
+      queryParameterNames: [],
+      statusCode: null,
+      jsonParseFailure: false,
+      parseErrorName: null,
+      bodyLength: null,
+      bomDetected: false,
+      emptyBody: false,
       errorCategory: null,
       message: "Provider lookup completed.",
     };
   } catch (error) {
-    const diagnostic = getPartnerPipelineDiagnostic(error);
+    const pipelineDiagnostic = getPartnerPipelineDiagnostic(error);
+    const diagnostic = getOneCSafeDiagnostic(error);
     const errorCategory = categorizeOneCHealthError(error);
     const message = safeMessage(errorCategory);
     logFailure("provider", null, errorCategory, message, parseHostname(oneCEnv.baseUrl));
     return {
       passed: false,
       resultCount: 0,
-      providerOutputShape: diagnostic?.stage === "provider_output" ? diagnostic.resultShape : null,
-      providerOutputCount: diagnostic?.stage === "provider_output" ? diagnostic.resultCount : null,
-      serviceOutputShape: diagnostic?.stage === "service_input" || diagnostic?.stage === "service_output" ? diagnostic.resultShape : null,
-      serviceOutputCount: diagnostic?.stage === "service_input" || diagnostic?.stage === "service_output" ? diagnostic.resultCount : null,
-      failedStage: diagnostic?.stage ?? null,
-      issuePaths: diagnostic?.issuePaths ?? [],
+      providerOutputShape: pipelineDiagnostic?.stage === "provider_output" ? pipelineDiagnostic.resultShape : null,
+      providerOutputCount: pipelineDiagnostic?.stage === "provider_output" ? pipelineDiagnostic.resultCount : null,
+      serviceOutputShape: pipelineDiagnostic?.stage === "service_input" || pipelineDiagnostic?.stage === "service_output" ? pipelineDiagnostic.resultShape : null,
+      serviceOutputCount: pipelineDiagnostic?.stage === "service_input" || pipelineDiagnostic?.stage === "service_output" ? pipelineDiagnostic.resultCount : null,
+      failedStage: diagnostic?.failedStage ?? null,
+      issuePaths: pipelineDiagnostic?.issuePaths ?? [],
+      receivedContentType: diagnostic?.receivedContentType ?? null,
+      requestKind: diagnostic?.requestKind ?? null,
+      resourceName: diagnostic?.resourceName ?? null,
+      queryParameterNames: diagnostic?.queryParameterNames ?? [],
+      statusCode: diagnostic?.statusCode ?? null,
+      jsonParseFailure: diagnostic?.jsonParseFailure ?? false,
+      parseErrorName: diagnostic?.parseErrorName ?? null,
+      bodyLength: diagnostic?.bodyLength ?? null,
+      bomDetected: diagnostic?.bomDetected ?? false,
+      emptyBody: diagnostic?.emptyBody ?? false,
       errorCategory,
       message,
     };

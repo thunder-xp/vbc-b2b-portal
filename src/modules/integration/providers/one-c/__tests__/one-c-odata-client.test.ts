@@ -4,6 +4,7 @@ import {
   OneCODataClient,
   OneCODataResponseValidationError,
 } from "../one-c-odata-client";
+import { getOneCSafeDiagnostic } from "../one-c-safe-diagnostic";
 
 describe("OneCODataClient", () => {
   afterEach(() => {
@@ -48,15 +49,79 @@ describe("OneCODataClient", () => {
     await expect(request).rejects.toBeInstanceOf(OneCODataResponseValidationError);
   });
 
-  it("accepts an OData JSON collection with charset", async () => {
+  it("accepts the live OData v3 JSON envelope with charset and DataServiceVersion", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(
       { "odata.metadata": "metadata", value: [{ Ref_Key: "reference" }] },
-      "application/json; charset=utf-8",
+      "application/json;charset=utf-8",
+      { DataServiceVersion: "3.0" },
     )));
 
     await expect(client().get("Catalog_Контрагенты")).resolves.toEqual({
       "odata.metadata": "metadata",
       value: [{ Ref_Key: "reference" }],
+    });
+  });
+
+  it.each([
+    ["UTF-8 BOM", `\uFEFF${JSON.stringify({ value: [] })}`],
+    ["leading whitespace", ` \n\t${JSON.stringify({ value: [] })}`],
+  ])("parses a JSON response with %s", async (_label, body) => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(body, {
+      status: 200,
+      headers: { "content-type": "application/json;charset=utf-8" },
+    })));
+
+    await expect(client().get("Catalog_Контрагенты")).resolves.toEqual({ value: [] });
+  });
+
+  it.each([
+    ["empty body", "", null, false, true],
+    ["truncated JSON", '{"value":', "SyntaxError", false, false],
+  ])("preserves safe diagnostics for %s", async (_label, body, parseErrorName, bomDetected, emptyBody) => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(body, {
+      status: 200,
+      headers: { "content-type": "application/json;charset=utf-8" },
+    })));
+
+    try {
+      await client().get("Catalog_Контрагенты", { $top: "1" }, { requestKind: "partner_code_query" });
+      throw new Error("Expected a JSON response validation error.");
+    } catch (error) {
+      const diagnostic = getOneCSafeDiagnostic(error);
+      expect(diagnostic).toMatchObject({
+        failedStage: "odata_response",
+        receivedContentType: "application/json;charset=utf-8",
+        requestKind: "partner_code_query",
+        resourceName: "Catalog_Контрагенты",
+        queryParameterNames: expect.arrayContaining(["$top", "$format"]),
+        statusCode: 200,
+        jsonParseFailure: true,
+        parseErrorName,
+        bomDetected,
+        emptyBody,
+      });
+      expect(diagnostic?.bodyLength).toBeGreaterThanOrEqual(0);
+    }
+  });
+
+  it("extracts diagnostics from a nested error cause", () => {
+    const responseError = new OneCODataResponseValidationError({
+      failedStage: "odata_response",
+      receivedContentType: "application/json",
+      requestKind: "partner_name_query",
+      resourceName: "Catalog_Контрагенты",
+      queryParameterNames: ["$format"],
+      statusCode: 200,
+      jsonParseFailure: true,
+      parseErrorName: "SyntaxError",
+      bodyLength: 8,
+      bomDetected: false,
+      emptyBody: false,
+    });
+
+    expect(getOneCSafeDiagnostic(new Error("wrapper", { cause: responseError }))).toMatchObject({
+      requestKind: "partner_name_query",
+      failedStage: "odata_response",
     });
   });
 });
@@ -70,9 +135,13 @@ function client(): OneCODataClient {
   });
 }
 
-function jsonResponse(payload: unknown, contentType = "application/json"): Response {
+function jsonResponse(
+  payload: unknown,
+  contentType = "application/json",
+  headers: HeadersInit = {},
+): Response {
   return new Response(JSON.stringify(payload), {
     status: 200,
-    headers: { "content-type": contentType },
+    headers: { "content-type": contentType, ...headers },
   });
 }

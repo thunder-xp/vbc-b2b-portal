@@ -96,13 +96,13 @@ export class OneCPartnerODataProvider implements PartnerProvider {
         $select: PARTNER_FIELDS,
         $filter: `Code eq '${escapeODataString(query)}'`,
         $top: String(limit),
-      });
+      }, "partner_code_query");
       if (matches.size < limit) {
         await this.collectPartners(matches, {
           $select: PARTNER_FIELDS,
           $filter: `substringof('${escapeODataString(query)}',Description) eq true`,
           $top: String(limit),
-        });
+        }, "partner_name_query");
       }
       if (/^\d{6,}$/.test(query) && matches.size < limit) {
         const fiscalMatches = await this.scanPartnersByFiscalCode(query, limit - matches.size);
@@ -176,8 +176,12 @@ export class OneCPartnerODataProvider implements PartnerProvider {
     return { items: rows.filter(isActivePriceType).map((row, index) => this.mapper.toPriceTypeDTO(row, index)), nextCursor: null };
   }
 
-  private async collectPartners(target: Map<string, OneCNormalizedPartnerCompanyPayload>, params: Record<string, string>): Promise<void> {
-    const rows = await this.getCollection<OneCPartnerCompanyPayload>(PARTNERS_RESOURCE, params);
+  private async collectPartners(
+    target: Map<string, OneCNormalizedPartnerCompanyPayload>,
+    params: Record<string, string>,
+    requestKind: "partner_code_query" | "partner_name_query",
+  ): Promise<void> {
+    const rows = await this.getCollection<OneCPartnerCompanyPayload>(PARTNERS_RESOURCE, params, requestKind);
     normalizePartnerRows(rows).forEach((row) => target.set(row.Ref_Key, row));
   }
 
@@ -189,7 +193,7 @@ export class OneCPartnerODataProvider implements PartnerProvider {
         $select: PARTNER_FIELDS,
         $top: String(this.config.partnerSearchPageSize),
         $skip: String(page * this.config.partnerSearchPageSize),
-      });
+      }, "partner_fiscal_code_scan");
       normalizePartnerRows(rows)
         .filter((row) => row["ИНН"].trim() === normalizedQuery)
         .forEach((row) => matches.push(row));
@@ -213,8 +217,12 @@ export class OneCPartnerODataProvider implements PartnerProvider {
     return matches;
   }
 
-  private async getCollection<T>(resource: string, params: Record<string, string>): Promise<T[]> {
-    const payload = await this.client.get(resource, params);
+  private async getCollection<T>(
+    resource: string,
+    params: Record<string, string>,
+    requestKind = "collection",
+  ): Promise<T[]> {
+    const payload = await this.client.get(resource, params, { requestKind });
     logPipelineProgress("odata_response", collectionShape(payload), collectionSize(payload));
     if (!isCollectionPayload<T>(payload)) {
       logPartnerPipelineFailure("odata_envelope", collectionShape(payload), collectionSize(payload));
@@ -232,7 +240,7 @@ export class OneCPartnerODataProvider implements PartnerProvider {
         ...params,
         $top: String(this.config.partnerSearchPageSize),
         $skip: String(page * this.config.partnerSearchPageSize),
-      });
+      }, "bounded_collection");
       rows.push(...pageRows);
       if (pageRows.length < this.config.partnerSearchPageSize) break;
     }
@@ -240,7 +248,9 @@ export class OneCPartnerODataProvider implements PartnerProvider {
   }
 
   private async getSingle<T>(resource: string): Promise<T | null> {
-    const payload = await this.client.get(resource, { $select: resource.startsWith(PARTNERS_RESOURCE) ? PARTNER_FIELDS : PRICE_TYPE_FIELDS });
+    const payload = await this.client.get(resource, {
+      $select: resource.startsWith(PARTNERS_RESOURCE) ? PARTNER_FIELDS : PRICE_TYPE_FIELDS,
+    }, { requestKind: "direct_lookup" });
     if (isCollectionPayload<T>(payload)) return payload.value[0] ?? null;
     if (isRecord(payload)) return payload as T;
     throw new IntegrationValidationError("Invalid 1C OData record response.");

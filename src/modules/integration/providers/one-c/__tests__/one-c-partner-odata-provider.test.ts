@@ -91,17 +91,22 @@ describe("1C OData partner provider", () => {
   });
 
   it("maps two real name-search rows with 1C GUID-shaped references", async () => {
-    vi.stubGlobal("fetch", sequence(
+    const fetchMock = sequence(
       collection([]),
       collection([
         { ...partnerRow(), Ref_Key: NON_RFC_PARTNER_ID, Description: "NOVOTECH SYSTEMS" },
         { ...partnerRow(), Ref_Key: "2ce36ea4-f68f-11f0-4393-7239d3b7bd5c", Description: "NOVOTECH SYSTEMS 2" },
       ]),
-    ));
+    );
+    vi.stubGlobal("fetch", fetchMock);
 
     const result = await provider().partners.searchPartners({ query: "NOVOTECH", limit: 20 });
 
     expect(result.items).toHaveLength(2);
+    expect((fetchMock.mock.calls[0]?.[0] as URL).searchParams.get("$filter")).toBe("Code eq 'NOVOTECH'");
+    expect((fetchMock.mock.calls[1]?.[0] as URL).searchParams.get("$filter")).toBe("substringof('NOVOTECH',Description) eq true");
+    expect((fetchMock.mock.calls[0]?.[0] as URL).searchParams.getAll("$format")).toEqual(["json"]);
+    expect((fetchMock.mock.calls[1]?.[0] as URL).searchParams.getAll("$format")).toEqual(["json"]);
   });
 
   it("performs bounded local fiscal-code matching", async () => {
@@ -280,8 +285,8 @@ function provider(overrides: Record<string, unknown> = {}): OneCProvider {
     ...overrides,
   });
 }
-function collection(value: unknown[]): Response { return new Response(JSON.stringify({ "odata.metadata": "metadata", value })); }
-function record(value: unknown): Response { return new Response(JSON.stringify(value)); }
+function collection(value: unknown[]): Response { return new Response(JSON.stringify({ "odata.metadata": "metadata", value }), { headers: { "content-type": "application/json;charset=utf-8", DataServiceVersion: "3.0" } }); }
+function record(value: unknown): Response { return new Response(JSON.stringify(value), { headers: { "content-type": "application/json;charset=utf-8", DataServiceVersion: "3.0" } }); }
 function sequence(...responses: Response[]) { return vi.fn().mockImplementation(async () => responses.shift() ?? collection([])); }
 function partnerRow() { return { Ref_Key: PARTNER_ID, Code: "000152", Description: "Partner Company", НаименованиеПолное: "Partner Company SRL", ИНН: "1018600013048", Покупатель: true, Поставщик: false, Недействителен: false, DeletionMark: false }; }
 function contractRow() { return { Ref_Key: CONTRACT_ID, Code: "C-001", Description: "Main contract", Owner_Key: PARTNER_ID, НомерДоговора: "001", ДатаДоговора: "2026-01-01", ВидДоговора: "Buyer", ВидЦенКонтрагента_Key: PRICE_TYPE_ID, ВидЦен_Key: FALLBACK_PRICE_TYPE_ID, Организация_Key: null, Недействителен: false, DeletionMark: false }; }

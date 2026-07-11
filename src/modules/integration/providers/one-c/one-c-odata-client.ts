@@ -20,20 +20,46 @@ export type OneCODataProbeResult = {
   contentType: string | null;
   durationMs: number;
   hostname: string;
+  requestKind: string;
+  resourceName: string;
+  queryParameterNames: string[];
   jsonParsed: boolean;
+  parseErrorName: string | null;
+  bodyLength: number | null;
+  bomDetected: boolean;
+  emptyBody: boolean;
   payload: unknown;
 };
 
 export type OneCODataProbeOptions = {
   expectJson?: boolean;
+  requestKind?: string;
+};
+
+export type OneCODataSafeDiagnostic = {
+  failedStage: "odata_response";
+  receivedContentType: string | null;
+  requestKind: string;
+  resourceName: string;
+  queryParameterNames: string[];
+  statusCode: number;
+  jsonParseFailure: true;
+  parseErrorName: string | null;
+  bodyLength: number | null;
+  bomDetected: boolean;
+  emptyBody: boolean;
 };
 
 export class OneCODataResponseValidationError extends IntegrationValidationError {
   readonly failedStage = "odata_response" as const;
 
-  constructor(readonly receivedContentType: string | null) {
+  constructor(readonly diagnostic: OneCODataSafeDiagnostic) {
     super("1C returned an invalid OData response.");
     this.name = "OneCODataResponseValidationError";
+  }
+
+  get receivedContentType(): string | null {
+    return this.diagnostic.receivedContentType;
   }
 }
 
@@ -47,8 +73,12 @@ export class OneCODataFilterUnsupportedError extends Error {
 export class OneCODataClient {
   constructor(private readonly config: OneCODataClientConfig) {}
 
-  async get(resource: string, params: Record<string, string> = {}): Promise<unknown> {
-    const result = await this.probe(resource, params);
+  async get(
+    resource: string,
+    params: Record<string, string> = {},
+    options: OneCODataProbeOptions = {},
+  ): Promise<unknown> {
+    const result = await this.probe(resource, params, options);
 
     if (result.statusCode === 400) {
       if (isODataErrorEnvelope(result.payload)) {
@@ -73,7 +103,7 @@ export class OneCODataClient {
     }
 
     if (!result.jsonParsed) {
-      throw new OneCODataResponseValidationError(result.contentType);
+      throw new OneCODataResponseValidationError(toSafeDiagnostic(result));
     }
 
     return result.payload;
@@ -92,6 +122,8 @@ export class OneCODataClient {
     const url = new URL(`${baseUrl.replace(/\/$/, "")}/${resource.replace(/^\//, "")}`);
     Object.entries(params).forEach(([key, value]) => url.searchParams.set(key, value));
     url.searchParams.set("$format", "json");
+    const requestKind = options.requestKind ?? "collection";
+    const queryParameterNames = [...new Set([...url.searchParams.keys()])];
 
     let response: Response;
     const startedAt = performance.now();
@@ -114,46 +146,124 @@ export class OneCODataClient {
     const contentType = response.headers?.get?.("content-type") ?? null;
     const expectJson = options.expectJson !== false;
 
-    if (
-      expectJson &&
-      response.status >= 200 &&
-      response.status < 300 &&
-      isExplicitlyNonJsonContentType(contentType)
-    ) {
-      throw new OneCODataResponseValidationError(contentType);
-    }
-
     if (!expectJson) {
       return {
         statusCode: response.status,
         contentType,
         durationMs: Math.round(performance.now() - startedAt),
         hostname: url.hostname,
+        requestKind,
+        resourceName: resource,
+        queryParameterNames,
         jsonParsed: false,
+        parseErrorName: null,
+        bodyLength: null,
+        bomDetected: false,
+        emptyBody: false,
         payload: null,
       };
     }
 
-    try {
-      return {
-        statusCode: response.status,
-        contentType,
-        durationMs: Math.round(performance.now() - startedAt),
-        hostname: url.hostname,
-        jsonParsed: true,
-        payload: await response.json(),
-      };
-    } catch {
-      return {
-        statusCode: response.status,
-        contentType,
-        durationMs: Math.round(performance.now() - startedAt),
-        hostname: url.hostname,
-        jsonParsed: false,
-        payload: null,
-      };
+    const body = await parseJsonBody(response);
+    const result: OneCODataProbeResult = {
+      statusCode: response.status,
+      contentType,
+      durationMs: Math.round(performance.now() - startedAt),
+      hostname: url.hostname,
+      requestKind,
+      resourceName: resource,
+      queryParameterNames,
+      ...body,
+    };
+
+    if (
+      response.status >= 200 &&
+      response.status < 300 &&
+      isExplicitlyNonJsonContentType(contentType)
+    ) {
+      throw new OneCODataResponseValidationError(toSafeDiagnostic(result));
     }
+
+    return result;
   }
+}
+
+async function parseJsonBody(response: Response): Promise<Pick<
+  OneCODataProbeResult,
+  "jsonParsed" | "parseErrorName" | "bodyLength" | "bomDetected" | "emptyBody" | "payload"
+>> {
+  let bodyText: string;
+  try {
+    bodyText = await response.text();
+  } catch (error) {
+    return {
+      jsonParsed: false,
+      parseErrorName: safeErrorName(error),
+      bodyLength: null,
+      bomDetected: false,
+      emptyBody: false,
+      payload: null,
+    };
+  }
+
+  const bomDetected = bodyText.charCodeAt(0) === 0xfeff;
+  const normalizedBody = bomDetected ? bodyText.slice(1) : bodyText;
+  const emptyBody = normalizedBody.trim().length === 0;
+  const bodyLength = new TextEncoder().encode(bodyText).byteLength;
+
+  if (emptyBody) {
+    return {
+      jsonParsed: false,
+      parseErrorName: null,
+      bodyLength,
+      bomDetected,
+      emptyBody,
+      payload: null,
+    };
+  }
+
+  try {
+    return {
+      jsonParsed: true,
+      parseErrorName: null,
+      bodyLength,
+      bomDetected,
+      emptyBody,
+      payload: JSON.parse(normalizedBody),
+    };
+  } catch (error) {
+    return {
+      jsonParsed: false,
+      parseErrorName: safeErrorName(error),
+      bodyLength,
+      bomDetected,
+      emptyBody,
+      payload: null,
+    };
+  }
+}
+
+function toSafeDiagnostic(result: OneCODataProbeResult): OneCODataSafeDiagnostic {
+  return {
+    failedStage: "odata_response",
+    receivedContentType: result.contentType,
+    requestKind: result.requestKind,
+    resourceName: result.resourceName,
+    queryParameterNames: result.queryParameterNames,
+    statusCode: result.statusCode,
+    jsonParseFailure: true,
+    parseErrorName: result.parseErrorName,
+    bodyLength: result.bodyLength,
+    bomDetected: result.bomDetected,
+    emptyBody: result.emptyBody,
+  };
+}
+
+function safeErrorName(error: unknown): string {
+  if (error && typeof error === "object" && "name" in error && typeof error.name === "string") {
+    return error.name;
+  }
+  return typeof error;
 }
 
 function isODataErrorEnvelope(value: unknown): boolean {

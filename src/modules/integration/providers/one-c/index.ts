@@ -31,6 +31,10 @@ export {
   type OneCODataProbeResult,
 } from "./one-c-odata-client";
 export {
+  getOneCSafeDiagnostic,
+  type OneCSafeDiagnostic,
+} from "./one-c-safe-diagnostic";
+export {
   ONE_C_CONTRACT_FIELDS,
   ONE_C_PARTNER_FIELDS,
   ONE_C_PRICE_TYPE_FIELDS,

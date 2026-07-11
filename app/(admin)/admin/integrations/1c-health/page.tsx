@@ -113,7 +113,7 @@ function NameQueryCard({ check }: { check: OneCNameQueryHealth }) {
   );
 }
 
-function ProviderCard({ provider }: { provider: { passed: boolean; resultCount: number; providerOutputShape: string | null; providerOutputCount: number | null; serviceOutputShape: string | null; serviceOutputCount: number | null; failedStage: string | null; issuePaths: string[]; errorCategory: string | null; message: string } }) {
+function ProviderCard({ provider }: { provider: { passed: boolean; resultCount: number; providerOutputShape: string | null; providerOutputCount: number | null; serviceOutputShape: string | null; serviceOutputCount: number | null; failedStage: string | null; issuePaths: string[]; receivedContentType: string | null; requestKind: string | null; resourceName: string | null; queryParameterNames: string[]; statusCode: number | null; jsonParseFailure: boolean; parseErrorName: string | null; bodyLength: number | null; bomDetected: boolean; emptyBody: boolean; errorCategory: string | null; message: string } }) {
   return (
     <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
       <SectionTitle passed={provider.passed} title="Provider-level test" />
@@ -122,6 +122,16 @@ function ProviderCard({ provider }: { provider: { passed: boolean; resultCount: 
         <Metric label="Provider output" value={provider.providerOutputShape ? `${provider.providerOutputShape} (${provider.providerOutputCount ?? 0})` : "Not available"} />
         <Metric label="Service output" value={provider.serviceOutputShape ? `${provider.serviceOutputShape} (${provider.serviceOutputCount ?? 0})` : "Not available"} />
         <Metric label="Failed stage" value={provider.failedStage ?? "None"} />
+        <Metric label="Received content type" value={provider.receivedContentType ?? "Not available"} />
+        <Metric label="HTTP status" value={provider.statusCode?.toString() ?? "Not available"} />
+        <Metric label="Request kind" value={provider.requestKind ?? "Not available"} />
+        <Metric label="Resource" value={provider.resourceName ?? "Not available"} />
+        <Metric label="Query parameter names" value={provider.queryParameterNames.join(", ") || "Not available"} />
+        <Metric label="JSON parse failure" value={String(provider.jsonParseFailure)} />
+        <Metric label="Parse error" value={provider.parseErrorName ?? "Not available"} />
+        <Metric label="Body length" value={provider.bodyLength?.toString() ?? "Not available"} />
+        <Metric label="UTF-8 BOM" value={String(provider.bomDetected)} />
+        <Metric label="Empty body" value={String(provider.emptyBody)} />
         <Metric label="Error category" value={provider.errorCategory ?? "None"} />
         <Metric label="Result" value={provider.message} />
       </div>
