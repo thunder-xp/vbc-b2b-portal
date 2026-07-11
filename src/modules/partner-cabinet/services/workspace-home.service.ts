@@ -1,50 +1,32 @@
 import { InvalidStateError } from "../../access-control/services";
-import type { CatalogService } from "../../catalog/services";
-import type { PricingInventoryService } from "../../pricing-inventory/services";
-import type {
-  PartnerWorkspaceContextService,
-  PartnerWorkspaceModule,
-} from "./workspace-context.service";
+import type { WorkspaceNavigationItem } from "./workspace-capability.service";
+import type { PartnerWorkspaceContextService } from "./workspace-context.service";
 
-export type WorkspaceActivityDto = {
-  id: string;
+export type WorkspaceQuickActionDto = {
+  key: string;
   label: string;
-  description: string;
-  occurredAt: string;
+  href: string | null;
+  availability: "available" | "coming_soon";
+};
+
+export type WorkspaceProcessCardDto = {
+  key: string;
+  title: string;
+  emptyMessage: string;
+  actionLabel: string;
 };
 
 export type WorkspaceHomeDto = {
   greetingName: string;
   company: {
     name: string;
-    status: string;
     role: string;
     external1cCode: string;
     priceType: string;
-    accessStatus: string;
+    accountManager: string | null;
   };
-  catalog: {
-    totalProductsLabel: string;
-    brands: number;
-    categories: number;
-  };
-  pricing: {
-    isActive: boolean;
-    priceType: string;
-    lastUpdate: string;
-  };
-  inventory: {
-    isSynchronized: boolean;
-    lastSynchronization: string;
-  };
-  operational: {
-    activeOrders: number;
-    openProjects: number;
-    documentsRequiringAttention: number;
-    supportRequests: number;
-  };
-  activity: WorkspaceActivityDto[];
-  modules: PartnerWorkspaceModule[];
+  quickActions: WorkspaceQuickActionDto[];
+  processCards: WorkspaceProcessCardDto[];
   commercialConfigurationMissing: boolean;
 };
 
@@ -52,13 +34,9 @@ export interface WorkspaceHomeService {
   getWorkspaceHome(userId: string): Promise<WorkspaceHomeDto>;
 }
 
-const WORKSPACE_PAGE_SIZE = 48;
-
 export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
   constructor(
     private readonly workspaceContextService: PartnerWorkspaceContextService,
-    private readonly catalogService: CatalogService,
-    private readonly pricingInventoryService: PricingInventoryService,
   ) {}
 
   async getWorkspaceHome(userId: string): Promise<WorkspaceHomeDto> {
@@ -67,73 +45,54 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
       throw new InvalidStateError("Partner workspace access is not active.");
     }
 
-    const [categories, brands, productResult] = await Promise.all([
-      this.catalogService.listCategories(userId),
-      this.catalogService.listBrands(userId),
-      this.catalogService.listProducts(userId, { page: 1, pageSize: WORKSPACE_PAGE_SIZE }),
-    ]);
-    const commercialViews = context.accessState === "active"
-      ? await this.pricingInventoryService.getProductCommercialViews(
-          userId,
-          productResult.products.map((product) => product.id),
-        )
-      : [];
-    const inventoryLastSynchronization = latestDateLabel(
-      commercialViews
-        .map((view) => view.stock?.lastUpdatedAt ?? null)
-        .filter((value): value is string => Boolean(value)),
-    );
-    const priceType = context.priceTypeName ?? "Не настроен";
-
     return {
       greetingName: context.userDisplayName,
       company: {
         name: context.companyName ?? "Компания не найдена",
-        status: context.companyStatus ?? "Не определён",
         role: context.membershipRole ?? "Не определена",
         external1cCode: context.external1cCode ?? "Не указан",
-        priceType,
-        accessStatus: context.accessState === "active" ? "Активен" : "Требуется настройка",
+        priceType: context.priceTypeName ?? "Не настроен",
+        accountManager: null,
       },
-      catalog: {
-        totalProductsLabel: productResult.hasNextPage ? `${productResult.products.length}+` : String(productResult.products.length),
-        brands: brands.length,
-        categories: categories.length,
-      },
-      pricing: {
-        isActive: context.accessState === "active",
-        priceType,
-        lastUpdate: commercialViews.some((view) => view.price)
-          ? "Данные доступны"
-          : "Нет синхронизированных данных",
-      },
-      inventory: {
-        isSynchronized: Boolean(inventoryLastSynchronization),
-        lastSynchronization: inventoryLastSynchronization ?? "Нет синхронизированных данных",
-      },
-      operational: {
-        activeOrders: 0,
-        openProjects: 0,
-        documentsRequiringAttention: 0,
-        supportRequests: 0,
-      },
-      activity: [],
-      modules: context.availableModules,
+      quickActions: buildQuickActions(context.capabilities.navigation),
+      processCards: WORKSPACE_PROCESS_CARDS,
       commercialConfigurationMissing: context.accessState === "missing_price_type",
     };
   }
 }
 
-function latestDateLabel(values: string[]): string | null {
-  const latest = values
-    .map((value) => Date.parse(value))
-    .filter(Number.isFinite)
-    .sort((left, right) => right - left)[0];
+const WORKSPACE_PROCESS_CARDS: WorkspaceProcessCardDto[] = [
+  { key: "projects", title: "Мои проекты", emptyMessage: "Проекты пока не созданы.", actionLabel: "Создать первый проект" },
+  { key: "orders", title: "Заказы", emptyMessage: "Заказов пока нет.", actionLabel: "Перейти к каталогу" },
+  { key: "proposals", title: "Сметы и КП", emptyMessage: "Сметы и коммерческие предложения пока не созданы.", actionLabel: "Сформировать первое КП" },
+  { key: "service", title: "Сервисные обращения", emptyMessage: "Активных сервисных обращений нет.", actionLabel: "Зарегистрировать гарантийный случай" },
+  { key: "attention", title: "Требует внимания", emptyMessage: "Нет задач, требующих вашего внимания.", actionLabel: "Всё в порядке" },
+  { key: "activity", title: "Последние действия", emptyMessage: "История действий пока пуста.", actionLabel: "Действия появятся после начала работы" },
+];
 
-  if (!latest) return null;
+function buildQuickActions(navigation: WorkspaceNavigationItem[]): WorkspaceQuickActionDto[] {
+  const byKey = new Map(navigation.map((item) => [item.key, item]));
+  const action = (
+    key: string,
+    label: string,
+    capabilityKey: WorkspaceNavigationItem["key"],
+    fallbackHref: string | null = null,
+  ): WorkspaceQuickActionDto => {
+    const capability = byKey.get(capabilityKey);
+    return {
+      key,
+      label,
+      href: capability?.availability === "available" ? capability.href ?? fallbackHref : null,
+      availability: capability?.availability === "available" ? "available" : "coming_soon",
+    };
+  };
 
-  return new Intl.DateTimeFormat("ru", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(latest));
+  return [
+    action("create_project", "Создать проект", "projects"),
+    action("select_equipment", "Подобрать оборудование", "catalog", "/cabinet/catalog"),
+    action("create_specification", "Создать спецификацию", "projects"),
+    action("create_proposal", "Сформировать КП", "proposals"),
+    action("repeat_order", "Повторить заказ", "orders"),
+    action("register_warranty", "Зарегистрировать гарантийный случай", "warranty"),
+  ];
 }

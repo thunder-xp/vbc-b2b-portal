@@ -1,14 +1,17 @@
 import Link from "next/link";
 
 import type { ProductCommercialViewDto } from "../../pricing-inventory";
+import type { ProductCardCapabilityModel } from "../../partner-cabinet/services";
 import type { CatalogProductCardDto } from "../services";
 
 type ProductCardProps = {
   product: CatalogProductCardDto;
   commercialView?: ProductCommercialViewDto;
+  capabilities: ProductCardCapabilityModel;
+  priceTypeName: string | null;
 };
 
-export function ProductCard({ commercialView, product }: ProductCardProps) {
+export function ProductCard({ capabilities, commercialView, priceTypeName, product }: ProductCardProps) {
   const stockTone = getStockTone(commercialView?.stock?.status);
 
   return (
@@ -44,27 +47,32 @@ export function ProductCard({ commercialView, product }: ProductCardProps) {
             {product.shortDescription ?? "Catalog description pending."}
           </p>
           <div className="mt-auto grid gap-2 pt-5 text-sm">
-            <div className="rounded-md bg-emerald-50 px-3 py-2 font-medium text-emerald-800">
-              {commercialView?.price?.label ?? "Price available on request"}
-            </div>
-            <div
+            {capabilities.showPrice && (
+              <div className="rounded-md bg-emerald-50 px-3 py-2 font-medium text-emerald-800">
+                <p>{commercialView?.price?.label ?? "Цена по запросу"}</p>
+                {priceTypeName && <p className="mt-1 text-xs font-normal text-emerald-700">Вид цены: {priceTypeName}</p>}
+              </div>
+            )}
+            {capabilities.showStock && <div
               className={`rounded-md px-3 py-2 font-medium ${stockTone.card}`}
             >
               <span
                 className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${stockTone.badge}`}
               >
-                {commercialView?.stock?.label ?? "Check availability"}
+                {commercialView?.stock?.label ?? "Уточнить наличие"}
               </span>
               {commercialView?.stock ? (
                 <p className="mt-2 text-xs font-normal">
-                  {commercialView.stock.warehouseCount} warehouse
-                  {commercialView.stock.warehouseCount === 1 ? "" : "s"}
+                  {capabilities.showWarehouseAvailability ? `${commercialView.stock.warehouseCount} склад(а)` : "Наличие доступно"}
                   {commercialView.stock.lastUpdatedAt
-                    ? ` / updated ${formatDate(commercialView.stock.lastUpdatedAt)}`
+                    ? ` / обновлено ${formatDate(commercialView.stock.lastUpdatedAt)}`
                     : ""}
                 </p>
               ) : null}
-            </div>
+              {commercialView?.stock && capabilities.showExpectedArrival && commercialView.stock.expectedQuantity !== null && (
+                <p className="mt-1 text-xs font-normal">Ожидается: {commercialView.stock.expectedQuantity}{commercialView.stock.expectedAt ? `, ${formatDate(commercialView.stock.expectedAt)}` : ""}</p>
+              )}
+            </div>}
           </div>
         </div>
       </article>
@@ -107,7 +115,7 @@ function getStockTone(status: ProductCommercialViewDto["stock"] extends infer T
 }
 
 function formatDate(value: string): string {
-  return new Intl.DateTimeFormat("en", {
+  return new Intl.DateTimeFormat("ru", {
     month: "short",
     day: "numeric",
   }).format(new Date(value));

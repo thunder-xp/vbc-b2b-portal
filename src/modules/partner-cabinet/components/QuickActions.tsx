@@ -1,28 +1,51 @@
+import {
+  ClipboardPlus,
+  FilePlus2,
+  FolderPlus,
+  PackageSearch,
+  RefreshCw,
+  ShieldPlus,
+} from "lucide-react";
 import Link from "next/link";
 
-import type { PartnerWorkspaceModule } from "../services";
+import type { WorkspaceQuickActionDto } from "../services";
 
-export function QuickActions({ modules }: { modules: PartnerWorkspaceModule[] }) {
+const icons = {
+  create_project: FolderPlus,
+  select_equipment: PackageSearch,
+  create_specification: ClipboardPlus,
+  create_proposal: FilePlus2,
+  repeat_order: RefreshCw,
+  register_warranty: ShieldPlus,
+} as const;
+
+export function QuickActions({ actions }: { actions: WorkspaceQuickActionDto[] }) {
   return (
     <section>
-      <div className="mb-4">
-        <h2 className="text-lg font-semibold text-zinc-950">Рабочие модули</h2>
-        <p className="mt-1 text-sm text-zinc-600">Быстрый доступ к ежедневным операциям компании.</p>
-      </div>
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {modules.map((module) => module.href && module.availability === "available" ? (
-          <Link className="min-h-32 rounded-lg border border-zinc-200 bg-white p-5 shadow-sm transition hover:border-emerald-500 hover:shadow" href={module.href} key={module.key}>
-            <h3 className="font-semibold text-zinc-950">{module.title}</h3>
-            <p className="mt-2 text-sm leading-5 text-zinc-600">{module.description}</p>
-            <p className="mt-4 text-xs font-semibold uppercase text-emerald-700">Доступно</p>
-          </Link>
-        ) : (
-          <article className="min-h-32 rounded-lg border border-dashed border-zinc-300 bg-zinc-100 p-5" key={module.key}>
-            <h3 className="font-semibold text-zinc-700">{module.title}</h3>
-            <p className="mt-2 text-sm leading-5 text-zinc-500">{module.description}</p>
-            <p className="mt-4 text-xs font-semibold uppercase text-zinc-500">{module.availability === "configuration_required" ? "Требуется настройка" : "Скоро"}</p>
-          </article>
-        ))}
+      <h2 className="text-lg font-semibold text-zinc-950">Быстрые действия</h2>
+      <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {actions.map((action) => {
+          const Icon = icons[action.key as keyof typeof icons] ?? ClipboardPlus;
+          const content = (
+            <>
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-emerald-50 text-emerald-700">
+                <Icon aria-hidden="true" className="size-5" />
+              </span>
+              <span className="min-w-0 flex-1 text-sm font-semibold">{action.label}</span>
+              {action.availability === "coming_soon" && <span className="text-[10px] font-semibold uppercase text-zinc-500">Скоро</span>}
+            </>
+          );
+
+          return action.href && action.availability === "available" ? (
+            <Link className="flex min-h-16 items-center gap-3 rounded-lg border border-zinc-200 bg-white px-4 py-3 text-zinc-950 shadow-sm transition hover:border-emerald-500" href={action.href} key={action.key}>
+              {content}
+            </Link>
+          ) : (
+            <div className="flex min-h-16 items-center gap-3 rounded-lg border border-dashed border-zinc-300 bg-zinc-50 px-4 py-3 text-zinc-600" key={action.key}>
+              {content}
+            </div>
+          );
+        })}
       </div>
     </section>
   );

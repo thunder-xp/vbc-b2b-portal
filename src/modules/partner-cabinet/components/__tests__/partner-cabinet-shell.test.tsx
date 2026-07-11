@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { PartnerHeader } from "../PartnerHeader";
 import { PartnerSidebar } from "../PartnerSidebar";
+import { resolveWorkspaceCapabilities } from "../../services";
 
 vi.mock("next/navigation", () => ({ usePathname: () => "/cabinet" }));
 vi.mock("@/src/modules/auth/actions/auth.actions", () => ({ signOutAction: vi.fn() }));
@@ -13,7 +14,10 @@ const context = {
   companyName: "Partner Company",
   membershipRole: "Владелец компании",
   accessState: "active" as const,
+  navigation: resolveWorkspaceCapabilities(new Set(["catalog.view", "orders.create", "documents.view_company"])).navigation,
 };
+
+const navigation = context.navigation;
 
 describe("Partner workspace shell", () => {
   it("renders business identity without raw role IDs", () => {
@@ -26,22 +30,27 @@ describe("Partner workspace shell", () => {
   });
 
   it("shows workspace navigation and controlled future states", () => {
-    render(<PartnerSidebar hasWorkspaceAccess />);
+    render(<PartnerSidebar hasWorkspaceAccess navigation={navigation} />);
 
-    expect(screen.getByRole("link", { name: "Рабочее пространство" })).toHaveAttribute("href", "/cabinet");
-    expect(screen.getByRole("link", { name: "Точные остатки" })).toHaveAttribute("href", "/cabinet/catalog");
-    expect(screen.getByRole("link", { name: "Персональные цены" })).toHaveAttribute("href", "/cabinet/catalog");
-    expect(screen.getByText("Заказы поставщику")).toBeInTheDocument();
-    expect(screen.getByText("Проектное оборудование")).toBeInTheDocument();
-    expect(screen.queryByText("Финансы")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Рабочий стол" })).toHaveAttribute("href", "/cabinet");
+    expect(screen.getByRole("link", { name: "Каталог" })).toHaveAttribute("href", "/cabinet/catalog");
+    expect(screen.getByText("Подбор решения")).toBeInTheDocument();
+    expect(screen.getByText("Проекты")).toBeInTheDocument();
+    expect(screen.getByText("Сметы и КП")).toBeInTheDocument();
+    expect(screen.getByText("Заказы")).toBeInTheDocument();
+    expect(screen.getByText("Документы")).toBeInTheDocument();
+    expect(screen.getByText("Сервис и гарантия")).toBeInTheDocument();
+    expect(screen.getByText("База знаний")).toBeInTheDocument();
+    expect(screen.queryByText("Точные остатки")).not.toBeInTheDocument();
+    expect(screen.queryByText("Персональные цены")).not.toBeInTheDocument();
     expect(screen.queryByText("Admin")).not.toBeInTheDocument();
   });
 
   it("does not link commercial modules when workspace access is blocked", () => {
-    render(<PartnerSidebar hasWorkspaceAccess={false} />);
+    render(<PartnerSidebar hasWorkspaceAccess={false} navigation={navigation} />);
 
-    expect(screen.getByRole("link", { name: "Рабочее пространство" })).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Точные остатки" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Персональные цены" })).not.toBeInTheDocument();
+    expect(screen.getByText("Рабочий стол")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Рабочий стол" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Каталог" })).not.toBeInTheDocument();
   });
 });

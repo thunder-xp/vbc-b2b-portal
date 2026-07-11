@@ -5,13 +5,12 @@ export function WorkspaceHero({ workspace }: { workspace: WorkspaceHomeDto }) {
     <section className="rounded-lg border border-zinc-200 bg-white p-6 shadow-sm">
       <p className="text-sm font-medium uppercase tracking-[0.14em] text-emerald-700">Novotech Partner Workspace</p>
       <h1 className="mt-2 text-3xl font-semibold text-zinc-950">Добро пожаловать, {workspace.greetingName}</h1>
-      <dl className="mt-6 grid gap-4 border-t border-zinc-200 pt-5 sm:grid-cols-2 xl:grid-cols-6">
+      <dl className="mt-6 grid gap-4 border-t border-zinc-200 pt-5 sm:grid-cols-2 xl:grid-cols-5">
         <InfoRow label="Компания" value={workspace.company.name} />
-        <InfoRow label="Статус партнёра" value={workspace.company.status} />
         <InfoRow label="Роль" value={workspace.company.role} />
         <InfoRow label="Код компании в 1С" value={workspace.company.external1cCode} />
         <InfoRow label="Вид цены" value={workspace.company.priceType} />
-        <InfoRow label="Доступ" value={workspace.company.accessStatus} />
+        {workspace.company.accountManager && <InfoRow label="Менеджер" value={workspace.company.accountManager} />}
       </dl>
     </section>
   );

@@ -29,6 +29,7 @@ export default async function CabinetLayout({ children }: { children: ReactNode 
     companyName: context.companyName,
     membershipRole: context.membershipRole,
     accessState: context.accessState,
+    navigation: context.capabilities.navigation,
   };
 
   if (context.accessState === "suspended") {

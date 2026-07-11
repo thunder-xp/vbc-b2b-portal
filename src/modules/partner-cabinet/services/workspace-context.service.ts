@@ -16,6 +16,10 @@ import {
   UserType,
 } from "../../access-control/types";
 import type { PartnerLookupService } from "../../integration/services";
+import {
+  resolveWorkspaceCapabilities,
+  type WorkspaceCapabilityModel,
+} from "./workspace-capability.service";
 
 export type PartnerWorkspaceAccessState =
   | "active"
@@ -27,14 +31,6 @@ export type PartnerWorkspaceAccessState =
   | "missing_company"
   | "missing_price_type"
   | "internal";
-
-export type PartnerWorkspaceModule = {
-  key: string;
-  title: string;
-  description: string;
-  href: string | null;
-  availability: "available" | "coming_soon" | "configuration_required";
-};
 
 export type PartnerWorkspaceContext = {
   userId: string;
@@ -51,7 +47,7 @@ export type PartnerWorkspaceContext = {
   external1cCode: string | null;
   external1cPriceTypeId: string | null;
   priceTypeName: string | null;
-  availableModules: PartnerWorkspaceModule[];
+  capabilities: WorkspaceCapabilityModel;
 };
 
 export interface PartnerWorkspaceContextService {
@@ -129,10 +125,9 @@ export class DefaultPartnerWorkspaceContextService
       };
     }
 
-    const [role, canViewPrices, canViewStock] = await Promise.all([
+    const [role, permissions] = await Promise.all([
       this.permissionService.getRole(membership.roleId),
-      this.permissionService.hasPermission(userId, membership.companyId, "prices.view"),
-      this.permissionService.hasPermission(userId, membership.companyId, "stock.view"),
+      this.permissionService.getRolePermissions(membership.roleId),
     ]);
     const priceTypeReference = activeContext.company.external1cPriceTypeId ?? null;
     const priceTypeName = await this.resolvePriceTypeName(priceTypeReference);
@@ -153,9 +148,8 @@ export class DefaultPartnerWorkspaceContextService
       external1cCode: activeContext.company.external1cCode ?? null,
       external1cPriceTypeId: priceTypeReference,
       priceTypeName,
-      availableModules: workspaceModules(
-        Boolean(priceTypeReference),
-        canViewPrices || canViewStock,
+      capabilities: resolveWorkspaceCapabilities(
+        new Set(permissions.map((permission) => permission.code)),
       ),
     };
   }
@@ -193,25 +187,6 @@ function emptyContext(
     external1cCode: null,
     external1cPriceTypeId: null,
     priceTypeName: null,
-    availableModules: workspaceModules(false),
+    capabilities: resolveWorkspaceCapabilities(new Set()),
   };
-}
-
-function workspaceModules(
-  hasCommercialConfiguration: boolean,
-  hasCommercialPermission = false,
-): PartnerWorkspaceModule[] {
-  const commercialAvailability = !hasCommercialConfiguration
-    ? "configuration_required"
-    : hasCommercialPermission
-      ? "available"
-      : "coming_soon";
-
-  return [
-    { key: "inventory", title: "Проверить остатки", description: "Наличие товаров, складские остатки и ожидаемые поступления.", href: commercialAvailability === "available" ? "/cabinet/catalog" : null, availability: commercialAvailability },
-    { key: "pricing", title: "Посмотреть свои цены", description: "Назначенный вид цены 1С и персональные цены на товары.", href: commercialAvailability === "available" ? "/cabinet/catalog" : null, availability: commercialAvailability },
-    { key: "supplier_orders", title: "Создать заказ поставщику", description: "Закупочный процесс партнёра: черновик, заказ и контроль статуса.", href: null, availability: "coming_soon" },
-    { key: "project_equipment", title: "Подобрать проектное оборудование", description: "Спецификация оборудования и подбор в контексте проекта.", href: null, availability: "coming_soon" },
-    { key: "company", title: "Моя компания", description: "Профиль компании, роль и назначенные коммерческие условия.", href: "/cabinet/company", availability: "available" },
-  ];
 }

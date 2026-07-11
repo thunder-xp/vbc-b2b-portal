@@ -1,12 +1,11 @@
 import { redirect } from "next/navigation";
 
-import { getWorkspaceHomeAction } from "@/src/modules/partner-cabinet/actions";
+import { getWorkspaceHomeAction } from "@/src/modules/partner-cabinet/actions/workspace-home.action";
 import {
   QuickActions,
-  StatusBadge,
-  WorkspaceCard,
   WorkspaceEmptyState,
   WorkspaceHero,
+  WorkspaceProcessGrid,
 } from "@/src/modules/partner-cabinet/components";
 
 export default async function CabinetPage() {
@@ -27,31 +26,8 @@ export default async function CabinetPage() {
         </section>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <WorkspaceCard actionHref="/cabinet/catalog" actionLabel="Проверить остатки" title="Точные остатки">
-          <div className="space-y-3">
-            <StatusBadge label={workspace.inventory.isSynchronized ? "Остатки синхронизированы" : "Проверьте наличие в каталоге"} tone={workspace.inventory.isSynchronized ? "green" : "amber"} />
-            <p className="text-sm text-zinc-600">Наличие товаров, складские остатки и ожидаемые поступления.</p>
-            <p className="text-sm text-zinc-600">Последнее обновление: {workspace.inventory.lastSynchronization}</p>
-          </div>
-        </WorkspaceCard>
-        <WorkspaceCard actionHref="/cabinet/catalog" actionLabel="Посмотреть свои цены" title="Персональные цены">
-          <div className="space-y-3">
-            <StatusBadge label={workspace.pricing.isActive ? "Партнёрские цены активны" : "Требуется настройка"} tone={workspace.pricing.isActive ? "green" : "amber"} />
-            <p className="text-sm text-zinc-600">Вид цены: <span className="font-medium text-zinc-950">{workspace.pricing.priceType}</span></p>
-            <p className="text-sm text-zinc-600">{workspace.pricing.lastUpdate}</p>
-          </div>
-        </WorkspaceCard>
-        <WorkspaceCard actionHref="/cabinet/company" actionLabel="Открыть компанию" title="Моя компания">
-          <div className="space-y-2 text-sm text-zinc-600">
-            <p className="font-medium text-zinc-950">{workspace.company.name}</p>
-            <p>Роль: {workspace.company.role}</p>
-            <p>Код компании в 1С: {workspace.company.external1cCode}</p>
-          </div>
-        </WorkspaceCard>
-      </div>
-
-      <QuickActions modules={workspace.modules} />
+      <QuickActions actions={workspace.quickActions} />
+      <WorkspaceProcessGrid cards={workspace.processCards} />
     </div>
   );
 }

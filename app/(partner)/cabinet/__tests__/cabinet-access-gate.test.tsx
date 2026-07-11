@@ -74,7 +74,7 @@ function successContext(accessState: string) {
       external1cCode: null,
       external1cPriceTypeId: null,
       priceTypeName: null,
-      availableModules: [],
+      capabilities: { navigation: [], productCard: {}, canCreateCommercialProposal: false, canUseWarranty: false, canViewKnowledgeBase: false },
     },
   };
 }

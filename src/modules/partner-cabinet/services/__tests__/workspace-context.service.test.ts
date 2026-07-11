@@ -103,10 +103,8 @@ describe("DefaultPartnerWorkspaceContextService", () => {
 
   it("does not advertise commercial access without pricing or stock permission", async () => {
     const context = await service({ hasCommercialPermission: false }).getWorkspaceContext("partner-1");
-    expect(context.availableModules.find((module) => module.key === "pricing")).toMatchObject({
-      availability: "coming_soon",
-      href: null,
-    });
+    expect(context.capabilities.productCard.showPrice).toBe(false);
+    expect(context.capabilities.productCard.showStock).toBe(false);
   });
 
   it("routes internal users away from partner context", async () => {
@@ -159,7 +157,10 @@ function service(fixtures: Fixtures = {}) {
   };
   const permissionService: PermissionService = {
     async getRole() { return { id: "role-1", code: "partner_owner", name: "Владелец компании", scope: RoleScope.Partner, createdAt: now }; },
-    async getRolePermissions() { return []; },
+    async getRolePermissions() {
+      if (fixtures.hasCommercialPermission === false) return [];
+      return ["catalog.view", "prices.view", "stock.view", "orders.create", "documents.view_company"].map((code) => ({ id: code, code, description: null, createdAt: now }));
+    },
     async hasPermission() { return fixtures.hasCommercialPermission ?? true; },
     async ensurePermission(_userId, _companyId, permissionCode) { return { isAllowed: true, permissionCode, context: null }; },
   };

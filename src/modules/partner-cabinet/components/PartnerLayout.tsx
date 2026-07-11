@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import { useState } from "react";
 
-import type { PartnerWorkspaceAccessState } from "../services";
+import type { PartnerWorkspaceAccessState, WorkspaceNavigationItem } from "../services";
 import { PartnerHeader } from "./PartnerHeader";
 import { PartnerSidebar } from "./PartnerSidebar";
 
@@ -13,6 +13,7 @@ export type PartnerWorkspaceShellContext = {
   companyName: string | null;
   membershipRole: string | null;
   accessState: PartnerWorkspaceAccessState;
+  navigation: WorkspaceNavigationItem[];
 };
 
 export function PartnerLayout({
@@ -27,18 +28,18 @@ export function PartnerLayout({
 
   return (
     <div className="min-h-screen bg-zinc-50 text-zinc-950">
-      <div className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:block lg:w-72">
-        <PartnerSidebar hasWorkspaceAccess={hasWorkspaceAccess} />
+      <div className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:block lg:w-64">
+        <PartnerSidebar hasWorkspaceAccess={hasWorkspaceAccess} navigation={context.navigation} />
       </div>
       {isDrawerOpen && (
         <div className="fixed inset-0 z-40 lg:hidden">
           <button aria-label="Close navigation" className="absolute inset-0 bg-zinc-950/40" onClick={() => setIsDrawerOpen(false)} type="button" />
-          <div className="relative h-full w-72 max-w-[85vw]">
-            <PartnerSidebar hasWorkspaceAccess={hasWorkspaceAccess} onNavigate={() => setIsDrawerOpen(false)} />
+          <div className="relative h-full w-64 max-w-[85vw]">
+            <PartnerSidebar hasWorkspaceAccess={hasWorkspaceAccess} navigation={context.navigation} onNavigate={() => setIsDrawerOpen(false)} />
           </div>
         </div>
       )}
-      <div className="lg:pl-72">
+      <div className="lg:pl-64">
         <PartnerHeader context={context} onMenuClick={() => setIsDrawerOpen(true)} />
         <main className="px-4 py-6 lg:px-8">{children}</main>
       </div>

@@ -7,8 +7,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("next/navigation", () => ({ redirect: mocks.redirect }));
-vi.mock("@/src/modules/partner-cabinet/actions", () => ({ getWorkspaceHomeAction: mocks.getWorkspaceHomeAction }));
-vi.mock("@/src/modules/auth/actions/auth.actions", () => ({ signOutAction: vi.fn() }));
+vi.mock("@/src/modules/partner-cabinet/actions/workspace-home.action", () => ({ getWorkspaceHomeAction: mocks.getWorkspaceHomeAction }));
 vi.mock("server-only", () => ({}));
 
 import CabinetPage from "../page";
@@ -16,50 +15,35 @@ import CabinetPage from "../page";
 describe("Partner Workspace home page", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.getWorkspaceHomeAction.mockResolvedValue({
-      success: true,
-      errorCode: null,
-      message: "Workspace loaded.",
-      data: workspaceData(),
-    });
+    mocks.getWorkspaceHomeAction.mockResolvedValue({ success: true, errorCode: null, message: "Workspace loaded.", data: workspaceData() });
   });
 
-  it("renders the personalized production workspace", async () => {
+  it("renders installer-focused quick actions and operational cards", async () => {
     render(await CabinetPage());
 
     expect(screen.getByText("Novotech Partner Workspace")).toBeInTheDocument();
     expect(screen.getByText("Добро пожаловать, Partner User")).toBeInTheDocument();
-    expect(screen.getAllByText("Partner Company").length).toBeGreaterThan(0);
-    expect(screen.getByText("Владелец компании")).toBeInTheDocument();
-    expect(screen.getAllByText("GOLD").length).toBeGreaterThan(0);
-    expect(screen.getByText("Рабочие модули")).toBeInTheDocument();
-    expect(screen.getAllByText("Проверить остатки").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Посмотреть свои цены").length).toBeGreaterThan(0);
-    expect(screen.getByText("Создать заказ поставщику")).toBeInTheDocument();
-    expect(screen.getByText("Подобрать проектное оборудование")).toBeInTheDocument();
+    expect(screen.getByText("Partner Company")).toBeInTheDocument();
+    expect(screen.getByText("Partner Owner")).toBeInTheDocument();
+    expect(screen.getByText("GOLD")).toBeInTheDocument();
+    expect(screen.getByText("Создать проект")).toBeInTheDocument();
+    expect(screen.getByText("Подобрать оборудование")).toBeInTheDocument();
+    expect(screen.getByText("Мои проекты")).toBeInTheDocument();
+    expect(screen.getByText("Требует внимания")).toBeInTheDocument();
   });
 
-  it("does not expose raw 1C GUIDs and controls unavailable modules", async () => {
-    render(await CabinetPage());
+  it("renders honest empty states without invented counts or technical modules", async () => {
+    const { container } = render(await CabinetPage());
 
-    expect(screen.queryByText("33333333-3333-4333-8333-333333333333")).not.toBeInTheDocument();
-    expect(screen.queryByText("f7df2069-884d-11ea-97e0-000c29cf9dd4")).not.toBeInTheDocument();
-    expect(screen.queryByText("Финансы")).not.toBeInTheDocument();
-    expect(screen.queryByText("Документы")).not.toBeInTheDocument();
-    expect(screen.queryByText("Сервис и гарантия")).not.toBeInTheDocument();
-    expect(screen.queryByText("Поддержка")).not.toBeInTheDocument();
-    expect(screen.getAllByText("Скоро").length).toBeGreaterThan(0);
-    expect(screen.queryByRole("link", { name: "Создать заказ поставщику" })).not.toBeInTheDocument();
+    expect(screen.getByText("Проекты пока не созданы.")).toBeInTheDocument();
+    expect(screen.getByText("Заказов пока нет.")).toBeInTheDocument();
+    expect(container.textContent).not.toMatch(/Точные остатки|Персональные цены|Price group|1C integration/);
+    expect(container.textContent).not.toMatch(/f7df2069|33333333/);
+    expect(container.textContent).not.toMatch(/\b[1-9]\d*\s+(заказ|проект)/i);
   });
 
-  it("shows an actionable state when price type is missing", async () => {
-    mocks.getWorkspaceHomeAction.mockResolvedValue({
-      success: true,
-      errorCode: null,
-      message: "Workspace loaded.",
-      data: { ...workspaceData(), commercialConfigurationMissing: true },
-    });
-
+  it("shows the safe commercial configuration warning", async () => {
+    mocks.getWorkspaceHomeAction.mockResolvedValue({ success: true, errorCode: null, message: "Workspace loaded.", data: { ...workspaceData(), commercialConfigurationMissing: true } });
     render(await CabinetPage());
     expect(screen.getByText("Коммерческие условия компании ещё не настроены. Обратитесь к менеджеру Novotech.")).toBeInTheDocument();
   });
@@ -73,18 +57,19 @@ describe("Partner Workspace home page", () => {
 function workspaceData() {
   return {
     greetingName: "Partner User",
-    company: { name: "Partner Company", status: "active", role: "Владелец компании", external1cCode: "000152", priceType: "GOLD", accessStatus: "Активен" },
-    catalog: { totalProductsLabel: "24", brands: 5, categories: 8 },
-    pricing: { isActive: true, priceType: "GOLD", lastUpdate: "Данные доступны" },
-    inventory: { isSynchronized: true, lastSynchronization: "10 июл. 2026 г." },
-    operational: { activeOrders: 0, openProjects: 0, documentsRequiringAttention: 0, supportRequests: 0 },
-    activity: [],
-    modules: [
-      { key: "inventory", title: "Проверить остатки", description: "Остатки.", href: "/cabinet/catalog", availability: "available" },
-      { key: "pricing", title: "Посмотреть свои цены", description: "Цены.", href: "/cabinet/catalog", availability: "available" },
-      { key: "supplier_orders", title: "Создать заказ поставщику", description: "Закупочный процесс.", href: null, availability: "coming_soon" },
-      { key: "project_equipment", title: "Подобрать проектное оборудование", description: "Проектный подбор.", href: null, availability: "coming_soon" },
-      { key: "company", title: "Моя компания", description: "Компания.", href: "/cabinet/company", availability: "available" },
+    company: { name: "Partner Company", role: "Partner Owner", external1cCode: "UU-001940", priceType: "GOLD", accountManager: null },
+    quickActions: [
+      { key: "create_project", label: "Создать проект", href: null, availability: "coming_soon" },
+      { key: "select_equipment", label: "Подобрать оборудование", href: "/cabinet/catalog", availability: "available" },
+      { key: "create_specification", label: "Создать спецификацию", href: null, availability: "coming_soon" },
+      { key: "create_proposal", label: "Сформировать КП", href: null, availability: "coming_soon" },
+      { key: "repeat_order", label: "Повторить заказ", href: null, availability: "coming_soon" },
+      { key: "register_warranty", label: "Зарегистрировать гарантийный случай", href: null, availability: "coming_soon" },
+    ],
+    processCards: [
+      { key: "projects", title: "Мои проекты", emptyMessage: "Проекты пока не созданы.", actionLabel: "Создать первый проект" },
+      { key: "orders", title: "Заказы", emptyMessage: "Заказов пока нет.", actionLabel: "Перейти к каталогу" },
+      { key: "attention", title: "Требует внимания", emptyMessage: "Нет задач, требующих вашего внимания.", actionLabel: "Всё в порядке" },
     ],
     commercialConfigurationMissing: false,
   };

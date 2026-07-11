@@ -10,10 +10,12 @@ import {
   CategorySidebar,
   EmptyCatalog,
   ProductGrid,
+  RESTRICTED_PRODUCT_CARD_CAPABILITIES,
   SearchBox,
 } from "@/src/modules/catalog/components";
 import { getProductCommercialViewsAction } from "@/src/modules/pricing-inventory/actions";
 import type { ProductCommercialViewDto } from "@/src/modules/pricing-inventory";
+import { getPartnerWorkspaceContextAction } from "@/src/modules/partner-cabinet/actions";
 
 type CatalogPageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -27,7 +29,7 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
   const brandId = getSingleParam(params?.brand);
   const search = getSingleParam(params?.search);
   const page = parsePage(getSingleParam(params?.page));
-  const [categoriesResult, brandsResult, productsResult] = await Promise.all([
+  const [categoriesResult, brandsResult, productsResult, workspaceContextResult] = await Promise.all([
     listCatalogCategoriesAction(),
     listCatalogBrandsAction(),
     listCatalogProductsAction({
@@ -37,6 +39,7 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
       page,
       pageSize: PAGE_SIZE,
     }),
+    getPartnerWorkspaceContextAction(),
   ]);
 
   if (!categoriesResult.success) {
@@ -109,7 +112,9 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
           {productsResult.data.products.length > 0 ? (
             <>
               <ProductGrid
+                capabilities={workspaceContextResult.success ? workspaceContextResult.data.capabilities.productCard : RESTRICTED_PRODUCT_CARD_CAPABILITIES}
                 commercialViews={commercialViews}
+                priceTypeName={workspaceContextResult.success ? workspaceContextResult.data.priceTypeName : null}
                 products={productsResult.data.products}
               />
               <CatalogPagination
