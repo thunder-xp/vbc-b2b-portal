@@ -1,40 +1,22 @@
-import type { ActiveCompanyContextDto } from "@/src/modules/access-control/actions/get-active-company-context.action";
-
+import type { PartnerWorkspaceContext } from "../services";
 import { StatusBadge } from "./StatusBadge";
 
-type CompanyCardProps = {
-  context: ActiveCompanyContextDto;
-};
-
-export function CompanyCard({ context }: CompanyCardProps) {
+export function CompanyCard({ context }: { context: PartnerWorkspaceContext }) {
   return (
     <section className="rounded-lg border border-zinc-200 bg-white p-6 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <p className="text-sm font-medium uppercase tracking-[0.14em] text-emerald-700">
-            Partner company
-          </p>
-          <h1 className="mt-2 text-2xl font-semibold tracking-tight text-zinc-950">
-            {context.company.displayName}
-          </h1>
-        </div>
-        <StatusBadge label={context.company.status} tone="green" />
+        <div><p className="text-sm font-medium uppercase text-emerald-700">Компания партнёра</p><h1 className="mt-2 text-2xl font-semibold text-zinc-950">{context.companyName}</h1></div>
+        <StatusBadge label={context.companyStatus ?? "Не определён"} tone="green" />
       </div>
-
-      <dl className="mt-6 grid gap-4 text-sm sm:grid-cols-2">
-        <div>
-          <dt className="font-medium text-zinc-500">Membership role</dt>
-          <dd className="mt-1 text-zinc-950">{context.membership.roleId}</dd>
-        </div>
-        <div>
-          <dt className="font-medium text-zinc-500">Membership status</dt>
-          <dd className="mt-1 text-zinc-950">{context.membership.status}</dd>
-        </div>
-        <div>
-          <dt className="font-medium text-zinc-500">Company id</dt>
-          <dd className="mt-1 break-all text-zinc-950">{context.company.id}</dd>
-        </div>
+      <dl className="mt-6 grid gap-4 text-sm sm:grid-cols-3">
+        <Info label="Роль" value={context.membershipRole ?? "Не определена"} />
+        <Info label="Код компании в 1С" value={context.external1cCode ?? "Не указан"} />
+        <Info label="Вид цены" value={context.priceTypeName ?? "Не настроен"} />
       </dl>
     </section>
   );
+}
+
+function Info({ label, value }: { label: string; value: string }) {
+  return <div><dt className="font-medium text-zinc-500">{label}</dt><dd className="mt-1 text-zinc-950">{value}</dd></div>;
 }

@@ -190,6 +190,10 @@ class FakeCompanyAccessService implements CompanyAccessService {
 }
 
 class FakePermissionService implements PermissionService {
+  async getRole() {
+    return null;
+  }
+
   async getRolePermissions() {
     return [];
   }

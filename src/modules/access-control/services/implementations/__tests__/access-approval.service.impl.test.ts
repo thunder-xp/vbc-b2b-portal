@@ -692,6 +692,10 @@ class FakeCompanyMembershipRepository implements CompanyMembershipRepository {
 }
 
 class FakeRolePermissionRepository implements RolePermissionRepository {
+  async findRoleById(): Promise<Role | null> {
+    return this.findRoleByCode();
+  }
+
   async findRoleByCode(): Promise<Role | null> {
     return {
       id: "role-partner-owner",

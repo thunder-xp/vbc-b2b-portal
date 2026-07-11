@@ -12,3 +12,5 @@ export { WorkspaceCard } from "./WorkspaceCard";
 export { WorkspaceEmptyState } from "./WorkspaceEmptyState";
 export { WorkspaceHero } from "./WorkspaceHero";
 export { WorkspaceMetric } from "./WorkspaceMetric";
+export { WorkspaceAccessState } from "./WorkspaceAccessState";
+export { WorkspaceOperationalSummary } from "./WorkspaceOperationalSummary";

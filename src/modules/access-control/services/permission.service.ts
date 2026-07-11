@@ -1,4 +1,4 @@
-import type { Permission } from "../types";
+import type { Permission, Role } from "../types";
 import type { ActiveCompanyContext } from "./company-access.service";
 
 export interface PermissionCheckResult {
@@ -8,6 +8,7 @@ export interface PermissionCheckResult {
 }
 
 export interface PermissionService {
+  getRole(roleId: string): Promise<Role | null>;
   getRolePermissions(roleId: string): Promise<Permission[]>;
   hasPermission(
     userId: string,

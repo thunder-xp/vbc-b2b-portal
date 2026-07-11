@@ -1,10 +1,10 @@
-import type {
-  CompanyAccessService,
-  UserProfileService,
-} from "../../access-control/services";
-import { MembershipStatus } from "../../access-control/types";
+import { InvalidStateError } from "../../access-control/services";
 import type { CatalogService } from "../../catalog/services";
 import type { PricingInventoryService } from "../../pricing-inventory/services";
+import type {
+  PartnerWorkspaceContextService,
+  PartnerWorkspaceModule,
+} from "./workspace-context.service";
 
 export type WorkspaceActivityDto = {
   id: string;
@@ -16,11 +16,12 @@ export type WorkspaceActivityDto = {
 export type WorkspaceHomeDto = {
   greetingName: string;
   company: {
-    id: string;
     name: string;
     status: string;
+    role: string;
+    external1cCode: string;
     priceType: string;
-    manager: string;
+    accessStatus: string;
   };
   catalog: {
     totalProductsLabel: string;
@@ -36,7 +37,15 @@ export type WorkspaceHomeDto = {
     isSynchronized: boolean;
     lastSynchronization: string;
   };
+  operational: {
+    activeOrders: number;
+    openProjects: number;
+    documentsRequiringAttention: number;
+    supportRequests: number;
+  };
   activity: WorkspaceActivityDto[];
+  modules: PartnerWorkspaceModule[];
+  commercialConfigurationMissing: boolean;
 };
 
 export interface WorkspaceHomeService {
@@ -44,81 +53,73 @@ export interface WorkspaceHomeService {
 }
 
 const WORKSPACE_PAGE_SIZE = 48;
-const FALLBACK_MANAGER = "Novotech partner manager";
 
 export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
   constructor(
-    private readonly userProfileService: UserProfileService,
-    private readonly companyAccessService: CompanyAccessService,
+    private readonly workspaceContextService: PartnerWorkspaceContextService,
     private readonly catalogService: CatalogService,
     private readonly pricingInventoryService: PricingInventoryService,
   ) {}
 
   async getWorkspaceHome(userId: string): Promise<WorkspaceHomeDto> {
-    const profile = await this.userProfileService.ensureActiveUser(userId);
-    const memberships = await this.companyAccessService.getOwnMemberships(userId);
-    const activeMembership = memberships.find(
-      (membership) => membership.status === MembershipStatus.Active,
-    );
-
-    if (!activeMembership) {
-      await this.companyAccessService.getActiveCompanyContext(userId, "");
+    const context = await this.workspaceContextService.getWorkspaceContext(userId);
+    if (context.accessState !== "active" && context.accessState !== "missing_price_type") {
+      throw new InvalidStateError("Partner workspace access is not active.");
     }
 
-    const context = await this.companyAccessService.getActiveCompanyContext(
-      userId,
-      activeMembership?.companyId ?? "",
-    );
     const [categories, brands, productResult] = await Promise.all([
       this.catalogService.listCategories(userId),
       this.catalogService.listBrands(userId),
-      this.catalogService.listProducts(userId, {
-        page: 1,
-        pageSize: WORKSPACE_PAGE_SIZE,
-      }),
+      this.catalogService.listProducts(userId, { page: 1, pageSize: WORKSPACE_PAGE_SIZE }),
     ]);
-    const commercialViews =
-      await this.pricingInventoryService.getProductCommercialViews(
-        userId,
-        productResult.products.map((product) => product.id),
-      );
-    const priceType =
-      context.company.external1cPriceTypeId ?? "Partner price type";
+    const commercialViews = context.accessState === "active"
+      ? await this.pricingInventoryService.getProductCommercialViews(
+          userId,
+          productResult.products.map((product) => product.id),
+        )
+      : [];
     const inventoryLastSynchronization = latestDateLabel(
       commercialViews
         .map((view) => view.stock?.lastUpdatedAt ?? null)
         .filter((value): value is string => Boolean(value)),
     );
+    const priceType = context.priceTypeName ?? "Не настроен";
 
     return {
-      greetingName: profile.fullName ?? profile.email,
+      greetingName: context.userDisplayName,
       company: {
-        id: context.company.id,
-        name: context.company.displayName,
-        status: context.company.status,
+        name: context.companyName ?? "Компания не найдена",
+        status: context.companyStatus ?? "Не определён",
+        role: context.membershipRole ?? "Не определена",
+        external1cCode: context.external1cCode ?? "Не указан",
         priceType,
-        manager: FALLBACK_MANAGER,
+        accessStatus: context.accessState === "active" ? "Активен" : "Требуется настройка",
       },
       catalog: {
-        totalProductsLabel: productResult.hasNextPage
-          ? `${productResult.products.length}+`
-          : String(productResult.products.length),
+        totalProductsLabel: productResult.hasNextPage ? `${productResult.products.length}+` : String(productResult.products.length),
         brands: brands.length,
         categories: categories.length,
       },
       pricing: {
-        isActive: Boolean(context.company.external1cPriceTypeId),
+        isActive: context.accessState === "active",
         priceType,
         lastUpdate: commercialViews.some((view) => view.price)
-          ? "Available from current read model"
-          : "Waiting for price synchronization",
+          ? "Данные доступны"
+          : "Нет синхронизированных данных",
       },
       inventory: {
         isSynchronized: Boolean(inventoryLastSynchronization),
-        lastSynchronization:
-          inventoryLastSynchronization ?? "Waiting for stock synchronization",
+        lastSynchronization: inventoryLastSynchronization ?? "Нет синхронизированных данных",
       },
-      activity: createWorkspaceActivity(Boolean(inventoryLastSynchronization)),
+      operational: {
+        activeOrders: 0,
+        openProjects: 0,
+        documentsRequiringAttention: 0,
+        supportRequests: 0,
+      },
+      activity: [],
+      modules: context.availableModules,
+      commercialConfigurationMissing: context.accessState === "missing_price_type",
     };
   }
 }
@@ -129,45 +130,10 @@ function latestDateLabel(values: string[]): string | null {
     .filter(Number.isFinite)
     .sort((left, right) => right - left)[0];
 
-  if (!latest) {
-    return null;
-  }
+  if (!latest) return null;
 
-  return new Intl.DateTimeFormat("en", {
+  return new Intl.DateTimeFormat("ru", {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date(latest));
-}
-
-function createWorkspaceActivity(hasInventorySync: boolean): WorkspaceActivityDto[] {
-  const now = "2026-07-10T08:00:00.000Z";
-
-  return [
-    {
-      id: "profile-approved",
-      label: "Profile approved",
-      description: "Your partner profile is active.",
-      occurredAt: now,
-    },
-    {
-      id: "partner-activated",
-      label: "Partner activated",
-      description: "Company access is ready for daily work.",
-      occurredAt: now,
-    },
-    {
-      id: "catalog-synchronized",
-      label: "Catalog synchronized",
-      description: "Catalog read model is available.",
-      occurredAt: now,
-    },
-    {
-      id: "inventory-status",
-      label: hasInventorySync ? "Stock synchronized" : "Stock sync pending",
-      description: hasInventorySync
-        ? "Inventory availability was refreshed."
-        : "Inventory will update after the next 1C stock sync.",
-      occurredAt: now,
-    },
-  ];
 }

@@ -2,63 +2,44 @@ import type { ReactNode } from "react";
 
 import { redirect } from "next/navigation";
 
-import { getActiveCompanyContextAction } from "@/src/modules/access-control/actions/get-active-company-context.action";
-import { getOwnAccessRequestsAction } from "@/src/modules/access-control/actions/get-access-requests.action";
-import { getCurrentProfileAction } from "@/src/modules/access-control/actions/current-profile.action";
-import { getOwnMembershipsAction } from "@/src/modules/access-control/actions/get-memberships.action";
-import { AccessRequestStatus, MembershipStatus } from "@/src/modules/access-control/types";
-import { PartnerLayout } from "@/src/modules/partner-cabinet/components";
+import { getPartnerWorkspaceContextAction } from "@/src/modules/partner-cabinet/actions";
+import {
+  PartnerLayout,
+  WorkspaceAccessState,
+} from "@/src/modules/partner-cabinet/components";
 
-export default async function CabinetLayout({
-  children,
-}: {
-  children: ReactNode;
-}) {
-  const profileResult = await getCurrentProfileAction();
+export default async function CabinetLayout({ children }: { children: ReactNode }) {
+  const result = await getPartnerWorkspaceContextAction();
 
-  if (!profileResult.success) {
-    redirect("/auth/sign-in");
+  if (!result.success) {
+    if (result.errorCode === "AUTH_REQUIRED") redirect("/auth/sign-in");
+    return <WorkspaceAccessState state="unavailable" />;
   }
 
-  if (!profileResult.data) {
-    redirect("/onboarding/profile");
+  const context = result.data;
+  if (context.accessState === "internal") redirect("/admin/partner-requests");
+  if (context.accessState === "missing_profile") redirect("/onboarding/profile");
+  if (context.accessState === "pending_approval" || context.accessState === "rejected") {
+    redirect("/onboarding/waiting");
   }
 
-  const membershipsResult = await getOwnMembershipsAction();
-  const requestsResult = await getOwnAccessRequestsAction();
-  const activeMembership = membershipsResult.success
-    ? membershipsResult.data.find(
-        (membership) => membership.status === MembershipStatus.Active,
-      )
-    : null;
-  const hasApprovedRequest =
-    requestsResult.success &&
-    requestsResult.data.some(
-      (request) => request.status === AccessRequestStatus.Approved,
-    );
+  const shell = {
+    userDisplayName: context.userDisplayName,
+    userEmail: context.userEmail,
+    companyName: context.companyName,
+    membershipRole: context.membershipRole,
+    accessState: context.accessState,
+  };
 
-  if (!activeMembership || !hasApprovedRequest) {
-    const hasPendingRequest =
-      requestsResult.success &&
-      requestsResult.data.some(
-        (request) => request.status === AccessRequestStatus.PendingReview,
-      );
-
-    redirect(hasPendingRequest ? "/onboarding/waiting" : "/onboarding/access-request");
+  if (context.accessState === "suspended") {
+    return <PartnerLayout context={shell}><WorkspaceAccessState state="suspended" /></PartnerLayout>;
+  }
+  if (context.accessState === "missing_membership") {
+    return <PartnerLayout context={shell}><WorkspaceAccessState state="missing_membership" /></PartnerLayout>;
+  }
+  if (context.accessState === "missing_company") {
+    return <PartnerLayout context={shell}><WorkspaceAccessState state="missing_company" /></PartnerLayout>;
   }
 
-  const companyContextResult = activeMembership
-    ? await getActiveCompanyContextAction(activeMembership.companyId)
-    : null;
-
-  return (
-    <PartnerLayout
-      companyContext={
-        companyContextResult?.success ? companyContextResult.data : null
-      }
-      profile={profileResult.data}
-    >
-      {children}
-    </PartnerLayout>
-  );
+  return <PartnerLayout context={shell}>{children}</PartnerLayout>;
 }

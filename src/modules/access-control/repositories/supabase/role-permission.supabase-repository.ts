@@ -26,6 +26,21 @@ const PARTNER_COMPANY_ACTIVE_COLUMNS = "id";
 export class SupabaseRolePermissionRepository
   implements RolePermissionRepository
 {
+  async findRoleById(roleId: string): Promise<Role | null> {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("roles")
+      .select(ROLE_COLUMNS)
+      .eq("id", roleId)
+      .maybeSingle();
+
+    if (error) {
+      throw new RepositoryUnexpectedError();
+    }
+
+    return data ? mapRoleRow(data as RoleRow) : null;
+  }
+
   async findRoleByCode(code: string): Promise<Role | null> {
     const supabase = await createClient();
     const { data, error } = await supabase

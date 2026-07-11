@@ -1,27 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import type {
-  CompanyAccessService,
-  UserProfileService,
-} from "../../../access-control/services";
-import {
-  CompanyStatus,
-  MembershipStatus,
-  UserStatus,
-  UserType,
-  type CompanyMembership,
-  type PartnerCompany,
-  type UserProfile,
-} from "../../../access-control/types";
 import type { CatalogService } from "../../../catalog/services";
 import type { PricingInventoryService } from "../../../pricing-inventory/services";
+import type { PartnerWorkspaceContextService } from "../workspace-context.service";
 import { DefaultWorkspaceHomeService } from "../workspace-home.service";
 
 describe("DefaultWorkspaceHomeService", () => {
-  it("builds a daily partner workspace from existing domain services", async () => {
+  it("builds an honest workspace summary from existing read models", async () => {
     const service = new DefaultWorkspaceHomeService(
-      fakeUserProfileService(),
-      fakeCompanyAccessService(),
+      fakeContextService(),
       fakeCatalogService(),
       fakePricingInventoryService(),
     );
@@ -31,129 +18,56 @@ describe("DefaultWorkspaceHomeService", () => {
     expect(workspace.greetingName).toBe("Partner User");
     expect(workspace.company).toMatchObject({
       name: "Partner Company",
-      priceType: "PRICE-TYPE-1C",
-      manager: "Novotech partner manager",
+      role: "Владелец компании",
+      external1cCode: "000152",
+      priceType: "GOLD",
+      accessStatus: "Активен",
     });
-    expect(workspace.catalog).toEqual({
-      totalProductsLabel: "2",
-      brands: 3,
-      categories: 4,
+    expect(workspace.catalog).toEqual({ totalProductsLabel: "2", brands: 3, categories: 4 });
+    expect(workspace.operational).toEqual({
+      activeOrders: 0,
+      openProjects: 0,
+      documentsRequiringAttention: 0,
+      supportRequests: 0,
     });
-    expect(workspace.pricing).toMatchObject({
-      isActive: true,
-      priceType: "PRICE-TYPE-1C",
-      lastUpdate: "Available from current read model",
-    });
-    expect(workspace.inventory).toMatchObject({
-      isSynchronized: true,
-    });
-    expect(workspace.activity.map((item) => item.label)).toContain(
-      "Partner activated",
-    );
+    expect(workspace.activity).toEqual([]);
+    expect(JSON.stringify(workspace)).not.toContain("f7df2069-884d-11ea-97e0-000c29cf9dd4");
   });
 });
 
-function fakeUserProfileService(): UserProfileService {
+function fakeContextService(): PartnerWorkspaceContextService {
   return {
-    async getCurrentProfile() {
-      return makeProfile();
-    },
-    async createProfileAfterSignup() {
-      return makeProfile();
-    },
-    async updateOwnProfile() {
-      return makeProfile();
-    },
-    async ensureActiveUser() {
-      return makeProfile();
-    },
-  };
-}
-
-function fakeCompanyAccessService(): CompanyAccessService {
-  const membership = makeMembership();
-  const company = makeCompany();
-
-  return {
-    async getOwnMemberships() {
-      return [membership];
-    },
-    async getActiveCompanyContext() {
+    async getWorkspaceContext() {
       return {
-        user: makeProfile(),
-        company,
-        membership,
+        userId: "partner-1",
+        userDisplayName: "Partner User",
+        userEmail: "partner@example.com",
+        accessState: "active",
+        companyId: "company-1",
+        companyName: "Partner Company",
+        companyStatus: "active",
+        membershipId: "membership-1",
+        membershipRole: "Владелец компании",
+        external1cId: "f7df2069-884d-11ea-97e0-000c29cf9dd4",
+        external1cCode: "000152",
+        external1cContractId: null,
+        external1cPriceTypeId: "33333333-3333-4333-8333-333333333333",
+        priceTypeName: "GOLD",
+        availableModules: [
+          { key: "catalog", title: "Каталог", description: "Каталог", href: "/cabinet/catalog", availability: "available" },
+          { key: "orders", title: "Заказы", description: "Заказы", href: null, availability: "coming_soon" },
+        ],
       };
-    },
-    async validateCompanyAccess() {
-      return {
-        isAllowed: true,
-        context: {
-          user: makeProfile(),
-          company,
-          membership,
-        },
-      };
-    },
-    async ensureActiveMembership() {
-      return membership;
     },
   };
 }
 
 function fakeCatalogService(): CatalogService {
   return {
-    async listCategories() {
-      return Array.from({ length: 4 }, (_, index) => ({
-        id: `category-${index}`,
-        parentId: null,
-        name: `Category ${index}`,
-        slug: `category-${index}`,
-        description: null,
-      }));
-    },
-    async listBrands() {
-      return Array.from({ length: 3 }, (_, index) => ({
-        id: `brand-${index}`,
-        name: `Brand ${index}`,
-        slug: `brand-${index}`,
-        description: null,
-        logoUrl: null,
-      }));
-    },
-    async listProducts() {
-      return {
-        products: [
-          {
-            id: "product-1",
-            sku: "P-1",
-            name: "Product 1",
-            slug: "product-1",
-            shortDescription: null,
-            imageUrl: null,
-            brand: null,
-            category: null,
-          },
-          {
-            id: "product-2",
-            sku: "P-2",
-            name: "Product 2",
-            slug: "product-2",
-            shortDescription: null,
-            imageUrl: null,
-            brand: null,
-            category: null,
-          },
-        ],
-        page: 1,
-        pageSize: 48,
-        hasNextPage: false,
-        isDemoData: false,
-      };
-    },
-    async getProductDetailBySlug() {
-      return null;
-    },
+    async listCategories() { return Array.from({ length: 4 }, (_, index) => ({ id: `category-${index}`, parentId: null, name: `Category ${index}`, slug: `category-${index}`, description: null })); },
+    async listBrands() { return Array.from({ length: 3 }, (_, index) => ({ id: `brand-${index}`, name: `Brand ${index}`, slug: `brand-${index}`, description: null, logoUrl: null })); },
+    async listProducts() { return { products: [product("1"), product("2")], page: 1, pageSize: 48, hasNextPage: false, isDemoData: false }; },
+    async getProductDetailBySlug() { return null; },
   };
 }
 
@@ -162,64 +76,14 @@ function fakePricingInventoryService(): PricingInventoryService {
     async getProductCommercialViews(_userId, productIds) {
       return productIds.map((productId) => ({
         productId,
-        price: {
-          currency: "BGN",
-          amount: 100,
-          label: "Price: 100.00 BGN",
-        },
-        stock: {
-          status: "in_stock",
-          label: "In Stock: 12 available",
-          availableQuantity: 12,
-          expectedQuantity: null,
-          expectedAt: null,
-          warehouseCount: 1,
-          lastUpdatedAt: "2026-07-10T08:00:00.000Z",
-        },
+        price: { currency: "MDL", amount: 100, label: "100 MDL" },
+        stock: { status: "in_stock", label: "В наличии", availableQuantity: 12, expectedQuantity: null, expectedAt: null, warehouseCount: 1, lastUpdatedAt: "2026-07-10T08:00:00.000Z" },
         isDemoData: false,
       }));
     },
   };
 }
 
-function makeProfile(): UserProfile {
-  return {
-    id: "partner-1",
-    email: "partner@example.com",
-    fullName: "Partner User",
-    phone: null,
-    status: UserStatus.Active,
-    userType: UserType.Partner,
-    createdAt: "2026-07-10T08:00:00.000Z",
-    updatedAt: "2026-07-10T08:00:00.000Z",
-  };
-}
-
-function makeCompany(): PartnerCompany {
-  return {
-    id: "company-1",
-    displayName: "Partner Company",
-    external1cId: "PARTNER-1C",
-    external1cContractId: "CONTRACT-1C",
-    external1cPriceTypeId: "PRICE-TYPE-1C",
-    status: CompanyStatus.Active,
-    createdAt: "2026-07-10T08:00:00.000Z",
-    updatedAt: "2026-07-10T08:00:00.000Z",
-  };
-}
-
-function makeMembership(): CompanyMembership {
-  return {
-    id: "membership-1",
-    userId: "partner-1",
-    companyId: "company-1",
-    roleId: "role-1",
-    status: MembershipStatus.Active,
-    approvedBy: "manager-1",
-    approvedAt: "2026-07-10T08:00:00.000Z",
-    revokedBy: null,
-    revokedAt: null,
-    createdAt: "2026-07-10T08:00:00.000Z",
-    updatedAt: "2026-07-10T08:00:00.000Z",
-  };
+function product(id: string) {
+  return { id: `product-${id}`, sku: `P-${id}`, name: `Product ${id}`, slug: `product-${id}`, shortDescription: null, imageUrl: null, brand: null, category: null };
 }

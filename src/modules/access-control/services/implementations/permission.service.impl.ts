@@ -1,6 +1,6 @@
 import type { RolePermissionRepository } from "../../repositories";
 import { RepositoryUnexpectedError } from "../../repositories";
-import type { Permission } from "../../types";
+import type { Permission, Role } from "../../types";
 import type {
   PermissionCheckResult,
   PermissionService,
@@ -14,6 +14,14 @@ export class DefaultPermissionService implements PermissionService {
   constructor(
     private readonly rolePermissionRepository: RolePermissionRepository,
   ) {}
+
+  async getRole(roleId: string): Promise<Role | null> {
+    try {
+      return await this.rolePermissionRepository.findRoleById(roleId);
+    } catch (error) {
+      throw this.mapRepositoryError(error);
+    }
+  }
 
   async getRolePermissions(roleId: string): Promise<Permission[]> {
     try {
