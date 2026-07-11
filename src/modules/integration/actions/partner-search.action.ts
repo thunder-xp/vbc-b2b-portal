@@ -18,6 +18,7 @@ import {
   IntegrationTimeoutError,
   IntegrationValidationError,
 } from "../errors";
+import { categorizeOneCHealthError } from "../providers/one-c/one-c-health-check";
 import { createPartnerLookupService } from "../services";
 import { getOneCEnv } from "../../../lib/env";
 
@@ -71,8 +72,21 @@ export async function searchOneCPartnersAction(input: {
       result.items.map(toActionDto),
     );
   } catch (error) {
+    const errorCategory = categorizeOneCHealthError(error);
+    console.error({
+      event: "one_c_partner_search_action_failed",
+      errorCategory,
+      message: actionFailureMessage(errorCategory),
+    });
     return integrationFailure(error);
   }
+}
+
+function actionFailureMessage(errorCategory: ReturnType<typeof categorizeOneCHealthError>): string {
+  if (errorCategory === "timeout") return "1C partner search timed out.";
+  if (errorCategory === "transport") return "1C partner search transport failed.";
+  if (errorCategory === "invalid_envelope" || errorCategory === "invalid_json") return "1C partner search response was invalid.";
+  return "1C partner search failed.";
 }
 
 export async function getOneCPartnerContractsAction(input: { partnerReference?: string | null }): Promise<ActionResult<PartnerContractActionDto[]>> {

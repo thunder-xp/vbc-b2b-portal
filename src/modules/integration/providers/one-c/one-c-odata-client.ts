@@ -11,6 +11,15 @@ export type OneCODataClientConfig = {
   requestTimeoutMs: number;
 };
 
+export type OneCODataProbeResult = {
+  statusCode: number;
+  contentType: string | null;
+  durationMs: number;
+  hostname: string;
+  jsonParsed: boolean;
+  payload: unknown;
+};
+
 export class OneCODataFilterUnsupportedError extends Error {
   constructor() {
     super("1C OData rejected the requested filter.");
@@ -22,6 +31,27 @@ export class OneCODataClient {
   constructor(private readonly config: OneCODataClientConfig) {}
 
   async get(resource: string, params: Record<string, string> = {}): Promise<unknown> {
+    const result = await this.probe(resource, params);
+
+    if (result.statusCode === 400) {
+      throw new OneCODataFilterUnsupportedError();
+    }
+
+    if (result.statusCode < 200 || result.statusCode >= 300) {
+      throw new IntegrationProviderUnavailableError("1C OData request failed.");
+    }
+
+    if (!result.jsonParsed) {
+      throw new IntegrationValidationError("1C returned invalid JSON.");
+    }
+
+    return result.payload;
+  }
+
+  async probe(
+    resource: string,
+    params: Record<string, string> = {},
+  ): Promise<OneCODataProbeResult> {
     const { baseUrl, username, password } = this.config;
     if (!baseUrl || !username || !password) {
       throw new IntegrationProviderUnavailableError("1C OData is not configured.");
@@ -31,6 +61,7 @@ export class OneCODataClient {
     Object.entries(params).forEach(([key, value]) => url.searchParams.set(key, value));
 
     let response: Response;
+    const startedAt = performance.now();
     try {
       response = await fetch(url, {
         method: "GET",
@@ -47,18 +78,24 @@ export class OneCODataClient {
       throw new IntegrationProviderUnavailableError("1C OData is unavailable.");
     }
 
-    if (response.status === 400) {
-      throw new OneCODataFilterUnsupportedError();
-    }
-
-    if (!response.ok) {
-      throw new IntegrationProviderUnavailableError("1C OData request failed.");
-    }
-
     try {
-      return await response.json();
+      return {
+        statusCode: response.status,
+        contentType: response.headers?.get?.("content-type") ?? null,
+        durationMs: Math.round(performance.now() - startedAt),
+        hostname: url.hostname,
+        jsonParsed: true,
+        payload: await response.json(),
+      };
     } catch {
-      throw new IntegrationValidationError("1C returned invalid JSON.");
+      return {
+        statusCode: response.status,
+        contentType: response.headers?.get?.("content-type") ?? null,
+        durationMs: Math.round(performance.now() - startedAt),
+        hostname: url.hostname,
+        jsonParsed: false,
+        payload: null,
+      };
     }
   }
 }
