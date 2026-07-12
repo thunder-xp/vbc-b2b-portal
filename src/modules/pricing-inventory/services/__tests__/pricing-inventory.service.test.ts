@@ -57,8 +57,28 @@ describe("DefaultPricingInventoryService", () => {
     const service = new DefaultPricingInventoryService(new FakePricingInventoryRepository([makePrice(null, 45.81, goldPriceType, "999"), makePrice(null, 39.2, RETAIL_PRICE_TYPE_EXTERNAL_REF, "MDL")]), new FakeCompanyAccessService(), new FakePermissionService());
     const [result] = await service.getProductCommercialViews("user-1", ["product-1"]);
     expect(result.partnerPrice).toMatchObject({ currencyCode: "USD", formattedAmount: "$45.81" });
-    expect(result.retailPrice).toMatchObject({ currencyCode: "MDL", formattedAmount: "39.20 MDL" });
+    expect(result.retailPrice).toMatchObject({ currencyCode: "MDL", formattedAmount: "39,20 MDL" });
     expect(result.retailBelowPartnerPrice).toBe(true);
+  });
+
+  it("renders a resolved production RETAIL currency code 498 as Moldovan leu", async () => {
+    const service = new DefaultPricingInventoryService(
+      new FakePricingInventoryRepository([
+        makePrice(null, 97.44, goldPriceType, "999"),
+        makePrice(null, 2399, RETAIL_PRICE_TYPE_EXTERNAL_REF, "498"),
+      ]),
+      new FakeCompanyAccessService(),
+      new FakePermissionService(),
+    );
+
+    const [result] = await service.getProductCommercialViews("user-1", ["product-1"]);
+
+    expect(result.partnerPrice?.formattedAmount).toBe("$97.44");
+    expect(result.retailPrice).toMatchObject({
+      amount: 2399,
+      currencyCode: "MDL",
+      formattedAmount: "2\u00a0399,00 MDL",
+    });
   });
 
   it("maps stock quantities to visible service-owned stock statuses", async () => {

@@ -46,10 +46,10 @@ create table if not exists public.stock_warehouse_sync_stage (
   organization_ref text, is_active boolean not null, primary key(sync_id, external_ref)
 );
 create table if not exists public.stock_balance_sync_stage (
-  sync_id uuid not null, balance_kind text not null check (balance_kind in ('physical','reserved','incoming')),
+  sync_id uuid not null, balance_kind text not null check (balance_kind in ('physical','reserved','incoming')), source_page integer not null,
   external_product_ref text not null, external_warehouse_ref text not null,
   external_characteristic_ref text not null, quantity numeric(14,3) not null,
-  primary key(sync_id, balance_kind, external_product_ref, external_warehouse_ref, external_characteristic_ref)
+  primary key(sync_id, balance_kind, source_page, external_product_ref, external_warehouse_ref, external_characteristic_ref)
 );
 
 alter table public.stock_warehouses enable row level security;
@@ -63,10 +63,13 @@ grant select,insert,update,delete on public.stock_warehouses, public.product_sto
 drop policy if exists "Approved users read published stock totals" on public.product_stock_totals;
 create policy "Approved users read published stock totals" on public.product_stock_totals for select to authenticated using (is_published and public.can_select_product_commercial_data(product_id, null, 'stock.view'));
 
-create or replace function public.stage_stock_balance_rows(p_sync_id uuid, p_kind text, p_rows jsonb)
+create or replace function public.stage_stock_balance_rows(p_sync_id uuid, p_kind text, p_source_page integer, p_rows jsonb)
 returns integer language plpgsql security invoker set search_path=public as $$
 declare v_count integer;
 begin
+  delete from public.stock_balance_sync_stage
+  where sync_id=p_sync_id and balance_kind=p_kind and source_page=p_source_page;
+
   with source as (
     select row.external_product_ref, row.external_warehouse_ref, row.external_characteristic_ref, row.quantity
     from jsonb_to_recordset(p_rows) row(external_product_ref text, external_warehouse_ref text, external_characteristic_ref text, quantity numeric)
@@ -74,10 +77,8 @@ begin
     select external_product_ref, external_warehouse_ref, external_characteristic_ref, sum(quantity) quantity
     from source group by external_product_ref, external_warehouse_ref, external_characteristic_ref
   )
-  insert into public.stock_balance_sync_stage as current(sync_id,balance_kind,external_product_ref,external_warehouse_ref,external_characteristic_ref,quantity)
-  select p_sync_id,p_kind,external_product_ref,external_warehouse_ref,external_characteristic_ref,quantity from aggregated
-  on conflict(sync_id,balance_kind,external_product_ref,external_warehouse_ref,external_characteristic_ref)
-  do update set quantity=current.quantity+excluded.quantity;
+  insert into public.stock_balance_sync_stage(sync_id,balance_kind,source_page,external_product_ref,external_warehouse_ref,external_characteristic_ref,quantity)
+  select p_sync_id,p_kind,p_source_page,external_product_ref,external_warehouse_ref,external_characteristic_ref,quantity from aggregated;
   get diagnostics v_count=row_count; return v_count;
 end $$;
 
@@ -96,7 +97,7 @@ begin
  if not exists(select 1 from public.stock_sync_state where id='exact_stock' and active_sync_id=p_sync_id and scan_complete) then raise exception 'stock sync incomplete'; end if;
  insert into public.stock_warehouses(external_ref,code,name,organization_ref,public_included,is_active,updated_at)
  select s.external_ref,s.code,s.name,s.organization_ref,
-   case when lower(s.name)='depozit principal chisinau' then true else coalesce(w.public_included,false) end,
+   case when s.external_ref='86197770-0aac-431a-aad6-8e7099029bbb' then true else coalesce(w.public_included,false) end,
    s.is_active,now() from public.stock_warehouse_sync_stage s
  left join public.stock_warehouses w on w.external_ref=s.external_ref where s.sync_id=p_sync_id
  on conflict(external_ref) do update set code=excluded.code,name=excluded.name,organization_ref=excluded.organization_ref,is_active=excluded.is_active,updated_at=now();
@@ -104,11 +105,15 @@ begin
  select count(distinct s.external_product_ref) into unmatched_count from public.stock_balance_sync_stage s left join public.catalog_products p on p.external_1c_id=s.external_product_ref where s.sync_id=p_sync_id and p.id is null;
  select count(distinct p.id) into matched_count from public.stock_balance_sync_stage s join public.catalog_products p on p.external_1c_id=s.external_product_ref where s.sync_id=p_sync_id;
 
- with keys as (select distinct external_product_ref,external_warehouse_ref,external_characteristic_ref from public.stock_balance_sync_stage where sync_id=p_sync_id), merged as (
+ with staged as (
+   select balance_kind,external_product_ref,external_warehouse_ref,external_characteristic_ref,sum(quantity) quantity
+   from public.stock_balance_sync_stage where sync_id=p_sync_id
+   group by balance_kind,external_product_ref,external_warehouse_ref,external_characteristic_ref
+ ), keys as (select distinct external_product_ref,external_warehouse_ref,external_characteristic_ref from staged), merged as (
    select k.*,coalesce(p.quantity,0) physical,coalesce(r.quantity,0) reserved,coalesce(i.quantity,0) incoming
-   from keys k left join public.stock_balance_sync_stage p on p.sync_id=p_sync_id and p.balance_kind='physical' and (p.external_product_ref,p.external_warehouse_ref,p.external_characteristic_ref)=(k.external_product_ref,k.external_warehouse_ref,k.external_characteristic_ref)
-   left join public.stock_balance_sync_stage r on r.sync_id=p_sync_id and r.balance_kind='reserved' and (r.external_product_ref,r.external_warehouse_ref,r.external_characteristic_ref)=(k.external_product_ref,k.external_warehouse_ref,k.external_characteristic_ref)
-   left join public.stock_balance_sync_stage i on i.sync_id=p_sync_id and i.balance_kind='incoming' and (i.external_product_ref,i.external_warehouse_ref,i.external_characteristic_ref)=(k.external_product_ref,k.external_warehouse_ref,k.external_characteristic_ref)
+   from keys k left join staged p on p.balance_kind='physical' and (p.external_product_ref,p.external_warehouse_ref,p.external_characteristic_ref)=(k.external_product_ref,k.external_warehouse_ref,k.external_characteristic_ref)
+   left join staged r on r.balance_kind='reserved' and (r.external_product_ref,r.external_warehouse_ref,r.external_characteristic_ref)=(k.external_product_ref,k.external_warehouse_ref,k.external_characteristic_ref)
+   left join staged i on i.balance_kind='incoming' and (i.external_product_ref,i.external_warehouse_ref,i.external_characteristic_ref)=(k.external_product_ref,k.external_warehouse_ref,k.external_characteristic_ref)
  )
  insert into public.product_stock_balances(product_id,warehouse_id,warehouse_name,external_characteristic_ref,physical_quantity,reserved_quantity,available_quantity,incoming_quantity,updated_from_1c_at,synced_at,last_seen_sync_id,is_published,is_active)
  select cp.id,w.id,w.name,m.external_characteristic_ref,m.physical,m.reserved,greatest(0,m.physical-m.reserved),m.incoming,now(),now(),p_sync_id,true,true
@@ -134,5 +139,5 @@ begin
  return jsonb_build_object('published',published_count,'deactivated',deactivated_count,'matched',matched_count,'unmatched',unmatched_count);
 end $$;
 
-revoke all on function public.stage_stock_balance_rows(uuid,text,jsonb), public.claim_stock_sync_chunk(uuid,uuid), public.publish_exact_stock_snapshot(uuid) from public,anon,authenticated;
-grant execute on function public.stage_stock_balance_rows(uuid,text,jsonb), public.claim_stock_sync_chunk(uuid,uuid), public.publish_exact_stock_snapshot(uuid) to service_role;
+revoke all on function public.stage_stock_balance_rows(uuid,text,integer,jsonb), public.claim_stock_sync_chunk(uuid,uuid), public.publish_exact_stock_snapshot(uuid) from public,anon,authenticated;
+grant execute on function public.stage_stock_balance_rows(uuid,text,integer,jsonb), public.claim_stock_sync_chunk(uuid,uuid), public.publish_exact_stock_snapshot(uuid) to service_role;

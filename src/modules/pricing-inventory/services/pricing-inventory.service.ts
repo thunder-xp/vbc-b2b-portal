@@ -197,7 +197,21 @@ function toPriceView(price: ProductPrice): ProductPriceViewDto {
   };
 }
 
-function formatPrice(amount: number, currencyCode: string): string { if (currencyCode === "USD") return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount); return `${new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount)} ${currencyCode}`; }
+function formatPrice(amount: number, currencyCode: string): string {
+  if (currencyCode === "USD") {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(amount);
+  }
+
+  return `${new Intl.NumberFormat("ru-RU", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(amount)} ${currencyCode}`;
+}
 
 function stockAvailabilityForProduct(stockBalances: ProductStockTotal[], productId: string): ProductStockViewDto {
   const total = stockBalances.find((item) => item.productId === productId);
