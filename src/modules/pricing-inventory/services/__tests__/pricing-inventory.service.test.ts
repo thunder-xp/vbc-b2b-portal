@@ -105,10 +105,11 @@ describe("DefaultPricingInventoryService", () => {
       "in_stock",
       "low_stock",
       "out_of_stock",
-      "expected",
+      "out_of_stock",
     ]);
     expect(result[0]?.stock?.exactAvailableQuantity).toBe(24);
     expect(result[3]?.stock?.exactIncomingQuantity).toBe(10);
+    expect(result[3]?.stock?.expectedArrival).toBeNull();
   });
 });
 

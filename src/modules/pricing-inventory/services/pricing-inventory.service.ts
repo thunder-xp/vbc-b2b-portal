@@ -27,6 +27,11 @@ export type ProductStockViewDto = {
   exactPhysicalQuantity: number | null;
   exactReservedQuantity: number | null;
   exactIncomingQuantity: number | null;
+  expectedArrival: {
+    expectedQuantity: number | null;
+    expectedDate: string | null;
+    sourceStatus: "confirmed_supply";
+  } | null;
   hasVariantStock: boolean;
   lastUpdatedAt: string | null;
 };
@@ -223,11 +228,13 @@ function stockAvailabilityForProduct(stockBalances: ProductStockTotal[], product
       exactPhysicalQuantity: null,
       exactReservedQuantity: null,
       exactIncomingQuantity: null,
+      expectedArrival: null,
       hasVariantStock: false,
       lastUpdatedAt: null,
     };
   }
-  const common={exactAvailableQuantity:total.availableQuantity,exactPhysicalQuantity:total.physicalQuantity,exactReservedQuantity:total.reservedQuantity,exactIncomingQuantity:total.incomingQuantity,hasVariantStock:total.hasVariantStock,lastUpdatedAt:total.syncedAt};
+  const common={exactAvailableQuantity:total.availableQuantity,exactPhysicalQuantity:total.physicalQuantity,exactReservedQuantity:total.reservedQuantity,exactIncomingQuantity:total.incomingQuantity,expectedArrival:null,hasVariantStock:total.hasVariantStock,lastUpdatedAt:total.syncedAt};
+  if(total.availableQuantity===0)return{status:"out_of_stock",label:"\u041d\u0435\u0442 \u0432 \u043d\u0430\u043b\u0438\u0447\u0438\u0438",...common};
   if(total.availableQuantity>LOW_STOCK_THRESHOLD)return{status:"in_stock",label:`В наличии: ${formatQuantity(total.availableQuantity)} шт.`,...common};
   if(total.availableQuantity>0)return{status:"low_stock",label:`Осталось: ${formatQuantity(total.availableQuantity)} шт.`,...common};
   if(total.incomingQuantity>0)return{status:"expected",label:"Ожидается",...common};
@@ -281,7 +288,7 @@ const demoCommercialViews = new Map<string, DemoCommercialViewSource>([
       stock: {
         status: "in_stock",
         label: "Demo availability: In Stock: 24 available",
-        exactAvailableQuantity: 24, exactPhysicalQuantity:24, exactReservedQuantity:0, exactIncomingQuantity:0, hasVariantStock:false,
+        exactAvailableQuantity: 24, exactPhysicalQuantity:24, exactReservedQuantity:0, exactIncomingQuantity:0, expectedArrival:null, hasVariantStock:false,
         lastUpdatedAt: demoNow,
       },
     },
@@ -297,7 +304,7 @@ const demoCommercialViews = new Map<string, DemoCommercialViewSource>([
       stock: {
         status: "low_stock",
         label: "Demo availability: Low Stock: 2 available",
-        exactAvailableQuantity:2,exactPhysicalQuantity:2,exactReservedQuantity:0,exactIncomingQuantity:0,hasVariantStock:false,
+        exactAvailableQuantity:2,exactPhysicalQuantity:2,exactReservedQuantity:0,exactIncomingQuantity:0,expectedArrival:null,hasVariantStock:false,
         lastUpdatedAt: demoNow,
       },
     },
@@ -313,7 +320,7 @@ const demoCommercialViews = new Map<string, DemoCommercialViewSource>([
       stock: {
         status: "expected",
         label: "Demo availability: Expected: 10",
-        exactAvailableQuantity:0,exactPhysicalQuantity:0,exactReservedQuantity:0,exactIncomingQuantity:10,hasVariantStock:false,
+        exactAvailableQuantity:0,exactPhysicalQuantity:0,exactReservedQuantity:0,exactIncomingQuantity:10,expectedArrival:null,hasVariantStock:false,
         lastUpdatedAt: demoNow,
       },
     },
