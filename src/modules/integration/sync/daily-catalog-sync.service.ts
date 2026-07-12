@@ -4,6 +4,12 @@ import type { CatalogSnapshotWriter, CatalogSyncState } from "./catalog-snapshot
 
 export type DailyCatalogSyncResult = { state: CatalogSyncState; skippedBecauseRunning: boolean };
 
+export class CatalogEmptySubtreeError extends Error {
+  readonly failedStage = "subtree_resolution";
+  readonly errorCategory = "empty_subtree";
+  constructor() { super("Resolved catalog subtree is empty."); this.name = "CatalogEmptySubtreeError"; }
+}
+
 export class DailyCatalogSyncService {
   constructor(
     private readonly provider: Pick<OneCNomenclatureODataProvider, "fetchFullSnapshot">,
@@ -22,6 +28,7 @@ export class DailyCatalogSyncService {
       log({ event: "catalog_root_discovery_started", stage });
       const snapshot = await this.provider.fetchFullSnapshot((pageNumber, rowCount) => log({ event: "catalog_page_processed", stage: "nomenclature_scan", pageNumber, rowCount }));
       log({ event: "catalog_root_discovery_completed", stage, folderCount: snapshot.categories.length, productCount: snapshot.products.length });
+      if (snapshot.pagesProcessed > 0 && snapshot.categories.length === 0 && snapshot.products.length === 0) throw new CatalogEmptySubtreeError();
       stage = "batch_persistence";
       const writeResult = await this.writer.writeSnapshot(snapshot, syncId);
       const finishedAt = new Date().toISOString();
@@ -32,8 +39,9 @@ export class DailyCatalogSyncService {
     } catch (error) {
       const finishedAt = new Date().toISOString();
       const errorCategory = safeErrorCategory(error);
-      await this.writer.markFailed(syncId, errorCategory, stage, startedAt, finishedAt);
-      log({ event: "catalog_daily_sync_failed", stage, errorCategory });
+      const failedStage = safeFailedStage(error, stage);
+      await this.writer.markFailed(syncId, errorCategory, failedStage, startedAt, finishedAt);
+      log({ event: "catalog_daily_sync_failed", stage: failedStage, errorCategory });
       return { state: await this.writer.getState(), skippedBecauseRunning: false };
     }
   }
@@ -41,6 +49,8 @@ export class DailyCatalogSyncService {
 
 type SafeCatalogSyncEvent = { event: string; stage: string; pageNumber?: number; rowCount?: number; folderCount?: number; productCount?: number; errorCategory?: string };
 function log(event: SafeCatalogSyncEvent) { if (event.event === "catalog_daily_sync_failed") console.error(event); else console.info(event); }
-function safeErrorCategory(error: unknown): string { return error instanceof Error ? error.name : "unknown_error"; }
+function safeErrorCategory(error: unknown): string { return hasStringProperty(error, "errorCategory") ? error.errorCategory : error instanceof Error ? error.name : "unknown_error"; }
+function safeFailedStage(error: unknown, fallback: string): string { return hasStringProperty(error, "failedStage") ? error.failedStage : fallback; }
+function hasStringProperty(value: unknown, key: string): value is Record<string, string> { return typeof value === "object" && value !== null && typeof (value as Record<string, unknown>)[key] === "string"; }
 
 export type DailyCatalogSnapshot = CatalogSnapshotDTO;

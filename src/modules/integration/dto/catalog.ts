@@ -42,4 +42,28 @@ export type CatalogSnapshotDTO = {
   products: CatalogProductDTO[];
   pagesProcessed: number;
   rowsReceived: number;
+  diagnostics?: CatalogScanDiagnosticsDTO;
+};
+
+export type CatalogScanDiagnosticsDTO = {
+  totalRowsScanned: number;
+  folderRowsScanned: number;
+  productRowsScanned: number;
+  validParentReferences: number;
+  rowsWithParentEqualRoot: number;
+  directChildFolders: number;
+  directChildProducts: number;
+  descendantFoldersResolved: number;
+  descendantProductsResolved: number;
+  excludedDeleted: number;
+  excludedInvalidGuid: number;
+  excludedService: number;
+  excludedSet: number;
+  excludedEmptyName: number;
+  excludedOutsideSubtree: number;
+  accountingTypeCounts: Record<string, number>;
+  setValueCounts: { true: number; false: number; missing: number };
+  pageSize: number;
+  lastPageRowCount: number;
+  scanComplete: boolean;
 };

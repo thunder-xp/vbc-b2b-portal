@@ -14,6 +14,7 @@ export type {
   CatalogCategoryDTO,
   CatalogProductDTO,
   CatalogSnapshotDTO,
+  CatalogScanDiagnosticsDTO,
 } from "./catalog";
 export type { DocumentDTO } from "./documents";
 export type { FinanceSnapshotDTO, InvoiceDTO } from "./finance";
