@@ -2,6 +2,7 @@ export {
   DefaultPricingInventoryService,
   type PricingInventoryService,
   type ProductCommercialViewDto,
+  type ProductCommercialInternalDto,
   type ProductPriceViewDto,
   type ProductStockAvailability,
   type ProductStockViewDto,

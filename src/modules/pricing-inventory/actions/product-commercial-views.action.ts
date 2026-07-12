@@ -20,7 +20,7 @@ export async function getProductCommercialViewsAction(
         productIds.map((productId) => productId.trim()).filter(Boolean),
       );
 
-    return success("Product price and availability loaded.", commercialViews);
+    return success("Product price and availability loaded.", commercialViews.map(({ retailBelowPartnerPrice: _internalDiagnostic, ...view }) => view));
   } catch (error) {
     return failureFromError(error);
   }

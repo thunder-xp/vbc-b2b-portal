@@ -1,6 +1,7 @@
 import { IntegrationValidationError } from "../../errors";
 import { ONE_C_ZERO_GUID, parseOneCGuid, parseRequiredOneCGuid } from "./one-c-guid";
 import { OneCODataClient } from "./one-c-odata-client";
+import { normalizeOneCCurrencyCode } from "./one-c-currency";
 
 const PRICE_RESOURCE = "InformationRegister_\u0426\u0435\u043d\u044b\u041d\u043e\u043c\u0435\u043d\u043a\u043b\u0430\u0442\u0443\u0440\u044b";
 const PRICE_TYPE_RESOURCE = "Catalog_\u0412\u0438\u0434\u044b\u0426\u0435\u043d";
@@ -44,7 +45,7 @@ function mapPrice(value: unknown): PriceRegisterStageRow | null {
   return { externalProductRef, externalPriceTypeRef, externalCharacteristicRef, amount: value["\u0426\u0435\u043d\u0430"], isCurrent: value["\u0410\u043a\u0442\u0443\u0430\u043b\u044c\u043d\u043e\u0441\u0442\u044c"] === true, effectiveAt: value.Period };
 }
 function mapPriceType(value: unknown): PriceTypeStageRow | null { if (!isRecord(value)) return null; const externalRef = parseRequiredOneCGuid(value.Ref_Key); if (!externalRef) return null; return { externalRef, externalCode: text(value.Code), name: text(value.Description), currencyRef: parseRequiredOneCGuid(value["\u0412\u0430\u043b\u044e\u0442\u0430\u0426\u0435\u043d\u044b_Key"]), sourceVersion: nullableText(value.DataVersion), isActive: value.DeletionMark !== true }; }
-function mapCurrency(value: unknown): CurrencyStageRow | null { if (!isRecord(value)) return null; const externalRef = parseRequiredOneCGuid(value.Ref_Key); if (!externalRef) return null; return { externalRef, code: text(value.Code), name: text(value.Description), isActive: value.DeletionMark !== true }; }
+function mapCurrency(value: unknown): CurrencyStageRow | null { if (!isRecord(value)) return null; const externalRef = parseRequiredOneCGuid(value.Ref_Key); if (!externalRef) return null; return { externalRef, code: normalizeOneCCurrencyCode(text(value.Code)) ?? "", name: text(value.Description), isActive: value.DeletionMark !== true }; }
 function isRecord(value: unknown): value is Record<string, unknown> { return typeof value === "object" && value !== null; }
 function text(value: unknown): string { return typeof value === "string" ? value.trim() : ""; }
 function nullableText(value: unknown): string | null { return text(value) || null; }

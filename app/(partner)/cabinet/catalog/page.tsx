@@ -100,7 +100,6 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
               <ProductGrid
                 capabilities={workspaceContextResult.success ? workspaceContextResult.data.capabilities.productCard : RESTRICTED_PRODUCT_CARD_CAPABILITIES}
                 commercialViews={commercialViews}
-                priceTypeName={workspaceContextResult.success ? workspaceContextResult.data.priceTypeName : null}
                 products={productsResult.data.products}
               />
               <CatalogPagination

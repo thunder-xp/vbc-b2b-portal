@@ -12,6 +12,7 @@ import {
   type CompanyMembership,
 } from "../../../access-control/types";
 import { DefaultPricingInventoryService } from "../pricing-inventory.service";
+import { RETAIL_PRICE_TYPE_EXTERNAL_REF } from "../pricing-inventory.service";
 import type {
   ListProductPricesInput,
   PricingInventoryRepository,
@@ -25,9 +26,11 @@ import type { ProductPrice, ProductStockBalance } from "../../types";
 describe("DefaultPricingInventoryService", () => {
   it("loads prices through active company scope and prefers own company price", async () => {
     const repository = new FakePricingInventoryRepository([
-      makePrice("other-company", 500),
-      makePrice("company-1", 100),
-      makePrice(null, 200),
+      makePrice("other-company", 500, goldPriceType),
+      makePrice("company-1", 100, goldPriceType),
+      makePrice(null, 200, goldPriceType),
+      makePrice(null, 120, RETAIL_PRICE_TYPE_EXTERNAL_REF),
+      makePrice(null, 999, "UNRELATED"),
     ]);
     const service = new DefaultPricingInventoryService(
       repository,
@@ -39,12 +42,23 @@ describe("DefaultPricingInventoryService", () => {
       "product-1",
     ]);
 
-    expect(repository.lastPriceInput).toEqual({
+    expect(repository.lastPriceInputs).toContainEqual({
       productIds: ["product-1"],
       companyId: "company-1",
-      external1cPriceTypeId: "23cb93ec-3eb5-11f0-8d8a-7239d3b7bd5c",
+      external1cPriceTypeId: goldPriceType,
     });
-    expect(result[0]?.price?.amount).toBe(100);
+    expect(repository.lastPriceInputs).toContainEqual({ productIds: ["product-1"], companyId: "company-1", external1cPriceTypeId: RETAIL_PRICE_TYPE_EXTERNAL_REF });
+    expect(result[0]?.partnerPrice?.amount).toBe(100);
+    expect(result[0]?.retailPrice?.amount).toBe(120);
+    expect(result[0]?.retailBelowPartnerPrice).toBe(false);
+  });
+
+  it("normalizes 1C currency 999 and flags retail below partner price internally", async () => {
+    const service = new DefaultPricingInventoryService(new FakePricingInventoryRepository([makePrice(null, 45.81, goldPriceType, "999"), makePrice(null, 39.2, RETAIL_PRICE_TYPE_EXTERNAL_REF, "MDL")]), new FakeCompanyAccessService(), new FakePermissionService());
+    const [result] = await service.getProductCommercialViews("user-1", ["product-1"]);
+    expect(result.partnerPrice).toMatchObject({ currencyCode: "USD", formattedAmount: "$45.81" });
+    expect(result.retailPrice).toMatchObject({ currencyCode: "MDL", formattedAmount: "39.20 MDL" });
+    expect(result.retailBelowPartnerPrice).toBe(true);
   });
 
   it("maps stock quantities to visible service-owned stock statuses", async () => {
@@ -79,7 +93,7 @@ describe("DefaultPricingInventoryService", () => {
 });
 
 class FakePricingInventoryRepository implements PricingInventoryRepository {
-  lastPriceInput: ListProductPricesInput | null = null;
+  lastPriceInputs: ListProductPricesInput[] = [];
 
   constructor(
     private readonly prices: ProductPrice[],
@@ -89,9 +103,9 @@ class FakePricingInventoryRepository implements PricingInventoryRepository {
   async listPricesForProducts(
     input: ListProductPricesInput,
   ): Promise<ProductPrice[]> {
-    this.lastPriceInput = input;
+    this.lastPriceInputs.push(input);
     return this.prices.filter(
-      (price) => price.companyId === null || price.companyId === input.companyId,
+      (price) => (price.companyId === null || price.companyId === input.companyId) && price.external1cPriceTypeId === input.external1cPriceTypeId,
     );
   }
 
@@ -106,7 +120,7 @@ class FakePricingInventoryRepository implements PricingInventoryRepository {
   async upsertProductPrice(
     input: UpsertProductPriceInput,
   ): Promise<PricingUpsertResult<ProductPrice>> {
-    const record = makePrice(input.companyId, input.priceAmount);
+    const record = makePrice(input.companyId, input.priceAmount, input.external1cPriceTypeId);
     return { record, created: true };
   }
 
@@ -215,13 +229,14 @@ class FakePermissionService implements PermissionService {
 
 const now = "2026-07-09T00:00:00.000Z";
 
-function makePrice(companyId: string | null, amount: number): ProductPrice {
+function makePrice(companyId: string | null, amount: number, external1cPriceTypeId: string | null = "BASE", currency = "BGN"): ProductPrice {
   return {
     id: `price-${companyId ?? "generic"}`,
     productId: "product-1",
     companyId,
-    external1cPriceTypeId: "BASE",
-    currency: "BGN",
+    external1cPriceTypeId,
+    currency,
+    currencyStatus: "resolved",
     priceAmount: amount,
     validFrom: now,
     validTo: null,
@@ -230,6 +245,7 @@ function makePrice(companyId: string | null, amount: number): ProductPrice {
     updatedAt: now,
   };
 }
+const goldPriceType = "23cb93ec-3eb5-11f0-8d8a-7239d3b7bd5c";
 
 function makeStock(
   productId: string,

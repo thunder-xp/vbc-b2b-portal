@@ -3,7 +3,6 @@ import type { ProductCommercialViewDto } from "../../pricing-inventory";
 
 export type ProductCardWorkspaceContext = {
   commercialView: ProductCommercialViewDto | null;
-  priceTypeName: string | null;
   capabilities: ProductCardCapabilityModel;
   projectPriceEligible: boolean | null;
   technicalDocumentCount: number | null;

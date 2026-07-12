@@ -4,6 +4,7 @@ import type { ProductCommercialViewDto } from "../../pricing-inventory";
 import type { CatalogProductDetailDto } from "../services";
 
 import { ProductImageGallery } from "./ProductImageGallery";
+import { ProductPricingBlock } from "./ProductPricingBlock";
 
 type ProductDetailProps = {
   commercialView?: ProductCommercialViewDto;
@@ -42,12 +43,7 @@ export function ProductDetail({ commercialView, product }: ProductDetailProps) {
         </p>
 
         <section className="mt-8 grid gap-3 border-t border-zinc-200 pt-6 sm:grid-cols-2">
-          <div className="rounded-lg border border-emerald-100 bg-emerald-50 p-4">
-            <h2 className="text-sm font-semibold text-emerald-950">Price</h2>
-            <p className="mt-2 text-lg font-semibold text-emerald-800">
-              {commercialView?.price?.label ?? "Price available on request"}
-            </p>
-          </div>
+          <ProductPricingBlock commercialView={commercialView} />
           <div className={`rounded-lg border p-4 ${stockTone.panel}`}>
             <h2 className="text-sm font-semibold text-zinc-950">
               Stock Availability

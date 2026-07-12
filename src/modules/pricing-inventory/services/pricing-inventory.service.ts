@@ -5,11 +5,12 @@ import type {
 import { MembershipStatus } from "../../access-control/types";
 import type { PricingInventoryRepository } from "../repositories";
 import type { ProductPrice, ProductStockBalance } from "../types";
+import { normalizeOneCCurrencyCode } from "../../../lib/currency";
 
 export type ProductPriceViewDto = {
-  currency: string;
+  currencyCode: string | null;
   amount: number;
-  label: string;
+  formattedAmount: string | null;
 };
 
 export type ProductStockAvailability =
@@ -30,21 +31,25 @@ export type ProductStockViewDto = {
 
 export type ProductCommercialViewDto = {
   productId: string;
-  price: ProductPriceViewDto | null;
+  partnerPrice: ProductPriceViewDto | null;
+  retailPrice: ProductPriceViewDto | null;
   stock: ProductStockViewDto | null;
   isDemoData: boolean;
 };
+
+export type ProductCommercialInternalDto = ProductCommercialViewDto & { retailBelowPartnerPrice: boolean };
 
 export interface PricingInventoryService {
   getProductCommercialViews(
     userId: string,
     productIds: string[],
-  ): Promise<ProductCommercialViewDto[]>;
+  ): Promise<ProductCommercialInternalDto[]>;
 }
 
 const PRICE_PERMISSION = "prices.view";
 const STOCK_PERMISSION = "stock.view";
 const LOW_STOCK_THRESHOLD = 5;
+export const RETAIL_PRICE_TYPE_EXTERNAL_REF = "e181c772-93fc-11e9-94cb-000c2988d323";
 
 export class DefaultPricingInventoryService implements PricingInventoryService {
   constructor(
@@ -56,7 +61,7 @@ export class DefaultPricingInventoryService implements PricingInventoryService {
   async getProductCommercialViews(
     userId: string,
     productIds: string[],
-  ): Promise<ProductCommercialViewDto[]> {
+  ): Promise<ProductCommercialInternalDto[]> {
     const normalizedProductIds = normalizeProductIds(productIds);
 
     if (normalizedProductIds.length === 0) {
@@ -69,13 +74,16 @@ export class DefaultPricingInventoryService implements PricingInventoryService {
       this.permissionService.hasPermission(userId, companyId, PRICE_PERMISSION),
       this.permissionService.hasPermission(userId, companyId, STOCK_PERMISSION),
     ]);
-    const [prices, stockBalances] = await Promise.all([
+    const [partnerPrices, retailPrices, stockBalances] = await Promise.all([
       canViewPrices && company.external1cPriceTypeId
         ? this.pricingInventoryRepository.listPricesForProducts({
             productIds: normalizedProductIds,
             companyId,
             external1cPriceTypeId: company.external1cPriceTypeId ?? undefined,
           })
+        : Promise.resolve<ProductPrice[]>([]),
+      canViewPrices
+        ? this.pricingInventoryRepository.listPricesForProducts({ productIds: normalizedProductIds, companyId, external1cPriceTypeId: RETAIL_PRICE_TYPE_EXTERNAL_REF })
         : Promise.resolve<ProductPrice[]>([]),
       canViewStock
         ? this.pricingInventoryRepository.listStockForProducts(
@@ -85,26 +93,31 @@ export class DefaultPricingInventoryService implements PricingInventoryService {
     ]);
 
     return normalizedProductIds.map((productId) => {
-      const price = canViewPrices
-        ? selectPriceForProduct(prices, productId, companyId)
+      const partnerPrice = canViewPrices
+        ? selectPriceForProduct(partnerPrices, productId, companyId)
+        : null;
+      const retailPrice = canViewPrices
+        ? selectPriceForProduct(retailPrices, productId, companyId)
         : null;
       const stock = canViewStock
         ? stockAvailabilityForProduct(stockBalances, productId)
         : null;
       const demoView =
-        !price && !stock
+        !partnerPrice && !retailPrice && !stock
           ? createDemoCommercialView(productId, canViewPrices, canViewStock)
           : null;
 
       if (demoView) {
-        return demoView;
+        return { ...demoView, retailBelowPartnerPrice: false };
       }
 
       return {
         productId,
-        price: price ? toPriceView(price, false) : null,
+        partnerPrice: partnerPrice ? toPriceView(partnerPrice) : null,
+        retailPrice: retailPrice ? toPriceView(retailPrice) : null,
         stock,
         isDemoData: false,
+        retailBelowPartnerPrice: Boolean(partnerPrice && retailPrice && retailPrice.priceAmount < partnerPrice.priceAmount),
       };
     });
   }
@@ -173,24 +186,18 @@ function selectPriceForProduct(
   return productPrices[0] ?? null;
 }
 
-function toPriceView(
-  price: ProductPrice,
-  isDemoData: boolean,
-): ProductPriceViewDto {
+function toPriceView(price: ProductPrice): ProductPriceViewDto {
   const amount = price.priceAmount;
-  const formattedAmount = new Intl.NumberFormat("en", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(amount);
-  const prefix = isDemoData ? "Demo price" : "Price";
-  const currencySuffix = price.currencyStatus === "resolved" ? ` ${price.currency}` : "";
+  const currencyCode = price.currencyStatus === "resolved" ? normalizeOneCCurrencyCode(price.currency) : null;
 
   return {
-    currency: price.currency,
+    currencyCode,
     amount,
-    label: `${prefix}: ${formattedAmount}${currencySuffix}`,
+    formattedAmount: currencyCode ? formatPrice(amount, currencyCode) : null,
   };
 }
+
+function formatPrice(amount: number, currencyCode: string): string { if (currencyCode === "USD") return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount); return `${new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount)} ${currencyCode}`; }
 
 function stockAvailabilityForProduct(
   stockBalances: ProductStockBalance[],
@@ -297,7 +304,7 @@ function activeWarehouseCount(stockBalances: ProductStockBalance[]): number {
 }
 
 type DemoCommercialViewSource = {
-  price: ProductPriceViewDto;
+  partnerPrice: ProductPriceViewDto;
   stock: ProductStockViewDto;
 };
 
@@ -316,7 +323,8 @@ function createDemoCommercialView(
 
   return {
     productId,
-    price: canViewPrices ? demoView.price : null,
+    partnerPrice: canViewPrices ? demoView.partnerPrice : null,
+    retailPrice: null,
     stock: canViewStock ? demoView.stock : null,
     isDemoData: true,
   };
@@ -326,10 +334,10 @@ const demoCommercialViews = new Map<string, DemoCommercialViewSource>([
   [
     "demo-product-dome-camera",
     {
-      price: {
-        currency: "BGN",
+      partnerPrice: {
+        currencyCode: "BGN",
         amount: 100,
-        label: "Demo price: 100.00 BGN",
+        formattedAmount: "100.00 BGN",
       },
       stock: {
         status: "in_stock",
@@ -345,10 +353,10 @@ const demoCommercialViews = new Map<string, DemoCommercialViewSource>([
   [
     "demo-product-controller",
     {
-      price: {
-        currency: "BGN",
+      partnerPrice: {
+        currencyCode: "BGN",
         amount: 150,
-        label: "Demo price: 150.00 BGN",
+        formattedAmount: "150.00 BGN",
       },
       stock: {
         status: "low_stock",
@@ -364,10 +372,10 @@ const demoCommercialViews = new Map<string, DemoCommercialViewSource>([
   [
     "demo-product-poe-switch",
     {
-      price: {
-        currency: "BGN",
+      partnerPrice: {
+        currencyCode: "BGN",
         amount: 200,
-        label: "Demo price: 200.00 BGN",
+        formattedAmount: "200.00 BGN",
       },
       stock: {
         status: "expected",
