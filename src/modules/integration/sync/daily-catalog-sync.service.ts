@@ -1,6 +1,7 @@
 import type { CatalogSnapshotDTO } from "../dto";
 import type { OneCNomenclatureODataProvider } from "../providers/one-c";
 import type { CatalogSnapshotWriter, CatalogSyncState } from "./catalog-snapshot-writer";
+import { CatalogPersistenceError } from "./catalog-persistence-error";
 
 export type DailyCatalogSyncResult = { state: CatalogSyncState; skippedBecauseRunning: boolean };
 
@@ -40,14 +41,15 @@ export class DailyCatalogSyncService {
       const finishedAt = new Date().toISOString();
       const errorCategory = safeErrorCategory(error);
       const failedStage = safeFailedStage(error, stage);
-      await this.writer.markFailed(syncId, errorCategory, failedStage, startedAt, finishedAt);
-      log({ event: "catalog_daily_sync_failed", stage: failedStage, errorCategory });
+      if (error instanceof CatalogPersistenceError) await this.writer.markFailed(syncId, errorCategory, failedStage, startedAt, finishedAt, error.metadata);
+      else await this.writer.markFailed(syncId, errorCategory, failedStage, startedAt, finishedAt);
+      log({ event: "catalog_daily_sync_failed", stage: failedStage, errorCategory, ...(error instanceof CatalogPersistenceError ? { databaseErrorCode: error.metadata.code ?? undefined, databaseConstraint: error.metadata.constraint ?? undefined, failedBatch: error.metadata.batchIndex ?? undefined } : {}) });
       return { state: await this.writer.getState(), skippedBecauseRunning: false };
     }
   }
 }
 
-type SafeCatalogSyncEvent = { event: string; stage: string; pageNumber?: number; rowCount?: number; folderCount?: number; productCount?: number; errorCategory?: string };
+type SafeCatalogSyncEvent = { event: string; stage: string; pageNumber?: number; rowCount?: number; folderCount?: number; productCount?: number; errorCategory?: string; databaseErrorCode?: string; databaseConstraint?: string; failedBatch?: number };
 function log(event: SafeCatalogSyncEvent) { if (event.event === "catalog_daily_sync_failed") console.error(event); else console.info(event); }
 function safeErrorCategory(error: unknown): string { return hasStringProperty(error, "errorCategory") ? error.errorCategory : error instanceof Error ? error.name : "unknown_error"; }
 function safeFailedStage(error: unknown, fallback: string): string { return hasStringProperty(error, "failedStage") ? error.failedStage : fallback; }

@@ -4,6 +4,8 @@ export type {
 } from "./catalog-sync-engine";
 export { DefaultCatalogSyncEngine } from "./catalog-sync-engine";
 export { SupabaseCatalogSnapshotWriter, type CatalogSnapshotWriter, type CatalogSnapshotWriteResult, type CatalogSyncState } from "./catalog-snapshot-writer";
+export { normalizeCatalogAttributes, DuplicateCatalogAttributeKeysError, type CatalogAttributeNormalizationResult, type CatalogAttributePersistenceRow, type CatalogAttributeSourceRow } from "./catalog-attribute-publication";
+export { CatalogPersistenceError, catalogPersistenceError, type CatalogPersistenceErrorMetadata } from "./catalog-persistence-error";
 export { CATALOG_SYNC_CRON, CATALOG_SYNC_INTERVAL_HOURS } from "./catalog-schedule";
 export { DailyCatalogSyncService, type DailyCatalogSyncResult } from "./daily-catalog-sync.service";
 export type { PriceSyncReport, PriceSyncReportStatus } from "./price-sync-engine";

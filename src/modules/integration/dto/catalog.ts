@@ -97,6 +97,12 @@ export type CatalogScanDiagnosticsDTO = {
   attributeRowsReceived?: number;
   attributeRowsUpserted?: number;
   attributeRowsRemoved?: number;
+  attributeUniquePairs?: number;
+  attributeDuplicatePairs?: number;
+  attributeMultiValueMerges?: number;
+  attributeBatchesStaged?: number;
+  attributeRowsPublished?: number;
+  attributePublicationTransactionSucceeded?: boolean;
   filterableAttributeRows?: number;
   referenceValuesDetected?: number;
   referenceValuesResolved?: number;
