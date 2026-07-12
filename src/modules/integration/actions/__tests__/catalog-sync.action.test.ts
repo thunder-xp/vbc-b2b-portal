@@ -17,12 +17,17 @@ const mocks = vi.hoisted(() => ({
   createCatalogSyncStateReader: vi.fn(),
   createPartnerLookupService: vi.fn(),
   createPriceSyncEngine: vi.fn(),
+  createChunkedPriceSyncService: vi.fn(),
   createStockSyncEngine: vi.fn(),
   searchPartners: vi.fn(),
   syncCatalog: vi.fn(),
   syncPrices: vi.fn(),
+  startPriceSync: vi.fn(),
   syncStock: vi.fn(),
 }));
+
+vi.mock("next/server", () => ({ after: vi.fn() }));
+vi.mock("next/headers", () => ({ headers: vi.fn(async () => new Headers({ host: "portal.example", "x-forwarded-proto": "https" })) }));
 
 vi.mock("../../../../lib/env", () => ({
   getOneCEnv: mocks.getOneCEnv,
@@ -38,6 +43,7 @@ vi.mock("../../services", () => ({
   createCatalogSyncStateReader: mocks.createCatalogSyncStateReader,
   createPartnerLookupService: mocks.createPartnerLookupService,
   createPriceSyncEngine: mocks.createPriceSyncEngine,
+  createChunkedPriceSyncService: mocks.createChunkedPriceSyncService,
   createStockSyncEngine: mocks.createStockSyncEngine,
 }));
 
@@ -59,6 +65,9 @@ describe("syncCatalogFromOneCAction", () => {
     });
     mocks.createPriceSyncEngine.mockReturnValue({
       syncPrices: mocks.syncPrices,
+    });
+    mocks.createChunkedPriceSyncService.mockReturnValue({
+      start: mocks.startPriceSync,
     });
     mocks.createPartnerLookupService.mockReturnValue({
       searchPartners: mocks.searchPartners,
@@ -122,6 +131,7 @@ describe("syncCatalogFromOneCAction", () => {
       errors: [],
       warnings: [],
     });
+    mocks.startPriceSync.mockResolvedValue({ started: true, state: { status: "queued", activeSyncId: "11111111-1111-4111-8111-111111111111" } });
     mocks.syncStock.mockResolvedValue({
       provider: "one-c",
       target: "inventory",
@@ -253,7 +263,7 @@ describe("syncCatalogFromOneCAction", () => {
       success: false,
       errorCode: "AUTH_REQUIRED",
     });
-    expect(mocks.syncPrices).not.toHaveBeenCalled();
+    expect(mocks.startPriceSync).not.toHaveBeenCalled();
   });
 
   it("rejects partner users from price sync", async () => {
@@ -263,7 +273,7 @@ describe("syncCatalogFromOneCAction", () => {
       success: false,
       errorCode: "FORBIDDEN",
     });
-    expect(mocks.syncPrices).not.toHaveBeenCalled();
+    expect(mocks.startPriceSync).not.toHaveBeenCalled();
   });
 
   it("runs price sync for active internal admins", async () => {
@@ -272,12 +282,10 @@ describe("syncCatalogFromOneCAction", () => {
     expect(result).toMatchObject({
       success: true,
       data: {
-        provider: "one-c",
-        target: "pricing",
-        status: "succeeded",
+        status: "queued",
       },
     });
-    expect(mocks.syncPrices).toHaveBeenCalledOnce();
+    expect(mocks.startPriceSync).toHaveBeenCalledOnce();
   });
 
   it("returns a safe stock sync error when unauthenticated", async () => {

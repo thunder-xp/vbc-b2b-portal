@@ -9,5 +9,5 @@ export {
   type PartnerPriceTypeActionDto,
   type PartnerSearchResultActionDto,
 } from "./partner-search.action";
-export { syncPricesFromOneCAction } from "./price-sync.action";
+export { syncPricesFromOneCAction, getPriceSyncStateAction } from "./price-sync.action";
 export { syncStockFromOneCAction } from "./stock-sync.action";

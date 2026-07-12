@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { getDailyCatalogSyncStateAction, runDailyCatalogSyncAction, syncPricesFromOneCAction, syncStockFromOneCAction } from "../actions";
-import type { CatalogSyncState, PriceSyncReport, StockSyncReport } from "../sync";
+import { getDailyCatalogSyncStateAction, getPriceSyncStateAction, runDailyCatalogSyncAction, syncPricesFromOneCAction, syncStockFromOneCAction } from "../actions";
+import type { CatalogSyncState, PriceSyncState, StockSyncReport } from "../sync";
 
 export function CatalogSyncPanel() {
   const [catalogPending, startCatalog] = useTransition();
@@ -10,13 +10,15 @@ export function CatalogSyncPanel() {
   const [stockPending, startStock] = useTransition();
   const [state, setState] = useState<CatalogSyncState | null>(null);
   const [catalogMessage, setCatalogMessage] = useState<string | null>(null);
-  const [priceReport, setPriceReport] = useState<PriceSyncReport | null>(null);
+  const [priceState, setPriceState] = useState<PriceSyncState | null>(null);
   const [stockReport, setStockReport] = useState<StockSyncReport | null>(null);
 
-  useEffect(() => { void reloadState(); }, []);
+  useEffect(() => { void reloadState(); void reloadPriceState(); }, []);
+  useEffect(() => { if (!priceState || !["queued", "running"].includes(priceState.status)) return; const timer = window.setInterval(() => void reloadPriceState(), 3000); return () => window.clearInterval(timer); }, [priceState?.status]);
   async function reloadState() { const result = await getDailyCatalogSyncStateAction(); if (result.success) setState(result.data); }
+  async function reloadPriceState() { const result = await getPriceSyncStateAction(); if (result.success) setPriceState(result.data); }
   function runCatalog() { if (catalogPending) return; startCatalog(async () => { const result = await runDailyCatalogSyncAction(); setCatalogMessage(result.message); if (result.success) setState(result.data); else await reloadState(); }); }
-  function runPrices() { if (pricePending) return; startPrice(async () => { const result = await syncPricesFromOneCAction(); setPriceReport(result.success ? result.data : null); }); }
+  function runPrices() { if (pricePending) return; startPrice(async () => { const result = await syncPricesFromOneCAction(); if (result.success) setPriceState(result.data); }); }
   function runStock() { if (stockPending) return; startStock(async () => { const result = await syncStockFromOneCAction(); setStockReport(result.success ? result.data : null); }); }
 
   return <div className="space-y-6">
@@ -26,8 +28,8 @@ export function CatalogSyncPanel() {
       {state ? <CatalogStateView state={state} /> : <p className="text-sm text-slate-500">Loading synchronization status...</p>}
     </SyncSection>
     <SyncSection title="Partner prices" description="Обновляет цены из 1С для доступных типов цен.">
-      <ActionButton pending={pricePending} onClick={runPrices}>Run price sync now</ActionButton>
-      <Report rows={priceReport ? [["Last price sync status", priceReport.status], ["Rows received", priceReport.pricesReceived], ["Rows upserted", priceReport.pricesCreated + priceReport.pricesUpdated], ["Rows failed", priceReport.failed]] : []} />
+      <div className="flex flex-wrap gap-2"><ActionButton pending={pricePending} onClick={runPrices}>Run price sync now</ActionButton><ActionButton pending={pricePending} secondary onClick={runPrices}>Retry failed price sync</ActionButton></div>
+      <Report rows={priceState ? [["Status", priceState.status], ["Current stage", priceState.currentStage ?? "-"], ["Started", priceState.startedAt ?? "Never"], ["Last successful run", priceState.lastSuccessfulSyncAt ?? "Never"], ["Pages processed", priceState.pagesProcessed], ["Rows scanned", priceState.rowsScanned], ["Rows staged", priceState.rowsStaged], ["Latest prices resolved", priceState.latestPricesResolved], ["Prices published", priceState.pricesPublished], ["Prices deactivated", priceState.pricesDeactivated], ["Unmatched products", priceState.unmatchedProducts], ["Unknown price types", priceState.unknownPriceTypes], ["Scan complete", String(priceState.scanComplete)], ["Safe error", priceState.errorCategory ?? "None"], ["Last update", priceState.updatedAt]] : []} />
     </SyncSection>
     <SyncSection title="Inventory and stock" description="Обновляет остатки и доступность товаров.">
       <ActionButton pending={stockPending} onClick={runStock}>Run stock sync now</ActionButton>
