@@ -7,13 +7,13 @@ const BATCH_SIZE = 200;
 const STALE_LOCK_MS = 2 * 60 * 60 * 1000;
 
 export type CatalogSnapshotWriteResult = { foldersUpserted: number; productsUpserted: number; rowsDeactivated: number };
-export type CatalogSyncState = { status: string; rootName: string | null; lastSuccessfulSyncAt: string | null; durationMs: number | null; pagesProcessed: number; foldersReceived: number; productsReceived: number; foldersUpserted: number; productsUpserted: number; rowsDeactivated: number; errorCategory: string | null; nextScheduledRun: string };
+export type CatalogSyncState = { status: string; rootName: string | null; lastSuccessfulSyncAt: string | null; durationMs: number | null; pagesProcessed: number; foldersReceived: number; productsReceived: number; foldersUpserted: number; productsUpserted: number; rowsDeactivated: number; errorCategory: string | null; failedStage: string | null; nextScheduledRun: string };
 
 export interface CatalogSnapshotWriter {
   acquireLock(syncId: string, startedAt: string): Promise<boolean>;
   writeSnapshot(snapshot: CatalogSnapshotDTO, syncId: string): Promise<CatalogSnapshotWriteResult>;
   markSucceeded(syncId: string, snapshot: CatalogSnapshotDTO, result: CatalogSnapshotWriteResult, startedAt: string, finishedAt: string): Promise<void>;
-  markFailed(syncId: string, errorCategory: string, startedAt: string, finishedAt: string): Promise<void>;
+  markFailed(syncId: string, errorCategory: string, failedStage: string, startedAt: string, finishedAt: string): Promise<void>;
   getState(): Promise<CatalogSyncState>;
 }
 
@@ -21,7 +21,7 @@ export class SupabaseCatalogSnapshotWriter implements CatalogSnapshotWriter {
   async acquireLock(syncId: string, startedAt: string): Promise<boolean> {
     const client = createAdminClient();
     const staleBefore = new Date(Date.parse(startedAt) - STALE_LOCK_MS).toISOString();
-    const { data, error: updateError } = await client.from("catalog_sync_state").update({ status: "running", active_sync_id: syncId, lock_acquired_at: startedAt, last_started_at: startedAt, error_category: null, updated_at: startedAt }).eq("id", "daily_catalog").or(`status.neq.running,lock_acquired_at.is.null,lock_acquired_at.lt.${staleBefore}`).select("id");
+    const { data, error: updateError } = await client.from("catalog_sync_state").update({ status: "running", active_sync_id: syncId, lock_acquired_at: startedAt, last_started_at: startedAt, error_category: null, failed_stage: null, updated_at: startedAt }).eq("id", "daily_catalog").or(`status.neq.running,lock_acquired_at.is.null,lock_acquired_at.lt.${staleBefore}`).select("id");
     if (updateError) throw new Error("Catalog sync lock could not be acquired.");
     return data.length === 1;
   }
@@ -54,9 +54,9 @@ export class SupabaseCatalogSnapshotWriter implements CatalogSnapshotWriter {
     return { foldersUpserted, productsUpserted, rowsDeactivated: Number(rowsDeactivated ?? 0) };
   }
 
-  async markSucceeded(syncId: string, snapshot: CatalogSnapshotDTO, result: CatalogSnapshotWriteResult, startedAt: string, finishedAt: string) { await updateState({ status: "succeeded", root_external_1c_id: snapshot.rootReference.externalId, root_name: snapshot.rootName, last_finished_at: finishedAt, last_successful_sync_at: finishedAt, duration_ms: Date.parse(finishedAt) - Date.parse(startedAt), pages_processed: snapshot.pagesProcessed, folders_received: snapshot.categories.length, products_received: snapshot.products.length, folders_upserted: result.foldersUpserted, products_upserted: result.productsUpserted, rows_deactivated: result.rowsDeactivated, error_category: null, active_sync_id: null, lock_acquired_at: null, updated_at: finishedAt }, syncId); }
-  async markFailed(syncId: string, errorCategory: string, startedAt: string, finishedAt: string) { await updateState({ status: "failed", last_finished_at: finishedAt, duration_ms: Date.parse(finishedAt) - Date.parse(startedAt), error_category: errorCategory, active_sync_id: null, lock_acquired_at: null, updated_at: finishedAt }, syncId); }
-  async getState(): Promise<CatalogSyncState> { const { data, error } = await createAdminClient().from("catalog_sync_state").select("*").eq("id", "daily_catalog").single(); if (error) throw new Error("Catalog sync state is unavailable."); return { status: data.status, rootName: data.root_name, lastSuccessfulSyncAt: data.last_successful_sync_at, durationMs: data.duration_ms, pagesProcessed: data.pages_processed, foldersReceived: data.folders_received, productsReceived: data.products_received, foldersUpserted: data.folders_upserted, productsUpserted: data.products_upserted, rowsDeactivated: data.rows_deactivated, errorCategory: data.error_category, nextScheduledRun: nextRun(data.last_successful_sync_at) }; }
+  async markSucceeded(syncId: string, snapshot: CatalogSnapshotDTO, result: CatalogSnapshotWriteResult, startedAt: string, finishedAt: string) { await updateState({ status: "succeeded", root_external_1c_id: snapshot.rootReference.externalId, root_name: snapshot.rootName, last_finished_at: finishedAt, last_successful_sync_at: finishedAt, duration_ms: Date.parse(finishedAt) - Date.parse(startedAt), pages_processed: snapshot.pagesProcessed, folders_received: snapshot.categories.length, products_received: snapshot.products.length, folders_upserted: result.foldersUpserted, products_upserted: result.productsUpserted, rows_deactivated: result.rowsDeactivated, error_category: null, failed_stage: null, active_sync_id: null, lock_acquired_at: null, updated_at: finishedAt }, syncId); }
+  async markFailed(syncId: string, errorCategory: string, failedStage: string, startedAt: string, finishedAt: string) { await updateState({ status: "failed", last_finished_at: finishedAt, duration_ms: Date.parse(finishedAt) - Date.parse(startedAt), error_category: errorCategory, failed_stage: failedStage, active_sync_id: null, lock_acquired_at: null, updated_at: finishedAt }, syncId); }
+  async getState(): Promise<CatalogSyncState> { const { data, error } = await createAdminClient().from("catalog_sync_state").select("*").eq("id", "daily_catalog").single(); if (error) throw new Error("Catalog sync state is unavailable."); return { status: data.status, rootName: data.root_name, lastSuccessfulSyncAt: data.last_successful_sync_at, durationMs: data.duration_ms, pagesProcessed: data.pages_processed, foldersReceived: data.folders_received, productsReceived: data.products_received, foldersUpserted: data.folders_upserted, productsUpserted: data.products_upserted, rowsDeactivated: data.rows_deactivated, errorCategory: data.error_category, failedStage: data.failed_stage, nextScheduledRun: nextRun(data.last_successful_sync_at) }; }
 }
 
 function parentLevels(categories: CatalogCategoryDTO[], rootId: string): CatalogCategoryDTO[][] { const pending = [...categories]; const resolved = new Set([rootId]); const levels: CatalogCategoryDTO[][] = []; while (pending.length) { const level = pending.filter((item) => !item.parentReference || resolved.has(item.parentReference.externalId)); if (!level.length) throw new Error("Catalog category hierarchy is invalid."); levels.push(level); for (const item of level) { resolved.add(item.reference.externalId); pending.splice(pending.indexOf(item), 1); } } return levels; }

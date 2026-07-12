@@ -82,7 +82,7 @@ export class DefaultCatalogSyncEngine {
           report.failed += 1;
           report.errors.push("Catalog synchronization failed.");
           finalizeReport(report, startedAtDate);
-          await this.snapshotWriter.markFailed(syncId, safeErrorCategory(error), report.startedAt, report.finishedAt);
+          await this.snapshotWriter.markFailed(syncId, safeErrorCategory(error), "legacy_snapshot_sync", report.startedAt, report.finishedAt);
           return report;
         }
       }

@@ -24,14 +24,14 @@ type NomenclatureRow = {
   isSet: boolean;
 };
 
-export class OneCNomenclatureCatalogProvider {
+export class OneCNomenclatureODataProvider {
   private readonly client: OneCODataClient;
 
   constructor(config: { baseUrl: string | null; username: string | null; password: string | null; requestTimeoutMs: number }) {
     this.client = new OneCODataClient(config);
   }
 
-  async fetchFullSnapshot(): Promise<CatalogSnapshotDTO> {
+  async fetchFullSnapshot(onPageProcessed?: (pageNumber: number, rowCount: number) => void): Promise<CatalogSnapshotDTO> {
     const rows: NomenclatureRow[] = [];
     let pagesProcessed = 0;
     for (let page = 0; page < MAX_PAGES; page += 1) {
@@ -39,6 +39,7 @@ export class OneCNomenclatureCatalogProvider {
       const values = parseEnvelope(payload);
       rows.push(...values.flatMap((value) => { const row = parseRow(value); return row ? [row] : []; }));
       pagesProcessed += 1;
+      onPageProcessed?.(pagesProcessed, values.length);
       if (values.length < PAGE_SIZE) break;
       if (page === MAX_PAGES - 1) throw new IntegrationValidationError("1C nomenclature page limit reached.");
     }
@@ -86,3 +87,4 @@ function nullableText(value: unknown): string | null { const normalized = text(v
 
 export const ONE_C_NOMENCLATURE_FIELDS = FIELDS.split(",");
 export const ONE_C_CATALOG_ROOT_NAME = ROOT_NAME;
+export { OneCNomenclatureODataProvider as OneCNomenclatureCatalogProvider };

@@ -93,7 +93,7 @@ function createSnapshotWriter(overrides: Partial<CatalogSnapshotWriter> = {}) {
     writeSnapshot: vi.fn(async () => ({ foldersUpserted: 1, productsUpserted: 1, rowsDeactivated: 2 })),
     markSucceeded: vi.fn(async () => undefined),
     markFailed: vi.fn(async () => undefined),
-    getState: vi.fn(async () => ({ status: "never_run", rootName: null, lastSuccessfulSyncAt: null, durationMs: null, pagesProcessed: 0, foldersReceived: 0, productsReceived: 0, foldersUpserted: 0, productsUpserted: 0, rowsDeactivated: 0, errorCategory: null, nextScheduledRun: new Date().toISOString() })),
+    getState: vi.fn(async () => ({ status: "never_run", rootName: null, lastSuccessfulSyncAt: null, durationMs: null, pagesProcessed: 0, foldersReceived: 0, productsReceived: 0, foldersUpserted: 0, productsUpserted: 0, rowsDeactivated: 0, errorCategory: null, failedStage: null, nextScheduledRun: new Date().toISOString() })),
     ...overrides,
   } satisfies CatalogSnapshotWriter;
 }
