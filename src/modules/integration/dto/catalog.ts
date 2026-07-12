@@ -102,4 +102,6 @@ export type CatalogScanDiagnosticsDTO = {
   referenceValuesResolved?: number;
   referenceValuesUnresolved?: number;
   attributesHiddenUnresolved?: number;
+  guidLikeValuesDetected?: number;
+  referenceDictionaryValuesLoaded?: number;
 };

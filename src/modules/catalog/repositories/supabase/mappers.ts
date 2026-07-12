@@ -131,7 +131,8 @@ export function mapCatalogProductRow(row: CatalogProductRow): CatalogProduct {
   };
 }
 
-export function mapCatalogProductAttributeRow(row: CatalogProductAttributeRow): CatalogProductAttribute { return { id: row.id, productId: row.product_id, propertyRef: row.property_ref, key: row.attribute_key, label: row.label, rawValue: row.raw_value, displayValue: row.resolution_status === "resolved" ? row.resolved_display_value ?? "" : row.resolution_status === "not_required" ? row.display_value : "", resolvedDisplayValue: row.resolved_display_value, resolutionStatus: row.resolution_status, valueType: row.value_type, isFilterable: row.is_filterable, isVisible: row.is_visible }; }
+export function mapCatalogProductAttributeRow(row: CatalogProductAttributeRow): CatalogProductAttribute { return { id: row.id, productId: row.product_id, propertyRef: row.property_ref, key: row.attribute_key, label: row.label, rawValue: row.raw_value, displayValue: publicAttributeValue(row), resolvedDisplayValue: row.resolved_display_value, resolutionStatus: row.resolution_status, valueType: row.value_type, isFilterable: row.is_filterable, isVisible: row.is_visible }; }
+function publicAttributeValue(row: CatalogProductAttributeRow): string { if (row.resolution_status === "resolved") return row.resolved_display_value?.trim() ?? ""; if (row.resolution_status !== "not_required") return ""; const value = row.display_value.trim(); return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value) ? "" : value; }
 
 export function mapCatalogProductImageRow(
   row: CatalogProductImageRow,

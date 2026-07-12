@@ -20,6 +20,7 @@ export class CatalogDuplicateRowsError extends IntegrationValidationError { read
 
 type AdditionalRequisite = { propertyRef: string; value: unknown; valueType: string | null; textValue: string | null };
 type PropertyDefinition = { reference: string; description: string; title: string; valueType: string | null; deleted: boolean; visible: boolean; available: boolean };
+type ResolvedReferenceValues = { exact: Map<string, string>; globalUnique: Map<string, string> };
 export type NormalizedNomenclatureRow = { reference: string; parentReference: string | null; isFolder: boolean; deleted: boolean; inactive: boolean; sourceVersion: string | null; sourceModifiedAt: string | null; code: string; article: string; name: string; fullName: string; comment: string; requisites: AdditionalRequisite[]; accountingType: string; setValue: boolean | null };
 
 export class OneCNomenclatureODataProvider {
@@ -47,8 +48,9 @@ export class OneCNomenclatureODataProvider {
     if (diagnostics.duplicateReferenceCount > 0) throw new CatalogDuplicateRowsError();
     const propertyDefinitions = await this.fetchPropertyDefinitions();
     diagnostics.propertyDefinitionsLoaded = propertyDefinitions.size;
-    const requiredValueRefs = new Set(rows.flatMap((row) => row.requisites.flatMap((item) => isGuidLike(item.value) ? [String(item.value).toLowerCase()] : [])));
+    const requiredValueRefs = new Set(rows.flatMap((row) => row.requisites.flatMap((item) => isGuidLike(item.value) ? [String(item.value).trim().toLowerCase()] : [])));
     const resolvedValues = await this.resolveReferenceValuesBatch(requiredValueRefs);
+    diagnostics.referenceDictionaryValuesLoaded = resolvedValues.globalUnique.size;
     const roots = rows.filter((row) => row.isFolder && !row.deleted && !row.inactive && row.name === ROOT_NAME);
     if (roots.length !== 1) throw new IntegrationValidationError(roots.length ? "1C catalog root is ambiguous." : "1C catalog root was not found.");
     return buildNomenclatureSnapshot(rows, roots[0]!.reference, ROOT_NAME, pagesProcessed, diagnostics, propertyDefinitions, resolvedValues);
@@ -65,21 +67,27 @@ export class OneCNomenclatureODataProvider {
     throw new CatalogScanIncompleteError();
   }
 
-  private async resolveReferenceValuesBatch(requiredRefs: Set<string>): Promise<Map<string, string>> {
-    const resolved = new Map<string, string>();
-    if (!requiredRefs.size) return resolved;
+  private async resolveReferenceValuesBatch(requiredRefs: Set<string>): Promise<ResolvedReferenceValues> {
+    const exact = new Map<string, string>();
+    const globalCandidates = new Map<string, Set<string>>();
+    if (!requiredRefs.size) return { exact, globalUnique: new Map() };
     for (const resource of VALUE_RESOURCES) for (let page = 0; page < MAX_PAGES; page += 1) {
       const payload = await this.client.get(resource, { "$select": VALUE_FIELDS, "$orderby": ORDERING, "$top": String(PAGE_SIZE), "$skip": String(page * PAGE_SIZE) }, { requestKind: "catalog_attribute_value_scan" });
       const values = parseEnvelope(payload);
-      for (const value of values) if (isRecord(value) && typeof value.Ref_Key === "string" && typeof value.Owner_Key === "string" && requiredRefs.has(value.Ref_Key.toLowerCase()) && value.DeletionMark !== true && text(value.Description)) resolved.set(`${value.Owner_Key.toLowerCase()}:${value.Ref_Key.toLowerCase()}`, text(value.Description));
+      for (const value of values) if (isRecord(value) && typeof value.Ref_Key === "string" && requiredRefs.has(value.Ref_Key.toLowerCase()) && value.DeletionMark !== true && text(value.Description)) {
+        const valueRef = value.Ref_Key.toLowerCase(); const label = text(value.Description);
+        if (typeof value.Owner_Key === "string") exact.set(`${value.Owner_Key.toLowerCase()}:${valueRef}`, label);
+        const labels = globalCandidates.get(valueRef) ?? new Set<string>(); labels.add(label); globalCandidates.set(valueRef, labels);
+      }
       if (values.length < PAGE_SIZE) break;
       if (page === MAX_PAGES - 1) throw new CatalogScanIncompleteError();
     }
-    return resolved;
+    const globalUnique = new Map([...globalCandidates].flatMap(([reference, labels]) => labels.size === 1 ? [[reference, [...labels][0]!]] : []));
+    return { exact, globalUnique };
   }
 }
 
-export function buildNomenclatureSnapshot(rows: NormalizedNomenclatureRow[], rootReference: string, rootName: string, pagesProcessed: number, baseDiagnostics: CatalogScanDiagnosticsDTO = emptyDiagnostics(), propertyDefinitions = new Map<string, PropertyDefinition>(), resolvedValues = new Map<string, string>()): CatalogSnapshotDTO {
+export function buildNomenclatureSnapshot(rows: NormalizedNomenclatureRow[], rootReference: string, rootName: string, pagesProcessed: number, baseDiagnostics: CatalogScanDiagnosticsDTO = emptyDiagnostics(), propertyDefinitions = new Map<string, PropertyDefinition>(), resolvedValues: ResolvedReferenceValues = { exact: new Map(), globalUnique: new Map() }): CatalogSnapshotDTO {
   const diagnostics = { ...baseDiagnostics, accountingTypeCounts: { ...baseDiagnostics.accountingTypeCounts }, setValueCounts: { ...baseDiagnostics.setValueCounts } };
   const rootKey = rootReference.toLowerCase();
   const allowed = new Set([rootKey]);
@@ -103,7 +111,7 @@ export function buildNomenclatureSnapshot(rows: NormalizedNomenclatureRow[], roo
 
 function isSellableProduct(row: NormalizedNomenclatureRow) { return !row.isFolder && !row.deleted && !row.inactive && row.name.length > 0 && row.accountingType === "Товар" && row.setValue !== true; }
 function toCategory(row: NormalizedNomenclatureRow): CatalogCategoryDTO { return { reference: reference(row.reference, "catalog-category"), parentReference: row.parentReference ? reference(row.parentReference, "catalog-category") : null, name: row.name, slug: null, description: null, isActive: true, metadata: metadata(row) }; }
-function toProduct(row: NormalizedNomenclatureRow, definitions: Map<string, PropertyDefinition>, resolvedValues: Map<string, string>, diagnostics: CatalogScanDiagnosticsDTO): CatalogProductDTO {
+function toProduct(row: NormalizedNomenclatureRow, definitions: Map<string, PropertyDefinition>, resolvedValues: ResolvedReferenceValues, diagnostics: CatalogScanDiagnosticsDTO): CatalogProductDTO {
   const attributes = normalizeAttributes(row.requisites, definitions, resolvedValues, diagnostics);
   const imageUrl = extractImageUrl(row.requisites, diagnostics);
   const descriptionProperty = attributes.find((item) => normalizeLabel(item.label) === "описание")?.displayValue ?? null;
@@ -148,7 +156,7 @@ function extractImageUrl(requisites: AdditionalRequisite[], diagnostics: Catalog
   try { const url = new URL(candidate); if (url.protocol !== "https:" || !["firebasestorage.googleapis.com", "storage.googleapis.com"].includes(url.hostname.toLowerCase())) throw new Error(); return url.toString(); }
   catch { if (candidate) diagnostics.invalidImageUrls = (diagnostics.invalidImageUrls ?? 0) + 1; return null; }
 }
-function normalizeAttributes(requisites: AdditionalRequisite[], definitions: Map<string, PropertyDefinition>, resolvedValues: Map<string, string>, diagnostics: CatalogScanDiagnosticsDTO): CatalogProductAttributeDTO[] {
+function normalizeAttributes(requisites: AdditionalRequisite[], definitions: Map<string, PropertyDefinition>, resolvedValues: ResolvedReferenceValues, diagnostics: CatalogScanDiagnosticsDTO): CatalogProductAttributeDTO[] {
   return requisites.flatMap((item) => {
     if (item.propertyRef.toLowerCase() === PHOTO_PROPERTY_REF) return [];
     const definition = definitions.get(item.propertyRef.toLowerCase());
@@ -158,9 +166,9 @@ function normalizeAttributes(requisites: AdditionalRequisite[], definitions: Map
     const label = definition.title || definition.description;
     if (!label) return [];
     const referenceValue = isGuidLike(rawValue) ? String(rawValue).toLowerCase() : null;
-    const resolvedDisplayValue = referenceValue ? resolvedValues.get(`${item.propertyRef.toLowerCase()}:${referenceValue}`) ?? null : null;
+    const resolvedDisplayValue = referenceValue ? resolvedValues.exact.get(`${item.propertyRef.toLowerCase()}:${referenceValue}`) ?? resolvedValues.globalUnique.get(referenceValue) ?? null : null;
     const resolutionStatus = referenceValue ? (resolvedDisplayValue ? "resolved" : "unresolved") : "not_required";
-    if (referenceValue) diagnostics.referenceValuesDetected = (diagnostics.referenceValuesDetected ?? 0) + 1;
+    if (referenceValue) { diagnostics.referenceValuesDetected = (diagnostics.referenceValuesDetected ?? 0) + 1; diagnostics.guidLikeValuesDetected = (diagnostics.guidLikeValuesDetected ?? 0) + 1; }
     if (resolutionStatus === "resolved") diagnostics.referenceValuesResolved = (diagnostics.referenceValuesResolved ?? 0) + 1;
     if (resolutionStatus === "unresolved") { diagnostics.referenceValuesUnresolved = (diagnostics.referenceValuesUnresolved ?? 0) + 1; diagnostics.attributesHiddenUnresolved = (diagnostics.attributesHiddenUnresolved ?? 0) + 1; }
     const displayValue = resolvedDisplayValue ?? (referenceValue ? "" : typeof rawValue === "boolean" ? (rawValue ? "Да" : "Нет") : normalizeTypedDisplayValue(rawValue, item.valueType));
@@ -168,11 +176,13 @@ function normalizeAttributes(requisites: AdditionalRequisite[], definitions: Map
     return [{ propertyRef: item.propertyRef, key: `property_${item.propertyRef.toLowerCase()}`, label, rawValue, displayValue, resolvedDisplayValue, resolvedValueRef: referenceValue, resolutionStatus, valueType: item.valueType || definition.valueType, filterable: resolutionStatus !== "unresolved" && isFilterable(label, rawValue, displayValue, definition), visible: definition.visible && resolutionStatus !== "unresolved", available: definition.available }];
   });
 }
-export function isGuidLike(value: unknown): boolean { return typeof value === "string" && isOneCGuid(value.trim()); }
+const CANONICAL_GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const ZERO_GUID = "00000000-0000-0000-0000-000000000000";
+export function isGuidLike(value: unknown): boolean { if (typeof value !== "string") return false; const normalized = value.trim(); return normalized.toLowerCase() !== ZERO_GUID && CANONICAL_GUID.test(normalized); }
 function normalizeTypedDisplayValue(value: string | number | boolean, valueType: string | null): string { if (valueType?.includes("Date") && typeof value === "string") { const date = new Date(value); if (!Number.isNaN(date.getTime())) return new Intl.DateTimeFormat("ru").format(date); } return String(value).trim(); }
 function normalizeAttributeValue(value: unknown, textValue: string | null, valueType: string | null): string | number | boolean | null {
   if (typeof value === "boolean" || typeof value === "number") return value;
-  if (typeof value === "string" && value.trim()) return value.trim();
+  if (typeof value === "string" && value.trim()) { const normalized = value.trim(); if (/^true$/i.test(normalized)) return true; if (/^false$/i.test(normalized)) return false; if (normalized.toLowerCase() === ZERO_GUID) return null; return normalized; }
   if (textValue) return textValue;
   if (valueType?.toLowerCase().includes("boolean")) return false;
   return null;

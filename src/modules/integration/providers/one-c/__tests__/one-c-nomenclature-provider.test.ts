@@ -69,6 +69,10 @@ describe("OneCNomenclatureCatalogProvider", () => {
     expect(isGuidLike("99999999-9999-4999-8999-999999999999")).toBe(true);
     expect(isGuidLike(42)).toBe(false);
     expect(isGuidLike("42")).toBe(false);
+    expect(isGuidLike("3.6")).toBe(false);
+    expect(isGuidLike("true")).toBe(false);
+    expect(isGuidLike("false")).toBe(false);
+    expect(isGuidLike("00000000-0000-0000-0000-000000000000")).toBe(false);
   });
 
   it("rejects duplicate references before producing a snapshot", async () => {
