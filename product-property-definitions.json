@@ -1,0 +1,189 @@
+{
+"odata.metadata": "https://10.0.10.254/novotech/odata/standard.odata/$metadata#ChartOfCharacteristicTypes_ДополнительныеРеквизитыИСведения",
+"value": [{
+"Ref_Key": "bef1ed74-9302-11ec-ba8b-7239d3b7bd5c",
+"Description": "AI-Технологии",
+"DeletionMark": false,
+"DataVersion": "AAAAAAAAAAE="
+},{
+"Ref_Key": "c5fe46f0-f232-11ec-4f83-7239d3b7bd5c",
+"Description": "GHZ (TEST)",
+"DeletionMark": false,
+"DataVersion": "AAAAAAAAAAE="
+},{
+"Ref_Key": "88b22230-92fb-11ec-ba8b-7239d3b7bd5c",
+"Description": "MicroSD",
+"DeletionMark": false,
+"DataVersion": "AAAAAAAAAAE="
+},{
+"Ref_Key": "36049f8a-bf55-11ee-b68d-7239d3b7bd5c",
+"Description": "№ INVOICE",
+"DeletionMark": false,
+"DataVersion": "AAAAAAAAAAE="
+},{
+"Ref_Key": "f637e5a4-4c2b-11ec-bd80-7239d3b7bd5c",
+"Description": "photoURL",
+"DeletionMark": false,
+"DataVersion": "AAAAAAAAAAE="
+},{
+"Ref_Key": "f3996324-948b-11ec-ba8b-7239d3b7bd5c",
+"Description": "PoE-Питание",
+"DeletionMark": false,
+"DataVersion": "AAAAAAAAAAE="
+},{
+"Ref_Key": "d85c120e-92ed-11ec-ba8b-7239d3b7bd5c",
+"Description": "Аналитика",
+"DeletionMark": false,
+"DataVersion": "AAAAAAAAAAE="
+},{
+"Ref_Key": "81ac9344-f160-11ec-4f83-7239d3b7bd5c",
+"Description": "Выдача конец",
+"DeletionMark": false,
+"DataVersion": "AAAAAAAAAAE="
+},{
+"Ref_Key": "544c58e4-f160-11ec-4f83-7239d3b7bd5c",
+"Description": "Выдача начало",
+"DeletionMark": false,
+"DataVersion": "AAAAAAAAAAE="
+},{
+"Ref_Key": "698ed820-93ab-11ec-ba8b-7239d3b7bd5c",
+"Description": "Гибридные-каналы",
+"DeletionMark": false,
+"DataVersion": "AAAAAAAAAAE="
+},{
+"Ref_Key": "199a9db8-90b3-11ec-ba8b-7239d3b7bd5c",
+"Description": "Дальность-ИК",
+"DeletionMark": false,
+"DataVersion": "AAAAAAAAAAE="
+},{
+"Ref_Key": "98943ba4-a797-11e9-b792-000c2988d323",
+"Description": "Дата касания",
+"DeletionMark": false,
+"DataVersion": "AAAAAAAAAAE="
+},{
+"Ref_Key": "7842c3ba-948a-11ec-ba8b-7239d3b7bd5c",
+"Description": "Класс",
+"DeletionMark": false,
+"DataVersion": "AAAAAAAAAAE="
+},{
+"Ref_Key": "81493c62-948c-11ec-ba8b-7239d3b7bd5c",
+"Description": "Материал",
+"DeletionMark": false,
+"DataVersion": "AAAAAAAAAAE="
+},{
+"Ref_Key": "a6478e24-948c-11ec-ba8b-7239d3b7bd5c",
+"Description": "Материал",
+"DeletionMark": false,
+"DataVersion": "AAAAAAAAAAE="
+},{
+"Ref_Key": "97af47c2-92fb-11ec-ba8b-7239d3b7bd5c",
+"Description": "Микрофон",
+"DeletionMark": false,
+"DataVersion": "AAAAAAAAAAE="
+},{
+"Ref_Key": "39c1adae-9186-11e8-80e2-000c29a58b59",
+"Description": "Не контролировать по штрихкоду",
+"DeletionMark": false,
+"DataVersion": "AAAAAAAAAAE="
+},{
+"Ref_Key": "5a401de2-948d-11ec-ba8b-7239d3b7bd5c",
+"Description": "Оптические-порты",
+"DeletionMark": false,
+"DataVersion": "AAAAAAAAAAE="
+},{
+"Ref_Key": "f98fbc73-ade6-11e9-8cd6-000c2988d323",
+"Description": "Оценка (Лиды)",
+"DeletionMark": false,
+"DataVersion": "AAAAAAAAAAE="
+},{
+"Ref_Key": "e8f31dd1-a709-11e9-b792-000c2988d323",
+"Description": "Передан партнеру (Лиды)",
+"DeletionMark": false,
+"DataVersion": "AAAAAAAAAAE="
+},{
+"Ref_Key": "c2344c2e-8fed-11ec-ba8b-7239d3b7bd5c",
+"Description": "Передача-данных",
+"DeletionMark": false,
+"DataVersion": "AAAAAAAAAAE="
+},{
+"Ref_Key": "8b99e620-93ac-11ec-ba8b-7239d3b7bd5c",
+"Description": "Передача-питания",
+"DeletionMark": false,
+"DataVersion": "AAAAAAAAAAE="
+},{
+"Ref_Key": "98943ba6-a797-11e9-b792-000c2988d323",
+"Description": "Перешел конкуренту (Лиды)",
+"DeletionMark": false,
+"DataVersion": "AAAAAAAAAAE="
+},{
+"Ref_Key": "dc4c1766-948b-11ec-ba8b-7239d3b7bd5c",
+"Description": "Порты",
+"DeletionMark": false,
+"DataVersion": "AAAAAAAAAAE="
+},{
+"Ref_Key": "04ed5f86-93ab-11ec-ba8b-7239d3b7bd5c",
+"Description": "Пропускная-способность",
+"DeletionMark": false,
+"DataVersion": "AAAAAAAAAAE="
+},{
+"Ref_Key": "1f89e37e-0e70-11ed-769a-7239d3b7bd5c",
+"Description": "Работа, услуга",
+"DeletionMark": false,
+"DataVersion": "AAAAAAAAAAE="
+},{
+"Ref_Key": "42aecb86-8fc1-11ec-ba8b-7239d3b7bd5c",
+"Description": "Разрешение-MPx",
+"DeletionMark": false,
+"DataVersion": "AAAAAAAAAAE="
+},{
+"Ref_Key": "e7e9301c-93ab-11ec-ba8b-7239d3b7bd5c",
+"Description": "Разрешение-MPx",
+"DeletionMark": false,
+"DataVersion": "AAAAAAAAAAE="
+},{
+"Ref_Key": "260b82ec-948c-11ec-ba8b-7239d3b7bd5c",
+"Description": "Скорость",
+"DeletionMark": false,
+"DataVersion": "AAAAAAAAAAE="
+},{
+"Ref_Key": "98943ba5-a797-11e9-b792-000c2988d323",
+"Description": "Тема касания (Лиды)",
+"DeletionMark": false,
+"DataVersion": "AAAAAAAAAAE="
+},{
+"Ref_Key": "6a4876bc-92ee-11ec-ba8b-7239d3b7bd5c",
+"Description": "Технология",
+"DeletionMark": false,
+"DataVersion": "AAAAAAAAAAE="
+},{
+"Ref_Key": "916e1920-909d-11ec-ba8b-7239d3b7bd5c",
+"Description": "Тип-объектива",
+"DeletionMark": false,
+"DataVersion": "AAAAAAAAAAE="
+},{
+"Ref_Key": "b1b4af5e-9300-11ec-ba8b-7239d3b7bd5c",
+"Description": "Тип-регистратора",
+"DeletionMark": false,
+"DataVersion": "AAAAAAAAAAE="
+},{
+"Ref_Key": "8c84212c-948d-11ec-ba8b-7239d3b7bd5c",
+"Description": "Управляемый",
+"DeletionMark": false,
+"DataVersion": "AAAAAAAAAAE="
+},{
+"Ref_Key": "4da82782-90a0-11ec-ba8b-7239d3b7bd5c",
+"Description": "Фокусное-расстояние",
+"DeletionMark": false,
+"DataVersion": "AAAAAAAAAAE="
+},{
+"Ref_Key": "7c7bea7e-8fee-11ec-ba8b-7239d3b7bd5c",
+"Description": "Форм-фактор",
+"DeletionMark": false,
+"DataVersion": "AAAAAAAAAAE="
+},{
+"Ref_Key": "3dfa658a-93ab-11ec-ba8b-7239d3b7bd5c",
+"Description": "Цифровые-каналы",
+"DeletionMark": false,
+"DataVersion": "AAAAAAAAAAE="
+}]
+}
