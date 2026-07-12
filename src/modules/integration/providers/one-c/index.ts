@@ -55,4 +55,5 @@ export { OneCNomenclatureCatalogProvider, OneCNomenclatureODataProvider, ONE_C_C
 export { OneCPriceODataProvider, ONE_C_PRICE_QUERY } from "./one-c-price-odata-provider";
 export { OneCPriceChunkProvider, ONE_C_PRICE_CHUNK_QUERY, PRICE_SYNC_ZERO_CHARACTERISTIC, type PriceChunkProvider, type PriceRegisterStageRow, type PriceTypeStageRow, type CurrencyStageRow, type PriceSyncPage } from "./one-c-price-chunk-provider";
 export { normalizeOneCCurrencyCode } from "./one-c-currency";
+export * from "./one-c-supplier-arrival-provider";
 export { OneCStockBalanceProvider, aggregateStockRows, ONE_C_STOCK_BALANCE_RESOURCES, type StockBalanceProvider, type StockBalanceKind, type StockStageRow, type StockWarehouseRow, type StockPage } from "./one-c-stock-balance-provider";

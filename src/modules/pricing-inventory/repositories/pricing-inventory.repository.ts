@@ -6,6 +6,7 @@ export type ListProductPricesInput = {
   external1cPriceTypeId?: string;
 };
 export type ProductStockTotal = { productId:string; physicalQuantity:number; reservedQuantity:number; availableQuantity:number; incomingQuantity:number; hasVariantStock:boolean; syncedAt:string };
+export type ProductSupplierArrival = { productId:string; externalCharacteristicRef:string; expectedDate:string; expectedQuantity:number; publishedAt:string };
 
 export type PricingUpsertResult<TRecord> = {
   record: TRecord;
@@ -49,6 +50,7 @@ export interface PricingInventoryRepository {
   listPricesForProducts(input: ListProductPricesInput): Promise<ProductPrice[]>;
   listStockForProducts(productIds: string[]): Promise<ProductStockBalance[]>;
   listStockTotalsForProducts?(productIds:string[]):Promise<ProductStockTotal[]>;
+  listSupplierArrivalsForProducts?(productIds:string[]):Promise<ProductSupplierArrival[]>;
   findProductPrice(input: FindProductPriceInput): Promise<ProductPrice | null>;
   upsertProductPrice(
     input: UpsertProductPriceInput,

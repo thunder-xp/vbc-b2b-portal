@@ -17,7 +17,7 @@ export function ProductCard({ capabilities, commercialView, product }: ProductCa
       <p className="mt-1 text-xs font-medium uppercase text-emerald-700">{product.sku}</p>
       <div className="mt-auto grid gap-2 pt-5 text-sm">
         {capabilities.showPrice && <ProductPricingBlock commercialView={commercialView} />}
-        {capabilities.showStock && <div className={`rounded-md px-3 py-2 font-medium ${stockTone.card}`}><span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${stockTone.badge}`}>{commercialView?.stock?.label ?? "Наличие уточняется"}</span></div>}
+        {capabilities.showStock && <div className={`rounded-md px-3 py-2 font-medium ${stockTone.card}`}><span className={`inline-flex whitespace-pre-line rounded-md px-2 py-1 text-xs font-semibold ${stockTone.badge}`}>{commercialView?.stock?.label ?? "Наличие уточняется"}</span></div>}
       </div>
       <div className="mt-4 border-t border-zinc-100 pt-3"><Link className="inline-flex rounded-md border border-zinc-300 px-3 py-2 text-xs font-semibold text-zinc-800 hover:border-emerald-500" href={`/cabinet/catalog/${product.slug}`}>Подробнее</Link></div>
     </div>

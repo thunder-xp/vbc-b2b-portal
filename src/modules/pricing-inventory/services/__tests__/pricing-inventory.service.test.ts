@@ -22,6 +22,7 @@ import type {
   UpsertProductPriceInput,
 } from "../../repositories";
 import type { ProductPrice, ProductStockBalance } from "../../types";
+import type { ProductSupplierArrival } from "../../repositories";
 
 describe("DefaultPricingInventoryService", () => {
   it("loads prices through active company scope and prefers own company price", async () => {
@@ -111,6 +112,10 @@ describe("DefaultPricingInventoryService", () => {
     expect(result[3]?.stock?.exactIncomingQuantity).toBe(10);
     expect(result[3]?.stock?.expectedArrival).toBeNull();
   });
+
+  it("selects the earliest confirmed zero-characteristic arrival and sums only that date",async()=>{const arrivals:ProductSupplierArrival[]=[arrival("2026-08-02",4),arrival("2026-08-01",3),arrival("2026-08-01",2),{...arrival("2026-07-31",99),externalCharacteristicRef:"44444444-4444-4444-8444-444444444444"}];const service=new DefaultPricingInventoryService(new FakePricingInventoryRepository([], [makeStock("product-1",0,20)],arrivals),new FakeCompanyAccessService(),new FakePermissionService());const [result]=await service.getProductCommercialViews("user-1",["product-1"]);expect(result.stock).toMatchObject({status:"expected",expectedArrival:{expectedDate:"2026-08-01",expectedQuantity:5,sourceStatus:"confirmed_supply"}});expect(result.stock?.label).toContain("1 августа 2026 г.");});
+
+  it("keeps available stock priority over a confirmed arrival",async()=>{const service=new DefaultPricingInventoryService(new FakePricingInventoryRepository([], [makeStock("product-1",8,20)],[arrival("2026-08-01",5)]),new FakeCompanyAccessService(),new FakePermissionService());const [result]=await service.getProductCommercialViews("user-1",["product-1"]);expect(result.stock?.status).toBe("in_stock");expect(result.stock?.expectedArrival).toBeNull();});
 });
 
 class FakePricingInventoryRepository implements PricingInventoryRepository {
@@ -119,6 +124,7 @@ class FakePricingInventoryRepository implements PricingInventoryRepository {
   constructor(
     private readonly prices: ProductPrice[],
     private readonly stockBalances: ProductStockBalance[] = [],
+    private readonly supplierArrivals: ProductSupplierArrival[] = [],
   ) {}
 
   async listPricesForProducts(
@@ -134,6 +140,7 @@ class FakePricingInventoryRepository implements PricingInventoryRepository {
     return this.stockBalances;
   }
   async listStockTotalsForProducts(){return this.stockBalances.map(item=>({productId:item.productId,physicalQuantity:item.availableQuantity,reservedQuantity:item.reservedQuantity??0,availableQuantity:item.availableQuantity,incomingQuantity:item.expectedQuantity??0,hasVariantStock:false,syncedAt:item.updatedFrom1cAt??now}));}
+  async listSupplierArrivalsForProducts(){return this.supplierArrivals;}
 
   async findProductPrice(): Promise<ProductPrice | null> {
     return null;
@@ -268,6 +275,7 @@ function makePrice(companyId: string | null, amount: number, external1cPriceType
   };
 }
 const goldPriceType = "23cb93ec-3eb5-11f0-8d8a-7239d3b7bd5c";
+function arrival(expectedDate:string,expectedQuantity:number):ProductSupplierArrival{return{productId:"product-1",externalCharacteristicRef:"00000000-0000-0000-0000-000000000000",expectedDate,expectedQuantity,publishedAt:now};}
 
 function makeStock(
   productId: string,

@@ -5,6 +5,7 @@ export type {
   PricingInventoryRepository,
   PricingUpsertResult,
   ProductStockTotal,
+  ProductSupplierArrival,
   UpsertProductStockBalanceInput,
   UpsertProductPriceInput,
 } from "./pricing-inventory.repository";

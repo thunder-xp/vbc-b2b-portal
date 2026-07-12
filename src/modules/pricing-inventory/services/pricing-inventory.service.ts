@@ -3,7 +3,7 @@ import type {
   PermissionService,
 } from "../../access-control/services";
 import { MembershipStatus } from "../../access-control/types";
-import type { PricingInventoryRepository, ProductStockTotal } from "../repositories";
+import type { PricingInventoryRepository, ProductStockTotal, ProductSupplierArrival } from "../repositories";
 import type { ProductPrice } from "../types";
 import { normalizeOneCCurrencyCode } from "../../../lib/currency";
 
@@ -56,6 +56,7 @@ export interface PricingInventoryService {
 const PRICE_PERMISSION = "prices.view";
 const STOCK_PERMISSION = "stock.view";
 const LOW_STOCK_THRESHOLD = 5;
+const ZERO_CHARACTERISTIC = "00000000-0000-0000-0000-000000000000";
 export const RETAIL_PRICE_TYPE_EXTERNAL_REF = "e181c772-93fc-11e9-94cb-000c2988d323";
 
 export class DefaultPricingInventoryService implements PricingInventoryService {
@@ -81,7 +82,7 @@ export class DefaultPricingInventoryService implements PricingInventoryService {
       this.permissionService.hasPermission(userId, companyId, PRICE_PERMISSION),
       this.permissionService.hasPermission(userId, companyId, STOCK_PERMISSION),
     ]);
-    const [partnerPrices, retailPrices, stockBalances] = await Promise.all([
+    const [partnerPrices, retailPrices, stockBalances, supplierArrivals] = await Promise.all([
       canViewPrices && company.external1cPriceTypeId
         ? this.pricingInventoryRepository.listPricesForProducts({
             productIds: normalizedProductIds,
@@ -95,6 +96,9 @@ export class DefaultPricingInventoryService implements PricingInventoryService {
       canViewStock && this.pricingInventoryRepository.listStockTotalsForProducts
         ? this.pricingInventoryRepository.listStockTotalsForProducts(normalizedProductIds)
         : Promise.resolve<ProductStockTotal[]>([]),
+      canViewStock && this.pricingInventoryRepository.listSupplierArrivalsForProducts
+        ? this.pricingInventoryRepository.listSupplierArrivalsForProducts(normalizedProductIds)
+        : Promise.resolve<ProductSupplierArrival[]>([]),
     ]);
 
     return normalizedProductIds.map((productId) => {
@@ -105,7 +109,7 @@ export class DefaultPricingInventoryService implements PricingInventoryService {
         ? selectPriceForProduct(retailPrices, productId, companyId)
         : null;
       const stock = canViewStock
-        ? stockAvailabilityForProduct(stockBalances, productId)
+        ? stockAvailabilityForProduct(stockBalances, supplierArrivals, productId)
         : null;
       const demoView =
         !partnerPrice && !retailPrice && !stock
@@ -218,7 +222,7 @@ function formatPrice(amount: number, currencyCode: string): string {
   }).format(amount)} ${currencyCode}`;
 }
 
-function stockAvailabilityForProduct(stockBalances: ProductStockTotal[], productId: string): ProductStockViewDto {
+function stockAvailabilityForProduct(stockBalances: ProductStockTotal[], supplierArrivals:ProductSupplierArrival[], productId: string): ProductStockViewDto {
   const total = stockBalances.find((item) => item.productId === productId);
   if (!total) {
     return {
@@ -234,7 +238,7 @@ function stockAvailabilityForProduct(stockBalances: ProductStockTotal[], product
     };
   }
   const common={exactAvailableQuantity:total.availableQuantity,exactPhysicalQuantity:total.physicalQuantity,exactReservedQuantity:total.reservedQuantity,exactIncomingQuantity:total.incomingQuantity,expectedArrival:null,hasVariantStock:total.hasVariantStock,lastUpdatedAt:total.syncedAt};
-  if(total.availableQuantity===0)return{status:"out_of_stock",label:"\u041d\u0435\u0442 \u0432 \u043d\u0430\u043b\u0438\u0447\u0438\u0438",...common};
+  if(total.availableQuantity===0){const arrival=selectExpectedArrival(supplierArrivals,productId);if(arrival)return{status:"expected",label:`\u041e\u0436\u0438\u0434\u0430\u0435\u0442\u0441\u044f \u043a \u043f\u043e\u0441\u0442\u0443\u043f\u043b\u0435\u043d\u0438\u044e\n${formatArrivalDate(arrival.expectedDate)}`,...common,expectedArrival:{expectedQuantity:arrival.expectedQuantity,expectedDate:arrival.expectedDate,sourceStatus:"confirmed_supply"}};return{status:"out_of_stock",label:"\u041d\u0435\u0442 \u0432 \u043d\u0430\u043b\u0438\u0447\u0438\u0438",...common};}
   if(total.availableQuantity>LOW_STOCK_THRESHOLD)return{status:"in_stock",label:`В наличии: ${formatQuantity(total.availableQuantity)} шт.`,...common};
   if(total.availableQuantity>0)return{status:"low_stock",label:`Осталось: ${formatQuantity(total.availableQuantity)} шт.`,...common};
   if(total.incomingQuantity>0)return{status:"expected",label:"Ожидается",...common};
@@ -247,6 +251,9 @@ function formatQuantity(quantity: number): string {
     maximumFractionDigits: 3,
   }).format(quantity);
 }
+
+function selectExpectedArrival(arrivals:ProductSupplierArrival[],productId:string){const today=new Date().toISOString().slice(0,10);const valid=arrivals.filter(row=>row.productId===productId&&row.externalCharacteristicRef===ZERO_CHARACTERISTIC&&row.expectedQuantity>0&&row.expectedDate>=today).sort((a,b)=>a.expectedDate.localeCompare(b.expectedDate));const first=valid[0];if(!first)return null;return{expectedDate:first.expectedDate,expectedQuantity:valid.filter(row=>row.expectedDate===first.expectedDate).reduce((sum,row)=>sum+row.expectedQuantity,0)};}
+function formatArrivalDate(value:string){return new Intl.DateTimeFormat("ru-RU",{day:"numeric",month:"long",year:"numeric",timeZone:"UTC"}).format(new Date(`${value}T00:00:00Z`));}
 
 
 type DemoCommercialViewSource = {

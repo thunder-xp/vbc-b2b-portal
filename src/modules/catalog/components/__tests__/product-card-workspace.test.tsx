@@ -53,4 +53,5 @@ describe("ProductCard workspace context", () => {
     expect(screen.queryByText("Ожидается")).not.toBeInTheDocument();
   });
   it("shows exact public stock quantity",()=>{const capabilities=resolveWorkspaceCapabilities(new Set(["catalog.view","stock.view"])).productCard;render(<ProductCard capabilities={capabilities} commercialView={{...commercialView,stock:{...commercialView.stock,status:"in_stock",label:"В наличии: 12 шт.",exactAvailableQuantity:12}}} product={product}/>);expect(screen.getByText("В наличии: 12 шт.")).toBeInTheDocument();});
+  it("shows the localized confirmed supplier arrival date",()=>{const capabilities=resolveWorkspaceCapabilities(new Set(["catalog.view","stock.view"])).productCard;render(<ProductCard capabilities={capabilities} commercialView={{...commercialView,stock:{...commercialView.stock,status:"expected",label:"Ожидается к поступлению\n1 августа 2026 г.",expectedArrival:{expectedQuantity:5,expectedDate:"2026-08-01",sourceStatus:"confirmed_supply"}}}} product={product}/>);expect(screen.getByText(/Ожидается к поступлению/)).toBeInTheDocument();expect(screen.getByText(/1 августа 2026 г\./)).toBeInTheDocument();});
 });
