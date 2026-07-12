@@ -33,6 +33,7 @@ export type IntegrationMetadataDTO = {
   sourceReference: ExternalReferenceDTO;
   sourceUpdatedAt: string | null;
   importedAt: string | null;
+  sourceVersion?: string | null;
 };
 
 export type MoneyAmountDTO = {

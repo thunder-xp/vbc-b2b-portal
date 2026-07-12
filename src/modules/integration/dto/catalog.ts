@@ -34,3 +34,12 @@ export type CatalogProductDTO = {
   isVisible: boolean;
   metadata: IntegrationMetadataDTO;
 };
+
+export type CatalogSnapshotDTO = {
+  rootReference: ExternalReferenceDTO;
+  rootName: string;
+  categories: CatalogCategoryDTO[];
+  products: CatalogProductDTO[];
+  pagesProcessed: number;
+  rowsReceived: number;
+};

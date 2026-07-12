@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   createUserProfileService: vi.fn(),
   ensureActiveUser: vi.fn(),
   createCatalogSyncEngine: vi.fn(),
+  createCatalogSyncStateReader: vi.fn(),
   createPartnerLookupService: vi.fn(),
   createPriceSyncEngine: vi.fn(),
   createStockSyncEngine: vi.fn(),
@@ -34,6 +35,7 @@ vi.mock("../../../access-control/actions/service-factory", () => ({
 
 vi.mock("../../services", () => ({
   createCatalogSyncEngine: mocks.createCatalogSyncEngine,
+  createCatalogSyncStateReader: mocks.createCatalogSyncStateReader,
   createPartnerLookupService: mocks.createPartnerLookupService,
   createPriceSyncEngine: mocks.createPriceSyncEngine,
   createStockSyncEngine: mocks.createStockSyncEngine,

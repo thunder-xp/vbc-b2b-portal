@@ -3,6 +3,8 @@ export type {
   CatalogSyncReportStatus,
 } from "./catalog-sync-engine";
 export { DefaultCatalogSyncEngine } from "./catalog-sync-engine";
+export { SupabaseCatalogSnapshotWriter, type CatalogSnapshotWriter, type CatalogSnapshotWriteResult, type CatalogSyncState } from "./catalog-snapshot-writer";
+export { CATALOG_SYNC_CRON, CATALOG_SYNC_INTERVAL_HOURS } from "./catalog-schedule";
 export type { PriceSyncReport, PriceSyncReportStatus } from "./price-sync-engine";
 export { DefaultPriceSyncEngine } from "./price-sync-engine";
 export type { StockSyncReport, StockSyncReportStatus } from "./stock-sync-engine";

@@ -1,12 +1,39 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { DefaultCatalogSyncEngine } from "../catalog-sync-engine";
 import type { CatalogUpdaterService } from "../../../catalog/services";
 import type { ERPProvider } from "../../contracts";
 import type { CatalogCategoryDTO } from "../../dto";
 import type { ReadModelUpdateResult } from "../sync-engine";
+import type { CatalogSnapshotWriter } from "../catalog-snapshot-writer";
 
 describe("DefaultCatalogSyncEngine", () => {
+  it("skips a concurrent full snapshot sync", async () => {
+    const provider = createSnapshotProvider();
+    const writer = createSnapshotWriter({ acquireLock: async () => false });
+    const report = await new DefaultCatalogSyncEngine(provider, new FakeCatalogUpdater(), writer).syncCatalog();
+    expect(report.skippedBecauseRunning).toBe(true);
+    expect(writer.writeSnapshot).not.toHaveBeenCalled();
+  });
+
+  it("writes folders before completion and finalizes successful deactivation counts", async () => {
+    const provider = createSnapshotProvider();
+    const writer = createSnapshotWriter();
+    const report = await new DefaultCatalogSyncEngine(provider, new FakeCatalogUpdater(), writer).syncCatalog();
+    expect(writer.writeSnapshot).toHaveBeenCalledOnce();
+    expect(writer.markSucceeded).toHaveBeenCalledOnce();
+    expect(writer.markFailed).not.toHaveBeenCalled();
+    expect(report.rowsDeactivated).toBe(2);
+  });
+
+  it("marks a failed full sync without invoking snapshot persistence when provider fails", async () => {
+    const provider = createSnapshotProvider(new Error("offline"));
+    const writer = createSnapshotWriter();
+    const report = await new DefaultCatalogSyncEngine(provider, new FakeCatalogUpdater(), writer).syncCatalog();
+    expect(report.status).toBe("failed");
+    expect(writer.writeSnapshot).not.toHaveBeenCalled();
+    expect(writer.markFailed).toHaveBeenCalledOnce();
+  });
   it("imports catalog categories, brands, and products in order", async () => {
     const provider = makeProvider();
     const updater = new FakeCatalogUpdater();
@@ -51,6 +78,25 @@ describe("DefaultCatalogSyncEngine", () => {
     expect(report.errors).toContain("Catalog synchronization failed.");
   });
 });
+
+function createSnapshotProvider(failure?: Error): ERPProvider {
+  const provider = makeProvider();
+  return { ...provider, catalog: { ...provider.catalog!, fetchFullSnapshot: async () => {
+      if (failure) throw failure;
+      return { rootReference: { providerCode: "one-c", externalId: "root", externalType: "catalog-category" }, rootName: "SECURITYPARK DISTRIBUTION", categories: [makeCategory()], products: [makeProductDto("P-1")], pagesProcessed: 1, rowsReceived: 3 };
+    } } };
+}
+
+function createSnapshotWriter(overrides: Partial<CatalogSnapshotWriter> = {}) {
+  return {
+    acquireLock: vi.fn(async () => true),
+    writeSnapshot: vi.fn(async () => ({ foldersUpserted: 1, productsUpserted: 1, rowsDeactivated: 2 })),
+    markSucceeded: vi.fn(async () => undefined),
+    markFailed: vi.fn(async () => undefined),
+    getState: vi.fn(async () => ({ status: "never_run", rootName: null, lastSuccessfulSyncAt: null, durationMs: null, pagesProcessed: 0, foldersReceived: 0, productsReceived: 0, foldersUpserted: 0, productsUpserted: 0, rowsDeactivated: 0, errorCategory: null, nextScheduledRun: new Date().toISOString() })),
+    ...overrides,
+  } satisfies CatalogSnapshotWriter;
+}
 
 class FakeCatalogUpdater implements CatalogUpdaterService {
   readonly calls: string[] = [];

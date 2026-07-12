@@ -7,6 +7,7 @@ import type {
   IntegrationPageResultDTO,
   IntegrationSyncWindowDTO,
 } from "../dto";
+import type { CatalogSnapshotWriter } from "./catalog-snapshot-writer";
 
 export type CatalogSyncReportStatus = "succeeded" | "failed" | "partial";
 
@@ -28,12 +29,18 @@ export type CatalogSyncReport = {
   productsUpdated: number;
   failed: number;
   errors: string[];
+  rootFound: boolean;
+  rootName: string | null;
+  pagesProcessed: number;
+  rowsDeactivated: number;
+  skippedBecauseRunning: boolean;
 };
 
 export class DefaultCatalogSyncEngine {
   constructor(
     private readonly provider: ERPProvider,
     private readonly catalogUpdater: CatalogUpdaterService,
+    private readonly snapshotWriter?: CatalogSnapshotWriter,
   ) {}
 
   async syncCatalog(): Promise<CatalogSyncReport> {
@@ -42,10 +49,42 @@ export class DefaultCatalogSyncEngine {
     const categories: CatalogCategoryDTO[] = [];
     const brands: CatalogBrandDTO[] = [];
     const products: CatalogProductDTO[] = [];
+    const syncId = crypto.randomUUID();
 
     try {
       if (!this.provider.catalog) {
         throw new Error("Catalog provider is not available.");
+      }
+
+      if (this.provider.catalog.fetchFullSnapshot && this.snapshotWriter) {
+        const acquired = await this.snapshotWriter.acquireLock(syncId, report.startedAt);
+        if (!acquired) {
+          report.status = "succeeded";
+          report.skippedBecauseRunning = true;
+          finalizeReport(report, startedAtDate);
+          return report;
+        }
+        try {
+          const snapshot = await this.provider.catalog.fetchFullSnapshot();
+          report.rootFound = true;
+          report.rootName = snapshot.rootName;
+          report.pagesProcessed = snapshot.pagesProcessed;
+          report.categoriesReceived = snapshot.categories.length;
+          report.productsReceived = snapshot.products.length;
+          const writeResult = await this.snapshotWriter.writeSnapshot(snapshot, syncId);
+          report.categoriesUpdated = writeResult.foldersUpserted;
+          report.productsUpdated = writeResult.productsUpserted;
+          report.rowsDeactivated = writeResult.rowsDeactivated;
+          finalizeReport(report, startedAtDate);
+          await this.snapshotWriter.markSucceeded(syncId, snapshot, writeResult, report.startedAt, report.finishedAt);
+          return report;
+        } catch (error) {
+          report.failed += 1;
+          report.errors.push("Catalog synchronization failed.");
+          finalizeReport(report, startedAtDate);
+          await this.snapshotWriter.markFailed(syncId, safeErrorCategory(error), report.startedAt, report.finishedAt);
+          return report;
+        }
       }
 
       categories.push(
@@ -130,8 +169,15 @@ function createInitialReport(
     productsUpdated: 0,
     failed: 0,
     errors: [],
+    rootFound: false,
+    rootName: null,
+    pagesProcessed: 0,
+    rowsDeactivated: 0,
+    skippedBecauseRunning: false,
   };
 }
+
+function safeErrorCategory(error: unknown): string { return error instanceof Error ? error.name : "unknown_error"; }
 
 function appendWarnings(report: CatalogSyncReport, warnings: string[]): void {
   report.errors.push(...warnings);

@@ -136,6 +136,8 @@ Future schema documentation should be created before SQL implementation.
 
 ## Integration
 
+- [Catalog Daily Sync Design](./CATALOG_DAILY_SYNC_DESIGN.md)
+
 - `docs/architecture/INTEGRATION_ARCHITECTURE.md` - 1C integration philosophy, synchronized domains, read/write operations, sync strategy, cache strategy, failure handling, logging, monitoring, async future, and MVP limits.
 - `docs/architecture/ONE_C_PROVIDER_DESIGN.md` - Provider-specific 1C adapter design that keeps 1C payloads behind neutral integration contracts.
 - `docs/architecture/ONE_C_PARTNER_SEARCH_BINDING_DESIGN.md` - 1C partner lookup flow for internal approval, selected reference binding, and provider DTO boundaries.

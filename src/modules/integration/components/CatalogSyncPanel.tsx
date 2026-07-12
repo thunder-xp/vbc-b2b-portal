@@ -1,14 +1,15 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 
 import {
   syncCatalogFromOneCAction,
+  getCatalogSyncStateAction,
   syncPricesFromOneCAction,
   syncStockFromOneCAction,
 } from "../actions";
-import type { CatalogSyncReport, PriceSyncReport, StockSyncReport } from "../sync";
+import type { CatalogSyncReport, CatalogSyncState, PriceSyncReport, StockSyncReport } from "../sync";
 
 export function CatalogSyncPanel() {
   const [isCatalogPending, startCatalogTransition] = useTransition();
@@ -22,6 +23,9 @@ export function CatalogSyncPanel() {
   const [catalogError, setCatalogError] = useState<string | null>(null);
   const [priceError, setPriceError] = useState<string | null>(null);
   const [stockError, setStockError] = useState<string | null>(null);
+  const [catalogState, setCatalogState] = useState<CatalogSyncState | null>(null);
+
+  useEffect(() => { void getCatalogSyncStateAction().then((result) => { if (result.success) setCatalogState(result.data); }); }, []);
 
   function handleCatalogSync() {
     setCatalogError(null);
@@ -83,13 +87,16 @@ export function CatalogSyncPanel() {
       </div>
 
       <SyncSection
-        buttonLabel={isCatalogPending ? "Synchronizing..." : "Run catalog sync"}
+        buttonLabel={isCatalogPending ? "Synchronizing..." : "Run full sync now"}
         description="Imports categories, brands, and products. Does not import prices, stock, orders, documents, or finance."
         disabled={isCatalogPending}
         error={catalogError}
         onRun={handleCatalogSync}
         title="Catalog synchronization"
+        secondaryButtonLabel="Retry last failed sync"
+        onSecondaryRun={handleCatalogSync}
       >
+        {catalogState ? <CatalogSyncStateView state={catalogState} /> : null}
         {catalogReport ? <CatalogSyncReportView report={catalogReport} /> : null}
       </SyncSection>
 
@@ -125,6 +132,8 @@ function SyncSection({
   disabled,
   error,
   onRun,
+  onSecondaryRun,
+  secondaryButtonLabel,
   title,
 }: {
   buttonLabel: string;
@@ -133,6 +142,8 @@ function SyncSection({
   disabled: boolean;
   error: string | null;
   onRun: () => void;
+  onSecondaryRun?: () => void;
+  secondaryButtonLabel?: string;
   title: string;
 }) {
   return (
@@ -144,14 +155,14 @@ function SyncSection({
             {description}
           </p>
         </div>
-        <button
+        <div className="flex flex-wrap gap-2"><button
           type="button"
           onClick={onRun}
           disabled={disabled}
           className="inline-flex items-center justify-center rounded-md bg-emerald-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-slate-400"
         >
           {buttonLabel}
-        </button>
+        </button>{secondaryButtonLabel && onSecondaryRun ? <button className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-800 disabled:opacity-50" disabled={disabled} onClick={onSecondaryRun} type="button">{secondaryButtonLabel}</button> : null}</div>
       </div>
 
       {error ? (
@@ -233,6 +244,23 @@ function CatalogSyncReportView({ report }: { report: CatalogSyncReport }) {
       ) : null}
     </div>
   );
+}
+
+function CatalogSyncStateView({ state }: { state: CatalogSyncState }) {
+  return <div className="grid gap-3 rounded-md bg-slate-50 p-4 sm:grid-cols-3 lg:grid-cols-5">
+    <Metric label="Root" value={state.rootName ?? "Not found"} />
+    <Metric label="Last status" value={state.status} />
+    <Metric label="Last successful" value={state.lastSuccessfulSyncAt ?? "Never"} />
+    <Metric label="Duration" value={state.durationMs === null ? "-" : `${state.durationMs} ms`} />
+    <Metric label="Next run" value={state.nextScheduledRun} />
+    <Metric label="Pages" value={String(state.pagesProcessed)} />
+    <Metric label="Folders received" value={String(state.foldersReceived)} />
+    <Metric label="Products received" value={String(state.productsReceived)} />
+    <Metric label="Folders upserted" value={String(state.foldersUpserted)} />
+    <Metric label="Products upserted" value={String(state.productsUpserted)} />
+    <Metric label="Rows deactivated" value={String(state.rowsDeactivated)} />
+    <Metric label="Error category" value={state.errorCategory ?? "None"} />
+  </div>;
 }
 
 function PriceSyncReportView({ report }: { report: PriceSyncReport }) {

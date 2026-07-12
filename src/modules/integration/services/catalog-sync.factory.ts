@@ -1,7 +1,7 @@
 import { SupabaseCatalogRepository } from "../../catalog/repositories/supabase";
 import { DefaultCatalogUpdaterService } from "../../catalog/services";
 import { OneCProvider } from "../providers/one-c";
-import { DefaultCatalogSyncEngine } from "../sync";
+import { DefaultCatalogSyncEngine, SupabaseCatalogSnapshotWriter } from "../sync";
 import type { OneCEnv } from "../../../lib/env";
 
 export function createCatalogSyncEngine(oneCEnv: OneCEnv) {
@@ -18,5 +18,9 @@ export function createCatalogSyncEngine(oneCEnv: OneCEnv) {
     new SupabaseCatalogRepository(),
   );
 
-  return new DefaultCatalogSyncEngine(provider, updater);
+  return new DefaultCatalogSyncEngine(provider, updater, new SupabaseCatalogSnapshotWriter());
+}
+
+export function createCatalogSyncStateReader() {
+  return new SupabaseCatalogSnapshotWriter();
 }

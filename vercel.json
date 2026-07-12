@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/internal/catalog-sync",
+      "schedule": "0 2 * * *"
+    }
+  ]
+}

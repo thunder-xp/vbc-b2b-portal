@@ -11,8 +11,8 @@ import {
 } from "../../access-control/actions/service-factory";
 import { ForbiddenError } from "../../access-control/services";
 import { UserType } from "../../access-control/types";
-import { createCatalogSyncEngine } from "../services";
-import type { CatalogSyncReport } from "../sync";
+import { createCatalogSyncEngine, createCatalogSyncStateReader } from "../services";
+import type { CatalogSyncReport, CatalogSyncState } from "../sync";
 import { getOneCEnv } from "../../../lib/env";
 
 export async function syncCatalogFromOneCAction(): Promise<
@@ -36,4 +36,13 @@ export async function syncCatalogFromOneCAction(): Promise<
   } catch (error) {
     return failureFromError(error);
   }
+}
+
+export async function getCatalogSyncStateAction(): Promise<ActionResult<CatalogSyncState>> {
+  try {
+    const userId = await getAuthenticatedUserId();
+    const profile = await createUserProfileService().ensureActiveUser(userId);
+    if (profile.userType !== UserType.Admin && profile.userType !== UserType.Internal) throw new ForbiddenError();
+    return success("Catalog sync state loaded.", await createCatalogSyncStateReader().getState());
+  } catch (error) { return failureFromError(error); }
 }

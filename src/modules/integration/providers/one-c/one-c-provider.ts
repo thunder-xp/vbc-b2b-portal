@@ -17,6 +17,7 @@ import type {
   CatalogBrandDTO,
   CatalogCategoryDTO,
   CatalogProductDTO,
+  CatalogSnapshotDTO,
   DocumentDTO,
   FinanceSnapshotDTO,
   IntegrationPageResultDTO,
@@ -41,6 +42,7 @@ import { DefaultOneCCatalogMapper } from "./one-c-catalog.mapper";
 import { DefaultOneCInventoryMapper } from "./one-c-inventory.mapper";
 import { DefaultOneCPartnerMapper } from "./one-c-partner.mapper";
 import { DefaultOneCPricingMapper } from "./one-c-pricing.mapper";
+import { OneCNomenclatureCatalogProvider } from "./one-c-nomenclature-provider";
 import {
   ONE_C_PROVIDER_CODE,
   oneCProviderDefaultCapabilities,
@@ -116,8 +118,25 @@ export class OneCProvider extends AbstractERPProvider {
 
 class OneCCatalogProvider implements CatalogProvider {
   private readonly mapper = new DefaultOneCCatalogMapper();
+  private readonly nomenclatureProvider: OneCNomenclatureCatalogProvider;
 
-  constructor(private readonly config: OneCProviderConfig) {}
+  constructor(private readonly config: OneCProviderConfig) {
+    this.nomenclatureProvider = new OneCNomenclatureCatalogProvider(config);
+  }
+
+  async fetchFullSnapshot(): Promise<CatalogSnapshotDTO> {
+    if (this.config.useMockCatalog) {
+      return {
+        rootReference: { providerCode: "one-c", externalId: crypto.randomUUID(), externalType: "catalog-category" },
+        rootName: "SECURITYPARK DISTRIBUTION",
+        categories: mockCatalogCategories.items.map(this.mapper.categoryMapper.toPlatformDTO),
+        products: mockCatalogProducts.items.map(this.mapper.productMapper.toPlatformDTO),
+        pagesProcessed: 1,
+        rowsReceived: mockCatalogCategories.items.length + mockCatalogProducts.items.length,
+      };
+    }
+    return this.nomenclatureProvider.fetchFullSnapshot();
+  }
 
   async fetchCategories(
     input: IntegrationSyncWindowDTO,

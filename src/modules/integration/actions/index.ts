@@ -1,4 +1,4 @@
-export { syncCatalogFromOneCAction } from "./catalog-sync.action";
+export { getCatalogSyncStateAction, syncCatalogFromOneCAction } from "./catalog-sync.action";
 export { runOneCHealthCheckAction } from "./one-c-health.action";
 export {
   getOneCPartnerContractsAction,
