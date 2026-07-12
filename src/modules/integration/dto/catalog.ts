@@ -47,6 +47,9 @@ export type CatalogSnapshotDTO = {
 
 export type CatalogScanDiagnosticsDTO = {
   totalRowsScanned: number;
+  uniqueRowsScanned: number;
+  duplicateReferenceCount: number;
+  configuredOrdering: "Ref_Key asc";
   folderRowsScanned: number;
   productRowsScanned: number;
   validParentReferences: number;
@@ -56,11 +59,13 @@ export type CatalogScanDiagnosticsDTO = {
   descendantFoldersResolved: number;
   descendantProductsResolved: number;
   excludedDeleted: number;
+  excludedInactive: number;
   excludedInvalidGuid: number;
   excludedService: number;
   excludedSet: number;
   excludedEmptyName: number;
   excludedOutsideSubtree: number;
+  eligibleProducts: number;
   accountingTypeCounts: Record<string, number>;
   setValueCounts: { true: number; false: number; missing: number };
   pageSize: number;

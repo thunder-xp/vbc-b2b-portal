@@ -31,6 +31,16 @@ describe("DailyCatalogSyncService", () => {
     expect(writer.markSucceeded).not.toHaveBeenCalled();
     expect(writer.markFailed).toHaveBeenCalledWith(expect.any(String), "empty_subtree", "subtree_resolution", expect.any(String), expect.any(String));
   });
+
+  it("does not persist or deactivate after duplicate page rows", async () => {
+    const writer = writerFixture({ state: { ...succeededState, status: "failed", errorCategory: "duplicate_page_rows", failedStage: "nomenclature_scan" } });
+    const failure = Object.assign(new Error("duplicate"), { errorCategory: "duplicate_page_rows", failedStage: "nomenclature_scan" });
+    const provider = { fetchFullSnapshot: vi.fn(async () => { throw failure; }) };
+    await new DailyCatalogSyncService(provider, writer).runFullSync();
+    expect(writer.writeSnapshot).not.toHaveBeenCalled();
+    expect(writer.markSucceeded).not.toHaveBeenCalled();
+    expect(writer.markFailed).toHaveBeenCalledWith(expect.any(String), "duplicate_page_rows", "nomenclature_scan", expect.any(String), expect.any(String));
+  });
 });
 
 const snapshot = { rootReference: { providerCode: "one-c", externalId: "root", externalType: "catalog-category" }, rootName: "SECURITYPARK DISTRIBUTION", categories: [], products: [{ reference: { providerCode: "one-c", externalId: "product", externalType: "catalog-product" }, categoryReference: null, brandReference: null, sku: "SKU", name: "Product", slug: null, shortDescription: null, description: null, imageUrl: null, isActive: true, isVisible: true, metadata: { sourceReference: { providerCode: "one-c", externalId: "product", externalType: "catalog-product" }, sourceUpdatedAt: null, importedAt: null } }], pagesProcessed: 1, rowsReceived: 1 };
