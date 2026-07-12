@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { IntegrationValidationError } from "../../../errors";
-import { CatalogDuplicateRowsError, OneCNomenclatureCatalogProvider } from "../one-c-nomenclature-provider";
+import { CatalogDuplicateRowsError, isGuidLike, OneCNomenclatureCatalogProvider } from "../one-c-nomenclature-provider";
 
 const root = "11111111-1111-4111-8111-111111111111";
 const folder = "22222222-2222-4222-8222-222222222222";
@@ -52,6 +52,23 @@ describe("OneCNomenclatureCatalogProvider", () => {
     const snapshot = await provider().fetchFullSnapshot();
     expect(snapshot.products[0]).toMatchObject({ imageUrl: "https://firebasestorage.googleapis.com/v0/b/demo/o/camera.jpg", description: "Описание товара" });
     expect(snapshot.products[0]?.attributes?.map((item) => item.label)).toEqual(["Описание"]);
+  });
+
+  it("resolves GUID values from both value catalogs in batch", async () => {
+    const propertyRef = "88888888-8888-4888-8888-888888888888";
+    const valueRef = "99999999-9999-4999-8999-999999999999";
+    const nomenclature = [row(root, null, true, "SECURITYPARK DISTRIBUTION"), row(product, root, false, "Camera", { ДополнительныеРеквизиты: [requisite(propertyRef, valueRef, "StandardODATA.Catalog_ЗначенияСвойствОбъектов")] })];
+    const fetchMock = vi.fn().mockImplementation((input: URL | RequestInfo) => { const url = decodeURIComponent(String(input)); if (url.includes("ChartOfCharacteristicTypes")) return Promise.resolve(jsonResponse([property(propertyRef, "Материал")])); if (url.includes("Catalog_ЗначенияСвойствОбъектов")) return Promise.resolve(jsonResponse([{ Ref_Key: valueRef, Description: "Металл", Owner_Key: propertyRef, DeletionMark: false }])); return Promise.resolve(jsonResponse(nomenclature)); });
+    vi.stubGlobal("fetch", fetchMock);
+    const snapshot = await provider().fetchFullSnapshot();
+    expect(snapshot.products[0]?.attributes?.[0]).toMatchObject({ displayValue: "Металл", resolvedDisplayValue: "Металл", resolutionStatus: "resolved", visible: true });
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+  });
+
+  it("detects GUID references without misclassifying numbers", () => {
+    expect(isGuidLike("99999999-9999-4999-8999-999999999999")).toBe(true);
+    expect(isGuidLike(42)).toBe(false);
+    expect(isGuidLike("42")).toBe(false);
   });
 
   it("rejects duplicate references before producing a snapshot", async () => {

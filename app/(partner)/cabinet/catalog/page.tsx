@@ -17,6 +17,7 @@ import {
 import { getProductCommercialViewsAction } from "@/src/modules/pricing-inventory/actions";
 import type { ProductCommercialViewDto } from "@/src/modules/pricing-inventory";
 import { getPartnerWorkspaceContextAction } from "@/src/modules/partner-cabinet/actions";
+import { buildCatalogSortHiddenFields } from "@/src/modules/catalog/services";
 
 type CatalogPageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -31,6 +32,7 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
   const search = getSingleParam(params?.search);
   const sort = parseSort(getSingleParam(params?.sort));
   const page = parsePage(getSingleParam(params?.page));
+  const attributeFilters = parseAttributeFilters(params);
   const [categoriesResult, brandsResult, productsResult, workspaceContextResult] = await Promise.all([
     listCatalogCategoriesAction(),
     listCatalogBrandsAction(),
@@ -41,6 +43,7 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
       page,
       pageSize: PAGE_SIZE,
       sort,
+      attributeFilters,
     }),
     getPartnerWorkspaceContextAction(),
   ]);
@@ -77,16 +80,20 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
     : {};
   const selectedCategory = categoriesResult.data.find((category) => category.id === categoryId);
   const selectedBrand = brandsResult.data.find((brand) => brand.id === brandId);
+  const sortHiddenFields = buildCatalogSortHiddenFields({ categoryId, brandId, search, attributeFilters });
 
   return (
     <div className="space-y-6">
       <div className="flex gap-3"><CategoryMegaMenu categories={categoriesResult.data} /><CatalogSearch categoryId={categoryId} initialSearch={search} /></div>
       <CatalogBreadcrumb categories={categoriesResult.data} selectedId={categoryId} />
-      <section className="flex flex-col gap-3 border-b border-zinc-200 pb-5 sm:flex-row sm:items-end sm:justify-between"><div><h1 className="text-2xl font-semibold text-zinc-950">{selectedCategory?.name ?? "Каталог оборудования"}</h1><p className="mt-1 text-sm text-zinc-500">Найдено товаров: {productsResult.data.totalCount}</p></div><form action="/cabinet/catalog">{categoryId && <input name="category" type="hidden" value={categoryId} />}{brandId && <input name="brand" type="hidden" value={brandId} />}{search && <input name="search" type="hidden" value={search} />}<label className="flex items-center gap-2 text-sm text-zinc-600">Сортировка<select className="h-10 rounded-md border border-zinc-300 bg-white px-3" defaultValue={sort} name="sort"><option value="default">По умолчанию</option><option value="name_asc">Название: А–Я</option><option value="name_desc">Название: Я–А</option><option value="sku_asc">По SKU</option></select><button className="h-10 rounded-md border border-zinc-300 px-3 font-medium" type="submit">Применить</button></label></form></section>
+      <section className="flex flex-col gap-3 border-b border-zinc-200 pb-5 sm:flex-row sm:items-end sm:justify-between">
+        <div><h1 className="text-2xl font-semibold text-zinc-950">{selectedCategory?.name ?? "Каталог оборудования"}</h1><p className="mt-1 text-sm text-zinc-500">Найдено товаров: {productsResult.data.totalCount}</p></div>
+        <form action="/cabinet/catalog">{sortHiddenFields.map((field) => <input key={field.name} name={field.name} type="hidden" value={field.value} />)}<label className="flex items-center gap-2 text-sm text-zinc-600">Сортировка<select className="h-10 rounded-md border border-zinc-300 bg-white px-3" defaultValue={sort} name="sort"><option value="default">По умолчанию</option><option value="name_asc">Название: А–Я</option><option value="name_desc">Название: Я–А</option><option value="sku_asc">По SKU</option></select><button className="h-10 rounded-md border border-zinc-300 px-3 font-medium" type="submit">Применить</button></label></form>
+      </section>
       {(search || selectedBrand || selectedCategory) && <div className="flex flex-wrap items-center gap-2 text-sm"><span className="text-zinc-500">Активные фильтры:</span>{selectedCategory && <FilterChip href={createCatalogHref({ brandId, page: 1, search, sort })} label={selectedCategory.name} />}{selectedBrand && <FilterChip href={createCatalogHref({ categoryId, page: 1, search, sort })} label={selectedBrand.name} />}{search && <FilterChip href={createCatalogHref({ brandId, categoryId, page: 1, sort })} label={`Поиск: ${search}`} />}<Link className="text-sm font-medium text-emerald-700" href="/cabinet/catalog">Очистить всё</Link></div>}
 
       <div className="grid gap-6 lg:grid-cols-[260px_1fr]">
-        <CatalogFilters brands={brandsResult.data} categoryId={categoryId} search={search} selectedBrandId={brandId} sort={sort} />
+        <CatalogFilters attributeFilters={attributeFilters} brands={brandsResult.data} categoryId={categoryId} facets={productsResult.data.facets} search={search} selectedBrandId={brandId} sort={sort} />
         <section className="space-y-5">
           {productsResult.data.products.length > 0 ? (
             <>
@@ -103,6 +110,7 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
                 page={productsResult.data.page}
                 search={search}
                 sort={sort}
+                attributeFilters={attributeFilters}
               />
             </>
           ) : (
@@ -124,6 +132,7 @@ function CatalogPagination({
   page,
   search,
   sort,
+  attributeFilters,
 }: {
   brandId?: string;
   categoryId?: string;
@@ -131,6 +140,7 @@ function CatalogPagination({
   page: number;
   search?: string;
   sort?: string;
+  attributeFilters: Record<string, string[]>;
 }) {
   if (page === 1 && !hasNextPage) {
     return null;
@@ -146,7 +156,8 @@ function CatalogPagination({
             categoryId,
             page: page - 1,
             search,
-            sort,
+          sort,
+          attributeFilters,
           })}
         >
           Previous
@@ -164,6 +175,7 @@ function CatalogPagination({
             page: page + 1,
             search,
             sort,
+            attributeFilters,
           })}
         >
           Next
@@ -181,6 +193,7 @@ function createCatalogHref(params: {
   page: number;
   search?: string;
   sort?: string;
+  attributeFilters?: Record<string, string[]>;
 }) {
   const searchParams = new URLSearchParams();
 
@@ -196,6 +209,7 @@ function createCatalogHref(params: {
     searchParams.set("search", params.search);
   }
   if (params.sort && params.sort !== "default") searchParams.set("sort", params.sort);
+  for (const [key, values] of Object.entries(params.attributeFilters ?? {})) if (values.length) searchParams.set(`attr.${key}`, values.join(","));
 
   if (params.page > 1) {
     searchParams.set("page", String(params.page));
@@ -204,6 +218,8 @@ function createCatalogHref(params: {
   const query = searchParams.toString();
   return query ? `/cabinet/catalog?${query}` : "/cabinet/catalog";
 }
+
+function parseAttributeFilters(params: Record<string, string | string[] | undefined> | undefined): Record<string, string[]> { return Object.fromEntries(Object.entries(params ?? {}).flatMap(([key, value]) => { if (!key.startsWith("attr.")) return []; const raw = Array.isArray(value) ? value.join(",") : value ?? ""; const values = raw.split(",").map((item) => item.trim()).filter(Boolean); return values.length ? [[key.slice(5), values]] : []; })); }
 
 function parseSort(value: string | undefined): "default" | "name_asc" | "name_desc" | "sku_asc" { return value === "name_asc" || value === "name_desc" || value === "sku_asc" ? value : "default"; }
 

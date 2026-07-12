@@ -16,7 +16,11 @@ export type ListCatalogProductsInput = {
   sort?: "default" | "name_asc" | "name_desc" | "sku_asc";
   limit?: number;
   offset?: number;
+  productIds?: string[];
 };
+
+export type CatalogAttributeFilters = Record<string, string[]>;
+export type CatalogFacetValueRecord = { key: string; label: string; value: string; count: number; coverage: number };
 
 export type CatalogUpsertResult<TRecord> = {
   record: TRecord;
@@ -87,4 +91,6 @@ export interface CatalogRepository {
   listProductDocumentsForProducts(productIds: string[]): Promise<CatalogProductDocument[]>;
   listProductAttributes?(productId: string): Promise<CatalogProductAttribute[]>;
   listProductAttributesForProducts?(productIds: string[]): Promise<CatalogProductAttribute[]>;
+  findMatchingProductIds?(categoryIds: string[] | undefined, filters: CatalogAttributeFilters): Promise<string[]>;
+  listAttributeFacets?(categoryIds: string[] | undefined, filters: CatalogAttributeFilters): Promise<CatalogFacetValueRecord[]>;
 }

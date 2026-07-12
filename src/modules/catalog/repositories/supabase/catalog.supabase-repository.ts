@@ -4,6 +4,8 @@ import type {
   CatalogRepository,
   CatalogUpsertResult,
   ListCatalogProductsInput,
+  CatalogAttributeFilters,
+  CatalogFacetValueRecord,
   UpsertCatalogBrandInput,
   UpsertCatalogCategoryInput,
   UpsertCatalogProductInput,
@@ -37,7 +39,7 @@ const CATALOG_BRAND_COLUMNS =
   "id, external_1c_id, name, slug, description, logo_url, sort_order, is_active, created_at, updated_at";
 const CATALOG_PRODUCT_COLUMNS =
   "id, external_1c_id, category_id, brand_id, sku, name, slug, short_description, description, image_url, image_source_url, full_description, is_active, is_visible, sort_order, created_at, updated_at";
-const CATALOG_PRODUCT_ATTRIBUTE_COLUMNS = "id, product_id, property_ref, attribute_key, label, raw_value, display_value, value_type, is_filterable, is_visible";
+const CATALOG_PRODUCT_ATTRIBUTE_COLUMNS = "id, product_id, property_ref, attribute_key, label, raw_value, display_value, resolved_display_value, resolution_status, value_type, is_filterable, is_visible";
 const CATALOG_PRODUCT_IMAGE_COLUMNS =
   "id, product_id, url, alt_text, sort_order, is_primary, created_at";
 const CATALOG_PRODUCT_DOCUMENT_COLUMNS =
@@ -98,6 +100,7 @@ export class SupabaseCatalogRepository implements CatalogRepository {
     } else if (input.categoryId) {
       query = query.eq("category_id", input.categoryId);
     }
+    if (input.productIds) { if (!input.productIds.length) return []; query = query.in("id", input.productIds); }
 
     if (input.brandId) {
       query = query.eq("brand_id", input.brandId);
@@ -142,6 +145,7 @@ export class SupabaseCatalogRepository implements CatalogRepository {
 
     if (input.categoryIds?.length) query = query.in("category_id", input.categoryIds);
     else if (input.categoryId) query = query.eq("category_id", input.categoryId);
+    if (input.productIds) { if (!input.productIds.length) return 0; query = query.in("id", input.productIds); }
     if (input.brandId) query = query.eq("brand_id", input.brandId);
     const normalizedSearch = input.search?.trim();
     if (normalizedSearch) {
@@ -424,5 +428,19 @@ export class SupabaseCatalogRepository implements CatalogRepository {
     const { data, error } = await supabase.from("catalog_product_attributes").select(CATALOG_PRODUCT_ATTRIBUTE_COLUMNS).in("product_id", productIds).eq("is_visible", true).order("label");
     if (error) throw new CatalogRepositoryUnexpectedError();
     return (data as CatalogProductAttributeRow[]).map(mapCatalogProductAttributeRow);
+  }
+
+  async findMatchingProductIds(categoryIds: string[] | undefined, filters: CatalogAttributeFilters): Promise<string[]> {
+    const supabase = await createClient();
+    const { data, error } = await supabase.rpc("catalog_matching_product_ids", { p_category_ids: categoryIds ?? null, p_filters: filters });
+    if (error) throw new CatalogRepositoryUnexpectedError();
+    return ((data ?? []) as Array<{ product_id: string }>).map((row) => row.product_id);
+  }
+
+  async listAttributeFacets(categoryIds: string[] | undefined, filters: CatalogAttributeFilters): Promise<CatalogFacetValueRecord[]> {
+    const supabase = await createClient();
+    const { data, error } = await supabase.rpc("catalog_attribute_facets", { p_category_ids: categoryIds ?? null, p_filters: filters });
+    if (error) throw new CatalogRepositoryUnexpectedError();
+    return ((data ?? []) as Array<{ attribute_key: string; label: string; display_value: string; product_count: number; product_coverage: number }>).map((row) => ({ key: row.attribute_key, label: row.label, value: row.display_value, count: Number(row.product_count), coverage: Number(row.product_coverage) }));
   }
 }

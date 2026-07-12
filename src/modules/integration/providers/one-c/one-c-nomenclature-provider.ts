@@ -9,9 +9,11 @@ const PAGE_SIZE = 500;
 const MAX_PAGES = 200;
 const ORDERING = "Ref_Key asc";
 const PROPERTY_RESOURCE = "ChartOfCharacteristicTypes_ДополнительныеРеквизитыИСведения";
+const VALUE_RESOURCES = ["Catalog_ЗначенияСвойствОбъектов", "Catalog_ЗначенияСвойствОбъектовИерархия"] as const;
 const PHOTO_PROPERTY_REF = "f637e5a4-4c2b-11ec-bd80-7239d3b7bd5c";
 const FIELDS = ["Ref_Key", "Parent_Key", "IsFolder", "DeletionMark", "DataVersion", "ДатаИзменения", "Code", "Артикул", "Description", "НаименованиеПолное", "Комментарий", "ФайлКартинки_Key", "ДополнительныеРеквизиты", "PS_ВидНоменклатурыБУ", "ЭтоНабор", "Недействителен"].join(",");
 const PROPERTY_FIELDS = ["Ref_Key", "Description", "DeletionMark", "DataVersion", "ValueType", "Виден", "Доступен", "Заголовок", "Имя", "НаборСвойств_Key"].join(",");
+const VALUE_FIELDS = ["Ref_Key", "Description", "Owner_Key", "DeletionMark"].join(",");
 
 export class CatalogScanIncompleteError extends IntegrationValidationError { readonly failedStage = "nomenclature_scan"; readonly errorCategory = "scan_incomplete"; constructor() { super("1C nomenclature scan is incomplete."); this.name = "CatalogScanIncompleteError"; } }
 export class CatalogDuplicateRowsError extends IntegrationValidationError { readonly failedStage = "nomenclature_scan"; readonly errorCategory = "duplicate_page_rows"; constructor() { super("1C nomenclature scan contains duplicate references."); this.name = "CatalogDuplicateRowsError"; } }
@@ -45,9 +47,11 @@ export class OneCNomenclatureODataProvider {
     if (diagnostics.duplicateReferenceCount > 0) throw new CatalogDuplicateRowsError();
     const propertyDefinitions = await this.fetchPropertyDefinitions();
     diagnostics.propertyDefinitionsLoaded = propertyDefinitions.size;
+    const requiredValueRefs = new Set(rows.flatMap((row) => row.requisites.flatMap((item) => isGuidLike(item.value) ? [String(item.value).toLowerCase()] : [])));
+    const resolvedValues = await this.resolveReferenceValuesBatch(requiredValueRefs);
     const roots = rows.filter((row) => row.isFolder && !row.deleted && !row.inactive && row.name === ROOT_NAME);
     if (roots.length !== 1) throw new IntegrationValidationError(roots.length ? "1C catalog root is ambiguous." : "1C catalog root was not found.");
-    return buildNomenclatureSnapshot(rows, roots[0]!.reference, ROOT_NAME, pagesProcessed, diagnostics, propertyDefinitions);
+    return buildNomenclatureSnapshot(rows, roots[0]!.reference, ROOT_NAME, pagesProcessed, diagnostics, propertyDefinitions, resolvedValues);
   }
 
   private async fetchPropertyDefinitions(): Promise<Map<string, PropertyDefinition>> {
@@ -60,9 +64,22 @@ export class OneCNomenclatureODataProvider {
     }
     throw new CatalogScanIncompleteError();
   }
+
+  private async resolveReferenceValuesBatch(requiredRefs: Set<string>): Promise<Map<string, string>> {
+    const resolved = new Map<string, string>();
+    if (!requiredRefs.size) return resolved;
+    for (const resource of VALUE_RESOURCES) for (let page = 0; page < MAX_PAGES; page += 1) {
+      const payload = await this.client.get(resource, { "$select": VALUE_FIELDS, "$orderby": ORDERING, "$top": String(PAGE_SIZE), "$skip": String(page * PAGE_SIZE) }, { requestKind: "catalog_attribute_value_scan" });
+      const values = parseEnvelope(payload);
+      for (const value of values) if (isRecord(value) && typeof value.Ref_Key === "string" && typeof value.Owner_Key === "string" && requiredRefs.has(value.Ref_Key.toLowerCase()) && value.DeletionMark !== true && text(value.Description)) resolved.set(`${value.Owner_Key.toLowerCase()}:${value.Ref_Key.toLowerCase()}`, text(value.Description));
+      if (values.length < PAGE_SIZE) break;
+      if (page === MAX_PAGES - 1) throw new CatalogScanIncompleteError();
+    }
+    return resolved;
+  }
 }
 
-export function buildNomenclatureSnapshot(rows: NormalizedNomenclatureRow[], rootReference: string, rootName: string, pagesProcessed: number, baseDiagnostics: CatalogScanDiagnosticsDTO = emptyDiagnostics(), propertyDefinitions = new Map<string, PropertyDefinition>()): CatalogSnapshotDTO {
+export function buildNomenclatureSnapshot(rows: NormalizedNomenclatureRow[], rootReference: string, rootName: string, pagesProcessed: number, baseDiagnostics: CatalogScanDiagnosticsDTO = emptyDiagnostics(), propertyDefinitions = new Map<string, PropertyDefinition>(), resolvedValues = new Map<string, string>()): CatalogSnapshotDTO {
   const diagnostics = { ...baseDiagnostics, accountingTypeCounts: { ...baseDiagnostics.accountingTypeCounts }, setValueCounts: { ...baseDiagnostics.setValueCounts } };
   const rootKey = rootReference.toLowerCase();
   const allowed = new Set([rootKey]);
@@ -80,14 +97,14 @@ export function buildNomenclatureSnapshot(rows: NormalizedNomenclatureRow[], roo
   diagnostics.excludedInactive += descendants.filter((row) => row.inactive).length;
   diagnostics.excludedService += descendants.filter((row) => !row.isFolder && !row.deleted && !row.inactive && row.accountingType !== "Товар").length;
   diagnostics.excludedSet += descendants.filter((row) => !row.isFolder && !row.deleted && !row.inactive && row.accountingType === "Товар" && row.setValue === true).length;
-  const products = descendants.filter(isSellableProduct).map((row) => toProduct(row, propertyDefinitions, diagnostics));
+  const products = descendants.filter(isSellableProduct).map((row) => toProduct(row, propertyDefinitions, resolvedValues, diagnostics));
   return { rootReference: reference(rootReference, "catalog-category"), rootName, categories: descendants.filter((row) => row.isFolder && !row.deleted && !row.inactive).map(toCategory), products, pagesProcessed, rowsReceived: rows.length, diagnostics };
 }
 
 function isSellableProduct(row: NormalizedNomenclatureRow) { return !row.isFolder && !row.deleted && !row.inactive && row.name.length > 0 && row.accountingType === "Товар" && row.setValue !== true; }
 function toCategory(row: NormalizedNomenclatureRow): CatalogCategoryDTO { return { reference: reference(row.reference, "catalog-category"), parentReference: row.parentReference ? reference(row.parentReference, "catalog-category") : null, name: row.name, slug: null, description: null, isActive: true, metadata: metadata(row) }; }
-function toProduct(row: NormalizedNomenclatureRow, definitions: Map<string, PropertyDefinition>, diagnostics: CatalogScanDiagnosticsDTO): CatalogProductDTO {
-  const attributes = normalizeAttributes(row.requisites, definitions);
+function toProduct(row: NormalizedNomenclatureRow, definitions: Map<string, PropertyDefinition>, resolvedValues: Map<string, string>, diagnostics: CatalogScanDiagnosticsDTO): CatalogProductDTO {
+  const attributes = normalizeAttributes(row.requisites, definitions, resolvedValues, diagnostics);
   const imageUrl = extractImageUrl(row.requisites, diagnostics);
   const descriptionProperty = attributes.find((item) => normalizeLabel(item.label) === "описание")?.displayValue ?? null;
   const fullDescription = normalizeDescription(descriptionProperty || row.comment || row.fullName || null);
@@ -131,7 +148,7 @@ function extractImageUrl(requisites: AdditionalRequisite[], diagnostics: Catalog
   try { const url = new URL(candidate); if (url.protocol !== "https:" || !["firebasestorage.googleapis.com", "storage.googleapis.com"].includes(url.hostname.toLowerCase())) throw new Error(); return url.toString(); }
   catch { if (candidate) diagnostics.invalidImageUrls = (diagnostics.invalidImageUrls ?? 0) + 1; return null; }
 }
-function normalizeAttributes(requisites: AdditionalRequisite[], definitions: Map<string, PropertyDefinition>): CatalogProductAttributeDTO[] {
+function normalizeAttributes(requisites: AdditionalRequisite[], definitions: Map<string, PropertyDefinition>, resolvedValues: Map<string, string>, diagnostics: CatalogScanDiagnosticsDTO): CatalogProductAttributeDTO[] {
   return requisites.flatMap((item) => {
     if (item.propertyRef.toLowerCase() === PHOTO_PROPERTY_REF) return [];
     const definition = definitions.get(item.propertyRef.toLowerCase());
@@ -140,11 +157,19 @@ function normalizeAttributes(requisites: AdditionalRequisite[], definitions: Map
     if (rawValue === null) return [];
     const label = definition.title || definition.description;
     if (!label) return [];
-    const displayValue = typeof rawValue === "boolean" ? (rawValue ? "Да" : "Нет") : String(rawValue).trim();
-    if (!displayValue) return [];
-    return [{ propertyRef: item.propertyRef, key: `property_${item.propertyRef.toLowerCase()}`, label, rawValue, displayValue, valueType: item.valueType || definition.valueType, filterable: isFilterable(label, rawValue, displayValue, definition), visible: definition.visible, available: definition.available }];
+    const referenceValue = isGuidLike(rawValue) ? String(rawValue).toLowerCase() : null;
+    const resolvedDisplayValue = referenceValue ? resolvedValues.get(`${item.propertyRef.toLowerCase()}:${referenceValue}`) ?? null : null;
+    const resolutionStatus = referenceValue ? (resolvedDisplayValue ? "resolved" : "unresolved") : "not_required";
+    if (referenceValue) diagnostics.referenceValuesDetected = (diagnostics.referenceValuesDetected ?? 0) + 1;
+    if (resolutionStatus === "resolved") diagnostics.referenceValuesResolved = (diagnostics.referenceValuesResolved ?? 0) + 1;
+    if (resolutionStatus === "unresolved") { diagnostics.referenceValuesUnresolved = (diagnostics.referenceValuesUnresolved ?? 0) + 1; diagnostics.attributesHiddenUnresolved = (diagnostics.attributesHiddenUnresolved ?? 0) + 1; }
+    const displayValue = resolvedDisplayValue ?? (referenceValue ? "" : typeof rawValue === "boolean" ? (rawValue ? "Да" : "Нет") : normalizeTypedDisplayValue(rawValue, item.valueType));
+    if (!displayValue && !referenceValue) return [];
+    return [{ propertyRef: item.propertyRef, key: `property_${item.propertyRef.toLowerCase()}`, label, rawValue, displayValue, resolvedDisplayValue, resolvedValueRef: referenceValue, resolutionStatus, valueType: item.valueType || definition.valueType, filterable: resolutionStatus !== "unresolved" && isFilterable(label, rawValue, displayValue, definition), visible: definition.visible && resolutionStatus !== "unresolved", available: definition.available }];
   });
 }
+export function isGuidLike(value: unknown): boolean { return typeof value === "string" && isOneCGuid(value.trim()); }
+function normalizeTypedDisplayValue(value: string | number | boolean, valueType: string | null): string { if (valueType?.includes("Date") && typeof value === "string") { const date = new Date(value); if (!Number.isNaN(date.getTime())) return new Intl.DateTimeFormat("ru").format(date); } return String(value).trim(); }
 function normalizeAttributeValue(value: unknown, textValue: string | null, valueType: string | null): string | number | boolean | null {
   if (typeof value === "boolean" || typeof value === "number") return value;
   if (typeof value === "string" && value.trim()) return value.trim();

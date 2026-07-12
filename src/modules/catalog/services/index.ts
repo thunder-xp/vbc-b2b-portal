@@ -7,9 +7,11 @@ export type {
   CatalogProductImageDto,
   CatalogProductListInput,
   CatalogProductListResult,
+  CatalogFacetDto,
   CatalogService,
 } from "./catalog.service";
 export { DefaultCatalogService } from "./catalog.service";
+export { buildCatalogSortHiddenFields, type CatalogSortHiddenField } from "./catalog-sort-state";
 export {
   resolveCategoryFilters,
   type CatalogFilterDefinition,

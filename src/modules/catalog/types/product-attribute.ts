@@ -6,6 +6,8 @@ export interface CatalogProductAttribute {
   label: string;
   rawValue: unknown;
   displayValue: string;
+  resolvedDisplayValue: string | null;
+  resolutionStatus: "not_required" | "resolved" | "unresolved" | "invalid";
   valueType: string | null;
   isFilterable: boolean;
   isVisible: boolean;

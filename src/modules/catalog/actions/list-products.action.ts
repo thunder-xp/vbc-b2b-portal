@@ -28,6 +28,7 @@ export async function listCatalogProductsAction(
       page: input.page,
       pageSize: input.pageSize,
       sort: input.sort,
+      attributeFilters: normalizeFilters(input.attributeFilters),
     });
 
     return success("Catalog products loaded.", products);
@@ -35,6 +36,7 @@ export async function listCatalogProductsAction(
     return failureFromError(error);
   }
 }
+function normalizeFilters(filters: Record<string, string[]> | undefined): Record<string, string[]> | undefined { if (!filters) return undefined; return Object.fromEntries(Object.entries(filters).map(([key, values]) => [key.trim(), values.map((value) => value.trim()).filter(Boolean)])); }
 
 function normalizeOptionalText(value: string | undefined): string | undefined {
   const normalized = value?.trim();

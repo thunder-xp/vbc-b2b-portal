@@ -54,7 +54,7 @@ export interface CatalogProductRow {
   updated_at: string;
 }
 
-export interface CatalogProductAttributeRow { id: string; product_id: string; property_ref: string; attribute_key: string; label: string; raw_value: unknown; display_value: string; value_type: string | null; is_filterable: boolean; is_visible: boolean; }
+export interface CatalogProductAttributeRow { id: string; product_id: string; property_ref: string; attribute_key: string; label: string; raw_value: unknown; display_value: string; resolved_display_value: string | null; resolution_status: "not_required" | "resolved" | "unresolved" | "invalid"; value_type: string | null; is_filterable: boolean; is_visible: boolean; }
 
 export interface CatalogProductImageRow {
   id: string;
@@ -131,7 +131,7 @@ export function mapCatalogProductRow(row: CatalogProductRow): CatalogProduct {
   };
 }
 
-export function mapCatalogProductAttributeRow(row: CatalogProductAttributeRow): CatalogProductAttribute { return { id: row.id, productId: row.product_id, propertyRef: row.property_ref, key: row.attribute_key, label: row.label, rawValue: row.raw_value, displayValue: row.display_value, valueType: row.value_type, isFilterable: row.is_filterable, isVisible: row.is_visible }; }
+export function mapCatalogProductAttributeRow(row: CatalogProductAttributeRow): CatalogProductAttribute { return { id: row.id, productId: row.product_id, propertyRef: row.property_ref, key: row.attribute_key, label: row.label, rawValue: row.raw_value, displayValue: row.resolution_status === "resolved" ? row.resolved_display_value ?? "" : row.resolution_status === "not_required" ? row.display_value : "", resolvedDisplayValue: row.resolved_display_value, resolutionStatus: row.resolution_status, valueType: row.value_type, isFilterable: row.is_filterable, isVisible: row.is_visible }; }
 
 export function mapCatalogProductImageRow(
   row: CatalogProductImageRow,

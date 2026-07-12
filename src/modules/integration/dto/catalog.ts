@@ -43,6 +43,9 @@ export type CatalogProductAttributeDTO = {
   label: string;
   rawValue: string | number | boolean;
   displayValue: string;
+  resolvedDisplayValue: string | null;
+  resolvedValueRef: string | null;
+  resolutionStatus: "not_required" | "resolved" | "unresolved" | "invalid";
   valueType: string | null;
   filterable: boolean;
   visible: boolean;
@@ -95,4 +98,8 @@ export type CatalogScanDiagnosticsDTO = {
   attributeRowsUpserted?: number;
   attributeRowsRemoved?: number;
   filterableAttributeRows?: number;
+  referenceValuesDetected?: number;
+  referenceValuesResolved?: number;
+  referenceValuesUnresolved?: number;
+  attributesHiddenUnresolved?: number;
 };

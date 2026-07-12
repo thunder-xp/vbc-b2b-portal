@@ -32,7 +32,10 @@ export type CatalogProductListInput = {
   page?: number;
   pageSize?: number;
   sort?: "default" | "name_asc" | "name_desc" | "sku_asc";
+  attributeFilters?: Record<string, string[]>;
 };
+
+export type CatalogFacetDto = { key: string; label: string; values: Array<{ value: string; count: number; selected: boolean }> };
 
 export type CatalogProductCardDto = {
   id: string;
@@ -54,6 +57,7 @@ export type CatalogProductListResult = {
   hasNextPage: boolean;
   isDemoData: boolean;
   totalCount: number;
+  facets: CatalogFacetDto[];
 };
 
 export type CatalogProductImageDto = {
@@ -134,6 +138,11 @@ export class DefaultCatalogService implements CatalogService {
     const categoryIds = input.categoryId
       ? collectCategoryAndDescendantIds(input.categoryId, categories)
       : undefined;
+    const attributeFilters = normalizeAttributeFilters(input.attributeFilters);
+    const [matchingProductIds, facetRows] = await Promise.all([
+      Object.keys(attributeFilters).length ? this.catalogRepository.findMatchingProductIds?.(categoryIds, attributeFilters) ?? Promise.resolve([]) : Promise.resolve(undefined),
+      this.catalogRepository.listAttributeFacets?.(categoryIds, attributeFilters) ?? Promise.resolve([]),
+    ]);
     const normalizedSearch = input.search?.trim().toLowerCase();
     const searchBrandIds = normalizedSearch
       ? brands.filter((brand) => brand.name.toLowerCase().includes(normalizedSearch)).map((brand) => brand.id)
@@ -146,6 +155,7 @@ export class DefaultCatalogService implements CatalogService {
       sort: input.sort,
       limit: pageSize + 1,
       offset: (page - 1) * pageSize,
+      productIds: matchingProductIds,
     };
     const [products, totalCount] = await Promise.all([
       this.catalogRepository.listProducts(repositoryInput),
@@ -174,6 +184,7 @@ export class DefaultCatalogService implements CatalogService {
         hasNextPage: pagedDemoProducts.length > pageSize,
         isDemoData: true,
         totalCount: filteredDemoProducts.length,
+        facets: [],
       };
     }
     const brandMap = createBrandMap(brands);
@@ -195,13 +206,14 @@ export class DefaultCatalogService implements CatalogService {
         brandMap,
         categoryMap,
         datasheetByProduct.get(product.id) ?? null,
-        attributes.filter((attribute) => attribute.productId === product.id).slice(0, 6).map((attribute) => ({ label: attribute.label, value: attribute.displayValue })),
+        selectCardHighlights(attributes.filter((attribute) => attribute.productId === product.id)).map((attribute) => ({ label: attribute.label, value: attribute.displayValue })),
       )),
       page,
       pageSize,
       hasNextPage: products.length > pageSize,
       isDemoData: false,
       totalCount,
+      facets: buildFacets(facetRows, attributeFilters),
     };
   }
 
@@ -336,9 +348,23 @@ export class DefaultCatalogService implements CatalogService {
   }
 }
 
+function normalizeAttributeFilters(filters: Record<string, string[]> | undefined): Record<string, string[]> { return Object.fromEntries(Object.entries(filters ?? {}).flatMap(([key, values]) => { const clean = [...new Set(values.map((value) => value.trim()).filter(Boolean))].slice(0, 20); return /^property_[0-9a-f-]{36}$/.test(key) && clean.length ? [[key, clean]] : []; })); }
+const FACET_PRIORITY = [/разрешение/i, /форм.?фактор/i, /технолог/i, /передача.?данных/i, /аналитик/i, /micro.?sd/i, /дальность.?ик/i, /микрофон/i, /объектив/i, /фокус/i, /материал/i];
+function buildFacets(rows: Array<{ key: string; label: string; value: string; count: number; coverage: number }>, selected: Record<string, string[]>): CatalogFacetDto[] {
+  const groups = new Map<string, CatalogFacetDto>();
+  for (const row of rows) { const group = groups.get(row.key) ?? { key: row.key, label: row.label, values: [] }; group.values.push({ value: row.value, count: row.count, selected: selected[row.key]?.includes(row.value) ?? false }); groups.set(row.key, group); }
+  return [...groups.values()].filter((group) => group.values.length >= 2 && group.values.length <= 30).map((group) => ({ ...group, values: sortFacetValues(group.values) })).sort((a, b) => facetRank(a.label) - facetRank(b.label) || b.values.reduce((sum, value) => sum + value.count, 0) - a.values.reduce((sum, value) => sum + value.count, 0) || a.label.localeCompare(b.label));
+}
+function facetRank(label: string): number { const index = FACET_PRIORITY.findIndex((pattern) => pattern.test(label)); return index < 0 ? FACET_PRIORITY.length : index; }
+function sortFacetValues<T extends { value: string; count: number }>(values: T[]): T[] { return [...values].sort((a, b) => { const an = Number(a.value.replace(",", ".").match(/-?\d+(?:\.\d+)?/)?.[0]); const bn = Number(b.value.replace(",", ".").match(/-?\d+(?:\.\d+)?/)?.[0]); if (Number.isFinite(an) && Number.isFinite(bn)) return an - bn; if (/^(да|yes|true)$/i.test(a.value)) return -1; if (/^(да|yes|true)$/i.test(b.value)) return 1; return b.count - a.count || a.value.localeCompare(b.value); }); }
+
 function createBrandMap(brands: CatalogBrand[]): Map<string, CatalogBrand> {
   return new Map(brands.map((brand) => [brand.id, brand]));
 }
+
+const CARD_HIGHLIGHT_PRIORITY = [/разрешение/i, /poe/i, /wi-?fi/i, /ptz/i, /микрофон/i, /micro.?sd/i, /форм.?фактор/i];
+function selectCardHighlights<T extends { label: string; displayValue: string }>(attributes: T[]): T[] { return attributes.filter((item) => item.displayValue).sort((a, b) => highlightRank(a.label) - highlightRank(b.label) || a.label.localeCompare(b.label)).slice(0, 2); }
+function highlightRank(label: string): number { const index = CARD_HIGHLIGHT_PRIORITY.findIndex((pattern) => pattern.test(label)); return index < 0 ? CARD_HIGHLIGHT_PRIORITY.length : index; }
 
 function createCategoryMap(
   categories: CatalogCategory[],
