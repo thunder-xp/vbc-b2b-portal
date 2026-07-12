@@ -58,6 +58,24 @@ describe("ChunkedPriceSyncService", () => {
     expect(store.state.status).toBe("failed");
   });
 
+  it("deduplicates a price page before calling the staging RPC", async () => {
+    const store = storeFixture({ currentStage: "price_register_scan" });
+    const provider = providerFixture({ priceRows: 2 });
+    provider.fetchPrices.mockResolvedValueOnce({ rowCount: 2, items: [priceRow({ amount: 100 }), priceRow({ amount: 120, effectiveAt: "2026-02-01T00:00:00Z" })] });
+    await new ChunkedPriceSyncService(provider, store).continue(syncId);
+    expect(store.stagePrices).toHaveBeenCalledWith(syncId, [expect.objectContaining({ amount: 120 })]);
+    expect(store.state).toMatchObject({ priceRowsReceived: 2, priceUniqueKeys: 1, priceDuplicateKeys: 1, priceRowsDeduplicated: 1 });
+  });
+
+  it("preserves sanitized database diagnostics for a future staging failure", async () => {
+    const store = storeFixture({ currentStage: "price_register_scan" });
+    const provider = providerFixture({ priceRows: 1 });
+    provider.fetchPrices.mockResolvedValueOnce({ rowCount: 1, items: [priceRow()] });
+    store.stagePrices.mockRejectedValueOnce(Object.assign(new Error("safe"), { code: "21000", databaseMessage: "ON CONFLICT command failed", databaseDetails: "constraint conflict", databaseHint: "Deduplicate rows", errorCategory: "staging_failure" }));
+    await new ChunkedPriceSyncService(provider, store).continue(syncId);
+    expect(store.fail).toHaveBeenCalledWith(syncId, "staging_failure", "price_register_scan", 1, "21000", "ON CONFLICT command failed constraint conflict Deduplicate rows");
+  });
+
   it("recovers only genuinely stale running locks", () => {
     expect(isPriceSyncLockStale({ status: "running", updatedAt: "2026-07-12T11:00:00.000Z" }, Date.parse(now))).toBe(true);
     expect(isPriceSyncLockStale({ status: "running", updatedAt: now }, Date.parse(now))).toBe(false);
@@ -73,6 +91,12 @@ describe("transactional price snapshot SQL", () => {
   it("does not expose staging tables to browser roles", () => { expect(sql).toMatch(/revoke all[\s\S]*public\.price_sync_state[\s\S]*public\.product_price_sync_stage[\s\S]*from anon, authenticated/); });
 });
 
+describe("price staging duplicate SQL defense", () => {
+  const sql = readFileSync(resolve(process.cwd(), "supabase/migrations/20260712190000_price_stage_duplicate_defense.sql"), "utf8");
+  it("ranks duplicate logical keys before insert", () => { expect(sql).toContain("row_number() over"); expect(sql).toContain("partition by external_product_ref, external_price_type_ref, external_characteristic_ref"); expect(sql).toContain("where row_rank = 1"); });
+  it("uses deterministic latest and stable-order precedence", () => { expect(sql).toContain("order by effective_at desc, ordinality desc, is_current asc"); });
+});
+
 function providerFixture(options: { priceRows?: number } = {}) {
   return {
     fetchPriceTypes: vi.fn(async () => ({ items: [], rowCount: 0 })),
@@ -82,7 +106,7 @@ function providerFixture(options: { priceRows?: number } = {}) {
 }
 
 function storeFixture(overrides: Partial<PriceSyncState> = {}) {
-  const state: PriceSyncState = { status: "running", activeSyncId: syncId, startedAt: now, finishedAt: null, lastSuccessfulSyncAt: null, currentStage: "price_type_scan", nextSkip: 0, pageSize: 500, pagesProcessed: 0, rowsScanned: 0, rowsStaged: 0, latestPricesResolved: 0, pricesPublished: 0, pricesDeactivated: 0, unmatchedProducts: 0, unknownPriceTypes: 0, scanComplete: false, errorCategory: null, failedStage: null, databaseErrorCode: null, safeError: null, failedPage: null, activeChunkToken: null, chunkStartedAt: null, updatedAt: now, ...overrides };
+  const state: PriceSyncState = { status: "running", activeSyncId: syncId, lastFailedSyncId: null, startedAt: now, finishedAt: null, lastSuccessfulSyncAt: null, currentStage: "price_type_scan", nextSkip: 0, pageSize: 500, pagesProcessed: 0, rowsScanned: 0, rowsStaged: 0, priceRowsReceived: 0, priceUniqueKeys: 0, priceDuplicateKeys: 0, priceRowsDeduplicated: 0, latestPricesResolved: 0, pricesPublished: 0, pricesDeactivated: 0, unmatchedProducts: 0, unknownPriceTypes: 0, scanComplete: false, errorCategory: null, failedStage: null, databaseErrorCode: null, safeError: null, failedPage: null, activeChunkToken: null, chunkStartedAt: null, updatedAt: now, ...overrides };
   const store = {
     state,
     start: vi.fn(async () => ({ state, started: true })),
@@ -92,7 +116,7 @@ function storeFixture(overrides: Partial<PriceSyncState> = {}) {
     stagePriceTypes: vi.fn(async (_id, rows) => rows.length),
     stageCurrencies: vi.fn(async (_id, rows) => rows.length),
     stagePrices: vi.fn(async (_id, rows) => rows.length),
-    checkpoint: vi.fn(async (_id: string, input: { stage: PriceSyncStage; nextSkip: number; rowsScanned: number; rowsStaged: number; pageCompleted: boolean; scanComplete?: boolean }) => { state.status = "running"; state.currentStage = input.stage; state.nextSkip = input.nextSkip; state.pagesProcessed += 1; state.rowsScanned += input.rowsScanned; state.rowsStaged += input.rowsStaged; state.scanComplete = input.scanComplete ?? state.scanComplete; }),
+    checkpoint: vi.fn(async (_id: string, input: { stage: PriceSyncStage; nextSkip: number; rowsScanned: number; rowsStaged: number; pageCompleted: boolean; scanComplete?: boolean; priceDiagnostics?: { received: number; uniqueKeys: number; duplicateKeys: number; rowsDeduplicated: number } }) => { state.status = "running"; state.currentStage = input.stage; state.nextSkip = input.nextSkip; state.pagesProcessed += input.pageCompleted ? 1 : 0; state.rowsScanned += input.rowsScanned; state.rowsStaged += input.rowsStaged; state.priceRowsReceived += input.priceDiagnostics?.received ?? 0; state.priceUniqueKeys += input.priceDiagnostics?.uniqueKeys ?? 0; state.priceDuplicateKeys += input.priceDiagnostics?.duplicateKeys ?? 0; state.priceRowsDeduplicated += input.priceDiagnostics?.rowsDeduplicated ?? 0; state.scanComplete = input.scanComplete ?? state.scanComplete; }),
     publish: vi.fn(async () => { state.status = "succeeded"; state.activeSyncId = null; state.currentStage = "completed"; }),
     fail: vi.fn(async (_id, category, stage, page) => { state.status = "failed"; state.activeSyncId = null; state.errorCategory = category; state.failedStage = stage; state.failedPage = page; }),
     failLaunch: vi.fn(async (_id, safeError) => { state.status = "failed"; state.activeSyncId = null; state.errorCategory = "orchestration_failure"; state.failedStage = "continuation_launch"; state.safeError = safeError; }),
@@ -102,3 +126,4 @@ function storeFixture(overrides: Partial<PriceSyncState> = {}) {
 
 const syncId = "11111111-1111-4111-8111-111111111111";
 const now = "2026-07-12T12:00:00.000Z";
+function priceRow(overrides: Partial<PriceRegisterStageRow> = {}): PriceRegisterStageRow { return { externalProductRef: "product", externalPriceTypeRef: "type", externalCharacteristicRef: "00000000-0000-0000-0000-000000000000", amount: 100, isCurrent: true, effectiveAt: "2026-01-01T00:00:00Z", ...overrides }; }

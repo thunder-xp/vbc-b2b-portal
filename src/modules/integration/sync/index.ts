@@ -7,6 +7,7 @@ export { SupabaseCatalogSnapshotWriter, type CatalogSnapshotWriter, type Catalog
 export { normalizeCatalogAttributes, DuplicateCatalogAttributeKeysError, type CatalogAttributeNormalizationResult, type CatalogAttributePersistenceRow, type CatalogAttributeSourceRow } from "./catalog-attribute-publication";
 export { CatalogPersistenceError, catalogPersistenceError, type CatalogPersistenceErrorMetadata } from "./catalog-persistence-error";
 export { ChunkedPriceSyncService, SupabasePriceSyncStateStore, isPriceSyncLockStale, PRICE_SYNC_PAGE_SIZE, PRICE_SYNC_PAGES_PER_INVOCATION, PRICE_SYNC_DURATION_BUDGET_MS, PRICE_SYNC_STALE_LOCK_MS, type PriceSyncState, type PriceSyncStatus, type PriceSyncStage, type PriceSyncChunkResult, type PriceSyncStateStore } from "./chunked-price-sync";
+export { normalizePricePage, type NormalizedPricePage, type PricePageDiagnostics } from "./price-page-normalization";
 export { CATALOG_SYNC_CRON, CATALOG_SYNC_INTERVAL_HOURS } from "./catalog-schedule";
 export { DailyCatalogSyncService, type DailyCatalogSyncResult } from "./daily-catalog-sync.service";
 export type { PriceSyncReport, PriceSyncReportStatus } from "./price-sync-engine";
