@@ -92,6 +92,8 @@ export function ProductDetail({ commercialView, product }: ProductDetailProps) {
           </div>
         </section>
 
+        {product.keyCharacteristics.length > 0 && <section className="mt-8 border-t border-zinc-200 pt-6"><h2 className="text-base font-semibold text-zinc-950">Characteristics</h2><dl className="mt-3 divide-y divide-zinc-100 rounded-md border border-zinc-200">{product.keyCharacteristics.map((item) => <div className="grid grid-cols-2 gap-4 px-4 py-3 text-sm" key={item.label}><dt className="text-zinc-500">{item.label}</dt><dd className="font-medium text-zinc-950">{item.value}</dd></div>)}</dl></section>}
+
         <section className="mt-8 border-t border-zinc-200 pt-6">
           <h2 className="text-base font-semibold text-zinc-950">Documents</h2>
           {product.documents.length > 0 ? (

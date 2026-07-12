@@ -4,19 +4,21 @@ import Link from "next/link";
 import type { ProductCardCapabilityModel } from "../../partner-cabinet/services";
 import type { ProductCommercialViewDto } from "../../pricing-inventory";
 import type { CatalogProductCardDto } from "../services";
+import { ProductImage } from "./ProductImage";
 
 type ProductCardProps = { product: CatalogProductCardDto; commercialView?: ProductCommercialViewDto; capabilities: ProductCardCapabilityModel; priceTypeName: string | null };
 
 export function ProductCard({ capabilities, commercialView, priceTypeName, product }: ProductCardProps) {
   const stockTone = getStockTone(commercialView?.stock?.status);
   return <article className="flex h-full flex-col rounded-lg border border-zinc-200 bg-white shadow-sm transition hover:border-emerald-500">
-    <Link className="flex aspect-[4/3] items-center justify-center rounded-t-lg bg-zinc-100 p-4" href={`/cabinet/catalog/${product.slug}`}>
-      {product.imageUrl ? <img alt={product.name} className="max-h-full max-w-full object-contain" src={product.imageUrl} /> : <div className="flex h-full w-full items-center justify-center rounded-md border border-dashed border-zinc-300 text-sm font-medium text-zinc-500">Нет изображения</div>}
+    <Link className="relative block aspect-[4/3] overflow-hidden rounded-t-lg bg-zinc-100" href={`/cabinet/catalog/${product.slug}`}>
+      <ProductImage alt={product.name} src={product.imageUrl} />
     </Link>
     <div className="flex flex-1 flex-col p-4">
       <div className="flex flex-wrap gap-2 text-xs text-zinc-500"><span>{product.brand?.name ?? "Бренд не указан"}</span><span>/</span><span>{product.category?.name ?? "Категория не указана"}</span></div>
       <Link className="mt-3 text-base font-semibold leading-6 text-zinc-950 hover:text-emerald-700" href={`/cabinet/catalog/${product.slug}`}>{product.name}</Link>
       <p className="mt-1 text-xs font-medium uppercase text-emerald-700">{product.sku}</p>
+      {product.shortDescription && <p className="mt-2 line-clamp-3 text-sm leading-5 text-zinc-600">{product.shortDescription}</p>}
       {product.keyCharacteristics.length > 0 && <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1 text-xs">{product.keyCharacteristics.slice(0, 6).map((item) => <div className="contents" key={item.label}><dt className="text-zinc-500">{item.label}</dt><dd className="text-right font-medium text-zinc-800">{item.value}</dd></div>)}</dl>}
       <div className="mt-auto grid gap-2 pt-5 text-sm">
         {capabilities.showPrice && <div className="rounded-md bg-emerald-50 px-3 py-2 font-medium text-emerald-800"><p>{commercialView?.price?.label ?? "Цена уточняется"}</p>{priceTypeName && <p className="mt-1 text-xs font-normal text-emerald-700">Вид цены: {priceTypeName}</p>}</div>}

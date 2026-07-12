@@ -5,6 +5,7 @@ import type {
   CatalogProductDocument,
   CatalogProductDocumentType,
   CatalogProductImage,
+  CatalogProductAttribute,
 } from "../../types";
 
 export interface CatalogCategoryRow {
@@ -44,12 +45,16 @@ export interface CatalogProductRow {
   short_description: string | null;
   description: string | null;
   image_url: string | null;
+  image_source_url: string | null;
+  full_description: string | null;
   is_active: boolean;
   is_visible: boolean;
   sort_order: number;
   created_at: string;
   updated_at: string;
 }
+
+export interface CatalogProductAttributeRow { id: string; product_id: string; property_ref: string; attribute_key: string; label: string; raw_value: unknown; display_value: string; value_type: string | null; is_filterable: boolean; is_visible: boolean; }
 
 export interface CatalogProductImageRow {
   id: string;
@@ -116,6 +121,8 @@ export function mapCatalogProductRow(row: CatalogProductRow): CatalogProduct {
     shortDescription: row.short_description,
     description: row.description,
     imageUrl: row.image_url,
+    imageSourceUrl: row.image_source_url,
+    fullDescription: row.full_description,
     isActive: row.is_active,
     isVisible: row.is_visible,
     sortOrder: row.sort_order,
@@ -123,6 +130,8 @@ export function mapCatalogProductRow(row: CatalogProductRow): CatalogProduct {
     updatedAt: row.updated_at,
   };
 }
+
+export function mapCatalogProductAttributeRow(row: CatalogProductAttributeRow): CatalogProductAttribute { return { id: row.id, productId: row.product_id, propertyRef: row.property_ref, key: row.attribute_key, label: row.label, rawValue: row.raw_value, displayValue: row.display_value, valueType: row.value_type, isFilterable: row.is_filterable, isVisible: row.is_visible }; }
 
 export function mapCatalogProductImageRow(
   row: CatalogProductImageRow,

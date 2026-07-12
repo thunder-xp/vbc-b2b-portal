@@ -13,6 +13,7 @@ export type {
   CatalogBrandDTO,
   CatalogCategoryDTO,
   CatalogProductDTO,
+  CatalogProductAttributeDTO,
   CatalogSnapshotDTO,
   CatalogScanDiagnosticsDTO,
 } from "./catalog";

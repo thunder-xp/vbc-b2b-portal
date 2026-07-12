@@ -182,6 +182,7 @@ export class DefaultCatalogService implements CatalogService {
     const documents = await this.catalogRepository.listProductDocumentsForProducts(
       visibleProducts.map((product) => product.id),
     );
+    const attributes = await this.catalogRepository.listProductAttributesForProducts?.(visibleProducts.map((product) => product.id)) ?? [];
     const datasheetByProduct = new Map(
       documents
         .filter((document) => document.documentType === "datasheet")
@@ -194,6 +195,7 @@ export class DefaultCatalogService implements CatalogService {
         brandMap,
         categoryMap,
         datasheetByProduct.get(product.id) ?? null,
+        attributes.filter((attribute) => attribute.productId === product.id).slice(0, 6).map((attribute) => ({ label: attribute.label, value: attribute.displayValue })),
       )),
       page,
       pageSize,
@@ -211,9 +213,10 @@ export class DefaultCatalogService implements CatalogService {
     const product = await this.catalogRepository.getProductBySlug(slug);
 
     if (product) {
-      const [images, documents, brands, categories] = await Promise.all([
+      const [images, documents, attributes, brands, categories] = await Promise.all([
         this.catalogRepository.listProductImages(product.id),
         this.catalogRepository.listProductDocuments(product.id),
+        this.catalogRepository.listProductAttributes?.(product.id) ?? Promise.resolve([]),
         this.catalogRepository.listBrands(),
         this.catalogRepository.listCategories(),
       ]);
@@ -224,6 +227,7 @@ export class DefaultCatalogService implements CatalogService {
         documents,
         createBrandMap(brands),
         createCategoryMap(categories),
+        attributes.map((attribute) => ({ label: attribute.label, value: attribute.displayValue })),
       );
     }
 
@@ -277,6 +281,7 @@ export class DefaultCatalogService implements CatalogService {
     brandMap: Map<string, CatalogBrand>,
     categoryMap: Map<string, CatalogCategory>,
     datasheet: CatalogProductDocument | null = null,
+    keyCharacteristics: Array<{ label: string; value: string }> = [],
   ): CatalogProductCardDto {
     const brand = product.brandId
       ? brandMap.get(product.brandId) ?? null
@@ -291,10 +296,10 @@ export class DefaultCatalogService implements CatalogService {
       name: product.name,
       slug: product.slug,
       shortDescription: product.shortDescription,
-      imageUrl: product.imageUrl,
+      imageUrl: product.imageSourceUrl ?? product.imageUrl,
       brand: brand ? toBrandDto(brand) : null,
       category: category ? toCategoryDto(category) : null,
-      keyCharacteristics: [],
+      keyCharacteristics,
       datasheet: datasheet ? {
         id: datasheet.id,
         title: datasheet.title,
@@ -310,10 +315,11 @@ export class DefaultCatalogService implements CatalogService {
     documents: CatalogProductDocument[],
     brandMap: Map<string, CatalogBrand>,
     categoryMap: Map<string, CatalogCategory>,
+    keyCharacteristics: Array<{ label: string; value: string }> = [],
   ): CatalogProductDetailDto {
     return {
-      ...this.toProductCardDto(product, brandMap, categoryMap),
-      description: product.description,
+      ...this.toProductCardDto(product, brandMap, categoryMap, null, keyCharacteristics),
+      description: product.fullDescription ?? product.description,
       images: images.map((image) => ({
         id: image.id,
         url: image.url,

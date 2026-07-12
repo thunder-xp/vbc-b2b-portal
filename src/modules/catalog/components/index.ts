@@ -13,5 +13,6 @@ export {
 } from "./product-card.model";
 export { ProductDetail } from "./ProductDetail";
 export { ProductGrid } from "./ProductGrid";
+export { ProductImage } from "./ProductImage";
 export { ProductImageGallery } from "./ProductImageGallery";
 export { SearchBox } from "./SearchBox";

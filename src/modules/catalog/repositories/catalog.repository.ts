@@ -4,6 +4,7 @@ import type {
   CatalogProduct,
   CatalogProductDocument,
   CatalogProductImage,
+  CatalogProductAttribute,
 } from "../types";
 
 export type ListCatalogProductsInput = {
@@ -84,4 +85,6 @@ export interface CatalogRepository {
   listProductImages(productId: string): Promise<CatalogProductImage[]>;
   listProductDocuments(productId: string): Promise<CatalogProductDocument[]>;
   listProductDocumentsForProducts(productIds: string[]): Promise<CatalogProductDocument[]>;
+  listProductAttributes?(productId: string): Promise<CatalogProductAttribute[]>;
+  listProductAttributesForProducts?(productIds: string[]): Promise<CatalogProductAttribute[]>;
 }

@@ -6,3 +6,4 @@ export type {
 } from "./product-document";
 export type { CatalogProductImage } from "./product-image";
 export type { CatalogProduct } from "./product";
+export type { CatalogProductAttribute } from "./product-attribute";

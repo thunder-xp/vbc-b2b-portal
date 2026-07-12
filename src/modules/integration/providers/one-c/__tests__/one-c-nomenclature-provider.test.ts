@@ -10,7 +10,7 @@ describe("OneCNomenclatureCatalogProvider", () => {
   afterEach(() => vi.unstubAllGlobals());
 
   it("discovers the exact root and imports only eligible descendants", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse([
+    const rows = [
       row(root, null, true, "SECURITYPARK DISTRIBUTION"),
       row("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", null, true, "SECURITYPARK DISTRIBUTION ARCHIVE"),
       row(folder, root, true, "Видеонаблюдение"),
@@ -19,7 +19,8 @@ describe("OneCNomenclatureCatalogProvider", () => {
       row("55555555-5555-4555-8555-555555555555", folder, false, "Set", { PS_ВидНоменклатурыБУ: "Товар", ЭтоНабор: true }),
       row("66666666-6666-4666-8666-666666666666", folder, false, "Deleted", { PS_ВидНоменклатурыБУ: "Товар", DeletionMark: true }),
       row("77777777-7777-4777-8777-777777777777", null, false, "Unrelated", { PS_ВидНоменклатурыБУ: "Товар" }),
-    ]));
+    ];
+    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(jsonResponse(rows)));
     vi.stubGlobal("fetch", fetchMock);
 
     const snapshot = await provider().fetchFullSnapshot();
@@ -34,11 +35,23 @@ describe("OneCNomenclatureCatalogProvider", () => {
   });
 
   it("keeps exact Cyrillic eligibility fields and excludes inactive products", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse([row(root, null, true, "SECURITYPARK DISTRIBUTION"), row(product, root, false, "Active", { PS_ВидНоменклатурыБУ: "Товар", ЭтоНабор: false }), row(folder, root, false, "Inactive", { PS_ВидНоменклатурыБУ: "Товар", ЭтоНабор: false, Недействителен: true })])));
+    const rows = [row(root, null, true, "SECURITYPARK DISTRIBUTION"), row(product, root, false, "Active", { PS_ВидНоменклатурыБУ: "Товар", ЭтоНабор: false }), row(folder, root, false, "Inactive", { PS_ВидНоменклатурыБУ: "Товар", ЭтоНабор: false, Недействителен: true })];
+    vi.stubGlobal("fetch", vi.fn().mockImplementation(() => Promise.resolve(jsonResponse(rows))));
     const snapshot = await provider().fetchFullSnapshot();
     expect(snapshot.products.map((item) => item.reference.externalId)).toEqual([product]);
     expect(snapshot.diagnostics?.accountingTypeCounts.Товар).toBe(2);
     expect(snapshot.diagnostics?.excludedInactive).toBe(1);
+  });
+
+  it("normalizes image and sanitized description from UTF-8 requisites", async () => {
+    const descriptionRef = "88888888-8888-4888-8888-888888888888";
+    const photoRef = "f637e5a4-4c2b-11ec-bd80-7239d3b7bd5c";
+    const nomenclature = [row(root, null, true, "SECURITYPARK DISTRIBUTION"), row(product, root, false, "Camera", { ДополнительныеРеквизиты: [requisite(photoRef, "https://firebasestorage.googleapis.com/v0/b/demo/o/camera.jpg", "Edm.String"), requisite(descriptionRef, "<script>bad()</script><p>Описание товара</p>", "Edm.String")] })];
+    const definitions = [property(photoRef, "photoURL"), property(descriptionRef, "Описание")];
+    vi.stubGlobal("fetch", vi.fn().mockImplementation((input: URL | RequestInfo) => Promise.resolve(jsonResponse(String(input).includes("ChartOfCharacteristicTypes") ? definitions : nomenclature))));
+    const snapshot = await provider().fetchFullSnapshot();
+    expect(snapshot.products[0]).toMatchObject({ imageUrl: "https://firebasestorage.googleapis.com/v0/b/demo/o/camera.jpg", description: "Описание товара" });
+    expect(snapshot.products[0]?.attributes?.map((item) => item.label)).toEqual(["Описание"]);
   });
 
   it("rejects duplicate references before producing a snapshot", async () => {
@@ -63,6 +76,8 @@ describe("OneCNomenclatureCatalogProvider", () => {
   });
 });
 
+function requisite(propertyRef: string, value: unknown, valueType: string) { return { Ref_Key: crypto.randomUUID(), LineNumber: 1, Свойство_Key: propertyRef, Значение: value, Значение_Type: valueType, ТекстоваяСтрока: "" }; }
+function property(reference: string, label: string) { return { Ref_Key: reference, Description: label, Заголовок: label, DeletionMark: false, ValueType: "Edm.String", Виден: true, Доступен: true, Имя: label, НаборСвойств_Key: root }; }
 function provider() { return new OneCNomenclatureCatalogProvider({ baseUrl: "https://erp.example/odata", username: "user", password: "secret", requestTimeoutMs: 10000 }); }
 function jsonResponse(value: unknown[]) { return new Response(JSON.stringify({ value }), { status: 200, headers: { "content-type": "application/json; charset=utf-8" } }); }
 function row(reference: string, parent: string | null, isFolder: boolean, name: string, overrides: Record<string, unknown> = {}) { return { Ref_Key: reference, Parent_Key: parent, IsFolder: isFolder, DeletionMark: false, Недействителен: false, DataVersion: "v1", ДатаИзменения: "2026-07-12T00:00:00", Code: "CODE", Артикул: "", Description: name, НаименованиеПолное: name, PS_ВидНоменклатурыБУ: isFolder ? null : "Товар", ЭтоНабор: false, ...overrides }; }

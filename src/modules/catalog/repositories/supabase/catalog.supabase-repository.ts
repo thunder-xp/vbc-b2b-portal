@@ -14,6 +14,7 @@ import type {
   CatalogProduct,
   CatalogProductDocument,
   CatalogProductImage,
+  CatalogProductAttribute,
 } from "../../types";
 import {
   mapCatalogBrandRow,
@@ -21,11 +22,13 @@ import {
   mapCatalogProductDocumentRow,
   mapCatalogProductImageRow,
   mapCatalogProductRow,
+  mapCatalogProductAttributeRow,
   type CatalogBrandRow,
   type CatalogCategoryRow,
   type CatalogProductDocumentRow,
   type CatalogProductImageRow,
   type CatalogProductRow,
+  type CatalogProductAttributeRow,
 } from "./mappers";
 
 const CATALOG_CATEGORY_COLUMNS =
@@ -33,7 +36,8 @@ const CATALOG_CATEGORY_COLUMNS =
 const CATALOG_BRAND_COLUMNS =
   "id, external_1c_id, name, slug, description, logo_url, sort_order, is_active, created_at, updated_at";
 const CATALOG_PRODUCT_COLUMNS =
-  "id, external_1c_id, category_id, brand_id, sku, name, slug, short_description, description, image_url, is_active, is_visible, sort_order, created_at, updated_at";
+  "id, external_1c_id, category_id, brand_id, sku, name, slug, short_description, description, image_url, image_source_url, full_description, is_active, is_visible, sort_order, created_at, updated_at";
+const CATALOG_PRODUCT_ATTRIBUTE_COLUMNS = "id, product_id, property_ref, attribute_key, label, raw_value, display_value, value_type, is_filterable, is_visible";
 const CATALOG_PRODUCT_IMAGE_COLUMNS =
   "id, product_id, url, alt_text, sort_order, is_primary, created_at";
 const CATALOG_PRODUCT_DOCUMENT_COLUMNS =
@@ -405,5 +409,20 @@ export class SupabaseCatalogRepository implements CatalogRepository {
 
     if (error) throw new CatalogRepositoryUnexpectedError();
     return (data as CatalogProductDocumentRow[]).map(mapCatalogProductDocumentRow);
+  }
+
+  async listProductAttributes(productId: string): Promise<CatalogProductAttribute[]> {
+    const supabase = await createClient();
+    const { data, error } = await supabase.from("catalog_product_attributes").select(CATALOG_PRODUCT_ATTRIBUTE_COLUMNS).eq("product_id", productId).eq("is_visible", true).order("label");
+    if (error) throw new CatalogRepositoryUnexpectedError();
+    return (data as CatalogProductAttributeRow[]).map(mapCatalogProductAttributeRow);
+  }
+
+  async listProductAttributesForProducts(productIds: string[]): Promise<CatalogProductAttribute[]> {
+    if (!productIds.length) return [];
+    const supabase = await createClient();
+    const { data, error } = await supabase.from("catalog_product_attributes").select(CATALOG_PRODUCT_ATTRIBUTE_COLUMNS).in("product_id", productIds).eq("is_visible", true).order("label");
+    if (error) throw new CatalogRepositoryUnexpectedError();
+    return (data as CatalogProductAttributeRow[]).map(mapCatalogProductAttributeRow);
   }
 }

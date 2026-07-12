@@ -30,9 +30,23 @@ export type CatalogProductDTO = {
   shortDescription: string | null;
   description: string | null;
   imageUrl: string | null;
+  fullDescription?: string | null;
+  attributes?: CatalogProductAttributeDTO[];
   isActive: boolean;
   isVisible: boolean;
   metadata: IntegrationMetadataDTO;
+};
+
+export type CatalogProductAttributeDTO = {
+  propertyRef: string;
+  key: string;
+  label: string;
+  rawValue: string | number | boolean;
+  displayValue: string;
+  valueType: string | null;
+  filterable: boolean;
+  visible: boolean;
+  available: boolean;
 };
 
 export type CatalogSnapshotDTO = {
@@ -71,4 +85,14 @@ export type CatalogScanDiagnosticsDTO = {
   pageSize: number;
   lastPageRowCount: number;
   scanComplete: boolean;
+  propertyDefinitionsLoaded?: number;
+  productsWithImageUrl?: number;
+  productsWithoutImageUrl?: number;
+  invalidImageUrls?: number;
+  productsWithFullDescription?: number;
+  productsWithAttributes?: number;
+  attributeRowsReceived?: number;
+  attributeRowsUpserted?: number;
+  attributeRowsRemoved?: number;
+  filterableAttributeRows?: number;
 };
