@@ -6,6 +6,7 @@ export interface ProductPriceRow {
   company_id: string | null;
   external_1c_price_type_id: string | null;
   currency: string;
+  currency_status: "resolved" | "unresolved";
   price_amount: number | string;
   valid_from: string;
   valid_to: string | null;
@@ -35,6 +36,7 @@ export function mapProductPriceRow(row: ProductPriceRow): ProductPrice {
     companyId: row.company_id,
     external1cPriceTypeId: row.external_1c_price_type_id,
     currency: row.currency,
+    currencyStatus: row.currency_status,
     priceAmount: Number(row.price_amount),
     validFrom: row.valid_from,
     validTo: row.valid_to,

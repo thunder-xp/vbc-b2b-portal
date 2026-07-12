@@ -3,6 +3,7 @@ import type { ProductPrice, ProductStockBalance } from "../types";
 export type ListProductPricesInput = {
   productIds: string[];
   companyId: string;
+  external1cPriceTypeId?: string;
 };
 
 export type PricingUpsertResult<TRecord> = {
@@ -22,6 +23,10 @@ export type UpsertProductPriceInput = FindProductPriceInput & {
   priceAmount: number;
   validTo: string | null;
   isActive: boolean;
+  currencyStatus?: "resolved" | "unresolved";
+  externalProductRef?: string;
+  sourceVersion?: string | null;
+  syncId?: string;
 };
 
 export type FindProductStockBalanceInput = {
@@ -39,12 +44,14 @@ export type UpsertProductStockBalanceInput = FindProductStockBalanceInput & {
 };
 
 export interface PricingInventoryRepository {
+  upsertPriceType?(input: { externalRef: string; externalCode: string; name: string; currencyCode: string | null; currencyStatus: "resolved" | "unresolved"; sourceUpdatedAt: string | null }): Promise<void>;
   listPricesForProducts(input: ListProductPricesInput): Promise<ProductPrice[]>;
   listStockForProducts(productIds: string[]): Promise<ProductStockBalance[]>;
   findProductPrice(input: FindProductPriceInput): Promise<ProductPrice | null>;
   upsertProductPrice(
     input: UpsertProductPriceInput,
   ): Promise<PricingUpsertResult<ProductPrice>>;
+  deactivateMissingProductPrices?(syncId: string): Promise<number>;
   findProductStockBalance(
     input: FindProductStockBalanceInput,
   ): Promise<ProductStockBalance | null>;

@@ -18,7 +18,7 @@ import {
 } from "./mappers";
 
 const PRODUCT_PRICE_COLUMNS =
-  "id, product_id, company_id, external_1c_price_type_id, currency, price_amount, valid_from, valid_to, is_active, created_at, updated_at";
+  "id, product_id, company_id, external_1c_price_type_id, currency, currency_status, price_amount, valid_from, valid_to, is_active, created_at, updated_at";
 const PRODUCT_STOCK_BALANCE_COLUMNS =
   "id, product_id, warehouse_name, available_quantity, reserved_quantity, expected_quantity, expected_at, updated_from_1c_at, is_active, created_at, updated_at";
 
@@ -32,6 +32,11 @@ export class PricingInventoryRepositoryUnexpectedError extends Error {
 export class SupabasePricingInventoryRepository
   implements PricingInventoryRepository
 {
+  async upsertPriceType(input: { externalRef: string; externalCode: string; name: string; currencyCode: string | null; currencyStatus: "resolved" | "unresolved"; sourceUpdatedAt: string | null }): Promise<void> {
+    const supabase = await createClient();
+    const { error } = await supabase.from("price_types").upsert({ external_ref: input.externalRef, external_code: input.externalCode, name: input.name, currency_code: input.currencyCode, currency_status: input.currencyStatus, source_updated_at: input.sourceUpdatedAt, is_active: true }, { onConflict: "external_ref" });
+    if (error) throw new PricingInventoryRepositoryUnexpectedError();
+  }
   async listPricesForProducts(
     input: ListProductPricesInput,
   ): Promise<ProductPrice[]> {
@@ -43,15 +48,17 @@ export class SupabasePricingInventoryRepository
 
     const supabase = await createClient();
     const now = new Date().toISOString();
-    const { data, error } = await supabase
+    let query = supabase
       .from("product_prices")
       .select(PRODUCT_PRICE_COLUMNS)
       .in("product_id", productIds)
       .eq("is_active", true)
+      .eq("is_published", true)
       .lte("valid_from", now)
       .or(`valid_to.is.null,valid_to.gte.${now}`)
-      .or(`company_id.is.null,company_id.eq.${input.companyId}`)
-      .order("valid_from", { ascending: false });
+      .or(`company_id.is.null,company_id.eq.${input.companyId}`);
+    if (input.external1cPriceTypeId) query = query.eq("external_1c_price_type_id", input.external1cPriceTypeId);
+    const { data, error } = await query.order("valid_from", { ascending: false });
 
     if (error) {
       throw new PricingInventoryRepositoryUnexpectedError();
@@ -94,9 +101,7 @@ export class SupabasePricingInventoryRepository
     let query = supabase
       .from("product_prices")
       .select(PRODUCT_PRICE_COLUMNS)
-      .eq("product_id", input.productId)
-      .eq("currency", input.currency)
-      .eq("valid_from", input.validFrom);
+      .eq("product_id", input.productId);
 
     query = input.companyId
       ? query.eq("company_id", input.companyId)
@@ -124,6 +129,13 @@ export class SupabasePricingInventoryRepository
       company_id: input.companyId,
       external_1c_price_type_id: input.external1cPriceTypeId,
       currency: input.currency,
+      currency_status: input.currencyStatus ?? "unresolved",
+      external_product_ref: input.externalProductRef ?? null,
+      effective_at: input.validFrom,
+      synced_at: new Date().toISOString(),
+      source_version: input.sourceVersion ?? null,
+      last_seen_sync_id: input.syncId ?? null,
+      is_published: input.syncId ? false : true,
       price_amount: input.priceAmount,
       valid_from: input.validFrom,
       valid_to: input.validTo,
@@ -142,6 +154,13 @@ export class SupabasePricingInventoryRepository
       record: mapProductPriceRow(data as ProductPriceRow),
       created: !existing,
     };
+  }
+
+  async deactivateMissingProductPrices(syncId: string): Promise<number> {
+    const supabase = await createClient();
+    const { data, error } = await supabase.rpc("finalize_product_price_snapshot", { p_sync_id: syncId });
+    if (error) throw new PricingInventoryRepositoryUnexpectedError();
+    return Number(data ?? 0);
   }
 
   async findProductStockBalance(

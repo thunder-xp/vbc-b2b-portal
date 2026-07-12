@@ -4,6 +4,7 @@ export interface ProductPrice {
   companyId: string | null;
   external1cPriceTypeId: string | null;
   currency: string;
+  currencyStatus?: "resolved" | "unresolved";
   priceAmount: number;
   validFrom: string;
   validTo: string | null;

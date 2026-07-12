@@ -57,6 +57,7 @@ import type {
   OneCStockBalancePayload,
 } from "./one-c-provider.types";
 import { OneCPartnerODataProvider } from "./one-c-partner-odata-provider";
+import { OneCPriceODataProvider } from "./one-c-price-odata-provider";
 
 export class IntegrationProviderNotImplementedError extends IntegrationUnsupportedOperationError {
   constructor(operation: string) {
@@ -103,7 +104,7 @@ export class OneCProvider extends AbstractERPProvider {
     };
     this.capabilities = this.config.capabilities;
     this.catalog = new OneCCatalogProvider(this.config);
-    this.pricing = new OneCPricingProvider(this.config);
+    this.pricing = this.config.useMockPricing ? new OneCPricingProvider(this.config) : new OneCPriceODataProvider(this.config);
     this.inventory = new OneCInventoryProvider(this.config);
     this.orders = new OneCOrderProvider();
     this.documents = new OneCDocumentProvider();

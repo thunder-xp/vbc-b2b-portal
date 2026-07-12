@@ -52,3 +52,4 @@ export {
 } from "./one-c-guid";
 export type * from "./one-c-provider.types";
 export { OneCNomenclatureCatalogProvider, OneCNomenclatureODataProvider, ONE_C_CATALOG_ROOT_NAME, ONE_C_NOMENCLATURE_FIELDS } from "./one-c-nomenclature-provider";
+export { OneCPriceODataProvider, ONE_C_PRICE_QUERY } from "./one-c-price-odata-provider";

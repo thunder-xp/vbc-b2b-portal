@@ -63,16 +63,18 @@ export class DefaultPricingInventoryService implements PricingInventoryService {
       return [];
     }
 
-    const companyId = await this.resolveActiveCompanyId(userId);
+    const company = await this.resolveActiveCompany(userId);
+    const companyId = company.id;
     const [canViewPrices, canViewStock] = await Promise.all([
       this.permissionService.hasPermission(userId, companyId, PRICE_PERMISSION),
       this.permissionService.hasPermission(userId, companyId, STOCK_PERMISSION),
     ]);
     const [prices, stockBalances] = await Promise.all([
-      canViewPrices
+      canViewPrices && company.external1cPriceTypeId
         ? this.pricingInventoryRepository.listPricesForProducts({
             productIds: normalizedProductIds,
             companyId,
+            external1cPriceTypeId: company.external1cPriceTypeId ?? undefined,
           })
         : Promise.resolve<ProductPrice[]>([]),
       canViewStock
@@ -107,7 +109,7 @@ export class DefaultPricingInventoryService implements PricingInventoryService {
     });
   }
 
-  private async resolveActiveCompanyId(userId: string): Promise<string> {
+  private async resolveActiveCompany(userId: string): Promise<{ id: string; external1cPriceTypeId: string | null }> {
     const memberships = await this.companyAccessService.getOwnMemberships(userId);
     const activeMembership = memberships.find(
       (membership) => membership.status === MembershipStatus.Active,
@@ -115,15 +117,15 @@ export class DefaultPricingInventoryService implements PricingInventoryService {
 
     if (!activeMembership) {
       await this.companyAccessService.getActiveCompanyContext(userId, "");
-      return "";
+      return { id: "", external1cPriceTypeId: null };
     }
 
-    await this.companyAccessService.getActiveCompanyContext(
+    const context = await this.companyAccessService.getActiveCompanyContext(
       userId,
       activeMembership.companyId,
     );
 
-    return activeMembership.companyId;
+    return { id: activeMembership.companyId, external1cPriceTypeId: context.company.external1cPriceTypeId ?? null };
   }
 }
 
@@ -181,11 +183,12 @@ function toPriceView(
     maximumFractionDigits: 2,
   }).format(amount);
   const prefix = isDemoData ? "Demo price" : "Price";
+  const currencySuffix = price.currencyStatus === "resolved" ? ` ${price.currency}` : "";
 
   return {
     currency: price.currency,
     amount,
-    label: `${prefix}: ${formattedAmount} ${price.currency}`,
+    label: `${prefix}: ${formattedAmount}${currencySuffix}`,
   };
 }
 

@@ -24,6 +24,9 @@ export class DefaultPricingUpdaterService implements PricingUpdaterService {
     input: PricingReadModelUpdateInput,
   ): Promise<ReadModelUpdateResult> {
     const result = createEmptyResult();
+    const syncId = crypto.randomUUID();
+    const priceTypes = new Map(input.prices.flatMap((price) => price.priceTypeReference ? [[price.priceTypeReference.externalId, price] as const] : []));
+    for (const [externalRef, price] of priceTypes) await this.pricingInventoryRepository.upsertPriceType?.({ externalRef, externalCode: price.priceTypeCode ?? "", name: price.priceTypeName ?? price.priceTypeCode ?? externalRef, currencyCode: price.currencyStatus === "resolved" ? price.money.currency : null, currencyStatus: price.currencyStatus ?? "unresolved", sourceUpdatedAt: price.metadata.sourceUpdatedAt });
 
     for (const price of input.prices) {
       try {
@@ -68,6 +71,10 @@ export class DefaultPricingUpdaterService implements PricingUpdaterService {
             validFrom: price.validFrom,
             validTo: price.validTo,
             isActive: price.isActive,
+            currencyStatus: price.currencyStatus,
+            externalProductRef: price.productReference.externalId,
+            sourceVersion: price.metadata.sourceVersion ?? null,
+            syncId,
           });
 
         if (upserted.created) {
@@ -82,6 +89,8 @@ export class DefaultPricingUpdaterService implements PricingUpdaterService {
         );
       }
     }
+
+    if (result.failed === 0) await this.pricingInventoryRepository.deactivateMissingProductPrices?.(syncId);
 
     return result;
   }

@@ -42,6 +42,7 @@ describe("DefaultPricingInventoryService", () => {
     expect(repository.lastPriceInput).toEqual({
       productIds: ["product-1"],
       companyId: "company-1",
+      external1cPriceTypeId: "23cb93ec-3eb5-11f0-8d8a-7239d3b7bd5c",
     });
     expect(result[0]?.price?.amount).toBe(100);
   });
@@ -153,6 +154,7 @@ function makeActiveContext() {
     company: {
       id: "company-1",
       external1cId: "PARTNER-1",
+      external1cPriceTypeId: "23cb93ec-3eb5-11f0-8d8a-7239d3b7bd5c",
       displayName: "Partner",
       status: CompanyStatus.Active,
       createdAt: now,

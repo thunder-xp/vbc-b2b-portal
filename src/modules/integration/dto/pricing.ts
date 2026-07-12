@@ -13,5 +13,8 @@ export type ProductPriceDTO = {
   validFrom: string;
   validTo: string | null;
   isActive: boolean;
+  priceTypeCode?: string;
+  priceTypeName?: string;
+  currencyStatus?: "resolved" | "unresolved";
   metadata: IntegrationMetadataDTO;
 };
