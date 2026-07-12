@@ -1,38 +1,9 @@
 "use server";
-
-import {
-  failureFromError,
-  success,
-  type ActionResult,
-} from "../../access-control/actions/action-result";
-import {
-  createUserProfileService,
-  getAuthenticatedUserId,
-} from "../../access-control/actions/service-factory";
-import { ForbiddenError } from "../../access-control/services";
-import { UserType } from "../../access-control/types";
-import { getOneCEnv } from "../../../lib/env";
-import { createStockSyncEngine } from "../services";
-import type { StockSyncReport } from "../sync";
-
-export async function syncStockFromOneCAction(): Promise<
-  ActionResult<StockSyncReport>
-> {
-  try {
-    const userId = await getAuthenticatedUserId();
-    const profile = await createUserProfileService().ensureActiveUser(userId);
-
-    if (
-      profile.userType !== UserType.Admin &&
-      profile.userType !== UserType.Internal
-    ) {
-      throw new ForbiddenError();
-    }
-
-    const report = await createStockSyncEngine(getOneCEnv()).syncStock();
-
-    return success("Stock synchronization finished.", report);
-  } catch (error) {
-    return failureFromError(error);
-  }
-}
+import {headers} from "next/headers";
+import {failureFromError,success,type ActionResult} from "../../access-control/actions/action-result";
+import {createUserProfileService,getAuthenticatedUserId} from "../../access-control/actions/service-factory";
+import {ForbiddenError} from "../../access-control/services";import{UserType}from"../../access-control/types";import{getOneCEnv}from"../../../lib/env";
+import{createChunkedStockSyncService}from"../services";import{launchStockSync,StockLaunchError}from"../sync/stock-sync-launcher";import type{StockSyncState}from"../sync";
+export async function syncStockFromOneCAction():Promise<ActionResult<StockSyncState>>{try{await internal();const service=createChunkedStockSyncService(getOneCEnv());const result=await service.start();if(result.started&&result.state.activeSyncId){const h=await headers();const host=h.get("x-forwarded-host")??h.get("host");const origin=host?`${h.get("x-forwarded-proto")??"https"}://${host}`:null;try{await launchStockSync(result.state.activeSyncId,origin);}catch(error){await service.failLaunch(result.state.activeSyncId,error instanceof StockLaunchError?error.safeMessage:"Stock worker launch failed.");throw error;}}return success(result.started?"Stock synchronization queued.":"Stock synchronization is already running.",result.state);}catch(error){return failureFromError(error);}}
+export async function getStockSyncStateAction():Promise<ActionResult<StockSyncState>>{try{await internal();return success("Stock state loaded.",await createChunkedStockSyncService(getOneCEnv()).getState());}catch(error){return failureFromError(error);}}
+async function internal(){const id=await getAuthenticatedUserId();const p=await createUserProfileService().ensureActiveUser(id);if(p.userType!==UserType.Admin&&p.userType!==UserType.Internal)throw new ForbiddenError();}

@@ -87,8 +87,8 @@ describe("DefaultPricingInventoryService", () => {
       "out_of_stock",
       "expected",
     ]);
-    expect(result[0]?.stock?.availableQuantity).toBe(24);
-    expect(result[3]?.stock?.expectedQuantity).toBe(10);
+    expect(result[0]?.stock?.exactAvailableQuantity).toBe(24);
+    expect(result[3]?.stock?.exactIncomingQuantity).toBe(10);
   });
 });
 
@@ -112,6 +112,7 @@ class FakePricingInventoryRepository implements PricingInventoryRepository {
   async listStockForProducts(): Promise<ProductStockBalance[]> {
     return this.stockBalances;
   }
+  async listStockTotalsForProducts(){return this.stockBalances.map(item=>({productId:item.productId,physicalQuantity:item.availableQuantity,reservedQuantity:item.reservedQuantity??0,availableQuantity:item.availableQuantity,incomingQuantity:item.expectedQuantity??0,hasVariantStock:false,syncedAt:item.updatedFrom1cAt??now}));}
 
   async findProductPrice(): Promise<ProductPrice | null> {
     return null;

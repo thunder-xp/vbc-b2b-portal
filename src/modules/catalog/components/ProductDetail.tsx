@@ -58,21 +58,19 @@ export function ProductDetail({ commercialView, product }: ProductDetailProps) {
                 <div>
                   <dt className="text-zinc-500">Available quantity</dt>
                   <dd className="font-semibold text-zinc-950">
-                    {commercialView.stock.availableQuantity}
+                    {commercialView.stock.exactAvailableQuantity ?? "Pending"}
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-zinc-500">Warehouses</dt>
+                  <dt className="text-zinc-500">Physical quantity</dt>
                   <dd className="font-semibold text-zinc-950">
-                    {commercialView.stock.warehouseCount}
+                    {commercialView.stock.exactPhysicalQuantity ?? "Pending"}
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-zinc-500">Expected</dt>
+                  <dt className="text-zinc-500">Incoming quantity</dt>
                   <dd className="font-semibold text-zinc-950">
-                    {commercialView.stock.expectedQuantity
-                      ? `${commercialView.stock.expectedQuantity}`
-                      : "None"}
+                    {commercialView.stock.exactIncomingQuantity ?? "Pending"}
                   </dd>
                 </div>
                 <div>

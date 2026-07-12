@@ -3,8 +3,8 @@ import type {
   PermissionService,
 } from "../../access-control/services";
 import { MembershipStatus } from "../../access-control/types";
-import type { PricingInventoryRepository } from "../repositories";
-import type { ProductPrice, ProductStockBalance } from "../types";
+import type { PricingInventoryRepository, ProductStockTotal } from "../repositories";
+import type { ProductPrice } from "../types";
 import { normalizeOneCCurrencyCode } from "../../../lib/currency";
 
 export type ProductPriceViewDto = {
@@ -17,15 +17,17 @@ export type ProductStockAvailability =
   | "in_stock"
   | "low_stock"
   | "out_of_stock"
-  | "expected";
+  | "expected"
+  | "unknown";
 
 export type ProductStockViewDto = {
   status: ProductStockAvailability;
   label: string;
-  availableQuantity: number;
-  expectedQuantity: number | null;
-  expectedAt: string | null;
-  warehouseCount: number;
+  exactAvailableQuantity: number | null;
+  exactPhysicalQuantity: number | null;
+  exactReservedQuantity: number | null;
+  exactIncomingQuantity: number | null;
+  hasVariantStock: boolean;
   lastUpdatedAt: string | null;
 };
 
@@ -85,11 +87,9 @@ export class DefaultPricingInventoryService implements PricingInventoryService {
       canViewPrices
         ? this.pricingInventoryRepository.listPricesForProducts({ productIds: normalizedProductIds, companyId, external1cPriceTypeId: RETAIL_PRICE_TYPE_EXTERNAL_REF })
         : Promise.resolve<ProductPrice[]>([]),
-      canViewStock
-        ? this.pricingInventoryRepository.listStockForProducts(
-            normalizedProductIds,
-          )
-        : Promise.resolve<ProductStockBalance[]>([]),
+      canViewStock && this.pricingInventoryRepository.listStockTotalsForProducts
+        ? this.pricingInventoryRepository.listStockTotalsForProducts(normalizedProductIds)
+        : Promise.resolve<ProductStockTotal[]>([]),
     ]);
 
     return normalizedProductIds.map((productId) => {
@@ -199,65 +199,26 @@ function toPriceView(price: ProductPrice): ProductPriceViewDto {
 
 function formatPrice(amount: number, currencyCode: string): string { if (currencyCode === "USD") return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount); return `${new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount)} ${currencyCode}`; }
 
-function stockAvailabilityForProduct(
-  stockBalances: ProductStockBalance[],
-  productId: string,
-): ProductStockViewDto | null {
-  const productStock = stockBalances.filter(
-    (stockBalance) => stockBalance.productId === productId && stockBalance.isActive,
-  );
-
-  if (productStock.length === 0) {
-    return null;
-  }
-
-  const availableQuantity = productStock.reduce(
-    (total, stockBalance) => total + stockBalance.availableQuantity,
-    0,
-  );
-
-  if (availableQuantity > 0) {
-    const status =
-      availableQuantity > LOW_STOCK_THRESHOLD ? "in_stock" : "low_stock";
-
+function stockAvailabilityForProduct(stockBalances: ProductStockTotal[], productId: string): ProductStockViewDto {
+  const total = stockBalances.find((item) => item.productId === productId);
+  if (!total) {
     return {
-      status,
-      label:
-        status === "in_stock"
-          ? `In Stock: ${formatQuantity(availableQuantity)} available`
-          : `Low Stock: ${formatQuantity(availableQuantity)} available`,
-      availableQuantity,
-      expectedQuantity: totalExpectedQuantity(productStock),
-      expectedAt: earliestExpectedAt(productStock),
-      warehouseCount: activeWarehouseCount(productStock),
-      lastUpdatedAt: latestUpdatedAt(productStock),
+      status: "unknown",
+      label: "\u041d\u0430\u043b\u0438\u0447\u0438\u0435 \u0443\u0442\u043e\u0447\u043d\u044f\u0435\u0442\u0441\u044f",
+      exactAvailableQuantity: null,
+      exactPhysicalQuantity: null,
+      exactReservedQuantity: null,
+      exactIncomingQuantity: null,
+      hasVariantStock: false,
+      lastUpdatedAt: null,
     };
   }
-
-  const expectedQuantity = totalExpectedQuantity(productStock);
-  const expectedAt = earliestExpectedAt(productStock);
-
-  if (expectedQuantity !== null && expectedQuantity > 0) {
-    return {
-      status: "expected",
-      label: `Expected: ${formatQuantity(expectedQuantity)}`,
-      availableQuantity,
-      expectedQuantity,
-      expectedAt,
-      warehouseCount: activeWarehouseCount(productStock),
-      lastUpdatedAt: latestUpdatedAt(productStock),
-    };
-  }
-
-  return {
-    status: "out_of_stock",
-    label: "Out of Stock",
-    availableQuantity,
-    expectedQuantity,
-    expectedAt,
-    warehouseCount: activeWarehouseCount(productStock),
-    lastUpdatedAt: latestUpdatedAt(productStock),
-  };
+  const common={exactAvailableQuantity:total.availableQuantity,exactPhysicalQuantity:total.physicalQuantity,exactReservedQuantity:total.reservedQuantity,exactIncomingQuantity:total.incomingQuantity,hasVariantStock:total.hasVariantStock,lastUpdatedAt:total.syncedAt};
+  if(total.availableQuantity>LOW_STOCK_THRESHOLD)return{status:"in_stock",label:`В наличии: ${formatQuantity(total.availableQuantity)} шт.`,...common};
+  if(total.availableQuantity>0)return{status:"low_stock",label:`Осталось: ${formatQuantity(total.availableQuantity)} шт.`,...common};
+  if(total.incomingQuantity>0)return{status:"expected",label:"Ожидается",...common};
+  if(total.hasVariantStock)return{status:"unknown",label:"Наличие по вариантам",...common};
+  return{status:"out_of_stock",label:"Нет в наличии",...common};
 }
 
 function formatQuantity(quantity: number): string {
@@ -266,42 +227,6 @@ function formatQuantity(quantity: number): string {
   }).format(quantity);
 }
 
-function totalExpectedQuantity(
-  stockBalances: ProductStockBalance[],
-): number | null {
-  const expected = stockBalances
-    .map((stockBalance) => stockBalance.expectedQuantity)
-    .filter((quantity): quantity is number => quantity !== null);
-
-  if (expected.length === 0) {
-    return null;
-  }
-
-  return expected.reduce((total, quantity) => total + quantity, 0);
-}
-
-function earliestExpectedAt(stockBalances: ProductStockBalance[]): string | null {
-  return (
-    stockBalances
-      .map((stockBalance) => stockBalance.expectedAt)
-      .filter((value): value is string => value !== null)
-      .sort((left, right) => Date.parse(left) - Date.parse(right))[0] ?? null
-  );
-}
-
-function latestUpdatedAt(stockBalances: ProductStockBalance[]): string | null {
-  return (
-    stockBalances
-      .map((stockBalance) => stockBalance.updatedFrom1cAt)
-      .filter((value): value is string => value !== null)
-      .sort((left, right) => Date.parse(right) - Date.parse(left))[0] ?? null
-  );
-}
-
-function activeWarehouseCount(stockBalances: ProductStockBalance[]): number {
-  return new Set(stockBalances.map((stockBalance) => stockBalance.warehouseName))
-    .size;
-}
 
 type DemoCommercialViewSource = {
   partnerPrice: ProductPriceViewDto;
@@ -342,10 +267,7 @@ const demoCommercialViews = new Map<string, DemoCommercialViewSource>([
       stock: {
         status: "in_stock",
         label: "Demo availability: In Stock: 24 available",
-        availableQuantity: 24,
-        expectedQuantity: null,
-        expectedAt: null,
-        warehouseCount: 1,
+        exactAvailableQuantity: 24, exactPhysicalQuantity:24, exactReservedQuantity:0, exactIncomingQuantity:0, hasVariantStock:false,
         lastUpdatedAt: demoNow,
       },
     },
@@ -361,10 +283,7 @@ const demoCommercialViews = new Map<string, DemoCommercialViewSource>([
       stock: {
         status: "low_stock",
         label: "Demo availability: Low Stock: 2 available",
-        availableQuantity: 2,
-        expectedQuantity: null,
-        expectedAt: null,
-        warehouseCount: 1,
+        exactAvailableQuantity:2,exactPhysicalQuantity:2,exactReservedQuantity:0,exactIncomingQuantity:0,hasVariantStock:false,
         lastUpdatedAt: demoNow,
       },
     },
@@ -380,10 +299,7 @@ const demoCommercialViews = new Map<string, DemoCommercialViewSource>([
       stock: {
         status: "expected",
         label: "Demo availability: Expected: 10",
-        availableQuantity: 0,
-        expectedQuantity: 10,
-        expectedAt: "2026-07-20T00:00:00.000Z",
-        warehouseCount: 1,
+        exactAvailableQuantity:0,exactPhysicalQuantity:0,exactReservedQuantity:0,exactIncomingQuantity:10,hasVariantStock:false,
         lastUpdatedAt: demoNow,
       },
     },

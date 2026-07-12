@@ -7,7 +7,7 @@ import { ProductCard } from "../ProductCard";
 vi.mock("next/link", () => ({ default: ({ children, href }: { children: React.ReactNode; href: string }) => <a href={href}>{children}</a> }));
 
 const product = { id: "product-1", sku: "NV-100", name: "IP Camera", slug: "ip-camera", shortDescription: "Professional camera", imageUrl: null, brand: null, category: { id: "category-1", parentId: null, name: "4-5 MPX", slug: "4-5-mpx", description: null }, keyCharacteristics: [{ label: "Channels", value: "4" }, { label: "Enabled", value: "Да" }], datasheet: null };
-const commercialView = { productId: "product-1", partnerPrice: { currencyCode: "USD", amount: 45.81, formattedAmount: "$45.81" }, retailPrice: { currencyCode: "MDL", amount: 39.2, formattedAmount: "39.20 MDL" }, stock: { status: "expected" as const, label: "Expected", availableQuantity: 0, expectedQuantity: 12, expectedAt: "2026-07-20T00:00:00.000Z", warehouseCount: 2, lastUpdatedAt: "2026-07-11T00:00:00.000Z" }, isDemoData: false };
+const commercialView = { productId: "product-1", partnerPrice: { currencyCode: "USD", amount: 45.81, formattedAmount: "$45.81" }, retailPrice: { currencyCode: "MDL", amount: 39.2, formattedAmount: "39.20 MDL" }, stock: { status: "expected" as const, label: "Ожидается", exactAvailableQuantity:0,exactPhysicalQuantity:0,exactReservedQuantity:0,exactIncomingQuantity:12,hasVariantStock:false,lastUpdatedAt: "2026-07-11T00:00:00.000Z" }, isDemoData: false };
 
 describe("ProductCard workspace context", () => {
   it("presents scoped and retail prices with public business labels", () => {
@@ -50,6 +50,7 @@ describe("ProductCard workspace context", () => {
     const capabilities = resolveWorkspaceCapabilities(new Set(["catalog.view"])).productCard;
     render(<ProductCard capabilities={capabilities} commercialView={commercialView} product={product} />);
     expect(screen.queryByText("$45.81")).not.toBeInTheDocument();
-    expect(screen.queryByText("Expected")).not.toBeInTheDocument();
+    expect(screen.queryByText("Ожидается")).not.toBeInTheDocument();
   });
+  it("shows exact public stock quantity",()=>{const capabilities=resolveWorkspaceCapabilities(new Set(["catalog.view","stock.view"])).productCard;render(<ProductCard capabilities={capabilities} commercialView={{...commercialView,stock:{...commercialView.stock,status:"in_stock",label:"В наличии: 12 шт.",exactAvailableQuantity:12}}} product={product}/>);expect(screen.getByText("В наличии: 12 шт.")).toBeInTheDocument();});
 });

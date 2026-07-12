@@ -6,6 +6,7 @@ import type {
   ListProductPricesInput,
   PricingInventoryRepository,
   PricingUpsertResult,
+  ProductStockTotal,
   UpsertProductPriceInput,
   UpsertProductStockBalanceInput,
 } from "../pricing-inventory.repository";
@@ -32,6 +33,7 @@ export class PricingInventoryRepositoryUnexpectedError extends Error {
 export class SupabasePricingInventoryRepository
   implements PricingInventoryRepository
 {
+  async listStockTotalsForProducts(productIds:string[]):Promise<ProductStockTotal[]>{const ids=normalizeProductIds(productIds);if(!ids.length)return[];const{data,error}=await(await createClient()).from("product_stock_totals").select("product_id,physical_quantity,reserved_quantity,available_quantity,incoming_quantity,has_variant_stock,synced_at").in("product_id",ids).eq("is_published",true);if(error)throw new PricingInventoryRepositoryUnexpectedError();return(data??[]).map(row=>({productId:row.product_id,physicalQuantity:Number(row.physical_quantity),reservedQuantity:Number(row.reserved_quantity),availableQuantity:Number(row.available_quantity),incomingQuantity:Number(row.incoming_quantity),hasVariantStock:row.has_variant_stock===true,syncedAt:row.synced_at}));}
   async upsertPriceType(input: { externalRef: string; externalCode: string; name: string; currencyCode: string | null; currencyStatus: "resolved" | "unresolved"; sourceUpdatedAt: string | null }): Promise<void> {
     const supabase = await createClient();
     const { error } = await supabase.from("price_types").upsert({ external_ref: input.externalRef, external_code: input.externalCode, name: input.name, currency_code: input.currencyCode, currency_status: input.currencyStatus, source_updated_at: input.sourceUpdatedAt, is_active: true }, { onConflict: "external_ref" });

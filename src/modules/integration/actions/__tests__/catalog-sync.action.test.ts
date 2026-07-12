@@ -19,6 +19,10 @@ const mocks = vi.hoisted(() => ({
   createPriceSyncEngine: vi.fn(),
   createChunkedPriceSyncService: vi.fn(),
   createStockSyncEngine: vi.fn(),
+  createChunkedStockSyncService: vi.fn(),
+  startStockSync: vi.fn(),
+  failStockLaunch: vi.fn(),
+  launchStockSync: vi.fn(),
   searchPartners: vi.fn(),
   syncCatalog: vi.fn(),
   syncPrices: vi.fn(),
@@ -28,6 +32,7 @@ const mocks = vi.hoisted(() => ({
   syncStock: vi.fn(),
 }));
 vi.mock("../../sync/price-sync-continuation", () => ({ launchPriceSync: mocks.launchPriceSync, PriceSyncLaunchError: class PriceSyncLaunchError extends Error { safeMessage = "launch failed"; } }));
+vi.mock("../../sync/stock-sync-launcher", () => ({ launchStockSync: mocks.launchStockSync, StockLaunchError: class StockLaunchError extends Error { safeMessage = "launch failed"; } }));
 
 vi.mock("next/server", () => ({ after: vi.fn() }));
 vi.mock("next/headers", () => ({ headers: vi.fn(async () => new Headers({ host: "portal.example", "x-forwarded-proto": "https" })) }));
@@ -48,6 +53,7 @@ vi.mock("../../services", () => ({
   createPriceSyncEngine: mocks.createPriceSyncEngine,
   createChunkedPriceSyncService: mocks.createChunkedPriceSyncService,
   createStockSyncEngine: mocks.createStockSyncEngine,
+  createChunkedStockSyncService: mocks.createChunkedStockSyncService,
 }));
 
 import { syncCatalogFromOneCAction } from "../catalog-sync.action";
@@ -79,6 +85,7 @@ describe("syncCatalogFromOneCAction", () => {
     mocks.createStockSyncEngine.mockReturnValue({
       syncStock: mocks.syncStock,
     });
+    mocks.createChunkedStockSyncService.mockReturnValue({ start: mocks.startStockSync, failLaunch: mocks.failStockLaunch });
     mocks.createUserProfileService.mockReturnValue({
       ensureActiveUser: mocks.ensureActiveUser,
     });
@@ -152,6 +159,8 @@ describe("syncCatalogFromOneCAction", () => {
       errors: [],
       warnings: [],
     });
+    mocks.startStockSync.mockResolvedValue({ started: true, state: { status: "queued", activeSyncId: "22222222-2222-4222-8222-222222222222" } });
+    mocks.launchStockSync.mockResolvedValue(202);
     mocks.searchPartners.mockResolvedValue({
       items: [
         {
@@ -318,13 +327,9 @@ describe("syncCatalogFromOneCAction", () => {
 
     expect(result).toMatchObject({
       success: true,
-      data: {
-        provider: "one-c",
-        target: "inventory",
-        status: "succeeded",
-      },
+      data: { status: "queued" },
     });
-    expect(mocks.syncStock).toHaveBeenCalledOnce();
+    expect(mocks.startStockSync).toHaveBeenCalledOnce();
   });
 
   it("returns a safe partner search error when unauthenticated", async () => {

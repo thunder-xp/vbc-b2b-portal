@@ -10,4 +10,4 @@ export {
   type PartnerSearchResultActionDto,
 } from "./partner-search.action";
 export { syncPricesFromOneCAction, getPriceSyncStateAction } from "./price-sync.action";
-export { syncStockFromOneCAction } from "./stock-sync.action";
+export { syncStockFromOneCAction, getStockSyncStateAction } from "./stock-sync.action";

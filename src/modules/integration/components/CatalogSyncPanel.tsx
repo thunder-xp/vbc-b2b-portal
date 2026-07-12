@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { getDailyCatalogSyncStateAction, getPriceSyncStateAction, runDailyCatalogSyncAction, syncPricesFromOneCAction, syncStockFromOneCAction } from "../actions";
-import type { CatalogSyncState, PriceSyncState, StockSyncReport } from "../sync";
+import { getDailyCatalogSyncStateAction, getPriceSyncStateAction, getStockSyncStateAction, runDailyCatalogSyncAction, syncPricesFromOneCAction, syncStockFromOneCAction } from "../actions";
+import type { CatalogSyncState, PriceSyncState, StockSyncState } from "../sync";
 
 export function CatalogSyncPanel() {
   const [catalogPending, startCatalog] = useTransition();
@@ -11,15 +11,17 @@ export function CatalogSyncPanel() {
   const [state, setState] = useState<CatalogSyncState | null>(null);
   const [catalogMessage, setCatalogMessage] = useState<string | null>(null);
   const [priceState, setPriceState] = useState<PriceSyncState | null>(null);
-  const [stockReport, setStockReport] = useState<StockSyncReport | null>(null);
+  const [stockState, setStockState] = useState<StockSyncState | null>(null);
 
-  useEffect(() => { void reloadState(); void reloadPriceState(); }, []);
+  useEffect(() => { void reloadState(); void reloadPriceState(); void reloadStockState(); }, []);
   useEffect(() => { if (!priceState || !["queued", "running"].includes(priceState.status)) return; const timer = window.setInterval(() => void reloadPriceState(), 3000); return () => window.clearInterval(timer); }, [priceState?.status]);
+  useEffect(()=>{if(!stockState||!["queued","running"].includes(stockState.status))return;const timer=window.setInterval(()=>void reloadStockState(),3000);return()=>window.clearInterval(timer);},[stockState?.status]);
   async function reloadState() { const result = await getDailyCatalogSyncStateAction(); if (result.success) setState(result.data); }
   async function reloadPriceState() { const result = await getPriceSyncStateAction(); if (result.success) setPriceState(result.data); }
+  async function reloadStockState(){const result=await getStockSyncStateAction();if(result.success)setStockState(result.data);}
   function runCatalog() { if (catalogPending) return; startCatalog(async () => { const result = await runDailyCatalogSyncAction(); setCatalogMessage(result.message); if (result.success) setState(result.data); else await reloadState(); }); }
   function runPrices() { if (pricePending) return; startPrice(async () => { const result = await syncPricesFromOneCAction(); if (result.success) setPriceState(result.data); }); }
-  function runStock() { if (stockPending) return; startStock(async () => { const result = await syncStockFromOneCAction(); setStockReport(result.success ? result.data : null); }); }
+  function runStock() { if (stockPending) return; startStock(async () => { const result = await syncStockFromOneCAction(); if(result.success)setStockState(result.data); }); }
 
   return <div className="space-y-6">
     <SyncSection title="Catalog structure and products" description="Синхронизирует структуру категорий и товары из группы SECURITYPARK DISTRIBUTION.">
@@ -32,8 +34,8 @@ export function CatalogSyncPanel() {
       <Report rows={priceState ? [["Status", priceStatus(priceState)], ["Current stage", priceState.currentStage ?? "-"], ["Started", priceState.startedAt ?? "Never"], ["Last successful run", priceState.lastSuccessfulSyncAt ?? "Never"], ["Pages processed", priceState.pagesProcessed], ["Rows scanned", priceState.rowsScanned], ["Rows staged", priceState.rowsStaged], ["Price rows received", priceState.priceRowsReceived], ["Unique price keys", priceState.priceUniqueKeys], ["Duplicate price keys", priceState.priceDuplicateKeys], ["Price rows deduplicated", priceState.priceRowsDeduplicated], ["Latest prices resolved", priceState.latestPricesResolved], ["Prices published", priceState.pricesPublished], ["Prices deactivated", priceState.pricesDeactivated], ["Unmatched products", priceState.unmatchedProducts], ["Unknown price types", priceState.unknownPriceTypes], ["Scan complete", String(priceState.scanComplete)], ["Failed page", priceState.failedPage ?? "None"], ["Failed stage", priceState.failedStage ?? "None"], ["Database error code", priceState.databaseErrorCode ?? "None"], ["Safe error", priceState.safeError ?? priceState.errorCategory ?? "None"], ["Last update", priceState.updatedAt]] : []} />
     </SyncSection>
     <SyncSection title="Inventory and stock" description="Обновляет остатки и доступность товаров.">
-      <ActionButton pending={stockPending} onClick={runStock}>Run stock sync now</ActionButton>
-      <Report rows={stockReport ? [["Last stock sync status", stockReport.status], ["Rows received", stockReport.stockReceived], ["Rows upserted", stockReport.stockCreated + stockReport.stockUpdated], ["Rows failed", stockReport.failed]] : []} />
+      <div className="flex gap-2"><ActionButton pending={stockPending} onClick={runStock}>Run stock sync now</ActionButton><ActionButton pending={stockPending} secondary onClick={runStock}>Retry failed stock sync</ActionButton></div>
+      <Report rows={stockState?[["Status",stockState.status],["Current stage",stockState.currentStage??"-"],["Snapshot time",stockState.snapshotTime??"-"],["Pages processed",stockState.pagesProcessed],["Physical rows",stockState.physicalRows],["Reserved rows",stockState.reservedRows],["Incoming rows",stockState.incomingRows],["Warehouses loaded",stockState.warehousesLoaded],["Products matched",stockState.productsMatched],["Products unmatched",stockState.productsUnmatched],["Rows published",stockState.rowsPublished],["Rows deactivated",stockState.rowsDeactivated],["Safe error",stockState.safeError??"None"],["Last successful run",stockState.lastSuccessfulSyncAt??"Never"]]:[]} />
     </SyncSection>
   </div>;
 }

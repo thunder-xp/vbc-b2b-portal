@@ -2,13 +2,13 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ runDaily: vi.fn(), getState: vi.fn(), getPriceState: vi.fn(), prices: vi.fn(), stock: vi.fn() }));
-vi.mock("../../actions", () => ({ runDailyCatalogSyncAction: mocks.runDaily, getDailyCatalogSyncStateAction: mocks.getState, getPriceSyncStateAction: mocks.getPriceState, syncPricesFromOneCAction: mocks.prices, syncStockFromOneCAction: mocks.stock }));
+const mocks = vi.hoisted(() => ({ runDaily: vi.fn(), getState: vi.fn(), getPriceState: vi.fn(), getStockState:vi.fn(), prices: vi.fn(), stock: vi.fn() }));
+vi.mock("../../actions", () => ({ runDailyCatalogSyncAction: mocks.runDaily, getDailyCatalogSyncStateAction: mocks.getState, getPriceSyncStateAction: mocks.getPriceState,getStockSyncStateAction:mocks.getStockState, syncPricesFromOneCAction: mocks.prices, syncStockFromOneCAction: mocks.stock }));
 import { CatalogSyncPanel } from "../CatalogSyncPanel";
 
 const state = { status: "never_run", rootName: null, lastSuccessfulSyncAt: null, durationMs: null, pagesProcessed: 0, foldersReceived: 0, productsReceived: 0, foldersUpserted: 0, productsUpserted: 0, rowsDeactivated: 0, errorCategory: null, failedStage: null, nextScheduledRun: "2026-07-13T02:00:00.000Z" };
 describe("CatalogSyncPanel", () => {
-  beforeEach(() => { vi.clearAllMocks(); mocks.getState.mockResolvedValue({ success: true, data: state }); mocks.getPriceState.mockResolvedValue({ success: false }); mocks.runDaily.mockResolvedValue({ success: true, message: "done", data: state }); mocks.prices.mockResolvedValue({ success: false }); mocks.stock.mockResolvedValue({ success: false }); });
+  beforeEach(() => { vi.clearAllMocks(); mocks.getState.mockResolvedValue({ success: true, data: state }); mocks.getPriceState.mockResolvedValue({ success: false });mocks.getStockState.mockResolvedValue({success:false}); mocks.runDaily.mockResolvedValue({ success: true, message: "done", data: state }); mocks.prices.mockResolvedValue({ success: false }); mocks.stock.mockResolvedValue({ success: false }); });
   it("renders three independent pipelines without the legacy summary", async () => {
     render(<CatalogSyncPanel />);
     expect(await screen.findByText("Catalog structure and products")).toBeInTheDocument();
