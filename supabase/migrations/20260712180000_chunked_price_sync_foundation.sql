@@ -21,6 +21,7 @@ create table if not exists public.price_sync_state (
   error_category text,
   failed_stage text,
   database_error_code text,
+  safe_error text,
   failed_page integer,
   active_chunk_token uuid,
   chunk_started_at timestamptz,
@@ -368,6 +369,7 @@ begin
     lock_acquired_at = null,
     active_chunk_token = null,
     chunk_started_at = null,
+    safe_error = null,
     updated_at = now()
   where id = 'product_prices'
     and active_sync_id = p_sync_id;

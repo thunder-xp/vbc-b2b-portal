@@ -9,8 +9,8 @@ export const PRICE_SYNC_DURATION_BUDGET_MS = 45_000;
 export const PRICE_SYNC_STALE_LOCK_MS = 10 * 60 * 1000;
 
 export type PriceSyncStatus = "never_run" | "queued" | "running" | "succeeded" | "failed";
-export type PriceSyncStage = "price_type_scan" | "currency_scan" | "price_register_scan" | "price_aggregation" | "price_publication" | "completed";
-export type PriceSyncState = { status: PriceSyncStatus; activeSyncId: string | null; startedAt: string | null; finishedAt: string | null; lastSuccessfulSyncAt: string | null; currentStage: PriceSyncStage | null; nextSkip: number; pageSize: number; pagesProcessed: number; rowsScanned: number; rowsStaged: number; latestPricesResolved: number; pricesPublished: number; pricesDeactivated: number; unmatchedProducts: number; unknownPriceTypes: number; scanComplete: boolean; errorCategory: string | null; failedStage: string | null; databaseErrorCode: string | null; failedPage: number | null; updatedAt: string };
+export type PriceSyncStage = "price_type_scan" | "currency_scan" | "price_register_scan" | "price_aggregation" | "price_publication" | "continuation_launch" | "completed";
+export type PriceSyncState = { status: PriceSyncStatus; activeSyncId: string | null; startedAt: string | null; finishedAt: string | null; lastSuccessfulSyncAt: string | null; currentStage: PriceSyncStage | null; nextSkip: number; pageSize: number; pagesProcessed: number; rowsScanned: number; rowsStaged: number; latestPricesResolved: number; pricesPublished: number; pricesDeactivated: number; unmatchedProducts: number; unknownPriceTypes: number; scanComplete: boolean; errorCategory: string | null; failedStage: string | null; databaseErrorCode: string | null; safeError: string | null; failedPage: number | null; activeChunkToken: string | null; chunkStartedAt: string | null; updatedAt: string };
 export type PriceSyncChunkResult = { state: PriceSyncState; needsContinuation: boolean; pagesProcessedThisInvocation: number };
 
 export interface PriceSyncStateStore {
@@ -24,6 +24,7 @@ export interface PriceSyncStateStore {
   checkpoint(syncId: string, input: { stage: PriceSyncStage; nextSkip: number; rowsScanned: number; rowsStaged: number; pageCompleted: boolean; scanComplete?: boolean }): Promise<void>;
   publish(syncId: string): Promise<void>;
   fail(syncId: string, category: string, stage: PriceSyncStage, page: number, databaseCode?: string): Promise<void>;
+  failLaunch(syncId: string, safeError: string): Promise<void>;
 }
 
 export class ChunkedPriceSyncService {
@@ -31,12 +32,14 @@ export class ChunkedPriceSyncService {
 
   start() { return this.store.start(); }
   getState() { return this.store.getState(); }
+  failLaunch(syncId: string, safeError: string) { return this.store.failLaunch(syncId, safeError); }
 
   async continue(syncId: string): Promise<PriceSyncChunkResult> {
     let state = await this.store.getState();
     if (state.activeSyncId !== syncId || !["queued", "running"].includes(state.status)) return { state, needsContinuation: false, pagesProcessedThisInvocation: 0 };
     const chunkToken = crypto.randomUUID();
     if (!await this.store.claimChunk(syncId, chunkToken)) return { state: await this.store.getState(), needsContinuation: false, pagesProcessedThisInvocation: 0 };
+    console.info({ event: "price_sync_chunk_claimed", syncId, stage: state.currentStage, nextSkip: state.nextSkip, pagesProcessed: state.pagesProcessed, rowsScanned: state.rowsScanned });
     const started = this.now();
     let processed = 0;
     try {
@@ -53,15 +56,21 @@ export class ChunkedPriceSyncService {
         if (processedStage === "price_register_scan" && complete) {
           await this.store.checkpoint(syncId, { stage: "price_publication", nextSkip: 0, rowsScanned: 0, rowsStaged: 0, pageCompleted: false, scanComplete: true });
           await this.store.publish(syncId);
-          return { state: await this.store.getState(), needsContinuation: false, pagesProcessedThisInvocation: processed };
+          const completedState = await this.store.getState();
+          console.info({ event: "price_sync_chunk_completed", syncId, stage: completedState.currentStage, nextSkip: completedState.nextSkip, pagesProcessed: completedState.pagesProcessed, rowsScanned: completedState.rowsScanned });
+          return { state: completedState, needsContinuation: false, pagesProcessedThisInvocation: processed };
         }
       }
       await this.store.releaseChunk(syncId, chunkToken);
-      return { state: await this.store.getState(), needsContinuation: true, pagesProcessedThisInvocation: processed };
+      const continuedState = await this.store.getState();
+      console.info({ event: "price_sync_chunk_completed", syncId, stage: continuedState.currentStage, nextSkip: continuedState.nextSkip, pagesProcessed: continuedState.pagesProcessed, rowsScanned: continuedState.rowsScanned });
+      console.info({ event: "price_sync_continuation_accepted", syncId, stage: continuedState.currentStage, nextSkip: continuedState.nextSkip, pagesProcessed: continuedState.pagesProcessed, rowsScanned: continuedState.rowsScanned });
+      return { state: continuedState, needsContinuation: true, pagesProcessedThisInvocation: processed };
     } catch (error) {
       const current = await this.store.getState();
       const stage = current.currentStage ?? "price_register_scan";
       await this.store.fail(syncId, errorCategory(error, stage), stage, current.pagesProcessed + 1, databaseCode(error));
+      console.error({ event: "price_sync_continuation_failed", syncId, stage, nextSkip: current.nextSkip, pagesProcessed: current.pagesProcessed, rowsScanned: current.rowsScanned });
       return { state: await this.store.getState(), needsContinuation: false, pagesProcessedThisInvocation: processed };
     }
   }
@@ -90,7 +99,7 @@ export class SupabasePriceSyncStateStore implements PriceSyncStateStore {
     const syncId = crypto.randomUUID();
     await this.clearStages(current.activeSyncId);
     const now = new Date().toISOString();
-    const { error } = await client.from("price_sync_state").update({ status: "queued", active_sync_id: syncId, started_at: now, finished_at: null, current_stage: "price_type_scan", next_skip: 0, page_size: PRICE_SYNC_PAGE_SIZE, pages_processed: 0, rows_scanned: 0, rows_staged: 0, latest_prices_resolved: 0, prices_published: 0, prices_deactivated: 0, unmatched_products: 0, unknown_price_types: 0, scan_complete: false, error_category: null, failed_stage: null, database_error_code: null, failed_page: null, lock_acquired_at: now, active_chunk_token: null, chunk_started_at: null, updated_at: now }).eq("id", "product_prices");
+    const { error } = await client.from("price_sync_state").update({ status: "queued", active_sync_id: syncId, started_at: now, finished_at: null, current_stage: "price_type_scan", next_skip: 0, page_size: PRICE_SYNC_PAGE_SIZE, pages_processed: 0, rows_scanned: 0, rows_staged: 0, latest_prices_resolved: 0, prices_published: 0, prices_deactivated: 0, unmatched_products: 0, unknown_price_types: 0, scan_complete: false, error_category: null, failed_stage: null, database_error_code: null, safe_error: null, failed_page: null, lock_acquired_at: now, active_chunk_token: null, chunk_started_at: null, updated_at: now }).eq("id", "product_prices");
     if (error) throw persistenceError(error);
     return { state: await this.getState(), started: true };
   }
@@ -103,6 +112,7 @@ export class SupabasePriceSyncStateStore implements PriceSyncStateStore {
   async checkpoint(syncId: string, input: { stage: PriceSyncStage; nextSkip: number; rowsScanned: number; rowsStaged: number; pageCompleted: boolean; scanComplete?: boolean }) { const client = createAdminClient(); const state = await this.getState(); if (state.activeSyncId !== syncId) throw Object.assign(new Error("Stale price sync."), { errorCategory: "stale_job" }); const { error } = await client.from("price_sync_state").update({ status: "running", current_stage: input.stage, next_skip: input.nextSkip, pages_processed: state.pagesProcessed + (input.pageCompleted ? 1 : 0), rows_scanned: state.rowsScanned + input.rowsScanned, rows_staged: state.rowsStaged + input.rowsStaged, scan_complete: input.scanComplete ?? state.scanComplete, updated_at: new Date().toISOString() }).eq("id", "product_prices").eq("active_sync_id", syncId); if (error) throw persistenceError(error); }
   async publish(syncId: string) { const { error } = await createAdminClient().rpc("publish_product_price_snapshot", { p_sync_id: syncId }); if (error) throw Object.assign(persistenceError(error), { errorCategory: "publication_failure" }); }
   async fail(syncId: string, category: string, stage: PriceSyncStage, page: number, code?: string) { await createAdminClient().from("price_sync_state").update({ status: "failed", finished_at: new Date().toISOString(), error_category: category, failed_stage: stage, database_error_code: code ?? null, failed_page: page, active_sync_id: null, lock_acquired_at: null, active_chunk_token: null, chunk_started_at: null, updated_at: new Date().toISOString() }).eq("id", "product_prices").eq("active_sync_id", syncId); }
+  async failLaunch(syncId: string, safeError: string) { await createAdminClient().from("price_sync_state").update({ status: "failed", finished_at: new Date().toISOString(), error_category: "orchestration_failure", failed_stage: "continuation_launch", safe_error: safeError, active_sync_id: null, lock_acquired_at: null, active_chunk_token: null, chunk_started_at: null, updated_at: new Date().toISOString() }).eq("id", "product_prices").eq("active_sync_id", syncId); }
   private async clearStages(syncId: string | null) { if (!syncId) return; const client = createAdminClient(); await Promise.all([client.from("product_price_sync_stage").delete().eq("sync_id", syncId), client.from("product_price_type_sync_stage").delete().eq("sync_id", syncId), client.from("product_currency_sync_stage").delete().eq("sync_id", syncId)]); }
 }
 
@@ -111,7 +121,7 @@ function errorCategory(error: unknown, stage: PriceSyncStage): string { if (isRe
 function databaseCode(error: unknown): string | undefined { return isRecord(error) && typeof error.code === "string" ? error.code : undefined; }
 function persistenceError(error: unknown): Error { const source = isRecord(error) ? error : {}; return Object.assign(new Error("Price synchronization persistence failed."), { name: "PriceSyncPersistenceError", errorCategory: "staging_failure", code: typeof source.code === "string" ? source.code : undefined }); }
 function isRecord(value: unknown): value is Record<string, unknown> { return typeof value === "object" && value !== null; }
-function mapState(row: Record<string, unknown>): PriceSyncState { return { status: row.status as PriceSyncStatus, activeSyncId: stringOrNull(row.active_sync_id), startedAt: stringOrNull(row.started_at), finishedAt: stringOrNull(row.finished_at), lastSuccessfulSyncAt: stringOrNull(row.last_successful_sync_at), currentStage: row.current_stage as PriceSyncStage | null, nextSkip: number(row.next_skip), pageSize: number(row.page_size), pagesProcessed: number(row.pages_processed), rowsScanned: number(row.rows_scanned), rowsStaged: number(row.rows_staged), latestPricesResolved: number(row.latest_prices_resolved), pricesPublished: number(row.prices_published), pricesDeactivated: number(row.prices_deactivated), unmatchedProducts: number(row.unmatched_products), unknownPriceTypes: number(row.unknown_price_types), scanComplete: row.scan_complete === true, errorCategory: stringOrNull(row.error_category), failedStage: stringOrNull(row.failed_stage), databaseErrorCode: stringOrNull(row.database_error_code), failedPage: typeof row.failed_page === "number" ? row.failed_page : null, updatedAt: String(row.updated_at) }; }
+function mapState(row: Record<string, unknown>): PriceSyncState { return { status: row.status as PriceSyncStatus, activeSyncId: stringOrNull(row.active_sync_id), startedAt: stringOrNull(row.started_at), finishedAt: stringOrNull(row.finished_at), lastSuccessfulSyncAt: stringOrNull(row.last_successful_sync_at), currentStage: row.current_stage as PriceSyncStage | null, nextSkip: number(row.next_skip), pageSize: number(row.page_size), pagesProcessed: number(row.pages_processed), rowsScanned: number(row.rows_scanned), rowsStaged: number(row.rows_staged), latestPricesResolved: number(row.latest_prices_resolved), pricesPublished: number(row.prices_published), pricesDeactivated: number(row.prices_deactivated), unmatchedProducts: number(row.unmatched_products), unknownPriceTypes: number(row.unknown_price_types), scanComplete: row.scan_complete === true, errorCategory: stringOrNull(row.error_category), failedStage: stringOrNull(row.failed_stage), databaseErrorCode: stringOrNull(row.database_error_code), safeError: stringOrNull(row.safe_error), failedPage: typeof row.failed_page === "number" ? row.failed_page : null, activeChunkToken: stringOrNull(row.active_chunk_token), chunkStartedAt: stringOrNull(row.chunk_started_at), updatedAt: String(row.updated_at) }; }
 function stringOrNull(value: unknown): string | null { return typeof value === "string" ? value : null; }
 function number(value: unknown): number { return typeof value === "number" ? value : 0; }
 export function isPriceSyncLockStale(state: Pick<PriceSyncState, "status" | "updatedAt">, now: number): boolean { return state.status === "running" && Date.parse(state.updatedAt) < now - PRICE_SYNC_STALE_LOCK_MS; }

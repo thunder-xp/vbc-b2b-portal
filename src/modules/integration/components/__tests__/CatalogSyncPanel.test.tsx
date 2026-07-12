@@ -29,4 +29,10 @@ describe("CatalogSyncPanel", () => {
     await user.click(screen.getByRole("button", { name: "Run stock sync now" }));
     expect(mocks.prices).toHaveBeenCalledOnce(); expect(mocks.stock).toHaveBeenCalledOnce(); expect(mocks.runDaily).not.toHaveBeenCalled();
   });
+  it("shows a stalled queued continuation from persisted state", async () => {
+    mocks.getPriceState.mockResolvedValue({ success: true, data: { status: "queued", updatedAt: "2020-01-01T00:00:00.000Z", currentStage: "price_type_scan", startedAt: "2020-01-01T00:00:00.000Z", lastSuccessfulSyncAt: null, pagesProcessed: 0, rowsScanned: 0, rowsStaged: 0, latestPricesResolved: 0, pricesPublished: 0, pricesDeactivated: 0, unmatchedProducts: 0, unknownPriceTypes: 0, scanComplete: false, failedStage: null, safeError: null, errorCategory: null } });
+    render(<CatalogSyncPanel />);
+    expect(await screen.findByText("Continuation has not started")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Retry failed price sync" })).toBeEnabled();
+  });
 });

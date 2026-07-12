@@ -23,8 +23,11 @@ const mocks = vi.hoisted(() => ({
   syncCatalog: vi.fn(),
   syncPrices: vi.fn(),
   startPriceSync: vi.fn(),
+  launchPriceSync: vi.fn(),
+  failPriceLaunch: vi.fn(),
   syncStock: vi.fn(),
 }));
+vi.mock("../../sync/price-sync-continuation", () => ({ launchPriceSync: mocks.launchPriceSync, PriceSyncLaunchError: class PriceSyncLaunchError extends Error { safeMessage = "launch failed"; } }));
 
 vi.mock("next/server", () => ({ after: vi.fn() }));
 vi.mock("next/headers", () => ({ headers: vi.fn(async () => new Headers({ host: "portal.example", "x-forwarded-proto": "https" })) }));
@@ -68,6 +71,7 @@ describe("syncCatalogFromOneCAction", () => {
     });
     mocks.createChunkedPriceSyncService.mockReturnValue({
       start: mocks.startPriceSync,
+      failLaunch: mocks.failPriceLaunch,
     });
     mocks.createPartnerLookupService.mockReturnValue({
       searchPartners: mocks.searchPartners,
@@ -132,6 +136,7 @@ describe("syncCatalogFromOneCAction", () => {
       warnings: [],
     });
     mocks.startPriceSync.mockResolvedValue({ started: true, state: { status: "queued", activeSyncId: "11111111-1111-4111-8111-111111111111" } });
+    mocks.launchPriceSync.mockResolvedValue({ status: 202 });
     mocks.syncStock.mockResolvedValue({
       provider: "one-c",
       target: "inventory",

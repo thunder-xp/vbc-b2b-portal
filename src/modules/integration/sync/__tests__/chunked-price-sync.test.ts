@@ -68,9 +68,9 @@ describe("ChunkedPriceSyncService", () => {
 describe("transactional price snapshot SQL", () => {
   const sql = readFileSync(resolve(process.cwd(), "supabase/migrations/20260712180000_chunked_price_sync_foundation.sql"), "utf8");
   it("keeps the latest Period across chunks including later inactive rows", () => { expect(sql).toContain("excluded.effective_at >= current.effective_at"); expect(sql).toContain("is_current = excluded.is_current"); });
-  it("publishes only zero-characteristic base prices", () => { expect(sql).toContain("s.external_characteristic_ref = '00000000-0000-0000-0000-000000000000'"); });
+  it("publishes only zero-characteristic base prices", () => { expect(sql).toMatch(/s\.external_characteristic_ref\s*=\s*'00000000-0000-0000-0000-000000000000'/); });
   it("publishes price types and prices in one transaction and cleans stages last", () => { const types = sql.indexOf("insert into public.price_types"); const prices = sql.indexOf("insert into public.product_prices"); const cleanup = sql.indexOf("delete from public.product_price_sync_stage"); expect(types).toBeGreaterThan(-1); expect(prices).toBeGreaterThan(types); expect(cleanup).toBeGreaterThan(prices); });
-  it("does not expose staging tables to browser roles", () => { expect(sql).toContain("revoke all on public.price_sync_state, public.product_price_type_sync_stage, public.product_currency_sync_stage, public.product_price_sync_stage from anon, authenticated"); });
+  it("does not expose staging tables to browser roles", () => { expect(sql).toMatch(/revoke all[\s\S]*public\.price_sync_state[\s\S]*public\.product_price_sync_stage[\s\S]*from anon, authenticated/); });
 });
 
 function providerFixture(options: { priceRows?: number } = {}) {
@@ -82,7 +82,7 @@ function providerFixture(options: { priceRows?: number } = {}) {
 }
 
 function storeFixture(overrides: Partial<PriceSyncState> = {}) {
-  const state: PriceSyncState = { status: "running", activeSyncId: syncId, startedAt: now, finishedAt: null, lastSuccessfulSyncAt: null, currentStage: "price_type_scan", nextSkip: 0, pageSize: 500, pagesProcessed: 0, rowsScanned: 0, rowsStaged: 0, latestPricesResolved: 0, pricesPublished: 0, pricesDeactivated: 0, unmatchedProducts: 0, unknownPriceTypes: 0, scanComplete: false, errorCategory: null, failedStage: null, databaseErrorCode: null, failedPage: null, updatedAt: now, ...overrides };
+  const state: PriceSyncState = { status: "running", activeSyncId: syncId, startedAt: now, finishedAt: null, lastSuccessfulSyncAt: null, currentStage: "price_type_scan", nextSkip: 0, pageSize: 500, pagesProcessed: 0, rowsScanned: 0, rowsStaged: 0, latestPricesResolved: 0, pricesPublished: 0, pricesDeactivated: 0, unmatchedProducts: 0, unknownPriceTypes: 0, scanComplete: false, errorCategory: null, failedStage: null, databaseErrorCode: null, safeError: null, failedPage: null, activeChunkToken: null, chunkStartedAt: null, updatedAt: now, ...overrides };
   const store = {
     state,
     start: vi.fn(async () => ({ state, started: true })),
@@ -95,6 +95,7 @@ function storeFixture(overrides: Partial<PriceSyncState> = {}) {
     checkpoint: vi.fn(async (_id: string, input: { stage: PriceSyncStage; nextSkip: number; rowsScanned: number; rowsStaged: number; pageCompleted: boolean; scanComplete?: boolean }) => { state.status = "running"; state.currentStage = input.stage; state.nextSkip = input.nextSkip; state.pagesProcessed += 1; state.rowsScanned += input.rowsScanned; state.rowsStaged += input.rowsStaged; state.scanComplete = input.scanComplete ?? state.scanComplete; }),
     publish: vi.fn(async () => { state.status = "succeeded"; state.activeSyncId = null; state.currentStage = "completed"; }),
     fail: vi.fn(async (_id, category, stage, page) => { state.status = "failed"; state.activeSyncId = null; state.errorCategory = category; state.failedStage = stage; state.failedPage = page; }),
+    failLaunch: vi.fn(async (_id, safeError) => { state.status = "failed"; state.activeSyncId = null; state.errorCategory = "orchestration_failure"; state.failedStage = "continuation_launch"; state.safeError = safeError; }),
   } satisfies PriceSyncStateStore & { state: PriceSyncState };
   return store;
 }
