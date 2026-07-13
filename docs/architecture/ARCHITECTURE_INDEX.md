@@ -121,7 +121,7 @@ Future schema documentation should be created before SQL implementation.
 
 ## Backend
 
-- `docs/architecture/PROJECT_SPECIFICATION_DESIGN.md` - Company-owned installer BOM schema, RLS, repository/service boundaries, commercial calculation, and submission rules.
+- `docs/architecture/PROJECT_SPECIFICATION_DESIGN.md` - Company-owned installer BOM schema, immutable submission snapshots, internal review transitions, RLS, and repository/service boundaries.
 - `docs/architecture/BACKEND_ARCHITECTURE.md` - Backend layers, module boundaries, services, repositories, integration layer, error handling, dependency rules, folder conventions, and scalability.
 - `docs/architecture/SECURITY_AND_DATABASE_ARCHITECTURE.md` - Server Action security rules, Supabase access boundaries, service-role restrictions, and repository/service/integration security boundaries.
 - `docs/architecture/ACCESS_CONTROL_RUNTIME_DESIGN.md` - Access-control implementation preparation for Server Actions, services, repositories, future RLS, and active company context.
@@ -156,7 +156,7 @@ Future schema documentation should be created before SQL implementation.
 
 ## Implementation
 
-- `docs/architecture/PROJECT_SPECIFICATION_DESIGN.md` - Implementation reference for the project specification schema, access model, service calculations, actions, routes, and MVP exclusions.
+- `docs/architecture/PROJECT_SPECIFICATION_DESIGN.md` - Implementation reference for partner drafts, submission snapshots, internal review, controlled revisions, actions, routes, and MVP exclusions.
 - `docs/architecture/BACKEND_ARCHITECTURE.md` - Backend implementation direction.
 - `docs/architecture/FRONTEND_ARCHITECTURE.md` - Frontend implementation direction.
 - `docs/architecture/SECURITY_AND_DATABASE_ARCHITECTURE.md` - Security and database implementation gate before schema, RLS, access control, catalog, orders, or 1C integration.

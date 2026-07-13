@@ -18,9 +18,38 @@ export type UpdateProjectSpecificationInput = {
   description: string | null;
 };
 
+export type ProjectSpecificationItemSnapshotInput = {
+  itemId: string;
+  productName: string;
+  sku: string;
+  slug: string;
+  partnerUnitPriceAmount: number | null;
+  partnerCurrencyCode: string | null;
+  retailUnitPriceAmount: number | null;
+  retailCurrencyCode: string | null;
+  availableStock: number | null;
+  nearestArrivalDate: string | null;
+  nearestArrivalQuantity: number | null;
+  grossProfitUsd: number | null;
+  markupPercentage: number | null;
+};
+
+export type InternalSpecificationReviewRecord = {
+  specification: ProjectSpecification;
+  companyName: string;
+};
+
+export type ReviewProjectSpecificationResult = {
+  specificationId: string;
+  status: ProjectSpecification["status"];
+  revisionId: string | null;
+};
+
 export interface ProjectSpecificationRepository {
   listByCompanyId(companyId: string): Promise<ProjectSpecification[]>;
+  listForInternalReview(): Promise<InternalSpecificationReviewRecord[]>;
   findById(specificationId: string): Promise<ProjectSpecification | null>;
+  findRevisionByParentId(specificationId: string): Promise<ProjectSpecification | null>;
   listItems(specificationId: string): Promise<ProjectSpecificationItem[]>;
   create(input: CreateProjectSpecificationInput): Promise<ProjectSpecification>;
   updateDraft(input: UpdateProjectSpecificationInput): Promise<ProjectSpecification>;
@@ -34,7 +63,13 @@ export interface ProjectSpecificationRepository {
     quantity: number;
   }): Promise<ProjectSpecificationItem>;
   removeItem(itemId: string): Promise<void>;
-  submit(specificationId: string): Promise<ProjectSpecification>;
+  submit(specificationId: string, snapshots: ProjectSpecificationItemSnapshotInput[]): Promise<ProjectSpecification>;
+  canReviewInternally(): Promise<boolean>;
+  review(input: {
+    specificationId: string;
+    status: ProjectSpecification["status"];
+    comment: string | null;
+  }): Promise<ReviewProjectSpecificationResult>;
 }
 
 export class ProjectSpecificationRepositoryError extends Error {

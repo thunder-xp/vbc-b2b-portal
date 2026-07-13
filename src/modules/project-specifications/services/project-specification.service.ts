@@ -6,10 +6,14 @@ import type {
   PricingInventoryService,
   ProductCommercialViewDto,
 } from "../../pricing-inventory/services";
-import type { ProjectSpecificationRepository } from "../repositories";
+import type {
+  ProjectSpecificationItemSnapshotInput,
+  ProjectSpecificationRepository,
+} from "../repositories";
 import {
   ProjectSpecificationStatus,
   type ProjectSpecification,
+  type ProjectSpecificationItem,
 } from "../types";
 
 export type ProjectSpecificationSummaryDto = {
@@ -47,6 +51,10 @@ export type ProjectSpecificationTotalsDto = {
 
 export type ProjectSpecificationDetailDto = ProjectSpecificationSummaryDto & {
   description: string | null;
+  revisionNumber: number;
+  reviewComment: string | null;
+  reviewedAt: string | null;
+  revisionId: string | null;
   lines: ProjectSpecificationLineDto[];
   totals: ProjectSpecificationTotalsDto;
 };
@@ -100,27 +108,21 @@ export class DefaultProjectSpecificationService implements ProjectSpecificationS
   async getDetail(userId: string, specificationId: string): Promise<ProjectSpecificationDetailDto> {
     const specification = await this.loadAccessibleSpecification(userId, specificationId);
     const items = await this.repository.listItems(specification.id);
-    const productIds = items.map((item) => item.productId);
-    const [products, commercialViews] = await Promise.all([
-      this.catalogService.getProductsByIds(userId, productIds),
-      this.pricingInventoryService.getProductCommercialViews(userId, productIds),
-    ]);
-    const productsById = new Map(products.map((product) => [product.id, product]));
-    const commercialByProduct = new Map(commercialViews.map((view) => [view.productId, view]));
-    const lines = items.flatMap((item) => {
-      const product = productsById.get(item.productId);
-      if (!product) return [];
-      return [toLine(item.id, item.quantity, product, commercialByProduct.get(item.productId))];
-    });
+    const revision = await this.repository.findRevisionByParentId(specification.id);
+    if (specification.status !== ProjectSpecificationStatus.Draft) {
+      return buildSubmittedSpecificationDetail(specification, items, revision?.id ?? null);
+    }
+    const presentation = await this.buildCurrentPresentation(userId, items);
 
     return {
       ...toSummary(specification, items.length),
       description: specification.description,
-      lines,
-      totals: calculateTotals(items.map((item) => ({
-        quantity: item.quantity,
-        commercial: commercialByProduct.get(item.productId),
-      }))),
+      revisionNumber: specification.revisionNumber,
+      reviewComment: specification.reviewComment,
+      reviewedAt: specification.reviewedAt,
+      revisionId: revision?.id ?? null,
+      lines: presentation.lines,
+      totals: presentation.totals,
     };
   }
 
@@ -181,10 +183,68 @@ export class DefaultProjectSpecificationService implements ProjectSpecificationS
 
   async submit(userId: string, specificationId: string): Promise<ProjectSpecification> {
     await this.ensureDraft(userId, specificationId);
-    if ((await this.repository.listItems(specificationId)).length === 0) {
+    const items = await this.repository.listItems(specificationId);
+    if (items.length === 0) {
       throw new InvalidStateError("A specification requires at least one item.");
     }
-    return this.repository.submit(specificationId);
+    const snapshots = await this.buildSubmissionSnapshots(userId, items);
+    return this.repository.submit(specificationId, snapshots);
+  }
+
+  private async buildCurrentPresentation(
+    userId: string,
+    items: Awaited<ReturnType<ProjectSpecificationRepository["listItems"]>>,
+  ): Promise<{ lines: ProjectSpecificationLineDto[]; totals: ProjectSpecificationTotalsDto }> {
+    const { productsById, commercialByProduct } = await this.loadCurrentValues(userId, items);
+    return {
+      lines: items.flatMap((item) => {
+        const product = productsById.get(item.productId);
+        return product ? [toLine(item.id, item.quantity, product, commercialByProduct.get(item.productId))] : [];
+      }),
+      totals: calculateTotals(items.map((item) => ({ quantity: item.quantity, commercial: commercialByProduct.get(item.productId) }))),
+    };
+  }
+
+  private async buildSubmissionSnapshots(
+    userId: string,
+    items: Awaited<ReturnType<ProjectSpecificationRepository["listItems"]>>,
+  ): Promise<ProjectSpecificationItemSnapshotInput[]> {
+    const { productsById, commercialByProduct } = await this.loadCurrentValues(userId, items);
+    return items.map((item) => {
+      const product = productsById.get(item.productId);
+      if (!product) throw new NotFoundError("Catalog product was not found.");
+      const commercial = commercialByProduct.get(item.productId);
+      return {
+        itemId: item.id,
+        productName: product.name,
+        sku: product.sku,
+        slug: product.slug,
+        partnerUnitPriceAmount: commercial?.partnerPrice?.amount ?? null,
+        partnerCurrencyCode: commercial?.partnerPrice?.currencyCode ?? null,
+        retailUnitPriceAmount: commercial?.retailPrice?.amount ?? null,
+        retailCurrencyCode: commercial?.retailPrice?.currencyCode ?? null,
+        availableStock: commercial?.stock?.exactAvailableQuantity ?? null,
+        nearestArrivalDate: commercial?.stock?.expectedArrival?.expectedDate ?? null,
+        nearestArrivalQuantity: commercial?.stock?.expectedArrival?.expectedQuantity ?? null,
+        grossProfitUsd: commercial?.commercialOpportunity?.grossProfitUsd ?? null,
+        markupPercentage: commercial?.commercialOpportunity?.markupPercent ?? null,
+      };
+    });
+  }
+
+  private async loadCurrentValues(
+    userId: string,
+    items: Awaited<ReturnType<ProjectSpecificationRepository["listItems"]>>,
+  ) {
+    const productIds = items.map((item) => item.productId);
+    const [products, commercialViews] = await Promise.all([
+      this.catalogService.getProductsByIds(userId, productIds),
+      this.pricingInventoryService.getProductCommercialViews(userId, productIds),
+    ]);
+    return {
+      productsById: new Map(products.map((product) => [product.id, product])),
+      commercialByProduct: new Map(commercialViews.map((view) => [view.productId, view])),
+    };
   }
 
   private async ensureDraft(userId: string, specificationId: string): Promise<ProjectSpecification> {
@@ -217,6 +277,24 @@ export class DefaultProjectSpecificationService implements ProjectSpecificationS
     await this.permissionService.ensurePermission(userId, context.company.id, SPECIFICATION_PERMISSION);
     return context.company.id;
   }
+}
+
+export function buildSubmittedSpecificationDetail(
+  specification: ProjectSpecification,
+  items: ProjectSpecificationItem[],
+  revisionId: string | null,
+): ProjectSpecificationDetailDto {
+  const presentation = buildSnapshotPresentation(specification, items);
+  return {
+    ...toSummary(specification, items.length),
+    description: specification.description,
+    revisionNumber: specification.revisionNumber,
+    reviewComment: specification.reviewComment,
+    reviewedAt: specification.reviewedAt,
+    revisionId,
+    lines: presentation.lines,
+    totals: presentation.totals,
+  };
 }
 
 function normalizeMetadata(input: SaveProjectSpecificationInput) {
@@ -269,6 +347,61 @@ function toLine(
     partnerLineTotal: formatTotal(commercial?.partnerPrice, quantity),
     retailLineTotal: formatTotal(commercial?.retailPrice, quantity),
   };
+}
+
+function buildSnapshotPresentation(
+  specification: ProjectSpecification,
+  items: Awaited<ReturnType<ProjectSpecificationRepository["listItems"]>>,
+): { lines: ProjectSpecificationLineDto[]; totals: ProjectSpecificationTotalsDto } {
+  const lines = items.flatMap((item) => {
+    if (!item.productNameSnapshot || !item.skuSnapshot || !item.slugSnapshot) return [];
+    return [{
+      id: item.id,
+      productId: item.productId,
+      productName: item.productNameSnapshot,
+      sku: item.skuSnapshot,
+      slug: item.slugSnapshot,
+      quantity: item.quantity,
+      partnerUnitPrice: formatOptionalMoney(item.partnerUnitPriceAmount, item.partnerCurrencyCode),
+      retailUnitPrice: formatOptionalMoney(item.retailUnitPriceAmount, item.retailCurrencyCode),
+      availableStock: item.availableStock,
+      nearestArrivalDate: item.nearestArrivalDate ? formatDate(item.nearestArrivalDate) : null,
+      nearestArrivalQuantity: item.nearestArrivalQuantity,
+      partnerLineTotal: formatOptionalMoney(item.partnerLineTotalAmount, item.partnerCurrencyCode),
+      retailLineTotal: formatOptionalMoney(item.retailLineTotalAmount, item.retailCurrencyCode),
+    }];
+  });
+  return { lines, totals: calculateSnapshotTotals(specification) };
+}
+
+function calculateSnapshotTotals(
+  specification: ProjectSpecification,
+): ProjectSpecificationTotalsDto {
+  return {
+    partnerPurchaseTotal: formatOptionalMoney(
+      specification.partnerPurchaseTotalAmount,
+      specification.partnerCurrencyCodeSnapshot,
+    ),
+    retailTotal: formatOptionalMoney(
+      specification.retailTotalAmount,
+      specification.retailCurrencyCodeSnapshot,
+    ),
+    potentialGrossProfit: specification.grossProfitUsdSnapshot === null
+      ? null
+      : formatMoney(specification.grossProfitUsdSnapshot, "USD"),
+    markupPercentage: specification.markupPercentageSnapshot === null
+      ? null
+      : `${new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 1 }).format(specification.markupPercentageSnapshot)}%`,
+  };
+}
+
+function formatOptionalMoney(amount: number | null, currency: string | null): string | null {
+  return amount !== null && currency ? formatMoney(amount, currency) : null;
+}
+
+function formatDate(value: string): string {
+  return new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" })
+    .format(new Date(`${value}T00:00:00Z`));
 }
 
 function formatTotal(

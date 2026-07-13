@@ -42,6 +42,12 @@ Project specifications are partner-company-owned equipment lists for a real cust
 - Drafts may be created and edited only within the authenticated user's active company context.
 - Items may be inserted, updated, or removed only while the parent specification is a draft and the product is active and visible.
 - Submitted specifications and their items are immutable.
+- Submission atomically freezes product identity, unit prices, stock, nearest arrival, and commercial opportunity values on each item. These are audit snapshots, not a replacement for current 1C read models.
+- Snapshot submission uses the additive `submit_project_specification_v2(uuid, jsonb)` RPC. The original `submit_project_specification(uuid)` RPC remains unchanged during the backward-compatible rollout.
+- V2 also persists submitted line totals and specification purchase, retail, gross-profit, and markup totals. Historical rows keep missing commercial snapshots as unavailable.
+- Internal review uses `submitted -> under_review -> approved | changes_requested | rejected` transitions through one database RPC.
+- `changes_requested` keeps the reviewed submission immutable and atomically creates a linked editable draft revision.
+- Review access is limited to active internal/admin staff through the dedicated `specifications.review` capability.
 - Submission uses a narrow security-definer RPC. It validates company access, draft status, and at least one item before atomically setting `status = submitted` and `submitted_at`.
 - `created_by` is an audit field, not a private-user ownership boundary; specifications belong to the partner company.
 
@@ -80,6 +86,8 @@ Routes:
 - `/cabinet/specifications`
 - `/cabinet/specifications/new`
 - `/cabinet/specifications/[id]`
+- `/admin/specifications`
+- `/admin/specifications/[id]`
 
 ## MVP Exclusions
 

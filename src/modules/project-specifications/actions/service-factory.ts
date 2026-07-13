@@ -5,7 +5,10 @@ import { SupabaseCatalogRepository } from "../../catalog/repositories/supabase";
 import { DefaultCatalogService } from "../../catalog/services";
 import { createPricingInventoryService } from "../../pricing-inventory/actions/service-factory";
 import { SupabaseProjectSpecificationRepository } from "../repositories/supabase";
-import { DefaultProjectSpecificationService } from "../services";
+import {
+  DefaultInternalSpecificationReviewService,
+  DefaultProjectSpecificationService,
+} from "../services";
 
 export function createProjectSpecificationService(): DefaultProjectSpecificationService {
   const companyAccessService = createCompanyAccessService();
@@ -15,5 +18,11 @@ export function createProjectSpecificationService(): DefaultProjectSpecification
     new DefaultPermissionService(new SupabaseRolePermissionRepository()),
     new DefaultCatalogService(new SupabaseCatalogRepository(), companyAccessService),
     createPricingInventoryService(),
+  );
+}
+
+export function createInternalSpecificationReviewService(): DefaultInternalSpecificationReviewService {
+  return new DefaultInternalSpecificationReviewService(
+    new SupabaseProjectSpecificationRepository(),
   );
 }
