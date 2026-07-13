@@ -23,12 +23,69 @@ describe("catalog navigation", () => {
     await user.click(screen.getByRole("button", { name: "Категории" }));
     await user.click(screen.getByRole("button", { name: "Видеонаблюдение" }));
     await user.click(screen.getByRole("button", { name: "Камеры" }));
-    expect(screen.getByRole("link", { name: "IP-камеры" })).toHaveAttribute("href", "/cabinet/catalog?category=subcategory");
+    const productCategory = screen.getByRole("link", { name: "IP-камеры" });
+    expect(productCategory).toHaveAttribute("href", "/cabinet/catalog?category=subcategory");
+    productCategory.addEventListener("click", (event) => event.preventDefault());
+    await user.click(productCategory);
+    expect(screen.queryByText("Выберите направление")).not.toBeInTheDocument();
   });
 
-  it("persists filter state in URLs and renders an active brand", () => {
-    expect(catalogHref({ category: "category", brand: "brand-1", search: "camera", sort: "sku_asc" })).toBe("/cabinet/catalog?category=category&brand=brand-1&search=camera&sort=sku_asc");
-    render(<CatalogFilters brands={[{ id: "brand-1", name: "Novotech", slug: "novotech", description: null, logoUrl: null }]} categoryId="category" search="camera" selectedBrandId="brand-1" sort="sku_asc" />);
-    expect(screen.getByRole("link", { name: /Novotech/ })).toHaveAttribute("href", "/cabinet/catalog?category=category&search=camera&sort=sku_asc");
+  it("toggles the category menu from its trigger", async () => {
+    const user = userEvent.setup();
+    render(<CategoryMegaMenu categories={categories} />);
+    const trigger = screen.getByRole("button", { name: "Категории" });
+    await user.click(trigger);
+    expect(trigger).toHaveAttribute("aria-expanded", "true");
+    await user.click(trigger);
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("closes the category menu on outside click", async () => {
+    const user = userEvent.setup();
+    render(<><CategoryMegaMenu categories={categories} /><button type="button">Outside</button></>);
+    await user.click(screen.getByRole("button", { name: "Категории" }));
+    expect(screen.getByText("Выберите направление")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Outside" }));
+    expect(screen.queryByText("Выберите направление")).not.toBeInTheDocument();
+  });
+
+  it("closes the category menu on Escape and returns focus to the trigger", async () => {
+    const user = userEvent.setup();
+    render(<CategoryMegaMenu categories={categories} />);
+    const trigger = screen.getByRole("button", { name: "Категории" });
+    await user.click(trigger);
+    await user.keyboard("{Escape}");
+    expect(screen.queryByText("Выберите направление")).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+  });
+
+  it("replaces Brand with an availability filter defaulting to All", () => {
+    render(<CatalogFilters />);
+    expect(screen.queryByText("Бренд")).not.toBeInTheDocument();
+    expect(screen.getByText("Наличие")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Все/ })).toHaveAttribute("href", "/cabinet/catalog");
+    expect(screen.getByRole("link", { name: /Все/ })).toContainElement(screen.getByLabelText("Выбрано"));
+  });
+
+  it("preserves category, search, availability, and attributes in filter links", () => {
+    const key = "property_11111111-1111-4111-8111-111111111111";
+    render(<CatalogFilters attributeFilters={{ [key]: ["4 MP"] }} availability="expected" categoryId="category" search="camera" sort="sku_asc" />);
+    expect(screen.getByRole("link", { name: /В наличии/ })).toHaveAttribute(
+      "href",
+      `/cabinet/catalog?category=category&search=camera&sort=sku_asc&availability=in_stock&attr.property_11111111-1111-4111-8111-111111111111=4+MP`,
+    );
+  });
+
+  it("keeps every filter section collapsed and preserves selection after reopening", async () => {
+    const user = userEvent.setup();
+    render(<CatalogFilters availability="expected" facets={[{ key: "property_11111111-1111-4111-8111-111111111111", label: "Разрешение", values: [{ value: "4 MP", count: 3, selected: true }] }]} />);
+    const availabilityGroup = screen.getByText("Наличие").closest("details");
+    const attributeGroup = screen.getByText("Разрешение").closest("details");
+    expect(availabilityGroup).not.toHaveAttribute("open");
+    expect(attributeGroup).not.toHaveAttribute("open");
+    await user.click(screen.getByText("Наличие"));
+    await user.click(screen.getByText("Наличие"));
+    await user.click(screen.getByText("Наличие"));
+    expect(screen.getByRole("link", { name: /К поступлению/ })).toContainElement(screen.getByLabelText("Выбрано"));
   });
 });

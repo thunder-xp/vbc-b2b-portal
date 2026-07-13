@@ -4,24 +4,28 @@ import { describe, expect, it } from "vitest";
 import Home from "../page";
 
 describe("landing page", () => {
-  it("presents the product and the two public entry actions", () => {
+  it("presents the public entry page fully in Russian", () => {
     render(<Home />);
 
     expect(
-      screen.getByRole("heading", { name: "Novotech Partner Platform" }),
+      screen.getByRole("heading", { name: "Партнёрская платформа" }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Sign In" })).toHaveAttribute(
+    expect(screen.queryByText(/NOVOTECH/i)).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Войти" })).toHaveAttribute(
       "href",
       "/auth/sign-in",
     );
-    expect(screen.getByRole("link", { name: "Become a Partner" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Стать партнёром" })).toHaveAttribute(
       "href",
       "/auth/register",
     );
-    expect(screen.getByText("B2B catalog")).toBeInTheDocument();
-    expect(screen.getByText("Partner prices")).toBeInTheDocument();
-    expect(screen.getByText("Stock visibility")).toBeInTheDocument();
-    expect(screen.getByText("Online orders")).toBeInTheDocument();
-    expect(screen.getByText("Documents")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Возможности партнёра" })).toBeInTheDocument();
+    expect(screen.getByText("Каталог B2B")).toBeInTheDocument();
+    expect(screen.getByText("Партнёрские цены")).toBeInTheDocument();
+    expect(screen.getByText("Наличие и поступления")).toBeInTheDocument();
+    expect(screen.getByText("Проектные спецификации")).toBeInTheDocument();
+    expect(screen.getByText("Запросы на резерв")).toBeInTheDocument();
+    expect(screen.getByText("Документы")).toBeInTheDocument();
+    expect(screen.getAllByTestId("capability-icon")).toHaveLength(6);
   });
 });

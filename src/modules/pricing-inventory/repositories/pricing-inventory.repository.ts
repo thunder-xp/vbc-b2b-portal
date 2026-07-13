@@ -53,6 +53,8 @@ export interface PricingInventoryRepository {
   listStockForProducts(productIds: string[]): Promise<ProductStockBalance[]>;
   listStockTotalsForProducts?(productIds:string[]):Promise<ProductStockTotal[]>;
   listSupplierArrivalsForProducts?(productIds:string[]):Promise<ProductSupplierArrival[]>;
+  listProductIdsWithPositiveStock?(): Promise<string[]>;
+  listProductIdsWithConfirmedArrival?(): Promise<string[]>;
   findProductPrice(input: FindProductPriceInput): Promise<ProductPrice | null>;
   upsertProductPrice(
     input: UpsertProductPriceInput,

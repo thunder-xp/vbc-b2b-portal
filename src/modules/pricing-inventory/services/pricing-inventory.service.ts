@@ -55,12 +55,17 @@ export type ProductCommercialViewDto = {
 };
 
 export type ProductCommercialInternalDto = ProductCommercialViewDto & { retailBelowPartnerPrice: boolean };
+export type ProductAvailabilityFilter = "in_stock" | "expected";
 
 export interface PricingInventoryService {
   getProductCommercialViews(
     userId: string,
     productIds: string[],
   ): Promise<ProductCommercialInternalDto[]>;
+  getProductIdsByAvailability?(
+    userId: string,
+    availability: ProductAvailabilityFilter,
+  ): Promise<string[]>;
 }
 
 const PRICE_PERMISSION = "prices.view";
@@ -143,6 +148,25 @@ export class DefaultPricingInventoryService implements PricingInventoryService {
         retailBelowPartnerPrice: Boolean(partnerPrice && retailPrice && retailPrice.priceAmount < partnerPrice.priceAmount),
       };
     });
+  }
+
+  async getProductIdsByAvailability(
+    userId: string,
+    availability: ProductAvailabilityFilter,
+  ): Promise<string[]> {
+    const company = await this.resolveActiveCompany(userId);
+    const canViewStock = await this.permissionService.hasPermission(
+      userId,
+      company.id,
+      STOCK_PERMISSION,
+    );
+    if (!canViewStock) return [];
+
+    if (availability === "in_stock") {
+      return this.pricingInventoryRepository.listProductIdsWithPositiveStock?.() ?? [];
+    }
+
+    return this.pricingInventoryRepository.listProductIdsWithConfirmedArrival?.() ?? [];
   }
 
   private async resolveActiveCompany(userId: string): Promise<{ id: string; external1cPriceTypeId: string | null }> {

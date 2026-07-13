@@ -162,6 +162,25 @@ describe("DefaultPricingInventoryService", () => {
 
   it("keeps available stock and confirmed arrival independently",async()=>{const service=new DefaultPricingInventoryService(new FakePricingInventoryRepository([], [makeStock("product-1",8,20)],[arrival("2026-08-01",5)]),new FakeCompanyAccessService(),new FakePermissionService());const [result]=await service.getProductCommercialViews("user-1",["product-1"]);expect(result.stock?.status).toBe("in_stock");expect(result.stock?.expectedArrival).toMatchObject({expectedQuantity:5,expectedDate:"2026-08-01",formattedExpectedDate:"1 августа 2026 г."});});
   it("treats a confirmed atomic arrival without a balance row as zero stock",async()=>{const service=new DefaultPricingInventoryService(new FakePricingInventoryRepository([],[],[arrival("2026-08-01",5)]),new FakeCompanyAccessService(),new FakePermissionService());const [result]=await service.getProductCommercialViews("user-1",["product-1"]);expect(result.stock).toMatchObject({status:"expected",exactAvailableQuantity:0,expectedArrival:{expectedDate:"2026-08-01",expectedQuantity:5}});});
+
+  it("filters availability by positive stock and keeps stock-plus-arrival products in expected", async () => {
+    const repository = new FakePricingInventoryRepository(
+      [],
+      [makeStock("stock-only", 3, null), makeStock("both", 7, null), makeStock("zero", 0, null)],
+      [
+        { ...arrival("2026-08-01", 4), productId: "arrival-only" },
+        { ...arrival("2026-08-02", 2), productId: "both" },
+      ],
+    );
+    const service = new DefaultPricingInventoryService(
+      repository,
+      new FakeCompanyAccessService(),
+      new FakePermissionService(),
+    );
+
+    await expect(service.getProductIdsByAvailability("user-1", "in_stock")).resolves.toEqual(["stock-only", "both"]);
+    await expect(service.getProductIdsByAvailability("user-1", "expected")).resolves.toEqual(["arrival-only", "both"]);
+  });
 });
 
 class FakePricingInventoryRepository implements PricingInventoryRepository {
@@ -190,6 +209,8 @@ class FakePricingInventoryRepository implements PricingInventoryRepository {
   }
   async listStockTotalsForProducts(){return this.stockBalances.map(item=>({productId:item.productId,physicalQuantity:item.availableQuantity,reservedQuantity:item.reservedQuantity??0,availableQuantity:item.availableQuantity,incomingQuantity:item.expectedQuantity??0,hasVariantStock:false,syncedAt:item.updatedFrom1cAt??now}));}
   async listSupplierArrivalsForProducts(){return this.supplierArrivals;}
+  async listProductIdsWithPositiveStock(){return this.stockBalances.filter((item)=>item.availableQuantity>0).map((item)=>item.productId);}
+  async listProductIdsWithConfirmedArrival(){return [...new Set(this.supplierArrivals.filter((item)=>item.expectedQuantity>0&&item.externalCharacteristicRef==="00000000-0000-0000-0000-000000000000").map((item)=>item.productId))];}
 
   async findProductPrice(): Promise<ProductPrice | null> {
     return null;

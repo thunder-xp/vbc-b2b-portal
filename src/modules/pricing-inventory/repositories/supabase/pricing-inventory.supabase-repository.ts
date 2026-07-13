@@ -34,6 +34,27 @@ export class PricingInventoryRepositoryUnexpectedError extends Error {
 export class SupabasePricingInventoryRepository
   implements PricingInventoryRepository
 {
+  async listProductIdsWithPositiveStock(): Promise<string[]> {
+    const { data, error } = await (await createClient())
+      .from("product_stock_totals")
+      .select("product_id")
+      .eq("is_published", true)
+      .gt("available_quantity", 0);
+    if (error) throw new PricingInventoryRepositoryUnexpectedError();
+    return uniqueProductIds(data ?? []);
+  }
+
+  async listProductIdsWithConfirmedArrival(): Promise<string[]> {
+    const { data, error } = await (await createClient())
+      .from("product_supplier_arrivals")
+      .select("product_id")
+      .eq("is_published", true)
+      .eq("external_characteristic_ref", "00000000-0000-0000-0000-000000000000")
+      .gt("expected_quantity", 0);
+    if (error) throw new PricingInventoryRepositoryUnexpectedError();
+    return uniqueProductIds(data ?? []);
+  }
+
   async getLatestUsdMdlExchangeRate() {
     const { data, error } = await (await createClient())
       .from("commercial_exchange_rates")
@@ -245,4 +266,8 @@ function normalizeProductIds(productIds: string[]): string[] {
         .filter((productId) => productId.length > 0),
     ),
   );
+}
+
+function uniqueProductIds(rows: Array<{ product_id: string }>): string[] {
+  return [...new Set(rows.map((row) => row.product_id).filter(Boolean))];
 }

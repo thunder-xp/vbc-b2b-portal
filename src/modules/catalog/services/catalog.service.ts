@@ -33,6 +33,8 @@ export type CatalogProductListInput = {
   pageSize?: number;
   sort?: "default" | "name_asc" | "name_desc" | "sku_asc";
   attributeFilters?: Record<string, string[]>;
+  availability?: "all" | "in_stock" | "expected";
+  availabilityProductIds?: string[];
 };
 
 export type CatalogFacetDto = { key: string; label: string; values: Array<{ value: string; count: number; selected: boolean }> };
@@ -143,10 +145,14 @@ export class DefaultCatalogService implements CatalogService {
       ? collectCategoryAndDescendantIds(input.categoryId, categories)
       : undefined;
     const attributeFilters = normalizeAttributeFilters(input.attributeFilters);
-    const [matchingProductIds, facetRows] = await Promise.all([
+    const [attributeProductIds, facetRows] = await Promise.all([
       Object.keys(attributeFilters).length ? this.catalogRepository.findMatchingProductIds?.(categoryIds, attributeFilters) ?? Promise.resolve([]) : Promise.resolve(undefined),
       this.catalogRepository.listAttributeFacets?.(categoryIds, attributeFilters) ?? Promise.resolve([]),
     ]);
+    const matchingProductIds = intersectProductIds(
+      attributeProductIds,
+      input.availabilityProductIds,
+    );
     const normalizedSearch = input.search?.trim().toLowerCase();
     const searchBrandIds = normalizedSearch
       ? brands.filter((brand) => brand.name.toLowerCase().includes(normalizedSearch)).map((brand) => brand.id)
@@ -418,12 +424,31 @@ function createAttributeDatasheet(
 }
 
 function normalizeAttributeFilters(filters: Record<string, string[]> | undefined): Record<string, string[]> { return Object.fromEntries(Object.entries(filters ?? {}).flatMap(([key, values]) => { const clean = [...new Set(values.map((value) => value.trim()).filter((value) => value.length > 0 && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)))].slice(0, 20); return /^property_[0-9a-f-]{36}$/.test(key) && clean.length ? [[key, clean]] : []; })); }
+function intersectProductIds(left: string[] | undefined, right: string[] | undefined): string[] | undefined {
+  if (left === undefined) return right;
+  if (right === undefined) return left;
+  const rightIds = new Set(right);
+  return left.filter((id) => rightIds.has(id));
+}
 const FACET_PRIORITY = [/разрешение/i, /форм.?фактор/i, /технолог/i, /передача.?данных/i, /аналитик/i, /micro.?sd/i, /дальность.?ик/i, /микрофон/i, /объектив/i, /фокус/i, /материал/i];
 function buildFacets(rows: Array<{ key: string; label: string; value: string; count: number; coverage: number }>, selected: Record<string, string[]>): CatalogFacetDto[] {
   const groups = new Map<string, CatalogFacetDto>();
   for (const row of rows) { const group = groups.get(row.key) ?? { key: row.key, label: row.label, values: [] }; group.values.push({ value: row.value, count: row.count, selected: selected[row.key]?.includes(row.value) ?? false }); groups.set(row.key, group); }
-  return [...groups.values()].filter((group) => group.values.length >= 2 && group.values.length <= 30).map((group) => ({ ...group, values: sortFacetValues(group.values) })).sort((a, b) => facetRank(a.label) - facetRank(b.label) || b.values.reduce((sum, value) => sum + value.count, 0) - a.values.reduce((sum, value) => sum + value.count, 0) || a.label.localeCompare(b.label));
+  const candidates = [...groups.values()].filter((group) => group.values.length >= 2 && group.values.length <= 30).map((group) => ({ ...group, values: sortFacetValues(group.values) }));
+  return deduplicateCatalogFacets(candidates).sort((a, b) => facetRank(a.label) - facetRank(b.label) || facetTotal(b) - facetTotal(a) || a.label.localeCompare(b.label));
 }
+export function deduplicateCatalogFacets(candidates: CatalogFacetDto[]): CatalogFacetDto[] {
+  const uniqueByLabel = new Map<string, CatalogFacetDto>();
+  for (const candidate of candidates) {
+    const labelKey = candidate.label.trim().replace(/\s+/g, " ").toLocaleLowerCase("ru-RU");
+    const existing = uniqueByLabel.get(labelKey);
+    const candidateSelected = candidate.values.some((value) => value.selected);
+    const existingSelected = existing?.values.some((value) => value.selected) ?? false;
+    if (!existing || (candidateSelected && !existingSelected) || (!existingSelected && facetTotal(candidate) > facetTotal(existing))) uniqueByLabel.set(labelKey, candidate);
+  }
+  return [...uniqueByLabel.values()];
+}
+function facetTotal(facet: CatalogFacetDto): number { return facet.values.reduce((sum, value) => sum + value.count, 0); }
 function facetRank(label: string): number { const index = FACET_PRIORITY.findIndex((pattern) => pattern.test(label)); return index < 0 ? FACET_PRIORITY.length : index; }
 function sortFacetValues<T extends { value: string; count: number }>(values: T[]): T[] { return [...values].sort((a, b) => { const an = Number(a.value.replace(",", ".").match(/-?\d+(?:\.\d+)?/)?.[0]); const bn = Number(b.value.replace(",", ".").match(/-?\d+(?:\.\d+)?/)?.[0]); if (Number.isFinite(an) && Number.isFinite(bn)) return an - bn; if (/^(да|yes|true)$/i.test(a.value)) return -1; if (/^(да|yes|true)$/i.test(b.value)) return 1; return b.count - a.count || a.value.localeCompare(b.value); }); }
 

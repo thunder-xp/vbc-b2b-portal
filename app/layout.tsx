@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Novotech Systems B2B Partner Platform",
+  title: "Партнёрская платформа",
   description:
-    "Partner-facing B2B portal for Novotech Systems distribution business.",
+    "Безопасный B2B-кабинет для партнёров: каталог, цены, наличие, документы и спецификации.",
 };
 
 export default function RootLayout({
@@ -13,7 +13,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="h-full antialiased">
+    <html lang="ru" className="h-full antialiased">
       <body className="min-h-full flex flex-col">{children}</body>
     </html>
   );
