@@ -30,16 +30,26 @@ export type ProductStockViewDto = {
   expectedArrival: {
     expectedQuantity: number | null;
     expectedDate: string | null;
+    formattedExpectedDate?: string | null;
     sourceStatus: "confirmed_supply";
   } | null;
   hasVariantStock: boolean;
   lastUpdatedAt: string | null;
 };
 
+export type CommercialOpportunityViewDto = {
+  retailPriceUsd: number;
+  grossProfitUsd: number;
+  markupPercent: number;
+  formattedGrossProfit: string;
+  formattedMarkup: string;
+};
+
 export type ProductCommercialViewDto = {
   productId: string;
   partnerPrice: ProductPriceViewDto | null;
   retailPrice: ProductPriceViewDto | null;
+  commercialOpportunity?: CommercialOpportunityViewDto | null;
   stock: ProductStockViewDto | null;
   isDemoData: boolean;
 };
@@ -82,7 +92,7 @@ export class DefaultPricingInventoryService implements PricingInventoryService {
       this.permissionService.hasPermission(userId, companyId, PRICE_PERMISSION),
       this.permissionService.hasPermission(userId, companyId, STOCK_PERMISSION),
     ]);
-    const [partnerPrices, retailPrices, stockBalances, supplierArrivals] = await Promise.all([
+    const [partnerPrices, retailPrices, stockBalances, supplierArrivals, exchangeRate] = await Promise.all([
       canViewPrices && company.external1cPriceTypeId
         ? this.pricingInventoryRepository.listPricesForProducts({
             productIds: normalizedProductIds,
@@ -99,6 +109,9 @@ export class DefaultPricingInventoryService implements PricingInventoryService {
       canViewStock && this.pricingInventoryRepository.listSupplierArrivalsForProducts
         ? this.pricingInventoryRepository.listSupplierArrivalsForProducts(normalizedProductIds)
         : Promise.resolve<ProductSupplierArrival[]>([]),
+      canViewPrices && this.pricingInventoryRepository.getLatestUsdMdlExchangeRate
+        ? this.pricingInventoryRepository.getLatestUsdMdlExchangeRate()
+        : Promise.resolve(null),
     ]);
 
     return normalizedProductIds.map((productId) => {
@@ -124,6 +137,7 @@ export class DefaultPricingInventoryService implements PricingInventoryService {
         productId,
         partnerPrice: partnerPrice ? toPriceView(partnerPrice) : null,
         retailPrice: retailPrice ? toPriceView(retailPrice) : null,
+        commercialOpportunity: createCommercialOpportunity(partnerPrice, retailPrice, exchangeRate?.mdlPerUsdRate ?? null),
         stock,
         isDemoData: false,
         retailBelowPartnerPrice: Boolean(partnerPrice && retailPrice && retailPrice.priceAmount < partnerPrice.priceAmount),
@@ -222,11 +236,37 @@ function formatPrice(amount: number, currencyCode: string): string {
   }).format(amount)} ${currencyCode}`;
 }
 
+function createCommercialOpportunity(
+  partnerPrice: ProductPrice | null,
+  retailPrice: ProductPrice | null,
+  mdlPerUsdRate: number | null,
+): CommercialOpportunityViewDto | null {
+  if (!partnerPrice || !retailPrice || !Number.isFinite(mdlPerUsdRate) || mdlPerUsdRate === null || mdlPerUsdRate <= 0 || partnerPrice.priceAmount <= 0) return null;
+  if (partnerPrice.currencyStatus !== "resolved" || retailPrice.currencyStatus !== "resolved") return null;
+  if (normalizeOneCCurrencyCode(partnerPrice.currency) !== "USD" || normalizeOneCCurrencyCode(retailPrice.currency) !== "MDL") return null;
+
+  const retailPriceUsd = retailPrice.priceAmount / mdlPerUsdRate;
+  const grossProfitUsd = retailPriceUsd - partnerPrice.priceAmount;
+  const markupPercent = (grossProfitUsd / partnerPrice.priceAmount) * 100;
+
+  return {
+    retailPriceUsd,
+    grossProfitUsd,
+    markupPercent,
+    formattedGrossProfit: formatPrice(grossProfitUsd, "USD"),
+    formattedMarkup: new Intl.NumberFormat("en-US", {
+      style: "percent",
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(markupPercent / 100),
+  };
+}
+
 function stockAvailabilityForProduct(stockBalances: ProductStockTotal[], supplierArrivals:ProductSupplierArrival[], productId: string): ProductStockViewDto {
   const total = stockBalances.find((item) => item.productId === productId);
   if (!total) {
     const arrival=selectExpectedArrival(supplierArrivals,productId);
-    if(arrival)return{status:"expected",label:expectedArrivalLabel(arrival.expectedDate),exactAvailableQuantity:0,exactPhysicalQuantity:0,exactReservedQuantity:0,exactIncomingQuantity:0,expectedArrival:{expectedQuantity:arrival.expectedQuantity,expectedDate:arrival.expectedDate,sourceStatus:"confirmed_supply"},hasVariantStock:false,lastUpdatedAt:arrival.publishedAt};
+    if(arrival)return{status:"expected",label:expectedArrivalLabel(arrival.expectedDate),exactAvailableQuantity:0,exactPhysicalQuantity:0,exactReservedQuantity:0,exactIncomingQuantity:0,expectedArrival:{expectedQuantity:arrival.expectedQuantity,expectedDate:arrival.expectedDate,formattedExpectedDate:formatArrivalDate(arrival.expectedDate),sourceStatus:"confirmed_supply"},hasVariantStock:false,lastUpdatedAt:arrival.publishedAt};
     return {
       status: "unknown",
       label: "\u041d\u0430\u043b\u0438\u0447\u0438\u0435 \u0443\u0442\u043e\u0447\u043d\u044f\u0435\u0442\u0441\u044f",
@@ -239,8 +279,9 @@ function stockAvailabilityForProduct(stockBalances: ProductStockTotal[], supplie
       lastUpdatedAt: null,
     };
   }
-  const common={exactAvailableQuantity:total.availableQuantity,exactPhysicalQuantity:total.physicalQuantity,exactReservedQuantity:total.reservedQuantity,exactIncomingQuantity:total.incomingQuantity,expectedArrival:null,hasVariantStock:total.hasVariantStock,lastUpdatedAt:total.syncedAt};
-  if(total.availableQuantity===0){const arrival=selectExpectedArrival(supplierArrivals,productId);if(arrival)return{status:"expected",label:expectedArrivalLabel(arrival.expectedDate),...common,expectedArrival:{expectedQuantity:arrival.expectedQuantity,expectedDate:arrival.expectedDate,sourceStatus:"confirmed_supply"}};return{status:"out_of_stock",label:"\u041d\u0435\u0442 \u0432 \u043d\u0430\u043b\u0438\u0447\u0438\u0438",...common};}
+  const arrival=selectExpectedArrival(supplierArrivals,productId);
+  const common={exactAvailableQuantity:total.availableQuantity,exactPhysicalQuantity:total.physicalQuantity,exactReservedQuantity:total.reservedQuantity,exactIncomingQuantity:total.incomingQuantity,expectedArrival:arrival?{expectedQuantity:arrival.expectedQuantity,expectedDate:arrival.expectedDate,formattedExpectedDate:formatArrivalDate(arrival.expectedDate),sourceStatus:"confirmed_supply" as const}:null,hasVariantStock:total.hasVariantStock,lastUpdatedAt:total.syncedAt};
+  if(total.availableQuantity===0){if(arrival)return{status:"expected",label:expectedArrivalLabel(arrival.expectedDate),...common};return{status:"out_of_stock",label:"\u041d\u0435\u0442 \u0432 \u043d\u0430\u043b\u0438\u0447\u0438\u0438",...common};}
   if(total.availableQuantity>LOW_STOCK_THRESHOLD)return{status:"in_stock",label:`В наличии: ${formatQuantity(total.availableQuantity)} шт.`,...common};
   if(total.availableQuantity>0)return{status:"low_stock",label:`Осталось: ${formatQuantity(total.availableQuantity)} шт.`,...common};
   if(total.incomingQuantity>0)return{status:"expected",label:"Ожидается",...common};
@@ -281,6 +322,7 @@ function createDemoCommercialView(
     productId,
     partnerPrice: canViewPrices ? demoView.partnerPrice : null,
     retailPrice: null,
+    commercialOpportunity: null,
     stock: canViewStock ? demoView.stock : null,
     isDemoData: true,
   };

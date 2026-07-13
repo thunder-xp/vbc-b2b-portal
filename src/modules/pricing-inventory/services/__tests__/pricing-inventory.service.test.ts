@@ -82,6 +82,51 @@ describe("DefaultPricingInventoryService", () => {
     });
   });
 
+  it("calculates the production-shaped commercial opportunity from a confirmed MDL per USD rate", async () => {
+    const service = new DefaultPricingInventoryService(
+      new FakePricingInventoryRepository([
+        makePrice(null, 48.95, goldPriceType, "999"),
+        makePrice(null, 1526, RETAIL_PRICE_TYPE_EXTERNAL_REF, "498"),
+      ], [], [], 17.1461),
+      new FakeCompanyAccessService(),
+      new FakePermissionService(),
+    );
+
+    const [result] = await service.getProductCommercialViews("user-1", ["product-1"]);
+
+    expect(result.commercialOpportunity).toMatchObject({
+      formattedGrossProfit: "$40.05",
+      formattedMarkup: "81.82%",
+    });
+    expect(result.commercialOpportunity?.retailPriceUsd).toBeCloseTo(89, 2);
+    expect(result.commercialOpportunity?.grossProfitUsd).toBeCloseTo(40.05, 2);
+    expect(result.commercialOpportunity?.markupPercent).toBeCloseTo(81.82, 2);
+  });
+
+  it("hides derived commercial values without a confirmed rate", async () => {
+    const service = new DefaultPricingInventoryService(new FakePricingInventoryRepository([
+      makePrice(null, 48.95, goldPriceType, "999"),
+      makePrice(null, 1526, RETAIL_PRICE_TYPE_EXTERNAL_REF, "498"),
+    ]), new FakeCompanyAccessService(), new FakePermissionService());
+
+    const [result] = await service.getProductCommercialViews("user-1", ["product-1"]);
+
+    expect(result.partnerPrice?.formattedAmount).toBe("$48.95");
+    expect(result.retailPrice?.formattedAmount).toBe("1\u00a0526,00 MDL");
+    expect(result.commercialOpportunity).toBeNull();
+  });
+
+  it("preserves negative gross profit and markup", async () => {
+    const service = new DefaultPricingInventoryService(new FakePricingInventoryRepository([
+      makePrice(null, 100, goldPriceType, "999"),
+      makePrice(null, 1000, RETAIL_PRICE_TYPE_EXTERNAL_REF, "498"),
+    ], [], [], 20), new FakeCompanyAccessService(), new FakePermissionService());
+
+    const [result] = await service.getProductCommercialViews("user-1", ["product-1"]);
+
+    expect(result.commercialOpportunity).toMatchObject({ formattedGrossProfit: "-$50.00", formattedMarkup: "-50.00%" });
+  });
+
   it("maps stock quantities to visible service-owned stock statuses", async () => {
     const repository = new FakePricingInventoryRepository([], [
       makeStock("product-in-stock", 24, null),
@@ -115,7 +160,7 @@ describe("DefaultPricingInventoryService", () => {
 
   it("selects the earliest confirmed zero-characteristic arrival and sums only that date",async()=>{const arrivals:ProductSupplierArrival[]=[arrival("2026-08-02",4),arrival("2026-08-01",3),arrival("2026-08-01",2),{...arrival("2026-07-31",99),externalCharacteristicRef:"44444444-4444-4444-8444-444444444444"}];const service=new DefaultPricingInventoryService(new FakePricingInventoryRepository([], [makeStock("product-1",0,20)],arrivals),new FakeCompanyAccessService(),new FakePermissionService());const [result]=await service.getProductCommercialViews("user-1",["product-1"]);expect(result.stock).toMatchObject({status:"expected",expectedArrival:{expectedDate:"2026-08-01",expectedQuantity:5,sourceStatus:"confirmed_supply"}});expect(result.stock?.label).toContain("1 августа 2026 г.");});
 
-  it("keeps available stock priority over a confirmed arrival",async()=>{const service=new DefaultPricingInventoryService(new FakePricingInventoryRepository([], [makeStock("product-1",8,20)],[arrival("2026-08-01",5)]),new FakeCompanyAccessService(),new FakePermissionService());const [result]=await service.getProductCommercialViews("user-1",["product-1"]);expect(result.stock?.status).toBe("in_stock");expect(result.stock?.expectedArrival).toBeNull();});
+  it("keeps available stock and confirmed arrival independently",async()=>{const service=new DefaultPricingInventoryService(new FakePricingInventoryRepository([], [makeStock("product-1",8,20)],[arrival("2026-08-01",5)]),new FakeCompanyAccessService(),new FakePermissionService());const [result]=await service.getProductCommercialViews("user-1",["product-1"]);expect(result.stock?.status).toBe("in_stock");expect(result.stock?.expectedArrival).toMatchObject({expectedQuantity:5,expectedDate:"2026-08-01",formattedExpectedDate:"1 августа 2026 г."});});
   it("treats a confirmed atomic arrival without a balance row as zero stock",async()=>{const service=new DefaultPricingInventoryService(new FakePricingInventoryRepository([],[],[arrival("2026-08-01",5)]),new FakeCompanyAccessService(),new FakePermissionService());const [result]=await service.getProductCommercialViews("user-1",["product-1"]);expect(result.stock).toMatchObject({status:"expected",exactAvailableQuantity:0,expectedArrival:{expectedDate:"2026-08-01",expectedQuantity:5}});});
 });
 
@@ -126,7 +171,10 @@ class FakePricingInventoryRepository implements PricingInventoryRepository {
     private readonly prices: ProductPrice[],
     private readonly stockBalances: ProductStockBalance[] = [],
     private readonly supplierArrivals: ProductSupplierArrival[] = [],
+    private readonly mdlPerUsdRate: number | null = null,
   ) {}
+
+  async getLatestUsdMdlExchangeRate() { return this.mdlPerUsdRate ? { sourceCode: "113" as const, mdlPerUsdRate: this.mdlPerUsdRate, effectiveDate: "2026-07-13", publishedAt: now } : null; }
 
   async listPricesForProducts(
     input: ListProductPricesInput,

@@ -6,6 +6,7 @@ export type {
   PricingUpsertResult,
   ProductStockTotal,
   ProductSupplierArrival,
+  UsdMdlExchangeRate,
   UpsertProductStockBalanceInput,
   UpsertProductPriceInput,
 } from "./pricing-inventory.repository";

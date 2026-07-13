@@ -43,10 +43,10 @@ export function ProductDetail({ commercialView, product }: ProductDetailProps) {
         </p>
 
         <section className="mt-8 grid gap-3 border-t border-zinc-200 pt-6 sm:grid-cols-2">
-          <ProductPricingBlock commercialView={commercialView} />
+          <ProductPricingBlock commercialView={commercialView} variant="detail" />
           <div className={`rounded-lg border p-4 ${stockTone.panel}`}>
             <h2 className="text-sm font-semibold text-zinc-950">
-              Stock Availability
+              Наличие
             </h2>
             <p
               className={`mt-2 inline-flex rounded-full px-3 py-1 text-sm font-semibold ${stockTone.badge}`}
@@ -56,27 +56,33 @@ export function ProductDetail({ commercialView, product }: ProductDetailProps) {
             {commercialView?.stock ? (
               <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
                 <div>
-                  <dt className="text-zinc-500">Available quantity</dt>
+                  <dt className="text-zinc-500">Доступно</dt>
                   <dd className="font-semibold text-zinc-950">
                     {commercialView.stock.exactAvailableQuantity ?? "Pending"}
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-zinc-500">Physical quantity</dt>
+                  <dt className="text-zinc-500">Физический остаток</dt>
                   <dd className="font-semibold text-zinc-950">
                     {commercialView.stock.exactPhysicalQuantity ?? "Pending"}
                   </dd>
                 </div>
-                {commercialView.stock.expectedArrival ? (
-                  <div>
-                    <dt className="text-zinc-500">Expected arrival quantity</dt>
+                {commercialView.stock.expectedArrival?.expectedQuantity ? (
+                  <>
+                    <div>
+                    <dt className="text-zinc-500">Ближайшее поступление</dt>
                     <dd className="font-semibold text-zinc-950">
-                      {commercialView.stock.expectedArrival.expectedQuantity}
+                      {commercialView.stock.expectedArrival.expectedQuantity} шт.
                     </dd>
-                  </div>
+                    </div>
+                    <div>
+                      <dt className="text-zinc-500">Дата поступления</dt>
+                      <dd className="font-semibold text-zinc-950">{commercialView.stock.expectedArrival.formattedExpectedDate}</dd>
+                    </div>
+                  </>
                 ) : null}
                 <div>
-                  <dt className="text-zinc-500">Last updated</dt>
+                  <dt className="text-zinc-500">Обновлено</dt>
                   <dd className="font-semibold text-zinc-950">
                     {commercialView.stock.lastUpdatedAt
                       ? formatDateTime(commercialView.stock.lastUpdatedAt)

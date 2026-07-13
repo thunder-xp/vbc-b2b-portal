@@ -7,6 +7,7 @@ export type ListProductPricesInput = {
 };
 export type ProductStockTotal = { productId:string; physicalQuantity:number; reservedQuantity:number; availableQuantity:number; incomingQuantity:number; hasVariantStock:boolean; syncedAt:string };
 export type ProductSupplierArrival = { productId:string; externalCharacteristicRef:string; expectedDate:string; expectedQuantity:number; publishedAt:string };
+export type UsdMdlExchangeRate = { sourceCode: "113"; mdlPerUsdRate: number; effectiveDate: string; publishedAt: string };
 
 export type PricingUpsertResult<TRecord> = {
   record: TRecord;
@@ -46,6 +47,7 @@ export type UpsertProductStockBalanceInput = FindProductStockBalanceInput & {
 };
 
 export interface PricingInventoryRepository {
+  getLatestUsdMdlExchangeRate?(): Promise<UsdMdlExchangeRate | null>;
   upsertPriceType?(input: { externalRef: string; externalCode: string; name: string; currencyCode: string | null; currencyStatus: "resolved" | "unresolved"; sourceUpdatedAt: string | null }): Promise<void>;
   listPricesForProducts(input: ListProductPricesInput): Promise<ProductPrice[]>;
   listStockForProducts(productIds: string[]): Promise<ProductStockBalance[]>;

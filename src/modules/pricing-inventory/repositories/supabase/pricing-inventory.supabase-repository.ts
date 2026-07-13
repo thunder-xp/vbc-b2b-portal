@@ -34,6 +34,22 @@ export class PricingInventoryRepositoryUnexpectedError extends Error {
 export class SupabasePricingInventoryRepository
   implements PricingInventoryRepository
 {
+  async getLatestUsdMdlExchangeRate() {
+    const { data, error } = await (await createClient())
+      .from("commercial_exchange_rates")
+      .select("source_code,rate,effective_date,published_at")
+      .eq("source_code", "113")
+      .eq("base_currency", "USD")
+      .eq("quote_currency", "MDL")
+      .eq("rate_direction", "quote_per_base")
+      .eq("is_published", true)
+      .lte("effective_date", new Date().toISOString().slice(0, 10))
+      .order("effective_date", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw new PricingInventoryRepositoryUnexpectedError();
+    return data ? { sourceCode: "113" as const, mdlPerUsdRate: Number(data.rate), effectiveDate: data.effective_date, publishedAt: data.published_at } : null;
+  }
   async listSupplierArrivalsForProducts(productIds:string[]):Promise<ProductSupplierArrival[]>{const ids=normalizeProductIds(productIds);if(!ids.length)return[];const{data,error}=await(await createClient()).from("product_supplier_arrivals").select("product_id,external_characteristic_ref,expected_arrival_date,expected_quantity,published_at").in("product_id",ids).eq("is_published",true).order("expected_arrival_date");if(error)throw new PricingInventoryRepositoryUnexpectedError();return(data??[]).map(row=>({productId:row.product_id,externalCharacteristicRef:row.external_characteristic_ref,expectedDate:row.expected_arrival_date,expectedQuantity:Number(row.expected_quantity),publishedAt:row.published_at}));}
   async listStockTotalsForProducts(productIds:string[]):Promise<ProductStockTotal[]>{const ids=normalizeProductIds(productIds);if(!ids.length)return[];const{data,error}=await(await createClient()).from("product_stock_totals").select("product_id,physical_quantity,reserved_quantity,available_quantity,incoming_quantity,has_variant_stock,synced_at").in("product_id",ids).eq("is_published",true);if(error)throw new PricingInventoryRepositoryUnexpectedError();return(data??[]).map(row=>({productId:row.product_id,physicalQuantity:Number(row.physical_quantity),reservedQuantity:Number(row.reserved_quantity),availableQuantity:Number(row.available_quantity),incomingQuantity:Number(row.incoming_quantity),hasVariantStock:row.has_variant_stock===true,syncedAt:row.synced_at}));}
   async upsertPriceType(input: { externalRef: string; externalCode: string; name: string; currencyCode: string | null; currencyStatus: "resolved" | "unresolved"; sourceUpdatedAt: string | null }): Promise<void> {
