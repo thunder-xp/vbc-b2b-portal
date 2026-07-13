@@ -67,12 +67,14 @@ export function ProductDetail({ commercialView, product }: ProductDetailProps) {
                     {commercialView.stock.exactPhysicalQuantity ?? "Pending"}
                   </dd>
                 </div>
-                <div>
-                  <dt className="text-zinc-500">Incoming quantity</dt>
-                  <dd className="font-semibold text-zinc-950">
-                    {commercialView.stock.exactIncomingQuantity ?? "Pending"}
-                  </dd>
-                </div>
+                {commercialView.stock.expectedArrival ? (
+                  <div>
+                    <dt className="text-zinc-500">Expected arrival quantity</dt>
+                    <dd className="font-semibold text-zinc-950">
+                      {commercialView.stock.expectedArrival.expectedQuantity}
+                    </dd>
+                  </div>
+                ) : null}
                 <div>
                   <dt className="text-zinc-500">Last updated</dt>
                   <dd className="font-semibold text-zinc-950">
@@ -106,8 +108,10 @@ export function ProductDetail({ commercialView, product }: ProductDetailProps) {
                   <a
                     className="font-medium text-emerald-700"
                     href={document.url}
+                    rel="noopener noreferrer"
+                    target="_blank"
                   >
-                    Open
+                    Open document
                   </a>
                 </li>
               ))}

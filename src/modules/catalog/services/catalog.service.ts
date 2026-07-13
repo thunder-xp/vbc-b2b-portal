@@ -232,14 +232,24 @@ export class DefaultCatalogService implements CatalogService {
         this.catalogRepository.listBrands(),
         this.catalogRepository.listCategories(),
       ]);
+      const projectedAttributes = attributes.map((attribute) => ({
+        label: attribute.label,
+        value: attribute.displayValue,
+      }));
+      const datasheet =
+        documents.find((document) => document.documentType === "datasheet") ??
+        createAttributeDatasheet(product.id, projectedAttributes);
 
       return this.toProductDetailDto(
         product,
         images,
-        documents,
+        datasheet && !documents.some((document) => document.id === datasheet.id)
+          ? [...documents, datasheet]
+          : documents,
         createBrandMap(brands),
         createCategoryMap(categories),
-        attributes.map((attribute) => ({ label: attribute.label, value: attribute.displayValue })),
+        projectedAttributes.filter((attribute) => !isDatasheetAttribute(attribute.label)),
+        datasheet,
       );
     }
 
@@ -328,9 +338,10 @@ export class DefaultCatalogService implements CatalogService {
     brandMap: Map<string, CatalogBrand>,
     categoryMap: Map<string, CatalogCategory>,
     keyCharacteristics: Array<{ label: string; value: string }> = [],
+    datasheet: CatalogProductDocument | null = null,
   ): CatalogProductDetailDto {
     return {
-      ...this.toProductCardDto(product, brandMap, categoryMap, null, keyCharacteristics),
+      ...this.toProductCardDto(product, brandMap, categoryMap, datasheet, keyCharacteristics),
       description: product.fullDescription ?? product.description,
       images: images.map((image) => ({
         id: image.id,
@@ -345,6 +356,37 @@ export class DefaultCatalogService implements CatalogService {
         url: document.url,
       })),
     };
+  }
+}
+
+function isDatasheetAttribute(label: string): boolean {
+  return label.trim().toLowerCase() === "datasheeturl";
+}
+
+function createAttributeDatasheet(
+  productId: string,
+  attributes: Array<{ label: string; value: string }>,
+): CatalogProductDocument | null {
+  const value = attributes.find((attribute) => isDatasheetAttribute(attribute.label))?.value.trim();
+
+  if (!value) return null;
+
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+
+    return {
+      id: `attribute-datasheet-${productId}`,
+      productId,
+      title: "Datasheet",
+      documentType: "datasheet",
+      url: url.toString(),
+      sortOrder: 0,
+      isActive: true,
+      createdAt: "",
+    };
+  } catch {
+    return null;
   }
 }
 
