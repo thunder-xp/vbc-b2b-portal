@@ -62,7 +62,7 @@ export class DefaultPartnerWorkspaceContextService
     private readonly accessRequestService: AccessRequestService,
     private readonly companyAccessService: CompanyAccessService,
     private readonly permissionService: PermissionService,
-    private readonly partnerLookupService: PartnerLookupService,
+    private readonly partnerLookupService: PartnerLookupService | null,
   ) {}
 
   async getWorkspaceContext(userId: string): Promise<PartnerWorkspaceContext> {
@@ -156,6 +156,7 @@ export class DefaultPartnerWorkspaceContextService
 
   private async resolvePriceTypeName(reference: string | null): Promise<string | null> {
     if (!reference) return null;
+    if (!this.partnerLookupService) return "Назначен";
 
     try {
       return (await this.partnerLookupService.getPriceType(reference))?.name ?? "Назначен";

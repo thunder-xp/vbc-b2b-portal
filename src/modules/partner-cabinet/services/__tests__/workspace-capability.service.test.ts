@@ -9,6 +9,7 @@ describe("resolveWorkspaceCapabilities", () => {
       "prices.view",
       "stock.view",
       "orders.create",
+      "specifications.manage",
       "documents.view_company",
     ]));
 
@@ -16,7 +17,7 @@ describe("resolveWorkspaceCapabilities", () => {
       "Рабочий стол",
       "Каталог",
       "Подбор решения",
-      "Проекты",
+      "Спецификации",
       "Сметы и КП",
       "Заказы",
       "Документы",
@@ -24,7 +25,8 @@ describe("resolveWorkspaceCapabilities", () => {
       "База знаний",
       "Моя компания",
     ]);
-    expect(model.navigation.find((item) => item.key === "projects")).toMatchObject({ href: null, availability: "coming_soon" });
+    expect(model.navigation.find((item) => item.key === "projects")).toMatchObject({ href: "/cabinet/specifications", availability: "available" });
+    expect(model.productCard.canAddToSpecification).toBe(true);
     expect(model.productCard).toMatchObject({ showPrice: true, showStock: true, showWarehouseAvailability: true });
   });
 

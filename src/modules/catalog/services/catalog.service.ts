@@ -91,6 +91,10 @@ export interface CatalogService {
     userId: string,
     slug: string,
   ): Promise<CatalogProductDetailDto | null>;
+  getProductsByIds(
+    userId: string,
+    productIds: string[],
+  ): Promise<CatalogProductCardDto[]>;
 }
 
 const DEFAULT_PAGE_SIZE = 12;
@@ -270,6 +274,29 @@ export class DefaultCatalogService implements CatalogService {
     }
 
     return null;
+  }
+
+  async getProductsByIds(
+    userId: string,
+    productIds: string[],
+  ): Promise<CatalogProductCardDto[]> {
+    await this.ensureCatalogAccess(userId);
+    const normalizedIds = [...new Set(productIds.map((id) => id.trim()).filter(Boolean))];
+    if (normalizedIds.length === 0) return [];
+
+    const [products, brands, categories] = await Promise.all([
+      this.catalogRepository.listProducts({ productIds: normalizedIds }),
+      this.catalogRepository.listBrands(),
+      this.catalogRepository.listCategories(),
+    ]);
+    const productMap = new Map(products.map((product) => [product.id, product]));
+    const brandMap = createBrandMap(brands);
+    const categoryMap = createCategoryMap(categories);
+
+    return normalizedIds.flatMap((id) => {
+      const product = productMap.get(id);
+      return product ? [this.toProductCardDto(product, brandMap, categoryMap)] : [];
+    });
   }
 
   private async ensureCatalogAccess(userId: string): Promise<void> {

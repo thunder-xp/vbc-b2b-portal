@@ -35,6 +35,13 @@ describe("DefaultPartnerWorkspaceContextService", () => {
     });
   });
 
+  it("keeps workspace access available when optional 1C price-type lookup is unavailable", async () => {
+    const context = await service({ partnerLookupUnavailable: true }).getWorkspaceContext("partner-1");
+
+    expect(context.accessState).toBe("active");
+    expect(context.priceTypeName).toBe("Назначен");
+  });
+
   it("returns pending approval without company access", async () => {
     const context = await service({ memberships: [], requests: [request(AccessRequestStatus.PendingReview)] }).getWorkspaceContext("partner-1");
     expect(context.accessState).toBe("pending_approval");
@@ -123,6 +130,7 @@ type Fixtures = {
   companyMissing?: boolean;
   hasCommercialPermission?: boolean;
   accessRequestLookupFails?: boolean;
+  partnerLookupUnavailable?: boolean;
 };
 
 function service(fixtures: Fixtures = {}) {
@@ -176,7 +184,7 @@ function service(fixtures: Fixtures = {}) {
     accessRequestService,
     companyAccessService,
     permissionService,
-    partnerLookupService,
+    fixtures.partnerLookupUnavailable ? null : partnerLookupService,
   );
 }
 

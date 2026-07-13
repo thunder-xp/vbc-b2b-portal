@@ -7,18 +7,28 @@ import { SupabaseRolePermissionRepository } from "../../access-control/repositor
 import { DefaultPermissionService } from "../../access-control/services/implementations";
 import { getOneCEnv } from "../../../lib/env";
 import { createPartnerLookupService } from "../../integration/services";
+import type { PartnerLookupService } from "../../integration/services";
 import {
   DefaultPartnerWorkspaceContextService,
   DefaultWorkspaceHomeService,
 } from "../services";
 
 export function createPartnerWorkspaceContextService(): DefaultPartnerWorkspaceContextService {
+  let partnerLookupService: PartnerLookupService | null = null;
+
+  try {
+    partnerLookupService = createPartnerLookupService(getOneCEnv());
+  } catch {
+    // Workspace access does not depend on live 1C availability. The service
+    // still validates the portal-owned company and membership context.
+  }
+
   return new DefaultPartnerWorkspaceContextService(
     createUserProfileService(),
     createAccessRequestService(),
     createCompanyAccessService(),
     new DefaultPermissionService(new SupabaseRolePermissionRepository()),
-    createPartnerLookupService(getOneCEnv()),
+    partnerLookupService,
   );
 }
 
