@@ -157,6 +157,7 @@ Future schema documentation should be created before SQL implementation.
 ## Implementation
 
 - `docs/architecture/PROJECT_SPECIFICATION_DESIGN.md` - Implementation reference for partner drafts, submission snapshots, internal review, controlled revisions, actions, routes, and MVP exclusions.
+- `docs/architecture/RESERVATION_REQUEST_DESIGN.md` - Approved-specification reservation requests, immutable snapshots, live availability, atomic transitions, and future 1C boundary.
 - `docs/architecture/BACKEND_ARCHITECTURE.md` - Backend implementation direction.
 - `docs/architecture/FRONTEND_ARCHITECTURE.md` - Frontend implementation direction.
 - `docs/architecture/SECURITY_AND_DATABASE_ARCHITECTURE.md` - Security and database implementation gate before schema, RLS, access control, catalog, orders, or 1C integration.

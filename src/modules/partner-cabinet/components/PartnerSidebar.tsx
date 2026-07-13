@@ -22,6 +22,7 @@ const icons = {
   catalog: Boxes,
   solution_selection: SearchCheck,
   projects: FolderKanban,
+  reservations: ClipboardList,
   proposals: ClipboardList,
   orders: ListChecks,
   documents: FileText,

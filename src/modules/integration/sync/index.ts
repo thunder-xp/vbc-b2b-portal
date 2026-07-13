@@ -11,6 +11,8 @@ export { normalizePricePage, type NormalizedPricePage, type PricePageDiagnostics
 export { ChunkedStockSyncService, SupabaseStockSyncStore, type StockSyncState, type StockSyncStage, type StockSyncStatus, type StockSyncStore } from "./chunked-stock-sync";
 export { CATALOG_SYNC_CRON, CATALOG_SYNC_INTERVAL_HOURS } from "./catalog-schedule";
 export { DailyCatalogSyncService, type DailyCatalogSyncResult } from "./daily-catalog-sync.service";
+export { ExchangeRateSyncService, type ExchangeRatePublisher, type PublishedExchangeRate } from "./exchange-rate-sync";
+export { SupabaseExchangeRatePublisher } from "./exchange-rate-supabase-publisher";
 export type { PriceSyncReport, PriceSyncReportStatus } from "./price-sync-engine";
 export { DefaultPriceSyncEngine } from "./price-sync-engine";
 export type { StockSyncReport, StockSyncReportStatus } from "./stock-sync-engine";

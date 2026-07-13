@@ -7,9 +7,9 @@ import { useEffect, useState } from "react";
 import { listCatalogProductsAction } from "../actions";
 import { getProductCommercialViewsAction } from "../../pricing-inventory/actions";
 import type { ProductCommercialViewDto } from "../../pricing-inventory";
-import type { CatalogProductCardDto } from "../services";
+import type { CatalogProductCardDto, CatalogSort } from "../services";
 
-export function CatalogSearch({ categoryId, initialSearch }: { categoryId?: string; initialSearch?: string }) {
+export function CatalogSearch({ categoryId, initialSearch, sort = "default" }: { categoryId?: string; initialSearch?: string; sort?: CatalogSort }) {
   const [query, setQuery] = useState(initialSearch ?? "");
   const [results, setResults] = useState<CatalogProductCardDto[]>([]);
   const [loading, setLoading] = useState(false);
@@ -33,6 +33,7 @@ export function CatalogSearch({ categoryId, initialSearch }: { categoryId?: stri
   return <div className="relative flex-1">
     <form action="/cabinet/catalog" className="relative">
       {categoryId && <input name="category" type="hidden" value={categoryId} />}
+      {sort !== "default" && <input name="sort" type="hidden" value={sort} />}
       <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-3.5 size-4 text-zinc-400" />
       <input aria-label="Поиск по каталогу" autoComplete="off" className="h-11 w-full rounded-md border border-zinc-300 bg-white pl-10 pr-24 text-sm outline-none focus:border-emerald-700" name="search" onChange={(event) => setQuery(event.target.value)} placeholder="SKU, модель, название или бренд" type="search" value={query} />
       <button className="absolute right-1 top-1 h-9 rounded-md bg-zinc-950 px-4 text-sm font-medium text-white" type="submit">Найти</button>

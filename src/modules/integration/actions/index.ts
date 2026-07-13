@@ -11,3 +11,4 @@ export {
 } from "./partner-search.action";
 export { syncPricesFromOneCAction, getPriceSyncStateAction } from "./price-sync.action";
 export { syncStockFromOneCAction, getStockSyncStateAction } from "./stock-sync.action";
+export { syncExchangeRateFromOneCAction } from "./exchange-rate-sync.action";

@@ -27,7 +27,7 @@ export async function listCatalogProductsAction(
     const availabilityProductIds = availability === "all"
       ? undefined
       : await pricingInventoryService.getProductIdsByAvailability?.(userId, availability) ?? [];
-    const products = await createCatalogService().listProducts(userId, {
+    const products = await createCatalogService(pricingInventoryService).listProducts(userId, {
       categoryId: normalizeOptionalText(input.categoryId),
       brandId: normalizeOptionalText(input.brandId),
       search: normalizeOptionalText(input.search),
@@ -53,9 +53,12 @@ function normalizeOptionalText(value: string | undefined): string | undefined {
   return normalized || undefined;
 }
 
-function createCatalogService(): DefaultCatalogService {
+function createCatalogService(
+  pricingInventoryService: ReturnType<typeof createPricingInventoryService>,
+): DefaultCatalogService {
   return new DefaultCatalogService(
     new SupabaseCatalogRepository(),
     createCompanyAccessService(),
+    pricingInventoryService,
   );
 }

@@ -116,10 +116,9 @@ export class SupabaseCatalogRepository implements CatalogRepository {
       query = query.or(`name.ilike.${searchPattern},sku.ilike.${searchPattern},short_description.ilike.${searchPattern}${brandFilter}`);
     }
 
-    if (input.sort === "name_desc") query = query.order("name", { ascending: false });
-    else if (input.sort === "name_asc") query = query.order("name", { ascending: true });
-    else if (input.sort === "sku_asc") query = query.order("sku", { ascending: true });
-    else query = query.order("sort_order", { ascending: true }).order("name", { ascending: true });
+    query = query
+      .order("sort_order", { ascending: true })
+      .order("name", { ascending: true });
 
     if (input.limit !== undefined) {
       const offset = input.offset ?? 0;

@@ -30,6 +30,19 @@ describe("catalog navigation", () => {
     expect(screen.queryByText("Выберите направление")).not.toBeInTheDocument();
   });
 
+  it("preserves active sorting when the category changes", async () => {
+    const user = userEvent.setup();
+    render(<CategoryMegaMenu categories={categories} sort="markup_desc" />);
+    await user.click(screen.getByRole("button", { name: "Категории" }));
+    await user.click(screen.getByRole("button", { name: "Видеонаблюдение" }));
+    await user.click(screen.getByRole("button", { name: "Камеры" }));
+
+    expect(screen.getByRole("link", { name: "IP-камеры" })).toHaveAttribute(
+      "href",
+      "/cabinet/catalog?category=subcategory&sort=markup_desc",
+    );
+  });
+
   it("toggles the category menu from its trigger", async () => {
     const user = userEvent.setup();
     render(<CategoryMegaMenu categories={categories} />);
@@ -69,10 +82,10 @@ describe("catalog navigation", () => {
 
   it("preserves category, search, availability, and attributes in filter links", () => {
     const key = "property_11111111-1111-4111-8111-111111111111";
-    render(<CatalogFilters attributeFilters={{ [key]: ["4 MP"] }} availability="expected" categoryId="category" search="camera" sort="sku_asc" />);
+    render(<CatalogFilters attributeFilters={{ [key]: ["4 MP"] }} availability="expected" categoryId="category" search="camera" sort="price_desc" />);
     expect(screen.getByRole("link", { name: /В наличии/ })).toHaveAttribute(
       "href",
-      `/cabinet/catalog?category=category&search=camera&sort=sku_asc&availability=in_stock&attr.property_11111111-1111-4111-8111-111111111111=4+MP`,
+      `/cabinet/catalog?category=category&search=camera&sort=price_desc&availability=in_stock&attr.property_11111111-1111-4111-8111-111111111111=4+MP`,
     );
   });
 

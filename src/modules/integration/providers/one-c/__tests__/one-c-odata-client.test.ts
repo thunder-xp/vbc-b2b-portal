@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { IntegrationODataError } from "../../../errors";
 import {
+  getOneCODataErrorResponseBody,
   OneCODataClient,
   OneCODataResponseValidationError,
 } from "../one-c-odata-client";
@@ -90,6 +91,7 @@ describe("OneCODataClient", () => {
         queryParameterNames: ["$select", "$filter", "$top", "$format"],
         jsonParseFailure: false,
       });
+      expect(getOneCODataErrorResponseBody(error)).toContain('"odata.error"');
     }
   });
 

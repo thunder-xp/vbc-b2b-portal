@@ -11,7 +11,14 @@ export type {
   CatalogService,
 } from "./catalog.service";
 export { DefaultCatalogService } from "./catalog.service";
-export { buildCatalogSortHiddenFields, type CatalogSortHiddenField } from "./catalog-sort-state";
+export { buildCatalogHref, buildCatalogSortHiddenFields, type CatalogSortHiddenField } from "./catalog-sort-state";
+export {
+  CATALOG_SORT_OPTIONS,
+  parseCatalogSort,
+  requiresCommercialCatalogSort,
+  sortCatalogProducts,
+  type CatalogSort,
+} from "./catalog-sorting";
 export {
   resolveCategoryFilters,
   type CatalogFilterDefinition,

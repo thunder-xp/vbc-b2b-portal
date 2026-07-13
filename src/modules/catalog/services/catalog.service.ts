@@ -1,5 +1,10 @@
 import type { CompanyAccessService } from "../../access-control/services";
 import { MembershipStatus } from "../../access-control/types";
+import type {
+  PricingInventoryService,
+  ProductCommercialViewDto,
+  ProductCommercialInternalDto,
+} from "../../pricing-inventory/services";
 import type { CatalogRepository, ListCatalogProductsInput } from "../repositories";
 import type {
   CatalogBrand,
@@ -8,6 +13,12 @@ import type {
   CatalogProductDocument,
   CatalogProductImage,
 } from "../types";
+import {
+  parseCatalogSort,
+  requiresCommercialCatalogSort,
+  sortCatalogProducts,
+  type CatalogSort,
+} from "./catalog-sorting";
 
 export type CatalogCategoryDto = {
   id: string;
@@ -31,7 +42,7 @@ export type CatalogProductListInput = {
   search?: string;
   page?: number;
   pageSize?: number;
-  sort?: "default" | "name_asc" | "name_desc" | "sku_asc";
+  sort?: CatalogSort;
   attributeFilters?: Record<string, string[]>;
   availability?: "all" | "in_stock" | "expected";
   availabilityProductIds?: string[];
@@ -60,6 +71,7 @@ export type CatalogProductListResult = {
   isDemoData: boolean;
   totalCount: number;
   facets: CatalogFacetDto[];
+  commercialViews?: ProductCommercialViewDto[];
 };
 
 export type CatalogProductImageDto = {
@@ -106,6 +118,7 @@ export class DefaultCatalogService implements CatalogService {
   constructor(
     private readonly catalogRepository: CatalogRepository,
     private readonly companyAccessService: CompanyAccessService,
+    private readonly pricingInventoryService?: PricingInventoryService,
   ) {}
 
   async listCategories(userId: string): Promise<CatalogCategoryDto[]> {
@@ -157,29 +170,45 @@ export class DefaultCatalogService implements CatalogService {
     const searchBrandIds = normalizedSearch
       ? brands.filter((brand) => brand.name.toLowerCase().includes(normalizedSearch)).map((brand) => brand.id)
       : undefined;
+    const sort = parseCatalogSort(input.sort);
     const repositoryInput: ListCatalogProductsInput = {
       categoryIds,
       brandId: input.brandId,
       searchBrandIds,
       search: input.search,
-      sort: input.sort,
-      limit: pageSize + 1,
-      offset: (page - 1) * pageSize,
       productIds: matchingProductIds,
     };
-    const [products, totalCount] = await Promise.all([
-      this.catalogRepository.listProducts(repositoryInput),
-      this.catalogRepository.countProducts(repositoryInput),
-    ]);
+    const commercialSort = requiresCommercialCatalogSort(sort);
+    let products: CatalogProduct[];
+    let totalCount: number;
+    let allCommercialViews: ProductCommercialViewDto[] | undefined;
+    if (sort !== "default") {
+      [products, totalCount, allCommercialViews] =
+        await this.loadAndSortCommercialProducts(userId, repositoryInput, sort);
+    } else {
+      [products, totalCount] = await Promise.all([
+        this.catalogRepository.listProducts({
+          ...repositoryInput,
+          limit: pageSize + 1,
+          offset: (page - 1) * pageSize,
+        }),
+        this.catalogRepository.countProducts(repositoryInput),
+      ]);
+    }
     const isEmptyCatalog = products.length === 0 && (await this.isCatalogEmpty());
 
     if (isEmptyCatalog) {
       const filteredDemoProducts = filterDemoProducts(input);
       const start = (page - 1) * pageSize;
-      const pagedDemoProducts = filteredDemoProducts.slice(
-        start,
-        start + pageSize + 1,
+      const demoCommercialViews = commercialSort
+        ? await this.getCommercialViews(userId, filteredDemoProducts)
+        : [];
+      const sortedDemoProducts = sortCatalogProducts(
+        filteredDemoProducts,
+        demoCommercialViews,
+        sort,
       );
+      const pagedDemoProducts = sortedDemoProducts.slice(start, start + pageSize + 1);
       const demoBrandMap = createBrandMap(demoBrands);
       const demoCategoryMap = createCategoryMap(demoCategories);
 
@@ -195,11 +224,15 @@ export class DefaultCatalogService implements CatalogService {
         isDemoData: true,
         totalCount: filteredDemoProducts.length,
         facets: [],
+        commercialViews: commercialSort
+          ? filterCommercialViews(demoCommercialViews, pagedDemoProducts.slice(0, pageSize))
+          : undefined,
       };
     }
     const brandMap = createBrandMap(brands);
     const categoryMap = createCategoryMap(categories);
-    const visibleProducts = products.slice(0, pageSize);
+    const start = commercialSort ? (page - 1) * pageSize : 0;
+    const visibleProducts = products.slice(start, start + pageSize);
     const documents = await this.catalogRepository.listProductDocumentsForProducts(
       visibleProducts.map((product) => product.id),
     );
@@ -220,11 +253,68 @@ export class DefaultCatalogService implements CatalogService {
       )),
       page,
       pageSize,
-      hasNextPage: products.length > pageSize,
+      hasNextPage: commercialSort
+        ? start + pageSize < totalCount
+        : products.length > pageSize,
       isDemoData: false,
       totalCount,
       facets: buildFacets(facetRows, attributeFilters),
+      commercialViews: commercialSort
+        ? filterCommercialViews(allCommercialViews ?? [], visibleProducts)
+        : undefined,
     };
+  }
+
+  private async loadAndSortCommercialProducts(
+    userId: string,
+    repositoryInput: ListCatalogProductsInput,
+    sort: Exclude<CatalogSort, "default">,
+  ): Promise<[CatalogProduct[], number, ProductCommercialViewDto[]]> {
+    if (!this.pricingInventoryService) {
+      throw new Error("Catalog commercial sorting is unavailable.");
+    }
+
+    const totalCount = await this.catalogRepository.countProducts(repositoryInput);
+    const products = await this.loadAllProducts(repositoryInput, totalCount);
+    const commercialViews = await this.getCommercialViews(userId, products);
+
+    return [
+      sortCatalogProducts(products, commercialViews, sort),
+      totalCount,
+      commercialViews,
+    ];
+  }
+
+  private async loadAllProducts(
+    repositoryInput: ListCatalogProductsInput,
+    totalCount: number,
+  ): Promise<CatalogProduct[]> {
+    const batchSize = 500;
+    const products: CatalogProduct[] = [];
+
+    for (let offset = 0; offset < totalCount; offset += batchSize) {
+      const batch = await this.catalogRepository.listProducts({
+        ...repositoryInput,
+        limit: Math.min(batchSize, totalCount - offset),
+        offset,
+      });
+      products.push(...batch);
+      if (batch.length < Math.min(batchSize, totalCount - offset)) break;
+    }
+
+    return products;
+  }
+
+  private async getCommercialViews(
+    userId: string,
+    products: CatalogProduct[],
+  ): Promise<ProductCommercialViewDto[]> {
+    if (!this.pricingInventoryService || products.length === 0) return [];
+    const views = await this.pricingInventoryService.getProductCommercialViews(
+      userId,
+      products.map((product) => product.id),
+    );
+    return views.map(toPublicCommercialView);
   }
 
   async getProductDetailBySlug(
@@ -429,6 +519,17 @@ function intersectProductIds(left: string[] | undefined, right: string[] | undef
   if (right === undefined) return left;
   const rightIds = new Set(right);
   return left.filter((id) => rightIds.has(id));
+}
+function toPublicCommercialView(view: ProductCommercialInternalDto): ProductCommercialViewDto {
+  const { retailBelowPartnerPrice: _internalDiagnostic, ...publicView } = view;
+  return publicView;
+}
+function filterCommercialViews(
+  views: ProductCommercialViewDto[],
+  products: CatalogProduct[],
+): ProductCommercialViewDto[] {
+  const productIds = new Set(products.map((product) => product.id));
+  return views.filter((view) => productIds.has(view.productId));
 }
 const FACET_PRIORITY = [/разрешение/i, /форм.?фактор/i, /технолог/i, /передача.?данных/i, /аналитик/i, /micro.?sd/i, /дальность.?ик/i, /микрофон/i, /объектив/i, /фокус/i, /материал/i];
 function buildFacets(rows: Array<{ key: string; label: string; value: string; count: number; coverage: number }>, selected: Record<string, string[]>): CatalogFacetDto[] {

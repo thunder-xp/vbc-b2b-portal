@@ -1,0 +1,8 @@
+import Link from "next/link";
+import { listOwnReservationRequestsAction } from "@/src/modules/reservation-requests/actions";
+import { ReservationStatusBadge } from "@/src/modules/reservation-requests/components";
+
+export default async function ReservationRequestsPage() {
+  const result = await listOwnReservationRequestsAction();
+  return <div className="space-y-6"><header className="border-b border-zinc-200 pb-5"><h1 className="text-2xl font-semibold">Запросы резервирования</h1><p className="mt-1 text-sm text-zinc-500">Операционные запросы по одобренным проектным спецификациям.</p></header>{!result.success ? <p className="border border-red-200 bg-red-50 p-4 text-sm text-red-800">{result.message}</p> : result.data.length ? <div className="grid gap-3">{result.data.map((request) => <Link className="grid gap-3 border border-zinc-200 bg-white p-5 transition hover:border-emerald-600 sm:grid-cols-[1fr_auto]" href={`/cabinet/reservation-requests/${request.id}`} key={request.id}><div><h2 className="font-semibold">{request.projectName}</h2><p className="mt-1 text-sm text-zinc-500">{request.customerSiteName} · {request.itemCount} позиций</p><p className="mt-2 text-xs text-zinc-500">Желаемая дата: {request.requestedDeliveryDate ?? "не указана"}</p></div><ReservationStatusBadge status={request.status} /></Link>)}</div> : <section className="border border-dashed border-zinc-300 bg-white px-6 py-14 text-center"><h2 className="font-semibold">Запросов пока нет</h2><p className="mt-1 text-sm text-zinc-500">Откройте одобренную спецификацию, чтобы запросить резервирование.</p></section>}</div>;
+}

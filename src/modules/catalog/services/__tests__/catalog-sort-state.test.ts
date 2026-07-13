@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { buildCatalogSortHiddenFields } from "../catalog-sort-state";
+import { buildCatalogHref, buildCatalogSortHiddenFields } from "../catalog-sort-state";
+import { parseCatalogSort } from "../catalog-sorting";
 import { deduplicateCatalogFacets } from "../catalog.service";
 
 const keyA = "property_11111111-1111-4111-8111-111111111111";
@@ -24,6 +25,39 @@ describe("buildCatalogSortHiddenFields", () => {
 
   it("omits the default availability state so sorting resets to page one cleanly", () => {
     expect(buildCatalogSortHiddenFields({ availability: "all", attributeFilters: {} })).toEqual([]);
+  });
+
+  it("preserves every validated filter while changing sort resets only page", () => {
+    expect(buildCatalogSortHiddenFields({
+      categoryId: "cameras",
+      search: "dome",
+      availability: "in_stock",
+      attributeFilters: { [keyA]: ["4 MP"], [keyB]: ["PoE"] },
+    })).toEqual([
+      { name: "category", value: "cameras" },
+      { name: "search", value: "dome" },
+      { name: "availability", value: "in_stock" },
+      { name: `attr.${keyA}`, value: "4 MP" },
+      { name: `attr.${keyB}`, value: "PoE" },
+    ]);
+  });
+
+  it("preserves sorting and filters through pagination", () => {
+    expect(buildCatalogHref({
+      categoryId: "cameras",
+      search: "dome",
+      availability: "expected",
+      sort: "markup_desc",
+      attributeFilters: { [keyA]: ["4 MP", "4 MP"] },
+      page: 2,
+    })).toBe(
+      `/cabinet/catalog?category=cameras&search=dome&availability=expected&attr.property_11111111-1111-4111-8111-111111111111=4+MP&sort=markup_desc&page=2`,
+    );
+  });
+
+  it("rejects stale sort values and preserves a valid sort after refresh parsing", () => {
+    expect(parseCatalogSort("sku_asc")).toBe("default");
+    expect(parseCatalogSort("price_desc")).toBe("price_desc");
   });
 
   it("deduplicates characteristic groups by display label and preserves an active selection", () => {

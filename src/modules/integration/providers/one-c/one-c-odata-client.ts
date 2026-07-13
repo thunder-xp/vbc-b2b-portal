@@ -50,12 +50,18 @@ export type OneCODataSafeDiagnostic = {
   emptyBody: boolean;
 };
 
+const errorResponseBodies = new WeakMap<object, string | null>();
+
 export class OneCODataResponseValidationError extends IntegrationValidationError {
   readonly failedStage = "odata_response" as const;
 
-  constructor(readonly diagnostic: OneCODataSafeDiagnostic) {
+  constructor(
+    readonly diagnostic: OneCODataSafeDiagnostic,
+    responseBody: string | null = null,
+  ) {
     super("1C returned an invalid OData response.");
     this.name = "OneCODataResponseValidationError";
+    errorResponseBodies.set(this, responseBody);
   }
 
   get receivedContentType(): string | null {
@@ -64,23 +70,35 @@ export class OneCODataResponseValidationError extends IntegrationValidationError
 }
 
 export class OneCODataFilterUnsupportedError extends Error {
-  constructor(readonly diagnostic: OneCODataSafeDiagnostic) {
+  constructor(
+    readonly diagnostic: OneCODataSafeDiagnostic,
+    responseBody: string | null = null,
+  ) {
     super("1C OData rejected the requested filter.");
     this.name = "OneCODataFilterUnsupportedError";
+    errorResponseBodies.set(this, responseBody);
   }
 }
 
 export class OneCODataProviderError extends IntegrationODataError {
-  constructor(readonly diagnostic: OneCODataSafeDiagnostic) {
+  constructor(
+    readonly diagnostic: OneCODataSafeDiagnostic,
+    responseBody: string | null = null,
+  ) {
     super();
     this.name = "OneCODataProviderError";
+    errorResponseBodies.set(this, responseBody);
   }
 }
 
 export class OneCODataHttpError extends IntegrationHttpError {
-  constructor(readonly diagnostic: OneCODataSafeDiagnostic) {
+  constructor(
+    readonly diagnostic: OneCODataSafeDiagnostic,
+    responseBody: string | null = null,
+  ) {
     super();
     this.name = "OneCODataHttpError";
+    errorResponseBodies.set(this, responseBody);
   }
 }
 
@@ -94,12 +112,13 @@ export class OneCODataClient {
   ): Promise<unknown> {
     const result = await this.probe(resource, params, options);
     const requestDiagnostic = toSafeDiagnostic(result, result.requestKind);
+    const responseBody = probeResponseBodies.get(result) ?? null;
 
     if (result.statusCode === 400) {
       if (isODataErrorEnvelope(result.payload)) {
-        throw new OneCODataProviderError(requestDiagnostic);
+        throw new OneCODataProviderError(requestDiagnostic, responseBody);
       }
-      throw new OneCODataFilterUnsupportedError(requestDiagnostic);
+      throw new OneCODataFilterUnsupportedError(requestDiagnostic, responseBody);
     }
 
     if (result.statusCode === 401) {
@@ -112,13 +131,13 @@ export class OneCODataClient {
 
     if (result.statusCode < 200 || result.statusCode >= 300) {
       if (isODataErrorEnvelope(result.payload)) {
-        throw new OneCODataProviderError(requestDiagnostic);
+        throw new OneCODataProviderError(requestDiagnostic, responseBody);
       }
-      throw new OneCODataHttpError(requestDiagnostic);
+      throw new OneCODataHttpError(requestDiagnostic, responseBody);
     }
 
     if (!result.jsonParsed) {
-      throw new OneCODataResponseValidationError(toSafeDiagnostic(result));
+      throw new OneCODataResponseValidationError(toSafeDiagnostic(result), responseBody);
     }
 
     return result.payload;
@@ -180,6 +199,7 @@ export class OneCODataClient {
     }
 
     const body = await parseJsonBody(response);
+    const { responseBody, ...parsedBody } = body;
     const result: OneCODataProbeResult = {
       statusCode: response.status,
       contentType,
@@ -188,15 +208,16 @@ export class OneCODataClient {
       requestKind,
       resourceName: resource,
       queryParameterNames,
-      ...body,
+      ...parsedBody,
     };
+    probeResponseBodies.set(result, responseBody);
 
     if (
       response.status >= 200 &&
       response.status < 300 &&
       isExplicitlyNonJsonContentType(contentType)
     ) {
-      throw new OneCODataResponseValidationError(toSafeDiagnostic(result));
+      throw new OneCODataResponseValidationError(toSafeDiagnostic(result), responseBody);
     }
 
     return result;
@@ -206,7 +227,7 @@ export class OneCODataClient {
 async function parseJsonBody(response: Response): Promise<Pick<
   OneCODataProbeResult,
   "jsonParsed" | "parseErrorName" | "bodyLength" | "bomDetected" | "emptyBody" | "payload"
->> {
+> & { responseBody: string | null }> {
   let bodyText: string;
   try {
     bodyText = await response.text();
@@ -218,6 +239,7 @@ async function parseJsonBody(response: Response): Promise<Pick<
       bomDetected: false,
       emptyBody: false,
       payload: null,
+      responseBody: null,
     };
   }
 
@@ -234,6 +256,7 @@ async function parseJsonBody(response: Response): Promise<Pick<
       bomDetected,
       emptyBody,
       payload: null,
+      responseBody: bodyText,
     };
   }
 
@@ -245,6 +268,7 @@ async function parseJsonBody(response: Response): Promise<Pick<
       bomDetected,
       emptyBody,
       payload: JSON.parse(normalizedBody),
+      responseBody: bodyText,
     };
   } catch (error) {
     return {
@@ -254,8 +278,25 @@ async function parseJsonBody(response: Response): Promise<Pick<
       bomDetected,
       emptyBody,
       payload: null,
+      responseBody: bodyText,
     };
   }
+}
+
+const probeResponseBodies = new WeakMap<OneCODataProbeResult, string | null>();
+
+export function getOneCODataErrorResponseBody(error: unknown): string | null {
+  let current: unknown = error;
+  const visited = new Set<unknown>();
+
+  while (current && typeof current === "object" && !visited.has(current)) {
+    visited.add(current);
+    const responseBody = errorResponseBodies.get(current);
+    if (typeof responseBody === "string") return responseBody;
+    current = "cause" in current ? current.cause : null;
+  }
+
+  return null;
 }
 
 function toSafeDiagnostic(

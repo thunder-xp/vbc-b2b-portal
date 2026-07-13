@@ -4,14 +4,15 @@ import type { CompanyAccessService } from "../../../access-control/services";
 import { CompanyStatus, MembershipStatus, UserStatus, UserType } from "../../../access-control/types";
 import type { CatalogRepository, ListCatalogProductsInput } from "../../repositories";
 import type { CatalogBrand, CatalogCategory, CatalogProduct, CatalogProductAttribute, CatalogProductDocument } from "../../types";
+import type { PricingInventoryService, ProductCommercialInternalDto } from "../../../pricing-inventory/services";
 import { DefaultCatalogService } from "../catalog.service";
 
 describe("DefaultCatalogService listing projection", () => {
   it("filters descendant categories and loads listing datasheets in one batch", async () => {
     const repository = new ListingRepository();
-    const result = await new DefaultCatalogService(repository, companyAccessService).listProducts("user-1", { categoryId: "root", page: 1, pageSize: 12, sort: "sku_asc" });
+    const result = await new DefaultCatalogService(repository, companyAccessService).listProducts("user-1", { categoryId: "root", page: 1, pageSize: 12, sort: "default" });
 
-    expect(repository.lastInput).toMatchObject({ categoryIds: ["root", "child", "leaf"], sort: "sku_asc", limit: 13, offset: 0 });
+    expect(repository.lastInput).toMatchObject({ categoryIds: ["root", "child", "leaf"], limit: 13, offset: 0 });
     expect(repository.productCalls).toBe(1);
     expect(repository.documentBatchCalls).toBe(1);
     expect(result.products[0]?.datasheet?.title).toBe("Datasheet");
@@ -26,17 +27,59 @@ describe("DefaultCatalogService listing projection", () => {
     expect(result?.documents).toContainEqual(expect.objectContaining({ documentType: "datasheet", url: "https://example.com/files/camera.pdf" }));
     expect(result?.keyCharacteristics).toEqual([{ label: "Resolution", value: "4 MPX" }]);
   });
+
+  it("sorts the full filtered set before pagination with one bulk commercial read", async () => {
+    const repository = new ListingRepository(false, [
+      createProduct("product-low", "Low"),
+      createProduct("product-missing", "Missing"),
+      createProduct("product-high", "High"),
+    ]);
+    const pricing = new PricingServiceStub({
+      "product-low": 10,
+      "product-high": 30,
+    });
+
+    const result = await new DefaultCatalogService(
+      repository,
+      companyAccessService,
+      pricing,
+    ).listProducts("user-1", { page: 1, pageSize: 2, sort: "price_desc" });
+
+    expect(result.products.map((item) => item.id)).toEqual(["product-high", "product-low"]);
+    expect(result.hasNextPage).toBe(true);
+    expect(result.commercialViews?.map((item) => item.productId)).toEqual([
+      "product-low",
+      "product-high",
+    ]);
+    expect(pricing.calls).toBe(1);
+    expect(pricing.requestedProductIds).toEqual([
+      "product-low",
+      "product-missing",
+      "product-high",
+    ]);
+    expect(repository.productCalls).toBe(1);
+  });
 });
 
 class ListingRepository implements CatalogRepository {
-  constructor(private readonly detail = false) {}
+  constructor(
+    private readonly detail = false,
+    private readonly listingProducts: CatalogProduct[] = [product],
+  ) {}
   productCalls = 0;
   documentBatchCalls = 0;
   lastInput: ListCatalogProductsInput | null = null;
   async listCategories() { return categories; }
   async listBrands() { return brands; }
-  async listProducts(input: ListCatalogProductsInput) { this.productCalls += 1; this.lastInput = input; return [product]; }
-  async countProducts() { return 1; }
+  async listProducts(input: ListCatalogProductsInput) {
+    this.productCalls += 1;
+    this.lastInput = input;
+    const offset = input.offset ?? 0;
+    return input.limit === undefined
+      ? this.listingProducts
+      : this.listingProducts.slice(offset, offset + input.limit);
+  }
+  async countProducts() { return this.listingProducts.length; }
   async listProductDocumentsForProducts() { this.documentBatchCalls += 1; return [datasheet]; }
   async getProductBySlug(): Promise<CatalogProduct | null> { return this.detail ? product : null; }
   async getProductById() { return null; }
@@ -52,6 +95,32 @@ class ListingRepository implements CatalogRepository {
   async listProductAttributes(): Promise<CatalogProductAttribute[]> { return this.detail ? attributes : []; }
 }
 
+class PricingServiceStub implements PricingInventoryService {
+  calls = 0;
+  requestedProductIds: string[] = [];
+
+  constructor(private readonly prices: Record<string, number>) {}
+
+  async getProductCommercialViews(
+    _userId: string,
+    productIds: string[],
+  ): Promise<ProductCommercialInternalDto[]> {
+    this.calls += 1;
+    this.requestedProductIds = productIds;
+    return productIds.map((productId) => ({
+      productId,
+      partnerPrice: this.prices[productId] === undefined
+        ? null
+        : { currencyCode: "USD", amount: this.prices[productId], formattedAmount: null },
+      retailPrice: null,
+      commercialOpportunity: null,
+      stock: null,
+      isDemoData: false,
+      retailBelowPartnerPrice: false,
+    }));
+  }
+}
+
 const now = "2026-07-11T00:00:00.000Z";
 const categories: CatalogCategory[] = [
   { id: "root", external1cId: null, parentId: null, name: "Root", slug: "root", description: null, sortOrder: 0, isActive: true, createdAt: now, updatedAt: now },
@@ -60,6 +129,9 @@ const categories: CatalogCategory[] = [
 ];
 const brands: CatalogBrand[] = [{ id: "brand", external1cId: null, name: "Brand", slug: "brand", description: null, logoUrl: null, sortOrder: 0, isActive: true, createdAt: now, updatedAt: now }];
 const product: CatalogProduct = { id: "product", external1cId: "external", categoryId: "leaf", brandId: "brand", sku: "SKU", name: "Camera", slug: "camera", shortDescription: null, description: null, imageUrl: null, isActive: true, isVisible: true, sortOrder: 0, createdAt: now, updatedAt: now };
+function createProduct(id: string, name: string): CatalogProduct {
+  return { ...product, id, external1cId: `external-${id}`, sku: id, name, slug: id };
+}
 const datasheet: CatalogProductDocument = { id: "document", productId: "product", title: "Datasheet", documentType: "datasheet", url: "https://example.com/datasheet.pdf", sortOrder: 0, isActive: true, createdAt: now };
 const attributes: CatalogProductAttribute[] = [
   { id: "attribute-1", productId: "product", propertyRef: "property-datasheet", key: "datasheet", label: "datasheetURL", rawValue: "https://example.com/files/camera.pdf", displayValue: "https://example.com/files/camera.pdf", resolvedDisplayValue: null, resolutionStatus: "not_required", valueType: "string", isFilterable: false, isVisible: true },

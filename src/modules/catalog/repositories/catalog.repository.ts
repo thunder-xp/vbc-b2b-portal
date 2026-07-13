@@ -13,7 +13,6 @@ export type ListCatalogProductsInput = {
   brandId?: string;
   searchBrandIds?: string[];
   search?: string;
-  sort?: "default" | "name_asc" | "name_desc" | "sku_asc";
   limit?: number;
   offset?: number;
   productIds?: string[];

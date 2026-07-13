@@ -3,6 +3,7 @@ export type WorkspaceCapabilityKey =
   | "catalog"
   | "solution_selection"
   | "projects"
+  | "reservations"
   | "proposals"
   | "orders"
   | "documents"
@@ -66,6 +67,7 @@ type CapabilityDefinition = {
 };
 
 const WORKSPACE_CAPABILITIES: readonly CapabilityDefinition[] = [
+  { key: "reservations", label: "Резервирование", href: "/cabinet/reservation-requests", requiredPermission: "reservations.manage", released: true, unavailableBehavior: "hide" },
   { key: "dashboard", label: "Рабочий стол", href: "/cabinet", requiredPermission: null, released: true, unavailableBehavior: "hide" },
   { key: "catalog", label: "Каталог", href: "/cabinet/catalog", requiredPermission: "catalog.view", released: true, unavailableBehavior: "hide" },
   { key: "solution_selection", label: "Подбор решения", href: null, requiredPermission: "catalog.view", released: false, unavailableBehavior: "show_coming_soon" },
