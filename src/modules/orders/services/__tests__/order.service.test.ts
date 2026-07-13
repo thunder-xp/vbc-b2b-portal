@@ -1,0 +1,98 @@
+import { describe, expect, it, vi } from "vitest";
+
+import { InvalidStateError, OperationNotAvailableError } from "../../../access-control/services";
+import { IntegrationHttpError } from "../../../integration/errors";
+import type { PartnerOrderRepository } from "../../repositories";
+import { PartnerOrderStatus, type PartnerOrder } from "../../types";
+import { DefaultPartnerOrderService } from "../order.service";
+
+const SUBMISSION_KEY = "55555555-5555-4555-8555-555555555555";
+
+describe("DefaultPartnerOrderService", () => {
+  it("reloads current prices, snapshots them, exports once, and persists the returned 1C identity", async () => {
+    const dependencies = makeDependencies();
+    const result = await dependencies.service.submit("user-1", input());
+
+    expect(dependencies.pricingService.getProductCommercialViews).toHaveBeenCalledWith("user-1", ["product-1"]);
+    expect(dependencies.orderProvider.exportSalesOrder).toHaveBeenCalledOnce();
+    const beginInput = dependencies.orderRepository.beginSubmission.mock.calls[0][0];
+    expect(beginInput.items[0]).toMatchObject({ partnerUnitPrice: 12.5, quantity: 2, lineTotal: 25 });
+    expect(dependencies.orderRepository.completeSubmission).toHaveBeenCalledWith({
+      orderId: "order-1", external1cRef: "77777777-7777-4777-8777-777777777777",
+      external1cNumber: "NSUU-TEST", external1cDate: "2026-07-13T20:17:30.000Z",
+    });
+    expect(result.status).toBe(PartnerOrderStatus.Submitted);
+  });
+
+  it("blocks submission when a product has no valid 1C reference", async () => {
+    const dependencies = makeDependencies();
+    dependencies.catalogService.getProductOrderIdentities.mockResolvedValue([{ id: "product-1", external1cId: "invalid", sku: "SKU-1", name: "Camera" }]);
+    await expect(dependencies.service.submit("user-1", input())).rejects.toBeInstanceOf(InvalidStateError);
+    expect(dependencies.orderRepository.beginSubmission).not.toHaveBeenCalled();
+    expect(dependencies.orderProvider.exportSalesOrder).not.toHaveBeenCalled();
+  });
+
+  it("blocks submission when the selected customer contract cannot be resolved", async () => {
+    const dependencies = makeDependencies();
+    dependencies.partnerProvider.fetchPartnerContracts.mockResolvedValue({ items: [], nextCursor: null, sourceTimestamp: null });
+    await expect(dependencies.service.submit("user-1", input())).rejects.toBeInstanceOf(InvalidStateError);
+    expect(dependencies.orderProvider.exportSalesOrder).not.toHaveBeenCalled();
+  });
+
+  it("preserves the cart and marks a rejected 1C write as failed", async () => {
+    const dependencies = makeDependencies();
+    dependencies.orderProvider.exportSalesOrder.mockRejectedValue(new IntegrationHttpError());
+    await expect(dependencies.service.submit("user-1", input())).rejects.toBeInstanceOf(OperationNotAvailableError);
+    expect(dependencies.orderRepository.failSubmission).toHaveBeenCalledWith(expect.objectContaining({ orderId: "order-1", status: PartnerOrderStatus.Failed }));
+    expect(dependencies.orderRepository.completeSubmission).not.toHaveBeenCalled();
+  });
+
+  it("returns an already submitted order without a second 1C request", async () => {
+    const dependencies = makeDependencies();
+    dependencies.orderRepository.findBySubmissionKey.mockResolvedValue(order({ status: PartnerOrderStatus.Submitted }));
+    const result = await dependencies.service.submit("user-1", input());
+    expect(result.status).toBe(PartnerOrderStatus.Submitted);
+    expect(dependencies.orderProvider.exportSalesOrder).not.toHaveBeenCalled();
+  });
+
+  it("does not export when another attempt owns the same submission", async () => {
+    const dependencies = makeDependencies();
+    dependencies.orderRepository.beginSubmission.mockResolvedValue(order({ submissionAttemptId: "88888888-8888-4888-8888-888888888888" }));
+    await expect(dependencies.service.submit("user-1", input())).rejects.toBeInstanceOf(InvalidStateError);
+    expect(dependencies.orderProvider.exportSalesOrder).not.toHaveBeenCalled();
+  });
+});
+
+function makeDependencies() {
+  const cartRepository = {
+    findActive: vi.fn().mockResolvedValue({ id: "cart-1", companyId: "company-1", createdBy: "user-1", status: "active", createdAt: "2026-01-01", updatedAt: "2026-01-01" }),
+    listItems: vi.fn().mockResolvedValue([{ id: "item-1", cartId: "cart-1", productId: "product-1", quantity: 2, createdAt: "2026-01-01", updatedAt: "2026-01-01" }]),
+  };
+  const orderRepository = {
+    findBySubmissionKey: vi.fn().mockResolvedValue(null), listByCompanyId: vi.fn(), findById: vi.fn(), listItems: vi.fn(),
+    beginSubmission: vi.fn(async (value: Parameters<PartnerOrderRepository["beginSubmission"]>[0]) => order({ submissionAttemptId: value.submissionAttemptId })),
+    completeSubmission: vi.fn().mockResolvedValue(order({ status: PartnerOrderStatus.Submitted, external1cRef: "77777777-7777-4777-8777-777777777777", external1cNumber: "NSUU-TEST" })),
+    failSubmission: vi.fn().mockResolvedValue(order({ status: PartnerOrderStatus.Failed })),
+  };
+  const company = {
+    id: "company-1", external1cId: "11111111-1111-4111-8111-111111111111",
+    external1cContractId: "22222222-2222-4222-8222-222222222222", external1cPriceTypeId: "33333333-3333-4333-8333-333333333333",
+  };
+  const companyAccessService = { getOwnMemberships: vi.fn().mockResolvedValue([{ companyId: "company-1", status: "active" }]), getActiveCompanyContext: vi.fn().mockResolvedValue({ company }) };
+  const permissionService = { ensurePermission: vi.fn().mockResolvedValue({ isAllowed: true }) };
+  const catalogService = { getProductOrderIdentities: vi.fn().mockResolvedValue([{ id: "product-1", external1cId: "66666666-6666-4666-8666-666666666666", sku: "SKU-1", name: "Camera" }]) };
+  const pricingService = { getProductCommercialViews: vi.fn().mockResolvedValue([{ productId: "product-1", partnerPrice: { amount: 12.5, currencyCode: "USD", formattedAmount: "$12.50" }, stock: { exactAvailableQuantity: 5, expectedArrival: null } }]) };
+  const partnerProvider = {
+    fetchPartnerContracts: vi.fn().mockResolvedValue({ items: [{ reference: ref("22222222-2222-4222-8222-222222222222"), active: true, organizationReference: ref("4643d461-aa49-4b70-9486-a59f80ee6af8") }], nextCursor: null, sourceTimestamp: null }),
+    fetchPriceType: vi.fn().mockResolvedValue({ active: true, currency: "44444444-4444-4444-8444-444444444444" }),
+  };
+  const orderProvider = { exportSalesOrder: vi.fn().mockResolvedValue({ orderReference: ref("77777777-7777-4777-8777-777777777777"), orderNumber: "NSUU-TEST", documentDate: "2026-07-13T20:17:30.000Z", status: "unposted", exportedAt: "2026-07-13T20:17:31.000Z" }) };
+  const service = new DefaultPartnerOrderService(cartRepository as never, orderRepository as never, companyAccessService as never, permissionService as never, catalogService as never, pricingService as never, partnerProvider as never, orderProvider as never);
+  return { service, orderRepository, catalogService, pricingService, partnerProvider, orderProvider };
+}
+
+function input() { return { submissionKey: SUBMISSION_KEY, requestedDeliveryDate: "2099-01-10" }; }
+function ref(externalId: string) { return { providerCode: "one-c", externalId, externalType: "test" }; }
+function order(overrides: Partial<PartnerOrder> = {}): PartnerOrder {
+  return { id: "order-1", companyId: "company-1", submittedBy: "user-1", cartId: "cart-1", submissionKey: SUBMISSION_KEY, submissionAttemptId: "99999999-9999-4999-8999-999999999999", status: PartnerOrderStatus.Processing, requestedDeliveryDate: "2099-01-10", external1cRef: null, external1cNumber: null, external1cDate: null, payloadSnapshot: {}, safeErrorCode: null, safeErrorMessage: null, submittedAt: null, createdAt: "2026-01-01", updatedAt: "2026-01-01", ...overrides };
+}

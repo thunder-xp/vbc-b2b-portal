@@ -94,6 +94,13 @@ export type CatalogProductDetailDto = CatalogProductCardDto & {
   documents: CatalogProductDocumentDto[];
 };
 
+export type CatalogProductOrderIdentityDto = {
+  id: string;
+  external1cId: string;
+  sku: string;
+  name: string;
+};
+
 export interface CatalogService {
   listCategories(userId: string): Promise<CatalogCategoryDto[]>;
   listBrands(userId: string): Promise<CatalogBrandDto[]>;
@@ -109,6 +116,10 @@ export interface CatalogService {
     userId: string,
     productIds: string[],
   ): Promise<CatalogProductCardDto[]>;
+  getProductOrderIdentities(
+    userId: string,
+    productIds: string[],
+  ): Promise<CatalogProductOrderIdentityDto[]>;
 }
 
 const DEFAULT_PAGE_SIZE = 12;
@@ -392,6 +403,21 @@ export class DefaultCatalogService implements CatalogService {
     return normalizedIds.flatMap((id) => {
       const product = productMap.get(id);
       return product ? [this.toProductCardDto(product, brandMap, categoryMap)] : [];
+    });
+  }
+
+  async getProductOrderIdentities(
+    userId: string,
+    productIds: string[],
+  ): Promise<CatalogProductOrderIdentityDto[]> {
+    await this.ensureCatalogAccess(userId);
+    const normalizedIds = [...new Set(productIds.map((id) => id.trim()).filter(Boolean))];
+    if (normalizedIds.length === 0) return [];
+    const products = await this.catalogRepository.listProducts({ productIds: normalizedIds });
+    const productsById = new Map(products.map((product) => [product.id, product]));
+    return normalizedIds.flatMap((id) => {
+      const product = productsById.get(id);
+      return product ? [{ id, external1cId: product.external1cId, sku: product.sku, name: product.name }] : [];
     });
   }
 

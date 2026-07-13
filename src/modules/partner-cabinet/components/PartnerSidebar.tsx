@@ -11,6 +11,7 @@ import {
   LifeBuoy,
   ListChecks,
   SearchCheck,
+  ShoppingCart,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -20,6 +21,7 @@ import type { WorkspaceCapabilityKey, WorkspaceNavigationItem } from "../service
 const icons = {
   dashboard: Gauge,
   catalog: Boxes,
+  cart: ShoppingCart,
   solution_selection: SearchCheck,
   projects: FolderKanban,
   reservations: ClipboardList,
@@ -35,10 +37,12 @@ export function PartnerSidebar({
   hasWorkspaceAccess = true,
   navigation,
   onNavigate,
+  cartItemCount = 0,
 }: {
   hasWorkspaceAccess?: boolean;
   navigation: WorkspaceNavigationItem[];
   onNavigate?: () => void;
+  cartItemCount?: number;
 }) {
   const pathname = usePathname();
 
@@ -73,6 +77,11 @@ export function PartnerSidebar({
             >
               <Icon aria-hidden="true" className="size-4 shrink-0" />
               <span className="truncate">{item.label}</span>
+              {item.key === "cart" && cartItemCount > 0 && (
+                <span className="ml-auto min-w-5 rounded-full bg-emerald-500 px-1.5 py-0.5 text-center text-[10px] font-bold text-white">
+                  {cartItemCount > 99 ? "99+" : cartItemCount}
+                </span>
+              )}
             </Link>
           );
         })}

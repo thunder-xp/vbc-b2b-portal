@@ -10,6 +10,9 @@ vi.mock("next/navigation", () => ({ redirect: mocks.redirect }));
 vi.mock("@/src/modules/partner-cabinet/actions", () => ({
   getPartnerWorkspaceContextAction: mocks.getPartnerWorkspaceContextAction,
 }));
+vi.mock("@/src/modules/orders/actions", () => ({
+  getCartItemCountAction: vi.fn().mockResolvedValue({ success: true, data: 0 }),
+}));
 vi.mock("@/src/modules/partner-cabinet/components", () => ({
   PartnerLayout: ({ children }: { children: React.ReactNode }) => <section data-testid="partner-layout">{children}</section>,
   WorkspaceAccessState: ({ state }: { state: string }) => <div>STATE:{state}</div>,

@@ -89,6 +89,7 @@ function createFixture(status = ProjectSpecificationStatus.Draft) {
   const catalogService: CatalogService = {
     listCategories: vi.fn(), listBrands: vi.fn(), listProducts: vi.fn(), getProductDetailBySlug: vi.fn(),
     getProductsByIds: vi.fn().mockResolvedValue([{ id: "product-1", sku: "400123", name: "Camera", slug: "camera", shortDescription: null, imageUrl: null, brand: null, category: null, keyCharacteristics: [], datasheet: null }]),
+    getProductOrderIdentities: vi.fn(),
   };
   const pricingInventoryService: PricingInventoryService = {
     getProductCommercialViews: vi.fn().mockResolvedValue([{

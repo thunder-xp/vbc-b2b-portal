@@ -58,6 +58,7 @@ import type {
 } from "./one-c-provider.types";
 import { OneCPartnerODataProvider } from "./one-c-partner-odata-provider";
 import { OneCPriceODataProvider } from "./one-c-price-odata-provider";
+import { OneCCustomerOrderProvider } from "./one-c-order-provider";
 
 export class IntegrationProviderNotImplementedError extends IntegrationUnsupportedOperationError {
   constructor(operation: string) {
@@ -106,7 +107,7 @@ export class OneCProvider extends AbstractERPProvider {
     this.catalog = new OneCCatalogProvider(this.config);
     this.pricing = this.config.useMockPricing ? new OneCPricingProvider(this.config) : new OneCPriceODataProvider(this.config);
     this.inventory = new OneCInventoryProvider(this.config);
-    this.orders = new OneCOrderProvider();
+    this.orders = new OneCCustomerOrderProvider(this.config);
     this.documents = new OneCDocumentProvider();
     this.finance = new OneCFinanceProvider();
     this.partners = new OneCPartnerODataProvider(this.config);
@@ -239,20 +240,6 @@ class OneCInventoryProvider implements InventoryProvider {
       items: response.items.map(this.mapper.toPlatformDTO),
       nextCursor: response.nextCursor ?? null,
     };
-  }
-}
-
-class OneCOrderProvider implements OrderProvider {
-  async exportSalesOrder(
-    _order: SalesOrderDTO,
-  ): Promise<SalesOrderExportResultDTO> {
-    throw new IntegrationProviderNotImplementedError("1C order export");
-  }
-
-  async fetchSalesOrders(
-    _input: SalesOrderStatusFetchRequestDTO,
-  ): Promise<IntegrationPageResultDTO<SalesOrderDTO>> {
-    throw new IntegrationProviderNotImplementedError("1C order status import");
   }
 }
 

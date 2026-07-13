@@ -1,6 +1,7 @@
 export type WorkspaceCapabilityKey =
   | "dashboard"
   | "catalog"
+  | "cart"
   | "solution_selection"
   | "projects"
   | "reservations"
@@ -70,10 +71,11 @@ const WORKSPACE_CAPABILITIES: readonly CapabilityDefinition[] = [
   { key: "reservations", label: "Резервирование", href: "/cabinet/reservation-requests", requiredPermission: "reservations.manage", released: true, unavailableBehavior: "hide" },
   { key: "dashboard", label: "Рабочий стол", href: "/cabinet", requiredPermission: null, released: true, unavailableBehavior: "hide" },
   { key: "catalog", label: "Каталог", href: "/cabinet/catalog", requiredPermission: "catalog.view", released: true, unavailableBehavior: "hide" },
+  { key: "cart", label: "Корзина", href: "/cabinet/cart", requiredPermission: "orders.manage", released: true, unavailableBehavior: "hide" },
   { key: "solution_selection", label: "Подбор решения", href: null, requiredPermission: "catalog.view", released: false, unavailableBehavior: "show_coming_soon" },
   { key: "projects", label: "Спецификации", href: "/cabinet/specifications", requiredPermission: "specifications.manage", released: true, unavailableBehavior: "hide" },
   { key: "proposals", label: "Сметы и КП", href: null, requiredPermission: "orders.create", released: false, unavailableBehavior: "show_coming_soon" },
-  { key: "orders", label: "Заказы", href: null, requiredPermission: "orders.create", released: false, unavailableBehavior: "show_coming_soon" },
+  { key: "orders", label: "Заказы", href: "/cabinet/orders", requiredPermission: "orders.manage", released: true, unavailableBehavior: "hide" },
   { key: "documents", label: "Документы", href: null, requiredPermission: "documents.view_company", released: false, unavailableBehavior: "show_coming_soon" },
   { key: "warranty", label: "Сервис и гарантия", href: null, requiredPermission: "documents.view_company", released: false, unavailableBehavior: "show_coming_soon" },
   { key: "knowledge_base", label: "База знаний", href: null, requiredPermission: "catalog.view", released: false, unavailableBehavior: "show_coming_soon" },
@@ -113,7 +115,7 @@ export function resolveWorkspaceCapabilities(
       showTechnicalDocuments: configuration.documentAccess !== false && hasPermission("documents.view_company"),
       showCompatibility: hasPermission("catalog.view"),
       canAddToSpecification: hasPermission("specifications.manage"),
-      canAddToOrder: false,
+      canAddToOrder: hasPermission("orders.manage"),
       canAddToProject: false,
     },
     canCreateCommercialProposal: configuration.commercialProposalAccess !== false && hasPermission("orders.create"),

@@ -25,6 +25,11 @@ export {
   OneCProvider,
 } from "./one-c-provider";
 export {
+  OneCCustomerOrderProvider,
+  buildOneCCustomerOrderPayload,
+  type OneCCustomerOrderPayload,
+} from "./one-c-order-provider";
+export {
   OneCODataClient,
   getOneCODataErrorResponseBody,
   OneCODataHttpError,

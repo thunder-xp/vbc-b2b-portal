@@ -4,6 +4,7 @@ import { ProductDetail } from "../ProductDetail";
 
 vi.mock("next/link", () => ({ default: ({ children, href }: { children: React.ReactNode; href: string }) => <a href={href}>{children}</a> }));
 vi.mock("../ProductImageGallery", () => ({ ProductImageGallery: () => <div>Gallery</div> }));
+vi.mock("../../../orders/components", () => ({ AddToCartButton: () => <button type="button">В корзину</button> }));
 
 describe("ProductDetail pricing", () => {
   it("uses the shared price labels while retaining useful attributes", () => {

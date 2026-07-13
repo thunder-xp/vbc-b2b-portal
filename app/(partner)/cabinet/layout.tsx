@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 
 import { getPartnerWorkspaceContextAction } from "@/src/modules/partner-cabinet/actions";
+import { getCartItemCountAction } from "@/src/modules/orders/actions";
 import {
   PartnerLayout,
   WorkspaceAccessState,
@@ -23,6 +24,9 @@ export default async function CabinetLayout({ children }: { children: ReactNode 
     redirect("/onboarding/waiting");
   }
 
+  const cartItemCountResult = context.capabilities.productCard.canAddToOrder
+    ? await getCartItemCountAction()
+    : null;
   const shell = {
     userDisplayName: context.userDisplayName,
     userEmail: context.userEmail,
@@ -30,6 +34,7 @@ export default async function CabinetLayout({ children }: { children: ReactNode 
     membershipRole: context.membershipRole,
     accessState: context.accessState,
     navigation: context.capabilities.navigation,
+    cartItemCount: cartItemCountResult?.success ? cartItemCountResult.data : 0,
   };
 
   if (context.accessState === "suspended") {

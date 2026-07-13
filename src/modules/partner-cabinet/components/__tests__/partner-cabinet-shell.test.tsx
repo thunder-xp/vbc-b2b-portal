@@ -14,7 +14,8 @@ const context = {
   companyName: "Partner Company",
   membershipRole: "Владелец компании",
   accessState: "active" as const,
-  navigation: resolveWorkspaceCapabilities(new Set(["catalog.view", "orders.create", "specifications.manage", "documents.view_company"])).navigation,
+  navigation: resolveWorkspaceCapabilities(new Set(["catalog.view", "orders.create", "orders.manage", "specifications.manage", "documents.view_company"])).navigation,
+  cartItemCount: 0,
 };
 
 const navigation = context.navigation;

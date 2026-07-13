@@ -14,6 +14,7 @@ export type PartnerWorkspaceShellContext = {
   membershipRole: string | null;
   accessState: PartnerWorkspaceAccessState;
   navigation: WorkspaceNavigationItem[];
+  cartItemCount: number;
 };
 
 export function PartnerLayout({
@@ -29,13 +30,13 @@ export function PartnerLayout({
   return (
     <div className="min-h-screen bg-zinc-50 text-zinc-950">
       <div className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:block lg:w-64">
-        <PartnerSidebar hasWorkspaceAccess={hasWorkspaceAccess} navigation={context.navigation} />
+        <PartnerSidebar cartItemCount={context.cartItemCount} hasWorkspaceAccess={hasWorkspaceAccess} navigation={context.navigation} />
       </div>
       {isDrawerOpen && (
         <div className="fixed inset-0 z-40 lg:hidden">
           <button aria-label="Close navigation" className="absolute inset-0 bg-zinc-950/40" onClick={() => setIsDrawerOpen(false)} type="button" />
           <div className="relative h-full w-64 max-w-[85vw]">
-            <PartnerSidebar hasWorkspaceAccess={hasWorkspaceAccess} navigation={context.navigation} onNavigate={() => setIsDrawerOpen(false)} />
+            <PartnerSidebar cartItemCount={context.cartItemCount} hasWorkspaceAccess={hasWorkspaceAccess} navigation={context.navigation} onNavigate={() => setIsDrawerOpen(false)} />
           </div>
         </div>
       )}

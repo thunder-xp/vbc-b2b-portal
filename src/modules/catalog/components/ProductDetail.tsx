@@ -5,13 +5,15 @@ import type { CatalogProductDetailDto } from "../services";
 
 import { ProductImageGallery } from "./ProductImageGallery";
 import { ProductPricingBlock } from "./ProductPricingBlock";
+import { AddToCartButton } from "../../orders/components";
 
 type ProductDetailProps = {
   commercialView?: ProductCommercialViewDto;
   product: CatalogProductDetailDto;
+  canAddToOrder?: boolean;
 };
 
-export function ProductDetail({ commercialView, product }: ProductDetailProps) {
+export function ProductDetail({ canAddToOrder = false, commercialView, product }: ProductDetailProps) {
   const stockTone = getStockTone(commercialView?.stock?.status);
 
   return (
@@ -41,6 +43,7 @@ export function ProductDetail({ commercialView, product }: ProductDetailProps) {
             product.shortDescription ??
             "Product description is not available yet."}
         </p>
+        {canAddToOrder && <div className="mt-5"><AddToCartButton productId={product.id} /></div>}
 
         <section className="mt-8 grid gap-3 border-t border-zinc-200 pt-6 sm:grid-cols-2">
           <ProductPricingBlock commercialView={commercialView} variant="detail" />
