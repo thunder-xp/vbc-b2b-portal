@@ -45,8 +45,10 @@ export default async function CartPage() {
           </div>
           <aside className="space-y-4">
             <div className="rounded-lg border border-zinc-200 bg-white p-4">
-              <p className="text-sm text-zinc-600">Товаров</p>
-              <p className="mt-1 text-xl font-semibold">{cart.itemCount}</p>
+              <p className="text-sm text-zinc-600">Позиций</p>
+              <p className="mt-1 text-xl font-semibold">{cart.positionCount}</p>
+              <p className="mt-3 text-sm text-zinc-600">Единиц товара</p>
+              <p className="mt-1 text-lg font-semibold">{cart.totalUnitCount}</p>
               <p className="mt-4 text-sm text-zinc-600">Итого</p>
               <p className="mt-1 text-xl font-semibold">{cart.total ?? "Требуется актуальная цена"}</p>
             </div>

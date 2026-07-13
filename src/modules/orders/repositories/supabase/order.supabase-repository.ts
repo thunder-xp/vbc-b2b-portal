@@ -29,7 +29,7 @@ export class SupabaseCartRepository implements CartRepository {
     const { data, error } = await (await createClient()).rpc("add_partner_cart_item", {
       target_company_id: companyId, target_product_id: productId, added_quantity: quantity,
     });
-    if (error || !data) throw new OrderRepositoryError();
+    if (error || !data) throw new OrderRepositoryError(error?.code ?? null, error?.message ?? null);
     return mapCartItem(data as Row);
   }
 
@@ -37,7 +37,7 @@ export class SupabaseCartRepository implements CartRepository {
     const { data, error } = await (await createClient()).rpc("set_partner_cart_item_quantity", {
       target_item_id: itemId, target_quantity: quantity,
     });
-    if (error || !data) throw new OrderRepositoryError();
+    if (error || !data) throw new OrderRepositoryError(error?.code ?? null, error?.message ?? null);
     return mapCartItem(data as Row);
   }
 
@@ -52,7 +52,17 @@ export class SupabasePartnerOrderRepository implements PartnerOrderRepository {
   async findBySubmissionKey(submissionKey: string): Promise<PartnerOrder | null> {
     const { data, error } = await (await createClient()).from("partner_orders").select(ORDER_COLUMNS)
       .eq("submission_key", submissionKey).maybeSingle();
-    if (error) throw new OrderRepositoryError();
+    if (error) {
+      console.error({
+        event: "partner_order_repository_failed",
+        operation: "find_order_by_submission_key",
+        table: "partner_orders",
+        submissionKey,
+        errorCode: error.code,
+        errorMessage: error.message,
+      });
+      throw new OrderRepositoryError(error.code, error.message);
+    }
     return data ? mapOrder(data as Row) : null;
   }
 
@@ -101,7 +111,18 @@ export class SupabasePartnerOrderRepository implements PartnerOrderRepository {
         nearest_arrival_quantity: item.nearestArrivalQuantity,
       })),
     });
-    if (error || !data) throw new OrderRepositoryError();
+    if (error || !data) {
+      console.error({
+        event: "partner_order_repository_failed",
+        operation: "begin_partner_order_submission",
+        table: "partner_orders",
+        cartId: input.cartId,
+        submissionKey: input.submissionKey,
+        errorCode: error?.code ?? null,
+        errorMessage: error?.message ?? "RPC returned no order.",
+      });
+      throw new OrderRepositoryError(error?.code ?? null, error?.message ?? "RPC returned no order.");
+    }
     return mapOrder(data as Row);
   }
 

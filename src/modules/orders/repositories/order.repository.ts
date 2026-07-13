@@ -55,7 +55,10 @@ export interface PartnerOrderRepository {
 }
 
 export class OrderRepositoryError extends Error {
-  constructor() {
+  constructor(
+    readonly code: string | null = null,
+    readonly databaseMessage: string | null = null,
+  ) {
     super("Order persistence failed.");
     this.name = "OrderRepositoryError";
   }

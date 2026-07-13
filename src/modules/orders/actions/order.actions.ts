@@ -6,6 +6,7 @@ import { getAuthenticatedUserId } from "../../access-control/actions/service-fac
 import type { PartnerOrderDetailDto, PartnerOrderSummaryDto } from "../services";
 import type { PartnerOrder } from "../types";
 import { createPartnerOrderService } from "./service-factory";
+import { orderSubmissionFailure } from "./order-action-error";
 
 export async function submitCartOrderAction(
   _state: ActionResult<PartnerOrder | null>,
@@ -18,7 +19,7 @@ export async function submitCartOrderAction(
     const order = await createPartnerOrderService().submit(await getAuthenticatedUserId(), { submissionKey, requestedDeliveryDate });
     revalidatePath("/cabinet", "layout"); revalidatePath("/cabinet/cart"); revalidatePath("/cabinet/orders");
     return success(`Заказ ${order.external1cNumber ?? ""} создан в 1С.`, order);
-  } catch (error) { return failureFromError(error); }
+  } catch (error) { return orderSubmissionFailure(error) ?? failureFromError(error); }
 }
 
 export async function listPartnerOrdersAction(): Promise<ActionResult<PartnerOrderSummaryDto[]>> {

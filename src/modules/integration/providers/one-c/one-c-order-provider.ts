@@ -49,6 +49,7 @@ export class OneCCustomerOrderProvider implements OrderProvider {
 
     if (response.status === 401) throw new IntegrationUnauthorizedError();
     if (response.status === 403) throw new IntegrationForbiddenError();
+    if (response.status >= 500) throw new IntegrationProviderUnavailableError("1C customer order result is uncertain.");
     if (!response.ok) throw new IntegrationHttpError();
 
     let value: unknown;

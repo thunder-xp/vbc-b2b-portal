@@ -21,7 +21,8 @@ export type CartLineDto = {
 
 export type CartDetailDto = {
   id: string | null;
-  itemCount: number;
+  positionCount: number;
+  totalUnitCount: number;
   lines: CartLineDto[];
   total: string | null;
   submitting: boolean;
@@ -49,7 +50,7 @@ export class DefaultCartService implements CartService {
   async getCart(userId: string): Promise<CartDetailDto> {
     const companyId = await this.resolveCompanyId(userId);
     const cart = await this.repository.findActive(companyId, userId);
-    if (!cart) return { id: null, itemCount: 0, lines: [], total: null, submitting: false };
+    if (!cart) return { id: null, positionCount: 0, totalUnitCount: 0, lines: [], total: null, submitting: false };
     const items = await this.repository.listItems(cart.id);
     const productIds = items.map((item) => item.productId);
     const [products, views] = await Promise.all([
@@ -64,7 +65,8 @@ export class DefaultCartService implements CartService {
     });
     return {
       id: cart.id,
-      itemCount: items.reduce((sum, item) => sum + item.quantity, 0),
+      positionCount: items.length,
+      totalUnitCount: items.reduce((sum, item) => sum + item.quantity, 0),
       lines,
       total: calculateTotal(items.map((item) => ({ quantity: item.quantity, view: viewsById.get(item.productId) }))),
       submitting: cart.status === "submitting",

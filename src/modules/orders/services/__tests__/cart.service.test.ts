@@ -26,6 +26,8 @@ describe("DefaultCartService", () => {
     expect(cart.lines[0]).toMatchObject({ quantity: 2, availableStock: 5 });
     expect(cart.lines[0]?.partnerLineTotal).toContain("20,00");
     expect(cart.total).toContain("20,00");
+    expect(cart.positionCount).toBe(1);
+    expect(cart.totalUnitCount).toBe(2);
   });
 });
 

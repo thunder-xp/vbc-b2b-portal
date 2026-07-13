@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { InvalidStateError, OperationNotAvailableError } from "../../../access-control/services";
 import { IntegrationHttpError } from "../../../integration/errors";
 import type { PartnerOrderRepository } from "../../repositories";
 import { PartnerOrderStatus, type PartnerOrder } from "../../types";
 import { DefaultPartnerOrderService } from "../order.service";
+import { OrderReconciliationRequiredError, OrderSubmissionInProgressError, RecoverableOrderSubmissionError } from "../order-submission.errors";
 
 const SUBMISSION_KEY = "55555555-5555-4555-8555-555555555555";
 
@@ -27,7 +27,7 @@ describe("DefaultPartnerOrderService", () => {
   it("blocks submission when a product has no valid 1C reference", async () => {
     const dependencies = makeDependencies();
     dependencies.catalogService.getProductOrderIdentities.mockResolvedValue([{ id: "product-1", external1cId: "invalid", sku: "SKU-1", name: "Camera" }]);
-    await expect(dependencies.service.submit("user-1", input())).rejects.toBeInstanceOf(InvalidStateError);
+    await expect(dependencies.service.submit("user-1", input())).rejects.toBeInstanceOf(RecoverableOrderSubmissionError);
     expect(dependencies.orderRepository.beginSubmission).not.toHaveBeenCalled();
     expect(dependencies.orderProvider.exportSalesOrder).not.toHaveBeenCalled();
   });
@@ -35,14 +35,14 @@ describe("DefaultPartnerOrderService", () => {
   it("blocks submission when the selected customer contract cannot be resolved", async () => {
     const dependencies = makeDependencies();
     dependencies.partnerProvider.fetchPartnerContracts.mockResolvedValue({ items: [], nextCursor: null, sourceTimestamp: null });
-    await expect(dependencies.service.submit("user-1", input())).rejects.toBeInstanceOf(InvalidStateError);
+    await expect(dependencies.service.submit("user-1", input())).rejects.toBeInstanceOf(RecoverableOrderSubmissionError);
     expect(dependencies.orderProvider.exportSalesOrder).not.toHaveBeenCalled();
   });
 
   it("preserves the cart and marks a rejected 1C write as failed", async () => {
     const dependencies = makeDependencies();
     dependencies.orderProvider.exportSalesOrder.mockRejectedValue(new IntegrationHttpError());
-    await expect(dependencies.service.submit("user-1", input())).rejects.toBeInstanceOf(OperationNotAvailableError);
+    await expect(dependencies.service.submit("user-1", input())).rejects.toBeInstanceOf(RecoverableOrderSubmissionError);
     expect(dependencies.orderRepository.failSubmission).toHaveBeenCalledWith(expect.objectContaining({ orderId: "order-1", status: PartnerOrderStatus.Failed }));
     expect(dependencies.orderRepository.completeSubmission).not.toHaveBeenCalled();
   });
@@ -58,8 +58,34 @@ describe("DefaultPartnerOrderService", () => {
   it("does not export when another attempt owns the same submission", async () => {
     const dependencies = makeDependencies();
     dependencies.orderRepository.beginSubmission.mockResolvedValue(order({ submissionAttemptId: "88888888-8888-4888-8888-888888888888" }));
-    await expect(dependencies.service.submit("user-1", input())).rejects.toBeInstanceOf(InvalidStateError);
+    await expect(dependencies.service.submit("user-1", input())).rejects.toBeInstanceOf(OrderSubmissionInProgressError);
     expect(dependencies.orderProvider.exportSalesOrder).not.toHaveBeenCalled();
+  });
+
+  it("resolves the sole active 1C contract when the company has no stored contract", async () => {
+    const dependencies = makeDependencies();
+    dependencies.company.external1cContractId = null;
+    await dependencies.service.submit("user-1", input());
+    expect(dependencies.orderProvider.exportSalesOrder).toHaveBeenCalledWith(expect.objectContaining({
+      contractReference: expect.objectContaining({ externalId: "22222222-2222-4222-8222-222222222222" }),
+    }));
+  });
+
+  it("blocks an ambiguous attempt without another provider call", async () => {
+    const dependencies = makeDependencies();
+    dependencies.orderRepository.findBySubmissionKey.mockResolvedValue(order({ status: PartnerOrderStatus.Unknown }));
+    await expect(dependencies.service.submit("user-1", input())).rejects.toBeInstanceOf(OrderReconciliationRequiredError);
+    expect(dependencies.orderProvider.exportSalesOrder).not.toHaveBeenCalled();
+  });
+
+  it("allows a stale definitive failure to retry the same cart with a new key", async () => {
+    const dependencies = makeDependencies();
+    dependencies.orderRepository.findBySubmissionKey
+      .mockResolvedValueOnce(order({ status: PartnerOrderStatus.Failed }))
+      .mockResolvedValueOnce(null);
+    await expect(dependencies.service.submit("user-1", input())).rejects.toBeInstanceOf(RecoverableOrderSubmissionError);
+    await expect(dependencies.service.submit("user-1", { ...input(), submissionKey: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" })).resolves.toMatchObject({ status: PartnerOrderStatus.Submitted });
+    expect(dependencies.orderProvider.exportSalesOrder).toHaveBeenCalledOnce();
   });
 });
 
@@ -74,7 +100,7 @@ function makeDependencies() {
     completeSubmission: vi.fn().mockResolvedValue(order({ status: PartnerOrderStatus.Submitted, external1cRef: "77777777-7777-4777-8777-777777777777", external1cNumber: "NSUU-TEST" })),
     failSubmission: vi.fn().mockResolvedValue(order({ status: PartnerOrderStatus.Failed })),
   };
-  const company = {
+  const company: { id: string; external1cId: string; external1cContractId: string | null; external1cPriceTypeId: string } = {
     id: "company-1", external1cId: "11111111-1111-4111-8111-111111111111",
     external1cContractId: "22222222-2222-4222-8222-222222222222", external1cPriceTypeId: "33333333-3333-4333-8333-333333333333",
   };
@@ -88,7 +114,7 @@ function makeDependencies() {
   };
   const orderProvider = { exportSalesOrder: vi.fn().mockResolvedValue({ orderReference: ref("77777777-7777-4777-8777-777777777777"), orderNumber: "NSUU-TEST", documentDate: "2026-07-13T20:17:30.000Z", status: "unposted", exportedAt: "2026-07-13T20:17:31.000Z" }) };
   const service = new DefaultPartnerOrderService(cartRepository as never, orderRepository as never, companyAccessService as never, permissionService as never, catalogService as never, pricingService as never, partnerProvider as never, orderProvider as never);
-  return { service, orderRepository, catalogService, pricingService, partnerProvider, orderProvider };
+  return { service, orderRepository, catalogService, pricingService, partnerProvider, orderProvider, company };
 }
 
 function input() { return { submissionKey: SUBMISSION_KEY, requestedDeliveryDate: "2099-01-10" }; }
