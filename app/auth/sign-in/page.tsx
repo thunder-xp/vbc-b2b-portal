@@ -1,22 +1,29 @@
-import Link from "next/link";
+"use client";
 
-import { SignInForm } from "@/src/modules/auth/components";
+import {
+  AuthPageLoading,
+  AuthPageShell,
+  SignInForm,
+} from "@/src/modules/auth/components";
+import { authCopy } from "@/src/modules/auth/auth-copy";
+import { usePublicLocale } from "@/src/modules/public-locale";
 
 export default function SignInPage() {
+  const { locale, isLocaleReady } = usePublicLocale();
+
+  if (!isLocaleReady) return <AuthPageLoading />;
+
+  const copy = authCopy[locale].signIn;
+  const registrationSucceeded = new URLSearchParams(window.location.search).get("registered") === "1";
+
   return (
-    <main className="flex min-h-screen items-center justify-center bg-zinc-50 px-6 py-12 text-zinc-950">
-      <section className="w-full max-w-md rounded-lg border border-zinc-200 bg-white p-6 shadow-sm">
-        <Link className="text-sm font-medium text-emerald-700" href="/">
-          Novotech Partner Workspace
-        </Link>
-        <h1 className="mt-5 text-2xl font-semibold tracking-tight">Sign In</h1>
-        <p className="mt-2 text-sm text-zinc-600">
-          Access your company workspace, catalog, prices, and stock.
+    <AuthPageShell description={copy.description} eyebrow={copy.eyebrow} title={copy.title}>
+      {registrationSucceeded ? (
+        <p className="mb-5 rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+          {copy.registrationSuccess}
         </p>
-        <div className="mt-6">
-          <SignInForm />
-        </div>
-      </section>
-    </main>
+      ) : null}
+      <SignInForm locale={locale} />
+    </AuthPageShell>
   );
 }

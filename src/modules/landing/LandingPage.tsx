@@ -24,10 +24,11 @@ import {
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
-import { landingCopy, type LandingLocale } from "./landing-copy";
+import { type PublicLocale, usePublicLocale } from "@/src/modules/public-locale";
 
-const LOCALE_STORAGE_KEY = "novotech-landing-locale";
-const locales: LandingLocale[] = ["ru", "ro"];
+import { landingCopy } from "./landing-copy";
+
+const locales: PublicLocale[] = ["ru", "ro"];
 
 const featureIcons = [
   PackageSearch,
@@ -41,25 +42,12 @@ const featureIcons = [
 const trustIcons = [ShieldCheck, BadgeDollarSign, RefreshCw, Headphones];
 const capabilityIcons = [Camera, KeyRound, BellRing, Network, Phone, PanelsTopLeft];
 
-function isLandingLocale(value: string | null): value is LandingLocale {
-  return value === "ru" || value === "ro";
-}
-
 export function LandingPage() {
-  const [locale, setLocale] = useState<LandingLocale>("ru");
+  const { locale, setLocale } = usePublicLocale();
   const [languageOpen, setLanguageOpen] = useState(false);
   const languageMenuRef = useRef<HTMLDivElement>(null);
   const languageTriggerRef = useRef<HTMLButtonElement>(null);
   const copy = landingCopy[locale];
-
-  useEffect(() => {
-    const storedLocale = window.localStorage.getItem(LOCALE_STORAGE_KEY);
-
-    if (isLandingLocale(storedLocale)) {
-      setLocale(storedLocale);
-      document.documentElement.lang = storedLocale;
-    }
-  }, []);
 
   useEffect(() => {
     if (!languageOpen) {
@@ -87,11 +75,9 @@ export function LandingPage() {
     };
   }, [languageOpen]);
 
-  const selectLocale = (nextLocale: LandingLocale) => {
+  const selectLocale = (nextLocale: PublicLocale) => {
     setLocale(nextLocale);
     setLanguageOpen(false);
-    window.localStorage.setItem(LOCALE_STORAGE_KEY, nextLocale);
-    document.documentElement.lang = nextLocale;
   };
 
   return (

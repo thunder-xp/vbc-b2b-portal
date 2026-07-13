@@ -1,10 +1,10 @@
-export type LandingLocale = "ru" | "ro";
+import type { PublicLocale } from "@/src/modules/public-locale";
 
 type LandingCopy = {
   navigation: Array<{ href: string; label: string }>;
   language: {
     label: string;
-    options: Record<LandingLocale, string>;
+    options: Record<PublicLocale, string>;
   };
   signIn: string;
   hero: {
@@ -24,7 +24,7 @@ type LandingCopy = {
   capabilities: string[];
 };
 
-export const landingCopy: Record<LandingLocale, LandingCopy> = {
+export const landingCopy: Record<PublicLocale, LandingCopy> = {
   ru: {
     navigation: [
       { href: "#platform", label: "Платформа" },

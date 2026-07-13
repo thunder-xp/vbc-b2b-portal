@@ -3,17 +3,22 @@
 import Link from "next/link";
 import { useActionState } from "react";
 
-import { signInAction } from "../actions/auth.actions";
+import type { PublicLocale } from "@/src/modules/public-locale";
 
-export function SignInForm() {
+import { signInAction } from "../actions/auth.actions";
+import { authCopy, localizeSignInError } from "../auth-copy";
+
+export function SignInForm({ locale }: { locale: PublicLocale }) {
   const [state, formAction, isPending] = useActionState(signInAction, {
     error: null,
   });
+  const copy = authCopy[locale].signIn;
+  const errorMessage = localizeSignInError(locale, state.error);
 
   return (
     <form action={formAction} className="grid gap-5">
       <label className="grid gap-2 text-sm font-medium text-zinc-800">
-        Email
+        {copy.email}
         <input
           autoComplete="email"
           className="h-11 rounded-md border border-zinc-300 px-3 text-sm outline-none focus:border-emerald-700"
@@ -23,7 +28,7 @@ export function SignInForm() {
         />
       </label>
       <label className="grid gap-2 text-sm font-medium text-zinc-800">
-        Password
+        {copy.password}
         <input
           autoComplete="current-password"
           className="h-11 rounded-md border border-zinc-300 px-3 text-sm outline-none focus:border-emerald-700"
@@ -33,14 +38,14 @@ export function SignInForm() {
         />
       </label>
       <div className="flex items-center justify-between text-sm">
-        <span className="text-zinc-500">Forgot password?</span>
+        <span className="text-zinc-500">{copy.forgotPassword}</span>
         <Link className="font-medium text-emerald-700" href="/auth/register">
-          Become a Partner
+          {copy.becomePartner}
         </Link>
       </div>
-      {state.error ? (
+      {errorMessage ? (
         <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-800">
-          {state.error}
+          {errorMessage}
         </p>
       ) : null}
       <button
@@ -48,7 +53,7 @@ export function SignInForm() {
         disabled={isPending}
         type="submit"
       >
-        {isPending ? "Signing in..." : "Sign In"}
+        {isPending ? copy.loading : copy.submit}
       </button>
     </form>
   );
