@@ -162,11 +162,20 @@ begin
       and d.expected_arrival_date is not null
       and d.expected_arrival_date >= v_snapshot_date
       and d.date_placement = 'ВШапке'
-  ), grouped as (
+  ), grouped_by_date as (
     select external_product_ref, external_characteristic_ref, expected_arrival_date,
       sum(remaining_quantity) expected_quantity
     from valid
     group by external_product_ref, external_characteristic_ref, expected_arrival_date
+  ), grouped as (
+    select grouped_by_date.*
+    from grouped_by_date
+    where expected_arrival_date = (
+      select min(candidate.expected_arrival_date)
+      from grouped_by_date candidate
+      where candidate.external_product_ref = grouped_by_date.external_product_ref
+        and candidate.external_characteristic_ref = grouped_by_date.external_characteristic_ref
+    )
   )
   insert into public.product_supplier_arrivals as current (
     product_id, external_characteristic_ref, expected_arrival_date,
