@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   ONE_C_CONTRACT_FIELDS,
+  ONE_C_DEFAULT_PARTNER_CONTRACT_FIELDS,
   ONE_C_PARTNER_FIELDS,
   ONE_C_PRICE_TYPE_FIELDS,
   ONE_C_RESOURCES,
@@ -23,8 +24,15 @@ describe("1C OData identifiers", () => {
     expect(ONE_C_RESOURCES).toEqual({
       partners: "Catalog_Контрагенты",
       contracts: "Catalog_ДоговорыКонтрагентов",
+      defaultPartnerContracts: "InformationRegister_ОсновныеДоговорыКонтрагента",
       priceTypes: "Catalog_ВидыЦен",
     });
+    expect(ONE_C_DEFAULT_PARTNER_CONTRACT_FIELDS).toEqual([
+      "Организация_Key",
+      "Контрагент_Key",
+      "ВидДоговора",
+      "Договор_Key",
+    ]);
     expect(ONE_C_PARTNER_FIELDS).toEqual(expect.arrayContaining([
       "НаименованиеПолное",
       "ИНН",

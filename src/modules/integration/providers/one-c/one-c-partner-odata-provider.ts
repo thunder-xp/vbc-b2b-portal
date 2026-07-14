@@ -5,6 +5,7 @@ import type {
   PartnerCompanyDTO,
   PartnerContractDTO,
   PartnerContractLookupInputDTO,
+  PartnerCustomerContractResolutionInputDTO,
   PartnerPriceTypeDTO,
   PartnerPriceTypeLookupInputDTO,
   PartnerSearchInputDTO,
@@ -28,6 +29,7 @@ import {
   parseRequiredOneCGuid,
 } from "./one-c-guid";
 import {
+  ONE_C_DEFAULT_PARTNER_CONTRACT_FIELDS,
   ONE_C_CONTRACT_FIELDS,
   ONE_C_PARTNER_FIELDS,
   ONE_C_PRICE_TYPE_FIELDS,
@@ -39,6 +41,7 @@ import {
 } from "../../services/partner-search-validation";
 import type {
   OneCODataCollectionPayload,
+  OneCDefaultPartnerContractPayload,
   OneCPartnerCompanyPayload,
   OneCPartnerContractPayload,
   OneCNormalizedPartnerCompanyPayload,
@@ -47,9 +50,11 @@ import type {
 
 const PARTNERS_RESOURCE = ONE_C_RESOURCES.partners;
 const CONTRACTS_RESOURCE = ONE_C_RESOURCES.contracts;
+const DEFAULT_CONTRACTS_RESOURCE = ONE_C_RESOURCES.defaultPartnerContracts;
 const PRICE_TYPES_RESOURCE = ONE_C_RESOURCES.priceTypes;
 const PARTNER_FIELDS = ONE_C_PARTNER_FIELDS.join(",");
 const CONTRACT_FIELDS = ONE_C_CONTRACT_FIELDS.join(",");
+const DEFAULT_CONTRACT_FIELDS = ONE_C_DEFAULT_PARTNER_CONTRACT_FIELDS.join(",");
 const PRICE_TYPE_FIELDS = ONE_C_PRICE_TYPE_FIELDS.join(",");
 
 export class OneCPartnerODataProvider implements PartnerProvider {
@@ -155,6 +160,92 @@ export class OneCPartnerODataProvider implements PartnerProvider {
     }));
     logPipelineProgress("contract_mapping", "partner_contracts", items.length);
     return { items, nextCursor: null };
+  }
+
+  async resolveCustomerOrderContract(
+    input: PartnerCustomerContractResolutionInputDTO,
+  ): Promise<PartnerContractDTO | null> {
+    const partnerReference = requireUuid(input.partnerReference, "Partner reference");
+    const organizationReference = requireUuid(input.organizationReference, "Organization reference");
+    const storedContractReference = input.storedContractReference
+      ? requireUuid(input.storedContractReference, "Stored contract reference")
+      : null;
+    const effectiveAt = Date.parse(input.effectiveAt);
+    if (!Number.isFinite(effectiveAt)) {
+      throw new IntegrationValidationError("Contract effective date is invalid.");
+    }
+
+    if (this.config.useMockPartners) {
+      const row = {
+        ...mockContracts[0]!,
+        Организация_Key: organizationReference,
+        ВидДоговора: "С покупателем",
+        ДатаДоговора: "2020-01-01T00:00:00",
+      };
+      return validateCustomerOrderContract(row, {
+        partnerReference,
+        organizationReference,
+        effectiveAt,
+      }).valid ? this.mapContract(row, 0) : null;
+    }
+
+    const registerRows = await this.getCollection<OneCDefaultPartnerContractPayload>(
+      DEFAULT_CONTRACTS_RESOURCE,
+      { $select: DEFAULT_CONTRACT_FIELDS },
+      "partner_default_contract_register",
+    );
+    const matchingRows = registerRows.filter((row) => defaultRegisterRowMatches(
+      row,
+      partnerReference,
+      organizationReference,
+    ));
+    const matchingRow = matchingRows.length === 1 ? matchingRows[0]! : null;
+
+    console.info({
+      event: "one_c_default_customer_contract_resolution",
+      stage: "default_contract_register",
+      counterpartyRef: partnerReference,
+      organizationRef: organizationReference,
+      registerRowsReceived: registerRows.length,
+      matchingRegisterRow: matchingRow ? {
+        Организация_Key: matchingRow["Организация_Key"],
+        Контрагент_Key: matchingRow["Контрагент_Key"],
+        ВидДоговора: matchingRow["ВидДоговора"],
+        Договор_Key: matchingRow["Договор_Key"],
+      } : null,
+      matchingRowCount: matchingRows.length,
+    });
+
+    const defaultContractReference = matchingRow
+      ? parseRequiredOneCGuid(matchingRow["Договор_Key"])
+      : null;
+    if (defaultContractReference) {
+      const contract = await this.getContractByReference(defaultContractReference);
+      if (contract) {
+        const validation = validateCustomerOrderContract(contract, {
+          partnerReference,
+          organizationReference,
+          effectiveAt,
+        });
+        logContractValidation(contract, validation, "default_contract");
+        if (validation.valid) return this.mapContract(contract, 0);
+      }
+    }
+
+    if (storedContractReference) {
+      const contract = await this.getContractByReference(storedContractReference);
+      if (contract) {
+        const validation = validateCustomerOrderContract(contract, {
+          partnerReference,
+          organizationReference,
+          effectiveAt,
+        });
+        logContractValidation(contract, validation, "stored_contract_fallback");
+        if (validation.valid) return this.mapContract(contract, 1);
+      }
+    }
+
+    return null;
   }
 
   async fetchPriceType(input: PartnerPriceTypeLookupInputDTO): Promise<PartnerPriceTypeDTO | null> {
@@ -266,6 +357,17 @@ export class OneCPartnerODataProvider implements PartnerProvider {
     throw new IntegrationValidationError("Invalid 1C OData record response.");
   }
 
+  private async getContractByReference(reference: string): Promise<OneCPartnerContractPayload | null> {
+    const payload = await this.client.get(
+      `${CONTRACTS_RESOURCE}(guid'${reference}')`,
+      { $select: CONTRACT_FIELDS },
+      { requestKind: "partner_contract_validation" },
+    );
+    if (isCollectionPayload<OneCPartnerContractPayload>(payload)) return payload.value[0] ?? null;
+    if (isRecord(payload)) return payload as OneCPartnerContractPayload;
+    throw new IntegrationValidationError("Invalid 1C contract record response.");
+  }
+
   private mapSearchResult(
     row: OneCNormalizedPartnerCompanyPayload,
   ): PartnerSearchResultDTO {
@@ -358,6 +460,62 @@ function contractBelongsToPartner(row: OneCPartnerContractPayload, reference: st
     owner.toLowerCase() === reference.toLowerCase() &&
     row.Owner_Type === "StandardODATA.Catalog_Контрагенты" &&
     isActiveContract(row);
+}
+
+function defaultRegisterRowMatches(
+  row: OneCDefaultPartnerContractPayload,
+  partnerReference: string,
+  organizationReference: string,
+): boolean {
+  const partner = parseRequiredOneCGuid(row["Контрагент_Key"]);
+  const organization = parseRequiredOneCGuid(row["Организация_Key"]);
+  return partner === partnerReference &&
+    organization === organizationReference &&
+    isCustomerContractType(row["ВидДоговора"]);
+}
+
+function validateCustomerOrderContract(
+  row: OneCPartnerContractPayload,
+  expected: { partnerReference: string; organizationReference: string; effectiveAt: number },
+): { valid: boolean; reason: string | null } {
+  const reference = parseRequiredOneCGuid(row.Ref_Key);
+  if (!reference) return { valid: false, reason: "invalid_reference" };
+  if (!isContractRow(row)) return { valid: false, reason: "invalid_shape" };
+  if (!contractBelongsToPartner(row, expected.partnerReference)) return { valid: false, reason: "counterparty_mismatch" };
+  if (parseRequiredOneCGuid(row["Организация_Key"]) !== expected.organizationReference) {
+    return { valid: false, reason: "organization_mismatch" };
+  }
+  if (!isCustomerContractType(row["ВидДоговора"])) return { valid: false, reason: "contract_type_mismatch" };
+  if (!isActiveContract(row)) return { valid: false, reason: "inactive" };
+  const contractDate = row["ДатаДоговора"]?.trim();
+  if (contractDate) {
+    const timestamp = Date.parse(contractDate);
+    if (!Number.isFinite(timestamp) || timestamp > expected.effectiveAt) {
+      return { valid: false, reason: "not_usable_on_effective_date" };
+    }
+  }
+  return { valid: true, reason: null };
+}
+
+function isCustomerContractType(value: unknown): boolean {
+  return typeof value === "string" && value.trim().toLocaleLowerCase("ru-RU").replaceAll(/[^а-яa-z]/g, "") === "спокупателем";
+}
+
+function logContractValidation(
+  contract: OneCPartnerContractPayload,
+  validation: { valid: boolean; reason: string | null },
+  source: "default_contract" | "stored_contract_fallback",
+): void {
+  console.info({
+    event: "one_c_default_customer_contract_resolution",
+    stage: "contract_validation",
+    source,
+    resolvedContractRef: contract.Ref_Key,
+    contractCode: contract.Code,
+    contractDescription: contract.Description,
+    validationResult: validation.valid ? "valid" : "invalid",
+    validationReason: validation.reason,
+  });
 }
 function isPriceTypeRow(value: unknown): value is OneCPartnerPriceTypePayload { return isRecord(value) && parseRequiredOneCGuid(value.Ref_Key) !== null && typeof value.Code === "string" && typeof value.Description === "string"; }
 function assertRows<T>(rows: unknown[], guard: (value: unknown) => value is T): asserts rows is T[] {

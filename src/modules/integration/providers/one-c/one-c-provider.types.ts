@@ -128,6 +128,13 @@ export type OneCPartnerContractPayload = {
   DeletionMark?: boolean;
 };
 
+export type OneCDefaultPartnerContractPayload = {
+  Организация_Key?: string | null;
+  Контрагент_Key?: string | null;
+  ВидДоговора?: string | null;
+  Договор_Key?: string | null;
+};
+
 export type OneCPartnerPriceTypePayload = {
   Ref_Key: string;
   Code: string;

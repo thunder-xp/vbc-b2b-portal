@@ -45,7 +45,9 @@ describe("OneCCustomerOrderProvider", () => {
     expect(payload).toMatchObject({ Posted: false, Автор_Key: "272a1ac4-0194-11eb-8975-000c29cf9dd4", ДатаОтгрузки: "2099-01-10", СуммаДокумента: 1314 });
     expect(payload).not.toHaveProperty("Ref_Key");
     expect(payload).not.toHaveProperty("Number");
-    expect(payload.Запасы[0]).toMatchObject({ Цена: 1314, Количество: 1, Сумма: 1314, Всего: 1314, СуммаНДС: 0, ТипНоменклатурыЗапас: true, Резерв: 0, РезервОтгрузка: 0 });
+    expect(payload.Запасы[0]).toMatchObject({ Цена: 1314, Количество: 1, Сумма: 1314, Всего: 1314, СуммаНДС: 0, ДатаОтгрузки: "2099-01-10", ТипНоменклатурыЗапас: true, Резерв: 0, РезервОтгрузка: 0 });
+    expect(payload).not.toHaveProperty("КалендарьОплаты");
+    expect(payload).not.toHaveProperty("ДатаОплаты");
     expect(Object.keys(payload.Запасы[0]!).sort()).toEqual([
       "ДатаОтгрузки", "ЕдиницаИзмерения", "ЕдиницаИзмерения_Type", "Количество", "КлючСвязи", "Номенклатура",
       "Номенклатура_Type", "Резерв", "РезервОтгрузка", "СтавкаНДС_Key", "СтруктурнаяЕдиницаРезерв_Key",

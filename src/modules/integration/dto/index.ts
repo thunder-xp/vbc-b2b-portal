@@ -25,6 +25,7 @@ export type {
   PartnerCompanyDTO,
   PartnerContractDTO,
   PartnerContractLookupInputDTO,
+  PartnerCustomerContractResolutionInputDTO,
   PartnerPriceTypeDTO,
   PartnerPriceTypeLookupInputDTO,
   PartnerSearchInputDTO,

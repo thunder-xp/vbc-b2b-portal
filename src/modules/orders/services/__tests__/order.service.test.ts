@@ -41,7 +41,7 @@ describe("DefaultPartnerOrderService", () => {
 
   it("blocks submission when the selected customer contract cannot be resolved", async () => {
     const dependencies = makeDependencies();
-    dependencies.partnerProvider.fetchPartnerContracts.mockResolvedValue({ items: [], nextCursor: null, sourceTimestamp: null });
+    dependencies.partnerProvider.resolveCustomerOrderContract.mockResolvedValue(null);
     await expect(dependencies.service.submit("user-1", input())).rejects.toBeInstanceOf(RecoverableOrderSubmissionError);
     expect(dependencies.orderProvider.exportSalesOrder).not.toHaveBeenCalled();
     expect(console.error).toHaveBeenCalledWith(expect.objectContaining({
@@ -52,7 +52,7 @@ describe("DefaultPartnerOrderService", () => {
 
   it("logs the original preflight exception at the exact failing stage", async () => {
     const dependencies = makeDependencies();
-    dependencies.partnerProvider.fetchPartnerContracts.mockRejectedValue(new Error("Contract lookup failed."));
+    dependencies.partnerProvider.resolveCustomerOrderContract.mockRejectedValue(new Error("Contract lookup failed."));
 
     await expect(dependencies.service.submit("user-1", input())).rejects.toBeInstanceOf(RecoverableOrderSubmissionError);
 
@@ -90,10 +90,16 @@ describe("DefaultPartnerOrderService", () => {
     expect(dependencies.orderProvider.exportSalesOrder).not.toHaveBeenCalled();
   });
 
-  it("resolves the sole active 1C contract when the company has no stored contract", async () => {
+  it("uses the default 1C customer contract when the company has no stored contract", async () => {
     const dependencies = makeDependencies();
     dependencies.company.external1cContractId = null;
     await dependencies.service.submit("user-1", input());
+    expect(dependencies.partnerProvider.resolveCustomerOrderContract).toHaveBeenCalledWith(expect.objectContaining({
+      partnerReference: "11111111-1111-4111-8111-111111111111",
+      organizationReference: "4643d461-aa49-4b70-9486-a59f80ee6af8",
+      storedContractReference: null,
+    }));
+    expect(dependencies.partnerProvider.fetchPartnerContracts).not.toHaveBeenCalled();
     expect(dependencies.orderProvider.exportSalesOrder).toHaveBeenCalledWith(expect.objectContaining({
       contractReference: expect.objectContaining({ externalId: "22222222-2222-4222-8222-222222222222" }),
     }));
@@ -138,6 +144,7 @@ function makeDependencies() {
   const pricingService = { getProductCommercialViews: vi.fn().mockResolvedValue([{ productId: "product-1", partnerPrice: { amount: 12.5, currencyCode: "USD", formattedAmount: "$12.50" }, stock: { exactAvailableQuantity: 5, expectedArrival: null } }]) };
   const partnerProvider = {
     fetchPartnerContracts: vi.fn().mockResolvedValue({ items: [{ reference: ref("22222222-2222-4222-8222-222222222222"), active: true, organizationReference: ref("4643d461-aa49-4b70-9486-a59f80ee6af8") }], nextCursor: null, sourceTimestamp: null }),
+    resolveCustomerOrderContract: vi.fn().mockResolvedValue({ reference: ref("22222222-2222-4222-8222-222222222222"), active: true, organizationReference: ref("4643d461-aa49-4b70-9486-a59f80ee6af8") }),
     fetchPriceType: vi.fn().mockResolvedValue({ active: true, currency: "44444444-4444-4444-8444-444444444444" }),
   };
   const orderProvider = { exportSalesOrder: vi.fn().mockResolvedValue({ orderReference: ref("77777777-7777-4777-8777-777777777777"), orderNumber: "NSUU-TEST", documentDate: "2026-07-13T20:17:30.000Z", status: "unposted", exportedAt: "2026-07-13T20:17:31.000Z" }) };

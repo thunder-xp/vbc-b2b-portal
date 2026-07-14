@@ -14,6 +14,7 @@ import { OneCProvider } from "../one-c-provider";
 
 const PARTNER_ID = "11111111-1111-4111-8111-111111111111";
 const CONTRACT_ID = "22222222-2222-4222-8222-222222222222";
+const ORGANIZATION_ID = "4643d461-aa49-4b70-9486-a59f80ee6af8";
 const PRICE_TYPE_ID = "33333333-3333-4333-8333-333333333333";
 const FALLBACK_PRICE_TYPE_ID = "44444444-4444-4444-8444-444444444444";
 const NON_RFC_PARTNER_ID = "18e36ea4-f68f-11f0-4393-7239d3b7bd5c";
@@ -263,6 +264,79 @@ describe("1C OData partner provider", () => {
     });
   });
 
+  it("resolves the organization-scoped default customer contract from the register", async () => {
+    const infoSpy = vi.spyOn(console, "info").mockImplementation(() => undefined);
+    const fetchMock = sequence(
+      collection([defaultContractRow()]),
+      record(customerContractRow()),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await provider().partners.resolveCustomerOrderContract(contractResolutionInput());
+
+    expect(result?.reference.externalId).toBe(CONTRACT_ID);
+    expect(result).toMatchObject({ code: "C-001", name: "Main contract", active: true });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const registerUrl = fetchMock.mock.calls[0]?.[0] as URL;
+    expect(decodeURIComponent(registerUrl.pathname)).toContain(ONE_C_RESOURCES.defaultPartnerContracts);
+    expect(registerUrl.searchParams.get("$select")).toBe([
+      "Организация_Key", "Контрагент_Key", "ВидДоговора", "Договор_Key",
+    ].join(","));
+    expect(registerUrl.searchParams.get("$filter")).toBeNull();
+    expect(registerUrl.searchParams.get("$top")).toBeNull();
+    expect(registerUrl.searchParams.get("$skip")).toBeNull();
+    expect(infoSpy).toHaveBeenCalledWith(expect.objectContaining({
+      event: "one_c_default_customer_contract_resolution",
+      stage: "contract_validation",
+      source: "default_contract",
+      resolvedContractRef: CONTRACT_ID,
+      validationResult: "valid",
+    }));
+  });
+
+  it.each([
+    ["another organization", { Организация_Key: "99999999-9999-4999-8999-999999999999" }],
+    ["another contract type", { ВидДоговора: "С поставщиком" }],
+    ["a zero contract reference", { Договор_Key: "00000000-0000-0000-0000-000000000000" }],
+  ])("ignores default register rows for %s", async (_case, overrides) => {
+    const fetchMock = sequence(collection([{ ...defaultContractRow(), ...overrides }]));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(provider().partners.resolveCustomerOrderContract(contractResolutionInput())).resolves.toBeNull();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects a deleted referenced catalog contract", async () => {
+    vi.spyOn(console, "info").mockImplementation(() => undefined);
+    vi.stubGlobal("fetch", sequence(
+      collection([defaultContractRow()]),
+      record({ ...customerContractRow(), DeletionMark: true }),
+    ));
+
+    await expect(provider().partners.resolveCustomerOrderContract(contractResolutionInput())).resolves.toBeNull();
+  });
+
+  it("uses a validated stored contract only after the default register has no match", async () => {
+    const fetchMock = sequence(collection([]), record(customerContractRow()));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await provider().partners.resolveCustomerOrderContract({
+      ...contractResolutionInput(),
+      storedContractReference: CONTRACT_ID,
+    });
+
+    expect(result?.reference.externalId).toBe(CONTRACT_ID);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("never selects an arbitrary active catalog contract", async () => {
+    const fetchMock = sequence(collection([]), record(customerContractRow()));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(provider().partners.resolveCustomerOrderContract(contractResolutionInput())).resolves.toBeNull();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it("filters contracts locally by owner, owner type, and active state", async () => {
     vi.stubGlobal("fetch", sequence(collection([
       { ...contractRow(), ВидЦенКонтрагента_Key: "00000000-0000-0000-0000-000000000000", ВидЦен_Key: FALLBACK_PRICE_TYPE_ID },
@@ -396,4 +470,7 @@ function sequence(...responses: Response[]) { return vi.fn().mockImplementation(
 function odataError(status: number): Response { return new Response(JSON.stringify({ "odata.error": { code: "-1", message: { lang: "ru", value: "not exposed" } } }), { status, headers: { "content-type": "application/json;charset=utf-8" } }); }
 function partnerRow() { return { Ref_Key: PARTNER_ID, Code: "000152", Description: "Partner Company", НаименованиеПолное: "Partner Company SRL", ИНН: "1018600013048", Покупатель: true, Поставщик: false, Недействителен: false, DeletionMark: false }; }
 function contractRow() { return { Ref_Key: CONTRACT_ID, Code: "C-001", Description: "Main contract", Owner: PARTNER_ID, Owner_Type: "StandardODATA.Catalog_Контрагенты", НомерДоговора: "001", ДатаДоговора: "2026-01-01", ВидДоговора: "Buyer", ВидЦенКонтрагента_Key: PRICE_TYPE_ID, ВидЦен_Key: FALLBACK_PRICE_TYPE_ID, Организация_Key: null, Недействителен: false, DeletionMark: false }; }
+function customerContractRow() { return { ...contractRow(), ВидДоговора: "С покупателем", Организация_Key: ORGANIZATION_ID }; }
+function defaultContractRow() { return { Организация_Key: ORGANIZATION_ID, Контрагент_Key: PARTNER_ID, ВидДоговора: "С покупателем", Договор_Key: CONTRACT_ID }; }
+function contractResolutionInput() { return { partnerReference: PARTNER_ID, organizationReference: ORGANIZATION_ID, effectiveAt: "2026-07-14T00:00:00.000Z" }; }
 function priceTypeRow(reference = PRICE_TYPE_ID) { return { Ref_Key: reference, Code: "PT-1", Description: "Distributor", ВалютаЦены_Key: "MDL", ЦенаВключаетНДС: true, ТипВидаЦен: "Wholesale", ЦеныАктуальны: true, DeletionMark: false }; }
