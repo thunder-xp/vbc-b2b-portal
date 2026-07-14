@@ -124,6 +124,7 @@ export type OneCPartnerContractPayload = {
   ВидЦен_Key?: string | null;
   ВидЦенКонтрагента_Key?: string | null;
   Организация_Key?: string | null;
+  ДоговорПодписан?: boolean | null;
   Недействителен?: boolean;
   DeletionMark?: boolean;
 };

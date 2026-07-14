@@ -97,7 +97,6 @@ describe("DefaultPartnerOrderService", () => {
     expect(dependencies.partnerProvider.resolveCustomerOrderContract).toHaveBeenCalledWith(expect.objectContaining({
       partnerReference: "11111111-1111-4111-8111-111111111111",
       organizationReference: "4643d461-aa49-4b70-9486-a59f80ee6af8",
-      storedContractReference: null,
     }));
     expect(dependencies.partnerProvider.fetchPartnerContracts).not.toHaveBeenCalled();
     expect(dependencies.orderProvider.exportSalesOrder).toHaveBeenCalledWith(expect.objectContaining({

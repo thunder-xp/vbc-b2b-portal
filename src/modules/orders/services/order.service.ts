@@ -135,7 +135,6 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
           () => this.partnerProvider.resolveCustomerOrderContract({
             partnerReference: counterpartyRef,
             organizationReference: NOVOTECH_ORGANIZATION_REF,
-            storedContractReference: company.external1cContractId ?? null,
             effectiveAt: new Date().toISOString(),
           }),
           {
@@ -143,7 +142,6 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
             companyId: company.id,
             counterpartyRef,
             organizationRef: NOVOTECH_ORGANIZATION_REF,
-            storedContractRef: company.external1cContractId ?? null,
             submissionKey,
           },
         ),
@@ -174,7 +172,6 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
           cartId: cart.id,
           companyId: company.id,
           counterpartyRef,
-          storedContractRef: company.external1cContractId ?? null,
           submissionKey,
         },
       );

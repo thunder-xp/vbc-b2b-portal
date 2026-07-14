@@ -49,6 +49,7 @@ describe("1C OData identifiers", () => {
       "ВидЦен_Key",
       "ВидЦенКонтрагента_Key",
       "Организация_Key",
+      "ДоговорПодписан",
     ]));
     expect(ONE_C_PRICE_TYPE_FIELDS).toEqual(expect.arrayContaining([
       "ВалютаЦены_Key",

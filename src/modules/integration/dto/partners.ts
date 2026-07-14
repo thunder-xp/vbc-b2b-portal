@@ -32,7 +32,6 @@ export type PartnerContractLookupInputDTO = {
 export type PartnerCustomerContractResolutionInputDTO = {
   partnerReference: string;
   organizationReference: string;
-  storedContractReference?: string | null;
   effectiveAt: string;
 };
 

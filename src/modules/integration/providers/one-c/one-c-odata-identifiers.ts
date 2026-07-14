@@ -37,6 +37,7 @@ export const ONE_C_CONTRACT_FIELDS = [
   "ВидЦен_Key",
   "ВидЦенКонтрагента_Key",
   "Организация_Key",
+  "ДоговорПодписан",
   "Недействителен",
   "DeletionMark",
 ] as const;

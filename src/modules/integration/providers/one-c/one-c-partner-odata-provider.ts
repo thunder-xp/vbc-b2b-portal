@@ -167,9 +167,6 @@ export class OneCPartnerODataProvider implements PartnerProvider {
   ): Promise<PartnerContractDTO | null> {
     const partnerReference = requireUuid(input.partnerReference, "Partner reference");
     const organizationReference = requireUuid(input.organizationReference, "Organization reference");
-    const storedContractReference = input.storedContractReference
-      ? requireUuid(input.storedContractReference, "Stored contract reference")
-      : null;
     const effectiveAt = Date.parse(input.effectiveAt);
     if (!Number.isFinite(effectiveAt)) {
       throw new IntegrationValidationError("Contract effective date is invalid.");
@@ -179,7 +176,8 @@ export class OneCPartnerODataProvider implements PartnerProvider {
       const row = {
         ...mockContracts[0]!,
         Организация_Key: organizationReference,
-        ВидДоговора: "С покупателем",
+        ВидДоговора: "СПокупателем",
+        ДоговорПодписан: true,
         ДатаДоговора: "2020-01-01T00:00:00",
       };
       return validateCustomerOrderContract(row, {
@@ -191,7 +189,10 @@ export class OneCPartnerODataProvider implements PartnerProvider {
 
     const registerRows = await this.getCollection<OneCDefaultPartnerContractPayload>(
       DEFAULT_CONTRACTS_RESOURCE,
-      { $select: DEFAULT_CONTRACT_FIELDS },
+      {
+        $filter: buildDefaultCustomerContractFilter(partnerReference, organizationReference),
+        $select: DEFAULT_CONTRACT_FIELDS,
+      },
       "partner_default_contract_register",
     );
     const matchingRows = registerRows.filter((row) => defaultRegisterRowMatches(
@@ -229,19 +230,6 @@ export class OneCPartnerODataProvider implements PartnerProvider {
         });
         logContractValidation(contract, validation, "default_contract");
         if (validation.valid) return this.mapContract(contract, 0);
-      }
-    }
-
-    if (storedContractReference) {
-      const contract = await this.getContractByReference(storedContractReference);
-      if (contract) {
-        const validation = validateCustomerOrderContract(contract, {
-          partnerReference,
-          organizationReference,
-          effectiveAt,
-        });
-        logContractValidation(contract, validation, "stored_contract_fallback");
-        if (validation.valid) return this.mapContract(contract, 1);
       }
     }
 
@@ -474,6 +462,13 @@ function defaultRegisterRowMatches(
     isCustomerContractType(row["ВидДоговора"]);
 }
 
+function buildDefaultCustomerContractFilter(
+  partnerReference: string,
+  organizationReference: string,
+): string {
+  return `Контрагент_Key eq guid'${partnerReference}' and Организация_Key eq guid'${organizationReference}' and ВидДоговора eq 'СПокупателем'`;
+}
+
 function validateCustomerOrderContract(
   row: OneCPartnerContractPayload,
   expected: { partnerReference: string; organizationReference: string; effectiveAt: number },
@@ -486,6 +481,7 @@ function validateCustomerOrderContract(
     return { valid: false, reason: "organization_mismatch" };
   }
   if (!isCustomerContractType(row["ВидДоговора"])) return { valid: false, reason: "contract_type_mismatch" };
+  if (row["ДоговорПодписан"] !== true) return { valid: false, reason: "unsigned" };
   if (!isActiveContract(row)) return { valid: false, reason: "inactive" };
   const contractDate = row["ДатаДоговора"]?.trim();
   if (contractDate) {
@@ -504,7 +500,7 @@ function isCustomerContractType(value: unknown): boolean {
 function logContractValidation(
   contract: OneCPartnerContractPayload,
   validation: { valid: boolean; reason: string | null },
-  source: "default_contract" | "stored_contract_fallback",
+  source: "default_contract",
 ): void {
   console.info({
     event: "one_c_default_customer_contract_resolution",
@@ -512,6 +508,7 @@ function logContractValidation(
     source,
     resolvedContractRef: contract.Ref_Key,
     contractCode: contract.Code,
+    contractNumber: contract["НомерДоговора"] ?? null,
     contractDescription: contract.Description,
     validationResult: validation.valid ? "valid" : "invalid",
     validationReason: validation.reason,

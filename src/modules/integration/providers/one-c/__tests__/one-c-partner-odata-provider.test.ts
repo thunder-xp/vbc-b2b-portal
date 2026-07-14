@@ -282,7 +282,9 @@ describe("1C OData partner provider", () => {
     expect(registerUrl.searchParams.get("$select")).toBe([
       "Организация_Key", "Контрагент_Key", "ВидДоговора", "Договор_Key",
     ].join(","));
-    expect(registerUrl.searchParams.get("$filter")).toBeNull();
+    expect(registerUrl.searchParams.get("$filter")).toBe(
+      `Контрагент_Key eq guid'${PARTNER_ID}' and Организация_Key eq guid'${ORGANIZATION_ID}' and ВидДоговора eq 'СПокупателем'`,
+    );
     expect(registerUrl.searchParams.get("$top")).toBeNull();
     expect(registerUrl.searchParams.get("$skip")).toBeNull();
     expect(infoSpy).toHaveBeenCalledWith(expect.objectContaining({
@@ -316,17 +318,22 @@ describe("1C OData partner provider", () => {
     await expect(provider().partners.resolveCustomerOrderContract(contractResolutionInput())).resolves.toBeNull();
   });
 
-  it("uses a validated stored contract only after the default register has no match", async () => {
-    const fetchMock = sequence(collection([]), record(customerContractRow()));
+  it("requires exactly one matching default register row", async () => {
+    const fetchMock = sequence(collection([defaultContractRow(), defaultContractRow()]));
     vi.stubGlobal("fetch", fetchMock);
 
-    const result = await provider().partners.resolveCustomerOrderContract({
-      ...contractResolutionInput(),
-      storedContractReference: CONTRACT_ID,
-    });
+    await expect(provider().partners.resolveCustomerOrderContract(contractResolutionInput())).resolves.toBeNull();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
 
-    expect(result?.reference.externalId).toBe(CONTRACT_ID);
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+  it("rejects an unsigned referenced catalog contract", async () => {
+    vi.spyOn(console, "info").mockImplementation(() => undefined);
+    vi.stubGlobal("fetch", sequence(
+      collection([defaultContractRow()]),
+      record({ ...customerContractRow(), ДоговорПодписан: false }),
+    ));
+
+    await expect(provider().partners.resolveCustomerOrderContract(contractResolutionInput())).resolves.toBeNull();
   });
 
   it("never selects an arbitrary active catalog contract", async () => {
@@ -470,7 +477,7 @@ function sequence(...responses: Response[]) { return vi.fn().mockImplementation(
 function odataError(status: number): Response { return new Response(JSON.stringify({ "odata.error": { code: "-1", message: { lang: "ru", value: "not exposed" } } }), { status, headers: { "content-type": "application/json;charset=utf-8" } }); }
 function partnerRow() { return { Ref_Key: PARTNER_ID, Code: "000152", Description: "Partner Company", НаименованиеПолное: "Partner Company SRL", ИНН: "1018600013048", Покупатель: true, Поставщик: false, Недействителен: false, DeletionMark: false }; }
 function contractRow() { return { Ref_Key: CONTRACT_ID, Code: "C-001", Description: "Main contract", Owner: PARTNER_ID, Owner_Type: "StandardODATA.Catalog_Контрагенты", НомерДоговора: "001", ДатаДоговора: "2026-01-01", ВидДоговора: "Buyer", ВидЦенКонтрагента_Key: PRICE_TYPE_ID, ВидЦен_Key: FALLBACK_PRICE_TYPE_ID, Организация_Key: null, Недействителен: false, DeletionMark: false }; }
-function customerContractRow() { return { ...contractRow(), ВидДоговора: "С покупателем", Организация_Key: ORGANIZATION_ID }; }
-function defaultContractRow() { return { Организация_Key: ORGANIZATION_ID, Контрагент_Key: PARTNER_ID, ВидДоговора: "С покупателем", Договор_Key: CONTRACT_ID }; }
+function customerContractRow() { return { ...contractRow(), ВидДоговора: "СПокупателем", Организация_Key: ORGANIZATION_ID, ДоговорПодписан: true }; }
+function defaultContractRow() { return { Организация_Key: ORGANIZATION_ID, Контрагент_Key: PARTNER_ID, ВидДоговора: "СПокупателем", Договор_Key: CONTRACT_ID }; }
 function contractResolutionInput() { return { partnerReference: PARTNER_ID, organizationReference: ORGANIZATION_ID, effectiveAt: "2026-07-14T00:00:00.000Z" }; }
 function priceTypeRow(reference = PRICE_TYPE_ID) { return { Ref_Key: reference, Code: "PT-1", Description: "Distributor", ВалютаЦены_Key: "MDL", ЦенаВключаетНДС: true, ТипВидаЦен: "Wholesale", ЦеныАктуальны: true, DeletionMark: false }; }
