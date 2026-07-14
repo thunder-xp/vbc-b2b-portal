@@ -27,6 +27,15 @@ export class OneCCustomerOrderProvider implements OrderProvider {
     }
     const url = new URL(`${baseUrl.replace(/\/$/, "")}/${CUSTOMER_ORDER_RESOURCE}`);
     url.searchParams.set("$format", "json");
+    const payload = buildOneCCustomerOrderPayload(order);
+
+    console.info({
+      event: "one_c_customer_order_request",
+      stage: "one_c_http_request",
+      resource: CUSTOMER_ORDER_RESOURCE,
+      submissionKey: order.portalOrderReference,
+      payload,
+    });
 
     let response: Response;
     try {
@@ -37,15 +46,35 @@ export class OneCCustomerOrderProvider implements OrderProvider {
           "Content-Type": "application/json; charset=utf-8",
           Authorization: `Basic ${Buffer.from(`${username}:${password}`, "utf8").toString("base64")}`,
         },
-        body: JSON.stringify(buildOneCCustomerOrderPayload(order)),
+        body: JSON.stringify(payload),
         signal: AbortSignal.timeout(this.config.requestTimeoutMs),
       });
     } catch (error) {
+      console.error({
+        event: "one_c_customer_order_failed",
+        stage: "one_c_http_request",
+        resource: CUSTOMER_ORDER_RESOURCE,
+        submissionKey: order.portalOrderReference,
+        errorType: error instanceof Error ? error.name : typeof error,
+        errorMessage: error instanceof Error ? error.message : null,
+      });
       if (error instanceof Error && (error.name === "AbortError" || error.name === "TimeoutError")) {
         throw new IntegrationTimeoutError("1C customer order creation timed out.");
       }
       throw new IntegrationProviderUnavailableError("1C customer order creation is unavailable.");
     }
+
+    const responseBody = await response.text();
+    const responseDiagnostic = {
+      event: "one_c_customer_order_response",
+      stage: "one_c_http_response",
+      resource: CUSTOMER_ORDER_RESOURCE,
+      submissionKey: order.portalOrderReference,
+      httpStatus: response.status,
+      responseBody,
+    };
+    if (response.ok) console.info(responseDiagnostic);
+    else console.error(responseDiagnostic);
 
     if (response.status === 401) throw new IntegrationUnauthorizedError();
     if (response.status === 403) throw new IntegrationForbiddenError();
@@ -54,11 +83,27 @@ export class OneCCustomerOrderProvider implements OrderProvider {
 
     let value: unknown;
     try {
-      value = await response.json();
+      value = JSON.parse(responseBody);
     } catch {
+      console.error({
+        event: "one_c_customer_order_failed",
+        stage: "one_c_response_validation",
+        resource: CUSTOMER_ORDER_RESOURCE,
+        submissionKey: order.portalOrderReference,
+        httpStatus: response.status,
+        responseBody,
+      });
       throw new IntegrationValidationError("1C returned an invalid customer order response.");
     }
     if (!isCreatedOrderResponse(value) || value.Posted === true) {
+      console.error({
+        event: "one_c_customer_order_failed",
+        stage: "one_c_response_validation",
+        resource: CUSTOMER_ORDER_RESOURCE,
+        submissionKey: order.portalOrderReference,
+        httpStatus: response.status,
+        responseBody,
+      });
       throw new IntegrationValidationError("1C returned an invalid customer order response.");
     }
 

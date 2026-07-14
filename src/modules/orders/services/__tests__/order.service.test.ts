@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { IntegrationHttpError } from "../../../integration/errors";
 import type { PartnerOrderRepository } from "../../repositories";
@@ -9,6 +9,13 @@ import { OrderReconciliationRequiredError, OrderSubmissionInProgressError, Recov
 const SUBMISSION_KEY = "55555555-5555-4555-8555-555555555555";
 
 describe("DefaultPartnerOrderService", () => {
+  beforeEach(() => {
+    vi.spyOn(console, "info").mockImplementation(() => undefined);
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+  });
+
+  afterEach(() => vi.restoreAllMocks());
+
   it("reloads current prices, snapshots them, exports once, and persists the returned 1C identity", async () => {
     const dependencies = makeDependencies();
     const result = await dependencies.service.submit("user-1", input());
@@ -36,6 +43,27 @@ describe("DefaultPartnerOrderService", () => {
     const dependencies = makeDependencies();
     dependencies.partnerProvider.fetchPartnerContracts.mockResolvedValue({ items: [], nextCursor: null, sourceTimestamp: null });
     await expect(dependencies.service.submit("user-1", input())).rejects.toBeInstanceOf(RecoverableOrderSubmissionError);
+    expect(dependencies.orderProvider.exportSalesOrder).not.toHaveBeenCalled();
+    expect(console.error).toHaveBeenCalledWith(expect.objectContaining({
+      event: "partner_order_submission_failed",
+      stage: "contract_resolution",
+    }));
+  });
+
+  it("logs the original preflight exception at the exact failing stage", async () => {
+    const dependencies = makeDependencies();
+    dependencies.partnerProvider.fetchPartnerContracts.mockRejectedValue(new Error("Contract lookup failed."));
+
+    await expect(dependencies.service.submit("user-1", input())).rejects.toBeInstanceOf(RecoverableOrderSubmissionError);
+
+    expect(console.error).toHaveBeenCalledWith(expect.objectContaining({
+      event: "partner_order_submission_failed",
+      stage: "contract_resolution",
+      errorType: "Error",
+      errorName: "Error",
+      errorMessage: "Contract lookup failed.",
+    }));
+    expect(dependencies.orderRepository.beginSubmission).not.toHaveBeenCalled();
     expect(dependencies.orderProvider.exportSalesOrder).not.toHaveBeenCalled();
   });
 

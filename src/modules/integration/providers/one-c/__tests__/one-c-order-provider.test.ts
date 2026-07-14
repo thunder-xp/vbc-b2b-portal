@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { SalesOrderDTO } from "../../../dto";
+import { IntegrationHttpError } from "../../../errors";
 import { OneCProvider } from "../one-c-provider";
 import { buildOneCCustomerOrderPayload } from "../one-c-order-provider";
 
@@ -27,7 +28,10 @@ const order: SalesOrderDTO = {
   comment: "Portal test", metadata: null,
 };
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+});
 
 describe("OneCCustomerOrderProvider", () => {
   it("builds only the explicit unposted customer-order payload", () => {
@@ -56,6 +60,7 @@ describe("OneCCustomerOrderProvider", () => {
   });
 
   it("posts JSON and returns the validated unposted 1C identity", async () => {
+    vi.spyOn(console, "info").mockImplementation(() => undefined);
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
       Ref_Key: "77777777-7777-4777-8777-777777777777", Number: "NSUU-TEST", Date: "2026-07-13T20:17:30", Posted: false,
     }), { status: 200, headers: { "Content-Type": "application/json" } }));
@@ -70,6 +75,33 @@ describe("OneCCustomerOrderProvider", () => {
     expect(init.method).toBe("POST");
     expect(JSON.parse(String(init.body))).toMatchObject({ Posted: false, Автор_Key: "272a1ac4-0194-11eb-8975-000c29cf9dd4" });
     expect(result).toMatchObject({ orderNumber: "NSUU-TEST", status: "unposted", orderReference: { externalId: "77777777-7777-4777-8777-777777777777" } });
+  });
+
+  it("logs the exact safe HTTP status and response body before rejecting the request", async () => {
+    const responseBody = JSON.stringify({ "odata.error": { code: "-1", message: { value: "Invalid field" } } });
+    const errorLog = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const infoLog = vi.spyOn(console, "info").mockImplementation(() => undefined);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(responseBody, {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    })));
+    const provider = new OneCProvider({ baseUrl: "https://erp.example/odata", username: "user", password: "secret", requestTimeoutMs: 10000 });
+
+    await expect(provider.orders.exportSalesOrder(order)).rejects.toBeInstanceOf(IntegrationHttpError);
+
+    expect(errorLog).toHaveBeenCalledWith(expect.objectContaining({
+      event: "one_c_customer_order_response",
+      stage: "one_c_http_response",
+      httpStatus: 400,
+      responseBody,
+    }));
+    expect(infoLog).toHaveBeenCalledWith(expect.objectContaining({
+      event: "one_c_customer_order_request",
+      stage: "one_c_http_request",
+      payload: expect.objectContaining({ Posted: false, Запасы: expect.any(Array) }),
+    }));
+    expect(JSON.stringify(infoLog.mock.calls)).not.toContain("secret");
+    expect(JSON.stringify(errorLog.mock.calls)).not.toContain("Authorization");
   });
 });
 

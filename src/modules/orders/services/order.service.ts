@@ -64,11 +64,34 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
       throw new RecoverableOrderSubmissionError();
     }
 
-    const context = await this.resolveContext(userId);
+    const context = await diagnosticStep(
+      "active_company_resolution",
+      () => this.resolveContext(userId),
+      { submissionKey },
+    );
     const company = context.company;
+    console.info({
+      event: "partner_order_submission_diagnostic",
+      stage: "active_company_resolution",
+      submissionKey,
+      companyId: company.id,
+      companyName: company.displayName,
+    });
     if (!isUuid(company.external1cId) || !isUuid(company.external1cPriceTypeId)) {
-      throw new RecoverableOrderSubmissionError("The partner company is not fully linked to 1C.");
+      failOrderSubmission(
+        "counterparty_mapping",
+        new RecoverableOrderSubmissionError("The partner company is not fully linked to 1C."),
+        {
+          submissionKey,
+          companyId: company.id,
+          companyName: company.displayName,
+          counterpartyRef: company.external1cId,
+          priceTypeRef: company.external1cPriceTypeId,
+        },
+      );
     }
+    const counterpartyRef = company.external1cId;
+    const companyPriceTypeRef = company.external1cPriceTypeId;
     const cart = await this.cartRepository.findActive(company.id, userId);
     if (!cart) throw new RecoverableOrderSubmissionError("The active cart is not available.");
     if (cart.status === CartStatus.Submitting) {
@@ -81,24 +104,104 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
     }
     const cartItems = await this.cartRepository.listItems(cart.id);
     if (!cartItems.length) throw new RecoverableOrderSubmissionError("The cart is empty.");
+    console.info({
+      event: "partner_order_submission_diagnostic",
+      stage: "cart_resolution",
+      cartId: cart.id,
+      cartStatus: cart.status,
+      companyId: company.id,
+      submissionKey,
+      positionCount: cartItems.length,
+      totalUnitCount: cartItems.reduce((sum, item) => sum + item.quantity, 0),
+    });
 
     const productIds = cartItems.map((item) => item.productId);
     let resolvedInputs;
     try {
       resolvedInputs = await Promise.all([
-        this.catalogService.getProductOrderIdentities(userId, productIds),
-        this.pricingInventoryService.getProductCommercialViews(userId, productIds),
-        this.partnerProvider.fetchPartnerContracts({ partnerReference: company.external1cId }),
-        this.partnerProvider.fetchPriceType({ reference: company.external1cPriceTypeId }),
+        diagnosticStep(
+          "product_reference_resolution",
+          () => this.catalogService.getProductOrderIdentities(userId, productIds),
+          { cartId: cart.id, companyId: company.id, submissionKey },
+        ),
+        diagnosticStep(
+          "partner_price_resolution",
+          () => this.pricingInventoryService.getProductCommercialViews(userId, productIds),
+          { cartId: cart.id, companyId: company.id, submissionKey },
+        ),
+        diagnosticStep(
+          "contract_resolution",
+          () => this.partnerProvider.fetchPartnerContracts({ partnerReference: counterpartyRef }),
+          { cartId: cart.id, companyId: company.id, counterpartyRef, submissionKey },
+        ),
+        diagnosticStep(
+          "price_type_currency_resolution",
+          () => this.partnerProvider.fetchPriceType({ reference: companyPriceTypeRef }),
+          { cartId: cart.id, companyId: company.id, priceTypeRef: companyPriceTypeRef, submissionKey },
+        ),
       ]);
     } catch (error) {
-      console.error({ event: "partner_order_preflight_failed", cartId: cart.id, cartStatus: cart.status, submissionKey, errorType: error instanceof Error ? error.name : typeof error });
+      console.error({
+        event: "partner_order_preflight_failed",
+        stage: "preflight",
+        cartId: cart.id,
+        cartStatus: cart.status,
+        companyId: company.id,
+        submissionKey,
+        ...diagnosticError(error),
+      });
       throw new RecoverableOrderSubmissionError("Order preflight validation failed.");
     }
     const [identities, commercialViews, contracts, priceType] = resolvedInputs;
     const contract = resolveCustomerContract(contracts.items, company.external1cContractId);
-    if (!contract?.organizationReference) throw new RecoverableOrderSubmissionError("The active 1C customer contract is unavailable.");
-    if (!priceType?.active || !priceType.currency) throw new RecoverableOrderSubmissionError("The active 1C price type or currency is unavailable.");
+    if (!contract) {
+      failOrderSubmission(
+        "contract_resolution",
+        new RecoverableOrderSubmissionError("The active 1C customer contract is unavailable."),
+        {
+          cartId: cart.id,
+          companyId: company.id,
+          counterpartyRef,
+          storedContractRef: company.external1cContractId ?? null,
+          activeContractCount: contracts.items.filter((item) => item.active).length,
+          submissionKey,
+        },
+      );
+    }
+    if (!contract.organizationReference) {
+      failOrderSubmission(
+        "organization_resolution",
+        new RecoverableOrderSubmissionError("The active 1C customer contract has no organization."),
+        { cartId: cart.id, companyId: company.id, contractRef: contract.reference.externalId, submissionKey },
+      );
+    }
+    if (!priceType?.active || !priceType.currency) {
+      failOrderSubmission(
+        "price_type_currency_resolution",
+        new RecoverableOrderSubmissionError("The active 1C price type or currency is unavailable."),
+        {
+          cartId: cart.id,
+          companyId: company.id,
+          priceTypeRef: companyPriceTypeRef,
+          priceTypeActive: priceType?.active ?? null,
+          currencyRef: priceType?.currency ?? null,
+          submissionKey,
+        },
+      );
+    }
+    console.info({
+      event: "partner_order_submission_diagnostic",
+      stage: "commercial_mapping_resolved",
+      cartId: cart.id,
+      companyId: company.id,
+      companyName: company.displayName,
+      counterpartyRef,
+      contractRef: contract.reference.externalId,
+      organizationRef: contract.organizationReference.externalId,
+      priceTypeRef: companyPriceTypeRef,
+      currencyRef: priceType.currency,
+      submissionKey,
+    });
 
     const identitiesById = new Map(identities.map((item) => [item.id, item]));
     const viewsById = new Map(commercialViews.map((item) => [item.productId, item]));
@@ -106,8 +209,20 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
       const identity = identitiesById.get(item.productId);
       const view = viewsById.get(item.productId);
       const price = view?.partnerPrice;
-      if (!identity || !isUuid(identity.external1cId)) throw new RecoverableOrderSubmissionError("A cart product is not linked to 1C.");
-      if (!price || !price.currencyCode || !Number.isFinite(price.amount) || price.amount <= 0) throw new RecoverableOrderSubmissionError("A current partner price is unavailable.");
+      if (!identity || !isUuid(identity.external1cId)) {
+        failOrderSubmission(
+          "product_reference_resolution",
+          new RecoverableOrderSubmissionError("A cart product is not linked to 1C."),
+          { cartId: cart.id, companyId: company.id, productId: item.productId, sku: identity?.sku ?? null, submissionKey },
+        );
+      }
+      if (!price || !price.currencyCode || !Number.isFinite(price.amount) || price.amount <= 0) {
+        failOrderSubmission(
+          "partner_price_resolution",
+          new RecoverableOrderSubmissionError("A current partner price is unavailable."),
+          { cartId: cart.id, companyId: company.id, productId: item.productId, sku: identity.sku, product1cRef: identity.external1cId, submissionKey },
+        );
+      }
       const lineTotal = roundMoney(price.amount * item.quantity);
       return {
         productId: item.productId, externalProductRef: identity.external1cId,
@@ -121,16 +236,39 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
     });
     const currencyCodes = [...new Set(snapshots.map((item) => item.currencyCode))];
     if (currencyCodes.length !== 1) throw new RecoverableOrderSubmissionError("Cart prices use incompatible currencies.");
+    console.info({
+      event: "partner_order_submission_diagnostic",
+      stage: "order_lines_resolved",
+      cartId: cart.id,
+      companyId: company.id,
+      submissionKey,
+      items: snapshots.map((item) => ({
+        sku: item.sku,
+        product1cRef: item.externalProductRef,
+        quantity: item.quantity,
+        partnerUnitPrice: item.partnerUnitPrice,
+        lineTotal: item.lineTotal,
+        currencyCode: item.currencyCode,
+      })),
+    });
 
     const salesOrder = buildSalesOrder({
-      submissionKey, deliveryDate, companyRef: company.external1cId,
-      contractRef: contract.reference.externalId, priceTypeRef: company.external1cPriceTypeId,
+      submissionKey, deliveryDate, companyRef: counterpartyRef,
+      contractRef: contract.reference.externalId, priceTypeRef: companyPriceTypeRef,
       organizationReference: contract.organizationReference, currencyRef: priceType.currency,
       currencyCode: currencyCodes[0]!, snapshots,
     });
     const attemptId = crypto.randomUUID();
     let order;
     try {
+      console.info({
+        event: "partner_order_submission_diagnostic",
+        stage: "idempotency_acquisition",
+        cartId: cart.id,
+        companyId: company.id,
+        submissionKey,
+        submissionAttemptId: attemptId,
+      });
       order = await this.orderRepository.beginSubmission({
         cartId: cart.id, submissionKey, submissionAttemptId: attemptId,
         requestedDeliveryDate: deliveryDate, payloadSnapshot: toJsonRecord(salesOrder), items: snapshots,
@@ -139,6 +277,16 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
       console.error({ event: "partner_order_transition_rejected", cartId: cart.id, cartStatus: cart.status, submissionKey, transition: "active_to_submitting", repositoryErrorCode: error instanceof OrderRepositoryError ? error.code : null, repositoryErrorMessage: error instanceof OrderRepositoryError ? error.databaseMessage : null });
       throw new RecoverableOrderSubmissionError("Order submission state transition failed.");
     }
+    console.info({
+      event: "partner_order_submission_diagnostic",
+      stage: "idempotency_acquired",
+      cartId: cart.id,
+      companyId: company.id,
+      submissionKey,
+      submissionAttemptId: attemptId,
+      orderId: order.id,
+      orderStatus: order.status,
+    });
     if (order.submissionAttemptId !== attemptId) {
       if (order.status === PartnerOrderStatus.Submitted) return order;
       logRejectedTransition(cart.id, cart.status, submissionKey, order, "submission_attempt_not_owned");
@@ -151,6 +299,15 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
     try {
       exported = await this.orderProvider.exportSalesOrder(salesOrder);
     } catch (error) {
+      console.error({
+        event: "partner_order_submission_failed",
+        stage: "one_c_order_export",
+        cartId: cart.id,
+        companyId: company.id,
+        submissionKey,
+        orderId: order.id,
+        ...diagnosticError(error),
+      });
       const ambiguous = error instanceof IntegrationTimeoutError || error instanceof IntegrationProviderUnavailableError;
       await this.orderRepository.failSubmission({
         orderId: order.id,
@@ -163,11 +320,34 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
     }
 
     try {
-      return await this.orderRepository.completeSubmission({
+      const completedOrder = await this.orderRepository.completeSubmission({
         orderId: order.id, external1cRef: exported.orderReference.externalId,
         external1cNumber: exported.orderNumber, external1cDate: exported.documentDate,
       });
-    } catch {
+      console.info({
+        event: "partner_order_submission_diagnostic",
+        stage: "portal_persistence_completed",
+        cartId: cart.id,
+        companyId: company.id,
+        submissionKey,
+        orderId: completedOrder.id,
+        orderStatus: completedOrder.status,
+        external1cRef: completedOrder.external1cRef,
+        external1cNumber: completedOrder.external1cNumber,
+      });
+      return completedOrder;
+    } catch (error) {
+      console.error({
+        event: "partner_order_submission_failed",
+        stage: "portal_persistence",
+        cartId: cart.id,
+        companyId: company.id,
+        submissionKey,
+        orderId: order.id,
+        external1cRef: exported.orderReference.externalId,
+        external1cNumber: exported.orderNumber,
+        ...diagnosticError(error),
+      });
       throw new OrderReconciliationRequiredError();
     }
   }
@@ -236,6 +416,47 @@ function roundMoney(value: number): number { return Math.round((value + Number.E
 function toJsonRecord(value: SalesOrderDTO): Record<string, unknown> { return JSON.parse(JSON.stringify(value)) as Record<string, unknown>; }
 function toSummary(order: PartnerOrder): PartnerOrderSummaryDto { return { id: order.id, status: order.status, external1cNumber: order.external1cNumber, requestedDeliveryDate: order.requestedDeliveryDate, submittedAt: order.submittedAt, createdAt: order.createdAt }; }
 function formatMoney(amount: number, currency: string): string { return new Intl.NumberFormat("ru-RU", { style: "currency", currency }).format(amount); }
+
+async function diagnosticStep<T>(
+  stage: string,
+  operation: () => Promise<T>,
+  details: Record<string, unknown>,
+): Promise<T> {
+  try {
+    return await operation();
+  } catch (error) {
+    console.error({
+      event: "partner_order_submission_failed",
+      stage,
+      ...details,
+      ...diagnosticError(error),
+    });
+    throw error;
+  }
+}
+
+function failOrderSubmission(
+  stage: string,
+  error: Error,
+  details: Record<string, unknown>,
+): never {
+  console.error({
+    event: "partner_order_submission_failed",
+    stage,
+    ...details,
+    ...diagnosticError(error),
+  });
+  throw error;
+}
+
+function diagnosticError(error: unknown): Record<string, unknown> {
+  return {
+    errorType: error instanceof Error ? error.constructor.name : typeof error,
+    errorName: error instanceof Error ? error.name : null,
+    errorMessage: error instanceof Error ? error.message : null,
+    errorStack: error instanceof Error ? error.stack : null,
+  };
+}
 
 export function resolveCustomerContract(
   contracts: PartnerContractDTO[],
