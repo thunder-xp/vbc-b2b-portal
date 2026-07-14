@@ -52,6 +52,10 @@ export interface PartnerOrderRepository {
     errorDetails?: string | null;
     errorHint?: string | null;
   }): Promise<PartnerOrder>;
+  confirmNotCreated(input: {
+    orderId: string;
+    submissionKey: string;
+  }): Promise<PartnerOrder>;
 }
 
 export class OrderRepositoryError extends Error {

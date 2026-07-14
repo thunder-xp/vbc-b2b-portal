@@ -149,6 +149,22 @@ export class SupabasePartnerOrderRepository implements PartnerOrderRepository {
     if (error || !data) throw new OrderRepositoryError();
     return mapOrder(data as Row);
   }
+
+  async confirmNotCreated(
+    input: Parameters<PartnerOrderRepository["confirmNotCreated"]>[0],
+  ): Promise<PartnerOrder> {
+    const { data, error } = await (await createClient()).rpc(
+      "confirm_partner_order_not_created",
+      {
+        target_order_id: input.orderId,
+        target_submission_key: input.submissionKey,
+      },
+    );
+    if (error || !data) {
+      throw new OrderRepositoryError(error?.code ?? null, error?.message ?? null);
+    }
+    return mapOrder(data as Row);
+  }
 }
 
 function mapCart(row: Row): Cart {

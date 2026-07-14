@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { IntegrationHttpError } from "../../../integration/errors";
 import type { PartnerOrderRepository } from "../../repositories";
 import { PartnerOrderStatus, type PartnerOrder } from "../../types";
-import { DefaultPartnerOrderService } from "../order.service";
+import { assertLegacyExportIntegrity, DefaultPartnerOrderService } from "../order.service";
 import { OrderReconciliationRequiredError, OrderSubmissionInProgressError, RecoverableOrderSubmissionError } from "../order-submission.errors";
 
 const SUBMISSION_KEY = "55555555-5555-4555-8555-555555555555";
@@ -39,11 +39,11 @@ describe("DefaultPartnerOrderService", () => {
     expect(dependencies.pricingService.getApprovedUsdMdlRate).toHaveBeenCalledWith("user-1");
     expect(dependencies.orderProvider.exportSalesOrder).toHaveBeenCalledWith(expect.objectContaining({
       currency: "MDL",
-      documentTotal: 439.08,
+      documentTotal: 439,
       items: [expect.objectContaining({
-        price: { amount: 219.54, currency: "MDL" },
+        price: { amount: 220, currency: "MDL" },
         quantity: 2,
-        lineTotal: 439.08,
+        lineTotal: 439,
       })],
     }));
     expect(dependencies.orderRepository.beginSubmission.mock.calls[0][0].items[0]).toMatchObject({
@@ -51,6 +51,55 @@ describe("DefaultPartnerOrderService", () => {
       currencyCode: "USD",
       lineTotal: 25,
     });
+  });
+
+  it("converts every current cart line with independent legacy integer rounding", async () => {
+    const dependencies = makeDependencies({ useLegacyMinimalOrderPayload: true });
+    dependencies.cartRepository.listItems.mockResolvedValue([
+      cartItem("product-1", 1), cartItem("product-2", 1),
+      cartItem("product-3", 610), cartItem("product-4", 1),
+    ]);
+    dependencies.catalogService.getProductOrderIdentities.mockResolvedValue([
+      identity("product-1", "400691", "9a5c59b8-0293-11f1-d58d-7239d3b7bd5c"),
+      identity("product-2", "400525", "f9bf8b60-e5c5-11ee-6a9e-7239d3b7bd5c"),
+      identity("product-3", "300011", "17269332-c968-11e9-be26-000c29cf9dd4"),
+      identity("product-4", "190084", "414cd1d6-6d6e-11ec-6395-7239d3b7bd5c"),
+    ]);
+    dependencies.pricingService.getProductCommercialViews.mockResolvedValue([
+      commercial("product-1", 102.08), commercial("product-2", 198),
+      commercial("product-3", 0.26), commercial("product-4", 504.9),
+    ]);
+    dependencies.pricingService.getApprovedUsdMdlRate.mockResolvedValue(17.563414);
+
+    await dependencies.service.submit("user-1", input());
+
+    const exported = dependencies.orderProvider.exportSalesOrder.mock.calls[0][0];
+    expect(exported.items).toHaveLength(4);
+    expect(exported.items.map((item: { quantity: number; price: { amount: number }; lineTotal: number }) => ({
+      quantity: item.quantity,
+      price: item.price.amount,
+      total: item.lineTotal,
+    }))).toEqual([
+      { quantity: 1, price: 1793, total: 1793 },
+      { quantity: 1, price: 3478, total: 3478 },
+      { quantity: 610, price: 5, total: 2786 },
+      { quantity: 1, price: 8868, total: 8868 },
+    ]);
+    expect(exported.documentTotal).toBe(16925);
+    expect(exported.items[2].price.amount * exported.items[2].quantity).toBe(3050);
+    expect(exported.items[2].lineTotal).toBe(2786);
+  });
+
+  it("rejects a missing line or header mismatch in the legacy preflight invariant", () => {
+    const validOrder = {
+      items: [{ quantity: 1, price: { amount: 100 }, lineTotal: 100 }],
+      documentTotal: 99,
+    };
+
+    expect(() => assertLegacyExportIntegrity(1, validOrder as never))
+      .toThrow(RecoverableOrderSubmissionError);
+    expect(() => assertLegacyExportIntegrity(2, { ...validOrder, documentTotal: 100 } as never))
+      .toThrow(RecoverableOrderSubmissionError);
   });
 
   it("stops before idempotency acquisition when the approved commercial rate is unavailable", async () => {
@@ -281,11 +330,14 @@ function makeDependencies(options: { useLegacyMinimalOrderPayload?: boolean } = 
   };
   const orderProvider = { exportSalesOrder: vi.fn().mockResolvedValue({ orderReference: ref("77777777-7777-4777-8777-777777777777"), orderNumber: "NSUU-TEST", documentDate: "2026-07-13T20:17:30.000Z", status: "unposted", exportedAt: "2026-07-13T20:17:31.000Z" }) };
   const service = new DefaultPartnerOrderService(cartRepository as never, orderRepository as never, companyAccessService as never, permissionService as never, catalogService as never, pricingService as never, partnerProvider as never, orderProvider as never, options);
-  return { service, orderRepository, catalogService, pricingService, partnerProvider, orderProvider, company };
+  return { service, cartRepository, orderRepository, catalogService, pricingService, partnerProvider, orderProvider, company };
 }
 
 function input() { return { submissionKey: SUBMISSION_KEY, requestedDeliveryDate: "2099-01-10" }; }
 function ref(externalId: string) { return { providerCode: "one-c", externalId, externalType: "test" }; }
+function cartItem(productId: string, quantity: number) { return { id: `item-${productId}`, cartId: "cart-1", productId, quantity, createdAt: "2026-01-01", updatedAt: "2026-01-01" }; }
+function identity(id: string, sku: string, external1cId: string) { return { id, sku, external1cId, name: sku }; }
+function commercial(productId: string, amount: number) { return { productId, partnerPrice: { amount, currencyCode: "USD", formattedAmount: null }, stock: { exactAvailableQuantity: 5, expectedArrival: null } }; }
 function order(overrides: Partial<PartnerOrder> = {}): PartnerOrder {
   return { id: "order-1", companyId: "company-1", submittedBy: "user-1", cartId: "cart-1", submissionKey: SUBMISSION_KEY, submissionAttemptId: "99999999-9999-4999-8999-999999999999", status: PartnerOrderStatus.Processing, requestedDeliveryDate: "2099-01-10", external1cRef: null, external1cNumber: null, external1cDate: null, payloadSnapshot: {}, safeErrorCode: null, safeErrorMessage: null, submittedAt: null, createdAt: "2026-01-01", updatedAt: "2026-01-01", ...overrides };
 }

@@ -315,6 +315,9 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
       organizationReference: contract.organizationReference, currencyRef: priceType.currency,
       currencyCode: exportCurrencyCode, snapshots: exportSnapshots,
     });
+    if (this.options.useLegacyMinimalOrderPayload) {
+      assertLegacyExportIntegrity(cartItems.length, salesOrder);
+    }
     const attemptId = crypto.randomUUID();
     let order;
     try {
@@ -486,16 +489,34 @@ function convertOrderSnapshotsToMdl(
       );
     }
 
-    const partnerUnitPrice = roundMoney(
+    const partnerUnitPrice = Math.round(
       snapshot.partnerUnitPrice * approvedUsdMdlRate,
     );
     return {
       ...snapshot,
       partnerUnitPrice,
       currencyCode: "MDL",
-      lineTotal: roundMoney(partnerUnitPrice * snapshot.quantity),
+      lineTotal: Math.round(snapshot.lineTotal * approvedUsdMdlRate),
     };
   });
+}
+
+export function assertLegacyExportIntegrity(
+  expectedLineCount: number,
+  order: SalesOrderDTO,
+): void {
+  const linesAreValid = order.items.length === expectedLineCount &&
+    order.items.every((item) =>
+      Number.isInteger(item.quantity) && item.quantity > 0 &&
+      item.price !== null && Number.isFinite(item.price.amount) && item.price.amount > 0 &&
+      Number.isFinite(item.lineTotal) && item.lineTotal > 0,
+    );
+  const lineTotal = order.items.reduce((total, item) => total + item.lineTotal, 0);
+  if (!linesAreValid || lineTotal !== order.documentTotal) {
+    throw new RecoverableOrderSubmissionError(
+      "The legacy 1C order payload failed total integrity validation.",
+    );
+  }
 }
 
 function ref(externalId: string, externalType: string): ExternalReferenceDTO { return { providerCode: "one-c", externalId, externalType }; }
