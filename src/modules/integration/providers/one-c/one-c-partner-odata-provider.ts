@@ -12,9 +12,13 @@ import type {
   PartnerSearchResultDTO,
 } from "../../dto";
 import {
+  IntegrationForbiddenError,
   IntegrationHttpError,
   IntegrationMappingError,
   IntegrationODataError,
+  IntegrationProviderUnavailableError,
+  IntegrationTimeoutError,
+  IntegrationUnauthorizedError,
   IntegrationUnsupportedOperationError,
   IntegrationValidationError,
 } from "../../errors";
@@ -187,20 +191,26 @@ export class OneCPartnerODataProvider implements PartnerProvider {
       }).valid ? this.mapContract(row, 0) : null;
     }
 
-    const registerRows = await this.getCollection<OneCDefaultPartnerContractPayload>(
-      DEFAULT_CONTRACTS_RESOURCE,
-      {
-        $filter: buildDefaultCustomerContractFilter(partnerReference, organizationReference),
-        $select: DEFAULT_CONTRACT_FIELDS,
-      },
-      "partner_default_contract_register",
+    const exactRegisterUrl = buildDefaultCustomerContractUrl(
+      this.config.baseUrl,
+      partnerReference,
+      organizationReference,
     );
+    console.info({
+      event: "one_c_default_customer_contract_request",
+      exactFinalUrl: exactRegisterUrl,
+      counterpartyRef: partnerReference,
+      organizationRef: organizationReference,
+    });
+    const registerRows = await this.fetchDefaultCustomerContractRows(exactRegisterUrl);
     const matchingRows = registerRows.filter((row) => defaultRegisterRowMatches(
       row,
       partnerReference,
       organizationReference,
     ));
-    const matchingRow = matchingRows.length === 1 ? matchingRows[0]! : null;
+    const matchingRow = registerRows.length === 1 && matchingRows.length === 1
+      ? matchingRows[0]!
+      : null;
 
     console.info({
       event: "one_c_default_customer_contract_resolution",
@@ -356,6 +366,53 @@ export class OneCPartnerODataProvider implements PartnerProvider {
     throw new IntegrationValidationError("Invalid 1C contract record response.");
   }
 
+  private async fetchDefaultCustomerContractRows(
+    exactFinalUrl: string,
+  ): Promise<OneCDefaultPartnerContractPayload[]> {
+    const { username, password } = this.config;
+    if (!username || !password) {
+      throw new IntegrationProviderUnavailableError("1C OData is not configured.");
+    }
+
+    let response: Response;
+    try {
+      response = await fetch(exactFinalUrl, {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          Authorization: `Basic ${Buffer.from(`${username}:${password}`, "utf8").toString("base64")}`,
+        },
+        signal: AbortSignal.timeout(this.config.requestTimeoutMs),
+      });
+    } catch (error) {
+      logDefaultContractRequestFailure(exactFinalUrl, null, null);
+      if (isAbortFailure(error)) throw new IntegrationTimeoutError("1C OData request timed out.");
+      throw new IntegrationProviderUnavailableError("1C OData is unavailable.");
+    }
+
+    const responseBody = await response.text();
+    if (!response.ok) {
+      logDefaultContractRequestFailure(exactFinalUrl, response.status, responseBody);
+      if (response.status === 401) throw new IntegrationUnauthorizedError();
+      if (response.status === 403) throw new IntegrationForbiddenError();
+      if (hasODataErrorEnvelope(responseBody)) throw new IntegrationODataError();
+      throw new IntegrationHttpError();
+    }
+
+    let payload: unknown;
+    try {
+      payload = JSON.parse(stripBom(responseBody));
+    } catch {
+      logDefaultContractRequestFailure(exactFinalUrl, response.status, responseBody);
+      throw new IntegrationValidationError("1C returned an invalid default-contract response.");
+    }
+    if (!isCollectionPayload<OneCDefaultPartnerContractPayload>(payload)) {
+      logDefaultContractRequestFailure(exactFinalUrl, response.status, responseBody);
+      throw new IntegrationValidationError("1C returned an invalid default-contract envelope.");
+    }
+    return payload.value;
+  }
+
   private mapSearchResult(
     row: OneCNormalizedPartnerCompanyPayload,
   ): PartnerSearchResultDTO {
@@ -462,11 +519,47 @@ function defaultRegisterRowMatches(
     isCustomerContractType(row["ВидДоговора"]);
 }
 
-function buildDefaultCustomerContractFilter(
+function buildDefaultCustomerContractUrl(
+  baseUrl: string | null,
   partnerReference: string,
   organizationReference: string,
 ): string {
-  return `Контрагент_Key eq guid'${partnerReference}' and Организация_Key eq guid'${organizationReference}' and ВидДоговора eq 'СПокупателем'`;
+  if (!baseUrl) throw new IntegrationProviderUnavailableError("1C OData is not configured.");
+  const counterpartyRef = encodeURIComponent(partnerReference);
+  const organizationRef = encodeURIComponent(organizationReference);
+  return `${baseUrl.replace(/\/$/, "")}/${DEFAULT_CONTRACTS_RESOURCE}` +
+    `?$filter=Контрагент_Key eq guid'${counterpartyRef}' and Организация_Key eq guid'${organizationRef}' and ВидДоговора eq 'СПокупателем'` +
+    `&$select=${DEFAULT_CONTRACT_FIELDS}&$format=json`;
+}
+
+function logDefaultContractRequestFailure(
+  exactFinalUrl: string,
+  statusCode: number | null,
+  responseBody: string | null,
+): void {
+  console.error({
+    event: "one_c_default_customer_contract_request_failed",
+    statusCode,
+    responseBody,
+    exactFinalUrl,
+  });
+}
+
+function hasODataErrorEnvelope(responseBody: string): boolean {
+  try {
+    const payload: unknown = JSON.parse(stripBom(responseBody));
+    return isRecord(payload) && ("error" in payload || "odata.error" in payload);
+  } catch {
+    return false;
+  }
+}
+
+function stripBom(value: string): string {
+  return value.charCodeAt(0) === 0xfeff ? value.slice(1) : value;
+}
+
+function isAbortFailure(error: unknown): boolean {
+  return error instanceof Error && (error.name === "AbortError" || error.name === "TimeoutError");
 }
 
 function validateCustomerOrderContract(

@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   IntegrationForbiddenError,
   IntegrationHttpError,
+  IntegrationODataError,
   IntegrationProviderUnavailableError,
   IntegrationTimeoutError,
   IntegrationUnauthorizedError,
@@ -277,7 +278,18 @@ describe("1C OData partner provider", () => {
     expect(result?.reference.externalId).toBe(CONTRACT_ID);
     expect(result).toMatchObject({ code: "C-001", name: "Main contract", active: true });
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    const registerUrl = fetchMock.mock.calls[0]?.[0] as URL;
+    const exactRegisterUrl = String(fetchMock.mock.calls[0]?.[0]);
+    expect(exactRegisterUrl).toContain(
+      `?$filter=Контрагент_Key eq guid'${PARTNER_ID}' and Организация_Key eq guid'${ORGANIZATION_ID}' and ВидДоговора eq 'СПокупателем'`,
+    );
+    expect(exactRegisterUrl).toContain(
+      "&$select=Организация_Key,Контрагент_Key,ВидДоговора,Договор_Key&$format=json",
+    );
+    expect(exactRegisterUrl).not.toContain("%24filter");
+    expect(exactRegisterUrl).not.toContain("%D0");
+    expect(exactRegisterUrl).not.toContain("%20");
+    expect(exactRegisterUrl).not.toContain("+");
+    const registerUrl = new URL(exactRegisterUrl);
     expect(decodeURIComponent(registerUrl.pathname)).toContain(ONE_C_RESOURCES.defaultPartnerContracts);
     expect(registerUrl.searchParams.get("$select")).toBe([
       "Организация_Key", "Контрагент_Key", "ВидДоговора", "Договор_Key",
@@ -293,6 +305,25 @@ describe("1C OData partner provider", () => {
       source: "default_contract",
       resolvedContractRef: CONTRACT_ID,
       validationResult: "valid",
+    }));
+  });
+
+  it("logs the exact URL, status, and complete safe OData failure body", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const responseBody = JSON.stringify({ "odata.error": { code: "-1", message: { value: "Rejected query" } } });
+    vi.stubGlobal("fetch", sequence(new Response(responseBody, {
+      status: 500,
+      headers: { "content-type": "application/json" },
+    })));
+
+    await expect(provider().partners.resolveCustomerOrderContract(contractResolutionInput()))
+      .rejects.toBeInstanceOf(IntegrationODataError);
+
+    expect(errorSpy).toHaveBeenCalledWith(expect.objectContaining({
+      event: "one_c_default_customer_contract_request_failed",
+      statusCode: 500,
+      responseBody,
+      exactFinalUrl: expect.stringContaining("ВидДоговора eq 'СПокупателем'"),
     }));
   });
 
