@@ -1,9 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { SalesOrderDTO } from "../../../dto";
-import { IntegrationHttpError } from "../../../errors";
+import { IntegrationHttpError, IntegrationProviderUnavailableError } from "../../../errors";
 import { OneCProvider } from "../one-c-provider";
-import { buildOneCCustomerOrderPayload } from "../one-c-order-provider";
+import {
+  buildLegacyMinimalOneCCustomerOrderPayload,
+  buildOneCCustomerOrderPayload,
+} from "../one-c-order-provider";
 
 const order: SalesOrderDTO = {
   reference: null,
@@ -61,22 +64,123 @@ describe("OneCCustomerOrderProvider", () => {
     expect(payload).not.toHaveProperty("ВидОплаты");
   });
 
+  it("builds the legacy-minimal allowlisted payload with full 1C datetimes", () => {
+    const payload = buildLegacyMinimalOneCCustomerOrderPayload(
+      order,
+      new Date("2026-07-14T12:34:56.000Z"),
+    );
+
+    expect(payload).toEqual({
+      Date: "2026-07-14T12:34:56",
+      ДатаОтгрузки: "2099-01-10T00:00:00",
+      Контрагент_Key: "11111111-1111-4111-8111-111111111111",
+      Договор_Key: "22222222-2222-4222-8222-222222222222",
+      Кратность: 1,
+      СуммаДокумента: 1314,
+      СпособДоставки: "Самовывоз",
+      Комментарий: "Portal test",
+      Запасы: [{
+        СтавкаНДС_Key: "acf7b292-1a78-11e5-8b0f-00155d010501",
+        LineNumber: 1,
+        ТипНоменклатурыЗапас: true,
+        Номенклатура: "66666666-6666-4666-8666-666666666666",
+        Номенклатура_Type: "StandardODATA.Catalog_Номенклатура",
+        Характеристика_Key: "00000000-0000-0000-0000-000000000000",
+        ЕдиницаИзмерения: "a4f770f7-5a4e-435f-a55f-28cb995d36c9",
+        ЕдиницаИзмерения_Type: "StandardODATA.Catalog_КлассификаторЕдиницИзмерения",
+        Цена: 1314,
+        Сумма: 1314,
+        Количество: 1,
+        Всего: 1314,
+      }],
+    });
+    expect(JSON.stringify(payload)).not.toMatch(
+      /Posted|Автор_Key|Организация_Key|ВидЦен_Key|ВалютаДокумента_Key|СостояниеЗаказа|Резерв|СуммаНДС|ПлатежныйКалендарь/,
+    );
+  });
+
+  it("keeps legacy line sum equal to unit price while total reflects quantity", () => {
+    const payload = buildLegacyMinimalOneCCustomerOrderPayload({
+      ...order,
+      documentTotal: 2628,
+      items: [{ ...order.items[0]!, quantity: 2, lineTotal: 2628 }],
+    });
+
+    expect(payload.Запасы[0]).toMatchObject({
+      Цена: 1314,
+      Сумма: 1314,
+      Количество: 2,
+      Всего: 2628,
+    });
+  });
+
+  it("uses the legacy-minimal payload only when explicitly enabled", async () => {
+    vi.spyOn(console, "info").mockImplementation(() => undefined);
+    const fetchMock = vi.fn().mockResolvedValueOnce(new Response(JSON.stringify({
+      Ref_Key: "77777777-7777-4777-8777-777777777777",
+      Number: "NSUU-TEST",
+      Date: "2026-07-13T20:17:30",
+      Posted: false,
+    }), { status: 200, headers: { "Content-Type": "application/json" } }))
+      .mockResolvedValueOnce(readBackResponse());
+    vi.stubGlobal("fetch", fetchMock);
+    const provider = new OneCProvider({
+      baseUrl: "https://erp.example/odata",
+      username: "user",
+      password: "secret",
+      requestTimeoutMs: 10000,
+      useLegacyMinimalOrderPayload: true,
+    });
+
+    await provider.orders.exportSalesOrder(order);
+
+    const [, init] = fetchMock.mock.calls[0] as [URL, RequestInit];
+    const payload = JSON.parse(String(init.body)) as Record<string, unknown>;
+    expect(payload).not.toHaveProperty("Posted");
+    expect(payload).not.toHaveProperty("Автор_Key");
+    expect(payload).toMatchObject({ Запасы: [expect.objectContaining({ LineNumber: 1 })] });
+  });
+
   it("posts JSON and returns the validated unposted 1C identity", async () => {
     vi.spyOn(console, "info").mockImplementation(() => undefined);
-    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+    const fetchMock = vi.fn().mockResolvedValueOnce(new Response(JSON.stringify({
       Ref_Key: "77777777-7777-4777-8777-777777777777", Number: "NSUU-TEST", Date: "2026-07-13T20:17:30", Posted: false,
-    }), { status: 200, headers: { "Content-Type": "application/json" } }));
+    }), { status: 200, headers: { "Content-Type": "application/json" } }))
+      .mockResolvedValueOnce(readBackResponse());
     vi.stubGlobal("fetch", fetchMock);
     const provider = new OneCProvider({ baseUrl: "https://erp.example/odata", username: "user", password: "secret", requestTimeoutMs: 10000 });
 
     const result = await provider.orders.exportSalesOrder(order);
 
-    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
     const [url, init] = fetchMock.mock.calls[0] as [URL, RequestInit];
     expect(decodeURIComponent(url.toString())).toBe("https://erp.example/odata/Document_ЗаказПокупателя?$format=json");
     expect(init.method).toBe("POST");
     expect(JSON.parse(String(init.body))).toMatchObject({ Posted: false, Автор_Key: "272a1ac4-0194-11eb-8975-000c29cf9dd4" });
     expect(result).toMatchObject({ orderNumber: "NSUU-TEST", status: "unposted", orderReference: { externalId: "77777777-7777-4777-8777-777777777777" } });
+  });
+
+  it("does not report success when the created order cannot be verified by read-back", async () => {
+    vi.spyOn(console, "info").mockImplementation(() => undefined);
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    vi.stubGlobal("fetch", vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        Ref_Key: "77777777-7777-4777-8777-777777777777",
+        Number: "NSUU-TEST",
+        Date: "2026-07-13T20:17:30",
+        Posted: false,
+      }), { status: 200, headers: { "Content-Type": "application/json" } }))
+      .mockResolvedValueOnce(new Response("not found", { status: 404 })));
+    const provider = new OneCProvider({
+      baseUrl: "https://erp.example/odata",
+      username: "user",
+      password: "secret",
+      requestTimeoutMs: 10000,
+      useLegacyMinimalOrderPayload: true,
+    });
+
+    await expect(provider.orders.exportSalesOrder(order))
+      .rejects.toBeInstanceOf(IntegrationProviderUnavailableError);
   });
 
   it("logs the exact safe HTTP status and response body before rejecting the request", async () => {
@@ -108,3 +212,19 @@ describe("OneCCustomerOrderProvider", () => {
 });
 
 function ref(externalId: string) { return { providerCode: "one-c", externalId, externalType: "test" }; }
+
+function readBackResponse() {
+  return new Response(JSON.stringify({
+    Ref_Key: "77777777-7777-4777-8777-777777777777",
+    Number: "NSUU-TEST",
+    Date: "2026-07-13T20:17:30",
+    Posted: false,
+    Контрагент_Key: order.partnerCompanyReference.externalId,
+    Договор_Key: order.contractReference.externalId,
+    Запасы: order.items.map((item) => ({
+      Номенклатура: item.productReference.externalId,
+      Количество: item.quantity,
+      Цена: item.price?.amount,
+    })),
+  }), { status: 200, headers: { "Content-Type": "application/json" } });
+}

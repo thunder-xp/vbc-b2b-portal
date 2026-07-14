@@ -26,6 +26,7 @@ export type OneCEnv = {
   useMockPricing: boolean;
   useMockInventory: boolean;
   useMockPartners: boolean;
+  useLegacyMinimalOrderPayload?: boolean;
 };
 
 export type SupabaseEnvStatus = {
@@ -98,6 +99,8 @@ export function getOneCEnv(): OneCEnv {
     useMockPricing: explicitPricingMock || !process.env.ONEC_BASE_URL,
     useMockInventory: explicitInventoryMock || !process.env.ONEC_BASE_URL,
     useMockPartners: explicitPartnersMock,
+    useLegacyMinimalOrderPayload:
+      process.env.ONEC_USE_LEGACY_MINIMAL_ORDER_PAYLOAD === "true",
   };
 }
 

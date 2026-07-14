@@ -102,6 +102,8 @@ export class OneCProvider extends AbstractERPProvider {
       useMockPricing: config.useMockPricing ?? true,
       useMockInventory: config.useMockInventory ?? true,
       useMockPartners: config.useMockPartners ?? false,
+      useLegacyMinimalOrderPayload:
+        config.useLegacyMinimalOrderPayload ?? false,
     };
     this.capabilities = this.config.capabilities;
     this.catalog = new OneCCatalogProvider(this.config);

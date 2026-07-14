@@ -29,6 +29,10 @@ export interface PartnerOrderService {
   getOrder(userId: string, orderId: string): Promise<PartnerOrderDetailDto>;
 }
 
+export type PartnerOrderServiceOptions = {
+  useLegacyMinimalOrderPayload?: boolean;
+};
+
 const ORDERS_PERMISSION = "orders.manage";
 const ZERO_CHARACTERISTIC_REF = "00000000-0000-0000-0000-000000000000";
 const DEFAULT_UNIT_REF = "a4f770f7-5a4e-435f-a55f-28cb995d36c9";
@@ -50,6 +54,7 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
     private readonly pricingInventoryService: PricingInventoryService,
     private readonly partnerProvider: PartnerProvider,
     private readonly orderProvider: OrderProvider,
+    private readonly options: PartnerOrderServiceOptions = {},
   ) {}
 
   async submit(userId: string, input: { submissionKey: string; requestedDeliveryDate: string }): Promise<PartnerOrder> {
@@ -151,6 +156,15 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
           () => this.partnerProvider.fetchPriceType({ reference: companyPriceTypeRef }),
           { cartId: cart.id, companyId: company.id, priceTypeRef: companyPriceTypeRef, submissionKey },
         ),
+        this.options.useLegacyMinimalOrderPayload
+          ? diagnosticStep(
+              "commercial_exchange_rate_resolution",
+              () => this.pricingInventoryService.getApprovedUsdMdlRate
+                ? this.pricingInventoryService.getApprovedUsdMdlRate(userId)
+                : Promise.resolve(null),
+              { cartId: cart.id, companyId: company.id, submissionKey },
+            )
+          : Promise.resolve<number | null>(null),
       ]);
     } catch (error) {
       console.error({
@@ -164,7 +178,7 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
       });
       throw new RecoverableOrderSubmissionError("Order preflight validation failed.");
     }
-    const [identities, commercialViews, contract, priceType] = resolvedInputs;
+    const [identities, commercialViews, contract, priceType, approvedUsdMdlRate] = resolvedInputs;
     if (!contract) {
       failOrderSubmission(
         "contract_resolution",
@@ -273,6 +287,12 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
     });
     const currencyCodes = [...new Set(snapshots.map((item) => item.currencyCode))];
     if (currencyCodes.length !== 1) throw new RecoverableOrderSubmissionError("Cart prices use incompatible currencies.");
+    const exportSnapshots = this.options.useLegacyMinimalOrderPayload
+      ? convertOrderSnapshotsToMdl(snapshots, approvedUsdMdlRate)
+      : snapshots;
+    const exportCurrencyCode = this.options.useLegacyMinimalOrderPayload
+      ? "MDL"
+      : currencyCodes[0]!;
     console.info({
       event: "partner_order_submission_diagnostic",
       stage: "order_lines_resolved",
@@ -293,7 +313,7 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
       submissionKey, deliveryDate, companyRef: counterpartyRef,
       contractRef: contract.reference.externalId, priceTypeRef: companyPriceTypeRef,
       organizationReference: contract.organizationReference, currencyRef: priceType.currency,
-      currencyCode: currencyCodes[0]!, snapshots,
+      currencyCode: exportCurrencyCode, snapshots: exportSnapshots,
     });
     const attemptId = crypto.randomUUID();
     let order;
@@ -443,6 +463,39 @@ function buildSalesOrder(input: {
     comment: `Заказ создан через Novotech Partner Platform. Идентификатор: ${input.submissionKey}`,
     metadata: null,
   };
+}
+
+function convertOrderSnapshotsToMdl(
+  snapshots: OrderItemSnapshotInput[],
+  approvedUsdMdlRate: number | null,
+): OrderItemSnapshotInput[] {
+  return snapshots.map((snapshot) => {
+    if (snapshot.currencyCode === "MDL") return snapshot;
+    if (snapshot.currencyCode !== "USD") {
+      throw new RecoverableOrderSubmissionError(
+        "The partner price currency cannot be converted for 1C.",
+      );
+    }
+    if (
+      approvedUsdMdlRate === null ||
+      !Number.isFinite(approvedUsdMdlRate) ||
+      approvedUsdMdlRate <= 0
+    ) {
+      throw new RecoverableOrderSubmissionError(
+        "The approved USD/MDL commercial rate is unavailable.",
+      );
+    }
+
+    const partnerUnitPrice = roundMoney(
+      snapshot.partnerUnitPrice * approvedUsdMdlRate,
+    );
+    return {
+      ...snapshot,
+      partnerUnitPrice,
+      currencyCode: "MDL",
+      lineTotal: roundMoney(partnerUnitPrice * snapshot.quantity),
+    };
+  });
 }
 
 function ref(externalId: string, externalType: string): ExternalReferenceDTO { return { providerCode: "one-c", externalId, externalType }; }

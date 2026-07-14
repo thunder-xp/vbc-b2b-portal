@@ -31,6 +31,39 @@ describe("DefaultPartnerOrderService", () => {
     expect(result.status).toBe(PartnerOrderStatus.Submitted);
   });
 
+  it("converts USD export prices to MDL with the approved commercial rate in legacy-minimal mode", async () => {
+    const dependencies = makeDependencies({ useLegacyMinimalOrderPayload: true });
+
+    await dependencies.service.submit("user-1", input());
+
+    expect(dependencies.pricingService.getApprovedUsdMdlRate).toHaveBeenCalledWith("user-1");
+    expect(dependencies.orderProvider.exportSalesOrder).toHaveBeenCalledWith(expect.objectContaining({
+      currency: "MDL",
+      documentTotal: 439.08,
+      items: [expect.objectContaining({
+        price: { amount: 219.54, currency: "MDL" },
+        quantity: 2,
+        lineTotal: 439.08,
+      })],
+    }));
+    expect(dependencies.orderRepository.beginSubmission.mock.calls[0][0].items[0]).toMatchObject({
+      partnerUnitPrice: 12.5,
+      currencyCode: "USD",
+      lineTotal: 25,
+    });
+  });
+
+  it("stops before idempotency acquisition when the approved commercial rate is unavailable", async () => {
+    const dependencies = makeDependencies({ useLegacyMinimalOrderPayload: true });
+    dependencies.pricingService.getApprovedUsdMdlRate.mockResolvedValue(null);
+
+    await expect(dependencies.service.submit("user-1", input()))
+      .rejects.toBeInstanceOf(RecoverableOrderSubmissionError);
+
+    expect(dependencies.orderRepository.beginSubmission).not.toHaveBeenCalled();
+    expect(dependencies.orderProvider.exportSalesOrder).not.toHaveBeenCalled();
+  });
+
   it("blocks submission when a product has no valid 1C reference", async () => {
     const dependencies = makeDependencies();
     dependencies.catalogService.getProductOrderIdentities.mockResolvedValue([{ id: "product-1", external1cId: "invalid", sku: "SKU-1", name: "Camera" }]);
@@ -219,7 +252,7 @@ describe("DefaultPartnerOrderService", () => {
   });
 });
 
-function makeDependencies() {
+function makeDependencies(options: { useLegacyMinimalOrderPayload?: boolean } = {}) {
   const cartRepository = {
     findActive: vi.fn().mockResolvedValue({ id: "cart-1", companyId: "company-1", createdBy: "user-1", status: "active", createdAt: "2026-01-01", updatedAt: "2026-01-01" }),
     listItems: vi.fn().mockResolvedValue([{ id: "item-1", cartId: "cart-1", productId: "product-1", quantity: 2, createdAt: "2026-01-01", updatedAt: "2026-01-01" }]),
@@ -237,14 +270,17 @@ function makeDependencies() {
   const companyAccessService = { getOwnMemberships: vi.fn().mockResolvedValue([{ companyId: "company-1", status: "active" }]), getActiveCompanyContext: vi.fn().mockResolvedValue({ company }) };
   const permissionService = { ensurePermission: vi.fn().mockResolvedValue({ isAllowed: true }) };
   const catalogService = { getProductOrderIdentities: vi.fn().mockResolvedValue([{ id: "product-1", external1cId: "66666666-6666-4666-8666-666666666666", sku: "SKU-1", name: "Camera" }]) };
-  const pricingService = { getProductCommercialViews: vi.fn().mockResolvedValue([{ productId: "product-1", partnerPrice: { amount: 12.5, currencyCode: "USD", formattedAmount: "$12.50" }, stock: { exactAvailableQuantity: 5, expectedArrival: null } }]) };
+  const pricingService = {
+    getProductCommercialViews: vi.fn().mockResolvedValue([{ productId: "product-1", partnerPrice: { amount: 12.5, currencyCode: "USD", formattedAmount: "$12.50" }, stock: { exactAvailableQuantity: 5, expectedArrival: null } }]),
+    getApprovedUsdMdlRate: vi.fn().mockResolvedValue(17.56341414),
+  };
   const partnerProvider = {
     fetchPartnerContracts: vi.fn().mockResolvedValue({ items: [{ reference: ref("22222222-2222-4222-8222-222222222222"), active: true, organizationReference: ref("4643d461-aa49-4b70-9486-a59f80ee6af8") }], nextCursor: null, sourceTimestamp: null }),
     resolveCustomerOrderContract: vi.fn().mockResolvedValue({ reference: ref("22222222-2222-4222-8222-222222222222"), active: true, organizationReference: ref("4643d461-aa49-4b70-9486-a59f80ee6af8") }),
     fetchPriceType: vi.fn().mockResolvedValue({ active: true, currency: "44444444-4444-4444-8444-444444444444" }),
   };
   const orderProvider = { exportSalesOrder: vi.fn().mockResolvedValue({ orderReference: ref("77777777-7777-4777-8777-777777777777"), orderNumber: "NSUU-TEST", documentDate: "2026-07-13T20:17:30.000Z", status: "unposted", exportedAt: "2026-07-13T20:17:31.000Z" }) };
-  const service = new DefaultPartnerOrderService(cartRepository as never, orderRepository as never, companyAccessService as never, permissionService as never, catalogService as never, pricingService as never, partnerProvider as never, orderProvider as never);
+  const service = new DefaultPartnerOrderService(cartRepository as never, orderRepository as never, companyAccessService as never, permissionService as never, catalogService as never, pricingService as never, partnerProvider as never, orderProvider as never, options);
   return { service, orderRepository, catalogService, pricingService, partnerProvider, orderProvider, company };
 }
 

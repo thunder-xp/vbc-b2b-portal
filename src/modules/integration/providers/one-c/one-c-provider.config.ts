@@ -19,6 +19,7 @@ export type OneCProviderConfig = {
   useMockPricing: boolean;
   useMockInventory: boolean;
   useMockPartners: boolean;
+  useLegacyMinimalOrderPayload: boolean;
 };
 
 export const ONE_C_PROVIDER_CODE = "one-c";

@@ -66,6 +66,7 @@ export interface PricingInventoryService {
     userId: string,
     availability: ProductAvailabilityFilter,
   ): Promise<string[]>;
+  getApprovedUsdMdlRate?(userId: string): Promise<number | null>;
 }
 
 const PRICE_PERMISSION = "prices.view";
@@ -167,6 +168,23 @@ export class DefaultPricingInventoryService implements PricingInventoryService {
     }
 
     return this.pricingInventoryRepository.listProductIdsWithConfirmedArrival?.() ?? [];
+  }
+
+  async getApprovedUsdMdlRate(userId: string): Promise<number | null> {
+    const company = await this.resolveActiveCompany(userId);
+    const canViewPrices = await this.permissionService.hasPermission(
+      userId,
+      company.id,
+      PRICE_PERMISSION,
+    );
+    if (!canViewPrices || !this.pricingInventoryRepository.getLatestUsdMdlExchangeRate) {
+      return null;
+    }
+
+    const rate = await this.pricingInventoryRepository.getLatestUsdMdlExchangeRate();
+    return rate && Number.isFinite(rate.mdlPerUsdRate) && rate.mdlPerUsdRate > 0
+      ? rate.mdlPerUsdRate
+      : null;
   }
 
   private async resolveActiveCompany(userId: string): Promise<{ id: string; external1cPriceTypeId: string | null }> {

@@ -33,9 +33,11 @@ export function createPartnerOrderService(): DefaultPartnerOrderService {
     password: env.password,
     requestTimeoutMs: env.requestTimeoutMs,
     useMockPartners: false,
+    useLegacyMinimalOrderPayload: env.useLegacyMinimalOrderPayload === true,
   });
   return new DefaultPartnerOrderService(
     value.cartRepository, value.orderRepository, value.companyAccessService, value.permissionService,
     value.catalogService, value.pricingInventoryService, provider.partners, provider.orders,
+    { useLegacyMinimalOrderPayload: env.useLegacyMinimalOrderPayload === true },
   );
 }
