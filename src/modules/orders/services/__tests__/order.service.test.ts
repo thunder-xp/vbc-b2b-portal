@@ -57,6 +57,15 @@ describe("DefaultPartnerOrderService", () => {
       event: "partner_order_product_reference_resolution",
       productId: "product-1",
       sku: "400691",
+      rawExternal1cId: productReference,
+      rawExternal1cIdType: "string",
+      trimmedExternal1cId: productReference,
+      validatorFunctionName: "isOneCGuid",
+      validatorResult: true,
+      zeroGuidResult: false,
+      sourceFile: "src/modules/orders/services/order.service.ts",
+      logicalBranchIdentifier: "DefaultPartnerOrderService.submit:current_catalog_product_reference",
+      deployedCommitSha: "local",
       databaseReferenceFieldName: "catalog_products.external_1c_id",
       resolvedProductRef: productReference,
       referenceSource: "current_catalog",
@@ -79,6 +88,51 @@ describe("DefaultPartnerOrderService", () => {
 
     await expect(dependencies.service.submit("user-1", input()))
       .rejects.toBeInstanceOf(RecoverableOrderSubmissionError);
+    expect(dependencies.orderProvider.exportSalesOrder).not.toHaveBeenCalled();
+  });
+
+  it("trims a valid non-RFC 1C product GUID before export", async () => {
+    const dependencies = makeDependencies();
+    const productReference = "9a5c59b8-0293-11f1-d58d-7239d3b7bd5c";
+    dependencies.catalogService.getProductOrderIdentities.mockResolvedValue([{
+      id: "product-1",
+      external1cId: `  ${productReference}  `,
+      sku: "400691",
+      name: "DH-IPC-HFW2649TL-S-PRO",
+    }]);
+
+    await dependencies.service.submit("user-1", input());
+
+    expect(dependencies.orderProvider.exportSalesOrder).toHaveBeenCalledWith(expect.objectContaining({
+      items: [expect.objectContaining({
+        productReference: expect.objectContaining({ externalId: productReference }),
+      })],
+    }));
+  });
+
+  it("rejects malformed 1C product GUIDs", async () => {
+    const dependencies = makeDependencies();
+    dependencies.catalogService.getProductOrderIdentities.mockResolvedValue([{
+      id: "product-1",
+      external1cId: "9a5c59b8-0293-11f1-d58d-not-hexadecimal",
+      sku: "400691",
+      name: "DH-IPC-HFW2649TL-S-PRO",
+    }]);
+
+    await expect(dependencies.service.submit("user-1", input()))
+      .rejects.toBeInstanceOf(RecoverableOrderSubmissionError);
+    expect(dependencies.orderProvider.exportSalesOrder).not.toHaveBeenCalled();
+  });
+
+  it("keeps strict RFC validation for the portal submission key", async () => {
+    const dependencies = makeDependencies();
+
+    await expect(dependencies.service.submit("user-1", {
+      ...input(),
+      submissionKey: "9a5c59b8-0293-11f1-d58d-7239d3b7bd5c",
+    })).rejects.toBeInstanceOf(RecoverableOrderSubmissionError);
+
+    expect(dependencies.catalogService.getProductOrderIdentities).not.toHaveBeenCalled();
     expect(dependencies.orderProvider.exportSalesOrder).not.toHaveBeenCalled();
   });
 

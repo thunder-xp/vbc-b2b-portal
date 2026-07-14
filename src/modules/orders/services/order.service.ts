@@ -38,6 +38,7 @@ const NOVOTECH_ORGANIZATION_REF = "4643d461-aa49-4b70-9486-a59f80ee6af8";
 const ORDER_STATE_REF = "acf7b2a1-1a78-11e5-8b0f-00155d010501";
 const SALES_STRUCTURAL_UNIT_REF = "6d5affb3-94b3-4377-a8c2-8d07f0450d95";
 const RESERVATION_STRUCTURAL_UNIT_REF = "86197770-0aac-431a-aad6-8e7099029bbb";
+const PRODUCT_REFERENCE_BRANCH = "DefaultPartnerOrderService.submit:current_catalog_product_reference";
 
 export class DefaultPartnerOrderService implements PartnerOrderService {
   constructor(
@@ -217,15 +218,27 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
       const identity = identitiesById.get(item.productId);
       const view = viewsById.get(item.productId);
       const price = view?.partnerPrice;
+      const rawExternal1cId = identity?.external1cId;
+      const trimmedExternal1cId = typeof rawExternal1cId === "string" ? rawExternal1cId.trim() : null;
+      const productReferenceIsValid = isOneCGuid(rawExternal1cId);
       console.info({
         event: "partner_order_product_reference_resolution",
         productId: item.productId,
         sku: identity?.sku ?? null,
+        rawExternal1cId: rawExternal1cId ?? null,
+        rawExternal1cIdType: typeof rawExternal1cId,
+        trimmedExternal1cId,
+        validatorFunctionName: "isOneCGuid",
+        validatorResult: productReferenceIsValid,
+        zeroGuidResult: isZeroGuid(rawExternal1cId),
+        sourceFile: "src/modules/orders/services/order.service.ts",
+        logicalBranchIdentifier: PRODUCT_REFERENCE_BRANCH,
+        deployedCommitSha: deployedCommitSha(),
         databaseReferenceFieldName: "catalog_products.external_1c_id",
-        resolvedProductRef: identity?.external1cId ?? null,
+        resolvedProductRef: productReferenceIsValid ? trimmedExternal1cId : null,
         referenceSource: "current_catalog",
       });
-      if (!identity || !isOneCGuid(identity.external1cId)) {
+      if (!identity || !productReferenceIsValid || !trimmedExternal1cId) {
         failOrderSubmission(
           "product_reference_resolution",
           new RecoverableOrderSubmissionError("A cart product is not linked to 1C."),
@@ -241,7 +254,7 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
       }
       const lineTotal = roundMoney(price.amount * item.quantity);
       return {
-        productId: item.productId, externalProductRef: identity.external1cId,
+        productId: item.productId, externalProductRef: trimmedExternal1cId,
         externalCharacteristicRef: ZERO_CHARACTERISTIC_REF, externalUnitRef: DEFAULT_UNIT_REF,
         externalVatRateRef: DEFAULT_VAT_RATE_REF, productName: identity.name, sku: identity.sku,
         quantity: item.quantity, partnerUnitPrice: price.amount, currencyCode: price.currencyCode,
@@ -249,6 +262,14 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
         nearestArrivalDate: view.stock?.expectedArrival?.expectedDate ?? null,
         nearestArrivalQuantity: view.stock?.expectedArrival?.expectedQuantity ?? null,
       };
+    });
+    console.info({
+      event: "partner_order_submission_diagnostic",
+      stage: "product_reference_resolution_completed",
+      cartId: cart.id,
+      submissionKey,
+      resolvedProductCount: snapshots.length,
+      deployedCommitSha: deployedCommitSha(),
     });
     const currencyCodes = [...new Set(snapshots.map((item) => item.currencyCode))];
     if (currencyCodes.length !== 1) throw new RecoverableOrderSubmissionError("Cart prices use incompatible currencies.");
@@ -428,10 +449,13 @@ function ref(externalId: string, externalType: string): ExternalReferenceDTO { r
 function requireUuid(value: string, label: string): string { if (!isUuid(value)) throw new RecoverableOrderSubmissionError(`${label} is invalid.`); return value.toLowerCase(); }
 function isUuid(value: string | null | undefined): value is string { return typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value); }
 function isOneCGuid(value: string | null | undefined): value is string {
-  return typeof value === "string" &&
-    value.toLowerCase() !== ZERO_CHARACTERISTIC_REF &&
-    /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(value);
+  if (typeof value !== "string") return false;
+  const normalized = value.trim();
+  return !isZeroGuid(normalized) &&
+    /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(normalized);
 }
+function isZeroGuid(value: string | null | undefined): boolean { return typeof value === "string" && value.trim().toLowerCase() === ZERO_CHARACTERISTIC_REF; }
+function deployedCommitSha(): string { return process.env.VERCEL_GIT_COMMIT_SHA?.trim() || "local"; }
 function normalizeDeliveryDate(value: string): string { const normalized = value.trim(); if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized) || Date.parse(`${normalized}T23:59:59Z`) < Date.now()) throw new RecoverableOrderSubmissionError("Requested delivery date is invalid."); return normalized; }
 function roundMoney(value: number): number { return Math.round((value + Number.EPSILON) * 100) / 100; }
 function toJsonRecord(value: SalesOrderDTO): Record<string, unknown> { return JSON.parse(JSON.stringify(value)) as Record<string, unknown>; }
