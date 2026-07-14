@@ -78,7 +78,7 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
       companyId: company.id,
       companyName: company.displayName,
     });
-    if (!isUuid(company.external1cId) || !isUuid(company.external1cPriceTypeId)) {
+    if (!isOneCGuid(company.external1cId) || !isOneCGuid(company.external1cPriceTypeId)) {
       failOrderSubmission(
         "counterparty_mapping",
         new RecoverableOrderSubmissionError("The partner company is not fully linked to 1C."),
@@ -217,7 +217,15 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
       const identity = identitiesById.get(item.productId);
       const view = viewsById.get(item.productId);
       const price = view?.partnerPrice;
-      if (!identity || !isUuid(identity.external1cId)) {
+      console.info({
+        event: "partner_order_product_reference_resolution",
+        productId: item.productId,
+        sku: identity?.sku ?? null,
+        databaseReferenceFieldName: "catalog_products.external_1c_id",
+        resolvedProductRef: identity?.external1cId ?? null,
+        referenceSource: "current_catalog",
+      });
+      if (!identity || !isOneCGuid(identity.external1cId)) {
         failOrderSubmission(
           "product_reference_resolution",
           new RecoverableOrderSubmissionError("A cart product is not linked to 1C."),
@@ -419,6 +427,11 @@ function buildSalesOrder(input: {
 function ref(externalId: string, externalType: string): ExternalReferenceDTO { return { providerCode: "one-c", externalId, externalType }; }
 function requireUuid(value: string, label: string): string { if (!isUuid(value)) throw new RecoverableOrderSubmissionError(`${label} is invalid.`); return value.toLowerCase(); }
 function isUuid(value: string | null | undefined): value is string { return typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value); }
+function isOneCGuid(value: string | null | undefined): value is string {
+  return typeof value === "string" &&
+    value.toLowerCase() !== ZERO_CHARACTERISTIC_REF &&
+    /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(value);
+}
 function normalizeDeliveryDate(value: string): string { const normalized = value.trim(); if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized) || Date.parse(`${normalized}T23:59:59Z`) < Date.now()) throw new RecoverableOrderSubmissionError("Requested delivery date is invalid."); return normalized; }
 function roundMoney(value: number): number { return Math.round((value + Number.EPSILON) * 100) / 100; }
 function toJsonRecord(value: SalesOrderDTO): Record<string, unknown> { return JSON.parse(JSON.stringify(value)) as Record<string, unknown>; }

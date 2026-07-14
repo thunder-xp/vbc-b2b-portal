@@ -39,6 +39,49 @@ describe("DefaultPartnerOrderService", () => {
     expect(dependencies.orderProvider.exportSalesOrder).not.toHaveBeenCalled();
   });
 
+  it("accepts the current non-RFC 1C product GUID and logs current-catalog provenance", async () => {
+    const dependencies = makeDependencies();
+    const productReference = "9a5c59b8-0293-11f1-d58d-7239d3b7bd5c";
+    dependencies.catalogService.getProductOrderIdentities.mockResolvedValue([{
+      id: "product-1",
+      external1cId: productReference,
+      sku: "400691",
+      name: "DH-IPC-HFW2649TL-S-PRO",
+    }]);
+
+    await expect(dependencies.service.submit("user-1", input())).resolves.toMatchObject({
+      status: PartnerOrderStatus.Submitted,
+    });
+
+    expect(console.info).toHaveBeenCalledWith({
+      event: "partner_order_product_reference_resolution",
+      productId: "product-1",
+      sku: "400691",
+      databaseReferenceFieldName: "catalog_products.external_1c_id",
+      resolvedProductRef: productReference,
+      referenceSource: "current_catalog",
+    });
+    expect(dependencies.orderProvider.exportSalesOrder).toHaveBeenCalledWith(expect.objectContaining({
+      items: [expect.objectContaining({
+        productReference: expect.objectContaining({ externalId: productReference }),
+      })],
+    }));
+  });
+
+  it("rejects the zero 1C product GUID", async () => {
+    const dependencies = makeDependencies();
+    dependencies.catalogService.getProductOrderIdentities.mockResolvedValue([{
+      id: "product-1",
+      external1cId: "00000000-0000-0000-0000-000000000000",
+      sku: "400691",
+      name: "DH-IPC-HFW2649TL-S-PRO",
+    }]);
+
+    await expect(dependencies.service.submit("user-1", input()))
+      .rejects.toBeInstanceOf(RecoverableOrderSubmissionError);
+    expect(dependencies.orderProvider.exportSalesOrder).not.toHaveBeenCalled();
+  });
+
   it("blocks submission when the selected customer contract cannot be resolved", async () => {
     const dependencies = makeDependencies();
     dependencies.partnerProvider.resolveCustomerOrderContract.mockResolvedValue(null);
