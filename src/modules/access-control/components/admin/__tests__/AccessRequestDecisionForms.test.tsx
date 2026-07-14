@@ -89,6 +89,10 @@ describe("AccessRequestDecisionForms", () => {
     expect(screen.getByText("PARTNER-1")).toBeInTheDocument();
     expect(screen.getByText("CONTRACT-1")).toBeInTheDocument();
     expect(screen.getByText("PRICE-1")).toBeInTheDocument();
+    expect(screen.getByText("Статус партнёра")).toBeInTheDocument();
+    expect(screen.getByText("Источник статуса партнёра")).toBeInTheDocument();
+    expect(screen.queryByText("Price type")).not.toBeInTheDocument();
+    expect(screen.queryByText("Вид цены")).not.toBeInTheDocument();
     await waitFor(() => expect(screen.getByRole("button", { name: "Approve" })).toBeEnabled());
 
     await user.click(screen.getByRole("button", { name: "Approve" }));
@@ -143,6 +147,7 @@ describe("AccessRequestDecisionForms", () => {
     await user.click(await screen.findByRole("button", { name: "Select counterparty" }));
 
     expect(await screen.findByText(/Для выбранного контрагента активные договоры в 1С не найдены/)).toBeInTheDocument();
+    expect(screen.getByText(/Выберите статус партнёра вручную/)).toBeInTheDocument();
     expect(screen.getByText("Договор не обязателен, если активных договоров нет.")).toBeInTheDocument();
     expect(screen.queryByText("1C is temporarily unavailable.")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Approve" })).toBeDisabled();
@@ -219,9 +224,9 @@ describe("AccessRequestDecisionForms", () => {
     await user.click(screen.getByRole("button", { name: "Search" }));
     await user.click(await screen.findByRole("button", { name: "Select counterparty" }));
 
-    expect(await screen.findByText("From contract")).toBeInTheDocument();
+    expect(await screen.findByText("Из договора")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /Manual wholesale/ }));
-    expect(await screen.findByText("Manual override")).toBeInTheDocument();
+    expect(await screen.findByText("Выбрано вручную")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Approve" }));
 
     expect(mocks.approveAccessRequestAction).toHaveBeenCalledWith(expect.objectContaining({

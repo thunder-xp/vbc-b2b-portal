@@ -119,10 +119,10 @@ export function AccessRequestDecisionForms({
       setContracts(contractsResult.data);
       setPriceTypes(priceTypesResult.data);
       if (contractsResult.data.length === 0) {
-        setBindingNotice("Для выбранного контрагента активные договоры в 1С не найдены.\nВыберите вид цены вручную.");
+        setBindingNotice("Для выбранного контрагента активные договоры в 1С не найдены.\nВыберите статус партнёра вручную.");
       }
       if (priceTypesResult.data.length === 0) {
-        setSearchError("В 1С не найдены доступные виды цены.");
+        setSearchError("В 1С не найдены доступные статусы партнёра.");
       }
       if (contractsResult.data.length === 1) selectContract(contractsResult.data[0]);
     });
@@ -134,7 +134,7 @@ export function AccessRequestDecisionForms({
     setBindingNotice(null);
     setSearchError(null);
     if (contract.priceType) {
-      selectPriceType(contract.priceType, "From contract");
+      selectPriceType(contract.priceType, "Из договора");
       return;
     }
     setExternal1cPriceTypeId("");
@@ -144,7 +144,7 @@ export function AccessRequestDecisionForms({
 
   function selectPriceType(
     priceType: PartnerPriceTypeActionDto,
-    source = "Manual override",
+    source = "Выбрано вручную",
   ) {
     setExternal1cPriceTypeId(priceType.external1cPriceTypeId);
     setSelectedPriceTypeName(priceType.name);
@@ -215,16 +215,16 @@ export function AccessRequestDecisionForms({
                   value={external1cContractId}
                 />
                 <BindingValue
-                  label="Price type / price group reference"
+                  label="Ссылка статуса партнёра в 1С"
                   value={external1cPriceTypeId}
                 />
                 <BindingValue label="Contract" value={selectedContractName} />
                 <BindingValue
-                  label="Price type"
+                  label="Статус партнёра"
                   value={selectedPriceTypeName}
                 />
                 <BindingValue
-                  label="Price type source"
+                  label="Источник статуса партнёра"
                   value={selectedPriceTypeSource}
                 />
               </dl>
@@ -240,7 +240,7 @@ export function AccessRequestDecisionForms({
           </label>
           <div className="grid gap-1 text-sm">
             {!external1cId && <p className="text-red-700">Выберите контрагента в 1С.</p>}
-            {external1cId && !external1cPriceTypeId && <p className="text-red-700">Выберите вид цены.</p>}
+            {external1cId && !external1cPriceTypeId && <p className="text-red-700">Выберите статус партнёра.</p>}
             {selectedPartner && contracts.length === 0 && (
               <p className="text-zinc-600">Договор не обязателен, если активных договоров нет.</p>
             )}
@@ -357,7 +357,7 @@ export function AccessRequestDecisionForms({
                           {contract.number ?? contract.code} · {contract.date ?? "No date"} · {contract.contractType ?? "No contract type"}
                         </span>
                         <span className="mt-1 block text-zinc-600">
-                          Price type: {contract.priceType?.name ?? "Requires selection"}
+                          Статус партнёра: {contract.priceType?.name ?? "Требуется выбор"}
                         </span>
                       </button>
                     ))}
@@ -367,7 +367,7 @@ export function AccessRequestDecisionForms({
 
               {selectedPartner && priceTypes.length > 0 && (
                 <div className="rounded-md border border-amber-200 bg-amber-50 p-4">
-                  <p className="font-medium text-zinc-950">Select active price type</p>
+                  <p className="font-medium text-zinc-950">Выберите статус партнёра</p>
                   <div className="mt-3 grid gap-2">
                     {priceTypes.map((priceType) => (
                       <button

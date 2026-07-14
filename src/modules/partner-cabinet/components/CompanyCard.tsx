@@ -11,7 +11,7 @@ export function CompanyCard({ context }: { context: PartnerWorkspaceContext }) {
       <dl className="mt-6 grid gap-4 text-sm sm:grid-cols-3">
         <Info label="Роль" value={context.membershipRole ?? "Не определена"} />
         <Info label="Код компании в 1С" value={context.external1cCode ?? "Не указан"} />
-        <Info label="Вид цены" value={context.priceTypeName ?? "Не настроен"} />
+        <Info label="Статус партнёра" value={context.priceTypeName ?? "Не настроен"} />
       </dl>
     </section>
   );

@@ -25,7 +25,9 @@ describe("Partner Workspace home page", () => {
     expect(screen.getByText("Добро пожаловать, Partner User")).toBeInTheDocument();
     expect(screen.getByText("Partner Company")).toBeInTheDocument();
     expect(screen.getByText("Partner Owner")).toBeInTheDocument();
+    expect(screen.getByText("Статус партнёра")).toBeInTheDocument();
     expect(screen.getByText("GOLD")).toBeInTheDocument();
+    expect(screen.queryByText("Вид цены")).not.toBeInTheDocument();
     expect(screen.getByText("Создать проект")).toBeInTheDocument();
     expect(screen.getByText("Подобрать оборудование")).toBeInTheDocument();
     expect(screen.getByText("Мои проекты")).toBeInTheDocument();

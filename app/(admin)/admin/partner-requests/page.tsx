@@ -21,8 +21,8 @@ export default async function AdminPartnerRequestsPage() {
             Partner approval console
           </h1>
           <p className="mt-2 max-w-3xl text-sm text-zinc-600">
-            Review partner-submitted company requests and bind approved access
-            to validated 1C partner, contract, and price type references.
+            Проверяйте заявки компаний и связывайте одобренный доступ с
+            подтверждённым контрагентом, договором и статусом партнёра в 1С.
           </p>
         </div>
 

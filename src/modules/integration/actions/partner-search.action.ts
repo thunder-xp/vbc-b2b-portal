@@ -110,7 +110,7 @@ export async function listOneCPriceTypesAction(): Promise<ActionResult<PartnerPr
   try {
     await ensurePartnerApprovalAccess();
     const result = await createPartnerLookupService(getOneCEnv()).listPriceTypes();
-    return success("1C price types loaded.", result.items.map(toPriceTypeActionDto));
+    return success("Статусы партнёров загружены из 1С.", result.items.map(toPriceTypeActionDto));
   } catch (error) {
     return integrationFailure(error);
   }

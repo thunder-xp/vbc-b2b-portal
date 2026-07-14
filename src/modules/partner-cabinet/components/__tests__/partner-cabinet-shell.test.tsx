@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { PartnerHeader } from "../PartnerHeader";
 import { PartnerSidebar } from "../PartnerSidebar";
+import { CompanyCard } from "../CompanyCard";
 import { resolveWorkspaceCapabilities } from "../../services";
 
 vi.mock("next/navigation", () => ({ usePathname: () => "/cabinet" }));
@@ -28,6 +29,30 @@ describe("Partner workspace shell", () => {
     expect(screen.getByText("Partner Company")).toBeInTheDocument();
     expect(screen.getByText("Владелец компании")).toBeInTheDocument();
     expect(screen.queryByText("role-1")).not.toBeInTheDocument();
+  });
+
+  it("presents the commercial tier as partner status", () => {
+    render(<CompanyCard context={{
+      userId: "user-1",
+      userDisplayName: "Partner User",
+      userEmail: "partner@example.com",
+      profileStatus: "active",
+      accessState: "active",
+      companyId: "company-1",
+      companyName: "Partner Company",
+      companyStatus: "active",
+      membershipId: "membership-1",
+      membershipStatus: "active",
+      membershipRole: "Владелец компании",
+      external1cCode: "UU-001940",
+      external1cPriceTypeId: "price-type-1",
+      priceTypeName: "PLATINUM",
+      capabilities: resolveWorkspaceCapabilities(new Set()),
+    }} />);
+
+    expect(screen.getByText("Статус партнёра")).toBeInTheDocument();
+    expect(screen.getByText("PLATINUM")).toBeInTheDocument();
+    expect(screen.queryByText("Вид цены")).not.toBeInTheDocument();
   });
 
   it("shows workspace navigation and controlled future states", () => {

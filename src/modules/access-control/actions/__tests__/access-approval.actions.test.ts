@@ -58,7 +58,7 @@ describe("approveAccessRequestAction", () => {
     expect(result).toMatchObject({
       success: false,
       errorCode: "INVALID_INPUT",
-      message: "Выберите вид цены.",
+      message: "Выберите статус партнёра.",
     });
     expect(mocks.approveAccessRequest).not.toHaveBeenCalled();
   });

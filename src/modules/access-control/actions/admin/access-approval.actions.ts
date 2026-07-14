@@ -98,7 +98,7 @@ export async function approveAccessRequestAction(
   }
 
   if (!external1cPriceTypeId) {
-    return invalidInput("Выберите вид цены.");
+    return invalidInput("Выберите статус партнёра.");
   }
 
   try {

@@ -9,7 +9,7 @@ export function WorkspaceHero({ workspace }: { workspace: WorkspaceHomeDto }) {
         <InfoRow label="Компания" value={workspace.company.name} />
         <InfoRow label="Роль" value={workspace.company.role} />
         <InfoRow label="Код компании в 1С" value={workspace.company.external1cCode} />
-        <InfoRow label="Вид цены" value={workspace.company.priceType} />
+        <InfoRow label="Статус партнёра" value={workspace.company.priceType} />
         {workspace.company.accountManager && <InfoRow label="Менеджер" value={workspace.company.accountManager} />}
       </dl>
     </section>
