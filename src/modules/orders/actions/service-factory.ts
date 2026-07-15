@@ -6,8 +6,8 @@ import { DefaultCatalogService } from "../../catalog/services";
 import { OneCProvider } from "../../integration/providers/one-c";
 import { getOneCEnv } from "../../../lib/env";
 import { createPricingInventoryService } from "../../pricing-inventory/actions/service-factory";
-import { SupabaseCartRepository, SupabasePartnerOrderRepository } from "../repositories/supabase";
-import { DefaultCartService, DefaultPartnerOrderService } from "../services";
+import { SupabaseCartRepository, SupabasePartnerOrderHistoryRepository, SupabasePartnerOrderRepository } from "../repositories/supabase";
+import { DefaultCartService, DefaultPartnerOrderHistoryService, DefaultPartnerOrderService } from "../services";
 
 function dependencies() {
   const companyAccessService = createCompanyAccessService();
@@ -39,5 +39,24 @@ export function createPartnerOrderService(): DefaultPartnerOrderService {
     value.cartRepository, value.orderRepository, value.companyAccessService, value.permissionService,
     value.catalogService, value.pricingInventoryService, provider.partners, provider.orders,
     { useLegacyMinimalOrderPayload: env.useLegacyMinimalOrderPayload === true },
+  );
+}
+
+export function createPartnerOrderHistoryService(): DefaultPartnerOrderHistoryService {
+  const value = dependencies();
+  const env = getOneCEnv();
+  const provider = new OneCProvider({
+    baseUrl: env.baseUrl,
+    username: env.username,
+    password: env.password,
+    requestTimeoutMs: env.requestTimeoutMs,
+    useMockPartners: false,
+  });
+  return new DefaultPartnerOrderHistoryService(
+    new SupabasePartnerOrderHistoryRepository(),
+    value.orderRepository,
+    value.companyAccessService,
+    value.permissionService,
+    provider.orders,
   );
 }

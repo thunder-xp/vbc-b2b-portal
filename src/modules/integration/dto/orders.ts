@@ -49,3 +49,36 @@ export type SalesOrderExportResultDTO = {
   itemCount: number;
   totalUnits: number;
 };
+
+export type SalesOrderHistoryStateCode =
+  | "open"
+  | "preorder"
+  | "test"
+  | "completed";
+
+export type SalesOrderHistoryItemDTO = {
+  lineNumber: number;
+  productReference: ExternalReferenceDTO;
+  characteristicReference: ExternalReferenceDTO | null;
+  quantity: number;
+  unitPrice: number;
+  lineTotal: number;
+};
+
+export type SalesOrderHistoryDTO = {
+  reference: ExternalReferenceDTO;
+  partnerCompanyReference: ExternalReferenceDTO;
+  contractReference: ExternalReferenceDTO | null;
+  currencyReference: ExternalReferenceDTO | null;
+  currencyCode: string | null;
+  number: string;
+  documentDate: string;
+  requestedDeliveryDate: string | null;
+  posted: boolean;
+  deletionMark: boolean;
+  stateRaw: string | null;
+  stateCode: SalesOrderHistoryStateCode | null;
+  documentTotal: number;
+  sourceVersion: string | null;
+  items: SalesOrderHistoryItemDTO[];
+};

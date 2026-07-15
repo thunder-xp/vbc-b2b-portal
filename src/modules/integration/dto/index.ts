@@ -20,7 +20,14 @@ export type {
 export type { DocumentDTO } from "./documents";
 export type { FinanceSnapshotDTO, InvoiceDTO } from "./finance";
 export type { StockBalanceDTO } from "./inventory";
-export type { SalesOrderDTO, SalesOrderExportResultDTO, SalesOrderItemDTO } from "./orders";
+export type {
+  SalesOrderDTO,
+  SalesOrderExportResultDTO,
+  SalesOrderHistoryDTO,
+  SalesOrderHistoryItemDTO,
+  SalesOrderHistoryStateCode,
+  SalesOrderItemDTO,
+} from "./orders";
 export type {
   PartnerCompanyDTO,
   PartnerContractDTO,

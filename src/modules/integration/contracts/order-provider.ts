@@ -3,6 +3,7 @@ import type {
   IntegrationPageResultDTO,
   IntegrationSyncWindowDTO,
   SalesOrderDTO,
+  SalesOrderHistoryDTO,
   SalesOrderExportResultDTO,
 } from "../dto";
 
@@ -17,4 +18,7 @@ export interface OrderProvider {
   fetchSalesOrders(
     input: SalesOrderStatusFetchRequestDTO,
   ): Promise<IntegrationPageResultDTO<SalesOrderDTO>>;
+  fetchSalesOrderHistory(
+    input: SalesOrderStatusFetchRequestDTO,
+  ): Promise<IntegrationPageResultDTO<SalesOrderHistoryDTO>>;
 }

@@ -1,82 +1,84 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { getPartnerOrderAction } from "@/src/modules/orders/actions";
+import { getPartnerOrderHistoryAction } from "@/src/modules/orders/actions";
 
-const STATUS_LABELS: Record<string, string> = {
-  processing: "Создаётся в 1С",
-  confirmed: "Подтверждён",
-  failed: "Не создан",
-  reconciliation_required: "Статус отправки уточняется",
-  confirmed_not_created: "Не создан в 1С",
-  manual_review_required: "Требуется проверка Novotech",
-};
+type OrderDetailPageProps = { params: Promise<{ id: string }> };
 
-export default async function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function OrderDetailPage({ params }: OrderDetailPageProps) {
   const { id } = await params;
-  const result = await getPartnerOrderAction(id);
-  if (!result.success) notFound();
+  const result = await getPartnerOrderHistoryAction(id);
+  if (!result.success) {
+    if (result.errorCode === "NOT_FOUND") notFound();
+    return <p className="rounded-md border border-rose-200 bg-rose-50 p-5 text-sm text-rose-800">Не удалось загрузить заказ.</p>;
+  }
   const order = result.data;
-  const confirmed = order.integrationStatus === "confirmed" && order.external1cNumber;
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
-      {confirmed && (
-        <section className="rounded-md border border-emerald-200 bg-emerald-50 px-5 py-4" aria-labelledby="order-success-title">
-          <h1 className="font-semibold text-emerald-950" id="order-success-title">Заказ успешно создан</h1>
-          <p className="mt-1 text-sm text-emerald-800">Ваш заказ № {order.external1cNumber} принят и передан в обработку.</p>
+    <div className="mx-auto max-w-5xl space-y-6">
+      {!order.posted ? (
+        <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-amber-950">
+          <h1 className="font-semibold">Заказ обрабатывается</h1>
+          <p className="mt-1 text-sm">Заказ получен и обрабатывается в Novotech.</p>
+        </div>
+      ) : null}
+
+      <section className="border-b border-zinc-200 pb-6">
+        <p className="text-xs font-semibold uppercase text-emerald-700">Заказ партнёра</p>
+        <h2 className="mt-1 text-2xl font-semibold">{order.primaryLabel}</h2>
+        <p className="mt-2 text-sm font-medium text-zinc-700">{order.statusLabel}</p>
+        {order.originLabel ? <p className="mt-1 text-sm text-zinc-500">{order.originLabel}</p> : null}
+        <dl className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <Metric label="Компания" value={order.companyName} />
+          <Metric label="Дата заказа" value={formatDate(order.documentDate)} />
+          <Metric label="Дата отгрузки" value={order.deliveryDate ? formatDate(order.deliveryDate) : "Не указана"} />
+          <Metric label="Сумма в 1С" value={order.documentTotal} />
+        </dl>
+      </section>
+
+      <section>
+        <h2 className="text-lg font-semibold">Текущий состав в 1С</h2>
+        <div className="mt-3 overflow-hidden rounded-md border border-zinc-200 bg-white">
+          <ul className="divide-y divide-zinc-200">
+            {order.lines.map((line, index) => (
+              <li className="grid gap-2 p-4 sm:grid-cols-[minmax(0,1fr)_90px_140px_140px] sm:items-center" key={`${line.sku ?? line.productName}-${index}`}>
+                <div><p className="font-medium text-zinc-950">{line.productName}</p>{line.sku ? <p className="text-xs text-zinc-500">{line.sku}</p> : null}</div>
+                <span className="text-sm text-zinc-700">{line.quantity} ед.</span>
+                <span className="text-sm text-zinc-700">{line.unitPrice}</span>
+                <span className="text-sm font-semibold text-zinc-950">{line.lineTotal}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      {order.portalSnapshot ? (
+        <section className="border-t border-zinc-200 pt-6">
+          <h2 className="text-lg font-semibold">Снимок при отправке из платформы</h2>
+          <p className="mt-1 text-sm text-zinc-500">Исходные партнёрские цены сохранены отдельно от текущего документа 1С.</p>
+          <p className="mt-3 font-semibold">Итого: {order.portalSnapshot.total}</p>
         </section>
-      )}
+      ) : null}
 
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-xs font-semibold uppercase text-emerald-700">Заказ партнёра</p>
-          <h2 className="mt-1 text-2xl font-semibold">{order.external1cNumber ? `Заказ № ${order.external1cNumber}` : "Заказ"}</h2>
-          <p className="mt-2 text-sm text-zinc-600">{STATUS_LABELS[order.integrationStatus] ?? "Обрабатывается"}</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Link className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-semibold text-zinc-800 hover:bg-zinc-50" href="/cabinet/orders">Все заказы</Link>
-          <Link className="rounded-md bg-emerald-700 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-800" href="/cabinet/catalog">Продолжить покупки</Link>
-        </div>
-      </header>
-
-      <dl className="grid gap-px overflow-hidden rounded-md border border-zinc-200 bg-zinc-200 sm:grid-cols-2 lg:grid-cols-4">
-        <OrderFact label="Компания" value={order.companyName} />
-        <OrderFact label="Дата создания" value={formatDate(order.confirmedAt ?? order.createdAt)} />
-        <OrderFact label="Дата отгрузки" value={formatDate(order.requestedDeliveryDate)} />
-        <OrderFact label="Сумма" value={order.documentTotal ?? "Недоступно"} />
-        <OrderFact label="Позиций" value={String(order.positionCount)} />
-        <OrderFact label="Единиц товара" value={String(order.totalUnitCount)} />
-        <OrderFact label="Договор" value={order.contractNumber ?? "Недоступно"} />
-        <OrderFact label="Синхронизация" value={formatDateTime(order.lastSynchronizedAt)} />
-      </dl>
-
-      <div className="overflow-x-auto rounded-md border border-zinc-200 bg-white">
-        <div className="min-w-[680px]">
-          <div className="grid grid-cols-[minmax(260px,1fr)_90px_150px_150px] gap-3 border-b border-zinc-200 bg-zinc-50 px-4 py-3 text-xs font-semibold uppercase text-zinc-500">
-            <span>Товар</span><span>Количество</span><span>Цена</span><span>Сумма</span>
-          </div>
-          {order.lines.map((line) => (
-            <div className="grid grid-cols-[minmax(260px,1fr)_90px_150px_150px] gap-3 border-b border-zinc-100 px-4 py-4 text-sm last:border-0" key={`${line.sku}-${line.productName}`}>
-              <span><strong className="block">{line.productName}</strong><span className="text-xs text-zinc-500">Артикул: {line.sku}</span></span>
-              <span>{line.quantity}</span><span>{line.unitPrice}</span><span className="font-semibold">{line.lineTotal}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-      <p className="text-xs text-zinc-500">Данные заказа сохранены на момент отправки и доступны только для чтения.</p>
+      {order.timeline.length ? (
+        <section className="border-t border-zinc-200 pt-6">
+          <h2 className="text-lg font-semibold">История</h2>
+          <ol className="mt-3 space-y-3">
+            {order.timeline.map((event, index) => (
+              <li className="flex items-baseline justify-between gap-4 text-sm" key={`${event.occurredAt}-${index}`}>
+                <span className="text-zinc-800">{event.label}</span>
+                <time className="shrink-0 text-zinc-500">{formatDateTime(event.occurredAt)}</time>
+              </li>
+            ))}
+          </ol>
+        </section>
+      ) : null}
     </div>
   );
 }
 
-function OrderFact({ label, value }: { label: string; value: string }) {
-  return <div className="bg-white p-4"><dt className="text-xs font-semibold uppercase text-zinc-500">{label}</dt><dd className="mt-1 text-sm font-semibold text-zinc-950">{value}</dd></div>;
+function Metric({ label, value }: { label: string; value: string }) {
+  return <div><dt className="text-xs uppercase text-zinc-500">{label}</dt><dd className="mt-1 font-medium text-zinc-950">{value}</dd></div>;
 }
 
-function formatDate(value: string): string {
-  return new Date(value.length === 10 ? `${value}T00:00:00` : value).toLocaleDateString("ru-RU");
-}
-
-function formatDateTime(value: string): string {
-  return new Date(value).toLocaleString("ru-RU", { dateStyle: "short", timeStyle: "short" });
-}
+function formatDate(value: string): string { return new Date(value).toLocaleDateString("ru-RU"); }
+function formatDateTime(value: string): string { return new Date(value).toLocaleString("ru-RU", { dateStyle: "medium", timeStyle: "short" }); }

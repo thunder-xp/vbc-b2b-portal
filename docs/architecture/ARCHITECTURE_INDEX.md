@@ -22,7 +22,8 @@ This index is the table of contents for the Novotech Partner Platform Architectu
 16. `docs/architecture/ONE_C_PROVIDER_DESIGN.md`
 17. `docs/architecture/ONE_C_PARTNER_SEARCH_BINDING_DESIGN.md`
 18. `docs/architecture/SYNC_ENGINE_DESIGN.md`
-19. `docs/domain/PARTNER_DOMAIN.md`
+19. `docs/architecture/PARTNER_ORDER_HISTORY_SYNC_DESIGN.md`
+20. `docs/domain/PARTNER_DOMAIN.md`
 20. `docs/domain/ACCESS_CONTROL_DOMAIN.md`
 21. `docs/domain/CATALOG_DOMAIN.md`
 22. `docs/domain/PRICING_INVENTORY_DOMAIN.md`
@@ -68,6 +69,7 @@ This index is the table of contents for the Novotech Partner Platform Architectu
 - `docs/architecture/ONE_C_PROVIDER_DESIGN.md` - 1C provider adapter boundary, data ownership, supported read/write flows, mapping strategy, security risks, and implementation phases.
 - `docs/architecture/ONE_C_PARTNER_SEARCH_BINDING_DESIGN.md` - Internal/admin 1C partner search and approval binding flow, neutral provider contract, UI boundaries, and security rules.
 - `docs/architecture/SYNC_ENGINE_DESIGN.md` - Sync Engine responsibilities, read-model update boundaries, implemented manual catalog sync slice, catalog/pricing/inventory/partner/document flows, idempotency, errors, logging, trigger strategy, and implementation phases.
+- `docs/architecture/PARTNER_ORDER_HISTORY_SYNC_DESIGN.md` - 1C-owned partner order history, state separation, deletion visibility, paginated synchronization, reconciliation, RLS, and local read-model performance.
 - `docs/architecture/PROJECT_PRINCIPLES.md` - Project constitution and decision rules.
 - `docs/architecture/MODULE_COMMUNICATION.md` - Module dependency direction, allowed communication, forbidden communication, event propagation, and admin/partner portal communication.
 

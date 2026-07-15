@@ -4,67 +4,91 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import OrderDetailPage from "../[id]/page";
 import OrdersPage from "../page";
 
-const mocks = vi.hoisted(() => ({ list: vi.fn(), get: vi.fn(), notFound: vi.fn() }));
+const mocks = vi.hoisted(() => ({ list: vi.fn(), get: vi.fn(), refresh: vi.fn(), notFound: vi.fn() }));
 
 vi.mock("@/src/modules/orders/actions", () => ({
-  listPartnerOrdersAction: mocks.list,
-  getPartnerOrderAction: mocks.get,
+  listPartnerOrderHistoryAction: mocks.list,
+  getPartnerOrderHistoryAction: mocks.get,
+  refreshPartnerOrderHistoryAction: mocks.refresh,
 }));
 vi.mock("next/navigation", () => ({ notFound: mocks.notFound }));
 
 const summary = {
-  id: "order-1",
-  status: "submitted",
-  external1cNumber: "NSUU-001",
-  requestedDeliveryDate: "2026-08-01",
-  submittedAt: "2026-07-15T10:00:00Z",
-  createdAt: "2026-07-15T09:59:00Z",
-  confirmedAt: "2026-07-15T10:00:00Z",
-  integrationStatus: "confirmed",
-  oneCOrderStatus: "unposted",
-  documentTotal: "100,00 $",
-  currencyCode: "USD",
+  id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+  primaryLabel: "№ NSUU-001",
+  statusLabel: "Открыт",
+  posted: true,
+  documentDate: "2026-07-15T10:00:00Z",
+  deliveryDate: "2026-08-01",
+  documentTotal: "1 000,00 MDL",
   positionCount: 2,
   totalUnitCount: 5,
+  lastSynchronizedAt: "2026-07-15T10:01:00Z",
 };
 
-describe("partner order pages", () => {
-  beforeEach(() => vi.clearAllMocks());
+describe("partner order history pages", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.refresh.mockResolvedValue({ success: true, data: null, errorCode: null, message: "" });
+  });
 
-  it("renders the current company order summary with totals and counts", async () => {
-    mocks.list.mockResolvedValue({ success: true, data: [summary], errorCode: null, message: "" });
+  it("renders posted 1C history with exact state and current MDL total", async () => {
+    mocks.list.mockResolvedValue({
+      success: true,
+      data: { orders: [summary], filter: "all", search: "", page: 1, totalPages: 1, total: 1, syncState: null },
+      errorCode: null,
+      message: "",
+    });
 
-    render(await OrdersPage());
+    render(await OrdersPage({ searchParams: Promise.resolve({}) }));
 
-    expect(screen.getByRole("link", { name: /NSUU-001/ })).toHaveAttribute("href", "/cabinet/orders/order-1");
-    expect(screen.getByText(/100,00/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /NSUU-001/ })).toHaveAttribute("href", `/cabinet/orders/${summary.id}`);
+    expect(screen.getAllByText("Открыт")).toHaveLength(2);
+    expect(screen.getByText("1 000,00 MDL")).toBeInTheDocument();
     expect(screen.getByText(/2 поз.*5 ед/)).toBeInTheDocument();
   });
 
-  it("renders confirmed success and every immutable order line without raw references", async () => {
+  it("does not expose the internal number as the primary label for an unposted order", async () => {
+    mocks.list.mockResolvedValue({
+      success: true,
+      data: { orders: [{ ...summary, primaryLabel: "Заказ обрабатывается", statusLabel: "Обрабатывается", posted: false }], filter: "processing", search: "", page: 1, totalPages: 1, total: 1, syncState: null },
+      errorCode: null,
+      message: "",
+    });
+
+    render(await OrdersPage({ searchParams: Promise.resolve({ status: "processing" }) }));
+
+    expect(screen.getByText("Заказ обрабатывается")).toBeInTheDocument();
+    expect(screen.queryByText("№ NSUU-001")).not.toBeInTheDocument();
+  });
+
+  it("renders historical detail without requiring a portal snapshot", async () => {
     mocks.get.mockResolvedValue({
       success: true,
       data: {
         ...summary,
         companyName: "ALERT-SS SRL",
-        contractNumber: "NS-296/0302/20",
-        lastSynchronizedAt: "2026-07-15T10:00:00Z",
-        lines: [
-          { productName: "Camera", sku: "400691", quantity: 2, unitPrice: "20,00 $", lineTotal: "40,00 $" },
-          { productName: "Recorder", sku: "400525", quantity: 3, unitPrice: "20,00 $", lineTotal: "60,00 $" },
-        ],
+        originLabel: "Заказ из истории Novotech",
+        lines: [{ productName: "Camera", sku: "400691", quantity: 2, unitPrice: "500,00 MDL", lineTotal: "1 000,00 MDL" }],
+        timeline: [{ label: "Импортирован из истории 1С", occurredAt: "2026-07-15T10:01:00Z" }],
+        portalSnapshot: null,
       },
       errorCode: null,
       message: "",
     });
 
-    render(await OrderDetailPage({ params: Promise.resolve({ id: "order-1" }) }));
+    render(await OrderDetailPage({ params: Promise.resolve({ id: summary.id }) }));
 
-    expect(screen.getByRole("heading", { name: "Заказ успешно создан" })).toBeInTheDocument();
-    expect(screen.getByText(/Ваш заказ № NSUU-001/)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "№ NSUU-001" })).toBeInTheDocument();
+    expect(screen.getByText("Заказ из истории Novotech")).toBeInTheDocument();
     expect(screen.getByText("Camera")).toBeInTheDocument();
-    expect(screen.getByText("Recorder")).toBeInTheDocument();
-    expect(screen.getByText("NS-296/0302/20")).toBeInTheDocument();
-    expect(screen.queryByText(/77777777-7777/)).not.toBeInTheDocument();
+    expect(screen.queryByText("Снимок при отправке из платформы")).not.toBeInTheDocument();
+  });
+
+  it("returns safe not-found behavior for an inaccessible deleted order", async () => {
+    mocks.get.mockResolvedValue({ success: false, data: null, errorCode: "NOT_FOUND", message: "" });
+    mocks.notFound.mockImplementation(() => { throw new Error("NEXT_NOT_FOUND"); });
+
+    await expect(OrderDetailPage({ params: Promise.resolve({ id: summary.id }) })).rejects.toThrow("NEXT_NOT_FOUND");
   });
 });
