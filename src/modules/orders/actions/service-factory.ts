@@ -44,6 +44,17 @@ export function createPartnerOrderService(): DefaultPartnerOrderService {
 
 export function createPartnerOrderHistoryService(): DefaultPartnerOrderHistoryService {
   const value = dependencies();
+  const orderProvider = createPartnerOrderHistoryProvider();
+  return new DefaultPartnerOrderHistoryService(
+    new SupabasePartnerOrderHistoryRepository(),
+    value.orderRepository,
+    value.companyAccessService,
+    value.permissionService,
+    orderProvider,
+  );
+}
+
+export function createPartnerOrderHistoryProvider() {
   const env = getOneCEnv();
   const provider = new OneCProvider({
     baseUrl: env.baseUrl,
@@ -52,11 +63,5 @@ export function createPartnerOrderHistoryService(): DefaultPartnerOrderHistorySe
     requestTimeoutMs: env.requestTimeoutMs,
     useMockPartners: false,
   });
-  return new DefaultPartnerOrderHistoryService(
-    new SupabasePartnerOrderHistoryRepository(),
-    value.orderRepository,
-    value.companyAccessService,
-    value.permissionService,
-    provider.orders,
-  );
+  return provider.orders;
 }

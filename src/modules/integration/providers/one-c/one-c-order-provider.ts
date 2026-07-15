@@ -190,6 +190,11 @@ export class OneCCustomerOrderProvider implements OrderProvider {
 
     console.info({
       event: "one_c_order_history_request",
+      deployedCommitSha: process.env.VERCEL_GIT_COMMIT_SHA?.trim() || "local",
+      historyProviderImplementation: this.constructor.name,
+      historyQueryMode: "scalar_headers_without_orderby",
+      headerIncludesInventoryLines: false,
+      orderByApplied: false,
       resource: CUSTOMER_ORDER_RESOURCE,
       requestUrl: url.toString(),
       skip,
