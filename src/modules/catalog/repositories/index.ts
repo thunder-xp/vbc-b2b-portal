@@ -6,3 +6,4 @@ export type {
   UpsertCatalogCategoryInput,
   UpsertCatalogProductInput,
 } from "./catalog.repository";
+export type { CatalogFavoriteRepository } from "./favorite.repository";

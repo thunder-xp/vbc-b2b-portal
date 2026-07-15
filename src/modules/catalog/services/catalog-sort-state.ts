@@ -2,6 +2,19 @@ import type { CatalogSort } from "./catalog-sorting";
 
 export type CatalogSortHiddenField = { name: string; value: string };
 
+export function parseCatalogAttributeFilters(params: Record<string, string | string[] | undefined> | undefined): Record<string, string[]> {
+  const filters: Record<string, string[]> = {};
+  for (const [name, input] of Object.entries(params ?? {})) {
+    if (!name.startsWith("attr.")) continue;
+    const key = name.slice(5);
+    if (!/^property_[0-9a-f-]{36}$/.test(key)) continue;
+    const raw = Array.isArray(input) ? input.join(",") : input ?? "";
+    const values = [...new Set(raw.split(",").map((value) => value.trim()).filter((value) => value.length > 0 && value.length <= 160 && !/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(value)))].slice(0, 20);
+    if (values.length) filters[key] = values;
+  }
+  return filters;
+}
+
 export function buildCatalogSortHiddenFields(input: {
   categoryId?: string;
   availability?: "all" | "in_stock" | "expected";

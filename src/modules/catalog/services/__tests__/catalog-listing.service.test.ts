@@ -25,7 +25,7 @@ describe("DefaultCatalogService listing projection", () => {
 
     expect(result?.datasheet).toMatchObject({ title: "Datasheet", documentType: "datasheet", url: "https://example.com/files/camera.pdf" });
     expect(result?.documents).toContainEqual(expect.objectContaining({ documentType: "datasheet", url: "https://example.com/files/camera.pdf" }));
-    expect(result?.keyCharacteristics).toEqual([{ label: "Resolution", value: "4 MPX" }]);
+    expect(result?.keyCharacteristics).toEqual([expect.objectContaining({ label: "Resolution", value: "4 MPX", isFilterable: true })]);
   });
 
   it("sorts the full filtered set before pagination with one bulk commercial read", async () => {

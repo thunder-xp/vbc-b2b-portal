@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildCatalogHref, buildCatalogSortHiddenFields } from "../catalog-sort-state";
+import { buildCatalogHref, buildCatalogSortHiddenFields, parseCatalogAttributeFilters } from "../catalog-sort-state";
 import { parseCatalogSort } from "../catalog-sorting";
 import { deduplicateCatalogFacets } from "../catalog.service";
 
@@ -67,5 +67,15 @@ describe("buildCatalogSortHiddenFields", () => {
     ]);
 
     expect(facets).toEqual([{ key: keyB, label: " материал ", values: [{ value: "Пластик", count: 2, selected: true }] }]);
+  });
+});
+
+describe("parseCatalogAttributeFilters", () => {
+  const key = "property_12345678-1234-1234-1234-123456789abc";
+  it("accepts stable keys and deduplicates normalized values", () => {
+    expect(parseCatalogAttributeFilters({ [`attr.${key}`]: "Пластик, Пластик,Металл" })).toEqual({ [key]: ["Пластик", "Металл"] });
+  });
+  it("rejects unsupported keys, GUID values, and empty values", () => {
+    expect(parseCatalogAttributeFilters({ "attr.label": "Пластик", [`attr.${key}`]: "00000000-0000-0000-0000-000000000001" })).toEqual({});
   });
 });

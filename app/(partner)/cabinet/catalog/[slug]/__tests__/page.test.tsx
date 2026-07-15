@@ -14,6 +14,8 @@ vi.mock("@/src/modules/pricing-inventory/actions", () => ({ getProductCommercial
 vi.mock("@/src/modules/partner-cabinet/actions", () => ({ getPartnerWorkspaceContextAction: mocks.getWorkspace }));
 vi.mock("@/src/modules/catalog/components/ProductImageGallery", () => ({ ProductImageGallery: () => <div>Gallery</div> }));
 vi.mock("@/src/modules/orders/components", () => ({ AddToCartButton: () => <button type="button">В корзину</button> }));
+vi.mock("@/src/modules/catalog/components/ProductActions", () => ({ ProductActions: () => <button type="button">В корзину</button> }));
+vi.mock("@/src/modules/catalog/components/ExpandableDescription", () => ({ ExpandableDescription: ({ text }: { text: string }) => <p>{text}</p> }));
 
 import ProductDetailPage from "../page";
 
@@ -22,7 +24,7 @@ describe("product detail page data loading", () => {
     vi.clearAllMocks();
     mocks.getProduct.mockResolvedValue({ success: true, data: product });
     mocks.getCommercial.mockResolvedValue({ success: true, data: [commercialView] });
-    mocks.getWorkspace.mockResolvedValue({ success: true, data: { capabilities: { productCard: { canAddToOrder: true } } } });
+    mocks.getWorkspace.mockResolvedValue({ success: true, data: { companyId: "company-1", capabilities: { productCard: { canAddToOrder: true } } } });
   });
 
   it("loads current commercial data once for the initial Description render", async () => {

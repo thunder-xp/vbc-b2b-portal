@@ -35,6 +35,8 @@ export default async function ProductDetailPage({
   }
 
   let canAddToOrder = false;
+  let companyId: string | null = null;
+  let userId: string | null = null;
   let commercialView;
   if (activeTab === "description") {
     const [commercialViewsResult, workspaceResult] = await Promise.all([
@@ -43,6 +45,8 @@ export default async function ProductDetailPage({
     ]);
     commercialView = commercialViewsResult.success ? commercialViewsResult.data[0] : undefined;
     canAddToOrder = workspaceResult.success && workspaceResult.data.capabilities.productCard.canAddToOrder;
+    companyId = workspaceResult.success ? workspaceResult.data.companyId : null;
+    userId = workspaceResult.success ? workspaceResult.data.userId : null;
   }
   const priceUpdatedAt = latestTimestamp([commercialView?.partnerPrice?.lastUpdatedAt, commercialView?.retailPrice?.lastUpdatedAt]);
   const priceFreshness = priceUpdatedAt ? evaluateFreshness(priceUpdatedAt, "price", "Цены") : null;
@@ -52,10 +56,12 @@ export default async function ProductDetailPage({
     <ProductDetail
       activeTab={activeTab}
       canAddToOrder={canAddToOrder}
+      companyId={companyId}
       commercialView={commercialView}
       priceFreshness={priceFreshness}
       product={productResult.data}
       stockFreshness={stockFreshness}
+      userId={userId}
     />
   );
 }

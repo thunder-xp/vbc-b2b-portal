@@ -2,6 +2,7 @@ export type {
   CatalogBrandDto,
   CatalogCategoryDto,
   CatalogProductCardDto,
+  CatalogProductCharacteristicDto,
   CatalogProductDetailDto,
   CatalogProductDocumentDto,
   CatalogProductImageDto,
@@ -12,7 +13,8 @@ export type {
   CatalogService,
 } from "./catalog.service";
 export { DefaultCatalogService } from "./catalog.service";
-export { buildCatalogHref, buildCatalogSortHiddenFields, type CatalogSortHiddenField } from "./catalog-sort-state";
+export { DefaultCatalogFavoriteService, type CatalogFavoriteService } from "./catalog-favorite.service";
+export { buildCatalogHref, buildCatalogSortHiddenFields, parseCatalogAttributeFilters, type CatalogSortHiddenField } from "./catalog-sort-state";
 export {
   CATALOG_SORT_OPTIONS,
   parseCatalogSort,

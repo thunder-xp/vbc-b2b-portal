@@ -6,6 +6,8 @@ import { ProductDetail } from "../ProductDetail";
 vi.mock("next/link", () => ({ default: ({ children, href, ...props }: { children: React.ReactNode; href: string }) => <a href={href} {...props}>{children}</a> }));
 vi.mock("../ProductImageGallery", () => ({ ProductImageGallery: () => <div>Изображение товара</div> }));
 vi.mock("../../../orders/components", () => ({ AddToCartButton: () => <button type="button">В корзину</button> }));
+vi.mock("../ProductActions", () => ({ ProductActions: () => <div><button type="button">В корзину</button><button type="button">В смету</button><button type="button">В сравнение</button><button type="button">В избранное</button></div> }));
+vi.mock("../ExpandableDescription", () => ({ ExpandableDescription: ({ text }: { text: string }) => <p className="line-clamp-[13]">{text}</p> }));
 
 describe("ProductDetail information architecture", () => {
   it("keeps identity, description, cart, commercial summary, and availability in the default tab", () => {
@@ -34,6 +36,19 @@ describe("ProductDetail information architecture", () => {
     expect(screen.queryByText("Партнёрская цена")).not.toBeInTheDocument();
     expect(screen.queryByText("Наличие и поступления")).not.toBeInTheDocument();
     expect(screen.queryByText("Открыть документ")).not.toBeInTheDocument();
+  });
+
+  it("links only approved filterable characteristics to the structured catalog filter", () => {
+    const key = "property_12345678-1234-1234-1234-123456789abc";
+    render(<ProductDetail activeTab="characteristics" product={{ ...product, keyCharacteristics: [{ key, label: "Материал", value: "Пластик", isFilterable: true }, { label: "Комментарий", value: "Текст", isFilterable: false }] }} />);
+    expect(screen.getByRole("link", { name: "Показать товары: Материал — Пластик" })).toHaveAttribute("href", expect.stringContaining(`attr.${key}=`));
+    expect(screen.getByText("Текст").closest("a")).toBeNull();
+  });
+
+  it("displays Boolean values in Russian while filtering by the indexed value", () => {
+    const key = "property_12345678-1234-1234-1234-123456789abc";
+    render(<ProductDetail activeTab="characteristics" product={{ ...product, keyCharacteristics: [{ key, label: "Микрофон", value: "Да", filterValue: "true", isFilterable: true, valueType: "boolean" }] }} />);
+    expect(screen.getByRole("link", { name: "Показать товары: Микрофон — Да" })).toHaveAttribute("href", expect.stringContaining("true"));
   });
 
   it("shows only documents in Datasheet", () => {

@@ -59,8 +59,17 @@ export type CatalogProductCardDto = {
   imageUrl: string | null;
   brand: CatalogBrandDto | null;
   category: CatalogCategoryDto | null;
-  keyCharacteristics: Array<{ label: string; value: string }>;
+  keyCharacteristics: CatalogProductCharacteristicDto[];
   datasheet: CatalogProductDocumentDto | null;
+};
+
+export type CatalogProductCharacteristicDto = {
+  key?: string;
+  label: string;
+  value: string;
+  filterValue?: string;
+  isFilterable?: boolean;
+  valueType?: string | null;
 };
 
 export type CatalogProductListResult = {
@@ -344,8 +353,12 @@ export class DefaultCatalogService implements CatalogService {
         this.catalogRepository.listCategories(),
       ]);
       const projectedAttributes = attributes.map((attribute) => ({
+        key: attribute.key,
         label: attribute.label,
-        value: attribute.displayValue,
+        value: normalizeCharacteristicValue(attribute.displayValue, attribute.valueType),
+        filterValue: attribute.displayValue.trim(),
+        isFilterable: attribute.isFilterable && attribute.resolutionStatus !== "unresolved",
+        valueType: attribute.valueType,
       }));
       const datasheet =
         documents.find((document) => document.documentType === "datasheet") ??
@@ -452,7 +465,7 @@ export class DefaultCatalogService implements CatalogService {
     brandMap: Map<string, CatalogBrand>,
     categoryMap: Map<string, CatalogCategory>,
     datasheet: CatalogProductDocument | null = null,
-    keyCharacteristics: Array<{ label: string; value: string }> = [],
+    keyCharacteristics: CatalogProductCharacteristicDto[] = [],
   ): CatalogProductCardDto {
     const brand = product.brandId
       ? brandMap.get(product.brandId) ?? null
@@ -510,6 +523,14 @@ export class DefaultCatalogService implements CatalogService {
 
 function isDatasheetAttribute(label: string): boolean {
   return label.trim().toLowerCase() === "datasheeturl";
+}
+
+function normalizeCharacteristicValue(value: string, valueType: string | null): string {
+  const normalized = value.trim();
+  if (valueType?.toLowerCase() === "boolean" || /^(true|false)$/i.test(normalized)) {
+    return /^(true|1|yes|да)$/i.test(normalized) ? "Да" : "Нет";
+  }
+  return normalized;
 }
 
 function createAttributeDatasheet(
