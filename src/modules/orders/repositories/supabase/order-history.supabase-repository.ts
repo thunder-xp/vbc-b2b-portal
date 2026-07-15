@@ -154,7 +154,7 @@ function toPersistenceOrder(order: SalesOrderHistoryDTO) {
     one_c_posted: order.posted,
     one_c_deletion_mark: order.deletionMark,
     one_c_state_raw: order.stateRaw,
-    one_c_state_code: order.stateCode,
+    one_c_state_code: order.stateCode === "unknown" ? null : order.stateCode,
     one_c_document_date: order.documentDate,
     one_c_delivery_date: order.requestedDeliveryDate,
     one_c_source_version: order.sourceVersion,

@@ -71,6 +71,7 @@ export type PartnerOrderHistorySyncResult = {
   inserted: number;
   updated: number;
   hidden: number;
+  enrichmentWarnings: number;
 };
 
 export interface PartnerOrderHistoryService {
@@ -167,6 +168,7 @@ export class DefaultPartnerOrderHistoryService implements PartnerOrderHistorySer
     let duplicatesIgnored = 0;
     let linesFetched = 0;
     let rejected = 0;
+    let enrichmentWarnings = 0;
     let lastCommittedPage = 0;
     const rowsPerPage: number[] = [];
     const seenOrders = new Map<string, SalesOrderHistoryDTO>();
@@ -179,10 +181,12 @@ export class DefaultPartnerOrderHistoryService implements PartnerOrderHistorySer
         const result = await this.orderProvider.fetchSalesOrderHistory({
           partnerCompanyReference: { providerCode: "one-c", externalId: counterpartyRef, externalType: "counterparty" },
           page: { limit: PAGE_SIZE, cursor },
+          historySyncContext: { syncId, page: page + 1 },
         });
         rawReceived += result.rawRowCount;
         linesFetched += result.lineRowCount;
         rejected += result.rejectedRowCount;
+        enrichmentWarnings += result.enrichmentWarningCount;
         rowsPerPage.push(result.rawRowCount);
         const uniquePageOrders: SalesOrderHistoryDTO[] = [];
         for (const order of result.items) {
@@ -225,6 +229,7 @@ export class DefaultPartnerOrderHistoryService implements PartnerOrderHistorySer
           inserted: batch.inserted,
           updated: batch.updated,
           hidden: batch.hidden,
+          enrichmentWarnings: result.enrichmentWarningCount,
           committed: visibleOrders.length > 0,
           nextCursor: result.nextCursor,
         });
@@ -259,8 +264,8 @@ export class DefaultPartnerOrderHistoryService implements PartnerOrderHistorySer
         updated,
         hidden,
       });
-      console.info({ event: "partner_order_history_sync_completed", syncId, pages: page, rowsPerPage, rawReceived, received, duplicatesIgnored, linesFetched, rejected, inserted, updated, hidden });
-      return { syncId, pagesFetched: page, rowsPerPage, rawReceived, received, duplicatesIgnored, linesFetched, rejected, inserted, updated, hidden };
+      console.info({ event: "partner_order_history_sync_completed", syncId, pages: page, rowsPerPage, rawReceived, received, duplicatesIgnored, linesFetched, rejected, inserted, updated, hidden, enrichmentWarnings });
+      return { syncId, pagesFetched: page, rowsPerPage, rawReceived, received, duplicatesIgnored, linesFetched, rejected, inserted, updated, hidden, enrichmentWarnings };
     } catch (error) {
       console.error({
         event: "partner_order_history_sync_failed",
@@ -279,6 +284,7 @@ export class DefaultPartnerOrderHistoryService implements PartnerOrderHistorySer
         duplicatesIgnored,
         linesFetched,
         rejected,
+        enrichmentWarnings,
         lastCommittedPage,
         deletionRowsDeferred: deferredDeletedOrders.length,
         errorType: error?.constructor?.name ?? typeof error,

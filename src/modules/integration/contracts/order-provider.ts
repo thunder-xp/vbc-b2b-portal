@@ -10,6 +10,10 @@ import type {
 export type SalesOrderStatusFetchRequestDTO = IntegrationSyncWindowDTO & {
   orderReferences?: ExternalReferenceDTO[];
   partnerCompanyReference?: ExternalReferenceDTO | null;
+  historySyncContext?: {
+    syncId: string;
+    page: number;
+  };
 };
 
 export type SalesOrderHistoryPageResult = IntegrationPageResultDTO<SalesOrderHistoryDTO> & {
@@ -18,6 +22,7 @@ export type SalesOrderHistoryPageResult = IntegrationPageResultDTO<SalesOrderHis
   rejectedRowCount: number;
   lineRowCount: number;
   duplicateRowCount: number;
+  enrichmentWarningCount: number;
 };
 
 export interface OrderProvider {

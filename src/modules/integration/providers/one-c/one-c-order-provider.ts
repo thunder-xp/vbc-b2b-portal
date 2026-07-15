@@ -21,14 +21,17 @@ const CUSTOMER_ORDER_RESOURCE = "Document_ЗаказПокупателя";
 const CUSTOMER_ORDER_TYPE = "StandardODATA.Document_ЗаказПокупателя";
 const PRODUCT_TYPE = "StandardODATA.Catalog_Номенклатура";
 const UNIT_TYPE = "StandardODATA.Catalog_КлассификаторЕдиницИзмерения";
+const ORDER_STATE_RESOURCE = "Catalog_СостоянияЗаказовПокупателей";
+const ORDER_STATE_TYPE = `StandardODATA.${ORDER_STATE_RESOURCE}`;
+const CURRENCY_RESOURCE = "Catalog_Валюты";
 
 export type OneCCustomerOrderPayload =
   | ReturnType<typeof buildOneCCustomerOrderPayload>
   | ReturnType<typeof buildLegacyMinimalOneCCustomerOrderPayload>;
 
 export class OneCCustomerOrderProvider implements OrderProvider {
-  private readonly stateCache = new Map<string, Promise<SalesOrderHistoryStateCode | null>>();
-  private readonly currencyCache = new Map<string, Promise<string | null>>();
+  private readonly stateCache = new Map<string, Promise<StateResolution>>();
+  private readonly currencyCache = new Map<string, Promise<CurrencyResolution>>();
 
   constructor(private readonly config: OneCProviderConfig) {}
 
@@ -302,9 +305,31 @@ export class OneCCustomerOrderProvider implements OrderProvider {
       firstRefKey: rows[0]?.dto.reference.externalId ?? null,
       lastRefKey: rows.at(-1)?.dto.reference.externalId ?? null,
     });
+    const syncContext = input.historySyncContext ?? {
+      syncId: "provider-only",
+      page: Math.floor(skip / limit) + 1,
+    };
+    const stateReferences = [...new Set(rows.flatMap((row) => row.stateRaw ? [row.stateRaw] : []))];
+    const currencyReferences = [...new Set(rows.flatMap((row) => row.currencyRef ? [row.currencyRef] : []))];
+    const [stateEntries, currencyEntries] = await Promise.all([
+      Promise.all(stateReferences.map(async (reference) => [reference, await this.resolveState(reference, syncContext)] as const)),
+      Promise.all(currencyReferences.map(async (reference) => [reference, await this.resolveCurrency(reference, syncContext)] as const)),
+    ]);
+    const states = new Map(stateEntries);
+    const currencies = new Map(currencyEntries);
+    const enrichmentWarningCount = [...states.values(), ...currencies.values()]
+      .filter((resolution) => resolution.warningReason !== null).length;
+    console.info({
+      event: "partner_order_history_page_enrichment_completed",
+      syncId: syncContext.syncId,
+      page: syncContext.page,
+      stateReferenceCount: stateReferences.length,
+      currencyReferenceCount: currencyReferences.length,
+      warningCount: enrichmentWarningCount,
+    });
     const items = await mapWithConcurrency(rows, HISTORY_LINE_CONCURRENCY, async (row, rowIndex) => {
       try {
-        return await this.resolveHistoryRow(row, skip, rowIndex);
+        return await this.resolveHistoryRow(row, states, currencies, skip, rowIndex);
       } catch (error) {
         console.error({
           event: "one_c_order_history_mapping_failed",
@@ -329,16 +354,26 @@ export class OneCCustomerOrderProvider implements OrderProvider {
       rejectedRowCount: 0,
       lineRowCount: items.reduce((sum, item) => sum + item.items.length, 0),
       duplicateRowCount,
+      enrichmentWarningCount,
     };
   }
 
-  private async resolveHistoryRow(row: ParsedHistoryRow, skip: number, rowIndex: number): Promise<SalesOrderHistoryDTO> {
-    const [stateCode, currencyCode, items] = await Promise.all([
-      row.stateRaw ? this.resolveStateCode(row.stateRaw) : Promise.resolve(null),
-      row.currencyRef ? this.resolveCurrencyCode(row.currencyRef) : Promise.resolve(null),
-      row.dto.deletionMark ? Promise.resolve([]) : this.fetchHistoryLines(row.dto.reference.externalId, skip, rowIndex),
-    ]);
-    return { ...row.dto, stateCode, currencyCode, items };
+  private async resolveHistoryRow(
+    row: ParsedHistoryRow,
+    states: ReadonlyMap<string, StateResolution>,
+    currencies: ReadonlyMap<string, CurrencyResolution>,
+    skip: number,
+    rowIndex: number,
+  ): Promise<SalesOrderHistoryDTO> {
+    const items = row.dto.deletionMark
+      ? []
+      : await this.fetchHistoryLines(row.dto.reference.externalId, skip, rowIndex);
+    return {
+      ...row.dto,
+      stateCode: row.stateRaw ? states.get(row.stateRaw)?.code ?? "unknown" : null,
+      currencyCode: row.currencyRef ? currencies.get(row.currencyRef)?.code ?? null : null,
+      items,
+    };
   }
 
   private async fetchHistoryLines(orderRef: string, skip: number, rowIndex: number): Promise<SalesOrderHistoryDTO["items"]> {
@@ -390,38 +425,65 @@ export class OneCCustomerOrderProvider implements OrderProvider {
     });
   }
 
-  private resolveStateCode(reference: string): Promise<SalesOrderHistoryStateCode | null> {
+  private resolveState(reference: string, context: HistorySyncContext): Promise<StateResolution> {
     const cached = this.stateCache.get(reference);
-    if (cached) return cached;
-    const request = this.fetchStateCode(reference);
+    if (cached) {
+      logReferenceCacheHit("state", ORDER_STATE_RESOURCE, reference, context, this.config);
+      return cached;
+    }
+    const request = this.fetchState(reference, context);
     this.stateCache.set(reference, request);
     return request;
   }
 
-  private async fetchStateCode(reference: string): Promise<SalesOrderHistoryStateCode | null> {
-    const row = await fetchOneCReference(this.config, "Catalog_СостоянияЗаказовПокупателей", reference);
+  private async fetchState(reference: string, context: HistorySyncContext): Promise<StateResolution> {
+    const result = await fetchHistoryReference(this.config, "state", ORDER_STATE_RESOURCE, reference, context);
+    if (!result.row) return { code: "unknown", description: null, warningReason: result.warningReason };
+    const row = result.row;
     const description = typeof row.Description === "string" ? row.Description.trim() : "";
-    const stateCode = ORDER_STATE_CODES[description] ?? null;
-    if (!stateCode) {
+    const stateCode = ORDER_STATE_CODES[description] ?? "unknown";
+    if (stateCode === "unknown") {
       console.warn({ event: "one_c_order_state_unmapped", stateReference: reference, description });
     }
-    return stateCode;
+    if (stateCode === "unknown") {
+      logReferenceWarning("state", reference, context, result.exactFinalUrl, result.httpStatus,
+        result.safeResponseBody, "unmapped_description", "odata_record", describeODataShape(row));
+    }
+    return {
+      code: stateCode,
+      description,
+      warningReason: stateCode === "unknown" ? "unmapped_description" : null,
+    };
   }
 
-  private resolveCurrencyCode(reference: string): Promise<string | null> {
+  private resolveCurrency(reference: string, context: HistorySyncContext): Promise<CurrencyResolution> {
     const cached = this.currencyCache.get(reference);
-    if (cached) return cached;
-    const request = this.fetchCurrencyCode(reference);
+    if (cached) {
+      logReferenceCacheHit("currency", CURRENCY_RESOURCE, reference, context, this.config);
+      return cached;
+    }
+    const request = this.fetchCurrency(reference, context);
     this.currencyCache.set(reference, request);
     return request;
   }
 
-  private async fetchCurrencyCode(reference: string): Promise<string | null> {
-    const row = await fetchOneCReference(this.config, "Catalog_Валюты", reference);
+  private async fetchCurrency(reference: string, context: HistorySyncContext): Promise<CurrencyResolution> {
+    const result = await fetchHistoryReference(this.config, "currency", CURRENCY_RESOURCE, reference, context);
+    if (!result.row) return { code: null, description: null, warningReason: result.warningReason };
+    const row = result.row;
     const raw = typeof row.Code === "string" && row.Code.trim()
       ? row.Code.trim()
       : typeof row.Description === "string" ? row.Description.trim() : "";
-    return raw ? normalizeOneCCurrencyCode(raw) : null;
+    const code = raw ? normalizeOneCCurrencyCode(raw) : null;
+    if (!code) {
+      logReferenceWarning("currency", reference, context, result.exactFinalUrl, result.httpStatus,
+        result.safeResponseBody, "unmapped_currency", "odata_record", describeODataShape(row));
+    }
+    return {
+      code,
+      description: typeof row.Description === "string" ? row.Description.trim() : null,
+      warningReason: code ? null : "unmapped_currency",
+    };
   }
 }
 
@@ -454,6 +516,33 @@ type ParsedHistoryRow = {
   stateRaw: string | null;
   currencyRef: string | null;
   dto: Omit<SalesOrderHistoryDTO, "stateCode" | "currencyCode">;
+};
+
+type HistorySyncContext = {
+  syncId: string;
+  page: number;
+};
+
+type ReferenceKind = "state" | "currency";
+
+type StateResolution = {
+  code: SalesOrderHistoryStateCode;
+  description: string | null;
+  warningReason: string | null;
+};
+
+type CurrencyResolution = {
+  code: string | null;
+  description: string | null;
+  warningReason: string | null;
+};
+
+type HistoryReferenceResult = {
+  row: Record<string, unknown> | null;
+  exactFinalUrl: string;
+  httpStatus: number | null;
+  safeResponseBody: string | null;
+  warningReason: string | null;
 };
 
 function parseHistoryRow(value: unknown, partnerRef: string): ParsedHistoryRow | null {
@@ -556,21 +645,138 @@ async function mapWithConcurrency<TValue, TResult>(
   return results;
 }
 
-async function fetchOneCReference(
+async function fetchHistoryReference(
   config: OneCProviderConfig,
+  referenceKind: ReferenceKind,
   resource: string,
   reference: string,
-): Promise<Record<string, unknown>> {
-  const url = new URL(`${requiredBaseUrl(config)}/${resource}(guid'${reference}')`);
-  url.searchParams.set("$select", "Ref_Key,Code,Description,DeletionMark");
-  url.searchParams.set("$format", "json");
-  const response = await fetchOneC(config, url, "1C order reference data is unavailable.");
-  if (!response.ok) throw historyHttpError(response.status);
-  const body: unknown = await response.json().catch(() => null);
-  if (!body || typeof body !== "object" || Array.isArray(body)) {
-    throw new IntegrationValidationError("1C order reference data is invalid.");
+  context: HistorySyncContext,
+): Promise<HistoryReferenceResult> {
+  const exactFinalUrl = buildHistoryReferenceUrl(config, resource, reference);
+  console.info({
+    event: "one_c_order_history_reference_lookup_started",
+    syncId: context.syncId,
+    page: context.page,
+    referenceKind,
+    referenceRef: reference,
+    exactFinalUrl,
+    cacheHit: false,
+    expectedResponseShape: expectedReferenceShape(referenceKind),
+  });
+
+  let response: Response;
+  try {
+    response = await fetchOneC(config, exactFinalUrl, "1C order reference data is unavailable.");
+  } catch (error) {
+    logReferenceWarning(referenceKind, reference, context, exactFinalUrl, null, null,
+      "transport_error", expectedReferenceShape(referenceKind), safeErrorDiagnostic(error));
+    return { row: null, exactFinalUrl, httpStatus: null, safeResponseBody: null, warningReason: "transport_error" };
   }
-  return body as Record<string, unknown>;
+
+  const responseBody = await response.text();
+  const safeResponseBody = safeODataErrorBody(responseBody);
+  if (!response.ok) {
+    logReferenceWarning(referenceKind, reference, context, exactFinalUrl, response.status,
+      safeResponseBody, "http_error", expectedReferenceShape(referenceKind), { responseType: "http_error" });
+    return { row: null, exactFinalUrl, httpStatus: response.status, safeResponseBody, warningReason: "http_error" };
+  }
+
+  let body: unknown;
+  try {
+    body = JSON.parse(responseBody);
+  } catch {
+    logReferenceWarning(referenceKind, reference, context, exactFinalUrl, response.status,
+      safeResponseBody, "invalid_json", expectedReferenceShape(referenceKind), { responseType: "invalid_json" });
+    return { row: null, exactFinalUrl, httpStatus: response.status, safeResponseBody, warningReason: "invalid_json" };
+  }
+
+  if (!isHistoryReferenceRow(body, reference)) {
+    logReferenceWarning(referenceKind, reference, context, exactFinalUrl, response.status,
+      safeResponseBody, "invalid_shape", expectedReferenceShape(referenceKind), describeODataShape(body));
+    return { row: null, exactFinalUrl, httpStatus: response.status, safeResponseBody, warningReason: "invalid_shape" };
+  }
+
+  console.info({
+    event: "one_c_order_history_reference_lookup_succeeded",
+    syncId: context.syncId,
+    page: context.page,
+    referenceKind,
+    referenceRef: reference,
+    exactFinalUrl,
+    httpStatus: response.status,
+    safeResponseBody,
+    cacheHit: false,
+    expectedResponseShape: expectedReferenceShape(referenceKind),
+    actualResponseShape: describeODataShape(body),
+    resolvedCode: typeof body.Code === "string" ? body.Code.trim() : null,
+    resolvedDescription: typeof body.Description === "string" ? body.Description.trim() : null,
+  });
+  return { row: body, exactFinalUrl, httpStatus: response.status, safeResponseBody, warningReason: null };
+}
+
+function buildHistoryReferenceUrl(config: OneCProviderConfig, resource: string, reference: string): string {
+  if (!isOneCGuid(reference)) throw new IntegrationValidationError("1C order reference is invalid.");
+  return `${requiredBaseUrl(config)}/${resource}(guid'${reference}')` +
+    "?$select=Ref_Key,Code,Description,DeletionMark&$format=json";
+}
+
+function isHistoryReferenceRow(value: unknown, reference: string): value is Record<string, unknown> {
+  return isRecordValue(value) &&
+    stringValue(value.Ref_Key).toLowerCase() === reference.toLowerCase() &&
+    value.DeletionMark !== true;
+}
+
+function expectedReferenceShape(referenceKind: ReferenceKind): string {
+  return referenceKind === "state"
+    ? `${ORDER_STATE_TYPE} record with Ref_Key, Code, Description, DeletionMark`
+    : "StandardODATA.Catalog_Валюты record with Ref_Key, Code, Description, DeletionMark";
+}
+
+function logReferenceCacheHit(
+  referenceKind: ReferenceKind,
+  resource: string,
+  reference: string,
+  context: HistorySyncContext,
+  config: OneCProviderConfig,
+): void {
+  console.info({
+    event: "one_c_order_history_reference_cache_hit",
+    syncId: context.syncId,
+    page: context.page,
+    referenceKind,
+    referenceRef: reference,
+    exactFinalUrl: buildHistoryReferenceUrl(config, resource, reference),
+    cacheHit: true,
+  });
+}
+
+function logReferenceWarning(
+  referenceKind: ReferenceKind,
+  reference: string,
+  context: HistorySyncContext,
+  exactFinalUrl: string,
+  httpStatus: number | null,
+  safeResponseBody: string | null,
+  warningReason: string,
+  expectedResponseShape: string,
+  actualResponseShape: unknown,
+): void {
+  console.warn({
+    event: "one_c_order_history_reference_lookup_warning",
+    syncId: context.syncId,
+    page: context.page,
+    referenceKind,
+    referenceRef: reference,
+    exactFinalUrl,
+    httpStatus,
+    safeResponseBody,
+    cacheHit: false,
+    expectedResponseShape,
+    actualResponseShape,
+    resolvedCode: null,
+    resolvedDescription: null,
+    warningReason,
+  });
 }
 
 function historyHttpError(status: number): Error {

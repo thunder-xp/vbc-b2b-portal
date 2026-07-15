@@ -121,6 +121,29 @@ describe("DefaultPartnerOrderHistoryService", () => {
     expect(repository.upsertBatch).toHaveBeenCalledWith(expect.objectContaining({ orders: [deleted] }));
     expect(result.hidden).toBe(1);
   });
+
+  it("persists a page containing non-fatal reference enrichment warnings", async () => {
+    const repository = historyRepository([]);
+    const unresolved = { ...historyDto(1), stateCode: "unknown" as const, currencyCode: null };
+    const provider = orderProvider().mockResolvedValueOnce(historyPage([unresolved], null));
+
+    const result = await service(repository, provider).syncOwnCompany("user-1", "full");
+
+    expect(repository.upsertBatch).toHaveBeenCalledWith(expect.objectContaining({ orders: [unresolved] }));
+    expect(result).toMatchObject({ received: 1, inserted: 1 });
+    expect(repository.completeSync).toHaveBeenCalled();
+  });
+
+  it("passes sync identity and page number to the runtime provider", async () => {
+    const repository = historyRepository([]);
+    const provider = orderProvider().mockResolvedValueOnce(historyPage([historyDto(1)], null));
+
+    const result = await service(repository, provider).syncOwnCompany("user-1", "full");
+
+    expect(provider).toHaveBeenCalledWith(expect.objectContaining({
+      historySyncContext: { syncId: result.syncId, page: 1 },
+    }));
+  });
 });
 
 function service(repository = historyRepository([]), fetchHistory = orderProvider()) {
@@ -166,6 +189,7 @@ function historyPage(items: SalesOrderHistoryDTO[], nextCursor: string | null) {
     rejectedRowCount: 0,
     lineRowCount: items.reduce((sum, item) => sum + item.items.length, 0),
     duplicateRowCount: 0,
+    enrichmentWarningCount: items.filter((item) => item.stateCode === "unknown" || item.currencyCode === null).length,
   };
 }
 

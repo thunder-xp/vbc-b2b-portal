@@ -5,8 +5,8 @@ import { OneCProvider } from "../one-c-provider";
 const COUNTERPARTY = "571ac1e0-4ccd-11ea-93e0-000c29cf9dd4";
 const ORDER = "11111111-1111-1111-1111-111111111111";
 const PRODUCT = "22222222-2222-2222-2222-222222222222";
-const STATE = "33333333-3333-3333-3333-333333333333";
-const CURRENCY = "44444444-4444-4444-4444-444444444444";
+const STATE = "585a9990-314b-11e9-a7dc-94de80db60f1";
+const CURRENCY = "cf53f667-77a3-4c69-8146-2fd58525bbfc";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -29,7 +29,7 @@ describe("OneCCustomerOrderProvider history", () => {
     const warning = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     vi.stubGlobal("fetch", historyFetch("Неизвестно"));
     const result = await provider().orders.fetchSalesOrderHistory(request());
-    expect(result.items[0]).toMatchObject({ stateRaw: STATE, stateCode: null });
+    expect(result.items[0]).toMatchObject({ stateRaw: STATE, stateCode: "unknown" });
     expect(warning).toHaveBeenCalledWith(expect.objectContaining({ event: "one_c_order_state_unmapped", stateReference: STATE }));
   });
 
@@ -70,6 +70,94 @@ describe("OneCCustomerOrderProvider history", () => {
     expect(result.items.every((item) => item.items.length === 1)).toBe(true);
   });
 
+  it("resolves repeated state and currency references once per run", async () => {
+    const fetchMock = historyFetch("Открыт", 2);
+    vi.stubGlobal("fetch", fetchMock);
+    await provider().orders.fetchSalesOrderHistory(request(2));
+    const calls = fetchMock.mock.calls.map(([input]) => String(input));
+    expect(calls.filter((url) => url.includes("Catalog_СостоянияЗаказовПокупателей"))).toHaveLength(1);
+    expect(calls.filter((url) => url.includes("Catalog_Валюты"))).toHaveLength(1);
+    expect(calls).toContain(`https://erp.example/odata/Catalog_СостоянияЗаказовПокупателей(guid'${STATE}')?$select=Ref_Key,Code,Description,DeletionMark&$format=json`);
+    expect(calls).toContain(`https://erp.example/odata/Catalog_Валюты(guid'${CURRENCY}')?$select=Ref_Key,Code,Description,DeletionMark&$format=json`);
+  });
+
+  it("reuses resolved references across pages", async () => {
+    const fetchMock = historyFetch("Открыт", 1);
+    vi.stubGlobal("fetch", fetchMock);
+    const orders = provider().orders;
+    await orders.fetchSalesOrderHistory(request(1));
+    await orders.fetchSalesOrderHistory({ ...request(1), page: { limit: 1, cursor: "1" } });
+    const calls = fetchMock.mock.calls.map(([input]) => String(input));
+    expect(calls.filter((url) => url.includes("Catalog_СостоянияЗаказовПокупателей"))).toHaveLength(1);
+    expect(calls.filter((url) => url.includes("Catalog_Валюты"))).toHaveLength(1);
+  });
+
+  it("degrades a failed state lookup to unknown and still loads lines", async () => {
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const fetchMock = historyFetchWithReferenceFailure("state", 404, { error: "state unavailable" });
+    vi.stubGlobal("fetch", fetchMock);
+    const result = await provider().orders.fetchSalesOrderHistory(request());
+    expect(result.items[0]).toMatchObject({ stateRaw: STATE, stateCode: "unknown", currencyCode: "MDL" });
+    expect(result.lineRowCount).toBe(1);
+    expect(warning).toHaveBeenCalledWith(expect.objectContaining({
+      event: "one_c_order_history_reference_lookup_warning",
+      referenceKind: "state",
+      referenceRef: STATE,
+      httpStatus: 404,
+      safeResponseBody: JSON.stringify({ error: "state unavailable" }),
+      warningReason: "http_error",
+    }));
+  });
+
+  it("degrades a failed currency lookup without aborting or erasing a cached value", async () => {
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const fetchMock = historyFetchWithReferenceFailure("currency", 500, { error: "currency unavailable" });
+    vi.stubGlobal("fetch", fetchMock);
+    const result = await provider().orders.fetchSalesOrderHistory(request());
+    expect(result.items[0]).toMatchObject({ stateCode: "open", currencyCode: null });
+    expect(result.lineRowCount).toBe(1);
+    expect(warning).toHaveBeenCalledWith(expect.objectContaining({
+      event: "one_c_order_history_reference_lookup_warning",
+      referenceKind: "currency",
+      referenceRef: CURRENCY,
+      httpStatus: 500,
+    }));
+
+    vi.clearAllMocks();
+    const successfulFetch = historyFetch("Открыт", 1);
+    vi.stubGlobal("fetch", successfulFetch);
+    const orders = provider().orders;
+    const first = await orders.fetchSalesOrderHistory(request());
+    const second = await orders.fetchSalesOrderHistory({ ...request(), page: { limit: 100, cursor: "100" } });
+    expect(first.items[0]?.currencyCode).toBe("MDL");
+    expect(second.items[0]?.currencyCode).toBe("MDL");
+    expect(successfulFetch.mock.calls.map(([input]) => String(input)).filter((url) => url.includes("Catalog_Валюты"))).toHaveLength(1);
+  });
+
+  it("completes enrichment before starting direct line reads", async () => {
+    vi.spyOn(console, "info").mockImplementation(() => undefined);
+    const fetchMock = historyFetch("Открыт", 1);
+    vi.stubGlobal("fetch", fetchMock);
+    await provider().orders.fetchSalesOrderHistory(request());
+    const calls = fetchMock.mock.calls.map(([input]) => decodeURIComponent(String(input)));
+    const stateIndex = calls.findIndex((url) => url.includes("Catalog_СостоянияЗаказовПокупателей"));
+    const currencyIndex = calls.findIndex((url) => url.includes("Catalog_Валюты"));
+    const lineIndex = calls.findIndex((url) => url.includes("Document_ЗаказПокупателя(guid'"));
+    expect(stateIndex).toBeGreaterThan(0);
+    expect(currencyIndex).toBeGreaterThan(0);
+    expect(lineIndex).toBeGreaterThan(stateIndex);
+    expect(lineIndex).toBeGreaterThan(currencyIndex);
+  });
+
+  it("keeps malformed core document identity fatal", async () => {
+    vi.stubGlobal("fetch", vi.fn((input: string | URL | Request) => {
+      const url = String(input);
+      if (!url.includes("(guid'")) return Promise.resolve(json({ value: [historyRow({ Ref_Key: "invalid" })] }));
+      return Promise.resolve(json({}));
+    }));
+    await expect(provider().orders.fetchSalesOrderHistory(request())).rejects.toThrow("row 0 is invalid");
+  });
+
   it("keeps DeletionMark and Posted as independent 1C document state", async () => {
     vi.stubGlobal("fetch", historyFetch("Открыт", 1, { Posted: false, DeletionMark: true }));
     const result = await provider().orders.fetchSalesOrderHistory(request());
@@ -101,6 +189,21 @@ function historyFetch(description: string, rowCount = 1, override: Record<string
   });
 }
 
+function historyFetchWithReferenceFailure(
+  kind: "state" | "currency",
+  status: number,
+  body: Record<string, unknown>,
+) {
+  const fallback = historyFetch("Открыт");
+  return vi.fn((input: string | URL | Request) => {
+    const url = String(input);
+    const fails = kind === "state"
+      ? url.includes("Catalog_СостоянияЗаказовПокупателей")
+      : url.includes("Catalog_Валюты");
+    return fails ? Promise.resolve(json(body, status)) : fallback(input);
+  });
+}
+
 function historyRow(override: Record<string, unknown> = {}) {
   return {
     Ref_Key: ORDER,
@@ -124,6 +227,6 @@ function historyLine() {
   return { LineNumber: "1", Номенклатура: PRODUCT, Характеристика_Key: "00000000-0000-0000-0000-000000000000", Количество: 2, Цена: 500, Всего: 1000 };
 }
 
-function json(value: unknown) {
-  return new Response(JSON.stringify(value), { status: 200, headers: { "Content-Type": "application/json" } });
+function json(value: unknown, status = 200) {
+  return new Response(JSON.stringify(value), { status, headers: { "Content-Type": "application/json" } });
 }

@@ -54,7 +54,8 @@ export type SalesOrderHistoryStateCode =
   | "open"
   | "preorder"
   | "test"
-  | "completed";
+  | "completed"
+  | "unknown";
 
 export type SalesOrderHistoryItemDTO = {
   lineNumber: number;
