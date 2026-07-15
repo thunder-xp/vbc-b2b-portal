@@ -30,29 +30,30 @@ const TABS: Array<{ id: ProductDetailTab; label: string }> = [
 ];
 
 export function ProductDetail({ activeTab = "description", canAddToOrder = false, companyId = null, commercialView, priceFreshness, product, stockFreshness, userId = null }: ProductDetailProps) {
-  return <article className="space-y-6">
-    <Link className="inline-flex text-sm font-medium text-emerald-700" href="/cabinet/catalog">← Вернуться в каталог</Link>
+  return <article className="space-y-4">
     <nav aria-label="Разделы товара" className="overflow-x-auto border-b border-zinc-200">
       <div className="flex min-w-max gap-6">
-        {TABS.map((tab) => <Link aria-current={activeTab === tab.id ? "page" : undefined} className={`border-b-2 px-1 pb-3 text-sm font-semibold ${activeTab === tab.id ? "border-emerald-600 text-emerald-800" : "border-transparent text-zinc-500 hover:text-zinc-900"}`} href={`?tab=${tab.id}`} key={tab.id}>{tab.label}</Link>)}
+        {TABS.map((tab) => <Link aria-current={activeTab === tab.id ? "page" : undefined} className={`border-b-2 px-1 pb-2.5 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 ${activeTab === tab.id ? "border-emerald-600 text-emerald-800" : "border-transparent text-zinc-500 hover:text-zinc-900"}`} href={`?tab=${tab.id}`} key={tab.id}>{tab.label}</Link>)}
       </div>
     </nav>
-
-    {activeTab === "description" ? <DescriptionTab canAddToOrder={canAddToOrder} companyId={companyId} commercialView={commercialView} priceFreshness={priceFreshness} product={product} stockFreshness={stockFreshness} userId={userId} /> : null}
-    {activeTab === "characteristics" ? <CharacteristicsTab product={product} /> : null}
-    {activeTab === "datasheet" ? <DatasheetTab product={product} /> : null}
-    {activeTab === "pricing" ? <PricingHistoryTab /> : null}
+    <div className="grid gap-5 md:grid-cols-[minmax(0,360px)_minmax(0,1fr)] md:items-start lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)] lg:gap-7" data-testid="product-detail-layout">
+      <div data-testid="product-detail-image"><ProductImageGallery fallbackImageUrl={product.imageUrl} images={product.images} productId={product.id} productName={product.name} /></div>
+      <div className="min-w-0" data-testid="product-detail-content">
+        {activeTab === "description" ? <DescriptionTab canAddToOrder={canAddToOrder} companyId={companyId} commercialView={commercialView} priceFreshness={priceFreshness} product={product} stockFreshness={stockFreshness} userId={userId} /> : null}
+        {activeTab === "characteristics" ? <CharacteristicsTab product={product} /> : null}
+        {activeTab === "datasheet" ? <DatasheetTab product={product} /> : null}
+        {activeTab === "pricing" ? <PricingHistoryTab /> : null}
+      </div>
+    </div>
   </article>;
 }
 
 function DescriptionTab({ canAddToOrder, companyId, commercialView, priceFreshness, product, stockFreshness, userId }: Omit<ProductDetailProps, "activeTab">) {
   const description = product.description ?? product.shortDescription ?? "Описание товара пока недоступно.";
-  return <section aria-label="Описание товара" className="grid gap-7 lg:grid-cols-[minmax(0,420px)_1fr] lg:items-start" data-testid="product-description-tab">
-    <ProductImageGallery fallbackImageUrl={product.imageUrl} images={product.images} productId={product.id} productName={product.name} />
-    <div className="min-w-0">
+  return <section aria-label="Описание товара" data-testid="product-description-tab">
       <h1 className="text-3xl font-semibold text-zinc-950">{product.name}</h1>
-      <p className="mt-2 text-sm font-medium text-zinc-600">Артикул: {product.sku}</p>
-      {product.brand?.name ? <p className="mt-2 text-sm font-medium text-emerald-700">{product.brand.name}</p> : null}
+      <p className="mt-1.5 text-sm font-medium text-zinc-600">Артикул: {product.sku}</p>
+      {product.brand?.name ? <p className="mt-1.5 text-sm font-medium text-emerald-700">{product.brand.name}</p> : null}
       <ExpandableDescription text={description} />
       {companyId || canAddToOrder ? <ProductActions canAddToOrder={canAddToOrder ?? false} categoryId={product.category?.id ?? null} companyId={companyId ?? null} productId={product.id} slug={product.slug} userId={userId ?? null} /> : null}
 
@@ -61,7 +62,6 @@ function DescriptionTab({ canAddToOrder, companyId, commercialView, priceFreshne
         <div className="mt-3"><ProductPricingBlock commercialView={commercialView} freshness={priceFreshness} variant="detail" /></div>
       </section>
       <AvailabilityBlock commercialView={commercialView} freshness={stockFreshness} />
-    </div>
   </section>;
 }
 
@@ -84,7 +84,7 @@ function AvailabilityBlock({ commercialView, freshness }: { commercialView?: Pro
 }
 
 function CharacteristicsTab({ product }: { product: CatalogProductDetailDto }) {
-  return <section aria-label="Технические характеристики" className="max-w-4xl"><h1 className="text-xl font-semibold text-zinc-950">Технические характеристики</h1>{product.keyCharacteristics.length ? <dl className="mt-4 divide-y divide-zinc-100 border-y border-zinc-200">{product.keyCharacteristics.map((item) => <div className="grid gap-1 py-3 text-sm sm:grid-cols-2 sm:gap-6" key={`${item.key ?? item.label}:${item.value}`}><dt className="text-zinc-500">{item.label}</dt><dd className="font-medium text-zinc-950">{isUsableFilter(item) ? <Link aria-label={`Показать товары: ${item.label} — ${item.value}`} className="rounded text-emerald-700 underline decoration-emerald-300 underline-offset-4 hover:text-emerald-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600" href={buildCatalogHref({ attributeFilters: { [item.key!]: [item.filterValue ?? item.value] } })}>{item.value}</Link> : item.value}</dd></div>)}</dl> : <p className="mt-3 text-sm text-zinc-600">Технические характеристики пока недоступны.</p>}</section>;
+  return <section aria-label="Технические характеристики"><h1 className="text-xl font-semibold text-zinc-950">Технические характеристики</h1>{product.keyCharacteristics.length ? <dl className="mt-3 divide-y divide-zinc-100 border-y border-zinc-200">{product.keyCharacteristics.map((item) => <div className="grid gap-1 py-3 text-sm sm:grid-cols-[minmax(10rem,0.7fr)_minmax(0,1.3fr)] sm:gap-5" key={`${item.key ?? item.label}:${item.value}`}><dt className="text-zinc-500">{item.label}</dt><dd className="font-medium text-zinc-950">{isUsableFilter(item) ? <Link aria-label={`Показать товары: ${item.label} — ${item.value}`} className="rounded text-emerald-700 underline decoration-emerald-300 underline-offset-4 hover:text-emerald-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600" href={buildCatalogHref({ attributeFilters: { [item.key!]: [item.filterValue ?? item.value] } })}>{item.value}</Link> : item.value}</dd></div>)}</dl> : <p className="mt-3 text-sm text-zinc-600">Технические характеристики пока недоступны.</p>}</section>;
 }
 
 function isUsableFilter(item: CatalogProductDetailDto["keyCharacteristics"][number]): boolean {
@@ -93,11 +93,11 @@ function isUsableFilter(item: CatalogProductDetailDto["keyCharacteristics"][numb
 }
 
 function DatasheetTab({ product }: { product: CatalogProductDetailDto }) {
-  return <section aria-label="Документы товара" className="max-w-4xl"><h1 className="text-xl font-semibold text-zinc-950">Документы</h1>{product.documents.length ? <ul className="mt-4 divide-y divide-zinc-200 border-y border-zinc-200">{product.documents.map((document) => <li className="flex flex-wrap items-center justify-between gap-3 py-4 text-sm" key={document.id}><div><p className="font-medium text-zinc-950">{document.title}</p><p className="text-zinc-500">{document.documentType}</p></div><a className="font-medium text-emerald-700" href={document.url} rel="noopener noreferrer" target="_blank">Открыть документ</a></li>)}</ul> : <p className="mt-3 text-sm text-zinc-600">Документы товара пока недоступны.</p>}</section>;
+  return <section aria-label="Документы товара"><h1 className="text-xl font-semibold text-zinc-950">Документы</h1>{product.documents.length ? <ul className="mt-3 divide-y divide-zinc-200 border-y border-zinc-200">{product.documents.map((document) => <li className="flex flex-wrap items-center justify-between gap-3 py-4 text-sm" key={document.id}><div><p className="font-medium text-zinc-950">{document.title}</p><p className="text-zinc-500">{document.documentType}</p></div><a className="font-medium text-emerald-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600" href={document.url} rel="noopener noreferrer" target="_blank">Открыть документ</a></li>)}</ul> : <p className="mt-3 border-y border-zinc-200 py-8 text-sm text-zinc-600">Документы товара пока недоступны.</p>}</section>;
 }
 
 function PricingHistoryTab() {
-  return <section aria-label="История цен" className="max-w-4xl"><h1 className="text-xl font-semibold text-zinc-950">История цен</h1><div className="mt-4 border-y border-zinc-200 py-10 text-center"><p className="text-sm text-zinc-600">История изменения цен пока недоступна</p></div></section>;
+  return <section aria-label="История цен"><h1 className="text-xl font-semibold text-zinc-950">История цен</h1><div className="mt-3 border-y border-zinc-200 py-8 text-center"><p className="text-sm text-zinc-600">История изменения цен пока недоступна</p></div></section>;
 }
 
 function Metric({ label, value }: { label: string; value: string }) { return <div><dt className="text-zinc-500">{label}</dt><dd className="mt-1 font-semibold text-zinc-950">{value}</dd></div>; }

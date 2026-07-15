@@ -4,10 +4,10 @@ import { describe, expect, it, vi } from "vitest";
 import { ProductDetail } from "../ProductDetail";
 
 vi.mock("next/link", () => ({ default: ({ children, href, ...props }: { children: React.ReactNode; href: string }) => <a href={href} {...props}>{children}</a> }));
-vi.mock("../ProductImageGallery", () => ({ ProductImageGallery: () => <div>Изображение товара</div> }));
+vi.mock("../ProductImageGallery", () => ({ ProductImageGallery: ({ productId }: { productId: string }) => <div>Изображение товара {productId}</div> }));
 vi.mock("../../../orders/components", () => ({ AddToCartButton: () => <button type="button">В корзину</button> }));
 vi.mock("../ProductActions", () => ({ ProductActions: () => <div><button type="button">В корзину</button><button type="button">В смету</button><button type="button">В сравнение</button><button type="button">В избранное</button></div> }));
-vi.mock("../ExpandableDescription", () => ({ ExpandableDescription: ({ text }: { text: string }) => <p className="line-clamp-[13]">{text}</p> }));
+vi.mock("../ExpandableDescription", () => ({ ExpandableDescription: ({ text }: { text: string }) => <p className="line-clamp-[9] text-sm leading-[1.5]">{text}</p> }));
 
 describe("ProductDetail information architecture", () => {
   it("keeps identity, description, cart, commercial summary, and availability in the default tab", () => {
@@ -23,10 +23,35 @@ describe("ProductDetail information architecture", () => {
     expect(screen.getByText("24 шт.")).toBeInTheDocument();
 
     const text = container.textContent ?? "";
-    expect(text.indexOf("Изображение товара")).toBeLessThan(text.indexOf("IP Camera"));
+    expect(text.indexOf("Изображение товара product-1")).toBeLessThan(text.indexOf("IP Camera"));
     expect(text.indexOf("Camera description")).toBeLessThan(text.indexOf("В корзину"));
     expect(text.indexOf("В корзину")).toBeLessThan(text.indexOf("Коммерческое предложение"));
     expect(text.indexOf("Коммерческое предложение")).toBeLessThan(text.indexOf("Наличие и поступления"));
+  });
+
+  it("removes the back link and places tabs above the shared image/content layout", () => {
+    render(<ProductDetail product={product} />);
+    expect(screen.queryByRole("link", { name: "← Вернуться в каталог" })).not.toBeInTheDocument();
+    const tabs = screen.getByRole("navigation", { name: "Разделы товара" });
+    const layout = screen.getByTestId("product-detail-layout");
+    expect(tabs.compareDocumentPosition(layout) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(layout).toHaveClass("md:grid-cols-[minmax(0,360px)_minmax(0,1fr)]");
+    expect(screen.getByTestId("product-detail-image").compareDocumentPosition(screen.getByTestId("product-detail-content")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it.each(["description", "characteristics", "datasheet", "pricing"] as const)("uses the shared image-left layout for %s", (activeTab) => {
+    render(<ProductDetail activeTab={activeTab} product={product} />);
+    expect(screen.getByTestId("product-detail-layout")).toBeInTheDocument();
+    expect(screen.getByText("Изображение товара product-1")).toBeInTheDocument();
+    expect(screen.queryByText("← Вернуться в каталог")).not.toBeInTheDocument();
+  });
+
+  it("keeps title first, SKU directly below, and compact description typography", () => {
+    const { container } = render(<ProductDetail product={product} />);
+    const text = container.textContent ?? "";
+    expect(text.indexOf("IP Camera")).toBeLessThan(text.indexOf("Артикул: NV-100"));
+    expect(text.indexOf("Артикул: NV-100")).toBeLessThan(text.indexOf("Camera description"));
+    expect(screen.getByText("Camera description")).toHaveClass("line-clamp-[9]", "text-sm", "leading-[1.5]");
   });
 
   it("shows only technical attributes in Characteristics", () => {
@@ -36,6 +61,7 @@ describe("ProductDetail information architecture", () => {
     expect(screen.queryByText("Партнёрская цена")).not.toBeInTheDocument();
     expect(screen.queryByText("Наличие и поступления")).not.toBeInTheDocument();
     expect(screen.queryByText("Открыть документ")).not.toBeInTheDocument();
+    expect(screen.getByTestId("product-detail-content")).toContainElement(screen.getByText("Resolution"));
   });
 
   it("links only approved filterable characteristics to the structured catalog filter", () => {
@@ -57,6 +83,7 @@ describe("ProductDetail information architecture", () => {
     expect(screen.queryByText("Resolution")).not.toBeInTheDocument();
     expect(screen.queryByText("Партнёрская цена")).not.toBeInTheDocument();
     expect(screen.queryByText("Наличие и поступления")).not.toBeInTheDocument();
+    expect(screen.getByTestId("product-detail-content")).toContainElement(screen.getByRole("link", { name: "Открыть документ" }));
   });
 
   it("reserves Pricing for history without duplicating the current offer", () => {
@@ -65,6 +92,7 @@ describe("ProductDetail information architecture", () => {
     expect(screen.queryByText("Партнёрская цена")).not.toBeInTheDocument();
     expect(screen.queryByText("Розничная цена")).not.toBeInTheDocument();
     expect(screen.queryByText("Наличие и поступления")).not.toBeInTheDocument();
+    expect(screen.getByTestId("product-detail-content")).toContainElement(screen.getByText("История изменения цен пока недоступна"));
   });
 
   it("renders all four compact tab destinations", () => {

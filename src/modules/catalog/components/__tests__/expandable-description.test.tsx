@@ -9,15 +9,17 @@ beforeEach(() => {
 });
 
 describe("ExpandableDescription", () => {
-  it("clamps to 13 lines and expands accessibly when content overflows", () => {
+  it("clamps to 9 lines and expands and collapses accessibly when content overflows", () => {
     Object.defineProperties(HTMLParagraphElement.prototype, { scrollHeight: { configurable: true, get: () => 400 }, clientHeight: { configurable: true, get: () => 200 } });
     render(<ExpandableDescription text="Long description" />);
     act(() => resize?.());
     const button = screen.getByRole("button", { name: "Подробнее…" });
-    expect(screen.getByText("Long description")).toHaveClass("line-clamp-[13]");
+    expect(screen.getByText("Long description")).toHaveClass("line-clamp-[9]", "text-sm", "leading-[1.5]");
     expect(button).toHaveAttribute("aria-expanded", "false");
     fireEvent.click(button);
     expect(screen.getByRole("button", { name: "Свернуть" })).toHaveAttribute("aria-expanded", "true");
+    fireEvent.click(screen.getByRole("button", { name: "Свернуть" }));
+    expect(screen.getByRole("button", { name: "Подробнее…" })).toHaveAttribute("aria-expanded", "false");
   });
 
   it("hides the control when short text fits", () => {
