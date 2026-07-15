@@ -22,14 +22,25 @@ describe("OneCCustomerOrderProvider history", () => {
   ] as const)("maps the proven 1C state description %s", async (description, expected) => {
     vi.stubGlobal("fetch", historyFetch(description));
     const result = await provider().orders.fetchSalesOrderHistory(request());
-    expect(result.items[0]).toMatchObject({ stateRaw: STATE, stateCode: expected, currencyCode: "MDL" });
+    expect(result.items[0]).toMatchObject({
+      stateReference: { externalId: STATE },
+      stateRaw: description,
+      stateCode: expected,
+      currencyCode: "MDL",
+    });
+  });
+
+  it("normalizes state description whitespace and case", async () => {
+    vi.stubGlobal("fetch", historyFetch("  оТкРыТ  "));
+    const result = await provider().orders.fetchSalesOrderHistory(request());
+    expect(result.items[0]).toMatchObject({ stateRaw: "оТкРыТ", stateCode: "open" });
   });
 
   it("preserves an unknown raw state and emits a diagnostic instead of fabricating a status", async () => {
     const warning = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     vi.stubGlobal("fetch", historyFetch("Неизвестно"));
     const result = await provider().orders.fetchSalesOrderHistory(request());
-    expect(result.items[0]).toMatchObject({ stateRaw: STATE, stateCode: "unknown" });
+    expect(result.items[0]).toMatchObject({ stateReference: { externalId: STATE }, stateRaw: "Неизвестно", stateCode: "unknown" });
     expect(warning).toHaveBeenCalledWith(expect.objectContaining({ event: "one_c_order_state_unmapped", stateReference: STATE }));
   });
 
@@ -77,7 +88,7 @@ describe("OneCCustomerOrderProvider history", () => {
     const calls = fetchMock.mock.calls.map(([input]) => String(input));
     expect(calls.filter((url) => url.includes("Catalog_СостоянияЗаказовПокупателей"))).toHaveLength(1);
     expect(calls.filter((url) => url.includes("Catalog_Валюты"))).toHaveLength(1);
-    expect(calls).toContain(`https://erp.example/odata/Catalog_СостоянияЗаказовПокупателей(guid'${STATE}')?$select=Ref_Key,Code,Description,DeletionMark&$format=json`);
+    expect(calls).toContain(`https://erp.example/odata/Catalog_СостоянияЗаказовПокупателей(guid'${STATE}')?$select=Ref_Key,Description,DeletionMark&$format=json`);
     expect(calls).toContain(`https://erp.example/odata/Catalog_Валюты(guid'${CURRENCY}')?$select=Ref_Key,Code,Description,DeletionMark&$format=json`);
   });
 
@@ -97,7 +108,7 @@ describe("OneCCustomerOrderProvider history", () => {
     const fetchMock = historyFetchWithReferenceFailure("state", 404, { error: "state unavailable" });
     vi.stubGlobal("fetch", fetchMock);
     const result = await provider().orders.fetchSalesOrderHistory(request());
-    expect(result.items[0]).toMatchObject({ stateRaw: STATE, stateCode: "unknown", currencyCode: "MDL" });
+    expect(result.items[0]).toMatchObject({ stateReference: { externalId: STATE }, stateRaw: null, stateCode: "unknown", currencyCode: "MDL" });
     expect(result.lineRowCount).toBe(1);
     expect(warning).toHaveBeenCalledWith(expect.objectContaining({
       event: "one_c_order_history_reference_lookup_warning",
@@ -106,6 +117,25 @@ describe("OneCCustomerOrderProvider history", () => {
       httpStatus: 404,
       safeResponseBody: JSON.stringify({ error: "state unavailable" }),
       warningReason: "http_error",
+    }));
+  });
+
+  it.each([
+    ["a mismatched reference", { Ref_Key: ORDER, Description: "Открыт", DeletionMark: false }],
+    ["a deleted state", { Ref_Key: STATE, Description: "Открыт", DeletionMark: true }],
+    ["an empty description", { Ref_Key: STATE, Description: "  ", DeletionMark: false }],
+  ])("degrades %s to unknown", async (_case, stateRow) => {
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    vi.stubGlobal("fetch", historyFetchWithStateRow(stateRow));
+    const result = await provider().orders.fetchSalesOrderHistory(request());
+    expect(result.items[0]).toMatchObject({
+      stateReference: { externalId: STATE },
+      stateRaw: null,
+      stateCode: "unknown",
+    });
+    expect(warning).toHaveBeenCalledWith(expect.objectContaining({
+      event: "one_c_order_history_reference_lookup_warning",
+      warningReason: "invalid_shape",
     }));
   });
 
@@ -179,7 +209,7 @@ function request(limit = 100) {
 function historyFetch(description: string, rowCount = 1, override: Record<string, unknown> = {}) {
   return vi.fn((input: string | URL | Request) => {
     const url = decodeURIComponent(String(input));
-    if (url.includes("Catalog_СостоянияЗаказовПокупателей")) return Promise.resolve(json({ Ref_Key: STATE, Code: "", Description: description, DeletionMark: false }));
+    if (url.includes("Catalog_СостоянияЗаказовПокупателей")) return Promise.resolve(json({ Ref_Key: STATE, Description: description, DeletionMark: false }));
     if (url.includes("Catalog_Валюты")) return Promise.resolve(json({ Ref_Key: CURRENCY, Code: "498", Description: "MDL", DeletionMark: false }));
     if (url.includes("Document_ЗаказПокупателя(guid'")) {
       const reference = /guid'([^']+)'/.exec(url)?.[1] ?? ORDER;
@@ -201,6 +231,16 @@ function historyFetchWithReferenceFailure(
       ? url.includes("Catalog_СостоянияЗаказовПокупателей")
       : url.includes("Catalog_Валюты");
     return fails ? Promise.resolve(json(body, status)) : fallback(input);
+  });
+}
+
+function historyFetchWithStateRow(stateRow: Record<string, unknown>) {
+  const fallback = historyFetch("Открыт");
+  return vi.fn((input: string | URL | Request) => {
+    const url = String(input);
+    return url.includes("Catalog_СостоянияЗаказовПокупателей")
+      ? Promise.resolve(json(stateRow))
+      : fallback(input);
   });
 }
 

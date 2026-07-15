@@ -15,7 +15,7 @@ import {
   type PartnerOrderHistoryRepository,
 } from "../order-history.repository";
 
-const HISTORY_COLUMNS = "id, company_id, portal_order_id, external_1c_order_ref, external_1c_order_number, one_c_posted, one_c_deletion_mark, one_c_state_raw, one_c_state_code, one_c_document_date, one_c_delivery_date, one_c_source_version, one_c_last_synced_at, external_contract_ref, external_currency_ref, document_total, currency_code, origin_type, partner_visible, hidden_reason, position_count, total_unit_count, created_at, updated_at";
+const HISTORY_COLUMNS = "id, company_id, portal_order_id, external_1c_order_ref, external_1c_order_number, one_c_posted, one_c_deletion_mark, one_c_state_ref, one_c_state_raw, one_c_state_code, one_c_document_date, one_c_delivery_date, one_c_source_version, one_c_last_synced_at, external_contract_ref, external_currency_ref, document_total, currency_code, origin_type, partner_visible, hidden_reason, position_count, total_unit_count, created_at, updated_at";
 const ITEM_COLUMNS = "id, order_history_id, line_number, product_id, external_product_ref, external_characteristic_ref, product_name, sku, quantity, unit_price, line_total, currency_code";
 const EVENT_COLUMNS = "id, order_history_id, event_type, occurred_at, previous_value, current_value";
 
@@ -153,6 +153,7 @@ function toPersistenceOrder(order: SalesOrderHistoryDTO) {
     external_1c_order_number: order.number,
     one_c_posted: order.posted,
     one_c_deletion_mark: order.deletionMark,
+    one_c_state_ref: order.stateReference?.externalId ?? null,
     one_c_state_raw: order.stateRaw,
     one_c_state_code: order.stateCode === "unknown" ? null : order.stateCode,
     one_c_document_date: order.documentDate,
@@ -180,6 +181,7 @@ function mapHistory(row: Row): PartnerOrderHistory {
     id: text(row.id), companyId: text(row.company_id), portalOrderId: nullableText(row.portal_order_id),
     external1cOrderRef: text(row.external_1c_order_ref), external1cOrderNumber: text(row.external_1c_order_number),
     oneCPosted: row.one_c_posted === true, oneCDeletionMark: row.one_c_deletion_mark === true,
+    oneCStateRef: nullableText(row.one_c_state_ref),
     oneCStateRaw: nullableText(row.one_c_state_raw), oneCStateCode: row.one_c_state_code as PartnerOrderHistory["oneCStateCode"],
     oneCDocumentDate: text(row.one_c_document_date), oneCDeliveryDate: nullableText(row.one_c_delivery_date),
     oneCSourceVersion: nullableText(row.one_c_source_version), oneCLastSyncedAt: text(row.one_c_last_synced_at),

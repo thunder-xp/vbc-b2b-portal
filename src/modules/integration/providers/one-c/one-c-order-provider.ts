@@ -309,7 +309,7 @@ export class OneCCustomerOrderProvider implements OrderProvider {
       syncId: "provider-only",
       page: Math.floor(skip / limit) + 1,
     };
-    const stateReferences = [...new Set(rows.flatMap((row) => row.stateRaw ? [row.stateRaw] : []))];
+    const stateReferences = [...new Set(rows.flatMap((row) => row.stateRef ? [row.stateRef] : []))];
     const currencyReferences = [...new Set(rows.flatMap((row) => row.currencyRef ? [row.currencyRef] : []))];
     const [stateEntries, currencyEntries] = await Promise.all([
       Promise.all(stateReferences.map(async (reference) => [reference, await this.resolveState(reference, syncContext)] as const)),
@@ -338,7 +338,7 @@ export class OneCCustomerOrderProvider implements OrderProvider {
           skip,
           rowIndex,
           orderRef: row.dto.reference.externalId,
-          stateRef: row.stateRaw,
+          stateRef: row.stateRef,
           currencyRef: row.currencyRef,
           ...safeErrorDiagnostic(error),
         });
@@ -370,7 +370,9 @@ export class OneCCustomerOrderProvider implements OrderProvider {
       : await this.fetchHistoryLines(row.dto.reference.externalId, skip, rowIndex);
     return {
       ...row.dto,
-      stateCode: row.stateRaw ? states.get(row.stateRaw)?.code ?? "unknown" : null,
+      stateReference: row.stateRef ? externalReference(row.stateRef, "customer-order-state") : null,
+      stateRaw: row.stateRef ? states.get(row.stateRef)?.description ?? null : null,
+      stateCode: row.stateRef ? states.get(row.stateRef)?.code ?? "unknown" : null,
       currencyCode: row.currencyRef ? currencies.get(row.currencyRef)?.code ?? null : null,
       items,
     };
@@ -441,7 +443,7 @@ export class OneCCustomerOrderProvider implements OrderProvider {
     if (!result.row) return { code: "unknown", description: null, warningReason: result.warningReason };
     const row = result.row;
     const description = typeof row.Description === "string" ? row.Description.trim() : "";
-    const stateCode = ORDER_STATE_CODES[description] ?? "unknown";
+    const stateCode = ORDER_STATE_CODES[normalizeStateDescription(description)] ?? "unknown";
     if (stateCode === "unknown") {
       console.warn({ event: "one_c_order_state_unmapped", stateReference: reference, description });
     }
@@ -506,16 +508,16 @@ const HISTORY_ORDER_FIELDS = [
 const HISTORY_LINE_CONCURRENCY = 5;
 
 const ORDER_STATE_CODES: Readonly<Record<string, SalesOrderHistoryStateCode>> = {
-  "Открыт": "open",
-  "Предзаказ": "preorder",
-  "Тест": "test",
-  "Завершен": "completed",
+  "открыт": "open",
+  "предзаказ": "preorder",
+  "тест": "test",
+  "завершен": "completed",
 };
 
 type ParsedHistoryRow = {
-  stateRaw: string | null;
+  stateRef: string | null;
   currencyRef: string | null;
-  dto: Omit<SalesOrderHistoryDTO, "stateCode" | "currencyCode">;
+  dto: Omit<SalesOrderHistoryDTO, "stateReference" | "stateRaw" | "stateCode" | "currencyCode">;
 };
 
 type HistorySyncContext = {
@@ -564,12 +566,12 @@ function parseHistoryRow(value: unknown, partnerRef: string): ParsedHistoryRow |
     return null;
   }
 
-  const stateRaw = nullableOneCGuid(row["СостояниеЗаказа"]);
+  const stateRef = nullableOneCGuid(row["СостояниеЗаказа"]);
   const currencyRef = nullableOneCGuid(row["ВалютаДокумента_Key"]);
   const contractRef = nullableOneCGuid(row["Договор_Key"]);
 
   return {
-    stateRaw,
+    stateRef,
     currencyRef,
     dto: {
       reference: externalReference(reference, "customer-order"),
@@ -581,7 +583,6 @@ function parseHistoryRow(value: unknown, partnerRef: string): ParsedHistoryRow |
       requestedDeliveryDate: dateValue(row["ДатаОтгрузки"]),
       posted: row.Posted,
       deletionMark: row.DeletionMark,
-      stateRaw,
       documentTotal: total,
       sourceVersion: nullableString(row.DataVersion),
       items: [],
@@ -690,7 +691,7 @@ async function fetchHistoryReference(
     return { row: null, exactFinalUrl, httpStatus: response.status, safeResponseBody, warningReason: "invalid_json" };
   }
 
-  if (!isHistoryReferenceRow(body, reference)) {
+  if (!isHistoryReferenceRow(body, reference, referenceKind)) {
     logReferenceWarning(referenceKind, reference, context, exactFinalUrl, response.status,
       safeResponseBody, "invalid_shape", expectedReferenceShape(referenceKind), describeODataShape(body));
     return { row: null, exactFinalUrl, httpStatus: response.status, safeResponseBody, warningReason: "invalid_shape" };
@@ -716,20 +717,38 @@ async function fetchHistoryReference(
 
 function buildHistoryReferenceUrl(config: OneCProviderConfig, resource: string, reference: string): string {
   if (!isOneCGuid(reference)) throw new IntegrationValidationError("1C order reference is invalid.");
+  const select = resource === ORDER_STATE_RESOURCE
+    ? "Ref_Key,Description,DeletionMark"
+    : "Ref_Key,Code,Description,DeletionMark";
   return `${requiredBaseUrl(config)}/${resource}(guid'${reference}')` +
-    "?$select=Ref_Key,Code,Description,DeletionMark&$format=json";
+    `?$select=${select}&$format=json`;
 }
 
-function isHistoryReferenceRow(value: unknown, reference: string): value is Record<string, unknown> {
-  return isRecordValue(value) &&
-    stringValue(value.Ref_Key).toLowerCase() === reference.toLowerCase() &&
-    value.DeletionMark !== true;
+function isHistoryReferenceRow(
+  value: unknown,
+  reference: string,
+  referenceKind: ReferenceKind,
+): value is Record<string, unknown> {
+  if (
+    !isRecordValue(value) ||
+    stringValue(value.Ref_Key).toLowerCase() !== reference.toLowerCase() ||
+    value.DeletionMark === true
+  ) {
+    return false;
+  }
+  return referenceKind !== "state" || (
+    typeof value.Description === "string" && value.Description.trim().length > 0
+  );
 }
 
 function expectedReferenceShape(referenceKind: ReferenceKind): string {
   return referenceKind === "state"
-    ? `${ORDER_STATE_TYPE} record with Ref_Key, Code, Description, DeletionMark`
+    ? `${ORDER_STATE_TYPE} record with Ref_Key, Description, DeletionMark`
     : "StandardODATA.Catalog_Валюты record with Ref_Key, Code, Description, DeletionMark";
+}
+
+function normalizeStateDescription(value: string): string {
+  return value.trim().toLocaleLowerCase("ru-RU").replaceAll("ё", "е");
 }
 
 function logReferenceCacheHit(

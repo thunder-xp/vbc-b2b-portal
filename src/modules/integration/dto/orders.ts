@@ -77,6 +77,7 @@ export type SalesOrderHistoryDTO = {
   requestedDeliveryDate: string | null;
   posted: boolean;
   deletionMark: boolean;
+  stateReference: ExternalReferenceDTO | null;
   stateRaw: string | null;
   stateCode: SalesOrderHistoryStateCode | null;
   documentTotal: number;

@@ -10,6 +10,7 @@ export type PartnerOrderHistory = {
   external1cOrderNumber: string;
   oneCPosted: boolean;
   oneCDeletionMark: boolean;
+  oneCStateRef: string | null;
   oneCStateRaw: string | null;
   oneCStateCode: PartnerOrderHistoryStateCode | null;
   oneCDocumentDate: string;
