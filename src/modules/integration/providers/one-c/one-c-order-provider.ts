@@ -179,37 +179,41 @@ export class OneCCustomerOrderProvider implements OrderProvider {
       throw new IntegrationValidationError("1C counterparty reference is invalid.");
     }
 
-    const limit = Math.min(Math.max(input.page?.limit ?? 100, 1), 250);
+    const limit = parseHistoryLimit(input.page?.limit);
     const skip = parseHistoryCursor(input.page?.cursor);
-    const url = new URL(`${requiredBaseUrl(this.config)}/${CUSTOMER_ORDER_RESOURCE}`);
-    url.searchParams.set("$filter", `Контрагент_Key eq guid'${partnerRef}'`);
-    url.searchParams.set("$select", HISTORY_ORDER_FIELDS);
-    url.searchParams.set("$top", String(limit));
-    url.searchParams.set("$skip", String(skip));
-    url.searchParams.set("$format", "json");
+    const literalODataQuery =
+      `$filter=Контрагент_Key eq guid'${partnerRef}'` +
+      `&$select=${HISTORY_ORDER_FIELDS}` +
+      `&$top=${limit}&$skip=${skip}&$format=json`;
+    const exactFinalUrl = `${requiredBaseUrl(this.config)}/${CUSTOMER_ORDER_RESOURCE}?${literalODataQuery}`;
 
     console.info({
       event: "one_c_order_history_request",
       deployedCommitSha: process.env.VERCEL_GIT_COMMIT_SHA?.trim() || "local",
       historyProviderImplementation: this.constructor.name,
       historyQueryMode: "scalar_headers_without_orderby",
+      queryBuilderMode: "literal_1c_compatible",
+      urlSearchParamsUsed: false,
+      filterLiteralPreserved: true,
       headerIncludesInventoryLines: false,
       orderByApplied: false,
       resource: CUSTOMER_ORDER_RESOURCE,
-      requestUrl: url.toString(),
+      literalODataQuery,
+      exactFinalUrl,
+      requestUrl: exactFinalUrl,
       skip,
       top: limit,
     });
 
     let response: Response;
     try {
-      response = await fetchOneC(this.config, url, "1C order history is unavailable.");
+      response = await fetchOneC(this.config, exactFinalUrl, "1C order history is unavailable.");
     } catch (error) {
       console.error({
         event: "one_c_order_history_request_failed",
         stage: "odata_transport",
         resource: CUSTOMER_ORDER_RESOURCE,
-        requestUrl: url.toString(),
+        requestUrl: exactFinalUrl,
         skip,
         top: limit,
         ...safeErrorDiagnostic(error),
@@ -222,7 +226,7 @@ export class OneCCustomerOrderProvider implements OrderProvider {
         event: "one_c_order_history_request_failed",
         stage: "odata_http",
         resource: CUSTOMER_ORDER_RESOURCE,
-        requestUrl: url.toString(),
+        requestUrl: exactFinalUrl,
         skip,
         top: limit,
         httpStatus: response.status,
@@ -239,7 +243,7 @@ export class OneCCustomerOrderProvider implements OrderProvider {
         event: "one_c_order_history_request_failed",
         stage: "odata_json",
         resource: CUSTOMER_ORDER_RESOURCE,
-        requestUrl: url.toString(),
+        requestUrl: exactFinalUrl,
         skip,
         top: limit,
         httpStatus: response.status,
@@ -253,7 +257,7 @@ export class OneCCustomerOrderProvider implements OrderProvider {
         event: "one_c_order_history_request_failed",
         stage: "odata_envelope",
         resource: CUSTOMER_ORDER_RESOURCE,
-        requestUrl: url.toString(),
+        requestUrl: exactFinalUrl,
         skip,
         top: limit,
         httpStatus: response.status,
@@ -617,6 +621,14 @@ function parseHistoryCursor(value: string | null | undefined): number {
   return parsed;
 }
 
+function parseHistoryLimit(value: number | undefined): number {
+  const limit = value ?? 100;
+  if (!Number.isSafeInteger(limit) || limit <= 0) {
+    throw new IntegrationValidationError("1C order history page size is invalid.");
+  }
+  return Math.min(limit, 250);
+}
+
 function isHistoryEnvelope(value: unknown): value is { value: unknown[] } {
   return Boolean(value && typeof value === "object" && Array.isArray((value as { value?: unknown }).value));
 }
@@ -856,7 +868,7 @@ function isVerifiedOrderReadBack(
   });
 }
 
-async function fetchOneC(config: OneCProviderConfig, url: URL, message: string): Promise<Response> {
+async function fetchOneC(config: OneCProviderConfig, url: string | URL, message: string): Promise<Response> {
   try {
     return await fetch(url, {
       method: "GET",

@@ -36,14 +36,29 @@ describe("OneCCustomerOrderProvider history", () => {
   it("uses the exact counterparty boundary and returns a continuation cursor", async () => {
     vi.stubGlobal("fetch", historyFetch("Открыт", 2));
     const result = await provider().orders.fetchSalesOrderHistory(request(2));
-    const [url] = vi.mocked(fetch).mock.calls[0] as [URL];
-    const decoded = decodeURIComponent(url.toString()).replaceAll("+", " ");
-    expect(decoded).toContain(`$filter=Контрагент_Key eq guid'${COUNTERPARTY}'`);
-    expect(decoded).toContain("$top=2");
-    expect(decoded).toContain("$skip=0");
-    expect(decoded).not.toContain("$orderby");
-    expect(decoded).not.toContain("Запасы");
+    const [url] = vi.mocked(fetch).mock.calls[0] as [string];
+    expect(typeof url).toBe("string");
+    expect(url).toContain(`$filter=Контрагент_Key eq guid'${COUNTERPARTY}'`);
+    expect(url).toContain("$top=2");
+    expect(url).toContain("$skip=0");
+    expect(url).not.toContain("%24filter");
+    expect(url).not.toContain("+eq+");
+    expect(url).not.toContain("guid%27");
+    expect(url).not.toContain("$orderby");
+    expect(url).not.toContain("Запасы");
     expect(result.nextCursor).toBe("2");
+  });
+
+  it("keeps the literal 1C-compatible query shape on page two", async () => {
+    vi.stubGlobal("fetch", historyFetch("Открыт", 1));
+    await provider().orders.fetchSalesOrderHistory({
+      ...request(),
+      page: { limit: 100, cursor: "100" },
+    });
+    const [url] = vi.mocked(fetch).mock.calls[0] as [string];
+    expect(url).toContain(`?$filter=Контрагент_Key eq guid'${COUNTERPARTY}'`);
+    expect(url).toContain("&$top=100&$skip=100&$format=json");
+    expect(url).not.toContain("%24filter");
   });
 
   it("loads order lines separately after the scalar header page", async () => {

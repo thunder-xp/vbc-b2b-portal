@@ -52,18 +52,25 @@ describe("production order-history runtime wiring", () => {
     });
 
     expect(provider.constructor.name).toBe("OneCCustomerOrderProvider");
-    const urls = fetchMock.mock.calls.map(([input]) => decodeURIComponent(String(input)).replaceAll("+", " "));
-    const headerUrl = urls.find((url) => !url.includes("(guid'"));
-    const lineUrl = urls.find((url) => url.includes(`(guid'${ORDER}')`));
+    const rawUrls = fetchMock.mock.calls.map(([input]) => String(input));
+    const headerUrl = rawUrls.find((url) => !url.includes("(guid'"));
+    const lineUrl = rawUrls.find((url) => url.includes(`(guid'${ORDER}')`));
     expect(headerUrl).toContain(`$filter=Контрагент_Key eq guid'${COUNTERPARTY}'`);
+    expect(headerUrl).toContain("&$top=100&$skip=0&$format=json");
+    expect(headerUrl).not.toContain("%24filter");
+    expect(headerUrl).not.toContain("+eq+");
+    expect(headerUrl).not.toContain("guid%27");
     expect(headerUrl).not.toContain("$orderby");
     expect(headerUrl).not.toContain("Запасы");
-    expect(lineUrl).toContain("$select=Ref_Key,Запасы");
+    expect(decodeURIComponent(lineUrl ?? "")).toContain("$select=Ref_Key,Запасы");
     expect(info).toHaveBeenCalledWith(expect.objectContaining({
       event: "one_c_order_history_request",
       deployedCommitSha: "test-commit",
       historyProviderImplementation: "OneCCustomerOrderProvider",
       historyQueryMode: "scalar_headers_without_orderby",
+      queryBuilderMode: "literal_1c_compatible",
+      urlSearchParamsUsed: false,
+      filterLiteralPreserved: true,
       headerIncludesInventoryLines: false,
       orderByApplied: false,
     }));
