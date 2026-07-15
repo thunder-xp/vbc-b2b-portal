@@ -11,7 +11,7 @@ export {
   RESTRICTED_PRODUCT_CARD_CAPABILITIES,
   type ProductCardWorkspaceContext,
 } from "./product-card.model";
-export { ProductDetail } from "./ProductDetail";
+export { ProductDetail, type ProductDetailTab } from "./ProductDetail";
 export { ProductGrid } from "./ProductGrid";
 export { ProductImage } from "./ProductImage";
 export { ProductImageGallery } from "./ProductImageGallery";

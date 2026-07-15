@@ -1,59 +1,66 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+
 import { ProductDetail } from "../ProductDetail";
 
-vi.mock("next/link", () => ({ default: ({ children, href }: { children: React.ReactNode; href: string }) => <a href={href}>{children}</a> }));
-vi.mock("../ProductImageGallery", () => ({ ProductImageGallery: () => <div>Gallery</div> }));
+vi.mock("next/link", () => ({ default: ({ children, href, ...props }: { children: React.ReactNode; href: string }) => <a href={href} {...props}>{children}</a> }));
+vi.mock("../ProductImageGallery", () => ({ ProductImageGallery: () => <div>Изображение товара</div> }));
 vi.mock("../../../orders/components", () => ({ AddToCartButton: () => <button type="button">В корзину</button> }));
 
-describe("ProductDetail pricing", () => {
-  it("uses the shared price labels while retaining useful attributes", () => {
-    render(<ProductDetail commercialView={{ productId: "product-1", partnerPrice: { currencyCode: "USD", amount: 45.81, formattedAmount: "$45.81" }, retailPrice: { currencyCode: "MDL", amount: 39.2, formattedAmount: "39.20 MDL" }, stock: null, isDemoData: false }} product={product} />);
-    expect(screen.getByText("Партнёрская")).toBeInTheDocument();
-    expect(screen.getByText("Розница")).toBeInTheDocument();
+describe("ProductDetail information architecture", () => {
+  it("keeps identity, description, cart, commercial summary, and availability in the default tab", () => {
+    const { container } = render(<ProductDetail canAddToOrder commercialView={commercialView} product={product} />);
+
+    expect(screen.getByRole("link", { name: "Описание" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByText("Camera description")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "В корзину" })).toBeInTheDocument();
+    expect(screen.getByText("Партнёрская цена")).toBeInTheDocument();
+    expect(screen.getByText("$48.95")).toBeInTheDocument();
+    expect(screen.getByText("Валовая прибыль")).toBeInTheDocument();
+    expect(screen.getByText("Наличие и поступления")).toBeInTheDocument();
+    expect(screen.getByText("24 шт.")).toBeInTheDocument();
+
+    const text = container.textContent ?? "";
+    expect(text.indexOf("Изображение товара")).toBeLessThan(text.indexOf("IP Camera"));
+    expect(text.indexOf("Camera description")).toBeLessThan(text.indexOf("В корзину"));
+    expect(text.indexOf("В корзину")).toBeLessThan(text.indexOf("Коммерческое предложение"));
+    expect(text.indexOf("Коммерческое предложение")).toBeLessThan(text.indexOf("Наличие и поступления"));
+  });
+
+  it("shows only technical attributes in Characteristics", () => {
+    render(<ProductDetail activeTab="characteristics" commercialView={commercialView} product={product} />);
     expect(screen.getByText("Resolution")).toBeInTheDocument();
     expect(screen.getByText("4 MPX")).toBeInTheDocument();
-    expect(screen.queryByText("Валовая прибыль")).not.toBeInTheDocument();
-    expect(screen.queryByText("Наценка")).not.toBeInTheDocument();
+    expect(screen.queryByText("Партнёрская цена")).not.toBeInTheDocument();
+    expect(screen.queryByText("Наличие и поступления")).not.toBeInTheDocument();
+    expect(screen.queryByText("Открыть документ")).not.toBeInTheDocument();
   });
 
-  it("shows the confirmed supplier-arrival quantity instead of raw incoming stock", () => {
-    render(<ProductDetail commercialView={{ productId: "product-1", partnerPrice: null, retailPrice: null, stock: { status: "expected", label: "Ожидается к поступлению\n28 июля 2026 г.", exactAvailableQuantity: 0, exactPhysicalQuantity: 0, exactReservedQuantity: 0, exactIncomingQuantity: 91, expectedArrival: { expectedQuantity: 24, expectedDate: "2026-07-28", formattedExpectedDate: "28 июля 2026 г.", sourceStatus: "confirmed_supply" }, hasVariantStock: false, lastUpdatedAt: "2026-07-12T22:37:32.000Z" }, isDemoData: false }} product={product} />);
-
-    expect(screen.getByText("Ближайшее поступление")).toBeInTheDocument();
-    expect(screen.getByText("24 шт.")).toBeInTheDocument();
-    expect(screen.getByText("Дата поступления")).toBeInTheDocument();
-    expect(screen.getByText("28 июля 2026 г.")).toBeInTheDocument();
-    expect(screen.queryByText("Incoming quantity")).not.toBeInTheDocument();
-    expect(screen.queryByText("91")).not.toBeInTheDocument();
+  it("shows only documents in Datasheet", () => {
+    render(<ProductDetail activeTab="datasheet" product={{ ...product, datasheet: datasheetDocument, documents: [datasheetDocument] }} />);
+    expect(screen.getByRole("link", { name: "Открыть документ" })).toHaveAttribute("href", "https://example.com/camera.pdf");
+    expect(screen.queryByText("Resolution")).not.toBeInTheDocument();
+    expect(screen.queryByText("Партнёрская цена")).not.toBeInTheDocument();
+    expect(screen.queryByText("Наличие и поступления")).not.toBeInTheDocument();
   });
 
-  it("shows current stock and the nearest arrival at the same time", () => {
-    render(<ProductDetail commercialView={{ productId: "product-1", partnerPrice: null, retailPrice: null, stock: { status: "in_stock", label: "В наличии: 8 шт.", exactAvailableQuantity: 8, exactPhysicalQuantity: 10, exactReservedQuantity: 2, exactIncomingQuantity: 91, expectedArrival: { expectedQuantity: 24, expectedDate: "2026-07-28", formattedExpectedDate: "28 июля 2026 г.", sourceStatus: "confirmed_supply" }, hasVariantStock: false, lastUpdatedAt: "2026-07-12T22:37:32.000Z" }, isDemoData: false }} product={product} />);
-
-    expect(screen.getByText("В наличии: 8 шт.")).toBeInTheDocument();
-    expect(screen.getByText("24 шт.")).toBeInTheDocument();
-    expect(screen.queryByText("91")).not.toBeInTheDocument();
+  it("reserves Pricing for history without duplicating the current offer", () => {
+    render(<ProductDetail activeTab="pricing" commercialView={commercialView} product={product} />);
+    expect(screen.getByText("История изменения цен пока недоступна")).toBeInTheDocument();
+    expect(screen.queryByText("Партнёрская цена")).not.toBeInTheDocument();
+    expect(screen.queryByText("Розничная цена")).not.toBeInTheDocument();
+    expect(screen.queryByText("Наличие и поступления")).not.toBeInTheDocument();
   });
 
-  it("renders prepared gross profit and markup without calculating in React", () => {
-    render(<ProductDetail commercialView={{ productId: "product-1", partnerPrice: { currencyCode: "USD", amount: 48.95, formattedAmount: "$48.95" }, retailPrice: { currencyCode: "MDL", amount: 1526, formattedAmount: "1\u00a0526,00 MDL" }, commercialOpportunity: { retailPriceUsd: 89, grossProfitUsd: 40.05, markupPercent: 81.82, formattedGrossProfit: "$40.05", formattedMarkup: "81.82%" }, stock: null, isDemoData: false }} product={product} />);
-
-    expect(screen.getByText("Валовая прибыль")).toBeInTheDocument();
-    expect(screen.getByText("$40.05")).toBeInTheDocument();
-    expect(screen.getByText("Наценка")).toBeInTheDocument();
-    expect(screen.getByText("81.82%")).toBeInTheDocument();
-  });
-
-  it("renders a datasheet as an external document link", () => {
-    render(<ProductDetail product={{ ...product, datasheet: datasheetDocument, documents: [datasheetDocument] }} />);
-
-    expect(screen.queryByText("datasheetURL")).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Open document" })).toHaveAttribute("href", "https://example.com/camera.pdf");
-    expect(screen.getByRole("link", { name: "Open document" })).toHaveAttribute("target", "_blank");
-    expect(screen.queryByText("Product documents are not available yet.")).not.toBeInTheDocument();
+  it("renders all four compact tab destinations", () => {
+    render(<ProductDetail product={product} />);
+    expect(screen.getByRole("link", { name: "Описание" })).toHaveAttribute("href", "?tab=description");
+    expect(screen.getByRole("link", { name: "Характеристики" })).toHaveAttribute("href", "?tab=characteristics");
+    expect(screen.getByRole("link", { name: "Datasheet" })).toHaveAttribute("href", "?tab=datasheet");
+    expect(screen.getByRole("link", { name: "Ценообразование" })).toHaveAttribute("href", "?tab=pricing");
   });
 });
 
-const product = { id: "product-1", sku: "NV-100", name: "IP Camera", slug: "ip-camera", shortDescription: null, description: "Camera", imageUrl: null, brand: null, category: null, keyCharacteristics: [{ label: "Resolution", value: "4 MPX" }], datasheet: null, images: [], documents: [] };
+const product = { id: "product-1", sku: "NV-100", name: "IP Camera", slug: "ip-camera", shortDescription: null, description: "Camera description", imageUrl: null, brand: { id: "brand-1", name: "Dahua", slug: "dahua", description: null, logoUrl: null, sortOrder: 0, isActive: true }, category: null, keyCharacteristics: [{ label: "Resolution", value: "4 MPX" }], datasheet: null, images: [], documents: [] };
 const datasheetDocument = { id: "datasheet-1", title: "Datasheet", documentType: "datasheet", url: "https://example.com/camera.pdf" };
+const commercialView = { productId: "product-1", partnerPrice: { currencyCode: "USD", amount: 48.95, formattedAmount: "$48.95", lastUpdatedAt: "2026-07-15T02:00:00Z" }, retailPrice: { currencyCode: "MDL", amount: 1526, formattedAmount: "1 526,00 MDL", lastUpdatedAt: "2026-07-15T02:00:00Z" }, commercialOpportunity: { retailPriceUsd: 89, grossProfitUsd: 40.05, markupPercent: 81.82, formattedGrossProfit: "$40.05", formattedMarkup: "81.82%" }, stock: { status: "in_stock" as const, label: "В наличии: 8 шт.", exactAvailableQuantity: 8, exactPhysicalQuantity: 10, exactReservedQuantity: 2, exactIncomingQuantity: 91, expectedArrival: { expectedQuantity: 24, expectedDate: "2026-07-28", formattedExpectedDate: "28 июля 2026 г.", sourceStatus: "confirmed_supply" as const }, hasVariantStock: false, lastUpdatedAt: "2026-07-15T02:00:00Z" }, isDemoData: false };
