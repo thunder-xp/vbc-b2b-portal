@@ -2,6 +2,7 @@ import type { CompanyAccessService, PermissionService } from "../../access-contr
 import { InvalidStateError, NotFoundError } from "../../access-control/services";
 import { MembershipStatus } from "../../access-control/types";
 import type { OrderProvider } from "../../integration/contracts";
+import type { SalesOrderHistoryDTO } from "../../integration/dto";
 import type {
   PartnerOrderHistoryFilter,
   PartnerOrderHistoryRepository,
@@ -60,7 +61,13 @@ export type PartnerOrderHistoryDetailDto = PartnerOrderHistorySummaryDto & {
 
 export type PartnerOrderHistorySyncResult = {
   syncId: string;
+  pagesFetched: number;
+  rowsPerPage: number[];
+  rawReceived: number;
   received: number;
+  duplicatesIgnored: number;
+  linesFetched: number;
+  rejected: number;
   inserted: number;
   updated: number;
   hidden: number;
@@ -141,6 +148,14 @@ export class DefaultPartnerOrderHistoryService implements PartnerOrderHistorySer
     const syncId = crypto.randomUUID();
     const startedAt = new Date().toISOString();
     await this.historyRepository.startSync({ companyId: context.company.id, counterpartyRef, syncId, mode: effectiveMode });
+    console.info({
+      event: "partner_order_history_sync_started",
+      syncId,
+      companyId: context.company.id,
+      counterpartyRef,
+      mode: effectiveMode,
+      startedAt,
+    });
     let cursor: string | null = null;
     let page = 0;
     let received = 0;
@@ -148,21 +163,72 @@ export class DefaultPartnerOrderHistoryService implements PartnerOrderHistorySer
     let updated = 0;
     let hidden = 0;
     let lastSourceVersion: string | null = null;
+    let rawReceived = 0;
+    let duplicatesIgnored = 0;
+    let linesFetched = 0;
+    let rejected = 0;
+    let lastCommittedPage = 0;
+    const rowsPerPage: number[] = [];
+    const seenOrders = new Map<string, SalesOrderHistoryDTO>();
+    const deferredDeletedOrders: SalesOrderHistoryDTO[] = [];
 
     try {
       do {
         if (page >= MAX_PAGES) throw new Error("1C order history exceeded the safe page limit.");
+        console.info({ event: "partner_order_history_sync_page_started", syncId, page: page + 1, cursor, top: PAGE_SIZE });
         const result = await this.orderProvider.fetchSalesOrderHistory({
           partnerCompanyReference: { providerCode: "one-c", externalId: counterpartyRef, externalType: "counterparty" },
           page: { limit: PAGE_SIZE, cursor },
         });
-        const batch = await this.historyRepository.upsertBatch({
-          companyId: context.company.id,
+        rawReceived += result.rawRowCount;
+        linesFetched += result.lineRowCount;
+        rejected += result.rejectedRowCount;
+        rowsPerPage.push(result.rawRowCount);
+        const uniquePageOrders: SalesOrderHistoryDTO[] = [];
+        for (const order of result.items) {
+          const reference = order.reference.externalId.toLowerCase();
+          const existing = seenOrders.get(reference);
+          if (existing) {
+            duplicatesIgnored += 1;
+            if (!sameHistoryRecord(existing, order)) {
+              throw new Error("1C returned conflicting versions of the same order during an unordered scan.");
+            }
+            continue;
+          }
+          seenOrders.set(reference, order);
+          uniquePageOrders.push(order);
+        }
+        duplicatesIgnored += result.duplicateRowCount;
+        if (result.rawRowCount > 0 && uniquePageOrders.length === 0) {
+          throw new Error("1C order history pagination repeated a page without new order references.");
+        }
+        const visibleOrders = uniquePageOrders.filter((order) => !order.deletionMark);
+        deferredDeletedOrders.push(...uniquePageOrders.filter((order) => order.deletionMark));
+        const batch = visibleOrders.length > 0
+          ? await this.historyRepository.upsertBatch({
+              companyId: context.company.id,
+              syncId,
+              syncedAt: startedAt,
+              orders: visibleOrders,
+            })
+          : { inserted: 0, updated: 0, hidden: 0 };
+        lastCommittedPage = page + 1;
+        console.info({
+          event: "partner_order_history_sync_page_persisted",
           syncId,
-          syncedAt: startedAt,
-          orders: result.items,
+          page: page + 1,
+          cursor,
+          rowsReceived: result.rawRowCount,
+          uniqueRowsReceived: uniquePageOrders.length,
+          duplicatesIgnored: result.duplicateRowCount + (result.items.length - uniquePageOrders.length),
+          lineRowsReceived: result.lineRowCount,
+          inserted: batch.inserted,
+          updated: batch.updated,
+          hidden: batch.hidden,
+          committed: visibleOrders.length > 0,
+          nextCursor: result.nextCursor,
         });
-        received += result.items.length;
+        received += uniquePageOrders.length;
         inserted += batch.inserted;
         updated += batch.updated;
         hidden += batch.hidden;
@@ -170,6 +236,18 @@ export class DefaultPartnerOrderHistoryService implements PartnerOrderHistorySer
         cursor = result.nextCursor;
         page += 1;
       } while (cursor !== null);
+
+      if (deferredDeletedOrders.length > 0) {
+        const deletionBatch = await this.historyRepository.upsertBatch({
+          companyId: context.company.id,
+          syncId,
+          syncedAt: startedAt,
+          orders: deferredDeletedOrders,
+        });
+        inserted += deletionBatch.inserted;
+        updated += deletionBatch.updated;
+        hidden += deletionBatch.hidden;
+      }
 
       await this.historyRepository.completeSync({
         companyId: context.company.id,
@@ -181,8 +259,32 @@ export class DefaultPartnerOrderHistoryService implements PartnerOrderHistorySer
         updated,
         hidden,
       });
-      return { syncId, received, inserted, updated, hidden };
+      console.info({ event: "partner_order_history_sync_completed", syncId, pages: page, rowsPerPage, rawReceived, received, duplicatesIgnored, linesFetched, rejected, inserted, updated, hidden });
+      return { syncId, pagesFetched: page, rowsPerPage, rawReceived, received, duplicatesIgnored, linesFetched, rejected, inserted, updated, hidden };
     } catch (error) {
+      console.error({
+        event: "partner_order_history_sync_failed",
+        syncId,
+        companyId: context.company.id,
+        counterpartyRef,
+        page: page + 1,
+        cursor,
+        top: PAGE_SIZE,
+        received,
+        inserted,
+        updated,
+        hidden,
+        rawReceived,
+        uniqueReceived: received,
+        duplicatesIgnored,
+        linesFetched,
+        rejected,
+        lastCommittedPage,
+        deletionRowsDeferred: deferredDeletedOrders.length,
+        errorType: error?.constructor?.name ?? typeof error,
+        errorName: error instanceof Error ? error.name : null,
+        errorMessage: error instanceof Error ? error.message : null,
+      });
       await this.historyRepository.failSync({
         companyId: context.company.id,
         syncId,
@@ -269,6 +371,10 @@ function parseFilter(value: string | null | undefined): PartnerOrderHistoryFilte
   return value === "processing" || value === "open" || value === "preorder" || value === "test" || value === "completed"
     ? value
     : "all";
+}
+
+function sameHistoryRecord(left: SalesOrderHistoryDTO, right: SalesOrderHistoryDTO): boolean {
+  return JSON.stringify(left) === JSON.stringify(right);
 }
 
 function normalizeSearch(value: string | null | undefined): string {

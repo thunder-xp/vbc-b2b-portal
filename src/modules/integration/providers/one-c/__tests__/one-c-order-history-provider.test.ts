@@ -41,7 +41,18 @@ describe("OneCCustomerOrderProvider history", () => {
     expect(decoded).toContain(`$filter=Контрагент_Key eq guid'${COUNTERPARTY}'`);
     expect(decoded).toContain("$top=2");
     expect(decoded).toContain("$skip=0");
+    expect(decoded).not.toContain("$orderby");
+    expect(decoded).not.toContain("Запасы");
     expect(result.nextCursor).toBe("2");
+  });
+
+  it("loads order lines separately after the scalar header page", async () => {
+    vi.stubGlobal("fetch", historyFetch("Открыт", 2));
+    const result = await provider().orders.fetchSalesOrderHistory(request(2));
+    const decodedCalls = vi.mocked(fetch).mock.calls.map(([input]) => decodeURIComponent(String(input)));
+    expect(decodedCalls.filter((url) => url.includes("Document_ЗаказПокупателя(guid'"))).toHaveLength(2);
+    expect(result.lineRowCount).toBe(2);
+    expect(result.items.every((item) => item.items.length === 1)).toBe(true);
   });
 
   it("keeps DeletionMark and Posted as independent 1C document state", async () => {
@@ -67,6 +78,10 @@ function historyFetch(description: string, rowCount = 1, override: Record<string
     const url = decodeURIComponent(String(input));
     if (url.includes("Catalog_СостоянияЗаказовПокупателей")) return Promise.resolve(json({ Ref_Key: STATE, Code: "", Description: description, DeletionMark: false }));
     if (url.includes("Catalog_Валюты")) return Promise.resolve(json({ Ref_Key: CURRENCY, Code: "498", Description: "MDL", DeletionMark: false }));
+    if (url.includes("Document_ЗаказПокупателя(guid'")) {
+      const reference = /guid'([^']+)'/.exec(url)?.[1] ?? ORDER;
+      return Promise.resolve(json({ Ref_Key: reference, Запасы: [historyLine()] }));
+    }
     return Promise.resolve(json({ value: Array.from({ length: rowCount }, (_, index) => historyRow({ Ref_Key: index ? `11111111-1111-1111-1111-${String(index).padStart(12, "0")}` : ORDER, ...override })) }));
   });
 }
@@ -86,9 +101,12 @@ function historyRow(override: Record<string, unknown> = {}) {
     СостояниеЗаказа: STATE,
     СостояниеЗаказа_Type: "StandardODATA.Catalog_СостоянияЗаказовПокупателей",
     DataVersion: "v1",
-    Запасы: [{ LineNumber: "1", Номенклатура: PRODUCT, Характеристика_Key: "00000000-0000-0000-0000-000000000000", Количество: 2, Цена: 500, Всего: 1000 }],
     ...override,
   };
+}
+
+function historyLine() {
+  return { LineNumber: "1", Номенклатура: PRODUCT, Характеристика_Key: "00000000-0000-0000-0000-000000000000", Количество: 2, Цена: 500, Всего: 1000 };
 }
 
 function json(value: unknown) {

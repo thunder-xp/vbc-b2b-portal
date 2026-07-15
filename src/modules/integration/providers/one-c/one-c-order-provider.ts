@@ -1,4 +1,4 @@
-import type { OrderProvider } from "../../contracts";
+import type { OrderProvider, SalesOrderHistoryPageResult } from "../../contracts";
 import type {
   IntegrationPageResultDTO,
   SalesOrderDTO,
@@ -173,7 +173,7 @@ export class OneCCustomerOrderProvider implements OrderProvider {
 
   async fetchSalesOrderHistory(
     input: Parameters<OrderProvider["fetchSalesOrderHistory"]>[0],
-  ): Promise<IntegrationPageResultDTO<SalesOrderHistoryDTO>> {
+  ): Promise<SalesOrderHistoryPageResult> {
     const partnerRef = input.partnerCompanyReference?.externalId.trim();
     if (!partnerRef || !isOneCGuid(partnerRef)) {
       throw new IntegrationValidationError("1C counterparty reference is invalid.");
@@ -184,53 +184,201 @@ export class OneCCustomerOrderProvider implements OrderProvider {
     const url = new URL(`${requiredBaseUrl(this.config)}/${CUSTOMER_ORDER_RESOURCE}`);
     url.searchParams.set("$filter", `Контрагент_Key eq guid'${partnerRef}'`);
     url.searchParams.set("$select", HISTORY_ORDER_FIELDS);
-    url.searchParams.set("$orderby", "Date asc,Ref_Key asc");
     url.searchParams.set("$top", String(limit));
     url.searchParams.set("$skip", String(skip));
     url.searchParams.set("$format", "json");
 
-    const response = await fetchOneC(this.config, url, "1C order history is unavailable.");
+    console.info({
+      event: "one_c_order_history_request",
+      resource: CUSTOMER_ORDER_RESOURCE,
+      requestUrl: url.toString(),
+      skip,
+      top: limit,
+    });
+
+    let response: Response;
+    try {
+      response = await fetchOneC(this.config, url, "1C order history is unavailable.");
+    } catch (error) {
+      console.error({
+        event: "one_c_order_history_request_failed",
+        stage: "odata_transport",
+        resource: CUSTOMER_ORDER_RESOURCE,
+        requestUrl: url.toString(),
+        skip,
+        top: limit,
+        ...safeErrorDiagnostic(error),
+      });
+      throw error;
+    }
     const responseBody = await response.text();
-    if (!response.ok) throw historyHttpError(response.status);
+    if (!response.ok) {
+      console.error({
+        event: "one_c_order_history_request_failed",
+        stage: "odata_http",
+        resource: CUSTOMER_ORDER_RESOURCE,
+        requestUrl: url.toString(),
+        skip,
+        top: limit,
+        httpStatus: response.status,
+        responseBody: safeODataErrorBody(responseBody),
+      });
+      throw historyHttpError(response.status);
+    }
 
     let envelope: unknown;
     try {
       envelope = JSON.parse(responseBody);
-    } catch {
+    } catch (error) {
+      console.error({
+        event: "one_c_order_history_request_failed",
+        stage: "odata_json",
+        resource: CUSTOMER_ORDER_RESOURCE,
+        requestUrl: url.toString(),
+        skip,
+        top: limit,
+        httpStatus: response.status,
+        contentType: response.headers.get("content-type"),
+        ...safeErrorDiagnostic(error),
+      });
       throw new IntegrationValidationError("1C order history returned invalid JSON.");
     }
     if (!isHistoryEnvelope(envelope)) {
+      console.error({
+        event: "one_c_order_history_request_failed",
+        stage: "odata_envelope",
+        resource: CUSTOMER_ORDER_RESOURCE,
+        requestUrl: url.toString(),
+        skip,
+        top: limit,
+        httpStatus: response.status,
+        resultShape: describeODataShape(envelope),
+      });
       throw new IntegrationValidationError("1C order history returned an invalid response.");
     }
 
-    const rows = envelope.value.flatMap((row, index) => {
+    const parsedRows = envelope.value.map((row, index) => {
       const parsed = parseHistoryRow(row, partnerRef);
       if (!parsed) {
-        console.warn({
-          event: "one_c_order_history_row_skipped",
+        console.error({
+          event: "one_c_order_history_row_rejected",
           resource: CUSTOMER_ORDER_RESOURCE,
           pageOffset: skip,
           rowIndex: index,
           reason: "invalid_shape",
         });
-        return [];
+        throw new IntegrationValidationError(`1C order history row ${index} is invalid.`);
       }
-      return [parsed];
+      return parsed;
     });
-    const items = await Promise.all(rows.map((row) => this.resolveHistoryRow(row)));
+    const rowsByReference = new Map<string, ParsedHistoryRow>();
+    let duplicateRowCount = 0;
+    for (const row of parsedRows) {
+      const reference = row.dto.reference.externalId.toLowerCase();
+      if (rowsByReference.has(reference)) {
+        duplicateRowCount += 1;
+        console.warn({ event: "one_c_order_history_duplicate", resource: CUSTOMER_ORDER_RESOURCE, pageOffset: skip, orderRef: reference });
+        continue;
+      }
+      rowsByReference.set(reference, row);
+    }
+    const rows = [...rowsByReference.values()];
+    console.info({
+      event: "one_c_order_history_page_received",
+      resource: CUSTOMER_ORDER_RESOURCE,
+      skip,
+      top: limit,
+      receivedRowCount: envelope.value.length,
+      mappedRowCount: rows.length,
+      firstRefKey: rows[0]?.dto.reference.externalId ?? null,
+      lastRefKey: rows.at(-1)?.dto.reference.externalId ?? null,
+    });
+    const items = await mapWithConcurrency(rows, HISTORY_LINE_CONCURRENCY, async (row, rowIndex) => {
+      try {
+        return await this.resolveHistoryRow(row, skip, rowIndex);
+      } catch (error) {
+        console.error({
+          event: "one_c_order_history_mapping_failed",
+          stage: "reference_resolution",
+          resource: CUSTOMER_ORDER_RESOURCE,
+          skip,
+          rowIndex,
+          orderRef: row.dto.reference.externalId,
+          stateRef: row.stateRaw,
+          currencyRef: row.currencyRef,
+          ...safeErrorDiagnostic(error),
+        });
+        throw error;
+      }
+    });
 
     return {
       items,
       nextCursor: envelope.value.length === limit ? String(skip + limit) : null,
+      rawRowCount: envelope.value.length,
+      mappedRowCount: items.length,
+      rejectedRowCount: 0,
+      lineRowCount: items.reduce((sum, item) => sum + item.items.length, 0),
+      duplicateRowCount,
     };
   }
 
-  private async resolveHistoryRow(row: ParsedHistoryRow): Promise<SalesOrderHistoryDTO> {
-    const [stateCode, currencyCode] = await Promise.all([
+  private async resolveHistoryRow(row: ParsedHistoryRow, skip: number, rowIndex: number): Promise<SalesOrderHistoryDTO> {
+    const [stateCode, currencyCode, items] = await Promise.all([
       row.stateRaw ? this.resolveStateCode(row.stateRaw) : Promise.resolve(null),
       row.currencyRef ? this.resolveCurrencyCode(row.currencyRef) : Promise.resolve(null),
+      row.dto.deletionMark ? Promise.resolve([]) : this.fetchHistoryLines(row.dto.reference.externalId, skip, rowIndex),
     ]);
-    return { ...row.dto, stateCode, currencyCode };
+    return { ...row.dto, stateCode, currencyCode, items };
+  }
+
+  private async fetchHistoryLines(orderRef: string, skip: number, rowIndex: number): Promise<SalesOrderHistoryDTO["items"]> {
+    const url = new URL(`${requiredBaseUrl(this.config)}/${CUSTOMER_ORDER_RESOURCE}(guid'${orderRef}')`);
+    url.searchParams.set("$select", "Ref_Key,Запасы");
+    url.searchParams.set("$format", "json");
+    const response = await fetchOneC(this.config, url, "1C order lines are unavailable.");
+    const responseBody = await response.text();
+    if (!response.ok) {
+      console.error({
+        event: "one_c_order_history_lines_failed",
+        stage: "line_http",
+        resource: CUSTOMER_ORDER_RESOURCE,
+        orderRef,
+        pageOffset: skip,
+        rowIndex,
+        requestUrl: url.toString(),
+        httpStatus: response.status,
+        responseBody: safeODataErrorBody(responseBody),
+      });
+      throw historyHttpError(response.status);
+    }
+    let value: unknown;
+    try {
+      value = JSON.parse(responseBody);
+    } catch (error) {
+      console.error({ event: "one_c_order_history_lines_failed", stage: "line_json", orderRef, pageOffset: skip, rowIndex, ...safeErrorDiagnostic(error) });
+      throw new IntegrationValidationError("1C order lines returned invalid JSON.");
+    }
+    if (!isRecordValue(value) || stringValue(value.Ref_Key).toLowerCase() !== orderRef.toLowerCase() || !Array.isArray(value["Запасы"])) {
+      console.error({ event: "one_c_order_history_lines_failed", stage: "line_envelope", orderRef, pageOffset: skip, rowIndex, resultShape: describeODataShape(value) });
+      throw new IntegrationValidationError("1C order lines returned an invalid response.");
+    }
+    return value["Запасы"].map((line, lineIndex) => {
+      const parsed = parseHistoryItem(line, lineIndex + 1);
+      if (!parsed) {
+        console.error({
+          event: "one_c_order_history_line_rejected",
+          stage: "line_mapping",
+          orderRef,
+          pageOffset: skip,
+          rowIndex,
+          lineIndex,
+          rejectedField: invalidHistoryItemField(line),
+        });
+        throw new IntegrationValidationError(`1C order line ${lineIndex} is invalid.`);
+      }
+      return parsed;
+    });
   }
 
   private resolveStateCode(reference: string): Promise<SalesOrderHistoryStateCode | null> {
@@ -282,8 +430,9 @@ const HISTORY_ORDER_FIELDS = [
   "СостояниеЗаказа",
   "СостояниеЗаказа_Type",
   "DataVersion",
-  "Запасы",
 ].join(",");
+
+const HISTORY_LINE_CONCURRENCY = 5;
 
 const ORDER_STATE_CODES: Readonly<Record<string, SalesOrderHistoryStateCode>> = {
   "Открыт": "open",
@@ -312,16 +461,11 @@ function parseHistoryRow(value: unknown, partnerRef: string): ParsedHistoryRow |
     !documentDate ||
     typeof row.Posted !== "boolean" ||
     typeof row.DeletionMark !== "boolean" ||
-    total === null || total < 0 ||
-    !Array.isArray(row["Запасы"])
+    total === null || total < 0
   ) {
     return null;
   }
 
-  const items = row["Запасы"].flatMap((item, index) => {
-    const parsed = parseHistoryItem(item, index + 1);
-    return parsed ? [parsed] : [];
-  });
   const stateRaw = nullableOneCGuid(row["СостояниеЗаказа"]);
   const currencyRef = nullableOneCGuid(row["ВалютаДокумента_Key"]);
   const contractRef = nullableOneCGuid(row["Договор_Key"]);
@@ -342,7 +486,7 @@ function parseHistoryRow(value: unknown, partnerRef: string): ParsedHistoryRow |
       stateRaw,
       documentTotal: total,
       sourceVersion: nullableString(row.DataVersion),
-      items,
+      items: [],
     },
   };
 }
@@ -369,6 +513,40 @@ function parseHistoryItem(value: unknown, fallbackLineNumber: number) {
   };
 }
 
+function invalidHistoryItemField(value: unknown): string {
+  if (!isRecordValue(value)) return "row";
+  if (!isOneCGuid(stringValue(value["Номенклатура"]))) return "Номенклатура";
+  const quantity = finiteNumber(value["Количество"]);
+  if (quantity === null || quantity <= 0) return "Количество";
+  const unitPrice = finiteNumber(value["Цена"]);
+  if (unitPrice === null || unitPrice < 0) return "Цена";
+  const lineTotal = finiteNumber(value["Всего"] ?? value["Сумма"]);
+  if (lineTotal === null || lineTotal < 0) return "Всего";
+  return "unknown";
+}
+
+function isRecordValue(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+async function mapWithConcurrency<TValue, TResult>(
+  values: readonly TValue[],
+  concurrency: number,
+  mapper: (value: TValue, index: number) => Promise<TResult>,
+): Promise<TResult[]> {
+  const results = new Array<TResult>(values.length);
+  let nextIndex = 0;
+  async function worker(): Promise<void> {
+    while (nextIndex < values.length) {
+      const index = nextIndex;
+      nextIndex += 1;
+      results[index] = await mapper(values[index]!, index);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(concurrency, values.length) }, () => worker()));
+  return results;
+}
+
 async function fetchOneCReference(
   config: OneCProviderConfig,
   resource: string,
@@ -391,6 +569,31 @@ function historyHttpError(status: number): Error {
   if (status === 403) return new IntegrationForbiddenError();
   if (status >= 500) return new IntegrationProviderUnavailableError("1C order history is unavailable.");
   return new IntegrationHttpError();
+}
+
+function safeODataErrorBody(body: string): string {
+  return body.trim().slice(0, 8000);
+}
+
+function safeErrorDiagnostic(error: unknown): { errorType: string; errorName: string | null; errorMessage: string | null } {
+  return {
+    errorType: error?.constructor?.name ?? typeof error,
+    errorName: error instanceof Error ? error.name : null,
+    errorMessage: error instanceof Error ? error.message : null,
+  };
+}
+
+function describeODataShape(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return { rootType: Array.isArray(value) ? "array" : typeof value, rootKeys: [] };
+  }
+  const record = value as Record<string, unknown>;
+  return {
+    rootType: "object",
+    rootKeys: Object.keys(record).slice(0, 20),
+    valueType: Array.isArray(record.value) ? "array" : typeof record.value,
+    valueLength: Array.isArray(record.value) ? record.value.length : null,
+  };
 }
 
 function requiredBaseUrl(config: OneCProviderConfig): string {

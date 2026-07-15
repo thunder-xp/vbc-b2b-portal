@@ -50,8 +50,8 @@ describe("DefaultPartnerOrderHistoryService", () => {
     const first = Array.from({ length: 100 }, (_, index) => historyDto(index));
     const second = [historyDto(100)];
     const provider = orderProvider()
-      .mockResolvedValueOnce({ items: first, nextCursor: "100" })
-      .mockResolvedValueOnce({ items: second, nextCursor: null });
+      .mockResolvedValueOnce(historyPage(first, "100"))
+      .mockResolvedValueOnce(historyPage(second, null));
 
     const result = await service(repository, provider).syncOwnCompany("user-1", "full");
 
@@ -63,7 +63,7 @@ describe("DefaultPartnerOrderHistoryService", () => {
   it("marks a failed partial sync without removing the successful earlier batch", async () => {
     const repository = historyRepository([]);
     const provider = orderProvider()
-      .mockResolvedValueOnce({ items: [historyDto(1)], nextCursor: "100" })
+      .mockResolvedValueOnce(historyPage([historyDto(1)], "100"))
       .mockRejectedValueOnce(new Error("1C unavailable"));
 
     await expect(service(repository, provider).syncOwnCompany("user-1", "full")).rejects.toThrow("1C unavailable");
@@ -71,6 +71,55 @@ describe("DefaultPartnerOrderHistoryService", () => {
     expect(repository.upsertBatch).toHaveBeenCalledTimes(1);
     expect(repository.failSync).toHaveBeenCalledWith(expect.objectContaining({ companyId: COMPANY_ID }));
     expect(repository.completeSync).not.toHaveBeenCalled();
+  });
+
+  it("deduplicates Ref_Key values across pages", async () => {
+    const repository = historyRepository([]);
+    const first = historyDto(1);
+    const second = historyDto(2);
+    const provider = orderProvider()
+      .mockResolvedValueOnce(historyPage([first], "100"))
+      .mockResolvedValueOnce(historyPage([first, second], null));
+
+    const result = await service(repository, provider).syncOwnCompany("user-1", "full");
+
+    expect(result).toMatchObject({ rawReceived: 3, received: 2, duplicatesIgnored: 1 });
+    expect(repository.upsertBatch).toHaveBeenNthCalledWith(2, expect.objectContaining({ orders: [second] }));
+  });
+
+  it("fails safely when pagination repeats a page without a new Ref_Key", async () => {
+    const repository = historyRepository([]);
+    const order = historyDto(1);
+    const provider = orderProvider()
+      .mockResolvedValueOnce(historyPage([order], "100"))
+      .mockResolvedValueOnce(historyPage([order], "200"));
+
+    await expect(service(repository, provider).syncOwnCompany("user-1", "full"))
+      .rejects.toThrow("repeated a page");
+    expect(repository.failSync).toHaveBeenCalled();
+  });
+
+  it("does not hide an explicit deletion until the full scan completes", async () => {
+    const repository = historyRepository([]);
+    const deleted = { ...historyDto(1), deletionMark: true };
+    const provider = orderProvider()
+      .mockResolvedValueOnce(historyPage([deleted], "100"))
+      .mockRejectedValueOnce(new Error("1C unavailable"));
+
+    await expect(service(repository, provider).syncOwnCompany("user-1", "full")).rejects.toThrow("1C unavailable");
+    expect(repository.upsertBatch).not.toHaveBeenCalled();
+  });
+
+  it("persists explicit DeletionMark only after a complete scan", async () => {
+    const repository = historyRepository([]);
+    const deleted = { ...historyDto(1), deletionMark: true };
+    const provider = orderProvider().mockResolvedValueOnce(historyPage([deleted], null));
+
+    const result = await service(repository, provider).syncOwnCompany("user-1", "full");
+
+    expect(repository.upsertBatch).toHaveBeenCalledTimes(1);
+    expect(repository.upsertBatch).toHaveBeenCalledWith(expect.objectContaining({ orders: [deleted] }));
+    expect(result.hidden).toBe(1);
   });
 });
 
@@ -106,6 +155,18 @@ function historyRepository(visible: PartnerOrderHistory[], auditRecord: PartnerO
 
 function orderProvider() {
   return vi.fn<NonNullable<OrderProvider["fetchSalesOrderHistory"]>>();
+}
+
+function historyPage(items: SalesOrderHistoryDTO[], nextCursor: string | null) {
+  return {
+    items,
+    nextCursor,
+    rawRowCount: items.length,
+    mappedRowCount: items.length,
+    rejectedRowCount: 0,
+    lineRowCount: items.reduce((sum, item) => sum + item.items.length, 0),
+    duplicateRowCount: 0,
+  };
 }
 
 function history(override: Partial<PartnerOrderHistory> = {}): PartnerOrderHistory {

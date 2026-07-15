@@ -85,13 +85,28 @@ export class SupabasePartnerOrderHistoryRepository implements PartnerOrderHistor
   }
 
   async upsertBatch(input: Parameters<PartnerOrderHistoryRepository["upsertBatch"]>[0]) {
+    const rpcName = "upsert_partner_order_history_batch";
     const { data, error } = await createAdminClient().rpc("upsert_partner_order_history_batch", {
       target_company_id: input.companyId,
       target_sync_id: input.syncId,
       target_synced_at: input.syncedAt,
       target_orders: input.orders.map(toPersistenceOrder),
     });
-    if (error || !isRecord(data)) throw new OrderHistoryRepositoryError();
+    if (error || !isRecord(data)) {
+      console.error({
+        event: "partner_order_history_rpc_failed",
+        rpcName,
+        syncId: input.syncId,
+        companyId: input.companyId,
+        orderCount: input.orders.length,
+        errorCode: error?.code ?? null,
+        errorMessage: error?.message ?? null,
+        errorDetails: error?.details ?? null,
+        errorHint: error?.hint ?? null,
+        resultShape: isRecord(data) ? Object.keys(data) : typeof data,
+      });
+      throw new OrderHistoryRepositoryError();
+    }
     return {
       inserted: numberValue(data.inserted),
       updated: numberValue(data.updated),

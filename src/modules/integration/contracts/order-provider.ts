@@ -12,6 +12,14 @@ export type SalesOrderStatusFetchRequestDTO = IntegrationSyncWindowDTO & {
   partnerCompanyReference?: ExternalReferenceDTO | null;
 };
 
+export type SalesOrderHistoryPageResult = IntegrationPageResultDTO<SalesOrderHistoryDTO> & {
+  rawRowCount: number;
+  mappedRowCount: number;
+  rejectedRowCount: number;
+  lineRowCount: number;
+  duplicateRowCount: number;
+};
+
 export interface OrderProvider {
   exportSalesOrder(order: SalesOrderDTO): Promise<SalesOrderExportResultDTO>;
   findExportedSalesOrders(order: SalesOrderDTO): Promise<SalesOrderExportResultDTO[]>;
@@ -20,5 +28,5 @@ export interface OrderProvider {
   ): Promise<IntegrationPageResultDTO<SalesOrderDTO>>;
   fetchSalesOrderHistory(
     input: SalesOrderStatusFetchRequestDTO,
-  ): Promise<IntegrationPageResultDTO<SalesOrderHistoryDTO>>;
+  ): Promise<SalesOrderHistoryPageResult>;
 }
