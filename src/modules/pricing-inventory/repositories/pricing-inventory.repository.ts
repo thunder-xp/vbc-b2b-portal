@@ -47,6 +47,7 @@ export type UpsertProductStockBalanceInput = FindProductStockBalanceInput & {
 };
 
 export interface PricingInventoryRepository {
+  listAvailableCurrencyCodes?(): Promise<string[]>;
   getLatestUsdMdlExchangeRate?(): Promise<UsdMdlExchangeRate | null>;
   upsertPriceType?(input: { externalRef: string; externalCode: string; name: string; currencyCode: string | null; currencyStatus: "resolved" | "unresolved"; sourceUpdatedAt: string | null }): Promise<void>;
   listPricesForProducts(input: ListProductPricesInput): Promise<ProductPrice[]>;

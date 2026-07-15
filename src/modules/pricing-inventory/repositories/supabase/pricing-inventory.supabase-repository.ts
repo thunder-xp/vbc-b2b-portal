@@ -12,6 +12,7 @@ import type {
   UpsertProductStockBalanceInput,
 } from "../pricing-inventory.repository";
 import type { ProductPrice, ProductStockBalance } from "../../types";
+import { normalizeOneCCurrencyCode } from "@/src/lib/currency";
 import {
   mapProductPriceRow,
   mapProductStockBalanceRow,
@@ -34,6 +35,20 @@ export class PricingInventoryRepositoryUnexpectedError extends Error {
 export class SupabasePricingInventoryRepository
   implements PricingInventoryRepository
 {
+  async listAvailableCurrencyCodes(): Promise<string[]> {
+    const { data, error } = await (await createClient())
+      .from("product_prices")
+      .select("currency")
+      .eq("currency_status", "resolved")
+      .eq("is_active", true)
+      .eq("is_published", true)
+      .limit(1000);
+    if (error) throw new PricingInventoryRepositoryUnexpectedError();
+    return [...new Set((data ?? [])
+      .map((row) => normalizeOneCCurrencyCode(row.currency))
+      .filter((value): value is string => value !== null))].sort();
+  }
+
   async listProductIdsWithPositiveStock(): Promise<string[]> {
     const { data, error } = await (await createClient())
       .from("product_stock_totals")

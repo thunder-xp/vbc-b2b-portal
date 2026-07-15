@@ -70,6 +70,7 @@ This index is the table of contents for the Novotech Partner Platform Architectu
 - `docs/architecture/ONE_C_PARTNER_SEARCH_BINDING_DESIGN.md` - Internal/admin 1C partner search and approval binding flow, neutral provider contract, UI boundaries, and security rules.
 - `docs/architecture/SYNC_ENGINE_DESIGN.md` - Sync Engine responsibilities, read-model update boundaries, implemented manual catalog sync slice, catalog/pricing/inventory/partner/document flows, idempotency, errors, logging, trigger strategy, and implementation phases.
 - `docs/architecture/PARTNER_ORDER_HISTORY_SYNC_DESIGN.md` - 1C-owned partner order history, state separation, deletion visibility, paginated synchronization, reconciliation, RLS, and local read-model performance.
+- `docs/architecture/ESTIMATES_COMMERCIAL_PROPOSALS_DESIGN.md` - Portal-owned estimates, company access, service and repository boundaries, Slice 1 schema, and performance constraints.
 - `docs/architecture/PROJECT_PRINCIPLES.md` - Project constitution and decision rules.
 - `docs/architecture/MODULE_COMMUNICATION.md` - Module dependency direction, allowed communication, forbidden communication, event propagation, and admin/partner portal communication.
 

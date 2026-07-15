@@ -11,6 +11,8 @@ describe("resolveWorkspaceCapabilities", () => {
       "orders.create",
       "orders.manage",
       "specifications.manage",
+      "estimates.view",
+      "estimates.manage",
       "documents.view_company",
     ]));
 
@@ -28,6 +30,8 @@ describe("resolveWorkspaceCapabilities", () => {
       "Моя компания",
     ]);
     expect(model.navigation.find((item) => item.key === "projects")).toMatchObject({ href: "/cabinet/specifications", availability: "available" });
+    expect(model.navigation.find((item) => item.key === "proposals")).toMatchObject({ href: "/cabinet/estimates", availability: "available" });
+    expect(model.canCreateCommercialProposal).toBe(true);
     expect(model.productCard.canAddToSpecification).toBe(true);
     expect(model.productCard.canAddToOrder).toBe(true);
     expect(model.productCard).toMatchObject({ showPrice: true, showStock: true, showWarehouseAvailability: true });

@@ -74,7 +74,7 @@ const WORKSPACE_CAPABILITIES: readonly CapabilityDefinition[] = [
   { key: "cart", label: "Корзина", href: "/cabinet/cart", requiredPermission: "orders.manage", released: true, unavailableBehavior: "hide" },
   { key: "solution_selection", label: "Подбор решения", href: null, requiredPermission: "catalog.view", released: false, unavailableBehavior: "show_coming_soon" },
   { key: "projects", label: "Спецификации", href: "/cabinet/specifications", requiredPermission: "specifications.manage", released: true, unavailableBehavior: "hide" },
-  { key: "proposals", label: "Сметы и КП", href: null, requiredPermission: "orders.create", released: false, unavailableBehavior: "show_coming_soon" },
+  { key: "proposals", label: "Сметы и КП", href: "/cabinet/estimates", requiredPermission: "estimates.view", released: true, unavailableBehavior: "hide" },
   { key: "orders", label: "Заказы", href: "/cabinet/orders", requiredPermission: "orders.manage", released: true, unavailableBehavior: "hide" },
   { key: "documents", label: "Документы", href: null, requiredPermission: "documents.view_company", released: false, unavailableBehavior: "show_coming_soon" },
   { key: "warranty", label: "Сервис и гарантия", href: null, requiredPermission: "documents.view_company", released: false, unavailableBehavior: "show_coming_soon" },
@@ -118,7 +118,7 @@ export function resolveWorkspaceCapabilities(
       canAddToOrder: hasPermission("orders.manage"),
       canAddToProject: false,
     },
-    canCreateCommercialProposal: configuration.commercialProposalAccess !== false && hasPermission("orders.create"),
+    canCreateCommercialProposal: configuration.commercialProposalAccess !== false && hasPermission("estimates.manage"),
     canUseWarranty: configuration.warrantyAccess !== false && hasPermission("documents.view_company"),
     canViewKnowledgeBase: configuration.knowledgeBaseAccess !== false && hasPermission("catalog.view"),
   };

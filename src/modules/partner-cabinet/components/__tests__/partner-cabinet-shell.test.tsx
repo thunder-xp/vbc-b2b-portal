@@ -18,7 +18,7 @@ const context = {
   companyName: "Partner Company",
   membershipRole: "Владелец компании",
   accessState: "active" as const,
-  navigation: resolveWorkspaceCapabilities(new Set(["catalog.view", "orders.create", "orders.manage", "reservations.manage", "specifications.manage", "documents.view_company"])).navigation,
+  navigation: resolveWorkspaceCapabilities(new Set(["catalog.view", "orders.create", "orders.manage", "reservations.manage", "specifications.manage", "estimates.view", "estimates.manage", "documents.view_company"])).navigation,
   cartItemCount: 0,
 };
 
@@ -75,7 +75,7 @@ describe("Partner workspace shell", () => {
     expect(screen.getByRole("link", { name: "Резервирование" })).toHaveAttribute("href", "/cabinet/reservation-requests");
     expect(screen.getByText("Подбор решения")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Спецификации" })).toHaveAttribute("href", "/cabinet/specifications");
-    expect(screen.queryByText("Сметы и КП")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Сметы и КП" })).toHaveAttribute("href", "/cabinet/estimates");
     expect(screen.getByText("Заказы")).toBeInTheDocument();
     expect(screen.getByText("Документы")).toBeInTheDocument();
     expect(screen.getByText("Сервис и гарантия")).toBeInTheDocument();

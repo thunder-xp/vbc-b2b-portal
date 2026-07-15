@@ -59,6 +59,7 @@ export type ProductCommercialInternalDto = ProductCommercialViewDto & { retailBe
 export type ProductAvailabilityFilter = "in_stock" | "expected";
 
 export interface PricingInventoryService {
+  listAvailableCurrencyCodes?(userId: string): Promise<string[]>;
   getProductCommercialViews(
     userId: string,
     productIds: string[],
@@ -82,6 +83,13 @@ export class DefaultPricingInventoryService implements PricingInventoryService {
     private readonly companyAccessService: CompanyAccessService,
     private readonly permissionService: PermissionService,
   ) {}
+
+  async listAvailableCurrencyCodes(userId: string): Promise<string[]> {
+    const company = await this.resolveActiveCompany(userId);
+    const canViewPrices = await this.permissionService.hasPermission(userId, company.id, PRICE_PERMISSION);
+    if (!canViewPrices || !this.pricingInventoryRepository.listAvailableCurrencyCodes) return [];
+    return this.pricingInventoryRepository.listAvailableCurrencyCodes();
+  }
 
   async getProductCommercialViews(
     userId: string,
