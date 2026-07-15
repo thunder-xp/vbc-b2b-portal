@@ -3,6 +3,7 @@ import { InvalidStateError, NotFoundError } from "../../access-control/services"
 import { MembershipStatus } from "../../access-control/types";
 import type { OrderProvider } from "../../integration/contracts";
 import type { SalesOrderHistoryDTO } from "../../integration/dto";
+import { evaluateFreshness, type FreshnessView } from "../../integration/freshness";
 import type {
   PartnerOrderHistoryFilter,
   PartnerOrderHistoryRepository,
@@ -40,6 +41,7 @@ export type PartnerOrderHistorySummaryDto = {
   positionCount: number;
   totalUnitCount: number;
   lastSynchronizedAt: string;
+  freshness: FreshnessView;
 };
 
 export type PartnerOrderHistoryDetailDto = PartnerOrderHistorySummaryDto & {
@@ -86,6 +88,7 @@ export interface PartnerOrderHistoryService {
   }>;
   get(userId: string, orderId: string): Promise<PartnerOrderHistoryDetailDto>;
   syncOwnCompany(userId: string, mode: PartnerOrderHistorySyncMode): Promise<PartnerOrderHistorySyncResult>;
+  syncCompany(companyId: string, counterpartyRef: string, mode: PartnerOrderHistorySyncMode): Promise<PartnerOrderHistorySyncResult>;
 }
 
 export class DefaultPartnerOrderHistoryService implements PartnerOrderHistoryService {
@@ -114,6 +117,7 @@ export class DefaultPartnerOrderHistoryService implements PartnerOrderHistorySer
       totalPages: Math.max(1, Math.ceil(result.total / LIST_PAGE_SIZE)),
       total: result.total,
       syncState,
+      freshness: evaluateFreshness(syncState?.finishedAt ?? syncState?.lastIncrementalSyncAt ?? syncState?.lastSuccessfulFullSyncAt, "activeOrder", "Заказы"),
     };
   }
 
@@ -142,15 +146,22 @@ export class DefaultPartnerOrderHistoryService implements PartnerOrderHistorySer
     const context = await this.resolveContext(userId, ORDERS_MANAGE_PERMISSION);
     const counterpartyRef = context.company.external1cId?.trim();
     if (!counterpartyRef) throw new InvalidStateError("Company is not linked to 1C.");
-    const current = await this.historyRepository.getSyncState(context.company.id);
-    if (current?.status === "running") throw new InvalidStateError("Order history synchronization is already running.");
+    return this.syncCompany(context.company.id, counterpartyRef, mode);
+  }
+
+  async syncCompany(companyId: string, counterpartyRef: string, mode: PartnerOrderHistorySyncMode): Promise<PartnerOrderHistorySyncResult> {
+    const context = { company: { id: companyId } };
+    const current = this.historyRepository.getSyncStateForAutomation
+      ? await this.historyRepository.getSyncStateForAutomation(context.company.id)
+      : await this.historyRepository.getSyncState(context.company.id);
     const effectiveMode: PartnerOrderHistorySyncMode = current?.lastSuccessfulFullSyncAt ? mode : "full";
 
     const syncId = crypto.randomUUID();
     const startedAt = new Date().toISOString();
-    await this.historyRepository.startSync({ companyId: context.company.id, counterpartyRef, syncId, mode: effectiveMode });
+    const lockResult = await this.historyRepository.startSync({ companyId: context.company.id, counterpartyRef, syncId, mode: effectiveMode });
+    if (lockResult === "locked") throw new InvalidStateError("Order history synchronization is already running.");
     console.info({
-      event: "partner_order_history_sync_started",
+      event: lockResult === "stale_lock_recovered" ? "stale_lock_recovered" : "partner_order_history_sync_started",
       syncId,
       companyId: context.company.id,
       counterpartyRef,
@@ -347,6 +358,7 @@ function toSummary(order: PartnerOrderHistory): PartnerOrderHistorySummaryDto {
     positionCount: order.positionCount,
     totalUnitCount: order.totalUnitCount,
     lastSynchronizedAt: order.oneCLastSyncedAt,
+    freshness: evaluateFreshness(order.oneCLastSyncedAt, "activeOrder", "Обновлено"),
   };
 }
 

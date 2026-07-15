@@ -26,6 +26,8 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
         <p className="text-xs font-semibold uppercase text-emerald-700">Заказ партнёра</p>
         <h2 className="mt-1 text-2xl font-semibold">{order.primaryLabel}</h2>
         <p className="mt-2 text-sm font-medium text-zinc-700">{order.statusLabel}</p>
+        <p className="mt-1 text-xs text-zinc-500">{order.freshness.label}</p>
+        {order.freshness.staleNotice ? <p className="mt-1 text-xs text-amber-700">{order.freshness.staleNotice}</p> : null}
         {order.originLabel ? <p className="mt-1 text-sm text-zinc-500">{order.originLabel}</p> : null}
         <dl className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Metric label="Компания" value={order.companyName} />

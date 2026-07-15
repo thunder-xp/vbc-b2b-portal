@@ -11,6 +11,22 @@
     {
       "path": "/api/cron/stock-sync-resume",
       "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/commercial-rate",
+      "schedule": "30 1 * * *"
+    },
+    {
+      "path": "/api/cron/stock-sync-start",
+      "schedule": "15 */2 * * *"
+    },
+    {
+      "path": "/api/cron/active-order-refresh",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/order-history-refresh",
+      "schedule": "30 4 * * *"
     }
   ]
 }

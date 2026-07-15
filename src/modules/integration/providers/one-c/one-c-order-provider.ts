@@ -358,6 +358,65 @@ export class OneCCustomerOrderProvider implements OrderProvider {
     };
   }
 
+  async fetchSalesOrderHistoryByReferences(
+    input: Parameters<NonNullable<OrderProvider["fetchSalesOrderHistoryByReferences"]>>[0],
+  ): Promise<SalesOrderHistoryPageResult> {
+    const partnerRef = input.partnerCompanyReference?.externalId.trim();
+    if (!partnerRef || !isOneCGuid(partnerRef)) throw new IntegrationValidationError("1C counterparty reference is invalid.");
+    const references = [...new Set(input.orderReferences.map((item) => item.externalId.trim().toLowerCase()))];
+    if (!references.length || references.length > 25 || references.some((reference) => !isOneCGuid(reference))) {
+      throw new IntegrationValidationError("1C active order reference batch is invalid.");
+    }
+    const context = input.historySyncContext ?? { syncId: "active-order-refresh", page: 1 };
+    let warningCount = 0;
+    const items = await mapWithConcurrency(references, HISTORY_LINE_CONCURRENCY, async (reference, index) => {
+      const url = new URL(`${requiredBaseUrl(this.config)}/${CUSTOMER_ORDER_RESOURCE}(guid'${reference}')`);
+      url.searchParams.set("$select", `${HISTORY_ORDER_FIELDS},${HISTORY_LINES_FIELD}`);
+      url.searchParams.set("$format", "json");
+      const response = await fetchOneC(this.config, url, "1C active order refresh is unavailable.");
+      const responseBody = await response.text();
+      if (!response.ok) {
+        console.error({ event: "one_c_active_order_refresh_failed", orderRef: reference, requestUrl: url.toString(), httpStatus: response.status, safeResponseBody: safeODataErrorBody(responseBody) });
+        throw historyHttpError(response.status);
+      }
+      let value: unknown;
+      try { value = JSON.parse(responseBody); }
+      catch { throw new IntegrationValidationError("1C active order refresh returned invalid JSON."); }
+      const parsed = parseHistoryRow(value, partnerRef);
+      if (!parsed || !isRecordValue(value) || !Array.isArray(value[HISTORY_LINES_FIELD])) {
+        throw new IntegrationValidationError(`1C active order row ${index} is invalid.`);
+      }
+      const lines = value[HISTORY_LINES_FIELD].map((line, lineIndex) => {
+        const mapped = parseHistoryItem(line, lineIndex + 1);
+        if (!mapped) throw new IntegrationValidationError(`1C active order line ${lineIndex} is invalid.`);
+        return mapped;
+      });
+      const [state, currency] = await Promise.all([
+        parsed.stateRef ? this.resolveState(parsed.stateRef, context) : Promise.resolve<StateResolution | null>(null),
+        parsed.currencyRef ? this.resolveCurrency(parsed.currencyRef, context) : Promise.resolve<CurrencyResolution | null>(null),
+      ]);
+      warningCount += Number(Boolean(state?.warningReason)) + Number(Boolean(currency?.warningReason));
+      return {
+        ...parsed.dto,
+        stateReference: parsed.stateRef ? externalReference(parsed.stateRef, "customer-order-state") : null,
+        stateRaw: state?.description ?? null,
+        stateCode: parsed.stateRef ? state?.code ?? "unknown" : null,
+        currencyCode: currency?.code ?? null,
+        items: lines,
+      };
+    });
+    return {
+      items,
+      nextCursor: null,
+      rawRowCount: items.length,
+      mappedRowCount: items.length,
+      rejectedRowCount: 0,
+      lineRowCount: items.reduce((sum, item) => sum + item.items.length, 0),
+      duplicateRowCount: references.length - items.length,
+      enrichmentWarningCount: warningCount,
+    };
+  }
+
   private async resolveHistoryRow(
     row: ParsedHistoryRow,
     states: ReadonlyMap<string, StateResolution>,
@@ -506,6 +565,7 @@ const HISTORY_ORDER_FIELDS = [
 ].join(",");
 
 const HISTORY_LINE_CONCURRENCY = 5;
+const HISTORY_LINES_FIELD = "\u0417\u0430\u043f\u0430\u0441\u044b";
 
 const ORDER_STATE_CODES: Readonly<Record<string, SalesOrderHistoryStateCode>> = {
   "открыт": "open",

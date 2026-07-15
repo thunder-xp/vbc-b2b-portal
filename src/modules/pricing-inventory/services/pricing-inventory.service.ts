@@ -11,6 +11,7 @@ export type ProductPriceViewDto = {
   currencyCode: string | null;
   amount: number;
   formattedAmount: string | null;
+  lastUpdatedAt?: string;
 };
 
 export type ProductStockAvailability =
@@ -259,6 +260,7 @@ function toPriceView(price: ProductPrice): ProductPriceViewDto {
     currencyCode,
     amount,
     formattedAmount: currencyCode ? formatPrice(amount, currencyCode) : null,
+    lastUpdatedAt: price.updatedAt,
   };
 }
 

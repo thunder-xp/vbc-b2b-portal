@@ -10,6 +10,7 @@ export { ChunkedPriceSyncService, SupabasePriceSyncStateStore, isPriceSyncLockSt
 export { normalizePricePage, type NormalizedPricePage, type PricePageDiagnostics } from "./price-page-normalization";
 export { ChunkedStockSyncService, SupabaseStockSyncStore, type StockSyncState, type StockSyncStage, type StockSyncStatus, type StockSyncStore } from "./chunked-stock-sync";
 export { CATALOG_SYNC_CRON, CATALOG_SYNC_INTERVAL_HOURS } from "./catalog-schedule";
+export { acquireSyncRunLock, releaseSyncRunLock, type SyncLockResult } from "./sync-run-lock";
 export { DailyCatalogSyncService, type DailyCatalogSyncResult } from "./daily-catalog-sync.service";
 export { ExchangeRateSyncService, type ExchangeRatePublisher, type PublishedExchangeRate } from "./exchange-rate-sync";
 export { SupabaseExchangeRatePublisher } from "./exchange-rate-supabase-publisher";

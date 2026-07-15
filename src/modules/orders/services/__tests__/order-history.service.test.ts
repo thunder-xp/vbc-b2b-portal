@@ -144,6 +144,31 @@ describe("DefaultPartnerOrderHistoryService", () => {
       historySyncContext: { syncId: result.syncId, page: 1 },
     }));
   });
+
+  it("uses the same atomic lock for manual synchronization", async () => {
+    const repository = historyRepository([]);
+    repository.startSync.mockResolvedValue("locked");
+    const provider = orderProvider();
+    await expect(service(repository, provider).syncOwnCompany("user-1", "full")).rejects.toThrow("already running");
+    expect(provider).not.toHaveBeenCalled();
+  });
+
+  it("uses the trusted sync-state read for cron synchronization", async () => {
+    const repository = historyRepository([]);
+    const provider = orderProvider().mockResolvedValueOnce(historyPage([], null));
+
+    await service(repository, provider).syncCompany(COMPANY_ID, COUNTERPARTY, "full");
+
+    expect(repository.getSyncStateForAutomation).toHaveBeenCalledWith(COMPANY_ID);
+    expect(repository.getSyncState).not.toHaveBeenCalled();
+  });
+
+  it("continues safely after atomic stale-lock recovery", async () => {
+    const repository = historyRepository([]);
+    repository.startSync.mockResolvedValue("stale_lock_recovered");
+    const provider = orderProvider().mockResolvedValueOnce(historyPage([], null));
+    await expect(service(repository, provider).syncOwnCompany("user-1", "full")).resolves.toMatchObject({ received: 0 });
+  });
 });
 
 function service(repository = historyRepository([]), fetchHistory = orderProvider()) {
@@ -169,7 +194,8 @@ function historyRepository(visible: PartnerOrderHistory[], auditRecord: PartnerO
     listItemsByOrderIds: vi.fn().mockResolvedValue([]),
     listEvents: vi.fn().mockResolvedValue([]),
     getSyncState: vi.fn().mockResolvedValue(null),
-    startSync: vi.fn().mockResolvedValue(undefined),
+    getSyncStateForAutomation: vi.fn().mockResolvedValue(null),
+    startSync: vi.fn().mockResolvedValue("acquired"),
     upsertBatch: vi.fn().mockImplementation(async (input: { orders: SalesOrderHistoryDTO[] }) => ({ inserted: input.orders.length, updated: 0, hidden: input.orders.filter((item) => item.deletionMark).length })),
     completeSync: vi.fn().mockResolvedValue(undefined),
     failSync: vi.fn().mockResolvedValue(undefined),

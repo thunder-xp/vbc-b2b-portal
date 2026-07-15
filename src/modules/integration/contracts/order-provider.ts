@@ -34,4 +34,7 @@ export interface OrderProvider {
   fetchSalesOrderHistory(
     input: SalesOrderStatusFetchRequestDTO,
   ): Promise<SalesOrderHistoryPageResult>;
+  fetchSalesOrderHistoryByReferences?(
+    input: SalesOrderStatusFetchRequestDTO & { orderReferences: ExternalReferenceDTO[] },
+  ): Promise<SalesOrderHistoryPageResult>;
 }

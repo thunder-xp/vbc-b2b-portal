@@ -28,7 +28,7 @@ export interface StockSyncStore {
   fail(syncId:string,stage:StockSyncStage,page:number,error:unknown):Promise<void>; failLaunch(syncId:string,message:string):Promise<void>;
 }
 
-const PAGE_SIZE=500, DOCUMENT_BATCH_SIZE=25, MAX_PAGES=5, BUDGET=45_000;
+const DOCUMENT_BATCH_SIZE=25, MAX_PAGES=5, BUDGET=45_000;
 
 export class ChunkedStockSyncService {
   constructor(private provider:StockBalanceProvider,private supplierProvider:SupplierArrivalProvider,private store:StockSyncStore,private now:()=>number=Date.now){}
@@ -70,7 +70,7 @@ export class ChunkedStockSyncService {
 }
 
 export class SupabaseStockSyncStore implements StockSyncStore {
-  async start(){const current=await this.getState();if(["queued","running"].includes(current.status)&&Date.parse(current.updatedAt)>Date.now()-600_000)return{state:current,started:false};const client=createAdminClient();const{data:price}=await client.from("price_sync_state").select("status").eq("id","product_prices").maybeSingle();if(price?.status==="running"||price?.status==="queued")throw new Error("Price synchronization is active.");await this.clear(current.activeSyncId??current.lastFailedSyncId);const id=crypto.randomUUID(),now=new Date().toISOString();const{error}=await client.from("stock_sync_state").update({status:"queued",active_sync_id:id,last_failed_sync_id:null,snapshot_time:now,current_stage:"warehouse_scan",next_skip:0,page_size:PAGE_SIZE,pages_processed:0,physical_rows:0,reserved_rows:0,incoming_rows:0,warehouses_loaded:0,products_matched:0,products_unmatched:0,rows_published:0,rows_deactivated:0,supplier_balance_rows:0,supplier_balance_groups:0,supplier_positive_groups:0,supplier_nonpositive_excluded:0,supplier_orders_requested:0,supplier_documents_resolved:0,supplier_documents_missing:0,supplier_unposted_excluded:0,supplier_deleted_excluded:0,supplier_closed_excluded:0,supplier_state_excluded:0,supplier_missing_date_excluded:0,supplier_date_placement_excluded:0,supplier_overdue_excluded:0,supplier_valid_arrivals:0,supplier_arrivals_published:0,scan_complete:false,started_at:now,error_category:null,failed_stage:null,safe_error:null,database_error_code:null,failed_page:null,active_chunk_token:null,chunk_started_at:null,updated_at:now}).eq("id","exact_stock");if(error)throw dbError(error);return{state:await this.getState(),started:true};}
+  async start(){const{data,error}=await createAdminClient().rpc("start_exact_stock_sync");if(error||!isStartResult(data))throw dbError(error);return{state:await this.getState(),started:data.result==="acquired"||data.result==="stale_lock_recovered"};}
   async getState(){const{data,error}=await createAdminClient().from("stock_sync_state").select("*").eq("id","exact_stock").single();if(error||!data)throw dbError(error);return mapState(data);}
   async claim(id:string,token:string){const{data,error}=await createAdminClient().rpc("claim_stock_sync_chunk",{p_sync_id:id,p_token:token});if(error)throw dbError(error);return data===true;}
   async release(id:string,token:string){const{error}=await createAdminClient().from("stock_sync_state").update({active_chunk_token:null,chunk_started_at:null,updated_at:new Date().toISOString()}).eq("id","exact_stock").eq("active_sync_id",id).eq("active_chunk_token",token);if(error)throw dbError(error);}
@@ -83,7 +83,6 @@ export class SupabaseStockSyncStore implements StockSyncStore {
   async publish(id:string){const{error}=await createAdminClient().rpc("publish_exact_stock_snapshot",{p_sync_id:id});if(error)throw dbError(error);}
   async fail(id:string,stage:StockSyncStage,page:number,error:unknown){const e=error as{code?:string};await createAdminClient().from("stock_sync_state").update({status:"failed",last_failed_sync_id:id,active_sync_id:null,failed_stage:stage,failed_page:page,error_category:"stock_sync_failure",database_error_code:e?.code??null,safe_error:"Exact stock synchronization failed.",active_chunk_token:null,chunk_started_at:null,updated_at:new Date().toISOString()}).eq("id","exact_stock").eq("active_sync_id",id);}
   async failLaunch(id:string,message:string){await createAdminClient().from("stock_sync_state").update({status:"failed",last_failed_sync_id:id,active_sync_id:null,failed_stage:"continuation_launch",error_category:"orchestration_failure",safe_error:message,updated_at:new Date().toISOString()}).eq("id","exact_stock").eq("active_sync_id",id);}
-  private async clear(id:string|null){if(!id)return;const client=createAdminClient();await Promise.all(["stock_balance_sync_stage","stock_balance_stage_receipts","stock_warehouse_sync_stage","supplier_arrival_balance_stage","supplier_order_document_stage"].map(table=>client.from(table).delete().eq("sync_id",id)));}
 }
 
 function nextStage(stage:StockSyncStage):StockSyncStage{return stage==="warehouse_scan"?"physical_scan":stage==="physical_scan"?"reserved_scan":stage==="reserved_scan"?"incoming_scan":stage==="incoming_scan"?"supplier_arrival_balance":stage;}
@@ -95,3 +94,4 @@ function str(value:unknown){return typeof value==="string"?value:null;} function
 function readErrorCode(error:unknown){return typeof error==="object"&&error&&"code" in error?String(error.code):null;}
 function readDiagnosticString(error:unknown,key:string){if(typeof error!=="object"||!error||!("diagnostic" in error)||typeof error.diagnostic!=="object"||!error.diagnostic)return null;const value=(error.diagnostic as Record<string,unknown>)[key];return typeof value==="string"?value:null;}
 function readDiagnosticNumber(error:unknown,key:string){if(typeof error!=="object"||!error||!("diagnostic" in error)||typeof error.diagnostic!=="object"||!error.diagnostic)return null;const value=(error.diagnostic as Record<string,unknown>)[key];return typeof value==="number"?value:null;}
+function isStartResult(value:unknown):value is{result:"acquired"|"locked"|"stale_lock_recovered"|"blocked_price"|"blocked_catalog";sync_id:string|null}{if(typeof value!=="object"||!value)return false;const row=value as Record<string,unknown>;return typeof row.result==="string"&&(typeof row.sync_id==="string"||row.sync_id===null);}

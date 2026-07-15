@@ -24,6 +24,7 @@ const summary = {
   positionCount: 2,
   totalUnitCount: 5,
   lastSynchronizedAt: "2026-07-15T10:01:00Z",
+  freshness: { status: "fresh", updatedAt: "2026-07-15T10:01:00Z", label: "Обновлено 8 минут назад", staleNotice: null },
 };
 
 describe("partner order history pages", () => {
@@ -35,7 +36,7 @@ describe("partner order history pages", () => {
   it("renders posted 1C history with exact state and current MDL total", async () => {
     mocks.list.mockResolvedValue({
       success: true,
-      data: { orders: [summary], filter: "all", search: "", page: 1, totalPages: 1, total: 1, syncState: null },
+      data: { orders: [summary], filter: "all", search: "", page: 1, totalPages: 1, total: 1, syncState: null, freshness: summary.freshness },
       errorCode: null,
       message: "",
     });
@@ -51,7 +52,7 @@ describe("partner order history pages", () => {
   it("does not expose the internal number as the primary label for an unposted order", async () => {
     mocks.list.mockResolvedValue({
       success: true,
-      data: { orders: [{ ...summary, primaryLabel: "Заказ обрабатывается", statusLabel: "Обрабатывается", posted: false }], filter: "processing", search: "", page: 1, totalPages: 1, total: 1, syncState: null },
+      data: { orders: [{ ...summary, primaryLabel: "Заказ обрабатывается", statusLabel: "Обрабатывается", posted: false }], filter: "processing", search: "", page: 1, totalPages: 1, total: 1, syncState: null, freshness: summary.freshness },
       errorCode: null,
       message: "",
     });

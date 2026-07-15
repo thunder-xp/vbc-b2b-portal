@@ -33,9 +33,8 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
           <p className="text-xs font-semibold uppercase text-emerald-700">Коммерческие документы</p>
           <h1 className="mt-1 text-2xl font-semibold">Заказы</h1>
           <p className="mt-2 text-sm text-zinc-600">Актуальная история заказов вашей компании из 1С.</p>
-          {result.data.syncState?.finishedAt ? (
-            <p className="mt-1 text-xs text-zinc-500">Обновлено {formatDateTime(result.data.syncState.finishedAt)}</p>
-          ) : null}
+          <p className="mt-1 text-xs text-zinc-500">{result.data.freshness.label}</p>
+          {result.data.freshness.staleNotice ? <p className="mt-1 text-xs text-amber-700">{result.data.freshness.staleNotice}</p> : null}
         </div>
         <OrderHistoryRefreshButton />
       </header>

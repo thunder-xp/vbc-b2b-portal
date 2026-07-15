@@ -32,6 +32,28 @@ describe("DefaultPartnerOrderService", () => {
     expect(result.status).toBe(PartnerOrderStatus.Submitted);
   });
 
+  it("blocks submission when the current partner price is older than the accepted window", async () => {
+    const dependencies = makeDependencies();
+    dependencies.pricingService.getProductCommercialViews.mockResolvedValue([{
+      ...commercial("product-1", 12.5),
+      partnerPrice: { amount: 12.5, currencyCode: "USD", formattedAmount: "$12.50", lastUpdatedAt: new Date(Date.now() - 37 * 60 * 60 * 1000).toISOString() },
+    }]);
+    await expect(dependencies.service.submit("user-1", input())).rejects.toBeInstanceOf(RecoverableOrderSubmissionError);
+    expect(dependencies.orderProvider.exportSalesOrder).not.toHaveBeenCalled();
+  });
+
+  it("warns for stale stock without adding a live 1C preflight call", async () => {
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const dependencies = makeDependencies();
+    dependencies.pricingService.getProductCommercialViews.mockResolvedValue([{
+      ...commercial("product-1", 12.5),
+      stock: { exactAvailableQuantity: 5, expectedArrival: null, lastUpdatedAt: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString() },
+    }]);
+    await dependencies.service.submit("user-1", input());
+    expect(warning).toHaveBeenCalledWith(expect.objectContaining({ event: "partner_order_preflight_warning", warning: "stale_stock" }));
+    expect(dependencies.orderProvider.exportSalesOrder).toHaveBeenCalledTimes(1);
+  });
+
   it("converts USD export prices to MDL with the approved commercial rate in legacy-minimal mode", async () => {
     const dependencies = makeDependencies({ useLegacyMinimalOrderPayload: true });
 
@@ -385,7 +407,7 @@ function makeDependencies(options: { useLegacyMinimalOrderPayload?: boolean } = 
   const permissionService = { ensurePermission: vi.fn().mockResolvedValue({ isAllowed: true }) };
   const catalogService = { getProductOrderIdentities: vi.fn().mockResolvedValue([{ id: "product-1", external1cId: "66666666-6666-4666-8666-666666666666", sku: "SKU-1", name: "Camera" }]) };
   const pricingService = {
-    getProductCommercialViews: vi.fn().mockResolvedValue([{ productId: "product-1", partnerPrice: { amount: 12.5, currencyCode: "USD", formattedAmount: "$12.50" }, stock: { exactAvailableQuantity: 5, expectedArrival: null } }]),
+    getProductCommercialViews: vi.fn().mockResolvedValue([{ productId: "product-1", partnerPrice: { amount: 12.5, currencyCode: "USD", formattedAmount: "$12.50", lastUpdatedAt: new Date().toISOString() }, stock: { exactAvailableQuantity: 5, expectedArrival: null, lastUpdatedAt: new Date().toISOString() } }]),
     getApprovedUsdMdlRate: vi.fn().mockResolvedValue(17.56341414),
   };
   const partnerProvider = {
@@ -402,7 +424,7 @@ function input() { return { submissionKey: SUBMISSION_KEY, requestedDeliveryDate
 function ref(externalId: string) { return { providerCode: "one-c", externalId, externalType: "test" }; }
 function cartItem(productId: string, quantity: number) { return { id: `item-${productId}`, cartId: "cart-1", productId, quantity, createdAt: "2026-01-01", updatedAt: "2026-01-01" }; }
 function identity(id: string, sku: string, external1cId: string) { return { id, sku, external1cId, name: sku }; }
-function commercial(productId: string, amount: number) { return { productId, partnerPrice: { amount, currencyCode: "USD", formattedAmount: null }, stock: { exactAvailableQuantity: 5, expectedArrival: null } }; }
+function commercial(productId: string, amount: number) { return { productId, partnerPrice: { amount, currencyCode: "USD", formattedAmount: null, lastUpdatedAt: new Date().toISOString() }, stock: { exactAvailableQuantity: 5, expectedArrival: null, lastUpdatedAt: new Date().toISOString() } }; }
 function order(overrides: Partial<PartnerOrder> = {}): PartnerOrder {
   return { id: "order-1", companyId: "company-1", submittedBy: "user-1", cartId: "cart-1", submissionKey: SUBMISSION_KEY, submissionAttemptId: "99999999-9999-4999-8999-999999999999", status: PartnerOrderStatus.Processing, integrationStatus: PartnerOrderIntegrationStatus.Processing, oneCOrderStatus: null, requestedDeliveryDate: "2099-01-10", external1cRef: null, external1cNumber: null, external1cDate: null, payloadSnapshot: salesOrderSnapshot(), safeErrorCode: null, safeErrorMessage: null, documentTotal: null, currencyCode: null, contractNumber: null, confirmedAt: null, lastReconciledAt: null, submittedAt: null, createdAt: "2026-01-01", updatedAt: "2026-01-01", ...overrides };
 }

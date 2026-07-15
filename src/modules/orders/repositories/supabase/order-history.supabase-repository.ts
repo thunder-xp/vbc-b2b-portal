@@ -18,6 +18,7 @@ import {
 const HISTORY_COLUMNS = "id, company_id, portal_order_id, external_1c_order_ref, external_1c_order_number, one_c_posted, one_c_deletion_mark, one_c_state_ref, one_c_state_raw, one_c_state_code, one_c_document_date, one_c_delivery_date, one_c_source_version, one_c_last_synced_at, external_contract_ref, external_currency_ref, document_total, currency_code, origin_type, partner_visible, hidden_reason, position_count, total_unit_count, created_at, updated_at";
 const ITEM_COLUMNS = "id, order_history_id, line_number, product_id, external_product_ref, external_characteristic_ref, product_name, sku, quantity, unit_price, line_total, currency_code";
 const EVENT_COLUMNS = "id, order_history_id, event_type, occurred_at, previous_value, current_value";
+const SYNC_COLUMNS = "company_id, counterparty_ref, status, sync_mode, active_sync_id, last_successful_full_sync_at, last_incremental_sync_at, last_source_version, safe_error, records_received, records_inserted, records_updated, records_hidden, started_at, finished_at, updated_at";
 
 type Row = Record<string, unknown>;
 
@@ -58,30 +59,74 @@ export class SupabasePartnerOrderHistoryRepository implements PartnerOrderHistor
   }
 
   async getSyncState(companyId: string): Promise<PartnerOrderHistorySyncState | null> {
-    const { data, error } = await (await createClient()).from("partner_order_history_sync_state").select("*")
+    const { data, error } = await (await createClient()).from("partner_order_history_sync_state").select(SYNC_COLUMNS)
       .eq("company_id", companyId).maybeSingle();
     if (error) throw new OrderHistoryRepositoryError();
     return data ? mapSyncState(data as Row) : null;
   }
 
-  async startSync(input: Parameters<PartnerOrderHistoryRepository["startSync"]>[0]): Promise<void> {
-    const now = new Date().toISOString();
-    const { error } = await createAdminClient().from("partner_order_history_sync_state").upsert({
-      company_id: input.companyId,
-      counterparty_ref: input.counterpartyRef,
-      status: "running",
-      sync_mode: input.mode,
-      active_sync_id: input.syncId,
-      safe_error: null,
-      records_received: 0,
-      records_inserted: 0,
-      records_updated: 0,
-      records_hidden: 0,
-      started_at: now,
-      finished_at: null,
-      updated_at: now,
-    }, { onConflict: "company_id" });
+  async getSyncStateForAutomation(companyId: string): Promise<PartnerOrderHistorySyncState | null> {
+    const { data, error } = await createAdminClient().from("partner_order_history_sync_state").select(SYNC_COLUMNS)
+      .eq("company_id", companyId).maybeSingle();
+    if (error) {
+      console.error({
+        event: "partner_order_history_automation_state_read_failed",
+        companyId,
+        errorCode: error.code,
+        errorMessage: error.message,
+      });
+      throw new OrderHistoryRepositoryError();
+    }
+    return data ? mapSyncState(data as Row) : null;
+  }
+
+  async startSync(input: Parameters<PartnerOrderHistoryRepository["startSync"]>[0]) {
+    const { data, error } = await createAdminClient().rpc("acquire_partner_order_history_sync", {
+      p_company_id: input.companyId,
+      p_counterparty_ref: input.counterpartyRef,
+      p_sync_id: input.syncId,
+      p_mode: input.mode,
+      p_stale_after_seconds: 7200,
+    });
+    if (error || (data !== "acquired" && data !== "locked" && data !== "stale_lock_recovered")) throw new OrderHistoryRepositoryError();
+    return data;
+  }
+
+  async listSyncCompanies(limit: number) {
+    const { data, error } = await createAdminClient().from("partner_companies")
+      .select("id,external_1c_id").eq("status", "active").not("external_1c_id", "is", null)
+      .order("id").limit(Math.max(1, Math.min(limit, 100)));
     if (error) throw new OrderHistoryRepositoryError();
+    return (data ?? []).flatMap((row) => typeof row.external_1c_id === "string" && row.external_1c_id.trim()
+      ? [{ companyId: row.id, counterpartyRef: row.external_1c_id.trim() }]
+      : []);
+  }
+
+  async listActiveRefreshCandidates(input: { olderThan: string; limit: number }) {
+    const { data, error } = await createAdminClient().from("partner_order_history")
+      .select(`${HISTORY_COLUMNS},partner_companies!inner(external_1c_id)`)
+      .eq("partner_visible", true).eq("one_c_deletion_mark", false)
+      .or("one_c_posted.eq.false,one_c_state_code.is.null,one_c_state_code.neq.completed")
+      .lt("one_c_last_synced_at", input.olderThan)
+      .order("one_c_last_synced_at", { ascending: true }).order("id", { ascending: true })
+      .limit(Math.max(1, Math.min(input.limit, 25)));
+    if (error) throw new OrderHistoryRepositoryError();
+    return ((data ?? []) as Row[]).flatMap((row) => {
+      const company = row.partner_companies;
+      const counterpartyRef = isRecord(company) ? nullableText(company.external_1c_id) : null;
+      return counterpartyRef ? [{ order: mapHistory(row), counterpartyRef }] : [];
+    });
+  }
+
+  async touchSynchronizedOrders(input: { companyId: string; orderRefs: string[]; syncedAt: string }): Promise<number> {
+    if (!input.orderRefs.length) return 0;
+    const { data, error } = await createAdminClient().rpc("touch_partner_order_history_refs", {
+      p_company_id: input.companyId,
+      p_order_refs: input.orderRefs,
+      p_synced_at: input.syncedAt,
+    });
+    if (error) throw new OrderHistoryRepositoryError();
+    return numberValue(data);
   }
 
   async upsertBatch(input: Parameters<PartnerOrderHistoryRepository["upsertBatch"]>[0]) {

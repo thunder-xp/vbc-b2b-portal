@@ -24,6 +24,7 @@ import {
   type CatalogSort,
 } from "@/src/modules/catalog/services";
 import type { CatalogAvailability } from "@/src/modules/catalog/components/CatalogFilters";
+import { evaluateFreshness } from "@/src/modules/integration/freshness";
 
 type CatalogPageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -82,11 +83,18 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
   );
   const selectedCategory = categoriesResult.data.find((category) => category.id === categoryId);
   const sortHiddenFields = buildCatalogSortHiddenFields({ categoryId, availability, search, attributeFilters });
+  const stockUpdatedAt = latestTimestamp(Object.values(commercialViews).map((view) => view.stock?.lastUpdatedAt));
+  const stockFreshness = stockUpdatedAt ? evaluateFreshness(stockUpdatedAt, "stock", "Остатки") : null;
+  const arrivalUpdatedAt = latestTimestamp(Object.values(commercialViews).map((view) => view.stock?.expectedArrival ? view.stock.lastUpdatedAt : null));
+  const arrivalFreshness = arrivalUpdatedAt ? evaluateFreshness(arrivalUpdatedAt, "stock", "Ожидаемые поступления") : null;
+  const priceUpdatedAt = latestTimestamp(Object.values(commercialViews).map((view) => view.partnerPrice?.lastUpdatedAt));
+  const priceFreshness = priceUpdatedAt ? evaluateFreshness(priceUpdatedAt, "price", "Цены") : null;
 
   return (
     <div className="space-y-6">
       <div className="flex gap-3"><CategoryMegaMenu categories={categoriesResult.data} sort={sort} /><CatalogSearch categoryId={categoryId} initialSearch={search} sort={sort} /></div>
       <CatalogBreadcrumb categories={categoriesResult.data} selectedId={categoryId} />
+      {stockFreshness || arrivalFreshness || priceFreshness ? <div className="flex flex-wrap gap-x-5 gap-y-1 text-xs text-zinc-500">{stockFreshness ? <p>{stockFreshness.label}</p> : null}{arrivalFreshness ? <p>{arrivalFreshness.label}</p> : null}{priceFreshness ? <p>{priceFreshness.label}</p> : null}{stockFreshness?.staleNotice || priceFreshness?.staleNotice ? <p className="w-full text-amber-700">Показаны последние подтверждённые данные</p> : null}</div> : null}
       <section className="flex flex-col gap-3 border-b border-zinc-200 pb-5 sm:flex-row sm:items-end sm:justify-between">
         <div><h1 className="text-2xl font-semibold text-zinc-950">{selectedCategory?.name ?? "Каталог оборудования"}</h1><p className="mt-1 text-sm text-zinc-500">Найдено товаров: {productsResult.data.totalCount}</p></div>
         <form action="/cabinet/catalog" className="w-full sm:w-auto">{sortHiddenFields.map((field) => <input key={field.name} name={field.name} type="hidden" value={field.value} />)}<label className="flex flex-wrap items-center gap-2 text-sm text-zinc-600">Сортировка<select className="h-10 min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-3 sm:flex-none" defaultValue={sort} name="sort">{CATALOG_SORT_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select><button className="h-10 rounded-md border border-zinc-300 px-3 font-medium" type="submit">Применить</button></label></form>
@@ -221,4 +229,9 @@ function createCommercialViewMap(
       commercialView,
     ]),
   );
+}
+
+function latestTimestamp(values: Array<string | null | undefined>): string | null {
+  const timestamps = values.flatMap((value) => value && Number.isFinite(Date.parse(value)) ? [Date.parse(value)] : []);
+  return timestamps.length ? new Date(Math.max(...timestamps)).toISOString() : null;
 }

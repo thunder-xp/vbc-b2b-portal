@@ -81,6 +81,27 @@ describe("OneCCustomerOrderProvider history", () => {
     expect(result.items.every((item) => item.items.length === 1)).toBe(true);
   });
 
+  it("refreshes active orders by exact Ref_Key with bounded inline line reads", async () => {
+    const fetchMock = vi.fn((input: string | URL | Request) => {
+      const url = decodeURIComponent(String(input));
+      if (url.includes("Catalog_СостоянияЗаказовПокупателей")) return Promise.resolve(json({ Ref_Key: STATE, Description: "Открыт", DeletionMark: false }));
+      if (url.includes("Catalog_Валюты")) return Promise.resolve(json({ Ref_Key: CURRENCY, Code: "498", Description: "MDL", DeletionMark: false }));
+      return Promise.resolve(json({ ...historyRow(), ["\u0417\u0430\u043f\u0430\u0441\u044b"]: [historyLine()] }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const result = await provider().orders.fetchSalesOrderHistoryByReferences!({
+      partnerCompanyReference: { providerCode: "one-c", externalId: COUNTERPARTY, externalType: "counterparty" },
+      orderReferences: [{ providerCode: "one-c", externalId: ORDER, externalType: "customer-order" }],
+      historySyncContext: { syncId: "sync-1", page: 1 },
+    });
+    expect(result.items).toHaveLength(1);
+    expect(result.lineRowCount).toBe(1);
+    const orderUrl = decodeURIComponent(String(fetchMock.mock.calls[0]![0]));
+    expect(orderUrl).toContain(`Document_ЗаказПокупателя(guid'${ORDER}')`);
+    expect(orderUrl).toContain("Запасы");
+    expect(orderUrl).not.toContain("$filter");
+  });
+
   it("resolves repeated state and currency references once per run", async () => {
     const fetchMock = historyFetch("Открыт", 2);
     vi.stubGlobal("fetch", fetchMock);

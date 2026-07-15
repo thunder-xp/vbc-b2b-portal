@@ -16,6 +16,10 @@ export type OrderHistoryBatchResult = {
   hidden: number;
 };
 
+export type OrderHistorySyncLockResult = "acquired" | "locked" | "stale_lock_recovered";
+export type OrderHistorySyncCompany = { companyId: string; counterpartyRef: string };
+export type ActiveOrderRefreshCandidate = { order: PartnerOrderHistory; counterpartyRef: string };
+
 export interface PartnerOrderHistoryRepository {
   listVisible(input: {
     companyId: string;
@@ -28,12 +32,16 @@ export interface PartnerOrderHistoryRepository {
   listItemsByOrderIds(orderIds: string[]): Promise<PartnerOrderHistoryItem[]>;
   listEvents(orderId: string): Promise<PartnerOrderHistoryEvent[]>;
   getSyncState(companyId: string): Promise<PartnerOrderHistorySyncState | null>;
+  getSyncStateForAutomation?(companyId: string): Promise<PartnerOrderHistorySyncState | null>;
   startSync(input: {
     companyId: string;
     counterpartyRef: string;
     syncId: string;
     mode: PartnerOrderHistorySyncMode;
-  }): Promise<void>;
+  }): Promise<OrderHistorySyncLockResult>;
+  listSyncCompanies?(limit: number): Promise<OrderHistorySyncCompany[]>;
+  listActiveRefreshCandidates?(input: { olderThan: string; limit: number }): Promise<ActiveOrderRefreshCandidate[]>;
+  touchSynchronizedOrders?(input: { companyId: string; orderRefs: string[]; syncedAt: string }): Promise<number>;
   upsertBatch(input: {
     companyId: string;
     syncId: string;

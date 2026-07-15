@@ -5,6 +5,7 @@ import type { CatalogService } from "../../catalog/services";
 import type { OrderProvider, PartnerProvider } from "../../integration/contracts";
 import type { ExternalReferenceDTO, SalesOrderDTO } from "../../integration/dto";
 import { IntegrationProviderUnavailableError, IntegrationTimeoutError } from "../../integration/errors";
+import { isStale } from "../../integration/freshness";
 import type { PricingInventoryService } from "../../pricing-inventory/services";
 import { OrderRepositoryError, type CartRepository, type OrderItemSnapshotInput, type PartnerOrderRepository } from "../repositories/order.repository";
 import { CartStatus, PartnerOrderIntegrationStatus, PartnerOrderStatus, type PartnerOrder, type PartnerOrderItem } from "../types";
@@ -69,6 +70,7 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
   ) {}
 
   async submit(userId: string, input: { submissionKey: string; requestedDeliveryDate: string }): Promise<PartnerOrder> {
+    const preflightStartedAt = Date.now();
     const submissionKey = requireUuid(input.submissionKey, "Submission key");
     const deliveryDate = normalizeDeliveryDate(input.requestedDeliveryDate);
     console.info(submissionEvent("partner_order_submission_started", "submission_started", {
@@ -196,6 +198,17 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
       throw new RecoverableOrderSubmissionError("Order preflight validation failed.");
     }
     const [identities, commercialViews, contract, priceType, approvedUsdMdlRate] = resolvedInputs;
+    const stalePriceProducts = commercialViews.filter((view) => !view.partnerPrice?.lastUpdatedAt || isStale(view.partnerPrice.lastUpdatedAt, "price"));
+    if (stalePriceProducts.length) {
+      failOrderSubmission("partner_price_freshness", new RecoverableOrderSubmissionError("Current partner prices are too old for order submission."), {
+        cartId: cart.id, companyId: company.id, submissionKey, staleProductCount: stalePriceProducts.length,
+      });
+    }
+    const staleStockProducts = commercialViews.filter((view) => !view.stock?.lastUpdatedAt || isStale(view.stock.lastUpdatedAt, "stock"));
+    if (staleStockProducts.length) {
+      console.warn({ event: "partner_order_preflight_warning", warning: "stale_stock", cartId: cart.id, companyId: company.id, submissionKey, staleProductCount: staleStockProducts.length });
+    }
+    console.info({ event: "partner_order_preflight_completed", cartId: cart.id, companyId: company.id, submissionKey, durationMs: Date.now() - preflightStartedAt, productCount: cartItems.length, databaseReadMode: "bulk" });
     if (!contract) {
       failOrderSubmission(
         "contract_resolution",

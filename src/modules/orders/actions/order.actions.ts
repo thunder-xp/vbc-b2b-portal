@@ -46,6 +46,7 @@ export async function listPartnerOrderHistoryAction(input: {
   totalPages: number;
   total: number;
   syncState: import("../types").PartnerOrderHistorySyncState | null;
+  freshness: import("../../integration/freshness").FreshnessView;
 }>> {
   try {
     return success("Order history loaded.", await createPartnerOrderHistoryService().list(await getAuthenticatedUserId(), input));
