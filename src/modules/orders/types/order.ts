@@ -12,6 +12,15 @@ export enum PartnerOrderStatus {
   Unknown = "unknown",
 }
 
+export enum PartnerOrderIntegrationStatus {
+  Processing = "processing",
+  Confirmed = "confirmed",
+  Failed = "failed",
+  ReconciliationRequired = "reconciliation_required",
+  ConfirmedNotCreated = "confirmed_not_created",
+  ManualReviewRequired = "manual_review_required",
+}
+
 export type Cart = {
   id: string;
   companyId: string;
@@ -38,6 +47,8 @@ export type PartnerOrder = {
   submissionKey: string;
   submissionAttemptId: string;
   status: PartnerOrderStatus;
+  integrationStatus: PartnerOrderIntegrationStatus;
+  oneCOrderStatus: string | null;
   requestedDeliveryDate: string;
   external1cRef: string | null;
   external1cNumber: string | null;
@@ -45,6 +56,11 @@ export type PartnerOrder = {
   payloadSnapshot: Record<string, unknown>;
   safeErrorCode: string | null;
   safeErrorMessage: string | null;
+  documentTotal: number | null;
+  currencyCode: string | null;
+  contractNumber: string | null;
+  confirmedAt: string | null;
+  lastReconciledAt: string | null;
   submittedAt: string | null;
   createdAt: string;
   updatedAt: string;

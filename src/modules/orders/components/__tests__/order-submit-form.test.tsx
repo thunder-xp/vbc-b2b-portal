@@ -40,4 +40,32 @@ describe("OrderSubmitForm", () => {
     await user.click(screen.getByRole("button", { name: "Подтвердить заказ" }));
     await waitFor(() => expect(screen.getByRole("button", { name: "Подтвердить заказ" })).toBeDisabled());
   });
+
+  it("redirects a confirmed result to the immutable order detail without resubmitting", async () => {
+    mocks.submit.mockResolvedValue({ success: true, errorCode: null, message: "Заказ создан.", data: { id: "order-1" } });
+    const user = userEvent.setup();
+    render(<OrderSubmitForm submissionKey="55555555-5555-4555-8555-555555555555" />);
+
+    await user.type(screen.getByLabelText("Желаемая дата отгрузки"), "2099-01-10");
+    await user.click(screen.getByRole("button", { name: "Подтвердить заказ" }));
+
+    await waitFor(() => expect(mocks.push).toHaveBeenCalledWith("/cabinet/orders/order-1"));
+    expect(mocks.submit).toHaveBeenCalledOnce();
+  });
+
+  it("disables submission during the action to guard rapid repeated interaction", async () => {
+    let resolveSubmission: ((value: unknown) => void) | undefined;
+    mocks.submit.mockReturnValue(new Promise((resolve) => { resolveSubmission = resolve; }));
+    const user = userEvent.setup();
+    render(<OrderSubmitForm submissionKey="55555555-5555-4555-8555-555555555555" />);
+    await user.type(screen.getByLabelText("Желаемая дата отгрузки"), "2099-01-10");
+
+    const button = screen.getByRole("button", { name: "Подтвердить заказ" });
+    await user.click(button);
+    expect(screen.getByRole("button", { name: "Создание заказа..." })).toBeDisabled();
+    expect(mocks.submit).toHaveBeenCalledOnce();
+
+    resolveSubmission?.({ success: false, errorCode: "ORDER_IN_PROGRESS", message: "Заказ уже отправляется.", data: null });
+    await screen.findByText("Заказ уже отправляется.");
+  });
 });

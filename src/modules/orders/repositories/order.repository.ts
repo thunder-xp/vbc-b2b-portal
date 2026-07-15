@@ -30,6 +30,7 @@ export interface PartnerOrderRepository {
   listByCompanyId(companyId: string): Promise<PartnerOrder[]>;
   findById(orderId: string): Promise<PartnerOrder | null>;
   listItems(orderId: string): Promise<PartnerOrderItem[]>;
+  listItemsByOrderIds(orderIds: string[]): Promise<PartnerOrderItem[]>;
   beginSubmission(input: {
     cartId: string;
     submissionKey: string;
@@ -43,6 +44,10 @@ export interface PartnerOrderRepository {
     external1cRef: string;
     external1cNumber: string;
     external1cDate: string;
+    oneCOrderStatus: string;
+    documentTotal: number;
+    currencyCode: string;
+    contractNumber: string | null;
   }): Promise<PartnerOrder>;
   failSubmission(input: {
     orderId: string;
@@ -56,6 +61,7 @@ export interface PartnerOrderRepository {
     orderId: string;
     submissionKey: string;
   }): Promise<PartnerOrder>;
+  markManualReviewRequired(orderId: string): Promise<PartnerOrder>;
 }
 
 export class OrderRepositoryError extends Error {

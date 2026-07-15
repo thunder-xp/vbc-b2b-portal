@@ -1,4 +1,4 @@
-import type { OrderProvider, SalesOrderStatusFetchRequestDTO } from "../../contracts";
+import type { OrderProvider } from "../../contracts";
 import type { IntegrationPageResultDTO, SalesOrderDTO, SalesOrderExportResultDTO } from "../../dto";
 import {
   IntegrationForbiddenError,
@@ -119,12 +119,45 @@ export class OneCCustomerOrderProvider implements OrderProvider {
       documentDate: new Date(verifiedOrder.Date).toISOString(),
       status: "unposted",
       exportedAt: new Date().toISOString(),
+      requestedDeliveryDate: order.requestedDeliveryDate,
+      documentTotal: Number(verifiedOrder.СуммаДокумента),
+      itemCount: order.items.length,
+      totalUnits: order.items.reduce((total, item) => total + item.quantity, 0),
     };
   }
 
-  async fetchSalesOrders(
-    _input: SalesOrderStatusFetchRequestDTO,
-  ): Promise<IntegrationPageResultDTO<SalesOrderDTO>> {
+  async findExportedSalesOrders(order: SalesOrderDTO): Promise<SalesOrderExportResultDTO[]> {
+    const { baseUrl, username, password } = this.config;
+    if (!baseUrl || !username || !password) {
+      throw new IntegrationProviderUnavailableError("1C order reconciliation is not configured.");
+    }
+    const url = new URL(`${baseUrl.replace(/\/$/, "")}/${CUSTOMER_ORDER_RESOURCE}`);
+    url.searchParams.set("$select", readBackFields);
+    url.searchParams.set("$filter", `substringof('${escapeODataLiteral(order.portalOrderReference)}',Комментарий) eq true`);
+    url.searchParams.set("$top", "3");
+    url.searchParams.set("$format", "json");
+
+    const response = await fetchOneC(this.config, url, "1C order reconciliation is unavailable.");
+    const responseBody = await response.text();
+    if (!response.ok) throw new IntegrationProviderUnavailableError("1C order reconciliation is unavailable.");
+
+    let value: unknown;
+    try {
+      value = JSON.parse(responseBody);
+    } catch {
+      throw new IntegrationValidationError("1C order reconciliation returned invalid JSON.");
+    }
+    if (!isOrderCollection(value)) {
+      throw new IntegrationValidationError("1C order reconciliation returned an invalid response.");
+    }
+
+    return value.value
+      .filter((candidate) => candidate.Комментарий?.includes(order.portalOrderReference))
+      .filter((candidate) => isVerifiedOrderReadBack(candidate, order, candidate.Ref_Key))
+      .map((candidate) => toExportResult(candidate, order));
+  }
+
+  async fetchSalesOrders(): Promise<IntegrationPageResultDTO<SalesOrderDTO>> {
     throw new IntegrationValidationError("1C customer order import is not implemented.");
   }
 }
@@ -137,27 +170,10 @@ async function readBackCreatedOrder(
   const url = new URL(
     `${config.baseUrl!.replace(/\/$/, "")}/${CUSTOMER_ORDER_RESOURCE}(guid'${externalId}')`,
   );
-  url.searchParams.set(
-    "$select",
-    "Ref_Key,Number,Date,Posted,Контрагент_Key,Договор_Key,Запасы",
-  );
+  url.searchParams.set("$select", readBackFields);
   url.searchParams.set("$format", "json");
 
-  let response: Response;
-  try {
-    response = await fetch(url, {
-      method: "GET",
-      headers: {
-        Accept: "application/json",
-        Authorization: `Basic ${Buffer.from(`${config.username}:${config.password}`, "utf8").toString("base64")}`,
-      },
-      signal: AbortSignal.timeout(config.requestTimeoutMs),
-    });
-  } catch {
-    throw new IntegrationProviderUnavailableError(
-      "1C customer order read-back is unavailable.",
-    );
-  }
+  const response = await fetchOneC(config, url, "1C customer order read-back is unavailable.");
 
   const responseBody = await response.text();
   const diagnostic = {
@@ -303,35 +319,99 @@ type CreatedOrderResponse = {
   Ref_Key: string;
   Number: string;
   Date: string;
-  Posted?: boolean;
+  Posted: boolean;
   Контрагент_Key?: string;
   Договор_Key?: string;
+  ДатаОтгрузки?: string;
+  СуммаДокумента?: number | string;
+  Комментарий?: string;
   Запасы?: unknown[];
 };
+
+const readBackFields = "Ref_Key,Number,Date,Posted,Контрагент_Key,Договор_Key,ДатаОтгрузки,СуммаДокумента,Комментарий,Запасы";
 
 function isVerifiedOrderReadBack(
   value: unknown,
   order: SalesOrderDTO,
   externalId: string,
 ): value is CreatedOrderResponse {
-  if (!isCreatedOrderResponse(value) || value.Posted === true) return false;
+  if (!isCreatedOrderResponse(value) || value.Posted !== false) return false;
   const row = value as CreatedOrderResponse;
   if (
     row.Ref_Key.toLowerCase() !== externalId.toLowerCase() ||
     row.Контрагент_Key?.toLowerCase() !== order.partnerCompanyReference.externalId.toLowerCase() ||
     row.Договор_Key?.toLowerCase() !== order.contractReference.externalId.toLowerCase() ||
+    normalizeOneCDate(row.ДатаОтгрузки) !== normalizeOneCDate(order.requestedDeliveryDate) ||
+    !moneyEquals(Number(row.СуммаДокумента), order.documentTotal) ||
     !Array.isArray(row.Запасы) ||
     row.Запасы.length !== order.items.length
   ) {
     return false;
   }
 
-  return order.items.every((expected, index) => {
-    const item = row.Запасы?.[index];
-    if (!item || typeof item !== "object") return false;
-    const actual = item as Record<string, unknown>;
-    return actual.Номенклатура === expected.productReference.externalId &&
-      Number(actual.Количество) === expected.quantity &&
-      Number(actual.Цена) === expected.price?.amount;
+  const unmatched = [...row.Запасы];
+  return order.items.every((expected) => {
+    const matchIndex = unmatched.findIndex((item) => {
+      if (!item || typeof item !== "object") return false;
+      const actual = item as Record<string, unknown>;
+      return actual.Номенклатура === expected.productReference.externalId &&
+        Number(actual.Количество) === expected.quantity &&
+        moneyEquals(Number(actual.Цена), expected.price?.amount ?? Number.NaN);
+    });
+    if (matchIndex < 0) return false;
+    unmatched.splice(matchIndex, 1);
+    return true;
   });
+}
+
+async function fetchOneC(config: OneCProviderConfig, url: URL, message: string): Promise<Response> {
+  try {
+    return await fetch(url, {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        Authorization: `Basic ${Buffer.from(`${config.username}:${config.password}`, "utf8").toString("base64")}`,
+      },
+      signal: AbortSignal.timeout(config.requestTimeoutMs),
+    });
+  } catch (error) {
+    if (error instanceof Error && (error.name === "AbortError" || error.name === "TimeoutError")) {
+      throw new IntegrationTimeoutError(message);
+    }
+    throw new IntegrationProviderUnavailableError(message);
+  }
+}
+
+function isOrderCollection(value: unknown): value is { value: CreatedOrderResponse[] } {
+  return Boolean(value && typeof value === "object" && Array.isArray((value as { value?: unknown }).value));
+}
+
+function toExportResult(order: CreatedOrderResponse, expected: SalesOrderDTO): SalesOrderExportResultDTO {
+  return {
+    orderReference: { providerCode: "one-c", externalId: order.Ref_Key, externalType: CUSTOMER_ORDER_TYPE },
+    orderNumber: order.Number,
+    documentDate: new Date(order.Date).toISOString(),
+    status: "unposted",
+    exportedAt: new Date().toISOString(),
+    requestedDeliveryDate: expected.requestedDeliveryDate,
+    documentTotal: Number(order.СуммаДокумента),
+    itemCount: expected.items.length,
+    totalUnits: expected.items.reduce((total, item) => total + item.quantity, 0),
+  };
+}
+
+function normalizeOneCDate(value: string | undefined): string | null {
+  if (!value) return null;
+  const calendarDate = /^(\d{4}-\d{2}-\d{2})(?:T|$)/.exec(value)?.[1];
+  if (calendarDate) return calendarDate;
+  const parsed = new Date(value);
+  return Number.isFinite(parsed.getTime()) ? parsed.toISOString().slice(0, 10) : null;
+}
+
+function moneyEquals(left: number, right: number): boolean {
+  return Number.isFinite(left) && Number.isFinite(right) && Math.abs(left - right) < 0.005;
+}
+
+function escapeODataLiteral(value: string): string {
+  return value.replaceAll("'", "''");
 }

@@ -2,7 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { type ActionResult, failureFromError, invalidInput, success } from "../../access-control/actions/action-result";
-import { getAuthenticatedUserId } from "../../access-control/actions/service-factory";
+import { createUserProfileService, getAuthenticatedUserId } from "../../access-control/actions/service-factory";
+import { ForbiddenError } from "../../access-control/services";
+import { UserType } from "../../access-control/types";
 import type { PartnerOrderDetailDto, PartnerOrderSummaryDto } from "../services";
 import type { PartnerOrder } from "../types";
 import { createPartnerOrderService } from "./service-factory";
@@ -30,6 +32,20 @@ export async function listPartnerOrdersAction(): Promise<ActionResult<PartnerOrd
 export async function getPartnerOrderAction(orderId: string): Promise<ActionResult<PartnerOrderDetailDto>> {
   try { return success("Order loaded.", await createPartnerOrderService().getOrder(await getAuthenticatedUserId(), orderId)); }
   catch (error) { return failureFromError(error); }
+}
+
+export async function reconcilePartnerOrderAction(orderId: string): Promise<ActionResult<PartnerOrder>> {
+  try {
+    const userId = await getAuthenticatedUserId();
+    const profile = await createUserProfileService().ensureActiveUser(userId);
+    if (profile.userType !== UserType.Internal && profile.userType !== UserType.Admin) throw new ForbiddenError();
+    const order = await createPartnerOrderService().reconcileInternal(orderId);
+    revalidatePath("/cabinet/orders");
+    revalidatePath(`/cabinet/orders/${order.id}`);
+    return success("Статус заказа уточнён.", order);
+  } catch (error) {
+    return failureFromError(error);
+  }
 }
 
 function text(formData: FormData, key: string): string { const value = formData.get(key); return typeof value === "string" ? value.trim() : ""; }

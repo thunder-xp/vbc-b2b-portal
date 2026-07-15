@@ -183,6 +183,43 @@ describe("OneCCustomerOrderProvider", () => {
       .rejects.toBeInstanceOf(IntegrationProviderUnavailableError);
   });
 
+  it.each([
+    { ДатаОтгрузки: "2099-01-11T00:00:00" },
+    { СуммаДокумента: 1315 },
+    { Posted: true },
+  ])("blocks completion when read-back differs from the submitted order: %o", async (override) => {
+    vi.spyOn(console, "info").mockImplementation(() => undefined);
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    vi.stubGlobal("fetch", vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        Ref_Key: "77777777-7777-4777-8777-777777777777",
+        Number: "NSUU-TEST",
+        Date: "2026-07-13T20:17:30",
+        Posted: false,
+      }), { status: 200, headers: { "Content-Type": "application/json" } }))
+      .mockResolvedValueOnce(readBackResponse(override)));
+    const provider = new OneCProvider({ baseUrl: "https://erp.example/odata", username: "user", password: "secret", requestTimeoutMs: 10000 });
+
+    await expect(provider.orders.exportSalesOrder(order))
+      .rejects.toBeInstanceOf(IntegrationProviderUnavailableError);
+  });
+
+  it("finds one verified order by the exact submission token without posting", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      value: [readBackRow({ Комментарий: `Создан порталом ${order.portalOrderReference}` })],
+    }), { status: 200, headers: { "Content-Type": "application/json" } })));
+    const provider = new OneCProvider({ baseUrl: "https://erp.example/odata", username: "user", password: "secret", requestTimeoutMs: 10000 });
+
+    const result = await provider.orders.findExportedSalesOrders(order);
+
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({ orderNumber: "NSUU-TEST", documentTotal: 1314, itemCount: 1, totalUnits: 1 });
+    const fetchMock = vi.mocked(fetch);
+    const [url, init] = fetchMock.mock.calls[0] as [URL, RequestInit | undefined];
+    expect(init?.method).not.toBe("POST");
+    expect(decodeURIComponent(url.toString()).replaceAll("+", " ")).toContain(`substringof('${order.portalOrderReference}',Комментарий) eq true`);
+  });
+
   it("logs the exact safe HTTP status and response body before rejecting the request", async () => {
     const responseBody = JSON.stringify({ "odata.error": { code: "-1", message: { value: "Invalid field" } } });
     const errorLog = vi.spyOn(console, "error").mockImplementation(() => undefined);
@@ -213,18 +250,26 @@ describe("OneCCustomerOrderProvider", () => {
 
 function ref(externalId: string) { return { providerCode: "one-c", externalId, externalType: "test" }; }
 
-function readBackResponse() {
-  return new Response(JSON.stringify({
+function readBackRow(overrides: Record<string, unknown> = {}) {
+  return {
     Ref_Key: "77777777-7777-4777-8777-777777777777",
     Number: "NSUU-TEST",
     Date: "2026-07-13T20:17:30",
     Posted: false,
     Контрагент_Key: order.partnerCompanyReference.externalId,
     Договор_Key: order.contractReference.externalId,
+    ДатаОтгрузки: "2099-01-10T00:00:00",
+    СуммаДокумента: order.documentTotal,
+    Комментарий: order.comment,
     Запасы: order.items.map((item) => ({
       Номенклатура: item.productReference.externalId,
       Количество: item.quantity,
       Цена: item.price?.amount,
     })),
-  }), { status: 200, headers: { "Content-Type": "application/json" } });
+    ...overrides,
+  };
+}
+
+function readBackResponse(overrides: Record<string, unknown> = {}) {
+  return new Response(JSON.stringify(readBackRow(overrides)), { status: 200, headers: { "Content-Type": "application/json" } });
 }

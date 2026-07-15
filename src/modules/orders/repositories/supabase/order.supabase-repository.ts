@@ -1,11 +1,11 @@
 import { createClient } from "@/src/lib/supabase/server";
 
-import { CartStatus, PartnerOrderStatus, type Cart, type CartItem, type PartnerOrder, type PartnerOrderItem } from "../../types";
+import { CartStatus, PartnerOrderIntegrationStatus, PartnerOrderStatus, type Cart, type CartItem, type PartnerOrder, type PartnerOrderItem } from "../../types";
 import { OrderRepositoryError, type CartRepository, type PartnerOrderRepository } from "../order.repository";
 
 const CART_COLUMNS = "id, company_id, created_by, status, created_at, updated_at";
 const CART_ITEM_COLUMNS = "id, cart_id, product_id, quantity, created_at, updated_at";
-const ORDER_COLUMNS = "id, company_id, submitted_by, cart_id, submission_key, submission_attempt_id, status, requested_delivery_date, external_1c_ref, external_1c_number, external_1c_date, payload_snapshot, safe_error_code, safe_error_message, submitted_at, created_at, updated_at";
+const ORDER_COLUMNS = "id, company_id, submitted_by, cart_id, submission_key, submission_attempt_id, status, integration_status, one_c_order_status, requested_delivery_date, external_1c_ref, external_1c_number, external_1c_date, payload_snapshot, safe_error_code, safe_error_message, document_total, currency_code, contract_number, confirmed_at, last_reconciled_at, submitted_at, created_at, updated_at";
 const ORDER_ITEM_COLUMNS = "id, order_id, product_id, external_product_ref, product_name, sku, quantity, partner_unit_price, currency_code, line_total, available_stock, nearest_arrival_date, nearest_arrival_quantity, snapshot_at";
 
 type Row = Record<string, unknown>;
@@ -87,6 +87,14 @@ export class SupabasePartnerOrderRepository implements PartnerOrderRepository {
     return ((data ?? []) as Row[]).map(mapOrderItem);
   }
 
+  async listItemsByOrderIds(orderIds: string[]): Promise<PartnerOrderItem[]> {
+    if (orderIds.length === 0) return [];
+    const { data, error } = await (await createClient()).from("partner_order_items").select(ORDER_ITEM_COLUMNS)
+      .in("order_id", orderIds).order("snapshot_at");
+    if (error) throw new OrderRepositoryError();
+    return ((data ?? []) as Row[]).map(mapOrderItem);
+  }
+
   async beginSubmission(input: Parameters<PartnerOrderRepository["beginSubmission"]>[0]): Promise<PartnerOrder> {
     const { data, error } = await (await createClient()).rpc("begin_partner_order_submission", {
       target_cart_id: input.cartId,
@@ -127,11 +135,15 @@ export class SupabasePartnerOrderRepository implements PartnerOrderRepository {
   }
 
   async completeSubmission(input: Parameters<PartnerOrderRepository["completeSubmission"]>[0]): Promise<PartnerOrder> {
-    const { data, error } = await (await createClient()).rpc("complete_partner_order_submission", {
+    const { data, error } = await (await createClient()).rpc("complete_partner_order_submission_v2", {
       target_order_id: input.orderId,
       one_c_ref: input.external1cRef,
       one_c_number: input.external1cNumber,
       one_c_date: input.external1cDate,
+      one_c_status: input.oneCOrderStatus,
+      confirmed_document_total: input.documentTotal,
+      confirmed_currency_code: input.currencyCode,
+      confirmed_contract_number: input.contractNumber,
     });
     if (error || !data) throw new OrderRepositoryError();
     return mapOrder(data as Row);
@@ -154,15 +166,21 @@ export class SupabasePartnerOrderRepository implements PartnerOrderRepository {
     input: Parameters<PartnerOrderRepository["confirmNotCreated"]>[0],
   ): Promise<PartnerOrder> {
     const { data, error } = await (await createClient()).rpc(
-      "confirm_partner_order_not_created",
-      {
-        target_order_id: input.orderId,
-        target_submission_key: input.submissionKey,
-      },
+      "reconcile_partner_order_submission",
+      { target_order_id: input.orderId, target_result: "confirmed_not_created" },
     );
     if (error || !data) {
       throw new OrderRepositoryError(error?.code ?? null, error?.message ?? null);
     }
+    return mapOrder(data as Row);
+  }
+
+  async markManualReviewRequired(orderId: string): Promise<PartnerOrder> {
+    const { data, error } = await (await createClient()).rpc("reconcile_partner_order_submission", {
+      target_order_id: orderId,
+      target_result: "manual_review_required",
+    });
+    if (error || !data) throw new OrderRepositoryError(error?.code ?? null, error?.message ?? null);
     return mapOrder(data as Row);
   }
 }
@@ -177,10 +195,13 @@ function mapOrder(row: Row): PartnerOrder {
   return {
     id: text(row.id), companyId: text(row.company_id), submittedBy: text(row.submitted_by), cartId: nullableText(row.cart_id),
     submissionKey: text(row.submission_key), submissionAttemptId: text(row.submission_attempt_id), status: row.status as PartnerOrderStatus,
+    integrationStatus: row.integration_status as PartnerOrderIntegrationStatus, oneCOrderStatus: nullableText(row.one_c_order_status),
     requestedDeliveryDate: text(row.requested_delivery_date), external1cRef: nullableText(row.external_1c_ref),
     external1cNumber: nullableText(row.external_1c_number), external1cDate: nullableText(row.external_1c_date),
     payloadSnapshot: isRecord(row.payload_snapshot) ? row.payload_snapshot : {}, safeErrorCode: nullableText(row.safe_error_code),
-    safeErrorMessage: nullableText(row.safe_error_message), submittedAt: nullableText(row.submitted_at), createdAt: text(row.created_at), updatedAt: text(row.updated_at),
+    safeErrorMessage: nullableText(row.safe_error_message), documentTotal: nullableNumber(row.document_total), currencyCode: nullableText(row.currency_code),
+    contractNumber: nullableText(row.contract_number), confirmedAt: nullableText(row.confirmed_at), lastReconciledAt: nullableText(row.last_reconciled_at),
+    submittedAt: nullableText(row.submitted_at), createdAt: text(row.created_at), updatedAt: text(row.updated_at),
   };
 }
 function mapOrderItem(row: Row): PartnerOrderItem {

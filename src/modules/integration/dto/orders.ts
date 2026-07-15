@@ -44,4 +44,8 @@ export type SalesOrderExportResultDTO = {
   documentDate: string;
   status: string;
   exportedAt: string;
+  requestedDeliveryDate: string;
+  documentTotal: number;
+  itemCount: number;
+  totalUnits: number;
 };

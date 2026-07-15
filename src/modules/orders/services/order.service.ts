@@ -7,7 +7,7 @@ import type { ExternalReferenceDTO, SalesOrderDTO } from "../../integration/dto"
 import { IntegrationProviderUnavailableError, IntegrationTimeoutError } from "../../integration/errors";
 import type { PricingInventoryService } from "../../pricing-inventory/services";
 import { OrderRepositoryError, type CartRepository, type OrderItemSnapshotInput, type PartnerOrderRepository } from "../repositories/order.repository";
-import { CartStatus, PartnerOrderStatus, type PartnerOrder } from "../types";
+import { CartStatus, PartnerOrderIntegrationStatus, PartnerOrderStatus, type PartnerOrder, type PartnerOrderItem } from "../types";
 import { OrderReconciliationRequiredError, OrderSubmissionInProgressError, RecoverableOrderSubmissionError } from "./order-submission.errors";
 
 export type PartnerOrderSummaryDto = {
@@ -17,9 +17,19 @@ export type PartnerOrderSummaryDto = {
   requestedDeliveryDate: string;
   submittedAt: string | null;
   createdAt: string;
+  confirmedAt: string | null;
+  integrationStatus: PartnerOrderIntegrationStatus;
+  oneCOrderStatus: string | null;
+  documentTotal: string | null;
+  currencyCode: string | null;
+  positionCount: number;
+  totalUnitCount: number;
 };
 
 export type PartnerOrderDetailDto = PartnerOrderSummaryDto & {
+  companyName: string;
+  contractNumber: string | null;
+  lastSynchronizedAt: string;
   lines: Array<{ productName: string; sku: string; quantity: number; unitPrice: string; lineTotal: string }>;
 };
 
@@ -27,6 +37,7 @@ export interface PartnerOrderService {
   submit(userId: string, input: { submissionKey: string; requestedDeliveryDate: string }): Promise<PartnerOrder>;
   listOwnCompanyOrders(userId: string): Promise<PartnerOrderSummaryDto[]>;
   getOrder(userId: string, orderId: string): Promise<PartnerOrderDetailDto>;
+  reconcileInternal(orderId: string): Promise<PartnerOrder>;
 }
 
 export type PartnerOrderServiceOptions = {
@@ -60,6 +71,9 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
   async submit(userId: string, input: { submissionKey: string; requestedDeliveryDate: string }): Promise<PartnerOrder> {
     const submissionKey = requireUuid(input.submissionKey, "Submission key");
     const deliveryDate = normalizeDeliveryDate(input.requestedDeliveryDate);
+    console.info(submissionEvent("partner_order_submission_started", "submission_started", {
+      submissionKey, orderId: null, cartId: null, companyId: null,
+    }));
     const existing = await this.orderRepository.findBySubmissionKey(submissionKey);
     if (existing) {
       if (existing.status === PartnerOrderStatus.Submitted) return existing;
@@ -121,6 +135,9 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
       positionCount: cartItems.length,
       totalUnitCount: cartItems.reduce((sum, item) => sum + item.quantity, 0),
     });
+    console.info(submissionEvent("partner_order_cart_resolved", "cart_resolved", {
+      submissionKey, orderId: null, cartId: cart.id, companyId: company.id,
+    }));
 
     const productIds = cartItems.map((item) => item.productId);
     let resolvedInputs;
@@ -315,6 +332,9 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
       organizationReference: contract.organizationReference, currencyRef: priceType.currency,
       currencyCode: exportCurrencyCode, snapshots: exportSnapshots,
     });
+    console.info(submissionEvent("partner_order_payload_built", "payload_built", {
+      submissionKey, orderId: null, cartId: cart.id, companyId: company.id,
+    }));
     if (this.options.useLegacyMinimalOrderPayload) {
       assertLegacyExportIntegrity(cartItems.length, salesOrder);
     }
@@ -357,7 +377,13 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
 
     let exported;
     try {
+      console.info(submissionEvent("partner_order_one_c_post_started", "one_c_post_started", {
+        submissionKey, orderId: order.id, cartId: cart.id, companyId: company.id,
+      }));
       exported = await this.orderProvider.exportSalesOrder(salesOrder);
+      console.info(submissionEvent("partner_order_read_back_verified", "read_back_verified", {
+        submissionKey, orderId: order.id, cartId: cart.id, companyId: company.id,
+      }));
     } catch (error) {
       console.error({
         event: "partner_order_submission_failed",
@@ -383,6 +409,10 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
       const completedOrder = await this.orderRepository.completeSubmission({
         orderId: order.id, external1cRef: exported.orderReference.externalId,
         external1cNumber: exported.orderNumber, external1cDate: exported.documentDate,
+        oneCOrderStatus: exported.status,
+        documentTotal: snapshots.reduce((total, item) => total + item.lineTotal, 0),
+        currencyCode: currencyCodes[0]!,
+        contractNumber: contract.number ?? contract.code ?? null,
       });
       console.info({
         event: "partner_order_submission_diagnostic",
@@ -395,6 +425,9 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
         external1cRef: completedOrder.external1cRef,
         external1cNumber: completedOrder.external1cNumber,
       });
+      console.info(submissionEvent("partner_order_cart_cleared", "cart_cleared", {
+        submissionKey, orderId: completedOrder.id, cartId: cart.id, companyId: company.id,
+      }));
       return completedOrder;
     } catch (error) {
       console.error({
@@ -414,7 +447,10 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
 
   async listOwnCompanyOrders(userId: string): Promise<PartnerOrderSummaryDto[]> {
     const context = await this.resolveContext(userId);
-    return (await this.orderRepository.listByCompanyId(context.company.id)).map(toSummary);
+    const orders = await this.orderRepository.listByCompanyId(context.company.id);
+    const items = await this.orderRepository.listItemsByOrderIds(orders.map((order) => order.id));
+    const itemsByOrder = groupItemsByOrder(items);
+    return orders.map((order) => toSummary(order, itemsByOrder.get(order.id) ?? []));
   }
 
   async getOrder(userId: string, orderId: string): Promise<PartnerOrderDetailDto> {
@@ -422,10 +458,48 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
     const order = await this.orderRepository.findById(orderId.trim());
     if (!order || order.companyId !== context.company.id) throw new NotFoundError("Order was not found.");
     const items = await this.orderRepository.listItems(order.id);
-    return { ...toSummary(order), lines: items.map((item) => ({
+    return { ...toSummary(order, items), companyName: context.company.displayName, contractNumber: order.contractNumber,
+      lastSynchronizedAt: order.confirmedAt ?? order.lastReconciledAt ?? order.updatedAt, lines: items.map((item) => ({
       productName: item.productName, sku: item.sku, quantity: item.quantity,
       unitPrice: formatMoney(item.partnerUnitPrice, item.currencyCode), lineTotal: formatMoney(item.lineTotal, item.currencyCode),
     })) };
+  }
+
+  async reconcileInternal(orderId: string): Promise<PartnerOrder> {
+    const order = await this.orderRepository.findById(requireUuid(orderId.trim(), "Order ID"));
+    if (!order) throw new NotFoundError("Order was not found.");
+    if (order.status === PartnerOrderStatus.Submitted) return order;
+    if (order.status !== PartnerOrderStatus.Unknown && order.status !== PartnerOrderStatus.Processing) {
+      throw new RecoverableOrderSubmissionError("Order reconciliation is not available.");
+    }
+    const snapshot = parseSalesOrderSnapshot(order.payloadSnapshot);
+    console.info(orderLog("partner_order_reconciliation_started", "reconciliation_started", order));
+    const matches = await this.orderProvider.findExportedSalesOrders(snapshot);
+    if (matches.length === 0) {
+      const reconciled = await this.orderRepository.confirmNotCreated({ orderId: order.id, submissionKey: order.submissionKey });
+      console.info(orderLog("partner_order_reconciliation_completed", "confirmed_not_created", reconciled));
+      return reconciled;
+    }
+    if (matches.length > 1) {
+      const reconciled = await this.orderRepository.markManualReviewRequired(order.id);
+      console.warn(orderLog("partner_order_reconciliation_completed", "manual_review_required", reconciled));
+      return reconciled;
+    }
+
+    const match = matches[0]!;
+    const items = await this.orderRepository.listItems(order.id);
+    const completed = await this.orderRepository.completeSubmission({
+      orderId: order.id,
+      external1cRef: match.orderReference.externalId,
+      external1cNumber: match.orderNumber,
+      external1cDate: match.documentDate,
+      oneCOrderStatus: match.status,
+      documentTotal: items.reduce((total, item) => total + item.lineTotal, 0),
+      currencyCode: singleCurrency(items),
+      contractNumber: order.contractNumber,
+    });
+    console.info(orderLog("partner_order_reconciliation_completed", "confirmed", completed));
+    return completed;
   }
 
   private async resolveContext(userId: string) {
@@ -533,8 +607,65 @@ function deployedCommitSha(): string { return process.env.VERCEL_GIT_COMMIT_SHA?
 function normalizeDeliveryDate(value: string): string { const normalized = value.trim(); if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized) || Date.parse(`${normalized}T23:59:59Z`) < Date.now()) throw new RecoverableOrderSubmissionError("Requested delivery date is invalid."); return normalized; }
 function roundMoney(value: number): number { return Math.round((value + Number.EPSILON) * 100) / 100; }
 function toJsonRecord(value: SalesOrderDTO): Record<string, unknown> { return JSON.parse(JSON.stringify(value)) as Record<string, unknown>; }
-function toSummary(order: PartnerOrder): PartnerOrderSummaryDto { return { id: order.id, status: order.status, external1cNumber: order.external1cNumber, requestedDeliveryDate: order.requestedDeliveryDate, submittedAt: order.submittedAt, createdAt: order.createdAt }; }
+function toSummary(order: PartnerOrder, items: PartnerOrderItem[]): PartnerOrderSummaryDto {
+  const currencyCode = order.currencyCode ?? (items.length ? singleCurrency(items) : null);
+  const total = order.documentTotal ?? items.reduce((sum, item) => sum + item.lineTotal, 0);
+  return {
+    id: order.id,
+    status: order.status,
+    external1cNumber: order.external1cNumber,
+    requestedDeliveryDate: order.requestedDeliveryDate,
+    submittedAt: order.submittedAt,
+    createdAt: order.createdAt,
+    confirmedAt: order.confirmedAt,
+    integrationStatus: order.integrationStatus,
+    oneCOrderStatus: order.oneCOrderStatus,
+    documentTotal: currencyCode ? formatMoney(total, currencyCode) : null,
+    currencyCode,
+    positionCount: items.length,
+    totalUnitCount: items.reduce((sum, item) => sum + item.quantity, 0),
+  };
+}
 function formatMoney(amount: number, currency: string): string { return new Intl.NumberFormat("ru-RU", { style: "currency", currency }).format(amount); }
+
+function groupItemsByOrder(items: PartnerOrderItem[]): Map<string, PartnerOrderItem[]> {
+  const result = new Map<string, PartnerOrderItem[]>();
+  for (const item of items) result.set(item.orderId, [...(result.get(item.orderId) ?? []), item]);
+  return result;
+}
+
+function singleCurrency(items: PartnerOrderItem[]): string {
+  const currencies = [...new Set(items.map((item) => item.currencyCode))];
+  if (currencies.length !== 1) throw new RecoverableOrderSubmissionError("Order snapshot currency is inconsistent.");
+  return currencies[0]!;
+}
+
+function parseSalesOrderSnapshot(value: Record<string, unknown>): SalesOrderDTO {
+  if (!value || typeof value !== "object" || !Array.isArray(value.items) || typeof value.portalOrderReference !== "string") {
+    throw new RecoverableOrderSubmissionError("Order snapshot is unavailable for reconciliation.");
+  }
+  return value as SalesOrderDTO;
+}
+
+function orderLog(event: string, stage: string, order: PartnerOrder): Record<string, unknown> {
+  return {
+    event,
+    stage,
+    submissionKey: order.submissionKey,
+    orderId: order.id,
+    cartId: order.cartId,
+    companyId: order.companyId,
+    deployedCommitSha: deployedCommitSha(),
+  };
+}
+
+function submissionEvent(
+  event: string,
+  stage: string,
+  identifiers: { submissionKey: string; orderId: string | null; cartId: string | null; companyId: string | null },
+): Record<string, unknown> {
+  return { event, stage, ...identifiers, deployedCommitSha: deployedCommitSha() };
+}
 
 async function diagnosticStep<T>(
   stage: string,
