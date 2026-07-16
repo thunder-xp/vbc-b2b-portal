@@ -19,6 +19,7 @@ const MAX_PRODUCT_BATCH = 50;
 export type EstimateListFilters = {
   search?: string;
   status?: EstimateStatus;
+  versionStatus?: import("../types").EstimateVersionStatus | "has_sent";
   dateFrom?: string;
   dateTo?: string;
   page?: number;
@@ -36,6 +37,9 @@ export type EstimateSummaryDto = {
   revision: number;
   createdByName: string;
   itemCount: number;
+  versionCount: number;
+  latestVersionStatus: import("../types").EstimateVersionStatus | null;
+  hasAcceptedVersion: boolean;
 };
 
 export type EstimateLineDto = {
@@ -222,6 +226,7 @@ export class DefaultEstimateService implements EstimateService {
       companyId,
       search: normalizeOptional(filters.search, 100),
       status: normalizeStatus(filters.status),
+      versionStatus: normalizeVersionFilter(filters.versionStatus),
       dateFrom: normalizeDate(filters.dateFrom),
       dateTo: endExclusive(filters.dateTo),
       limit: PAGE_SIZE,
@@ -240,6 +245,9 @@ export class DefaultEstimateService implements EstimateService {
         revision: record.revision,
         createdByName: record.createdByName,
         itemCount: record.itemCount,
+        versionCount: record.versionCount,
+        latestVersionStatus: record.latestVersionStatus,
+        hasAcceptedVersion: record.hasAcceptedVersion,
       })),
       page,
       totalPages: Math.max(1, Math.ceil(result.totalCount / PAGE_SIZE)),
@@ -752,6 +760,10 @@ function normalizeUnit(value: EstimateUnit): EstimateUnit {
 
 function normalizeStatus(value: EstimateStatus | undefined): EstimateStatus | undefined {
   return value && (["draft", "ready", "sent", "accepted", "rejected", "archived"] as const).includes(value) ? value : undefined;
+}
+
+function normalizeVersionFilter(value: EstimateListFilters["versionStatus"]): EstimateListFilters["versionStatus"] {
+  return value && (["prepared", "sent", "accepted", "rejected", "archived", "has_sent"] as const).includes(value) ? value : undefined;
 }
 
 function normalizeId(value: string): string {

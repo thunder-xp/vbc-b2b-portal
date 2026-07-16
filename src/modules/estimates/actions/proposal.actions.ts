@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { type ActionResult, failureFromError, success } from "../../access-control/actions/action-result";
 import type { GeneratedEstimateDocument, ProposalSettings } from "../types";
-import type { ProposalPreviewDto } from "../services";
+import type { ProposalPreviewDto, VersionProposalPreviewDto } from "../services";
 import { createProposalService, getAuthenticatedUserId } from "./service-factory";
 
 export async function getEstimateProposalPreviewAction(estimateId: string): Promise<ActionResult<ProposalPreviewDto>> {
@@ -28,5 +28,19 @@ export async function generateEstimateProposalPdfAction(estimateId: string): Pro
 
 export async function copyEstimateProposalTemplateAction(sourceTemplateId: string, name: string) {
   try { const userId = await getAuthenticatedUserId(); return success("Копия шаблона создана.", await createProposalService().copyTemplate(userId, sourceTemplateId, name)); }
+  catch (error) { return failureFromError(error); }
+}
+
+export async function getEstimateVersionProposalPreviewAction(versionId: string): Promise<ActionResult<VersionProposalPreviewDto>> {
+  try { return success("Версия предложения подготовлена.", await createProposalService().prepareVersionPreview(await getAuthenticatedUserId(), versionId)); }
+  catch (error) { return failureFromError(error); }
+}
+
+export async function generateEstimateVersionPdfAction(versionId: string): Promise<ActionResult<GeneratedEstimateDocument>> {
+  try {
+    const result = await createProposalService().generateVersionPdf(await getAuthenticatedUserId(), versionId);
+    revalidatePath(`/cabinet/estimates/${result.estimateId}`);
+    return success("PDF версии сформирован.", result);
+  }
   catch (error) { return failureFromError(error); }
 }

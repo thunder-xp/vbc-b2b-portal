@@ -46,6 +46,19 @@ export class SupabaseCartRepository implements CartRepository {
     if (error) throw new OrderRepositoryError();
   }
 
+  async mergeEstimateProducts(input: Parameters<CartRepository["mergeEstimateProducts"]>[0]): Promise<string> {
+    const { data, error } = await (await createClient()).rpc("merge_estimate_products_into_cart", {
+      target_company_id: input.companyId,
+      target_estimate_id: input.estimateId,
+      target_version_id: input.versionId,
+      target_items: input.items.map((item) => ({ product_id: item.productId, quantity: item.quantity })),
+      target_request_key: input.requestKey,
+      target_summary: input.summary,
+    });
+    if (error || !data) throw new OrderRepositoryError(error?.code ?? null, error?.message ?? null);
+    return String(data);
+  }
+
 }
 
 export class SupabasePartnerOrderRepository implements PartnerOrderRepository {

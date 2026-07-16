@@ -14,6 +14,7 @@ export type EstimateListInput = {
   companyId: string;
   search?: string;
   status?: EstimateStatus;
+  versionStatus?: import("../types").EstimateVersionStatus | "has_sent";
   dateFrom?: string;
   dateTo?: string;
   limit: number;
@@ -23,6 +24,9 @@ export type EstimateListInput = {
 export type EstimateListRecord = Estimate & {
   itemCount: number;
   createdByName: string;
+  versionCount: number;
+  latestVersionStatus: import("../types").EstimateVersionStatus | null;
+  hasAcceptedVersion: boolean;
 };
 
 export type CreateEstimateInput = {

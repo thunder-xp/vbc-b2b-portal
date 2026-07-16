@@ -29,13 +29,25 @@ describe("DefaultCartService", () => {
     expect(cart.positionCount).toBe(1);
     expect(cart.totalUnitCount).toBe(2);
   });
+
+  it("merges duplicate estimate products once using current prices", async () => {
+    const dependencies = makeDependencies();
+    const result = await dependencies.service.mergeEstimateProducts("user-1", {
+      estimateId: "estimate-1", versionId: "version-1", requestKey: "request-1",
+      lines: [{ productId: "product-1", quantity: 2, snapshotPartnerPrice: 8 }, { productId: "product-1", quantity: 3, snapshotPartnerPrice: 8 }],
+    });
+    expect(dependencies.catalogService.getProductsByIds).toHaveBeenCalledOnce();
+    expect(dependencies.pricingService.getProductCommercialViews).toHaveBeenCalledOnce();
+    expect(dependencies.repository.mergeEstimateProducts).toHaveBeenCalledWith(expect.objectContaining({ items: [{ productId: "product-1", quantity: 5 }] }));
+    expect(result).toMatchObject({ updated: 1, changedPrice: 1 });
+  });
 });
 
 function makeDependencies() {
   const repository = {
     findActive: vi.fn().mockResolvedValue({ id: "cart-1", companyId: "company-1", createdBy: "user-1", status: "active", createdAt: "2026-01-01", updatedAt: "2026-01-01" }),
     listItems: vi.fn().mockResolvedValue([{ id: "item-1", cartId: "cart-1", productId: "product-1", quantity: 2, createdAt: "2026-01-01", updatedAt: "2026-01-01" }]),
-    addItem: vi.fn(), updateItemQuantity: vi.fn(), removeItem: vi.fn(),
+    addItem: vi.fn(), updateItemQuantity: vi.fn(), removeItem: vi.fn(), mergeEstimateProducts: vi.fn(),
   } satisfies CartRepository;
   const companyAccessService = {
     getOwnMemberships: vi.fn().mockResolvedValue([{ companyId: "company-1", status: "active" }]),

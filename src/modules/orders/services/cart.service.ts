@@ -28,12 +28,50 @@ export type CartDetailDto = {
   submitting: boolean;
 };
 
+export type CartEstimateSourceDto = {
+  companyId: string;
+  cartId: string;
+  lines: Array<{
+    productId: string;
+    sku: string;
+    productName: string;
+    quantity: number;
+    partnerPrice: number | null;
+    currencyCode: string | null;
+    priceUpdatedAt: string | null;
+  }>;
+};
+
+export type EstimateToCartSourceLine = {
+  productId: string;
+  quantity: number;
+  snapshotPartnerPrice: number | null;
+};
+
+export type EstimateToCartResult = {
+  cartId: string;
+  added: number;
+  updated: number;
+  unavailable: number;
+  inactive: number;
+  missingPrice: number;
+  skipped: number;
+  changedPrice: number;
+};
+
 export interface CartService {
   getCart(userId: string): Promise<CartDetailDto>;
   getItemCount(userId: string): Promise<number>;
   addItem(userId: string, productId: string, quantity: number): Promise<void>;
   updateQuantity(userId: string, itemId: string, quantity: number): Promise<void>;
   removeItem(userId: string, itemId: string): Promise<void>;
+  getEstimateSource(userId: string): Promise<CartEstimateSourceDto>;
+  mergeEstimateProducts(userId: string, input: {
+    estimateId: string;
+    versionId: string | null;
+    requestKey: string;
+    lines: EstimateToCartSourceLine[];
+  }): Promise<EstimateToCartResult>;
 }
 
 const ORDERS_PERMISSION = "orders.manage";
@@ -98,6 +136,81 @@ export class DefaultCartService implements CartService {
   async removeItem(userId: string, itemId: string): Promise<void> {
     await this.resolveCompanyId(userId);
     await this.repository.removeItem(itemId.trim());
+  }
+
+  async getEstimateSource(userId: string): Promise<CartEstimateSourceDto> {
+    const companyId = await this.resolveCompanyId(userId);
+    const cart = await this.repository.findActive(companyId, userId);
+    if (!cart || cart.status !== "active") throw new InvalidStateError("Корзина пуста или недоступна.");
+    const items = await this.repository.listItems(cart.id);
+    if (!items.length) throw new InvalidStateError("Корзина пуста.");
+    const productIds = items.map((item) => item.productId);
+    const [products, views] = await Promise.all([
+      this.catalogService.getProductsByIds(userId, productIds),
+      this.pricingInventoryService.getProductCommercialViews(userId, productIds),
+    ]);
+    const productById = new Map(products.map((product) => [product.id, product]));
+    const viewById = new Map(views.map((view) => [view.productId, view]));
+    return {
+      companyId,
+      cartId: cart.id,
+      lines: items.flatMap((item) => {
+        const product = productById.get(item.productId);
+        if (!product) return [];
+        const price = viewById.get(item.productId)?.partnerPrice ?? null;
+        return [{
+          productId: product.id,
+          sku: product.sku,
+          productName: product.name,
+          quantity: item.quantity,
+          partnerPrice: price?.amount ?? null,
+          currencyCode: price?.currencyCode ?? null,
+          priceUpdatedAt: price?.lastUpdatedAt ?? null,
+        }];
+      }),
+    };
+  }
+
+  async mergeEstimateProducts(userId: string, input: {
+    estimateId: string;
+    versionId: string | null;
+    requestKey: string;
+    lines: EstimateToCartSourceLine[];
+  }): Promise<EstimateToCartResult> {
+    const companyId = await this.resolveCompanyId(userId);
+    const grouped = new Map<string, EstimateToCartSourceLine>();
+    let skipped = 0;
+    for (const line of input.lines) {
+      if (!line.productId || !Number.isInteger(line.quantity) || line.quantity < 1 || line.quantity > 9999) { skipped += 1; continue; }
+      const previous = grouped.get(line.productId);
+      grouped.set(line.productId, { ...line, quantity: Math.min(9999, (previous?.quantity ?? 0) + line.quantity) });
+    }
+    const ids = [...grouped.keys()];
+    const [products, views, cart] = await Promise.all([
+      this.catalogService.getProductsByIds(userId, ids),
+      this.pricingInventoryService.getProductCommercialViews(userId, ids),
+      this.repository.findActive(companyId, userId),
+    ]);
+    const productIds = new Set(products.map((product) => product.id));
+    const viewById = new Map(views.map((view) => [view.productId, view]));
+    const existingItems = cart ? await this.repository.listItems(cart.id) : [];
+    const existingIds = new Set(existingItems.map((item) => item.productId));
+    const items: Array<{ productId: string; quantity: number }> = [];
+    let unavailable = 0; let missingPrice = 0; let changedPrice = 0; let added = 0; let updated = 0;
+    for (const [productId, line] of grouped) {
+      if (!productIds.has(productId)) { unavailable += 1; continue; }
+      const currentPrice = viewById.get(productId)?.partnerPrice?.amount;
+      if (!Number.isFinite(currentPrice)) { missingPrice += 1; continue; }
+      if (line.snapshotPartnerPrice !== null && Math.abs(line.snapshotPartnerPrice - Number(currentPrice)) >= 0.005) changedPrice += 1;
+      items.push({ productId, quantity: line.quantity });
+      if (existingIds.has(productId)) updated += 1; else added += 1;
+    }
+    const summary = { added, updated, unavailable, inactive: unavailable, missingPrice, skipped, changedPrice };
+    const cartId = await this.repository.mergeEstimateProducts({
+      companyId, estimateId: input.estimateId, versionId: input.versionId,
+      requestKey: input.requestKey, items, summary,
+    });
+    return { cartId, ...summary };
   }
 
   private async resolveCompanyId(userId: string): Promise<string> {

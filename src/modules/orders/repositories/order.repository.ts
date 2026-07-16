@@ -23,6 +23,14 @@ export interface CartRepository {
   addItem(companyId: string, productId: string, quantity: number): Promise<CartItem>;
   updateItemQuantity(itemId: string, quantity: number): Promise<CartItem>;
   removeItem(itemId: string): Promise<void>;
+  mergeEstimateProducts(input: {
+    companyId: string;
+    estimateId: string;
+    versionId: string | null;
+    requestKey: string;
+    items: Array<{ productId: string; quantity: number }>;
+    summary: Record<string, number>;
+  }): Promise<string>;
 }
 
 export interface PartnerOrderRepository {

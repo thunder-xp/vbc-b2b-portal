@@ -19,6 +19,13 @@ export type ProposalPreviewDto = {
   templates: ProposalTemplate[];
 };
 
+export type VersionProposalPreviewDto = {
+  proposal: CustomerProposalDto;
+  estimateId: string;
+  versionId: string;
+  versionNumber: number;
+};
+
 export const DEFAULT_PROPOSAL_SETTINGS: ProposalSettings = {
   title: "Коммерческое предложение",
   introduction: "Предлагаем решение для вашего проекта на следующих условиях.",
@@ -79,37 +86,41 @@ export class DefaultProposalService {
     return this.proposalRepository.copyTemplate({ companyId: context.company.id, sourceTemplateId: normalizeId(sourceTemplateId), name: normalizedName });
   }
 
-  async generatePdf(userId: string, estimateId: string): Promise<GeneratedEstimateDocument> {
-    const preview = await this.preparePreview(userId, estimateId);
-    const context = await this.resolveContext(userId, PDF_PERMISSION);
-    const fingerprint = createHash("sha256").update(stableJson(preview.proposal)).digest("hex");
-    let document = await this.proposalRepository.claimGeneration({ estimateId: preview.estimateId, estimateRevision: preview.estimateRevision, templateId: preview.selectedTemplateId, fingerprint, dto: preview.proposal });
-    if (document.status === "ready") {
-      console.info({ event: "estimate_proposal_pdf_reused", estimateId: preview.estimateId, documentId: document.id, companyId: context.company.id });
-      return document;
-    }
-    if (document.status === "generating") {
-      console.info({ event: "estimate_proposal_pdf_generation_reused", estimateId: preview.estimateId, documentId: document.id, companyId: context.company.id });
-      return document;
-    }
+  async prepareVersionPreview(userId: string, versionId: string): Promise<VersionProposalPreviewDto> {
+    const context = await this.resolveContext(userId, VIEW_PERMISSION);
+    const version = await this.proposalRepository.findVersionProposal(normalizeId(versionId));
+    if (!version || version.companyId !== context.company.id) throw new NotFoundError("Версия сметы не найдена.");
+    return { proposal: deepFreeze(version.proposal), estimateId: version.estimateId, versionId: normalizeId(versionId), versionNumber: version.versionNumber };
+  }
 
-    console.info({ event: "estimate_proposal_pdf_generation_started", estimateId: preview.estimateId, documentId: document.id, companyId: context.company.id });
+  async generateVersionPdf(userId: string, versionId: string): Promise<GeneratedEstimateDocument> {
+    const preview = await this.prepareVersionPreview(userId, versionId);
+    const context = await this.resolveContext(userId, PDF_PERMISSION);
+    const fingerprint = createHash("sha256").update(`version:${preview.versionId}:${stableJson(preview.proposal)}`).digest("hex");
+    let document = await this.proposalRepository.claimVersionGeneration({ versionId: preview.versionId, fingerprint });
+    if (document.status === "ready" || document.status === "generating") return document;
     await this.proposalRepository.markGenerating(document.id);
     try {
       const { renderProposalPdf } = await import("./proposal-pdf.renderer");
       const rendered = await renderProposalPdf(preview.proposal);
-      const key = `${context.company.id}/${preview.estimateId}/${document.id}.pdf`;
+      const key = `${context.company.id}/${preview.estimateId}/versions/${preview.versionId}/${document.id}.pdf`;
       await this.proposalRepository.uploadPdf(STORAGE_BUCKET, key, rendered.bytes);
       const checksum = createHash("sha256").update(rendered.bytes).digest("hex");
       await this.proposalRepository.markReady({ documentId: document.id, bucket: STORAGE_BUCKET, key, pageCount: rendered.pageCount, fileSizeBytes: rendered.bytes.byteLength, checksumSha256: checksum });
       document = (await this.proposalRepository.findDocument(document.id)) ?? document;
-      console.info({ event: "estimate_proposal_pdf_generation_completed", estimateId: preview.estimateId, documentId: document.id, pageCount: rendered.pageCount, fileSizeBytes: rendered.bytes.byteLength });
+      console.info({ event: "estimate_version_pdf_generation_completed", estimateId: preview.estimateId, versionId: preview.versionId, documentId: document.id, pageCount: rendered.pageCount });
       return document;
     } catch (error) {
       await this.proposalRepository.markFailed(document.id, "Не удалось сформировать PDF.");
-      console.error({ event: "estimate_proposal_pdf_generation_failed", estimateId: preview.estimateId, documentId: document.id, errorName: error instanceof Error ? error.name : typeof error });
-      throw new InvalidStateError("Не удалось сформировать PDF. Повторите попытку.");
+      console.error({ event: "estimate_version_pdf_generation_failed", estimateId: preview.estimateId, versionId: preview.versionId, errorName: error instanceof Error ? error.name : typeof error });
+      throw error;
     }
+  }
+
+  async generatePdf(userId: string, estimateId: string): Promise<GeneratedEstimateDocument> {
+    void userId;
+    void estimateId;
+    throw new InvalidStateError("Сначала создайте версию предложения. PDF формируется только для зафиксированной версии.");
   }
 
   async downloadPdf(userId: string, documentId: string): Promise<{ bytes: Uint8Array; filename: string }> {

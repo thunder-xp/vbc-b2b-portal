@@ -35,6 +35,9 @@ export interface Estimate {
   hasIncompletePricing: boolean;
   proposalTemplateId?: string | null;
   proposalSettings?: Partial<import("./proposal").ProposalSettings>;
+  sourceEstimateId?: string | null;
+  sourceVersionId?: string | null;
+  acceptedVersionId?: string | null;
   revision: number;
   archivedAt: string | null;
   createdAt: string;

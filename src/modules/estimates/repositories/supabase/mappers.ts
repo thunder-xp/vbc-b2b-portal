@@ -36,6 +36,9 @@ export type EstimateRow = {
   has_incomplete_pricing: boolean;
   proposal_template_id?: string | null;
   proposal_settings?: Estimate["proposalSettings"];
+  source_estimate_id?: string | null;
+  source_version_id?: string | null;
+  accepted_version_id?: string | null;
   revision: number;
   archived_at: string | null;
   created_at: string;
@@ -141,6 +144,9 @@ export function mapEstimateRow(row: EstimateRow): Estimate {
     hasIncompletePricing: row.has_incomplete_pricing,
     proposalTemplateId: row.proposal_template_id ?? null,
     proposalSettings: row.proposal_settings ?? {},
+    sourceEstimateId: row.source_estimate_id ?? null,
+    sourceVersionId: row.source_version_id ?? null,
+    acceptedVersionId: row.accepted_version_id ?? null,
     revision: row.revision,
     archivedAt: row.archived_at,
     createdAt: row.created_at,

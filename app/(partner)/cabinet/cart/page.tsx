@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { getCartAction } from "@/src/modules/orders/actions";
 import { CartItemActions, OrderSubmitForm } from "@/src/modules/orders/components";
+import { CreateEstimateFromCartButton } from "@/src/modules/estimates/components";
 
 export default async function CartPage() {
   const result = await getCartAction();
@@ -52,6 +53,7 @@ export default async function CartPage() {
               <p className="mt-4 text-sm text-zinc-600">Итого</p>
               <p className="mt-1 text-xl font-semibold">{cart.total ?? "Требуется актуальная цена"}</p>
             </div>
+            <CreateEstimateFromCartButton />
             <OrderSubmitForm submissionKey={crypto.randomUUID()} />
           </aside>
         </div>

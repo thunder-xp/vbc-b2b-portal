@@ -21,7 +21,7 @@ import {
   type PartnerServiceRow,
 } from "./mappers";
 
-const ESTIMATE_COLUMNS = "id, company_id, created_by, estimate_number, name, customer_name, project_name, currency_code, currency_rate, currency_rate_effective_date, validity_days, global_discount_percent, vat_mode, vat_rate_percent, subtotal_amount, line_discount_total, section_discount_total, global_discount_amount, charges_total, vat_amount, total_excluding_vat, gross_profit_amount, overall_margin_percent, status, total_amount, has_incomplete_pricing, proposal_template_id, proposal_settings, revision, archived_at, created_at, updated_at";
+const ESTIMATE_COLUMNS = "id, company_id, created_by, estimate_number, name, customer_name, project_name, currency_code, currency_rate, currency_rate_effective_date, validity_days, global_discount_percent, vat_mode, vat_rate_percent, subtotal_amount, line_discount_total, section_discount_total, global_discount_amount, charges_total, vat_amount, total_excluding_vat, gross_profit_amount, overall_margin_percent, status, total_amount, has_incomplete_pricing, proposal_template_id, proposal_settings, source_estimate_id, source_version_id, accepted_version_id, revision, archived_at, created_at, updated_at";
 const SECTION_COLUMNS = "id, estimate_id, name, sort_order, show_subtotal, discount_percent, created_at, updated_at";
 const ITEM_COLUMNS = "id, estimate_id, section_id, line_type, product_id, service_id, position, sku_snapshot, product_name_snapshot, source_unit_price, source_currency_code, source_snapshot_at, pricing_mode, pricing_input_value, internal_cost_unit_price, converted_cost_unit_price, exchange_rate, exchange_rate_effective_date, line_discount_percent, description, quantity, unit, selling_unit_price, line_total, line_subtotal, line_discount_amount, net_line_total, created_at, updated_at";
 const CHARGE_COLUMNS = "id, estimate_id, charge_type, description, amount, vat_applicable, customer_visible, sort_order, created_at, updated_at";
@@ -40,6 +40,15 @@ type EstimateAggregateRow = EstimateRow & {
 export class SupabaseEstimateRepository implements EstimateRepository {
   async list(input: EstimateListInput): Promise<{ records: EstimateListRecord[]; totalCount: number }> {
     const supabase = await createClient();
+    let versionEstimateIds: string[] | null = null;
+    if (input.versionStatus) {
+      const statuses = input.versionStatus === "has_sent" ? ["sent", "accepted", "rejected"] : [input.versionStatus];
+      const { data: matchingVersions, error: matchingVersionError } = await supabase.from("estimate_versions")
+        .select("estimate_id").eq("company_id", input.companyId).in("status", statuses);
+      if (matchingVersionError) throw mapRepositoryError(matchingVersionError.code);
+      versionEstimateIds = [...new Set((matchingVersions ?? []).map((version) => version.estimate_id))];
+      if (!versionEstimateIds.length) return { records: [], totalCount: 0 };
+    }
     let query = supabase
       .from("estimates")
       .select(`${ESTIMATE_COLUMNS}, estimate_items(count), creator:user_profiles!estimates_created_by_fkey(full_name)`, { count: "exact" })
@@ -48,6 +57,7 @@ export class SupabaseEstimateRepository implements EstimateRepository {
       .range(input.offset, input.offset + input.limit - 1);
 
     if (input.status) query = query.eq("status", input.status);
+    if (versionEstimateIds) query = query.in("id", versionEstimateIds);
     if (input.dateFrom) query = query.gte("updated_at", input.dateFrom);
     if (input.dateTo) query = query.lt("updated_at", input.dateTo);
     if (input.search) {
@@ -58,11 +68,26 @@ export class SupabaseEstimateRepository implements EstimateRepository {
     const { data, error, count } = await query;
     if (error) throw mapRepositoryError(error.code);
 
+    const rows = data as unknown as EstimateListRow[];
+    const estimateIds = rows.map((row) => row.id);
+    const versionMetadata = new Map<string, { count: number; latest: import("../../types").EstimateVersionStatus | null }>();
+    if (estimateIds.length) {
+      const { data: versions, error: versionError } = await supabase.from("estimate_versions")
+        .select("estimate_id, version_number, status").in("estimate_id", estimateIds).order("version_number", { ascending: false });
+      if (versionError) throw mapRepositoryError(versionError.code);
+      for (const version of versions ?? []) {
+        const current = versionMetadata.get(version.estimate_id) ?? { count: 0, latest: null };
+        versionMetadata.set(version.estimate_id, { count: current.count + 1, latest: current.latest ?? version.status });
+      }
+    }
     return {
-      records: (data as unknown as EstimateListRow[]).map((row) => ({
+      records: rows.map((row) => ({
         ...mapEstimateRow(row),
         itemCount: row.estimate_items[0]?.count ?? 0,
         createdByName: row.creator?.full_name?.trim() || "Пользователь компании",
+        versionCount: versionMetadata.get(row.id)?.count ?? 0,
+        latestVersionStatus: versionMetadata.get(row.id)?.latest ?? null,
+        hasAcceptedVersion: Boolean(row.accepted_version_id),
       })),
       totalCount: count ?? 0,
     };

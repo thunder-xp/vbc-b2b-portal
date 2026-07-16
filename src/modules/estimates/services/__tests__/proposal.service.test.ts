@@ -8,7 +8,7 @@ import { DEFAULT_PROPOSAL_SETTINGS, DefaultProposalService, stableJson } from ".
 vi.mock("../proposal-pdf.renderer", () => ({ renderProposalPdf: vi.fn().mockResolvedValue({ bytes: new Uint8Array([37, 80, 68, 70]), pageCount: 1 }) }));
 
 const template: ProposalTemplate = { id: "template-1", companyId: null, key: "equipment_supply", name: "Поставка оборудования", configuration: DEFAULT_PROPOSAL_SETTINGS, isSystem: true };
-const readyDocument: GeneratedEstimateDocument = { id: "doc-1", companyId: "company-1", estimateId: "estimate-1", estimateRevision: 3, templateId: "template-1", generationFingerprint: "a".repeat(64), status: "ready", storageBucket: "estimate-proposals", storageKey: "company-1/estimate-1/doc-1.pdf", pageCount: 1, fileSizeBytes: 4, checksumSha256: "b".repeat(64), safeError: null, createdAt: "2026-07-16T10:00:00Z" };
+const readyDocument: GeneratedEstimateDocument = { id: "doc-1", companyId: "company-1", estimateId: "estimate-1", estimateRevision: 3, versionId: null, templateId: "template-1", generationFingerprint: "a".repeat(64), status: "ready", storageBucket: "estimate-proposals", storageKey: "company-1/estimate-1/doc-1.pdf", pageCount: 1, fileSizeBytes: 4, checksumSha256: "b".repeat(64), safeError: null, createdAt: "2026-07-16T10:00:00Z" };
 
 describe("DefaultProposalService", () => {
   let estimates: EstimateRepository; let proposals: ProposalRepository; let service: DefaultProposalService;
@@ -19,6 +19,7 @@ describe("DefaultProposalService", () => {
       saveSettings: vi.fn().mockResolvedValue(4),
       copyTemplate: vi.fn().mockResolvedValue(template),
       claimGeneration: vi.fn().mockResolvedValue(readyDocument), markGenerating: vi.fn(), markReady: vi.fn(), markFailed: vi.fn(), findDocument: vi.fn().mockResolvedValue(readyDocument), uploadPdf: vi.fn(), downloadPdf: vi.fn(),
+      findVersionProposal: vi.fn(), claimVersionGeneration: vi.fn(),
     };
     service = new DefaultProposalService(estimates, proposals, { getOwnMemberships: vi.fn().mockResolvedValue([{ companyId: "company-1", status: "active" }]), getActiveCompanyContext: vi.fn().mockResolvedValue({ company: { id: "company-1", displayName: "Partner SRL" }, user: { fullName: "Ivan", email: "ivan@example.com", phone: "+373" } }) } as never, { ensurePermission: vi.fn().mockResolvedValue({ isAllowed: true }) } as never);
   });
@@ -52,11 +53,9 @@ describe("DefaultProposalService", () => {
     expect(estimates.findAggregateById).not.toHaveBeenCalled();
   });
 
-  it("reuses a ready PDF with a deterministic fingerprint", async () => {
-    const document = await service.generatePdf("user-1", "estimate-1");
-    expect(document.status).toBe("ready");
-    expect(proposals.markGenerating).not.toHaveBeenCalled();
-    expect(proposals.claimGeneration).toHaveBeenCalledWith(expect.objectContaining({ fingerprint: expect.stringMatching(/^[0-9a-f]{64}$/) }));
+  it("blocks PDF generation from a mutable draft", async () => {
+    await expect(service.generatePdf("user-1", "estimate-1")).rejects.toBeInstanceOf(InvalidStateError);
+    expect(proposals.claimGeneration).not.toHaveBeenCalled();
   });
 
   it("canonicalizes nested DTOs for stable deduplication", () => {

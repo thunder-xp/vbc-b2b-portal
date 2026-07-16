@@ -7,6 +7,8 @@ export interface ProposalRepository {
   saveSettings(input: { estimateId: string; expectedRevision: number; templateId: string | null; settings: ProposalSettings }): Promise<number>;
   copyTemplate(input: { companyId: string; sourceTemplateId: string; name: string }): Promise<ProposalTemplate>;
   claimGeneration(input: { estimateId: string; estimateRevision: number; templateId: string | null; fingerprint: string; dto: CustomerProposalDto }): Promise<GeneratedEstimateDocument>;
+  findVersionProposal(versionId: string): Promise<{ estimateId: string; companyId: string; versionNumber: number; proposal: CustomerProposalDto } | null>;
+  claimVersionGeneration(input: { versionId: string; fingerprint: string }): Promise<GeneratedEstimateDocument>;
   markGenerating(documentId: string): Promise<void>;
   markReady(input: { documentId: string; bucket: string; key: string; pageCount: number; fileSizeBytes: number; checksumSha256: string }): Promise<void>;
   markFailed(documentId: string, safeError: string): Promise<void>;

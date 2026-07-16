@@ -9,12 +9,13 @@ import { ProposalRepositoryError } from "../proposal.repository";
 type TemplateRow = { id: string; company_id: string | null; template_key: string; name: string; configuration: ProposalSettings; is_system: boolean };
 type DocumentRow = {
   id: string; company_id: string; estimate_id: string; estimate_revision: number; template_id: string | null;
+  version_id: string | null;
   generation_fingerprint: string; status: GeneratedEstimateDocument["status"]; storage_bucket: string | null;
   storage_key: string | null; page_count: number | null; file_size_bytes: number | null; checksum_sha256: string | null;
   safe_error: string | null; created_at: string;
 };
 
-const DOCUMENT_COLUMNS = "id, company_id, estimate_id, estimate_revision, template_id, generation_fingerprint, status, storage_bucket, storage_key, page_count, file_size_bytes, checksum_sha256, safe_error, created_at";
+const DOCUMENT_COLUMNS = "id, company_id, estimate_id, estimate_revision, version_id, template_id, generation_fingerprint, status, storage_bucket, storage_key, page_count, file_size_bytes, checksum_sha256, safe_error, created_at";
 
 export class SupabaseProposalRepository implements ProposalRepository {
   async listTemplates(companyId: string): Promise<ProposalTemplate[]> {
@@ -73,6 +74,22 @@ export class SupabaseProposalRepository implements ProposalRepository {
     return mapDocument(data as DocumentRow);
   }
 
+  async findVersionProposal(versionId: string) {
+    const { data, error } = await (await createClient()).from("estimate_versions")
+      .select("estimate_id, company_id, version_number, customer_proposal_snapshot").eq("id", versionId).maybeSingle();
+    if (error) throw new ProposalRepositoryError();
+    return data ? { estimateId: data.estimate_id, companyId: data.company_id, versionNumber: data.version_number, proposal: data.customer_proposal_snapshot as CustomerProposalDto } : null;
+  }
+
+  async claimVersionGeneration(input: { versionId: string; fingerprint: string }) {
+    const { data, error } = await (await createClient()).rpc("claim_estimate_version_document_generation", {
+      target_version_id: input.versionId,
+      target_fingerprint: input.fingerprint,
+    });
+    if (error || !data) throw new ProposalRepositoryError();
+    return mapDocument(data as DocumentRow);
+  }
+
   async markGenerating(documentId: string) { await this.updateDocument(documentId, { status: "generating", safe_error: null }); }
   async markReady(input: { documentId: string; bucket: string; key: string; pageCount: number; fileSizeBytes: number; checksumSha256: string }) {
     await this.updateDocument(input.documentId, { status: "ready", storage_bucket: input.bucket, storage_key: input.key, page_count: input.pageCount, file_size_bytes: input.fileSizeBytes, checksum_sha256: input.checksumSha256, generated_at: new Date().toISOString(), safe_error: null });
@@ -104,5 +121,5 @@ export class SupabaseProposalRepository implements ProposalRepository {
 }
 
 function mapDocument(row: DocumentRow): GeneratedEstimateDocument {
-  return { id: row.id, companyId: row.company_id, estimateId: row.estimate_id, estimateRevision: row.estimate_revision, templateId: row.template_id, generationFingerprint: row.generation_fingerprint, status: row.status, storageBucket: row.storage_bucket, storageKey: row.storage_key, pageCount: row.page_count, fileSizeBytes: row.file_size_bytes, checksumSha256: row.checksum_sha256, safeError: row.safe_error, createdAt: row.created_at };
+  return { id: row.id, companyId: row.company_id, estimateId: row.estimate_id, estimateRevision: row.estimate_revision, versionId: row.version_id ?? null, templateId: row.template_id, generationFingerprint: row.generation_fingerprint, status: row.status, storageBucket: row.storage_bucket, storageKey: row.storage_key, pageCount: row.page_count, fileSizeBytes: row.file_size_bytes, checksumSha256: row.checksum_sha256, safeError: row.safe_error, createdAt: row.created_at };
 }

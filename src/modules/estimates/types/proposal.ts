@@ -86,6 +86,7 @@ export type GeneratedEstimateDocument = {
   companyId: string;
   estimateId: string;
   estimateRevision: number;
+  versionId: string | null;
   templateId: string | null;
   generationFingerprint: string;
   status: GeneratedDocumentStatus;
