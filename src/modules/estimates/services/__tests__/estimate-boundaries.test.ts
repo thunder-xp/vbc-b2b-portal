@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 describe("estimate architecture boundaries", () => {
   it("keeps Supabase and 1C out of the service and React components", () => {
     const service = read("src/modules/estimates/services/estimate.service.ts");
-    const editor = read("src/modules/estimates/components/EstimateEditor.tsx");
+    const editor = read("src/modules/estimates/components/EstimateCommercialEditor.tsx");
     expect(service).not.toContain("createClient(");
     expect(service).not.toMatch(/one[-_]?c|fetch\(/i);
     expect(editor).not.toMatch(/supabase|fetch\(|one[-_]?c/i);
@@ -14,8 +14,15 @@ describe("estimate architecture boundaries", () => {
 
   it("uses a single nested aggregate repository read for editor loading", () => {
     const repository = read("src/modules/estimates/repositories/supabase/estimate.supabase-repository.ts");
-    expect(repository).toContain("estimate_sections(${SECTION_COLUMNS}), estimate_items(${ITEM_COLUMNS})");
+    expect(repository).toContain("estimate_sections(${SECTION_COLUMNS}), estimate_items(${ITEM_COLUMNS}), estimate_charges(${CHARGE_COLUMNS})");
     expect(repository).not.toMatch(/for\s*\([^)]*\)\s*\{[\s\S]*?\.from\("estimate_items"\)/);
+  });
+
+  it("uses one atomic commercial mutation and no global cache invalidation", () => {
+    const repository = read("src/modules/estimates/repositories/supabase/estimate.supabase-repository.ts");
+    const actions = read("src/modules/estimates/actions/estimate.actions.ts");
+    expect(repository).toContain('supabase.rpc("save_estimate_commercial_draft"');
+    expect(actions).not.toContain('revalidatePath("/")');
   });
 });
 

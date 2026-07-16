@@ -3,7 +3,7 @@ import type {
   PermissionService,
 } from "../../access-control/services";
 import { MembershipStatus } from "../../access-control/types";
-import type { PricingInventoryRepository, ProductStockTotal, ProductSupplierArrival } from "../repositories";
+import type { PricingInventoryRepository, ProductStockTotal, ProductSupplierArrival, UsdMdlExchangeRate } from "../repositories";
 import type { ProductPrice } from "../types";
 import { normalizeOneCCurrencyCode } from "../../../lib/currency";
 
@@ -69,6 +69,7 @@ export interface PricingInventoryService {
     availability: ProductAvailabilityFilter,
   ): Promise<string[]>;
   getApprovedUsdMdlRate?(userId: string): Promise<number | null>;
+  getApprovedUsdMdlRateSnapshot?(userId: string): Promise<UsdMdlExchangeRate | null>;
 }
 
 const PRICE_PERMISSION = "prices.view";
@@ -180,6 +181,10 @@ export class DefaultPricingInventoryService implements PricingInventoryService {
   }
 
   async getApprovedUsdMdlRate(userId: string): Promise<number | null> {
+    return (await this.getApprovedUsdMdlRateSnapshot(userId))?.mdlPerUsdRate ?? null;
+  }
+
+  async getApprovedUsdMdlRateSnapshot(userId: string): Promise<UsdMdlExchangeRate | null> {
     const company = await this.resolveActiveCompany(userId);
     const canViewPrices = await this.permissionService.hasPermission(
       userId,
@@ -191,9 +196,7 @@ export class DefaultPricingInventoryService implements PricingInventoryService {
     }
 
     const rate = await this.pricingInventoryRepository.getLatestUsdMdlExchangeRate();
-    return rate && Number.isFinite(rate.mdlPerUsdRate) && rate.mdlPerUsdRate > 0
-      ? rate.mdlPerUsdRate
-      : null;
+    return rate && Number.isFinite(rate.mdlPerUsdRate) && rate.mdlPerUsdRate > 0 ? rate : null;
   }
 
   private async resolveActiveCompany(userId: string): Promise<{ id: string; external1cPriceTypeId: string | null }> {

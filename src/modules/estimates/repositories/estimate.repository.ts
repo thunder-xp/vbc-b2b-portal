@@ -4,6 +4,9 @@ import type {
   EstimateLineType,
   EstimateStatus,
   EstimateUnit,
+  EstimateVatMode,
+  EstimatePricingMode,
+  EstimateChargeType,
   PartnerService,
 } from "../types";
 
@@ -40,10 +43,56 @@ export type AddEstimateLineInput = {
   sourceUnitPrice: number | null;
   sourceCurrencyCode: string | null;
   sourceSnapshotAt: string | null;
+  internalCostUnitPrice?: number | null;
+  convertedCostUnitPrice?: number | null;
+  exchangeRate?: number | null;
+  exchangeRateEffectiveDate?: string | null;
   description: string;
   quantity: number;
   unit: EstimateUnit;
   sellingUnitPrice: number | null;
+};
+
+export type SaveEstimateCommercialInput = {
+  estimateId: string;
+  expectedRevision: number;
+  settings: {
+    name: string;
+    customerName: string | null;
+    projectName: string | null;
+    validityDays: number;
+    currencyCode: string;
+    currencyRate: number | null;
+    currencyRateEffectiveDate: string | null;
+    vatMode: EstimateVatMode;
+    vatRatePercent: number;
+    globalDiscountPercent: number;
+  };
+  sections: Array<{ id: string; name: string; sortOrder: number; showSubtotal: boolean; discountPercent: number }>;
+  lines: Array<{
+    id: string;
+    sectionId: string;
+    position: number;
+    description: string;
+    quantity: number;
+    unit: EstimateUnit;
+    pricingMode: EstimatePricingMode;
+    pricingInputValue: number | null;
+    internalCostUnitPrice: number | null;
+    convertedCostUnitPrice: number | null;
+    exchangeRate: number | null;
+    exchangeRateEffectiveDate: string | null;
+    lineDiscountPercent: number;
+  }>;
+  charges: Array<{
+    id: string;
+    chargeType: EstimateChargeType;
+    description: string;
+    amount: number;
+    vatApplicable: boolean;
+    customerVisible: boolean;
+    sortOrder: number;
+  }>;
 };
 
 export interface EstimateRepository {
@@ -59,6 +108,7 @@ export interface EstimateRepository {
     projectName: string | null;
     validityDays: number;
   }): Promise<Estimate>;
+  saveCommercialDraft(input: SaveEstimateCommercialInput): Promise<Estimate>;
   addLines(estimateId: string, expectedRevision: number, lines: AddEstimateLineInput[]): Promise<void>;
   updateLine(input: {
     estimateId: string;

@@ -6,6 +6,7 @@ import type {
   EstimateListInput,
   EstimateListRecord,
   EstimateRepository,
+  SaveEstimateCommercialInput,
 } from "../estimate.repository";
 import { EstimateRepositoryError } from "../estimate.repository";
 import type { Estimate, EstimateAggregate, PartnerService } from "../../types";
@@ -14,14 +15,16 @@ import {
   mapEstimateRow,
   mapPartnerServiceRow,
   type EstimateItemRow,
+  type EstimateChargeRow,
   type EstimateRow,
   type EstimateSectionRow,
   type PartnerServiceRow,
 } from "./mappers";
 
-const ESTIMATE_COLUMNS = "id, company_id, created_by, estimate_number, name, customer_name, project_name, currency_code, validity_days, status, total_amount, has_incomplete_pricing, revision, archived_at, created_at, updated_at";
-const SECTION_COLUMNS = "id, estimate_id, name, sort_order, show_subtotal, created_at, updated_at";
-const ITEM_COLUMNS = "id, estimate_id, section_id, line_type, product_id, service_id, position, sku_snapshot, product_name_snapshot, source_unit_price, source_currency_code, source_snapshot_at, description, quantity, unit, selling_unit_price, line_total, created_at, updated_at";
+const ESTIMATE_COLUMNS = "id, company_id, created_by, estimate_number, name, customer_name, project_name, currency_code, currency_rate, currency_rate_effective_date, validity_days, global_discount_percent, vat_mode, vat_rate_percent, subtotal_amount, line_discount_total, section_discount_total, global_discount_amount, charges_total, vat_amount, total_excluding_vat, gross_profit_amount, overall_margin_percent, status, total_amount, has_incomplete_pricing, revision, archived_at, created_at, updated_at";
+const SECTION_COLUMNS = "id, estimate_id, name, sort_order, show_subtotal, discount_percent, created_at, updated_at";
+const ITEM_COLUMNS = "id, estimate_id, section_id, line_type, product_id, service_id, position, sku_snapshot, product_name_snapshot, source_unit_price, source_currency_code, source_snapshot_at, pricing_mode, pricing_input_value, internal_cost_unit_price, converted_cost_unit_price, exchange_rate, exchange_rate_effective_date, line_discount_percent, description, quantity, unit, selling_unit_price, line_total, line_subtotal, line_discount_amount, net_line_total, created_at, updated_at";
+const CHARGE_COLUMNS = "id, estimate_id, charge_type, description, amount, vat_applicable, customer_visible, sort_order, created_at, updated_at";
 
 type EstimateListRow = EstimateRow & {
   estimate_items: Array<{ count: number }>;
@@ -31,6 +34,7 @@ type EstimateListRow = EstimateRow & {
 type EstimateAggregateRow = EstimateRow & {
   estimate_sections: EstimateSectionRow[];
   estimate_items: EstimateItemRow[];
+  estimate_charges: EstimateChargeRow[];
 };
 
 export class SupabaseEstimateRepository implements EstimateRepository {
@@ -68,7 +72,7 @@ export class SupabaseEstimateRepository implements EstimateRepository {
     const supabase = await createClient();
     const { data, error } = await supabase
       .from("estimates")
-      .select(`${ESTIMATE_COLUMNS}, estimate_sections(${SECTION_COLUMNS}), estimate_items(${ITEM_COLUMNS})`)
+      .select(`${ESTIMATE_COLUMNS}, estimate_sections(${SECTION_COLUMNS}), estimate_items(${ITEM_COLUMNS}), estimate_charges(${CHARGE_COLUMNS})`)
       .eq("id", estimateId)
       .maybeSingle();
 
@@ -118,6 +122,45 @@ export class SupabaseEstimateRepository implements EstimateRepository {
       target_customer_name: input.customerName ?? "",
       target_project_name: input.projectName ?? "",
       target_validity_days: input.validityDays,
+    });
+    if (error || !data) throw mapRepositoryError(error?.code);
+    return mapEstimateRow(data as EstimateRow);
+  }
+
+  async saveCommercialDraft(input: SaveEstimateCommercialInput): Promise<Estimate> {
+    const supabase = await createClient();
+    const { data, error } = await supabase.rpc("save_estimate_commercial_draft", {
+      target_estimate_id: input.estimateId,
+      expected_revision: input.expectedRevision,
+      estimate_settings: {
+        name: input.settings.name,
+        customer_name: input.settings.customerName,
+        project_name: input.settings.projectName,
+        validity_days: input.settings.validityDays,
+        currency_code: input.settings.currencyCode,
+        currency_rate: input.settings.currencyRate,
+        currency_rate_effective_date: input.settings.currencyRateEffectiveDate,
+        vat_mode: input.settings.vatMode,
+        vat_rate_percent: input.settings.vatRatePercent,
+        global_discount_percent: input.settings.globalDiscountPercent,
+      },
+      section_payload: input.sections.map((section) => ({ id: section.id, name: section.name, sort_order: section.sortOrder, show_subtotal: section.showSubtotal, discount_percent: section.discountPercent })),
+      line_payload: input.lines.map((line) => ({
+        id: line.id,
+        section_id: line.sectionId,
+        position: line.position,
+        description: line.description,
+        quantity: line.quantity,
+        unit: line.unit,
+        pricing_mode: line.pricingMode,
+        pricing_input_value: line.pricingInputValue,
+        internal_cost_unit_price: line.internalCostUnitPrice,
+        converted_cost_unit_price: line.convertedCostUnitPrice,
+        exchange_rate: line.exchangeRate,
+        exchange_rate_effective_date: line.exchangeRateEffectiveDate,
+        line_discount_percent: line.lineDiscountPercent,
+      })),
+      charge_payload: input.charges.map((charge) => ({ id: charge.id, charge_type: charge.chargeType, description: charge.description, amount: charge.amount, vat_applicable: charge.vatApplicable, customer_visible: charge.customerVisible, sort_order: charge.sortOrder })),
     });
     if (error || !data) throw mapRepositoryError(error?.code);
     return mapEstimateRow(data as EstimateRow);
@@ -178,7 +221,7 @@ export class SupabaseEstimateRepository implements EstimateRepository {
     const supabase = await createClient();
     const { data, error } = await supabase
       .from("partner_services")
-      .select("id, company_id, name, default_unit, description, sort_order")
+      .select("id, company_id, name, default_unit, description, sort_order, default_cost, default_selling_price, vat_applicable, category")
       .or(`company_id.is.null,company_id.eq.${companyId}`)
       .eq("is_active", true)
       .order("sort_order", { ascending: true });
@@ -197,6 +240,10 @@ function toLinePayload(line: AddEstimateLineInput) {
     source_unit_price: line.sourceUnitPrice,
     source_currency_code: line.sourceCurrencyCode,
     source_snapshot_at: line.sourceSnapshotAt,
+    internal_cost_unit_price: line.internalCostUnitPrice ?? null,
+    converted_cost_unit_price: line.convertedCostUnitPrice ?? null,
+    exchange_rate: line.exchangeRate ?? null,
+    exchange_rate_effective_date: line.exchangeRateEffectiveDate ?? null,
     description: line.description,
     quantity: line.quantity,
     unit: line.unit,

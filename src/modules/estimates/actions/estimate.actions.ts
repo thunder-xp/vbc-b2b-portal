@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { type ActionResult, failureFromError, invalidInput, success } from "../../access-control/actions/action-result";
-import type { EstimateDetailDto, EstimateListFilters, EstimateProductPickerDto, EstimateServiceDto } from "../services";
+import type { EstimateCommercialOptionsDto, EstimateDetailDto, EstimateListFilters, EstimateProductPickerDto, EstimateServiceDto, SaveEstimateCommercialCommand } from "../services";
 import type { EstimateUnit } from "../types";
 import { createEstimateService, getAuthenticatedUserId } from "./service-factory";
 
@@ -28,6 +28,15 @@ export async function listEstimateCurrenciesAction(): Promise<ActionResult<strin
   try {
     const userId = await getAuthenticatedUserId();
     return success("Валюты загружены.", await createEstimateService().listAvailableCurrencies(userId));
+  } catch (error) {
+    return failureFromError(error);
+  }
+}
+
+export async function getEstimateCommercialOptionsAction(): Promise<ActionResult<EstimateCommercialOptionsDto>> {
+  try {
+    const userId = await getAuthenticatedUserId();
+    return success("Коммерческие настройки загружены.", await createEstimateService().getCommercialOptions(userId));
   } catch (error) {
     return failureFromError(error);
   }
@@ -77,6 +86,14 @@ export async function saveEstimateAction(estimateId: string, input: { expectedRe
   return runEstimateMutation(
     (userId) => createEstimateService().saveDraft(userId, estimateId, input),
     "Смета сохранена.",
+  );
+}
+
+export async function saveEstimateCommercialAction(estimateId: string, input: SaveEstimateCommercialCommand): Promise<ActionResult<EstimateDetailDto>> {
+  if (!input.name?.trim()) return invalidInput("Укажите название сметы.");
+  return runEstimateMutation(
+    (userId) => createEstimateService().saveCommercialDraft(userId, estimateId, input),
+    "Коммерческие условия сохранены.",
   );
 }
 

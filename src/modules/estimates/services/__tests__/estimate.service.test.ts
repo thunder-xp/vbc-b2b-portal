@@ -17,7 +17,21 @@ const estimate: Estimate = {
   customerName: "Customer",
   projectName: "Warehouse",
   currencyCode: "USD",
+  currencyRate: 1,
+  currencyRateEffectiveDate: "2026-07-16",
   validityDays: 14,
+  globalDiscountPercent: 0,
+  vatMode: "none",
+  vatRatePercent: 0,
+  subtotalAmount: 125.5,
+  lineDiscountTotal: 0,
+  sectionDiscountTotal: 0,
+  globalDiscountAmount: 0,
+  chargesTotal: 0,
+  vatAmount: 0,
+  totalExcludingVat: 125.5,
+  grossProfitAmount: null,
+  overallMarginPercent: null,
   status: "draft",
   totalAmount: 125.5,
   hasIncompletePricing: false,
@@ -34,6 +48,10 @@ const serviceRecord: PartnerService = {
   defaultUnit: "pcs",
   description: null,
   sortOrder: 10,
+  defaultCost: null,
+  defaultSellingPrice: null,
+  vatApplicable: true,
+  category: "general",
 };
 
 describe("DefaultEstimateService", () => {
@@ -49,6 +67,7 @@ describe("DefaultEstimateService", () => {
       findAggregateById: vi.fn().mockResolvedValue(aggregate([])),
       create: vi.fn().mockResolvedValue(estimate),
       updateDraft: vi.fn().mockResolvedValue({ ...estimate, revision: 4 }),
+      saveCommercialDraft: vi.fn().mockResolvedValue({ ...estimate, revision: 4 }),
       addLines: vi.fn().mockResolvedValue(undefined),
       updateLine: vi.fn().mockResolvedValue(undefined),
       removeLine: vi.fn().mockResolvedValue(undefined),
@@ -65,6 +84,7 @@ describe("DefaultEstimateService", () => {
     };
     pricing = {
       listAvailableCurrencyCodes: vi.fn().mockResolvedValue(["MDL", "USD"]),
+      getApprovedUsdMdlRateSnapshot: vi.fn().mockResolvedValue({ mdlPerUsdRate: 17.5, effectiveDate: "2026-07-16" }),
       getProductCommercialViews: vi.fn().mockResolvedValue([{ productId: "product-1", partnerPrice: { amount: 50.125, currencyCode: "USD", formattedAmount: "$50.13", lastUpdatedAt: "2026-07-16T09:00:00Z" }, retailPrice: null, stock: null, isDemoData: false, retailBelowPartnerPrice: false }]),
     };
     service = new DefaultEstimateService(
@@ -118,6 +138,60 @@ describe("DefaultEstimateService", () => {
     await expect(service.saveDraft("user-1", "estimate-1", { expectedRevision: 3, name: "Estimate", validityDays: 14 })).rejects.toBeInstanceOf(InvalidStateError);
   });
 
+  it("saves commercial settings, sections, moves, charges, and totals through one atomic repository mutation", async () => {
+    const sectionId = "11111111-1111-1111-1111-111111111111";
+    const itemId = "22222222-2222-2222-2222-222222222222";
+    const commercialAggregate = aggregate([{ ...item(1), id: itemId, sectionId }]);
+    commercialAggregate.sections = [{ ...commercialAggregate.sections[0], id: sectionId }];
+    vi.mocked(repository.findAggregateById).mockResolvedValue(commercialAggregate);
+
+    await service.saveCommercialDraft("user-1", estimate.id, {
+      expectedRevision: 3,
+      name: "Commercial estimate",
+      customerName: "Customer",
+      projectName: "Warehouse",
+      validityDays: 30,
+      currencyCode: "USD",
+      currencyChangePolicy: "preserve_manual",
+      vatMode: "separate",
+      vatRatePercent: 20,
+      globalDiscountPercent: 5,
+      sections: [{ id: sectionId, name: "Equipment", sortOrder: 0, showSubtotal: true, discountPercent: 3 }],
+      lines: [{ id: itemId, sectionId, position: 1, description: "Line", quantity: 2, unit: "pcs", pricingMode: "direct", pricingInputValue: 10, internalCostUnitPrice: 5, lineDiscountPercent: 2 }],
+      charges: [{ id: "33333333-3333-3333-3333-333333333333", chargeType: "delivery", description: "Delivery", amount: 25, vatApplicable: true, customerVisible: true, sortOrder: 0 }],
+    });
+
+    expect(repository.saveCommercialDraft).toHaveBeenCalledTimes(1);
+    expect(repository.saveCommercialDraft).toHaveBeenCalledWith(expect.objectContaining({
+      expectedRevision: 3,
+      settings: expect.objectContaining({ vatMode: "separate", globalDiscountPercent: 5 }),
+      sections: [expect.objectContaining({ id: sectionId, discountPercent: 3 })],
+      lines: [expect.objectContaining({ id: itemId, pricingMode: "direct", lineDiscountPercent: 2 })],
+      charges: [expect.objectContaining({ chargeType: "delivery", amount: 25 })],
+    }));
+  });
+
+  it("converts manual prices only when convert-all is explicitly selected", async () => {
+    const sectionId = "11111111-1111-1111-1111-111111111111";
+    const itemId = "22222222-2222-2222-2222-222222222222";
+    const commercialAggregate = aggregate([{ ...item(1), id: itemId, sectionId, pricingInputValue: 100, sellingUnitPrice: 100 }]);
+    commercialAggregate.sections = [{ ...commercialAggregate.sections[0], id: sectionId }];
+    vi.mocked(repository.findAggregateById).mockResolvedValue(commercialAggregate);
+    const command = {
+      expectedRevision: 3, name: "Estimate", customerName: null, projectName: null, validityDays: 14,
+      currencyCode: "MDL", vatMode: "none" as const, vatRatePercent: 0, globalDiscountPercent: 0,
+      sections: [{ id: sectionId, name: "Equipment", sortOrder: 0, showSubtotal: true, discountPercent: 0 }],
+      lines: [{ id: itemId, sectionId, position: 1, description: "Line", quantity: 1, unit: "service" as const, pricingMode: "direct" as const, pricingInputValue: 100, internalCostUnitPrice: null, lineDiscountPercent: 0 }],
+      charges: [],
+    };
+    await service.saveCommercialDraft("user-1", estimate.id, { ...command, currencyChangePolicy: "convert_all" });
+    expect(vi.mocked(repository.saveCommercialDraft).mock.calls[0][0].lines[0].pricingInputValue).toBe(1750);
+
+    vi.mocked(repository.saveCommercialDraft).mockClear();
+    await service.saveCommercialDraft("user-1", estimate.id, { ...command, currencyChangePolicy: "preserve_manual" });
+    expect(vi.mocked(repository.saveCommercialDraft).mock.calls[0][0].lines[0].pricingInputValue).toBe(100);
+  });
+
   it("loads a 100-line editor with one aggregate read and no catalog or pricing reads", async () => {
     vi.mocked(repository.findAggregateById).mockResolvedValue(aggregate(Array.from({ length: 100 }, (_, index) => item(index + 1))));
     const detail = await service.getDetail("user-1", "estimate-1");
@@ -126,12 +200,12 @@ describe("DefaultEstimateService", () => {
     expect(repository.findAggregateById).toHaveBeenCalledTimes(1);
     expect(catalog.getProductsByIds).not.toHaveBeenCalled();
     expect(pricing.getProductCommercialViews).not.toHaveBeenCalled();
-    expect(detail.total).toContain("125");
+    expect(detail.total).toContain("100");
   });
 });
 
 function aggregate(items: EstimateItem[], overrides: Partial<Estimate> = {}): EstimateAggregate {
-  return { estimate: { ...estimate, ...overrides }, sections: [], items };
+  return { estimate: { ...estimate, ...overrides }, sections: [{ id: "section-1", estimateId: estimate.id, name: "Equipment", sortOrder: 0, showSubtotal: true, discountPercent: 0, createdAt: estimate.createdAt, updatedAt: estimate.updatedAt }], items, charges: [] };
 }
 
 function item(position: number): EstimateItem {
@@ -148,11 +222,20 @@ function item(position: number): EstimateItem {
     sourceUnitPrice: null,
     sourceCurrencyCode: null,
     sourceSnapshotAt: null,
+    pricingMode: "direct",
+    pricingInputValue: 1,
+    internalCostUnitPrice: null,
+    convertedCostUnitPrice: null,
+    exchangeRate: null,
+    exchangeRateEffectiveDate: null,
+    lineDiscountPercent: 0,
     description: `Line ${position}`,
     quantity: 1,
     unit: "service",
     sellingUnitPrice: 1,
     lineTotal: 1,
+    lineSubtotal: 1,
+    lineDiscountAmount: 0,
     createdAt: estimate.createdAt,
     updatedAt: estimate.updatedAt,
   };
