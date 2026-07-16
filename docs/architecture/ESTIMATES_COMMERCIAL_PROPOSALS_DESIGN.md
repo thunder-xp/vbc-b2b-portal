@@ -19,7 +19,7 @@ Estimates are partner-company-owned commercial drafts used by installers and sys
 - `partner_services`: controlled portal-owned service/work catalog. It contains no 1C commercial truth.
 - `estimate_events`: bounded audit events for meaningful mutations, never text keystrokes.
 
-Future slices add immutable versions, templates, proposal documents, PDF generation, commercial controls, and cart conversion without changing the ownership boundary.
+Future slices add immutable estimate versions, status workflow, and cart conversion without changing the ownership boundary.
 
 ## Access Model
 
@@ -53,4 +53,16 @@ Future slices add immutable versions, templates, proposal documents, PDF generat
 1. Foundation: navigation, list, create, editor, product/service/custom lines, totals, explicit save.
 2. Commercial controls: markup, margin, discounts, VAT, currency conversion, charges, editable sections.
 3. Proposal preview and server-side PDF generation.
-4. Immutable versions, status workflow, duplication, templates, and cart conversion.
+4. Immutable versions, status workflow, duplication, and cart conversion.
+
+## Slice 3: Customer Proposals
+
+- `CustomerProposalDto` is the single immutable, customer-safe allowlist used by browser preview, PDF rendering, artifact snapshots, and future delivery channels. It excludes internal cost, margin, permissions, portal/ERP identifiers, and integration diagnostics.
+- `proposal_settings` stores bounded structured document text and visibility toggles. It never accepts HTML.
+- `proposal_templates` contains four structured system templates and company-owned copies. Applying a template changes proposal settings only and never replaces estimate sections or lines.
+- `company_proposal_profiles` is an optional portal-owned presentation profile. Missing values fall back to the active company and user profile without blocking generation.
+- `generated_estimate_documents` stores generation status, fingerprint, customer-safe DTO snapshot, and private object metadata. The PDF bytes live in the private `estimate-proposals` storage bucket.
+- `pdfmake` is the server renderer. It provides deterministic A4 pagination, repeating table headers, page numbering, and bundled Roboto fonts for Russian and Romanian without Chromium or external font access.
+- Remote image access is disabled in pdfmake. The preparation service accepts only HTTPS image URLs from explicit trusted hosts; server fetches are size-, time-, redirect-, and concurrency-bounded.
+- Generation is synchronous and fingerprint-deduplicated in this slice. Benchmarks for 300 lines remain below the interactive server budget; a queue can replace execution later without changing DTO, metadata, or storage contracts.
+- Normal preview preparation performs four principal domain reads: aggregate estimate, templates, optional proposal profile, and one bulk product-image projection. No 1C calls or per-line queries are permitted.

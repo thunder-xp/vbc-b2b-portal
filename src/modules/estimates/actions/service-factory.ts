@@ -4,8 +4,8 @@ import { DefaultPermissionService } from "../../access-control/services/implemen
 import { SupabaseCatalogRepository } from "../../catalog/repositories/supabase";
 import { DefaultCatalogService } from "../../catalog/services";
 import { createPricingInventoryService } from "../../pricing-inventory/actions/service-factory";
-import { SupabaseEstimateRepository } from "../repositories/supabase";
-import { DefaultEstimateService } from "../services";
+import { SupabaseEstimateRepository, SupabaseProposalRepository } from "../repositories/supabase";
+import { DefaultEstimateService, DefaultProposalService } from "../services";
 
 export { getAuthenticatedUserId };
 
@@ -18,5 +18,14 @@ export function createEstimateService(): DefaultEstimateService {
     new DefaultPermissionService(new SupabaseRolePermissionRepository()),
     new DefaultCatalogService(new SupabaseCatalogRepository(), companyAccessService, pricingInventoryService),
     pricingInventoryService,
+  );
+}
+
+export function createProposalService(): DefaultProposalService {
+  return new DefaultProposalService(
+    new SupabaseEstimateRepository(),
+    new SupabaseProposalRepository(),
+    createCompanyAccessService(),
+    new DefaultPermissionService(new SupabaseRolePermissionRepository()),
   );
 }

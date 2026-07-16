@@ -34,6 +34,8 @@ export type EstimateRow = {
   status: Estimate["status"];
   total_amount: number | string;
   has_incomplete_pricing: boolean;
+  proposal_template_id?: string | null;
+  proposal_settings?: Estimate["proposalSettings"];
   revision: number;
   archived_at: string | null;
   created_at: string;
@@ -137,6 +139,8 @@ export function mapEstimateRow(row: EstimateRow): Estimate {
     status: row.status,
     totalAmount: Number(row.total_amount),
     hasIncompletePricing: row.has_incomplete_pricing,
+    proposalTemplateId: row.proposal_template_id ?? null,
+    proposalSettings: row.proposal_settings ?? {},
     revision: row.revision,
     archivedAt: row.archived_at,
     createdAt: row.created_at,

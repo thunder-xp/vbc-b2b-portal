@@ -33,6 +33,8 @@ export interface Estimate {
   status: EstimateStatus;
   totalAmount: number;
   hasIncompletePricing: boolean;
+  proposalTemplateId?: string | null;
+  proposalSettings?: Partial<import("./proposal").ProposalSettings>;
   revision: number;
   archivedAt: string | null;
   createdAt: string;
