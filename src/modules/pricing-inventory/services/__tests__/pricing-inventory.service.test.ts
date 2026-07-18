@@ -11,8 +11,7 @@ import {
   UserType,
   type CompanyMembership,
 } from "../../../access-control/types";
-import { DefaultPricingInventoryService } from "../pricing-inventory.service";
-import { RETAIL_PRICE_TYPE_EXTERNAL_REF } from "../pricing-inventory.service";
+import { calculateReverseMarkupPercent, DefaultPricingInventoryService, MSRP_PRICE_TYPE_EXTERNAL_REF } from "../pricing-inventory.service";
 import type {
   ListProductPricesInput,
   PricingInventoryRepository,
@@ -30,7 +29,7 @@ describe("DefaultPricingInventoryService", () => {
       makePrice("other-company", 500, goldPriceType),
       makePrice("company-1", 100, goldPriceType),
       makePrice(null, 200, goldPriceType),
-      makePrice(null, 120, RETAIL_PRICE_TYPE_EXTERNAL_REF),
+      makePrice(null, 120, MSRP_PRICE_TYPE_EXTERNAL_REF, ""),
       makePrice(null, 999, "UNRELATED"),
     ]);
     const service = new DefaultPricingInventoryService(
@@ -48,25 +47,26 @@ describe("DefaultPricingInventoryService", () => {
       companyId: "company-1",
       external1cPriceTypeId: goldPriceType,
     });
-    expect(repository.lastPriceInputs).toContainEqual({ productIds: ["product-1"], companyId: "company-1", external1cPriceTypeId: RETAIL_PRICE_TYPE_EXTERNAL_REF });
+    expect(repository.lastPriceInputs).toContainEqual({ productIds: ["product-1"], companyId: "company-1", external1cPriceTypeId: MSRP_PRICE_TYPE_EXTERNAL_REF });
     expect(result[0]?.partnerPrice?.amount).toBe(100);
-    expect(result[0]?.retailPrice?.amount).toBe(120);
+    expect(result[0]?.msrpPriceUsd?.amount).toBe(120);
     expect(result[0]?.retailBelowPartnerPrice).toBe(false);
   });
 
-  it("normalizes 1C currency 999 and flags retail below partner price internally", async () => {
-    const service = new DefaultPricingInventoryService(new FakePricingInventoryRepository([makePrice(null, 45.81, goldPriceType, "999"), makePrice(null, 39.2, RETAIL_PRICE_TYPE_EXTERNAL_REF, "MDL")]), new FakeCompanyAccessService(), new FakePermissionService());
+  it("uses assigned partner USD and the independent MSRP USD source", async () => {
+    const service = new DefaultPricingInventoryService(new FakePricingInventoryRepository([makePrice(null, 45.81, goldPriceType, "999"), makePrice(null, 39.2, MSRP_PRICE_TYPE_EXTERNAL_REF, "")], [], [], 17.3504, 17.7712), new FakeCompanyAccessService(), new FakePermissionService());
     const [result] = await service.getProductCommercialViews("user-1", ["product-1"]);
     expect(result.partnerPrice).toMatchObject({ currencyCode: "USD", formattedAmount: "$45.81" });
-    expect(result.retailPrice).toMatchObject({ currencyCode: "MDL", formattedAmount: "39,20 MDL" });
-    expect(result.retailBelowPartnerPrice).toBe(false);
+    expect(result.msrpPriceUsd).toMatchObject({ currencyCode: "USD", formattedAmount: "$39.20" });
+    expect(result.retailPrice).toMatchObject({ currencyCode: "MDL", amount: 697, formattedAmount: "697 MDL" });
+    expect(result.retailBelowPartnerPrice).toBe(true);
   });
 
-  it("renders a resolved production RETAIL currency code 498 as Moldovan leu", async () => {
+  it("treats the confirmed MSRP price type as USD even when the legacy currency projection is blank", async () => {
     const service = new DefaultPricingInventoryService(
       new FakePricingInventoryRepository([
         makePrice(null, 97.44, goldPriceType, "999"),
-        makePrice(null, 2399, RETAIL_PRICE_TYPE_EXTERNAL_REF, "498"),
+        makePrice(null, 177, MSRP_PRICE_TYPE_EXTERNAL_REF, ""),
       ]),
       new FakeCompanyAccessService(),
       new FakePermissionService(),
@@ -75,88 +75,69 @@ describe("DefaultPricingInventoryService", () => {
     const [result] = await service.getProductCommercialViews("user-1", ["product-1"]);
 
     expect(result.partnerPrice?.formattedAmount).toBe("$97.44");
-    expect(result.retailPrice).toMatchObject({
-      amount: 2399,
-      currencyCode: "MDL",
-      formattedAmount: "2\u00a0399,00 MDL",
-    });
+    expect(result.msrpPriceUsd).toMatchObject({ amount: 177, currencyCode: "USD", formattedAmount: "$177.00" });
   });
 
-  it("calculates the production-shaped commercial opportunity from a confirmed MDL per USD rate", async () => {
+  it("uses BCRU for partner MDL, RTL for MSRP MDL, and visible whole amounts for profit", async () => {
     const repository = new FakePricingInventoryRepository([
-      makePrice(null, 48.95, goldPriceType, "999"),
-      makePrice(null, 1526, RETAIL_PRICE_TYPE_EXTERNAL_REF, "498"),
-    ], [], [], 17.1461);
-    const service = new DefaultPricingInventoryService(
-      repository,
-      new FakeCompanyAccessService(),
-      new FakePermissionService(),
-    );
+      makePrice(null, 103.94, goldPriceType, "USD"),
+      makePrice(null, 177, MSRP_PRICE_TYPE_EXTERNAL_REF, ""),
+    ], [], [], 17.3504, 17.7712);
+    const service = new DefaultPricingInventoryService(repository, new FakeCompanyAccessService(), new FakePermissionService());
 
     const [result] = await service.getProductCommercialViews("user-1", ["product-1"]);
 
-    expect(result.partnerPrice).toMatchObject({ amount: 48.95, currencyCode: "USD", formattedAmount: "$48.95" });
-    expect(result.partnerPriceMdl).toMatchObject({
-      amount: 839.301595,
-      currencyCode: "MDL",
-      formattedAmount: "839,30 MDL",
-    });
-    expect(result.commercialOpportunity).toMatchObject({
-      formattedGrossProfit: "$40.05",
-      formattedGrossProfitMdl: "686,70 MDL",
-      formattedMarkup: "81.82%",
-      formattedRetailPriceUsd: "$89 USD",
-    });
-    expect(result.commercialOpportunity?.retailPriceUsd).toBeCloseTo(89, 2);
-    expect(result.commercialOpportunity?.grossProfitUsd).toBeCloseTo(40.05, 2);
-    expect(result.commercialOpportunity?.grossProfitMdl).toBeCloseTo(686.698405, 6);
-    expect(result.commercialOpportunity?.markupPercent).toBeCloseTo(81.82, 2);
+    expect(result.partnerPrice).toMatchObject({ amount: 103.94, currencyCode: "USD", formattedAmount: "$103.94" });
+    expect(result.msrpPriceUsd).toMatchObject({ amount: 177, currencyCode: "USD", formattedAmount: "$177.00" });
+    expect(result.partnerPriceMdl).toMatchObject({ amount: 1803, formattedAmount: "1\u00a0803 MDL" });
+    expect(result.retailPrice).toMatchObject({ amount: 3146, formattedAmount: "3\u00a0146 MDL" });
+    expect(result.commercialOpportunity).toMatchObject({ grossProfitMdl: 1343, formattedGrossProfitMdl: "1\u00a0343 MDL", formattedMarkup: "78.72%" });
+    expect(result.commercialOpportunity?.reversePartnerUsd).toBeCloseTo(101.45628882686594, 12);
+    expect(result.commercialOpportunity?.reverseRetailUsd).toBeCloseTo(181.32146809295463, 12);
+    expect(result.commercialOpportunity?.markupPercent).not.toBeCloseTo((3146 / 1803 - 1) * 100, 4);
     expect(repository.exchangeRateReads).toBe(1);
     expect(repository.lastPriceInputs).toHaveLength(2);
   });
 
-  it("uses independent purpose rates and rounds the retail USD reference half up", async () => {
-    const repository = new FakePricingInventoryRepository([
-      makePrice(null, 103.94, goldPriceType, "999"),
-      makePrice(null, 3081, RETAIL_PRICE_TYPE_EXTERNAL_REF, "498"),
-    ], [], [], 17.7712, 17.3504);
-    const service = new DefaultPricingInventoryService(repository, new FakeCompanyAccessService(), new FakePermissionService());
-
-    const [result] = await service.getProductCommercialViews("user-1", ["product-1"]);
-
-    expect(result.partnerPriceMdl?.amount).toBeCloseTo(1847.138528, 6);
-    expect(result.retailPriceUsd).toMatchObject({ amount: 178, formattedAmount: "$178 USD" });
-    expect(result.commercialOpportunity?.grossProfitMdl).toBeCloseTo(1233.861472, 6);
-    expect(result.commercialOpportunity?.markupPercent).toBeCloseTo(66.7985, 4);
-    expect(repository.exchangeRateReads).toBe(1);
-  });
-
-  it("does not substitute one missing purpose rate for the other", async () => {
-    const repository = new FakePricingInventoryRepository([
-      makePrice(null, 103.94, goldPriceType, "999"),
-      makePrice(null, 3081, RETAIL_PRICE_TYPE_EXTERNAL_REF, "498"),
-    ], [], [], 17.7712, null);
-    const service = new DefaultPricingInventoryService(repository, new FakeCompanyAccessService(), new FakePermissionService());
-
-    const [result] = await service.getProductCommercialViews("user-1", ["product-1"]);
-
-    expect(result.partnerPriceMdl).not.toBeNull();
-    expect(result.retailPriceUsd).toBeNull();
-    expect(result.commercialOpportunity?.grossProfitMdl).not.toBeNull();
-    expect(result.commercialOpportunity?.retailPriceUsd).toBeNull();
-  });
-
-  it("hides derived commercial values without a confirmed rate", async () => {
+  it("rounds both displayed MDL values half up to whole amounts", async () => {
     const service = new DefaultPricingInventoryService(new FakePricingInventoryRepository([
-      makePrice(null, 48.95, goldPriceType, "999"),
-      makePrice(null, 1526, RETAIL_PRICE_TYPE_EXTERNAL_REF, "498"),
-    ]), new FakeCompanyAccessService(), new FakePermissionService());
+      makePrice(null, 1, goldPriceType, "USD"),
+      makePrice(null, 1, MSRP_PRICE_TYPE_EXTERNAL_REF, ""),
+    ], [], [], 17.5, 16.5), new FakeCompanyAccessService(), new FakePermissionService());
 
     const [result] = await service.getProductCommercialViews("user-1", ["product-1"]);
+    expect(result.partnerPriceMdl).toMatchObject({ amount: 18, formattedAmount: "18 MDL" });
+    expect(result.retailPrice).toMatchObject({ amount: 17, formattedAmount: "17 MDL" });
+    expect(result.commercialOpportunity?.grossProfitMdl).toBe(-1);
+  });
 
-    expect(result.partnerPrice?.formattedAmount).toBe("$48.95");
+  it("produces the confirmed 78.65 percent markup example without rounding reverse USD inputs", () => {
+    const result = calculateReverseMarkupPercent("101.4631401238042", "181.2680115273775");
+    expect(result.toString()).toBe("78.65405240385452259");
+    expect(result.toDecimalPlaces(2).toFixed(2)).toBe("78.65");
+  });
+
+  it("does not substitute RTL when BCRU is missing", async () => {
+    const service = new DefaultPricingInventoryService(new FakePricingInventoryRepository([
+      makePrice(null, 103.94, goldPriceType, "USD"),
+      makePrice(null, 177, MSRP_PRICE_TYPE_EXTERNAL_REF, ""),
+    ], [], [], null, 17.7712), new FakeCompanyAccessService(), new FakePermissionService());
+    const [result] = await service.getProductCommercialViews("user-1", ["product-1"]);
+    expect(result.partnerPrice).not.toBeNull();
     expect(result.partnerPriceMdl).toBeNull();
-    expect(result.retailPrice?.formattedAmount).toBe("1\u00a0526,00 MDL");
+    expect(result.retailPrice).not.toBeNull();
+    expect(result.commercialOpportunity).toBeNull();
+  });
+
+  it("does not substitute BCRU when RTL is missing", async () => {
+    const service = new DefaultPricingInventoryService(new FakePricingInventoryRepository([
+      makePrice(null, 103.94, goldPriceType, "USD"),
+      makePrice(null, 177, MSRP_PRICE_TYPE_EXTERNAL_REF, ""),
+    ], [], [], 17.3504, null), new FakeCompanyAccessService(), new FakePermissionService());
+    const [result] = await service.getProductCommercialViews("user-1", ["product-1"]);
+    expect(result.partnerPriceMdl).not.toBeNull();
+    expect(result.msrpPriceUsd).not.toBeNull();
+    expect(result.retailPrice).toBeNull();
     expect(result.commercialOpportunity).toBeNull();
   });
 
@@ -174,12 +155,12 @@ describe("DefaultPricingInventoryService", () => {
   it("preserves negative gross profit and markup", async () => {
     const service = new DefaultPricingInventoryService(new FakePricingInventoryRepository([
       makePrice(null, 100, goldPriceType, "999"),
-      makePrice(null, 1000, RETAIL_PRICE_TYPE_EXTERNAL_REF, "498"),
-    ], [], [], 20), new FakeCompanyAccessService(), new FakePermissionService());
+      makePrice(null, 40, MSRP_PRICE_TYPE_EXTERNAL_REF, ""),
+    ], [], [], 20, 20), new FakeCompanyAccessService(), new FakePermissionService());
 
     const [result] = await service.getProductCommercialViews("user-1", ["product-1"]);
 
-    expect(result.commercialOpportunity).toMatchObject({ formattedGrossProfit: "-$50.00", formattedGrossProfitMdl: "-1\u00a0000,00 MDL", formattedMarkup: "-50.00%" });
+    expect(result.commercialOpportunity).toMatchObject({ grossProfitMdl: -1200, formattedGrossProfitMdl: "-1\u00a0200 MDL", formattedMarkup: "-60.00%" });
   });
 
   it("maps stock quantities to visible service-owned stock statuses", async () => {
@@ -247,14 +228,14 @@ class FakePricingInventoryRepository implements PricingInventoryRepository {
     private readonly stockBalances: ProductStockBalance[] = [],
     private readonly supplierArrivals: ProductSupplierArrival[] = [],
     private readonly mdlPerUsdRate: number | null = null,
-    private readonly retailMdlPerUsdRate: number | null = mdlPerUsdRate,
+    private readonly retailUsdToMdlRate: number | null = mdlPerUsdRate,
   ) {}
 
   async getActiveCommercialRateSnapshot() {
     this.exchangeRateReads += 1;
     return {
       partnerPriceUsdToMdl: this.mdlPerUsdRate ? rate("partner_price_usd_to_mdl", this.mdlPerUsdRate) : null,
-      retailPriceMdlToUsd: this.retailMdlPerUsdRate ? rate("retail_price_mdl_to_usd", this.retailMdlPerUsdRate) : null,
+      retailPriceUsdToMdl: this.retailUsdToMdlRate ? rate("retail_price_usd_to_mdl", this.retailUsdToMdlRate) : null,
     };
   }
 

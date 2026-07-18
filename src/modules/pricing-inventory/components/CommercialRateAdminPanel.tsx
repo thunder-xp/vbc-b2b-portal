@@ -102,8 +102,8 @@ function CommercialRatePublicationForm({ row }: { row: CommercialRateAdminRowDto
 
 function Metric({ label, value }: { label: string; value: string }) { return <div><dt className="text-xs text-zinc-500">{label}</dt><dd className="mt-1 font-semibold text-zinc-950">{value}</dd></div>; }
 function Status({ active }: { active: boolean }) { return <span className={`inline-flex items-center gap-1 text-xs font-semibold ${active ? "text-emerald-700" : "text-zinc-500"}`}>{active ? <CheckCircle2 aria-hidden="true" className="size-3.5" /> : null}{active ? "Активен" : "Архив"}</span>; }
-function purposeLabel(purpose: CommercialRate["purpose"]) { return purpose === "partner_price_usd_to_mdl" ? "Партнёрская USD → MDL" : "Розничная MDL → USD"; }
-function purposeDirection(purpose: CommercialRate["purpose"]) { return purpose === "partner_price_usd_to_mdl" ? "USD → MDL" : "MDL → USD"; }
+function purposeLabel(purpose: CommercialRate["purpose"]) { return purpose === "partner_price_usd_to_mdl" ? "BCRU 113 · партнёрская USD → MDL" : "RTL 999 · MSRP USD → MDL"; }
+function purposeDirection(purpose: CommercialRate["purpose"]) { return purpose === "partner_price_usd_to_mdl" ? "BCRU 113 · USD → MDL" : "RTL 999 · USD → MDL"; }
 function formatRate(rate: number) { return new Intl.NumberFormat("ru-RU", { minimumFractionDigits: 4, maximumFractionDigits: 8 }).format(rate); }
 function formatDate(value: string) { return new Intl.DateTimeFormat("ru-RU", { dateStyle: "medium", timeZone: "UTC" }).format(new Date(value)); }
 function formatDateTime(value: string) { return new Intl.DateTimeFormat("ru-RU", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value)); }

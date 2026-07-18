@@ -43,13 +43,13 @@ export type ProductStockViewDto = {
 };
 
 export type CommercialOpportunityViewDto = {
-  retailPriceUsd: number | null;
-  formattedRetailPriceUsd?: string;
+  reversePartnerUsd: number;
+  reverseRetailUsd: number;
   grossProfitUsd: number | null;
-  grossProfitMdl?: number;
+  grossProfitMdl: number;
   markupPercent: number;
   formattedGrossProfit: string;
-  formattedGrossProfitMdl?: string;
+  formattedGrossProfitMdl: string;
   formattedMarkup: string;
 };
 
@@ -57,8 +57,8 @@ export type ProductCommercialViewDto = {
   productId: string;
   partnerPrice: ProductPriceViewDto | null;
   partnerPriceMdl?: ProductPriceViewDto | null;
+  msrpPriceUsd?: ProductPriceViewDto | null;
   retailPrice: ProductPriceViewDto | null;
-  retailPriceUsd?: ProductPriceViewDto | null;
   commercialOpportunity?: CommercialOpportunityViewDto | null;
   commercialRateFreshness?: FreshnessView | null;
   stock: ProductStockViewDto | null;
@@ -86,7 +86,7 @@ const PRICE_PERMISSION = "prices.view";
 const STOCK_PERMISSION = "stock.view";
 const LOW_STOCK_THRESHOLD = 5;
 const ZERO_CHARACTERISTIC = "00000000-0000-0000-0000-000000000000";
-export const RETAIL_PRICE_TYPE_EXTERNAL_REF = "e181c772-93fc-11e9-94cb-000c2988d323";
+export const MSRP_PRICE_TYPE_EXTERNAL_REF = "d9c92519-658b-11e8-80d3-000c29a58b59";
 
 export class DefaultPricingInventoryService implements PricingInventoryService {
   constructor(
@@ -118,7 +118,7 @@ export class DefaultPricingInventoryService implements PricingInventoryService {
       this.permissionService.hasPermission(userId, companyId, PRICE_PERMISSION),
       this.permissionService.hasPermission(userId, companyId, STOCK_PERMISSION),
     ]);
-    const [partnerPrices, retailPrices, stockBalances, supplierArrivals, commercialRates] = await Promise.all([
+    const [partnerPrices, msrpPrices, stockBalances, supplierArrivals, commercialRates] = await Promise.all([
       canViewPrices && company.external1cPriceTypeId
         ? this.pricingInventoryRepository.listPricesForProducts({
             productIds: normalizedProductIds,
@@ -127,7 +127,7 @@ export class DefaultPricingInventoryService implements PricingInventoryService {
           })
         : Promise.resolve<ProductPrice[]>([]),
       canViewPrices
-        ? this.pricingInventoryRepository.listPricesForProducts({ productIds: normalizedProductIds, companyId, external1cPriceTypeId: RETAIL_PRICE_TYPE_EXTERNAL_REF })
+        ? this.pricingInventoryRepository.listPricesForProducts({ productIds: normalizedProductIds, companyId, external1cPriceTypeId: MSRP_PRICE_TYPE_EXTERNAL_REF })
         : Promise.resolve<ProductPrice[]>([]),
       canViewStock && this.pricingInventoryRepository.listStockTotalsForProducts
         ? this.pricingInventoryRepository.listStockTotalsForProducts(normalizedProductIds)
@@ -137,21 +137,21 @@ export class DefaultPricingInventoryService implements PricingInventoryService {
         : Promise.resolve<ProductSupplierArrival[]>([]),
       canViewPrices && this.pricingInventoryRepository.getActiveCommercialRateSnapshot
         ? this.pricingInventoryRepository.getActiveCommercialRateSnapshot()
-        : Promise.resolve<CommercialRateSnapshot>({ partnerPriceUsdToMdl: null, retailPriceMdlToUsd: null }),
+        : Promise.resolve<CommercialRateSnapshot>({ partnerPriceUsdToMdl: null, retailPriceUsdToMdl: null }),
     ]);
 
     return normalizedProductIds.map((productId) => {
       const partnerPrice = canViewPrices
         ? selectPriceForProduct(partnerPrices, productId, companyId)
         : null;
-      const retailPrice = canViewPrices
-        ? selectPriceForProduct(retailPrices, productId, companyId)
+      const msrpPrice = canViewPrices
+        ? selectPriceForProduct(msrpPrices, productId, companyId)
         : null;
       const stock = canViewStock
         ? stockAvailabilityForProduct(stockBalances, supplierArrivals, productId)
         : null;
       const demoView =
-        !partnerPrice && !retailPrice && !stock
+        !partnerPrice && !msrpPrice && !stock
           ? createDemoCommercialView(productId, canViewPrices, canViewStock)
           : null;
 
@@ -160,23 +160,24 @@ export class DefaultPricingInventoryService implements PricingInventoryService {
       }
 
       const partnerPriceMdl = createPartnerPriceMdlView(partnerPrice, commercialRates.partnerPriceUsdToMdl);
-      const retailPriceUsd = createRetailPriceUsdView(retailPrice, commercialRates.retailPriceMdlToUsd);
+      const msrpPriceUsd = createMsrpPriceUsdView(msrpPrice);
+      const retailPrice = createRetailPriceMdlView(msrpPrice, commercialRates.retailPriceUsdToMdl);
       return {
         productId,
         partnerPrice: partnerPrice ? toPriceView(partnerPrice) : null,
         partnerPriceMdl,
-        retailPrice: retailPrice ? toPriceView(retailPrice) : null,
-        retailPriceUsd,
+        msrpPriceUsd,
+        retailPrice,
         commercialOpportunity: createCommercialOpportunity(
-          partnerPrice,
+          partnerPriceMdl,
           retailPrice,
           commercialRates.partnerPriceUsdToMdl,
-          commercialRates.retailPriceMdlToUsd,
+          commercialRates.retailPriceUsdToMdl,
         ),
         commercialRateFreshness: createCommercialRateFreshness(commercialRates),
         stock,
         isDemoData: false,
-        retailBelowPartnerPrice: Boolean(partnerPriceMdl && retailPrice && retailPrice.priceAmount < partnerPriceMdl.amount),
+        retailBelowPartnerPrice: Boolean(partnerPriceMdl && retailPrice && retailPrice.amount < partnerPriceMdl.amount),
       };
     });
   }
@@ -318,74 +319,73 @@ function createPartnerPriceMdlView(
   if (!partnerPrice || partnerPrice.currencyStatus !== "resolved") return null;
   if (normalizeOneCCurrencyCode(partnerPrice.currency) !== "USD") return null;
 
-  const amount = convertUsdToMdl(partnerPrice.priceAmount, exchangeRate?.rate ?? null);
+  const amount = convertUsdToWholeMdl(partnerPrice.priceAmount, exchangeRate?.rate ?? null);
   if (amount === null) return null;
 
   return {
     currencyCode: "MDL",
     amount,
-    formattedAmount: formatPrice(amount, "MDL"),
+    formattedAmount: formatWholeMdl(amount),
     lastUpdatedAt: exchangeRate?.publishedAt,
   };
 }
 
-function convertUsdToMdl(amount: number, mdlPerUsdRate: number | null): number | null {
+function convertUsdToWholeMdl(amount: number, mdlPerUsdRate: number | null): number | null {
   if (!Number.isFinite(amount) || !Number.isFinite(mdlPerUsdRate) || mdlPerUsdRate === null || mdlPerUsdRate <= 0) return null;
-  return new Decimal(amount).times(mdlPerUsdRate).toNumber();
+  return new Decimal(amount).times(mdlPerUsdRate).toDecimalPlaces(0, Decimal.ROUND_HALF_UP).toNumber();
 }
 
-function createRetailPriceUsdView(
-  retailPrice: ProductPrice | null,
-  exchangeRate: CommercialRate | null,
-): ProductPriceViewDto | null {
-  if (!retailPrice || retailPrice.currencyStatus !== "resolved") return null;
-  if (normalizeOneCCurrencyCode(retailPrice.currency) !== "MDL" || !exchangeRate) return null;
-  if (!Number.isFinite(exchangeRate.rate) || exchangeRate.rate <= 0) return null;
-  const amount = new Decimal(retailPrice.priceAmount)
-    .div(exchangeRate.rate)
-    .toDecimalPlaces(0, Decimal.ROUND_HALF_UP)
-    .toNumber();
+function createMsrpPriceUsdView(msrpPrice: ProductPrice | null): ProductPriceViewDto | null {
+  if (!msrpPrice || msrpPrice.external1cPriceTypeId !== MSRP_PRICE_TYPE_EXTERNAL_REF || !Number.isFinite(msrpPrice.priceAmount) || msrpPrice.priceAmount <= 0) return null;
   return {
     currencyCode: "USD",
+    amount: msrpPrice.priceAmount,
+    formattedAmount: formatPrice(msrpPrice.priceAmount, "USD"),
+    lastUpdatedAt: msrpPrice.updatedAt,
+  };
+}
+
+function createRetailPriceMdlView(
+  msrpPrice: ProductPrice | null,
+  exchangeRate: CommercialRate | null,
+): ProductPriceViewDto | null {
+  const source = createMsrpPriceUsdView(msrpPrice);
+  if (!source) return null;
+  const amount = convertUsdToWholeMdl(source.amount, exchangeRate?.rate ?? null);
+  if (amount === null) return null;
+  return {
+    currencyCode: "MDL",
     amount,
-    formattedAmount: `${new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount)} USD`,
-    lastUpdatedAt: exchangeRate.publishedAt,
+    formattedAmount: formatWholeMdl(amount),
+    lastUpdatedAt: exchangeRate?.publishedAt,
   };
 }
 
 function createCommercialOpportunity(
-  partnerPrice: ProductPrice | null,
-  retailPrice: ProductPrice | null,
+  partnerPriceMdl: ProductPriceViewDto | null,
+  retailPriceMdl: ProductPriceViewDto | null,
   partnerRate: CommercialRate | null,
   retailRate: CommercialRate | null,
 ): CommercialOpportunityViewDto | null {
-  if (!partnerPrice || !retailPrice || !partnerRate || !Number.isFinite(partnerRate.rate) || partnerRate.rate <= 0 || partnerPrice.priceAmount <= 0) return null;
-  if (partnerPrice.currencyStatus !== "resolved" || retailPrice.currencyStatus !== "resolved") return null;
-  if (normalizeOneCCurrencyCode(partnerPrice.currency) !== "USD" || normalizeOneCCurrencyCode(retailPrice.currency) !== "MDL") return null;
+  if (!partnerPriceMdl || !retailPriceMdl || !partnerRate || !retailRate) return null;
+  if (!Number.isFinite(partnerRate.rate) || partnerRate.rate <= 0 || !Number.isFinite(retailRate.rate) || retailRate.rate <= 0 || partnerPriceMdl.amount <= 0) return null;
 
-  const partnerPriceMdl = convertUsdToMdl(partnerPrice.priceAmount, partnerRate.rate);
-  if (partnerPriceMdl === null || partnerPriceMdl <= 0) return null;
-
-  const grossProfitMdl = new Decimal(retailPrice.priceAmount).minus(partnerPriceMdl);
-  const markupPercent = grossProfitMdl.div(partnerPriceMdl).times(100);
-  const retailPriceUsd = retailRate
-    ? new Decimal(retailPrice.priceAmount).div(retailRate.rate).toDecimalPlaces(0, Decimal.ROUND_HALF_UP)
-    : null;
-  const grossProfitUsd = retailRate ? grossProfitMdl.div(retailRate.rate) : null;
+  const displayedPartnerMdl = new Decimal(partnerPriceMdl.amount);
+  const displayedRetailMdl = new Decimal(retailPriceMdl.amount);
+  const grossProfitMdl = displayedRetailMdl.minus(displayedPartnerMdl);
+  const reversePartnerUsd = displayedPartnerMdl.div(retailRate.rate);
+  const reverseRetailUsd = displayedRetailMdl.div(partnerRate.rate);
+  const markupPercent = calculateReverseMarkupPercent(reversePartnerUsd, reverseRetailUsd);
+  const grossProfitUsd = reverseRetailUsd.minus(reversePartnerUsd);
 
   return {
-    retailPriceUsd: retailPriceUsd?.toNumber() ?? null,
-    formattedRetailPriceUsd: retailPriceUsd ? `${new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(retailPriceUsd.toNumber())} USD` : undefined,
-    grossProfitUsd: grossProfitUsd?.toNumber() ?? null,
+    reversePartnerUsd: reversePartnerUsd.toNumber(),
+    reverseRetailUsd: reverseRetailUsd.toNumber(),
+    grossProfitUsd: grossProfitUsd.toNumber(),
     grossProfitMdl: grossProfitMdl.toNumber(),
     markupPercent: markupPercent.toNumber(),
-    formattedGrossProfit: grossProfitUsd ? formatPrice(grossProfitUsd.toNumber(), "USD") : "",
-    formattedGrossProfitMdl: formatPrice(grossProfitMdl.toNumber(), "MDL"),
+    formattedGrossProfit: formatPrice(grossProfitUsd.toNumber(), "USD"),
+    formattedGrossProfitMdl: formatWholeMdl(grossProfitMdl.toNumber()),
     formattedMarkup: new Intl.NumberFormat("en-US", {
       style: "percent",
       minimumFractionDigits: 2,
@@ -394,8 +394,19 @@ function createCommercialOpportunity(
   };
 }
 
+export function calculateReverseMarkupPercent(reversePartnerUsd: Decimal.Value, reverseRetailUsd: Decimal.Value): Decimal {
+  const partner = new Decimal(reversePartnerUsd);
+  const retail = new Decimal(reverseRetailUsd);
+  if (!partner.isFinite() || !retail.isFinite() || partner.lte(0)) return new Decimal(NaN);
+  return retail.div(partner).minus(1).times(100);
+}
+
+function formatWholeMdl(amount: number): string {
+  return `${new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 0 }).format(amount)} MDL`;
+}
+
 function createCommercialRateFreshness(rates: CommercialRateSnapshot): FreshnessView {
-  const timestamps = [rates.partnerPriceUsdToMdl?.publishedAt, rates.retailPriceMdlToUsd?.publishedAt]
+  const timestamps = [rates.partnerPriceUsdToMdl?.publishedAt, rates.retailPriceUsdToMdl?.publishedAt]
     .flatMap((value) => value && Number.isFinite(Date.parse(value)) ? [Date.parse(value)] : []);
   const oldestPublishedAt = timestamps.length === 2 ? new Date(Math.min(...timestamps)).toISOString() : null;
   return evaluateFreshness(oldestPublishedAt, "price", "Коммерческие курсы");
@@ -461,8 +472,8 @@ function createDemoCommercialView(
     productId,
     partnerPrice: canViewPrices ? demoView.partnerPrice : null,
     partnerPriceMdl: null,
+    msrpPriceUsd: null,
     retailPrice: null,
-    retailPriceUsd: null,
     commercialOpportunity: null,
     commercialRateFreshness: null,
     stock: canViewStock ? demoView.stock : null,

@@ -1,6 +1,6 @@
 export const COMMERCIAL_RATE_PURPOSES = [
   "partner_price_usd_to_mdl",
-  "retail_price_mdl_to_usd",
+  "retail_price_usd_to_mdl",
 ] as const;
 
 export type CommercialRatePurpose = (typeof COMMERCIAL_RATE_PURPOSES)[number];
@@ -23,7 +23,7 @@ export type CommercialRate = {
 
 export type CommercialRateSnapshot = {
   partnerPriceUsdToMdl: CommercialRate | null;
-  retailPriceMdlToUsd: CommercialRate | null;
+  retailPriceUsdToMdl: CommercialRate | null;
 };
 
 export type PublishCommercialRateInput = {

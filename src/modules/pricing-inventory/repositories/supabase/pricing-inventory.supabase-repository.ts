@@ -53,7 +53,7 @@ export class SupabasePricingInventoryRepository
     const rates = (data ?? []).map((row) => mapCommercialRateRow(row as CommercialRateRow));
     return {
       partnerPriceUsdToMdl: rates.find((rate) => rate.purpose === "partner_price_usd_to_mdl") ?? null,
-      retailPriceMdlToUsd: rates.find((rate) => rate.purpose === "retail_price_mdl_to_usd") ?? null,
+      retailPriceUsdToMdl: rates.find((rate) => rate.purpose === "retail_price_usd_to_mdl") ?? null,
     };
   }
 

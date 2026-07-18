@@ -97,10 +97,13 @@ function commercialView(
     partnerPrice: price === null ? null : { amount: price, currencyCode: "USD", formattedAmount: null },
     retailPrice: null,
     commercialOpportunity: markup === null ? null : {
-      retailPriceUsd: 0,
+      reversePartnerUsd: 1,
+      reverseRetailUsd: 1,
       grossProfitUsd: 0,
+      grossProfitMdl: 0,
       markupPercent: markup,
       formattedGrossProfit: "",
+      formattedGrossProfitMdl: "",
       formattedMarkup: "",
     },
     stock: quantity === null ? null : {

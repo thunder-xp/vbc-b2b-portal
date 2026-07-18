@@ -7,7 +7,7 @@ export function ProductPricingBlock({ commercialView, freshness, variant = "card
   return <div className="overflow-hidden border border-zinc-200 bg-white">
     <div className="grid sm:grid-cols-2 xl:grid-cols-4">
       <DetailMetric emphasized label="Партнёрская цена" price={commercialView?.partnerPriceMdl} secondaryValue={commercialView?.partnerPriceMdl ? formatSecondaryUsd(commercialView?.partnerPrice) : null} value={!commercialView?.partnerPriceMdl ? formatSecondaryUsd(commercialView?.partnerPrice) : null} warning={!commercialView?.partnerPriceMdl && commercialView?.partnerPrice?.currencyCode === "USD" ? "Цена в MDL временно недоступна" : undefined} />
-      <DetailMetric label="Розничная цена" price={commercialView?.retailPrice} secondaryValue={commercialView?.retailPriceUsd?.formattedAmount} warning={!commercialView?.retailPriceUsd && commercialView?.retailPrice?.currencyCode === "MDL" ? "Цена в USD временно недоступна" : undefined} />
+      <DetailMetric label="Розничная цена" price={commercialView?.retailPrice} secondaryValue={commercialView?.msrpPriceUsd?.formattedAmount} value={!commercialView?.retailPrice ? commercialView?.msrpPriceUsd?.formattedAmount : null} warning={!commercialView?.retailPrice && commercialView?.msrpPriceUsd ? "Цена в MDL временно недоступна" : undefined} />
       <DetailMetric label="Валовая прибыль" value={commercialView?.commercialOpportunity?.formattedGrossProfitMdl} />
       <DetailMetric label="Наценка" value={commercialView?.commercialOpportunity?.formattedMarkup} />
     </div>

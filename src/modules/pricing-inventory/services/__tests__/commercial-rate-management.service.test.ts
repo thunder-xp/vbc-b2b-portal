@@ -37,14 +37,14 @@ describe("CommercialRateManagementService", () => {
 
   it("keeps both purposes and computes previous-value change independently", async () => {
     const repository = createRepository([
-      rate("partner-current", "partner_price_usd_to_mdl", 17.7712, true, "partner-old"),
-      rate("retail-current", "retail_price_mdl_to_usd", 17.3504, true, "retail-old"),
+      rate("partner-current", "partner_price_usd_to_mdl", 17.3504, true, "partner-old"),
+      rate("retail-current", "retail_price_usd_to_mdl", 17.7712, true, "retail-old"),
       rate("partner-old", "partner_price_usd_to_mdl", 17.5, false),
-      rate("retail-old", "retail_price_mdl_to_usd", 17.1, false),
+      rate("retail-old", "retail_price_usd_to_mdl", 17.6, false),
     ]);
     const view = await new CommercialRateManagementService(repository, profiles(UserType.Admin)).getAdminView("admin-1");
 
-    expect(view.rates.map((row) => row.current?.rate)).toEqual([17.7712, 17.3504]);
+    expect(view.rates.map((row) => row.current?.rate)).toEqual([17.3504, 17.7712]);
     expect(view.rates[0]?.previous?.id).toBe("partner-old");
     expect(view.rates[1]?.previous?.id).toBe("retail-old");
   });
@@ -57,6 +57,7 @@ describe("CommercialRateManagementService", () => {
 describe("manual commercial-rate publication migration", () => {
   const sql = readFileSync(resolve(process.cwd(), "supabase/migrations/20260718120000_manual_commercial_rate_publication.sql"), "utf8");
   const repairSql = readFileSync(resolve(process.cwd(), "supabase/migrations/20260718123000_manual_commercial_rate_purpose_repair.sql"), "utf8");
+  const directionSql = readFileSync(resolve(process.cwd(), "supabase/migrations/20260718160000_commercial_rate_direction_correction.sql"), "utf8");
 
   it("isolates purposes, serializes publication, and rejects older effective dates", () => {
     expect(sql).toContain("commercial_exchange_rates_one_active_purpose_idx");
@@ -75,7 +76,11 @@ describe("manual commercial-rate publication migration", () => {
     expect(sql).toContain("publish_manual_commercial_exchange_rate_v2");
     expect(sql).toContain("commercial_exchange_rate_audit_events");
     expect(sql).toContain("partner_price_usd_to_mdl");
-    expect(sql).toContain("retail_price_mdl_to_usd");
+    expect(directionSql).toContain("retail_price_usd_to_mdl");
+    expect(directionSql).toContain("where purpose = 'retail_price_mdl_to_usd'");
+    expect(directionSql).toContain("drop constraint if exists commercial_exchange_rates_manual_fields_check");
+    expect(directionSql).toMatch(/source_note is not null\s*\)\s*\);/);
+    expect(directionSql).toContain("clock_timestamp()");
     expect(repairSql).toMatch(/effective_date,\s+purpose,\s+effective_at/);
     expect(repairSql).toMatch(/p_effective_at::date,\s+p_purpose,\s+p_effective_at/);
   });

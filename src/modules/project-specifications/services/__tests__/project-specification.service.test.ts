@@ -96,7 +96,7 @@ function createFixture(status = ProjectSpecificationStatus.Draft) {
       productId: "product-1",
       partnerPrice: { amount: 100, currencyCode: "USD", formattedAmount: "$100.00" },
       retailPrice: { amount: 2500, currencyCode: "MDL", formattedAmount: "2 500,00 MDL" },
-      commercialOpportunity: { retailPriceUsd: 140, grossProfitUsd: 40, markupPercent: 40, formattedGrossProfit: "$40.00", formattedMarkup: "40%" },
+      commercialOpportunity: { reversePartnerUsd: 100, reverseRetailUsd: 140, grossProfitUsd: 40, grossProfitMdl: 700, markupPercent: 40, formattedGrossProfit: "$40.00", formattedGrossProfitMdl: "700 MDL", formattedMarkup: "40%" },
       stock: { status: "in_stock", label: "In stock", exactAvailableQuantity: 8, exactPhysicalQuantity: 10, exactReservedQuantity: 2, exactIncomingQuantity: 0, expectedArrival: { expectedQuantity: 12, expectedDate: "2026-08-01", formattedExpectedDate: "01.08.2026", sourceStatus: "confirmed_supply" }, hasVariantStock: false, lastUpdatedAt: now },
       isDemoData: false,
       retailBelowPartnerPrice: false,

@@ -76,8 +76,8 @@ export class CommercialRateManagementService {
     return {
       purpose,
       label: purpose === "partner_price_usd_to_mdl"
-        ? "Курс партнёрской цены USD → MDL"
-        : "Курс розничной цены MDL → USD",
+        ? "Курс партнёрской цены BCRU 113, USD → MDL"
+        : "Курс розничной цены RTL 999, USD → MDL",
       current,
       previous,
       changePercent: current && previous

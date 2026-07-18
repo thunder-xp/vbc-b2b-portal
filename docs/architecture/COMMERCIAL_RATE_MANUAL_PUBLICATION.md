@@ -8,10 +8,10 @@ The production 1C OData contract exposes `Catalog_Валюты` identity and for
 
 ## Purposes
 
-- `partner_price_usd_to_mdl`: converts the assigned partner USD price to MDL.
-- `retail_price_mdl_to_usd`: converts the RETAIL MDL price to a whole-dollar reference value.
+- `partner_price_usd_to_mdl`: BCRU code 113; converts the assigned partner USD price to displayed partner MDL.
+- `retail_price_usd_to_mdl`: RTL code 999; converts product MSRP USD to displayed retail MDL.
 
-The labels `RTL`, `BCR`, and `BCRU` are not security or calculation identifiers. No rate may substitute for the other purpose.
+The purpose remains the stable calculation identifier. The confirmed 1C code mapping is retained as source metadata and one purpose may never substitute for the other.
 
 ## Boundaries
 
@@ -30,10 +30,12 @@ Publication requires an active `internal` or `admin` profile and `commercial_rat
 The product service loads both active purposes in one bounded database query and reuses the snapshot for every product in the request.
 
 ```text
-partnerPriceMdl = partnerPriceUsd * partner_price_usd_to_mdl
-retailPriceUsd = ROUND_HALF_UP(retailPriceMdl / retail_price_mdl_to_usd, 0)
+partnerPriceMdl = ROUND_HALF_UP(partnerPriceUsd * partner_price_usd_to_mdl, 0)
+retailPriceMdl = ROUND_HALF_UP(msrpPriceUsd * retail_price_usd_to_mdl, 0)
 grossProfitMdl = retailPriceMdl - partnerPriceMdl
-markupPercent = grossProfitMdl / partnerPriceMdl * 100
+reversePartnerUsd = partnerPriceMdl / retail_price_usd_to_mdl
+reverseRetailUsd = retailPriceMdl / partner_price_usd_to_mdl
+markupPercent = (reverseRetailUsd / reversePartnerUsd - 1) * 100
 ```
 
 All operations use Decimal arithmetic. Missing purposes suppress only their own derived presentation. Product rendering never calls 1C.
@@ -44,7 +46,7 @@ The future provider must return authoritative records in one bounded response:
 
 ```ts
 type CommercialRateSourceDTO = {
-  purpose: "partner_price_usd_to_mdl" | "retail_price_mdl_to_usd";
+  purpose: "partner_price_usd_to_mdl" | "retail_price_usd_to_mdl";
   currencyReference: string;
   code: string;
   symbolicCode: string | null;
