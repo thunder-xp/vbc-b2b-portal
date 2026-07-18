@@ -17,7 +17,10 @@ describe("ProductDetail information architecture", () => {
     expect(screen.getByText("Camera description")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "В корзину" })).toBeInTheDocument();
     expect(screen.getByText("Партнёрская цена")).toBeInTheDocument();
-    expect(screen.getByText("$48.95")).toBeInTheDocument();
+    expect(screen.getByText("839,30 MDL")).toBeInTheDocument();
+    expect(screen.getByText("$48.95 USD")).toBeInTheDocument();
+    expect(screen.getByText("$89.00 USD")).toBeInTheDocument();
+    expect(screen.getByText("686,70 MDL")).toBeInTheDocument();
     expect(screen.getByText("Валовая прибыль")).toBeInTheDocument();
     expect(screen.getByText("Наличие и поступления")).toBeInTheDocument();
     expect(screen.getByText("24 шт.")).toBeInTheDocument();
@@ -27,6 +30,14 @@ describe("ProductDetail information architecture", () => {
     expect(text.indexOf("Camera description")).toBeLessThan(text.indexOf("В корзину"));
     expect(text.indexOf("В корзину")).toBeLessThan(text.indexOf("Коммерческое предложение"));
     expect(text.indexOf("Коммерческое предложение")).toBeLessThan(text.indexOf("Наличие и поступления"));
+  });
+
+  it("keeps the partner USD price visible without fabricating MDL when the published rate is unavailable", () => {
+    render(<ProductDetail commercialView={{ ...commercialView, partnerPriceMdl: null, commercialOpportunity: null }} product={product} />);
+
+    expect(screen.getByText("$48.95 USD")).toBeInTheDocument();
+    expect(screen.getByText("Цена в MDL временно недоступна")).toBeInTheDocument();
+    expect(screen.queryByText("839,30 MDL")).not.toBeInTheDocument();
   });
 
   it("removes the back link and places tabs above the shared image/content layout", () => {
@@ -106,4 +117,4 @@ describe("ProductDetail information architecture", () => {
 
 const product = { id: "product-1", sku: "NV-100", name: "IP Camera", slug: "ip-camera", shortDescription: null, description: "Camera description", imageUrl: null, brand: { id: "brand-1", name: "Dahua", slug: "dahua", description: null, logoUrl: null, sortOrder: 0, isActive: true }, category: null, keyCharacteristics: [{ label: "Resolution", value: "4 MPX" }], datasheet: null, images: [], documents: [] };
 const datasheetDocument = { id: "datasheet-1", title: "Datasheet", documentType: "datasheet", url: "https://example.com/camera.pdf" };
-const commercialView = { productId: "product-1", partnerPrice: { currencyCode: "USD", amount: 48.95, formattedAmount: "$48.95", lastUpdatedAt: "2026-07-15T02:00:00Z" }, retailPrice: { currencyCode: "MDL", amount: 1526, formattedAmount: "1 526,00 MDL", lastUpdatedAt: "2026-07-15T02:00:00Z" }, commercialOpportunity: { retailPriceUsd: 89, grossProfitUsd: 40.05, markupPercent: 81.82, formattedGrossProfit: "$40.05", formattedMarkup: "81.82%" }, stock: { status: "in_stock" as const, label: "В наличии: 8 шт.", exactAvailableQuantity: 8, exactPhysicalQuantity: 10, exactReservedQuantity: 2, exactIncomingQuantity: 91, expectedArrival: { expectedQuantity: 24, expectedDate: "2026-07-28", formattedExpectedDate: "28 июля 2026 г.", sourceStatus: "confirmed_supply" as const }, hasVariantStock: false, lastUpdatedAt: "2026-07-15T02:00:00Z" }, isDemoData: false };
+const commercialView = { productId: "product-1", partnerPrice: { currencyCode: "USD", amount: 48.95, formattedAmount: "$48.95", lastUpdatedAt: "2026-07-15T02:00:00Z" }, partnerPriceMdl: { currencyCode: "MDL", amount: 839.301595, formattedAmount: "839,30 MDL", lastUpdatedAt: "2026-07-15T02:00:00Z" }, retailPrice: { currencyCode: "MDL", amount: 1526, formattedAmount: "1 526,00 MDL", lastUpdatedAt: "2026-07-15T02:00:00Z" }, commercialOpportunity: { retailPriceUsd: 89, formattedRetailPriceUsd: "$89.00 USD", grossProfitUsd: 40.05, grossProfitMdl: 686.698405, markupPercent: 81.82, formattedGrossProfit: "$40.05", formattedGrossProfitMdl: "686,70 MDL", formattedMarkup: "81.82%" }, stock: { status: "in_stock" as const, label: "В наличии: 8 шт.", exactAvailableQuantity: 8, exactPhysicalQuantity: 10, exactReservedQuantity: 2, exactIncomingQuantity: 91, expectedArrival: { expectedQuantity: 24, expectedDate: "2026-07-28", formattedExpectedDate: "28 июля 2026 г.", sourceStatus: "confirmed_supply" as const }, hasVariantStock: false, lastUpdatedAt: "2026-07-15T02:00:00Z" }, isDemoData: false };

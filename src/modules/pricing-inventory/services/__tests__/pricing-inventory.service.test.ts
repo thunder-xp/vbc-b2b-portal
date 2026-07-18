@@ -83,24 +83,36 @@ describe("DefaultPricingInventoryService", () => {
   });
 
   it("calculates the production-shaped commercial opportunity from a confirmed MDL per USD rate", async () => {
+    const repository = new FakePricingInventoryRepository([
+      makePrice(null, 48.95, goldPriceType, "999"),
+      makePrice(null, 1526, RETAIL_PRICE_TYPE_EXTERNAL_REF, "498"),
+    ], [], [], 17.1461);
     const service = new DefaultPricingInventoryService(
-      new FakePricingInventoryRepository([
-        makePrice(null, 48.95, goldPriceType, "999"),
-        makePrice(null, 1526, RETAIL_PRICE_TYPE_EXTERNAL_REF, "498"),
-      ], [], [], 17.1461),
+      repository,
       new FakeCompanyAccessService(),
       new FakePermissionService(),
     );
 
     const [result] = await service.getProductCommercialViews("user-1", ["product-1"]);
 
+    expect(result.partnerPrice).toMatchObject({ amount: 48.95, currencyCode: "USD", formattedAmount: "$48.95" });
+    expect(result.partnerPriceMdl).toMatchObject({
+      amount: 839.301595,
+      currencyCode: "MDL",
+      formattedAmount: "839,30 MDL",
+    });
     expect(result.commercialOpportunity).toMatchObject({
       formattedGrossProfit: "$40.05",
+      formattedGrossProfitMdl: "686,70 MDL",
       formattedMarkup: "81.82%",
+      formattedRetailPriceUsd: "$89.00 USD",
     });
     expect(result.commercialOpportunity?.retailPriceUsd).toBeCloseTo(89, 2);
     expect(result.commercialOpportunity?.grossProfitUsd).toBeCloseTo(40.05, 2);
+    expect(result.commercialOpportunity?.grossProfitMdl).toBeCloseTo(686.698405, 6);
     expect(result.commercialOpportunity?.markupPercent).toBeCloseTo(81.82, 2);
+    expect(repository.exchangeRateReads).toBe(1);
+    expect(repository.lastPriceInputs).toHaveLength(2);
   });
 
   it("hides derived commercial values without a confirmed rate", async () => {
@@ -112,8 +124,20 @@ describe("DefaultPricingInventoryService", () => {
     const [result] = await service.getProductCommercialViews("user-1", ["product-1"]);
 
     expect(result.partnerPrice?.formattedAmount).toBe("$48.95");
+    expect(result.partnerPriceMdl).toBeNull();
     expect(result.retailPrice?.formattedAmount).toBe("1\u00a0526,00 MDL");
     expect(result.commercialOpportunity).toBeNull();
+  });
+
+  it("reuses one bulk rate and two bulk price reads for multiple products", async () => {
+    const repository = new FakePricingInventoryRepository([], [], [], 17.1461);
+    const service = new DefaultPricingInventoryService(repository, new FakeCompanyAccessService(), new FakePermissionService());
+
+    await service.getProductCommercialViews("user-1", ["product-1", "product-2", "product-3"]);
+
+    expect(repository.exchangeRateReads).toBe(1);
+    expect(repository.lastPriceInputs).toHaveLength(2);
+    expect(repository.lastPriceInputs.every((input) => input.productIds.length === 3)).toBe(true);
   });
 
   it("preserves negative gross profit and markup", async () => {
@@ -124,7 +148,7 @@ describe("DefaultPricingInventoryService", () => {
 
     const [result] = await service.getProductCommercialViews("user-1", ["product-1"]);
 
-    expect(result.commercialOpportunity).toMatchObject({ formattedGrossProfit: "-$50.00", formattedMarkup: "-50.00%" });
+    expect(result.commercialOpportunity).toMatchObject({ formattedGrossProfit: "-$50.00", formattedGrossProfitMdl: "-1\u00a0000,00 MDL", formattedMarkup: "-50.00%" });
   });
 
   it("maps stock quantities to visible service-owned stock statuses", async () => {
@@ -185,6 +209,7 @@ describe("DefaultPricingInventoryService", () => {
 
 class FakePricingInventoryRepository implements PricingInventoryRepository {
   lastPriceInputs: ListProductPricesInput[] = [];
+  exchangeRateReads = 0;
 
   constructor(
     private readonly prices: ProductPrice[],
@@ -193,7 +218,7 @@ class FakePricingInventoryRepository implements PricingInventoryRepository {
     private readonly mdlPerUsdRate: number | null = null,
   ) {}
 
-  async getLatestUsdMdlExchangeRate() { return this.mdlPerUsdRate ? { sourceCode: "113" as const, mdlPerUsdRate: this.mdlPerUsdRate, effectiveDate: "2026-07-13", publishedAt: now } : null; }
+  async getLatestUsdMdlExchangeRate() { this.exchangeRateReads += 1; return this.mdlPerUsdRate ? { sourceCode: "113" as const, mdlPerUsdRate: this.mdlPerUsdRate, effectiveDate: "2026-07-13", publishedAt: now } : null; }
 
   async listPricesForProducts(
     input: ListProductPricesInput,

@@ -14,7 +14,7 @@ describe("ProductCard workspace context", () => {
   it("presents scoped and retail prices with public business labels", () => {
     const capabilities = resolveWorkspaceCapabilities(new Set(["catalog.view", "prices.view", "stock.view"])).productCard;
     const { container } = render(<ProductCard capabilities={capabilities} commercialView={commercialView} product={product} />);
-    expect(screen.getByText("ОПТОВАЯ")).toBeInTheDocument();
+    expect(screen.getByText("ПАРТНЁРСКАЯ")).toBeInTheDocument();
     expect(screen.getByText("$45.81")).toBeInTheDocument();
     expect(screen.getByText("РОЗНИЧНАЯ")).toBeInTheDocument();
     expect(screen.getByText("39.20 MDL")).toBeInTheDocument();

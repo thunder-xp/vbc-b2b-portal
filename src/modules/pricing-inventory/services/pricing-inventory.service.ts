@@ -40,15 +40,19 @@ export type ProductStockViewDto = {
 
 export type CommercialOpportunityViewDto = {
   retailPriceUsd: number;
+  formattedRetailPriceUsd?: string;
   grossProfitUsd: number;
+  grossProfitMdl?: number;
   markupPercent: number;
   formattedGrossProfit: string;
+  formattedGrossProfitMdl?: string;
   formattedMarkup: string;
 };
 
 export type ProductCommercialViewDto = {
   productId: string;
   partnerPrice: ProductPriceViewDto | null;
+  partnerPriceMdl?: ProductPriceViewDto | null;
   retailPrice: ProductPriceViewDto | null;
   commercialOpportunity?: CommercialOpportunityViewDto | null;
   stock: ProductStockViewDto | null;
@@ -152,6 +156,7 @@ export class DefaultPricingInventoryService implements PricingInventoryService {
       return {
         productId,
         partnerPrice: partnerPrice ? toPriceView(partnerPrice) : null,
+        partnerPriceMdl: createPartnerPriceMdlView(partnerPrice, exchangeRate),
         retailPrice: retailPrice ? toPriceView(retailPrice) : null,
         commercialOpportunity: createCommercialOpportunity(partnerPrice, retailPrice, exchangeRate?.mdlPerUsdRate ?? null),
         stock,
@@ -291,6 +296,29 @@ function formatPrice(amount: number, currencyCode: string): string {
   }).format(amount)} ${currencyCode}`;
 }
 
+function createPartnerPriceMdlView(
+  partnerPrice: ProductPrice | null,
+  exchangeRate: UsdMdlExchangeRate | null,
+): ProductPriceViewDto | null {
+  if (!partnerPrice || partnerPrice.currencyStatus !== "resolved") return null;
+  if (normalizeOneCCurrencyCode(partnerPrice.currency) !== "USD") return null;
+
+  const amount = convertUsdToMdl(partnerPrice.priceAmount, exchangeRate?.mdlPerUsdRate ?? null);
+  if (amount === null) return null;
+
+  return {
+    currencyCode: "MDL",
+    amount,
+    formattedAmount: formatPrice(amount, "MDL"),
+    lastUpdatedAt: exchangeRate?.publishedAt,
+  };
+}
+
+function convertUsdToMdl(amount: number, mdlPerUsdRate: number | null): number | null {
+  if (!Number.isFinite(amount) || !Number.isFinite(mdlPerUsdRate) || mdlPerUsdRate === null || mdlPerUsdRate <= 0) return null;
+  return amount * mdlPerUsdRate;
+}
+
 function createCommercialOpportunity(
   partnerPrice: ProductPrice | null,
   retailPrice: ProductPrice | null,
@@ -300,15 +328,22 @@ function createCommercialOpportunity(
   if (partnerPrice.currencyStatus !== "resolved" || retailPrice.currencyStatus !== "resolved") return null;
   if (normalizeOneCCurrencyCode(partnerPrice.currency) !== "USD" || normalizeOneCCurrencyCode(retailPrice.currency) !== "MDL") return null;
 
+  const partnerPriceMdl = convertUsdToMdl(partnerPrice.priceAmount, mdlPerUsdRate);
+  if (partnerPriceMdl === null || partnerPriceMdl <= 0) return null;
+
   const retailPriceUsd = retailPrice.priceAmount / mdlPerUsdRate;
-  const grossProfitUsd = retailPriceUsd - partnerPrice.priceAmount;
-  const markupPercent = (grossProfitUsd / partnerPrice.priceAmount) * 100;
+  const grossProfitMdl = retailPrice.priceAmount - partnerPriceMdl;
+  const grossProfitUsd = grossProfitMdl / mdlPerUsdRate;
+  const markupPercent = (grossProfitMdl / partnerPriceMdl) * 100;
 
   return {
     retailPriceUsd,
+    formattedRetailPriceUsd: `${formatPrice(retailPriceUsd, "USD")} USD`,
     grossProfitUsd,
+    grossProfitMdl,
     markupPercent,
     formattedGrossProfit: formatPrice(grossProfitUsd, "USD"),
+    formattedGrossProfitMdl: formatPrice(grossProfitMdl, "MDL"),
     formattedMarkup: new Intl.NumberFormat("en-US", {
       style: "percent",
       minimumFractionDigits: 2,
@@ -376,6 +411,7 @@ function createDemoCommercialView(
   return {
     productId,
     partnerPrice: canViewPrices ? demoView.partnerPrice : null,
+    partnerPriceMdl: null,
     retailPrice: null,
     commercialOpportunity: null,
     stock: canViewStock ? demoView.stock : null,
