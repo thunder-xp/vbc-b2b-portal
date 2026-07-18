@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
 
 import { getEstimateVersionProposalPreviewAction } from "@/src/modules/estimates/actions";
-import { ProposalDocument, VersionProposalControls } from "@/src/modules/estimates/components";
+import { ProposalDocument } from "@/src/modules/estimates/components/ProposalDocument";
+import { VersionProposalControls } from "@/src/modules/estimates/components/VersionProposalControls";
 
 export default async function EstimateVersionPreviewPage({ params }: { params: Promise<{ estimateId: string; versionId: string }> }) {
   const { estimateId, versionId } = await params;

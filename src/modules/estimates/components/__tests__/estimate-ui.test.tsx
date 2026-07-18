@@ -3,12 +3,12 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import type { EstimateDetailDto, EstimateProductPickerDto } from "../../services";
-import { searchEstimateProductsAction } from "../../actions";
+import { searchEstimateProductsAction } from "../../actions/estimate.actions";
 import { EstimateCreateForm } from "../EstimateCreateForm";
 import { EstimateEditor } from "../EstimateEditor";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
-vi.mock("../../actions", () => ({
+vi.mock("../../actions/estimate.actions", () => ({
   createEstimateAction: vi.fn(),
   addEstimateCustomLineAction: vi.fn(),
   addEstimateProductsAction: vi.fn(),

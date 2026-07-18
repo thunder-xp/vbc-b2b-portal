@@ -2,11 +2,11 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { saveEstimateCommercialAction } from "../../actions";
+import { saveEstimateCommercialAction } from "../../actions/estimate.actions";
 import type { EstimateDetailDto } from "../../services";
 import { EstimateCommercialEditor } from "../EstimateCommercialEditor";
 
-vi.mock("../../actions", () => ({
+vi.mock("../../actions/estimate.actions", () => ({
   addEstimateCustomLineAction: vi.fn(),
   addEstimateProductsAction: vi.fn(),
   addEstimateServiceAction: vi.fn(),

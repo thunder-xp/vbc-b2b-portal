@@ -21,6 +21,15 @@ export type ListCatalogProductsInput = {
 export type CatalogAttributeFilters = Record<string, string[]>;
 export type CatalogFacetValueRecord = { key: string; label: string; value: string; count: number; coverage: number };
 
+export type CatalogProductDetailAggregate = {
+  product: CatalogProduct;
+  brand: CatalogBrand | null;
+  category: CatalogCategory | null;
+  images: CatalogProductImage[];
+  documents: CatalogProductDocument[];
+  attributes: CatalogProductAttribute[];
+};
+
 export type CatalogUpsertResult<TRecord> = {
   record: TRecord;
   created: boolean;
@@ -68,6 +77,7 @@ export interface CatalogRepository {
   countProducts(input: ListCatalogProductsInput): Promise<number>;
   getProductBySlug(slug: string): Promise<CatalogProduct | null>;
   getProductById(id: string): Promise<CatalogProduct | null>;
+  getProductDetailAggregateById?(id: string): Promise<CatalogProductDetailAggregate | null>;
   findCategoryByExternal1cId(
     external1cId: string,
   ): Promise<CatalogCategory | null>;

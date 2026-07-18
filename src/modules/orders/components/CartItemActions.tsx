@@ -3,7 +3,7 @@
 import { useActionState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import type { ActionResult } from "../../access-control/actions/action-result";
-import { removeCartItemAction, updateCartItemAction } from "../actions";
+import { removeCartItemAction, updateCartItemAction } from "../actions/cart.actions";
 
 const initial: ActionResult<null> = { success: true, errorCode: null, message: "", data: null };
 

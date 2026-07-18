@@ -1,8 +1,9 @@
 import Link from "next/link";
 
 import { getCartAction } from "@/src/modules/orders/actions";
-import { CartItemActions, OrderSubmitForm } from "@/src/modules/orders/components";
-import { CreateEstimateFromCartButton } from "@/src/modules/estimates/components";
+import { CartItemActions } from "@/src/modules/orders/components/CartItemActions";
+import { OrderSubmitForm } from "@/src/modules/orders/components/OrderSubmitForm";
+import { CreateEstimateFromCartButton } from "@/src/modules/estimates/components/CreateEstimateFromCartButton";
 
 export default async function CartPage() {
   const result = await getCartAction();

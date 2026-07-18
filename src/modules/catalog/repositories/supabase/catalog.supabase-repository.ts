@@ -6,6 +6,7 @@ import type {
   ListCatalogProductsInput,
   CatalogAttributeFilters,
   CatalogFacetValueRecord,
+  CatalogProductDetailAggregate,
   UpsertCatalogBrandInput,
   UpsertCatalogCategoryInput,
   UpsertCatalogProductInput,
@@ -190,6 +191,36 @@ export class SupabaseCatalogRepository implements CatalogRepository {
     }
 
     return data ? mapCatalogProductRow(data as CatalogProductRow) : null;
+  }
+
+  async getProductDetailAggregateById(id: string): Promise<CatalogProductDetailAggregate | null> {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("catalog_products")
+      .select(`${CATALOG_PRODUCT_COLUMNS}, brand:catalog_brands(${CATALOG_BRAND_COLUMNS}), category:catalog_categories(${CATALOG_CATEGORY_COLUMNS}), images:catalog_product_images(${CATALOG_PRODUCT_IMAGE_COLUMNS}), documents:catalog_product_documents(${CATALOG_PRODUCT_DOCUMENT_COLUMNS}), attributes:catalog_product_attributes(${CATALOG_PRODUCT_ATTRIBUTE_COLUMNS})`)
+      .eq("id", id)
+      .eq("is_active", true)
+      .eq("is_visible", true)
+      .maybeSingle();
+
+    if (error) throw new CatalogRepositoryUnexpectedError();
+    if (!data) return null;
+
+    const row = data as unknown as CatalogProductRow & {
+      brand: CatalogBrandRow | null;
+      category: CatalogCategoryRow | null;
+      images: CatalogProductImageRow[];
+      documents: CatalogProductDocumentRow[];
+      attributes: CatalogProductAttributeRow[];
+    };
+    return {
+      product: mapCatalogProductRow(row),
+      brand: row.brand?.is_active ? mapCatalogBrandRow(row.brand) : null,
+      category: row.category?.is_active ? mapCatalogCategoryRow(row.category) : null,
+      images: row.images.map(mapCatalogProductImageRow),
+      documents: row.documents.filter((document) => document.is_active).map(mapCatalogProductDocumentRow),
+      attributes: row.attributes.filter((attribute) => attribute.is_visible).map(mapCatalogProductAttributeRow),
+    };
   }
 
   async findCategoryByExternal1cId(

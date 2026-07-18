@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { listPartnerOrderHistoryAction } from "@/src/modules/orders/actions";
-import { OrderHistoryRefreshButton } from "@/src/modules/orders/components";
+import { OrderHistoryRefreshButton } from "@/src/modules/orders/components/OrderHistoryRefreshButton";
 
 const FILTERS = [
   ["all", "Все"],

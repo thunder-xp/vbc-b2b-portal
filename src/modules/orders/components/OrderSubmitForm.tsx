@@ -3,7 +3,7 @@
 import { useActionState, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ActionResult } from "../../access-control/actions/action-result";
-import { submitCartOrderAction } from "../actions";
+import { submitCartOrderAction } from "../actions/order.actions";
 import type { PartnerOrder } from "../types";
 
 const initial: ActionResult<PartnerOrder | null> = { success: true, errorCode: null, message: "", data: null };

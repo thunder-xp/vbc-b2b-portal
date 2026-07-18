@@ -1,6 +1,7 @@
 export type {
   CatalogRepository,
   CatalogUpsertResult,
+  CatalogProductDetailAggregate,
   ListCatalogProductsInput,
   UpsertCatalogBrandInput,
   UpsertCatalogCategoryInput,

@@ -9,7 +9,7 @@ const actions = vi.hoisted(() => ({
 }));
 const refresh = vi.hoisted(() => vi.fn());
 
-vi.mock("../../actions", () => ({
+vi.mock("../../actions/delivery.actions", () => ({
   sendProposalDeliveryAction: actions.send,
   revokeProposalDeliveryAction: actions.revoke,
   submitPublicProposalResponseAction: actions.respond,

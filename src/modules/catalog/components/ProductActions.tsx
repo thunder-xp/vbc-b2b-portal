@@ -1,4 +1,4 @@
-import { AddToCartButton } from "../../orders/components";
+import { AddToCartButton } from "../../orders/components/AddToCartButton";
 import { ProductComparisonAction } from "./ProductComparisonAction";
 import { ProductFavoriteAction } from "./ProductFavoriteAction";
 import { ProductSpecificationAction } from "./ProductSpecificationAction";

@@ -4,7 +4,7 @@ import { Copy, Mail, Send, X } from "lucide-react";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-import { revokeProposalDeliveryAction, sendProposalDeliveryAction } from "../actions";
+import { revokeProposalDeliveryAction, sendProposalDeliveryAction } from "../actions/delivery.actions";
 import type { ProposalDeliverySummaryDto } from "../types";
 
 export function SendProposalDialog({ versionId, versionLabel, deliveries, canSend, defaults }: {

@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
 
-import { getCatalogProductDetailAction } from "@/src/modules/catalog/actions";
-import { EmptyCatalog, ProductDetail, type ProductDetailTab } from "@/src/modules/catalog/components";
+import { getCatalogProductDetailByIdAction, getCatalogProductRouteIdentityAction } from "@/src/modules/catalog/actions/product-page.action";
+import { EmptyCatalog } from "@/src/modules/catalog/components/EmptyCatalog";
+import { ProductDetail, type ProductDetailTab } from "@/src/modules/catalog/components/ProductDetail";
 import { evaluateFreshness } from "@/src/modules/integration/freshness";
 import { getProductCommercialViewsAction } from "@/src/modules/pricing-inventory/actions";
 import { getPartnerWorkspaceContextAction } from "@/src/modules/partner-cabinet/actions";
@@ -19,34 +20,39 @@ export default async function ProductDetailPage({
 }: ProductDetailPageProps) {
   const { slug } = await params;
   const activeTab = parseTab((await searchParams)?.tab);
-  const productResult = await getCatalogProductDetailAction(slug);
+  const identityResult = await getCatalogProductRouteIdentityAction(slug);
 
-  if (!productResult.success) {
+  if (!identityResult.success) {
     return (
       <EmptyCatalog
-        message={productResult.message}
+        message={identityResult.message}
         title="Product unavailable"
       />
     );
   }
 
-  if (!productResult.data) {
+  if (!identityResult.data) {
     notFound();
   }
+
+  const [productResult, commercialViewsResult, workspaceResult] = await Promise.all([
+    getCatalogProductDetailByIdAction(identityResult.data.id),
+    activeTab === "description" ? getProductCommercialViewsAction([identityResult.data.id]) : Promise.resolve(null),
+    activeTab === "description" ? getPartnerWorkspaceContextAction() : Promise.resolve(null),
+  ]);
+
+  if (!productResult.success) return <EmptyCatalog message={productResult.message} title="Product unavailable" />;
+  if (!productResult.data) notFound();
 
   let canAddToOrder = false;
   let companyId: string | null = null;
   let userId: string | null = null;
   let commercialView;
   if (activeTab === "description") {
-    const [commercialViewsResult, workspaceResult] = await Promise.all([
-      getProductCommercialViewsAction([productResult.data.id]),
-      getPartnerWorkspaceContextAction(),
-    ]);
-    commercialView = commercialViewsResult.success ? commercialViewsResult.data[0] : undefined;
-    canAddToOrder = workspaceResult.success && workspaceResult.data.capabilities.productCard.canAddToOrder;
-    companyId = workspaceResult.success ? workspaceResult.data.companyId : null;
-    userId = workspaceResult.success ? workspaceResult.data.userId : null;
+    commercialView = commercialViewsResult?.success ? commercialViewsResult.data[0] : undefined;
+    canAddToOrder = Boolean(workspaceResult?.success && workspaceResult.data.capabilities.productCard.canAddToOrder);
+    companyId = workspaceResult?.success ? workspaceResult.data.companyId : null;
+    userId = workspaceResult?.success ? workspaceResult.data.userId : null;
   }
   const priceUpdatedAt = latestTimestamp([commercialView?.partnerPrice?.lastUpdatedAt, commercialView?.retailPrice?.lastUpdatedAt]);
   const priceFreshness = priceUpdatedAt ? evaluateFreshness(priceUpdatedAt, "price", "Цены") : null;

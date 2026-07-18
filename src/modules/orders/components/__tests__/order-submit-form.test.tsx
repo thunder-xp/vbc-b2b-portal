@@ -7,7 +7,7 @@ import { OrderSubmitForm } from "../OrderSubmitForm";
 const mocks = vi.hoisted(() => ({ submit: vi.fn(), push: vi.fn() }));
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: mocks.push }) }));
-vi.mock("../../actions", () => ({ submitCartOrderAction: mocks.submit }));
+vi.mock("../../actions/order.actions", () => ({ submitCartOrderAction: mocks.submit }));
 
 describe("OrderSubmitForm", () => {
   beforeEach(() => vi.clearAllMocks());

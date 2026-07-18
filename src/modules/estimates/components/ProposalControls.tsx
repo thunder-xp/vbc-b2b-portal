@@ -4,7 +4,7 @@ import { Save, Settings2, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { saveEstimateProposalSettingsAction } from "../actions";
+import { saveEstimateProposalSettingsAction } from "../actions/proposal.actions";
 import type { ProposalSettings, ProposalTemplate } from "../types";
 
 export function ProposalControls({ estimateId, revision, selectedTemplateId, templates, initialSettings }: { estimateId: string; revision: number; selectedTemplateId: string | null; templates: ProposalTemplate[]; initialSettings: ProposalSettings }) {

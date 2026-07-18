@@ -3,7 +3,7 @@
 import { Download } from "lucide-react";
 import Link from "next/link";
 import { useState, useTransition } from "react";
-import { generateEstimateVersionPdfAction } from "../actions";
+import { generateEstimateVersionPdfAction } from "../actions/proposal.actions";
 
 export function VersionProposalControls({ estimateId, versionId, versionNumber }: { estimateId: string; versionId: string; versionNumber: number }) {
   const [message, setMessage] = useState<string | null>(null); const [pending, startTransition] = useTransition();

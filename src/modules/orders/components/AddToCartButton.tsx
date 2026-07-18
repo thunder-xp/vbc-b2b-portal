@@ -4,7 +4,7 @@ import { ShoppingCart } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
-import { addToCartAction } from "../actions";
+import { addToCartAction } from "../actions/cart.actions";
 
 export function AddToCartButton({ productId }: { productId: string }) {
   const [message, setMessage] = useState<string | null>(null);

@@ -110,6 +110,8 @@ export type CatalogProductOrderIdentityDto = {
   name: string;
 };
 
+export type CatalogProductRouteIdentityDto = { id: string; slug: string };
+
 export interface CatalogService {
   listCategories(userId: string): Promise<CatalogCategoryDto[]>;
   listBrands(userId: string): Promise<CatalogBrandDto[]>;
@@ -121,6 +123,8 @@ export interface CatalogService {
     userId: string,
     slug: string,
   ): Promise<CatalogProductDetailDto | null>;
+  getProductRouteIdentityBySlug?(userId: string, slug: string): Promise<CatalogProductRouteIdentityDto | null>;
+  getProductDetailById?(userId: string, id: string): Promise<CatalogProductDetailDto | null>;
   getProductsByIds(
     userId: string,
     productIds: string[],
@@ -394,6 +398,53 @@ export class DefaultCatalogService implements CatalogService {
     }
 
     return null;
+  }
+
+  async getProductRouteIdentityBySlug(userId: string, slug: string): Promise<CatalogProductRouteIdentityDto | null> {
+    await this.ensureCatalogAccess(userId);
+    const product = await this.catalogRepository.getProductBySlug(slug);
+    if (product) return { id: product.id, slug: product.slug };
+    if (await this.isCatalogEmpty()) {
+      const demoProduct = demoProducts.find((item) => item.slug === slug);
+      return demoProduct ? { id: demoProduct.id, slug: demoProduct.slug } : null;
+    }
+    return null;
+  }
+
+  async getProductDetailById(userId: string, id: string): Promise<CatalogProductDetailDto | null> {
+    await this.ensureCatalogAccess(userId);
+    const aggregate = await this.catalogRepository.getProductDetailAggregateById?.(id);
+    if (aggregate) {
+      const projectedAttributes = aggregate.attributes.map((attribute) => ({
+        key: attribute.key,
+        label: attribute.label,
+        value: normalizeCharacteristicValue(attribute.displayValue, attribute.valueType),
+        filterValue: attribute.displayValue.trim(),
+        isFilterable: attribute.isFilterable && attribute.resolutionStatus !== "unresolved",
+        valueType: attribute.valueType,
+      }));
+      const datasheet = aggregate.documents.find((document) => document.documentType === "datasheet")
+        ?? createAttributeDatasheet(aggregate.product.id, projectedAttributes);
+      return this.toProductDetailDto(
+        aggregate.product,
+        aggregate.images,
+        datasheet && !aggregate.documents.some((document) => document.id === datasheet.id)
+          ? [...aggregate.documents, datasheet]
+          : aggregate.documents,
+        createBrandMap(aggregate.brand ? [aggregate.brand] : []),
+        createCategoryMap(aggregate.category ? [aggregate.category] : []),
+        projectedAttributes.filter((attribute) => !isDatasheetAttribute(attribute.label)),
+        datasheet,
+      );
+    }
+    const demoProduct = demoProducts.find((item) => item.id === id);
+    return demoProduct ? this.toProductDetailDto(
+      demoProduct,
+      demoImages.filter((image) => image.productId === id),
+      demoDocuments.filter((document) => document.productId === id),
+      createBrandMap(demoBrands),
+      createCategoryMap(demoCategories),
+    ) : null;
   }
 
   async getProductsByIds(

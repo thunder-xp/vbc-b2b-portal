@@ -40,6 +40,26 @@ describe("Stage B1 authenticated rendering boundaries", () => {
     expect(migration).toContain("grant execute on function public.get_active_cart_unit_count(uuid) to authenticated");
     expect(migration).not.toContain("grant execute on function public.get_active_cart_unit_count(uuid) to anon");
   });
+
+  it("keeps unrelated order and proposal clients out of authenticated route imports", async () => {
+    const files = await Promise.all([
+      source("src/modules/catalog/components/ProductCard.tsx"),
+      source("app/(partner)/cabinet/cart/page.tsx"),
+      source("app/(partner)/cabinet/orders/page.tsx"),
+      source("app/(partner)/cabinet/estimates/[estimateId]/page.tsx"),
+    ]);
+    expect(files.join("\n")).not.toMatch(/modules\/(orders|estimates)\/components["']/);
+    expect(files.join("\n")).not.toContain("../../orders/components\"");
+    expect(files.join("\n")).not.toContain("../../estimates/components\"");
+  });
+
+  it("keeps the product rendering path free of integration providers", async () => {
+    const files = await Promise.all([
+      source("app/(partner)/cabinet/catalog/[slug]/page.tsx"),
+      source("src/modules/catalog/actions/product-page.action.ts"),
+    ]);
+    expect(files.join("\n")).not.toMatch(/OneC|integration\/providers|fetch\(/);
+  });
 });
 
 function source(relativePath: string): Promise<string> {

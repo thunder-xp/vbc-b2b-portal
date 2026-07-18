@@ -9,6 +9,7 @@ export type {
   CatalogProductListInput,
   CatalogProductListResult,
   CatalogProductOrderIdentityDto,
+  CatalogProductRouteIdentityDto,
   CatalogFacetDto,
   CatalogService,
 } from "./catalog.service";

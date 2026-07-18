@@ -10,10 +10,10 @@ import {
   createDraftFromEstimateVersionAction,
   createEstimateVersionAction,
   duplicateEstimateAction,
-  generateEstimateVersionPdfAction,
   markEstimateReadyAction,
   saveEstimateAsTemplateAction,
-} from "../actions";
+} from "../actions/lifecycle.actions";
+import { generateEstimateVersionPdfAction } from "../actions/proposal.actions";
 import type { EstimateWorkflowDto } from "../types";
 import { SendProposalDialog } from "./SendProposalDialog";
 

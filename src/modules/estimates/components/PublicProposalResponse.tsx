@@ -3,7 +3,7 @@
 import { CheckCircle2, XCircle } from "lucide-react";
 import { useState, useTransition } from "react";
 
-import { submitPublicProposalResponseAction } from "../actions";
+import { submitPublicProposalResponseAction } from "../actions/delivery.actions";
 import type { ProposalCustomerResponse } from "../types";
 
 export function PublicProposalResponse({ token, initialResponse, locale }: { token: string; initialResponse: ProposalCustomerResponse | null; locale: "ru" | "ro" }) {

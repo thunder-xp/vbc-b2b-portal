@@ -3,12 +3,12 @@ import userEvent from "@testing-library/user-event";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
-import { saveEstimateProposalSettingsAction } from "../../actions";
+import { saveEstimateProposalSettingsAction } from "../../actions/proposal.actions";
 import type { CustomerProposalDto, ProposalSettings, ProposalTemplate } from "../../types";
 import { ProposalControls } from "../ProposalControls";
 import { ProposalDocument } from "../ProposalDocument";
 
-vi.mock("../../actions", () => ({ saveEstimateProposalSettingsAction: vi.fn(), generateEstimateProposalPdfAction: vi.fn() }));
+vi.mock("../../actions/proposal.actions", () => ({ saveEstimateProposalSettingsAction: vi.fn(), generateEstimateProposalPdfAction: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 
 const settings: ProposalSettings = { title: "Коммерческое предложение", introduction: "Предложение", deliveryTerms: "Поставка", paymentTerms: "Оплата", warrantyTerms: "Гарантия", validityText: "14 дней", installationNotes: "", exclusions: "", customerNote: "", footerNote: "", showProductImages: true, showSku: true, showUnitPrice: true, showLineDiscount: true, showSectionSubtotals: true, showVatBreakdown: true, showPartnerLogo: true };

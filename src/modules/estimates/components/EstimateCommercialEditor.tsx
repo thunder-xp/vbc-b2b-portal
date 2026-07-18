@@ -10,7 +10,7 @@ import {
   removeEstimateLineAction,
   saveEstimateCommercialAction,
   searchEstimateProductsAction,
-} from "../actions";
+} from "../actions/estimate.actions";
 import { calculateEstimateCommercials, EstimateCalculationError, resolveCurrencyRate } from "../services/commercial-calculation";
 import type { EstimateCommercialOptionsDto, EstimateDetailDto, EstimateProductPickerDto, EstimateServiceDto, SaveEstimateCommercialCommand } from "../services";
 import type { EstimateChargeType, EstimateCurrencyChangePolicy, EstimatePricingMode, EstimateUnit, EstimateVatMode } from "../types";

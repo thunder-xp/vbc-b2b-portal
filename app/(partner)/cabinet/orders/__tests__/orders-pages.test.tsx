@@ -11,6 +11,7 @@ vi.mock("@/src/modules/orders/actions", () => ({
   getPartnerOrderHistoryAction: mocks.get,
   refreshPartnerOrderHistoryAction: mocks.refresh,
 }));
+vi.mock("@/src/modules/orders/actions/order.actions", () => ({ refreshPartnerOrderHistoryAction: mocks.refresh }));
 vi.mock("next/navigation", () => ({ notFound: mocks.notFound }));
 
 const summary = {

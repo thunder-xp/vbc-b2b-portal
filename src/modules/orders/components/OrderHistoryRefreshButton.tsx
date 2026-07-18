@@ -4,7 +4,7 @@ import { RefreshCw } from "lucide-react";
 import { useActionState } from "react";
 
 import type { ActionResult } from "../../access-control/actions/action-result";
-import { refreshPartnerOrderHistoryAction } from "../actions";
+import { refreshPartnerOrderHistoryAction } from "../actions/order.actions";
 import type { PartnerOrderHistorySyncResult } from "../services";
 
 const initialState: ActionResult<PartnerOrderHistorySyncResult | null> = {

@@ -2,7 +2,8 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 
 import { getEstimateAction, getEstimateCommercialOptionsAction, getEstimateWorkflowAction, listEstimateServicesAction } from "@/src/modules/estimates/actions";
-import { EstimateCommercialEditor, EstimateWorkflowPanel } from "@/src/modules/estimates/components";
+import { EstimateCommercialEditor } from "@/src/modules/estimates/components/EstimateCommercialEditor";
+import { EstimateWorkflowPanel } from "@/src/modules/estimates/components/EstimateWorkflowPanel";
 
 export default async function EstimateEditorPage({ params }: { params: Promise<{ estimateId: string }> }) {
   const { estimateId } = await params;

@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { listEstimateCurrenciesAction } from "@/src/modules/estimates/actions";
-import { EstimateCreateForm } from "@/src/modules/estimates/components";
+import { EstimateCreateForm } from "@/src/modules/estimates/components/EstimateCreateForm";
 
 export default async function NewEstimatePage() {
   const currencies = await listEstimateCurrenciesAction();

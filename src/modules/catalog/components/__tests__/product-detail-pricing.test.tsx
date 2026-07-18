@@ -3,6 +3,8 @@ import { describe, expect, it, vi } from "vitest";
 
 import { ProductDetail } from "../ProductDetail";
 
+vi.mock("../../../orders/components/AddToCartButton", () => ({ AddToCartButton: () => <button type="button">Add</button> }));
+
 vi.mock("next/link", () => ({ default: ({ children, href, ...props }: { children: React.ReactNode; href: string }) => <a href={href} {...props}>{children}</a> }));
 vi.mock("../ProductImageGallery", () => ({ ProductImageGallery: ({ productId }: { productId: string }) => <div>Изображение товара {productId}</div> }));
 vi.mock("../../../orders/components", () => ({ AddToCartButton: () => <button type="button">В корзину</button> }));
