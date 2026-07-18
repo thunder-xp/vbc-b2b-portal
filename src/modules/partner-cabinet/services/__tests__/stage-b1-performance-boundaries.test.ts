@@ -60,6 +60,12 @@ describe("Stage B1 authenticated rendering boundaries", () => {
     ]);
     expect(files.join("\n")).not.toMatch(/OneC|integration\/providers|fetch\(/);
   });
+
+  it("counts PostgREST requests at the shared server transport", async () => {
+    const serverClient = await source("src/lib/supabase/server.ts");
+    expect(serverClient).toContain("recordDatabaseQuery");
+    expect(serverClient).toContain('pathname.startsWith("/rest/v1/")');
+  });
 });
 
 function source(relativePath: string): Promise<string> {

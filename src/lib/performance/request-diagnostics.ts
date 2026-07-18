@@ -59,7 +59,7 @@ export function emitRequestTotal(routeCategory: string): void {
 
 function emitPerformanceEvent(routeCategory: string, stage: string, durationMs: number): void {
   const state = getRequestState();
-  console.info({
+  console.info(JSON.stringify({
     event: "authenticated_route_performance",
     correlationId: state.correlationId,
     routeCategory,
@@ -71,7 +71,7 @@ function emitPerformanceEvent(routeCategory: string, stage: string, durationMs: 
     liveProviderCalls: state.liveProviderCalls,
     cacheStatus: "request_scoped",
     deployedCommitSha: process.env.VERCEL_GIT_COMMIT_SHA ?? "local",
-  });
+  }));
 }
 
 function round(value: number): number {
