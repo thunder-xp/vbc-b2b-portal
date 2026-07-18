@@ -95,6 +95,10 @@ export class DefaultProposalService {
 
   async generateVersionPdf(userId: string, versionId: string): Promise<GeneratedEstimateDocument> {
     const preview = await this.prepareVersionPreview(userId, versionId);
+    return this.generatePreparedVersionPdf(userId, preview);
+  }
+
+  async generatePreparedVersionPdf(userId: string, preview: VersionProposalPreviewDto): Promise<GeneratedEstimateDocument> {
     const context = await this.resolveContext(userId, PDF_PERMISSION);
     const fingerprint = createHash("sha256").update(`version:${preview.versionId}:${stableJson(preview.proposal)}`).digest("hex");
     let document = await this.proposalRepository.claimVersionGeneration({ versionId: preview.versionId, fingerprint });

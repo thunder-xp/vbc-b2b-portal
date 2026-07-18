@@ -6,8 +6,8 @@ import { DefaultCatalogService } from "../../catalog/services";
 import { createPricingInventoryService } from "../../pricing-inventory/actions/service-factory";
 import { SupabaseCartRepository } from "../../orders/repositories/supabase";
 import { DefaultCartService } from "../../orders/services";
-import { SupabaseEstimateLifecycleRepository, SupabaseEstimateRepository, SupabaseProposalRepository } from "../repositories/supabase";
-import { DefaultEstimateService, DefaultProposalService, EstimateLifecycleService } from "../services";
+import { SupabaseEstimateLifecycleRepository, SupabaseEstimateRepository, SupabaseProposalDeliveryRepository, SupabaseProposalRepository } from "../repositories/supabase";
+import { DefaultEstimateService, DefaultProposalService, EstimateLifecycleService, ProposalDeliveryService, SmtpProposalEmailProvider } from "../services";
 
 export { getAuthenticatedUserId };
 
@@ -42,7 +42,16 @@ export function createEstimateLifecycleService(): EstimateLifecycleService {
   const proposalService = new DefaultProposalService(estimateRepository, proposalRepository, companyAccessService, permissionService);
   const cartService = new DefaultCartService(new SupabaseCartRepository(), companyAccessService, permissionService, catalogService, pricingInventoryService);
   return new EstimateLifecycleService(
-    new SupabaseEstimateLifecycleRepository(), estimateRepository, proposalService, cartService,
+    new SupabaseEstimateLifecycleRepository(), new SupabaseProposalDeliveryRepository(), estimateRepository, proposalService, cartService,
     companyAccessService, permissionService, catalogService, pricingInventoryService,
+  );
+}
+
+export function createProposalDeliveryService(): ProposalDeliveryService {
+  const companyAccessService = createCompanyAccessService();
+  const permissionService = new DefaultPermissionService(new SupabaseRolePermissionRepository());
+  return new ProposalDeliveryService(
+    new SupabaseProposalDeliveryRepository(), new SupabaseEstimateLifecycleRepository(), createProposalService(),
+    new SmtpProposalEmailProvider(), companyAccessService, permissionService,
   );
 }

@@ -1,4 +1,5 @@
 import type { CustomerProposalDto } from "./proposal";
+import type { ProposalDeliverySummaryDto } from "./delivery";
 
 export type EstimateVersionStatus = "prepared" | "sent" | "accepted" | "rejected" | "archived";
 export type EstimateSentChannel = "email" | "messenger" | "printed" | "other";
@@ -51,6 +52,8 @@ export type EstimateVersionListItemDto = {
   rejectedAt: string | null;
   pdfDocumentId: string | null;
   pdfStatus: "queued" | "generating" | "ready" | "failed" | null;
+  deliveries: ProposalDeliverySummaryDto[];
+  deliveryDefaults?: { recipientName: string; subject: string; message: string };
 };
 
 export type EstimateWorkflowDto = {

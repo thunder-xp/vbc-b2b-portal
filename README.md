@@ -94,6 +94,24 @@ ONEC_USE_MOCK_PARTNERS=false
 
 Never prefix these variables with `NEXT_PUBLIC_`. The browser receives only neutral partner, contract, and price-type DTOs.
 
+### Proposal Email Delivery
+
+Commercial proposals use a server-only SMTP transport. Configure these variables locally and in the production deployment:
+
+```bash
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=your-smtp-user
+SMTP_PASSWORD=your-smtp-password
+SMTP_FROM_EMAIL=proposals@example.com
+SMTP_FROM_NAME=Novotech Partner
+SMTP_TIMEOUT_MS=10000
+PUBLIC_APP_URL=https://www.nsd.md
+```
+
+`SMTP_USER`, `SMTP_PASSWORD`, and provider responses remain server-only. Public proposal links contain a one-time generated high-entropy token; the database stores only its SHA-256 hash.
+
 ### Development Internal Manager Bootstrap
 
 For product demos that need real authorization records, run:

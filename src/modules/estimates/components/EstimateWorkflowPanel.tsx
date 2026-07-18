@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, Copy, Download, FileClock, FilePlus2, PackagePlus, Send, ShoppingCart, XCircle } from "lucide-react";
+import { CheckCircle2, Copy, Download, FileClock, FilePlus2, PackagePlus, ShoppingCart } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
@@ -13,9 +13,9 @@ import {
   generateEstimateVersionPdfAction,
   markEstimateReadyAction,
   saveEstimateAsTemplateAction,
-  transitionEstimateVersionAction,
 } from "../actions";
 import type { EstimateWorkflowDto } from "../types";
+import { SendProposalDialog } from "./SendProposalDialog";
 
 export function EstimateWorkflowPanel({ initialWorkflow, revision }: { initialWorkflow: EstimateWorkflowDto; revision: number }) {
   const router = useRouter();
@@ -66,7 +66,7 @@ export function EstimateWorkflowPanel({ initialWorkflow, revision }: { initialWo
           setWorkflow((current) => ({ ...current, versions: [{
             id: result.data.id, versionNumber: result.data.versionNumber, label: `${result.data.estimateNumber} / версия ${result.data.versionNumber}`,
             status: result.data.status, statusLabel: "Подготовлено", total: new Intl.NumberFormat("ru-RU", { style: "currency", currency: result.data.currencyCode }).format(result.data.totalAmount),
-            currencyCode: result.data.currencyCode, note: result.data.note, createdAt: result.data.createdAt, createdByName: result.data.createdByName ?? "Пользователь компании", sentAt: null, acceptedAt: null, rejectedAt: null, pdfDocumentId: null, pdfStatus: null,
+            currencyCode: result.data.currencyCode, note: result.data.note, createdAt: result.data.createdAt, createdByName: result.data.createdByName ?? "Пользователь компании", sentAt: null, acceptedAt: null, rejectedAt: null, pdfDocumentId: null, pdfStatus: null, deliveries: [],
           }, ...current.versions] }));
           setNote("");
         }
@@ -82,8 +82,7 @@ export function EstimateWorkflowPanel({ initialWorkflow, revision }: { initialWo
           <Link className={iconButton} href={`/cabinet/estimates/${workflow.estimateId}/versions/${version.id}/preview`} title="Предпросмотр"><FileClock className="size-4" /></Link>
           {version.pdfStatus !== "ready" && <button className={iconButton} disabled={pending} onClick={() => run(() => generateEstimateVersionPdfAction(version.id))} title="Сформировать PDF" type="button"><Download className="size-4" /></button>}
           {version.pdfDocumentId && version.pdfStatus === "ready" && <Link className={iconButton} href={`/api/estimates/documents/${version.pdfDocumentId}`} title="Скачать PDF"><Download className="size-4" /></Link>}
-          {version.status === "prepared" && <button className={secondary} disabled={pending || version.pdfStatus !== "ready"} onClick={() => run(() => transitionEstimateVersionAction(version.id, "sent", "email"))} type="button"><Send className="size-4" />Отправлено</button>}
-          {version.status === "sent" && <><button className={secondary} disabled={pending} onClick={() => run(() => transitionEstimateVersionAction(version.id, "accepted"))} type="button"><CheckCircle2 className="size-4" />Принято</button><button className={danger} disabled={pending} onClick={() => run(() => transitionEstimateVersionAction(version.id, "rejected", null, note))} type="button"><XCircle className="size-4" />Отклонено</button></>}
+          <SendProposalDialog canSend={(version.status === "prepared" || version.status === "sent") && version.pdfStatus === "ready"} defaults={version.deliveryDefaults} deliveries={version.deliveries} versionId={version.id} versionLabel={version.label} />
           {(version.status === "rejected" || version.status === "accepted") && <button className={secondary} disabled={pending} onClick={() => restoreVersion(version.id)} type="button"><FilePlus2 className="size-4" />Новая редакция</button>}
           {version.status === "accepted" && <button className={primary} disabled={pending} onClick={() => addToCart(version.id)} type="button"><PackagePlus className="size-4" />Перейти к заказу</button>}
         </div>
@@ -103,5 +102,4 @@ function pdfLabel(status: NonNullable<EstimateWorkflowDto["versions"][number]["p
 const input = "h-10 w-full border border-zinc-300 bg-white px-3 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100";
 const primary = "inline-flex h-10 items-center justify-center gap-2 bg-emerald-700 px-4 text-sm font-semibold text-white disabled:opacity-45";
 const secondary = "inline-flex h-10 items-center justify-center gap-2 border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-700 disabled:opacity-45";
-const danger = "inline-flex h-10 items-center justify-center gap-2 border border-red-200 bg-white px-3 text-sm font-semibold text-red-700 disabled:opacity-45";
 const iconButton = "inline-flex size-10 items-center justify-center border border-zinc-300 bg-white text-zinc-700";

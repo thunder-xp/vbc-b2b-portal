@@ -6,6 +6,15 @@ import type { CustomerProposalDto, Estimate, EstimateVersion } from "../../types
 import { EstimateLifecycleService } from "../lifecycle.service";
 
 describe("EstimateLifecycleService", () => {
+  it("loads version documents and deliveries in two bulk reads without N+1 queries", async () => {
+    const dependencies = makeDependencies(300);
+    const workflow = await dependencies.service.getWorkflow("user-1", "estimate-1");
+    expect(workflow.versions).toHaveLength(1);
+    expect(dependencies.lifecycle.listLatestDocuments).toHaveBeenCalledOnce();
+    expect(dependencies.deliveryRepository.listByVersionIds).toHaveBeenCalledOnce();
+    expect(dependencies.deliveryRepository.listByVersionIds).toHaveBeenCalledWith(["version-1"]);
+  });
+
   it.each([20, 100, 300])("creates one exact %i-line version without per-line writes", async (lineCount) => {
     const dependencies = makeDependencies(lineCount);
     const result = await dependencies.service.createVersion("user-1", "estimate-1", 3, "Offer", "Rates changed");
@@ -83,10 +92,11 @@ function makeDependencies(lineCount = 1) {
   };
   const catalog = { getProductsByIds: vi.fn().mockResolvedValue([{ id: "product-1" }]) };
   const pricing = { getProductCommercialViews: vi.fn().mockResolvedValue([{ productId: "product-1", partnerPrice: { amount: 12, currencyCode: "USD", lastUpdatedAt: "2026-07-16T10:00:00Z" } }]) };
-  const service = new EstimateLifecycleService(lifecycle, estimates, proposalService as never, cart as never,
+  const deliveryRepository = { listByVersionIds: vi.fn().mockResolvedValue([]) };
+  const service = new EstimateLifecycleService(lifecycle, deliveryRepository as never, estimates, proposalService as never, cart as never,
     { getOwnMemberships: vi.fn().mockResolvedValue([{ companyId: "company-1", status: "active" }]), getActiveCompanyContext: vi.fn().mockResolvedValue({ company: { id: "company-1" } }) } as never,
     { ensurePermission: vi.fn().mockResolvedValue({ isAllowed: true }) } as never, catalog as never, pricing as never);
-  return { service, lifecycle, estimates, proposal, proposalService, estimate, cart, catalog, pricing };
+  return { service, lifecycle, deliveryRepository, estimates, proposal, proposalService, estimate, cart, catalog, pricing };
 }
 
 function makeEstimate(): Estimate {

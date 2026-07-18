@@ -4,7 +4,7 @@ import { MembershipStatus } from "../../access-control/types";
 import type { CatalogService } from "../../catalog/services";
 import type { CartService } from "../../orders/services";
 import type { PricingInventoryService } from "../../pricing-inventory/services";
-import type { EstimateLifecycleRepository, EstimateRepository, RefreshedProductPrice } from "../repositories";
+import type { EstimateLifecycleRepository, EstimateRepository, ProposalDeliveryRepository, RefreshedProductPrice } from "../repositories";
 import type {
   Estimate,
   EstimateCartConversionSummary,
@@ -12,6 +12,8 @@ import type {
   EstimateVersion,
   EstimateVersionStatus,
   EstimateWorkflowDto,
+  ProposalDelivery,
+  ProposalDeliverySummaryDto,
   ProposalTemplate,
 } from "../types";
 import { convertMoney, resolveCurrencyRate } from "./commercial-calculation";
@@ -25,6 +27,7 @@ const CONVERT_PERMISSION = "estimates.convert_to_cart";
 export class EstimateLifecycleService {
   constructor(
     private readonly lifecycleRepository: EstimateLifecycleRepository,
+    private readonly deliveryRepository: ProposalDeliveryRepository,
     private readonly estimateRepository: EstimateRepository,
     private readonly proposalService: DefaultProposalService,
     private readonly cartService: CartService,
@@ -43,7 +46,12 @@ export class EstimateLifecycleService {
     ]);
     if (!aggregate || aggregate.estimate.companyId !== companyId) throw new NotFoundError("Смета не найдена.");
     const estimate = aggregate.estimate;
-    const documents = await this.lifecycleRepository.listLatestDocuments(versions.map((version) => version.id));
+    const versionIds = versions.map((version) => version.id);
+    const [documents, deliveries] = await Promise.all([
+      this.lifecycleRepository.listLatestDocuments(versionIds),
+      this.deliveryRepository.listByVersionIds(versionIds),
+    ]);
+    const deliveriesByVersion = summarizeDeliveries(deliveries);
     return {
       estimateId: estimate.id,
       estimateStatus: normalizeEstimateStatus(estimate.status),
@@ -66,6 +74,12 @@ export class EstimateLifecycleService {
           rejectedAt: version.rejectedAt,
           pdfDocumentId: document?.id ?? null,
           pdfStatus: document?.status ?? null,
+          deliveries: deliveriesByVersion.get(version.id) ?? [],
+          deliveryDefaults: {
+            recipientName: version.customerProposalSnapshot.customerName ?? "",
+            subject: `Коммерческое предложение ${version.estimateNumber}`,
+            message: version.customerProposalSnapshot.projectName ? `Проект: ${version.customerProposalSnapshot.projectName}` : "",
+          },
         };
       }),
       readiness: readinessFromAggregate(aggregate),
@@ -216,6 +230,29 @@ export class EstimateLifecycleService {
     await this.permissionService.ensurePermission(userId, context.company.id, permission);
     return context.company.id;
   }
+}
+
+function summarizeDeliveries(deliveries: ProposalDelivery[]): Map<string, ProposalDeliverySummaryDto[]> {
+  const result = new Map<string, ProposalDeliverySummaryDto[]>();
+  for (const delivery of deliveries) {
+    const rows = result.get(delivery.versionId) ?? [];
+    rows.push({
+      id: delivery.id,
+      recipient: delivery.recipientEmail,
+      status: delivery.status,
+      statusLabel: deliveryStatusLabel(delivery.status),
+      sentAt: delivery.sentAt,
+      openedAt: delivery.firstOpenedAt,
+      expiresAt: delivery.tokenExpiresAt,
+      response: delivery.response,
+    });
+    result.set(delivery.versionId, rows);
+  }
+  return result;
+}
+
+function deliveryStatusLabel(status: ProposalDelivery["status"]) {
+  return ({ queued: "В очереди", sending: "Отправляется", sent: "Отправлено", delivered: "Доставлено", failed: "Ошибка отправки", revoked: "Ссылка отозвана", responded: "Клиент ответил" } as const)[status];
 }
 
 function readinessFromAggregate(aggregate: NonNullable<Awaited<ReturnType<EstimateRepository["findAggregateById"]>>>) {
