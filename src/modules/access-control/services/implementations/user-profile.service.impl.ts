@@ -1,6 +1,7 @@
 import type {
   UserProfileRepository,
 } from "../../repositories";
+import { cache } from "react";
 import {
   RepositoryOperationNotAvailableError,
   RepositoryUnexpectedError,
@@ -22,12 +23,16 @@ import {
 export class DefaultUserProfileService implements UserProfileService {
   constructor(private readonly userProfileRepository: UserProfileRepository) {}
 
-  async getCurrentProfile(userId: string): Promise<UserProfile | null> {
+  private readonly findCurrentProfile = cache(async (userId: string) => {
     try {
       return await this.userProfileRepository.findById(userId);
     } catch (error) {
       throw this.mapRepositoryError(error);
     }
+  });
+
+  async getCurrentProfile(userId: string): Promise<UserProfile | null> {
+    return this.findCurrentProfile(userId);
   }
 
   async createProfileAfterSignup(

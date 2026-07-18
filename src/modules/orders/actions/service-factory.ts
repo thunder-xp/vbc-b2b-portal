@@ -1,6 +1,4 @@
-import { createCompanyAccessService } from "../../access-control/actions/service-factory";
-import { SupabaseRolePermissionRepository } from "../../access-control/repositories/supabase";
-import { DefaultPermissionService } from "../../access-control/services/implementations";
+import { createCompanyAccessService, createPermissionService } from "../../access-control/actions/service-factory";
 import { SupabaseCatalogRepository } from "../../catalog/repositories/supabase";
 import { DefaultCatalogService } from "../../catalog/services";
 import { OneCProvider } from "../../integration/providers/one-c";
@@ -11,7 +9,7 @@ import { DefaultCartService, DefaultPartnerOrderHistoryService, DefaultPartnerOr
 
 function dependencies() {
   const companyAccessService = createCompanyAccessService();
-  const permissionService = new DefaultPermissionService(new SupabaseRolePermissionRepository());
+  const permissionService = createPermissionService();
   const pricingInventoryService = createPricingInventoryService();
   const cartRepository = new SupabaseCartRepository();
   const orderRepository = new SupabasePartnerOrderRepository();

@@ -12,7 +12,6 @@ import {
   mapRoleRow,
   type CompanyMembershipRow,
   type PermissionRow,
-  type RolePermissionRow,
   type RoleRow,
 } from "./mappers";
 import { RepositoryUnexpectedError } from "../index";
@@ -20,6 +19,8 @@ import { RepositoryUnexpectedError } from "../index";
 const ROLE_COLUMNS = "id, code, name, scope, created_at";
 const PERMISSION_COLUMNS = "id, code, description, created_at";
 const ROLE_PERMISSION_COLUMNS = "role_id, permission_id, created_at";
+const EFFECTIVE_PERMISSION_COLUMNS =
+  "permission:permissions!inner(id, code, description, created_at)";
 const MEMBERSHIP_ROLE_COLUMNS = "role_id";
 const PARTNER_COMPANY_ACTIVE_COLUMNS = "id";
 
@@ -58,34 +59,18 @@ export class SupabaseRolePermissionRepository
 
   async findPermissionsByRoleId(roleId: string): Promise<Permission[]> {
     const supabase = await createClient();
-    const { data: rolePermissionRows, error: rolePermissionError } =
-      await supabase
-        .from("role_permissions")
-        .select(ROLE_PERMISSION_COLUMNS)
-        .eq("role_id", roleId);
-
-    if (rolePermissionError) {
-      throw new RepositoryUnexpectedError();
-    }
-
-    const permissionIds = (rolePermissionRows as RolePermissionRow[]).map(
-      (row) => row.permission_id,
-    );
-
-    if (permissionIds.length === 0) {
-      return [];
-    }
-
     const { data, error } = await supabase
-      .from("permissions")
-      .select(PERMISSION_COLUMNS)
-      .in("id", permissionIds);
+      .from("role_permissions")
+      .select(EFFECTIVE_PERMISSION_COLUMNS)
+      .eq("role_id", roleId);
 
     if (error) {
       throw new RepositoryUnexpectedError();
     }
 
-    return (data as PermissionRow[]).map(mapPermissionRow);
+    return (data as unknown as Array<{ permission: PermissionRow | PermissionRow[] }>)
+      .flatMap((row) => Array.isArray(row.permission) ? row.permission : [row.permission])
+      .map(mapPermissionRow);
   }
 
   async userHasPermission(

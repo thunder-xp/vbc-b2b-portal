@@ -1,4 +1,5 @@
 import { createClient } from "@/src/lib/supabase/server";
+import { cache } from "react";
 import {
   measurePerformanceStage,
   recordAuthCall,
@@ -15,6 +16,7 @@ import type {
   AccessApprovalService,
   AccessRequestService,
   CompanyAccessService,
+  PermissionService,
   UserProfileService,
 } from "../services";
 import { UnauthenticatedError } from "../services";
@@ -22,6 +24,7 @@ import {
   DefaultAccessRequestService,
   DefaultAccessApprovalService,
   DefaultCompanyAccessService,
+  DefaultPermissionService,
   DefaultUserProfileService,
 } from "../services/implementations";
 
@@ -30,7 +33,7 @@ export type AuthenticatedUser = {
   email: string;
 };
 
-export async function getAuthenticatedUser(): Promise<AuthenticatedUser> {
+export const getAuthenticatedUser = cache(async (): Promise<AuthenticatedUser> => {
   return measurePerformanceStage("authenticated", "auth", async () => {
     const supabase = await createClient();
     recordAuthCall();
@@ -45,7 +48,7 @@ export async function getAuthenticatedUser(): Promise<AuthenticatedUser> {
       email: data.user.email,
     };
   });
-}
+});
 
 export async function getAuthenticatedUserId(): Promise<string> {
   const user = await getAuthenticatedUser();
@@ -53,8 +56,21 @@ export async function getAuthenticatedUserId(): Promise<string> {
   return user.id;
 }
 
+const userProfileService: UserProfileService = new DefaultUserProfileService(
+  new SupabaseUserProfileRepository(),
+);
+const companyAccessService: CompanyAccessService = new DefaultCompanyAccessService(
+  new SupabaseCompanyMembershipRepository(),
+  new SupabasePartnerCompanyRepository(),
+  userProfileService,
+);
+const permissionService: PermissionService = new DefaultPermissionService(
+  new SupabaseRolePermissionRepository(),
+  companyAccessService,
+);
+
 export function createUserProfileService(): UserProfileService {
-  return new DefaultUserProfileService(new SupabaseUserProfileRepository());
+  return userProfileService;
 }
 
 export function createAccessRequestService(): AccessRequestService {
@@ -75,9 +91,9 @@ export function createAccessApprovalService(): AccessApprovalService {
 }
 
 export function createCompanyAccessService(): CompanyAccessService {
-  return new DefaultCompanyAccessService(
-    new SupabaseCompanyMembershipRepository(),
-    new SupabasePartnerCompanyRepository(),
-    createUserProfileService(),
-  );
+  return companyAccessService;
+}
+
+export function createPermissionService(): PermissionService {
+  return permissionService;
 }

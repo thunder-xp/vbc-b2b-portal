@@ -2,6 +2,7 @@ import type {
   CompanyMembershipRepository,
   PartnerCompanyRepository,
 } from "../../repositories";
+import { cache } from "react";
 import {
   RepositoryOperationNotAvailableError,
   RepositoryUnexpectedError,
@@ -34,27 +35,44 @@ export class DefaultCompanyAccessService implements CompanyAccessService {
     private readonly userProfileService: UserProfileService,
   ) {}
 
-  async getOwnMemberships(userId: string): Promise<CompanyMembership[]> {
+  private readonly findOwnMemberships = cache(async (userId: string) => {
     try {
       return await this.companyMembershipRepository.findByUserId(userId);
     } catch (error) {
       throw this.mapRepositoryError(error);
     }
+  });
+
+  private readonly findActiveCompanyContext = cache(
+    async (userId: string, companyId: string): Promise<ActiveCompanyContext> => {
+      const [user, membership, company] = await Promise.all([
+        this.userProfileService.ensureActiveUser(userId),
+        this.ensureActiveMembership(userId, companyId),
+        this.ensureActiveCompany(companyId),
+      ]);
+      return { user, company, membership };
+    },
+  );
+
+  private readonly findActiveCompany = cache(async (companyId: string) => {
+    let company: PartnerCompany | null;
+    try {
+      company = await this.partnerCompanyRepository.findById(companyId);
+    } catch (error) {
+      throw this.mapRepositoryError(error);
+    }
+    return company;
+  });
+
+  async getOwnMemberships(userId: string): Promise<CompanyMembership[]> {
+    return this.findOwnMemberships(userId);
   }
 
   async getActiveCompanyContext(
     userId: string,
     companyId: string,
   ): Promise<ActiveCompanyContext> {
-    const user = await this.userProfileService.ensureActiveUser(userId);
-    const membership = await this.ensureActiveMembership(userId, companyId);
-    const company = await this.ensureActiveCompany(companyId);
-
-    return {
-      user,
-      company,
-      membership,
-    };
+    return this.findActiveCompanyContext(userId, companyId);
   }
 
   async validateCompanyAccess(
@@ -112,7 +130,7 @@ export class DefaultCompanyAccessService implements CompanyAccessService {
     let company: PartnerCompany | null;
 
     try {
-      company = await this.partnerCompanyRepository.findById(companyId);
+      company = await this.findActiveCompany(companyId);
     } catch (error) {
       throw this.mapRepositoryError(error);
     }

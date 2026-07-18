@@ -1,10 +1,9 @@
 import {
   createAccessRequestService,
   createCompanyAccessService,
+  createPermissionService,
   createUserProfileService,
 } from "../../access-control/actions/service-factory";
-import { SupabaseRolePermissionRepository } from "../../access-control/repositories/supabase";
-import { DefaultPermissionService } from "../../access-control/services/implementations";
 import { getOneCEnv } from "../../../lib/env";
 import { createPartnerLookupService } from "../../integration/services";
 import type { PartnerLookupService } from "../../integration/services";
@@ -27,7 +26,7 @@ export function createPartnerWorkspaceContextService(): DefaultPartnerWorkspaceC
     createUserProfileService(),
     createAccessRequestService(),
     createCompanyAccessService(),
-    new DefaultPermissionService(new SupabaseRolePermissionRepository()),
+    createPermissionService(),
     partnerLookupService,
   );
 }

@@ -1,6 +1,4 @@
-import { createCompanyAccessService } from "../../access-control/actions/service-factory";
-import { SupabaseRolePermissionRepository } from "../../access-control/repositories/supabase";
-import { DefaultPermissionService } from "../../access-control/services/implementations";
+import { createCompanyAccessService, createPermissionService } from "../../access-control/actions/service-factory";
 import { SupabaseCatalogRepository } from "../../catalog/repositories/supabase";
 import { DefaultCatalogService } from "../../catalog/services";
 import { createPricingInventoryService } from "../../pricing-inventory/actions/service-factory";
@@ -15,7 +13,7 @@ export function createProjectSpecificationService(): DefaultProjectSpecification
   return new DefaultProjectSpecificationService(
     new SupabaseProjectSpecificationRepository(),
     companyAccessService,
-    new DefaultPermissionService(new SupabaseRolePermissionRepository()),
+    createPermissionService(),
     new DefaultCatalogService(new SupabaseCatalogRepository(), companyAccessService),
     createPricingInventoryService(),
   );

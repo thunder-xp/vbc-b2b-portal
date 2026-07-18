@@ -1,6 +1,4 @@
-import { createCompanyAccessService, getAuthenticatedUserId } from "../../access-control/actions/service-factory";
-import { SupabaseRolePermissionRepository } from "../../access-control/repositories/supabase";
-import { DefaultPermissionService } from "../../access-control/services/implementations";
+import { createCompanyAccessService, createPermissionService, getAuthenticatedUserId } from "../../access-control/actions/service-factory";
 import { SupabaseCatalogRepository } from "../../catalog/repositories/supabase";
 import { DefaultCatalogService } from "../../catalog/services";
 import { createPricingInventoryService } from "../../pricing-inventory/actions/service-factory";
@@ -17,7 +15,7 @@ export function createEstimateService(): DefaultEstimateService {
   return new DefaultEstimateService(
     new SupabaseEstimateRepository(),
     companyAccessService,
-    new DefaultPermissionService(new SupabaseRolePermissionRepository()),
+    createPermissionService(),
     new DefaultCatalogService(new SupabaseCatalogRepository(), companyAccessService, pricingInventoryService),
     pricingInventoryService,
   );
@@ -28,13 +26,13 @@ export function createProposalService(): DefaultProposalService {
     new SupabaseEstimateRepository(),
     new SupabaseProposalRepository(),
     createCompanyAccessService(),
-    new DefaultPermissionService(new SupabaseRolePermissionRepository()),
+    createPermissionService(),
   );
 }
 
 export function createEstimateLifecycleService(): EstimateLifecycleService {
   const companyAccessService = createCompanyAccessService();
-  const permissionService = new DefaultPermissionService(new SupabaseRolePermissionRepository());
+  const permissionService = createPermissionService();
   const pricingInventoryService = createPricingInventoryService();
   const catalogService = new DefaultCatalogService(new SupabaseCatalogRepository(), companyAccessService, pricingInventoryService);
   const estimateRepository = new SupabaseEstimateRepository();
@@ -49,7 +47,7 @@ export function createEstimateLifecycleService(): EstimateLifecycleService {
 
 export function createProposalDeliveryService(): ProposalDeliveryService {
   const companyAccessService = createCompanyAccessService();
-  const permissionService = new DefaultPermissionService(new SupabaseRolePermissionRepository());
+  const permissionService = createPermissionService();
   return new ProposalDeliveryService(
     new SupabaseProposalDeliveryRepository(), new SupabaseEstimateLifecycleRepository(), createProposalService(),
     new SmtpProposalEmailProvider(), companyAccessService, permissionService,
