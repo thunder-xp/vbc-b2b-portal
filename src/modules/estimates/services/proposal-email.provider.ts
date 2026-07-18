@@ -14,6 +14,14 @@ export interface ProposalEmailProvider {
   send(message: ProposalEmailMessage): Promise<{ messageId: string | null; category: "accepted" }>;
 }
 
+export type ProposalEmailVerificationResult = {
+  configured: boolean;
+  connectionSuccessful: boolean;
+  authenticationSuccessful: boolean;
+  errorCategory: ProposalEmailProviderError["category"] | null;
+  durationMs: number;
+};
+
 export class ProposalEmailProviderError extends Error {
   constructor(readonly category: "configuration" | "timeout" | "authentication" | "rejected" | "unavailable") {
     super("Proposal email provider failed.");
@@ -22,13 +30,30 @@ export class ProposalEmailProviderError extends Error {
 }
 
 export class SmtpProposalEmailProvider implements ProposalEmailProvider {
+  async verify(): Promise<ProposalEmailVerificationResult> {
+    const startedAt = performance.now();
+    let config: ReturnType<typeof smtpConfig>;
+    try {
+      config = smtpConfig();
+    } catch (error) {
+      return verificationResult(false, false, false, categoryOf(error), startedAt);
+    }
+
+    const transporter = createSmtpTransport(config);
+    try {
+      await transporter.verify();
+      return verificationResult(true, true, true, null, startedAt);
+    } catch (error) {
+      const category = categoryOf(error);
+      return verificationResult(true, category === "authentication", false, category, startedAt);
+    } finally {
+      transporter.close();
+    }
+  }
+
   async send(message: ProposalEmailMessage) {
     const config = smtpConfig();
-    const transporter = nodemailer.createTransport({
-      host: config.host, port: config.port, secure: config.secure,
-      auth: { user: config.user, pass: config.password },
-      connectionTimeout: config.timeoutMs, greetingTimeout: config.timeoutMs, socketTimeout: config.timeoutMs,
-    });
+    const transporter = createSmtpTransport(config);
     try {
       const result = await transporter.sendMail({
         from: { name: config.fromName, address: config.fromEmail }, to: message.to,
@@ -37,13 +62,42 @@ export class SmtpProposalEmailProvider implements ProposalEmailProvider {
       });
       return { messageId: typeof result.messageId === "string" ? result.messageId.slice(0, 300) : null, category: "accepted" as const };
     } catch (error) {
-      const code = error && typeof error === "object" && "code" in error ? String(error.code) : "";
-      if (/TIMEOUT|ETIMEDOUT/i.test(code)) throw new ProposalEmailProviderError("timeout");
-      if (/AUTH|EAUTH/i.test(code)) throw new ProposalEmailProviderError("authentication");
-      if (/EENVELOPE|EMESSAGE/i.test(code)) throw new ProposalEmailProviderError("rejected");
-      throw new ProposalEmailProviderError("unavailable");
+      throw new ProposalEmailProviderError(categoryOf(error));
+    } finally {
+      transporter.close();
     }
   }
+}
+
+export function verifySmtpTransport(): Promise<ProposalEmailVerificationResult> {
+  return new SmtpProposalEmailProvider().verify();
+}
+
+function createSmtpTransport(config: ReturnType<typeof smtpConfig>) {
+  return nodemailer.createTransport({
+    host: config.host, port: config.port, secure: config.secure,
+    auth: { user: config.user, pass: config.password },
+    connectionTimeout: config.timeoutMs, greetingTimeout: config.timeoutMs, socketTimeout: config.timeoutMs,
+  });
+}
+
+function categoryOf(error: unknown): ProposalEmailProviderError["category"] {
+  if (error instanceof ProposalEmailProviderError) return error.category;
+  const code = error && typeof error === "object" && "code" in error ? String(error.code) : "";
+  if (/TIMEOUT|ETIMEDOUT/i.test(code)) return "timeout";
+  if (/AUTH|EAUTH/i.test(code)) return "authentication";
+  if (/EENVELOPE|EMESSAGE/i.test(code)) return "rejected";
+  return "unavailable";
+}
+
+function verificationResult(
+  configured: boolean,
+  connectionSuccessful: boolean,
+  authenticationSuccessful: boolean,
+  errorCategory: ProposalEmailVerificationResult["errorCategory"],
+  startedAt: number,
+): ProposalEmailVerificationResult {
+  return { configured, connectionSuccessful, authenticationSuccessful, errorCategory, durationMs: Math.max(0, Math.round(performance.now() - startedAt)) };
 }
 
 function smtpConfig() {

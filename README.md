@@ -112,6 +112,8 @@ PUBLIC_APP_URL=https://www.nsd.md
 
 `SMTP_USER`, `SMTP_PASSWORD`, and provider responses remain server-only. Public proposal links contain a one-time generated high-entropy token; the database stores only its SHA-256 hash.
 
+SMTP connectivity can be verified without sending a message by calling `POST /api/internal/smtp-verify` with `Authorization: Bearer <secret>`. The route uses `SMTP_DIAGNOSTIC_SECRET` when configured, otherwise the existing server-only `CRON_SECRET`. It returns only configuration, connection, authentication, safe error category, and duration fields.
+
 ### Development Internal Manager Bootstrap
 
 For product demos that need real authorization records, run:
