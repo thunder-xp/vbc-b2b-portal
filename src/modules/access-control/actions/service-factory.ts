@@ -1,4 +1,8 @@
 import { createClient } from "@/src/lib/supabase/server";
+import {
+  measurePerformanceStage,
+  recordAuthCall,
+} from "@/src/lib/performance/request-diagnostics";
 
 import {
   SupabaseAccessRequestRepository,
@@ -27,17 +31,20 @@ export type AuthenticatedUser = {
 };
 
 export async function getAuthenticatedUser(): Promise<AuthenticatedUser> {
-  const supabase = await createClient();
-  const { data, error } = await supabase.auth.getUser();
+  return measurePerformanceStage("authenticated", "auth", async () => {
+    const supabase = await createClient();
+    recordAuthCall();
+    const { data, error } = await supabase.auth.getUser();
 
-  if (error || !data.user?.email) {
-    throw new UnauthenticatedError();
-  }
+    if (error || !data.user?.email) {
+      throw new UnauthenticatedError();
+    }
 
-  return {
-    id: data.user.id,
-    email: data.user.email,
-  };
+    return {
+      id: data.user.id,
+      email: data.user.email,
+    };
+  });
 }
 
 export async function getAuthenticatedUserId(): Promise<string> {
