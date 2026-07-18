@@ -23,7 +23,7 @@ export default async function CartPage() {
         <div className="rounded-lg border border-dashed border-zinc-300 bg-white p-8 text-center">
           <h2 className="text-lg font-semibold">Корзина пуста</h2>
           <p className="mt-2 text-sm text-zinc-600">Добавьте товары из каталога, чтобы создать заказ в 1С.</p>
-          <Link className="mt-4 inline-flex rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white" href="/cabinet/catalog">Открыть каталог</Link>
+          <Link className="mt-4 inline-flex rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white" href="/cabinet/catalog" prefetch={false}>Открыть каталог</Link>
         </div>
       ) : (
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
@@ -32,7 +32,7 @@ export default async function CartPage() {
               {cart.lines.map((line) => (
                 <li className="grid gap-4 p-4 md:grid-cols-[minmax(0,1fr)_150px_180px]" key={line.id}>
                   <div>
-                    <Link className="font-semibold text-zinc-950 hover:text-emerald-700" href={`/cabinet/catalog/${line.slug}`}>{line.productName}</Link>
+                    <Link className="font-semibold text-zinc-950 hover:text-emerald-700" href={`/cabinet/catalog/${line.slug}`} prefetch={false}>{line.productName}</Link>
                     <p className="mt-1 text-xs text-zinc-500">Артикул: {line.sku}</p>
                     <p className="mt-3 text-sm">Партнёрская цена: <strong>{line.partnerUnitPrice ?? "Недоступна"}</strong></p>
                     <p className="mt-1 text-xs text-zinc-600">Доступно: {line.availableStock ?? "Нет данных"}</p>

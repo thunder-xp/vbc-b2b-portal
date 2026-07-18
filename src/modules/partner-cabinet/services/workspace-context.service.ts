@@ -15,7 +15,7 @@ import {
   UserStatus,
   UserType,
 } from "../../access-control/types";
-import type { PartnerLookupService } from "../../integration/services";
+import { cache } from "react";
 import {
   resolveWorkspaceCapabilities,
   type WorkspaceCapabilityModel,
@@ -54,6 +54,10 @@ export interface PartnerWorkspaceContextService {
   getWorkspaceContext(userId: string): Promise<PartnerWorkspaceContext>;
 }
 
+export interface PartnerPriceTypeReadModel {
+  findName(externalReference: string): Promise<string | null>;
+}
+
 export class DefaultPartnerWorkspaceContextService
   implements PartnerWorkspaceContextService
 {
@@ -62,10 +66,18 @@ export class DefaultPartnerWorkspaceContextService
     private readonly accessRequestService: AccessRequestService,
     private readonly companyAccessService: CompanyAccessService,
     private readonly permissionService: PermissionService,
-    private readonly partnerLookupService: PartnerLookupService | null,
+    private readonly priceTypeReadModel: PartnerPriceTypeReadModel,
   ) {}
 
+  private readonly resolveWorkspaceContext = cache((userId: string) =>
+    this.loadWorkspaceContext(userId),
+  );
+
   async getWorkspaceContext(userId: string): Promise<PartnerWorkspaceContext> {
+    return this.resolveWorkspaceContext(userId);
+  }
+
+  private async loadWorkspaceContext(userId: string): Promise<PartnerWorkspaceContext> {
     const profile = await this.userProfileService.getCurrentProfile(userId);
 
     if (!profile) return emptyContext(userId, "", "", "missing_profile");
@@ -156,12 +168,11 @@ export class DefaultPartnerWorkspaceContextService
 
   private async resolvePriceTypeName(reference: string | null): Promise<string | null> {
     if (!reference) return null;
-    if (!this.partnerLookupService) return "Назначен";
 
     try {
-      return (await this.partnerLookupService.getPriceType(reference))?.name ?? "Назначен";
+      return await this.priceTypeReadModel.findName(reference);
     } catch {
-      return "Назначен";
+      return null;
     }
   }
 }

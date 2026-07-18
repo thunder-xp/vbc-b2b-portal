@@ -18,6 +18,7 @@ export type OrderItemSnapshotInput = {
 };
 
 export interface CartRepository {
+  getActiveItemCount(companyId: string): Promise<number>;
   findActive(companyId: string, userId: string): Promise<Cart | null>;
   listItems(cartId: string): Promise<CartItem[]>;
   addItem(companyId: string, productId: string, quantity: number): Promise<CartItem>;

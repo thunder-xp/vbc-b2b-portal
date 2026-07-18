@@ -53,6 +53,7 @@ export type UpsertProductStockBalanceInput = FindProductStockBalanceInput & {
 };
 
 export interface PricingInventoryRepository {
+  findPriceTypeName?(externalRef: string): Promise<string | null>;
   listAvailableCurrencyCodes?(): Promise<string[]>;
   getLatestUsdMdlExchangeRate?(): Promise<UsdMdlExchangeRate | null>;
   getActiveCommercialRateSnapshot?(): Promise<CommercialRateSnapshot>;

@@ -48,6 +48,7 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
                 : "whitespace-nowrap rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"}
               href={filterHref(value, result.data.search)}
               key={value}
+              prefetch={false}
             >
               {label}
             </Link>
@@ -79,7 +80,7 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
           <ul className="divide-y divide-zinc-200">
             {result.data.orders.map((order) => (
               <li key={order.id}>
-                <Link className="grid gap-2 p-4 outline-none hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-600 xl:grid-cols-[minmax(190px,1fr)_110px_130px_140px_110px_110px_120px] xl:items-center" href={`/cabinet/orders/${order.id}`}>
+                <Link className="grid gap-2 p-4 outline-none hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-600 xl:grid-cols-[minmax(190px,1fr)_110px_130px_140px_110px_110px_120px] xl:items-center" href={`/cabinet/orders/${order.id}`} prefetch={false}>
                   <span className="font-semibold text-zinc-950">{order.primaryLabel}</span>
                   <span className="text-sm text-zinc-600">{formatDate(order.documentDate)}</span>
                   <span className="text-sm font-medium text-zinc-700">{order.statusLabel}</span>
@@ -93,9 +94,9 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
           </ul>
           {result.data.totalPages > 1 ? (
             <nav aria-label="Страницы заказов" className="flex items-center justify-between border-t border-zinc-200 px-4 py-3 text-sm">
-              <Link className={result.data.page <= 1 ? "pointer-events-none text-zinc-300" : "font-medium text-emerald-700"} href={pageHref(result.data.page - 1, result.data.filter, result.data.search)}>Назад</Link>
+              <Link className={result.data.page <= 1 ? "pointer-events-none text-zinc-300" : "font-medium text-emerald-700"} href={pageHref(result.data.page - 1, result.data.filter, result.data.search)} prefetch={false}>Назад</Link>
               <span className="text-zinc-600">Страница {result.data.page} из {result.data.totalPages}</span>
-              <Link className={result.data.page >= result.data.totalPages ? "pointer-events-none text-zinc-300" : "font-medium text-emerald-700"} href={pageHref(result.data.page + 1, result.data.filter, result.data.search)}>Далее</Link>
+              <Link className={result.data.page >= result.data.totalPages ? "pointer-events-none text-zinc-300" : "font-medium text-emerald-700"} href={pageHref(result.data.page + 1, result.data.filter, result.data.search)} prefetch={false}>Далее</Link>
             </nav>
           ) : null}
         </div>

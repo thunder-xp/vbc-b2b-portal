@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import type {
   AccessRequestService,
@@ -19,8 +19,10 @@ import {
   type PartnerCompany,
   type UserProfile,
 } from "../../../access-control/types";
-import type { PartnerLookupService } from "../../../integration/services";
-import { DefaultPartnerWorkspaceContextService } from "../workspace-context.service";
+import {
+  DefaultPartnerWorkspaceContextService,
+  type PartnerPriceTypeReadModel,
+} from "../workspace-context.service";
 
 describe("DefaultPartnerWorkspaceContextService", () => {
   it("resolves the approved active partner context with role and price type name", async () => {
@@ -35,11 +37,19 @@ describe("DefaultPartnerWorkspaceContextService", () => {
     });
   });
 
-  it("keeps workspace access available when optional 1C price-type lookup is unavailable", async () => {
-    const context = await service({ partnerLookupUnavailable: true }).getWorkspaceContext("partner-1");
+  it("keeps workspace access available when the local price-type mapping is unavailable", async () => {
+    const context = await service({ priceTypeUnavailable: true }).getWorkspaceContext("partner-1");
 
     expect(context.accessState).toBe("active");
-    expect(context.priceTypeName).toBe("Назначен");
+    expect(context.priceTypeName).toBeNull();
+  });
+
+  it("resolves the price type only from the local read model", async () => {
+    const findName = vi.fn(async () => "GOLD");
+    const context = await service({ priceTypeReadModel: { findName } }).getWorkspaceContext("partner-1");
+
+    expect(context.priceTypeName).toBe("GOLD");
+    expect(findName).toHaveBeenCalledWith("33333333-3333-4333-8333-333333333333");
   });
 
   it("returns pending approval without company access", async () => {
@@ -130,7 +140,8 @@ type Fixtures = {
   companyMissing?: boolean;
   hasCommercialPermission?: boolean;
   accessRequestLookupFails?: boolean;
-  partnerLookupUnavailable?: boolean;
+  priceTypeUnavailable?: boolean;
+  priceTypeReadModel?: PartnerPriceTypeReadModel;
 };
 
 function service(fixtures: Fixtures = {}) {
@@ -172,11 +183,8 @@ function service(fixtures: Fixtures = {}) {
     async hasPermission() { return fixtures.hasCommercialPermission ?? true; },
     async ensurePermission(_userId, _companyId, permissionCode) { return { isAllowed: true, permissionCode, context: null }; },
   };
-  const partnerLookupService: PartnerLookupService = {
-    async searchPartners() { return { items: [], nextCursor: null }; },
-    async getPartnerContracts() { return { items: [], nextCursor: null }; },
-    async getPriceType() { return { reference: { providerCode: "one-c", externalId: "price-guid", externalType: "price-type" }, name: "GOLD", currency: "MDL", includesVat: true, type: null, active: true, isDefault: true }; },
-    async listPriceTypes() { return { items: [], nextCursor: null }; },
+  const priceTypeReadModel: PartnerPriceTypeReadModel = fixtures.priceTypeReadModel ?? {
+    async findName() { return fixtures.priceTypeUnavailable ? null : "GOLD"; },
   };
 
   return new DefaultPartnerWorkspaceContextService(
@@ -184,7 +192,7 @@ function service(fixtures: Fixtures = {}) {
     accessRequestService,
     companyAccessService,
     permissionService,
-    fixtures.partnerLookupUnavailable ? null : partnerLookupService,
+    priceTypeReadModel,
   );
 }
 

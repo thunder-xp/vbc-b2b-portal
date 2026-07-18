@@ -30,6 +30,18 @@ describe("DefaultCartService", () => {
     expect(cart.totalUnitCount).toBe(2);
   });
 
+  it("loads the sidebar badge through the lightweight aggregate only", async () => {
+    const dependencies = makeDependencies();
+
+    await expect(dependencies.service.getItemCount("user-1")).resolves.toBe(2);
+
+    expect(dependencies.repository.getActiveItemCount).toHaveBeenCalledWith("company-1");
+    expect(dependencies.repository.findActive).not.toHaveBeenCalled();
+    expect(dependencies.repository.listItems).not.toHaveBeenCalled();
+    expect(dependencies.catalogService.getProductsByIds).not.toHaveBeenCalled();
+    expect(dependencies.pricingService.getProductCommercialViews).not.toHaveBeenCalled();
+  });
+
   it("merges duplicate estimate products once using current prices", async () => {
     const dependencies = makeDependencies();
     const result = await dependencies.service.mergeEstimateProducts("user-1", {
@@ -45,6 +57,7 @@ describe("DefaultCartService", () => {
 
 function makeDependencies() {
   const repository = {
+    getActiveItemCount: vi.fn().mockResolvedValue(2),
     findActive: vi.fn().mockResolvedValue({ id: "cart-1", companyId: "company-1", createdBy: "user-1", status: "active", createdAt: "2026-01-01", updatedAt: "2026-01-01" }),
     listItems: vi.fn().mockResolvedValue([{ id: "item-1", cartId: "cart-1", productId: "product-1", quantity: 2, createdAt: "2026-01-01", updatedAt: "2026-01-01" }]),
     addItem: vi.fn(), updateItemQuantity: vi.fn(), removeItem: vi.fn(), mergeEstimateProducts: vi.fn(),

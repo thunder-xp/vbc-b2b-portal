@@ -41,6 +41,17 @@ export class PricingInventoryRepositoryUnexpectedError extends Error {
 export class SupabasePricingInventoryRepository
   implements PricingInventoryRepository
 {
+  async findPriceTypeName(externalRef: string): Promise<string | null> {
+    const { data, error } = await (await createClient())
+      .from("price_types")
+      .select("name")
+      .eq("external_ref", externalRef)
+      .eq("is_active", true)
+      .maybeSingle();
+    if (error) throw new PricingInventoryRepositoryUnexpectedError();
+    return data?.name?.trim() || null;
+  }
+
   async getActiveCommercialRateSnapshot() {
     const { data, error } = await (await createClient())
       .from("commercial_exchange_rates")

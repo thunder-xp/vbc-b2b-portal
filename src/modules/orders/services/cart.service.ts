@@ -113,9 +113,7 @@ export class DefaultCartService implements CartService {
 
   async getItemCount(userId: string): Promise<number> {
     const companyId = await this.resolveCompanyId(userId);
-    const cart = await this.repository.findActive(companyId, userId);
-    if (!cart) return 0;
-    return (await this.repository.listItems(cart.id)).reduce((sum, item) => sum + item.quantity, 0);
+    return this.repository.getActiveItemCount(companyId);
   }
 
   async addItem(userId: string, productId: string, quantity: number): Promise<void> {

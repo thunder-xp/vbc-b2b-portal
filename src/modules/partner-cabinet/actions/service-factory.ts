@@ -4,31 +4,23 @@ import {
   createPermissionService,
   createUserProfileService,
 } from "../../access-control/actions/service-factory";
-import { getOneCEnv } from "../../../lib/env";
-import { createPartnerLookupService } from "../../integration/services";
-import type { PartnerLookupService } from "../../integration/services";
+import { SupabasePricingInventoryRepository } from "../../pricing-inventory/repositories/supabase";
 import {
   DefaultPartnerWorkspaceContextService,
   DefaultWorkspaceHomeService,
 } from "../services";
 
+const priceTypeRepository = new SupabasePricingInventoryRepository();
+const workspaceContextService = new DefaultPartnerWorkspaceContextService(
+  createUserProfileService(),
+  createAccessRequestService(),
+  createCompanyAccessService(),
+  createPermissionService(),
+  { findName: (reference) => priceTypeRepository.findPriceTypeName(reference) },
+);
+
 export function createPartnerWorkspaceContextService(): DefaultPartnerWorkspaceContextService {
-  let partnerLookupService: PartnerLookupService | null = null;
-
-  try {
-    partnerLookupService = createPartnerLookupService(getOneCEnv());
-  } catch {
-    // Workspace access does not depend on live 1C availability. The service
-    // still validates the portal-owned company and membership context.
-  }
-
-  return new DefaultPartnerWorkspaceContextService(
-    createUserProfileService(),
-    createAccessRequestService(),
-    createCompanyAccessService(),
-    createPermissionService(),
-    partnerLookupService,
-  );
+  return workspaceContextService;
 }
 
 export function createWorkspaceHomeService(): DefaultWorkspaceHomeService {

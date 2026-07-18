@@ -19,7 +19,7 @@ export function ProductComparisonAction({ categoryId, companyId, productId, user
     setIds(next);
     setMessage(current.length >= MAX_PRODUCTS && !current.includes(productId) ? "Можно сравнить не более 4 товаров." : next.includes(productId) ? "Товар добавлен к сравнению." : "Товар удалён из сравнения.");
   };
-  return <div className="space-y-1"><button aria-pressed={selected} className="inline-flex h-9 items-center gap-2 rounded-md border border-zinc-300 bg-white px-3 text-xs font-semibold text-zinc-800 hover:bg-zinc-50" onClick={toggle} type="button"><Columns3 aria-hidden="true" className="size-4" />{selected ? "В сравнении" : "В сравнение"}</button>{ids.length ? <Link className="block text-xs font-medium text-emerald-700" href={`/cabinet/compare?category=${encodeURIComponent(categoryId ?? "uncategorized")}`}>Сравнить ({ids.length})</Link> : null}{message ? <p aria-live="polite" className="sr-only">{message}</p> : null}</div>;
+  return <div className="space-y-1"><button aria-pressed={selected} className="inline-flex h-9 items-center gap-2 rounded-md border border-zinc-300 bg-white px-3 text-xs font-semibold text-zinc-800 hover:bg-zinc-50" onClick={toggle} type="button"><Columns3 aria-hidden="true" className="size-4" />{selected ? "В сравнении" : "В сравнение"}</button>{ids.length ? <Link className="block text-xs font-medium text-emerald-700" href={`/cabinet/compare?category=${encodeURIComponent(categoryId ?? "uncategorized")}`} prefetch={false}>Сравнить ({ids.length})</Link> : null}{message ? <p aria-live="polite" className="sr-only">{message}</p> : null}</div>;
 }
 
 export function comparisonStorageKey(companyId: string, userId: string, categoryId: string): string { return `novotech-catalog-compare:${companyId}:${userId}:${categoryId}`; }

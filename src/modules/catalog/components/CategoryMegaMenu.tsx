@@ -87,11 +87,11 @@ export function CategoryMegaMenu({
 function CategoryColumn({ items, onChoose, onNavigate, selectedId, sort }: { items: CatalogCategoryNode[]; onChoose: (id: string) => void; onNavigate: () => void; selectedId: string | null; sort: CatalogSort }) {
   return <div className="space-y-1">{items.map((item) => item.children.length ? (
     <button className={`flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm ${selectedId === item.id ? "bg-emerald-50 font-semibold text-emerald-800" : "hover:bg-zinc-50"}`} key={item.id} onClick={() => onChoose(item.id)} type="button"><span>{item.name}</span><ChevronRight className="size-4" /></button>
-  ) : <Link className="block rounded-md px-3 py-2 text-sm hover:bg-zinc-50" href={buildCatalogHref({ categoryId: item.id, sort })} key={item.id} onClick={onNavigate}>{item.name}</Link>)}</div>;
+  ) : <Link className="block rounded-md px-3 py-2 text-sm hover:bg-zinc-50" href={buildCatalogHref({ categoryId: item.id, sort })} key={item.id} onClick={onNavigate} prefetch={false}>{item.name}</Link>)}</div>;
 }
 
 function CategoryLinks({ items, onNavigate, sort }: { items: CatalogCategoryNode[]; onNavigate: () => void; sort: CatalogSort }) {
-  return <div className="space-y-1">{items.map((item) => <Link className="block rounded-md px-3 py-2 text-sm hover:bg-emerald-50 hover:text-emerald-800" href={buildCatalogHref({ categoryId: item.id, sort })} key={item.id} onClick={onNavigate}>{item.name}</Link>)}</div>;
+  return <div className="space-y-1">{items.map((item) => <Link className="block rounded-md px-3 py-2 text-sm hover:bg-emerald-50 hover:text-emerald-800" href={buildCatalogHref({ categoryId: item.id, sort })} key={item.id} onClick={onNavigate} prefetch={false}>{item.name}</Link>)}</div>;
 }
 
 function MenuHint({ text }: { text: string }) { return <p className="px-3 py-2 text-sm text-zinc-500">{text}</p>; }

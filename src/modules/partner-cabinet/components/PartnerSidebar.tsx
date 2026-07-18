@@ -101,6 +101,7 @@ function NavigationItem({
       }`}
       href={item.href!}
       onClick={onNavigate}
+      prefetch={false}
       tabIndex={expanded ? undefined : -1}
     >
       <Icon aria-hidden="true" className="size-4 shrink-0" />
@@ -209,6 +210,7 @@ export function PartnerSidebar({
               }`}
               href={cart.href}
               onClick={onNavigate}
+              prefetch={false}
             >
               <ShoppingCart aria-hidden="true" className="size-4 shrink-0" />
               <span className="min-w-0 flex-1 truncate">{cart.label}</span>

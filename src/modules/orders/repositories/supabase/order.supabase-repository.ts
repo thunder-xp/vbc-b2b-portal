@@ -11,6 +11,15 @@ const ORDER_ITEM_COLUMNS = "id, order_id, product_id, external_product_ref, prod
 type Row = Record<string, unknown>;
 
 export class SupabaseCartRepository implements CartRepository {
+  async getActiveItemCount(companyId: string): Promise<number> {
+    const { data, error } = await (await createClient()).rpc(
+      "get_active_cart_unit_count",
+      { target_company_id: companyId },
+    );
+    if (error) throw new OrderRepositoryError(error.code, error.message);
+    return Number(data ?? 0);
+  }
+
   async findActive(companyId: string, userId: string): Promise<Cart | null> {
     const { data, error } = await (await createClient()).from("carts").select(CART_COLUMNS)
       .eq("company_id", companyId).eq("created_by", userId).in("status", ["active", "submitting"]).maybeSingle();

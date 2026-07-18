@@ -22,7 +22,7 @@ export default async function EstimatesPage({ searchParams }: { searchParams: Pr
     <div className="space-y-5">
       <header className="flex flex-col gap-4 border-b border-zinc-200 pb-5 sm:flex-row sm:items-end sm:justify-between">
         <div><h1 className="text-2xl font-semibold text-zinc-950">Сметы и КП</h1><p className="mt-1 text-sm text-zinc-500">Коммерческие расчёты и предложения для объектов заказчиков.</p></div>
-        <Link className="inline-flex items-center justify-center gap-2 rounded-md bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white" href="/cabinet/estimates/new"><FilePlus2 className="size-4" />Создать смету</Link>
+        <Link className="inline-flex items-center justify-center gap-2 rounded-md bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white" href="/cabinet/estimates/new" prefetch={false}><FilePlus2 className="size-4" />Создать смету</Link>
       </header>
 
       <form className="grid gap-3 border-b border-zinc-200 pb-5 md:grid-cols-[minmax(14rem,1fr)_12rem_12rem_10rem_10rem_auto]">
@@ -44,7 +44,7 @@ export default async function EstimatesPage({ searchParams }: { searchParams: Pr
               <tbody className="divide-y divide-zinc-100">
                 {result.data.records.map((estimate) => (
                   <tr className="hover:bg-zinc-50" key={estimate.id}>
-                    <td className="px-4 py-4"><Link className="font-semibold text-zinc-950 hover:text-emerald-700" href={`/cabinet/estimates/${estimate.id}`}>{estimate.estimateNumber}</Link><p className="mt-1 max-w-xs truncate text-xs text-zinc-500">{estimate.name}</p></td>
+                    <td className="px-4 py-4"><Link className="font-semibold text-zinc-950 hover:text-emerald-700" href={`/cabinet/estimates/${estimate.id}`} prefetch={false}>{estimate.estimateNumber}</Link><p className="mt-1 max-w-xs truncate text-xs text-zinc-500">{estimate.name}</p></td>
                     <td className="px-4 py-4 text-zinc-600">{estimate.customerProject}<p className="mt-1 text-xs text-zinc-400">{estimate.itemCount} позиций</p></td>
                     <td className="px-4 py-4"><EstimateStatusBadge status={estimate.status} /></td>
                     <td className="px-4 py-4 text-right font-semibold">{estimate.total}</td>
@@ -59,7 +59,7 @@ export default async function EstimatesPage({ searchParams }: { searchParams: Pr
           <Pagination current={result.data.page} query={query} total={result.data.totalPages} />
         </>
       ) : (
-        <section className="border-y border-dashed border-zinc-300 bg-white px-6 py-14 text-center"><Calculator className="mx-auto size-8 text-emerald-700" /><h2 className="mt-4 font-semibold">Смет пока нет</h2><p className="mt-1 text-sm text-zinc-500">Создайте первый коммерческий расчёт без Excel.</p><Link className="mt-5 inline-flex rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white" href="/cabinet/estimates/new">Создать смету</Link></section>
+        <section className="border-y border-dashed border-zinc-300 bg-white px-6 py-14 text-center"><Calculator className="mx-auto size-8 text-emerald-700" /><h2 className="mt-4 font-semibold">Смет пока нет</h2><p className="mt-1 text-sm text-zinc-500">Создайте первый коммерческий расчёт без Excel.</p><Link className="mt-5 inline-flex rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white" href="/cabinet/estimates/new" prefetch={false}>Создать смету</Link></section>
       )}
     </div>
   );
@@ -73,7 +73,7 @@ function Pagination({ current, query, total }: { current: number; query: SearchP
     params.set("page", String(page));
     return `/cabinet/estimates?${params.toString()}`;
   };
-  return <nav aria-label="Страницы смет" className="flex items-center justify-between text-sm"><Link aria-disabled={current <= 1} className={`font-semibold ${current <= 1 ? "pointer-events-none text-zinc-300" : "text-emerald-700"}`} href={href(current - 1)}>← Назад</Link><span className="text-zinc-500">Страница {current} из {total}</span><Link aria-disabled={current >= total} className={`font-semibold ${current >= total ? "pointer-events-none text-zinc-300" : "text-emerald-700"}`} href={href(current + 1)}>Далее →</Link></nav>;
+  return <nav aria-label="Страницы смет" className="flex items-center justify-between text-sm"><Link aria-disabled={current <= 1} className={`font-semibold ${current <= 1 ? "pointer-events-none text-zinc-300" : "text-emerald-700"}`} href={href(current - 1)} prefetch={false}>← Назад</Link><span className="text-zinc-500">Страница {current} из {total}</span><Link aria-disabled={current >= total} className={`font-semibold ${current >= total ? "pointer-events-none text-zinc-300" : "text-emerald-700"}`} href={href(current + 1)} prefetch={false}>Далее →</Link></nav>;
 }
 
 function formatDate(value: string) {
