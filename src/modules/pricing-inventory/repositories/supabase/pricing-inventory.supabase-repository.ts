@@ -11,7 +11,13 @@ import type {
   UpsertProductPriceInput,
   UpsertProductStockBalanceInput,
 } from "../pricing-inventory.repository";
-import type { ProductPrice, ProductStockBalance } from "../../types";
+import {
+  COMMERCIAL_RATE_PURPOSES,
+  type CommercialRate,
+  type CommercialRatePurpose,
+  type ProductPrice,
+  type ProductStockBalance,
+} from "../../types";
 import { normalizeOneCCurrencyCode } from "@/src/lib/currency";
 import {
   mapProductPriceRow,
@@ -35,6 +41,66 @@ export class PricingInventoryRepositoryUnexpectedError extends Error {
 export class SupabasePricingInventoryRepository
   implements PricingInventoryRepository
 {
+  async getActiveCommercialRateSnapshot() {
+    const { data, error } = await (await createClient())
+      .from("commercial_exchange_rates")
+      .select(COMMERCIAL_RATE_COLUMNS)
+      .in("purpose", [...COMMERCIAL_RATE_PURPOSES])
+      .eq("is_active", true)
+      .eq("is_published", true)
+      .order("effective_at", { ascending: false });
+    if (error) throw new PricingInventoryRepositoryUnexpectedError();
+    const rates = (data ?? []).map((row) => mapCommercialRateRow(row as CommercialRateRow));
+    return {
+      partnerPriceUsdToMdl: rates.find((rate) => rate.purpose === "partner_price_usd_to_mdl") ?? null,
+      retailPriceMdlToUsd: rates.find((rate) => rate.purpose === "retail_price_mdl_to_usd") ?? null,
+    };
+  }
+
+  async listCommercialRateHistory(limit: number): Promise<CommercialRate[]> {
+    const boundedLimit = Math.max(1, Math.min(100, Math.trunc(limit)));
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("commercial_exchange_rates")
+      .select(COMMERCIAL_RATE_COLUMNS)
+      .in("purpose", [...COMMERCIAL_RATE_PURPOSES])
+      .order("published_at", { ascending: false })
+      .limit(boundedLimit);
+    if (error) throw new PricingInventoryRepositoryUnexpectedError();
+    const rows = (data ?? []) as CommercialRateRow[];
+    const publisherIds = [...new Set(rows.map((row) => row.published_by).filter((value): value is string => Boolean(value)))];
+    const publishers = new Map<string, { fullName: string | null; email: string | null }>();
+    if (publisherIds.length > 0) {
+      const { data: profiles, error: profileError } = await supabase
+        .from("user_profiles")
+        .select("id,full_name,email")
+        .in("id", publisherIds);
+      if (profileError) throw new PricingInventoryRepositoryUnexpectedError();
+      for (const profile of profiles ?? []) {
+        publishers.set(profile.id, { fullName: profile.full_name, email: profile.email });
+      }
+    }
+    return rows.map((row) => mapCommercialRateRow(row, publishers.get(row.published_by ?? "")));
+  }
+
+  async canManageCommercialRates(): Promise<boolean> {
+    const { data, error } = await (await createClient()).rpc("can_manage_commercial_rates");
+    if (error) throw new PricingInventoryRepositoryUnexpectedError();
+    return data === true;
+  }
+
+  async publishManualCommercialRate(input: import("../../types").PublishCommercialRateInput): Promise<CommercialRate> {
+    const { data, error } = await (await createClient()).rpc("publish_manual_commercial_exchange_rate_v2", {
+      p_purpose: input.purpose,
+      p_rate: input.rate,
+      p_effective_at: `${input.effectiveDate}T00:00:00.000Z`,
+      p_source_note: input.sourceNote,
+      p_evidence_comment: input.evidenceComment ?? null,
+    });
+    if (error || !data) throw new PricingInventoryRepositoryUnexpectedError();
+    return mapCommercialRateRow(data as CommercialRateRow);
+  }
+
   async listAvailableCurrencyCodes(): Promise<string[]> {
     const { data, error } = await (await createClient())
       .from("product_prices")
@@ -285,4 +351,48 @@ function normalizeProductIds(productIds: string[]): string[] {
 
 function uniqueProductIds(rows: Array<{ product_id: string }>): string[] {
   return [...new Set(rows.map((row) => row.product_id).filter(Boolean))];
+}
+
+const COMMERCIAL_RATE_COLUMNS = "id,purpose,rate,effective_at,published_at,published_by,source_type,source_note,evidence_comment,previous_rate_id,is_active";
+
+type CommercialRateRow = {
+  id: string;
+  purpose: string;
+  rate: number | string;
+  effective_at: string;
+  published_at: string;
+  published_by: string | null;
+  source_type: string;
+  source_note: string;
+  evidence_comment: string | null;
+  previous_rate_id: string | null;
+  is_active: boolean;
+};
+
+function mapCommercialRateRow(
+  row: CommercialRateRow,
+  publisher?: { fullName: string | null; email: string | null },
+): CommercialRate {
+  if (!COMMERCIAL_RATE_PURPOSES.includes(row.purpose as CommercialRatePurpose)) {
+    throw new PricingInventoryRepositoryUnexpectedError();
+  }
+  const rate = Number(row.rate);
+  if (!Number.isFinite(rate) || rate <= 0 || row.source_type !== "manual_from_1c" || !row.published_by) {
+    throw new PricingInventoryRepositoryUnexpectedError();
+  }
+  return {
+    id: row.id,
+    purpose: row.purpose as CommercialRatePurpose,
+    rate,
+    effectiveAt: row.effective_at,
+    publishedAt: row.published_at,
+    publishedBy: row.published_by,
+    publisherName: publisher?.fullName ?? null,
+    publisherEmail: publisher?.email ?? null,
+    sourceType: "manual_from_1c",
+    sourceNote: row.source_note,
+    evidenceComment: row.evidence_comment,
+    previousRateId: row.previous_rate_id,
+    isActive: row.is_active,
+  };
 }

@@ -1,3 +1,5 @@
+import Decimal from "decimal.js";
+
 import type {
   CompanyAccessService,
   PermissionService,
@@ -5,7 +7,9 @@ import type {
 import { MembershipStatus } from "../../access-control/types";
 import type { PricingInventoryRepository, ProductStockTotal, ProductSupplierArrival, UsdMdlExchangeRate } from "../repositories";
 import type { ProductPrice } from "../types";
+import type { CommercialRate, CommercialRateSnapshot } from "../types";
 import { normalizeOneCCurrencyCode } from "../../../lib/currency";
+import { evaluateFreshness, type FreshnessView } from "../../integration/freshness";
 
 export type ProductPriceViewDto = {
   currencyCode: string | null;
@@ -39,9 +43,9 @@ export type ProductStockViewDto = {
 };
 
 export type CommercialOpportunityViewDto = {
-  retailPriceUsd: number;
+  retailPriceUsd: number | null;
   formattedRetailPriceUsd?: string;
-  grossProfitUsd: number;
+  grossProfitUsd: number | null;
   grossProfitMdl?: number;
   markupPercent: number;
   formattedGrossProfit: string;
@@ -54,7 +58,9 @@ export type ProductCommercialViewDto = {
   partnerPrice: ProductPriceViewDto | null;
   partnerPriceMdl?: ProductPriceViewDto | null;
   retailPrice: ProductPriceViewDto | null;
+  retailPriceUsd?: ProductPriceViewDto | null;
   commercialOpportunity?: CommercialOpportunityViewDto | null;
+  commercialRateFreshness?: FreshnessView | null;
   stock: ProductStockViewDto | null;
   isDemoData: boolean;
 };
@@ -112,7 +118,7 @@ export class DefaultPricingInventoryService implements PricingInventoryService {
       this.permissionService.hasPermission(userId, companyId, PRICE_PERMISSION),
       this.permissionService.hasPermission(userId, companyId, STOCK_PERMISSION),
     ]);
-    const [partnerPrices, retailPrices, stockBalances, supplierArrivals, exchangeRate] = await Promise.all([
+    const [partnerPrices, retailPrices, stockBalances, supplierArrivals, commercialRates] = await Promise.all([
       canViewPrices && company.external1cPriceTypeId
         ? this.pricingInventoryRepository.listPricesForProducts({
             productIds: normalizedProductIds,
@@ -129,9 +135,9 @@ export class DefaultPricingInventoryService implements PricingInventoryService {
       canViewStock && this.pricingInventoryRepository.listSupplierArrivalsForProducts
         ? this.pricingInventoryRepository.listSupplierArrivalsForProducts(normalizedProductIds)
         : Promise.resolve<ProductSupplierArrival[]>([]),
-      canViewPrices && this.pricingInventoryRepository.getLatestUsdMdlExchangeRate
-        ? this.pricingInventoryRepository.getLatestUsdMdlExchangeRate()
-        : Promise.resolve(null),
+      canViewPrices && this.pricingInventoryRepository.getActiveCommercialRateSnapshot
+        ? this.pricingInventoryRepository.getActiveCommercialRateSnapshot()
+        : Promise.resolve<CommercialRateSnapshot>({ partnerPriceUsdToMdl: null, retailPriceMdlToUsd: null }),
     ]);
 
     return normalizedProductIds.map((productId) => {
@@ -153,15 +159,24 @@ export class DefaultPricingInventoryService implements PricingInventoryService {
         return { ...demoView, retailBelowPartnerPrice: false };
       }
 
+      const partnerPriceMdl = createPartnerPriceMdlView(partnerPrice, commercialRates.partnerPriceUsdToMdl);
+      const retailPriceUsd = createRetailPriceUsdView(retailPrice, commercialRates.retailPriceMdlToUsd);
       return {
         productId,
         partnerPrice: partnerPrice ? toPriceView(partnerPrice) : null,
-        partnerPriceMdl: createPartnerPriceMdlView(partnerPrice, exchangeRate),
+        partnerPriceMdl,
         retailPrice: retailPrice ? toPriceView(retailPrice) : null,
-        commercialOpportunity: createCommercialOpportunity(partnerPrice, retailPrice, exchangeRate?.mdlPerUsdRate ?? null),
+        retailPriceUsd,
+        commercialOpportunity: createCommercialOpportunity(
+          partnerPrice,
+          retailPrice,
+          commercialRates.partnerPriceUsdToMdl,
+          commercialRates.retailPriceMdlToUsd,
+        ),
+        commercialRateFreshness: createCommercialRateFreshness(commercialRates),
         stock,
         isDemoData: false,
-        retailBelowPartnerPrice: Boolean(partnerPrice && retailPrice && retailPrice.priceAmount < partnerPrice.priceAmount),
+        retailBelowPartnerPrice: Boolean(partnerPriceMdl && retailPrice && retailPrice.priceAmount < partnerPriceMdl.amount),
       };
     });
   }
@@ -298,12 +313,12 @@ function formatPrice(amount: number, currencyCode: string): string {
 
 function createPartnerPriceMdlView(
   partnerPrice: ProductPrice | null,
-  exchangeRate: UsdMdlExchangeRate | null,
+  exchangeRate: CommercialRate | null,
 ): ProductPriceViewDto | null {
   if (!partnerPrice || partnerPrice.currencyStatus !== "resolved") return null;
   if (normalizeOneCCurrencyCode(partnerPrice.currency) !== "USD") return null;
 
-  const amount = convertUsdToMdl(partnerPrice.priceAmount, exchangeRate?.mdlPerUsdRate ?? null);
+  const amount = convertUsdToMdl(partnerPrice.priceAmount, exchangeRate?.rate ?? null);
   if (amount === null) return null;
 
   return {
@@ -316,40 +331,74 @@ function createPartnerPriceMdlView(
 
 function convertUsdToMdl(amount: number, mdlPerUsdRate: number | null): number | null {
   if (!Number.isFinite(amount) || !Number.isFinite(mdlPerUsdRate) || mdlPerUsdRate === null || mdlPerUsdRate <= 0) return null;
-  return amount * mdlPerUsdRate;
+  return new Decimal(amount).times(mdlPerUsdRate).toNumber();
+}
+
+function createRetailPriceUsdView(
+  retailPrice: ProductPrice | null,
+  exchangeRate: CommercialRate | null,
+): ProductPriceViewDto | null {
+  if (!retailPrice || retailPrice.currencyStatus !== "resolved") return null;
+  if (normalizeOneCCurrencyCode(retailPrice.currency) !== "MDL" || !exchangeRate) return null;
+  if (!Number.isFinite(exchangeRate.rate) || exchangeRate.rate <= 0) return null;
+  const amount = new Decimal(retailPrice.priceAmount)
+    .div(exchangeRate.rate)
+    .toDecimalPlaces(0, Decimal.ROUND_HALF_UP)
+    .toNumber();
+  return {
+    currencyCode: "USD",
+    amount,
+    formattedAmount: `${new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount)} USD`,
+    lastUpdatedAt: exchangeRate.publishedAt,
+  };
 }
 
 function createCommercialOpportunity(
   partnerPrice: ProductPrice | null,
   retailPrice: ProductPrice | null,
-  mdlPerUsdRate: number | null,
+  partnerRate: CommercialRate | null,
+  retailRate: CommercialRate | null,
 ): CommercialOpportunityViewDto | null {
-  if (!partnerPrice || !retailPrice || !Number.isFinite(mdlPerUsdRate) || mdlPerUsdRate === null || mdlPerUsdRate <= 0 || partnerPrice.priceAmount <= 0) return null;
+  if (!partnerPrice || !retailPrice || !partnerRate || !Number.isFinite(partnerRate.rate) || partnerRate.rate <= 0 || partnerPrice.priceAmount <= 0) return null;
   if (partnerPrice.currencyStatus !== "resolved" || retailPrice.currencyStatus !== "resolved") return null;
   if (normalizeOneCCurrencyCode(partnerPrice.currency) !== "USD" || normalizeOneCCurrencyCode(retailPrice.currency) !== "MDL") return null;
 
-  const partnerPriceMdl = convertUsdToMdl(partnerPrice.priceAmount, mdlPerUsdRate);
+  const partnerPriceMdl = convertUsdToMdl(partnerPrice.priceAmount, partnerRate.rate);
   if (partnerPriceMdl === null || partnerPriceMdl <= 0) return null;
 
-  const retailPriceUsd = retailPrice.priceAmount / mdlPerUsdRate;
-  const grossProfitMdl = retailPrice.priceAmount - partnerPriceMdl;
-  const grossProfitUsd = grossProfitMdl / mdlPerUsdRate;
-  const markupPercent = (grossProfitMdl / partnerPriceMdl) * 100;
+  const grossProfitMdl = new Decimal(retailPrice.priceAmount).minus(partnerPriceMdl);
+  const markupPercent = grossProfitMdl.div(partnerPriceMdl).times(100);
+  const retailPriceUsd = retailRate
+    ? new Decimal(retailPrice.priceAmount).div(retailRate.rate).toDecimalPlaces(0, Decimal.ROUND_HALF_UP)
+    : null;
+  const grossProfitUsd = retailRate ? grossProfitMdl.div(retailRate.rate) : null;
 
   return {
-    retailPriceUsd,
-    formattedRetailPriceUsd: `${formatPrice(retailPriceUsd, "USD")} USD`,
-    grossProfitUsd,
-    grossProfitMdl,
-    markupPercent,
-    formattedGrossProfit: formatPrice(grossProfitUsd, "USD"),
-    formattedGrossProfitMdl: formatPrice(grossProfitMdl, "MDL"),
+    retailPriceUsd: retailPriceUsd?.toNumber() ?? null,
+    formattedRetailPriceUsd: retailPriceUsd ? `${new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(retailPriceUsd.toNumber())} USD` : undefined,
+    grossProfitUsd: grossProfitUsd?.toNumber() ?? null,
+    grossProfitMdl: grossProfitMdl.toNumber(),
+    markupPercent: markupPercent.toNumber(),
+    formattedGrossProfit: grossProfitUsd ? formatPrice(grossProfitUsd.toNumber(), "USD") : "",
+    formattedGrossProfitMdl: formatPrice(grossProfitMdl.toNumber(), "MDL"),
     formattedMarkup: new Intl.NumberFormat("en-US", {
       style: "percent",
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
-    }).format(markupPercent / 100),
+    }).format(markupPercent.div(100).toNumber()),
   };
+}
+
+function createCommercialRateFreshness(rates: CommercialRateSnapshot): FreshnessView {
+  const timestamps = [rates.partnerPriceUsdToMdl?.publishedAt, rates.retailPriceMdlToUsd?.publishedAt]
+    .flatMap((value) => value && Number.isFinite(Date.parse(value)) ? [Date.parse(value)] : []);
+  const oldestPublishedAt = timestamps.length === 2 ? new Date(Math.min(...timestamps)).toISOString() : null;
+  return evaluateFreshness(oldestPublishedAt, "price", "Коммерческие курсы");
 }
 
 function stockAvailabilityForProduct(stockBalances: ProductStockTotal[], supplierArrivals:ProductSupplierArrival[], productId: string): ProductStockViewDto {
@@ -413,7 +462,9 @@ function createDemoCommercialView(
     partnerPrice: canViewPrices ? demoView.partnerPrice : null,
     partnerPriceMdl: null,
     retailPrice: null,
+    retailPriceUsd: null,
     commercialOpportunity: null,
+    commercialRateFreshness: null,
     stock: canViewStock ? demoView.stock : null,
     isDemoData: true,
   };

@@ -21,7 +21,7 @@ import type {
   UpsertProductStockBalanceInput,
   UpsertProductPriceInput,
 } from "../../repositories";
-import type { ProductPrice, ProductStockBalance } from "../../types";
+import type { CommercialRate, ProductPrice, ProductStockBalance } from "../../types";
 import type { ProductSupplierArrival } from "../../repositories";
 
 describe("DefaultPricingInventoryService", () => {
@@ -59,7 +59,7 @@ describe("DefaultPricingInventoryService", () => {
     const [result] = await service.getProductCommercialViews("user-1", ["product-1"]);
     expect(result.partnerPrice).toMatchObject({ currencyCode: "USD", formattedAmount: "$45.81" });
     expect(result.retailPrice).toMatchObject({ currencyCode: "MDL", formattedAmount: "39,20 MDL" });
-    expect(result.retailBelowPartnerPrice).toBe(true);
+    expect(result.retailBelowPartnerPrice).toBe(false);
   });
 
   it("renders a resolved production RETAIL currency code 498 as Moldovan leu", async () => {
@@ -105,7 +105,7 @@ describe("DefaultPricingInventoryService", () => {
       formattedGrossProfit: "$40.05",
       formattedGrossProfitMdl: "686,70 MDL",
       formattedMarkup: "81.82%",
-      formattedRetailPriceUsd: "$89.00 USD",
+      formattedRetailPriceUsd: "$89 USD",
     });
     expect(result.commercialOpportunity?.retailPriceUsd).toBeCloseTo(89, 2);
     expect(result.commercialOpportunity?.grossProfitUsd).toBeCloseTo(40.05, 2);
@@ -113,6 +113,37 @@ describe("DefaultPricingInventoryService", () => {
     expect(result.commercialOpportunity?.markupPercent).toBeCloseTo(81.82, 2);
     expect(repository.exchangeRateReads).toBe(1);
     expect(repository.lastPriceInputs).toHaveLength(2);
+  });
+
+  it("uses independent purpose rates and rounds the retail USD reference half up", async () => {
+    const repository = new FakePricingInventoryRepository([
+      makePrice(null, 103.94, goldPriceType, "999"),
+      makePrice(null, 3081, RETAIL_PRICE_TYPE_EXTERNAL_REF, "498"),
+    ], [], [], 17.7712, 17.3504);
+    const service = new DefaultPricingInventoryService(repository, new FakeCompanyAccessService(), new FakePermissionService());
+
+    const [result] = await service.getProductCommercialViews("user-1", ["product-1"]);
+
+    expect(result.partnerPriceMdl?.amount).toBeCloseTo(1847.138528, 6);
+    expect(result.retailPriceUsd).toMatchObject({ amount: 178, formattedAmount: "$178 USD" });
+    expect(result.commercialOpportunity?.grossProfitMdl).toBeCloseTo(1233.861472, 6);
+    expect(result.commercialOpportunity?.markupPercent).toBeCloseTo(66.7985, 4);
+    expect(repository.exchangeRateReads).toBe(1);
+  });
+
+  it("does not substitute one missing purpose rate for the other", async () => {
+    const repository = new FakePricingInventoryRepository([
+      makePrice(null, 103.94, goldPriceType, "999"),
+      makePrice(null, 3081, RETAIL_PRICE_TYPE_EXTERNAL_REF, "498"),
+    ], [], [], 17.7712, null);
+    const service = new DefaultPricingInventoryService(repository, new FakeCompanyAccessService(), new FakePermissionService());
+
+    const [result] = await service.getProductCommercialViews("user-1", ["product-1"]);
+
+    expect(result.partnerPriceMdl).not.toBeNull();
+    expect(result.retailPriceUsd).toBeNull();
+    expect(result.commercialOpportunity?.grossProfitMdl).not.toBeNull();
+    expect(result.commercialOpportunity?.retailPriceUsd).toBeNull();
   });
 
   it("hides derived commercial values without a confirmed rate", async () => {
@@ -216,9 +247,16 @@ class FakePricingInventoryRepository implements PricingInventoryRepository {
     private readonly stockBalances: ProductStockBalance[] = [],
     private readonly supplierArrivals: ProductSupplierArrival[] = [],
     private readonly mdlPerUsdRate: number | null = null,
+    private readonly retailMdlPerUsdRate: number | null = mdlPerUsdRate,
   ) {}
 
-  async getLatestUsdMdlExchangeRate() { this.exchangeRateReads += 1; return this.mdlPerUsdRate ? { sourceCode: "113" as const, mdlPerUsdRate: this.mdlPerUsdRate, effectiveDate: "2026-07-13", publishedAt: now } : null; }
+  async getActiveCommercialRateSnapshot() {
+    this.exchangeRateReads += 1;
+    return {
+      partnerPriceUsdToMdl: this.mdlPerUsdRate ? rate("partner_price_usd_to_mdl", this.mdlPerUsdRate) : null,
+      retailPriceMdlToUsd: this.retailMdlPerUsdRate ? rate("retail_price_mdl_to_usd", this.retailMdlPerUsdRate) : null,
+    };
+  }
 
   async listPricesForProducts(
     input: ListProductPricesInput,
@@ -369,6 +407,7 @@ function makePrice(companyId: string | null, amount: number, external1cPriceType
     updatedAt: now,
   };
 }
+function rate(purpose: CommercialRate["purpose"], value: number): CommercialRate { return { id: `rate-${purpose}`, purpose, rate: value, effectiveAt: now, publishedAt: now, publishedBy: "internal-1", publisherName: "Manager", publisherEmail: null, sourceType: "manual_from_1c", sourceNote: "1C", evidenceComment: null, previousRateId: null, isActive: true }; }
 const goldPriceType = "23cb93ec-3eb5-11f0-8d8a-7239d3b7bd5c";
 function arrival(expectedDate:string,expectedQuantity:number):ProductSupplierArrival{return{productId:"product-1",externalCharacteristicRef:"00000000-0000-0000-0000-000000000000",expectedDate,expectedQuantity,publishedAt:now};}
 

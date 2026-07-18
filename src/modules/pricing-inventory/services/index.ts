@@ -17,3 +17,10 @@ export {
   type PricingReadModelUpdateInput,
   type PricingUpdaterService,
 } from "./pricing-updater.service";
+export {
+  CommercialRateManagementService,
+  CommercialRateValidationError,
+  validatePublication,
+  type CommercialRateAdminDto,
+  type CommercialRateAdminRowDto,
+} from "./commercial-rate-management.service";

@@ -1,4 +1,10 @@
-import type { ProductPrice, ProductStockBalance } from "../types";
+import type {
+  CommercialRate,
+  CommercialRateSnapshot,
+  PublishCommercialRateInput,
+  ProductPrice,
+  ProductStockBalance,
+} from "../types";
 
 export type ListProductPricesInput = {
   productIds: string[];
@@ -49,6 +55,10 @@ export type UpsertProductStockBalanceInput = FindProductStockBalanceInput & {
 export interface PricingInventoryRepository {
   listAvailableCurrencyCodes?(): Promise<string[]>;
   getLatestUsdMdlExchangeRate?(): Promise<UsdMdlExchangeRate | null>;
+  getActiveCommercialRateSnapshot?(): Promise<CommercialRateSnapshot>;
+  listCommercialRateHistory?(limit: number): Promise<CommercialRate[]>;
+  canManageCommercialRates?(): Promise<boolean>;
+  publishManualCommercialRate?(input: PublishCommercialRateInput): Promise<CommercialRate>;
   upsertPriceType?(input: { externalRef: string; externalCode: string; name: string; currencyCode: string | null; currencyStatus: "resolved" | "unresolved"; sourceUpdatedAt: string | null }): Promise<void>;
   listPricesForProducts(input: ListProductPricesInput): Promise<ProductPrice[]>;
   listStockForProducts(productIds: string[]): Promise<ProductStockBalance[]>;

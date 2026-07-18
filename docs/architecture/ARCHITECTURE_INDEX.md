@@ -141,6 +141,7 @@ Future schema documentation should be created before SQL implementation.
 ## Integration
 
 - [Catalog Daily Sync Design](./CATALOG_DAILY_SYNC_DESIGN.md)
+- [Temporary Commercial Rate Publication](./COMMERCIAL_RATE_MANUAL_PUBLICATION.md)
 
 - `docs/architecture/INTEGRATION_ARCHITECTURE.md` - 1C integration philosophy, synchronized domains, read/write operations, sync strategy, cache strategy, failure handling, logging, monitoring, async future, and MVP limits.
 - `docs/architecture/ONE_C_PROVIDER_DESIGN.md` - Provider-specific 1C adapter design that keeps 1C payloads behind neutral integration contracts.
@@ -174,6 +175,7 @@ Future schema documentation should be created before SQL implementation.
 - `docs/architecture/ONE_C_PROVIDER_DESIGN.md` - 1C provider adapter implementation reference for provider-isolated transport, credentials, mappers, and manual catalog sync.
 - `docs/architecture/ONE_C_PARTNER_SEARCH_BINDING_DESIGN.md` - Partner approval search implementation reference for Server Actions, Integration Service, provider search, and UI binding.
 - `docs/architecture/SYNC_ENGINE_DESIGN.md` - Sync Engine implementation reference for catalog read-model updates, manual triggers, queues, workers, and scheduled synchronization.
+- `docs/architecture/COMMERCIAL_RATE_MANUAL_PUBLICATION.md` - Temporary purpose-based manual 1C rate publication, immutable audit history, product formulas, and the required permanent 1C API contract.
 - `docs/architecture/MODULE_COMMUNICATION.md` - Module wiring and dependency rules.
 - `docs/architecture/REPOSITORY_PATTERN.md` - Persistence and service implementation pattern.
 - `docs/architecture/EVENT_FLOWS.md` - Workflow implementation reference.
