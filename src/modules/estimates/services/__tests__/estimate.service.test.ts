@@ -133,6 +133,23 @@ describe("DefaultEstimateService", () => {
     expect(repository.addLines).toHaveBeenLastCalledWith("estimate-1", 3, [expect.objectContaining({ lineType: "custom", description: "Кабельные работы", unit: "meter", quantity: 10.5, sellingUnitPrice: 4.2 })]);
   });
 
+  it("adds several controlled services through one repository mutation", async () => {
+    const secondService = { ...serviceRecord, id: "service-2", name: "Настройка системы" };
+    vi.mocked(repository.listServices).mockResolvedValue([serviceRecord, secondService]);
+
+    await service.addServices("user-1", "estimate-1", 3, [
+      { serviceId: "service-1", quantity: 2, sellingUnitPrice: 15.555 },
+      { serviceId: "service-2", quantity: 1, sellingUnitPrice: 25 },
+    ]);
+
+    expect(repository.listServices).toHaveBeenCalledTimes(1);
+    expect(repository.addLines).toHaveBeenCalledTimes(1);
+    expect(repository.addLines).toHaveBeenCalledWith("estimate-1", 3, [
+      expect.objectContaining({ serviceId: "service-1", quantity: 2, sellingUnitPrice: 15.56 }),
+      expect.objectContaining({ serviceId: "service-2", quantity: 1, sellingUnitPrice: 25 }),
+    ]);
+  });
+
   it("turns persistence revision conflicts into safe invalid-state errors", async () => {
     vi.mocked(repository.updateDraft).mockRejectedValue(new EstimateRepositoryError("conflict"));
     await expect(service.saveDraft("user-1", "estimate-1", { expectedRevision: 3, name: "Estimate", validityDays: 14 })).rejects.toBeInstanceOf(InvalidStateError);

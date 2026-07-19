@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { type ActionResult, failureFromError, invalidInput, success } from "../../access-control/actions/action-result";
-import type { EstimateCommercialOptionsDto, EstimateDetailDto, EstimateListFilters, EstimateProductPickerDto, EstimateServiceDto, SaveEstimateCommercialCommand } from "../services";
+import type { EstimateCommercialOptionsDto, EstimateDetailDto, EstimateListFilters, EstimateProductPickerDto, EstimateServiceDto, EstimateServiceSelection, SaveEstimateCommercialCommand } from "../services";
 import type { EstimateUnit } from "../types";
 import { createEstimateService, getAuthenticatedUserId } from "./service-factory";
 
@@ -110,6 +110,14 @@ export async function addEstimateServiceAction(estimateId: string, input: { expe
   return runEstimateMutation(
     (userId) => createEstimateService().addService(userId, estimateId, input.expectedRevision, input.serviceId, input.quantity, input.sellingUnitPrice),
     "Услуга добавлена.",
+  );
+}
+
+export async function addEstimateServicesAction(estimateId: string, expectedRevision: number, selections: EstimateServiceSelection[]): Promise<ActionResult<EstimateDetailDto>> {
+  if (!Array.isArray(selections) || !selections.length) return invalidInput("Выберите работы или услуги.");
+  return runEstimateMutation(
+    (userId) => createEstimateService().addServices(userId, estimateId, expectedRevision, selections),
+    "Работы и услуги добавлены.",
   );
 }
 

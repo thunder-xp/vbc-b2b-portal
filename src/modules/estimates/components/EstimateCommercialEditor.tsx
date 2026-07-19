@@ -1,20 +1,17 @@
 "use client";
 
-import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Plus, RotateCcw, Save, Search, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Plus, RotateCcw, Save, Trash2 } from "lucide-react";
 import { useMemo, useState, useTransition } from "react";
 
 import {
-  addEstimateCustomLineAction,
-  addEstimateProductsAction,
-  addEstimateServiceAction,
   removeEstimateLineAction,
   saveEstimateCommercialAction,
-  searchEstimateProductsAction,
 } from "../actions/estimate.actions";
 import { calculateEstimateCommercials, EstimateCalculationError, resolveCurrencyRate } from "../services/commercial-calculation";
-import type { EstimateCommercialOptionsDto, EstimateDetailDto, EstimateProductPickerDto, EstimateServiceDto, SaveEstimateCommercialCommand } from "../services";
+import type { EstimateCommercialOptionsDto, EstimateDetailDto, EstimateServiceDto, SaveEstimateCommercialCommand } from "../services";
 import type { EstimateChargeType, EstimateCurrencyChangePolicy, EstimatePricingMode, EstimateUnit, EstimateVatMode } from "../types";
 import { EstimateStatusBadge } from "./EstimateStatusBadge";
+import { EstimateLinePicker } from "./EstimateLinePicker";
 
 const inputClass = "h-9 min-w-0 rounded-md border border-zinc-300 bg-white px-2 text-sm outline-none focus:border-emerald-600 focus-visible:ring-2 focus-visible:ring-emerald-200 disabled:bg-zinc-100";
 const buttonClass = "inline-flex h-9 items-center justify-center gap-2 rounded-md border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-700 outline-none hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-45";
@@ -169,7 +166,7 @@ export function EstimateCommercialEditor({ initialEstimate, services, commercial
             }) : <p className="p-5 text-sm text-zinc-500">В разделе пока нет позиций.</p>}</div>}
           </section>;
         })}
-        {isDraft && <AddLines disabled={dirty} estimate={estimate} onResult={acceptServer} services={services} />}
+        {isDraft && <EstimateLinePicker disabled={dirty} estimate={estimate} onResult={acceptServer} services={services} />}
         <Charges draft={draft} disabled={!isDraft} update={update} />
       </main>
       <Summary currency={draft.currencyCode} preview={preview.value} />
@@ -191,18 +188,6 @@ function Charges({ draft, disabled, update }: { draft: Draft; disabled: boolean;
 function Summary({ currency, preview }: { currency: string; preview: ReturnType<typeof calculateEstimateCommercials> | null }) {
   const rows = preview ? [["Подытог", preview.subtotal], ["Скидки строк", -preview.lineDiscountTotal], ["Скидки разделов", -preview.sectionDiscountTotal], ["Глобальная скидка", -preview.globalDiscountAmount], ["Начисления", preview.chargesTotal], ["НДС", preview.vatAmount], ["Без НДС", preview.totalExcludingVat]] as const : [];
   return <aside className="sticky top-24 border-y border-zinc-200 bg-white p-5"><p className="text-xs font-semibold uppercase text-zinc-500">Итого</p><div className="mt-4 space-y-2">{rows.map(([label, value]) => <div className="flex justify-between gap-3 text-sm" key={label}><span className="text-zinc-500">{label}</span><span>{money(value, currency)}</span></div>)}</div><div className="mt-4 border-t pt-4"><p className="text-2xl font-semibold">{money(preview?.finalTotal ?? 0, currency)}</p><p className="mt-3 text-sm text-zinc-500">Валовая прибыль: {preview?.grossProfit === null || preview?.grossProfit === undefined ? "—" : money(preview.grossProfit, currency)}</p><p className="text-sm text-zinc-500">Общая маржа: {percent(preview?.overallMarginPercent)}</p>{preview?.incompletePricing && <p className="mt-3 bg-amber-50 p-2 text-xs text-amber-900">Есть позиции без рассчитанной цены.</p>}</div></aside>;
-}
-
-function AddLines({ estimate, services, onResult, disabled }: { estimate: EstimateDetailDto; services: EstimateServiceDto[]; onResult: (next: EstimateDetailDto, message: string) => void; disabled: boolean }) {
-  const [mode, setMode] = useState<"product" | "service" | "custom">("product");
-  const [products, setProducts] = useState<EstimateProductPickerDto>({ products: [], categories: [], brands: [] });
-  const [pending, startTransition] = useTransition();
-  const run = (operation: () => ReturnType<typeof addEstimateProductsAction>) => startTransition(async () => { const result = await operation(); if (result.success) onResult(result.data, result.message); });
-  return <section className="border-y border-zinc-200 bg-white p-4"><div className="flex gap-2">{(["product", "service", "custom"] as const).map((item) => <button className={buttonClass} disabled={disabled} key={item} onClick={() => setMode(item)} type="button">{item === "product" ? "Товар" : item === "service" ? "Услуга" : "Своя позиция"}</button>)}</div>{disabled && <p className="mt-3 text-xs text-amber-800">Сохраните или отмените текущие изменения перед добавлением позиции.</p>}
-    {mode === "product" && <div className="mt-3"><form className="flex gap-2" onSubmit={(event) => { event.preventDefault(); if (disabled) return; const query = String(new FormData(event.currentTarget).get("query") ?? ""); startTransition(async () => { const result = await searchEstimateProductsAction({ search: query }); if (result.success) setProducts(result.data); }); }}><input className={`${inputClass} flex-1`} disabled={disabled} name="query" placeholder="SKU или название" /><button className={buttonClass} disabled={disabled} type="submit"><Search className="size-4" />Найти</button></form><div className="mt-2 divide-y">{products.products.map((product) => <div className="flex items-center justify-between gap-3 py-2" key={product.id}><span className="text-sm"><strong>{product.name}</strong><small className="ml-2 text-zinc-500">SKU {product.sku} · {product.partnerPrice ?? "Цена уточняется"}</small></span><button className={buttonClass} disabled={pending || disabled} onClick={() => run(() => addEstimateProductsAction(estimate.id, estimate.revision, [{ productId: product.id, quantity: 1 }]))} type="button"><Plus className="size-4" /></button></div>)}</div></div>}
-    {mode === "service" && <form className="mt-3 grid gap-2 sm:grid-cols-[1fr_7rem_8rem_auto]" onSubmit={(event) => { event.preventDefault(); if (disabled) return; const data = new FormData(event.currentTarget); run(() => addEstimateServiceAction(estimate.id, { expectedRevision: estimate.revision, serviceId: String(data.get("serviceId")), quantity: Number(data.get("quantity")), sellingUnitPrice: Number(data.get("price")) })); }}><select className={inputClass} disabled={disabled} name="serviceId">{services.map((service) => <option key={service.id} value={service.id}>{service.name}</option>)}</select><input className={inputClass} defaultValue="1" disabled={disabled} min="0.001" name="quantity" step="0.001" type="number" /><input className={inputClass} disabled={disabled} min="0" name="price" placeholder="Цена" step="0.01" type="number" /><button className={buttonClass} disabled={disabled} type="submit">Добавить</button></form>}
-    {mode === "custom" && <form className="mt-3 grid gap-2 sm:grid-cols-[1fr_7rem_8rem_auto]" onSubmit={(event) => { event.preventDefault(); if (disabled) return; const data = new FormData(event.currentTarget); run(() => addEstimateCustomLineAction(estimate.id, { expectedRevision: estimate.revision, description: String(data.get("description")), unit: "service", quantity: Number(data.get("quantity")), sellingUnitPrice: Number(data.get("price")) })); }}><input className={inputClass} disabled={disabled} name="description" placeholder="Описание" required /><input className={inputClass} defaultValue="1" disabled={disabled} min="0.001" name="quantity" step="0.001" type="number" /><input className={inputClass} disabled={disabled} min="0" name="price" placeholder="Цена" step="0.01" type="number" /><button className={buttonClass} disabled={disabled} type="submit">Добавить</button></form>}
-  </section>;
 }
 
 function CurrencyDialog({ current, target, rate, effectiveDate, affectedLines, manualLines, onCancel, onConfirm }: { current: string; target: string; rate: number | null; effectiveDate: string | null; affectedLines: number; manualLines: number; onCancel: () => void; onConfirm: (policy: EstimateCurrencyChangePolicy) => void }) {

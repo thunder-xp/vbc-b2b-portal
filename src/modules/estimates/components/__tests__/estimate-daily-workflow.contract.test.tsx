@@ -1,8 +1,6 @@
 import { describe, it } from "vitest";
 
 describe("estimate daily-workflow acceptance", () => {
-  it.todo("adds several selected products through one mutation");
-  it.todo("adds several selected services through one mutation");
   it.todo("applies markup and discount to selected lines before one atomic save");
   it.todo("moves selected lines to another section and resets them to partner price");
   it.todo("keeps product search, stock, arrival, and quantity controls in one picker session");

@@ -13,6 +13,7 @@ vi.mock("../../actions/estimate.actions", () => ({
   addEstimateCustomLineAction: vi.fn(),
   addEstimateProductsAction: vi.fn(),
   addEstimateServiceAction: vi.fn(),
+  addEstimateServicesAction: vi.fn(),
   archiveEstimateAction: vi.fn(),
   removeEstimateLineAction: vi.fn(),
   saveEstimateAction: vi.fn(),

@@ -140,6 +140,12 @@ export type EstimateCommercialOptionsDto = {
   rateEffectiveDate: string | null;
 };
 
+export type EstimateServiceSelection = {
+  serviceId: string;
+  quantity: number;
+  sellingUnitPrice: number;
+};
+
 export type CreateEstimateCommand = {
   name: string;
   customerName?: string | null;
@@ -190,6 +196,7 @@ export interface EstimateService {
   saveDraft(userId: string, estimateId: string, input: SaveEstimateCommand): Promise<EstimateDetailDto>;
   saveCommercialDraft(userId: string, estimateId: string, input: SaveEstimateCommercialCommand): Promise<EstimateDetailDto>;
   addProducts(userId: string, estimateId: string, expectedRevision: number, selections: Array<{ productId: string; quantity: number }>): Promise<EstimateDetailDto>;
+  addServices(userId: string, estimateId: string, expectedRevision: number, selections: EstimateServiceSelection[]): Promise<EstimateDetailDto>;
   addService(userId: string, estimateId: string, expectedRevision: number, serviceId: string, quantity: number, sellingUnitPrice: number): Promise<EstimateDetailDto>;
   addCustomLine(userId: string, estimateId: string, expectedRevision: number, description: string, unit: EstimateUnit, quantity: number, sellingUnitPrice: number): Promise<EstimateDetailDto>;
   updateLine(userId: string, estimateId: string, itemId: string, expectedRevision: number, input: { description: string; unit: EstimateUnit; quantity: number; sellingUnitPrice: number }): Promise<EstimateDetailDto>;
@@ -429,28 +436,45 @@ export class DefaultEstimateService implements EstimateService {
   }
 
   async addService(userId: string, estimateId: string, expectedRevision: number, serviceId: string, quantity: number, sellingUnitPrice: number): Promise<EstimateDetailDto> {
+    return this.addServices(userId, estimateId, expectedRevision, [{ serviceId, quantity, sellingUnitPrice }]);
+  }
+
+  async addServices(userId: string, estimateId: string, expectedRevision: number, selections: EstimateServiceSelection[]): Promise<EstimateDetailDto> {
     const estimate = await this.ensureDraft(userId, estimateId, PRICING_PERMISSION, expectedRevision);
+    if (!Array.isArray(selections) || selections.length < 1 || selections.length > MAX_PRODUCT_BATCH) {
+      throw new InvalidStateError("Select between 1 and 50 services.");
+    }
     const services = await this.repository.listServices(estimate.companyId);
-    const service = services.find((item) => item.id === serviceId.trim());
-    if (!service) throw new NotFoundError("Service was not found.");
-    await this.addLinesSafely(estimateId, expectedRevision, [{
-      lineType: "service",
-      productId: null,
-      serviceId: service.id,
-      skuSnapshot: null,
-      productNameSnapshot: null,
-      sourceUnitPrice: null,
-      sourceCurrencyCode: null,
-      sourceSnapshotAt: null,
-      internalCostUnitPrice: service.defaultCost,
-      convertedCostUnitPrice: service.defaultCost,
-      exchangeRate: service.defaultCost === null ? null : 1,
-      exchangeRateEffectiveDate: null,
-      description: service.name,
-      quantity: normalizeQuantity(quantity),
-      unit: service.defaultUnit,
-      sellingUnitPrice: normalizeMoney(sellingUnitPrice),
-    }]);
+    const serviceById = new Map(services.map((service) => [service.id, service]));
+    const selectionById = new Map<string, EstimateServiceSelection>();
+    for (const selection of selections) {
+      const serviceId = selection.serviceId.trim();
+      if (serviceId) selectionById.set(serviceId, selection);
+    }
+    if (!selectionById.size) throw new InvalidStateError("Select at least one service.");
+    const lines = [...selectionById].map(([serviceId, selection]): AddEstimateLineInput => {
+      const service = serviceById.get(serviceId);
+      if (!service) throw new NotFoundError("Service was not found.");
+      return {
+        lineType: "service",
+        productId: null,
+        serviceId: service.id,
+        skuSnapshot: null,
+        productNameSnapshot: null,
+        sourceUnitPrice: null,
+        sourceCurrencyCode: null,
+        sourceSnapshotAt: null,
+        internalCostUnitPrice: service.defaultCost,
+        convertedCostUnitPrice: service.defaultCost,
+        exchangeRate: service.defaultCost === null ? null : 1,
+        exchangeRateEffectiveDate: null,
+        description: service.name,
+        quantity: normalizeQuantity(selection.quantity),
+        unit: service.defaultUnit,
+        sellingUnitPrice: normalizeMoney(selection.sellingUnitPrice),
+      };
+    });
+    await this.addLinesSafely(estimateId, expectedRevision, lines);
     return this.getDetail(userId, estimateId);
   }
 
