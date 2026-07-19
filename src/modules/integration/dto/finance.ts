@@ -24,3 +24,14 @@ export type FinanceSnapshotDTO = {
   sourceUpdatedAt: string | null;
   metadata: IntegrationMetadataDTO;
 };
+
+export type ContractBalanceDTO = {
+  contractReference: ExternalReferenceDTO;
+  contractNumber: string;
+  contractName: string;
+  currencyReference: ExternalReferenceDTO;
+  currencyCode: string;
+  signedBalance: number;
+  sourceVersion: string | null;
+  synchronizedAt: string;
+};

@@ -18,7 +18,7 @@ export type {
   CatalogScanDiagnosticsDTO,
 } from "./catalog";
 export type { DocumentDTO } from "./documents";
-export type { FinanceSnapshotDTO, InvoiceDTO } from "./finance";
+export type { ContractBalanceDTO, FinanceSnapshotDTO, InvoiceDTO } from "./finance";
 export type { StockBalanceDTO } from "./inventory";
 export type {
   SalesOrderDTO,

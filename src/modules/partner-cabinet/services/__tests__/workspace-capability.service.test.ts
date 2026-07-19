@@ -46,6 +46,12 @@ describe("resolveWorkspaceCapabilities", () => {
     expect(model.canCreateCommercialProposal).toBe(false);
   });
 
+  it("shows finance only with the company finance permission", () => {
+    expect(resolveWorkspaceCapabilities(new Set(["finance.view_company"])).navigation.find((item) => item.key === "finance"))
+      .toMatchObject({ href: "/cabinet/finance", availability: "available" });
+    expect(resolveWorkspaceCapabilities(new Set()).navigation.some((item) => item.key === "finance")).toBe(false);
+  });
+
   it("applies server capability configuration to navigation and commercial visibility", () => {
     const model = resolveWorkspaceCapabilities(
       new Set(["catalog.view", "prices.view", "stock.view"]),

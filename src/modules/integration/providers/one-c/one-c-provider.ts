@@ -3,7 +3,6 @@ import type {
   DocumentProvider,
   DocumentFetchRequestDTO,
   ERPProviderHealth,
-  FinanceFetchRequestDTO,
   FinanceProvider,
   InventoryProvider,
   OrderProvider,
@@ -19,10 +18,8 @@ import type {
   CatalogProductDTO,
   CatalogSnapshotDTO,
   DocumentDTO,
-  FinanceSnapshotDTO,
   IntegrationPageResultDTO,
   IntegrationSyncWindowDTO,
-  InvoiceDTO,
   PartnerCompanyDTO,
   PartnerSearchInputDTO,
   PartnerSearchResultDTO,
@@ -59,6 +56,7 @@ import type {
 import { OneCPartnerODataProvider } from "./one-c-partner-odata-provider";
 import { OneCPriceODataProvider } from "./one-c-price-odata-provider";
 import { OneCCustomerOrderProvider } from "./one-c-order-provider";
+import { OneCFinanceProvider } from "./one-c-finance-provider";
 
 export class IntegrationProviderNotImplementedError extends IntegrationUnsupportedOperationError {
   constructor(operation: string) {
@@ -111,7 +109,7 @@ export class OneCProvider extends AbstractERPProvider {
     this.inventory = new OneCInventoryProvider(this.config);
     this.orders = new OneCCustomerOrderProvider(this.config);
     this.documents = new OneCDocumentProvider();
-    this.finance = new OneCFinanceProvider();
+    this.finance = new OneCFinanceProvider(this.config);
     this.partners = new OneCPartnerODataProvider(this.config);
   }
 
@@ -250,20 +248,6 @@ class OneCDocumentProvider implements DocumentProvider {
     _input: DocumentFetchRequestDTO,
   ): Promise<IntegrationPageResultDTO<DocumentDTO>> {
     throw new IntegrationProviderNotImplementedError("1C document import");
-  }
-}
-
-class OneCFinanceProvider implements FinanceProvider {
-  async fetchFinanceSnapshots(
-    _input: FinanceFetchRequestDTO,
-  ): Promise<IntegrationPageResultDTO<FinanceSnapshotDTO>> {
-    throw new IntegrationProviderNotImplementedError("1C finance import");
-  }
-
-  async fetchInvoices(
-    _input: FinanceFetchRequestDTO,
-  ): Promise<IntegrationPageResultDTO<InvoiceDTO>> {
-    throw new IntegrationProviderNotImplementedError("1C invoice import");
   }
 }
 
