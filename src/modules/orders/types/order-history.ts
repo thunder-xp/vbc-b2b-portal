@@ -48,7 +48,7 @@ export type PartnerOrderHistoryItem = {
 export type PartnerOrderHistoryEvent = {
   id: string;
   orderHistoryId: string;
-  eventType: "imported" | "received_by_one_c" | "posted" | "became_unposted" | "state_changed" | "delivery_date_changed" | "sync_restored";
+  eventType: "imported" | "received_by_one_c" | "posted" | "became_unposted" | "state_changed" | "delivery_date_changed" | "sync_restored" | "date_change_requested" | "date_change_approved" | "date_change_rejected" | "date_change_cancelled" | "date_change_reflected";
   occurredAt: string;
   previousValue: string | null;
   currentValue: string | null;

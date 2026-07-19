@@ -468,6 +468,11 @@ function toTimelineEvent(event: PartnerOrderHistoryEvent) {
     state_changed: "Состояние заказа изменено",
     delivery_date_changed: "Дата отгрузки изменена",
     sync_restored: "Синхронизация восстановлена",
+    date_change_requested: "Запрошен перенос даты",
+    date_change_approved: "Перенос даты одобрен",
+    date_change_rejected: "Перенос даты отклонён",
+    date_change_cancelled: "Запрос на перенос отменён",
+    date_change_reflected: "Одобренная дата отражена в 1С",
   };
   return { label: labels[event.eventType], occurredAt: event.occurredAt };
 }

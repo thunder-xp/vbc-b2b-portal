@@ -2,7 +2,7 @@ import "server-only";
 
 import { createClient } from "@/src/lib/supabase/server";
 import type { OrderDateChangeRequest } from "../../types";
-import { OrderDateChangeRepositoryError, type OrderDateChangeRequestRepository } from "../order-date-change.repository";
+import { OrderDateChangeRepositoryError, type InternalOrderDateChangeRecord, type OrderDateChangeRequestRepository } from "../order-date-change.repository";
 
 const COLUMNS = "id, company_id, order_history_id, requested_by, current_date_snapshot, requested_date, comment, status, reviewed_by, reviewed_at, review_comment, synchronized_at, created_at, updated_at";
 type Row = Record<string, unknown>;
@@ -29,6 +29,30 @@ export class SupabaseOrderDateChangeRequestRepository implements OrderDateChange
 
   async cancel(requestId: string) {
     const { data, error } = await (await createClient()).rpc("cancel_partner_order_date_change_request", { target_request_id: requestId });
+    if (error || !data) throw new OrderDateChangeRepositoryError(error?.code ?? null);
+    return mapRow(data as Row);
+  }
+
+  async listPendingForReview(): Promise<InternalOrderDateChangeRecord[]> {
+    const { data, error } = await (await createClient()).from("partner_order_date_change_requests")
+      .select(`${COLUMNS}, partner_companies!partner_order_date_change_requests_company_id_fkey(name), partner_order_history!partner_order_date_change_order_company_fk(external_1c_order_number, one_c_posted, one_c_delivery_date)`)
+      .eq("status", "pending").order("created_at", { ascending: true });
+    if (error) throw new OrderDateChangeRepositoryError(error.code);
+    return ((data ?? []) as unknown as Array<Row & { partner_companies: { name: string }; partner_order_history: { external_1c_order_number: string; one_c_posted: boolean; one_c_delivery_date: string } }>).map((row) => ({
+      request: mapRow(row), companyName: row.partner_companies.name,
+      orderLabel: row.partner_order_history.one_c_posted ? `№ ${row.partner_order_history.external_1c_order_number}` : "Заказ обрабатывается",
+      authoritativeDate: row.partner_order_history.one_c_delivery_date,
+    }));
+  }
+
+  async canReviewInternally() {
+    const { data, error } = await (await createClient()).rpc("can_review_order_date_changes");
+    if (error) throw new OrderDateChangeRepositoryError(error.code);
+    return data === true;
+  }
+
+  async review(input: { requestId: string; decision: "approved" | "rejected"; comment: string | null }) {
+    const { data, error } = await (await createClient()).rpc("review_partner_order_date_change_request", { target_request_id: input.requestId, target_decision: input.decision, target_comment: input.comment });
     if (error || !data) throw new OrderDateChangeRepositoryError(error?.code ?? null);
     return mapRow(data as Row);
   }
