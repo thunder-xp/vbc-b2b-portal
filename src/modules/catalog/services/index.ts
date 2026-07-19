@@ -11,6 +11,7 @@ export type {
   CatalogProductOrderIdentityDto,
   CatalogProductRouteIdentityDto,
   CatalogFacetDto,
+  CatalogFacetListInput,
   CatalogService,
 } from "./catalog.service";
 export { DefaultCatalogService } from "./catalog.service";

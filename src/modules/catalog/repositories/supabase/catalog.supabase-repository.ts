@@ -67,7 +67,7 @@ export class SupabaseCatalogRepository implements CatalogRepository {
       p_search: input.search ?? null,
       p_availability: input.availability,
       p_filters: input.attributeFilters,
-      p_max_values: 30,
+      p_max_values: 12,
     });
     if (error) throw new CatalogRepositoryUnexpectedError();
     return ((data ?? []) as Array<{

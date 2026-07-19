@@ -49,6 +49,11 @@ export type CatalogProductListInput = {
   availabilityProductIds?: string[];
 };
 
+export type CatalogFacetListInput = Pick<
+  CatalogProductListInput,
+  "categoryId" | "brandId" | "search" | "attributeFilters" | "availability"
+>;
+
 export type CatalogFacetDto = { key: string; label: string; values: Array<{ value: string; count: number; selected: boolean }> };
 
 export type CatalogProductCardDto = {
@@ -120,6 +125,7 @@ export interface CatalogService {
     userId: string,
     input: CatalogProductListInput,
   ): Promise<CatalogProductListResult>;
+  listFacets?(userId: string, input: CatalogFacetListInput): Promise<CatalogFacetDto[]>;
   getProductDetailBySlug(
     userId: string,
     slug: string,
@@ -342,6 +348,24 @@ export class DefaultCatalogService implements CatalogService {
     };
   }
 
+  async listFacets(userId: string, input: CatalogFacetListInput): Promise<CatalogFacetDto[]> {
+    const companyId = await measurePerformanceStage("catalog", "facet_access", () => this.ensureCatalogAccess(userId));
+    const attributeFilters = normalizeAttributeFilters(input.attributeFilters);
+    const rows = await measurePerformanceStage(
+      "catalog",
+      "facets",
+      () => this.catalogRepository.listPartnerFacets?.({
+        companyId,
+        categoryId: input.categoryId,
+        brandId: input.brandId,
+        search: input.search,
+        availability: input.availability ?? "all",
+        attributeFilters,
+      }) ?? Promise.resolve([]),
+    );
+    return buildFacets(rows, attributeFilters);
+  }
+
   private async listPartnerCatalogPage(
     companyId: string,
     input: CatalogProductListInput & {
@@ -351,7 +375,7 @@ export class DefaultCatalogService implements CatalogService {
       attributeFilters: Record<string, string[]>;
     },
   ): Promise<CatalogProductListResult> {
-    const pagePromise = measurePerformanceStage(
+    const partnerPage = await measurePerformanceStage(
       "catalog",
       "partner_page_aggregate",
       () => this.catalogRepository.listPartnerPage!({
@@ -366,19 +390,6 @@ export class DefaultCatalogService implements CatalogService {
         offset: (input.page - 1) * input.pageSize,
       }),
     );
-    const facetsPromise = measurePerformanceStage(
-      "catalog",
-      "facets",
-      () => this.catalogRepository.listPartnerFacets?.({
-        companyId,
-        categoryId: input.categoryId,
-        brandId: input.brandId,
-        search: input.search,
-        availability: input.availability ?? "all",
-        attributeFilters: input.attributeFilters,
-      }) ?? Promise.resolve([]),
-    ).catch(() => []);
-    const [partnerPage, facetRows] = await Promise.all([pagePromise, facetsPromise]);
     const commercialViews = partnerPage.items.map((item) =>
       toPublicCommercialView(projectProductCommercialSnapshot(item.commercialSnapshot)),
     );
@@ -401,7 +412,7 @@ export class DefaultCatalogService implements CatalogService {
       hasNextPage: input.page * input.pageSize < partnerPage.totalCount,
       isDemoData: false,
       totalCount: partnerPage.totalCount,
-      facets: buildFacets(facetRows, input.attributeFilters),
+      facets: [],
       commercialViews,
     };
   }

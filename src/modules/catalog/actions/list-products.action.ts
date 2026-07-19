@@ -16,22 +16,27 @@ import type {
   CatalogProductListResult,
 } from "../services";
 import { DefaultCatalogService } from "../services";
+import {
+  normalizeCatalogAvailability,
+  normalizeCatalogFilters,
+  normalizeCatalogOptionalText,
+} from "./catalog-action-input";
 
 export async function listCatalogProductsAction(
   input: CatalogProductListInput,
 ): Promise<ActionResult<CatalogProductListResult>> {
   try {
     const userId = await getAuthenticatedUserId();
-    const availability = normalizeAvailability(input.availability);
+    const availability = normalizeCatalogAvailability(input.availability);
     const pricingInventoryService = createPricingInventoryService();
     const products = await createCatalogService(pricingInventoryService).listProducts(userId, {
-      categoryId: normalizeOptionalText(input.categoryId),
-      brandId: normalizeOptionalText(input.brandId),
-      search: normalizeOptionalText(input.search),
+      categoryId: normalizeCatalogOptionalText(input.categoryId),
+      brandId: normalizeCatalogOptionalText(input.brandId),
+      search: normalizeCatalogOptionalText(input.search),
       page: input.page,
       pageSize: input.pageSize,
       sort: input.sort,
-      attributeFilters: normalizeFilters(input.attributeFilters),
+      attributeFilters: normalizeCatalogFilters(input.attributeFilters),
       availability,
     });
 
@@ -39,15 +44,6 @@ export async function listCatalogProductsAction(
   } catch (error) {
     return failureFromError(error);
   }
-}
-function normalizeAvailability(value: CatalogProductListInput["availability"]): "all" | "in_stock" | "expected" {
-  return value === "in_stock" || value === "expected" ? value : "all";
-}
-function normalizeFilters(filters: Record<string, string[]> | undefined): Record<string, string[]> | undefined { if (!filters) return undefined; return Object.fromEntries(Object.entries(filters).map(([key, values]) => [key.trim(), values.map((value) => value.trim()).filter(Boolean)])); }
-
-function normalizeOptionalText(value: string | undefined): string | undefined {
-  const normalized = value?.trim();
-  return normalized || undefined;
 }
 
 function createCatalogService(

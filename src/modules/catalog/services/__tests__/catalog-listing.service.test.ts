@@ -93,6 +93,39 @@ describe("DefaultCatalogService listing projection", () => {
     expect(result.commercialViews?.[0]?.partnerPrice?.amount).toBe(30);
     expect(result.products[0]).toMatchObject({ shortDescription: null, keyCharacteristics: [], datasheet: null });
   });
+
+  it("does not wait for secondary facets when loading the product page", async () => {
+    const repository = new AggregateListingRepository();
+    repository.facetLoader = () => new Promise(() => undefined);
+
+    const result = await new DefaultCatalogService(
+      repository,
+      companyAccessService,
+    ).listProducts("user-1", { page: 1, pageSize: 12 });
+
+    expect(result.products).toHaveLength(2);
+    expect(result.facets).toEqual([]);
+  });
+
+  it("loads all visible facet groups through one bounded repository call", async () => {
+    const repository = new AggregateListingRepository();
+    const facetKey = "property_11111111-1111-1111-1111-111111111111";
+    repository.facetLoader = async () => [
+      { key: facetKey, label: "Resolution", value: "4 MP", count: 3, coverage: 5 },
+      { key: facetKey, label: "Resolution", value: "8 MP", count: 2, coverage: 5 },
+    ];
+
+    const facets = await new DefaultCatalogService(
+      repository,
+      companyAccessService,
+    ).listFacets("user-1", { attributeFilters: { [facetKey]: ["4 MP"] } });
+
+    expect(repository.facetCalls).toBe(1);
+    expect(facets).toEqual([{ key: facetKey, label: "Resolution", values: [
+      { value: "4 MP", count: 3, selected: true },
+      { value: "8 MP", count: 2, selected: false },
+    ] }]);
+  });
 });
 
 class ListingRepository implements CatalogRepository {
@@ -131,6 +164,13 @@ class ListingRepository implements CatalogRepository {
 
 class AggregateListingRepository extends ListingRepository {
   aggregateInput: import("../../repositories").CatalogPartnerPageInput | null = null;
+  facetCalls = 0;
+  facetLoader: () => Promise<import("../../repositories/catalog.repository").CatalogFacetValueRecord[]> = async () => [];
+
+  async listPartnerFacets() {
+    this.facetCalls += 1;
+    return this.facetLoader();
+  }
 
   async listPartnerPage(input: import("../../repositories").CatalogPartnerPageInput) {
     this.aggregateInput = input;
