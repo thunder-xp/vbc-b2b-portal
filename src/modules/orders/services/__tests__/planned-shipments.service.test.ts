@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { CompanyAccessService, PermissionService } from "../../../access-control/services";
 import type { OrderProvider } from "../../../integration/contracts";
-import type { PartnerOrderHistoryRepository, PartnerOrderRepository } from "../../repositories";
+import type { OrderDateChangeRequestRepository, PartnerOrderHistoryRepository, PartnerOrderRepository } from "../../repositories";
 import type { PartnerOrderHistory } from "../../types";
 import { DefaultPartnerOrderHistoryService, getPlannedShipmentIndicator } from "../order-history.service";
 
@@ -37,8 +37,28 @@ describe("planned shipments", () => {
     expect(repository.listItemsByOrderIds).not.toHaveBeenCalled();
     expect(provider.fetchSalesOrderHistory).toBeUndefined();
   });
+
+  it("loads request summaries once for the bounded shipment page", async () => {
+    const orders = Array.from({ length: 20 }, (_, index) => order({ id: `order-${index}` }));
+    const repository = { listPlannedShipments: vi.fn().mockResolvedValue({ items: orders, total: 20 }), listItemsByOrderIds: vi.fn() } as unknown as PartnerOrderHistoryRepository;
+    const dateChanges = { listLatestByOrderIds: vi.fn().mockResolvedValue(new Map()) } as unknown as OrderDateChangeRequestRepository;
+    const provider = { fetchSalesOrderHistory: vi.fn() } as unknown as OrderProvider;
+    const service = new DefaultPartnerOrderHistoryService(
+      repository, {} as PartnerOrderRepository,
+      { getOwnMemberships: vi.fn().mockResolvedValue([{ companyId: "company-1", status: "active" }]), getActiveCompanyContext: vi.fn().mockResolvedValue({ company: { id: "company-1" } }) } as unknown as CompanyAccessService,
+      { ensurePermission: vi.fn() } as unknown as PermissionService, provider, dateChanges,
+    );
+
+    const result = await service.listPlannedShipments("user-1");
+
+    expect(result.shipments).toHaveLength(20);
+    expect(repository.listPlannedShipments).toHaveBeenCalledOnce();
+    expect(dateChanges.listLatestByOrderIds).toHaveBeenCalledOnce();
+    expect(repository.listItemsByOrderIds).not.toHaveBeenCalled();
+    expect(provider.fetchSalesOrderHistory).not.toHaveBeenCalled();
+  });
 });
 
-function order(): PartnerOrderHistory {
-  return { id: "order-1", companyId: "company-1", portalOrderId: null, external1cOrderRef: "ref", external1cOrderNumber: "NSUU-1", oneCPosted: true, oneCDeletionMark: false, oneCStateRef: null, oneCStateRaw: "Открыт", oneCStateCode: "open", oneCDocumentDate: "2026-07-19T10:00:00Z", oneCDeliveryDate: "2026-07-21", oneCSourceVersion: "v1", oneCLastSyncedAt: "2026-07-19T11:00:00Z", externalContractRef: null, externalCurrencyRef: null, documentTotal: 100, currencyCode: "MDL", originType: "internal_1c", partnerVisible: true, hiddenReason: null, positionCount: 2, totalUnitCount: 5, createdAt: "2026-07-19T10:00:00Z", updatedAt: "2026-07-19T11:00:00Z" };
+function order(overrides: Partial<PartnerOrderHistory> = {}): PartnerOrderHistory {
+  return { id: "order-1", companyId: "company-1", portalOrderId: null, external1cOrderRef: "ref", external1cOrderNumber: "NSUU-1", oneCPosted: true, oneCDeletionMark: false, oneCStateRef: null, oneCStateRaw: "Открыт", oneCStateCode: "open", oneCDocumentDate: "2026-07-19T10:00:00Z", oneCDeliveryDate: "2026-07-21", oneCSourceVersion: "v1", oneCLastSyncedAt: "2026-07-19T11:00:00Z", externalContractRef: null, externalCurrencyRef: null, documentTotal: 100, currencyCode: "MDL", originType: "internal_1c", partnerVisible: true, hiddenReason: null, positionCount: 2, totalUnitCount: 5, createdAt: "2026-07-19T10:00:00Z", updatedAt: "2026-07-19T11:00:00Z", ...overrides };
 }

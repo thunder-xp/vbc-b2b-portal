@@ -35,11 +35,11 @@ export class SupabaseOrderDateChangeRequestRepository implements OrderDateChange
 
   async listPendingForReview(): Promise<InternalOrderDateChangeRecord[]> {
     const { data, error } = await (await createClient()).from("partner_order_date_change_requests")
-      .select(`${COLUMNS}, partner_companies!partner_order_date_change_requests_company_id_fkey(name), partner_order_history!partner_order_date_change_order_company_fk(external_1c_order_number, one_c_posted, one_c_delivery_date)`)
+      .select(`${COLUMNS}, partner_companies!partner_order_date_change_requests_company_id_fkey(display_name), partner_order_history!partner_order_date_change_order_company_fk(external_1c_order_number, one_c_posted, one_c_delivery_date)`)
       .eq("status", "pending").order("created_at", { ascending: true });
     if (error) throw new OrderDateChangeRepositoryError(error.code);
-    return ((data ?? []) as unknown as Array<Row & { partner_companies: { name: string }; partner_order_history: { external_1c_order_number: string; one_c_posted: boolean; one_c_delivery_date: string } }>).map((row) => ({
-      request: mapRow(row), companyName: row.partner_companies.name,
+    return ((data ?? []) as unknown as Array<Row & { partner_companies: { display_name: string }; partner_order_history: { external_1c_order_number: string; one_c_posted: boolean; one_c_delivery_date: string } }>).map((row) => ({
+      request: mapRow(row), companyName: row.partner_companies.display_name,
       orderLabel: row.partner_order_history.one_c_posted ? `№ ${row.partner_order_history.external_1c_order_number}` : "Заказ обрабатывается",
       authoritativeDate: row.partner_order_history.one_c_delivery_date,
     }));
