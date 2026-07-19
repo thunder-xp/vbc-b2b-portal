@@ -1,4 +1,5 @@
 import type { CompanyAccessService } from "../../access-control/services";
+import { measurePerformanceStage } from "../../../lib/performance/request-diagnostics";
 import { MembershipStatus } from "../../access-control/types";
 import type {
   PricingInventoryService,
@@ -171,21 +172,29 @@ export class DefaultCatalogService implements CatalogService {
     userId: string,
     input: CatalogProductListInput,
   ): Promise<CatalogProductListResult> {
-    await this.ensureCatalogAccess(userId);
+    await measurePerformanceStage("catalog", "access", () => this.ensureCatalogAccess(userId));
     const page = normalizePage(input.page);
     const pageSize = normalizePageSize(input.pageSize);
-    const [brands, categories] = await Promise.all([
-      this.catalogRepository.listBrands(),
-      this.catalogRepository.listCategories(),
-    ]);
+    const [brands, categories] = await measurePerformanceStage(
+      "catalog",
+      "metadata",
+      () => Promise.all([
+        this.catalogRepository.listBrands(),
+        this.catalogRepository.listCategories(),
+      ]),
+    );
     const categoryIds = input.categoryId
       ? collectCategoryAndDescendantIds(input.categoryId, categories)
       : undefined;
     const attributeFilters = normalizeAttributeFilters(input.attributeFilters);
-    const [attributeProductIds, facetRows] = await Promise.all([
-      Object.keys(attributeFilters).length ? this.catalogRepository.findMatchingProductIds?.(categoryIds, attributeFilters) ?? Promise.resolve([]) : Promise.resolve(undefined),
-      this.catalogRepository.listAttributeFacets?.(categoryIds, attributeFilters) ?? Promise.resolve([]),
-    ]);
+    const [attributeProductIds, facetRows] = await measurePerformanceStage(
+      "catalog",
+      "facets",
+      () => Promise.all([
+        Object.keys(attributeFilters).length ? this.catalogRepository.findMatchingProductIds?.(categoryIds, attributeFilters) ?? Promise.resolve([]) : Promise.resolve(undefined),
+        this.catalogRepository.listAttributeFacets?.(categoryIds, attributeFilters) ?? Promise.resolve([]),
+      ]),
+    );
     const matchingProductIds = intersectProductIds(
       attributeProductIds,
       input.availabilityProductIds,
@@ -207,17 +216,24 @@ export class DefaultCatalogService implements CatalogService {
     let totalCount: number;
     let allCommercialViews: ProductCommercialViewDto[] | undefined;
     if (sort !== "default") {
-      [products, totalCount, allCommercialViews] =
-        await this.loadAndSortCommercialProducts(userId, repositoryInput, sort);
+      [products, totalCount, allCommercialViews] = await measurePerformanceStage(
+        "catalog",
+        "commercial_sort",
+        () => this.loadAndSortCommercialProducts(userId, repositoryInput, sort),
+      );
     } else {
-      [products, totalCount] = await Promise.all([
-        this.catalogRepository.listProducts({
-          ...repositoryInput,
-          limit: pageSize + 1,
-          offset: (page - 1) * pageSize,
-        }),
-        this.catalogRepository.countProducts(repositoryInput),
-      ]);
+      [products, totalCount] = await measurePerformanceStage(
+        "catalog",
+        "product_page_and_count",
+        () => Promise.all([
+          this.catalogRepository.listProducts({
+            ...repositoryInput,
+            limit: pageSize + 1,
+            offset: (page - 1) * pageSize,
+          }),
+          this.catalogRepository.countProducts(repositoryInput),
+        ]),
+      );
     }
     const isEmptyCatalog = products.length === 0 && (await this.isCatalogEmpty());
 
@@ -257,10 +273,16 @@ export class DefaultCatalogService implements CatalogService {
     const categoryMap = createCategoryMap(categories);
     const start = commercialSort ? (page - 1) * pageSize : 0;
     const visibleProducts = products.slice(start, start + pageSize);
-    const documents = await this.catalogRepository.listProductDocumentsForProducts(
-      visibleProducts.map((product) => product.id),
+    const [documents, attributes] = await measurePerformanceStage(
+      "catalog",
+      "card_detail_projection",
+      () => Promise.all([
+        this.catalogRepository.listProductDocumentsForProducts(
+          visibleProducts.map((product) => product.id),
+        ),
+        this.catalogRepository.listProductAttributesForProducts?.(visibleProducts.map((product) => product.id)) ?? Promise.resolve([]),
+      ]),
     );
-    const attributes = await this.catalogRepository.listProductAttributesForProducts?.(visibleProducts.map((product) => product.id)) ?? [];
     const datasheetByProduct = new Map(
       documents
         .filter((document) => document.documentType === "datasheet")
@@ -300,7 +322,11 @@ export class DefaultCatalogService implements CatalogService {
 
     const totalCount = await this.catalogRepository.countProducts(repositoryInput);
     const products = await this.loadAllProducts(repositoryInput, totalCount);
-    const commercialViews = await this.getCommercialViews(userId, products);
+    const commercialViews = await measurePerformanceStage(
+      "catalog",
+      "commercial_enrichment",
+      () => this.getCommercialViews(userId, products),
+    );
 
     return [
       sortCatalogProducts(products, commercialViews, sort),
