@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { listCatalogProductsAction } from "../actions";
-import { getProductCommercialViewsAction } from "../../pricing-inventory/actions";
 import type { ProductCommercialViewDto } from "../../pricing-inventory";
 import type { CatalogProductCardDto, CatalogSort } from "../services";
 
@@ -18,16 +17,18 @@ export function CatalogSearch({ categoryId, initialSearch, sort = "default" }: {
   useEffect(() => {
     const normalized = query.trim();
     if (normalized.length < 2 || normalized === initialSearch) { setResults([]); return; }
+    const controller = new AbortController();
     const timer = window.setTimeout(async () => {
       setLoading(true);
       const result = await listCatalogProductsAction({ categoryId, search: normalized, page: 1, pageSize: 6 });
+      if (controller.signal.aborted) return;
       const products = result.success ? result.data.products : [];
       setResults(products);
-      const views = products.length ? await getProductCommercialViewsAction(products.map((product) => product.id)) : null;
-      setCommercial(views?.success ? Object.fromEntries(views.data.map((view) => [view.productId, view])) : {});
+      const views = result.success ? result.data.commercialViews ?? [] : [];
+      setCommercial(Object.fromEntries(views.map((view) => [view.productId, view])));
       setLoading(false);
     }, 250);
-    return () => window.clearTimeout(timer);
+    return () => { controller.abort(); window.clearTimeout(timer); };
   }, [categoryId, initialSearch, query]);
 
   return <div className="relative flex-1">

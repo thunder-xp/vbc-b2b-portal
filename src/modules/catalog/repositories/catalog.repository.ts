@@ -49,6 +49,11 @@ export type CatalogPartnerPage = {
   totalCount: number;
 };
 
+export type CatalogPartnerFacetInput = Pick<
+  CatalogPartnerPageInput,
+  "companyId" | "categoryId" | "brandId" | "search" | "availability" | "attributeFilters"
+>;
+
 export type CatalogProductDetailAggregate = {
   product: CatalogProduct;
   brand: CatalogBrand | null;
@@ -100,6 +105,7 @@ export type UpsertCatalogProductInput = {
 
 export interface CatalogRepository {
   listPartnerPage?(input: CatalogPartnerPageInput): Promise<CatalogPartnerPage>;
+  listPartnerFacets?(input: CatalogPartnerFacetInput): Promise<CatalogFacetValueRecord[]>;
   listCategories(): Promise<CatalogCategory[]>;
   listBrands(): Promise<CatalogBrand[]>;
   listProducts(input: ListCatalogProductsInput): Promise<CatalogProduct[]>;

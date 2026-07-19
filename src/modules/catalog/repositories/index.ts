@@ -5,6 +5,7 @@ export type {
   CatalogPartnerPage,
   CatalogPartnerPageInput,
   CatalogPartnerPageRecord,
+  CatalogPartnerFacetInput,
   ListCatalogProductsInput,
   UpsertCatalogBrandInput,
   UpsertCatalogCategoryInput,

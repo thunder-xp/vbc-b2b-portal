@@ -28,4 +28,31 @@ describe("catalog_partner_page SQL", () => {
     expect(migration).toContain("from public, anon");
     expect(migration).not.toMatch(/grant execute[\s\S]*to anon/);
   });
+
+  it("prioritizes exact and prefix SKU search without scanning descriptions for short input", () => {
+    expect(migration).toContain("when lower(p.sku) = lower(btrim(p_search)) then 0");
+    expect(migration).toContain("when lower(p.sku) like lower(btrim(p_search)) || '%' then 1");
+    expect(migration).toContain("char_length(btrim(p_search)) >= 3 and p.short_description ilike");
+  });
+});
+
+const facetMigration = readFileSync(
+  join(process.cwd(), "supabase/migrations/20260719100000_catalog_scoped_facets.sql"),
+  "utf8",
+);
+
+describe("catalog_partner_facets SQL", () => {
+  it("batches current category, search, availability, and attribute scope", () => {
+    expect(facetMigration).toContain("create or replace function public.catalog_partner_facets");
+    expect(facetMigration).toContain("p_category_id");
+    expect(facetMigration).toContain("p_search");
+    expect(facetMigration).toContain("p_availability");
+    expect(facetMigration).toContain("selected_filter.key <> candidate.attribute_key");
+  });
+
+  it("bounds values per facet while retaining selected values", () => {
+    expect(facetMigration).toContain("partition by counted.attribute_key");
+    expect(facetMigration).toContain("ranked.value_rank <= p_max_values");
+    expect(facetMigration).toContain("p_filters -> ranked.attribute_key");
+  });
 });

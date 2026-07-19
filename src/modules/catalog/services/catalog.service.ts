@@ -351,14 +351,6 @@ export class DefaultCatalogService implements CatalogService {
       attributeFilters: Record<string, string[]>;
     },
   ): Promise<CatalogProductListResult> {
-    const categories = await measurePerformanceStage(
-      "catalog",
-      "metadata",
-      () => this.catalogRepository.listCategories(),
-    );
-    const categoryIds = input.categoryId
-      ? collectCategoryAndDescendantIds(input.categoryId, categories)
-      : undefined;
     const pagePromise = measurePerformanceStage(
       "catalog",
       "partner_page_aggregate",
@@ -377,7 +369,14 @@ export class DefaultCatalogService implements CatalogService {
     const facetsPromise = measurePerformanceStage(
       "catalog",
       "facets",
-      () => this.catalogRepository.listAttributeFacets?.(categoryIds, input.attributeFilters) ?? Promise.resolve([]),
+      () => this.catalogRepository.listPartnerFacets?.({
+        companyId,
+        categoryId: input.categoryId,
+        brandId: input.brandId,
+        search: input.search,
+        availability: input.availability ?? "all",
+        attributeFilters: input.attributeFilters,
+      }) ?? Promise.resolve([]),
     ).catch(() => []);
     const [partnerPage, facetRows] = await Promise.all([pagePromise, facetsPromise]);
     const commercialViews = await measurePerformanceStage(

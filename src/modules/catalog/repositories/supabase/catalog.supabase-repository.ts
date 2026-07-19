@@ -9,6 +9,7 @@ import type {
   CatalogProductDetailAggregate,
   CatalogPartnerPage,
   CatalogPartnerPageInput,
+  CatalogPartnerFacetInput,
   UpsertCatalogBrandInput,
   UpsertCatalogCategoryInput,
   UpsertCatalogProductInput,
@@ -56,6 +57,33 @@ export class CatalogRepositoryUnexpectedError extends Error {
 }
 
 export class SupabaseCatalogRepository implements CatalogRepository {
+  async listPartnerFacets(input: CatalogPartnerFacetInput): Promise<CatalogFacetValueRecord[]> {
+    const supabase = await createClient();
+    const { data, error } = await supabase.rpc("catalog_partner_facets", {
+      p_company_id: input.companyId,
+      p_category_id: input.categoryId ?? null,
+      p_brand_id: input.brandId ?? null,
+      p_search: input.search ?? null,
+      p_availability: input.availability,
+      p_filters: input.attributeFilters,
+      p_max_values: 30,
+    });
+    if (error) throw new CatalogRepositoryUnexpectedError();
+    return ((data ?? []) as Array<{
+      attribute_key: string;
+      label: string;
+      display_value: string;
+      product_count: number | string;
+      product_coverage: number | string;
+    }>).map((row) => ({
+      key: row.attribute_key,
+      label: row.label,
+      value: row.display_value,
+      count: Number(row.product_count),
+      coverage: Number(row.product_coverage),
+    }));
+  }
+
   async listPartnerPage(input: CatalogPartnerPageInput): Promise<CatalogPartnerPage> {
     const supabase = await createClient();
     const { data, error } = await supabase.rpc("catalog_partner_page", {
