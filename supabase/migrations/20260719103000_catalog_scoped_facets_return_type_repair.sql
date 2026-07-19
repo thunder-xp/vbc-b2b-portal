@@ -1,3 +1,4 @@
+-- Repair the deployed facet return type: sum(bigint) is numeric in PostgreSQL.
 -- One bounded facet query for the current catalog scope. The current facet's
 -- own selection is excluded while all other active filters remain applied.
 create or replace function public.catalog_partner_facets(

@@ -54,5 +54,6 @@ describe("catalog_partner_facets SQL", () => {
     expect(facetMigration).toContain("partition by counted.attribute_key");
     expect(facetMigration).toContain("ranked.value_rank <= p_max_values");
     expect(facetMigration).toContain("p_filters -> ranked.attribute_key");
+    expect(facetMigration).toContain("ranked.product_coverage::bigint");
   });
 });
