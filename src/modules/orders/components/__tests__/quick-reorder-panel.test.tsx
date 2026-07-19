@@ -15,6 +15,7 @@ describe("QuickReorderPanel", () => {
     expect(screen.getByText("Купить снова из № NSUU-001")).toBeInTheDocument();
     expect(screen.getByDisplayValue("3")).toBeInTheDocument();
     expect(screen.getByText(/Выбрано:/)).toHaveTextContent("2 поз., 5 ед.");
+    expect(screen.getByText("Наличие: 5 ед.")).toBeInTheDocument();
     expect(container.querySelector("table")).toBeNull();
 
     await user.click(screen.getByRole("button", { name: "Снять выбор" }));

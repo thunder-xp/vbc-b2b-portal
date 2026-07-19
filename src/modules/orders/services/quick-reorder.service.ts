@@ -97,11 +97,11 @@ export class QuickReorderService {
 
   async preview(userId: string, orderId: string): Promise<QuickReorderPreviewDto> {
     const companyId = await this.resolveCompany(userId);
-    const source = await this.historyRepository.getReorderSource(requirePortalUuid(orderId));
+    const source = await measureQuickReorderStage("preview_source", () => this.historyRepository.getReorderSource(requirePortalUuid(orderId)));
     if (!source || source.companyId !== companyId) throw new NotFoundError("Order was not found.");
 
     const productIds = [...new Set(source.lines.flatMap((line) => line.productId ? [line.productId] : []))];
-    const commercialViews = await this.pricingInventoryService.getProductCommercialViews(userId, productIds);
+    const commercialViews = await measureQuickReorderStage("preview_commercial", () => this.pricingInventoryService.getProductCommercialViews(userId, productIds));
     const commercialByProduct = new Map(commercialViews.map((view) => [view.productId, view]));
 
     const lines = source.lines.map((line) => toPreviewLine(line, commercialByProduct.get(line.productId ?? "")));
@@ -125,7 +125,7 @@ export class QuickReorderService {
   }): Promise<QuickReorderConversionResultDto> {
     if (!this.cartRepository) throw new InvalidStateError("Quick reorder is unavailable.");
     const companyId = await this.resolveCompany(userId);
-    const source = await this.historyRepository.getReorderSource(requirePortalUuid(input.orderId));
+    const source = await measureQuickReorderStage("conversion_source", () => this.historyRepository.getReorderSource(requirePortalUuid(input.orderId)));
     if (!source || source.companyId !== companyId) throw new NotFoundError("Order was not found.");
     const requestKey = requirePortalUuid(input.requestKey);
     const selected = normalizeSelection(input.lines);
@@ -134,7 +134,7 @@ export class QuickReorderService {
     if (selected.some((line) => !sourceByLine.has(line.lineId))) throw new NotFoundError("Order line was not found.");
 
     const productIds = [...new Set(selected.flatMap(({ lineId }) => sourceByLine.get(lineId)?.productId ?? []))];
-    const commercialViews = await this.pricingInventoryService.getProductCommercialViews(userId, productIds);
+    const commercialViews = await measureQuickReorderStage("conversion_commercial", () => this.pricingInventoryService.getProductCommercialViews(userId, productIds));
     const commercialByProduct = new Map(commercialViews.map((view) => [view.productId, view]));
     const validItems: Array<{ lineId: string; quantity: number }> = [];
     const issues: QuickReorderConversionItemDto[] = [];
@@ -175,13 +175,13 @@ export class QuickReorderService {
 
     const summary = summarizeIssues(issues, changedPrice);
     if (!validItems.length) return { cartId: null, repeated: false, added: 0, updated: 0, ...summary, items: issues };
-    const mutation = await this.cartRepository.mergeOrderReorderItems({
+    const mutation = await measureQuickReorderStage("conversion_transaction", () => this.cartRepository!.mergeOrderReorderItems({
       orderId: source.orderId,
       requestKey,
       requestFingerprint: createRequestFingerprint(source.orderId, validItems),
       items: validItems,
       summary,
-    });
+    }));
     const added = new Set(mutation.addedProductIds);
     const updated = new Set(mutation.updatedProductIds);
     const successfulItems = validItems.map(({ lineId }) => {
@@ -239,6 +239,21 @@ function summarizeIssues(items: QuickReorderConversionItemDto[], changedPrice: n
     inactive: items.filter((item) => item.result === "inactive").length,
     skipped: items.filter((item) => item.result === "skipped").length,
   };
+}
+
+async function measureQuickReorderStage<T>(stage: string, operation: () => Promise<T>): Promise<T> {
+  if (process.env.PERFORMANCE_DIAGNOSTICS_ENABLED !== "true") return operation();
+  const startedAt = performance.now();
+  try {
+    return await operation();
+  } finally {
+    console.info(JSON.stringify({
+      event: "quick_reorder_performance",
+      stage,
+      durationMs: Math.round((performance.now() - startedAt) * 100) / 100,
+      deployedCommitSha: process.env.VERCEL_GIT_COMMIT_SHA ?? "local",
+    }));
+  }
 }
 
 function toPreviewLine(line: OrderReorderSourceLine, commercial?: ProductCommercialViewDto): QuickReorderPreviewLineDto {

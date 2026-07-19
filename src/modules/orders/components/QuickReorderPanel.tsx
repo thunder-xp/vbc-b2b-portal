@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useActionState, useMemo, useState } from "react";
 import { CheckSquare, RotateCcw, Square, TriangleAlert } from "lucide-react";
@@ -9,6 +8,7 @@ import type { QuickReorderPreviewDto } from "../services";
 import type { ActionResult } from "../../access-control/actions/action-result";
 import { addQuickReorderToCartAction } from "../actions/reorder.actions";
 import type { QuickReorderConversionResultDto } from "../services";
+import { CatalogCardImage } from "../../catalog/components/CatalogCardImage";
 
 const INITIAL_STATE: ActionResult<QuickReorderConversionResultDto | null> = { success: false, errorCode: "IDLE", message: "", data: null };
 
@@ -23,7 +23,7 @@ export function QuickReorderPanel({ preview, requestKey: initialRequestKey }: { 
   const selectedLines = [...selected].map((lineId) => ({ lineId, quantity: quantities[lineId] ?? 0 }));
 
   function setAll(mode: "all" | "none" | "available") {
-    setSelected(mode === "none" ? new Set() : new Set(preview.lines.filter((line) => mode === "all" ? line.canSelect : line.status === "available").map((line) => line.lineId)));
+    setSelected(mode === "none" ? new Set() : new Set(preview.lines.filter((line) => mode === "all" ? line.canSelect : line.canSelect && line.status !== "temporarily_unavailable").map((line) => line.lineId)));
   }
 
   return (
@@ -68,12 +68,14 @@ export function QuickReorderPanel({ preview, requestKey: initialRequestKey }: { 
                 type="checkbox"
               />
               <div className="relative size-16 overflow-hidden rounded-md bg-zinc-100">
-                {line.imageUrl ? <Image alt="" fill sizes="64px" src={line.imageUrl} className="object-contain" /> : null}
+                <CatalogCardImage alt="" src={line.imageUrl} />
               </div>
               <div className="min-w-0">
                 <p className="font-semibold text-zinc-950">{line.productName}</p>
                 <p className="text-xs text-zinc-500">Артикул: {line.sku}</p>
                 <p className={`mt-2 text-xs font-semibold ${line.canSelect ? "text-emerald-700" : "text-amber-700"}`}>{line.statusLabel}</p>
+                <p className="mt-1 text-xs text-zinc-500">Наличие: {line.availableStock === null ? "уточняется" : `${line.availableStock} ед.`}</p>
+                {line.expectedArrival ? <p className="mt-1 text-xs text-zinc-500">Поступление: {line.expectedArrival.formattedDate ?? line.expectedArrival.date ?? "дата уточняется"}{line.expectedArrival.quantity !== null ? ` · ${line.expectedArrival.quantity} ед.` : ""}</p> : null}
                 {!line.canSelect ? <Link className="mt-1 inline-flex text-xs font-semibold text-emerald-700" href={line.replacementHref ?? "/cabinet/catalog"} prefetch={false}>Найти замену</Link> : null}
               </div>
               <Price label="Цена в заказе" value={line.historicalUnitPrice.formatted} />

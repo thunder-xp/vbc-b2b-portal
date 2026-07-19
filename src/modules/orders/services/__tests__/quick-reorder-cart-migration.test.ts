@@ -20,6 +20,7 @@ describe("quick reorder cart conversion migration", () => {
     expect(sql).toContain("can_manage_partner_order_company(source_order.company_id)");
     expect(sql).toContain("item.order_history_id = source_order.id");
     expect(sql).toContain("product.is_active and product.is_visible");
+    expect(sql).toContain("00000000-0000-0000-0000-000000000000");
   });
 
   it("merges duplicate products and existing cart quantities in one statement", () => {

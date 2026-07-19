@@ -78,7 +78,9 @@ begin
   from jsonb_to_recordset(target_items) as row(line_id uuid, quantity integer)
   join public.partner_order_history_items item on item.id = row.line_id and item.order_history_id = source_order.id
   join public.catalog_products product on product.id = item.product_id and product.is_active and product.is_visible
-  where row.quantity between 1 and 9999 and product.external_1c_id is not null and btrim(product.external_1c_id) <> '';
+  where row.quantity between 1 and 9999
+    and btrim(product.external_1c_id) ~* '^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$'
+    and lower(btrim(product.external_1c_id)) <> '00000000-0000-0000-0000-000000000000';
   if valid_count <> item_count then raise exception 'A selected reorder line is unavailable.' using errcode = '23514'; end if;
 
   select * into target_cart from public.carts

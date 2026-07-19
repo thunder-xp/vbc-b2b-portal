@@ -49,6 +49,7 @@ describe("partner order history pages", () => {
     expect(screen.getByText("1 000,00 MDL")).toBeInTheDocument();
     expect(screen.getByText(/2 поз.*5 ед/)).toBeInTheDocument();
     expect(screen.getByText("Планируемая отгрузка")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Повторить заказ" })).toHaveAttribute("href", `/cabinet/orders/${summary.id}/reorder`);
   });
 
   it("does not expose the internal number as the primary label for an unposted order", async () => {
@@ -87,6 +88,7 @@ describe("partner order history pages", () => {
     expect(screen.getByText("Camera")).toBeInTheDocument();
     expect(screen.queryByText("Снимок при отправке из платформы")).not.toBeInTheDocument();
     expect(screen.getByText("Планируемая отгрузка")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Купить снова" })).toHaveAttribute("href", `/cabinet/orders/${summary.id}/reorder`);
   });
 
   it("returns safe not-found behavior for an inaccessible deleted order", async () => {
