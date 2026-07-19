@@ -86,10 +86,11 @@ describe("DefaultCatalogService listing projection", () => {
     });
     expect(repository.productCalls).toBe(0);
     expect(repository.documentBatchCalls).toBe(0);
-    expect(pricing.requestedProductIds).toEqual(["product-high", "product-low"]);
+    expect(pricing.calls).toBe(0);
     expect(result.products.map((item) => item.id)).toEqual(["product-high", "product-low"]);
     expect(result.totalCount).toBe(3);
     expect(result.hasNextPage).toBe(true);
+    expect(result.commercialViews?.[0]?.partnerPrice?.amount).toBe(30);
     expect(result.products[0]).toMatchObject({ shortDescription: null, keyCharacteristics: [], datasheet: null });
   });
 });
@@ -135,12 +136,34 @@ class AggregateListingRepository extends ListingRepository {
     this.aggregateInput = input;
     return {
       items: [
-        { id: "product-high", sku: "HIGH", name: "High", slug: "high", imageUrl: null, brand: null, category: null },
-        { id: "product-low", sku: "LOW", name: "Low", slug: "low", imageUrl: null, brand: null, category: null },
+        aggregateProduct("product-high", "HIGH", "High", 30),
+        aggregateProduct("product-low", "LOW", "Low", 10),
       ],
       totalCount: 3,
     };
   }
+}
+
+function aggregateProduct(id: string, sku: string, name: string, amount: number) {
+  return {
+    id,
+    sku,
+    name,
+    slug: id,
+    imageUrl: null,
+    brand: null,
+    category: null,
+    commercialSnapshot: {
+      productId: id,
+      canViewStock: false,
+      partnerPrice: { currency: "USD", currencyStatus: "resolved" as const, priceAmount: amount, updatedAt: now },
+      msrpPrice: null,
+      stock: null,
+      supplierArrival: null,
+      partnerRate: null,
+      retailRate: null,
+    },
+  };
 }
 
 class PricingServiceStub implements PricingInventoryService {

@@ -3,9 +3,11 @@ export {
   type PricingInventoryService,
   type ProductCommercialViewDto,
   type ProductCommercialInternalDto,
+  type ProductCommercialSnapshot,
   type ProductPriceViewDto,
   type ProductStockAvailability,
   type ProductStockViewDto,
+  projectProductCommercialSnapshot,
 } from "./pricing-inventory.service";
 export {
   DefaultInventoryUpdaterService,

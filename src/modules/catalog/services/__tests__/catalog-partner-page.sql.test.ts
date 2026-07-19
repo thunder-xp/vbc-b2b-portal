@@ -36,6 +36,29 @@ describe("catalog_partner_page SQL", () => {
   });
 });
 
+const projectionMigration = readFileSync(
+  join(process.cwd(), "supabase/migrations/20260719110000_catalog_partner_page_projection.sql"),
+  "utf8",
+);
+
+describe("catalog_partner_page_v2 SQL", () => {
+  it("projects only the bounded page commercial data in the aggregate call", () => {
+    expect(projectionMigration).toContain("create or replace function public.catalog_partner_page_v2");
+    expect(projectionMigration).toContain("jsonb_array_elements(base_result -> 'items')");
+    expect(projectionMigration).toContain("'partner_price_amount'");
+    expect(projectionMigration).toContain("'available_quantity'");
+  });
+
+  it("retains explicit company access and commercial permission boundaries", () => {
+    expect(projectionMigration).toContain("base_result := public.catalog_partner_page(");
+    expect(projectionMigration).toContain("public.has_permission(p_company_id, 'prices.view')");
+    expect(projectionMigration).toContain("public.has_permission(p_company_id, 'stock.view')");
+    expect(projectionMigration).toContain("Stock filter access denied.");
+    expect(projectionMigration).toContain("from public, anon");
+    expect(projectionMigration).not.toMatch(/grant execute[\s\S]*to anon/);
+  });
+});
+
 const facetMigration = readFileSync(
   join(process.cwd(), "supabase/migrations/20260719100000_catalog_scoped_facets.sql"),
   "utf8",

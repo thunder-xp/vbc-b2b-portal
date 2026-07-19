@@ -6,6 +6,7 @@ import type {
   CatalogProductImage,
   CatalogProductAttribute,
 } from "../types";
+import type { ProductCommercialSnapshot } from "../../pricing-inventory/services";
 
 export type ListCatalogProductsInput = {
   categoryId?: string;
@@ -41,6 +42,7 @@ export type CatalogPartnerPageRecord = {
   imageUrl: string | null;
   brand: Pick<CatalogBrand, "id" | "name" | "slug"> | null;
   category: Pick<CatalogCategory, "id" | "parentId" | "name" | "slug"> | null;
+  commercialSnapshot: ProductCommercialSnapshot;
 };
 
 export type CatalogPartnerPage = {

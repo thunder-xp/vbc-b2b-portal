@@ -66,6 +66,16 @@ export type ProductCommercialViewDto = {
 };
 
 export type ProductCommercialInternalDto = ProductCommercialViewDto & { retailBelowPartnerPrice: boolean };
+export type ProductCommercialSnapshot = {
+  productId: string;
+  canViewStock: boolean;
+  partnerPrice: Pick<ProductPrice, "currency" | "currencyStatus" | "priceAmount" | "updatedAt"> | null;
+  msrpPrice: Pick<ProductPrice, "currency" | "currencyStatus" | "priceAmount" | "updatedAt"> | null;
+  stock: ProductStockTotal | null;
+  supplierArrival: ProductSupplierArrival | null;
+  partnerRate: { rate: number; publishedAt: string } | null;
+  retailRate: { rate: number; publishedAt: string } | null;
+};
 export type ProductAvailabilityFilter = "in_stock" | "expected";
 
 export interface PricingInventoryService {
@@ -238,6 +248,90 @@ export class DefaultPricingInventoryService implements PricingInventoryService {
 
     return { id: activeMembership.companyId, external1cPriceTypeId: context.company.external1cPriceTypeId ?? null };
   }
+}
+
+export function projectProductCommercialSnapshot(
+  snapshot: ProductCommercialSnapshot,
+): ProductCommercialInternalDto {
+  const partnerPrice = snapshot.partnerPrice
+    ? snapshotPrice(snapshot.productId, null, snapshot.partnerPrice)
+    : null;
+  const msrpPrice = snapshot.msrpPrice
+    ? snapshotPrice(snapshot.productId, MSRP_PRICE_TYPE_EXTERNAL_REF, snapshot.msrpPrice)
+    : null;
+  const commercialRates: CommercialRateSnapshot = {
+    partnerPriceUsdToMdl: snapshotRate("partner_price_usd_to_mdl", snapshot.partnerRate),
+    retailPriceUsdToMdl: snapshotRate("retail_price_usd_to_mdl", snapshot.retailRate),
+  };
+  const partnerPriceMdl = createPartnerPriceMdlView(partnerPrice, commercialRates.partnerPriceUsdToMdl);
+  const retailPrice = createRetailPriceMdlView(msrpPrice, commercialRates.retailPriceUsdToMdl);
+
+  return {
+    productId: snapshot.productId,
+    partnerPrice: partnerPrice ? toPriceView(partnerPrice) : null,
+    partnerPriceMdl,
+    msrpPriceUsd: createMsrpPriceUsdView(msrpPrice),
+    retailPrice,
+    commercialOpportunity: createCommercialOpportunity(
+      partnerPriceMdl,
+      retailPrice,
+      commercialRates.partnerPriceUsdToMdl,
+      commercialRates.retailPriceUsdToMdl,
+    ),
+    commercialRateFreshness: createCommercialRateFreshness(commercialRates),
+    stock: snapshot.canViewStock
+      ? stockAvailabilityForProduct(
+          snapshot.stock ? [snapshot.stock] : [],
+          snapshot.supplierArrival ? [snapshot.supplierArrival] : [],
+          snapshot.productId,
+        )
+      : null,
+    isDemoData: false,
+    retailBelowPartnerPrice: Boolean(partnerPriceMdl && retailPrice && retailPrice.amount < partnerPriceMdl.amount),
+  };
+}
+
+function snapshotPrice(
+  productId: string,
+  external1cPriceTypeId: string | null,
+  value: NonNullable<ProductCommercialSnapshot["partnerPrice"]>,
+): ProductPrice {
+  return {
+    id: "catalog-page-snapshot",
+    productId,
+    companyId: null,
+    external1cPriceTypeId,
+    currency: value.currency,
+    currencyStatus: value.currencyStatus,
+    priceAmount: value.priceAmount,
+    validFrom: value.updatedAt,
+    validTo: null,
+    isActive: true,
+    createdAt: value.updatedAt,
+    updatedAt: value.updatedAt,
+  };
+}
+
+function snapshotRate(
+  purpose: CommercialRate["purpose"],
+  value: ProductCommercialSnapshot["partnerRate"],
+): CommercialRate | null {
+  if (!value) return null;
+  return {
+    id: "catalog-page-snapshot",
+    purpose,
+    rate: value.rate,
+    effectiveAt: value.publishedAt,
+    publishedAt: value.publishedAt,
+    publishedBy: "catalog-page-aggregate",
+    publisherName: null,
+    publisherEmail: null,
+    sourceType: "manual_from_1c",
+    sourceNote: "catalog-page-aggregate",
+    evidenceComment: null,
+    previousRateId: null,
+    isActive: true,
+  };
 }
 
 function normalizeProductIds(productIds: string[]): string[] {

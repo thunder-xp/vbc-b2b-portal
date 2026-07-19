@@ -5,6 +5,7 @@ import type {
   ProductCommercialViewDto,
   ProductCommercialInternalDto,
 } from "../../pricing-inventory/services";
+import { projectProductCommercialSnapshot } from "../../pricing-inventory/services";
 import type { CatalogRepository, ListCatalogProductsInput } from "../repositories";
 import type {
   CatalogBrand,
@@ -198,7 +199,7 @@ export class DefaultCatalogService implements CatalogService {
     const attributeFilters = normalizeAttributeFilters(input.attributeFilters);
 
     if (this.catalogRepository.listPartnerPage) {
-      return this.listPartnerCatalogPage(userId, companyId, {
+      return this.listPartnerCatalogPage(companyId, {
         ...input,
         page,
         pageSize,
@@ -342,7 +343,6 @@ export class DefaultCatalogService implements CatalogService {
   }
 
   private async listPartnerCatalogPage(
-    userId: string,
     companyId: string,
     input: CatalogProductListInput & {
       page: number;
@@ -379,13 +379,8 @@ export class DefaultCatalogService implements CatalogService {
       }) ?? Promise.resolve([]),
     ).catch(() => []);
     const [partnerPage, facetRows] = await Promise.all([pagePromise, facetsPromise]);
-    const commercialViews = await measurePerformanceStage(
-      "catalog",
-      "visible_page_commercial_enrichment",
-      () => this.getCommercialViews(
-        userId,
-        partnerPage.items.map((item) => ({ id: item.id } as CatalogProduct)),
-      ),
+    const commercialViews = partnerPage.items.map((item) =>
+      toPublicCommercialView(projectProductCommercialSnapshot(item.commercialSnapshot)),
     );
 
     return {
