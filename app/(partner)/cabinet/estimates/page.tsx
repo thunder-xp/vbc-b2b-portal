@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { listEstimatesAction } from "@/src/modules/estimates/actions";
 import { EstimateStatusBadge, estimateStatusLabels } from "@/src/modules/estimates/components/EstimateStatusBadge";
+import { EstimateListActions } from "@/src/modules/estimates/components/EstimateListActions";
 import type { EstimateStatus } from "@/src/modules/estimates/types";
 
 type SearchParams = { search?: string; status?: string; versionStatus?: string; dateFrom?: string; dateTo?: string; page?: string };
@@ -38,9 +39,16 @@ export default async function EstimatesPage({ searchParams }: { searchParams: Pr
         <p className="border-l-4 border-red-500 bg-red-50 px-4 py-3 text-sm text-red-800">{result.message}</p>
       ) : result.data.records.length ? (
         <>
-          <div className="overflow-x-auto border-y border-zinc-200 bg-white">
+          <div className="grid gap-3 md:hidden">
+            {result.data.records.map((estimate) => <article className="border-y border-zinc-200 bg-white px-4 py-4" key={estimate.id}>
+              <div className="flex items-start justify-between gap-3"><div className="min-w-0"><Link className="font-semibold text-zinc-950" href={`/cabinet/estimates/${estimate.id}`} prefetch={false}>{estimate.estimateNumber}</Link><p className="truncate text-sm text-zinc-600">{estimate.name}</p></div><EstimateStatusBadge status={estimate.status} /></div>
+              <p className="mt-3 text-sm text-zinc-600">{estimate.customerProject}</p>
+              <div className="mt-3 flex items-end justify-between gap-3"><div><p className="font-semibold">{estimate.total}</p><p className="text-xs text-zinc-500">{estimate.itemCount} позиций · {formatDate(estimate.updatedAt)}</p></div><EstimateListActions archived={estimate.status === "archived"} estimateId={estimate.id} latestPdfDocumentId={estimate.latestPdfDocumentId} latestVersionId={estimate.latestVersionId} revision={estimate.revision} /></div>
+            </article>)}
+          </div>
+          <div className="hidden overflow-x-auto border-y border-zinc-200 bg-white md:block">
             <table className="w-full min-w-[960px] text-left text-sm">
-              <thead className="bg-zinc-50 text-xs uppercase text-zinc-500"><tr><th className="px-4 py-3">Смета</th><th className="px-4 py-3">Заказчик / объект</th><th className="px-4 py-3">Статус</th><th className="px-4 py-3 text-right">Итого</th><th className="px-4 py-3">Обновлена</th><th className="px-4 py-3">Версии</th><th className="px-4 py-3">Автор</th></tr></thead>
+              <thead className="bg-zinc-50 text-xs uppercase text-zinc-500"><tr><th className="px-4 py-3">Смета</th><th className="px-4 py-3">Заказчик / объект</th><th className="px-4 py-3">Статус</th><th className="px-4 py-3 text-right">Итого</th><th className="px-4 py-3">Обновлена</th><th className="px-4 py-3">Версии</th><th className="px-4 py-3">Автор</th><th className="px-4 py-3">Действия</th></tr></thead>
               <tbody className="divide-y divide-zinc-100">
                 {result.data.records.map((estimate) => (
                   <tr className="hover:bg-zinc-50" key={estimate.id}>
@@ -51,6 +59,7 @@ export default async function EstimatesPage({ searchParams }: { searchParams: Pr
                     <td className="px-4 py-4 text-zinc-600">{formatDate(estimate.updatedAt)}</td>
                     <td className="px-4 py-4"><span className="font-semibold">{estimate.versionCount}</span>{estimate.latestVersionStatus && <p className="mt-1 text-xs text-zinc-500">Последняя: {versionLabel(estimate.latestVersionStatus)}</p>}{estimate.hasAcceptedVersion && <p className="mt-1 text-xs font-semibold text-emerald-700">Есть принятая версия</p>}</td>
                     <td className="px-4 py-4 text-zinc-600">{estimate.createdByName}</td>
+                    <td className="px-4 py-4"><EstimateListActions archived={estimate.status === "archived"} estimateId={estimate.id} latestPdfDocumentId={estimate.latestPdfDocumentId} latestVersionId={estimate.latestVersionId} revision={estimate.revision} /></td>
                   </tr>
                 ))}
               </tbody>

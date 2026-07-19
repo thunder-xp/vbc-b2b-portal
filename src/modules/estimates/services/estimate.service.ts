@@ -39,6 +39,8 @@ export type EstimateSummaryDto = {
   itemCount: number;
   versionCount: number;
   latestVersionStatus: import("../types").EstimateVersionStatus | null;
+  latestVersionId: string | null;
+  latestPdfDocumentId: string | null;
   hasAcceptedVersion: boolean;
 };
 
@@ -255,6 +257,8 @@ export class DefaultEstimateService implements EstimateService {
         itemCount: record.itemCount,
         versionCount: record.versionCount,
         latestVersionStatus: record.latestVersionStatus,
+        latestVersionId: record.latestVersionId,
+        latestPdfDocumentId: record.latestPdfDocumentId,
         hasAcceptedVersion: record.hasAcceptedVersion,
       })),
       page,

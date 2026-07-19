@@ -31,7 +31,7 @@ export function EstimateWorkflowPanel({ initialWorkflow, revision }: { initialWo
   const addToCart = (versionId: string | null) => startTransition(async () => {
     const result = await addEstimateEquipmentToCartAction(workflow.estimateId, versionId, crypto.randomUUID());
     if (!result.success) return setMessage(result.message);
-    setMessage(`${result.message} Добавлено: ${result.data.added}, обновлено: ${result.data.updated}, изменились цены: ${result.data.changedPrice}, без цены: ${result.data.missingPrice}.`);
+    setMessage(`${result.message} Добавлено: ${result.data.added}, обновлено: ${result.data.updated}, цена изменилась: ${result.data.changedPrice}, недоступно: ${result.data.unavailable + result.data.inactive}, без цены: ${result.data.missingPrice}, пропущено: ${result.data.skipped}.`);
   });
   const duplicate = () => startTransition(async () => {
     const result = await duplicateEstimateAction(workflow.estimateId);
@@ -46,7 +46,7 @@ export function EstimateWorkflowPanel({ initialWorkflow, revision }: { initialWo
 
   return <section className="space-y-4 border-y border-zinc-200 bg-white px-4 py-5 sm:px-5">
     <header className="flex flex-wrap items-start justify-between gap-3">
-      <div><p className="text-xs font-semibold uppercase text-emerald-700">Коммерческий цикл</p><h2 className="mt-1 text-lg font-semibold">Версии предложения</h2><p className="mt-1 text-sm text-zinc-500">Версия фиксирует цены, условия и PDF. Рабочая смета остаётся отдельной.</p></div>
+      <div><p className="text-xs font-semibold uppercase text-emerald-700">Коммерческий цикл</p><h2 className="mt-1 text-lg font-semibold">Версии предложения</h2><p className="mt-1 text-sm text-zinc-500">Созданная версия сохраняет согласованные цены и условия. PDF всегда относится к конкретной версии.</p></div>
       <div className="flex flex-wrap gap-2">
         {workflow.estimateStatus === "draft" && <button className={secondary} disabled={pending || !workflow.readiness.ready} onClick={() => run(() => markEstimateReadyAction(workflow.estimateId, revision))} type="button"><CheckCircle2 className="size-4" />Отметить как готово</button>}
         <button className={secondary} disabled={pending} onClick={duplicate} type="button"><Copy className="size-4" />Дублировать</button>

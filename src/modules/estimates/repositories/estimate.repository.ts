@@ -26,6 +26,8 @@ export type EstimateListRecord = Estimate & {
   createdByName: string;
   versionCount: number;
   latestVersionStatus: import("../types").EstimateVersionStatus | null;
+  latestVersionId: string | null;
+  latestPdfDocumentId: string | null;
   hasAcceptedVersion: boolean;
 };
 

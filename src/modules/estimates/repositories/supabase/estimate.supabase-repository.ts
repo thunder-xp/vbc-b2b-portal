@@ -70,14 +70,22 @@ export class SupabaseEstimateRepository implements EstimateRepository {
 
     const rows = data as unknown as EstimateListRow[];
     const estimateIds = rows.map((row) => row.id);
-    const versionMetadata = new Map<string, { count: number; latest: import("../../types").EstimateVersionStatus | null }>();
+    const versionMetadata = new Map<string, { count: number; latest: import("../../types").EstimateVersionStatus | null; latestVersionId: string | null }>();
+    const latestPdfByVersion = new Map<string, string>();
     if (estimateIds.length) {
       const { data: versions, error: versionError } = await supabase.from("estimate_versions")
-        .select("estimate_id, version_number, status").in("estimate_id", estimateIds).order("version_number", { ascending: false });
+        .select("id, estimate_id, version_number, status").in("estimate_id", estimateIds).order("version_number", { ascending: false });
       if (versionError) throw mapRepositoryError(versionError.code);
       for (const version of versions ?? []) {
-        const current = versionMetadata.get(version.estimate_id) ?? { count: 0, latest: null };
-        versionMetadata.set(version.estimate_id, { count: current.count + 1, latest: current.latest ?? version.status });
+        const current = versionMetadata.get(version.estimate_id) ?? { count: 0, latest: null, latestVersionId: null };
+        versionMetadata.set(version.estimate_id, { count: current.count + 1, latest: current.latest ?? version.status, latestVersionId: current.latestVersionId ?? version.id });
+      }
+      const versionIds = [...versionMetadata.values()].map((metadata) => metadata.latestVersionId).filter((id): id is string => Boolean(id));
+      if (versionIds.length) {
+        const { data: documents, error: documentError } = await supabase.from("generated_estimate_documents")
+          .select("id, version_id, created_at").in("version_id", versionIds).eq("status", "ready").order("created_at", { ascending: false });
+        if (documentError) throw mapRepositoryError(documentError.code);
+        for (const document of documents ?? []) if (document.version_id && !latestPdfByVersion.has(document.version_id)) latestPdfByVersion.set(document.version_id, document.id);
       }
     }
     return {
@@ -87,6 +95,8 @@ export class SupabaseEstimateRepository implements EstimateRepository {
         createdByName: row.creator?.full_name?.trim() || "Пользователь компании",
         versionCount: versionMetadata.get(row.id)?.count ?? 0,
         latestVersionStatus: versionMetadata.get(row.id)?.latest ?? null,
+        latestVersionId: versionMetadata.get(row.id)?.latestVersionId ?? null,
+        latestPdfDocumentId: latestPdfByVersion.get(versionMetadata.get(row.id)?.latestVersionId ?? "") ?? null,
         hasAcceptedVersion: Boolean(row.accepted_version_id),
       })),
       totalCount: count ?? 0,
