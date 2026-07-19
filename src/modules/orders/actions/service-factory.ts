@@ -5,7 +5,7 @@ import { OneCProvider } from "../../integration/providers/one-c";
 import { getOneCEnv } from "../../../lib/env";
 import { createPricingInventoryService } from "../../pricing-inventory/actions/service-factory";
 import { SupabaseCartRepository, SupabaseOrderDateChangeRequestRepository, SupabasePartnerOrderHistoryRepository, SupabasePartnerOrderRepository } from "../repositories/supabase";
-import { DefaultCartService, DefaultInternalOrderDateChangeService, DefaultPartnerOrderHistoryService, DefaultPartnerOrderService, PartnerOrderHistoryAutomationService } from "../services";
+import { DefaultCartService, DefaultInternalOrderDateChangeService, DefaultPartnerOrderHistoryService, DefaultPartnerOrderService, PartnerOrderHistoryAutomationService, QuickReorderService } from "../services";
 
 function dependencies() {
   const companyAccessService = createCompanyAccessService();
@@ -50,6 +50,16 @@ export function createPartnerOrderHistoryService(): DefaultPartnerOrderHistorySe
     value.permissionService,
     orderProvider,
     new SupabaseOrderDateChangeRequestRepository(),
+  );
+}
+
+export function createQuickReorderService(): QuickReorderService {
+  const value = dependencies();
+  return new QuickReorderService(
+    new SupabasePartnerOrderHistoryRepository(),
+    value.companyAccessService,
+    value.permissionService,
+    value.pricingInventoryService,
   );
 }
 

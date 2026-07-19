@@ -6,6 +6,7 @@ import type {
   PartnerOrderHistoryStateCode,
   PartnerOrderHistorySyncMode,
   PartnerOrderHistorySyncState,
+  OrderReorderSource,
 } from "../types";
 
 export type PartnerOrderHistoryFilter = "all" | "processing" | PartnerOrderHistoryStateCode;
@@ -21,6 +22,7 @@ export type OrderHistorySyncCompany = { companyId: string; counterpartyRef: stri
 export type ActiveOrderRefreshCandidate = { order: PartnerOrderHistory; counterpartyRef: string };
 
 export interface PartnerOrderHistoryRepository {
+  getReorderSource(orderId: string): Promise<OrderReorderSource | null>;
   listPlannedShipments?(input: {
     companyId: string;
     page: number;

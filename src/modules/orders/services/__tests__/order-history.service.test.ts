@@ -189,6 +189,7 @@ function service(repository = historyRepository([]), fetchHistory = orderProvide
 function historyRepository(visible: PartnerOrderHistory[], auditRecord: PartnerOrderHistory | null = null) {
   return {
     auditRecord,
+    getReorderSource: vi.fn().mockResolvedValue(null),
     listVisible: vi.fn().mockResolvedValue({ items: visible, total: visible.length }),
     findVisibleById: vi.fn().mockResolvedValue(visible[0] ?? null),
     listItemsByOrderIds: vi.fn().mockResolvedValue([]),

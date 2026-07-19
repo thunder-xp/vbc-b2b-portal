@@ -9,6 +9,7 @@ import type {
   PartnerOrderHistoryEvent,
   PartnerOrderHistoryItem,
   PartnerOrderHistorySyncState,
+  OrderReorderSource,
 } from "../../types";
 import {
   OrderHistoryRepositoryError,
@@ -23,6 +24,43 @@ const SYNC_COLUMNS = "company_id, counterparty_ref, status, sync_mode, active_sy
 type Row = Record<string, unknown>;
 
 export class SupabasePartnerOrderHistoryRepository implements PartnerOrderHistoryRepository {
+  async getReorderSource(orderId: string): Promise<OrderReorderSource | null> {
+    const { data, error } = await (await createClient()).rpc("get_partner_order_reorder_source", {
+      target_order_id: orderId,
+    });
+    if (error) throw new OrderHistoryRepositoryError();
+    if (!isRecord(data)) return null;
+    const order = isRecord(data.order) ? data.order : null;
+    const lines = Array.isArray(data.lines) ? data.lines.filter(isRecord) : [];
+    if (!order) return null;
+    return {
+      orderId: text(order.id),
+      companyId: text(order.company_id),
+      orderNumber: text(order.external_1c_order_number),
+      orderCurrencyCode: nullableText(order.currency_code),
+      lines: lines.map((line) => ({
+        lineId: text(line.line_id),
+        lineNumber: numberValue(line.line_number),
+        productId: nullableText(line.product_id),
+        historicalExternalProductRef: text(line.historical_external_product_ref),
+        historicalProductName: nullableText(line.historical_product_name),
+        historicalSku: nullableText(line.historical_sku),
+        historicalQuantity: numberValue(line.historical_quantity),
+        historicalUnitPrice: numberValue(line.historical_unit_price),
+        historicalCurrencyCode: nullableText(line.historical_currency_code),
+        productExists: line.product_exists === true,
+        currentExternalProductRef: nullableText(line.current_external_product_ref),
+        currentName: nullableText(line.current_name),
+        currentSku: nullableText(line.current_sku),
+        currentSlug: nullableText(line.current_slug),
+        currentImageUrl: nullableText(line.current_image_url),
+        currentCategoryId: nullableText(line.current_category_id),
+        currentIsActive: line.current_is_active === true,
+        currentIsVisible: line.current_is_visible === true,
+      })),
+    };
+  }
+
   async listPlannedShipments(input: { companyId: string; page: number; pageSize: number }): Promise<{ items: PartnerOrderHistory[]; total: number }> {
     const from = (input.page - 1) * input.pageSize;
     const { data, error, count } = await (await createClient()).from("partner_order_history")
