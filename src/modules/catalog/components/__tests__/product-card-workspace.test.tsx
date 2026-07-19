@@ -39,6 +39,15 @@ describe("ProductCard workspace context", () => {
     expect(screen.getByText("Цена уточняется")).toBeInTheDocument();
   });
 
+  it("renders the projected product image and isolates the missing-image fallback", () => {
+    const capabilities = resolveWorkspaceCapabilities(new Set(["catalog.view"])).productCard;
+    const { rerender } = render(<ProductCard capabilities={capabilities} product={{ ...product, imageUrl: "https://example.test/camera.png" }} />);
+    expect(screen.getByRole("img", { name: "IP Camera" })).toHaveAttribute("src", "https://example.test/camera.png");
+
+    rerender(<ProductCard capabilities={capabilities} product={{ ...product, id: "product-2", imageUrl: null }} />);
+    expect(screen.getByRole("img", { name: "IP Camera" })).toHaveAttribute("src", "/product-placeholder.svg");
+  });
+
   it("removes low-value listing metadata and raw attribute chips", () => {
     const capabilities = resolveWorkspaceCapabilities(new Set(["catalog.view"])).productCard;
     const { container } = render(<ProductCard capabilities={capabilities} product={product} />);

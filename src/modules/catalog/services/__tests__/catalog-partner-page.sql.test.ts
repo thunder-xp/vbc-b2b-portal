@@ -40,6 +40,10 @@ const projectionMigration = readFileSync(
   join(process.cwd(), "supabase/migrations/20260719110000_catalog_partner_page_projection.sql"),
   "utf8",
 );
+const projectionRepairMigration = readFileSync(
+  join(process.cwd(), "supabase/migrations/20260719140000_catalog_card_projection_repair.sql"),
+  "utf8",
+);
 
 describe("catalog_partner_page_v2 SQL", () => {
   it("projects only the bounded page commercial data in the aggregate call", () => {
@@ -56,6 +60,13 @@ describe("catalog_partner_page_v2 SQL", () => {
     expect(projectionMigration).toContain("Stock filter access denied.");
     expect(projectionMigration).toContain("from public, anon");
     expect(projectionMigration).not.toMatch(/grant execute[\s\S]*to anon/);
+  });
+
+  it("restores enriched card images and a normalized MSRP currency in the bounded RPC", () => {
+    expect(projectionRepairMigration).toContain("coalesce(product.image_source_url, product.image_url)");
+    expect(projectionRepairMigration).toContain("coalesce(nullif(btrim(msrp_price.currency), ''), 'USD')");
+    expect(projectionRepairMigration).toContain("join public.catalog_products product");
+    expect(projectionRepairMigration).not.toContain("createClient(");
   });
 });
 

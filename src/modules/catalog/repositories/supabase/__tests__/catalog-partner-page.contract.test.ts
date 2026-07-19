@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   CATALOG_PARTNER_PAGE_FIELDS,
   isCatalogPartnerPageRow,
+  mapCatalogPartnerPageRow,
+  type CatalogPartnerPageRow,
 } from "../catalog-partner-page.contract";
 
 describe("catalog partner page contract", () => {
@@ -26,6 +28,15 @@ describe("catalog partner page contract", () => {
     expect(CATALOG_PARTNER_PAGE_FIELDS).toContain("msrp_price_amount");
     expect(CATALOG_PARTNER_PAGE_FIELDS).toContain("available_quantity");
   });
+
+  it("maps image, partner price, and MSRP without silently dropping fields", () => {
+    const mapped = mapCatalogPartnerPageRow(productionCardRow() as CatalogPartnerPageRow);
+
+    expect(mapped.imageUrl).toBe("https://example.test/products/400691.png");
+    expect(mapped.commercialSnapshot.partnerPrice).toMatchObject({ priceAmount: 102.08, currency: "USD" });
+    expect(mapped.commercialSnapshot.msrpPrice).toMatchObject({ priceAmount: 177, currency: "USD" });
+    expect(mapped.commercialSnapshot.stock?.availableQuantity).toBe(22);
+  });
 });
 
 function productionCardRow(): Record<string, unknown> {
@@ -47,7 +58,7 @@ function productionCardRow(): Record<string, unknown> {
     partner_price_currency_status: "resolved",
     partner_price_updated_at: "2026-07-19T02:21:15Z",
     msrp_price_amount: 177,
-    msrp_price_currency: "",
+    msrp_price_currency: "USD",
     msrp_price_currency_status: "resolved",
     msrp_price_updated_at: "2026-07-19T02:21:15Z",
     physical_quantity: 22,

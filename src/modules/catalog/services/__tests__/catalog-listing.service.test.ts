@@ -91,6 +91,8 @@ describe("DefaultCatalogService listing projection", () => {
     expect(result.totalCount).toBe(3);
     expect(result.hasNextPage).toBe(true);
     expect(result.commercialViews?.[0]?.partnerPrice?.amount).toBe(30);
+    expect(result.commercialViews?.[0]?.retailPrice?.formattedAmount).toBe("1 770 MDL");
+    expect(result.products[0]?.imageUrl).toBe("https://example.test/product-high.png");
     expect(result.products[0]).toMatchObject({ shortDescription: null, keyCharacteristics: [], datasheet: null });
   });
 
@@ -190,18 +192,18 @@ function aggregateProduct(id: string, sku: string, name: string, amount: number)
     sku,
     name,
     slug: id,
-    imageUrl: null,
+    imageUrl: `https://example.test/${id}.png`,
     brand: null,
     category: null,
     commercialSnapshot: {
       productId: id,
       canViewStock: false,
       partnerPrice: { currency: "USD", currencyStatus: "resolved" as const, priceAmount: amount, updatedAt: now },
-      msrpPrice: null,
+      msrpPrice: { currency: "USD", currencyStatus: "resolved" as const, priceAmount: 100, updatedAt: now },
       stock: null,
       supplierArrival: null,
-      partnerRate: null,
-      retailRate: null,
+      partnerRate: { rate: 17, publishedAt: now },
+      retailRate: { rate: 17.7, publishedAt: now },
     },
   };
 }

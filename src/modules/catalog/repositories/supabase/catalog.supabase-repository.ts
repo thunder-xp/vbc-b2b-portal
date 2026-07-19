@@ -1,6 +1,4 @@
 import { createClient } from "@/src/lib/supabase/server";
-import type { ProductCommercialSnapshot } from "../../../pricing-inventory/services";
-
 import type {
   CatalogRepository,
   CatalogUpsertResult,
@@ -37,6 +35,11 @@ import {
   type CatalogProductRow,
   type CatalogProductAttributeRow,
 } from "./mappers";
+import {
+  isCatalogPartnerPageRow,
+  mapCatalogPartnerPageRow,
+  type CatalogPartnerPageRow,
+} from "./catalog-partner-page.contract";
 
 const CATALOG_CATEGORY_COLUMNS =
   "id, external_1c_id, parent_id, name, slug, description, sort_order, is_active, created_at, updated_at";
@@ -104,25 +107,7 @@ export class SupabaseCatalogRepository implements CatalogRepository {
     }
 
     return {
-      items: data.items.map((row) => ({
-        id: row.id,
-        sku: row.sku,
-        name: row.name,
-        slug: row.slug,
-        imageUrl: row.image_url,
-        brand: row.brand_id && row.brand_name && row.brand_slug
-          ? { id: row.brand_id, name: row.brand_name, slug: row.brand_slug }
-          : null,
-        category: row.category_id && row.category_name && row.category_slug
-          ? {
-              id: row.category_id,
-              parentId: row.category_parent_id,
-              name: row.category_name,
-              slug: row.category_slug,
-            }
-          : null,
-        commercialSnapshot: mapCommercialSnapshot(row),
-      })),
+      items: data.items.map(mapCatalogPartnerPageRow),
       totalCount: data.totalCount,
     };
   }
@@ -548,101 +533,10 @@ export class SupabaseCatalogRepository implements CatalogRepository {
   }
 }
 
-type CatalogPartnerPageRow = {
-  id: string;
-  sku: string;
-  name: string;
-  slug: string;
-  image_url: string | null;
-  brand_id: string | null;
-  brand_name: string | null;
-  brand_slug: string | null;
-  category_id: string | null;
-  category_parent_id: string | null;
-  category_name: string | null;
-  category_slug: string | null;
-  partner_price_amount?: number | null;
-  partner_price_currency?: string | null;
-  partner_price_currency_status?: "resolved" | "unresolved" | null;
-  partner_price_updated_at?: string | null;
-  msrp_price_amount?: number | null;
-  msrp_price_currency?: string | null;
-  msrp_price_currency_status?: "resolved" | "unresolved" | null;
-  msrp_price_updated_at?: string | null;
-  physical_quantity?: number | null;
-  reserved_quantity?: number | null;
-  available_quantity?: number | null;
-  incoming_quantity?: number | null;
-  has_variant_stock?: boolean | null;
-  stock_synced_at?: string | null;
-  expected_arrival_date?: string | null;
-  expected_quantity?: number | null;
-  arrival_published_at?: string | null;
-  partner_rate?: number | null;
-  retail_rate?: number | null;
-  partner_rate_published_at?: string | null;
-  retail_rate_published_at?: string | null;
-  can_view_stock?: boolean;
-};
-
-function mapCommercialSnapshot(row: CatalogPartnerPageRow): ProductCommercialSnapshot {
-  const price = (
-    amount: number | null | undefined,
-    currency: string | null | undefined,
-    currencyStatus: "resolved" | "unresolved" | null | undefined,
-    updatedAt: string | null | undefined,
-  ) => typeof amount === "number" && currency && updatedAt
-    ? { priceAmount: amount, currency, currencyStatus: currencyStatus ?? "unresolved", updatedAt }
-    : null;
-  const rate = (value: number | null | undefined, publishedAt: string | null | undefined) =>
-    typeof value === "number" && publishedAt ? { rate: value, publishedAt } : null;
-  const stock = typeof row.available_quantity === "number" && row.stock_synced_at
-    ? {
-        productId: row.id,
-        physicalQuantity: row.physical_quantity ?? 0,
-        reservedQuantity: row.reserved_quantity ?? 0,
-        availableQuantity: row.available_quantity,
-        incomingQuantity: row.incoming_quantity ?? 0,
-        hasVariantStock: row.has_variant_stock === true,
-        syncedAt: row.stock_synced_at,
-      }
-    : null;
-  const supplierArrival = row.expected_arrival_date && typeof row.expected_quantity === "number" && row.arrival_published_at
-    ? {
-        productId: row.id,
-        externalCharacteristicRef: "00000000-0000-0000-0000-000000000000",
-        expectedDate: row.expected_arrival_date,
-        expectedQuantity: row.expected_quantity,
-        publishedAt: row.arrival_published_at,
-      }
-    : null;
-
-  return {
-    productId: row.id,
-    canViewStock: row.can_view_stock === true,
-    partnerPrice: price(row.partner_price_amount, row.partner_price_currency, row.partner_price_currency_status, row.partner_price_updated_at),
-    msrpPrice: price(row.msrp_price_amount, row.msrp_price_currency, row.msrp_price_currency_status, row.msrp_price_updated_at),
-    stock,
-    supplierArrival,
-    partnerRate: rate(row.partner_rate, row.partner_rate_published_at),
-    retailRate: rate(row.retail_rate, row.retail_rate_published_at),
-  };
-}
-
 function isCatalogPartnerPagePayload(value: unknown): value is { items: CatalogPartnerPageRow[]; totalCount: number } {
   if (!value || typeof value !== "object") return false;
   const payload = value as { items?: unknown; totalCount?: unknown };
   return Array.isArray(payload.items)
     && typeof payload.totalCount === "number"
     && payload.items.every((row) => isCatalogPartnerPageRow(row));
-}
-
-function isCatalogPartnerPageRow(value: unknown): value is CatalogPartnerPageRow {
-  if (!value || typeof value !== "object") return false;
-  const row = value as Partial<CatalogPartnerPageRow>;
-  return typeof row.id === "string"
-    && typeof row.sku === "string"
-    && typeof row.name === "string"
-    && typeof row.slug === "string"
-    && (row.image_url === null || typeof row.image_url === "string");
 }

@@ -90,6 +90,72 @@ export function isCatalogPartnerPageRow(value: unknown): value is CatalogPartner
     && typeof row.can_view_stock === "boolean";
 }
 
+export function mapCatalogPartnerPageRow(row: CatalogPartnerPageRow): CatalogPartnerPageRecord {
+  return {
+    id: row.id,
+    sku: row.sku,
+    name: row.name,
+    slug: row.slug,
+    imageUrl: row.image_url,
+    brand: row.brand_id && row.brand_name && row.brand_slug
+      ? { id: row.brand_id, name: row.brand_name, slug: row.brand_slug }
+      : null,
+    category: row.category_id && row.category_name && row.category_slug
+      ? {
+          id: row.category_id,
+          parentId: row.category_parent_id,
+          name: row.category_name,
+          slug: row.category_slug,
+        }
+      : null,
+    commercialSnapshot: mapCommercialSnapshot(row),
+  };
+}
+
+function mapCommercialSnapshot(row: CatalogPartnerPageRow): ProductCommercialSnapshot {
+  const price = (
+    amount: number | null,
+    currency: string | null,
+    currencyStatus: "resolved" | "unresolved" | null,
+    updatedAt: string | null,
+  ) => typeof amount === "number" && currency && updatedAt
+    ? { priceAmount: amount, currency, currencyStatus: currencyStatus ?? "unresolved", updatedAt }
+    : null;
+  const rate = (value: number | null, publishedAt: string | null) =>
+    typeof value === "number" && publishedAt ? { rate: value, publishedAt } : null;
+  const stock = typeof row.available_quantity === "number" && row.stock_synced_at
+    ? {
+        productId: row.id,
+        physicalQuantity: row.physical_quantity ?? 0,
+        reservedQuantity: row.reserved_quantity ?? 0,
+        availableQuantity: row.available_quantity,
+        incomingQuantity: row.incoming_quantity ?? 0,
+        hasVariantStock: row.has_variant_stock === true,
+        syncedAt: row.stock_synced_at,
+      }
+    : null;
+  const supplierArrival = row.expected_arrival_date && typeof row.expected_quantity === "number" && row.arrival_published_at
+    ? {
+        productId: row.id,
+        externalCharacteristicRef: "00000000-0000-0000-0000-000000000000",
+        expectedDate: row.expected_arrival_date,
+        expectedQuantity: row.expected_quantity,
+        publishedAt: row.arrival_published_at,
+      }
+    : null;
+
+  return {
+    productId: row.id,
+    canViewStock: row.can_view_stock,
+    partnerPrice: price(row.partner_price_amount, row.partner_price_currency, row.partner_price_currency_status, row.partner_price_updated_at),
+    msrpPrice: price(row.msrp_price_amount, row.msrp_price_currency, row.msrp_price_currency_status, row.msrp_price_updated_at),
+    stock,
+    supplierArrival,
+    partnerRate: rate(row.partner_rate, row.partner_rate_published_at),
+    retailRate: rate(row.retail_rate, row.retail_rate_published_at),
+  };
+}
+
 function nullableNumber(value: unknown): boolean {
   return value === null || typeof value === "number";
 }
@@ -97,3 +163,5 @@ function nullableNumber(value: unknown): boolean {
 function nullableString(value: unknown): boolean {
   return value === null || typeof value === "string";
 }
+import type { ProductCommercialSnapshot } from "../../../pricing-inventory/services";
+import type { CatalogPartnerPageRecord } from "../catalog.repository";
