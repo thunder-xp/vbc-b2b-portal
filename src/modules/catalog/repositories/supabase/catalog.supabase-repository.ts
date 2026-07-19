@@ -7,6 +7,8 @@ import type {
   CatalogAttributeFilters,
   CatalogFacetValueRecord,
   CatalogProductDetailAggregate,
+  CatalogPartnerPage,
+  CatalogPartnerPageInput,
   UpsertCatalogBrandInput,
   UpsertCatalogCategoryInput,
   UpsertCatalogProductInput,
@@ -54,6 +56,48 @@ export class CatalogRepositoryUnexpectedError extends Error {
 }
 
 export class SupabaseCatalogRepository implements CatalogRepository {
+  async listPartnerPage(input: CatalogPartnerPageInput): Promise<CatalogPartnerPage> {
+    const supabase = await createClient();
+    const { data, error } = await supabase.rpc("catalog_partner_page", {
+      p_company_id: input.companyId,
+      p_category_id: input.categoryId ?? null,
+      p_brand_id: input.brandId ?? null,
+      p_search: input.search ?? null,
+      p_availability: input.availability,
+      p_filters: input.attributeFilters,
+      p_sort: input.sort,
+      p_limit: input.limit,
+      p_offset: input.offset,
+    });
+
+    if (error || !isCatalogPartnerPagePayload(data)) {
+      throw new CatalogRepositoryUnexpectedError();
+    }
+
+    return {
+      items: data.items.map((row) => ({
+        id: row.id,
+        sku: row.sku,
+        name: row.name,
+        slug: row.slug,
+        shortDescription: row.short_description,
+        imageUrl: row.image_url,
+        brand: row.brand_id && row.brand_name && row.brand_slug
+          ? { id: row.brand_id, name: row.brand_name, slug: row.brand_slug }
+          : null,
+        category: row.category_id && row.category_name && row.category_slug
+          ? {
+              id: row.category_id,
+              parentId: row.category_parent_id,
+              name: row.category_name,
+              slug: row.category_slug,
+            }
+          : null,
+      })),
+      totalCount: data.totalCount,
+    };
+  }
+
   async listCategories(): Promise<CatalogCategory[]> {
     const supabase = await createClient();
     const { data, error } = await supabase
@@ -473,4 +517,39 @@ export class SupabaseCatalogRepository implements CatalogRepository {
     if (error) throw new CatalogRepositoryUnexpectedError();
     return ((data ?? []) as Array<{ attribute_key: string; label: string; display_value: string; product_count: number; product_coverage: number }>).map((row) => ({ key: row.attribute_key, label: row.label, value: row.display_value, count: Number(row.product_count), coverage: Number(row.product_coverage) }));
   }
+}
+
+type CatalogPartnerPageRow = {
+  id: string;
+  sku: string;
+  name: string;
+  slug: string;
+  short_description: string | null;
+  image_url: string | null;
+  brand_id: string | null;
+  brand_name: string | null;
+  brand_slug: string | null;
+  category_id: string | null;
+  category_parent_id: string | null;
+  category_name: string | null;
+  category_slug: string | null;
+};
+
+function isCatalogPartnerPagePayload(value: unknown): value is { items: CatalogPartnerPageRow[]; totalCount: number } {
+  if (!value || typeof value !== "object") return false;
+  const payload = value as { items?: unknown; totalCount?: unknown };
+  return Array.isArray(payload.items)
+    && typeof payload.totalCount === "number"
+    && payload.items.every((row) => isCatalogPartnerPageRow(row));
+}
+
+function isCatalogPartnerPageRow(value: unknown): value is CatalogPartnerPageRow {
+  if (!value || typeof value !== "object") return false;
+  const row = value as Partial<CatalogPartnerPageRow>;
+  return typeof row.id === "string"
+    && typeof row.sku === "string"
+    && typeof row.name === "string"
+    && typeof row.slug === "string"
+    && (row.short_description === null || typeof row.short_description === "string")
+    && (row.image_url === null || typeof row.image_url === "string");
 }

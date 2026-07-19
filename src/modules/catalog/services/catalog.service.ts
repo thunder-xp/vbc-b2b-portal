@@ -1,5 +1,4 @@
 import type { CompanyAccessService } from "../../access-control/services";
-import { measurePerformanceStage } from "../../../lib/performance/request-diagnostics";
 import { MembershipStatus } from "../../access-control/types";
 import type {
   PricingInventoryService,
@@ -139,6 +138,26 @@ export interface CatalogService {
 const DEFAULT_PAGE_SIZE = 12;
 const MAX_PAGE_SIZE = 48;
 
+async function measurePerformanceStage<T>(
+  routeCategory: string,
+  stage: string,
+  operation: () => Promise<T>,
+): Promise<T> {
+  if (process.env.PERFORMANCE_DIAGNOSTICS_ENABLED !== "true") return operation();
+  const startedAt = performance.now();
+  try {
+    return await operation();
+  } finally {
+    console.info(JSON.stringify({
+      event: "catalog_performance_stage",
+      routeCategory,
+      stage,
+      durationMs: Math.round((performance.now() - startedAt) * 100) / 100,
+      deployedCommitSha: process.env.VERCEL_GIT_COMMIT_SHA ?? "local",
+    }));
+  }
+}
+
 export class DefaultCatalogService implements CatalogService {
   constructor(
     private readonly catalogRepository: CatalogRepository,
@@ -172,9 +191,22 @@ export class DefaultCatalogService implements CatalogService {
     userId: string,
     input: CatalogProductListInput,
   ): Promise<CatalogProductListResult> {
-    await measurePerformanceStage("catalog", "access", () => this.ensureCatalogAccess(userId));
+    const companyId = await measurePerformanceStage("catalog", "access", () => this.ensureCatalogAccess(userId));
     const page = normalizePage(input.page);
     const pageSize = normalizePageSize(input.pageSize);
+    const sort = parseCatalogSort(input.sort);
+    const attributeFilters = normalizeAttributeFilters(input.attributeFilters);
+
+    if (this.catalogRepository.listPartnerPage) {
+      return this.listPartnerCatalogPage(userId, companyId, {
+        ...input,
+        page,
+        pageSize,
+        sort,
+        attributeFilters,
+      });
+    }
+
     const [brands, categories] = await measurePerformanceStage(
       "catalog",
       "metadata",
@@ -186,7 +218,6 @@ export class DefaultCatalogService implements CatalogService {
     const categoryIds = input.categoryId
       ? collectCategoryAndDescendantIds(input.categoryId, categories)
       : undefined;
-    const attributeFilters = normalizeAttributeFilters(input.attributeFilters);
     const [attributeProductIds, facetRows] = await measurePerformanceStage(
       "catalog",
       "facets",
@@ -203,7 +234,6 @@ export class DefaultCatalogService implements CatalogService {
     const searchBrandIds = normalizedSearch
       ? brands.filter((brand) => brand.name.toLowerCase().includes(normalizedSearch)).map((brand) => brand.id)
       : undefined;
-    const sort = parseCatalogSort(input.sort);
     const repositoryInput: ListCatalogProductsInput = {
       categoryIds,
       brandId: input.brandId,
@@ -308,6 +338,77 @@ export class DefaultCatalogService implements CatalogService {
       commercialViews: commercialSort
         ? filterCommercialViews(allCommercialViews ?? [], visibleProducts)
         : undefined,
+    };
+  }
+
+  private async listPartnerCatalogPage(
+    userId: string,
+    companyId: string,
+    input: CatalogProductListInput & {
+      page: number;
+      pageSize: number;
+      sort: CatalogSort;
+      attributeFilters: Record<string, string[]>;
+    },
+  ): Promise<CatalogProductListResult> {
+    const categories = await measurePerformanceStage(
+      "catalog",
+      "metadata",
+      () => this.catalogRepository.listCategories(),
+    );
+    const categoryIds = input.categoryId
+      ? collectCategoryAndDescendantIds(input.categoryId, categories)
+      : undefined;
+    const pagePromise = measurePerformanceStage(
+      "catalog",
+      "partner_page_aggregate",
+      () => this.catalogRepository.listPartnerPage!({
+        companyId,
+        categoryId: input.categoryId,
+        brandId: input.brandId,
+        search: input.search,
+        availability: input.availability ?? "all",
+        attributeFilters: input.attributeFilters,
+        sort: input.sort,
+        limit: input.pageSize,
+        offset: (input.page - 1) * input.pageSize,
+      }),
+    );
+    const facetsPromise = measurePerformanceStage(
+      "catalog",
+      "facets",
+      () => this.catalogRepository.listAttributeFacets?.(categoryIds, input.attributeFilters) ?? Promise.resolve([]),
+    ).catch(() => []);
+    const [partnerPage, facetRows] = await Promise.all([pagePromise, facetsPromise]);
+    const commercialViews = await measurePerformanceStage(
+      "catalog",
+      "visible_page_commercial_enrichment",
+      () => this.getCommercialViews(
+        userId,
+        partnerPage.items.map((item) => ({ id: item.id } as CatalogProduct)),
+      ),
+    );
+
+    return {
+      products: partnerPage.items.map((item) => ({
+        id: item.id,
+        sku: item.sku,
+        name: item.name,
+        slug: item.slug,
+        shortDescription: item.shortDescription,
+        imageUrl: item.imageUrl,
+        brand: item.brand ? { ...item.brand, description: null, logoUrl: null } : null,
+        category: item.category ? { ...item.category, description: null } : null,
+        keyCharacteristics: [],
+        datasheet: null,
+      })),
+      page: input.page,
+      pageSize: input.pageSize,
+      hasNextPage: input.page * input.pageSize < partnerPage.totalCount,
+      isDemoData: false,
+      totalCount: partnerPage.totalCount,
+      facets: buildFacets(facetRows, input.attributeFilters),
+      commercialViews,
     };
   }
 
@@ -511,7 +612,7 @@ export class DefaultCatalogService implements CatalogService {
     });
   }
 
-  private async ensureCatalogAccess(userId: string): Promise<void> {
+  private async ensureCatalogAccess(userId: string): Promise<string> {
     const memberships = await this.companyAccessService.getOwnMemberships(userId);
     const activeMembership = memberships.find(
       (membership) => membership.status === MembershipStatus.Active,
@@ -519,13 +620,14 @@ export class DefaultCatalogService implements CatalogService {
 
     if (!activeMembership) {
       await this.companyAccessService.getActiveCompanyContext(userId, "");
-      return;
+      return "";
     }
 
     await this.companyAccessService.getActiveCompanyContext(
       userId,
       activeMembership.companyId,
     );
+    return activeMembership.companyId;
   }
 
   private async isCatalogEmpty(): Promise<boolean> {

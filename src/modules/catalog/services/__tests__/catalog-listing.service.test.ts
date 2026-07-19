@@ -59,6 +59,37 @@ describe("DefaultCatalogService listing projection", () => {
     ]);
     expect(repository.productCalls).toBe(1);
   });
+
+  it("uses the partner page aggregate and enriches only the bounded page", async () => {
+    const repository = new AggregateListingRepository();
+    const pricing = new PricingServiceStub({ "product-high": 30, "product-low": 10 });
+
+    const result = await new DefaultCatalogService(
+      repository,
+      companyAccessService,
+      pricing,
+    ).listProducts("user-1", {
+      page: 1,
+      pageSize: 2,
+      sort: "price_desc",
+      availability: "in_stock",
+      attributeFilters: { "property_11111111-1111-1111-1111-111111111111": ["4 MPX"] },
+    });
+
+    expect(repository.aggregateInput).toMatchObject({
+      companyId: "company",
+      sort: "price_desc",
+      availability: "in_stock",
+      limit: 2,
+      offset: 0,
+      attributeFilters: { "property_11111111-1111-1111-1111-111111111111": ["4 MPX"] },
+    });
+    expect(repository.productCalls).toBe(0);
+    expect(pricing.requestedProductIds).toEqual(["product-high", "product-low"]);
+    expect(result.products.map((item) => item.id)).toEqual(["product-high", "product-low"]);
+    expect(result.totalCount).toBe(3);
+    expect(result.hasNextPage).toBe(true);
+  });
 });
 
 class ListingRepository implements CatalogRepository {
@@ -93,6 +124,21 @@ class ListingRepository implements CatalogRepository {
   async listProductImages() { return []; }
   async listProductDocuments() { return []; }
   async listProductAttributes(): Promise<CatalogProductAttribute[]> { return this.detail ? attributes : []; }
+}
+
+class AggregateListingRepository extends ListingRepository {
+  aggregateInput: import("../../repositories").CatalogPartnerPageInput | null = null;
+
+  async listPartnerPage(input: import("../../repositories").CatalogPartnerPageInput) {
+    this.aggregateInput = input;
+    return {
+      items: [
+        { id: "product-high", sku: "HIGH", name: "High", slug: "high", shortDescription: null, imageUrl: null, brand: null, category: null },
+        { id: "product-low", sku: "LOW", name: "Low", slug: "low", shortDescription: null, imageUrl: null, brand: null, category: null },
+      ],
+      totalCount: 3,
+    };
+  }
 }
 
 class PricingServiceStub implements PricingInventoryService {

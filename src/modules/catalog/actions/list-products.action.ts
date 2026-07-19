@@ -24,9 +24,6 @@ export async function listCatalogProductsAction(
     const userId = await getAuthenticatedUserId();
     const availability = normalizeAvailability(input.availability);
     const pricingInventoryService = createPricingInventoryService();
-    const availabilityProductIds = availability === "all"
-      ? undefined
-      : await pricingInventoryService.getProductIdsByAvailability?.(userId, availability) ?? [];
     const products = await createCatalogService(pricingInventoryService).listProducts(userId, {
       categoryId: normalizeOptionalText(input.categoryId),
       brandId: normalizeOptionalText(input.brandId),
@@ -35,7 +32,7 @@ export async function listCatalogProductsAction(
       pageSize: input.pageSize,
       sort: input.sort,
       attributeFilters: normalizeFilters(input.attributeFilters),
-      availabilityProductIds,
+      availability,
     });
 
     return success("Catalog products loaded.", products);

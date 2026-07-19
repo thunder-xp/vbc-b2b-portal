@@ -21,6 +21,34 @@ export type ListCatalogProductsInput = {
 export type CatalogAttributeFilters = Record<string, string[]>;
 export type CatalogFacetValueRecord = { key: string; label: string; value: string; count: number; coverage: number };
 
+export type CatalogPartnerPageInput = {
+  companyId: string;
+  categoryId?: string;
+  brandId?: string;
+  search?: string;
+  availability: "all" | "in_stock" | "expected";
+  attributeFilters: CatalogAttributeFilters;
+  sort: "default" | "availability_asc" | "availability_desc" | "price_asc" | "price_desc" | "markup_asc" | "markup_desc";
+  limit: number;
+  offset: number;
+};
+
+export type CatalogPartnerPageRecord = {
+  id: string;
+  sku: string;
+  name: string;
+  slug: string;
+  shortDescription: string | null;
+  imageUrl: string | null;
+  brand: Pick<CatalogBrand, "id" | "name" | "slug"> | null;
+  category: Pick<CatalogCategory, "id" | "parentId" | "name" | "slug"> | null;
+};
+
+export type CatalogPartnerPage = {
+  items: CatalogPartnerPageRecord[];
+  totalCount: number;
+};
+
 export type CatalogProductDetailAggregate = {
   product: CatalogProduct;
   brand: CatalogBrand | null;
@@ -71,6 +99,7 @@ export type UpsertCatalogProductInput = {
 };
 
 export interface CatalogRepository {
+  listPartnerPage?(input: CatalogPartnerPageInput): Promise<CatalogPartnerPage>;
   listCategories(): Promise<CatalogCategory[]>;
   listBrands(): Promise<CatalogBrand[]>;
   listProducts(input: ListCatalogProductsInput): Promise<CatalogProduct[]>;
