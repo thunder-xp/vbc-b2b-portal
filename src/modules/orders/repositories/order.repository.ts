@@ -32,6 +32,18 @@ export interface CartRepository {
     items: Array<{ productId: string; quantity: number }>;
     summary: Record<string, number>;
   }): Promise<string>;
+  mergeOrderReorderItems(input: {
+    orderId: string;
+    requestKey: string;
+    requestFingerprint: string;
+    items: Array<{ lineId: string; quantity: number }>;
+    summary: Record<string, number>;
+  }): Promise<{
+    cartId: string;
+    repeated: boolean;
+    addedProductIds: string[];
+    updatedProductIds: string[];
+  }>;
 }
 
 export interface PartnerOrderRepository {

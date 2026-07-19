@@ -68,6 +68,27 @@ export class SupabaseCartRepository implements CartRepository {
     return String(data);
   }
 
+  async mergeOrderReorderItems(input: Parameters<CartRepository["mergeOrderReorderItems"]>[0]) {
+    const { data, error } = await (await createClient()).rpc("merge_order_reorder_items_into_cart", {
+      target_order_id: input.orderId,
+      target_request_key: input.requestKey,
+      target_request_fingerprint: input.requestFingerprint,
+      target_items: input.items.map((item) => ({ line_id: item.lineId, quantity: item.quantity })),
+      target_summary: input.summary,
+    });
+    if (error || !isRecord(data)) throw new OrderRepositoryError(error?.code ?? null, error?.message ?? null);
+    return {
+      cartId: text(data.cart_id),
+      repeated: data.repeated === true,
+      addedProductIds: textArray(data.added_product_ids),
+      updatedProductIds: textArray(data.updated_product_ids),
+    };
+  }
+
+}
+
+function textArray(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
 }
 
 export class SupabasePartnerOrderRepository implements PartnerOrderRepository {

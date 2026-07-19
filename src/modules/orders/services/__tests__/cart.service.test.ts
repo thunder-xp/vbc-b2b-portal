@@ -60,7 +60,7 @@ function makeDependencies() {
     getActiveItemCount: vi.fn().mockResolvedValue(2),
     findActive: vi.fn().mockResolvedValue({ id: "cart-1", companyId: "company-1", createdBy: "user-1", status: "active", createdAt: "2026-01-01", updatedAt: "2026-01-01" }),
     listItems: vi.fn().mockResolvedValue([{ id: "item-1", cartId: "cart-1", productId: "product-1", quantity: 2, createdAt: "2026-01-01", updatedAt: "2026-01-01" }]),
-    addItem: vi.fn(), updateItemQuantity: vi.fn(), removeItem: vi.fn(), mergeEstimateProducts: vi.fn(),
+    addItem: vi.fn(), updateItemQuantity: vi.fn(), removeItem: vi.fn(), mergeEstimateProducts: vi.fn(), mergeOrderReorderItems: vi.fn(),
   } satisfies CartRepository;
   const companyAccessService = {
     getOwnMemberships: vi.fn().mockResolvedValue([{ companyId: "company-1", status: "active" }]),

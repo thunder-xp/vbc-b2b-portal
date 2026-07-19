@@ -2,16 +2,25 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useActionState, useMemo, useState } from "react";
 import { CheckSquare, RotateCcw, Square, TriangleAlert } from "lucide-react";
 
 import type { QuickReorderPreviewDto } from "../services";
+import type { ActionResult } from "../../access-control/actions/action-result";
+import { addQuickReorderToCartAction } from "../actions/reorder.actions";
+import type { QuickReorderConversionResultDto } from "../services";
 
-export function QuickReorderPanel({ preview }: { preview: QuickReorderPreviewDto }) {
+const INITIAL_STATE: ActionResult<QuickReorderConversionResultDto | null> = { success: false, errorCode: "IDLE", message: "", data: null };
+
+export function QuickReorderPanel({ preview, requestKey: initialRequestKey }: { preview: QuickReorderPreviewDto; requestKey: string }) {
   const [selected, setSelected] = useState(() => new Set(preview.lines.filter((line) => line.selectedByDefault).map((line) => line.lineId)));
   const [quantities, setQuantities] = useState<Record<string, number>>(() => Object.fromEntries(preview.lines.map((line) => [line.lineId, line.historicalQuantity])));
   const selectedCount = selected.size;
   const selectedUnits = useMemo(() => [...selected].reduce((total, id) => total + (quantities[id] ?? 0), 0), [quantities, selected]);
+  const [requestKey, setRequestKey] = useState(initialRequestKey);
+  const [newAttempt, setNewAttempt] = useState(false);
+  const [state, action, pending] = useActionState(addQuickReorderToCartAction, INITIAL_STATE);
+  const selectedLines = [...selected].map((lineId) => ({ lineId, quantity: quantities[lineId] ?? 0 }));
 
   function setAll(mode: "all" | "none" | "available") {
     setSelected(mode === "none" ? new Set() : new Set(preview.lines.filter((line) => mode === "all" ? line.canSelect : line.status === "available").map((line) => line.lineId)));
@@ -96,12 +105,41 @@ export function QuickReorderPanel({ preview }: { preview: QuickReorderPreviewDto
         })}
       </ul>
 
-      <div className="flex flex-col gap-3 rounded-md border border-zinc-200 bg-zinc-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+      <form action={action} className="flex flex-col gap-3 rounded-md border border-zinc-200 bg-zinc-50 p-4 sm:flex-row sm:items-center sm:justify-between" onSubmit={() => setNewAttempt(false)}>
+        <input name="orderId" type="hidden" value={preview.orderId} />
+        <input name="requestKey" type="hidden" value={requestKey} />
+        <input name="lines" type="hidden" value={JSON.stringify(selectedLines)} />
         <p className="text-sm text-zinc-700">Выбрано: <strong>{selectedCount}</strong> поз., <strong>{selectedUnits}</strong> ед.</p>
-        <button className="rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-zinc-300" disabled type="button">Добавить выбранное в корзину</button>
-      </div>
+        <button className="rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-zinc-300" disabled={!selectedCount || pending || (state.success && !newAttempt)} type="submit">{pending ? "Добавление..." : "Добавить выбранное в корзину"}</button>
+      </form>
+      {state.errorCode !== "IDLE" && !state.success ? <p className="rounded-md border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">Не удалось добавить выбранные позиции. Выбор сохранён, проверьте данные и повторите попытку.</p> : null}
+      {state.success && state.data ? <ConversionSummary orderId={preview.orderId} result={state.data} onNewAttempt={() => { setRequestKey(crypto.randomUUID()); setNewAttempt(true); }} /> : null}
     </section>
   );
+}
+
+function ConversionSummary({ orderId, result, onNewAttempt }: { orderId: string; result: QuickReorderConversionResultDto; onNewAttempt: () => void }) {
+  return (
+    <div className="rounded-md border border-emerald-200 bg-emerald-50 p-4">
+      <h2 className="font-semibold text-emerald-950">Результат добавления</h2>
+      {result.repeated ? <p className="mt-1 text-xs text-emerald-800">Повторный запрос распознан: количество не увеличено повторно.</p> : null}
+      <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-sm text-emerald-950">
+        <span>Добавлено: <strong>{result.added}</strong></span><span>Обновлено: <strong>{result.updated}</strong></span>
+        <span>Цена изменилась: <strong>{result.changedPrice}</strong></span><span>Нет текущей цены: <strong>{result.missingPrice}</strong></span>
+        <span>Недоступно: <strong>{result.unavailable}</strong></span><span>Неактивно: <strong>{result.inactive}</strong></span><span>Пропущено: <strong>{result.skipped}</strong></span>
+      </div>
+      <details className="mt-3 text-sm"><summary className="cursor-pointer font-medium">Показать позиции</summary><ul className="mt-2 space-y-1">{result.items.map((item) => <li key={item.lineId}>{item.sku} · {item.productName} — {conversionResultLabel(item.result)}</li>)}</ul></details>
+      <div className="mt-4 flex flex-wrap gap-2">
+        {result.cartId ? <Link className="rounded-md bg-emerald-700 px-3 py-2 text-sm font-semibold text-white" href="/cabinet/cart" prefetch={false}>Перейти в корзину</Link> : null}
+        <Link className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-sm font-semibold text-emerald-800" href={`/cabinet/orders/${orderId}`} prefetch={false}>Остаться в заказе</Link>
+        <button className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-sm font-semibold text-emerald-800" onClick={onNewAttempt} type="button">Добавить ещё раз</button>
+      </div>
+    </div>
+  );
+}
+
+function conversionResultLabel(result: QuickReorderConversionResultDto["items"][number]["result"]): string {
+  return ({ added: "Добавлено", updated: "Обновлено", price_changed: "Цена изменилась", missing_price: "Нет текущей цены", unavailable: "Недоступно", inactive: "Неактивно", skipped: "Пропущено" })[result];
 }
 
 function Price({ label, value }: { label: string; value: string }) {

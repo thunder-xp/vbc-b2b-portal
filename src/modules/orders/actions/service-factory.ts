@@ -60,6 +60,7 @@ export function createQuickReorderService(): QuickReorderService {
     value.companyAccessService,
     value.permissionService,
     value.pricingInventoryService,
+    value.cartRepository,
   );
 }
 

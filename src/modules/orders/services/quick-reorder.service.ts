@@ -1,8 +1,12 @@
+import { createHash } from "node:crypto";
+import Decimal from "decimal.js";
+
 import type { CompanyAccessService, PermissionService } from "../../access-control/services";
-import { NotFoundError } from "../../access-control/services";
+import { InvalidStateError, NotFoundError } from "../../access-control/services";
 import { MembershipStatus } from "../../access-control/types";
+import { isStale } from "../../integration/freshness";
 import type { ProductCommercialViewDto, PricingInventoryService } from "../../pricing-inventory/services";
-import type { PartnerOrderHistoryRepository } from "../repositories";
+import type { CartRepository, PartnerOrderHistoryRepository } from "../repositories";
 import type { OrderReorderSourceLine } from "../types";
 
 export type QuickReorderLineStatus =
@@ -53,6 +57,26 @@ export type QuickReorderPriceDifferenceDto = {
   formattedPercentageDifference: string | null;
 };
 
+export type QuickReorderSelectionInput = { lineId: string; quantity: number };
+export type QuickReorderConversionItemDto = {
+  lineId: string;
+  productName: string;
+  sku: string;
+  result: "added" | "updated" | "missing_price" | "unavailable" | "inactive" | "skipped" | "price_changed";
+};
+export type QuickReorderConversionResultDto = {
+  cartId: string | null;
+  repeated: boolean;
+  added: number;
+  updated: number;
+  changedPrice: number;
+  missingPrice: number;
+  unavailable: number;
+  inactive: number;
+  skipped: number;
+  items: QuickReorderConversionItemDto[];
+};
+
 const STATUS_LABELS: Record<QuickReorderLineStatus, string> = {
   available: "Доступно",
   price_changed: "Цена изменилась",
@@ -68,6 +92,7 @@ export class QuickReorderService {
     private readonly companyAccessService: CompanyAccessService,
     private readonly permissionService: PermissionService,
     private readonly pricingInventoryService: PricingInventoryService,
+    private readonly cartRepository?: CartRepository,
   ) {}
 
   async preview(userId: string, orderId: string): Promise<QuickReorderPreviewDto> {
@@ -93,6 +118,91 @@ export class QuickReorderService {
     };
   }
 
+  async addSelectedToCart(userId: string, input: {
+    orderId: string;
+    requestKey: string;
+    lines: QuickReorderSelectionInput[];
+  }): Promise<QuickReorderConversionResultDto> {
+    if (!this.cartRepository) throw new InvalidStateError("Quick reorder is unavailable.");
+    const companyId = await this.resolveCompany(userId);
+    const source = await this.historyRepository.getReorderSource(requirePortalUuid(input.orderId));
+    if (!source || source.companyId !== companyId) throw new NotFoundError("Order was not found.");
+    const requestKey = requirePortalUuid(input.requestKey);
+    const selected = normalizeSelection(input.lines);
+    if (!selected.length) throw new InvalidStateError("Select at least one order line.");
+    const sourceByLine = new Map(source.lines.map((line) => [line.lineId, line]));
+    if (selected.some((line) => !sourceByLine.has(line.lineId))) throw new NotFoundError("Order line was not found.");
+
+    const productIds = [...new Set(selected.flatMap(({ lineId }) => sourceByLine.get(lineId)?.productId ?? []))];
+    const commercialViews = await this.pricingInventoryService.getProductCommercialViews(userId, productIds);
+    const commercialByProduct = new Map(commercialViews.map((view) => [view.productId, view]));
+    const validItems: Array<{ lineId: string; quantity: number }> = [];
+    const issues: QuickReorderConversionItemDto[] = [];
+    let changedPrice = 0;
+
+    for (const selection of selected) {
+      const line = sourceByLine.get(selection.lineId)!;
+      const identity = {
+        productName: line.currentName ?? line.historicalProductName ?? "Товар из истории",
+        sku: line.currentSku ?? line.historicalSku ?? "Без артикула",
+      };
+      if (!line.productExists || !line.productId || !line.currentIsVisible) {
+        issues.push({ lineId: line.lineId, ...identity, result: "unavailable" });
+        continue;
+      }
+      if (!line.currentIsActive) {
+        issues.push({ lineId: line.lineId, ...identity, result: "inactive" });
+        continue;
+      }
+      if (!isValidOneCReference(line.currentExternalProductRef)) {
+        issues.push({ lineId: line.lineId, ...identity, result: "skipped" });
+        continue;
+      }
+      const currentCommercial = commercialByProduct.get(line.productId);
+      const currentPrice = currentCommercial?.isDemoData ? null : currentCommercial?.partnerPrice;
+      if (!currentPrice) {
+        issues.push({ lineId: line.lineId, ...identity, result: "missing_price" });
+        continue;
+      }
+      if (isStale(currentPrice.lastUpdatedAt, "price")) {
+        issues.push({ lineId: line.lineId, ...identity, result: "skipped" });
+        continue;
+      }
+      const difference = comparePrices(line.historicalUnitPrice, line.historicalCurrencyCode, currentPrice.amount, currentPrice.currencyCode);
+      if (difference.kind === "increased" || difference.kind === "decreased") changedPrice += 1;
+      validItems.push(selection);
+    }
+
+    const summary = summarizeIssues(issues, changedPrice);
+    if (!validItems.length) return { cartId: null, repeated: false, added: 0, updated: 0, ...summary, items: issues };
+    const mutation = await this.cartRepository.mergeOrderReorderItems({
+      orderId: source.orderId,
+      requestKey,
+      requestFingerprint: createRequestFingerprint(source.orderId, validItems),
+      items: validItems,
+      summary,
+    });
+    const added = new Set(mutation.addedProductIds);
+    const updated = new Set(mutation.updatedProductIds);
+    const successfulItems = validItems.map(({ lineId }) => {
+      const line = sourceByLine.get(lineId)!;
+      return {
+        lineId,
+        productName: line.currentName ?? line.historicalProductName ?? "Товар из истории",
+        sku: line.currentSku ?? line.historicalSku ?? "Без артикула",
+        result: added.has(line.productId!) ? "added" : updated.has(line.productId!) ? "updated" : "price_changed",
+      } satisfies QuickReorderConversionItemDto;
+    });
+    return {
+      cartId: mutation.cartId,
+      repeated: mutation.repeated,
+      added: mutation.addedProductIds.length,
+      updated: mutation.updatedProductIds.length,
+      ...summary,
+      items: [...successfulItems, ...issues],
+    };
+  }
+
   private async resolveCompany(userId: string): Promise<string> {
     const memberships = await this.companyAccessService.getOwnMemberships(userId);
     const membership = memberships.find((item) => item.status === MembershipStatus.Active);
@@ -105,11 +215,39 @@ export class QuickReorderService {
   }
 }
 
+function normalizeSelection(lines: QuickReorderSelectionInput[]): QuickReorderSelectionInput[] {
+  const result = new Map<string, number>();
+  for (const line of lines) {
+    const lineId = requirePortalUuid(line.lineId);
+    if (!Number.isInteger(line.quantity) || line.quantity < 1 || line.quantity > 9999) throw new InvalidStateError("Quantity must be between 1 and 9999.");
+    if (result.has(lineId)) throw new InvalidStateError("An order line was selected more than once.");
+    result.set(lineId, line.quantity);
+  }
+  return [...result].map(([lineId, quantity]) => ({ lineId, quantity }));
+}
+
+function createRequestFingerprint(orderId: string, items: Array<{ lineId: string; quantity: number }>): string {
+  const canonical = items.slice().sort((left, right) => left.lineId.localeCompare(right.lineId)).map((item) => `${item.lineId}:${item.quantity}`).join("|");
+  return createHash("sha256").update(`${orderId}|${canonical}`).digest("hex");
+}
+
+function summarizeIssues(items: QuickReorderConversionItemDto[], changedPrice: number) {
+  return {
+    changedPrice,
+    missingPrice: items.filter((item) => item.result === "missing_price").length,
+    unavailable: items.filter((item) => item.result === "unavailable").length,
+    inactive: items.filter((item) => item.result === "inactive").length,
+    skipped: items.filter((item) => item.result === "skipped").length,
+  };
+}
+
 function toPreviewLine(line: OrderReorderSourceLine, commercial?: ProductCommercialViewDto): QuickReorderPreviewLineDto {
-  const currentPrice = commercial?.partnerPrice ?? null;
+  const currentPrice = commercial?.isDemoData ? null : commercial?.partnerPrice ?? null;
   const priceDifference = comparePrices(line.historicalUnitPrice, line.historicalCurrencyCode, currentPrice?.amount ?? null, currentPrice?.currencyCode ?? null);
   const status = classifyLine(line, commercial, priceDifference);
-  const selectable = line.productExists && line.currentIsActive && line.currentIsVisible && isValidOneCReference(line.currentExternalProductRef) && Boolean(currentPrice);
+  const selectable = line.productExists && line.currentIsActive && line.currentIsVisible
+    && isValidOneCReference(line.currentExternalProductRef) && Boolean(currentPrice)
+    && !isStale(currentPrice?.lastUpdatedAt, "price");
   return {
     lineId: line.lineId,
     productId: line.productId,
@@ -145,7 +283,8 @@ function toPreviewLine(line: OrderReorderSourceLine, commercial?: ProductCommerc
 function classifyLine(line: OrderReorderSourceLine, commercial: ProductCommercialViewDto | undefined, difference: QuickReorderPriceDifferenceDto): QuickReorderLineStatus {
   if (!line.productExists || !line.currentIsActive || !line.currentIsVisible) return "unavailable";
   if (!isValidOneCReference(line.currentExternalProductRef)) return "review_required";
-  if (!commercial?.partnerPrice) return "missing_price";
+  if (!commercial?.partnerPrice || commercial.isDemoData) return "missing_price";
+  if (isStale(commercial.partnerPrice.lastUpdatedAt, "price")) return "review_required";
   if ((commercial.stock?.exactAvailableQuantity ?? 0) <= 0) return "temporarily_unavailable";
   if (difference.kind === "increased" || difference.kind === "decreased") return "price_changed";
   return "available";
@@ -216,4 +355,3 @@ function formatMoney(amount: number, currencyCode: string | null): string {
     return `${new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 2 }).format(amount)} ${currencyCode}`;
   }
 }
-import Decimal from "decimal.js";

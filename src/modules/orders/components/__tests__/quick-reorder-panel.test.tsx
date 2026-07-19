@@ -1,6 +1,8 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("../../actions/reorder.actions", () => ({ addQuickReorderToCartAction: vi.fn() }));
 
 import { QuickReorderPanel } from "../QuickReorderPanel";
 import type { QuickReorderPreviewDto, QuickReorderPreviewLineDto, QuickReorderLineStatus } from "../../services";
@@ -8,7 +10,7 @@ import type { QuickReorderPreviewDto, QuickReorderPreviewLineDto, QuickReorderLi
 describe("QuickReorderPanel", () => {
   it("supports selection, clearing, and quantity editing without horizontal table markup", async () => {
     const user = userEvent.setup();
-    const { container } = render(<QuickReorderPanel preview={preview()} />);
+    const { container } = render(<QuickReorderPanel preview={preview()} requestKey="bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb" />);
 
     expect(screen.getByText("Купить снова из № NSUU-001")).toBeInTheDocument();
     expect(screen.getByDisplayValue("3")).toBeInTheDocument();
@@ -30,7 +32,7 @@ describe("QuickReorderPanel", () => {
   it("keeps unavailable products unselected and exposes a safe replacement search", () => {
     const value = preview();
     value.lines[1] = { ...value.lines[1], status: "unavailable", statusLabel: "Товар больше недоступен", canSelect: false, selectedByDefault: false };
-    render(<QuickReorderPanel preview={value} />);
+    render(<QuickReorderPanel preview={value} requestKey="bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb" />);
 
     expect(screen.getByRole("checkbox", { name: "Выбрать Recorder" })).toBeDisabled();
     expect(screen.getByRole("link", { name: "Найти замену" })).toHaveAttribute("href", "/cabinet/catalog?category=category-1");
