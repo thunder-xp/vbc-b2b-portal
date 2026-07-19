@@ -22,7 +22,8 @@ export function OrderSubmitForm({ submissionKey }: { submissionKey: string }) {
   const retryBlocked = !state.success && ["ORDER_IN_PROGRESS", "ORDER_RECONCILIATION_REQUIRED"].includes(state.errorCode);
   return <form action={action} className="space-y-3 rounded-lg border border-zinc-200 bg-white p-4">
     <input defaultValue={submissionKey} name="submissionKey" ref={submissionKeyRef} type="hidden" />
-    <label className="block text-sm font-medium text-zinc-800">Желаемая дата отгрузки<input className="mt-1 block h-10 w-full rounded-md border border-zinc-300 px-3" min={new Date().toISOString().slice(0, 10)} name="requestedDeliveryDate" onChange={(event) => setDeliveryDate(event.target.value)} required type="date" value={deliveryDate} /></label>
+    <label className="block text-sm font-medium text-zinc-800">Дата планируемой отгрузки<input className="mt-1 block h-10 w-full rounded-md border border-zinc-300 px-3" min={new Date().toISOString().slice(0, 10)} name="requestedDeliveryDate" onChange={(event) => setDeliveryDate(event.target.value)} required type="date" value={deliveryDate} /></label>
+    <p className="text-xs leading-5 text-zinc-600">До этой даты оборудование планируется удерживать под ваш заказ. Менеджер Novotech свяжется с вами для подтверждения отгрузки.</p>
     <button className="h-11 w-full rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white hover:bg-emerald-800 disabled:opacity-60" disabled={pending || retryBlocked} type="submit">{pending ? "Создание заказа..." : "Подтвердить заказ"}</button>
     {state.message && <p aria-live="polite" className={`text-sm ${state.success ? "text-emerald-700" : "text-rose-700"}`}>{state.message}</p>}
   </form>;

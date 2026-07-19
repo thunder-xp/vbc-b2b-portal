@@ -16,7 +16,7 @@ describe("OrderSubmitForm", () => {
     mocks.submit.mockResolvedValue({ success: false, errorCode: "ORDER_RECOVERABLE", message: "Заказ не был отправлен. Корзина сохранена — проверьте данные и повторите попытку.", data: null });
     const user = userEvent.setup();
     render(<OrderSubmitForm submissionKey="55555555-5555-4555-8555-555555555555" />);
-    const date = screen.getByLabelText("Желаемая дата отгрузки");
+    const date = screen.getByLabelText("Дата планируемой отгрузки");
     await user.type(date, "2099-01-10");
     await user.click(screen.getByRole("button", { name: "Подтвердить заказ" }));
     expect(await screen.findByText(/Корзина сохранена/)).toBeInTheDocument();
@@ -26,7 +26,7 @@ describe("OrderSubmitForm", () => {
   it("preserves the date when the parent refreshes after a quantity update", async () => {
     const user = userEvent.setup();
     const view = render(<OrderSubmitForm submissionKey="55555555-5555-4555-8555-555555555555" />);
-    const date = screen.getByLabelText("Желаемая дата отгрузки");
+    const date = screen.getByLabelText("Дата планируемой отгрузки");
     await user.type(date, "2099-01-10");
     view.rerender(<OrderSubmitForm submissionKey="55555555-5555-4555-8555-555555555555" />);
     expect(date).toHaveValue("2099-01-10");
@@ -36,7 +36,7 @@ describe("OrderSubmitForm", () => {
     mocks.submit.mockResolvedValue({ success: false, errorCode: "ORDER_RECONCILIATION_REQUIRED", message: "Статус отправки заказа уточняется. Не отправляйте заказ повторно.", data: null });
     const user = userEvent.setup();
     render(<OrderSubmitForm submissionKey="55555555-5555-4555-8555-555555555555" />);
-    await user.type(screen.getByLabelText("Желаемая дата отгрузки"), "2099-01-10");
+    await user.type(screen.getByLabelText("Дата планируемой отгрузки"), "2099-01-10");
     await user.click(screen.getByRole("button", { name: "Подтвердить заказ" }));
     await waitFor(() => expect(screen.getByRole("button", { name: "Подтвердить заказ" })).toBeDisabled());
   });
@@ -46,7 +46,7 @@ describe("OrderSubmitForm", () => {
     const user = userEvent.setup();
     render(<OrderSubmitForm submissionKey="55555555-5555-4555-8555-555555555555" />);
 
-    await user.type(screen.getByLabelText("Желаемая дата отгрузки"), "2099-01-10");
+    await user.type(screen.getByLabelText("Дата планируемой отгрузки"), "2099-01-10");
     await user.click(screen.getByRole("button", { name: "Подтвердить заказ" }));
 
     await waitFor(() => expect(mocks.push).toHaveBeenCalledWith("/cabinet/orders/order-1"));
@@ -58,7 +58,7 @@ describe("OrderSubmitForm", () => {
     mocks.submit.mockReturnValue(new Promise((resolve) => { resolveSubmission = resolve; }));
     const user = userEvent.setup();
     render(<OrderSubmitForm submissionKey="55555555-5555-4555-8555-555555555555" />);
-    await user.type(screen.getByLabelText("Желаемая дата отгрузки"), "2099-01-10");
+    await user.type(screen.getByLabelText("Дата планируемой отгрузки"), "2099-01-10");
 
     const button = screen.getByRole("button", { name: "Подтвердить заказ" });
     await user.click(button);
@@ -67,5 +67,10 @@ describe("OrderSubmitForm", () => {
 
     resolveSubmission?.({ success: false, errorCode: "ORDER_IN_PROGRESS", message: "Заказ уже отправляется.", data: null });
     await screen.findByText("Заказ уже отправляется.");
+  });
+
+  it("explains the operational meaning of the planned shipment date", () => {
+    render(<OrderSubmitForm submissionKey="55555555-5555-4555-8555-555555555555" />);
+    expect(screen.getByText(/До этой даты оборудование планируется удерживать/)).toBeInTheDocument();
   });
 });

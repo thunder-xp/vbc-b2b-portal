@@ -75,7 +75,7 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
       ) : (
         <div className="overflow-hidden rounded-md border border-zinc-200 bg-white">
           <div className="hidden grid-cols-[minmax(190px,1fr)_110px_130px_140px_110px_110px_120px] gap-3 border-b border-zinc-200 bg-zinc-50 px-4 py-3 text-xs font-semibold uppercase text-zinc-500 xl:grid">
-            <span>Заказ</span><span>Дата</span><span>Состояние</span><span>Сумма</span><span>Отгрузка</span><span>Состав</span><span>Обновлено</span>
+            <span>Заказ</span><span>Дата</span><span>Состояние</span><span>Сумма</span><span>Планируемая отгрузка</span><span>Состав</span><span>Обновлено</span>
           </div>
           <ul className="divide-y divide-zinc-200">
             {result.data.orders.map((order) => (

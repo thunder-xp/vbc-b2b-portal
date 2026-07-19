@@ -32,7 +32,7 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
         <dl className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Metric label="Компания" value={order.companyName} />
           <Metric label="Дата заказа" value={formatDate(order.documentDate)} />
-          <Metric label="Дата отгрузки" value={order.deliveryDate ? formatDate(order.deliveryDate) : "Не указана"} />
+          <Metric label="Планируемая отгрузка" value={order.deliveryDate ? formatDate(order.deliveryDate) : "Не указана"} />
           <Metric label="Сумма в 1С" value={order.documentTotal} />
         </dl>
       </section>
