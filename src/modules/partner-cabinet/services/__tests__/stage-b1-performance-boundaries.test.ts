@@ -23,14 +23,19 @@ describe("Stage B1 authenticated rendering boundaries", () => {
   });
 
   it("controls prefetch on expensive authenticated navigation", async () => {
-    const files = await Promise.all([
+    const [files, catalogFilterLink] = await Promise.all([
+      Promise.all([
       source("src/modules/partner-cabinet/components/PartnerSidebar.tsx"),
       source("src/modules/catalog/components/ProductCard.tsx"),
       source("src/modules/catalog/components/ProductDetail.tsx"),
       source("src/modules/catalog/components/CatalogFilters.tsx"),
       source("src/modules/catalog/components/CategoryMegaMenu.tsx"),
+      ]),
+      source("src/modules/catalog/components/CatalogFilterLink.tsx"),
     ]);
-    expect(files.join("\n").match(/prefetch=\{false\}/g)?.length).toBeGreaterThanOrEqual(12);
+    expect(files.join("\n").match(/prefetch=\{false\}/g)?.length).toBeGreaterThanOrEqual(9);
+    expect(files[3]).toContain("CatalogFilterLink");
+    expect(catalogFilterLink).toContain("prefetch={false}");
   });
 
   it("disables automatic workspace-card prefetch", async () => {
