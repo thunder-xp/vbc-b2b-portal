@@ -23,6 +23,22 @@ const SYNC_COLUMNS = "company_id, counterparty_ref, status, sync_mode, active_sy
 type Row = Record<string, unknown>;
 
 export class SupabasePartnerOrderHistoryRepository implements PartnerOrderHistoryRepository {
+  async listPlannedShipments(input: { companyId: string; page: number; pageSize: number }): Promise<{ items: PartnerOrderHistory[]; total: number }> {
+    const from = (input.page - 1) * input.pageSize;
+    const { data, error, count } = await (await createClient()).from("partner_order_history")
+      .select(HISTORY_COLUMNS, { count: "exact" })
+      .eq("company_id", input.companyId)
+      .eq("partner_visible", true)
+      .eq("one_c_deletion_mark", false)
+      .not("one_c_delivery_date", "is", null)
+      .or("one_c_state_code.is.null,one_c_state_code.neq.completed")
+      .order("one_c_delivery_date", { ascending: true })
+      .order("id", { ascending: true })
+      .range(from, from + input.pageSize - 1);
+    if (error) throw new OrderHistoryRepositoryError();
+    return { items: ((data ?? []) as Row[]).map(mapHistory), total: count ?? 0 };
+  }
+
   async listVisible(input: Parameters<PartnerOrderHistoryRepository["listVisible"]>[0]): Promise<{ items: PartnerOrderHistory[]; total: number }> {
     let query = (await createClient()).from("partner_order_history").select(HISTORY_COLUMNS, { count: "exact" })
       .eq("company_id", input.companyId).eq("partner_visible", true)

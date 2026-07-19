@@ -21,6 +21,11 @@ export type OrderHistorySyncCompany = { companyId: string; counterpartyRef: stri
 export type ActiveOrderRefreshCandidate = { order: PartnerOrderHistory; counterpartyRef: string };
 
 export interface PartnerOrderHistoryRepository {
+  listPlannedShipments?(input: {
+    companyId: string;
+    page: number;
+    pageSize: number;
+  }): Promise<{ items: PartnerOrderHistory[]; total: number }>;
   listVisible(input: {
     companyId: string;
     filter: PartnerOrderHistoryFilter;

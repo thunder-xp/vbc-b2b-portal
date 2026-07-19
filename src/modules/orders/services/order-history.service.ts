@@ -22,6 +22,7 @@ const ORDERS_MANAGE_PERMISSION = "orders.manage";
 const PAGE_SIZE = 100;
 const MAX_PAGES = 200;
 const LIST_PAGE_SIZE = 25;
+const PLANNED_SHIPMENT_PAGE_SIZE = 20;
 
 const STATE_LABELS = {
   open: "Открыт",
@@ -61,6 +62,14 @@ export type PartnerOrderHistoryDetailDto = PartnerOrderHistorySummaryDto & {
   } | null;
 };
 
+export type PlannedShipmentIndicator = "scheduled" | "soon" | "today" | "overdue";
+
+export type PlannedShipmentDto = PartnerOrderHistorySummaryDto & {
+  daysRemaining: number;
+  dateIndicator: PlannedShipmentIndicator;
+  dateIndicatorLabel: string;
+};
+
 export type PartnerOrderHistorySyncResult = {
   syncId: string;
   pagesFetched: number;
@@ -77,6 +86,12 @@ export type PartnerOrderHistorySyncResult = {
 };
 
 export interface PartnerOrderHistoryService {
+  listPlannedShipments(userId: string, input?: { page?: number | string | null }): Promise<{
+    shipments: PlannedShipmentDto[];
+    page: number;
+    totalPages: number;
+    total: number;
+  }>;
   list(userId: string, input: { filter?: string | null; search?: string | null; page?: number | string | null }): Promise<{
     orders: PartnerOrderHistorySummaryDto[];
     filter: PartnerOrderHistoryFilter;
@@ -118,6 +133,27 @@ export class DefaultPartnerOrderHistoryService implements PartnerOrderHistorySer
       total: result.total,
       syncState,
       freshness: evaluateFreshness(syncState?.finishedAt ?? syncState?.lastIncrementalSyncAt ?? syncState?.lastSuccessfulFullSyncAt, "activeOrder", "Заказы"),
+    };
+  }
+
+  async listPlannedShipments(userId: string, input: { page?: number | string | null } = {}) {
+    const context = await this.resolveContext(userId, ORDERS_VIEW_PERMISSION);
+    if (!this.historyRepository.listPlannedShipments) throw new InvalidStateError("Planned shipments are unavailable.");
+    const page = parsePage(input.page);
+    const result = await this.historyRepository.listPlannedShipments({
+      companyId: context.company.id,
+      page,
+      pageSize: PLANNED_SHIPMENT_PAGE_SIZE,
+    });
+    return {
+      shipments: result.items.map((order) => {
+        const summary = toSummary(order);
+        const indicator = getPlannedShipmentIndicator(order.oneCDeliveryDate!);
+        return { ...summary, ...indicator };
+      }),
+      page,
+      totalPages: Math.max(1, Math.ceil(result.total / PLANNED_SHIPMENT_PAGE_SIZE)),
+      total: result.total,
     };
   }
 
@@ -418,4 +454,19 @@ function formatMoney(amount: number, currency: string): string {
 
 function formatNumber(amount: number): string {
   return new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 2 }).format(amount);
+}
+
+export function getPlannedShipmentIndicator(deliveryDate: string, now = new Date()): Pick<PlannedShipmentDto, "daysRemaining" | "dateIndicator" | "dateIndicatorLabel"> {
+  const currentDate = dateInTimeZone(now, "Europe/Chisinau");
+  const daysRemaining = Math.round((Date.parse(`${deliveryDate}T00:00:00Z`) - Date.parse(`${currentDate}T00:00:00Z`)) / 86_400_000);
+  if (daysRemaining < 0) return { daysRemaining, dateIndicator: "overdue", dateIndicatorLabel: "Дата прошла" };
+  if (daysRemaining === 0) return { daysRemaining, dateIndicator: "today", dateIndicatorLabel: "Сегодня" };
+  if (daysRemaining <= 3) return { daysRemaining, dateIndicator: "soon", dateIndicatorLabel: "Скоро отгрузка" };
+  return { daysRemaining, dateIndicator: "scheduled", dateIndicatorLabel: "Запланировано" };
+}
+
+function dateInTimeZone(value: Date, timeZone: string): string {
+  const parts = new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(value);
+  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((item) => item.type === type)?.value ?? "";
+  return `${part("year")}-${part("month")}-${part("day")}`;
 }

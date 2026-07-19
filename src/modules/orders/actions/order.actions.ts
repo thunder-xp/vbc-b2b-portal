@@ -5,7 +5,7 @@ import { type ActionResult, failureFromError, invalidInput, success } from "../.
 import { createUserProfileService, getAuthenticatedUserId } from "../../access-control/actions/service-factory";
 import { ForbiddenError } from "../../access-control/services";
 import { UserType } from "../../access-control/types";
-import type { PartnerOrderHistoryDetailDto, PartnerOrderHistorySummaryDto, PartnerOrderHistorySyncResult, PartnerOrderDetailDto, PartnerOrderSummaryDto } from "../services";
+import type { PartnerOrderHistoryDetailDto, PartnerOrderHistorySummaryDto, PartnerOrderHistorySyncResult, PartnerOrderDetailDto, PartnerOrderSummaryDto, PlannedShipmentDto } from "../services";
 import type { PartnerOrder } from "../types";
 import { createPartnerOrderHistoryService, createPartnerOrderService } from "./service-factory";
 import { orderSubmissionFailure } from "./order-action-error";
@@ -58,6 +58,14 @@ export async function listPartnerOrderHistoryAction(input: {
 export async function getPartnerOrderHistoryAction(orderId: string): Promise<ActionResult<PartnerOrderHistoryDetailDto>> {
   try {
     return success("Order history loaded.", await createPartnerOrderHistoryService().get(await getAuthenticatedUserId(), orderId));
+  } catch (error) {
+    return failureFromError(error);
+  }
+}
+
+export async function listPlannedShipmentsAction(input: { page?: number | string | null } = {}): Promise<ActionResult<{ shipments: PlannedShipmentDto[]; page: number; totalPages: number; total: number }>> {
+  try {
+    return success("Planned shipments loaded.", await createPartnerOrderHistoryService().listPlannedShipments(await getAuthenticatedUserId(), input));
   } catch (error) {
     return failureFromError(error);
   }
