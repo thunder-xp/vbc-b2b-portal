@@ -8,8 +8,12 @@ import type {
   PartnerOrderHistoryFilter,
   PartnerOrderHistoryRepository,
   PartnerOrderRepository,
+  OrderDateChangeRequestRepository,
 } from "../repositories";
+import { OrderDateChangeRepositoryError } from "../repositories/order-date-change.repository";
 import type {
+  OrderDateChangeRequest,
+  OrderDateChangeRequestStatus,
   PartnerOrderHistory,
   PartnerOrderHistoryEvent,
   PartnerOrderHistoryItem,
@@ -68,6 +72,14 @@ export type PlannedShipmentDto = PartnerOrderHistorySummaryDto & {
   daysRemaining: number;
   dateIndicator: PlannedShipmentIndicator;
   dateIndicatorLabel: string;
+  dateChangeRequest: {
+    id: string;
+    requestedDate: string;
+    status: OrderDateChangeRequestStatus;
+    statusLabel: string;
+    awaitingOneC: boolean;
+    reviewComment: string | null;
+  } | null;
 };
 
 export type PartnerOrderHistorySyncResult = {
@@ -104,6 +116,8 @@ export interface PartnerOrderHistoryService {
   get(userId: string, orderId: string): Promise<PartnerOrderHistoryDetailDto>;
   syncOwnCompany(userId: string, mode: PartnerOrderHistorySyncMode): Promise<PartnerOrderHistorySyncResult>;
   syncCompany(companyId: string, counterpartyRef: string, mode: PartnerOrderHistorySyncMode): Promise<PartnerOrderHistorySyncResult>;
+  createDateChangeRequest(userId: string, orderHistoryId: string, requestedDate: string, comment: string): Promise<OrderDateChangeRequest>;
+  cancelDateChangeRequest(userId: string, requestId: string): Promise<OrderDateChangeRequest>;
 }
 
 export class DefaultPartnerOrderHistoryService implements PartnerOrderHistoryService {
@@ -113,6 +127,7 @@ export class DefaultPartnerOrderHistoryService implements PartnerOrderHistorySer
     private readonly companyAccessService: CompanyAccessService,
     private readonly permissionService: PermissionService,
     private readonly orderProvider: OrderProvider,
+    private readonly dateChangeRepository?: OrderDateChangeRequestRepository,
   ) {}
 
   async list(userId: string, input: { filter?: string | null; search?: string | null; page?: number | string | null }) {
@@ -145,16 +160,52 @@ export class DefaultPartnerOrderHistoryService implements PartnerOrderHistorySer
       page,
       pageSize: PLANNED_SHIPMENT_PAGE_SIZE,
     });
+    const requests = this.dateChangeRepository
+      ? await this.dateChangeRepository.listLatestByOrderIds(result.items.map((order) => order.id))
+      : new Map();
     return {
       shipments: result.items.map((order) => {
         const summary = toSummary(order);
         const indicator = getPlannedShipmentIndicator(order.oneCDeliveryDate!);
-        return { ...summary, ...indicator };
+        const request = requests.get(order.id);
+        return { ...summary, ...indicator, dateChangeRequest: request ? {
+          id: request.id,
+          requestedDate: request.requestedDate,
+          status: request.status,
+          statusLabel: dateChangeStatusLabel(request.status),
+          awaitingOneC: request.status === "approved" && !request.synchronizedAt && request.requestedDate !== order.oneCDeliveryDate,
+          reviewComment: request.reviewComment,
+        } : null };
       }),
       page,
       totalPages: Math.max(1, Math.ceil(result.total / PLANNED_SHIPMENT_PAGE_SIZE)),
       total: result.total,
     };
+  }
+
+  async createDateChangeRequest(userId: string, orderHistoryId: string, requestedDate: string, comment: string) {
+    const context = await this.resolveContext(userId, ORDERS_MANAGE_PERMISSION);
+    if (!this.dateChangeRepository) throw new InvalidStateError("Date-change requests are unavailable.");
+    const order = await this.historyRepository.findVisibleById(requirePortalUuid(orderHistoryId));
+    if (!order || order.companyId !== context.company.id || order.oneCDeletionMark || !order.partnerVisible || order.oneCStateCode === "completed" || !order.oneCDeliveryDate) throw new NotFoundError("Order was not found.");
+    const date = normalizeRequestedDate(requestedDate);
+    if (date === order.oneCDeliveryDate) throw new InvalidStateError("Choose a date different from the current shipment date.");
+    const normalizedComment = comment.trim();
+    if (normalizedComment.length > 1000) throw new InvalidStateError("Comment is too long.");
+    try {
+      return await this.dateChangeRepository.create({ orderHistoryId: order.id, requestedDate: date, comment: normalizedComment || null });
+    } catch (error) {
+      if (error instanceof OrderDateChangeRepositoryError && error.code === "23505") {
+        throw new InvalidStateError("A pending date-change request already exists.");
+      }
+      throw error;
+    }
+  }
+
+  async cancelDateChangeRequest(userId: string, requestId: string) {
+    await this.resolveContext(userId, ORDERS_MANAGE_PERMISSION);
+    if (!this.dateChangeRepository) throw new InvalidStateError("Date-change requests are unavailable.");
+    return this.dateChangeRepository.cancel(requirePortalUuid(requestId));
   }
 
   async get(userId: string, orderId: string): Promise<PartnerOrderHistoryDetailDto> {
@@ -470,3 +521,12 @@ function dateInTimeZone(value: Date, timeZone: string): string {
   const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((item) => item.type === type)?.value ?? "";
   return `${part("year")}-${part("month")}-${part("day")}`;
 }
+
+function normalizeRequestedDate(value: string): string {
+  const normalized = value.trim();
+  const today = dateInTimeZone(new Date(), "Europe/Chisinau");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized) || !Number.isFinite(Date.parse(`${normalized}T00:00:00Z`)) || normalized <= today) throw new InvalidStateError("Choose a future date.");
+  return normalized;
+}
+
+function dateChangeStatusLabel(status: OrderDateChangeRequestStatus) { return ({ pending: "На рассмотрении", approved: "Одобрено", rejected: "Отклонено", cancelled: "Отменено" } as const)[status]; }

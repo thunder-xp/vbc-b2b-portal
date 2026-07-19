@@ -71,6 +71,34 @@ export async function listPlannedShipmentsAction(input: { page?: number | string
   }
 }
 
+export async function createOrderDateChangeRequestAction(
+  _state: ActionResult<import("../types").OrderDateChangeRequest | null>,
+  formData: FormData,
+): Promise<ActionResult<import("../types").OrderDateChangeRequest | null>> {
+  const orderHistoryId = text(formData, "orderHistoryId");
+  const requestedDate = text(formData, "requestedDate");
+  if (!orderHistoryId || !requestedDate) return invalidInput("Укажите новую дату отгрузки.");
+  try {
+    const request = await createPartnerOrderHistoryService().createDateChangeRequest(
+      await getAuthenticatedUserId(), orderHistoryId, requestedDate, text(formData, "comment"),
+    );
+    revalidatePath("/cabinet/reservation-requests");
+    return success("Запрос на перенос даты отправлен.", request);
+  } catch (error) {
+    return failureFromError(error);
+  }
+}
+
+export async function cancelOrderDateChangeRequestAction(requestId: string): Promise<ActionResult<import("../types").OrderDateChangeRequest>> {
+  try {
+    const request = await createPartnerOrderHistoryService().cancelDateChangeRequest(await getAuthenticatedUserId(), requestId);
+    revalidatePath("/cabinet/reservation-requests");
+    return success("Запрос отменён.", request);
+  } catch (error) {
+    return failureFromError(error);
+  }
+}
+
 export async function refreshPartnerOrderHistoryAction(): Promise<ActionResult<PartnerOrderHistorySyncResult>> {
   try {
     const result = await createPartnerOrderHistoryService().syncOwnCompany(await getAuthenticatedUserId(), "incremental");

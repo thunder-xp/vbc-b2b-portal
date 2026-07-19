@@ -4,7 +4,7 @@ import { DefaultCatalogService } from "../../catalog/services";
 import { OneCProvider } from "../../integration/providers/one-c";
 import { getOneCEnv } from "../../../lib/env";
 import { createPricingInventoryService } from "../../pricing-inventory/actions/service-factory";
-import { SupabaseCartRepository, SupabasePartnerOrderHistoryRepository, SupabasePartnerOrderRepository } from "../repositories/supabase";
+import { SupabaseCartRepository, SupabaseOrderDateChangeRequestRepository, SupabasePartnerOrderHistoryRepository, SupabasePartnerOrderRepository } from "../repositories/supabase";
 import { DefaultCartService, DefaultPartnerOrderHistoryService, DefaultPartnerOrderService, PartnerOrderHistoryAutomationService } from "../services";
 
 function dependencies() {
@@ -49,6 +49,7 @@ export function createPartnerOrderHistoryService(): DefaultPartnerOrderHistorySe
     value.companyAccessService,
     value.permissionService,
     orderProvider,
+    new SupabaseOrderDateChangeRequestRepository(),
   );
 }
 

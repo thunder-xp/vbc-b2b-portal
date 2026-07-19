@@ -5,6 +5,10 @@ import PlannedShipmentsPage from "../page";
 
 const mocks = vi.hoisted(() => ({ list: vi.fn() }));
 vi.mock("@/src/modules/orders/actions", () => ({ listPlannedShipmentsAction: mocks.list }));
+vi.mock("@/src/modules/orders/components", () => ({
+  CancelOrderDateChangeButton: () => <button type="button">Отменить запрос</button>,
+  OrderDateChangeDialog: () => <button type="button">Запросить перенос даты</button>,
+}));
 
 describe("PlannedShipmentsPage", () => {
   it("shows active and overdue orders from the order read model", async () => {
