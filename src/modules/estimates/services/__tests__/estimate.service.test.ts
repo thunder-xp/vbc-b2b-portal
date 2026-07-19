@@ -71,6 +71,7 @@ describe("DefaultEstimateService", () => {
       addLines: vi.fn().mockResolvedValue(undefined),
       updateLine: vi.fn().mockResolvedValue(undefined),
       removeLine: vi.fn().mockResolvedValue(undefined),
+      removeLines: vi.fn().mockResolvedValue(undefined),
       archive: vi.fn().mockResolvedValue(undefined),
       listServices: vi.fn().mockResolvedValue([serviceRecord]),
     };
@@ -153,6 +154,12 @@ describe("DefaultEstimateService", () => {
   it("turns persistence revision conflicts into safe invalid-state errors", async () => {
     vi.mocked(repository.updateDraft).mockRejectedValue(new EstimateRepositoryError("conflict"));
     await expect(service.saveDraft("user-1", "estimate-1", { expectedRevision: 3, name: "Estimate", validityDays: 14 })).rejects.toBeInstanceOf(InvalidStateError);
+  });
+
+  it("removes selected lines through one revision-protected repository mutation", async () => {
+    await service.removeLines("user-1", "estimate-1", ["item-1", "item-2", "item-1"], 3);
+    expect(repository.removeLines).toHaveBeenCalledTimes(1);
+    expect(repository.removeLines).toHaveBeenCalledWith("estimate-1", ["item-1", "item-2"], 3);
   });
 
   it("saves commercial settings, sections, moves, charges, and totals through one atomic repository mutation", async () => {

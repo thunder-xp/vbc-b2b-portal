@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { saveEstimateCommercialAction } from "../../actions/estimate.actions";
+import { removeEstimateLinesAction, saveEstimateCommercialAction } from "../../actions/estimate.actions";
 import type { EstimateDetailDto } from "../../services";
 import { EstimateCommercialEditor } from "../EstimateCommercialEditor";
 
@@ -11,6 +11,8 @@ vi.mock("../../actions/estimate.actions", () => ({
   addEstimateProductsAction: vi.fn(),
   addEstimateServiceAction: vi.fn(),
   addEstimateServicesAction: vi.fn(),
+  removeEstimateLineAction: vi.fn(),
+  removeEstimateLinesAction: vi.fn(),
   saveEstimateCommercialAction: vi.fn(),
   searchEstimateProductsAction: vi.fn(),
 }));
@@ -77,5 +79,35 @@ describe("EstimateCommercialEditor", () => {
     expect(screen.getByRole("dialog")).toHaveTextContent("17.5");
     await user.click(screen.getByRole("button", { name: "Сохранить ручные цены" }));
     expect(screen.getByRole("combobox", { name: "Валюта" })).toHaveValue("MDL");
+  });
+
+  it("previews a bulk markup and persists it in the existing atomic save", async () => {
+    const user = userEvent.setup();
+    vi.mocked(saveEstimateCommercialAction).mockResolvedValue({ success: true, data: { ...detail, revision: 4 }, message: "Saved", errorCode: null });
+    renderEditor();
+
+    await user.click(screen.getByRole("checkbox", { name: "Выбрать позицию 1" }));
+    await user.clear(screen.getByRole("spinbutton", { name: "Наценка для выбранных" }));
+    await user.type(screen.getByRole("spinbutton", { name: "Наценка для выбранных" }), "30");
+    await user.click(screen.getByRole("button", { name: "Применить наценку" }));
+
+    expect(saveEstimateCommercialAction).not.toHaveBeenCalled();
+    expect(screen.getByText("Наценка применена: 1.")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Сохранить" }));
+    expect(saveEstimateCommercialAction).toHaveBeenCalledWith("estimate-1", expect.objectContaining({
+      lines: [expect.objectContaining({ pricingInputValue: 30, pricingMode: "markup" })],
+    }));
+  });
+
+  it("removes selected lines through one batch action", async () => {
+    const user = userEvent.setup();
+    vi.mocked(removeEstimateLinesAction).mockResolvedValue({ success: true, data: { ...detail, lines: [], revision: 4 }, message: "Removed", errorCode: null });
+    renderEditor();
+
+    await user.click(screen.getByRole("checkbox", { name: "Выбрать позицию 1" }));
+    await user.click(screen.getByRole("button", { name: "Удалить" }));
+
+    expect(removeEstimateLinesAction).toHaveBeenCalledTimes(1);
+    expect(removeEstimateLinesAction).toHaveBeenCalledWith("estimate-1", ["22222222-2222-2222-2222-222222222222"], 3);
   });
 });

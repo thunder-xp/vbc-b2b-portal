@@ -124,6 +124,7 @@ export interface EstimateRepository {
     sellingUnitPrice: number;
   }): Promise<void>;
   removeLine(estimateId: string, itemId: string, expectedRevision: number): Promise<void>;
+  removeLines(estimateId: string, itemIds: string[], expectedRevision: number): Promise<void>;
   archive(estimateId: string, expectedRevision: number): Promise<void>;
   listServices(companyId: string): Promise<PartnerService[]>;
 }

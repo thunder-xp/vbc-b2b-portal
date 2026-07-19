@@ -5,12 +5,15 @@ import { useMemo, useState, useTransition } from "react";
 
 import {
   removeEstimateLineAction,
+  removeEstimateLinesAction,
   saveEstimateCommercialAction,
 } from "../actions/estimate.actions";
 import { calculateEstimateCommercials, EstimateCalculationError, resolveCurrencyRate } from "../services/commercial-calculation";
+import { applyBulkDiscount, applyBulkMarkup, moveBulkLines, resetBulkToPartnerPrice, updateBulkQuantity, type EstimateBulkResult } from "../services/estimate-bulk-operations";
 import type { EstimateCommercialOptionsDto, EstimateDetailDto, EstimateServiceDto, SaveEstimateCommercialCommand } from "../services";
 import type { EstimateChargeType, EstimateCurrencyChangePolicy, EstimatePricingMode, EstimateUnit, EstimateVatMode } from "../types";
 import { EstimateStatusBadge } from "./EstimateStatusBadge";
+import { EstimateBulkToolbar } from "./EstimateBulkToolbar";
 import { EstimateLinePicker } from "./EstimateLinePicker";
 
 const inputClass = "h-9 min-w-0 rounded-md border border-zinc-300 bg-white px-2 text-sm outline-none focus:border-emerald-600 focus-visible:ring-2 focus-visible:ring-emerald-200 disabled:bg-zinc-100";
@@ -44,6 +47,7 @@ export function EstimateCommercialEditor({ initialEstimate, services, commercial
   const [currencyChangePolicy, setCurrencyChangePolicy] = useState<EstimateCurrencyChangePolicy>("preserve_manual");
   const [pending, startTransition] = useTransition();
   const [dirty, setDirty] = useState(false);
+  const [selectedLineIds, setSelectedLineIds] = useState<Set<string>>(new Set());
   const isDraft = estimate.status === "draft";
 
   const preview = useMemo(() => {
@@ -71,6 +75,7 @@ export function EstimateCommercialEditor({ initialEstimate, services, commercial
     setDraft(toDraft(next));
     setDirty(false);
     setMessage(nextMessage);
+    setSelectedLineIds(new Set());
   };
   const mutate = (operation: () => ReturnType<typeof saveEstimateCommercialAction>) => startTransition(async () => {
     const result = await operation();
@@ -101,6 +106,11 @@ export function EstimateCommercialEditor({ initialEstimate, services, commercial
     };
     mutate(() => saveEstimateCommercialAction(estimate.id, payload));
   };
+  const applyBulkResult = (result: EstimateBulkResult, label: string) => {
+    setDraft((current) => ({ ...current, lines: result.lines }));
+    setDirty((current) => result.changedCount > 0 || current);
+    setMessage(`${label}: ${result.changedCount}.${result.skippedCount ? ` Пропущено: ${result.skippedCount}.` : ""}`);
+  };
 
   return <div className="space-y-5">
     <header className="sticky top-0 z-20 -mx-4 border-b border-zinc-200 bg-zinc-50/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6">
@@ -125,14 +135,28 @@ export function EstimateCommercialEditor({ initialEstimate, services, commercial
 
     <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_19rem]">
       <main className="min-w-0 space-y-4">
+        <EstimateBulkToolbar
+          dirty={dirty}
+          disabled={!isDraft || pending}
+          onClear={() => setSelectedLineIds(new Set())}
+          onDiscount={(value) => applyBulkResult(applyBulkDiscount(draft.lines, selectedLineIds, value), "Скидка применена")}
+          onMarkup={(value) => applyBulkResult(applyBulkMarkup(draft.lines, selectedLineIds, value), "Наценка применена")}
+          onMove={(sectionId) => applyBulkResult(moveBulkLines(draft.lines, selectedLineIds, sectionId), "Позиции перемещены")}
+          onQuantity={(value) => applyBulkResult(updateBulkQuantity(draft.lines, selectedLineIds, value), "Количество обновлено")}
+          onRemove={() => mutate(() => removeEstimateLinesAction(estimate.id, [...selectedLineIds], estimate.revision))}
+          onResetPrice={() => applyBulkResult(resetBulkToPartnerPrice(draft.lines, selectedLineIds), "Партнёрская цена восстановлена")}
+          sections={draft.sections}
+          selectedCount={selectedLineIds.size}
+        />
         <div className="flex justify-between"><h2 className="text-lg font-semibold">Разделы и позиции</h2><button className={buttonClass} disabled={!isDraft} onClick={() => update((d) => ({ ...d, sections: [...d.sections, { id: crypto.randomUUID(), name: "Новый раздел", sortOrder: d.sections.length, showSubtotal: true, discountPercent: 0 }] }))} type="button"><Plus className="size-4" />Раздел</button></div>
         {draft.sections.map((section, sectionIndex) => {
           const sectionLines = draft.lines.filter((line) => line.sectionId === section.id);
           const sectionTotal = preview.value?.sectionTotals.find((item) => item.id === section.id);
           const isCollapsed = collapsed.has(section.id);
           return <section className="border-y border-zinc-200 bg-white" key={section.id}>
-            <div className="grid items-center gap-2 border-b border-zinc-200 p-3 sm:grid-cols-[auto_minmax(10rem,1fr)_7rem_auto_auto]">
+            <div className="grid items-center gap-2 border-b border-zinc-200 p-3 sm:grid-cols-[auto_auto_minmax(10rem,1fr)_7rem_auto_auto]">
               <button aria-expanded={!isCollapsed} aria-label="Свернуть раздел" className="p-2" onClick={() => setCollapsed((current) => toggleSet(current, section.id))} type="button">{isCollapsed ? <ChevronRight className="size-4" /> : <ChevronDown className="size-4" />}</button>
+              <input aria-label={`Выбрать все позиции раздела ${section.name}`} checked={sectionLines.length > 0 && sectionLines.every((line) => selectedLineIds.has(line.id))} disabled={!isDraft || !sectionLines.length} onChange={(event) => setSelectedLineIds((current) => toggleMany(current, sectionLines.map((line) => line.id), event.target.checked))} type="checkbox" />
               <input aria-label="Название раздела" className={inputClass} disabled={!isDraft} onChange={(e) => update((d) => ({ ...d, sections: d.sections.map((item) => item.id === section.id ? { ...item, name: e.target.value } : item) }))} value={section.name} />
               <Field label="Скидка %"><NumberInput disabled={!isDraft} onValue={(value) => update((d) => ({ ...d, sections: d.sections.map((item) => item.id === section.id ? { ...item, discountPercent: value ?? 0 } : item) }))} value={section.discountPercent} /></Field>
               <span className="text-right text-sm font-semibold">{money(sectionTotal?.total ?? 0, draft.currencyCode)}</span>
@@ -144,9 +168,10 @@ export function EstimateCommercialEditor({ initialEstimate, services, commercial
               const calculated = preview.value?.lines.find((item) => item.id === line.id);
               const costMissing = line.convertedCostUnitPrice === null || line.convertedCostUnitPrice <= 0;
               return <div className="space-y-3 p-3" key={line.id}>
-                <div className="grid gap-2 md:grid-cols-[2.5rem_minmax(12rem,1fr)_5rem_6rem_8rem_7rem_8rem_auto] md:items-end">
+                <div className="grid gap-2 md:grid-cols-[1.5rem_2.5rem_minmax(12rem,1fr)_5rem_6rem_8rem_7rem_8rem_auto] md:items-end">
+                  <input aria-label={`Выбрать позицию ${lineIndex + 1}`} checked={selectedLineIds.has(line.id)} className="mb-2" disabled={!isDraft} onChange={(event) => setSelectedLineIds((current) => toggleMany(current, [line.id], event.target.checked))} type="checkbox" />
                   <span className="pb-2 text-sm text-zinc-500">{lineIndex + 1}</span>
-                  <Field label="Описание"><input className={`${inputClass} w-full`} disabled={!isDraft} onChange={(e) => updateLine(draft, setDraft, setDirty, line.id, { description: e.target.value })} value={line.description} /></Field>
+                  <Field label="Описание"><div className="mb-1 flex items-center gap-2"><span className="rounded bg-zinc-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-zinc-600">{lineTypeLabel(line.lineType)}</span>{line.sku && <span className="text-[10px] text-zinc-500">SKU {line.sku}</span>}</div><input className={`${inputClass} w-full`} disabled={!isDraft} onChange={(e) => updateLine(draft, setDraft, setDirty, line.id, { description: e.target.value })} value={line.description} /></Field>
                   <Field label="Кол-во"><NumberInput disabled={!isDraft} onValue={(value) => updateLine(draft, setDraft, setDirty, line.id, { quantity: value ?? 0 })} value={line.quantity} /></Field>
                   <Field label="Ед."><select className={`${inputClass} w-full`} disabled={!isDraft} onChange={(e) => updateLine(draft, setDraft, setDirty, line.id, { unit: e.target.value as EstimateUnit })} value={line.unit}>{units.map((unit) => <option key={unit.value} value={unit.value}>{unit.label}</option>)}</select></Field>
                   <Field label={line.pricingMode === "direct" ? "Цена" : line.pricingMode === "markup" ? "Наценка %" : "Маржа %"}><NumberInput disabled={!isDraft} nullable onValue={(value) => updateLine(draft, setDraft, setDirty, line.id, { pricingInputValue: value })} value={line.pricingInputValue} /></Field>
@@ -201,6 +226,8 @@ function ReorderButtons({ onUp, onDown, up, down, disabled }: { onUp: () => void
 function toDraft(estimate: EstimateDetailDto): Draft { return { name: estimate.name, customerName: estimate.customerName, projectName: estimate.projectName, validityDays: estimate.validityDays, currencyCode: estimate.currencyCode, vatMode: estimate.vatMode, vatRatePercent: estimate.vatRatePercent, globalDiscountPercent: estimate.globalDiscountPercent, sections: estimate.sections.map(({ id, name, sortOrder, showSubtotal, discountPercent }) => ({ id, name, sortOrder, showSubtotal, discountPercent })), lines: estimate.lines.map((item) => ({ ...item })), charges: estimate.charges.map((item) => ({ ...item })) }; }
 function updateLine(draft: Draft, setDraft: React.Dispatch<React.SetStateAction<Draft>>, setDirty: (value: boolean) => void, id: string, patch: Partial<Draft["lines"][number]>) { setDraft({ ...draft, lines: draft.lines.map((line) => line.id === id ? { ...line, ...patch } : line) }); setDirty(true); }
 function toggleSet(current: Set<string>, value: string) { const next = new Set(current); if (next.has(value)) next.delete(value); else next.add(value); return next; }
+function toggleMany(current: Set<string>, values: string[], selected: boolean) { const next = new Set(current); for (const value of values) { if (selected) next.add(value); else next.delete(value); } return next; }
+function lineTypeLabel(value: EstimateDetailDto["lines"][number]["lineType"]) { return value === "product" ? "Оборудование" : value === "service" ? "Работа / услуга" : "Своя позиция"; }
 function move<T>(values: T[], from: number, to: number): T[] { if (to < 0 || to >= values.length) return values; const next = [...values]; const [item] = next.splice(from, 1); next.splice(to, 0, item); return next; }
 function moveLineWithinSection(lines: Draft["lines"], lineId: string, direction: -1 | 1) { const currentIndex = lines.findIndex((line) => line.id === lineId); if (currentIndex < 0) return lines; const sameSection = lines.filter((line) => line.sectionId === lines[currentIndex].sectionId); const sectionIndex = sameSection.findIndex((line) => line.id === lineId); const target = sameSection[sectionIndex + direction]; if (!target) return lines; const targetIndex = lines.findIndex((line) => line.id === target.id); const next = [...lines]; [next[currentIndex], next[targetIndex]] = [next[targetIndex], next[currentIndex]]; return next; }
 function money(value: number, currency: string) { return new Intl.NumberFormat("ru-RU", { style: "currency", currency }).format(value); }

@@ -233,6 +233,16 @@ export class SupabaseEstimateRepository implements EstimateRepository {
     if (error) throw mapRepositoryError(error.code);
   }
 
+  async removeLines(estimateId: string, itemIds: string[], expectedRevision: number): Promise<void> {
+    const supabase = await createClient();
+    const { error } = await supabase.rpc("remove_estimate_items", {
+      target_estimate_id: estimateId,
+      target_item_ids: itemIds,
+      expected_revision: expectedRevision,
+    });
+    if (error) throw mapRepositoryError(error.code);
+  }
+
   async archive(estimateId: string, expectedRevision: number): Promise<void> {
     const supabase = await createClient();
     const { error } = await supabase.rpc("archive_estimate", {

@@ -143,6 +143,14 @@ export async function removeEstimateLineAction(estimateId: string, itemId: strin
   );
 }
 
+export async function removeEstimateLinesAction(estimateId: string, itemIds: string[], expectedRevision: number): Promise<ActionResult<EstimateDetailDto>> {
+  if (!Array.isArray(itemIds) || !itemIds.length) return invalidInput("Выберите позиции для удаления.");
+  return runEstimateMutation(
+    (userId) => createEstimateService().removeLines(userId, estimateId, itemIds, expectedRevision),
+    "Выбранные позиции удалены.",
+  );
+}
+
 export async function archiveEstimateAction(estimateId: string, expectedRevision: number): Promise<ActionResult<null>> {
   try {
     const userId = await getAuthenticatedUserId();

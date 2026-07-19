@@ -201,6 +201,7 @@ export interface EstimateService {
   addCustomLine(userId: string, estimateId: string, expectedRevision: number, description: string, unit: EstimateUnit, quantity: number, sellingUnitPrice: number): Promise<EstimateDetailDto>;
   updateLine(userId: string, estimateId: string, itemId: string, expectedRevision: number, input: { description: string; unit: EstimateUnit; quantity: number; sellingUnitPrice: number }): Promise<EstimateDetailDto>;
   removeLine(userId: string, estimateId: string, itemId: string, expectedRevision: number): Promise<EstimateDetailDto>;
+  removeLines(userId: string, estimateId: string, itemIds: string[], expectedRevision: number): Promise<EstimateDetailDto>;
   archive(userId: string, estimateId: string, expectedRevision: number): Promise<void>;
 }
 
@@ -519,6 +520,18 @@ export class DefaultEstimateService implements EstimateService {
     await this.ensureDraft(userId, estimateId, MANAGE_PERMISSION, expectedRevision);
     try {
       await this.repository.removeLine(estimateId, normalizeId(itemId), expectedRevision);
+    } catch (error) {
+      handleRepositoryConflict(error);
+    }
+    return this.getDetail(userId, estimateId);
+  }
+
+  async removeLines(userId: string, estimateId: string, itemIds: string[], expectedRevision: number): Promise<EstimateDetailDto> {
+    await this.ensureDraft(userId, estimateId, MANAGE_PERMISSION, expectedRevision);
+    const ids = [...new Set(itemIds.map((id) => normalizeId(id)))];
+    if (!ids.length || ids.length > 100) throw new InvalidStateError("Select between 1 and 100 estimate lines.");
+    try {
+      await this.repository.removeLines(estimateId, ids, expectedRevision);
     } catch (error) {
       handleRepositoryConflict(error);
     }
