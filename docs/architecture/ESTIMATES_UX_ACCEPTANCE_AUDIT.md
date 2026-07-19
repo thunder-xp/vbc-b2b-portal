@@ -30,3 +30,36 @@ This audit covers the partner-owned estimate, proposal, version, PDF, and cart-c
 ## Browser Acceptance Still Required
 
 The final production pass must exercise a controlled partner account at laptop and mobile widths, create a 30-line realistic estimate, inspect preview/PDF visually, and record LCP, INP, CLS, request count, and interaction timings. Source inspection and jsdom rendering do not substitute for that pass.
+
+## Implemented Acceptance Changes
+
+- Product picker now presents bounded search, image, category, brand, partner price, stock, arrival, multi-selection, and pre-insertion quantity in one session and one batch mutation.
+- Services now support local search, multi-selection, quantity and price entry, and one batch mutation for up to 50 entries.
+- Editor lines expose type, SKU, compact primary controls, section selection, and bulk markup, discount, quantity, move, partner-price reset, and removal.
+- Bulk commercial edits remain local until the existing revision-protected atomic save. Bulk removal uses one dedicated RPC, one revision check, and one recalculation.
+- Estimate list now has page-bulk version/PDF metadata, inline duplicate/archive/PDF actions, and compact mobile cards.
+- Cart conversion reports added, updated, changed-price, unavailable/inactive, missing-price, and skipped totals.
+- Editor save has a visible `Ctrl+S` hint and a component-scoped keyboard handler.
+
+## Automated Performance Evidence
+
+| Path | Current evidence | Request/query bound |
+| --- | --- | --- |
+| Editor detail | 100-line service test | one aggregate repository read; no catalog/pricing reads |
+| Product insertion | 10-product picker/service tests | one server action and one `addLines` RPC |
+| Service insertion | multi-service picker/service tests | one server action and one `addLines` RPC |
+| Commercial edits | local React state until Save | zero per-cell requests; one save RPC |
+| Bulk removal | migration/service tests | one RPC, one revision check, one recalculation |
+| Version workflow | 300-version service test | two bulk metadata reads; no per-version reads |
+| Estimate list | source query audit | one estimates read, one versions read, one latest-PDF read per page |
+| Preview | 1/20/100/300-line rendering tests | customer-safe DTO, no 1C call |
+| PDF | 1/20/100/300-line renderer tests | server-only dynamic renderer, fingerprint reuse |
+
+The full automated suite completed in 85.12 seconds after the final list slice (827 passing, 3 pending contract checks). The production build completed in 28.7 seconds during the bulk slice and 42.6 seconds including the repository-wide lint invocation during the list slice. These are CI/workstation timings, not browser response times.
+
+## Remaining Measured Acceptance
+
+- Authenticated production LCP, INP, CLS, payload size, and network timings.
+- Visual PDF inspection for long Russian/Romanian content, real images, and page-break quality.
+- Click-count comparison with a real 30-line ALERT-SS estimate.
+- Cloud application of `20260719150000_estimate_bulk_line_removal.sql` before deploying code that exposes batch removal.

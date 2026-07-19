@@ -110,4 +110,15 @@ describe("EstimateCommercialEditor", () => {
     expect(removeEstimateLinesAction).toHaveBeenCalledTimes(1);
     expect(removeEstimateLinesAction).toHaveBeenCalledWith("estimate-1", ["22222222-2222-2222-2222-222222222222"], 3);
   });
+
+  it("exposes and executes the editor save shortcut without a global listener", async () => {
+    const user = userEvent.setup();
+    vi.mocked(saveEstimateCommercialAction).mockResolvedValue({ success: true, data: { ...detail, revision: 4 }, message: "Saved", errorCode: null });
+    renderEditor();
+    expect(screen.getByRole("button", { name: /Сохранить/ })).toHaveAttribute("aria-keyshortcuts", "Control+S Meta+S");
+
+    await user.selectOptions(screen.getByRole("combobox", { name: "Режим" }), "markup");
+    await user.keyboard("{Control>}s{/Control}");
+    expect(saveEstimateCommercialAction).toHaveBeenCalledTimes(1);
+  });
 });

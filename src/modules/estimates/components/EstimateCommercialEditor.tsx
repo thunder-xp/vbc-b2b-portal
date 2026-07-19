@@ -112,11 +112,16 @@ export function EstimateCommercialEditor({ initialEstimate, services, commercial
     setMessage(`${label}: ${result.changedCount}.${result.skippedCount ? ` Пропущено: ${result.skippedCount}.` : ""}`);
   };
 
-  return <div className="space-y-5">
+  return <div className="space-y-5" onKeyDown={(event) => {
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
+      event.preventDefault();
+      if (dirty && !pending && isDraft && preview.value) save();
+    }
+  }}>
     <header className="sticky top-0 z-20 -mx-4 border-b border-zinc-200 bg-zinc-50/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div><div className="flex items-center gap-2"><strong className="text-xs uppercase text-zinc-500">{estimate.estimateNumber}</strong><EstimateStatusBadge status={estimate.status} />{dirty && <span className="text-xs font-semibold text-amber-700">Есть несохраненные изменения</span>}</div><p className="mt-1 text-xs text-zinc-500">Версия {estimate.revision}</p></div>
-        <div className="flex gap-2"><button className={buttonClass} disabled={!dirty || pending || !isDraft} onClick={() => { setDraft(toDraft(estimate)); setDirty(false); }} type="button"><RotateCcw className="size-4" />Отменить</button><button className="inline-flex h-9 items-center gap-2 rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white disabled:opacity-45" disabled={!dirty || pending || !isDraft || !preview.value} onClick={save} type="button"><Save className="size-4" />{pending ? "Сохранение..." : "Сохранить"}</button></div>
+        <div className="flex gap-2"><button className={buttonClass} disabled={!dirty || pending || !isDraft} onClick={() => { setDraft(toDraft(estimate)); setDirty(false); }} type="button"><RotateCcw className="size-4" />Отменить</button><button aria-keyshortcuts="Control+S Meta+S" aria-label="Сохранить" className="inline-flex h-9 items-center gap-2 rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white disabled:opacity-45" disabled={!dirty || pending || !isDraft || !preview.value} onClick={save} type="button"><Save className="size-4" />{pending ? "Сохранение..." : "Сохранить"}<kbd className="hidden rounded border border-emerald-500 px-1 text-[10px] font-normal sm:inline">Ctrl+S</kbd></button></div>
       </div>
     </header>
     {message && <p aria-live="polite" className="border-l-4 border-emerald-600 bg-emerald-50 px-4 py-3 text-sm">{message}</p>}
