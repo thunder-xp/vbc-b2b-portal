@@ -30,7 +30,7 @@ export function CatalogFilterLink({
   }
 
   return <Link
-    aria-disabled={pending && pendingHref.current === href}
+    aria-disabled={pending}
     className={className}
     href={href}
     onClick={navigate}
