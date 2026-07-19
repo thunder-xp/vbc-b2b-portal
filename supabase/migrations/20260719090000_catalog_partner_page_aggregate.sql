@@ -246,7 +246,20 @@ begin
   )
   select jsonb_build_object(
     'items', coalesce((
-      select jsonb_agg(to_jsonb(page_rows) - 'ordinal' order by ordinal)
+      select jsonb_agg(jsonb_build_object(
+        'id', page_rows.id,
+        'sku', page_rows.sku,
+        'name', page_rows.name,
+        'slug', page_rows.slug,
+        'image_url', page_rows.image_url,
+        'brand_id', page_rows.brand_id,
+        'brand_name', page_rows.brand_name,
+        'brand_slug', page_rows.brand_slug,
+        'category_id', page_rows.category_id,
+        'category_parent_id', page_rows.category_parent_id,
+        'category_name', page_rows.category_name,
+        'category_slug', page_rows.category_slug
+      ) order by ordinal)
       from page_rows
     ), '[]'::jsonb),
     'totalCount', (select count(*) from commercial)

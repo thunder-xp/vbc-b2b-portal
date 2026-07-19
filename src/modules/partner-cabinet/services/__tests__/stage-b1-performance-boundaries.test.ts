@@ -33,6 +33,23 @@ describe("Stage B1 authenticated rendering boundaries", () => {
     expect(files.join("\n").match(/prefetch=\{false\}/g)?.length).toBeGreaterThanOrEqual(12);
   });
 
+  it("disables automatic workspace-card prefetch", async () => {
+    const files = await Promise.all([
+      source("src/modules/partner-cabinet/components/QuickActions.tsx"),
+      source("src/modules/partner-cabinet/components/WorkspaceCard.tsx"),
+      source("src/modules/partner-cabinet/components/DashboardCard.tsx"),
+      source("src/modules/partner-cabinet/components/EmptyState.tsx"),
+    ]);
+    for (const file of files) expect(file).toContain("prefetch={false}");
+  });
+
+  it("keeps the catalog route on direct component imports and one results boundary", async () => {
+    const page = await source("app/(partner)/cabinet/catalog/page.tsx");
+    expect(page).not.toContain('from "@/src/modules/catalog/components"');
+    expect(page.match(/<Suspense/g)).toHaveLength(1);
+    expect(page.indexOf("const productsPromise")).toBeLessThan(page.indexOf("await categoriesPromise"));
+  });
+
   it("defines a security-invoker cart count with narrow grants", async () => {
     const migration = await source("supabase/migrations/20260718200000_lightweight_cart_badge.sql");
     expect(migration).toContain("security invoker");

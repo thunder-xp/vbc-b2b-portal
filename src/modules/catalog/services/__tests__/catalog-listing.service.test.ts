@@ -85,10 +85,12 @@ describe("DefaultCatalogService listing projection", () => {
       attributeFilters: { "property_11111111-1111-1111-1111-111111111111": ["4 MPX"] },
     });
     expect(repository.productCalls).toBe(0);
+    expect(repository.documentBatchCalls).toBe(0);
     expect(pricing.requestedProductIds).toEqual(["product-high", "product-low"]);
     expect(result.products.map((item) => item.id)).toEqual(["product-high", "product-low"]);
     expect(result.totalCount).toBe(3);
     expect(result.hasNextPage).toBe(true);
+    expect(result.products[0]).toMatchObject({ shortDescription: null, keyCharacteristics: [], datasheet: null });
   });
 });
 
@@ -133,8 +135,8 @@ class AggregateListingRepository extends ListingRepository {
     this.aggregateInput = input;
     return {
       items: [
-        { id: "product-high", sku: "HIGH", name: "High", slug: "high", shortDescription: null, imageUrl: null, brand: null, category: null },
-        { id: "product-low", sku: "LOW", name: "Low", slug: "low", shortDescription: null, imageUrl: null, brand: null, category: null },
+        { id: "product-high", sku: "HIGH", name: "High", slug: "high", imageUrl: null, brand: null, category: null },
+        { id: "product-low", sku: "LOW", name: "Low", slug: "low", imageUrl: null, brand: null, category: null },
       ],
       totalCount: 3,
     };

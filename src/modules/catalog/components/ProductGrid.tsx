@@ -13,11 +13,12 @@ type ProductGridProps = {
 export function ProductGrid({ capabilities, commercialViews = {}, products }: ProductGridProps) {
   return (
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-      {products.map((product) => (
+      {products.map((product, index) => (
         <ProductCard
           commercialView={commercialViews[product.id]}
           capabilities={capabilities}
           key={product.id}
+          imagePriority={index === 0}
           product={product}
         />
       ))}

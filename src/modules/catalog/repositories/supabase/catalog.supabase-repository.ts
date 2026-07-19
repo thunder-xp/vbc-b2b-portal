@@ -108,7 +108,6 @@ export class SupabaseCatalogRepository implements CatalogRepository {
         sku: row.sku,
         name: row.name,
         slug: row.slug,
-        shortDescription: row.short_description,
         imageUrl: row.image_url,
         brand: row.brand_id && row.brand_name && row.brand_slug
           ? { id: row.brand_id, name: row.brand_name, slug: row.brand_slug }
@@ -552,7 +551,6 @@ type CatalogPartnerPageRow = {
   sku: string;
   name: string;
   slug: string;
-  short_description: string | null;
   image_url: string | null;
   brand_id: string | null;
   brand_name: string | null;
@@ -578,6 +576,5 @@ function isCatalogPartnerPageRow(value: unknown): value is CatalogPartnerPageRow
     && typeof row.sku === "string"
     && typeof row.name === "string"
     && typeof row.slug === "string"
-    && (row.short_description === null || typeof row.short_description === "string")
     && (row.image_url === null || typeof row.image_url === "string");
 }

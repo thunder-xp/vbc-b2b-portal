@@ -1,31 +1,19 @@
-import Link from "next/link";
+import { Suspense } from "react";
 
-import {
-  listCatalogCategoriesAction,
-  listCatalogProductsAction,
-} from "@/src/modules/catalog/actions";
-import {
-  CatalogBreadcrumb,
-  CatalogFilters,
-  CatalogSearch,
-  CategoryMegaMenu,
-  EmptyCatalog,
-  ProductGrid,
-  RESTRICTED_PRODUCT_CARD_CAPABILITIES,
-} from "@/src/modules/catalog/components";
-import { getProductCommercialViewsAction } from "@/src/modules/pricing-inventory/actions";
-import type { ProductCommercialViewDto } from "@/src/modules/pricing-inventory";
-import { getPartnerWorkspaceContextAction } from "@/src/modules/partner-cabinet/actions";
-import {
-  buildCatalogHref,
-  buildCatalogSortHiddenFields,
-  CATALOG_SORT_OPTIONS,
-  parseCatalogSort,
-  parseCatalogAttributeFilters,
-  type CatalogSort,
-} from "@/src/modules/catalog/services";
+import { listCatalogCategoriesAction } from "@/src/modules/catalog/actions/list-categories.action";
+import { listCatalogProductsAction } from "@/src/modules/catalog/actions/list-products.action";
+import { CatalogBreadcrumb } from "@/src/modules/catalog/components/CatalogBreadcrumb";
+import { CatalogSearch } from "@/src/modules/catalog/components/CatalogSearch";
+import { CategoryMegaMenu } from "@/src/modules/catalog/components/CategoryMegaMenu";
+import { EmptyCatalog } from "@/src/modules/catalog/components/EmptyCatalog";
 import type { CatalogAvailability } from "@/src/modules/catalog/components/CatalogFilters";
-import { evaluateFreshness } from "@/src/modules/integration/freshness";
+import {
+  parseCatalogAttributeFilters,
+  parseCatalogSort,
+} from "@/src/modules/catalog/services";
+import { getPartnerWorkspaceContextAction } from "@/src/modules/partner-cabinet/actions/workspace-context.action";
+
+import { CatalogResults } from "./CatalogResults";
 
 type CatalogPageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -41,200 +29,56 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
   const sort = parseCatalogSort(getSingleParam(params?.sort));
   const page = parsePage(getSingleParam(params?.page));
   const attributeFilters = parseCatalogAttributeFilters(params);
-  const [categoriesResult, productsResult, workspaceContextResult] = await Promise.all([
-    listCatalogCategoriesAction(),
-    listCatalogProductsAction({
-      categoryId,
-      search,
-      availability,
-      page,
-      pageSize: PAGE_SIZE,
-      sort,
-      attributeFilters,
-    }),
-    getPartnerWorkspaceContextAction(),
-  ]);
+
+  const categoriesPromise = listCatalogCategoriesAction();
+  const productsPromise = listCatalogProductsAction({
+    categoryId,
+    search,
+    availability,
+    page,
+    pageSize: PAGE_SIZE,
+    sort,
+    attributeFilters,
+  });
+  const workspacePromise = getPartnerWorkspaceContextAction();
+  const categoriesResult = await categoriesPromise;
 
   if (!categoriesResult.success) {
-    return (
-      <EmptyCatalog
-        message={categoriesResult.message}
-        title="Catalog unavailable"
-      />
-    );
+    return <EmptyCatalog message={categoriesResult.message} title="Catalog unavailable" />;
   }
 
-  if (!productsResult.success) {
-    return (
-      <EmptyCatalog
-        message={productsResult.message}
-        title="Catalog unavailable"
-      />
-    );
-  }
-
-  const commercialViewsResult = productsResult.data.commercialViews
-    ? null
-    : await getProductCommercialViewsAction(
-        productsResult.data.products.map((product) => product.id),
-      );
-  const commercialViews = createCommercialViewMap(
-    productsResult.data.commercialViews ??
-      (commercialViewsResult?.success ? commercialViewsResult.data : []),
-  );
-  const selectedCategory = categoriesResult.data.find((category) => category.id === categoryId);
-  const sortHiddenFields = buildCatalogSortHiddenFields({ categoryId, availability, search, attributeFilters });
-  const stockUpdatedAt = latestTimestamp(Object.values(commercialViews).map((view) => view.stock?.lastUpdatedAt));
-  const stockFreshness = stockUpdatedAt ? evaluateFreshness(stockUpdatedAt, "stock", "Остатки") : null;
-  const arrivalUpdatedAt = latestTimestamp(Object.values(commercialViews).map((view) => view.stock?.expectedArrival ? view.stock.lastUpdatedAt : null));
-  const arrivalFreshness = arrivalUpdatedAt ? evaluateFreshness(arrivalUpdatedAt, "stock", "Ожидаемые поступления") : null;
-  const priceUpdatedAt = latestTimestamp(Object.values(commercialViews).map((view) => view.partnerPrice?.lastUpdatedAt));
-  const priceFreshness = priceUpdatedAt ? evaluateFreshness(priceUpdatedAt, "price", "Цены") : null;
-
-  return (
-    <div className="space-y-6">
-      <div className="flex gap-3"><CategoryMegaMenu categories={categoriesResult.data} sort={sort} /><CatalogSearch categoryId={categoryId} initialSearch={search} sort={sort} /></div>
-      <CatalogBreadcrumb categories={categoriesResult.data} selectedId={categoryId} />
-      {stockFreshness || arrivalFreshness || priceFreshness ? <div className="flex flex-wrap gap-x-5 gap-y-1 text-xs text-zinc-500">{stockFreshness ? <p>{stockFreshness.label}</p> : null}{arrivalFreshness ? <p>{arrivalFreshness.label}</p> : null}{priceFreshness ? <p>{priceFreshness.label}</p> : null}{stockFreshness?.staleNotice || priceFreshness?.staleNotice ? <p className="w-full text-amber-700">Показаны последние подтверждённые данные</p> : null}</div> : null}
-      <section className="flex flex-col gap-3 border-b border-zinc-200 pb-5 sm:flex-row sm:items-end sm:justify-between">
-        <div><h1 className="text-2xl font-semibold text-zinc-950">{selectedCategory?.name ?? "Каталог оборудования"}</h1><p className="mt-1 text-sm text-zinc-500">Найдено товаров: {productsResult.data.totalCount}</p></div>
-        <form action="/cabinet/catalog" className="w-full sm:w-auto">{sortHiddenFields.map((field) => <input key={field.name} name={field.name} type="hidden" value={field.value} />)}<label className="flex flex-wrap items-center gap-2 text-sm text-zinc-600">Сортировка<select className="h-10 min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-3 sm:flex-none" defaultValue={sort} name="sort">{CATALOG_SORT_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select><button className="h-10 rounded-md border border-zinc-300 px-3 font-medium" type="submit">Применить</button></label></form>
-      </section>
-      {(search || selectedCategory || availability !== "all" || Object.keys(attributeFilters).length > 0) && <div className="flex flex-wrap items-center gap-2 text-sm"><span className="text-zinc-500">Активные фильтры:</span>{selectedCategory && <FilterChip href={buildCatalogHref({ availability, page: 1, search, sort, attributeFilters })} label={selectedCategory.name} />}{search && <FilterChip href={buildCatalogHref({ availability, categoryId, page: 1, sort, attributeFilters })} label={`Поиск: ${search}`} />}{availability !== "all" && <FilterChip href={buildCatalogHref({ categoryId, page: 1, search, sort, attributeFilters })} label={availability === "in_stock" ? "В наличии" : "К поступлению"} />}{Object.entries(attributeFilters).flatMap(([key, values]) => values.map((value) => <FilterChip href={buildCatalogHref({ availability, categoryId, page: 1, search, sort, attributeFilters: withoutAttributeValue(attributeFilters, key, value) })} key={`${key}:${value}`} label={`${productsResult.data.facets.find((facet) => facet.key === key)?.label ?? "Характеристика"}: ${value}`} />))}<Link className="text-sm font-medium text-emerald-700" href="/cabinet/catalog" prefetch={false}>Очистить всё</Link></div>}
-
-      <div className="grid gap-6 lg:grid-cols-[260px_1fr]">
-        <CatalogFilters attributeFilters={attributeFilters} availability={availability} categoryId={categoryId} facets={productsResult.data.facets} search={search} sort={sort} />
-        <section className="space-y-5">
-          {productsResult.data.products.length > 0 ? (
-            <>
-              <ProductGrid
-                capabilities={workspaceContextResult.success ? workspaceContextResult.data.capabilities.productCard : RESTRICTED_PRODUCT_CARD_CAPABILITIES}
-                commercialViews={commercialViews}
-                products={productsResult.data.products}
-              />
-              <CatalogPagination
-                availability={availability}
-                categoryId={categoryId}
-                hasNextPage={productsResult.data.hasNextPage}
-                page={productsResult.data.page}
-                search={search}
-                sort={sort}
-                attributeFilters={attributeFilters}
-              />
-            </>
-          ) : (
-            <EmptyCatalog
-              message={search ? "По вашему запросу товары не найдены." : "В выбранной категории пока нет товаров."}
-              title="Товары не найдены"
-            />
-          )}
-        </section>
-      </div>
+  return <div className="space-y-6">
+    <div className="flex gap-3">
+      <CategoryMegaMenu categories={categoriesResult.data} sort={sort} />
+      <CatalogSearch categoryId={categoryId} initialSearch={search} sort={sort} />
     </div>
-  );
+    <CatalogBreadcrumb categories={categoriesResult.data} selectedId={categoryId} />
+    <Suspense fallback={<CatalogResultsFallback />}>
+      <CatalogResults
+        attributeFilters={attributeFilters}
+        availability={availability}
+        categories={categoriesResult.data}
+        categoryId={categoryId}
+        page={page}
+        productsPromise={productsPromise}
+        search={search}
+        sort={sort}
+        workspacePromise={workspacePromise}
+      />
+    </Suspense>
+  </div>;
 }
 
-function CatalogPagination({
-  availability,
-  categoryId,
-  hasNextPage,
-  page,
-  search,
-  sort,
-  attributeFilters,
-}: {
-  availability: CatalogAvailability;
-  categoryId?: string;
-  hasNextPage: boolean;
-  page: number;
-  search?: string;
-  sort: CatalogSort;
-  attributeFilters: Record<string, string[]>;
-}) {
-  if (page === 1 && !hasNextPage) {
-    return null;
-  }
-
-  return (
-    <nav className="flex items-center justify-between border-t border-zinc-200 pt-5">
-      {page > 1 ? (
-        <Link
-          className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-800 hover:border-emerald-500"
-          href={buildCatalogHref({
-            availability,
-            categoryId,
-            page: page - 1,
-            search,
-          sort,
-          attributeFilters,
-          })}
-          prefetch={false}
-        >
-          Previous
-        </Link>
-      ) : (
-        <span />
-      )}
-      <span className="text-sm text-zinc-500">Page {page}</span>
-      {hasNextPage ? (
-        <Link
-          className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-800 hover:border-emerald-500"
-          href={buildCatalogHref({
-            availability,
-            categoryId,
-            page: page + 1,
-            search,
-            sort,
-            attributeFilters,
-          })}
-          prefetch={false}
-        >
-          Next
-        </Link>
-      ) : (
-        <span />
-      )}
-    </nav>
-  );
+function CatalogResultsFallback() {
+  return <div aria-busy="true" aria-label="Каталог загружается" className="space-y-6">
+    <div className="h-16 animate-pulse border-b border-zinc-200 bg-zinc-100" />
+    <div className="grid gap-6 lg:grid-cols-[260px_1fr]">
+      <div className="h-80 animate-pulse rounded-lg bg-zinc-100" />
+      <div className="grid min-h-[720px] gap-4 sm:grid-cols-2 xl:grid-cols-3">{Array.from({ length: 6 }, (_, index) => <div className="h-[350px] animate-pulse rounded-lg bg-zinc-100" key={index} />)}</div>
+    </div>
+  </div>;
 }
 
-function withoutAttributeValue(filters: Record<string, string[]>, key: string, value: string): Record<string, string[]> { const next = Object.fromEntries(Object.entries(filters).map(([entryKey, values]) => [entryKey, values.filter((item) => entryKey !== key || item !== value)])); return Object.fromEntries(Object.entries(next).filter(([, values]) => values.length)); }
-
+function getSingleParam(value: string | string[] | undefined): string | undefined { return Array.isArray(value) ? value[0] : value || undefined; }
+function parsePage(value: string | undefined): number { const parsed = Number(value); return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 1; }
 function parseAvailability(value: string | undefined): CatalogAvailability { return value === "in_stock" || value === "expected" ? value : "all"; }
-
-function FilterChip({ href, label }: { href: string; label: string }) { return <Link className="rounded-full border border-zinc-300 bg-white px-3 py-1.5 text-zinc-700 hover:border-emerald-500" href={href} prefetch={false}>{label} ×</Link>; }
-
-function getSingleParam(
-  value: string | string[] | undefined,
-): string | undefined {
-  if (Array.isArray(value)) {
-    return value[0];
-  }
-
-  return value || undefined;
-}
-
-function parsePage(value: string | undefined): number {
-  if (!value) {
-    return 1;
-  }
-
-  const parsed = Number(value);
-  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 1;
-}
-
-function createCommercialViewMap(
-  commercialViews: ProductCommercialViewDto[],
-): Record<string, ProductCommercialViewDto> {
-  return Object.fromEntries(
-    commercialViews.map((commercialView) => [
-      commercialView.productId,
-      commercialView,
-    ]),
-  );
-}
-
-function latestTimestamp(values: Array<string | null | undefined>): string | null {
-  const timestamps = values.flatMap((value) => value && Number.isFinite(Date.parse(value)) ? [Date.parse(value)] : []);
-  return timestamps.length ? new Date(Math.max(...timestamps)).toISOString() : null;
-}

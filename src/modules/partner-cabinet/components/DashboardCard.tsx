@@ -29,7 +29,7 @@ export function DashboardCard({
   }
 
   return (
-    <Link className="block h-full" href={href}>
+    <Link className="block h-full" href={href} prefetch={false}>
       {content}
     </Link>
   );

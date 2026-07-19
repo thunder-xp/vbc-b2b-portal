@@ -38,7 +38,6 @@ export type CatalogPartnerPageRecord = {
   sku: string;
   name: string;
   slug: string;
-  shortDescription: string | null;
   imageUrl: string | null;
   brand: Pick<CatalogBrand, "id" | "name" | "slug"> | null;
   category: Pick<CatalogCategory, "id" | "parentId" | "name" | "slug"> | null;

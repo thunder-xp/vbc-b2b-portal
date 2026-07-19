@@ -37,7 +37,7 @@ export function QuickActions({ actions }: { actions: WorkspaceQuickActionDto[] }
           );
 
           return action.href && action.availability === "available" ? (
-            <Link className="flex min-h-16 items-center gap-3 rounded-lg border border-zinc-200 bg-white px-4 py-3 text-zinc-950 shadow-sm transition hover:border-emerald-500" href={action.href} key={action.key}>
+            <Link className="flex min-h-16 items-center gap-3 rounded-lg border border-zinc-200 bg-white px-4 py-3 text-zinc-950 shadow-sm transition hover:border-emerald-500" href={action.href} key={action.key} prefetch={false}>
               {content}
             </Link>
           ) : (

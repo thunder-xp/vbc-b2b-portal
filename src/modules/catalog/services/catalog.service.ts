@@ -394,7 +394,7 @@ export class DefaultCatalogService implements CatalogService {
         sku: item.sku,
         name: item.name,
         slug: item.slug,
-        shortDescription: item.shortDescription,
+        shortDescription: null,
         imageUrl: item.imageUrl,
         brand: item.brand ? { ...item.brand, description: null, logoUrl: null } : null,
         category: item.category ? { ...item.category, description: null } : null,

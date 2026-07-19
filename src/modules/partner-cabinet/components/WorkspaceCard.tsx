@@ -20,6 +20,7 @@ export function WorkspaceCard({
           <Link
             className="text-sm font-medium text-emerald-700 hover:text-emerald-800"
             href={actionHref}
+            prefetch={false}
           >
             {actionLabel}
           </Link>
