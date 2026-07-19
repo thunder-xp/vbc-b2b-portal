@@ -51,7 +51,7 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
         name: context.companyName ?? "Компания не найдена",
         role: context.membershipRole ?? "Не определена",
         external1cCode: context.external1cCode ?? "Не указан",
-        priceType: context.priceTypeName ?? "Не настроен",
+        priceType: context.priceTypeName ?? (context.external1cPriceTypeId ? "Назначен" : "Не настроен"),
         accountManager: null,
       },
       quickActions: buildQuickActions(context.capabilities.navigation),

@@ -1,4 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 import type {
   AccessRequestService,
@@ -128,6 +130,20 @@ describe("DefaultPartnerWorkspaceContextService", () => {
     const context = await service({ profile: profile({ userType: UserType.Internal }) }).getWorkspaceContext("internal-1");
     expect(context.accessState).toBe("internal");
     expect(context.companyId).toBeNull();
+  });
+});
+
+describe("assigned partner price-type RLS", () => {
+  const migration = readFileSync(
+    join(process.cwd(), "supabase/migrations/20260719130000_partner_assigned_price_type_read.sql"),
+    "utf8",
+  );
+
+  it("allows only the assigned type through active company membership", () => {
+    expect(migration).toContain("company.external_1c_price_type_id = price_types.external_ref");
+    expect(migration).toContain("public.has_active_company_membership(company.id)");
+    expect(migration).toContain("company.status = 'active'");
+    expect(migration).not.toContain("using (true)");
   });
 });
 

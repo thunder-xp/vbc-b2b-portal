@@ -26,9 +26,21 @@ describe("DefaultWorkspaceHomeService", () => {
     expect(workspace.processCards).toHaveLength(6);
     expect(JSON.stringify(workspace)).not.toMatch(/activeOrders|openProjects|f7df2069|33333333/);
   });
+
+  it("never labels an assigned partner status as unconfigured", async () => {
+    const workspace = await new DefaultWorkspaceHomeService(fakeContextService({
+      external1cPriceTypeId: "9adc073c-3eb5-11f0-8d8a-7239d3b7bd5c",
+      priceTypeName: null,
+    })).getWorkspaceHome("partner-1");
+
+    expect(workspace.company.priceType).toBe("Назначен");
+    expect(workspace.company.priceType).not.toBe("Не настроен");
+  });
 });
 
-function fakeContextService(): PartnerWorkspaceContextService {
+function fakeContextService(
+  overrides: Partial<Awaited<ReturnType<PartnerWorkspaceContextService["getWorkspaceContext"]>>> = {},
+): PartnerWorkspaceContextService {
   return {
     async getWorkspaceContext() {
       return {
@@ -53,6 +65,7 @@ function fakeContextService(): PartnerWorkspaceContextService {
           "orders.create",
           "documents.view_company",
         ])),
+        ...overrides,
       };
     },
   };
