@@ -2,32 +2,54 @@
 
 import { Search } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type { ProductCommercialViewDto } from "../../pricing-inventory";
-import { listCatalogProductsAction } from "../actions/list-products.action";
-import type { CatalogProductCardDto, CatalogSort } from "../services";
+import type { CatalogProductCardDto, CatalogProductListResult, CatalogSort } from "../services";
+
+type SearchResponse =
+  | { success: true; data: CatalogProductListResult }
+  | { success: false };
 
 export function CatalogSearch({ categoryId, initialSearch, sort = "default" }: { categoryId?: string; initialSearch?: string; sort?: CatalogSort }) {
   const [query, setQuery] = useState(initialSearch ?? "");
   const [results, setResults] = useState<CatalogProductCardDto[]>([]);
   const [loading, setLoading] = useState(false);
   const [commercial, setCommercial] = useState<Record<string, ProductCommercialViewDto>>({});
+  const lastRequestedRef = useRef<string | null>(null);
 
   useEffect(() => {
     const normalized = query.trim();
     if (normalized.length < 2 || normalized === initialSearch) return;
+    const requestKey = `${categoryId ?? ""}:${normalized.toLocaleLowerCase()}`;
+    if (lastRequestedRef.current === requestKey) return;
     const controller = new AbortController();
     const timer = window.setTimeout(async () => {
+      lastRequestedRef.current = requestKey;
       setLoading(true);
-      const result = await listCatalogProductsAction({ categoryId, search: normalized, page: 1, pageSize: 6 });
-      if (controller.signal.aborted) return;
-      const products = result.success ? result.data.products : [];
-      const views = result.success ? result.data.commercialViews ?? [] : [];
-      setResults(products);
-      setCommercial(Object.fromEntries(views.map((view) => [view.productId, view])));
-      setLoading(false);
-    }, 250);
+      try {
+        const params = new URLSearchParams({ q: normalized });
+        if (categoryId) params.set("category", categoryId);
+        const response = await fetch(`/api/catalog/search?${params}`, {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        const result = await response.json() as SearchResponse;
+        if (controller.signal.aborted) return;
+        const products = result.success ? result.data.products : [];
+        const views = result.success ? result.data.commercialViews ?? [] : [];
+        setResults(products);
+        setCommercial(Object.fromEntries(views.map((view) => [view.productId, view])));
+      } catch (error) {
+        if (!(error instanceof DOMException && error.name === "AbortError")) {
+          lastRequestedRef.current = null;
+          setResults([]);
+          setCommercial({});
+        }
+      } finally {
+        if (!controller.signal.aborted) setLoading(false);
+      }
+    }, isLikelyExactSku(normalized) ? 100 : 250);
     return () => { controller.abort(); window.clearTimeout(timer); };
   }, [categoryId, initialSearch, query]);
 
@@ -54,4 +76,8 @@ export function CatalogSearch({ categoryId, initialSearch, sort = "default" }: {
       </Link>)}
     </div>}
   </div>;
+}
+
+function isLikelyExactSku(value: string): boolean {
+  return /^\d{5,}$/.test(value) || /^[a-z]{2,}-\d{3,}$/i.test(value);
 }

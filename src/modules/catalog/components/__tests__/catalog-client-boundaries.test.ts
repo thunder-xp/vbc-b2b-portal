@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const productCard = source("ProductCard.tsx");
-const productImage = source("ProductImage.tsx");
+const productImage = source("CatalogCardImage.tsx");
 const cartAction = readFileSync(
   join(process.cwd(), "src/modules/orders/components/AddToCartButton.tsx"),
   "utf8",

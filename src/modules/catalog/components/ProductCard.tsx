@@ -3,7 +3,7 @@ import Link from "next/link";
 import type { ProductCardCapabilityModel } from "../../partner-cabinet/services";
 import type { ProductCommercialViewDto } from "../../pricing-inventory";
 import type { CatalogProductCardDto } from "../services";
-import { ProductImage } from "./ProductImage";
+import { CatalogCardImage } from "./CatalogCardImage";
 import { ProductPricingBlock } from "./ProductPricingBlock";
 import { AddToCartButton } from "../../orders/components/AddToCartButton";
 
@@ -12,7 +12,7 @@ type ProductCardProps = { product: CatalogProductCardDto; commercialView?: Produ
 export function ProductCard({ capabilities, commercialView, imagePriority = false, product }: ProductCardProps) {
   const stockTone = getStockTone(commercialView?.stock?.status);
   return <article className="flex h-full flex-col rounded-lg border border-zinc-200 bg-white shadow-sm transition hover:border-emerald-500">
-    <Link className="relative block aspect-[4/3] overflow-hidden rounded-t-lg bg-zinc-100" href={`/cabinet/catalog/${product.slug}`} prefetch={false}><ProductImage alt={product.name} priority={imagePriority} sizes="(max-width: 640px) calc(100vw - 32px), (max-width: 1280px) calc((100vw - 320px) / 2), 320px" src={product.imageUrl} /></Link>
+    <Link className="relative block aspect-[4/3] overflow-hidden rounded-t-lg bg-zinc-100" href={`/cabinet/catalog/${product.slug}`} prefetch={false}><CatalogCardImage alt={product.name} priority={imagePriority} src={product.imageUrl} /></Link>
     <div className="flex flex-1 flex-col p-4">
       <Link className="text-base font-semibold leading-6 text-zinc-950 hover:text-emerald-700" href={`/cabinet/catalog/${product.slug}`} prefetch={false}>{product.name}</Link>
       <p className="mt-1 text-xs font-medium uppercase text-emerald-700">{product.sku}</p>

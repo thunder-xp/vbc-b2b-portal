@@ -1,19 +1,4 @@
-export function ProductImage({
-  alt,
-  priority = false,
-  src,
-}: {
-  alt: string;
-  priority?: boolean;
-  src: string | null;
-  sizes?: string;
-}) {
-  return <img
-    alt={alt}
-    className="absolute inset-0 size-full object-contain p-4"
-    decoding="async"
-    fetchPriority={priority ? "high" : "auto"}
-    loading={priority ? "eager" : "lazy"}
-    src={src || "/product-placeholder.svg"}
-  />;
-}
+"use client";
+import Image from "next/image";
+import { useState } from "react";
+export function ProductImage({ alt, priority = false, src, sizes = "(max-width: 768px) 100vw, 320px" }: { alt: string; priority?: boolean; src: string | null; sizes?: string }) { const [failed, setFailed] = useState(false); return <Image alt={alt} className="object-contain p-4" fill loading={priority ? undefined : "lazy"} onError={() => setFailed(true)} priority={priority} sizes={sizes} src={!failed && src ? src : "/product-placeholder.svg"} />; }
