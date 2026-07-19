@@ -6,6 +6,7 @@ import type { OrderProvider, PartnerProvider } from "../../integration/contracts
 import type { ExternalReferenceDTO, SalesOrderDTO } from "../../integration/dto";
 import { IntegrationProviderUnavailableError, IntegrationTimeoutError } from "../../integration/errors";
 import { isStale } from "../../integration/freshness";
+import { NOVOTECH_ONE_C_ORGANIZATION_REF } from "../../integration/config";
 import type { PricingInventoryService } from "../../pricing-inventory/services";
 import { OrderRepositoryError, type CartRepository, type OrderItemSnapshotInput, type PartnerOrderRepository } from "../repositories/order.repository";
 import { CartStatus, PartnerOrderIntegrationStatus, PartnerOrderStatus, type PartnerOrder, type PartnerOrderItem } from "../types";
@@ -50,7 +51,6 @@ const ZERO_CHARACTERISTIC_REF = "00000000-0000-0000-0000-000000000000";
 const DEFAULT_UNIT_REF = "a4f770f7-5a4e-435f-a55f-28cb995d36c9";
 const DEFAULT_VAT_RATE_REF = "acf7b292-1a78-11e5-8b0f-00155d010501";
 const REST_AUTHOR_REF = "272a1ac4-0194-11eb-8975-000c29cf9dd4";
-const NOVOTECH_ORGANIZATION_REF = "4643d461-aa49-4b70-9486-a59f80ee6af8";
 const ORDER_STATE_REF = "acf7b2a1-1a78-11e5-8b0f-00155d010501";
 const SALES_STRUCTURAL_UNIT_REF = "6d5affb3-94b3-4377-a8c2-8d07f0450d95";
 const RESERVATION_STRUCTURAL_UNIT_REF = "86197770-0aac-431a-aad6-8e7099029bbb";
@@ -159,14 +159,14 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
           "contract_resolution",
           () => this.partnerProvider.resolveCustomerOrderContract({
             partnerReference: counterpartyRef,
-            organizationReference: NOVOTECH_ORGANIZATION_REF,
+            organizationReference: NOVOTECH_ONE_C_ORGANIZATION_REF,
             effectiveAt: new Date().toISOString(),
           }),
           {
             cartId: cart.id,
             companyId: company.id,
             counterpartyRef,
-            organizationRef: NOVOTECH_ORGANIZATION_REF,
+            organizationRef: NOVOTECH_ONE_C_ORGANIZATION_REF,
             submissionKey,
           },
         ),

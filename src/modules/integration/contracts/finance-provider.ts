@@ -17,10 +17,29 @@ export type ContractBalanceFetchRequestDTO = {
   synchronizedAt: string;
 };
 
+export type ContractBalanceFetchDiagnosticsDTO = {
+  rawBalanceCount: number;
+  zeroBalanceCount: number;
+  invalidBalanceCount: number;
+  missingContractCount: number;
+  deletedContractCount: number;
+  inactiveContractCount: number;
+  wrongCounterpartyCount: number;
+  wrongOrganizationCount: number;
+  wrongContractTypeCount: number;
+  missingCurrencyCount: number;
+  deletedCurrencyCount: number;
+  oneCCallCount: number;
+};
+
+export type ContractBalanceFetchResultDTO = IntegrationPageResultDTO<ContractBalanceDTO> & {
+  diagnostics?: ContractBalanceFetchDiagnosticsDTO;
+};
+
 export interface FinanceProvider {
   fetchContractBalances(
     input: ContractBalanceFetchRequestDTO,
-  ): Promise<IntegrationPageResultDTO<ContractBalanceDTO>>;
+  ): Promise<ContractBalanceFetchResultDTO>;
   fetchFinanceSnapshots(
     input: FinanceFetchRequestDTO,
   ): Promise<IntegrationPageResultDTO<FinanceSnapshotDTO>>;

@@ -6,6 +6,8 @@ export type {
 export type { ERPProvider, ERPProviderCapabilities, ERPProviderHealth } from "./erp-provider";
 export type {
   ContractBalanceFetchRequestDTO,
+  ContractBalanceFetchDiagnosticsDTO,
+  ContractBalanceFetchResultDTO,
   FinanceFetchRequestDTO,
   FinanceProvider,
 } from "./finance-provider";

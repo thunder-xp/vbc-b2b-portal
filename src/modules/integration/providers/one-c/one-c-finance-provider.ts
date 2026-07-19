@@ -1,5 +1,7 @@
 import type {
+  ContractBalanceFetchDiagnosticsDTO,
   ContractBalanceFetchRequestDTO,
+  ContractBalanceFetchResultDTO,
   FinanceProvider,
 } from "../../contracts";
 import type {
@@ -25,8 +27,6 @@ import { normalizeOneCCurrencyCode } from "./one-c-currency";
 const REGISTER = "AccumulationRegister_РасчетыСПокупателями";
 const CONTRACTS = "Catalog_ДоговорыКонтрагентов";
 const CURRENCIES = "Catalog_Валюты";
-const PAGE_SIZE = 200;
-const MAX_PAGES = 20;
 const CONTRACT_BATCH_SIZE = 40;
 const CONTRACT_SELECT = "Ref_Key,Code,Description,Owner,Owner_Type,НомерДоговора,ВалютаРасчетов_Key,Организация_Key,ВидДоговора,DeletionMark,Недействителен";
 const CURRENCY_SELECT = "Ref_Key,Code,Description,DeletionMark";
@@ -44,34 +44,55 @@ export class OneCFinanceProvider implements FinanceProvider {
 
   async fetchContractBalances(
     input: ContractBalanceFetchRequestDTO,
-  ): Promise<IntegrationPageResultDTO<ContractBalanceDTO>> {
+  ): Promise<ContractBalanceFetchResultDTO> {
     const counterpartyRef = requireReference(input.counterpartyReference.externalId, "Counterparty");
     const organizationRef = requireReference(input.organizationReference.externalId, "Organization");
     const synchronizedAt = requireTimestamp(input.synchronizedAt);
     const condition = `Организация_Key eq guid'${organizationRef}' and Контрагент_Key eq guid'${counterpartyRef}'`;
     const resource = `${REGISTER}/Balance(Condition='${condition.replaceAll("'", "''")}',Dimensions='Договор')`;
     const balanceRows = await this.collection<BalanceRow>(resource, {}, "finance_contract_balance");
+    let zeroBalanceCount = 0;
+    let invalidBalanceCount = 0;
     const balances = balanceRows.flatMap((row) => {
       const contractRef = parseRequiredOneCGuid(row.Договор_Key);
       const signedBalance = finiteNumber(row.СуммаBalance);
-      return contractRef && signedBalance !== null && signedBalance !== 0
-        ? [{ contractRef, signedBalance }]
-        : [];
+      if (!contractRef || signedBalance === null) { invalidBalanceCount += 1; return []; }
+      if (signedBalance === 0) { zeroBalanceCount += 1; return []; }
+      return [{ contractRef, signedBalance }];
     });
-    if (balances.length === 0) return { items: [], nextCursor: null };
+    if (balances.length === 0) return {
+      items: [], nextCursor: null,
+      diagnostics: diagnostics({ rawBalanceCount: balanceRows.length, zeroBalanceCount, invalidBalanceCount, oneCCallCount: 1 }),
+    };
 
-    const contracts = await this.findContracts(new Set(balances.map((row) => row.contractRef)));
+    const contractLookup = await this.findContracts(new Set(balances.map((row) => row.contractRef)));
+    const contracts = contractLookup.rows;
     const currencyRefs = new Set(
       [...contracts.values()].map((row) => parseRequiredOneCGuid(row["ВалютаРасчетов_Key"])).filter((value): value is string => value !== null),
     );
-    const currencies = await this.findCurrencies(currencyRefs);
+    const currencyLookup = await this.findCurrencies(currencyRefs);
+    const currencies = currencyLookup.rows;
+    const counts = diagnostics({
+      rawBalanceCount: balanceRows.length,
+      zeroBalanceCount,
+      invalidBalanceCount,
+      oneCCallCount: 1 + contractLookup.callCount + currencyLookup.callCount,
+    });
     const items = balances.flatMap(({ contractRef, signedBalance }) => {
       const contract = contracts.get(contractRef);
-      if (!contract || !isUsableCustomerContract(contract, counterpartyRef, organizationRef)) return [];
+      if (!contract) { counts.missingContractCount += 1; return []; }
+      if (contract.DeletionMark === true) { counts.deletedContractCount += 1; return []; }
+      if (contract["Недействителен"] === true) { counts.inactiveContractCount += 1; return []; }
+      if (parseRequiredOneCGuid(contract.Owner) !== counterpartyRef || contract.Owner_Type !== "StandardODATA.Catalog_Контрагенты") {
+        counts.wrongCounterpartyCount += 1; return [];
+      }
+      if (parseRequiredOneCGuid(contract["Организация_Key"]) !== organizationRef) { counts.wrongOrganizationCount += 1; return []; }
+      if (contract["ВидДоговора"] !== "СПокупателем") { counts.wrongContractTypeCount += 1; return []; }
       const currencyRef = parseRequiredOneCGuid(contract["ВалютаРасчетов_Key"]);
       const currency = currencyRef ? currencies.get(currencyRef) : null;
       const currencyCode = currency ? normalizeOneCCurrencyCode(text(currency.Code) || text(currency.Description)) : null;
-      if (!currencyRef || !currencyCode || currency?.DeletionMark === true) return [];
+      if (!currencyRef || !currency || !currencyCode) { counts.missingCurrencyCount += 1; return []; }
+      if (currency.DeletionMark === true) { counts.deletedCurrencyCount += 1; return []; }
       return [{
         contractReference: reference(contractRef, "contract"),
         contractNumber: text(contract["НомерДоговора"]) || text(contract.Code),
@@ -83,7 +104,7 @@ export class OneCFinanceProvider implements FinanceProvider {
         synchronizedAt,
       } satisfies ContractBalanceDTO];
     });
-    return { items, nextCursor: null };
+    return { items, nextCursor: null, diagnostics: counts };
   }
 
   async fetchFinanceSnapshots(): Promise<IntegrationPageResultDTO<FinanceSnapshotDTO>> {
@@ -94,20 +115,21 @@ export class OneCFinanceProvider implements FinanceProvider {
     throw new IntegrationUnsupportedOperationError("1C invoice import is not implemented.");
   }
 
-  private async findContracts(required: Set<string>): Promise<Map<string, ContractRow>> {
+  private async findContracts(required: Set<string>): Promise<{ rows: Map<string, ContractRow>; callCount: number }> {
     const found = new Map<string, ContractRow>();
     const references = [...required];
+    let callCount = 0;
     for (let index = 0; index < references.length; index += CONTRACT_BATCH_SIZE) {
       const batch = references.slice(index, index + CONTRACT_BATCH_SIZE);
       const filter = batch.map((reference) => `Ref_Key eq guid'${reference}'`).join(" or ");
       const rows = await this.literalContractBatch(filter);
+      callCount += 1;
       for (const row of rows) {
         const ref = parseRequiredOneCGuid(row.Ref_Key);
         if (ref && required.has(ref)) found.set(ref, row);
       }
     }
-    if (found.size !== required.size) throw new IntegrationValidationError("1C contract balance references could not be resolved.");
-    return found;
+    return { rows: found, callCount };
   }
 
   private async literalContractBatch(filter: string): Promise<ContractRow[]> {
@@ -134,22 +156,45 @@ export class OneCFinanceProvider implements FinanceProvider {
     return (payload as { value: ContractRow[] }).value;
   }
 
-  private async findCurrencies(required: Set<string>): Promise<Map<string, CurrencyRow>> {
+  private async findCurrencies(required: Set<string>): Promise<{ rows: Map<string, CurrencyRow>; callCount: number }> {
     const found = new Map<string, CurrencyRow>();
-    for (let page = 0; page < MAX_PAGES && found.size < required.size; page += 1) {
-      const rows = await this.collection<CurrencyRow>(CURRENCIES, {
-        $select: CURRENCY_SELECT,
-        $top: String(PAGE_SIZE),
-        $skip: String(page * PAGE_SIZE),
-      }, "finance_currency_catalog_scan");
+    const references = [...required];
+    let callCount = 0;
+    for (let index = 0; index < references.length; index += CONTRACT_BATCH_SIZE) {
+      const batch = references.slice(index, index + CONTRACT_BATCH_SIZE);
+      const filter = batch.map((reference) => `Ref_Key eq guid'${reference}'`).join(" or ");
+      const rows = await this.literalCurrencyBatch(filter);
+      callCount += 1;
       for (const row of rows) {
         const ref = parseRequiredOneCGuid(row.Ref_Key);
         if (ref && required.has(ref)) found.set(ref, row);
       }
-      if (rows.length < PAGE_SIZE) break;
     }
-    if (found.size !== required.size) throw new IntegrationValidationError("1C contract balance currencies could not be resolved.");
-    return found;
+    return { rows: found, callCount };
+  }
+
+  private async literalCurrencyBatch(filter: string): Promise<CurrencyRow[]> {
+    const { baseUrl, username, password } = this.config;
+    if (!baseUrl || !username || !password) throw new IntegrationProviderUnavailableError("1C OData is not configured.");
+    const url = `${baseUrl.replace(/\/$/, "")}/${CURRENCIES}?$select=${CURRENCY_SELECT}&$filter=${filter}&$top=${CONTRACT_BATCH_SIZE}&$format=json`;
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        headers: { Accept: "application/json", Authorization: `Basic ${Buffer.from(`${username}:${password}`, "utf8").toString("base64")}` },
+        signal: AbortSignal.timeout(this.config.requestTimeoutMs),
+      });
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") throw new IntegrationTimeoutError("1C currency lookup timed out.");
+      throw new IntegrationProviderUnavailableError("1C currency lookup is unavailable.");
+    }
+    if (response.status === 401) throw new IntegrationUnauthorizedError();
+    if (response.status === 403) throw new IntegrationForbiddenError();
+    if (!response.ok) throw new IntegrationHttpError();
+    const payload: unknown = await response.json();
+    if (!payload || typeof payload !== "object" || !Array.isArray((payload as { value?: unknown }).value)) {
+      throw new IntegrationValidationError("1C currency lookup response is invalid.");
+    }
+    return (payload as { value: CurrencyRow[] }).value;
   }
 
   private async collection<T>(resource: string, params: Record<string, string>, requestKind: string): Promise<T[]> {
@@ -161,19 +206,19 @@ export class OneCFinanceProvider implements FinanceProvider {
   }
 }
 
-function isUsableCustomerContract(row: ContractRow, counterpartyRef: string, organizationRef: string): boolean {
-  return parseRequiredOneCGuid(row.Owner) === counterpartyRef
-    && row.Owner_Type === "StandardODATA.Catalog_Контрагенты"
-    && parseRequiredOneCGuid(row["Организация_Key"]) === organizationRef
-    && row["ВидДоговора"] === "СПокупателем"
-    && row.DeletionMark !== true
-    && row["Недействителен"] !== true;
-}
-
 function requireReference(value: string, label: string): string {
   const parsed = parseRequiredOneCGuid(value);
   if (!parsed) throw new IntegrationValidationError(`${label} reference is invalid.`);
   return parsed;
+}
+
+function diagnostics(input: Partial<ContractBalanceFetchDiagnosticsDTO>): ContractBalanceFetchDiagnosticsDTO {
+  return {
+    rawBalanceCount: 0, zeroBalanceCount: 0, invalidBalanceCount: 0, missingContractCount: 0,
+    deletedContractCount: 0, inactiveContractCount: 0, wrongCounterpartyCount: 0,
+    wrongOrganizationCount: 0, wrongContractTypeCount: 0, missingCurrencyCount: 0,
+    deletedCurrencyCount: 0, oneCCallCount: 0, ...input,
+  };
 }
 
 function requireTimestamp(value: string): string {
