@@ -34,6 +34,13 @@ export function QuickReorderPanel({ preview }: { preview: QuickReorderPreviewDto
         <ToolbarButton icon={RotateCcw} label="Только доступные" onClick={() => setAll("available")} />
       </div>
 
+      <div className="grid gap-3 sm:grid-cols-4" aria-label="Изменения цен">
+        <SummaryMetric label="Без изменений" value={preview.commercialSummary.unchanged} />
+        <SummaryMetric label="Цена выросла" value={preview.commercialSummary.increased} tone="amber" />
+        <SummaryMetric label="Цена снизилась" value={preview.commercialSummary.decreased} tone="emerald" />
+        <SummaryMetric label="Сравнение недоступно" value={preview.commercialSummary.unavailable} />
+      </div>
+
       <ul className="divide-y divide-zinc-200 overflow-hidden rounded-md border border-zinc-200 bg-white">
         {preview.lines.map((line) => {
           const checked = selected.has(line.lineId);
@@ -80,6 +87,10 @@ export function QuickReorderPanel({ preview }: { preview: QuickReorderPreviewDto
               {line.availableStock !== null && checked && quantities[line.lineId] > line.availableStock ? (
                 <p className="flex gap-2 text-xs text-amber-700 md:col-start-3 md:col-span-4"><TriangleAlert className="size-4 shrink-0" />Часть количества может потребовать подтверждения</p>
               ) : null}
+              <div className="text-xs md:col-start-4 md:col-span-3">
+                <span className={line.priceDifference.kind === "increased" ? "font-semibold text-amber-700" : line.priceDifference.kind === "decreased" ? "font-semibold text-emerald-700" : "text-zinc-500"}>{line.priceDifference.label}</span>
+                {line.priceDifference.formattedAbsoluteDifference && line.priceDifference.kind !== "unchanged" ? <span className="ml-2 text-zinc-600">{line.priceDifference.formattedAbsoluteDifference} · {line.priceDifference.formattedPercentageDifference}</span> : null}
+              </div>
             </li>
           );
         })}
@@ -99,4 +110,9 @@ function Price({ label, value }: { label: string; value: string }) {
 
 function ToolbarButton({ icon: Icon, label, onClick }: { icon: typeof CheckSquare; label: string; onClick: () => void }) {
   return <button className="inline-flex items-center gap-2 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50" onClick={onClick} type="button"><Icon className="size-4" />{label}</button>;
+}
+
+function SummaryMetric({ label, value, tone = "zinc" }: { label: string; value: number; tone?: "zinc" | "amber" | "emerald" }) {
+  const valueClass = tone === "amber" ? "text-amber-700" : tone === "emerald" ? "text-emerald-700" : "text-zinc-950";
+  return <div className="rounded-md border border-zinc-200 bg-white px-3 py-2"><p className="text-xs text-zinc-500">{label}</p><p className={`mt-1 text-lg font-semibold ${valueClass}`}>{value}</p></div>;
 }

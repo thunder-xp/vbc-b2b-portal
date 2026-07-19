@@ -45,6 +45,7 @@ function preview(): QuickReorderPreviewDto {
       previewLine("line-1", "Camera", 3, "available", true),
       previewLine("line-2", "Recorder", 2, "temporarily_unavailable", true),
     ],
+    commercialSummary: { unchanged: 0, increased: 2, decreased: 0, unavailable: 0 },
   };
 }
 
@@ -54,6 +55,7 @@ function previewLine(lineId: string, productName: string, quantity: number, stat
     historicalQuantity: quantity,
     historicalUnitPrice: { amount: 8, currencyCode: "USD", formatted: "$8.00" },
     currentUnitPrice: { amount: 10, currencyCode: "USD", formatted: "$10.00" },
+    priceDifference: { kind: "increased", label: "Цена выросла", absoluteDifference: 2, percentageDifference: 25, formattedAbsoluteDifference: "+$2.00", formattedPercentageDifference: "+25%" },
     availableStock: status === "available" ? 5 : 0, expectedArrival: null,
     status, statusLabel: status === "available" ? "Доступно" : "Товар временно отсутствует",
     canSelect: selected, selectedByDefault: selected,

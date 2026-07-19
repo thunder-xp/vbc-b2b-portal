@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { NotFoundError } from "../../../access-control/services";
 import type { PartnerOrderHistoryRepository } from "../../repositories";
-import { QuickReorderService } from "../quick-reorder.service";
+import { compareQuickReorderPrices, QuickReorderService } from "../quick-reorder.service";
 
 const ORDER_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 
@@ -14,7 +14,7 @@ describe("QuickReorderService preview", () => {
     expect(dependencies.repository.getReorderSource).toHaveBeenCalledWith(ORDER_ID);
     expect(dependencies.pricing.getProductCommercialViews).toHaveBeenCalledOnce();
     expect(dependencies.pricing.getProductCommercialViews).toHaveBeenCalledWith("user-1", ["product-1", "product-2"]);
-    expect(result.lines[0]).toMatchObject({ historicalQuantity: 3, selectedByDefault: true, status: "available" });
+    expect(result.lines[0]).toMatchObject({ historicalQuantity: 3, selectedByDefault: true, status: "price_changed" });
     expect(result.lines[1]).toMatchObject({ selectedByDefault: true, status: "temporarily_unavailable" });
   });
 
@@ -44,6 +44,31 @@ describe("QuickReorderService preview", () => {
     dependencies.repository.getReorderSource.mockResolvedValue({ ...source(), companyId: "other-company" });
 
     await expect(dependencies.service.preview("user-1", ORDER_ID)).rejects.toBeInstanceOf(NotFoundError);
+  });
+});
+
+describe("quick reorder commercial difference", () => {
+  it.each([
+    [10, 12, "increased", 2, 20],
+    [10, 8, "decreased", -2, -20],
+    [10, 10, "unchanged", 0, 0],
+  ] as const)("classifies %s to %s as %s", (historical, current, kind, absolute, percent) => {
+    expect(compareQuickReorderPrices(historical, "USD", current, "USD")).toMatchObject({
+      kind,
+      absoluteDifference: absolute,
+      percentageDifference: percent,
+    });
+  });
+
+  it("does not compare different currencies or mutate either source value", () => {
+    const historical = 10;
+    const current = 180;
+    expect(compareQuickReorderPrices(historical, "USD", current, "MDL")).toMatchObject({
+      kind: "unavailable",
+      label: "Сравнение цены недоступно",
+    });
+    expect(historical).toBe(10);
+    expect(current).toBe(180);
   });
 });
 
