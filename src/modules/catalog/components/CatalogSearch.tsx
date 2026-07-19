@@ -1,7 +1,6 @@
 "use client";
 
 import { Search } from "lucide-react";
-import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
@@ -50,7 +49,7 @@ export function CatalogSearch({ categoryId, initialSearch, sort = "default" }: {
     </form>
     {(loading || results.length > 0) && <div className="absolute left-0 right-0 top-12 z-30 rounded-lg border border-zinc-200 bg-white p-2 shadow-xl">
       {loading ? <p className="p-3 text-sm text-zinc-500">Поиск...</p> : results.map((product) => <Link className="flex items-center gap-3 rounded-md p-2 hover:bg-zinc-50" href={`/cabinet/catalog/${product.slug}`} key={product.id} prefetch={false}>
-        <div className="relative flex size-12 shrink-0 items-center justify-center rounded bg-zinc-100">{product.imageUrl ? <Image alt="" className="object-contain" fill sizes="48px" src={product.imageUrl} /> : <Search className="size-4 text-zinc-400" />}</div>
+        <div className="relative flex size-12 shrink-0 items-center justify-center rounded bg-zinc-100">{product.imageUrl ? <img alt="" className="size-full object-contain" decoding="async" height="48" loading="lazy" src={product.imageUrl} width="48" /> : <Search className="size-4 text-zinc-400" />}</div>
         <div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold text-zinc-950">{product.name}</p><p className="text-xs text-zinc-500">{product.sku}{product.category ? ` · ${product.category.name}` : ""}</p><p className="mt-1 text-xs font-medium text-emerald-700">{commercial[product.id]?.partnerPrice?.formattedAmount ?? "Цена уточняется"} · {commercial[product.id]?.stock?.label ?? "Наличие уточняется"}</p></div>
       </Link>)}
     </div>}
