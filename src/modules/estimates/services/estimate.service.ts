@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import Decimal from "decimal.js";
 
 import type { CompanyAccessService, PermissionService } from "../../access-control/services";
@@ -194,6 +195,7 @@ export interface EstimateService {
   listServices(userId: string): Promise<EstimateServiceDto[]>;
   searchProducts(userId: string, input: { search?: string; categoryId?: string; brandId?: string }): Promise<EstimateProductPickerDto>;
   createDraft(userId: string, input: CreateEstimateCommand): Promise<Estimate>;
+  createFromPurchasingList(userId: string, input: { listId: string; name: string; requestKey: string; items: Array<{ itemId: string; productId: string; quantity: number }> }): Promise<{ estimateId: string; repeated: boolean; added: number; skipped: number }>;
   getDetail(userId: string, estimateId: string): Promise<EstimateDetailDto>;
   saveDraft(userId: string, estimateId: string, input: SaveEstimateCommand): Promise<EstimateDetailDto>;
   saveCommercialDraft(userId: string, estimateId: string, input: SaveEstimateCommercialCommand): Promise<EstimateDetailDto>;
@@ -333,6 +335,40 @@ export class DefaultEstimateService implements EstimateService {
       throw new InvalidStateError("Estimate currency is not available in published commercial data.");
     }
     return this.repository.create({ companyId, ...normalized });
+  }
+
+  async createFromPurchasingList(userId: string, input: { listId: string; name: string; requestKey: string; items: Array<{ itemId: string; productId: string; quantity: number }> }) {
+    await this.resolveCompany(userId, MANAGE_PERMISSION);
+    await this.resolveCompany(userId, PRICING_PERMISSION);
+    const normalizedItems = input.items.map((item) => ({ itemId: normalizeId(item.itemId), productId: normalizeId(item.productId), quantity: normalizeQuantity(item.quantity) }));
+    if (!normalizedItems.length || normalizedItems.length > MAX_PRODUCT_BATCH || new Set(normalizedItems.map((item) => item.itemId)).size !== normalizedItems.length) {
+      throw new InvalidStateError("Select between 1 and 50 products.");
+    }
+    const productIds = [...new Set(normalizedItems.map((item) => item.productId))];
+    const [products, commercialViews] = await Promise.all([
+      this.catalogService.getProductsByIds(userId, productIds),
+      this.pricingInventoryService.getProductCommercialViews(userId, productIds),
+    ]);
+    const productById = new Map(products.map((product) => [product.id, product]));
+    const commercialById = new Map(commercialViews.map((view) => [view.productId, view]));
+    const priced = normalizedItems.flatMap((item) => {
+      const product = productById.get(item.productId);
+      const price = commercialById.get(item.productId)?.partnerPrice;
+      return product && price?.currencyCode && price.amount >= 0 ? [{ item, product, price }] : [];
+    });
+    if (!priced.length) throw new InvalidStateError("No products with a current partner price were selected.");
+    const currencyCode = priced[0].price.currencyCode!;
+    const needsConversion = priced.some(({ price }) => price.currencyCode !== currencyCode);
+    const rate = needsConversion ? await this.pricingInventoryService.getApprovedUsdMdlRateSnapshot?.(userId) ?? null : null;
+    if (needsConversion && !rate) throw new InvalidStateError("No published rate is available for estimate conversion.");
+    const lines = priced.map(({ item, product, price }) => {
+      const exchangeRate = price.currencyCode === currencyCode ? 1 : resolveCurrencyRate(price.currencyCode!, currencyCode, rate!.mdlPerUsdRate);
+      const convertedCostUnitPrice = convertMoney(price.amount, exchangeRate);
+      return { itemId: item.itemId, productId: product.id, quantity: item.quantity, sku: product.sku, productName: product.name, sourceUnitPrice: price.amount, sourceCurrencyCode: price.currencyCode!, sourceSnapshotAt: price.lastUpdatedAt ?? null, sellingUnitPrice: convertedCostUnitPrice, convertedCostUnitPrice, exchangeRate, exchangeRateEffectiveDate: exchangeRate === 1 ? price.lastUpdatedAt?.slice(0, 10) ?? null : rate?.effectiveDate ?? null };
+    });
+    const requestFingerprint = createHash("sha256").update(`${input.listId}|${lines.slice().sort((a, b) => a.itemId.localeCompare(b.itemId)).map((line) => `${line.itemId}:${line.quantity}`).join("|")}`).digest("hex");
+    const result = await this.repository.createFromPurchasingList({ listId: normalizeId(input.listId), requestKey: normalizeId(input.requestKey), requestFingerprint, name: normalizeRequired(input.name, 200, "Укажите название сметы."), currencyCode, items: lines, summary: { added: lines.length, skipped: normalizedItems.length - lines.length } });
+    return { ...result, added: lines.length, skipped: normalizedItems.length - lines.length };
   }
 
   async getDetail(userId: string, estimateId: string): Promise<EstimateDetailDto> {

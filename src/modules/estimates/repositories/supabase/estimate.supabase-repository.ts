@@ -141,6 +141,26 @@ export class SupabaseEstimateRepository implements EstimateRepository {
     return mapEstimateRow(data as EstimateRow);
   }
 
+  async createFromPurchasingList(input: Parameters<EstimateRepository["createFromPurchasingList"]>[0]) {
+    const { data, error } = await (await createClient()).rpc("create_estimate_from_purchasing_list", {
+      target_list_id: input.listId,
+      target_request_key: input.requestKey,
+      target_request_fingerprint: input.requestFingerprint,
+      target_name: input.name,
+      target_currency_code: input.currencyCode,
+      target_items: input.items.map((item) => ({
+        item_id: item.itemId, product_id: item.productId, quantity: item.quantity, sku: item.sku,
+        product_name: item.productName, source_unit_price: item.sourceUnitPrice,
+        source_currency_code: item.sourceCurrencyCode, source_snapshot_at: item.sourceSnapshotAt,
+        selling_unit_price: item.sellingUnitPrice, converted_cost_unit_price: item.convertedCostUnitPrice,
+        exchange_rate: item.exchangeRate, exchange_rate_effective_date: item.exchangeRateEffectiveDate,
+      })),
+      target_summary: input.summary,
+    });
+    if (error || typeof data !== "object" || data === null || Array.isArray(data)) throw mapRepositoryError(error?.code);
+    return { estimateId: typeof data.estimate_id === "string" ? data.estimate_id : "", repeated: data.repeated === true };
+  }
+
   async updateDraft(input: {
     estimateId: string;
     expectedRevision: number;

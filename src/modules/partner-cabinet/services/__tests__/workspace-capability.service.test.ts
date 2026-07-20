@@ -10,6 +10,8 @@ describe("resolveWorkspaceCapabilities", () => {
       "stock.view",
       "orders.create",
       "orders.manage",
+      "purchasing_lists.view",
+      "purchasing_lists.manage",
       "specifications.manage",
       "estimates.view",
       "estimates.manage",
@@ -20,6 +22,7 @@ describe("resolveWorkspaceCapabilities", () => {
       "Рабочий стол",
       "Каталог",
       "Корзина",
+      "Списки закупок",
       "Подбор решения",
       "Спецификации",
       "Сметы и КП",
@@ -34,6 +37,7 @@ describe("resolveWorkspaceCapabilities", () => {
     expect(model.canCreateCommercialProposal).toBe(true);
     expect(model.productCard.canAddToSpecification).toBe(true);
     expect(model.productCard.canAddToOrder).toBe(true);
+    expect(model.productCard.canManagePurchasingLists).toBe(true);
     expect(model.productCard).toMatchObject({ showPrice: true, showStock: true, showWarehouseAvailability: true });
   });
 

@@ -106,6 +106,28 @@ export interface EstimateRepository {
   findById(estimateId: string): Promise<Estimate | null>;
   findAggregateById(estimateId: string): Promise<EstimateAggregate | null>;
   create(input: CreateEstimateInput): Promise<Estimate>;
+  createFromPurchasingList(input: {
+    listId: string;
+    requestKey: string;
+    requestFingerprint: string;
+    name: string;
+    currencyCode: string;
+    items: Array<{
+      itemId: string;
+      productId: string;
+      quantity: number;
+      sku: string;
+      productName: string;
+      sourceUnitPrice: number;
+      sourceCurrencyCode: string;
+      sourceSnapshotAt: string | null;
+      sellingUnitPrice: number;
+      convertedCostUnitPrice: number;
+      exchangeRate: number;
+      exchangeRateEffectiveDate: string | null;
+    }>;
+    summary: Record<string, number>;
+  }): Promise<{ estimateId: string; repeated: boolean }>;
   updateDraft(input: {
     estimateId: string;
     expectedRevision: number;

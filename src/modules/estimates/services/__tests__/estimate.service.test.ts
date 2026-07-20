@@ -66,6 +66,7 @@ describe("DefaultEstimateService", () => {
       findById: vi.fn().mockResolvedValue(estimate),
       findAggregateById: vi.fn().mockResolvedValue(aggregate([])),
       create: vi.fn().mockResolvedValue(estimate),
+      createFromPurchasingList: vi.fn().mockResolvedValue({ estimateId: estimate.id, repeated: false }),
       updateDraft: vi.fn().mockResolvedValue({ ...estimate, revision: 4 }),
       saveCommercialDraft: vi.fn().mockResolvedValue({ ...estimate, revision: 4 }),
       addLines: vi.fn().mockResolvedValue(undefined),
@@ -98,6 +99,19 @@ describe("DefaultEstimateService", () => {
       catalog,
       pricing,
     );
+  });
+
+  it("creates a purchasing-list estimate with one bulk commercial read and one atomic repository call", async () => {
+    const result = await service.createFromPurchasingList("user-1", {
+      listId: "11111111-1111-4111-8111-111111111111",
+      name: "Install kit",
+      requestKey: "22222222-2222-4222-8222-222222222222",
+      items: [{ itemId: "33333333-3333-4333-8333-333333333333", productId: "product-1", quantity: 2 }],
+    });
+    expect(catalog.getProductsByIds).toHaveBeenCalledOnce();
+    expect(pricing.getProductCommercialViews).toHaveBeenCalledOnce();
+    expect(repository.createFromPurchasingList).toHaveBeenCalledOnce();
+    expect(result).toMatchObject({ estimateId: estimate.id, added: 1, skipped: 0 });
   });
 
   it("creates a company-owned draft only with a published currency", async () => {

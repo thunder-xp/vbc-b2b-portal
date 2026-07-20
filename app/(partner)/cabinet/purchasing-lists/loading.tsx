@@ -1,0 +1,1 @@
+export default function PurchasingListsLoading() { return <div className="space-y-4" aria-label="Загрузка списков"><div className="h-16 animate-pulse bg-zinc-100" /><div className="h-12 animate-pulse bg-zinc-100" />{Array.from({ length: 5 }, (_, index) => <div className="h-20 animate-pulse bg-zinc-100" key={index} />)}</div>; }

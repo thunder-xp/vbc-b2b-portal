@@ -2,6 +2,7 @@ export type WorkspaceCapabilityKey =
   | "dashboard"
   | "catalog"
   | "cart"
+  | "purchasing_lists"
   | "solution_selection"
   | "projects"
   | "reservations"
@@ -34,6 +35,7 @@ export type ProductCardCapabilityModel = {
   showCompatibility: boolean;
   canAddToSpecification: boolean;
   canAddToOrder: boolean;
+  canManagePurchasingLists?: boolean;
   canAddToProject: boolean;
 };
 
@@ -73,6 +75,7 @@ const WORKSPACE_CAPABILITIES: readonly CapabilityDefinition[] = [
   { key: "dashboard", label: "Рабочий стол", href: "/cabinet", requiredPermission: null, released: true, unavailableBehavior: "hide" },
   { key: "catalog", label: "Каталог", href: "/cabinet/catalog", requiredPermission: "catalog.view", released: true, unavailableBehavior: "hide" },
   { key: "cart", label: "Корзина", href: "/cabinet/cart", requiredPermission: "orders.manage", released: true, unavailableBehavior: "hide" },
+  { key: "purchasing_lists", label: "Списки закупок", href: "/cabinet/purchasing-lists", requiredPermission: "purchasing_lists.view", released: true, unavailableBehavior: "hide" },
   { key: "solution_selection", label: "Подбор решения", href: null, requiredPermission: "catalog.view", released: false, unavailableBehavior: "show_coming_soon" },
   { key: "projects", label: "Спецификации", href: "/cabinet/specifications", requiredPermission: "specifications.manage", released: true, unavailableBehavior: "hide" },
   { key: "proposals", label: "Сметы и КП", href: "/cabinet/estimates", requiredPermission: "estimates.view", released: true, unavailableBehavior: "hide" },
@@ -118,6 +121,7 @@ export function resolveWorkspaceCapabilities(
       showCompatibility: hasPermission("catalog.view"),
       canAddToSpecification: hasPermission("specifications.manage"),
       canAddToOrder: hasPermission("orders.manage"),
+      canManagePurchasingLists: hasPermission("purchasing_lists.manage"),
       canAddToProject: false,
     },
     canCreateCommercialProposal: configuration.commercialProposalAccess !== false && hasPermission("estimates.manage"),
