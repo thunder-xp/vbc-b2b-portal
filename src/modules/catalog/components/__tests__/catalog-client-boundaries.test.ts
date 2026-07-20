@@ -11,10 +11,10 @@ const cartAction = readFileSync(
 );
 
 describe("catalog client boundaries", () => {
-  it("keeps product content and images server rendered", () => {
+  it("keeps product content and card image projection server rendered", () => {
     expect(productCard).not.toContain('"use client"');
     expect(productImage).not.toContain('"use client"');
-    expect(productImage).not.toContain('from "next/image"');
+    expect(productImage).toContain("ProductThumbnail");
   });
 
   it("passes only primitive identity into the cart action island", () => {

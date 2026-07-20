@@ -44,8 +44,9 @@ describe("ProductCard workspace context", () => {
 
   it("renders the projected product image and isolates the missing-image fallback", () => {
     const capabilities = resolveWorkspaceCapabilities(new Set(["catalog.view"])).productCard;
-    const { rerender } = render(<ProductCard capabilities={capabilities} product={{ ...product, imageUrl: "https://example.test/camera.png" }} />);
-    expect(screen.getByRole("img", { name: "IP Camera" })).toHaveAttribute("src", "https://example.test/camera.png");
+    const imageUrl = "https://firebasestorage.googleapis.com/v0/b/novotech-systems-5449b.appspot.com/o/products%2Fcamera_thumb.png?alt=media&token=public-token";
+    const { rerender } = render(<ProductCard capabilities={capabilities} product={{ ...product, imageUrl }} />);
+    expect(screen.getByRole("img", { name: "IP Camera" })).toHaveAttribute("src", expect.stringContaining("camera_thumb.png"));
 
     rerender(<ProductCard capabilities={capabilities} product={{ ...product, id: "product-2", imageUrl: null }} />);
     expect(screen.getByRole("img", { name: "IP Camera" })).toHaveAttribute("src", "/product-placeholder.svg");

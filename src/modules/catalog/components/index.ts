@@ -15,4 +15,5 @@ export { ProductDetail, type ProductDetailTab } from "./ProductDetail";
 export { ProductGrid } from "./ProductGrid";
 export { ProductImage } from "./ProductImage";
 export { ProductImageGallery } from "./ProductImageGallery";
+export { ProductThumbnail } from "./ProductThumbnail";
 export { SearchBox } from "./SearchBox";

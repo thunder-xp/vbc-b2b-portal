@@ -69,7 +69,7 @@ export function QuickReorderPanel({ preview, requestKey: initialRequestKey }: { 
                 type="checkbox"
               />
               <div className="relative size-16 overflow-hidden rounded-md bg-zinc-100">
-                <CatalogCardImage alt="" src={line.imageUrl} />
+                <CatalogCardImage alt="" sizes="64px" src={line.imageUrl} />
               </div>
               <div className="min-w-0">
                 <p className="font-semibold text-zinc-950">{line.productName}</p>
