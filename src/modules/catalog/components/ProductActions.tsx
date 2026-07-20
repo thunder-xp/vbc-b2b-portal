@@ -1,5 +1,5 @@
 import { AddToCartButton } from "../../orders/components/AddToCartButton";
-import { AddToPurchasingListButton } from "../../purchasing-lists/components";
+import { AddToPurchasingListButton } from "../../purchasing-lists/components/AddToPurchasingListButton";
 import { ProductComparisonAction } from "./ProductComparisonAction";
 import { ProductFavoriteAction } from "./ProductFavoriteAction";
 import { ProductSpecificationAction } from "./ProductSpecificationAction";

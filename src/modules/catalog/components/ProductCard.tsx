@@ -6,7 +6,7 @@ import type { CatalogProductCardDto } from "../services";
 import { CatalogCardImage } from "./CatalogCardImage";
 import { ProductPricingBlock } from "./ProductPricingBlock";
 import { AddToCartButton } from "../../orders/components/AddToCartButton";
-import { AddToPurchasingListButton } from "../../purchasing-lists/components";
+import { AddToPurchasingListButton } from "../../purchasing-lists/components/AddToPurchasingListButton";
 
 type ProductCardProps = { product: CatalogProductCardDto; commercialView?: ProductCommercialViewDto; capabilities: ProductCardCapabilityModel; imagePriority?: boolean };
 
