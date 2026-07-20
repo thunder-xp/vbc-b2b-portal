@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+@layer components {
+  .icon-action { @apply inline-flex size-9 items-center justify-center rounded-md border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 disabled:opacity-50; }
+  .text-action { @apply inline-flex min-h-9 items-center justify-center gap-2 rounded-md border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-800 hover:bg-zinc-50 disabled:opacity-50; }
+}
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
