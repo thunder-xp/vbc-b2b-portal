@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { getPartnerOrderHistoryAction } from "@/src/modules/orders/actions";
+import { SaveAsPurchasingListButton } from "@/src/modules/purchasing-lists/components";
 
 type OrderDetailPageProps = { params: Promise<{ id: string }> };
 
@@ -39,6 +40,7 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
         <div className="mt-5 flex flex-wrap gap-2">
           <Link className="rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800" href={`/cabinet/orders/${order.id}/reorder`} prefetch={false}>Купить снова</Link>
           <Link className="rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-800 hover:bg-zinc-50" href={`/cabinet/orders/${order.id}/reorder`} prefetch={false}>Выбрать позиции</Link>
+          <SaveAsPurchasingListButton orderId={order.id} source="order" />
         </div>
       </section>
 

@@ -4,6 +4,7 @@ import { getCartAction } from "@/src/modules/orders/actions";
 import { CartItemActions } from "@/src/modules/orders/components/CartItemActions";
 import { OrderSubmitForm } from "@/src/modules/orders/components/OrderSubmitForm";
 import { CreateEstimateFromCartButton } from "@/src/modules/estimates/components/CreateEstimateFromCartButton";
+import { SaveAsPurchasingListButton } from "@/src/modules/purchasing-lists/components";
 
 export default async function CartPage() {
   const result = await getCartAction();
@@ -55,6 +56,7 @@ export default async function CartPage() {
               <p className="mt-1 text-xl font-semibold">{cart.total ?? "Требуется актуальная цена"}</p>
             </div>
             <CreateEstimateFromCartButton />
+            <SaveAsPurchasingListButton source="cart" />
             <OrderSubmitForm submissionKey={crypto.randomUUID()} />
           </aside>
         </div>

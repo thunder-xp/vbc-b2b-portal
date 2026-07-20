@@ -5,6 +5,9 @@ import { resolveWorkspaceCapabilities } from "../../../partner-cabinet/services"
 import { ProductCard } from "../ProductCard";
 
 vi.mock("../../../orders/components/AddToCartButton", () => ({ AddToCartButton: () => <button type="button">Add</button> }));
+vi.mock("../../../purchasing-lists/components", () => ({
+  AddToPurchasingListButton: () => <button type="button">Save to list</button>,
+}));
 
 vi.mock("next/link", () => ({ default: ({ children, href }: { children: React.ReactNode; href: string }) => <a href={href}>{children}</a> }));
 vi.mock("../../../orders/components", () => ({ AddToCartButton: () => <button type="button">В корзину</button> }));

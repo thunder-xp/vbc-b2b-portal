@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("../../actions/reorder.actions", () => ({ addQuickReorderToCartAction: vi.fn() }));
+vi.mock("../../../purchasing-lists/components", () => ({ SaveAsPurchasingListButton: () => <button type="button">Сохранить выбранное как список</button> }));
 
 import { QuickReorderPanel } from "../QuickReorderPanel";
 import type { QuickReorderPreviewDto, QuickReorderPreviewLineDto, QuickReorderLineStatus } from "../../services";

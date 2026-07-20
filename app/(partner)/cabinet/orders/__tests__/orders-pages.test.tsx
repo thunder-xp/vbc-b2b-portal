@@ -12,6 +12,9 @@ vi.mock("@/src/modules/orders/actions", () => ({
   refreshPartnerOrderHistoryAction: mocks.refresh,
 }));
 vi.mock("@/src/modules/orders/actions/order.actions", () => ({ refreshPartnerOrderHistoryAction: mocks.refresh }));
+vi.mock("@/src/modules/purchasing-lists/components", () => ({
+  SaveAsPurchasingListButton: () => <button type="button">Save as list</button>,
+}));
 vi.mock("next/navigation", () => ({ notFound: mocks.notFound }));
 
 const summary = {

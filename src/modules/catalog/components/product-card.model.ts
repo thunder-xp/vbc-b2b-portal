@@ -20,5 +20,6 @@ export const RESTRICTED_PRODUCT_CARD_CAPABILITIES: ProductCardCapabilityModel = 
   showCompatibility: false,
   canAddToSpecification: false,
   canAddToOrder: false,
+  canManagePurchasingLists: false,
   canAddToProject: false,
 };

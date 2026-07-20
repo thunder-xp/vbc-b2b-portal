@@ -9,6 +9,7 @@ import type { ActionResult } from "../../access-control/actions/action-result";
 import { addQuickReorderToCartAction } from "../actions/reorder.actions";
 import type { QuickReorderConversionResultDto } from "../services";
 import { CatalogCardImage } from "../../catalog/components/CatalogCardImage";
+import { SaveAsPurchasingListButton } from "../../purchasing-lists/components";
 
 const INITIAL_STATE: ActionResult<QuickReorderConversionResultDto | null> = { success: false, errorCode: "IDLE", message: "", data: null };
 
@@ -114,6 +115,7 @@ export function QuickReorderPanel({ preview, requestKey: initialRequestKey }: { 
         <p className="text-sm text-zinc-700">Выбрано: <strong>{selectedCount}</strong> поз., <strong>{selectedUnits}</strong> ед.</p>
         <button className="rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-zinc-300" disabled={!selectedCount || pending || (state.success && !newAttempt)} type="submit">{pending ? "Добавление..." : "Добавить выбранное в корзину"}</button>
       </form>
+      <div className="flex justify-end"><SaveAsPurchasingListButton label="Сохранить выбранное как список" orderId={preview.orderId} selections={selectedLines} source="quick_reorder" /></div>
       {state.errorCode !== "IDLE" && !state.success ? <p className="rounded-md border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">Не удалось добавить выбранные позиции. Выбор сохранён, проверьте данные и повторите попытку.</p> : null}
       {state.success && state.data ? <ConversionSummary orderId={preview.orderId} result={state.data} onNewAttempt={() => { setRequestKey(crypto.randomUUID()); setNewAttempt(true); }} /> : null}
     </section>

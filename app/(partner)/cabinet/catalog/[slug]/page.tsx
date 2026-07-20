@@ -45,12 +45,14 @@ export default async function ProductDetailPage({
   if (!productResult.data) notFound();
 
   let canAddToOrder = false;
+  let canManagePurchasingLists = false;
   let companyId: string | null = null;
   let userId: string | null = null;
   let commercialView;
   if (activeTab === "description") {
     commercialView = commercialViewsResult?.success ? commercialViewsResult.data[0] : undefined;
     canAddToOrder = Boolean(workspaceResult?.success && workspaceResult.data.capabilities.productCard.canAddToOrder);
+    canManagePurchasingLists = Boolean(workspaceResult?.success && workspaceResult.data.capabilities.productCard.canManagePurchasingLists);
     companyId = workspaceResult?.success ? workspaceResult.data.companyId : null;
     userId = workspaceResult?.success ? workspaceResult.data.userId : null;
   }
@@ -62,6 +64,7 @@ export default async function ProductDetailPage({
     <ProductDetail
       activeTab={activeTab}
       canAddToOrder={canAddToOrder}
+      canManagePurchasingLists={canManagePurchasingLists}
       companyId={companyId}
       commercialView={commercialView}
       priceFreshness={priceFreshness}

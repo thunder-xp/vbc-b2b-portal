@@ -6,6 +6,7 @@ import type { CatalogProductCardDto } from "../services";
 import { CatalogCardImage } from "./CatalogCardImage";
 import { ProductPricingBlock } from "./ProductPricingBlock";
 import { AddToCartButton } from "../../orders/components/AddToCartButton";
+import { AddToPurchasingListButton } from "../../purchasing-lists/components";
 
 type ProductCardProps = { product: CatalogProductCardDto; commercialView?: ProductCommercialViewDto; capabilities: ProductCardCapabilityModel; imagePriority?: boolean };
 
@@ -20,7 +21,7 @@ export function ProductCard({ capabilities, commercialView, imagePriority = fals
         {capabilities.showPrice && <ProductPricingBlock commercialView={commercialView} />}
         {capabilities.showStock && <div className={`rounded-md px-3 py-2 font-medium ${stockTone.card}`}><span className={`inline-flex whitespace-pre-line rounded-md px-2 py-1 text-xs font-semibold ${stockTone.badge}`}>{commercialView?.stock?.label ?? "Наличие уточняется"}</span></div>}
       </div>
-      <div className="mt-4 flex flex-wrap items-start gap-2 border-t border-zinc-100 pt-3"><Link className="inline-flex h-9 items-center rounded-md border border-zinc-300 px-3 text-xs font-semibold text-zinc-800 hover:border-emerald-500" href={`/cabinet/catalog/${product.slug}`} prefetch={false}>Подробнее</Link>{capabilities.canAddToOrder && <AddToCartButton productId={product.id} />}</div>
+      <div className="mt-4 flex flex-wrap items-start gap-2 border-t border-zinc-100 pt-3"><Link className="inline-flex h-9 items-center rounded-md border border-zinc-300 px-3 text-xs font-semibold text-zinc-800 hover:border-emerald-500" href={`/cabinet/catalog/${product.slug}`} prefetch={false}>Подробнее</Link>{capabilities.canAddToOrder && <AddToCartButton productId={product.id} />}{capabilities.canManagePurchasingLists && <AddToPurchasingListButton productId={product.id} />}</div>
     </div>
   </article>;
 }
