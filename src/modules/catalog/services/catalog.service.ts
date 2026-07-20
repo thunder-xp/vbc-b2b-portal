@@ -118,7 +118,21 @@ export type CatalogProductOrderIdentityDto = {
 
 export type CatalogProductRouteIdentityDto = { id: string; slug: string };
 
+export type CatalogSearchSuggestionDto = {
+  id: string;
+  sku: string;
+  name: string;
+  slug: string;
+  imageUrl: string | null;
+  category: { id: string; name: string } | null;
+};
+
 export interface CatalogService {
+  searchSuggestions?(userId: string, input: {
+    query: string;
+    categoryId?: string;
+    limit?: number;
+  }): Promise<CatalogSearchSuggestionDto[]>;
   listCategories(userId: string): Promise<CatalogCategoryDto[]>;
   listBrands(userId: string): Promise<CatalogBrandDto[]>;
   listProducts(
@@ -171,6 +185,22 @@ export class DefaultCatalogService implements CatalogService {
     private readonly companyAccessService: CompanyAccessService,
     private readonly pricingInventoryService?: PricingInventoryService,
   ) {}
+
+  async searchSuggestions(userId: string, input: {
+    query: string;
+    categoryId?: string;
+    limit?: number;
+  }): Promise<CatalogSearchSuggestionDto[]> {
+    const query = input.query.trim();
+    if (query.length < 2 || query.length > 100 || !this.catalogRepository.searchSuggestions) return [];
+    const companyId = await this.ensureCatalogAccess(userId);
+    return this.catalogRepository.searchSuggestions({
+      companyId,
+      query,
+      categoryId: input.categoryId?.trim() || undefined,
+      limit: Math.min(Math.max(Math.trunc(input.limit ?? 6), 1), 10),
+    });
+  }
 
   async listCategories(userId: string): Promise<CatalogCategoryDto[]> {
     await this.ensureCatalogAccess(userId);

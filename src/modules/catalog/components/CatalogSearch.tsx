@@ -4,19 +4,17 @@ import { Search } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
-import type { ProductCommercialViewDto } from "../../pricing-inventory";
-import type { CatalogProductCardDto, CatalogProductListResult, CatalogSort } from "../services";
+import type { CatalogSearchSuggestionDto, CatalogSort } from "../services";
 import { ProductThumbnail } from "./ProductThumbnail";
 
 type SearchResponse =
-  | { success: true; data: CatalogProductListResult }
+  | { success: true; data: CatalogSearchSuggestionDto[] }
   | { success: false };
 
 export function CatalogSearch({ categoryId, initialSearch, sort = "default" }: { categoryId?: string; initialSearch?: string; sort?: CatalogSort }) {
   const [query, setQuery] = useState(initialSearch ?? "");
-  const [results, setResults] = useState<CatalogProductCardDto[]>([]);
+  const [results, setResults] = useState<CatalogSearchSuggestionDto[]>([]);
   const [loading, setLoading] = useState(false);
-  const [commercial, setCommercial] = useState<Record<string, ProductCommercialViewDto>>({});
   const lastRequestedRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -37,15 +35,11 @@ export function CatalogSearch({ categoryId, initialSearch, sort = "default" }: {
         });
         const result = await response.json() as SearchResponse;
         if (controller.signal.aborted) return;
-        const products = result.success ? result.data.products : [];
-        const views = result.success ? result.data.commercialViews ?? [] : [];
-        setResults(products);
-        setCommercial(Object.fromEntries(views.map((view) => [view.productId, view])));
+        setResults(result.success ? result.data : []);
       } catch (error) {
         if (!(error instanceof DOMException && error.name === "AbortError")) {
           lastRequestedRef.current = null;
           setResults([]);
-          setCommercial({});
         }
       } finally {
         if (!controller.signal.aborted) setLoading(false);
@@ -58,7 +52,6 @@ export function CatalogSearch({ categoryId, initialSearch, sort = "default" }: {
     setQuery(nextQuery);
     if (nextQuery.trim().length < 2) {
       setResults([]);
-      setCommercial({});
     }
   }
 
@@ -73,7 +66,7 @@ export function CatalogSearch({ categoryId, initialSearch, sort = "default" }: {
     {(loading || results.length > 0) && <div className="absolute left-0 right-0 top-12 z-30 rounded-lg border border-zinc-200 bg-white p-2 shadow-xl">
       {loading ? <p className="p-3 text-sm text-zinc-500">Поиск...</p> : results.map((product) => <Link className="flex items-center gap-3 rounded-md p-2 hover:bg-zinc-50" href={`/cabinet/catalog/${product.slug}`} key={product.id} prefetch={false}>
         <div className="relative flex size-12 shrink-0 items-center justify-center overflow-hidden rounded bg-zinc-100">{product.imageUrl ? <ProductThumbnail alt="" className="object-contain p-1" sizes="48px" src={product.imageUrl} /> : <Search className="size-4 text-zinc-400" />}</div>
-        <div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold text-zinc-950">{product.name}</p><p className="text-xs text-zinc-500">{product.sku}{product.category ? ` · ${product.category.name}` : ""}</p><p className="mt-1 text-xs font-medium text-emerald-700">{commercial[product.id]?.partnerPrice?.formattedAmount ?? "Цена уточняется"} · {commercial[product.id]?.stock?.label ?? "Наличие уточняется"}</p></div>
+        <div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold text-zinc-950">{product.name}</p><p className="text-xs text-zinc-500">{product.sku}{product.category ? ` · ${product.category.name}` : ""}</p></div>
       </Link>)}
     </div>}
   </div>;

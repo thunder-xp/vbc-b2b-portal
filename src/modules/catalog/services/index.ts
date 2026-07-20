@@ -10,6 +10,7 @@ export type {
   CatalogProductListResult,
   CatalogProductOrderIdentityDto,
   CatalogProductRouteIdentityDto,
+  CatalogSearchSuggestionDto,
   CatalogFacetDto,
   CatalogFacetListInput,
   CatalogService,

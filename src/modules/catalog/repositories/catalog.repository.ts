@@ -50,6 +50,15 @@ export type CatalogPartnerPage = {
   totalCount: number;
 };
 
+export type CatalogSearchSuggestion = {
+  id: string;
+  sku: string;
+  name: string;
+  slug: string;
+  imageUrl: string | null;
+  category: Pick<CatalogCategory, "id" | "name"> | null;
+};
+
 export type CatalogPartnerFacetInput = Pick<
   CatalogPartnerPageInput,
   "companyId" | "categoryId" | "brandId" | "search" | "availability" | "attributeFilters"
@@ -111,6 +120,12 @@ export type UpsertCatalogProductInput = {
 };
 
 export interface CatalogRepository {
+  searchSuggestions?(input: {
+    companyId: string;
+    query: string;
+    categoryId?: string;
+    limit: number;
+  }): Promise<CatalogSearchSuggestion[]>;
   listPartnerPage?(input: CatalogPartnerPageInput): Promise<CatalogPartnerPage>;
   listPartnerFacets?(input: CatalogPartnerFacetInput): Promise<CatalogFacetValueRecord[]>;
   listCategories(): Promise<CatalogCategory[]>;

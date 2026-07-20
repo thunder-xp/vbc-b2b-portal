@@ -10,6 +10,7 @@ import type {
   CatalogPartnerPage,
   CatalogPartnerPageInput,
   CatalogPartnerFacetInput,
+  CatalogSearchSuggestion,
   UpsertCatalogBrandInput,
   UpsertCatalogCategoryInput,
   UpsertCatalogProductInput,
@@ -62,6 +63,40 @@ export class CatalogRepositoryUnexpectedError extends Error {
 }
 
 export class SupabaseCatalogRepository implements CatalogRepository {
+  async searchSuggestions(input: {
+    companyId: string;
+    query: string;
+    categoryId?: string;
+    limit: number;
+  }): Promise<CatalogSearchSuggestion[]> {
+    const supabase = await createClient();
+    const { data, error } = await supabase.rpc("catalog_search_suggestions", {
+      p_company_id: input.companyId,
+      p_query: input.query,
+      p_category_id: input.categoryId ?? null,
+      p_limit: input.limit,
+    });
+    if (error) throw new CatalogRepositoryUnexpectedError();
+    return ((data ?? []) as Array<{
+      id: string;
+      sku: string;
+      name: string;
+      slug: string;
+      image_url: string | null;
+      category_id: string | null;
+      category_name: string | null;
+    }>).map((row) => ({
+      id: row.id,
+      sku: row.sku,
+      name: row.name,
+      slug: row.slug,
+      imageUrl: row.image_url,
+      category: row.category_id && row.category_name
+        ? { id: row.category_id, name: row.category_name }
+        : null,
+    }));
+  }
+
   async listPartnerFacets(input: CatalogPartnerFacetInput): Promise<CatalogFacetValueRecord[]> {
     const supabase = await createClient();
     const { data, error } = await supabase.rpc("catalog_partner_facets", {
