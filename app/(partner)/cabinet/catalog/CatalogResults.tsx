@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import Link from "next/link";
 
-import type { listCatalogFacetsAction } from "@/src/modules/catalog/actions/list-facets.action";
+import { listCatalogFacetsAction } from "@/src/modules/catalog/actions/list-facets.action";
 import type { listCatalogProductsAction } from "@/src/modules/catalog/actions/list-products.action";
 import { CatalogFilters } from "@/src/modules/catalog/components/CatalogFilters";
 import type { CatalogAvailability } from "@/src/modules/catalog/components/CatalogFilters";
@@ -24,7 +24,6 @@ type Props = {
   availability: CatalogAvailability;
   categories: CatalogCategoryDto[];
   categoryId?: string;
-  facetsPromise: ReturnType<typeof listCatalogFacetsAction>;
   page: number;
   productsPromise: ReturnType<typeof listCatalogProductsAction>;
   search?: string;
@@ -37,7 +36,6 @@ export async function CatalogResults({
   availability,
   categories,
   categoryId,
-  facetsPromise,
   page,
   productsPromise,
   search,
@@ -72,7 +70,7 @@ export async function CatalogResults({
     {(search || selectedCategory || availability !== "all" || Object.keys(attributeFilters).length > 0) && <div className="flex flex-wrap items-center gap-2 text-sm"><span className="text-zinc-500">Активные фильтры:</span>{selectedCategory && <FilterChip href={buildCatalogHref({ availability, page: 1, search, sort, attributeFilters })} label={selectedCategory.name} />}{search && <FilterChip href={buildCatalogHref({ availability, categoryId, page: 1, sort, attributeFilters })} label={`Поиск: ${search}`} />}{availability !== "all" && <FilterChip href={buildCatalogHref({ categoryId, page: 1, search, sort, attributeFilters })} label={availability === "in_stock" ? "В наличии" : "К поступлению"} />}{Object.entries(attributeFilters).flatMap(([key, values]) => values.map((value) => <FilterChip href={buildCatalogHref({ availability, categoryId, page: 1, search, sort, attributeFilters: withoutAttributeValue(attributeFilters, key, value) })} key={`${key}:${value}`} label={`Характеристика: ${value}`} />))}<Link className="text-sm font-medium text-emerald-700" href="/cabinet/catalog" prefetch={false}>Очистить всё</Link></div>}
     <div className="grid gap-6 lg:grid-cols-[260px_1fr]">
       <Suspense fallback={<CatalogFacetFallback />}>
-        <CatalogFacetResults attributeFilters={attributeFilters} availability={availability} categoryId={categoryId} facetsPromise={facetsPromise} search={search} sort={sort} />
+        <CatalogFacetResults attributeFilters={attributeFilters} availability={availability} categoryId={categoryId} search={search} sort={sort} />
       </Suspense>
       <section className="space-y-5">
         {productsResult.data.products.length > 0 ? <><ProductGrid capabilities={workspaceContextResult.success ? workspaceContextResult.data.capabilities.productCard : RESTRICTED_PRODUCT_CARD_CAPABILITIES} commercialViews={commercialViews} products={productsResult.data.products} /><CatalogPagination availability={availability} categoryId={categoryId} hasNextPage={productsResult.data.hasNextPage} page={page} search={search} sort={sort} attributeFilters={attributeFilters} /></> : <EmptyCatalog message={search ? "По вашему запросу товары не найдены." : "В выбранной категории пока нет товаров."} title="Товары не найдены" />}
@@ -85,11 +83,15 @@ export async function CatalogFacetResults({
   attributeFilters,
   availability,
   categoryId,
-  facetsPromise,
   search,
   sort,
-}: Pick<Props, "attributeFilters" | "availability" | "categoryId" | "facetsPromise" | "search" | "sort">) {
-  const result = await facetsPromise;
+}: Pick<Props, "attributeFilters" | "availability" | "categoryId" | "search" | "sort">) {
+  const result = await listCatalogFacetsAction({
+    attributeFilters,
+    availability,
+    categoryId,
+    search,
+  });
   return <CatalogFilters
     attributeFilters={attributeFilters}
     availability={availability}

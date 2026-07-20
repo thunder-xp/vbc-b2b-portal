@@ -1,7 +1,6 @@
 import { Suspense } from "react";
 
 import { listCatalogCategoriesAction } from "@/src/modules/catalog/actions/list-categories.action";
-import { listCatalogFacetsAction } from "@/src/modules/catalog/actions/list-facets.action";
 import { listCatalogProductsAction } from "@/src/modules/catalog/actions/list-products.action";
 import { CatalogBreadcrumb } from "@/src/modules/catalog/components/CatalogBreadcrumb";
 import { CatalogSearch } from "@/src/modules/catalog/components/CatalogSearch";
@@ -41,12 +40,6 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
     sort,
     attributeFilters,
   });
-  const facetsPromise = listCatalogFacetsAction({
-    categoryId,
-    search,
-    availability,
-    attributeFilters,
-  });
   const workspacePromise = getPartnerWorkspaceContextAction();
   const categoriesResult = await categoriesPromise;
 
@@ -66,7 +59,6 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
         availability={availability}
         categories={categoriesResult.data}
         categoryId={categoryId}
-        facetsPromise={facetsPromise}
         page={page}
         productsPromise={productsPromise}
         search={search}

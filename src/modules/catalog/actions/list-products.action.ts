@@ -21,6 +21,7 @@ import {
   normalizeCatalogFilters,
   normalizeCatalogOptionalText,
 } from "./catalog-action-input";
+import { emitRequestTotal, measurePerformanceStage } from "@/src/lib/performance/request-diagnostics";
 
 export async function listCatalogProductsAction(
   input: CatalogProductListInput,
@@ -29,7 +30,7 @@ export async function listCatalogProductsAction(
     const userId = await getAuthenticatedUserId();
     const availability = normalizeCatalogAvailability(input.availability);
     const pricingInventoryService = createPricingInventoryService();
-    const products = await createCatalogService(pricingInventoryService).listProducts(userId, {
+    const products = await measurePerformanceStage("catalog", "catalog_results", () => createCatalogService(pricingInventoryService).listProducts(userId, {
       categoryId: normalizeCatalogOptionalText(input.categoryId),
       brandId: normalizeCatalogOptionalText(input.brandId),
       search: normalizeCatalogOptionalText(input.search),
@@ -38,11 +39,13 @@ export async function listCatalogProductsAction(
       sort: input.sort,
       attributeFilters: normalizeCatalogFilters(input.attributeFilters),
       availability,
-    });
+    }));
 
     return success("Catalog products loaded.", products);
   } catch (error) {
     return failureFromError(error);
+  } finally {
+    emitRequestTotal("catalog");
   }
 }
 

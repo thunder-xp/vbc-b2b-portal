@@ -17,13 +17,14 @@ import {
   normalizeCatalogFilters,
   normalizeCatalogOptionalText,
 } from "./catalog-action-input";
+import { measurePerformanceStage } from "@/src/lib/performance/request-diagnostics";
 
 export async function listCatalogFacetsAction(
   input: CatalogFacetListInput,
 ): Promise<ActionResult<CatalogFacetDto[]>> {
   try {
     const userId = await getAuthenticatedUserId();
-    const facets = await new DefaultCatalogService(
+    const facets = await measurePerformanceStage("catalog", "catalog_facets", () => new DefaultCatalogService(
       new SupabaseCatalogRepository(),
       createCompanyAccessService(),
     ).listFacets(userId, {
@@ -32,7 +33,7 @@ export async function listCatalogFacetsAction(
       search: normalizeCatalogOptionalText(input.search),
       availability: normalizeCatalogAvailability(input.availability),
       attributeFilters: normalizeCatalogFilters(input.attributeFilters),
-    });
+    }));
     return success("Catalog facets loaded.", facets);
   } catch (error) {
     return failureFromError(error);
