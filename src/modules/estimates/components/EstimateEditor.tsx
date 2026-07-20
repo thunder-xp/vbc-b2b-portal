@@ -1,9 +1,10 @@
 "use client";
 
 import { Archive, Check, Copy, Eye, FileDown, MoreHorizontal, PackagePlus, Save, ShoppingCart, Trash2 } from "lucide-react";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+
+import { ProductThumbnail } from "../../catalog/components/ProductThumbnail";
 
 import {
   addEstimateCustomLineAction,
@@ -238,7 +239,7 @@ function ProductPicker({ estimate, pending, submit }: { estimate: EstimateDetail
           {products.products.map((product) => (
             <label className="grid cursor-pointer gap-3 py-3 sm:grid-cols-[auto_3rem_minmax(0,1fr)_7rem] sm:items-center" key={product.id}>
               <input className="size-4 accent-emerald-700" name={`selected-${product.id}`} type="checkbox" />
-              {product.imageUrl ? <Image alt="" className="size-12 object-contain" height={48} src={product.imageUrl} unoptimized width={48} /> : <span className="flex size-12 items-center justify-center bg-zinc-100"><PackagePlus className="size-5 text-zinc-400" /></span>}
+              <span className="relative flex size-12 items-center justify-center overflow-hidden bg-zinc-100">{product.imageUrl ? <ProductThumbnail alt="" className="object-contain p-1" sizes="48px" src={product.imageUrl} /> : <PackagePlus className="size-5 text-zinc-400" />}</span>
               <span className="min-w-0"><span className="block truncate text-sm font-semibold">{product.name}</span><span className="mt-1 block text-xs text-zinc-500">SKU {product.sku} · {product.partnerPrice ?? "Цена уточняется"} · {product.stock}</span>{product.expectedArrival && <span className="block text-xs text-zinc-500">Поступление: {product.expectedArrival}</span>}</span>
               <span className="text-xs font-medium text-zinc-500">Количество<input className="mt-1 h-9 w-full rounded-md border border-zinc-300 px-2 text-sm" defaultValue={1} min="0.001" name={`quantity-${product.id}`} step="0.001" type="number" /></span>
             </label>
