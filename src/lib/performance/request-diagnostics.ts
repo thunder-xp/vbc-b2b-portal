@@ -8,6 +8,7 @@ type PerformanceRequestState = {
   databaseDurationMs: number;
   databaseQueryCount: number;
   liveProviderCalls: number;
+  sampled: boolean;
   startedAt: number;
 };
 
@@ -19,6 +20,7 @@ const getRequestState = cache((): PerformanceRequestState => ({
   databaseDurationMs: 0,
   databaseQueryCount: 0,
   liveProviderCalls: 0,
+  sampled: shouldSampleRequest(),
   startedAt: performance.now(),
 }));
 
@@ -59,6 +61,7 @@ export function emitRequestTotal(routeCategory: string): void {
 
 function emitPerformanceEvent(routeCategory: string, stage: string, durationMs: number): void {
   const state = getRequestState();
+  if (!state.sampled) return;
   console.info(JSON.stringify({
     event: "authenticated_route_performance",
     correlationId: state.correlationId,
@@ -72,6 +75,13 @@ function emitPerformanceEvent(routeCategory: string, stage: string, durationMs: 
     cacheStatus: "request_scoped",
     deployedCommitSha: process.env.VERCEL_GIT_COMMIT_SHA ?? "local",
   }));
+}
+
+function shouldSampleRequest(): boolean {
+  if (process.env.NODE_ENV !== "production") return true;
+  const configured = Number(process.env.PERFORMANCE_DIAGNOSTICS_SAMPLE_RATE ?? "0.05");
+  const rate = Number.isFinite(configured) ? Math.min(Math.max(configured, 0), 1) : 0.05;
+  return Math.random() < rate;
 }
 
 function round(value: number): number {

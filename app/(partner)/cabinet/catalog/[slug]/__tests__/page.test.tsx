@@ -47,7 +47,11 @@ describe("product detail page data loading", () => {
     const page = ProductDetailPage({ params: Promise.resolve({ slug: "ip-camera" }), searchParams: Promise.resolve({}) });
 
     await vi.waitFor(() => {
-      expect(mocks.getProduct).toHaveBeenCalledWith("product-1");
+      expect(mocks.getProduct).toHaveBeenCalledWith("product-1", {
+        includeAttributes: false,
+        includeDocuments: false,
+        includeImages: true,
+      });
       expect(mocks.getCommercial).toHaveBeenCalledWith(["product-1"]);
       expect(mocks.getWorkspace).toHaveBeenCalledOnce();
     });
@@ -60,6 +64,15 @@ describe("product detail page data loading", () => {
     expect(mocks.getCommercial).not.toHaveBeenCalled();
     expect(mocks.getWorkspace).not.toHaveBeenCalled();
     expect(screen.getByText("История изменения цен пока недоступна")).toBeInTheDocument();
+  });
+
+  it("loads documents only for the Datasheet tab", async () => {
+    render(await ProductDetailPage({ params: Promise.resolve({ slug: "ip-camera" }), searchParams: Promise.resolve({ tab: "datasheet" }) }));
+    expect(mocks.getProduct).toHaveBeenCalledWith("product-1", {
+      includeAttributes: true,
+      includeDocuments: true,
+      includeImages: true,
+    });
   });
 });
 

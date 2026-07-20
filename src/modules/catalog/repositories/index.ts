@@ -2,6 +2,7 @@ export type {
   CatalogRepository,
   CatalogUpsertResult,
   CatalogProductDetailAggregate,
+  CatalogProductDetailProjection,
   CatalogPartnerPage,
   CatalogPartnerPageInput,
   CatalogPartnerPageRecord,

@@ -37,6 +37,20 @@ describe("catalog product detail performance", () => {
     expect(repository.listProductDocuments).not.toHaveBeenCalled();
     expect(repository.listProductAttributes).not.toHaveBeenCalled();
   });
+
+  it("passes a bounded tab projection to the aggregate repository", async () => {
+    const aggregate = vi.fn().mockResolvedValue({ product, brand: null, category: null, images: [], documents: [], attributes: [] });
+    const repository = { getProductDetailAggregateById: aggregate } as unknown as CatalogRepository;
+    const access = {
+      getOwnMemberships: vi.fn().mockResolvedValue([{ companyId: "company-1", status: "active" }]),
+      getActiveCompanyContext: vi.fn().mockResolvedValue({}),
+    } as unknown as CompanyAccessService;
+    const projection = { includeAttributes: false, includeDocuments: false, includeImages: true };
+
+    await new DefaultCatalogService(repository, access).getProductDetailById("user-1", product.id, projection);
+
+    expect(aggregate).toHaveBeenCalledWith(product.id, projection);
+  });
 });
 
 const product = {

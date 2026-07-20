@@ -6,7 +6,7 @@ import type {
   ProductCommercialInternalDto,
 } from "../../pricing-inventory/services";
 import { projectProductCommercialSnapshot } from "../../pricing-inventory/services";
-import type { CatalogRepository, ListCatalogProductsInput } from "../repositories";
+import type { CatalogProductDetailProjection, CatalogRepository, ListCatalogProductsInput } from "../repositories";
 import type {
   CatalogBrand,
   CatalogCategory,
@@ -131,7 +131,7 @@ export interface CatalogService {
     slug: string,
   ): Promise<CatalogProductDetailDto | null>;
   getProductRouteIdentityBySlug?(userId: string, slug: string): Promise<CatalogProductRouteIdentityDto | null>;
-  getProductDetailById?(userId: string, id: string): Promise<CatalogProductDetailDto | null>;
+  getProductDetailById?(userId: string, id: string, projection?: CatalogProductDetailProjection): Promise<CatalogProductDetailDto | null>;
   getProductsByIds(
     userId: string,
     productIds: string[],
@@ -543,9 +543,13 @@ export class DefaultCatalogService implements CatalogService {
     return null;
   }
 
-  async getProductDetailById(userId: string, id: string): Promise<CatalogProductDetailDto | null> {
-    await this.ensureCatalogAccess(userId);
-    const aggregate = await this.catalogRepository.getProductDetailAggregateById?.(id);
+  async getProductDetailById(userId: string, id: string, projection?: CatalogProductDetailProjection): Promise<CatalogProductDetailDto | null> {
+    await measurePerformanceStage("product_detail", "access_context", () => this.ensureCatalogAccess(userId));
+    const aggregate = await measurePerformanceStage(
+      "product_detail",
+      "product_projection",
+      () => this.catalogRepository.getProductDetailAggregateById?.(id, projection) ?? Promise.resolve(null),
+    );
     if (aggregate) {
       const projectedAttributes = aggregate.attributes.map((attribute) => ({
         key: attribute.key,
@@ -752,7 +756,8 @@ function intersectProductIds(left: string[] | undefined, right: string[] | undef
   return left.filter((id) => rightIds.has(id));
 }
 function toPublicCommercialView(view: ProductCommercialInternalDto): ProductCommercialViewDto {
-  const { retailBelowPartnerPrice: _internalDiagnostic, ...publicView } = view;
+  const { retailBelowPartnerPrice: internalDiagnostic, ...publicView } = view;
+  void internalDiagnostic;
   return publicView;
 }
 function filterCommercialViews(

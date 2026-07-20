@@ -36,7 +36,7 @@ export default async function ProductDetailPage({
   }
 
   const [productResult, commercialViewsResult, workspaceResult] = await Promise.all([
-    getCatalogProductDetailByIdAction(identityResult.data.id),
+    getCatalogProductDetailByIdAction(identityResult.data.id, detailProjection(activeTab)),
     activeTab === "description" ? getProductCommercialViewsAction([identityResult.data.id]) : Promise.resolve(null),
     activeTab === "description" ? getPartnerWorkspaceContextAction() : Promise.resolve(null),
   ]);
@@ -78,6 +78,14 @@ export default async function ProductDetailPage({
 function parseTab(value: string | string[] | undefined): ProductDetailTab {
   const tab = Array.isArray(value) ? value[0] : value;
   return tab === "characteristics" || tab === "datasheet" || tab === "pricing" ? tab : "description";
+}
+
+function detailProjection(tab: ProductDetailTab) {
+  return {
+    includeAttributes: tab === "characteristics" || tab === "datasheet",
+    includeDocuments: tab === "datasheet",
+    includeImages: true,
+  };
 }
 
 function latestTimestamp(values: Array<string | null | undefined>): string | null {

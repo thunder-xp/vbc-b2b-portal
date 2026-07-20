@@ -64,6 +64,12 @@ export type CatalogProductDetailAggregate = {
   attributes: CatalogProductAttribute[];
 };
 
+export type CatalogProductDetailProjection = {
+  includeAttributes: boolean;
+  includeDocuments: boolean;
+  includeImages: boolean;
+};
+
 export type CatalogUpsertResult<TRecord> = {
   record: TRecord;
   created: boolean;
@@ -113,7 +119,7 @@ export interface CatalogRepository {
   countProducts(input: ListCatalogProductsInput): Promise<number>;
   getProductBySlug(slug: string): Promise<CatalogProduct | null>;
   getProductById(id: string): Promise<CatalogProduct | null>;
-  getProductDetailAggregateById?(id: string): Promise<CatalogProductDetailAggregate | null>;
+  getProductDetailAggregateById?(id: string, projection?: CatalogProductDetailProjection): Promise<CatalogProductDetailAggregate | null>;
   findCategoryByExternal1cId(
     external1cId: string,
   ): Promise<CatalogCategory | null>;
