@@ -25,6 +25,25 @@ export async function listManageablePurchasingListsAction() {
   catch (error) { return failureFromError(error); }
 }
 
+export async function listFavoriteProductIdsAction(productIds: string[]) {
+  const parsed = z.array(uuid).max(100).safeParse(productIds);
+  if (!parsed.success) return invalidInput("Не удалось загрузить избранное.");
+  if (!parsed.data.length) return success("Избранное загружено.", []);
+  try { return success("Избранное загружено.", await createPurchasingListService().listFavoriteProductIds(await getAuthenticatedUserId(), parsed.data)); }
+  catch (error) { return failureFromError(error); }
+}
+
+export async function setFavoriteProductAction(productId: string, saved: boolean) {
+  const parsed = z.object({ productId: uuid, saved: z.boolean() }).safeParse({ productId, saved });
+  if (!parsed.success) return invalidInput("Не удалось изменить избранное.");
+  try {
+    const result = await createPurchasingListService().setFavorite(await getAuthenticatedUserId(), parsed.data.productId, parsed.data.saved);
+    revalidatePath("/cabinet/purchasing-lists");
+    if (result.listId) revalidatePath(`/cabinet/purchasing-lists/${result.listId}`);
+    return success(result.saved ? "Товар добавлен в избранное." : "Товар удалён из избранного.", result);
+  } catch (error) { return failureFromError(error); }
+}
+
 export async function createPurchasingListAction(input: z.input<typeof metadataSchema>) {
   const parsed = metadataSchema.safeParse(input); if (!parsed.success) return invalidInput("Проверьте название и доступ списка.");
   try { const list = await createPurchasingListService().createManual(await getAuthenticatedUserId(), parsed.data); revalidateLists(list.id); return success("Список закупок создан.", { id: list.id }); }

@@ -6,6 +6,7 @@ import { ProductDetail, type ProductDetailTab } from "@/src/modules/catalog/comp
 import { evaluateFreshness } from "@/src/modules/integration/freshness";
 import { getProductCommercialViewsAction } from "@/src/modules/pricing-inventory/actions";
 import { getPartnerWorkspaceContextAction } from "@/src/modules/partner-cabinet/actions";
+import { listFavoriteProductIdsAction } from "@/src/modules/purchasing-lists/actions";
 
 type ProductDetailPageProps = {
   params: Promise<{
@@ -49,12 +50,17 @@ export default async function ProductDetailPage({
   let companyId: string | null = null;
   let userId: string | null = null;
   let commercialView;
+  let initialFavorite = false;
   if (activeTab === "description") {
     commercialView = commercialViewsResult?.success ? commercialViewsResult.data[0] : undefined;
     canAddToOrder = Boolean(workspaceResult?.success && workspaceResult.data.capabilities.productCard.canAddToOrder);
     canManagePurchasingLists = Boolean(workspaceResult?.success && workspaceResult.data.capabilities.productCard.canManagePurchasingLists);
     companyId = workspaceResult?.success ? workspaceResult.data.companyId : null;
     userId = workspaceResult?.success ? workspaceResult.data.userId : null;
+    if (canManagePurchasingLists) {
+      const favoriteResult = await listFavoriteProductIdsAction([productResult.data.id]);
+      initialFavorite = Boolean(favoriteResult.success && favoriteResult.data.includes(productResult.data.id));
+    }
   }
   const priceUpdatedAt = latestTimestamp([commercialView?.partnerPrice?.lastUpdatedAt, commercialView?.retailPrice?.lastUpdatedAt]);
   const priceFreshness = priceUpdatedAt ? evaluateFreshness(priceUpdatedAt, "price", "Цены") : null;
@@ -68,6 +74,7 @@ export default async function ProductDetailPage({
       companyId={companyId}
       commercialView={commercialView}
       priceFreshness={priceFreshness}
+      initialFavorite={initialFavorite}
       product={productResult.data}
       stockFreshness={stockFreshness}
       userId={userId}

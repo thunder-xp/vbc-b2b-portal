@@ -14,6 +14,7 @@ const VIEW_PERMISSION = "purchasing_lists.view";
 const MANAGE_PERMISSION = "purchasing_lists.manage";
 const PAGE_SIZE = 20;
 const MAX_ITEMS = 200;
+const MAX_FAVORITE_PROJECTION = 100;
 
 export interface PurchasingListEstimateGateway {
   createFromPurchasingList(userId: string, input: {
@@ -65,6 +66,21 @@ export class PurchasingListService {
     const companyId = await this.resolveCompany(userId, MANAGE_PERMISSION);
     const result = await this.repository.list({ companyId, search: null, visibility: null, mine: false, archived: false, limit: 100, offset: 0 });
     return result.records.filter((record) => record.visibility === "company" || record.createdBy === userId).map(({ id, name, revision }) => ({ id, name, revision }));
+  }
+
+  async listFavoriteProductIds(userId: string, productIds: string[]): Promise<string[]> {
+    const companyId = await this.resolveCompany(userId, VIEW_PERMISSION);
+    const normalized = [...new Set(productIds.map(requireUuid))];
+    if (!normalized.length) return [];
+    if (normalized.length > MAX_FAVORITE_PROJECTION) throw new InvalidStateError("Favorite query is too large.");
+    return this.repository.listFavoriteProductIds(companyId, normalized);
+  }
+
+  async setFavorite(userId: string, productId: string, saved: boolean) {
+    const companyId = await this.resolveCompany(userId, MANAGE_PERMISSION);
+    const normalizedProductId = requireUuid(productId);
+    if (!(await this.catalogService.getProductsByIds(userId, [normalizedProductId])).length) throw new NotFoundError("Product was not found.");
+    return this.repository.setFavorite(companyId, normalizedProductId, saved);
   }
 
   async getDetail(userId: string, listId: string): Promise<PurchasingListDetailDto> {
@@ -151,7 +167,8 @@ export class PurchasingListService {
   }
 
   async updateMetadata(userId: string, listId: string, expectedRevision: number, input: { name: string; description?: string | null; visibility: PurchasingListVisibility }) {
-    await this.requireManageable(userId, listId, expectedRevision);
+    const detail = await this.requireManageable(userId, listId, expectedRevision);
+    if (detail.isSystemFavorites) throw new InvalidStateError("System favorites metadata cannot be changed.");
     return this.repository.updateMetadata({ listId, expectedRevision, ...normalizeMetadata(input) });
   }
 
@@ -175,6 +192,7 @@ export class PurchasingListService {
     await this.resolveCompany(userId, MANAGE_PERMISSION);
     const detail = await this.getDetail(userId, listId);
     if (detail.visibility === "private" && detail.createdBy !== userId) throw new InvalidStateError("Purchasing list cannot be changed.");
+    if (detail.isSystemFavorites) throw new InvalidStateError("System favorites cannot be archived.");
     if (detail.revision !== expectedRevision) throw new InvalidStateError("Purchasing list changed. Reload it.");
     return this.repository.setArchived({ listId: detail.id, expectedRevision, archived });
   }

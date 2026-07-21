@@ -18,6 +18,7 @@ type ProductDetailProps = {
   companyId?: string | null;
   commercialView?: ProductCommercialViewDto;
   priceFreshness?: FreshnessView | null;
+  initialFavorite?: boolean;
   product: CatalogProductDetailDto;
   stockFreshness?: FreshnessView | null;
   userId?: string | null;
@@ -30,7 +31,7 @@ const TABS: Array<{ id: ProductDetailTab; label: string }> = [
   { id: "pricing", label: "Ценообразование" },
 ];
 
-export function ProductDetail({ activeTab = "description", canAddToOrder = false, canManagePurchasingLists = false, companyId = null, commercialView, priceFreshness, product, stockFreshness, userId = null }: ProductDetailProps) {
+export function ProductDetail({ activeTab = "description", canAddToOrder = false, canManagePurchasingLists = false, companyId = null, commercialView, initialFavorite = false, priceFreshness, product, stockFreshness, userId = null }: ProductDetailProps) {
   return <article className="space-y-4">
     <nav aria-label="Разделы товара" className="overflow-x-auto border-b border-zinc-200">
       <div className="flex min-w-max gap-6">
@@ -40,7 +41,7 @@ export function ProductDetail({ activeTab = "description", canAddToOrder = false
     <div className="grid gap-5 md:grid-cols-[minmax(0,360px)_minmax(0,1fr)] md:items-start lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)] lg:gap-7" data-testid="product-detail-layout">
       <div data-testid="product-detail-image"><ProductImageGallery fallbackImageUrl={product.imageUrl} images={product.images} productId={product.id} productName={product.name} /></div>
       <div className="min-w-0" data-testid="product-detail-content">
-        {activeTab === "description" ? <DescriptionTab canAddToOrder={canAddToOrder} canManagePurchasingLists={canManagePurchasingLists} companyId={companyId} commercialView={commercialView} priceFreshness={priceFreshness} product={product} stockFreshness={stockFreshness} userId={userId} /> : null}
+        {activeTab === "description" ? <DescriptionTab canAddToOrder={canAddToOrder} canManagePurchasingLists={canManagePurchasingLists} companyId={companyId} commercialView={commercialView} initialFavorite={initialFavorite} priceFreshness={priceFreshness} product={product} stockFreshness={stockFreshness} userId={userId} /> : null}
         {activeTab === "characteristics" ? <CharacteristicsTab product={product} /> : null}
         {activeTab === "datasheet" ? <DatasheetTab product={product} /> : null}
         {activeTab === "pricing" ? <PricingHistoryTab /> : null}
@@ -49,14 +50,14 @@ export function ProductDetail({ activeTab = "description", canAddToOrder = false
   </article>;
 }
 
-function DescriptionTab({ canAddToOrder, canManagePurchasingLists, companyId, commercialView, priceFreshness, product, stockFreshness, userId }: Omit<ProductDetailProps, "activeTab">) {
+function DescriptionTab({ canAddToOrder, canManagePurchasingLists, companyId, commercialView, initialFavorite, priceFreshness, product, stockFreshness, userId }: Omit<ProductDetailProps, "activeTab">) {
   const description = product.description ?? product.shortDescription ?? "Описание товара пока недоступно.";
   return <section aria-label="Описание товара" data-testid="product-description-tab">
       <h1 className="text-3xl font-semibold text-zinc-950">{product.name}</h1>
       <p className="mt-1.5 text-sm font-medium text-zinc-600">Артикул: {product.sku}</p>
       {product.brand?.name ? <p className="mt-1.5 text-sm font-medium text-emerald-700">{product.brand.name}</p> : null}
       <ExpandableDescription text={description} />
-      {companyId || canAddToOrder ? <ProductActions canAddToOrder={canAddToOrder ?? false} canManagePurchasingLists={canManagePurchasingLists} categoryId={product.category?.id ?? null} companyId={companyId ?? null} productId={product.id} slug={product.slug} userId={userId ?? null} /> : null}
+      {companyId || canAddToOrder ? <ProductActions canAddToOrder={canAddToOrder ?? false} canManagePurchasingLists={canManagePurchasingLists} categoryId={product.category?.id ?? null} companyId={companyId ?? null} initialFavorite={initialFavorite} productId={product.id} userId={userId ?? null} /> : null}
 
       <section aria-label="Текущая коммерческая информация" className="mt-8 border-t border-zinc-200 pt-6">
         <h2 className="text-base font-semibold text-zinc-950">Коммерческое предложение</h2>

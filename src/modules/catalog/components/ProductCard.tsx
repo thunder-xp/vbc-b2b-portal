@@ -2,15 +2,16 @@ import Link from "next/link";
 
 import type { ProductCardCapabilityModel } from "../../partner-cabinet/services";
 import type { ProductCommercialViewDto } from "../../pricing-inventory";
+import { AddToPurchasingListButton } from "../../purchasing-lists/components/AddToPurchasingListButton";
+import { FavoriteProductButton } from "../../purchasing-lists/components/FavoriteProductButton";
 import type { CatalogProductCardDto } from "../services";
 import { CatalogCardImage } from "./CatalogCardImage";
 import { CatalogQuantityCartAction } from "./CatalogQuantityCartAction";
 import { ProductPricingBlock } from "./ProductPricingBlock";
-import { AddToPurchasingListButton } from "../../purchasing-lists/components/AddToPurchasingListButton";
 
-type ProductCardProps = { product: CatalogProductCardDto; commercialView?: ProductCommercialViewDto; capabilities: ProductCardCapabilityModel; imagePriority?: boolean };
+type ProductCardProps = { product: CatalogProductCardDto; commercialView?: ProductCommercialViewDto; capabilities: ProductCardCapabilityModel; favorite?: boolean; imagePriority?: boolean };
 
-export function ProductCard({ capabilities, commercialView, imagePriority = false, product }: ProductCardProps) {
+export function ProductCard({ capabilities, commercialView, favorite = false, imagePriority = false, product }: ProductCardProps) {
   const stockTone = getStockTone(commercialView?.stock?.status);
   return <article className="flex h-full min-w-0 flex-col overflow-hidden rounded-md border border-zinc-200 bg-white shadow-sm transition hover:border-emerald-500">
     <Link className="relative block aspect-[4/3] overflow-hidden bg-zinc-100" href={`/cabinet/catalog/${product.slug}`} prefetch={false}><CatalogCardImage alt={product.name} priority={imagePriority} sizes="(max-width: 639px) calc(100vw - 2rem), (max-width: 1023px) 50vw, (max-width: 1279px) 33vw, (max-width: 1535px) 25vw, 20vw" src={product.imageUrl} /></Link>
@@ -21,7 +22,10 @@ export function ProductCard({ capabilities, commercialView, imagePriority = fals
         {capabilities.showPrice && <ProductPricingBlock commercialView={commercialView} />}
         {capabilities.showStock && <div className={`min-h-9 rounded-md px-2 py-1.5 font-medium ${stockTone.card}`}><span className={`inline-flex whitespace-pre-line text-xs font-semibold ${stockTone.text}`}>{commercialView?.stock?.label ?? "Наличие уточняется"}</span></div>}
       </div>
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-zinc-100 pt-2.5">{capabilities.canAddToOrder ? <CatalogQuantityCartAction productId={product.id} /> : <Link className="inline-flex h-9 items-center text-xs font-semibold text-emerald-700" href={`/cabinet/catalog/${product.slug}`} prefetch={false}>Подробнее</Link>}{capabilities.canManagePurchasingLists ? <AddToPurchasingListButton compact productId={product.id} /> : null}</div>
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-zinc-100 pt-2.5">
+        {capabilities.canAddToOrder ? <CatalogQuantityCartAction productId={product.id} /> : <Link className="inline-flex h-9 items-center text-xs font-semibold text-emerald-700" href={`/cabinet/catalog/${product.slug}`} prefetch={false}>Подробнее</Link>}
+        <div className="flex gap-1.5">{capabilities.canManagePurchasingLists ? <FavoriteProductButton compact initialSaved={favorite} productId={product.id} /> : null}{capabilities.canManagePurchasingLists ? <AddToPurchasingListButton compact productId={product.id} /> : null}</div>
+      </div>
     </div>
   </article>;
 }

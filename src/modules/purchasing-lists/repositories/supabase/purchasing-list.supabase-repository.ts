@@ -3,13 +3,13 @@ import { createClient } from "@/src/lib/supabase/server";
 import type { PurchasingList, PurchasingListItem } from "../../types";
 import { PurchasingListRepositoryError, type PurchasingListIndexRecord, type PurchasingListItemInput, type PurchasingListRecord, type PurchasingListRepository } from "../purchasing-list.repository";
 
-const LIST_COLUMNS = "id, company_id, name, description, visibility, created_by, updated_by, revision, created_at, updated_at, archived_at";
+const LIST_COLUMNS = "id, company_id, name, description, visibility, created_by, updated_by, revision, created_at, updated_at, archived_at, is_system_favorites";
 const ITEM_COLUMNS = "id, list_id, product_id, quantity, position, note, source_type, source_reference_id, source_unit_price, source_currency_code, created_at, updated_at";
 type Row = Record<string, unknown>;
 
 export class SupabasePurchasingListRepository implements PurchasingListRepository {
   async list(input: Parameters<PurchasingListRepository["list"]>[0]) {
-    const { data, error } = await (await createClient()).rpc("list_purchasing_lists_page", {
+    const { data, error } = await (await createClient()).rpc("list_purchasing_lists_page_v2", {
       target_company_id: input.companyId, target_search: input.search ? escapeSearch(input.search) : null,
       target_visibility: input.visibility, target_mine: input.mine, target_archived: input.archived,
       target_limit: input.limit, target_offset: input.offset,
@@ -17,6 +17,26 @@ export class SupabasePurchasingListRepository implements PurchasingListRepositor
     if (error) throw new PurchasingListRepositoryError(error.code);
     const rows = (data ?? []) as Row[];
     return { records: rows.map(mapIndexRecord), totalCount: Number(rows[0]?.total_count ?? 0) };
+  }
+
+  async listFavoriteProductIds(companyId: string, productIds: string[]) {
+    const { data, error } = await (await createClient()).rpc("list_system_favorite_product_ids", {
+      target_company_id: companyId,
+      target_product_ids: productIds,
+    });
+    if (error) throw new PurchasingListRepositoryError(error.code);
+    return ((data ?? []) as Row[]).map((row) => text(row.product_id)).filter(Boolean);
+  }
+
+  async setFavorite(companyId: string, productId: string, saved: boolean) {
+    const { data, error } = await (await createClient()).rpc("set_system_favorite", {
+      target_company_id: companyId,
+      target_product_id: productId,
+      target_saved: saved,
+    });
+    const row = ((data ?? []) as Row[])[0];
+    if (error || !row) throw new PurchasingListRepositoryError(error?.code ?? null);
+    return { saved: row.saved === true, listId: nullableText(row.list_id) };
   }
 
   async findById(listId: string) {
@@ -51,7 +71,7 @@ export class SupabasePurchasingListRepository implements PurchasingListRepositor
 function mapItems(items: PurchasingListItemInput[]) { return items.map((item) => ({ product_id: item.productId, quantity: item.quantity, note: item.note ?? null, source_reference_id: item.sourceReferenceId ?? null, source_unit_price: item.sourceUnitPrice ?? null, source_currency_code: item.sourceCurrencyCode ?? null })); }
 function mapIndexRecord(row: Row): PurchasingListIndexRecord { return { ...mapList(row), ownerName: text(row.owner_name) || "Пользователь компании", itemCount: Number(row.item_count), totalQuantity: Number(row.total_quantity), productIds: Array.isArray(row.product_ids) ? row.product_ids.filter((value): value is string => typeof value === "string") : [] }; }
 function mapRecord(row: Row): PurchasingListRecord { const creator = isRecord(row.creator) ? row.creator : {}; return { ...mapList(row), ownerName: text(creator.full_name) || "Пользователь компании", items: Array.isArray(row.purchasing_list_items) ? (row.purchasing_list_items as Row[]).map(mapItem).sort((a, b) => a.position - b.position) : [] }; }
-function mapList(row: Row): PurchasingList { return { id: text(row.id), companyId: text(row.company_id), name: text(row.name), description: nullableText(row.description), visibility: row.visibility as PurchasingList["visibility"], createdBy: text(row.created_by), updatedBy: text(row.updated_by), revision: Number(row.revision), createdAt: text(row.created_at), updatedAt: text(row.updated_at), archivedAt: nullableText(row.archived_at) }; }
+function mapList(row: Row): PurchasingList { return { id: text(row.id), companyId: text(row.company_id), name: text(row.name), description: nullableText(row.description), visibility: row.visibility as PurchasingList["visibility"], createdBy: text(row.created_by), updatedBy: text(row.updated_by), revision: Number(row.revision), createdAt: text(row.created_at), updatedAt: text(row.updated_at), archivedAt: nullableText(row.archived_at), isSystemFavorites: row.is_system_favorites === true }; }
 function mapItem(row: Row): PurchasingListItem { return { id: text(row.id), listId: text(row.list_id), productId: text(row.product_id), quantity: Number(row.quantity), position: Number(row.position), note: nullableText(row.note), sourceType: row.source_type as PurchasingListItem["sourceType"], sourceReferenceId: nullableText(row.source_reference_id), sourceUnitPrice: nullableNumber(row.source_unit_price), sourceCurrencyCode: nullableText(row.source_currency_code), createdAt: text(row.created_at), updatedAt: text(row.updated_at) }; }
 function escapeSearch(value: string) { return value.replace(/[%_]/g, " "); }
 function text(value: unknown) { return typeof value === "string" ? value : ""; }
