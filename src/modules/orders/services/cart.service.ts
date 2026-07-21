@@ -11,6 +11,7 @@ export type CartLineDto = {
   slug: string;
   productName: string;
   sku: string;
+  imageUrl: string | null;
   quantity: number;
   partnerUnitPrice: string | null;
   partnerLineTotal: string | null;
@@ -234,7 +235,7 @@ function toLine(
   view?: ProductCommercialViewDto,
 ): CartLineDto {
   return {
-    id, productId: product.id, slug: product.slug, productName: product.name, sku: product.sku, quantity,
+    id, productId: product.id, slug: product.slug, productName: product.name, sku: product.sku, imageUrl: product.imageUrl, quantity,
     partnerUnitPrice: view?.partnerPrice?.formattedAmount ?? null,
     partnerLineTotal: formatLineTotal(view, quantity),
     availableStock: view?.stock?.exactAvailableQuantity ?? null,

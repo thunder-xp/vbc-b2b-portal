@@ -23,7 +23,7 @@ describe("DefaultCartService", () => {
     const cart = await dependencies.service.getCart("user-1");
     expect(dependencies.catalogService.getProductsByIds).toHaveBeenCalledOnce();
     expect(dependencies.pricingService.getProductCommercialViews).toHaveBeenCalledOnce();
-    expect(cart.lines[0]).toMatchObject({ quantity: 2, availableStock: 5 });
+    expect(cart.lines[0]).toMatchObject({ quantity: 2, availableStock: 5, imageUrl: "https://example.test/camera-thumb.jpg" });
     expect(cart.lines[0]?.partnerLineTotal).toContain("20,00");
     expect(cart.total).toContain("20,00");
     expect(cart.positionCount).toBe(1);
@@ -69,7 +69,7 @@ function makeDependencies() {
   const permissionService = { ensurePermission: vi.fn().mockResolvedValue({ isAllowed: true }) };
   const catalogService = {
     getProductOrderIdentities: vi.fn().mockResolvedValue([{ id: "product-1" }]),
-    getProductsByIds: vi.fn().mockResolvedValue([{ id: "product-1", slug: "camera", name: "Camera", sku: "SKU-1" }]),
+    getProductsByIds: vi.fn().mockResolvedValue([{ id: "product-1", slug: "camera", name: "Camera", sku: "SKU-1", imageUrl: "https://example.test/camera-thumb.jpg" }]),
   };
   const pricingService = { getProductCommercialViews: vi.fn().mockResolvedValue([{ productId: "product-1", partnerPrice: { amount: 10, currencyCode: "USD", formattedAmount: "$10.00" }, stock: { exactAvailableQuantity: 5, expectedArrival: null } }]) };
   const service = new DefaultCartService(repository, companyAccessService as never, permissionService as never, catalogService as never, pricingService as never);

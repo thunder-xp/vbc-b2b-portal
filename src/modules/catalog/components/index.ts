@@ -16,4 +16,5 @@ export { ProductGrid } from "./ProductGrid";
 export { ProductImage } from "./ProductImage";
 export { ProductImageGallery } from "./ProductImageGallery";
 export { ProductThumbnail } from "./ProductThumbnail";
+export { ProductLineThumbnail } from "./ProductLineThumbnail";
 export { SearchBox } from "./SearchBox";

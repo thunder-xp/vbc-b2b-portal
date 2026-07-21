@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { ProductLineThumbnail } from "@/src/modules/catalog/components";
 import { getCartAction } from "@/src/modules/orders/actions";
 import { CartItemActions } from "@/src/modules/orders/components/CartItemActions";
 import { OrderSubmitForm } from "@/src/modules/orders/components/OrderSubmitForm";
@@ -32,13 +33,16 @@ export default async function CartPage() {
           <div className="overflow-hidden rounded-lg border border-zinc-200 bg-white">
             <ul className="divide-y divide-zinc-200">
               {cart.lines.map((line) => (
-                <li className="grid gap-4 p-4 md:grid-cols-[minmax(0,1fr)_150px_180px]" key={line.id}>
-                  <div>
-                    <Link className="font-semibold text-zinc-950 hover:text-emerald-700" href={`/cabinet/catalog/${line.slug}`} prefetch={false}>{line.productName}</Link>
-                    <p className="mt-1 text-xs text-zinc-500">Артикул: {line.sku}</p>
-                    <p className="mt-3 text-sm">Партнёрская цена: <strong>{line.partnerUnitPrice ?? "Недоступна"}</strong></p>
-                    <p className="mt-1 text-xs text-zinc-600">Доступно: {line.availableStock ?? "Нет данных"}</p>
-                    {line.nearestArrivalDate && <p className="mt-1 text-xs text-zinc-600">Поступление: {line.nearestArrivalDate}{line.nearestArrivalQuantity !== null ? `, ${line.nearestArrivalQuantity} шт.` : ""}</p>}
+                <li className="grid gap-4 p-4 md:grid-cols-[minmax(0,1fr)_8rem_11.25rem] md:items-center" key={line.id}>
+                  <div className="grid min-w-0 grid-cols-[3.5rem_minmax(0,1fr)] gap-3 sm:grid-cols-[4rem_minmax(0,1fr)]">
+                    <ProductLineThumbnail imageUrl={line.imageUrl} productName={line.productName} />
+                    <div className="min-w-0">
+                      <Link className="line-clamp-2 font-semibold text-zinc-950 hover:text-emerald-700" href={`/cabinet/catalog/${line.slug}`} prefetch={false}>{line.productName}</Link>
+                      <p className="mt-1 text-xs text-zinc-500">Артикул: {line.sku}</p>
+                      <p className="mt-2 text-sm">Партнёрская цена: <strong className="whitespace-nowrap">{line.partnerUnitPrice ?? "Недоступна"}</strong></p>
+                      <p className="mt-1 text-xs text-zinc-600">Доступно: {line.availableStock ?? "Нет данных"}</p>
+                      {line.nearestArrivalDate && <p className="mt-1 text-xs text-zinc-600">Поступление: {line.nearestArrivalDate}{line.nearestArrivalQuantity !== null ? `, ${line.nearestArrivalQuantity} шт.` : ""}</p>}
+                    </div>
                   </div>
                   <div className="text-sm"><span className="text-zinc-500">Сумма</span><p className="mt-1 font-semibold">{line.partnerLineTotal ?? "Недоступна"}</p></div>
                   <CartItemActions itemId={line.id} quantity={line.quantity} />
