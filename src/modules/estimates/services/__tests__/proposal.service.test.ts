@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { InvalidStateError, NotFoundError } from "../../../access-control/services";
 import type { EstimateRepository, ProposalRepository } from "../../repositories";
 import type { EstimateAggregate, GeneratedEstimateDocument, ProposalTemplate } from "../../types";
+import { renderProposalPdf } from "../proposal-pdf.renderer";
 import { DEFAULT_PROPOSAL_SETTINGS, DefaultProposalService, stableJson } from "../proposal.service";
 
 vi.mock("../proposal-pdf.renderer", () => ({ renderProposalPdf: vi.fn().mockResolvedValue({ bytes: new Uint8Array([37, 80, 68, 70]), pageCount: 1 }) }));
@@ -62,6 +63,23 @@ describe("DefaultProposalService", () => {
   it("blocks PDF generation from a mutable draft", async () => {
     await expect(service.generatePdf("user-1", "estimate-1")).rejects.toBeInstanceOf(InvalidStateError);
     expect(proposals.claimGeneration).not.toHaveBeenCalled();
+  });
+
+  it("reuses a ready immutable version PDF without rendering or uploading it again", async () => {
+    const preview = await service.preparePreview("user-1", "estimate-1");
+    vi.mocked(proposals.claimVersionGeneration).mockResolvedValue({ ...readyDocument, versionId: "version-1" });
+
+    const document = await service.generatePreparedVersionPdf("user-1", {
+      proposal: preview.proposal,
+      estimateId: "estimate-1",
+      versionId: "version-1",
+      versionNumber: 1,
+    });
+
+    expect(document.status).toBe("ready");
+    expect(renderProposalPdf).not.toHaveBeenCalled();
+    expect(proposals.markGenerating).not.toHaveBeenCalled();
+    expect(proposals.uploadPdf).not.toHaveBeenCalled();
   });
 
   it("canonicalizes nested DTOs for stable deduplication", () => {

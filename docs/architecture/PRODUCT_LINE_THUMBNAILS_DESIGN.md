@@ -37,3 +37,13 @@ Proposal versions retain their captured image reference. Ready PDFs are never re
 ## Baseline Validation
 
 The pre-change focused proposal preview/PDF suite passes with 1, 20, 100, and 300-line fixtures. Cart service tests confirm exactly one bulk catalog read and one bulk commercial read. Real authenticated response, image-transfer, Web Vitals, and PDF-size measurements require browser acceptance after deployment.
+
+## Automated Acceptance
+
+- Cart and estimate tests preserve totals while resolving images through their existing bounded product reads.
+- Proposal preparation selects product images once and excludes untrusted origins from the customer DTO.
+- PDF tests cover 1, 10, 30, 100, and 300 lines, repeated image deduplication, missing images, mixed product/service rows, repeated headers, and non-splitting rows.
+- Ready immutable version PDFs are returned without a second render or upload.
+- The complete test suite and production build are the release gate. Authenticated Web Vitals and real remote-image transfer measurements remain production browser acceptance evidence rather than synthetic unit-test claims.
+
+The local synthetic PDF benchmark (no remote image transfer) rendered 1/10/30/100/300 lines in 76/80/91/158/370 ms, producing 1/2/3/6/16 pages and 25/30/36/56/113 KB files respectively. These figures validate bounded pagination overhead; they are not production-network or browser performance measurements.

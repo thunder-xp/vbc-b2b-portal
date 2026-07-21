@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { CatalogService } from "../../../catalog/services";
 import type { CartService } from "../../../orders/services";
@@ -24,6 +24,8 @@ describe("PurchasingListService", () => {
   const permission = { ensurePermission: vi.fn(), hasPermission: vi.fn() };
 
   beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-21T00:00:00Z"));
     companyAccess.getOwnMemberships.mockResolvedValue([{ companyId: COMPANY, status: "active" }]);
     companyAccess.getActiveCompanyContext.mockResolvedValue({ company: { id: COMPANY }, membership: {}, user: {} });
     permission.ensurePermission.mockResolvedValue(undefined); permission.hasPermission.mockResolvedValue(true);
@@ -35,6 +37,8 @@ describe("PurchasingListService", () => {
     estimate = { createFromPurchasingList: vi.fn().mockResolvedValue({ estimateId: ORDER, repeated: false, added: 1, skipped: 0 }) };
     service = new PurchasingListService(repository, companyAccess as never, permission as never, catalog, pricing, cart, history, estimate);
   });
+
+  afterEach(() => vi.useRealTimers());
 
   it.each(["private", "company"] as const)("creates a %s list with server-resolved company", async (visibility) => {
     await service.createManual(USER, { name: "  Cameras  ", visibility });

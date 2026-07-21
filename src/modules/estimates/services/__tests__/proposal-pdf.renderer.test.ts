@@ -44,6 +44,17 @@ describe("proposal PDF renderer", () => {
     await expect(renderProposalPdf(proposal)).resolves.toEqual(expect.objectContaining({ pageCount: expect.any(Number) }));
   });
 
+  it("keeps service rows image-free in a mixed proposal", () => {
+    const base = fixture(1);
+    const product = { ...base.sections[0].lines[0], imageUrl: "product-image" };
+    const service = { ...product, position: 2, lineType: "service" as const, sku: null, imageUrl: null, description: "Монтаж" };
+    const proposal = { ...base, sections: [{ ...base.sections[0], lines: [product, service] }] };
+    const definition = JSON.stringify(createDocumentDefinition(proposal, new Map([["product-image", "data:image/png;base64,AA=="]])));
+
+    expect(definition.match(/data:image\/png/g)).toHaveLength(1);
+    expect(definition).toContain("Монтаж");
+  });
+
   it("deduplicates repeated approved image downloads and rejects unapproved origins", async () => {
     vi.stubEnv("PUBLIC_APP_URL", "https://www.nsd.md");
     const image = "https://firebasestorage.googleapis.com/v0/b/novotech-systems-5449b.appspot.com/o/products%2Fcamera_thumb.jpg?alt=media";
