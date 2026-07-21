@@ -44,6 +44,7 @@ export type ProposalBranding = {
 
 export type CustomerProposalLine = Readonly<{
   position: number;
+  lineType?: import("./estimate").EstimateLineType;
   description: string;
   sku: string | null;
   imageUrl: string | null;

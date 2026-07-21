@@ -23,6 +23,17 @@ describe("proposal UI", () => {
     expect(screen.queryByText(/себестоимость|маржа|1C|permission/i)).not.toBeInTheDocument();
   });
 
+  it("places one product thumbnail column before description and leaves service lines image-free", () => {
+    const value = proposal();
+    const product = { ...value.sections[0].lines[0], lineType: "product" as const, imageUrl: null };
+    const service = { ...product, position: 2, lineType: "service" as const, sku: null, imageUrl: null, description: "Монтаж" };
+    render(<ProposalDocument proposal={{ ...value, sections: [{ ...value.sections[0], lines: [product, service] }] }} />);
+    expect(screen.getAllByTestId("product-line-thumbnail")).toHaveLength(1);
+    const description = screen.getByText("Камера 1");
+    expect(screen.getByTestId("product-line-thumbnail").compareDocumentPosition(description) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByText("Монтаж")).toBeInTheDocument();
+  });
+
   it("applies a template and saves all settings in one action", async () => {
     const user = userEvent.setup();
     vi.mocked(saveEstimateProposalSettingsAction).mockResolvedValue({ success: true, data: { revision: 4 }, message: "Сохранено", errorCode: null });
@@ -43,4 +54,4 @@ describe("proposal UI", () => {
   });
 });
 
-function proposal(lineCount = 1): CustomerProposalDto { const total = lineCount * 100; return { schemaVersion: "2026-07-16-v1", estimateNumber: "KP-1", generatedForDate: "2026-07-16", customerName: "Customer", projectName: "Site", currencyCode: "USD", settings, branding: { companyName: "Partner SRL", legalName: null, contactName: null, phone: null, email: null, website: null, fiscalInformation: null, address: null, logoUrl: null }, sections: [{ name: "Оборудование", subtotal: total, lines: Array.from({ length: lineCount }, (_, index) => ({ position: index + 1, description: `Камера ${index + 1}`, sku: `400${index}`, imageUrl: null, quantity: 1, unitLabel: "шт.", unitPrice: 100, lineDiscountPercent: 0, lineTotal: 100 })) }], charges: [], totals: { subtotal: total, discounts: 0, charges: 0, totalExcludingVat: total, vat: 0, total } }; }
+function proposal(lineCount = 1): CustomerProposalDto { const total = lineCount * 100; return { schemaVersion: "2026-07-16-v1", estimateNumber: "KP-1", generatedForDate: "2026-07-16", customerName: "Customer", projectName: "Site", currencyCode: "USD", settings, branding: { companyName: "Partner SRL", legalName: null, contactName: null, phone: null, email: null, website: null, fiscalInformation: null, address: null, logoUrl: null }, sections: [{ name: "Оборудование", subtotal: total, lines: Array.from({ length: lineCount }, (_, index) => ({ position: index + 1, lineType: "product", description: `Камера ${index + 1}`, sku: `400${index}`, imageUrl: null, quantity: 1, unitLabel: "шт.", unitPrice: 100, lineDiscountPercent: 0, lineTotal: 100 })) }], charges: [], totals: { subtotal: total, discounts: 0, charges: 0, totalExcludingVat: total, vat: 0, total } }; }

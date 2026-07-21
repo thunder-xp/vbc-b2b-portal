@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import type { CompanyAccessService, PermissionService } from "../../access-control/services";
 import { InvalidStateError, NotFoundError } from "../../access-control/services";
 import { MembershipStatus } from "../../access-control/types";
+import { normalizeProductImageUrl } from "../../catalog/components/product-image-source";
 import type { EstimateRepository, ProposalRepository } from "../repositories";
 import type { CustomerProposalDto, GeneratedEstimateDocument, ProposalSettings, ProposalTemplate } from "../types";
 
@@ -151,8 +152,8 @@ function prepareCustomerProposal(input: {
   const { estimate, sections, items, charges } = input.aggregate;
   const sectionRows = [...sections].sort((a, b) => a.sortOrder - b.sortOrder).map((section) => {
     const lines = items.filter((item) => item.sectionId === section.id).sort((a, b) => a.position - b.position).map((item) => ({
-      position: item.position, description: item.description, sku: item.skuSnapshot,
-      imageUrl: item.productId ? normalizeTrustedImageUrl(input.images.get(item.productId) ?? null) : null,
+      position: item.position, lineType: item.lineType, description: item.description, sku: item.skuSnapshot,
+      imageUrl: item.productId ? normalizeProposalProductImageUrl(input.images.get(item.productId) ?? null) : null,
       quantity: item.quantity, unitLabel: unitLabel(item.unit), unitPrice: item.sellingUnitPrice!,
       lineDiscountPercent: item.lineDiscountPercent, lineTotal: item.lineTotal!,
     }));
@@ -163,7 +164,7 @@ function prepareCustomerProposal(input: {
     schemaVersion: "2026-07-16-v1" as const, estimateNumber: estimate.estimateNumber,
     generatedForDate: new Date().toISOString().slice(0, 10), customerName: estimate.customerName, projectName: estimate.projectName,
     currencyCode: estimate.currencyCode, settings: { ...input.settings },
-    branding: { companyName: input.companyName, legalName: input.profile?.legalName ?? null, contactName: input.profile?.contactName ?? input.userName, phone: input.profile?.phone ?? input.userPhone, email: input.profile?.email ?? input.userEmail, website: input.profile?.website ?? null, fiscalInformation: input.profile?.fiscalInformation ?? null, address: input.profile?.address ?? null, logoUrl: normalizeTrustedImageUrl(input.profile?.logoUrl ?? null) },
+    branding: { companyName: input.companyName, legalName: input.profile?.legalName ?? null, contactName: input.profile?.contactName ?? input.userName, phone: input.profile?.phone ?? input.userPhone, email: input.profile?.email ?? input.userEmail, website: input.profile?.website ?? null, fiscalInformation: input.profile?.fiscalInformation ?? null, address: input.profile?.address ?? null, logoUrl: normalizePortalImageUrl(input.profile?.logoUrl ?? null) },
     sections: sectionRows, charges: customerCharges,
     totals: { subtotal: estimate.subtotalAmount, discounts: estimate.lineDiscountTotal + estimate.sectionDiscountTotal + estimate.globalDiscountAmount, charges: estimate.chargesTotal, totalExcludingVat: estimate.totalExcludingVat, vat: estimate.vatAmount, total: estimate.totalAmount },
   });
@@ -184,7 +185,11 @@ export function stableJson(value: unknown): string {
 }
 function normalizeId(value: string): string { const normalized = value.trim(); if (!normalized) throw new NotFoundError("Estimate was not found."); return normalized; }
 function unitLabel(unit: string): string { return ({ pcs: "шт.", hour: "час", meter: "м", set: "компл.", visit: "выезд", service: "услуга" } as Record<string, string>)[unit] ?? unit; }
-function normalizeTrustedImageUrl(value: string | null): string | null {
+function normalizeProposalProductImageUrl(value: string | null): string | null {
+  return normalizeProductImageUrl(value) ?? normalizePortalImageUrl(value);
+}
+
+function normalizePortalImageUrl(value: string | null): string | null {
   if (!value) return null;
   try {
     const url = new URL(value); const hosts = new Set(["www.nsd.md", "nsd.md"]);

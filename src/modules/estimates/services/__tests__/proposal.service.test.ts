@@ -27,7 +27,7 @@ describe("DefaultProposalService", () => {
   it("prepares one immutable customer allowlist without internal commercial fields", async () => {
     const preview = await service.preparePreview("user-1", "estimate-1");
     const serialized = JSON.stringify(preview.proposal);
-    expect(preview.proposal.sections[0].lines[0]).toEqual(expect.objectContaining({ sku: "400691", unitPrice: 100, lineTotal: 200 }));
+    expect(preview.proposal.sections[0].lines[0]).toEqual(expect.objectContaining({ lineType: "product", sku: "400691", unitPrice: 100, lineTotal: 200 }));
     for (const forbidden of ["companyId", "productId", "external1c", "internalCost", "marginPercent", "permission", "roleId"]) expect(serialized).not.toContain(forbidden);
     expect(Object.isFrozen(preview.proposal)).toBe(true);
     expect(proposals.getProductImages).toHaveBeenCalledTimes(1);
@@ -45,6 +45,12 @@ describe("DefaultProposalService", () => {
     expect((await service.preparePreview("user-1", "estimate-1")).proposal.sections[0].lines[0].imageUrl).toBeNull();
     vi.mocked(proposals.getProductImages).mockResolvedValue(new Map([["product-1", "https://www.nsd.md/image.png?token=secret"]]));
     expect((await service.preparePreview("user-1", "estimate-1")).proposal.sections[0].lines[0].imageUrl).toBeNull();
+  });
+
+  it("accepts the same allowlisted Firebase product source used by catalog thumbnails", async () => {
+    const image = "https://firebasestorage.googleapis.com/v0/b/novotech-systems-5449b.appspot.com/o/products%2Fcamera_thumb.jpg?alt=media&token=public-token";
+    vi.mocked(proposals.getProductImages).mockResolvedValue(new Map([["product-1", image]]));
+    expect((await service.preparePreview("user-1", "estimate-1")).proposal.sections[0].lines[0].imageUrl).toBe(image);
   });
 
   it("saves one settings batch without touching estimate lines", async () => {

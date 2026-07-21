@@ -41,9 +41,9 @@ export class SupabaseProposalRepository implements ProposalRepository {
   async getProductImages(productIds: string[]): Promise<Map<string, string | null>> {
     if (!productIds.length) return new Map();
     const supabase = await createClient();
-    const { data, error } = await supabase.from("catalog_products").select("id, image_url").in("id", [...new Set(productIds)]);
+    const { data, error } = await supabase.from("catalog_products").select("id, image_source_url, image_url").in("id", [...new Set(productIds)]);
     if (error) throw new ProposalRepositoryError();
-    return new Map((data ?? []).map((row) => [row.id, row.image_url]));
+    return new Map((data ?? []).map((row) => [row.id, row.image_source_url ?? row.image_url]));
   }
 
   async saveSettings(input: { estimateId: string; expectedRevision: number; templateId: string | null; settings: ProposalSettings }): Promise<number> {

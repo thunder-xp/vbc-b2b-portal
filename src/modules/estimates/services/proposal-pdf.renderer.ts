@@ -4,6 +4,7 @@ import type { TDocumentDefinitions } from "pdfmake/interfaces";
 import pdfMake from "pdfmake/build/pdfmake";
 import robotoFonts from "pdfmake/build/vfs_fonts";
 
+import { normalizeProductImageUrl } from "../../catalog/components/product-image-source";
 import type { CustomerProposalDto, CustomerProposalLine } from "../types";
 
 type PdfMakeRuntime = { addVirtualFileSystem(vfs: unknown): void; setUrlAccessPolicy(callback: (url: string) => boolean): void; createPdf(definition: unknown): { getBuffer(): Promise<Buffer> } };
@@ -12,7 +13,7 @@ runtime.addVirtualFileSystem(robotoFonts);
 runtime.setUrlAccessPolicy(() => false);
 
 export async function renderProposalPdf(proposal: CustomerProposalDto): Promise<{ bytes: Uint8Array; pageCount: number }> {
-  const images = proposal.settings.showProductImages ? await loadTrustedImages(proposal) : new Map<string, string>();
+  const images = proposal.settings.showProductImages ? await loadProposalImages(proposal) : new Map<string, string>();
   const definition = createDocumentDefinition(proposal, images);
   const buffer = await runtime.createPdf(definition).getBuffer();
   const bytes = new Uint8Array(buffer);
@@ -56,7 +57,7 @@ function brandingBlock(proposal: CustomerProposalDto, images: Map<string, string
 }
 
 function productTable(proposal: CustomerProposalDto, lines: ReadonlyArray<CustomerProposalLine>, images: Map<string, string>): Record<string, unknown> {
-  const showImage = proposal.settings.showProductImages && lines.some((line) => line.imageUrl && images.has(line.imageUrl));
+  const showImage = proposal.settings.showProductImages && lines.some(isProductProposalLine);
   const headers: Array<Record<string, unknown>> = [{ text: "№", bold: true }, ...(showImage ? [{ text: "", bold: true }] : []), { text: "Наименование", bold: true }, { text: "Кол-во", bold: true, alignment: "right" }];
   if (proposal.settings.showUnitPrice) headers.push({ text: "Цена", bold: true, alignment: "right" });
   if (proposal.settings.showLineDiscount) headers.push({ text: "Скидка", bold: true, alignment: "right" });
@@ -64,7 +65,7 @@ function productTable(proposal: CustomerProposalDto, lines: ReadonlyArray<Custom
   const rows = lines.map((line) => {
     const description: Record<string, unknown> = { stack: [{ text: line.description, bold: true }, ...(proposal.settings.showSku && line.sku ? [{ text: `SKU ${line.sku}`, fontSize: 7, color: "#71717a" }] : [])] };
     const row: Array<Record<string, unknown>> = [{ text: String(line.position), color: "#71717a" }];
-    if (showImage) row.push(line.imageUrl && images.has(line.imageUrl) ? { image: images.get(line.imageUrl)!, width: 34, height: 34, fit: [34, 34] } : { text: "" });
+    if (showImage) row.push(isProductProposalLine(line) ? line.imageUrl && images.has(line.imageUrl) ? { image: images.get(line.imageUrl)!, width: 34, height: 34, fit: [34, 34] } : { text: "—", color: "#a1a1aa", alignment: "center", margin: [0, 11, 0, 0] } : { text: "" });
     row.push(description, { text: `${formatNumber(line.quantity)} ${line.unitLabel}`, alignment: "right", noWrap: true });
     if (proposal.settings.showUnitPrice) row.push({ text: money(line.unitPrice, proposal.currencyCode), alignment: "right", noWrap: true });
     if (proposal.settings.showLineDiscount) row.push({ text: line.lineDiscountPercent ? `${formatNumber(line.lineDiscountPercent)}%` : "—", alignment: "right" });
@@ -81,7 +82,7 @@ function totalsBlock(proposal: CustomerProposalDto): Record<string, unknown> {
   if (proposal.totals.charges) rows.push([{ text: "Дополнительные услуги" }, { text: money(proposal.totals.charges, proposal.currencyCode), alignment: "right" }]);
   if (proposal.settings.showVatBreakdown) rows.push([{ text: "Без НДС" }, { text: money(proposal.totals.totalExcludingVat, proposal.currencyCode), alignment: "right" }], [{ text: "НДС" }, { text: money(proposal.totals.vat, proposal.currencyCode), alignment: "right" }]);
   rows.push([{ text: "ИТОГО", bold: true, fontSize: 12, color: "#14532d" }, { text: money(proposal.totals.total, proposal.currencyCode), bold: true, fontSize: 12, color: "#14532d", alignment: "right" }]);
-  return { columns: [{ width: "*", text: "" }, { width: 260, table: { widths: ["*", 100], body: rows }, layout: "lightHorizontalLines", margin: [0, 18, 0, 18] }] };
+  return { unbreakable: true, columns: [{ width: "*", text: "" }, { width: 260, table: { widths: ["*", 100], body: rows }, layout: "lightHorizontalLines", margin: [0, 18, 0, 18] }] };
 }
 
 function termsBlock(proposal: CustomerProposalDto): Record<string, unknown> {
@@ -90,21 +91,18 @@ function termsBlock(proposal: CustomerProposalDto): Record<string, unknown> {
   return { unbreakable: true, stack: [{ text: "Условия предложения", style: "section", margin: [0, 5, 0, 7] }, { table: { widths: [90, "*"], body: terms.map(([label, value]) => [{ text: label, bold: true, color: "#3f3f46" }, { text: value }]) }, layout: "lightHorizontalLines" }] };
 }
 
-async function loadTrustedImages(proposal: CustomerProposalDto): Promise<Map<string, string>> {
-  const urls = [...new Set([...(proposal.settings.showPartnerLogo && proposal.branding.logoUrl ? [proposal.branding.logoUrl] : []), ...proposal.sections.flatMap((section) => section.lines.flatMap((line) => line.imageUrl ? [line.imageUrl] : []))])].slice(0, 30);
+export async function loadProposalImages(proposal: CustomerProposalDto): Promise<Map<string, string>> {
+  const urls = [...new Set([...(proposal.settings.showPartnerLogo && proposal.branding.logoUrl ? [proposal.branding.logoUrl] : []), ...proposal.sections.flatMap((section) => section.lines.flatMap((line) => isProductProposalLine(line) && line.imageUrl ? [line.imageUrl] : []))])].slice(0, 60);
   const entries = await mapConcurrent(urls, 4, async (url) => [url, await fetchTrustedImage(url)] as const);
   return new Map(entries.filter((entry): entry is readonly [string, string] => Boolean(entry[1])));
 }
 
 async function fetchTrustedImage(rawUrl: string): Promise<string | null> {
-  let url: URL;
-  try { url = new URL(rawUrl); } catch { return null; }
-  const trusted = new Set(["www.nsd.md", "nsd.md"]);
-  try { trusted.add(new URL(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "https://invalid.local").hostname); } catch { /* optional */ }
-  if (url.protocol !== "https:" || !trusted.has(url.hostname)) return null;
+  const url = resolveProposalImageRequestUrl(rawUrl);
+  if (!url) return null;
   const controller = new AbortController(); const timer = setTimeout(() => controller.abort(), 2500);
   try {
-    const response = await fetch(url, { signal: controller.signal, redirect: "error" });
+    const response = await fetch(url, { signal: controller.signal, redirect: "error", headers: { Accept: "image/png,image/jpeg" } });
     const type = response.headers.get("content-type")?.split(";")[0] ?? "";
     const length = Number(response.headers.get("content-length") ?? 0);
     if (!response.ok || !["image/png", "image/jpeg"].includes(type) || length > 1_000_000) return null;
@@ -113,6 +111,31 @@ async function fetchTrustedImage(rawUrl: string): Promise<string | null> {
     return `data:${type};base64,${Buffer.from(bytes).toString("base64")}`;
   } catch { return null; } finally { clearTimeout(timer); }
 }
+
+export function resolveProposalImageRequestUrl(rawUrl: string): URL | null {
+  const productImage = normalizeProductImageUrl(rawUrl);
+  if (productImage) {
+    const appUrl = trustedPortalUrl(process.env.PUBLIC_APP_URL ?? "");
+    if (!appUrl) return null;
+    const optimized = new URL("/_next/image", appUrl);
+    optimized.searchParams.set("url", productImage);
+    optimized.searchParams.set("w", "64");
+    optimized.searchParams.set("q", "70");
+    return optimized;
+  }
+  return trustedPortalUrl(rawUrl);
+}
+
+function trustedPortalUrl(rawUrl: string): URL | null {
+  try {
+    const url = new URL(rawUrl);
+    const trusted = new Set(["www.nsd.md", "nsd.md"]);
+    if (process.env.NEXT_PUBLIC_SUPABASE_URL) trusted.add(new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).hostname);
+    return url.protocol === "https:" && !url.username && !url.password && trusted.has(url.hostname) ? url : null;
+  } catch { return null; }
+}
+
+function isProductProposalLine(line: CustomerProposalLine): boolean { return line.lineType === "product" || (!line.lineType && Boolean(line.sku || line.imageUrl)); }
 
 async function mapConcurrent<T, R>(items: T[], limit: number, mapper: (item: T) => Promise<R>): Promise<R[]> {
   const output = new Array<R>(items.length); let cursor = 0;
