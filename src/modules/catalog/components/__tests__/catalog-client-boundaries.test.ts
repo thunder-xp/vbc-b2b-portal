@@ -18,7 +18,7 @@ describe("catalog client boundaries", () => {
   });
 
   it("passes only primitive identity into the cart action island", () => {
-    expect(productCard).toContain("<AddToCartButton productId={product.id} />");
+    expect(productCard).toContain("<CatalogQuantityCartAction productId={product.id} />");
     expect(cartAction).toContain("{ productId }: { productId: string }");
     expect(cartAction).not.toContain("CatalogProduct");
     expect(cartAction).not.toContain("ProductCommercial");

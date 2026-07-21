@@ -5,6 +5,7 @@ import { resolveWorkspaceCapabilities } from "../../../partner-cabinet/services"
 import { ProductCard } from "../ProductCard";
 
 vi.mock("../../../orders/components/AddToCartButton", () => ({ AddToCartButton: () => <button type="button">Add</button> }));
+vi.mock("../CatalogQuantityCartAction", () => ({ CatalogQuantityCartAction: () => <button type="button">В корзину</button> }));
 vi.mock("../../../purchasing-lists/components/AddToPurchasingListButton", () => ({
   AddToPurchasingListButton: () => <button type="button">Save to list</button>,
 }));

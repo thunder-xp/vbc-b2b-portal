@@ -61,8 +61,10 @@ export async function CatalogResults({
   const priceUpdatedAt = latestTimestamp(Object.values(commercialViews).map((view) => view.partnerPrice?.lastUpdatedAt));
   const priceFreshness = priceUpdatedAt ? evaluateFreshness(priceUpdatedAt, "price", "Цены") : null;
 
+  const staleWarning = stockFreshness?.staleNotice ?? arrivalFreshness?.staleNotice ?? priceFreshness?.staleNotice;
+
   return <div className="space-y-6">
-    {stockFreshness || arrivalFreshness || priceFreshness ? <div className="flex flex-wrap gap-x-5 gap-y-1 text-xs text-zinc-500">{stockFreshness ? <p>{stockFreshness.label}</p> : null}{arrivalFreshness ? <p>{arrivalFreshness.label}</p> : null}{priceFreshness ? <p>{priceFreshness.label}</p> : null}{stockFreshness?.staleNotice || priceFreshness?.staleNotice ? <p className="w-full text-amber-700">Показаны последние подтверждённые данные</p> : null}</div> : null}
+    {staleWarning ? <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">{staleWarning}</p> : null}
     <section className="flex flex-col gap-3 border-b border-zinc-200 pb-5 sm:flex-row sm:items-end sm:justify-between">
       <div><h1 className="text-2xl font-semibold text-zinc-950">{selectedCategory?.name ?? "Каталог оборудования"}</h1><p className="mt-1 text-sm text-zinc-500">Найдено товаров: {productsResult.data.totalCount}</p></div>
       <form action="/cabinet/catalog" className="w-full sm:w-auto">{sortHiddenFields.map((field) => <input key={field.name} name={field.name} type="hidden" value={field.value} />)}<label className="flex flex-wrap items-center gap-2 text-sm text-zinc-600">Сортировка<select className="h-10 min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-3 sm:flex-none" defaultValue={sort} name="sort">{CATALOG_SORT_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select><button className="h-10 rounded-md border border-zinc-300 px-3 font-medium" type="submit">Применить</button></label></form>
