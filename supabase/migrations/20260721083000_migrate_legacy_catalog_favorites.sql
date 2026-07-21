@@ -55,6 +55,19 @@ select list_id, product_id, 1, position, 'legacy_favorite'
 from positioned
 on conflict (list_id, product_id) do nothing;
 
+do $$
+declare total_count bigint; eligible_count bigint;
+begin
+  select count(*) into total_count from public.partner_product_favorites;
+  select count(*) into eligible_count
+  from public.partner_product_favorites favorite
+  join public.company_memberships membership on membership.user_id = favorite.user_id and membership.company_id = favorite.company_id and membership.status = 'active'
+  join public.partner_companies company on company.id = favorite.company_id and company.status = 'active'
+  join public.catalog_products product on product.id = favorite.product_id and product.is_active and product.is_visible;
+  raise notice 'legacy_favorites_migration total=% eligible=% skipped=%', total_count, eligible_count, total_count - eligible_count;
+end;
+$$;
+
 revoke insert, update, delete on table public.partner_product_favorites from authenticated;
 grant select on table public.partner_product_favorites to authenticated;
 

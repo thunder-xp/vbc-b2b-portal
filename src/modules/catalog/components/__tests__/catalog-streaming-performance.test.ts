@@ -19,7 +19,7 @@ describe("catalog streaming and interaction boundaries", () => {
   it("keeps products outside one secondary facet Suspense boundary", () => {
     expect(results).toContain("<Suspense fallback={<CatalogFacetFallback />}");
     expect(results).toContain("<CatalogFacetResults");
-    expect(results.indexOf("<ProductGrid")).toBeGreaterThan(results.indexOf("<CatalogFacetResults"));
+    expect(results.indexOf("<CatalogPresentation")).toBeGreaterThan(results.indexOf("<CatalogFacetResults"));
     expect(results).toContain("facets={result.success ? result.data : []}");
   });
 

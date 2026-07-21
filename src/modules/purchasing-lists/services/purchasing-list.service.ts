@@ -230,7 +230,7 @@ export class PurchasingListService {
   private async requireManageable(userId: string, listId: string, expectedRevision: number) {
     await this.resolveCompany(userId, MANAGE_PERMISSION);
     const detail = await this.getDetail(userId, listId);
-    if (!detail.canManage || detail.archivedAt) throw new InvalidStateError("Purchasing list cannot be changed.");
+    if ((!detail.canManage && !detail.isSystemFavorites) || detail.archivedAt) throw new InvalidStateError("Purchasing list cannot be changed.");
     if (detail.revision !== expectedRevision) throw new InvalidStateError("Purchasing list changed. Reload it.");
     return detail;
   }

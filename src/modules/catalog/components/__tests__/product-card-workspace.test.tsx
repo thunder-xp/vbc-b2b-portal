@@ -9,6 +9,9 @@ vi.mock("../CatalogQuantityCartAction", () => ({ CatalogQuantityCartAction: () =
 vi.mock("../../../purchasing-lists/components/AddToPurchasingListButton", () => ({
   AddToPurchasingListButton: () => <button type="button">Save to list</button>,
 }));
+vi.mock("../../../purchasing-lists/components/FavoriteProductButton", () => ({
+  FavoriteProductButton: () => <button type="button">Favorite</button>,
+}));
 
 vi.mock("next/link", () => ({ default: ({ children, href }: { children: React.ReactNode; href: string }) => <a href={href}>{children}</a> }));
 vi.mock("../../../orders/components", () => ({ AddToCartButton: () => <button type="button">В корзину</button> }));

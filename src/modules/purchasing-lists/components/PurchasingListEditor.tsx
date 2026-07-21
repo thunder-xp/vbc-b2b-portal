@@ -13,17 +13,19 @@ export function PurchasingListEditor({ initial }: { initial: PurchasingListDetai
   const router = useRouter(); const [pending, startTransition] = useTransition(); const [message, setMessage] = useState("");
   const [lines, setLines] = useState(initial.lines); const [selected, setSelected] = useState(new Set<string>());
   const [cartRequestKey, setCartRequestKey] = useState(() => crypto.randomUUID()); const [estimateRequestKey, setEstimateRequestKey] = useState(() => crypto.randomUUID());
-  const editable = initial.canManage && !initial.archivedAt && !initial.isSystemFavorites;
+  const editable = (initial.canManage || initial.isSystemFavorites) && !initial.archivedAt;
   const selections = useMemo(() => [...selected].map((itemId) => ({ itemId })), [selected]);
   const mutate = (operation: () => Promise<{ success: boolean; message: string; data: unknown }>, redirect?: (data: unknown) => string, onSuccess?: () => void) => startTransition(async () => { const result = await operation(); setMessage(result.success ? result.message : "Не удалось выполнить операцию. Выбор сохранён."); if (result.success) onSuccess?.(); if (result.success && redirect) router.push(redirect(result.data)); else if (result.success) router.refresh(); });
   const move = (index: number, direction: -1 | 1) => setLines((current) => { const target = index + direction; if (target < 0 || target >= current.length) return current; const next = [...current]; [next[index], next[target]] = [next[target], next[index]]; return next; });
   return <div className="space-y-5">
+    {!initial.isSystemFavorites ? <>
     <form className="grid gap-3 border-b border-zinc-200 pb-5 md:grid-cols-[1fr_1fr_160px_auto] md:items-end" onSubmit={(event) => { event.preventDefault(); const data = new FormData(event.currentTarget); mutate(() => updatePurchasingListMetadataAction(initial.id, initial.revision, { name: String(data.get("name")), description: String(data.get("description")), visibility: String(data.get("visibility")) as "private" | "company" })); }}>
       <label className="text-sm">Название<input className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2" defaultValue={initial.name} disabled={!editable} name="name" /></label>
       <label className="text-sm">Описание<input className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2" defaultValue={initial.description ?? ""} disabled={!editable} name="description" /></label>
       <label className="text-sm">Доступ<select className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2" defaultValue={initial.visibility} disabled={!editable} name="visibility"><option value="private">Личный</option><option value="company">Для компании</option></select></label>
       {editable ? <button className="inline-flex items-center justify-center gap-2 rounded-md bg-zinc-900 px-3 py-2 text-sm font-semibold text-white" disabled={pending} type="submit"><Save className="size-4" />Сохранить</button> : null}
     </form>
+    </> : <div className="border-b border-zinc-200 pb-4"><p className="text-sm font-semibold text-zinc-950">Избранное</p><p className="mt-1 text-xs text-zinc-500">Системный список: название, доступ и архивирование защищены.</p></div>}
 
     <div className="flex flex-wrap items-center gap-2">
       {!initial.archivedAt ? <button className="text-action" disabled={!selected.size || pending} onClick={() => mutate(() => addPurchasingListToCartAction({ listId: initial.id, requestKey: cartRequestKey, selections }), undefined, () => setCartRequestKey(crypto.randomUUID()))} type="button"><ShoppingCart className="size-4" />Выбранное в корзину</button> : null}

@@ -24,4 +24,19 @@ describe("system favorites migration", () => {
     expect(sql).toContain("System favorites metadata is immutable.");
     expect(sql).toContain("System favorites cannot be archived.");
   });
+
+  it("creates lazily with bookmark semantics and supports removal", () => {
+    expect(sql).toContain("if target_saved then");
+    expect(sql).toContain("values (target_company_id, 'Избранное', null, 'private'");
+    expect(sql).toContain("on conflict (list_id, product_id) do nothing");
+    expect(sql).toContain("quantity, position, source_type");
+    expect(sql).toContain("values (target_list_id, target_product_id, 1, next_position, 'favorite')");
+    expect(sql).toContain("delete from public.purchasing_list_items item");
+  });
+
+  it("scopes reads and writes to the resolved company and authenticated owner", () => {
+    expect(sql).toContain("list.company_id = target_company_id");
+    expect(sql).toContain("list.created_by = auth.uid()");
+    expect(sql).toContain("public.has_permission(target_company_id, 'purchasing_lists.view')");
+  });
 });

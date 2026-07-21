@@ -16,6 +16,7 @@ vi.mock("@/src/modules/catalog/actions/product-page.action", () => ({
 }));
 vi.mock("@/src/modules/pricing-inventory/actions", () => ({ getProductCommercialViewsAction: mocks.getCommercial }));
 vi.mock("@/src/modules/partner-cabinet/actions", () => ({ getPartnerWorkspaceContextAction: mocks.getWorkspace }));
+vi.mock("@/src/modules/purchasing-lists/actions", () => ({ listFavoriteProductIdsAction: vi.fn() }));
 vi.mock("@/src/modules/catalog/components/ProductImageGallery", () => ({ ProductImageGallery: () => <div>Gallery</div> }));
 vi.mock("@/src/modules/orders/components/AddToCartButton", () => ({ AddToCartButton: () => <button type="button">В корзину</button> }));
 vi.mock("@/src/modules/catalog/components/ProductActions", () => ({ ProductActions: () => <button type="button">В корзину</button> }));

@@ -46,6 +46,12 @@ describe("purchasing list UI", () => {
     expect(screen.queryByRole("button", { name: /корзину/i })).not.toBeInTheDocument();
   });
 
+  it("protects favorites metadata while keeping quantity editable", () => {
+    render(<PurchasingListEditor initial={{ ...detail(), isSystemFavorites: true, canManage: false }} />);
+    expect(screen.queryByRole("textbox", { name: "Название" })).not.toBeInTheDocument();
+    expect(screen.getByRole("spinbutton", { name: "Количество" })).toBeEnabled();
+  });
+
   it("shows current price, stock, and arrival without persisting them in inputs", () => {
     const { container } = render(<PurchasingListEditor initial={detail()} />);
     expect(screen.getByText("$10.00")).toBeInTheDocument();
