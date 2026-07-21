@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { ProductLineThumbnail } from "@/src/modules/catalog/components";
+import { ProductLineThumbnail } from "@/src/modules/catalog/components/ProductLineThumbnail";
 import { getCartAction } from "@/src/modules/orders/actions";
 import { CartItemActions } from "@/src/modules/orders/components/CartItemActions";
 import { OrderSubmitForm } from "@/src/modules/orders/components/OrderSubmitForm";

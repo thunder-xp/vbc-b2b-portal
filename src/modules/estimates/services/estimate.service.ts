@@ -50,6 +50,7 @@ export type EstimateLineDto = {
   sectionId: string;
   lineType: EstimateItem["lineType"];
   productId: string | null;
+  imageUrl?: string | null;
   position: number;
   sku: string | null;
   description: string;
@@ -375,7 +376,10 @@ export class DefaultEstimateService implements EstimateService {
     const companyId = await this.resolveCompany(userId, VIEW_PERMISSION);
     const aggregate = await this.repository.findAggregateById(normalizeId(estimateId));
     if (!aggregate || aggregate.estimate.companyId !== companyId) throw new NotFoundError("Estimate was not found.");
-    return toCommercialDetail(aggregate);
+    const productIds = [...new Set(aggregate.items.flatMap((item) => item.productId ? [item.productId] : []))];
+    const products = productIds.length ? await this.catalogService.getProductsByIds(userId, productIds) : [];
+    const images = new Map(products.map((product) => [product.id, product.imageUrl]));
+    return toCommercialDetail(aggregate, images);
   }
 
   async saveCommercialDraft(userId: string, estimateId: string, input: SaveEstimateCommercialCommand): Promise<EstimateDetailDto> {
@@ -872,7 +876,7 @@ function endExclusive(value: string | undefined): string | undefined {
   return date.toISOString();
 }
 
-function toCommercialDetail(aggregate: EstimateAggregate): EstimateDetailDto {
+function toCommercialDetail(aggregate: EstimateAggregate, images = new Map<string, string | null>()): EstimateDetailDto {
   const { estimate, items, sections, charges } = aggregate;
   const calculated = calculateEstimateCommercials({
     lines: items.map((item) => ({
@@ -941,6 +945,7 @@ function toCommercialDetail(aggregate: EstimateAggregate): EstimateDetailDto {
         sectionId: item.sectionId,
         lineType: item.lineType,
         productId: item.productId,
+        imageUrl: item.productId ? images.get(item.productId) ?? null : null,
         position: item.position,
         sku: item.skuSnapshot,
         description: item.description,

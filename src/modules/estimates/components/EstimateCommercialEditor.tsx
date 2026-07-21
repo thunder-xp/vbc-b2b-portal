@@ -3,6 +3,7 @@
 import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Plus, RotateCcw, Save, Trash2 } from "lucide-react";
 import { useMemo, useState, useTransition } from "react";
 
+import { ProductLineThumbnail } from "../../catalog/components/ProductLineThumbnail";
 import {
   removeEstimateLineAction,
   removeEstimateLinesAction,
@@ -176,7 +177,10 @@ export function EstimateCommercialEditor({ initialEstimate, services, commercial
                 <div className="grid gap-2 md:grid-cols-[1.5rem_2.5rem_minmax(12rem,1fr)_5rem_6rem_8rem_7rem_8rem_auto] md:items-end">
                   <input aria-label={`Выбрать позицию ${lineIndex + 1}`} checked={selectedLineIds.has(line.id)} className="mb-2" disabled={!isDraft} onChange={(event) => setSelectedLineIds((current) => toggleMany(current, [line.id], event.target.checked))} type="checkbox" />
                   <span className="pb-2 text-sm text-zinc-500">{lineIndex + 1}</span>
-                  <Field label="Описание"><div className="mb-1 flex items-center gap-2"><span className="rounded bg-zinc-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-zinc-600">{lineTypeLabel(line.lineType)}</span>{line.sku && <span className="text-[10px] text-zinc-500">SKU {line.sku}</span>}</div><input className={`${inputClass} w-full`} disabled={!isDraft} onChange={(e) => updateLine(draft, setDraft, setDirty, line.id, { description: e.target.value })} value={line.description} /></Field>
+                  <div className={line.lineType === "product" ? "grid min-w-0 grid-cols-[3rem_minmax(0,1fr)] gap-2" : "min-w-0"}>
+                    {line.lineType === "product" && <ProductLineThumbnail imageUrl={line.imageUrl ?? null} productName={line.description} size="compact" />}
+                    <Field label="Описание"><div className="mb-1 flex items-center gap-2"><span className="rounded bg-zinc-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-zinc-600">{lineTypeLabel(line.lineType)}</span>{line.sku && <span className="text-[10px] text-zinc-500">SKU {line.sku}</span>}</div><input className={`${inputClass} w-full`} disabled={!isDraft} onChange={(e) => updateLine(draft, setDraft, setDirty, line.id, { description: e.target.value })} value={line.description} /></Field>
+                  </div>
                   <Field label="Кол-во"><NumberInput disabled={!isDraft} onValue={(value) => updateLine(draft, setDraft, setDirty, line.id, { quantity: value ?? 0 })} value={line.quantity} /></Field>
                   <Field label="Ед."><select className={`${inputClass} w-full`} disabled={!isDraft} onChange={(e) => updateLine(draft, setDraft, setDirty, line.id, { unit: e.target.value as EstimateUnit })} value={line.unit}>{units.map((unit) => <option key={unit.value} value={unit.value}>{unit.label}</option>)}</select></Field>
                   <Field label={line.pricingMode === "direct" ? "Цена" : line.pricingMode === "markup" ? "Наценка %" : "Маржа %"}><NumberInput disabled={!isDraft} nullable onValue={(value) => updateLine(draft, setDraft, setDirty, line.id, { pricingInputValue: value })} value={line.pricingInputValue} /></Field>

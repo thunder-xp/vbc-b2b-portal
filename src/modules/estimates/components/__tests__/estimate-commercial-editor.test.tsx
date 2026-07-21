@@ -30,7 +30,7 @@ const detail: EstimateDetailDto = {
     unit: "pcs", unitLabel: "шт.", sourcePrice: "$80.00", sourceCurrencyCode: "USD", sourceSnapshotAt: "2026-07-16T09:00:00Z",
     pricingMode: "direct", pricingInputValue: 100, internalCostUnitPrice: null, convertedCostUnitPrice: 80, exchangeRate: 1,
     exchangeRateEffectiveDate: "2026-07-16", lineDiscountPercent: 0, markupPercent: 25, marginPercent: 20,
-    sellingUnitPrice: 100, formattedSellingUnitPrice: "$100.00", lineTotal: "$100.00",
+    sellingUnitPrice: 100, formattedSellingUnitPrice: "$100.00", lineTotal: "$100.00", imageUrl: null,
   }], charges: [],
 };
 
@@ -40,6 +40,15 @@ function renderEditor() {
 
 describe("EstimateCommercialEditor", () => {
   beforeEach(() => vi.clearAllMocks());
+
+  it("renders thumbnails only for product lines before their description", () => {
+    const serviceLine = { ...detail.lines[0], id: "service-line", lineType: "service" as const, productId: null, sku: null, imageUrl: null, description: "Installation" };
+    render(<EstimateCommercialEditor commercialOptions={{ currencies: ["USD"], usdMdlRate: 17.5, rateEffectiveDate: "2026-07-16" }} initialEstimate={{ ...detail, lines: [detail.lines[0], serviceLine], itemCount: 2 }} services={[]} />);
+    expect(screen.getAllByTestId("product-line-thumbnail")).toHaveLength(1);
+    const productInput = screen.getByDisplayValue("Camera");
+    expect(screen.getByTestId("product-line-thumbnail").compareDocumentPosition(productInput) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByDisplayValue("Installation")).toBeInTheDocument();
+  });
 
   it("updates commercial preview locally and sends one batch only on Save", async () => {
     const user = userEvent.setup();

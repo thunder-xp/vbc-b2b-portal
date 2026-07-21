@@ -240,6 +240,19 @@ describe("DefaultEstimateService", () => {
     expect(pricing.getProductCommercialViews).not.toHaveBeenCalled();
     expect(detail.total).toContain("100");
   });
+
+  it("bulk-resolves product thumbnails once without querying for service or custom lines", async () => {
+    const productLine = { ...item(1), lineType: "product" as const, productId: "product-1", skuSnapshot: "400691", productNameSnapshot: "Camera" };
+    vi.mocked(repository.findAggregateById).mockResolvedValue(aggregate([productLine, item(2)]));
+    vi.mocked(catalog.getProductsByIds).mockResolvedValue([{ id: "product-1", sku: "400691", name: "Camera", slug: "camera", shortDescription: null, imageUrl: "https://example.test/camera-thumb.jpg", brand: null, category: null, keyCharacteristics: [], datasheet: null }]);
+
+    const detail = await service.getDetail("user-1", "estimate-1");
+
+    expect(catalog.getProductsByIds).toHaveBeenCalledOnce();
+    expect(catalog.getProductsByIds).toHaveBeenCalledWith("user-1", ["product-1"]);
+    expect(detail.lines[0]).toMatchObject({ lineType: "product", imageUrl: "https://example.test/camera-thumb.jpg" });
+    expect(detail.lines[1]).toMatchObject({ lineType: "custom", imageUrl: null });
+  });
 });
 
 function aggregate(items: EstimateItem[], overrides: Partial<Estimate> = {}): EstimateAggregate {
