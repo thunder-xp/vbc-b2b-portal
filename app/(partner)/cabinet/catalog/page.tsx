@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { cookies } from "next/headers";
 
 import { listCatalogCategoriesAction } from "@/src/modules/catalog/actions/list-categories.action";
 import { listCatalogProductsAction } from "@/src/modules/catalog/actions/list-products.action";
@@ -8,8 +9,10 @@ import { CategoryMegaMenu } from "@/src/modules/catalog/components/CategoryMegaM
 import { EmptyCatalog } from "@/src/modules/catalog/components/EmptyCatalog";
 import type { CatalogAvailability } from "@/src/modules/catalog/components/CatalogFilters";
 import {
+  CATALOG_VIEW_COOKIE,
   parseCatalogAttributeFilters,
   parseCatalogSort,
+  parseCatalogViewMode,
 } from "@/src/modules/catalog/services";
 import { getPartnerWorkspaceContextAction } from "@/src/modules/partner-cabinet/actions/workspace-context.action";
 
@@ -22,13 +25,14 @@ type CatalogPageProps = {
 const PAGE_SIZE = 12;
 
 export default async function CatalogPage({ searchParams }: CatalogPageProps) {
-  const params = await searchParams;
+  const [params, cookieStore] = await Promise.all([searchParams, cookies()]);
   const categoryId = getSingleParam(params?.category);
   const search = getSingleParam(params?.search);
   const availability = parseAvailability(getSingleParam(params?.availability));
   const sort = parseCatalogSort(getSingleParam(params?.sort));
   const page = parsePage(getSingleParam(params?.page));
   const attributeFilters = parseCatalogAttributeFilters(params);
+  const initialViewMode = parseCatalogViewMode(cookieStore.get(CATALOG_VIEW_COOKIE)?.value);
 
   const categoriesPromise = listCatalogCategoriesAction();
   const productsPromise = listCatalogProductsAction({
@@ -60,6 +64,7 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
         categories={categoriesResult.data}
         categoryId={categoryId}
         page={page}
+        initialViewMode={initialViewMode}
         productsPromise={productsPromise}
         search={search}
         sort={sort}

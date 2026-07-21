@@ -6,7 +6,7 @@ import type { listCatalogProductsAction } from "@/src/modules/catalog/actions/li
 import { CatalogFilters } from "@/src/modules/catalog/components/CatalogFilters";
 import type { CatalogAvailability } from "@/src/modules/catalog/components/CatalogFilters";
 import { EmptyCatalog } from "@/src/modules/catalog/components/EmptyCatalog";
-import { ProductGrid } from "@/src/modules/catalog/components/ProductGrid";
+import { CatalogPresentation } from "@/src/modules/catalog/components/CatalogPresentation";
 import { RESTRICTED_PRODUCT_CARD_CAPABILITIES } from "@/src/modules/catalog/components/product-card.model";
 import {
   buildCatalogHref,
@@ -14,6 +14,7 @@ import {
   CATALOG_SORT_OPTIONS,
   type CatalogCategoryDto,
   type CatalogSort,
+  type CatalogViewMode,
 } from "@/src/modules/catalog/services";
 import type { getPartnerWorkspaceContextAction } from "@/src/modules/partner-cabinet/actions/workspace-context.action";
 import type { ProductCommercialViewDto } from "@/src/modules/pricing-inventory";
@@ -25,6 +26,7 @@ type Props = {
   categories: CatalogCategoryDto[];
   categoryId?: string;
   page: number;
+  initialViewMode: CatalogViewMode;
   productsPromise: ReturnType<typeof listCatalogProductsAction>;
   search?: string;
   sort: CatalogSort;
@@ -37,6 +39,7 @@ export async function CatalogResults({
   categories,
   categoryId,
   page,
+  initialViewMode,
   productsPromise,
   search,
   sort,
@@ -75,7 +78,7 @@ export async function CatalogResults({
         <CatalogFacetResults attributeFilters={attributeFilters} availability={availability} categoryId={categoryId} search={search} sort={sort} />
       </Suspense>
       <section className="space-y-5">
-        {productsResult.data.products.length > 0 ? <><ProductGrid capabilities={workspaceContextResult.success ? workspaceContextResult.data.capabilities.productCard : RESTRICTED_PRODUCT_CARD_CAPABILITIES} commercialViews={commercialViews} products={productsResult.data.products} /><CatalogPagination availability={availability} categoryId={categoryId} hasNextPage={productsResult.data.hasNextPage} page={page} search={search} sort={sort} attributeFilters={attributeFilters} /></> : <EmptyCatalog message={search ? "По вашему запросу товары не найдены." : "В выбранной категории пока нет товаров."} title="Товары не найдены" />}
+        {productsResult.data.products.length > 0 ? <><CatalogPresentation capabilities={workspaceContextResult.success ? workspaceContextResult.data.capabilities.productCard : RESTRICTED_PRODUCT_CARD_CAPABILITIES} commercialViews={commercialViews} initialMode={initialViewMode} products={productsResult.data.products} /><CatalogPagination availability={availability} categoryId={categoryId} hasNextPage={productsResult.data.hasNextPage} page={page} search={search} sort={sort} attributeFilters={attributeFilters} /></> : <EmptyCatalog message={search ? "По вашему запросу товары не найдены." : "В выбранной категории пока нет товаров."} title="Товары не найдены" />}
       </section>
     </div>
   </div>;

@@ -25,6 +25,7 @@ export {
   sortCatalogProducts,
   type CatalogSort,
 } from "./catalog-sorting";
+export { CATALOG_VIEW_COOKIE, parseCatalogViewMode, type CatalogViewMode } from "./catalog-view-preference";
 export {
   resolveCategoryFilters,
   type CatalogFilterDefinition,
