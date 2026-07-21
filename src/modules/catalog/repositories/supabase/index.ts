@@ -14,4 +14,3 @@ export {
   type CatalogProductImageRow,
   type CatalogProductRow,
 } from "./mappers";
-export { SupabaseCatalogFavoriteRepository } from "./catalog-favorite.supabase-repository";

@@ -54,7 +54,7 @@ export class PurchasingListService {
       records: result.records.map((record) => ({
         ...withoutProductIds(record),
         warningCount: record.productIds.filter((productId) => classifyCommercialProductState({ productExists: productSet.has(productId), commercial: commercialById.get(productId) }) !== "available").length,
-        canManage: canManage && (record.visibility === "company" || record.createdBy === userId),
+        canManage: !record.isSystemFavorites && canManage && (record.visibility === "company" || record.createdBy === userId),
       })),
       page,
       totalPages: Math.max(1, Math.ceil(result.totalCount / PAGE_SIZE)),
@@ -65,7 +65,7 @@ export class PurchasingListService {
   async listManageableChoices(userId: string): Promise<Array<{ id: string; name: string; revision: number }>> {
     const companyId = await this.resolveCompany(userId, MANAGE_PERMISSION);
     const result = await this.repository.list({ companyId, search: null, visibility: null, mine: false, archived: false, limit: 100, offset: 0 });
-    return result.records.filter((record) => record.visibility === "company" || record.createdBy === userId).map(({ id, name, revision }) => ({ id, name, revision }));
+    return result.records.filter((record) => !record.isSystemFavorites && (record.visibility === "company" || record.createdBy === userId)).map(({ id, name, revision }) => ({ id, name, revision }));
   }
 
   async listFavoriteProductIds(userId: string, productIds: string[]): Promise<string[]> {
@@ -97,7 +97,7 @@ export class PurchasingListService {
     const commercialById = new Map(commercial.map((view) => [view.productId, view]));
     return {
       ...withoutItems(record),
-      canManage: canManage && (record.visibility === "company" || record.createdBy === userId),
+      canManage: !record.isSystemFavorites && canManage && (record.visibility === "company" || record.createdBy === userId),
       lines: record.items.map((item) => {
         const product = productById.get(item.productId);
         const view = commercialById.get(item.productId);

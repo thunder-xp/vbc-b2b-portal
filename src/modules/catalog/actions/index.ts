@@ -5,5 +5,4 @@ export { listCatalogProductsAction } from "./list-products.action";
 export { searchCatalogSuggestionsAction } from "./search-suggestions.action";
 export { getCatalogProductDetailAction } from "./product-detail.action";
 export { getCatalogProductDetailByIdAction, getCatalogProductRouteIdentityAction } from "./product-page.action";
-export { getCatalogFavoriteStateAction, toggleCatalogFavoriteAction } from "./favorite.action";
 export { getCatalogComparisonAction, type CatalogComparisonDto } from "./comparison.action";

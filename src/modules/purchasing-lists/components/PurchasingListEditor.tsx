@@ -13,7 +13,7 @@ export function PurchasingListEditor({ initial }: { initial: PurchasingListDetai
   const router = useRouter(); const [pending, startTransition] = useTransition(); const [message, setMessage] = useState("");
   const [lines, setLines] = useState(initial.lines); const [selected, setSelected] = useState(new Set<string>());
   const [cartRequestKey, setCartRequestKey] = useState(() => crypto.randomUUID()); const [estimateRequestKey, setEstimateRequestKey] = useState(() => crypto.randomUUID());
-  const editable = initial.canManage && !initial.archivedAt;
+  const editable = initial.canManage && !initial.archivedAt && !initial.isSystemFavorites;
   const selections = useMemo(() => [...selected].map((itemId) => ({ itemId })), [selected]);
   const mutate = (operation: () => Promise<{ success: boolean; message: string; data: unknown }>, redirect?: (data: unknown) => string, onSuccess?: () => void) => startTransition(async () => { const result = await operation(); setMessage(result.success ? result.message : "Не удалось выполнить операцию. Выбор сохранён."); if (result.success) onSuccess?.(); if (result.success && redirect) router.push(redirect(result.data)); else if (result.success) router.refresh(); });
   const move = (index: number, direction: -1 | 1) => setLines((current) => { const target = index + direction; if (target < 0 || target >= current.length) return current; const next = [...current]; [next[index], next[target]] = [next[target], next[index]]; return next; });
