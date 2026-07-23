@@ -59,6 +59,19 @@ describe("EstimateLifecycleService", () => {
     expect(dependencies.cart.addItem).not.toHaveBeenCalled();
   });
 
+  it.each([
+    "Оборудование",
+    "Система видеонаблюдения",
+    "Тестовая смета №1",
+    "Echipamente video",
+    "Камеры / NVR / HDD",
+    "Проект Chișinău 2026",
+  ])("preserves cart estimate name Unicode exactly: %s", async (name) => {
+    const dependencies = makeDependencies();
+    await dependencies.service.createEstimateFromCart("user-1", name, "11111111-1111-1111-1111-111111111111");
+    expect(dependencies.lifecycle.createFromCart).toHaveBeenCalledWith(expect.objectContaining({ name }));
+  });
+
   it("passes only product lines to the cart conversion service", async () => {
     const dependencies = makeDependencies();
     await dependencies.service.addEquipmentToCart("user-1", "estimate-1", "version-1", "22222222-2222-2222-2222-222222222222");
