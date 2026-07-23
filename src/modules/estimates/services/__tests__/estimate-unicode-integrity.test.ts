@@ -22,6 +22,8 @@ describe("estimate Unicode integrity", () => {
     const sql = readFileSync(repairMigrationPath, "utf8");
     expect(sql).toContain("set name = 'Оборудование'");
     expect(sql).toContain("where name = 'РћР±РѕСЂСѓРґРѕРІР°РЅРёРµ'");
+    expect(sql).toContain("event.event_type = 'created_from_cart'");
+    expect(sql).toContain("get diagnostics repaired_count = row_count");
     expect(sql).not.toMatch(/convert_(from|to)|encode\(|decode\(/i);
   });
 
