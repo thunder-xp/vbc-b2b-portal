@@ -54,6 +54,21 @@ describe("DefaultProposalService", () => {
     expect((await service.preparePreview("user-1", "estimate-1")).proposal.sections[0].lines[0].imageUrl).toBe(image);
   });
 
+  it("preserves mixed Unicode in the immutable customer proposal DTO", async () => {
+    const source = aggregate({ name: "Тестовая смета №1", customerName: "Echipamente Chișinău", projectName: "Проект Chișinău 2026" });
+    source.sections[0] = { ...source.sections[0], name: "Система видеонаблюдения" };
+    source.items[0] = { ...source.items[0], description: "Камеры / NVR / HDD" };
+    vi.mocked(estimates.findAggregateById).mockResolvedValue(source);
+
+    const proposal = (await service.preparePreview("user-1", "estimate-1")).proposal;
+
+    expect(proposal.customerName).toBe("Echipamente Chișinău");
+    expect(proposal.projectName).toBe("Проект Chișinău 2026");
+    expect(proposal.sections[0].name).toBe("Система видеонаблюдения");
+    expect(proposal.sections[0].lines[0].description).toBe("Камеры / NVR / HDD");
+    expect(Object.isFrozen(proposal)).toBe(true);
+  });
+
   it("saves one settings batch without touching estimate lines", async () => {
     await service.saveSettings("user-1", "estimate-1", 3, template.id, DEFAULT_PROPOSAL_SETTINGS);
     expect(proposals.saveSettings).toHaveBeenCalledTimes(1);

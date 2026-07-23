@@ -20,6 +20,8 @@ describe("proposal PDF renderer", () => {
     expect(pdf.numPages).toBeGreaterThan(1);
     expect(text).toContain("Коммерческое предложение");
     expect(text).toContain("Condiții de livrare");
+    expect(text).toContain("Оборудование");
+    expect(text).toContain("Клиент SRL");
     expect(text).toContain("ИТОГО");
   }, 30_000);
 

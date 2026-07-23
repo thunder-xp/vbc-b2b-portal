@@ -241,6 +241,41 @@ describe("DefaultEstimateService", () => {
     expect(detail.total).toContain("100");
   });
 
+  it("preserves user-entered Unicode in one atomic commercial draft mutation", async () => {
+    const sectionId = "11111111-1111-1111-1111-111111111111";
+    const itemId = "22222222-2222-2222-2222-222222222222";
+    const commercialAggregate = aggregate([{ ...item(1), id: itemId, sectionId }]);
+    commercialAggregate.sections = [{ ...commercialAggregate.sections[0], id: sectionId }];
+    vi.mocked(repository.findAggregateById).mockResolvedValue(commercialAggregate);
+
+    await service.saveCommercialDraft("user-1", estimate.id, {
+      expectedRevision: 3,
+      name: "Тестовая смета №1",
+      customerName: "Echipamente Chișinău",
+      projectName: "Проект Chișinău 2026",
+      validityDays: 30,
+      currencyCode: "USD",
+      currencyChangePolicy: "preserve_manual",
+      vatMode: "separate",
+      vatRatePercent: 20,
+      globalDiscountPercent: 0,
+      sections: [{ id: sectionId, name: "Система видеонаблюдения", sortOrder: 0, showSubtotal: true, discountPercent: 0 }],
+      lines: [{ id: itemId, sectionId, position: 1, description: "Камеры / NVR / HDD", quantity: 2, unit: "pcs", pricingMode: "direct", pricingInputValue: 10, internalCostUnitPrice: 5, lineDiscountPercent: 0 }],
+      charges: [{ id: "33333333-3333-3333-3333-333333333333", chargeType: "other", description: "Condiții speciale", amount: 0, vatApplicable: false, customerVisible: true, sortOrder: 0 }],
+    });
+
+    expect(repository.saveCommercialDraft).toHaveBeenCalledWith(expect.objectContaining({
+      settings: expect.objectContaining({
+        name: "Тестовая смета №1",
+        customerName: "Echipamente Chișinău",
+        projectName: "Проект Chișinău 2026",
+      }),
+      sections: [expect.objectContaining({ name: "Система видеонаблюдения" })],
+      lines: [expect.objectContaining({ description: "Камеры / NVR / HDD" })],
+      charges: [expect.objectContaining({ description: "Condiții speciale" })],
+    }));
+  });
+
   it("bulk-resolves product thumbnails once without querying for service or custom lines", async () => {
     const productLine = { ...item(1), lineType: "product" as const, productId: "product-1", skuSnapshot: "400691", productNameSnapshot: "Camera" };
     vi.mocked(repository.findAggregateById).mockResolvedValue(aggregate([productLine, item(2)]));

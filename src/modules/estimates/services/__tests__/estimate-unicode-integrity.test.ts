@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 
 const boundaryMigrationPath = resolve("supabase/migrations/20260723090000_estimate_cart_unicode_boundary.sql");
 const repairMigrationPath = resolve("supabase/migrations/20260723091000_estimate_section_mojibake_repair.sql");
+const duplicateMigrationPath = resolve("supabase/migrations/20260723092000_estimate_duplicate_unicode_boundary.sql");
 
 describe("estimate Unicode integrity", () => {
   it("replaces the cart conversion RPC with a correct UTF-8 section literal", () => {
@@ -37,5 +38,14 @@ describe("estimate Unicode integrity", () => {
     const source = files.map((file) => readFileSync(resolve(file), "utf8")).join("\n");
     expect(source).not.toMatch(/TextDecoder|TextEncoder|decodeURIComponent|unescape\(|convertMojibake|repairMojibake/i);
     expect(source).not.toContain("РћР±РѕСЂСѓРґРѕРІР°РЅРёРµ");
+  });
+
+  it("duplicates exact Unicode text and keeps purchasing-list defaults valid", () => {
+    const duplicateSql = readFileSync(duplicateMigrationPath, "utf8");
+    const purchasingListSql = readFileSync(resolve("supabase/migrations/20260720040000_saved_purchasing_lists.sql"), "utf8");
+    expect(duplicateSql).toContain("source.name || ' (копия)'");
+    expect(duplicateSql).toContain("select created.id, name, sort_order, show_subtotal, discount_percent");
+    expect(duplicateSql).not.toContain("РєРѕРїРёСЏ");
+    expect(purchasingListSql).toContain("values (created.id, 'Оборудование', 0)");
   });
 });
