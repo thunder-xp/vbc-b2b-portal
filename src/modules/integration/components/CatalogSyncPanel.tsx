@@ -1,10 +1,23 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { getDailyCatalogSyncStateAction, getPriceSyncStateAction, getStockSyncStateAction, runDailyCatalogSyncAction, syncPricesFromOneCAction, syncStockFromOneCAction } from "../actions";
+import {
+  getDailyCatalogSyncStateAction,
+  getPriceSyncStateAction,
+  getStockSyncStateAction,
+  runDailyCatalogSyncAction,
+  syncAllCommercialDataAction,
+  syncExchangeRateFromOneCAction,
+  syncPricesFromOneCAction,
+  syncStockFromOneCAction,
+  type CommercialSyncAllResult,
+  type ExchangeRateSyncActionResult,
+} from "../actions";
 import type { CatalogSyncState, PriceSyncState, StockSyncState } from "../sync";
 
 export function CatalogSyncPanel() {
+  const [allPending, startAll] = useTransition();
+  const [ratePending, startRate] = useTransition();
   const [catalogPending, startCatalog] = useTransition();
   const [pricePending, startPrice] = useTransition();
   const [stockPending, startStock] = useTransition();
@@ -12,18 +25,55 @@ export function CatalogSyncPanel() {
   const [catalogMessage, setCatalogMessage] = useState<string | null>(null);
   const [priceState, setPriceState] = useState<PriceSyncState | null>(null);
   const [stockState, setStockState] = useState<StockSyncState | null>(null);
+  const [rateResult, setRateResult] = useState<ExchangeRateSyncActionResult | null>(null);
+  const [allResult, setAllResult] = useState<CommercialSyncAllResult | null>(null);
 
   useEffect(() => { void reloadState(); void reloadPriceState(); void reloadStockState(); }, []);
-  useEffect(() => { if (!priceState || !["queued", "running"].includes(priceState.status)) return; const timer = window.setInterval(() => void reloadPriceState(), 3000); return () => window.clearInterval(timer); }, [priceState?.status]);
-  useEffect(()=>{if(!stockState||!["queued","running"].includes(stockState.status))return;const timer=window.setInterval(()=>void reloadStockState(),3000);return()=>window.clearInterval(timer);},[stockState?.status]);
+  const priceSyncStatus = priceState?.status;
+  const stockSyncStatus = stockState?.status;
+  useEffect(() => {
+    if (!priceSyncStatus || !["queued", "running"].includes(priceSyncStatus)) return;
+    const timer = window.setInterval(async () => {
+      const result = await getPriceSyncStateAction();
+      if (result.success) setPriceState(result.data);
+    }, 3000);
+    return () => window.clearInterval(timer);
+  }, [priceSyncStatus]);
+  useEffect(() => {
+    if (!stockSyncStatus || !["queued", "running"].includes(stockSyncStatus)) return;
+    const timer = window.setInterval(async () => {
+      const result = await getStockSyncStateAction();
+      if (result.success) setStockState(result.data);
+    }, 3000);
+    return () => window.clearInterval(timer);
+  }, [stockSyncStatus]);
   async function reloadState() { const result = await getDailyCatalogSyncStateAction(); if (result.success) setState(result.data); }
   async function reloadPriceState() { const result = await getPriceSyncStateAction(); if (result.success) setPriceState(result.data); }
   async function reloadStockState(){const result=await getStockSyncStateAction();if(result.success)setStockState(result.data);}
   function runCatalog() { if (catalogPending) return; startCatalog(async () => { const result = await runDailyCatalogSyncAction(); setCatalogMessage(result.message); if (result.success) setState(result.data); else await reloadState(); }); }
   function runPrices() { if (pricePending) return; startPrice(async () => { const result = await syncPricesFromOneCAction(); if (result.success) setPriceState(result.data); }); }
   function runStock() { if (stockPending) return; startStock(async () => { const result = await syncStockFromOneCAction(); if(result.success)setStockState(result.data); }); }
+  function runRates() { if (ratePending) return; startRate(async () => { const result = await syncExchangeRateFromOneCAction(); if (result.success) setRateResult(result.data); }); }
+  function runAll() { if (allPending) return; startAll(async () => { const result = await syncAllCommercialDataAction(); if (result.success) setAllResult(result.data); }); }
 
   return <div className="space-y-6">
+    <SyncSection title="Коммерческие данные" description="Безопасная последовательность: проверка курса → цены → остатки и ожидаемые поступления.">
+      <ActionButton pending={allPending} onClick={runAll}>Обновить коммерческие данные</ActionButton>
+      {allResult ? <Report rows={[
+        ["Курсы", stepLabel(allResult.rates)],
+        ["Цены", stepLabel(allResult.prices)],
+        ["Остатки", stepLabel(allResult.stock)],
+        ["Поступления", stepLabel(allResult.arrivals)],
+      ]} /> : null}
+    </SyncSection>
+    <SyncSection title="Коммерческий курс 1С" description="Проверяет подтверждённый источник BCRU. Управляемый курс RTL не изменяется без авторитетного источника.">
+      <ActionButton pending={ratePending} onClick={runRates}>Проверить курс сейчас</ActionButton>
+      {rateResult ? <Report rows={[
+        ["Проверен", rateResult.checkedAt],
+        ["Документ 1С", rateResult.rate.sourceDocumentDate],
+        ["Опубликован", rateResult.rate.publishedAt],
+      ]} /> : null}
+    </SyncSection>
     <SyncSection title="Catalog structure and products" description="Синхронизирует структуру категорий и товары из группы SECURITYPARK DISTRIBUTION.">
       <div className="flex flex-wrap gap-2"><ActionButton pending={catalogPending} onClick={runCatalog}>Run full catalog sync</ActionButton><ActionButton pending={catalogPending} secondary onClick={runCatalog}>Retry failed catalog sync</ActionButton></div>
       {catalogMessage && <p className="text-sm text-slate-700">{catalogMessage}</p>}
@@ -52,3 +102,12 @@ function CatalogStateView({ state }: { state: CatalogSyncState }) {
 }
 
 function priceStatus(state: PriceSyncState): string { return state.status === "queued" && Date.now() - Date.parse(state.updatedAt) > 120_000 ? "Continuation has not started" : state.status; }
+function stepLabel(status: CommercialSyncAllResult[keyof CommercialSyncAllResult]): string {
+  switch (status) {
+    case "completed": return "Завершено";
+    case "queued": return "Запущено";
+    case "locked": return "Уже выполняется";
+    case "deferred": return "После зависимого этапа";
+    case "failed": return "Ошибка";
+  }
+}

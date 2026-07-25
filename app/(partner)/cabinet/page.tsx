@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 
 import { getWorkspaceHomeAction } from "@/src/modules/partner-cabinet/actions/workspace-home.action";
 import {
+  CommercialFreshnessSummary,
   QuickActions,
   WorkspaceEmptyState,
   WorkspaceHero,
@@ -19,6 +20,7 @@ export default async function CabinetPage() {
   return (
     <div className="space-y-6">
       <WorkspaceHero workspace={workspace} />
+      <CommercialFreshnessSummary items={workspace.commercialFreshness} />
 
       {workspace.commercialConfigurationMissing && (
         <section className="rounded-lg border border-amber-300 bg-amber-50 px-5 py-4 text-sm text-amber-950">

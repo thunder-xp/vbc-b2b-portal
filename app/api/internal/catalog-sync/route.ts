@@ -3,8 +3,7 @@ import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 
 import { getOneCEnv } from "@/src/lib/env";
-import { createChunkedPriceSyncService, createDailyCatalogSyncService } from "@/src/modules/integration/services";
-import { launchPriceSync, PriceSyncLaunchError } from "@/src/modules/integration/sync/price-sync-continuation";
+import { createDailyCatalogSyncService } from "@/src/modules/integration/services";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -15,14 +14,6 @@ export async function GET(request: Request) {
   if (!expected || !safeEqual(supplied, expected)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const result = await createDailyCatalogSyncService(getOneCEnv()).runFullSync();
-  if (result.state.status === "succeeded") {
-    const priceService = createChunkedPriceSyncService(getOneCEnv());
-    const priceStart = await priceService.start();
-    if (priceStart.started && priceStart.state.activeSyncId) {
-      try { await launchPriceSync(priceStart.state.activeSyncId, new URL(request.url).origin); }
-      catch (error) { await priceService.failLaunch(priceStart.state.activeSyncId, error instanceof PriceSyncLaunchError ? error.safeMessage : "Internal endpoint launch failed."); }
-    }
-  }
   return NextResponse.json({ status: result.state.status, rootFound: Boolean(result.state.rootName), pagesProcessed: result.state.pagesProcessed, foldersReceived: result.state.foldersReceived, productsReceived: result.state.productsReceived, rowsDeactivated: result.state.rowsDeactivated, skippedBecauseRunning: result.skippedBecauseRunning });
 }
 

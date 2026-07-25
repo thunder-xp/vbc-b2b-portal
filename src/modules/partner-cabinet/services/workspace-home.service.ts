@@ -1,4 +1,6 @@
 import { InvalidStateError } from "../../access-control/services";
+import { evaluateFreshness, type FreshnessView } from "../../integration/freshness";
+import type { CommercialFreshnessReadModel } from "../repositories/commercial-freshness.repository";
 import type { WorkspaceNavigationItem } from "./workspace-capability.service";
 import type { PartnerWorkspaceContextService } from "./workspace-context.service";
 
@@ -28,6 +30,7 @@ export type WorkspaceHomeDto = {
   quickActions: WorkspaceQuickActionDto[];
   processCards: WorkspaceProcessCardDto[];
   commercialConfigurationMissing: boolean;
+  commercialFreshness: Array<{ domain: "rates" | "prices" | "stock" | "arrivals"; label: string; freshness: FreshnessView }>;
 };
 
 export interface WorkspaceHomeService {
@@ -37,6 +40,7 @@ export interface WorkspaceHomeService {
 export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
   constructor(
     private readonly workspaceContextService: PartnerWorkspaceContextService,
+    private readonly commercialFreshnessReadModel: CommercialFreshnessReadModel,
   ) {}
 
   async getWorkspaceHome(userId: string): Promise<WorkspaceHomeDto> {
@@ -44,6 +48,9 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
     if (context.accessState !== "active" && context.accessState !== "missing_price_type") {
       throw new InvalidStateError("Partner workspace access is not active.");
     }
+
+    const freshness = await this.commercialFreshnessReadModel.getFreshness();
+    const freshnessByDomain = new Map(freshness.map((item) => [item.domain, item.updatedAt]));
 
     return {
       greetingName: context.userDisplayName,
@@ -57,8 +64,22 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
       quickActions: buildQuickActions(context.capabilities.navigation),
       processCards: WORKSPACE_PROCESS_CARDS,
       commercialConfigurationMissing: context.accessState === "missing_price_type",
+      commercialFreshness: [
+        freshnessItem("prices", "Цены", freshnessByDomain.get("prices")),
+        freshnessItem("stock", "Остатки", freshnessByDomain.get("stock")),
+        freshnessItem("rates", "Коммерческие курсы", freshnessByDomain.get("rates")),
+        freshnessItem("arrivals", "Ожидаемые поступления", freshnessByDomain.get("arrivals")),
+      ],
     };
   }
+}
+
+function freshnessItem(domain: "rates" | "prices" | "stock" | "arrivals", label: string, updatedAt: string | null | undefined) {
+  return {
+    domain,
+    label,
+    freshness: evaluateFreshness(updatedAt, domain === "stock" || domain === "arrivals" ? "stock" : "price", label),
+  };
 }
 
 const WORKSPACE_PROCESS_CARDS: WorkspaceProcessCardDto[] = [

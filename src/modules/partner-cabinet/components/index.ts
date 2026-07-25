@@ -13,3 +13,4 @@ export { WorkspaceHero } from "./WorkspaceHero";
 export { WorkspaceMetric } from "./WorkspaceMetric";
 export { WorkspaceAccessState } from "./WorkspaceAccessState";
 export { WorkspaceProcessGrid } from "./WorkspaceProcessGrid";
+export { CommercialFreshnessSummary } from "./CommercialFreshnessSummary";

@@ -9,6 +9,7 @@ import {
   DefaultPartnerWorkspaceContextService,
   DefaultWorkspaceHomeService,
 } from "../services";
+import { SupabaseCommercialFreshnessReadModel } from "../repositories/supabase-commercial-freshness.repository";
 
 const priceTypeRepository = new SupabasePricingInventoryRepository();
 const workspaceContextService = new DefaultPartnerWorkspaceContextService(
@@ -26,5 +27,6 @@ export function createPartnerWorkspaceContextService(): DefaultPartnerWorkspaceC
 export function createWorkspaceHomeService(): DefaultWorkspaceHomeService {
   return new DefaultWorkspaceHomeService(
     createPartnerWorkspaceContextService(),
+    new SupabaseCommercialFreshnessReadModel(),
   );
 }

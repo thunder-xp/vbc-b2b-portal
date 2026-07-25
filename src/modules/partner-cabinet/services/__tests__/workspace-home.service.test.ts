@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import type { PartnerWorkspaceContextService } from "../workspace-context.service";
+import type { CommercialFreshnessReadModel } from "../../repositories/commercial-freshness.repository";
 import { DefaultWorkspaceHomeService } from "../workspace-home.service";
 import { resolveWorkspaceCapabilities } from "../workspace-capability.service";
 
 describe("DefaultWorkspaceHomeService", () => {
   it("builds a workflow dashboard without invented operational counts", async () => {
-    const workspace = await new DefaultWorkspaceHomeService(fakeContextService()).getWorkspaceHome("partner-1");
+    const workspace = await new DefaultWorkspaceHomeService(fakeContextService(), fakeFreshness()).getWorkspaceHome("partner-1");
 
     expect(workspace.company).toEqual({
       name: "Partner Company",
@@ -31,7 +32,7 @@ describe("DefaultWorkspaceHomeService", () => {
     const workspace = await new DefaultWorkspaceHomeService(fakeContextService({
       external1cPriceTypeId: "9adc073c-3eb5-11f0-8d8a-7239d3b7bd5c",
       priceTypeName: null,
-    })).getWorkspaceHome("partner-1");
+    }), fakeFreshness()).getWorkspaceHome("partner-1");
 
     expect(workspace.company.priceType).toBe("Назначен");
     expect(workspace.company.priceType).not.toBe("Не настроен");
@@ -67,6 +68,19 @@ function fakeContextService(
         ])),
         ...overrides,
       };
+    },
+  };
+}
+
+function fakeFreshness(): CommercialFreshnessReadModel {
+  return {
+    async getFreshness() {
+      return [
+        { domain: "rates", updatedAt: "2026-07-25T00:00:00Z" },
+        { domain: "prices", updatedAt: "2026-07-25T00:00:00Z" },
+        { domain: "stock", updatedAt: "2026-07-25T00:00:00Z" },
+        { domain: "arrivals", updatedAt: "2026-07-25T00:00:00Z" },
+      ];
     },
   };
 }

@@ -2,7 +2,11 @@
   "crons": [
     {
       "path": "/api/internal/catalog-sync",
-      "schedule": "0 2 * * *"
+      "schedule": "55 2 * * *"
+    },
+    {
+      "path": "/api/cron/price-sync-start",
+      "schedule": "25 23 * * *"
     },
     {
       "path": "/api/cron/price-sync-resume",
@@ -14,11 +18,11 @@
     },
     {
       "path": "/api/cron/commercial-rate",
-      "schedule": "30 1 * * *"
+      "schedule": "15 22 * * *"
     },
     {
       "path": "/api/cron/stock-sync-start",
-      "schedule": "15 */2 * * *"
+      "schedule": "35 0 * * *"
     },
     {
       "path": "/api/cron/active-order-refresh",
