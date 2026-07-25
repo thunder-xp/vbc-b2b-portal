@@ -8,6 +8,7 @@ import {
 import {
   SupabaseAccessRequestRepository,
   SupabaseCompanyMembershipRepository,
+  SupabaseEffectivePermissionRepository,
   SupabasePartnerCompanyRepository,
   SupabaseRolePermissionRepository,
   SupabaseUserProfileRepository,
@@ -66,7 +67,7 @@ const companyAccessService: CompanyAccessService = new DefaultCompanyAccessServi
 );
 const permissionService: PermissionService = new DefaultPermissionService(
   new SupabaseRolePermissionRepository(),
-  companyAccessService,
+  new SupabaseEffectivePermissionRepository(),
 );
 
 export function createUserProfileService(): UserProfileService {

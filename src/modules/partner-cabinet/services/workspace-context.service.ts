@@ -137,10 +137,11 @@ export class DefaultPartnerWorkspaceContextService
       };
     }
 
-    const [role, permissions] = await Promise.all([
-      this.permissionService.getRole(membership.roleId),
-      this.permissionService.getRolePermissions(membership.roleId),
-    ]);
+    const permissionContext =
+      await this.permissionService.getEffectivePermissionContext(
+        userId,
+        membership.companyId,
+      );
     const priceTypeReference = activeContext.company.external1cPriceTypeId ?? null;
     const priceTypeName = await this.resolvePriceTypeName(priceTypeReference);
     const accessState: PartnerWorkspaceAccessState = priceTypeReference ? "active" : "missing_price_type";
@@ -156,12 +157,12 @@ export class DefaultPartnerWorkspaceContextService
       companyStatus: activeContext.company.status,
       membershipId: membership.id,
       membershipStatus: membership.status,
-      membershipRole: role?.name ?? "Партнёр",
+      membershipRole: permissionContext.roleName ?? "Партнёр",
       external1cCode: activeContext.company.external1cCode ?? null,
       external1cPriceTypeId: priceTypeReference,
       priceTypeName,
       capabilities: resolveWorkspaceCapabilities(
-        new Set(permissions.map((permission) => permission.code)),
+        new Set(permissionContext.effectivePermissionCodes),
       ),
     };
   }

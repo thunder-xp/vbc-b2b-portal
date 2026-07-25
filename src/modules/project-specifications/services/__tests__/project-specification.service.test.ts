@@ -83,6 +83,7 @@ function createFixture(status = ProjectSpecificationStatus.Draft) {
   const permissionService: PermissionService = {
     getRole: vi.fn(),
     getRolePermissions: vi.fn(),
+    getEffectivePermissionContext: vi.fn(),
     hasPermission: vi.fn(),
     ensurePermission: vi.fn().mockResolvedValue(undefined),
   };

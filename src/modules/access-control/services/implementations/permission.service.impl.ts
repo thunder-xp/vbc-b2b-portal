@@ -1,21 +1,24 @@
-import type { RolePermissionRepository } from "../../repositories";
+import type {
+  EffectivePermissionRepository,
+  RolePermissionRepository,
+} from "../../repositories";
 import { cache } from "react";
 import { RepositoryUnexpectedError } from "../../repositories";
-import type { Permission, Role } from "../../types";
+import type { EffectivePermissionContext, Permission, Role } from "../../types";
 import type {
   PermissionCheckResult,
   PermissionService,
 } from "../permission.service";
 import {
   AccessControlError,
+  ForbiddenError,
   PermissionRequiredError,
 } from "../errors";
-import type { CompanyAccessService } from "../company-access.service";
 
 export class DefaultPermissionService implements PermissionService {
   constructor(
     private readonly rolePermissionRepository: RolePermissionRepository,
-    private readonly companyAccessService?: CompanyAccessService,
+    private readonly effectivePermissionRepository: EffectivePermissionRepository,
   ) {}
 
   private readonly findRole = cache((roleId: string) =>
@@ -24,6 +27,11 @@ export class DefaultPermissionService implements PermissionService {
 
   private readonly findRolePermissions = cache((roleId: string) =>
     this.rolePermissionRepository.findPermissionsByRoleId(roleId),
+  );
+
+  private readonly findEffectivePermissionContext = cache(
+    (userId: string, companyId: string) =>
+      this.effectivePermissionRepository.findForCurrentUser(userId, companyId),
   );
 
   async getRole(roleId: string): Promise<Role | null> {
@@ -42,22 +50,29 @@ export class DefaultPermissionService implements PermissionService {
     }
   }
 
+  async getEffectivePermissionContext(
+    userId: string,
+    companyId: string,
+  ): Promise<EffectivePermissionContext> {
+    try {
+      const context = await this.findEffectivePermissionContext(userId, companyId);
+      if (!context) {
+        throw new ForbiddenError("Company access is not allowed.");
+      }
+      return context;
+    } catch (error) {
+      throw this.mapRepositoryError(error);
+    }
+  }
+
   async hasPermission(
     userId: string,
     companyId: string,
     permissionCode: string,
   ): Promise<boolean> {
     try {
-      if (!this.companyAccessService) {
-        return await this.rolePermissionRepository.userHasPermission(
-          userId,
-          companyId,
-          permissionCode,
-        );
-      }
-      const context = await this.companyAccessService.getActiveCompanyContext(userId, companyId);
-      const permissions = await this.getRolePermissions(context.membership.roleId);
-      return permissions.some((permission) => permission.code === permissionCode);
+      const context = await this.getEffectivePermissionContext(userId, companyId);
+      return context.effectivePermissionCodes.includes(permissionCode);
     } catch (error) {
       throw this.mapRepositoryError(error);
     }
@@ -68,13 +83,8 @@ export class DefaultPermissionService implements PermissionService {
     companyId: string,
     permissionCode: string,
   ): Promise<PermissionCheckResult> {
-    // Permission lookup is not a replacement for CompanyAccessService
-    // validation of active user, company, membership, and final access context.
-    const isAllowed = await this.hasPermission(
-      userId,
-      companyId,
-      permissionCode,
-    );
+    const context = await this.getEffectivePermissionContext(userId, companyId);
+    const isAllowed = context.effectivePermissionCodes.includes(permissionCode);
 
     if (!isAllowed) {
       throw new PermissionRequiredError();

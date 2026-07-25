@@ -1,78 +1,139 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { RolePermissionRepository } from "../../../repositories";
-import {
-  CompanyStatus,
-  MembershipStatus,
-  RoleScope,
-  UserStatus,
-  UserType,
-} from "../../../types";
-import type { CompanyAccessService } from "../../company-access.service";
-import { ForbiddenError } from "../../errors";
+import type {
+  EffectivePermissionRepository,
+  RolePermissionRepository,
+} from "../../../repositories";
+import type { EffectivePermissionContext } from "../../../types";
+import { RoleScope } from "../../../types";
+import { ForbiddenError, PermissionRequiredError } from "../../errors";
 import { DefaultPermissionService } from "../permission.service.impl";
 
-const now = "2026-07-18T00:00:00.000Z";
+const now = "2026-07-25T00:00:00.000Z";
 
-describe("DefaultPermissionService effective permission resolution", () => {
-  it("uses the validated membership role and one effective permission read", async () => {
-    const repository = repositoryStub();
-    const access = accessServiceStub();
-    const service = new DefaultPermissionService(repository, access);
+describe("DefaultPermissionService", () => {
+  it("loads the full effective set in one projection instead of querying one permission", async () => {
+    const effectiveRepository = effectiveRepositoryStub();
+    const service = new DefaultPermissionService(
+      roleRepositoryStub(),
+      effectiveRepository,
+    );
 
-    await expect(service.hasPermission("user-1", "company-1", "orders.manage"))
-      .resolves.toBe(true);
-
-    expect(access.getActiveCompanyContext).toHaveBeenCalledOnce();
-    expect(repository.findPermissionsByRoleId).toHaveBeenCalledOnce();
-    expect(repository.userHasPermission).not.toHaveBeenCalled();
+    await expect(
+      service.hasPermission("user-1", "company-1", "orders.manage"),
+    ).resolves.toBe(true);
+    expect(effectiveRepository.findForCurrentUser).toHaveBeenCalledOnce();
   });
 
-  it("preserves inactive or cross-company access denial", async () => {
-    const access = accessServiceStub();
-    vi.mocked(access.getActiveCompanyContext).mockRejectedValueOnce(new ForbiddenError());
-    const service = new DefaultPermissionService(repositoryStub(), access);
+  it("applies the repository projection where explicit deny wins", async () => {
+    const effectiveRepository = effectiveRepositoryStub({
+      rolePermissionCodes: ["pricing.partner_price.view", "pricing.retail_price.view"],
+      deniedOverrideCodes: ["pricing.partner_price.view"],
+      effectivePermissionCodes: ["pricing.retail_price.view"],
+    });
+    const service = new DefaultPermissionService(
+      roleRepositoryStub(),
+      effectiveRepository,
+    );
 
-    await expect(service.ensurePermission("user-1", "other-company", "orders.manage"))
-      .rejects.toBeInstanceOf(ForbiddenError);
+    await expect(
+      service.hasPermission(
+        "user-1",
+        "company-1",
+        "pricing.partner_price.view",
+      ),
+    ).resolves.toBe(false);
+    await expect(
+      service.hasPermission(
+        "user-1",
+        "company-1",
+        "pricing.retail_price.view",
+      ),
+    ).resolves.toBe(true);
+  });
+
+  it("rejects a missing, inactive, or cross-company context", async () => {
+    const effectiveRepository = effectiveRepositoryStub();
+    vi.mocked(effectiveRepository.findForCurrentUser).mockResolvedValue(null);
+    const service = new DefaultPermissionService(
+      roleRepositoryStub(),
+      effectiveRepository,
+    );
+
+    await expect(
+      service.ensurePermission("user-1", "other-company", "orders.manage"),
+    ).rejects.toBeInstanceOf(ForbiddenError);
+  });
+
+  it("rejects a permission absent from the effective set", async () => {
+    const service = new DefaultPermissionService(
+      roleRepositoryStub(),
+      effectiveRepositoryStub(),
+    );
+
+    await expect(
+      service.ensurePermission("user-1", "company-1", "admin.access"),
+    ).rejects.toBeInstanceOf(PermissionRequiredError);
+  });
+
+  it("accepts a protected internal administrator projection", async () => {
+    const service = new DefaultPermissionService(
+      roleRepositoryStub(),
+      effectiveRepositoryStub({
+        membershipId: null,
+        membershipStatus: null,
+        roleId: null,
+        roleCode: "novotech_admin",
+        roleName: "Novotech Admin",
+        isInternalOverride: true,
+        rolePermissionCodes: ["admin.access"],
+        effectivePermissionCodes: ["admin.access"],
+      }),
+    );
+
+    await expect(
+      service.hasPermission("user-1", "company-1", "admin.access"),
+    ).resolves.toBe(true);
   });
 });
 
-function repositoryStub(): RolePermissionRepository {
+function roleRepositoryStub(): RolePermissionRepository {
   return {
     findRoleById: vi.fn(async () => ({
-      id: "role-1", code: "partner", name: "Partner", scope: RoleScope.Partner, createdAt: now,
+      id: "role-1",
+      code: "partner_owner",
+      name: "Partner Owner",
+      scope: RoleScope.Partner,
+      createdAt: now,
     })),
     findRoleByCode: vi.fn(async () => null),
-    findPermissionsByRoleId: vi.fn(async () => [{
-      id: "permission-1", code: "orders.manage", description: null, createdAt: now,
-    }]),
+    findPermissionsByRoleId: vi.fn(async () => []),
     userHasPermission: vi.fn(async () => false),
   };
 }
 
-function accessServiceStub(): CompanyAccessService {
-  const context = {
-    user: {
-      id: "user-1", email: "partner@example.com", fullName: null, phone: null,
-      status: UserStatus.Active, userType: UserType.Partner, createdAt: now, updatedAt: now,
-    },
-    company: {
-      id: "company-1", external1cId: "external-company", external1cCode: null,
-      external1cContractId: null, external1cPriceTypeId: null, displayName: "Company",
-      status: CompanyStatus.Active, createdAt: now, updatedAt: now,
-    },
-    membership: {
-      id: "membership-1", userId: "user-1", companyId: "company-1", roleId: "role-1",
-      status: MembershipStatus.Active, approvedBy: null, approvedAt: null,
-      revokedBy: null, revokedAt: null,
-      createdAt: now, updatedAt: now,
-    },
+function effectiveRepositoryStub(
+  overrides: Partial<EffectivePermissionContext> = {},
+): EffectivePermissionRepository {
+  const context: EffectivePermissionContext = {
+    userId: "user-1",
+    companyId: "company-1",
+    profileStatus: "active",
+    companyStatus: "active",
+    membershipId: "membership-1",
+    membershipStatus: "active",
+    roleId: "role-1",
+    roleCode: "partner_owner",
+    roleName: "Partner Owner",
+    isInternalOverride: false,
+    rolePermissionCodes: ["catalog.view", "orders.manage"],
+    allowedOverrideCodes: [],
+    deniedOverrideCodes: [],
+    effectivePermissionCodes: ["catalog.view", "orders.manage"],
+    ...overrides,
   };
+
   return {
-    getOwnMemberships: vi.fn(async () => [context.membership]),
-    getActiveCompanyContext: vi.fn(async () => context),
-    validateCompanyAccess: vi.fn(async () => ({ isAllowed: true, context })),
-    ensureActiveMembership: vi.fn(async () => context.membership),
+    findForCurrentUser: vi.fn(async () => context),
   };
 }

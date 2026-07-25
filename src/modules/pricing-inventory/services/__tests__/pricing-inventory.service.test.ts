@@ -357,6 +357,17 @@ class FakePermissionService implements PermissionService {
     return [];
   }
 
+  async getEffectivePermissionContext() {
+    return {
+      userId: "user-1", companyId: "company-1",
+      profileStatus: "active", companyStatus: "active",
+      membershipId: "membership-1", membershipStatus: "active",
+      roleId: "role-1", roleCode: "partner_owner", roleName: "Partner Owner",
+      isInternalOverride: false, rolePermissionCodes: [],
+      allowedOverrideCodes: [], deniedOverrideCodes: [], effectivePermissionCodes: [],
+    };
+  }
+
   async hasPermission(): Promise<boolean> {
     return true;
   }

@@ -8,6 +8,7 @@ import type {
   MembershipStatus,
   PartnerCompany,
   Permission,
+  PermissionScope,
   Role,
   RolePermission,
   RoleScope,
@@ -65,6 +66,10 @@ export interface PermissionRow {
   id: string;
   code: string;
   description: string | null;
+  scope: PermissionScope;
+  delegable_by_partner_owner: boolean;
+  sensitive: boolean;
+  category: string;
   created_at: string;
 }
 
@@ -165,6 +170,10 @@ export function mapPermissionRow(row: PermissionRow): Permission {
     id: row.id,
     code: row.code,
     description: row.description,
+    scope: row.scope,
+    delegableByPartnerOwner: row.delegable_by_partner_owner,
+    sensitive: row.sensitive,
+    category: row.category,
     createdAt: row.created_at,
   };
 }

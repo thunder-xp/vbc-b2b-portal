@@ -196,6 +196,19 @@ function service(fixtures: Fixtures = {}) {
       if (fixtures.hasCommercialPermission === false) return [];
       return ["catalog.view", "prices.view", "stock.view", "orders.create", "documents.view_company"].map((code) => ({ id: code, code, description: null, createdAt: now }));
     },
+    async getEffectivePermissionContext() {
+      const permissionCodes = fixtures.hasCommercialPermission === false
+        ? []
+        : ["catalog.view", "prices.view", "stock.view", "orders.create", "documents.view_company"];
+      return {
+        userId: currentProfile.id, companyId: currentCompany.id,
+        profileStatus: currentProfile.status, companyStatus: currentCompany.status,
+        membershipId: currentMemberships[0]!.id, membershipStatus: currentMemberships[0]!.status,
+        roleId: "role-1", roleCode: "partner_owner", roleName: "Владелец компании",
+        isInternalOverride: false, rolePermissionCodes: permissionCodes,
+        allowedOverrideCodes: [], deniedOverrideCodes: [], effectivePermissionCodes: permissionCodes,
+      };
+    },
     async hasPermission() { return fixtures.hasCommercialPermission ?? true; },
     async ensurePermission(_userId, _companyId, permissionCode) { return { isAllowed: true, permissionCode, context: null }; },
   };

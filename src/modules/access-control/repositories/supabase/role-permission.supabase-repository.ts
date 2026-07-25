@@ -17,10 +17,11 @@ import {
 import { RepositoryUnexpectedError } from "../index";
 
 const ROLE_COLUMNS = "id, code, name, scope, created_at";
-const PERMISSION_COLUMNS = "id, code, description, created_at";
+const PERMISSION_COLUMNS =
+  "id, code, description, scope, delegable_by_partner_owner, sensitive, category, created_at";
 const ROLE_PERMISSION_COLUMNS = "role_id, permission_id, created_at";
 const EFFECTIVE_PERMISSION_COLUMNS =
-  "permission:permissions!inner(id, code, description, created_at)";
+  "permission:permissions!inner(id, code, description, scope, delegable_by_partner_owner, sensitive, category, created_at)";
 const MEMBERSHIP_ROLE_COLUMNS = "role_id";
 const PARTNER_COMPANY_ACTIVE_COLUMNS = "id";
 
