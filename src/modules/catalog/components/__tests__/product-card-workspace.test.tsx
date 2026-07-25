@@ -12,6 +12,12 @@ vi.mock("../../../purchasing-lists/components/AddToPurchasingListButton", () => 
 vi.mock("../../../purchasing-lists/components/FavoriteProductButton", () => ({
   FavoriteProductButton: () => <button type="button">Favorite</button>,
 }));
+vi.mock("../ProductSpecificationAction", () => ({
+  ProductSpecificationAction: () => <button type="button">Estimate</button>,
+}));
+vi.mock("../ProductComparisonAction", () => ({
+  ProductComparisonAction: () => <button type="button">Compare</button>,
+}));
 
 vi.mock("next/link", () => ({ default: ({ children, href }: { children: React.ReactNode; href: string }) => <a href={href}>{children}</a> }));
 vi.mock("../../../orders/components", () => ({ AddToCartButton: () => <button type="button">В корзину</button> }));

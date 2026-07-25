@@ -26,8 +26,10 @@ describe("catalog client boundaries", () => {
 
   it("does not import estimate, PDF, SMTP, or order workflow UI into product cards", () => {
     expect(productCard).not.toMatch(/estimate|pdf|smtp|OrderForm|Checkout/i);
-    expect(productCard).toContain('purchasing-lists/components/AddToPurchasingListButton');
-    expect(productCard).not.toContain('from "../../purchasing-lists/components"');
+    expect(productCard).toContain('purchasing-lists/components/FavoriteProductButton');
+    expect(productCard).toContain("ProductSpecificationAction");
+    expect(productCard).toContain("ProductComparisonAction");
+    expect(productCard).not.toContain("AddToPurchasingListButton");
   });
 });
 

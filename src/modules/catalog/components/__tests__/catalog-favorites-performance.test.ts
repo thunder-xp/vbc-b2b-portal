@@ -4,7 +4,6 @@ import { describe, expect, it } from "vitest";
 
 const presentation = source("src/modules/catalog/components/CatalogPresentation.tsx");
 const favoriteButton = source("src/modules/purchasing-lists/components/FavoriteProductButton.tsx");
-const listButton = source("src/modules/purchasing-lists/components/AddToPurchasingListButton.tsx");
 
 describe("catalog favorites performance boundaries", () => {
   it("loads one bounded membership projection for the visible product set", () => {
@@ -26,9 +25,10 @@ describe("catalog favorites performance boundaries", () => {
   });
 
   it("lazy-loads the secondary list chooser", () => {
-    expect(listButton).toContain("dynamic(");
-    expect(listButton).toContain("PurchasingListChooserDialog");
-    expect(listButton).toContain("ssr: false");
+    expect(favoriteButton).toContain("dynamic(");
+    expect(favoriteButton).toContain("PurchasingListChooserDialog");
+    expect(favoriteButton).toContain("ssr: false");
+    expect(favoriteButton).toContain("withListChooser");
   });
 });
 
