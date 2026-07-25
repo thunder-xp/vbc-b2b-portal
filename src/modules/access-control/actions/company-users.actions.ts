@@ -33,10 +33,14 @@ export async function getCompanyUsersAction(input?: {
   try {
     const scope = await resolveCompanyScope(input?.companyId);
     const service = createCompanyUserManagementService();
-    const [users, events] = await Promise.all([
-      service.list(scope.userId, scope.company.id, input?.page ?? 1),
-      service.listEvents(scope.userId, scope.company.id),
-    ]);
+    const users = await service.list(
+      scope.userId,
+      scope.company.id,
+      input?.page ?? 1,
+    );
+    const events = scope.isAdmin
+      ? await service.listEvents(scope.userId, scope.company.id)
+      : [];
     return success("Company users loaded.", {
       company: scope.company,
       users,

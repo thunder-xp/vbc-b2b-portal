@@ -103,6 +103,39 @@ create index if not exists company_user_events_target_user_idx
   on public.company_user_events(target_user_id, created_at desc)
   where target_user_id is not null;
 
+create or replace function public.record_company_admin_intervention(
+  p_company_id uuid,
+  p_target_user_id uuid,
+  p_target_invitation_id uuid,
+  p_operation text
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+set row_security = off
+as $$
+begin
+  if exists (
+    select 1
+    from public.user_profiles profile
+    where profile.id = auth.uid()
+      and profile.status = 'active'
+      and profile.user_type = 'admin'
+  ) then
+    insert into public.company_user_events (
+      company_id, target_user_id, target_invitation_id, actor_user_id,
+      event_type, safe_payload
+    ) values (
+      p_company_id, p_target_user_id, p_target_invitation_id, auth.uid(),
+      'admin_intervention', jsonb_build_object('operation', left(p_operation, 100))
+    );
+  end if;
+end;
+$$;
+
+revoke all on function public.record_company_admin_intervention(uuid, uuid, uuid, text) from public;
+
 create or replace function public.can_manage_company_users(p_company_id uuid)
 returns boolean
 language sql
@@ -263,6 +296,14 @@ begin
     p_company_id, target_invitation.id, actor_id, 'invitation_created',
     jsonb_build_object('role', target_role.code, 'priceAccess', p_price_access)
   );
+  insert into public.company_user_events (
+    company_id, target_invitation_id, actor_user_id, event_type
+  ) values (
+    p_company_id, target_invitation.id, actor_id, 'invitation_link_generated'
+  );
+  perform public.record_company_admin_intervention(
+    p_company_id, null, target_invitation.id, 'invitation_created'
+  );
 
   return query select target_invitation.id, normalized_target_email,
     target_invitation.full_name,
@@ -320,6 +361,9 @@ begin
     target.company_id, target.id, actor_id, 'invitation_resent',
     jsonb_build_object('tokenVersion', target.token_version)
   );
+  perform public.record_company_admin_intervention(
+    target.company_id, null, target.id, 'invitation_resent'
+  );
 
   return query select target.id, lower(target.email), target.full_name,
     target.expires_at,
@@ -355,6 +399,9 @@ begin
   insert into public.company_user_events (
     company_id, target_invitation_id, actor_user_id, event_type
   ) values (target.company_id, target.id, actor_id, 'invitation_revoked');
+  perform public.record_company_admin_intervention(
+    target.company_id, null, target.id, 'invitation_revoked'
+  );
   return target.id;
 end;
 $$;
@@ -477,7 +524,6 @@ begin
     target.company_id, actor_id, target.id, actor_id,
     'invitation_accepted', jsonb_build_object('membershipId', membership.id)
   );
-
   return query select target.id, membership.id, target.company_id, false;
 end;
 $$;
@@ -558,6 +604,9 @@ begin
     target.company_id, target.user_id, actor_id,
     case when p_target_status = 'suspended'
       then 'employee_suspended' else 'employee_restored' end
+  );
+  perform public.record_company_admin_intervention(
+    target.company_id, target.user_id, null, p_target_status
   );
   return target.id;
 end;
@@ -668,6 +717,9 @@ begin
     target.company_id, target.user_id, actor_id, 'price_access_changed',
     jsonb_build_object('priceAccess', p_price_access)
   );
+  perform public.record_company_admin_intervention(
+    target.company_id, target.user_id, null, 'membership_access_updated'
+  );
   return target.id;
 end;
 $$;
@@ -698,6 +750,9 @@ begin
   insert into public.company_user_events (
     company_id, target_user_id, actor_user_id, event_type
   ) values (target.company_id, target.user_id, actor_id, 'owner_appointed');
+  perform public.record_company_admin_intervention(
+    target.company_id, target.user_id, null, 'owner_appointed'
+  );
   return target.id;
 end;
 $$;

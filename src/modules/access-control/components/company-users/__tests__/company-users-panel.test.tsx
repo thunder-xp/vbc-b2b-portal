@@ -49,4 +49,32 @@ describe("CompanyUsersPanel", () => {
     expect(document.body.textContent).not.toContain("company_users.manage");
     expect(document.body.textContent).not.toContain("membership-secret");
   });
+
+  it("shows the bounded audit inspector only to the admin surface", () => {
+    render(
+      <CompanyUsersPanel
+        companyId="company"
+        companyName="ALERT-SS"
+        events={[{
+          id: "event",
+          targetUserId: null,
+          targetInvitationId: "invitation",
+          actorUserId: "admin",
+          eventType: "employee_suspended",
+          safePayload: {},
+          createdAt: "2026-07-26T10:00:00Z",
+        }]}
+        isAdmin
+        page={{
+          records: [],
+          page: 1,
+          pageSize: 25,
+          totalCount: 0,
+          totalPages: 1,
+        }}
+      />,
+    );
+    expect(screen.getByText("Журнал доступа")).toBeInTheDocument();
+    expect(screen.getByText("Доступ сотрудника приостановлен")).toBeInTheDocument();
+  });
 });

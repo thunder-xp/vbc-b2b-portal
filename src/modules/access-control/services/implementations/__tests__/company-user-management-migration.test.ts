@@ -52,6 +52,8 @@ describe("company user management migration", () => {
     expect(sql).toContain("revoke all on table public.company_user_events from anon, authenticated");
     expect(sql).not.toMatch(/grant\s+(insert|update|delete|all).*company_user_events.*authenticated/i);
     expect(sql).toContain("grant execute on function public.create_company_invitation");
+    expect(sql).toContain("record_company_admin_intervention");
+    expect(sql).toContain("'admin_intervention'");
   });
 
   it("uses one aggregate list function with canonical authorization", () => {
