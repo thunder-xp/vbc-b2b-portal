@@ -1,5 +1,6 @@
 export * from "./access-request.repository";
 export * from "./company-membership.repository";
+export * from "./company-user-management.repository";
 export * from "./effective-permission.repository";
 export * from "./invitation.repository";
 export * from "./partner-company.repository";

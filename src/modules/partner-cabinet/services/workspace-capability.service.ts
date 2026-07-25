@@ -46,6 +46,7 @@ export type WorkspaceCapabilityModel = {
   canCreateCommercialProposal: boolean;
   canUseWarranty: boolean;
   canViewKnowledgeBase: boolean;
+  canManageCompanyUsers?: boolean;
 };
 
 export type WorkspaceCapabilityConfiguration = {
@@ -129,5 +130,6 @@ export function resolveWorkspaceCapabilities(
     canCreateCommercialProposal: configuration.commercialProposalAccess !== false && hasPermission("estimates.manage"),
     canUseWarranty: configuration.warrantyAccess !== false && hasPermission("documents.view_company"),
     canViewKnowledgeBase: configuration.knowledgeBaseAccess !== false && hasPermission("catalog.view"),
+    canManageCompanyUsers: hasPermission("company_users.manage"),
   };
 }

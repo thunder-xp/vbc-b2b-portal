@@ -22,6 +22,9 @@ describe("company user management migration", () => {
     expect(sql).toContain("create table if not exists public.invitation_permission_overrides");
     expect(sql).toContain("pricing.partner_price.view");
     expect(sql).toContain("pricing.retail_price.view");
+    expect(sql).toContain("A company membership already exists.");
+    expect(sql).toContain("A pending invitation already exists.");
+    expect(sql).toContain("set status = 'expired', token_hash = null");
   });
 
   it("accepts an invitation as one locked transaction", () => {
@@ -31,12 +34,16 @@ describe("company user management migration", () => {
     expect(sql).toContain("lower(target.email) <> actor_email");
     expect(sql).toContain("invitations_token_hash_unique_idx");
     expect(sql).toContain("'invitation_accepted'");
+    expect(sql).toContain("Invitation is no longer active.");
+    expect(sql).toContain("target.status = 'accepted' and target.accepted_by = actor_id");
   });
 
   it("enforces final-owner protection in database transitions", () => {
     expect(sql).toContain("pg_advisory_xact_lock(hashtextextended(target.company_id::text, 0))");
     expect(sql).toContain("The final active owner cannot be suspended.");
     expect(sql).toContain("The final active owner cannot be downgraded.");
+    expect(sql).toContain("Employees cannot change their own role or access overrides.");
+    expect(sql).toContain("p_target_status not in ('active', 'suspended')");
   });
 
   it("denies direct writes and exposes only narrow RPCs", () => {
@@ -51,5 +58,6 @@ describe("company user management migration", () => {
     expect(sql).toContain("function public.list_company_users");
     expect(sql).toContain("public.can_manage_company_users(p_company_id)");
     expect(sql).toContain("count(*) over()");
+    expect(sql).not.toContain("auth.admin");
   });
 });

@@ -8,6 +8,7 @@ import {
 import {
   SupabaseAccessRequestRepository,
   SupabaseCompanyMembershipRepository,
+  SupabaseCompanyUserManagementRepository,
   SupabaseEffectivePermissionRepository,
   SupabasePartnerCompanyRepository,
   SupabaseRolePermissionRepository,
@@ -28,6 +29,10 @@ import {
   DefaultPermissionService,
   DefaultUserProfileService,
 } from "../services/implementations";
+import {
+  CompanyUserManagementService,
+} from "../services";
+import { SmtpCompanyInvitationEmailProvider } from "../services/company-invitation-email.provider";
 
 export type AuthenticatedUser = {
   id: string;
@@ -97,4 +102,12 @@ export function createCompanyAccessService(): CompanyAccessService {
 
 export function createPermissionService(): PermissionService {
   return permissionService;
+}
+
+export function createCompanyUserManagementService(): CompanyUserManagementService {
+  return new CompanyUserManagementService(
+    new SupabaseCompanyUserManagementRepository(),
+    createPermissionService(),
+    new SmtpCompanyInvitationEmailProvider(),
+  );
 }

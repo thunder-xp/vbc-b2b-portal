@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import type { PartnerWorkspaceContext } from "../services";
 import { StatusBadge } from "./StatusBadge";
 
@@ -13,6 +15,11 @@ export function CompanyCard({ context }: { context: PartnerWorkspaceContext }) {
         <Info label="Код компании в 1С" value={context.external1cCode ?? "Не указан"} />
         <Info label="Статус партнёра" value={context.priceTypeName ?? (context.external1cPriceTypeId ? "Назначен" : "Не настроен")} />
       </dl>
+      {context.capabilities.canManageCompanyUsers ? (
+        <Link className="mt-6 inline-flex h-10 items-center rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white" href="/cabinet/company/users">
+          Сотрудники и доступ
+        </Link>
+      ) : null}
     </section>
   );
 }

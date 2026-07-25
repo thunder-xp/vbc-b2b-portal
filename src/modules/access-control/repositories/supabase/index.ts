@@ -1,5 +1,6 @@
 export * from "./access-request.supabase-repository";
 export * from "./company-membership.supabase-repository";
+export * from "./company-user-management.supabase-repository";
 export * from "./effective-permission.supabase-repository";
 export * from "./invitation.supabase-repository";
 export * from "./mappers";

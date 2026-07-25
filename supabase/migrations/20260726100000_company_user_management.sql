@@ -130,6 +130,7 @@ create or replace function public.create_company_invitation(
 returns table (
   invitation_id uuid,
   normalized_email text,
+  full_name text,
   expires_at timestamptz,
   token_version integer,
   repeated boolean
@@ -169,6 +170,7 @@ begin
       raise exception 'Invitation request key conflict.' using errcode = '23505';
     end if;
     return query select target_invitation.id, lower(target_invitation.email),
+      target_invitation.full_name,
       target_invitation.expires_at, target_invitation.token_version, true;
     return;
   end if;
@@ -194,6 +196,22 @@ begin
   ) then
     raise exception 'A company membership already exists.' using errcode = '23505';
   end if;
+
+  for target_invitation in
+    update public.invitations invitation
+    set status = 'expired', token_hash = null, updated_at = now()
+    where invitation.company_id = p_company_id
+      and lower(invitation.email) = normalized_target_email
+      and invitation.status = 'pending'
+      and invitation.expires_at <= now()
+    returning invitation.*
+  loop
+    insert into public.company_user_events (
+      company_id, target_invitation_id, actor_user_id, event_type
+    ) values (
+      p_company_id, target_invitation.id, actor_id, 'invitation_expired'
+    );
+  end loop;
 
   if exists (
     select 1 from public.invitations invitation
@@ -247,6 +265,7 @@ begin
   );
 
   return query select target_invitation.id, normalized_target_email,
+    target_invitation.full_name,
     target_invitation.expires_at, target_invitation.token_version, false;
 end;
 $$;
@@ -259,6 +278,7 @@ create or replace function public.reissue_company_invitation(
 returns table (
   invitation_id uuid,
   normalized_email text,
+  full_name text,
   expires_at timestamptz,
   token_version integer
 )
@@ -301,7 +321,8 @@ begin
     jsonb_build_object('tokenVersion', target.token_version)
   );
 
-  return query select target.id, lower(target.email), target.expires_at,
+  return query select target.id, lower(target.email), target.full_name,
+    target.expires_at,
     target.token_version;
 end;
 $$;
@@ -576,6 +597,10 @@ begin
     where profile.id = actor_id and profile.status = 'active'
       and profile.user_type = 'admin'
   ) into actor_is_admin;
+  if target.user_id = actor_id and not actor_is_admin then
+    raise exception 'Employees cannot change their own role or access overrides.'
+      using errcode = '42501';
+  end if;
 
   select role.code into current_role_code from public.roles role where role.id = target.role_id;
   select * into next_role from public.roles role
