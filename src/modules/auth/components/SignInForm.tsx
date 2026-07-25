@@ -8,7 +8,7 @@ import type { PublicLocale } from "@/src/modules/public-locale";
 import { signInAction } from "../actions/auth.actions";
 import { authCopy, localizeSignInError } from "../auth-copy";
 
-export function SignInForm({ locale }: { locale: PublicLocale }) {
+export function SignInForm({ locale, nextPath }: { locale: PublicLocale; nextPath?: string }) {
   const [state, formAction, isPending] = useActionState(signInAction, {
     error: null,
   });
@@ -17,6 +17,7 @@ export function SignInForm({ locale }: { locale: PublicLocale }) {
 
   return (
     <form action={formAction} className="grid gap-5">
+      {nextPath ? <input name="next" type="hidden" value={nextPath} /> : null}
       <label className="grid gap-2 text-sm font-medium text-zinc-800">
         {copy.email}
         <input
@@ -39,7 +40,7 @@ export function SignInForm({ locale }: { locale: PublicLocale }) {
       </label>
       <div className="flex items-center justify-between text-sm">
         <span className="text-zinc-500">{copy.forgotPassword}</span>
-        <Link className="font-medium text-emerald-700" href="/auth/register">
+        <Link className="font-medium text-emerald-700" href={nextPath ? `/auth/register?next=${encodeURIComponent(nextPath)}` : "/auth/register"}>
           {copy.becomePartner}
         </Link>
       </div>

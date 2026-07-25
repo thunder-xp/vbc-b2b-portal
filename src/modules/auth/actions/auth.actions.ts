@@ -14,6 +14,7 @@ export async function signInAction(
 ): Promise<AuthActionState> {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
+  const nextPath = safeNextPath(formData.get("next"));
 
   if (!email || !password) {
     return { error: "Enter your email and password." };
@@ -26,7 +27,7 @@ export async function signInAction(
     return { error: "Email or password is incorrect." };
   }
 
-  redirect("/cabinet");
+  redirect(nextPath ?? "/cabinet");
 }
 
 export async function registerAction(
@@ -38,6 +39,7 @@ export async function registerAction(
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
   const confirmPassword = String(formData.get("confirmPassword") ?? "");
+  const nextPath = safeNextPath(formData.get("next"));
 
   if (!company || !country || !email || !password || !confirmPassword) {
     return { error: "Complete all fields." };
@@ -63,7 +65,16 @@ export async function registerAction(
     return { error: "Account could not be created." };
   }
 
-  redirect("/auth/sign-in?registered=1");
+  const query = new URLSearchParams({ registered: "1" });
+  if (nextPath) query.set("next", nextPath);
+  redirect(`/auth/sign-in?${query.toString()}`);
+}
+
+function safeNextPath(value: FormDataEntryValue | null): string | null {
+  const path = String(value ?? "");
+  return path.startsWith("/") && !path.startsWith("//") && path.length <= 500
+    ? path
+    : null;
 }
 
 export async function signOutAction(): Promise<void> {

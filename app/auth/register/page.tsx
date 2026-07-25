@@ -14,6 +14,7 @@ export default function RegisterPage() {
   if (!isLocaleReady) return <AuthPageLoading />;
 
   const copy = authCopy[locale].registration;
+  const nextPath = safeNextPath(new URLSearchParams(window.location.search).get("next"));
 
   return (
     <AuthPageShell
@@ -22,7 +23,13 @@ export default function RegisterPage() {
       maxWidth="lg"
       title={copy.title}
     >
-      <RegisterForm locale={locale} />
+      <RegisterForm locale={locale} nextPath={nextPath} />
     </AuthPageShell>
   );
+}
+
+function safeNextPath(value: string | null): string | undefined {
+  return value?.startsWith("/") && !value.startsWith("//") && value.length <= 500
+    ? value
+    : undefined;
 }

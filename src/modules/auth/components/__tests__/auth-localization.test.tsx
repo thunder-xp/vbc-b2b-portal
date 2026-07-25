@@ -78,4 +78,29 @@ describe("authentication localization", () => {
       expect(screen.getByText(authCopy.ro.signIn.registrationSuccess)).toBeInTheDocument();
     });
   });
+
+  it("preserves a validated invitation return path across auth links", async () => {
+    window.history.replaceState(
+      {},
+      "",
+      "/auth/sign-in?next=%2Fauth%2Finvitations%2Fsecure-token",
+    );
+    render(<SignInPage />);
+
+    expect(await screen.findByRole("link", { name: authCopy.ru.signIn.becomePartner }))
+      .toHaveAttribute(
+        "href",
+        "/auth/register?next=%2Fauth%2Finvitations%2Fsecure-token",
+      );
+    expect(document.querySelector('input[name="next"]')).toHaveValue(
+      "/auth/invitations/secure-token",
+    );
+  });
+
+  it("drops unsafe external return paths", async () => {
+    window.history.replaceState({}, "", "/auth/sign-in?next=https://evil.example");
+    render(<SignInPage />);
+    await screen.findByRole("heading", { name: authCopy.ru.signIn.title });
+    expect(document.querySelector('input[name="next"]')).not.toBeInTheDocument();
+  });
 });
