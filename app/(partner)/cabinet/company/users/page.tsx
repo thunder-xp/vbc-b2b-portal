@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-import { getCompanyUsersAction } from "@/src/modules/access-control/actions";
+import { getCompanyUsersAction } from "@/src/modules/access-control/actions/company-users.actions";
 import { CompanyUsersPanel } from "@/src/modules/access-control/components/company-users";
 
 export default async function CompanyUsersPage() {

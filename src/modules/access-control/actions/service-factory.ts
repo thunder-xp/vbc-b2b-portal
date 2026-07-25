@@ -29,9 +29,7 @@ import {
   DefaultPermissionService,
   DefaultUserProfileService,
 } from "../services/implementations";
-import {
-  CompanyUserManagementService,
-} from "../services";
+import { CompanyUserManagementService } from "../services/company-user-management.service";
 import { SmtpCompanyInvitationEmailProvider } from "../services/company-invitation-email.provider";
 
 export type AuthenticatedUser = {

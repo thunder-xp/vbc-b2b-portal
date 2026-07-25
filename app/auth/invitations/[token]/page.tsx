@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import {
   acceptCompanyInvitationAction,
-} from "@/src/modules/access-control/actions";
+} from "@/src/modules/access-control/actions/company-users.actions";
 import { getAuthenticatedUser } from "@/src/modules/access-control/actions/service-factory";
 
 export default async function InvitationAcceptancePage({

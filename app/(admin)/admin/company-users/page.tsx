@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import {
   getCompanyUsersAction,
   listManageableCompaniesAction,
-} from "@/src/modules/access-control/actions";
+} from "@/src/modules/access-control/actions/company-users.actions";
 import { CompanyUsersPanel } from "@/src/modules/access-control/components/company-users";
 
 export default async function AdminCompanyUsersPage({

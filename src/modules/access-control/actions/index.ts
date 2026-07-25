@@ -12,4 +12,3 @@ export { getOwnAccessRequestsAction } from "./get-access-requests.action";
 export { getOwnMembershipsAction } from "./get-memberships.action";
 export { submitAccessRequestAction } from "./submit-access-request.action";
 export { updateOwnProfileAction } from "./update-profile.action";
-export * from "./company-users.actions";
