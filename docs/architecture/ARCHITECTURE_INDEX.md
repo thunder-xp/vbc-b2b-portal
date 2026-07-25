@@ -11,6 +11,7 @@ This index is the table of contents for the Novotech Partner Platform Architectu
 5. `docs/architecture/SECURITY_AND_DATABASE_ARCHITECTURE.md`
 6. `docs/architecture/ACCESS_CONTROL_RUNTIME_DESIGN.md`
 7. `docs/architecture/UNIFIED_ACCESS_CONTROL_DESIGN.md`
+8. `docs/architecture/COMPANY_USER_MANAGEMENT_DESIGN.md`
 8. `docs/architecture/ACCESS_CONTROL_DATABASE_DESIGN.md`
 8. `docs/architecture/ACCESS_CONTROL_REPOSITORY_DESIGN.md`
 9. `docs/architecture/ACCESS_CONTROL_SERVICE_DESIGN.md`
@@ -60,6 +61,7 @@ This index is the table of contents for the Novotech Partner Platform Architectu
 - `docs/architecture/SECURITY_AND_DATABASE_ARCHITECTURE.md` - Security model, Supabase access rules, RLS principles, identity model, database design principles, and implementation gate.
 - `docs/architecture/ACCESS_CONTROL_RUNTIME_DESIGN.md` - First runtime design for user identity, company membership, roles, permissions, access states, server-side enforcement, and MVP access-control scope.
 - `docs/architecture/UNIFIED_ACCESS_CONTROL_DESIGN.md` - Canonical effective-permission projection, membership overrides, delegation metadata, partner-price permission split, retail-only UX contract, RLS, and phased rollout.
+- `docs/architecture/COMPANY_USER_MANAGEMENT_DESIGN.md` - Secure employee invitations, company-scoped management, intended access overrides, atomic membership transitions, owner protection, audit, and performance boundaries.
 - `docs/architecture/ACCESS_CONTROL_DATABASE_DESIGN.md` - Conceptual access-control table design, relationships, statuses, roles, permissions, RLS readiness, 1C ID strategy, and migration checklist.
 - `docs/architecture/ACCESS_CONTROL_REPOSITORY_DESIGN.md` - Access Control repository boundaries, proposed repositories, methods, query scoping, RLS assumptions, error handling, and service boundaries.
 - `docs/architecture/ACCESS_CONTROL_SERVICE_DESIGN.md` - Access Control service responsibilities, proposed services, methods, business rules, permission checks, state transitions, errors, and Server Action boundaries.
