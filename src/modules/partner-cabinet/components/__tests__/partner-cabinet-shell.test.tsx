@@ -18,7 +18,7 @@ const context = {
   companyName: "Partner Company",
   membershipRole: "Владелец компании",
   accessState: "active" as const,
-  navigation: resolveWorkspaceCapabilities(new Set(["catalog.view", "orders.create", "orders.manage", "reservations.manage", "specifications.manage", "estimates.view", "estimates.manage", "documents.view_company"])).navigation,
+  navigation: resolveWorkspaceCapabilities(new Set(["catalog.view", "orders.create", "orders.manage", "purchasing_lists.view", "reservations.manage", "specifications.manage", "estimates.view", "estimates.manage", "documents.view_company"])).navigation,
   cartItemCount: 0,
 };
 
@@ -68,6 +68,12 @@ describe("Partner workspace shell", () => {
 
     expect(screen.getByRole("link", { name: "Рабочий стол" })).toHaveAttribute("href", "/cabinet");
     expect(screen.getByRole("link", { name: "Каталог" })).toHaveAttribute("href", "/cabinet/catalog");
+    const selectionButton = screen.getByRole("button", { name: "Подбор товаров" });
+    expect(selectionButton).toHaveAttribute("aria-expanded", "false");
+    await user.click(selectionButton);
+    expect(screen.getByRole("link", { name: "Избранное" })).toHaveAttribute("href", "/cabinet/purchasing-lists");
+    expect(screen.getByRole("link", { name: "Сравнение" })).toHaveAttribute("href", "/cabinet/compare");
+    expect(screen.queryByRole("link", { name: "Избранное и списки" })).not.toBeInTheDocument();
     const projectButton = screen.getByRole("button", { name: "Проектная защита" });
     expect(projectButton).toHaveAttribute("aria-expanded", "false");
     await user.click(projectButton);

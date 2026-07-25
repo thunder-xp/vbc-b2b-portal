@@ -8,6 +8,7 @@ import {
   ChevronDown,
   ChevronRight,
   ClipboardList,
+  Columns3,
   FileText,
   Landmark,
   FolderKanban,
@@ -30,6 +31,7 @@ const icons = {
   catalog: Boxes,
   cart: ShoppingCart,
   purchasing_lists: ListPlus,
+  comparison: Columns3,
   solution_selection: SearchCheck,
   projects: FolderKanban,
   reservations: ClipboardList,
@@ -46,13 +48,17 @@ const primaryNavigationOrder: readonly WorkspaceCapabilityKey[] = [
   "dashboard",
   "catalog",
   "proposals",
-  "purchasing_lists",
   "orders",
   "finance",
   "documents",
   "warranty",
   "knowledge_base",
   "company",
+];
+
+const selectionNavigationOrder: readonly WorkspaceCapabilityKey[] = [
+  "purchasing_lists",
+  "comparison",
 ];
 
 const projectNavigationOrder: readonly WorkspaceCapabilityKey[] = [
@@ -129,6 +135,7 @@ export function PartnerSidebar({
 }) {
   const pathname = usePathname();
   const [projectToolsOpen, setProjectToolsOpen] = useState(false);
+  const [selectionToolsOpen, setSelectionToolsOpen] = useState(false);
   const navigationByKey = new Map(navigation.map((item) => [item.key, item]));
   const primaryNavigation = primaryNavigationOrder.flatMap((key) => {
     const item = navigationByKey.get(key);
@@ -138,10 +145,17 @@ export function PartnerSidebar({
     const item = navigationByKey.get(key);
     return item ? [item] : [];
   });
+  const selectionNavigation = selectionNavigationOrder.flatMap((key) => {
+    const item = navigationByKey.get(key);
+    return item ? [item] : [];
+  });
   const cart = navigationByKey.get("cart");
   const projectRouteActive = projectNavigation.some((item) => isRouteActive(pathname, item.href));
   const projectToolsExpanded = projectRouteActive || projectToolsOpen;
   const ProjectChevron = projectToolsExpanded ? ChevronDown : ChevronRight;
+  const selectionRouteActive = selectionNavigation.some((item) => isRouteActive(pathname, item.href));
+  const selectionToolsExpanded = selectionRouteActive || selectionToolsOpen;
+  const SelectionChevron = selectionToolsExpanded ? ChevronDown : ChevronRight;
 
   return (
     <aside className="flex h-full min-h-0 flex-col overflow-hidden border-r border-zinc-200 bg-zinc-950 text-white">
@@ -155,6 +169,21 @@ export function PartnerSidebar({
           {primaryNavigation.slice(0, 2).map((item) => (
             <NavigationItem hasWorkspaceAccess={hasWorkspaceAccess} item={item} key={item.key} onNavigate={onNavigate} pathname={pathname} />
           ))}
+
+          {selectionNavigation.length > 0 && (
+            <div>
+              <button aria-controls="product-selection-navigation" aria-expanded={selectionToolsExpanded} className={`flex min-h-10 w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 ${selectionRouteActive ? "text-emerald-200" : "text-zinc-300 hover:bg-white/10 hover:text-white"}`} onClick={() => setSelectionToolsOpen((open) => !open)} type="button">
+                <SearchCheck aria-hidden="true" className={`size-4 shrink-0 ${selectionRouteActive ? "text-emerald-300" : ""}`} />
+                <span className="min-w-0 flex-1 truncate">Подбор товаров</span>
+                <SelectionChevron aria-hidden="true" className="size-4 shrink-0" />
+              </button>
+              <div aria-hidden={!selectionToolsExpanded} className={`grid transition-[grid-template-rows,opacity] duration-150 ease-out ${selectionToolsExpanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`} id="product-selection-navigation">
+                <div className="overflow-hidden"><div className="ml-5 space-y-0.5 border-l border-white/10 py-1 pl-2">
+                  {selectionNavigation.map((item) => <NavigationItem expanded={selectionToolsExpanded} hasWorkspaceAccess={hasWorkspaceAccess} item={item} key={item.key} onNavigate={onNavigate} pathname={pathname} submenu />)}
+                </div></div>
+              </div>
+            </div>
+          )}
 
           {projectNavigation.length > 0 && (
             <div>
