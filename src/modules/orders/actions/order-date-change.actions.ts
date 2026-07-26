@@ -6,15 +6,20 @@ import { getAuthenticatedUserId } from "../../access-control/actions/service-fac
 import type { InternalOrderDateChangeRecord } from "../repositories";
 import type { OrderDateChangeRequest } from "../types";
 import { createInternalOrderDateChangeService } from "./service-factory";
+import { requireAdminPermission } from "../../admin/services";
 
 export async function listInternalOrderDateChangesAction(): Promise<ActionResult<InternalOrderDateChangeRecord[]>> {
-  try { return success("Date-change requests loaded.", await createInternalOrderDateChangeService().listPending(await getAuthenticatedUserId())); }
+  try {
+    await requireAdminPermission("order_date_changes.review");
+    return success("Date-change requests loaded.", await createInternalOrderDateChangeService().listPending(await getAuthenticatedUserId()));
+  }
   catch (error) { return failureFromError(error); }
 }
 
 export async function reviewOrderDateChangeAction(input: { requestId: string; decision: "approved" | "rejected"; comment: string }): Promise<ActionResult<OrderDateChangeRequest>> {
   if (!input.requestId?.trim() || !["approved", "rejected"].includes(input.decision)) return invalidInput("Решение не заполнено.");
   try {
+    await requireAdminPermission("order_date_changes.review");
     const request = await createInternalOrderDateChangeService().review(await getAuthenticatedUserId(), input);
     revalidatePath("/admin/reservation-requests");
     revalidatePath("/cabinet/reservation-requests");

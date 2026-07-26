@@ -8,6 +8,9 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidatePath }));
+vi.mock("@/src/modules/admin/services", () => ({
+  requireAdminPermission: vi.fn().mockResolvedValue({}),
+}));
 vi.mock("../service-factory", () => ({
   createAccessApprovalService: mocks.createAccessApprovalService,
   getAuthenticatedUserId: mocks.getAuthenticatedUserId,

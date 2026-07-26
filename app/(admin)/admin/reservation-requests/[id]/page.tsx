@@ -2,8 +2,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getInternalReservationRequestAction } from "@/src/modules/reservation-requests/actions";
 import { InternalReservationReviewPanel, ReservationStatusBadge } from "@/src/modules/reservation-requests/components";
+import { requireAdminPagePermission } from "@/src/modules/admin";
 
 export default async function InternalReservationRequestPage({ params }: { params: Promise<{ id: string }> }) {
+  await requireAdminPagePermission("reservations.review");
   const { id } = await params;
   const result = await getInternalReservationRequestAction(id);
   if (!result.success) {

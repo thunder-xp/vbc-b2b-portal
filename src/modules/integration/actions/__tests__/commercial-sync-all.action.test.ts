@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ForbiddenError } from "../../../access-control/services";
 
 const mocks = vi.hoisted(() => ({
+  requireAdminPermission: vi.fn(),
   ensureActiveUser: vi.fn(),
   rateSync: vi.fn(),
   priceStart: vi.fn(),
@@ -9,6 +11,9 @@ const mocks = vi.hoisted(() => ({
   stockFailLaunch: vi.fn(),
   launchPrice: vi.fn(),
   launchStock: vi.fn(),
+}));
+vi.mock("../../../admin/services", () => ({
+  requireAdminPermission: mocks.requireAdminPermission,
 }));
 
 vi.mock("next/headers", () => ({
@@ -45,6 +50,7 @@ import { syncAllCommercialDataAction } from "../commercial-sync-all.action";
 describe("manual commercial synchronization sequence", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.requireAdminPermission.mockResolvedValue({});
     mocks.ensureActiveUser.mockResolvedValue({ userType: UserType.Internal });
     mocks.rateSync.mockResolvedValue({});
     mocks.priceStart.mockResolvedValue({ started: true, state: { activeSyncId: "price-1" } });
@@ -80,7 +86,7 @@ describe("manual commercial synchronization sequence", () => {
   });
 
   it("does not allow partner users to trigger synchronization", async () => {
-    mocks.ensureActiveUser.mockResolvedValue({ userType: UserType.Partner });
+    mocks.requireAdminPermission.mockRejectedValueOnce(new ForbiddenError());
     const result = await syncAllCommercialDataAction();
     expect(result.success).toBe(false);
     expect(mocks.rateSync).not.toHaveBeenCalled();

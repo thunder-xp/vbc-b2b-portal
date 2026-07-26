@@ -1,7 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { UserStatus, UserType } from "../../../access-control/types";
-import { UnauthenticatedError } from "../../../access-control/services";
+import {
+  ForbiddenError,
+  UnauthenticatedError,
+} from "../../../access-control/services";
 import {
   IntegrationProviderUnavailableError,
   IntegrationTimeoutError,
@@ -9,6 +12,7 @@ import {
 } from "../../errors";
 
 const mocks = vi.hoisted(() => ({
+  requireAdminPermission: vi.fn(),
   getOneCEnv: vi.fn(),
   getAuthenticatedUserId: vi.fn<() => Promise<string>>(),
   createUserProfileService: vi.fn(),
@@ -30,6 +34,9 @@ const mocks = vi.hoisted(() => ({
   launchPriceSync: vi.fn(),
   failPriceLaunch: vi.fn(),
   syncStock: vi.fn(),
+}));
+vi.mock("../../../admin/services", () => ({
+  requireAdminPermission: mocks.requireAdminPermission,
 }));
 vi.mock("../../sync/price-sync-continuation", () => ({ launchPriceSync: mocks.launchPriceSync, PriceSyncLaunchError: class PriceSyncLaunchError extends Error { safeMessage = "launch failed"; } }));
 vi.mock("../../sync/stock-sync-launcher", () => ({ launchStockSync: mocks.launchStockSync, StockLaunchError: class StockLaunchError extends Error { safeMessage = "launch failed"; } }));
@@ -68,6 +75,7 @@ describe("syncCatalogFromOneCAction", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.requireAdminPermission.mockResolvedValue({});
     mocks.getAuthenticatedUserId.mockResolvedValue("user-1");
     mocks.createCatalogSyncEngine.mockReturnValue({
       syncCatalog: mocks.syncCatalog,
@@ -221,7 +229,7 @@ describe("syncCatalogFromOneCAction", () => {
   });
 
   it("returns a safe error when unauthenticated", async () => {
-    mocks.getAuthenticatedUserId.mockRejectedValue(new UnauthenticatedError());
+    mocks.requireAdminPermission.mockRejectedValueOnce(new UnauthenticatedError());
 
     await expect(syncCatalogFromOneCAction()).resolves.toMatchObject({
       success: false,
@@ -231,7 +239,7 @@ describe("syncCatalogFromOneCAction", () => {
   });
 
   it("rejects partner users", async () => {
-    mocks.ensureActiveUser.mockResolvedValue(makeProfile(UserType.External));
+    mocks.requireAdminPermission.mockRejectedValueOnce(new ForbiddenError());
 
     await expect(syncCatalogFromOneCAction()).resolves.toMatchObject({
       success: false,
@@ -271,7 +279,7 @@ describe("syncCatalogFromOneCAction", () => {
   });
 
   it("returns a safe price sync error when unauthenticated", async () => {
-    mocks.getAuthenticatedUserId.mockRejectedValue(new UnauthenticatedError());
+    mocks.requireAdminPermission.mockRejectedValueOnce(new UnauthenticatedError());
 
     await expect(syncPricesFromOneCAction()).resolves.toMatchObject({
       success: false,
@@ -281,7 +289,7 @@ describe("syncCatalogFromOneCAction", () => {
   });
 
   it("rejects partner users from price sync", async () => {
-    mocks.ensureActiveUser.mockResolvedValue(makeProfile(UserType.External));
+    mocks.requireAdminPermission.mockRejectedValueOnce(new ForbiddenError());
 
     await expect(syncPricesFromOneCAction()).resolves.toMatchObject({
       success: false,
@@ -303,7 +311,7 @@ describe("syncCatalogFromOneCAction", () => {
   });
 
   it("returns a safe stock sync error when unauthenticated", async () => {
-    mocks.getAuthenticatedUserId.mockRejectedValue(new UnauthenticatedError());
+    mocks.requireAdminPermission.mockRejectedValueOnce(new UnauthenticatedError());
 
     await expect(syncStockFromOneCAction()).resolves.toMatchObject({
       success: false,
@@ -313,7 +321,7 @@ describe("syncCatalogFromOneCAction", () => {
   });
 
   it("rejects partner users from stock sync", async () => {
-    mocks.ensureActiveUser.mockResolvedValue(makeProfile(UserType.External));
+    mocks.requireAdminPermission.mockRejectedValueOnce(new ForbiddenError());
 
     await expect(syncStockFromOneCAction()).resolves.toMatchObject({
       success: false,

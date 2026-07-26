@@ -5,12 +5,14 @@ import {
   listManageableCompaniesAction,
 } from "@/src/modules/access-control/actions/company-users.actions";
 import { CompanyUsersPanel } from "@/src/modules/access-control/components/company-users";
+import { requireAdminPagePermission } from "@/src/modules/admin";
 
 export default async function AdminCompanyUsersPage({
   searchParams,
 }: {
   searchParams: Promise<{ companyId?: string }>;
 }) {
+  await requireAdminPagePermission("admin.users.view");
   const { companyId } = await searchParams;
   const companiesResult = await listManageableCompaniesAction();
   if (!companiesResult.success) {

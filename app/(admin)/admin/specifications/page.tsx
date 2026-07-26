@@ -3,8 +3,10 @@ import { redirect } from "next/navigation";
 
 import { listInternalSpecificationsAction } from "@/src/modules/project-specifications/actions";
 import { StatusBadge } from "@/src/modules/project-specifications/components";
+import { requireAdminPagePermission } from "@/src/modules/admin";
 
 export default async function AdminSpecificationsPage() {
+  await requireAdminPagePermission("specifications.review");
   const result = await listInternalSpecificationsAction();
   if (!result.success && result.errorCode === "AUTH_REQUIRED") redirect("/auth/sign-in");
 

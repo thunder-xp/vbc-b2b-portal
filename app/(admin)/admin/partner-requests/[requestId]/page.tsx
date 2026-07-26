@@ -5,6 +5,7 @@ import {
   AccessRequestDecisionForms,
   AccessRequestReviewDetail,
 } from "@/src/modules/access-control/components/admin";
+import { requireAdminPagePermission } from "@/src/modules/admin";
 
 type AdminPartnerRequestDetailPageProps = {
   params: Promise<{
@@ -15,6 +16,7 @@ type AdminPartnerRequestDetailPageProps = {
 export default async function AdminPartnerRequestDetailPage({
   params,
 }: AdminPartnerRequestDetailPageProps) {
+  await requireAdminPagePermission("admin.access_requests.view");
   const { requestId } = await params;
   const requestResult = await getAccessRequestForReviewAction(requestId);
 

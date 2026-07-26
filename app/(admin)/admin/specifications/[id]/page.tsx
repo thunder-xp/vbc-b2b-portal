@@ -3,8 +3,10 @@ import { notFound, redirect } from "next/navigation";
 
 import { getInternalSpecificationAction } from "@/src/modules/project-specifications/actions";
 import { InternalReviewPanel, StatusBadge } from "@/src/modules/project-specifications/components";
+import { requireAdminPagePermission } from "@/src/modules/admin";
 
 export default async function AdminSpecificationDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  await requireAdminPagePermission("specifications.review");
   const { id } = await params;
   const result = await getInternalSpecificationAction(id);
   if (!result.success) {

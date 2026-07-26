@@ -15,9 +15,11 @@ import type {
 } from "../services";
 import { ProjectSpecificationStatus } from "../types";
 import { createInternalSpecificationReviewService } from "./service-factory";
+import { requireAdminPermission } from "../../admin/services";
 
 export async function listInternalSpecificationsAction(): Promise<ActionResult<InternalSpecificationSummaryDto[]>> {
   try {
+    await requireAdminPermission("specifications.review");
     const userId = await getAuthenticatedUserId();
     return success(
       "Submitted specifications loaded.",
@@ -33,6 +35,7 @@ export async function getInternalSpecificationAction(
 ): Promise<ActionResult<InternalSpecificationDetailDto>> {
   if (!specificationId.trim()) return invalidInput("Specification is required.");
   try {
+    await requireAdminPermission("specifications.review");
     const userId = await getAuthenticatedUserId();
     return success(
       "Specification loaded.",
@@ -48,6 +51,7 @@ export async function startSpecificationReviewAction(
 ): Promise<ActionResult<null>> {
   if (!specificationId.trim()) return invalidInput("Specification is required.");
   try {
+    await requireAdminPermission("specifications.review");
     const userId = await getAuthenticatedUserId();
     await createInternalSpecificationReviewService().startReview(userId, specificationId);
     revalidateReviewPaths(specificationId);
@@ -74,6 +78,7 @@ export async function decideSpecificationReviewAction(input: {
     return invalidInput("A valid decision and response comment are required.");
   }
   try {
+    await requireAdminPermission("specifications.review");
     const userId = await getAuthenticatedUserId();
     const result = await createInternalSpecificationReviewService().decide(userId, {
       specificationId,

@@ -5,12 +5,7 @@ import {
   success,
   type ActionResult,
 } from "../../access-control/actions/action-result";
-import {
-  createUserProfileService,
-  getAuthenticatedUserId,
-} from "../../access-control/actions/service-factory";
-import { ForbiddenError } from "../../access-control/services";
-import { UserType } from "../../access-control/types";
+import { requireAdminPermission } from "../../admin/services";
 import { createCatalogSyncEngine, createCatalogSyncStateReader } from "../services";
 import type { CatalogSyncReport, CatalogSyncState } from "../sync";
 import { getOneCEnv } from "../../../lib/env";
@@ -19,15 +14,7 @@ export async function syncCatalogFromOneCAction(): Promise<
   ActionResult<CatalogSyncReport>
 > {
   try {
-    const userId = await getAuthenticatedUserId();
-    const profile = await createUserProfileService().ensureActiveUser(userId);
-
-    if (
-      profile.userType !== UserType.Admin &&
-      profile.userType !== UserType.Internal
-    ) {
-      throw new ForbiddenError();
-    }
+    await requireAdminPermission("admin.integrations.manage");
 
     const syncEngine = createCatalogSyncEngine(getOneCEnv());
     const report = await syncEngine.syncCatalog();
@@ -40,9 +27,7 @@ export async function syncCatalogFromOneCAction(): Promise<
 
 export async function getCatalogSyncStateAction(): Promise<ActionResult<CatalogSyncState>> {
   try {
-    const userId = await getAuthenticatedUserId();
-    const profile = await createUserProfileService().ensureActiveUser(userId);
-    if (profile.userType !== UserType.Admin && profile.userType !== UserType.Internal) throw new ForbiddenError();
+    await requireAdminPermission("admin.catalog.view");
     return success("Catalog sync state loaded.", await createCatalogSyncStateReader().getState());
   } catch (error) { return failureFromError(error); }
 }

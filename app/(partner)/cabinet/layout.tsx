@@ -18,7 +18,7 @@ export default async function CabinetLayout({ children }: { children: ReactNode 
   }
 
   const context = result.data;
-  if (context.accessState === "internal") redirect("/admin/partner-requests");
+  if (context.accessState === "internal") redirect("/admin");
   if (context.accessState === "missing_profile") redirect("/onboarding/profile");
   if (context.accessState === "pending_approval" || context.accessState === "rejected") {
     redirect("/onboarding/waiting");

@@ -2,8 +2,10 @@ import { redirect } from "next/navigation";
 
 import { listPendingAccessRequestsForReviewAction } from "@/src/modules/access-control/actions/admin/access-approval.actions";
 import { AccessRequestReviewList } from "@/src/modules/access-control/components/admin";
+import { requireAdminPagePermission } from "@/src/modules/admin";
 
 export default async function AdminPartnerRequestsPage() {
+  await requireAdminPagePermission("admin.access_requests.view");
   const requestsResult = await listPendingAccessRequestsForReviewAction();
 
   if (!requestsResult.success && requestsResult.errorCode === "AUTH_REQUIRED") {

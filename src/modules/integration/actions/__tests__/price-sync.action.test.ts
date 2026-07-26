@@ -2,6 +2,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({ ensureActiveUser: vi.fn(), getUserId: vi.fn(), start: vi.fn(), getState: vi.fn(), failLaunch: vi.fn(), launch: vi.fn() }));
 vi.mock("server-only", () => ({}));
+vi.mock("../../../admin/services", () => ({
+  requireAdminPermission: vi.fn().mockResolvedValue({}),
+}));
 vi.mock("next/headers", () => ({ headers: vi.fn(async () => new Headers({ host: "portal.example", "x-forwarded-proto": "https" })) }));
 vi.mock("../../../access-control/actions/service-factory", () => ({ getAuthenticatedUserId: mocks.getUserId, createUserProfileService: () => ({ ensureActiveUser: mocks.ensureActiveUser }) }));
 vi.mock("../../services", () => ({ createChunkedPriceSyncService: () => ({ start: mocks.start, getState: mocks.getState, failLaunch: mocks.failLaunch }) }));

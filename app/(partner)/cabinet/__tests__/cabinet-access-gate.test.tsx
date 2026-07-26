@@ -41,7 +41,7 @@ describe("partner workspace access gate", () => {
 
   it("redirects internal users to the internal area", async () => {
     mocks.getPartnerWorkspaceContextAction.mockResolvedValue(successContext("internal"));
-    await expect(CabinetLayout({ children: null })).rejects.toThrow("NEXT_REDIRECT:/admin/partner-requests");
+    await expect(CabinetLayout({ children: null })).rejects.toThrow("NEXT_REDIRECT:/admin");
   });
 
   it("redirects users without a profile to profile onboarding", async () => {

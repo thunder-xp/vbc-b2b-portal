@@ -2,8 +2,10 @@ import { redirect } from "next/navigation";
 
 import { getCommercialRateAdminViewAction } from "@/src/modules/pricing-inventory/actions";
 import { CommercialRateAdminPanel } from "@/src/modules/pricing-inventory/components";
+import { requireAdminPagePermission } from "@/src/modules/admin";
 
 export default async function CommercialRatesPage() {
+  await requireAdminPagePermission("admin.rates.view");
   const result = await getCommercialRateAdminViewAction();
   if (!result.success && result.errorCode === "AUTH_REQUIRED") redirect("/auth/sign-in");
 

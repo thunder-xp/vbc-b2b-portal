@@ -14,6 +14,7 @@ import {
   createAccessApprovalService,
   getAuthenticatedUserId,
 } from "../service-factory";
+import { requireAdminPermission } from "@/src/modules/admin/services";
 
 export type AccessRequestReviewDto = {
   id: string;
@@ -48,6 +49,7 @@ export async function listPendingAccessRequestsForReviewAction(): Promise<
   ActionResult<AccessRequestReviewDto[]>
 > {
   try {
+    await requireAdminPermission("admin.access_requests.view");
     const actorUserId = await getAuthenticatedUserId();
     const reviews =
       await createAccessApprovalService().listPendingReviewRequests(actorUserId);
@@ -62,6 +64,7 @@ export async function getAccessRequestForReviewAction(
   requestId: string,
 ): Promise<ActionResult<AccessRequestReviewDto>> {
   try {
+    await requireAdminPermission("admin.access_requests.view");
     const normalizedRequestId = normalizeRequiredText(requestId);
 
     if (!normalizedRequestId) {
@@ -102,6 +105,7 @@ export async function approveAccessRequestAction(
   }
 
   try {
+    await requireAdminPermission("access_requests.approve");
     const actorUserId = await getAuthenticatedUserId();
     const result = await createAccessApprovalService().approveAccessRequest({
       actorUserId,
@@ -147,6 +151,7 @@ export async function rejectAccessRequestAction(
   }
 
   try {
+    await requireAdminPermission("access_requests.approve");
     const actorUserId = await getAuthenticatedUserId();
     const request = await createAccessApprovalService().rejectAccessRequest({
       actorUserId,

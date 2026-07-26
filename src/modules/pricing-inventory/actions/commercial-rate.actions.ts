@@ -15,9 +15,11 @@ import {
 } from "../services";
 import type { CommercialRate, CommercialRatePurpose } from "../types";
 import { createCommercialRateManagementService } from "./service-factory";
+import { requireAdminPermission } from "../../admin/services";
 
 export async function getCommercialRateAdminViewAction(): Promise<ActionResult<CommercialRateAdminDto>> {
   try {
+    await requireAdminPermission("admin.rates.view");
     const data = await createCommercialRateManagementService().getAdminView(await getAuthenticatedUserId());
     return success("Коммерческие курсы загружены.", data);
   } catch (error) {
@@ -30,6 +32,7 @@ export async function publishCommercialRateAction(
   formData: FormData,
 ): Promise<ActionResult<CommercialRate | null>> {
   try {
+    await requireAdminPermission("commercial_rates.manage");
     const rate = await createCommercialRateManagementService().publish(await getAuthenticatedUserId(), {
       purpose: text(formData, "purpose") as CommercialRatePurpose,
       rate: text(formData, "rate"),

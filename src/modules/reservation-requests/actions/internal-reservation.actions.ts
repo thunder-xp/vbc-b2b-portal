@@ -7,9 +7,11 @@ import { getAuthenticatedUserId } from "../../access-control/actions/service-fac
 import type { InternalReservationDetailDto, InternalReservationSummaryDto } from "../services";
 import { ReservationRequestStatus } from "../types";
 import { createInternalReservationReviewService } from "./service-factory";
+import { requireAdminPermission } from "../../admin/services";
 
 export async function listInternalReservationRequestsAction(): Promise<ActionResult<InternalReservationSummaryDto[]>> {
   try {
+    await requireAdminPermission("reservations.review");
     const userId = await getAuthenticatedUserId();
     return success("Reservation review queue loaded.", await createInternalReservationReviewService().listForReview(userId));
   } catch (error) { return failureFromError(error); }
@@ -18,6 +20,7 @@ export async function listInternalReservationRequestsAction(): Promise<ActionRes
 export async function getInternalReservationRequestAction(requestId: string): Promise<ActionResult<InternalReservationDetailDto>> {
   if (!requestId.trim()) return invalidInput("Reservation request is required.");
   try {
+    await requireAdminPermission("reservations.review");
     const userId = await getAuthenticatedUserId();
     return success("Reservation request loaded.", await createInternalReservationReviewService().getDetail(userId, requestId));
   } catch (error) { return failureFromError(error); }
@@ -26,6 +29,7 @@ export async function getInternalReservationRequestAction(requestId: string): Pr
 export async function startReservationReviewAction(requestId: string): Promise<ActionResult<null>> {
   if (!requestId.trim()) return invalidInput("Reservation request is required.");
   try {
+    await requireAdminPermission("reservations.review");
     const userId = await getAuthenticatedUserId();
     await createInternalReservationReviewService().startReview(userId, requestId);
     revalidateReservationPaths(requestId);
@@ -41,6 +45,7 @@ export async function decideReservationRequestAction(input: {
 }): Promise<ActionResult<null>> {
   if (!input.requestId?.trim() || ![ReservationRequestStatus.Approved, ReservationRequestStatus.PartiallyApproved, ReservationRequestStatus.Rejected].includes(input.status)) return invalidInput("Reservation decision is invalid.");
   try {
+    await requireAdminPermission("reservations.review");
     const userId = await getAuthenticatedUserId();
     await createInternalReservationReviewService().decide(userId, input);
     revalidateReservationPaths(input.requestId);

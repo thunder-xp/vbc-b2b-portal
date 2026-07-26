@@ -1,4 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("../../../admin/services", () => ({
+  requireAdminPermission: vi.fn().mockResolvedValue({}),
+}));
 import { UserStatus, UserType } from "../../../access-control/types";
 
 const mocks = vi.hoisted(() => ({ getAuthenticatedUserId: vi.fn(async () => "admin"), createUserProfileService: vi.fn(), ensureActiveUser: vi.fn(), createDailyCatalogSyncService: vi.fn(), createDailyCatalogSyncStateReader: vi.fn(), runFullSync: vi.fn(), revalidatePath: vi.fn(), getOneCEnv: vi.fn(() => ({})) }));

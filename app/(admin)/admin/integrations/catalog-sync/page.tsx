@@ -1,6 +1,8 @@
 import { CatalogSyncPanel } from "@/src/modules/integration/components";
+import { requireAdminPagePermission } from "@/src/modules/admin";
 
-export default function CatalogSyncPage() {
+export default async function CatalogSyncPage() {
+  await requireAdminPagePermission("admin.catalog.view");
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-8 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-5xl space-y-6">

@@ -3,9 +3,7 @@
 import { headers } from "next/headers";
 
 import { failureFromError, success, type ActionResult } from "../../access-control/actions/action-result";
-import { createUserProfileService, getAuthenticatedUserId } from "../../access-control/actions/service-factory";
-import { ForbiddenError } from "../../access-control/services";
-import { UserType } from "../../access-control/types";
+import { requireAdminPermission } from "../../admin/services";
 import { getOneCEnv } from "../../../lib/env";
 import {
   createChunkedPriceSyncService,
@@ -26,7 +24,7 @@ export type CommercialSyncAllResult = {
 
 export async function syncAllCommercialDataAction(): Promise<ActionResult<CommercialSyncAllResult>> {
   try {
-    await requireInternalUser();
+    await requireAdminPermission("admin.integrations.manage");
     const origin = requestOrigin(await headers());
     const result: CommercialSyncAllResult = {
       rates: "failed",
@@ -97,14 +95,6 @@ async function startStock(origin: string, result: CommercialSyncAllResult): Prom
     await stockService.failLaunch(stockStart.state.activeSyncId, safeError);
     result.stock = "failed";
     result.arrivals = "failed";
-  }
-}
-
-async function requireInternalUser(): Promise<void> {
-  const userId = await getAuthenticatedUserId();
-  const profile = await createUserProfileService().ensureActiveUser(userId);
-  if (profile.userType !== UserType.Admin && profile.userType !== UserType.Internal) {
-    throw new ForbiddenError();
   }
 }
 

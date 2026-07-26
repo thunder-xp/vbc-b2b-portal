@@ -14,6 +14,10 @@ import {
   createUserProfileService,
   getAuthenticatedUser,
 } from "./service-factory";
+import {
+  getAdminWorkspaceContext,
+  requireAdminPermission,
+} from "../../admin/services";
 
 export type CompanyUserMutationState = {
   success: boolean;
@@ -54,9 +58,7 @@ export async function getCompanyUsersAction(input?: {
 
 export async function listManageableCompaniesAction(search?: string) {
   try {
-    const user = await getAuthenticatedUser();
-    const profile = await createUserProfileService().getCurrentProfile(user.id);
-    if (profile?.userType !== UserType.Admin) throw new ForbiddenError();
+    await requireAdminPermission("admin.users.view");
     return success(
       "Companies loaded.",
       await createCompanyUserManagementService().listAdminCompanies(search),
@@ -71,7 +73,10 @@ export async function createEmployeeInvitationAction(
   formData: FormData,
 ): Promise<CompanyUserMutationState> {
   try {
-    const scope = await resolveCompanyScope(optionalText(formData, "companyId"));
+    const scope = await resolveCompanyScope(
+      optionalText(formData, "companyId"),
+      "company_users.manage",
+    );
     const result = await createCompanyUserManagementService().createInvitation({
       actorUserId: scope.userId,
       companyId: scope.company.id,
@@ -102,7 +107,10 @@ export async function reissueEmployeeInvitationAction(
   formData: FormData,
 ): Promise<CompanyUserMutationState> {
   try {
-    const scope = await resolveCompanyScope(optionalText(formData, "companyId"));
+    const scope = await resolveCompanyScope(
+      optionalText(formData, "companyId"),
+      "company_users.manage",
+    );
     const result = await createCompanyUserManagementService().reissueInvitation({
       actorUserId: scope.userId,
       companyId: scope.company.id,
@@ -125,7 +133,10 @@ export async function reissueEmployeeInvitationAction(
 }
 
 export async function revokeEmployeeInvitationAction(formData: FormData): Promise<void> {
-  const scope = await resolveCompanyScope(optionalText(formData, "companyId"));
+  const scope = await resolveCompanyScope(
+    optionalText(formData, "companyId"),
+    "company_users.manage",
+  );
   await createCompanyUserManagementService().revokeInvitation(
     scope.userId,
     scope.company.id,
@@ -135,7 +146,10 @@ export async function revokeEmployeeInvitationAction(formData: FormData): Promis
 }
 
 export async function suspendCompanyEmployeeAction(formData: FormData): Promise<void> {
-  const scope = await resolveCompanyScope(optionalText(formData, "companyId"));
+  const scope = await resolveCompanyScope(
+    optionalText(formData, "companyId"),
+    "company_users.manage",
+  );
   await createCompanyUserManagementService().suspend(
     scope.userId,
     scope.company.id,
@@ -145,7 +159,10 @@ export async function suspendCompanyEmployeeAction(formData: FormData): Promise<
 }
 
 export async function restoreCompanyEmployeeAction(formData: FormData): Promise<void> {
-  const scope = await resolveCompanyScope(optionalText(formData, "companyId"));
+  const scope = await resolveCompanyScope(
+    optionalText(formData, "companyId"),
+    "company_users.manage",
+  );
   await createCompanyUserManagementService().restore(
     scope.userId,
     scope.company.id,
@@ -155,7 +172,10 @@ export async function restoreCompanyEmployeeAction(formData: FormData): Promise<
 }
 
 export async function updateCompanyEmployeeAccessAction(formData: FormData): Promise<void> {
-  const scope = await resolveCompanyScope(optionalText(formData, "companyId"));
+  const scope = await resolveCompanyScope(
+    optionalText(formData, "companyId"),
+    "company_users.manage",
+  );
   await createCompanyUserManagementService().updateAccess(
     scope.userId,
     scope.company.id,
@@ -167,7 +187,10 @@ export async function updateCompanyEmployeeAccessAction(formData: FormData): Pro
 }
 
 export async function appointCompanyOwnerAction(formData: FormData): Promise<void> {
-  const scope = await resolveCompanyScope(optionalText(formData, "companyId"));
+  const scope = await resolveCompanyScope(
+    optionalText(formData, "companyId"),
+    "company_users.manage",
+  );
   await createCompanyUserManagementService().appointOwner(
     scope.userId,
     scope.company.id,
@@ -182,18 +205,37 @@ export async function acceptCompanyInvitationAction(token: string): Promise<neve
   redirect("/cabinet");
 }
 
-async function resolveCompanyScope(requestedCompanyId?: string) {
+async function resolveCompanyScope(
+  requestedCompanyId?: string,
+  internalPermission = "admin.users.view",
+) {
   const user = await getAuthenticatedUser();
   const profile = await createUserProfileService().getCurrentProfile(user.id);
   if (!profile) throw new NotFoundError();
   const companyAccess = createCompanyAccessService();
 
   if (profile.userType === UserType.Admin) {
+    await requireAdminPermission(internalPermission);
     if (!requestedCompanyId) throw new InvalidStateError();
     const companies = await createCompanyUserManagementService().listAdminCompanies();
     const company = companies.find((item) => item.id === requestedCompanyId);
     if (!company) throw new ForbiddenError();
     return { userId: user.id, actorName: profile.fullName ?? profile.email, company, isAdmin: true };
+  }
+
+  if (profile.userType === UserType.Internal) {
+    const context = await getAdminWorkspaceContext();
+    if (!context.permissions.includes(internalPermission)) throw new ForbiddenError();
+    if (!requestedCompanyId) throw new InvalidStateError();
+    const companies = await createCompanyUserManagementService().listAdminCompanies();
+    const company = companies.find((item) => item.id === requestedCompanyId);
+    if (!company) throw new ForbiddenError();
+    return {
+      userId: user.id,
+      actorName: profile.fullName ?? profile.email,
+      company,
+      isAdmin: true,
+    };
   }
 
   const memberships = await companyAccess.getOwnMemberships(user.id);

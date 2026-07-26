@@ -1,8 +1,10 @@
 import { listInternalOrderDateChangesAction } from "@/src/modules/orders/actions";
 import { InternalOrderDateChangeReview } from "@/src/modules/orders/components";
 import { notFound, redirect } from "next/navigation";
+import { requireAdminPagePermission } from "@/src/modules/admin";
 
 export default async function InternalOrderDateChangesPage() {
+  await requireAdminPagePermission("order_date_changes.review");
   const result = await listInternalOrderDateChangesAction();
   if (!result.success && result.errorCode === "AUTH_REQUIRED") redirect("/auth/sign-in");
   if (!result.success && ["FORBIDDEN", "PERMISSION_REQUIRED"].includes(result.errorCode)) notFound();

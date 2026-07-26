@@ -5,6 +5,9 @@ import InternalOrderDateChangesPage from "../page";
 
 const mocks = vi.hoisted(() => ({ list: vi.fn(), redirect: vi.fn(), notFound: vi.fn() }));
 vi.mock("@/src/modules/orders/actions", () => ({ listInternalOrderDateChangesAction: mocks.list }));
+vi.mock("@/src/modules/admin", () => ({
+  requireAdminPagePermission: vi.fn().mockResolvedValue({}),
+}));
 vi.mock("@/src/modules/orders/components", () => ({ InternalOrderDateChangeReview: () => <button type="button">Одобрить</button> }));
 vi.mock("next/navigation", () => ({
   redirect: (path: string) => { mocks.redirect(path); throw new Error("redirect"); },

@@ -3,9 +3,7 @@
 import { headers } from "next/headers";
 
 import { failureFromError, success, type ActionResult } from "../../access-control/actions/action-result";
-import { createUserProfileService, getAuthenticatedUserId } from "../../access-control/actions/service-factory";
-import { ForbiddenError } from "../../access-control/services";
-import { UserType } from "../../access-control/types";
+import { requireAdminPermission } from "../../admin/services";
 import { getOneCEnv } from "../../../lib/env";
 import { createChunkedPriceSyncService } from "../services";
 import { launchPriceSync, PriceSyncLaunchError } from "../sync/price-sync-continuation";
@@ -13,7 +11,7 @@ import type { PriceSyncState } from "../sync";
 
 export async function syncPricesFromOneCAction(): Promise<ActionResult<PriceSyncState>> {
   try {
-    await requireInternalUser();
+    await requireAdminPermission("admin.integrations.manage");
     const service = createChunkedPriceSyncService(getOneCEnv());
     const result = await service.start();
     const syncId = result.state.activeSyncId;
@@ -29,9 +27,8 @@ export async function syncPricesFromOneCAction(): Promise<ActionResult<PriceSync
 }
 
 export async function getPriceSyncStateAction(): Promise<ActionResult<PriceSyncState>> {
-  try { await requireInternalUser(); return success("Price synchronization state loaded.", await createChunkedPriceSyncService(getOneCEnv()).getState()); }
+  try { await requireAdminPermission("admin.prices.view"); return success("Price synchronization state loaded.", await createChunkedPriceSyncService(getOneCEnv()).getState()); }
   catch (error) { return failureFromError(error); }
 }
 
-async function requireInternalUser(): Promise<void> { const userId = await getAuthenticatedUserId(); const profile = await createUserProfileService().ensureActiveUser(userId); if (profile.userType !== UserType.Admin && profile.userType !== UserType.Internal) throw new ForbiddenError(); }
 function requestOrigin(value: Headers): string { const protocol = value.get("x-forwarded-proto") ?? "https"; const host = value.get("x-forwarded-host") ?? value.get("host"); if (!host) throw new Error("Application origin is unavailable."); return `${protocol}://${host}`; }
