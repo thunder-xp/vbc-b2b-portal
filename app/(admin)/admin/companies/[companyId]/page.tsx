@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { getCompanyUsersAction } from "@/src/modules/access-control/actions/company-users.actions";
+import { CompanyUsersPanel } from "@/src/modules/access-control/components/company-users";
 import {
   AdminCompanyOverviewView,
   AdminPageHeader,
@@ -30,6 +32,14 @@ export default async function AdminCompanyPage({
   const tab = TABS.some(([value]) => value === requestedTab)
     ? requestedTab
     : "overview";
+  const companyUsers =
+    tab === "users"
+      ? await getCompanyUsersAction({
+          companyId,
+          page: numberValue(first(query.page)),
+          includeEvents: false,
+        })
+      : null;
 
   return (
     <div className="space-y-6">
@@ -60,6 +70,15 @@ export default async function AdminCompanyPage({
       </nav>
       {tab === "overview" ? (
         <AdminCompanyOverviewView company={company} />
+      ) : tab === "users" && companyUsers?.success ? (
+        <CompanyUsersPanel
+          companyId={companyUsers.data.company.id}
+          companyName={companyUsers.data.company.displayName}
+          events={[]}
+          isAdmin
+          page={companyUsers.data.users}
+          showAudit={false}
+        />
       ) : (
         <section className="border border-zinc-200 bg-white p-8 text-sm text-zinc-600">
           Этот раздел загружается отдельно и будет подключён в текущем Slice 2.
@@ -71,4 +90,9 @@ export default async function AdminCompanyPage({
 
 function first(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
+}
+
+function numberValue(value: string | undefined): number {
+  const result = Number(value);
+  return Number.isInteger(result) && result > 0 ? result : 1;
 }

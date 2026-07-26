@@ -4,6 +4,11 @@ export type {
   ListAdminCompaniesRepositoryInput,
 } from "./admin-company.repository";
 export type {
+  AdminIdentityRepository,
+  ListAdminInvitationsRepositoryInput,
+  ListAdminUsersRepositoryInput,
+} from "./admin-identity.repository";
+export type {
   AdminDashboardRepository,
   AdminOperationalProjection,
   AdminPlatformHealthProjection,

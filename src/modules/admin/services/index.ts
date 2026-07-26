@@ -18,3 +18,7 @@ export {
   normalizeCompanyFilter,
   type ListAdminCompaniesInput,
 } from "./admin-company.service";
+export {
+  AdminIdentityService,
+  createAdminIdentityService,
+} from "./admin-identity.service";

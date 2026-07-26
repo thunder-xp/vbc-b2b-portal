@@ -3,3 +3,5 @@ export { AdminDashboardView } from "./AdminDashboardView";
 export { AdminPageHeader } from "./AdminPageHeader";
 export { AdminCompanyDirectory } from "./AdminCompanyDirectory";
 export { AdminCompanyOverviewView } from "./AdminCompanyOverview";
+export { AdminUserDirectory } from "./AdminUserDirectory";
+export { AdminInvitationDirectory } from "./AdminInvitationDirectory";

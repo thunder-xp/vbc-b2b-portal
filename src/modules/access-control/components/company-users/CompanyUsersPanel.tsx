@@ -15,18 +15,22 @@ export function CompanyUsersPanel({
   events,
   isAdmin,
   page,
+  showAudit = true,
 }: {
   companyId: string;
   companyName: string;
   events: CompanyUserEvent[];
   isAdmin: boolean;
   page: CompanyUserPage;
+  showAudit?: boolean;
 }) {
   const adminCompanyId = isAdmin ? companyId : undefined;
   return (
     <div className="space-y-6">
       <header>
-        <p className="text-sm font-semibold uppercase text-emerald-700">Моя компания</p>
+        <p className="text-sm font-semibold uppercase text-emerald-700">
+          {isAdmin ? "Администрирование компании" : "Моя компания"}
+        </p>
         <h1 className="mt-2 text-2xl font-semibold text-zinc-950">Сотрудники и доступ</h1>
         <p className="mt-2 text-sm text-zinc-600">{companyName}. Управление ролями и доступом без передачи паролей.</p>
       </header>
@@ -71,7 +75,7 @@ export function CompanyUsersPanel({
           )) : <p className="p-8 text-center text-sm text-zinc-500">Сотрудников и приглашений пока нет.</p>}
         </div>
       </section>
-      {isAdmin ? <AuditTrail events={events} /> : null}
+      {isAdmin && showAudit ? <AuditTrail events={events} /> : null}
     </div>
   );
 }

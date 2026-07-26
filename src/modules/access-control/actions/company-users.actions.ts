@@ -28,6 +28,7 @@ export type CompanyUserMutationState = {
 export async function getCompanyUsersAction(input?: {
   companyId?: string;
   page?: number;
+  includeEvents?: boolean;
 }): Promise<ActionResult<{
   company: Pick<PartnerCompany, "id" | "displayName">;
   users: Awaited<ReturnType<ReturnType<typeof createCompanyUserManagementService>["list"]>>;
@@ -42,7 +43,7 @@ export async function getCompanyUsersAction(input?: {
       scope.company.id,
       input?.page ?? 1,
     );
-    const events = scope.isAdmin
+    const events = scope.isAdmin && input?.includeEvents !== false
       ? await service.listEvents(scope.userId, scope.company.id)
       : [];
     return success("Company users loaded.", {
@@ -271,6 +272,9 @@ function applicationUrl(): string {
 function revalidateCompanyUserPaths(companyId: string): void {
   revalidatePath("/cabinet/company/users");
   revalidatePath(`/admin/company-users?companyId=${encodeURIComponent(companyId)}`);
+  revalidatePath(`/admin/companies/${encodeURIComponent(companyId)}`);
+  revalidatePath("/admin/invitations");
+  revalidatePath("/admin/users");
 }
 
 function mutationFailure(error: unknown): CompanyUserMutationState {

@@ -24,8 +24,13 @@ const NAVIGATION: readonly AdminNavigationGroup[] = [
       },
       {
         label: "Пользователи",
-        href: "/admin/company-users",
+        href: "/admin/users",
         permission: "admin.users.view",
+      },
+      {
+        label: "Приглашения",
+        href: "/admin/invitations",
+        permission: "admin.invitations.view",
       },
       {
         label: "Заявки на доступ",

@@ -31,7 +31,7 @@ describe("admin navigation", () => {
       group.items.map((item) => item.href),
     );
 
-    expect(hrefs).toContain("/admin/company-users");
+    expect(hrefs).toContain("/admin/users");
     expect(hrefs).toContain("/admin/partner-requests");
     expect(hrefs).toContain("/admin/specifications");
     expect(hrefs).not.toContain("/admin/commercial-rates");
@@ -57,7 +57,7 @@ describe("admin navigation", () => {
       role: "finance",
       permissions: ["admin.dashboard.view", "admin.finance.view"],
       present: ["/admin"],
-      absent: ["/admin/company-users", "/admin/integrations/catalog-sync"],
+      absent: ["/admin/users", "/admin/integrations/catalog-sync"],
     },
     {
       role: "support",
@@ -69,7 +69,7 @@ describe("admin navigation", () => {
       ],
       present: [
         "/admin",
-        "/admin/company-users",
+        "/admin/users",
         "/admin/partner-requests",
         "/admin/integrations/1c-health",
       ],
@@ -87,13 +87,13 @@ describe("admin navigation", () => {
         "/admin/integrations/catalog-sync",
         "/admin/integrations/1c-health",
       ],
-      absent: ["/admin/company-users", "/admin/commercial-rates"],
+      absent: ["/admin/users", "/admin/commercial-rates"],
     },
     {
       role: "partner",
       permissions: [],
       present: [],
-      absent: ["/admin", "/admin/company-users"],
+      absent: ["/admin", "/admin/users"],
     },
   ])(
     "shows only implemented authorized modules for $role",
