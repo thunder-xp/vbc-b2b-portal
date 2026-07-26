@@ -53,7 +53,17 @@ export class PurchasingListService {
     return {
       records: result.records.map((record) => ({
         ...withoutProductIds(record),
-        warningCount: record.productIds.filter((productId) => classifyCommercialProductState({ productExists: productSet.has(productId), commercial: commercialById.get(productId) }) !== "available").length,
+        warningCount: record.productIds.filter((productId) => {
+          const productExists = productSet.has(productId);
+          const commercialView = commercialById.get(productId);
+          if (productExists && !commercialView?.partnerPrice && commercialView?.retailPrice) {
+            return (commercialView.stock?.exactAvailableQuantity ?? 0) <= 0;
+          }
+          return classifyCommercialProductState({
+            productExists,
+            commercial: commercialView,
+          }) !== "available";
+        }).length,
         canManage: !record.isSystemFavorites && canManage && (record.visibility === "company" || record.createdBy === userId),
       })),
       page,
@@ -101,16 +111,37 @@ export class PurchasingListService {
       lines: record.items.map((item) => {
         const product = productById.get(item.productId);
         const view = commercialById.get(item.productId);
-        const state = classifyCommercialProductState({ productExists: Boolean(product), commercial: view, sourceUnitPrice: item.sourceUnitPrice, sourceCurrencyCode: item.sourceCurrencyCode });
+        const state = view?.partnerPrice
+          ? classifyCommercialProductState({
+              productExists: Boolean(product),
+              commercial: view,
+              sourceUnitPrice: item.sourceUnitPrice,
+              sourceCurrencyCode: item.sourceCurrencyCode,
+            })
+          : product && view?.retailPrice
+            ? "available"
+            : "missing_price";
+        const {
+          sourceUnitPrice: _sourceUnitPrice,
+          sourceCurrencyCode: _sourceCurrencyCode,
+          ...safeItem
+        } = item;
         return {
-          ...item,
+          ...safeItem,
           sku: product?.sku ?? "Без артикула",
           productName: product?.name ?? "Недоступный товар",
           slug: product?.slug ?? "",
           imageUrl: product?.imageUrl ?? null,
-          currentPartnerPrice: view?.partnerPrice?.formattedAmount ?? null,
-          currentPartnerPriceAmount: view?.partnerPrice?.amount ?? null,
-          currentCurrencyCode: view?.partnerPrice?.currencyCode ?? null,
+          ...(view?.partnerPrice
+            ? {
+                currentPartnerPrice: view.partnerPrice.formattedAmount,
+                currentPartnerPriceAmount: view.partnerPrice.amount,
+                currentPartnerCurrencyCode: view.partnerPrice.currencyCode,
+              }
+            : {}),
+          currentRetailPrice: view?.retailPrice?.formattedAmount ?? null,
+          currentRetailPriceAmount: view?.retailPrice?.amount ?? null,
+          currentRetailCurrencyCode: view?.retailPrice?.currencyCode ?? null,
           availableStock: view?.stock?.exactAvailableQuantity ?? null,
           expectedArrivalDate: view?.stock?.expectedArrival?.expectedDate ?? null,
           expectedArrivalQuantity: view?.stock?.expectedArrival?.expectedQuantity ?? null,

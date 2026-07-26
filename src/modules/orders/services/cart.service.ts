@@ -13,8 +13,10 @@ export type CartLineDto = {
   sku: string;
   imageUrl: string | null;
   quantity: number;
-  partnerUnitPrice: string | null;
-  partnerLineTotal: string | null;
+  partnerUnitPrice?: string | null;
+  partnerLineTotal?: string | null;
+  retailUnitPrice: string | null;
+  retailLineTotal: string | null;
   availableStock: number | null;
   nearestArrivalDate: string | null;
   nearestArrivalQuantity: number | null;
@@ -25,7 +27,9 @@ export type CartDetailDto = {
   positionCount: number;
   totalUnitCount: number;
   lines: CartLineDto[];
-  total: string | null;
+  total?: string | null;
+  retailReferenceTotal: string | null;
+  commercialMode: "full" | "retail_only" | "hidden";
   submitting: boolean;
 };
 
@@ -88,8 +92,20 @@ export class DefaultCartService implements CartService {
 
   async getCart(userId: string): Promise<CartDetailDto> {
     const companyId = await this.resolveCompanyId(userId);
+    const visibility = this.pricingInventoryService.getCommercialVisibility
+      ? await this.pricingInventoryService.getCommercialVisibility(userId)
+      : null;
     const cart = await this.repository.findActive(companyId, userId);
-    if (!cart) return { id: null, positionCount: 0, totalUnitCount: 0, lines: [], total: null, submitting: false };
+    if (!cart) return {
+      id: null,
+      positionCount: 0,
+      totalUnitCount: 0,
+      lines: [],
+      ...(visibility?.canViewPartnerTotals !== false ? { total: null } : {}),
+      retailReferenceTotal: null,
+      commercialMode: visibility?.mode ?? "full",
+      submitting: false,
+    };
     const items = await this.repository.listItems(cart.id);
     const productIds = items.map((item) => item.productId);
     const [products, views] = await Promise.all([
@@ -107,7 +123,25 @@ export class DefaultCartService implements CartService {
       positionCount: items.length,
       totalUnitCount: items.reduce((sum, item) => sum + item.quantity, 0),
       lines,
-      total: calculateTotal(items.map((item) => ({ quantity: item.quantity, view: viewsById.get(item.productId) }))),
+      ...(visibility?.canViewPartnerTotals !== false
+        ? {
+            total: calculateTotal(
+              items.map((item) => ({
+                quantity: item.quantity,
+                view: viewsById.get(item.productId),
+              })),
+              "partner",
+            ),
+          }
+        : {}),
+      retailReferenceTotal: calculateTotal(
+        items.map((item) => ({
+          quantity: item.quantity,
+          view: viewsById.get(item.productId),
+        })),
+        "retail",
+      ),
+      commercialMode: visibility?.mode ?? "full",
       submitting: cart.status === "submitting",
     };
   }
@@ -146,7 +180,12 @@ export class DefaultCartService implements CartService {
     const productIds = items.map((item) => item.productId);
     const [products, views] = await Promise.all([
       this.catalogService.getProductsByIds(userId, productIds),
-      this.pricingInventoryService.getProductCommercialViews(userId, productIds),
+      this.pricingInventoryService.getAuthoritativeProductCommercialViews
+        ? this.pricingInventoryService.getAuthoritativeProductCommercialViews(
+            userId,
+            productIds,
+          )
+        : this.pricingInventoryService.getProductCommercialViews(userId, productIds),
     ]);
     const productById = new Map(products.map((product) => [product.id, product]));
     const viewById = new Map(views.map((view) => [view.productId, view]));
@@ -187,7 +226,12 @@ export class DefaultCartService implements CartService {
     const ids = [...grouped.keys()];
     const [products, views, cart] = await Promise.all([
       this.catalogService.getProductsByIds(userId, ids),
-      this.pricingInventoryService.getProductCommercialViews(userId, ids),
+      this.pricingInventoryService.getAuthoritativeProductCommercialViews
+        ? this.pricingInventoryService.getAuthoritativeProductCommercialViews(
+            userId,
+            ids,
+          )
+        : this.pricingInventoryService.getProductCommercialViews(userId, ids),
       this.repository.findActive(companyId, userId),
     ]);
     const productIds = new Set(products.map((product) => product.id));
@@ -236,24 +280,44 @@ function toLine(
 ): CartLineDto {
   return {
     id, productId: product.id, slug: product.slug, productName: product.name, sku: product.sku, imageUrl: product.imageUrl, quantity,
-    partnerUnitPrice: view?.partnerPrice?.formattedAmount ?? null,
-    partnerLineTotal: formatLineTotal(view, quantity),
+    ...(view?.partnerPrice
+      ? {
+          partnerUnitPrice: view.partnerPrice.formattedAmount,
+          partnerLineTotal: formatLineTotal(view.partnerPrice, quantity),
+        }
+      : {}),
+    retailUnitPrice: view?.retailPrice?.formattedAmount ?? null,
+    retailLineTotal: formatLineTotal(view?.retailPrice, quantity),
     availableStock: view?.stock?.exactAvailableQuantity ?? null,
     nearestArrivalDate: view?.stock?.expectedArrival?.formattedExpectedDate ?? null,
     nearestArrivalQuantity: view?.stock?.expectedArrival?.expectedQuantity ?? null,
   };
 }
 
-function formatLineTotal(view: ProductCommercialViewDto | undefined, quantity: number): string | null {
-  const price = view?.partnerPrice;
+function formatLineTotal(
+  price: ProductCommercialViewDto["partnerPrice"] | undefined,
+  quantity: number,
+): string | null {
   return price?.currencyCode ? formatMoney(price.amount * quantity, price.currencyCode) : null;
 }
 
-function calculateTotal(lines: Array<{ quantity: number; view?: ProductCommercialViewDto }>): string | null {
-  if (!lines.length || lines.some((line) => !line.view?.partnerPrice?.currencyCode)) return null;
-  const currencies = [...new Set(lines.map((line) => line.view?.partnerPrice?.currencyCode))];
+function calculateTotal(
+  lines: Array<{ quantity: number; view?: ProductCommercialViewDto }>,
+  kind: "partner" | "retail",
+): string | null {
+  const prices = lines.map((line) =>
+    kind === "partner" ? line.view?.partnerPrice : line.view?.retailPrice,
+  );
+  if (!lines.length || prices.some((price) => !price?.currencyCode)) return null;
+  const currencies = [...new Set(prices.map((price) => price?.currencyCode))];
   if (currencies.length !== 1 || !currencies[0]) return null;
-  return formatMoney(lines.reduce((sum, line) => sum + (line.view?.partnerPrice?.amount ?? 0) * line.quantity, 0), currencies[0]);
+  return formatMoney(
+    lines.reduce(
+      (sum, line, index) => sum + (prices[index]?.amount ?? 0) * line.quantity,
+      0,
+    ),
+    currencies[0],
+  );
 }
 
 function formatMoney(amount: number, currency: string): string {

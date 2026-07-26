@@ -39,12 +39,12 @@ export default async function CartPage() {
                     <div className="min-w-0">
                       <Link className="line-clamp-2 font-semibold text-zinc-950 hover:text-emerald-700" href={`/cabinet/catalog/${line.slug}`} prefetch={false}>{line.productName}</Link>
                       <p className="mt-1 text-xs text-zinc-500">Артикул: {line.sku}</p>
-                      <p className="mt-2 text-sm">Партнёрская цена: <strong className="whitespace-nowrap">{line.partnerUnitPrice ?? "Недоступна"}</strong></p>
+                      <p className="mt-2 text-sm">{cart.commercialMode === "full" ? "Партнёрская цена" : "Розничная цена"}: <strong className="whitespace-nowrap">{cart.commercialMode === "full" ? line.partnerUnitPrice ?? "Недоступна" : line.retailUnitPrice ?? "Цена уточняется"}</strong></p>
                       <p className="mt-1 text-xs text-zinc-600">Доступно: {line.availableStock ?? "Нет данных"}</p>
                       {line.nearestArrivalDate && <p className="mt-1 text-xs text-zinc-600">Поступление: {line.nearestArrivalDate}{line.nearestArrivalQuantity !== null ? `, ${line.nearestArrivalQuantity} шт.` : ""}</p>}
                     </div>
                   </div>
-                  <div className="text-sm"><span className="text-zinc-500">Сумма</span><p className="mt-1 font-semibold">{line.partnerLineTotal ?? "Недоступна"}</p></div>
+                  <div className="text-sm"><span className="text-zinc-500">{cart.commercialMode === "full" ? "Сумма" : "Розничная стоимость"}</span><p className="mt-1 font-semibold">{cart.commercialMode === "full" ? line.partnerLineTotal ?? "Недоступна" : line.retailLineTotal ?? "Недоступна"}</p></div>
                   <CartItemActions itemId={line.id} quantity={line.quantity} />
                 </li>
               ))}
@@ -56,8 +56,9 @@ export default async function CartPage() {
               <p className="mt-1 text-xl font-semibold">{cart.positionCount}</p>
               <p className="mt-3 text-sm text-zinc-600">Единиц товара</p>
               <p className="mt-1 text-lg font-semibold">{cart.totalUnitCount}</p>
-              <p className="mt-4 text-sm text-zinc-600">Итого</p>
-              <p className="mt-1 text-xl font-semibold">{cart.total ?? "Требуется актуальная цена"}</p>
+              <p className="mt-4 text-sm text-zinc-600">{cart.commercialMode === "full" ? "Итого" : "Справочная розничная сумма"}</p>
+              <p className="mt-1 text-xl font-semibold">{cart.commercialMode === "full" ? cart.total ?? "Требуется актуальная цена" : cart.retailReferenceTotal ?? "Цена уточняется"}</p>
+              {cart.commercialMode === "retail_only" ? <p className="mt-3 text-xs leading-5 text-zinc-600">Заказ будет оформлен по коммерческим условиям вашей компании. Партнёрские цены скрыты в соответствии с настройками доступа.</p> : null}
             </div>
             <CreateEstimateFromCartButton />
             <SaveAsPurchasingListButton source="cart" />
