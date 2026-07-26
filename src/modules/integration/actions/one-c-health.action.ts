@@ -5,13 +5,9 @@ import {
   success,
   type ActionResult,
 } from "../../access-control/actions/action-result";
-import {
-  createUserProfileService,
-  getAuthenticatedUserId,
-} from "../../access-control/actions/service-factory";
-import { ForbiddenError } from "../../access-control/services";
-import { canApprovePartnerRequests } from "../../access-control/services/internal-authorization";
+import { requireAdminPermission } from "../../admin/services";
 import { getOneCEnv } from "../../../lib/env";
+import { recordOneCHealthAudit } from "../providers/one-c/one-c-health-audit.repository";
 import {
   runOneCODataHealthCheck,
   type OneCHealthReport,
@@ -19,11 +15,22 @@ import {
 
 export async function runOneCHealthCheckAction(): Promise<ActionResult<OneCHealthReport>> {
   try {
-    const userId = await getAuthenticatedUserId();
-    const profile = await createUserProfileService().ensureActiveUser(userId);
-    if (!canApprovePartnerRequests(profile)) throw new ForbiddenError();
+    await requireAdminPermission("admin.diagnostics.run");
+    const startedAt = performance.now();
+    const report = await runOneCODataHealthCheck(getOneCEnv());
+    const passed = [
+      report.metadata.passed,
+      report.minimalQuery.passed,
+      report.nameQuery.passed,
+      report.provider.passed,
+    ].every(Boolean);
 
-    return success("1C OData diagnostics completed.", await runOneCODataHealthCheck(getOneCEnv()));
+    await recordOneCHealthAudit(
+      passed ? "passed" : "failed",
+      performance.now() - startedAt,
+    );
+
+    return success("1C OData diagnostics completed.", report);
   } catch (error) {
     return failureFromError(error);
   }

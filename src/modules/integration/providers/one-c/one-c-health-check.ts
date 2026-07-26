@@ -97,7 +97,7 @@ export type OneCHealthReport = {
 };
 
 export async function runOneCODataHealthCheck(oneCEnv: OneCEnv): Promise<OneCHealthReport> {
-  const configuration = inspectConfiguration(oneCEnv);
+  const configuration = inspectOneCConfiguration(oneCEnv);
   const client = new OneCODataClient(oneCEnv);
 
   const [metadata, minimalQuery, nameQuery, provider] = await Promise.all([
@@ -110,7 +110,9 @@ export async function runOneCODataHealthCheck(oneCEnv: OneCEnv): Promise<OneCHea
   return { configuration, metadata, minimalQuery, nameQuery, provider };
 }
 
-function inspectConfiguration(oneCEnv: OneCEnv): OneCConfigurationHealth {
+export function inspectOneCConfiguration(
+  oneCEnv: OneCEnv,
+): OneCConfigurationHealth {
   const timeout = process.env.ONEC_TIMEOUT_MS;
   const parsedTimeout = timeout ? Number.parseInt(timeout, 10) : null;
   const baseHost = parseHostname(oneCEnv.baseUrl);
