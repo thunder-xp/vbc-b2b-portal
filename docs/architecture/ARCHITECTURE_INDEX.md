@@ -12,6 +12,7 @@ This index is the table of contents for the Novotech Partner Platform Architectu
 6. `docs/architecture/ACCESS_CONTROL_RUNTIME_DESIGN.md`
 7. `docs/architecture/UNIFIED_ACCESS_CONTROL_DESIGN.md`
 8. `docs/architecture/COMPANY_USER_MANAGEMENT_DESIGN.md`
+9. `docs/architecture/RETAIL_ONLY_COMMERCIAL_REDACTION_DESIGN.md`
 8. `docs/architecture/ACCESS_CONTROL_DATABASE_DESIGN.md`
 8. `docs/architecture/ACCESS_CONTROL_REPOSITORY_DESIGN.md`
 9. `docs/architecture/ACCESS_CONTROL_SERVICE_DESIGN.md`
@@ -62,6 +63,7 @@ This index is the table of contents for the Novotech Partner Platform Architectu
 - `docs/architecture/ACCESS_CONTROL_RUNTIME_DESIGN.md` - First runtime design for user identity, company membership, roles, permissions, access states, server-side enforcement, and MVP access-control scope.
 - `docs/architecture/UNIFIED_ACCESS_CONTROL_DESIGN.md` - Canonical effective-permission projection, membership overrides, delegation metadata, partner-price permission split, retail-only UX contract, RLS, and phased rollout.
 - `docs/architecture/COMPANY_USER_MANAGEMENT_DESIGN.md` - Secure employee invitations, company-scoped management, intended access overrides, atomic membership transitions, owner protection, audit, and performance boundaries.
+- `docs/architecture/RETAIL_ONLY_COMMERCIAL_REDACTION_DESIGN.md` - Server-side partner-price redaction, canonical commercial visibility, safe read projections, authoritative write workflows, export safety, and cache rules.
 - `docs/architecture/ACCESS_CONTROL_DATABASE_DESIGN.md` - Conceptual access-control table design, relationships, statuses, roles, permissions, RLS readiness, 1C ID strategy, and migration checklist.
 - `docs/architecture/ACCESS_CONTROL_REPOSITORY_DESIGN.md` - Access Control repository boundaries, proposed repositories, methods, query scoping, RLS assumptions, error handling, and service boundaries.
 - `docs/architecture/ACCESS_CONTROL_SERVICE_DESIGN.md` - Access Control service responsibilities, proposed services, methods, business rules, permission checks, state transitions, errors, and Server Action boundaries.
@@ -83,6 +85,7 @@ This index is the table of contents for the Novotech Partner Platform Architectu
 - `docs/domain/ACCESS_CONTROL_DOMAIN.md` - Main security and partner visibility model.
 - `docs/architecture/ACCESS_CONTROL_RUNTIME_DESIGN.md` - Runtime access-control model, roles, permissions, company context, server-side enforcement, and security risks.
 - `docs/architecture/UNIFIED_ACCESS_CONTROL_DESIGN.md` - Unified partner/admin authorization chain, explicit-deny overrides, conservative delegation, price confidentiality, and request-scoped permission loading.
+- `docs/architecture/RETAIL_ONLY_COMMERCIAL_REDACTION_DESIGN.md` - Field-level commercial confidentiality across catalog, cart, orders, estimates, proposals, files, logs, and database projections.
 - `docs/architecture/ACCESS_CONTROL_DATABASE_DESIGN.md` - Access-control data model, role and permission storage, membership scoping, status transitions, audit fields, and RLS design notes.
 - `docs/architecture/ACCESS_CONTROL_REPOSITORY_DESIGN.md` - Repository-layer safety rules for user profiles, partner companies, memberships, roles, permissions, requests, invitations, RLS, and Service Role boundaries.
 - `docs/architecture/ACCESS_CONTROL_SERVICE_DESIGN.md` - Service-layer access enforcement, permission evaluation, state transitions, safe denial, and Server Action boundaries.

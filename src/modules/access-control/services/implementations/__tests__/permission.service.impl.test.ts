@@ -7,11 +7,30 @@ import type {
 import type { EffectivePermissionContext } from "../../../types";
 import { RoleScope } from "../../../types";
 import { ForbiddenError, PermissionRequiredError } from "../../errors";
+import { resolveCommercialVisibility } from "../../permission.service";
 import { DefaultPermissionService } from "../permission.service.impl";
 
 const now = "2026-07-25T00:00:00.000Z";
 
 describe("DefaultPermissionService", () => {
+  it("derives one immutable retail-only commercial visibility context", () => {
+    const context = effectivePermissionContext({
+      effectivePermissionCodes: ["pricing.retail_price.view"],
+      deniedOverrideCodes: ["pricing.partner_price.view"],
+    });
+
+    expect(resolveCommercialVisibility(context)).toEqual({
+      userId: "user-1",
+      companyId: "company-1",
+      mode: "retail_only",
+      canViewPartnerPrice: false,
+      canViewRetailPrice: true,
+      canViewMargin: false,
+      canViewPartnerTotals: false,
+      canUseCommercialCalculations: false,
+    });
+    expect(Object.isFrozen(resolveCommercialVisibility(context))).toBe(true);
+  });
   it("loads the full effective set in one projection instead of querying one permission", async () => {
     const effectiveRepository = effectiveRepositoryStub();
     const service = new DefaultPermissionService(
@@ -115,7 +134,17 @@ function roleRepositoryStub(): RolePermissionRepository {
 function effectiveRepositoryStub(
   overrides: Partial<EffectivePermissionContext> = {},
 ): EffectivePermissionRepository {
-  const context: EffectivePermissionContext = {
+  const context = effectivePermissionContext(overrides);
+
+  return {
+    findForCurrentUser: vi.fn(async () => context),
+  };
+}
+
+function effectivePermissionContext(
+  overrides: Partial<EffectivePermissionContext> = {},
+): EffectivePermissionContext {
+  return {
     userId: "user-1",
     companyId: "company-1",
     profileStatus: "active",
@@ -131,9 +160,5 @@ function effectiveRepositoryStub(
     deniedOverrideCodes: [],
     effectivePermissionCodes: ["catalog.view", "orders.manage"],
     ...overrides,
-  };
-
-  return {
-    findForCurrentUser: vi.fn(async () => context),
   };
 }
