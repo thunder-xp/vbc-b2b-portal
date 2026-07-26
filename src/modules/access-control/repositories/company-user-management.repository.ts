@@ -24,9 +24,16 @@ export interface CompanyUserManagementRepository {
   listAdminCompanies(search?: string): Promise<ManageableCompany[]>;
   createInvitation(input: CreateCompanyInvitationRecordInput): Promise<CompanyInvitationResult>;
   reissueInvitation(invitationId: string, tokenHash: string, expiresAt: string): Promise<CompanyInvitationResult>;
-  revokeInvitation(invitationId: string): Promise<void>;
+  revokeInvitation(invitationId: string, reason: string): Promise<void>;
   acceptInvitation(tokenHash: string): Promise<CompanyInvitationAcceptance>;
-  setMembershipState(membershipId: string, status: "active" | "suspended"): Promise<void>;
-  updateMembershipAccess(membershipId: string, roleCode: string, priceAccess: CompanyUserPriceAccess): Promise<void>;
-  appointOwner(membershipId: string): Promise<void>;
+  setMembershipState(membershipId: string, status: "active" | "suspended", reason: string): Promise<void>;
+  updateMembershipAccess(membershipId: string, roleCode: string, priceAccess: CompanyUserPriceAccess, reason: string): Promise<void>;
+  appointOwner(membershipId: string, reason: string): Promise<void>;
+  transferOwner(currentOwnerMembershipId: string, nextOwnerMembershipId: string, reason: string): Promise<void>;
+  setPermissionOverride(
+    membershipId: string,
+    permissionCode: string,
+    effect: "allow" | "deny" | "inherit",
+    reason: string,
+  ): Promise<void>;
 }

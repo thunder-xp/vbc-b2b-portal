@@ -19,6 +19,7 @@ const ASSIGNABLE_ROLES = new Set([
   "partner_accounting",
   "partner_viewer",
 ]);
+const MUTABLE_ROLES = new Set([...ASSIGNABLE_ROLES, "partner_owner"]);
 
 export type CreateEmployeeInvitationInput = {
   actorUserId: string;
@@ -125,9 +126,9 @@ export class CompanyUserManagementService {
     return { invitationId: invitation.invitationId, invitationUrl, expiresAt: invitation.expiresAt, delivery, repeated: false };
   }
 
-  async revokeInvitation(actorUserId: string, companyId: string, invitationId: string): Promise<void> {
+  async revokeInvitation(actorUserId: string, companyId: string, invitationId: string, reason: string): Promise<void> {
     await this.permissionService.ensurePermission(actorUserId, companyId, MANAGEMENT_PERMISSION);
-    await this.repository.revokeInvitation(invitationId);
+    await this.repository.revokeInvitation(invitationId, normalizeReason(reason));
   }
 
   acceptInvitation(token: string): Promise<CompanyInvitationAcceptance> {
@@ -135,25 +136,60 @@ export class CompanyUserManagementService {
     return this.repository.acceptInvitation(hashInvitationToken(token));
   }
 
-  async suspend(actorUserId: string, companyId: string, membershipId: string): Promise<void> {
+  async suspend(actorUserId: string, companyId: string, membershipId: string, reason: string): Promise<void> {
     await this.permissionService.ensurePermission(actorUserId, companyId, MANAGEMENT_PERMISSION);
-    await this.repository.setMembershipState(membershipId, "suspended");
+    await this.repository.setMembershipState(membershipId, "suspended", normalizeReason(reason));
   }
 
-  async restore(actorUserId: string, companyId: string, membershipId: string): Promise<void> {
+  async restore(actorUserId: string, companyId: string, membershipId: string, reason: string): Promise<void> {
     await this.permissionService.ensurePermission(actorUserId, companyId, MANAGEMENT_PERMISSION);
-    await this.repository.setMembershipState(membershipId, "active");
+    await this.repository.setMembershipState(membershipId, "active", normalizeReason(reason));
   }
 
-  async updateAccess(actorUserId: string, companyId: string, membershipId: string, roleCode: string, priceAccess: CompanyUserPriceAccess): Promise<void> {
+  async updateAccess(actorUserId: string, companyId: string, membershipId: string, roleCode: string, priceAccess: CompanyUserPriceAccess, reason: string): Promise<void> {
     await this.permissionService.ensurePermission(actorUserId, companyId, MANAGEMENT_PERMISSION);
-    validateAssignableRole(roleCode);
-    await this.repository.updateMembershipAccess(membershipId, roleCode, priceAccess);
+    validateMutableRole(roleCode);
+    await this.repository.updateMembershipAccess(membershipId, roleCode, priceAccess, normalizeReason(reason));
   }
 
-  async appointOwner(actorUserId: string, companyId: string, membershipId: string): Promise<void> {
+  async appointOwner(actorUserId: string, companyId: string, membershipId: string, reason: string): Promise<void> {
     await this.permissionService.ensurePermission(actorUserId, companyId, MANAGEMENT_PERMISSION);
-    await this.repository.appointOwner(membershipId);
+    await this.repository.appointOwner(membershipId, normalizeReason(reason));
+  }
+
+  async transferOwner(
+    actorUserId: string,
+    companyId: string,
+    currentOwnerMembershipId: string,
+    nextOwnerMembershipId: string,
+    reason: string,
+  ): Promise<void> {
+    await this.permissionService.ensurePermission(actorUserId, companyId, MANAGEMENT_PERMISSION);
+    await this.repository.transferOwner(
+      currentOwnerMembershipId,
+      nextOwnerMembershipId,
+      normalizeReason(reason),
+    );
+  }
+
+  async setPermissionOverride(
+    actorUserId: string,
+    companyId: string,
+    membershipId: string,
+    permissionCode: string,
+    effect: "allow" | "deny" | "inherit",
+    reason: string,
+  ): Promise<void> {
+    await this.permissionService.ensurePermission(actorUserId, companyId, MANAGEMENT_PERMISSION);
+    if (!permissionCode.trim() || !["allow", "deny", "inherit"].includes(effect)) {
+      throw new InvalidStateError("Permission override is invalid.");
+    }
+    await this.repository.setPermissionOverride(
+      membershipId,
+      permissionCode.trim(),
+      effect,
+      normalizeReason(reason),
+    );
   }
 
   private async deliver(message: Parameters<CompanyInvitationEmailProvider["send"]>[0]): Promise<"email_sent" | "copy_link"> {
@@ -174,6 +210,20 @@ function validateAssignableRole(roleCode: string): void {
   if (!ASSIGNABLE_ROLES.has(roleCode)) {
     throw new InvalidStateError("Partner role is not assignable.");
   }
+}
+
+function validateMutableRole(roleCode: string): void {
+  if (!MUTABLE_ROLES.has(roleCode)) {
+    throw new InvalidStateError("Partner role is not assignable.");
+  }
+}
+
+function normalizeReason(value: string): string {
+  const reason = value.trim();
+  if (reason.length < 3 || reason.length > 500) {
+    throw new InvalidStateError("A reason between 3 and 500 characters is required.");
+  }
+  return reason;
 }
 
 function normalizeEmail(value: string): string {

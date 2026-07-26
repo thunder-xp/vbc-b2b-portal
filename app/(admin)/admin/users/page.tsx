@@ -9,14 +9,21 @@ export default async function AdminUsersPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  await requireAdminPagePermission("admin.users.view");
+  const context = await requireAdminPagePermission("admin.users.view");
   const query = await searchParams;
   const users = await createAdminIdentityService().listUsers({
     page: first(query.page),
     search: first(query.search),
     filter: first(query.filter),
   });
-  return <AdminUserDirectory users={users} />;
+  return (
+    <AdminUserDirectory
+      canManageInternalRoles={context.permissions.includes(
+        "admin.permissions.manage",
+      )}
+      users={users}
+    />
+  );
 }
 
 function first(value: string | string[] | undefined): string | undefined {

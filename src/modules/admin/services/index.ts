@@ -26,3 +26,9 @@ export {
   AdminAccessService,
   createAdminAccessService,
 } from "./admin-access.service";
+export {
+  AdminRoleManagementService,
+  ASSIGNABLE_INTERNAL_ROLES,
+  createAdminRoleManagementService,
+  type AssignableInternalRole,
+} from "./admin-role-management.service";

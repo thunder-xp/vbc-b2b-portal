@@ -142,6 +142,7 @@ export async function revokeEmployeeInvitationAction(formData: FormData): Promis
     scope.userId,
     scope.company.id,
     requiredFormText(formData, "invitationId"),
+    requiredFormText(formData, "reason"),
   );
   revalidateCompanyUserPaths(scope.company.id);
 }
@@ -155,6 +156,7 @@ export async function suspendCompanyEmployeeAction(formData: FormData): Promise<
     scope.userId,
     scope.company.id,
     requiredFormText(formData, "membershipId"),
+    requiredFormText(formData, "reason"),
   );
   revalidateCompanyUserPaths(scope.company.id);
 }
@@ -168,6 +170,7 @@ export async function restoreCompanyEmployeeAction(formData: FormData): Promise<
     scope.userId,
     scope.company.id,
     requiredFormText(formData, "membershipId"),
+    requiredFormText(formData, "reason"),
   );
   revalidateCompanyUserPaths(scope.company.id);
 }
@@ -183,6 +186,7 @@ export async function updateCompanyEmployeeAccessAction(formData: FormData): Pro
     requiredFormText(formData, "membershipId"),
     requiredFormText(formData, "roleCode"),
     parsePriceAccess(formData),
+    requiredFormText(formData, "reason"),
   );
   revalidateCompanyUserPaths(scope.company.id);
 }
@@ -196,6 +200,40 @@ export async function appointCompanyOwnerAction(formData: FormData): Promise<voi
     scope.userId,
     scope.company.id,
     requiredFormText(formData, "membershipId"),
+    requiredFormText(formData, "reason"),
+  );
+  revalidateCompanyUserPaths(scope.company.id);
+}
+
+export async function transferCompanyOwnerAction(formData: FormData): Promise<void> {
+  const scope = await resolveCompanyScope(
+    optionalText(formData, "companyId"),
+    "company_users.manage",
+  );
+  await createCompanyUserManagementService().transferOwner(
+    scope.userId,
+    scope.company.id,
+    requiredFormText(formData, "currentOwnerMembershipId"),
+    requiredFormText(formData, "nextOwnerMembershipId"),
+    requiredFormText(formData, "reason"),
+  );
+  revalidateCompanyUserPaths(scope.company.id);
+}
+
+export async function setCompanyPermissionOverrideAction(formData: FormData): Promise<void> {
+  const scope = await resolveCompanyScope(
+    optionalText(formData, "companyId"),
+    "company_users.manage",
+  );
+  const effect = requiredFormText(formData, "effect");
+  if (!["allow", "deny", "inherit"].includes(effect)) throw new InvalidStateError();
+  await createCompanyUserManagementService().setPermissionOverride(
+    scope.userId,
+    scope.company.id,
+    requiredFormText(formData, "membershipId"),
+    requiredFormText(formData, "permissionCode"),
+    effect as "allow" | "deny" | "inherit",
+    requiredFormText(formData, "reason"),
   );
   revalidateCompanyUserPaths(scope.company.id);
 }

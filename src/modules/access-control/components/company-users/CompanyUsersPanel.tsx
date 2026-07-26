@@ -3,6 +3,7 @@ import {
   restoreCompanyEmployeeAction,
   revokeEmployeeInvitationAction,
   suspendCompanyEmployeeAction,
+  transferCompanyOwnerAction,
   updateCompanyEmployeeAccessAction,
 } from "../../actions/company-users.actions";
 import type { CompanyUserEvent, CompanyUserPage } from "../../types";
@@ -25,6 +26,12 @@ export function CompanyUsersPanel({
   showAudit?: boolean;
 }) {
   const adminCompanyId = isAdmin ? companyId : undefined;
+  const currentOwnerMembershipId = page.records.find(
+    (record) =>
+      record.recordType === "membership" &&
+      record.roleCode === "partner_owner" &&
+      record.membershipStatus === "active",
+  )?.recordId;
   return (
     <div className="space-y-6">
       <header>
@@ -63,12 +70,17 @@ export function CompanyUsersPanel({
                     {record.invitationStatus === "pending" ? (
                       <form action={revokeEmployeeInvitationAction}>
                         <HiddenScope companyId={adminCompanyId} name="invitationId" value={record.recordId} />
+                        <ReasonField />
                         <button className="text-xs font-semibold text-red-700">Отозвать</button>
                       </form>
                     ) : null}
                   </div>
                 ) : (
-                  <MembershipActions companyId={adminCompanyId} record={record} />
+                  <MembershipActions
+                    companyId={adminCompanyId}
+                    currentOwnerMembershipId={currentOwnerMembershipId}
+                    record={record}
+                  />
                 )}
               </div>
             </article>
@@ -82,9 +94,11 @@ export function CompanyUsersPanel({
 
 function MembershipActions({
   companyId,
+  currentOwnerMembershipId,
   record,
 }: {
   companyId?: string;
+  currentOwnerMembershipId?: string;
   record: CompanyUserPage["records"][number];
 }) {
   return (
@@ -102,23 +116,48 @@ function MembershipActions({
           <option value="full">Все цены</option>
           <option value="retail_only">Только розничные</option>
         </select>
+        <ReasonField />
         <button className="justify-self-start text-xs font-semibold text-emerald-700">Сохранить доступ</button>
       </form>
       <div className="flex flex-wrap gap-4">
         <form action={record.membershipStatus === "suspended" ? restoreCompanyEmployeeAction : suspendCompanyEmployeeAction}>
           <HiddenScope companyId={companyId} name="membershipId" value={record.recordId} />
+          <ReasonField />
           <button className="text-xs font-semibold text-zinc-700">
             {record.membershipStatus === "suspended" ? "Восстановить" : "Приостановить"}
           </button>
         </form>
         {record.roleCode !== "partner_owner" && record.membershipStatus === "active" ? (
-          <form action={appointCompanyOwnerAction}>
+          <form action={currentOwnerMembershipId ? transferCompanyOwnerAction : appointCompanyOwnerAction}>
             <HiddenScope companyId={companyId} name="membershipId" value={record.recordId} />
-            <button className="text-xs font-semibold text-amber-700">Назначить владельцем</button>
+            {currentOwnerMembershipId ? (
+              <>
+                <input name="currentOwnerMembershipId" type="hidden" value={currentOwnerMembershipId} />
+                <input name="nextOwnerMembershipId" type="hidden" value={record.recordId} />
+              </>
+            ) : null}
+            <ReasonField />
+            <button className="text-xs font-semibold text-amber-700">
+              {currentOwnerMembershipId ? "Передать владение" : "Назначить владельцем"}
+            </button>
           </form>
         ) : null}
       </div>
     </div>
+  );
+}
+
+function ReasonField() {
+  return (
+    <input
+      aria-label="Причина изменения"
+      className="h-9 min-w-0 rounded border border-zinc-300 px-2 text-xs"
+      maxLength={500}
+      minLength={3}
+      name="reason"
+      placeholder="Причина изменения"
+      required
+    />
   );
 }
 
@@ -169,6 +208,7 @@ function eventLabel(type: string): string {
     role_changed: "Роль сотрудника изменена",
     price_access_changed: "Доступ к ценам изменён",
     owner_appointed: "Назначен владелец компании",
+    owner_transferred: "Владение компанией передано",
   }[type] ?? "Изменение доступа";
 }
 

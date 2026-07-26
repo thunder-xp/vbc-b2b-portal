@@ -9,7 +9,7 @@ export default async function AdminAccessPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  await requireAdminPagePermission("admin.security.view");
+  const context = await requireAdminPagePermission("admin.security.view");
   const query = await searchParams;
   const search = first(query.search) ?? "";
   const service = createAdminAccessService();
@@ -20,6 +20,7 @@ export default async function AdminAccessPage({
   return (
     <AdminAccessInspector
       inspection={inspection}
+      canManageOverrides={context.permissions.includes("company_users.manage")}
       search={search}
       subjects={subjects}
     />

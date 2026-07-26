@@ -18,6 +18,8 @@ const repository = {
   setMembershipState: vi.fn(),
   updateMembershipAccess: vi.fn(),
   appointOwner: vi.fn(),
+  transferOwner: vi.fn(),
+  setPermissionOverride: vi.fn(),
 } satisfies CompanyUserManagementRepository;
 
 const permissions = {
@@ -131,17 +133,41 @@ describe("CompanyUserManagementService", () => {
   });
 
   it("uses the same membership for suspension and restoration", async () => {
-    await service.suspend("actor", "company", "membership");
-    await service.restore("actor", "company", "membership");
+    await service.suspend("actor", "company", "membership", "Security review");
+    await service.restore("actor", "company", "membership", "Review completed");
     expect(repository.setMembershipState).toHaveBeenNthCalledWith(
       1,
       "membership",
       "suspended",
+      "Security review",
     );
     expect(repository.setMembershipState).toHaveBeenNthCalledWith(
       2,
       "membership",
       "active",
+      "Review completed",
+    );
+  });
+
+  it("requires a bounded reason before a sensitive mutation", async () => {
+    await expect(
+      service.suspend("actor", "company", "membership", " "),
+    ).rejects.toThrow("reason");
+    expect(repository.setMembershipState).not.toHaveBeenCalled();
+  });
+
+  it("transfers ownership through one repository operation", async () => {
+    await service.transferOwner(
+      "actor",
+      "company",
+      "current-owner",
+      "next-owner",
+      "Approved handover",
+    );
+    expect(repository.transferOwner).toHaveBeenCalledWith(
+      "current-owner",
+      "next-owner",
+      "Approved handover",
     );
   });
 });

@@ -114,8 +114,11 @@ export class SupabaseCompanyUserManagementRepository
     return mapInvitationResult(requiredRow(rows));
   }
 
-  async revokeInvitation(invitationId: string): Promise<void> {
-    await this.rpc("revoke_company_invitation", { p_invitation_id: invitationId });
+  async revokeInvitation(invitationId: string, reason: string): Promise<void> {
+    await this.rpc("revoke_company_invitation_v2", {
+      p_invitation_id: invitationId,
+      p_reason: reason,
+    });
   }
 
   async acceptInvitation(tokenHash: string): Promise<CompanyInvitationAcceptance> {
@@ -134,23 +137,50 @@ export class SupabaseCompanyUserManagementRepository
     };
   }
 
-  async setMembershipState(membershipId: string, status: "active" | "suspended"): Promise<void> {
-    await this.rpc("set_company_membership_state", {
+  async setMembershipState(membershipId: string, status: "active" | "suspended", reason: string): Promise<void> {
+    await this.rpc("set_company_membership_state_v2", {
       p_membership_id: membershipId,
       p_target_status: status,
+      p_reason: reason,
     });
   }
 
-  async updateMembershipAccess(membershipId: string, roleCode: string, priceAccess: "full" | "retail_only"): Promise<void> {
-    await this.rpc("update_company_membership_access", {
+  async updateMembershipAccess(membershipId: string, roleCode: string, priceAccess: "full" | "retail_only", reason: string): Promise<void> {
+    await this.rpc("update_company_membership_access_v2", {
       p_membership_id: membershipId,
       p_role_code: roleCode,
       p_price_access: priceAccess,
+      p_reason: reason,
     });
   }
 
-  async appointOwner(membershipId: string): Promise<void> {
-    await this.rpc("appoint_company_owner", { p_membership_id: membershipId });
+  async appointOwner(membershipId: string, reason: string): Promise<void> {
+    await this.rpc("appoint_company_owner_v2", {
+      p_membership_id: membershipId,
+      p_reason: reason,
+    });
+  }
+
+  async transferOwner(currentOwnerMembershipId: string, nextOwnerMembershipId: string, reason: string): Promise<void> {
+    await this.rpc("transfer_company_owner_v2", {
+      p_current_owner_membership_id: currentOwnerMembershipId,
+      p_next_owner_membership_id: nextOwnerMembershipId,
+      p_reason: reason,
+    });
+  }
+
+  async setPermissionOverride(
+    membershipId: string,
+    permissionCode: string,
+    effect: "allow" | "deny" | "inherit",
+    reason: string,
+  ): Promise<void> {
+    await this.rpc("set_membership_permission_override", {
+      p_membership_id: membershipId,
+      p_permission_code: permissionCode,
+      p_effect: effect,
+      p_reason: reason,
+    });
   }
 
   private async rpc<T = unknown>(

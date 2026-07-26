@@ -1,6 +1,8 @@
 import { CheckCircle2, ShieldCheck, XCircle } from "lucide-react";
 import Link from "next/link";
 
+import { setCompanyPermissionOverrideAction } from "@/src/modules/access-control/actions/company-users.actions";
+
 import type {
   AdminAccessInspection,
   AdminAccessSubject,
@@ -25,10 +27,12 @@ const CATEGORY_LABELS: Record<string, string> = {
 
 export function AdminAccessInspector({
   inspection,
+  canManageOverrides,
   search,
   subjects,
 }: {
   inspection: AdminAccessInspection | null;
+  canManageOverrides: boolean;
   search: string;
   subjects: AdminAccessSubject[];
 }) {
@@ -75,7 +79,12 @@ export function AdminAccessInspector({
         )}
       </section>
 
-      {inspection ? <InspectionResult inspection={inspection} /> : null}
+      {inspection ? (
+        <InspectionResult
+          canManageOverrides={canManageOverrides}
+          inspection={inspection}
+        />
+      ) : null}
     </div>
   );
 }
@@ -133,8 +142,10 @@ function ContextLink({
 }
 
 function InspectionResult({
+  canManageOverrides,
   inspection,
 }: {
+  canManageOverrides: boolean;
   inspection: AdminAccessInspection;
 }) {
   const categories = groupPermissions(inspection.permissions);
@@ -156,6 +167,59 @@ function InspectionResult({
             : ""}
         </p>
       </div>
+      {canManageOverrides &&
+      inspection.companyId &&
+      inspection.membershipId ? (
+        <form
+          action={setCompanyPermissionOverrideAction}
+          className="grid gap-3 border border-zinc-200 bg-white p-5 md:grid-cols-[minmax(12rem,1fr)_10rem_minmax(12rem,1fr)_auto]"
+        >
+          <input name="companyId" type="hidden" value={inspection.companyId} />
+          <input
+            name="membershipId"
+            type="hidden"
+            value={inspection.membershipId}
+          />
+          <label className="grid gap-1 text-sm font-medium">
+            Разрешение
+            <select
+              className="h-10 border border-zinc-300 bg-white px-2"
+              name="permissionCode"
+              required
+            >
+              {inspection.permissions.map((permission) => (
+                <option key={permission.code} value={permission.code}>
+                  {permission.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="grid gap-1 text-sm font-medium">
+            Решение
+            <select
+              className="h-10 border border-zinc-300 bg-white px-2"
+              name="effect"
+            >
+              <option value="allow">Разрешить</option>
+              <option value="deny">Запретить</option>
+              <option value="inherit">Наследовать</option>
+            </select>
+          </label>
+          <label className="grid gap-1 text-sm font-medium">
+            Причина
+            <input
+              className="h-10 min-w-0 border border-zinc-300 px-3"
+              maxLength={500}
+              minLength={3}
+              name="reason"
+              required
+            />
+          </label>
+          <button className="h-10 self-end bg-zinc-950 px-4 text-sm font-semibold text-white">
+            Применить
+          </button>
+        </form>
+      ) : null}
       <div className="grid gap-4 xl:grid-cols-2">
         {[...categories.entries()].map(([category, permissions]) => (
           <section

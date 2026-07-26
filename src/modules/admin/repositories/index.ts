@@ -9,6 +9,7 @@ export type {
   ListAdminUsersRepositoryInput,
 } from "./admin-identity.repository";
 export type { AdminAccessRepository } from "./admin-access.repository";
+export type { AdminRoleManagementRepository } from "./admin-role-management.repository";
 export type {
   AdminDashboardRepository,
   AdminOperationalProjection,

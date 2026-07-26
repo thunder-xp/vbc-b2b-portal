@@ -1,6 +1,11 @@
 import { ShieldCheck, UserRound, Users } from "lucide-react";
 import Link from "next/link";
 
+import {
+  assignInternalRoleAction,
+  revokeInternalRoleAction,
+} from "../actions";
+import { ASSIGNABLE_INTERNAL_ROLES } from "../services";
 import type { AdminUserFilter, AdminUserPage } from "../types";
 import { AdminPageHeader } from "./AdminPageHeader";
 
@@ -16,7 +21,13 @@ const FILTER_LABELS: Record<AdminUserFilter, string> = {
   no_role_assignment: "Без назначения роли",
 };
 
-export function AdminUserDirectory({ users }: { users: AdminUserPage }) {
+export function AdminUserDirectory({
+  canManageInternalRoles,
+  users,
+}: {
+  canManageInternalRoles: boolean;
+  users: AdminUserPage;
+}) {
   return (
     <div className="space-y-6">
       <AdminPageHeader
@@ -101,6 +112,14 @@ export function AdminUserDirectory({ users }: { users: AdminUserPage }) {
                   <p className="mt-2 text-xs text-zinc-500">
                     Создан: {formatDate(user.createdAt)}
                   </p>
+                  {canManageInternalRoles &&
+                  user.identityType === "internal" &&
+                  user.userId ? (
+                    <InternalRoleActions
+                      hasAssignment={Boolean(user.roleSummary)}
+                      userId={user.userId}
+                    />
+                  ) : null}
                 </div>
               </article>
             ))}
@@ -114,6 +133,75 @@ export function AdminUserDirectory({ users }: { users: AdminUserPage }) {
       <Pagination page={users} />
     </div>
   );
+}
+
+function InternalRoleActions({
+  hasAssignment,
+  userId,
+}: {
+  hasAssignment: boolean;
+  userId: string;
+}) {
+  return (
+    <div className="mt-3 grid gap-2">
+      <form action={assignInternalRoleAction} className="grid gap-2">
+        <input name="userId" type="hidden" value={userId} />
+        <select
+          aria-label="Роль платформы"
+          className="h-9 border border-zinc-300 bg-white px-2 text-xs"
+          defaultValue=""
+          name="roleCode"
+          required
+        >
+          <option disabled value="">
+            Выберите роль
+          </option>
+          {ASSIGNABLE_INTERNAL_ROLES.map((role) => (
+            <option key={role} value={role}>
+              {internalRoleLabel(role)}
+            </option>
+          ))}
+        </select>
+        <ReasonInput />
+        <button className="justify-self-start text-xs font-semibold text-emerald-700">
+          {hasAssignment ? "Изменить роль" : "Назначить роль"}
+        </button>
+      </form>
+      {hasAssignment ? (
+        <form action={revokeInternalRoleAction} className="grid gap-2">
+          <input name="userId" type="hidden" value={userId} />
+          <ReasonInput />
+          <button className="justify-self-start text-xs font-semibold text-red-700">
+            Отозвать роль
+          </button>
+        </form>
+      ) : null}
+    </div>
+  );
+}
+
+function ReasonInput() {
+  return (
+    <input
+      aria-label="Причина изменения роли"
+      className="h-9 min-w-0 border border-zinc-300 px-2 text-xs"
+      maxLength={500}
+      minLength={3}
+      name="reason"
+      placeholder="Причина"
+      required
+    />
+  );
+}
+
+function internalRoleLabel(role: (typeof ASSIGNABLE_INTERNAL_ROLES)[number]) {
+  return {
+    novotech_admin: "Администратор платформы",
+    novotech_sales: "Продажи",
+    novotech_finance: "Финансы",
+    novotech_support: "Поддержка",
+    novotech_content_manager: "Контент",
+  }[role];
 }
 
 function Field({ label, value }: { label: string; value: string }) {
