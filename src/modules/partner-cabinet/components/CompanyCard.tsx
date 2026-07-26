@@ -13,7 +13,9 @@ export function CompanyCard({ context }: { context: PartnerWorkspaceContext }) {
       <dl className="mt-6 grid gap-4 text-sm sm:grid-cols-3">
         <Info label="Роль" value={context.membershipRole ?? "Не определена"} />
         <Info label="Код компании в 1С" value={context.external1cCode ?? "Не указан"} />
-        <Info label="Статус партнёра" value={context.priceTypeName ?? (context.external1cPriceTypeId ? "Назначен" : "Не настроен")} />
+        {context.capabilities.productCard.showPartnerPrice ? (
+          <Info label="Статус партнёра" value={context.priceTypeName ?? (context.external1cPriceTypeId ? "Назначен" : "Не настроен")} />
+        ) : null}
       </dl>
       {context.capabilities.canManageCompanyUsers ? (
         <Link className="mt-6 inline-flex h-10 items-center rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white" href="/cabinet/company/users">

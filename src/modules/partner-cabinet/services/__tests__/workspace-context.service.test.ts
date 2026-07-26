@@ -194,12 +194,12 @@ function service(fixtures: Fixtures = {}) {
     async getRole() { return { id: "role-1", code: "partner_owner", name: "Владелец компании", scope: RoleScope.Partner, createdAt: now }; },
     async getRolePermissions() {
       if (fixtures.hasCommercialPermission === false) return [];
-      return ["catalog.view", "prices.view", "stock.view", "orders.create", "documents.view_company"].map((code) => ({ id: code, code, description: null, createdAt: now }));
+      return ["catalog.view", "pricing.partner_price.view", "pricing.retail_price.view", "stock.view", "orders.create", "documents.view_company"].map((code) => ({ id: code, code, description: null, createdAt: now }));
     },
     async getEffectivePermissionContext() {
       const permissionCodes = fixtures.hasCommercialPermission === false
         ? []
-        : ["catalog.view", "prices.view", "stock.view", "orders.create", "documents.view_company"];
+        : ["catalog.view", "pricing.partner_price.view", "pricing.retail_price.view", "stock.view", "orders.create", "documents.view_company"];
       return {
         userId: currentProfile.id, companyId: currentCompany.id,
         profileStatus: currentProfile.status, companyStatus: currentCompany.status,

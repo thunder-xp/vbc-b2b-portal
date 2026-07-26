@@ -6,7 +6,8 @@ describe("resolveWorkspaceCapabilities", () => {
   it("builds installer navigation from role permissions and release configuration", () => {
     const model = resolveWorkspaceCapabilities(new Set([
       "catalog.view",
-      "prices.view",
+      "pricing.partner_price.view",
+      "pricing.retail_price.view",
       "stock.view",
       "orders.create",
       "orders.manage",
@@ -59,7 +60,7 @@ describe("resolveWorkspaceCapabilities", () => {
 
   it("applies server capability configuration to navigation and commercial visibility", () => {
     const model = resolveWorkspaceCapabilities(
-      new Set(["catalog.view", "prices.view", "stock.view"]),
+      new Set(["catalog.view", "pricing.partner_price.view", "stock.view"]),
       {
         modules: { catalog: "coming_soon", knowledge_base: "hidden" },
         priceVisibility: false,

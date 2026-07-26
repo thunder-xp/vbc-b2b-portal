@@ -1,4 +1,5 @@
 import { createClient } from "@/src/lib/supabase/server";
+import { createAdminClient } from "@/src/lib/supabase/admin";
 
 import type {
   FindProductPriceInput,
@@ -68,6 +69,26 @@ export class SupabasePricingInventoryRepository
     };
   }
 
+  async getAuthoritativeCommercialRateSnapshot() {
+    const { data, error } = await createAdminClient()
+      .from("commercial_exchange_rates")
+      .select(COMMERCIAL_RATE_COLUMNS)
+      .in("purpose", [...COMMERCIAL_RATE_PURPOSES])
+      .eq("is_active", true)
+      .eq("is_published", true)
+      .order("effective_at", { ascending: false });
+    if (error) throw new PricingInventoryRepositoryUnexpectedError();
+    const rates = (data ?? []).map((row) =>
+      mapCommercialRateRow(row as CommercialRateRow),
+    );
+    return {
+      partnerPriceUsdToMdl:
+        rates.find((rate) => rate.purpose === "partner_price_usd_to_mdl") ?? null,
+      retailPriceUsdToMdl:
+        rates.find((rate) => rate.purpose === "retail_price_usd_to_mdl") ?? null,
+    };
+  }
+
   async listCommercialRateHistory(limit: number): Promise<CommercialRate[]> {
     const boundedLimit = Math.max(1, Math.min(100, Math.trunc(limit)));
     const supabase = await createClient();
@@ -112,17 +133,14 @@ export class SupabasePricingInventoryRepository
     return mapCommercialRateRow(data as CommercialRateRow);
   }
 
-  async listAvailableCurrencyCodes(): Promise<string[]> {
-    const { data, error } = await (await createClient())
-      .from("product_prices")
-      .select("currency")
-      .eq("currency_status", "resolved")
-      .eq("is_active", true)
-      .eq("is_published", true)
-      .limit(1000);
+  async listAvailableCurrencyCodes(companyId: string): Promise<string[]> {
+    const { data, error } = await (await createClient()).rpc(
+      "list_commercial_currency_codes",
+      { p_company_id: companyId },
+    );
     if (error) throw new PricingInventoryRepositoryUnexpectedError();
-    return [...new Set((data ?? [])
-      .map((row) => normalizeOneCCurrencyCode(row.currency))
+    return [...new Set(((data ?? []) as string[])
+      .map((value) => normalizeOneCCurrencyCode(value))
       .filter((value): value is string => value !== null))].sort();
   }
 
@@ -175,29 +193,47 @@ export class SupabasePricingInventoryRepository
   ): Promise<ProductPrice[]> {
     const productIds = normalizeProductIds(input.productIds);
 
-    if (productIds.length === 0) {
+    if (productIds.length === 0 || !input.external1cPriceTypeId) {
       return [];
     }
 
-    const supabase = await createClient();
-    const now = new Date().toISOString();
-    let query = supabase
-      .from("product_prices")
-      .select(PRODUCT_PRICE_COLUMNS)
-      .in("product_id", productIds)
-      .eq("is_active", true)
-      .eq("is_published", true)
-      .lte("valid_from", now)
-      .or(`valid_to.is.null,valid_to.gte.${now}`)
-      .or(`company_id.is.null,company_id.eq.${input.companyId}`);
-    if (input.external1cPriceTypeId) query = query.eq("external_1c_price_type_id", input.external1cPriceTypeId);
-    const { data, error } = await query.order("valid_from", { ascending: false });
+    const { data, error } = await (await createClient()).rpc(
+      "get_product_price_projection",
+      {
+        p_company_id: input.companyId,
+        p_product_ids: productIds,
+        p_external_price_type_id: input.external1cPriceTypeId,
+      },
+    );
 
     if (error) {
       throw new PricingInventoryRepositoryUnexpectedError();
     }
 
-    return (data as ProductPriceRow[]).map(mapProductPriceRow);
+    return ((data ?? []) as ProductPriceRow[]).map(mapProductPriceRow);
+  }
+
+  async listAuthoritativePricesForProducts(
+    input: ListProductPricesInput,
+  ): Promise<ProductPrice[]> {
+    const productIds = normalizeProductIds(input.productIds);
+    if (productIds.length === 0 || !input.external1cPriceTypeId) return [];
+
+    const now = new Date().toISOString();
+    const { data, error } = await createAdminClient()
+      .from("product_prices")
+      .select(PRODUCT_PRICE_COLUMNS)
+      .in("product_id", productIds)
+      .eq("external_1c_price_type_id", input.external1cPriceTypeId)
+      .eq("is_active", true)
+      .eq("is_published", true)
+      .lte("valid_from", now)
+      .or(`valid_to.is.null,valid_to.gte.${now}`)
+      .or(`company_id.is.null,company_id.eq.${input.companyId}`)
+      .order("valid_from", { ascending: false });
+
+    if (error) throw new PricingInventoryRepositoryUnexpectedError();
+    return ((data ?? []) as ProductPriceRow[]).map(mapProductPriceRow);
   }
 
   async listStockForProducts(

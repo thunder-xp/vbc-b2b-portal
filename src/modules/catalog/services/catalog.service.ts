@@ -235,7 +235,7 @@ export class DefaultCatalogService implements CatalogService {
     const attributeFilters = normalizeAttributeFilters(input.attributeFilters);
 
     if (this.catalogRepository.listPartnerPage) {
-      return this.listPartnerCatalogPage(companyId, {
+      return this.listPartnerCatalogPage(userId, companyId, {
         ...input,
         page,
         pageSize,
@@ -397,6 +397,7 @@ export class DefaultCatalogService implements CatalogService {
   }
 
   private async listPartnerCatalogPage(
+    userId: string,
     companyId: string,
     input: CatalogProductListInput & {
       page: number;
@@ -420,8 +421,13 @@ export class DefaultCatalogService implements CatalogService {
         offset: (input.page - 1) * input.pageSize,
       }),
     );
+    const visibility = this.pricingInventoryService?.getCommercialVisibility
+      ? await this.pricingInventoryService.getCommercialVisibility(userId)
+      : undefined;
     const commercialViews = partnerPage.items.map((item) =>
-      toPublicCommercialView(projectProductCommercialSnapshot(item.commercialSnapshot)),
+      toPublicCommercialView(
+        projectProductCommercialSnapshot(item.commercialSnapshot, visibility),
+      ),
     );
 
     return {

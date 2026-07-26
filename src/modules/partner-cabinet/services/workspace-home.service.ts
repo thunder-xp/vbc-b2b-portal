@@ -24,7 +24,7 @@ export type WorkspaceHomeDto = {
     name: string;
     role: string;
     external1cCode: string;
-    priceType: string;
+    priceType: string | null;
     accountManager: string | null;
   };
   quickActions: WorkspaceQuickActionDto[];
@@ -58,7 +58,9 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
         name: context.companyName ?? "Компания не найдена",
         role: context.membershipRole ?? "Не определена",
         external1cCode: context.external1cCode ?? "Не указан",
-        priceType: context.priceTypeName ?? (context.external1cPriceTypeId ? "Назначен" : "Не настроен"),
+        priceType: context.capabilities.productCard.showPartnerPrice
+          ? context.priceTypeName ?? (context.external1cPriceTypeId ? "Назначен" : "Не настроен")
+          : null,
         accountManager: null,
       },
       quickActions: buildQuickActions(context.capabilities.navigation),

@@ -54,14 +54,18 @@ export type UpsertProductStockBalanceInput = FindProductStockBalanceInput & {
 
 export interface PricingInventoryRepository {
   findPriceTypeName?(externalRef: string): Promise<string | null>;
-  listAvailableCurrencyCodes?(): Promise<string[]>;
+  listAvailableCurrencyCodes?(companyId: string): Promise<string[]>;
   getLatestUsdMdlExchangeRate?(): Promise<UsdMdlExchangeRate | null>;
   getActiveCommercialRateSnapshot?(): Promise<CommercialRateSnapshot>;
+  getAuthoritativeCommercialRateSnapshot?(): Promise<CommercialRateSnapshot>;
   listCommercialRateHistory?(limit: number): Promise<CommercialRate[]>;
   canManageCommercialRates?(): Promise<boolean>;
   publishManualCommercialRate?(input: PublishCommercialRateInput): Promise<CommercialRate>;
   upsertPriceType?(input: { externalRef: string; externalCode: string; name: string; currencyCode: string | null; currencyStatus: "resolved" | "unresolved"; sourceUpdatedAt: string | null }): Promise<void>;
   listPricesForProducts(input: ListProductPricesInput): Promise<ProductPrice[]>;
+  listAuthoritativePricesForProducts?(
+    input: ListProductPricesInput,
+  ): Promise<ProductPrice[]>;
   listStockForProducts(productIds: string[]): Promise<ProductStockBalance[]>;
   listStockTotalsForProducts?(productIds:string[]):Promise<ProductStockTotal[]>;
   listSupplierArrivalsForProducts?(productIds:string[]):Promise<ProductSupplierArrival[]>;

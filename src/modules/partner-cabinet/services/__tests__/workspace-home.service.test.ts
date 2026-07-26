@@ -61,7 +61,8 @@ function fakeContextService(
         priceTypeName: "GOLD",
         capabilities: resolveWorkspaceCapabilities(new Set([
           "catalog.view",
-          "prices.view",
+          "pricing.partner_price.view",
+          "pricing.retail_price.view",
           "stock.view",
           "orders.create",
           "documents.view_company",

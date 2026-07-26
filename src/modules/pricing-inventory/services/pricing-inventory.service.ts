@@ -1,9 +1,11 @@
 import Decimal from "decimal.js";
 
 import type {
+  CommercialVisibilityContext,
   CompanyAccessService,
   PermissionService,
 } from "../../access-control/services";
+import { resolveCommercialVisibility } from "../../access-control/services";
 import { MembershipStatus } from "../../access-control/types";
 import type { PricingInventoryRepository, ProductStockTotal, ProductSupplierArrival, UsdMdlExchangeRate } from "../repositories";
 import type { ProductPrice } from "../types";
@@ -79,8 +81,13 @@ export type ProductCommercialSnapshot = {
 export type ProductAvailabilityFilter = "in_stock" | "expected";
 
 export interface PricingInventoryService {
+  getCommercialVisibility?(userId: string): Promise<CommercialVisibilityContext>;
   listAvailableCurrencyCodes?(userId: string): Promise<string[]>;
   getProductCommercialViews(
+    userId: string,
+    productIds: string[],
+  ): Promise<ProductCommercialInternalDto[]>;
+  getAuthoritativeProductCommercialViews?(
     userId: string,
     productIds: string[],
   ): Promise<ProductCommercialInternalDto[]>;
@@ -90,9 +97,14 @@ export interface PricingInventoryService {
   ): Promise<string[]>;
   getApprovedUsdMdlRate?(userId: string): Promise<number | null>;
   getApprovedUsdMdlRateSnapshot?(userId: string): Promise<UsdMdlExchangeRate | null>;
+  getRetailUsdMdlRateSnapshot?(
+    userId: string,
+  ): Promise<UsdMdlExchangeRate | null>;
+  getAuthoritativeUsdMdlRateSnapshot?(
+    userId: string,
+  ): Promise<UsdMdlExchangeRate | null>;
 }
 
-const PRICE_PERMISSION = "prices.view";
 const STOCK_PERMISSION = "stock.view";
 const LOW_STOCK_THRESHOLD = 5;
 const ZERO_CHARACTERISTIC = "00000000-0000-0000-0000-000000000000";
@@ -105,11 +117,20 @@ export class DefaultPricingInventoryService implements PricingInventoryService {
     private readonly permissionService: PermissionService,
   ) {}
 
+  async getCommercialVisibility(userId: string): Promise<CommercialVisibilityContext> {
+    const company = await this.resolveActiveCompany(userId);
+    const permissionContext =
+      await this.permissionService.getEffectivePermissionContext(userId, company.id);
+    return resolveCommercialVisibility(permissionContext);
+  }
+
   async listAvailableCurrencyCodes(userId: string): Promise<string[]> {
     const company = await this.resolveActiveCompany(userId);
-    const canViewPrices = await this.permissionService.hasPermission(userId, company.id, PRICE_PERMISSION);
+    const visibility = await this.getCommercialVisibility(userId);
+    const canViewPrices =
+      visibility.canViewPartnerPrice || visibility.canViewRetailPrice;
     if (!canViewPrices || !this.pricingInventoryRepository.listAvailableCurrencyCodes) return [];
-    return this.pricingInventoryRepository.listAvailableCurrencyCodes();
+    return this.pricingInventoryRepository.listAvailableCurrencyCodes(company.id);
   }
 
   async getProductCommercialViews(
@@ -122,21 +143,50 @@ export class DefaultPricingInventoryService implements PricingInventoryService {
       return [];
     }
 
+    return this.loadProductCommercialViews(userId, normalizedProductIds, false);
+  }
+
+  async getAuthoritativeProductCommercialViews(
+    userId: string,
+    productIds: string[],
+  ): Promise<ProductCommercialInternalDto[]> {
+    const normalizedProductIds = normalizeProductIds(productIds);
+    if (!normalizedProductIds.length) return [];
+    return this.loadProductCommercialViews(userId, normalizedProductIds, true);
+  }
+
+  private async loadProductCommercialViews(
+    userId: string,
+    normalizedProductIds: string[],
+    authoritativePartnerPricing: boolean,
+  ): Promise<ProductCommercialInternalDto[]> {
     const company = await this.resolveActiveCompany(userId);
     const companyId = company.id;
-    const [canViewPrices, canViewStock] = await Promise.all([
-      this.permissionService.hasPermission(userId, companyId, PRICE_PERMISSION),
+    const [visibility, canViewStock] = await Promise.all([
+      this.getCommercialVisibility(userId),
       this.permissionService.hasPermission(userId, companyId, STOCK_PERMISSION),
     ]);
+    const canViewPartnerPrice =
+      authoritativePartnerPricing || visibility.canViewPartnerPrice;
+    const canViewRetailPrice = visibility.canViewRetailPrice;
     const [partnerPrices, msrpPrices, stockBalances, supplierArrivals, commercialRates] = await Promise.all([
-      canViewPrices && company.external1cPriceTypeId
-        ? this.pricingInventoryRepository.listPricesForProducts({
+      canViewPartnerPrice && company.external1cPriceTypeId
+        ? (
+          authoritativePartnerPricing
+          && this.pricingInventoryRepository.listAuthoritativePricesForProducts
+            ? this.pricingInventoryRepository.listAuthoritativePricesForProducts({
+                productIds: normalizedProductIds,
+                companyId,
+                external1cPriceTypeId: company.external1cPriceTypeId,
+              })
+            : this.pricingInventoryRepository.listPricesForProducts({
             productIds: normalizedProductIds,
             companyId,
             external1cPriceTypeId: company.external1cPriceTypeId ?? undefined,
-          })
+              })
+        )
         : Promise.resolve<ProductPrice[]>([]),
-      canViewPrices
+      canViewRetailPrice
         ? this.pricingInventoryRepository.listPricesForProducts({ productIds: normalizedProductIds, companyId, external1cPriceTypeId: MSRP_PRICE_TYPE_EXTERNAL_REF })
         : Promise.resolve<ProductPrice[]>([]),
       canViewStock && this.pricingInventoryRepository.listStockTotalsForProducts
@@ -145,16 +195,25 @@ export class DefaultPricingInventoryService implements PricingInventoryService {
       canViewStock && this.pricingInventoryRepository.listSupplierArrivalsForProducts
         ? this.pricingInventoryRepository.listSupplierArrivalsForProducts(normalizedProductIds)
         : Promise.resolve<ProductSupplierArrival[]>([]),
-      canViewPrices && this.pricingInventoryRepository.getActiveCommercialRateSnapshot
-        ? this.pricingInventoryRepository.getActiveCommercialRateSnapshot()
+      (canViewPartnerPrice || canViewRetailPrice)
+        && (
+          authoritativePartnerPricing
+            ? this.pricingInventoryRepository
+                .getAuthoritativeCommercialRateSnapshot
+            : this.pricingInventoryRepository.getActiveCommercialRateSnapshot
+        )
+        ? authoritativePartnerPricing
+          ? this.pricingInventoryRepository
+              .getAuthoritativeCommercialRateSnapshot!()
+          : this.pricingInventoryRepository.getActiveCommercialRateSnapshot!()
         : Promise.resolve<CommercialRateSnapshot>({ partnerPriceUsdToMdl: null, retailPriceUsdToMdl: null }),
     ]);
 
     return normalizedProductIds.map((productId) => {
-      const partnerPrice = canViewPrices
+      const partnerPrice = canViewPartnerPrice
         ? selectPriceForProduct(partnerPrices, productId, companyId)
         : null;
-      const msrpPrice = canViewPrices
+      const msrpPrice = canViewRetailPrice
         ? selectPriceForProduct(msrpPrices, productId, companyId)
         : null;
       const stock = canViewStock
@@ -162,14 +221,24 @@ export class DefaultPricingInventoryService implements PricingInventoryService {
         : null;
       const demoView =
         !partnerPrice && !msrpPrice && !stock
-          ? createDemoCommercialView(productId, canViewPrices, canViewStock)
+          ? createDemoCommercialView(
+              productId,
+              canViewPartnerPrice,
+              canViewRetailPrice,
+              canViewStock,
+            )
           : null;
 
       if (demoView) {
         return { ...demoView, retailBelowPartnerPrice: false };
       }
 
-      const partnerPriceMdl = createPartnerPriceMdlView(partnerPrice, commercialRates.partnerPriceUsdToMdl);
+      const partnerPriceMdl = canViewPartnerPrice
+        ? createPartnerPriceMdlView(
+            partnerPrice,
+            commercialRates.partnerPriceUsdToMdl,
+          )
+        : null;
       const msrpPriceUsd = createMsrpPriceUsdView(msrpPrice);
       const retailPrice = createRetailPriceMdlView(msrpPrice, commercialRates.retailPriceUsdToMdl);
       return {
@@ -178,16 +247,19 @@ export class DefaultPricingInventoryService implements PricingInventoryService {
         partnerPriceMdl,
         msrpPriceUsd,
         retailPrice,
-        commercialOpportunity: createCommercialOpportunity(
-          partnerPriceMdl,
-          retailPrice,
-          commercialRates.partnerPriceUsdToMdl,
-          commercialRates.retailPriceUsdToMdl,
-        ),
+        commercialOpportunity: canViewPartnerPrice
+          ? createCommercialOpportunity(
+              partnerPriceMdl,
+              retailPrice,
+              commercialRates.partnerPriceUsdToMdl,
+              commercialRates.retailPriceUsdToMdl,
+            )
+          : null,
         commercialRateFreshness: createCommercialRateFreshness(commercialRates),
         stock,
         isDemoData: false,
-        retailBelowPartnerPrice: Boolean(partnerPriceMdl && retailPrice && retailPrice.amount < partnerPriceMdl.amount),
+        retailBelowPartnerPrice: canViewPartnerPrice
+          && Boolean(partnerPriceMdl && retailPrice && retailPrice.amount < partnerPriceMdl.amount),
       };
     });
   }
@@ -216,18 +288,56 @@ export class DefaultPricingInventoryService implements PricingInventoryService {
   }
 
   async getApprovedUsdMdlRateSnapshot(userId: string): Promise<UsdMdlExchangeRate | null> {
-    const company = await this.resolveActiveCompany(userId);
-    const canViewPrices = await this.permissionService.hasPermission(
-      userId,
-      company.id,
-      PRICE_PERMISSION,
-    );
+    await this.resolveActiveCompany(userId);
+    const canViewPrices = (await this.getCommercialVisibility(userId))
+      .canViewPartnerPrice;
     if (!canViewPrices || !this.pricingInventoryRepository.getLatestUsdMdlExchangeRate) {
       return null;
     }
 
     const rate = await this.pricingInventoryRepository.getLatestUsdMdlExchangeRate();
     return rate && Number.isFinite(rate.mdlPerUsdRate) && rate.mdlPerUsdRate > 0 ? rate : null;
+  }
+
+  async getRetailUsdMdlRateSnapshot(
+    userId: string,
+  ): Promise<UsdMdlExchangeRate | null> {
+    const visibility = await this.getCommercialVisibility(userId);
+    if (
+      !visibility.canViewRetailPrice
+      || !this.pricingInventoryRepository.getActiveCommercialRateSnapshot
+    ) {
+      return null;
+    }
+    const rate = (
+      await this.pricingInventoryRepository.getActiveCommercialRateSnapshot()
+    ).retailPriceUsdToMdl;
+    return rate && Number.isFinite(rate.rate) && rate.rate > 0
+      ? {
+          sourceCode: "113",
+          mdlPerUsdRate: rate.rate,
+          effectiveDate: rate.effectiveAt.slice(0, 10),
+          publishedAt: rate.publishedAt,
+        }
+      : null;
+  }
+
+  async getAuthoritativeUsdMdlRateSnapshot(
+    userId: string,
+  ): Promise<UsdMdlExchangeRate | null> {
+    await this.resolveActiveCompany(userId);
+    const snapshot =
+      await this.pricingInventoryRepository
+        .getAuthoritativeCommercialRateSnapshot?.();
+    const rate = snapshot?.partnerPriceUsdToMdl;
+    return rate && Number.isFinite(rate.rate) && rate.rate > 0
+      ? {
+          sourceCode: "113",
+          mdlPerUsdRate: rate.rate,
+          effectiveDate: rate.effectiveAt.slice(0, 10),
+          publishedAt: rate.publishedAt,
+        }
+      : null;
   }
 
   private async resolveActiveCompany(userId: string): Promise<{ id: string; external1cPriceTypeId: string | null }> {
@@ -252,11 +362,17 @@ export class DefaultPricingInventoryService implements PricingInventoryService {
 
 export function projectProductCommercialSnapshot(
   snapshot: ProductCommercialSnapshot,
+  visibility?: Pick<
+    CommercialVisibilityContext,
+    "canViewPartnerPrice" | "canViewRetailPrice"
+  >,
 ): ProductCommercialInternalDto {
-  const partnerPrice = snapshot.partnerPrice
+  const canViewPartnerPrice = visibility?.canViewPartnerPrice ?? true;
+  const canViewRetailPrice = visibility?.canViewRetailPrice ?? true;
+  const partnerPrice = canViewPartnerPrice && snapshot.partnerPrice
     ? snapshotPrice(snapshot.productId, null, snapshot.partnerPrice)
     : null;
-  const msrpPrice = snapshot.msrpPrice
+  const msrpPrice = canViewRetailPrice && snapshot.msrpPrice
     ? snapshotPrice(snapshot.productId, MSRP_PRICE_TYPE_EXTERNAL_REF, snapshot.msrpPrice)
     : null;
   const commercialRates: CommercialRateSnapshot = {
@@ -272,12 +388,14 @@ export function projectProductCommercialSnapshot(
     partnerPriceMdl,
     msrpPriceUsd: createMsrpPriceUsdView(msrpPrice),
     retailPrice,
-    commercialOpportunity: createCommercialOpportunity(
-      partnerPriceMdl,
-      retailPrice,
-      commercialRates.partnerPriceUsdToMdl,
-      commercialRates.retailPriceUsdToMdl,
-    ),
+    commercialOpportunity: canViewPartnerPrice
+      ? createCommercialOpportunity(
+          partnerPriceMdl,
+          retailPrice,
+          commercialRates.partnerPriceUsdToMdl,
+          commercialRates.retailPriceUsdToMdl,
+        )
+      : null,
     commercialRateFreshness: createCommercialRateFreshness(commercialRates),
     stock: snapshot.canViewStock
       ? stockAvailabilityForProduct(
@@ -553,18 +671,19 @@ const demoNow = "2026-07-09T00:00:00.000Z";
 
 function createDemoCommercialView(
   productId: string,
-  canViewPrices: boolean,
+  canViewPartnerPrice: boolean,
+  canViewRetailPrice: boolean,
   canViewStock: boolean,
 ): ProductCommercialViewDto | null {
   const demoView = demoCommercialViews.get(productId);
 
-  if (!demoView || (!canViewPrices && !canViewStock)) {
+  if (!demoView || (!canViewPartnerPrice && !canViewRetailPrice && !canViewStock)) {
     return null;
   }
 
   return {
     productId,
-    partnerPrice: canViewPrices ? demoView.partnerPrice : null,
+    partnerPrice: canViewPartnerPrice ? demoView.partnerPrice : null,
     partnerPriceMdl: null,
     msrpPriceUsd: null,
     retailPrice: null,

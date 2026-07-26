@@ -54,7 +54,9 @@ describe("Partner workspace shell", () => {
       external1cCode: "UU-001940",
       external1cPriceTypeId: "price-type-1",
       priceTypeName: "PLATINUM",
-      capabilities: resolveWorkspaceCapabilities(new Set()),
+      capabilities: resolveWorkspaceCapabilities(new Set([
+        "pricing.partner_price.view",
+      ])),
     }} />);
 
     expect(screen.getByText("Статус партнёра")).toBeInTheDocument();

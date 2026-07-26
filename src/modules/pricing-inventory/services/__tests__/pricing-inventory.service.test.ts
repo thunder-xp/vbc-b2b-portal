@@ -217,11 +217,82 @@ describe("DefaultPricingInventoryService", () => {
     await expect(service.getProductIdsByAvailability("user-1", "in_stock")).resolves.toEqual(["stock-only", "both"]);
     await expect(service.getProductIdsByAvailability("user-1", "expected")).resolves.toEqual(["arrival-only", "both"]);
   });
+
+  it("returns retail and stock without fetching or projecting confidential partner pricing", async () => {
+    const repository = new FakePricingInventoryRepository([
+      makePrice(null, 45.81, goldPriceType, "999"),
+      makePrice(null, 89, MSRP_PRICE_TYPE_EXTERNAL_REF, "USD"),
+    ], [makeStock("product-1", 8, null)], [], 17.35, 17.77);
+    const service = new DefaultPricingInventoryService(
+      repository,
+      new FakeCompanyAccessService(),
+      new FakePermissionService(["pricing.retail_price.view", "stock.view"]),
+    );
+
+    const [result] = await service.getProductCommercialViews("user-1", ["product-1"]);
+
+    expect(result).toMatchObject({
+      partnerPrice: null,
+      partnerPriceMdl: null,
+      commercialOpportunity: null,
+      retailPrice: { currencyCode: "MDL" },
+      stock: { exactAvailableQuantity: 8 },
+    });
+    expect(repository.lastPriceInputs).toHaveLength(1);
+    expect(repository.lastPriceInputs[0]?.external1cPriceTypeId)
+      .toBe(MSRP_PRICE_TYPE_EXTERNAL_REF);
+    expect(JSON.stringify(result)).not.toContain("45.81");
+  });
+
+  it("keeps authoritative partner pricing available only through the server write-side method", async () => {
+    const repository = new FakePricingInventoryRepository([
+      makePrice(null, 45.81, goldPriceType, "999"),
+      makePrice(null, 89, MSRP_PRICE_TYPE_EXTERNAL_REF, "USD"),
+    ], [], [], 17.35, 17.77);
+    const service = new DefaultPricingInventoryService(
+      repository,
+      new FakeCompanyAccessService(),
+      new FakePermissionService(["pricing.retail_price.view", "orders.manage"]),
+    );
+
+    const [result] = await service.getAuthoritativeProductCommercialViews(
+      "user-1",
+      ["product-1"],
+    );
+
+    expect(result.partnerPrice?.amount).toBe(45.81);
+    expect(repository.authoritativePriceReads).toBe(1);
+    expect(repository.authoritativeRateReads).toBe(1);
+  });
+
+  it("returns only the permitted retail conversion snapshot", async () => {
+    const repository = new FakePricingInventoryRepository(
+      [],
+      [],
+      [],
+      17.35,
+      17.77,
+    );
+    const service = new DefaultPricingInventoryService(
+      repository,
+      new FakeCompanyAccessService(),
+      new FakePermissionService(["pricing.retail_price.view"]),
+    );
+
+    await expect(
+      service.getRetailUsdMdlRateSnapshot("user-1"),
+    ).resolves.toMatchObject({ mdlPerUsdRate: 17.77 });
+    await expect(
+      service.getApprovedUsdMdlRateSnapshot("user-1"),
+    ).resolves.toBeNull();
+  });
 });
 
 class FakePricingInventoryRepository implements PricingInventoryRepository {
   lastPriceInputs: ListProductPricesInput[] = [];
   exchangeRateReads = 0;
+  authoritativePriceReads = 0;
+  authoritativeRateReads = 0;
 
   constructor(
     private readonly prices: ProductPrice[],
@@ -239,12 +310,35 @@ class FakePricingInventoryRepository implements PricingInventoryRepository {
     };
   }
 
+  async getAuthoritativeCommercialRateSnapshot() {
+    this.authoritativeRateReads += 1;
+    return {
+      partnerPriceUsdToMdl: this.mdlPerUsdRate
+        ? rate("partner_price_usd_to_mdl", this.mdlPerUsdRate)
+        : null,
+      retailPriceUsdToMdl: this.retailUsdToMdlRate
+        ? rate("retail_price_usd_to_mdl", this.retailUsdToMdlRate)
+        : null,
+    };
+  }
+
   async listPricesForProducts(
     input: ListProductPricesInput,
   ): Promise<ProductPrice[]> {
     this.lastPriceInputs.push(input);
     return this.prices.filter(
       (price) => (price.companyId === null || price.companyId === input.companyId) && price.external1cPriceTypeId === input.external1cPriceTypeId,
+    );
+  }
+
+  async listAuthoritativePricesForProducts(
+    input: ListProductPricesInput,
+  ): Promise<ProductPrice[]> {
+    this.authoritativePriceReads += 1;
+    return this.prices.filter(
+      (price) =>
+        (price.companyId === null || price.companyId === input.companyId)
+        && price.external1cPriceTypeId === input.external1cPriceTypeId,
     );
   }
 
@@ -349,6 +443,13 @@ class FakeCompanyAccessService implements CompanyAccessService {
 }
 
 class FakePermissionService implements PermissionService {
+  constructor(
+    private readonly permissionCodes = [
+      "pricing.partner_price.view",
+      "pricing.retail_price.view",
+      "stock.view",
+    ],
+  ) {}
   async getRole() {
     return null;
   }
@@ -363,13 +464,20 @@ class FakePermissionService implements PermissionService {
       profileStatus: "active", companyStatus: "active",
       membershipId: "membership-1", membershipStatus: "active",
       roleId: "role-1", roleCode: "partner_owner", roleName: "Partner Owner",
-      isInternalOverride: false, rolePermissionCodes: [],
-      allowedOverrideCodes: [], deniedOverrideCodes: [], effectivePermissionCodes: [],
+      isInternalOverride: false,
+      rolePermissionCodes: this.permissionCodes,
+      allowedOverrideCodes: [],
+      deniedOverrideCodes: [],
+      effectivePermissionCodes: this.permissionCodes,
     };
   }
 
-  async hasPermission(): Promise<boolean> {
-    return true;
+  async hasPermission(
+    _userId: string,
+    _companyId: string,
+    permissionCode: string,
+  ): Promise<boolean> {
+    return this.permissionCodes.includes(permissionCode);
   }
 
   async ensurePermission(_userId: string, _companyId: string, permissionCode: string) {

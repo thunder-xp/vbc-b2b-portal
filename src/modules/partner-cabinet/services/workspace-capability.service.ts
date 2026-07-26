@@ -27,6 +27,8 @@ export type WorkspaceNavigationItem = {
 
 export type ProductCardCapabilityModel = {
   showPrice: boolean;
+  showPartnerPrice?: boolean;
+  showRetailPrice?: boolean;
   showStock: boolean;
   showExactQuantity: boolean;
   showWarehouseAvailability: boolean;
@@ -114,7 +116,14 @@ export function resolveWorkspaceCapabilities(
   return {
     navigation,
     productCard: {
-      showPrice: configuration.priceVisibility !== false && hasPermission("prices.view"),
+      showPrice: configuration.priceVisibility !== false && (
+        hasPermission("pricing.partner_price.view")
+        || hasPermission("pricing.retail_price.view")
+      ),
+      showPartnerPrice: configuration.priceVisibility !== false
+        && hasPermission("pricing.partner_price.view"),
+      showRetailPrice: configuration.priceVisibility !== false
+        && hasPermission("pricing.retail_price.view"),
       showStock: configuration.stockVisibility !== false && hasPermission("stock.view"),
       showExactQuantity: configuration.exactStockVisibility !== false && hasPermission("stock.view"),
       showWarehouseAvailability: configuration.warehouseVisibility !== false && hasPermission("stock.view"),

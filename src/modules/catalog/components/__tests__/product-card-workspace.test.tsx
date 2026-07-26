@@ -27,7 +27,7 @@ const commercialView = { productId: "product-1", partnerPrice: { currencyCode: "
 
 describe("ProductCard workspace context", () => {
   it("presents scoped and retail prices with public business labels", () => {
-    const capabilities = resolveWorkspaceCapabilities(new Set(["catalog.view", "prices.view", "stock.view"])).productCard;
+    const capabilities = resolveWorkspaceCapabilities(new Set(["catalog.view", "pricing.partner_price.view", "pricing.retail_price.view", "stock.view"])).productCard;
     const { container } = render(<ProductCard capabilities={capabilities} commercialView={commercialView} product={product} />);
     expect(screen.getByText("ПАРТНЁРСКАЯ")).toBeInTheDocument();
     expect(screen.getByText("$45.81")).toBeInTheDocument();
@@ -38,15 +38,15 @@ describe("ProductCard workspace context", () => {
   });
 
   it("does not use retail as fallback when partner price is missing", () => {
-    const capabilities = resolveWorkspaceCapabilities(new Set(["catalog.view", "prices.view"])).productCard;
+    const capabilities = resolveWorkspaceCapabilities(new Set(["catalog.view", "pricing.partner_price.view", "pricing.retail_price.view"])).productCard;
     render(<ProductCard capabilities={capabilities} commercialView={{ ...commercialView, partnerPrice: null }} product={product} />);
     expect(screen.getByText("39.20 MDL")).toBeInTheDocument();
-    expect(screen.getByText("Цена уточняется")).toBeInTheDocument();
+    expect(screen.queryByText("Цена уточняется")).not.toBeInTheDocument();
     expect(screen.queryByText("$45.81")).not.toBeInTheDocument();
   });
 
   it("keeps partner price when retail is missing", () => {
-    const capabilities = resolveWorkspaceCapabilities(new Set(["catalog.view", "prices.view"])).productCard;
+    const capabilities = resolveWorkspaceCapabilities(new Set(["catalog.view", "pricing.partner_price.view", "pricing.retail_price.view"])).productCard;
     render(<ProductCard capabilities={capabilities} commercialView={{ ...commercialView, retailPrice: null }} product={product} />);
     expect(screen.getByText("$45.81")).toBeInTheDocument();
     expect(screen.getByText("Цена уточняется")).toBeInTheDocument();

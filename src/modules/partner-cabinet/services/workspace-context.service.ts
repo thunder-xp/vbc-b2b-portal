@@ -143,7 +143,13 @@ export class DefaultPartnerWorkspaceContextService
         membership.companyId,
       );
     const priceTypeReference = activeContext.company.external1cPriceTypeId ?? null;
-    const priceTypeName = await this.resolvePriceTypeName(priceTypeReference);
+    const canViewPartnerPrice =
+      permissionContext.effectivePermissionCodes.includes(
+        "pricing.partner_price.view",
+      );
+    const priceTypeName = canViewPartnerPrice
+      ? await this.resolvePriceTypeName(priceTypeReference)
+      : null;
     const accessState: PartnerWorkspaceAccessState = priceTypeReference ? "active" : "missing_price_type";
 
     return {
@@ -159,7 +165,7 @@ export class DefaultPartnerWorkspaceContextService
       membershipStatus: membership.status,
       membershipRole: permissionContext.roleName ?? "Партнёр",
       external1cCode: activeContext.company.external1cCode ?? null,
-      external1cPriceTypeId: priceTypeReference,
+      external1cPriceTypeId: canViewPartnerPrice ? priceTypeReference : null,
       priceTypeName,
       capabilities: resolveWorkspaceCapabilities(
         new Set(permissionContext.effectivePermissionCodes),
