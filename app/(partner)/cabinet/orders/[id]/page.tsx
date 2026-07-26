@@ -35,7 +35,7 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
           <Metric label="Компания" value={order.companyName} />
           <Metric label="Дата заказа" value={formatDate(order.documentDate)} />
           <Metric label="Планируемая отгрузка" value={order.deliveryDate ? formatDate(order.deliveryDate) : "Не указана"} />
-          <Metric label="Сумма в 1С" value={order.documentTotal} />
+          {order.documentTotal ? <Metric label="Сумма в 1С" value={order.documentTotal} /> : null}
         </dl>
         <div className="mt-5 flex flex-wrap gap-2">
           <Link className="rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800" href={`/cabinet/orders/${order.id}/reorder`} prefetch={false}>Купить снова</Link>
@@ -52,8 +52,8 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
               <li className="grid gap-2 p-4 sm:grid-cols-[minmax(0,1fr)_90px_140px_140px] sm:items-center" key={`${line.sku ?? line.productName}-${index}`}>
                 <div><p className="font-medium text-zinc-950">{line.productName}</p>{line.sku ? <p className="text-xs text-zinc-500">{line.sku}</p> : null}</div>
                 <span className="text-sm text-zinc-700">{line.quantity} ед.</span>
-                <span className="text-sm text-zinc-700">{line.unitPrice}</span>
-                <span className="text-sm font-semibold text-zinc-950">{line.lineTotal}</span>
+                <span className="text-sm text-zinc-700">{line.unitPrice ?? "Цена скрыта"}</span>
+                <span className="text-sm font-semibold text-zinc-950">{line.lineTotal ?? "—"}</span>
               </li>
             ))}
           </ul>
@@ -64,7 +64,7 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
         <section className="border-t border-zinc-200 pt-6">
           <h2 className="text-lg font-semibold">Снимок при отправке из платформы</h2>
           <p className="mt-1 text-sm text-zinc-500">Исходные партнёрские цены сохранены отдельно от текущего документа 1С.</p>
-          <p className="mt-3 font-semibold">Итого: {order.portalSnapshot.total}</p>
+          {order.portalSnapshot.total ? <p className="mt-3 font-semibold">Итого: {order.portalSnapshot.total}</p> : <p className="mt-3 text-sm text-zinc-600">Коммерческие условия скрыты настройками доступа.</p>}
         </section>
       ) : null}
 

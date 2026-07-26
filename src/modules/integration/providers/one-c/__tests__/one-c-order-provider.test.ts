@@ -220,7 +220,7 @@ describe("OneCCustomerOrderProvider", () => {
     expect(decodeURIComponent(url.toString()).replaceAll("+", " ")).toContain(`substringof('${order.portalOrderReference}',Комментарий) eq true`);
   });
 
-  it("logs the exact safe HTTP status and response body before rejecting the request", async () => {
+  it("logs safe HTTP metadata without request prices or response bodies", async () => {
     const responseBody = JSON.stringify({ "odata.error": { code: "-1", message: { value: "Invalid field" } } });
     const errorLog = vi.spyOn(console, "error").mockImplementation(() => undefined);
     const infoLog = vi.spyOn(console, "info").mockImplementation(() => undefined);
@@ -236,12 +236,14 @@ describe("OneCCustomerOrderProvider", () => {
       event: "one_c_customer_order_response",
       stage: "one_c_http_response",
       httpStatus: 400,
-      responseBody,
+      responseBodyLength: Buffer.byteLength(responseBody, "utf8"),
     }));
     expect(infoLog).toHaveBeenCalledWith(expect.objectContaining({
       event: "one_c_customer_order_request",
       stage: "one_c_http_request",
-      payload: expect.objectContaining({ Posted: false, Запасы: expect.any(Array) }),
+      payloadKeys: expect.arrayContaining(["Posted", "Запасы"]),
+      lineCount: 1,
+      totalUnits: 1,
     }));
     expect(JSON.stringify(infoLog.mock.calls)).not.toContain("secret");
     expect(JSON.stringify(errorLog.mock.calls)).not.toContain("Authorization");

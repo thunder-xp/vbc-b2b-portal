@@ -38,6 +38,39 @@ describe("DefaultPartnerOrderHistoryService", () => {
     expect(result.orders[0]?.statusLabel).toBe("Статус уточняется");
   });
 
+  it("omits historical partner totals and line prices for retail-only users", async () => {
+    const record = history({ documentTotal: 1234.56, currencyCode: "USD" });
+    const repository = historyRepository([record]);
+    repository.listItemsByOrderIds.mockResolvedValue([{
+      id: "item-1",
+      orderHistoryId: record.id,
+      externalProductRef: "product-ref",
+      productId: null,
+      productName: "Camera",
+      sku: "400123",
+      quantity: 2,
+      unitPrice: 123.45,
+      lineTotal: 246.9,
+      currencyCode: "USD",
+      lineNumber: 1,
+      createdAt: "2026-07-20T00:00:00Z",
+      updatedAt: "2026-07-20T00:00:00Z",
+    }]);
+
+    const result = await service(
+      repository,
+      orderProvider(),
+      ["pricing.retail_price.view"],
+    ).get("user-1", record.id);
+    const serialized = JSON.stringify(result);
+
+    expect(serialized).not.toContain("documentTotal");
+    expect(serialized).not.toContain("unitPrice");
+    expect(serialized).not.toContain("lineTotal");
+    expect(serialized).not.toContain("1234.56");
+    expect(serialized).not.toContain("123.45");
+  });
+
   it("returns safe not-found while the deleted audit record remains in the repository", async () => {
     const deleted = history({ partnerVisible: false, oneCDeletionMark: true, hiddenReason: "deleted_in_1c" });
     const repository = historyRepository([], deleted);
@@ -171,7 +204,11 @@ describe("DefaultPartnerOrderHistoryService", () => {
   });
 });
 
-function service(repository = historyRepository([]), fetchHistory = orderProvider()) {
+function service(
+  repository = historyRepository([]),
+  fetchHistory = orderProvider(),
+  effectivePermissionCodes = ["pricing.partner_price.view"],
+) {
   const companyAccess = {
     getOwnMemberships: vi.fn().mockResolvedValue([{ companyId: COMPANY_ID, status: "active" }]),
     getActiveCompanyContext: vi.fn().mockResolvedValue({
@@ -180,7 +217,12 @@ function service(repository = historyRepository([]), fetchHistory = orderProvide
       user: { id: "user-1" },
     }),
   } as unknown as CompanyAccessService;
-  const permission = { ensurePermission: vi.fn().mockResolvedValue(undefined) } as unknown as PermissionService;
+  const permission = {
+    ensurePermission: vi.fn().mockResolvedValue(undefined),
+    getEffectivePermissionContext: vi.fn().mockResolvedValue({
+      effectivePermissionCodes,
+    }),
+  } as unknown as PermissionService;
   const provider = { fetchSalesOrderHistory: fetchHistory } as unknown as OrderProvider;
   const portalRepository = {} as PartnerOrderRepository;
   return new DefaultPartnerOrderHistoryService(repository, portalRepository, companyAccess, permission, provider);

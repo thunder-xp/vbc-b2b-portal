@@ -33,7 +33,7 @@ export function QuickReorderPanel({ preview, requestKey: initialRequestKey }: { 
         <div>
           <p className="text-xs font-semibold uppercase text-emerald-700">Повторная покупка</p>
           <h1 className="mt-1 text-2xl font-semibold" id="quick-reorder-title">Купить снова из {preview.orderLabel}</h1>
-          <p className="mt-2 text-sm text-zinc-600">Проверьте текущие цены и выберите нужные позиции.</p>
+          <p className="mt-2 text-sm text-zinc-600">{preview.commercialMode === "full" ? "Проверьте текущие цены и выберите нужные позиции." : "Проверьте товары, количество и доступность. Партнёрские цены скрыты настройками доступа."}</p>
         </div>
         <Link className="text-sm font-semibold text-emerald-700 hover:text-emerald-800" href={`/cabinet/orders/${preview.orderId}`} prefetch={false}>Вернуться к заказу</Link>
       </div>
@@ -44,12 +44,12 @@ export function QuickReorderPanel({ preview, requestKey: initialRequestKey }: { 
         <ToolbarButton icon={RotateCcw} label="Только доступные" onClick={() => setAll("available")} />
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-4" aria-label="Изменения цен">
+      {preview.commercialMode === "full" ? <div className="grid gap-3 sm:grid-cols-4" aria-label="Изменения цен">
         <SummaryMetric label="Без изменений" value={preview.commercialSummary.unchanged} />
         <SummaryMetric label="Цена выросла" value={preview.commercialSummary.increased} tone="amber" />
         <SummaryMetric label="Цена снизилась" value={preview.commercialSummary.decreased} tone="emerald" />
         <SummaryMetric label="Сравнение недоступно" value={preview.commercialSummary.unavailable} />
-      </div>
+      </div> : null}
 
       <ul className="divide-y divide-zinc-200 overflow-hidden rounded-md border border-zinc-200 bg-white">
         {preview.lines.map((line) => {
@@ -79,8 +79,8 @@ export function QuickReorderPanel({ preview, requestKey: initialRequestKey }: { 
                 {line.expectedArrival ? <p className="mt-1 text-xs text-zinc-500">Поступление: {line.expectedArrival.formattedDate ?? line.expectedArrival.date ?? "дата уточняется"}{line.expectedArrival.quantity !== null ? ` · ${line.expectedArrival.quantity} ед.` : ""}</p> : null}
                 {!line.canSelect ? <Link className="mt-1 inline-flex text-xs font-semibold text-emerald-700" href={line.replacementHref ?? "/cabinet/catalog"} prefetch={false}>Найти замену</Link> : null}
               </div>
-              <Price label="Цена в заказе" value={line.historicalUnitPrice.formatted} />
-              <Price label="Текущая цена" value={line.currentUnitPrice?.formatted ?? "Недоступна"} />
+              {preview.commercialMode === "full" ? <Price label="Цена в заказе" value={line.historicalUnitPrice?.formatted ?? "Недоступна"} /> : <Price label="Розничная цена" value={line.currentRetailPrice?.formatted ?? "Уточняется"} />}
+              {preview.commercialMode === "full" ? <Price label="Текущая цена" value={line.currentUnitPrice?.formatted ?? "Недоступна"} /> : <div />}
               <div>
                 <label className="text-xs font-medium text-zinc-500" htmlFor={`quantity-${line.lineId}`}>Количество</label>
                 <input
@@ -99,10 +99,10 @@ export function QuickReorderPanel({ preview, requestKey: initialRequestKey }: { 
               {line.availableStock !== null && checked && quantities[line.lineId] > line.availableStock ? (
                 <p className="flex gap-2 text-xs text-amber-700 md:col-start-3 md:col-span-4"><TriangleAlert className="size-4 shrink-0" />Часть количества может потребовать подтверждения</p>
               ) : null}
-              <div className="text-xs md:col-start-4 md:col-span-3">
+              {line.priceDifference ? <div className="text-xs md:col-start-4 md:col-span-3">
                 <span className={line.priceDifference.kind === "increased" ? "font-semibold text-amber-700" : line.priceDifference.kind === "decreased" ? "font-semibold text-emerald-700" : "text-zinc-500"}>{line.priceDifference.label}</span>
                 {line.priceDifference.formattedAbsoluteDifference && line.priceDifference.kind !== "unchanged" ? <span className="ml-2 text-zinc-600">{line.priceDifference.formattedAbsoluteDifference} · {line.priceDifference.formattedPercentageDifference}</span> : null}
-              </div>
+              </div> : null}
             </li>
           );
         })}

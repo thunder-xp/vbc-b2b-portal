@@ -22,8 +22,8 @@ export type PartnerOrderSummaryDto = {
   confirmedAt: string | null;
   integrationStatus: PartnerOrderIntegrationStatus;
   oneCOrderStatus: string | null;
-  documentTotal: string | null;
-  currencyCode: string | null;
+  documentTotal?: string | null;
+  currencyCode?: string | null;
   positionCount: number;
   totalUnitCount: number;
 };
@@ -32,7 +32,13 @@ export type PartnerOrderDetailDto = PartnerOrderSummaryDto & {
   companyName: string;
   contractNumber: string | null;
   lastSynchronizedAt: string;
-  lines: Array<{ productName: string; sku: string; quantity: number; unitPrice: string; lineTotal: string }>;
+  lines: Array<{
+    productName: string;
+    sku: string;
+    quantity: number;
+    unitPrice?: string;
+    lineTotal?: string;
+  }>;
 };
 
 export interface PartnerOrderService {
@@ -152,7 +158,15 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
         ),
         diagnosticStep(
           "partner_price_resolution",
-          () => this.pricingInventoryService.getProductCommercialViews(userId, productIds),
+          () => this.pricingInventoryService.getAuthoritativeProductCommercialViews
+            ? this.pricingInventoryService.getAuthoritativeProductCommercialViews(
+                userId,
+                productIds,
+              )
+            : this.pricingInventoryService.getProductCommercialViews(
+                userId,
+                productIds,
+              ),
           { cartId: cart.id, companyId: company.id, submissionKey },
         ),
         diagnosticStep(
@@ -333,9 +347,6 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
         sku: item.sku,
         product1cRef: item.externalProductRef,
         quantity: item.quantity,
-        partnerUnitPrice: item.partnerUnitPrice,
-        lineTotal: item.lineTotal,
-        currencyCode: item.currencyCode,
       })),
     });
 
@@ -460,21 +471,39 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
 
   async listOwnCompanyOrders(userId: string): Promise<PartnerOrderSummaryDto[]> {
     const context = await this.resolveContext(userId);
+    const visibility = this.pricingInventoryService.getCommercialVisibility
+      ? await this.pricingInventoryService.getCommercialVisibility(userId)
+      : null;
     const orders = await this.orderRepository.listByCompanyId(context.company.id);
     const items = await this.orderRepository.listItemsByOrderIds(orders.map((order) => order.id));
     const itemsByOrder = groupItemsByOrder(items);
-    return orders.map((order) => toSummary(order, itemsByOrder.get(order.id) ?? []));
+    return orders.map((order) =>
+      toSummary(
+        order,
+        itemsByOrder.get(order.id) ?? [],
+        visibility?.canViewPartnerTotals !== false,
+      ),
+    );
   }
 
   async getOrder(userId: string, orderId: string): Promise<PartnerOrderDetailDto> {
     const context = await this.resolveContext(userId);
+    const visibility = this.pricingInventoryService.getCommercialVisibility
+      ? await this.pricingInventoryService.getCommercialVisibility(userId)
+      : null;
+    const canViewPartnerPrice = visibility?.canViewPartnerPrice !== false;
     const order = await this.orderRepository.findById(orderId.trim());
     if (!order || order.companyId !== context.company.id) throw new NotFoundError("Order was not found.");
     const items = await this.orderRepository.listItems(order.id);
-    return { ...toSummary(order, items), companyName: context.company.displayName, contractNumber: order.contractNumber,
+    return { ...toSummary(order, items, canViewPartnerPrice), companyName: context.company.displayName, contractNumber: order.contractNumber,
       lastSynchronizedAt: order.confirmedAt ?? order.lastReconciledAt ?? order.updatedAt, lines: items.map((item) => ({
       productName: item.productName, sku: item.sku, quantity: item.quantity,
-      unitPrice: formatMoney(item.partnerUnitPrice, item.currencyCode), lineTotal: formatMoney(item.lineTotal, item.currencyCode),
+      ...(canViewPartnerPrice
+        ? {
+            unitPrice: formatMoney(item.partnerUnitPrice, item.currencyCode),
+            lineTotal: formatMoney(item.lineTotal, item.currencyCode),
+          }
+        : {}),
     })) };
   }
 
@@ -620,7 +649,11 @@ function deployedCommitSha(): string { return process.env.VERCEL_GIT_COMMIT_SHA?
 function normalizeDeliveryDate(value: string): string { const normalized = value.trim(); if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized) || Date.parse(`${normalized}T23:59:59Z`) < Date.now()) throw new RecoverableOrderSubmissionError("Requested delivery date is invalid."); return normalized; }
 function roundMoney(value: number): number { return Math.round((value + Number.EPSILON) * 100) / 100; }
 function toJsonRecord(value: SalesOrderDTO): Record<string, unknown> { return JSON.parse(JSON.stringify(value)) as Record<string, unknown>; }
-function toSummary(order: PartnerOrder, items: PartnerOrderItem[]): PartnerOrderSummaryDto {
+function toSummary(
+  order: PartnerOrder,
+  items: PartnerOrderItem[],
+  canViewPartnerTotals: boolean,
+): PartnerOrderSummaryDto {
   const currencyCode = order.currencyCode ?? (items.length ? singleCurrency(items) : null);
   const total = order.documentTotal ?? items.reduce((sum, item) => sum + item.lineTotal, 0);
   return {
@@ -633,8 +666,12 @@ function toSummary(order: PartnerOrder, items: PartnerOrderItem[]): PartnerOrder
     confirmedAt: order.confirmedAt,
     integrationStatus: order.integrationStatus,
     oneCOrderStatus: order.oneCOrderStatus,
-    documentTotal: currencyCode ? formatMoney(total, currencyCode) : null,
-    currencyCode,
+    ...(canViewPartnerTotals
+      ? {
+          documentTotal: currencyCode ? formatMoney(total, currencyCode) : null,
+          currencyCode,
+        }
+      : {}),
     positionCount: items.length,
     totalUnitCount: items.reduce((sum, item) => sum + item.quantity, 0),
   };

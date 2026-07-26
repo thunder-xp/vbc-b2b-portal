@@ -24,9 +24,10 @@ export type QuickReorderPreviewLineDto = {
   sku: string;
   productName: string;
   historicalQuantity: number;
-  historicalUnitPrice: { amount: number; currencyCode: string | null; formatted: string };
-  currentUnitPrice: { amount: number; currencyCode: string | null; formatted: string | null } | null;
-  priceDifference: QuickReorderPriceDifferenceDto;
+  historicalUnitPrice?: { amount: number; currencyCode: string | null; formatted: string };
+  currentUnitPrice?: { amount: number; currencyCode: string | null; formatted: string | null } | null;
+  currentRetailPrice: { amount: number; currencyCode: string | null; formatted: string | null } | null;
+  priceDifference?: QuickReorderPriceDifferenceDto;
   availableStock: number | null;
   expectedArrival: { date: string | null; quantity: number | null; formattedDate: string | null } | null;
   status: QuickReorderLineStatus;
@@ -39,6 +40,7 @@ export type QuickReorderPreviewLineDto = {
 export type QuickReorderPreviewDto = {
   orderId: string;
   orderLabel: string;
+  commercialMode: "full" | "retail_only" | "hidden";
   lines: QuickReorderPreviewLineDto[];
   commercialSummary: {
     unchanged: number;
@@ -101,19 +103,34 @@ export class QuickReorderService {
     if (!source || source.companyId !== companyId) throw new NotFoundError("Order was not found.");
 
     const productIds = [...new Set(source.lines.flatMap((line) => line.productId ? [line.productId] : []))];
-    const commercialViews = await measureQuickReorderStage("preview_commercial", () => this.pricingInventoryService.getProductCommercialViews(userId, productIds));
+    const [commercialViews, visibility] = await Promise.all([
+      measureQuickReorderStage("preview_commercial", () =>
+        this.pricingInventoryService.getProductCommercialViews(userId, productIds),
+      ),
+      this.pricingInventoryService.getCommercialVisibility
+        ? this.pricingInventoryService.getCommercialVisibility(userId)
+        : Promise.resolve(null),
+    ]);
     const commercialByProduct = new Map(commercialViews.map((view) => [view.productId, view]));
 
-    const lines = source.lines.map((line) => toPreviewLine(line, commercialByProduct.get(line.productId ?? "")));
+    const canViewPartnerPrice = visibility?.canViewPartnerPrice !== false;
+    const lines = source.lines.map((line) =>
+      toPreviewLine(
+        line,
+        commercialByProduct.get(line.productId ?? ""),
+        canViewPartnerPrice,
+      ),
+    );
     return {
       orderId: source.orderId,
       orderLabel: source.orderNumber ? `№ ${source.orderNumber}` : "Заказ из истории",
+      commercialMode: visibility?.mode ?? "full",
       lines,
       commercialSummary: {
-        unchanged: lines.filter((line) => line.priceDifference.kind === "unchanged").length,
-        increased: lines.filter((line) => line.priceDifference.kind === "increased").length,
-        decreased: lines.filter((line) => line.priceDifference.kind === "decreased").length,
-        unavailable: lines.filter((line) => line.priceDifference.kind === "unavailable").length,
+        unchanged: lines.filter((line) => line.priceDifference?.kind === "unchanged").length,
+        increased: lines.filter((line) => line.priceDifference?.kind === "increased").length,
+        decreased: lines.filter((line) => line.priceDifference?.kind === "decreased").length,
+        unavailable: lines.filter((line) => line.priceDifference?.kind === "unavailable").length,
       },
     };
   }
@@ -134,7 +151,15 @@ export class QuickReorderService {
     if (selected.some((line) => !sourceByLine.has(line.lineId))) throw new NotFoundError("Order line was not found.");
 
     const productIds = [...new Set(selected.flatMap(({ lineId }) => sourceByLine.get(lineId)?.productId ?? []))];
-    const commercialViews = await measureQuickReorderStage("conversion_commercial", () => this.pricingInventoryService.getProductCommercialViews(userId, productIds));
+    const commercialViews = await measureQuickReorderStage(
+      "conversion_commercial",
+      () => this.pricingInventoryService.getAuthoritativeProductCommercialViews
+        ? this.pricingInventoryService.getAuthoritativeProductCommercialViews(
+            userId,
+            productIds,
+          )
+        : this.pricingInventoryService.getProductCommercialViews(userId, productIds),
+    );
     const commercialByProduct = new Map(commercialViews.map((view) => [view.productId, view]));
     const validItems: Array<{ lineId: string; quantity: number }> = [];
     const issues: QuickReorderConversionItemDto[] = [];
@@ -256,13 +281,23 @@ async function measureQuickReorderStage<T>(stage: string, operation: () => Promi
   }
 }
 
-function toPreviewLine(line: OrderReorderSourceLine, commercial?: ProductCommercialViewDto): QuickReorderPreviewLineDto {
+function toPreviewLine(
+  line: OrderReorderSourceLine,
+  commercial: ProductCommercialViewDto | undefined,
+  canViewPartnerPrice: boolean,
+): QuickReorderPreviewLineDto {
   const currentPrice = commercial?.isDemoData ? null : commercial?.partnerPrice ?? null;
-  const priceDifference = comparePrices(line.historicalUnitPrice, line.historicalCurrencyCode, currentPrice?.amount ?? null, currentPrice?.currencyCode ?? null);
-  const status = classifyLine(line, commercial, priceDifference);
+  const priceDifference = canViewPartnerPrice
+    ? comparePrices(line.historicalUnitPrice, line.historicalCurrencyCode, currentPrice?.amount ?? null, currentPrice?.currencyCode ?? null)
+    : undefined;
+  const status = canViewPartnerPrice
+    ? classifyLine(line, commercial, priceDifference!)
+    : classifyRetailOnlyLine(line, commercial);
   const selectable = line.productExists && line.currentIsActive && line.currentIsVisible
-    && isValidOneCReference(line.currentExternalProductRef) && Boolean(currentPrice)
-    && !isStale(currentPrice?.lastUpdatedAt, "price");
+    && isValidOneCReference(line.currentExternalProductRef)
+    && (canViewPartnerPrice
+      ? Boolean(currentPrice) && !isStale(currentPrice?.lastUpdatedAt, "price")
+      : true);
   return {
     lineId: line.lineId,
     productId: line.productId,
@@ -270,17 +305,28 @@ function toPreviewLine(line: OrderReorderSourceLine, commercial?: ProductCommerc
     sku: line.currentSku ?? line.historicalSku ?? "Без артикула",
     productName: line.currentName ?? line.historicalProductName ?? "Товар из истории",
     historicalQuantity: line.historicalQuantity,
-    historicalUnitPrice: {
-      amount: line.historicalUnitPrice,
-      currencyCode: line.historicalCurrencyCode,
-      formatted: formatMoney(line.historicalUnitPrice, line.historicalCurrencyCode),
-    },
-    currentUnitPrice: currentPrice ? {
-      amount: currentPrice.amount,
-      currencyCode: currentPrice.currencyCode,
-      formatted: currentPrice.formattedAmount ?? formatMoney(currentPrice.amount, currentPrice.currencyCode),
-    } : null,
-    priceDifference,
+    ...(canViewPartnerPrice
+      ? {
+          historicalUnitPrice: {
+            amount: line.historicalUnitPrice,
+            currencyCode: line.historicalCurrencyCode,
+            formatted: formatMoney(line.historicalUnitPrice, line.historicalCurrencyCode),
+          },
+          currentUnitPrice: currentPrice ? {
+            amount: currentPrice.amount,
+            currencyCode: currentPrice.currencyCode,
+            formatted: currentPrice.formattedAmount ?? formatMoney(currentPrice.amount, currentPrice.currencyCode),
+          } : null,
+          priceDifference,
+        }
+      : {}),
+    currentRetailPrice: commercial?.retailPrice
+      ? {
+          amount: commercial.retailPrice.amount,
+          currencyCode: commercial.retailPrice.currencyCode,
+          formatted: commercial.retailPrice.formattedAmount,
+        }
+      : null,
     availableStock: commercial?.stock?.exactAvailableQuantity ?? null,
     expectedArrival: commercial?.stock?.expectedArrival ? {
       date: commercial.stock.expectedArrival.expectedDate,
@@ -293,6 +339,22 @@ function toPreviewLine(line: OrderReorderSourceLine, commercial?: ProductCommerc
     selectedByDefault: selectable,
     replacementHref: line.currentCategoryId ? `/cabinet/catalog?category=${encodeURIComponent(line.currentCategoryId)}` : "/cabinet/catalog",
   };
+}
+
+function classifyRetailOnlyLine(
+  line: OrderReorderSourceLine,
+  commercial: ProductCommercialViewDto | undefined,
+): QuickReorderLineStatus {
+  if (!line.productExists || !line.currentIsActive || !line.currentIsVisible) {
+    return "unavailable";
+  }
+  if (!isValidOneCReference(line.currentExternalProductRef)) {
+    return "review_required";
+  }
+  if ((commercial?.stock?.exactAvailableQuantity ?? 0) <= 0) {
+    return "temporarily_unavailable";
+  }
+  return "available";
 }
 
 function classifyLine(line: OrderReorderSourceLine, commercial: ProductCommercialViewDto | undefined, difference: QuickReorderPriceDifferenceDto): QuickReorderLineStatus {

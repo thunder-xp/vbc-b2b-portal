@@ -51,7 +51,9 @@ export class OneCCustomerOrderProvider implements OrderProvider {
       stage: "one_c_http_request",
       resource: CUSTOMER_ORDER_RESOURCE,
       submissionKey: order.portalOrderReference,
-      payload,
+      payloadKeys: Object.keys(payload).sort(),
+      lineCount: order.items.length,
+      totalUnits: order.items.reduce((total, item) => total + item.quantity, 0),
     });
 
     let response: Response;
@@ -88,7 +90,7 @@ export class OneCCustomerOrderProvider implements OrderProvider {
       resource: CUSTOMER_ORDER_RESOURCE,
       submissionKey: order.portalOrderReference,
       httpStatus: response.status,
-      responseBody,
+      responseBodyLength: Buffer.byteLength(responseBody, "utf8"),
     };
     if (response.ok) console.info(responseDiagnostic);
     else console.error(responseDiagnostic);
@@ -108,7 +110,7 @@ export class OneCCustomerOrderProvider implements OrderProvider {
         resource: CUSTOMER_ORDER_RESOURCE,
         submissionKey: order.portalOrderReference,
         httpStatus: response.status,
-        responseBody,
+        responseBodyLength: Buffer.byteLength(responseBody, "utf8"),
       });
       throw new IntegrationValidationError("1C returned an invalid customer order response.");
     }
@@ -119,7 +121,7 @@ export class OneCCustomerOrderProvider implements OrderProvider {
         resource: CUSTOMER_ORDER_RESOURCE,
         submissionKey: order.portalOrderReference,
         httpStatus: response.status,
-        responseBody,
+        responseBodyLength: Buffer.byteLength(responseBody, "utf8"),
       });
       throw new IntegrationValidationError("1C returned an invalid customer order response.");
     }

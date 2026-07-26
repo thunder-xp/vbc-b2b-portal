@@ -11,18 +11,27 @@ import { createPartnerOrderHistoryService, createPartnerOrderService } from "./s
 import { orderSubmissionFailure } from "./order-action-error";
 
 export async function submitCartOrderAction(
-  _state: ActionResult<PartnerOrder | null>,
+  _state: ActionResult<PartnerOrderSubmissionReceipt | null>,
   formData: FormData,
-): Promise<ActionResult<PartnerOrder | null>> {
+): Promise<ActionResult<PartnerOrderSubmissionReceipt | null>> {
   const submissionKey = text(formData, "submissionKey");
   const requestedDeliveryDate = text(formData, "requestedDeliveryDate");
   if (!submissionKey || !requestedDeliveryDate) return invalidInput("Укажите дату отгрузки.");
   try {
     const order = await createPartnerOrderService().submit(await getAuthenticatedUserId(), { submissionKey, requestedDeliveryDate });
     revalidatePath("/cabinet", "layout"); revalidatePath("/cabinet/cart"); revalidatePath("/cabinet/orders");
-    return success(`Заказ ${order.external1cNumber ?? ""} создан в 1С.`, order);
+    return success(`Заказ ${order.external1cNumber ?? ""} создан в 1С.`, {
+      id: order.id,
+      external1cNumber: order.external1cNumber,
+      status: order.status,
+    });
   } catch (error) { return orderSubmissionFailure(error) ?? failureFromError(error); }
 }
+
+export type PartnerOrderSubmissionReceipt = Pick<
+  PartnerOrder,
+  "id" | "external1cNumber" | "status"
+>;
 
 export async function listPartnerOrdersAction(): Promise<ActionResult<PartnerOrderSummaryDto[]>> {
   try { return success("Orders loaded.", await createPartnerOrderService().listOwnCompanyOrders(await getAuthenticatedUserId())); }

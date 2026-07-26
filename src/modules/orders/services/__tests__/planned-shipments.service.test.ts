@@ -26,7 +26,7 @@ describe("planned shipments", () => {
       repository,
       {} as PartnerOrderRepository,
       { getOwnMemberships: vi.fn().mockResolvedValue([{ companyId: "company-1", status: "active" }]), getActiveCompanyContext: vi.fn().mockResolvedValue({ company: { id: "company-1" } }) } as unknown as CompanyAccessService,
-      { ensurePermission: vi.fn() } as unknown as PermissionService,
+      { ensurePermission: vi.fn(), getEffectivePermissionContext: vi.fn().mockResolvedValue({ effectivePermissionCodes: ["pricing.partner_price.view"] }) } as unknown as PermissionService,
       provider,
     );
 
@@ -46,7 +46,7 @@ describe("planned shipments", () => {
     const service = new DefaultPartnerOrderHistoryService(
       repository, {} as PartnerOrderRepository,
       { getOwnMemberships: vi.fn().mockResolvedValue([{ companyId: "company-1", status: "active" }]), getActiveCompanyContext: vi.fn().mockResolvedValue({ company: { id: "company-1" } }) } as unknown as CompanyAccessService,
-      { ensurePermission: vi.fn() } as unknown as PermissionService, provider, dateChanges,
+      { ensurePermission: vi.fn(), getEffectivePermissionContext: vi.fn().mockResolvedValue({ effectivePermissionCodes: ["pricing.partner_price.view"] }) } as unknown as PermissionService, provider, dateChanges,
     );
 
     const result = await service.listPlannedShipments("user-1");

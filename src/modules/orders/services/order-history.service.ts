@@ -1,5 +1,9 @@
 import type { CompanyAccessService, PermissionService } from "../../access-control/services";
-import { InvalidStateError, NotFoundError } from "../../access-control/services";
+import {
+  InvalidStateError,
+  NotFoundError,
+  resolveCommercialVisibility,
+} from "../../access-control/services";
 import { MembershipStatus } from "../../access-control/types";
 import type { OrderProvider } from "../../integration/contracts";
 import type { SalesOrderHistoryDTO } from "../../integration/dto";
@@ -42,7 +46,7 @@ export type PartnerOrderHistorySummaryDto = {
   posted: boolean;
   documentDate: string;
   deliveryDate: string | null;
-  documentTotal: string;
+  documentTotal?: string;
   positionCount: number;
   totalUnitCount: number;
   lastSynchronizedAt: string;
@@ -56,13 +60,19 @@ export type PartnerOrderHistoryDetailDto = PartnerOrderHistorySummaryDto & {
     productName: string;
     sku: string | null;
     quantity: number;
-    unitPrice: string;
-    lineTotal: string;
+    unitPrice?: string;
+    lineTotal?: string;
   }>;
   timeline: Array<{ label: string; occurredAt: string }>;
   portalSnapshot: {
-    total: string;
-    lines: Array<{ productName: string; sku: string; quantity: number; unitPrice: string; lineTotal: string }>;
+    total?: string;
+    lines: Array<{
+      productName: string;
+      sku: string;
+      quantity: number;
+      unitPrice?: string;
+      lineTotal?: string;
+    }>;
   } | null;
 };
 
@@ -132,6 +142,10 @@ export class DefaultPartnerOrderHistoryService implements PartnerOrderHistorySer
 
   async list(userId: string, input: { filter?: string | null; search?: string | null; page?: number | string | null }) {
     const context = await this.resolveContext(userId, ORDERS_VIEW_PERMISSION);
+    const canViewPartnerPrice = await this.canViewPartnerPrice(
+      userId,
+      context.company.id,
+    );
     const filter = parseFilter(input.filter);
     const search = normalizeSearch(input.search);
     const page = parsePage(input.page);
@@ -140,7 +154,9 @@ export class DefaultPartnerOrderHistoryService implements PartnerOrderHistorySer
       this.historyRepository.getSyncState(context.company.id),
     ]);
     return {
-      orders: result.items.map(toSummary),
+      orders: result.items.map((order) =>
+        toSummary(order, canViewPartnerPrice),
+      ),
       filter,
       search,
       page,
@@ -153,6 +169,10 @@ export class DefaultPartnerOrderHistoryService implements PartnerOrderHistorySer
 
   async listPlannedShipments(userId: string, input: { page?: number | string | null } = {}) {
     const context = await this.resolveContext(userId, ORDERS_VIEW_PERMISSION);
+    const canViewPartnerPrice = await this.canViewPartnerPrice(
+      userId,
+      context.company.id,
+    );
     if (!this.historyRepository.listPlannedShipments) throw new InvalidStateError("Planned shipments are unavailable.");
     const page = parsePage(input.page);
     const result = await this.historyRepository.listPlannedShipments({
@@ -165,7 +185,7 @@ export class DefaultPartnerOrderHistoryService implements PartnerOrderHistorySer
       : new Map();
     return {
       shipments: result.items.map((order) => {
-        const summary = toSummary(order);
+        const summary = toSummary(order, canViewPartnerPrice);
         const indicator = getPlannedShipmentIndicator(order.oneCDeliveryDate!);
         const request = requests.get(order.id);
         return { ...summary, ...indicator, dateChangeRequest: request ? {
@@ -210,6 +230,10 @@ export class DefaultPartnerOrderHistoryService implements PartnerOrderHistorySer
 
   async get(userId: string, orderId: string): Promise<PartnerOrderHistoryDetailDto> {
     const context = await this.resolveContext(userId, ORDERS_VIEW_PERMISSION);
+    const canViewPartnerPrice = await this.canViewPartnerPrice(
+      userId,
+      context.company.id,
+    );
     const order = await this.historyRepository.findVisibleById(requirePortalUuid(orderId));
     if (!order || order.companyId !== context.company.id || order.oneCDeletionMark || !order.partnerVisible) {
       throw new NotFoundError("Order was not found.");
@@ -217,13 +241,13 @@ export class DefaultPartnerOrderHistoryService implements PartnerOrderHistorySer
     const [items, events, portalSnapshot] = await Promise.all([
       this.historyRepository.listItemsByOrderIds([order.id]),
       this.historyRepository.listEvents(order.id),
-      this.loadPortalSnapshot(order),
+      this.loadPortalSnapshot(order, canViewPartnerPrice),
     ]);
     return {
-      ...toSummary(order),
+      ...toSummary(order, canViewPartnerPrice),
       companyName: context.company.displayName,
       originLabel: order.originType === "partner_platform" ? null : "Заказ из истории Novotech",
-      lines: items.map(toDetailLine),
+      lines: items.map((item) => toDetailLine(item, canViewPartnerPrice)),
       timeline: events.map(toTimelineEvent),
       portalSnapshot,
     };
@@ -398,7 +422,10 @@ export class DefaultPartnerOrderHistoryService implements PartnerOrderHistorySer
     }
   }
 
-  private async loadPortalSnapshot(order: PartnerOrderHistory) {
+  private async loadPortalSnapshot(
+    order: PartnerOrderHistory,
+    canViewPartnerPrice: boolean,
+  ) {
     if (!order.portalOrderId) return null;
     const portalOrder = await this.portalOrderRepository.findById(order.portalOrderId);
     if (!portalOrder) return null;
@@ -407,13 +434,17 @@ export class DefaultPartnerOrderHistoryService implements PartnerOrderHistorySer
     if (!currency) return null;
     const total = portalOrder.documentTotal ?? items.reduce((sum, item) => sum + item.lineTotal, 0);
     return {
-      total: formatMoney(total, currency),
+      ...(canViewPartnerPrice ? { total: formatMoney(total, currency) } : {}),
       lines: items.map((item) => ({
         productName: item.productName,
         sku: item.sku,
         quantity: item.quantity,
-        unitPrice: formatMoney(item.partnerUnitPrice, item.currencyCode),
-        lineTotal: formatMoney(item.lineTotal, item.currencyCode),
+        ...(canViewPartnerPrice
+          ? {
+              unitPrice: formatMoney(item.partnerUnitPrice, item.currencyCode),
+              lineTotal: formatMoney(item.lineTotal, item.currencyCode),
+            }
+          : {}),
       })),
     };
   }
@@ -425,9 +456,23 @@ export class DefaultPartnerOrderHistoryService implements PartnerOrderHistorySer
     await this.permissionService.ensurePermission(userId, context.company.id, permission);
     return context;
   }
+
+  private async canViewPartnerPrice(
+    userId: string,
+    companyId: string,
+  ): Promise<boolean> {
+    const context = await this.permissionService.getEffectivePermissionContext(
+      userId,
+      companyId,
+    );
+    return resolveCommercialVisibility(context).canViewPartnerPrice;
+  }
 }
 
-function toSummary(order: PartnerOrderHistory): PartnerOrderHistorySummaryDto {
+function toSummary(
+  order: PartnerOrderHistory,
+  canViewPartnerPrice: boolean,
+): PartnerOrderHistorySummaryDto {
   return {
     id: order.id,
     primaryLabel: order.oneCPosted && order.external1cOrderNumber
@@ -439,9 +484,13 @@ function toSummary(order: PartnerOrderHistory): PartnerOrderHistorySummaryDto {
     posted: order.oneCPosted,
     documentDate: order.oneCDocumentDate,
     deliveryDate: order.oneCDeliveryDate,
-    documentTotal: order.currencyCode
-      ? formatMoney(order.documentTotal, order.currencyCode)
-      : `${formatNumber(order.documentTotal)} · валюта уточняется`,
+    ...(canViewPartnerPrice
+      ? {
+          documentTotal: order.currencyCode
+            ? formatMoney(order.documentTotal, order.currencyCode)
+            : `${formatNumber(order.documentTotal)} · валюта уточняется`,
+        }
+      : {}),
     positionCount: order.positionCount,
     totalUnitCount: order.totalUnitCount,
     lastSynchronizedAt: order.oneCLastSyncedAt,
@@ -449,13 +498,24 @@ function toSummary(order: PartnerOrderHistory): PartnerOrderHistorySummaryDto {
   };
 }
 
-function toDetailLine(item: PartnerOrderHistoryItem) {
+function toDetailLine(
+  item: PartnerOrderHistoryItem,
+  canViewPartnerPrice: boolean,
+) {
   return {
     productName: item.productName ?? "Товар из истории 1С",
     sku: item.sku,
     quantity: item.quantity,
-    unitPrice: item.currencyCode ? formatMoney(item.unitPrice, item.currencyCode) : formatNumber(item.unitPrice),
-    lineTotal: item.currencyCode ? formatMoney(item.lineTotal, item.currencyCode) : formatNumber(item.lineTotal),
+    ...(canViewPartnerPrice
+      ? {
+          unitPrice: item.currencyCode
+            ? formatMoney(item.unitPrice, item.currencyCode)
+            : formatNumber(item.unitPrice),
+          lineTotal: item.currencyCode
+            ? formatMoney(item.lineTotal, item.currencyCode)
+            : formatNumber(item.lineTotal),
+        }
+      : {}),
   };
 }
 

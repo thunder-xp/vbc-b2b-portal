@@ -84,7 +84,7 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
                   <span className="font-semibold text-zinc-950">{order.primaryLabel}</span>
                   <span className="text-sm text-zinc-600">{formatDate(order.documentDate)}</span>
                   <span className="text-sm font-medium text-zinc-700">{order.statusLabel}</span>
-                  <span className="text-sm font-semibold text-zinc-950">{order.documentTotal}</span>
+                  <span className="text-sm font-semibold text-zinc-950">{order.documentTotal ?? "Коммерческие условия скрыты"}</span>
                   <span className="text-sm text-zinc-600">{order.deliveryDate ? formatDate(order.deliveryDate) : "Не указана"}</span>
                   <span className="text-sm text-zinc-600">{order.positionCount} поз. · {order.totalUnitCount} ед.</span>
                   <span className="text-sm text-zinc-500">{formatDateTime(order.lastSynchronizedAt)}</span>

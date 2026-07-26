@@ -3,10 +3,12 @@
 import { useActionState, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ActionResult } from "../../access-control/actions/action-result";
-import { submitCartOrderAction } from "../actions/order.actions";
-import type { PartnerOrder } from "../types";
+import {
+  submitCartOrderAction,
+  type PartnerOrderSubmissionReceipt,
+} from "../actions/order.actions";
 
-const initial: ActionResult<PartnerOrder | null> = { success: true, errorCode: null, message: "", data: null };
+const initial: ActionResult<PartnerOrderSubmissionReceipt | null> = { success: true, errorCode: null, message: "", data: null };
 
 export function OrderSubmitForm({ submissionKey }: { submissionKey: string }) {
   const [state, action, pending] = useActionState(submitCartOrderAction, initial);
