@@ -5,6 +5,7 @@
   "scripts": {
     "bootstrap:dev": "node scripts/bootstrap-dev.mjs",
     "bootstrap:platform-admin": "tsx scripts/bootstrap-platform-admin.ts",
+    "transfer:platform-admin": "tsx scripts/transfer-initial-platform-admin.ts",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
