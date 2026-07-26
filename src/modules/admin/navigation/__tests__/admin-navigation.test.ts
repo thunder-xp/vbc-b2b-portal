@@ -51,4 +51,74 @@ describe("admin navigation", () => {
       )?.label,
     ).toBe("Заявки на доступ");
   });
+
+  it.each([
+    {
+      role: "finance",
+      permissions: ["admin.dashboard.view", "admin.finance.view"],
+      present: ["/admin"],
+      absent: ["/admin/company-users", "/admin/integrations/catalog-sync"],
+    },
+    {
+      role: "support",
+      permissions: [
+        "admin.dashboard.view",
+        "admin.users.view",
+        "admin.access_requests.view",
+        "admin.integrations.view",
+      ],
+      present: [
+        "/admin",
+        "/admin/company-users",
+        "/admin/partner-requests",
+        "/admin/integrations/1c-health",
+      ],
+      absent: ["/admin/commercial-rates", "/admin/specifications"],
+    },
+    {
+      role: "content manager",
+      permissions: [
+        "admin.dashboard.view",
+        "admin.catalog.view",
+        "admin.integrations.view",
+      ],
+      present: [
+        "/admin",
+        "/admin/integrations/catalog-sync",
+        "/admin/integrations/1c-health",
+      ],
+      absent: ["/admin/company-users", "/admin/commercial-rates"],
+    },
+    {
+      role: "partner",
+      permissions: [],
+      present: [],
+      absent: ["/admin", "/admin/company-users"],
+    },
+  ])(
+    "shows only implemented authorized modules for $role",
+    ({ permissions, present, absent }) => {
+      const hrefs = buildAdminNavigation(permissions).flatMap((group) =>
+        group.items.map((item) => item.href),
+      );
+
+      for (const href of present) expect(hrefs).toContain(href);
+      for (const href of absent) expect(hrefs).not.toContain(href);
+    },
+  );
+
+  it("allows a platform administrator to see every implemented admin route", () => {
+    const navigation = buildAdminNavigation([
+      "admin.dashboard.view",
+      "admin.users.view",
+      "admin.access_requests.view",
+      "admin.catalog.view",
+      "admin.rates.view",
+      "admin.integrations.view",
+      "order_date_changes.review",
+      "specifications.review",
+    ]);
+
+    expect(navigation.flatMap((group) => group.items)).toHaveLength(8);
+  });
 });

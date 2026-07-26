@@ -27,6 +27,7 @@ const ITEM_COLUMNS =
 
 type InternalReviewRow = ProjectSpecificationRow & {
   partner_companies: { display_name: string };
+  project_specification_items: Array<{ count: number }>;
 };
 
 export class SupabaseProjectSpecificationRepository
@@ -48,7 +49,9 @@ export class SupabaseProjectSpecificationRepository
     const supabase = await createClient();
     const { data, error } = await supabase
       .from("project_specifications")
-      .select(`${SPECIFICATION_COLUMNS}, partner_companies!inner(display_name)`)
+      .select(
+        `${SPECIFICATION_COLUMNS}, partner_companies!inner(display_name), project_specification_items(count)`,
+      )
       .neq("status", "draft")
       .order("submitted_at", { ascending: false });
 
@@ -56,6 +59,7 @@ export class SupabaseProjectSpecificationRepository
     return (data as unknown as InternalReviewRow[]).map((row) => ({
       specification: mapProjectSpecificationRow(row),
       companyName: row.partner_companies.display_name,
+      itemCount: row.project_specification_items[0]?.count ?? 0,
     }));
   }
 

@@ -16,7 +16,7 @@ function fixture(status = ReservationRequestStatus.UnderReview) {
     { id: "item-2", reservationRequestId: request.id, productId: "p2", productNameSnapshot: "Recorder", skuSnapshot: "R1", slugSnapshot: "recorder", specificationQuantity: 2, requestedQuantity: 2, approvedQuantity: null, partnerUnitPriceAmount: 20, partnerCurrencyCode: "USD", retailUnitPriceAmount: 400, retailCurrencyCode: "MDL", createdAt: now, updatedAt: now },
   ];
   const repository: ReservationRequestRepository = {
-    listByCompanyId: vi.fn(), listForInternalReview: vi.fn().mockResolvedValue([{ request, companyName: "Partner SRL", projectName: "Office", customerSiteName: "HQ" }]),
+    listByCompanyId: vi.fn(), listForInternalReview: vi.fn().mockResolvedValue([{ request, companyName: "Partner SRL", projectName: "Office", customerSiteName: "HQ", itemCount: items.length }]),
     findById: vi.fn().mockResolvedValue(request), findActiveBySpecificationRevisionId: vi.fn(), listItems: vi.fn().mockResolvedValue(items),
     createFromApprovedSpecification: vi.fn(), updateDraft: vi.fn(), updateRequestedQuantity: vi.fn(), submit: vi.fn(),
     canReviewInternally: vi.fn().mockResolvedValue(true), startReview: vi.fn(), decide: vi.fn(),
@@ -30,6 +30,16 @@ describe("DefaultInternalReservationReviewService", () => {
     const value = fixture();
     vi.mocked(value.repository.canReviewInternally).mockResolvedValue(false);
     await expect(value.service.listForReview("partner-1")).rejects.toBeInstanceOf(ForbiddenError);
+  });
+
+  it("lists aggregate item counts without loading request lines", async () => {
+    const value = fixture();
+
+    await expect(value.service.listForReview("manager-1")).resolves.toEqual([
+      expect.objectContaining({ id: "request-1", itemCount: 2 }),
+    ]);
+    expect(value.repository.listForInternalReview).toHaveBeenCalledTimes(1);
+    expect(value.repository.listItems).not.toHaveBeenCalled();
   });
 
   it("starts review only from submitted", async () => {

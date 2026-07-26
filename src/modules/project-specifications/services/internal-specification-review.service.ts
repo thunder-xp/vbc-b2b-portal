@@ -40,22 +40,21 @@ export class DefaultInternalSpecificationReviewService implements InternalSpecif
   async listForReview(actorUserId: string): Promise<InternalSpecificationSummaryDto[]> {
     await this.ensureReviewer(actorUserId);
     const records = await this.repository.listForInternalReview();
-    return Promise.all(records.map(async ({ specification, companyName }) => {
-      const items = await this.repository.listItems(specification.id);
-      const detail = buildSubmittedSpecificationDetail(specification, items, null);
+    return records.map(({ specification, companyName, itemCount }) => {
+      const detail = buildSubmittedSpecificationDetail(specification, [], null);
       return {
         id: specification.id,
         companyName,
         projectName: specification.projectName,
         customerSiteName: specification.customerSiteName,
         submittedAt: specification.submittedAt ?? specification.updatedAt,
-        itemCount: items.length,
+        itemCount,
         partnerPurchaseTotal: detail.totals.partnerPurchaseTotal ?? null,
         retailTotal: detail.totals.retailTotal,
         potentialGrossProfit: detail.totals.potentialGrossProfit ?? null,
         status: specification.status,
       };
-    }));
+    });
   }
 
   async getForReview(actorUserId: string, specificationId: string): Promise<InternalSpecificationDetailDto> {

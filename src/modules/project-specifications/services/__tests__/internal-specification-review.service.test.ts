@@ -27,7 +27,7 @@ function fixture(status: ProjectSpecificationStatus = ProjectSpecificationStatus
   };
   const repository: ProjectSpecificationRepository = {
     listByCompanyId: vi.fn(),
-    listForInternalReview: vi.fn().mockResolvedValue([{ specification, companyName: "Partner SRL" }]),
+    listForInternalReview: vi.fn().mockResolvedValue([{ specification, companyName: "Partner SRL", itemCount: 1 }]),
     findById: vi.fn().mockResolvedValue(specification), findRevisionByParentId: vi.fn().mockResolvedValue(null),
     listItems: vi.fn().mockResolvedValue([item]), create: vi.fn(), updateDraft: vi.fn(), addItem: vi.fn(),
     updateItemQuantity: vi.fn(), removeItem: vi.fn(), submit: vi.fn(),
@@ -45,11 +45,13 @@ describe("DefaultInternalSpecificationReviewService", () => {
   });
 
   it("lists submitted specifications with snapshot totals", async () => {
-    const { service } = fixture();
+    const { service, repository } = fixture();
     await expect(service.listForReview("manager-1")).resolves.toEqual([expect.objectContaining({
       companyName: "Partner SRL", itemCount: 1, partnerPurchaseTotal: "200,00 $",
       retailTotal: "5 000,00 MDL", potentialGrossProfit: "80,00 $",
     })]);
+    expect(repository.listForInternalReview).toHaveBeenCalledTimes(1);
+    expect(repository.listItems).not.toHaveBeenCalled();
   });
 
   it("allows only submitted specifications to enter review", async () => {

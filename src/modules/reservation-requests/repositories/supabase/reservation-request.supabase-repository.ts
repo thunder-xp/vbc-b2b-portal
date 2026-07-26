@@ -18,16 +18,18 @@ export class SupabaseReservationRequestRepository implements ReservationRequestR
 
   async listForInternalReview(): Promise<InternalReservationRequestRecord[]> {
     const supabase = await createClient();
-    const { data, error } = await supabase.from("reservation_requests").select(`${REQUEST_COLUMNS}, partner_companies!reservation_requests_company_id_fkey(name), project_specifications!reservation_requests_specification_revision_id_fkey(project_name, customer_site_name)`).neq("status", "draft").order("submitted_at", { ascending: false });
+    const { data, error } = await supabase.from("reservation_requests").select(`${REQUEST_COLUMNS}, partner_companies!reservation_requests_company_id_fkey(name), project_specifications!reservation_requests_specification_revision_id_fkey(project_name, customer_site_name), reservation_request_items(count)`).neq("status", "draft").order("submitted_at", { ascending: false });
     if (error) throw new ReservationRequestRepositoryError();
     return (data as unknown as Array<ReservationRequestRow & {
       partner_companies: { name: string };
       project_specifications: { project_name: string; customer_site_name: string };
+      reservation_request_items: Array<{ count: number }>;
     }>).map((row) => ({
       request: mapReservationRequestRow(row),
       companyName: row.partner_companies.name,
       projectName: row.project_specifications.project_name,
       customerSiteName: row.project_specifications.customer_site_name,
+      itemCount: row.reservation_request_items[0]?.count ?? 0,
     }));
   }
 

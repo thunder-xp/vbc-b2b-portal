@@ -76,3 +76,19 @@ Admin authorization is loaded once per server request and memoized with React
 `cache()`. It is never persisted in browser storage or a shared cross-user
 cache. Admin routes and actions still enforce their own permission; navigation
 visibility is not authorization.
+
+## Slice 1 Query Budget
+
+The shared workspace performs one effective-permission RPC per request. The
+dashboard performs three bounded reads in parallel: platform/commercial
+health, operational summary, and at most 20 recent events. It performs no live
+1C, SMTP, Auth Admin API, or per-company requests during render.
+
+The internal specification and reservation list surfaces previously performed
+one parent query plus one item query per row (`1 + N`). Each now embeds a
+count-only relation aggregate in the bounded parent query (`1` query). Full
+line snapshots remain detail-only data and are not loaded for list counts.
+
+The 1C health page renders only a local safe configuration projection. Its
+bounded network checks require an explicit `admin.diagnostics.run` action and
+write a secret-free append-only audit event.

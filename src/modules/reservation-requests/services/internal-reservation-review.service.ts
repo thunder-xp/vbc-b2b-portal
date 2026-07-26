@@ -26,14 +26,15 @@ export class DefaultInternalReservationReviewService implements InternalReservat
     private readonly pricingRepository: PricingInventoryRepository,
   ) {}
 
-  async listForReview(_userId: string): Promise<InternalReservationSummaryDto[]> {
+  async listForReview(userId: string): Promise<InternalReservationSummaryDto[]> {
+    if (!userId.trim()) throw new ForbiddenError();
     await this.ensureReviewer();
     const records = await this.repository.listForInternalReview();
-    return Promise.all(records.map(async ({ request, companyName, projectName, customerSiteName }) => ({
+    return records.map(({ request, companyName, projectName, customerSiteName, itemCount }) => ({
       id: request.id, companyName, projectName, customerSiteName, status: request.status,
-      itemCount: (await this.repository.listItems(request.id)).length,
+      itemCount,
       requestedDeliveryDate: request.requestedDeliveryDate, submittedAt: request.submittedAt,
-    })));
+    }));
   }
 
   async getDetail(_userId: string, requestId: string): Promise<InternalReservationDetailDto> {

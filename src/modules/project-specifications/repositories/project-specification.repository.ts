@@ -37,6 +37,7 @@ export type ProjectSpecificationItemSnapshotInput = {
 export type InternalSpecificationReviewRecord = {
   specification: ProjectSpecification;
   companyName: string;
+  itemCount: number;
 };
 
 export type ReviewProjectSpecificationResult = {

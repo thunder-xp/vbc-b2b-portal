@@ -70,9 +70,11 @@ begin
   from public.user_profiles profile
   where profile.id = new.user_id;
 
-  if target_profile.id is null
+  if new.revoked_at is null and (
+    target_profile.id is null
     or target_profile.status <> 'active'
-    or target_profile.user_type not in ('internal', 'admin') then
+    or target_profile.user_type not in ('internal', 'admin')
+  ) then
     raise exception 'An active internal user profile is required.'
       using errcode = '23514';
   end if;

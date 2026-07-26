@@ -5,6 +5,7 @@ export type InternalReservationRequestRecord = {
   companyName: string;
   projectName: string;
   customerSiteName: string;
+  itemCount: number;
 };
 
 export interface ReservationRequestRepository {

@@ -57,7 +57,7 @@ function createFixture(status = ProjectSpecificationStatus.Draft) {
   }];
   const repository: ProjectSpecificationRepository = {
     listByCompanyId: vi.fn().mockResolvedValue([specification]),
-    listForInternalReview: vi.fn().mockResolvedValue([{ specification, companyName: "Partner Company" }]),
+    listForInternalReview: vi.fn().mockResolvedValue([{ specification, companyName: "Partner Company", itemCount: 1 }]),
     findById: vi.fn().mockResolvedValue(specification),
     findRevisionByParentId: vi.fn().mockResolvedValue(null),
     listItems: vi.fn().mockResolvedValue(items),
