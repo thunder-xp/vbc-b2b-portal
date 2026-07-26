@@ -73,7 +73,7 @@ const detail: EstimateDetailDto = {
 };
 
 const products: EstimateProductPickerDto = {
-  products: [{ id: "product-1", name: "Camera", sku: "400691", imageUrl: null, categoryName: "CCTV", brandName: "Dahua", partnerPrice: "$50.00", stock: "В наличии", expectedArrival: null }],
+  products: [{ id: "product-1", name: "Camera", sku: "400691", imageUrl: null, categoryName: "CCTV", brandName: "Dahua", partnerPrice: "$50.00", retailPrice: null, stock: "В наличии", expectedArrival: null }],
   categories: [{ id: "category-1", name: "CCTV" }],
   brands: [{ id: "brand-1", name: "Dahua" }],
 };

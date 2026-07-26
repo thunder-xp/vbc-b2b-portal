@@ -49,7 +49,12 @@ function fixture(specificationStatus = ProjectSpecificationStatus.Approved, requ
     getOwnMemberships: vi.fn().mockResolvedValue([{ companyId: "company-1", status: MembershipStatus.Active }]),
     validateCompanyAccess: vi.fn().mockResolvedValue(true),
   } as unknown as CompanyAccessService;
-  const permissionService = { ensurePermission: vi.fn().mockResolvedValue({ isAllowed: true }) } as unknown as PermissionService;
+  const permissionService = {
+    ensurePermission: vi.fn().mockResolvedValue({ isAllowed: true }),
+    getEffectivePermissionContext: vi.fn().mockResolvedValue({
+      effectivePermissionCodes: ["pricing.partner_price.view"],
+    }),
+  } as unknown as PermissionService;
   const pricingService = { getProductCommercialViews: vi.fn().mockResolvedValue([{ productId: "product-1", partnerPrice: null, retailPrice: null, commercialOpportunity: null, stock: { exactAvailableQuantity: 3, expectedArrival: { expectedDate: "2026-08-10", expectedQuantity: 8 } }, isDemoData: false, retailBelowPartnerPrice: false }]) } as unknown as PricingInventoryService;
   return { request, item, repository, specificationRepository, service: new DefaultReservationRequestService(repository, specificationRepository, companyAccessService, permissionService, pricingService) };
 }
@@ -80,6 +85,23 @@ describe("DefaultReservationRequestService", () => {
     await expect(value.service.updateQuantity("partner-1", "request-1", "item-1", 6)).rejects.toBeInstanceOf(InvalidStateError);
     await value.service.updateQuantity("partner-1", "request-1", "item-1", 4);
     expect(value.repository.updateRequestedQuantity).toHaveBeenCalledWith({ itemId: "item-1", requestedQuantity: 4 });
+  });
+
+  it("omits immutable partner price snapshots for retail-only users", async () => {
+    const value = fixture();
+    const permission = Reflect.get(value.service, "permissionService") as {
+      getEffectivePermissionContext: ReturnType<typeof vi.fn>;
+    };
+    permission.getEffectivePermissionContext.mockResolvedValue({
+      effectivePermissionCodes: ["pricing.retail_price.view"],
+    });
+
+    const detail = await value.service.getDetail("partner-1", "request-1");
+    const serialized = JSON.stringify(detail);
+
+    expect(detail.lines[0]?.retailPrice).toContain("MDL");
+    expect(serialized).not.toContain("partnerPrice");
+    expect(serialized).not.toContain("100");
   });
 
   it("keeps submitted requests immutable for partner updates", async () => {

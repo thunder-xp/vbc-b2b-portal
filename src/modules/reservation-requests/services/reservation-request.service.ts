@@ -1,5 +1,10 @@
 import type { CompanyAccessService, PermissionService } from "../../access-control/services";
-import { ForbiddenError, InvalidStateError, NotFoundError } from "../../access-control/services";
+import {
+  ForbiddenError,
+  InvalidStateError,
+  NotFoundError,
+  resolveCommercialVisibility,
+} from "../../access-control/services";
 import { MembershipStatus } from "../../access-control/types";
 import type { PricingInventoryService, ProductCommercialInternalDto } from "../../pricing-inventory/services";
 import type { ProjectSpecificationRepository } from "../../project-specifications/repositories";
@@ -22,7 +27,7 @@ export type ReservationRequestLineDto = {
   specificationQuantity: number;
   requestedQuantity: number;
   approvedQuantity: number | null;
-  partnerPrice: string | null;
+  partnerPrice?: string | null;
   retailPrice: string | null;
   availability: ReservationAvailabilityDto;
 };
@@ -133,13 +138,26 @@ export class DefaultReservationRequestService implements ReservationRequestServi
 
   async getDetail(userId: string, requestId: string): Promise<ReservationRequestDetailDto> {
     const request = await this.loadOwn(userId, requestId);
+    const canViewPartnerPrice = resolveCommercialVisibility(
+      await this.permissionService.getEffectivePermissionContext(
+        userId,
+        request.companyId,
+      ),
+    ).canViewPartnerPrice;
     const [items, specification] = await Promise.all([
       this.repository.listItems(request.id),
       this.specificationRepository.findById(request.specificationRevisionId),
     ]);
     if (!specification) throw new NotFoundError();
     const commercial = await this.pricingInventoryService.getProductCommercialViews(userId, items.map((item) => item.productId));
-    return toDetail(request, items, specification.projectName, specification.customerSiteName, commercial);
+    return toDetail(
+      request,
+      items,
+      specification.projectName,
+      specification.customerSiteName,
+      commercial,
+      canViewPartnerPrice,
+    );
   }
 
   async updateDraft(userId: string, requestId: string, input: { requestedDeliveryDate: string; partnerComment?: string | null }): Promise<ReservationRequest> {
@@ -207,7 +225,7 @@ function normalizeQuantity(value: number): number {
   return value;
 }
 
-function toDetail(request: ReservationRequest, items: ReservationRequestItem[], projectName: string, customerSiteName: string, commercial: ProductCommercialInternalDto[]): ReservationRequestDetailDto {
+function toDetail(request: ReservationRequest, items: ReservationRequestItem[], projectName: string, customerSiteName: string, commercial: ProductCommercialInternalDto[], canViewPartnerPrice: boolean): ReservationRequestDetailDto {
   const commercialByProduct = new Map(commercial.map((item) => [item.productId, item]));
   return {
     id: request.id, specificationId: request.specificationId, specificationRevisionId: request.specificationRevisionId,
@@ -220,7 +238,14 @@ function toDetail(request: ReservationRequest, items: ReservationRequestItem[], 
         id: item.id, productId: item.productId, productName: item.productNameSnapshot, sku: item.skuSnapshot,
         slug: item.slugSnapshot, specificationQuantity: item.specificationQuantity,
         requestedQuantity: item.requestedQuantity, approvedQuantity: item.approvedQuantity,
-        partnerPrice: formatSnapshotPrice(item.partnerUnitPriceAmount, item.partnerCurrencyCode),
+        ...(canViewPartnerPrice
+          ? {
+              partnerPrice: formatSnapshotPrice(
+                item.partnerUnitPriceAmount,
+                item.partnerCurrencyCode,
+              ),
+            }
+          : {}),
         retailPrice: formatSnapshotPrice(item.retailUnitPriceAmount, item.retailCurrencyCode),
         availability: {
           availableStock: view?.stock?.exactAvailableQuantity ?? null,

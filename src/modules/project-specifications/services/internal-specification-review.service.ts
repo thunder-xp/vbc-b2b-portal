@@ -50,9 +50,9 @@ export class DefaultInternalSpecificationReviewService implements InternalSpecif
         customerSiteName: specification.customerSiteName,
         submittedAt: specification.submittedAt ?? specification.updatedAt,
         itemCount: items.length,
-        partnerPurchaseTotal: detail.totals.partnerPurchaseTotal,
+        partnerPurchaseTotal: detail.totals.partnerPurchaseTotal ?? null,
         retailTotal: detail.totals.retailTotal,
-        potentialGrossProfit: detail.totals.potentialGrossProfit,
+        potentialGrossProfit: detail.totals.potentialGrossProfit ?? null,
         status: specification.status,
       };
     }));

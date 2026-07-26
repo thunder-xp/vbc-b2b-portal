@@ -25,7 +25,7 @@ export function updateBulkQuantity(lines: EstimateLineDto[], selectedIds: Readon
 }
 
 export function resetBulkToPartnerPrice(lines: EstimateLineDto[], selectedIds: ReadonlySet<string>): EstimateBulkResult {
-  return transformSelected(lines, selectedIds, (line) => line.lineType === "product" && line.convertedCostUnitPrice !== null
+  return transformSelected(lines, selectedIds, (line) => line.lineType === "product" && line.convertedCostUnitPrice != null
     ? { ...line, pricingMode: "direct", pricingInputValue: line.convertedCostUnitPrice, lineDiscountPercent: 0 }
     : null);
 }

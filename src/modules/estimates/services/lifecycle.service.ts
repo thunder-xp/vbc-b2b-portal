@@ -146,7 +146,15 @@ export class EstimateLifecycleService {
     const source = await this.cartService.getEstimateSource(userId);
     const currencyCode = source.lines.find((line) => line.currencyCode)?.currencyCode ?? "USD";
     const needsConversion = source.lines.some((line) => line.currencyCode && line.currencyCode !== currencyCode);
-    const rate = needsConversion ? await this.pricingInventoryService.getApprovedUsdMdlRateSnapshot?.(userId) ?? null : null;
+    const rate = needsConversion
+      ? await (
+          this.pricingInventoryService.getAuthoritativeUsdMdlRateSnapshot?.(
+            userId,
+          )
+          ?? this.pricingInventoryService.getApprovedUsdMdlRateSnapshot?.(userId)
+          ?? null
+        )
+      : null;
     if (needsConversion && !rate) throw new InvalidStateError("Нет опубликованного курса для пересчёта цен.");
     const lines = source.lines.map((line, index) => {
       const exchangeRate = !line.currencyCode || !line.partnerPrice ? null : line.currencyCode === currencyCode ? 1 : resolveCurrencyRate(line.currencyCode, currencyCode, rate!.mdlPerUsdRate);
@@ -204,12 +212,25 @@ export class EstimateLifecycleService {
     if (!ids.length) return [];
     const [products, views] = await Promise.all([
       this.catalogService.getProductsByIds(userId, ids),
-      this.pricingInventoryService.getProductCommercialViews(userId, ids),
+      this.pricingInventoryService.getAuthoritativeProductCommercialViews
+        ? this.pricingInventoryService.getAuthoritativeProductCommercialViews(
+            userId,
+            ids,
+          )
+        : this.pricingInventoryService.getProductCommercialViews(userId, ids),
     ]);
     const activeIds = new Set(products.map((product) => product.id));
     const viewById = new Map(views.map((view) => [view.productId, view]));
     const needsConversion = views.some((view) => view.partnerPrice?.currencyCode && view.partnerPrice.currencyCode !== version.currencyCode);
-    const rate = needsConversion ? await this.pricingInventoryService.getApprovedUsdMdlRateSnapshot?.(userId) ?? null : null;
+    const rate = needsConversion
+      ? await (
+          this.pricingInventoryService.getAuthoritativeUsdMdlRateSnapshot?.(
+            userId,
+          )
+          ?? this.pricingInventoryService.getApprovedUsdMdlRateSnapshot?.(userId)
+          ?? null
+        )
+      : null;
     return ids.filter((id) => activeIds.has(id)).map((productId) => {
       const price = viewById.get(productId)?.partnerPrice ?? null;
       const exchangeRate = !price?.currencyCode ? null : price.currencyCode === version.currencyCode ? 1 : rate ? resolveCurrencyRate(price.currencyCode, version.currencyCode, rate.mdlPerUsdRate) : null;

@@ -1,5 +1,9 @@
 import type { CompanyAccessService, PermissionService } from "../../access-control/services";
-import { InvalidStateError, NotFoundError } from "../../access-control/services";
+import {
+  InvalidStateError,
+  NotFoundError,
+  resolveCommercialVisibility,
+} from "../../access-control/services";
 import { MembershipStatus } from "../../access-control/types";
 import type { CatalogProductCardDto, CatalogService } from "../../catalog/services";
 import type {
@@ -33,20 +37,20 @@ export type ProjectSpecificationLineDto = {
   sku: string;
   slug: string;
   quantity: number;
-  partnerUnitPrice: string | null;
+  partnerUnitPrice?: string | null;
   retailUnitPrice: string | null;
   availableStock: number | null;
   nearestArrivalDate: string | null;
   nearestArrivalQuantity: number | null;
-  partnerLineTotal: string | null;
+  partnerLineTotal?: string | null;
   retailLineTotal: string | null;
 };
 
 export type ProjectSpecificationTotalsDto = {
-  partnerPurchaseTotal: string | null;
+  partnerPurchaseTotal?: string | null;
   retailTotal: string | null;
-  potentialGrossProfit: string | null;
-  markupPercentage: string | null;
+  potentialGrossProfit?: string | null;
+  markupPercentage?: string | null;
 };
 
 export type ProjectSpecificationDetailDto = ProjectSpecificationSummaryDto & {
@@ -107,14 +111,25 @@ export class DefaultProjectSpecificationService implements ProjectSpecificationS
 
   async getDetail(userId: string, specificationId: string): Promise<ProjectSpecificationDetailDto> {
     const specification = await this.loadAccessibleSpecification(userId, specificationId);
+    const canViewPartnerPrice = await this.canViewPartnerPrice(
+      userId,
+      specification.companyId,
+    );
     const items = await this.repository.listItems(specification.id);
     const revision = await this.repository.findRevisionByParentId(specification.id);
     if (specification.status !== ProjectSpecificationStatus.Draft) {
-      return buildSubmittedSpecificationDetail(specification, items, revision?.id ?? null);
+      return projectSpecificationDetail(
+        buildSubmittedSpecificationDetail(
+          specification,
+          items,
+          revision?.id ?? null,
+        ),
+        canViewPartnerPrice,
+      );
     }
     const presentation = await this.buildCurrentPresentation(userId, items);
 
-    return {
+    return projectSpecificationDetail({
       ...toSummary(specification, items.length),
       description: specification.description,
       revisionNumber: specification.revisionNumber,
@@ -123,7 +138,7 @@ export class DefaultProjectSpecificationService implements ProjectSpecificationS
       revisionId: revision?.id ?? null,
       lines: presentation.lines,
       totals: presentation.totals,
-    };
+    }, canViewPartnerPrice);
   }
 
   async updateDraft(
@@ -195,7 +210,8 @@ export class DefaultProjectSpecificationService implements ProjectSpecificationS
     userId: string,
     items: Awaited<ReturnType<ProjectSpecificationRepository["listItems"]>>,
   ): Promise<{ lines: ProjectSpecificationLineDto[]; totals: ProjectSpecificationTotalsDto }> {
-    const { productsById, commercialByProduct } = await this.loadCurrentValues(userId, items);
+    const { productsById, commercialByProduct } =
+      await this.loadCurrentValues(userId, items);
     return {
       lines: items.flatMap((item) => {
         const product = productsById.get(item.productId);
@@ -209,7 +225,8 @@ export class DefaultProjectSpecificationService implements ProjectSpecificationS
     userId: string,
     items: Awaited<ReturnType<ProjectSpecificationRepository["listItems"]>>,
   ): Promise<ProjectSpecificationItemSnapshotInput[]> {
-    const { productsById, commercialByProduct } = await this.loadCurrentValues(userId, items);
+    const { productsById, commercialByProduct } =
+      await this.loadCurrentValues(userId, items, true);
     return items.map((item) => {
       const product = productsById.get(item.productId);
       if (!product) throw new NotFoundError("Catalog product was not found.");
@@ -235,11 +252,18 @@ export class DefaultProjectSpecificationService implements ProjectSpecificationS
   private async loadCurrentValues(
     userId: string,
     items: Awaited<ReturnType<ProjectSpecificationRepository["listItems"]>>,
+    authoritativePartnerPricing = false,
   ) {
     const productIds = items.map((item) => item.productId);
     const [products, commercialViews] = await Promise.all([
       this.catalogService.getProductsByIds(userId, productIds),
-      this.pricingInventoryService.getProductCommercialViews(userId, productIds),
+      authoritativePartnerPricing
+        && this.pricingInventoryService.getAuthoritativeProductCommercialViews
+        ? this.pricingInventoryService.getAuthoritativeProductCommercialViews(
+            userId,
+            productIds,
+          )
+        : this.pricingInventoryService.getProductCommercialViews(userId, productIds),
     ]);
     return {
       productsById: new Map(products.map((product) => [product.id, product])),
@@ -277,6 +301,42 @@ export class DefaultProjectSpecificationService implements ProjectSpecificationS
     await this.permissionService.ensurePermission(userId, context.company.id, SPECIFICATION_PERMISSION);
     return context.company.id;
   }
+
+  private async canViewPartnerPrice(
+    userId: string,
+    companyId: string,
+  ): Promise<boolean> {
+    const context = await this.permissionService.getEffectivePermissionContext(
+      userId,
+      companyId,
+    );
+    return resolveCommercialVisibility(context).canViewPartnerPrice;
+  }
+}
+
+export function projectSpecificationDetail(
+  detail: ProjectSpecificationDetailDto,
+  canViewPartnerPrice: boolean,
+): ProjectSpecificationDetailDto {
+  if (canViewPartnerPrice) return detail;
+  const {
+    partnerPurchaseTotal: _partnerPurchaseTotal,
+    potentialGrossProfit: _potentialGrossProfit,
+    markupPercentage: _markupPercentage,
+    ...safeTotals
+  } = detail.totals;
+  return {
+    ...detail,
+    totals: safeTotals,
+    lines: detail.lines.map((line) => {
+      const {
+        partnerUnitPrice: _partnerUnitPrice,
+        partnerLineTotal: _partnerLineTotal,
+        ...safeLine
+      } = line;
+      return safeLine;
+    }),
+  };
 }
 
 export function buildSubmittedSpecificationDetail(

@@ -50,11 +50,12 @@ export function EstimateCommercialEditor({ initialEstimate, services, commercial
   const [dirty, setDirty] = useState(false);
   const [selectedLineIds, setSelectedLineIds] = useState<Set<string>>(new Set());
   const isDraft = estimate.status === "draft";
+  const retailOnly = estimate.commercialMode === "retail_only";
 
   const preview = useMemo(() => {
     try {
       return { value: calculateEstimateCommercials({
-        lines: draft.lines.map((line) => ({ id: line.id, sectionId: line.sectionId, quantity: line.quantity, pricingMode: line.pricingMode, pricingInputValue: line.pricingInputValue, convertedCostUnitPrice: line.convertedCostUnitPrice, lineDiscountPercent: line.lineDiscountPercent })),
+        lines: draft.lines.map((line) => ({ id: line.id, sectionId: line.sectionId, quantity: line.quantity, pricingMode: line.pricingMode, pricingInputValue: line.pricingInputValue, convertedCostUnitPrice: line.convertedCostUnitPrice ?? null, lineDiscountPercent: line.lineDiscountPercent })),
         sections: draft.sections,
         charges: draft.charges,
         globalDiscountPercent: draft.globalDiscountPercent,
@@ -101,7 +102,7 @@ export function EstimateCommercialEditor({ initialEstimate, services, commercial
       lines: draft.lines.map((line, position) => ({
         id: line.id, sectionId: line.sectionId, position: position + 1, description: line.description, quantity: line.quantity,
         unit: line.unit, pricingMode: line.pricingMode, pricingInputValue: line.pricingInputValue,
-        internalCostUnitPrice: line.internalCostUnitPrice, lineDiscountPercent: line.lineDiscountPercent,
+        internalCostUnitPrice: line.internalCostUnitPrice ?? null, lineDiscountPercent: line.lineDiscountPercent,
       })),
       charges: draft.charges.map((charge, sortOrder) => ({ ...charge, sortOrder })),
     };
@@ -132,7 +133,7 @@ export function EstimateCommercialEditor({ initialEstimate, services, commercial
       <Field label="Название"><input className={`${inputClass} w-full`} disabled={!isDraft} maxLength={200} onChange={(e) => update((d) => ({ ...d, name: e.target.value }))} value={draft.name} /></Field>
       <Field label="Заказчик"><input className={`${inputClass} w-full`} disabled={!isDraft} onChange={(e) => update((d) => ({ ...d, customerName: e.target.value }))} value={draft.customerName ?? ""} /></Field>
       <Field label="Проект / объект"><input className={`${inputClass} w-full`} disabled={!isDraft} onChange={(e) => update((d) => ({ ...d, projectName: e.target.value }))} value={draft.projectName ?? ""} /></Field>
-      <Field label="Валюта"><select className={`${inputClass} w-full`} disabled={!isDraft} onChange={(e) => e.target.value !== draft.currencyCode && setCurrencyChoice(e.target.value)} value={draft.currencyCode}>{commercialOptions.currencies.map((currency) => <option key={currency}>{currency}</option>)}</select></Field>
+      <Field label="Валюта"><select className={`${inputClass} w-full`} disabled={!isDraft || retailOnly} onChange={(e) => e.target.value !== draft.currencyCode && setCurrencyChoice(e.target.value)} value={draft.currencyCode}>{commercialOptions.currencies.map((currency) => <option key={currency}>{currency}</option>)}</select></Field>
       <Field label="НДС"><select className={`${inputClass} w-full`} disabled={!isDraft} onChange={(e) => update((d) => ({ ...d, vatMode: e.target.value as EstimateVatMode }))} value={draft.vatMode}><option value="included">Включен</option><option value="separate">Отдельно</option><option value="excluded">Без включения</option><option value="none">Не показывать</option></select></Field>
       <Field label="Ставка НДС, %"><NumberInput disabled={!isDraft || draft.vatMode === "none"} onValue={(value) => update((d) => ({ ...d, vatRatePercent: value ?? 0 }))} value={draft.vatRatePercent} /></Field>
       <Field label="Глобальная скидка, %"><NumberInput disabled={!isDraft} onValue={(value) => update((d) => ({ ...d, globalDiscountPercent: value ?? 0 }))} value={draft.globalDiscountPercent} /></Field>
@@ -144,6 +145,7 @@ export function EstimateCommercialEditor({ initialEstimate, services, commercial
         <EstimateBulkToolbar
           dirty={dirty}
           disabled={!isDraft || pending}
+          showConfidentialControls={!retailOnly}
           onClear={() => setSelectedLineIds(new Set())}
           onDiscount={(value) => applyBulkResult(applyBulkDiscount(draft.lines, selectedLineIds, value), "Скидка применена")}
           onMarkup={(value) => applyBulkResult(applyBulkMarkup(draft.lines, selectedLineIds, value), "Наценка применена")}
@@ -172,7 +174,7 @@ export function EstimateCommercialEditor({ initialEstimate, services, commercial
               const lineIndex = draft.lines.findIndex((item) => item.id === line.id);
               const sectionLineIndex = sectionLines.findIndex((item) => item.id === line.id);
               const calculated = preview.value?.lines.find((item) => item.id === line.id);
-              const costMissing = line.convertedCostUnitPrice === null || line.convertedCostUnitPrice <= 0;
+              const costMissing = line.convertedCostUnitPrice == null || line.convertedCostUnitPrice <= 0;
               return <div className="space-y-3 p-3" key={line.id}>
                 <div className="grid gap-2 md:grid-cols-[1.5rem_2.5rem_minmax(12rem,1fr)_5rem_6rem_8rem_7rem_8rem_auto] md:items-end">
                   <input aria-label={`Выбрать позицию ${lineIndex + 1}`} checked={selectedLineIds.has(line.id)} className="mb-2" disabled={!isDraft} onChange={(event) => setSelectedLineIds((current) => toggleMany(current, [line.id], event.target.checked))} type="checkbox" />
@@ -188,14 +190,14 @@ export function EstimateCommercialEditor({ initialEstimate, services, commercial
                   <div><p className="text-xs font-medium text-zinc-500">Итого</p><p className="pb-2 pt-2 text-sm font-semibold">{calculated?.lineTotal === null || calculated?.lineTotal === undefined ? "Цена не задана" : money(calculated.lineTotal, draft.currencyCode)}</p></div>
                   <div className="flex"><ReorderButtons disabled={!isDraft} down={sectionLineIndex === sectionLines.length - 1} onDown={() => update((d) => ({ ...d, lines: moveLineWithinSection(d.lines, line.id, 1) }))} onUp={() => update((d) => ({ ...d, lines: moveLineWithinSection(d.lines, line.id, -1) }))} up={sectionLineIndex === 0} /><button aria-label="Удалить позицию" className="p-2 text-red-700" disabled={!isDraft || dirty} onClick={() => mutate(() => removeEstimateLineAction(estimate.id, line.id, estimate.revision))} type="button"><Trash2 className="size-4" /></button></div>
                 </div>
-                <details className="rounded-md bg-zinc-50 px-3 py-2 text-sm"><summary className="cursor-pointer font-medium">Коммерческие детали</summary><div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                {!retailOnly ? <details className="rounded-md bg-zinc-50 px-3 py-2 text-sm"><summary className="cursor-pointer font-medium">Коммерческие детали</summary><div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
                   <Field label="Режим"><select className={`${inputClass} w-full`} disabled={!isDraft} onChange={(e) => updateLine(draft, setDraft, setDirty, line.id, { pricingMode: e.target.value as EstimatePricingMode })} value={line.pricingMode}>{pricingModes.map((mode) => <option disabled={costMissing && mode.value !== "direct"} key={mode.value} value={mode.value}>{mode.label}</option>)}</select></Field>
-                  <Field label="Внутренняя себестоимость"><NumberInput disabled={!isDraft || line.lineType === "product"} nullable onValue={(value) => updateLine(draft, setDraft, setDirty, line.id, { internalCostUnitPrice: value, convertedCostUnitPrice: value })} value={line.internalCostUnitPrice} /></Field>
+                  <Field label="Внутренняя себестоимость"><NumberInput disabled={!isDraft || line.lineType === "product"} nullable onValue={(value) => updateLine(draft, setDraft, setDirty, line.id, { internalCostUnitPrice: value, convertedCostUnitPrice: value })} value={line.internalCostUnitPrice ?? null} /></Field>
                   <Info label="Источник" value={line.sourcePrice ?? "—"} /><Info label="Наценка" value={percent(calculated?.markupPercent)} /><Info label="Маржа" value={percent(calculated?.marginPercent)} />
                   {costMissing && <p className="text-xs text-amber-800 sm:col-span-2">Нет исходной цены для расчёта.</p>}
                   <Field label="Раздел"><select className={`${inputClass} w-full`} disabled={!isDraft} onChange={(e) => updateLine(draft, setDraft, setDirty, line.id, { sectionId: e.target.value })} value={line.sectionId}>{draft.sections.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></Field>
                   <Info label="Курс" value={line.exchangeRate ? `${line.exchangeRate} · ${line.exchangeRateEffectiveDate ?? ""}` : "—"} />
-                </div></details>
+                </div></details> : null}
               </div>;
             }) : <p className="p-5 text-sm text-zinc-500">В разделе пока нет позиций.</p>}</div>}
           </section>;
@@ -203,7 +205,7 @@ export function EstimateCommercialEditor({ initialEstimate, services, commercial
         {isDraft && <EstimateLinePicker disabled={dirty} estimate={estimate} onResult={acceptServer} services={services} />}
         <Charges draft={draft} disabled={!isDraft} update={update} />
       </main>
-      <Summary currency={draft.currencyCode} preview={preview.value} />
+      <Summary currency={draft.currencyCode} preview={preview.value} retailOnly={retailOnly} />
     </div>
     {currencyChoice && <CurrencyDialog affectedLines={draft.lines.length} current={draft.currencyCode} effectiveDate={commercialOptions.rateEffectiveDate} manualLines={draft.lines.filter((line) => line.lineType !== "product" && line.pricingMode === "direct").length} onCancel={() => setCurrencyChoice(null)} onConfirm={(policy) => {
       if (!commercialOptions.usdMdlRate) return setMessage("Для смены валюты нет опубликованного курса.");
@@ -219,9 +221,9 @@ function Charges({ draft, disabled, update }: { draft: Draft; disabled: boolean;
   return <section className="border-y border-zinc-200 bg-white p-4"><div className="flex justify-between"><h2 className="font-semibold">Дополнительные начисления</h2><button className={buttonClass} disabled={disabled} onClick={() => update((d) => ({ ...d, charges: [...d.charges, { id: crypto.randomUUID(), chargeType: "delivery", description: "Доставка", amount: 0, vatApplicable: true, customerVisible: true, sortOrder: d.charges.length }] }))} type="button"><Plus className="size-4" />Добавить</button></div><div className="mt-3 space-y-2">{draft.charges.map((charge) => <div className="grid gap-2 sm:grid-cols-[10rem_minmax(10rem,1fr)_8rem_auto_auto]" key={charge.id}><select className={inputClass} disabled={disabled} onChange={(e) => update((d) => ({ ...d, charges: d.charges.map((item) => item.id === charge.id ? { ...item, chargeType: e.target.value as EstimateChargeType } : item) }))} value={charge.chargeType}>{chargeTypes.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}</select><input className={inputClass} disabled={disabled} onChange={(e) => update((d) => ({ ...d, charges: d.charges.map((item) => item.id === charge.id ? { ...item, description: e.target.value } : item) }))} value={charge.description} /><NumberInput disabled={disabled} onValue={(value) => update((d) => ({ ...d, charges: d.charges.map((item) => item.id === charge.id ? { ...item, amount: value ?? 0 } : item) }))} value={charge.amount} /><label className="flex items-center gap-2 text-xs"><input checked={charge.vatApplicable} disabled={disabled} onChange={(e) => update((d) => ({ ...d, charges: d.charges.map((item) => item.id === charge.id ? { ...item, vatApplicable: e.target.checked } : item) }))} type="checkbox" />НДС</label><button aria-label="Удалить начисление" className={buttonClass} disabled={disabled} onClick={() => update((d) => ({ ...d, charges: d.charges.filter((item) => item.id !== charge.id) }))} type="button"><Trash2 className="size-4" /></button></div>)}</div></section>;
 }
 
-function Summary({ currency, preview }: { currency: string; preview: ReturnType<typeof calculateEstimateCommercials> | null }) {
+function Summary({ currency, preview, retailOnly }: { currency: string; preview: ReturnType<typeof calculateEstimateCommercials> | null; retailOnly: boolean }) {
   const rows = preview ? [["Подытог", preview.subtotal], ["Скидки строк", -preview.lineDiscountTotal], ["Скидки разделов", -preview.sectionDiscountTotal], ["Глобальная скидка", -preview.globalDiscountAmount], ["Начисления", preview.chargesTotal], ["НДС", preview.vatAmount], ["Без НДС", preview.totalExcludingVat]] as const : [];
-  return <aside className="sticky top-24 border-y border-zinc-200 bg-white p-5"><p className="text-xs font-semibold uppercase text-zinc-500">Итого</p><div className="mt-4 space-y-2">{rows.map(([label, value]) => <div className="flex justify-between gap-3 text-sm" key={label}><span className="text-zinc-500">{label}</span><span>{money(value, currency)}</span></div>)}</div><div className="mt-4 border-t pt-4"><p className="text-2xl font-semibold">{money(preview?.finalTotal ?? 0, currency)}</p><p className="mt-3 text-sm text-zinc-500">Валовая прибыль: {preview?.grossProfit === null || preview?.grossProfit === undefined ? "—" : money(preview.grossProfit, currency)}</p><p className="text-sm text-zinc-500">Общая маржа: {percent(preview?.overallMarginPercent)}</p>{preview?.incompletePricing && <p className="mt-3 bg-amber-50 p-2 text-xs text-amber-900">Есть позиции без рассчитанной цены.</p>}</div></aside>;
+  return <aside className="sticky top-24 border-y border-zinc-200 bg-white p-5"><p className="text-xs font-semibold uppercase text-zinc-500">Итого</p><div className="mt-4 space-y-2">{rows.map(([label, value]) => <div className="flex justify-between gap-3 text-sm" key={label}><span className="text-zinc-500">{label}</span><span>{money(value, currency)}</span></div>)}</div><div className="mt-4 border-t pt-4"><p className="text-2xl font-semibold">{money(preview?.finalTotal ?? 0, currency)}</p>{!retailOnly ? <><p className="mt-3 text-sm text-zinc-500">Валовая прибыль: {preview?.grossProfit === null || preview?.grossProfit === undefined ? "—" : money(preview.grossProfit, currency)}</p><p className="text-sm text-zinc-500">Общая маржа: {percent(preview?.overallMarginPercent)}</p></> : null}{preview?.incompletePricing && <p className="mt-3 bg-amber-50 p-2 text-xs text-amber-900">Есть позиции без рассчитанной цены.</p>}</div></aside>;
 }
 
 function CurrencyDialog({ current, target, rate, effectiveDate, affectedLines, manualLines, onCancel, onConfirm }: { current: string; target: string; rate: number | null; effectiveDate: string | null; affectedLines: number; manualLines: number; onCancel: () => void; onConfirm: (policy: EstimateCurrencyChangePolicy) => void }) {

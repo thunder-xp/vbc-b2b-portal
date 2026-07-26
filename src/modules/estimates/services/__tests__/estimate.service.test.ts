@@ -95,7 +95,13 @@ describe("DefaultEstimateService", () => {
         getOwnMemberships: vi.fn().mockResolvedValue([{ companyId: "company-1", status: "active" }]),
         getActiveCompanyContext: vi.fn().mockResolvedValue({ company: { id: "company-1" } }),
       } as never,
-      { ensurePermission: vi.fn().mockResolvedValue({ isAllowed: true }), hasPermission: vi.fn() } as never,
+      {
+        ensurePermission: vi.fn().mockResolvedValue({ isAllowed: true }),
+        hasPermission: vi.fn(),
+        getEffectivePermissionContext: vi.fn().mockResolvedValue({
+          effectivePermissionCodes: ["pricing.partner_price.view"],
+        }),
+      } as never,
       catalog,
       pricing,
     );
@@ -239,6 +245,83 @@ describe("DefaultEstimateService", () => {
     expect(catalog.getProductsByIds).not.toHaveBeenCalled();
     expect(pricing.getProductCommercialViews).not.toHaveBeenCalled();
     expect(detail.total).toContain("100");
+  });
+
+  it("uses the permitted retail rate without storing partner cost", async () => {
+    const permission = Reflect.get(service, "permissionService") as {
+      getEffectivePermissionContext: ReturnType<typeof vi.fn>;
+    };
+    permission.getEffectivePermissionContext.mockResolvedValue({
+      effectivePermissionCodes: ["pricing.retail_price.view"],
+    });
+    pricing.getRetailUsdMdlRateSnapshot = vi.fn().mockResolvedValue({
+      sourceCode: "113",
+      mdlPerUsdRate: 17.5,
+      effectiveDate: "2026-07-16",
+      publishedAt: "2026-07-16T09:00:00Z",
+    });
+    vi.mocked(pricing.getProductCommercialViews).mockResolvedValue([{
+      productId: "product-1",
+      partnerPrice: null,
+      retailPrice: {
+        amount: 1750,
+        currencyCode: "MDL",
+        formattedAmount: "1 750,00 MDL",
+        lastUpdatedAt: "2026-07-16T09:00:00Z",
+      },
+      stock: null,
+      isDemoData: false,
+      retailBelowPartnerPrice: false,
+    }]);
+
+    await service.addProducts("user-1", "estimate-1", 3, [
+      { productId: "product-1", quantity: 1 },
+    ]);
+
+    expect(pricing.getRetailUsdMdlRateSnapshot).toHaveBeenCalledOnce();
+    expect(repository.addLines).toHaveBeenCalledWith(
+      "estimate-1",
+      3,
+      [expect.objectContaining({
+        sourceUnitPrice: null,
+        sourceCurrencyCode: null,
+        convertedCostUnitPrice: null,
+        sellingUnitPrice: 100,
+      })],
+    );
+  });
+
+  it("omits confidential estimate fields for retail-only users", async () => {
+    const permission = Reflect.get(service, "permissionService") as {
+      getEffectivePermissionContext: ReturnType<typeof vi.fn>;
+    };
+    permission.getEffectivePermissionContext.mockResolvedValue({
+      effectivePermissionCodes: ["pricing.retail_price.view"],
+    });
+    vi.mocked(repository.findAggregateById).mockResolvedValue(aggregate([{
+      ...item(1),
+      sourceUnitPrice: 50.125,
+      sourceCurrencyCode: "USD",
+      internalCostUnitPrice: 50.125,
+      convertedCostUnitPrice: 50.125,
+      pricingMode: "markup",
+      pricingInputValue: 80,
+      sellingUnitPrice: 90.23,
+    }]));
+
+    const detail = await service.getDetail("user-1", "estimate-1");
+    const serialized = JSON.stringify(detail);
+
+    expect(detail).toMatchObject({ commercialMode: "retail_only" });
+    expect(detail.lines[0]).toMatchObject({
+      pricingMode: "direct",
+      pricingInputValue: 90.23,
+    });
+    expect(serialized).not.toContain("sourcePrice");
+    expect(serialized).not.toContain("internalCostUnitPrice");
+    expect(serialized).not.toContain("markupPercent");
+    expect(serialized).not.toContain("marginPercent");
+    expect(serialized).not.toContain("50.125");
   });
 
   it("preserves user-entered Unicode in one atomic commercial draft mutation", async () => {

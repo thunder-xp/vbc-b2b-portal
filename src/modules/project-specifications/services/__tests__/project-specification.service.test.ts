@@ -83,7 +83,9 @@ function createFixture(status = ProjectSpecificationStatus.Draft) {
   const permissionService: PermissionService = {
     getRole: vi.fn(),
     getRolePermissions: vi.fn(),
-    getEffectivePermissionContext: vi.fn(),
+    getEffectivePermissionContext: vi.fn().mockResolvedValue({
+      effectivePermissionCodes: ["pricing.partner_price.view"],
+    } as never),
     hasPermission: vi.fn(),
     ensurePermission: vi.fn().mockResolvedValue(undefined),
   };
@@ -113,6 +115,26 @@ describe("DefaultProjectSpecificationService", () => {
     const detail = await service.getDetail("user-1", "spec-1");
     expect(detail.lines[0]).toMatchObject({ partnerLineTotal: "200,00 $", retailLineTotal: "5 000,00 MDL", availableStock: 8, nearestArrivalDate: "01.08.2026" });
     expect(detail.totals).toMatchObject({ partnerPurchaseTotal: "200,00 $", retailTotal: "5 000,00 MDL", potentialGrossProfit: "80,00 $", markupPercentage: "40%" });
+  });
+
+  it("redacts immutable partner snapshots for retail-only users", async () => {
+    const { service } = createFixture(ProjectSpecificationStatus.Submitted);
+    const permission = Reflect.get(service, "permissionService") as {
+      getEffectivePermissionContext: ReturnType<typeof vi.fn>;
+    };
+    permission.getEffectivePermissionContext.mockResolvedValue({
+      effectivePermissionCodes: ["pricing.retail_price.view"],
+    });
+
+    const detail = await service.getDetail("user-1", "spec-1");
+    const serialized = JSON.stringify(detail);
+
+    expect(detail.totals).toMatchObject({ retailTotal: expect.any(String) });
+    expect(serialized).not.toContain("partnerUnitPrice");
+    expect(serialized).not.toContain("partnerLineTotal");
+    expect(serialized).not.toContain("partnerPurchaseTotal");
+    expect(serialized).not.toContain("potentialGrossProfit");
+    expect(serialized).not.toContain("markupPercentage");
   });
 
   it("uses active company access and the dedicated permission", async () => {
