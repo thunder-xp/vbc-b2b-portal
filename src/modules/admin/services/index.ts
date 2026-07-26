@@ -22,3 +22,7 @@ export {
   AdminIdentityService,
   createAdminIdentityService,
 } from "./admin-identity.service";
+export {
+  AdminAccessService,
+  createAdminAccessService,
+} from "./admin-access.service";

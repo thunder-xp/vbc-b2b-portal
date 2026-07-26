@@ -5,6 +5,7 @@ import { getCompanyUsersAction } from "@/src/modules/access-control/actions/comp
 import { CompanyUsersPanel } from "@/src/modules/access-control/components/company-users";
 import {
   AdminCompanyOverviewView,
+  AdminCompanyAccessSubjects,
   AdminPageHeader,
   createAdminCompanyService,
   requireAdminPagePermission,
@@ -33,7 +34,7 @@ export default async function AdminCompanyPage({
     ? requestedTab
     : "overview";
   const companyUsers =
-    tab === "users"
+    tab === "users" || tab === "access"
       ? await getCompanyUsersAction({
           companyId,
           page: numberValue(first(query.page)),
@@ -78,6 +79,11 @@ export default async function AdminCompanyPage({
           isAdmin
           page={companyUsers.data.users}
           showAudit={false}
+        />
+      ) : tab === "access" && companyUsers?.success ? (
+        <AdminCompanyAccessSubjects
+          companyId={companyId}
+          users={companyUsers.data.users}
         />
       ) : (
         <section className="border border-zinc-200 bg-white p-8 text-sm text-zinc-600">

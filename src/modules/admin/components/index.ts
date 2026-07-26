@@ -5,3 +5,5 @@ export { AdminCompanyDirectory } from "./AdminCompanyDirectory";
 export { AdminCompanyOverviewView } from "./AdminCompanyOverview";
 export { AdminUserDirectory } from "./AdminUserDirectory";
 export { AdminInvitationDirectory } from "./AdminInvitationDirectory";
+export { AdminAccessInspector } from "./AdminAccessInspector";
+export { AdminCompanyAccessSubjects } from "./AdminCompanyAccessSubjects";

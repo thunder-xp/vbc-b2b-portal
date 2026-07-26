@@ -31,3 +31,9 @@ export {
   type AdminUserPage,
   type AdminUserSummary,
 } from "./admin-identity";
+export type {
+  AdminAccessCompanyContext,
+  AdminAccessInspection,
+  AdminAccessPermission,
+  AdminAccessSubject,
+} from "./admin-access";

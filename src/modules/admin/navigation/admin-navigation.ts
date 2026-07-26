@@ -65,6 +65,16 @@ const NAVIGATION: readonly AdminNavigationGroup[] = [
     ],
   },
   {
+    label: "Безопасность",
+    items: [
+      {
+        label: "Инспектор доступа",
+        href: "/admin/access",
+        permission: "admin.security.view",
+      },
+    ],
+  },
+  {
     label: "Операции",
     items: [
       {

@@ -8,6 +8,7 @@ export type {
   ListAdminInvitationsRepositoryInput,
   ListAdminUsersRepositoryInput,
 } from "./admin-identity.repository";
+export type { AdminAccessRepository } from "./admin-access.repository";
 export type {
   AdminDashboardRepository,
   AdminOperationalProjection,
