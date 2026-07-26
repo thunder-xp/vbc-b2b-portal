@@ -18,6 +18,12 @@ const guardedPages = [
   "app/(admin)/admin/specifications/[id]/page.tsx",
   "app/(admin)/admin/reservation-requests/page.tsx",
   "app/(admin)/admin/reservation-requests/[id]/page.tsx",
+  "app/(admin)/admin/companies/page.tsx",
+  "app/(admin)/admin/companies/[companyId]/page.tsx",
+  "app/(admin)/admin/users/page.tsx",
+  "app/(admin)/admin/users/[userId]/history/page.tsx",
+  "app/(admin)/admin/invitations/page.tsx",
+  "app/(admin)/admin/access/page.tsx",
 ];
 
 describe("admin Slice 1 security boundaries", () => {
@@ -65,6 +71,12 @@ describe("admin Slice 1 security boundaries", () => {
       source(
         "supabase/migrations/20260726153000_admin_diagnostic_audit.sql",
       ),
+      source(
+        "supabase/migrations/20260726164000_admin_access_mutations.sql",
+      ),
+      source(
+        "supabase/migrations/20260726165000_admin_context_history.sql",
+      ),
     ].join("\n");
 
     expect(migrations).toContain(
@@ -76,5 +88,14 @@ describe("admin Slice 1 security boundaries", () => {
     expect(migrations).not.toMatch(
       /grant\s+(insert|update|delete)\s+on table public\.(internal_user_role_assignments|internal_diagnostic_audit_events)\s+to authenticated/i,
     );
+  });
+
+  it("keeps access inspection read-only and forbids impersonation routes", () => {
+    const inspector = source(
+      "src/modules/admin/components/AdminAccessInspector.tsx",
+    );
+    const routes = guardedPages.join("\n");
+    expect(inspector).not.toMatch(/signInAs|impersonat|auth\.admin/i);
+    expect(routes).not.toMatch(/impersonat/);
   });
 });

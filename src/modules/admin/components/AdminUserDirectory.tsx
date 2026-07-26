@@ -23,9 +23,11 @@ const FILTER_LABELS: Record<AdminUserFilter, string> = {
 
 export function AdminUserDirectory({
   canManageInternalRoles,
+  canViewAudit,
   users,
 }: {
   canManageInternalRoles: boolean;
+  canViewAudit: boolean;
   users: AdminUserPage;
 }) {
   return (
@@ -119,6 +121,14 @@ export function AdminUserDirectory({
                       hasAssignment={Boolean(user.roleSummary)}
                       userId={user.userId}
                     />
+                  ) : null}
+                  {canViewAudit && user.userId ? (
+                    <Link
+                      className="mt-3 inline-block text-xs font-semibold text-emerald-700"
+                      href={`/admin/users/${encodeURIComponent(user.userId)}/history`}
+                    >
+                      История доступа
+                    </Link>
                   ) : null}
                 </div>
               </article>

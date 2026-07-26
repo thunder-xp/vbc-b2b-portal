@@ -32,3 +32,7 @@ export {
   createAdminRoleManagementService,
   type AssignableInternalRole,
 } from "./admin-role-management.service";
+export {
+  AdminHistoryService,
+  createAdminHistoryService,
+} from "./admin-history.service";

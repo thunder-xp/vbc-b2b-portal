@@ -59,18 +59,17 @@ export class SupabaseCompanyMembershipRepository
     input: CreateCompanyMembershipInput,
   ): Promise<CompanyMembership> {
     const supabase = await createClient();
-    const { data, error } = await supabase
-      .from("company_memberships")
-      .insert({
-        user_id: input.userId,
-        company_id: input.companyId,
-        role_id: input.roleId,
-        status: input.status ?? MembershipStatus.PendingApproval,
-        approved_by: input.approvedBy ?? null,
-        approved_at: input.approvedAt ?? null,
-      })
-      .select(COMPANY_MEMBERSHIP_COLUMNS)
-      .single();
+    const { data, error } = await supabase.rpc(
+      "create_approved_company_membership",
+      {
+        p_user_id: input.userId,
+        p_company_id: input.companyId,
+        p_role_id: input.roleId,
+        p_status: input.status ?? MembershipStatus.PendingApproval,
+        p_approved_by: input.approvedBy ?? null,
+        p_approved_at: input.approvedAt ?? null,
+      },
+    );
 
     if (error) {
       throw new RepositoryUnexpectedError();

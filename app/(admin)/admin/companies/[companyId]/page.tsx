@@ -6,8 +6,10 @@ import { CompanyUsersPanel } from "@/src/modules/access-control/components/compa
 import {
   AdminCompanyOverviewView,
   AdminCompanyAccessSubjects,
+  AdminHistory,
   AdminPageHeader,
   createAdminCompanyService,
+  createAdminHistoryService,
   requireAdminPagePermission,
 } from "@/src/modules/admin";
 
@@ -25,12 +27,15 @@ export default async function AdminCompanyPage({
   params: Promise<{ companyId: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  await requireAdminPagePermission("admin.companies.view");
+  const context = await requireAdminPagePermission("admin.companies.view");
   const [{ companyId }, query] = await Promise.all([params, searchParams]);
   const company = await createAdminCompanyService().getOverview(companyId);
   if (!company) notFound();
+  const tabs = context.permissions.includes("admin.audit.view")
+    ? TABS
+    : TABS.filter(([value]) => value !== "history");
   const requestedTab = first(query.tab);
-  const tab = TABS.some(([value]) => value === requestedTab)
+  const tab = tabs.some(([value]) => value === requestedTab)
     ? requestedTab
     : "overview";
   const companyUsers =
@@ -41,6 +46,12 @@ export default async function AdminCompanyPage({
           includeEvents: false,
         })
       : null;
+  const history = tab === "history"
+    ? await createAdminHistoryService().listCompany(
+        companyId,
+        first(query.page),
+      )
+    : null;
 
   return (
     <div className="space-y-6">
@@ -53,7 +64,7 @@ export default async function AdminCompanyPage({
         aria-label="Разделы компании"
         className="flex gap-1 overflow-x-auto border-b border-zinc-200"
       >
-        {TABS.map(([value, label]) => (
+        {tabs.map(([value, label]) => (
           <Link
             aria-current={tab === value ? "page" : undefined}
             className={`shrink-0 border-b-2 px-3 py-2 text-sm font-medium ${
@@ -84,6 +95,11 @@ export default async function AdminCompanyPage({
         <AdminCompanyAccessSubjects
           companyId={companyId}
           users={companyUsers.data.users}
+        />
+      ) : tab === "history" && history ? (
+        <AdminHistory
+          baseHref={`/admin/companies/${encodeURIComponent(companyId)}?tab=history`}
+          history={history}
         />
       ) : (
         <section className="border border-zinc-200 bg-white p-8 text-sm text-zinc-600">

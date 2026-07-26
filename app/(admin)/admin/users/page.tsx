@@ -21,6 +21,7 @@ export default async function AdminUsersPage({
       canManageInternalRoles={context.permissions.includes(
         "admin.permissions.manage",
       )}
+      canViewAudit={context.permissions.includes("admin.audit.view")}
       users={users}
     />
   );

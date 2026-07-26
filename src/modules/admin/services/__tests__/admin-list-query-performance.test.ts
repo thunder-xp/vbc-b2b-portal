@@ -35,4 +35,19 @@ describe("admin review list query projections", () => {
       /listForReview[\s\S]*records\.map\(async[\s\S]*listItems/,
     );
   });
+
+  it("uses one bounded RPC for company and user history", () => {
+    const repository = source(
+      "src/modules/admin/repositories/supabase/admin-history.supabase-repository.ts",
+    );
+    const migration = source(
+      "supabase/migrations/20260726165000_admin_context_history.sql",
+    );
+    expect(repository.match(/supabase\.rpc\(/g)).toHaveLength(1);
+    expect(repository).toContain('"list_admin_context_history"');
+    expect(migration).toContain(
+      "least(greatest(coalesce(p_page_size, 25), 1), 50)",
+    );
+    expect(repository).not.toMatch(/\.map\(async|Promise\.all/);
+  });
 });
