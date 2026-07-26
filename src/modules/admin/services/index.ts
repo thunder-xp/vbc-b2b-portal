@@ -12,3 +12,9 @@ export {
   requireAdminPagePermission,
   requireAnyAdminPagePermission,
 } from "./admin-page-guard";
+export {
+  AdminCompanyService,
+  createAdminCompanyService,
+  normalizeCompanyFilter,
+  type ListAdminCompaniesInput,
+} from "./admin-company.service";

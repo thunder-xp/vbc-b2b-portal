@@ -18,6 +18,11 @@ const NAVIGATION: readonly AdminNavigationGroup[] = [
     label: "Партнёры",
     items: [
       {
+        label: "Компании",
+        href: "/admin/companies",
+        permission: "admin.companies.view",
+      },
+      {
         label: "Пользователи",
         href: "/admin/company-users",
         permission: "admin.users.view",
