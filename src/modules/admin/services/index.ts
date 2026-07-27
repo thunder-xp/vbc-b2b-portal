@@ -36,3 +36,7 @@ export {
   AdminHistoryService,
   createAdminHistoryService,
 } from "./admin-history.service";
+export {
+  AdminOperationsService,
+  createAdminOperationsService,
+} from "./admin-operations.service";

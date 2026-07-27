@@ -38,3 +38,12 @@ export type {
   AdminAccessSubject,
 } from "./admin-access";
 export type { AdminHistoryEvent, AdminHistoryPage } from "./admin-history";
+export type {
+  AdminIntegrationCenter,
+  AdminIntegrationIncident,
+  AdminIntegrationState,
+  AdminSyncDomain,
+  AdminSyncJob,
+  AdminSyncJobFilters,
+  AdminSyncJobPage,
+} from "./admin-operations";

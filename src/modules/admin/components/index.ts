@@ -8,3 +8,9 @@ export { AdminInvitationDirectory } from "./AdminInvitationDirectory";
 export { AdminAccessInspector } from "./AdminAccessInspector";
 export { AdminCompanyAccessSubjects } from "./AdminCompanyAccessSubjects";
 export { AdminHistory } from "./AdminHistory";
+export {
+  AdminIncidentList,
+  AdminIntegrationCenterView,
+  AdminSyncJobTable,
+} from "./AdminIntegrationViews";
+export { AdminSyncControls } from "./AdminSyncControls";

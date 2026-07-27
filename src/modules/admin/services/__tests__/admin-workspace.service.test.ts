@@ -39,7 +39,17 @@ describe("admin workspace context", () => {
       commitSha: "abcdef123456",
       deploymentId: "deployment-1",
     });
-    expect(context.navigation.flatMap((group) => group.items)).toHaveLength(2);
+    expect(
+      context.navigation
+        .flatMap((group) => group.items)
+        .map((item) => item.href),
+    ).toEqual([
+      "/admin",
+      "/admin/integrations",
+      "/admin/integrations/jobs",
+      "/admin/integrations/1c-health",
+      "/admin/integrations/incidents",
+    ]);
     expect(JSON.stringify(context)).not.toMatch(
       /service.role|credential|token|password/i,
     );

@@ -20,4 +20,5 @@ export type {
   AdminPlatformHealthProjection,
   AdminRecentEventProjection,
 } from "./admin-dashboard.repository";
+export type { AdminOperationsRepository } from "./admin-operations.repository";
 export * from "./supabase";
