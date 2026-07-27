@@ -11,6 +11,7 @@ import type {
   AdminOperationalPage,
   AdminSyncJobFilters,
   AdminSyncJobPage,
+  AdminSupportPage,
 } from "../../types";
 
 export class SupabaseAdminOperationsRepository
@@ -63,6 +64,17 @@ export class SupabaseAdminOperationsRepository
     page: number,
   ): Promise<AdminOperationalPage> {
     return this.call("get_admin_operations_list", {
+      p_view: view,
+      p_page: page,
+      p_page_size: 25,
+    });
+  }
+
+  getSupportPage(
+    view: "estimates" | "finance",
+    page: number,
+  ): Promise<AdminSupportPage> {
+    return this.call("get_admin_support_list", {
       p_view: view,
       p_page: page,
       p_page_size: 25,

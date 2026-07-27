@@ -6,6 +6,7 @@ import type {
   AdminSyncDomain,
   AdminSyncJobFilters,
   AdminSyncJobPage,
+  AdminSupportPage,
 } from "../types";
 
 export interface AdminOperationsRepository {
@@ -27,4 +28,8 @@ export interface AdminOperationsRepository {
     view: "orders" | "shipments" | "reservations",
     page: number,
   ): Promise<AdminOperationalPage>;
+  getSupportPage(
+    view: "estimates" | "finance",
+    page: number,
+  ): Promise<AdminSupportPage>;
 }

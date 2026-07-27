@@ -9,6 +9,7 @@ import type {
   AdminOperationalPage,
   AdminSyncJobFilters,
   AdminSyncJobPage,
+  AdminSupportPage,
 } from "../types";
 
 export class AdminOperationsService {
@@ -46,6 +47,13 @@ export class AdminOperationsService {
     page?: number,
   ): Promise<AdminOperationalPage> {
     return this.repository.getOperationalPage(view, positiveInteger(page, 1));
+  }
+
+  getSupportPage(
+    view: "estimates" | "finance",
+    page?: number,
+  ): Promise<AdminSupportPage> {
+    return this.repository.getSupportPage(view, positiveInteger(page, 1));
   }
 }
 

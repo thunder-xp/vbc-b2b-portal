@@ -55,3 +55,4 @@ export type {
   AdminOperationalPage,
   AdminOperationalRecord,
 } from "./admin-operational";
+export type { AdminSupportPage, AdminSupportRecord } from "./admin-support";
