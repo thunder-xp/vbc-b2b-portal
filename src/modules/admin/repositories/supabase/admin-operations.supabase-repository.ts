@@ -5,6 +5,7 @@ import { RepositoryUnexpectedError } from "@/src/modules/access-control/reposito
 
 import type { AdminOperationsRepository } from "../admin-operations.repository";
 import type {
+  AdminCommercialSummary,
   AdminIntegrationCenter,
   AdminIntegrationIncident,
   AdminSyncJobFilters,
@@ -43,6 +44,16 @@ export class SupabaseAdminOperationsRepository
       p_result_status: input.resultStatus,
       p_run_id: input.runId,
       p_duration_ms: input.durationMs,
+    });
+  }
+
+  getCommercialSummary(
+    domain: "catalog" | "prices" | "stock" | "arrivals",
+    search?: string,
+  ): Promise<AdminCommercialSummary> {
+    return this.call("get_admin_commercial_summary", {
+      p_domain: domain,
+      p_search: search?.trim() || null,
     });
   }
 

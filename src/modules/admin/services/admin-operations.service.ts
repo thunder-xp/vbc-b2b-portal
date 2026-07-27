@@ -3,6 +3,7 @@ import "server-only";
 import type { AdminOperationsRepository } from "../repositories";
 import { SupabaseAdminOperationsRepository } from "../repositories";
 import type {
+  AdminCommercialSummary,
   AdminIntegrationCenter,
   AdminIntegrationIncident,
   AdminSyncJobFilters,
@@ -30,6 +31,13 @@ export class AdminOperationsService {
 
   listIncidents(): Promise<readonly AdminIntegrationIncident[]> {
     return this.repository.listIncidents();
+  }
+
+  getCommercialSummary(
+    domain: "catalog" | "prices" | "stock" | "arrivals",
+    search?: string,
+  ): Promise<AdminCommercialSummary> {
+    return this.repository.getCommercialSummary(domain, search?.slice(0, 100));
   }
 }
 

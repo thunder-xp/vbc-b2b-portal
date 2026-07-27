@@ -17,6 +17,7 @@ const TABS = [
   ["overview", "Обзор"],
   ["users", "Пользователи"],
   ["access", "Доступ"],
+  ["integration", "Интеграция с 1С"],
   ["history", "История"],
 ] as const;
 
@@ -80,7 +81,7 @@ export default async function AdminCompanyPage({
           </Link>
         ))}
       </nav>
-      {tab === "overview" ? (
+      {tab === "overview" || tab === "integration" ? (
         <AdminCompanyOverviewView company={company} />
       ) : tab === "users" && companyUsers?.success ? (
         <CompanyUsersPanel

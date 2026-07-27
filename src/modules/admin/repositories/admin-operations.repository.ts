@@ -1,4 +1,5 @@
 import type {
+  AdminCommercialSummary,
   AdminIntegrationCenter,
   AdminIntegrationIncident,
   AdminSyncDomain,
@@ -17,4 +18,8 @@ export interface AdminOperationsRepository {
     runId: string | null;
     durationMs: number;
   }): Promise<string>;
+  getCommercialSummary(
+    domain: "catalog" | "prices" | "stock" | "arrivals",
+    search?: string,
+  ): Promise<AdminCommercialSummary>;
 }

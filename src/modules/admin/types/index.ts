@@ -47,3 +47,7 @@ export type {
   AdminSyncJobFilters,
   AdminSyncJobPage,
 } from "./admin-operations";
+export type {
+  AdminCommercialRecord,
+  AdminCommercialSummary,
+} from "./admin-commercial";
