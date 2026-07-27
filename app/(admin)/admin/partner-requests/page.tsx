@@ -13,7 +13,7 @@ export default async function AdminPartnerRequestsPage() {
   }
 
   return (
-    <main className="min-h-screen bg-zinc-50 px-4 py-8 text-zinc-950 sm:px-6 lg:px-8">
+    <div className="bg-zinc-50 text-zinc-950">
       <div className="mx-auto max-w-6xl space-y-6">
         <div>
           <p className="text-sm font-medium uppercase tracking-[0.14em] text-emerald-700">
@@ -43,6 +43,6 @@ export default async function AdminPartnerRequestsPage() {
           <AccessRequestReviewList requests={requestsResult.data} />
         )}
       </div>
-    </main>
+    </div>
   );
 }

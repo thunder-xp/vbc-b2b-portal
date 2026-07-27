@@ -25,7 +25,7 @@ export default async function AdminPartnerRequestDetailPage({
   }
 
   return (
-    <main className="min-h-screen bg-zinc-50 px-4 py-8 text-zinc-950 sm:px-6 lg:px-8">
+    <div className="bg-zinc-50 text-zinc-950">
       <div className="mx-auto max-w-5xl space-y-6">
         {!requestResult.success && (
           <section className="rounded-lg border border-zinc-200 bg-white p-6 shadow-sm">
@@ -45,6 +45,6 @@ export default async function AdminPartnerRequestDetailPage({
           </>
         )}
       </div>
-    </main>
+    </div>
   );
 }
