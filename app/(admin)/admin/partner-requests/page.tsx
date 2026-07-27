@@ -17,10 +17,10 @@ export default async function AdminPartnerRequestsPage() {
       <div className="mx-auto max-w-6xl space-y-6">
         <div>
           <p className="text-sm font-medium uppercase tracking-[0.14em] text-emerald-700">
-            Access control
+            Управление доступом
           </p>
           <h1 className="mt-2 text-2xl font-semibold tracking-tight">
-            Partner approval console
+            Заявки партнёров
           </h1>
           <p className="mt-2 max-w-3xl text-sm text-zinc-600">
             Проверяйте заявки компаний и связывайте одобренный доступ с
@@ -31,7 +31,7 @@ export default async function AdminPartnerRequestsPage() {
         {!requestsResult.success && (
           <section className="rounded-lg border border-zinc-200 bg-white p-6 shadow-sm">
             <h2 className="text-lg font-semibold text-zinc-950">
-              Approval console unavailable
+              Заявки временно недоступны
             </h2>
             <p className="mt-2 text-sm text-zinc-600">
               {requestsResult.message}

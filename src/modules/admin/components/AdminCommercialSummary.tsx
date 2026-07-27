@@ -5,9 +5,14 @@ export function AdminCommercialSummaryView({ summary }: { summary: Summary }) {
     <div className="space-y-5">
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {Object.entries(summary.metrics).map(([label, value]) => (
-          <article className="border border-zinc-200 bg-white p-4" key={label}>
+          <article
+            className="min-w-0 border border-zinc-200 bg-white p-4"
+            key={label}
+          >
             <p className="text-xs uppercase text-zinc-500">{label}</p>
-            <p className="mt-2 text-2xl font-semibold">{value ?? "—"}</p>
+            <p className="mt-2 break-words text-2xl font-semibold">
+              {value ?? "—"}
+            </p>
           </article>
         ))}
       </section>

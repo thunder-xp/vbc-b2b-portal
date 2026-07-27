@@ -13,10 +13,10 @@ export function AccessRequestReviewList({
     return (
       <section className="rounded-lg border border-zinc-200 bg-white p-6 shadow-sm">
         <h2 className="text-lg font-semibold text-zinc-950">
-          No pending requests
+          Нет заявок на рассмотрении
         </h2>
         <p className="mt-2 text-sm text-zinc-600">
-          New partner requests will appear here after submission.
+          Новые заявки партнёров появятся здесь после отправки.
         </p>
       </section>
     );
@@ -30,23 +30,23 @@ export function AccessRequestReviewList({
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <h2 className="text-base font-semibold text-zinc-950">
-                  {request.requestedCompanyName ?? "Partner access request"}
+                  {request.requestedCompanyName ?? "Заявка на доступ"}
                 </h2>
                 <dl className="mt-3 grid gap-2 text-sm text-zinc-600 sm:grid-cols-2">
                   <div>
-                    <dt className="font-medium text-zinc-500">Requester</dt>
+                    <dt className="font-medium text-zinc-500">Заявитель</dt>
                     <dd>{request.requesterEmail ?? request.requesterUserId}</dd>
                   </div>
                   <div>
-                    <dt className="font-medium text-zinc-500">Fiscal code</dt>
-                    <dd>{request.requestedFiscalCode ?? "Not provided"}</dd>
+                    <dt className="font-medium text-zinc-500">Фискальный код</dt>
+                    <dd>{request.requestedFiscalCode ?? "Не указан"}</dd>
                   </div>
                   <div>
-                    <dt className="font-medium text-zinc-500">Contact phone</dt>
-                    <dd>{request.contactPhone ?? "Not provided"}</dd>
+                    <dt className="font-medium text-zinc-500">Телефон</dt>
+                    <dd>{request.contactPhone ?? "Не указан"}</dd>
                   </div>
                   <div>
-                    <dt className="font-medium text-zinc-500">Status</dt>
+                    <dt className="font-medium text-zinc-500">Статус</dt>
                     <dd>{request.status}</dd>
                   </div>
                 </dl>
@@ -55,7 +55,7 @@ export function AccessRequestReviewList({
                 className="inline-flex h-9 items-center justify-center rounded-md bg-zinc-950 px-3 text-sm font-medium text-white hover:bg-zinc-800"
                 href={`/admin/partner-requests/${request.id}`}
               >
-                Review
+                Рассмотреть
               </Link>
             </div>
           </article>
