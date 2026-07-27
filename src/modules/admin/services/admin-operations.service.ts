@@ -6,6 +6,7 @@ import type {
   AdminCommercialSummary,
   AdminIntegrationCenter,
   AdminIntegrationIncident,
+  AdminOperationalPage,
   AdminSyncJobFilters,
   AdminSyncJobPage,
 } from "../types";
@@ -38,6 +39,13 @@ export class AdminOperationsService {
     search?: string,
   ): Promise<AdminCommercialSummary> {
     return this.repository.getCommercialSummary(domain, search?.slice(0, 100));
+  }
+
+  getOperationalPage(
+    view: "orders" | "shipments" | "reservations",
+    page?: number,
+  ): Promise<AdminOperationalPage> {
+    return this.repository.getOperationalPage(view, positiveInteger(page, 1));
   }
 }
 

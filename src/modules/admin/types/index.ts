@@ -51,3 +51,7 @@ export type {
   AdminCommercialRecord,
   AdminCommercialSummary,
 } from "./admin-commercial";
+export type {
+  AdminOperationalPage,
+  AdminOperationalRecord,
+} from "./admin-operational";

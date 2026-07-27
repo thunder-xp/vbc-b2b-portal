@@ -8,6 +8,7 @@ import type {
   AdminCommercialSummary,
   AdminIntegrationCenter,
   AdminIntegrationIncident,
+  AdminOperationalPage,
   AdminSyncJobFilters,
   AdminSyncJobPage,
 } from "../../types";
@@ -54,6 +55,17 @@ export class SupabaseAdminOperationsRepository
     return this.call("get_admin_commercial_summary", {
       p_domain: domain,
       p_search: search?.trim() || null,
+    });
+  }
+
+  getOperationalPage(
+    view: "orders" | "shipments" | "reservations",
+    page: number,
+  ): Promise<AdminOperationalPage> {
+    return this.call("get_admin_operations_list", {
+      p_view: view,
+      p_page: page,
+      p_page_size: 25,
     });
   }
 

@@ -2,6 +2,7 @@ import type {
   AdminCommercialSummary,
   AdminIntegrationCenter,
   AdminIntegrationIncident,
+  AdminOperationalPage,
   AdminSyncDomain,
   AdminSyncJobFilters,
   AdminSyncJobPage,
@@ -22,4 +23,8 @@ export interface AdminOperationsRepository {
     domain: "catalog" | "prices" | "stock" | "arrivals",
     search?: string,
   ): Promise<AdminCommercialSummary>;
+  getOperationalPage(
+    view: "orders" | "shipments" | "reservations",
+    page: number,
+  ): Promise<AdminOperationalPage>;
 }
