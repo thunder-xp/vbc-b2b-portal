@@ -55,6 +55,12 @@ export class AdminOperationsService {
   ): Promise<AdminSupportPage> {
     return this.repository.getSupportPage(view, positiveInteger(page, 1));
   }
+
+  getGovernanceSummary(
+    view: "security" | "settings",
+  ): Promise<{ metrics: Readonly<Record<string, number>> }> {
+    return this.repository.getGovernanceSummary(view);
+  }
 }
 
 const operationsService = new AdminOperationsService(

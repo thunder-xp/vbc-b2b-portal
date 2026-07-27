@@ -24,6 +24,13 @@ export class AdminHistoryService {
       pageSize: 25,
     });
   }
+
+  listGlobal(page?: string | number): Promise<AdminHistoryPage> {
+    return this.repository.list({
+      page: normalizePage(page),
+      pageSize: 25,
+    });
+  }
 }
 
 function normalizePage(value?: string | number): number {

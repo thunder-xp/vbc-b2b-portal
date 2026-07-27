@@ -81,6 +81,12 @@ export class SupabaseAdminOperationsRepository
     });
   }
 
+  getGovernanceSummary(
+    view: "security" | "settings",
+  ): Promise<{ metrics: Readonly<Record<string, number>> }> {
+    return this.call("get_admin_governance_summary", { p_view: view });
+  }
+
   private async call<T>(
     operation: string,
     input?: Record<string, unknown>,

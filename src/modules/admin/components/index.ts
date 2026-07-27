@@ -18,3 +18,4 @@ export { AdminCommercialSummaryView } from "./AdminCommercialSummary";
 export { AdminCommercialPage } from "./AdminCommercialPage";
 export { AdminOperationalPageView } from "./AdminOperationalPage";
 export { AdminSupportPageView } from "./AdminSupportPage";
+export { AdminGovernanceSummary } from "./AdminGovernanceSummary";

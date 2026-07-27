@@ -32,4 +32,7 @@ export interface AdminOperationsRepository {
     view: "estimates" | "finance",
     page: number,
   ): Promise<AdminSupportPage>;
+  getGovernanceSummary(
+    view: "security" | "settings",
+  ): Promise<{ metrics: Readonly<Record<string, number>> }>;
 }
