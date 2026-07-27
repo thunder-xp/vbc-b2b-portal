@@ -90,7 +90,7 @@ export function AdminDashboardView({ dashboard }: { dashboard: AdminDashboard })
             ["Без владельца", dashboard.partnerAccess.companiesWithoutOwner],
             ["Без связи с 1С", dashboard.partnerAccess.companiesMissingMapping],
           ]}
-          link="/admin/company-users"
+          link="/admin/companies"
           title="Доступ партнёров"
         />
         <SummaryCard
@@ -101,7 +101,7 @@ export function AdminDashboardView({ dashboard }: { dashboard: AdminDashboard })
             ["Спецификации", dashboard.queues.specificationsAwaitingReview],
             ["Ошибки заказов", dashboard.queues.failedOrderExports],
           ]}
-          link="/admin/partner-requests"
+          link="/admin/date-change-requests"
           title="Операционная очередь"
         />
         <SummaryCard

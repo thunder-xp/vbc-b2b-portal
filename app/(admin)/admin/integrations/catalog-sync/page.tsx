@@ -1,26 +1,7 @@
-import { CatalogSyncPanel } from "@/src/modules/integration/components";
+import { redirect } from "next/navigation";
 import { requireAdminPagePermission } from "@/src/modules/admin";
 
-export default async function CatalogSyncPage() {
+export default async function CatalogSyncCompatibilityPage() {
   await requireAdminPagePermission("admin.catalog.view");
-  return (
-    <main className="min-h-screen bg-slate-50 px-4 py-8 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-5xl space-y-6">
-        <div>
-          <p className="text-sm font-medium uppercase tracking-wide text-emerald-700">
-            Integrations
-          </p>
-          <h1 className="mt-2 text-2xl font-semibold text-slate-950">
-            Catalog synchronization
-          </h1>
-          <p className="mt-2 max-w-3xl text-sm text-slate-600">
-            Daily full synchronization of the SECURITYPARK DISTRIBUTION
-            nomenclature subtree. Prices and stock are synchronized separately.
-          </p>
-        </div>
-
-        <CatalogSyncPanel />
-      </div>
-    </main>
-  );
+  redirect("/admin/integrations");
 }
