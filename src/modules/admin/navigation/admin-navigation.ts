@@ -3,53 +3,46 @@ import type {
   AdminNavigationItem,
 } from "../types";
 
-const NAVIGATION: readonly AdminNavigationGroup[] = [
+export const ADMIN_NAVIGATION: readonly AdminNavigationGroup[] = [
   {
     label: "Обзор",
     items: [
+      { label: "Рабочий стол", href: "/admin", permission: "admin.dashboard.view" },
       {
-        label: "Рабочий стол",
-        href: "/admin",
-        permission: "admin.dashboard.view",
+        label: "Состояние платформы",
+        href: "/admin/platform-health",
+        permission: "admin.platform_health.view",
       },
     ],
   },
   {
     label: "Партнёры",
     items: [
-      {
-        label: "Компании",
-        href: "/admin/companies",
-        permission: "admin.companies.view",
-      },
-      {
-        label: "Пользователи",
-        href: "/admin/users",
-        permission: "admin.users.view",
-      },
-      {
-        label: "Приглашения",
-        href: "/admin/invitations",
-        permission: "admin.invitations.view",
-      },
+      { label: "Компании", href: "/admin/companies", permission: "admin.companies.view" },
+      { label: "Пользователи", href: "/admin/users", permission: "admin.users.view" },
+      { label: "Приглашения", href: "/admin/invitations", permission: "admin.invitations.view" },
       {
         label: "Заявки на доступ",
         href: "/admin/partner-requests",
         permission: "admin.access_requests.view",
       },
+      { label: "Проверка прав", href: "/admin/access", permission: "admin.security.view" },
     ],
   },
   {
     label: "Коммерческие данные",
     items: [
+      { label: "Каталог", href: "/admin/commercial/catalog", permission: "admin.catalog.view" },
+      { label: "Цены", href: "/admin/commercial/prices", permission: "admin.prices.view" },
+      { label: "Остатки", href: "/admin/commercial/stock", permission: "admin.stock.view" },
       {
-        label: "Каталог и синхронизация",
-        href: "/admin/integrations/catalog-sync",
-        permission: "admin.catalog.view",
+        label: "Ожидаемые поступления",
+        href: "/admin/commercial/arrivals",
+        permission: "admin.stock.view",
       },
       {
-        label: "Курсы",
-        href: "/admin/commercial-rates",
+        label: "Коммерческие курсы",
+        href: "/admin/commercial/rates",
         permission: "admin.rates.view",
       },
     ],
@@ -58,34 +51,78 @@ const NAVIGATION: readonly AdminNavigationGroup[] = [
     label: "Интеграции",
     items: [
       {
-        label: "Диагностика 1С",
+        label: "Центр синхронизации",
+        href: "/admin/integrations",
+        permission: "admin.integrations.view",
+      },
+      {
+        label: "История заданий",
+        href: "/admin/integrations/jobs",
+        permission: "admin.integrations.view",
+      },
+      {
+        label: "Состояние 1С",
         href: "/admin/integrations/1c-health",
         permission: "admin.integrations.view",
       },
-    ],
-  },
-  {
-    label: "Безопасность",
-    items: [
       {
-        label: "Инспектор доступа",
-        href: "/admin/access",
-        permission: "admin.security.view",
+        label: "Инциденты",
+        href: "/admin/integrations/incidents",
+        permission: "admin.integrations.view",
       },
     ],
   },
   {
     label: "Операции",
     items: [
+      { label: "Заказы", href: "/admin/orders", permission: "admin.orders.view" },
+      {
+        label: "Планируемые отгрузки",
+        href: "/admin/planned-shipments",
+        permission: "admin.shipments.view",
+      },
       {
         label: "Переносы дат",
-        href: "/admin/reservation-requests",
+        href: "/admin/date-change-requests",
         permission: "order_date_changes.review",
       },
+      { label: "Резервы", href: "/admin/reservations", permission: "reservations.review" },
       {
         label: "Спецификации",
         href: "/admin/specifications",
         permission: "specifications.review",
+      },
+      { label: "Сметы и КП", href: "/admin/estimates", permission: "admin.estimates.view" },
+    ],
+  },
+  {
+    label: "Финансы",
+    items: [
+      {
+        label: "Балансы по договорам",
+        href: "/admin/finance",
+        permission: "admin.finance.view",
+      },
+    ],
+  },
+  {
+    label: "Безопасность",
+    items: [
+      { label: "Журнал аудита", href: "/admin/audit", permission: "admin.audit.view" },
+      {
+        label: "Центр безопасности",
+        href: "/admin/security",
+        permission: "admin.security.view",
+      },
+    ],
+  },
+  {
+    label: "Настройки",
+    items: [
+      {
+        label: "Роли и разрешения",
+        href: "/admin/settings",
+        permission: "admin.settings.view",
       },
     ],
   },
@@ -95,8 +132,7 @@ export function buildAdminNavigation(
   permissions: readonly string[],
 ): readonly AdminNavigationGroup[] {
   const allowed = new Set(permissions);
-
-  return NAVIGATION.map((group) => ({
+  return ADMIN_NAVIGATION.map((group) => ({
     ...group,
     items: group.items.filter((item) => allowed.has(item.permission)),
   })).filter((group) => group.items.length > 0);
@@ -114,6 +150,5 @@ export function findAdminNavigationItem(
         (item.href !== "/admin" && pathname.startsWith(`${item.href}/`)),
     )
     .sort((left, right) => right.href.length - left.href.length);
-
   return candidates[0] ?? null;
 }
