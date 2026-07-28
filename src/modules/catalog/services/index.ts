@@ -26,6 +26,11 @@ export {
 } from "./catalog-sorting";
 export { CATALOG_VIEW_COOKIE, parseCatalogViewMode, type CatalogViewMode } from "./catalog-view-preference";
 export {
+  parseCatalogRouteState,
+  type CatalogRouteMode,
+  type CatalogRouteState,
+} from "./catalog-route-state";
+export {
   resolveCategoryFilters,
   type CatalogFilterDefinition,
   type CatalogNavigationConfiguration,
