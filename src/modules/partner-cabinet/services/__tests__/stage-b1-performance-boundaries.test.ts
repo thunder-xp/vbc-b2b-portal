@@ -52,7 +52,9 @@ describe("Stage B1 authenticated rendering boundaries", () => {
     const page = await source("app/(partner)/cabinet/catalog/page.tsx");
     expect(page).not.toContain('from "@/src/modules/catalog/components"');
     expect(page.match(/<Suspense/g)).toHaveLength(1);
-    expect(page.indexOf("const productsPromise")).toBeLessThan(page.indexOf("await categoriesPromise"));
+    expect(page).toContain('routeState.mode === "curated"');
+    expect(page).toContain("productsPromise={listCatalogProductsAction({");
+    expect(page).not.toContain("const productsPromise");
   });
 
   it("defines a security-invoker cart count with narrow grants", async () => {

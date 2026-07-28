@@ -8,6 +8,7 @@ import type { ProductCardCapabilityModel } from "../../partner-cabinet/services"
 import { ProductCard } from "./ProductCard";
 import { CATALOG_PRODUCT_GRID_CLASS } from "./ProductGrid";
 import { BehaviorViewEvent } from "../../behavior-analytics/components";
+import { recordBehaviorInteraction } from "../../behavior-analytics/components/BehaviorViewEvent";
 
 export function CatalogMerchandisingSections({
   capabilities,
@@ -39,8 +40,15 @@ export function CatalogMerchandisingSections({
               {section.title}
             </h2>
             <Link
+              aria-label={`Показать все: ${section.title}`}
               className="shrink-0 text-sm font-semibold text-emerald-700 hover:text-emerald-800"
               href={`/cabinet/catalog?label=${section.labelCode}`}
+              onClick={() => recordBehaviorInteraction({
+                eventName: "merchandising_product_clicked",
+                metadataSafe: { action: "show_all" },
+                route: "/cabinet/catalog",
+                sourceSurface: section.labelCode,
+              })}
               prefetch={false}
             >
               Показать все

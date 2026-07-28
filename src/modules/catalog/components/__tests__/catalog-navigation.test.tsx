@@ -2,11 +2,15 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
+vi.mock("../../behavior-analytics/components/BehaviorViewEvent", () => ({
+  recordBehaviorInteraction: vi.fn(),
+}));
+
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn() }),
 }));
 
-import { CatalogFilters, catalogHref } from "../CatalogFilters";
+import { CatalogFilters } from "../CatalogFilters";
 import { buildCategoryTree, CategoryMegaMenu } from "../CategoryMegaMenu";
 
 const categories = [
@@ -74,6 +78,16 @@ describe("catalog navigation", () => {
     await user.keyboard("{Escape}");
     expect(screen.queryByText("Выберите направление")).not.toBeInTheDocument();
     expect(trigger).toHaveFocus();
+  });
+
+  it("moves focus into the category dialog and traps keyboard focus", async () => {
+    const user = userEvent.setup();
+    render(<CategoryMegaMenu categories={categories} />);
+    await user.click(screen.getByRole("button", { name: "Категории" }));
+    const dialog = screen.getByRole("dialog", { name: "Категории каталога" });
+    expect(dialog).toContainElement(document.activeElement as HTMLElement);
+    await user.keyboard("{Shift>}{Tab}{/Shift}");
+    expect(dialog).toContainElement(document.activeElement as HTMLElement);
   });
 
   it("replaces Brand with an availability filter defaulting to All", () => {

@@ -103,6 +103,18 @@ export function BehaviorTrackedLink({
   );
 }
 
+export function recordBehaviorInteraction(input: {
+  eventName: BehaviorEventName;
+  metadataSafe?: SafeBehaviorMetadata;
+  route: string;
+  sourceSurface: string;
+}): void {
+  void recordBehaviorEventAction({
+    ...input,
+    sessionId: getSessionId(),
+  });
+}
+
 function getSessionId(): string {
   const existing = sessionStorage.getItem(SESSION_KEY);
   if (existing) return existing;

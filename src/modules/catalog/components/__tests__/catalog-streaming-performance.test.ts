@@ -9,8 +9,10 @@ const search = source("src/modules/catalog/components/CatalogSearch.tsx");
 const filterLink = source("src/modules/catalog/components/CatalogFilterLink.tsx");
 
 describe("catalog streaming and interaction boundaries", () => {
-  it("starts the product result before deferred facet work", () => {
-    expect(page).toContain("const productsPromise = listCatalogProductsAction");
+  it("starts product results only on the discovery path before deferred facet work", () => {
+    expect(page).toContain('routeState.mode === "curated"');
+    expect(page).toContain("productsPromise={listCatalogProductsAction({");
+    expect(page).not.toContain("const productsPromise");
     expect(page).not.toContain("const facetsPromise = listCatalogFacetsAction");
     expect(results).toContain("const result = await listCatalogFacetsAction");
     expect(results.indexOf("await Promise.all")).toBeLessThan(results.indexOf("listCatalogFacetsAction({"));

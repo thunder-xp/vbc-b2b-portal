@@ -56,7 +56,7 @@ export function CatalogSearch({ categoryId, explicitAll, initialSearch, merchand
     }
   }
 
-  return <div className="relative flex-1">
+  return <div className="relative min-w-0 flex-1">
     <form action="/cabinet/catalog" className="relative">
       {categoryId && <input name="category" type="hidden" value={categoryId} />}
       {explicitAll && <input name="view" type="hidden" value="all" />}

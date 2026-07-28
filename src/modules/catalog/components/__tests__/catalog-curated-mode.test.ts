@@ -33,6 +33,13 @@ describe("catalog curated mode boundaries", () => {
     expect(page).toContain('href="/cabinet/catalog?view=all"');
     expect(page).toContain("Весь каталог");
   });
+
+  it("does not fetch or render hidden full-catalog data in curated mode", () => {
+    expect(curated).not.toContain("productsPromise");
+    expect(curated).not.toContain("facets");
+    expect(curated).not.toContain("CatalogFilters");
+    expect(page).not.toContain("const productsPromise");
+  });
 });
 
 function source(path: string): string {

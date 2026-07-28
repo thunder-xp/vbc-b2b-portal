@@ -10,18 +10,20 @@ describe("parseCatalogRouteState", () => {
     expect(parseCatalogRouteState({ page: "9" })).toMatchObject({ mode: "curated", page: 1 });
   });
 
-  it.each([
-    [{ search: "camera" }, "search"],
-    [{ category: "category-id" }, "category"],
-    [{ brand: "brand-id" }, "brand"],
-    [{ availability: "in_stock" }, "availability"],
-    [{ label: "TOP" }, "label"],
-    [{ sort: "price_desc" }, "sort"],
-    [{ view: "all" }, "explicit all"],
-    [{ [`attr.${attributeKey}`]: "4 MP" }, "technical filter"],
-  ])("activates discovery mode for $1", (params, _label) => {
-    expect(parseCatalogRouteState(params).mode).toBe("discovery");
-  });
+  for (const [label, params] of Object.entries({
+    search: { search: "camera" },
+    category: { category: "category-id" },
+    brand: { brand: "brand-id" },
+    availability: { availability: "in_stock" },
+    label: { label: "TOP" },
+    sort: { sort: "price_desc" },
+    "explicit all": { view: "all" },
+    "technical filter": { [`attr.${attributeKey}`]: "4 MP" },
+  })) {
+    it(`activates discovery mode for ${label}`, () => {
+      expect(parseCatalogRouteState(params).mode).toBe("discovery");
+    });
+  }
 
   it("normalizes invalid and empty inputs without entering discovery mode", () => {
     expect(parseCatalogRouteState({
