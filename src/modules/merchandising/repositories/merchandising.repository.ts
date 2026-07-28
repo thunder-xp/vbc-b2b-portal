@@ -1,6 +1,8 @@
 import type {
   AdminMerchandisingPage,
+  AdminMerchandisingPreview,
   ManageMerchandisingInput,
+  ManageMerchandisingResult,
   MerchandisingLabelCode,
   PublishedMerchandisingAssignment,
 } from "../types";
@@ -11,6 +13,7 @@ export interface MerchandisingRepository {
     page: number;
     pageSize: number;
   }): Promise<AdminMerchandisingPage>;
+  getAdminPreview(limitPerLabel: number): Promise<AdminMerchandisingPreview>;
   listPublished(input: {
     companyId: string;
     labelCode?: MerchandisingLabelCode;
@@ -21,12 +24,15 @@ export interface MerchandisingRepository {
     productIds: string[];
   }): Promise<PublishedMerchandisingAssignment[]>;
   manage(input: Required<Pick<ManageMerchandisingInput,
-    "operation" | "productIds" | "labelCode" | "priority" | "reason"
-  >> & Pick<ManageMerchandisingInput, "startsAt" | "endsAt">): Promise<number>;
+    "requestId" | "operation" | "productIds" | "labelCode" | "priority" | "reason"
+  >> & Pick<ManageMerchandisingInput, "startsAt" | "endsAt">): Promise<ManageMerchandisingResult>;
 }
 
 export class MerchandisingRepositoryError extends Error {
-  constructor(readonly safeCode = "MERCHANDISING_REPOSITORY_ERROR") {
+  constructor(
+    readonly safeCode = "MERCHANDISING_UNKNOWN_FAILURE",
+    readonly databaseCode: string | null = null,
+  ) {
     super(safeCode);
     this.name = "MerchandisingRepositoryError";
   }

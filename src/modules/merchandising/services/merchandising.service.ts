@@ -5,7 +5,9 @@ import { MembershipStatus } from "../../access-control/types";
 import type { MerchandisingRepository } from "../repositories";
 import type {
   AdminMerchandisingPage,
+  AdminMerchandisingPreview,
   ManageMerchandisingInput,
+  ManageMerchandisingResult,
   MerchandisingLabelCode,
   PublishedMerchandisingAssignment,
 } from "../types";
@@ -36,6 +38,12 @@ export class MerchandisingService {
       page: positiveInteger(input.page, 1),
       pageSize: Math.min(positiveInteger(input.pageSize, 25), 50),
     });
+  }
+
+  getAdminPreview(limitPerLabel = 8): Promise<AdminMerchandisingPreview> {
+    return this.repository.getAdminPreview(
+      Math.min(Math.max(Math.floor(limitPerLabel), 1), 24),
+    );
   }
 
   async listPublished(
@@ -95,7 +103,7 @@ export class MerchandisingService {
     });
   }
 
-  manage(input: ManageMerchandisingInput): Promise<number> {
+  manage(input: ManageMerchandisingInput): Promise<ManageMerchandisingResult> {
     const productIds = [...new Set(input.productIds.map((id) => id.trim()))];
     const reason = input.reason.trim();
     const priority = input.priority ?? 100;
@@ -103,6 +111,7 @@ export class MerchandisingService {
     if (
       !OPERATIONS.has(input.operation) ||
       !LABEL_CODES.has(input.labelCode) ||
+      !isUuid(input.requestId) ||
       productIds.length < 1 ||
       productIds.length > 100 ||
       productIds.some((id) => !isUuid(id)) ||
@@ -130,6 +139,7 @@ export class MerchandisingService {
     }
 
     return this.repository.manage({
+      requestId: input.requestId,
       operation: input.operation,
       productIds,
       labelCode: input.labelCode,
@@ -147,6 +157,9 @@ function positiveInteger(value: number | undefined, fallback: number): number {
 
 function validTimestamp(value: string | null | undefined): string | null {
   if (!value) return null;
+  if (!/(?:Z|[+-]\d{2}:\d{2})$/i.test(value)) {
+    throw new MerchandisingValidationError("MERCHANDISING_DATE_INVALID");
+  }
   const timestamp = Date.parse(value);
   if (!Number.isFinite(timestamp)) {
     throw new MerchandisingValidationError("MERCHANDISING_DATE_INVALID");

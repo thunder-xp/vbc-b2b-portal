@@ -6,17 +6,20 @@ import type { MerchandisingRepository } from "../../repositories";
 import { MerchandisingService, MerchandisingValidationError } from "../merchandising.service";
 
 const PRODUCT_ID = "11111111-1111-4111-8111-111111111111";
+const REQUEST_ID = "22222222-2222-4222-8222-222222222222";
 
 describe("MerchandisingService", () => {
   it("requires expiry for HOT and manual NEW", () => {
     const service = createService();
     expect(() => service.manage({
+      requestId: REQUEST_ID,
       operation: "assign",
       productIds: [PRODUCT_ID],
       labelCode: "HOT",
       reason: "Кампания",
     })).toThrowError(MerchandisingValidationError);
     expect(() => service.manage({
+      requestId: REQUEST_ID,
       operation: "assign",
       productIds: [PRODUCT_ID],
       labelCode: "NEW",
@@ -28,12 +31,14 @@ describe("MerchandisingService", () => {
     const repository = repositoryStub();
     const service = createService(repository);
     await service.manage({
+      requestId: REQUEST_ID,
       operation: "assign",
       productIds: [PRODUCT_ID],
       labelCode: "TOP",
       reason: "Спрос",
     });
     await service.manage({
+      requestId: "33333333-3333-4333-8333-333333333333",
       operation: "assign",
       productIds: [PRODUCT_ID],
       labelCode: "HOT",
@@ -67,9 +72,18 @@ function createService(repository = repositoryStub()) {
 function repositoryStub(): MerchandisingRepository {
   return {
     listAdminProducts: vi.fn(),
+    getAdminPreview: vi.fn().mockResolvedValue({ sections: [] }),
     listPublished: vi.fn().mockResolvedValue([]),
     listPublishedForProducts: vi.fn().mockResolvedValue([]),
-    manage: vi.fn().mockResolvedValue(1),
+    manage: vi.fn().mockResolvedValue({
+      affected: 1,
+      assignments: [{
+        productId: PRODUCT_ID,
+        productName: "Product",
+        sku: "400669",
+        labelCode: "TOP",
+      }],
+    }),
   };
 }
 

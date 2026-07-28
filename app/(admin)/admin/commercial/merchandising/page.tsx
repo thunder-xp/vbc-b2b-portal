@@ -42,9 +42,9 @@ export default async function AdminMerchandisingPage({
       </form>
       <Link
         className="inline-flex rounded-md border border-zinc-300 px-3 py-2 text-sm font-semibold text-zinc-800 hover:border-emerald-500"
-        href="/cabinet/catalog"
+        href="/admin/commercial/merchandising/preview"
       >
-        Предпросмотр витрины
+        Предпросмотр опубликованной витрины
       </Link>
       <MerchandisingAdminTable canManage={canManage} page={result} />
       <nav className="flex items-center justify-between text-sm">

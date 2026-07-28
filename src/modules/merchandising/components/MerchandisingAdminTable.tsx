@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 
 import { manageMerchandisingAction } from "../actions/merchandising.actions";
 import type {
@@ -9,6 +10,7 @@ import type {
   MerchandisingOperation,
 } from "../types";
 import { ProductThumbnail } from "../../catalog/components/ProductThumbnail";
+import { localDateTimeToUtc } from "../services/merchandising-datetime";
 
 export function MerchandisingAdminTable({
   page,
@@ -17,6 +19,7 @@ export function MerchandisingAdminTable({
   page: AdminMerchandisingPage;
   canManage: boolean;
 }) {
+  const router = useRouter();
   const [selected, setSelected] = useState<string[]>([]);
   const [labelCode, setLabelCode] = useState<MerchandisingLabelCode>("TOP");
   const [operation, setOperation] =
@@ -29,18 +32,31 @@ export function MerchandisingAdminTable({
   const [pending, startTransition] = useTransition();
 
   function submit() {
+    const normalizedStartsAt = startsAt
+      ? localDateTimeToUtc(startsAt)
+      : null;
+    const normalizedEndsAt = endsAt ? localDateTimeToUtc(endsAt) : null;
+    if ((startsAt && !normalizedStartsAt) || (endsAt && !normalizedEndsAt)) {
+      setMessage("Проверьте дату и время публикации.");
+      return;
+    }
+
     startTransition(async () => {
       const result = await manageMerchandisingAction({
+        requestId: crypto.randomUUID(),
         operation,
         productIds: selected,
         labelCode,
-        startsAt: startsAt || null,
-        endsAt: endsAt || null,
+        startsAt: normalizedStartsAt,
+        endsAt: normalizedEndsAt,
         priority,
         reason,
       });
       setMessage(result.message);
-      if (result.success) setSelected([]);
+      if (result.success) {
+        setSelected([]);
+        router.refresh();
+      }
     });
   }
 
@@ -57,10 +73,10 @@ export function MerchandisingAdminTable({
               }
               value={operation}
             >
-              <option value="assign">Назначить</option>
+              <option value="assign">Назначить и опубликовать</option>
               <option value="revoke">Отозвать</option>
-              <option value="hide">Скрыть</option>
-              <option value="show">Показать</option>
+              <option value="hide">Скрыть назначенную</option>
+              <option value="show">Показать или опубликовать</option>
             </select>
           </label>
           <label className="text-xs font-medium text-zinc-600">
@@ -124,10 +140,16 @@ export function MerchandisingAdminTable({
           >
             {pending ? "Сохранение..." : `Применить (${selected.length})`}
           </button>
+          <p className="text-xs text-zinc-500 lg:col-span-full">
+            Время браузера. Перед сохранением значения преобразуются в UTC.
+          </p>
         </section>
       ) : null}
       {message ? (
-        <p className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm">
+        <p
+          aria-live="polite"
+          className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm"
+        >
           {message}
         </p>
       ) : null}
@@ -210,6 +232,15 @@ export function MerchandisingAdminTable({
                       <span className="text-xs text-zinc-400">Нет меток</span>
                     )}
                   </div>
+                  {product.assignments[0] ? (
+                    <p className="mt-1 text-xs text-zinc-500">
+                      Изменено:{" "}
+                      {new Intl.DateTimeFormat("ru-RU", {
+                        dateStyle: "short",
+                        timeStyle: "short",
+                      }).format(new Date(product.assignments[0].updatedAt))}
+                    </p>
+                  ) : null}
                 </td>
               </tr>
             ))}
@@ -227,8 +258,11 @@ function sourceText(source: AdminMerchandisingPage["items"][number]["assignments
 }
 
 function formatValidity(startsAt: string, endsAt: string | null): string {
-  const format = new Intl.DateTimeFormat("ru-RU", { dateStyle: "short" });
-  return `${format.format(new Date(startsAt))} — ${endsAt ? format.format(new Date(endsAt)) : "без срока"}`;
+  const format = new Intl.DateTimeFormat("ru-RU", {
+    dateStyle: "short",
+    timeStyle: "short",
+  });
+  return `${format.format(new Date(startsAt))} — ${endsAt ? format.format(new Date(endsAt)) : "без срока"} (локальное время)`;
 }
 
 function labelText(code: MerchandisingLabelCode): string {

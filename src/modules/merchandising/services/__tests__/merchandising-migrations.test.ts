@@ -15,6 +15,10 @@ const analytics = fs.readFileSync(path.join(
   root,
   "supabase/migrations/20260728190000_partner_behavior_analytics_foundation.sql",
 ), "utf8");
+const repair = fs.readFileSync(path.join(
+  root,
+  "supabase/migrations/20260728213000_catalog_merchandising_mutation_and_preview_repair.sql",
+), "utf8");
 
 describe("merchandising and analytics SQL boundaries", () => {
   it("enables RLS, revokes browser writes, and audits mutations", () => {
@@ -46,5 +50,24 @@ describe("merchandising and analytics SQL boundaries", () => {
     expect(foundation).toContain("analytics_recommendation");
     expect(foundation).toContain("is_curated_visible = false");
     expect(projection).toContain("assignment.source in ('manual', 'one_c')");
+  });
+
+  it("repairs mutation ambiguity with an atomic idempotent v2 RPC", () => {
+    expect(repair).toContain("manage_product_merchandising_v2");
+    expect(repair).toContain("target_product_id");
+    expect(repair).not.toContain("where product.id = product_id");
+    expect(repair).toContain("product_merchandising_audit_request_idx");
+    expect(repair).toContain("pg_advisory_xact_lock");
+    expect(repair).toContain("MERCHANDISING_AUDIT_FAILURE");
+    expect(repair).toContain("request_id");
+  });
+
+  it("keeps the admin preview aggregate-only and commercially redacted", () => {
+    expect(repair).toContain("get_admin_merchandising_preview");
+    expect(repair).toContain("admin.catalog.view");
+    expect(repair).toContain("row_number() over");
+    expect(repair).not.toContain("'priceAmount'");
+    expect(repair).not.toContain("'partnerPrice'");
+    expect(repair).not.toContain("partner_behavior_events");
   });
 });

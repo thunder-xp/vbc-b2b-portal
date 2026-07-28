@@ -51,6 +51,7 @@ export type AdminMerchandisingPage = {
 };
 
 export type ManageMerchandisingInput = {
+  requestId: string;
   operation: MerchandisingOperation;
   productIds: string[];
   labelCode: MerchandisingLabelCode;
@@ -58,4 +59,33 @@ export type ManageMerchandisingInput = {
   endsAt?: string | null;
   priority?: number;
   reason: string;
+};
+
+export type ManageMerchandisingResult = {
+  affected: number;
+  assignments: Array<{
+    productId: string;
+    productName: string;
+    sku: string;
+    labelCode: MerchandisingLabelCode;
+  }>;
+};
+
+export type AdminMerchandisingPreviewProduct = {
+  id: string;
+  sku: string;
+  name: string;
+  slug: string;
+  imageUrl: string | null;
+  brandName: string | null;
+  categoryName: string | null;
+  stockState: "in_stock" | "expected" | "unavailable";
+  priority: number;
+};
+
+export type AdminMerchandisingPreview = {
+  sections: Array<{
+    labelCode: MerchandisingLabelCode;
+    products: AdminMerchandisingPreviewProduct[];
+  }>;
 };
