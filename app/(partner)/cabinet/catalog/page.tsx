@@ -1,24 +1,26 @@
-import { Suspense } from "react";
+import { LayoutGrid } from "lucide-react";
 import { cookies } from "next/headers";
+import Link from "next/link";
+import { Suspense } from "react";
 
+import {
+  listCatalogMerchandisingSectionsAction,
+} from "@/src/modules/catalog/actions";
 import { listCatalogCategoriesAction } from "@/src/modules/catalog/actions/list-categories.action";
 import { listCatalogProductsAction } from "@/src/modules/catalog/actions/list-products.action";
-import { listCatalogMerchandisingSectionsAction } from "@/src/modules/catalog/actions";
 import { CatalogBreadcrumb } from "@/src/modules/catalog/components/CatalogBreadcrumb";
 import { CatalogSearch } from "@/src/modules/catalog/components/CatalogSearch";
 import { CategoryMegaMenu } from "@/src/modules/catalog/components/CategoryMegaMenu";
 import { EmptyCatalog } from "@/src/modules/catalog/components/EmptyCatalog";
-import type { CatalogAvailability } from "@/src/modules/catalog/components/CatalogFilters";
-import type { MerchandisingLabelCode } from "@/src/modules/merchandising/types";
 import {
   CATALOG_VIEW_COOKIE,
-  parseCatalogAttributeFilters,
-  parseCatalogSort,
+  parseCatalogRouteState,
   parseCatalogViewMode,
 } from "@/src/modules/catalog/services";
 import { getPartnerWorkspaceContextAction } from "@/src/modules/partner-cabinet/actions/workspace-context.action";
 
 import { CatalogResults } from "./CatalogResults";
+import { CuratedCatalogResults } from "./CuratedCatalogResults";
 
 type CatalogPageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -28,80 +30,58 @@ const PAGE_SIZE = 12;
 
 export default async function CatalogPage({ searchParams }: CatalogPageProps) {
   const [params, cookieStore] = await Promise.all([searchParams, cookies()]);
-  const categoryId = getSingleParam(params?.category);
-  const search = getSingleParam(params?.search);
-  const availability = parseAvailability(getSingleParam(params?.availability));
-  const sort = parseCatalogSort(getSingleParam(params?.sort));
-  const merchandisingLabel = parseMerchandisingLabel(getSingleParam(params?.label));
-  const page = parsePage(getSingleParam(params?.page));
-  const attributeFilters = parseCatalogAttributeFilters(params);
+  const routeState = parseCatalogRouteState(params);
   const initialViewMode = parseCatalogViewMode(cookieStore.get(CATALOG_VIEW_COOKIE)?.value);
-
-  const categoriesPromise = listCatalogCategoriesAction();
-  const productsPromise = listCatalogProductsAction({
-    categoryId,
-    search,
-    availability,
-    merchandisingLabel,
-    page,
-    pageSize: PAGE_SIZE,
-    sort,
-    attributeFilters,
-  });
-  const workspacePromise = getPartnerWorkspaceContextAction();
-  const merchandisingPromise = isCatalogLanding({
-    attributeFilters,
-    availability,
-    categoryId,
-    merchandisingLabel,
-    page,
-    search,
-  })
-    ? listCatalogMerchandisingSectionsAction()
-    : undefined;
-  const categoriesResult = await categoriesPromise;
+  const categoriesResult = await listCatalogCategoriesAction();
 
   if (!categoriesResult.success) {
-    return <EmptyCatalog message={categoriesResult.message} title="Catalog unavailable" />;
+    return <EmptyCatalog message={categoriesResult.message} title="Каталог временно недоступен" />;
   }
 
   return <div className="space-y-6">
     <div className="flex gap-3">
-      <CategoryMegaMenu categories={categoriesResult.data} merchandisingLabel={merchandisingLabel} sort={sort} />
-      <CatalogSearch categoryId={categoryId} initialSearch={search} merchandisingLabel={merchandisingLabel} sort={sort} />
+      <CategoryMegaMenu categories={categoriesResult.data} merchandisingLabel={routeState.merchandisingLabel} sort={routeState.sort} />
+      <CatalogSearch categoryId={routeState.categoryId} initialSearch={routeState.search} merchandisingLabel={routeState.merchandisingLabel} sort={routeState.sort} />
+      {routeState.mode === "curated" ? <Link className="inline-flex h-11 shrink-0 items-center gap-2 rounded-md border border-zinc-300 bg-white px-4 text-sm font-semibold text-zinc-900 hover:border-emerald-600 hover:text-emerald-800" href="/cabinet/catalog?view=all" prefetch={false}><LayoutGrid aria-hidden="true" className="size-4" /><span className="hidden sm:inline">Весь каталог</span></Link> : null}
     </div>
-    <CatalogBreadcrumb categories={categoriesResult.data} selectedId={categoryId} />
-    <Suspense fallback={<CatalogResultsFallback />}>
-      <CatalogResults
-        attributeFilters={attributeFilters}
-        availability={availability}
-        categories={categoriesResult.data}
-        categoryId={categoryId}
-        page={page}
-        initialViewMode={initialViewMode}
-        merchandisingLabel={merchandisingLabel}
-        merchandisingPromise={merchandisingPromise}
-        productsPromise={productsPromise}
-        search={search}
-        sort={sort}
-        workspacePromise={workspacePromise}
-      />
+    {routeState.mode === "discovery" ? <CatalogBreadcrumb categories={categoriesResult.data} selectedId={routeState.categoryId} /> : null}
+    <Suspense fallback={<CatalogResultsFallback curated={routeState.mode === "curated"} />}>
+      {routeState.mode === "curated"
+        ? <CuratedCatalogResults merchandisingPromise={listCatalogMerchandisingSectionsAction()} workspacePromise={getPartnerWorkspaceContextAction()} />
+        : <CatalogResults
+            attributeFilters={routeState.attributeFilters}
+            availability={routeState.availability}
+            brandId={routeState.brandId}
+            categories={categoriesResult.data}
+            categoryId={routeState.categoryId}
+            explicitAll={routeState.explicitAll}
+            initialViewMode={initialViewMode}
+            merchandisingLabel={routeState.merchandisingLabel}
+            page={routeState.page}
+            productsPromise={listCatalogProductsAction({
+              attributeFilters: routeState.attributeFilters,
+              availability: routeState.availability,
+              brandId: routeState.brandId,
+              categoryId: routeState.categoryId,
+              merchandisingLabel: routeState.merchandisingLabel,
+              page: routeState.page,
+              pageSize: PAGE_SIZE,
+              search: routeState.search,
+              sort: routeState.sort,
+            })}
+            search={routeState.search}
+            sort={routeState.sort}
+            workspacePromise={getPartnerWorkspaceContextAction()}
+          />}
     </Suspense>
   </div>;
 }
 
-function CatalogResultsFallback() {
+function CatalogResultsFallback({ curated }: { curated: boolean }) {
   return <div aria-busy="true" aria-label="Каталог загружается" className="space-y-6">
     <div className="h-16 animate-pulse border-b border-zinc-200 bg-zinc-100" />
-    <div className="grid gap-6 lg:grid-cols-[260px_1fr]">
-      <div className="h-80 animate-pulse rounded-lg bg-zinc-100" />
-      <div className="grid min-h-[620px] grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">{Array.from({ length: 10 }, (_, index) => <div className="h-[300px] animate-pulse rounded-md bg-zinc-100" key={index} />)}</div>
-    </div>
+    {curated
+      ? <div className="grid min-h-[300px] grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">{Array.from({ length: 5 }, (_, index) => <div className="h-[300px] animate-pulse rounded-md bg-zinc-100" key={index} />)}</div>
+      : <div className="grid gap-6 lg:grid-cols-[260px_1fr]"><div className="h-80 animate-pulse rounded-lg bg-zinc-100" /><div className="grid min-h-[620px] grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">{Array.from({ length: 10 }, (_, index) => <div className="h-[300px] animate-pulse rounded-md bg-zinc-100" key={index} />)}</div></div>}
   </div>;
 }
-
-function getSingleParam(value: string | string[] | undefined): string | undefined { return Array.isArray(value) ? value[0] : value || undefined; }
-function parsePage(value: string | undefined): number { const parsed = Number(value); return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 1; }
-function parseAvailability(value: string | undefined): CatalogAvailability { return value === "in_stock" || value === "expected" ? value : "all"; }
-function parseMerchandisingLabel(value: string | undefined): MerchandisingLabelCode | undefined { return value === "NEW" || value === "TOP" || value === "HOT" ? value : undefined; }
-function isCatalogLanding(input: { attributeFilters: Record<string, string[]>; availability: CatalogAvailability; categoryId?: string; merchandisingLabel?: MerchandisingLabelCode; page: number; search?: string }): boolean { return input.page === 1 && input.availability === "all" && !input.categoryId && !input.merchandisingLabel && !input.search && Object.keys(input.attributeFilters).length === 0; }

@@ -3,12 +3,10 @@ import Link from "next/link";
 
 import { listCatalogFacetsAction } from "@/src/modules/catalog/actions/list-facets.action";
 import type { listCatalogProductsAction } from "@/src/modules/catalog/actions/list-products.action";
-import type { listCatalogMerchandisingSectionsAction } from "@/src/modules/catalog/actions";
 import { CatalogFilters } from "@/src/modules/catalog/components/CatalogFilters";
 import type { CatalogAvailability } from "@/src/modules/catalog/components/CatalogFilters";
 import { EmptyCatalog } from "@/src/modules/catalog/components/EmptyCatalog";
 import { CatalogPresentation } from "@/src/modules/catalog/components/CatalogPresentation";
-import { CatalogMerchandisingSections } from "@/src/modules/catalog/components";
 import { RESTRICTED_PRODUCT_CARD_CAPABILITIES } from "@/src/modules/catalog/components/product-card.model";
 import {
   buildCatalogHref,
@@ -27,12 +25,13 @@ import { BehaviorViewEvent } from "@/src/modules/behavior-analytics/components";
 type Props = {
   attributeFilters: Record<string, string[]>;
   availability: CatalogAvailability;
+  brandId?: string;
   categories: CatalogCategoryDto[];
   categoryId?: string;
+  explicitAll: boolean;
   page: number;
   initialViewMode: CatalogViewMode;
   merchandisingLabel?: MerchandisingLabelCode;
-  merchandisingPromise?: ReturnType<typeof listCatalogMerchandisingSectionsAction>;
   productsPromise: ReturnType<typeof listCatalogProductsAction>;
   search?: string;
   sort: CatalogSort;
@@ -42,21 +41,21 @@ type Props = {
 export async function CatalogResults({
   attributeFilters,
   availability,
+  brandId,
   categories,
   categoryId,
+  explicitAll,
   page,
   initialViewMode,
   merchandisingLabel,
-  merchandisingPromise,
   productsPromise,
   search,
   sort,
   workspacePromise,
 }: Props) {
-  const [productsResult, workspaceContextResult, merchandisingResult] = await Promise.all([
+  const [productsResult, workspaceContextResult] = await Promise.all([
     productsPromise,
     workspacePromise,
-    merchandisingPromise,
   ]);
 
   if (!productsResult.success) {
@@ -76,11 +75,10 @@ export async function CatalogResults({
   const staleWarning = stockFreshness?.staleNotice ?? arrivalFreshness?.staleNotice ?? priceFreshness?.staleNotice;
 
   return <div className="space-y-6">
-    <BehaviorViewEvent categoryId={categoryId} dedupeKey={`catalog:${categoryId ?? "all"}:${search ?? ""}:${availability}:${merchandisingLabel ?? ""}:${page}`} eventName="catalog_viewed" resultCount={productsResult.data.totalCount} route="/cabinet/catalog" searchQuery={search} sourceSurface="catalog" />
+    <BehaviorViewEvent brandId={brandId} categoryId={categoryId} dedupeKey={`catalog:${categoryId ?? "all"}:${search ?? ""}:${availability}:${merchandisingLabel ?? ""}:${page}`} eventName="catalog_viewed" resultCount={productsResult.data.totalCount} route="/cabinet/catalog" searchQuery={search} sourceSurface={explicitAll ? "full_catalog" : "catalog_discovery"} />
     {categoryId ? <BehaviorViewEvent categoryId={categoryId} dedupeKey={`category:${categoryId}`} eventName="category_viewed" resultCount={productsResult.data.totalCount} route="/cabinet/catalog" sourceSurface="category" /> : null}
     {search ? <BehaviorViewEvent dedupeKey={`search:${search}:${productsResult.data.totalCount}`} eventName={productsResult.data.totalCount ? "search_performed" : "search_no_results"} resultCount={productsResult.data.totalCount} route="/cabinet/catalog" searchQuery={search} sourceSurface="catalog_search" /> : null}
     {staleWarning ? <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">{staleWarning}</p> : null}
-    {merchandisingResult?.success ? <CatalogMerchandisingSections capabilities={workspaceContextResult.success ? workspaceContextResult.data.capabilities.productCard : RESTRICTED_PRODUCT_CARD_CAPABILITIES} commercialViews={createCommercialViewMap(merchandisingResult.data.commercialViews)} companyId={workspaceContextResult.success ? workspaceContextResult.data.companyId : null} sections={merchandisingResult.data.sections} userId={workspaceContextResult.success ? workspaceContextResult.data.userId : null} /> : null}
     <section className="flex flex-col gap-3 border-b border-zinc-200 pb-5 sm:flex-row sm:items-end sm:justify-between">
       <div><h1 className="text-2xl font-semibold text-zinc-950">{selectedCategory?.name ?? "Каталог оборудования"}</h1><p className="mt-1 text-sm text-zinc-500">Найдено товаров: {productsResult.data.totalCount}</p></div>
       <form action="/cabinet/catalog" className="w-full sm:w-auto">{sortHiddenFields.map((field) => <input key={field.name} name={field.name} type="hidden" value={field.value} />)}<label className="flex flex-wrap items-center gap-2 text-sm text-zinc-600">Сортировка<select className="h-10 min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-3 sm:flex-none" defaultValue={sort} name="sort">{CATALOG_SORT_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select><button className="h-10 rounded-md border border-zinc-300 px-3 font-medium" type="submit">Применить</button></label></form>
