@@ -15,6 +15,7 @@ const allPermissions = [
   "admin.access_requests.view",
   "admin.security.view",
   "admin.catalog.view",
+  "admin.analytics.view",
   "admin.prices.view",
   "admin.stock.view",
   "admin.rates.view",
