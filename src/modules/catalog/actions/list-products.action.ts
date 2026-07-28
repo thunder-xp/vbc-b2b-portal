@@ -19,6 +19,7 @@ import { DefaultCatalogService } from "../services";
 import {
   normalizeCatalogAvailability,
   normalizeCatalogFilters,
+  normalizeMerchandisingLabel,
   normalizeCatalogOptionalText,
 } from "./catalog-action-input";
 import { emitRequestTotal, measurePerformanceStage } from "@/src/lib/performance/request-diagnostics";
@@ -39,6 +40,7 @@ export async function listCatalogProductsAction(
       sort: input.sort,
       attributeFilters: normalizeCatalogFilters(input.attributeFilters),
       availability,
+      merchandisingLabel: normalizeMerchandisingLabel(input.merchandisingLabel),
     }));
 
     return success("Catalog products loaded.", products);

@@ -3,10 +3,12 @@ import Link from "next/link";
 
 import { listCatalogFacetsAction } from "@/src/modules/catalog/actions/list-facets.action";
 import type { listCatalogProductsAction } from "@/src/modules/catalog/actions/list-products.action";
+import type { listCatalogMerchandisingSectionsAction } from "@/src/modules/catalog/actions";
 import { CatalogFilters } from "@/src/modules/catalog/components/CatalogFilters";
 import type { CatalogAvailability } from "@/src/modules/catalog/components/CatalogFilters";
 import { EmptyCatalog } from "@/src/modules/catalog/components/EmptyCatalog";
 import { CatalogPresentation } from "@/src/modules/catalog/components/CatalogPresentation";
+import { CatalogMerchandisingSections } from "@/src/modules/catalog/components";
 import { RESTRICTED_PRODUCT_CARD_CAPABILITIES } from "@/src/modules/catalog/components/product-card.model";
 import {
   buildCatalogHref,
@@ -19,6 +21,8 @@ import {
 import type { getPartnerWorkspaceContextAction } from "@/src/modules/partner-cabinet/actions/workspace-context.action";
 import type { ProductCommercialViewDto } from "@/src/modules/pricing-inventory";
 import { evaluateFreshness } from "@/src/modules/integration/freshness";
+import type { MerchandisingLabelCode } from "@/src/modules/merchandising/types";
+import { BehaviorViewEvent } from "@/src/modules/behavior-analytics/components";
 
 type Props = {
   attributeFilters: Record<string, string[]>;
@@ -27,6 +31,8 @@ type Props = {
   categoryId?: string;
   page: number;
   initialViewMode: CatalogViewMode;
+  merchandisingLabel?: MerchandisingLabelCode;
+  merchandisingPromise?: ReturnType<typeof listCatalogMerchandisingSectionsAction>;
   productsPromise: ReturnType<typeof listCatalogProductsAction>;
   search?: string;
   sort: CatalogSort;
@@ -40,14 +46,17 @@ export async function CatalogResults({
   categoryId,
   page,
   initialViewMode,
+  merchandisingLabel,
+  merchandisingPromise,
   productsPromise,
   search,
   sort,
   workspacePromise,
 }: Props) {
-  const [productsResult, workspaceContextResult] = await Promise.all([
+  const [productsResult, workspaceContextResult, merchandisingResult] = await Promise.all([
     productsPromise,
     workspacePromise,
+    merchandisingPromise,
   ]);
 
   if (!productsResult.success) {
@@ -56,7 +65,7 @@ export async function CatalogResults({
 
   const commercialViews = createCommercialViewMap(productsResult.data.commercialViews ?? []);
   const selectedCategory = categories.find((category) => category.id === categoryId);
-  const sortHiddenFields = buildCatalogSortHiddenFields({ categoryId, availability, search, attributeFilters });
+  const sortHiddenFields = buildCatalogSortHiddenFields({ categoryId, availability, merchandisingLabel, search, attributeFilters });
   const stockUpdatedAt = latestTimestamp(Object.values(commercialViews).map((view) => view.stock?.lastUpdatedAt));
   const stockFreshness = stockUpdatedAt ? evaluateFreshness(stockUpdatedAt, "stock", "Остатки") : null;
   const arrivalUpdatedAt = latestTimestamp(Object.values(commercialViews).map((view) => view.stock?.expectedArrival ? view.stock.lastUpdatedAt : null));
@@ -67,18 +76,22 @@ export async function CatalogResults({
   const staleWarning = stockFreshness?.staleNotice ?? arrivalFreshness?.staleNotice ?? priceFreshness?.staleNotice;
 
   return <div className="space-y-6">
+    <BehaviorViewEvent categoryId={categoryId} dedupeKey={`catalog:${categoryId ?? "all"}:${search ?? ""}:${availability}:${merchandisingLabel ?? ""}:${page}`} eventName="catalog_viewed" resultCount={productsResult.data.totalCount} route="/cabinet/catalog" searchQuery={search} sourceSurface="catalog" />
+    {categoryId ? <BehaviorViewEvent categoryId={categoryId} dedupeKey={`category:${categoryId}`} eventName="category_viewed" resultCount={productsResult.data.totalCount} route="/cabinet/catalog" sourceSurface="category" /> : null}
+    {search ? <BehaviorViewEvent dedupeKey={`search:${search}:${productsResult.data.totalCount}`} eventName={productsResult.data.totalCount ? "search_performed" : "search_no_results"} resultCount={productsResult.data.totalCount} route="/cabinet/catalog" searchQuery={search} sourceSurface="catalog_search" /> : null}
     {staleWarning ? <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">{staleWarning}</p> : null}
+    {merchandisingResult?.success ? <CatalogMerchandisingSections capabilities={workspaceContextResult.success ? workspaceContextResult.data.capabilities.productCard : RESTRICTED_PRODUCT_CARD_CAPABILITIES} commercialViews={createCommercialViewMap(merchandisingResult.data.commercialViews)} companyId={workspaceContextResult.success ? workspaceContextResult.data.companyId : null} sections={merchandisingResult.data.sections} userId={workspaceContextResult.success ? workspaceContextResult.data.userId : null} /> : null}
     <section className="flex flex-col gap-3 border-b border-zinc-200 pb-5 sm:flex-row sm:items-end sm:justify-between">
       <div><h1 className="text-2xl font-semibold text-zinc-950">{selectedCategory?.name ?? "Каталог оборудования"}</h1><p className="mt-1 text-sm text-zinc-500">Найдено товаров: {productsResult.data.totalCount}</p></div>
       <form action="/cabinet/catalog" className="w-full sm:w-auto">{sortHiddenFields.map((field) => <input key={field.name} name={field.name} type="hidden" value={field.value} />)}<label className="flex flex-wrap items-center gap-2 text-sm text-zinc-600">Сортировка<select className="h-10 min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-3 sm:flex-none" defaultValue={sort} name="sort">{CATALOG_SORT_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select><button className="h-10 rounded-md border border-zinc-300 px-3 font-medium" type="submit">Применить</button></label></form>
     </section>
-    {(search || selectedCategory || availability !== "all" || Object.keys(attributeFilters).length > 0) && <div className="flex flex-wrap items-center gap-2 text-sm"><span className="text-zinc-500">Активные фильтры:</span>{selectedCategory && <FilterChip href={buildCatalogHref({ availability, page: 1, search, sort, attributeFilters })} label={selectedCategory.name} />}{search && <FilterChip href={buildCatalogHref({ availability, categoryId, page: 1, sort, attributeFilters })} label={`Поиск: ${search}`} />}{availability !== "all" && <FilterChip href={buildCatalogHref({ categoryId, page: 1, search, sort, attributeFilters })} label={availability === "in_stock" ? "В наличии" : "К поступлению"} />}{Object.entries(attributeFilters).flatMap(([key, values]) => values.map((value) => <FilterChip href={buildCatalogHref({ availability, categoryId, page: 1, search, sort, attributeFilters: withoutAttributeValue(attributeFilters, key, value) })} key={`${key}:${value}`} label={`Характеристика: ${value}`} />))}<Link className="text-sm font-medium text-emerald-700" href="/cabinet/catalog" prefetch={false}>Очистить всё</Link></div>}
+    {(search || selectedCategory || merchandisingLabel || availability !== "all" || Object.keys(attributeFilters).length > 0) && <div className="flex flex-wrap items-center gap-2 text-sm"><span className="text-zinc-500">Активные фильтры:</span>{selectedCategory && <FilterChip href={buildCatalogHref({ availability, merchandisingLabel, page: 1, search, sort, attributeFilters })} label={selectedCategory.name} />}{search && <FilterChip href={buildCatalogHref({ availability, categoryId, merchandisingLabel, page: 1, sort, attributeFilters })} label={`Поиск: ${search}`} />}{merchandisingLabel && <FilterChip href={buildCatalogHref({ availability, categoryId, page: 1, search, sort, attributeFilters })} label={merchandisingLabelName(merchandisingLabel)} />}{availability !== "all" && <FilterChip href={buildCatalogHref({ categoryId, merchandisingLabel, page: 1, search, sort, attributeFilters })} label={availability === "in_stock" ? "В наличии" : "К поступлению"} />}{Object.entries(attributeFilters).flatMap(([key, values]) => values.map((value) => <FilterChip href={buildCatalogHref({ availability, categoryId, merchandisingLabel, page: 1, search, sort, attributeFilters: withoutAttributeValue(attributeFilters, key, value) })} key={`${key}:${value}`} label={`Характеристика: ${value}`} />))}<Link className="text-sm font-medium text-emerald-700" href="/cabinet/catalog" prefetch={false}>Очистить всё</Link></div>}
     <div className="grid gap-6 lg:grid-cols-[260px_1fr]">
       <Suspense fallback={<CatalogFacetFallback />}>
-        <CatalogFacetResults attributeFilters={attributeFilters} availability={availability} categoryId={categoryId} search={search} sort={sort} />
+        <CatalogFacetResults attributeFilters={attributeFilters} availability={availability} categoryId={categoryId} merchandisingLabel={merchandisingLabel} search={search} sort={sort} />
       </Suspense>
       <section className="space-y-5">
-        {productsResult.data.products.length > 0 ? <><CatalogPresentation capabilities={workspaceContextResult.success ? workspaceContextResult.data.capabilities.productCard : RESTRICTED_PRODUCT_CARD_CAPABILITIES} commercialViews={commercialViews} companyId={workspaceContextResult.success ? workspaceContextResult.data.companyId : null} initialMode={initialViewMode} products={productsResult.data.products} userId={workspaceContextResult.success ? workspaceContextResult.data.userId : null} /><CatalogPagination availability={availability} categoryId={categoryId} hasNextPage={productsResult.data.hasNextPage} page={page} search={search} sort={sort} attributeFilters={attributeFilters} /></> : <EmptyCatalog message={search ? "По вашему запросу товары не найдены." : "В выбранной категории пока нет товаров."} title="Товары не найдены" />}
+        {productsResult.data.products.length > 0 ? <><CatalogPresentation capabilities={workspaceContextResult.success ? workspaceContextResult.data.capabilities.productCard : RESTRICTED_PRODUCT_CARD_CAPABILITIES} commercialViews={commercialViews} companyId={workspaceContextResult.success ? workspaceContextResult.data.companyId : null} initialMode={initialViewMode} products={productsResult.data.products} userId={workspaceContextResult.success ? workspaceContextResult.data.userId : null} /><CatalogPagination availability={availability} categoryId={categoryId} hasNextPage={productsResult.data.hasNextPage} merchandisingLabel={merchandisingLabel} page={page} search={search} sort={sort} attributeFilters={attributeFilters} /></> : <EmptyCatalog message={search ? "По вашему запросу товары не найдены." : "В выбранной категории пока нет товаров."} title="Товары не найдены" />}
       </section>
     </div>
   </div>;
@@ -88,19 +101,22 @@ export async function CatalogFacetResults({
   attributeFilters,
   availability,
   categoryId,
+  merchandisingLabel,
   search,
   sort,
-}: Pick<Props, "attributeFilters" | "availability" | "categoryId" | "search" | "sort">) {
+}: Pick<Props, "attributeFilters" | "availability" | "categoryId" | "merchandisingLabel" | "search" | "sort">) {
   const result = await listCatalogFacetsAction({
     attributeFilters,
     availability,
     categoryId,
+    merchandisingLabel,
     search,
   });
   return <CatalogFilters
     attributeFilters={attributeFilters}
     availability={availability}
     categoryId={categoryId}
+    merchandisingLabel={merchandisingLabel}
     facets={result.success ? result.data : []}
     search={search}
     sort={sort}
@@ -114,12 +130,13 @@ function CatalogFacetFallback() {
   </aside>;
 }
 
-function CatalogPagination({ availability, categoryId, hasNextPage, page, search, sort, attributeFilters }: { availability: CatalogAvailability; categoryId?: string; hasNextPage: boolean; page: number; search?: string; sort: CatalogSort; attributeFilters: Record<string, string[]> }) {
+function CatalogPagination({ availability, categoryId, hasNextPage, merchandisingLabel, page, search, sort, attributeFilters }: { availability: CatalogAvailability; categoryId?: string; hasNextPage: boolean; merchandisingLabel?: MerchandisingLabelCode; page: number; search?: string; sort: CatalogSort; attributeFilters: Record<string, string[]> }) {
   if (page === 1 && !hasNextPage) return null;
-  return <nav className="flex items-center justify-between border-t border-zinc-200 pt-5">{page > 1 ? <Link className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-800 hover:border-emerald-500" href={buildCatalogHref({ availability, categoryId, page: page - 1, search, sort, attributeFilters })} prefetch={false}>Назад</Link> : <span />}<span className="text-sm text-zinc-500">Страница {page}</span>{hasNextPage ? <Link className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-800 hover:border-emerald-500" href={buildCatalogHref({ availability, categoryId, page: page + 1, search, sort, attributeFilters })} prefetch={false}>Далее</Link> : <span />}</nav>;
+  return <nav className="flex items-center justify-between border-t border-zinc-200 pt-5">{page > 1 ? <Link className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-800 hover:border-emerald-500" href={buildCatalogHref({ availability, categoryId, merchandisingLabel, page: page - 1, search, sort, attributeFilters })} prefetch={false}>Назад</Link> : <span />}<span className="text-sm text-zinc-500">Страница {page}</span>{hasNextPage ? <Link className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-800 hover:border-emerald-500" href={buildCatalogHref({ availability, categoryId, merchandisingLabel, page: page + 1, search, sort, attributeFilters })} prefetch={false}>Далее</Link> : <span />}</nav>;
 }
 
 function withoutAttributeValue(filters: Record<string, string[]>, key: string, value: string): Record<string, string[]> { const next = Object.fromEntries(Object.entries(filters).map(([entryKey, values]) => [entryKey, values.filter((item) => entryKey !== key || item !== value)])); return Object.fromEntries(Object.entries(next).filter(([, values]) => values.length)); }
 function FilterChip({ href, label }: { href: string; label: string }) { return <Link className="rounded-full border border-zinc-300 bg-white px-3 py-1.5 text-zinc-700 hover:border-emerald-500" href={href} prefetch={false}>{label} ×</Link>; }
 function createCommercialViewMap(views: ProductCommercialViewDto[]): Record<string, ProductCommercialViewDto> { return Object.fromEntries(views.map((view) => [view.productId, view])); }
 function latestTimestamp(values: Array<string | null | undefined>): string | null { const timestamps = values.flatMap((value) => value && Number.isFinite(Date.parse(value)) ? [Date.parse(value)] : []); return timestamps.length ? new Date(Math.max(...timestamps)).toISOString() : null; }
+function merchandisingLabelName(label: MerchandisingLabelCode): string { return label === "TOP" ? "Популярные" : label === "NEW" ? "Новинки" : "Горячие предложения"; }

@@ -6,6 +6,7 @@ import { useEffect, useId, useRef, useState } from "react";
 
 import type { CatalogCategoryDto, CatalogSort } from "../services";
 import { buildCatalogHref } from "../services/catalog-sort-state";
+import type { MerchandisingLabelCode } from "../../merchandising/types";
 
 export type CatalogCategoryNode = CatalogCategoryDto & { children: CatalogCategoryNode[] };
 
@@ -22,9 +23,11 @@ export function buildCategoryTree(categories: CatalogCategoryDto[]): CatalogCate
 
 export function CategoryMegaMenu({
   categories,
+  merchandisingLabel,
   sort = "default",
 }: {
   categories: CatalogCategoryDto[];
+  merchandisingLabel?: MerchandisingLabelCode;
   sort?: CatalogSort;
 }) {
   const [open, setOpen] = useState(false);
@@ -70,12 +73,12 @@ export function CategoryMegaMenu({
             <button aria-label="Закрыть категории" className="p-2" onClick={() => setOpen(false)} type="button"><X className="size-5" /></button>
           </div>
           <div className="grid max-h-[calc(100vh-3.5rem)] overflow-auto p-3 lg:grid-cols-3 lg:gap-4 lg:p-5">
-            <div className={`${direction ? "hidden" : "block"} lg:block`}><CategoryColumn items={tree} onChoose={(id) => { setDirectionId(id); setCategoryId(null); }} onNavigate={() => setOpen(false)} selectedId={directionId} sort={sort} /></div>
+            <div className={`${direction ? "hidden" : "block"} lg:block`}><CategoryColumn items={tree} merchandisingLabel={merchandisingLabel} onChoose={(id) => { setDirectionId(id); setCategoryId(null); }} onNavigate={() => setOpen(false)} selectedId={directionId} sort={sort} /></div>
             <div className={`${direction && !category ? "block" : "hidden"} lg:block`}>
-              {direction ? <CategoryColumn items={direction.children} onChoose={setCategoryId} onNavigate={() => setOpen(false)} selectedId={categoryId} sort={sort} /> : <MenuHint text="Выберите направление" />}
+              {direction ? <CategoryColumn items={direction.children} merchandisingLabel={merchandisingLabel} onChoose={setCategoryId} onNavigate={() => setOpen(false)} selectedId={categoryId} sort={sort} /> : <MenuHint text="Выберите направление" />}
             </div>
             <div className={`${category ? "block" : "hidden"} lg:block`}>
-              {category ? <CategoryLinks items={category.children.length ? category.children : [category]} onNavigate={() => setOpen(false)} sort={sort} /> : <MenuHint text="Выберите категорию" />}
+              {category ? <CategoryLinks items={category.children.length ? category.children : [category]} merchandisingLabel={merchandisingLabel} onNavigate={() => setOpen(false)} sort={sort} /> : <MenuHint text="Выберите категорию" />}
             </div>
           </div>
         </div>
@@ -84,14 +87,14 @@ export function CategoryMegaMenu({
   );
 }
 
-function CategoryColumn({ items, onChoose, onNavigate, selectedId, sort }: { items: CatalogCategoryNode[]; onChoose: (id: string) => void; onNavigate: () => void; selectedId: string | null; sort: CatalogSort }) {
+function CategoryColumn({ items, merchandisingLabel, onChoose, onNavigate, selectedId, sort }: { items: CatalogCategoryNode[]; merchandisingLabel?: MerchandisingLabelCode; onChoose: (id: string) => void; onNavigate: () => void; selectedId: string | null; sort: CatalogSort }) {
   return <div className="space-y-1">{items.map((item) => item.children.length ? (
     <button className={`flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm ${selectedId === item.id ? "bg-emerald-50 font-semibold text-emerald-800" : "hover:bg-zinc-50"}`} key={item.id} onClick={() => onChoose(item.id)} type="button"><span>{item.name}</span><ChevronRight className="size-4" /></button>
-  ) : <Link className="block rounded-md px-3 py-2 text-sm hover:bg-zinc-50" href={buildCatalogHref({ categoryId: item.id, sort })} key={item.id} onClick={onNavigate} prefetch={false}>{item.name}</Link>)}</div>;
+  ) : <Link className="block rounded-md px-3 py-2 text-sm hover:bg-zinc-50" href={buildCatalogHref({ categoryId: item.id, merchandisingLabel, sort })} key={item.id} onClick={onNavigate} prefetch={false}>{item.name}</Link>)}</div>;
 }
 
-function CategoryLinks({ items, onNavigate, sort }: { items: CatalogCategoryNode[]; onNavigate: () => void; sort: CatalogSort }) {
-  return <div className="space-y-1">{items.map((item) => <Link className="block rounded-md px-3 py-2 text-sm hover:bg-emerald-50 hover:text-emerald-800" href={buildCatalogHref({ categoryId: item.id, sort })} key={item.id} onClick={onNavigate} prefetch={false}>{item.name}</Link>)}</div>;
+function CategoryLinks({ items, merchandisingLabel, onNavigate, sort }: { items: CatalogCategoryNode[]; merchandisingLabel?: MerchandisingLabelCode; onNavigate: () => void; sort: CatalogSort }) {
+  return <div className="space-y-1">{items.map((item) => <Link className="block rounded-md px-3 py-2 text-sm hover:bg-emerald-50 hover:text-emerald-800" href={buildCatalogHref({ categoryId: item.id, merchandisingLabel, sort })} key={item.id} onClick={onNavigate} prefetch={false}>{item.name}</Link>)}</div>;
 }
 
 function MenuHint({ text }: { text: string }) { return <p className="px-3 py-2 text-sm text-zinc-500">{text}</p>; }

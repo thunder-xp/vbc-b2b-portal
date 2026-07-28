@@ -1,12 +1,14 @@
 import { notFound } from "next/navigation";
 
 import { getCatalogProductDetailByIdAction, getCatalogProductRouteIdentityAction } from "@/src/modules/catalog/actions/product-page.action";
+import { getProductMerchandisingLabelsAction } from "@/src/modules/catalog/actions";
 import { EmptyCatalog } from "@/src/modules/catalog/components/EmptyCatalog";
 import { ProductDetail, type ProductDetailTab } from "@/src/modules/catalog/components/ProductDetail";
 import { evaluateFreshness } from "@/src/modules/integration/freshness";
 import { getProductCommercialViewsAction } from "@/src/modules/pricing-inventory/actions";
 import { getPartnerWorkspaceContextAction } from "@/src/modules/partner-cabinet/actions";
 import { listFavoriteProductIdsAction } from "@/src/modules/purchasing-lists/actions";
+import { BehaviorViewEvent } from "@/src/modules/behavior-analytics/components";
 
 type ProductDetailPageProps = {
   params: Promise<{
@@ -36,10 +38,11 @@ export default async function ProductDetailPage({
     notFound();
   }
 
-  const [productResult, commercialViewsResult, workspaceResult] = await Promise.all([
+  const [productResult, commercialViewsResult, workspaceResult, merchandisingResult] = await Promise.all([
     getCatalogProductDetailByIdAction(identityResult.data.id, detailProjection(activeTab)),
     activeTab === "description" ? getProductCommercialViewsAction([identityResult.data.id]) : Promise.resolve(null),
     activeTab === "description" ? getPartnerWorkspaceContextAction() : Promise.resolve(null),
+    getProductMerchandisingLabelsAction(identityResult.data.id),
   ]);
 
   if (!productResult.success) return <EmptyCatalog message={productResult.message} title="Product unavailable" />;
@@ -67,7 +70,17 @@ export default async function ProductDetailPage({
   const stockFreshness = commercialView?.stock?.lastUpdatedAt ? evaluateFreshness(commercialView.stock.lastUpdatedAt, "stock", "Остатки") : null;
 
   return (
-    <ProductDetail
+    <>
+      <BehaviorViewEvent
+        brandId={productResult.data.brand?.id}
+        categoryId={productResult.data.category?.id}
+        dedupeKey={`product:${productResult.data.id}`}
+        eventName="product_viewed"
+        productId={productResult.data.id}
+        route={`/cabinet/catalog/${productResult.data.slug}`}
+        sourceSurface="product_detail"
+      />
+      <ProductDetail
       activeTab={activeTab}
       canAddToOrder={canAddToOrder}
       canManagePurchasingLists={canManagePurchasingLists}
@@ -75,10 +88,16 @@ export default async function ProductDetailPage({
       commercialView={commercialView}
       priceFreshness={priceFreshness}
       initialFavorite={initialFavorite}
-      product={productResult.data}
+      product={{
+        ...productResult.data,
+        merchandisingLabels: merchandisingResult.success
+          ? merchandisingResult.data
+          : [],
+      }}
       stockFreshness={stockFreshness}
       userId={userId}
-    />
+      />
+    </>
   );
 }
 

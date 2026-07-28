@@ -6,6 +6,7 @@ import type {
   ProductCommercialInternalDto,
 } from "../../pricing-inventory/services";
 import { projectProductCommercialSnapshot } from "../../pricing-inventory/services";
+import type { MerchandisingLabelCode } from "../../merchandising/types";
 import type { CatalogProductDetailProjection, CatalogRepository, ListCatalogProductsInput } from "../repositories";
 import type {
   CatalogBrand,
@@ -47,11 +48,12 @@ export type CatalogProductListInput = {
   attributeFilters?: Record<string, string[]>;
   availability?: "all" | "in_stock" | "expected";
   availabilityProductIds?: string[];
+  merchandisingLabel?: MerchandisingLabelCode;
 };
 
 export type CatalogFacetListInput = Pick<
   CatalogProductListInput,
-  "categoryId" | "brandId" | "search" | "attributeFilters" | "availability"
+  "categoryId" | "brandId" | "search" | "attributeFilters" | "availability" | "merchandisingLabel"
 >;
 
 export type CatalogFacetDto = { key: string; label: string; values: Array<{ value: string; count: number; selected: boolean }> };
@@ -67,6 +69,7 @@ export type CatalogProductCardDto = {
   category: CatalogCategoryDto | null;
   keyCharacteristics: CatalogProductCharacteristicDto[];
   datasheet: CatalogProductDocumentDto | null;
+  merchandisingLabels?: MerchandisingLabelCode[];
 };
 
 export type CatalogProductCharacteristicDto = {
@@ -391,6 +394,7 @@ export class DefaultCatalogService implements CatalogService {
         search: input.search,
         availability: input.availability ?? "all",
         attributeFilters,
+        merchandisingLabel: input.merchandisingLabel,
       }) ?? Promise.resolve([]),
     );
     return buildFacets(rows, attributeFilters);
@@ -416,6 +420,7 @@ export class DefaultCatalogService implements CatalogService {
         search: input.search,
         availability: input.availability ?? "all",
         attributeFilters: input.attributeFilters,
+        merchandisingLabel: input.merchandisingLabel,
         sort: input.sort,
         limit: input.pageSize,
         offset: (input.page - 1) * input.pageSize,
@@ -442,6 +447,7 @@ export class DefaultCatalogService implements CatalogService {
         category: item.category ? { ...item.category, description: null } : null,
         keyCharacteristics: [],
         datasheet: null,
+        merchandisingLabels: item.merchandisingLabels ?? [],
       })),
       page: input.page,
       pageSize: input.pageSize,
@@ -714,6 +720,7 @@ export class DefaultCatalogService implements CatalogService {
         documentType: datasheet.documentType,
         url: datasheet.url,
       } : null,
+      merchandisingLabels: [],
     };
   }
 

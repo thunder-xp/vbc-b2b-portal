@@ -33,6 +33,7 @@ export const CATALOG_PARTNER_PAGE_FIELDS = [
   "partner_rate_published_at",
   "retail_rate_published_at",
   "can_view_stock",
+  "merchandising_labels",
 ] as const;
 
 export type CatalogPartnerPageRow = {
@@ -70,6 +71,7 @@ export type CatalogPartnerPageRow = {
   partner_rate_published_at: string | null;
   retail_rate_published_at: string | null;
   can_view_stock: boolean;
+  merchandising_labels: unknown;
 };
 
 export function isCatalogPartnerPageRow(value: unknown): value is CatalogPartnerPageRow {
@@ -87,7 +89,8 @@ export function isCatalogPartnerPageRow(value: unknown): value is CatalogPartner
     && nullableNumber(row.msrp_price_amount)
     && nullableString(row.msrp_price_currency)
     && nullableNumber(row.available_quantity)
-    && typeof row.can_view_stock === "boolean";
+    && typeof row.can_view_stock === "boolean"
+    && isMerchandisingLabels(row.merchandising_labels);
 }
 
 export function mapCatalogPartnerPageRow(row: CatalogPartnerPageRow): CatalogPartnerPageRecord {
@@ -108,8 +111,15 @@ export function mapCatalogPartnerPageRow(row: CatalogPartnerPageRow): CatalogPar
           slug: row.category_slug,
         }
       : null,
+    merchandisingLabels: row.merchandising_labels as Array<"NEW" | "TOP" | "HOT">,
     commercialSnapshot: mapCommercialSnapshot(row),
   };
+}
+
+function isMerchandisingLabels(value: unknown): boolean {
+  return Array.isArray(value)
+    && value.length <= 3
+    && value.every((label) => label === "NEW" || label === "TOP" || label === "HOT");
 }
 
 function mapCommercialSnapshot(row: CatalogPartnerPageRow): ProductCommercialSnapshot {

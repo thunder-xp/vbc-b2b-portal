@@ -7,6 +7,18 @@ const keyA = "property_11111111-1111-4111-8111-111111111111";
 const keyB = "property_22222222-2222-4222-8222-222222222222";
 
 describe("buildCatalogSortHiddenFields", () => {
+  it("preserves merchandising labels through sorting and pagination", () => {
+    expect(buildCatalogSortHiddenFields({
+      attributeFilters: {},
+      merchandisingLabel: "HOT",
+    })).toContainEqual({ name: "label", value: "HOT" });
+    expect(buildCatalogHref({
+      merchandisingLabel: "TOP",
+      page: 2,
+      sort: "price_desc",
+    })).toContain("label=TOP");
+  });
+
   it("preserves category, search, and one attribute while omitting page", () => {
     expect(buildCatalogSortHiddenFields({ categoryId: " cameras ", availability: "expected", search: " dome ", attributeFilters: { [keyA]: ["4 MP"] } })).toEqual([
       { name: "category", value: "cameras" }, { name: "search", value: "dome" }, { name: "availability", value: "expected" }, { name: `attr.${keyA}`, value: "4 MP" },

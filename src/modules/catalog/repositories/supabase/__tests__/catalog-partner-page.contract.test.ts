@@ -75,5 +75,6 @@ function productionCardRow(): Record<string, unknown> {
     partner_rate_published_at: "2026-07-19T00:00:00Z",
     retail_rate_published_at: "2026-07-19T00:00:00Z",
     can_view_stock: true,
+    merchandising_labels: ["TOP", "NEW"],
   };
 }

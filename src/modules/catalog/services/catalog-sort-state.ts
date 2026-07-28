@@ -1,4 +1,5 @@
 import type { CatalogSort } from "./catalog-sorting";
+import type { MerchandisingLabelCode } from "../../merchandising/types";
 
 export type CatalogSortHiddenField = { name: string; value: string };
 
@@ -18,12 +19,14 @@ export function parseCatalogAttributeFilters(params: Record<string, string | str
 export function buildCatalogSortHiddenFields(input: {
   categoryId?: string;
   availability?: "all" | "in_stock" | "expected";
+  merchandisingLabel?: MerchandisingLabelCode;
   search?: string;
   attributeFilters: Record<string, string[]>;
 }): CatalogSortHiddenField[] {
   const fields: CatalogSortHiddenField[] = [];
   addTextField(fields, "category", input.categoryId);
   addTextField(fields, "search", input.search);
+  addTextField(fields, "label", input.merchandisingLabel);
   if (input.availability === "in_stock" || input.availability === "expected") {
     fields.push({ name: "availability", value: input.availability });
   }
@@ -39,6 +42,7 @@ export function buildCatalogHref(input: {
   categoryId?: string;
   search?: string;
   availability?: "all" | "in_stock" | "expected";
+  merchandisingLabel?: MerchandisingLabelCode;
   sort?: CatalogSort;
   attributeFilters?: Record<string, string[]>;
   page?: number;
@@ -48,6 +52,7 @@ export function buildCatalogHref(input: {
     categoryId: input.categoryId,
     search: input.search,
     availability: input.availability,
+    merchandisingLabel: input.merchandisingLabel,
     attributeFilters: input.attributeFilters ?? {},
   })) {
     searchParams.set(field.name, field.value);

@@ -15,6 +15,7 @@ import { DefaultCatalogService } from "../services";
 import {
   normalizeCatalogAvailability,
   normalizeCatalogFilters,
+  normalizeMerchandisingLabel,
   normalizeCatalogOptionalText,
 } from "./catalog-action-input";
 import { measurePerformanceStage } from "@/src/lib/performance/request-diagnostics";
@@ -32,6 +33,7 @@ export async function listCatalogFacetsAction(
       brandId: normalizeCatalogOptionalText(input.brandId),
       search: normalizeCatalogOptionalText(input.search),
       availability: normalizeCatalogAvailability(input.availability),
+      merchandisingLabel: normalizeMerchandisingLabel(input.merchandisingLabel),
       attributeFilters: normalizeCatalogFilters(input.attributeFilters),
     }));
     return success("Catalog facets loaded.", facets);

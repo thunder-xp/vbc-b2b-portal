@@ -126,13 +126,14 @@ export class SupabaseCatalogRepository implements CatalogRepository {
 
   async listPartnerPage(input: CatalogPartnerPageInput): Promise<CatalogPartnerPage> {
     const supabase = await createClient();
-    const { data, error } = await supabase.rpc("catalog_partner_page_v2", {
+    const { data, error } = await supabase.rpc("catalog_partner_page_v3", {
       p_company_id: input.companyId,
       p_category_id: input.categoryId ?? null,
       p_brand_id: input.brandId ?? null,
       p_search: input.search ?? null,
       p_availability: input.availability,
       p_filters: input.attributeFilters,
+      p_merchandising_label: input.merchandisingLabel ?? null,
       p_sort: input.sort,
       p_limit: input.limit,
       p_offset: input.offset,

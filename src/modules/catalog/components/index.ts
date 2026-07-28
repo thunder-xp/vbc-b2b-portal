@@ -3,6 +3,8 @@ export { CategorySidebar } from "./CategorySidebar";
 export { EmptyCatalog } from "./EmptyCatalog";
 export { LoadingSkeleton } from "./LoadingSkeleton";
 export { ProductCard } from "./ProductCard";
+export { MerchandisingBadges } from "./MerchandisingBadges";
+export { CatalogMerchandisingSections } from "./CatalogMerchandisingSections";
 export { CatalogBreadcrumb } from "./CatalogBreadcrumb";
 export { CatalogFilters, catalogHref } from "./CatalogFilters";
 export { CatalogSearch } from "./CatalogSearch";

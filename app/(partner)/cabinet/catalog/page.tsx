@@ -3,11 +3,13 @@ import { cookies } from "next/headers";
 
 import { listCatalogCategoriesAction } from "@/src/modules/catalog/actions/list-categories.action";
 import { listCatalogProductsAction } from "@/src/modules/catalog/actions/list-products.action";
+import { listCatalogMerchandisingSectionsAction } from "@/src/modules/catalog/actions";
 import { CatalogBreadcrumb } from "@/src/modules/catalog/components/CatalogBreadcrumb";
 import { CatalogSearch } from "@/src/modules/catalog/components/CatalogSearch";
 import { CategoryMegaMenu } from "@/src/modules/catalog/components/CategoryMegaMenu";
 import { EmptyCatalog } from "@/src/modules/catalog/components/EmptyCatalog";
 import type { CatalogAvailability } from "@/src/modules/catalog/components/CatalogFilters";
+import type { MerchandisingLabelCode } from "@/src/modules/merchandising/types";
 import {
   CATALOG_VIEW_COOKIE,
   parseCatalogAttributeFilters,
@@ -30,6 +32,7 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
   const search = getSingleParam(params?.search);
   const availability = parseAvailability(getSingleParam(params?.availability));
   const sort = parseCatalogSort(getSingleParam(params?.sort));
+  const merchandisingLabel = parseMerchandisingLabel(getSingleParam(params?.label));
   const page = parsePage(getSingleParam(params?.page));
   const attributeFilters = parseCatalogAttributeFilters(params);
   const initialViewMode = parseCatalogViewMode(cookieStore.get(CATALOG_VIEW_COOKIE)?.value);
@@ -39,12 +42,23 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
     categoryId,
     search,
     availability,
+    merchandisingLabel,
     page,
     pageSize: PAGE_SIZE,
     sort,
     attributeFilters,
   });
   const workspacePromise = getPartnerWorkspaceContextAction();
+  const merchandisingPromise = isCatalogLanding({
+    attributeFilters,
+    availability,
+    categoryId,
+    merchandisingLabel,
+    page,
+    search,
+  })
+    ? listCatalogMerchandisingSectionsAction()
+    : undefined;
   const categoriesResult = await categoriesPromise;
 
   if (!categoriesResult.success) {
@@ -53,8 +67,8 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
 
   return <div className="space-y-6">
     <div className="flex gap-3">
-      <CategoryMegaMenu categories={categoriesResult.data} sort={sort} />
-      <CatalogSearch categoryId={categoryId} initialSearch={search} sort={sort} />
+      <CategoryMegaMenu categories={categoriesResult.data} merchandisingLabel={merchandisingLabel} sort={sort} />
+      <CatalogSearch categoryId={categoryId} initialSearch={search} merchandisingLabel={merchandisingLabel} sort={sort} />
     </div>
     <CatalogBreadcrumb categories={categoriesResult.data} selectedId={categoryId} />
     <Suspense fallback={<CatalogResultsFallback />}>
@@ -65,6 +79,8 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
         categoryId={categoryId}
         page={page}
         initialViewMode={initialViewMode}
+        merchandisingLabel={merchandisingLabel}
+        merchandisingPromise={merchandisingPromise}
         productsPromise={productsPromise}
         search={search}
         sort={sort}
@@ -87,3 +103,5 @@ function CatalogResultsFallback() {
 function getSingleParam(value: string | string[] | undefined): string | undefined { return Array.isArray(value) ? value[0] : value || undefined; }
 function parsePage(value: string | undefined): number { const parsed = Number(value); return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 1; }
 function parseAvailability(value: string | undefined): CatalogAvailability { return value === "in_stock" || value === "expected" ? value : "all"; }
+function parseMerchandisingLabel(value: string | undefined): MerchandisingLabelCode | undefined { return value === "NEW" || value === "TOP" || value === "HOT" ? value : undefined; }
+function isCatalogLanding(input: { attributeFilters: Record<string, string[]>; availability: CatalogAvailability; categoryId?: string; merchandisingLabel?: MerchandisingLabelCode; page: number; search?: string }): boolean { return input.page === 1 && input.availability === "all" && !input.categoryId && !input.merchandisingLabel && !input.search && Object.keys(input.attributeFilters).length === 0; }

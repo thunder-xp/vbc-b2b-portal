@@ -6,12 +6,13 @@ import { useEffect, useRef, useState } from "react";
 
 import type { CatalogSearchSuggestionDto, CatalogSort } from "../services";
 import { ProductThumbnail } from "./ProductThumbnail";
+import type { MerchandisingLabelCode } from "../../merchandising/types";
 
 type SearchResponse =
   | { success: true; data: CatalogSearchSuggestionDto[] }
   | { success: false };
 
-export function CatalogSearch({ categoryId, initialSearch, sort = "default" }: { categoryId?: string; initialSearch?: string; sort?: CatalogSort }) {
+export function CatalogSearch({ categoryId, initialSearch, merchandisingLabel, sort = "default" }: { categoryId?: string; initialSearch?: string; merchandisingLabel?: MerchandisingLabelCode; sort?: CatalogSort }) {
   const [query, setQuery] = useState(initialSearch ?? "");
   const [results, setResults] = useState<CatalogSearchSuggestionDto[]>([]);
   const [loading, setLoading] = useState(false);
@@ -58,6 +59,7 @@ export function CatalogSearch({ categoryId, initialSearch, sort = "default" }: {
   return <div className="relative flex-1">
     <form action="/cabinet/catalog" className="relative">
       {categoryId && <input name="category" type="hidden" value={categoryId} />}
+      {merchandisingLabel && <input name="label" type="hidden" value={merchandisingLabel} />}
       {sort !== "default" && <input name="sort" type="hidden" value={sort} />}
       <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-3.5 size-4 text-zinc-400" />
       <input aria-label="Поиск по каталогу" autoComplete="off" className="h-11 w-full rounded-md border border-zinc-300 bg-white pl-10 pr-24 text-sm outline-none focus:border-emerald-700" name="search" onChange={(event) => updateQuery(event.target.value)} placeholder="SKU, модель, название или бренд" type="search" value={query} />
