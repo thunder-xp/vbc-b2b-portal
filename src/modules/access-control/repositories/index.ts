@@ -1,3 +1,4 @@
+export * from "./access-approval-transaction.repository";
 export * from "./access-request.repository";
 export * from "./company-membership.repository";
 export * from "./company-user-management.repository";

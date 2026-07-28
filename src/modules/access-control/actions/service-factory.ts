@@ -7,6 +7,7 @@ import {
 
 import {
   SupabaseAccessRequestRepository,
+  SupabaseAccessApprovalTransactionRepository,
   SupabaseCompanyMembershipRepository,
   SupabaseCompanyUserManagementRepository,
   SupabaseEffectivePermissionRepository,
@@ -88,9 +89,7 @@ export function createAccessApprovalService(): AccessApprovalService {
   return new DefaultAccessApprovalService(
     new SupabaseAccessRequestRepository(),
     new SupabaseUserProfileRepository(),
-    new SupabasePartnerCompanyRepository(),
-    new SupabaseCompanyMembershipRepository(),
-    new SupabaseRolePermissionRepository(),
+    new SupabaseAccessApprovalTransactionRepository(),
   );
 }
 

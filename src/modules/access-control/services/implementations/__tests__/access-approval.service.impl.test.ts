@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type {
+  AccessApprovalTransactionRepository,
+  AccessApprovalTransactionResult,
   AccessRequestRepository,
   CompanyMembershipRepository,
   CreateCompanyMembershipInput,
@@ -8,9 +10,9 @@ import type {
   PartnerCompanyRepository,
   RolePermissionRepository,
   UpdateAccessRequestStatusInput,
-  UpdateCompanyMembershipStatusInput,
   UpdatePartnerCompanyApprovalBindingInput,
   UserProfileRepository,
+  ExecuteAccessApprovalInput,
 } from "../../../repositories";
 import {
   AccessRequestStatus,
@@ -26,7 +28,7 @@ import {
   type Role,
   type UserProfile,
 } from "../../../types";
-import { ForbiddenError, InvalidStateError } from "../../errors";
+import { ApprovalError, ForbiddenError, InvalidStateError } from "../../errors";
 import { DefaultAccessApprovalService } from "../access-approval.service.impl";
 
 describe("DefaultAccessApprovalService", () => {
@@ -87,7 +89,7 @@ describe("DefaultAccessApprovalService", () => {
     );
   });
 
-  it("approves request before creating active access", async () => {
+  it("approves the complete access aggregate through one transaction", async () => {
     const fixtures = makeFixtures();
     const service = makeService(fixtures);
 
@@ -100,36 +102,17 @@ describe("DefaultAccessApprovalService", () => {
       decisionReason: "Validated in 1C.",
     });
 
-    expect(fixtures.partnerCompanyRepository.lastCreateInput).toEqual({
+    expect(fixtures.approvalTransactionRepository.lastInput).toMatchObject({
+      actorUserId: "reviewer-1",
+      requestId: "request-1",
       external1cId: "PARTNER-1C",
       external1cCode: null,
       external1cContractId: "CONTRACT-1C",
       external1cPriceTypeId: "PRICE-TYPE-1C",
-      displayName: "Partner Company",
-    });
-    expect(fixtures.accessRequestRepository.lastUpdateInput).toMatchObject({
-      id: "request-1",
-      status: AccessRequestStatus.Approved,
-      companyId: "company-1",
-      requestedExternal1cId: "PARTNER-1C",
-      reviewedBy: "reviewer-1",
       decisionReason: "Validated in 1C.",
     });
-    expect(fixtures.accessRequestRepository.updateCalls).toBe(1);
-    expect(fixtures.accessRequestRepository.updateCalls).toBeLessThan(
-      fixtures.companyMembershipRepository.createCallOrder ?? Number.POSITIVE_INFINITY,
-    );
-    expect(fixtures.accessRequestRepository.updateCalls).toBeLessThan(
-      fixtures.userProfileRepository.activateCallOrder ?? Number.POSITIVE_INFINITY,
-    );
-    expect(fixtures.companyMembershipRepository.lastCreateInput).toMatchObject({
-      userId: "partner-1",
-      companyId: "company-1",
-      roleId: "role-partner-owner",
-      status: MembershipStatus.Active,
-      approvedBy: "reviewer-1",
-    });
-    expect(fixtures.userProfileRepository.activatedUserId).toBe("partner-1");
+    expect(fixtures.approvalTransactionRepository.calls).toBe(1);
+    expect(fixtures.accessRequestRepository.lastUpdateInput).toBeNull();
     expect(result.request.status).toBe(AccessRequestStatus.Approved);
     expect(result.membership.status).toBe(MembershipStatus.Active);
     expect(result.requester.status).toBe(UserStatus.Active);
@@ -170,8 +153,8 @@ describe("DefaultAccessApprovalService", () => {
         external1cContractId: "CONTRACT-1C",
         external1cPriceTypeId: "PRICE-TYPE-1C",
       }),
-    ).rejects.toBeInstanceOf(InvalidStateError);
-    expect(fixtures.companyMembershipRepository.lastCreateInput).toBeNull();
+    ).rejects.toBeInstanceOf(ApprovalError);
+    expect(fixtures.approvalTransactionRepository.calls).toBe(0);
   });
 
   it("requires a non-whitespace 1C partner reference on approval", async () => {
@@ -186,8 +169,8 @@ describe("DefaultAccessApprovalService", () => {
         external1cContractId: "CONTRACT-1C",
         external1cPriceTypeId: "PRICE-TYPE-1C",
       }),
-    ).rejects.toBeInstanceOf(InvalidStateError);
-    expect(fixtures.partnerCompanyRepository.lastCreateInput).toBeNull();
+    ).rejects.toBeInstanceOf(ApprovalError);
+    expect(fixtures.approvalTransactionRepository.calls).toBe(0);
   });
 
   it("requires a non-whitespace price type reference on approval", async () => {
@@ -202,8 +185,8 @@ describe("DefaultAccessApprovalService", () => {
         external1cContractId: null,
         external1cPriceTypeId: " ",
       }),
-    ).rejects.toBeInstanceOf(InvalidStateError);
-    expect(fixtures.partnerCompanyRepository.lastCreateInput).toBeNull();
+    ).rejects.toBeInstanceOf(ApprovalError);
+    expect(fixtures.approvalTransactionRepository.calls).toBe(0);
   });
 
   it("approves with a null contract when partner and price type are selected", async () => {
@@ -219,7 +202,7 @@ describe("DefaultAccessApprovalService", () => {
       external1cPriceTypeId: "PRICE-TYPE-1C",
     });
 
-    expect(fixtures.partnerCompanyRepository.lastCreateInput).toMatchObject({
+    expect(fixtures.approvalTransactionRepository.lastInput).toMatchObject({
       external1cId: "PARTNER-1C",
       external1cCode: null,
       external1cContractId: null,
@@ -240,13 +223,13 @@ describe("DefaultAccessApprovalService", () => {
       decisionReason: " Approved ",
     });
 
-    expect(fixtures.partnerCompanyRepository.lastCreateInput).toMatchObject({
+    expect(fixtures.approvalTransactionRepository.lastInput).toMatchObject({
       external1cId: "PARTNER-1C",
       external1cContractId: "CONTRACT-1C",
       external1cPriceTypeId: "PRICE-TYPE-1C",
     });
-    expect(fixtures.accessRequestRepository.lastUpdateInput).toMatchObject({
-      requestedExternal1cId: "PARTNER-1C",
+    expect(fixtures.approvalTransactionRepository.lastInput).toMatchObject({
+      external1cId: "PARTNER-1C",
       decisionReason: "Approved",
     });
   });
@@ -281,15 +264,8 @@ describe("DefaultAccessApprovalService", () => {
       external1cPriceTypeId: "PRICE-NEW",
     });
 
-    expect(fixtures.partnerCompanyRepository.lastCreateInput).toBeNull();
-    expect(fixtures.partnerCompanyRepository.lastUpdateBindingInput).toEqual({
-      companyId: "existing-company",
-      external1cCode: null,
-      external1cContractId: "CONTRACT-NEW",
-      external1cPriceTypeId: "PRICE-NEW",
-      displayName: "Partner Company",
-    });
     expect(result.company.id).toBe("existing-company");
+    expect(fixtures.approvalTransactionRepository.calls).toBe(1);
   });
 
   it("does not create duplicate active membership", async () => {
@@ -310,8 +286,8 @@ describe("DefaultAccessApprovalService", () => {
       external1cPriceTypeId: "PRICE-TYPE-1C",
     });
 
-    expect(fixtures.companyMembershipRepository.lastCreateInput).toBeNull();
     expect(result.membership.id).toBe("existing-membership");
+    expect(fixtures.approvalTransactionRepository.calls).toBe(1);
   });
 
   it("approval retry does not duplicate company or membership", async () => {
@@ -344,14 +320,13 @@ describe("DefaultAccessApprovalService", () => {
       external1cPriceTypeId: "PRICE-TYPE-1C",
     });
 
-    expect(fixtures.partnerCompanyRepository.lastCreateInput).toBeNull();
-    expect(fixtures.companyMembershipRepository.lastCreateInput).toBeNull();
     expect(fixtures.accessRequestRepository.lastUpdateInput).toBeNull();
     expect(result.company.id).toBe("company-1");
     expect(result.membership.id).toBe("membership-1");
+    expect(fixtures.approvalTransactionRepository.calls).toBe(1);
   });
 
-  it("does not create membership or activate profile when final request approval fails", async () => {
+  it("does not expose partial state when the approval transaction fails", async () => {
     const fixtures = makeFixtures({ failRequestApproval: true });
     const service = makeService(fixtures);
 
@@ -365,7 +340,7 @@ describe("DefaultAccessApprovalService", () => {
       }),
     ).rejects.toThrow();
 
-    expect(fixtures.partnerCompanyRepository.lastCreateInput).not.toBeNull();
+    expect(fixtures.partnerCompanyRepository.lastCreateInput).toBeNull();
     expect(fixtures.companyMembershipRepository.lastCreateInput).toBeNull();
     expect(fixtures.userProfileRepository.activatedUserId).toBeNull();
   });
@@ -389,7 +364,7 @@ describe("DefaultAccessApprovalService", () => {
     expect(fixtures.userProfileRepository.activatedUserId).toBeNull();
   });
 
-  it("keeps approved request but does not activate profile when membership creation fails", async () => {
+  it("rolls back when membership creation fails", async () => {
     const fixtures = makeFixtures({ failMembershipCreate: true });
     const service = makeService(fixtures);
 
@@ -403,13 +378,11 @@ describe("DefaultAccessApprovalService", () => {
       }),
     ).rejects.toThrow();
 
-    expect(fixtures.accessRequestRepository.lastUpdateInput).toMatchObject({
-      status: AccessRequestStatus.Approved,
-    });
+    expect(fixtures.accessRequestRepository.lastUpdateInput).toBeNull();
     expect(fixtures.userProfileRepository.activatedUserId).toBeNull();
   });
 
-  it("keeps approved request and membership when profile activation fails for safe retry", async () => {
+  it("rolls back when profile activation fails", async () => {
     const fixtures = makeFixtures({ failProfileActivation: true });
     const service = makeService(fixtures);
 
@@ -423,13 +396,9 @@ describe("DefaultAccessApprovalService", () => {
       }),
     ).rejects.toThrow();
 
-    expect(fixtures.accessRequestRepository.lastUpdateInput).toMatchObject({
-      status: AccessRequestStatus.Approved,
-    });
-    expect(fixtures.companyMembershipRepository.lastCreateInput).toMatchObject({
-      status: MembershipStatus.Active,
-    });
-    expect(fixtures.userProfileRepository.activatedUserId).toBe("partner-1");
+    expect(fixtures.accessRequestRepository.lastUpdateInput).toBeNull();
+    expect(fixtures.companyMembershipRepository.lastCreateInput).toBeNull();
+    expect(fixtures.userProfileRepository.activatedUserId).toBeNull();
   });
 });
 
@@ -437,9 +406,7 @@ function makeService(fixtures: Fixtures): DefaultAccessApprovalService {
   return new DefaultAccessApprovalService(
     fixtures.accessRequestRepository,
     fixtures.userProfileRepository,
-    fixtures.partnerCompanyRepository,
-    fixtures.companyMembershipRepository,
-    fixtures.rolePermissionRepository,
+    fixtures.approvalTransactionRepository,
   );
 }
 
@@ -473,19 +440,105 @@ function makeFixtures(
       }),
   }, overrides.failProfileActivation ?? false);
 
+  const partnerCompanyRepository = new FakePartnerCompanyRepository(
+    overrides.existingCompany,
+    overrides.failCompanyCreate ?? false,
+  );
+  const companyMembershipRepository = new FakeCompanyMembershipRepository(
+    overrides.existingMembership,
+    overrides.failMembershipCreate ?? false,
+  );
+
   return {
     accessRequestRepository,
     userProfileRepository,
-    partnerCompanyRepository: new FakePartnerCompanyRepository(
+    partnerCompanyRepository,
+    companyMembershipRepository,
+    approvalTransactionRepository: new FakeAccessApprovalTransactionRepository(
+      accessRequestRepository,
+      userProfileRepository,
       overrides.existingCompany,
-      overrides.failCompanyCreate ?? false,
-    ),
-    companyMembershipRepository: new FakeCompanyMembershipRepository(
       overrides.existingMembership,
-      overrides.failMembershipCreate ?? false,
+      Boolean(
+        overrides.failRequestApproval ||
+          overrides.failCompanyCreate ||
+          overrides.failMembershipCreate ||
+          overrides.failProfileActivation,
+      ),
     ),
     rolePermissionRepository: new FakeRolePermissionRepository(),
   };
+}
+
+class FakeAccessApprovalTransactionRepository
+  implements AccessApprovalTransactionRepository
+{
+  lastInput: ExecuteAccessApprovalInput | null = null;
+  calls = 0;
+
+  constructor(
+    private readonly accessRequests: FakeAccessRequestRepository,
+    private readonly profiles: FakeUserProfileRepository,
+    private readonly existingCompany?: PartnerCompany,
+    private readonly existingMembership?: CompanyMembership,
+    private readonly fail = false,
+  ) {}
+
+  async approve(
+    input: ExecuteAccessApprovalInput,
+  ): Promise<AccessApprovalTransactionResult> {
+    this.calls += 1;
+    this.lastInput = input;
+
+    if (this.fail) {
+      throw new Error("Atomic approval failed");
+    }
+
+    const request = await this.accessRequests.findById();
+    const requester = request
+      ? await this.profiles.findById(request.userId)
+      : null;
+    const company =
+      this.existingCompany ??
+      makePartnerCompany({
+        external1cId: input.external1cId,
+        external1cContractId: input.external1cContractId,
+        external1cPriceTypeId: input.external1cPriceTypeId,
+      });
+    const membership =
+      this.existingMembership ??
+      makeCompanyMembership({ companyId: company.id });
+
+    if (!request || !requester) {
+      throw new Error("Fixture is incomplete");
+    }
+
+    return {
+      request: makeAccessRequest({
+        ...request,
+        companyId: company.id,
+        requestedExternal1cId: input.external1cId,
+        status: AccessRequestStatus.Approved,
+        reviewedBy: input.actorUserId,
+        decisionReason: input.decisionReason,
+      }),
+      company,
+      membership,
+      requester: {
+        ...requester,
+        status: UserStatus.Active,
+        userType: UserType.Partner,
+      },
+      companyBranch: this.existingCompany
+        ? "existing_company"
+        : "new_company",
+      membershipOutcome: this.existingMembership ? "existing" : "created",
+      auditEventId: "audit-1",
+      idempotent:
+        request.status === AccessRequestStatus.Approved &&
+        Boolean(this.existingMembership),
+    };
+  }
 }
 
 class FakeAccessRequestRepository implements AccessRequestRepository {
@@ -684,9 +737,7 @@ class FakeCompanyMembershipRepository implements CompanyMembershipRepository {
     });
   }
 
-  async updateStatus(
-    _input: UpdateCompanyMembershipStatusInput,
-  ): Promise<CompanyMembership> {
+  async updateStatus(): Promise<CompanyMembership> {
     throw new Error("Not needed");
   }
 }

@@ -60,3 +60,27 @@ export class OperationNotAvailableError extends AccessControlError {
     this.name = "OperationNotAvailableError";
   }
 }
+
+export type ApprovalErrorCode =
+  | "APPROVAL_REQUEST_NOT_FOUND"
+  | "APPROVAL_REQUEST_NOT_PENDING"
+  | "APPROVAL_FISCAL_CODE_REQUIRED"
+  | "APPROVAL_REQUESTER_INVALID"
+  | "APPROVAL_COMPANY_CONFLICT"
+  | "APPROVAL_MEMBERSHIP_CONFLICT"
+  | "APPROVAL_1C_BINDING_INVALID"
+  | "APPROVAL_ROLE_INVALID"
+  | "APPROVAL_PERMISSION_DENIED"
+  | "APPROVAL_DATABASE_CONSTRAINT"
+  | "APPROVAL_AUDIT_FAILURE"
+  | "APPROVAL_UNKNOWN_FAILURE";
+
+export class ApprovalError extends AccessControlError {
+  constructor(
+    readonly code: ApprovalErrorCode,
+    readonly correlationId: string,
+  ) {
+    super(code);
+    this.name = "ApprovalError";
+  }
+}

@@ -76,15 +76,15 @@ describe("AccessRequestDecisionForms", () => {
     const user = userEvent.setup();
     render(<AccessRequestDecisionForms requestId="request-1" />);
 
-    expect(screen.getByRole("button", { name: "Approve" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Одобрить" })).toBeDisabled();
 
-    await user.click(screen.getByRole("button", { name: "Search in 1C" }));
+    await user.click(screen.getByRole("button", { name: "Найти в 1С" }));
     await user.type(
-      screen.getByPlaceholderText("Company name, VAT/IDNO, or 1C reference"),
+      screen.getByPlaceholderText("Название, фискальный код или ссылка 1С"),
       "BG123456789",
     );
-    await user.click(screen.getByRole("button", { name: "Search" }));
-    await user.click(await screen.findByRole("button", { name: "Select counterparty" }));
+    await user.click(screen.getByRole("button", { name: "Найти" }));
+    await user.click(await screen.findByRole("button", { name: "Выбрать контрагента" }));
 
     expect(screen.getByText("PARTNER-1")).toBeInTheDocument();
     expect(screen.getByText("CONTRACT-1")).toBeInTheDocument();
@@ -93,9 +93,9 @@ describe("AccessRequestDecisionForms", () => {
     expect(screen.getByText("Источник статуса партнёра")).toBeInTheDocument();
     expect(screen.queryByText("Price type")).not.toBeInTheDocument();
     expect(screen.queryByText("Вид цены")).not.toBeInTheDocument();
-    await waitFor(() => expect(screen.getByRole("button", { name: "Approve" })).toBeEnabled());
+    await waitFor(() => expect(screen.getByRole("button", { name: "Одобрить" })).toBeEnabled());
 
-    await user.click(screen.getByRole("button", { name: "Approve" }));
+    await user.click(screen.getByRole("button", { name: "Одобрить" }));
 
     expect(mocks.approveAccessRequestAction).toHaveBeenCalledWith({
       requestId: "request-1",
@@ -117,15 +117,15 @@ describe("AccessRequestDecisionForms", () => {
     });
     render(<AccessRequestDecisionForms requestId="request-1" />);
 
-    await user.click(screen.getByRole("button", { name: "Search in 1C" }));
+    await user.click(screen.getByRole("button", { name: "Найти в 1С" }));
     await user.type(
-      screen.getByPlaceholderText("Company name, VAT/IDNO, or 1C reference"),
+      screen.getByPlaceholderText("Название, фискальный код или ссылка 1С"),
       "Partner",
     );
-    await user.click(screen.getByRole("button", { name: "Search" }));
+    await user.click(screen.getByRole("button", { name: "Найти" }));
 
     expect(await screen.findByText("Unexpected system failure.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Approve" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Одобрить" })).toBeDisabled();
   });
 
   it("shows a specific empty-contract message after selecting a counterparty", async () => {
@@ -138,23 +138,23 @@ describe("AccessRequestDecisionForms", () => {
     });
     render(<AccessRequestDecisionForms requestId="request-1" />);
 
-    await user.click(screen.getByRole("button", { name: "Search in 1C" }));
+    await user.click(screen.getByRole("button", { name: "Найти в 1С" }));
     await user.type(
-      screen.getByPlaceholderText("Company name, VAT/IDNO, or 1C reference"),
+      screen.getByPlaceholderText("Название, фискальный код или ссылка 1С"),
       "Partner",
     );
-    await user.click(screen.getByRole("button", { name: "Search" }));
-    await user.click(await screen.findByRole("button", { name: "Select counterparty" }));
+    await user.click(screen.getByRole("button", { name: "Найти" }));
+    await user.click(await screen.findByRole("button", { name: "Выбрать контрагента" }));
 
     expect(await screen.findByText(/Для выбранного контрагента активные договоры в 1С не найдены/)).toBeInTheDocument();
     expect(screen.getByText(/Выберите статус партнёра вручную/)).toBeInTheDocument();
     expect(screen.getByText("Договор не обязателен, если активных договоров нет.")).toBeInTheDocument();
     expect(screen.queryByText("1C is temporarily unavailable.")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Approve" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Одобрить" })).toBeDisabled();
 
     await user.click(screen.getByRole("button", { name: /Manual wholesale/ }));
-    await waitFor(() => expect(screen.getByRole("button", { name: "Approve" })).toBeEnabled());
-    await user.click(screen.getByRole("button", { name: "Approve" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Одобрить" })).toBeEnabled());
+    await user.click(screen.getByRole("button", { name: "Одобрить" }));
 
     expect(mocks.approveAccessRequestAction).toHaveBeenCalledWith({
       requestId: "request-1",
@@ -193,17 +193,17 @@ describe("AccessRequestDecisionForms", () => {
     });
     render(<AccessRequestDecisionForms requestId="request-1" />);
 
-    await user.click(screen.getByRole("button", { name: "Search in 1C" }));
+    await user.click(screen.getByRole("button", { name: "Найти в 1С" }));
     await user.type(
-      screen.getByPlaceholderText("Company name, VAT/IDNO, or 1C reference"),
+      screen.getByPlaceholderText("Название, фискальный код или ссылка 1С"),
       "Partner",
     );
-    await user.click(screen.getByRole("button", { name: "Search" }));
-    await user.click(await screen.findByRole("button", { name: "Select counterparty" }));
+    await user.click(screen.getByRole("button", { name: "Найти" }));
+    await user.click(await screen.findByRole("button", { name: "Выбрать контрагента" }));
     await user.click(
       await screen.findByRole("button", { name: /Distributor contract/ }),
     );
-    await user.click(screen.getByRole("button", { name: "Approve" }));
+    await user.click(screen.getByRole("button", { name: "Одобрить" }));
 
     expect(mocks.approveAccessRequestAction).toHaveBeenCalledWith({
       requestId: "request-1",
@@ -219,15 +219,15 @@ describe("AccessRequestDecisionForms", () => {
     const user = userEvent.setup();
     render(<AccessRequestDecisionForms requestId="request-1" />);
 
-    await user.click(screen.getByRole("button", { name: "Search in 1C" }));
-    await user.type(screen.getByPlaceholderText("Company name, VAT/IDNO, or 1C reference"), "Partner");
-    await user.click(screen.getByRole("button", { name: "Search" }));
-    await user.click(await screen.findByRole("button", { name: "Select counterparty" }));
+    await user.click(screen.getByRole("button", { name: "Найти в 1С" }));
+    await user.type(screen.getByPlaceholderText("Название, фискальный код или ссылка 1С"), "Partner");
+    await user.click(screen.getByRole("button", { name: "Найти" }));
+    await user.click(await screen.findByRole("button", { name: "Выбрать контрагента" }));
 
     expect(await screen.findByText("Из договора")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /Manual wholesale/ }));
     expect(await screen.findByText("Выбрано вручную")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Approve" }));
+    await user.click(screen.getByRole("button", { name: "Одобрить" }));
 
     expect(mocks.approveAccessRequestAction).toHaveBeenCalledWith(expect.objectContaining({
       external1cContractId: "CONTRACT-1",
@@ -254,12 +254,49 @@ describe("AccessRequestDecisionForms", () => {
     });
     render(<AccessRequestDecisionForms requestId="request-1" />);
 
-    await user.click(screen.getByRole("button", { name: "Search in 1C" }));
-    await user.type(screen.getByPlaceholderText("Company name, VAT/IDNO, or 1C reference"), "Partner");
-    await user.click(screen.getByRole("button", { name: "Search" }));
-    await user.click(await screen.findByRole("button", { name: "Select counterparty" }));
-    expect(screen.getByRole("button", { name: "Approve" })).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: "Найти в 1С" }));
+    await user.type(screen.getByPlaceholderText("Название, фискальный код или ссылка 1С"), "Partner");
+    await user.click(screen.getByRole("button", { name: "Найти" }));
+    await user.click(await screen.findByRole("button", { name: "Выбрать контрагента" }));
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Одобрить" })).toBeDisabled(),
+    );
     await user.click(await screen.findByRole("button", { name: /Manual wholesale/ }));
-    await waitFor(() => expect(screen.getByRole("button", { name: "Approve" })).toBeEnabled());
+    await waitFor(() => expect(screen.getByRole("button", { name: "Одобрить" })).toBeEnabled());
+  });
+
+  it("keeps the selected 1C binding and note after a safe approval failure", async () => {
+    const user = userEvent.setup();
+    mocks.approveAccessRequestAction.mockResolvedValue({
+      success: false,
+      errorCode: "APPROVAL_DATABASE_CONSTRAINT",
+      message:
+        "Не удалось сохранить одобрение из-за конфликта данных. Код события: event-1.",
+      data: null,
+    });
+    render(<AccessRequestDecisionForms requestId="request-1" />);
+
+    await user.click(screen.getByRole("button", { name: "Найти в 1С" }));
+    await user.type(
+      screen.getByPlaceholderText("Название, фискальный код или ссылка 1С"),
+      "Partner",
+    );
+    await user.click(screen.getByRole("button", { name: "Найти" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Выбрать контрагента" }),
+    );
+    await user.type(
+      screen.getByRole("textbox", { name: "Комментарий к решению" }),
+      "Проверено менеджером",
+    );
+    await user.click(screen.getByRole("button", { name: "Одобрить" }));
+
+    expect(await screen.findByText(/Код события: event-1/)).toBeInTheDocument();
+    expect(screen.getByText("PARTNER-1")).toBeInTheDocument();
+    expect(screen.getByText("CONTRACT-1")).toBeInTheDocument();
+    expect(
+      screen.getByRole("textbox", { name: "Комментарий к решению" }),
+    ).toHaveValue("Проверено менеджером");
+    expect(screen.queryByText("Unexpected system failure.")).not.toBeInTheDocument();
   });
 });

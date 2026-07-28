@@ -1,5 +1,6 @@
 import {
   AccessControlError,
+  ApprovalError,
   DuplicateRequestError,
   ForbiddenError,
   InvalidStateError,
@@ -39,6 +40,13 @@ export function success<TData>(
 }
 
 export function failureFromError(error: unknown): FailedActionResult {
+  if (error instanceof ApprovalError) {
+    return failure(
+      error.code,
+      `${approvalMessage(error.code)} Код события: ${error.correlationId}.`,
+    );
+  }
+
   if (error instanceof UnauthenticatedError) {
     return failure("AUTH_REQUIRED", "Authentication is required.");
   }
@@ -79,6 +87,35 @@ export function failureFromError(error: unknown): FailedActionResult {
   }
 
   return failure("SYSTEM_ERROR", "Unexpected system failure.");
+}
+
+function approvalMessage(code: ApprovalError["code"]): string {
+  switch (code) {
+    case "APPROVAL_REQUEST_NOT_FOUND":
+      return "Запрос на доступ не найден.";
+    case "APPROVAL_REQUEST_NOT_PENDING":
+      return "Запрос уже обработан или недоступен для одобрения.";
+    case "APPROVAL_FISCAL_CODE_REQUIRED":
+      return "В запросе отсутствует фискальный код. Проверьте данные партнёра.";
+    case "APPROVAL_REQUESTER_INVALID":
+      return "Профиль заявителя недоступен для активации.";
+    case "APPROVAL_COMPANY_CONFLICT":
+      return "Выбранный партнёр уже связан с другими коммерческими данными. Проверьте карточку компании.";
+    case "APPROVAL_MEMBERSHIP_CONFLICT":
+      return "Не удалось безопасно назначить доступ к компании.";
+    case "APPROVAL_1C_BINDING_INVALID":
+      return "Выбранные данные партнёра из 1С недействительны.";
+    case "APPROVAL_ROLE_INVALID":
+      return "Роль партнёра не настроена. Обратитесь к администратору платформы.";
+    case "APPROVAL_PERMISSION_DENIED":
+      return "Недостаточно прав для одобрения запроса.";
+    case "APPROVAL_DATABASE_CONSTRAINT":
+      return "Не удалось сохранить одобрение из-за конфликта данных.";
+    case "APPROVAL_AUDIT_FAILURE":
+      return "Не удалось записать обязательное событие аудита.";
+    case "APPROVAL_UNKNOWN_FAILURE":
+      return "Не удалось одобрить запрос. Повторите попытку или передайте код события администратору.";
+  }
 }
 
 export function invalidInput(message = "Submitted input is invalid."): FailedActionResult {

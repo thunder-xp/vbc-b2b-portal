@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { randomUUID } from "node:crypto";
 
 import type { AccessRequestStatus } from "../../types";
 import type { AccessRequestReview } from "../../services";
@@ -15,6 +16,9 @@ import {
   getAuthenticatedUserId,
 } from "../service-factory";
 import { requireAdminPermission } from "@/src/modules/admin/services";
+import { getOneCEnv } from "@/src/lib/env";
+import { createPartnerLookupService } from "@/src/modules/integration/services";
+import { ApprovalError } from "../../services";
 
 export type AccessRequestReviewDto = {
   id: string;
@@ -105,9 +109,41 @@ export async function approveAccessRequestAction(
   }
 
   try {
+    const correlationId = randomUUID();
     await requireAdminPermission("access_requests.approve");
     const actorUserId = await getAuthenticatedUserId();
-    const result = await createAccessApprovalService().approveAccessRequest({
+    const approvalService = createAccessApprovalService();
+    const review = await approvalService.getRequestForReview(
+      actorUserId,
+      requestId,
+    );
+
+    if (!review.request.requestedFiscalCode) {
+      throw new ApprovalError(
+        "APPROVAL_FISCAL_CODE_REQUIRED",
+        correlationId,
+      );
+    }
+
+    try {
+      await createPartnerLookupService(getOneCEnv()).validateApprovalBinding({
+        partnerReference: external1cId,
+        contractReference: external1cContractId,
+        priceTypeReference: external1cPriceTypeId,
+        expectedFiscalCode: review.request.requestedFiscalCode,
+      });
+    } catch (error) {
+      console.error({
+        event: "partner_access_approval_binding_validation_failed",
+        requestId,
+        reviewerId: actorUserId,
+        correlationId,
+        errorType: error instanceof Error ? error.name : typeof error,
+      });
+      throw new ApprovalError("APPROVAL_1C_BINDING_INVALID", correlationId);
+    }
+
+    const result = await approvalService.approveAccessRequest({
       actorUserId,
       requestId,
       external1cId,
@@ -115,6 +151,7 @@ export async function approveAccessRequestAction(
       external1cContractId,
       external1cPriceTypeId,
       decisionReason: normalizeOptionalText(input.decisionReason),
+      correlationId,
     });
 
     revalidatePath("/admin/access-requests");
@@ -124,7 +161,7 @@ export async function approveAccessRequestAction(
     revalidatePath("/onboarding/waiting");
     revalidatePath("/cabinet");
 
-    return success("Access request approved.", {
+    return success("Доступ партнёра одобрен.", {
       ...toReviewDto({
         request: result.request,
         requester: result.requester,

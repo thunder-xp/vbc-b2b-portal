@@ -1,3 +1,4 @@
+export * from "./access-approval-transaction.supabase-repository";
 export * from "./access-request.supabase-repository";
 export * from "./company-membership.supabase-repository";
 export * from "./company-user-management.supabase-repository";

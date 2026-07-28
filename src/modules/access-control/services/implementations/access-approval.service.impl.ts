@@ -1,8 +1,6 @@
 import type {
+  AccessApprovalTransactionRepository,
   AccessRequestRepository,
-  CompanyMembershipRepository,
-  PartnerCompanyRepository,
-  RolePermissionRepository,
   UserProfileRepository,
 } from "../../repositories";
 import {
@@ -11,8 +9,6 @@ import {
 } from "../../repositories";
 import {
   AccessRequestStatus,
-  MembershipStatus,
-  UserStatus,
   type AccessRequest,
   type UserProfile,
 } from "../../types";
@@ -25,22 +21,21 @@ import type {
 } from "../access-approval.service";
 import {
   AccessControlError,
+  ApprovalError,
+  type ApprovalErrorCode,
   ForbiddenError,
   InvalidStateError,
   NotFoundError,
   OperationNotAvailableError,
 } from "../errors";
 import { canApprovePartnerRequests } from "../internal-authorization";
-
-const PARTNER_OWNER_ROLE_CODE = "partner_owner";
+import { randomUUID } from "node:crypto";
 
 export class DefaultAccessApprovalService implements AccessApprovalService {
   constructor(
     private readonly accessRequestRepository: AccessRequestRepository,
     private readonly userProfileRepository: UserProfileRepository,
-    private readonly partnerCompanyRepository: PartnerCompanyRepository,
-    private readonly companyMembershipRepository: CompanyMembershipRepository,
-    private readonly rolePermissionRepository: RolePermissionRepository,
+    private readonly approvalTransactionRepository: AccessApprovalTransactionRepository,
   ) {}
 
   async listPendingReviewRequests(
@@ -78,83 +73,78 @@ export class DefaultAccessApprovalService implements AccessApprovalService {
   async approveAccessRequest(
     input: ApproveAccessRequestInput,
   ): Promise<ApprovedAccessRequestResult> {
-    await this.ensureInternalReviewer(input.actorUserId);
-    const approvalBinding = this.normalizeApprovalBinding(input);
-    const request = await this.findRequest(input.requestId);
+    const startedAt = performance.now();
+    const correlationId = input.correlationId ?? randomUUID();
+    let stage = "authorization";
 
-    if (
-      request.status !== AccessRequestStatus.PendingReview &&
-      request.status !== AccessRequestStatus.Approved
-    ) {
-      throw new InvalidStateError(
-        "Only pending or approved requests can continue approval.",
-      );
+    console.info({
+      event: "partner_access_approval_attempt",
+      requestId: input.requestId,
+      reviewerId: input.actorUserId,
+      correlationId,
+      stage,
+      outcome: "started",
+    });
+
+    try {
+      await this.ensureInternalReviewer(input.actorUserId);
+      stage = "input_validation";
+      const approvalBinding = this.normalizeApprovalBinding(input);
+      stage = "request_validation";
+      const request = await this.findRequest(input.requestId);
+
+      if (
+        request.status !== AccessRequestStatus.PendingReview &&
+        request.status !== AccessRequestStatus.Approved
+      ) {
+        throw new InvalidStateError(
+          "Only pending or approved requests can continue approval.",
+        );
+      }
+
+      const requester = await this.findRequester(request.userId);
+
+      if (!requester) {
+        throw new NotFoundError("Requester profile was not found.");
+      }
+
+      stage = "approval_transaction";
+      const result = await this.approvalTransactionRepository.approve({
+        actorUserId: input.actorUserId,
+        requestId: input.requestId,
+        ...approvalBinding,
+        correlationId,
+      });
+
+      console.info({
+        event: "partner_access_approval_completed",
+        requestId: input.requestId,
+        reviewerId: input.actorUserId,
+        correlationId,
+        stage,
+        outcome: "succeeded",
+        durationMs: Math.round(performance.now() - startedAt),
+        companyBranch: result.companyBranch,
+        companyId: result.company.id,
+        membershipOutcome: result.membershipOutcome,
+        idempotent: result.idempotent,
+      });
+
+      return result;
+    } catch (error) {
+      const approvalError = this.mapApprovalError(error, correlationId);
+      console.error({
+        event: "partner_access_approval_failed",
+        requestId: input.requestId,
+        reviewerId: input.actorUserId,
+        correlationId,
+        stage,
+        outcome: "failed",
+        safeErrorCode: approvalError.code,
+        durationMs: Math.round(performance.now() - startedAt),
+      });
+      throw approvalError;
     }
-
-    const requester = await this.findRequester(request.userId);
-
-    if (!requester) {
-      throw new NotFoundError("Requester profile was not found.");
-    }
-
-    const role = await this.rolePermissionRepository.findRoleByCode(
-      PARTNER_OWNER_ROLE_CODE,
-    );
-
-    if (!role) {
-      throw new NotFoundError("Partner owner role was not found.");
-    }
-
-    const company =
-      request.status === AccessRequestStatus.Approved
-          ? await this.findApprovedRequestCompany(request, approvalBinding.external1cId)
-        : await this.findOrCreateApprovedCompany({
-            external1cId: approvalBinding.external1cId,
-            external1cCode: approvalBinding.external1cCode,
-            external1cContractId: approvalBinding.external1cContractId,
-            external1cPriceTypeId: approvalBinding.external1cPriceTypeId,
-            displayName:
-              request.requestedCompanyName ?? approvalBinding.external1cId,
-          });
-    const reviewedAt = new Date().toISOString();
-    const approvedRequest =
-      request.status === AccessRequestStatus.Approved
-        ? request
-        : await this.accessRequestRepository.updateStatus({
-            id: request.id,
-            status: AccessRequestStatus.Approved,
-            companyId: company.id,
-            requestedExternal1cId: approvalBinding.external1cId,
-            reviewedBy: input.actorUserId,
-            reviewedAt,
-            decisionReason: approvalBinding.decisionReason,
-          });
-
-    const activeMembership =
-      await this.companyMembershipRepository.findActiveMembership(
-        request.userId,
-        company.id,
-      );
-    const membership =
-      activeMembership ??
-      (await this.companyMembershipRepository.create({
-        userId: request.userId,
-        companyId: company.id,
-        roleId: role.id,
-        status: MembershipStatus.Active,
-        approvedBy: input.actorUserId,
-        approvedAt: reviewedAt,
-      }));
-
-    const activatedRequester =
-      await this.userProfileRepository.activatePartnerProfile(request.userId);
-
-    return {
-      request: approvedRequest,
-      company,
-      membership,
-      requester: activatedRequester,
-    };
   }
 
   async rejectAccessRequest(
@@ -255,73 +245,55 @@ export class DefaultAccessApprovalService implements AccessApprovalService {
     }
   }
 
-  private async findOrCreateApprovedCompany(input: {
-    external1cId: string;
-    external1cCode: string | null;
-    external1cContractId: string | null;
-    external1cPriceTypeId: string;
-    displayName: string;
-  }) {
-    try {
-      const existingCompany =
-        await this.partnerCompanyRepository.findByExternal1cId(
-          input.external1cId,
-        );
+  private mapApprovalError(
+    error: unknown,
+    correlationId: string,
+  ): ApprovalError {
+    if (error instanceof ApprovalError) {
+      return error;
+    }
 
-      if (existingCompany) {
-        return this.partnerCompanyRepository.updateApprovalBinding({
-          companyId: existingCompany.id,
-          external1cCode: input.external1cCode,
-          external1cContractId: input.external1cContractId,
-          external1cPriceTypeId: input.external1cPriceTypeId,
-          displayName: input.displayName,
-        });
+    if (error instanceof ForbiddenError) {
+      return new ApprovalError("APPROVAL_PERMISSION_DENIED", correlationId);
+    }
+
+    if (error instanceof InvalidStateError) {
+      return new ApprovalError("APPROVAL_REQUEST_NOT_PENDING", correlationId);
+    }
+
+    if (error instanceof NotFoundError) {
+      return new ApprovalError("APPROVAL_REQUEST_NOT_FOUND", correlationId);
+    }
+
+    if (error instanceof RepositoryUnexpectedError) {
+      const cause = error.cause as
+        | { code?: string; message?: string }
+        | undefined;
+      const message = cause?.message ?? "";
+      const knownCode = APPROVAL_ERROR_CODES.find((code) =>
+        message.includes(code),
+      );
+
+      if (knownCode) {
+        return new ApprovalError(knownCode, correlationId);
       }
 
-      return this.partnerCompanyRepository.create({
-        external1cId: input.external1cId,
-        external1cCode: input.external1cCode,
-        external1cContractId: input.external1cContractId,
-        external1cPriceTypeId: input.external1cPriceTypeId,
-        displayName: input.displayName,
-      });
-    } catch (error) {
-      throw this.mapRepositoryError(error);
-    }
-  }
+      if (cause?.code === "42501") {
+        return new ApprovalError("APPROVAL_PERMISSION_DENIED", correlationId);
+      }
 
-  private async findApprovedRequestCompany(
-    request: AccessRequest,
-    external1cId: string,
-  ) {
-    if (request.companyId) {
-      try {
-        const company = await this.partnerCompanyRepository.findById(
-          request.companyId,
-        );
-
-        if (company) {
-          return company;
-        }
-      } catch (error) {
-        throw this.mapRepositoryError(error);
+      if (
+        cause?.code === "23502" ||
+        cause?.code === "23503" ||
+        cause?.code === "23505" ||
+        cause?.code === "23514" ||
+        cause?.code === "22023"
+      ) {
+        return new ApprovalError("APPROVAL_DATABASE_CONSTRAINT", correlationId);
       }
     }
 
-    try {
-      const company =
-        await this.partnerCompanyRepository.findByExternal1cId(external1cId);
-
-      if (company) {
-        return company;
-      }
-    } catch (error) {
-      throw this.mapRepositoryError(error);
-    }
-
-    throw new InvalidStateError(
-      "Approved access request is missing company binding.",
-    );
+    return new ApprovalError("APPROVAL_UNKNOWN_FAILURE", correlationId);
   }
 
   private mapRepositoryError(error: unknown): AccessControlError {
@@ -340,3 +312,18 @@ export class DefaultAccessApprovalService implements AccessApprovalService {
     return new AccessControlError();
   }
 }
+
+const APPROVAL_ERROR_CODES: ApprovalErrorCode[] = [
+  "APPROVAL_REQUEST_NOT_FOUND",
+  "APPROVAL_REQUEST_NOT_PENDING",
+  "APPROVAL_FISCAL_CODE_REQUIRED",
+  "APPROVAL_REQUESTER_INVALID",
+  "APPROVAL_COMPANY_CONFLICT",
+  "APPROVAL_MEMBERSHIP_CONFLICT",
+  "APPROVAL_1C_BINDING_INVALID",
+  "APPROVAL_ROLE_INVALID",
+  "APPROVAL_PERMISSION_DENIED",
+  "APPROVAL_DATABASE_CONSTRAINT",
+  "APPROVAL_AUDIT_FAILURE",
+  "APPROVAL_UNKNOWN_FAILURE",
+];

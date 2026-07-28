@@ -78,7 +78,7 @@ export function AccessRequestDecisionForms({
 
       if (result.success) {
         setSearchResults(result.data);
-        setSearchError(result.data.length === 0 ? "No matching counterparty found." : null);
+        setSearchError(result.data.length === 0 ? "Контрагенты не найдены." : null);
         return;
       }
 
@@ -177,22 +177,24 @@ export function AccessRequestDecisionForms({
         className="rounded-lg border border-zinc-200 bg-white p-6 shadow-sm"
         onSubmit={approve}
       >
-        <h2 className="text-lg font-semibold text-zinc-950">Approve access</h2>
+        <h2 className="text-lg font-semibold text-zinc-950">
+          Одобрение доступа
+        </h2>
         <p className="mt-2 text-sm text-zinc-600">
-          Search 1C and select the existing partner. The binding references are
-          populated automatically and are never partner-editable.
+          Найдите существующего партнёра в 1С. Ссылки заполняются автоматически
+          и недоступны партнёру для изменения.
         </p>
         <div className="mt-5 grid gap-4">
           <div className="rounded-md border border-zinc-200 bg-zinc-50 p-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-sm font-medium text-zinc-900">
-                  Selected 1C partner
+                  Выбранный партнёр 1С
                 </p>
                 <p className="mt-1 text-sm text-zinc-600">
                   {selectedPartner
                     ? selectedPartner.displayName
-                    : "No 1C partner selected."}
+                    : "Партнёр 1С не выбран."}
                 </p>
               </div>
               <button
@@ -200,25 +202,25 @@ export function AccessRequestDecisionForms({
                 onClick={() => setIsSearchOpen(true)}
                 type="button"
               >
-                Search in 1C
+                Найти в 1С
               </button>
             </div>
 
             {selectedPartner && (
               <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-3">
                 <BindingValue
-                  label="1C partner reference"
+                  label="Ссылка партнёра в 1С"
                   value={external1cId}
                 />
                 <BindingValue
-                  label="1C contract reference"
+                  label="Ссылка договора в 1С"
                   value={external1cContractId}
                 />
                 <BindingValue
                   label="Ссылка статуса партнёра в 1С"
                   value={external1cPriceTypeId}
                 />
-                <BindingValue label="Contract" value={selectedContractName} />
+                <BindingValue label="Договор" value={selectedContractName} />
                 <BindingValue
                   label="Статус партнёра"
                   value={selectedPriceTypeName}
@@ -231,7 +233,7 @@ export function AccessRequestDecisionForms({
             )}
           </div>
           <label className="grid gap-2 text-sm font-medium text-zinc-800">
-            Approval note
+            Комментарий к решению
             <textarea
               className="min-h-24 rounded-md border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-zinc-950"
               onChange={(event) => setDecisionReason(event.target.value)}
@@ -255,7 +257,7 @@ export function AccessRequestDecisionForms({
           }
           type="submit"
         >
-          Approve
+          {isPending ? "Одобрение..." : "Одобрить"}
         </button>
       </form>
 
@@ -269,10 +271,10 @@ export function AccessRequestDecisionForms({
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-lg font-semibold text-zinc-950">
-                  Search in 1C
+                  Поиск в 1С
                 </h2>
                 <p className="mt-1 text-sm text-zinc-600">
-                  Search by company name, fiscal code, or 1C reference.
+                  Поиск по названию компании, фискальному коду или ссылке 1С.
                 </p>
               </div>
               <button
@@ -280,7 +282,7 @@ export function AccessRequestDecisionForms({
                 onClick={() => setIsSearchOpen(false)}
                 type="button"
               >
-                Close
+                Закрыть
               </button>
             </div>
 
@@ -288,7 +290,7 @@ export function AccessRequestDecisionForms({
               <input
                 className="h-10 min-w-0 flex-1 rounded-md border border-zinc-300 px-3 text-sm outline-none focus:border-zinc-950"
                 onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder="Company name, VAT/IDNO, or 1C reference"
+                placeholder="Название, фискальный код или ссылка 1С"
                 value={searchQuery}
               />
               <button
@@ -297,7 +299,7 @@ export function AccessRequestDecisionForms({
                 onClick={searchPartners}
                 type="button"
               >
-                Search
+                Найти
               </button>
             </div>
 
@@ -323,27 +325,30 @@ export function AccessRequestDecisionForms({
                     {partner.displayName}
                   </p>
                   <p className="mt-1 text-sm text-zinc-600">
-                    {partner.fullName ?? "No full legal name"}
+                    {partner.fullName ?? "Полное наименование не указано"}
                   </p>
                   <p className="mt-1 text-sm text-zinc-600">
-                    Fiscal code: {partner.taxId ?? "Not available"} · Code: {partner.code}
+                    Фискальный код: {partner.taxId ?? "Не указан"} · Код: {partner.code}
                   </p>
                   <p className="mt-1 text-sm text-zinc-600">
-                    {partner.buyer ? "Buyer" : "Not marked as buyer"} · {partner.supplier ? "Supplier" : "Not marked as supplier"}
+                    {partner.buyer ? "Покупатель" : "Не отмечен как покупатель"} ·{" "}
+                    {partner.supplier ? "Поставщик" : "Не отмечен как поставщик"}
                   </p>
                   <button
                     className="mt-3 rounded-md border border-emerald-600 px-3 py-2 text-sm font-medium text-emerald-800 hover:bg-emerald-50"
                     onClick={() => selectPartner(partner)}
                     type="button"
                   >
-                    Select counterparty
+                    Выбрать контрагента
                   </button>
                 </div>
               ))}
 
               {selectedPartner && contracts.length > 0 && (
                 <div className="rounded-md border border-zinc-200 p-4">
-                  <p className="font-medium text-zinc-950">Active contracts</p>
+                  <p className="font-medium text-zinc-950">
+                    Активные договоры
+                  </p>
                   <div className="mt-3 grid gap-2">
                     {contracts.map((contract) => (
                       <button
@@ -354,7 +359,7 @@ export function AccessRequestDecisionForms({
                       >
                         <span className="font-medium text-zinc-900">{contract.name}</span>
                         <span className="mt-1 block text-zinc-600">
-                          {contract.number ?? contract.code} · {contract.date ?? "No date"} · {contract.contractType ?? "No contract type"}
+                          {contract.number ?? contract.code} · {contract.date ?? "Дата не указана"} · {contract.contractType ?? "Тип договора не указан"}
                         </span>
                         <span className="mt-1 block text-zinc-600">
                           Статус партнёра: {contract.priceType?.name ?? "Требуется выбор"}
@@ -379,7 +384,7 @@ export function AccessRequestDecisionForms({
                         type="button"
                       >
                         {priceType.name} · {priceType.external1cPriceTypeId}
-                        {priceType.external1cPriceTypeId === external1cPriceTypeId ? " · Selected" : ""}
+                        {priceType.external1cPriceTypeId === external1cPriceTypeId ? " · Выбран" : ""}
                       </button>
                     ))}
                   </div>
@@ -394,12 +399,14 @@ export function AccessRequestDecisionForms({
         className="rounded-lg border border-zinc-200 bg-white p-6 shadow-sm"
         onSubmit={reject}
       >
-        <h2 className="text-lg font-semibold text-zinc-950">Reject request</h2>
+        <h2 className="text-lg font-semibold text-zinc-950">
+          Отклонение запроса
+        </h2>
         <p className="mt-2 text-sm text-zinc-600">
-          Rejecting does not create a company or membership.
+          При отклонении компания и доступ к ней не создаются.
         </p>
         <label className="mt-5 grid gap-2 text-sm font-medium text-zinc-800">
-          Rejection reason
+          Причина отклонения
           <textarea
             className="min-h-32 rounded-md border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-zinc-950"
             onChange={(event) => setRejectReason(event.target.value)}
@@ -411,7 +418,7 @@ export function AccessRequestDecisionForms({
           disabled={isPending}
           type="submit"
         >
-          Reject
+          {isPending ? "Отклонение..." : "Отклонить"}
         </button>
       </form>
 
@@ -443,7 +450,9 @@ function BindingValue({
   return (
     <div>
       <dt className="font-medium text-zinc-800">{label}</dt>
-      <dd className="mt-1 break-all text-zinc-600">{value || "Not selected"}</dd>
+      <dd className="mt-1 break-all text-zinc-600">
+        {value || "Не выбрано"}
+      </dd>
     </div>
   );
 }

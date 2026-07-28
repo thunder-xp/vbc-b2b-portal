@@ -2,6 +2,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   approveAccessRequest: vi.fn(),
+  getRequestForReview: vi.fn(),
+  validateApprovalBinding: vi.fn(),
+  createPartnerLookupService: vi.fn(),
   createAccessApprovalService: vi.fn(),
   getAuthenticatedUserId: vi.fn(),
   revalidatePath: vi.fn(),
@@ -15,6 +18,10 @@ vi.mock("../service-factory", () => ({
   createAccessApprovalService: mocks.createAccessApprovalService,
   getAuthenticatedUserId: mocks.getAuthenticatedUserId,
 }));
+vi.mock("@/src/modules/integration/services", () => ({
+  createPartnerLookupService: mocks.createPartnerLookupService,
+}));
+vi.mock("@/src/lib/env", () => ({ getOneCEnv: vi.fn(() => ({})) }));
 
 import { approveAccessRequestAction } from "../admin/access-approval.actions";
 
@@ -24,7 +31,17 @@ describe("approveAccessRequestAction", () => {
     mocks.getAuthenticatedUserId.mockResolvedValue("reviewer-1");
     mocks.createAccessApprovalService.mockReturnValue({
       approveAccessRequest: mocks.approveAccessRequest,
+      getRequestForReview: mocks.getRequestForReview,
     });
+    mocks.createPartnerLookupService.mockReturnValue({
+      validateApprovalBinding: mocks.validateApprovalBinding,
+    });
+    mocks.getRequestForReview.mockResolvedValue({
+      request: {
+        requestedFiscalCode: "1014600041304",
+      },
+    });
+    mocks.validateApprovalBinding.mockResolvedValue(undefined);
     mocks.approveAccessRequest.mockResolvedValue(approvedResult());
   });
 
@@ -39,6 +56,12 @@ describe("approveAccessRequestAction", () => {
     });
 
     expect(result.success).toBe(true);
+    expect(mocks.validateApprovalBinding).toHaveBeenCalledWith({
+      partnerReference: "PARTNER-1",
+      contractReference: null,
+      priceTypeReference: "PRICE-1",
+      expectedFiscalCode: "1014600041304",
+    });
     expect(mocks.approveAccessRequest).toHaveBeenCalledWith({
       actorUserId: "reviewer-1",
       requestId: "request-1",
@@ -47,6 +70,7 @@ describe("approveAccessRequestAction", () => {
       external1cContractId: null,
       external1cPriceTypeId: "PRICE-1",
       decisionReason: "Approved",
+      correlationId: expect.any(String),
     });
   });
 
@@ -63,6 +87,46 @@ describe("approveAccessRequestAction", () => {
       errorCode: "INVALID_INPUT",
       message: "Выберите статус партнёра.",
     });
+    expect(mocks.approveAccessRequest).not.toHaveBeenCalled();
+  });
+
+  it("blocks a binding that cannot be revalidated against 1C", async () => {
+    mocks.validateApprovalBinding.mockRejectedValue(
+      new Error("Contract does not belong to partner"),
+    );
+
+    const result = await approveAccessRequestAction({
+      requestId: "request-1",
+      external1cId: "PARTNER-1",
+      external1cContractId: "CONTRACT-OTHER",
+      external1cPriceTypeId: "PRICE-1",
+    });
+
+    expect(result).toMatchObject({
+      success: false,
+      errorCode: "APPROVAL_1C_BINDING_INVALID",
+    });
+    expect(result.message).not.toContain("Contract does not belong");
+    expect(mocks.approveAccessRequest).not.toHaveBeenCalled();
+  });
+
+  it("blocks approval when the original request has no fiscal code", async () => {
+    mocks.getRequestForReview.mockResolvedValue({
+      request: { requestedFiscalCode: null },
+    });
+
+    const result = await approveAccessRequestAction({
+      requestId: "request-1",
+      external1cId: "PARTNER-1",
+      external1cContractId: null,
+      external1cPriceTypeId: "PRICE-1",
+    });
+
+    expect(result).toMatchObject({
+      success: false,
+      errorCode: "APPROVAL_FISCAL_CODE_REQUIRED",
+    });
+    expect(mocks.validateApprovalBinding).not.toHaveBeenCalled();
     expect(mocks.approveAccessRequest).not.toHaveBeenCalled();
   });
 });

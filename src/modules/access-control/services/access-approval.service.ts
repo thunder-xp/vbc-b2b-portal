@@ -13,6 +13,7 @@ export interface ApproveAccessRequestInput {
   external1cContractId?: string | null;
   external1cPriceTypeId: string;
   decisionReason?: string | null;
+  correlationId?: string;
 }
 
 export interface RejectAccessRequestInput {
