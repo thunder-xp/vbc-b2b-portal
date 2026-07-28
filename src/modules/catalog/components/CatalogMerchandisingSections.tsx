@@ -6,6 +6,7 @@ import type {
 import type { ProductCommercialViewDto } from "../../pricing-inventory";
 import type { ProductCardCapabilityModel } from "../../partner-cabinet/services";
 import { ProductCard } from "./ProductCard";
+import { CATALOG_PRODUCT_GRID_CLASS } from "./ProductGrid";
 import { BehaviorViewEvent } from "../../behavior-analytics/components";
 
 export function CatalogMerchandisingSections({
@@ -45,8 +46,8 @@ export function CatalogMerchandisingSections({
               Показать все
             </Link>
           </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {section.products.slice(0, 4).map((product) => (
+          <div className={CATALOG_PRODUCT_GRID_CLASS}>
+            {section.products.slice(0, 10).map((product) => (
               <ProductCard
                 analyticsSurface={section.labelCode}
                 capabilities={capabilities}

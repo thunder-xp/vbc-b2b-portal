@@ -14,7 +14,7 @@ export {
   type ProductCardWorkspaceContext,
 } from "./product-card.model";
 export { ProductDetail, type ProductDetailTab } from "./ProductDetail";
-export { ProductGrid } from "./ProductGrid";
+export { CATALOG_PRODUCT_GRID_CLASS, ProductGrid } from "./ProductGrid";
 export { ProductImage } from "./ProductImage";
 export { ProductImageGallery } from "./ProductImageGallery";
 export { ProductThumbnail } from "./ProductThumbnail";

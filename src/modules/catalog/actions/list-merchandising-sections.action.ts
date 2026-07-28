@@ -49,7 +49,7 @@ export async function listCatalogMerchandisingSectionsAction(): Promise<
     const assignments = await createMerchandisingService().listPublished(
       userId,
       undefined,
-      6,
+      10,
     );
     const productIds = [...new Set(assignments.map((item) => item.productId))];
     if (!productIds.length) {
