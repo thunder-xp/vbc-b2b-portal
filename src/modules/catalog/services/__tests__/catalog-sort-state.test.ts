@@ -39,6 +39,11 @@ describe("buildCatalogSortHiddenFields", () => {
     expect(buildCatalogSortHiddenFields({ availability: "all", attributeFilters: {} })).toEqual([]);
   });
 
+  it("preserves explicit full-catalog mode through sorting and pagination", () => {
+    expect(buildCatalogSortHiddenFields({ explicitAll: true, attributeFilters: {} })).toContainEqual({ name: "view", value: "all" });
+    expect(buildCatalogHref({ explicitAll: true, page: 2 })).toBe("/cabinet/catalog?view=all&page=2");
+  });
+
   it("preserves every validated filter while changing sort resets only page", () => {
     expect(buildCatalogSortHiddenFields({
       categoryId: "cameras",

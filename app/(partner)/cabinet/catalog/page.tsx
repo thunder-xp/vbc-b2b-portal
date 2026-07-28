@@ -41,7 +41,7 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
   return <div className="space-y-6">
     <div className="flex gap-3">
       <CategoryMegaMenu categories={categoriesResult.data} merchandisingLabel={routeState.merchandisingLabel} sort={routeState.sort} />
-      <CatalogSearch categoryId={routeState.categoryId} initialSearch={routeState.search} merchandisingLabel={routeState.merchandisingLabel} sort={routeState.sort} />
+      <CatalogSearch categoryId={routeState.categoryId} explicitAll={routeState.explicitAll} initialSearch={routeState.search} merchandisingLabel={routeState.merchandisingLabel} sort={routeState.sort} />
       {routeState.mode === "curated" ? <Link className="inline-flex h-11 shrink-0 items-center gap-2 rounded-md border border-zinc-300 bg-white px-4 text-sm font-semibold text-zinc-900 hover:border-emerald-600 hover:text-emerald-800" href="/cabinet/catalog?view=all" prefetch={false}><LayoutGrid aria-hidden="true" className="size-4" /><span className="hidden sm:inline">Весь каталог</span></Link> : null}
     </div>
     {routeState.mode === "discovery" ? <CatalogBreadcrumb categories={categoriesResult.data} selectedId={routeState.categoryId} /> : null}

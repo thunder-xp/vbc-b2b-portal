@@ -18,15 +18,19 @@ export function parseCatalogAttributeFilters(params: Record<string, string | str
 
 export function buildCatalogSortHiddenFields(input: {
   categoryId?: string;
+  brandId?: string;
+  explicitAll?: boolean;
   availability?: "all" | "in_stock" | "expected";
   merchandisingLabel?: MerchandisingLabelCode;
   search?: string;
   attributeFilters: Record<string, string[]>;
 }): CatalogSortHiddenField[] {
   const fields: CatalogSortHiddenField[] = [];
+  addTextField(fields, "brand", input.brandId);
   addTextField(fields, "category", input.categoryId);
   addTextField(fields, "search", input.search);
   addTextField(fields, "label", input.merchandisingLabel);
+  if (input.explicitAll) fields.push({ name: "view", value: "all" });
   if (input.availability === "in_stock" || input.availability === "expected") {
     fields.push({ name: "availability", value: input.availability });
   }
@@ -40,6 +44,8 @@ export function buildCatalogSortHiddenFields(input: {
 
 export function buildCatalogHref(input: {
   categoryId?: string;
+  brandId?: string;
+  explicitAll?: boolean;
   search?: string;
   availability?: "all" | "in_stock" | "expected";
   merchandisingLabel?: MerchandisingLabelCode;
@@ -50,6 +56,8 @@ export function buildCatalogHref(input: {
   const searchParams = new URLSearchParams();
   for (const field of buildCatalogSortHiddenFields({
     categoryId: input.categoryId,
+    brandId: input.brandId,
+    explicitAll: input.explicitAll,
     search: input.search,
     availability: input.availability,
     merchandisingLabel: input.merchandisingLabel,

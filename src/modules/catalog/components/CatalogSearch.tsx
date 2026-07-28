@@ -12,7 +12,7 @@ type SearchResponse =
   | { success: true; data: CatalogSearchSuggestionDto[] }
   | { success: false };
 
-export function CatalogSearch({ categoryId, initialSearch, merchandisingLabel, sort = "default" }: { categoryId?: string; initialSearch?: string; merchandisingLabel?: MerchandisingLabelCode; sort?: CatalogSort }) {
+export function CatalogSearch({ categoryId, explicitAll, initialSearch, merchandisingLabel, sort = "default" }: { categoryId?: string; explicitAll?: boolean; initialSearch?: string; merchandisingLabel?: MerchandisingLabelCode; sort?: CatalogSort }) {
   const [query, setQuery] = useState(initialSearch ?? "");
   const [results, setResults] = useState<CatalogSearchSuggestionDto[]>([]);
   const [loading, setLoading] = useState(false);
@@ -59,6 +59,7 @@ export function CatalogSearch({ categoryId, initialSearch, merchandisingLabel, s
   return <div className="relative flex-1">
     <form action="/cabinet/catalog" className="relative">
       {categoryId && <input name="category" type="hidden" value={categoryId} />}
+      {explicitAll && <input name="view" type="hidden" value="all" />}
       {merchandisingLabel && <input name="label" type="hidden" value={merchandisingLabel} />}
       {sort !== "default" && <input name="sort" type="hidden" value={sort} />}
       <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-3.5 size-4 text-zinc-400" />
