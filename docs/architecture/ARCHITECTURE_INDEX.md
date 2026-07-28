@@ -1,5 +1,7 @@
 # Architecture Index
 
+- [Buyer Behavior And Recommendation Architecture](./BUYER_BEHAVIOR_AND_RECOMMENDATION_ARCHITECTURE.md)
+
 This index is the table of contents for the Novotech Partner Platform Architecture Book.
 
 ## Recommended Reading Order
