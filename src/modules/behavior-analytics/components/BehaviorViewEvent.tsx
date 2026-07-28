@@ -103,6 +103,37 @@ export function BehaviorTrackedLink({
   );
 }
 
+export function BehaviorTrackedCatalogLink({
+  ariaLabel,
+  children,
+  className,
+  href,
+  sourceSurface,
+}: {
+  ariaLabel: string;
+  children: React.ReactNode;
+  className?: string;
+  href: string;
+  sourceSurface: string;
+}) {
+  return (
+    <Link
+      aria-label={ariaLabel}
+      className={className}
+      href={href}
+      onClick={() => recordBehaviorInteraction({
+        eventName: "merchandising_product_clicked",
+        metadataSafe: { action: "show_all" },
+        route: "/cabinet/catalog",
+        sourceSurface,
+      })}
+      prefetch={false}
+    >
+      {children}
+    </Link>
+  );
+}
+
 export function recordBehaviorInteraction(input: {
   eventName: BehaviorEventName;
   metadataSafe?: SafeBehaviorMetadata;
@@ -112,7 +143,7 @@ export function recordBehaviorInteraction(input: {
   void recordBehaviorEventAction({
     ...input,
     sessionId: getSessionId(),
-  });
+  }).catch(() => undefined);
 }
 
 function getSessionId(): string {

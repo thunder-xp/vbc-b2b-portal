@@ -59,7 +59,7 @@ export async function CatalogResults({
   ]);
 
   if (!productsResult.success) {
-    return <EmptyCatalog message={productsResult.message} title="Catalog unavailable" />;
+    return <EmptyCatalog message="Не удалось загрузить каталог. Обновите страницу или попробуйте немного позже." title="Каталог временно недоступен" />;
   }
 
   const commercialViews = createCommercialViewMap(productsResult.data.commercialViews ?? []);

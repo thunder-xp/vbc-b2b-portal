@@ -1,4 +1,4 @@
-import { render, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -9,7 +9,7 @@ vi.mock("../../actions", () => ({
   recordBehaviorEventAction: mocks.record,
 }));
 
-import { BehaviorViewEvent } from "../BehaviorViewEvent";
+import { BehaviorTrackedCatalogLink, BehaviorViewEvent } from "../BehaviorViewEvent";
 
 describe("BehaviorViewEvent", () => {
   beforeEach(() => {
@@ -35,5 +35,15 @@ describe("BehaviorViewEvent", () => {
     );
     await Promise.resolve();
     expect(mocks.record).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps catalog navigation usable when analytics rejects", async () => {
+    mocks.record.mockRejectedValueOnce(new Error("analytics unavailable"));
+    render(<BehaviorTrackedCatalogLink ariaLabel="Показать все: Популярные товары" href="/cabinet/catalog?label=TOP" sourceSurface="TOP">Показать все</BehaviorTrackedCatalogLink>);
+    const link = screen.getByRole("link", { name: "Показать все: Популярные товары" });
+    link.addEventListener("click", (event) => event.preventDefault());
+    fireEvent.click(link);
+    await waitFor(() => expect(mocks.record).toHaveBeenCalledTimes(1));
+    expect(link).toHaveAttribute("href", "/cabinet/catalog?label=TOP");
   });
 });

@@ -40,6 +40,13 @@ describe("catalog curated mode boundaries", () => {
     expect(curated).not.toContain("CatalogFilters");
     expect(page).not.toContain("const productsPromise");
   });
+
+  it("does not pass event handlers from the merchandising server component", () => {
+    const sections = source("src/modules/catalog/components/CatalogMerchandisingSections.tsx");
+    expect(sections).toContain("BehaviorTrackedCatalogLink");
+    expect(sections).not.toContain("onClick=");
+    expect(sections).not.toContain("recordBehaviorInteraction");
+  });
 });
 
 function source(path: string): string {

@@ -19,7 +19,7 @@ export async function CuratedCatalogResults({
   ]);
 
   if (!merchandisingResult.success) {
-    return <EmptyCatalog message={merchandisingResult.message} title="Каталог временно недоступен" />;
+    return <EmptyCatalog message="Не удалось загрузить каталог. Обновите страницу или попробуйте немного позже." title="Каталог временно недоступен" />;
   }
 
   return <div className="space-y-7">
