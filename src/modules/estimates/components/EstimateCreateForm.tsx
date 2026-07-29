@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import { recordBehaviorInteraction } from "../../behavior-analytics/components";
+import { ActionFeedback, actionClassName, FormField } from "../../platform-ui";
 import { createEstimateAction } from "../actions/estimate.actions";
 
 export function EstimateCreateForm({ currencies }: { currencies: string[] }) {
@@ -39,23 +40,18 @@ export function EstimateCreateForm({ currencies }: { currencies: string[] }) {
         <Field label="Проект / объект" name="projectName" placeholder="Необязательно" />
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
-        <label className="text-sm font-medium text-zinc-800">
-          Валюта
-          <select className="mt-2 h-11 w-full rounded-md border border-zinc-300 bg-white px-3 outline-none focus:border-emerald-600" disabled={!currencies.length} name="currencyCode" required>
+        <FormField label="Валюта" required>{(props) =>
+          <select {...props} className="h-11 w-full rounded-md border border-zinc-300 bg-white px-3 outline-none focus:border-emerald-600" disabled={!currencies.length} name="currencyCode" required>
             {currencies.map((currency) => <option key={currency} value={currency}>{currency}</option>)}
-          </select>
-        </label>
-        <label className="text-sm font-medium text-zinc-800">
-          Срок действия, дней
-          <input className="mt-2 h-11 w-full rounded-md border border-zinc-300 px-3 outline-none focus:border-emerald-600" defaultValue={14} max={365} min={1} name="validityDays" required type="number" />
-        </label>
+          </select>}</FormField>
+        <FormField helperText="От 1 до 365 дней." label="Срок действия, дней" required>{(props) => <input {...props} className="h-11 w-full rounded-md border border-zinc-300 px-3 outline-none focus:border-emerald-600" defaultValue={14} max={365} min={1} name="validityDays" required type="number" />}</FormField>
       </div>
       {!currencies.length && <p className="text-sm text-amber-800">Нет доступной опубликованной валюты. Обновите коммерческие данные.</p>}
       <div className="flex flex-wrap items-center gap-3">
-        <button className="rounded-md bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50" disabled={pending || !currencies.length} type="submit">
+        <button className={actionClassName.primary} disabled={pending || !currencies.length} type="submit">
           {pending ? "Создание..." : "Создать смету"}
         </button>
-        {message && <p aria-live="polite" className="text-sm text-zinc-600">{message}</p>}
+        {message && <ActionFeedback kind="error" message={`${message} Введённые данные сохранены.`} />}
       </div>
     </form>
   );
@@ -63,9 +59,6 @@ export function EstimateCreateForm({ currencies }: { currencies: string[] }) {
 
 function Field({ label, name, placeholder, required = false }: { label: string; name: string; placeholder: string; required?: boolean }) {
   return (
-    <label className="text-sm font-medium text-zinc-800">
-      {label}
-      <input className="mt-2 h-11 w-full rounded-md border border-zinc-300 px-3 outline-none focus:border-emerald-600" maxLength={200} name={name} placeholder={placeholder} required={required} />
-    </label>
+    <FormField label={label} required={required}>{(props) => <input {...props} className="h-11 w-full rounded-md border border-zinc-300 px-3 outline-none focus:border-emerald-600" maxLength={200} name={name} placeholder={placeholder} required={required} />}</FormField>
   );
 }

@@ -1,11 +1,12 @@
 "use client";
 
-import { CheckCircle2, Copy, Download, FileClock, FilePlus2, PackagePlus, ShoppingCart } from "lucide-react";
+import { CheckCircle2, Copy, Download, FileClock, FilePlus2, ShoppingCart } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import { recordBehaviorInteraction } from "../../behavior-analytics/components";
+import { ConfirmationDialog } from "../../platform-ui";
 import {
   addEstimateEquipmentToCartAction,
   createDraftFromEstimateVersionAction,
@@ -88,46 +89,24 @@ export function EstimateWorkflowPanel({ initialWorkflow, revision }: { initialWo
           {version.pdfDocumentId && version.pdfStatus === "ready" && <Link className={iconButton} href={`/api/estimates/documents/${version.pdfDocumentId}`}><Download className="size-4" />Скачать PDF</Link>}
           <SendProposalDialog canSend={workflow.emailDeliveryAvailable && (version.status === "prepared" || version.status === "sent") && version.pdfStatus === "ready"} defaults={version.deliveryDefaults} deliveries={version.deliveries} emailAvailable={workflow.emailDeliveryAvailable} pdfReady={version.pdfStatus === "ready"} versionId={version.id} versionLabel={version.label} />
           {(version.status === "rejected" || version.status === "accepted") && <button className={secondary} disabled={pending} onClick={() => restoreVersion(version.id)} type="button"><FilePlus2 className="size-4" />Создать новую версию</button>}
-          {version.status === "accepted" && <button className={primary} disabled={pending} onClick={() => setConversionVersionId(version.id)} type="button"><PackagePlus className="size-4" />Создать заказ</button>}
+          {version.status === "accepted" && <button className={primary} disabled={pending} onClick={() => setConversionVersionId(version.id)} type="button"><ShoppingCart className="size-4" />Создать заказ</button>}
         </div>
       </article>) : <p className="py-8 text-center text-sm text-zinc-500">Версий пока нет. Сохраните смету и создайте первую коммерческую версию.</p>}
     </div>
-    {conversionVersionId !== undefined && <ConversionReview
-      label={conversionVersionId ? workflow.versions.find((version) => version.id === conversionVersionId)?.label ?? "Принятая версия" : "Текущая смета"}
+    <ConfirmationDialog
+      confirmLabel="Добавить оборудование в корзину"
+      consequence="В корзину попадут только позиции оборудования. Услуги и ручные позиции останутся в смете."
+      open={conversionVersionId !== undefined}
       onCancel={() => setConversionVersionId(undefined)}
       onConfirm={() => {
-        const versionId = conversionVersionId;
+        const versionId = conversionVersionId ?? null;
         setConversionVersionId(undefined);
         addToCart(versionId);
       }}
       pending={pending}
-    />}
+      title="Создание заказа"
+    ><div className="space-y-3 text-sm text-zinc-700"><p className="font-medium text-zinc-950">{conversionVersionId ? workflow.versions.find((version) => version.id === conversionVersionId)?.label ?? "Принятая версия" : "Текущая смета"}</p><p>Перед добавлением сервер проверит актуальные цены и доступность. Изменения будут показаны в результате, заказ в 1С на этом шаге не создаётся.</p></div></ConfirmationDialog>
   </section>;
-}
-
-function ConversionReview({ label, pending, onCancel, onConfirm }: {
-  label: string;
-  pending: boolean;
-  onCancel: () => void;
-  onConfirm: () => void;
-}) {
-  return <div aria-labelledby="estimate-order-review-title" aria-modal="true" className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" onKeyDown={(event) => { if (event.key === "Escape") onCancel(); }} role="dialog">
-    <div className="w-full max-w-lg bg-white p-5 shadow-xl">
-      <header className="flex items-start justify-between gap-4">
-        <div><p className="text-xs font-semibold uppercase text-emerald-700">Проверка состава</p><h3 className="mt-1 text-lg font-semibold" id="estimate-order-review-title">Создание заказа</h3></div>
-        <button aria-label="Закрыть" autoFocus className="grid size-11 place-items-center" onClick={onCancel} type="button">×</button>
-      </header>
-      <div className="mt-4 space-y-3 text-sm text-zinc-700">
-        <p className="font-medium text-zinc-950">{label}</p>
-        <p>В корзину попадут только позиции оборудования. Услуги и ручные позиции останутся в смете.</p>
-        <p>Перед добавлением сервер проверит актуальные цены и доступность. Изменения будут показаны в результате, заказ в 1С на этом шаге не создаётся.</p>
-      </div>
-      <footer className="mt-5 flex flex-wrap justify-end gap-2">
-        <button className={secondary} disabled={pending} onClick={onCancel} type="button">Отмена</button>
-        <button className={primary} disabled={pending} onClick={onConfirm} type="button"><PackagePlus className="size-4" />Добавить оборудование в корзину</button>
-      </footer>
-    </div>
-  </div>;
 }
 
 function TemplateButton({ estimateId, pending, setMessage, startTransition }: { estimateId: string; pending: boolean; setMessage: (message: string) => void; startTransition: ReturnType<typeof useTransition>[1] }) {
