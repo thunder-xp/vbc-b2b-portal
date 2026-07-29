@@ -7,6 +7,7 @@ import type { CatalogProductCardDto } from "../services";
 import { CatalogCardImage } from "./CatalogCardImage";
 import { CatalogQuantityCartAction } from "./CatalogQuantityCartAction";
 import { ProductPricingBlock } from "./ProductPricingBlock";
+import { ProductAvailabilityBlock } from "./ProductAvailabilityBlock";
 import { ProductComparisonAction } from "./ProductComparisonAction";
 import { ProductSpecificationAction } from "./ProductSpecificationAction";
 import { MerchandisingBadges } from "./MerchandisingBadges";
@@ -15,7 +16,6 @@ import { BehaviorTrackedLink } from "../../behavior-analytics/components";
 type ProductCardProps = { product: CatalogProductCardDto; analyticsSurface?: string; commercialView?: ProductCommercialViewDto; capabilities: ProductCardCapabilityModel; companyId?: string | null; favorite?: boolean; imagePriority?: boolean; userId?: string | null };
 
 export function ProductCard({ analyticsSurface, capabilities, commercialView, companyId = null, favorite = false, imagePriority = false, product, userId = null }: ProductCardProps) {
-  const stockTone = getStockTone(commercialView?.stock?.status);
   const image = <>
     <CatalogCardImage alt={product.name} priority={imagePriority} sizes="(max-width: 639px) calc(100vw - 2rem), (max-width: 1023px) 50vw, (max-width: 1279px) 33vw, (max-width: 1535px) 25vw, 20vw" src={product.imageUrl} />
     {product.merchandisingLabels?.length ? <div className="pointer-events-none absolute left-2 top-2 z-10 max-w-[calc(100%-1rem)] drop-shadow-sm">
@@ -29,9 +29,9 @@ export function ProductCard({ analyticsSurface, capabilities, commercialView, co
       <p className="h-4 truncate text-[11px] font-medium uppercase text-zinc-500" title={`SKU ${product.sku}`}>SKU {product.sku}</p>
       <Link className="mt-1 line-clamp-2 h-10 text-sm font-semibold leading-5 text-zinc-950 hover:text-emerald-700" href={`/cabinet/catalog/${product.slug}`} prefetch={false} title={product.name}>{product.name}</Link>
       <div className="mt-3 grid gap-2 text-sm">
-        <div className="h-[5.25rem]">{capabilities.showPrice ? <ProductPricingBlock commercialView={commercialView} /> : null}</div>
+        <div className="h-[5.25rem]">{capabilities.showPrice ? <ProductPricingBlock commercialView={commercialView} showPartnerPrice={capabilities.showPartnerPrice} showRetailPrice={capabilities.showRetailPrice} /> : null}</div>
         <div className="h-[3.25rem]">
-          {capabilities.showStock ? <div className={`flex min-h-10 items-center rounded-md px-2 py-1.5 font-medium ${stockTone.card}`}><span className={`inline-flex whitespace-pre-line text-xs font-semibold ${stockTone.text}`}>{commercialView?.stock?.label ?? "Наличие уточняется"}</span></div> : null}
+          {capabilities.showStock ? <ProductAvailabilityBlock stock={commercialView?.stock} /> : null}
         </div>
       </div>
       <div className="mt-auto pt-3">
@@ -45,5 +45,3 @@ export function ProductCard({ analyticsSurface, capabilities, commercialView, co
     </div>
   </article>;
 }
-
-function getStockTone(status: ProductCommercialViewDto["stock"] extends infer T ? T extends { status: infer S } ? S | undefined : undefined : undefined) { switch (status) { case "in_stock": return { card: "bg-emerald-50", text: "text-emerald-800" }; case "low_stock": return { card: "bg-amber-50", text: "text-amber-900" }; case "expected": return { card: "bg-sky-50", text: "text-sky-900" }; case "out_of_stock": return { card: "bg-rose-50", text: "text-rose-900" }; default: return { card: "bg-zinc-50", text: "text-zinc-700" }; } }

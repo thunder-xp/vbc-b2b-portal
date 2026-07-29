@@ -29,10 +29,10 @@ describe("ProductCard workspace context", () => {
   it("presents scoped and retail prices with public business labels", () => {
     const capabilities = resolveWorkspaceCapabilities(new Set(["catalog.view", "pricing.partner_price.view", "pricing.retail_price.view", "stock.view"])).productCard;
     const { container } = render(<ProductCard capabilities={capabilities} commercialView={commercialView} product={product} />);
-    expect(screen.getByText("ВАША ЦЕНА")).toBeInTheDocument();
-    expect(screen.getByText("$45.81")).toBeInTheDocument();
-    expect(screen.getByText("РОЗНИЧНАЯ ЦЕНА")).toBeInTheDocument();
-    expect(screen.getByText("39.20 MDL")).toBeInTheDocument();
+    expect(screen.getByText("Ваша цена")).toBeInTheDocument();
+    expect(screen.getByText("$45.81")).toHaveClass("text-lg");
+    expect(screen.getByText("Розничная цена")).toBeInTheDocument();
+    expect(screen.getByText("39.20 MDL")).toHaveClass("text-xs");
     expect(container.textContent).not.toContain("GOLD");
     expect(container.textContent).not.toContain("999");
   });
@@ -41,8 +41,17 @@ describe("ProductCard workspace context", () => {
     const capabilities = resolveWorkspaceCapabilities(new Set(["catalog.view", "pricing.partner_price.view", "pricing.retail_price.view"])).productCard;
     render(<ProductCard capabilities={capabilities} commercialView={{ ...commercialView, partnerPrice: null }} product={product} />);
     expect(screen.getByText("39.20 MDL")).toBeInTheDocument();
-    expect(screen.queryByText("Цена уточняется")).not.toBeInTheDocument();
+    expect(screen.getByText("Цена уточняется")).toBeInTheDocument();
     expect(screen.queryByText("$45.81")).not.toBeInTheDocument();
+  });
+
+  it("renders one full-width retail hierarchy when partner pricing is not permitted", () => {
+    const capabilities = resolveWorkspaceCapabilities(new Set(["catalog.view", "pricing.retail_price.view"])).productCard;
+    render(<ProductCard capabilities={capabilities} commercialView={commercialView} product={product} />);
+    expect(screen.queryByText("Ваша цена")).not.toBeInTheDocument();
+    expect(screen.queryByText("$45.81")).not.toBeInTheDocument();
+    expect(screen.getByText("Розничная цена")).toBeInTheDocument();
+    expect(screen.getByText("39.20 MDL")).toHaveClass("text-lg");
   });
 
   it("keeps partner price when retail is missing", () => {
