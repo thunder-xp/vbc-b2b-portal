@@ -6,6 +6,13 @@ const sql = readFileSync(
   join(process.cwd(), "supabase/migrations/20260729210000_retail_price_history_backfill.sql"),
   "utf8",
 );
+const publicationRepairSql = readFileSync(
+  join(
+    process.cwd(),
+    "supabase/migrations/20260729220000_retail_price_history_backfill_publication_repair.sql",
+  ),
+  "utf8",
+);
 
 describe("RETAIL history read repair and authoritative backfill", () => {
   it("keeps the RPC contract and evaluates truncation inside the CTE statement", () => {
@@ -56,5 +63,14 @@ describe("RETAIL history read repair and authoritative backfill", () => {
     expect(sql).toContain("'pricing.retail_price.view'");
     expect(sql).toContain("limit 501");
     expect(sql).toContain("limit 500");
+  });
+
+  it("repairs the production publication alias collision in a later migration", () => {
+    expect(publicationRepairSql).toContain("metric_source_rows");
+    expect(publicationRepairSql).toContain("metric_mapped_products");
+    expect(publicationRepairSql).toContain("set source_rows = metrics.metric_source_rows");
+    expect(publicationRepairSql).not.toMatch(
+      /select source_count, mapped_count[\s\S]*into source_count, mapped_count/,
+    );
   });
 });
