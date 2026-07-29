@@ -291,12 +291,24 @@ export class DefaultPricingInventoryService implements PricingInventoryService {
     await this.resolveActiveCompany(userId);
     const canViewPrices = (await this.getCommercialVisibility(userId))
       .canViewPartnerPrice;
-    if (!canViewPrices || !this.pricingInventoryRepository.getLatestUsdMdlExchangeRate) {
+    if (
+      !canViewPrices
+      || !this.pricingInventoryRepository.getActiveCommercialRateSnapshot
+    ) {
       return null;
     }
 
-    const rate = await this.pricingInventoryRepository.getLatestUsdMdlExchangeRate();
-    return rate && Number.isFinite(rate.mdlPerUsdRate) && rate.mdlPerUsdRate > 0 ? rate : null;
+    const rate = (
+      await this.pricingInventoryRepository.getActiveCommercialRateSnapshot()
+    ).partnerPriceUsdToMdl;
+    return rate && Number.isFinite(rate.rate) && rate.rate > 0
+      ? {
+          sourceCode: "113",
+          mdlPerUsdRate: rate.rate,
+          effectiveDate: rate.effectiveAt.slice(0, 10),
+          publishedAt: rate.publishedAt,
+        }
+      : null;
   }
 
   async getRetailUsdMdlRateSnapshot(

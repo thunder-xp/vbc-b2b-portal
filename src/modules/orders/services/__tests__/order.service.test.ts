@@ -155,7 +155,10 @@ describe("DefaultPartnerOrderService", () => {
     dependencies.pricingService.getApprovedUsdMdlRate.mockResolvedValue(null);
 
     await expect(dependencies.service.submit("user-1", input()))
-      .rejects.toBeInstanceOf(RecoverableOrderSubmissionError);
+      .rejects.toMatchObject({
+        name: "RecoverableOrderSubmissionError",
+        code: "ORDER_PRICE_CHANGED",
+      });
 
     expect(dependencies.orderRepository.beginSubmission).not.toHaveBeenCalled();
     expect(dependencies.orderProvider.exportSalesOrder).not.toHaveBeenCalled();

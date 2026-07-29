@@ -286,6 +286,29 @@ describe("DefaultPricingInventoryService", () => {
       service.getApprovedUsdMdlRateSnapshot("user-1"),
     ).resolves.toBeNull();
   });
+
+  it("uses the RLS-permitted active partner conversion for approved USD/MDL reads", async () => {
+    const repository = new FakePricingInventoryRepository(
+      [],
+      [],
+      [],
+      17.3504,
+      17.7712,
+    );
+    const service = new DefaultPricingInventoryService(
+      repository,
+      new FakeCompanyAccessService(),
+      new FakePermissionService(["pricing.partner_price.view"]),
+    );
+
+    await expect(
+      service.getApprovedUsdMdlRateSnapshot("user-1"),
+    ).resolves.toMatchObject({
+      mdlPerUsdRate: 17.3504,
+      effectiveDate: "2026-07-09",
+    });
+    expect(repository.exchangeRateReads).toBe(1);
+  });
 });
 
 class FakePricingInventoryRepository implements PricingInventoryRepository {

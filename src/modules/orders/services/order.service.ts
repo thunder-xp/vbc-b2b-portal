@@ -362,6 +362,15 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
     });
     const currencyCodes = [...new Set(snapshots.map((item) => item.currencyCode))];
     if (currencyCodes.length !== 1) throw new RecoverableOrderSubmissionError("Cart prices use incompatible currencies.");
+    console.info({
+      event: "partner_order_submission_diagnostic",
+      stage: "commercial_exchange_rate_resolved",
+      cartId: cart.id,
+      companyId: company.id,
+      submissionKey,
+      required: this.options.useLegacyMinimalOrderPayload === true,
+      available: approvedUsdMdlRate !== null,
+    });
     const exportSnapshots = this.options.useLegacyMinimalOrderPayload
       ? convertOrderSnapshotsToMdl(snapshots, approvedUsdMdlRate)
       : snapshots;
@@ -630,6 +639,7 @@ function convertOrderSnapshotsToMdl(
     if (snapshot.currencyCode !== "USD") {
       throw new RecoverableOrderSubmissionError(
         "The partner price currency cannot be converted for 1C.",
+        "ORDER_PRICE_CHANGED",
       );
     }
     if (
@@ -639,6 +649,7 @@ function convertOrderSnapshotsToMdl(
     ) {
       throw new RecoverableOrderSubmissionError(
         "The approved USD/MDL commercial rate is unavailable.",
+        "ORDER_PRICE_CHANGED",
       );
     }
 
