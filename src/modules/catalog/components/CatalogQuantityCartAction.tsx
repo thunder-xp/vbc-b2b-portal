@@ -10,10 +10,12 @@ export function CatalogQuantityCartAction({ productId }: { productId: string }) 
   const [message, setMessage] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  return <div className="flex min-w-0 items-center gap-1.5">
+  return <div className="min-w-0 space-y-1.5">
+    <div className="grid grid-cols-[4.5rem_minmax(0,1fr)] gap-2">
     <label className="sr-only" htmlFor={`catalog-quantity-${productId}`}>Количество</label>
     <input
-      className="h-9 w-14 rounded-md border border-zinc-300 px-2 text-center text-sm outline-none focus:border-emerald-600 focus-visible:ring-2 focus-visible:ring-emerald-200"
+      aria-label="Количество товара"
+      className="h-11 w-full rounded-md border border-zinc-300 px-2 text-center text-sm outline-none focus:border-emerald-600 focus-visible:ring-2 focus-visible:ring-emerald-200"
       id={`catalog-quantity-${productId}`}
       max={9999}
       min={1}
@@ -23,18 +25,19 @@ export function CatalogQuantityCartAction({ productId }: { productId: string }) 
     />
     <button
       aria-label="Добавить в корзину"
-      className="inline-flex size-9 shrink-0 items-center justify-center rounded-md bg-emerald-700 text-white outline-none hover:bg-emerald-800 focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:opacity-60"
+      className="inline-flex h-11 min-w-0 items-center justify-center gap-2 rounded-md bg-emerald-700 px-3 text-sm font-semibold text-white outline-none hover:bg-emerald-800 focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:opacity-60"
       disabled={pending}
       onClick={() => startTransition(async () => {
         const result = await addToCartAction(productId, quantity);
         setMessage(result.message);
       })}
-      title="В корзину"
       type="button"
     >
       <ShoppingCart aria-hidden="true" className="size-4" />
+      <span>{pending ? "Добавление..." : "Добавить в корзину"}</span>
     </button>
-    {message ? <span aria-live="polite" className="sr-only">{message}</span> : null}
+    </div>
+    {message ? <p aria-live="polite" className="min-h-4 text-xs font-medium text-emerald-700">{message}</p> : <div className="min-h-4" aria-hidden="true" />}
   </div>;
 }
 
