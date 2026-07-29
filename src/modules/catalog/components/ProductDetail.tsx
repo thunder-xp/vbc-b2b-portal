@@ -55,7 +55,7 @@ function DescriptionTab({ canAddToOrder, canManagePurchasingLists, companyId, co
   const description = product.description ?? product.shortDescription ?? "Описание товара пока недоступно.";
   return <section aria-label="Описание товара" data-testid="product-description-tab">
       <MerchandisingBadges labels={product.merchandisingLabels} />
-      <h1 className="text-3xl font-semibold text-zinc-950">{product.name}</h1>
+      <h1 className="break-words text-3xl font-semibold text-zinc-950">{product.name}</h1>
       <p className="mt-1.5 text-sm font-medium text-zinc-600">Артикул: {product.sku}</p>
       {product.brand?.name ? <p className="mt-1.5 text-sm font-medium text-emerald-700">{product.brand.name}</p> : null}
 

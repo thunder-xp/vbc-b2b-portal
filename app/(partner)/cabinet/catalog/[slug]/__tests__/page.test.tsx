@@ -37,7 +37,7 @@ describe("product detail page data loading", () => {
     render(await ProductDetailPage({ params: Promise.resolve({ slug: "ip-camera" }), searchParams: Promise.resolve({}) }));
     expect(mocks.getCommercial).toHaveBeenCalledOnce();
     expect(mocks.getCommercial).toHaveBeenCalledWith(["product-1"]);
-    expect(screen.getByText("Партнёрская цена")).toBeInTheDocument();
+    expect(screen.getByText("Ваша цена")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "В корзину" })).toBeInTheDocument();
   });
 

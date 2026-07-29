@@ -1,14 +1,17 @@
 "use client";
 
 import { ShoppingCart } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
+import { recordBehaviorInteraction } from "../../behavior-analytics/components/BehaviorViewEvent";
 import { addToCartAction } from "../../orders/actions/cart.actions";
 
 export function CatalogQuantityCartAction({ productId }: { productId: string }) {
   const [quantity, setQuantity] = useState(1);
   const [message, setMessage] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const router = useRouter();
 
   return <div className="min-w-0 space-y-1.5">
     <div className="grid grid-cols-[4.5rem_minmax(0,1fr)] gap-2">
@@ -30,6 +33,10 @@ export function CatalogQuantityCartAction({ productId }: { productId: string }) 
       onClick={() => startTransition(async () => {
         const result = await addToCartAction(productId, quantity);
         setMessage(result.message);
+        if (result.success) {
+          recordBehaviorInteraction({ eventName: "product_added_to_cart", productId, quantity, route: "/cabinet/catalog", sourceSurface: "product_card" });
+          router.refresh();
+        }
       })}
       type="button"
     >

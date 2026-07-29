@@ -4,6 +4,7 @@ import { Minus, Plus, Trash2 } from "lucide-react";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { ActionResult } from "../../access-control/actions/action-result";
+import { recordBehaviorInteraction } from "../../behavior-analytics/components/BehaviorViewEvent";
 import { removeCartItemAction, updateCartItemAction } from "../actions/cart.actions";
 
 const initial: ActionResult<null> = { success: true, errorCode: null, message: "", data: null };
@@ -26,7 +27,10 @@ export function CartItemActions({ itemId, quantity }: { itemId: string; quantity
       formData.set("quantity", String(next));
       const result = await updateCartItemAction(initial, formData);
       setMessage(result.message || (result.success ? "Количество обновлено." : "Не удалось обновить количество. Повторите попытку."));
-      if (result.success) router.refresh();
+      if (result.success) {
+        recordBehaviorInteraction({ eventName: "cart_quantity_changed", quantity: next, route: "/cabinet/cart", sourceSurface: "cart" });
+        router.refresh();
+      }
       else setDraft(quantity);
     });
   };
@@ -36,7 +40,10 @@ export function CartItemActions({ itemId, quantity }: { itemId: string; quantity
     formData.set("itemId", itemId);
     const result = await removeCartItemAction(initial, formData);
     setMessage(result.message || (result.success ? "Товар удалён." : "Не удалось удалить товар. Повторите попытку."));
-    if (result.success) router.refresh();
+    if (result.success) {
+      recordBehaviorInteraction({ eventName: "product_removed_from_cart", route: "/cabinet/cart", sourceSurface: "cart" });
+      router.refresh();
+    }
   });
 
   return <div className="space-y-2">

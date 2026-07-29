@@ -137,6 +137,8 @@ export function BehaviorTrackedCatalogLink({
 export function recordBehaviorInteraction(input: {
   eventName: BehaviorEventName;
   metadataSafe?: SafeBehaviorMetadata;
+  productId?: string;
+  quantity?: number;
   route: string;
   sourceSurface: string;
 }): void {

@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ActionResult } from "../../access-control/actions/action-result";
+import { recordBehaviorInteraction } from "../../behavior-analytics/components/BehaviorViewEvent";
 import {
   submitCartOrderAction,
   type PartnerOrderSubmissionReceipt,
@@ -15,7 +16,12 @@ export function OrderSubmitForm({ submissionKey }: { submissionKey: string }) {
   const submissionKeyRef = useRef<HTMLInputElement>(null);
   const [deliveryDate, setDeliveryDate] = useState("");
   const router = useRouter();
-  useEffect(() => { if (state.success && state.data?.id) router.push(`/cabinet/orders/${state.data.id}?submitted=1`); }, [router, state]);
+  useEffect(() => {
+    if (state.success && state.data?.id) {
+      recordBehaviorInteraction({ eventName: "order_submitted", route: "/cabinet/cart", sourceSurface: "checkout" });
+      router.push(`/cabinet/orders/${state.data.id}?submitted=1`);
+    }
+  }, [router, state]);
   useEffect(() => {
     if (!state.success && state.errorCode === "ORDER_RECOVERABLE" && submissionKeyRef.current) {
       submissionKeyRef.current.value = crypto.randomUUID();
