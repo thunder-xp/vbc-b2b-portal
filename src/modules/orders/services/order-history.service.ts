@@ -33,10 +33,10 @@ const LIST_PAGE_SIZE = 25;
 const PLANNED_SHIPMENT_PAGE_SIZE = 20;
 
 const STATE_LABELS = {
-  open: "Открыт",
-  preorder: "Предзаказ",
-  test: "Тест",
-  completed: "Завершен",
+  open: "Подтверждён",
+  preorder: "Готовится к отгрузке",
+  test: "Требует уточнения",
+  completed: "Отгружен",
 } as const;
 
 export type PartnerOrderHistorySummaryDto = {

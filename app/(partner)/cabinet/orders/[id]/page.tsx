@@ -30,6 +30,7 @@ export default async function OrderDetailPage({ params, searchParams }: OrderDet
         <p className="text-xs font-semibold uppercase text-emerald-700">Заказ партнёра</p>
         <h2 className="mt-1 text-2xl font-semibold">{order.primaryLabel}</h2>
         <p className="mt-2 text-sm font-medium text-zinc-700">{order.statusLabel}</p>
+        <p className="mt-2 max-w-2xl text-sm text-zinc-600">{order.posted ? "Следующий шаг зависит от текущего статуса и планируемой даты отгрузки." : "Менеджер Novotech проверяет состав и условия заказа. После подтверждения статус обновится автоматически."}</p>
         <p className="mt-1 text-xs text-zinc-500">{order.freshness.label}</p>
         {order.freshness.staleNotice ? <p className="mt-1 text-xs text-amber-700">{order.freshness.staleNotice}</p> : null}
         {order.originLabel ? <p className="mt-1 text-sm text-zinc-500">{order.originLabel}</p> : null}
@@ -37,7 +38,7 @@ export default async function OrderDetailPage({ params, searchParams }: OrderDet
           <Metric label="Компания" value={order.companyName} />
           <Metric label="Дата заказа" value={formatDate(order.documentDate)} />
           <Metric label="Планируемая отгрузка" value={order.deliveryDate ? formatDate(order.deliveryDate) : "Не указана"} />
-          {order.documentTotal ? <Metric label="Сумма в 1С" value={order.documentTotal} /> : null}
+          {order.documentTotal ? <Metric label="Итого" value={order.documentTotal} /> : null}
         </dl>
         <div className="mt-5 flex flex-wrap gap-2">
           <Link className="rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800" href={`/cabinet/orders/${order.id}/reorder`} prefetch={false}>Купить снова</Link>

@@ -20,7 +20,7 @@ vi.mock("next/navigation", () => ({ notFound: mocks.notFound }));
 const summary = {
   id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
   primaryLabel: "№ NSUU-001",
-  statusLabel: "Открыт",
+  statusLabel: "Подтверждён",
   posted: true,
   documentDate: "2026-07-15T10:00:00Z",
   deliveryDate: "2026-08-01",
@@ -48,7 +48,7 @@ describe("partner order history pages", () => {
     render(await OrdersPage({ searchParams: Promise.resolve({}) }));
 
     expect(screen.getByRole("link", { name: /NSUU-001/ })).toHaveAttribute("href", `/cabinet/orders/${summary.id}`);
-    expect(screen.getAllByText("Открыт")).toHaveLength(2);
+    expect(screen.getByText("Подтверждён")).toBeInTheDocument();
     expect(screen.getByText("1 000,00 MDL")).toBeInTheDocument();
     expect(screen.getByText(/2 поз.*5 ед/)).toBeInTheDocument();
     expect(screen.getByText("Планируемая отгрузка")).toBeInTheDocument();

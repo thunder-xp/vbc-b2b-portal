@@ -5,11 +5,11 @@ import { OrderHistoryRefreshButton } from "@/src/modules/orders/components/Order
 
 const FILTERS = [
   ["all", "Все"],
-  ["processing", "Обрабатывается"],
-  ["open", "Открыт"],
-  ["preorder", "Предзаказ"],
-  ["test", "Тест"],
-  ["completed", "Завершен"],
+  ["processing", "Активные"],
+  ["open", "Подтверждённые"],
+  ["preorder", "К отгрузке"],
+  ["test", "Требуют уточнения"],
+  ["completed", "Завершённые"],
 ] as const;
 
 type OrdersPageProps = {
@@ -32,7 +32,7 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
         <div>
           <p className="text-xs font-semibold uppercase text-emerald-700">Коммерческие документы</p>
           <h1 className="mt-1 text-2xl font-semibold">Заказы</h1>
-          <p className="mt-2 text-sm text-zinc-600">Актуальная история заказов вашей компании из 1С.</p>
+          <p className="mt-2 text-sm text-zinc-600">Состояние заказов, планируемые даты отгрузки и позиции, требующие внимания.</p>
           <p className="mt-1 text-xs text-zinc-500">{result.data.freshness.label}</p>
           {result.data.freshness.staleNotice ? <p className="mt-1 text-xs text-amber-700">{result.data.freshness.staleNotice}</p> : null}
         </div>
@@ -75,7 +75,7 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
       ) : (
         <div className="overflow-hidden rounded-md border border-zinc-200 bg-white">
           <div className="hidden grid-cols-[minmax(190px,1fr)_110px_130px_140px_110px_110px_120px] gap-3 border-b border-zinc-200 bg-zinc-50 px-4 py-3 text-xs font-semibold uppercase text-zinc-500 xl:grid">
-            <span>Заказ</span><span>Дата</span><span>Состояние</span><span>Сумма</span><span>Планируемая отгрузка</span><span>Состав</span><span>Обновлено</span>
+            <span>Заказ</span><span>Создан</span><span>Статус</span><span>Итого</span><span>Планируемая отгрузка</span><span>Состав</span><span>Обновлено</span>
           </div>
           <ul className="divide-y divide-zinc-200">
             {result.data.orders.map((order) => (

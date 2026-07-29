@@ -15,10 +15,10 @@ describe("DefaultPartnerOrderHistoryService", () => {
   beforeEach(() => vi.clearAllMocks());
 
   it.each([
-    ["open", "Открыт"],
-    ["preorder", "Предзаказ"],
-    ["test", "Тест"],
-    ["completed", "Завершен"],
+    ["open", "Подтверждён"],
+    ["preorder", "Готовится к отгрузке"],
+    ["test", "Требует уточнения"],
+    ["completed", "Отгружен"],
   ] as const)("renders the exact mapped 1C state %s", async (state, label) => {
     const repository = historyRepository([history({ oneCStateCode: state })]);
     const result = await service(repository).list("user-1", {});
