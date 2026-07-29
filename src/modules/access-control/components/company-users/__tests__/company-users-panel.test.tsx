@@ -44,7 +44,7 @@ describe("CompanyUsersPanel", () => {
       />,
     );
     expect(screen.getByText("Сотрудники и доступ")).toBeInTheDocument();
-    expect(screen.getAllByText("Только розничные")).not.toHaveLength(0);
+    expect(screen.getAllByText("Только розничные цены")).not.toHaveLength(0);
     expect(screen.getByText("Активен")).toBeInTheDocument();
     expect(document.body.textContent).not.toContain("company_users.manage");
     expect(document.body.textContent).not.toContain("membership-secret");

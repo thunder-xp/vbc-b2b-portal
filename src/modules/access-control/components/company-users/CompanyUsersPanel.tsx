@@ -57,11 +57,12 @@ export function CompanyUsersPanel({
               </div>
               <div className="text-sm">
                 <p className="text-xs font-medium uppercase text-zinc-500">Роль</p>
-                <p className="mt-1 text-zinc-900">{record.roleName}</p>
+                <p className="mt-1 font-medium text-zinc-900">{roleLabel(record.roleCode)}</p>
+                <p className="mt-1 text-xs text-zinc-500">{roleDescription(record.roleCode)}</p>
               </div>
               <div className="text-sm">
                 <p className="text-xs font-medium uppercase text-zinc-500">Цены</p>
-                <p className="mt-1 text-zinc-900">{record.priceAccess === "retail_only" ? "Только розничные" : "Партнёрские и розничные"}</p>
+                <p className="mt-1 text-zinc-900">{record.priceAccess === "retail_only" ? "Только розничные цены" : "Полный доступ к коммерческим ценам"}</p>
               </div>
               <div className="min-w-0">
                 {record.recordType === "invitation" ? (
@@ -105,19 +106,20 @@ function MembershipActions({
     <div className="grid gap-3">
       <form action={updateCompanyEmployeeAccessAction} className="grid gap-2 sm:grid-cols-2">
         <HiddenScope companyId={companyId} name="membershipId" value={record.recordId} />
-        <select aria-label="Роль сотрудника" className="h-9 rounded border border-zinc-300 bg-white px-2 text-xs" defaultValue={record.roleCode} name="roleCode">
+        <p className="text-xs leading-5 text-zinc-600 sm:col-span-2">Изменение роли меняет доступ сотрудника к заказам, финансам и управлению компанией.</p>
+        <select aria-label="Роль сотрудника" className="h-11 rounded border border-zinc-300 bg-white px-2 text-xs" defaultValue={record.roleCode} name="roleCode">
           {record.roleCode === "partner_owner" ? <option value="partner_owner">Владелец</option> : null}
           <option value="partner_manager">Менеджер</option>
-          <option value="partner_buyer">Закупки</option>
-          <option value="partner_accounting">Бухгалтерия</option>
-          <option value="partner_viewer">Просмотр</option>
+          <option value="partner_buyer">Покупатель</option>
+          <option value="partner_accounting">Бухгалтер</option>
+          <option value="partner_viewer">Наблюдатель</option>
         </select>
-        <select aria-label="Доступ к ценам" className="h-9 rounded border border-zinc-300 bg-white px-2 text-xs" defaultValue={record.priceAccess} name="priceAccess">
-          <option value="full">Все цены</option>
-          <option value="retail_only">Только розничные</option>
+        <select aria-label="Доступ к ценам" className="h-11 rounded border border-zinc-300 bg-white px-2 text-xs" defaultValue={record.priceAccess} name="priceAccess">
+          <option value="full">Полный доступ к коммерческим ценам</option>
+          <option value="retail_only">Только розничные цены</option>
         </select>
         <ReasonField />
-        <button className="justify-self-start text-xs font-semibold text-emerald-700">Сохранить доступ</button>
+        <button className="min-h-11 justify-self-start text-xs font-semibold text-emerald-700">Подтвердить изменение доступа</button>
       </form>
       <div className="flex flex-wrap gap-4">
         <form action={record.membershipStatus === "suspended" ? restoreCompanyEmployeeAction : suspendCompanyEmployeeAction}>
@@ -151,7 +153,7 @@ function ReasonField() {
   return (
     <input
       aria-label="Причина изменения"
-      className="h-9 min-w-0 rounded border border-zinc-300 px-2 text-xs"
+      className="h-11 min-w-0 rounded border border-zinc-300 px-2 text-xs"
       maxLength={500}
       minLength={3}
       name="reason"
@@ -195,6 +197,20 @@ function statusLabel(status: string | null): string {
     expired: "Срок приглашения истёк",
     revoked: "Отозвано",
   }[status ?? ""] ?? "Статус уточняется";
+}
+
+function roleLabel(code: string): string {
+  return { partner_owner: "Владелец", partner_manager: "Менеджер", partner_buyer: "Покупатель", partner_accounting: "Бухгалтер", partner_viewer: "Наблюдатель" }[code] ?? "Роль уточняется";
+}
+
+function roleDescription(code: string): string {
+  return {
+    partner_owner: "Полное управление компанией и сотрудниками.",
+    partner_manager: "Заказы, каталог и операционная работа.",
+    partner_buyer: "Каталог, корзина и заказы.",
+    partner_accounting: "Финансовые данные компании.",
+    partner_viewer: "Просмотр доступных данных без управления.",
+  }[code] ?? "Права зависят от настроек компании.";
 }
 
 function eventLabel(type: string): string {

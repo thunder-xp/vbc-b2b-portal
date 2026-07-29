@@ -11,12 +11,15 @@ export function CompanyCard({ context }: { context: PartnerWorkspaceContext }) {
         <StatusBadge label={context.companyStatus ?? "Не определён"} tone="green" />
       </div>
       <dl className="mt-6 grid gap-4 text-sm sm:grid-cols-3">
-        <Info label="Роль" value={context.membershipRole ?? "Не определена"} />
-        <Info label="Код компании в 1С" value={context.external1cCode ?? "Не указан"} />
+        <Info label="Статус портала" value={context.companyStatus === "active" ? "Активна" : context.companyStatus ?? "Не определён"} />
+        <Info label="Ваша роль" value={context.membershipRole ?? "Не определена"} />
+        <Info label="Готовность 1С" value={context.external1cCode ? "Компания связана с 1С" : "Связь с 1С не настроена"} />
         {context.capabilities.productCard.showPartnerPrice ? (
           <Info label="Статус партнёра" value={context.priceTypeName ?? (context.external1cPriceTypeId ? "Назначен" : "Не настроен")} />
         ) : null}
       </dl>
+      {!context.external1cCode ? <p className="mt-5 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900" role="status">Компания ещё не связана с 1С. Цены, финансы и заказы могут быть недоступны; обратитесь к Novotech.</p> : null}
+      {context.capabilities.productCard.showPartnerPrice && !context.external1cPriceTypeId ? <p className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900" role="status">Коммерческий статус компании не настроен.</p> : null}
       {context.capabilities.canManageCompanyUsers ? (
         <Link className="mt-6 inline-flex h-10 items-center rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white" href="/cabinet/company/users">
           Сотрудники и доступ

@@ -33,15 +33,15 @@ export function InvitationForm({ companyId }: { companyId?: string }) {
           Роль
           <select className="h-11 rounded-md border border-zinc-300 bg-white px-3" defaultValue="partner_viewer" name="roleCode">
             <option value="partner_manager">Менеджер</option>
-            <option value="partner_buyer">Закупки</option>
-            <option value="partner_accounting">Бухгалтерия</option>
-            <option value="partner_viewer">Просмотр</option>
+            <option value="partner_buyer">Покупатель</option>
+            <option value="partner_accounting">Бухгалтер</option>
+            <option value="partner_viewer">Наблюдатель</option>
           </select>
         </label>
         <label className="grid gap-2 text-sm font-medium text-zinc-800">
           Доступ к ценам
           <select className="h-11 rounded-md border border-zinc-300 bg-white px-3" defaultValue="full" name="priceAccess">
-            <option value="full">Партнёрские и розничные цены</option>
+            <option value="full">Полный доступ к коммерческим ценам</option>
             <option value="retail_only">Только розничные цены</option>
           </select>
         </label>
