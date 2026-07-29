@@ -38,6 +38,7 @@ export type EstimateSummaryDto = {
   status: EstimateStatus;
   total: string;
   currencyCode: string;
+  createdAt: string;
   updatedAt: string;
   revision: number;
   createdByName: string;
@@ -261,6 +262,7 @@ export class DefaultEstimateService implements EstimateService {
         status: record.status,
         total: formatMoney(record.totalAmount, record.currencyCode),
         currencyCode: record.currencyCode,
+        createdAt: record.createdAt,
         updatedAt: record.updatedAt,
         revision: record.revision,
         createdByName: record.createdByName,

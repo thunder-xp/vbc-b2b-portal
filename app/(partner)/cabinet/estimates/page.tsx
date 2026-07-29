@@ -7,6 +7,15 @@ import { EstimateListActions } from "@/src/modules/estimates/components/Estimate
 import type { EstimateStatus } from "@/src/modules/estimates/types";
 
 type SearchParams = { search?: string; status?: string; versionStatus?: string; dateFrom?: string; dateTo?: string; page?: string };
+const quickFilters = [
+  { label: "Все", href: "/cabinet/estimates" },
+  { label: "Черновики", href: "/cabinet/estimates?status=draft" },
+  { label: "Готовы к КП", href: "/cabinet/estimates?status=ready" },
+  { label: "Отправленные", href: "/cabinet/estimates?versionStatus=has_sent" },
+  { label: "Принятые", href: "/cabinet/estimates?versionStatus=accepted" },
+  { label: "Отклонённые", href: "/cabinet/estimates?versionStatus=rejected" },
+  { label: "Архив", href: "/cabinet/estimates?status=archived" },
+] as const;
 
 export default async function EstimatesPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const query = await searchParams;
@@ -26,6 +35,10 @@ export default async function EstimatesPage({ searchParams }: { searchParams: Pr
         <Link className="inline-flex items-center justify-center gap-2 rounded-md bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white" href="/cabinet/estimates/new" prefetch={false}><FilePlus2 className="size-4" />Создать смету</Link>
       </header>
 
+      <nav aria-label="Быстрые фильтры смет" className="flex gap-2 overflow-x-auto pb-1">
+        {quickFilters.map((filter) => <Link className="min-h-11 shrink-0 rounded-md border border-zinc-300 bg-white px-3 py-2.5 text-sm font-medium text-zinc-700 hover:border-emerald-600 hover:text-emerald-700" href={filter.href} key={filter.href} prefetch={false}>{filter.label}</Link>)}
+      </nav>
+
       <form className="grid gap-3 border-b border-zinc-200 pb-5 md:grid-cols-[minmax(14rem,1fr)_12rem_12rem_10rem_10rem_auto]">
         <label className="relative"><Search aria-hidden="true" className="absolute left-3 top-3 size-4 text-zinc-400" /><span className="sr-only">Поиск</span><input className="h-10 w-full rounded-md border border-zinc-300 pl-9 pr-3 text-sm" defaultValue={query.search} name="search" placeholder="Номер, название, заказчик, объект" /></label>
         <label><span className="sr-only">Статус</span><select className="h-10 w-full rounded-md border border-zinc-300 bg-white px-3 text-sm" defaultValue={query.status ?? ""} name="status"><option value="">Все статусы</option>{Object.entries(estimateStatusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
@@ -43,12 +56,12 @@ export default async function EstimatesPage({ searchParams }: { searchParams: Pr
             {result.data.records.map((estimate) => <article className="border-y border-zinc-200 bg-white px-4 py-4" key={estimate.id}>
               <div className="flex items-start justify-between gap-3"><div className="min-w-0"><Link className="font-semibold text-zinc-950" href={`/cabinet/estimates/${estimate.id}`} prefetch={false}>{estimate.estimateNumber}</Link><p className="truncate text-sm text-zinc-600">{estimate.name}</p></div><EstimateStatusBadge status={estimate.status} /></div>
               <p className="mt-3 text-sm text-zinc-600">{estimate.customerProject}</p>
-              <div className="mt-3 flex items-end justify-between gap-3"><div><p className="font-semibold">{estimate.total}</p><p className="text-xs text-zinc-500">{estimate.itemCount} позиций · {formatDate(estimate.updatedAt)}</p></div><EstimateListActions archived={estimate.status === "archived"} estimateId={estimate.id} latestPdfDocumentId={estimate.latestPdfDocumentId} latestVersionId={estimate.latestVersionId} revision={estimate.revision} /></div>
+              <div className="mt-3 flex items-end justify-between gap-3"><div><p className="font-semibold">{estimate.total}</p><p className="text-xs text-zinc-500">{estimate.itemCount} позиций · обновлено {formatDate(estimate.updatedAt)}</p><p className="mt-1 text-xs text-zinc-500">{pdfState(estimate.latestPdfDocumentId, estimate.versionCount)}</p></div><EstimateListActions archived={estimate.status === "archived"} estimateId={estimate.id} latestPdfDocumentId={estimate.latestPdfDocumentId} latestVersionId={estimate.latestVersionId} revision={estimate.revision} /></div>
             </article>)}
           </div>
           <div className="hidden overflow-x-auto border-y border-zinc-200 bg-white md:block">
             <table className="w-full min-w-[960px] text-left text-sm">
-              <thead className="bg-zinc-50 text-xs uppercase text-zinc-500"><tr><th className="px-4 py-3">Смета</th><th className="px-4 py-3">Заказчик / объект</th><th className="px-4 py-3">Статус</th><th className="px-4 py-3 text-right">Итого</th><th className="px-4 py-3">Обновлена</th><th className="px-4 py-3">Версии</th><th className="px-4 py-3">Автор</th><th className="px-4 py-3">Действия</th></tr></thead>
+              <thead className="bg-zinc-50 text-xs uppercase text-zinc-500"><tr><th className="px-4 py-3">Смета</th><th className="px-4 py-3">Заказчик / объект</th><th className="px-4 py-3">Статус</th><th className="px-4 py-3 text-right">Итого</th><th className="px-4 py-3">Даты</th><th className="px-4 py-3">КП и PDF</th><th className="px-4 py-3">Автор</th><th className="px-4 py-3">Действия</th></tr></thead>
               <tbody className="divide-y divide-zinc-100">
                 {result.data.records.map((estimate) => (
                   <tr className="hover:bg-zinc-50" key={estimate.id}>
@@ -56,8 +69,8 @@ export default async function EstimatesPage({ searchParams }: { searchParams: Pr
                     <td className="px-4 py-4 text-zinc-600">{estimate.customerProject}<p className="mt-1 text-xs text-zinc-400">{estimate.itemCount} позиций</p></td>
                     <td className="px-4 py-4"><EstimateStatusBadge status={estimate.status} /></td>
                     <td className="px-4 py-4 text-right font-semibold">{estimate.total}</td>
-                    <td className="px-4 py-4 text-zinc-600">{formatDate(estimate.updatedAt)}</td>
-                    <td className="px-4 py-4"><span className="font-semibold">{estimate.versionCount}</span>{estimate.latestVersionStatus && <p className="mt-1 text-xs text-zinc-500">Последняя: {versionLabel(estimate.latestVersionStatus)}</p>}{estimate.hasAcceptedVersion && <p className="mt-1 text-xs font-semibold text-emerald-700">Есть принятая версия</p>}</td>
+                    <td className="px-4 py-4 text-zinc-600"><span className="block">Создана {formatDate(estimate.createdAt)}</span><span className="mt-1 block text-xs text-zinc-500">Обновлена {formatDate(estimate.updatedAt)}</span></td>
+                    <td className="px-4 py-4"><span className="font-semibold">{estimate.versionCount} вер.</span>{estimate.latestVersionStatus && <p className="mt-1 text-xs text-zinc-500">Последняя: {versionLabel(estimate.latestVersionStatus)}</p>}<p className="mt-1 text-xs text-zinc-500">{pdfState(estimate.latestPdfDocumentId, estimate.versionCount)}</p>{estimate.hasAcceptedVersion && <p className="mt-1 text-xs font-semibold text-emerald-700">Есть принятая версия</p>}</td>
                     <td className="px-4 py-4 text-zinc-600">{estimate.createdByName}</td>
                     <td className="px-4 py-4"><EstimateListActions archived={estimate.status === "archived"} estimateId={estimate.id} latestPdfDocumentId={estimate.latestPdfDocumentId} latestVersionId={estimate.latestVersionId} revision={estimate.revision} /></td>
                   </tr>
@@ -90,3 +103,4 @@ function formatDate(value: string) {
 }
 
 function versionLabel(value: import("@/src/modules/estimates/types").EstimateVersionStatus) { return ({ prepared: "Подготовлено", sent: "Отправлено", accepted: "Принято", rejected: "Отклонено", archived: "Архив" } as const)[value]; }
+function pdfState(documentId: string | null, versionCount: number) { return documentId ? "PDF готов" : versionCount ? "PDF не сформирован" : "КП ещё не подготовлено"; }
