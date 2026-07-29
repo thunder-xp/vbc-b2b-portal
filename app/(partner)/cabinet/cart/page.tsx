@@ -6,6 +6,13 @@ import { CartItemActions } from "@/src/modules/orders/components/CartItemActions
 import { OrderSubmitForm } from "@/src/modules/orders/components/OrderSubmitForm";
 import { CreateEstimateFromCartButton } from "@/src/modules/estimates/components/CreateEstimateFromCartButton";
 import { SaveAsPurchasingListButton } from "@/src/modules/purchasing-lists/components";
+import type { CartLineDto } from "@/src/modules/orders/services";
+
+const GROUPS: Array<{ key: CartLineDto["availabilityGroup"]; title: string; description: string }> = [
+  { key: "available", title: "В наличии", description: "Можно передать в обработку сейчас." },
+  { key: "expected", title: "Ожидается к поступлению", description: "Срок поставки будет подтверждён менеджером." },
+  { key: "confirmation", title: "Требует подтверждения", description: "Наличие и срок уточнит менеджер Novotech." },
+];
 
 export default async function CartPage() {
   const result = await getCartAction();
@@ -30,17 +37,25 @@ export default async function CartPage() {
         </div>
       ) : (
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
-          <div className="overflow-hidden rounded-lg border border-zinc-200 bg-white">
+          <div className="space-y-4">
+            {GROUPS.map((group) => {
+              const lines = cart.lines.filter((line) => line.availabilityGroup === group.key);
+              if (!lines.length) return null;
+              return <section className="overflow-hidden rounded-lg border border-zinc-200 bg-white" key={group.key}>
+                <header className="border-b border-zinc-200 bg-zinc-50 px-4 py-3">
+                  <h2 className="text-sm font-semibold text-zinc-950">{group.title} · {lines.length}</h2>
+                  <p className="mt-0.5 text-xs text-zinc-600">{group.description}</p>
+                </header>
             <ul className="divide-y divide-zinc-200">
-              {cart.lines.map((line) => (
+              {lines.map((line) => (
                 <li className="grid gap-4 p-4 md:grid-cols-[minmax(0,1fr)_8rem_11.25rem] md:items-center" key={line.id}>
                   <div className="grid min-w-0 grid-cols-[3.5rem_minmax(0,1fr)] gap-3 sm:grid-cols-[4rem_minmax(0,1fr)]">
                     <ProductLineThumbnail imageUrl={line.imageUrl} productName={line.productName} />
                     <div className="min-w-0">
                       <Link className="line-clamp-2 font-semibold text-zinc-950 hover:text-emerald-700" href={`/cabinet/catalog/${line.slug}`} prefetch={false}>{line.productName}</Link>
                       <p className="mt-1 text-xs text-zinc-500">Артикул: {line.sku}</p>
-                      <p className="mt-2 text-sm">{cart.commercialMode === "full" ? "Партнёрская цена" : "Розничная цена"}: <strong className="whitespace-nowrap">{cart.commercialMode === "full" ? line.partnerUnitPrice ?? "Недоступна" : line.retailUnitPrice ?? "Цена уточняется"}</strong></p>
-                      <p className="mt-1 text-xs text-zinc-600">Доступно: {line.availableStock ?? "Нет данных"}</p>
+                      <p className="mt-2 text-sm">{cart.commercialMode === "full" ? "Ваша цена" : "Розничная цена"}: <strong className="whitespace-nowrap">{cart.commercialMode === "full" ? line.partnerUnitPrice ?? "Цена уточняется" : line.retailUnitPrice ?? "Цена уточняется"}</strong></p>
+                      <p className="mt-1 text-xs text-zinc-600">{line.availableStock === null ? "Наличие уточняется" : line.availableStock > 0 ? `В наличии: ${line.availableStock} шт.` : "Нет в наличии"}</p>
                       {line.nearestArrivalDate && <p className="mt-1 text-xs text-zinc-600">Поступление: {line.nearestArrivalDate}{line.nearestArrivalQuantity !== null ? `, ${line.nearestArrivalQuantity} шт.` : ""}</p>}
                     </div>
                   </div>
@@ -49,6 +64,8 @@ export default async function CartPage() {
                 </li>
               ))}
             </ul>
+              </section>;
+            })}
           </div>
           <aside className="space-y-4">
             <div className="rounded-lg border border-zinc-200 bg-white p-4">

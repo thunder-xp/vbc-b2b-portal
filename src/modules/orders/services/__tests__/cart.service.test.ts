@@ -23,7 +23,7 @@ describe("DefaultCartService", () => {
     const cart = await dependencies.service.getCart("user-1");
     expect(dependencies.catalogService.getProductsByIds).toHaveBeenCalledOnce();
     expect(dependencies.pricingService.getProductCommercialViews).toHaveBeenCalledOnce();
-    expect(cart.lines[0]).toMatchObject({ quantity: 2, availableStock: 5, imageUrl: "https://example.test/camera-thumb.jpg" });
+    expect(cart.lines[0]).toMatchObject({ quantity: 2, availableStock: 5, availabilityGroup: "available", imageUrl: "https://example.test/camera-thumb.jpg" });
     expect(cart.lines[0]?.partnerLineTotal).toContain("20,00");
     expect(cart.total).toContain("20,00");
     expect(cart.positionCount).toBe(1);

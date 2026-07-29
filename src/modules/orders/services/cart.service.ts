@@ -20,6 +20,7 @@ export type CartLineDto = {
   availableStock: number | null;
   nearestArrivalDate: string | null;
   nearestArrivalQuantity: number | null;
+  availabilityGroup: "available" | "expected" | "confirmation";
 };
 
 export type CartDetailDto = {
@@ -291,7 +292,14 @@ function toLine(
     availableStock: view?.stock?.exactAvailableQuantity ?? null,
     nearestArrivalDate: view?.stock?.expectedArrival?.formattedExpectedDate ?? null,
     nearestArrivalQuantity: view?.stock?.expectedArrival?.expectedQuantity ?? null,
+    availabilityGroup: resolveAvailabilityGroup(view),
   };
+}
+
+function resolveAvailabilityGroup(view?: ProductCommercialViewDto): CartLineDto["availabilityGroup"] {
+  if ((view?.stock?.exactAvailableQuantity ?? 0) > 0) return "available";
+  if (view?.stock?.expectedArrival?.expectedDate) return "expected";
+  return "confirmation";
 }
 
 function formatLineTotal(
