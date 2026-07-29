@@ -13,6 +13,27 @@ const publicationRepairSql = readFileSync(
   ),
   "utf8",
 );
+const atomicPublicationSql = readFileSync(
+  join(
+    process.cwd(),
+    "supabase/migrations/20260729230000_atomic_retail_history_price_publication.sql",
+  ),
+  "utf8",
+);
+const continuityExecutionSql = readFileSync(
+  join(
+    process.cwd(),
+    "supabase/migrations/20260729231000_retail_history_continuity_execution_context.sql",
+  ),
+  "utf8",
+);
+const continuitySnapshotSql = readFileSync(
+  join(
+    process.cwd(),
+    "supabase/migrations/20260729232000_retail_history_continuity_snapshot_source.sql",
+  ),
+  "utf8",
+);
 
 describe("RETAIL history read repair and authoritative backfill", () => {
   it("keeps the RPC contract and evaluates truncation inside the CTE statement", () => {
@@ -72,5 +93,36 @@ describe("RETAIL history read repair and authoritative backfill", () => {
     expect(publicationRepairSql).not.toMatch(
       /select source_count, mapped_count[\s\S]*into source_count, mapped_count/,
     );
+  });
+
+  it("publishes history, current prices, and continuity in one transaction", () => {
+    const history = atomicPublicationSql.indexOf(
+      "publish_retail_price_history_backfill(p_sync_id)",
+    );
+    const prices = atomicPublicationSql.indexOf(
+      "publish_product_price_snapshot(p_sync_id)",
+    );
+    const continuity = atomicPublicationSql.indexOf(
+      "finalize_retail_price_history_continuity(p_sync_id)",
+    );
+    expect(history).toBeGreaterThan(-1);
+    expect(prices).toBeGreaterThan(history);
+    expect(continuity).toBeGreaterThan(prices);
+    expect(atomicPublicationSql).toContain("A failure rolls back all three");
+  });
+
+  it("evaluates continuity outside partner RLS with safe aggregate diagnostics", () => {
+    expect(continuityExecutionSql).toContain("set row_security = off");
+    expect(continuityExecutionSql).toContain("'sourceProducts', source_products");
+    expect(continuityExecutionSql).toContain("'currentProducts', current_products");
+    expect(continuityExecutionSql).not.toContain("external_product_ref");
+  });
+
+  it("uses the append-only current publication snapshot without widening access", () => {
+    expect(continuitySnapshotSql).toContain(
+      "history.source in ('initial_baseline', 'price_sync_snapshot')",
+    );
+    expect(continuitySnapshotSql).toContain("join current_snapshot current");
+    expect(continuitySnapshotSql).not.toContain("from public.product_prices");
   });
 });

@@ -161,9 +161,7 @@ export class SupabasePriceSyncStateStore implements PriceSyncStateStore {
     const client = createAdminClient();
     const discovery = await client.rpc("record_retail_price_history_discovery", { p_sync_id: syncId });
     if (discovery.error) throw Object.assign(persistenceError(discovery.error), { errorCategory: "publication_failure" });
-    const history = await client.rpc("publish_retail_price_history_backfill", { p_sync_id: syncId });
-    if (history.error) throw Object.assign(persistenceError(history.error), { errorCategory: "publication_failure" });
-    const { error } = await client.rpc("publish_product_price_snapshot", { p_sync_id: syncId });
+    const { error } = await client.rpc("publish_product_prices_with_retail_history", { p_sync_id: syncId });
     if (error) throw Object.assign(persistenceError(error), { errorCategory: "publication_failure" });
     await client.from("retail_price_history_source_stage").delete().eq("sync_id", syncId);
   }
