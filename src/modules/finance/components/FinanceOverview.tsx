@@ -1,5 +1,6 @@
 import { AlertCircle, ArrowDownLeft, ArrowUpRight, Clock3, WalletCards } from "lucide-react";
 
+import { formatBusinessAmount, formatBusinessDateTime } from "../../platform-ui";
 import type { FinanceOverview as FinanceOverviewModel } from "../types";
 
 export function FinanceOverview({ overview }: { overview: FinanceOverviewModel }) {
@@ -12,7 +13,7 @@ export function FinanceOverview({ overview }: { overview: FinanceOverviewModel }
       {(overview.showLastConfirmedNotice || overview.state === "stale") && (
         <p className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900" role="status">Данные давно не обновлялись. Показаны последние подтверждённые значения; перед оплатой уточните их у Novotech.</p>
       )}
-      <section aria-label="Сводка по договорам" className="rounded-md border border-zinc-200 bg-white px-5 py-4"><p className="text-xs font-semibold uppercase text-zinc-500">Активные договоры с балансом</p><p className="mt-1 text-2xl font-semibold text-zinc-950">{overview.contracts.length}</p>{overview.synchronizedAt ? <p className="mt-2 text-xs text-zinc-500">Обновлено {formatDateTime(overview.synchronizedAt)}</p> : null}</section>
+      <section aria-label="Сводка по договорам" className="rounded-md border border-zinc-200 bg-white px-5 py-4"><p className="text-xs font-semibold uppercase text-zinc-500">Активные договоры с балансом</p><p className="mt-1 text-2xl font-semibold text-zinc-950">{overview.contracts.length}</p>{overview.synchronizedAt ? <p className="mt-2 text-xs text-zinc-500">Обновлено {formatBusinessDateTime(overview.synchronizedAt)}</p> : null}</section>
       <section aria-label="Итоги по валютам" className="grid gap-px overflow-hidden border border-zinc-200 bg-zinc-200 sm:grid-cols-2">
         {overview.summaries.flatMap((summary) => [
           <Summary key={`${summary.currencyCode}-receivable`} icon={ArrowUpRight} label="К оплате" amount={summary.receivableTotal} currency={summary.currencyCode} tone="attention" />,
@@ -27,7 +28,7 @@ export function FinanceOverview({ overview }: { overview: FinanceOverviewModel }
             <h2 className="mt-1 text-xl font-semibold text-zinc-950">Баланс по договорам</h2>
           </div>
           {overview.synchronizedAt && (
-            <p className="flex items-center gap-1.5 text-xs text-zinc-500"><Clock3 className="size-3.5" />Обновлено {formatDateTime(overview.synchronizedAt)}</p>
+            <p className="flex items-center gap-1.5 text-xs text-zinc-500"><Clock3 className="size-3.5" />Обновлено {formatBusinessDateTime(overview.synchronizedAt)}</p>
           )}
         </div>
         <div className="divide-y divide-zinc-200">
@@ -41,7 +42,7 @@ export function FinanceOverview({ overview }: { overview: FinanceOverviewModel }
                   {contract.balanceType === "receivable" ? "К оплате" : "Аванс"}
                 </p>
               </div>
-              <p className="text-lg font-semibold tabular-nums text-zinc-950">{formatMoney(contract.absoluteDisplayAmount, contract.currencyCode)}</p>
+              <p className="text-lg font-semibold tabular-nums text-zinc-950">{formatBusinessAmount(contract.absoluteDisplayAmount, contract.currencyCode)}</p>
             </article>
           ))}
         </div>
@@ -68,13 +69,5 @@ function EmptyFinanceState({ state }: { state: FinanceOverviewModel["state"] }) 
 }
 
 function Summary({ amount, currency, icon: Icon, label, tone }: { amount: string; currency: string; icon: typeof ArrowUpRight; label: string; tone: "attention" | "positive" }) {
-  return <div className="bg-white p-5"><div className="flex items-center gap-2 text-sm text-zinc-600"><Icon className={`size-4 ${tone === "attention" ? "text-amber-600" : "text-emerald-600"}`} />{label}</div><p className="mt-3 text-2xl font-semibold tabular-nums text-zinc-950">{formatMoney(amount, currency)}</p></div>;
-}
-
-function formatMoney(value: string, currency: string): string {
-  return `${new Intl.NumberFormat("ru-RU", { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(Number(value))} ${currency}`;
-}
-
-function formatDateTime(value: string): string {
-  return new Intl.DateTimeFormat("ru-RU", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
+  return <div className="bg-white p-5"><div className="flex items-center gap-2 text-sm text-zinc-600"><Icon className={`size-4 ${tone === "attention" ? "text-amber-600" : "text-emerald-600"}`} />{label}</div><p className="mt-3 text-2xl font-semibold tabular-nums text-zinc-950">{formatBusinessAmount(amount, currency)}</p></div>;
 }

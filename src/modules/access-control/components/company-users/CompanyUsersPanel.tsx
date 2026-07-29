@@ -7,6 +7,7 @@ import {
   updateCompanyEmployeeAccessAction,
 } from "../../actions/company-users.actions";
 import type { CompanyUserEvent, CompanyUserPage } from "../../types";
+import { formatBusinessDateTime, getPartnerRoleDescription, getPartnerRoleLabel } from "../../../platform-ui";
 import { InvitationActions } from "./InvitationActions";
 import { InvitationForm } from "./InvitationForm";
 
@@ -57,8 +58,8 @@ export function CompanyUsersPanel({
               </div>
               <div className="text-sm">
                 <p className="text-xs font-medium uppercase text-zinc-500">Роль</p>
-                <p className="mt-1 font-medium text-zinc-900">{roleLabel(record.roleCode)}</p>
-                <p className="mt-1 text-xs text-zinc-500">{roleDescription(record.roleCode)}</p>
+                <p className="mt-1 font-medium text-zinc-900">{getPartnerRoleLabel(record.roleCode)}</p>
+                <p className="mt-1 text-xs text-zinc-500">{getPartnerRoleDescription(record.roleCode)}</p>
               </div>
               <div className="text-sm">
                 <p className="text-xs font-medium uppercase text-zinc-500">Цены</p>
@@ -180,7 +181,7 @@ function AuditTrail({ events }: { events: CompanyUserEvent[] }) {
         {events.map((event) => (
           <div className="flex justify-between gap-4 py-3 text-sm" key={event.id}>
             <span>{eventLabel(event.eventType)}</span>
-            <time className="shrink-0 text-zinc-500">{formatDate(event.createdAt)}</time>
+            <time className="shrink-0 text-zinc-500">{formatBusinessDateTime(event.createdAt)}</time>
           </div>
         ))}
         {!events.length ? <p className="py-4 text-sm text-zinc-500">Событий пока нет.</p> : null}
@@ -199,20 +200,6 @@ function statusLabel(status: string | null): string {
   }[status ?? ""] ?? "Статус уточняется";
 }
 
-function roleLabel(code: string): string {
-  return { partner_owner: "Владелец", partner_manager: "Менеджер", partner_buyer: "Покупатель", partner_accounting: "Бухгалтер", partner_viewer: "Наблюдатель" }[code] ?? "Роль уточняется";
-}
-
-function roleDescription(code: string): string {
-  return {
-    partner_owner: "Полное управление компанией и сотрудниками.",
-    partner_manager: "Заказы, каталог и операционная работа.",
-    partner_buyer: "Каталог, корзина и заказы.",
-    partner_accounting: "Финансовые данные компании.",
-    partner_viewer: "Просмотр доступных данных без управления.",
-  }[code] ?? "Права зависят от настроек компании.";
-}
-
 function eventLabel(type: string): string {
   return {
     invitation_created: "Приглашение создано",
@@ -226,8 +213,4 @@ function eventLabel(type: string): string {
     owner_appointed: "Назначен владелец компании",
     owner_transferred: "Владение компанией передано",
   }[type] ?? "Изменение доступа";
-}
-
-function formatDate(value: string): string {
-  return new Intl.DateTimeFormat("ru-RU", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
 }
