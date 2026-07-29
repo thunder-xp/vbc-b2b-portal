@@ -50,6 +50,7 @@ export type {
 export type {
   AdminCommercialRecord,
   AdminCommercialSummary,
+  AdminRetailPriceHistoryHealth,
 } from "./admin-commercial";
 export type {
   AdminOperationalPage,

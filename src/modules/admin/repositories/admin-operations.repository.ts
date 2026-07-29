@@ -1,5 +1,6 @@
 import type {
   AdminCommercialSummary,
+  AdminRetailPriceHistoryHealth,
   AdminIntegrationCenter,
   AdminIntegrationIncident,
   AdminOperationalPage,
@@ -24,6 +25,7 @@ export interface AdminOperationsRepository {
     domain: "catalog" | "prices" | "stock" | "arrivals",
     search?: string,
   ): Promise<AdminCommercialSummary>;
+  getRetailPriceHistoryHealth(): Promise<AdminRetailPriceHistoryHealth>;
   getOperationalPage(
     view: "orders" | "shipments" | "reservations",
     page: number,

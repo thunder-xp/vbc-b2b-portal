@@ -1,4 +1,5 @@
 import { AdminCommercialSummaryView } from "./AdminCommercialSummary";
+import { AdminRetailPriceHistoryHealthView } from "./AdminRetailPriceHistoryHealth";
 import { AdminPageHeader } from "./AdminPageHeader";
 import {
   createAdminOperationsService,
@@ -37,10 +38,13 @@ export async function AdminCommercialPage({
 }) {
   const config = CONFIG[domain];
   await requireAdminPagePermission(config.permission);
-  const summary = await createAdminOperationsService().getCommercialSummary(
-    domain,
-    search,
-  );
+  const service = createAdminOperationsService();
+  const [summary, retailHistoryHealth] = await Promise.all([
+    service.getCommercialSummary(domain, search),
+    domain === "prices"
+      ? service.getRetailPriceHistoryHealth()
+      : Promise.resolve(null),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -50,6 +54,7 @@ export async function AdminCommercialPage({
         title={config.title}
       />
       <AdminCommercialSummaryView summary={summary} />
+      {retailHistoryHealth ? <AdminRetailPriceHistoryHealthView health={retailHistoryHealth} /> : null}
     </div>
   );
 }
