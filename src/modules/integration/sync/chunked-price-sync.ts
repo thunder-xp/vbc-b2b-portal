@@ -1,5 +1,7 @@
 import "server-only";
 
+import { createHash } from "node:crypto";
+
 import { createAdminClient } from "../../../lib/supabase/admin";
 import type { CurrencyStageRow, PriceChunkProvider, PriceRegisterStageRow, PriceTypeStageRow } from "../providers/one-c";
 import { normalizePricePage, type PricePageDiagnostics } from "./price-page-normalization";
@@ -8,6 +10,8 @@ export const PRICE_SYNC_PAGE_SIZE = 500;
 export const PRICE_SYNC_PAGES_PER_INVOCATION = 5;
 export const PRICE_SYNC_DURATION_BUDGET_MS = 45_000;
 export const PRICE_SYNC_STALE_LOCK_MS = 10 * 60 * 1000;
+const RETAIL_PRICE_TYPE_REF = "e181c772-93fc-11e9-94cb-000c2988d323";
+const ZERO_CHARACTERISTIC_REF = "00000000-0000-0000-0000-000000000000";
 
 export type PriceSyncStatus = "never_run" | "queued" | "running" | "succeeded" | "failed";
 export type PriceSyncStage = "price_type_scan" | "currency_scan" | "price_register_scan" | "price_aggregation" | "price_publication" | "continuation_launch" | "completed";
@@ -22,6 +26,7 @@ export interface PriceSyncStateStore {
   stagePriceTypes(syncId: string, rows: PriceTypeStageRow[]): Promise<number>;
   stageCurrencies(syncId: string, rows: CurrencyStageRow[]): Promise<number>;
   stagePrices(syncId: string, rows: PriceRegisterStageRow[]): Promise<number>;
+  stageRetailHistory?(syncId: string, rows: PriceRegisterStageRow[]): Promise<number>;
   checkpoint(syncId: string, input: { stage: PriceSyncStage; nextSkip: number; rowsScanned: number; rowsStaged: number; pageCompleted: boolean; scanComplete?: boolean; priceDiagnostics?: PricePageDiagnostics }): Promise<void>;
   publish(syncId: string): Promise<void>;
   fail(syncId: string, category: string, stage: PriceSyncStage, page: number, databaseCode?: string, safeError?: string): Promise<void>;
@@ -51,6 +56,9 @@ export class ChunkedPriceSyncService {
         const page = await this.fetchStagePage(processedStage, state.nextSkip, state.pageSize);
         const normalizedPricePage = processedStage === "price_register_scan" ? normalizePricePage(page.items as PriceRegisterStageRow[]) : null;
         const staged = await this.stagePage(syncId, processedStage, normalizedPricePage?.rows ?? page.items);
+        if (processedStage === "price_register_scan" && this.store.stageRetailHistory) {
+          await this.store.stageRetailHistory(syncId, page.items as PriceRegisterStageRow[]);
+        }
         processed += 1;
         const complete = page.rowCount < state.pageSize;
         const nextStage = complete ? followingStage(processedStage) : processedStage;
@@ -111,11 +119,48 @@ export class SupabasePriceSyncStateStore implements PriceSyncStateStore {
   async stagePriceTypes(syncId: string, rows: PriceTypeStageRow[]) { if (!rows.length) return 0; const { error } = await createAdminClient().from("product_price_type_sync_stage").upsert(rows.map((row) => ({ sync_id: syncId, external_ref: row.externalRef, external_code: row.externalCode, name: row.name, currency_ref: row.currencyRef, source_version: row.sourceVersion, is_active: row.isActive })), { onConflict: "sync_id,external_ref" }); if (error) throw persistenceError(error); return rows.length; }
   async stageCurrencies(syncId: string, rows: CurrencyStageRow[]) { if (!rows.length) return 0; const { error } = await createAdminClient().from("product_currency_sync_stage").upsert(rows.map((row) => ({ sync_id: syncId, external_ref: row.externalRef, code: row.code, name: row.name, is_active: row.isActive })), { onConflict: "sync_id,external_ref" }); if (error) throw persistenceError(error); return rows.length; }
   async stagePrices(syncId: string, rows: PriceRegisterStageRow[]) { if (!rows.length) return 0; const { data, error } = await createAdminClient().rpc("stage_product_price_rows", { p_sync_id: syncId, p_rows: rows.map((row) => ({ external_product_ref: row.externalProductRef, external_price_type_ref: row.externalPriceTypeRef, external_characteristic_ref: row.externalCharacteristicRef, amount: row.amount, is_current: row.isCurrent, effective_at: row.effectiveAt, currency_code: null, currency_status: "unresolved" })) }); if (error) throw persistenceError(error); return Number(data ?? 0); }
+  async stageRetailHistory(syncId: string, rows: PriceRegisterStageRow[]) {
+    const retailRows = rows.filter((row) =>
+      row.externalPriceTypeRef === RETAIL_PRICE_TYPE_REF
+      && row.externalCharacteristicRef === ZERO_CHARACTERISTIC_REF
+      && row.amount >= 0
+      && Number.isFinite(Date.parse(row.effectiveAt)));
+    if (!retailRows.length) return 0;
+    const { error } = await createAdminClient().from("retail_price_history_source_stage").upsert(
+      retailRows.map((row) => ({
+        sync_id: syncId,
+        external_product_ref: row.externalProductRef,
+        external_price_type_ref: row.externalPriceTypeRef,
+        external_characteristic_ref: row.externalCharacteristicRef,
+        price_amount: row.amount,
+        effective_at: row.effectiveAt,
+        is_current: row.isCurrent,
+        source_fingerprint: createHash("sha256").update([
+          row.externalProductRef,
+          row.externalPriceTypeRef,
+          row.externalCharacteristicRef,
+          row.effectiveAt,
+          String(row.amount),
+          String(row.isCurrent),
+        ].join("|")).digest("hex"),
+      })),
+      { onConflict: "sync_id,source_fingerprint" },
+    );
+    if (error) throw persistenceError(error);
+    return retailRows.length;
+  }
   async checkpoint(syncId: string, input: { stage: PriceSyncStage; nextSkip: number; rowsScanned: number; rowsStaged: number; pageCompleted: boolean; scanComplete?: boolean; priceDiagnostics?: PricePageDiagnostics }) { const client = createAdminClient(); const state = await this.getState(); if (state.activeSyncId !== syncId) throw Object.assign(new Error("Stale price sync."), { errorCategory: "stale_job" }); const d = input.priceDiagnostics; const { error } = await client.from("price_sync_state").update({ status: "running", current_stage: input.stage, next_skip: input.nextSkip, pages_processed: state.pagesProcessed + (input.pageCompleted ? 1 : 0), rows_scanned: state.rowsScanned + input.rowsScanned, rows_staged: state.rowsStaged + input.rowsStaged, price_rows_received: state.priceRowsReceived + (d?.received ?? 0), price_unique_keys: state.priceUniqueKeys + (d?.uniqueKeys ?? 0), price_duplicate_keys: state.priceDuplicateKeys + (d?.duplicateKeys ?? 0), price_rows_deduplicated: state.priceRowsDeduplicated + (d?.rowsDeduplicated ?? 0), scan_complete: input.scanComplete ?? state.scanComplete, updated_at: new Date().toISOString() }).eq("id", "product_prices").eq("active_sync_id", syncId); if (error) throw persistenceError(error); }
-  async publish(syncId: string) { const { error } = await createAdminClient().rpc("publish_product_price_snapshot", { p_sync_id: syncId }); if (error) throw Object.assign(persistenceError(error), { errorCategory: "publication_failure" }); }
+  async publish(syncId: string) {
+    const client = createAdminClient();
+    const discovery = await client.rpc("record_retail_price_history_discovery", { p_sync_id: syncId });
+    if (discovery.error) throw Object.assign(persistenceError(discovery.error), { errorCategory: "publication_failure" });
+    const { error } = await client.rpc("publish_product_price_snapshot", { p_sync_id: syncId });
+    if (error) throw Object.assign(persistenceError(error), { errorCategory: "publication_failure" });
+    await client.from("retail_price_history_source_stage").delete().eq("sync_id", syncId);
+  }
   async fail(syncId: string, category: string, stage: PriceSyncStage, page: number, code?: string, safeError?: string) { await createAdminClient().from("price_sync_state").update({ status: "failed", finished_at: new Date().toISOString(), error_category: category, failed_stage: stage, database_error_code: code ?? null, safe_error: safeError ?? null, failed_page: page, last_failed_sync_id: syncId, active_sync_id: null, lock_acquired_at: null, active_chunk_token: null, chunk_started_at: null, updated_at: new Date().toISOString() }).eq("id", "product_prices").eq("active_sync_id", syncId); }
   async failLaunch(syncId: string, safeError: string) { await createAdminClient().from("price_sync_state").update({ status: "failed", finished_at: new Date().toISOString(), error_category: "orchestration_failure", failed_stage: "continuation_launch", safe_error: safeError, active_sync_id: null, lock_acquired_at: null, active_chunk_token: null, chunk_started_at: null, updated_at: new Date().toISOString() }).eq("id", "product_prices").eq("active_sync_id", syncId); }
-  private async clearStages(syncId: string | null) { if (!syncId) return; const client = createAdminClient(); await Promise.all([client.from("product_price_sync_stage").delete().eq("sync_id", syncId), client.from("product_price_type_sync_stage").delete().eq("sync_id", syncId), client.from("product_currency_sync_stage").delete().eq("sync_id", syncId)]); }
+  private async clearStages(syncId: string | null) { if (!syncId) return; const client = createAdminClient(); await Promise.all([client.from("product_price_sync_stage").delete().eq("sync_id", syncId), client.from("product_price_type_sync_stage").delete().eq("sync_id", syncId), client.from("product_currency_sync_stage").delete().eq("sync_id", syncId), client.from("retail_price_history_source_stage").delete().eq("sync_id", syncId)]); }
 }
 
 function followingStage(stage: PriceSyncStage): PriceSyncStage { if (stage === "price_type_scan") return "currency_scan"; if (stage === "currency_scan") return "price_register_scan"; if (stage === "price_register_scan") return "price_aggregation"; return stage; }

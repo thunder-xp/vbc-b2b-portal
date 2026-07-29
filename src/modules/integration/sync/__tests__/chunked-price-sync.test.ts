@@ -64,6 +64,10 @@ describe("ChunkedPriceSyncService", () => {
     provider.fetchPrices.mockResolvedValueOnce({ rowCount: 2, items: [priceRow({ amount: 100 }), priceRow({ amount: 120, effectiveAt: "2026-02-01T00:00:00Z" })] });
     await new ChunkedPriceSyncService(provider, store).continue(syncId);
     expect(store.stagePrices).toHaveBeenCalledWith(syncId, [expect.objectContaining({ amount: 120 })]);
+    expect(store.stageRetailHistory).toHaveBeenCalledWith(syncId, expect.arrayContaining([
+      expect.objectContaining({ amount: 100 }),
+      expect.objectContaining({ amount: 120 }),
+    ]));
     expect(store.state).toMatchObject({ priceRowsReceived: 2, priceUniqueKeys: 1, priceDuplicateKeys: 1, priceRowsDeduplicated: 1 });
   });
 
@@ -116,6 +120,7 @@ function storeFixture(overrides: Partial<PriceSyncState> = {}) {
     stagePriceTypes: vi.fn(async (_id, rows) => rows.length),
     stageCurrencies: vi.fn(async (_id, rows) => rows.length),
     stagePrices: vi.fn(async (_id, rows) => rows.length),
+    stageRetailHistory: vi.fn(async (_id, rows) => rows.length),
     checkpoint: vi.fn(async (_id: string, input: { stage: PriceSyncStage; nextSkip: number; rowsScanned: number; rowsStaged: number; pageCompleted: boolean; scanComplete?: boolean; priceDiagnostics?: { received: number; uniqueKeys: number; duplicateKeys: number; rowsDeduplicated: number } }) => { state.status = "running"; state.currentStage = input.stage; state.nextSkip = input.nextSkip; state.pagesProcessed += input.pageCompleted ? 1 : 0; state.rowsScanned += input.rowsScanned; state.rowsStaged += input.rowsStaged; state.priceRowsReceived += input.priceDiagnostics?.received ?? 0; state.priceUniqueKeys += input.priceDiagnostics?.uniqueKeys ?? 0; state.priceDuplicateKeys += input.priceDiagnostics?.duplicateKeys ?? 0; state.priceRowsDeduplicated += input.priceDiagnostics?.rowsDeduplicated ?? 0; state.scanComplete = input.scanComplete ?? state.scanComplete; }),
     publish: vi.fn(async () => { state.status = "succeeded"; state.activeSyncId = null; state.currentStage = "completed"; }),
     fail: vi.fn(async (_id, category, stage, page) => { state.status = "failed"; state.activeSyncId = null; state.errorCategory = category; state.failedStage = stage; state.failedPage = page; }),
