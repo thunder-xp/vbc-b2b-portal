@@ -68,7 +68,7 @@ export function SendProposalDialog({ versionId, versionLabel, deliveries, canSen
     </div>}
     {deliveries.length > 0 && <div className="mt-3 w-full space-y-2">
       {deliveries.map((delivery) => <div className="flex flex-wrap items-center justify-between gap-2 border-l-2 border-emerald-600 bg-zinc-50 px-3 py-2 text-xs" key={delivery.id}>
-        <span><strong>{delivery.recipient}</strong> · {delivery.statusLabel}{delivery.sentAt ? ` · ${formatDate(delivery.sentAt)}` : ""}{delivery.openedAt ? ` · Открыто ${formatDate(delivery.openedAt)}` : ""}{delivery.response ? ` · ${delivery.response === "accepted" ? "Принято" : "Отклонено"}` : ""}</span>
+        <span><strong>{delivery.recipient}</strong> · {delivery.statusLabel}{delivery.sentAt ? ` · ${formatDate(delivery.sentAt)}` : ""}{delivery.openedAt ? ` · Открыто ${formatDate(delivery.openedAt)}` : ""}{delivery.response ? ` · ${delivery.response === "accepted" ? "Принято" : "Отклонено"}` : ""}{delivery.failureReason ? ` · ${delivery.failureReason}` : ""}</span>
         {!delivery.response && delivery.status !== "revoked" && <button className="font-semibold text-red-700" disabled={pending} onClick={() => startTransition(async () => { const result = await revokeProposalDeliveryAction(delivery.id); setMessage(result.message); if (result.success) router.refresh(); })} type="button">Отозвать ссылку</button>}
       </div>)}
     </div>}

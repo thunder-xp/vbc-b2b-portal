@@ -43,6 +43,7 @@ export type ProposalDeliverySummaryDto = {
   openedAt: string | null;
   expiresAt: string;
   response: ProposalCustomerResponse | null;
+  failureReason: string | null;
 };
 
 export type PublicProposalDto = {

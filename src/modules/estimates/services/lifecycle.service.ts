@@ -268,6 +268,7 @@ function summarizeDeliveries(deliveries: ProposalDelivery[]): Map<string, Propos
       openedAt: delivery.firstOpenedAt,
       expiresAt: delivery.tokenExpiresAt,
       response: delivery.response,
+      failureReason: delivery.status === "failed" ? delivery.safeError : null,
     });
     result.set(delivery.versionId, rows);
   }

@@ -37,9 +37,18 @@ describe("proposal delivery UI", () => {
   });
 
   it("shows delivery status without exposing a secure token", () => {
-    render(<SendProposalDialog canSend={false} emailAvailable pdfReady versionId="version-1" versionLabel="KP-1" deliveries={[{ id: "delivery-1", recipient: "client@example.com", status: "sent", statusLabel: "Отправлено", sentAt: "2026-07-18T10:00:00Z", openedAt: null, expiresAt: "2026-08-01T10:00:00Z", response: null }]} />);
+    render(<SendProposalDialog canSend={false} emailAvailable pdfReady versionId="version-1" versionLabel="KP-1" deliveries={[{ id: "delivery-1", recipient: "client@example.com", status: "sent", statusLabel: "Отправлено", sentAt: "2026-07-18T10:00:00Z", openedAt: null, expiresAt: "2026-08-01T10:00:00Z", response: null, failureReason: null }]} />);
     expect(screen.getByText(/client@example.com/).parentElement).toHaveTextContent("Отправлено");
     expect(document.body.textContent).not.toContain("/proposal/");
+  });
+
+  it("shows only the persisted safe delivery failure reason", () => {
+    render(<SendProposalDialog canSend deliveries={[{
+      id: "delivery-1", recipient: "client@example.com", status: "failed", statusLabel: "Ошибка",
+      sentAt: null, openedAt: null, expiresAt: "2026-08-01T10:00:00Z", response: null,
+      failureReason: "Не удалось передать письмо почтовому сервису.",
+    }]} emailAvailable pdfReady versionId="version-1" versionLabel="KP-1" />);
+    expect(screen.getByText(/Не удалось передать письмо почтовому сервису/)).toBeInTheDocument();
   });
 
   it("shows an honest unavailable state without a broken send action", () => {
