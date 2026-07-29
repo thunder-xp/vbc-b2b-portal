@@ -5,7 +5,7 @@ import { getProductMerchandisingLabelsAction } from "@/src/modules/catalog/actio
 import { EmptyCatalog } from "@/src/modules/catalog/components/EmptyCatalog";
 import { ProductDetail, type ProductDetailTab } from "@/src/modules/catalog/components/ProductDetail";
 import { evaluateFreshness } from "@/src/modules/integration/freshness";
-import { getProductCommercialViewsAction } from "@/src/modules/pricing-inventory/actions";
+import { getProductCommercialViewsAction, getRetailPriceHistoryAction } from "@/src/modules/pricing-inventory/actions";
 import { getPartnerWorkspaceContextAction } from "@/src/modules/partner-cabinet/actions";
 import { listFavoriteProductIdsAction } from "@/src/modules/purchasing-lists/actions";
 import { BehaviorViewEvent } from "@/src/modules/behavior-analytics/components";
@@ -14,7 +14,7 @@ type ProductDetailPageProps = {
   params: Promise<{
     slug: string;
   }>;
-  searchParams?: Promise<{ tab?: string | string[] }>;
+  searchParams?: Promise<{ tab?: string | string[]; range?: string | string[] }>;
 };
 
 export default async function ProductDetailPage({
@@ -22,7 +22,9 @@ export default async function ProductDetailPage({
   searchParams,
 }: ProductDetailPageProps) {
   const { slug } = await params;
-  const activeTab = parseTab((await searchParams)?.tab);
+  const resolvedSearchParams = await searchParams;
+  const activeTab = parseTab(resolvedSearchParams?.tab);
+  const historyRange = firstValue(resolvedSearchParams?.range);
   const identityResult = await getCatalogProductRouteIdentityAction(slug);
 
   if (!identityResult.success) {
@@ -38,11 +40,14 @@ export default async function ProductDetailPage({
     notFound();
   }
 
-  const [productResult, commercialViewsResult, workspaceResult, merchandisingResult] = await Promise.all([
+  const [productResult, commercialViewsResult, workspaceResult, merchandisingResult, retailHistoryResult] = await Promise.all([
     getCatalogProductDetailByIdAction(identityResult.data.id, detailProjection(activeTab)),
     activeTab === "description" ? getProductCommercialViewsAction([identityResult.data.id]) : Promise.resolve(null),
     activeTab === "description" ? getPartnerWorkspaceContextAction() : Promise.resolve(null),
     getProductMerchandisingLabelsAction(identityResult.data.id),
+    activeTab === "pricing"
+      ? getRetailPriceHistoryAction(identityResult.data.id, historyRange)
+      : Promise.resolve(null),
   ]);
 
   if (!productResult.success) return <EmptyCatalog message={productResult.message} title="Product unavailable" />;
@@ -94,9 +99,18 @@ export default async function ProductDetailPage({
           ? merchandisingResult.data
           : [],
       }}
+      retailPriceHistory={retailHistoryResult?.success ? retailHistoryResult.data : null}
+      retailPriceHistoryError={retailHistoryResult && !retailHistoryResult.success ? retailHistoryResult.message : null}
       stockFreshness={stockFreshness}
       userId={userId}
       />
+      {activeTab === "pricing" ? <BehaviorViewEvent
+        dedupeKey={`product-pricing:${productResult.data.id}`}
+        eventName="product_pricing_tab_viewed"
+        productId={productResult.data.id}
+        route={`/cabinet/catalog/${productResult.data.slug}?tab=pricing`}
+        sourceSurface="product_pricing_tab"
+      /> : null}
     </>
   );
 }
@@ -104,6 +118,10 @@ export default async function ProductDetailPage({
 function parseTab(value: string | string[] | undefined): ProductDetailTab {
   const tab = Array.isArray(value) ? value[0] : value;
   return tab === "characteristics" || tab === "datasheet" || tab === "pricing" ? tab : "description";
+}
+
+function firstValue(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
 }
 
 function detailProjection(tab: ProductDetailTab) {

@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import type { FreshnessView } from "../../integration/freshness";
-import type { ProductCommercialViewDto } from "../../pricing-inventory";
+import type { ProductCommercialViewDto, RetailPriceHistoryDto } from "../../pricing-inventory";
 import { buildCatalogHref, type CatalogProductDetailDto } from "../services";
 
 import { ExpandableDescription } from "./ExpandableDescription";
@@ -9,6 +9,7 @@ import { MerchandisingBadges } from "./MerchandisingBadges";
 import { ProductActions } from "./ProductActions";
 import { ProductImageGallery } from "./ProductImageGallery";
 import { ProductPricingBlock } from "./ProductPricingBlock";
+import { RetailPriceHistoryChart } from "./RetailPriceHistoryChart";
 
 export type ProductDetailTab = "description" | "characteristics" | "datasheet" | "pricing";
 
@@ -19,6 +20,8 @@ type ProductDetailProps = {
   companyId?: string | null;
   commercialView?: ProductCommercialViewDto;
   priceFreshness?: FreshnessView | null;
+  retailPriceHistory?: RetailPriceHistoryDto | null;
+  retailPriceHistoryError?: string | null;
   initialFavorite?: boolean;
   product: CatalogProductDetailDto;
   stockFreshness?: FreshnessView | null;
@@ -32,7 +35,7 @@ const TABS: Array<{ id: ProductDetailTab; label: string }> = [
   { id: "pricing", label: "Ценообразование" },
 ];
 
-export function ProductDetail({ activeTab = "description", canAddToOrder = false, canManagePurchasingLists = false, companyId = null, commercialView, initialFavorite = false, priceFreshness, product, stockFreshness, userId = null }: ProductDetailProps) {
+export function ProductDetail({ activeTab = "description", canAddToOrder = false, canManagePurchasingLists = false, companyId = null, commercialView, initialFavorite = false, priceFreshness, product, retailPriceHistory, retailPriceHistoryError, stockFreshness, userId = null }: ProductDetailProps) {
   return <article className="space-y-4">
     <nav aria-label="Разделы товара" className="overflow-x-auto border-b border-zinc-200">
       <div className="flex min-w-max gap-6">
@@ -45,7 +48,7 @@ export function ProductDetail({ activeTab = "description", canAddToOrder = false
         {activeTab === "description" ? <DescriptionTab canAddToOrder={canAddToOrder} canManagePurchasingLists={canManagePurchasingLists} companyId={companyId} commercialView={commercialView} initialFavorite={initialFavorite} priceFreshness={priceFreshness} product={product} stockFreshness={stockFreshness} userId={userId} /> : null}
         {activeTab === "characteristics" ? <CharacteristicsTab product={product} /> : null}
         {activeTab === "datasheet" ? <DatasheetTab product={product} /> : null}
-        {activeTab === "pricing" ? <PricingHistoryTab /> : null}
+        {activeTab === "pricing" ? <PricingHistoryTab error={retailPriceHistoryError} history={retailPriceHistory} productId={product.id} /> : null}
       </div>
     </div>
   </article>;
@@ -112,8 +115,39 @@ function DatasheetTab({ product }: { product: CatalogProductDetailDto }) {
   return <section aria-label="Документы товара"><h1 className="text-xl font-semibold text-zinc-950">Документы</h1>{product.documents.length ? <ul className="mt-3 divide-y divide-zinc-200 border-y border-zinc-200">{product.documents.map((document) => <li className="flex flex-wrap items-center justify-between gap-3 py-4 text-sm" key={document.id}><div><p className="font-medium text-zinc-950">{document.title}</p><p className="text-zinc-500">{document.documentType}</p></div><a className="font-medium text-emerald-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600" href={document.url} rel="noopener noreferrer" target="_blank">Открыть документ</a></li>)}</ul> : <p className="mt-3 border-y border-zinc-200 py-8 text-sm text-zinc-600">Документы товара пока недоступны.</p>}</section>;
 }
 
-function PricingHistoryTab() {
-  return <section aria-label="История цен"><h1 className="text-xl font-semibold text-zinc-950">История цен</h1><div className="mt-3 border-y border-zinc-200 py-8 text-center"><p className="text-sm text-zinc-600">История изменения цен пока недоступна</p></div></section>;
+function PricingHistoryTab({ error, history, productId }: { error?: string | null; history?: RetailPriceHistoryDto | null; productId: string }) {
+  if (error) return <section aria-label="История розничной цены"><h1 className="text-xl font-semibold text-zinc-950">История розничной цены</h1><div className="mt-3 border-y border-zinc-200 py-8 text-center"><p className="text-sm text-zinc-600">Не удалось загрузить историю цен. Текущая цена товара остаётся доступной.</p><p className="mt-2 text-xs text-zinc-500">{error}</p></div></section>;
+  if (!history?.current) return <section aria-label="История розничной цены"><h1 className="text-xl font-semibold text-zinc-950">История розничной цены</h1><div className="mt-3 border-y border-zinc-200 py-8 text-center"><p className="text-sm text-zinc-600">История розничной цены пока недоступна.</p></div></section>;
+
+  return <section aria-label="История розничной цены" className="space-y-5">
+    <header>
+      <h1 className="text-xl font-semibold text-zinc-950">История розничной цены</h1>
+      <dl className="mt-3 grid gap-3 rounded-md border border-zinc-200 bg-white p-4 sm:grid-cols-3">
+        <Metric label="Текущая цена" value={history.formattedCurrent ?? "Недоступна"} />
+        <Metric label="Валюта" value={history.current.currency} />
+        <Metric label="Действует с" value={formatHistoryDate(history.current.effectiveAt)} />
+      </dl>
+    </header>
+    {history.mode === "baseline_only" ? <p className="rounded-md bg-zinc-50 p-4 text-sm text-zinc-600">История изменений накапливается. Сейчас доступна только текущая розничная цена.</p> : null}
+    {history.mode === "accumulated" ? <p className="text-sm text-zinc-600">История формируется на основании зафиксированных изменений цены.</p> : null}
+    {history.mode === "historical_verified" ? <p className="text-sm text-zinc-600">История сформирована по данным 1С.</p> : null}
+    <RetailPriceHistoryChart history={history} productId={productId} />
+    {history.points.length > 1 ? <dl className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+      <HistoryMetric label="Текущая цена" value={history.formattedCurrent} />
+      <HistoryMetric label="Предыдущая цена" value={history.formattedPrevious} />
+      <HistoryMetric label="Изменение" value={[history.formattedAbsoluteChange, history.formattedPercentageChange].filter(Boolean).join(" · ") || null} />
+      <HistoryMetric label="Минимум" value={history.formattedMinimum} />
+      <HistoryMetric label="Максимум" value={history.formattedMaximum} />
+    </dl> : null}
+  </section>;
+}
+
+function HistoryMetric({ label, value }: { label: string; value: string | null }) {
+  return <div className="rounded-md border border-zinc-200 bg-white p-3"><dt className="text-xs text-zinc-500">{label}</dt><dd className="mt-1 text-sm font-semibold text-zinc-950">{value ?? "Недоступно"}</dd></div>;
+}
+
+function formatHistoryDate(value: string) {
+  return new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(value));
 }
 
 function Metric({ label, value }: { label: string; value: string }) { return <div><dt className="text-zinc-500">{label}</dt><dd className="mt-1 font-semibold text-zinc-950">{value}</dd></div>; }

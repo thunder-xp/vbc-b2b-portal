@@ -10,6 +10,7 @@ vi.mock("../ProductImageGallery", () => ({ ProductImageGallery: ({ productId }: 
 vi.mock("../../../orders/components", () => ({ AddToCartButton: () => <button type="button">В корзину</button> }));
 vi.mock("../ProductActions", () => ({ ProductActions: () => <div><button type="button">В корзину</button><button type="button">В смету</button><button type="button">В сравнение</button><button type="button">В избранное</button></div> }));
 vi.mock("../ExpandableDescription", () => ({ ExpandableDescription: ({ text }: { text: string }) => <p className="line-clamp-[9] text-sm leading-[1.5]">{text}</p> }));
+vi.mock("../RetailPriceHistoryChart", () => ({ RetailPriceHistoryChart: () => <div>Retail chart</div> }));
 
 describe("ProductDetail information architecture", () => {
   it("keeps identity, description, cart, commercial summary, and availability in the default tab", () => {
@@ -107,13 +108,15 @@ describe("ProductDetail information architecture", () => {
     expect(screen.getByTestId("product-detail-content")).toContainElement(screen.getByRole("link", { name: "Открыть документ" }));
   });
 
-  it("reserves Pricing for history without duplicating the current offer", () => {
-    render(<ProductDetail activeTab="pricing" commercialView={commercialView} product={product} />);
-    expect(screen.getByText("История изменения цен пока недоступна")).toBeInTheDocument();
+  it("shows canonical RETAIL baseline without confidential partner pricing", () => {
+    render(<ProductDetail activeTab="pricing" commercialView={commercialView} product={product} retailPriceHistory={retailHistory} />);
+    expect(screen.getByRole("heading", { name: "История розничной цены" })).toBeInTheDocument();
+    expect(screen.getByText("2 399,00 MDL")).toBeInTheDocument();
+    expect(screen.getByText("История изменений накапливается. Сейчас доступна только текущая розничная цена.")).toBeInTheDocument();
     expect(screen.queryByText("Партнёрская цена")).not.toBeInTheDocument();
     expect(screen.queryByText("Розничная цена")).not.toBeInTheDocument();
     expect(screen.queryByText("Наличие и поступления")).not.toBeInTheDocument();
-    expect(screen.getByTestId("product-detail-content")).toContainElement(screen.getByText("История изменения цен пока недоступна"));
+    expect(screen.getByTestId("product-detail-content")).toContainElement(screen.getByText("Retail chart"));
   });
 
   it("renders all four compact tab destinations", () => {
@@ -128,3 +131,4 @@ describe("ProductDetail information architecture", () => {
 const product = { id: "product-1", sku: "NV-100", name: "IP Camera", slug: "ip-camera", shortDescription: null, description: "Camera description", imageUrl: null, brand: { id: "brand-1", name: "Dahua", slug: "dahua", description: null, logoUrl: null, sortOrder: 0, isActive: true }, category: null, keyCharacteristics: [{ label: "Resolution", value: "4 MPX" }], datasheet: null, images: [], documents: [] };
 const datasheetDocument = { id: "datasheet-1", title: "Datasheet", documentType: "datasheet", url: "https://example.com/camera.pdf" };
 const commercialView = { productId: "product-1", partnerPrice: { currencyCode: "USD", amount: 48.95, formattedAmount: "$48.95", lastUpdatedAt: "2026-07-15T02:00:00Z" }, partnerPriceMdl: { currencyCode: "MDL", amount: 839, formattedAmount: "839 MDL", lastUpdatedAt: "2026-07-15T02:00:00Z" }, msrpPriceUsd: { currencyCode: "USD", amount: 89, formattedAmount: "$89.00", lastUpdatedAt: "2026-07-15T02:00:00Z" }, retailPrice: { currencyCode: "MDL", amount: 1526, formattedAmount: "1 526 MDL", lastUpdatedAt: "2026-07-15T02:00:00Z" }, commercialOpportunity: { reversePartnerUsd: 48.95, reverseRetailUsd: 89, grossProfitUsd: 40.05, grossProfitMdl: 687, markupPercent: 81.82, formattedGrossProfit: "$40.05", formattedGrossProfitMdl: "687 MDL", formattedMarkup: "81.82%" }, stock: { status: "in_stock" as const, label: "В наличии: 8 шт.", exactAvailableQuantity: 8, exactPhysicalQuantity: 10, exactReservedQuantity: 2, exactIncomingQuantity: 91, expectedArrival: { expectedQuantity: 24, expectedDate: "2026-07-28", formattedExpectedDate: "28 июля 2026 г.", sourceStatus: "confirmed_supply" as const }, hasVariantStock: false, lastUpdatedAt: "2026-07-15T02:00:00Z" }, isDemoData: false };
+const retailHistory = { current: { amount: 2399, currency: "MDL", effectiveAt: "2026-07-12T00:00:00Z" }, points: [{ amount: 2399, currency: "MDL", effectiveAt: "2026-07-12T00:00:00Z", source: "initial_baseline" as const }], firstAt: "2026-07-12T00:00:00Z", lastAt: "2026-07-12T00:00:00Z", previousAmount: null, minimumAmount: 2399, maximumAmount: 2399, mode: "baseline_only" as const, range: "12m" as const, truncated: false, formattedCurrent: "2 399,00 MDL", formattedPrevious: null, formattedMinimum: "2 399,00 MDL", formattedMaximum: "2 399,00 MDL", formattedAbsoluteChange: null, formattedPercentageChange: null };

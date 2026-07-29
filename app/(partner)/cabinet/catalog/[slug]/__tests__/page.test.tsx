@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   getIdentity: vi.fn(),
   getProduct: vi.fn(),
   getCommercial: vi.fn(),
+  getRetailHistory: vi.fn(),
   getWorkspace: vi.fn(),
 }));
 
@@ -14,7 +15,7 @@ vi.mock("@/src/modules/catalog/actions/product-page.action", () => ({
   getCatalogProductRouteIdentityAction: mocks.getIdentity,
   getCatalogProductDetailByIdAction: mocks.getProduct,
 }));
-vi.mock("@/src/modules/pricing-inventory/actions", () => ({ getProductCommercialViewsAction: mocks.getCommercial }));
+vi.mock("@/src/modules/pricing-inventory/actions", () => ({ getProductCommercialViewsAction: mocks.getCommercial, getRetailPriceHistoryAction: mocks.getRetailHistory }));
 vi.mock("@/src/modules/partner-cabinet/actions", () => ({ getPartnerWorkspaceContextAction: mocks.getWorkspace }));
 vi.mock("@/src/modules/purchasing-lists/actions", () => ({ listFavoriteProductIdsAction: vi.fn() }));
 vi.mock("@/src/modules/catalog/components/ProductImageGallery", () => ({ ProductImageGallery: () => <div>Gallery</div> }));
@@ -30,6 +31,7 @@ describe("product detail page data loading", () => {
     mocks.getIdentity.mockResolvedValue({ success: true, data: { id: "product-1", slug: "ip-camera" } });
     mocks.getProduct.mockResolvedValue({ success: true, data: product });
     mocks.getCommercial.mockResolvedValue({ success: true, data: [commercialView] });
+    mocks.getRetailHistory.mockResolvedValue({ success: true, data: retailHistory });
     mocks.getWorkspace.mockResolvedValue({ success: true, data: { companyId: "company-1", capabilities: { productCard: { canAddToOrder: true } } } });
   });
 
@@ -60,11 +62,13 @@ describe("product detail page data loading", () => {
     render(await page);
   });
 
-  it("does not load current commercial or workspace data for Pricing history", async () => {
+  it("loads only canonical RETAIL history for Pricing", async () => {
     render(await ProductDetailPage({ params: Promise.resolve({ slug: "ip-camera" }), searchParams: Promise.resolve({ tab: "pricing" }) }));
     expect(mocks.getCommercial).not.toHaveBeenCalled();
     expect(mocks.getWorkspace).not.toHaveBeenCalled();
-    expect(screen.getByText("История изменения цен пока недоступна")).toBeInTheDocument();
+    expect(mocks.getRetailHistory).toHaveBeenCalledWith("product-1", undefined);
+    expect(screen.getByText("История розничной цены")).toBeInTheDocument();
+    expect(screen.getByText("2 399,00 MDL")).toBeInTheDocument();
   });
 
   it("loads documents only for the Datasheet tab", async () => {
@@ -79,3 +83,4 @@ describe("product detail page data loading", () => {
 
 const product = { id: "product-1", sku: "NV-100", name: "IP Camera", slug: "ip-camera", shortDescription: null, description: "Camera description", imageUrl: null, brand: null, category: null, keyCharacteristics: [], datasheet: null, images: [], documents: [] };
 const commercialView = { productId: "product-1", partnerPrice: { currencyCode: "USD", amount: 48.95, formattedAmount: "$48.95", lastUpdatedAt: "2026-07-15T02:00:00Z" }, retailPrice: null, stock: null, isDemoData: false };
+const retailHistory = { current: { amount: 2399, currency: "MDL", effectiveAt: "2026-07-12T00:00:00Z" }, points: [{ amount: 2399, currency: "MDL", effectiveAt: "2026-07-12T00:00:00Z", source: "initial_baseline" }], firstAt: "2026-07-12T00:00:00Z", lastAt: "2026-07-12T00:00:00Z", previousAmount: null, minimumAmount: 2399, maximumAmount: 2399, mode: "baseline_only", range: "12m", truncated: false, formattedCurrent: "2 399,00 MDL", formattedPrevious: null, formattedMinimum: "2 399,00 MDL", formattedMaximum: "2 399,00 MDL", formattedAbsoluteChange: null, formattedPercentageChange: null };
