@@ -5,7 +5,23 @@ import { orderSubmissionFailure } from "../order-action-error";
 
 describe("orderSubmissionFailure", () => {
   it.each([
-    [new RecoverableOrderSubmissionError(), "ORDER_RECOVERABLE", "Заказ не был отправлен. Корзина сохранена — проверьте данные и повторите попытку."],
+    [new RecoverableOrderSubmissionError(), "ORDER_UNKNOWN_FAILURE", "Заказ не был отправлен. Корзина сохранена — проверьте данные и повторите попытку."],
+    [
+      new RecoverableOrderSubmissionError(
+        "Contract unavailable.",
+        "ORDER_CONTRACT_MAPPING_MISSING",
+      ),
+      "ORDER_CONTRACT_MAPPING_MISSING",
+      "Не удалось определить договор компании. Обратитесь к менеджеру Novotech.",
+    ],
+    [
+      new RecoverableOrderSubmissionError(
+        "Invalid date.",
+        "ORDER_INVALID_SHIPMENT_DATE",
+      ),
+      "ORDER_INVALID_SHIPMENT_DATE",
+      "Проверьте плановую дату отгрузки и повторите отправку.",
+    ],
     [new OrderSubmissionInProgressError(), "ORDER_IN_PROGRESS", "Заказ уже отправляется. Подождите завершения операции."],
     [new OrderReconciliationRequiredError(), "ORDER_RECONCILIATION_REQUIRED", "Статус отправки заказа уточняется. Не отправляйте заказ повторно."],
   ])("maps %s to a safe Russian action result", (error, code, message) => {

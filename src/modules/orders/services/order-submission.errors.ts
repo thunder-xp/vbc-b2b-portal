@@ -1,5 +1,22 @@
+export type RecoverableOrderSubmissionCode =
+  | "ORDER_COMPANY_MAPPING_MISSING"
+  | "ORDER_CONTRACT_MAPPING_MISSING"
+  | "ORDER_PRODUCT_MAPPING_MISSING"
+  | "ORDER_PRICE_CHANGED"
+  | "ORDER_STOCK_CHANGED"
+  | "ORDER_INVALID_SHIPMENT_DATE"
+  | "ORDER_CART_VERSION_CONFLICT"
+  | "ORDER_1C_VALIDATION_FAILED"
+  | "ORDER_1C_TIMEOUT"
+  | "ORDER_1C_ALREADY_CREATED"
+  | "ORDER_READBACK_FAILED"
+  | "ORDER_UNKNOWN_FAILURE";
+
 export class RecoverableOrderSubmissionError extends Error {
-  constructor(message = "Order submission failed definitively.") {
+  constructor(
+    message = "Order submission failed definitively.",
+    readonly code: RecoverableOrderSubmissionCode = "ORDER_UNKNOWN_FAILURE",
+  ) {
     super(message);
     this.name = "RecoverableOrderSubmissionError";
   }

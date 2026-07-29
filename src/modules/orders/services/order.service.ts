@@ -109,7 +109,10 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
     if (!isOneCGuid(company.external1cId) || !isOneCGuid(company.external1cPriceTypeId)) {
       failOrderSubmission(
         "counterparty_mapping",
-        new RecoverableOrderSubmissionError("The partner company is not fully linked to 1C."),
+        new RecoverableOrderSubmissionError(
+          "The partner company is not fully linked to 1C.",
+          "ORDER_COMPANY_MAPPING_MISSING",
+        ),
         {
           submissionKey,
           companyId: company.id,
@@ -209,12 +212,16 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
         submissionKey,
         ...diagnosticError(error),
       });
+      if (error instanceof RecoverableOrderSubmissionError) throw error;
       throw new RecoverableOrderSubmissionError("Order preflight validation failed.");
     }
     const [identities, commercialViews, contract, priceType, approvedUsdMdlRate] = resolvedInputs;
     const stalePriceProducts = commercialViews.filter((view) => !view.partnerPrice?.lastUpdatedAt || isStale(view.partnerPrice.lastUpdatedAt, "price"));
     if (stalePriceProducts.length) {
-      failOrderSubmission("partner_price_freshness", new RecoverableOrderSubmissionError("Current partner prices are too old for order submission."), {
+      failOrderSubmission("partner_price_freshness", new RecoverableOrderSubmissionError(
+        "Current partner prices are too old for order submission.",
+        "ORDER_PRICE_CHANGED",
+      ), {
         cartId: cart.id, companyId: company.id, submissionKey, staleProductCount: stalePriceProducts.length,
       });
     }
@@ -226,7 +233,10 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
     if (!contract) {
       failOrderSubmission(
         "contract_resolution",
-        new RecoverableOrderSubmissionError("The active 1C customer contract is unavailable."),
+        new RecoverableOrderSubmissionError(
+          "The active 1C customer contract is unavailable.",
+          "ORDER_CONTRACT_MAPPING_MISSING",
+        ),
         {
           cartId: cart.id,
           companyId: company.id,
@@ -238,14 +248,20 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
     if (!contract.organizationReference) {
       failOrderSubmission(
         "organization_resolution",
-        new RecoverableOrderSubmissionError("The active 1C customer contract has no organization."),
+        new RecoverableOrderSubmissionError(
+          "The active 1C customer contract has no organization.",
+          "ORDER_COMPANY_MAPPING_MISSING",
+        ),
         { cartId: cart.id, companyId: company.id, contractRef: contract.reference.externalId, submissionKey },
       );
     }
     if (!priceType?.active || !priceType.currency) {
       failOrderSubmission(
         "price_type_currency_resolution",
-        new RecoverableOrderSubmissionError("The active 1C price type or currency is unavailable."),
+        new RecoverableOrderSubmissionError(
+          "The active 1C price type or currency is unavailable.",
+          "ORDER_COMPANY_MAPPING_MISSING",
+        ),
         {
           cartId: cart.id,
           companyId: company.id,
@@ -299,14 +315,20 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
       if (!identity || !productReferenceIsValid || !trimmedExternal1cId) {
         failOrderSubmission(
           "product_reference_resolution",
-          new RecoverableOrderSubmissionError("A cart product is not linked to 1C."),
+          new RecoverableOrderSubmissionError(
+            "A cart product is not linked to 1C.",
+            "ORDER_PRODUCT_MAPPING_MISSING",
+          ),
           { cartId: cart.id, companyId: company.id, productId: item.productId, sku: identity?.sku ?? null, submissionKey },
         );
       }
       if (!price || !price.currencyCode || !Number.isFinite(price.amount) || price.amount <= 0) {
         failOrderSubmission(
           "partner_price_resolution",
-          new RecoverableOrderSubmissionError("A current partner price is unavailable."),
+          new RecoverableOrderSubmissionError(
+            "A current partner price is unavailable.",
+            "ORDER_PRICE_CHANGED",
+          ),
           { cartId: cart.id, companyId: company.id, productId: item.productId, sku: identity.sku, product1cRef: identity.external1cId, submissionKey },
         );
       }
@@ -379,7 +401,10 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
       });
     } catch (error) {
       console.error({ event: "partner_order_transition_rejected", cartId: cart.id, cartStatus: cart.status, submissionKey, transition: "active_to_submitting", repositoryErrorCode: error instanceof OrderRepositoryError ? error.code : null, repositoryErrorMessage: error instanceof OrderRepositoryError ? error.databaseMessage : null });
-      throw new RecoverableOrderSubmissionError("Order submission state transition failed.");
+      throw new RecoverableOrderSubmissionError(
+        "Order submission state transition failed.",
+        "ORDER_CART_VERSION_CONFLICT",
+      );
     }
     console.info({
       event: "partner_order_submission_diagnostic",
@@ -426,7 +451,10 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
         errorMessage: ambiguous ? "1C order result requires reconciliation." : "1C rejected the customer order.",
       });
       if (ambiguous) throw new OrderReconciliationRequiredError();
-      throw new RecoverableOrderSubmissionError("1C rejected the customer order.");
+      throw new RecoverableOrderSubmissionError(
+        "1C rejected the customer order.",
+        "ORDER_1C_VALIDATION_FAILED",
+      );
     }
 
     try {
@@ -646,7 +674,19 @@ function isOneCGuid(value: string | null | undefined): value is string {
 }
 function isZeroGuid(value: string | null | undefined): boolean { return typeof value === "string" && value.trim().toLowerCase() === ZERO_CHARACTERISTIC_REF; }
 function deployedCommitSha(): string { return process.env.VERCEL_GIT_COMMIT_SHA?.trim() || "local"; }
-function normalizeDeliveryDate(value: string): string { const normalized = value.trim(); if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized) || Date.parse(`${normalized}T23:59:59Z`) < Date.now()) throw new RecoverableOrderSubmissionError("Requested delivery date is invalid."); return normalized; }
+function normalizeDeliveryDate(value: string): string {
+  const normalized = value.trim();
+  if (
+    !/^\d{4}-\d{2}-\d{2}$/.test(normalized) ||
+    Date.parse(`${normalized}T23:59:59Z`) < Date.now()
+  ) {
+    throw new RecoverableOrderSubmissionError(
+      "Requested delivery date is invalid.",
+      "ORDER_INVALID_SHIPMENT_DATE",
+    );
+  }
+  return normalized;
+}
 function roundMoney(value: number): number { return Math.round((value + Number.EPSILON) * 100) / 100; }
 function toJsonRecord(value: SalesOrderDTO): Record<string, unknown> { return JSON.parse(JSON.stringify(value)) as Record<string, unknown>; }
 function toSummary(

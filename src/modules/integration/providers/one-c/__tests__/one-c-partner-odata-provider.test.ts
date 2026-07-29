@@ -357,14 +357,21 @@ describe("1C OData partner provider", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
-  it("rejects an unsigned referenced catalog contract", async () => {
-    vi.spyOn(console, "info").mockImplementation(() => undefined);
+  it("accepts an active default-register contract when the informational signature flag is false", async () => {
+    const infoSpy = vi.spyOn(console, "info").mockImplementation(() => undefined);
     vi.stubGlobal("fetch", sequence(
       collection([defaultContractRow()]),
       record({ ...customerContractRow(), ДоговорПодписан: false }),
     ));
 
-    await expect(provider().partners.resolveCustomerOrderContract(contractResolutionInput())).resolves.toBeNull();
+    await expect(provider().partners.resolveCustomerOrderContract(contractResolutionInput()))
+      .resolves.toMatchObject({ reference: { externalId: CONTRACT_ID } });
+    expect(infoSpy).toHaveBeenCalledWith(expect.objectContaining({
+      event: "one_c_default_customer_contract_resolution",
+      stage: "contract_validation",
+      contractSigned: false,
+      validationResult: "valid",
+    }));
   });
 
   it("never selects an arbitrary active catalog contract", async () => {

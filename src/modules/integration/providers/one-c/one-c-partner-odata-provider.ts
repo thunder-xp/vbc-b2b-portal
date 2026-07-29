@@ -574,7 +574,6 @@ function validateCustomerOrderContract(
     return { valid: false, reason: "organization_mismatch" };
   }
   if (!isCustomerContractType(row["ВидДоговора"])) return { valid: false, reason: "contract_type_mismatch" };
-  if (row["ДоговорПодписан"] !== true) return { valid: false, reason: "unsigned" };
   if (!isActiveContract(row)) return { valid: false, reason: "inactive" };
   const contractDate = row["ДатаДоговора"]?.trim();
   if (contractDate) {
@@ -603,6 +602,7 @@ function logContractValidation(
     contractCode: contract.Code,
     contractNumber: contract["НомерДоговора"] ?? null,
     contractDescription: contract.Description,
+    contractSigned: contract["ДоговорПодписан"] === true,
     validationResult: validation.valid ? "valid" : "invalid",
     validationReason: validation.reason,
   });

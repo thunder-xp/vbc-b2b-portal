@@ -54,6 +54,31 @@ describe("DefaultPartnerOrderService", () => {
     expect(dependencies.orderProvider.exportSalesOrder).toHaveBeenCalledTimes(1);
   });
 
+  it.each(["2026-07-31", "2026-10-25"])(
+    "preserves the date-only shipment value %s across month and DST boundaries",
+    async (requestedDeliveryDate) => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-07-29T10:00:00.000Z"));
+      try {
+        const dependencies = makeDependencies();
+
+        await dependencies.service.submit("user-1", {
+          ...input(),
+          requestedDeliveryDate,
+        });
+
+        expect(dependencies.orderRepository.beginSubmission).toHaveBeenCalledWith(
+          expect.objectContaining({ requestedDeliveryDate }),
+        );
+        expect(dependencies.orderProvider.exportSalesOrder).toHaveBeenCalledWith(
+          expect.objectContaining({ requestedDeliveryDate }),
+        );
+      } finally {
+        vi.useRealTimers();
+      }
+    },
+  );
+
   it("converts USD export prices to MDL with the approved commercial rate in legacy-minimal mode", async () => {
     const dependencies = makeDependencies({ useLegacyMinimalOrderPayload: true });
 
@@ -244,7 +269,9 @@ describe("DefaultPartnerOrderService", () => {
   it("blocks submission when the selected customer contract cannot be resolved", async () => {
     const dependencies = makeDependencies();
     dependencies.partnerProvider.resolveCustomerOrderContract.mockResolvedValue(null);
-    await expect(dependencies.service.submit("user-1", input())).rejects.toBeInstanceOf(RecoverableOrderSubmissionError);
+    await expect(dependencies.service.submit("user-1", input())).rejects.toMatchObject({
+      code: "ORDER_CONTRACT_MAPPING_MISSING",
+    });
     expect(dependencies.orderProvider.exportSalesOrder).not.toHaveBeenCalled();
     expect(console.error).toHaveBeenCalledWith(expect.objectContaining({
       event: "partner_order_submission_failed",
@@ -267,6 +294,21 @@ describe("DefaultPartnerOrderService", () => {
     }));
     expect(dependencies.orderRepository.beginSubmission).not.toHaveBeenCalled();
     expect(dependencies.orderProvider.exportSalesOrder).not.toHaveBeenCalled();
+  });
+
+  it("preserves a structured recoverable error raised during preflight", async () => {
+    const dependencies = makeDependencies();
+    dependencies.partnerProvider.resolveCustomerOrderContract.mockRejectedValue(
+      new RecoverableOrderSubmissionError(
+        "Contract mapping is unavailable.",
+        "ORDER_CONTRACT_MAPPING_MISSING",
+      ),
+    );
+
+    await expect(dependencies.service.submit("user-1", input())).rejects.toMatchObject({
+      code: "ORDER_CONTRACT_MAPPING_MISSING",
+    });
+    expect(dependencies.orderRepository.beginSubmission).not.toHaveBeenCalled();
   });
 
   it("preserves the cart and marks a rejected 1C write as failed", async () => {
