@@ -199,6 +199,11 @@ describe("DefaultPartnerOrderService", () => {
       databaseReferenceFieldName: "catalog_products.external_1c_id",
       resolvedProductRef: productReference,
       referenceSource: "current_catalog",
+      commercialViewFound: true,
+      partnerPriceFound: true,
+      partnerPriceCurrencyResolved: true,
+      partnerPriceAmountValid: true,
+      partnerPriceFresh: true,
     });
     expect(dependencies.orderProvider.exportSalesOrder).toHaveBeenCalledWith(expect.objectContaining({
       items: [expect.objectContaining({

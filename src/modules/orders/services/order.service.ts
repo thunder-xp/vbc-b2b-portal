@@ -311,6 +311,15 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
         databaseReferenceFieldName: "catalog_products.external_1c_id",
         resolvedProductRef: productReferenceIsValid ? trimmedExternal1cId : null,
         referenceSource: "current_catalog",
+        commercialViewFound: Boolean(view),
+        partnerPriceFound: Boolean(price),
+        partnerPriceCurrencyResolved: Boolean(price?.currencyCode),
+        partnerPriceAmountValid: Boolean(
+          price && Number.isFinite(price.amount) && price.amount > 0,
+        ),
+        partnerPriceFresh: Boolean(
+          price?.lastUpdatedAt && !isStale(price.lastUpdatedAt, "price"),
+        ),
       });
       if (!identity || !productReferenceIsValid || !trimmedExternal1cId) {
         failOrderSubmission(
