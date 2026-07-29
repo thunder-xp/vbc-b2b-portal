@@ -967,18 +967,16 @@ async function readBackCreatedOrder(
   const response = await fetchOneC(config, url, "1C customer order read-back is unavailable.");
 
   const responseBody = await response.text();
-  const diagnostic = {
-    event: "one_c_customer_order_read_back",
-    stage: "one_c_order_read_back",
-    resource: CUSTOMER_ORDER_RESOURCE,
-    submissionKey: order.portalOrderReference,
-    httpStatus: response.status,
-    responseBody,
-  };
-  if (response.ok) console.info(diagnostic);
-  else console.error(diagnostic);
-
   if (!response.ok) {
+    console.error({
+      event: "one_c_customer_order_read_back",
+      stage: "one_c_order_read_back",
+      resource: CUSTOMER_ORDER_RESOURCE,
+      submissionKey: order.portalOrderReference,
+      httpStatus: response.status,
+      errorCategory: "http_error",
+      safeResponseBody: safeODataErrorBody(responseBody),
+    });
     throw new IntegrationProviderUnavailableError(
       "1C customer order read-back is unavailable.",
     );
@@ -988,6 +986,15 @@ async function readBackCreatedOrder(
   try {
     value = JSON.parse(responseBody);
   } catch {
+    console.error({
+      event: "one_c_customer_order_read_back",
+      stage: "one_c_order_read_back",
+      resource: CUSTOMER_ORDER_RESOURCE,
+      submissionKey: order.portalOrderReference,
+      httpStatus: response.status,
+      errorCategory: "invalid_json",
+      responseBodyLength: Buffer.byteLength(responseBody, "utf8"),
+    });
     throw new IntegrationProviderUnavailableError(
       "1C customer order read-back is invalid.",
     );
@@ -997,6 +1004,17 @@ async function readBackCreatedOrder(
       "1C customer order read-back does not match the submitted order.",
     );
   }
+  console.info({
+    event: "one_c_customer_order_read_back",
+    stage: "one_c_order_read_back",
+    resource: CUSTOMER_ORDER_RESOURCE,
+    submissionKey: order.portalOrderReference,
+    httpStatus: response.status,
+    external1cRef: externalId,
+    posted: (value as Record<string, unknown>).Posted === true,
+    lineCount: order.items.length,
+    verificationResult: "matched",
+  });
   return value;
 }
 
