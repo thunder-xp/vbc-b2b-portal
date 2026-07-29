@@ -371,6 +371,26 @@ describe("DefaultEstimateService", () => {
     expect(detail.lines[0]).toMatchObject({ lineType: "product", imageUrl: "https://example.test/camera-thumb.jpg" });
     expect(detail.lines[1]).toMatchObject({ lineType: "custom", imageUrl: null });
   });
+
+  it("checks current product prices and stock through one commercial batch", async () => {
+    const productLine = { ...item(1), lineType: "product" as const, productId: "product-1", skuSnapshot: "400691", productNameSnapshot: "Camera", sellingUnitPrice: 60 };
+    vi.mocked(repository.findAggregateById).mockResolvedValue(aggregate([productLine]));
+    vi.mocked(pricing.getProductCommercialViews).mockResolvedValue([{
+      productId: "product-1",
+      partnerPrice: { amount: 50, currencyCode: "USD", formattedAmount: "$50.00", lastUpdatedAt: "2026-07-29T08:00:00Z" },
+      retailPrice: null,
+      stock: { status: "in_stock", label: "В наличии: 8 шт.", exactPhysicalQuantity: 8, exactReservedQuantity: 0, exactAvailableQuantity: 8, exactIncomingQuantity: 0, hasVariantStock: false, expectedArrival: null, lastUpdatedAt: "2026-07-29T08:00:00Z" },
+      isDemoData: false,
+      retailBelowPartnerPrice: false,
+    }]);
+
+    const result = await service.checkCurrentProductState("user-1", "estimate-1");
+
+    expect(pricing.getProductCommercialViews).toHaveBeenCalledOnce();
+    expect(pricing.getProductCommercialViews).toHaveBeenCalledWith("user-1", ["product-1"]);
+    expect(catalog.getProductsByIds).not.toHaveBeenCalled();
+    expect(result.lines[0]).toMatchObject({ oldPrice: 60, currentPrice: 50, priceChanged: true, currentStock: "В наличии: 8 шт." });
+  });
 });
 
 function aggregate(items: EstimateItem[], overrides: Partial<Estimate> = {}): EstimateAggregate {

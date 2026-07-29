@@ -10,6 +10,7 @@ import {
 import { MembershipStatus } from "../../access-control/types";
 import type { CatalogService } from "../../catalog/services";
 import type { PricingInventoryService } from "../../pricing-inventory/services";
+import { evaluateFreshness } from "../../integration/freshness";
 import type { AddEstimateLineInput, EstimateRepository, SaveEstimateCommercialInput } from "../repositories";
 import { EstimateRepositoryError } from "../repositories";
 import type { Estimate, EstimateAggregate, EstimateChargeType, EstimateCurrencyChangePolicy, EstimateItem, EstimatePricingMode, EstimateStatus, EstimateUnit, EstimateVatMode } from "../types";
@@ -145,10 +146,26 @@ export type EstimateProductPickerDto = {
   brands: Array<{ id: string; name: string }>;
 };
 
+export type EstimateCommercialCheckDto = {
+  checkedAt: string;
+  lines: Array<{
+    lineId: string;
+    sku: string | null;
+    description: string;
+    oldPrice: number | null;
+    currentPrice: number | null;
+    currencyCode: string;
+    priceChanged: boolean;
+    currentStock: string;
+    currentArrival: string | null;
+  }>;
+};
+
 export type EstimateCommercialOptionsDto = {
   currencies: string[];
   usdMdlRate: number | null;
   rateEffectiveDate: string | null;
+  rateFreshness?: { label: string; staleNotice: string | null };
 };
 
 export type EstimateServiceSelection = {
@@ -202,6 +219,7 @@ export interface EstimateService {
   getCommercialOptions(userId: string): Promise<EstimateCommercialOptionsDto>;
   listServices(userId: string): Promise<EstimateServiceDto[]>;
   searchProducts(userId: string, input: { search?: string; categoryId?: string; brandId?: string }): Promise<EstimateProductPickerDto>;
+  checkCurrentProductState(userId: string, estimateId: string): Promise<EstimateCommercialCheckDto>;
   createDraft(userId: string, input: CreateEstimateCommand): Promise<Estimate>;
   createFromPurchasingList(userId: string, input: { listId: string; name: string; requestKey: string; items: Array<{ itemId: string; productId: string; quantity: number }> }): Promise<{ estimateId: string; repeated: boolean; added: number; skipped: number }>;
   getDetail(userId: string, estimateId: string): Promise<EstimateDetailDto>;
@@ -237,6 +255,9 @@ export class DefaultEstimateService implements EstimateService {
       currencies,
       usdMdlRate: canViewPartnerPrice ? rate?.mdlPerUsdRate ?? null : null,
       rateEffectiveDate: canViewPartnerPrice ? rate?.effectiveDate ?? null : null,
+      rateFreshness: canViewPartnerPrice
+        ? evaluateFreshness(rate?.effectiveDate ?? null, "price", "Коммерческий курс")
+        : undefined,
     };
   }
 
@@ -338,6 +359,51 @@ export class DefaultEstimateService implements EstimateService {
       }),
       categories: categories.map(({ id, name }) => ({ id, name })),
       brands: brands.map(({ id, name }) => ({ id, name })),
+    };
+  }
+
+  async checkCurrentProductState(userId: string, estimateId: string): Promise<EstimateCommercialCheckDto> {
+    const companyId = await this.resolveCompany(userId, VIEW_PERMISSION);
+    const canViewPartnerPrice = await this.canViewPartnerPrice(userId, companyId);
+    const aggregate = await this.repository.findAggregateById(normalizeId(estimateId));
+    if (!aggregate || aggregate.estimate.companyId !== companyId) throw new NotFoundError("Estimate was not found.");
+    const productLines = aggregate.items.filter((item) => item.lineType === "product" && item.productId);
+    const productIds = [...new Set(productLines.map((item) => item.productId!))];
+    const views = productIds.length
+      ? await this.pricingInventoryService.getProductCommercialViews(userId, productIds)
+      : [];
+    const viewByProduct = new Map(views.map((view) => [view.productId, view]));
+    const needsRate = views.some((view) => {
+      const price = canViewPartnerPrice ? view.partnerPrice : view.retailPrice;
+      return price?.currencyCode && price.currencyCode !== aggregate.estimate.currencyCode;
+    });
+    const rate = needsRate
+      ? await this.pricingInventoryService.getApprovedUsdMdlRateSnapshot?.(userId) ?? null
+      : null;
+
+    return {
+      checkedAt: new Date().toISOString(),
+      lines: productLines.map((line) => {
+        const view = viewByProduct.get(line.productId!);
+        const price = canViewPartnerPrice ? view?.partnerPrice : view?.retailPrice;
+        const exchangeRate = price?.currencyCode === aggregate.estimate.currencyCode
+          ? 1
+          : price?.currencyCode && rate
+            ? resolveCurrencyRate(price.currencyCode, aggregate.estimate.currencyCode, rate.mdlPerUsdRate)
+            : null;
+        const currentPrice = price && exchangeRate ? convertMoney(price.amount, exchangeRate) : null;
+        return {
+          lineId: line.id,
+          sku: line.skuSnapshot,
+          description: line.description,
+          oldPrice: line.sellingUnitPrice,
+          currentPrice,
+          currencyCode: aggregate.estimate.currencyCode,
+          priceChanged: !sameMoney(line.sellingUnitPrice, currentPrice),
+          currentStock: view?.stock?.label ?? "Наличие уточняется",
+          currentArrival: view?.stock?.expectedArrival?.formattedExpectedDate ?? null,
+        };
+      }),
     };
   }
 
@@ -1126,6 +1192,11 @@ void legacyToDetail;
 
 function formatMoney(amount: number, currencyCode: string): string {
   return new Intl.NumberFormat("ru-RU", { style: "currency", currency: currencyCode, minimumFractionDigits: 2 }).format(amount);
+}
+
+function sameMoney(left: number | null, right: number | null): boolean {
+  if (left === null || right === null) return left === right;
+  return Math.abs(left - right) < 0.005;
 }
 
 function unitLabel(unit: EstimateUnit): string {

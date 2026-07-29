@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { removeEstimateLinesAction, saveEstimateCommercialAction } from "../../actions/estimate.actions";
+import { checkEstimateCommercialStateAction, removeEstimateLinesAction, saveEstimateCommercialAction } from "../../actions/estimate.actions";
 import type { EstimateDetailDto } from "../../services";
 import { EstimateCommercialEditor } from "../EstimateCommercialEditor";
 
@@ -11,6 +11,7 @@ vi.mock("../../actions/estimate.actions", () => ({
   addEstimateProductsAction: vi.fn(),
   addEstimateServiceAction: vi.fn(),
   addEstimateServicesAction: vi.fn(),
+  checkEstimateCommercialStateAction: vi.fn(),
   removeEstimateLineAction: vi.fn(),
   removeEstimateLinesAction: vi.fn(),
   saveEstimateCommercialAction: vi.fn(),
@@ -145,5 +146,27 @@ describe("EstimateCommercialEditor", () => {
     await user.selectOptions(screen.getByRole("combobox", { name: "Режим" }), "markup");
     await user.keyboard("{Control>}s{/Control}");
     expect(saveEstimateCommercialAction).toHaveBeenCalledTimes(1);
+  });
+
+  it("compares current commercial data without mutating until selected prices are applied", async () => {
+    const user = userEvent.setup();
+    vi.mocked(checkEstimateCommercialStateAction).mockResolvedValue({
+      success: true,
+      errorCode: null,
+      message: "Текущие цены и наличие проверены.",
+      data: {
+        checkedAt: "2026-07-29T08:00:00Z",
+        lines: [{ lineId: detail.lines[0].id, sku: "400691", description: "Camera", oldPrice: 100, currentPrice: 95, currencyCode: "USD", priceChanged: true, currentStock: "В наличии: 8 шт.", currentArrival: null }],
+      },
+    });
+    renderEditor();
+
+    await user.click(screen.getByRole("button", { name: "Проверить цены и наличие" }));
+    expect(checkEstimateCommercialStateAction).toHaveBeenCalledWith("estimate-1");
+    expect(screen.getByText("В наличии: 8 шт.")).toBeInTheDocument();
+    expect(saveEstimateCommercialAction).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Применить выбранные цены" }));
+    expect(screen.getByText(/Сохраните смету/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Сохранить" })).toBeEnabled();
   });
 });

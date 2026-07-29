@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { type ActionResult, failureFromError, invalidInput, success } from "../../access-control/actions/action-result";
-import type { EstimateCommercialOptionsDto, EstimateDetailDto, EstimateListFilters, EstimateProductPickerDto, EstimateServiceDto, EstimateServiceSelection, SaveEstimateCommercialCommand } from "../services";
+import type { EstimateCommercialCheckDto, EstimateCommercialOptionsDto, EstimateDetailDto, EstimateListFilters, EstimateProductPickerDto, EstimateServiceDto, EstimateServiceSelection, SaveEstimateCommercialCommand } from "../services";
 import type { EstimateUnit } from "../types";
 import { createEstimateService, getAuthenticatedUserId } from "./service-factory";
 
@@ -55,6 +55,15 @@ export async function searchEstimateProductsAction(input: { search?: string; cat
   try {
     const userId = await getAuthenticatedUserId();
     return success("Товары загружены.", await createEstimateService().searchProducts(userId, input));
+  } catch (error) {
+    return failureFromError(error);
+  }
+}
+
+export async function checkEstimateCommercialStateAction(estimateId: string): Promise<ActionResult<EstimateCommercialCheckDto>> {
+  try {
+    const userId = await getAuthenticatedUserId();
+    return success("Текущие цены и наличие проверены.", await createEstimateService().checkCurrentProductState(userId, estimateId));
   } catch (error) {
     return failureFromError(error);
   }
