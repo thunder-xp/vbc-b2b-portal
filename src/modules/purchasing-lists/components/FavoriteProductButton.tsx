@@ -21,7 +21,7 @@ export function FavoriteProductButton({ compact = false, initialSaved, productId
   const favoriteButton = <button
     aria-label={label}
     aria-pressed={saved}
-    className={`inline-flex items-center justify-center gap-2 rounded-md border text-sm font-semibold outline-none transition focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:opacity-60 ${compact ? "size-11 p-0" : "h-11 px-3"} ${saved ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-zinc-300 bg-white text-zinc-700 hover:border-emerald-400"}`}
+    className={`inline-flex items-center justify-center gap-2 border text-sm font-semibold outline-none transition focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:opacity-60 ${withListChooser ? "rounded-l-md" : "rounded-md"} ${compact ? "size-11 p-0" : "h-11 px-3"} ${saved ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-zinc-300 bg-white text-zinc-700 hover:border-emerald-400"}`}
     disabled={pending}
     onClick={() => {
       const next = !saved;

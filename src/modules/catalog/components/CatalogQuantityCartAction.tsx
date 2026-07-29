@@ -63,7 +63,7 @@ export function CatalogQuantityCartAction({ productId }: { productId: string }) 
         type="button"
       >
         <ShoppingCart aria-hidden="true" className="size-4 shrink-0" />
-        <span>{pending ? "Добавление..." : "Добавить в корзину"}</span>
+        <span className="truncate">{pending ? "Добавление..." : "Добавить в корзину"}</span>
       </button>
     </div>
     <p aria-live="polite" className={`min-h-4 text-xs font-medium ${quantityError || feedback?.success === false ? "text-red-700" : "text-emerald-700"}`} id={feedbackId}>

@@ -23,11 +23,11 @@ export function ProductCard({ analyticsSurface, capabilities, commercialView, co
     </div> : null}
   </>;
 
-  return <article className="flex h-full min-w-0 flex-col overflow-hidden rounded-md border border-zinc-200 bg-white shadow-sm">
-    {analyticsSurface ? <BehaviorTrackedLink className="relative block aspect-[4/3] overflow-hidden bg-zinc-100" href={`/cabinet/catalog/${product.slug}`} productId={product.id} sourceSurface={analyticsSurface}>{image}</BehaviorTrackedLink> : <Link className="relative block aspect-[4/3] overflow-hidden bg-zinc-100" href={`/cabinet/catalog/${product.slug}`} prefetch={false}>{image}</Link>}
+  return <article className="flex h-full min-w-0 flex-col overflow-hidden rounded-md border border-zinc-200 bg-white shadow-sm transition-shadow hover:shadow-md focus-within:ring-2 focus-within:ring-emerald-500 focus-within:ring-offset-2">
+    {analyticsSurface ? <BehaviorTrackedLink className="relative block aspect-[4/3] overflow-hidden bg-zinc-100 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-600" href={`/cabinet/catalog/${product.slug}`} productId={product.id} sourceSurface={analyticsSurface}>{image}</BehaviorTrackedLink> : <Link className="relative block aspect-[4/3] overflow-hidden bg-zinc-100 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-600" href={`/cabinet/catalog/${product.slug}`} prefetch={false}>{image}</Link>}
     <div className="flex flex-1 flex-col p-3">
       <p className="h-4 truncate text-[11px] font-medium uppercase text-zinc-500" title={`SKU ${product.sku}`}>SKU {product.sku}</p>
-      <Link className="mt-1 line-clamp-2 h-10 text-sm font-semibold leading-5 text-zinc-950 hover:text-emerald-700" href={`/cabinet/catalog/${product.slug}`} prefetch={false} title={product.name}>{product.name}</Link>
+      <Link className="mt-1 line-clamp-2 h-10 rounded-sm text-sm font-semibold leading-5 text-zinc-950 outline-none hover:text-emerald-700 focus-visible:ring-2 focus-visible:ring-emerald-500" href={`/cabinet/catalog/${product.slug}`} prefetch={false} title={product.name}>{product.name}</Link>
       <div className="mt-3 grid gap-2 text-sm">
         <div className="h-[5.25rem]">{capabilities.showPrice ? <ProductPricingBlock commercialView={commercialView} showPartnerPrice={capabilities.showPartnerPrice} showRetailPrice={capabilities.showRetailPrice} /> : null}</div>
         <div className="h-[3.25rem]">
