@@ -167,8 +167,22 @@ export class SupabasePriceSyncStateStore implements PriceSyncStateStore {
     if (error) throw Object.assign(persistenceError(error), { errorCategory: "publication_failure" });
     await client.from("retail_price_history_source_stage").delete().eq("sync_id", syncId);
   }
-  async fail(syncId: string, category: string, stage: PriceSyncStage, page: number, code?: string, safeError?: string) { await createAdminClient().from("price_sync_state").update({ status: "failed", finished_at: new Date().toISOString(), error_category: category, failed_stage: stage, database_error_code: code ?? null, safe_error: safeError ?? null, failed_page: page, last_failed_sync_id: syncId, active_sync_id: null, lock_acquired_at: null, active_chunk_token: null, chunk_started_at: null, updated_at: new Date().toISOString() }).eq("id", "product_prices").eq("active_sync_id", syncId); }
-  async failLaunch(syncId: string, safeError: string) { await createAdminClient().from("price_sync_state").update({ status: "failed", finished_at: new Date().toISOString(), error_category: "orchestration_failure", failed_stage: "continuation_launch", safe_error: safeError, active_sync_id: null, lock_acquired_at: null, active_chunk_token: null, chunk_started_at: null, updated_at: new Date().toISOString() }).eq("id", "product_prices").eq("active_sync_id", syncId); }
+  async fail(syncId: string, category: string, stage: PriceSyncStage, page: number, code?: string, safeError?: string) {
+    const client = createAdminClient();
+    const now = new Date().toISOString();
+    await Promise.all([
+      client.from("price_sync_state").update({ status: "failed", finished_at: now, error_category: category, failed_stage: stage, database_error_code: code ?? null, safe_error: safeError ?? null, failed_page: page, last_failed_sync_id: syncId, active_sync_id: null, lock_acquired_at: null, active_chunk_token: null, chunk_started_at: null, updated_at: now }).eq("id", "product_prices").eq("active_sync_id", syncId),
+      client.from("retail_price_history_backfill_runs").update({ status: "failed", finished_at: now, error_code: code ?? null, safe_error: safeError ?? "RETAIL_HISTORY_SOURCE_QUERY_FAILED", updated_at: now }).eq("sync_id", syncId).in("status", ["requested", "running"]),
+    ]);
+  }
+  async failLaunch(syncId: string, safeError: string) {
+    const client = createAdminClient();
+    const now = new Date().toISOString();
+    await Promise.all([
+      client.from("price_sync_state").update({ status: "failed", finished_at: now, error_category: "orchestration_failure", failed_stage: "continuation_launch", safe_error: safeError, active_sync_id: null, lock_acquired_at: null, active_chunk_token: null, chunk_started_at: null, updated_at: now }).eq("id", "product_prices").eq("active_sync_id", syncId),
+      client.from("retail_price_history_backfill_runs").update({ status: "failed", finished_at: now, safe_error: "RETAIL_HISTORY_SOURCE_QUERY_FAILED", updated_at: now }).eq("sync_id", syncId).in("status", ["requested", "running"]),
+    ]);
+  }
   private async clearStages(syncId: string | null) { if (!syncId) return; const client = createAdminClient(); await Promise.all([client.from("product_price_sync_stage").delete().eq("sync_id", syncId), client.from("product_price_type_sync_stage").delete().eq("sync_id", syncId), client.from("product_currency_sync_stage").delete().eq("sync_id", syncId), client.from("retail_price_history_source_stage").delete().eq("sync_id", syncId)]); }
 }
 

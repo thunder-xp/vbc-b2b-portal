@@ -101,6 +101,19 @@ describe("price staging duplicate SQL defense", () => {
   it("uses deterministic latest and stable-order precedence", () => { expect(sql).toContain("order by effective_at desc, ordinality desc, is_current asc"); });
 });
 
+describe("retail history backfill failure lifecycle", () => {
+  const source = readFileSync(
+    resolve(process.cwd(), "src/modules/integration/sync/chunked-price-sync.ts"),
+    "utf8",
+  );
+
+  it("releases the reviewed backfill lock when source or launch fails", () => {
+    expect(source).toContain('from("retail_price_history_backfill_runs").update');
+    expect(source).toContain('"RETAIL_HISTORY_SOURCE_QUERY_FAILED"');
+    expect(source).toContain('.in("status", ["requested", "running"])');
+  });
+});
+
 function providerFixture(options: { priceRows?: number } = {}) {
   return {
     fetchPriceTypes: vi.fn(async () => ({ items: [], rowCount: 0 })),
