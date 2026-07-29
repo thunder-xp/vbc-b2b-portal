@@ -4,10 +4,11 @@ import { notFound } from "next/navigation";
 import { getPartnerOrderHistoryAction } from "@/src/modules/orders/actions";
 import { SaveAsPurchasingListButton } from "@/src/modules/purchasing-lists/components";
 
-type OrderDetailPageProps = { params: Promise<{ id: string }> };
+type OrderDetailPageProps = { params: Promise<{ id: string }>; searchParams?: Promise<{ submitted?: string | string[] }> };
 
-export default async function OrderDetailPage({ params }: OrderDetailPageProps) {
+export default async function OrderDetailPage({ params, searchParams }: OrderDetailPageProps) {
   const { id } = await params;
+  const submitted = searchParams ? (await searchParams).submitted === "1" : false;
   const result = await getPartnerOrderHistoryAction(id);
   if (!result.success) {
     if (result.errorCode === "NOT_FOUND") notFound();
@@ -17,10 +18,11 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
-      {!order.posted ? (
-        <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-amber-950">
-          <h1 className="font-semibold">Заказ обрабатывается</h1>
-          <p className="mt-1 text-sm">Заказ получен и обрабатывается в Novotech.</p>
+      {submitted || !order.posted ? (
+        <div className="rounded-md border border-emerald-200 bg-emerald-50 p-4 text-emerald-950" role="status">
+          <h1 className="text-lg font-semibold">Заказ принят</h1>
+          <p className="mt-1 text-sm">Заказ получен Novotech. После обработки актуальный статус появится на этой странице и в разделе «Заказы».</p>
+          <div className="mt-3 flex flex-wrap gap-2"><Link className="text-sm font-semibold text-emerald-800 underline underline-offset-4" href="/cabinet/orders" prefetch={false}>Все заказы</Link><Link className="text-sm font-semibold text-emerald-800 underline underline-offset-4" href="/cabinet/catalog" prefetch={false}>Вернуться в каталог</Link></div>
         </div>
       ) : null}
 

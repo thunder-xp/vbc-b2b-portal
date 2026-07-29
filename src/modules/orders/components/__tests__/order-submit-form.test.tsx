@@ -18,7 +18,7 @@ describe("OrderSubmitForm", () => {
     render(<OrderSubmitForm submissionKey="55555555-5555-4555-8555-555555555555" />);
     const date = screen.getByLabelText("Дата планируемой отгрузки");
     await user.type(date, "2099-01-10");
-    await user.click(screen.getByRole("button", { name: "Подтвердить заказ" }));
+    await user.click(screen.getByRole("button", { name: "Отправить заказ" }));
     expect(await screen.findByText(/Корзина сохранена/)).toBeInTheDocument();
     expect(date).toHaveValue("2099-01-10");
   });
@@ -37,8 +37,8 @@ describe("OrderSubmitForm", () => {
     const user = userEvent.setup();
     render(<OrderSubmitForm submissionKey="55555555-5555-4555-8555-555555555555" />);
     await user.type(screen.getByLabelText("Дата планируемой отгрузки"), "2099-01-10");
-    await user.click(screen.getByRole("button", { name: "Подтвердить заказ" }));
-    await waitFor(() => expect(screen.getByRole("button", { name: "Подтвердить заказ" })).toBeDisabled());
+    await user.click(screen.getByRole("button", { name: "Отправить заказ" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Отправить заказ" })).toBeDisabled());
   });
 
   it("redirects a confirmed result to the immutable order detail without resubmitting", async () => {
@@ -47,9 +47,9 @@ describe("OrderSubmitForm", () => {
     render(<OrderSubmitForm submissionKey="55555555-5555-4555-8555-555555555555" />);
 
     await user.type(screen.getByLabelText("Дата планируемой отгрузки"), "2099-01-10");
-    await user.click(screen.getByRole("button", { name: "Подтвердить заказ" }));
+    await user.click(screen.getByRole("button", { name: "Отправить заказ" }));
 
-    await waitFor(() => expect(mocks.push).toHaveBeenCalledWith("/cabinet/orders/order-1"));
+    await waitFor(() => expect(mocks.push).toHaveBeenCalledWith("/cabinet/orders/order-1?submitted=1"));
     expect(mocks.submit).toHaveBeenCalledOnce();
   });
 
@@ -60,9 +60,9 @@ describe("OrderSubmitForm", () => {
     render(<OrderSubmitForm submissionKey="55555555-5555-4555-8555-555555555555" />);
     await user.type(screen.getByLabelText("Дата планируемой отгрузки"), "2099-01-10");
 
-    const button = screen.getByRole("button", { name: "Подтвердить заказ" });
+    const button = screen.getByRole("button", { name: "Отправить заказ" });
     await user.click(button);
-    expect(screen.getByRole("button", { name: "Создание заказа..." })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Отправка заказа..." })).toBeDisabled();
     expect(mocks.submit).toHaveBeenCalledOnce();
 
     resolveSubmission?.({ success: false, errorCode: "ORDER_IN_PROGRESS", message: "Заказ уже отправляется.", data: null });
@@ -72,5 +72,6 @@ describe("OrderSubmitForm", () => {
   it("explains the operational meaning of the planned shipment date", () => {
     render(<OrderSubmitForm submissionKey="55555555-5555-4555-8555-555555555555" />);
     expect(screen.getByText(/До этой даты оборудование планируется удерживать/)).toBeInTheDocument();
+    expect(screen.getByText(/Заказ будет передан в 1С Novotech/)).toBeInTheDocument();
   });
 });
