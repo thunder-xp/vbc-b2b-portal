@@ -18,7 +18,7 @@ describe("ProductDetail information architecture", () => {
     expect(screen.getByRole("link", { name: "Описание" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByText("Camera description")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "В корзину" })).toBeInTheDocument();
-    expect(screen.getByText("Партнёрская цена")).toBeInTheDocument();
+    expect(screen.getByText("Ваша цена")).toBeInTheDocument();
     expect(screen.getByText("839 MDL")).toBeInTheDocument();
     expect(screen.getByText("$48.95 USD")).toBeInTheDocument();
     expect(screen.getByText("$89.00")).toBeInTheDocument();
@@ -29,9 +29,10 @@ describe("ProductDetail information architecture", () => {
 
     const text = container.textContent ?? "";
     expect(text.indexOf("Изображение товара product-1")).toBeLessThan(text.indexOf("IP Camera"));
-    expect(text.indexOf("Camera description")).toBeLessThan(text.indexOf("В корзину"));
-    expect(text.indexOf("В корзину")).toBeLessThan(text.indexOf("Коммерческое предложение"));
     expect(text.indexOf("Коммерческое предложение")).toBeLessThan(text.indexOf("Наличие и поступления"));
+    expect(text.indexOf("Наличие и поступления")).toBeLessThan(text.indexOf("В корзину"));
+    expect(text.indexOf("В корзину")).toBeLessThan(text.indexOf("Camera description"));
+    expect(screen.getByRole("heading", { name: "Ключевые характеристики" })).toBeInTheDocument();
   });
 
   it("keeps the partner USD price visible without fabricating MDL when the published rate is unavailable", () => {

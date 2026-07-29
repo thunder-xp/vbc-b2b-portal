@@ -58,14 +58,26 @@ function DescriptionTab({ canAddToOrder, canManagePurchasingLists, companyId, co
       <h1 className="text-3xl font-semibold text-zinc-950">{product.name}</h1>
       <p className="mt-1.5 text-sm font-medium text-zinc-600">Артикул: {product.sku}</p>
       {product.brand?.name ? <p className="mt-1.5 text-sm font-medium text-emerald-700">{product.brand.name}</p> : null}
-      <ExpandableDescription text={description} />
-      {companyId || canAddToOrder ? <ProductActions canAddToOrder={canAddToOrder ?? false} canManagePurchasingLists={canManagePurchasingLists} categoryId={product.category?.id ?? null} companyId={companyId ?? null} initialFavorite={initialFavorite} productId={product.id} userId={userId ?? null} /> : null}
 
-      <section aria-label="Текущая коммерческая информация" className="mt-8 border-t border-zinc-200 pt-6">
+      <section aria-label="Текущая коммерческая информация" className="mt-5 border-t border-zinc-200 pt-5">
         <h2 className="text-base font-semibold text-zinc-950">Коммерческое предложение</h2>
         <div className="mt-3"><ProductPricingBlock commercialView={commercialView} freshness={priceFreshness} variant="detail" /></div>
       </section>
       <AvailabilityBlock commercialView={commercialView} freshness={stockFreshness} />
+      {companyId || canAddToOrder ? <ProductActions canAddToOrder={canAddToOrder ?? false} canManagePurchasingLists={canManagePurchasingLists} categoryId={product.category?.id ?? null} companyId={companyId ?? null} initialFavorite={initialFavorite} productId={product.id} userId={userId ?? null} /> : null}
+      <div className="mt-7 border-t border-zinc-200 pt-5"><ExpandableDescription text={description} /></div>
+      <KeyCharacteristicsSummary product={product} />
+  </section>;
+}
+
+function KeyCharacteristicsSummary({ product }: { product: CatalogProductDetailDto }) {
+  const items = product.keyCharacteristics.slice(0, 6);
+  if (!items.length) return null;
+  return <section aria-label="Ключевые характеристики" className="mt-6">
+    <div className="flex items-center justify-between gap-3"><h2 className="text-base font-semibold text-zinc-950">Ключевые характеристики</h2><Link className="text-sm font-semibold text-emerald-700" href="?tab=characteristics" prefetch={false}>Все характеристики</Link></div>
+    <dl className="mt-3 grid gap-px overflow-hidden rounded-md border border-zinc-200 bg-zinc-200 sm:grid-cols-2">
+      {items.map((item) => <div className="min-w-0 bg-white px-3 py-2.5" key={`${item.key ?? item.label}:${item.value}`}><dt className="truncate text-xs text-zinc-500" title={item.label}>{item.label}</dt><dd className="mt-0.5 truncate text-sm font-medium text-zinc-950" title={item.value}>{item.value}</dd></div>)}
+    </dl>
   </section>;
 }
 
