@@ -80,6 +80,22 @@ describe("EstimateCommercialEditor", () => {
     expect(saveEstimateCommercialAction).not.toHaveBeenCalled();
   });
 
+  it("removes only empty sections and clearly identifies manual lines", async () => {
+    const user = userEvent.setup();
+    const manualLine = { ...detail.lines[0], id: "manual-line", lineType: "custom" as const, productId: null, sku: null, imageUrl: null, description: "Кабельные работы" };
+    render(<EstimateCommercialEditor commercialOptions={{ currencies: ["USD"], usdMdlRate: 17.5, rateEffectiveDate: "2026-07-16" }} initialEstimate={{ ...detail, lines: [manualLine] }} services={[]} />);
+
+    expect(screen.getByText("Ручная позиция")).toBeInTheDocument();
+    expect(screen.getByText(/не связана с каталогом/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Удалить раздел Оборудование" })).toBeDisabled();
+
+    await user.click(screen.getByRole("button", { name: "Раздел" }));
+    const removeEmpty = screen.getByRole("button", { name: "Удалить раздел Новый раздел" });
+    expect(removeEmpty).toBeEnabled();
+    await user.click(removeEmpty);
+    expect(screen.queryByDisplayValue("Новый раздел")).not.toBeInTheDocument();
+  });
+
   it("shows currency conversion confirmation and preserves manual-price choice", async () => {
     const user = userEvent.setup();
     renderEditor();
