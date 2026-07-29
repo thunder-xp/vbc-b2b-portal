@@ -1,6 +1,7 @@
 import { Calculator, FilePlus2, Search } from "lucide-react";
 import Link from "next/link";
 
+import { BehaviorViewEvent } from "@/src/modules/behavior-analytics/components";
 import { listEstimatesAction } from "@/src/modules/estimates/actions";
 import { EstimateStatusBadge, estimateStatusLabels } from "@/src/modules/estimates/components/EstimateStatusBadge";
 import { EstimateListActions } from "@/src/modules/estimates/components/EstimateListActions";
@@ -30,6 +31,7 @@ export default async function EstimatesPage({ searchParams }: { searchParams: Pr
 
   return (
     <div className="space-y-5">
+      <BehaviorViewEvent dedupeKey={`estimates:${query.status ?? "all"}:${query.versionStatus ?? "all"}:${query.page ?? "1"}`} eventName="estimates_viewed" resultCount={result.success ? result.data.records.length : undefined} route="/cabinet/estimates" sourceSurface="estimate_list" />
       <header className="flex flex-col gap-4 border-b border-zinc-200 pb-5 sm:flex-row sm:items-end sm:justify-between">
         <div><h1 className="text-2xl font-semibold text-zinc-950">Сметы и КП</h1><p className="mt-1 text-sm text-zinc-500">Коммерческие расчёты и предложения для объектов заказчиков.</p></div>
         <Link className="inline-flex items-center justify-center gap-2 rounded-md bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white" href="/cabinet/estimates/new" prefetch={false}><FilePlus2 className="size-4" />Создать смету</Link>

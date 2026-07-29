@@ -48,6 +48,15 @@ describe("proposal delivery UI", () => {
     expect(screen.getByRole("button", { name: "Отправить" })).toBeDisabled();
   });
 
+  it("closes the delivery dialog with Escape", async () => {
+    const user = userEvent.setup();
+    render(<SendProposalDialog canSend deliveries={[]} emailAvailable pdfReady versionId="version-1" versionLabel="KP-1" />);
+    await user.click(screen.getByRole("button", { name: "Отправить" }));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
   it("requires confirmation and records one Romanian customer response", async () => {
     const user = userEvent.setup();
     render(<PublicProposalResponse initialResponse={null} locale="ro" token={"a".repeat(43)} />);

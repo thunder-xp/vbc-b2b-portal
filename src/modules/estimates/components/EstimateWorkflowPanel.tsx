@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
+import { recordBehaviorInteraction } from "../../behavior-analytics/components";
 import {
   addEstimateEquipmentToCartAction,
   createDraftFromEstimateVersionAction,
@@ -32,6 +33,7 @@ export function EstimateWorkflowPanel({ initialWorkflow, revision }: { initialWo
   const addToCart = (versionId: string | null) => startTransition(async () => {
     const result = await addEstimateEquipmentToCartAction(workflow.estimateId, versionId, crypto.randomUUID());
     if (!result.success) return setMessage(result.message);
+    recordBehaviorInteraction({ eventName: "proposal_converted_to_order", route: "/cabinet/estimates/detail", sourceSurface: "proposal_workflow" });
     setMessage(`${result.message} Добавлено: ${result.data.added}, обновлено: ${result.data.updated}, цена изменилась: ${result.data.changedPrice}, недоступно: ${result.data.unavailable + result.data.inactive}, без цены: ${result.data.missingPrice}, пропущено: ${result.data.skipped}.`);
   });
   const duplicate = () => startTransition(async () => {
@@ -64,6 +66,7 @@ export function EstimateWorkflowPanel({ initialWorkflow, revision }: { initialWo
         const result = await createEstimateVersionAction(workflow.estimateId, revision, note);
         setMessage(result.message);
         if (result.success) {
+          recordBehaviorInteraction({ eventName: workflow.versions.length ? "proposal_version_created" : "proposal_created", route: "/cabinet/estimates/detail", sourceSurface: "proposal_workflow" });
           setWorkflow((current) => ({ ...current, versions: [{
             id: result.data.id, versionNumber: result.data.versionNumber, label: `${result.data.estimateNumber} / версия ${result.data.versionNumber}`,
             status: result.data.status, statusLabel: "Подготовлено", total: new Intl.NumberFormat("ru-RU", { style: "currency", currency: result.data.currencyCode }).format(result.data.totalAmount),
@@ -81,7 +84,7 @@ export function EstimateWorkflowPanel({ initialWorkflow, revision }: { initialWo
         <div><p className="font-semibold">{version.total}</p><p className="text-xs text-zinc-500">PDF: {version.pdfStatus ? pdfLabel(version.pdfStatus) : "не сформирован"}</p>{version.sentAt ? <p className="mt-1 text-xs text-zinc-500">Отправлено {formatDate(version.sentAt)}</p> : null}</div>
         <div className="flex flex-wrap justify-start gap-2 lg:justify-end">
           <Link className={iconButton} href={`/cabinet/estimates/${workflow.estimateId}/versions/${version.id}/preview`}><FileClock className="size-4" />Предпросмотр</Link>
-          {version.pdfStatus !== "ready" && <button className={iconButton} disabled={pending} onClick={() => run(() => generateEstimateVersionPdfAction(version.id))} type="button"><Download className="size-4" />Сформировать PDF</button>}
+          {version.pdfStatus !== "ready" && <button className={iconButton} disabled={pending} onClick={() => run(() => generateEstimateVersionPdfAction(version.id), () => recordBehaviorInteraction({ eventName: "proposal_pdf_generated", route: "/cabinet/estimates/detail", sourceSurface: "proposal_workflow" }))} type="button"><Download className="size-4" />Сформировать PDF</button>}
           {version.pdfDocumentId && version.pdfStatus === "ready" && <Link className={iconButton} href={`/api/estimates/documents/${version.pdfDocumentId}`}><Download className="size-4" />Скачать PDF</Link>}
           <SendProposalDialog canSend={workflow.emailDeliveryAvailable && (version.status === "prepared" || version.status === "sent") && version.pdfStatus === "ready"} defaults={version.deliveryDefaults} deliveries={version.deliveries} emailAvailable={workflow.emailDeliveryAvailable} pdfReady={version.pdfStatus === "ready"} versionId={version.id} versionLabel={version.label} />
           {(version.status === "rejected" || version.status === "accepted") && <button className={secondary} disabled={pending} onClick={() => restoreVersion(version.id)} type="button"><FilePlus2 className="size-4" />Создать новую версию</button>}
@@ -108,11 +111,11 @@ function ConversionReview({ label, pending, onCancel, onConfirm }: {
   onCancel: () => void;
   onConfirm: () => void;
 }) {
-  return <div aria-labelledby="estimate-order-review-title" aria-modal="true" className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" role="dialog">
+  return <div aria-labelledby="estimate-order-review-title" aria-modal="true" className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" onKeyDown={(event) => { if (event.key === "Escape") onCancel(); }} role="dialog">
     <div className="w-full max-w-lg bg-white p-5 shadow-xl">
       <header className="flex items-start justify-between gap-4">
         <div><p className="text-xs font-semibold uppercase text-emerald-700">Проверка состава</p><h3 className="mt-1 text-lg font-semibold" id="estimate-order-review-title">Создание заказа</h3></div>
-        <button aria-label="Закрыть" className="grid size-11 place-items-center" onClick={onCancel} type="button">×</button>
+        <button aria-label="Закрыть" autoFocus className="grid size-11 place-items-center" onClick={onCancel} type="button">×</button>
       </header>
       <div className="mt-4 space-y-3 text-sm text-zinc-700">
         <p className="font-medium text-zinc-950">{label}</p>
@@ -135,7 +138,7 @@ function TemplateButton({ estimateId, pending, setMessage, startTransition }: { 
 function VersionBadge({ status }: { status: EstimateWorkflowDto["versions"][number]["status"] }) { const label = ({ prepared: "Подготовлено", sent: "Отправлено", accepted: "Принято", rejected: "Отклонено", archived: "Архивировано" } as const)[status]; const tone = status === "accepted" ? "bg-emerald-100 text-emerald-800" : status === "rejected" ? "bg-red-100 text-red-800" : status === "sent" ? "bg-blue-100 text-blue-800" : "bg-zinc-100 text-zinc-700"; return <span className={`px-2 py-1 text-xs font-semibold ${tone}`}>{label}</span>; }
 function formatDate(value: string) { return new Intl.DateTimeFormat("ru-RU", { dateStyle: "short", timeStyle: "short" }).format(new Date(value)); }
 function pdfLabel(status: NonNullable<EstimateWorkflowDto["versions"][number]["pdfStatus"]>) { return ({ queued: "в очереди", generating: "формируется", ready: "готов", failed: "ошибка" } as const)[status]; }
-const input = "h-10 w-full border border-zinc-300 bg-white px-3 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100";
-const primary = "inline-flex h-10 items-center justify-center gap-2 bg-emerald-700 px-4 text-sm font-semibold text-white disabled:opacity-45";
-const secondary = "inline-flex h-10 items-center justify-center gap-2 border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-700 disabled:opacity-45";
+const input = "min-h-11 w-full border border-zinc-300 bg-white px-3 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100";
+const primary = "inline-flex min-h-11 items-center justify-center gap-2 bg-emerald-700 px-4 text-sm font-semibold text-white disabled:opacity-45";
+const secondary = "inline-flex min-h-11 items-center justify-center gap-2 border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-700 disabled:opacity-45";
 const iconButton = "inline-flex min-h-11 items-center justify-center gap-2 border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-700";

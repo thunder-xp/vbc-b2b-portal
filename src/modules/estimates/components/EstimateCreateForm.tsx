@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
+import { recordBehaviorInteraction } from "../../behavior-analytics/components";
 import { createEstimateAction } from "../actions/estimate.actions";
 
 export function EstimateCreateForm({ currencies }: { currencies: string[] }) {
@@ -25,7 +26,10 @@ export function EstimateCreateForm({ currencies }: { currencies: string[] }) {
             validityDays: Number(form.get("validityDays")),
           });
           setMessage(result.message);
-          if (result.success) router.push(`/cabinet/estimates/${result.data.id}`);
+          if (result.success) {
+            recordBehaviorInteraction({ eventName: "estimate_created", route: "/cabinet/estimates/new", sourceSurface: "estimate_create" });
+            router.push(`/cabinet/estimates/${result.data.id}`);
+          }
         });
       }}
     >

@@ -19,5 +19,5 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 function TextField({ label, value, onValue, maxLength }: { label: string; value: string; onValue: (value: string) => void; maxLength: number }) { return <Field label={label}><input className={inputClass} maxLength={maxLength} onChange={(event) => onValue(event.target.value)} value={value} /></Field>; }
 function TextArea({ label, value, onValue }: { label: string; value: string; onValue: (value: string) => void }) { return <Field label={label}><textarea className={`${inputClass} min-h-20`} maxLength={4000} onChange={(event) => onValue(event.target.value)} value={value} /></Field>; }
 const inputClass = "w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100";
-const primary = "inline-flex h-9 items-center justify-center gap-2 rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white disabled:opacity-50";
-const secondary = "inline-flex h-9 items-center justify-center gap-2 rounded-md border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-700";
+const primary = "inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white disabled:opacity-50";
+const secondary = "inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-700";

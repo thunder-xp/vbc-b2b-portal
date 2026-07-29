@@ -79,5 +79,7 @@ describe("EstimateWorkflowPanel ergonomics", () => {
     expect(screen.getByRole("dialog", { name: "Создание заказа" })).toBeInTheDocument();
     expect(screen.getByText(/только позиции оборудования/)).toBeInTheDocument();
     expect(screen.getByText(/заказ в 1С на этом шаге не создаётся/)).toBeInTheDocument();
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog", { name: "Создание заказа" })).not.toBeInTheDocument();
   });
 });

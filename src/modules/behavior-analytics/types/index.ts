@@ -34,6 +34,18 @@ export const BEHAVIOR_EVENT_NAMES = [
   "date_change_started",
   "finance_viewed",
   "company_users_viewed",
+  "estimates_viewed",
+  "estimate_product_added",
+  "estimate_service_added",
+  "estimate_price_check_started",
+  "estimate_price_check_applied",
+  "proposal_created",
+  "proposal_version_created",
+  "proposal_previewed",
+  "proposal_pdf_generated",
+  "proposal_sent",
+  "proposal_send_failed",
+  "proposal_converted_to_order",
 ] as const;
 
 export type BehaviorEventName = (typeof BEHAVIOR_EVENT_NAMES)[number];

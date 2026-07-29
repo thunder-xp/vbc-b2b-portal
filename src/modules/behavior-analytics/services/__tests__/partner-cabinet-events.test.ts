@@ -14,6 +14,21 @@ const CABINET_EVENTS = [
   "finance_viewed",
   "company_users_viewed",
 ] as const;
+const ESTIMATE_EVENTS = [
+  "estimates_viewed",
+  "estimate_created",
+  "estimate_product_added",
+  "estimate_service_added",
+  "estimate_price_check_started",
+  "estimate_price_check_applied",
+  "proposal_created",
+  "proposal_version_created",
+  "proposal_previewed",
+  "proposal_pdf_generated",
+  "proposal_sent",
+  "proposal_send_failed",
+  "proposal_converted_to_order",
+] as const;
 
 describe("partner cabinet behavior events", () => {
   it("keeps the application and database allowlists aligned", () => {
@@ -28,6 +43,21 @@ describe("partner cabinet behavior events", () => {
     }
     expect(migration).toContain("has_active_company_membership");
     expect(migration).toContain("has_permission");
+    expect(migration).toContain("to authenticated");
+    expect(migration).not.toContain("service_role");
+  });
+
+  it("keeps estimate workflow events aligned with the protected database allowlist", () => {
+    const migration = readFileSync(
+      join(process.cwd(), "supabase/migrations/20260729110000_estimate_proposal_behavior_events.sql"),
+      "utf8",
+    );
+
+    for (const eventName of ESTIMATE_EVENTS) {
+      expect(BEHAVIOR_EVENT_NAMES).toContain(eventName);
+      expect(migration).toContain(`'${eventName}'`);
+    }
+    expect(migration).toContain("has_active_company_membership");
     expect(migration).toContain("to authenticated");
     expect(migration).not.toContain("service_role");
   });

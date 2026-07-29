@@ -4,6 +4,7 @@ import { Copy, Mail, Send, X } from "lucide-react";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
+import { recordBehaviorInteraction } from "../../behavior-analytics/components";
 import { revokeProposalDeliveryAction, sendProposalDeliveryAction } from "../actions/delivery.actions";
 import type { ProposalDeliverySummaryDto } from "../types";
 
@@ -35,9 +36,10 @@ export function SendProposalDialog({ versionId, versionLabel, deliveries, canSen
     });
     setMessage(result.message);
     if (result.success) {
+      recordBehaviorInteraction({ eventName: "proposal_sent", route: "/cabinet/estimates/detail", sourceSurface: "proposal_delivery" });
       setPublicUrl(result.data.publicUrl);
       router.refresh();
-    }
+    } else recordBehaviorInteraction({ eventName: "proposal_send_failed", route: "/cabinet/estimates/detail", sourceSurface: "proposal_delivery" });
   });
 
   return <>
@@ -46,11 +48,11 @@ export function SendProposalDialog({ versionId, versionLabel, deliveries, canSen
       {!emailAvailable && <span className="max-w-48 text-xs text-zinc-500">Отправка по email пока недоступна</span>}
       {emailAvailable && !pdfReady && <span className="max-w-48 text-xs text-zinc-500">Сначала сформируйте PDF</span>}
     </div>
-    {open && <div aria-modal="true" className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" role="dialog">
+    {open && <div aria-modal="true" className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" onKeyDown={(event) => { if (event.key === "Escape") setOpen(false); }} role="dialog">
       <form action={send} className="max-h-[calc(100vh-2rem)] w-full max-w-xl overflow-y-auto bg-white p-5 shadow-xl">
         <header className="flex items-start justify-between gap-4"><div><h3 className="text-lg font-semibold">Отправка предложения</h3><p className="mt-1 text-sm text-zinc-500">{versionLabel}</p></div><button aria-label="Закрыть" className="grid size-9 place-items-center" onClick={() => setOpen(false)} type="button"><X className="size-5" /></button></header>
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
-          <Field label="Email получателя"><input className={input} maxLength={254} name="recipientEmail" required type="email" /></Field>
+          <Field label="Email получателя"><input autoFocus className={input} maxLength={254} name="recipientEmail" required type="email" /></Field>
           <Field label="Имя получателя"><input className={input} defaultValue={defaults?.recipientName} maxLength={160} name="recipientName" /></Field>
           <Field className="sm:col-span-2" label="Тема"><input className={input} defaultValue={defaults?.subject ?? `Коммерческое предложение ${versionLabel}`} maxLength={200} name="subject" required /></Field>
           <Field className="sm:col-span-2" label="Сообщение"><textarea className={`${input} min-h-24 py-2`} defaultValue={defaults?.message} maxLength={4000} name="message" /></Field>
@@ -75,6 +77,6 @@ export function SendProposalDialog({ versionId, versionLabel, deliveries, canSen
 
 function Field({ label, className = "", children }: { label: string; className?: string; children: React.ReactNode }) { return <label className={`grid gap-1 text-sm font-medium ${className}`}>{label}{children}</label>; }
 function formatDate(value: string) { return new Intl.DateTimeFormat("ru-RU", { dateStyle: "short", timeStyle: "short" }).format(new Date(value)); }
-const input = "h-10 w-full border border-zinc-300 bg-white px-3 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100";
-const primary = "inline-flex h-10 items-center justify-center gap-2 bg-emerald-700 px-4 text-sm font-semibold text-white disabled:opacity-45";
-const secondary = "inline-flex h-10 items-center justify-center gap-2 border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-700 disabled:opacity-45";
+const input = "min-h-11 w-full border border-zinc-300 bg-white px-3 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100";
+const primary = "inline-flex min-h-11 items-center justify-center gap-2 bg-emerald-700 px-4 text-sm font-semibold text-white disabled:opacity-45";
+const secondary = "inline-flex min-h-11 items-center justify-center gap-2 border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-700 disabled:opacity-45";

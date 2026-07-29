@@ -4,6 +4,7 @@ import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Plus, RotateCcw, Save, T
 import { useMemo, useState, useTransition } from "react";
 
 import { ProductLineThumbnail } from "../../catalog/components/ProductLineThumbnail";
+import { recordBehaviorInteraction } from "../../behavior-analytics/components";
 import {
   checkEstimateCommercialStateAction,
   removeEstimateLineAction,
@@ -18,8 +19,8 @@ import { EstimateStatusBadge } from "./EstimateStatusBadge";
 import { EstimateBulkToolbar } from "./EstimateBulkToolbar";
 import { EstimateLinePicker } from "./EstimateLinePicker";
 
-const inputClass = "h-9 min-w-0 rounded-md border border-zinc-300 bg-white px-2 text-sm outline-none focus:border-emerald-600 focus-visible:ring-2 focus-visible:ring-emerald-200 disabled:bg-zinc-100";
-const buttonClass = "inline-flex h-9 items-center justify-center gap-2 rounded-md border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-700 outline-none hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-45";
+const inputClass = "min-h-11 min-w-0 rounded-md border border-zinc-300 bg-white px-2 text-sm outline-none focus:border-emerald-600 focus-visible:ring-2 focus-visible:ring-emerald-200 disabled:bg-zinc-100";
+const buttonClass = "inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-700 outline-none hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-45";
 const units: Array<{ value: EstimateUnit; label: string }> = [
   { value: "pcs", label: "шт." }, { value: "hour", label: "час" }, { value: "meter", label: "метр" },
   { value: "set", label: "комплект" }, { value: "visit", label: "выезд" }, { value: "service", label: "услуга" },
@@ -149,6 +150,7 @@ export function EstimateCommercialEditor({ initialEstimate, services, commercial
       <main className="min-w-0 space-y-4">
         <section className="border-y border-zinc-200 bg-white p-4">
           <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-semibold text-zinc-950">Актуальность расчёта</h2><p className="mt-1 text-sm text-zinc-500">Проверка читает текущие цены и наличие одним пакетным запросом. Смета не изменится без подтверждения.</p></div><button className={buttonClass} disabled={checking || !isDraft || dirty} onClick={() => startCheck(async () => {
+            recordBehaviorInteraction({ eventName: "estimate_price_check_started", route: "/cabinet/estimates/detail", sourceSurface: "estimate_editor" });
             const result = await checkEstimateCommercialStateAction(estimate.id);
             setMessage(result.message);
             if (result.success) {
@@ -167,6 +169,7 @@ export function EstimateCommercialEditor({ initialEstimate, services, commercial
                   : line;
               }) }));
               setMessage(`Текущие цены применены к выбранным позициям: ${checkedLineIds.size}. Сохраните смету.`);
+              recordBehaviorInteraction({ eventName: "estimate_price_check_applied", route: "/cabinet/estimates/detail", sourceSurface: "estimate_editor" });
               setCommercialCheck(null);
             }}
             onKeep={() => {

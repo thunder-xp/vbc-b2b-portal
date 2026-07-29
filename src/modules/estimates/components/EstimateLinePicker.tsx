@@ -4,6 +4,7 @@ import { Check, ImageIcon, PackagePlus, Plus, Search, Wrench } from "lucide-reac
 import { useMemo, useState, useTransition } from "react";
 
 import { ProductThumbnail } from "../../catalog/components/ProductThumbnail";
+import { recordBehaviorInteraction } from "../../behavior-analytics/components";
 
 import {
   addEstimateCustomLineAction,
@@ -13,8 +14,8 @@ import {
 } from "../actions/estimate.actions";
 import type { EstimateDetailDto, EstimateProductPickerDto, EstimateServiceDto } from "../services";
 
-const inputClass = "h-9 min-w-0 rounded-md border border-zinc-300 bg-white px-2 text-sm outline-none focus:border-emerald-600 focus-visible:ring-2 focus-visible:ring-emerald-200 disabled:bg-zinc-100";
-const buttonClass = "inline-flex h-9 items-center justify-center gap-2 rounded-md border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-700 outline-none hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-45";
+const inputClass = "min-h-11 min-w-0 rounded-md border border-zinc-300 bg-white px-2 text-sm outline-none focus:border-emerald-600 focus-visible:ring-2 focus-visible:ring-emerald-200 disabled:bg-zinc-100";
+const buttonClass = "inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-700 outline-none hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-45";
 type Mode = "product" | "service" | "custom";
 
 export function EstimateLinePicker({ estimate, services, onResult, disabled }: {
@@ -36,10 +37,11 @@ export function EstimateLinePicker({ estimate, services, onResult, disabled }: {
     return query ? services.filter((service) => `${service.name} ${service.category}`.toLocaleLowerCase("ru").includes(query)) : services;
   }, [serviceSearch, services]);
 
-  const run = (operation: () => Promise<{ success: boolean; message: string; data: EstimateDetailDto | null }>) => startTransition(async () => {
+  const run = (operation: () => Promise<{ success: boolean; message: string; data: EstimateDetailDto | null }>, eventName?: "estimate_product_added" | "estimate_service_added") => startTransition(async () => {
     const result = await operation();
     setMessage(result.message);
     if (result.success && result.data) {
+      if (eventName) recordBehaviorInteraction({ eventName, route: "/cabinet/estimates/detail", sourceSurface: "estimate_line_picker" });
       setProductSelection({});
       setServiceSelection({});
       onResult(result.data, result.message);
@@ -97,7 +99,7 @@ export function EstimateLinePicker({ estimate, services, onResult, disabled }: {
           </article>;
         })}
       </div>
-      <div className="flex justify-end"><button className="inline-flex h-9 items-center gap-2 rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white disabled:opacity-45" disabled={disabled || pending || !Object.keys(productSelection).length} onClick={() => run(() => addEstimateProductsAction(estimate.id, estimate.revision, Object.entries(productSelection).map(([productId, quantity]) => ({ productId, quantity }))))} type="button"><PackagePlus className="size-4" />Добавить выбранные ({Object.keys(productSelection).length})</button></div>
+      <div className="flex justify-end"><button className="inline-flex min-h-11 items-center gap-2 rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white disabled:opacity-45" disabled={disabled || pending || !Object.keys(productSelection).length} onClick={() => run(() => addEstimateProductsAction(estimate.id, estimate.revision, Object.entries(productSelection).map(([productId, quantity]) => ({ productId, quantity }))), "estimate_product_added")} type="button"><PackagePlus className="size-4" />Добавить выбранные ({Object.keys(productSelection).length})</button></div>
     </div>}
 
     {mode === "service" && <div className="mt-4 space-y-3">
@@ -114,10 +116,10 @@ export function EstimateLinePicker({ estimate, services, onResult, disabled }: {
           <label className="text-xs">Цена<input aria-label={`Цена ${service.name}`} className={`${inputClass} mt-1 w-full`} disabled={!selected} min="0" onChange={(event) => setServiceSelection((current) => ({ ...current, [service.id]: { ...current[service.id], price: Number(event.target.value) } }))} step="0.01" type="number" value={selected?.price ?? service.defaultSellingPrice ?? 0} /></label>
         </div>;
       })}</div>
-      <div className="flex justify-end"><button className="inline-flex h-9 items-center gap-2 rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white disabled:opacity-45" disabled={disabled || pending || !Object.keys(serviceSelection).length} onClick={() => run(() => addEstimateServicesAction(estimate.id, estimate.revision, Object.entries(serviceSelection).map(([serviceId, selection]) => ({ serviceId, quantity: selection.quantity, sellingUnitPrice: selection.price }))))} type="button"><Wrench className="size-4" />Добавить выбранные ({Object.keys(serviceSelection).length})</button></div>
+      <div className="flex justify-end"><button className="inline-flex min-h-11 items-center gap-2 rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white disabled:opacity-45" disabled={disabled || pending || !Object.keys(serviceSelection).length} onClick={() => run(() => addEstimateServicesAction(estimate.id, estimate.revision, Object.entries(serviceSelection).map(([serviceId, selection]) => ({ serviceId, quantity: selection.quantity, sellingUnitPrice: selection.price }))), "estimate_service_added")} type="button"><Wrench className="size-4" />Добавить выбранные ({Object.keys(serviceSelection).length})</button></div>
     </div>}
 
-    {mode === "custom" && <form className="mt-4 grid gap-2 sm:grid-cols-[minmax(12rem,1fr)_7rem_8rem_auto]" onSubmit={(event) => { event.preventDefault(); if (disabled) return; const data = new FormData(event.currentTarget); run(() => addEstimateCustomLineAction(estimate.id, { expectedRevision: estimate.revision, description: String(data.get("description")), unit: "service", quantity: Number(data.get("quantity")), sellingUnitPrice: Number(data.get("price")) })); }}>
+    {mode === "custom" && <form className="mt-4 grid gap-2 sm:grid-cols-[minmax(12rem,1fr)_7rem_8rem_auto]" onSubmit={(event) => { event.preventDefault(); if (disabled) return; const data = new FormData(event.currentTarget); run(() => addEstimateCustomLineAction(estimate.id, { expectedRevision: estimate.revision, description: String(data.get("description")), unit: "service", quantity: Number(data.get("quantity")), sellingUnitPrice: Number(data.get("price")) }), "estimate_service_added"); }}>
       <input aria-label="Описание" className={inputClass} disabled={disabled} name="description" placeholder="Описание собственной работы или материала" required />
       <input aria-label="Количество" className={inputClass} defaultValue="1" disabled={disabled} min="0.001" name="quantity" step="0.001" type="number" />
       <input aria-label="Цена" className={inputClass} disabled={disabled} min="0" name="price" placeholder="Цена" step="0.01" type="number" />
