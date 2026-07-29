@@ -34,6 +34,13 @@ const continuitySnapshotSql = readFileSync(
   ),
   "utf8",
 );
+const healthRepairSql = readFileSync(
+  join(
+    process.cwd(),
+    "supabase/migrations/20260729233000_retail_history_health_current_snapshot.sql",
+  ),
+  "utf8",
+);
 
 describe("RETAIL history read repair and authoritative backfill", () => {
   it("keeps the RPC contract and evaluates truncation inside the CTE statement", () => {
@@ -124,5 +131,13 @@ describe("RETAIL history read repair and authoritative backfill", () => {
     );
     expect(continuitySnapshotSql).toContain("join current_snapshot current");
     expect(continuitySnapshotSql).not.toContain("from public.product_prices");
+  });
+
+  it("reports current RETAIL health from the protected snapshot projection", () => {
+    expect(healthRepairSql).toContain(
+      "source in ('initial_baseline', 'price_sync_snapshot')",
+    );
+    expect(healthRepairSql).toContain("count(distinct product_id)");
+    expect(healthRepairSql).not.toContain("from public.product_prices");
   });
 });
