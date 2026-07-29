@@ -7,6 +7,7 @@ const FIREBASE_PRODUCT_PATH = /^\/v0\/b\/novotech-systems-5449b\.appspot\.com\/o
 const STORAGE_PRODUCT_PATH = /^\/novotech-systems-5449b\.appspot\.com\//;
 
 export type ProductImageSourceKind = "fallback" | "original" | "rejected" | "thumbnail";
+export type ProductImageFit = "contain" | "cover";
 
 export function normalizeProductImageUrl(value: string | null): string | null {
   if (!value) return null;
@@ -39,3 +40,15 @@ export function classifyProductImageSource(value: string | null): ProductImageSo
   return /(?:_|-)thumb(?:nail)?(?:\.|_|-)/i.test(decodeURIComponent(normalized)) ? "thumbnail" : "original";
 }
 
+export function resolveProductImageFit(value: string | null): ProductImageFit {
+  const normalized = normalizeProductImageUrl(value);
+  if (!normalized) return "contain";
+
+  try {
+    return /(?:_|-)crop(?:_|-)thumb(?:nail)?(?:\.|_|-)/i.test(decodeURIComponent(normalized))
+      ? "cover"
+      : "contain";
+  } catch {
+    return "contain";
+  }
+}

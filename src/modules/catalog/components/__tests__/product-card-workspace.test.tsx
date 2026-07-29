@@ -66,6 +66,10 @@ describe("ProductCard workspace context", () => {
     const imageUrl = "https://firebasestorage.googleapis.com/v0/b/novotech-systems-5449b.appspot.com/o/products%2Fcamera_thumb.png?alt=media&token=public-token";
     const { rerender } = render(<ProductCard capabilities={capabilities} product={{ ...product, imageUrl }} />);
     expect(screen.getByRole("img", { name: "IP Camera" })).toHaveAttribute("src", expect.stringContaining("camera_thumb.png"));
+    expect(screen.getByRole("img", { name: "IP Camera" })).toHaveClass("object-contain", "object-center");
+
+    const cropImageUrl = imageUrl.replace("camera_thumb.png", "camera_crop_thumb.png");
+    rerender(<ProductCard capabilities={capabilities} product={{ ...product, imageUrl: cropImageUrl }} />);
     expect(screen.getByRole("img", { name: "IP Camera" })).toHaveClass("object-cover", "object-center");
 
     rerender(<ProductCard capabilities={capabilities} product={{ ...product, id: "product-2", imageUrl: null }} />);

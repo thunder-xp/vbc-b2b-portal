@@ -1,4 +1,5 @@
 import { ProductThumbnail } from "./ProductThumbnail";
+import { resolveProductImageFit } from "./product-image-source";
 
 export function CatalogCardImage({
   alt,
@@ -11,10 +12,12 @@ export function CatalogCardImage({
   sizes?: string;
   src: string | null;
 }) {
+  const fit = resolveProductImageFit(src);
+
   return (
     <ProductThumbnail
       alt={alt}
-      className="object-cover object-center"
+      className={`${fit === "cover" ? "object-cover" : "object-contain"} object-center`}
       fallbackClassName="object-contain p-8"
       priority={priority}
       sizes={sizes}

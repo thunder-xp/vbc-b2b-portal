@@ -3,7 +3,7 @@ import { createElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { ProductThumbnail } from "../ProductThumbnail";
-import { classifyProductImageSource, normalizeProductImageUrl } from "../product-image-source";
+import { classifyProductImageSource, normalizeProductImageUrl, resolveProductImageFit } from "../product-image-source";
 import nextConfig from "../../../../../next.config";
 
 vi.mock("next/image", () => ({
@@ -26,6 +26,13 @@ describe("ProductThumbnail", () => {
     expect(screen.getByRole("img", { name: "Camera" })).toHaveAttribute("sizes", "80px");
     expect(screen.getByRole("img", { name: "Camera" })).toHaveAttribute("loading", "lazy");
     expect(classifyProductImageSource(THUMBNAIL)).toBe("thumbnail");
+    expect(resolveProductImageFit(THUMBNAIL)).toBe("contain");
+  });
+
+  it("uses cover only for explicitly crop-composed thumbnails", () => {
+    const cropThumbnail = "https://firebasestorage.googleapis.com/v0/b/novotech-systems-5449b.appspot.com/o/products%2Fcamera_crop_thumb.png?alt=media&token=public-token";
+    expect(resolveProductImageFit(cropThumbnail)).toBe("cover");
+    expect(resolveProductImageFit("https://attacker.example/camera_crop_thumb.png")).toBe("contain");
   });
 
   it("uses the local fallback for unapproved origins", () => {
