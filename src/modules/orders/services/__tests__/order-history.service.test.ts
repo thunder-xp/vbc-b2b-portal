@@ -5,7 +5,11 @@ import { NotFoundError } from "../../../access-control/services";
 import type { OrderProvider } from "../../../integration/contracts";
 import type { SalesOrderHistoryDTO } from "../../../integration/dto";
 import type { PartnerOrderHistoryRepository, PartnerOrderRepository } from "../../repositories";
-import type { PartnerOrderHistory } from "../../types";
+import {
+  PartnerOrderIntegrationStatus,
+  PartnerOrderStatus,
+  type PartnerOrderHistory,
+} from "../../types";
 import { DefaultPartnerOrderHistoryService } from "../order-history.service";
 
 const COMPANY_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
@@ -76,6 +80,50 @@ describe("DefaultPartnerOrderHistoryService", () => {
     const repository = historyRepository([], deleted);
     await expect(service(repository).get("user-1", deleted.id)).rejects.toBeInstanceOf(NotFoundError);
     expect(repository.auditRecord).toBe(deleted);
+  });
+
+  it("renders a confirmed portal receipt before the 1C history sync links it", async () => {
+    const portalRepository = {
+      findById: vi.fn().mockResolvedValue({
+        id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+        companyId: COMPANY_ID,
+        status: PartnerOrderStatus.Submitted,
+        integrationStatus: PartnerOrderIntegrationStatus.Confirmed,
+        external1cNumber: "NSUU-002027",
+        external1cDate: "2026-07-29T11:40:03Z",
+        requestedDeliveryDate: "2026-07-31",
+        documentTotal: 324.5,
+        currencyCode: "USD",
+        confirmedAt: "2026-07-29T11:40:04Z",
+        submittedAt: "2026-07-29T11:40:04Z",
+        updatedAt: "2026-07-29T11:40:04Z",
+      }),
+      listItems: vi.fn().mockResolvedValue([{
+        productName: "DHL43-F600",
+        sku: "900005",
+        quantity: 1,
+        partnerUnitPrice: 324.5,
+        lineTotal: 324.5,
+        currencyCode: "USD",
+      }]),
+    } as unknown as PartnerOrderRepository;
+
+    const result = await service(
+      historyRepository([]),
+      orderProvider(),
+      ["pricing.partner_price.view"],
+      portalRepository,
+    ).get("user-1", "cccccccc-cccc-4ccc-8ccc-cccccccccccc");
+
+    expect(result).toMatchObject({
+      primaryLabel: "№ NSUU-002027",
+      statusLabel: "Обрабатывается",
+      deliveryDate: "2026-07-31",
+      documentTotal: "324,50 $",
+      positionCount: 1,
+      totalUnitCount: 1,
+      lines: [{ sku: "900005", quantity: 1 }],
+    });
   });
 
   it("imports more than 100 orders through continuation pages", async () => {
@@ -208,6 +256,10 @@ function service(
   repository = historyRepository([]),
   fetchHistory = orderProvider(),
   effectivePermissionCodes = ["pricing.partner_price.view"],
+  portalRepository = {
+    findById: vi.fn().mockResolvedValue(null),
+    listItems: vi.fn().mockResolvedValue([]),
+  } as unknown as PartnerOrderRepository,
 ) {
   const companyAccess = {
     getOwnMemberships: vi.fn().mockResolvedValue([{ companyId: COMPANY_ID, status: "active" }]),
@@ -224,7 +276,6 @@ function service(
     }),
   } as unknown as PermissionService;
   const provider = { fetchSalesOrderHistory: fetchHistory } as unknown as OrderProvider;
-  const portalRepository = {} as PartnerOrderRepository;
   return new DefaultPartnerOrderHistoryService(repository, portalRepository, companyAccess, permission, provider);
 }
 

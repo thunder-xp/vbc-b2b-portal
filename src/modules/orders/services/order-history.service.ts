@@ -24,6 +24,10 @@ import type {
   PartnerOrderHistorySyncMode,
   PartnerOrderHistorySyncState,
 } from "../types";
+import {
+  PartnerOrderIntegrationStatus,
+  PartnerOrderStatus,
+} from "../types";
 
 const ORDERS_VIEW_PERMISSION = "orders.view";
 const ORDERS_MANAGE_PERMISSION = "orders.manage";
@@ -234,8 +238,16 @@ export class DefaultPartnerOrderHistoryService implements PartnerOrderHistorySer
       userId,
       context.company.id,
     );
-    const order = await this.historyRepository.findVisibleById(requirePortalUuid(orderId));
+    const normalizedOrderId = requirePortalUuid(orderId);
+    const order = await this.historyRepository.findVisibleById(normalizedOrderId);
     if (!order || order.companyId !== context.company.id || order.oneCDeletionMark || !order.partnerVisible) {
+      const receipt = await this.loadConfirmedPortalReceipt(
+        normalizedOrderId,
+        context.company.id,
+        context.company.displayName,
+        canViewPartnerPrice,
+      );
+      if (receipt) return receipt;
       throw new NotFoundError("Order was not found.");
     }
     const [items, events, portalSnapshot] = await Promise.all([
@@ -250,6 +262,73 @@ export class DefaultPartnerOrderHistoryService implements PartnerOrderHistorySer
       lines: items.map((item) => toDetailLine(item, canViewPartnerPrice)),
       timeline: events.map(toTimelineEvent),
       portalSnapshot,
+    };
+  }
+
+  private async loadConfirmedPortalReceipt(
+    orderId: string,
+    companyId: string,
+    companyName: string,
+    canViewPartnerPrice: boolean,
+  ): Promise<PartnerOrderHistoryDetailDto | null> {
+    const order = await this.portalOrderRepository.findById(orderId);
+    if (
+      !order
+      || order.companyId !== companyId
+      || order.status !== PartnerOrderStatus.Submitted
+      || order.integrationStatus !== PartnerOrderIntegrationStatus.Confirmed
+      || !order.external1cNumber
+      || !order.external1cDate
+    ) {
+      return null;
+    }
+
+    const items = await this.portalOrderRepository.listItems(order.id);
+    const synchronizedAt = order.confirmedAt ?? order.submittedAt ?? order.updatedAt;
+    const formattedTotal = canViewPartnerPrice
+      && order.documentTotal !== null
+      && order.currencyCode
+      ? formatMoney(order.documentTotal, order.currencyCode)
+      : undefined;
+    const lines = items.map((item) => ({
+      productName: item.productName,
+      sku: item.sku,
+      quantity: item.quantity,
+      ...(canViewPartnerPrice
+        ? {
+            unitPrice: formatMoney(item.partnerUnitPrice, item.currencyCode),
+            lineTotal: formatMoney(item.lineTotal, item.currencyCode),
+          }
+        : {}),
+    }));
+
+    return {
+      id: order.id,
+      primaryLabel: `№ ${order.external1cNumber}`,
+      statusLabel: "Обрабатывается",
+      posted: false,
+      documentDate: order.external1cDate,
+      deliveryDate: order.requestedDeliveryDate,
+      ...(formattedTotal ? { documentTotal: formattedTotal } : {}),
+      positionCount: items.length,
+      totalUnitCount: items.reduce((total, item) => total + item.quantity, 0),
+      lastSynchronizedAt: synchronizedAt,
+      freshness: evaluateFreshness(
+        synchronizedAt,
+        "activeOrder",
+        "Подтверждено",
+      ),
+      companyName,
+      originLabel: null,
+      lines,
+      timeline: [{
+        label: "Заказ получен 1С",
+        occurredAt: synchronizedAt,
+      }],
+      portalSnapshot: {
+        ...(formattedTotal ? { total: formattedTotal } : {}),
+        lines,
+      },
     };
   }
 
