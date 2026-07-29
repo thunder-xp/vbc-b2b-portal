@@ -21,6 +21,8 @@ export type SalesOrderHistoryPageResult = IntegrationPageResultDTO<SalesOrderHis
   mappedRowCount: number;
   rejectedRowCount: number;
   lineRowCount: number;
+  lineWarningCount: number;
+  lineReadFailedReferences: string[];
   duplicateRowCount: number;
   enrichmentWarningCount: number;
 };

@@ -126,6 +126,62 @@ describe("DefaultPartnerOrderHistoryService", () => {
     });
   });
 
+  it("lists a confirmed portal order immediately without waiting for history sync", async () => {
+    const portalOrder = confirmedPortalOrder();
+    const portalRepository = {
+      listByCompanyId: vi.fn().mockResolvedValue([portalOrder]),
+      findById: vi.fn().mockResolvedValue(null),
+      listItems: vi.fn().mockResolvedValue([]),
+    } as unknown as PartnerOrderRepository;
+
+    const result = await service(
+      historyRepository([]),
+      orderProvider(),
+      ["pricing.partner_price.view"],
+      portalRepository,
+    ).list("user-1", {});
+
+    expect(result).toMatchObject({
+      total: 1,
+      orders: [{
+        id: portalOrder.id,
+        primaryLabel: "№ NSUU-002027",
+        statusLabel: "Обрабатывается",
+        positionCount: 1,
+        totalUnitCount: 2,
+      }],
+    });
+  });
+
+  it("merges a confirmed portal order when the synchronized 1C identity exists", async () => {
+    const portalOrder = confirmedPortalOrder();
+    const synchronized = history({
+      portalOrderId: portalOrder.id,
+      external1cOrderRef: portalOrder.external1cRef!,
+    });
+    const repository = historyRepository([synchronized]);
+    repository.listVisibleIdentities = vi.fn().mockResolvedValue([{
+      external1cOrderRef: synchronized.external1cOrderRef,
+      portalOrderId: portalOrder.id,
+    }]);
+    const portalRepository = {
+      listByCompanyId: vi.fn().mockResolvedValue([portalOrder]),
+      findById: vi.fn().mockResolvedValue(null),
+      listItems: vi.fn().mockResolvedValue([]),
+    } as unknown as PartnerOrderRepository;
+
+    const result = await service(
+      repository,
+      orderProvider(),
+      ["pricing.partner_price.view"],
+      portalRepository,
+    ).list("user-1", {});
+
+    expect(result.total).toBe(1);
+    expect(result.orders).toHaveLength(1);
+    expect(result.orders[0]?.id).toBe(synchronized.id);
+  });
+
   it("imports more than 100 orders through continuation pages", async () => {
     const repository = historyRepository([]);
     const first = Array.from({ length: 100 }, (_, index) => historyDto(index));
@@ -147,7 +203,8 @@ describe("DefaultPartnerOrderHistoryService", () => {
       .mockResolvedValueOnce(historyPage([historyDto(1)], "100"))
       .mockRejectedValueOnce(new Error("1C unavailable"));
 
-    await expect(service(repository, provider).syncOwnCompany("user-1", "full")).rejects.toThrow("1C unavailable");
+    await expect(service(repository, provider).syncOwnCompany("user-1", "full"))
+      .rejects.toMatchObject({ code: "ORDER_HISTORY_PARTIAL_SUCCESS" });
 
     expect(repository.upsertBatch).toHaveBeenCalledTimes(1);
     expect(repository.failSync).toHaveBeenCalledWith(expect.objectContaining({ companyId: COMPANY_ID }));
@@ -176,7 +233,7 @@ describe("DefaultPartnerOrderHistoryService", () => {
       .mockResolvedValueOnce(historyPage([order], "200"));
 
     await expect(service(repository, provider).syncOwnCompany("user-1", "full"))
-      .rejects.toThrow("repeated a page");
+      .rejects.toMatchObject({ code: "ORDER_HISTORY_PARTIAL_SUCCESS" });
     expect(repository.failSync).toHaveBeenCalled();
   });
 
@@ -187,7 +244,8 @@ describe("DefaultPartnerOrderHistoryService", () => {
       .mockResolvedValueOnce(historyPage([deleted], "100"))
       .mockRejectedValueOnce(new Error("1C unavailable"));
 
-    await expect(service(repository, provider).syncOwnCompany("user-1", "full")).rejects.toThrow("1C unavailable");
+    await expect(service(repository, provider).syncOwnCompany("user-1", "full"))
+      .rejects.toMatchObject({ code: "ORDER_HISTORY_PARTIAL_SUCCESS" });
     expect(repository.upsertBatch).not.toHaveBeenCalled();
   });
 
@@ -215,6 +273,23 @@ describe("DefaultPartnerOrderHistoryService", () => {
     expect(repository.completeSync).toHaveBeenCalled();
   });
 
+  it("does not replace a previously valid order when its line read is temporarily unavailable", async () => {
+    const repository = historyRepository([]);
+    const readable = historyDto(1);
+    const unavailable = historyDto(2);
+    const page = {
+      ...historyPage([readable, unavailable], null),
+      lineWarningCount: 1,
+      lineReadFailedReferences: [unavailable.reference.externalId],
+    };
+    const provider = orderProvider().mockResolvedValueOnce(page);
+
+    const result = await service(repository, provider).syncOwnCompany("user-1", "full");
+
+    expect(repository.upsertBatch).toHaveBeenCalledWith(expect.objectContaining({ orders: [readable] }));
+    expect(result).toMatchObject({ received: 2, inserted: 1, lineWarnings: 1 });
+  });
+
   it("passes sync identity and page number to the runtime provider", async () => {
     const repository = historyRepository([]);
     const provider = orderProvider().mockResolvedValueOnce(historyPage([historyDto(1)], null));
@@ -230,7 +305,8 @@ describe("DefaultPartnerOrderHistoryService", () => {
     const repository = historyRepository([]);
     repository.startSync.mockResolvedValue("locked");
     const provider = orderProvider();
-    await expect(service(repository, provider).syncOwnCompany("user-1", "full")).rejects.toThrow("already running");
+    await expect(service(repository, provider).syncOwnCompany("user-1", "full"))
+      .rejects.toMatchObject({ code: "ORDER_HISTORY_LOCKED" });
     expect(provider).not.toHaveBeenCalled();
   });
 
@@ -257,6 +333,7 @@ function service(
   fetchHistory = orderProvider(),
   effectivePermissionCodes = ["pricing.partner_price.view"],
   portalRepository = {
+    listByCompanyId: vi.fn().mockResolvedValue([]),
     findById: vi.fn().mockResolvedValue(null),
     listItems: vi.fn().mockResolvedValue([]),
   } as unknown as PartnerOrderRepository,
@@ -283,6 +360,7 @@ function historyRepository(visible: PartnerOrderHistory[], auditRecord: PartnerO
   return {
     auditRecord,
     getReorderSource: vi.fn().mockResolvedValue(null),
+    listVisibleIdentities: vi.fn().mockResolvedValue([]),
     listVisible: vi.fn().mockResolvedValue({ items: visible, total: visible.length }),
     findVisibleById: vi.fn().mockResolvedValue(visible[0] ?? null),
     listItemsByOrderIds: vi.fn().mockResolvedValue([]),
@@ -294,6 +372,35 @@ function historyRepository(visible: PartnerOrderHistory[], auditRecord: PartnerO
     completeSync: vi.fn().mockResolvedValue(undefined),
     failSync: vi.fn().mockResolvedValue(undefined),
   } satisfies PartnerOrderHistoryRepository & { auditRecord: PartnerOrderHistory | null };
+}
+
+function confirmedPortalOrder() {
+  return {
+    id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+    companyId: COMPANY_ID,
+    submittedBy: "user-1",
+    cartId: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+    submissionKey: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+    submissionAttemptId: "ffffffff-ffff-4fff-8fff-ffffffffffff",
+    status: PartnerOrderStatus.Submitted,
+    integrationStatus: PartnerOrderIntegrationStatus.Confirmed,
+    oneCOrderStatus: null,
+    requestedDeliveryDate: "2026-07-31",
+    external1cRef: "99999999-9999-9999-9999-999999999999",
+    external1cNumber: "NSUU-002027",
+    external1cDate: "2026-07-29T11:40:03Z",
+    payloadSnapshot: { items: [{ quantity: 2 }] },
+    safeErrorCode: null,
+    safeErrorMessage: null,
+    documentTotal: 324.5,
+    currencyCode: "USD",
+    contractNumber: null,
+    confirmedAt: "2026-07-29T11:40:04Z",
+    lastReconciledAt: null,
+    submittedAt: "2026-07-29T11:40:04Z",
+    createdAt: "2026-07-29T11:40:03Z",
+    updatedAt: "2026-07-29T11:40:04Z",
+  };
 }
 
 function orderProvider() {
@@ -308,6 +415,8 @@ function historyPage(items: SalesOrderHistoryDTO[], nextCursor: string | null) {
     mappedRowCount: items.length,
     rejectedRowCount: 0,
     lineRowCount: items.reduce((sum, item) => sum + item.items.length, 0),
+    lineWarningCount: 0,
+    lineReadFailedReferences: [],
     duplicateRowCount: 0,
     enrichmentWarningCount: items.filter((item) => item.stateCode === "unknown" || item.currencyCode === null).length,
   };

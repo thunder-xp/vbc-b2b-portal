@@ -61,7 +61,7 @@ function repo(candidates: Array<{ order: PartnerOrderHistory; counterpartyRef: s
 }
 
 function exactProvider(items: SalesOrderHistoryDTO[]) {
-  return { fetchSalesOrderHistoryByReferences: vi.fn().mockResolvedValue({ items, nextCursor: null, rawRowCount: items.length, mappedRowCount: items.length, rejectedRowCount: 0, lineRowCount: items.length, duplicateRowCount: 0, enrichmentWarningCount: 0 }) } as unknown as OrderProvider & { fetchSalesOrderHistoryByReferences: ReturnType<typeof vi.fn> };
+  return { fetchSalesOrderHistoryByReferences: vi.fn().mockResolvedValue({ items, nextCursor: null, rawRowCount: items.length, mappedRowCount: items.length, rejectedRowCount: 0, lineRowCount: items.length, lineWarningCount: 0, lineReadFailedReferences: [], duplicateRowCount: 0, enrichmentWarningCount: 0 }) } as unknown as OrderProvider & { fetchSalesOrderHistoryByReferences: ReturnType<typeof vi.fn> };
 }
 
 function candidate() { return { order: history(), counterpartyRef: COUNTERPARTY }; }

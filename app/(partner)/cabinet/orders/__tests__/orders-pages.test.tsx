@@ -69,6 +69,29 @@ describe("partner order history pages", () => {
     expect(screen.queryByText("№ NSUU-001")).not.toBeInTheDocument();
   });
 
+  it("distinguishes a failed empty refresh from a valid no-orders state", async () => {
+    mocks.list.mockResolvedValue({
+      success: true,
+      data: {
+        orders: [],
+        filter: "all",
+        search: "",
+        page: 1,
+        totalPages: 1,
+        total: 0,
+        syncState: { status: "failed" },
+        freshness: summary.freshness,
+      },
+      errorCode: null,
+      message: "",
+    });
+
+    render(await OrdersPage({ searchParams: Promise.resolve({}) }));
+
+    expect(screen.getByRole("heading", { name: "Не удалось получить заказы из 1С" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Заказы не найдены" })).not.toBeInTheDocument();
+  });
+
   it("renders historical detail without requiring a portal snapshot", async () => {
     mocks.get.mockResolvedValue({
       success: true,

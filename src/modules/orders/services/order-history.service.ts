@@ -28,6 +28,7 @@ import {
   PartnerOrderIntegrationStatus,
   PartnerOrderStatus,
 } from "../types";
+import { classifyOrderHistorySyncError, OrderHistorySyncError } from "./order-history.errors";
 
 const ORDERS_VIEW_PERMISSION = "orders.view";
 const ORDERS_MANAGE_PERMISSION = "orders.manage";
@@ -109,6 +110,7 @@ export type PartnerOrderHistorySyncResult = {
   updated: number;
   hidden: number;
   enrichmentWarnings: number;
+  lineWarnings: number;
 };
 
 export interface PartnerOrderHistoryService {
@@ -153,19 +155,35 @@ export class DefaultPartnerOrderHistoryService implements PartnerOrderHistorySer
     const filter = parseFilter(input.filter);
     const search = normalizeSearch(input.search);
     const page = parsePage(input.page);
-    const [result, syncState] = await Promise.all([
-      this.historyRepository.listVisible({ companyId: context.company.id, filter, search: search || null, page, pageSize: LIST_PAGE_SIZE }),
+    const [portalOrders, historyIdentities, syncState] = await Promise.all([
+      this.portalOrderRepository.listByCompanyId(context.company.id),
+      this.historyRepository.listVisibleIdentities?.(context.company.id) ?? Promise.resolve([]),
       this.historyRepository.getSyncState(context.company.id),
     ]);
+    const localOrders = selectUnmergedConfirmedOrders(portalOrders, historyIdentities, filter, search);
+    const start = (page - 1) * LIST_PAGE_SIZE;
+    const pageLocalOrders = localOrders.slice(start, start + LIST_PAGE_SIZE);
+    const historyOffset = Math.max(0, start - localOrders.length);
+    const historyLimit = LIST_PAGE_SIZE - pageLocalOrders.length;
+    const result = await this.historyRepository.listVisible({
+      companyId: context.company.id,
+      filter,
+      search: search || null,
+      offset: historyOffset,
+      limit: historyLimit,
+    });
+    const orders = [
+      ...pageLocalOrders.map((order) => toConfirmedPortalSummary(order, canViewPartnerPrice)),
+      ...result.items.map((order) => toSummary(order, canViewPartnerPrice)),
+    ];
+    const total = result.total + localOrders.length;
     return {
-      orders: result.items.map((order) =>
-        toSummary(order, canViewPartnerPrice),
-      ),
+      orders,
       filter,
       search,
       page,
-      totalPages: Math.max(1, Math.ceil(result.total / LIST_PAGE_SIZE)),
-      total: result.total,
+      totalPages: Math.max(1, Math.ceil(total / LIST_PAGE_SIZE)),
+      total,
       syncState,
       freshness: evaluateFreshness(syncState?.finishedAt ?? syncState?.lastIncrementalSyncAt ?? syncState?.lastSuccessfulFullSyncAt, "activeOrder", "Заказы"),
     };
@@ -335,7 +353,7 @@ export class DefaultPartnerOrderHistoryService implements PartnerOrderHistorySer
   async syncOwnCompany(userId: string, mode: PartnerOrderHistorySyncMode): Promise<PartnerOrderHistorySyncResult> {
     const context = await this.resolveContext(userId, ORDERS_MANAGE_PERMISSION);
     const counterpartyRef = context.company.external1cId?.trim();
-    if (!counterpartyRef) throw new InvalidStateError("Company is not linked to 1C.");
+    if (!counterpartyRef) throw new OrderHistorySyncError("ORDER_HISTORY_COMPANY_MAPPING_MISSING");
     return this.syncCompany(context.company.id, counterpartyRef, mode);
   }
 
@@ -349,7 +367,7 @@ export class DefaultPartnerOrderHistoryService implements PartnerOrderHistorySer
     const syncId = crypto.randomUUID();
     const startedAt = new Date().toISOString();
     const lockResult = await this.historyRepository.startSync({ companyId: context.company.id, counterpartyRef, syncId, mode: effectiveMode });
-    if (lockResult === "locked") throw new InvalidStateError("Order history synchronization is already running.");
+    if (lockResult === "locked") throw new OrderHistorySyncError("ORDER_HISTORY_LOCKED");
     console.info({
       event: lockResult === "stale_lock_recovered" ? "stale_lock_recovered" : "partner_order_history_sync_started",
       syncId,
@@ -370,6 +388,7 @@ export class DefaultPartnerOrderHistoryService implements PartnerOrderHistorySer
     let linesFetched = 0;
     let rejected = 0;
     let enrichmentWarnings = 0;
+    let lineWarnings = 0;
     let lastCommittedPage = 0;
     const rowsPerPage: number[] = [];
     const seenOrders = new Map<string, SalesOrderHistoryDTO>();
@@ -388,6 +407,8 @@ export class DefaultPartnerOrderHistoryService implements PartnerOrderHistorySer
         linesFetched += result.lineRowCount;
         rejected += result.rejectedRowCount;
         enrichmentWarnings += result.enrichmentWarningCount;
+        lineWarnings += result.lineWarningCount;
+        const failedLineReferences = new Set(result.lineReadFailedReferences.map((reference) => reference.toLowerCase()));
         rowsPerPage.push(result.rawRowCount);
         const uniquePageOrders: SalesOrderHistoryDTO[] = [];
         for (const order of result.items) {
@@ -407,7 +428,8 @@ export class DefaultPartnerOrderHistoryService implements PartnerOrderHistorySer
         if (result.rawRowCount > 0 && uniquePageOrders.length === 0) {
           throw new Error("1C order history pagination repeated a page without new order references.");
         }
-        const visibleOrders = uniquePageOrders.filter((order) => !order.deletionMark);
+        const visibleOrders = uniquePageOrders.filter((order) =>
+          !order.deletionMark && !failedLineReferences.has(order.reference.externalId.toLowerCase()));
         deferredDeletedOrders.push(...uniquePageOrders.filter((order) => order.deletionMark));
         const batch = visibleOrders.length > 0
           ? await this.historyRepository.upsertBatch({
@@ -431,6 +453,8 @@ export class DefaultPartnerOrderHistoryService implements PartnerOrderHistorySer
           updated: batch.updated,
           hidden: batch.hidden,
           enrichmentWarnings: result.enrichmentWarningCount,
+          lineWarnings: result.lineWarningCount,
+          quarantinedOrders: failedLineReferences.size,
           committed: visibleOrders.length > 0,
           nextCursor: result.nextCursor,
         });
@@ -465,9 +489,10 @@ export class DefaultPartnerOrderHistoryService implements PartnerOrderHistorySer
         updated,
         hidden,
       });
-      console.info({ event: "partner_order_history_sync_completed", syncId, pages: page, rowsPerPage, rawReceived, received, duplicatesIgnored, linesFetched, rejected, inserted, updated, hidden, enrichmentWarnings });
-      return { syncId, pagesFetched: page, rowsPerPage, rawReceived, received, duplicatesIgnored, linesFetched, rejected, inserted, updated, hidden, enrichmentWarnings };
+      console.info({ event: "partner_order_history_sync_completed", syncId, pages: page, rowsPerPage, rawReceived, received, duplicatesIgnored, linesFetched, rejected, inserted, updated, hidden, enrichmentWarnings, lineWarnings });
+      return { syncId, pagesFetched: page, rowsPerPage, rawReceived, received, duplicatesIgnored, linesFetched, rejected, inserted, updated, hidden, enrichmentWarnings, lineWarnings };
     } catch (error) {
+      const syncError = classifyOrderHistorySyncError(error, lastCommittedPage > 0);
       console.error({
         event: "partner_order_history_sync_failed",
         syncId,
@@ -486,18 +511,20 @@ export class DefaultPartnerOrderHistoryService implements PartnerOrderHistorySer
         linesFetched,
         rejected,
         enrichmentWarnings,
+        lineWarnings,
         lastCommittedPage,
         deletionRowsDeferred: deferredDeletedOrders.length,
+        safeErrorCode: syncError.code,
+        correlationId: syncError.correlationId,
         errorType: error?.constructor?.name ?? typeof error,
         errorName: error instanceof Error ? error.name : null,
-        errorMessage: error instanceof Error ? error.message : null,
       });
       await this.historyRepository.failSync({
         companyId: context.company.id,
         syncId,
-        safeError: "Не удалось обновить историю заказов. Ранее загруженные данные сохранены.",
+        safeError: `Не удалось обновить историю заказов. Код события: ${syncError.correlationId}.`,
       });
-      throw error;
+      throw syncError;
     }
   }
 
@@ -546,6 +573,61 @@ export class DefaultPartnerOrderHistoryService implements PartnerOrderHistorySer
     );
     return resolveCommercialVisibility(context).canViewPartnerPrice;
   }
+}
+
+function selectUnmergedConfirmedOrders(
+  orders: import("../types").PartnerOrder[],
+  historyIdentities: Array<{ external1cOrderRef: string; portalOrderId: string | null }>,
+  filter: PartnerOrderHistoryFilter,
+  search: string,
+) {
+  if (search || (filter !== "all" && filter !== "processing")) return [];
+  const historyRefs = new Set(historyIdentities.map((item) => item.external1cOrderRef.toLowerCase()));
+  const linkedPortalOrders = new Set(historyIdentities.flatMap((item) => item.portalOrderId ? [item.portalOrderId] : []));
+  return orders
+    .filter((order) =>
+      order.status === PartnerOrderStatus.Submitted
+      && order.integrationStatus === PartnerOrderIntegrationStatus.Confirmed
+      && !linkedPortalOrders.has(order.id)
+      && (!order.external1cRef || !historyRefs.has(order.external1cRef.toLowerCase())))
+    .sort((left, right) => portalOrderDate(right).localeCompare(portalOrderDate(left)));
+}
+
+function toConfirmedPortalSummary(
+  order: import("../types").PartnerOrder,
+  canViewPartnerPrice: boolean,
+): PartnerOrderHistorySummaryDto {
+  const snapshotItems = Array.isArray(order.payloadSnapshot.items)
+    ? order.payloadSnapshot.items.filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object")
+    : [];
+  const quantity = snapshotItems.reduce((sum, item) => {
+    const value = Number(item.quantity);
+    return sum + (Number.isFinite(value) && value > 0 ? value : 0);
+  }, 0);
+  const updatedAt = order.confirmedAt ?? order.submittedAt ?? order.updatedAt;
+  return {
+    id: order.id,
+    primaryLabel: order.external1cNumber ? `№ ${order.external1cNumber}` : "Заказ принят",
+    statusLabel: "Обрабатывается",
+    posted: false,
+    documentDate: order.external1cDate ?? updatedAt,
+    deliveryDate: order.requestedDeliveryDate,
+    ...(canViewPartnerPrice && order.documentTotal !== null
+      ? {
+          documentTotal: order.currencyCode
+            ? formatMoney(order.documentTotal, order.currencyCode)
+            : `${formatNumber(order.documentTotal)} · валюта уточняется`,
+        }
+      : {}),
+    positionCount: snapshotItems.length,
+    totalUnitCount: quantity,
+    lastSynchronizedAt: updatedAt,
+    freshness: evaluateFreshness(updatedAt, "activeOrder", "Подтверждено"),
+  };
+}
+
+function portalOrderDate(order: import("../types").PartnerOrder): string {
+  return order.external1cDate ?? order.confirmedAt ?? order.submittedAt ?? order.updatedAt;
 }
 
 function toSummary(

@@ -271,20 +271,24 @@ export class OneCCustomerOrderProvider implements OrderProvider {
       throw new IntegrationValidationError("1C order history returned an invalid response.");
     }
 
-    const parsedRows = envelope.value.map((row, index) => {
+    const parsedRows = envelope.value.flatMap((row, index) => {
       const parsed = parseHistoryRow(row, partnerRef);
       if (!parsed) {
-        console.error({
+        console.warn({
           event: "one_c_order_history_row_rejected",
           resource: CUSTOMER_ORDER_RESOURCE,
           pageOffset: skip,
           rowIndex: index,
           reason: "invalid_shape",
         });
-        throw new IntegrationValidationError(`1C order history row ${index} is invalid.`);
+        return [];
       }
-      return parsed;
+      return [parsed];
     });
+    const rejectedRowCount = envelope.value.length - parsedRows.length;
+    if (envelope.value.length > 0 && parsedRows.length === 0) {
+      throw new IntegrationValidationError("1C order history page contains no valid order identities.");
+    }
     const rowsByReference = new Map<string, ParsedHistoryRow>();
     let duplicateRowCount = 0;
     for (const row of parsedRows) {
@@ -329,32 +333,26 @@ export class OneCCustomerOrderProvider implements OrderProvider {
       currencyReferenceCount: currencyReferences.length,
       warningCount: enrichmentWarningCount,
     });
-    const items = await mapWithConcurrency(rows, HISTORY_LINE_CONCURRENCY, async (row, rowIndex) => {
-      try {
-        return await this.resolveHistoryRow(row, states, currencies, skip, rowIndex);
-      } catch (error) {
-        console.error({
-          event: "one_c_order_history_mapping_failed",
-          stage: "reference_resolution",
-          resource: CUSTOMER_ORDER_RESOURCE,
-          skip,
-          rowIndex,
-          orderRef: row.dto.reference.externalId,
-          stateRef: row.stateRef,
-          currencyRef: row.currencyRef,
-          ...safeErrorDiagnostic(error),
-        });
-        throw error;
-      }
-    });
+    const resolvedRows = await mapWithConcurrency(rows, HISTORY_LINE_CONCURRENCY, (row, rowIndex) =>
+      this.resolveHistoryRow(row, states, currencies, skip, rowIndex));
+    const lineEligibleRows = resolvedRows.filter((row) => !row.dto.deletionMark);
+    if (lineEligibleRows.length > 0 && lineEligibleRows.every((row) => row.lineReadFailed)) {
+      throw new IntegrationProviderUnavailableError("1C order lines are unavailable.");
+    }
+    const items = resolvedRows.map((row) => row.dto);
+    const lineWarningCount = resolvedRows.reduce((sum, row) => sum + row.lineWarningCount, 0);
+    const lineReadFailedReferences = resolvedRows.flatMap((row) =>
+      row.lineReadFailed ? [row.dto.reference.externalId] : []);
 
     return {
       items,
       nextCursor: envelope.value.length === limit ? String(skip + limit) : null,
       rawRowCount: envelope.value.length,
       mappedRowCount: items.length,
-      rejectedRowCount: 0,
+      rejectedRowCount,
       lineRowCount: items.reduce((sum, item) => sum + item.items.length, 0),
+      lineWarningCount,
+      lineReadFailedReferences,
       duplicateRowCount,
       enrichmentWarningCount,
     };
@@ -414,6 +412,8 @@ export class OneCCustomerOrderProvider implements OrderProvider {
       mappedRowCount: items.length,
       rejectedRowCount: 0,
       lineRowCount: items.reduce((sum, item) => sum + item.items.length, 0),
+      lineWarningCount: 0,
+      lineReadFailedReferences: [],
       duplicateRowCount: references.length - items.length,
       enrichmentWarningCount: warningCount,
     };
@@ -425,55 +425,63 @@ export class OneCCustomerOrderProvider implements OrderProvider {
     currencies: ReadonlyMap<string, CurrencyResolution>,
     skip: number,
     rowIndex: number,
-  ): Promise<SalesOrderHistoryDTO> {
-    const items = row.dto.deletionMark
-      ? []
+  ): Promise<{ dto: SalesOrderHistoryDTO; lineWarningCount: number; lineReadFailed: boolean }> {
+    const lineResult = row.dto.deletionMark
+      ? { items: [], warningCount: 0, readFailed: false }
       : await this.fetchHistoryLines(row.dto.reference.externalId, skip, rowIndex);
     return {
-      ...row.dto,
-      stateReference: row.stateRef ? externalReference(row.stateRef, "customer-order-state") : null,
-      stateRaw: row.stateRef ? states.get(row.stateRef)?.description ?? null : null,
-      stateCode: row.stateRef ? states.get(row.stateRef)?.code ?? "unknown" : null,
-      currencyCode: row.currencyRef ? currencies.get(row.currencyRef)?.code ?? null : null,
-      items,
+      dto: {
+        ...row.dto,
+        stateReference: row.stateRef ? externalReference(row.stateRef, "customer-order-state") : null,
+        stateRaw: row.stateRef ? states.get(row.stateRef)?.description ?? null : null,
+        stateCode: row.stateRef ? states.get(row.stateRef)?.code ?? "unknown" : null,
+        currencyCode: row.currencyRef ? currencies.get(row.currencyRef)?.code ?? null : null,
+        items: lineResult.items,
+      },
+      lineWarningCount: lineResult.warningCount,
+      lineReadFailed: lineResult.readFailed,
     };
   }
 
-  private async fetchHistoryLines(orderRef: string, skip: number, rowIndex: number): Promise<SalesOrderHistoryDTO["items"]> {
+  private async fetchHistoryLines(
+    orderRef: string,
+    skip: number,
+    rowIndex: number,
+  ): Promise<{ items: SalesOrderHistoryDTO["items"]; warningCount: number; readFailed: boolean }> {
     const url = new URL(`${requiredBaseUrl(this.config)}/${CUSTOMER_ORDER_RESOURCE}(guid'${orderRef}')`);
     url.searchParams.set("$select", "Ref_Key,Запасы");
     url.searchParams.set("$format", "json");
-    const response = await fetchOneC(this.config, url, "1C order lines are unavailable.");
+    let response: Response;
+    try {
+      response = await fetchOneC(this.config, url, "1C order lines are unavailable.");
+    } catch (error) {
+      if (error instanceof IntegrationUnauthorizedError || error instanceof IntegrationForbiddenError) throw error;
+      logHistoryLineWarning("line_transport", orderRef, skip, rowIndex, null, null, error);
+      return { items: [], warningCount: 1, readFailed: true };
+    }
     const responseBody = await response.text();
     if (!response.ok) {
-      console.error({
-        event: "one_c_order_history_lines_failed",
-        stage: "line_http",
-        resource: CUSTOMER_ORDER_RESOURCE,
-        orderRef,
-        pageOffset: skip,
-        rowIndex,
-        requestUrl: url.toString(),
-        httpStatus: response.status,
-        responseBody: safeODataErrorBody(responseBody),
-      });
-      throw historyHttpError(response.status);
+      if (response.status === 401 || response.status === 403) throw historyHttpError(response.status);
+      logHistoryLineWarning("line_http", orderRef, skip, rowIndex, response.status, responseBody);
+      return { items: [], warningCount: 1, readFailed: true };
     }
     let value: unknown;
     try {
       value = JSON.parse(responseBody);
     } catch (error) {
-      console.error({ event: "one_c_order_history_lines_failed", stage: "line_json", orderRef, pageOffset: skip, rowIndex, ...safeErrorDiagnostic(error) });
-      throw new IntegrationValidationError("1C order lines returned invalid JSON.");
+      logHistoryLineWarning("line_json", orderRef, skip, rowIndex, response.status, responseBody, error);
+      return { items: [], warningCount: 1, readFailed: true };
     }
     if (!isRecordValue(value) || stringValue(value.Ref_Key).toLowerCase() !== orderRef.toLowerCase() || !Array.isArray(value["Запасы"])) {
-      console.error({ event: "one_c_order_history_lines_failed", stage: "line_envelope", orderRef, pageOffset: skip, rowIndex, resultShape: describeODataShape(value) });
-      throw new IntegrationValidationError("1C order lines returned an invalid response.");
+      logHistoryLineWarning("line_envelope", orderRef, skip, rowIndex, response.status, responseBody);
+      return { items: [], warningCount: 1, readFailed: true };
     }
-    return value["Запасы"].map((line, lineIndex) => {
+    let warningCount = 0;
+    const items = value["Запасы"].flatMap((line, lineIndex) => {
       const parsed = parseHistoryItem(line, lineIndex + 1);
       if (!parsed) {
-        console.error({
+        warningCount += 1;
+        console.warn({
           event: "one_c_order_history_line_rejected",
           stage: "line_mapping",
           orderRef,
@@ -482,10 +490,11 @@ export class OneCCustomerOrderProvider implements OrderProvider {
           lineIndex,
           rejectedField: invalidHistoryItemField(line),
         });
-        throw new IntegrationValidationError(`1C order line ${lineIndex} is invalid.`);
+        return [];
       }
-      return parsed;
+      return [parsed];
     });
+    return { items, warningCount, readFailed: false };
   }
 
   private resolveState(reference: string, context: HistorySyncContext): Promise<StateResolution> {
@@ -868,7 +877,43 @@ function historyHttpError(status: number): Error {
 }
 
 function safeODataErrorBody(body: string): string {
-  return body.trim().slice(0, 8000);
+  const category = classifyOneCResponseBody(body);
+  return JSON.stringify({
+    category,
+    bodyLength: Buffer.byteLength(body, "utf8"),
+  });
+}
+
+function logHistoryLineWarning(
+  stage: "line_transport" | "line_http" | "line_json" | "line_envelope",
+  orderRef: string,
+  pageOffset: number,
+  rowIndex: number,
+  httpStatus: number | null,
+  responseBody: string | null,
+  error?: unknown,
+): void {
+  console.warn({
+    event: "one_c_order_history_line_warning",
+    stage,
+    resource: CUSTOMER_ORDER_RESOURCE,
+    orderRef,
+    pageOffset,
+    rowIndex,
+    httpStatus,
+    errorCategory: responseBody ? classifyOneCResponseBody(responseBody) : "transport_error",
+    responseBodyLength: responseBody ? Buffer.byteLength(responseBody, "utf8") : null,
+    errorType: error?.constructor?.name ?? (error === undefined ? null : typeof error),
+    errorName: error instanceof Error ? error.name : null,
+  });
+}
+
+function classifyOneCResponseBody(body: string): string {
+  const normalized = body.toLocaleLowerCase("ru");
+  if (normalized.includes("лиценз") || normalized.includes("license")) return "one_c_license_unavailable";
+  if (normalized.includes("odata.error") || normalized.includes('"error"')) return "odata_error";
+  if (normalized.trimStart().startsWith("<")) return "unexpected_xml";
+  return normalized.trim() ? "unexpected_response" : "empty_response";
 }
 
 function safeErrorDiagnostic(error: unknown): { errorType: string; errorName: string | null; errorMessage: string | null } {

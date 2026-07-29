@@ -136,7 +136,7 @@ describe("OneCCustomerOrderProvider history", () => {
       referenceKind: "state",
       referenceRef: STATE,
       httpStatus: 404,
-      safeResponseBody: JSON.stringify({ error: "state unavailable" }),
+      safeResponseBody: JSON.stringify({ category: "odata_error", bodyLength: 29 }),
       warningReason: "http_error",
     }));
   });
@@ -206,7 +206,59 @@ describe("OneCCustomerOrderProvider history", () => {
       if (!url.includes("(guid'")) return Promise.resolve(json({ value: [historyRow({ Ref_Key: "invalid" })] }));
       return Promise.resolve(json({}));
     }));
-    await expect(provider().orders.fetchSalesOrderHistory(request())).rejects.toThrow("row 0 is invalid");
+    await expect(provider().orders.fetchSalesOrderHistory(request())).rejects.toThrow("no valid order identities");
+  });
+
+  it("quarantines one malformed header without aborting valid orders", async () => {
+    const fallback = historyFetch("Открыт");
+    vi.stubGlobal("fetch", vi.fn((input: string | URL | Request) => {
+      if (!String(input).includes("(guid'")) {
+        return Promise.resolve(json({ value: [historyRow({ Ref_Key: "invalid" }), historyRow()] }));
+      }
+      return fallback(input);
+    }));
+
+    const result = await provider().orders.fetchSalesOrderHistory(request());
+
+    expect(result.items).toHaveLength(1);
+    expect(result.rejectedRowCount).toBe(1);
+  });
+
+  it("keeps valid headers when one historical line read is unavailable", async () => {
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const fallback = historyFetch("Открыт", 2);
+    let lineRead = 0;
+    vi.stubGlobal("fetch", vi.fn((input: string | URL | Request) => {
+      if (decodeURIComponent(String(input)).includes("Document_ЗаказПокупателя(guid'") && lineRead++ === 0) {
+        return Promise.resolve(json({ "odata.error": { code: "-1", message: { value: "license detail must not be logged" } } }, 500));
+      }
+      return fallback(input);
+    }));
+
+    const result = await provider().orders.fetchSalesOrderHistory(request(2));
+
+    expect(result.items).toHaveLength(2);
+    expect(result.lineWarningCount).toBe(1);
+    expect(result.lineReadFailedReferences).toHaveLength(1);
+    expect(result.items.filter((item) => item.items.length === 0)).toHaveLength(1);
+    expect(warning).toHaveBeenCalledWith(expect.objectContaining({
+      event: "one_c_order_history_line_warning",
+      errorCategory: "one_c_license_unavailable",
+      responseBodyLength: expect.any(Number),
+    }));
+    expect(JSON.stringify(warning.mock.calls)).not.toContain("license detail must not be logged");
+  });
+
+  it("fails safely when every historical line read is unavailable", async () => {
+    const fallback = historyFetch("Открыт", 2);
+    vi.stubGlobal("fetch", vi.fn((input: string | URL | Request) => {
+      if (decodeURIComponent(String(input)).includes("Document_ЗаказПокупателя(guid'")) {
+        return Promise.resolve(json({ "odata.error": { code: "-1" } }, 500));
+      }
+      return fallback(input);
+    }));
+
+    await expect(provider().orders.fetchSalesOrderHistory(request(2))).rejects.toThrow("order lines are unavailable");
   });
 
   it("keeps DeletionMark and Posted as independent 1C document state", async () => {

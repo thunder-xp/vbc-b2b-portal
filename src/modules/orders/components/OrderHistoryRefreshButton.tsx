@@ -14,7 +14,7 @@ const initialState: ActionResult<PartnerOrderHistorySyncResult | null> = {
   data: null,
 };
 
-export function OrderHistoryRefreshButton() {
+export function OrderHistoryRefreshButton({ hasCachedOrders }: { hasCachedOrders: boolean }) {
   const [state, action, pending] = useActionState(async () => refreshPartnerOrderHistoryAction(), initialState);
   return (
     <div className="flex flex-col items-end gap-2">
@@ -30,7 +30,11 @@ export function OrderHistoryRefreshButton() {
       </form>
       {state.message ? (
         <p className={state.success ? "text-xs text-emerald-700" : "text-xs text-rose-700"} role="status">
-          {state.success ? state.message : "Не удалось обновить историю. Ранее загруженные данные сохранены."}
+          {state.success
+            ? state.message
+            : hasCachedOrders
+              ? `Не удалось обновить историю. Показаны ранее загруженные данные. ${state.message}`
+              : `Не удалось получить заказы из 1С. Повторите попытку позже или сообщите менеджеру Novotech. ${state.message}`}
         </p>
       ) : null}
     </div>

@@ -20,6 +20,10 @@ export type OrderHistoryBatchResult = {
 export type OrderHistorySyncLockResult = "acquired" | "locked" | "stale_lock_recovered";
 export type OrderHistorySyncCompany = { companyId: string; counterpartyRef: string };
 export type ActiveOrderRefreshCandidate = { order: PartnerOrderHistory; counterpartyRef: string };
+export type PartnerOrderHistoryIdentity = {
+  external1cOrderRef: string;
+  portalOrderId: string | null;
+};
 
 export interface PartnerOrderHistoryRepository {
   getReorderSource(orderId: string): Promise<OrderReorderSource | null>;
@@ -32,9 +36,12 @@ export interface PartnerOrderHistoryRepository {
     companyId: string;
     filter: PartnerOrderHistoryFilter;
     search: string | null;
-    page: number;
-    pageSize: number;
+    page?: number;
+    pageSize?: number;
+    offset?: number;
+    limit?: number;
   }): Promise<{ items: PartnerOrderHistory[]; total: number }>;
+  listVisibleIdentities?(companyId: string): Promise<PartnerOrderHistoryIdentity[]>;
   findVisibleById(orderId: string): Promise<PartnerOrderHistory | null>;
   listItemsByOrderIds(orderIds: string[]): Promise<PartnerOrderHistoryItem[]>;
   listEvents(orderId: string): Promise<PartnerOrderHistoryEvent[]>;

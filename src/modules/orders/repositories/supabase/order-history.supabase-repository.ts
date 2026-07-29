@@ -84,10 +84,25 @@ export class SupabasePartnerOrderHistoryRepository implements PartnerOrderHistor
     if (input.filter === "processing") query = query.eq("one_c_posted", false);
     else if (input.filter !== "all") query = query.eq("one_c_posted", true).eq("one_c_state_code", input.filter);
     if (input.search) query = query.eq("one_c_posted", true).ilike("external_1c_order_number", `%${escapeLike(input.search)}%`);
-    const from = (input.page - 1) * input.pageSize;
-    const { data, error, count } = await query.range(from, from + input.pageSize - 1);
+    const page = input.page ?? 1;
+    const pageSize = input.pageSize ?? 25;
+    const from = input.offset ?? (page - 1) * pageSize;
+    const limit = input.limit ?? pageSize;
+    const { data, error, count } = await query.range(from, from + Math.max(1, limit) - 1);
     if (error) throw new OrderHistoryRepositoryError();
-    return { items: ((data ?? []) as Row[]).map(mapHistory), total: count ?? 0 };
+    return { items: limit > 0 ? ((data ?? []) as Row[]).map(mapHistory) : [], total: count ?? 0 };
+  }
+
+  async listVisibleIdentities(companyId: string) {
+    const { data, error } = await (await createClient()).from("partner_order_history")
+      .select("external_1c_order_ref, portal_order_id")
+      .eq("company_id", companyId)
+      .eq("partner_visible", true);
+    if (error) throw new OrderHistoryRepositoryError();
+    return ((data ?? []) as Row[]).map((row) => ({
+      external1cOrderRef: text(row.external_1c_order_ref),
+      portalOrderId: nullableText(row.portal_order_id),
+    }));
   }
 
   async findVisibleById(orderId: string): Promise<PartnerOrderHistory | null> {

@@ -38,7 +38,7 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
           <p className="mt-1 text-xs text-zinc-500">{result.data.freshness.label}</p>
           {result.data.freshness.staleNotice ? <p className="mt-1 text-xs text-amber-700">{result.data.freshness.staleNotice}</p> : null}
         </div>
-        <OrderHistoryRefreshButton />
+        <OrderHistoryRefreshButton hasCachedOrders={result.data.total > 0} />
       </header>
 
       <div className="space-y-3 border-y border-zinc-200 py-4">
@@ -71,8 +71,17 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
 
       {result.data.orders.length === 0 ? (
         <div className="rounded-md border border-dashed border-zinc-300 bg-white p-8 text-center">
-          <h2 className="font-semibold">Заказы не найдены</h2>
-          <p className="mt-2 text-sm text-zinc-600">Обновите историю из 1С или измените параметры поиска.</p>
+          {result.data.syncState?.status === "failed" && result.data.total === 0 ? (
+            <>
+              <h2 className="font-semibold">Не удалось получить заказы из 1С</h2>
+              <p className="mt-2 text-sm text-zinc-600">Повторите попытку позже или сообщите менеджеру Novotech.</p>
+            </>
+          ) : (
+            <>
+              <h2 className="font-semibold">Заказы не найдены</h2>
+              <p className="mt-2 text-sm text-zinc-600">Обновите историю из 1С или измените параметры поиска.</p>
+            </>
+          )}
         </div>
       ) : (
         <div className="overflow-hidden rounded-md border border-zinc-200 bg-white">

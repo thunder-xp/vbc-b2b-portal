@@ -5,7 +5,7 @@ import { type ActionResult, failureFromError, invalidInput, success } from "../.
 import { createUserProfileService, getAuthenticatedUserId } from "../../access-control/actions/service-factory";
 import { ForbiddenError } from "../../access-control/services";
 import { UserType } from "../../access-control/types";
-import type { PartnerOrderHistoryDetailDto, PartnerOrderHistorySummaryDto, PartnerOrderHistorySyncResult, PartnerOrderDetailDto, PartnerOrderSummaryDto, PlannedShipmentDto } from "../services";
+import { OrderHistorySyncError, type PartnerOrderHistoryDetailDto, type PartnerOrderHistorySummaryDto, type PartnerOrderHistorySyncResult, type PartnerOrderDetailDto, type PartnerOrderSummaryDto, type PlannedShipmentDto } from "../services";
 import type { PartnerOrder } from "../types";
 import { createPartnerOrderHistoryService, createPartnerOrderService } from "./service-factory";
 import { orderSubmissionFailure } from "./order-action-error";
@@ -60,6 +60,14 @@ export async function listPartnerOrderHistoryAction(input: {
   try {
     return success("Order history loaded.", await createPartnerOrderHistoryService().list(await getAuthenticatedUserId(), input));
   } catch (error) {
+    if (error instanceof OrderHistorySyncError) {
+      return {
+        success: false,
+        errorCode: error.code,
+        message: `Код события: ${error.correlationId}.`,
+        data: null,
+      };
+    }
     return failureFromError(error);
   }
 }
