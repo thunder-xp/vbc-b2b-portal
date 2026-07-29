@@ -9,7 +9,11 @@ export {
   type PartnerPriceTypeActionDto,
   type PartnerSearchResultActionDto,
 } from "./partner-search.action";
-export { syncPricesFromOneCAction, getPriceSyncStateAction } from "./price-sync.action";
+export {
+  syncPricesFromOneCAction,
+  getPriceSyncStateAction,
+  startRetailPriceHistoryBackfillAction,
+} from "./price-sync.action";
 export { syncStockFromOneCAction, getStockSyncStateAction } from "./stock-sync.action";
 export {
   syncExchangeRateFromOneCAction,

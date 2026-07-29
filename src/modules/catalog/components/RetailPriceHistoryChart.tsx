@@ -27,6 +27,7 @@ export function RetailPriceHistoryChart({
 }) {
   const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
   const geometry = useMemo(() => createGeometry(history.points), [history.points]);
+  const stepGeometry = useMemo(() => createStepGeometry(geometry), [geometry]);
 
   return (
     <div className="space-y-4">
@@ -68,7 +69,8 @@ export function RetailPriceHistoryChart({
             <line className="stroke-zinc-200" x1={PAD_X} x2={WIDTH - PAD_X} y1={HEIGHT - PAD_Y} y2={HEIGHT - PAD_Y} />
             <polyline
               className="fill-none stroke-emerald-600 motion-reduce:transition-none"
-              points={geometry.map((point) => `${point.x},${point.y}`).join(" ")}
+              data-line-shape="step-after"
+              points={stepGeometry.map((point) => `${point.x},${point.y}`).join(" ")}
               strokeLinejoin="round"
               strokeWidth="3"
             />
@@ -133,6 +135,17 @@ export function RetailPriceHistoryChart({
       </details>
     </div>
   );
+}
+
+function createStepGeometry(points: ReturnType<typeof createGeometry>) {
+  return points.flatMap((point, index) => {
+    if (index === 0) return [{ x: point.x, y: point.y }];
+    const previous = points[index - 1];
+    return [
+      { x: point.x, y: previous.y },
+      { x: point.x, y: point.y },
+    ];
+  });
 }
 
 function createGeometry(points: RetailPriceHistoryDto["points"]) {

@@ -67,7 +67,7 @@ describe("ChunkedPriceSyncService", () => {
     expect(store.stageRetailHistory).toHaveBeenCalledWith(syncId, expect.arrayContaining([
       expect.objectContaining({ amount: 100 }),
       expect.objectContaining({ amount: 120 }),
-    ]));
+    ]), 0);
     expect(store.state).toMatchObject({ priceRowsReceived: 2, priceUniqueKeys: 1, priceDuplicateKeys: 1, priceRowsDeduplicated: 1 });
   });
 

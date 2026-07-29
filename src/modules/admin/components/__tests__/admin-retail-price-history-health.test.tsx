@@ -21,6 +21,8 @@ describe("AdminRetailPriceHistoryHealthView", () => {
         earliest_effective_at: "2018-01-01T00:00:00.000Z",
         latest_effective_at: "2026-07-29T00:00:00.000Z",
       },
+      latestBackfill: null,
+      openIncidentCount: 0,
     }} />);
 
     expect(screen.getByText("Публикация истории заблокирована")).toBeInTheDocument();

@@ -16,6 +16,7 @@ describe("RetailPriceHistoryChart", () => {
     render(<RetailPriceHistoryChart history={history} productId="product-1" />);
     expect(screen.getByRole("group", { name: "График истории розничной цены" })).toBeInTheDocument();
     expect(screen.getAllByRole("button")).toHaveLength(2);
+    expect(document.querySelector("[data-line-shape='step-after']")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "12 месяцев" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: "3 месяца" })).toHaveAttribute("href", "?tab=pricing&range=3m");
     fireEvent.click(screen.getByText("Показать данные"));

@@ -26,7 +26,7 @@ export interface PriceSyncStateStore {
   stagePriceTypes(syncId: string, rows: PriceTypeStageRow[]): Promise<number>;
   stageCurrencies(syncId: string, rows: CurrencyStageRow[]): Promise<number>;
   stagePrices(syncId: string, rows: PriceRegisterStageRow[]): Promise<number>;
-  stageRetailHistory?(syncId: string, rows: PriceRegisterStageRow[]): Promise<number>;
+  stageRetailHistory?(syncId: string, rows: PriceRegisterStageRow[], sourceOffset: number): Promise<number>;
   checkpoint(syncId: string, input: { stage: PriceSyncStage; nextSkip: number; rowsScanned: number; rowsStaged: number; pageCompleted: boolean; scanComplete?: boolean; priceDiagnostics?: PricePageDiagnostics }): Promise<void>;
   publish(syncId: string): Promise<void>;
   fail(syncId: string, category: string, stage: PriceSyncStage, page: number, databaseCode?: string, safeError?: string): Promise<void>;
@@ -57,7 +57,11 @@ export class ChunkedPriceSyncService {
         const normalizedPricePage = processedStage === "price_register_scan" ? normalizePricePage(page.items as PriceRegisterStageRow[]) : null;
         const staged = await this.stagePage(syncId, processedStage, normalizedPricePage?.rows ?? page.items);
         if (processedStage === "price_register_scan" && this.store.stageRetailHistory) {
-          await this.store.stageRetailHistory(syncId, page.items as PriceRegisterStageRow[]);
+          await this.store.stageRetailHistory(
+            syncId,
+            page.items as PriceRegisterStageRow[],
+            state.nextSkip,
+          );
         }
         processed += 1;
         const complete = page.rowCount < state.pageSize;
@@ -119,15 +123,17 @@ export class SupabasePriceSyncStateStore implements PriceSyncStateStore {
   async stagePriceTypes(syncId: string, rows: PriceTypeStageRow[]) { if (!rows.length) return 0; const { error } = await createAdminClient().from("product_price_type_sync_stage").upsert(rows.map((row) => ({ sync_id: syncId, external_ref: row.externalRef, external_code: row.externalCode, name: row.name, currency_ref: row.currencyRef, source_version: row.sourceVersion, is_active: row.isActive })), { onConflict: "sync_id,external_ref" }); if (error) throw persistenceError(error); return rows.length; }
   async stageCurrencies(syncId: string, rows: CurrencyStageRow[]) { if (!rows.length) return 0; const { error } = await createAdminClient().from("product_currency_sync_stage").upsert(rows.map((row) => ({ sync_id: syncId, external_ref: row.externalRef, code: row.code, name: row.name, is_active: row.isActive })), { onConflict: "sync_id,external_ref" }); if (error) throw persistenceError(error); return rows.length; }
   async stagePrices(syncId: string, rows: PriceRegisterStageRow[]) { if (!rows.length) return 0; const { data, error } = await createAdminClient().rpc("stage_product_price_rows", { p_sync_id: syncId, p_rows: rows.map((row) => ({ external_product_ref: row.externalProductRef, external_price_type_ref: row.externalPriceTypeRef, external_characteristic_ref: row.externalCharacteristicRef, amount: row.amount, is_current: row.isCurrent, effective_at: row.effectiveAt, currency_code: null, currency_status: "unresolved" })) }); if (error) throw persistenceError(error); return Number(data ?? 0); }
-  async stageRetailHistory(syncId: string, rows: PriceRegisterStageRow[]) {
-    const retailRows = rows.filter((row) =>
-      row.externalPriceTypeRef === RETAIL_PRICE_TYPE_REF
-      && row.externalCharacteristicRef === ZERO_CHARACTERISTIC_REF
-      && row.amount >= 0
-      && Number.isFinite(Date.parse(row.effectiveAt)));
+  async stageRetailHistory(syncId: string, rows: PriceRegisterStageRow[], sourceOffset: number) {
+    const retailRows = rows
+      .map((row, index) => ({ row, sourceOrdinal: sourceOffset + index }))
+      .filter(({ row }) =>
+        row.externalPriceTypeRef === RETAIL_PRICE_TYPE_REF
+        && row.externalCharacteristicRef === ZERO_CHARACTERISTIC_REF
+        && row.amount >= 0
+        && Number.isFinite(Date.parse(row.effectiveAt)));
     if (!retailRows.length) return 0;
     const { error } = await createAdminClient().from("retail_price_history_source_stage").upsert(
-      retailRows.map((row) => ({
+      retailRows.map(({ row, sourceOrdinal }) => ({
         sync_id: syncId,
         external_product_ref: row.externalProductRef,
         external_price_type_ref: row.externalPriceTypeRef,
@@ -135,6 +141,7 @@ export class SupabasePriceSyncStateStore implements PriceSyncStateStore {
         price_amount: row.amount,
         effective_at: row.effectiveAt,
         is_current: row.isCurrent,
+        source_ordinal: sourceOrdinal,
         source_fingerprint: createHash("sha256").update([
           row.externalProductRef,
           row.externalPriceTypeRef,
@@ -154,6 +161,8 @@ export class SupabasePriceSyncStateStore implements PriceSyncStateStore {
     const client = createAdminClient();
     const discovery = await client.rpc("record_retail_price_history_discovery", { p_sync_id: syncId });
     if (discovery.error) throw Object.assign(persistenceError(discovery.error), { errorCategory: "publication_failure" });
+    const history = await client.rpc("publish_retail_price_history_backfill", { p_sync_id: syncId });
+    if (history.error) throw Object.assign(persistenceError(history.error), { errorCategory: "publication_failure" });
     const { error } = await client.rpc("publish_product_price_snapshot", { p_sync_id: syncId });
     if (error) throw Object.assign(persistenceError(error), { errorCategory: "publication_failure" });
     await client.from("retail_price_history_source_stage").delete().eq("sync_id", syncId);

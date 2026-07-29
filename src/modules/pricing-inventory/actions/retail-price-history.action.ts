@@ -5,6 +5,7 @@ import { getAuthenticatedUserId } from "../../access-control/actions/service-fac
 import type { RetailPriceHistoryRange } from "../repositories";
 import type { RetailPriceHistoryDto } from "../services";
 import { createPricingInventoryService } from "./service-factory";
+import { PricingInventoryRepositoryUnexpectedError } from "../repositories/supabase/pricing-inventory.supabase-repository";
 
 const RANGES = new Set<RetailPriceHistoryRange>(["3m", "6m", "12m", "all"]);
 
@@ -31,14 +32,21 @@ export async function getRetailPriceHistoryAction(
       data: history,
     };
   } catch (error) {
+    const safeCategory = error instanceof PricingInventoryRepositoryUnexpectedError
+      ? error.safeCategory
+      : "RETAIL_HISTORY_UNKNOWN_FAILURE";
     console.error({
       event: "retail_price_history_read_failed",
       correlationId,
       errorName: error instanceof Error ? error.name : typeof error,
+      errorCategory: safeCategory,
+      databaseCode: error instanceof PricingInventoryRepositoryUnexpectedError
+        ? error.databaseCode
+        : null,
     });
     return {
       success: false,
-      errorCode: `RETAIL_HISTORY_${correlationId}`,
+      errorCode: safeCategory,
       message: `Не удалось загрузить историю цен. Код события: ${correlationId}.`,
       data: null,
     };

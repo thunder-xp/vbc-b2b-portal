@@ -35,9 +35,14 @@ const PRODUCT_STOCK_BALANCE_COLUMNS =
   "id, product_id, warehouse_name, available_quantity, reserved_quantity, expected_quantity, expected_at, updated_from_1c_at, is_active, created_at, updated_at";
 
 export class PricingInventoryRepositoryUnexpectedError extends Error {
-  constructor() {
+  readonly databaseCode: string | null;
+  readonly safeCategory: string;
+
+  constructor(input?: { code?: string; message?: string }) {
     super("Pricing inventory repository operation failed.");
     this.name = "PricingInventoryRepositoryUnexpectedError";
+    this.databaseCode = input?.code ?? null;
+    this.safeCategory = classifyRetailHistoryFailure(input?.code, input?.message);
   }
 }
 
@@ -52,7 +57,12 @@ export class SupabasePricingInventoryRepository
       "get_retail_price_history",
       { p_product_id: productId, p_range: range },
     );
-    if (error || !data) throw new PricingInventoryRepositoryUnexpectedError();
+    if (error || !data) {
+      throw new PricingInventoryRepositoryUnexpectedError({
+        code: error?.code,
+        message: error?.message,
+      });
+    }
     return data as RetailPriceHistoryRow;
   }
 
@@ -398,6 +408,20 @@ export class SupabasePricingInventoryRepository
       created: !existing,
     };
   }
+}
+
+function classifyRetailHistoryFailure(code?: string, message?: string) {
+  if (code === "42501" && message?.includes("PRODUCT_NOT_VISIBLE")) {
+    return "RETAIL_HISTORY_PRODUCT_NOT_VISIBLE";
+  }
+  if (code === "42501") return "RETAIL_HISTORY_PERMISSION_DENIED";
+  if (code === "22P02" || code === "22023") {
+    return "RETAIL_HISTORY_READ_CONTRACT_MISMATCH";
+  }
+  if (message?.includes("RETAIL_HISTORY_TYPE_NOT_FOUND")) {
+    return "RETAIL_HISTORY_TYPE_NOT_FOUND";
+  }
+  return "RETAIL_HISTORY_UNKNOWN_FAILURE";
 }
 
 function normalizeProductIds(productIds: string[]): string[] {

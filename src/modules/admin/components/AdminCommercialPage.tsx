@@ -1,5 +1,6 @@
 import { AdminCommercialSummaryView } from "./AdminCommercialSummary";
 import { AdminRetailPriceHistoryHealthView } from "./AdminRetailPriceHistoryHealth";
+import { AdminRetailPriceHistoryBackfill } from "./AdminRetailPriceHistoryBackfill";
 import { AdminPageHeader } from "./AdminPageHeader";
 import {
   createAdminOperationsService,
@@ -55,6 +56,7 @@ export async function AdminCommercialPage({
       />
       <AdminCommercialSummaryView summary={summary} />
       {retailHistoryHealth ? <AdminRetailPriceHistoryHealthView health={retailHistoryHealth} /> : null}
+      {retailHistoryHealth ? <AdminRetailPriceHistoryBackfill health={retailHistoryHealth} /> : null}
     </div>
   );
 }
