@@ -23,7 +23,7 @@ export function OrderSubmitForm({ submissionKey }: { submissionKey: string }) {
     }
   }, [router, state]);
   useEffect(() => {
-    if (!state.success && state.errorCode === "ORDER_RECOVERABLE" && submissionKeyRef.current) {
+    if (!state.success && isDefinitiveRecoverableFailure(state.errorCode) && submissionKeyRef.current) {
       submissionKeyRef.current.value = crypto.randomUUID();
     }
   }, [state]);
@@ -37,4 +37,14 @@ export function OrderSubmitForm({ submissionKey }: { submissionKey: string }) {
     <button className="h-11 w-full rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white hover:bg-emerald-800 focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:opacity-60" disabled={pending || retryBlocked} type="submit">{pending ? "Отправка заказа..." : "Отправить заказ"}</button>
     {state.message && <p aria-live="polite" className={`text-sm ${state.success ? "text-emerald-700" : "text-rose-700"}`}>{state.message}</p>}
   </form>;
+}
+
+function isDefinitiveRecoverableFailure(code: string | null): boolean {
+  return code !== null && ![
+    "ORDER_IN_PROGRESS",
+    "ORDER_RECONCILIATION_REQUIRED",
+    "ORDER_1C_TIMEOUT",
+    "ORDER_1C_ALREADY_CREATED",
+    "ORDER_READBACK_FAILED",
+  ].includes(code);
 }

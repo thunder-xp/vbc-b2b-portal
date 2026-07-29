@@ -13,14 +13,16 @@ describe("OrderSubmitForm", () => {
   beforeEach(() => vi.clearAllMocks());
 
   it("preserves the selected delivery date after a Server Action error", async () => {
-    mocks.submit.mockResolvedValue({ success: false, errorCode: "ORDER_RECOVERABLE", message: "Заказ не был отправлен. Корзина сохранена — проверьте данные и повторите попытку.", data: null });
+    mocks.submit.mockResolvedValue({ success: false, errorCode: "ORDER_CONTRACT_MAPPING_MISSING", message: "Не удалось определить договор компании. Обратитесь к менеджеру Novotech.", data: null });
     const user = userEvent.setup();
-    render(<OrderSubmitForm submissionKey="55555555-5555-4555-8555-555555555555" />);
+    const view = render(<OrderSubmitForm submissionKey="55555555-5555-4555-8555-555555555555" />);
     const date = screen.getByLabelText("Дата планируемой отгрузки");
     await user.type(date, "2099-01-10");
     await user.click(screen.getByRole("button", { name: "Отправить заказ" }));
-    expect(await screen.findByText(/Корзина сохранена/)).toBeInTheDocument();
+    expect(await screen.findByText(/договор компании/)).toBeInTheDocument();
     expect(date).toHaveValue("2099-01-10");
+    expect(view.container.querySelector<HTMLInputElement>('input[name="submissionKey"]')?.value)
+      .not.toBe("55555555-5555-4555-8555-555555555555");
   });
 
   it("preserves the date when the parent refreshes after a quantity update", async () => {
