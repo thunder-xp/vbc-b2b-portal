@@ -10,12 +10,13 @@ export function FinanceOverview({ overview }: { overview: FinanceOverviewModel }
   return (
     <div className="space-y-8">
       {(overview.showLastConfirmedNotice || overview.state === "stale") && (
-        <p className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">Показаны последние подтверждённые данные</p>
+        <p className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900" role="status">Данные давно не обновлялись. Показаны последние подтверждённые значения; перед оплатой уточните их у Novotech.</p>
       )}
+      <section aria-label="Сводка по договорам" className="rounded-md border border-zinc-200 bg-white px-5 py-4"><p className="text-xs font-semibold uppercase text-zinc-500">Активные договоры с балансом</p><p className="mt-1 text-2xl font-semibold text-zinc-950">{overview.contracts.length}</p>{overview.synchronizedAt ? <p className="mt-2 text-xs text-zinc-500">Обновлено {formatDateTime(overview.synchronizedAt)}</p> : null}</section>
       <section aria-label="Итоги по валютам" className="grid gap-px overflow-hidden border border-zinc-200 bg-zinc-200 sm:grid-cols-2">
         {overview.summaries.flatMap((summary) => [
-          <Summary key={`${summary.currencyCode}-receivable`} icon={ArrowUpRight} label="Партнёр должен Novotech" amount={summary.receivableTotal} currency={summary.currencyCode} tone="attention" />,
-          <Summary key={`${summary.currencyCode}-advance`} icon={ArrowDownLeft} label="Аванс / переплата" amount={summary.advanceTotal} currency={summary.currencyCode} tone="positive" />,
+          <Summary key={`${summary.currencyCode}-receivable`} icon={ArrowUpRight} label="К оплате" amount={summary.receivableTotal} currency={summary.currencyCode} tone="attention" />,
+          <Summary key={`${summary.currencyCode}-advance`} icon={ArrowDownLeft} label="Аванс" amount={summary.advanceTotal} currency={summary.currencyCode} tone="positive" />,
         ])}
       </section>
 
@@ -37,7 +38,7 @@ export function FinanceOverview({ overview }: { overview: FinanceOverviewModel }
                 {contract.contractName !== contract.contractNumber && <p className="mt-1 truncate text-sm text-zinc-500">{contract.contractName}</p>}
                 <p className={`mt-2 inline-flex items-center gap-1.5 text-sm font-medium ${contract.balanceType === "receivable" ? "text-amber-700" : "text-emerald-700"}`}>
                   {contract.balanceType === "receivable" ? <AlertCircle className="size-4" /> : <ArrowDownLeft className="size-4" />}
-                  {contract.balanceType === "receivable" ? "Задолженность" : "Аванс / переплата"}
+                  {contract.balanceType === "receivable" ? "К оплате" : "Аванс"}
                 </p>
               </div>
               <p className="text-lg font-semibold tabular-nums text-zinc-950">{formatMoney(contract.absoluteDisplayAmount, contract.currencyCode)}</p>

@@ -21,7 +21,7 @@ describe("FinanceOverview states", () => {
     model.summaries = [{ currencyCode: "MDL", receivableTotal: "100.00", advanceTotal: "0.00" }];
     model.showLastConfirmedNotice = true;
     render(<FinanceOverview overview={model} />);
-    expect(screen.getByText("Показаны последние подтверждённые данные")).toBeInTheDocument();
+    expect(screen.getByText(/Данные давно не обновлялись/)).toBeInTheDocument();
     expect(screen.getByText("NS-1")).toBeInTheDocument();
   });
 });
