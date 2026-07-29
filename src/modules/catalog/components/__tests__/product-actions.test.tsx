@@ -41,6 +41,7 @@ describe("product secondary actions", () => {
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: "В сравнение" }));
+    expect(screen.getByRole("button", { name: "В сравнении" })).toHaveClass("bg-emerald-50");
     fireEvent.click(screen.getByRole("button", { name: "В сравнении" }));
     fireEvent.click(screen.getByRole("button", { name: "В сравнение" }));
     expect(JSON.parse(
@@ -74,6 +75,8 @@ describe("product secondary actions", () => {
     addItem.mockResolvedValue({ success: true, message: "ok", data: null });
     render(<ProductSpecificationAction productId="product-1" />);
     fireEvent.click(screen.getByRole("button", { name: "В смету" }));
+    expect(screen.getByRole("button", { name: "В смету" })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("button", { name: "В смету" })).toHaveClass("bg-emerald-50");
     await screen.findByRole("option", { name: "Site" });
     fireEvent.change(screen.getByLabelText("Количество"), {
       target: { value: "3" },

@@ -21,7 +21,7 @@ export function FavoriteProductButton({ compact = false, initialSaved, productId
   const favoriteButton = <button
     aria-label={label}
     aria-pressed={saved}
-    className={`inline-flex h-9 items-center justify-center gap-2 rounded-md border text-sm font-semibold transition disabled:opacity-60 ${compact ? "size-9 p-0" : "px-3"} ${saved ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-zinc-300 bg-white text-zinc-700 hover:border-emerald-400"}`}
+    className={`inline-flex items-center justify-center gap-2 rounded-md border text-sm font-semibold outline-none transition focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:opacity-60 ${compact ? "size-11 p-0" : "h-11 px-3"} ${saved ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-zinc-300 bg-white text-zinc-700 hover:border-emerald-400"}`}
     disabled={pending}
     onClick={() => {
       const next = !saved;
@@ -48,7 +48,7 @@ export function FavoriteProductButton({ compact = false, initialSaved, productId
       {favoriteButton}
       <button
         aria-label="Добавить в другой список"
-        className="ml-px inline-flex h-9 w-7 items-center justify-center rounded-r-md border border-zinc-300 bg-white text-zinc-700 hover:border-emerald-400"
+        className="ml-px inline-flex h-11 w-8 items-center justify-center rounded-r-md border border-zinc-300 bg-white text-zinc-700 outline-none hover:border-emerald-400 focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
         onClick={() => setChooserOpen(true)}
         title="Добавить в другой список"
         type="button"

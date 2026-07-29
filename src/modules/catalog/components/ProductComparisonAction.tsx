@@ -83,7 +83,7 @@ export function ProductComparisonAction({
         aria-describedby={`compare-count-${productId}`}
         aria-label={label}
         aria-pressed={selected}
-        className={`inline-flex h-9 items-center justify-center gap-2 rounded-md border border-zinc-300 bg-white text-xs font-semibold text-zinc-800 hover:bg-zinc-50 ${compact ? "size-9 p-0" : "px-3"}`}
+        className={`inline-flex items-center justify-center gap-2 rounded-md border text-xs font-semibold outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 ${selected ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-50"} ${compact ? "size-11 p-0" : "h-11 px-3"}`}
         onClick={toggle}
         title={compact ? `${label} (${ids.length}/${COMPARISON_LIMIT})` : undefined}
         type="button"

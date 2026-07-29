@@ -18,6 +18,7 @@ describe("FavoriteProductButton", () => {
     await userEvent.click(button);
     expect(setFavoriteProductAction).toHaveBeenCalledWith(PRODUCT_ID, true);
     expect(await screen.findByRole("button", { name: "Удалить из избранного" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Удалить из избранного" })).toHaveClass("bg-emerald-50");
   });
 
   it("rolls back optimistic state when persistence fails", async () => {

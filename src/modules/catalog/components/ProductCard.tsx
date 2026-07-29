@@ -36,7 +36,7 @@ export function ProductCard({ analyticsSurface, capabilities, commercialView, co
       </div>
       <div className="mt-auto pt-3">
         {capabilities.canAddToOrder ? <CatalogQuantityCartAction productId={product.id} /> : <Link className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-emerald-700 text-sm font-semibold text-emerald-700" href={`/cabinet/catalog/${product.slug}`} prefetch={false}>Подробнее</Link>}
-        <div aria-label="Дополнительные действия" className="mt-2 flex min-h-9 justify-end gap-1.5">
+        <div aria-label="Дополнительные действия" className="mt-2 flex min-h-11 justify-end gap-1.5">
           {capabilities.canManagePurchasingLists ? <FavoriteProductButton compact initialSaved={favorite} productId={product.id} withListChooser /> : null}
           {capabilities.canAddToSpecification ? <ProductSpecificationAction compact productId={product.id} /> : null}
           {companyId && userId ? <ProductComparisonAction categoryId={product.category?.id ?? null} companyId={companyId} compact productId={product.id} userId={userId} /> : null}
