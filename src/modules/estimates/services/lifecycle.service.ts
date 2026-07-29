@@ -17,6 +17,7 @@ import type {
   ProposalTemplate,
 } from "../types";
 import { convertMoney, resolveCurrencyRate } from "./commercial-calculation";
+import { isProposalEmailConfigured } from "./proposal-email.provider";
 import type { DefaultProposalService } from "./proposal.service";
 
 const VIEW_PERMISSION = "estimates.view";
@@ -56,6 +57,7 @@ export class EstimateLifecycleService {
       estimateId: estimate.id,
       estimateStatus: normalizeEstimateStatus(estimate.status),
       acceptedVersionId: estimate.acceptedVersionId ?? null,
+      emailDeliveryAvailable: isProposalEmailConfigured(),
       versions: versions.map((version) => {
         const document = documents.get(version.id);
         return {

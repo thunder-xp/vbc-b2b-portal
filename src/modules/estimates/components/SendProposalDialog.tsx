@@ -7,11 +7,13 @@ import { useRouter } from "next/navigation";
 import { revokeProposalDeliveryAction, sendProposalDeliveryAction } from "../actions/delivery.actions";
 import type { ProposalDeliverySummaryDto } from "../types";
 
-export function SendProposalDialog({ versionId, versionLabel, deliveries, canSend, defaults }: {
+export function SendProposalDialog({ versionId, versionLabel, deliveries, canSend, emailAvailable, pdfReady, defaults }: {
   versionId: string;
   versionLabel: string;
   deliveries: ProposalDeliverySummaryDto[];
   canSend: boolean;
+  emailAvailable: boolean;
+  pdfReady: boolean;
   defaults?: { recipientName: string; subject: string; message: string };
 }) {
   const router = useRouter();
@@ -39,7 +41,11 @@ export function SendProposalDialog({ versionId, versionLabel, deliveries, canSen
   });
 
   return <>
-    {canSend && <button className={secondary} onClick={() => { setMessage(null); setPublicUrl(null); setOpen(true); }} type="button"><Mail className="size-4" />Отправить</button>}
+    <div className="flex flex-col items-start gap-1">
+      <button className={secondary} disabled={!canSend} onClick={() => { setMessage(null); setPublicUrl(null); setOpen(true); }} type="button"><Mail className="size-4" />{deliveries.length ? "Отправить повторно" : "Отправить"}</button>
+      {!emailAvailable && <span className="max-w-48 text-xs text-zinc-500">Отправка по email пока недоступна</span>}
+      {emailAvailable && !pdfReady && <span className="max-w-48 text-xs text-zinc-500">Сначала сформируйте PDF</span>}
+    </div>
     {open && <div aria-modal="true" className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" role="dialog">
       <form action={send} className="max-h-[calc(100vh-2rem)] w-full max-w-xl overflow-y-auto bg-white p-5 shadow-xl">
         <header className="flex items-start justify-between gap-4"><div><h3 className="text-lg font-semibold">Отправка предложения</h3><p className="mt-1 text-sm text-zinc-500">{versionLabel}</p></div><button aria-label="Закрыть" className="grid size-9 place-items-center" onClick={() => setOpen(false)} type="button"><X className="size-5" /></button></header>
@@ -51,7 +57,8 @@ export function SendProposalDialog({ versionId, versionLabel, deliveries, canSen
           <Field label="Язык письма"><select className={input} defaultValue="ru" name="locale"><option value="ru">Русский</option><option value="ro">Română</option></select></Field>
           <Field label="Срок ссылки"><select className={input} defaultValue="14" name="expirationDays"><option value="7">7 дней</option><option value="14">14 дней</option><option value="30">30 дней</option></select></Field>
         </div>
-        <label className="mt-4 flex items-center gap-2 text-sm"><input defaultChecked name="attachPdf" type="checkbox" />Приложить PDF, если размер позволяет</label>
+        <label className="mt-4 flex items-center gap-2 text-sm"><input defaultChecked name="attachPdf" type="checkbox" />Приложить готовый PDF к письму</label>
+        <p className="mt-1 text-xs text-zinc-500">Если файл превысит допустимый размер, клиент получит защищённую ссылку для скачивания.</p>
         {message && <p aria-live="polite" className="mt-4 bg-zinc-50 px-3 py-2 text-sm">{message}</p>}
         {publicUrl && <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_auto]"><input aria-label="Защищённая ссылка" className={input} readOnly value={publicUrl} /><button className={secondary} onClick={async () => { await navigator.clipboard.writeText(publicUrl); setMessage("Ссылка скопирована."); }} type="button"><Copy className="size-4" />Скопировать</button></div>}
         <footer className="mt-5 flex justify-end gap-2"><button className={secondary} onClick={() => setOpen(false)} type="button">Отмена</button><button className={primary} disabled={pending} type="submit"><Send className="size-4" />{pending ? "Отправка..." : "Отправить"}</button></footer>
@@ -59,7 +66,7 @@ export function SendProposalDialog({ versionId, versionLabel, deliveries, canSen
     </div>}
     {deliveries.length > 0 && <div className="mt-3 w-full space-y-2">
       {deliveries.map((delivery) => <div className="flex flex-wrap items-center justify-between gap-2 border-l-2 border-emerald-600 bg-zinc-50 px-3 py-2 text-xs" key={delivery.id}>
-        <span><strong>{delivery.recipient}</strong> · {delivery.statusLabel}{delivery.openedAt ? ` · Открыто ${formatDate(delivery.openedAt)}` : ""}{delivery.response ? ` · ${delivery.response === "accepted" ? "Принято" : "Отклонено"}` : ""}</span>
+        <span><strong>{delivery.recipient}</strong> · {delivery.statusLabel}{delivery.sentAt ? ` · ${formatDate(delivery.sentAt)}` : ""}{delivery.openedAt ? ` · Открыто ${formatDate(delivery.openedAt)}` : ""}{delivery.response ? ` · ${delivery.response === "accepted" ? "Принято" : "Отклонено"}` : ""}</span>
         {!delivery.response && delivery.status !== "revoked" && <button className="font-semibold text-red-700" disabled={pending} onClick={() => startTransition(async () => { const result = await revokeProposalDeliveryAction(delivery.id); setMessage(result.message); if (result.success) router.refresh(); })} type="button">Отозвать ссылку</button>}
       </div>)}
     </div>}

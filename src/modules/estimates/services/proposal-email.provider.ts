@@ -73,6 +73,15 @@ export function verifySmtpTransport(): Promise<ProposalEmailVerificationResult> 
   return new SmtpProposalEmailProvider().verify();
 }
 
+export function isProposalEmailConfigured(): boolean {
+  try {
+    smtpConfig();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function createSmtpTransport(config: ReturnType<typeof smtpConfig>) {
   return nodemailer.createTransport({
     host: config.host, port: config.port, secure: config.secure,

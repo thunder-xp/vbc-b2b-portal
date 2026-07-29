@@ -60,6 +60,7 @@ export type EstimateWorkflowDto = {
   estimateId: string;
   estimateStatus: "draft" | "ready" | "archived";
   acceptedVersionId: string | null;
+  emailDeliveryAvailable: boolean;
   versions: EstimateVersionListItemDto[];
   readiness: { ready: boolean; checks: Array<{ label: string; passed: boolean }> };
 };

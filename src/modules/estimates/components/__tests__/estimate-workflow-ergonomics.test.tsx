@@ -28,6 +28,7 @@ describe("EstimateWorkflowPanel ergonomics", () => {
       estimateId: "estimate-1",
       estimateStatus: "draft",
       acceptedVersionId: null,
+      emailDeliveryAvailable: false,
       readiness: { ready: true, checks: [] },
       versions: [{
         id: "version-1",
@@ -54,5 +55,29 @@ describe("EstimateWorkflowPanel ergonomics", () => {
     expect(screen.getByRole("link", { name: "Предпросмотр" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Сформировать PDF" })).toBeInTheDocument();
     expect(screen.getByText("Зафиксированная версия")).toBeInTheDocument();
+  });
+
+  it("reviews eligible equipment before converting an accepted version", async () => {
+    const { default: userEvent } = await import("@testing-library/user-event");
+    const user = userEvent.setup();
+    render(<EstimateWorkflowPanel initialWorkflow={{
+      estimateId: "estimate-1",
+      estimateStatus: "ready",
+      acceptedVersionId: "version-1",
+      emailDeliveryAvailable: false,
+      readiness: { ready: true, checks: [] },
+      versions: [{
+        id: "version-1", versionNumber: 1, label: "KP-2026-1 / версия 1", status: "accepted",
+        statusLabel: "Принято", total: "1 000,00 USD", currencyCode: "USD", note: null,
+        createdAt: "2026-07-29T08:00:00Z", createdByName: "Менеджер", sentAt: null,
+        acceptedAt: "2026-07-29T09:00:00Z", rejectedAt: null, pdfDocumentId: "pdf-1",
+        pdfStatus: "ready", deliveries: [],
+      }],
+    }} revision={3} />);
+
+    await user.click(screen.getByRole("button", { name: "Создать заказ" }));
+    expect(screen.getByRole("dialog", { name: "Создание заказа" })).toBeInTheDocument();
+    expect(screen.getByText(/только позиции оборудования/)).toBeInTheDocument();
+    expect(screen.getByText(/заказ в 1С на этом шаге не создаётся/)).toBeInTheDocument();
   });
 });

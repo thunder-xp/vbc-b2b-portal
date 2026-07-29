@@ -28,7 +28,7 @@ describe("proposal delivery UI", () => {
 
   it("collects bounded email delivery fields and sends an idempotency key", async () => {
     const user = userEvent.setup();
-    render(<SendProposalDialog canSend deliveries={[]} versionId="version-1" versionLabel="KP-1 / версия 1" />);
+    render(<SendProposalDialog canSend deliveries={[]} emailAvailable pdfReady versionId="version-1" versionLabel="KP-1 / версия 1" />);
     await user.click(screen.getByRole("button", { name: "Отправить" }));
     await user.type(screen.getByLabelText("Email получателя"), "client@example.com");
     await user.click(screen.getAllByRole("button", { name: "Отправить" })[1]);
@@ -37,9 +37,15 @@ describe("proposal delivery UI", () => {
   });
 
   it("shows delivery status without exposing a secure token", () => {
-    render(<SendProposalDialog canSend={false} versionId="version-1" versionLabel="KP-1" deliveries={[{ id: "delivery-1", recipient: "client@example.com", status: "sent", statusLabel: "Отправлено", sentAt: "2026-07-18T10:00:00Z", openedAt: null, expiresAt: "2026-08-01T10:00:00Z", response: null }]} />);
+    render(<SendProposalDialog canSend={false} emailAvailable pdfReady versionId="version-1" versionLabel="KP-1" deliveries={[{ id: "delivery-1", recipient: "client@example.com", status: "sent", statusLabel: "Отправлено", sentAt: "2026-07-18T10:00:00Z", openedAt: null, expiresAt: "2026-08-01T10:00:00Z", response: null }]} />);
     expect(screen.getByText(/client@example.com/).parentElement).toHaveTextContent("Отправлено");
     expect(document.body.textContent).not.toContain("/proposal/");
+  });
+
+  it("shows an honest unavailable state without a broken send action", () => {
+    render(<SendProposalDialog canSend={false} deliveries={[]} emailAvailable={false} pdfReady versionId="version-1" versionLabel="KP-1" />);
+    expect(screen.getByText("Отправка по email пока недоступна")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Отправить" })).toBeDisabled();
   });
 
   it("requires confirmation and records one Romanian customer response", async () => {
