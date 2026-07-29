@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { canonicalStatuses, StatusBadge as CanonicalStatusBadge } from "../../platform-ui";
 import type { ProjectSpecificationDetailDto } from "../services";
 import { ProjectSpecificationStatus } from "../types";
 import { SpecificationForm } from "./SpecificationForm";
@@ -35,12 +36,11 @@ export function StatusBadge({ status }: { status: ProjectSpecificationStatus }) 
     [ProjectSpecificationStatus.ChangesRequested]: "Нужны изменения",
     [ProjectSpecificationStatus.Rejected]: "Отклонена",
   };
-  const tone = status === ProjectSpecificationStatus.Draft
-    ? "bg-amber-100 text-amber-800"
-    : status === ProjectSpecificationStatus.Rejected
-      ? "bg-red-100 text-red-800"
-      : status === ProjectSpecificationStatus.ChangesRequested
-        ? "bg-orange-100 text-orange-800"
-        : "bg-emerald-100 text-emerald-800";
-  return <span className={`w-fit rounded-full px-3 py-1 text-xs font-semibold ${tone}`}>{labels[status]}</span>;
+  const descriptor = status === ProjectSpecificationStatus.Draft ? canonicalStatuses.draft
+    : status === ProjectSpecificationStatus.Submitted ? canonicalStatuses.submitted
+      : status === ProjectSpecificationStatus.UnderReview ? canonicalStatuses.underReview
+        : status === ProjectSpecificationStatus.Approved ? canonicalStatuses.approved
+          : status === ProjectSpecificationStatus.ChangesRequested ? canonicalStatuses.changesRequested
+            : canonicalStatuses.rejected;
+  return <CanonicalStatusBadge label={labels[status]} status={descriptor} />;
 }
