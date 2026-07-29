@@ -109,6 +109,25 @@ describe("DefaultCatalogService listing projection", () => {
     expect(result.facets).toEqual([]);
   });
 
+  it("loads comparison identity and characteristics in bounded batches", async () => {
+    const repository = new ListingRepository(false, [
+      createProduct("product-one", "One"),
+      createProduct("product-two", "Two"),
+    ]);
+
+    const result = await new DefaultCatalogService(
+      repository,
+      companyAccessService,
+    ).getComparisonProductsByIds("user-1", ["product-two", "missing", "product-one"]);
+
+    expect(result.map((item) => item.id)).toEqual(["product-two", "product-one"]);
+    expect(repository.productCalls).toBe(1);
+    expect(repository.attributeBatchCalls).toBe(1);
+    expect(result[0]?.keyCharacteristics).toContainEqual(
+      expect.objectContaining({ label: "Resolution", value: "4 MPX" }),
+    );
+  });
+
   it("loads all visible facet groups through one bounded repository call", async () => {
     const repository = new AggregateListingRepository();
     const facetKey = "property_11111111-1111-1111-1111-111111111111";
@@ -137,6 +156,7 @@ class ListingRepository implements CatalogRepository {
   ) {}
   productCalls = 0;
   documentBatchCalls = 0;
+  attributeBatchCalls = 0;
   lastInput: ListCatalogProductsInput | null = null;
   async listCategories() { return categories; }
   async listBrands() { return brands; }
@@ -150,6 +170,16 @@ class ListingRepository implements CatalogRepository {
   }
   async countProducts() { return this.listingProducts.length; }
   async listProductDocumentsForProducts() { this.documentBatchCalls += 1; return [datasheet]; }
+  async listProductAttributesForProducts() {
+    this.attributeBatchCalls += 1;
+    return this.listingProducts.flatMap((item) =>
+      attributes.map((attribute) => ({
+        ...attribute,
+        id: `${attribute.id}:${item.id}`,
+        productId: item.id,
+      })),
+    );
+  }
   async getProductBySlug(): Promise<CatalogProduct | null> { return this.detail ? product : null; }
   async getProductById() { return null; }
   async findCategoryByExternal1cId() { return null; }

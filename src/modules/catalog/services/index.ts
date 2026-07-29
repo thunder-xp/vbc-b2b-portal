@@ -16,6 +16,10 @@ export type {
   CatalogService,
 } from "./catalog.service";
 export { DefaultCatalogService } from "./catalog.service";
+export {
+  buildCatalogComparisonMatrix,
+  type CatalogComparisonMatrixRow,
+} from "./catalog-comparison";
 export { buildCatalogHref, buildCatalogSortHiddenFields, parseCatalogAttributeFilters, type CatalogSortHiddenField } from "./catalog-sort-state";
 export {
   CATALOG_SORT_OPTIONS,

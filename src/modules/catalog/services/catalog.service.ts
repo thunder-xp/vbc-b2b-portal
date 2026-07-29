@@ -153,6 +153,10 @@ export interface CatalogService {
     userId: string,
     productIds: string[],
   ): Promise<CatalogProductCardDto[]>;
+  getComparisonProductsByIds?(
+    userId: string,
+    productIds: string[],
+  ): Promise<CatalogProductCardDto[]>;
   getProductOrderIdentities(
     userId: string,
     productIds: string[],
@@ -645,6 +649,63 @@ export class DefaultCatalogService implements CatalogService {
     return normalizedIds.flatMap((id) => {
       const product = productMap.get(id);
       return product ? [this.toProductCardDto(product, brandMap, categoryMap)] : [];
+    });
+  }
+
+  async getComparisonProductsByIds(
+    userId: string,
+    productIds: string[],
+  ): Promise<CatalogProductCardDto[]> {
+    await this.ensureCatalogAccess(userId);
+    const normalizedIds = [...new Set(productIds.map((id) => id.trim()).filter(Boolean))];
+    if (normalizedIds.length === 0) return [];
+
+    const [products, brands, categories, attributes] = await Promise.all([
+      this.catalogRepository.listProducts({ productIds: normalizedIds }),
+      this.catalogRepository.listBrands(),
+      this.catalogRepository.listCategories(),
+      this.catalogRepository.listProductAttributesForProducts?.(normalizedIds)
+        ?? Promise.resolve([]),
+    ]);
+    const productMap = new Map(products.map((product) => [product.id, product]));
+    const brandMap = createBrandMap(brands);
+    const categoryMap = createCategoryMap(categories);
+    const attributesByProduct = Map.groupBy(
+      attributes.filter((attribute) =>
+        attribute.isVisible
+        && !isDatasheetAttribute(attribute.label)
+        && typeof attribute.displayValue === "string",
+      ),
+      (attribute) => attribute.productId,
+    );
+
+    return normalizedIds.flatMap((id) => {
+      const product = productMap.get(id);
+      if (!product) return [];
+      const characteristics = (attributesByProduct.get(id) ?? [])
+        .map((attribute) => ({
+          key: attribute.key,
+          label: attribute.label.trim(),
+          value: normalizeCharacteristicValue(
+            attribute.resolvedDisplayValue ?? attribute.displayValue,
+            attribute.valueType,
+          ),
+          filterValue: attribute.displayValue.trim(),
+          isFilterable: attribute.isFilterable && attribute.resolutionStatus !== "unresolved",
+          valueType: attribute.valueType,
+        }))
+        .filter((attribute) => attribute.label && attribute.value)
+        .sort((left, right) =>
+          left.label.localeCompare(right.label, "ru", { sensitivity: "base" })
+          || left.key.localeCompare(right.key),
+        );
+      return [this.toProductCardDto(
+        product,
+        brandMap,
+        categoryMap,
+        null,
+        characteristics,
+      )];
     });
   }
 

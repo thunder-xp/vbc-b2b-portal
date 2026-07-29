@@ -2,27 +2,119 @@
 
 import { Columns3 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
-const MAX_PRODUCTS = 4;
+import { recordBehaviorInteraction } from "../../behavior-analytics/components/BehaviorViewEvent";
+import {
+  COMPARISON_CHANGED_EVENT,
+  COMPARISON_LIMIT,
+  comparisonStorageKey,
+  readComparisonIds,
+  writeComparisonIds,
+} from "./comparison-storage";
 
-export function ProductComparisonAction({ categoryId, companyId, compact = false, productId, userId }: { categoryId: string | null; companyId: string; compact?: boolean; productId: string; userId: string }) {
-  const storageKey = useMemo(() => comparisonStorageKey(companyId, userId, categoryId ?? "uncategorized"), [categoryId, companyId, userId]);
+type ProductComparisonActionProps = {
+  categoryId: string | null;
+  companyId: string;
+  compact?: boolean;
+  productId: string;
+  userId: string;
+};
+
+export function ProductComparisonAction({
+  companyId,
+  compact = false,
+  productId,
+  userId,
+}: ProductComparisonActionProps) {
   const [ids, setIds] = useState<string[]>([]);
   const [message, setMessage] = useState<string | null>(null);
-  useEffect(() => { const frame = requestAnimationFrame(() => setIds(readIds(storageKey))); return () => cancelAnimationFrame(frame); }, [storageKey]);
+
+  useEffect(() => {
+    const key = comparisonStorageKey(companyId, userId);
+    const sync = (event?: Event) => {
+      if (event instanceof StorageEvent && event.key !== key) return;
+      if (event instanceof CustomEvent && event.detail?.key !== key) return;
+      setIds(readComparisonIds(companyId, userId));
+    };
+    const frame = requestAnimationFrame(() => sync());
+    window.addEventListener("storage", sync);
+    window.addEventListener(COMPARISON_CHANGED_EVENT, sync);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("storage", sync);
+      window.removeEventListener(COMPARISON_CHANGED_EVENT, sync);
+    };
+  }, [companyId, userId]);
+
   const selected = ids.includes(productId);
   const toggle = () => {
-    const current = readIds(storageKey);
-    const next = current.includes(productId) ? current.filter((id) => id !== productId) : current.length < MAX_PRODUCTS ? [...current, productId] : current;
-    localStorage.setItem(storageKey, JSON.stringify(next));
-    setIds(next);
-    setMessage(current.length >= MAX_PRODUCTS && !current.includes(productId) ? "Можно сравнить не более 4 товаров." : next.includes(productId) ? "Товар добавлен к сравнению." : "Товар удалён из сравнения.");
+    const current = readComparisonIds(companyId, userId);
+    if (!current.includes(productId) && current.length >= COMPARISON_LIMIT) {
+      setMessage(`Можно сравнить не более ${COMPARISON_LIMIT} товаров.`);
+      return;
+    }
+
+    const next = writeComparisonIds(
+      companyId,
+      userId,
+      current.includes(productId)
+        ? current.filter((id) => id !== productId)
+        : [...current, productId],
+    );
+    const added = next.includes(productId);
+    setMessage(
+      added
+        ? "Товар добавлен к сравнению."
+        : "Товар удалён из сравнения.",
+    );
+    recordBehaviorInteraction({
+      eventName: added ? "product_added_to_compare" : "product_removed_from_compare",
+      productId,
+      route: "/cabinet/catalog",
+      sourceSurface: "product_card",
+    });
   };
   const label = selected ? "В сравнении" : "В сравнение";
-  return <div className="space-y-1"><button aria-label={label} aria-describedby={`compare-count-${productId}`} aria-pressed={selected} className={`inline-flex h-9 items-center justify-center gap-2 rounded-md border border-zinc-300 bg-white text-xs font-semibold text-zinc-800 hover:bg-zinc-50 ${compact ? "size-9 p-0" : "px-3"}`} onClick={toggle} title={compact ? `${label} (${ids.length}/${MAX_PRODUCTS})` : undefined} type="button"><Columns3 aria-hidden="true" className="size-4" />{compact ? null : label}</button><span className="sr-only" id={`compare-count-${productId}`}>Выбрано: {ids.length} из {MAX_PRODUCTS}</span>{!compact && ids.length ? <Link className="block text-xs font-medium text-emerald-700" href={`/cabinet/compare?category=${encodeURIComponent(categoryId ?? "uncategorized")}`} prefetch={false}>Сравнить ({ids.length})</Link> : null}{message ? <p aria-live="polite" className={compact ? "fixed bottom-4 left-1/2 z-50 max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-md bg-zinc-950 px-3 py-2 text-xs font-medium text-white shadow-lg" : "text-xs text-zinc-600"}>{message}</p> : null}</div>;
+
+  return (
+    <div className="space-y-1">
+      <button
+        aria-describedby={`compare-count-${productId}`}
+        aria-label={label}
+        aria-pressed={selected}
+        className={`inline-flex h-9 items-center justify-center gap-2 rounded-md border border-zinc-300 bg-white text-xs font-semibold text-zinc-800 hover:bg-zinc-50 ${compact ? "size-9 p-0" : "px-3"}`}
+        onClick={toggle}
+        title={compact ? `${label} (${ids.length}/${COMPARISON_LIMIT})` : undefined}
+        type="button"
+      >
+        <Columns3 aria-hidden="true" className="size-4" />
+        {compact ? null : label}
+      </button>
+      <span className="sr-only" id={`compare-count-${productId}`}>
+        Выбрано: {ids.length} из {COMPARISON_LIMIT}
+      </span>
+      {!compact && ids.length ? (
+        <Link
+          className="block text-xs font-medium text-emerald-700"
+          href="/cabinet/compare"
+          prefetch={false}
+        >
+          Сравнить ({ids.length})
+        </Link>
+      ) : null}
+      {message ? (
+        <p
+          aria-live="polite"
+          className={compact
+            ? "fixed bottom-4 left-1/2 z-50 max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-md bg-zinc-950 px-3 py-2 text-xs font-medium text-white shadow-lg"
+            : "text-xs text-zinc-600"}
+        >
+          {message}
+        </p>
+      ) : null}
+    </div>
+  );
 }
 
-export function comparisonStorageKey(companyId: string, userId: string, categoryId: string): string { return `novotech-catalog-compare:${companyId}:${userId}:${categoryId}`; }
-export function readComparisonIds(companyId: string, userId: string, categoryId: string): string[] { return readIds(comparisonStorageKey(companyId, userId, categoryId)); }
-function readIds(key: string): string[] { try { const value = JSON.parse(localStorage.getItem(key) ?? "[]"); return Array.isArray(value) ? [...new Set(value.filter((id): id is string => typeof id === "string"))].slice(0, MAX_PRODUCTS) : []; } catch { return []; } }
+export { comparisonStorageKey, readComparisonIds } from "./comparison-storage";
