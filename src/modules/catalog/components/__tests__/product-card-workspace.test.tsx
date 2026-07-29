@@ -19,7 +19,7 @@ vi.mock("../ProductComparisonAction", () => ({
   ProductComparisonAction: () => <button type="button">Compare</button>,
 }));
 
-vi.mock("next/link", () => ({ default: ({ children, href }: { children: React.ReactNode; href: string }) => <a href={href}>{children}</a> }));
+vi.mock("next/link", () => ({ default: ({ children, href, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { href: string }) => <a href={href} {...props}>{children}</a> }));
 vi.mock("../../../orders/components", () => ({ AddToCartButton: () => <button type="button">В корзину</button> }));
 
 const product = { id: "product-1", sku: "NV-100", name: "IP Camera", slug: "ip-camera", shortDescription: "Professional camera", imageUrl: null, brand: null, category: { id: "category-1", parentId: null, name: "4-5 MPX", slug: "4-5-mpx", description: null }, keyCharacteristics: [{ label: "Channels", value: "4" }, { label: "Enabled", value: "Да" }], datasheet: null };
@@ -57,9 +57,23 @@ describe("ProductCard workspace context", () => {
     const imageUrl = "https://firebasestorage.googleapis.com/v0/b/novotech-systems-5449b.appspot.com/o/products%2Fcamera_thumb.png?alt=media&token=public-token";
     const { rerender } = render(<ProductCard capabilities={capabilities} product={{ ...product, imageUrl }} />);
     expect(screen.getByRole("img", { name: "IP Camera" })).toHaveAttribute("src", expect.stringContaining("camera_thumb.png"));
+    expect(screen.getByRole("img", { name: "IP Camera" })).toHaveClass("object-cover", "object-center");
 
     rerender(<ProductCard capabilities={capabilities} product={{ ...product, id: "product-2", imageUrl: null }} />);
     expect(screen.getByRole("img", { name: "IP Camera" })).toHaveAttribute("src", "/product-placeholder.svg");
+    expect(screen.getByRole("img", { name: "IP Camera" })).toHaveClass("object-contain", "p-8");
+  });
+
+  it("overlays merchandising badges inside the fixed image region", () => {
+    const capabilities = resolveWorkspaceCapabilities(new Set(["catalog.view"])).productCard;
+    const { container } = render(<ProductCard capabilities={capabilities} product={{ ...product, merchandisingLabels: ["NEW", "HOT"] }} />);
+    const imageLink = screen.getByRole("img", { name: "IP Camera" }).closest("a");
+    const overlay = container.querySelector<HTMLElement>(".absolute.left-2.top-2");
+
+    expect(imageLink).toContainElement(overlay);
+    expect(overlay).toHaveClass("pointer-events-none", "z-10");
+    expect(overlay?.querySelectorAll("span")).toHaveLength(2);
+    expect(imageLink).toHaveClass("relative", "aspect-[4/3]", "overflow-hidden");
   });
 
   it("removes low-value listing metadata and raw attribute chips", () => {

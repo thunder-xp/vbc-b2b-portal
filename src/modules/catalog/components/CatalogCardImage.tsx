@@ -11,5 +11,14 @@ export function CatalogCardImage({
   sizes?: string;
   src: string | null;
 }) {
-  return <ProductThumbnail alt={alt} priority={priority} sizes={sizes} src={src} />;
+  return (
+    <ProductThumbnail
+      alt={alt}
+      className="object-cover object-center"
+      fallbackClassName="object-contain p-8"
+      priority={priority}
+      sizes={sizes}
+      src={src}
+    />
+  );
 }

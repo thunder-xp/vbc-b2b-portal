@@ -31,6 +31,12 @@ describe("compact catalog layout", () => {
     expect(card).toContain("CatalogQuantityCartAction");
     expect(card).toContain("20vw");
     expect(card).toContain("CatalogCardImage");
+    expect(card).toContain('className="h-4 truncate');
+    expect(card).toContain("line-clamp-2 h-10");
+    expect(card).toContain('className="h-[5.25rem]"');
+    expect(card).toContain('className="h-[3.25rem]"');
+    expect(card).toContain("absolute left-2 top-2");
+    expect(card).not.toContain("min-h-8 items-center px-3 pt-2");
   });
 
   it("removes routine freshness labels but retains stale warnings", () => {

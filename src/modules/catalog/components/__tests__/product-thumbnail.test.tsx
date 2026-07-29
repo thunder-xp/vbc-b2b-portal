@@ -29,8 +29,9 @@ describe("ProductThumbnail", () => {
   });
 
   it("uses the local fallback for unapproved origins", () => {
-    render(<div className="relative size-20"><ProductThumbnail alt="Camera" sizes="80px" src="https://attacker.example/camera.png" /></div>);
+    render(<div className="relative size-20"><ProductThumbnail alt="Camera" className="object-cover" fallbackClassName="object-contain p-8" sizes="80px" src="https://attacker.example/camera.png" /></div>);
     expect(screen.getByRole("img", { name: "Camera" })).toHaveAttribute("src", "/product-placeholder.svg");
+    expect(screen.getByRole("img", { name: "Camera" })).toHaveClass("object-contain", "p-8");
     expect(normalizeProductImageUrl("https://attacker.example/camera.png")).toBeNull();
   });
 
