@@ -7,6 +7,7 @@ export {
   type ProductPriceViewDto,
   type ProductStockAvailability,
   type ProductStockViewDto,
+  type RetailPriceHistoryDto,
   projectProductCommercialSnapshot,
 } from "./pricing-inventory.service";
 export {

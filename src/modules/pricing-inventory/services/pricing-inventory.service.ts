@@ -7,7 +7,7 @@ import type {
 } from "../../access-control/services";
 import { resolveCommercialVisibility } from "../../access-control/services";
 import { MembershipStatus } from "../../access-control/types";
-import type { PricingInventoryRepository, ProductStockTotal, ProductSupplierArrival, UsdMdlExchangeRate } from "../repositories";
+import type { PricingInventoryRepository, ProductStockTotal, ProductSupplierArrival, RetailPriceHistoryRange, RetailPriceHistoryRow, UsdMdlExchangeRate } from "../repositories";
 import type { ProductPrice } from "../types";
 import type { CommercialRate, CommercialRateSnapshot } from "../types";
 import { normalizeOneCCurrencyCode } from "../../../lib/currency";
@@ -79,6 +79,14 @@ export type ProductCommercialSnapshot = {
   retailRate: { rate: number; publishedAt: string } | null;
 };
 export type ProductAvailabilityFilter = "in_stock" | "expected";
+export type RetailPriceHistoryDto = RetailPriceHistoryRow & {
+  formattedCurrent: string | null;
+  formattedPrevious: string | null;
+  formattedMinimum: string | null;
+  formattedMaximum: string | null;
+  formattedAbsoluteChange: string | null;
+  formattedPercentageChange: string | null;
+};
 
 export interface PricingInventoryService {
   getCommercialVisibility?(userId: string): Promise<CommercialVisibilityContext>;
@@ -100,6 +108,11 @@ export interface PricingInventoryService {
   getRetailUsdMdlRateSnapshot?(
     userId: string,
   ): Promise<UsdMdlExchangeRate | null>;
+  getRetailPriceHistory?(
+    userId: string,
+    productId: string,
+    range: RetailPriceHistoryRange,
+  ): Promise<RetailPriceHistoryDto>;
   getAuthoritativeUsdMdlRateSnapshot?(
     userId: string,
   ): Promise<UsdMdlExchangeRate | null>;
@@ -281,6 +294,53 @@ export class DefaultPricingInventoryService implements PricingInventoryService {
     }
 
     return this.pricingInventoryRepository.listProductIdsWithConfirmedArrival?.() ?? [];
+  }
+
+  async getRetailPriceHistory(
+    userId: string,
+    productId: string,
+    range: RetailPriceHistoryRange,
+  ): Promise<RetailPriceHistoryDto> {
+    const company = await this.resolveActiveCompany(userId);
+    const visibility = resolveCommercialVisibility(
+      await this.permissionService.getEffectivePermissionContext(
+        userId,
+        company.id,
+      ),
+    );
+    const canViewRetail = visibility.canViewRetailPrice
+      && await this.permissionService.hasPermission(
+        userId,
+        company.id,
+        "pricing.retail_price.view",
+      );
+    if (!canViewRetail || !this.pricingInventoryRepository.getRetailPriceHistory) {
+      throw new Error("Retail price history is unavailable.");
+    }
+    const history = await this.pricingInventoryRepository.getRetailPriceHistory(
+      productId,
+      range,
+    );
+    const currentAmount = history.current?.amount ?? null;
+    const currency = history.current?.currency ?? history.points.at(-1)?.currency ?? null;
+    const change = currentAmount !== null && history.previousAmount !== null
+      ? currentAmount - history.previousAmount
+      : null;
+    const percentage = change !== null && history.previousAmount !== null
+      && history.previousAmount !== 0
+      ? change / history.previousAmount * 100
+      : null;
+    return {
+      ...history,
+      formattedCurrent: formatRetailAmount(currentAmount, currency),
+      formattedPrevious: formatRetailAmount(history.previousAmount, currency),
+      formattedMinimum: formatRetailAmount(history.minimumAmount, currency),
+      formattedMaximum: formatRetailAmount(history.maximumAmount, currency),
+      formattedAbsoluteChange: formatRetailAmount(change, currency, true),
+      formattedPercentageChange: percentage === null
+        ? null
+        : `${percentage > 0 ? "+" : ""}${new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 2 }).format(percentage)}%`,
+    };
   }
 
   async getApprovedUsdMdlRate(userId: string): Promise<number | null> {
@@ -672,6 +732,19 @@ function formatQuantity(quantity: number): string {
 function selectExpectedArrival(arrivals:ProductSupplierArrival[],productId:string){const valid=arrivals.filter(row=>row.productId===productId&&row.externalCharacteristicRef===ZERO_CHARACTERISTIC&&row.expectedQuantity>0).sort((a,b)=>a.expectedDate.localeCompare(b.expectedDate));const first=valid[0];if(!first)return null;return{expectedDate:first.expectedDate,expectedQuantity:valid.filter(row=>row.expectedDate===first.expectedDate).reduce((sum,row)=>sum+row.expectedQuantity,0),publishedAt:first.publishedAt};}
 function expectedArrivalLabel(value:string){return `\u041e\u0436\u0438\u0434\u0430\u0435\u0442\u0441\u044f \u043a \u043f\u043e\u0441\u0442\u0443\u043f\u043b\u0435\u043d\u0438\u044e\n${formatArrivalDate(value)}`;}
 function formatArrivalDate(value:string){return new Intl.DateTimeFormat("ru-RU",{day:"numeric",month:"long",year:"numeric",timeZone:"UTC"}).format(new Date(`${value}T00:00:00Z`));}
+function formatRetailAmount(
+  amount: number | null,
+  currency: string | null,
+  signed = false,
+): string | null {
+  if (amount === null || !currency) return null;
+  const value = new Intl.NumberFormat("ru-RU", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(Math.abs(amount));
+  const sign = signed && amount !== 0 ? (amount > 0 ? "+" : "−") : "";
+  return `${sign}${value} ${currency}`;
+}
 
 
 type DemoCommercialViewSource = {

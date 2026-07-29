@@ -16,6 +16,7 @@ import type {
   ListProductPricesInput,
   PricingInventoryRepository,
   PricingUpsertResult,
+  RetailPriceHistoryRow,
   FindProductStockBalanceInput,
   UpsertProductStockBalanceInput,
   UpsertProductPriceInput,
@@ -24,6 +25,71 @@ import type { CommercialRate, ProductPrice, ProductStockBalance } from "../../ty
 import type { ProductSupplierArrival } from "../../repositories";
 
 describe("DefaultPricingInventoryService", () => {
+  it("projects canonical retail history summaries through one bounded read", async () => {
+    const repository = new FakePricingInventoryRepository([]);
+    repository.retailHistory = makeRetailHistory();
+    const service = new DefaultPricingInventoryService(
+      repository,
+      new FakeCompanyAccessService(),
+      new FakePermissionService(["pricing.retail_price.view"]),
+    );
+
+    const result = await service.getRetailPriceHistory(
+      "user-1",
+      "product-1",
+      "6m",
+    );
+
+    expect(repository.lastRetailHistoryInput).toEqual({
+      productId: "product-1",
+      range: "6m",
+    });
+    expect(result).toMatchObject({
+      formattedCurrent: "2 499,00 MDL",
+      formattedPrevious: "2 399,00 MDL",
+      formattedAbsoluteChange: "+100,00 MDL",
+      formattedPercentageChange: "+4,17%",
+    });
+  });
+
+  it("handles a zero previous retail price without an invalid percentage", async () => {
+    const repository = new FakePricingInventoryRepository([]);
+    repository.retailHistory = {
+      ...makeRetailHistory(),
+      previousAmount: 0,
+      minimumAmount: 0,
+    };
+    const service = new DefaultPricingInventoryService(
+      repository,
+      new FakeCompanyAccessService(),
+      new FakePermissionService(["pricing.retail_price.view"]),
+    );
+
+    const result = await service.getRetailPriceHistory(
+      "user-1",
+      "product-1",
+      "all",
+    );
+
+    expect(result.formattedAbsoluteChange).toBe("+2 499,00 MDL");
+    expect(result.formattedPercentageChange).toBeNull();
+  });
+
+  it("denies retail history without retail visibility", async () => {
+    const repository = new FakePricingInventoryRepository([]);
+    repository.retailHistory = makeRetailHistory();
+    const service = new DefaultPricingInventoryService(
+      repository,
+      new FakeCompanyAccessService(),
+      new FakePermissionService(["pricing.partner_price.view"]),
+    );
+
+    await expect(
+      service.getRetailPriceHistory("user-1", "product-1", "12m"),
+    ).rejects.toThrow("Retail price history is unavailable.");
+    expect(repository.lastRetailHistoryInput).toBeNull();
+  });
+
   it("loads prices through active company scope and prefers own company price", async () => {
     const repository = new FakePricingInventoryRepository([
       makePrice("other-company", 500, goldPriceType),
@@ -316,6 +382,11 @@ class FakePricingInventoryRepository implements PricingInventoryRepository {
   exchangeRateReads = 0;
   authoritativePriceReads = 0;
   authoritativeRateReads = 0;
+  retailHistory: RetailPriceHistoryRow | null = null;
+  lastRetailHistoryInput: {
+    productId: string;
+    range: "3m" | "6m" | "12m" | "all";
+  } | null = null;
 
   constructor(
     private readonly prices: ProductPrice[],
@@ -367,6 +438,14 @@ class FakePricingInventoryRepository implements PricingInventoryRepository {
 
   async listStockForProducts(): Promise<ProductStockBalance[]> {
     return this.stockBalances;
+  }
+  async getRetailPriceHistory(
+    productId: string,
+    range: "3m" | "6m" | "12m" | "all",
+  ): Promise<RetailPriceHistoryRow> {
+    this.lastRetailHistoryInput = { productId, range };
+    if (!this.retailHistory) throw new Error("Retail history fixture missing.");
+    return this.retailHistory;
   }
   async listStockTotalsForProducts(){return this.stockBalances.map(item=>({productId:item.productId,physicalQuantity:item.availableQuantity,reservedQuantity:item.reservedQuantity??0,availableQuantity:item.availableQuantity,incomingQuantity:item.expectedQuantity??0,hasVariantStock:false,syncedAt:item.updatedFrom1cAt??now}));}
   async listSupplierArrivalsForProducts(){return this.supplierArrivals;}
@@ -513,6 +592,38 @@ class FakePermissionService implements PermissionService {
 }
 
 const now = "2026-07-09T00:00:00.000Z";
+
+function makeRetailHistory(): RetailPriceHistoryRow {
+  return {
+    current: {
+      amount: 2499,
+      currency: "MDL",
+      effectiveAt: "2026-07-20T00:00:00.000Z",
+    },
+    points: [
+      {
+        amount: 2399,
+        currency: "MDL",
+        effectiveAt: "2026-07-12T00:00:00.000Z",
+        source: "initial_baseline",
+      },
+      {
+        amount: 2499,
+        currency: "MDL",
+        effectiveAt: "2026-07-20T00:00:00.000Z",
+        source: "price_sync_snapshot",
+      },
+    ],
+    firstAt: "2026-07-12T00:00:00.000Z",
+    lastAt: "2026-07-20T00:00:00.000Z",
+    previousAmount: 2399,
+    minimumAmount: 2399,
+    maximumAmount: 2499,
+    mode: "accumulated",
+    range: "12m",
+    truncated: false,
+  };
+}
 
 function makePrice(companyId: string | null, amount: number, external1cPriceTypeId: string | null = "BASE", currency = "BGN"): ProductPrice {
   return {

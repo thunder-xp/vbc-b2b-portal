@@ -7,6 +7,8 @@ import type {
   ListProductPricesInput,
   PricingInventoryRepository,
   PricingUpsertResult,
+  RetailPriceHistoryRange,
+  RetailPriceHistoryRow,
   ProductStockTotal,
   ProductSupplierArrival,
   UpsertProductPriceInput,
@@ -42,6 +44,18 @@ export class PricingInventoryRepositoryUnexpectedError extends Error {
 export class SupabasePricingInventoryRepository
   implements PricingInventoryRepository
 {
+  async getRetailPriceHistory(
+    productId: string,
+    range: RetailPriceHistoryRange,
+  ): Promise<RetailPriceHistoryRow> {
+    const { data, error } = await (await createClient()).rpc(
+      "get_retail_price_history",
+      { p_product_id: productId, p_range: range },
+    );
+    if (error || !data) throw new PricingInventoryRepositoryUnexpectedError();
+    return data as RetailPriceHistoryRow;
+  }
+
   async findPriceTypeName(externalRef: string): Promise<string | null> {
     const { data, error } = await (await createClient())
       .from("price_types")

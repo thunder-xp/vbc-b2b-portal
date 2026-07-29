@@ -14,6 +14,20 @@ export type ListProductPricesInput = {
 export type ProductStockTotal = { productId:string; physicalQuantity:number; reservedQuantity:number; availableQuantity:number; incomingQuantity:number; hasVariantStock:boolean; syncedAt:string };
 export type ProductSupplierArrival = { productId:string; externalCharacteristicRef:string; expectedDate:string; expectedQuantity:number; publishedAt:string };
 export type UsdMdlExchangeRate = { sourceCode: "113"; mdlPerUsdRate: number; effectiveDate: string; publishedAt: string };
+export type RetailPriceHistoryRange = "3m" | "6m" | "12m" | "all";
+export type RetailPriceHistorySource = "initial_baseline" | "price_sync_snapshot" | "one_c_history" | "manual_repair";
+export type RetailPriceHistoryRow = {
+  current: { amount: number; currency: string; effectiveAt: string } | null;
+  points: Array<{ amount: number; currency: string; effectiveAt: string; source: RetailPriceHistorySource }>;
+  firstAt: string | null;
+  lastAt: string | null;
+  previousAmount: number | null;
+  minimumAmount: number | null;
+  maximumAmount: number | null;
+  mode: "unavailable" | "baseline_only" | "accumulated" | "historical_verified";
+  range: RetailPriceHistoryRange;
+  truncated: boolean;
+};
 
 export type PricingUpsertResult<TRecord> = {
   record: TRecord;
@@ -69,6 +83,7 @@ export interface PricingInventoryRepository {
   listStockForProducts(productIds: string[]): Promise<ProductStockBalance[]>;
   listStockTotalsForProducts?(productIds:string[]):Promise<ProductStockTotal[]>;
   listSupplierArrivalsForProducts?(productIds:string[]):Promise<ProductSupplierArrival[]>;
+  getRetailPriceHistory?(productId: string, range: RetailPriceHistoryRange): Promise<RetailPriceHistoryRow>;
   listProductIdsWithPositiveStock?(): Promise<string[]>;
   listProductIdsWithConfirmedArrival?(): Promise<string[]>;
   findProductPrice(input: FindProductPriceInput): Promise<ProductPrice | null>;
