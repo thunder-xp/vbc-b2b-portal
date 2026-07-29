@@ -8,12 +8,14 @@ export function EmptyState({
   actionLabel,
   icon: Icon,
   message,
+  prefetch = false,
   title,
 }: {
   actionHref?: string;
   actionLabel?: string;
   icon?: LucideIcon;
   message: string;
+  prefetch?: boolean;
   title: string;
 }) {
   return (
@@ -21,7 +23,7 @@ export function EmptyState({
       {Icon ? <Icon aria-hidden="true" className="mx-auto size-8 text-emerald-700" /> : null}
       <h2 className="mt-3 text-lg font-semibold text-zinc-950">{title}</h2>
       <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-zinc-600">{message}</p>
-      {actionHref && actionLabel ? <Link className={`${actionClassName.primary} mt-5`} href={actionHref} prefetch={false}>{actionLabel}</Link> : null}
+      {actionHref && actionLabel ? <Link className={`${actionClassName.primary} mt-5`} href={actionHref} prefetch={prefetch}>{actionLabel}</Link> : null}
     </section>
   );
 }

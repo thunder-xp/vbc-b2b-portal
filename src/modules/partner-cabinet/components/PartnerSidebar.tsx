@@ -161,7 +161,7 @@ export function PartnerSidebar({
     <aside className="flex h-full min-h-0 flex-col overflow-hidden border-r border-zinc-200 bg-zinc-950 text-white">
       <div className="shrink-0 border-b border-white/10 px-4 py-4">
         <p className="text-xs font-semibold uppercase text-emerald-300">Novotech</p>
-        <p className="mt-1 text-base font-semibold">Partner Workspace</p>
+        <p className="mt-1 text-base font-semibold">Кабинет партнёра</p>
       </div>
 
       <nav aria-label="Рабочие разделы" className="min-h-0 flex-1 overflow-y-auto px-2 py-3">

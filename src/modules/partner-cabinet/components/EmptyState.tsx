@@ -13,5 +13,5 @@ export function EmptyState({
   actionHref,
   actionLabel,
 }: EmptyStateProps) {
-  return <PlatformEmptyState actionHref={actionHref} actionLabel={actionLabel} message={message} title={title} />;
+  return <PlatformEmptyState actionHref={actionHref} actionLabel={actionLabel} message={message} prefetch={false} title={title} />;
 }

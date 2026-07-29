@@ -13,22 +13,22 @@ describe("CatalogSyncPanel", () => {
     render(<CatalogSyncPanel />);
     expect(await screen.findByText("Коммерческие данные")).toBeInTheDocument();
     expect(screen.getByText("Коммерческий курс 1С")).toBeInTheDocument();
-    expect(await screen.findByText("Catalog structure and products")).toBeInTheDocument();
-    expect(screen.getByText("Partner prices")).toBeInTheDocument();
-    expect(screen.getByText("Inventory and stock")).toBeInTheDocument();
+    expect(await screen.findByText("Структура каталога и товары")).toBeInTheDocument();
+    expect(screen.getByText("Партнёрские цены")).toBeInTheDocument();
+    expect(screen.getByText("Остатки и наличие")).toBeInTheDocument();
     expect(screen.queryByText("Provider")).not.toBeInTheDocument();
   });
   it("uses the daily action for run and retry", async () => {
     const user = userEvent.setup(); render(<CatalogSyncPanel />);
-    await user.click(screen.getByRole("button", { name: "Run full catalog sync" }));
-    await waitFor(() => expect(screen.getByRole("button", { name: "Retry failed catalog sync" })).toBeEnabled());
-    await user.click(screen.getByRole("button", { name: "Retry failed catalog sync" }));
+    await user.click(screen.getByRole("button", { name: "Запустить полную синхронизацию" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Повторить синхронизацию каталога" })).toBeEnabled());
+    await user.click(screen.getByRole("button", { name: "Повторить синхронизацию каталога" }));
     expect(mocks.runDaily).toHaveBeenCalledTimes(2);
   });
   it("runs price and stock through separate actions", async () => {
     const user = userEvent.setup(); render(<CatalogSyncPanel />);
-    await user.click(screen.getByRole("button", { name: "Run price sync now" }));
-    await user.click(screen.getByRole("button", { name: "Run stock sync now" }));
+    await user.click(screen.getByRole("button", { name: "Синхронизировать цены" }));
+    await user.click(screen.getByRole("button", { name: "Синхронизировать остатки" }));
     expect(mocks.prices).toHaveBeenCalledOnce(); expect(mocks.stock).toHaveBeenCalledOnce(); expect(mocks.runDaily).not.toHaveBeenCalled();
   });
   it("runs rate verification and the commercial sequence through server actions", async () => {
@@ -41,7 +41,7 @@ describe("CatalogSyncPanel", () => {
   it("shows a stalled queued continuation from persisted state", async () => {
     mocks.getPriceState.mockResolvedValue({ success: true, data: { status: "queued", updatedAt: "2020-01-01T00:00:00.000Z", currentStage: "price_type_scan", startedAt: "2020-01-01T00:00:00.000Z", lastSuccessfulSyncAt: null, pagesProcessed: 0, rowsScanned: 0, rowsStaged: 0, latestPricesResolved: 0, pricesPublished: 0, pricesDeactivated: 0, unmatchedProducts: 0, unknownPriceTypes: 0, scanComplete: false, failedStage: null, safeError: null, errorCategory: null } });
     render(<CatalogSyncPanel />);
-    expect(await screen.findByText("Continuation has not started")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Retry failed price sync" })).toBeEnabled();
+    expect(await screen.findByText("Продолжение не запущено")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Повторить синхронизацию цен" })).toBeEnabled();
   });
 });

@@ -151,10 +151,10 @@ describe("AccessRequestForm", () => {
   it("renders partner-facing request fields without ERP reference input", () => {
     render(<AccessRequestForm />);
 
-    expect(screen.getByLabelText("Partner company name")).toBeInTheDocument();
-    expect(screen.getByLabelText("Fiscal code / VAT / IDNO")).toBeInTheDocument();
-    expect(screen.getByLabelText("Contact phone")).toBeInTheDocument();
-    expect(screen.getByLabelText("Message / comment")).toBeInTheDocument();
+    expect(screen.getByLabelText("Название компании")).toBeInTheDocument();
+    expect(screen.getByLabelText("Фискальный код / VAT / IDNO")).toBeInTheDocument();
+    expect(screen.getByLabelText("Контактный телефон")).toBeInTheDocument();
+    expect(screen.getByLabelText("Сообщение / комментарий")).toBeInTheDocument();
     expect(screen.queryByLabelText("1C reference")).not.toBeInTheDocument();
   });
 
@@ -168,11 +168,11 @@ describe("AccessRequestForm", () => {
     });
     render(<AccessRequestForm />);
 
-    await user.type(screen.getByLabelText("Partner company name"), "Partner Company");
-    await user.type(screen.getByLabelText("Fiscal code / VAT / IDNO"), "BG123456789");
-    await user.type(screen.getByLabelText("Contact phone"), "+359 1 234");
-    await user.type(screen.getByLabelText("Message / comment"), "Please approve.");
-    await user.click(screen.getByRole("button", { name: "Submit request" }));
+    await user.type(screen.getByLabelText("Название компании"), "Partner Company");
+    await user.type(screen.getByLabelText("Фискальный код / VAT / IDNO"), "BG123456789");
+    await user.type(screen.getByLabelText("Контактный телефон"), "+359 1 234");
+    await user.type(screen.getByLabelText("Сообщение / комментарий"), "Please approve.");
+    await user.click(screen.getByRole("button", { name: "Отправить заявку" }));
 
     expect(mocks.submitAccessRequestAction).toHaveBeenCalledWith({
       requestedCompanyName: "Partner Company",
@@ -195,7 +195,7 @@ describe("AccessRequestForm", () => {
     });
     render(<AccessRequestForm />);
 
-    await user.click(screen.getByRole("button", { name: "Submit request" }));
+    await user.click(screen.getByRole("button", { name: "Отправить заявку" }));
 
     await waitFor(() => {
       expect(mocks.routerReplace).toHaveBeenCalledWith("/onboarding/waiting");
@@ -212,7 +212,7 @@ describe("AccessRequestForm", () => {
     });
     render(<AccessRequestForm />);
 
-    await user.click(screen.getByRole("button", { name: "Submit request" }));
+    await user.click(screen.getByRole("button", { name: "Отправить заявку" }));
 
     await waitFor(() => {
       expect(mocks.routerReplace).toHaveBeenCalledWith("/onboarding/waiting");
@@ -233,7 +233,7 @@ describe("AccessRequestForm", () => {
     });
     render(<AccessRequestForm />);
 
-    await user.click(screen.getByRole("button", { name: "Submit request" }));
+    await user.click(screen.getByRole("button", { name: "Отправить заявку" }));
 
     expect(
       await screen.findByText(

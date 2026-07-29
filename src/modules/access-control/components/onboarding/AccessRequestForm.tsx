@@ -47,16 +47,16 @@ export function AccessRequestForm() {
     >
       <div>
         <h1 className="text-2xl font-semibold tracking-tight text-zinc-950">
-          Partner access request
+          Заявка на доступ
         </h1>
         <p className="mt-2 text-sm text-zinc-600">
-          Send a request for Novotech manager review.
+          Отправьте данные компании на рассмотрение менеджеру Novotech.
         </p>
       </div>
 
       <div className="mt-6 grid gap-5">
         <label className="grid gap-2 text-sm font-medium text-zinc-800">
-          Partner company name
+          Название компании
           <input
             className="h-10 rounded-md border border-zinc-300 px-3 text-sm outline-none focus:border-zinc-950"
             name="requestedCompanyName"
@@ -66,7 +66,7 @@ export function AccessRequestForm() {
         </label>
 
         <label className="grid gap-2 text-sm font-medium text-zinc-800">
-          Fiscal code / VAT / IDNO
+          Фискальный код / VAT / IDNO
           <input
             className="h-10 rounded-md border border-zinc-300 px-3 text-sm outline-none focus:border-zinc-950"
             name="requestedFiscalCode"
@@ -76,7 +76,7 @@ export function AccessRequestForm() {
         </label>
 
         <label className="grid gap-2 text-sm font-medium text-zinc-800">
-          Contact phone
+          Контактный телефон
           <input
             className="h-10 rounded-md border border-zinc-300 px-3 text-sm outline-none focus:border-zinc-950"
             name="contactPhone"
@@ -86,7 +86,7 @@ export function AccessRequestForm() {
         </label>
 
         <label className="grid gap-2 text-sm font-medium text-zinc-800">
-          Message / comment
+          Сообщение / комментарий
           <textarea
             className="min-h-28 rounded-md border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-zinc-950"
             name="message"
@@ -107,7 +107,7 @@ export function AccessRequestForm() {
         disabled={isPending}
         type="submit"
       >
-        {isPending ? "Submitting..." : "Submit request"}
+        {isPending ? "Отправка..." : "Отправить заявку"}
       </button>
     </form>
   );

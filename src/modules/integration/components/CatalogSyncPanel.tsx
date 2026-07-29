@@ -74,25 +74,25 @@ export function CatalogSyncPanel() {
         ["Опубликован", rateResult.rate.publishedAt],
       ]} /> : null}
     </SyncSection>
-    <SyncSection title="Catalog structure and products" description="Синхронизирует структуру категорий и товары из группы SECURITYPARK DISTRIBUTION.">
-      <div className="flex flex-wrap gap-2"><ActionButton pending={catalogPending} onClick={runCatalog}>Run full catalog sync</ActionButton><ActionButton pending={catalogPending} secondary onClick={runCatalog}>Retry failed catalog sync</ActionButton></div>
+    <SyncSection title="Структура каталога и товары" description="Синхронизирует структуру категорий и товары из группы SECURITYPARK DISTRIBUTION.">
+      <div className="flex flex-wrap gap-2"><ActionButton pending={catalogPending} onClick={runCatalog}>Запустить полную синхронизацию</ActionButton><ActionButton pending={catalogPending} secondary onClick={runCatalog}>Повторить синхронизацию каталога</ActionButton></div>
       {catalogMessage && <p className="text-sm text-slate-700">{catalogMessage}</p>}
-      {state ? <CatalogStateView state={state} /> : <p className="text-sm text-slate-500">Loading synchronization status...</p>}
+      {state ? <CatalogStateView state={state} /> : <p className="text-sm text-slate-500">Загрузка состояния синхронизации...</p>}
     </SyncSection>
-    <SyncSection title="Partner prices" description="Обновляет цены из 1С для доступных типов цен.">
-      <div className="flex flex-wrap gap-2"><ActionButton pending={pricePending} onClick={runPrices}>Run price sync now</ActionButton><ActionButton pending={pricePending} secondary onClick={runPrices}>Retry failed price sync</ActionButton></div>
+    <SyncSection title="Партнёрские цены" description="Обновляет цены из 1С для доступных типов цен.">
+      <div className="flex flex-wrap gap-2"><ActionButton pending={pricePending} onClick={runPrices}>Синхронизировать цены</ActionButton><ActionButton pending={pricePending} secondary onClick={runPrices}>Повторить синхронизацию цен</ActionButton></div>
       <Report rows={priceState ? [["Status", priceStatus(priceState)], ["Current stage", priceState.currentStage ?? "-"], ["Started", priceState.startedAt ?? "Never"], ["Last successful run", priceState.lastSuccessfulSyncAt ?? "Never"], ["Pages processed", priceState.pagesProcessed], ["Rows scanned", priceState.rowsScanned], ["Rows staged", priceState.rowsStaged], ["Price rows received", priceState.priceRowsReceived], ["Unique price keys", priceState.priceUniqueKeys], ["Duplicate price keys", priceState.priceDuplicateKeys], ["Price rows deduplicated", priceState.priceRowsDeduplicated], ["Latest prices resolved", priceState.latestPricesResolved], ["Prices published", priceState.pricesPublished], ["Prices deactivated", priceState.pricesDeactivated], ["Unmatched products", priceState.unmatchedProducts], ["Unknown price types", priceState.unknownPriceTypes], ["Scan complete", String(priceState.scanComplete)], ["Failed page", priceState.failedPage ?? "None"], ["Failed stage", priceState.failedStage ?? "None"], ["Database error code", priceState.databaseErrorCode ?? "None"], ["Safe error", priceState.safeError ?? priceState.errorCategory ?? "None"], ["Last update", priceState.updatedAt]] : []} />
     </SyncSection>
-    <SyncSection title="Inventory and stock" description="Обновляет остатки и доступность товаров.">
-      <div className="flex gap-2"><ActionButton pending={stockPending} onClick={runStock}>Run stock sync now</ActionButton><ActionButton pending={stockPending} secondary onClick={runStock}>Retry failed stock sync</ActionButton></div>
+    <SyncSection title="Остатки и наличие" description="Обновляет остатки и доступность товаров.">
+      <div className="flex gap-2"><ActionButton pending={stockPending} onClick={runStock}>Синхронизировать остатки</ActionButton><ActionButton pending={stockPending} secondary onClick={runStock}>Повторить синхронизацию остатков</ActionButton></div>
       <Report rows={stockState?[["Status",stockState.status],["Current stage",stockState.currentStage??"-"],["Snapshot time",stockState.snapshotTime??"-"],["Pages processed",stockState.pagesProcessed],["Physical rows",stockState.physicalRows],["Reserved rows",stockState.reservedRows],["Incoming rows",stockState.incomingRows],["Warehouses loaded",stockState.warehousesLoaded],["Products matched",stockState.productsMatched],["Products unmatched",stockState.productsUnmatched],["Rows published",stockState.rowsPublished],["Rows deactivated",stockState.rowsDeactivated],["Safe error",stockState.safeError??"None"],["Last successful run",stockState.lastSuccessfulSyncAt??"Never"]]:[]} />
     </SyncSection>
   </div>;
 }
 
 function SyncSection({ title, description, children }: { title: string; description: string; children: React.ReactNode }) { return <section className="space-y-4 rounded-lg border border-slate-200 bg-white p-6 shadow-sm"><div><h2 className="text-lg font-semibold text-slate-950">{title}</h2><p className="mt-1 text-sm text-slate-600">{description}</p></div>{children}</section>; }
-function ActionButton({ pending, secondary = false, onClick, children }: { pending: boolean; secondary?: boolean; onClick: () => void; children: React.ReactNode }) { return <button className={secondary ? "rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-800 disabled:opacity-50" : "rounded-md bg-emerald-700 px-4 py-2 text-sm font-medium text-white disabled:bg-slate-400"} disabled={pending} onClick={onClick} type="button">{pending ? "Running..." : children}</button>; }
-function Report({ rows }: { rows: Array<[string, string | number]> }) { return rows.length ? <dl className="grid gap-3 sm:grid-cols-4">{rows.map(([label, value]) => <div className="rounded-md bg-slate-50 p-3" key={label}><dt className="text-xs font-semibold uppercase text-slate-500">{label}</dt><dd className="mt-1 text-sm font-medium text-slate-950">{value}</dd></div>)}</dl> : <p className="text-sm text-slate-500">Not run in this session.</p>; }
+function ActionButton({ pending, secondary = false, onClick, children }: { pending: boolean; secondary?: boolean; onClick: () => void; children: React.ReactNode }) { return <button className={secondary ? "rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-800 disabled:opacity-50" : "rounded-md bg-emerald-700 px-4 py-2 text-sm font-medium text-white disabled:bg-slate-400"} disabled={pending} onClick={onClick} type="button">{pending ? "Выполняется..." : children}</button>; }
+function Report({ rows }: { rows: Array<[string, string | number]> }) { return rows.length ? <dl className="grid gap-3 sm:grid-cols-4">{rows.map(([label, value]) => <div className="rounded-md bg-slate-50 p-3" key={label}><dt className="text-xs font-semibold uppercase text-slate-500">{label}</dt><dd className="mt-1 text-sm font-medium text-slate-950">{value}</dd></div>)}</dl> : <p className="text-sm text-slate-500">В этом сеансе ещё не запускалось.</p>; }
 function CatalogStateView({ state }: { state: CatalogSyncState }) {
   const d = state.diagnostics;
   const rows: Array<[string, string | number]> = [["Root status", state.rootName ? "Found" : "Not found"], ["Root name", state.rootName ?? "-"], ["Last status", state.status], ["Last successful run", state.lastSuccessfulSyncAt ?? "Never"], ["Pages", state.pagesProcessed], ["Folders received", state.foldersReceived], ["Products received", state.productsReceived], ["Folders upserted", state.foldersUpserted], ["Products upserted", state.productsUpserted], ["Rows deactivated", state.rowsDeactivated], ["Error category", state.errorCategory ?? "None"], ["Failed stage", state.failedStage ?? "None"], ["Database error code", state.databaseErrorCode ?? "None"], ["Database constraint", state.databaseConstraint ?? "None"], ["Failed batch", state.failedBatch ?? "None"], ["Next run", state.nextScheduledRun]];
@@ -101,7 +101,7 @@ function CatalogStateView({ state }: { state: CatalogSyncState }) {
   return <Report rows={rows} />;
 }
 
-function priceStatus(state: PriceSyncState): string { return state.status === "queued" && Date.now() - Date.parse(state.updatedAt) > 120_000 ? "Continuation has not started" : state.status; }
+function priceStatus(state: PriceSyncState): string { return state.status === "queued" && Date.now() - Date.parse(state.updatedAt) > 120_000 ? "Продолжение не запущено" : state.status; }
 function stepLabel(status: CommercialSyncAllResult[keyof CommercialSyncAllResult]): string {
   switch (status) {
     case "completed": return "Завершено";
