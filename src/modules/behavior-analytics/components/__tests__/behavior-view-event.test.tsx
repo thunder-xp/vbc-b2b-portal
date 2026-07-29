@@ -9,7 +9,11 @@ vi.mock("../../actions", () => ({
   recordBehaviorEventAction: mocks.record,
 }));
 
-import { BehaviorTrackedCatalogLink, BehaviorViewEvent } from "../BehaviorViewEvent";
+import {
+  BehaviorTrackedCatalogLink,
+  BehaviorViewEvent,
+  recordBehaviorInteraction,
+} from "../BehaviorViewEvent";
 
 describe("BehaviorViewEvent", () => {
   beforeEach(() => {
@@ -45,5 +49,16 @@ describe("BehaviorViewEvent", () => {
     fireEvent.click(link);
     await waitFor(() => expect(mocks.record).toHaveBeenCalledTimes(1));
     expect(link).toHaveAttribute("href", "/cabinet/catalog?label=TOP");
+  });
+
+  it("keeps cabinet actions non-blocking when analytics is unavailable", () => {
+    mocks.record.mockRejectedValueOnce(new Error("analytics unavailable"));
+
+    expect(() => recordBehaviorInteraction({
+      eventName: "dashboard_action_clicked",
+      metadataSafe: { action: "orders" },
+      route: "/cabinet",
+      sourceSurface: "dashboard_quick_actions",
+    })).not.toThrow();
   });
 });

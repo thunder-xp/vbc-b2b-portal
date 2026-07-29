@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 
+import { BehaviorViewEvent } from "@/src/modules/behavior-analytics/components";
 import { getWorkspaceHomeAction } from "@/src/modules/partner-cabinet/actions/workspace-home.action";
 import {
   CommercialFreshnessSummary,
@@ -19,6 +20,7 @@ export default async function CabinetPage() {
   const workspace = result.data;
   return (
     <div className="space-y-6">
+      <BehaviorViewEvent dedupeKey="dashboard" eventName="dashboard_viewed" route="/cabinet" sourceSurface="partner_dashboard" />
       <WorkspaceHero workspace={workspace} />
       <CommercialFreshnessSummary items={workspace.commercialFreshness} />
 

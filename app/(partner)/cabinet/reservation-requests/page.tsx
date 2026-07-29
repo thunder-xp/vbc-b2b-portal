@@ -1,6 +1,7 @@
 import { CalendarClock } from "lucide-react";
 import Link from "next/link";
 
+import { BehaviorViewEvent } from "@/src/modules/behavior-analytics/components";
 import { listPlannedShipmentsAction } from "@/src/modules/orders/actions";
 import { CancelOrderDateChangeButton, OrderDateChangeDialog } from "@/src/modules/orders/components";
 import type { PlannedShipmentDto, PlannedShipmentIndicator } from "@/src/modules/orders/services";
@@ -18,6 +19,7 @@ export default async function PlannedShipmentsPage({ searchParams }: { searchPar
   const result = await listPlannedShipmentsAction({ page });
 
   return <div className="mx-auto max-w-6xl space-y-6">
+    <BehaviorViewEvent dedupeKey={`shipments:${page ?? "1"}`} eventName="shipment_viewed" resultCount={result.success ? result.data.shipments.length : undefined} route="/cabinet/reservation-requests" sourceSurface="planned_shipments" />
     <header className="border-b border-zinc-200 pb-5">
       <p className="text-xs font-semibold uppercase text-emerald-700">Резервирование</p>
       <h1 className="mt-1 text-2xl font-semibold">Планируемые отгрузки</h1>

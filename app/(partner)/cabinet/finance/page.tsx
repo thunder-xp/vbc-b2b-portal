@@ -1,5 +1,6 @@
 import { getFinanceOverviewAction } from "@/src/modules/finance/actions";
 import { FinanceOverview } from "@/src/modules/finance/components";
+import { BehaviorViewEvent } from "@/src/modules/behavior-analytics/components";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +11,7 @@ export default async function FinancePage() {
   }
   return (
     <main className="mx-auto max-w-6xl px-4 py-8">
+      <BehaviorViewEvent dedupeKey="finance" eventName="finance_viewed" route="/cabinet/finance" sourceSurface="finance_overview" />
       <header className="mb-8"><p className="text-xs font-semibold uppercase text-emerald-700">Партнёрский кабинет</p><h1 className="mt-2 text-3xl font-semibold text-zinc-950">Финансы</h1><p className="mt-2 max-w-2xl text-sm text-zinc-600">Суммы к оплате и авансы по действующим договорам в исходной валюте.</p></header>
       <FinanceOverview overview={result.data} />
     </main>

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { BehaviorViewEvent } from "@/src/modules/behavior-analytics/components";
 import { getPartnerOrderHistoryAction } from "@/src/modules/orders/actions";
 import { SaveAsPurchasingListButton } from "@/src/modules/purchasing-lists/components";
 
@@ -18,6 +19,7 @@ export default async function OrderDetailPage({ params, searchParams }: OrderDet
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
+      <BehaviorViewEvent dedupeKey={`order:${order.id}`} eventName="order_opened" route="/cabinet/orders/detail" sourceSurface="order_detail" />
       {submitted || !order.posted ? (
         <div className="rounded-md border border-emerald-200 bg-emerald-50 p-4 text-emerald-950" role="status">
           <h1 className="text-lg font-semibold">Заказ принят</h1>

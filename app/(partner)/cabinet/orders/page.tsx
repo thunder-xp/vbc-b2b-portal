@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { BehaviorViewEvent } from "@/src/modules/behavior-analytics/components";
 import { listPartnerOrderHistoryAction } from "@/src/modules/orders/actions";
 import { OrderHistoryRefreshButton } from "@/src/modules/orders/components/OrderHistoryRefreshButton";
 
@@ -28,6 +29,7 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
+      <BehaviorViewEvent dedupeKey={`orders:${result.data.filter}:${result.data.search}:${result.data.page}`} eventName="order_list_viewed" resultCount={result.data.orders.length} route="/cabinet/orders" sourceSurface="order_history" />
       <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-xs font-semibold uppercase text-emerald-700">Коммерческие документы</p>
@@ -79,8 +81,8 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
           </div>
           <ul className="divide-y divide-zinc-200">
             {result.data.orders.map((order) => (
-              <li className="relative" key={order.id}>
-                <Link className="grid gap-2 p-4 pr-36 outline-none hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-600 xl:grid-cols-[minmax(190px,1fr)_110px_130px_140px_110px_110px_120px] xl:items-center" href={`/cabinet/orders/${order.id}`} prefetch={false}>
+              <li className="grid gap-2 p-4 xl:relative xl:block xl:p-0" key={order.id}>
+                <Link className="grid gap-2 outline-none hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-600 xl:grid-cols-[minmax(190px,1fr)_110px_130px_140px_110px_110px_120px] xl:items-center xl:p-4 xl:pr-36" href={`/cabinet/orders/${order.id}`} prefetch={false}>
                   <span className="font-semibold text-zinc-950">{order.primaryLabel}</span>
                   <span className="text-sm text-zinc-600">{formatDate(order.documentDate)}</span>
                   <span className="text-sm font-medium text-zinc-700">{order.statusLabel}</span>
@@ -89,7 +91,7 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
                   <span className="text-sm text-zinc-600">{order.positionCount} поз. · {order.totalUnitCount} ед.</span>
                   <span className="text-sm text-zinc-500">{formatDateTime(order.lastSynchronizedAt)}</span>
                 </Link>
-                <Link className="absolute right-4 top-4 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-700 hover:border-emerald-600 hover:text-emerald-700" href={`/cabinet/orders/${order.id}/reorder`} prefetch={false}>Повторить заказ</Link>
+                <Link className="inline-flex min-h-11 w-fit items-center rounded-md border border-zinc-300 bg-white px-3 text-xs font-semibold text-zinc-700 hover:border-emerald-600 hover:text-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 xl:absolute xl:right-4 xl:top-4" href={`/cabinet/orders/${order.id}/reorder`} prefetch={false}>Повторить заказ</Link>
               </li>
             ))}
           </ul>

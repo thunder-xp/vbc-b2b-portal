@@ -26,6 +26,14 @@ export const BEHAVIOR_EVENT_NAMES = [
   "out_of_stock_product_viewed",
   "unavailable_product_added",
   "arrival_interest_viewed",
+  "dashboard_viewed",
+  "dashboard_action_clicked",
+  "order_list_viewed",
+  "order_opened",
+  "shipment_viewed",
+  "date_change_started",
+  "finance_viewed",
+  "company_users_viewed",
 ] as const;
 
 export type BehaviorEventName = (typeof BEHAVIOR_EVENT_NAMES)[number];

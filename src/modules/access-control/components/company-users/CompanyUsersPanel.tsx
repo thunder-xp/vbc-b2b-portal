@@ -72,7 +72,7 @@ export function CompanyUsersPanel({
                       <form action={revokeEmployeeInvitationAction}>
                         <HiddenScope companyId={adminCompanyId} name="invitationId" value={record.recordId} />
                         <ReasonField />
-                        <button className="text-xs font-semibold text-red-700">Отозвать</button>
+                        <button className="min-h-11 text-xs font-semibold text-red-700">Отозвать</button>
                       </form>
                     ) : null}
                   </div>
@@ -125,7 +125,7 @@ function MembershipActions({
         <form action={record.membershipStatus === "suspended" ? restoreCompanyEmployeeAction : suspendCompanyEmployeeAction}>
           <HiddenScope companyId={companyId} name="membershipId" value={record.recordId} />
           <ReasonField />
-          <button className="text-xs font-semibold text-zinc-700">
+          <button className="min-h-11 text-xs font-semibold text-zinc-700">
             {record.membershipStatus === "suspended" ? "Восстановить" : "Приостановить"}
           </button>
         </form>
@@ -139,7 +139,7 @@ function MembershipActions({
               </>
             ) : null}
             <ReasonField />
-            <button className="text-xs font-semibold text-amber-700">
+            <button className="min-h-11 text-xs font-semibold text-amber-700">
               {currentOwnerMembershipId ? "Передать владение" : "Назначить владельцем"}
             </button>
           </form>

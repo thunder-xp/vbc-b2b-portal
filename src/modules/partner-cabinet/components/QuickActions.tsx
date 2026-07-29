@@ -1,3 +1,5 @@
+"use client";
+
 import {
   ClipboardPlus,
   FilePlus2,
@@ -8,6 +10,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
+import { recordBehaviorInteraction } from "../../behavior-analytics/components";
 import type { WorkspaceQuickActionDto } from "../services";
 
 const icons = {
@@ -39,7 +42,18 @@ export function QuickActions({ actions }: { actions: WorkspaceQuickActionDto[] }
           );
 
           return action.href && action.availability === "available" ? (
-            <Link className="flex min-h-16 items-center gap-3 rounded-lg border border-zinc-200 bg-white px-4 py-3 text-zinc-950 shadow-sm transition hover:border-emerald-500" href={action.href} key={action.key} prefetch={false}>
+            <Link
+              className="flex min-h-16 items-center gap-3 rounded-lg border border-zinc-200 bg-white px-4 py-3 text-zinc-950 shadow-sm transition hover:border-emerald-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
+              href={action.href}
+              key={action.key}
+              onClick={() => recordBehaviorInteraction({
+                eventName: "dashboard_action_clicked",
+                metadataSafe: { action: action.key },
+                route: "/cabinet",
+                sourceSurface: "dashboard_quick_actions",
+              })}
+              prefetch={false}
+            >
               {content}
             </Link>
           ) : (
