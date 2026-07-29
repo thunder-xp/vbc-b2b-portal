@@ -14,6 +14,7 @@ const PurchasingListChooserDialog = dynamic(
 export function FavoriteProductButton({ compact = false, initialSaved, productId, withListChooser = false }: { compact?: boolean; initialSaved: boolean; productId: string; withListChooser?: boolean }) {
   const [saved, setSaved] = useState(initialSaved);
   const [chooserOpen, setChooserOpen] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const label = saved ? "Удалить из избранного" : "Добавить в избранное";
 
@@ -27,15 +28,20 @@ export function FavoriteProductButton({ compact = false, initialSaved, productId
       setSaved(next);
       startTransition(async () => {
         const result = await setFavoriteProductAction(productId, next);
-        if (!result.success) setSaved(!next);
-        else setSaved(result.data.saved);
+        if (!result.success) {
+          setSaved(!next);
+          setMessage("Не удалось обновить избранное. Повторите попытку.");
+        } else {
+          setSaved(result.data.saved);
+          setMessage(result.data.saved ? "Товар добавлен в избранное." : "Товар удалён из избранного.");
+        }
       });
     }}
     title={compact ? label : undefined}
     type="button"
   ><Heart aria-hidden="true" className={`size-4 ${saved ? "fill-current" : ""}`} />{compact ? null : (saved ? "В избранном" : "В избранное")}</button>;
 
-  if (!withListChooser) return favoriteButton;
+  if (!withListChooser) return <div>{favoriteButton}{message ? <p aria-live="polite" className={compact ? "sr-only" : "mt-1 text-xs text-zinc-600"}>{message}</p> : null}</div>;
 
   return <>
     <div aria-label="Избранное и списки" className="inline-flex">
@@ -50,6 +56,7 @@ export function FavoriteProductButton({ compact = false, initialSaved, productId
         <ChevronDown aria-hidden="true" className="size-3.5" />
       </button>
     </div>
+    {message ? <p aria-live="polite" className={compact ? "fixed bottom-4 left-1/2 z-50 max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-md bg-zinc-950 px-3 py-2 text-xs font-medium text-white shadow-lg" : "mt-1 text-xs text-zinc-600"}>{message}</p> : null}
     {chooserOpen ? <PurchasingListChooserDialog onClose={() => setChooserOpen(false)} productId={productId} /> : null}
   </>;
 }
