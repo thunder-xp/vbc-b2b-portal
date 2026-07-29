@@ -17,14 +17,15 @@ describe("DefaultWorkspaceHomeService", () => {
       accountManager: null,
     });
     expect(workspace.quickActions.map((action) => action.label)).toEqual([
-      "Создать проект",
-      "Подобрать оборудование",
-      "Создать спецификацию",
-      "Сформировать КП",
+      "Весь каталог",
       "Повторить заказ",
-      "Зарегистрировать гарантийный случай",
+      "Создать смету",
+      "Мои заказы",
+      "Планируемые отгрузки",
+      "Финансы",
+      "Управление сотрудниками",
     ]);
-    expect(workspace.processCards).toHaveLength(6);
+    expect(workspace.processCards).toHaveLength(4);
     expect(JSON.stringify(workspace)).not.toMatch(/activeOrders|openProjects|f7df2069|33333333/);
   });
 
@@ -64,7 +65,11 @@ function fakeContextService(
           "pricing.partner_price.view",
           "pricing.retail_price.view",
           "stock.view",
-          "orders.create",
+          "orders.manage",
+          "reservations.manage",
+          "estimates.view",
+          "finance.view_company",
+          "company_users.manage",
           "documents.view_company",
         ])),
         ...overrides,

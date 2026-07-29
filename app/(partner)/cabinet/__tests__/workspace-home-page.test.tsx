@@ -28,17 +28,16 @@ describe("Partner Workspace home page", () => {
     expect(screen.getByText("Статус партнёра")).toBeInTheDocument();
     expect(screen.getByText("GOLD")).toBeInTheDocument();
     expect(screen.queryByText("Вид цены")).not.toBeInTheDocument();
-    expect(screen.getByText("Создать проект")).toBeInTheDocument();
-    expect(screen.getByText("Подобрать оборудование")).toBeInTheDocument();
-    expect(screen.getByText("Мои проекты")).toBeInTheDocument();
-    expect(screen.getByText("Требует внимания")).toBeInTheDocument();
+    expect(screen.getByText("Весь каталог")).toBeInTheDocument();
+    expect(screen.getAllByText("Мои заказы")).toHaveLength(2);
+    expect(screen.getByText("Планируемые отгрузки")).toBeInTheDocument();
+    expect(screen.getByText("Доступ компании")).toBeInTheDocument();
   });
 
   it("renders honest empty states without invented counts or technical modules", async () => {
     const { container } = render(await CabinetPage());
 
-    expect(screen.getByText("Проекты пока не созданы.")).toBeInTheDocument();
-    expect(screen.getByText("Заказов пока нет.")).toBeInTheDocument();
+    expect(screen.getByText(/Проверьте активные заказы/)).toBeInTheDocument();
     expect(container.textContent).not.toMatch(/Точные остатки|Персональные цены|Price group|1C integration/);
     expect(container.textContent).not.toMatch(/f7df2069|33333333/);
     expect(container.textContent).not.toMatch(/\b[1-9]\d*\s+(заказ|проект)/i);
@@ -61,17 +60,13 @@ function workspaceData() {
     greetingName: "Partner User",
     company: { name: "Partner Company", role: "Partner Owner", external1cCode: "UU-001940", priceType: "GOLD", accountManager: null },
     quickActions: [
-      { key: "create_project", label: "Создать проект", href: null, availability: "coming_soon" },
-      { key: "select_equipment", label: "Подобрать оборудование", href: "/cabinet/catalog", availability: "available" },
-      { key: "create_specification", label: "Создать спецификацию", href: null, availability: "coming_soon" },
-      { key: "create_proposal", label: "Сформировать КП", href: null, availability: "coming_soon" },
-      { key: "repeat_order", label: "Повторить заказ", href: null, availability: "coming_soon" },
-      { key: "register_warranty", label: "Зарегистрировать гарантийный случай", href: null, availability: "coming_soon" },
+      { key: "catalog", label: "Весь каталог", href: "/cabinet/catalog", availability: "available" },
+      { key: "orders", label: "Мои заказы", href: "/cabinet/orders", availability: "available" },
+      { key: "shipments", label: "Планируемые отгрузки", href: "/cabinet/reservation-requests", availability: "available" },
     ],
     processCards: [
-      { key: "projects", title: "Мои проекты", emptyMessage: "Проекты пока не созданы.", actionLabel: "Создать первый проект" },
-      { key: "orders", title: "Заказы", emptyMessage: "Заказов пока нет.", actionLabel: "Перейти к каталогу" },
-      { key: "attention", title: "Требует внимания", emptyMessage: "Нет задач, требующих вашего внимания.", actionLabel: "Всё в порядке" },
+      { key: "orders", title: "Заказы", status: "normal", summary: "Проверьте активные заказы, даты отгрузки и позиции, требующие уточнения.", actionLabel: "Мои заказы", href: "/cabinet/orders" },
+      { key: "company_users", title: "Доступ компании", status: "normal", summary: "Проверьте сотрудников, роли и ожидающие приглашения.", actionLabel: "Управление сотрудниками", href: "/cabinet/company/users" },
     ],
     commercialConfigurationMissing: false,
   };

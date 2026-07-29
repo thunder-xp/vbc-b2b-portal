@@ -14,8 +14,10 @@ export type WorkspaceQuickActionDto = {
 export type WorkspaceProcessCardDto = {
   key: string;
   title: string;
-  emptyMessage: string;
+  status: "normal" | "warning";
+  summary: string;
   actionLabel: string;
+  href: string;
 };
 
 export type WorkspaceHomeDto = {
@@ -64,7 +66,7 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
         accountManager: null,
       },
       quickActions: buildQuickActions(context.capabilities.navigation),
-      processCards: WORKSPACE_PROCESS_CARDS,
+      processCards: buildProcessCards(context.capabilities.navigation, context.capabilities.canManageCompanyUsers ?? false, freshnessByDomain),
       commercialConfigurationMissing: context.accessState === "missing_price_type",
       commercialFreshness: [
         freshnessItem("prices", "Цены", freshnessByDomain.get("prices")),
@@ -84,14 +86,18 @@ function freshnessItem(domain: "rates" | "prices" | "stock" | "arrivals", label:
   };
 }
 
-const WORKSPACE_PROCESS_CARDS: WorkspaceProcessCardDto[] = [
-  { key: "projects", title: "Мои проекты", emptyMessage: "Проекты пока не созданы.", actionLabel: "Создать первый проект" },
-  { key: "orders", title: "Заказы", emptyMessage: "Заказов пока нет.", actionLabel: "Перейти к каталогу" },
-  { key: "proposals", title: "Сметы и КП", emptyMessage: "Сметы и коммерческие предложения пока не созданы.", actionLabel: "Сформировать первое КП" },
-  { key: "service", title: "Сервисные обращения", emptyMessage: "Активных сервисных обращений нет.", actionLabel: "Зарегистрировать гарантийный случай" },
-  { key: "attention", title: "Требует внимания", emptyMessage: "Нет задач, требующих вашего внимания.", actionLabel: "Всё в порядке" },
-  { key: "activity", title: "Последние действия", emptyMessage: "История действий пока пуста.", actionLabel: "Действия появятся после начала работы" },
-];
+function buildProcessCards(navigation: WorkspaceNavigationItem[], canManageUsers: boolean, freshness: Map<string, string | null>): WorkspaceProcessCardDto[] {
+  const available = new Map(navigation.filter((item) => item.availability === "available" && item.href).map((item) => [item.key, item.href!]));
+  const cards: WorkspaceProcessCardDto[] = [];
+  if (available.has("orders")) cards.push({ key: "orders", title: "Заказы", status: "normal", summary: "Проверьте активные заказы, даты отгрузки и позиции, требующие уточнения.", actionLabel: "Мои заказы", href: available.get("orders")! });
+  if (available.has("reservations")) cards.push({ key: "shipments", title: "Планируемые отгрузки", status: "normal", summary: "Контролируйте ближайшие и просроченные даты отгрузки.", actionLabel: "Открыть отгрузки", href: available.get("reservations")! });
+  if (available.has("finance")) {
+    const financeCurrent = Boolean(freshness.get("prices"));
+    cards.push({ key: "finance", title: "Финансы", status: financeCurrent ? "normal" : "warning", summary: financeCurrent ? "Баланс по договорам доступен в разрезе валют." : "Проверьте актуальность финансовых данных.", actionLabel: "Открыть финансы", href: available.get("finance")! });
+  }
+  if (canManageUsers && available.has("company")) cards.push({ key: "company_users", title: "Доступ компании", status: "normal", summary: "Проверьте сотрудников, роли и ожидающие приглашения.", actionLabel: "Управление сотрудниками", href: "/cabinet/company/users" });
+  return cards;
+}
 
 function buildQuickActions(navigation: WorkspaceNavigationItem[]): WorkspaceQuickActionDto[] {
   const byKey = new Map(navigation.map((item) => [item.key, item]));
@@ -111,11 +117,12 @@ function buildQuickActions(navigation: WorkspaceNavigationItem[]): WorkspaceQuic
   };
 
   return [
-    action("create_project", "Создать проект", "projects"),
-    action("select_equipment", "Подобрать оборудование", "catalog", "/cabinet/catalog"),
-    action("create_specification", "Создать спецификацию", "projects"),
-    action("create_proposal", "Сформировать КП", "proposals"),
+    action("catalog", "Весь каталог", "catalog", "/cabinet/catalog"),
     action("repeat_order", "Повторить заказ", "orders"),
-    action("register_warranty", "Зарегистрировать гарантийный случай", "warranty"),
-  ];
+    action("estimate", "Создать смету", "proposals"),
+    action("orders", "Мои заказы", "orders"),
+    action("shipments", "Планируемые отгрузки", "reservations"),
+    action("finance", "Финансы", "finance"),
+    action("company_users", "Управление сотрудниками", "company"),
+  ].filter((item) => item.availability === "available");
 }

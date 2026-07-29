@@ -11,10 +11,12 @@ import Link from "next/link";
 import type { WorkspaceQuickActionDto } from "../services";
 
 const icons = {
-  create_project: FolderPlus,
-  select_equipment: PackageSearch,
-  create_specification: ClipboardPlus,
-  create_proposal: FilePlus2,
+  catalog: PackageSearch,
+  estimate: FilePlus2,
+  orders: ClipboardPlus,
+  shipments: FolderPlus,
+  finance: FilePlus2,
+  company_users: ShieldPlus,
   repeat_order: RefreshCw,
   register_warranty: ShieldPlus,
 } as const;
