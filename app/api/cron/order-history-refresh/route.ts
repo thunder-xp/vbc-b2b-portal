@@ -1,6 +1,6 @@
 import { after, NextResponse } from "next/server";
 
-import { isAuthorizedCronRequest } from "@/src/lib/cron-auth";
+import { authorizeCronRequest } from "@/src/lib/cron-auth";
 import { acquireSyncRunLock, releaseSyncRunLock } from "@/src/modules/integration/sync";
 import { createPartnerOrderHistoryAutomationService } from "@/src/modules/orders/actions/service-factory";
 
@@ -9,7 +9,7 @@ export const maxDuration = 300;
 
 export async function GET(request: Request) {
   const triggerStartedAt = Date.now();
-  if (!isAuthorizedCronRequest(request)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await authorizeCronRequest(request)).authorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const runId = crypto.randomUUID();
   const lock = await acquireSyncRunLock("daily_order_history", runId, 3600);
   if (lock === "locked") return NextResponse.json({ status: "locked", runId }, { status: 202 });

@@ -16,7 +16,7 @@ const vercel = JSON.parse(
 
 describe("partner notification deadline cron", () => {
   it("uses canonical cron authorization and no-store responses", () => {
-    expect(route).toContain("isAuthorizedCronRequest(request)");
+    expect(route).toContain("await authorizeCronRequest(request)");
     expect(route).toContain('"Cache-Control": "no-store"');
   });
 

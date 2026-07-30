@@ -7,7 +7,7 @@ describe("finance contract-balance scheduled route", () => {
   const vercel = JSON.parse(readFileSync(resolve("vercel.json"), "utf8")) as { crons: Array<{ path: string; schedule: string }> };
 
   it("uses cron authentication and global overlap protection", () => {
-    expect(route).toContain("isAuthorizedCronRequest(request)");
+    expect(route).toContain("await authorizeCronRequest(request)");
     expect(route).toContain('acquireSyncRunLock("scheduled_finance_contract_balances"');
     expect(route).toContain("createFinanceSyncCoordinator().synchronizeCompanies");
   });

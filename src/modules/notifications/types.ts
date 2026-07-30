@@ -97,4 +97,15 @@ export type NotificationHealth = {
     startedAt: string;
     finishedAt: string | null;
   };
+  cronRoutes: Array<{
+    route: string;
+    lastInvokedAt: string;
+    lastAuthorizedAt: string | null;
+    lastDeniedAt: string | null;
+    lastAuthCategory: string;
+    lastCallerType: string;
+    lastDeploymentSha: string | null;
+    authorizedCount: number;
+    deniedCount: number;
+  }>;
 };

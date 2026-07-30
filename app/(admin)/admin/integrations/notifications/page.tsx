@@ -60,6 +60,45 @@ export default async function NotificationHealthPage() {
         </dl>
       </section>
       <section className="rounded-md border border-zinc-200 bg-white p-5">
+        <h2 className="font-semibold text-zinc-950">Авторизация планировщика</h2>
+        {health.cronRoutes.length ? (
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full min-w-[720px] text-left text-sm">
+              <thead className="text-zinc-500">
+                <tr>
+                  <th className="pb-2 font-medium">Маршрут</th>
+                  <th className="pb-2 font-medium">Результат</th>
+                  <th className="pb-2 font-medium">Источник</th>
+                  <th className="pb-2 font-medium">Последний вызов</th>
+                  <th className="pb-2 font-medium">Успешно / отказано</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-100">
+                {health.cronRoutes.map((route) => (
+                  <tr key={route.route}>
+                    <td className="py-2 font-mono text-xs text-zinc-900">
+                      {route.route}
+                    </td>
+                    <td className="py-2 text-zinc-700">
+                      {route.lastAuthCategory}
+                    </td>
+                    <td className="py-2 text-zinc-700">{route.lastCallerType}</td>
+                    <td className="py-2 text-zinc-700">{route.lastInvokedAt}</td>
+                    <td className="py-2 text-zinc-700">
+                      {route.authorizedCount} / {route.deniedCount}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="mt-3 text-sm text-zinc-600">
+            Данные появятся после следующего вызова планировщика.
+          </p>
+        )}
+      </section>
+      <section className="rounded-md border border-zinc-200 bg-white p-5">
         <h2 className="font-semibold text-zinc-950">Последние сбои</h2>
         {health.recentFailures.length ? (
           <ul className="mt-3 divide-y divide-zinc-100">

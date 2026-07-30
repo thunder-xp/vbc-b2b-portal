@@ -1,6 +1,6 @@
 import { after, NextResponse } from "next/server";
 
-import { isAuthorizedCronRequest } from "@/src/lib/cron-auth";
+import { authorizeCronRequest } from "@/src/lib/cron-auth";
 import { getOneCEnv } from "@/src/lib/env";
 import { createChunkedPriceSyncService } from "@/src/modules/integration/services";
 import { launchPriceSync, PriceSyncLaunchError } from "@/src/modules/integration/sync/price-sync-continuation";
@@ -10,7 +10,7 @@ export const maxDuration = 30;
 
 export async function GET(request: Request) {
   const triggerStartedAt = Date.now();
-  if (!isAuthorizedCronRequest(request)) {
+  if (!(await authorizeCronRequest(request)).authorized) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

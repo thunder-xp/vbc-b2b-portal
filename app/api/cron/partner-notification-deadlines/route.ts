@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { isAuthorizedCronRequest } from "@/src/lib/cron-auth";
+import { authorizeCronRequest } from "@/src/lib/cron-auth";
 import {
   NotificationDeadlineService,
   SupabaseNotificationDeadlineRepository,
@@ -11,7 +11,7 @@ export const maxDuration = 60;
 
 export async function GET(request: Request) {
   const startedAt = performance.now();
-  if (!isAuthorizedCronRequest(request)) {
+  if (!(await authorizeCronRequest(request)).authorized) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

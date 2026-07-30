@@ -1,6 +1,6 @@
 import { after, NextResponse } from "next/server";
 
-import { isAuthorizedCronRequest } from "@/src/lib/cron-auth";
+import { authorizeCronRequest } from "@/src/lib/cron-auth";
 import { getOneCEnv } from "@/src/lib/env";
 import { createExchangeRateSyncService } from "@/src/modules/integration/services";
 import { acquireSyncRunLock, releaseSyncRunLock } from "@/src/modules/integration/sync";
@@ -10,7 +10,7 @@ export const maxDuration = 60;
 
 export async function GET(request: Request) {
   const triggerStartedAt = Date.now();
-  if (!isAuthorizedCronRequest(request)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await authorizeCronRequest(request)).authorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const runId = crypto.randomUUID();
   const lock = await acquireSyncRunLock("commercial_rate", runId, 300);
   if (lock === "locked") return NextResponse.json({ status: "locked", runId }, { status: 202 });

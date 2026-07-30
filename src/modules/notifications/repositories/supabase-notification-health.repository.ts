@@ -52,6 +52,17 @@ const healthSchema = z.object({
     startedAt: z.string(),
     finishedAt: z.string().nullable(),
   }).nullable(),
+  cronRoutes: z.array(z.object({
+    route: z.string(),
+    lastInvokedAt: z.string(),
+    lastAuthorizedAt: z.string().nullable(),
+    lastDeniedAt: z.string().nullable(),
+    lastAuthCategory: z.string(),
+    lastCallerType: z.string(),
+    lastDeploymentSha: z.string().nullable(),
+    authorizedCount: z.number().int().nonnegative(),
+    deniedCount: z.number().int().nonnegative(),
+  })),
 });
 
 export class SupabaseNotificationHealthRepository
@@ -59,9 +70,19 @@ export class SupabaseNotificationHealthRepository
 {
   async getHealth(): Promise<NotificationHealth> {
     const client = await createClient();
-    const { data, error } = await client.rpc("get_admin_notification_health");
-    const parsed = healthSchema.safeParse(data);
-    if (error || !parsed.success) throw new NotificationRepositoryError(error?.code);
+    const [notificationResult, cronResult] = await Promise.all([
+      client.rpc("get_admin_notification_health"),
+      client.rpc("get_admin_cron_route_health"),
+    ]);
+    const parsed = healthSchema.safeParse({
+      ...notificationResult.data,
+      cronRoutes: cronResult.data,
+    });
+    if (notificationResult.error || cronResult.error || !parsed.success) {
+      throw new NotificationRepositoryError(
+        notificationResult.error?.code ?? cronResult.error?.code,
+      );
+    }
     return parsed.data;
   }
 }

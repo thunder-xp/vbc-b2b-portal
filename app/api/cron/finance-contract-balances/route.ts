@@ -1,6 +1,6 @@
 import { after, NextResponse } from "next/server";
 
-import { isAuthorizedCronRequest } from "@/src/lib/cron-auth";
+import { authorizeCronRequest } from "@/src/lib/cron-auth";
 import { acquireSyncRunLock, releaseSyncRunLock } from "@/src/modules/integration/sync";
 import { createFinanceSyncCoordinator } from "@/src/modules/finance/actions/service-factory";
 
@@ -8,7 +8,7 @@ export const runtime = "nodejs";
 export const maxDuration = 300;
 
 export async function GET(request: Request) {
-  if (!isAuthorizedCronRequest(request)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await authorizeCronRequest(request)).authorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const runId = crypto.randomUUID();
   const lock = await acquireSyncRunLock("scheduled_finance_contract_balances", runId, 900);
   if (lock === "locked") return NextResponse.json({ status: "locked", runId }, { status: 202 });
