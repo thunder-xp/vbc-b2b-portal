@@ -44,8 +44,7 @@ begin
       and transition.processing_attempts < 5
       and (p_source_sync_id is null or transition.source_sync_id = p_source_sync_id)
     order by transition.occurred_at, transition.id
-    limit normalized_limit
-    for update skip locked;
+    limit normalized_limit;
 
     select count(*)::integer into transition_count
     from product_transition_batch;

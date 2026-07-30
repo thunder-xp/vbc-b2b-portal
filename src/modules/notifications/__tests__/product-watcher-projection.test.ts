@@ -72,7 +72,9 @@ describe("watched-product notification projection", () => {
   it("is bounded, retryable, and idempotent", () => {
     expect(sql).toContain("least(greatest(coalesce(p_limit, 500), 1), 1000)");
     expect(sql).toContain("processing_attempts < 5");
-    expect(sql).toContain("for update skip locked");
+    expect(sql).toContain(
+      "pg_try_advisory_xact_lock(hashtext('partner_product_notification_projection'))",
+    );
     expect(sql).toContain(
       "on conflict (recipient_user_id, deduplication_key) do nothing",
     );

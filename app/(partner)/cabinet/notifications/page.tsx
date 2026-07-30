@@ -6,6 +6,7 @@ import {
   MarkAllNotificationsReadButton,
   NotificationActions,
   NotificationSeverityLabel,
+  ProductNotificationLink,
 } from "@/src/modules/notifications/components";
 import type {
   NotificationEventGroup,
@@ -129,13 +130,23 @@ export default async function CabinetNotificationsPage({
                       read={Boolean(item.readAt)}
                     />
                     {item.actionUrl && item.actionLabel && (
-                      <Link
-                        className="inline-flex min-h-11 items-center gap-1.5 self-start text-sm font-medium text-emerald-700 hover:text-emerald-900 sm:self-auto"
-                        href={item.actionUrl}
-                      >
-                        {item.actionLabel}
-                        <ExternalLink aria-hidden="true" size={15} />
-                      </Link>
+                      item.eventGroup === "products" ? (
+                        <ProductNotificationLink
+                          actionUrl={item.actionUrl}
+                          className="inline-flex min-h-11 items-center gap-1.5 self-start text-sm font-medium text-emerald-700 hover:text-emerald-900 sm:self-auto"
+                        >
+                          {item.actionLabel}
+                          <ExternalLink aria-hidden="true" size={15} />
+                        </ProductNotificationLink>
+                      ) : (
+                        <Link
+                          className="inline-flex min-h-11 items-center gap-1.5 self-start text-sm font-medium text-emerald-700 hover:text-emerald-900 sm:self-auto"
+                          href={item.actionUrl}
+                        >
+                          {item.actionLabel}
+                          <ExternalLink aria-hidden="true" size={15} />
+                        </Link>
+                      )
                     )}
                   </div>
                 </article>
