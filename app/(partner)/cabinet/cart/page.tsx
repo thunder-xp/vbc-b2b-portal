@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ProductLineThumbnail } from "@/src/modules/catalog/components/ProductLineThumbnail";
 import { getCartAction } from "@/src/modules/orders/actions";
 import { CartItemActions } from "@/src/modules/orders/components/CartItemActions";
+import { CartCheckoutCoordinator } from "@/src/modules/orders/components/CartCheckoutCoordinator";
 import { OrderSubmitForm } from "@/src/modules/orders/components/OrderSubmitForm";
 import { CreateEstimateFromCartButton } from "@/src/modules/estimates/components/CreateEstimateFromCartButton";
 import { SaveAsPurchasingListButton } from "@/src/modules/purchasing-lists/components";
@@ -36,6 +37,7 @@ export default async function CartPage() {
           <Link className="mt-4 inline-flex rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white" href="/cabinet/catalog" prefetch={false}>Открыть каталог</Link>
         </div>
       ) : (
+        <CartCheckoutCoordinator>
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
           <div className="space-y-4">
             {GROUPS.map((group) => {
@@ -79,9 +81,14 @@ export default async function CartPage() {
             </div>
             <CreateEstimateFromCartButton />
             <SaveAsPurchasingListButton source="cart" />
-            <OrderSubmitForm submissionKey={crypto.randomUUID()} />
+            <OrderSubmitForm
+              cartId={cart.id!}
+              intentVersion={cart.intentVersion!}
+              submissionKey={crypto.randomUUID()}
+            />
           </aside>
         </div>
+        </CartCheckoutCoordinator>
       )}
     </div>
   );

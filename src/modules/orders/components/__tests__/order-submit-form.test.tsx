@@ -2,7 +2,11 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { OrderSubmitForm } from "../OrderSubmitForm";
+import {
+  chisinauBusinessDate,
+  formatRussianBusinessDate,
+  OrderSubmitForm,
+} from "../OrderSubmitForm";
 
 const mocks = vi.hoisted(() => ({ submit: vi.fn(), push: vi.fn() }));
 
@@ -21,8 +25,9 @@ describe("OrderSubmitForm", () => {
     await user.click(screen.getByRole("button", { name: "Отправить заказ" }));
     expect(await screen.findByText(/договор компании/)).toBeInTheDocument();
     expect(date).toHaveValue("2099-01-10");
-    expect(view.container.querySelector<HTMLInputElement>('input[name="submissionKey"]')?.value)
-      .not.toBe("55555555-5555-4555-8555-555555555555");
+    await waitFor(() => expect(
+      view.container.querySelector<HTMLInputElement>('input[name="submissionKey"]')?.value,
+    ).not.toBe("55555555-5555-4555-8555-555555555555"));
   });
 
   it("preserves the date when the parent refreshes after a quantity update", async () => {
@@ -64,7 +69,7 @@ describe("OrderSubmitForm", () => {
 
     const button = screen.getByRole("button", { name: "Отправить заказ" });
     await user.click(button);
-    expect(screen.getByRole("button", { name: "Отправка заказа..." })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Отправляем заказ…" })).toBeDisabled();
     expect(mocks.submit).toHaveBeenCalledOnce();
 
     resolveSubmission?.({ success: false, errorCode: "ORDER_IN_PROGRESS", message: "Заказ уже отправляется.", data: null });
@@ -75,5 +80,12 @@ describe("OrderSubmitForm", () => {
     render(<OrderSubmitForm submissionKey="55555555-5555-4555-8555-555555555555" />);
     expect(screen.getByText(/До этой даты оборудование планируется удерживать/)).toBeInTheDocument();
     expect(screen.getByText(/Заказ будет передан в 1С Novotech/)).toBeInTheDocument();
+  });
+
+  it("uses the Chisinau business date without a UTC boundary shift", () => {
+    expect(chisinauBusinessDate(new Date("2026-07-29T21:30:00.000Z")))
+      .toBe("2026-07-30");
+    expect(formatRussianBusinessDate("2026-07-30"))
+      .toBe("30 июля 2026 г.");
   });
 });

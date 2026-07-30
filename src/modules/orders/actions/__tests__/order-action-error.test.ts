@@ -5,7 +5,7 @@ import { orderSubmissionFailure } from "../order-action-error";
 
 describe("orderSubmissionFailure", () => {
   it.each([
-    [new RecoverableOrderSubmissionError(), "ORDER_UNKNOWN_FAILURE", "Заказ не был отправлен. Корзина сохранена — проверьте данные и повторите попытку."],
+    [new RecoverableOrderSubmissionError(), "ORDER_UNKNOWN_FAILURE", "Заказ не был отправлен. Корзина сохранена. Повторите попытку."],
     [
       new RecoverableOrderSubmissionError(
         "Contract unavailable.",

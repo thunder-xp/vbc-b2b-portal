@@ -27,13 +27,13 @@ function recoverableMessage(code: RecoverableOrderSubmissionError["code"]): stri
     case "ORDER_PRODUCT_MAPPING_MISSING":
       return "Один из товаров не связан с 1С. Корзина сохранена — обратитесь к менеджеру Novotech.";
     case "ORDER_PRICE_CHANGED":
-      return "Цена товара изменилась. Обновите корзину и подтвердите заказ повторно.";
+      return "Данные некоторых позиций обновились. Проверьте изменения перед отправкой.";
     case "ORDER_STOCK_CHANGED":
-      return "Наличие товара изменилось. Проверьте корзину и подтвердите заказ повторно.";
+      return "Данные некоторых позиций обновились. Проверьте изменения перед отправкой.";
     case "ORDER_INVALID_SHIPMENT_DATE":
       return "Проверьте плановую дату отгрузки и повторите отправку.";
     case "ORDER_CART_VERSION_CONFLICT":
-      return "Корзина изменилась во время отправки. Проверьте позиции и повторите попытку.";
+      return "Корзина была изменена в другой вкладке или на другом устройстве. Мы загрузили актуальную версию.";
     case "ORDER_1C_VALIDATION_FAILED":
       return "1С отклонила данные заказа. Корзина сохранена — обратитесь к менеджеру Novotech.";
     case "ORDER_1C_TIMEOUT":
@@ -41,7 +41,7 @@ function recoverableMessage(code: RecoverableOrderSubmissionError["code"]): stri
     case "ORDER_READBACK_FAILED":
       return "Статус отправки заказа уточняется. Не отправляйте заказ повторно.";
     default:
-      return "Заказ не был отправлен. Корзина сохранена — проверьте данные и повторите попытку.";
+      return "Заказ не был отправлен. Корзина сохранена. Повторите попытку.";
   }
 }
 
