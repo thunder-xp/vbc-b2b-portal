@@ -40,7 +40,7 @@ describe("quick reorder baseline architecture", () => {
     const workspace = source("src/modules/partner-cabinet/services/workspace-home.service.ts");
     const cartActions = source("src/modules/orders/actions/cart.actions.ts");
 
-    expect(workspace).toContain('action("repeat_order", "Повторить заказ", "orders")');
+    expect(workspace).toContain('["repeat_order", "Повторить заказ", hrefs.get("orders")]');
     expect(cartActions).not.toMatch(/repeat|reorder/i);
   });
 });

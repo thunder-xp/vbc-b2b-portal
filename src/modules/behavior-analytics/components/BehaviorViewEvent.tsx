@@ -73,12 +73,14 @@ export function BehaviorViewEvent({
 export function BehaviorTrackedLink({
   children,
   className,
+  eventName = "merchandising_product_clicked",
   href,
   productId,
   sourceSurface,
 }: {
   children: React.ReactNode;
   className?: string;
+  eventName?: BehaviorEventName;
   href: string;
   productId: string;
   sourceSurface: string;
@@ -89,7 +91,7 @@ export function BehaviorTrackedLink({
       href={href}
       onClick={() => {
         void recordBehaviorEventAction({
-          eventName: "merchandising_product_clicked",
+          eventName,
           productId,
           route: "/cabinet/catalog",
           sessionId: getSessionId(),

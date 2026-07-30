@@ -3,11 +3,8 @@ import { redirect } from "next/navigation";
 import { BehaviorViewEvent } from "@/src/modules/behavior-analytics/components";
 import { getWorkspaceHomeAction } from "@/src/modules/partner-cabinet/actions/workspace-home.action";
 import {
-  CommercialFreshnessSummary,
-  QuickActions,
+  OperationalDashboard,
   WorkspaceEmptyState,
-  WorkspaceHero,
-  WorkspaceProcessGrid,
 } from "@/src/modules/partner-cabinet/components";
 
 export default async function CabinetPage() {
@@ -20,18 +17,8 @@ export default async function CabinetPage() {
   const workspace = result.data;
   return (
     <div className="space-y-6">
-      <BehaviorViewEvent dedupeKey="dashboard" eventName="dashboard_viewed" route="/cabinet" sourceSurface="partner_dashboard" />
-      <WorkspaceHero workspace={workspace} />
-      <CommercialFreshnessSummary items={workspace.commercialFreshness} />
-
-      {workspace.commercialConfigurationMissing && (
-        <section className="rounded-lg border border-amber-300 bg-amber-50 px-5 py-4 text-sm text-amber-950">
-          Коммерческие условия компании ещё не настроены. Обратитесь к менеджеру Novotech.
-        </section>
-      )}
-
-      <QuickActions actions={workspace.quickActions} />
-      <WorkspaceProcessGrid cards={workspace.processCards} />
+      <BehaviorViewEvent dedupeKey="partner-dashboard-v2" eventName="partner_dashboard_viewed" route="/cabinet" sourceSurface="partner_dashboard" />
+      <OperationalDashboard workspace={workspace} />
     </div>
   );
 }

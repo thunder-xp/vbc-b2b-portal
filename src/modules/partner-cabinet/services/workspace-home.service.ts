@@ -1,38 +1,130 @@
+import type { CatalogProductCardDto } from "../../catalog/services";
 import { InvalidStateError } from "../../access-control/services";
 import { evaluateFreshness, type FreshnessView } from "../../integration/freshness";
+import type {
+  PricingInventoryService,
+  ProductCommercialViewDto,
+} from "../../pricing-inventory";
 import type { CommercialFreshnessReadModel } from "../repositories/commercial-freshness.repository";
+import type {
+  WorkspaceDashboardProductCandidate,
+  WorkspaceDashboardRepository,
+} from "../repositories/workspace-dashboard.repository";
 import type { WorkspaceNavigationItem } from "./workspace-capability.service";
-import type { PartnerWorkspaceContextService } from "./workspace-context.service";
+import type {
+  PartnerWorkspaceContext,
+  PartnerWorkspaceContextService,
+} from "./workspace-context.service";
 
 export type WorkspaceQuickActionDto = {
   key: string;
   label: string;
-  href: string | null;
-  availability: "available" | "coming_soon";
-};
-
-export type WorkspaceProcessCardDto = {
-  key: string;
-  title: string;
-  status: "normal" | "warning";
-  summary: string;
-  actionLabel: string;
   href: string;
 };
 
+export type WorkspaceAttentionItemDto = {
+  id: string;
+  kind: string;
+  title: string;
+  consequence: string;
+  href: string;
+  occurredAt: string;
+};
+
+export type WorkspaceOrderDto = {
+  id: string;
+  number: string;
+  date: string;
+  statusLabel: string;
+  plannedDate: string | null;
+  positionCount: number;
+  formattedTotal: string | null;
+  href: string;
+};
+
+export type WorkspaceShipmentDto = {
+  id: string;
+  orderNumber: string;
+  plannedDate: string;
+  statusLabel: string;
+  positionCount: number;
+  totalUnits: number;
+  pendingDateChange: boolean;
+  href: string;
+};
+
+export type WorkspaceContinuationDto = {
+  id: string;
+  kind: "cart" | "estimate" | "purchasing_list";
+  title: string;
+  detail: string;
+  updatedAt: string;
+  href: string;
+};
+
+export type WorkspaceProductDto = {
+  product: CatalogProductCardDto;
+  commercialView?: ProductCommercialViewDto;
+  purchaseCount?: number;
+  lastPurchasedAt?: string;
+  typicalQuantity?: number;
+};
+
 export type WorkspaceHomeDto = {
-  greetingName: string;
+  identity: {
+    firstName: string;
+    greeting: string;
+  };
   company: {
     name: string;
     role: string;
-    external1cCode: string;
     priceType: string | null;
-    accountManager: string | null;
+  };
+  capabilities: PartnerWorkspaceContext["capabilities"];
+  attentionItems: WorkspaceAttentionItemDto[];
+  orderSummary: {
+    active: number;
+    confirmed: number;
+    attention: number;
+    portalProcessing: number;
+    recent: WorkspaceOrderDto[];
+  };
+  shipmentSummary: {
+    overdue: number;
+    today: number;
+    nextThreeDays: number;
+    later: number;
+    items: WorkspaceShipmentDto[];
   };
   quickActions: WorkspaceQuickActionDto[];
-  processCards: WorkspaceProcessCardDto[];
+  continuationItems: WorkspaceContinuationDto[];
+  reorderProducts: WorkspaceProductDto[];
+  merchandisingProducts: WorkspaceProductDto[];
+  financeSummary: null | {
+    totals: Array<{
+      currency: string;
+      receivable: number;
+      advance: number;
+    }>;
+    contractCount: number;
+    lastSuccessfulAt: string | null;
+    stale: boolean;
+  };
+  companySummary: null | {
+    activeEmployees: number;
+    pendingInvitations: number;
+    suspendedEmployees: number;
+    retailOnlyEmployees: number;
+    expiringInvitations: number;
+    portalStatus: string;
+    commercialReady: boolean;
+  };
   commercialConfigurationMissing: boolean;
-  commercialFreshness: Array<{ domain: "rates" | "prices" | "stock" | "arrivals"; label: string; freshness: FreshnessView }>;
+  commercialFreshness: Array<{
+    domain: "rates" | "prices" | "stock" | "arrivals";
+    label: string;
+    freshness: FreshnessView;
+  }>;
 };
 
 export interface WorkspaceHomeService {
@@ -43,86 +135,383 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
   constructor(
     private readonly workspaceContextService: PartnerWorkspaceContextService,
     private readonly commercialFreshnessReadModel: CommercialFreshnessReadModel,
+    private readonly dashboardRepository: WorkspaceDashboardRepository,
+    private readonly pricingInventoryService: PricingInventoryService,
   ) {}
 
   async getWorkspaceHome(userId: string): Promise<WorkspaceHomeDto> {
     const context = await this.workspaceContextService.getWorkspaceContext(userId);
-    if (context.accessState !== "active" && context.accessState !== "missing_price_type") {
+    if (
+      (context.accessState !== "active"
+        && context.accessState !== "missing_price_type")
+      || !context.companyId
+    ) {
       throw new InvalidStateError("Partner workspace access is not active.");
     }
 
-    const freshness = await this.commercialFreshnessReadModel.getFreshness();
-    const freshnessByDomain = new Map(freshness.map((item) => [item.domain, item.updatedAt]));
+    const [freshness, dashboard] = await Promise.all([
+      this.commercialFreshnessReadModel.getFreshness(),
+      this.dashboardRepository.getDashboard(context.companyId),
+    ]);
+    const candidates = uniqueCandidates([
+      ...dashboard.reorderProducts,
+      ...dashboard.merchandisingProducts,
+    ]);
+    const commercialViews = candidates.length
+      ? await this.pricingInventoryService.getProductCommercialViews(
+          userId,
+          candidates.map((candidate) => candidate.id),
+        )
+      : [];
+    const commercialByProduct = new Map(
+      commercialViews.map((view) => [view.productId, view]),
+    );
+    const freshnessByDomain = new Map(
+      freshness.map((item) => [item.domain, item.updatedAt]),
+    );
+    const attentionItems = dashboard.attentionItems.map(toAttentionItem);
+
+    if (dashboard.financeSummary?.stale) {
+      attentionItems.push({
+        id: "finance-stale",
+        kind: "finance_stale",
+        title: "Финансовые данные требуют обновления",
+        consequence: "Показаны последние подтверждённые остатки по договорам.",
+        href: "/cabinet/finance",
+        occurredAt:
+          dashboard.financeSummary.lastSuccessfulAt
+          ?? new Date(0).toISOString(),
+      });
+    }
+    if (context.accessState === "missing_price_type") {
+      attentionItems.push({
+        id: "commercial-configuration",
+        kind: "commercial_configuration",
+        title: "Коммерческие условия ещё не настроены",
+        consequence: "Обратитесь к менеджеру Novotech для завершения настройки.",
+        href: "/cabinet/company",
+        occurredAt: new Date().toISOString(),
+      });
+    }
 
     return {
-      greetingName: context.userDisplayName,
-      company: {
-        name: context.companyName ?? "Компания не найдена",
-        role: context.membershipRole ?? "Не определена",
-        external1cCode: context.external1cCode ?? "Не указан",
-        priceType: context.capabilities.productCard.showPartnerPrice
-          ? context.priceTypeName ?? (context.external1cPriceTypeId ? "Назначен" : "Не настроен")
-          : null,
-        accountManager: null,
+      identity: {
+        firstName: firstName(context.userDisplayName),
+        greeting: greeting(),
       },
-      quickActions: buildQuickActions(context.capabilities.navigation),
-      processCards: buildProcessCards(context.capabilities.navigation, context.capabilities.canManageCompanyUsers ?? false, freshnessByDomain),
+      company: {
+        name: context.companyName ?? "Компания",
+        role: context.membershipRole ?? "Партнёр",
+        priceType: context.capabilities.productCard.showPartnerPrice
+          ? context.priceTypeName
+          : null,
+      },
+      capabilities: context.capabilities,
+      attentionItems: attentionItems.slice(0, 8),
+      orderSummary: {
+        ...dashboard.orderSummary,
+        recent: dashboard.orderSummary.recent.map((order) => ({
+          id: order.id,
+          number: order.number || "Заказ обрабатывается",
+          date: order.date,
+          statusLabel: orderStatus(order.posted, order.stateCode),
+          plannedDate: order.plannedDate,
+          positionCount: order.positionCount,
+          formattedTotal: formatMoney(order.total, order.currency),
+          href: order.href,
+        })),
+      },
+      shipmentSummary: {
+        ...dashboard.shipmentSummary,
+        items: dashboard.shipmentSummary.items.map((shipment) => ({
+          id: shipment.id,
+          orderNumber: shipment.orderNumber,
+          plannedDate: shipment.plannedDate,
+          statusLabel: orderStatus(shipment.posted, shipment.stateCode),
+          positionCount: shipment.positionCount,
+          totalUnits: shipment.totalUnits,
+          pendingDateChange: shipment.pendingDateChange,
+          href: `/cabinet/orders/${shipment.id}`,
+        })),
+      },
+      quickActions: buildQuickActions(
+        context.capabilities.navigation,
+        context.capabilities.canManageCompanyUsers ?? false,
+      ),
+      continuationItems: dashboard.continuationItems.map(toContinuation),
+      reorderProducts: dashboard.reorderProducts.flatMap((candidate) => {
+        const commercialView = commercialByProduct.get(candidate.id);
+        return isCurrentlySellable(commercialView)
+          ? [{
+              product: toProduct(candidate),
+              commercialView,
+              purchaseCount: candidate.purchaseCount,
+              lastPurchasedAt: candidate.lastPurchasedAt,
+              typicalQuantity: candidate.typicalQuantity,
+            }]
+          : [];
+      }),
+      merchandisingProducts: dashboard.merchandisingProducts.map((candidate) => ({
+        product: toProduct(candidate),
+        commercialView: commercialByProduct.get(candidate.id),
+      })),
+      financeSummary: dashboard.financeSummary,
+      companySummary: dashboard.companySummary,
       commercialConfigurationMissing: context.accessState === "missing_price_type",
       commercialFreshness: [
         freshnessItem("prices", "Цены", freshnessByDomain.get("prices")),
         freshnessItem("stock", "Остатки", freshnessByDomain.get("stock")),
         freshnessItem("rates", "Коммерческие курсы", freshnessByDomain.get("rates")),
-        freshnessItem("arrivals", "Ожидаемые поступления", freshnessByDomain.get("arrivals")),
+        freshnessItem(
+          "arrivals",
+          "Ожидаемые поступления",
+          freshnessByDomain.get("arrivals"),
+        ),
       ],
     };
   }
 }
 
-function freshnessItem(domain: "rates" | "prices" | "stock" | "arrivals", label: string, updatedAt: string | null | undefined) {
+function freshnessItem(
+  domain: "rates" | "prices" | "stock" | "arrivals",
+  label: string,
+  updatedAt: string | null | undefined,
+) {
   return {
     domain,
     label,
-    freshness: evaluateFreshness(updatedAt, domain === "stock" || domain === "arrivals" ? "stock" : "price", label),
-  };
-}
-
-function buildProcessCards(navigation: WorkspaceNavigationItem[], canManageUsers: boolean, freshness: Map<string, string | null>): WorkspaceProcessCardDto[] {
-  const available = new Map(navigation.filter((item) => item.availability === "available" && item.href).map((item) => [item.key, item.href!]));
-  const cards: WorkspaceProcessCardDto[] = [];
-  if (available.has("orders")) cards.push({ key: "orders", title: "Заказы", status: "normal", summary: "Проверьте активные заказы, даты отгрузки и позиции, требующие уточнения.", actionLabel: "Мои заказы", href: available.get("orders")! });
-  if (available.has("reservations")) cards.push({ key: "shipments", title: "Планируемые отгрузки", status: "normal", summary: "Контролируйте ближайшие и просроченные даты отгрузки.", actionLabel: "Открыть отгрузки", href: available.get("reservations")! });
-  if (available.has("finance")) {
-    const financeCurrent = Boolean(freshness.get("prices"));
-    cards.push({ key: "finance", title: "Финансы", status: financeCurrent ? "normal" : "warning", summary: financeCurrent ? "Баланс по договорам доступен в разрезе валют." : "Проверьте актуальность финансовых данных.", actionLabel: "Открыть финансы", href: available.get("finance")! });
-  }
-  if (canManageUsers && available.has("company")) cards.push({ key: "company_users", title: "Доступ компании", status: "normal", summary: "Проверьте сотрудников, роли и ожидающие приглашения.", actionLabel: "Управление сотрудниками", href: "/cabinet/company/users" });
-  return cards;
-}
-
-function buildQuickActions(navigation: WorkspaceNavigationItem[]): WorkspaceQuickActionDto[] {
-  const byKey = new Map(navigation.map((item) => [item.key, item]));
-  const action = (
-    key: string,
-    label: string,
-    capabilityKey: WorkspaceNavigationItem["key"],
-    fallbackHref: string | null = null,
-  ): WorkspaceQuickActionDto => {
-    const capability = byKey.get(capabilityKey);
-    return {
-      key,
+    freshness: evaluateFreshness(
+      updatedAt,
+      domain === "stock" || domain === "arrivals" ? "stock" : "price",
       label,
-      href: capability?.availability === "available" ? capability.href ?? fallbackHref : null,
-      availability: capability?.availability === "available" ? "available" : "coming_soon",
-    };
+    ),
   };
+}
 
-  return [
-    action("catalog", "Весь каталог", "catalog", "/cabinet/catalog"),
-    action("repeat_order", "Повторить заказ", "orders"),
-    action("estimate", "Создать смету", "proposals"),
-    action("orders", "Мои заказы", "orders"),
-    action("shipments", "Планируемые отгрузки", "reservations"),
-    action("finance", "Финансы", "finance"),
-    action("company_users", "Управление сотрудниками", "company"),
-  ].filter((item) => item.availability === "available");
+function toAttentionItem(
+  item: Awaited<
+    ReturnType<WorkspaceDashboardRepository["getDashboard"]>
+  >["attentionItems"][number],
+): WorkspaceAttentionItemDto {
+  const orderHref = `/cabinet/orders/${item.objectId}`;
+  switch (item.kind) {
+    case "portal_order_failure":
+      return {
+        id: item.id,
+        kind: item.kind,
+        title: item.objectNumber
+          ? `Заказ ${item.objectNumber} требует проверки`
+          : "Отправка заказа требует проверки",
+        consequence: "Корзина сохранена. Откройте заказ и проверьте статус.",
+        href: orderHref,
+        occurredAt: item.occurredAt,
+      };
+    case "shipment_overdue":
+      return {
+        id: item.id,
+        kind: item.kind,
+        title: `Отгрузка заказа ${item.objectNumber ?? ""} просрочена`.trim(),
+        consequence: "Проверьте текущую дату и при необходимости запросите перенос.",
+        href: orderHref,
+        occurredAt: item.occurredAt,
+      };
+    case "shipment_today":
+      return {
+        id: item.id,
+        kind: item.kind,
+        title: `Отгрузка заказа ${item.objectNumber ?? ""} запланирована сегодня`.trim(),
+        consequence: "Откройте заказ, чтобы проверить позиции и текущий статус.",
+        href: orderHref,
+        occurredAt: item.occurredAt,
+      };
+    case "date_change_rejected":
+      return {
+        id: item.id,
+        kind: item.kind,
+        title: `Перенос даты по заказу ${item.objectNumber ?? ""} отклонён`.trim(),
+        consequence: item.comment || "Откройте заказ для просмотра решения.",
+        href: orderHref,
+        occurredAt: item.occurredAt,
+      };
+    case "date_change_pending":
+      return {
+        id: item.id,
+        kind: item.kind,
+        title: `Запрос переноса по заказу ${item.objectNumber ?? ""} рассматривается`.trim(),
+        consequence: "Novotech проверяет возможность изменения даты отгрузки.",
+        href: orderHref,
+        occurredAt: item.occurredAt,
+      };
+    default:
+      return {
+        id: item.id,
+        kind: item.kind,
+        title: "Срок приглашения сотрудника скоро истекает",
+        consequence: "Проверьте приглашение и при необходимости отправьте его повторно.",
+        href: "/cabinet/company/users",
+        occurredAt: item.occurredAt,
+      };
+  }
+}
+
+function toContinuation(
+  item: Awaited<
+    ReturnType<WorkspaceDashboardRepository["getDashboard"]>
+  >["continuationItems"][number],
+): WorkspaceContinuationDto {
+  if (item.kind === "cart") {
+    return {
+      id: item.id,
+      kind: item.kind,
+      title: "Активная корзина",
+      detail: `${item.positionCount} поз. · ${item.totalUnits} шт.`,
+      updatedAt: item.updatedAt,
+      href: "/cabinet/cart",
+    };
+  }
+  if (item.kind === "estimate") {
+    return {
+      id: item.id,
+      kind: item.kind,
+      title: item.name || "Черновик сметы",
+      detail: `${item.positionCount} позиций`,
+      updatedAt: item.updatedAt,
+      href: `/cabinet/estimates/${item.id}`,
+    };
+  }
+  return {
+    id: item.id,
+    kind: item.kind,
+    title: item.name || "Список закупок",
+    detail: `${item.positionCount} поз. · ${item.totalUnits} шт.`,
+    updatedAt: item.updatedAt,
+    href: `/cabinet/purchasing-lists/${item.id}`,
+  };
+}
+
+function buildQuickActions(
+  navigation: WorkspaceNavigationItem[],
+  canManageCompany: boolean,
+): WorkspaceQuickActionDto[] {
+  const hrefs = new Map(
+    navigation.flatMap((item) =>
+      item.availability === "available" && item.href
+        ? [[item.key, item.href] as const]
+        : [],
+    ),
+  );
+  const candidates: Array<readonly [string, string, string | undefined]> = canManageCompany
+    ? [
+        ["catalog", "Весь каталог", hrefs.get("catalog")],
+        ["repeat_order", "Повторить заказ", hrefs.get("orders")],
+        ["estimate", "Создать смету", hrefs.get("proposals")],
+        ["orders", "Мои заказы", hrefs.get("orders")],
+        ["finance", "Финансы", hrefs.get("finance")],
+        ["company_users", "Управление сотрудниками", "/cabinet/company/users"],
+      ]
+    : [
+        ["catalog", "Весь каталог", hrefs.get("catalog")],
+        ["repeat_order", "Повторить заказ", hrefs.get("orders")],
+        ["cart", "Открыть корзину", hrefs.get("cart")],
+        ["estimate", "Создать смету", hrefs.get("proposals")],
+        ["orders", "Мои заказы", hrefs.get("orders")],
+        ["shipments", "Планируемые отгрузки", hrefs.get("reservations")],
+        ["finance", "Финансы", hrefs.get("finance")],
+      ];
+
+  return candidates.flatMap(([key, label, href]) =>
+    href ? [{ key, label, href }] : [],
+  ).slice(0, 6);
+}
+
+function toProduct(
+  candidate: WorkspaceDashboardProductCandidate,
+): CatalogProductCardDto {
+  return {
+    id: candidate.id,
+    sku: candidate.sku,
+    name: candidate.name,
+    slug: candidate.slug,
+    shortDescription: null,
+    imageUrl: candidate.imageUrl,
+    brand: null,
+    category: candidate.categoryId
+      ? {
+          id: candidate.categoryId,
+          parentId: null,
+          name: candidate.categoryName ?? "Каталог",
+          slug: "",
+          description: null,
+        }
+      : null,
+    keyCharacteristics: [],
+    datasheet: null,
+    merchandisingLabels: candidate.labelCodes,
+  };
+}
+
+function uniqueCandidates(
+  candidates: WorkspaceDashboardProductCandidate[],
+): WorkspaceDashboardProductCandidate[] {
+  return [...new Map(candidates.map((item) => [item.id, item])).values()];
+}
+
+function isCurrentlySellable(
+  view: ProductCommercialViewDto | undefined,
+): boolean {
+  const hasPermittedPrice = Boolean(view?.partnerPrice || view?.retailPrice);
+  const hasSupply = Boolean(
+    view?.stock
+    && (
+      (view.stock.exactAvailableQuantity ?? 0) > 0
+      || view.stock.expectedArrival
+    ),
+  );
+  return hasPermittedPrice && hasSupply;
+}
+
+function orderStatus(posted: boolean, stateCode: string | null): string {
+  if (!posted) return "Заказ обрабатывается";
+  switch (stateCode) {
+    case "completed":
+      return "Завершён";
+    case "preorder":
+      return "Предзаказ";
+    case "test":
+      return "Тест";
+    case "open":
+      return "Открыт";
+    default:
+      return "Статус уточняется";
+  }
+}
+
+function formatMoney(amount: number | null, currency: string | null): string | null {
+  if (amount === null || !currency) return null;
+  try {
+    return new Intl.NumberFormat("ru-RU", {
+      style: "currency",
+      currency,
+      currencyDisplay: "code",
+    }).format(amount);
+  } catch {
+    return `${amount.toFixed(2)} ${currency}`;
+  }
+}
+
+function firstName(displayName: string): string {
+  return displayName.trim().split(/\s+/)[0] || "партнёр";
+}
+
+function greeting(): string {
+  const hour = Number(
+    new Intl.DateTimeFormat("ru-RU", {
+      hour: "2-digit",
+      hour12: false,
+      timeZone: "Europe/Chisinau",
+    }).format(new Date()),
+  );
+  if (hour < 12) return "Доброе утро";
+  if (hour < 18) return "Добрый день";
+  return "Добрый вечер";
 }

@@ -4,9 +4,18 @@ import { ShoppingCart } from "lucide-react";
 import { useRef, useState, useTransition } from "react";
 
 import { recordBehaviorInteraction } from "../../behavior-analytics/components/BehaviorViewEvent";
+import type { BehaviorEventName } from "../../behavior-analytics/types";
 import { addToCartAction } from "../../orders/actions/cart.actions";
 
-export function CatalogQuantityCartAction({ productId }: { productId: string }) {
+export function CatalogQuantityCartAction({
+  productId,
+  sourceSurface = "product_card",
+  successEventName,
+}: {
+  productId: string;
+  sourceSurface?: string;
+  successEventName?: BehaviorEventName;
+}) {
   const [quantityInput, setQuantityInput] = useState("1");
   const [feedback, setFeedback] = useState<{ message: string; success: boolean } | null>(null);
   const [pending, startTransition] = useTransition();
@@ -50,7 +59,10 @@ export function CatalogQuantityCartAction({ productId }: { productId: string }) 
                 success: result.success,
               });
               if (result.success) {
-                recordBehaviorInteraction({ eventName: "product_added_to_cart", productId, quantity, route: "/cabinet/catalog", sourceSurface: "product_card" });
+                recordBehaviorInteraction({ eventName: "product_added_to_cart", productId, quantity, route: "/cabinet/catalog", sourceSurface });
+                if (successEventName && successEventName !== "product_added_to_cart") {
+                  recordBehaviorInteraction({ eventName: successEventName, productId, quantity, route: "/cabinet", sourceSurface });
+                }
                 window.dispatchEvent(new CustomEvent("novotech:cart-updated", { detail: { quantityAdded: quantity } }));
               }
             } catch {

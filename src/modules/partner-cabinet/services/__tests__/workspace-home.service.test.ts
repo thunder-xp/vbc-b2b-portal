@@ -1,42 +1,98 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import type { PartnerWorkspaceContextService } from "../workspace-context.service";
+import type { PricingInventoryService } from "../../../pricing-inventory";
 import type { CommercialFreshnessReadModel } from "../../repositories/commercial-freshness.repository";
-import { DefaultWorkspaceHomeService } from "../workspace-home.service";
+import type {
+  WorkspaceDashboardProjection,
+  WorkspaceDashboardRepository,
+} from "../../repositories/workspace-dashboard.repository";
+import type { PartnerWorkspaceContextService } from "../workspace-context.service";
 import { resolveWorkspaceCapabilities } from "../workspace-capability.service";
+import { DefaultWorkspaceHomeService } from "../workspace-home.service";
 
 describe("DefaultWorkspaceHomeService", () => {
-  it("builds a workflow dashboard without invented operational counts", async () => {
-    const workspace = await new DefaultWorkspaceHomeService(fakeContextService(), fakeFreshness()).getWorkspaceHome("partner-1");
+  it("builds an operational dashboard from one aggregate and one commercial batch", async () => {
+    const dashboardRepository = fakeDashboardRepository({
+      reorderProducts: [{
+        id: "product-1",
+        sku: "400123",
+        name: "Camera",
+        slug: "camera",
+        imageUrl: null,
+        categoryId: null,
+        categoryName: null,
+        labelCodes: [],
+        purchaseCount: 4,
+      }],
+    });
+    const pricingInventoryService = fakePricingInventoryService();
+    const workspace = await new DefaultWorkspaceHomeService(
+      fakeContextService(),
+      fakeFreshness(),
+      dashboardRepository,
+      pricingInventoryService,
+    ).getWorkspaceHome("partner-1");
 
+    expect(dashboardRepository.getDashboard).toHaveBeenCalledOnce();
+    expect(pricingInventoryService.getProductCommercialViews).toHaveBeenCalledWith(
+      "partner-1",
+      ["product-1"],
+    );
     expect(workspace.company).toEqual({
       name: "Partner Company",
       role: "Partner Owner",
-      external1cCode: "UU-001940",
       priceType: "GOLD",
-      accountManager: null,
     });
-    expect(workspace.quickActions.map((action) => action.label)).toEqual([
-      "Весь каталог",
-      "Повторить заказ",
-      "Создать смету",
-      "Мои заказы",
-      "Планируемые отгрузки",
-      "Финансы",
-      "Управление сотрудниками",
-    ]);
-    expect(workspace.processCards).toHaveLength(4);
-    expect(JSON.stringify(workspace)).not.toMatch(/activeOrders|openProjects|f7df2069|33333333/);
+    expect(workspace.reorderProducts[0]).toMatchObject({
+      product: { id: "product-1", sku: "400123" },
+      purchaseCount: 4,
+    });
+    expect(workspace.quickActions).toHaveLength(6);
+    expect(JSON.stringify(workspace)).not.toMatch(/f7df2069|33333333/);
   });
 
-  it("never labels an assigned partner status as unconfigured", async () => {
-    const workspace = await new DefaultWorkspaceHomeService(fakeContextService({
-      external1cPriceTypeId: "9adc073c-3eb5-11f0-8d8a-7239d3b7bd5c",
-      priceTypeName: null,
-    }), fakeFreshness()).getWorkspaceHome("partner-1");
+  it("does not expose the partner tier without partner-price permission", async () => {
+    const workspace = await new DefaultWorkspaceHomeService(
+      fakeContextService({
+        capabilities: resolveWorkspaceCapabilities(new Set([
+          "catalog.view",
+          "pricing.retail_price.view",
+          "stock.view",
+        ])),
+      }),
+      fakeFreshness(),
+      fakeDashboardRepository(),
+      fakePricingInventoryService(),
+    ).getWorkspaceHome("partner-1");
 
-    expect(workspace.company.priceType).toBe("Назначен");
-    expect(workspace.company.priceType).not.toBe("Не настроен");
+    expect(workspace.company.priceType).toBeNull();
+    expect(workspace.financeSummary).toBeNull();
+    expect(workspace.companySummary).toBeNull();
+  });
+
+  it("adds actionable warnings only for real aggregate conditions", async () => {
+    const workspace = await new DefaultWorkspaceHomeService(
+      fakeContextService(),
+      fakeFreshness(),
+      fakeDashboardRepository({
+        attentionItems: [{
+          id: "warning-1",
+          kind: "shipment_overdue",
+          objectId: "order-1",
+          objectNumber: "NSUU-1",
+          occurredAt: "2026-07-29T00:00:00Z",
+          comment: null,
+        }],
+      }),
+      fakePricingInventoryService(),
+    ).getWorkspaceHome("partner-1");
+
+    expect(workspace.attentionItems).toEqual([
+      expect.objectContaining({
+        title: "Отгрузка заказа NSUU-1 просрочена",
+        href: "/cabinet/orders/order-1",
+      }),
+    ]);
   });
 });
 
@@ -88,5 +144,70 @@ function fakeFreshness(): CommercialFreshnessReadModel {
         { domain: "arrivals", updatedAt: "2026-07-25T00:00:00Z" },
       ];
     },
+  };
+}
+
+function fakeDashboardRepository(
+  overrides: Partial<WorkspaceDashboardProjection> = {},
+): WorkspaceDashboardRepository & {
+  getDashboard: ReturnType<typeof vi.fn<WorkspaceDashboardRepository["getDashboard"]>>;
+} {
+  return {
+    getDashboard: vi.fn(async () => ({
+      attentionItems: [],
+      orderSummary: {
+        active: 0,
+        confirmed: 0,
+        attention: 0,
+        portalProcessing: 0,
+        recent: [],
+      },
+      shipmentSummary: {
+        overdue: 0,
+        today: 0,
+        nextThreeDays: 0,
+        later: 0,
+        items: [],
+      },
+      continuationItems: [],
+      reorderProducts: [],
+      merchandisingProducts: [],
+      financeSummary: null,
+      companySummary: null,
+      freshness: { ordersUpdatedAt: null, financeUpdatedAt: null },
+      ...overrides,
+    })),
+  };
+}
+
+function fakePricingInventoryService(): PricingInventoryService & {
+  getProductCommercialViews: ReturnType<typeof vi.fn<PricingInventoryService["getProductCommercialViews"]>>;
+} {
+  return {
+    getProductCommercialViews: vi.fn(async (_userId, productIds) =>
+      productIds.map((productId) => ({
+        productId,
+        partnerPrice: null,
+        retailPrice: {
+          amount: 100,
+          currencyCode: "MDL",
+          formattedAmount: "100 MDL",
+          lastUpdatedAt: "2026-07-30T00:00:00Z",
+        },
+        stock: {
+          status: "in_stock" as const,
+          label: "В наличии: 2 шт.",
+          exactAvailableQuantity: 2,
+          exactPhysicalQuantity: 2,
+          exactReservedQuantity: 0,
+          exactIncomingQuantity: 0,
+          expectedArrival: null,
+          hasVariantStock: false,
+          lastUpdatedAt: "2026-07-30T00:00:00Z",
+        },
+        retailBelowPartnerPrice: false,
+        isDemoData: false,
+      })),
+    ),
   };
 }

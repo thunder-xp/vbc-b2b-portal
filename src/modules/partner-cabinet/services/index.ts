@@ -2,8 +2,12 @@ export {
   DefaultWorkspaceHomeService,
   type WorkspaceHomeDto,
   type WorkspaceHomeService,
-  type WorkspaceProcessCardDto,
+  type WorkspaceAttentionItemDto,
+  type WorkspaceContinuationDto,
+  type WorkspaceOrderDto,
+  type WorkspaceProductDto,
   type WorkspaceQuickActionDto,
+  type WorkspaceShipmentDto,
 } from "./workspace-home.service";
 export {
   DefaultPartnerWorkspaceContextService,
