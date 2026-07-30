@@ -48,10 +48,15 @@ export type {
   AdminSyncJobPage,
 } from "./admin-operations";
 export type {
+  AdminRetailHistoryAbsenceFilters,
+  AdminRetailHistoryAbsencePage,
+  AdminRetailHistoryAbsenceRecord,
   AdminCommercialRecord,
   AdminCommercialSummary,
   AdminRetailPriceHistoryHealth,
+  RetailHistoryAbsenceReason,
 } from "./admin-commercial";
+export { RETAIL_HISTORY_ABSENCE_REASONS } from "./admin-commercial";
 export type {
   AdminOperationalPage,
   AdminOperationalRecord,

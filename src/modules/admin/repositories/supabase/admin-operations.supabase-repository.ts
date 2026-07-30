@@ -6,6 +6,8 @@ import { RepositoryUnexpectedError } from "@/src/modules/access-control/reposito
 import type { AdminOperationsRepository } from "../admin-operations.repository";
 import type {
   AdminCommercialSummary,
+  AdminRetailHistoryAbsenceFilters,
+  AdminRetailHistoryAbsencePage,
   AdminRetailPriceHistoryHealth,
   AdminIntegrationCenter,
   AdminIntegrationIncident,
@@ -62,6 +64,18 @@ export class SupabaseAdminOperationsRepository
 
   getRetailPriceHistoryHealth(): Promise<AdminRetailPriceHistoryHealth> {
     return this.call("get_retail_price_history_health");
+  }
+
+  listProductsWithoutRetailHistory(
+    input: AdminRetailHistoryAbsenceFilters,
+  ): Promise<AdminRetailHistoryAbsencePage> {
+    return this.call("list_admin_products_without_retail_history", {
+      p_search: input.search ?? null,
+      p_category_id: input.categoryId ?? null,
+      p_reason: input.reason ?? null,
+      p_page: input.page ?? 1,
+      p_page_size: input.pageSize ?? 25,
+    });
   }
 
   getOperationalPage(

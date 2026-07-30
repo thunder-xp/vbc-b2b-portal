@@ -4,6 +4,8 @@ import type { AdminOperationsRepository } from "../repositories";
 import { SupabaseAdminOperationsRepository } from "../repositories";
 import type {
   AdminCommercialSummary,
+  AdminRetailHistoryAbsenceFilters,
+  AdminRetailHistoryAbsencePage,
   AdminRetailPriceHistoryHealth,
   AdminIntegrationCenter,
   AdminIntegrationIncident,
@@ -47,6 +49,18 @@ export class AdminOperationsService {
     return this.repository.getRetailPriceHistoryHealth();
   }
 
+  listProductsWithoutRetailHistory(
+    input: AdminRetailHistoryAbsenceFilters,
+  ): Promise<AdminRetailHistoryAbsencePage> {
+    return this.repository.listProductsWithoutRetailHistory({
+      search: input.search?.trim().slice(0, 100) || undefined,
+      categoryId: validUuid(input.categoryId),
+      reason: cleanAbsenceReason(input.reason),
+      page: positiveInteger(input.page, 1),
+      pageSize: Math.min(positiveInteger(input.pageSize, 25), 50),
+    });
+  }
+
   getOperationalPage(
     view: "orders" | "shipments" | "reservations",
     page?: number,
@@ -87,4 +101,24 @@ function validDate(value: string | undefined): string | undefined {
 
 function positiveInteger(value: number | undefined, fallback: number): number {
   return Number.isInteger(value) && Number(value) > 0 ? Number(value) : fallback;
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const ABSENCE_REASONS = new Set([
+  "no_retail_register_record",
+  "baseline_only_new_product",
+  "current_price_without_historical_source",
+  "source_record_not_currently_authoritative",
+  "unknown_requires_review",
+]);
+
+function validUuid(value: string | undefined): string | undefined {
+  const normalized = value?.trim();
+  return normalized && UUID.test(normalized) ? normalized : undefined;
+}
+
+function cleanAbsenceReason(
+  value: AdminRetailHistoryAbsenceFilters["reason"],
+): AdminRetailHistoryAbsenceFilters["reason"] {
+  return value && ABSENCE_REASONS.has(value) ? value : undefined;
 }

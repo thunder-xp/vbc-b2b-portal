@@ -45,3 +45,60 @@ export interface AdminRetailPriceHistoryHealth {
   } | null;
   openIncidentCount: number;
 }
+
+export const RETAIL_HISTORY_ABSENCE_REASONS = [
+  "no_retail_register_record",
+  "baseline_only_new_product",
+  "current_price_without_historical_source",
+  "source_record_not_currently_authoritative",
+  "unknown_requires_review",
+] as const;
+
+export type RetailHistoryAbsenceReason =
+  (typeof RETAIL_HISTORY_ABSENCE_REASONS)[number];
+
+export interface AdminRetailHistoryAbsenceFilters {
+  search?: string;
+  categoryId?: string;
+  reason?: RetailHistoryAbsenceReason;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface AdminRetailHistoryAbsenceRecord {
+  id: string;
+  imageUrl: string | null;
+  sku: string;
+  name: string;
+  categoryId: string | null;
+  categoryName: string | null;
+  brandName: string | null;
+  portalStatus: "active_visible";
+  currentRetailPrice: number | null;
+  currentRetailCurrency: string | null;
+  currentRetailEffectiveAt: string | null;
+  baselineHistoryState: "present" | "absent";
+  firstPortalPublishedAt: string;
+  external1cRef: string;
+  absenceReason: RetailHistoryAbsenceReason;
+}
+
+export interface AdminRetailHistoryAbsencePage {
+  summary: {
+    activePartnerVisibleProducts: number;
+    productsWithVerifiedHistory: number;
+    baselineOnlyProducts: number;
+    productsWithoutRetailRegisterSource: number;
+    unresolvedOutOfScopeHistoricalReferences: number;
+  };
+  categories: readonly {
+    id: string | null;
+    name: string;
+    count: number;
+  }[];
+  reasonCounts: Partial<Record<RetailHistoryAbsenceReason, number>>;
+  page: number;
+  pageSize: number;
+  total: number;
+  records: readonly AdminRetailHistoryAbsenceRecord[];
+}

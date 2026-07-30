@@ -1,5 +1,7 @@
 import type {
   AdminCommercialSummary,
+  AdminRetailHistoryAbsenceFilters,
+  AdminRetailHistoryAbsencePage,
   AdminRetailPriceHistoryHealth,
   AdminIntegrationCenter,
   AdminIntegrationIncident,
@@ -26,6 +28,9 @@ export interface AdminOperationsRepository {
     search?: string,
   ): Promise<AdminCommercialSummary>;
   getRetailPriceHistoryHealth(): Promise<AdminRetailPriceHistoryHealth>;
+  listProductsWithoutRetailHistory(
+    input: AdminRetailHistoryAbsenceFilters,
+  ): Promise<AdminRetailHistoryAbsencePage>;
   getOperationalPage(
     view: "orders" | "shipments" | "reservations",
     page: number,
