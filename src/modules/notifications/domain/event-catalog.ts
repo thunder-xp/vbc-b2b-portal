@@ -1,0 +1,83 @@
+export const PARTNER_NOTIFICATION_EVENT_CODES = [
+  "order_submitted",
+  "order_confirmed",
+  "order_requires_attention",
+  "order_readback_failed",
+  "order_reconciliation_required",
+  "order_posted",
+  "order_cancelled",
+  "shipment_due_in_3_days",
+  "shipment_due_today",
+  "shipment_overdue",
+  "shipment_date_changed",
+  "date_change_approved",
+  "date_change_rejected",
+  "date_change_cancelled",
+  "invitation_expiring",
+  "invitation_accepted",
+  "employee_suspended",
+  "role_changed",
+  "price_access_changed",
+] as const;
+
+export type PartnerNotificationEventCode =
+  (typeof PARTNER_NOTIFICATION_EVENT_CODES)[number];
+
+export const PARTNER_NOTIFICATION_GROUPS = [
+  "orders",
+  "shipments",
+  "company_access",
+] as const;
+
+export type PartnerNotificationGroup =
+  (typeof PARTNER_NOTIFICATION_GROUPS)[number];
+
+export const PARTNER_NOTIFICATION_SEVERITIES = [
+  "critical",
+  "warning",
+  "information",
+  "success",
+] as const;
+
+export type PartnerNotificationSeverity =
+  (typeof PARTNER_NOTIFICATION_SEVERITIES)[number];
+
+type EventDefinition = {
+  group: PartnerNotificationGroup;
+  severity: PartnerNotificationSeverity;
+  mandatory: boolean;
+  entityType: "order" | "shipment" | "date_change" | "invitation" | "membership";
+  expiryDays: number;
+};
+
+export const PARTNER_NOTIFICATION_EVENT_CATALOG = {
+  order_submitted: definition("orders", "success", false, "order", 90),
+  order_confirmed: definition("orders", "success", false, "order", 90),
+  order_requires_attention: definition("orders", "warning", false, "order", 180),
+  order_readback_failed: definition("orders", "critical", true, "order", 180),
+  order_reconciliation_required: definition("orders", "critical", true, "order", 180),
+  order_posted: definition("orders", "success", false, "order", 90),
+  order_cancelled: definition("orders", "warning", false, "order", 90),
+  shipment_due_in_3_days: definition("shipments", "information", false, "shipment", 33),
+  shipment_due_today: definition("shipments", "warning", false, "shipment", 30),
+  shipment_overdue: definition("shipments", "critical", true, "shipment", 30),
+  shipment_date_changed: definition("shipments", "information", false, "shipment", 90),
+  date_change_approved: definition("shipments", "success", false, "date_change", 90),
+  date_change_rejected: definition("shipments", "warning", false, "date_change", 90),
+  date_change_cancelled: definition("shipments", "information", false, "date_change", 90),
+  invitation_expiring: definition("company_access", "warning", false, "invitation", 30),
+  invitation_accepted: definition("company_access", "success", false, "invitation", 90),
+  employee_suspended: definition("company_access", "critical", true, "membership", 180),
+  role_changed: definition("company_access", "information", true, "membership", 180),
+  price_access_changed: definition("company_access", "warning", true, "membership", 180),
+} satisfies Record<PartnerNotificationEventCode, EventDefinition>;
+
+function definition(
+  group: PartnerNotificationGroup,
+  severity: PartnerNotificationSeverity,
+  mandatory: boolean,
+  entityType: EventDefinition["entityType"],
+  expiryDays: number,
+): EventDefinition {
+  return Object.freeze({ group, severity, mandatory, entityType, expiryDays });
+}
