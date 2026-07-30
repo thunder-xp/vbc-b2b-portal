@@ -65,6 +65,8 @@ function createRepository(): NotificationRepository {
     markRead: vi.fn(),
     markAllRead: vi.fn(),
     dismiss: vi.fn(),
+    getPreferences: vi.fn(),
+    setPreference: vi.fn(),
   };
 }
 
@@ -80,4 +82,3 @@ function createAccess(): CompanyAccessService {
     ensureActiveMembership: vi.fn(),
   } as unknown as CompanyAccessService;
 }
-

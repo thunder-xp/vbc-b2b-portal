@@ -51,9 +51,17 @@ export default async function CabinetNotificationsPage({
             Важные изменения по заказам, отгрузкам и доступу сотрудников.
           </p>
         </div>
-        <MarkAllNotificationsReadButton
-          disabled={!result.success || !result.data.items.some((item) => !item.readAt)}
-        />
+        <div className="flex flex-wrap gap-2">
+          <Link
+            className="inline-flex min-h-11 items-center rounded-md border border-zinc-300 bg-white px-4 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+            href="/cabinet/notifications/settings"
+          >
+            Настройки
+          </Link>
+          <MarkAllNotificationsReadButton
+            disabled={!result.success || !result.data.items.some((item) => !item.readAt)}
+          />
+        </div>
       </header>
 
       <nav aria-label="Фильтры уведомлений" className="flex gap-2 overflow-x-auto pb-1">

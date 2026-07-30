@@ -12,6 +12,7 @@ import {
 import { SupabaseCommercialFreshnessReadModel } from "../repositories/supabase-commercial-freshness.repository";
 import { SupabaseWorkspaceDashboardRepository } from "../repositories/supabase-workspace-dashboard.repository";
 import { createPricingInventoryService } from "../../pricing-inventory/actions/service-factory";
+import { SupabaseNotificationRepository } from "../../notifications";
 
 const priceTypeRepository = new SupabasePricingInventoryRepository();
 const workspaceContextService = new DefaultPartnerWorkspaceContextService(
@@ -32,5 +33,6 @@ export function createWorkspaceHomeService(): DefaultWorkspaceHomeService {
     new SupabaseCommercialFreshnessReadModel(),
     new SupabaseWorkspaceDashboardRepository(),
     createPricingInventoryService(),
+    new SupabaseNotificationRepository(),
   );
 }

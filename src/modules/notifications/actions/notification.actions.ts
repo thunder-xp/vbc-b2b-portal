@@ -11,6 +11,8 @@ import { getAuthenticatedUserId } from "../../access-control/actions/service-fac
 import type {
   NotificationListFilter,
   NotificationPage,
+  NotificationPreference,
+  NotificationDeliveryMode,
   NotificationSummary,
 } from "../types";
 import { createNotificationService } from "./service-factory";
@@ -81,3 +83,32 @@ export async function dismissNotificationAction(
   }
 }
 
+export async function getNotificationPreferencesAction(): Promise<
+  ActionResult<NotificationPreference[]>
+> {
+  try {
+    return success(
+      "Настройки загружены.",
+      await createNotificationService().getPreferences(await getAuthenticatedUserId()),
+    );
+  } catch (error) {
+    return failureFromError(error);
+  }
+}
+
+export async function setNotificationPreferenceAction(
+  eventGroup: NotificationPreference["eventGroup"],
+  deliveryMode: NotificationDeliveryMode,
+): Promise<ActionResult<null>> {
+  try {
+    await createNotificationService().setPreference(
+      await getAuthenticatedUserId(),
+      eventGroup,
+      deliveryMode,
+    );
+    revalidatePath("/cabinet/notifications/settings");
+    return success("Настройки сохранены.", null);
+  } catch (error) {
+    return failureFromError(error);
+  }
+}

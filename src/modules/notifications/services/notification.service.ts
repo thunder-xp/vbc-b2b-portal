@@ -6,6 +6,8 @@ import type { NotificationRepository } from "../repositories";
 import type {
   NotificationListFilter,
   NotificationPage,
+  NotificationPreference,
+  NotificationDeliveryMode,
   NotificationSummary,
   PartnerNotification,
 } from "../types";
@@ -50,6 +52,22 @@ export class NotificationService {
     return this.repository.dismiss(await this.resolveCompanyId(userId), notificationId);
   }
 
+  async getPreferences(userId: string): Promise<NotificationPreference[]> {
+    return this.repository.getPreferences(await this.resolveCompanyId(userId));
+  }
+
+  async setPreference(
+    userId: string,
+    eventGroup: NotificationPreference["eventGroup"],
+    deliveryMode: NotificationDeliveryMode,
+  ): Promise<void> {
+    await this.repository.setPreference(
+      await this.resolveCompanyId(userId),
+      eventGroup,
+      deliveryMode,
+    );
+  }
+
   private async resolveCompanyId(userId: string): Promise<string> {
     const membership = (await this.companyAccess.getOwnMemberships(userId))
       .find((item) => item.status === MembershipStatus.Active);
@@ -81,4 +99,3 @@ export function formatRelativeTime(value: string, now: Date): string {
     timeZone: TIME_ZONE,
   }).format(timestamp);
 }
-

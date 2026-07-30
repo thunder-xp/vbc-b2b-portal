@@ -76,6 +76,11 @@ export const ADMIN_NAVIGATION: readonly AdminNavigationGroup[] = [
         permission: "admin.integrations.view",
       },
       {
+        label: "Уведомления",
+        href: "/admin/integrations/notifications",
+        permission: "admin.integrations.view",
+      },
+      {
         label: "Инциденты",
         href: "/admin/integrations/incidents",
         permission: "admin.integrations.view",

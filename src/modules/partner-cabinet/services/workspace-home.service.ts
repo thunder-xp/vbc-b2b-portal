@@ -12,6 +12,10 @@ import type {
 } from "../repositories/workspace-dashboard.repository";
 import type { WorkspaceNavigationItem } from "./workspace-capability.service";
 import type {
+  NotificationRepository,
+  PartnerNotification,
+} from "../../notifications";
+import type {
   PartnerWorkspaceContext,
   PartnerWorkspaceContextService,
 } from "./workspace-context.service";
@@ -137,6 +141,7 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
     private readonly commercialFreshnessReadModel: CommercialFreshnessReadModel,
     private readonly dashboardRepository: WorkspaceDashboardRepository,
     private readonly pricingInventoryService: PricingInventoryService,
+    private readonly notificationRepository?: NotificationRepository,
   ) {}
 
   async getWorkspaceHome(userId: string): Promise<WorkspaceHomeDto> {
@@ -149,9 +154,13 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
       throw new InvalidStateError("Partner workspace access is not active.");
     }
 
-    const [freshness, dashboard] = await Promise.all([
+    const [freshness, dashboard, notificationPage] = await Promise.all([
       this.commercialFreshnessReadModel.getFreshness(),
       this.dashboardRepository.getDashboard(context.companyId),
+      this.notificationRepository?.list(context.companyId, {
+        unreadOnly: true,
+        pageSize: 20,
+      }) ?? Promise.resolve({ items: [], nextCursor: null }),
     ]);
     const candidates = uniqueCandidates([
       ...dashboard.reorderProducts,
@@ -169,7 +178,11 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
     const freshnessByDomain = new Map(
       freshness.map((item) => [item.domain, item.updatedAt]),
     );
-    const attentionItems = dashboard.attentionItems.map(toAttentionItem);
+    const directAttentionItems = dashboard.attentionItems.map(toAttentionItem);
+    const attentionItems = mergeNotificationAttention(
+      directAttentionItems,
+      notificationPage.items,
+    );
 
     if (dashboard.financeSummary?.stale) {
       attentionItems.push({
@@ -270,6 +283,36 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
       ],
     };
   }
+}
+
+function mergeNotificationAttention(
+  direct: WorkspaceAttentionItemDto[],
+  notifications: PartnerNotification[],
+): WorkspaceAttentionItemDto[] {
+  const authoritativeLinks = new Set(direct.map((item) => item.href));
+  const notificationItems = notifications
+    .filter((item) =>
+      !item.readAt
+      && (item.severity === "critical" || item.severity === "warning")
+      && Boolean(item.actionUrl)
+      && !authoritativeLinks.has(item.actionUrl ?? ""),
+    )
+    .sort((left, right) => severityRank(left.severity) - severityRank(right.severity))
+    .map((item) => ({
+      id: item.id,
+      kind: `notification_${item.eventCode}`,
+      title: item.title,
+      consequence: item.message,
+      href: item.actionUrl ?? "/cabinet/notifications",
+      occurredAt: item.occurredAt,
+    }));
+  return [...notificationItems, ...direct];
+}
+
+function severityRank(severity: PartnerNotification["severity"]): number {
+  if (severity === "critical") return 0;
+  if (severity === "warning") return 1;
+  return 2;
 }
 
 function freshnessItem(

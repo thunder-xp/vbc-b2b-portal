@@ -1,6 +1,8 @@
 import type {
   NotificationListFilter,
   NotificationPage,
+  NotificationPreference,
+  NotificationDeliveryMode,
   NotificationSummary,
 } from "../types";
 
@@ -10,5 +12,10 @@ export interface NotificationRepository {
   markRead(companyId: string, notificationId: string): Promise<string>;
   markAllRead(companyId: string): Promise<number>;
   dismiss(companyId: string, notificationId: string): Promise<string>;
+  getPreferences(companyId: string): Promise<NotificationPreference[]>;
+  setPreference(
+    companyId: string,
+    eventGroup: NotificationPreference["eventGroup"],
+    deliveryMode: NotificationDeliveryMode,
+  ): Promise<void>;
 }
-

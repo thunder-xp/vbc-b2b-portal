@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { PricingInventoryService } from "../../../pricing-inventory";
+import type { NotificationRepository } from "../../../notifications";
 import type { CommercialFreshnessReadModel } from "../../repositories/commercial-freshness.repository";
 import type {
   WorkspaceDashboardProjection,
@@ -94,7 +95,78 @@ describe("DefaultWorkspaceHomeService", () => {
       }),
     ]);
   });
+
+  it("adds unread critical notifications first and removes duplicate operational links", async () => {
+    const notifications = fakeNotificationRepository();
+    vi.mocked(notifications.list).mockResolvedValue({
+      nextCursor: null,
+      items: [
+        notification("critical-1", "critical", "/cabinet/orders/order-2"),
+        notification("duplicate", "warning", "/cabinet/orders/order-1"),
+      ],
+    });
+    const workspace = await new DefaultWorkspaceHomeService(
+      fakeContextService(),
+      fakeFreshness(),
+      fakeDashboardRepository({
+        attentionItems: [{
+          id: "warning-1",
+          kind: "shipment_overdue",
+          objectId: "order-1",
+          objectNumber: "NSUU-1",
+          occurredAt: "2026-07-29T00:00:00Z",
+          comment: null,
+        }],
+      }),
+      fakePricingInventoryService(),
+      notifications,
+    ).getWorkspaceHome("partner-1");
+
+    expect(notifications.list).toHaveBeenCalledWith("company-1", {
+      unreadOnly: true,
+      pageSize: 20,
+    });
+    expect(workspace.attentionItems.map((item) => item.id)).toEqual([
+      "critical-1",
+      "warning-1",
+    ]);
+  });
 });
+
+function fakeNotificationRepository(): NotificationRepository {
+  return {
+    getSummary: vi.fn(),
+    list: vi.fn().mockResolvedValue({ items: [], nextCursor: null }),
+    markRead: vi.fn(),
+    markAllRead: vi.fn(),
+    dismiss: vi.fn(),
+    getPreferences: vi.fn(),
+    setPreference: vi.fn(),
+  };
+}
+
+function notification(
+  id: string,
+  severity: "critical" | "warning",
+  actionUrl: string,
+) {
+  return {
+    id,
+    eventCode: "shipment_overdue",
+    eventGroup: "shipments" as const,
+    severity,
+    mandatory: true,
+    title: "Требуется внимание",
+    message: "Проверьте отгрузку.",
+    actionLabel: "Открыть",
+    actionUrl,
+    occurredAt: "2026-07-30T10:00:00Z",
+    readAt: null,
+    dismissedAt: null,
+    expiresAt: "2026-08-30T10:00:00Z",
+    relativeTime: "",
+  };
+}
 
 function fakeContextService(
   overrides: Partial<Awaited<ReturnType<PartnerWorkspaceContextService["getWorkspaceContext"]>>> = {},

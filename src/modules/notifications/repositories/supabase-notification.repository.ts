@@ -8,6 +8,8 @@ import type { NotificationRepository } from "./notification.repository";
 import type {
   NotificationListFilter,
   NotificationPage,
+  NotificationPreference,
+  NotificationDeliveryMode,
   NotificationSummary,
 } from "../types";
 
@@ -38,6 +40,12 @@ const pageSchema = z.object({
     id: z.string().uuid(),
   }).nullable(),
 });
+const preferencesSchema = z.array(z.object({
+  eventGroup: z.enum(["orders", "shipments", "company_access"]),
+  inAppEnabled: z.boolean(),
+  emailEnabled: z.boolean(),
+  deliveryMode: z.enum(["immediate", "daily", "off"]),
+}));
 
 export class NotificationRepositoryError extends Error {
   constructor(readonly safeCode?: string) {
@@ -96,6 +104,32 @@ export class SupabaseNotificationRepository implements NotificationRepository {
     });
   }
 
+  async getPreferences(companyId: string): Promise<NotificationPreference[]> {
+    const client = await createClient();
+    const { data, error } = await client.rpc("get_partner_notification_preferences", {
+      p_company_id: companyId,
+    });
+    const parsed = preferencesSchema.safeParse(data);
+    if (error || !parsed.success) throw new NotificationRepositoryError(error?.code);
+    return parsed.data;
+  }
+
+  async setPreference(
+    companyId: string,
+    eventGroup: NotificationPreference["eventGroup"],
+    deliveryMode: NotificationDeliveryMode,
+  ): Promise<void> {
+    const client = await createClient();
+    const { error } = await client.rpc("set_partner_notification_preference", {
+      p_company_id: companyId,
+      p_event_group: eventGroup,
+      p_in_app_enabled: true,
+      p_email_enabled: false,
+      p_delivery_mode: deliveryMode,
+    });
+    if (error) throw new NotificationRepositoryError(error.code);
+  }
+
   private async mutateTimestamp(
     rpc: "mark_partner_notification_read" | "dismiss_partner_notification",
     input: { p_company_id: string; p_notification_id: string },
@@ -110,4 +144,3 @@ export class SupabaseNotificationRepository implements NotificationRepository {
 function withEmptyRelativeTime(item: z.infer<typeof itemSchema>) {
   return { ...item, relativeTime: "" };
 }
-

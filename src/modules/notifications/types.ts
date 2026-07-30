@@ -40,3 +40,35 @@ export type NotificationListFilter = {
   pageSize?: number;
 };
 
+export type NotificationDeliveryMode = "immediate" | "daily" | "off";
+
+export type NotificationPreference = {
+  eventGroup: NotificationEventGroup;
+  inAppEnabled: boolean;
+  emailEnabled: boolean;
+  deliveryMode: NotificationDeliveryMode;
+};
+
+export type NotificationHealth = {
+  generated: number;
+  unread: number;
+  deduplicated: number;
+  recentFailures: Array<{
+    runId: string;
+    worker: string;
+    safeErrorCode: string | null;
+    startedAt: string;
+    finishedAt: string | null;
+  }>;
+  lastShipmentWorkerRun: null | {
+    runId: string;
+    status: string;
+    businessDate: string;
+    sourceEventsProcessed: number;
+    notificationsCreated: number;
+    deduplicated: number;
+    durationMs: number | null;
+    startedAt: string;
+    finishedAt: string | null;
+  };
+};
