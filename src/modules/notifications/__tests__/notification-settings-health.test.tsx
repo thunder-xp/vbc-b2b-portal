@@ -6,11 +6,14 @@ import { describe, expect, it, vi } from "vitest";
 
 import { NotificationPreferences } from "../components";
 
-vi.mock("../actions", () => ({
+vi.mock("../actions/notification.actions", () => ({
   setNotificationPreferenceAction: vi.fn(),
 }));
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh: vi.fn() }),
+}));
+vi.mock("../../behavior-analytics/components", () => ({
+  recordBehaviorInteraction: vi.fn(),
 }));
 
 const preferences = [

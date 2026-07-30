@@ -63,6 +63,12 @@ export const BEHAVIOR_EVENT_NAMES = [
   "proposal_sent",
   "proposal_send_failed",
   "proposal_converted_to_order",
+  "notifications_opened",
+  "notification_opened",
+  "notification_marked_read",
+  "notifications_marked_all_read",
+  "notification_dismissed",
+  "notification_preferences_updated",
 ] as const;
 
 export type BehaviorEventName = (typeof BEHAVIOR_EVENT_NAMES)[number];

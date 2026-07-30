@@ -8,7 +8,8 @@ import {
   dismissNotificationAction,
   markAllNotificationsReadAction,
   markNotificationReadAction,
-} from "../actions";
+} from "../actions/notification.actions";
+import { recordBehaviorInteraction } from "../../behavior-analytics/components";
 
 export function NotificationActions({
   notificationId,
@@ -23,7 +24,10 @@ export function NotificationActions({
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  const run = (action: () => Promise<{ success: boolean }>) => {
+  const run = (
+    action: () => Promise<{ success: boolean }>,
+    eventName: "notification_marked_read" | "notification_dismissed",
+  ) => {
     setError(null);
     startTransition(async () => {
       const result = await action();
@@ -31,6 +35,11 @@ export function NotificationActions({
         setError("Не удалось обновить уведомление. Попробуйте ещё раз.");
         return;
       }
+      recordBehaviorInteraction({
+        eventName,
+        route: "/cabinet/notifications",
+        sourceSurface: "notification_page",
+      });
       router.refresh();
     });
   };
@@ -41,7 +50,10 @@ export function NotificationActions({
         <button
           className="inline-flex min-h-11 items-center gap-1.5 rounded-md border border-zinc-300 px-3 text-sm font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
           disabled={pending}
-          onClick={() => run(() => markNotificationReadAction(notificationId))}
+          onClick={() => run(
+            () => markNotificationReadAction(notificationId),
+            "notification_marked_read",
+          )}
           type="button"
         >
           <Check aria-hidden="true" size={16} />
@@ -52,7 +64,10 @@ export function NotificationActions({
         <button
           className="inline-flex min-h-11 items-center gap-1.5 rounded-md px-3 text-sm font-medium text-zinc-600 hover:bg-zinc-100 disabled:opacity-50"
           disabled={pending}
-          onClick={() => run(() => dismissNotificationAction(notificationId))}
+          onClick={() => run(
+            () => dismissNotificationAction(notificationId),
+            "notification_dismissed",
+          )}
           type="button"
         >
           <X aria-hidden="true" size={16} />
@@ -73,7 +88,14 @@ export function MarkAllNotificationsReadButton({ disabled }: { disabled: boolean
       disabled={disabled || pending}
       onClick={() => startTransition(async () => {
         const result = await markAllNotificationsReadAction();
-        if (result.success) router.refresh();
+        if (result.success) {
+          recordBehaviorInteraction({
+            eventName: "notifications_marked_all_read",
+            route: "/cabinet/notifications",
+            sourceSurface: "notification_page",
+          });
+          router.refresh();
+        }
       })}
       type="button"
     >
@@ -82,4 +104,3 @@ export function MarkAllNotificationsReadButton({ disabled }: { disabled: boolean
     </button>
   );
 }
-

@@ -4,7 +4,8 @@ import { Lock, Mail, Save } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
-import { setNotificationPreferenceAction } from "../actions";
+import { setNotificationPreferenceAction } from "../actions/notification.actions";
+import { recordBehaviorInteraction } from "../../behavior-analytics/components";
 import type {
   NotificationDeliveryMode,
   NotificationPreference,
@@ -54,7 +55,15 @@ export function NotificationPreferences({
                   startTransition(async () => {
                     const result = await setNotificationPreferenceAction(preference.eventGroup, mode);
                     setSaved(result.success ? preference.eventGroup : "error");
-                    if (result.success) router.refresh();
+                    if (result.success) {
+                      recordBehaviorInteraction({
+                        eventName: "notification_preferences_updated",
+                        route: "/cabinet/notifications/settings",
+                        sourceSurface: "notification_settings",
+                        metadataSafe: { eventGroup: preference.eventGroup },
+                      });
+                      router.refresh();
+                    }
                   });
                 }}
               >
@@ -94,4 +103,3 @@ export function NotificationPreferences({
 function availableMode(mode: NotificationDeliveryMode): "immediate" {
   return mode === "immediate" ? mode : "immediate";
 }
-

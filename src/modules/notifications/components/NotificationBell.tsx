@@ -4,7 +4,8 @@ import { Bell, Check, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
 
-import { markNotificationReadAction } from "../actions";
+import { markNotificationReadAction } from "../actions/notification.actions";
+import { recordBehaviorInteraction } from "../../behavior-analytics/components";
 import type { NotificationSummary } from "../types";
 import { NotificationSeverityLabel } from "./NotificationSeverityLabel";
 
@@ -43,7 +44,15 @@ export function NotificationBell({ initialSummary }: { initialSummary: Notificat
     }));
     startTransition(async () => {
       const result = await markNotificationReadAction(notificationId);
-      if (!result.success) setSummary(initialSummary);
+      if (!result.success) {
+        setSummary(initialSummary);
+        return;
+      }
+      recordBehaviorInteraction({
+        eventName: "notification_marked_read",
+        route: "/cabinet/notifications",
+        sourceSurface: "notification_bell",
+      });
     });
   };
 
@@ -55,7 +64,17 @@ export function NotificationBell({ initialSummary }: { initialSummary: Notificat
         aria-haspopup="dialog"
         aria-label={`Уведомления: непрочитанных ${summary.unreadCount}`}
         className="relative inline-flex h-11 w-11 items-center justify-center rounded-md border border-zinc-300 bg-white text-zinc-700 transition hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
-        onClick={() => setOpen((value) => !value)}
+        onClick={() => setOpen((value) => {
+          const next = !value;
+          if (next) {
+            recordBehaviorInteraction({
+              eventName: "notifications_opened",
+              route: "/cabinet/notifications",
+              sourceSurface: "notification_bell",
+            });
+          }
+          return next;
+        })}
         ref={triggerRef}
         type="button"
       >
@@ -108,6 +127,12 @@ export function NotificationBell({ initialSummary }: { initialSummary: Notificat
                           onClick={() => {
                             markRead(item.id);
                             setOpen(false);
+                            recordBehaviorInteraction({
+                              eventName: "notification_opened",
+                              route: "/cabinet/notifications",
+                              sourceSurface: "notification_bell",
+                              metadataSafe: { eventGroup: item.eventGroup },
+                            });
                           }}
                         >
                           {item.actionLabel}
@@ -145,4 +170,3 @@ export function NotificationBell({ initialSummary }: { initialSummary: Notificat
     </div>
   );
 }
-

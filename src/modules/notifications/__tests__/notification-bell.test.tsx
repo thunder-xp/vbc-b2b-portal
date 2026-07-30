@@ -4,8 +4,11 @@ import { describe, expect, it, vi } from "vitest";
 import { NotificationBell } from "../components";
 
 const markRead = vi.fn();
-vi.mock("../actions", () => ({
+vi.mock("../actions/notification.actions", () => ({
   markNotificationReadAction: (...args: unknown[]) => markRead(...args),
+}));
+vi.mock("../../behavior-analytics/components", () => ({
+  recordBehaviorInteraction: vi.fn(),
 }));
 
 const summary = {
@@ -58,4 +61,3 @@ describe("NotificationBell", () => {
     expect(screen.getAllByRole("listitem")).toHaveLength(1);
   });
 });
-

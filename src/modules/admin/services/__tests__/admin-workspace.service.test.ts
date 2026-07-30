@@ -48,6 +48,7 @@ describe("admin workspace context", () => {
       "/admin/integrations",
       "/admin/integrations/jobs",
       "/admin/integrations/1c-health",
+      "/admin/integrations/notifications",
       "/admin/integrations/incidents",
     ]);
     expect(JSON.stringify(context)).not.toMatch(
