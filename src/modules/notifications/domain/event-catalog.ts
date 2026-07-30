@@ -18,6 +18,12 @@ export const PARTNER_NOTIFICATION_EVENT_CODES = [
   "employee_suspended",
   "role_changed",
   "price_access_changed",
+  "watched_product_back_in_stock",
+  "watched_product_expected_arrival_added",
+  "watched_product_arrived",
+  "watched_product_price_changed",
+  "cart_product_price_changed",
+  "cart_product_availability_changed",
 ] as const;
 
 export type PartnerNotificationEventCode =
@@ -27,6 +33,7 @@ export const PARTNER_NOTIFICATION_GROUPS = [
   "orders",
   "shipments",
   "company_access",
+  "products",
 ] as const;
 
 export type PartnerNotificationGroup =
@@ -46,7 +53,14 @@ type EventDefinition = {
   group: PartnerNotificationGroup;
   severity: PartnerNotificationSeverity;
   mandatory: boolean;
-  entityType: "order" | "shipment" | "date_change" | "invitation" | "membership";
+  entityType:
+    | "order"
+    | "shipment"
+    | "date_change"
+    | "invitation"
+    | "membership"
+    | "product"
+    | "cart";
   expiryDays: number;
 };
 
@@ -70,6 +84,18 @@ export const PARTNER_NOTIFICATION_EVENT_CATALOG = {
   employee_suspended: definition("company_access", "critical", true, "membership", 180),
   role_changed: definition("company_access", "information", true, "membership", 180),
   price_access_changed: definition("company_access", "warning", true, "membership", 180),
+  watched_product_back_in_stock: definition("products", "success", false, "product", 30),
+  watched_product_expected_arrival_added: definition(
+    "products",
+    "information",
+    false,
+    "product",
+    30,
+  ),
+  watched_product_arrived: definition("products", "success", false, "product", 30),
+  watched_product_price_changed: definition("products", "information", false, "product", 30),
+  cart_product_price_changed: definition("products", "warning", true, "cart", 30),
+  cart_product_availability_changed: definition("products", "warning", true, "cart", 30),
 } satisfies Record<PartnerNotificationEventCode, EventDefinition>;
 
 function definition(

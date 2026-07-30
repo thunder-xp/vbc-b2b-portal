@@ -273,6 +273,23 @@ Each slice requires a separate migration and focused commit. Event emitters are
 released before their projector consumers where backward compatibility requires
 it.
 
+### Slice 3 consistency contract
+
+Successful stock, arrival, and price publication appends only partner-visible
+state transitions to `partner_product_transition_events`. The outbox stores
+state names and value fingerprints, never prices, quantities, or raw 1C
+payloads.
+
+`process_partner_product_transitions` runs as a bounded post-publication step.
+It resolves active Favorites, purchasing-list, and active-cart ownership in
+set-based queries. A cart watch takes precedence over optional list watches for
+the same user/product transition. Projection is retryable and is not part of
+the commercial publication transaction, so projection failure cannot roll back
+an authoritative commercial snapshot.
+
+Full-commercial users are matched only to their company's assigned price type.
+Retail-only users are matched only to the canonical RETAIL price type.
+
 ## 14. Unknowns and blockers
 
 1. No proven 1C field currently defines `order_shipped`; keep it disabled.
@@ -291,4 +308,3 @@ it.
    be replaced only in Slice 1.
 9. Role acceptance requires active production users for owner, manager, buyer,
    accounting, viewer, and retail-only permission combinations.
-
