@@ -16,6 +16,13 @@ const sql = fs.readFileSync(
   ),
   "utf8",
 );
+const runtimeRepair = fs.readFileSync(
+  path.join(
+    process.cwd(),
+    "supabase/migrations/20260730134000_notification_deadline_worker_runtime_repair.sql",
+  ),
+  "utf8",
+);
 
 describe("notification deadline worker", () => {
   it("uses the canonical Moldova business date", () => {
@@ -51,5 +58,12 @@ describe("notification deadline worker", () => {
     expect(sql).toContain("pg_try_advisory_xact_lock");
     expect(sql).toContain("partner_notification_generation_runs");
     expect(sql).not.toContain("safe_payload->>'message'");
+  });
+
+  it("uses an unambiguous runtime timer variable", () => {
+    expect(runtimeRepair).toContain(
+      "worker_started_at timestamptz := clock_timestamp()",
+    );
+    expect(runtimeRepair).not.toContain("clock_timestamp() - started_at");
   });
 });
