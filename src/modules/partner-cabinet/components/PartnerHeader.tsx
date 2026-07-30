@@ -1,4 +1,5 @@
 import { signOutAction } from "@/src/modules/auth/actions/auth.actions";
+import { NotificationBell } from "@/src/modules/notifications/components";
 import type { PartnerWorkspaceShellContext } from "./PartnerLayout";
 
 export function PartnerHeader({ context, onMenuClick }: { context: PartnerWorkspaceShellContext; onMenuClick?: () => void }) {
@@ -15,6 +16,7 @@ export function PartnerHeader({ context, onMenuClick }: { context: PartnerWorksp
         </div>
       </div>
       <div className="flex min-w-0 items-center gap-3">
+        <NotificationBell initialSummary={context.notificationSummary} />
         <div className="hidden min-w-0 text-right sm:block">
           <p className="truncate text-sm font-medium text-zinc-950">{context.userDisplayName || context.userEmail}</p>
           <p className="truncate text-xs text-zinc-500">{context.membershipRole ?? context.userEmail}</p>

@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { useState } from "react";
 
 import type { PartnerWorkspaceAccessState, WorkspaceNavigationItem } from "../services";
+import type { NotificationSummary } from "../../notifications";
 import { PartnerHeader } from "./PartnerHeader";
 import { PartnerSidebar } from "./PartnerSidebar";
 
@@ -15,6 +16,7 @@ export type PartnerWorkspaceShellContext = {
   accessState: PartnerWorkspaceAccessState;
   navigation: WorkspaceNavigationItem[];
   cartItemCount: number;
+  notificationSummary: NotificationSummary;
 };
 
 export function PartnerLayout({

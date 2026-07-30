@@ -20,6 +20,7 @@ const context = {
   accessState: "active" as const,
   navigation: resolveWorkspaceCapabilities(new Set(["catalog.view", "orders.create", "orders.manage", "purchasing_lists.view", "reservations.manage", "specifications.manage", "estimates.view", "estimates.manage", "documents.view_company"])).navigation,
   cartItemCount: 0,
+  notificationSummary: { unreadCount: 0, items: [] },
 };
 
 const navigation = context.navigation;

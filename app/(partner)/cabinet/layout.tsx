@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 
 import { getPartnerWorkspaceContextAction } from "@/src/modules/partner-cabinet/actions";
 import { getCartItemCountAction } from "@/src/modules/orders/actions";
+import { getNotificationSummaryAction } from "@/src/modules/notifications/actions";
 import {
   PartnerLayout,
   WorkspaceAccessState,
@@ -24,9 +25,10 @@ export default async function CabinetLayout({ children }: { children: ReactNode 
     redirect("/onboarding/waiting");
   }
 
-  const cartItemCountResult = context.capabilities.productCard.canAddToOrder
-    ? await getCartItemCountAction()
-    : null;
+  const [cartItemCountResult, notificationSummaryResult] = await Promise.all([
+    context.capabilities.productCard.canAddToOrder ? getCartItemCountAction() : null,
+    getNotificationSummaryAction(),
+  ]);
   const shell = {
     userDisplayName: context.userDisplayName,
     userEmail: context.userEmail,
@@ -35,6 +37,9 @@ export default async function CabinetLayout({ children }: { children: ReactNode 
     accessState: context.accessState,
     navigation: context.capabilities.navigation,
     cartItemCount: cartItemCountResult?.success ? cartItemCountResult.data : 0,
+    notificationSummary: notificationSummaryResult.success
+      ? notificationSummaryResult.data
+      : { unreadCount: 0, items: [] },
   };
 
   if (context.accessState === "suspended") {
