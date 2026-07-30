@@ -11,7 +11,12 @@ import { ProductImageGallery } from "./ProductImageGallery";
 import { ProductPricingBlock } from "./ProductPricingBlock";
 import { RetailPriceHistoryChart } from "./RetailPriceHistoryChart";
 
-export type ProductDetailTab = "description" | "characteristics" | "datasheet" | "pricing";
+export type ProductDetailTab =
+  | "overview"
+  | "description"
+  | "characteristics"
+  | "datasheet"
+  | "pricing";
 
 type ProductDetailProps = {
   activeTab?: ProductDetailTab;
@@ -29,34 +34,40 @@ type ProductDetailProps = {
 };
 
 const TABS: Array<{ id: ProductDetailTab; label: string }> = [
+  { id: "overview", label: "Обзор" },
   { id: "description", label: "Описание" },
   { id: "characteristics", label: "Характеристики" },
   { id: "datasheet", label: "Datasheet" },
   { id: "pricing", label: "Ценообразование" },
 ];
 
-export function ProductDetail({ activeTab = "description", canAddToOrder = false, canManagePurchasingLists = false, companyId = null, commercialView, initialFavorite = false, priceFreshness, product, retailPriceHistory, retailPriceHistoryError, stockFreshness, userId = null }: ProductDetailProps) {
+export function ProductDetail({ activeTab = "overview", canAddToOrder = false, canManagePurchasingLists = false, companyId = null, commercialView, initialFavorite = false, priceFreshness, product, retailPriceHistory, retailPriceHistoryError, stockFreshness, userId = null }: ProductDetailProps) {
   return <article className="space-y-4">
     <nav aria-label="Разделы товара" className="overflow-x-auto border-b border-zinc-200">
       <div className="flex min-w-max gap-6">
         {TABS.map((tab) => <Link aria-current={activeTab === tab.id ? "page" : undefined} className={`border-b-2 px-1 pb-2.5 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 ${activeTab === tab.id ? "border-emerald-600 text-emerald-800" : "border-transparent text-zinc-500 hover:text-zinc-900"}`} href={`?tab=${tab.id}`} key={tab.id} prefetch={false}>{tab.label}</Link>)}
       </div>
     </nav>
-    <div className="grid gap-5 md:grid-cols-[minmax(0,360px)_minmax(0,1fr)] md:items-start lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)] lg:gap-7" data-testid="product-detail-layout">
-      <div data-testid="product-detail-image"><ProductImageGallery fallbackImageUrl={product.imageUrl} images={product.images} productId={product.id} productName={product.name} /></div>
+    {activeTab === "overview" ? (
+      <div className="grid gap-5 md:grid-cols-[minmax(0,360px)_minmax(0,1fr)] md:items-start lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)] lg:gap-7" data-testid="product-detail-layout">
+        <div data-testid="product-detail-image"><ProductImageGallery fallbackImageUrl={product.imageUrl} images={product.images} productId={product.id} productName={product.name} /></div>
+        <div className="min-w-0" data-testid="product-detail-content">
+          <OverviewTab canAddToOrder={canAddToOrder} canManagePurchasingLists={canManagePurchasingLists} companyId={companyId} commercialView={commercialView} initialFavorite={initialFavorite} priceFreshness={priceFreshness} product={product} stockFreshness={stockFreshness} userId={userId} />
+        </div>
+      </div>
+    ) : (
       <div className="min-w-0" data-testid="product-detail-content">
-        {activeTab === "description" ? <DescriptionTab canAddToOrder={canAddToOrder} canManagePurchasingLists={canManagePurchasingLists} companyId={companyId} commercialView={commercialView} initialFavorite={initialFavorite} priceFreshness={priceFreshness} product={product} stockFreshness={stockFreshness} userId={userId} /> : null}
+        {activeTab === "description" ? <DescriptionTab product={product} /> : null}
         {activeTab === "characteristics" ? <CharacteristicsTab product={product} /> : null}
         {activeTab === "datasheet" ? <DatasheetTab product={product} /> : null}
         {activeTab === "pricing" ? <PricingHistoryTab error={retailPriceHistoryError} history={retailPriceHistory} productId={product.id} /> : null}
       </div>
-    </div>
+    )}
   </article>;
 }
 
-function DescriptionTab({ canAddToOrder, canManagePurchasingLists, companyId, commercialView, initialFavorite, priceFreshness, product, stockFreshness, userId }: Omit<ProductDetailProps, "activeTab">) {
-  const description = product.description ?? product.shortDescription ?? "Описание товара пока недоступно.";
-  return <section aria-label="Описание товара" data-testid="product-description-tab">
+function OverviewTab({ canAddToOrder, canManagePurchasingLists, companyId, commercialView, initialFavorite, priceFreshness, product, stockFreshness, userId }: Omit<ProductDetailProps, "activeTab">) {
+  return <section aria-label="Обзор товара" data-testid="product-overview-tab">
       <MerchandisingBadges labels={product.merchandisingLabels} />
       <h1 className="break-words text-3xl font-semibold text-zinc-950">{product.name}</h1>
       <p className="mt-1.5 text-sm font-medium text-zinc-600">Артикул: {product.sku}</p>
@@ -68,9 +79,23 @@ function DescriptionTab({ canAddToOrder, canManagePurchasingLists, companyId, co
       </section>
       <AvailabilityBlock commercialView={commercialView} freshness={stockFreshness} />
       {companyId || canAddToOrder ? <ProductActions canAddToOrder={canAddToOrder ?? false} canManagePurchasingLists={canManagePurchasingLists} categoryId={product.category?.id ?? null} companyId={companyId ?? null} initialFavorite={initialFavorite} productId={product.id} userId={userId ?? null} /> : null}
-      <div className="mt-7 border-t border-zinc-200 pt-5"><ExpandableDescription text={description} /></div>
       <KeyCharacteristicsSummary product={product} />
   </section>;
+}
+
+function DescriptionTab({ product }: { product: CatalogProductDetailDto }) {
+  const description =
+    product.description
+    ?? product.shortDescription
+    ?? "Описание товара пока не добавлено.";
+  return (
+    <section aria-label="Описание товара" data-testid="product-description-tab">
+      <h1 className="text-xl font-semibold text-zinc-950">Описание товара</h1>
+      <div className="mt-4 border-y border-zinc-200 py-5">
+        <ExpandableDescription text={description} />
+      </div>
+    </section>
+  );
 }
 
 function KeyCharacteristicsSummary({ product }: { product: CatalogProductDetailDto }) {

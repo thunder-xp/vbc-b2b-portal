@@ -18,6 +18,11 @@ vi.mock("@/src/modules/catalog/actions/product-page.action", () => ({
 vi.mock("@/src/modules/pricing-inventory/actions", () => ({ getProductCommercialViewsAction: mocks.getCommercial, getRetailPriceHistoryAction: mocks.getRetailHistory }));
 vi.mock("@/src/modules/partner-cabinet/actions", () => ({ getPartnerWorkspaceContextAction: mocks.getWorkspace }));
 vi.mock("@/src/modules/purchasing-lists/actions", () => ({ listFavoriteProductIdsAction: vi.fn() }));
+vi.mock("@/src/modules/behavior-analytics/components", () => ({
+  BehaviorViewEvent: ({ eventName }: { eventName: string }) => (
+    <span data-event-name={eventName} data-testid="behavior-event" />
+  ),
+}));
 vi.mock("@/src/modules/catalog/components/ProductImageGallery", () => ({ ProductImageGallery: () => <div>Gallery</div> }));
 vi.mock("@/src/modules/orders/components/AddToCartButton", () => ({ AddToCartButton: () => <button type="button">В корзину</button> }));
 vi.mock("@/src/modules/catalog/components/ProductActions", () => ({ ProductActions: () => <button type="button">В корзину</button> }));
@@ -35,12 +40,15 @@ describe("product detail page data loading", () => {
     mocks.getWorkspace.mockResolvedValue({ success: true, data: { companyId: "company-1", capabilities: { productCard: { canAddToOrder: true } } } });
   });
 
-  it("loads current commercial data once for the initial Description render", async () => {
+  it("loads current commercial data once for the initial Overview render", async () => {
     render(await ProductDetailPage({ params: Promise.resolve({ slug: "ip-camera" }), searchParams: Promise.resolve({}) }));
     expect(mocks.getCommercial).toHaveBeenCalledOnce();
     expect(mocks.getCommercial).toHaveBeenCalledWith(["product-1"]);
     expect(screen.getByText("Ваша цена")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "В корзину" })).toBeInTheDocument();
+    expect(
+      screen.getAllByTestId("behavior-event").map((node) => node.dataset.eventName),
+    ).toEqual(["product_viewed", "product_overview_viewed"]);
   });
 
   it("starts detail, commercial, and workspace reads together after route identity", async () => {
@@ -51,7 +59,7 @@ describe("product detail page data loading", () => {
 
     await vi.waitFor(() => {
       expect(mocks.getProduct).toHaveBeenCalledWith("product-1", {
-        includeAttributes: false,
+        includeAttributes: true,
         includeDocuments: false,
         includeImages: true,
       });
@@ -76,8 +84,27 @@ describe("product detail page data loading", () => {
     expect(mocks.getProduct).toHaveBeenCalledWith("product-1", {
       includeAttributes: true,
       includeDocuments: true,
-      includeImages: true,
+      includeImages: false,
     });
+  });
+
+  it("loads text only for Description without commercial or image reads", async () => {
+    render(await ProductDetailPage({
+      params: Promise.resolve({ slug: "ip-camera" }),
+      searchParams: Promise.resolve({ tab: "description" }),
+    }));
+
+    expect(mocks.getCommercial).not.toHaveBeenCalled();
+    expect(mocks.getWorkspace).not.toHaveBeenCalled();
+    expect(mocks.getProduct).toHaveBeenCalledWith("product-1", {
+      includeAttributes: false,
+      includeDocuments: false,
+      includeImages: false,
+    });
+    expect(screen.getByText("Camera description")).toBeInTheDocument();
+    expect(
+      screen.getAllByTestId("behavior-event").map((node) => node.dataset.eventName),
+    ).toEqual(["product_viewed", "product_description_viewed"]);
   });
 });
 

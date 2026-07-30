@@ -13,11 +13,11 @@ vi.mock("../ExpandableDescription", () => ({ ExpandableDescription: ({ text }: {
 vi.mock("../RetailPriceHistoryChart", () => ({ RetailPriceHistoryChart: () => <div>Retail chart</div> }));
 
 describe("ProductDetail information architecture", () => {
-  it("keeps identity, description, cart, commercial summary, and availability in the default tab", () => {
+  it("keeps identity, cart, commercial summary, and availability in the default overview", () => {
     const { container } = render(<ProductDetail canAddToOrder commercialView={commercialView} product={product} />);
 
-    expect(screen.getByRole("link", { name: "Описание" })).toHaveAttribute("aria-current", "page");
-    expect(screen.getByText("Camera description")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Обзор" })).toHaveAttribute("aria-current", "page");
+    expect(screen.queryByText("Camera description")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "В корзину" })).toBeInTheDocument();
     expect(screen.getByText("Ваша цена")).toBeInTheDocument();
     expect(screen.getByText("839 MDL")).toBeInTheDocument();
@@ -32,7 +32,6 @@ describe("ProductDetail information architecture", () => {
     expect(text.indexOf("Изображение товара product-1")).toBeLessThan(text.indexOf("IP Camera"));
     expect(text.indexOf("Коммерческое предложение")).toBeLessThan(text.indexOf("Наличие и поступления"));
     expect(text.indexOf("Наличие и поступления")).toBeLessThan(text.indexOf("В корзину"));
-    expect(text.indexOf("В корзину")).toBeLessThan(text.indexOf("Camera description"));
     expect(screen.getByRole("heading", { name: "Ключевые характеристики" })).toBeInTheDocument();
   });
 
@@ -61,19 +60,27 @@ describe("ProductDetail information architecture", () => {
     expect(screen.getByTestId("product-detail-image").compareDocumentPosition(screen.getByTestId("product-detail-content")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it.each(["description", "characteristics", "datasheet", "pricing"] as const)("uses the shared image-left layout for %s", (activeTab) => {
+  it.each(["description", "characteristics", "datasheet", "pricing"] as const)("uses a full-width content layout without duplicating the image for %s", (activeTab) => {
     render(<ProductDetail activeTab={activeTab} product={product} />);
-    expect(screen.getByTestId("product-detail-layout")).toBeInTheDocument();
-    expect(screen.getByText("Изображение товара product-1")).toBeInTheDocument();
+    expect(screen.queryByTestId("product-detail-layout")).not.toBeInTheDocument();
+    expect(screen.queryByText("Изображение товара product-1")).not.toBeInTheDocument();
     expect(screen.queryByText("← Вернуться в каталог")).not.toBeInTheDocument();
   });
 
-  it("keeps title first, SKU directly below, and compact description typography", () => {
+  it("keeps title first and SKU directly below in Overview", () => {
     const { container } = render(<ProductDetail product={product} />);
     const text = container.textContent ?? "";
     expect(text.indexOf("IP Camera")).toBeLessThan(text.indexOf("Артикул: NV-100"));
-    expect(text.indexOf("Артикул: NV-100")).toBeLessThan(text.indexOf("Camera description"));
+  });
+
+  it("shows only long-form copy in Description and has an honest empty state", () => {
+    const { rerender } = render(<ProductDetail activeTab="description" product={product} />);
     expect(screen.getByText("Camera description")).toHaveClass("line-clamp-[9]", "text-sm", "leading-[1.5]");
+    expect(screen.queryByText("Коммерческое предложение")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "В корзину" })).not.toBeInTheDocument();
+
+    rerender(<ProductDetail activeTab="description" product={{ ...product, description: null }} />);
+    expect(screen.getByText("Описание товара пока не добавлено.")).toBeInTheDocument();
   });
 
   it("shows only technical attributes in Characteristics", () => {
@@ -119,8 +126,11 @@ describe("ProductDetail information architecture", () => {
     expect(screen.getByTestId("product-detail-content")).toContainElement(screen.getByText("Retail chart"));
   });
 
-  it("renders all four compact tab destinations", () => {
+  it("renders all five compact tab destinations in the required order", () => {
     render(<ProductDetail product={product} />);
+    const tabs = screen.getByRole("navigation", { name: "Разделы товара" });
+    expect(tabs.textContent).toMatch(/^ОбзорОписаниеХарактеристикиDatasheetЦенообразование$/);
+    expect(screen.getByRole("link", { name: "Обзор" })).toHaveAttribute("href", "?tab=overview");
     expect(screen.getByRole("link", { name: "Описание" })).toHaveAttribute("href", "?tab=description");
     expect(screen.getByRole("link", { name: "Характеристики" })).toHaveAttribute("href", "?tab=characteristics");
     expect(screen.getByRole("link", { name: "Datasheet" })).toHaveAttribute("href", "?tab=datasheet");

@@ -42,8 +42,8 @@ export default async function ProductDetailPage({
 
   const [productResult, commercialViewsResult, workspaceResult, merchandisingResult, retailHistoryResult] = await Promise.all([
     getCatalogProductDetailByIdAction(identityResult.data.id, detailProjection(activeTab)),
-    activeTab === "description" ? getProductCommercialViewsAction([identityResult.data.id]) : Promise.resolve(null),
-    activeTab === "description" ? getPartnerWorkspaceContextAction() : Promise.resolve(null),
+    activeTab === "overview" ? getProductCommercialViewsAction([identityResult.data.id]) : Promise.resolve(null),
+    activeTab === "overview" ? getPartnerWorkspaceContextAction() : Promise.resolve(null),
     getProductMerchandisingLabelsAction(identityResult.data.id),
     activeTab === "pricing"
       ? getRetailPriceHistoryAction(identityResult.data.id, historyRange)
@@ -59,7 +59,7 @@ export default async function ProductDetailPage({
   let userId: string | null = null;
   let commercialView;
   let initialFavorite = false;
-  if (activeTab === "description") {
+  if (activeTab === "overview") {
     commercialView = commercialViewsResult?.success ? commercialViewsResult.data[0] : undefined;
     canAddToOrder = Boolean(workspaceResult?.success && workspaceResult.data.capabilities.productCard.canAddToOrder);
     canManagePurchasingLists = Boolean(workspaceResult?.success && workspaceResult.data.capabilities.productCard.canManagePurchasingLists);
@@ -104,20 +104,25 @@ export default async function ProductDetailPage({
       stockFreshness={stockFreshness}
       userId={userId}
       />
-      {activeTab === "pricing" ? <BehaviorViewEvent
-        dedupeKey={`product-pricing:${productResult.data.id}`}
-        eventName="product_pricing_tab_viewed"
+      <BehaviorViewEvent
+        dedupeKey={`product-tab:${activeTab}:${productResult.data.id}`}
+        eventName={tabViewEvent(activeTab)}
         productId={productResult.data.id}
-        route={`/cabinet/catalog/${productResult.data.slug}?tab=pricing`}
-        sourceSurface="product_pricing_tab"
-      /> : null}
+        route={`/cabinet/catalog/${productResult.data.slug}?tab=${activeTab}`}
+        sourceSurface={`product_${activeTab}_tab`}
+      />
     </>
   );
 }
 
 function parseTab(value: string | string[] | undefined): ProductDetailTab {
   const tab = Array.isArray(value) ? value[0] : value;
-  return tab === "characteristics" || tab === "datasheet" || tab === "pricing" ? tab : "description";
+  return tab === "description"
+    || tab === "characteristics"
+    || tab === "datasheet"
+    || tab === "pricing"
+    ? tab
+    : "overview";
 }
 
 function firstValue(value: string | string[] | undefined) {
@@ -126,10 +131,25 @@ function firstValue(value: string | string[] | undefined) {
 
 function detailProjection(tab: ProductDetailTab) {
   return {
-    includeAttributes: tab === "characteristics" || tab === "datasheet",
+    includeAttributes: tab === "overview" || tab === "characteristics" || tab === "datasheet",
     includeDocuments: tab === "datasheet",
-    includeImages: true,
+    includeImages: tab === "overview",
   };
+}
+
+function tabViewEvent(tab: ProductDetailTab) {
+  switch (tab) {
+    case "overview":
+      return "product_overview_viewed" as const;
+    case "description":
+      return "product_description_viewed" as const;
+    case "characteristics":
+      return "product_characteristics_viewed" as const;
+    case "datasheet":
+      return "product_datasheet_viewed" as const;
+    case "pricing":
+      return "product_pricing_tab_viewed" as const;
+  }
 }
 
 function latestTimestamp(values: Array<string | null | undefined>): string | null {
