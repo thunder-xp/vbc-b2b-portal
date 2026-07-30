@@ -297,7 +297,12 @@ function mergeNotificationAttention(
       && Boolean(item.actionUrl)
       && !authoritativeLinks.has(item.actionUrl ?? ""),
     )
-    .sort((left, right) => severityRank(left.severity) - severityRank(right.severity))
+    .filter((item) =>
+      item.eventGroup !== "products"
+      || item.eventCode === "cart_product_price_changed"
+      || item.eventCode === "cart_product_availability_changed"
+    )
+    .sort((left, right) => attentionRank(left) - attentionRank(right))
     .map((item) => ({
       id: item.id,
       kind: `notification_${item.eventCode}`,
@@ -313,6 +318,16 @@ function severityRank(severity: PartnerNotification["severity"]): number {
   if (severity === "critical") return 0;
   if (severity === "warning") return 1;
   return 2;
+}
+
+function attentionRank(notification: PartnerNotification): number {
+  if (
+    notification.eventCode === "cart_product_price_changed"
+    || notification.eventCode === "cart_product_availability_changed"
+  ) {
+    return 0;
+  }
+  return severityRank(notification.severity) + 1;
 }
 
 function freshnessItem(

@@ -35,6 +35,12 @@ const preferences = [
     emailEnabled: false,
     deliveryMode: "immediate" as const,
   },
+  {
+    eventGroup: "products" as const,
+    inAppEnabled: true,
+    emailEnabled: false,
+    deliveryMode: "immediate" as const,
+  },
 ];
 
 describe("notification preferences and health", () => {
@@ -43,15 +49,18 @@ describe("notification preferences and health", () => {
     expect(screen.getByText("Заказы")).toBeInTheDocument();
     expect(screen.getByText("Отгрузки")).toBeInTheDocument();
     expect(screen.getByText("Доступ сотрудников")).toBeInTheDocument();
+    expect(screen.getByText("Товары и поступления")).toBeInTheDocument();
     expect(screen.getAllByText("В приложении включено")).toHaveLength(3);
-    expect(screen.getAllByText("Отправка по email будет доступна позже.")).toHaveLength(3);
-    expect(screen.getAllByText("Ежедневная сводка будет доступна позже.")).toHaveLength(3);
+    expect(screen.getByText("Необязательные уведомления")).toBeInTheDocument();
+    expect(screen.getAllByText("Отправка по email будет доступна позже.")).toHaveLength(4);
+    expect(screen.getAllByText("Ежедневная сводка будет доступна позже.")).toHaveLength(4);
   });
 
   it("keeps daily and off modes unavailable in this slice", () => {
     render(<NotificationPreferences preferences={preferences} />);
     expect(screen.getAllByRole("option", { name: "Ежедневная сводка" })[0]).toBeDisabled();
     expect(screen.getAllByRole("option", { name: "Выключено" })[0]).toBeDisabled();
+    expect(screen.getAllByRole("option", { name: "Выключено" })[3]).toBeEnabled();
   });
 
   it("guards admin health with the explicit integration permission", () => {
@@ -61,5 +70,6 @@ describe("notification preferences and health", () => {
     );
     expect(page).toContain('requireAdminPagePermission("admin.integrations.view")');
     expect(page).not.toMatch(/smtp|credential|authorization/i);
+    expect(page).toContain("Товары под наблюдением");
   });
 });

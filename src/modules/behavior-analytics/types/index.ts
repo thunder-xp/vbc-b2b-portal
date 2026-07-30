@@ -69,6 +69,9 @@ export const BEHAVIOR_EVENT_NAMES = [
   "notifications_marked_all_read",
   "notification_dismissed",
   "notification_preferences_updated",
+  "product_notification_opened",
+  "product_notification_product_opened",
+  "product_notification_cart_opened",
 ] as const;
 
 export type BehaviorEventName = (typeof BEHAVIOR_EVENT_NAMES)[number];

@@ -15,6 +15,7 @@ const groupLabels = {
   orders: "Заказы",
   shipments: "Отгрузки",
   company_access: "Доступ сотрудников",
+  products: "Товары и поступления",
 } as const;
 
 export function NotificationPreferences({
@@ -37,17 +38,26 @@ export function NotificationPreferences({
                 Системные уведомления помогают не пропустить важные изменения.
               </p>
             </div>
-            <span className="inline-flex items-center gap-1.5 text-sm font-medium text-emerald-700">
-              <Lock aria-hidden="true" size={15} />
-              В приложении включено
-            </span>
+            {preference.eventGroup === "products" ? (
+              <span className="text-sm font-medium text-zinc-600">
+                Необязательные уведомления
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 text-sm font-medium text-emerald-700">
+                <Lock aria-hidden="true" size={15} />
+                В приложении включено
+              </span>
+            )}
           </div>
           <div className="mt-4 grid gap-4 border-t border-zinc-100 pt-4 sm:grid-cols-2">
             <label className="space-y-1 text-sm font-medium text-zinc-800">
               Режим доставки
               <select
                 className="mt-1 h-11 w-full rounded-md border border-zinc-300 bg-white px-3 disabled:bg-zinc-50"
-                defaultValue={availableMode(preference.deliveryMode)}
+                defaultValue={availableMode(
+                  preference.eventGroup,
+                  preference.deliveryMode,
+                )}
                 disabled={pending}
                 onChange={(event) => {
                   const mode = event.target.value as NotificationDeliveryMode;
@@ -69,7 +79,9 @@ export function NotificationPreferences({
               >
                 <option value="immediate">Сразу</option>
                 <option disabled value="daily">Ежедневная сводка</option>
-                <option disabled value="off">Выключено</option>
+                <option disabled={preference.eventGroup !== "products"} value="off">
+                  Выключено
+                </option>
               </select>
             </label>
             <div className="rounded-md bg-zinc-50 p-3 text-sm text-zinc-600">
@@ -100,6 +112,9 @@ export function NotificationPreferences({
   );
 }
 
-function availableMode(mode: NotificationDeliveryMode): "immediate" {
-  return mode === "immediate" ? mode : "immediate";
+function availableMode(
+  eventGroup: NotificationPreference["eventGroup"],
+  mode: NotificationDeliveryMode,
+): "immediate" | "off" {
+  return eventGroup === "products" && mode === "off" ? "off" : "immediate";
 }

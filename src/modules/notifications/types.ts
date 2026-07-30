@@ -1,4 +1,8 @@
-export type NotificationEventGroup = "orders" | "shipments" | "company_access";
+export type NotificationEventGroup =
+  | "orders"
+  | "shipments"
+  | "company_access"
+  | "products";
 export type NotificationSeverity = "critical" | "warning" | "information" | "success";
 
 export type PartnerNotification = {
@@ -67,6 +71,28 @@ export type NotificationHealth = {
     sourceEventsProcessed: number;
     notificationsCreated: number;
     deduplicated: number;
+    durationMs: number | null;
+    startedAt: string;
+    finishedAt: string | null;
+  };
+  productTransitionsCaptured: number;
+  productWatcherRecipientsResolved: number;
+  productNotificationsCreated: number;
+  productDeduplicated: number;
+  productSuppressed: number;
+  productFailedProjections: number;
+  lastProcessedProductSyncIds: string[];
+  oldestUnprocessedProductTransition: string | null;
+  lastProductProjectionRun: null | {
+    runId: string;
+    status: string;
+    sourceSyncId: string | null;
+    transitionsProcessed: number;
+    watcherRecipientsResolved: number;
+    notificationsCreated: number;
+    deduplicated: number;
+    suppressed: number;
+    failedProjections: number;
     durationMs: number | null;
     startedAt: string;
     finishedAt: string | null;

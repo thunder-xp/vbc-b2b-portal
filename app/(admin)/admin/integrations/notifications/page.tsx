@@ -37,6 +37,29 @@ export default async function NotificationHealthPage() {
         )}
       </section>
       <section className="rounded-md border border-zinc-200 bg-white p-5">
+        <h2 className="font-semibold text-zinc-950">Товары под наблюдением</h2>
+        <dl className="mt-4 grid gap-4 text-sm sm:grid-cols-3">
+          <Detail label="Переходов зафиксировано" value={String(health.productTransitionsCaptured)} />
+          <Detail label="Получателей определено" value={String(health.productWatcherRecipientsResolved)} />
+          <Detail label="Создано уведомлений" value={String(health.productNotificationsCreated)} />
+          <Detail label="Дедуплицировано" value={String(health.productDeduplicated)} />
+          <Detail label="Подавлено настройками" value={String(health.productSuppressed)} />
+          <Detail label="Ошибок проекции" value={String(health.productFailedProjections)} />
+          <Detail
+            label="Старейший необработанный переход"
+            value={health.oldestUnprocessedProductTransition ?? "Нет"}
+          />
+          <Detail
+            label="Последние синхронизации"
+            value={health.lastProcessedProductSyncIds.join(", ") || "Нет"}
+          />
+          <Detail
+            label="Последний запуск"
+            value={health.lastProductProjectionRun?.status ?? "Нет"}
+          />
+        </dl>
+      </section>
+      <section className="rounded-md border border-zinc-200 bg-white p-5">
         <h2 className="font-semibold text-zinc-950">Последние сбои</h2>
         {health.recentFailures.length ? (
           <ul className="mt-3 divide-y divide-zinc-100">

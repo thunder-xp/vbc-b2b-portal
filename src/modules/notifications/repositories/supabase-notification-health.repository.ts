@@ -30,6 +30,28 @@ const healthSchema = z.object({
     startedAt: z.string(),
     finishedAt: z.string().nullable(),
   }).nullable(),
+  productTransitionsCaptured: z.number().int().nonnegative(),
+  productWatcherRecipientsResolved: z.number().int().nonnegative(),
+  productNotificationsCreated: z.number().int().nonnegative(),
+  productDeduplicated: z.number().int().nonnegative(),
+  productSuppressed: z.number().int().nonnegative(),
+  productFailedProjections: z.number().int().nonnegative(),
+  lastProcessedProductSyncIds: z.array(z.string().uuid()),
+  oldestUnprocessedProductTransition: z.string().nullable(),
+  lastProductProjectionRun: z.object({
+    runId: z.string().uuid(),
+    status: z.string(),
+    sourceSyncId: z.string().uuid().nullable(),
+    transitionsProcessed: z.number().int().nonnegative(),
+    watcherRecipientsResolved: z.number().int().nonnegative(),
+    notificationsCreated: z.number().int().nonnegative(),
+    deduplicated: z.number().int().nonnegative(),
+    suppressed: z.number().int().nonnegative(),
+    failedProjections: z.number().int().nonnegative(),
+    durationMs: z.number().int().nonnegative().nullable(),
+    startedAt: z.string(),
+    finishedAt: z.string().nullable(),
+  }).nullable(),
 });
 
 export class SupabaseNotificationHealthRepository
@@ -43,4 +65,3 @@ export class SupabaseNotificationHealthRepository
     return parsed.data;
   }
 }
-

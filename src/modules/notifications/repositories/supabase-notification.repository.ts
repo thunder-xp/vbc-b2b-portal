@@ -16,7 +16,7 @@ import type {
 const itemSchema = z.object({
   id: z.string().uuid(),
   eventCode: z.string().min(1),
-  eventGroup: z.enum(["orders", "shipments", "company_access"]),
+  eventGroup: z.enum(["orders", "shipments", "company_access", "products"]),
   severity: z.enum(["critical", "warning", "information", "success"]),
   mandatory: z.boolean(),
   title: z.string(),
@@ -41,7 +41,7 @@ const pageSchema = z.object({
   }).nullable(),
 });
 const preferencesSchema = z.array(z.object({
-  eventGroup: z.enum(["orders", "shipments", "company_access"]),
+  eventGroup: z.enum(["orders", "shipments", "company_access", "products"]),
   inAppEnabled: z.boolean(),
   emailEnabled: z.boolean(),
   deliveryMode: z.enum(["immediate", "daily", "off"]),
@@ -123,7 +123,7 @@ export class SupabaseNotificationRepository implements NotificationRepository {
     const { error } = await client.rpc("set_partner_notification_preference", {
       p_company_id: companyId,
       p_event_group: eventGroup,
-      p_in_app_enabled: true,
+      p_in_app_enabled: eventGroup !== "products" || deliveryMode !== "off",
       p_email_enabled: false,
       p_delivery_mode: deliveryMode,
     });

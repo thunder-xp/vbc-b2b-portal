@@ -133,6 +133,20 @@ export function NotificationBell({ initialSummary }: { initialSummary: Notificat
                               sourceSurface: "notification_bell",
                               metadataSafe: { eventGroup: item.eventGroup },
                             });
+                            if (item.eventGroup === "products") {
+                              recordBehaviorInteraction({
+                                eventName: "product_notification_opened",
+                                route: "/cabinet/notifications",
+                                sourceSurface: "notification_bell",
+                              });
+                              recordBehaviorInteraction({
+                                eventName: item.actionUrl === "/cabinet/cart"
+                                  ? "product_notification_cart_opened"
+                                  : "product_notification_product_opened",
+                                route: item.actionUrl ?? "/cabinet/notifications",
+                                sourceSurface: "notification_bell",
+                              });
+                            }
                           }}
                         >
                           {item.actionLabel}

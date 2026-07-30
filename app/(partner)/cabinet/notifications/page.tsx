@@ -21,6 +21,7 @@ const filters = [
   { value: "orders", label: "Заказы" },
   { value: "shipments", label: "Отгрузки" },
   { value: "company_access", label: "Доступ сотрудников" },
+  { value: "products", label: "Товары" },
   { value: "unread", label: "Непрочитанные" },
 ] as const;
 
@@ -164,7 +165,10 @@ function parseFilter(value: string | undefined): typeof filters[number]["value"]
 }
 
 function isEventGroup(value: string): value is NotificationEventGroup {
-  return value === "orders" || value === "shipments" || value === "company_access";
+  return value === "orders"
+    || value === "shipments"
+    || value === "company_access"
+    || value === "products";
 }
 
 function nextPageUrl(
