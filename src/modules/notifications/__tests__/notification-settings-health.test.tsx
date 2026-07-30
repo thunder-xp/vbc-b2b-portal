@@ -71,5 +71,8 @@ describe("notification preferences and health", () => {
     expect(page).toContain('requireAdminPagePermission("admin.integrations.view")');
     expect(page).not.toMatch(/smtp|credential|authorization/i);
     expect(page).toContain("Товары под наблюдением");
+    expect(page).toContain("Коммерческие публикации");
+    expect(page).toContain("getPriceSyncStateAction");
+    expect(page).toContain("getStockSyncStateAction");
   });
 });

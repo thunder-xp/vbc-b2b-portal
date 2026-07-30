@@ -1,11 +1,19 @@
 import { getNotificationHealthAction } from "@/src/modules/notifications/actions";
 import { requireAdminPagePermission } from "@/src/modules/admin/services";
+import {
+  getPriceSyncStateAction,
+  getStockSyncStateAction,
+} from "@/src/modules/integration/actions";
 
 export const dynamic = "force-dynamic";
 
 export default async function NotificationHealthPage() {
   await requireAdminPagePermission("admin.integrations.view");
-  const health = await getNotificationHealthAction();
+  const [health, priceResult, stockResult] = await Promise.all([
+    getNotificationHealthAction(),
+    getPriceSyncStateAction(),
+    getStockSyncStateAction(),
+  ]);
   const run = health.lastShipmentWorkerRun;
   return (
     <section className="space-y-6">
@@ -21,6 +29,23 @@ export default async function NotificationHealthPage() {
         <Metric label="Непрочитано" value={health.unread} />
         <Metric label="Дедуплицировано" value={health.deduplicated} />
       </dl>
+      <section className="rounded-md border border-zinc-200 bg-white p-5">
+        <h2 className="font-semibold text-zinc-950">Коммерческие публикации</h2>
+        <dl className="mt-4 grid gap-4 text-sm sm:grid-cols-2">
+          <Detail
+            label="Цены"
+            value={priceResult.success
+              ? `${priceResult.data.status} · ${priceResult.data.lastSuccessfulSyncAt ?? "Нет успешной публикации"}`
+              : "Состояние недоступно"}
+          />
+          <Detail
+            label="Остатки и поступления"
+            value={stockResult.success
+              ? `${stockResult.data.status} · ${stockResult.data.lastSuccessfulSyncAt ?? "Нет успешной публикации"}`
+              : "Состояние недоступно"}
+          />
+        </dl>
+      </section>
       <section className="rounded-md border border-zinc-200 bg-white p-5">
         <h2 className="font-semibold text-zinc-950">Планировщик отгрузок</h2>
         {run ? (
