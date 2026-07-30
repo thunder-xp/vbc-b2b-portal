@@ -25,6 +25,7 @@ export type CartLineDto = {
 
 export type CartDetailDto = {
   id: string | null;
+  intentVersion: number | null;
   positionCount: number;
   totalUnitCount: number;
   lines: CartLineDto[];
@@ -67,6 +68,10 @@ export type EstimateToCartResult = {
 
 export interface CartService {
   getCart(userId: string): Promise<CartDetailDto>;
+  getCheckoutIntent(userId: string, cartId: string): Promise<{
+    cartId: string;
+    intentVersion: number;
+  }>;
   getItemCount(userId: string): Promise<number>;
   addItem(userId: string, productId: string, quantity: number): Promise<void>;
   updateQuantity(userId: string, itemId: string, quantity: number): Promise<void>;
@@ -99,6 +104,7 @@ export class DefaultCartService implements CartService {
     const cart = await this.repository.findActive(companyId, userId);
     if (!cart) return {
       id: null,
+      intentVersion: null,
       positionCount: 0,
       totalUnitCount: 0,
       lines: [],
@@ -121,6 +127,7 @@ export class DefaultCartService implements CartService {
     });
     return {
       id: cart.id,
+      intentVersion: cart.intentVersion,
       positionCount: items.length,
       totalUnitCount: items.reduce((sum, item) => sum + item.quantity, 0),
       lines,
@@ -145,6 +152,18 @@ export class DefaultCartService implements CartService {
       commercialMode: visibility?.mode ?? "full",
       submitting: cart.status === "submitting",
     };
+  }
+
+  async getCheckoutIntent(
+    userId: string,
+    cartId: string,
+  ): Promise<{ cartId: string; intentVersion: number }> {
+    const companyId = await this.resolveCompanyId(userId);
+    const cart = await this.repository.findActive(companyId, userId);
+    if (!cart || cart.id !== cartId || cart.status !== "active") {
+      throw new InvalidStateError("Cart is not available for checkout.");
+    }
+    return { cartId: cart.id, intentVersion: cart.intentVersion };
   }
 
   async getItemCount(userId: string): Promise<number> {

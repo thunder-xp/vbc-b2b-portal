@@ -54,6 +54,7 @@ export interface PartnerOrderRepository {
   listItemsByOrderIds(orderIds: string[]): Promise<PartnerOrderItem[]>;
   beginSubmission(input: {
     cartId: string;
+    expectedIntentVersion: number;
     submissionKey: string;
     submissionAttemptId: string;
     requestedDeliveryDate: string;

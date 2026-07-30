@@ -26,6 +26,7 @@ export type Cart = {
   companyId: string;
   createdBy: string;
   status: CartStatus;
+  intentVersion: number;
   createdAt: string;
   updatedAt: string;
 };

@@ -14,11 +14,24 @@ export async function submitCartOrderAction(
   _state: ActionResult<PartnerOrderSubmissionReceipt | null>,
   formData: FormData,
 ): Promise<ActionResult<PartnerOrderSubmissionReceipt | null>> {
+  const cartId = text(formData, "cartId");
+  const expectedIntentVersion = Number(text(formData, "expectedIntentVersion"));
   const submissionKey = text(formData, "submissionKey");
   const requestedDeliveryDate = text(formData, "requestedDeliveryDate");
-  if (!submissionKey || !requestedDeliveryDate) return invalidInput("Укажите дату отгрузки.");
+  if (
+    !cartId
+    || !Number.isSafeInteger(expectedIntentVersion)
+    || expectedIntentVersion < 1
+    || !submissionKey
+    || !requestedDeliveryDate
+  ) {
+    return invalidInput("Проверьте корзину и дату отгрузки.");
+  }
   try {
-    const order = await createPartnerOrderService().submit(await getAuthenticatedUserId(), { submissionKey, requestedDeliveryDate });
+    const order = await createPartnerOrderService().submit(
+      await getAuthenticatedUserId(),
+      { cartId, expectedIntentVersion, submissionKey, requestedDeliveryDate },
+    );
     revalidatePath("/cabinet", "layout"); revalidatePath("/cabinet/cart"); revalidatePath("/cabinet/orders");
     return success(`Заказ ${order.external1cNumber ?? ""} создан в 1С.`, {
       id: order.id,

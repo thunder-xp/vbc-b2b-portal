@@ -42,6 +42,20 @@ describe("DefaultCartService", () => {
     expect(dependencies.pricingService.getProductCommercialViews).not.toHaveBeenCalled();
   });
 
+  it("returns the canonical checkout intent without commercial reads", async () => {
+    const dependencies = makeDependencies();
+
+    await expect(
+      dependencies.service.getCheckoutIntent("user-1", "cart-1"),
+    ).resolves.toEqual({ cartId: "cart-1", intentVersion: 7 });
+
+    expect(dependencies.repository.listItems).not.toHaveBeenCalled();
+    expect(dependencies.catalogService.getProductsByIds).not.toHaveBeenCalled();
+    expect(
+      dependencies.pricingService.getProductCommercialViews,
+    ).not.toHaveBeenCalled();
+  });
+
   it("merges duplicate estimate products once using current prices", async () => {
     const dependencies = makeDependencies();
     const result = await dependencies.service.mergeEstimateProducts("user-1", {
@@ -58,7 +72,7 @@ describe("DefaultCartService", () => {
 function makeDependencies() {
   const repository = {
     getActiveItemCount: vi.fn().mockResolvedValue(2),
-    findActive: vi.fn().mockResolvedValue({ id: "cart-1", companyId: "company-1", createdBy: "user-1", status: "active", createdAt: "2026-01-01", updatedAt: "2026-01-01" }),
+    findActive: vi.fn().mockResolvedValue({ id: "cart-1", companyId: "company-1", createdBy: "user-1", status: "active", intentVersion: 7, createdAt: "2026-01-01", updatedAt: "2026-01-01" }),
     listItems: vi.fn().mockResolvedValue([{ id: "item-1", cartId: "cart-1", productId: "product-1", quantity: 2, createdAt: "2026-01-01", updatedAt: "2026-01-01" }]),
     addItem: vi.fn(), updateItemQuantity: vi.fn(), removeItem: vi.fn(), mergeEstimateProducts: vi.fn(), mergeOrderReorderItems: vi.fn(),
   } satisfies CartRepository;

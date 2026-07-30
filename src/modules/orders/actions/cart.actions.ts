@@ -16,6 +16,23 @@ export async function getCartItemCountAction(): Promise<ActionResult<number>> {
   catch (error) { return failureFromError(error); }
 }
 
+export async function getCartCheckoutIntentAction(
+  cartId: string,
+): Promise<ActionResult<{ cartId: string; intentVersion: number }>> {
+  if (!cartId) return invalidInput();
+  try {
+    return success(
+      "Cart intent loaded.",
+      await createCartService().getCheckoutIntent(
+        await getAuthenticatedUserId(),
+        cartId,
+      ),
+    );
+  } catch (error) {
+    return failureFromError(error);
+  }
+}
+
 export async function addToCartAction(productId: string, quantity = 1): Promise<ActionResult<null>> {
   try {
     await createCartService().addItem(await getAuthenticatedUserId(), productId, quantity);

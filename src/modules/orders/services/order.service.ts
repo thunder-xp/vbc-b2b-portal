@@ -42,7 +42,12 @@ export type PartnerOrderDetailDto = PartnerOrderSummaryDto & {
 };
 
 export interface PartnerOrderService {
-  submit(userId: string, input: { submissionKey: string; requestedDeliveryDate: string }): Promise<PartnerOrder>;
+  submit(userId: string, input: {
+    cartId: string;
+    expectedIntentVersion: number;
+    submissionKey: string;
+    requestedDeliveryDate: string;
+  }): Promise<PartnerOrder>;
   listOwnCompanyOrders(userId: string): Promise<PartnerOrderSummaryDto[]>;
   getOrder(userId: string, orderId: string): Promise<PartnerOrderDetailDto>;
   reconcileInternal(orderId: string): Promise<PartnerOrder>;
@@ -75,8 +80,15 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
     private readonly options: PartnerOrderServiceOptions = {},
   ) {}
 
-  async submit(userId: string, input: { submissionKey: string; requestedDeliveryDate: string }): Promise<PartnerOrder> {
+  async submit(userId: string, input: {
+    cartId: string;
+    expectedIntentVersion: number;
+    submissionKey: string;
+    requestedDeliveryDate: string;
+  }): Promise<PartnerOrder> {
     const preflightStartedAt = Date.now();
+    const submittedCartId = requireUuid(input.cartId, "Cart");
+    const expectedIntentVersion = requireIntentVersion(input.expectedIntentVersion);
     const submissionKey = requireUuid(input.submissionKey, "Submission key");
     const deliveryDate = normalizeDeliveryDate(input.requestedDeliveryDate);
     console.info(submissionEvent("partner_order_submission_started", "submission_started", {
@@ -126,6 +138,21 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
     const companyPriceTypeRef = company.external1cPriceTypeId;
     const cart = await this.cartRepository.findActive(company.id, userId);
     if (!cart) throw new RecoverableOrderSubmissionError("The active cart is not available.");
+    if (cart.id !== submittedCartId || cart.intentVersion !== expectedIntentVersion) {
+      console.warn({
+        event: "partner_order_cart_intent_conflict",
+        cartId: cart.id,
+        submittedCartId,
+        cartIntentVersion: cart.intentVersion,
+        expectedIntentVersion,
+        submissionKey,
+        deployedCommitSha: deployedCommitSha(),
+      });
+      throw new RecoverableOrderSubmissionError(
+        "Cart intent changed before checkout validation.",
+        "ORDER_CART_VERSION_CONFLICT",
+      );
+    }
     if (cart.status === CartStatus.Submitting) {
       logRejectedTransition(cart.id, cart.status, submissionKey, null, "cart_already_submitting");
       throw new OrderSubmissionInProgressError();
@@ -414,14 +441,27 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
         submissionAttemptId: attemptId,
       });
       order = await this.orderRepository.beginSubmission({
-        cartId: cart.id, submissionKey, submissionAttemptId: attemptId,
+        cartId: cart.id,
+        expectedIntentVersion,
+        submissionKey,
+        submissionAttemptId: attemptId,
         requestedDeliveryDate: deliveryDate, payloadSnapshot: toJsonRecord(salesOrder), items: snapshots,
       });
     } catch (error) {
       console.error({ event: "partner_order_transition_rejected", cartId: cart.id, cartStatus: cart.status, submissionKey, transition: "active_to_submitting", repositoryErrorCode: error instanceof OrderRepositoryError ? error.code : null, repositoryErrorMessage: error instanceof OrderRepositoryError ? error.databaseMessage : null });
+      if (
+        error instanceof OrderRepositoryError
+        && error.code === "P0001"
+        && error.databaseMessage?.includes("CART_INTENT_VERSION_CONFLICT")
+      ) {
+        throw new RecoverableOrderSubmissionError(
+          "Cart intent changed while checkout ownership was acquired.",
+          "ORDER_CART_VERSION_CONFLICT",
+        );
+      }
       throw new RecoverableOrderSubmissionError(
         "Order submission state transition failed.",
-        "ORDER_CART_VERSION_CONFLICT",
+        "ORDER_UNKNOWN_FAILURE",
       );
     }
     console.info({
@@ -685,6 +725,15 @@ export function assertLegacyExportIntegrity(
 
 function ref(externalId: string, externalType: string): ExternalReferenceDTO { return { providerCode: "one-c", externalId, externalType }; }
 function requireUuid(value: string, label: string): string { if (!isUuid(value)) throw new RecoverableOrderSubmissionError(`${label} is invalid.`); return value.toLowerCase(); }
+function requireIntentVersion(value: number): number {
+  if (!Number.isSafeInteger(value) || value < 1) {
+    throw new RecoverableOrderSubmissionError(
+      "Cart intent version is invalid.",
+      "ORDER_CART_VERSION_CONFLICT",
+    );
+  }
+  return value;
+}
 function isUuid(value: string | null | undefined): value is string { return typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value); }
 function isOneCGuid(value: string | null | undefined): value is string {
   if (typeof value !== "string") return false;

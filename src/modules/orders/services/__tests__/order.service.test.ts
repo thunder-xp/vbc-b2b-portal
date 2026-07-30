@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { IntegrationHttpError } from "../../../integration/errors";
-import type { PartnerOrderRepository } from "../../repositories";
+import { OrderRepositoryError, type PartnerOrderRepository } from "../../repositories";
 import { PartnerOrderIntegrationStatus, PartnerOrderStatus, type PartnerOrder } from "../../types";
 import { assertLegacyExportIntegrity, DefaultPartnerOrderService } from "../order.service";
 import { OrderReconciliationRequiredError, OrderSubmissionInProgressError, RecoverableOrderSubmissionError } from "../order-submission.errors";
@@ -327,6 +327,26 @@ describe("DefaultPartnerOrderService", () => {
     expect(dependencies.orderRepository.completeSubmission).not.toHaveBeenCalled();
   });
 
+  it("maps only the dedicated database marker to a cart intent conflict", async () => {
+    const dependencies = makeDependencies();
+    dependencies.orderRepository.beginSubmission.mockRejectedValue(
+      new OrderRepositoryError("P0001", "CART_INTENT_VERSION_CONFLICT"),
+    );
+
+    await expect(dependencies.service.submit("user-1", input())).rejects
+      .toMatchObject({ code: "ORDER_CART_VERSION_CONFLICT" });
+  });
+
+  it("does not misclassify another submission RPC failure as a cart conflict", async () => {
+    const dependencies = makeDependencies();
+    dependencies.orderRepository.beginSubmission.mockRejectedValue(
+      new OrderRepositoryError("23514", "Order submission is invalid."),
+    );
+
+    await expect(dependencies.service.submit("user-1", input())).rejects
+      .toMatchObject({ code: "ORDER_UNKNOWN_FAILURE" });
+  });
+
   it("returns an already submitted order without a second 1C request", async () => {
     const dependencies = makeDependencies();
     dependencies.orderRepository.findBySubmissionKey.mockResolvedValue(order({ status: PartnerOrderStatus.Submitted }));
@@ -438,7 +458,7 @@ describe("DefaultPartnerOrderService", () => {
 
 function makeDependencies(options: { useLegacyMinimalOrderPayload?: boolean } = {}) {
   const cartRepository = {
-    findActive: vi.fn().mockResolvedValue({ id: "cart-1", companyId: "company-1", createdBy: "user-1", status: "active", createdAt: "2026-01-01", updatedAt: "2026-01-01" }),
+    findActive: vi.fn().mockResolvedValue({ id: "44444444-4444-4444-8444-444444444444", companyId: "company-1", createdBy: "user-1", status: "active", intentVersion: 7, createdAt: "2026-01-01", updatedAt: "2026-01-01" }),
     listItems: vi.fn().mockResolvedValue([{ id: "item-1", cartId: "cart-1", productId: "product-1", quantity: 2, createdAt: "2026-01-01", updatedAt: "2026-01-01" }]),
   };
   const orderRepository = {
@@ -470,7 +490,14 @@ function makeDependencies(options: { useLegacyMinimalOrderPayload?: boolean } = 
   return { service, cartRepository, orderRepository, catalogService, pricingService, partnerProvider, orderProvider, company };
 }
 
-function input() { return { submissionKey: SUBMISSION_KEY, requestedDeliveryDate: "2099-01-10" }; }
+function input() {
+  return {
+    cartId: "44444444-4444-4444-8444-444444444444",
+    expectedIntentVersion: 7,
+    submissionKey: SUBMISSION_KEY,
+    requestedDeliveryDate: "2099-01-10",
+  };
+}
 function ref(externalId: string) { return { providerCode: "one-c", externalId, externalType: "test" }; }
 function cartItem(productId: string, quantity: number) { return { id: `item-${productId}`, cartId: "cart-1", productId, quantity, createdAt: "2026-01-01", updatedAt: "2026-01-01" }; }
 function identity(id: string, sku: string, external1cId: string) { return { id, sku, external1cId, name: sku }; }
