@@ -5,6 +5,7 @@ import { createHash } from "node:crypto";
 import { createAdminClient } from "../../../lib/supabase/admin";
 import type { CurrencyStageRow, PriceChunkProvider, PriceRegisterStageRow, PriceTypeStageRow } from "../providers/one-c";
 import { normalizePricePage, type PricePageDiagnostics } from "./price-page-normalization";
+import { projectPartnerProductTransitions } from "./product-notification-projection";
 
 export const PRICE_SYNC_PAGE_SIZE = 500;
 export const PRICE_SYNC_PAGES_PER_INVOCATION = 5;
@@ -163,6 +164,7 @@ export class SupabasePriceSyncStateStore implements PriceSyncStateStore {
     if (discovery.error) throw Object.assign(persistenceError(discovery.error), { errorCategory: "publication_failure" });
     const { error } = await client.rpc("publish_product_prices_with_retail_history", { p_sync_id: syncId });
     if (error) throw Object.assign(persistenceError(error), { errorCategory: "publication_failure" });
+    await projectPartnerProductTransitions(syncId);
     await client.from("retail_price_history_source_stage").delete().eq("sync_id", syncId);
   }
   async fail(syncId: string, category: string, stage: PriceSyncStage, page: number, code?: string, safeError?: string) {
