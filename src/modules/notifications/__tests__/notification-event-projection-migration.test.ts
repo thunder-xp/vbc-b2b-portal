@@ -10,6 +10,13 @@ const sql = fs.readFileSync(
   ),
   "utf8",
 );
+const pgcryptoSearchPathRepair = fs.readFileSync(
+  path.join(
+    process.cwd(),
+    "supabase/migrations/20260730135000_notification_projection_pgcrypto_search_path.sql",
+  ),
+  "utf8",
+);
 
 describe("partner notification event projection", () => {
   it("uses one idempotent generation service", () => {
@@ -45,5 +52,14 @@ describe("partner notification event projection", () => {
 
   it("does not emit an unproven shipped event", () => {
     expect(sql).not.toContain("'order_shipped'");
+  });
+
+  it("resolves pgcrypto from the trusted extensions schema", () => {
+    expect(pgcryptoSearchPathRepair).toContain(
+      "alter function public.create_partner_notification_event",
+    );
+    expect(pgcryptoSearchPathRepair).toContain(
+      "set search_path = public, extensions",
+    );
   });
 });
