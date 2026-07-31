@@ -85,7 +85,19 @@ export class OneCCounterpartyDirectorySource {
       },
     );
 
-    const priceProfiles = contracts.flatMap((contract) => {
+    const uniqueCounterparties = deduplicateByExternal1cId(counterparties);
+    const uniqueContracts = deduplicateByExternal1cId(contracts);
+    console.info({
+      event: "one_c_counterparty_directory_source_deduplicated",
+      counterpartyRows: counterparties.length,
+      uniqueCounterparties: uniqueCounterparties.length,
+      duplicateCounterparties: counterparties.length - uniqueCounterparties.length,
+      contractRows: contracts.length,
+      uniqueContracts: uniqueContracts.length,
+      duplicateContracts: contracts.length - uniqueContracts.length,
+    });
+
+    const priceProfiles = uniqueContracts.flatMap((contract) => {
       const priceType = contract.priceTypeExternal1cId
         ? priceTypes.get(contract.priceTypeExternal1cId)
         : null;
@@ -95,8 +107,8 @@ export class OneCCounterpartyDirectorySource {
 
     return {
       sourceCounterpartyRows,
-      counterparties,
-      contracts,
+      counterparties: uniqueCounterparties,
+      contracts: uniqueContracts,
       priceProfiles: deduplicatePriceProfiles(priceProfiles),
       pagesProcessed: partnerPages + contractPages + priceTypePages,
       failedRecords,
@@ -163,6 +175,18 @@ export class OneCCounterpartyDirectorySource {
     }
     throw new Error(`Bounded 1C directory scan exceeded ${MAX_PAGES} pages.`);
   }
+}
+
+export function deduplicateByExternal1cId<T extends { external1cId: string }>(
+  rows: T[],
+): T[] {
+  const seen = new Set<string>();
+  return rows.filter((row) => {
+    const key = row.external1cId.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function safeProviderDiagnostic(error: unknown): Record<string, unknown> {

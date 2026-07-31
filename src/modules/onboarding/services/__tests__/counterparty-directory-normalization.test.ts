@@ -6,6 +6,7 @@ import {
   parseCounterpartyRow,
 } from "../counterparty-directory-normalization";
 import { countSnapshot } from "../counterparty-directory-sync.service";
+import { deduplicateByExternal1cId } from "../one-c-counterparty-directory.source";
 
 const ACTIVE_REF = "571ac1e0-4ccd-11ea-93e0-000c29cf9dd4";
 
@@ -84,5 +85,18 @@ describe("counterparty directory normalization", () => {
       duplicateFiscalCodes: 1,
       withFiscalCode: 2,
     });
+  });
+
+  it("deduplicates overlapping 1C pages by authoritative reference", () => {
+    const rows = [
+      { external1cId: ACTIVE_REF, name: "first" },
+      { external1cId: ACTIVE_REF.toUpperCase(), name: "overlap" },
+      {
+        external1cId: "671ac1e0-4ccd-11ea-93e0-000c29cf9dd4",
+        name: "second",
+      },
+    ];
+
+    expect(deduplicateByExternal1cId(rows)).toEqual([rows[0], rows[2]]);
   });
 });
