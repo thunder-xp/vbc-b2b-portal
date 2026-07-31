@@ -5,6 +5,10 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { getOneCEnv } from "@/src/lib/env";
+import {
+  emitRequestTotal,
+  measurePerformanceStage,
+} from "@/src/lib/performance/request-diagnostics";
 import { createClient } from "@/src/lib/supabase/server";
 import {
   failureFromError,
@@ -68,11 +72,17 @@ export async function listOnboardingQueueAction(
   input: OnboardingQueueInput,
 ): Promise<ActionResult<OnboardingQueue>> {
   try {
-    await requireAdminPermission("onboarding.requests.view");
-    const queue = await new SupabaseOnboardingRepository().listQueue(input);
+    await measurePerformanceStage("onboarding_queue", "access_context", () =>
+      requireAdminPermission("onboarding.requests.view"),
+    );
+    const queue = await measurePerformanceStage("onboarding_queue", "queue_rpc", () =>
+      new SupabaseOnboardingRepository().listQueue(input),
+    );
     return success("Очередь онбординга загружена.", queue);
   } catch (error) {
     return failureFromError(error);
+  } finally {
+    emitRequestTotal("onboarding_queue");
   }
 }
 
@@ -80,13 +90,17 @@ export async function getOnboardingDetailAction(
   requestId: string,
 ): Promise<ActionResult<OnboardingDetail | null>> {
   try {
-    await requireAdminPermission("onboarding.requests.view");
-    const detail = await new SupabaseOnboardingRepository().getDetail(
-      uuidSchema.parse(requestId),
+    await measurePerformanceStage("onboarding_detail", "access_context", () =>
+      requireAdminPermission("onboarding.requests.view"),
+    );
+    const detail = await measurePerformanceStage("onboarding_detail", "detail_rpc", () =>
+      new SupabaseOnboardingRepository().getDetail(uuidSchema.parse(requestId)),
     );
     return success("Заявка загружена.", detail);
   } catch (error) {
     return failureFromError(error);
+  } finally {
+    emitRequestTotal("onboarding_detail");
   }
 }
 

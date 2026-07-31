@@ -9,7 +9,7 @@ import {
   requestOnboardingClarificationAction,
   type OnboardingWorkflowActionState,
 } from "../actions";
-import type { OnboardingDetail } from "../types";
+import type { OnboardingDetail, OnboardingStatus } from "../types";
 
 const initialState: OnboardingWorkflowActionState = {
   success: true,
@@ -54,8 +54,22 @@ const rejectionReasons = [
   ["other", "Другая причина"],
 ] as const;
 
-export function OnboardingDecisionForms({ detail }: { detail: OnboardingDetail }) {
-  const terminal = ["approved", "rejected", "cancelled"].includes(detail.request.status);
+type DecisionFormProps = {
+  requestId: string;
+  requestStatus: OnboardingStatus;
+  requestRevision: number;
+  managers: OnboardingDetail["managers"];
+  isPlatformAdmin: boolean;
+};
+
+export function OnboardingDecisionForms({
+  requestId,
+  requestStatus,
+  requestRevision,
+  managers,
+  isPlatformAdmin,
+}: DecisionFormProps) {
+  const terminal = ["approved", "rejected", "cancelled"].includes(requestStatus);
   const [clarificationState, clarificationAction, clarificationPending] = useActionState(
     requestOnboardingClarificationAction,
     initialState,
@@ -73,8 +87,8 @@ export function OnboardingDecisionForms({ detail }: { detail: OnboardingDetail }
     initialState,
   );
 
-  if (detail.request.status === "approved") return null;
-  if (terminal && !detail.workflow.isPlatformAdmin) return null;
+  if (requestStatus === "approved") return null;
+  if (terminal && !isPlatformAdmin) return null;
 
   return (
     <section className="border-b border-zinc-200 bg-white pb-6">
@@ -82,12 +96,12 @@ export function OnboardingDecisionForms({ detail }: { detail: OnboardingDetail }
       {!terminal ? (
         <div className="space-y-3">
           {(["received", "under_review"] as const).includes(
-            detail.request.status as "received" | "under_review",
+            requestStatus as "received" | "under_review",
           ) ? (
             <details className="border border-zinc-200 p-4">
               <summary className="cursor-pointer font-semibold">Запросить уточнение</summary>
               <form action={clarificationAction} className="mt-4 grid gap-4">
-                <RequestIdentity detail={detail} />
+                <RequestIdentity requestId={requestId} requestRevision={requestRevision} />
                 <SelectField name="reasonCategory" label="Причина" options={clarificationReasons} />
                 <fieldset>
                   <legend className="text-sm font-semibold">Что требуется исправить</legend>
@@ -115,7 +129,7 @@ export function OnboardingDecisionForms({ detail }: { detail: OnboardingDetail }
           <details className="border border-zinc-200 p-4">
             <summary className="cursor-pointer font-semibold text-red-800">Отклонить заявку</summary>
             <form action={rejectionAction} className="mt-4 grid gap-4">
-              <RequestIdentity detail={detail} />
+              <RequestIdentity requestId={requestId} requestRevision={requestRevision} />
               <SelectField name="reasonCategory" label="Причина отказа" options={rejectionReasons} />
               <TextArea name="partnerMessage" label="Объяснение для партнёра" required maxLength={1200} />
               <InternalNote />
@@ -127,7 +141,7 @@ export function OnboardingDecisionForms({ detail }: { detail: OnboardingDetail }
           <details className="border border-zinc-200 p-4">
             <summary className="cursor-pointer font-semibold">Отменить заявку</summary>
             <form action={cancellationAction} className="mt-4 grid gap-4">
-              <input type="hidden" name="requestId" value={detail.request.id} />
+              <input type="hidden" name="requestId" value={requestId} />
               <SelectField
                 name="reasonCategory"
                 label="Причина"
@@ -145,11 +159,11 @@ export function OnboardingDecisionForms({ detail }: { detail: OnboardingDetail }
         </div>
       ) : (
         <form action={reopenAction} className="grid gap-4 border border-zinc-200 p-4">
-          <input type="hidden" name="requestId" value={detail.request.id} />
+          <input type="hidden" name="requestId" value={requestId} />
           <SelectField
             name="assigneeUserId"
             label="Ответственный менеджер"
-            options={detail.managers.map((manager) => [manager.id, `${manager.name} · ${manager.workloadCount} активных`])}
+            options={managers.map((manager) => [manager.id, `${manager.name} · ${manager.workloadCount} активных`])}
           />
           <TextArea name="reason" label="Причина возобновления" required maxLength={500} />
           <ActionResult state={reopenState} />
@@ -160,11 +174,17 @@ export function OnboardingDecisionForms({ detail }: { detail: OnboardingDetail }
   );
 }
 
-function RequestIdentity({ detail }: { detail: OnboardingDetail }) {
+function RequestIdentity({
+  requestId,
+  requestRevision,
+}: {
+  requestId: string;
+  requestRevision: number;
+}) {
   return (
     <>
-      <input type="hidden" name="requestId" value={detail.request.id} />
-      <input type="hidden" name="requestRevision" value={detail.revision.revisionNumber} />
+      <input type="hidden" name="requestId" value={requestId} />
+      <input type="hidden" name="requestRevision" value={requestRevision} />
     </>
   );
 }

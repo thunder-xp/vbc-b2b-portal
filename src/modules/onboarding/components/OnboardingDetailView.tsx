@@ -26,12 +26,19 @@ export function OnboardingDetailView({
   transitionAction,
 }: Props) {
   const duplicateWarnings = duplicateMessages(detail);
+  const terminal = (["approved", "rejected", "cancelled"] as OnboardingStatus[]).includes(
+    detail.request.status,
+  );
+  const canRenderDecisionForms =
+    !terminal ||
+    ((["rejected", "cancelled"] as OnboardingStatus[]).includes(detail.request.status) &&
+      detail.workflow.isPlatformAdmin);
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 border-b border-zinc-200 pb-5 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <Link href="/admin/onboarding" className="text-sm font-medium text-emerald-700">
+          <Link href="/admin/onboarding" prefetch={false} className="text-sm font-medium text-emerald-700">
             ← К очереди
           </Link>
           <h1 className="mt-3 text-2xl font-semibold">{detail.revision.companyName}</h1>
@@ -98,7 +105,20 @@ export function OnboardingDetailView({
             </Section>
           ) : null}
 
-          <OnboardingApprovalWizard detail={detail} />
+          {terminal ? (
+            <TerminalResult status={detail.request.status} />
+          ) : (
+            <OnboardingApprovalWizard
+              detail={{
+                request: { id: detail.request.id, status: detail.request.status },
+                draft: detail.draft,
+                candidates: detail.candidates,
+                managers: detail.managers,
+                duplicates: detail.duplicates,
+                directoryFiscalMatchCount: detail.directoryFiscalMatchCount,
+              }}
+            />
+          )}
 
           <Section title="История">
             <ol className="space-y-3">
@@ -131,9 +151,17 @@ export function OnboardingDetailView({
             </section>
           )}
 
-          <OnboardingDecisionForms detail={detail} />
+          {canRenderDecisionForms ? (
+            <OnboardingDecisionForms
+              requestId={detail.request.id}
+              requestStatus={detail.request.status}
+              requestRevision={detail.revision.revisionNumber}
+              managers={detail.managers}
+              isPlatformAdmin={detail.workflow.isPlatformAdmin}
+            />
+          ) : null}
 
-          {!(["approved", "rejected", "cancelled"] as OnboardingStatus[]).includes(detail.request.status) ? (
+          {!terminal ? (
           <Section title="Работа с заявкой">
             <div className="space-y-3">
               <form action={assignAction} className="space-y-2">
@@ -198,6 +226,19 @@ export function OnboardingDetailView({
         </aside>
       </div>
     </div>
+  );
+}
+
+function TerminalResult({ status }: { status: OnboardingStatus }) {
+  return (
+    <section className="border-b border-zinc-200 pb-6">
+      <h2 className="text-lg font-semibold">Результат подключения</h2>
+      <p className="mt-2 text-sm text-zinc-600">
+        {status === "approved"
+          ? "Доступ открыт. Компания и пользователь подключены."
+          : "Заявка завершена. Подключение недоступно."}
+      </p>
+    </section>
   );
 }
 

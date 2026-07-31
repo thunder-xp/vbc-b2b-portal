@@ -75,7 +75,7 @@ describe("rejection, cancellation, and reopen", () => {
   });
   it("reopens only rejected or cancelled requests", () => {
     expect(migration).toContain("request.onboarding_status not in ('rejected', 'cancelled')");
-    expect(managerUi).toContain('detail.request.status === "approved"');
+    expect(managerUi).toContain('requestStatus === "approved"');
   });
   it("requires an explicit manager when reopening", () => {
     expect(migration).toContain("is_onboarding_manager_eligible(p_assignee_user_id)");

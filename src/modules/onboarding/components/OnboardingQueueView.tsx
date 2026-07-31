@@ -190,6 +190,7 @@ export function OnboardingQueueView({
               <div className="min-w-0">
                 <Link
                   href={`/admin/onboarding/${row.id}`}
+                  prefetch={false}
                   className="font-semibold text-zinc-950 hover:text-emerald-700 focus-visible:outline-2 focus-visible:outline-emerald-600"
                 >
                   {row.company_name}
@@ -228,6 +229,7 @@ export function OnboardingQueueView({
                 <p className="text-sm font-medium text-zinc-800">{row.next_action}</p>
                 <Link
                   href={`/admin/onboarding/${row.id}`}
+                  prefetch={false}
                   className="mt-2 inline-flex min-h-11 items-center text-sm font-semibold text-emerald-700 hover:text-emerald-800"
                 >
                   Открыть заявку
@@ -345,6 +347,7 @@ function PaginationLink({
   ) : (
     <Link
       href={href}
+      prefetch={false}
       className="min-h-11 px-3 py-3 text-sm font-medium text-emerald-700 hover:text-emerald-800"
     >
       {children}

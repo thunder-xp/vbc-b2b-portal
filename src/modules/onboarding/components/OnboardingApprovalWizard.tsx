@@ -27,7 +27,7 @@ import {
   type OnboardingBusinessProfileCode,
   type OnboardingPaymentModel,
 } from "../business-profiles";
-import type { OnboardingDetail } from "../types";
+import type { OnboardingDetail, OnboardingStatus } from "../types";
 
 const STEPS = [
   { number: 1, label: "Компания", icon: Building2 },
@@ -43,7 +43,17 @@ const INITIAL_ACTION_STATE: OnboardingWizardActionState = {
   data: null,
 };
 
-export function OnboardingApprovalWizard({ detail }: { detail: OnboardingDetail }) {
+type OnboardingWizardDetail = Pick<
+  OnboardingDetail,
+  "candidates" | "directoryFiscalMatchCount" | "draft" | "duplicates" | "managers"
+> & {
+  request: {
+    id: string;
+    status: OnboardingStatus;
+  };
+};
+
+export function OnboardingApprovalWizard({ detail }: { detail: OnboardingWizardDetail }) {
   const draft = detail.draft;
   const [companyState, companyAction] = useActionState(saveOnboardingCompanyStepAction, INITIAL_ACTION_STATE);
   const [commercialState, commercialAction] = useActionState(saveOnboardingCommercialStepAction, INITIAL_ACTION_STATE);
@@ -54,19 +64,6 @@ export function OnboardingApprovalWizard({ detail }: { detail: OnboardingDetail 
   const states = [companyState, commercialState, profileState, navigationState, resetState, approvalState];
   const feedback = states.find((state) => !state.success)
     ?? [...states].reverse().find((state) => state.message);
-
-  if (["approved", "rejected", "cancelled"].includes(detail.request.status)) {
-    return (
-      <section className="border-b border-zinc-200 pb-6">
-        <h2 className="text-lg font-semibold">Результат подключения</h2>
-        <p className="mt-2 text-sm text-zinc-600">
-          {detail.request.status === "approved"
-            ? "Доступ открыт. Компания и пользователь подключены."
-            : "Заявка завершена. Подключение недоступно."}
-        </p>
-      </section>
-    );
-  }
 
   if (!draft) {
     return (
@@ -175,7 +172,7 @@ export function OnboardingApprovalWizard({ detail }: { detail: OnboardingDetail 
   );
 }
 
-function CompanyStep({ detail, action, draft }: { detail: OnboardingDetail; action: (payload: FormData) => void; draft: NonNullable<OnboardingDetail["draft"]> }) {
+function CompanyStep({ detail, action, draft }: { detail: OnboardingWizardDetail; action: (payload: FormData) => void; draft: NonNullable<OnboardingDetail["draft"]> }) {
   const blockedByDuplicate = detail.directoryFiscalMatchCount > 1;
   return (
     <form action={action} className="space-y-5">
@@ -212,7 +209,7 @@ function CompanyStep({ detail, action, draft }: { detail: OnboardingDetail; acti
   );
 }
 
-function CommercialStep({ detail, action, draft, candidate, backAction }: { detail: OnboardingDetail; action: (payload: FormData) => void; draft: NonNullable<OnboardingDetail["draft"]>; candidate: OnboardingDetail["candidates"][number] | undefined; backAction: (payload: FormData) => void }) {
+function CommercialStep({ detail, action, draft, candidate, backAction }: { detail: OnboardingWizardDetail; action: (payload: FormData) => void; draft: NonNullable<OnboardingDetail["draft"]>; candidate: OnboardingDetail["candidates"][number] | undefined; backAction: (payload: FormData) => void }) {
   return (
     <div className="space-y-5">
       <div><h3 className="font-semibold">2. Коммерческие условия</h3><p className="mt-1 text-sm text-zinc-600">Компания: {candidate?.companyName ?? "не выбрана"}. Договоров в 1С: {candidate?.contracts.length ?? 0}.</p></div>
@@ -239,7 +236,7 @@ function ProfileStep({ action, draft, requestId, backAction }: { action: (payloa
   );
 }
 
-function ReviewStep({ detail, action, backAction, draft, candidateName, managerName, priceProfileName, profile }: { detail: OnboardingDetail; action: (payload: FormData) => void; backAction: (payload: FormData) => void; draft: NonNullable<OnboardingDetail["draft"]>; candidateName: string; managerName: string; priceProfileName: string; profile: (typeof ONBOARDING_BUSINESS_PROFILES)[OnboardingBusinessProfileCode] | null }) {
+function ReviewStep({ detail, action, backAction, draft, candidateName, managerName, priceProfileName, profile }: { detail: OnboardingWizardDetail; action: (payload: FormData) => void; backAction: (payload: FormData) => void; draft: NonNullable<OnboardingDetail["draft"]>; candidateName: string; managerName: string; priceProfileName: string; profile: (typeof ONBOARDING_BUSINESS_PROFILES)[OnboardingBusinessProfileCode] | null }) {
   const ready = detail.request.status === "ready_for_approval";
   return (
     <form action={action} className="space-y-5">
@@ -253,7 +250,7 @@ function ReviewStep({ detail, action, backAction, draft, candidateName, managerN
   );
 }
 
-function DraftFields({ detail, draft }: { detail: OnboardingDetail; draft: NonNullable<OnboardingDetail["draft"]> }) {
+function DraftFields({ detail, draft }: { detail: OnboardingWizardDetail; draft: NonNullable<OnboardingDetail["draft"]> }) {
   return <><input type="hidden" name="requestId" value={detail.request.id} /><input type="hidden" name="requestRevision" value={draft.requestRevisionNumber} /><input type="hidden" name="draftVersion" value={draft.version} /></>;
 }
 

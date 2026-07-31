@@ -43,6 +43,12 @@ vi.mock("@/src/modules/onboarding/components", () => ({
   ),
 }));
 
+vi.mock("@/src/modules/onboarding/components/PartnerOnboardingStatusCenter", () => ({
+  PartnerOnboardingStatusCenter: ({ center }: { center: { status: string } }) => (
+    <section data-testid={`status-center-${center.status}`} />
+  ),
+}));
+
 vi.mock("@/src/modules/access-control/components/onboarding", () => ({
   AccessRequestForm: () => <section data-testid="access-request-form" />,
   AccessRequestStatusList: () => <section data-testid="access-request-status-list" />,

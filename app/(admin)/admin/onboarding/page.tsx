@@ -35,6 +35,7 @@ export default async function AdminOnboardingPage({
           </div>
           <Link
             href="/admin/onboarding/health"
+            prefetch={false}
             className="inline-flex min-h-11 items-center justify-center rounded-md border border-zinc-300 bg-white px-4 text-sm font-semibold hover:bg-zinc-50"
           >
             Состояние
