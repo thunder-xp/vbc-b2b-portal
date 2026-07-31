@@ -22,9 +22,9 @@ export const ADMIN_NAVIGATION: readonly AdminNavigationGroup[] = [
       { label: "Пользователи", href: "/admin/users", permission: "admin.users.view" },
       { label: "Приглашения", href: "/admin/invitations", permission: "admin.invitations.view" },
       {
-        label: "Заявки на доступ",
-        href: "/admin/partner-requests",
-        permission: "admin.access_requests.view",
+        label: "Онбординг партнёров",
+        href: "/admin/onboarding",
+        permission: "onboarding.requests.view",
       },
       { label: "Проверка прав", href: "/admin/access", permission: "admin.security.view" },
     ],
