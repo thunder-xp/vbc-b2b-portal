@@ -6,6 +6,10 @@ const migration = readFileSync(
   resolve("supabase/migrations/20260731120000_partner_onboarding_console_foundation.sql"),
   "utf8",
 );
+const terminalSlaRepair = readFileSync(
+  resolve("supabase/migrations/20260731130000_onboarding_terminal_sla_repair.sql"),
+  "utf8",
+);
 const queuePage = readFileSync(
   resolve("app/(admin)/admin/onboarding/page.tsx"),
   "utf8",
@@ -20,6 +24,13 @@ const directorySyncService = readFileSync(
 );
 
 describe("partner onboarding console foundation", () => {
+  it("excludes terminal requests from overdue SLA states", () => {
+    expect(terminalSlaRepair).toContain(
+      "when onboarding_status in ('approved', 'rejected', 'cancelled') then 'completed'",
+    );
+    expect(terminalSlaRepair).toContain("get_onboarding_queue");
+  });
+
   it("publishes a versioned local directory atomically and preserves prior snapshots on failure", () => {
     expect(migration).toContain("create table if not exists public.one_c_counterparties");
     expect(migration).toContain("create or replace function public.publish_one_c_counterparty_directory");
