@@ -1,5 +1,6 @@
 import type {
   OnboardingDetail,
+  OnboardingApprovalResult,
   OnboardingHealth,
   OnboardingQueue,
   OnboardingStatus,
@@ -36,4 +37,34 @@ export interface OnboardingRepository {
     counterpartyId: string,
     initialAccessProfile: string,
   ): Promise<void>;
+  saveApprovalDraft(input: SaveOnboardingApprovalDraftInput): Promise<void>;
+  setApprovalDraftStep(
+    requestId: string,
+    expectedDraftVersion: number,
+    step: number,
+  ): Promise<void>;
+  resetApprovalDraft(requestId: string): Promise<void>;
+  approve(input: ApproveOnboardingInput): Promise<OnboardingApprovalResult>;
 }
+
+export type SaveOnboardingApprovalDraftInput = {
+  requestId: string;
+  expectedRequestRevision: number;
+  expectedDraftVersion: number;
+  step: 1 | 2 | 3;
+  counterpartyId?: string | null;
+  assignedManagerId?: string | null;
+  priceProfileId?: string | null;
+  paymentModel?: string | null;
+  initialProfile?: string | null;
+  financeAccess?: boolean;
+  orderAccess?: boolean;
+};
+
+export type ApproveOnboardingInput = {
+  requestId: string;
+  expectedRequestRevision: number;
+  expectedDraftVersion: number;
+  attemptKey: string;
+  correlationId: string;
+};

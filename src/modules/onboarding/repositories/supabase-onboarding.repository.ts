@@ -7,6 +7,7 @@ import { RepositoryUnexpectedError } from "@/src/modules/access-control/reposito
 
 import type {
   OnboardingDetail,
+  OnboardingApprovalResult,
   OnboardingHealth,
   OnboardingQueue,
   OnboardingStatus,
@@ -14,6 +15,8 @@ import type {
 import type {
   OnboardingQueueInput,
   OnboardingRepository,
+  ApproveOnboardingInput,
+  SaveOnboardingApprovalDraftInput,
 } from "./onboarding.repository";
 
 const queueSchema = z.object({
@@ -98,6 +101,15 @@ const detailSchema = z.object({
     portalLinkageState: z.string(),
     synchronizedAt: z.string(),
     matchReason: z.string(),
+    contracts: z.array(z.object({
+      name: z.string(),
+      code: z.string().nullable(),
+    })),
+    priceProfiles: z.array(z.object({
+      id: z.string().uuid(),
+      name: z.string(),
+      code: z.string().nullable(),
+    })),
   })),
   duplicates: z.object({
     sameFiscalCode: z.boolean(),
@@ -109,6 +121,31 @@ const detailSchema = z.object({
     id: z.string().uuid(),
     name: z.string(),
   })),
+  directoryFiscalMatchCount: z.number().int().nonnegative(),
+  draft: z.object({
+    requestRevisionNumber: z.number().int().positive(),
+    confirmedCounterpartyId: z.string().uuid().nullable(),
+    assignedManagerId: z.string().uuid().nullable(),
+    selectedPriceProfileId: z.string().uuid().nullable(),
+    paymentModel: z.string().nullable(),
+    initialBusinessProfile: z.string().nullable(),
+    financeAccess: z.boolean(),
+    orderAccess: z.boolean(),
+    currentStep: z.number().int().min(1).max(4),
+    version: z.number().int().positive(),
+    attemptKey: z.string().uuid(),
+    updatedAt: z.string(),
+    stale: z.boolean(),
+  }).nullable(),
+});
+
+const approvalResultSchema = z.object({
+  success: z.boolean(),
+  idempotent: z.boolean().optional(),
+  companyBranch: z.enum(["created", "reused"]).optional(),
+  membershipOutcome: z.enum(["created", "reused"]).optional(),
+  failureCode: z.string().optional(),
+  correlationId: z.string().uuid().optional(),
 });
 
 const healthSchema = z.object({
@@ -158,10 +195,10 @@ export class SupabaseOnboardingRepository implements OnboardingRepository {
 
   async getDetail(requestId: string): Promise<OnboardingDetail | null> {
     const client = await createClient();
-    const { data, error } = await client.rpc("get_onboarding_request_detail", {
+    const { data, error } = await client.rpc("get_onboarding_request_detail_v2", {
       p_request_id: requestId,
     });
-    if (error) throw repositoryError("get_onboarding_request_detail", error);
+    if (error) throw repositoryError("get_onboarding_request_detail_v2", error);
     return data === null ? null : detailSchema.parse(data) as OnboardingDetail;
   }
 
@@ -215,6 +252,59 @@ export class SupabaseOnboardingRepository implements OnboardingRepository {
       p_initial_access_profile: initialAccessProfile,
     });
     if (error) throw repositoryError("confirm_onboarding_counterparty_match", error);
+  }
+
+  async saveApprovalDraft(input: SaveOnboardingApprovalDraftInput): Promise<void> {
+    const client = await createClient();
+    const { error } = await client.rpc("save_onboarding_approval_draft", {
+      p_request_id: input.requestId,
+      p_expected_request_revision: input.expectedRequestRevision,
+      p_expected_draft_version: input.expectedDraftVersion,
+      p_step: input.step,
+      p_counterparty_id: input.counterpartyId ?? null,
+      p_assigned_manager_id: input.assignedManagerId ?? null,
+      p_price_profile_id: input.priceProfileId ?? null,
+      p_payment_model: input.paymentModel ?? null,
+      p_initial_profile: input.initialProfile ?? null,
+      p_finance_access: input.financeAccess ?? false,
+      p_order_access: input.orderAccess ?? true,
+    });
+    if (error) throw repositoryError("save_onboarding_approval_draft", error);
+  }
+
+  async setApprovalDraftStep(
+    requestId: string,
+    expectedDraftVersion: number,
+    step: number,
+  ): Promise<void> {
+    const client = await createClient();
+    const { error } = await client.rpc("set_onboarding_approval_draft_step", {
+      p_request_id: requestId,
+      p_expected_draft_version: expectedDraftVersion,
+      p_step: step,
+    });
+    if (error) throw repositoryError("set_onboarding_approval_draft_step", error);
+  }
+
+  async resetApprovalDraft(requestId: string): Promise<void> {
+    const client = await createClient();
+    const { error } = await client.rpc("reset_onboarding_approval_draft", {
+      p_request_id: requestId,
+    });
+    if (error) throw repositoryError("reset_onboarding_approval_draft", error);
+  }
+
+  async approve(input: ApproveOnboardingInput): Promise<OnboardingApprovalResult> {
+    const client = await createClient();
+    const { data, error } = await client.rpc("approve_partner_access_request_v3", {
+      p_request_id: input.requestId,
+      p_expected_request_revision: input.expectedRequestRevision,
+      p_expected_draft_version: input.expectedDraftVersion,
+      p_attempt_key: input.attemptKey,
+      p_correlation_id: input.correlationId,
+    });
+    if (error) throw repositoryError("approve_partner_access_request_v3", error);
+    return approvalResultSchema.parse(data);
   }
 }
 

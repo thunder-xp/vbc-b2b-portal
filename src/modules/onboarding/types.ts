@@ -188,6 +188,15 @@ export type OnboardingDetail = {
     portalLinkageState: string;
     synchronizedAt: string;
     matchReason: string;
+    contracts: Array<{
+      name: string;
+      code: string | null;
+    }>;
+    priceProfiles: Array<{
+      id: string;
+      name: string;
+      code: string | null;
+    }>;
   }>;
   duplicates: {
     sameFiscalCode: boolean;
@@ -196,4 +205,29 @@ export type OnboardingDetail = {
     userLinkedToAnotherCompany: boolean;
   };
   managers: Array<{ id: string; name: string }>;
+  directoryFiscalMatchCount: number;
+  draft: {
+    requestRevisionNumber: number;
+    confirmedCounterpartyId: string | null;
+    assignedManagerId: string | null;
+    selectedPriceProfileId: string | null;
+    paymentModel: string | null;
+    initialBusinessProfile: string | null;
+    financeAccess: boolean;
+    orderAccess: boolean;
+    currentStep: number;
+    version: number;
+    attemptKey: string;
+    updatedAt: string;
+    stale: boolean;
+  } | null;
+};
+
+export type OnboardingApprovalResult = {
+  success: boolean;
+  idempotent?: boolean;
+  companyBranch?: "created" | "reused";
+  membershipOutcome?: "created" | "reused";
+  failureCode?: string;
+  correlationId?: string;
 };
