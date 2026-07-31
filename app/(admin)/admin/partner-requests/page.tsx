@@ -1,48 +1,8 @@
 import { redirect } from "next/navigation";
 
-import { listPendingAccessRequestsForReviewAction } from "@/src/modules/access-control/actions/admin/access-approval.actions";
-import { AccessRequestReviewList } from "@/src/modules/access-control/components/admin";
 import { requireAdminPagePermission } from "@/src/modules/admin";
 
 export default async function AdminPartnerRequestsPage() {
-  await requireAdminPagePermission("admin.access_requests.view");
-  const requestsResult = await listPendingAccessRequestsForReviewAction();
-
-  if (!requestsResult.success && requestsResult.errorCode === "AUTH_REQUIRED") {
-    redirect("/auth/sign-in");
-  }
-
-  return (
-    <div className="bg-zinc-50 text-zinc-950">
-      <div className="mx-auto max-w-6xl space-y-6">
-        <div>
-          <p className="text-sm font-medium uppercase tracking-[0.14em] text-emerald-700">
-            Управление доступом
-          </p>
-          <h1 className="mt-2 text-2xl font-semibold tracking-tight">
-            Заявки партнёров
-          </h1>
-          <p className="mt-2 max-w-3xl text-sm text-zinc-600">
-            Проверяйте заявки компаний и связывайте одобренный доступ с
-            подтверждённым контрагентом, договором и статусом партнёра в 1С.
-          </p>
-        </div>
-
-        {!requestsResult.success && (
-          <section className="rounded-lg border border-zinc-200 bg-white p-6 shadow-sm">
-            <h2 className="text-lg font-semibold text-zinc-950">
-              Заявки временно недоступны
-            </h2>
-            <p className="mt-2 text-sm text-zinc-600">
-              {requestsResult.message}
-            </p>
-          </section>
-        )}
-
-        {requestsResult.success && (
-          <AccessRequestReviewList requests={requestsResult.data} />
-        )}
-      </div>
-    </div>
-  );
+  await requireAdminPagePermission("onboarding.requests.view");
+  redirect("/admin/onboarding");
 }

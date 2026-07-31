@@ -13,6 +13,7 @@ const allPermissions = [
   "admin.users.view",
   "admin.invitations.view",
   "admin.access_requests.view",
+  "onboarding.requests.view",
   "admin.security.view",
   "admin.catalog.view",
   "admin.analytics.view",

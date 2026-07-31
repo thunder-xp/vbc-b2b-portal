@@ -11,5 +11,5 @@ export default async function AdminAccessRequestCompatibilityDetailPage({
 }: AdminAccessRequestCompatibilityDetailPageProps) {
   const { requestId } = await params;
 
-  redirect(`/admin/partner-requests/${requestId}`);
+  redirect(`/admin/onboarding/${requestId}`);
 }

@@ -14,17 +14,17 @@ import AdminAccessRequestCompatibilityDetailPage from "../access-requests/[reque
 import AdminAccessRequestsCompatibilityPage from "../access-requests/page";
 
 describe("admin route canonicalization", () => {
-  it("redirects access request list compatibility route to partner requests", () => {
+  it("redirects access request list compatibility route to onboarding", () => {
     expect(() => AdminAccessRequestsCompatibilityPage()).toThrow(
-      "NEXT_REDIRECT:/admin/partner-requests",
+      "NEXT_REDIRECT:/admin/onboarding",
     );
   });
 
-  it("redirects access request detail compatibility route to partner request detail", async () => {
+  it("redirects access request detail compatibility route to onboarding detail", async () => {
     await expect(
       AdminAccessRequestCompatibilityDetailPage({
         params: Promise.resolve({ requestId: "request-1" }),
       }),
-    ).rejects.toThrow("NEXT_REDIRECT:/admin/partner-requests/request-1");
+    ).rejects.toThrow("NEXT_REDIRECT:/admin/onboarding/request-1");
   });
 });
