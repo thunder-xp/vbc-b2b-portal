@@ -126,12 +126,10 @@ export function PartnerSidebar({
   hasWorkspaceAccess = true,
   navigation,
   onNavigate,
-  cartItemCount = 0,
 }: {
   hasWorkspaceAccess?: boolean;
   navigation: WorkspaceNavigationItem[];
   onNavigate?: () => void;
-  cartItemCount?: number;
 }) {
   const pathname = usePathname();
   const [projectToolsOpen, setProjectToolsOpen] = useState(false);
@@ -149,7 +147,6 @@ export function PartnerSidebar({
     const item = navigationByKey.get(key);
     return item ? [item] : [];
   });
-  const cart = navigationByKey.get("cart");
   const projectRouteActive = projectNavigation.some((item) => isRouteActive(pathname, item.href));
   const projectToolsExpanded = projectRouteActive || projectToolsOpen;
   const ProjectChevron = projectToolsExpanded ? ChevronDown : ChevronRight;
@@ -233,37 +230,6 @@ export function PartnerSidebar({
         </div>
       </nav>
 
-      {cart && (
-        <div className="shrink-0 border-t border-white/10 p-2" data-testid="sidebar-cart-section">
-          {hasWorkspaceAccess && cart.availability === "available" && cart.href ? (
-            <Link
-              aria-current={isRouteActive(pathname, cart.href) ? "page" : undefined}
-              className={`flex min-h-10 items-center gap-3 rounded-md px-3 py-2 text-sm font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 ${
-                isRouteActive(pathname, cart.href)
-                  ? "bg-emerald-500/15 text-emerald-200"
-                  : "text-zinc-300 hover:bg-white/10 hover:text-white"
-              }`}
-              href={cart.href}
-              onClick={onNavigate}
-              prefetch={false}
-            >
-              <ShoppingCart aria-hidden="true" className="size-4 shrink-0" />
-              <span className="min-w-0 flex-1 truncate">{cart.label}</span>
-              {cartItemCount > 0 && (
-                <span className="min-w-5 shrink-0 rounded-full bg-emerald-500 px-1.5 py-0.5 text-center text-[10px] font-bold text-white">
-                  {cartItemCount > 99 ? "99+" : cartItemCount}
-                </span>
-              )}
-            </Link>
-          ) : (
-            <span className="flex min-h-10 items-center gap-3 rounded-md px-3 py-2 text-sm text-zinc-500">
-              <ShoppingCart aria-hidden="true" className="size-4 shrink-0" />
-              <span className="min-w-0 flex-1 truncate">{cart.label}</span>
-              <span className="shrink-0 text-[10px] font-semibold uppercase">Скоро</span>
-            </span>
-          )}
-        </div>
-      )}
     </aside>
   );
 }

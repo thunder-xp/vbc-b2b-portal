@@ -89,7 +89,7 @@ export function NotificationBell({ initialSummary }: { initialSummary: Notificat
       {open && (
         <section
           aria-label="Последние уведомления"
-          className="fixed inset-x-3 top-16 z-50 max-h-[min(34rem,calc(100vh-5rem))] overflow-y-auto rounded-md border border-zinc-200 bg-white shadow-xl sm:absolute sm:inset-x-auto sm:right-0 sm:top-12 sm:w-[25rem]"
+          className="fixed inset-x-3 top-28 z-50 max-h-[min(34rem,calc(100vh-8rem))] overflow-y-auto rounded-md border border-zinc-200 bg-white shadow-xl sm:absolute sm:inset-x-auto sm:right-0 sm:top-12 sm:w-[25rem]"
           id="partner-notification-popover"
           role="dialog"
         >

@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -17,6 +17,8 @@ const context = {
   userEmail: "partner@example.com",
   companyName: "Partner Company",
   membershipRole: "Владелец компании",
+  membershipRoleCode: "partner_owner",
+  companyLogoUrl: null,
   accessState: "active" as const,
   navigation: resolveWorkspaceCapabilities(new Set(["catalog.view", "orders.create", "orders.manage", "purchasing_lists.view", "reservations.manage", "specifications.manage", "estimates.view", "estimates.manage", "documents.view_company"])).navigation,
   cartItemCount: 0,
@@ -30,11 +32,13 @@ describe("Partner workspace shell", () => {
     pathname = "/cabinet";
   });
 
-  it("renders business identity without raw role IDs", () => {
+  it("renders business identity without raw role IDs", async () => {
+    const user = userEvent.setup();
     render(<PartnerHeader context={context} />);
 
     expect(screen.getByText("Partner User")).toBeInTheDocument();
     expect(screen.getByText("Partner Company")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Открыть меню пользователя" }));
     expect(screen.getByText("Владелец компании")).toBeInTheDocument();
     expect(screen.queryByText("role-1")).not.toBeInTheDocument();
   });
@@ -52,6 +56,10 @@ describe("Partner workspace shell", () => {
       membershipId: "membership-1",
       membershipStatus: "active",
       membershipRole: "Владелец компании",
+      membershipRoleCode: "partner_owner",
+      companyLogoAssetPath: null,
+      companyLogoUrl: null,
+      canManageCompanyLogo: true,
       external1cCode: "UU-001940",
       external1cPriceTypeId: "price-type-1",
       priceTypeName: "PLATINUM",
@@ -65,9 +73,9 @@ describe("Partner workspace shell", () => {
     expect(screen.queryByText("Вид цены")).not.toBeInTheDocument();
   });
 
-  it("shows the requested hierarchy and keeps the cart in a separate bottom section", async () => {
+  it("shows the requested hierarchy without duplicating the header cart in the sidebar", async () => {
     const user = userEvent.setup();
-    render(<PartnerSidebar cartItemCount={125} hasWorkspaceAccess navigation={navigation} />);
+    render(<PartnerSidebar hasWorkspaceAccess navigation={navigation} />);
 
     expect(screen.getByRole("link", { name: "Рабочий стол" })).toHaveAttribute("href", "/cabinet");
     expect(screen.getByRole("link", { name: "Каталог" })).toHaveAttribute("href", "/cabinet/catalog");
@@ -93,10 +101,30 @@ describe("Partner workspace shell", () => {
     expect(screen.queryByText("Персональные цены")).not.toBeInTheDocument();
     expect(screen.queryByText("Admin")).not.toBeInTheDocument();
 
-    const cartSection = screen.getByTestId("sidebar-cart-section");
-    expect(within(cartSection).getByRole("link", { name: /Корзина/ })).toHaveAttribute("href", "/cabinet/cart");
-    expect(within(cartSection).getByText("99+")).toBeInTheDocument();
-    expect(screen.getByRole("navigation").compareDocumentPosition(cartSection) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.queryByRole("link", { name: /Корзина/ })).not.toBeInTheDocument();
+  });
+
+  it("moves cart and sign out into the operational header", async () => {
+    const user = userEvent.setup();
+    render(<PartnerHeader context={{ ...context, cartItemCount: 125 }} />);
+    expect(screen.getByRole("link", { name: "Корзина: 125 позиций" })).toHaveAttribute("href", "/cabinet/cart");
+    expect(screen.queryByRole("button", { name: "Выйти" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Открыть меню пользователя" }));
+    expect(screen.getByRole("menuitem", { name: "Выйти" })).toBeInTheDocument();
+  });
+
+  it("dismisses the user menu outside and on Escape with focus restoration", async () => {
+    const user = userEvent.setup();
+    render(<div><PartnerHeader context={context} /><button type="button">Снаружи</button></div>);
+    const trigger = screen.getByRole("button", { name: "Открыть меню пользователя" });
+    await user.click(trigger);
+    expect(screen.getByRole("menu", { name: "Меню пользователя" })).toBeInTheDocument();
+    fireEvent.pointerDown(screen.getByRole("button", { name: "Снаружи" }));
+    expect(screen.queryByRole("menu", { name: "Меню пользователя" })).not.toBeInTheDocument();
+    await user.click(trigger);
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("menu", { name: "Меню пользователя" })).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
   });
 
   it("automatically expands the project submenu for an active child route", () => {

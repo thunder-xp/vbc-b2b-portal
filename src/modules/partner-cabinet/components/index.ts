@@ -1,8 +1,10 @@
 export { CompanyCard } from "./CompanyCard";
+export { CompanyLogoForm } from "./CompanyLogoForm";
 export { DashboardCard } from "./DashboardCard";
 export { EmptyState } from "./EmptyState";
 export { MembershipCard } from "./MembershipCard";
 export { PartnerHeader } from "./PartnerHeader";
+export { UserMenu } from "./UserMenu";
 export { PartnerLayout } from "./PartnerLayout";
 export { PartnerSidebar } from "./PartnerSidebar";
 export { QuickActions } from "./QuickActions";
