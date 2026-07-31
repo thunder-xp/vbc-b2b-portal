@@ -49,6 +49,11 @@ type AdminInvitationRow = {
   total_count: number | string;
 };
 
+type OnboardingCapabilityStateRow = {
+  user_id: string;
+  enabled: boolean;
+};
+
 export class SupabaseAdminIdentityRepository
   implements AdminIdentityRepository
 {
@@ -59,9 +64,21 @@ export class SupabaseAdminIdentityRepository
       p_search: input.search || null,
       p_filter: input.filter,
     });
+    const internalUserIds = rows
+      .filter((row) => row.identity_type === "internal" && row.user_id)
+      .map((row) => row.user_id as string);
+    const capabilityRows = internalUserIds.length
+      ? await this.call<OnboardingCapabilityStateRow[]>(
+          "get_internal_onboarding_capability_states",
+          { p_user_ids: internalUserIds },
+        )
+      : [];
+    const capabilityByUser = new Map(
+      capabilityRows.map((row) => [row.user_id, row.enabled]),
+    );
     const totalCount = Number(rows[0]?.total_count ?? 0);
     return {
-      records: rows.map(mapUser),
+      records: rows.map((row) => mapUser(row, capabilityByUser.get(row.user_id ?? "") ?? false)),
       page: input.page,
       pageSize: input.pageSize,
       totalCount,
@@ -113,7 +130,7 @@ export class SupabaseAdminIdentityRepository
   }
 }
 
-function mapUser(row: AdminUserRow): AdminUserSummary {
+function mapUser(row: AdminUserRow, onboardingCapabilityEnabled: boolean): AdminUserSummary {
   return {
     recordKey: row.record_key,
     userId: row.user_id,
@@ -128,6 +145,7 @@ function mapUser(row: AdminUserRow): AdminUserSummary {
     lastAccessEvent: row.last_access_event,
     lastAccessEventAt: row.last_access_event_at,
     createdAt: row.created_at,
+    onboardingCapabilityEnabled,
   };
 }
 

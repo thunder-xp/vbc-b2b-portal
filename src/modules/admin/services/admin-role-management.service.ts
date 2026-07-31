@@ -30,6 +30,14 @@ export class AdminRoleManagementService {
   revoke(userId: string, reason: string): Promise<void> {
     return this.repository.revoke(requiredUuid(userId), requiredReason(reason));
   }
+
+  grantOnboardingCapability(userId: string, reason: string): Promise<void> {
+    return this.repository.grantOnboardingCapability(requiredUuid(userId), requiredReason(reason));
+  }
+
+  revokeOnboardingCapability(userId: string, reason: string): Promise<void> {
+    return this.repository.revokeOnboardingCapability(requiredUuid(userId), requiredReason(reason));
+  }
 }
 
 function requiredUuid(value: string): string {

@@ -22,6 +22,7 @@ export default async function AdminUsersPage({
         "admin.permissions.manage",
       )}
       canViewAudit={context.permissions.includes("admin.audit.view")}
+      canManageOnboardingCapability={context.isPlatformAdmin}
       users={users}
     />
   );

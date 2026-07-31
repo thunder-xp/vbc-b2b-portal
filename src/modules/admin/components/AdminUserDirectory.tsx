@@ -3,7 +3,9 @@ import Link from "next/link";
 
 import {
   assignInternalRoleAction,
+  grantOnboardingCapabilityAction,
   revokeInternalRoleAction,
+  revokeOnboardingCapabilityAction,
 } from "../actions";
 import { ASSIGNABLE_INTERNAL_ROLES } from "../services";
 import type { AdminUserFilter, AdminUserPage } from "../types";
@@ -24,10 +26,12 @@ const FILTER_LABELS: Record<AdminUserFilter, string> = {
 export function AdminUserDirectory({
   canManageInternalRoles,
   canViewAudit,
+  canManageOnboardingCapability,
   users,
 }: {
   canManageInternalRoles: boolean;
   canViewAudit: boolean;
+  canManageOnboardingCapability: boolean;
   users: AdminUserPage;
 }) {
   return (
@@ -122,6 +126,14 @@ export function AdminUserDirectory({
                       userId={user.userId}
                     />
                   ) : null}
+                  {canManageOnboardingCapability &&
+                  user.identityType === "internal" &&
+                  user.userId ? (
+                    <OnboardingCapabilityActions
+                      enabled={user.onboardingCapabilityEnabled}
+                      userId={user.userId}
+                    />
+                  ) : null}
                   {canViewAudit && user.userId ? (
                     <Link
                       className="mt-3 inline-block text-xs font-semibold text-emerald-700"
@@ -142,6 +154,30 @@ export function AdminUserDirectory({
       </section>
       <Pagination page={users} />
     </div>
+  );
+}
+
+function OnboardingCapabilityActions({ enabled, userId }: { enabled: boolean; userId: string }) {
+  const action = enabled ? revokeOnboardingCapabilityAction : grantOnboardingCapabilityAction;
+  return (
+    <form action={action} className="mt-3 grid gap-2 border-t border-zinc-200 pt-3">
+      <input name="userId" type="hidden" value={userId} />
+      <p className="text-xs font-semibold text-zinc-700">
+        Обработка заявок партнёров: {enabled ? "разрешена" : "не разрешена"}
+      </p>
+      <input
+        aria-label="Причина изменения полномочий онбординга"
+        className="h-9 min-w-0 border border-zinc-300 px-2 text-xs"
+        maxLength={500}
+        minLength={3}
+        name="reason"
+        placeholder="Причина"
+        required
+      />
+      <button className={`justify-self-start text-xs font-semibold ${enabled ? "text-red-700" : "text-emerald-700"}`}>
+        {enabled ? "Отозвать полномочие" : "Разрешить обработку заявок партнёров"}
+      </button>
+    </form>
   );
 }
 

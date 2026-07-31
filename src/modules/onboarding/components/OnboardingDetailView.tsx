@@ -10,6 +10,7 @@ import Link from "next/link";
 import type { OnboardingDetail, OnboardingStatus } from "../types";
 import { ONBOARDING_STATUS_LABELS } from "./onboarding-labels";
 import { OnboardingApprovalWizard } from "./OnboardingApprovalWizard";
+import { OnboardingDecisionForms } from "./OnboardingDecisionForms";
 
 type Props = {
   detail: OnboardingDetail;
@@ -76,9 +77,26 @@ export function OnboardingDetailView({
               <Definition label="Контакт" value={detail.revision.contactName} />
               <Definition label="Телефон" value={detail.revision.phone} />
               <Definition label="Электронная почта" value={detail.revision.email} />
+              <Definition label="Населённый пункт" value={detail.revision.locality} />
+              <Definition label="Тип бизнеса" value={detail.revision.businessType} />
+              <Definition label="Направление деятельности" value={detail.revision.businessActivity} />
+              <Definition label="Ожидаемый объём закупок" value={detail.revision.estimatedPurchasingVolume} />
               <Definition label="Комментарий" value={detail.revision.message} />
             </dl>
           </Section>
+
+          {detail.workflow.clarification ? (
+            <Section title="Уточнение данных">
+              <p className="text-sm font-semibold">Сообщение партнёру</p>
+              <p className="mt-2 whitespace-pre-wrap text-sm text-zinc-700">{detail.workflow.clarification.partnerMessage}</p>
+              {detail.workflow.clarification.internalNote ? (
+                <div className="mt-4 border-l-4 border-zinc-400 bg-zinc-50 p-3">
+                  <p className="text-xs font-semibold uppercase text-zinc-600">Только для сотрудников Novotech</p>
+                  <p className="mt-1 whitespace-pre-wrap text-sm">{detail.workflow.clarification.internalNote}</p>
+                </div>
+              ) : null}
+            </Section>
+          ) : null}
 
           <OnboardingApprovalWizard detail={detail} />
 
@@ -113,6 +131,9 @@ export function OnboardingDetailView({
             </section>
           )}
 
+          <OnboardingDecisionForms detail={detail} />
+
+          {!(["approved", "rejected", "cancelled"] as OnboardingStatus[]).includes(detail.request.status) ? (
           <Section title="Работа с заявкой">
             <div className="space-y-3">
               <form action={assignAction} className="space-y-2">
@@ -127,7 +148,7 @@ export function OnboardingDetailView({
                   >
                     <option value="" disabled>Выберите менеджера</option>
                     {detail.managers.map((manager) => (
-                      <option key={manager.id} value={manager.id}>{manager.name}</option>
+                      <option key={manager.id} value={manager.id}>{manager.name} · {manager.workloadCount} активных</option>
                     ))}
                   </select>
                 </label>
@@ -173,6 +194,7 @@ export function OnboardingDetailView({
               </p>
             </div>
           </Section>
+          ) : null}
         </aside>
       </div>
     </div>
@@ -264,6 +286,7 @@ function eventLabel(event: string): string {
     application_migrated: "Заявка перенесена в новый процесс",
     revision_created: "Создана новая редакция",
     assigned: "Назначен ответственный",
+    reassigned: "Ответственный изменён",
     unassigned: "Ответственный снят",
     review_started: "Проверка начата",
     match_suggested: "Найден кандидат 1С",
@@ -276,6 +299,13 @@ function eventLabel(event: string): string {
     onboarding_approved: "Доступ к кабинету открыт",
     capability_granted: "Полномочие выдано",
     capability_revoked: "Полномочие отозвано",
+    clarification_requested: "Запрошено уточнение данных",
+    partner_revision_submitted: "Партнёр отправил новую редакцию",
+    rejected: "Заявка отклонена",
+    cancelled: "Заявка отменена",
+    reopened: "Проверка возобновлена",
+    sla_paused: "SLA решения приостановлен",
+    sla_resumed: "SLA решения возобновлён",
   }[event] ?? event;
 }
 

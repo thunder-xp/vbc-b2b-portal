@@ -23,6 +23,20 @@ export class SupabaseAdminRoleManagementRepository
     });
   }
 
+  grantOnboardingCapability(userId: string, reason: string): Promise<void> {
+    return this.call("grant_internal_onboarding_capability_bundle", {
+      p_user_id: userId,
+      p_reason: reason,
+    });
+  }
+
+  revokeOnboardingCapability(userId: string, reason: string): Promise<void> {
+    return this.call("revoke_internal_onboarding_capability_bundle", {
+      p_user_id: userId,
+      p_reason: reason,
+    });
+  }
+
   private async call(
     operation: string,
     input: Record<string, unknown>,

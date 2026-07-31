@@ -36,6 +36,7 @@ export type AdminUserSummary = {
   lastAccessEvent: string | null;
   lastAccessEventAt: string | null;
   createdAt: string;
+  onboardingCapabilityEnabled: boolean;
 };
 
 export type AdminUserPage = {

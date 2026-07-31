@@ -1,4 +1,5 @@
 import {
+  assignOnboardingRequestFormAction,
   listOnboardingQueueAction,
   synchronizeCounterpartyDirectoryFormAction,
 } from "@/src/modules/onboarding/actions";
@@ -46,6 +47,7 @@ export default async function AdminOnboardingPage({
             filters={filters}
             canSynchronize={context.permissions.includes("admin.integrations.manage")}
             syncAction={synchronizeCounterpartyDirectoryFormAction}
+            assignAction={assignOnboardingRequestFormAction}
           />
         ) : (
           <section className="border-y border-zinc-200 bg-white py-8">

@@ -20,6 +20,7 @@ type Props = {
   filters: OnboardingQueueInput;
   canSynchronize: boolean;
   syncAction: () => Promise<void>;
+  assignAction: (formData: FormData) => Promise<void>;
 };
 
 export function OnboardingQueueView({
@@ -27,6 +28,7 @@ export function OnboardingQueueView({
   filters,
   canSynchronize,
   syncAction,
+  assignAction,
 }: Props) {
   const totalPages = Math.max(1, Math.ceil(queue.totalCount / queue.pageSize));
 
@@ -198,6 +200,9 @@ export function OnboardingQueueView({
                 <p className="truncate text-sm text-zinc-500">
                   {[row.phone, row.email].filter(Boolean).join(" · ")}
                 </p>
+                <p className="mt-1 text-xs text-zinc-500">
+                  Редакций: {row.revision_count} · Последнее действие: {formatRelativeAge(row.clarification_age_seconds ?? row.assignment_age_seconds)}
+                </p>
                 {row.duplicate_fiscal_code && (
                   <p className="mt-2 flex items-center gap-1 text-sm font-medium text-amber-800">
                     <AlertTriangle className="h-4 w-4" aria-hidden />
@@ -216,6 +221,8 @@ export function OnboardingQueueView({
                 <p className="mt-1 text-zinc-500">
                   {MATCH_LABELS[row.match_state] ?? row.match_state}
                 </p>
+                {row.sla_paused ? <p className="mt-1 font-medium text-amber-800">SLA приостановлен</p> : null}
+                {row.partner_response_overdue ? <p className="mt-1 font-medium text-red-700">Ответ партнёра просрочен</p> : null}
               </div>
               <div>
                 <p className="text-sm font-medium text-zinc-800">{row.next_action}</p>
@@ -225,6 +232,13 @@ export function OnboardingQueueView({
                 >
                   Открыть заявку
                 </Link>
+                {!row.assigned_manager_user_id && !["approved", "rejected", "cancelled"].includes(row.onboarding_status) ? (
+                  <form action={assignAction} className="mt-1">
+                    <input type="hidden" name="requestId" value={row.id} />
+                    <input type="hidden" name="assigneeUserId" value="self" />
+                    <button className="min-h-11 text-sm font-semibold text-zinc-700">Назначить на себя</button>
+                  </form>
+                ) : null}
               </div>
             </article>
           ))}
@@ -250,6 +264,13 @@ export function OnboardingQueueView({
       </nav>
     </div>
   );
+}
+
+function formatRelativeAge(seconds: number | null): string {
+  if (seconds === null) return "только что";
+  if (seconds < 3600) return `${Math.max(1, Math.floor(seconds / 60))} мин.`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)} ч.`;
+  return `${Math.floor(seconds / 86400)} дн.`;
 }
 
 function Metric({
