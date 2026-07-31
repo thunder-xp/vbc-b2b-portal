@@ -18,10 +18,14 @@ import {
   ONBOARDING_PAYMENT_MODELS,
 } from "../business-profiles";
 import {
+  CLARIFICATION_REASON_CODES,
   ONBOARDING_STATUSES,
+  PARTNER_CORRECTION_FIELDS,
+  REJECTION_REASON_CODES,
   type OnboardingDetail,
   type OnboardingHealth,
   type OnboardingQueue,
+  type PartnerOnboardingStatusCenter,
 } from "../types";
 import { SupabaseOnboardingRepository, type OnboardingQueueInput } from "../repositories";
 import {
@@ -40,8 +44,25 @@ const accessProfileSchema = z.enum([
 ]);
 const businessProfileSchema = z.enum(ONBOARDING_BUSINESS_PROFILE_CODES);
 const paymentModelSchema = z.enum(ONBOARDING_PAYMENT_MODELS);
+const clarificationReasonSchema = z.enum(CLARIFICATION_REASON_CODES);
+const rejectionReasonSchema = z.enum(REJECTION_REASON_CODES);
+const correctionFieldSchema = z.enum(PARTNER_CORRECTION_FIELDS);
+const partnerRevisionSchema = z.object({
+  expectedRevision: z.coerce.number().int().positive(),
+  companyName: z.string().trim().min(2).max(200),
+  fiscalCode: z.string().trim().max(64),
+  contactName: z.string().trim().min(2).max(160),
+  phone: z.string().trim().min(5).max(50),
+  email: z.string().trim().email().max(254),
+  locality: z.string().trim().max(160),
+  businessType: z.string().trim().max(160),
+  businessActivity: z.string().trim().max(1000),
+  estimatedPurchasingVolume: z.string().trim().max(160),
+  comment: z.string().trim().max(2000),
+});
 
 export type OnboardingWizardActionState = ActionResult<null>;
+export type OnboardingWorkflowActionState = ActionResult<null>;
 
 export async function listOnboardingQueueAction(
   input: OnboardingQueueInput,
@@ -77,6 +98,122 @@ export async function getOnboardingHealthAction(): Promise<ActionResult<Onboardi
   } catch (error) {
     return failureFromError(error);
   }
+}
+
+export async function getOwnOnboardingStatusAction(): Promise<ActionResult<PartnerOnboardingStatusCenter | null>> {
+  try {
+    const status = await new SupabaseOnboardingRepository().getOwnStatusCenter();
+    return success("Статус заявки загружен.", status);
+  } catch (error) {
+    return failureFromError(error);
+  }
+}
+
+export async function requestOnboardingClarificationAction(
+  _previousState: OnboardingWorkflowActionState,
+  formData: FormData,
+): Promise<OnboardingWorkflowActionState> {
+  return mutateWorkflow(async () => {
+    await requireAdminPermission("onboarding.requests.review");
+    const requestId = uuidSchema.parse(formData.get("requestId"));
+    const fields = formData.getAll("fields").map((value) => correctionFieldSchema.parse(value));
+    if (fields.length === 0) throw new Error("clarification_fields_required");
+    await new SupabaseOnboardingRepository().requestClarification({
+      requestId,
+      expectedRevision: positiveInteger(formData.get("requestRevision")),
+      reasonCategory: clarificationReasonSchema.parse(formData.get("reasonCategory")),
+      partnerMessage: requiredBoundedText(formData, "partnerMessage", 10, 1200),
+      fields,
+      responseDeadline: optionalText(formData, "responseDeadline", 10),
+      internalNote: optionalText(formData, "internalNote", 2000),
+    });
+    revalidateOnboarding(requestId);
+    revalidatePath("/onboarding/waiting");
+    return "Запрос на уточнение отправлен партнёру.";
+  });
+}
+
+export async function rejectOnboardingRequestAction(
+  _previousState: OnboardingWorkflowActionState,
+  formData: FormData,
+): Promise<OnboardingWorkflowActionState> {
+  return mutateWorkflow(async () => {
+    await requireAdminPermission("onboarding.requests.reject");
+    const requestId = uuidSchema.parse(formData.get("requestId"));
+    await new SupabaseOnboardingRepository().reject({
+      requestId,
+      expectedRevision: positiveInteger(formData.get("requestRevision")),
+      reasonCategory: rejectionReasonSchema.parse(formData.get("reasonCategory")),
+      partnerMessage: requiredBoundedText(formData, "partnerMessage", 10, 1200),
+      internalNote: optionalText(formData, "internalNote", 2000),
+    });
+    revalidateOnboarding(requestId);
+    revalidatePath("/onboarding/waiting");
+    return "Заявка отклонена.";
+  });
+}
+
+export async function cancelOwnOnboardingRequestAction(
+  _previousState: OnboardingWorkflowActionState,
+  formData: FormData,
+): Promise<OnboardingWorkflowActionState> {
+  return mutateWorkflow(async () => {
+    if (formData.get("confirmed") !== "on") throw new Error("confirmation_required");
+    await new SupabaseOnboardingRepository().cancelOwn();
+    revalidatePath("/onboarding/waiting");
+    revalidatePath("/onboarding/access-request");
+    return "Заявка отменена.";
+  });
+}
+
+export async function cancelOnboardingRequestInternalAction(
+  _previousState: OnboardingWorkflowActionState,
+  formData: FormData,
+): Promise<OnboardingWorkflowActionState> {
+  return mutateWorkflow(async () => {
+    await requireAdminPermission("onboarding.requests.reject");
+    const requestId = uuidSchema.parse(formData.get("requestId"));
+    await new SupabaseOnboardingRepository().cancelInternal(
+      requestId,
+      rejectionReasonSchema.parse(formData.get("reasonCategory")),
+      requiredBoundedText(formData, "internalNote", 3, 2000),
+    );
+    revalidateOnboarding(requestId);
+    revalidatePath("/onboarding/waiting");
+    return "Заявка отменена менеджером.";
+  });
+}
+
+export async function reopenOnboardingRequestAction(
+  _previousState: OnboardingWorkflowActionState,
+  formData: FormData,
+): Promise<OnboardingWorkflowActionState> {
+  return mutateWorkflow(async () => {
+    const context = await requireAdminPermission("admin.permissions.manage");
+    if (!context.isPlatformAdmin) throw new Error("permission_denied");
+    const requestId = uuidSchema.parse(formData.get("requestId"));
+    await new SupabaseOnboardingRepository().reopen(
+      requestId,
+      uuidSchema.parse(formData.get("assigneeUserId")),
+      requiredBoundedText(formData, "reason", 3, 500),
+    );
+    revalidateOnboarding(requestId);
+    revalidatePath("/onboarding/waiting");
+    return "Заявка возвращена на проверку.";
+  });
+}
+
+export async function submitOnboardingPartnerRevisionAction(
+  _previousState: OnboardingWorkflowActionState,
+  formData: FormData,
+): Promise<OnboardingWorkflowActionState> {
+  return mutateWorkflow(async () => {
+    const input = partnerRevisionSchema.parse(Object.fromEntries(formData));
+    await new SupabaseOnboardingRepository().submitPartnerRevision(input);
+    revalidatePath("/onboarding/waiting");
+    revalidatePath("/admin/onboarding");
+    return "Обновлённая заявка отправлена на проверку.";
+  });
 }
 
 export async function assignOnboardingRequestFormAction(
@@ -288,6 +425,39 @@ function positiveInteger(value: FormDataEntryValue | null): number {
   return z.coerce.number().int().positive().parse(value);
 }
 
+function optionalText(formData: FormData, key: string, maxLength: number): string | null {
+  const value = String(formData.get(key) ?? "").trim();
+  return value ? value.slice(0, maxLength) : null;
+}
+
+function requiredBoundedText(
+  formData: FormData,
+  key: string,
+  minLength: number,
+  maxLength: number,
+): string {
+  return z.string().trim().min(minLength).max(maxLength).parse(formData.get(key));
+}
+
+async function mutateWorkflow(
+  mutation: () => Promise<string>,
+): Promise<OnboardingWorkflowActionState> {
+  try {
+    return success(await mutation(), null);
+  } catch (error) {
+    const correlationId = crypto.randomUUID();
+    const reason = extractSafeReason(error);
+    console.error({ event: "onboarding_workflow_mutation_failed", reason, correlationId });
+    const message = {
+      stale_request_revision: "Заявка уже изменилась. Обновите страницу и повторите действие.",
+      invalid_status_transition: "Это действие больше недоступно для текущего статуса.",
+      permission_denied: "Недостаточно прав для выполнения действия.",
+      clarification_fields_required: "Выберите хотя бы одно поле для уточнения.",
+    }[reason] ?? "Не удалось сохранить изменение. Данные не потеряны; обновите страницу и повторите попытку.";
+    return { success: false, errorCode: reason, message: `${message} Код события: ${correlationId}.`, data: null };
+  }
+}
+
 async function mutateWizard(
   mutation: () => Promise<string>,
 ): Promise<OnboardingWizardActionState> {
@@ -333,6 +503,10 @@ function extractSafeReason(error: unknown): string {
       "invalid_price_profile",
       "invalid_initial_profile",
       "permission_denied",
+      "invalid_status_transition",
+      "clarification_fields_required",
+      "invalid_clarification_reason",
+      "invalid_rejection_reason",
     ].find((code) => message.includes(code));
     if (known) return known;
   }

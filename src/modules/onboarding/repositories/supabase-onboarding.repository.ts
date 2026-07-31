@@ -11,11 +11,15 @@ import type {
   OnboardingHealth,
   OnboardingQueue,
   OnboardingStatus,
+  PartnerOnboardingStatusCenter,
 } from "../types";
 import type {
   OnboardingQueueInput,
   OnboardingRepository,
   ApproveOnboardingInput,
+  ClarificationInput,
+  PartnerRevisionInput,
+  RejectionInput,
   SaveOnboardingApprovalDraftInput,
 } from "./onboarding.repository";
 
@@ -35,6 +39,11 @@ const queueSchema = z.object({
     sla_state: z.string(),
     duplicate_fiscal_code: z.boolean(),
     next_action: z.string(),
+    revision_count: z.number(),
+    assignment_age_seconds: z.number().nullable(),
+    clarification_age_seconds: z.number().nullable(),
+    partner_response_overdue: z.boolean(),
+    sla_paused: z.boolean(),
   })),
   totalCount: z.number(),
   page: z.number(),
@@ -49,7 +58,11 @@ const queueSchema = z.object({
     readyForApproval: z.number(),
     unassigned: z.number(),
   }),
-  managers: z.array(z.object({ id: z.string().uuid(), name: z.string() })),
+  managers: z.array(z.object({
+    id: z.string().uuid(),
+    name: z.string(),
+    workloadCount: z.number(),
+  })),
   directoryFreshness: z.object({
     status: z.string(),
     synchronizedAt: z.string().nullable(),
@@ -75,6 +88,10 @@ const detailSchema = z.object({
     phone: z.string().nullable(),
     email: z.string().nullable(),
     message: z.string().nullable(),
+    locality: z.string().nullable(),
+    businessType: z.string().nullable(),
+    businessActivity: z.string().nullable(),
+    estimatedPurchasingVolume: z.string().nullable(),
     submittedAt: z.string(),
   }),
   sla: z.object({
@@ -120,6 +137,7 @@ const detailSchema = z.object({
   managers: z.array(z.object({
     id: z.string().uuid(),
     name: z.string(),
+    workloadCount: z.number().optional().default(0),
   })),
   directoryFiscalMatchCount: z.number().int().nonnegative(),
   draft: z.object({
@@ -137,6 +155,58 @@ const detailSchema = z.object({
     updatedAt: z.string(),
     stale: z.boolean(),
   }).nullable(),
+  workflow: z.object({
+    clarification: z.object({
+      reasonCategory: z.string(),
+      partnerMessage: z.string(),
+      fields: z.array(z.string()),
+      responseDeadline: z.string().nullable(),
+      internalNote: z.string().nullable(),
+      requestedAt: z.string().nullable(),
+      responseOverdue: z.boolean(),
+    }).nullable(),
+    rejection: z.object({
+      reasonCategory: z.string(),
+      partnerMessage: z.string(),
+      internalNote: z.string().nullable(),
+    }).nullable(),
+    assignedManagerId: z.string().uuid().nullable(),
+    assignmentAgeSeconds: z.number().nullable(),
+    revisionCount: z.number(),
+    reopenedCount: z.number(),
+    managerWorkload: z.number(),
+    isPlatformAdmin: z.boolean(),
+  }),
+});
+
+const partnerStatusCenterSchema = z.object({
+  status: z.string(),
+  companyName: z.string(),
+  revisionNumber: z.number(),
+  revisionSubmittedAt: z.string(),
+  currentValues: z.object({
+    companyName: z.string(),
+    fiscalCode: z.string().nullable(),
+    contactName: z.string().nullable(),
+    phone: z.string().nullable(),
+    email: z.string().nullable(),
+    locality: z.string().nullable(),
+    businessType: z.string().nullable(),
+    businessActivity: z.string().nullable(),
+    estimatedPurchasingVolume: z.string().nullable(),
+    comment: z.string().nullable(),
+  }),
+  partnerMessage: z.string().nullable(),
+  requestedFields: z.array(z.string()),
+  responseDeadline: z.string().nullable(),
+  canUpdate: z.boolean(),
+  canCancel: z.boolean(),
+  hasActiveMembership: z.boolean(),
+  timeline: z.array(z.object({
+    event: z.string(),
+    status: z.string().nullable(),
+    occurredAt: z.string(),
+  })),
 });
 
 const approvalResultSchema = z.object({
@@ -175,7 +245,7 @@ const healthSchema = z.object({
 export class SupabaseOnboardingRepository implements OnboardingRepository {
   async listQueue(input: OnboardingQueueInput): Promise<OnboardingQueue> {
     const client = await createClient();
-    const { data, error } = await client.rpc("get_onboarding_queue", {
+    const { data, error } = await client.rpc("get_onboarding_queue_v2", {
       p_page: input.page,
       p_page_size: input.pageSize,
       p_status: input.status,
@@ -189,16 +259,16 @@ export class SupabaseOnboardingRepository implements OnboardingRepository {
       p_submitted_from: input.submittedFrom,
       p_submitted_to: input.submittedTo,
     });
-    if (error) throw repositoryError("get_onboarding_queue", error);
+    if (error) throw repositoryError("get_onboarding_queue_v2", error);
     return queueSchema.parse(data) as OnboardingQueue;
   }
 
   async getDetail(requestId: string): Promise<OnboardingDetail | null> {
     const client = await createClient();
-    const { data, error } = await client.rpc("get_onboarding_request_detail_v2", {
+    const { data, error } = await client.rpc("get_onboarding_request_detail_v3", {
       p_request_id: requestId,
     });
-    if (error) throw repositoryError("get_onboarding_request_detail_v2", error);
+    if (error) throw repositoryError("get_onboarding_request_detail_v3", error);
     return data === null ? null : detailSchema.parse(data) as OnboardingDetail;
   }
 
@@ -305,6 +375,81 @@ export class SupabaseOnboardingRepository implements OnboardingRepository {
     });
     if (error) throw repositoryError("approve_partner_access_request_v3", error);
     return approvalResultSchema.parse(data);
+  }
+
+  async requestClarification(input: ClarificationInput): Promise<void> {
+    await this.call("request_onboarding_clarification", {
+      p_request_id: input.requestId,
+      p_expected_revision: input.expectedRevision,
+      p_reason_category: input.reasonCategory,
+      p_partner_message: input.partnerMessage,
+      p_fields: input.fields,
+      p_response_deadline: input.responseDeadline,
+      p_internal_note: input.internalNote,
+    });
+  }
+
+  async reject(input: RejectionInput): Promise<void> {
+    await this.call("reject_onboarding_request", {
+      p_request_id: input.requestId,
+      p_expected_revision: input.expectedRevision,
+      p_reason_category: input.reasonCategory,
+      p_partner_message: input.partnerMessage,
+      p_internal_note: input.internalNote,
+    });
+  }
+
+  async cancelOwn(): Promise<void> {
+    await this.call("cancel_own_onboarding_request", {});
+  }
+
+  async cancelInternal(requestId: string, reason: string, note: string): Promise<void> {
+    await this.call("cancel_onboarding_request_internal", {
+      p_request_id: requestId,
+      p_reason_category: reason,
+      p_internal_note: note,
+    });
+  }
+
+  async reopen(requestId: string, assigneeUserId: string, reason: string): Promise<void> {
+    await this.call("reopen_onboarding_request", {
+      p_request_id: requestId,
+      p_assignee_user_id: assigneeUserId,
+      p_reason: reason,
+    });
+  }
+
+  async submitPartnerRevision(input: PartnerRevisionInput): Promise<number> {
+    const data = await this.call("submit_onboarding_partner_revision", {
+      p_expected_revision: input.expectedRevision,
+      p_company_name: input.companyName,
+      p_fiscal_code: input.fiscalCode,
+      p_contact_name: input.contactName,
+      p_phone: input.phone,
+      p_email: input.email,
+      p_locality: input.locality,
+      p_business_type: input.businessType,
+      p_business_activity: input.businessActivity,
+      p_estimated_purchasing_volume: input.estimatedPurchasingVolume,
+      p_comment: input.comment,
+    });
+    return z.number().int().positive().parse(data);
+  }
+
+  async getOwnStatusCenter(): Promise<PartnerOnboardingStatusCenter | null> {
+    const client = await createClient();
+    const { data, error } = await client.rpc("get_own_onboarding_status_center");
+    if (error) throw repositoryError("get_own_onboarding_status_center", error);
+    return data === null
+      ? null
+      : partnerStatusCenterSchema.parse(data) as PartnerOnboardingStatusCenter;
+  }
+
+  private async call(operation: string, input: Record<string, unknown>): Promise<unknown> {
+    const client = await createClient();
+    const { data, error } = await client.rpc(operation, input);
+    if (error) throw repositoryError(operation, error);
+    return data;
   }
 }
 

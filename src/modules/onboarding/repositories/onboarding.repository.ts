@@ -4,6 +4,8 @@ import type {
   OnboardingHealth,
   OnboardingQueue,
   OnboardingStatus,
+  PartnerOnboardingStatusCenter,
+  PartnerCorrectionField,
 } from "../types";
 
 export type OnboardingQueueInput = {
@@ -45,7 +47,46 @@ export interface OnboardingRepository {
   ): Promise<void>;
   resetApprovalDraft(requestId: string): Promise<void>;
   approve(input: ApproveOnboardingInput): Promise<OnboardingApprovalResult>;
+  requestClarification(input: ClarificationInput): Promise<void>;
+  reject(input: RejectionInput): Promise<void>;
+  cancelOwn(): Promise<void>;
+  cancelInternal(requestId: string, reason: string, note: string): Promise<void>;
+  reopen(requestId: string, assigneeUserId: string, reason: string): Promise<void>;
+  submitPartnerRevision(input: PartnerRevisionInput): Promise<number>;
+  getOwnStatusCenter(): Promise<PartnerOnboardingStatusCenter | null>;
 }
+
+export type ClarificationInput = {
+  requestId: string;
+  expectedRevision: number;
+  reasonCategory: string;
+  partnerMessage: string;
+  fields: PartnerCorrectionField[];
+  responseDeadline: string | null;
+  internalNote: string | null;
+};
+
+export type RejectionInput = {
+  requestId: string;
+  expectedRevision: number;
+  reasonCategory: string;
+  partnerMessage: string;
+  internalNote: string | null;
+};
+
+export type PartnerRevisionInput = {
+  expectedRevision: number;
+  companyName: string;
+  fiscalCode: string;
+  contactName: string;
+  phone: string;
+  email: string;
+  locality: string;
+  businessType: string;
+  businessActivity: string;
+  estimatedPurchasingVolume: string;
+  comment: string;
+};
 
 export type SaveOnboardingApprovalDraftInput = {
   requestId: string;
