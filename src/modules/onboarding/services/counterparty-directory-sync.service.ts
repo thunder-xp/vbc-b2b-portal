@@ -77,7 +77,7 @@ export class CounterpartyDirectorySyncService {
         "publish_one_c_counterparty_directory",
         { p_sync_id: syncId },
       );
-      if (error) throw new Error("Counterparty directory publication failed.");
+      if (error) throw persistenceError("publication", error);
       const publication = readPublicationCounts(data);
       const finishedAt = new Date().toISOString();
       const result = {
@@ -124,7 +124,7 @@ export class CounterpartyDirectorySyncService {
     counts: CounterpartyDirectoryCounts,
   ): Promise<void> {
     const client = createAdminClient();
-    for (const batch of chunks(snapshot.counterparties, BATCH_SIZE)) {
+    for (const [batchIndex, batch] of chunks(snapshot.counterparties, BATCH_SIZE).entries()) {
       const { error } = await client.from("one_c_counterparties").insert(
         batch.map((row) => ({
           sync_id: syncId,
@@ -148,9 +148,9 @@ export class CounterpartyDirectorySyncService {
           synchronized_at: synchronizedAt,
         })),
       );
-      if (error) throw new Error("Counterparty directory staging failed.");
+      if (error) throw persistenceError("counterparty_staging", error, batchIndex, batch.length);
     }
-    for (const batch of chunks(snapshot.contracts, BATCH_SIZE)) {
+    for (const [batchIndex, batch] of chunks(snapshot.contracts, BATCH_SIZE).entries()) {
       const { error } = await client.from("one_c_counterparty_contracts").insert(
         batch.map((row) => ({
           sync_id: syncId,
@@ -164,9 +164,9 @@ export class CounterpartyDirectorySyncService {
           synchronized_at: synchronizedAt,
         })),
       );
-      if (error) throw new Error("Counterparty contract staging failed.");
+      if (error) throw persistenceError("contract_staging", error, batchIndex, batch.length);
     }
-    for (const batch of chunks(snapshot.priceProfiles, BATCH_SIZE)) {
+    for (const [batchIndex, batch] of chunks(snapshot.priceProfiles, BATCH_SIZE).entries()) {
       const { error } = await client
         .from("one_c_counterparty_price_profiles")
         .insert(
@@ -181,7 +181,7 @@ export class CounterpartyDirectorySyncService {
             synchronized_at: synchronizedAt,
           })),
         );
-      if (error) throw new Error("Counterparty price-profile staging failed.");
+      if (error) throw persistenceError("price_profile_staging", error, batchIndex, batch.length);
     }
 
     const { error } = await client
@@ -201,7 +201,7 @@ export class CounterpartyDirectorySyncService {
         updated_at: new Date().toISOString(),
       })
       .eq("sync_id", syncId);
-    if (error) throw new Error("Counterparty directory sync state update failed.");
+    if (error) throw persistenceError("sync_state_update", error);
   }
 }
 
@@ -280,7 +280,45 @@ function readPublicationCounts(
 }
 
 function safeErrorCode(error: unknown): string {
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    typeof error.code === "string" &&
+    error.code.length > 0
+  ) {
+    return error.code.toUpperCase().replace(/[^A-Z0-9_]+/g, "_").slice(0, 80);
+  }
   return error instanceof Error
     ? error.name.toUpperCase().replace(/[^A-Z0-9_]+/g, "_").slice(0, 80)
     : "UNKNOWN_SYNC_FAILURE";
+}
+
+function persistenceError(
+  stage: string,
+  error: { code?: string; message?: string },
+  batchIndex?: number,
+  batchSize?: number,
+): Error {
+  const code = error.code || "UNKNOWN_DATABASE_ERROR";
+  console.error({
+    event: "one_c_counterparty_directory_persistence_failed",
+    stage,
+    databaseErrorCode: code,
+    databaseMessage: safeDatabaseMessage(error.message),
+    batch: batchIndex === undefined ? null : batchIndex + 1,
+    batchSize: batchSize ?? null,
+  });
+  return Object.assign(new Error(`Counterparty directory ${stage} failed.`), {
+    name: "CounterpartyDirectoryPersistenceError",
+    code,
+  });
+}
+
+function safeDatabaseMessage(message: string | undefined): string | null {
+  if (!message) return null;
+  return message
+    .replace(/[0-9a-f]{8}-[0-9a-f-]{27,}/gi, "[reference]")
+    .replace(/\([^)]*=\([^)]*\)\)/g, "([values redacted])")
+    .slice(0, 240);
 }
