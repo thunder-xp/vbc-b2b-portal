@@ -10,6 +10,7 @@ vi.mock("@/src/modules/orders/components/CartItemActions", () => ({ CartItemActi
 vi.mock("@/src/modules/orders/components/OrderSubmitForm", () => ({ OrderSubmitForm: () => <button type="button">Submit</button> }));
 vi.mock("@/src/modules/estimates/components/CreateEstimateFromCartButton", () => ({ CreateEstimateFromCartButton: () => null }));
 vi.mock("@/src/modules/purchasing-lists/components", () => ({ SaveAsPurchasingListButton: () => null }));
+vi.mock("@/src/modules/purchase-templates/components", () => ({ SaveAsPurchaseTemplateButton: () => null }));
 
 describe("cart product rows", () => {
   it("renders a fixed thumbnail before product identity without changing totals", async () => {

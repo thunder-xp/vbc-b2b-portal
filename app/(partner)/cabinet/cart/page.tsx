@@ -7,6 +7,7 @@ import { CartCheckoutCoordinator } from "@/src/modules/orders/components/CartChe
 import { OrderSubmitForm } from "@/src/modules/orders/components/OrderSubmitForm";
 import { CreateEstimateFromCartButton } from "@/src/modules/estimates/components/CreateEstimateFromCartButton";
 import { SaveAsPurchasingListButton } from "@/src/modules/purchasing-lists/components";
+import { SaveAsPurchaseTemplateButton } from "@/src/modules/purchase-templates/components";
 import type { CartLineDto } from "@/src/modules/orders/services";
 
 const GROUPS: Array<{ key: CartLineDto["availabilityGroup"]; title: string; description: string }> = [
@@ -81,6 +82,7 @@ export default async function CartPage() {
             </div>
             <CreateEstimateFromCartButton />
             <SaveAsPurchasingListButton source="cart" />
+            <SaveAsPurchaseTemplateButton source={{ type: "cart" }} />
             <OrderSubmitForm
               cartId={cart.id!}
               intentVersion={cart.intentVersion!}

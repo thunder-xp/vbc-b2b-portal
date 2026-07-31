@@ -15,6 +15,9 @@ vi.mock("@/src/modules/orders/actions/order.actions", () => ({ refreshPartnerOrd
 vi.mock("@/src/modules/purchasing-lists/components", () => ({
   SaveAsPurchasingListButton: () => <button type="button">Save as list</button>,
 }));
+vi.mock("@/src/modules/purchase-templates/components", () => ({
+  SaveAsPurchaseTemplateButton: () => <button type="button">Save as template</button>,
+}));
 vi.mock("next/navigation", () => ({ notFound: mocks.notFound }));
 
 const summary = {
