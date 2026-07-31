@@ -39,6 +39,10 @@
     {
       "path": "/api/cron/partner-notification-deadlines",
       "schedule": "10 5 * * *"
+    },
+    {
+      "path": "/api/cron/onboarding-directory",
+      "schedule": "15 0 * * *"
     }
   ]
 }

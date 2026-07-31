@@ -2,6 +2,7 @@ export {
   assignOnboardingRequestFormAction,
   confirmOnboardingMatchFormAction,
   getOnboardingDetailAction,
+  getOnboardingHealthAction,
   listOnboardingQueueAction,
   openOnboardingRequestFormAction,
   synchronizeCounterpartyDirectoryFormAction,

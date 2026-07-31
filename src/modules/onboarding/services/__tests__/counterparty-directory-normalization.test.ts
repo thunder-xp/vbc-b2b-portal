@@ -70,6 +70,7 @@ describe("counterparty directory normalization", () => {
       ИНН: "001",
     });
     const counts = countSnapshot({
+      sourceCounterpartyRows: 2,
       counterparties: [first!, second!],
       contracts: [],
       priceProfiles: [],
@@ -78,6 +79,7 @@ describe("counterparty directory normalization", () => {
     });
     expect(counts).toMatchObject({
       sourceCounterparties: 2,
+      stagedCounterparties: 2,
       active: 2,
       duplicateFiscalCodes: 1,
       withFiscalCode: 2,

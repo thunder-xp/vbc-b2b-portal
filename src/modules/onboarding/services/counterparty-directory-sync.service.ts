@@ -21,7 +21,7 @@ export class CounterpartyDirectorySyncService {
     const startedAt = new Date().toISOString();
     const client = createAdminClient();
 
-    await client
+    const { error: staleLockError } = await client
       .from("one_c_counterparty_directory_syncs")
       .update({
         status: "failed",
@@ -35,6 +35,11 @@ export class CounterpartyDirectorySyncService {
         "lock_acquired_at",
         new Date(Date.now() - STALE_LOCK_HOURS * 60 * 60 * 1000).toISOString(),
       );
+    if (staleLockError) {
+      throw new Error(
+        `Counterparty directory stale-lock recovery failed (${staleLockError.code || "UNKNOWN"}).`,
+      );
+    }
 
     const { error: lockError } = await client
       .from("one_c_counterparty_directory_syncs")
@@ -44,7 +49,14 @@ export class CounterpartyDirectorySyncService {
         started_at: startedAt,
         lock_acquired_at: startedAt,
       });
-    if (lockError) throw new Error("Counterparty directory sync is already running.");
+    if (lockError?.code === "23505") {
+      throw new Error("Counterparty directory sync is already running.");
+    }
+    if (lockError) {
+      throw new Error(
+        `Counterparty directory lock acquisition failed (${lockError.code || "UNKNOWN"}).`,
+      );
+    }
 
     console.info({
       event: "one_c_counterparty_directory_sync_started",
@@ -53,7 +65,13 @@ export class CounterpartyDirectorySyncService {
 
     try {
       const snapshot = await this.source.load();
-      const counts = countSnapshot(snapshot);
+      if (snapshot.sourceCounterpartyRows === 0 || snapshot.counterparties.length === 0) {
+        throw new Error("1C counterparty source returned no publishable business rows.");
+      }
+      const counts = countSnapshot(snapshot, {
+        syncId,
+        startedAt,
+      });
       await this.stage(syncId, startedAt, snapshot, counts);
       const { data, error } = await client.rpc(
         "publish_one_c_counterparty_directory",
@@ -61,7 +79,13 @@ export class CounterpartyDirectorySyncService {
       );
       if (error) throw new Error("Counterparty directory publication failed.");
       const publication = readPublicationCounts(data);
-      const result = { ...counts, ...publication };
+      const finishedAt = new Date().toISOString();
+      const result = {
+        ...counts,
+        ...publication,
+        finishedAt,
+        durationMs: Date.parse(finishedAt) - Date.parse(startedAt),
+      };
       console.info({
         event: "one_c_counterparty_directory_sync_succeeded",
         syncId,
@@ -183,6 +207,10 @@ export class CounterpartyDirectorySyncService {
 
 export function countSnapshot(
   snapshot: CounterpartyDirectorySnapshot,
+  run: { syncId: string; startedAt: string } = {
+    syncId: "00000000-0000-0000-0000-000000000001",
+    startedAt: "1970-01-01T00:00:00.000Z",
+  },
 ): CounterpartyDirectoryCounts {
   const fiscalCounts = new Map<string, number>();
   for (const row of snapshot.counterparties) {
@@ -194,7 +222,12 @@ export function countSnapshot(
     }
   }
   return {
-    sourceCounterparties: snapshot.counterparties.length,
+    syncId: run.syncId,
+    startedAt: run.startedAt,
+    finishedAt: run.startedAt,
+    durationMs: 0,
+    sourceCounterparties: snapshot.sourceCounterpartyRows,
+    stagedCounterparties: snapshot.counterparties.length,
     active: snapshot.counterparties.filter((row) => row.isActive).length,
     inactive: snapshot.counterparties.filter(
       (row) => !row.isActive && !row.isDeleted,

@@ -2,6 +2,7 @@ import {
   listOnboardingQueueAction,
   synchronizeCounterpartyDirectoryFormAction,
 } from "@/src/modules/onboarding/actions";
+import Link from "next/link";
 import { OnboardingQueueView } from "@/src/modules/onboarding/components";
 import type { OnboardingQueueInput } from "@/src/modules/onboarding/repositories";
 import { requireAdminPagePermission } from "@/src/modules/admin";
@@ -20,7 +21,8 @@ export default async function AdminOnboardingPage({
   return (
     <div className="bg-zinc-50 text-zinc-950">
       <div className="mx-auto max-w-7xl space-y-6">
-        <header>
+        <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
           <p className="text-sm font-semibold uppercase text-emerald-700">
             Подключение партнёров
           </p>
@@ -29,6 +31,13 @@ export default async function AdminOnboardingPage({
             Проверка заявок, назначение ответственных и сопоставление с локальным
             справочником контрагентов 1С.
           </p>
+          </div>
+          <Link
+            href="/admin/onboarding/health"
+            className="inline-flex min-h-11 items-center justify-center rounded-md border border-zinc-300 bg-white px-4 text-sm font-semibold hover:bg-zinc-50"
+          >
+            Состояние
+          </Link>
         </header>
 
         {result.success ? (

@@ -13,7 +13,12 @@ import {
 } from "@/src/modules/access-control/actions/action-result";
 import { requireAdminPermission } from "@/src/modules/admin/services";
 
-import { ONBOARDING_STATUSES, type OnboardingDetail, type OnboardingQueue } from "../types";
+import {
+  ONBOARDING_STATUSES,
+  type OnboardingDetail,
+  type OnboardingHealth,
+  type OnboardingQueue,
+} from "../types";
 import { SupabaseOnboardingRepository, type OnboardingQueueInput } from "../repositories";
 import {
   CounterpartyDirectorySyncService,
@@ -51,6 +56,16 @@ export async function getOnboardingDetailAction(
       uuidSchema.parse(requestId),
     );
     return success("Заявка загружена.", detail);
+  } catch (error) {
+    return failureFromError(error);
+  }
+}
+
+export async function getOnboardingHealthAction(): Promise<ActionResult<OnboardingHealth>> {
+  try {
+    await requireAdminPermission("onboarding.requests.view");
+    const health = await new SupabaseOnboardingRepository().getHealth();
+    return success("Состояние онбординга загружено.", health);
   } catch (error) {
     return failureFromError(error);
   }

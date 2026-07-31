@@ -51,6 +51,7 @@ export type CounterpartyPriceProfileRow = {
 };
 
 export type CounterpartyDirectorySnapshot = {
+  sourceCounterpartyRows: number;
   counterparties: CounterpartyDirectoryRow[];
   contracts: CounterpartyContractRow[];
   priceProfiles: CounterpartyPriceProfileRow[];
@@ -59,7 +60,12 @@ export type CounterpartyDirectorySnapshot = {
 };
 
 export type CounterpartyDirectoryCounts = {
+  syncId: string;
+  startedAt: string;
+  finishedAt: string;
+  durationMs: number;
   sourceCounterparties: number;
+  stagedCounterparties: number;
   active: number;
   inactive: number;
   deleted: number;
@@ -72,6 +78,30 @@ export type CounterpartyDirectoryCounts = {
   unresolvedManagerReferences: number;
   published: number;
   failedRecords: number;
+};
+
+export type OnboardingHealth = {
+  allowed: boolean;
+  directory?: {
+    sync_id: string;
+    status: string;
+    started_at: string;
+    finished_at: string | null;
+    source_counterparties: number;
+    published_counterparties: number;
+    duplicate_fiscal_codes: number;
+    failed_records: number;
+    unresolved_manager_references: number;
+    safe_error_code: string | null;
+    lock_acquired_at: string | null;
+  } | null;
+  queue?: {
+    new: number;
+    unassigned: number;
+    overdue: number;
+    matchConflicts: number;
+    awaitingOneCCompany: number;
+  };
 };
 
 export type OnboardingQueueRow = {

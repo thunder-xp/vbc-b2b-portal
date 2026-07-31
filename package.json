@@ -11,6 +11,7 @@
     "start": "next start",
     "lint": "eslint",
     "sync:commercial-rate": "tsx --no-cache scripts/sync-commercial-exchange-rate.ts",
+    "sync:onboarding-directory": "tsx --conditions=react-server --no-cache scripts/sync-onboarding-directory.ts",
     "test": "vitest run"
   },
   "dependencies": {

@@ -41,6 +41,7 @@ export class OneCCounterpartyDirectorySource {
     const counterparties: CounterpartyDirectoryRow[] = [];
     const contracts: CounterpartyContractRow[] = [];
     let failedRecords = 0;
+    let sourceCounterpartyRows = 0;
 
     const partnerPages = await this.scan(
       ONE_C_RESOURCES.partners,
@@ -48,6 +49,7 @@ export class OneCCounterpartyDirectorySource {
       "counterparty_directory_partners",
       (row) => {
         if (isFolderRow(row)) return;
+        sourceCounterpartyRows += 1;
         const parsed = parseCounterpartyRow(row);
         if (parsed) counterparties.push(parsed);
         else failedRecords += 1;
@@ -92,6 +94,7 @@ export class OneCCounterpartyDirectorySource {
     });
 
     return {
+      sourceCounterpartyRows,
       counterparties,
       contracts,
       priceProfiles: deduplicatePriceProfiles(priceProfiles),

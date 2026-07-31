@@ -14,6 +14,10 @@ const detailPage = readFileSync(
   resolve("app/(admin)/admin/onboarding/[requestId]/page.tsx"),
   "utf8",
 );
+const directorySyncService = readFileSync(
+  resolve("src/modules/onboarding/services/counterparty-directory-sync.service.ts"),
+  "utf8",
+);
 
 describe("partner onboarding console foundation", () => {
   it("publishes a versioned local directory atomically and preserves prior snapshots on failure", () => {
@@ -108,5 +112,11 @@ describe("partner onboarding console foundation", () => {
     expect(migration).not.toContain(
       "jsonb_build_object('assignee_user_id', p_assignee_user_id)",
     );
+  });
+
+  it("fails closed on empty sources and only classifies a unique conflict as an active lock", () => {
+    expect(directorySyncService).toContain("sourceCounterpartyRows === 0");
+    expect(directorySyncService).toContain('lockError?.code === "23505"');
+    expect(directorySyncService).toContain("lock acquisition failed");
   });
 });

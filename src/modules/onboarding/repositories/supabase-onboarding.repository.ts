@@ -5,7 +5,12 @@ import { z } from "zod";
 import { createClient } from "@/src/lib/supabase/server";
 import { RepositoryUnexpectedError } from "@/src/modules/access-control/repositories";
 
-import type { OnboardingDetail, OnboardingQueue, OnboardingStatus } from "../types";
+import type {
+  OnboardingDetail,
+  OnboardingHealth,
+  OnboardingQueue,
+  OnboardingStatus,
+} from "../types";
 import type {
   OnboardingQueueInput,
   OnboardingRepository,
@@ -106,6 +111,30 @@ const detailSchema = z.object({
   })),
 });
 
+const healthSchema = z.object({
+  allowed: z.boolean(),
+  directory: z.object({
+    sync_id: z.string().uuid(),
+    status: z.string(),
+    started_at: z.string(),
+    finished_at: z.string().nullable(),
+    source_counterparties: z.number(),
+    published_counterparties: z.number(),
+    duplicate_fiscal_codes: z.number(),
+    failed_records: z.number(),
+    unresolved_manager_references: z.number(),
+    safe_error_code: z.string().nullable(),
+    lock_acquired_at: z.string().nullable(),
+  }).nullable().optional(),
+  queue: z.object({
+    new: z.number(),
+    unassigned: z.number(),
+    overdue: z.number(),
+    matchConflicts: z.number(),
+    awaitingOneCCompany: z.number(),
+  }).optional(),
+});
+
 export class SupabaseOnboardingRepository implements OnboardingRepository {
   async listQueue(input: OnboardingQueueInput): Promise<OnboardingQueue> {
     const client = await createClient();
@@ -134,6 +163,13 @@ export class SupabaseOnboardingRepository implements OnboardingRepository {
     });
     if (error) throw repositoryError("get_onboarding_request_detail", error);
     return data === null ? null : detailSchema.parse(data) as OnboardingDetail;
+  }
+
+  async getHealth(): Promise<OnboardingHealth> {
+    const client = await createClient();
+    const { data, error } = await client.rpc("get_onboarding_health");
+    if (error) throw repositoryError("get_onboarding_health", error);
+    return healthSchema.parse(data) as OnboardingHealth;
   }
 
   async assign(requestId: string, assigneeUserId: string): Promise<void> {

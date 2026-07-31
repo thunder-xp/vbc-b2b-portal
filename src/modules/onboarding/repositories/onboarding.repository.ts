@@ -1,5 +1,6 @@
 import type {
   OnboardingDetail,
+  OnboardingHealth,
   OnboardingQueue,
   OnboardingStatus,
 } from "../types";
@@ -22,6 +23,7 @@ export type OnboardingQueueInput = {
 export interface OnboardingRepository {
   listQueue(input: OnboardingQueueInput): Promise<OnboardingQueue>;
   getDetail(requestId: string): Promise<OnboardingDetail | null>;
+  getHealth(): Promise<OnboardingHealth>;
   assign(requestId: string, assigneeUserId: string): Promise<void>;
   unassign(requestId: string): Promise<void>;
   transition(
