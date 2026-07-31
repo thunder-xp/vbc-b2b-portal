@@ -4,7 +4,8 @@ export type PartnerSearchDocumentType =
   | "estimate"
   | "proposal"
   | "manual_line"
-  | "template";
+  | "template"
+  | "purchase_template";
 
 export type PartnerSearchResult = {
   documentType: PartnerSearchDocumentType;

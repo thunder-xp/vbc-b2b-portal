@@ -72,6 +72,17 @@ export const BEHAVIOR_EVENT_NAMES = [
   "product_notification_opened",
   "product_notification_product_opened",
   "product_notification_cart_opened",
+  "purchase_templates_opened",
+  "purchase_template_created",
+  "purchase_template_opened",
+  "purchase_template_edited",
+  "purchase_template_copied",
+  "purchase_template_archived",
+  "purchase_template_previewed",
+  "purchase_template_added_to_cart",
+  "purchase_template_created_from_cart",
+  "purchase_template_created_from_order",
+  "purchase_template_created_from_list",
 ] as const;
 
 export type BehaviorEventName = (typeof BEHAVIOR_EVENT_NAMES)[number];

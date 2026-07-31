@@ -1,4 +1,4 @@
-import { Calculator, FileText, ListPlus, PackageSearch, Rows3, SearchX } from "lucide-react";
+import { Calculator, FileText, ListPlus, ListRestart, PackageSearch, Rows3, SearchX } from "lucide-react";
 import Link from "next/link";
 
 import type { PartnerSearchDocumentType, PartnerSearchGroup } from "../types";
@@ -10,6 +10,7 @@ const ICONS: Record<PartnerSearchDocumentType, typeof PackageSearch> = {
   proposal: FileText,
   manual_line: Rows3,
   template: FileText,
+  purchase_template: ListRestart,
 };
 
 export function PartnerSearchResults({ groups, query }: { groups: PartnerSearchGroup[]; query: string }) {

@@ -16,6 +16,7 @@ import {
   LifeBuoy,
   ListChecks,
   ListPlus,
+  ListRestart,
   SearchCheck,
   ShieldCheck,
   ShoppingCart,
@@ -31,6 +32,7 @@ const icons = {
   catalog: Boxes,
   cart: ShoppingCart,
   purchasing_lists: ListPlus,
+  purchase_templates: ListRestart,
   comparison: Columns3,
   solution_selection: SearchCheck,
   projects: FolderKanban,
@@ -58,6 +60,7 @@ const primaryNavigationOrder: readonly WorkspaceCapabilityKey[] = [
 
 const selectionNavigationOrder: readonly WorkspaceCapabilityKey[] = [
   "purchasing_lists",
+  "purchase_templates",
   "comparison",
 ];
 

@@ -462,6 +462,7 @@ function buildQuickActions(
     ? [
         ["catalog", "Весь каталог", hrefs.get("catalog")],
         ["repeat_order", "Повторить заказ", hrefs.get("orders")],
+        ["purchase_templates", "Шаблоны закупок", hrefs.get("purchase_templates")],
         ["estimate", "Создать смету", hrefs.get("proposals")],
         ["orders", "Мои заказы", hrefs.get("orders")],
         ["finance", "Финансы", hrefs.get("finance")],
@@ -470,6 +471,7 @@ function buildQuickActions(
     : [
         ["catalog", "Весь каталог", hrefs.get("catalog")],
         ["repeat_order", "Повторить заказ", hrefs.get("orders")],
+        ["purchase_templates", "Шаблоны закупок", hrefs.get("purchase_templates")],
         ["cart", "Открыть корзину", hrefs.get("cart")],
         ["estimate", "Создать смету", hrefs.get("proposals")],
         ["orders", "Мои заказы", hrefs.get("orders")],

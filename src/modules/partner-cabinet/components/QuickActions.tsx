@@ -6,6 +6,7 @@ import {
   FolderPlus,
   PackageSearch,
   RefreshCw,
+  ListRestart,
   ShoppingCart,
   ShieldPlus,
 } from "lucide-react";
@@ -22,6 +23,7 @@ const icons = {
   finance: FilePlus2,
   company_users: ShieldPlus,
   repeat_order: RefreshCw,
+  purchase_templates: ListRestart,
   cart: ShoppingCart,
   register_warranty: ShieldPlus,
 } as const;

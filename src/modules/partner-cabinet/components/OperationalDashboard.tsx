@@ -12,6 +12,7 @@ import {
 
 import { ProductCard } from "../../catalog/components";
 import { CATALOG_PRODUCT_GRID_CLASS } from "../../catalog/components/ProductGrid";
+import { DashboardPurchaseTemplateButton } from "../../purchase-templates/components/DashboardPurchaseTemplateButton";
 import type { WorkspaceHomeDto } from "../services";
 import { DashboardTrackedLink } from "./DashboardTrackedLink";
 import { QuickActions } from "./QuickActions";
@@ -318,6 +319,7 @@ function ProductSection({
           />
         ))}
       </div>
+      {analyticsSurface === "dashboard_reorder" ? <DashboardPurchaseTemplateButton items={products.slice(0, 4).map((item) => ({ productId: item.product.id, quantity: Math.max(1, Math.trunc(item.typicalQuantity ?? 1)) }))} /> : null}
     </section>
   );
 }

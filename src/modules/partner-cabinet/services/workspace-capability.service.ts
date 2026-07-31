@@ -3,6 +3,7 @@ export type WorkspaceCapabilityKey =
   | "catalog"
   | "cart"
   | "purchasing_lists"
+  | "purchase_templates"
   | "comparison"
   | "solution_selection"
   | "projects"
@@ -80,6 +81,7 @@ const WORKSPACE_CAPABILITIES: readonly CapabilityDefinition[] = [
   { key: "catalog", label: "Каталог", href: "/cabinet/catalog", requiredPermission: "catalog.view", released: true, unavailableBehavior: "hide" },
   { key: "cart", label: "Корзина", href: "/cabinet/cart", requiredPermission: "orders.manage", released: true, unavailableBehavior: "hide" },
   { key: "purchasing_lists", label: "Избранное", href: "/cabinet/purchasing-lists", requiredPermission: "purchasing_lists.view", released: true, unavailableBehavior: "hide" },
+  { key: "purchase_templates", label: "Шаблоны закупок", href: "/cabinet/purchase-templates", requiredPermission: "purchase_templates.view", released: true, unavailableBehavior: "hide" },
   { key: "comparison", label: "Сравнение", href: "/cabinet/compare", requiredPermission: "catalog.view", released: true, unavailableBehavior: "hide" },
   { key: "solution_selection", label: "Подбор решения", href: null, requiredPermission: "catalog.view", released: false, unavailableBehavior: "show_coming_soon" },
   { key: "projects", label: "Спецификации", href: "/cabinet/specifications", requiredPermission: "specifications.manage", released: true, unavailableBehavior: "hide" },
