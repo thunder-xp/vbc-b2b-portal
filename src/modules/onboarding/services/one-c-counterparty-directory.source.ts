@@ -110,21 +110,79 @@ export class OneCCounterpartyDirectorySource {
     visit: (row: unknown) => void,
   ): Promise<number> {
     for (let page = 0; page < MAX_PAGES; page += 1) {
-      const payload = await this.client.get(
-        resource,
-        {
-          $select: select,
-          $top: String(PAGE_SIZE),
-          $skip: String(page * PAGE_SIZE),
-        },
-        { requestKind },
-      );
-      const rows = readEnvelope(payload);
+      let payload: unknown;
+      try {
+        payload = await this.client.get(
+          resource,
+          {
+            $select: select,
+            $top: String(PAGE_SIZE),
+            $skip: String(page * PAGE_SIZE),
+          },
+          { requestKind },
+        );
+      } catch (error) {
+        console.error({
+          event: "one_c_counterparty_directory_source_failed",
+          requestKind,
+          resource,
+          page: page + 1,
+          skip: page * PAGE_SIZE,
+          top: PAGE_SIZE,
+          ...safeProviderDiagnostic(error),
+        });
+        throw error;
+      }
+      let rows: unknown[];
+      try {
+        rows = readEnvelope(payload);
+      } catch (error) {
+        console.error({
+          event: "one_c_counterparty_directory_source_failed",
+          requestKind,
+          resource,
+          page: page + 1,
+          skip: page * PAGE_SIZE,
+          top: PAGE_SIZE,
+          errorType: error instanceof Error ? error.name : typeof error,
+          failedStage: "response_envelope",
+        });
+        throw error;
+      }
       rows.forEach(visit);
+      console.info({
+        event: "one_c_counterparty_directory_page_loaded",
+        requestKind,
+        resource,
+        page: page + 1,
+        skip: page * PAGE_SIZE,
+        top: PAGE_SIZE,
+        rowsReceived: rows.length,
+      });
       if (rows.length < PAGE_SIZE) return page + 1;
     }
     throw new Error(`Bounded 1C directory scan exceeded ${MAX_PAGES} pages.`);
   }
+}
+
+function safeProviderDiagnostic(error: unknown): Record<string, unknown> {
+  const value = isRecord(error) ? error : null;
+  const diagnostic = value && isRecord(value.diagnostic) ? value.diagnostic : null;
+  return {
+    errorType: error instanceof Error ? error.name : typeof error,
+    failedStage: typeof diagnostic?.failedStage === "string"
+      ? diagnostic.failedStage
+      : "provider_request",
+    statusCode: typeof diagnostic?.statusCode === "number"
+      ? diagnostic.statusCode
+      : null,
+    receivedContentType: typeof diagnostic?.receivedContentType === "string"
+      ? diagnostic.receivedContentType
+      : null,
+    queryParameterNames: Array.isArray(diagnostic?.queryParameterNames)
+      ? diagnostic.queryParameterNames.filter((item): item is string => typeof item === "string")
+      : [],
+  };
 }
 
 function readEnvelope(value: unknown): unknown[] {
@@ -142,6 +200,10 @@ function readEnvelope(value: unknown): unknown[] {
 function isFolderRow(value: unknown): boolean {
   return typeof value === "object" && value !== null && "IsFolder" in value
     && value.IsFolder === true;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function deduplicatePriceProfiles(
