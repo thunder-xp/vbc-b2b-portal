@@ -14,6 +14,7 @@ import {
   ONBOARDING_STATUS_LABELS,
   SLA_LABELS,
 } from "./onboarding-labels";
+import { OnboardingLinkPendingIndicator } from "./OnboardingLinkPendingIndicator";
 
 type Props = {
   queue: OnboardingQueue;
@@ -191,9 +192,10 @@ export function OnboardingQueueView({
                 <Link
                   href={`/admin/onboarding/${row.id}`}
                   prefetch={false}
-                  className="font-semibold text-zinc-950 hover:text-emerald-700 focus-visible:outline-2 focus-visible:outline-emerald-600"
+                  className="inline-flex items-center font-semibold text-zinc-950 hover:text-emerald-700 focus-visible:outline-2 focus-visible:outline-emerald-600"
                 >
                   {row.company_name}
+                  <OnboardingLinkPendingIndicator />
                 </Link>
                 <p className="mt-1 text-sm text-zinc-600">
                   {row.fiscal_code || "IDNO не указан"} · {row.contact_name || "Контакт не указан"}
@@ -233,6 +235,7 @@ export function OnboardingQueueView({
                   className="mt-2 inline-flex min-h-11 items-center text-sm font-semibold text-emerald-700 hover:text-emerald-800"
                 >
                   Открыть заявку
+                  <OnboardingLinkPendingIndicator />
                 </Link>
                 {!row.assigned_manager_user_id && !["approved", "rejected", "cancelled"].includes(row.onboarding_status) ? (
                   <form action={assignAction} className="mt-1">

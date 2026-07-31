@@ -11,6 +11,7 @@ import type { OnboardingDetail, OnboardingStatus } from "../types";
 import { ONBOARDING_STATUS_LABELS } from "./onboarding-labels";
 import { OnboardingApprovalWizard } from "./OnboardingApprovalWizard";
 import { OnboardingDecisionForms } from "./OnboardingDecisionForms";
+import { OnboardingLinkPendingIndicator } from "./OnboardingLinkPendingIndicator";
 
 type Props = {
   detail: OnboardingDetail;
@@ -38,8 +39,9 @@ export function OnboardingDetailView({
     <div className="space-y-6">
       <div className="flex flex-col gap-4 border-b border-zinc-200 pb-5 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <Link href="/admin/onboarding" prefetch={false} className="text-sm font-medium text-emerald-700">
+          <Link href="/admin/onboarding" prefetch={false} className="inline-flex items-center text-sm font-medium text-emerald-700">
             ← К очереди
+            <OnboardingLinkPendingIndicator />
           </Link>
           <h1 className="mt-3 text-2xl font-semibold">{detail.revision.companyName}</h1>
           <p className="mt-1 text-sm text-zinc-600">

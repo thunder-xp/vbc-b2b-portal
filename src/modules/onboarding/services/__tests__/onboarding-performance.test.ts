@@ -11,6 +11,7 @@ const detailPage = read("app/(admin)/admin/onboarding/[requestId]/page.tsx");
 const loading = read("app/(admin)/admin/onboarding/loading.tsx");
 const queueView = read("src/modules/onboarding/components/OnboardingQueueView.tsx");
 const detailView = read("src/modules/onboarding/components/OnboardingDetailView.tsx");
+const pendingIndicator = read("src/modules/onboarding/components/OnboardingLinkPendingIndicator.tsx");
 const repository = read("src/modules/onboarding/repositories/supabase-onboarding.repository.ts");
 const actions = read("src/modules/onboarding/actions/onboarding.actions.ts");
 const adminContext = read("src/modules/admin/services/admin-workspace.service.ts");
@@ -27,6 +28,8 @@ describe("onboarding rendering performance", () => {
   it("provides immediate route-level loading feedback", () => {
     expect(loading).toContain('role="status"');
     expect(loading).toContain('aria-label="Загрузка онбординга"');
+    expect(pendingIndicator).toContain("useLinkStatus");
+    expect(pendingIndicator).toContain('aria-label={pending ? "Открытие заявки"');
   });
 
   it("does not render mutable client islands for an approved request", () => {
