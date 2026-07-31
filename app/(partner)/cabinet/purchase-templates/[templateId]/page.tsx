@@ -15,6 +15,6 @@ export default async function PurchaseTemplateDetailPage({ params }: { params: P
   return <div className="space-y-6">
     <BehaviorViewEvent dedupeKey={`purchase-template:${result.data.id}`} eventName="purchase_template_opened" route="/cabinet/purchase-templates/detail" sourceSurface="purchase_template_detail" />
     <header className="border-b border-zinc-200 pb-5"><Link className="text-sm font-medium text-emerald-700" href="/cabinet/purchase-templates" prefetch={false}>← Шаблоны закупок</Link><div className="mt-2 flex flex-wrap items-center gap-3"><h1 className="text-2xl font-semibold">{result.data.name}</h1>{result.data.status === "archived" ? <span className="rounded bg-zinc-100 px-2 py-1 text-xs font-semibold">Архив</span> : null}</div><p className="mt-2 text-sm text-zinc-600">Шаблон хранит состав и количество. Коммерческие условия ниже всегда текущие.</p></header>
-    <PurchaseTemplateEditor initial={result.data} />
+    <PurchaseTemplateEditor initial={result.data} key={`${result.data.id}:${result.data.revision}`} />
   </div>;
 }
