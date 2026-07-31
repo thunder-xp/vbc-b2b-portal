@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   getCurrentProfileAction: vi.fn(),
   getOwnAccessRequestsAction: vi.fn(),
   getOwnMembershipsAction: vi.fn(),
+  getOwnOnboardingStatusAction: vi.fn(),
   redirect: vi.fn((href: string) => {
     throw new Error(`NEXT_REDIRECT:${href}`);
   }),
@@ -30,6 +31,16 @@ vi.mock("@/src/modules/access-control/actions/get-access-requests.action", () =>
 
 vi.mock("@/src/modules/access-control/actions/get-memberships.action", () => ({
   getOwnMembershipsAction: mocks.getOwnMembershipsAction,
+}));
+
+vi.mock("@/src/modules/onboarding/actions", () => ({
+  getOwnOnboardingStatusAction: mocks.getOwnOnboardingStatusAction,
+}));
+
+vi.mock("@/src/modules/onboarding/components", () => ({
+  PartnerOnboardingStatusCenter: ({ center }: { center: { status: string } }) => (
+    <section data-testid={`status-center-${center.status}`} />
+  ),
 }));
 
 vi.mock("@/src/modules/access-control/components/onboarding", () => ({
@@ -67,6 +78,7 @@ describe("onboarding route decisions", () => {
       message: "Memberships loaded.",
       data: [],
     });
+    mocks.getOwnOnboardingStatusAction.mockResolvedValue(statusResult("under_review", false));
   });
 
   it("redirects an existing profile away from profile step", async () => {
@@ -111,6 +123,7 @@ describe("onboarding route decisions", () => {
   });
 
   it("redirects approved partner with active membership from waiting to cabinet", async () => {
+    mocks.getOwnOnboardingStatusAction.mockResolvedValue(statusResult("approved", true));
     mocks.getOwnMembershipsAction.mockResolvedValue({
       success: true,
       errorCode: null,
@@ -152,6 +165,7 @@ describe("onboarding route decisions", () => {
   });
 
   it("does not expose cabinet when active membership exists without approved request", async () => {
+    mocks.getOwnOnboardingStatusAction.mockResolvedValue(statusResult("under_review", true));
     mocks.getOwnMembershipsAction.mockResolvedValue({
       success: true,
       errorCode: null,
@@ -191,7 +205,7 @@ describe("onboarding route decisions", () => {
 
     render(page);
 
-    expect(screen.getByTestId("state-card-Waiting for approval")).toBeInTheDocument();
+    expect(screen.getByTestId("status-center-under_review")).toBeInTheDocument();
     expect(mocks.redirect).not.toHaveBeenCalledWith("/cabinet");
   });
 
@@ -235,6 +249,7 @@ describe("onboarding route decisions", () => {
   });
 
   it("renders rejected request state", async () => {
+    mocks.getOwnOnboardingStatusAction.mockResolvedValue(statusResult("rejected", false));
     mocks.getOwnAccessRequestsAction.mockResolvedValue({
       success: true,
       errorCode: null,
@@ -259,10 +274,23 @@ describe("onboarding route decisions", () => {
 
     render(page);
 
-    expect(screen.getByTestId("state-card-Request rejected")).toBeInTheDocument();
-    expect(screen.queryByTestId("state-card-Waiting for approval")).not.toBeInTheDocument();
+    expect(screen.getByTestId("status-center-rejected")).toBeInTheDocument();
   });
 });
+
+function statusResult(status: string, hasActiveMembership: boolean) {
+  return {
+    success: true,
+    errorCode: null,
+    message: "Status loaded.",
+    data: {
+      status,
+      hasActiveMembership,
+      canUpdate: status === "clarification_requested",
+      canCancel: !["approved", "rejected", "cancelled"].includes(status),
+    },
+  };
+}
 
 function makeProfile() {
   return {

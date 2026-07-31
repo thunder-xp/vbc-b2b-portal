@@ -8,6 +8,8 @@ import { AdminRoleManagementService } from "../admin-role-management.service";
 const repository = {
   assign: vi.fn(),
   revoke: vi.fn(),
+  grantOnboardingCapability: vi.fn(),
+  revokeOnboardingCapability: vi.fn(),
 } satisfies AdminRoleManagementRepository;
 
 const service = new AdminRoleManagementService(repository);
