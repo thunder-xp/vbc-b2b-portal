@@ -6,6 +6,7 @@ const sql = fs.readFileSync(path.join(process.cwd(), "supabase/migrations/202607
 const workerRepair = fs.readFileSync(path.join(process.cwd(), "supabase/migrations/20260731211000_partner_commercial_opportunity_worker_repair.sql"), "utf8");
 const uuidRepair = fs.readFileSync(path.join(process.cwd(), "supabase/migrations/20260731212000_partner_commercial_opportunity_uuid_aggregate_repair.sql"), "utf8");
 const windowRepair = fs.readFileSync(path.join(process.cwd(), "supabase/migrations/20260731213000_partner_commercial_opportunity_window_repair.sql"), "utf8");
+const permissionScopeRepair = fs.readFileSync(path.join(process.cwd(), "supabase/migrations/20260731214000_partner_commercial_opportunity_permission_scope_repair.sql"), "utf8");
 
 describe("commercial opportunity projection migration", () => {
   it("governs the complete deterministic opportunity catalog", () => {
@@ -59,5 +60,12 @@ describe("commercial opportunity projection migration", () => {
     expect(sql).toContain("limit target_limit offset target_offset");
     expect(sql).toContain("admin.opportunities.view");
     expect(sql).not.toContain("safe_reason_metadata jsonb_build_object('price'");
+  });
+
+  it("classifies partner and admin permissions in the canonical access projection", () => {
+    expect(permissionScopeRepair).toContain("where code = 'opportunities.view'");
+    expect(permissionScopeRepair).toContain("scope = 'partner'");
+    expect(permissionScopeRepair).toContain("where code = 'admin.opportunities.view'");
+    expect(permissionScopeRepair).toContain("scope = 'internal'");
   });
 });
