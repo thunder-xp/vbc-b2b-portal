@@ -10,16 +10,19 @@ export function orderSubmissionFailure(error: unknown): FailedActionResult | nul
     return failure("ORDER_IN_PROGRESS", "Заказ уже отправляется. Подождите завершения операции.");
   }
   if (error instanceof OrderReconciliationRequiredError) {
-    return failure("ORDER_RECONCILIATION_REQUIRED", "Статус отправки заказа уточняется. Не отправляйте заказ повторно.");
+    return failure(
+      "ORDER_RECONCILIATION_REQUIRED",
+      "Статус отправки заказа уточняется. Не отправляйте заказ повторно.",
+    );
   }
   if (error instanceof RecoverableOrderSubmissionError) {
-    return failure(error.code, recoverableMessage(error.code));
+    return failure(error.code, recoverableMessage(error));
   }
   return null;
 }
 
-function recoverableMessage(code: RecoverableOrderSubmissionError["code"]): string {
-  switch (code) {
+function recoverableMessage(error: RecoverableOrderSubmissionError): string {
+  switch (error.code) {
     case "ORDER_COMPANY_MAPPING_MISSING":
       return "Не удалось определить данные компании в 1С. Обратитесь к менеджеру Novotech.";
     case "ORDER_CONTRACT_MAPPING_MISSING":
@@ -27,7 +30,6 @@ function recoverableMessage(code: RecoverableOrderSubmissionError["code"]): stri
     case "ORDER_PRODUCT_MAPPING_MISSING":
       return "Один из товаров не связан с 1С. Корзина сохранена — обратитесь к менеджеру Novotech.";
     case "ORDER_PRICE_CHANGED":
-      return "Данные некоторых позиций обновились. Проверьте изменения перед отправкой.";
     case "ORDER_STOCK_CHANGED":
       return "Данные некоторых позиций обновились. Проверьте изменения перед отправкой.";
     case "ORDER_INVALID_SHIPMENT_DATE":
@@ -40,6 +42,8 @@ function recoverableMessage(code: RecoverableOrderSubmissionError["code"]): stri
     case "ORDER_1C_ALREADY_CREATED":
     case "ORDER_READBACK_FAILED":
       return "Статус отправки заказа уточняется. Не отправляйте заказ повторно.";
+    case "ORDER_SUBMISSION_INFRASTRUCTURE_FAILURE":
+      return `Заказ не был отправлен. Корзина сохранена. Код события: ${error.correlationId}.`;
     default:
       return "Заказ не был отправлен. Корзина сохранена. Повторите попытку.";
   }

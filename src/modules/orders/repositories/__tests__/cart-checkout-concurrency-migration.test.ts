@@ -8,6 +8,12 @@ const sql = readFileSync(
   ),
   "utf8",
 );
+const pgcryptoRepairSql = readFileSync(
+  resolve(
+    "supabase/migrations/20260731170000_partner_order_pgcrypto_runtime_repair.sql",
+  ),
+  "utf8",
+);
 
 describe("cart checkout intent-version migration", () => {
   it("versions only cart-line intent changes", () => {
@@ -66,6 +72,22 @@ describe("cart checkout intent-version migration", () => {
     const grants = sql.indexOf("revoke all on function", begin);
     expect(sql.slice(begin, grants)).not.toContain(
       "delete from public.cart_items",
+    );
+  });
+
+  it("resolves the order notification hash through pgcrypto explicitly", () => {
+    expect(pgcryptoRepairSql).toContain(
+      "create extension if not exists pgcrypto with schema extensions",
+    );
+    expect(pgcryptoRepairSql).toContain("extensions.digest(");
+    expect(pgcryptoRepairSql).toContain(
+      "record_partner_order_notification_transition",
+    );
+    expect(pgcryptoRepairSql).toContain(
+      "partner-order-pgcrypto-runtime-smoke",
+    );
+    expect(pgcryptoRepairSql).not.toContain(
+      "create or replace function public.begin_partner_order_submission_v2",
     );
   });
 });

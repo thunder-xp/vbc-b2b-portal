@@ -1,11 +1,19 @@
 import { describe, expect, it } from "vitest";
 
-import { OrderReconciliationRequiredError, OrderSubmissionInProgressError, RecoverableOrderSubmissionError } from "../../services";
+import {
+  OrderReconciliationRequiredError,
+  OrderSubmissionInProgressError,
+  RecoverableOrderSubmissionError,
+} from "../../services";
 import { orderSubmissionFailure } from "../order-action-error";
 
 describe("orderSubmissionFailure", () => {
   it.each([
-    [new RecoverableOrderSubmissionError(), "ORDER_UNKNOWN_FAILURE", "Заказ не был отправлен. Корзина сохранена. Повторите попытку."],
+    [
+      new RecoverableOrderSubmissionError(),
+      "ORDER_UNKNOWN_FAILURE",
+      "Заказ не был отправлен. Корзина сохранена. Повторите попытку.",
+    ],
     [
       new RecoverableOrderSubmissionError(
         "Contract unavailable.",
@@ -22,9 +30,37 @@ describe("orderSubmissionFailure", () => {
       "ORDER_INVALID_SHIPMENT_DATE",
       "Проверьте плановую дату отгрузки и повторите отправку.",
     ],
-    [new OrderSubmissionInProgressError(), "ORDER_IN_PROGRESS", "Заказ уже отправляется. Подождите завершения операции."],
-    [new OrderReconciliationRequiredError(), "ORDER_RECONCILIATION_REQUIRED", "Статус отправки заказа уточняется. Не отправляйте заказ повторно."],
+    [
+      new OrderSubmissionInProgressError(),
+      "ORDER_IN_PROGRESS",
+      "Заказ уже отправляется. Подождите завершения операции.",
+    ],
+    [
+      new OrderReconciliationRequiredError(),
+      "ORDER_RECONCILIATION_REQUIRED",
+      "Статус отправки заказа уточняется. Не отправляйте заказ повторно.",
+    ],
   ])("maps %s to a safe Russian action result", (error, code, message) => {
-    expect(orderSubmissionFailure(error)).toEqual({ success: false, errorCode: code, message, data: null });
+    expect(orderSubmissionFailure(error)).toEqual({
+      success: false,
+      errorCode: code,
+      message,
+      data: null,
+    });
+  });
+
+  it("includes a safe correlation ID for infrastructure failures", () => {
+    const error = new RecoverableOrderSubmissionError(
+      "Database function is unavailable.",
+      "ORDER_SUBMISSION_INFRASTRUCTURE_FAILURE",
+      "test-correlation-id",
+    );
+
+    expect(orderSubmissionFailure(error)).toEqual({
+      success: false,
+      errorCode: "ORDER_SUBMISSION_INFRASTRUCTURE_FAILURE",
+      message: "Заказ не был отправлен. Корзина сохранена. Код события: test-correlation-id.",
+      data: null,
+    });
   });
 });

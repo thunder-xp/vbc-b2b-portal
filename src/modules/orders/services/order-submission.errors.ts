@@ -10,12 +10,14 @@ export type RecoverableOrderSubmissionCode =
   | "ORDER_1C_TIMEOUT"
   | "ORDER_1C_ALREADY_CREATED"
   | "ORDER_READBACK_FAILED"
+  | "ORDER_SUBMISSION_INFRASTRUCTURE_FAILURE"
   | "ORDER_UNKNOWN_FAILURE";
 
 export class RecoverableOrderSubmissionError extends Error {
   constructor(
     message = "Order submission failed definitively.",
     readonly code: RecoverableOrderSubmissionCode = "ORDER_UNKNOWN_FAILURE",
+    readonly correlationId = crypto.randomUUID(),
   ) {
     super(message);
     this.name = "RecoverableOrderSubmissionError";

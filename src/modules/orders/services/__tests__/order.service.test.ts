@@ -347,6 +347,17 @@ describe("DefaultPartnerOrderService", () => {
       .toMatchObject({ code: "ORDER_UNKNOWN_FAILURE" });
   });
 
+  it("classifies a missing database function as an infrastructure failure", async () => {
+    const dependencies = makeDependencies();
+    dependencies.orderRepository.beginSubmission.mockRejectedValue(
+      new OrderRepositoryError("42883", "function digest(text, unknown) does not exist"),
+    );
+
+    await expect(dependencies.service.submit("user-1", input())).rejects
+      .toMatchObject({ code: "ORDER_SUBMISSION_INFRASTRUCTURE_FAILURE" });
+    expect(dependencies.orderProvider.exportSalesOrder).not.toHaveBeenCalled();
+  });
+
   it("returns an already submitted order without a second 1C request", async () => {
     const dependencies = makeDependencies();
     dependencies.orderRepository.findBySubmissionKey.mockResolvedValue(order({ status: PartnerOrderStatus.Submitted }));

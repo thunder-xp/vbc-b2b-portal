@@ -459,6 +459,23 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
           "ORDER_CART_VERSION_CONFLICT",
         );
       }
+      if (error instanceof OrderRepositoryError && error.code === "42883") {
+        const infrastructureError = new RecoverableOrderSubmissionError(
+          "Order submission infrastructure is unavailable.",
+          "ORDER_SUBMISSION_INFRASTRUCTURE_FAILURE",
+        );
+        console.error({
+          event: "partner_order_submission_infrastructure_failure",
+          stage: "idempotency_acquisition",
+          cartId: cart.id,
+          companyId: company.id,
+          submissionKey,
+          submissionAttemptId: attemptId,
+          databaseErrorCode: error.code,
+          correlationId: infrastructureError.correlationId,
+        });
+        throw infrastructureError;
+      }
       throw new RecoverableOrderSubmissionError(
         "Order submission state transition failed.",
         "ORDER_UNKNOWN_FAILURE",
