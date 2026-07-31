@@ -14,6 +14,7 @@ import { SupabaseWorkspaceDashboardRepository } from "../repositories/supabase-w
 import { createPricingInventoryService } from "../../pricing-inventory/actions/service-factory";
 import { SupabaseNotificationRepository } from "../../notifications";
 import { SupabaseCommercialOpportunityRepository } from "../../commercial-opportunities";
+import { SupabaseCommercialCampaignRepository } from "../../commercial-campaigns/repositories/supabase-commercial-campaign.repository";
 
 const priceTypeRepository = new SupabasePricingInventoryRepository();
 const workspaceContextService = new DefaultPartnerWorkspaceContextService(
@@ -36,5 +37,6 @@ export function createWorkspaceHomeService(): DefaultWorkspaceHomeService {
     createPricingInventoryService(),
     new SupabaseNotificationRepository(),
     new SupabaseCommercialOpportunityRepository(),
+    new SupabaseCommercialCampaignRepository(),
   );
 }

@@ -20,6 +20,8 @@ import type {
   PartnerWorkspaceContextService,
 } from "./workspace-context.service";
 import type { CommercialOpportunity, CommercialOpportunityRepository } from "../../commercial-opportunities";
+import type { CommercialCampaignRepository } from "../../commercial-campaigns/repositories/commercial-campaign.repository";
+import type { PartnerCampaign } from "../../commercial-campaigns/types";
 
 export type WorkspaceQuickActionDto = {
   key: string;
@@ -106,6 +108,7 @@ export type WorkspaceHomeDto = {
   reorderProducts: WorkspaceProductDto[];
   merchandisingProducts: WorkspaceProductDto[];
   opportunities: CommercialOpportunity[];
+  campaigns: PartnerCampaign[];
   financeSummary: null | {
     totals: Array<{
       currency: string;
@@ -145,6 +148,7 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
     private readonly pricingInventoryService: PricingInventoryService,
     private readonly notificationRepository?: NotificationRepository,
     private readonly opportunityRepository?: CommercialOpportunityRepository,
+    private readonly campaignRepository?: CommercialCampaignRepository,
   ) {}
 
   async getWorkspaceHome(userId: string): Promise<WorkspaceHomeDto> {
@@ -157,7 +161,7 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
       throw new InvalidStateError("Partner workspace access is not active.");
     }
 
-    const [freshness, dashboard, notificationPage, opportunityPage] = await Promise.all([
+    const [freshness, dashboard, notificationPage, opportunityPage, campaignPage] = await Promise.all([
       this.commercialFreshnessReadModel.getFreshness(),
       this.dashboardRepository.getDashboard(context.companyId),
       this.notificationRepository?.list(context.companyId, {
@@ -165,6 +169,8 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
         pageSize: 20,
       }) ?? Promise.resolve({ items: [], nextCursor: null }),
       this.opportunityRepository?.list({ companyId: context.companyId, filter: "all", limit: 4, offset: 0 })
+        ?? Promise.resolve({ items: [], totalCount: 0 }),
+      this.campaignRepository?.listPartner({ companyId: context.companyId, filter: "active", limit: 2, offset: 0 })
         ?? Promise.resolve({ items: [], totalCount: 0 }),
     ]);
     const candidates = uniqueCandidates([
@@ -274,6 +280,7 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
         commercialView: commercialByProduct.get(candidate.id),
       })),
       opportunities: opportunityPage.items,
+      campaigns: campaignPage.items,
       financeSummary: dashboard.financeSummary,
       companySummary: dashboard.companySummary,
       commercialConfigurationMissing: context.accessState === "missing_price_type",

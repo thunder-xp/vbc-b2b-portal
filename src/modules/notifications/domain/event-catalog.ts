@@ -24,6 +24,8 @@ export const PARTNER_NOTIFICATION_EVENT_CODES = [
   "watched_product_price_changed",
   "cart_product_price_changed",
   "cart_product_availability_changed",
+  "campaign_started",
+  "campaign_ending_soon",
 ] as const;
 
 export type PartnerNotificationEventCode =
@@ -34,6 +36,7 @@ export const PARTNER_NOTIFICATION_GROUPS = [
   "shipments",
   "company_access",
   "products",
+  "commercial",
 ] as const;
 
 export type PartnerNotificationGroup =
@@ -60,7 +63,8 @@ type EventDefinition = {
     | "invitation"
     | "membership"
     | "product"
-    | "cart";
+    | "cart"
+    | "campaign";
   expiryDays: number;
 };
 
@@ -96,6 +100,8 @@ export const PARTNER_NOTIFICATION_EVENT_CATALOG = {
   watched_product_price_changed: definition("products", "information", false, "product", 30),
   cart_product_price_changed: definition("products", "warning", true, "cart", 30),
   cart_product_availability_changed: definition("products", "warning", true, "cart", 30),
+  campaign_started: definition("commercial", "information", false, "campaign", 90),
+  campaign_ending_soon: definition("commercial", "information", false, "campaign", 30),
 } satisfies Record<PartnerNotificationEventCode, EventDefinition>;
 
 function definition(
