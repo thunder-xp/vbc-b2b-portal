@@ -19,6 +19,7 @@ export type OwnAccessRequestDto = {
   contactPhone: string | null;
   message: string | null;
   status: AccessRequestStatus;
+  onboardingStatus?: AccessRequest["onboardingStatus"];
   decisionReason: string | null;
   createdAt: string;
   updatedAt: string;
@@ -46,6 +47,7 @@ function toOwnAccessRequestDto(request: AccessRequest): OwnAccessRequestDto {
     contactPhone: request.contactPhone,
     message: request.message,
     status: request.status,
+    onboardingStatus: request.onboardingStatus,
     decisionReason: request.decisionReason,
     createdAt: request.createdAt,
     updatedAt: request.updatedAt,

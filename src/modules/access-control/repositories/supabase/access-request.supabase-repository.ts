@@ -18,7 +18,7 @@ import {
 } from "../index";
 
 const ACCESS_REQUEST_COLUMNS =
-  "id, user_profile_id, company_id, requested_external_1c_id, requested_company_name, requested_fiscal_code, contact_phone, message, status, reviewed_by, reviewed_at, decision_reason, created_at, updated_at";
+  "id, user_profile_id, company_id, requested_external_1c_id, requested_company_name, requested_fiscal_code, contact_phone, message, status, onboarding_status, reviewed_by, reviewed_at, decision_reason, created_at, updated_at";
 
 type SupabaseRepositoryError = {
   code?: string;
@@ -90,7 +90,7 @@ export class SupabaseAccessRequestRepository
     input: FindPendingAccessRequestDuplicateInput,
   ): Promise<AccessRequest | null> {
     const supabase = await createClient();
-    let query = supabase
+    const query = supabase
       .from("access_requests")
       .select(ACCESS_REQUEST_COLUMNS)
       .eq("user_profile_id", input.userId)
@@ -179,6 +179,7 @@ export class SupabaseAccessRequestRepository
       contactPhone: input.contactPhone ?? null,
       message: input.message ?? null,
       status: AccessRequestStatus.PendingReview,
+      onboardingStatus: "received",
       reviewedBy: null,
       reviewedAt: null,
       decisionReason: null,

@@ -89,6 +89,7 @@ export interface AccessRequestRow {
   contact_phone: string | null;
   message: string | null;
   status: AccessRequestStatus;
+  onboarding_status?: AccessRequest["onboardingStatus"];
   reviewed_by: string | null;
   reviewed_at: string | null;
   decision_reason: string | null;
@@ -197,6 +198,7 @@ export function mapAccessRequestRow(row: AccessRequestRow): AccessRequest {
     contactPhone: row.contact_phone,
     message: row.message,
     status: row.status,
+    onboardingStatus: row.onboarding_status,
     reviewedBy: row.reviewed_by,
     reviewedAt: row.reviewed_at,
     decisionReason: row.decision_reason,

@@ -43,10 +43,10 @@ export function AccessRequestStatusList({
     return (
       <section className="rounded-lg border border-zinc-200 bg-white p-6 shadow-sm">
         <h1 className="text-2xl font-semibold tracking-tight text-zinc-950">
-          Access request status
+          Статус заявки
         </h1>
         <p className="mt-3 text-sm text-zinc-600">
-          No partner access requests were found for your account.
+          Заявки на партнёрский доступ не найдены.
         </p>
       </section>
     );
@@ -55,7 +55,7 @@ export function AccessRequestStatusList({
   return (
     <section className="rounded-lg border border-zinc-200 bg-white p-6 shadow-sm">
       <h1 className="text-2xl font-semibold tracking-tight text-zinc-950">
-        Access request status
+        Статус заявки
       </h1>
       <div className="mt-5 divide-y divide-zinc-200">
         {items.map((request) => (
@@ -63,19 +63,19 @@ export function AccessRequestStatusList({
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <p className="text-sm font-medium text-zinc-950">
-                  {request.requestedCompanyName || "Partner company request"}
+                  {request.requestedCompanyName || "Заявка партнёрской компании"}
                 </p>
                 <p className="mt-1 text-sm text-zinc-600">
-                  Status: {request.status}
+                  {partnerStatusLabel(request.onboardingStatus, request.status)}
                 </p>
                 {request.requestedFiscalCode && (
                   <p className="mt-2 text-sm text-zinc-500">
-                    Fiscal code / VAT / IDNO: {request.requestedFiscalCode}
+                    IDNO / фискальный код: {request.requestedFiscalCode}
                   </p>
                 )}
                 {request.contactPhone && (
                   <p className="mt-1 text-sm text-zinc-500">
-                    Contact phone: {request.contactPhone}
+                    Контактный телефон: {request.contactPhone}
                   </p>
                 )}
                 {request.message && (
@@ -83,7 +83,7 @@ export function AccessRequestStatusList({
                 )}
                 {request.decisionReason && (
                   <p className="mt-2 rounded-md bg-zinc-50 px-3 py-2 text-sm text-zinc-700">
-                    Review note: {request.decisionReason}
+                    Комментарий менеджера: {request.decisionReason}
                   </p>
                 )}
               </div>
@@ -94,7 +94,7 @@ export function AccessRequestStatusList({
                   onClick={() => cancelRequest(request.id)}
                   type="button"
                 >
-                  Cancel
+                  Отменить заявку
                 </button>
               )}
             </div>
@@ -113,4 +113,27 @@ export function AccessRequestStatusList({
       )}
     </section>
   );
+}
+
+function partnerStatusLabel(
+  onboardingStatus: OwnAccessRequestDto["onboardingStatus"],
+  fallback: AccessRequestStatus,
+): string {
+  const onboardingLabels = {
+    received: "Заявка получена",
+    under_review: "На проверке",
+    clarification_requested: "Требуется уточнение",
+    awaiting_1c_company: "Ожидает подключения компании",
+    link_confirmation_required: "На проверке",
+    ready_for_approval: "Готово к подключению",
+    approved: "Доступ открыт",
+    rejected: "Заявка отклонена",
+    cancelled: "Заявка отменена",
+  };
+  return (onboardingStatus ? onboardingLabels[onboardingStatus] : null) ?? {
+    pending_review: "Заявка получена",
+    approved: "Доступ открыт",
+    rejected: "Заявка отклонена",
+    cancelled: "Заявка отменена",
+  }[fallback];
 }

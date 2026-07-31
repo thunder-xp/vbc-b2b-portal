@@ -15,6 +15,16 @@ export interface AccessRequest {
   contactPhone: string | null;
   message: string | null;
   status: AccessRequestStatus;
+  onboardingStatus?:
+    | "received"
+    | "under_review"
+    | "clarification_requested"
+    | "awaiting_1c_company"
+    | "link_confirmation_required"
+    | "ready_for_approval"
+    | "approved"
+    | "rejected"
+    | "cancelled";
   reviewedBy: string | null;
   reviewedAt: string | null;
   decisionReason: string | null;

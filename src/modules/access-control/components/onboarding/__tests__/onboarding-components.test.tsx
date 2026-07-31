@@ -293,12 +293,12 @@ describe("AccessRequestStatusList", () => {
       />,
     );
 
-    expect(screen.getAllByRole("button", { name: "Cancel" })).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: "Отменить заявку" })).toHaveLength(1);
     const pendingArticle = screen.getByText("Pending Company").closest("article");
     expect(pendingArticle).not.toBeNull();
     expect(
       within(pendingArticle as HTMLElement).getByRole("button", {
-        name: "Cancel",
+        name: "Отменить заявку",
       }),
     ).toBeInTheDocument();
   });
@@ -316,7 +316,7 @@ describe("AccessRequestStatusList", () => {
     });
     render(<AccessRequestStatusList requests={[makeAccessRequest()]} />);
 
-    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    await user.click(screen.getByRole("button", { name: "Отменить заявку" }));
 
     expect(mocks.cancelOwnAccessRequestAction).toHaveBeenCalledWith({
       requestId: "request-1",
