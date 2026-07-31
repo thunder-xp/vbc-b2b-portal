@@ -7,12 +7,11 @@ import {
   CircleDollarSign,
   Clock3,
   PackageCheck,
-  Search,
-  ShoppingCart,
   Users,
 } from "lucide-react";
 
 import { ProductCard } from "../../catalog/components";
+import { CATALOG_PRODUCT_GRID_CLASS } from "../../catalog/components/ProductGrid";
 import type { WorkspaceHomeDto } from "../services";
 import { DashboardTrackedLink } from "./DashboardTrackedLink";
 import { QuickActions } from "./QuickActions";
@@ -51,10 +50,9 @@ export function OperationalDashboard({
 }
 
 function WorkspaceHeader({ workspace }: { workspace: WorkspaceHomeDto }) {
-  const cart = workspace.continuationItems.find((item) => item.kind === "cart");
   return (
     <header className="border-b border-zinc-200 pb-5">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+      <div>
         <div className="min-w-0">
           <h1 className="text-2xl font-semibold text-zinc-950 sm:text-3xl">
             {workspace.identity.greeting}, {workspace.identity.firstName}
@@ -68,43 +66,6 @@ function WorkspaceHeader({ workspace }: { workspace: WorkspaceHomeDto }) {
           <p className="mt-2 text-xs text-zinc-500">
             {freshnessLabel(workspace)}
           </p>
-        </div>
-        <div className="flex min-w-0 flex-col gap-2 sm:flex-row">
-          <form
-            action="/cabinet/catalog"
-            className="flex min-w-0 flex-1 sm:w-80"
-          >
-            <label className="sr-only" htmlFor="dashboard-catalog-search">
-              Поиск по каталогу
-            </label>
-            <input
-              className="h-11 min-w-0 flex-1 rounded-l-md border border-r-0 border-zinc-300 px-3 text-sm"
-              id="dashboard-catalog-search"
-              name="search"
-              placeholder="SKU или название"
-              type="search"
-            />
-            <button
-              aria-label="Найти в каталоге"
-              className="inline-flex size-11 items-center justify-center rounded-r-md bg-zinc-900 text-white focus-visible:ring-2 focus-visible:ring-emerald-500"
-              type="submit"
-            >
-              <Search aria-hidden="true" className="size-4" />
-            </button>
-          </form>
-          {workspace.capabilities.navigation.some(
-            (item) => item.key === "cart" && item.availability === "available",
-          ) ? (
-            <DashboardTrackedLink
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-md border border-zinc-300 bg-white px-4 text-sm font-semibold text-zinc-900 hover:border-emerald-600 focus-visible:ring-2 focus-visible:ring-emerald-500"
-              eventName="dashboard_continue_work_clicked"
-              href="/cabinet/cart"
-              sourceSurface="dashboard_header"
-            >
-              <ShoppingCart aria-hidden="true" className="size-4" />
-              Корзина{cart ? ` · ${cart.detail.split(" · ")[0]}` : ""}
-            </DashboardTrackedLink>
-          ) : null}
         </div>
       </div>
     </header>
@@ -336,18 +297,9 @@ function ProductSection({
         id={`dashboard-${analyticsSurface}`}
         title={title}
       />
-      <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className={`mt-3 ${CATALOG_PRODUCT_GRID_CLASS}`}>
         {products.slice(0, 4).map((item) => (
-          <div className="min-w-0" key={item.product.id}>
-            {item.lastPurchasedAt ? (
-              <p className="mb-2 text-xs text-zinc-500">
-                Последняя покупка: {formatDate(item.lastPurchasedAt)}
-                {item.typicalQuantity
-                  ? ` · обычно ${item.typicalQuantity} шт.`
-                  : ""}
-              </p>
-            ) : null}
-            <ProductCard
+          <ProductCard
               analyticsEventName={
                 analyticsSurface === "dashboard_offers"
                   ? "dashboard_offer_opened"
@@ -361,9 +313,9 @@ function ProductSection({
               }
               capabilities={workspace.capabilities.productCard}
               commercialView={item.commercialView}
-              product={item.product}
-            />
-          </div>
+            product={item.product}
+            key={item.product.id}
+          />
         ))}
       </div>
     </section>
