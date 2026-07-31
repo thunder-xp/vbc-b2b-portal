@@ -4,6 +4,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 const sql = fs.readFileSync(path.join(process.cwd(), "supabase/migrations/20260731220000_commercial_campaigns_foundation.sql"), "utf8");
+const cleanupSql = fs.readFileSync(path.join(process.cwd(), "supabase/migrations/20260731223000_inactive_campaign_cart_attribution_cleanup.sql"), "utf8");
 
 describe("commercial campaigns database contract", () => {
   it("owns the governed lifecycle and immutable publication history", () => {
@@ -35,6 +36,8 @@ describe("commercial campaigns database contract", () => {
     expect(sql).toContain("maximum_quantity_per_company");
     expect(sql).toContain("pg_advisory_xact_lock");
     expect(sql).toContain("new.campaign_attribution_fingerprint:=null");
+    expect(cleanupSql).toContain("set campaign_id=null,campaign_item_id=null,campaign_attribution_fingerprint=null");
+    expect(cleanupSql).toContain("where campaign_id=new.id");
     expect(sql).toContain("campaign.ends_at>now()");
   });
 
