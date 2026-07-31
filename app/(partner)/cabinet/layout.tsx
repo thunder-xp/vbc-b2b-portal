@@ -34,6 +34,8 @@ export default async function CabinetLayout({ children }: { children: ReactNode 
     userEmail: context.userEmail,
     companyName: context.companyName,
     membershipRole: context.membershipRole,
+    membershipRoleCode: context.membershipRoleCode,
+    companyLogoUrl: context.companyLogoUrl,
     accessState: context.accessState,
     navigation: context.capabilities.navigation,
     cartItemCount: cartItemCountResult?.success ? cartItemCountResult.data : 0,

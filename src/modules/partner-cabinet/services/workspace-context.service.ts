@@ -44,6 +44,10 @@ export type PartnerWorkspaceContext = {
   membershipId: string | null;
   membershipStatus: string | null;
   membershipRole: string | null;
+  membershipRoleCode: string | null;
+  companyLogoAssetPath: string | null;
+  companyLogoUrl: string | null;
+  canManageCompanyLogo: boolean;
   external1cCode: string | null;
   external1cPriceTypeId: string | null;
   priceTypeName: string | null;
@@ -164,6 +168,10 @@ export class DefaultPartnerWorkspaceContextService
       membershipId: membership.id,
       membershipStatus: membership.status,
       membershipRole: permissionContext.roleName ?? "Партнёр",
+      membershipRoleCode: permissionContext.roleCode,
+      companyLogoAssetPath: activeContext.company.logoAssetPath ?? null,
+      companyLogoUrl: companyLogoUrl(activeContext.company.logoAssetPath ?? null),
+      canManageCompanyLogo: permissionContext.roleCode === "partner_owner",
       external1cCode: activeContext.company.external1cCode ?? null,
       external1cPriceTypeId: canViewPartnerPrice ? priceTypeReference : null,
       priceTypeName,
@@ -203,9 +211,20 @@ function emptyContext(
     membershipId: null,
     membershipStatus: null,
     membershipRole: null,
+    membershipRoleCode: null,
+    companyLogoAssetPath: null,
+    companyLogoUrl: null,
+    canManageCompanyLogo: false,
     external1cCode: null,
     external1cPriceTypeId: null,
     priceTypeName: null,
     capabilities: resolveWorkspaceCapabilities(new Set()),
   };
+}
+
+function companyLogoUrl(assetPath: string | null): string | null {
+  const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  if (!assetPath || !baseUrl) return null;
+  const encodedPath = assetPath.split("/").map(encodeURIComponent).join("/");
+  return `${baseUrl.replace(/\/$/, "")}/storage/v1/object/public/company-logos/${encodedPath}`;
 }

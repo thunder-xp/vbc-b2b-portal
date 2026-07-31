@@ -34,6 +34,7 @@ export interface PartnerCompanyRow {
   external_1c_code: string | null;
   external_1c_contract_id: string | null;
   external_1c_price_type_id: string | null;
+  logo_asset_path: string | null;
   display_name: string;
   status: CompanyStatus;
   created_at: string;
@@ -131,6 +132,7 @@ export function mapPartnerCompanyRow(row: PartnerCompanyRow): PartnerCompany {
     external1cCode: row.external_1c_code,
     external1cContractId: row.external_1c_contract_id,
     external1cPriceTypeId: row.external_1c_price_type_id,
+    logoAssetPath: row.logo_asset_path,
     displayName: row.display_name,
     status: row.status,
     createdAt: row.created_at,

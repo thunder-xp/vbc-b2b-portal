@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import type { PartnerWorkspaceContext } from "../services";
 import { StatusBadge } from "./StatusBadge";
+import { CompanyLogoForm } from "./CompanyLogoForm";
 
 export function CompanyCard({ context }: { context: PartnerWorkspaceContext }) {
   return (
@@ -25,6 +26,7 @@ export function CompanyCard({ context }: { context: PartnerWorkspaceContext }) {
           Сотрудники и доступ
         </Link>
       ) : null}
+      {context.canManageCompanyLogo ? <CompanyLogoForm hasLogo={Boolean(context.companyLogoUrl)} /> : null}
     </section>
   );
 }

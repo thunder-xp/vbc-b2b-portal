@@ -14,7 +14,7 @@ import {
 import { RepositoryUnexpectedError } from "../index";
 
 const PARTNER_COMPANY_COLUMNS =
-  "id, external_1c_id, external_1c_code, external_1c_contract_id, external_1c_price_type_id, display_name, status, created_at, updated_at";
+  "id, external_1c_id, external_1c_code, external_1c_contract_id, external_1c_price_type_id, logo_asset_path, display_name, status, created_at, updated_at";
 const COMPANY_MEMBERSHIP_COMPANY_COLUMNS = "company_id";
 
 interface CompanyMembershipCompanyIdRow {

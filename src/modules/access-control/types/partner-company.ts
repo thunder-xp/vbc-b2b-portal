@@ -12,6 +12,7 @@ export interface PartnerCompany {
   external1cCode?: string | null;
   external1cContractId?: string | null;
   external1cPriceTypeId?: string | null;
+  logoAssetPath?: string | null;
   displayName: string;
   status: CompanyStatus;
   createdAt: string;
