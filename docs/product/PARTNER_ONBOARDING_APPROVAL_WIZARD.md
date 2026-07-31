@@ -108,7 +108,7 @@ part of the transaction.
 
 ## Performance And Security
 
-The route performs one bounded `get_onboarding_request_detail_v2` aggregate.
+The route performs one bounded `get_onboarding_request_detail_v3` aggregate.
 Contracts and price profiles are projected in that aggregate; there are no
 per-row application queries. A step save is one bounded RPC and approval is one
 atomic RPC. Only the affected onboarding detail, queue, waiting page, and
@@ -125,3 +125,51 @@ requests must not be modified. Deployment acceptance therefore covers route
 authorization, terminal rendering, migration/RPC availability, static security
 checks, and local fixture tests. A real atomic approval remains pending until a
 new business-approved request exists.
+
+## Clarification, Rejection, And Delegation
+
+Clarification is a governed decision, not an editable status toggle. The
+manager records a reason category, partner-facing message, requested business
+fields, optional response deadline, and separate internal note. The request
+enters `clarification_requested`, approval becomes unavailable, and the final
+decision SLA pauses. Audit metadata stores the reason, requested fields,
+revision number, and message fingerprint rather than unrestricted text.
+
+The partner status center uses one ownership-scoped aggregate. A partner may
+create a new immutable revision only while clarification is pending and may
+change only company, contact, and business submission fields. Company matching,
+commercial profile, manager, access role, permissions, and technical IDs are
+never accepted by the partner mutation. Resubmission returns the request to
+`under_review`, resumes SLA tracking, invalidates stale matching choices, and
+notifies only the assigned manager.
+
+Rejection requires a governed reason and safe partner explanation. Internal
+notes remain internal. Rejection and cancellation are terminal for manager
+workflows. Only a platform administrator may reopen a rejected or cancelled
+request; reopening requires a reason and explicit eligible manager, starts a
+new SLA cycle, and preserves all earlier events and revisions.
+
+### Canonical Transitions
+
+- `received -> under_review | clarification_requested | rejected | cancelled`
+- `under_review -> clarification_requested | awaiting_1c_company | link_confirmation_required | ready_for_approval | rejected | cancelled`
+- `clarification_requested -> under_review | rejected | cancelled`
+- `awaiting_1c_company -> link_confirmation_required | under_review | rejected | cancelled`
+- `link_confirmation_required -> under_review | ready_for_approval | rejected | cancelled`
+- `ready_for_approval -> under_review | approved | rejected | cancelled`
+- `rejected -> under_review` only through platform-admin reopen
+- `cancelled -> under_review` only through platform-admin reopen
+- `approved` has no manager-controlled outbound transition
+
+### Delegation And Notifications
+
+Assignment and reassignment use the existing eligible internal-user projection.
+Platform administrators grant or revoke the existing onboarding capability
+bundle from the internal user directory without changing the employee's primary
+role. Existing self-grant, self-revoke, and audit protections remain canonical.
+
+Pre-access messages use an append-only server-only onboarding outbox because the
+canonical partner notification table requires active company membership. The
+waiting page is immediately consistent from request state. Delivery remains
+asynchronous and deduplicated, and notification content excludes commercial
+configuration and internal notes.

@@ -12,6 +12,46 @@ export const ONBOARDING_STATUSES = [
 
 export type OnboardingStatus = (typeof ONBOARDING_STATUSES)[number];
 
+export const CLARIFICATION_REASON_CODES = [
+  "company_data_incomplete",
+  "fiscal_code_needs_confirmation",
+  "contact_details_incomplete",
+  "business_activity_unclear",
+  "existing_company_conflict",
+  "1c_company_not_found",
+  "additional_documents_required",
+  "other",
+] as const;
+
+export const REJECTION_REASON_CODES = [
+  "duplicate_application",
+  "company_not_verified",
+  "invalid_information",
+  "unsupported_business_type",
+  "existing_membership",
+  "company_access_conflict",
+  "not_eligible",
+  "cancelled_by_applicant",
+  "other",
+] as const;
+
+export const PARTNER_CORRECTION_FIELDS = [
+  "company_name",
+  "fiscal_code",
+  "contact_name",
+  "phone",
+  "email",
+  "locality",
+  "business_type",
+  "business_activity",
+  "estimated_purchasing_volume",
+  "comment",
+] as const;
+
+export type ClarificationReasonCode = (typeof CLARIFICATION_REASON_CODES)[number];
+export type RejectionReasonCode = (typeof REJECTION_REASON_CODES)[number];
+export type PartnerCorrectionField = (typeof PARTNER_CORRECTION_FIELDS)[number];
+
 export type CounterpartyDirectoryRow = {
   external1cId: string;
   externalCode: string | null;
@@ -119,6 +159,11 @@ export type OnboardingQueueRow = {
   sla_state: string;
   duplicate_fiscal_code: boolean;
   next_action: string;
+  revision_count: number;
+  assignment_age_seconds: number | null;
+  clarification_age_seconds: number | null;
+  partner_response_overdue: boolean;
+  sla_paused: boolean;
 };
 
 export type OnboardingQueue = {
@@ -136,7 +181,7 @@ export type OnboardingQueue = {
     readyForApproval: number;
     unassigned: number;
   };
-  managers: Array<{ id: string; name: string }>;
+  managers: Array<{ id: string; name: string; workloadCount: number }>;
   directoryFreshness: {
     status: string;
     synchronizedAt: string | null;
@@ -162,6 +207,10 @@ export type OnboardingDetail = {
     phone: string | null;
     email: string | null;
     message: string | null;
+    locality: string | null;
+    businessType: string | null;
+    businessActivity: string | null;
+    estimatedPurchasingVolume: string | null;
     submittedAt: string;
   };
   sla: {
@@ -204,7 +253,7 @@ export type OnboardingDetail = {
     existingMembership: boolean;
     userLinkedToAnotherCompany: boolean;
   };
-  managers: Array<{ id: string; name: string }>;
+  managers: Array<{ id: string; name: string; workloadCount: number }>;
   directoryFiscalMatchCount: number;
   draft: {
     requestRevisionNumber: number;
@@ -221,6 +270,58 @@ export type OnboardingDetail = {
     updatedAt: string;
     stale: boolean;
   } | null;
+  workflow: {
+    clarification: {
+      reasonCategory: ClarificationReasonCode;
+      partnerMessage: string;
+      fields: PartnerCorrectionField[];
+      responseDeadline: string | null;
+      internalNote: string | null;
+      requestedAt: string | null;
+      responseOverdue: boolean;
+    } | null;
+    rejection: {
+      reasonCategory: RejectionReasonCode;
+      partnerMessage: string;
+      internalNote: string | null;
+    } | null;
+    assignedManagerId: string | null;
+    assignmentAgeSeconds: number | null;
+    revisionCount: number;
+    reopenedCount: number;
+    managerWorkload: number;
+    isPlatformAdmin: boolean;
+  };
+};
+
+export type PartnerOnboardingStatusCenter = {
+  status: OnboardingStatus;
+  companyName: string;
+  revisionNumber: number;
+  revisionSubmittedAt: string;
+  currentValues: {
+    companyName: string;
+    fiscalCode: string | null;
+    contactName: string | null;
+    phone: string | null;
+    email: string | null;
+    locality: string | null;
+    businessType: string | null;
+    businessActivity: string | null;
+    estimatedPurchasingVolume: string | null;
+    comment: string | null;
+  };
+  partnerMessage: string | null;
+  requestedFields: PartnerCorrectionField[];
+  responseDeadline: string | null;
+  canUpdate: boolean;
+  canCancel: boolean;
+  hasActiveMembership: boolean;
+  timeline: Array<{
+    event: string;
+    status: string | null;
+    occurredAt: string;
+  }>;
 };
 
 export type OnboardingApprovalResult = {
