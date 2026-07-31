@@ -7,6 +7,7 @@ const workerRepair = fs.readFileSync(path.join(process.cwd(), "supabase/migratio
 const uuidRepair = fs.readFileSync(path.join(process.cwd(), "supabase/migrations/20260731212000_partner_commercial_opportunity_uuid_aggregate_repair.sql"), "utf8");
 const windowRepair = fs.readFileSync(path.join(process.cwd(), "supabase/migrations/20260731213000_partner_commercial_opportunity_window_repair.sql"), "utf8");
 const permissionScopeRepair = fs.readFileSync(path.join(process.cwd(), "supabase/migrations/20260731214000_partner_commercial_opportunity_permission_scope_repair.sql"), "utf8");
+const childTriggerRepair = fs.readFileSync(path.join(process.cwd(), "supabase/migrations/20260731215000_partner_commercial_opportunity_child_trigger_repair.sql"), "utf8");
 
 describe("commercial opportunity projection migration", () => {
   it("governs the complete deterministic opportunity catalog", () => {
@@ -67,5 +68,12 @@ describe("commercial opportunity projection migration", () => {
     expect(permissionScopeRepair).toContain("scope = 'partner'");
     expect(permissionScopeRepair).toContain("where code = 'admin.opportunities.view'");
     expect(permissionScopeRepair).toContain("scope = 'internal'");
+  });
+
+  it("resolves child-row companies without dereferencing absent trigger fields", () => {
+    expect(childTriggerRepair).toContain("to_jsonb(new)");
+    expect(childTriggerRepair).toContain("new_row->>'cart_id'");
+    expect(childTriggerRepair).toContain("new_row->>'list_id'");
+    expect(childTriggerRepair).not.toMatch(/new\.company_id|old\.company_id/i);
   });
 });
