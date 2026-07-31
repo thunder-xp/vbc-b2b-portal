@@ -19,6 +19,7 @@ import type {
   PartnerWorkspaceContext,
   PartnerWorkspaceContextService,
 } from "./workspace-context.service";
+import type { CommercialOpportunity, CommercialOpportunityRepository } from "../../commercial-opportunities";
 
 export type WorkspaceQuickActionDto = {
   key: string;
@@ -104,6 +105,7 @@ export type WorkspaceHomeDto = {
   continuationItems: WorkspaceContinuationDto[];
   reorderProducts: WorkspaceProductDto[];
   merchandisingProducts: WorkspaceProductDto[];
+  opportunities: CommercialOpportunity[];
   financeSummary: null | {
     totals: Array<{
       currency: string;
@@ -142,6 +144,7 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
     private readonly dashboardRepository: WorkspaceDashboardRepository,
     private readonly pricingInventoryService: PricingInventoryService,
     private readonly notificationRepository?: NotificationRepository,
+    private readonly opportunityRepository?: CommercialOpportunityRepository,
   ) {}
 
   async getWorkspaceHome(userId: string): Promise<WorkspaceHomeDto> {
@@ -154,13 +157,15 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
       throw new InvalidStateError("Partner workspace access is not active.");
     }
 
-    const [freshness, dashboard, notificationPage] = await Promise.all([
+    const [freshness, dashboard, notificationPage, opportunityPage] = await Promise.all([
       this.commercialFreshnessReadModel.getFreshness(),
       this.dashboardRepository.getDashboard(context.companyId),
       this.notificationRepository?.list(context.companyId, {
         unreadOnly: true,
         pageSize: 20,
       }) ?? Promise.resolve({ items: [], nextCursor: null }),
+      this.opportunityRepository?.list({ companyId: context.companyId, filter: "all", limit: 4, offset: 0 })
+        ?? Promise.resolve({ items: [], totalCount: 0 }),
     ]);
     const candidates = uniqueCandidates([
       ...dashboard.reorderProducts,
@@ -268,6 +273,7 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
         product: toProduct(candidate),
         commercialView: commercialByProduct.get(candidate.id),
       })),
+      opportunities: opportunityPage.items,
       financeSummary: dashboard.financeSummary,
       companySummary: dashboard.companySummary,
       commercialConfigurationMissing: context.accessState === "missing_price_type",

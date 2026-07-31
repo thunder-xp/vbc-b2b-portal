@@ -17,6 +17,7 @@ import {
   ListChecks,
   ListPlus,
   ListRestart,
+  Lightbulb,
   SearchCheck,
   ShieldCheck,
   ShoppingCart,
@@ -30,6 +31,7 @@ import type { WorkspaceCapabilityKey, WorkspaceNavigationItem } from "../service
 const icons = {
   dashboard: Gauge,
   catalog: Boxes,
+  opportunities: Lightbulb,
   cart: ShoppingCart,
   purchasing_lists: ListPlus,
   purchase_templates: ListRestart,
@@ -49,6 +51,7 @@ const icons = {
 const primaryNavigationOrder: readonly WorkspaceCapabilityKey[] = [
   "dashboard",
   "catalog",
+  "opportunities",
   "proposals",
   "orders",
   "finance",

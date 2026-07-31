@@ -16,6 +16,7 @@ import { DashboardPurchaseTemplateButton } from "../../purchase-templates/compon
 import type { WorkspaceHomeDto } from "../services";
 import { DashboardTrackedLink } from "./DashboardTrackedLink";
 import { QuickActions } from "./QuickActions";
+import { OpportunityCard } from "../../commercial-opportunities/components";
 
 export function OperationalDashboard({
   workspace,
@@ -32,6 +33,7 @@ export function OperationalDashboard({
       </div>
       <QuickActions actions={workspace.quickActions} />
       <ContinuationSection items={workspace.continuationItems} />
+      <OpportunitySection opportunities={workspace.opportunities} />
       <ProductSection
         analyticsSurface="dashboard_reorder"
         products={workspace.reorderProducts}
@@ -48,6 +50,14 @@ export function OperationalDashboard({
       <CompanySection summary={workspace.companySummary} />
     </div>
   );
+}
+
+function OpportunitySection({ opportunities = [] }: { opportunities?: WorkspaceHomeDto["opportunities"] }) {
+  if (!opportunities.length) return null;
+  return <section aria-labelledby="dashboard-opportunities">
+    <SectionHeading actionHref="/cabinet/opportunities" actionLabel="Смотреть все возможности" id="dashboard-opportunities" title="Возможности для закупки" />
+    <div className="mt-3 grid gap-3 xl:grid-cols-2">{opportunities.slice(0, 4).map((opportunity) => <OpportunityCard key={opportunity.id} opportunity={opportunity} />)}</div>
+  </section>;
 }
 
 function WorkspaceHeader({ workspace }: { workspace: WorkspaceHomeDto }) {
