@@ -83,6 +83,13 @@ export const BEHAVIOR_EVENT_NAMES = [
   "purchase_template_created_from_cart",
   "purchase_template_created_from_order",
   "purchase_template_created_from_list",
+  "opportunities_opened",
+  "opportunity_viewed",
+  "opportunity_product_opened",
+  "opportunity_template_opened",
+  "opportunity_added_to_cart",
+  "opportunity_dismissed",
+  "opportunity_repeat_started",
 ] as const;
 
 export type BehaviorEventName = (typeof BEHAVIOR_EVENT_NAMES)[number];
