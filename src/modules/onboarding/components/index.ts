@@ -1,4 +1,5 @@
 export { OnboardingDetailView } from "./OnboardingDetailView";
+export { OnboardingApprovalWizard } from "./OnboardingApprovalWizard";
 export { OnboardingHealthView } from "./OnboardingHealthView";
 export { OnboardingQueueView } from "./OnboardingQueueView";
 export {

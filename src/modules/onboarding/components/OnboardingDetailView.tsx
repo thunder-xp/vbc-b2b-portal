@@ -8,17 +8,14 @@ import {
 import Link from "next/link";
 
 import type { OnboardingDetail, OnboardingStatus } from "../types";
-import {
-  INITIAL_ACCESS_LABELS,
-  ONBOARDING_STATUS_LABELS,
-} from "./onboarding-labels";
+import { ONBOARDING_STATUS_LABELS } from "./onboarding-labels";
+import { OnboardingApprovalWizard } from "./OnboardingApprovalWizard";
 
 type Props = {
   detail: OnboardingDetail;
   assignAction: (formData: FormData) => Promise<void>;
   unassignAction: (formData: FormData) => Promise<void>;
   transitionAction: (formData: FormData) => Promise<void>;
-  confirmAction: (formData: FormData) => Promise<void>;
 };
 
 export function OnboardingDetailView({
@@ -26,7 +23,6 @@ export function OnboardingDetailView({
   assignAction,
   unassignAction,
   transitionAction,
-  confirmAction,
 }: Props) {
   const duplicateWarnings = duplicateMessages(detail);
 
@@ -84,77 +80,7 @@ export function OnboardingDetailView({
             </dl>
           </Section>
 
-          <Section title="Совпадения в локальном справочнике 1С">
-            {detail.candidates.length === 0 ? (
-              <div className="py-4">
-                <p className="font-medium">Авторитетный контрагент не найден</p>
-                <p className="mt-1 text-sm text-zinc-600">
-                  Финальное подключение заблокировано до следующей синхронизации 1С.
-                </p>
-                <TransitionForm
-                  requestId={detail.request.id}
-                  nextStatus="awaiting_1c_company"
-                  label="Ожидает создания контрагента в 1С"
-                  action={transitionAction}
-                />
-              </div>
-            ) : (
-              <div className="divide-y divide-zinc-200">
-                {detail.candidates.map((candidate) => (
-                  <article key={candidate.id} className="py-4 first:pt-0 last:pb-0">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                      <div>
-                        <h3 className="font-semibold">{candidate.companyName}</h3>
-                        <p className="mt-1 text-sm text-zinc-600">
-                          {candidate.fiscalCode || "IDNO не указан"} ·{" "}
-                          {candidate.locality || "Населённый пункт не указан"}
-                        </p>
-                        <p className="mt-1 text-sm text-zinc-500">
-                          Договоров: {candidate.contractCount} · ценовых профилей:{" "}
-                          {candidate.priceProfileCount}
-                        </p>
-                        {!candidate.active && (
-                          <p className="mt-2 text-sm font-medium text-red-700">
-                            Контрагент неактивен
-                          </p>
-                        )}
-                        {candidate.portalLinkageState === "already_linked" && (
-                          <p className="mt-2 text-sm font-medium text-amber-800">
-                            Уже связан с компанией портала
-                          </p>
-                        )}
-                      </div>
-                      {candidate.active &&
-                        candidate.portalLinkageState !== "already_linked" && (
-                          <form action={confirmAction} className="space-y-2 sm:w-52">
-                            <input type="hidden" name="requestId" value={detail.request.id} />
-                            <input type="hidden" name="counterpartyId" value={candidate.id} />
-                            <label className="block text-sm font-medium">
-                              Начальный профиль
-                              <select
-                                name="initialAccessProfile"
-                                defaultValue="owner"
-                                className="mt-1 min-h-11 w-full rounded-md border border-zinc-300 bg-white px-3"
-                              >
-                                {Object.entries(INITIAL_ACCESS_LABELS).map(([value, label]) => (
-                                  <option value={value} key={value}>{label}</option>
-                                ))}
-                              </select>
-                            </label>
-                            <button
-                              type="submit"
-                              className="min-h-11 w-full rounded-md bg-emerald-700 px-3 text-sm font-semibold text-white hover:bg-emerald-800"
-                            >
-                              Подтвердить связь
-                            </button>
-                          </form>
-                        )}
-                    </div>
-                  </article>
-                ))}
-              </div>
-            )}
-          </Section>
+          <OnboardingApprovalWizard detail={detail} />
 
           <Section title="История">
             <ol className="space-y-3">
@@ -243,7 +169,7 @@ export function OnboardingDetailView({
                 />
               )}
               <p className="text-sm text-zinc-600">
-                Одобрение доступа выполняется в следующем срезе. Технические идентификаторы не требуются.
+                Подключение выполняется в мастере слева. Технические идентификаторы не требуются.
               </p>
             </div>
           </Section>
@@ -346,6 +272,8 @@ function eventLabel(event: string): string {
     ready_for_approval: "Заявка готова к подключению",
     status_changed: "Статус изменён",
     approval_failed: "Попытка подключения не завершена",
+    approval_draft_updated: "Черновик подключения обновлён",
+    onboarding_approved: "Доступ к кабинету открыт",
     capability_granted: "Полномочие выдано",
     capability_revoked: "Полномочие отозвано",
   }[event] ?? event;

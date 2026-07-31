@@ -2,7 +2,6 @@ import { notFound } from "next/navigation";
 
 import {
   assignOnboardingRequestFormAction,
-  confirmOnboardingMatchFormAction,
   getOnboardingDetailAction,
   transitionOnboardingRequestFormAction,
   unassignOnboardingRequestFormAction,
@@ -28,7 +27,6 @@ export default async function AdminOnboardingDetailPage({
           assignAction={assignOnboardingRequestFormAction}
           unassignAction={unassignOnboardingRequestFormAction}
           transitionAction={transitionOnboardingRequestFormAction}
-          confirmAction={confirmOnboardingMatchFormAction}
         />
       </div>
     </div>
