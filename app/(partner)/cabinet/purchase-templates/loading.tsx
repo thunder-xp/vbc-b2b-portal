@@ -1,0 +1,1 @@
+export default function PurchaseTemplatesLoading() { return <div aria-label="Загрузка шаблонов закупок" className="space-y-4" role="status"><div className="h-20 animate-pulse bg-zinc-100" /><div className="h-40 animate-pulse bg-zinc-100" /><div className="h-40 animate-pulse bg-zinc-100" /></div>; }
