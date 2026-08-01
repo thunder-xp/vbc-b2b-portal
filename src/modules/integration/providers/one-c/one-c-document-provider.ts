@@ -69,7 +69,10 @@ export function buildDocumentMetadataPageQuery(
   skip: number,
   limit = 100,
 ): string {
-  return `$select=${[...COMMON_FIELDS, ...source.fields].join(",")}` +
+  const commonFields = source.type === "reconciliation_statement"
+    ? COMMON_FIELDS.filter((field) => field !== "Договор_Key")
+    : [...COMMON_FIELDS];
+  return `$select=${[...commonFields, ...source.fields].join(",")}` +
     `&$top=${boundedLimit(limit)}` +
     `&$skip=${nonNegativeInteger(skip)}` +
     "&$format=json";

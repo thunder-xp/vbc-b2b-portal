@@ -54,6 +54,7 @@ describe("OneCDocumentODataProvider", () => {
     const query = buildDocumentMetadataPageQuery(ONE_C_DOCUMENT_SOURCES[3], 100, 100);
     expect(query).toContain("$select=Ref_Key,Number,Date");
     expect(query).toContain("НачалоПериода,КонецПериода,Статус");
+    expect(query).not.toContain("Договор_Key");
     expect(query).toContain("&$top=100&$skip=100&$format=json");
     expect(query).not.toContain("%24select");
     expect(query).not.toContain("+");
