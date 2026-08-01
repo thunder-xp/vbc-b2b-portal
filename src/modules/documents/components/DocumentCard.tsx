@@ -15,7 +15,7 @@ export function DocumentCard({ document, compact = false }: { document: PartnerD
         <span>Версия {document.version}</span><span>{languageLabel(document.languageCode)}</span>
         {document.fileName ? <span>{fileDescription(document)}</span> : null}
       </div> : null}
-      <p className={`mt-2 text-sm ${state === "Актуальная версия" ? "text-emerald-700" : "text-amber-800"}`}>{state}</p>
+      <p className={`mt-2 text-sm ${state === "Актуальная версия" || state === "Проведён" ? "text-emerald-700" : "text-amber-800"}`}>{state}</p>
       {!compact && document.products.length ? <p className="mt-1 truncate text-xs text-zinc-500">Товары: {document.products.map((product) => `${product.sku} ${product.name}`).join(", ")}</p> : null}
       {!compact && document.orders.length ? <p className="mt-1 text-xs text-zinc-500">Заказы: {document.orders.map((order) => order.number).join(", ")}</p> : null}
     </div>

@@ -62,7 +62,15 @@ export type AdminDocumentListItem = {
   fileSize: number | null; issueDate: string | null; validUntil: string | null; isCurrent: boolean; updatedAt: string;
 };
 export type AdminDocumentPage = { items: AdminDocumentListItem[]; totalCount: number; page: number; totalPages: number };
-export type DocumentHealth = { totalMetadata: number; availableFiles: number; missingFiles: number; expired: number; superseded: number; unlinkedOrderDocuments: number; unlinkedProductDocuments: number; downloadFailures: number; syncState: { status: string; provider_status: string; last_successful_at: string | null; safe_error_code: string | null } | null };
+export type DocumentHealth = { totalMetadata: number; availableFiles: number; missingFiles: number; expired: number; superseded: number; unlinkedOrderDocuments: number; unlinkedProductDocuments: number; downloadFailures: number; syncState: {
+  status: string; provider_status: string; last_successful_at: string | null; safe_error_code: string | null;
+  active_sync_id?: string | null; source_index?: number; source_entity?: string | null; next_skip?: number;
+  pages_processed?: number; rows_received?: number; rows_staged?: number; rows_rejected?: number;
+  rows_published?: number; mapped_companies?: number; unmapped_companies?: number;
+  linked_orders?: number; unlinked_orders?: number; posted_documents?: number;
+  cancelled_documents?: number; corrected_documents?: number; metadata_only_documents?: number;
+  lock_acquired_at?: string | null; source_stats?: Record<string, { received?: number; staged?: number; rejected?: number }>;
+} | null };
 export type DocumentBuilderProduct = { id: string; sku: string; name: string };
 
 export type PortalProductDocumentInput = {
@@ -70,4 +78,3 @@ export type PortalProductDocumentInput = {
   issueDate: string | null; validFrom: string | null; validUntil: string | null; version: string; fileName: string;
   mimeType: "application/pdf"; fileSize: number; storageBucket: "partner-documents"; storageKey: string; checksumSha256: string; productIds: string[];
 };
-
