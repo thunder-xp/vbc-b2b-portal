@@ -41,11 +41,11 @@ export class OneCDocumentODataProvider implements DocumentProvider {
   }
 
   async fetchSourcePage(source: OneCDocumentSource, skip: number, limit = 100): Promise<OneCDocumentPage> {
-    const payload = await this.client.get(source.entity, {
-      "$select": [...COMMON_FIELDS, ...source.fields].join(","),
-      "$top": String(boundedLimit(limit)),
-      "$skip": String(nonNegativeInteger(skip)),
-    }, { requestKind: "document_metadata_page" });
+    const payload = await this.client.getLiteral(
+      source.entity,
+      buildDocumentMetadataPageQuery(source, skip, limit),
+      { requestKind: "document_metadata_page" },
+    );
     if (!isRecord(payload) || !Array.isArray(payload.value)) {
       throw new IntegrationValidationError("1C document metadata envelope is invalid.");
     }
@@ -62,6 +62,17 @@ export class OneCDocumentODataProvider implements DocumentProvider {
   async fetchDocumentFile(): Promise<never> {
     throw new IntegrationUnsupportedOperationError("1C document binary and print-form retrieval is not verified.");
   }
+}
+
+export function buildDocumentMetadataPageQuery(
+  source: OneCDocumentSource,
+  skip: number,
+  limit = 100,
+): string {
+  return `$select=${[...COMMON_FIELDS, ...source.fields].join(",")}` +
+    `&$top=${boundedLimit(limit)}` +
+    `&$skip=${nonNegativeInteger(skip)}` +
+    "&$format=json";
 }
 
 function mapRow(source: OneCDocumentSource, value: unknown): DocumentDTO[] {

@@ -110,7 +110,35 @@ export class OneCODataClient {
     params: Record<string, string> = {},
     options: OneCODataProbeOptions = {},
   ): Promise<unknown> {
-    const result = await this.probe(resource, params, options);
+    return this.readResult(await this.probe(resource, params, options));
+  }
+
+  async getLiteral(
+    resource: string,
+    literalQuery: string,
+    options: OneCODataProbeOptions = {},
+  ): Promise<unknown> {
+    const { baseUrl, username, password } = this.config;
+    if (!baseUrl || !username || !password) {
+      throw new IntegrationProviderUnavailableError("1C OData is not configured.");
+    }
+    if (!/^\$select=[^&#\r\n]+&\$top=\d+&\$skip=\d+&\$format=json$/.test(literalQuery)) {
+      throw new IntegrationValidationError("1C literal OData query is invalid.");
+    }
+    const requestKind = options.requestKind ?? "collection";
+    const queryParameterNames = [...literalQuery.matchAll(/(?:^|&)(\$[A-Za-z]+)=/g)]
+      .map((match) => match[1]);
+    const exactUrl = `${baseUrl.replace(/\/$/, "")}/${resource.replace(/^\//, "")}?${literalQuery}`;
+    return this.readResult(await this.probeRequest(
+      exactUrl,
+      requestKind,
+      resource,
+      queryParameterNames,
+      options,
+    ));
+  }
+
+  private readResult(result: OneCODataProbeResult): unknown {
     const requestDiagnostic = toSafeDiagnostic(result, result.requestKind);
     const responseBody = probeResponseBodies.get(result) ?? null;
 
@@ -159,6 +187,18 @@ export class OneCODataClient {
     const requestKind = options.requestKind ?? "collection";
     const queryParameterNames = [...new Set([...url.searchParams.keys()])];
 
+    return this.probeRequest(url, requestKind, resource, queryParameterNames, options);
+  }
+
+  private async probeRequest(
+    url: string | URL,
+    requestKind: string,
+    resource: string,
+    queryParameterNames: string[],
+    options: OneCODataProbeOptions,
+  ): Promise<OneCODataProbeResult> {
+    const { username, password } = this.config;
+
     let response: Response;
     const startedAt = performance.now();
     try {
@@ -185,7 +225,7 @@ export class OneCODataClient {
         statusCode: response.status,
         contentType,
         durationMs: Math.round(performance.now() - startedAt),
-        hostname: url.hostname,
+        hostname: new URL(url).hostname,
         requestKind,
         resourceName: resource,
         queryParameterNames,
@@ -204,7 +244,7 @@ export class OneCODataClient {
       statusCode: response.status,
       contentType,
       durationMs: Math.round(performance.now() - startedAt),
-      hostname: url.hostname,
+      hostname: new URL(url).hostname,
       requestKind,
       resourceName: resource,
       queryParameterNames,

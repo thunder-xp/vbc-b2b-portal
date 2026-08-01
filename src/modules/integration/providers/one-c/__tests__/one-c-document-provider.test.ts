@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { OneCProvider } from "../one-c-provider";
-import { OneCDocumentODataProvider, ONE_C_DOCUMENT_SOURCES } from "../one-c-document-provider";
+import { buildDocumentMetadataPageQuery, OneCDocumentODataProvider, ONE_C_DOCUMENT_SOURCES } from "../one-c-document-provider";
+import { OneCODataClient } from "../one-c-odata-client";
 
 const documentRef = "11111111-1111-1111-1111-111111111111";
 const counterpartyRef = "22222222-2222-2222-2222-222222222222";
@@ -47,6 +48,22 @@ describe("OneCDocumentODataProvider", () => {
     expect(url).toContain("$format=json");
     expect(url).not.toMatch(/Base64|ФайлХранилище|Запасы/);
     expect(result.nextSkip).toBe(200);
+  });
+
+  it("uses the verified literal 1C query shape without URLSearchParams encoding", async () => {
+    const query = buildDocumentMetadataPageQuery(ONE_C_DOCUMENT_SOURCES[3], 100, 100);
+    expect(query).toContain("$select=Ref_Key,Number,Date");
+    expect(query).toContain("НачалоПериода,КонецПериода,Статус");
+    expect(query).toContain("&$top=100&$skip=100&$format=json");
+    expect(query).not.toContain("%24select");
+    expect(query).not.toContain("+");
+  });
+
+  it("rejects arbitrary literal query parameters", async () => {
+    await expect(new OneCODataClient(config()).getLiteral(
+      ONE_C_DOCUMENT_SOURCES[0].entity,
+      "$select=Ref_Key&$filter=Posted eq true&$format=json",
+    )).rejects.toThrow("invalid");
   });
 
   it("does not create a heuristic order relation from an untyped reference", async () => {
