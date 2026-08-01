@@ -114,6 +114,9 @@ function RelationMetadataAudit({ audit }: { audit: OneCRelationMetadataAudit }) 
         <Metric label="Entity types" value={String(audit.entityTypeCount)} />
         <Metric label="Кандидатов" value={String(audit.candidateCount)} />
         <Metric label="Размер metadata" value={`${audit.metadataBytes} bytes`} />
+        {audit.exactTermOccurrences.map(({ term, count }) => (
+          <Metric key={term} label={`Вхождения ${term}`} value={String(count)} />
+        ))}
       </div>
       <div className="mt-4 space-y-3">
         {audit.candidates.map((candidate) => (

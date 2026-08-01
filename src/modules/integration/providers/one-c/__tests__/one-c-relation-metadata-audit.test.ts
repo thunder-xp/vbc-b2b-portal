@@ -39,6 +39,10 @@ describe("auditOneCRelationMetadata", () => {
     const result = await auditOneCRelationMetadata(config);
 
     expect(result.candidateCount).toBe(2);
+    expect(result.exactTermOccurrences).toEqual([
+      { term: "Аналог", count: 4 },
+      { term: "Сопутств", count: 0 },
+    ]);
     expect(result.candidates).toEqual(expect.arrayContaining([
       expect.objectContaining({
         entityType: "InformationRegister_АналогиНоменклатуры",

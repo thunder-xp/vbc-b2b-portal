@@ -36,6 +36,7 @@ export type OneCRelationMetadataAudit = {
   candidateCount: number;
   candidatesTruncated: boolean;
   candidates: OneCRelationMetadataCandidate[];
+  exactTermOccurrences: { term: "Аналог" | "Сопутств"; count: number }[];
 };
 
 export async function auditOneCRelationMetadata(
@@ -92,7 +93,21 @@ export async function auditOneCRelationMetadata(
     candidateCount: candidates.length,
     candidatesTruncated: candidates.length > MAX_CANDIDATES,
     candidates: candidates.slice(0, MAX_CANDIDATES),
+    exactTermOccurrences: [
+      { term: "Аналог", count: countOccurrences(metadata, "Аналог") },
+      { term: "Сопутств", count: countOccurrences(metadata, "Сопутств") },
+    ],
   };
+}
+
+function countOccurrences(value: string, term: string): number {
+  let count = 0;
+  let offset = 0;
+  while ((offset = value.indexOf(term, offset)) !== -1) {
+    count += 1;
+    offset += term.length;
+  }
+  return count;
 }
 
 function mapCandidate(
