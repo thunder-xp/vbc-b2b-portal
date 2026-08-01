@@ -14,11 +14,13 @@ export type CommercialOpportunityFilter = "all" | "available" | "arrivals" | "pr
 
 export type OpportunityMoney = { amount: number; currency: string };
 export type OpportunityProduct = {
+  reference?: import("../catalog/types").ProductReferenceDto;
   id: string;
   sku: string;
   name: string;
   slug: string;
   imageUrl: string | null;
+  thumbnailFit?: "contain" | "cover";
   categoryName: string | null;
   partnerPrice: OpportunityMoney | null;
   retailPrice: OpportunityMoney | null;

@@ -7,6 +7,7 @@ import { SaveAsPurchasingListButton } from "@/src/modules/purchasing-lists/compo
 import { SaveAsPurchaseTemplateButton } from "@/src/modules/purchase-templates/components";
 import { listOrderDocumentsAction } from "@/src/modules/documents/actions";
 import { RelatedDocuments } from "@/src/modules/documents/components";
+import { ProductLineThumbnail } from "@/src/modules/catalog/components";
 
 type OrderDetailPageProps = { params: Promise<{ id: string }>; searchParams?: Promise<{ submitted?: string | string[] }> };
 
@@ -59,8 +60,9 @@ export default async function OrderDetailPage({ params, searchParams }: OrderDet
         <div className="mt-3 overflow-hidden rounded-md border border-zinc-200 bg-white">
           <ul className="divide-y divide-zinc-200">
             {order.lines.map((line, index) => (
-              <li className="grid gap-2 p-4 sm:grid-cols-[minmax(0,1fr)_90px_140px_140px] sm:items-center" key={`${line.sku ?? line.productName}-${index}`}>
-                <div><p className="font-medium text-zinc-950">{line.productName}</p>{line.sku ? <p className="text-xs text-zinc-500">{line.sku}</p> : null}</div>
+              <li className="grid gap-3 p-4 sm:grid-cols-[4rem_minmax(0,1fr)_90px_140px_140px] sm:items-center" key={`${line.sku ?? line.productName}-${index}`}>
+                <ProductLineThumbnail imageUrl={line.product?.thumbnail ?? null} productName={line.productName} />
+                <div><p className="font-medium text-zinc-950">{line.productName}</p>{line.sku ? <p className="text-xs text-zinc-500">{line.sku}</p> : null}{!line.product ? <p className="mt-1 text-xs text-zinc-500">Товар из истории 1С</p> : null}</div>
                 <span className="text-sm text-zinc-700">{line.quantity} ед.</span>
                 <span className="text-sm text-zinc-700">{line.unitPrice ?? "Цена скрыта"}</span>
                 <span className="text-sm font-semibold text-zinc-950">{line.lineTotal ?? "—"}</span>
@@ -72,8 +74,17 @@ export default async function OrderDetailPage({ params, searchParams }: OrderDet
 
       {order.portalSnapshot ? (
         <section className="border-t border-zinc-200 pt-6">
-          <h2 className="text-lg font-semibold">Снимок при отправке из платформы</h2>
+          <h2 className="text-lg font-semibold">Состав при отправке из платформы</h2>
           <p className="mt-1 text-sm text-zinc-500">Исходные партнёрские цены сохранены отдельно от текущего документа 1С.</p>
+          <ul className="mt-3 divide-y divide-zinc-200 border border-zinc-200 bg-white">
+            {order.portalSnapshot.lines.map((line, index) => (
+              <li className="grid gap-3 p-3 sm:grid-cols-[3rem_minmax(0,1fr)_auto] sm:items-center" key={`${line.sku}-${index}`}>
+                <ProductLineThumbnail imageUrl={line.product?.thumbnail ?? null} productName={line.productName} size="compact" />
+                <div><p className="font-medium text-zinc-950">{line.productName}</p><p className="text-xs text-zinc-500">{line.sku} · {line.quantity} ед.</p></div>
+                <p className="text-sm font-semibold text-zinc-950">{line.lineTotal ?? "—"}</p>
+              </li>
+            ))}
+          </ul>
           {order.portalSnapshot.total ? <p className="mt-3 font-semibold">Итого: {order.portalSnapshot.total}</p> : <p className="mt-3 text-sm text-zinc-600">Коммерческие условия скрыты настройками доступа.</p>}
         </section>
       ) : null}

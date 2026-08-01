@@ -1,4 +1,6 @@
 import type { CompanyAccessService, PermissionService } from "../../access-control/services";
+import type { ProductReferenceService } from "../../catalog/services";
+import type { ProductReferenceDto } from "../../catalog/types";
 import {
   InvalidStateError,
   NotFoundError,
@@ -62,6 +64,7 @@ export type PartnerOrderHistoryDetailDto = PartnerOrderHistorySummaryDto & {
   companyName: string;
   originLabel: string | null;
   lines: Array<{
+    product: ProductReferenceDto | null;
     productName: string;
     sku: string | null;
     quantity: number;
@@ -72,6 +75,7 @@ export type PartnerOrderHistoryDetailDto = PartnerOrderHistorySummaryDto & {
   portalSnapshot: {
     total?: string;
     lines: Array<{
+      product: ProductReferenceDto | null;
       productName: string;
       sku: string;
       quantity: number;
@@ -144,6 +148,7 @@ export class DefaultPartnerOrderHistoryService implements PartnerOrderHistorySer
     private readonly permissionService: PermissionService,
     private readonly orderProvider: OrderProvider,
     private readonly dateChangeRepository?: OrderDateChangeRequestRepository,
+    private readonly productReferenceService?: ProductReferenceService,
   ) {}
 
   async list(userId: string, input: { filter?: string | null; search?: string | null; page?: number | string | null }) {
@@ -260,6 +265,7 @@ export class DefaultPartnerOrderHistoryService implements PartnerOrderHistorySer
     const order = await this.historyRepository.findVisibleById(normalizedOrderId);
     if (!order || order.companyId !== context.company.id || order.oneCDeletionMark || !order.partnerVisible) {
       const receipt = await this.loadConfirmedPortalReceipt(
+        userId,
         normalizedOrderId,
         context.company.id,
         context.company.displayName,
@@ -273,17 +279,35 @@ export class DefaultPartnerOrderHistoryService implements PartnerOrderHistorySer
       this.historyRepository.listEvents(order.id),
       this.loadPortalSnapshot(order, canViewPartnerPrice),
     ]);
+    const lineInputs = items.map((item) => ({
+      ...toDetailLine(item, canViewPartnerPrice),
+      productId: item.productId,
+    }));
+    const referenceByProduct = await this.resolveProductReferences(userId, [
+      ...lineInputs.map((line) => line.productId),
+      ...(portalSnapshot?.lines.map((line) => line.productId) ?? []),
+    ]);
     return {
       ...toSummary(order, canViewPartnerPrice),
       companyName: context.company.displayName,
       originLabel: order.originType === "partner_platform" ? null : "Заказ из истории Novotech",
-      lines: items.map((item) => toDetailLine(item, canViewPartnerPrice)),
+      lines: lineInputs.map(({ productId, ...line }) => ({
+        ...line,
+        product: productId ? referenceByProduct.get(productId) ?? null : null,
+      })),
       timeline: events.map(toTimelineEvent),
-      portalSnapshot,
+      portalSnapshot: portalSnapshot ? {
+        ...portalSnapshot,
+        lines: portalSnapshot.lines.map(({ productId, ...line }) => ({
+          ...line,
+          product: referenceByProduct.get(productId) ?? null,
+        })),
+      } : null,
     };
   }
 
   private async loadConfirmedPortalReceipt(
+    userId: string,
     orderId: string,
     companyId: string,
     companyName: string,
@@ -308,7 +332,9 @@ export class DefaultPartnerOrderHistoryService implements PartnerOrderHistorySer
       && order.currencyCode
       ? formatMoney(order.documentTotal, order.currencyCode)
       : undefined;
+    const references = await this.resolveProductReferences(userId, items.map((item) => item.productId));
     const lines = items.map((item) => ({
+      product: references.get(item.productId) ?? null,
       productName: item.productName,
       sku: item.sku,
       quantity: item.quantity,
@@ -542,6 +568,7 @@ export class DefaultPartnerOrderHistoryService implements PartnerOrderHistorySer
     return {
       ...(canViewPartnerPrice ? { total: formatMoney(total, currency) } : {}),
       lines: items.map((item) => ({
+        productId: item.productId,
         productName: item.productName,
         sku: item.sku,
         quantity: item.quantity,
@@ -553,6 +580,24 @@ export class DefaultPartnerOrderHistoryService implements PartnerOrderHistorySer
           : {}),
       })),
     };
+  }
+
+  private async resolveProductReferences(
+    userId: string,
+    productIds: Array<string | null>,
+  ): Promise<Map<string, ProductReferenceDto>> {
+    const ids = [...new Set(productIds.filter((id): id is string => Boolean(id)))];
+    const references = this.productReferenceService && ids.length
+      ? await this.productReferenceService.getProductReferencesByIds(userId, ids)
+      : [];
+    console.info({
+      event: "order_product_reference_enrichment_completed",
+      productReferences: ids.length,
+      mappedImages: references.filter((item) => item.thumbnail).length,
+      fallbackImages: references.filter((item) => !item.thumbnail).length,
+      unmappedLines: ids.length - references.length,
+    });
+    return new Map(references.map((reference) => [reference.productId, reference]));
   }
 
   private async resolveContext(userId: string, permission: string) {

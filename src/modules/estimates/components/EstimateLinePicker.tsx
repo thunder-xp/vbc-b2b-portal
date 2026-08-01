@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, ImageIcon, PackagePlus, Plus, Search, Wrench } from "lucide-react";
+import { Check, PackagePlus, Plus, Search, Wrench } from "lucide-react";
 import { useMemo, useState, useTransition } from "react";
 
 import { ProductThumbnail } from "../../catalog/components/ProductThumbnail";
@@ -93,7 +93,7 @@ export function EstimateLinePicker({ estimate, services, onResult, disabled }: {
               if (event.target.checked) return { ...current, [product.id]: 1 };
               const next = { ...current }; delete next[product.id]; return next;
             })} type="checkbox" />
-            <div className="relative flex size-12 items-center justify-center overflow-hidden rounded border border-zinc-200 bg-zinc-50">{product.imageUrl ? <ProductThumbnail alt="" className="object-contain p-1" sizes="48px" src={product.imageUrl} /> : <ImageIcon className="size-5 text-zinc-400" />}</div>
+            <div className="relative flex size-12 items-center justify-center overflow-hidden rounded border border-zinc-200 bg-zinc-50"><ProductThumbnail alt={product.name} className="object-contain p-1" sizes="48px" src={product.imageUrl} variant="xs" /></div>
             <div className="min-w-0"><p className="truncate text-sm font-semibold text-zinc-900">{product.name}</p><p className="mt-1 text-xs text-zinc-500">SKU {product.sku} · {[product.brandName, product.categoryName].filter(Boolean).join(" · ")}</p><p className="mt-1 text-xs"><span className="font-semibold">{product.partnerPrice ?? product.retailPrice ?? "Цена уточняется"}</span> · {product.stock}{product.expectedArrival ? ` · Поступление ${product.expectedArrival}` : ""}</p></div>
             <label className="text-xs text-zinc-600">Количество<input aria-label={`Количество ${product.name}`} className={`${inputClass} mt-1 w-full`} disabled={!selected} min="0.001" onChange={(event) => setProductSelection((current) => ({ ...current, [product.id]: Number(event.target.value) }))} step="0.001" type="number" value={productSelection[product.id] ?? 1} /></label>
           </article>;

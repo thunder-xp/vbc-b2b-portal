@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { CompanyAccessService, PermissionService } from "../../../access-control/services";
 import { NotFoundError } from "../../../access-control/services";
+import type { ProductReferenceService } from "../../../catalog/services";
 import type { OrderProvider } from "../../../integration/contracts";
 import type { SalesOrderHistoryDTO } from "../../../integration/dto";
 import type { PartnerOrderHistoryRepository, PartnerOrderRepository } from "../../repositories";
@@ -73,6 +74,39 @@ describe("DefaultPartnerOrderHistoryService", () => {
     expect(serialized).not.toContain("lineTotal");
     expect(serialized).not.toContain("1234.56");
     expect(serialized).not.toContain("123.45");
+  });
+
+  it("enriches mapped order lines once and leaves unmapped lines explicit", async () => {
+    const record = history();
+    const repository = historyRepository([record]);
+    repository.listItemsByOrderIds.mockResolvedValue([
+      historyLine(record.id, "item-1", "product-1", "400123"),
+      historyLine(record.id, "item-2", null, "LEGACY-1"),
+    ]);
+    const productReferences = {
+      getProductReferencesByIds: vi.fn().mockResolvedValue([{
+        productId: "product-1",
+        slug: "camera",
+        sku: "400123",
+        name: "Camera",
+        thumbnail: "/products/camera.jpg",
+        thumbnailFit: "contain",
+        publicationState: "published",
+      }]),
+    };
+
+    const result = await service(
+      repository,
+      orderProvider(),
+      ["pricing.partner_price.view"],
+      undefined,
+      productReferences as unknown as ProductReferenceService,
+    ).get("user-1", record.id);
+
+    expect(productReferences.getProductReferencesByIds).toHaveBeenCalledOnce();
+    expect(productReferences.getProductReferencesByIds).toHaveBeenCalledWith("user-1", ["product-1"]);
+    expect(result.lines[0]?.product?.thumbnail).toBe("/products/camera.jpg");
+    expect(result.lines[1]?.product).toBeNull();
   });
 
   it("returns safe not-found while the deleted audit record remains in the repository", async () => {
@@ -337,6 +371,7 @@ function service(
     findById: vi.fn().mockResolvedValue(null),
     listItems: vi.fn().mockResolvedValue([]),
   } as unknown as PartnerOrderRepository,
+  productReferenceService?: ProductReferenceService,
 ) {
   const companyAccess = {
     getOwnMemberships: vi.fn().mockResolvedValue([{ companyId: COMPANY_ID, status: "active" }]),
@@ -353,7 +388,25 @@ function service(
     }),
   } as unknown as PermissionService;
   const provider = { fetchSalesOrderHistory: fetchHistory } as unknown as OrderProvider;
-  return new DefaultPartnerOrderHistoryService(repository, portalRepository, companyAccess, permission, provider);
+  return new DefaultPartnerOrderHistoryService(repository, portalRepository, companyAccess, permission, provider, undefined, productReferenceService);
+}
+
+function historyLine(orderHistoryId: string, id: string, productId: string | null, sku: string) {
+  return {
+    id,
+    orderHistoryId,
+    externalProductRef: `${sku}-ref`,
+    productId,
+    productName: productId ? "Camera" : "Legacy item",
+    sku,
+    quantity: 2,
+    unitPrice: 10,
+    lineTotal: 20,
+    currencyCode: "USD",
+    lineNumber: 1,
+    createdAt: "2026-08-01T00:00:00Z",
+    updatedAt: "2026-08-01T00:00:00Z",
+  };
 }
 
 function historyRepository(visible: PartnerOrderHistory[], auditRecord: PartnerOrderHistory | null = null) {

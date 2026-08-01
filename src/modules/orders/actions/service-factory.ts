@@ -55,6 +55,7 @@ export function createPartnerOrderHistoryService(): DefaultPartnerOrderHistorySe
     value.permissionService,
     orderProvider,
     new SupabaseOrderDateChangeRequestRepository(),
+    value.catalogService,
   );
 }
 
