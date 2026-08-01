@@ -20,7 +20,7 @@ const context = {
   membershipRoleCode: "partner_owner",
   companyLogoUrl: null,
   accessState: "active" as const,
-  navigation: resolveWorkspaceCapabilities(new Set(["catalog.view", "orders.create", "orders.manage", "purchasing_lists.view", "reservations.manage", "specifications.manage", "estimates.view", "estimates.manage", "documents.view_company"])).navigation,
+  navigation: resolveWorkspaceCapabilities(new Set(["catalog.view", "opportunities.view", "campaigns.view", "orders.create", "orders.manage", "purchasing_lists.view", "reservations.manage", "specifications.manage", "estimates.view", "estimates.manage", "finance.view_company", "documents.view_company"])).navigation,
   cartItemCount: 0,
   notificationSummary: { unreadCount: 0, items: [] },
 };
@@ -73,34 +73,32 @@ describe("Partner workspace shell", () => {
     expect(screen.queryByText("Вид цены")).not.toBeInTheDocument();
   });
 
-  it("shows the requested hierarchy without duplicating the header cart in the sidebar", async () => {
+  it("renders the final information architecture with consolidated commercial groups", async () => {
     const user = userEvent.setup();
     render(<PartnerSidebar hasWorkspaceAccess navigation={navigation} />);
 
     expect(screen.getByRole("link", { name: "Рабочий стол" })).toHaveAttribute("href", "/cabinet");
     expect(screen.getByRole("link", { name: "Каталог" })).toHaveAttribute("href", "/cabinet/catalog");
-    const selectionButton = screen.getByRole("button", { name: "Подбор товаров" });
-    expect(selectionButton).toHaveAttribute("aria-expanded", "false");
-    await user.click(selectionButton);
-    expect(screen.getByRole("link", { name: "Избранное" })).toHaveAttribute("href", "/cabinet/purchasing-lists");
-    expect(screen.getByRole("link", { name: "Сравнение" })).toHaveAttribute("href", "/cabinet/compare");
-    expect(screen.queryByRole("link", { name: "Избранное и списки" })).not.toBeInTheDocument();
-    const projectButton = screen.getByRole("button", { name: "Проектная защита" });
-    expect(projectButton).toHaveAttribute("aria-expanded", "false");
-    await user.click(projectButton);
-    expect(projectButton).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByRole("link", { name: "Резервирование" })).toHaveAttribute("href", "/cabinet/reservation-requests");
-    expect(screen.getByText("Подбор решения")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Спецификации" })).toHaveAttribute("href", "/cabinet/specifications");
-    expect(screen.getByRole("link", { name: "Сметы и КП" })).toHaveAttribute("href", "/cabinet/estimates");
-    expect(screen.getByText("Заказы")).toBeInTheDocument();
-    expect(screen.getByText("Документы")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Возможности для закупки" })).toHaveAttribute("href", "/cabinet/opportunities");
+    expect(screen.getByRole("link", { name: "Специальные предложения" })).toHaveAttribute("href", "/cabinet/offers");
+
+    const estimatesButton = screen.getByRole("button", { name: "Сметы и КП" });
+    expect(estimatesButton).toHaveAttribute("aria-expanded", "false");
+    await user.click(estimatesButton);
+    expect(screen.getByRole("link", { name: "Подбор решения" })).toHaveAttribute("href", "/cabinet/purchasing-lists");
+    expect(screen.getByRole("link", { name: "Сметы и коммерческие предложения" })).toHaveAttribute("href", "/cabinet/estimates");
+
+    const commercialButton = screen.getByRole("button", { name: "Заказы и финансы" });
+    expect(commercialButton).toHaveAttribute("aria-expanded", "false");
+    await user.click(commercialButton);
+    expect(screen.getByRole("link", { name: "Заказы" })).toHaveAttribute("href", "/cabinet/orders");
+    expect(screen.getByRole("link", { name: "Финансы" })).toHaveAttribute("href", "/cabinet/finance");
+    expect(screen.getByRole("link", { name: "Документы" })).toHaveAttribute("href", "/cabinet/documents");
     expect(screen.getByText("Сервис и гарантия")).toBeInTheDocument();
     expect(screen.getByText("База знаний")).toBeInTheDocument();
-    expect(screen.queryByText("Точные остатки")).not.toBeInTheDocument();
-    expect(screen.queryByText("Персональные цены")).not.toBeInTheDocument();
-    expect(screen.queryByText("Admin")).not.toBeInTheDocument();
-
+    expect(screen.queryByText("Моя компания")).not.toBeInTheDocument();
+    expect(screen.queryByText("Подбор товаров")).not.toBeInTheDocument();
+    expect(screen.queryByText("Проектная защита")).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /Корзина/ })).not.toBeInTheDocument();
   });
 
@@ -127,34 +125,58 @@ describe("Partner workspace shell", () => {
     expect(trigger).toHaveFocus();
   });
 
-  it("automatically expands the project submenu for an active child route", () => {
-    pathname = "/cabinet/specifications/specification-1";
+  it("automatically expands the commercial group for an active child route", () => {
+    pathname = "/cabinet/finance";
     render(<PartnerSidebar hasWorkspaceAccess navigation={navigation} />);
 
-    expect(screen.getByRole("button", { name: "Проектная защита" })).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByRole("link", { name: "Спецификации" })).toHaveAttribute("aria-current", "page");
-    expect(screen.getByRole("button", { name: "Проектная защита" })).not.toHaveAttribute("aria-current");
+    expect(screen.getByRole("button", { name: "Заказы и финансы" })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("link", { name: "Финансы" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("button", { name: "Заказы и финансы" })).not.toHaveAttribute("aria-current");
   });
 
   it("supports keyboard expansion and collapse", async () => {
     const user = userEvent.setup();
     render(<PartnerSidebar hasWorkspaceAccess navigation={navigation} />);
-    const projectButton = screen.getByRole("button", { name: "Проектная защита" });
+    const groupButton = screen.getByRole("button", { name: "Заказы и финансы" });
 
-    projectButton.focus();
+    groupButton.focus();
     await user.keyboard("{Enter}");
-    expect(projectButton).toHaveAttribute("aria-expanded", "true");
+    expect(groupButton).toHaveAttribute("aria-expanded", "true");
     await user.keyboard(" ");
-    expect(projectButton).toHaveAttribute("aria-expanded", "false");
+    expect(groupButton).toHaveAttribute("aria-expanded", "false");
   });
 
-  it("keeps disabled project tools non-clickable", async () => {
+  it("hides empty groups and keeps restricted children out of navigation", async () => {
     const user = userEvent.setup();
+    const ordersOnly = resolveWorkspaceCapabilities(new Set(["orders.manage"])).navigation;
+    const { rerender } = render(<PartnerSidebar hasWorkspaceAccess navigation={ordersOnly} />);
+
+    expect(screen.queryByRole("button", { name: "Сметы и КП" })).not.toBeInTheDocument();
+    const commercialButton = screen.getByRole("button", { name: "Заказы и финансы" });
+    await user.click(commercialButton);
+    expect(screen.getByRole("link", { name: "Заказы" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Финансы" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Документы" })).not.toBeInTheDocument();
+
+    rerender(<PartnerSidebar hasWorkspaceAccess navigation={resolveWorkspaceCapabilities(new Set()).navigation} />);
+    expect(screen.queryByRole("button", { name: "Заказы и финансы" })).not.toBeInTheDocument();
+  });
+
+  it("keeps company access in the user menu while omitting it from the sidebar", async () => {
+    const user = userEvent.setup();
+    render(<><PartnerSidebar navigation={navigation} /><PartnerHeader context={context} /></>);
+
+    expect(screen.queryByRole("link", { name: "Моя компания" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Открыть меню пользователя" }));
+    expect(screen.getByRole("menuitem", { name: "Моя компания" })).toHaveAttribute("href", "/cabinet/company");
+  });
+
+  it("restores active group state from the current route on a fresh render", () => {
+    pathname = "/cabinet/estimates/estimate-1";
     render(<PartnerSidebar hasWorkspaceAccess navigation={navigation} />);
 
-    await user.click(screen.getByRole("button", { name: "Проектная защита" }));
-    expect(screen.getByText("Подбор решения")).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Подбор решения" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Сметы и КП" })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("link", { name: "Сметы и коммерческие предложения" })).toHaveAttribute("aria-current", "page");
   });
 
   it("does not link commercial modules when workspace access is blocked", () => {
