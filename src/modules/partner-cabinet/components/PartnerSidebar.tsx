@@ -25,7 +25,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 
 import type { WorkspaceCapabilityKey, WorkspaceNavigationItem } from "../services";
 
@@ -122,6 +122,16 @@ function NavigationItem({
   );
 }
 
+function ComingSoonNavigationItem({ icon: Icon, label }: { icon: typeof Gauge; label: string }) {
+  return (
+    <span className="flex min-h-11 items-center gap-3 rounded-md py-2 pl-3 pr-2 text-sm text-zinc-500">
+      <Icon aria-hidden="true" className="size-4 shrink-0" />
+      <span className="min-w-0 flex-1 truncate">{label}</span>
+      <span className="shrink-0 text-[10px] font-semibold uppercase">Скоро</span>
+    </span>
+  );
+}
+
 function ExpandableNavigationGroup({
   icon: Icon,
   hasWorkspaceAccess,
@@ -130,6 +140,7 @@ function ExpandableNavigationGroup({
   label,
   onNavigate,
   pathname,
+  trailingContent,
 }: {
   icon: typeof Gauge;
   hasWorkspaceAccess: boolean;
@@ -138,6 +149,7 @@ function ExpandableNavigationGroup({
   label: string;
   onNavigate?: () => void;
   pathname: string;
+  trailingContent?: ReactNode;
 }) {
   const routeActive = items.some((item) => isRouteActive(pathname, item.href));
   const [open, setOpen] = useState(false);
@@ -181,6 +193,7 @@ function ExpandableNavigationGroup({
                 submenu
               />
             ))}
+            {trailingContent}
           </div>
         </div>
       </div>
@@ -214,7 +227,7 @@ export function PartnerSidebar({
   const estimatesNavigation = estimatesNavigationOrder.flatMap((key) => {
     const item = navigationByKey.get(key);
     if (!item) return [];
-    return [{ ...item, label: "Сметы и коммерческие предложения" }];
+    return [{ ...item, label: "Сметы" }];
   });
   const selectionNavigation = selectionNavigationOrder.flatMap((key) => {
     const item = navigationByKey.get(key);
@@ -242,14 +255,23 @@ export function PartnerSidebar({
             <NavigationItem hasWorkspaceAccess={hasWorkspaceAccess} item={item} key={item.key} onNavigate={onNavigate} pathname={pathname} />
           ))}
 
-          <ExpandableNavigationGroup hasWorkspaceAccess={hasWorkspaceAccess} icon={SearchCheck} id="product-selection-navigation" items={selectionNavigation} label="Подбор товаров" onNavigate={onNavigate} pathname={pathname} />
-          <ExpandableNavigationGroup hasWorkspaceAccess={hasWorkspaceAccess} icon={ShieldCheck} id="project-protection-navigation" items={projectNavigation} label="Проектная защита" onNavigate={onNavigate} pathname={pathname} />
-
           {businessNavigation.map((item) => (
             <NavigationItem hasWorkspaceAccess={hasWorkspaceAccess} item={item} key={item.key} onNavigate={onNavigate} pathname={pathname} />
           ))}
 
-          <ExpandableNavigationGroup hasWorkspaceAccess={hasWorkspaceAccess} icon={Calculator} id="estimates-navigation" items={estimatesNavigation} label="Сметы и КП" onNavigate={onNavigate} pathname={pathname} />
+          <ExpandableNavigationGroup hasWorkspaceAccess={hasWorkspaceAccess} icon={SearchCheck} id="product-selection-navigation" items={selectionNavigation} label="Подбор товаров" onNavigate={onNavigate} pathname={pathname} />
+          <ExpandableNavigationGroup hasWorkspaceAccess={hasWorkspaceAccess} icon={ShieldCheck} id="project-protection-navigation" items={projectNavigation} label="Проектная защита" onNavigate={onNavigate} pathname={pathname} />
+
+          <ExpandableNavigationGroup
+            hasWorkspaceAccess={hasWorkspaceAccess}
+            icon={Calculator}
+            id="estimates-navigation"
+            items={estimatesNavigation}
+            label="Сметы и КП"
+            onNavigate={onNavigate}
+            pathname={pathname}
+            trailingContent={estimatesNavigation.length > 0 ? <ComingSoonNavigationItem icon={FileText} label="Генератор КП" /> : null}
+          />
           <ExpandableNavigationGroup hasWorkspaceAccess={hasWorkspaceAccess} icon={ListChecks} id="orders-finance-navigation" items={commercialNavigation} label="Заказы и финансы" onNavigate={onNavigate} pathname={pathname} />
 
           {trailingNavigation.map((item) => (

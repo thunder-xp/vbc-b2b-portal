@@ -80,6 +80,21 @@ describe("Partner workspace shell", () => {
     expect(screen.getByRole("link", { name: "Рабочий стол" })).toHaveAttribute("href", "/cabinet");
     expect(screen.getByRole("link", { name: "Каталог" })).toHaveAttribute("href", "/cabinet/catalog");
 
+    const topLevelLabels = Array.from(document.querySelectorAll("nav > div > a, nav > div > span, nav > div > div > button"))
+      .map((item) => item.querySelector(":scope > span.flex-1")?.textContent?.trim() ?? item.textContent?.trim());
+    expect(topLevelLabels).toEqual([
+      "Рабочий стол",
+      "Каталог",
+      "Возможности для закупки",
+      "Специальные предложения",
+      "Подбор товаров",
+      "Проектная защита",
+      "Сметы и КП",
+      "Заказы и финансы",
+      "Сервис и гарантия",
+      "База знаний",
+    ]);
+
     const selectionButton = screen.getByRole("button", { name: "Подбор товаров" });
     await user.click(selectionButton);
     const selectionGroup = within(document.getElementById("product-selection-navigation")!);
@@ -102,9 +117,15 @@ describe("Partner workspace shell", () => {
     expect(estimatesButton).toHaveAttribute("aria-expanded", "false");
     await user.click(estimatesButton);
     const estimatesGroup = within(document.getElementById("estimates-navigation")!);
-    expect(estimatesGroup.getByRole("link", { name: "Сметы и коммерческие предложения" })).toHaveAttribute("href", "/cabinet/estimates");
+    expect(estimatesGroup.getByRole("link", { name: "Сметы" })).toHaveAttribute("href", "/cabinet/estimates");
+    expect(estimatesGroup.getByText("Генератор КП")).toBeInTheDocument();
+    expect(estimatesGroup.getByText("Скоро")).toBeInTheDocument();
+    expect(estimatesGroup.queryByRole("link", { name: "Генератор КП" })).not.toBeInTheDocument();
+    expect(estimatesGroup.queryByText("Сметы и коммерческие предложения")).not.toBeInTheDocument();
     expect(estimatesGroup.queryByRole("link", { name: "Подбор решения" })).not.toBeInTheDocument();
     expect(estimatesGroup.queryByRole("link", { name: "Избранное" })).not.toBeInTheDocument();
+    expect(estimatesGroup.queryByRole("link", { name: "Возможности для закупки" })).not.toBeInTheDocument();
+    expect(estimatesGroup.queryByRole("link", { name: "Специальные предложения" })).not.toBeInTheDocument();
 
     const commercialButton = screen.getByRole("button", { name: "Заказы и финансы" });
     expect(commercialButton).toHaveAttribute("aria-expanded", "false");
@@ -195,7 +216,7 @@ describe("Partner workspace shell", () => {
     render(<PartnerSidebar hasWorkspaceAccess navigation={navigation} />);
 
     expect(screen.getByRole("button", { name: "Сметы и КП" })).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByRole("link", { name: "Сметы и коммерческие предложения" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "Сметы" })).toHaveAttribute("aria-current", "page");
   });
 
   it("opens each restored parent for its active child route", () => {
