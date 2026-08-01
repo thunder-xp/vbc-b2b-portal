@@ -16,6 +16,8 @@ import { SupabaseNotificationRepository } from "../../notifications";
 import { SupabaseCommercialOpportunityRepository } from "../../commercial-opportunities";
 import { SupabaseCommercialCampaignRepository } from "../../commercial-campaigns/repositories/supabase-commercial-campaign.repository";
 import { SupabaseDocumentRepository } from "../../documents/repositories";
+import { DefaultCatalogService } from "../../catalog/services";
+import { SupabaseCatalogRepository } from "../../catalog/repositories/supabase";
 
 const priceTypeRepository = new SupabasePricingInventoryRepository();
 const workspaceContextService = new DefaultPartnerWorkspaceContextService(
@@ -31,6 +33,10 @@ export function createPartnerWorkspaceContextService(): DefaultPartnerWorkspaceC
 }
 
 export function createWorkspaceHomeService(): DefaultWorkspaceHomeService {
+  const catalogService = new DefaultCatalogService(
+    new SupabaseCatalogRepository(),
+    createCompanyAccessService(),
+  );
   return new DefaultWorkspaceHomeService(
     createPartnerWorkspaceContextService(),
     new SupabaseCommercialFreshnessReadModel(),
@@ -40,5 +46,6 @@ export function createWorkspaceHomeService(): DefaultWorkspaceHomeService {
     new SupabaseCommercialOpportunityRepository(),
     new SupabaseCommercialCampaignRepository(),
     new SupabaseDocumentRepository(),
+    catalogService,
   );
 }

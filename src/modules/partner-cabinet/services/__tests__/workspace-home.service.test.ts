@@ -6,6 +6,7 @@ import type { CommercialFreshnessReadModel } from "../../repositories/commercial
 import type {
   WorkspaceDashboardProjection,
   WorkspaceDashboardRepository,
+  WorkspaceDashboardSelections,
 } from "../../repositories/workspace-dashboard.repository";
 import type { PartnerWorkspaceContextService } from "../workspace-context.service";
 import { resolveWorkspaceCapabilities } from "../workspace-capability.service";
@@ -131,7 +132,71 @@ describe("DefaultWorkspaceHomeService", () => {
       "warning-1",
     ]);
   });
+
+  it("uses the login-scoped snapshot, five unique products, and one batched image projection", async () => {
+    const candidates = Array.from({ length: 6 }, (_, index) => dashboardProduct(index + 1));
+    const dashboardRepository = fakeDashboardRepository();
+    dashboardRepository.getProductSelections = vi.fn().mockResolvedValue({
+      snapshotHit: true,
+      previousProducts: candidates,
+      merchandisingProducts: candidates,
+      previousSourceFingerprint: "orders-v1",
+      offerSourceFingerprint: "offers-v1",
+      previousCandidateCount: 6,
+      offerCandidateCount: 5,
+      rotationBucket: 10,
+    } satisfies WorkspaceDashboardSelections);
+    const productReferences = {
+      getProductReferencesByIds: vi.fn().mockImplementation(async (_userId: string, productIds: string[]) =>
+        productIds.map((productId) => ({
+          productId,
+          slug: productId,
+          sku: productId,
+          name: productId,
+          thumbnail: `/products/${productId}.jpg`,
+          thumbnailFit: "contain" as const,
+          publicationState: "published" as const,
+        }))),
+    };
+
+    const workspace = await new DefaultWorkspaceHomeService(
+      fakeContextService(),
+      fakeFreshness(),
+      dashboardRepository,
+      fakePricingInventoryService(),
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      productReferences,
+    ).getWorkspaceHome("partner-1", "2026-08-01T10:00:00Z");
+
+    expect(dashboardRepository.getProductSelections).toHaveBeenCalledWith(
+      "partner-1",
+      "company-1",
+      "2026-08-01T10:00:00Z",
+    );
+    expect(workspace.reorderProducts).toHaveLength(5);
+    expect(workspace.merchandisingProducts).toHaveLength(5);
+    expect(new Set(workspace.reorderProducts.map((item) => item.product.id)).size).toBe(5);
+    expect(productReferences.getProductReferencesByIds).toHaveBeenCalledOnce();
+    expect(workspace.reorderProducts[0]?.product.imageUrl).toBe("/products/product-1.jpg");
+  });
 });
+
+function dashboardProduct(index: number) {
+  return {
+    id: `product-${index}`,
+    sku: `40000${index}`,
+    name: `Product ${index}`,
+    slug: `product-${index}`,
+    imageUrl: null,
+    categoryId: null,
+    categoryName: null,
+    labelCodes: index % 3 === 0 ? ["HOT" as const] : ["TOP" as const],
+    purchaseCount: index,
+  };
+}
 
 function fakeNotificationRepository(): NotificationRepository {
   return {

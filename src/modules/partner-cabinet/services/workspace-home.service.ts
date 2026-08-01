@@ -1,4 +1,6 @@
 import type { CatalogProductCardDto } from "../../catalog/services";
+import type { ProductReferenceService } from "../../catalog/services";
+import type { ProductReferenceDto } from "../../catalog/types";
 import { InvalidStateError } from "../../access-control/services";
 import { evaluateFreshness, type FreshnessView } from "../../integration/freshness";
 import type {
@@ -140,7 +142,7 @@ export type WorkspaceHomeDto = {
 };
 
 export interface WorkspaceHomeService {
-  getWorkspaceHome(userId: string): Promise<WorkspaceHomeDto>;
+  getWorkspaceHome(userId: string, loginGeneration?: string): Promise<WorkspaceHomeDto>;
 }
 
 export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
@@ -153,9 +155,10 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
     private readonly opportunityRepository?: CommercialOpportunityRepository,
     private readonly campaignRepository?: CommercialCampaignRepository,
     private readonly documentRepository?: DocumentRepository,
+    private readonly productReferenceService?: ProductReferenceService,
   ) {}
 
-  async getWorkspaceHome(userId: string): Promise<WorkspaceHomeDto> {
+  async getWorkspaceHome(userId: string, loginGeneration = "legacy-session"): Promise<WorkspaceHomeDto> {
     const context = await this.workspaceContextService.getWorkspaceContext(userId);
     if (
       (context.accessState !== "active"
@@ -165,9 +168,10 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
       throw new InvalidStateError("Partner workspace access is not active.");
     }
 
-    const [freshness, dashboard, notificationPage, opportunityPage, campaignPage, documentPage] = await Promise.all([
+    const [freshness, dashboard, selections, notificationPage, opportunityPage, campaignPage, documentPage] = await Promise.all([
       this.commercialFreshnessReadModel.getFreshness(),
       this.dashboardRepository.getDashboard(context.companyId),
+      this.dashboardRepository.getProductSelections?.(userId, context.companyId, loginGeneration) ?? Promise.resolve(null),
       this.notificationRepository?.list(context.companyId, {
         unreadOnly: true,
         pageSize: 20,
@@ -179,19 +183,24 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
       this.documentRepository?.listPartner(context.companyId, { section: "all", state: "current", page: 1, pageSize: 4 })
         ?? Promise.resolve({ items: [], totalCount: 0 }),
     ]);
+    const reorderCandidates = selections?.previousProducts ?? dashboard.reorderProducts;
+    const merchandisingCandidates = selections?.merchandisingProducts ?? dashboard.merchandisingProducts;
     const candidates = uniqueCandidates([
-      ...dashboard.reorderProducts,
-      ...dashboard.merchandisingProducts,
+      ...reorderCandidates,
+      ...merchandisingCandidates,
     ]);
-    const commercialViews = candidates.length
-      ? await this.pricingInventoryService.getProductCommercialViews(
-          userId,
-          candidates.map((candidate) => candidate.id),
-        )
-      : [];
+    const [commercialViews, references] = await Promise.all([
+      candidates.length
+        ? this.pricingInventoryService.getProductCommercialViews(userId, candidates.map((candidate) => candidate.id))
+        : Promise.resolve([]),
+      candidates.length && this.productReferenceService
+        ? this.productReferenceService.getProductReferencesByIds(userId, candidates.map((candidate) => candidate.id))
+        : Promise.resolve([]),
+    ]);
     const commercialByProduct = new Map(
       commercialViews.map((view) => [view.productId, view]),
     );
+    const referenceByProduct = new Map(references.map((reference) => [reference.productId, reference]));
     const freshnessByDomain = new Map(
       freshness.map((item) => [item.domain, item.updatedAt]),
     );
@@ -269,20 +278,20 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
         context.capabilities.canManageCompanyUsers ?? false,
       ),
       continuationItems: dashboard.continuationItems.map(toContinuation),
-      reorderProducts: dashboard.reorderProducts.flatMap((candidate) => {
+      reorderProducts: reorderCandidates.flatMap((candidate) => {
         const commercialView = commercialByProduct.get(candidate.id);
         return isCurrentlySellable(commercialView)
           ? [{
-              product: toProduct(candidate),
+              product: toProduct(candidate, referenceByProduct.get(candidate.id)),
               commercialView,
               purchaseCount: candidate.purchaseCount,
               lastPurchasedAt: candidate.lastPurchasedAt,
               typicalQuantity: candidate.typicalQuantity,
             }]
           : [];
-      }),
-      merchandisingProducts: dashboard.merchandisingProducts.map((candidate) => ({
-        product: toProduct(candidate),
+      }).slice(0, 5),
+      merchandisingProducts: merchandisingCandidates.slice(0, 5).map((candidate) => ({
+        product: toProduct(candidate, referenceByProduct.get(candidate.id)),
         commercialView: commercialByProduct.get(candidate.id),
       })),
       opportunities: opportunityPage.items,
@@ -506,6 +515,7 @@ function buildQuickActions(
 
 function toProduct(
   candidate: WorkspaceDashboardProductCandidate,
+  reference?: ProductReferenceDto,
 ): CatalogProductCardDto {
   return {
     id: candidate.id,
@@ -513,7 +523,7 @@ function toProduct(
     name: candidate.name,
     slug: candidate.slug,
     shortDescription: null,
-    imageUrl: candidate.imageUrl,
+    imageUrl: reference?.thumbnail ?? candidate.imageUrl,
     brand: null,
     category: candidate.categoryId
       ? {
