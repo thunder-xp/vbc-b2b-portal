@@ -18,11 +18,12 @@ export const DOCUMENT_SECTIONS: ReadonlyArray<{ value: DocumentSection; label: s
   { value: "instructions", label: "Инструкции и Datasheet" }, { value: "marketing", label: "Прайс-листы и материалы" },
 ];
 
-export function documentStateLabel(document: { status: string; isCurrent: boolean; validUntil: string | null }): string {
+export function documentStateLabel(document: { status: string; isCurrent: boolean; validUntil: string | null; fileName?: string | null }): string {
+  if (!document.isCurrent && document.status === "temporarily_unavailable") return "Аннулирован";
+  if (!document.isCurrent) return "Заменён новой версией";
   if (document.status === "generating") return "Документ формируется";
-  if (document.status === "temporarily_unavailable") return "Файл временно недоступен";
-  if (!document.isCurrent) return "Доступна более новая версия";
+  if (document.status === "temporarily_unavailable") return "Файл пока недоступен";
+  if (document.status === "available" && document.fileName === null) return "Проведён";
   if (document.validUntil && Date.parse(document.validUntil) < Date.now()) return "Срок действия истёк";
   return "Актуальная версия";
 }
-

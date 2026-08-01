@@ -1,6 +1,6 @@
 import type { DocumentFetchRequestDTO, DocumentProvider } from "../../contracts";
 import type { DocumentDTO, ExternalReferenceDTO, IntegrationPageResultDTO } from "../../dto";
-import { IntegrationValidationError } from "../../errors";
+import { IntegrationUnsupportedOperationError, IntegrationValidationError } from "../../errors";
 import { OneCODataClient } from "./one-c-odata-client";
 import { parseOptionalOneCGuid, parseRequiredOneCGuid } from "./one-c-guid";
 import type { OneCProviderConfig } from "./one-c-provider.config";
@@ -57,6 +57,10 @@ export class OneCDocumentODataProvider implements DocumentProvider {
       rejected: rows.length - items.length,
       nextSkip: rows.length < limit ? null : skip + rows.length,
     };
+  }
+
+  async fetchDocumentFile(): Promise<never> {
+    throw new IntegrationUnsupportedOperationError("1C document binary and print-form retrieval is not verified.");
   }
 }
 

@@ -59,6 +59,10 @@ describe("OneCDocumentODataProvider", () => {
     const documents = new OneCProvider(config()).documents;
     expect(documents).toBeInstanceOf(OneCDocumentODataProvider);
   });
+
+  it("rejects unverified binary and print-form retrieval", async () => {
+    await expect(provider().fetchDocumentFile()).rejects.toThrow("not verified");
+  });
 });
 
 function provider() { return new OneCDocumentODataProvider(config()); }

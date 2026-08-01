@@ -21,7 +21,7 @@ export function DocumentCard({ document, compact = false }: { document: PartnerD
     </div>
     <div className="flex flex-wrap gap-2 sm:justify-end">
       <Link className="inline-flex min-h-11 items-center gap-2 rounded-md border border-zinc-300 px-3 text-sm font-semibold text-zinc-800 hover:bg-zinc-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600" href={`/cabinet/documents/${document.id}`}><ExternalLink aria-hidden className="size-4" />Подробнее</Link>
-      {document.status === "available" ? <a aria-label={`Скачать: ${document.title}`} className="inline-flex min-h-11 items-center gap-2 rounded-md bg-emerald-700 px-3 text-sm font-semibold text-white hover:bg-emerald-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600" href={`/api/documents/${document.id}/download`}><Download aria-hidden className="size-4" />Скачать</a> : null}
+      {document.status === "available" && document.fileName ? <a aria-label={`Скачать: ${document.title}`} className="inline-flex min-h-11 items-center gap-2 rounded-md bg-emerald-700 px-3 text-sm font-semibold text-white hover:bg-emerald-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600" href={`/api/documents/${document.id}/download`}><Download aria-hidden className="size-4" />Скачать</a> : null}
     </div>
   </article>;
 }
@@ -30,4 +30,3 @@ export function formatDate(value: string) { return new Date(`${value}T00:00:00`)
 export function languageLabel(value: PartnerDocumentListItem["languageCode"]) { return ({ ru: "Русский", ro: "Română", en: "English", multi: "Несколько языков" } as const)[value]; }
 function fileDescription(document: PartnerDocumentListItem) { const format=document.mimeType === "application/pdf" ? "PDF" : document.fileName?.split(".").pop()?.toUpperCase() ?? "Файл"; return document.fileSize === null ? format : `${format}, ${formatBytes(document.fileSize)}`; }
 function formatBytes(value:number){if(value<1024)return `${value} Б`;if(value<1024*1024)return `${Math.ceil(value/1024)} КБ`;return `${(value/1024/1024).toFixed(1)} МБ`;}
-
