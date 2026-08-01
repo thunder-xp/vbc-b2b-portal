@@ -42,6 +42,10 @@ import {
   OnboardingApplicationService,
   OneCCounterpartyDirectorySource,
 } from "../services";
+import {
+  diagnoseOnboardingMutationError,
+  type OnboardingMutationContext,
+} from "./onboarding-mutation-error";
 
 const uuidSchema = z.string().uuid();
 const transitionSchema = z.enum(ONBOARDING_STATUSES);
@@ -485,6 +489,7 @@ export async function saveOnboardingCommercialStepAction(
   _previousState: OnboardingWizardActionState,
   formData: FormData,
 ): Promise<OnboardingWizardActionState> {
+  const context = commercialMutationContext(formData);
   return mutateWizard(async () => {
     await requireAdminPermission("onboarding.initial_access.assign");
     const input = parseDraftBase(formData);
@@ -500,7 +505,7 @@ export async function saveOnboardingCommercialStepAction(
     });
     revalidateOnboarding(input.requestId);
     return "Коммерческие условия сохранены.";
-  });
+  }, context);
 }
 
 export async function saveOnboardingProfileStepAction(
@@ -640,24 +645,33 @@ async function mutateWorkflow(
 
 async function mutateWizard(
   mutation: () => Promise<string>,
+  context?: OnboardingMutationContext,
 ): Promise<OnboardingWizardActionState> {
+  const startedAt = performance.now();
   try {
     const message = await mutation();
     return success(message, null);
   } catch (error) {
-    const correlationId = error instanceof WizardMutationError
+    const correlationId = context?.correlationId ?? (error instanceof WizardMutationError
       ? error.correlationId
-      : crypto.randomUUID();
-    const reason = extractSafeReason(error);
+      : crypto.randomUUID());
+    const diagnostic = context
+      ? diagnoseOnboardingMutationError(
+          error,
+          { ...context, correlationId },
+          performance.now() - startedAt,
+        )
+      : null;
+    const reason = diagnostic?.reason ?? extractSafeReason(error);
+    const failureDetails = diagnostic ?? { reason, correlationId };
     console.error({
       event: "onboarding_approval_wizard_mutation_failed",
-      reason,
-      correlationId,
+      ...failureDetails,
     });
     return {
       success: false,
       errorCode: reason,
-      message: `${approvalFailureMessage(reason)} Код события: ${correlationId}.`,
+      message: `${approvalFailureMessage(reason, context?.currentWizardStep)} Код события: ${correlationId}.`,
       data: null,
     };
   }
@@ -711,7 +725,10 @@ class WizardMutationError extends Error {
   }
 }
 
-function approvalFailureMessage(code?: string, correlationId?: string): string {
+function approvalFailureMessage(code?: string, currentWizardStep?: number | null): string {
+  if (currentWizardStep === 2) {
+    return "Не удалось сохранить коммерческие условия. Черновик сохранён.";
+  }
   const message = {
     confirmation_required: "Подтвердите, что компания и условия доступа проверены.",
     stale_request_revision: "Заявка изменилась. Обновите черновик перед продолжением.",
@@ -725,5 +742,38 @@ function approvalFailureMessage(code?: string, correlationId?: string): string {
     permission_denied: "Недостаточно прав для выполнения операции.",
     unknown_retryable: "Не удалось завершить подключение. Черновик сохранён; повторите попытку.",
   }[code ?? "unknown_retryable"] ?? "Не удалось завершить подключение. Черновик сохранён.";
-  return correlationId ? `${message} Код события: ${correlationId}.` : message;
+  return message;
+}
+
+function commercialMutationContext(formData: FormData): OnboardingMutationContext {
+  const accessRequestId = safeFormValue(formData, "requestId");
+  const draftVersion = safePositiveInteger(formData.get("draftVersion"));
+  const selectedPartnerStatus = safeFormValue(formData, "priceProfileId");
+  return {
+    correlationId: crypto.randomUUID(),
+    accessRequestId,
+    approvalDraftId: accessRequestId,
+    currentWizardStep: 2,
+    attemptedNextStep: 3,
+    mutationActionName: "saveOnboardingCommercialStepAction",
+    rpcFunctionName: "save_onboarding_approval_draft",
+    draftVersion,
+    expectedVersion: draftVersion,
+    selectedManagerId: safeFormValue(formData, "assignedManagerId"),
+    selectedPartnerStatus,
+    selectedPriceTypeReference: selectedPartnerStatus,
+    paymentModel: safeFormValue(formData, "paymentModel"),
+    ordersEnabled: formData.get("orderAccess") === "on",
+    financeEnabled: formData.get("financeAccess") === "on",
+  };
+}
+
+function safeFormValue(formData: FormData, key: string): string | null {
+  const value = String(formData.get(key) ?? "").trim();
+  return value ? value.slice(0, 160) : null;
+}
+
+function safePositiveInteger(value: FormDataEntryValue | null): number | null {
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
 }

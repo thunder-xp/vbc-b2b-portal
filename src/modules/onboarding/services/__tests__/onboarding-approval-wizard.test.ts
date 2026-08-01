@@ -27,6 +27,10 @@ const wizard = readFileSync(
   resolve("src/modules/onboarding/components/OnboardingApprovalWizard.tsx"),
   "utf8",
 );
+const commercialRepair = readFileSync(
+  resolve("supabase/migrations/20260801220000_onboarding_commercial_step_diagnostics_repair.sql"),
+  "utf8",
+);
 
 describe("onboarding approval business profiles", () => {
   it("maps owner, manager, buyer, accounting, and retail-only to canonical roles", () => {
@@ -60,6 +64,15 @@ describe("onboarding approval business profiles", () => {
 });
 
 describe("onboarding approval draft and atomic v3 migration", () => {
+  it("repairs the Step 2 ambiguous alias without changing the RPC signature", () => {
+    expect(commercialRepair).toContain("create or replace function public.save_onboarding_approval_draft(");
+    expect(commercialRepair).toContain("public.one_c_counterparties profile_counterparty");
+    expect(commercialRepair).toContain("profile_counterparty.external_1c_id");
+    expect(commercialRepair).not.toContain("one_c_counterparties counterparty\n");
+    expect(commercialRepair).toContain("onboarding_manager_invalid");
+    expect(commercialRepair).toContain("onboarding_partner_status_invalid");
+    expect(commercialRepair).toContain("onboarding_commercial_validation_failed");
+  });
   it("preserves v2 and adds a separately versioned approval RPC", () => {
     expect(migration).toContain("approve_partner_access_request_v3");
     expect(migration).not.toContain("drop function public.approve_partner_access_request_v2");
@@ -161,5 +174,11 @@ describe("onboarding approval draft and atomic v3 migration", () => {
     expect(wizard).toContain("external1cId");
     expect(wizard).toContain("Код 1С");
     expect(wizard).not.toContain("permission.code");
+  });
+
+  it("emits one primary wizard failure event and blocks duplicate pending submits", () => {
+    expect(actions.match(/event: "onboarding_approval_wizard_mutation_failed"/g)).toHaveLength(1);
+    expect(wizard).toContain("const { pending } = useFormStatus()");
+    expect(wizard).toContain("disabled={disabled || pending}");
   });
 });
