@@ -11,7 +11,6 @@ import {
 } from "lucide-react";
 
 import { ProductCard } from "../../catalog/components";
-import { CATALOG_PRODUCT_GRID_CLASS } from "../../catalog/components/ProductGrid";
 import { DashboardPurchaseTemplateButton } from "../../purchase-templates/components/DashboardPurchaseTemplateButton";
 import type { WorkspaceHomeDto } from "../services";
 import { DashboardTrackedLink } from "./DashboardTrackedLink";
@@ -322,13 +321,13 @@ function ProductSection({
         id={`dashboard-${analyticsSurface}`}
         title={title}
       />
-      <div className={`mt-3 ${CATALOG_PRODUCT_GRID_CLASS}`}>
-        {products.slice(0, 4).map((item) => (
+      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+        {products.slice(0, 5).map((item) => (
           <ProductCard
               analyticsEventName={
                 analyticsSurface === "dashboard_offers"
-                  ? "dashboard_offer_opened"
-                  : undefined
+                  ? "dashboard_novotech_offer_opened"
+                  : "dashboard_previous_purchase_opened"
               }
               analyticsSurface={analyticsSurface}
               cartSuccessEventName={
@@ -338,14 +337,21 @@ function ProductSection({
               }
               capabilities={workspace.capabilities.productCard}
               commercialView={item.commercialView}
+              contextLine={analyticsSurface === "dashboard_reorder" ? purchaseContext(item) : undefined}
             product={item.product}
             key={item.product.id}
           />
         ))}
       </div>
-      {analyticsSurface === "dashboard_reorder" ? <DashboardPurchaseTemplateButton items={products.slice(0, 4).map((item) => ({ productId: item.product.id, quantity: Math.max(1, Math.trunc(item.typicalQuantity ?? 1)) }))} /> : null}
+      {analyticsSurface === "dashboard_reorder" ? <DashboardPurchaseTemplateButton items={products.slice(0, 5).map((item) => ({ productId: item.product.id, quantity: Math.max(1, Math.trunc(item.typicalQuantity ?? 1)) }))} /> : null}
     </section>
   );
+}
+
+function purchaseContext(item: WorkspaceHomeDto["reorderProducts"][number]): string {
+  const date = item.lastPurchasedAt ? formatDate(item.lastPurchasedAt) : "дата уточняется";
+  const quantity = Math.max(1, Math.trunc(item.typicalQuantity ?? 1));
+  return `Последняя покупка: ${date} · обычно ${quantity} шт.`;
 }
 
 function FinanceSection({

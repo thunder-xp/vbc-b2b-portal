@@ -14,9 +14,9 @@ import { MerchandisingBadges } from "./MerchandisingBadges";
 import { BehaviorTrackedLink } from "../../behavior-analytics/components";
 import type { BehaviorEventName } from "../../behavior-analytics/types";
 
-type ProductCardProps = { product: CatalogProductCardDto; analyticsEventName?: BehaviorEventName; analyticsSurface?: string; cartSuccessEventName?: BehaviorEventName; commercialView?: ProductCommercialViewDto; capabilities: ProductCardCapabilityModel; companyId?: string | null; favorite?: boolean; imagePriority?: boolean; userId?: string | null };
+type ProductCardProps = { product: CatalogProductCardDto; analyticsEventName?: BehaviorEventName; analyticsSurface?: string; cartSuccessEventName?: BehaviorEventName; commercialView?: ProductCommercialViewDto; capabilities: ProductCardCapabilityModel; companyId?: string | null; contextLine?: string; favorite?: boolean; imagePriority?: boolean; userId?: string | null };
 
-export function ProductCard({ analyticsEventName, analyticsSurface, cartSuccessEventName, capabilities, commercialView, companyId = null, favorite = false, imagePriority = false, product, userId = null }: ProductCardProps) {
+export function ProductCard({ analyticsEventName, analyticsSurface, cartSuccessEventName, capabilities, commercialView, companyId = null, contextLine, favorite = false, imagePriority = false, product, userId = null }: ProductCardProps) {
   const image = <>
     <CatalogCardImage alt={product.name} priority={imagePriority} sizes="(max-width: 639px) calc(100vw - 2rem), (max-width: 1023px) 50vw, (max-width: 1279px) 33vw, (max-width: 1535px) 25vw, 20vw" src={product.imageUrl} />
     {product.merchandisingLabels?.length ? <div className="pointer-events-none absolute left-2 top-2 z-10 max-w-[calc(100%-1rem)] drop-shadow-sm">
@@ -29,6 +29,7 @@ export function ProductCard({ analyticsEventName, analyticsSurface, cartSuccessE
     <div className="flex flex-1 flex-col p-3">
       <p className="h-4 truncate text-[11px] font-medium uppercase text-zinc-500" title={`SKU ${product.sku}`}>SKU {product.sku}</p>
       <Link className="mt-1 line-clamp-2 h-10 rounded-sm text-sm font-semibold leading-5 text-zinc-950 outline-none hover:text-emerald-700 focus-visible:ring-2 focus-visible:ring-emerald-500" href={`/cabinet/catalog/${product.slug}`} prefetch={false} title={product.name}>{product.name}</Link>
+      {contextLine ? <p className="mt-2 line-clamp-2 min-h-8 text-xs text-zinc-500">{contextLine}</p> : null}
       <div className="mt-3 grid gap-2 text-sm">
         <div className="h-[5.25rem]">{capabilities.showPrice ? <ProductPricingBlock commercialView={commercialView} showPartnerPrice={capabilities.showPartnerPrice} showRetailPrice={capabilities.showRetailPrice} /> : null}</div>
         <div className="h-[3.25rem]">

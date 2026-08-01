@@ -40,6 +40,8 @@ export const BEHAVIOR_EVENT_NAMES = [
   "dashboard_reorder_product_added",
   "dashboard_finance_opened",
   "dashboard_offer_opened",
+  "dashboard_previous_purchase_opened",
+  "dashboard_novotech_offer_opened",
   "dashboard_company_opened",
   "product_overview_viewed",
   "product_description_viewed",
