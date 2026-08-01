@@ -15,6 +15,8 @@ import type {
   CatalogProductDocument,
   CatalogProductImage,
 } from "../types";
+import type { ProductReferenceDto } from "../types";
+import { resolveProductImageFit } from "../components/product-image-source";
 import {
   parseCatalogSort,
   requiresCommercialCatalogSort,
@@ -130,6 +132,10 @@ export type CatalogSearchSuggestionDto = {
   category: { id: string; name: string } | null;
 };
 
+export interface ProductReferenceService {
+  getProductReferencesByIds(userId: string, productIds: string[]): Promise<ProductReferenceDto[]>;
+}
+
 export interface CatalogService {
   searchSuggestions?(userId: string, input: {
     query: string;
@@ -153,6 +159,10 @@ export interface CatalogService {
     userId: string,
     productIds: string[],
   ): Promise<CatalogProductCardDto[]>;
+  getProductReferencesByIds?(
+    userId: string,
+    productIds: string[],
+  ): Promise<ProductReferenceDto[]>;
   getComparisonProductsByIds?(
     userId: string,
     productIds: string[],
@@ -186,7 +196,7 @@ async function measurePerformanceStage<T>(
   }
 }
 
-export class DefaultCatalogService implements CatalogService {
+export class DefaultCatalogService implements CatalogService, ProductReferenceService {
   constructor(
     private readonly catalogRepository: CatalogRepository,
     private readonly companyAccessService: CompanyAccessService,
@@ -650,6 +660,47 @@ export class DefaultCatalogService implements CatalogService {
       const product = productMap.get(id);
       return product ? [this.toProductCardDto(product, brandMap, categoryMap)] : [];
     });
+  }
+
+  async getProductReferencesByIds(
+    userId: string,
+    productIds: string[],
+  ): Promise<ProductReferenceDto[]> {
+    await this.ensureCatalogAccess(userId);
+    const normalizedIds = [...new Set(productIds.map((id) => id.trim()).filter(Boolean))].slice(0, 200);
+    if (!normalizedIds.length) return [];
+
+    const [products, images] = await Promise.all([
+      this.catalogRepository.listProducts({ productIds: normalizedIds }),
+      this.catalogRepository.listProductImagesForProducts?.(normalizedIds) ?? Promise.resolve([]),
+    ]);
+    const imagesByProduct = Map.groupBy(images, (image) => image.productId);
+    const productsById = new Map(products.map((product) => [product.id, product]));
+
+    const references = normalizedIds.flatMap((productId) => {
+      const product = productsById.get(productId);
+      if (!product?.isActive || !product.isVisible) return [];
+      const fallback = imagesByProduct.get(productId)?.[0]?.url ?? null;
+      const thumbnail = product.imageSourceUrl ?? product.imageUrl ?? fallback;
+      return [{
+        productId: product.id,
+        slug: product.slug,
+        sku: product.sku,
+        name: product.name,
+        thumbnail,
+        thumbnailFit: resolveProductImageFit(thumbnail),
+        publicationState: "published" as const,
+      }];
+    });
+
+    console.info({
+      event: "product_reference_batch_resolved",
+      requested: normalizedIds.length,
+      resolved: references.length,
+      mappedImages: references.filter((item) => item.thumbnail).length,
+      fallbackImages: references.filter((item) => !item.thumbnail).length,
+    });
+    return references;
   }
 
   async getComparisonProductsByIds(

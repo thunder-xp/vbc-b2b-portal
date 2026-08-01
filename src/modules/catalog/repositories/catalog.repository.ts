@@ -156,6 +156,7 @@ export interface CatalogRepository {
     input: UpsertCatalogProductInput,
   ): Promise<CatalogUpsertResult<CatalogProduct>>;
   listProductImages(productId: string): Promise<CatalogProductImage[]>;
+  listProductImagesForProducts?(productIds: string[]): Promise<CatalogProductImage[]>;
   listProductDocuments(productId: string): Promise<CatalogProductDocument[]>;
   listProductDocumentsForProducts(productIds: string[]): Promise<CatalogProductDocument[]>;
   listProductAttributes?(productId: string): Promise<CatalogProductAttribute[]>;

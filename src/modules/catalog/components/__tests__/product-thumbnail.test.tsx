@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { createElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -45,5 +45,11 @@ describe("ProductThumbnail", () => {
   it("rejects arbitrary Firebase buckets and query parameters", () => {
     expect(normalizeProductImageUrl("https://firebasestorage.googleapis.com/v0/b/other.appspot.com/o/camera.png?alt=media")).toBeNull();
     expect(normalizeProductImageUrl(`${THUMBNAIL}&redirect=https://attacker.example`)).toBeNull();
+  });
+
+  it("replaces a broken approved source with the local placeholder", () => {
+    render(<div className="relative size-20"><ProductThumbnail alt="Camera 400123" sizes="80px" src={THUMBNAIL} /></div>);
+    fireEvent.error(screen.getByRole("img", { name: "Camera 400123" }));
+    expect(screen.getByRole("img", { name: "Camera 400123" })).toHaveAttribute("src", "/product-placeholder.svg");
   });
 });

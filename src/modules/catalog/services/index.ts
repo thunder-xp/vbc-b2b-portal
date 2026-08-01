@@ -14,7 +14,9 @@ export type {
   CatalogFacetDto,
   CatalogFacetListInput,
   CatalogService,
+  ProductReferenceService,
 } from "./catalog.service";
+export type { ProductReferenceDto } from "../types";
 export { DefaultCatalogService } from "./catalog.service";
 export {
   buildCatalogComparisonMatrix,

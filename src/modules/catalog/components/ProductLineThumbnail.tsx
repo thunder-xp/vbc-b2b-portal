@@ -15,10 +15,11 @@ export function ProductLineThumbnail({ imageUrl, productName, size = "standard" 
       data-testid="product-line-thumbnail"
     >
       <ProductThumbnail
-        alt={imageUrl ? productName : ""}
+        alt={productName}
         className="object-contain p-1.5"
         sizes={size === "compact" ? "48px" : "(max-width: 639px) 56px, 64px"}
         src={imageUrl}
+        variant={size === "compact" ? "xs" : "sm"}
       />
     </span>
   );

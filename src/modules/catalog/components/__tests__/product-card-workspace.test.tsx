@@ -73,7 +73,7 @@ describe("ProductCard workspace context", () => {
     expect(screen.getByRole("img", { name: "IP Camera" })).toHaveClass("object-cover", "object-center");
 
     rerender(<ProductCard capabilities={capabilities} product={{ ...product, id: "product-2", imageUrl: null }} />);
-    expect(screen.getByRole("img", { name: "IP Camera" })).toHaveAttribute("src", "/product-placeholder.svg");
+    expect(screen.getByRole("img", { name: "IP Camera" })).toHaveAttribute("src", expect.stringContaining("/product-placeholder.svg"));
     expect(screen.getByRole("img", { name: "IP Camera" })).toHaveClass("object-contain", "p-8");
   });
 

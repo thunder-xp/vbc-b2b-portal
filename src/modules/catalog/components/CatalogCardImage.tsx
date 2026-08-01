@@ -22,6 +22,7 @@ export function CatalogCardImage({
       priority={priority}
       sizes={sizes}
       src={src}
+      variant="lg"
     />
   );
 }

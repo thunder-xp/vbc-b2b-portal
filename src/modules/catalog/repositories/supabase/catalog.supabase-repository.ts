@@ -511,6 +511,20 @@ export class SupabaseCatalogRepository implements CatalogRepository {
     return (data as CatalogProductImageRow[]).map(mapCatalogProductImageRow);
   }
 
+  async listProductImagesForProducts(productIds: string[]): Promise<CatalogProductImage[]> {
+    const normalizedIds = [...new Set(productIds)].slice(0, 200);
+    if (!normalizedIds.length) return [];
+    const { data, error } = await (await createClient())
+      .from("catalog_product_images")
+      .select(CATALOG_PRODUCT_IMAGE_COLUMNS)
+      .in("product_id", normalizedIds)
+      .order("is_primary", { ascending: false })
+      .order("sort_order", { ascending: true })
+      .order("id", { ascending: true });
+    if (error) throw new CatalogRepositoryUnexpectedError();
+    return (data as CatalogProductImageRow[]).map(mapCatalogProductImageRow);
+  }
+
   async listProductDocuments(
     productId: string,
   ): Promise<CatalogProductDocument[]> {

@@ -7,3 +7,7 @@ export type {
 export type { CatalogProductImage } from "./product-image";
 export type { CatalogProduct } from "./product";
 export type { CatalogProductAttribute } from "./product-attribute";
+export type {
+  ProductPublicationState,
+  ProductReferenceDto,
+} from "./product-reference";

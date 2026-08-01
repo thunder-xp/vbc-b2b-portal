@@ -14,6 +14,6 @@ describe("ProductLineThumbnail", () => {
 
   it("uses the shared neutral fallback without duplicating adjacent product text", () => {
     render(<ProductLineThumbnail imageUrl={null} productName="Camera" />);
-    expect(screen.getByRole("presentation")).toHaveAttribute("data-src", "/product-placeholder.svg");
+    expect(screen.getByRole("img", { name: "Camera" })).toHaveAttribute("data-src", "/product-placeholder.svg");
   });
 });
