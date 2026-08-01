@@ -21,6 +21,7 @@ import type { ProductCommercialViewDto } from "@/src/modules/pricing-inventory";
 import { evaluateFreshness } from "@/src/modules/integration/freshness";
 import type { MerchandisingLabelCode } from "@/src/modules/merchandising/types";
 import { BehaviorViewEvent } from "@/src/modules/behavior-analytics/components";
+import { CatalogPagination } from "@/src/modules/catalog/components/CatalogPagination";
 
 type Props = {
   attributeFilters: Record<string, string[]>;
@@ -89,7 +90,7 @@ export async function CatalogResults({
         <CatalogFacetResults attributeFilters={attributeFilters} availability={availability} brandId={brandId} categoryId={categoryId} explicitAll={explicitAll} merchandisingLabel={merchandisingLabel} search={search} sort={sort} />
       </Suspense>
       <section className="space-y-5">
-        {productsResult.data.products.length > 0 ? <><CatalogPresentation capabilities={workspaceContextResult.success ? workspaceContextResult.data.capabilities.productCard : RESTRICTED_PRODUCT_CARD_CAPABILITIES} commercialViews={commercialViews} companyId={workspaceContextResult.success ? workspaceContextResult.data.companyId : null} initialMode={initialViewMode} products={productsResult.data.products} userId={workspaceContextResult.success ? workspaceContextResult.data.userId : null} /><CatalogPagination availability={availability} brandId={brandId} categoryId={categoryId} explicitAll={explicitAll} hasNextPage={productsResult.data.hasNextPage} merchandisingLabel={merchandisingLabel} page={page} search={search} sort={sort} attributeFilters={attributeFilters} /></> : <EmptyCatalog message={search ? "По вашему запросу товары не найдены." : "В выбранной категории пока нет товаров."} title="Товары не найдены" />}
+        {productsResult.data.products.length > 0 ? <><CatalogPresentation capabilities={workspaceContextResult.success ? workspaceContextResult.data.capabilities.productCard : RESTRICTED_PRODUCT_CARD_CAPABILITIES} commercialViews={commercialViews} companyId={workspaceContextResult.success ? workspaceContextResult.data.companyId : null} initialMode={initialViewMode} products={productsResult.data.products} userId={workspaceContextResult.success ? workspaceContextResult.data.userId : null} /><CatalogPagination availability={availability} brandId={brandId} categoryId={categoryId} explicitAll={explicitAll} merchandisingLabel={merchandisingLabel} page={productsResult.data.page} pageSize={productsResult.data.pageSize} search={search} sort={sort} totalCount={productsResult.data.totalCount} attributeFilters={attributeFilters} /></> : <EmptyCatalog message={search ? "По вашему запросу товары не найдены." : "В выбранной категории пока нет товаров."} title="Товары не найдены" />}
       </section>
     </div>
   </div>;
@@ -131,11 +132,6 @@ function CatalogFacetFallback() {
     <div className="h-10 animate-pulse rounded bg-zinc-100" />
     <div className="mt-5 space-y-4">{Array.from({ length: 5 }, (_, index) => <div className="h-9 animate-pulse rounded bg-zinc-100" key={index} />)}</div>
   </aside>;
-}
-
-function CatalogPagination({ availability, brandId, categoryId, explicitAll, hasNextPage, merchandisingLabel, page, search, sort, attributeFilters }: { availability: CatalogAvailability; brandId?: string; categoryId?: string; explicitAll: boolean; hasNextPage: boolean; merchandisingLabel?: MerchandisingLabelCode; page: number; search?: string; sort: CatalogSort; attributeFilters: Record<string, string[]> }) {
-  if (page === 1 && !hasNextPage) return null;
-  return <nav className="flex items-center justify-between border-t border-zinc-200 pt-5">{page > 1 ? <Link className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-800 hover:border-emerald-500" href={buildCatalogHref({ availability, brandId, categoryId, explicitAll, merchandisingLabel, page: page - 1, search, sort, attributeFilters })} prefetch={false}>Назад</Link> : <span />}<span className="text-sm text-zinc-500">Страница {page}</span>{hasNextPage ? <Link className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-800 hover:border-emerald-500" href={buildCatalogHref({ availability, brandId, categoryId, explicitAll, merchandisingLabel, page: page + 1, search, sort, attributeFilters })} prefetch={false}>Далее</Link> : <span />}</nav>;
 }
 
 function withoutAttributeValue(filters: Record<string, string[]>, key: string, value: string): Record<string, string[]> { const next = Object.fromEntries(Object.entries(filters).map(([entryKey, values]) => [entryKey, values.filter((item) => entryKey !== key || item !== value)])); return Object.fromEntries(Object.entries(next).filter(([, values]) => values.length)); }

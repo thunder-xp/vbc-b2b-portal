@@ -26,7 +26,7 @@ type CatalogPageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
 
-const PAGE_SIZE = 12;
+const PAGE_SIZE = 20;
 
 export default async function CatalogPage({ searchParams }: CatalogPageProps) {
   const [params, cookieStore] = await Promise.all([searchParams, cookies()]);

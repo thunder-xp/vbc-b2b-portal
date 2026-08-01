@@ -13,7 +13,7 @@ describe("compact catalog layout", () => {
     expect(grid).toContain("CATALOG_PRODUCT_GRID_CLASS");
     expect(grid).toContain("grid-cols-1");
     expect(grid).toContain("sm:grid-cols-2");
-    expect(grid).toContain("lg:grid-cols-3");
+    expect(grid).toContain("lg:grid-cols-2");
     expect(grid).toContain("xl:grid-cols-4");
     expect(grid).toContain("2xl:grid-cols-5");
   });

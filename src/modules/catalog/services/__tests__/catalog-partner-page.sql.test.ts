@@ -75,6 +75,31 @@ const facetMigration = readFileSync(
   "utf8",
 );
 
+const merchandisingProjectionMigration = readFileSync(
+  join(process.cwd(), "supabase/migrations/20260728183000_catalog_merchandising_projection.sql"),
+  "utf8",
+);
+const catalogPageSource = readFileSync(
+  join(process.cwd(), "app/(partner)/cabinet/catalog/page.tsx"),
+  "utf8",
+);
+
+describe("catalog_partner_page_v3 page completeness", () => {
+  it("uses one canonical eligible set for stable rows and total count", () => {
+    expect(merchandisingProjectionMigration).toContain("filtered as (");
+    expect(merchandisingProjectionMigration).toContain("commercial as (");
+    expect(merchandisingProjectionMigration).toContain("from ranked\n    where ordinal > p_offset and ordinal <= p_offset + p_limit");
+    expect(merchandisingProjectionMigration).toContain("'totalCount', (select count(*) from commercial)");
+    expect(merchandisingProjectionMigration).toContain("lower(commercial.name),");
+    expect(merchandisingProjectionMigration).toContain("commercial.id");
+  });
+
+  it("requests a complete twenty-card page from the bounded aggregate", () => {
+    expect(catalogPageSource).toContain("const PAGE_SIZE = 20");
+    expect(catalogPageSource).toContain("pageSize: PAGE_SIZE");
+  });
+});
+
 describe("catalog_partner_facets SQL", () => {
   it("batches current category, search, availability, and attribute scope", () => {
     expect(facetMigration).toContain("create or replace function public.catalog_partner_facets");
