@@ -7,6 +7,7 @@ export const OPPORTUNITY_TYPES = [
   "previous_order_repeatable",
   "relevant_merchandising_offer",
   "relevant_product_low_stock",
+  "source_product_low_stock_with_available_analog",
 ] as const;
 
 export type CommercialOpportunityType = (typeof OPPORTUNITY_TYPES)[number];

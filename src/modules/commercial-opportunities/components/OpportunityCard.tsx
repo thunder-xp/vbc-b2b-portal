@@ -85,7 +85,7 @@ export function OpportunityCard({ opportunity }: { opportunity: CommercialOpport
 
         <div className="mt-4 flex flex-wrap gap-2">
           {product && (product.partnerPrice || product.retailPrice) ? <button className="inline-flex min-h-11 items-center gap-2 rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white hover:bg-emerald-800 focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-60" disabled={pending} onClick={addToCart} type="button"><ShoppingCart aria-hidden="true" className="size-4" />{pending ? "Добавление..." : "Добавить в корзину"}</button> : null}
-          <Link className="inline-flex min-h-11 items-center gap-2 rounded-md border border-zinc-300 px-4 text-sm font-semibold text-zinc-800 focus-visible:ring-2 focus-visible:ring-emerald-500" href={href} onClick={() => recordBehaviorInteraction({ eventName: template ? "opportunity_template_opened" : product ? "opportunity_product_opened" : "opportunity_repeat_started", productId: product?.id, metadataSafe: { opportunityType: opportunity.type }, route: "/cabinet/opportunities", sourceSurface: "opportunity_card" })} prefetch={false}>{template ? "Проверить шаблон" : opportunity.type === "previous_order_repeatable" ? "Повторить закупку" : "Открыть товар"}<ArrowRight aria-hidden="true" className="size-4" /></Link>
+          <Link className="inline-flex min-h-11 items-center gap-2 rounded-md border border-zinc-300 px-4 text-sm font-semibold text-zinc-800 focus-visible:ring-2 focus-visible:ring-emerald-500" href={href} onClick={() => recordBehaviorInteraction({ eventName: template ? "opportunity_template_opened" : product ? "opportunity_product_opened" : "opportunity_repeat_started", productId: product?.id, metadataSafe: { opportunityType: opportunity.type }, route: "/cabinet/opportunities", sourceSurface: "opportunity_card" })} prefetch={false}>{template ? "Проверить шаблон" : opportunity.type === "previous_order_repeatable" ? "Повторить закупку" : opportunity.type === "source_product_low_stock_with_available_analog" ? "Посмотреть аналоги" : "Открыть товар"}<ArrowRight aria-hidden="true" className="size-4" /></Link>
         </div>
         {message ? <p aria-live="polite" className="mt-2 text-sm font-medium text-emerald-700">{message}</p> : null}
       </div>
@@ -94,7 +94,7 @@ export function OpportunityCard({ opportunity }: { opportunity: CommercialOpport
 }
 
 function opportunityLabel(type: CommercialOpportunity["type"]): string {
-  return ({ repeat_purchase_available: "Можно повторить закупку", watched_product_back_in_stock: "Снова в наличии", relevant_product_arrival_confirmed: "Ожидается поступление", relevant_product_price_decreased: "Цена стала ниже", purchase_template_ready: "Шаблон готов к заказу", previous_order_repeatable: "Можно повторить закупку", relevant_merchandising_offer: "Предложение Novotech", relevant_product_low_stock: "Осталось немного" } satisfies Record<CommercialOpportunity["type"], string>)[type];
+  return ({ repeat_purchase_available: "Можно повторить закупку", watched_product_back_in_stock: "Снова в наличии", relevant_product_arrival_confirmed: "Ожидается поступление", relevant_product_price_decreased: "Цена стала ниже", purchase_template_ready: "Шаблон готов к заказу", previous_order_repeatable: "Можно повторить закупку", relevant_merchandising_offer: "Предложение Novotech", relevant_product_low_stock: "Осталось немного", source_product_low_stock_with_available_analog: "Доступен аналог" } satisfies Record<CommercialOpportunity["type"], string>)[type];
 }
 
 function primaryReason(opportunity: CommercialOpportunity): string {
@@ -104,6 +104,7 @@ function primaryReason(opportunity: CommercialOpportunity): string {
   if (opportunity.reasonCode === "price_decreased") return `Текущая цена на ${numberValue(value.decreasePercent)}% ниже предыдущей подтверждённой цены.`;
   if (opportunity.reasonCode === "repeat_purchase") return `Вы покупали этот товар ${numberValue(value.purchaseCount)} раз. Последняя покупка — ${dateValue(value.lastPurchasedAt)}.`;
   if (opportunity.reasonCode === "low_stock") return "Товар, который вы регулярно покупаете, заканчивается на складе.";
+  if (opportunity.reasonCode === "available_analog") return "Товар заканчивается. Доступен аналог.";
   if (opportunity.reasonCode === "template_fully_ready") return `Все ${numberValue(value.itemCount)} позиций шаблона доступны.`;
   if (opportunity.reasonCode === "template_mostly_ready") return `${numberValue(value.availableCount)} из ${numberValue(value.itemCount)} позиций доступны, ещё ${numberValue(value.expectedCount)} ожидаются.`;
   if (opportunity.reasonCode === "previous_order_repeatable") return `Снова доступны ${numberValue(value.eligibleCount)} из ${numberValue(value.itemCount)} позиций заказа.`;

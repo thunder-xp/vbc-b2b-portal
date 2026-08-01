@@ -8,11 +8,18 @@ const uuidRepair = fs.readFileSync(path.join(process.cwd(), "supabase/migrations
 const windowRepair = fs.readFileSync(path.join(process.cwd(), "supabase/migrations/20260731213000_partner_commercial_opportunity_window_repair.sql"), "utf8");
 const permissionScopeRepair = fs.readFileSync(path.join(process.cwd(), "supabase/migrations/20260731214000_partner_commercial_opportunity_permission_scope_repair.sql"), "utf8");
 const childTriggerRepair = fs.readFileSync(path.join(process.cwd(), "supabase/migrations/20260731215000_partner_commercial_opportunity_child_trigger_repair.sql"), "utf8");
+const relationOpportunities = fs.readFileSync(path.join(process.cwd(), "supabase/migrations/20260801191000_product_relation_opportunities.sql"), "utf8");
 
 describe("commercial opportunity projection migration", () => {
   it("governs the complete deterministic opportunity catalog", () => {
     for (const type of ["repeat_purchase_available", "watched_product_back_in_stock", "relevant_product_arrival_confirmed", "relevant_product_price_decreased", "purchase_template_ready", "previous_order_repeatable", "relevant_merchandising_offer", "relevant_product_low_stock"]) expect(sql).toContain(`'${type}'`);
     expect(sql).not.toMatch(/machine.learning|ai_recommendation/i);
+  });
+
+  it("extends the governed opportunity projection with available analogs", () => {
+    expect(relationOpportunities).toContain("source_product_low_stock_with_available_analog");
+    expect(relationOpportunities).toContain("refresh_partner_relation_opportunities");
+    expect(relationOpportunities).toContain("refresh_partner_commercial_opportunities(target.company_id)");
   });
 
   it("deduplicates product signals and keeps secondary reasons", () => {
