@@ -23,10 +23,6 @@ export const ONE_C_PARTNER_FIELDS = [
   "Недействителен",
   "DeletionMark",
   "IsFolder",
-  "Телефон",
-  "ЭлектроннаяПочта",
-  "НаселенныйПункт",
-  "МенеджерПокупателя_Key",
 ] as const;
 
 export const ONE_C_CONTRACT_FIELDS = [
