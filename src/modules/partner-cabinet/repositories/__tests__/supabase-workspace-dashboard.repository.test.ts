@@ -8,6 +8,9 @@ vi.mock("server-only", () => ({}));
 vi.mock("@/src/lib/supabase/server", () => ({
   createClient: async () => ({ rpc: mocks.rpc }),
 }));
+vi.mock("@/src/lib/supabase/admin", () => ({
+  createAdminClient: () => ({ rpc: mocks.rpc }),
+}));
 
 import {
   SupabaseWorkspaceDashboardRepository,
@@ -43,6 +46,34 @@ describe("SupabaseWorkspaceDashboardRepository", () => {
         "11111111-1111-4111-8111-111111111111",
       ),
     ).rejects.toBeInstanceOf(WorkspaceDashboardRepositoryError);
+  });
+
+  it("uses one server-only login-generation selection RPC", async () => {
+    mocks.rpc.mockResolvedValue({
+      data: {
+        snapshotHit: true,
+        previousSourceFingerprint: "orders-v1",
+        offerSourceFingerprint: "offers-v1",
+        previousProducts: [],
+        merchandisingProducts: [],
+        previousCandidateCount: 0,
+        offerCandidateCount: 0,
+        rotationBucket: 1,
+      },
+      error: null,
+    });
+
+    await expect(new SupabaseWorkspaceDashboardRepository().getProductSelections(
+      "11111111-1111-4111-8111-111111111111",
+      "22222222-2222-4222-8222-222222222222",
+      "2026-08-01T10:00:00Z",
+    )).resolves.toMatchObject({ snapshotHit: true });
+    expect(mocks.rpc).toHaveBeenCalledOnce();
+    expect(mocks.rpc).toHaveBeenCalledWith("get_or_refresh_partner_dashboard_selections", {
+      p_user_id: "11111111-1111-4111-8111-111111111111",
+      p_company_id: "22222222-2222-4222-8222-222222222222",
+      p_login_generation: "2026-08-01T10:00:00Z",
+    });
   });
 });
 

@@ -87,6 +87,22 @@ export type WorkspaceDashboardProjection = {
   };
 };
 
+export type WorkspaceDashboardSelections = {
+  snapshotHit: boolean;
+  previousSourceFingerprint: string;
+  offerSourceFingerprint: string;
+  previousProducts: WorkspaceDashboardProductCandidate[];
+  merchandisingProducts: WorkspaceDashboardProductCandidate[];
+  previousCandidateCount: number;
+  offerCandidateCount: number;
+  rotationBucket: number;
+};
+
 export interface WorkspaceDashboardRepository {
   getDashboard(companyId: string): Promise<WorkspaceDashboardProjection>;
+  getProductSelections?(
+    userId: string,
+    companyId: string,
+    loginGeneration: string,
+  ): Promise<WorkspaceDashboardSelections>;
 }

@@ -36,6 +36,7 @@ import { SmtpCompanyInvitationEmailProvider } from "../services/company-invitati
 export type AuthenticatedUser = {
   id: string;
   email: string;
+  loginGeneration: string;
 };
 
 export const getAuthenticatedUser = cache(async (): Promise<AuthenticatedUser> => {
@@ -51,6 +52,7 @@ export const getAuthenticatedUser = cache(async (): Promise<AuthenticatedUser> =
     return {
       id: data.user.id,
       email: data.user.email,
+      loginGeneration: data.user.last_sign_in_at ?? data.user.created_at,
     };
   });
 });

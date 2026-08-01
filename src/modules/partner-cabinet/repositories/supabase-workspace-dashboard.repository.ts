@@ -1,11 +1,13 @@
 import "server-only";
 
 import { createClient } from "@/src/lib/supabase/server";
+import { createAdminClient } from "@/src/lib/supabase/admin";
 import { z } from "zod";
 
 import type {
   WorkspaceDashboardProjection,
   WorkspaceDashboardRepository,
+  WorkspaceDashboardSelections,
 } from "./workspace-dashboard.repository";
 
 const productCandidateSchema = z.object({
@@ -101,6 +103,17 @@ const dashboardSchema = z.object({
   }),
 });
 
+const selectionsSchema = z.object({
+  snapshotHit: z.boolean(),
+  previousSourceFingerprint: z.string(),
+  offerSourceFingerprint: z.string(),
+  previousProducts: z.array(productCandidateSchema).max(12),
+  merchandisingProducts: z.array(productCandidateSchema).max(5),
+  previousCandidateCount: z.number().int().nonnegative(),
+  offerCandidateCount: z.number().int().nonnegative(),
+  rotationBucket: z.number().int().nonnegative(),
+});
+
 export class WorkspaceDashboardRepositoryError extends Error {
   constructor() {
     super("Partner workspace dashboard repository failed.");
@@ -124,4 +137,40 @@ export class SupabaseWorkspaceDashboardRepository
 
     return parsed.data satisfies WorkspaceDashboardProjection;
   }
+
+  async getProductSelections(
+    userId: string,
+    companyId: string,
+    loginGeneration: string,
+  ): Promise<WorkspaceDashboardSelections> {
+    const startedAt = performance.now();
+    const { data, error } = await createAdminClient().rpc(
+      "get_or_refresh_partner_dashboard_selections",
+      {
+        p_user_id: userId,
+        p_company_id: companyId,
+        p_login_generation: loginGeneration,
+      },
+    );
+    const parsed = selectionsSchema.safeParse(data);
+    if (error || !parsed.success) throw new WorkspaceDashboardRepositoryError();
+    console.info({
+      event: parsed.data.snapshotHit
+        ? "partner_dashboard_selection_snapshot_hit"
+        : "partner_dashboard_selection_refreshed",
+      snapshotHit: parsed.data.snapshotHit,
+      previousPurchaseCandidates: parsed.data.previousCandidateCount,
+      merchandisingCandidates: parsed.data.offerCandidateCount,
+      finalLabelMix: labelMix(parsed.data.merchandisingProducts),
+      durationMs: Math.round((performance.now() - startedAt) * 100) / 100,
+    });
+    return parsed.data;
+  }
+}
+
+function labelMix(products: Array<{ labelCodes: string[] }>) {
+  return Object.fromEntries(["TOP", "NEW", "HOT"].map((label) => [
+    label,
+    products.filter((product) => product.labelCodes.includes(label)).length,
+  ]));
 }
