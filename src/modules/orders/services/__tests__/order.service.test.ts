@@ -30,6 +30,7 @@ describe("DefaultPartnerOrderService", () => {
       oneCOrderStatus: "unposted", documentTotal: 25, currencyCode: "USD", contractNumber: null,
     });
     expect(result.status).toBe(PartnerOrderStatus.Submitted);
+    expect(dependencies.priceRefreshService.refresh).not.toHaveBeenCalled();
   });
 
   it("blocks submission when the current partner price is older than the accepted window", async () => {
@@ -40,6 +41,84 @@ describe("DefaultPartnerOrderService", () => {
     }]);
     await expect(dependencies.service.submit("user-1", input())).rejects.toBeInstanceOf(RecoverableOrderSubmissionError);
     expect(dependencies.orderProvider.exportSalesOrder).not.toHaveBeenCalled();
+  });
+
+  it("bulk refreshes one stale price and continues when the verified price is unchanged", async () => {
+    const dependencies = makeDependencies();
+    const stale = {
+      ...commercial("product-1", 12.5),
+      partnerPrice: { amount: 12.5, currencyCode: "USD", formattedAmount: "$12.50", lastUpdatedAt: new Date(Date.now() - 37 * 60 * 60 * 1000).toISOString() },
+    };
+    dependencies.pricingService.getProductCommercialViews
+      .mockResolvedValueOnce([stale])
+      .mockResolvedValueOnce([commercial("product-1", 12.5)]);
+
+    await expect(dependencies.service.submit("user-1", input())).resolves.toMatchObject({
+      status: PartnerOrderStatus.Submitted,
+    });
+
+    expect(dependencies.priceRefreshService.refresh).toHaveBeenCalledWith({
+      externalPriceTypeRef: "33333333-3333-4333-8333-333333333333",
+      externalProductRefs: ["66666666-6666-4666-8666-666666666666"],
+    });
+    expect(dependencies.orderProvider.exportSalesOrder).toHaveBeenCalledOnce();
+  });
+
+  it("refreshes multiple stale lines in one bulk operation", async () => {
+    const dependencies = makeDependencies();
+    dependencies.cartRepository.listItems.mockResolvedValue([
+      cartItem("product-1", 1),
+      cartItem("product-2", 2),
+    ]);
+    dependencies.catalogService.getProductOrderIdentities.mockResolvedValue([
+      identity("product-1", "SKU-1", "66666666-6666-4666-8666-666666666666"),
+      identity("product-2", "SKU-2", "77777777-7777-4777-8777-777777777777"),
+    ]);
+    const staleAt = new Date(Date.now() - 37 * 60 * 60 * 1000).toISOString();
+    dependencies.pricingService.getProductCommercialViews
+      .mockResolvedValueOnce([
+        withPriceUpdatedAt(commercial("product-1", 12.5), staleAt),
+        withPriceUpdatedAt(commercial("product-2", 20), staleAt),
+      ])
+      .mockResolvedValueOnce([commercial("product-1", 12.5), commercial("product-2", 20)]);
+
+    await dependencies.service.submit("user-1", input());
+
+    expect(dependencies.priceRefreshService.refresh).toHaveBeenCalledOnce();
+    expect(dependencies.priceRefreshService.refresh).toHaveBeenCalledWith(expect.objectContaining({
+      externalProductRefs: [
+        "66666666-6666-4666-8666-666666666666",
+        "77777777-7777-4777-8777-777777777777",
+      ],
+    }));
+  });
+
+  it("requires partner confirmation when the authoritative refreshed price changed", async () => {
+    const dependencies = makeDependencies();
+    const staleAt = new Date(Date.now() - 37 * 60 * 60 * 1000).toISOString();
+    dependencies.pricingService.getProductCommercialViews
+      .mockResolvedValueOnce([withPriceUpdatedAt(commercial("product-1", 12.5), staleAt)])
+      .mockResolvedValueOnce([commercial("product-1", 13)]);
+
+    await expect(dependencies.service.submit("user-1", input())).rejects.toMatchObject({
+      code: "ORDER_PRICE_CHANGED",
+    });
+    expect(dependencies.orderRepository.beginSubmission).not.toHaveBeenCalled();
+    expect(dependencies.orderProvider.exportSalesOrder).not.toHaveBeenCalled();
+  });
+
+  it("preserves the cart when authoritative price refresh fails", async () => {
+    const dependencies = makeDependencies();
+    dependencies.pricingService.getProductCommercialViews.mockResolvedValue([
+      withPriceUpdatedAt(commercial("product-1", 12.5), new Date(Date.now() - 37 * 60 * 60 * 1000).toISOString()),
+    ]);
+    dependencies.priceRefreshService.refresh.mockRejectedValue(new Error("1C timeout"));
+
+    await expect(dependencies.service.submit("user-1", input())).rejects.toMatchObject({
+      code: "ORDER_PRICE_REFRESH_FAILED",
+    });
+    expect(dependencies.orderRepository.beginSubmission).not.toHaveBeenCalled();
+    expect(dependencies.cartRepository).not.toHaveProperty("clear");
   });
 
   it("warns for stale stock without adding a live 1C preflight call", async () => {
@@ -497,8 +576,9 @@ function makeDependencies(options: { useLegacyMinimalOrderPayload?: boolean } = 
     fetchPriceType: vi.fn().mockResolvedValue({ active: true, currency: "44444444-4444-4444-8444-444444444444" }),
   };
   const orderProvider = { exportSalesOrder: vi.fn().mockResolvedValue(exportResult()), findExportedSalesOrders: vi.fn() };
-  const service = new DefaultPartnerOrderService(cartRepository as never, orderRepository as never, companyAccessService as never, permissionService as never, catalogService as never, pricingService as never, partnerProvider as never, orderProvider as never, options);
-  return { service, cartRepository, orderRepository, catalogService, pricingService, partnerProvider, orderProvider, company };
+  const priceRefreshService = { refresh: vi.fn().mockResolvedValue({ verifiedAt: new Date().toISOString(), productCount: 1, providerRequestCount: 1, deduplicated: false, durationMs: 25 }) };
+  const service = new DefaultPartnerOrderService(cartRepository as never, orderRepository as never, companyAccessService as never, permissionService as never, catalogService as never, pricingService as never, partnerProvider as never, orderProvider as never, options, priceRefreshService);
+  return { service, cartRepository, orderRepository, catalogService, pricingService, partnerProvider, orderProvider, priceRefreshService, company };
 }
 
 function input() {
@@ -513,6 +593,9 @@ function ref(externalId: string) { return { providerCode: "one-c", externalId, e
 function cartItem(productId: string, quantity: number) { return { id: `item-${productId}`, cartId: "cart-1", productId, quantity, createdAt: "2026-01-01", updatedAt: "2026-01-01" }; }
 function identity(id: string, sku: string, external1cId: string) { return { id, sku, external1cId, name: sku }; }
 function commercial(productId: string, amount: number) { return { productId, partnerPrice: { amount, currencyCode: "USD", formattedAmount: null, lastUpdatedAt: new Date().toISOString() }, stock: { exactAvailableQuantity: 5, expectedArrival: null, lastUpdatedAt: new Date().toISOString() } }; }
+function withPriceUpdatedAt(view: ReturnType<typeof commercial>, lastUpdatedAt: string) {
+  return { ...view, partnerPrice: { ...view.partnerPrice, lastUpdatedAt } };
+}
 function order(overrides: Partial<PartnerOrder> = {}): PartnerOrder {
   return { id: "order-1", companyId: "company-1", submittedBy: "user-1", cartId: "cart-1", submissionKey: SUBMISSION_KEY, submissionAttemptId: "99999999-9999-4999-8999-999999999999", status: PartnerOrderStatus.Processing, integrationStatus: PartnerOrderIntegrationStatus.Processing, oneCOrderStatus: null, requestedDeliveryDate: "2099-01-10", external1cRef: null, external1cNumber: null, external1cDate: null, payloadSnapshot: salesOrderSnapshot(), safeErrorCode: null, safeErrorMessage: null, documentTotal: null, currencyCode: null, contractNumber: null, confirmedAt: null, lastReconciledAt: null, submittedAt: null, createdAt: "2026-01-01", updatedAt: "2026-01-01", ...overrides };
 }

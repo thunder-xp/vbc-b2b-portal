@@ -63,4 +63,30 @@ describe("orderSubmissionFailure", () => {
       data: null,
     });
   });
+
+  it("returns a stable safe code for an unavailable authoritative price refresh", () => {
+    const error = new RecoverableOrderSubmissionError(
+      "technical provider detail",
+      "ORDER_PRICE_REFRESH_FAILED",
+      "12345678-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    );
+
+    expect(orderSubmissionFailure(error)).toEqual({
+      success: false,
+      errorCode: "ORDER_PRICE_REFRESH_FAILED",
+      message: "Не удалось подтвердить актуальность цены. Корзина сохранена. Код обращения: ORD-12345678.",
+      data: null,
+    });
+  });
+
+  it("asks for confirmation after an authoritative price change", () => {
+    const error = new RecoverableOrderSubmissionError(
+      "technical comparison detail",
+      "ORDER_PRICE_CHANGED",
+    );
+
+    expect(orderSubmissionFailure(error)?.message).toBe(
+      "Цена одной или нескольких позиций изменилась. Проверьте обновлённую корзину и подтвердите заказ повторно.",
+    );
+  });
 });

@@ -22,6 +22,8 @@ export type {
 } from "./order-provider";
 export type { PartnerProvider } from "./partner-provider";
 export type {
+  CurrentProductPriceDTO,
+  CurrentProductPriceFetchRequestDTO,
   PricingProvider,
   ProductPriceFetchRequestDTO,
 } from "./pricing-provider";

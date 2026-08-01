@@ -24,4 +24,11 @@ describe("commercial freshness policy", () => {
     expect(result.label).toContain("Остатки обновлены");
     expect(result.staleNotice).toContain("последние подтверждённые данные");
   });
+
+  it("uses the absolute timestamp across timezone offsets at the 36-hour boundary", () => {
+    const utc = evaluateFreshness("2026-07-14T00:00:00.000Z", "price", "Цена", NOW);
+    const offset = evaluateFreshness("2026-07-14T03:00:00.000+03:00", "price", "Цена", NOW);
+    expect(offset.status).toBe(utc.status);
+    expect(offset.updatedAt).toBe(utc.updatedAt);
+  });
 });

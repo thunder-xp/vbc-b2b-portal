@@ -38,7 +38,13 @@ export async function submitCartOrderAction(
       external1cNumber: order.external1cNumber,
       status: order.status,
     });
-  } catch (error) { return orderSubmissionFailure(error) ?? failureFromError(error); }
+  } catch (error) {
+    const failure = orderSubmissionFailure(error) ?? failureFromError(error);
+    if (failure.errorCode === "ORDER_PRICE_CHANGED") {
+      revalidatePath("/cabinet/cart");
+    }
+    return failure;
+  }
 }
 
 export type PartnerOrderSubmissionReceipt = Pick<

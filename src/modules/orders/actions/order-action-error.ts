@@ -29,7 +29,15 @@ function recoverableMessage(error: RecoverableOrderSubmissionError): string {
       return "Не удалось определить договор компании. Обратитесь к менеджеру Novotech.";
     case "ORDER_PRODUCT_MAPPING_MISSING":
       return "Один из товаров не связан с 1С. Корзина сохранена — обратитесь к менеджеру Novotech.";
+    case "ORDER_PRICE_REFRESH_FAILED":
+      return `Не удалось подтвердить актуальность цены. Корзина сохранена. Код обращения: ${orderCorrelationCode(error.correlationId)}.`;
     case "ORDER_PRICE_CHANGED":
+      return "Цена одной или нескольких позиций изменилась. Проверьте обновлённую корзину и подтвердите заказ повторно.";
+    case "ORDER_PRICE_DATA_MISSING":
+      return "Не удалось получить актуальную цену одной или нескольких позиций. Корзина сохранена — обратитесь к менеджеру Novotech.";
+    case "ORDER_PRICE_REFRESH_REQUIRED":
+    case "ORDER_PRICE_STALE":
+      return `Не удалось подтвердить актуальность цены. Корзина сохранена. Код обращения: ${orderCorrelationCode(error.correlationId)}.`;
     case "ORDER_STOCK_CHANGED":
       return "Данные некоторых позиций обновились. Проверьте изменения перед отправкой.";
     case "ORDER_INVALID_SHIPMENT_DATE":
@@ -47,6 +55,10 @@ function recoverableMessage(error: RecoverableOrderSubmissionError): string {
     default:
       return "Заказ не был отправлен. Корзина сохранена. Повторите попытку.";
   }
+}
+
+function orderCorrelationCode(correlationId: string): string {
+  return `ORD-${correlationId.replace(/-/g, "").slice(0, 8).toUpperCase()}`;
 }
 
 function failure(errorCode: string, message: string): FailedActionResult {
