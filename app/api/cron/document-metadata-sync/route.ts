@@ -2,7 +2,9 @@ import { authorizeCronRequest } from "@/src/lib/cron-auth";
 import { createDocumentMetadataSyncService } from "@/src/modules/documents/services/document-sync.factory";
 
 export async function GET(request: Request): Promise<Response> {
-  if (!authorizeCronRequest(request)) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await authorizeCronRequest(request)).authorized) {
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
   try {
     const result = await createDocumentMetadataSyncService().run(20);
     return Response.json(result, { status: result.completed ? 200 : 202, headers: { "Cache-Control": "no-store" } });
