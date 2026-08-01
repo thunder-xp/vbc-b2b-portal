@@ -6,7 +6,8 @@ import type { OneCEnv } from "@/src/lib/env";
 
 import { IntegrationProviderUnavailableError, IntegrationValidationError } from "../../errors";
 
-const RELATION_TERM = /(Аналог|Сопутств|Связ|Комплект|Аксессуар)/iu;
+const DIRECT_RELATION_TERM = /(Аналог|Сопутств|Комплект|Аксессуар|Совмест|Замещ|Замена|Рекоменд)/iu;
+const ENTITY_RELATION_TERM = /(Аналог|Сопутств|Связ|Комплект|Аксессуар|Совмест|Замещ|Замена|Рекоменд)/iu;
 const PRODUCT_TERM = /(Номенклатур|Товар)/iu;
 const MAX_METADATA_BYTES = 16 * 1024 * 1024;
 const MAX_CANDIDATES = 100;
@@ -38,7 +39,7 @@ export type OneCRelationMetadataAudit = {
 };
 
 export async function auditOneCRelationMetadata(
-  config: OneCEnv,
+  config: Pick<OneCEnv, "baseUrl" | "username" | "password" | "requestTimeoutMs">,
 ): Promise<OneCRelationMetadataAudit> {
   const { baseUrl, username, password } = config;
   if (!baseUrl || !username || !password) {
@@ -117,15 +118,14 @@ function mapCandidate(
     if (!name) return [];
     return [{ name, type: asString(property.Type) }];
   });
-  const searchableNames = [
-    entityTypeName,
+  const directFieldMatch = [
     ...properties.map(({ name }) => name),
     ...navigationProperties.map(({ name }) => name),
-  ];
+  ].some((name) => DIRECT_RELATION_TERM.test(name));
   const productReferenceCount = properties.filter(({ name }) =>
     PRODUCT_TERM.test(name) && /(_Key|Ref|Ссылка|Владелец|Owner)$/iu.test(name)
   ).length;
-  const hasRelationTerm = searchableNames.some((name) => RELATION_TERM.test(name));
+  const hasRelationTerm = ENTITY_RELATION_TERM.test(entityTypeName) || directFieldMatch;
   if (!hasRelationTerm && productReferenceCount < 2) return null;
 
   const keys = asArray(entityType.Key).flatMap((key) => {
