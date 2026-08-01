@@ -32,6 +32,7 @@ const allPermissions = [
   "admin.finance.view",
   "admin.audit.view",
   "admin.settings.view",
+  "admin.documents.view",
 ];
 
 describe("admin navigation", () => {

@@ -91,6 +91,11 @@ export const ADMIN_NAVIGATION: readonly AdminNavigationGroup[] = [
         permission: "admin.integrations.view",
       },
       {
+        label: "Документы",
+        href: "/admin/integrations/documents",
+        permission: "admin.documents.view",
+      },
+      {
         label: "Инциденты",
         href: "/admin/integrations/incidents",
         permission: "admin.integrations.view",
@@ -118,6 +123,7 @@ export const ADMIN_NAVIGATION: readonly AdminNavigationGroup[] = [
         permission: "specifications.review",
       },
       { label: "Сметы и КП", href: "/admin/estimates", permission: "admin.estimates.view" },
+      { label: "Документы", href: "/admin/documents", permission: "admin.documents.view" },
     ],
   },
   {
