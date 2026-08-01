@@ -20,6 +20,7 @@ import {
   Lightbulb,
   Megaphone,
   SearchCheck,
+  ShieldCheck,
   ShoppingCart,
 } from "lucide-react";
 import Link from "next/link";
@@ -49,15 +50,21 @@ const icons = {
   company: Building2,
 } satisfies Record<WorkspaceCapabilityKey, typeof Gauge>;
 
-const primaryNavigationOrder: readonly WorkspaceCapabilityKey[] = [
-  "dashboard",
-  "catalog",
-  "opportunities",
-  "offers",
-];
+const primaryNavigationOrder: readonly WorkspaceCapabilityKey[] = ["dashboard", "catalog"];
+const businessNavigationOrder: readonly WorkspaceCapabilityKey[] = ["opportunities", "offers"];
 const trailingNavigationOrder: readonly WorkspaceCapabilityKey[] = ["warranty", "knowledge_base"];
 
-const estimatesNavigationOrder: readonly WorkspaceCapabilityKey[] = ["purchasing_lists", "proposals"];
+const selectionNavigationOrder: readonly WorkspaceCapabilityKey[] = [
+  "purchasing_lists",
+  "purchase_templates",
+  "comparison",
+];
+const projectNavigationOrder: readonly WorkspaceCapabilityKey[] = [
+  "reservations",
+  "solution_selection",
+  "projects",
+];
+const estimatesNavigationOrder: readonly WorkspaceCapabilityKey[] = ["proposals"];
 const commercialNavigationOrder: readonly WorkspaceCapabilityKey[] = ["orders", "finance", "documents"];
 
 function isRouteActive(pathname: string, href: string | null): boolean {
@@ -196,6 +203,10 @@ export function PartnerSidebar({
     const item = navigationByKey.get(key);
     return item ? [item] : [];
   });
+  const businessNavigation = businessNavigationOrder.flatMap((key) => {
+    const item = navigationByKey.get(key);
+    return item ? [item] : [];
+  });
   const trailingNavigation = trailingNavigationOrder.flatMap((key) => {
     const item = navigationByKey.get(key);
     return item ? [item] : [];
@@ -203,10 +214,15 @@ export function PartnerSidebar({
   const estimatesNavigation = estimatesNavigationOrder.flatMap((key) => {
     const item = navigationByKey.get(key);
     if (!item) return [];
-    return [{
-      ...item,
-      label: key === "purchasing_lists" ? "Подбор решения" : "Сметы и коммерческие предложения",
-    }];
+    return [{ ...item, label: "Сметы и коммерческие предложения" }];
+  });
+  const selectionNavigation = selectionNavigationOrder.flatMap((key) => {
+    const item = navigationByKey.get(key);
+    return item ? [item] : [];
+  });
+  const projectNavigation = projectNavigationOrder.flatMap((key) => {
+    const item = navigationByKey.get(key);
+    return item ? [item] : [];
   });
   const commercialNavigation = commercialNavigationOrder.flatMap((key) => {
     const item = navigationByKey.get(key);
@@ -223,6 +239,13 @@ export function PartnerSidebar({
       <nav aria-label="Рабочие разделы" className="min-h-0 flex-1 overflow-y-auto px-2 py-3">
         <div className="space-y-1">
           {primaryNavigation.map((item) => (
+            <NavigationItem hasWorkspaceAccess={hasWorkspaceAccess} item={item} key={item.key} onNavigate={onNavigate} pathname={pathname} />
+          ))}
+
+          <ExpandableNavigationGroup hasWorkspaceAccess={hasWorkspaceAccess} icon={SearchCheck} id="product-selection-navigation" items={selectionNavigation} label="Подбор товаров" onNavigate={onNavigate} pathname={pathname} />
+          <ExpandableNavigationGroup hasWorkspaceAccess={hasWorkspaceAccess} icon={ShieldCheck} id="project-protection-navigation" items={projectNavigation} label="Проектная защита" onNavigate={onNavigate} pathname={pathname} />
+
+          {businessNavigation.map((item) => (
             <NavigationItem hasWorkspaceAccess={hasWorkspaceAccess} item={item} key={item.key} onNavigate={onNavigate} pathname={pathname} />
           ))}
 
