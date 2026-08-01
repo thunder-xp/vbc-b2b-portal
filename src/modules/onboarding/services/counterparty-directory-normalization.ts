@@ -1,4 +1,5 @@
 import { parseRequiredOneCGuid } from "@/src/modules/integration/providers/one-c/one-c-guid";
+import { normalizeFiscalCode } from "@/src/modules/company-identity/fiscal-code";
 
 import type {
   CounterpartyContractRow,
@@ -19,7 +20,7 @@ export function normalizeMatchText(value: string | null): string | null {
   const normalized = value
     .trim()
     .toLocaleLowerCase("ru")
-    .replace(/[^\p{L}\p{N}@.+]+/gu, "");
+    .replace(/[^\p{L}\p{N}]+/gu, "");
   return normalized.length > 0 ? normalized : null;
 }
 
@@ -47,7 +48,7 @@ export function parseCounterpartyRow(row: unknown): CounterpartyDirectoryRow | n
     name,
     normalizedName: normalizeMatchText(name) ?? name.toLocaleLowerCase("ru"),
     fiscalCode,
-    normalizedFiscalCode: normalizeMatchText(fiscalCode),
+    normalizedFiscalCode: normalizeFiscalCode(fiscalCode),
     isActive: row["Недействителен"] !== true && row.DeletionMark !== true,
     isDeleted: row.DeletionMark === true,
     phone,

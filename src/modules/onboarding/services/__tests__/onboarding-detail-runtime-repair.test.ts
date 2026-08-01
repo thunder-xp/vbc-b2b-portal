@@ -12,7 +12,7 @@ describe("onboarding detail runtime repair", () => {
   it("uses access_requests.id consistently in the queue and detail repository", () => {
     expect(queue).toContain("href={`/admin/onboarding/${row.id}`}");
     expect(repository).toContain('p_request_id: requestId');
-    expect(repository).toContain('client.rpc("get_onboarding_request_detail_v3"');
+    expect(repository).toContain('client.rpc("get_onboarding_request_detail_v4"');
   });
 
   it("allows the detail RPC to initialize its idempotent approval draft", () => {

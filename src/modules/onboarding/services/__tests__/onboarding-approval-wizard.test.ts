@@ -144,7 +144,7 @@ describe("onboarding approval draft and atomic v3 migration", () => {
   });
 
   it("uses one aggregate and performs no live 1C or per-option reads", () => {
-    expect(repository).toContain('client.rpc("get_onboarding_request_detail_v3"');
+    expect(repository).toContain('client.rpc("get_onboarding_request_detail_v4"');
     expect(migration).toContain("jsonb_array_elements");
     expect(wizard).not.toMatch(/fetch\(|supabase|one-c|OneC/);
     expect(actions).not.toMatch(/OneCPartner|searchOneC|fetchPartner/);
@@ -158,7 +158,8 @@ describe("onboarding approval draft and atomic v3 migration", () => {
     expect(wizard).toContain("Одобрить и открыть доступ");
     expect(wizard).toContain("min-h-11");
     expect(wizard).toContain("grid-cols-2");
-    expect(wizard).not.toContain("external1cId");
+    expect(wizard).toContain("external1cId");
+    expect(wizard).toContain("Код 1С");
     expect(wizard).not.toContain("permission.code");
   });
 });

@@ -22,6 +22,21 @@ export const ONBOARDING_COMPANY_VERIFICATION_OUTCOMES = [
   "commercial_mapping_incomplete",
 ] as const;
 
+export const ONBOARDING_DIRECTORY_MATCH_OUTCOMES = [
+  "EXACT_FISCAL_MATCH",
+  "NAME_SUGGESTION_ONLY",
+  "FISCAL_CODE_MISSING_IN_DIRECTORY",
+  "FISCAL_CODE_MALFORMED",
+  "MULTIPLE_EXACT_FISCAL_MATCHES",
+  "COUNTERPARTY_INACTIVE",
+  "COUNTERPARTY_NOT_PUBLISHED",
+  "DIRECTORY_SYNC_INCOMPLETE",
+  "NO_MATCH",
+] as const;
+
+export type OnboardingDirectoryMatchOutcome =
+  (typeof ONBOARDING_DIRECTORY_MATCH_OUTCOMES)[number];
+
 export type OnboardingCompanyVerificationOutcome =
   (typeof ONBOARDING_COMPANY_VERIFICATION_OUTCOMES)[number];
 
@@ -104,12 +119,16 @@ export type CounterpartyPriceProfileRow = {
 };
 
 export type CounterpartyDirectorySnapshot = {
+  complete: boolean;
+  fetchedCounterpartyRows: number;
   sourceCounterpartyRows: number;
   counterparties: CounterpartyDirectoryRow[];
   contracts: CounterpartyContractRow[];
   priceProfiles: CounterpartyPriceProfileRow[];
   pagesProcessed: number;
   failedRecords: number;
+  skippedCounterpartyRows: number;
+  duplicateCounterpartyRows: number;
 };
 
 export type CounterpartyDirectoryCounts = {
@@ -118,7 +137,13 @@ export type CounterpartyDirectoryCounts = {
   finishedAt: string;
   durationMs: number;
   sourceCounterparties: number;
+  fetchedCounterparties: number;
   stagedCounterparties: number;
+  skippedCounterparties: number;
+  malformedFiscalCodes: number;
+  normalizedFiscalCodesChanged: number;
+  duplicateCounterpartyRows: number;
+  pagesProcessed: number;
   active: number;
   inactive: number;
   deleted: number;
@@ -147,6 +172,15 @@ export type OnboardingHealth = {
     unresolved_manager_references: number;
     safe_error_code: string | null;
     lock_acquired_at: string | null;
+    fetched_counterparties: number;
+    staged_counterparties: number;
+    skipped_counterparties: number;
+    without_fiscal_code: number;
+    malformed_fiscal_codes: number;
+    normalized_fiscal_codes_changed: number;
+    duplicate_counterparty_rows: number;
+    pages_processed: number;
+    duration_ms: number;
   } | null;
   queue?: {
     new: number;
@@ -240,6 +274,8 @@ export type OnboardingDetail = {
   }>;
   candidates: Array<{
     id: string;
+    external1cId: string;
+    externalCode: string | null;
     companyName: string;
     fiscalCode: string | null;
     active: boolean;
@@ -250,6 +286,8 @@ export type OnboardingDetail = {
     portalLinkageState: string;
     synchronizedAt: string;
     matchReason: string;
+    published: boolean;
+    fiscalCodeState: "valid" | "missing" | "malformed";
     contracts: Array<{
       name: string;
       code: string | null;
@@ -307,6 +345,7 @@ export type OnboardingDetail = {
   };
   companyVerification: {
     outcome: OnboardingCompanyVerificationOutcome;
+    matchOutcome: OnboardingDirectoryMatchOutcome;
     exactCandidateCount: number;
     exactCandidateIds: string[];
     lastSuccessfulDirectorySyncAt: string | null;

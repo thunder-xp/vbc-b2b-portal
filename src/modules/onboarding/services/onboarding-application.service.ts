@@ -5,6 +5,7 @@ import type {
   OnboardingCompanyVerificationOutcome,
   OnboardingDetail,
   OnboardingDetailRecord,
+  OnboardingDirectoryMatchOutcome,
 } from "../types";
 import { OnboardingApplicationError } from "./onboarding-application.errors";
 
@@ -77,6 +78,7 @@ export function evaluateCompanyVerification(
   const presentation = companyVerificationPresentation(outcome);
   return {
     outcome,
+    matchOutcome: directoryMatchOutcome(detail, exactCandidates),
     exactCandidateCount: exactCandidates.length,
     exactCandidateIds: exactCandidates.map(({ id }) => id),
     lastSuccessfulDirectorySyncAt: context.lastSuccessfulAt,
@@ -91,6 +93,35 @@ export function evaluateCompanyVerification(
     blocked: !["exact_match_found", "commercial_mapping_incomplete"].includes(outcome),
     ...presentation,
   };
+}
+
+function directoryMatchOutcome(
+  detail: OnboardingDetailRecord,
+  exactCandidates: OnboardingDetailRecord["candidates"],
+): OnboardingDirectoryMatchOutcome {
+  if (
+    detail.companyVerificationContext.latestStatus === "failed" &&
+    detail.companyVerificationContext.latestSafeErrorCode?.includes("INCOMPLETE")
+  ) return "DIRECTORY_SYNC_INCOMPLETE";
+  if (exactCandidates.length > 1) return "MULTIPLE_EXACT_FISCAL_MATCHES";
+  if (exactCandidates.length === 1) {
+    return exactCandidates[0]!.active
+      ? "EXACT_FISCAL_MATCH"
+      : "COUNTERPARTY_INACTIVE";
+  }
+  const suggestions = detail.candidates.filter((candidate) =>
+    candidate.matchReason.startsWith("exact_name"),
+  );
+  if (suggestions.some((candidate) => candidate.fiscalCodeState === "missing")) {
+    return "FISCAL_CODE_MISSING_IN_DIRECTORY";
+  }
+  if (suggestions.some((candidate) => candidate.fiscalCodeState === "malformed")) {
+    return "FISCAL_CODE_MALFORMED";
+  }
+  if (suggestions.some((candidate) => !candidate.published)) {
+    return "COUNTERPARTY_NOT_PUBLISHED";
+  }
+  return suggestions.length > 0 ? "NAME_SUGGESTION_ONLY" : "NO_MATCH";
 }
 
 function companyVerificationPresentation(outcome: OnboardingCompanyVerificationOutcome): {

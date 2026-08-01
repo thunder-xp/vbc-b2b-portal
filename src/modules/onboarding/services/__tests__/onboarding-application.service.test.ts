@@ -67,6 +67,24 @@ describe("OnboardingApplicationService", () => {
     expect(evaluateCompanyVerification(detail, Date.parse("2026-08-01T12:00:00.000Z"))).toMatchObject({ outcome });
   });
 
+  it("keeps name suggestions non-authoritative", () => {
+    const suggestion = candidate(undefined, {
+      matchReason: "exact_name_fiscal_missing",
+      fiscalCodeState: "missing",
+      published: true,
+    });
+    const result = evaluateCompanyVerification(
+      detailRecord("under_review", [suggestion]),
+      Date.parse("2026-08-01T12:00:00.000Z"),
+    );
+    expect(result).toMatchObject({
+      outcome: "no_match",
+      matchOutcome: "FISCAL_CODE_MISSING_IN_DIRECTORY",
+      blocked: true,
+      exactCandidateCount: 0,
+    });
+  });
+
   it("exposes the governed onboarding error vocabulary", () => {
     expect(ONBOARDING_APPLICATION_ERROR_CODES).toEqual(expect.arrayContaining([
       "ONBOARDING_APPLICATION_NOT_FOUND",
@@ -113,6 +131,8 @@ function candidate(id = "00000000-0000-0000-0000-000000000002", overrides = {}) 
     active: true,
     contractCount: 1,
     priceProfileCount: 1,
+    fiscalCodeState: "valid",
+    published: true,
     ...overrides,
   } as OnboardingDetailRecord["candidates"][number];
 }

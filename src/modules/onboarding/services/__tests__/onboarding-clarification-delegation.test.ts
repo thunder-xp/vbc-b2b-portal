@@ -117,7 +117,7 @@ describe("delegation, notifications, SLA, and audit", () => {
 
 describe("projection, security, and UX", () => {
   it("uses one aggregate for manager detail and one for partner status", () => {
-    expect(repository).toContain('client.rpc("get_onboarding_request_detail_v3"');
+    expect(repository).toContain('client.rpc("get_onboarding_request_detail_v4"');
     expect(repository).toContain('client.rpc("get_own_onboarding_status_center"');
   });
   it("uses one enriched queue aggregate without live 1C", () => {

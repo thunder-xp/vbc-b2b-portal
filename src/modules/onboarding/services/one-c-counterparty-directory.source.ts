@@ -20,8 +20,7 @@ import {
   toPriceProfileRow,
 } from "./counterparty-directory-normalization";
 
-const PAGE_SIZE = 500;
-const MAX_PAGES = 200;
+const COMPLETE_COLLECTION_LIMIT = 5_000;
 
 type ODataEnvelope = { value: unknown[] };
 
@@ -42,20 +41,29 @@ export class OneCCounterpartyDirectorySource {
     const contracts: CounterpartyContractRow[] = [];
     let failedRecords = 0;
     let sourceCounterpartyRows = 0;
+    let fetchedCounterpartyRows = 0;
+    let skippedCounterpartyRows = 0;
 
-    const partnerPages = await this.scan(
+    const partnerScan = await this.scanCompleteCollection(
       ONE_C_RESOURCES.partners,
       ONE_C_PARTNER_FIELDS.join(","),
       "counterparty_directory_partners",
       (row) => {
-        if (isFolderRow(row)) return;
+        fetchedCounterpartyRows += 1;
+        if (isFolderRow(row)) {
+          skippedCounterpartyRows += 1;
+          return;
+        }
         sourceCounterpartyRows += 1;
         const parsed = parseCounterpartyRow(row);
         if (parsed) counterparties.push(parsed);
-        else failedRecords += 1;
+        else {
+          failedRecords += 1;
+          skippedCounterpartyRows += 1;
+        }
       },
     );
-    const contractPages = await this.scan(
+    const contractScan = await this.scanCompleteCollection(
       ONE_C_RESOURCES.contracts,
       ONE_C_CONTRACT_FIELDS.join(","),
       "counterparty_directory_contracts",
@@ -67,7 +75,7 @@ export class OneCCounterpartyDirectorySource {
     );
 
     const priceTypes = new Map<string, unknown>();
-    const priceTypePages = await this.scan(
+    const priceTypeScan = await this.scanCompleteCollection(
       ONE_C_RESOURCES.priceTypes,
       ONE_C_PRICE_TYPE_FIELDS.join(","),
       "counterparty_directory_price_types",
@@ -87,11 +95,12 @@ export class OneCCounterpartyDirectorySource {
 
     const uniqueCounterparties = deduplicateByExternal1cId(counterparties);
     const uniqueContracts = deduplicateByExternal1cId(contracts);
+    const duplicateCounterpartyRows = counterparties.length - uniqueCounterparties.length;
     console.info({
       event: "one_c_counterparty_directory_source_deduplicated",
       counterpartyRows: counterparties.length,
       uniqueCounterparties: uniqueCounterparties.length,
-      duplicateCounterparties: counterparties.length - uniqueCounterparties.length,
+      duplicateCounterparties: duplicateCounterpartyRows,
       contractRows: contracts.length,
       uniqueContracts: uniqueContracts.length,
       duplicateContracts: contracts.length - uniqueContracts.length,
@@ -106,74 +115,68 @@ export class OneCCounterpartyDirectorySource {
     });
 
     return {
+      complete: duplicateCounterpartyRows === 0,
+      fetchedCounterpartyRows,
       sourceCounterpartyRows,
       counterparties: uniqueCounterparties,
       contracts: uniqueContracts,
       priceProfiles: deduplicatePriceProfiles(priceProfiles),
-      pagesProcessed: partnerPages + contractPages + priceTypePages,
+      pagesProcessed: partnerScan + contractScan + priceTypeScan,
       failedRecords,
+      skippedCounterpartyRows,
+      duplicateCounterpartyRows,
     };
   }
 
-  private async scan(
+  private async scanCompleteCollection(
     resource: string,
     select: string,
     requestKind: string,
     visit: (row: unknown) => void,
   ): Promise<number> {
-    for (let page = 0; page < MAX_PAGES; page += 1) {
-      let payload: unknown;
-      try {
-        payload = await this.client.get(
-          resource,
-          {
-            $select: select,
-            $top: String(PAGE_SIZE),
-            $skip: String(page * PAGE_SIZE),
-          },
-          { requestKind },
-        );
-      } catch (error) {
-        console.error({
-          event: "one_c_counterparty_directory_source_failed",
-          requestKind,
-          resource,
-          page: page + 1,
-          skip: page * PAGE_SIZE,
-          top: PAGE_SIZE,
-          ...safeProviderDiagnostic(error),
-        });
-        throw error;
-      }
-      let rows: unknown[];
-      try {
-        rows = readEnvelope(payload);
-      } catch (error) {
-        console.error({
-          event: "one_c_counterparty_directory_source_failed",
-          requestKind,
-          resource,
-          page: page + 1,
-          skip: page * PAGE_SIZE,
-          top: PAGE_SIZE,
-          errorType: error instanceof Error ? error.name : typeof error,
-          failedStage: "response_envelope",
-        });
-        throw error;
-      }
-      rows.forEach(visit);
-      console.info({
-        event: "one_c_counterparty_directory_page_loaded",
+    const literalQuery = `$select=${select}&$top=${COMPLETE_COLLECTION_LIMIT}&$skip=0&$format=json`;
+    let payload: unknown;
+    try {
+      payload = await this.client.getLiteral(resource, literalQuery, { requestKind });
+    } catch (error) {
+      console.error({
+        event: "one_c_counterparty_directory_source_failed",
         requestKind,
         resource,
-        page: page + 1,
-        skip: page * PAGE_SIZE,
-        top: PAGE_SIZE,
-        rowsReceived: rows.length,
+        top: COMPLETE_COLLECTION_LIMIT,
+        ...safeProviderDiagnostic(error),
       });
-      if (rows.length < PAGE_SIZE) return page + 1;
+      throw error;
     }
-    throw new Error(`Bounded 1C directory scan exceeded ${MAX_PAGES} pages.`);
+    let rows: unknown[];
+    try {
+      rows = readEnvelope(payload);
+    } catch (error) {
+      console.error({
+        event: "one_c_counterparty_directory_source_failed",
+        requestKind,
+        resource,
+        errorType: error instanceof Error ? error.name : typeof error,
+        failedStage: "response_envelope",
+      });
+      throw error;
+    }
+    if (rows.length >= COMPLETE_COLLECTION_LIMIT) {
+      throw Object.assign(new Error("1C directory collection reached its safety bound."), {
+        name: "CounterpartyDirectoryIncompleteError",
+        code: "DIRECTORY_COLLECTION_LIMIT_REACHED",
+      });
+    }
+    rows.forEach(visit);
+    console.info({
+      event: "one_c_counterparty_directory_collection_loaded",
+      requestKind,
+      resource,
+      rowsReceived: rows.length,
+      collectionLimit: COMPLETE_COLLECTION_LIMIT,
+      complete: true,
+    });
+    return 1;
   }
 }
 

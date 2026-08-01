@@ -111,6 +111,8 @@ const detailSchema = z.object({
   })),
   candidates: z.array(z.object({
     id: z.string().uuid(),
+    external1cId: z.string(),
+    externalCode: z.string().nullable(),
     companyName: z.string(),
     fiscalCode: z.string().nullable(),
     active: z.boolean(),
@@ -121,6 +123,8 @@ const detailSchema = z.object({
     portalLinkageState: z.string(),
     synchronizedAt: z.string(),
     matchReason: z.string(),
+    published: z.boolean(),
+    fiscalCodeState: z.enum(["valid", "missing", "malformed"]),
     contracts: z.array(z.object({
       name: z.string(),
       code: z.string().nullable(),
@@ -245,6 +249,15 @@ const healthSchema = z.object({
     unresolved_manager_references: z.number(),
     safe_error_code: z.string().nullable(),
     lock_acquired_at: z.string().nullable(),
+    fetched_counterparties: z.number(),
+    staged_counterparties: z.number(),
+    skipped_counterparties: z.number(),
+    without_fiscal_code: z.number(),
+    malformed_fiscal_codes: z.number(),
+    normalized_fiscal_codes_changed: z.number(),
+    duplicate_counterparty_rows: z.number(),
+    pages_processed: z.number(),
+    duration_ms: z.number(),
   }).nullable().optional(),
   queue: z.object({
     new: z.number(),
@@ -279,11 +292,11 @@ export class SupabaseOnboardingRepository implements OnboardingRepository {
   async getDetail(requestId: string): Promise<OnboardingDetailRecord | null> {
     const client = await createClient();
     const [detailResult, contextResult] = await Promise.all([
-      client.rpc("get_onboarding_request_detail_v3", { p_request_id: requestId }),
+      client.rpc("get_onboarding_request_detail_v4", { p_request_id: requestId }),
       client.rpc("get_onboarding_company_verification_context", { p_request_id: requestId }),
     ]);
     if (detailResult.error) {
-      throw repositoryError("get_onboarding_request_detail_v3", detailResult.error);
+      throw repositoryError("get_onboarding_request_detail_v4", detailResult.error);
     }
     if (contextResult.error) {
       throw repositoryError(

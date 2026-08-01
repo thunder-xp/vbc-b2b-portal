@@ -12,6 +12,7 @@ export {
   markOnboardingCounterpartyAbsentAction,
   openOnboardingRequestFormAction,
   refreshOnboardingDirectoryAction,
+  rematchOnboardingCandidatesAction,
   synchronizeCounterpartyDirectoryFormAction,
   resetOnboardingDraftAction,
   rejectOnboardingRequestAction,
@@ -27,5 +28,6 @@ export {
 export type {
   OnboardingWizardActionState,
   OnboardingDirectoryRefreshActionState,
+  OnboardingCandidateRematchActionState,
   OnboardingWorkflowActionState,
 } from "./onboarding.actions";

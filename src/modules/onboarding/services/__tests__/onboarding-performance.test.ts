@@ -49,7 +49,7 @@ describe("onboarding rendering performance", () => {
 describe("onboarding server read performance", () => {
   it("keeps one queue RPC and one detail RPC", () => {
     expect(repository.match(/client\.rpc\("get_onboarding_queue_v2"/g)).toHaveLength(1);
-    expect(repository.match(/client\.rpc\("get_onboarding_request_detail_v3"/g)).toHaveLength(1);
+    expect(repository.match(/client\.rpc\("get_onboarding_request_detail_v4"/g)).toHaveLength(1);
   });
 
   it("records access, aggregate, and total server stages without extra reads", () => {

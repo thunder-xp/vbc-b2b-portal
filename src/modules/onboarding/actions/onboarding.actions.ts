@@ -18,6 +18,7 @@ import {
   type ActionResult,
 } from "@/src/modules/access-control/actions/action-result";
 import { requireAdminPermission } from "@/src/modules/admin/services";
+import { normalizeFiscalCode } from "@/src/modules/company-identity/fiscal-code";
 
 import {
   ONBOARDING_BUSINESS_PROFILE_CODES,
@@ -76,6 +77,11 @@ export type OnboardingDirectoryRefreshActionState = ActionResult<{
   correlationId: string;
   deduplicated: boolean;
   published: number | null;
+}>;
+export type OnboardingCandidateRematchActionState = ActionResult<{
+  correlationId: string;
+  matchOutcome: OnboardingDetail["companyVerification"]["matchOutcome"];
+  exactCandidateCount: number;
 }>;
 
 export async function listOnboardingQueueAction(
@@ -253,7 +259,9 @@ export async function submitOnboardingPartnerRevisionAction(
 ): Promise<OnboardingWorkflowActionState> {
   return mutateWorkflow(async () => {
     const input = partnerRevisionSchema.parse(Object.fromEntries(formData));
-    await new SupabaseOnboardingRepository().submitPartnerRevision(input);
+    const fiscalCode = normalizeFiscalCode(input.fiscalCode);
+    if (!fiscalCode) throw new Error("invalid_fiscal_code");
+    await new SupabaseOnboardingRepository().submitPartnerRevision({ ...input, fiscalCode });
     revalidatePath("/onboarding/waiting");
     revalidatePath("/admin/onboarding");
     return "Обновлённая заявка отправлена на проверку.";
@@ -393,6 +401,45 @@ export async function refreshOnboardingDirectoryAction(
       success: false,
       errorCode: "ONBOARDING_DIRECTORY_REFRESH_FAILED",
       message: `Не удалось обновить справочник 1С. Повторите позже. Код обращения: ${correlationId}`,
+      data: null,
+    };
+  }
+}
+
+export async function rematchOnboardingCandidatesAction(
+  _previousState: OnboardingCandidateRematchActionState,
+  formData: FormData,
+): Promise<OnboardingCandidateRematchActionState> {
+  const correlationId = randomUUID();
+  try {
+    await requireAdminPermission("onboarding.company_match.view");
+    const requestId = uuidSchema.parse(formData.get("requestId"));
+    const detail = await new OnboardingApplicationService(
+      new SupabaseOnboardingRepository(),
+    ).getDetail(requestId);
+    revalidateOnboarding(requestId);
+    console.info({
+      event: "onboarding_candidates_rematched",
+      requestId,
+      correlationId,
+      matchOutcome: detail.companyVerification.matchOutcome,
+      exactCandidateCount: detail.companyVerification.exactCandidateCount,
+    });
+    return success("Кандидаты повторно сопоставлены с опубликованным справочником.", {
+      correlationId,
+      matchOutcome: detail.companyVerification.matchOutcome,
+      exactCandidateCount: detail.companyVerification.exactCandidateCount,
+    });
+  } catch (error) {
+    console.error({
+      event: "onboarding_candidate_rematch_failed",
+      correlationId,
+      errorType: error instanceof Error ? error.name : typeof error,
+    });
+    return {
+      success: false,
+      errorCode: "ONBOARDING_CANDIDATE_REMATCH_FAILED",
+      message: `Не удалось повторно сопоставить кандидатов. Код обращения: ${correlationId}`,
       data: null,
     };
   }
@@ -640,6 +687,7 @@ function extractSafeReason(error: unknown): string {
       "clarification_fields_required",
       "invalid_clarification_reason",
       "invalid_rejection_reason",
+      "invalid_fiscal_code",
     ].find((code) => message.includes(code));
     if (known) return known;
   }

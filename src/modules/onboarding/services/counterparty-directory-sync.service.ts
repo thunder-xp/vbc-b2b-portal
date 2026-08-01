@@ -84,6 +84,12 @@ export class CounterpartyDirectorySyncService {
       if (snapshot.sourceCounterpartyRows === 0 || snapshot.counterparties.length === 0) {
         throw new Error("1C counterparty source returned no publishable business rows.");
       }
+      if (!snapshot.complete || snapshot.duplicateCounterpartyRows > 0) {
+        throw Object.assign(new Error("1C counterparty directory scan is incomplete."), {
+          name: "CounterpartyDirectoryIncompleteError",
+          code: "DIRECTORY_SYNC_INCOMPLETE",
+        });
+      }
       const counts = countSnapshot(snapshot, {
         syncId,
         startedAt,
@@ -97,18 +103,41 @@ export class CounterpartyDirectorySyncService {
       const publication = readPublicationCounts(data);
       const resumedApplications = await resumeWaitingApplications(client, syncId);
       const finishedAt = new Date().toISOString();
+      const durationMs = Date.parse(finishedAt) - Date.parse(startedAt);
       const result = {
         ...counts,
         ...publication,
         finishedAt,
-        durationMs: Date.parse(finishedAt) - Date.parse(startedAt),
+        durationMs,
       };
+      const { error: metricsError } = await client
+        .from("one_c_counterparty_directory_syncs")
+        .update({ duration_ms: durationMs, updated_at: finishedAt })
+        .eq("sync_id", syncId);
+      if (metricsError) {
+        console.error({
+          event: "one_c_counterparty_directory_metrics_update_failed",
+          syncId,
+          databaseErrorCode: metricsError.code || "UNKNOWN_DATABASE_ERROR",
+        });
+      }
       console.info({
         event: "one_c_counterparty_directory_sync_succeeded",
         syncId,
         pagesProcessed: snapshot.pagesProcessed,
         sourceCounterparties: result.sourceCounterparties,
+        fetchedCounterparties: result.fetchedCounterparties,
+        stagedCounterparties: result.stagedCounterparties,
         published: result.published,
+        skippedCounterparties: result.skippedCounterparties,
+        missingFiscalCodes: result.withoutFiscalCode,
+        malformedFiscalCodes: result.malformedFiscalCodes,
+        normalizedFiscalCodesChanged: result.normalizedFiscalCodesChanged,
+        duplicateFiscalCodes: result.duplicateFiscalCodes,
+        duplicateCounterpartyRows: result.duplicateCounterpartyRows,
+        inactive: result.inactive,
+        deleted: result.deleted,
+        durationMs,
         portalLinked: result.portalLinked,
         failedRecords: result.failedRecords,
         resumedApplications,
@@ -206,6 +235,13 @@ export class CounterpartyDirectorySyncService {
       .from("one_c_counterparty_directory_syncs")
       .update({
         source_counterparties: counts.sourceCounterparties,
+        fetched_counterparties: counts.fetchedCounterparties,
+        staged_counterparties: counts.stagedCounterparties,
+        skipped_counterparties: counts.skippedCounterparties,
+        malformed_fiscal_codes: counts.malformedFiscalCodes,
+        normalized_fiscal_codes_changed: counts.normalizedFiscalCodesChanged,
+        duplicate_counterparty_rows: counts.duplicateCounterpartyRows,
+        pages_processed: counts.pagesProcessed,
         active_counterparties: counts.active,
         inactive_counterparties: counts.inactive,
         deleted_counterparties: counts.deleted,
@@ -264,7 +300,18 @@ export function countSnapshot(
     finishedAt: run.startedAt,
     durationMs: 0,
     sourceCounterparties: snapshot.sourceCounterpartyRows,
+    fetchedCounterparties: snapshot.fetchedCounterpartyRows,
     stagedCounterparties: snapshot.counterparties.length,
+    skippedCounterparties: snapshot.skippedCounterpartyRows,
+    malformedFiscalCodes: snapshot.counterparties.filter(
+      (row) => row.fiscalCode !== null && row.normalizedFiscalCode === null,
+    ).length,
+    normalizedFiscalCodesChanged: snapshot.counterparties.filter(
+      (row) => row.fiscalCode !== null && row.normalizedFiscalCode !== null
+        && row.fiscalCode !== row.normalizedFiscalCode,
+    ).length,
+    duplicateCounterpartyRows: snapshot.duplicateCounterpartyRows,
+    pagesProcessed: snapshot.pagesProcessed,
     active: snapshot.counterparties.filter((row) => row.isActive).length,
     inactive: snapshot.counterparties.filter(
       (row) => !row.isActive && !row.isDeleted,
@@ -274,7 +321,7 @@ export function countSnapshot(
       (row) => row.normalizedFiscalCode !== null,
     ).length,
     withoutFiscalCode: snapshot.counterparties.filter(
-      (row) => row.normalizedFiscalCode === null,
+      (row) => row.fiscalCode === null,
     ).length,
     duplicateFiscalCodes: [...fiscalCounts.values()].filter((count) => count > 1)
       .length,

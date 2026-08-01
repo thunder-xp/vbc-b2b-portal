@@ -1,9 +1,11 @@
 "use server";
 
 import type { AccessRequest, AccessRequestStatus } from "../types";
+import { normalizeFiscalCode } from "@/src/modules/company-identity/fiscal-code";
 import {
   type ActionResult,
   failureFromError,
+  invalidInput,
   success,
 } from "./action-result";
 import {
@@ -35,9 +37,16 @@ export async function submitAccessRequestAction(
 ): Promise<ActionResult<AccessRequestDto>> {
   try {
     const userId = await getAuthenticatedUserId();
+    const requestedFiscalCode = normalizeOptionalText(input.requestedFiscalCode);
+    const normalizedFiscalCode = requestedFiscalCode
+      ? normalizeFiscalCode(requestedFiscalCode)
+      : null;
+    if (requestedFiscalCode && !normalizedFiscalCode) {
+      return invalidInput("Укажите корректный фискальный код, используя цифры.");
+    }
     const normalizedInput = {
       requestedCompanyName: normalizeOptionalText(input.requestedCompanyName),
-      requestedFiscalCode: normalizeOptionalText(input.requestedFiscalCode),
+      requestedFiscalCode: normalizedFiscalCode,
       contactPhone: normalizeOptionalText(input.contactPhone),
       message: normalizeOptionalText(input.message),
     };

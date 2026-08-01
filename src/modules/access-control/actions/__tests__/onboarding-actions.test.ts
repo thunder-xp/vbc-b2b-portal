@@ -193,7 +193,7 @@ describe("onboarding Server Actions", () => {
   it("submitAccessRequestAction submits partner request data without ERP reference input", async () => {
     const request = makeAccessRequest({
       requestedCompanyName: "Partner Company",
-      requestedFiscalCode: "BG123456789",
+      requestedFiscalCode: "1020602003976",
       contactPhone: "+359 1 234",
       message: "Please approve.",
     });
@@ -201,7 +201,7 @@ describe("onboarding Server Actions", () => {
 
     const result = await submitAccessRequestAction({
       requestedCompanyName: "  Partner Company  ",
-      requestedFiscalCode: "  BG123456789  ",
+      requestedFiscalCode: " 1020\u00a06020 03976 ",
       contactPhone: "  +359 1 234  ",
       message: "  Please approve.  ",
     });
@@ -209,7 +209,7 @@ describe("onboarding Server Actions", () => {
     expect(mocks.accessRequestService.submitAccessRequest).toHaveBeenCalledWith({
       userId: "user-1",
       requestedCompanyName: "Partner Company",
-      requestedFiscalCode: "BG123456789",
+      requestedFiscalCode: "1020602003976",
       contactPhone: "+359 1 234",
       message: "Please approve.",
     });
@@ -279,6 +279,16 @@ describe("onboarding Server Actions", () => {
       contactPhone: null,
       message: null,
     });
+  });
+
+  it("rejects a malformed fiscal code before repository access", async () => {
+    const result = await submitAccessRequestAction({
+      requestedCompanyName: "Partner Company",
+      requestedFiscalCode: "MD-INVALID",
+    });
+
+    expect(result).toMatchObject({ success: false, errorCode: "INVALID_INPUT" });
+    expect(mocks.accessRequestService.submitAccessRequest).not.toHaveBeenCalled();
   });
 
   it("getOwnAccessRequestsAction returns own requests", async () => {

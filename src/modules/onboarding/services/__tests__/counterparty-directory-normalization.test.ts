@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { normalizeFiscalCode } from "@/src/modules/company-identity/fiscal-code";
 
 import {
   normalizeMatchText,
@@ -12,9 +13,17 @@ const ACTIVE_REF = "571ac1e0-4ccd-11ea-93e0-000c29cf9dd4";
 
 describe("counterparty directory normalization", () => {
   it("normalizes fiscal codes, names, and phone values deterministically", () => {
-    expect(normalizeMatchText("  ALERT-SS S.R.L. ")).toBe("alertsss.r.l.");
+    expect(normalizeMatchText("  ALERT-SS S.R.L. ")).toBe("alertsssrl");
     expect(normalizeMatchText("  001 234 ")).toBe("001234");
     expect(normalizePhone("+373 (22) 12-34-56")).toBe("37322123456");
+  });
+
+  it("normalizes Moldova fiscal codes without numeric conversion", () => {
+    expect(normalizeFiscalCode("1020602003976")).toBe("1020602003976");
+    expect(normalizeFiscalCode(" 1020602003976 ")).toBe("1020602003976");
+    expect(normalizeFiscalCode("1020\u00a06020 03976")).toBe("1020602003976");
+    expect(normalizeFiscalCode("001-234")).toBe("001234");
+    expect(normalizeFiscalCode("MD1020602003976")).toBeNull();
   });
 
   it("maps an active 1C counterparty without exposing raw payload data", () => {
@@ -35,6 +44,24 @@ describe("counterparty directory normalization", () => {
       normalizedFiscalCode: "100360001",
       isActive: true,
       isDeleted: false,
+    });
+  });
+
+  it("maps the production MULTI-SECURITY fiscal identity from ИНН", () => {
+    expect(parseCounterpartyRow({
+      Ref_Key: "9a5c59b8-0293-11f1-d58d-7239d3b7bd5c",
+      Code: "MULTI",
+      Description: "MULTI-SECURITY",
+      ИНН: "1020\u00a06020 03976",
+      Покупатель: true,
+      Недействителен: false,
+      DeletionMark: false,
+      IsFolder: false,
+    })).toMatchObject({
+      name: "MULTI-SECURITY",
+      fiscalCode: "1020\u00a06020 03976",
+      normalizedFiscalCode: "1020602003976",
+      isActive: true,
     });
   });
 
@@ -71,12 +98,16 @@ describe("counterparty directory normalization", () => {
       ИНН: "001",
     });
     const counts = countSnapshot({
+      complete: true,
+      fetchedCounterpartyRows: 2,
       sourceCounterpartyRows: 2,
       counterparties: [first!, second!],
       contracts: [],
       priceProfiles: [],
       pagesProcessed: 1,
       failedRecords: 0,
+      skippedCounterpartyRows: 0,
+      duplicateCounterpartyRows: 0,
     });
     expect(counts).toMatchObject({
       sourceCounterparties: 2,
@@ -84,6 +115,8 @@ describe("counterparty directory normalization", () => {
       active: 2,
       duplicateFiscalCodes: 1,
       withFiscalCode: 2,
+      fetchedCounterparties: 2,
+      skippedCounterparties: 0,
     });
   });
 

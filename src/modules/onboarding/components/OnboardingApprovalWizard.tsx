@@ -17,12 +17,14 @@ import {
   markOnboardingCounterpartyAbsentAction,
   moveOnboardingWizardStepAction,
   refreshOnboardingDirectoryAction,
+  rematchOnboardingCandidatesAction,
   resetOnboardingDraftAction,
   saveOnboardingCommercialStepAction,
   saveOnboardingCompanyStepAction,
   saveOnboardingProfileStepAction,
   type OnboardingWizardActionState,
   type OnboardingDirectoryRefreshActionState,
+  type OnboardingCandidateRematchActionState,
 } from "../actions";
 import {
   ONBOARDING_BUSINESS_PROFILES,
@@ -53,6 +55,13 @@ const INITIAL_REFRESH_STATE: OnboardingDirectoryRefreshActionState = {
   data: { correlationId: "", deduplicated: false, published: null },
 };
 
+const INITIAL_REMATCH_STATE: OnboardingCandidateRematchActionState = {
+  success: true,
+  errorCode: null,
+  message: "",
+  data: { correlationId: "", matchOutcome: "NO_MATCH", exactCandidateCount: 0 },
+};
+
 type OnboardingWizardDetail = Pick<
   OnboardingDetail,
   "candidates" | "companyVerification" | "directoryFiscalMatchCount" | "draft" | "duplicates" | "managers" | "revision"
@@ -72,8 +81,9 @@ export function OnboardingApprovalWizard({ detail }: { detail: OnboardingWizardD
   const [resetState, resetAction] = useActionState(resetOnboardingDraftAction, INITIAL_ACTION_STATE);
   const [approvalState, approvalAction] = useActionState(approveOnboardingRequestV3Action, INITIAL_ACTION_STATE);
   const [refreshState, refreshAction] = useActionState(refreshOnboardingDirectoryAction, INITIAL_REFRESH_STATE);
+  const [rematchState, rematchAction] = useActionState(rematchOnboardingCandidatesAction, INITIAL_REMATCH_STATE);
   const [waitingState, waitingAction] = useActionState(markOnboardingCounterpartyAbsentAction, INITIAL_ACTION_STATE);
-  const states = [companyState, commercialState, profileState, navigationState, resetState, approvalState, refreshState, waitingState];
+  const states = [companyState, commercialState, profileState, navigationState, resetState, approvalState, refreshState, rematchState, waitingState];
   const feedback = states.find((state) => !state.success)
     ?? [...states].reverse().find((state) => state.message);
 
@@ -164,7 +174,7 @@ export function OnboardingApprovalWizard({ detail }: { detail: OnboardingWizardD
       )}
 
       <div className="mt-6">
-        {draft.currentStep === 1 && <CompanyStep detail={detail} action={companyAction} refreshAction={refreshAction} waitingAction={waitingAction} draft={draft} />}
+        {draft.currentStep === 1 && <CompanyStep detail={detail} action={companyAction} refreshAction={refreshAction} rematchAction={rematchAction} waitingAction={waitingAction} draft={draft} />}
         {draft.currentStep === 2 && <CommercialStep detail={detail} action={commercialAction} draft={draft} candidate={selectedCandidate} backAction={navigationAction} />}
         {draft.currentStep === 3 && <ProfileStep action={profileAction} draft={draft} requestId={detail.request.id} backAction={navigationAction} />}
         {draft.currentStep === 4 && (
@@ -184,16 +194,20 @@ export function OnboardingApprovalWizard({ detail }: { detail: OnboardingWizardD
   );
 }
 
-function CompanyStep({ detail, action, refreshAction, waitingAction, draft }: {
+function CompanyStep({ detail, action, refreshAction, rematchAction, waitingAction, draft }: {
   detail: OnboardingWizardDetail;
   action: (payload: FormData) => void;
   refreshAction: (payload: FormData) => void;
+  rematchAction: (payload: FormData) => void;
   waitingAction: (payload: FormData) => void;
   draft: NonNullable<OnboardingDetail["draft"]>;
 }) {
   const verification = detail.companyVerification;
   const exactCandidates = detail.candidates.filter((candidate) =>
     verification.exactCandidateIds.includes(candidate.id),
+  );
+  const suggestedCandidates = detail.candidates.filter((candidate) =>
+    !verification.exactCandidateIds.includes(candidate.id),
   );
   const blockedByDuplicate = verification.outcome === "multiple_matches";
   const waiting = detail.request.status === "awaiting_1c_company";
@@ -233,6 +247,7 @@ function CompanyStep({ detail, action, refreshAction, waitingAction, draft }: {
                 <input type="radio" name="counterpartyId" value={candidate.id} defaultChecked={candidate.id === draft.confirmedCounterpartyId} disabled={blocked} required className="mt-1 h-4 w-4 accent-emerald-700" />
                 <span className="min-w-0">
                   <span className="block font-medium">{candidate.companyName}</span>
+                  <span className="mt-1 block text-xs text-zinc-500">Код 1С: {candidate.externalCode || "не указан"} · Ref: {candidate.external1cId}</span>
                   <span className="mt-1 block text-sm text-zinc-600">IDNO: {candidate.fiscalCode || "не указан"} · {candidate.locality || "населённый пункт не указан"}</span>
                   <span className="mt-1 block text-xs text-zinc-500">Договоров: {candidate.contractCount} · статусов партнёра: {candidate.priceProfileCount} · данные от {formatDate(candidate.synchronizedAt)}</span>
                   {!candidate.active && <span className="mt-1 block text-sm font-medium text-red-700">Компания неактивна</span>}
@@ -246,8 +261,32 @@ function CompanyStep({ detail, action, refreshAction, waitingAction, draft }: {
         </form>
       ) : null}
 
+      {suggestedCandidates.length > 0 ? (
+        <section aria-labelledby="onboarding-name-suggestions" className="border-l-4 border-sky-500 bg-sky-50 p-4">
+          <h4 id="onboarding-name-suggestions" className="font-semibold text-sky-950">Возможные кандидаты по названию</h4>
+          <p className="mt-1 text-sm text-sky-900">Это подсказки для проверки справочника. Они не подтверждают компанию и не могут быть выбраны без точного совпадения IDNO.</p>
+          <ul className="mt-3 divide-y divide-sky-200">
+            {suggestedCandidates.map((candidate) => (
+              <li key={candidate.id} className="py-3 text-sm text-sky-950">
+                <p className="font-medium">{candidate.companyName}</p>
+                <p className="mt-1">Код 1С: {candidate.externalCode || "не указан"} · Ref: {candidate.external1cId}</p>
+                <p className="mt-1">IDNO: {candidate.fiscalCode || "не получен"} · {candidate.active ? "активен" : "неактивен"}</p>
+                <p className="mt-1 text-sky-800">Причина: {candidateMatchReason(candidate.matchReason)}</p>
+                {candidate.fiscalCodeState === "missing" ? (
+                  <p className="mt-2 font-medium">Контрагент найден по названию, но фискальный код не получен из 1С. Требуется исправить справочник.</p>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
       {verification.blocked ? (
         <div className="space-y-4 border-t border-zinc-200 pt-5">
+          <form action={rematchAction}>
+            <input type="hidden" name="requestId" value={detail.request.id} />
+            <SubmitButton label="Повторно сопоставить после обновления справочника" pendingLabel="Повторное сопоставление..." />
+          </form>
           <form action={refreshAction}>
             <input type="hidden" name="requestId" value={detail.request.id} />
             <SubmitButton label="Обновить справочник 1С" pendingLabel="Обновление справочника..." />
@@ -264,6 +303,17 @@ function CompanyStep({ detail, action, refreshAction, waitingAction, draft }: {
       ) : null}
     </div>
   );
+}
+
+function candidateMatchReason(reason: string): string {
+  return {
+    exact_name_fiscal_missing: "совпадает название, IDNO отсутствует в справочнике",
+    exact_name_fiscal_malformed: "совпадает название, IDNO в справочнике некорректен",
+    exact_name_different_fiscal: "совпадает название, IDNO отличается",
+    exact_name: "совпадает нормализованное название",
+    exact_email: "совпадает электронная почта",
+    exact_phone: "совпадает телефон",
+  }[reason] ?? "неавторитетное совпадение";
 }
 
 function CommercialStep({ detail, action, draft, candidate, backAction }: { detail: OnboardingWizardDetail; action: (payload: FormData) => void; draft: NonNullable<OnboardingDetail["draft"]>; candidate: OnboardingDetail["candidates"][number] | undefined; backAction: (payload: FormData) => void }) {

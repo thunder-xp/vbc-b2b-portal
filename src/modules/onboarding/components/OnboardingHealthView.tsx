@@ -24,8 +24,17 @@ export function OnboardingHealthView({ health }: { health: OnboardingHealth }) {
           <dl className="mt-4 grid gap-px overflow-hidden rounded-lg border border-zinc-200 bg-zinc-200 sm:grid-cols-2 lg:grid-cols-4">
             <Metric label="Статус" value={directory.status} />
             <Metric label="Источник" value={String(directory.source_counterparties)} />
+            <Metric label="Получено" value={String(directory.fetched_counterparties)} />
+            <Metric label="Подготовлено" value={String(directory.staged_counterparties)} />
             <Metric label="Опубликовано" value={String(directory.published_counterparties)} />
+            <Metric label="Пропущено" value={String(directory.skipped_counterparties)} />
+            <Metric label="IDNO отсутствует" value={String(directory.without_fiscal_code)} />
+            <Metric label="IDNO некорректен" value={String(directory.malformed_fiscal_codes)} />
+            <Metric label="IDNO нормализован" value={String(directory.normalized_fiscal_codes_changed)} />
             <Metric label="Дубликаты IDNO" value={String(directory.duplicate_fiscal_codes)} />
+            <Metric label="Повторы строк 1С" value={String(directory.duplicate_counterparty_rows)} />
+            <Metric label="Запросов к страницам" value={String(directory.pages_processed)} />
+            <Metric label="Длительность" value={`${directory.duration_ms} мс`} />
             <Metric label="Ошибочные строки" value={String(directory.failed_records)} />
             <Metric label="Менеджеры не сопоставлены" value={String(directory.unresolved_manager_references)} />
             <Metric label="Активная блокировка" value={directory.lock_acquired_at ? "Да" : "Нет"} />
