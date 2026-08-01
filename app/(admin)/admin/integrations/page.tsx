@@ -5,6 +5,7 @@ import {
   createAdminOperationsService,
   requireAdminPagePermission,
 } from "@/src/modules/admin";
+import { ProductRelationAdminPanel } from "@/src/modules/product-relations";
 
 export default async function AdminIntegrationsPage() {
   await requireAdminPagePermission("admin.integrations.view");
@@ -18,6 +19,7 @@ export default async function AdminIntegrationsPage() {
         title="Центр интеграций"
       />
       <AdminIntegrationCenterView center={center} />
+      <ProductRelationAdminPanel />
       <AdminSyncControls />
     </div>
   );

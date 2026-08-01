@@ -15,6 +15,7 @@ const ACTIONS: ReadonlyArray<readonly [AdminSyncDomain, string]> = [
   ["active_orders", "Активные заказы"],
   ["order_history", "История заказов"],
   ["finance", "Финансы"],
+  ["product_relations", "Связи товаров"],
 ];
 
 export function AdminSyncControls() {

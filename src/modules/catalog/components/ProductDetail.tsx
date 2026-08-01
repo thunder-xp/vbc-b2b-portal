@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 
 import type { FreshnessView } from "../../integration/freshness";
 import type { ProductCommercialViewDto, RetailPriceHistoryDto } from "../../pricing-inventory";
@@ -31,6 +32,7 @@ type ProductDetailProps = {
   product: CatalogProductDetailDto;
   stockFreshness?: FreshnessView | null;
   userId?: string | null;
+  overviewSupplement?: ReactNode;
 };
 
 const TABS: Array<{ id: ProductDetailTab; label: string }> = [
@@ -41,7 +43,7 @@ const TABS: Array<{ id: ProductDetailTab; label: string }> = [
   { id: "pricing", label: "Ценообразование" },
 ];
 
-export function ProductDetail({ activeTab = "overview", canAddToOrder = false, canManagePurchasingLists = false, companyId = null, commercialView, initialFavorite = false, priceFreshness, product, retailPriceHistory, retailPriceHistoryError, stockFreshness, userId = null }: ProductDetailProps) {
+export function ProductDetail({ activeTab = "overview", canAddToOrder = false, canManagePurchasingLists = false, companyId = null, commercialView, initialFavorite = false, overviewSupplement, priceFreshness, product, retailPriceHistory, retailPriceHistoryError, stockFreshness, userId = null }: ProductDetailProps) {
   return <article className="space-y-4">
     <nav aria-label="Разделы товара" className="overflow-x-auto border-b border-zinc-200">
       <div className="flex min-w-max gap-6">
@@ -49,12 +51,16 @@ export function ProductDetail({ activeTab = "overview", canAddToOrder = false, c
       </div>
     </nav>
     {activeTab === "overview" ? (
-      <div className="grid gap-5 md:grid-cols-[minmax(0,360px)_minmax(0,1fr)] md:items-start lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)] lg:gap-7" data-testid="product-detail-layout">
-        <div data-testid="product-detail-image"><ProductImageGallery fallbackImageUrl={product.imageUrl} images={product.images} productId={product.id} productName={product.name} /></div>
-        <div className="min-w-0" data-testid="product-detail-content">
-          <OverviewTab canAddToOrder={canAddToOrder} canManagePurchasingLists={canManagePurchasingLists} companyId={companyId} commercialView={commercialView} initialFavorite={initialFavorite} priceFreshness={priceFreshness} product={product} stockFreshness={stockFreshness} userId={userId} />
+      <>
+        <div className="grid gap-5 md:grid-cols-[minmax(0,360px)_minmax(0,1fr)] md:items-start lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)] lg:gap-7" data-testid="product-detail-layout">
+          <div data-testid="product-detail-image"><ProductImageGallery fallbackImageUrl={product.imageUrl} images={product.images} productId={product.id} productName={product.name} /></div>
+          <div className="min-w-0" data-testid="product-detail-content">
+            <OverviewTab canAddToOrder={canAddToOrder} canManagePurchasingLists={canManagePurchasingLists} companyId={companyId} commercialView={commercialView} initialFavorite={initialFavorite} priceFreshness={priceFreshness} product={product} stockFreshness={stockFreshness} userId={userId} />
+          </div>
         </div>
-      </div>
+        {overviewSupplement}
+        <KeyCharacteristicsSummary product={product} />
+      </>
     ) : (
       <div className="min-w-0" data-testid="product-detail-content">
         {activeTab === "description" ? <DescriptionTab product={product} /> : null}
@@ -66,7 +72,7 @@ export function ProductDetail({ activeTab = "overview", canAddToOrder = false, c
   </article>;
 }
 
-function OverviewTab({ canAddToOrder, canManagePurchasingLists, companyId, commercialView, initialFavorite, priceFreshness, product, stockFreshness, userId }: Omit<ProductDetailProps, "activeTab">) {
+function OverviewTab({ canAddToOrder, canManagePurchasingLists, companyId, commercialView, initialFavorite, priceFreshness, product, stockFreshness, userId }: Omit<ProductDetailProps, "activeTab" | "overviewSupplement">) {
   return <section aria-label="Обзор товара" data-testid="product-overview-tab">
       <MerchandisingBadges labels={product.merchandisingLabels} />
       <h1 className="break-words text-3xl font-semibold text-zinc-950">{product.name}</h1>
@@ -79,7 +85,6 @@ function OverviewTab({ canAddToOrder, canManagePurchasingLists, companyId, comme
       </section>
       <AvailabilityBlock commercialView={commercialView} freshness={stockFreshness} />
       {companyId || canAddToOrder ? <ProductActions canAddToOrder={canAddToOrder ?? false} canManagePurchasingLists={canManagePurchasingLists} categoryId={product.category?.id ?? null} companyId={companyId ?? null} initialFavorite={initialFavorite} productId={product.id} userId={userId ?? null} /> : null}
-      <KeyCharacteristicsSummary product={product} />
   </section>;
 }
 

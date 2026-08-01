@@ -6,7 +6,8 @@ export type AdminSyncDomain =
   | "commercial"
   | "active_orders"
   | "order_history"
-  | "finance";
+  | "finance"
+  | "product_relations";
 
 export interface AdminIntegrationState {
   domain: string;

@@ -17,6 +17,7 @@ import {
   syncStockFromOneCAction,
 } from "@/src/modules/integration/actions";
 import { createPartnerOrderHistoryAutomationService } from "@/src/modules/orders/actions/service-factory";
+import { createProductRelationSyncService } from "@/src/modules/integration/services/product-relation-sync.factory";
 
 import { SupabaseAdminOperationsRepository } from "../repositories";
 import { requireAdminPermission } from "../services";
@@ -31,6 +32,7 @@ const DOMAINS = new Set<AdminSyncDomain>([
   "active_orders",
   "order_history",
   "finance",
+  "product_relations",
 ]);
 
 export async function runAdminSyncAction(
@@ -115,6 +117,10 @@ async function executeSync(domain: AdminSyncDomain) {
       return syncAllCommercialDataAction();
     case "finance":
       return synchronizeEligibleFinanceCompaniesAction();
+    case "product_relations": {
+      await createProductRelationSyncService().synchronize();
+      return success("Связи товаров из 1С опубликованы.", null);
+    }
     case "active_orders": {
       await createPartnerOrderHistoryAutomationService().refreshActiveOrders();
       return success("Active order refresh completed.", null);

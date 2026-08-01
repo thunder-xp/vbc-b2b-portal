@@ -11,6 +11,7 @@ import { listFavoriteProductIdsAction } from "@/src/modules/purchasing-lists/act
 import { BehaviorViewEvent } from "@/src/modules/behavior-analytics/components";
 import { listProductDocumentsAction } from "@/src/modules/documents/actions";
 import { RelatedDocuments } from "@/src/modules/documents/components";
+import { getProductRelationSectionsAction, ProductRelationSectionsView } from "@/src/modules/product-relations";
 
 type ProductDetailPageProps = {
   params: Promise<{
@@ -42,7 +43,7 @@ export default async function ProductDetailPage({
     notFound();
   }
 
-  const [productResult, commercialViewsResult, workspaceResult, merchandisingResult, retailHistoryResult, centralDocumentsResult] = await Promise.all([
+  const [productResult, commercialViewsResult, workspaceResult, merchandisingResult, retailHistoryResult, centralDocumentsResult, relationResult] = await Promise.all([
     getCatalogProductDetailByIdAction(identityResult.data.id, detailProjection(activeTab)),
     activeTab === "overview" ? getProductCommercialViewsAction([identityResult.data.id]) : Promise.resolve(null),
     activeTab === "overview" ? getPartnerWorkspaceContextAction() : Promise.resolve(null),
@@ -51,6 +52,7 @@ export default async function ProductDetailPage({
       ? getRetailPriceHistoryAction(identityResult.data.id, historyRange)
       : Promise.resolve(null),
     activeTab === "datasheet" ? listProductDocumentsAction(identityResult.data.id) : Promise.resolve(null),
+    activeTab === "overview" ? getProductRelationSectionsAction(identityResult.data.id) : Promise.resolve(null),
   ]);
 
   if (!productResult.success) return <EmptyCatalog message={productResult.message} title="Product unavailable" />;
@@ -97,6 +99,17 @@ export default async function ProductDetailPage({
       commercialView={commercialView}
       priceFreshness={priceFreshness}
       initialFavorite={initialFavorite}
+      overviewSupplement={activeTab === "overview" && relationResult?.success && workspaceResult?.success ? (
+        <ProductRelationSectionsView
+          capabilities={workspaceResult.data.capabilities.productCard}
+          companyId={companyId}
+          sections={relationResult.data}
+          sourceProductId={productResult.data.id}
+          sourceSlug={productResult.data.slug}
+          sourceStock={commercialView?.stock}
+          userId={userId}
+        />
+      ) : null}
       product={{
         ...productResult.data,
         merchandisingLabels: merchandisingResult.success

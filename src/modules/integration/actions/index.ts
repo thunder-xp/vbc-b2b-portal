@@ -26,3 +26,4 @@ export {
   syncAllCommercialDataAction,
   type CommercialSyncAllResult,
 } from "./commercial-sync-all.action";
+export { getProductRelationDiagnosticsAction } from "./product-relation-sync.action";
