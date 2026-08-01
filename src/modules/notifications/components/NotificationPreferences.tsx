@@ -16,6 +16,7 @@ const groupLabels = {
   shipments: "Отгрузки",
   company_access: "Доступ сотрудников",
   products: "Товары и поступления",
+  documents: "Документы",
 } as const;
 
 export function NotificationPreferences({
@@ -38,7 +39,7 @@ export function NotificationPreferences({
                 Системные уведомления помогают не пропустить важные изменения.
               </p>
             </div>
-            {preference.eventGroup === "products" ? (
+            {["products", "documents"].includes(preference.eventGroup) ? (
               <span className="text-sm font-medium text-zinc-600">
                 Необязательные уведомления
               </span>
@@ -79,7 +80,7 @@ export function NotificationPreferences({
               >
                 <option value="immediate">Сразу</option>
                 <option disabled value="daily">Ежедневная сводка</option>
-                <option disabled={preference.eventGroup !== "products"} value="off">
+                <option disabled={!['products', 'documents'].includes(preference.eventGroup)} value="off">
                   Выключено
                 </option>
               </select>
@@ -116,5 +117,5 @@ function availableMode(
   eventGroup: NotificationPreference["eventGroup"],
   mode: NotificationDeliveryMode,
 ): "immediate" | "off" {
-  return eventGroup === "products" && mode === "off" ? "off" : "immediate";
+  return ["products", "documents"].includes(eventGroup) && mode === "off" ? "off" : "immediate";
 }

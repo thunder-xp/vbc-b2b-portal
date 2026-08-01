@@ -90,6 +90,11 @@ export const BEHAVIOR_EVENT_NAMES = [
   "opportunity_added_to_cart",
   "opportunity_dismissed",
   "opportunity_repeat_started",
+  "documents_opened",
+  "document_opened",
+  "document_downloaded",
+  "document_search_submitted",
+  "document_filter_used",
 ] as const;
 
 export type BehaviorEventName = (typeof BEHAVIOR_EVENT_NAMES)[number];
