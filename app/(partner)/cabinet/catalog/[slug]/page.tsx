@@ -9,6 +9,8 @@ import { getProductCommercialViewsAction, getRetailPriceHistoryAction } from "@/
 import { getPartnerWorkspaceContextAction } from "@/src/modules/partner-cabinet/actions";
 import { listFavoriteProductIdsAction } from "@/src/modules/purchasing-lists/actions";
 import { BehaviorViewEvent } from "@/src/modules/behavior-analytics/components";
+import { listProductDocumentsAction } from "@/src/modules/documents/actions";
+import { RelatedDocuments } from "@/src/modules/documents/components";
 
 type ProductDetailPageProps = {
   params: Promise<{
@@ -40,7 +42,7 @@ export default async function ProductDetailPage({
     notFound();
   }
 
-  const [productResult, commercialViewsResult, workspaceResult, merchandisingResult, retailHistoryResult] = await Promise.all([
+  const [productResult, commercialViewsResult, workspaceResult, merchandisingResult, retailHistoryResult, centralDocumentsResult] = await Promise.all([
     getCatalogProductDetailByIdAction(identityResult.data.id, detailProjection(activeTab)),
     activeTab === "overview" ? getProductCommercialViewsAction([identityResult.data.id]) : Promise.resolve(null),
     activeTab === "overview" ? getPartnerWorkspaceContextAction() : Promise.resolve(null),
@@ -48,6 +50,7 @@ export default async function ProductDetailPage({
     activeTab === "pricing"
       ? getRetailPriceHistoryAction(identityResult.data.id, historyRange)
       : Promise.resolve(null),
+    activeTab === "datasheet" ? listProductDocumentsAction(identityResult.data.id) : Promise.resolve(null),
   ]);
 
   if (!productResult.success) return <EmptyCatalog message={productResult.message} title="Product unavailable" />;
@@ -85,6 +88,7 @@ export default async function ProductDetailPage({
         route={`/cabinet/catalog/${productResult.data.slug}`}
         sourceSurface="product_detail"
       />
+      {activeTab === "datasheet" ? <div className="mx-auto max-w-7xl px-4 pb-8"><RelatedDocuments documents={centralDocumentsResult?.success ? centralDocumentsResult.data.items : []} emptyMessage="Дополнительные сертификаты и инструкции пока не опубликованы." title="Центр документов" /></div> : null}
       <ProductDetail
       activeTab={activeTab}
       canAddToOrder={canAddToOrder}

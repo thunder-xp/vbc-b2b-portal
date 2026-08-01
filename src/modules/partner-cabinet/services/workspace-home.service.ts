@@ -22,6 +22,8 @@ import type {
 import type { CommercialOpportunity, CommercialOpportunityRepository } from "../../commercial-opportunities";
 import type { CommercialCampaignRepository } from "../../commercial-campaigns/repositories/commercial-campaign.repository";
 import type { PartnerCampaign } from "../../commercial-campaigns/types";
+import type { DocumentRepository } from "../../documents/repositories";
+import type { PartnerDocumentListItem } from "../../documents/types";
 
 export type WorkspaceQuickActionDto = {
   key: string;
@@ -109,6 +111,7 @@ export type WorkspaceHomeDto = {
   merchandisingProducts: WorkspaceProductDto[];
   opportunities: CommercialOpportunity[];
   campaigns: PartnerCampaign[];
+  recentDocuments: PartnerDocumentListItem[];
   financeSummary: null | {
     totals: Array<{
       currency: string;
@@ -149,6 +152,7 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
     private readonly notificationRepository?: NotificationRepository,
     private readonly opportunityRepository?: CommercialOpportunityRepository,
     private readonly campaignRepository?: CommercialCampaignRepository,
+    private readonly documentRepository?: DocumentRepository,
   ) {}
 
   async getWorkspaceHome(userId: string): Promise<WorkspaceHomeDto> {
@@ -161,7 +165,7 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
       throw new InvalidStateError("Partner workspace access is not active.");
     }
 
-    const [freshness, dashboard, notificationPage, opportunityPage, campaignPage] = await Promise.all([
+    const [freshness, dashboard, notificationPage, opportunityPage, campaignPage, documentPage] = await Promise.all([
       this.commercialFreshnessReadModel.getFreshness(),
       this.dashboardRepository.getDashboard(context.companyId),
       this.notificationRepository?.list(context.companyId, {
@@ -171,6 +175,8 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
       this.opportunityRepository?.list({ companyId: context.companyId, filter: "all", limit: 4, offset: 0 })
         ?? Promise.resolve({ items: [], totalCount: 0 }),
       this.campaignRepository?.listPartner({ companyId: context.companyId, filter: "active", limit: 2, offset: 0 })
+        ?? Promise.resolve({ items: [], totalCount: 0 }),
+      this.documentRepository?.listPartner(context.companyId, { section: "all", state: "current", page: 1, pageSize: 4 })
         ?? Promise.resolve({ items: [], totalCount: 0 }),
     ]);
     const candidates = uniqueCandidates([
@@ -281,6 +287,7 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
       })),
       opportunities: opportunityPage.items,
       campaigns: campaignPage.items,
+      recentDocuments: documentPage.items,
       financeSummary: dashboard.financeSummary,
       companySummary: dashboard.companySummary,
       commercialConfigurationMissing: context.accessState === "missing_price_type",

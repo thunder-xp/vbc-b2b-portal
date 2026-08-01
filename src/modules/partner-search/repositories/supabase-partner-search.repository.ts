@@ -15,13 +15,12 @@ type SearchRow = {
 export class SupabasePartnerSearchRepository implements PartnerSearchRepository {
   async search(companyId: string, query: string, limit: number): Promise<PartnerSearchResult[]> {
     const supabase = await createClient();
-    const { data, error } = await supabase.rpc("search_partner_workspace", {
-      p_company_id: companyId,
-      p_query: query,
-      p_limit: limit,
-    });
-    if (error) throw new RepositoryUnexpectedError();
-    return ((data ?? []) as SearchRow[]).map((row) => ({
+    const [workspace, documents] = await Promise.all([
+      supabase.rpc("search_partner_workspace", { p_company_id: companyId, p_query: query, p_limit: limit }),
+      supabase.rpc("search_partner_documents", { p_company_id: companyId, p_query: query, p_limit: Math.min(10, limit) }),
+    ]);
+    if (workspace.error || documents.error) throw new RepositoryUnexpectedError();
+    return ([...((workspace.data ?? []) as SearchRow[]), ...((documents.data ?? []) as SearchRow[])]).map((row) => ({
       documentType: row.document_type,
       documentId: row.document_id,
       title: row.title,

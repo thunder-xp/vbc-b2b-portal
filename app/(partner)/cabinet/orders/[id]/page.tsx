@@ -5,6 +5,8 @@ import { BehaviorViewEvent } from "@/src/modules/behavior-analytics/components";
 import { getPartnerOrderHistoryAction } from "@/src/modules/orders/actions";
 import { SaveAsPurchasingListButton } from "@/src/modules/purchasing-lists/components";
 import { SaveAsPurchaseTemplateButton } from "@/src/modules/purchase-templates/components";
+import { listOrderDocumentsAction } from "@/src/modules/documents/actions";
+import { RelatedDocuments } from "@/src/modules/documents/components";
 
 type OrderDetailPageProps = { params: Promise<{ id: string }>; searchParams?: Promise<{ submitted?: string | string[] }> };
 
@@ -17,6 +19,7 @@ export default async function OrderDetailPage({ params, searchParams }: OrderDet
     return <p className="rounded-md border border-rose-200 bg-rose-50 p-5 text-sm text-rose-800">Не удалось загрузить заказ.</p>;
   }
   const order = result.data;
+  const documentsResult = await listOrderDocumentsAction(order.id);
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -74,6 +77,8 @@ export default async function OrderDetailPage({ params, searchParams }: OrderDet
           {order.portalSnapshot.total ? <p className="mt-3 font-semibold">Итого: {order.portalSnapshot.total}</p> : <p className="mt-3 text-sm text-zinc-600">Коммерческие условия скрыты настройками доступа.</p>}
         </section>
       ) : null}
+
+      <RelatedDocuments documents={documentsResult.success ? documentsResult.data.items : []} emptyMessage="Документы заказа появятся после публикации Novotech." title="Документы заказа" />
 
       {order.timeline.length ? (
         <section className="border-t border-zinc-200 pt-6">

@@ -18,6 +18,7 @@ import { DashboardTrackedLink } from "./DashboardTrackedLink";
 import { QuickActions } from "./QuickActions";
 import { OpportunityCard } from "../../commercial-opportunities/components";
 import { CampaignCard } from "../../commercial-campaigns/components/CampaignCard";
+import { DocumentCard } from "../../documents/components";
 
 export function OperationalDashboard({
   workspace,
@@ -36,6 +37,7 @@ export function OperationalDashboard({
       <ContinuationSection items={workspace.continuationItems} />
       <OpportunitySection opportunities={workspace.opportunities} />
       <CampaignSection campaigns={workspace.campaigns} />
+      <RecentDocumentsSection documents={workspace.recentDocuments} />
       <ProductSection
         analyticsSurface="dashboard_reorder"
         products={workspace.reorderProducts}
@@ -52,6 +54,11 @@ export function OperationalDashboard({
       <CompanySection summary={workspace.companySummary} />
     </div>
   );
+}
+
+function RecentDocumentsSection({ documents = [] }: { documents?: WorkspaceHomeDto["recentDocuments"] }) {
+  if (!documents.length) return null;
+  return <section aria-labelledby="dashboard-documents"><SectionHeading actionHref="/cabinet/documents" actionLabel="Все документы" id="dashboard-documents" title="Новые документы" /><div className="mt-2">{documents.slice(0,4).map((document)=><DocumentCard compact document={document} key={document.id}/>)}</div></section>;
 }
 
 function CampaignSection({ campaigns = [] }: { campaigns?: WorkspaceHomeDto["campaigns"] }) {

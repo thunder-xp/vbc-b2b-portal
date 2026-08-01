@@ -12,6 +12,7 @@ const ICONS: Record<PartnerSearchDocumentType, typeof PackageSearch> = {
   template: FileText,
   purchase_template: ListRestart,
   commercial_campaign: Megaphone,
+  document: FileText,
 };
 
 export function PartnerSearchResults({ groups, query }: { groups: PartnerSearchGroup[]; query: string }) {

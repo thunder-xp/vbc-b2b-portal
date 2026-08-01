@@ -26,7 +26,7 @@ export function PartnerHeader({ context, onMenuClick }: { context: PartnerWorksp
         <label className="sr-only" htmlFor="partner-global-search">Поиск по рабочему пространству</label>
         <div className="relative w-full">
           <Search aria-hidden="true" className="absolute left-3 top-3 size-4 text-zinc-400" />
-          <input className="h-10 w-full rounded-md border border-zinc-300 bg-zinc-50 pl-9 pr-3 text-sm outline-none transition focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-100" id="partner-global-search" name="q" placeholder="Товары, списки, сметы..." type="search" />
+          <input className="h-10 w-full rounded-md border border-zinc-300 bg-zinc-50 pl-9 pr-3 text-sm outline-none transition focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-100" id="partner-global-search" name="q" placeholder="Товары, документы, списки..." type="search" />
         </div>
       </form>
       <div className="flex min-w-0 items-center justify-end gap-2">
