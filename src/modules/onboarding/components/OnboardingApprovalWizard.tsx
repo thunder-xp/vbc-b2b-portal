@@ -14,12 +14,15 @@ import { useFormStatus } from "react-dom";
 
 import {
   approveOnboardingRequestV3Action,
+  markOnboardingCounterpartyAbsentAction,
   moveOnboardingWizardStepAction,
+  refreshOnboardingDirectoryAction,
   resetOnboardingDraftAction,
   saveOnboardingCommercialStepAction,
   saveOnboardingCompanyStepAction,
   saveOnboardingProfileStepAction,
   type OnboardingWizardActionState,
+  type OnboardingDirectoryRefreshActionState,
 } from "../actions";
 import {
   ONBOARDING_BUSINESS_PROFILES,
@@ -31,9 +34,9 @@ import type { OnboardingDetail, OnboardingStatus } from "../types";
 
 const STEPS = [
   { number: 1, label: "Компания", icon: Building2 },
-  { number: 2, label: "Условия", icon: CircleDollarSign },
-  { number: 3, label: "Пользователь", icon: UserRound },
-  { number: 4, label: "Проверка", icon: ShieldCheck },
+  { number: 2, label: "Коммерческие условия", icon: CircleDollarSign },
+  { number: 3, label: "Доступ пользователя", icon: UserRound },
+  { number: 4, label: "Финальная проверка", icon: ShieldCheck },
 ] as const;
 
 const INITIAL_ACTION_STATE: OnboardingWizardActionState = {
@@ -43,9 +46,16 @@ const INITIAL_ACTION_STATE: OnboardingWizardActionState = {
   data: null,
 };
 
+const INITIAL_REFRESH_STATE: OnboardingDirectoryRefreshActionState = {
+  success: true,
+  errorCode: null,
+  message: "",
+  data: { correlationId: "", deduplicated: false, published: null },
+};
+
 type OnboardingWizardDetail = Pick<
   OnboardingDetail,
-  "candidates" | "directoryFiscalMatchCount" | "draft" | "duplicates" | "managers"
+  "candidates" | "companyVerification" | "directoryFiscalMatchCount" | "draft" | "duplicates" | "managers" | "revision"
 > & {
   request: {
     id: string;
@@ -61,7 +71,9 @@ export function OnboardingApprovalWizard({ detail }: { detail: OnboardingWizardD
   const [navigationState, navigationAction] = useActionState(moveOnboardingWizardStepAction, INITIAL_ACTION_STATE);
   const [resetState, resetAction] = useActionState(resetOnboardingDraftAction, INITIAL_ACTION_STATE);
   const [approvalState, approvalAction] = useActionState(approveOnboardingRequestV3Action, INITIAL_ACTION_STATE);
-  const states = [companyState, commercialState, profileState, navigationState, resetState, approvalState];
+  const [refreshState, refreshAction] = useActionState(refreshOnboardingDirectoryAction, INITIAL_REFRESH_STATE);
+  const [waitingState, waitingAction] = useActionState(markOnboardingCounterpartyAbsentAction, INITIAL_ACTION_STATE);
+  const states = [companyState, commercialState, profileState, navigationState, resetState, approvalState, refreshState, waitingState];
   const feedback = states.find((state) => !state.success)
     ?? [...states].reverse().find((state) => state.message);
 
@@ -152,7 +164,7 @@ export function OnboardingApprovalWizard({ detail }: { detail: OnboardingWizardD
       )}
 
       <div className="mt-6">
-        {draft.currentStep === 1 && <CompanyStep detail={detail} action={companyAction} draft={draft} />}
+        {draft.currentStep === 1 && <CompanyStep detail={detail} action={companyAction} refreshAction={refreshAction} waitingAction={waitingAction} draft={draft} />}
         {draft.currentStep === 2 && <CommercialStep detail={detail} action={commercialAction} draft={draft} candidate={selectedCandidate} backAction={navigationAction} />}
         {draft.currentStep === 3 && <ProfileStep action={profileAction} draft={draft} requestId={detail.request.id} backAction={navigationAction} />}
         {draft.currentStep === 4 && (
@@ -172,22 +184,49 @@ export function OnboardingApprovalWizard({ detail }: { detail: OnboardingWizardD
   );
 }
 
-function CompanyStep({ detail, action, draft }: { detail: OnboardingWizardDetail; action: (payload: FormData) => void; draft: NonNullable<OnboardingDetail["draft"]> }) {
-  const blockedByDuplicate = detail.directoryFiscalMatchCount > 1;
+function CompanyStep({ detail, action, refreshAction, waitingAction, draft }: {
+  detail: OnboardingWizardDetail;
+  action: (payload: FormData) => void;
+  refreshAction: (payload: FormData) => void;
+  waitingAction: (payload: FormData) => void;
+  draft: NonNullable<OnboardingDetail["draft"]>;
+}) {
+  const verification = detail.companyVerification;
+  const exactCandidates = detail.candidates.filter((candidate) =>
+    verification.exactCandidateIds.includes(candidate.id),
+  );
+  const blockedByDuplicate = verification.outcome === "multiple_matches";
+  const waiting = detail.request.status === "awaiting_1c_company";
+
   return (
-    <form action={action} className="space-y-5">
-      <DraftFields detail={detail} draft={draft} />
+    <div className="space-y-5">
       <div>
         <h3 className="font-semibold">1. Проверка компании</h3>
-        <p className="mt-1 text-sm text-zinc-600">Подтвердите только точное совпадение по IDNO. Название и контакты сами по себе не разрешают связь.</p>
+        <p className="mt-1 text-sm text-zinc-600">Для активации кабинета контрагент должен существовать в 1С. Допускается только точное совпадение по IDNO; название и контакты не подтверждают компанию.</p>
       </div>
-      {blockedByDuplicate && <p className="border-l-4 border-red-600 bg-red-50 p-3 text-sm text-red-950">В справочнике найдено несколько компаний с этим IDNO. Подключение заблокировано до проверки администратора.</p>}
-      {detail.candidates.length === 0 ? (
-        <p className="border-l-4 border-amber-500 bg-amber-50 p-3 text-sm text-amber-950">Компания в актуальном справочнике 1С не найдена. Финальное подключение недоступно.</p>
-      ) : (
-        <fieldset className="space-y-3" disabled={blockedByDuplicate}>
+
+      <dl className="grid gap-3 border-y border-zinc-200 py-4 text-sm sm:grid-cols-2">
+        <ReviewValue label="Компания" value={detail.revision.companyName} />
+        <ReviewValue label="IDNO" value={detail.revision.fiscalCode || "Не указан"} />
+        <ReviewValue label="Последняя успешная синхронизация" value={verification.lastSuccessfulDirectorySyncAt ? formatDate(verification.lastSuccessfulDirectorySyncAt) : "Нет успешной синхронизации"} />
+        <ReviewValue label="Актуальность справочника" value={directoryFreshnessLabel(verification.directoryFreshness)} />
+        <ReviewValue label="Точных кандидатов по IDNO" value={String(verification.exactCandidateCount)} />
+        <ReviewValue label="Кто должен действовать" value={verification.responsibleParty} />
+      </dl>
+
+      <div role={verification.blocked ? "alert" : "status"} className={`border-l-4 p-4 text-sm ${verification.blocked ? "border-amber-500 bg-amber-50 text-amber-950" : "border-emerald-600 bg-emerald-50 text-emerald-950"}`}>
+        <p className="font-semibold">{verification.reason}</p>
+        <p className="mt-1">Следующее действие: {verification.nextAction}</p>
+        {waiting && verification.waitingSince ? <p className="mt-2">Ожидание с {formatDate(verification.waitingSince)}. Черновик подключения сохранён.</p> : null}
+        {verification.waitingInternalNote ? <p className="mt-2 border-t border-amber-200 pt-2">Внутренняя заметка: {verification.waitingInternalNote}</p> : null}
+      </div>
+
+      {exactCandidates.length > 0 ? (
+        <form action={action} className="space-y-5">
+          <DraftFields detail={detail} draft={draft} />
+          <fieldset className="space-y-3" disabled={blockedByDuplicate || verification.outcome === "counterparty_inactive"}>
           <legend className="sr-only">Контрагент из 1С</legend>
-          {detail.candidates.map((candidate) => {
+          {exactCandidates.map((candidate) => {
             const blocked = !candidate.active;
             return (
               <label key={candidate.id} className="flex min-h-11 cursor-pointer gap-3 border-b border-zinc-200 py-3">
@@ -202,10 +241,28 @@ function CompanyStep({ detail, action, draft }: { detail: OnboardingWizardDetail
               </label>
             );
           })}
-        </fieldset>
-      )}
-      <div className="flex justify-end"><SubmitButton label="Подтвердить и продолжить" pendingLabel="Сохранение..." icon="next" disabled={blockedByDuplicate || detail.candidates.length === 0} /></div>
-    </form>
+          </fieldset>
+          <div className="flex justify-end"><SubmitButton label="Подтвердить и продолжить" pendingLabel="Сохранение..." icon="next" disabled={verification.blocked} /></div>
+        </form>
+      ) : null}
+
+      {verification.blocked ? (
+        <div className="space-y-4 border-t border-zinc-200 pt-5">
+          <form action={refreshAction}>
+            <input type="hidden" name="requestId" value={detail.request.id} />
+            <SubmitButton label="Обновить справочник 1С" pendingLabel="Обновление справочника..." />
+          </form>
+          {!waiting && verification.outcome === "no_match" ? (
+            <form action={waitingAction} className="space-y-4 rounded-md border border-zinc-200 p-4">
+              <input type="hidden" name="requestId" value={detail.request.id} />
+              <label className="block text-sm font-medium">Ответственный за создание контрагента<select name="assigneeUserId" defaultValue={draft.assignedManagerId ?? ""} className="mt-2 min-h-11 w-full rounded-md border border-zinc-300 bg-white px-3"><option value="">Не назначать</option>{detail.managers.map((manager) => <option key={manager.id} value={manager.id}>{manager.name}</option>)}</select></label>
+              <label className="block text-sm font-medium">Внутренняя заметка <span className="font-normal text-zinc-500">(необязательно)</span><textarea name="internalNote" maxLength={1000} rows={3} className="mt-2 w-full rounded-md border border-zinc-300 px-3 py-2" /></label>
+              <SubmitButton label="Отметить: контрагент отсутствует в 1С" pendingLabel="Сохранение..." />
+            </form>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -273,4 +330,13 @@ function ReviewValue({ label, value }: { label: string; value: string }) {
 
 function formatDate(value: string): string {
   return new Intl.DateTimeFormat("ru-RU", { timeZone: "Europe/Chisinau", dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
+}
+
+function directoryFreshnessLabel(value: OnboardingDetail["companyVerification"]["directoryFreshness"]): string {
+  return {
+    fresh: "Актуален",
+    stale: "Требуется обновление",
+    failed: "Последнее обновление завершилось ошибкой",
+    unavailable: "Нет данных",
+  }[value];
 }

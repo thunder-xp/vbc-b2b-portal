@@ -151,7 +151,7 @@ describe("onboarding approval draft and atomic v3 migration", () => {
   });
 
   it("renders four steps, safe business labels, confirmation, and mobile-safe controls", () => {
-    for (const label of ["Компания", "Условия", "Пользователь", "Проверка"]) {
+    for (const label of ["Компания", "Коммерческие условия", "Доступ пользователя", "Финальная проверка"]) {
       expect(wizard).toContain(`label: "${label}"`);
     }
     expect(wizard).toContain("Я проверил компанию и выбранные условия доступа.");

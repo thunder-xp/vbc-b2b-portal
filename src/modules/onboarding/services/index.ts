@@ -1,4 +1,8 @@
-export { CounterpartyDirectorySyncService, countSnapshot } from "./counterparty-directory-sync.service";
+export {
+  CounterpartyDirectorySyncInProgressError,
+  CounterpartyDirectorySyncService,
+  countSnapshot,
+} from "./counterparty-directory-sync.service";
 export { OneCCounterpartyDirectorySource } from "./one-c-counterparty-directory.source";
 export { OnboardingApplicationService } from "./onboarding-application.service";
 export {

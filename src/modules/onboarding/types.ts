@@ -12,6 +12,19 @@ export const ONBOARDING_STATUSES = [
 
 export type OnboardingStatus = (typeof ONBOARDING_STATUSES)[number];
 
+export const ONBOARDING_COMPANY_VERIFICATION_OUTCOMES = [
+  "exact_match_found",
+  "no_match",
+  "multiple_matches",
+  "directory_stale",
+  "directory_sync_failed",
+  "counterparty_inactive",
+  "commercial_mapping_incomplete",
+] as const;
+
+export type OnboardingCompanyVerificationOutcome =
+  (typeof ONBOARDING_COMPANY_VERIFICATION_OUTCOMES)[number];
+
 export const CLARIFICATION_REASON_CODES = [
   "company_data_incomplete",
   "fiscal_code_needs_confirmation",
@@ -292,6 +305,34 @@ export type OnboardingDetail = {
     managerWorkload: number;
     isPlatformAdmin: boolean;
   };
+  companyVerification: {
+    outcome: OnboardingCompanyVerificationOutcome;
+    exactCandidateCount: number;
+    exactCandidateIds: string[];
+    lastSuccessfulDirectorySyncAt: string | null;
+    directoryFreshness: "fresh" | "stale" | "failed" | "unavailable";
+    latestSyncStatus: string | null;
+    waitingSince: string | null;
+    waitingInternalNote: string | null;
+    blocked: boolean;
+    reason: string;
+    responsibleParty: string;
+    nextAction: string;
+  };
+};
+
+export type OnboardingCompanyVerificationContext = {
+  latestStatus: string | null;
+  latestStartedAt: string | null;
+  latestFinishedAt: string | null;
+  latestSafeErrorCode: string | null;
+  lastSuccessfulAt: string | null;
+  waitingSince: string | null;
+  waitingInternalNote: string | null;
+};
+
+export type OnboardingDetailRecord = Omit<OnboardingDetail, "companyVerification"> & {
+  companyVerificationContext: OnboardingCompanyVerificationContext;
 };
 
 export type PartnerOnboardingStatusCenter = {

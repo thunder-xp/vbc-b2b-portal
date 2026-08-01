@@ -13,6 +13,13 @@ import { OneCCounterpartyDirectorySource } from "./one-c-counterparty-directory.
 const BATCH_SIZE = 500;
 const STALE_LOCK_HOURS = 2;
 
+export class CounterpartyDirectorySyncInProgressError extends Error {
+  constructor(readonly syncId: string | null) {
+    super("Counterparty directory synchronization is already running.");
+    this.name = "CounterpartyDirectorySyncInProgressError";
+  }
+}
+
 export class CounterpartyDirectorySyncService {
   constructor(private readonly source: OneCCounterpartyDirectorySource) {}
 
@@ -50,7 +57,16 @@ export class CounterpartyDirectorySyncService {
         lock_acquired_at: startedAt,
       });
     if (lockError?.code === "23505") {
-      throw new Error("Counterparty directory sync is already running.");
+      const { data: running } = await client
+        .from("one_c_counterparty_directory_syncs")
+        .select("sync_id")
+        .eq("status", "running")
+        .order("started_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      throw new CounterpartyDirectorySyncInProgressError(
+        typeof running?.sync_id === "string" ? running.sync_id : null,
+      );
     }
     if (lockError) {
       throw new Error(
@@ -79,6 +95,7 @@ export class CounterpartyDirectorySyncService {
       );
       if (error) throw persistenceError("publication", error);
       const publication = readPublicationCounts(data);
+      const resumedApplications = await resumeWaitingApplications(client, syncId);
       const finishedAt = new Date().toISOString();
       const result = {
         ...counts,
@@ -94,6 +111,7 @@ export class CounterpartyDirectorySyncService {
         published: result.published,
         portalLinked: result.portalLinked,
         failedRecords: result.failedRecords,
+        resumedApplications,
       });
       return result;
     } catch (error) {
@@ -203,6 +221,25 @@ export class CounterpartyDirectorySyncService {
       .eq("sync_id", syncId);
     if (error) throw persistenceError("sync_state_update", error);
   }
+}
+
+async function resumeWaitingApplications(
+  client: ReturnType<typeof createAdminClient>,
+  syncId: string,
+): Promise<number> {
+  const { data, error } = await client.rpc(
+    "resume_waiting_onboarding_requests_after_directory_sync",
+    { p_sync_id: syncId },
+  );
+  if (error) {
+    console.error({
+      event: "onboarding_waiting_resume_failed",
+      syncId,
+      databaseErrorCode: error.code || "UNKNOWN_DATABASE_ERROR",
+    });
+    return 0;
+  }
+  return typeof data === "number" && Number.isInteger(data) && data >= 0 ? data : 0;
 }
 
 export function countSnapshot(

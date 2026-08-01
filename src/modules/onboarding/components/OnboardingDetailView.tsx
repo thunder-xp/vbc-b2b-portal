@@ -113,8 +113,10 @@ export function OnboardingDetailView({
             <OnboardingApprovalWizard
               detail={{
                 request: { id: detail.request.id, status: detail.request.status },
+                revision: detail.revision,
                 draft: detail.draft,
                 candidates: detail.candidates,
+                companyVerification: detail.companyVerification,
                 managers: detail.managers,
                 duplicates: detail.duplicates,
                 directoryFiscalMatchCount: detail.directoryFiscalMatchCount,
@@ -334,6 +336,12 @@ function eventLabel(event: string): string {
     review_started: "Проверка начата",
     match_suggested: "Найден кандидат 1С",
     match_confirmed: "Контрагент 1С подтверждён",
+    directory_refresh_requested: "Запрошено обновление справочника 1С",
+    directory_refresh_succeeded: "Справочник 1С обновлён",
+    directory_refresh_failed: "Обновление справочника 1С не выполнено",
+    no_1c_counterparty_declared: "Зафиксировано отсутствие контрагента в 1С",
+    application_moved_to_1c_waiting: "Заявка переведена в ожидание контрагента 1С",
+    counterparty_candidate_found: "В 1С найден точный кандидат по IDNO",
     awaiting_1c_company: "Ожидается создание контрагента в 1С",
     ready_for_approval: "Заявка готова к подключению",
     status_changed: "Статус изменён",

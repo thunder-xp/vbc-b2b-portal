@@ -6,7 +6,8 @@ import { createClient } from "@/src/lib/supabase/server";
 import { RepositoryUnexpectedError } from "@/src/modules/access-control/repositories";
 
 import type {
-  OnboardingDetail,
+  OnboardingCompanyVerificationContext,
+  OnboardingDetailRecord,
   OnboardingApprovalResult,
   OnboardingHealth,
   OnboardingQueue,
@@ -21,6 +22,8 @@ import type {
   PartnerRevisionInput,
   RejectionInput,
   SaveOnboardingApprovalDraftInput,
+  DirectoryRefreshEventInput,
+  MarkWaitingForOneCInput,
 } from "./onboarding.repository";
 
 const queueSchema = z.object({
@@ -179,6 +182,16 @@ const detailSchema = z.object({
   }),
 });
 
+const companyVerificationContextSchema = z.object({
+  latestStatus: z.string().nullable(),
+  latestStartedAt: z.string().nullable(),
+  latestFinishedAt: z.string().nullable(),
+  latestSafeErrorCode: z.string().nullable(),
+  lastSuccessfulAt: z.string().nullable(),
+  waitingSince: z.string().nullable(),
+  waitingInternalNote: z.string().nullable(),
+});
+
 const partnerStatusCenterSchema = z.object({
   status: z.string(),
   companyName: z.string(),
@@ -263,13 +276,28 @@ export class SupabaseOnboardingRepository implements OnboardingRepository {
     return queueSchema.parse(data) as OnboardingQueue;
   }
 
-  async getDetail(requestId: string): Promise<OnboardingDetail | null> {
+  async getDetail(requestId: string): Promise<OnboardingDetailRecord | null> {
     const client = await createClient();
-    const { data, error } = await client.rpc("get_onboarding_request_detail_v3", {
-      p_request_id: requestId,
-    });
-    if (error) throw repositoryError("get_onboarding_request_detail_v3", error);
-    return data === null ? null : detailSchema.parse(data) as OnboardingDetail;
+    const [detailResult, contextResult] = await Promise.all([
+      client.rpc("get_onboarding_request_detail_v3", { p_request_id: requestId }),
+      client.rpc("get_onboarding_company_verification_context", { p_request_id: requestId }),
+    ]);
+    if (detailResult.error) {
+      throw repositoryError("get_onboarding_request_detail_v3", detailResult.error);
+    }
+    if (contextResult.error) {
+      throw repositoryError(
+        "get_onboarding_company_verification_context",
+        contextResult.error,
+      );
+    }
+    if (detailResult.data === null || contextResult.data === null) return null;
+    return {
+      ...detailSchema.parse(detailResult.data),
+      companyVerificationContext: companyVerificationContextSchema.parse(
+        contextResult.data,
+      ) as OnboardingCompanyVerificationContext,
+    } as OnboardingDetailRecord;
   }
 
   async getHealth(): Promise<OnboardingHealth> {
@@ -443,6 +471,24 @@ export class SupabaseOnboardingRepository implements OnboardingRepository {
     return data === null
       ? null
       : partnerStatusCenterSchema.parse(data) as PartnerOnboardingStatusCenter;
+  }
+
+  async recordDirectoryRefreshEvent(input: DirectoryRefreshEventInput): Promise<void> {
+    await this.call("record_onboarding_directory_refresh_event", {
+      p_request_id: input.requestId,
+      p_event_type: input.eventType,
+      p_correlation_id: input.correlationId,
+      p_safe_error_code: input.safeErrorCode ?? null,
+    });
+  }
+
+  async markWaitingForOneCCounterparty(input: MarkWaitingForOneCInput): Promise<void> {
+    await this.call("mark_onboarding_waiting_for_1c_counterparty", {
+      p_request_id: input.requestId,
+      p_assignee_user_id: input.assigneeUserId,
+      p_internal_note: input.internalNote,
+      p_correlation_id: input.correlationId,
+    });
   }
 
   private async call(operation: string, input: Record<string, unknown>): Promise<unknown> {

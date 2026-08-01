@@ -1,5 +1,5 @@
 import type {
-  OnboardingDetail,
+  OnboardingDetailRecord,
   OnboardingApprovalResult,
   OnboardingHealth,
   OnboardingQueue,
@@ -25,7 +25,7 @@ export type OnboardingQueueInput = {
 
 export interface OnboardingRepository {
   listQueue(input: OnboardingQueueInput): Promise<OnboardingQueue>;
-  getDetail(requestId: string): Promise<OnboardingDetail | null>;
+  getDetail(requestId: string): Promise<OnboardingDetailRecord | null>;
   getHealth(): Promise<OnboardingHealth>;
   assign(requestId: string, assigneeUserId: string): Promise<void>;
   unassign(requestId: string): Promise<void>;
@@ -54,7 +54,26 @@ export interface OnboardingRepository {
   reopen(requestId: string, assigneeUserId: string, reason: string): Promise<void>;
   submitPartnerRevision(input: PartnerRevisionInput): Promise<number>;
   getOwnStatusCenter(): Promise<PartnerOnboardingStatusCenter | null>;
+  recordDirectoryRefreshEvent(input: DirectoryRefreshEventInput): Promise<void>;
+  markWaitingForOneCCounterparty(input: MarkWaitingForOneCInput): Promise<void>;
 }
+
+export type DirectoryRefreshEventInput = {
+  requestId: string;
+  eventType:
+    | "directory_refresh_requested"
+    | "directory_refresh_succeeded"
+    | "directory_refresh_failed";
+  correlationId: string;
+  safeErrorCode?: string | null;
+};
+
+export type MarkWaitingForOneCInput = {
+  requestId: string;
+  assigneeUserId: string | null;
+  internalNote: string | null;
+  correlationId: string;
+};
 
 export type ClarificationInput = {
   requestId: string;

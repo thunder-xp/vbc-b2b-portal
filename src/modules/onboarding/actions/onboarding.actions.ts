@@ -1,5 +1,7 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
+
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -33,6 +35,7 @@ import {
 } from "../types";
 import { SupabaseOnboardingRepository, type OnboardingQueueInput } from "../repositories";
 import {
+  CounterpartyDirectorySyncInProgressError,
   CounterpartyDirectorySyncService,
   OnboardingApplicationError,
   OnboardingApplicationService,
@@ -69,6 +72,11 @@ const partnerRevisionSchema = z.object({
 
 export type OnboardingWizardActionState = ActionResult<null>;
 export type OnboardingWorkflowActionState = ActionResult<null>;
+export type OnboardingDirectoryRefreshActionState = ActionResult<{
+  correlationId: string;
+  deduplicated: boolean;
+  published: number | null;
+}>;
 
 export async function listOnboardingQueueAction(
   input: OnboardingQueueInput,
@@ -320,6 +328,95 @@ export async function synchronizeCounterpartyDirectoryFormAction(): Promise<void
   revalidatePath("/admin/onboarding");
 }
 
+export async function refreshOnboardingDirectoryAction(
+  _previousState: OnboardingDirectoryRefreshActionState,
+  formData: FormData,
+): Promise<OnboardingDirectoryRefreshActionState> {
+  const correlationId = randomUUID();
+  let requestId: string | null = null;
+  const repository = new SupabaseOnboardingRepository();
+
+  try {
+    await requireAdminPermission("admin.integrations.manage");
+    requestId = uuidSchema.parse(formData.get("requestId"));
+    await repository.recordDirectoryRefreshEvent({
+      requestId,
+      eventType: "directory_refresh_requested",
+      correlationId,
+    });
+    const result = await new CounterpartyDirectorySyncService(
+      new OneCCounterpartyDirectorySource(getOneCEnv()),
+    ).synchronize();
+    await repository.recordDirectoryRefreshEvent({
+      requestId,
+      eventType: "directory_refresh_succeeded",
+      correlationId,
+    });
+    revalidateOnboarding(requestId);
+    return success("Справочник 1С обновлён. Кандидаты проверены повторно.", {
+      correlationId,
+      deduplicated: false,
+      published: result.published,
+    });
+  } catch (error) {
+    if (error instanceof CounterpartyDirectorySyncInProgressError) {
+      if (requestId) revalidateOnboarding(requestId);
+      return success("Обновление справочника 1С уже выполняется. Повторный запуск не создан.", {
+        correlationId,
+        deduplicated: true,
+        published: null,
+      });
+    }
+    if (requestId) {
+      try {
+        await repository.recordDirectoryRefreshEvent({
+          requestId,
+          eventType: "directory_refresh_failed",
+          correlationId,
+          safeErrorCode: safeActionErrorCode(error),
+        });
+      } catch (auditError) {
+        console.error({
+          event: "onboarding_directory_refresh_audit_failed",
+          correlationId,
+          errorType: auditError instanceof Error ? auditError.name : typeof auditError,
+        });
+      }
+    }
+    console.error({
+      event: "onboarding_directory_refresh_failed",
+      correlationId,
+      requestId,
+      errorType: error instanceof Error ? error.name : typeof error,
+    });
+    return {
+      success: false,
+      errorCode: "ONBOARDING_DIRECTORY_REFRESH_FAILED",
+      message: `Не удалось обновить справочник 1С. Повторите позже. Код обращения: ${correlationId}`,
+      data: null,
+    };
+  }
+}
+
+export async function markOnboardingCounterpartyAbsentAction(
+  _previousState: OnboardingWorkflowActionState,
+  formData: FormData,
+): Promise<OnboardingWorkflowActionState> {
+  return mutateWorkflow(async () => {
+    await requireAdminPermission("onboarding.requests.review");
+    const requestId = uuidSchema.parse(formData.get("requestId"));
+    const assignee = String(formData.get("assigneeUserId") ?? "").trim();
+    await new SupabaseOnboardingRepository().markWaitingForOneCCounterparty({
+      requestId,
+      assigneeUserId: assignee ? uuidSchema.parse(assignee) : null,
+      internalNote: optionalText(formData, "internalNote", 1000),
+      correlationId: randomUUID(),
+    });
+    revalidateOnboarding(requestId);
+    return "Заявка сохранена в ожидании создания контрагента в 1С.";
+  });
+}
+
 export async function saveOnboardingCompanyStepAction(
   _previousState: OnboardingWizardActionState,
   formData: FormData,
@@ -547,6 +644,11 @@ function extractSafeReason(error: unknown): string {
     if (known) return known;
   }
   return "unknown_retryable";
+}
+
+function safeActionErrorCode(error: unknown): string {
+  const value = error instanceof Error ? error.name : typeof error;
+  return value.replace(/[^A-Za-z0-9_]/g, "_").slice(0, 80) || "UNKNOWN";
 }
 
 class WizardMutationError extends Error {

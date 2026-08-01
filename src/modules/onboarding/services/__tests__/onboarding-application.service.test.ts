@@ -3,21 +3,25 @@ import { describe, expect, it, vi } from "vitest";
 import { RepositoryUnexpectedError } from "@/src/modules/access-control/repositories";
 
 import type { OnboardingRepository } from "../../repositories";
-import type { OnboardingDetail } from "../../types";
+import type { OnboardingDetailRecord } from "../../types";
 import {
   ONBOARDING_APPLICATION_ERROR_CODES,
   OnboardingApplicationError,
   OnboardingApplicationService,
 } from "../index";
+import { evaluateCompanyVerification } from "../onboarding-application.service";
 
 const APPLICATION_ID = "689b8aa3-4b47-4eda-b91e-b77f182667d0";
 
 describe("OnboardingApplicationService", () => {
   it("loads a production-shaped access request by application id", async () => {
-    const detail = { request: { id: APPLICATION_ID, status: "received" } } as OnboardingDetail;
+    const detail = detailRecord();
     const getDetail = vi.fn().mockResolvedValue(detail);
 
-    await expect(service(getDetail).getDetail(APPLICATION_ID)).resolves.toBe(detail);
+    await expect(service(getDetail).getDetail(APPLICATION_ID)).resolves.toMatchObject({
+      request: detail.request,
+      companyVerification: { outcome: "exact_match_found", blocked: false },
+    });
     expect(getDetail).toHaveBeenCalledWith(APPLICATION_ID);
   });
 
@@ -45,10 +49,22 @@ describe("OnboardingApplicationService", () => {
 
   it("keeps terminal applications readable", async () => {
     for (const status of ["approved", "rejected"] as const) {
-      const detail = { request: { id: APPLICATION_ID, status } } as OnboardingDetail;
+      const detail = detailRecord(status);
       await expect(service(vi.fn().mockResolvedValue(detail)).getDetail(APPLICATION_ID))
-        .resolves.toBe(detail);
+        .resolves.toMatchObject({ request: { status } });
     }
+  });
+
+  it.each([
+    ["no_match", [], {}],
+    ["multiple_matches", [candidate(), candidate("00000000-0000-0000-0000-000000000003")], {}],
+    ["counterparty_inactive", [candidate(undefined, { active: false })], {}],
+    ["commercial_mapping_incomplete", [candidate(undefined, { contractCount: 0 })], {}],
+    ["directory_stale", [candidate()], { lastSuccessfulAt: "2026-07-28T00:00:00.000Z" }],
+    ["directory_sync_failed", [candidate()], { latestStatus: "failed", latestStartedAt: "2026-08-01T11:00:00.000Z" }],
+  ] as const)("returns the %s company-verification outcome", (outcome, candidates, context) => {
+    const detail = detailRecord("under_review", [...candidates], context);
+    expect(evaluateCompanyVerification(detail, Date.parse("2026-08-01T12:00:00.000Z"))).toMatchObject({ outcome });
   });
 
   it("exposes the governed onboarding error vocabulary", () => {
@@ -67,4 +83,36 @@ describe("OnboardingApplicationService", () => {
 
 function service(getDetail: ReturnType<typeof vi.fn>): OnboardingApplicationService {
   return new OnboardingApplicationService({ getDetail } as unknown as OnboardingRepository);
+}
+
+function detailRecord(
+  status = "received",
+  candidates: ReturnType<typeof candidate>[] = [candidate()],
+  context: Partial<OnboardingDetailRecord["companyVerificationContext"]> = {},
+): OnboardingDetailRecord {
+  return {
+    request: { id: APPLICATION_ID, status },
+    candidates,
+    companyVerificationContext: {
+      latestStatus: "succeeded",
+      latestStartedAt: "2026-08-01T10:00:00.000Z",
+      latestFinishedAt: "2026-08-01T10:01:00.000Z",
+      latestSafeErrorCode: null,
+      lastSuccessfulAt: "2026-08-01T10:01:00.000Z",
+      waitingSince: null,
+      waitingInternalNote: null,
+      ...context,
+    },
+  } as OnboardingDetailRecord;
+}
+
+function candidate(id = "00000000-0000-0000-0000-000000000002", overrides = {}) {
+  return {
+    id,
+    matchReason: "exact_fiscal_code",
+    active: true,
+    contractCount: 1,
+    priceProfileCount: 1,
+    ...overrides,
+  } as OnboardingDetailRecord["candidates"][number];
 }

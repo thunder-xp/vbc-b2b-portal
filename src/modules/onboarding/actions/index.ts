@@ -9,7 +9,9 @@ export {
   getOwnOnboardingStatusAction,
   listOnboardingQueueAction,
   moveOnboardingWizardStepAction,
+  markOnboardingCounterpartyAbsentAction,
   openOnboardingRequestFormAction,
+  refreshOnboardingDirectoryAction,
   synchronizeCounterpartyDirectoryFormAction,
   resetOnboardingDraftAction,
   rejectOnboardingRequestAction,
@@ -24,5 +26,6 @@ export {
 } from "./onboarding.actions";
 export type {
   OnboardingWizardActionState,
+  OnboardingDirectoryRefreshActionState,
   OnboardingWorkflowActionState,
 } from "./onboarding.actions";
