@@ -51,6 +51,10 @@
     {
       "path": "/api/cron/commercial-campaigns",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/document-metadata-sync",
+      "schedule": "25 * * * *"
     }
   ]
 }
