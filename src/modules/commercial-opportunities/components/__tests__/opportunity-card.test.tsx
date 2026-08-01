@@ -42,5 +42,31 @@ describe("OpportunityCard", () => {
     render(<OpportunityCard opportunity={{ ...base, product: null, template: { id: "template-1", name: "Monthly CCTV" }, type: "purchase_template_ready", reasonCode: "template_fully_ready", reasonMetadata: { itemCount: 8 }, sourceType: "purchase_template", sourceId: "template-1" }} />);
     expect(screen.getByText("Все 8 позиций шаблона доступны.")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Проверить шаблон/ })).toHaveAttribute("href", "/cabinet/purchase-templates/template-1");
+    expect(screen.queryByRole("img")).not.toBeInTheDocument();
+  });
+
+  it("renders the canonical medium thumbnail from the product reference", () => {
+    render(<OpportunityCard opportunity={{
+      ...base,
+      product: {
+        ...base.product!,
+        reference: {
+          productId: "product-1",
+          slug: "camera",
+          sku: "400123",
+          name: "Camera",
+          thumbnail: "/products/camera.jpg",
+          thumbnailFit: "contain",
+          publicationState: "published",
+        },
+      },
+    }} />);
+    expect(screen.getByRole("img", { name: "Camera, 400123" })).toHaveAttribute("src", expect.stringContaining("camera.jpg"));
+    expect(screen.getByRole("img", { name: "Camera, 400123" })).toHaveAttribute("data-product-thumbnail", "md");
+  });
+
+  it("uses the controlled placeholder for an unmapped product image", () => {
+    render(<OpportunityCard opportunity={base} />);
+    expect(screen.getByRole("img", { name: "Camera, 400123" })).toHaveAttribute("src", expect.stringContaining("/product-placeholder.svg"));
   });
 });

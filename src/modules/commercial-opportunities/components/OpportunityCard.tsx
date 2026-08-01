@@ -63,7 +63,7 @@ export function OpportunityCard({ opportunity }: { opportunity: CommercialOpport
   return (
     <article className="grid min-w-0 gap-4 border border-zinc-200 bg-white p-4 sm:grid-cols-[7rem_minmax(0,1fr)]">
       <div className="relative flex aspect-[4/3] items-center justify-center overflow-hidden rounded-md bg-zinc-100">
-        {product ? <CatalogCardImage alt={`${product.name}, ${product.sku}`} sizes="112px" src={product.reference?.thumbnail ?? product.imageUrl} /> : <ShoppingCart aria-hidden="true" className="size-8 text-zinc-400" />}
+        {product ? <CatalogCardImage alt={`${product.name}, ${product.sku}`} sizes="112px" src={product.reference?.thumbnail ?? product.imageUrl} variant="md" /> : <ShoppingCart aria-hidden="true" className="size-8 text-zinc-400" />}
       </div>
       <div className="min-w-0">
         <div className="flex min-w-0 items-start justify-between gap-3">

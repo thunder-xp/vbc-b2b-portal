@@ -6,11 +6,13 @@ export function CatalogCardImage({
   priority = false,
   sizes = "(max-width: 639px) calc(100vw - 2rem), (max-width: 1279px) 40vw, 260px",
   src,
+  variant = "lg",
 }: {
   alt: string;
   priority?: boolean;
   sizes?: string;
   src: string | null;
+  variant?: "xs" | "sm" | "md" | "lg";
 }) {
   const fit = resolveProductImageFit(src);
 
@@ -22,7 +24,7 @@ export function CatalogCardImage({
       priority={priority}
       sizes={sizes}
       src={src}
-      variant="lg"
+      variant={variant}
     />
   );
 }

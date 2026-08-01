@@ -666,6 +666,7 @@ export class DefaultCatalogService implements CatalogService, ProductReferenceSe
     userId: string,
     productIds: string[],
   ): Promise<ProductReferenceDto[]> {
+    const startedAt = performance.now();
     await this.ensureCatalogAccess(userId);
     const normalizedIds = [...new Set(productIds.map((id) => id.trim()).filter(Boolean))].slice(0, 200);
     if (!normalizedIds.length) return [];
@@ -699,6 +700,7 @@ export class DefaultCatalogService implements CatalogService, ProductReferenceSe
       resolved: references.length,
       mappedImages: references.filter((item) => item.thumbnail).length,
       fallbackImages: references.filter((item) => !item.thumbnail).length,
+      durationMs: Math.round((performance.now() - startedAt) * 100) / 100,
     });
     return references;
   }

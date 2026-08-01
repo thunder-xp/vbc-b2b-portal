@@ -182,7 +182,71 @@ describe("DefaultWorkspaceHomeService", () => {
     expect(productReferences.getProductReferencesByIds).toHaveBeenCalledOnce();
     expect(workspace.reorderProducts[0]?.product.imageUrl).toBe("/products/product-1.jpg");
   });
+
+  it("enriches all dashboard opportunities in the existing product-reference batch", async () => {
+    const opportunityRepository = {
+      list: vi.fn().mockResolvedValue({
+        totalCount: 2,
+        items: [opportunity("product-1"), opportunity("product-2")],
+      }),
+      dismiss: vi.fn(),
+    };
+    const productReferences = {
+      getProductReferencesByIds: vi.fn().mockResolvedValue([
+        productReference("product-1", "/products/camera.jpg"),
+        productReference("product-2", "/products/recorder.jpg"),
+      ]),
+    };
+    const workspace = await new DefaultWorkspaceHomeService(
+      fakeContextService(),
+      fakeFreshness(),
+      fakeDashboardRepository(),
+      fakePricingInventoryService(),
+      undefined,
+      opportunityRepository as never,
+      undefined,
+      undefined,
+      productReferences,
+    ).getWorkspaceHome("partner-1", "login-1");
+
+    expect(productReferences.getProductReferencesByIds).toHaveBeenCalledOnce();
+    expect(productReferences.getProductReferencesByIds).toHaveBeenCalledWith("partner-1", ["product-1", "product-2"]);
+    expect(workspace.opportunities.map((item) => item.product?.reference?.thumbnail)).toEqual([
+      "/products/camera.jpg",
+      "/products/recorder.jpg",
+    ]);
+  });
 });
+
+function opportunity(productId: string) {
+  return {
+    id: `opportunity-${productId}`,
+    type: "repeat_purchase_available" as const,
+    priority: 1,
+    reasonCode: "repeat_purchase",
+    reasonMetadata: {},
+    secondaryReasons: [],
+    fingerprint: productId,
+    firstDetectedAt: "2026-08-01T00:00:00Z",
+    lastConfirmedAt: "2026-08-01T00:00:00Z",
+    sourceType: "product",
+    sourceId: productId,
+    product: { id: productId, sku: productId, name: productId, slug: productId, imageUrl: null, categoryName: null, partnerPrice: null, retailPrice: null, availableQuantity: 1, expectedArrivalDate: null, expectedArrivalQuantity: null },
+    template: null,
+  };
+}
+
+function productReference(productId: string, thumbnail: string) {
+  return {
+    productId,
+    slug: productId,
+    sku: productId,
+    name: productId,
+    thumbnail,
+    thumbnailFit: "contain" as const,
+    publicationState: "published" as const,
+  };
+}
 
 function dashboardProduct(index: number) {
   return {

@@ -22,6 +22,7 @@ import type {
   PartnerWorkspaceContextService,
 } from "./workspace-context.service";
 import type { CommercialOpportunity, CommercialOpportunityRepository } from "../../commercial-opportunities";
+import { enrichOpportunityProductReferences } from "../../commercial-opportunities/services";
 import type { CommercialCampaignRepository } from "../../commercial-campaigns/repositories/commercial-campaign.repository";
 import type { PartnerCampaign } from "../../commercial-campaigns/types";
 import type { DocumentRepository } from "../../documents/repositories";
@@ -189,18 +190,31 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
       ...reorderCandidates,
       ...merchandisingCandidates,
     ]);
+    const opportunityProductIds = [...new Set(opportunityPage.items.flatMap((item) => item.product ? [item.product.id] : []))];
+    const referenceProductIds = [...new Set([
+      ...candidates.map((candidate) => candidate.id),
+      ...opportunityProductIds,
+    ])];
     const [commercialViews, references] = await Promise.all([
       candidates.length
         ? this.pricingInventoryService.getProductCommercialViews(userId, candidates.map((candidate) => candidate.id))
         : Promise.resolve([]),
-      candidates.length && this.productReferenceService
-        ? this.productReferenceService.getProductReferencesByIds(userId, candidates.map((candidate) => candidate.id))
+      referenceProductIds.length && this.productReferenceService
+        ? this.productReferenceService.getProductReferencesByIds(userId, referenceProductIds)
         : Promise.resolve([]),
     ]);
     const commercialByProduct = new Map(
       commercialViews.map((view) => [view.productId, view]),
     );
     const referenceByProduct = new Map(references.map((reference) => [reference.productId, reference]));
+    const opportunities = enrichOpportunityProductReferences(opportunityPage.items, references);
+    console.info({
+      event: "dashboard_opportunity_image_enrichment_completed",
+      productReferences: opportunityProductIds.length,
+      mappedImages: opportunities.filter((item) => item.product?.reference?.thumbnail).length,
+      fallbackImages: opportunities.filter((item) => item.product && !item.product.reference?.thumbnail).length,
+      templateOpportunities: opportunities.filter((item) => item.template && !item.product).length,
+    });
     const freshnessByDomain = new Map(
       freshness.map((item) => [item.domain, item.updatedAt]),
     );
@@ -294,7 +308,7 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
         product: toProduct(candidate, referenceByProduct.get(candidate.id)),
         commercialView: commercialByProduct.get(candidate.id),
       })),
-      opportunities: opportunityPage.items,
+      opportunities,
       campaigns: campaignPage.items,
       recentDocuments: documentPage.items,
       financeSummary: dashboard.financeSummary,

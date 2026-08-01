@@ -1,8 +1,9 @@
 import { InvalidStateError } from "../../access-control/services";
 import type { PartnerWorkspaceContextService } from "../../partner-cabinet/services";
 import type { ProductReferenceService } from "../../catalog/services";
+import type { ProductReferenceDto } from "../../catalog/types";
 import type { CommercialOpportunityRepository } from "../repositories";
-import type { CommercialOpportunityFilter, CommercialOpportunityPage } from "../types";
+import type { CommercialOpportunity, CommercialOpportunityFilter, CommercialOpportunityPage } from "../types";
 
 export class CommercialOpportunityService {
   constructor(
@@ -26,20 +27,7 @@ export class CommercialOpportunityService {
     const references = this.productReferences && productIds.length
       ? await this.productReferences.getProductReferencesByIds(userId, productIds)
       : [];
-    const byProduct = new Map(references.map((reference) => [reference.productId, reference]));
-    const items = result.items.map((item) => {
-      if (!item.product) return item;
-      const reference = byProduct.get(item.product.id);
-      return reference ? {
-        ...item,
-        product: {
-          ...item.product,
-          reference,
-          imageUrl: reference.thumbnail,
-          thumbnailFit: reference.thumbnailFit,
-        },
-      } : item;
-    });
+    const items = enrichOpportunityProductReferences(result.items, references);
     console.info({
       event: "opportunity_product_image_enrichment_completed",
       productReferences: productIds.length,
@@ -54,4 +42,24 @@ export class CommercialOpportunityService {
     if (context.accessState !== "active" || !context.companyId) throw new InvalidStateError("Partner workspace access is not active.");
     await this.repository.dismiss(opportunityId);
   }
+}
+
+export function enrichOpportunityProductReferences(
+  items: CommercialOpportunity[],
+  references: ProductReferenceDto[],
+): CommercialOpportunity[] {
+  const byProduct = new Map(references.map((reference) => [reference.productId, reference]));
+  return items.map((item) => {
+    if (!item.product) return item;
+    const reference = byProduct.get(item.product.id);
+    return reference ? {
+      ...item,
+      product: {
+        ...item.product,
+        reference,
+        imageUrl: reference.thumbnail,
+        thumbnailFit: reference.thumbnailFit,
+      },
+    } : item;
+  });
 }
