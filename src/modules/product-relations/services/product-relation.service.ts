@@ -1,7 +1,7 @@
 import type { ProductReferenceService } from "../../catalog/services";
 import type { PricingInventoryService } from "../../pricing-inventory/services";
 import type { ProductRelationRepository } from "../repositories/product-relation.repository";
-import type { ProductRelationCard, ProductRelationSections } from "../types";
+import type { ProductRelationCard, ProductRelationSections, ProductRelationSummary } from "../types";
 
 export class ProductRelationService {
   constructor(
@@ -51,6 +51,18 @@ export class ProductRelationService {
       analogs: cards.filter((value) => value.relationType === "analog").map((value) => value.card),
       related: cards.filter((value) => value.relationType === "related").map((value) => value.card),
       synchronizedAt: cards.map((value) => value.synchronizedAt).sort().at(-1) ?? null,
+    };
+  }
+}
+
+export class ProductRelationSummaryService {
+  constructor(private readonly repository: ProductRelationRepository) {}
+
+  async getSummary(sourceProductId: string): Promise<ProductRelationSummary> {
+    const links = await this.repository.listForProduct(sourceProductId, 1);
+    return {
+      hasAnalogs: links.some((link) => link.relationType === "analog"),
+      hasRelated: links.some((link) => link.relationType === "related"),
     };
   }
 }

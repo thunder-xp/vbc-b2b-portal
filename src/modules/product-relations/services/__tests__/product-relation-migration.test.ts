@@ -3,6 +3,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 const sql = fs.readFileSync(path.join(process.cwd(), "supabase/migrations/20260801190000_product_relations_foundation.sql"), "utf8");
+const analyticsSql = fs.readFileSync(path.join(process.cwd(), "supabase/migrations/20260801200000_product_relation_behavior_events.sql"), "utf8");
 
 describe("product relation migration", () => {
   it("creates a server-owned RLS-protected snapshot and staging model", () => {
@@ -34,5 +35,14 @@ describe("product relation migration", () => {
     for (const reason of ["unmapped_source", "unmapped_target", "inactive_target", "unpublished_target", "outside_scope_source", "outside_scope_target", "self_relation", "duplicate_row", "invalid_characteristic"]) {
       expect(sql).toContain(`'${reason}'`);
     }
+  });
+
+  it("allowlists relation analytics without replacing existing behavior events", () => {
+    for (const event of ["product_analog_section_viewed", "product_related_section_viewed", "product_analog_opened", "product_related_opened", "product_analog_added_to_cart", "product_related_added_to_cart", "product_relations_tab_viewed"]) {
+      expect(analyticsSql).toContain(`'${event}'`);
+    }
+    expect(analyticsSql).toContain("pg_get_constraintdef");
+    expect(analyticsSql).toContain("pg_get_functiondef");
+    expect(analyticsSql).not.toContain("drop table");
   });
 });

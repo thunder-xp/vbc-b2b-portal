@@ -60,7 +60,7 @@ describe("ProductDetail information architecture", () => {
     expect(screen.getByTestId("product-detail-image").compareDocumentPosition(screen.getByTestId("product-detail-content")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it.each(["description", "characteristics", "datasheet", "pricing"] as const)("uses a full-width content layout without duplicating the image for %s", (activeTab) => {
+  it.each(["description", "characteristics", "datasheet", "pricing", "relations"] as const)("uses a full-width content layout without duplicating the image for %s", (activeTab) => {
     render(<ProductDetail activeTab={activeTab} product={product} />);
     expect(screen.queryByTestId("product-detail-layout")).not.toBeInTheDocument();
     expect(screen.queryByText("Изображение товара product-1")).not.toBeInTheDocument();
@@ -71,6 +71,33 @@ describe("ProductDetail information architecture", () => {
     const { container } = render(<ProductDetail product={product} />);
     const text = container.textContent ?? "";
     expect(text.indexOf("IP Camera")).toBeLessThan(text.indexOf("Артикул: NV-100"));
+  });
+
+  it.each([
+    ["low_stock", "Товар заканчивается на складе. Доступны аналоги."],
+    ["out_of_stock", "Товар временно недоступен. Выберите подходящий аналог."],
+    ["expected", "Товар ожидается к поступлению. Для срочной закупки доступны аналоги."],
+  ] as const)("shows a compact analog deep link for %s", (status, message) => {
+    render(<ProductDetail commercialView={{ ...commercialView, stock: { ...commercialView.stock, status } }} hasAnalogs product={product} />);
+    expect(screen.getByText(message)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Посмотреть аналоги" })).toHaveAttribute("href", "?tab=relations");
+    expect(screen.getByTestId("product-relations-prompt")).toBeInTheDocument();
+  });
+
+  it("does not show the relation warning for healthy stock or without analogs", () => {
+    const { rerender } = render(<ProductDetail commercialView={commercialView} hasAnalogs product={product} />);
+    expect(screen.queryByRole("link", { name: "Посмотреть аналоги" })).not.toBeInTheDocument();
+    rerender(<ProductDetail commercialView={{ ...commercialView, stock: { ...commercialView.stock, status: "low_stock" } }} product={product} />);
+    expect(screen.queryByRole("link", { name: "Посмотреть аналоги" })).not.toBeInTheDocument();
+  });
+
+  it("renders relation content only in the active relations tab", () => {
+    const relations = <div>Relation card grid</div>;
+    const { rerender } = render(<ProductDetail product={product} relationsContent={relations} />);
+    expect(screen.queryByText("Relation card grid")).not.toBeInTheDocument();
+    rerender(<ProductDetail activeTab="relations" product={product} relationsContent={relations} />);
+    expect(screen.getByText("Relation card grid")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Аналоги и сопутствующие" })).toHaveAttribute("aria-current", "page");
   });
 
   it("shows only long-form copy in Description and has an honest empty state", () => {
@@ -126,15 +153,16 @@ describe("ProductDetail information architecture", () => {
     expect(screen.getByTestId("product-detail-content")).toContainElement(screen.getByText("Retail chart"));
   });
 
-  it("renders all five compact tab destinations in the required order", () => {
+  it("renders all six compact tab destinations in the required order", () => {
     render(<ProductDetail product={product} />);
     const tabs = screen.getByRole("navigation", { name: "Разделы товара" });
-    expect(tabs.textContent).toMatch(/^ОбзорОписаниеХарактеристикиDatasheetЦенообразование$/);
+    expect(tabs.textContent).toMatch(/^ОбзорОписаниеХарактеристикиDatasheetЦенообразованиеАналоги и сопутствующие$/);
     expect(screen.getByRole("link", { name: "Обзор" })).toHaveAttribute("href", "?tab=overview");
     expect(screen.getByRole("link", { name: "Описание" })).toHaveAttribute("href", "?tab=description");
     expect(screen.getByRole("link", { name: "Характеристики" })).toHaveAttribute("href", "?tab=characteristics");
     expect(screen.getByRole("link", { name: "Datasheet" })).toHaveAttribute("href", "?tab=datasheet");
     expect(screen.getByRole("link", { name: "Ценообразование" })).toHaveAttribute("href", "?tab=pricing");
+    expect(screen.getByRole("link", { name: "Аналоги и сопутствующие" })).toHaveAttribute("href", "?tab=relations");
   });
 });
 

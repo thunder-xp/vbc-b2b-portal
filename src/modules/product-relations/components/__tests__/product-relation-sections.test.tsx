@@ -11,14 +11,21 @@ vi.mock("../../../behavior-analytics/components", () => ({ BehaviorViewEvent: ()
 const capabilities = {} as never;
 
 describe("ProductRelationSectionsView", () => {
-  it("hides empty sections and renders one relation honestly", () => {
+  it("renders a calm empty state and one-section state honestly", () => {
     const { rerender } = render(<ProductRelationSectionsView capabilities={capabilities} sections={{ analogs: [], related: [], synchronizedAt: null }} sourceProductId="source" sourceSlug="source" />);
-    expect(screen.queryByRole("heading")).not.toBeInTheDocument();
+    expect(screen.getByText("Для этого товара пока не настроены аналоги и сопутствующие товары.")).toBeInTheDocument();
 
     rerender(<ProductRelationSectionsView capabilities={capabilities} sections={{ analogs: [card("one")], related: [], synchronizedAt: null }} sourceProductId="source" sourceSlug="source" />);
     expect(screen.getByRole("heading", { name: "Аналогичные товары" })).toBeInTheDocument();
     expect(screen.getByText("Product one")).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Сопутствующие товары" })).not.toBeInTheDocument();
+  });
+
+  it("renders analogs before related products", () => {
+    const { container } = render(<ProductRelationSectionsView capabilities={capabilities} sections={{ analogs: [card("analog")], related: [card("related")], synchronizedAt: null }} sourceProductId="source" sourceSlug="source" />);
+    const text = container.textContent ?? "";
+    expect(text.indexOf("Аналогичные товары")).toBeLessThan(text.indexOf("Сопутствующие товары"));
+    expect(text.indexOf("Product analog")).toBeLessThan(text.indexOf("Product related"));
   });
 
   it("promotes analogs only for canonical constrained stock states", () => {

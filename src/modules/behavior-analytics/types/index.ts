@@ -13,6 +13,7 @@ export const BEHAVIOR_EVENT_NAMES = [
   "product_related_opened",
   "product_analog_added_to_cart",
   "product_related_added_to_cart",
+  "product_relations_tab_viewed",
   "product_pricing_tab_viewed",
   "retail_price_history_range_changed",
   "retail_price_history_data_opened",

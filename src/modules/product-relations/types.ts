@@ -18,3 +18,8 @@ export type ProductRelationSections = {
   related: ProductRelationCard[];
   synchronizedAt: string | null;
 };
+
+export type ProductRelationSummary = {
+  hasAnalogs: boolean;
+  hasRelated: boolean;
+};

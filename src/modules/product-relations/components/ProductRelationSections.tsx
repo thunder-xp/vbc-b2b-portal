@@ -24,10 +24,16 @@ export function ProductRelationSectionsView({
   sourceStock,
   userId,
 }: Props) {
-  if (!sections.analogs.length && !sections.related.length) return null;
+  if (!sections.analogs.length && !sections.related.length) {
+    return (
+      <section aria-label="Аналоги и сопутствующие товары" className="rounded-md border border-zinc-200 bg-zinc-50 p-6 text-center" data-testid="product-relations-empty-state">
+        <p className="text-sm text-zinc-600">Для этого товара пока не настроены аналоги и сопутствующие товары.</p>
+      </section>
+    );
+  }
   const promotion = relationPromotionMessage(sourceStock?.status, sections.analogs.length);
   return (
-    <div className="space-y-8 border-t border-zinc-200 pt-8">
+    <div className="space-y-8" data-testid="product-relations-tab-content">
       {sections.analogs.length ? (
         <RelationSection
           cards={sections.analogs}
@@ -65,7 +71,7 @@ export function relationPromotionMessage(
 ): string | null {
   if (analogCount < 1) return null;
   switch (status) {
-    case "low_stock": return "Товар заканчивается на складе. Рассмотрите доступные аналоги.";
+    case "low_stock": return "Товар заканчивается на складе. Доступны аналоги.";
     case "out_of_stock": return "Товар временно недоступен. Выберите подходящий аналог.";
     case "expected": return "Товар ожидается к поступлению. Для срочной закупки доступны аналоги.";
     default: return null;

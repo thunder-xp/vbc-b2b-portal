@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { ProductRelationService } from "../product-relation.service";
+import { ProductRelationService, ProductRelationSummaryService } from "../product-relation.service";
 
 describe("ProductRelationService", () => {
   it("uses one bounded relation read and two batch enrichments", async () => {
@@ -56,6 +56,18 @@ describe("ProductRelationService", () => {
     expect(result).toEqual({ analogs: [], related: [], synchronizedAt: null });
     expect(references.getProductReferencesByIds).not.toHaveBeenCalled();
     expect(commercial.getProductCommercialViews).not.toHaveBeenCalled();
+  });
+
+  it("loads a bounded summary without product or commercial enrichment", async () => {
+    const repository = { listForProduct: vi.fn(async () => [
+      link("analog", "target-1", 0),
+      link("related", "target-2", 0),
+    ]) };
+
+    const result = await new ProductRelationSummaryService(repository).getSummary("source-1");
+
+    expect(repository.listForProduct).toHaveBeenCalledWith("source-1", 1);
+    expect(result).toEqual({ hasAnalogs: true, hasRelated: true });
   });
 });
 

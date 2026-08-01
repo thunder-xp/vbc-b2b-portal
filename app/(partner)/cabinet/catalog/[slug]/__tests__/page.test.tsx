@@ -7,6 +7,8 @@ const mocks = vi.hoisted(() => ({
   getCommercial: vi.fn(),
   getRetailHistory: vi.fn(),
   getWorkspace: vi.fn(),
+  getRelationSections: vi.fn(),
+  getRelationSummary: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({ notFound: vi.fn() }));
@@ -18,6 +20,11 @@ vi.mock("@/src/modules/catalog/actions/product-page.action", () => ({
 vi.mock("@/src/modules/pricing-inventory/actions", () => ({ getProductCommercialViewsAction: mocks.getCommercial, getRetailPriceHistoryAction: mocks.getRetailHistory }));
 vi.mock("@/src/modules/partner-cabinet/actions", () => ({ getPartnerWorkspaceContextAction: mocks.getWorkspace }));
 vi.mock("@/src/modules/purchasing-lists/actions", () => ({ listFavoriteProductIdsAction: vi.fn() }));
+vi.mock("@/src/modules/product-relations", () => ({
+  getProductRelationSectionsAction: mocks.getRelationSections,
+  getProductRelationSummaryAction: mocks.getRelationSummary,
+  ProductRelationSectionsView: ({ sections }: { sections: { analogs: unknown[]; related: unknown[] } }) => <div>Relations {sections.analogs.length}/{sections.related.length}</div>,
+}));
 vi.mock("@/src/modules/behavior-analytics/components", () => ({
   BehaviorViewEvent: ({ eventName }: { eventName: string }) => (
     <span data-event-name={eventName} data-testid="behavior-event" />
@@ -38,17 +45,32 @@ describe("product detail page data loading", () => {
     mocks.getCommercial.mockResolvedValue({ success: true, data: [commercialView] });
     mocks.getRetailHistory.mockResolvedValue({ success: true, data: retailHistory });
     mocks.getWorkspace.mockResolvedValue({ success: true, data: { companyId: "company-1", capabilities: { productCard: { canAddToOrder: true } } } });
+    mocks.getRelationSummary.mockResolvedValue({ success: true, data: { hasAnalogs: true, hasRelated: true } });
+    mocks.getRelationSections.mockResolvedValue({ success: true, data: { analogs: [{ id: "analog-1" }], related: [{ id: "related-1" }], synchronizedAt: null } });
   });
 
   it("loads current commercial data once for the initial Overview render", async () => {
     render(await ProductDetailPage({ params: Promise.resolve({ slug: "ip-camera" }), searchParams: Promise.resolve({}) }));
     expect(mocks.getCommercial).toHaveBeenCalledOnce();
     expect(mocks.getCommercial).toHaveBeenCalledWith(["product-1"]);
+    expect(mocks.getRelationSummary).toHaveBeenCalledWith("product-1");
+    expect(mocks.getRelationSections).not.toHaveBeenCalled();
     expect(screen.getByText("Ваша цена")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "В корзину" })).toBeInTheDocument();
     expect(
       screen.getAllByTestId("behavior-event").map((node) => node.dataset.eventName),
     ).toEqual(["product_viewed", "product_overview_viewed"]);
+  });
+
+  it("loads heavy relation enrichment only for the relations tab", async () => {
+    render(await ProductDetailPage({ params: Promise.resolve({ slug: "ip-camera" }), searchParams: Promise.resolve({ tab: "relations" }) }));
+    expect(mocks.getRelationSections).toHaveBeenCalledWith("product-1");
+    expect(mocks.getRelationSummary).not.toHaveBeenCalled();
+    expect(mocks.getCommercial).toHaveBeenCalledWith(["product-1"]);
+    expect(mocks.getWorkspace).toHaveBeenCalledOnce();
+    expect(screen.getByText("Relations 1/1")).toBeInTheDocument();
+    expect(screen.queryByTestId("product-overview-tab")).not.toBeInTheDocument();
+    expect(screen.getAllByTestId("behavior-event").map((node) => node.dataset.eventName)).toEqual(["product_viewed", "product_relations_tab_viewed"]);
   });
 
   it("starts detail, commercial, and workspace reads together after route identity", async () => {
@@ -74,6 +96,8 @@ describe("product detail page data loading", () => {
     render(await ProductDetailPage({ params: Promise.resolve({ slug: "ip-camera" }), searchParams: Promise.resolve({ tab: "pricing" }) }));
     expect(mocks.getCommercial).not.toHaveBeenCalled();
     expect(mocks.getWorkspace).not.toHaveBeenCalled();
+    expect(mocks.getRelationSections).not.toHaveBeenCalled();
+    expect(mocks.getRelationSummary).not.toHaveBeenCalled();
     expect(mocks.getRetailHistory).toHaveBeenCalledWith("product-1", undefined);
     expect(screen.getByText("История розничной цены")).toBeInTheDocument();
     expect(screen.getByText("2 399,00 MDL")).toBeInTheDocument();

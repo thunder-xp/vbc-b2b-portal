@@ -17,7 +17,8 @@ export type ProductDetailTab =
   | "description"
   | "characteristics"
   | "datasheet"
-  | "pricing";
+  | "pricing"
+  | "relations";
 
 type ProductDetailProps = {
   activeTab?: ProductDetailTab;
@@ -32,7 +33,8 @@ type ProductDetailProps = {
   product: CatalogProductDetailDto;
   stockFreshness?: FreshnessView | null;
   userId?: string | null;
-  overviewSupplement?: ReactNode;
+  hasAnalogs?: boolean;
+  relationsContent?: ReactNode;
 };
 
 const TABS: Array<{ id: ProductDetailTab; label: string }> = [
@@ -41,9 +43,10 @@ const TABS: Array<{ id: ProductDetailTab; label: string }> = [
   { id: "characteristics", label: "Характеристики" },
   { id: "datasheet", label: "Datasheet" },
   { id: "pricing", label: "Ценообразование" },
+  { id: "relations", label: "Аналоги и сопутствующие" },
 ];
 
-export function ProductDetail({ activeTab = "overview", canAddToOrder = false, canManagePurchasingLists = false, companyId = null, commercialView, initialFavorite = false, overviewSupplement, priceFreshness, product, retailPriceHistory, retailPriceHistoryError, stockFreshness, userId = null }: ProductDetailProps) {
+export function ProductDetail({ activeTab = "overview", canAddToOrder = false, canManagePurchasingLists = false, companyId = null, commercialView, hasAnalogs = false, initialFavorite = false, priceFreshness, product, relationsContent, retailPriceHistory, retailPriceHistoryError, stockFreshness, userId = null }: ProductDetailProps) {
   return <article className="space-y-4">
     <nav aria-label="Разделы товара" className="overflow-x-auto border-b border-zinc-200">
       <div className="flex min-w-max gap-6">
@@ -55,10 +58,9 @@ export function ProductDetail({ activeTab = "overview", canAddToOrder = false, c
         <div className="grid gap-5 md:grid-cols-[minmax(0,360px)_minmax(0,1fr)] md:items-start lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)] lg:gap-7" data-testid="product-detail-layout">
           <div data-testid="product-detail-image"><ProductImageGallery fallbackImageUrl={product.imageUrl} images={product.images} productId={product.id} productName={product.name} /></div>
           <div className="min-w-0" data-testid="product-detail-content">
-            <OverviewTab canAddToOrder={canAddToOrder} canManagePurchasingLists={canManagePurchasingLists} companyId={companyId} commercialView={commercialView} initialFavorite={initialFavorite} priceFreshness={priceFreshness} product={product} stockFreshness={stockFreshness} userId={userId} />
+            <OverviewTab canAddToOrder={canAddToOrder} canManagePurchasingLists={canManagePurchasingLists} companyId={companyId} commercialView={commercialView} hasAnalogs={hasAnalogs} initialFavorite={initialFavorite} priceFreshness={priceFreshness} product={product} stockFreshness={stockFreshness} userId={userId} />
           </div>
         </div>
-        {overviewSupplement}
         <KeyCharacteristicsSummary product={product} />
       </>
     ) : (
@@ -67,12 +69,13 @@ export function ProductDetail({ activeTab = "overview", canAddToOrder = false, c
         {activeTab === "characteristics" ? <CharacteristicsTab product={product} /> : null}
         {activeTab === "datasheet" ? <DatasheetTab product={product} /> : null}
         {activeTab === "pricing" ? <PricingHistoryTab error={retailPriceHistoryError} history={retailPriceHistory} productId={product.id} /> : null}
+        {activeTab === "relations" ? relationsContent : null}
       </div>
     )}
   </article>;
 }
 
-function OverviewTab({ canAddToOrder, canManagePurchasingLists, companyId, commercialView, initialFavorite, priceFreshness, product, stockFreshness, userId }: Omit<ProductDetailProps, "activeTab" | "overviewSupplement">) {
+function OverviewTab({ canAddToOrder, canManagePurchasingLists, companyId, commercialView, hasAnalogs, initialFavorite, priceFreshness, product, stockFreshness, userId }: Omit<ProductDetailProps, "activeTab" | "relationsContent">) {
   return <section aria-label="Обзор товара" data-testid="product-overview-tab">
       <MerchandisingBadges labels={product.merchandisingLabels} />
       <h1 className="break-words text-3xl font-semibold text-zinc-950">{product.name}</h1>
@@ -84,8 +87,27 @@ function OverviewTab({ canAddToOrder, canManagePurchasingLists, companyId, comme
         <div className="mt-3"><ProductPricingBlock commercialView={commercialView} freshness={priceFreshness} variant="detail" /></div>
       </section>
       <AvailabilityBlock commercialView={commercialView} freshness={stockFreshness} />
+      <RelationPrompt hasAnalogs={hasAnalogs ?? false} stock={commercialView?.stock} />
       {companyId || canAddToOrder ? <ProductActions canAddToOrder={canAddToOrder ?? false} canManagePurchasingLists={canManagePurchasingLists} categoryId={product.category?.id ?? null} companyId={companyId ?? null} initialFavorite={initialFavorite} productId={product.id} userId={userId ?? null} /> : null}
   </section>;
+}
+
+function RelationPrompt({ hasAnalogs, stock }: { hasAnalogs: boolean; stock?: ProductCommercialViewDto["stock"] }) {
+  if (!hasAnalogs) return null;
+  const message = stock?.status === "low_stock"
+    ? "Товар заканчивается на складе. Доступны аналоги."
+    : stock?.status === "out_of_stock"
+      ? "Товар временно недоступен. Выберите подходящий аналог."
+      : stock?.status === "expected"
+        ? "Товар ожидается к поступлению. Для срочной закупки доступны аналоги."
+        : null;
+  if (!message) return null;
+  return (
+    <aside className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-4" data-testid="product-relations-prompt">
+      <p className="text-sm text-amber-950">{message}</p>
+      <Link className="mt-3 inline-flex min-h-11 items-center rounded-md border border-amber-300 bg-white px-4 text-sm font-semibold text-amber-950 hover:bg-amber-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600" href="?tab=relations" prefetch={false}>Посмотреть аналоги</Link>
+    </aside>
+  );
 }
 
 function DescriptionTab({ product }: { product: CatalogProductDetailDto }) {

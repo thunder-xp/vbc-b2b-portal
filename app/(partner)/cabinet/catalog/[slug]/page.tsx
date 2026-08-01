@@ -11,7 +11,7 @@ import { listFavoriteProductIdsAction } from "@/src/modules/purchasing-lists/act
 import { BehaviorViewEvent } from "@/src/modules/behavior-analytics/components";
 import { listProductDocumentsAction } from "@/src/modules/documents/actions";
 import { RelatedDocuments } from "@/src/modules/documents/components";
-import { getProductRelationSectionsAction, ProductRelationSectionsView } from "@/src/modules/product-relations";
+import { getProductRelationSectionsAction, getProductRelationSummaryAction, ProductRelationSectionsView } from "@/src/modules/product-relations";
 
 type ProductDetailPageProps = {
   params: Promise<{
@@ -43,16 +43,18 @@ export default async function ProductDetailPage({
     notFound();
   }
 
-  const [productResult, commercialViewsResult, workspaceResult, merchandisingResult, retailHistoryResult, centralDocumentsResult, relationResult] = await Promise.all([
+  const needsCommercialContext = activeTab === "overview" || activeTab === "relations";
+  const [productResult, commercialViewsResult, workspaceResult, merchandisingResult, retailHistoryResult, centralDocumentsResult, relationResult, relationSummaryResult] = await Promise.all([
     getCatalogProductDetailByIdAction(identityResult.data.id, detailProjection(activeTab)),
-    activeTab === "overview" ? getProductCommercialViewsAction([identityResult.data.id]) : Promise.resolve(null),
-    activeTab === "overview" ? getPartnerWorkspaceContextAction() : Promise.resolve(null),
+    needsCommercialContext ? getProductCommercialViewsAction([identityResult.data.id]) : Promise.resolve(null),
+    needsCommercialContext ? getPartnerWorkspaceContextAction() : Promise.resolve(null),
     getProductMerchandisingLabelsAction(identityResult.data.id),
     activeTab === "pricing"
       ? getRetailPriceHistoryAction(identityResult.data.id, historyRange)
       : Promise.resolve(null),
     activeTab === "datasheet" ? listProductDocumentsAction(identityResult.data.id) : Promise.resolve(null),
-    activeTab === "overview" ? getProductRelationSectionsAction(identityResult.data.id) : Promise.resolve(null),
+    activeTab === "relations" ? getProductRelationSectionsAction(identityResult.data.id) : Promise.resolve(null),
+    activeTab === "overview" ? getProductRelationSummaryAction(identityResult.data.id) : Promise.resolve(null),
   ]);
 
   if (!productResult.success) return <EmptyCatalog message={productResult.message} title="Product unavailable" />;
@@ -64,13 +66,13 @@ export default async function ProductDetailPage({
   let userId: string | null = null;
   let commercialView;
   let initialFavorite = false;
-  if (activeTab === "overview") {
+  if (needsCommercialContext) {
     commercialView = commercialViewsResult?.success ? commercialViewsResult.data[0] : undefined;
     canAddToOrder = Boolean(workspaceResult?.success && workspaceResult.data.capabilities.productCard.canAddToOrder);
     canManagePurchasingLists = Boolean(workspaceResult?.success && workspaceResult.data.capabilities.productCard.canManagePurchasingLists);
     companyId = workspaceResult?.success ? workspaceResult.data.companyId : null;
     userId = workspaceResult?.success ? workspaceResult.data.userId : null;
-    if (canManagePurchasingLists) {
+    if (activeTab === "overview" && canManagePurchasingLists) {
       const favoriteResult = await listFavoriteProductIdsAction([productResult.data.id]);
       initialFavorite = Boolean(favoriteResult.success && favoriteResult.data.includes(productResult.data.id));
     }
@@ -99,7 +101,8 @@ export default async function ProductDetailPage({
       commercialView={commercialView}
       priceFreshness={priceFreshness}
       initialFavorite={initialFavorite}
-      overviewSupplement={activeTab === "overview" && relationResult?.success && workspaceResult?.success ? (
+      hasAnalogs={activeTab === "overview" && relationSummaryResult?.success ? relationSummaryResult.data.hasAnalogs : false}
+      relationsContent={activeTab === "relations" && relationResult?.success && workspaceResult?.success ? (
         <ProductRelationSectionsView
           capabilities={workspaceResult.data.capabilities.productCard}
           companyId={companyId}
@@ -109,7 +112,7 @@ export default async function ProductDetailPage({
           sourceStock={commercialView?.stock}
           userId={userId}
         />
-      ) : null}
+      ) : activeTab === "relations" ? <p className="rounded-md border border-zinc-200 bg-zinc-50 p-6 text-sm text-zinc-600">Не удалось загрузить связанные товары. Обновите страницу и попробуйте ещё раз.</p> : null}
       product={{
         ...productResult.data,
         merchandisingLabels: merchandisingResult.success
@@ -138,6 +141,7 @@ function parseTab(value: string | string[] | undefined): ProductDetailTab {
     || tab === "characteristics"
     || tab === "datasheet"
     || tab === "pricing"
+    || tab === "relations"
     ? tab
     : "overview";
 }
@@ -166,6 +170,8 @@ function tabViewEvent(tab: ProductDetailTab) {
       return "product_datasheet_viewed" as const;
     case "pricing":
       return "product_pricing_tab_viewed" as const;
+    case "relations":
+      return "product_relations_tab_viewed" as const;
   }
 }
 
