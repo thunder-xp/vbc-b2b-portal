@@ -33,6 +33,9 @@ describe("ProductRelationSyncService", () => {
       table: "product_relation_sync_runs",
       payload: expect.objectContaining({ status: "failed" }),
     }));
+    expect(database.updates).toContainEqual(expect.objectContaining({
+      payload: expect.objectContaining({ safe_error_code: "provider_load_Error" }),
+    }));
   });
 });
 

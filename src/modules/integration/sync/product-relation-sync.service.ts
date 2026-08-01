@@ -63,9 +63,12 @@ export class ProductRelationSyncService {
     if (lockError) throw persistenceError("lock_acquisition", lockError);
 
     console.info({ event: "product_relation_sync_started", syncId });
+    let failedStage = "provider_load";
     try {
       const snapshot = await this.provider.loadSnapshot();
+      failedStage = "staging";
       await this.stage(syncId, snapshot);
+      failedStage = "publication";
       const { data, error } = await client.rpc("publish_product_relation_snapshot", { p_sync_id: syncId });
       if (error) throw persistenceError("publication", error);
       const publication = parsePublication(data);
@@ -84,8 +87,9 @@ export class ProductRelationSyncService {
       console.info({ event: "product_relation_sync_succeeded", ...result });
       return result;
     } catch (error) {
+      const errorType = error instanceof Error ? error.name : typeof error;
       const safeErrorCode = error instanceof Error
-        ? error.name.replace(/[^A-Za-z0-9_]/g, "_").slice(0, 80)
+        ? `${failedStage}_${error.name}`.replace(/[^A-Za-z0-9_]/g, "_").slice(0, 80)
         : "UNKNOWN";
       await client.from("product_relation_sync_runs").update({
         status: "failed",
@@ -95,7 +99,7 @@ export class ProductRelationSyncService {
         duration_ms: Date.now() - startedAt.getTime(),
         updated_at: new Date().toISOString(),
       }).eq("id", syncId);
-      console.error({ event: "product_relation_sync_failed", syncId, safeErrorCode });
+      console.error({ event: "product_relation_sync_failed", syncId, failedStage, errorType, safeErrorCode });
       throw error;
     }
   }

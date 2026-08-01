@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { parseOptionalOneCGuid, parseRequiredOneCGuid } from "./one-c-guid";
 import { OneCODataClient } from "./one-c-odata-client";
+import { getOneCSafeDiagnostic } from "./one-c-safe-diagnostic";
 
 export const ONE_C_PRODUCT_RELATION_RESOURCES = {
   analog: {
@@ -95,11 +96,40 @@ export class OneCProductRelationProvider {
     let received = 0;
     let pages = 0;
     for (let page = 0; page < this.maxPages; page += 1) {
-      const payload = envelopeSchema.parse(await this.client.get(definition.resource, {
-        "$select": definition.select,
-        "$top": String(this.pageSize),
-        "$skip": String(page * this.pageSize),
-      }, { requestKind: `product_relation_${relationType}` }));
+      let rawPayload: unknown;
+      try {
+        rawPayload = await this.client.get(definition.resource, {
+          "$select": definition.select,
+          "$top": String(this.pageSize),
+          "$skip": String(page * this.pageSize),
+        }, { requestKind: `product_relation_${relationType}` });
+      } catch (error) {
+        const diagnostic = getOneCSafeDiagnostic(error);
+        console.error({
+          event: "one_c_product_relation_request_failed",
+          relationType,
+          page,
+          errorType: error instanceof Error ? error.name : typeof error,
+          failedStage: diagnostic?.failedStage ?? "provider_request",
+          statusCode: diagnostic?.statusCode ?? null,
+          requestKind: diagnostic?.requestKind ?? `product_relation_${relationType}`,
+          resourceName: diagnostic?.resourceName ?? definition.resource,
+          queryParameterNames: diagnostic?.queryParameterNames ?? ["$select", "$top", "$skip", "$format"],
+        });
+        throw error;
+      }
+      const parsedEnvelope = envelopeSchema.safeParse(rawPayload);
+      if (!parsedEnvelope.success) {
+        console.error({
+          event: "one_c_product_relation_envelope_invalid",
+          relationType,
+          page,
+          receivedType: Array.isArray(rawPayload) ? "array" : typeof rawPayload,
+          issuePaths: parsedEnvelope.error.issues.map((issue) => issue.path.join(".")).slice(0, 10),
+        });
+        throw new Error("1C product relation envelope is invalid.");
+      }
+      const payload = parsedEnvelope.data;
       pages += 1;
       received += payload.value.length;
       payload.value.forEach((value, rowIndex) => {
