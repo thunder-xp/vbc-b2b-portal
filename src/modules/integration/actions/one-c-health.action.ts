@@ -12,6 +12,10 @@ import {
   runOneCODataHealthCheck,
   type OneCHealthReport,
 } from "../providers/one-c/one-c-health-check";
+import {
+  auditOneCRelationMetadata,
+  type OneCRelationMetadataAudit,
+} from "../providers/one-c/one-c-relation-metadata-audit";
 
 export async function runOneCHealthCheckAction(): Promise<ActionResult<OneCHealthReport>> {
   try {
@@ -31,6 +35,20 @@ export async function runOneCHealthCheckAction(): Promise<ActionResult<OneCHealt
     );
 
     return success("1C OData diagnostics completed.", report);
+  } catch (error) {
+    return failureFromError(error);
+  }
+}
+
+export async function runOneCRelationMetadataAuditAction(): Promise<
+  ActionResult<OneCRelationMetadataAudit>
+> {
+  try {
+    await requireAdminPermission("admin.diagnostics.run");
+    return success(
+      "1C relation metadata inventory completed.",
+      await auditOneCRelationMetadata(getOneCEnv()),
+    );
   } catch (error) {
     return failureFromError(error);
   }
