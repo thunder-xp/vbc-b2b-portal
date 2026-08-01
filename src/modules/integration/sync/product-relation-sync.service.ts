@@ -32,6 +32,13 @@ export class ProductRelationSyncInProgressError extends Error {
   }
 }
 
+class ProductRelationPersistenceError extends Error {
+  constructor(readonly stage: string, readonly databaseErrorCode: string) {
+    super(`Product relation ${stage} failed.`);
+    this.name = "ProductRelationPersistenceError";
+  }
+}
+
 export class ProductRelationSyncService {
   constructor(private readonly provider: OneCProductRelationProvider) {}
 
@@ -99,7 +106,16 @@ export class ProductRelationSyncService {
         duration_ms: Date.now() - startedAt.getTime(),
         updated_at: new Date().toISOString(),
       }).eq("id", syncId);
-      console.error({ event: "product_relation_sync_failed", syncId, failedStage, errorType, safeErrorCode });
+      console.error({
+        event: "product_relation_sync_failed",
+        syncId,
+        failedStage,
+        errorType,
+        safeErrorCode,
+        databaseErrorCode: error instanceof ProductRelationPersistenceError
+          ? error.databaseErrorCode
+          : null,
+      });
       throw error;
     }
   }
@@ -187,5 +203,5 @@ function chunks<T>(rows: T[], size: number): T[][] {
 }
 
 function persistenceError(stage: string, error: { code?: string }) {
-  return new Error(`Product relation ${stage} failed (${error.code || "UNKNOWN"}).`);
+  return new ProductRelationPersistenceError(stage, error.code || "UNKNOWN");
 }
