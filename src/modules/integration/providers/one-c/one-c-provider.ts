@@ -1,7 +1,6 @@
 import type {
   CatalogProvider,
   DocumentProvider,
-  DocumentFetchRequestDTO,
   ERPProviderHealth,
   FinanceProvider,
   InventoryProvider,
@@ -17,7 +16,6 @@ import type {
   CatalogCategoryDTO,
   CatalogProductDTO,
   CatalogSnapshotDTO,
-  DocumentDTO,
   IntegrationPageResultDTO,
   IntegrationSyncWindowDTO,
   PartnerCompanyDTO,
@@ -57,6 +55,7 @@ import { OneCPartnerODataProvider } from "./one-c-partner-odata-provider";
 import { OneCPriceODataProvider } from "./one-c-price-odata-provider";
 import { OneCCustomerOrderProvider } from "./one-c-order-provider";
 import { OneCFinanceProvider } from "./one-c-finance-provider";
+import { OneCDocumentODataProvider } from "./one-c-document-provider";
 
 export class IntegrationProviderNotImplementedError extends IntegrationUnsupportedOperationError {
   constructor(operation: string) {
@@ -108,7 +107,7 @@ export class OneCProvider extends AbstractERPProvider {
     this.pricing = this.config.useMockPricing ? new OneCPricingProvider(this.config) : new OneCPriceODataProvider(this.config);
     this.inventory = new OneCInventoryProvider(this.config);
     this.orders = new OneCCustomerOrderProvider(this.config);
-    this.documents = new OneCDocumentProvider();
+    this.documents = new OneCDocumentODataProvider(this.config);
     this.finance = new OneCFinanceProvider(this.config);
     this.partners = new OneCPartnerODataProvider(this.config);
   }
@@ -240,14 +239,6 @@ class OneCInventoryProvider implements InventoryProvider {
       items: response.items.map(this.mapper.toPlatformDTO),
       nextCursor: response.nextCursor ?? null,
     };
-  }
-}
-
-class OneCDocumentProvider implements DocumentProvider {
-  async fetchDocuments(
-    _input: DocumentFetchRequestDTO,
-  ): Promise<IntegrationPageResultDTO<DocumentDTO>> {
-    throw new IntegrationProviderNotImplementedError("1C document import");
   }
 }
 

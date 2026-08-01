@@ -60,6 +60,7 @@ export type * from "./one-c-provider.types";
 export { OneCNomenclatureCatalogProvider, OneCNomenclatureODataProvider, ONE_C_CATALOG_ROOT_NAME, ONE_C_NOMENCLATURE_FIELDS } from "./one-c-nomenclature-provider";
 export { buildTargetedCurrentPriceUrl, OneCPriceODataProvider, ONE_C_PRICE_QUERY } from "./one-c-price-odata-provider";
 export { OneCFinanceProvider } from "./one-c-finance-provider";
+export { OneCDocumentODataProvider, ONE_C_DOCUMENT_SOURCES, type OneCDocumentPage, type OneCDocumentSource } from "./one-c-document-provider";
 export { OneCPriceChunkProvider, ONE_C_PRICE_CHUNK_QUERY, PRICE_SYNC_ZERO_CHARACTERISTIC, type PriceChunkProvider, type PriceRegisterStageRow, type PriceTypeStageRow, type CurrencyStageRow, type PriceSyncPage } from "./one-c-price-chunk-provider";
 export { normalizeOneCCurrencyCode } from "./one-c-currency";
 export * from "./one-c-supplier-arrival-provider";
