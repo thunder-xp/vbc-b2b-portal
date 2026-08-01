@@ -1,6 +1,6 @@
 import "server-only";
 
-import { notFound, redirect } from "next/navigation";
+import { forbidden, redirect } from "next/navigation";
 
 import { UnauthenticatedError } from "@/src/modules/access-control/services";
 
@@ -17,7 +17,7 @@ export async function requireAdminPagePermission(
     return await requireAdminPermission(permissionCode);
   } catch (error) {
     if (error instanceof UnauthenticatedError) redirect("/auth/sign-in");
-    notFound();
+    forbidden();
   }
 }
 
@@ -28,6 +28,6 @@ export async function requireAnyAdminPagePermission(
     return await requireAnyAdminPermission(permissionCodes);
   } catch (error) {
     if (error instanceof UnauthenticatedError) redirect("/auth/sign-in");
-    notFound();
+    forbidden();
   }
 }

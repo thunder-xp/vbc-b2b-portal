@@ -34,6 +34,8 @@ import {
 import { SupabaseOnboardingRepository, type OnboardingQueueInput } from "../repositories";
 import {
   CounterpartyDirectorySyncService,
+  OnboardingApplicationError,
+  OnboardingApplicationService,
   OneCCounterpartyDirectorySource,
 } from "../services";
 
@@ -88,20 +90,40 @@ export async function listOnboardingQueueAction(
 
 export async function getOnboardingDetailAction(
   requestId: string,
-): Promise<ActionResult<OnboardingDetail | null>> {
+): Promise<ActionResult<OnboardingDetail>> {
   try {
     await measurePerformanceStage("onboarding_detail", "access_context", () =>
       requireAdminPermission("onboarding.requests.view"),
     );
     const detail = await measurePerformanceStage("onboarding_detail", "detail_rpc", () =>
-      new SupabaseOnboardingRepository().getDetail(uuidSchema.parse(requestId)),
+      new OnboardingApplicationService(new SupabaseOnboardingRepository()).getDetail(requestId),
     );
     return success("Заявка загружена.", detail);
   } catch (error) {
+    if (error instanceof OnboardingApplicationError) {
+      return {
+        success: false,
+        errorCode: error.code,
+        message: onboardingApplicationErrorMessage(error.code),
+        data: null,
+      };
+    }
     return failureFromError(error);
   } finally {
     emitRequestTotal("onboarding_detail");
   }
+}
+
+function onboardingApplicationErrorMessage(code: OnboardingApplicationError["code"]): string {
+  return {
+    ONBOARDING_APPLICATION_NOT_FOUND: "Заявка не найдена.",
+    ONBOARDING_ACCESS_DENIED: "Недостаточно прав для просмотра заявки.",
+    ONBOARDING_INVALID_STATE: "Заявка недоступна в текущем состоянии.",
+    ONBOARDING_1C_MATCH_REQUIRED: "Подтвердите соответствие контрагенту 1С.",
+    ONBOARDING_ALREADY_DECIDED: "По заявке уже принято решение.",
+    ONBOARDING_ACTIVATION_FAILED: "Не удалось активировать доступ партнёра.",
+    ONBOARDING_LOAD_FAILED: "Не удалось загрузить заявку. Повторите попытку.",
+  }[code];
 }
 
 export async function getOnboardingHealthAction(): Promise<ActionResult<OnboardingHealth>> {
