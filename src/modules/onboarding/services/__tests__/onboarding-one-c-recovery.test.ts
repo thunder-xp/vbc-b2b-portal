@@ -7,6 +7,10 @@ const migration = readFileSync(
   resolve("supabase/migrations/20260801180000_onboarding_1c_recovery_flow.sql"),
   "utf8",
 );
+const recoveryRepair = readFileSync(
+  resolve("supabase/migrations/20260801213000_onboarding_waiting_resume_conflict_repair.sql"),
+  "utf8",
+);
 const actions = readFileSync(
   resolve("src/modules/onboarding/actions/onboarding.actions.ts"),
   "utf8",
@@ -53,6 +57,16 @@ describe("onboarding 1C counterparty recovery", () => {
     expect(migration).toContain("onboarding_status = 'under_review'");
     expect(migration).toContain("onboarding_match_available");
     expect(syncService).toContain("resume_waiting_onboarding_requests_after_directory_sync");
+  });
+
+  it("uses canonical fiscal identity and the actual outbox uniqueness constraint", () => {
+    expect(recoveryRepair).toContain(
+      "public.normalize_moldova_fiscal_code(revision.requested_fiscal_code)",
+    );
+    expect(recoveryRepair).toContain("on conflict (deduplication_key) do nothing");
+    expect(recoveryRepair).not.toContain(
+      "on conflict (recipient_user_id, deduplication_key)",
+    );
   });
 
   it("deduplicates concurrent refreshes and returns a correlation id", () => {
