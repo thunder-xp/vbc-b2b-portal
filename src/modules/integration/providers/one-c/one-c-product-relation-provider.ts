@@ -32,7 +32,9 @@ export type ProductRelationRejection = {
   relationType: ProductRelationType;
   page: number;
   rowIndex: number;
-  reason: "invalid_shape" | "invalid_source" | "invalid_target" | "self_relation";
+  reason: "invalid_shape" | "invalid_source" | "invalid_target" | "invalid_characteristic" | "self_relation" | "duplicate_row";
+  sourceProductRef?: string;
+  targetProductRef?: string;
 };
 
 export type ProductRelationSnapshot = {
@@ -57,6 +59,7 @@ export class OneCProductRelationProvider {
     const analog = await this.loadType("analog");
     const related = await this.loadType("related");
     const unique = new Map<string, ProductRelationSourceRow>();
+    const duplicateRejections: ProductRelationRejection[] = [];
     let duplicatesCollapsed = 0;
     for (const row of [...analog.rows, ...related.rows]) {
       const key = `${row.relationType}:${row.sourceProductRef}:${row.targetProductRef}`;
@@ -64,12 +67,20 @@ export class OneCProductRelationProvider {
       if (!current) unique.set(key, row);
       else {
         duplicatesCollapsed += 1;
+        duplicateRejections.push({
+          relationType: row.relationType,
+          page: Math.floor(row.sourceOrdinal / this.pageSize),
+          rowIndex: row.sourceOrdinal % this.pageSize,
+          reason: "duplicate_row",
+          sourceProductRef: row.sourceProductRef,
+          targetProductRef: row.targetProductRef,
+        });
         if (compareSourceRows(row, current) < 0) unique.set(key, row);
       }
     }
     return {
       rows: [...unique.values()],
-      rejections: [...analog.rejections, ...related.rejections],
+      rejections: [...analog.rejections, ...related.rejections, ...duplicateRejections],
       analogRowsReceived: analog.received,
       relatedRowsReceived: related.received,
       pagesProcessed: analog.pages + related.pages,
@@ -121,7 +132,21 @@ export function parseRelationRow(
   );
   if (!targetProductRef) return { relationType, page, rowIndex, reason: "invalid_target" };
   if (sourceProductRef === targetProductRef) {
-    return { relationType, page, rowIndex, reason: "self_relation" };
+    return { relationType, page, rowIndex, reason: "self_relation", sourceProductRef, targetProductRef };
+  }
+  const sourceCharacteristicValue = row["Характеристика_Key"];
+  const targetCharacteristicValue = row["ХарактеристикаCопутствующегоТовара_Key"];
+  if (relationType === "related"
+    && (!isOptionalCharacteristic(sourceCharacteristicValue)
+      || !isOptionalCharacteristic(targetCharacteristicValue))) {
+    return {
+      relationType,
+      page,
+      rowIndex,
+      reason: "invalid_characteristic",
+      sourceProductRef,
+      targetProductRef,
+    };
   }
   const rawPriority = Number(row["Приоритет"]);
   return {
@@ -137,6 +162,11 @@ export function parseRelationRow(
     priority: Number.isFinite(rawPriority) && rawPriority >= 0 ? Math.trunc(rawPriority) : 0,
     sourceOrdinal,
   };
+}
+
+function isOptionalCharacteristic(value: unknown): boolean {
+  return value == null || parseOptionalOneCGuid(value) !== null
+    || value === "00000000-0000-0000-0000-000000000000";
 }
 
 function compareSourceRows(left: ProductRelationSourceRow, right: ProductRelationSourceRow): number {

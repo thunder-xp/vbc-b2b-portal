@@ -55,6 +55,10 @@
     {
       "path": "/api/cron/document-metadata-sync",
       "schedule": "25 * * * *"
+    },
+    {
+      "path": "/api/cron/product-relations",
+      "schedule": "45 1 * * *"
     }
   ]
 }

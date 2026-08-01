@@ -43,6 +43,15 @@ describe("OneCProductRelationProvider", () => {
     });
   });
 
+  it("quarantines malformed non-zero characteristic references", () => {
+    expect(parseRelationRow("related", {
+      Номенклатура_Key: source,
+      СопутствующийТовар_Key: other,
+      Характеристика_Key: "not-a-guid",
+      ХарактеристикаCопутствующегоТовара_Key: "00000000-0000-0000-0000-000000000000",
+    })).toMatchObject({ reason: "invalid_characteristic" });
+  });
+
   it("quarantines malformed, zero, and self relations independently", () => {
     expect(parseRelationRow("analog", null)).toMatchObject({ reason: "invalid_shape" });
     expect(parseRelationRow("analog", { Номенклатура_Key: "bad", Аналог_Key: target }))
@@ -69,6 +78,7 @@ describe("OneCProductRelationProvider", () => {
       pagesProcessed: 3,
     });
     expect(result.rows).toHaveLength(2);
+    expect(result.rejections).toContainEqual(expect.objectContaining({ reason: "duplicate_row" }));
     expect(result.rows.find((row) => row.relationType === "analog")?.priority).toBe(1);
     expect(get).toHaveBeenCalledWith(
       "InformationRegister_АналогиНоменклатуры",
