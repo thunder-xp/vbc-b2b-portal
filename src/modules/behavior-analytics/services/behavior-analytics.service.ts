@@ -81,7 +81,7 @@ function validateInput(input: RecordBehaviorEventInput): void {
 
 function normalizeRoute(route: string): string {
   const normalized = route.trim().split("?")[0].slice(0, 200);
-  if (!normalized.startsWith("/cabinet/")) {
+  if (normalized !== "/cabinet" && !normalized.startsWith("/cabinet/")) {
     throw new BehaviorAnalyticsValidationError("ANALYTICS_ROUTE_INVALID");
   }
   return normalized;

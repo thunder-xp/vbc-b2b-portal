@@ -104,6 +104,14 @@ export const BEHAVIOR_EVENT_NAMES = [
   "document_downloaded",
   "document_search_submitted",
   "document_filter_used",
+  "purchasing_dynamics_opened",
+  "momentum_prompt_viewed",
+  "momentum_action_opened",
+  "momentum_prompt_dismissed",
+  "momentum_repeat_started",
+  "momentum_template_opened",
+  "momentum_opportunity_opened",
+  "momentum_campaign_opened",
 ] as const;
 
 export type BehaviorEventName = (typeof BEHAVIOR_EVENT_NAMES)[number];

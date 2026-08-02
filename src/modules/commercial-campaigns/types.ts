@@ -63,7 +63,7 @@ export type CampaignDraftInput = {
   priority: number;
   imageAssetPath?: string;
   termsSummary: string;
-  audienceMode: "explicit_company" | "all_active_partners" | "commercial_mode_full" | "commercial_mode_retail_only";
+  audienceMode: "explicit_company" | "all_active_partners" | "commercial_mode_full" | "commercial_mode_retail_only" | "momentum_slowing" | "momentum_attention";
   companyIds: string[];
   items: Array<{
     productId: string;

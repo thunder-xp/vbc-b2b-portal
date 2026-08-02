@@ -19,9 +19,17 @@ export class SupabaseBehaviorAnalyticsRepository
     input: RecordBehaviorEventInput,
   ): Promise<string> {
     const supabase = await createClient();
-    const { data, error } = await supabase.rpc(
-      "record_partner_behavior_event",
-      {
+    const momentumEvent = input.eventName === "purchasing_dynamics_opened" || input.eventName.startsWith("momentum_");
+    const { data, error } = momentumEvent
+      ? await supabase.rpc("record_partner_momentum_behavior_event", {
+        p_company_id: companyId,
+        p_event_name: input.eventName,
+        p_session_id: input.sessionId,
+        p_route: input.route,
+        p_source_surface: input.sourceSurface ?? null,
+        p_metadata_safe: input.metadataSafe ?? {},
+      })
+      : await supabase.rpc("record_partner_behavior_event", {
         p_company_id: companyId,
         p_event_name: input.eventName,
         p_session_id: input.sessionId,
@@ -34,8 +42,7 @@ export class SupabaseBehaviorAnalyticsRepository
         p_quantity: input.quantity ?? null,
         p_source_surface: input.sourceSurface ?? null,
         p_metadata_safe: input.metadataSafe ?? {},
-      },
-    );
+      });
     if (error || typeof data !== "string") {
       throw new BehaviorAnalyticsRepositoryError(error?.code);
     }
