@@ -10,7 +10,9 @@ export function AdminCompanyAccessSubjects({
   users: CompanyUserPage;
 }) {
   const memberships = users.records.filter(
-    (record) => record.recordType === "membership" && record.userId,
+    (record) => record.recordType === "membership"
+      && record.membershipStatus === "active"
+      && record.userId,
   );
   return (
     <section className="border border-zinc-200 bg-white">

@@ -7,6 +7,7 @@ import {
   repairApprovedOnboardingAction,
   type PartnerIntegrityActionState,
 } from "../actions";
+import { partitionAdminMemberships } from "../services/admin-membership-projection";
 import type { AdminPartnerMembership, AdminPartnerUserIntegrity, PartnerIntegrityTargetCompany } from "../types";
 
 const INITIAL: PartnerIntegrityActionState = { status: "idle", message: "", correlationId: null };
@@ -22,7 +23,8 @@ export function AdminPartnerIntegrityDetail({
   genericOperationKey: string;
   requestOperationKeys: Record<string, string>;
 }) {
-  const activeMembership = detail.memberships.find((membership) => membership.status === "active") ?? null;
+  const memberships = partitionAdminMemberships(detail.memberships);
+  const activeMembership = memberships.active[0] ?? null;
   return (
     <div className="space-y-6">
       <header className="border-b border-zinc-200 pb-5">
@@ -39,9 +41,9 @@ export function AdminPartnerIntegrityDetail({
         </dl>
       </Section>
 
-      <Section title="Членства компаний">
+      <Section title="Активные членства">
         <div className="divide-y divide-zinc-200">
-          {detail.memberships.map((membership) => (
+          {memberships.active.map((membership) => (
             <div className="grid gap-3 py-4 md:grid-cols-[1fr_12rem_10rem]" key={membership.id}>
               <div>
                 <p className="font-semibold">{membership.companyName}</p>
@@ -52,6 +54,7 @@ export function AdminPartnerIntegrityDetail({
             </div>
           ))}
         </div>
+        {!memberships.active.length ? <p className="text-sm text-zinc-500">Активных членств нет.</p> : null}
         {activeMembership && targetCompanies.some((company) => company.companyId !== activeMembership.companyId) ? (
           <MembershipMutationForm
             detail={detail}
@@ -60,6 +63,35 @@ export function AdminPartnerIntegrityDetail({
             targets={targetCompanies.filter((company) => company.companyId !== activeMembership.companyId)}
           />
         ) : null}
+      </Section>
+
+      <Section title="История членств">
+        {memberships.history.length ? (
+          <div className="divide-y divide-zinc-200">
+            {memberships.history.map((membership) => (
+              <div className="grid gap-3 py-4 lg:grid-cols-[1.2fr_10rem_10rem_12rem]" key={membership.id}>
+                <div>
+                  <p className="font-semibold">{membership.companyName}</p>
+                  <p className="text-xs text-zinc-500">{membership.companyId}</p>
+                </div>
+                <Field label="Роль" value={membership.roleCode} />
+                <Field label="Предыдущий статус" value={membership.status} />
+                <div className="space-y-2">
+                  <Field label="Дата активации" value={membership.approvedAt ?? membership.createdAt} />
+                  <Field label="Дата отзыва/изменения" value={membership.endedAt ?? "Не указана"} />
+                </div>
+                {membership.historyReason ? (
+                  <p className="text-sm text-zinc-600 lg:col-span-3">{membership.historyReason}</p>
+                ) : null}
+                {membership.relatedAuditEvent ? (
+                  <p className="break-all font-mono text-xs text-zinc-500">
+                    {membership.relatedAuditEvent.operationType} · {membership.relatedAuditEvent.id}
+                  </p>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        ) : <p className="text-sm text-zinc-500">История членств отсутствует.</p>}
       </Section>
 
       <Section title="Связанные заявки и диагностика">

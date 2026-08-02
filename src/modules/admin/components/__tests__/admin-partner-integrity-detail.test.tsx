@@ -18,9 +18,13 @@ describe("admin partner integrity UI", () => {
     expect(route).toContain("admin.partner_integrity.manage");
   });
 
-  it("renders identity, memberships, requests, audit, and explicit move/add choices", () => {
+  it("renders identity, active memberships, membership history, requests, and audit", () => {
     expect(component).toContain("Идентичность");
-    expect(component).toContain("Членства компаний");
+    expect(component).toContain("Активные членства");
+    expect(component).toContain("История членств");
+    expect(component).toContain("Предыдущий статус");
+    expect(component).toContain("Дата активации");
+    expect(component).toContain("Дата отзыва/изменения");
     expect(component).toContain("Связанные заявки и диагностика");
     expect(component).toContain("Аудит исправлений");
     expect(component).toContain('value="move"');

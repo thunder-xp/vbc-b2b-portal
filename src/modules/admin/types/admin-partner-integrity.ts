@@ -18,7 +18,16 @@ export type AdminPartnerMembership = {
   status: string;
   version: number;
   createdAt: string;
+  approvedAt: string | null;
+  endedAt: string | null;
   isDefault: boolean;
+  historyReason: string | null;
+  relatedAuditEvent: {
+    id: string;
+    operationType: string;
+    correlationId: string;
+    occurredAt: string;
+  } | null;
 };
 
 export type OnboardingIntegrityDiagnostic = {
