@@ -20,7 +20,7 @@ const context = {
   membershipRoleCode: "partner_owner",
   companyLogoUrl: null,
   accessState: "active" as const,
-  navigation: resolveWorkspaceCapabilities(new Set(["catalog.view", "opportunities.view", "campaigns.view", "orders.create", "orders.manage", "purchasing_lists.view", "purchase_templates.view", "reservations.manage", "specifications.manage", "estimates.view", "estimates.manage", "finance.view_company", "documents.view_company"])).navigation,
+  navigation: resolveWorkspaceCapabilities(new Set(["catalog.view", "opportunities.view", "campaigns.view", "orders.create", "orders.manage", "purchasing_lists.view", "purchase_templates.view", "reservations.manage", "specifications.manage", "estimates.view", "estimates.manage", "finance.view_company", "documents.view_company", "service.view"])).navigation,
   cartItemCount: 0,
   notificationSummary: { unreadCount: 0, items: [] },
 };

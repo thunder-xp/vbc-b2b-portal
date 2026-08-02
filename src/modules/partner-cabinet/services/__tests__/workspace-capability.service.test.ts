@@ -17,6 +17,7 @@ describe("resolveWorkspaceCapabilities", () => {
       "estimates.view",
       "estimates.manage",
       "documents.view_company",
+      "service.view",
     ]));
 
     expect(model.navigation.map((item) => item.label)).toEqual([
