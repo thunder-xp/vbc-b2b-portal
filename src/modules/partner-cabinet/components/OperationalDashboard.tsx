@@ -59,13 +59,14 @@ export function OperationalDashboard({
 }
 
 function PurchasingDynamicsSection({ summary }: { summary: WorkspaceHomeDto["purchasingDynamics"] }) {
-  if (!summary?.actions.length) return null;
+  if (!summary) return null;
+  const synchronizing = summary.status === "history_sync_pending" || summary.status === "history_sync_delayed";
   return (
-    <section aria-labelledby="purchasing-dynamics" className="border border-emerald-200 bg-emerald-50 p-4 sm:p-5">
+    <section aria-labelledby="purchasing-dynamics" className={synchronizing ? "border border-amber-200 bg-amber-50 p-4 sm:p-5" : "border border-emerald-200 bg-emerald-50 p-4 sm:p-5"} role={synchronizing ? "status" : undefined}>
       <BehaviorViewEvent dedupeKey={`momentum:${summary.sourceFingerprint}`} eventName="momentum_prompt_viewed" metadataSafe={{ status_band: summary.status }} route="/cabinet" sourceSurface="partner_momentum" />
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="max-w-2xl">
-          <p className="text-xs font-semibold uppercase text-emerald-800">Динамика закупок</p>
+          <p className={synchronizing ? "text-xs font-semibold uppercase text-amber-800" : "text-xs font-semibold uppercase text-emerald-800"}>Динамика закупок</p>
           <h2 className="mt-1 text-lg font-semibold text-zinc-950" id="purchasing-dynamics">{summary.title}</h2>
           <p className="mt-1 text-sm text-zinc-700">{summary.explanation}</p>
         </div>
@@ -75,10 +76,10 @@ function PurchasingDynamicsSection({ summary }: { summary: WorkspaceHomeDto["pur
               {action.label}
             </DashboardTrackedLink>
           ))}
-          <form action={dismissPartnerMomentumPromptAction}>
+          {!synchronizing ? <form action={dismissPartnerMomentumPromptAction}>
             <input name="fingerprint" type="hidden" value={summary.sourceFingerprint} />
             <button className="min-h-11 px-3 text-sm font-medium text-zinc-600 underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-emerald-500" type="submit">Скрыть</button>
-          </form>
+          </form> : null}
         </div>
       </div>
     </section>

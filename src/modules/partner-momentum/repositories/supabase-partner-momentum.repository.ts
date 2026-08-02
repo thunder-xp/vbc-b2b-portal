@@ -49,7 +49,7 @@ export class SupabasePartnerMomentumRepository implements PartnerMomentumReposit
     if (error) throw new PartnerMomentumRepositoryError();
     if (!isRecord(data)) return null;
     const status = text(data.status);
-    if (status !== "slowing" && status !== "attention_required" && status !== "high_risk") return null;
+    if (status !== "slowing" && status !== "attention_required" && status !== "high_risk" && status !== "history_sync_pending" && status !== "history_sync_delayed") return null;
     return {
       status,
       title: text(data.title),

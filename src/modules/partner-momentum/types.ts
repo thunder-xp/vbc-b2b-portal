@@ -95,7 +95,7 @@ export type MomentumCalculation = {
 };
 
 export type PartnerMomentumSummary = {
-  status: "slowing" | "attention_required" | "high_risk";
+  status: "slowing" | "attention_required" | "high_risk" | "history_sync_pending" | "history_sync_delayed";
   title: string;
   explanation: string;
   actions: Array<{ key: string; label: string; href: string }>;
