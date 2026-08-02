@@ -13,7 +13,7 @@ export function PartnerHeader({ context, onMenuClick }: { context: PartnerWorksp
   return (
     <header className="grid min-h-16 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-zinc-200 bg-white px-4 py-2 lg:grid-cols-[minmax(10rem,1fr)_minmax(18rem,36rem)_auto] lg:px-6">
       <div className="flex min-w-0 items-center gap-3">
-        <button className="inline-flex h-11 w-11 items-center justify-center rounded-md border border-zinc-300 text-zinc-700 focus-visible:ring-2 focus-visible:ring-emerald-600 lg:hidden" onClick={onMenuClick} type="button">
+        <button className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-zinc-300 text-zinc-700 focus-visible:ring-2 focus-visible:ring-emerald-600 lg:hidden" onClick={onMenuClick} type="button">
           <span className="sr-only">Открыть навигацию</span>
           <span className="h-0.5 w-4 bg-current shadow-[0_6px_0_current,0_-6px_0_current]" />
         </button>
@@ -25,8 +25,8 @@ export function PartnerHeader({ context, onMenuClick }: { context: PartnerWorksp
       <form action="/cabinet/search" className="order-3 col-span-2 flex min-w-0 lg:order-none lg:col-span-1" role="search">
         <label className="sr-only" htmlFor="partner-global-search">Поиск по рабочему пространству</label>
         <div className="relative w-full">
-          <Search aria-hidden="true" className="absolute left-3 top-3 size-4 text-zinc-400" />
-          <input className="h-10 w-full rounded-md border border-zinc-300 bg-zinc-50 pl-9 pr-3 text-sm outline-none transition focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-100" id="partner-global-search" name="q" placeholder="Товары, документы, списки..." type="search" />
+          <Search aria-hidden="true" className="absolute left-3 top-3.5 size-4 text-zinc-400" />
+          <input className="h-11 w-full rounded-md border border-zinc-300 bg-zinc-50 pl-9 pr-3 text-sm outline-none transition focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-100" id="partner-global-search" name="q" placeholder="Товары, документы, списки..." type="search" />
         </div>
       </form>
       <div className="flex min-w-0 items-center justify-end gap-2">

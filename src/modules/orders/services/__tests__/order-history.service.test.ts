@@ -160,6 +160,18 @@ describe("DefaultPartnerOrderHistoryService", () => {
     });
   });
 
+  it("returns the canonical history identity when a linked portal order id is opened", async () => {
+    const portalOrder = confirmedPortalOrder();
+    const synchronized = history({ portalOrderId: portalOrder.id });
+    const repository = historyRepository([]);
+    repository.findVisibleById.mockResolvedValue(synchronized);
+
+    const result = await service(repository).get("user-1", portalOrder.id);
+
+    expect(repository.findVisibleById).toHaveBeenCalledWith(portalOrder.id);
+    expect(result.id).toBe(synchronized.id);
+  });
+
   it("lists a confirmed portal order immediately without waiting for history sync", async () => {
     const portalOrder = confirmedPortalOrder();
     const portalRepository = {

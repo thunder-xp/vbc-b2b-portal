@@ -107,7 +107,7 @@ export class SupabasePartnerOrderHistoryRepository implements PartnerOrderHistor
 
   async findVisibleById(orderId: string): Promise<PartnerOrderHistory | null> {
     const { data, error } = await (await createClient()).from("partner_order_history").select(HISTORY_COLUMNS)
-      .eq("id", orderId).eq("partner_visible", true).maybeSingle();
+      .or(`id.eq.${orderId},portal_order_id.eq.${orderId}`).eq("partner_visible", true).maybeSingle();
     if (error) throw new OrderHistoryRepositoryError();
     return data ? mapHistory(data as Row) : null;
   }

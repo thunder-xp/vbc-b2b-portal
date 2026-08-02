@@ -70,7 +70,7 @@ export default async function CartPage() {
               </section>;
             })}
           </div>
-          <aside className="space-y-4">
+          <aside className="space-y-4 [&_button]:min-h-11 [&_input]:min-h-11">
             <div className="rounded-lg border border-zinc-200 bg-white p-4">
               <p className="text-sm text-zinc-600">Позиций</p>
               <p className="mt-1 text-xl font-semibold">{cart.positionCount}</p>

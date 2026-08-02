@@ -50,7 +50,7 @@ export function ProductDetail({ activeTab = "overview", canAddToOrder = false, c
   return <article className="space-y-4">
     <nav aria-label="Разделы товара" className="overflow-x-auto border-b border-zinc-200">
       <div className="flex min-w-max gap-6">
-        {TABS.map((tab) => <Link aria-current={activeTab === tab.id ? "page" : undefined} className={`border-b-2 px-1 pb-2.5 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 ${activeTab === tab.id ? "border-emerald-600 text-emerald-800" : "border-transparent text-zinc-500 hover:text-zinc-900"}`} href={`?tab=${tab.id}`} key={tab.id} prefetch={false}>{tab.label}</Link>)}
+        {TABS.map((tab) => <Link aria-current={activeTab === tab.id ? "page" : undefined} className={`inline-flex min-h-11 items-center border-b-2 px-1 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 ${activeTab === tab.id ? "border-emerald-600 text-emerald-800" : "border-transparent text-zinc-500 hover:text-zinc-900"}`} href={`?tab=${tab.id}`} key={tab.id} prefetch={false}>{tab.label}</Link>)}
       </div>
     </nav>
     {activeTab === "overview" ? (
