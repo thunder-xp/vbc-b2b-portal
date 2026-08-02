@@ -18,6 +18,7 @@ const allPermissions = [
   "admin.catalog.view",
   "admin.analytics.view",
   "admin.opportunities.view",
+  "partner_momentum.view_assigned",
   "campaigns.view",
   "admin.prices.view",
   "admin.stock.view",

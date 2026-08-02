@@ -53,6 +53,11 @@ export const ADMIN_NAVIGATION: readonly AdminNavigationGroup[] = [
         href: "/admin/commercial/campaigns",
         permission: "campaigns.view",
       },
+      {
+        label: "Динамика партнёров",
+        href: "/admin/commercial/partner-momentum",
+        permission: "partner_momentum.view_assigned",
+      },
       { label: "Цены", href: "/admin/commercial/prices", permission: "admin.prices.view" },
       { label: "Остатки", href: "/admin/commercial/stock", permission: "admin.stock.view" },
       {
