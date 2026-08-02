@@ -7,3 +7,6 @@ export * from "./components";
 export * from "./views";
 export * from "./AttachmentUpload";
 export * from "./warranty-policy";
+export * from "./operations-components";
+export * from "./document-actions";
+export * from "./ServiceDocumentUpload";

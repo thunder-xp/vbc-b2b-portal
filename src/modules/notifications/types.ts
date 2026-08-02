@@ -3,7 +3,8 @@ export type NotificationEventGroup =
   | "shipments"
   | "company_access"
   | "products"
-  | "documents";
+  | "documents"
+  | "service";
 export type NotificationSeverity = "critical" | "warning" | "information" | "success";
 
 export type PartnerNotification = {

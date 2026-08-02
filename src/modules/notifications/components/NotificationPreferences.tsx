@@ -17,6 +17,7 @@ const groupLabels = {
   company_access: "Доступ сотрудников",
   products: "Товары и поступления",
   documents: "Документы",
+  service: "Сервисные заявки",
 } as const;
 
 export function NotificationPreferences({

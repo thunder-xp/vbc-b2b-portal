@@ -26,6 +26,20 @@ export const PARTNER_NOTIFICATION_EVENT_CODES = [
   "cart_product_availability_changed",
   "campaign_started",
   "campaign_ending_soon",
+  "service_case_created",
+  "service_case_accepted",
+  "service_information_requested",
+  "service_equipment_expected",
+  "service_equipment_received",
+  "service_diagnosis_started",
+  "service_diagnosis_completed",
+  "service_repair_started",
+  "service_replacement_approved",
+  "service_replacement_waiting",
+  "service_ready_for_pickup",
+  "service_case_closed",
+  "service_case_rejected",
+  "service_case_cancelled",
 ] as const;
 
 export type PartnerNotificationEventCode =
@@ -37,6 +51,7 @@ export const PARTNER_NOTIFICATION_GROUPS = [
   "company_access",
   "products",
   "commercial",
+  "service",
 ] as const;
 
 export type PartnerNotificationGroup =
@@ -64,7 +79,8 @@ type EventDefinition = {
     | "membership"
     | "product"
     | "cart"
-    | "campaign";
+    | "campaign"
+    | "service_case";
   expiryDays: number;
 };
 
@@ -102,6 +118,20 @@ export const PARTNER_NOTIFICATION_EVENT_CATALOG = {
   cart_product_availability_changed: definition("products", "warning", true, "cart", 30),
   campaign_started: definition("commercial", "information", false, "campaign", 90),
   campaign_ending_soon: definition("commercial", "information", false, "campaign", 30),
+  service_case_created: definition("service", "information", false, "service_case", 90),
+  service_case_accepted: definition("service", "information", false, "service_case", 90),
+  service_information_requested: definition("service", "warning", false, "service_case", 90),
+  service_equipment_expected: definition("service", "information", false, "service_case", 90),
+  service_equipment_received: definition("service", "information", false, "service_case", 90),
+  service_diagnosis_started: definition("service", "information", false, "service_case", 90),
+  service_diagnosis_completed: definition("service", "information", false, "service_case", 90),
+  service_repair_started: definition("service", "information", false, "service_case", 90),
+  service_replacement_approved: definition("service", "success", false, "service_case", 90),
+  service_replacement_waiting: definition("service", "information", false, "service_case", 90),
+  service_ready_for_pickup: definition("service", "success", false, "service_case", 90),
+  service_case_closed: definition("service", "success", false, "service_case", 90),
+  service_case_rejected: definition("service", "warning", false, "service_case", 90),
+  service_case_cancelled: definition("service", "information", false, "service_case", 90),
 } satisfies Record<PartnerNotificationEventCode, EventDefinition>;
 
 function definition(

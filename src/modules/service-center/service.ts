@@ -20,6 +20,14 @@ export class ServiceCenterService {
     return this.repository.create(await this.companyId(userId), { ...input, enteredSerial: trim(input.enteredSerial, 120), faultCategory: trim(input.faultCategory, 100), description: trim(input.description, 4000), symptoms: trim(input.symptoms, 2000), preferredContact: trim(input.preferredContact, 200) });
   }
   async respond(userId: string, caseId: string, message: string) { await this.companyId(userId); return this.repository.addPartnerMessage(uuid(caseId), trim(message, 4000)); }
+  async partnerAction(userId: string, input: { caseId: string; expectedVersion: number; action: string; message: string }) {
+    await this.companyId(userId);
+    if (!["provide_information","confirm_equipment_sent","cancel"].includes(input.action)) throw new ServiceCenterValidationError("Действие недоступно.");
+    return this.repository.performPartnerAction({ caseId: uuid(input.caseId), expectedVersion: Math.max(1,Math.trunc(input.expectedVersion)), action: input.action, message: trim(input.message,4000) });
+  }
+  async dashboard(userId: string) { return this.repository.getDashboard(await this.companyId(userId)); }
+  async adminAttention() { return this.repository.getAdminAttention(10); }
+  async diagnostics() { return this.repository.getDiagnostics(); }
   async listAdmin(input: { query?: string | null; status?: string | null; page?: string | number | null }) { return this.repository.listAdmin({ query: trim(input.query, 100), status: validStatus(input.status), page: page(input.page) }); }
   async getAdmin(caseId: string) { return this.repository.get(uuid(caseId)); }
   async transition(input: { caseId: string; expectedVersion: number; status: string; partnerMessage: string; internalNote: string; assigneeId: string | null }) {

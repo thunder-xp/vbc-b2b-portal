@@ -58,3 +58,24 @@ export type ServiceSelectionData = {
   orders: Array<{ id: string; number: string; date: string; lines: Array<{ id: string; productId: string | null; sku: string | null; name: string | null }> }>;
   products: Array<{ id: string; sku: string; name: string }>;
 };
+
+export type ServiceDashboardItem = {
+  id: string; caseNumber: string; status: ServiceStatus; productName: string | null;
+  productImageUrl: string | null; updatedAt: string; nextAction: string; href: string;
+};
+export type ServiceAdminAttentionItem = {
+  id: string; caseId: string; caseNumber: string; eventCode: string; title: string;
+  message: string; actionUrl: string; createdAt: string;
+};
+export type ServiceDiagnostics = {
+  totalCases: number; active: number; unassigned: number; waitingForPartner: number;
+  waitingForEquipment: number; diagnosis: number; repair: number; replacement: number;
+  readyForPickup: number; overdue: number; closed: number; notificationFailures: number;
+  missingRequiredDocuments: number; attachmentFailures: number; oldestUnresolvedCase: string | null;
+  latestSlaWorker: Record<string, unknown> | null;
+};
+export const SERVICE_DOCUMENT_TYPES = [
+  "service_acceptance_act", "diagnostic_report", "repair_act", "replacement_act",
+  "return_act", "warranty_decision",
+] as const;
+export type ServiceDocumentType = (typeof SERVICE_DOCUMENT_TYPES)[number];

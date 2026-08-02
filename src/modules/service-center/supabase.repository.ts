@@ -1,6 +1,6 @@
 import "server-only";
 import { createClient } from "@/src/lib/supabase/server";
-import type { ServiceCaseCreateInput, ServiceCaseDetail, ServiceCasePage, ServiceSelectionData, ServiceStatus } from "./types";
+import type { ServiceAdminAttentionItem, ServiceCaseCreateInput, ServiceCaseDetail, ServiceCasePage, ServiceDashboardItem, ServiceDiagnostics, ServiceSelectionData, ServiceStatus } from "./types";
 import { ServiceCenterRepositoryError, type ServiceCenterRepository } from "./repository";
 
 export class SupabaseServiceCenterRepository implements ServiceCenterRepository {
@@ -21,6 +21,9 @@ export class SupabaseServiceCenterRepository implements ServiceCenterRepository 
     });
   }
   async addPartnerMessage(caseId: string, message: string) { return this.rpc<string>("add_service_case_partner_message", { p_case_id: caseId, p_message: message }); }
+  async performPartnerAction(input: { caseId: string; expectedVersion: number; action: string; message: string }) {
+    return this.rpc<{ id: string; status: ServiceStatus; version: number }>("perform_partner_service_action", { p_case_id: input.caseId, p_expected_version: input.expectedVersion, p_action: input.action, p_message: input.message });
+  }
   async transition(input: { caseId: string; expectedVersion: number; status: ServiceStatus; partnerMessage: string; internalNote: string; assigneeId: string | null }) {
     return this.rpc<{ id: string; status: ServiceStatus; version: number }>("transition_service_case", { p_case_id: input.caseId, p_expected_version: input.expectedVersion, p_to_status: input.status, p_partner_message: input.partnerMessage, p_internal_note: input.internalNote, p_assignee: input.assigneeId });
   }
@@ -36,6 +39,9 @@ export class SupabaseServiceCenterRepository implements ServiceCenterRepository 
       products: (products ?? []).map((row) => ({ id: row.id, sku: row.sku, name: row.name })),
     };
   }
+  async getDashboard(companyId: string) { return this.rpc<ServiceDashboardItem[]>("get_partner_service_dashboard", { p_company_id: companyId }); }
+  async getAdminAttention(limit: number) { return this.rpc<ServiceAdminAttentionItem[]>("get_admin_service_attention", { p_limit: limit }); }
+  async getDiagnostics() { return this.rpc<ServiceDiagnostics>("get_service_diagnostics", {}); }
   private async rpc<T>(name: string, args: Record<string, unknown>): Promise<T> {
     const { data, error } = await (await createClient()).rpc(name, args);
     if (error) { console.error({ event: "service_center_rpc_failed", rpc: name, code: error.code }); throw new ServiceCenterRepositoryError(); }
