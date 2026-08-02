@@ -7,6 +7,9 @@ import {
   type AdminCompanyFilter,
   type AdminCompanyOverview,
   type AdminCompanyPage,
+  type AdminCompanyAccess,
+  type PartnerAccessPresetCode,
+  PARTNER_ACCESS_PRESETS,
 } from "../types";
 
 const COMPANY_ID_PATTERN =
@@ -33,6 +36,37 @@ export class AdminCompanyService {
   getOverview(companyId: string): Promise<AdminCompanyOverview | null> {
     if (!COMPANY_ID_PATTERN.test(companyId)) return Promise.resolve(null);
     return this.repository.getOverview(companyId);
+  }
+
+  getAccess(companyId: string): Promise<AdminCompanyAccess | null> {
+    if (!COMPANY_ID_PATTERN.test(companyId)) return Promise.resolve(null);
+    return this.repository.getAccess(companyId);
+  }
+
+  updateAccess(input: {
+    companyId: string;
+    expectedVersion: number;
+    presetCode: string;
+    enabledPermissionCodes: string[];
+    note?: string;
+    correlationId: string;
+  }): Promise<{ version: number; correlationId: string }> {
+    if (!COMPANY_ID_PATTERN.test(input.companyId)
+      || !COMPANY_ID_PATTERN.test(input.correlationId)
+      || !Number.isInteger(input.expectedVersion)
+      || input.expectedVersion < 1
+      || !PARTNER_ACCESS_PRESETS.includes(input.presetCode as PartnerAccessPresetCode)) {
+      throw new Error("Invalid company access update.");
+    }
+    const permissionCodes = [...new Set(input.enabledPermissionCodes.map((code) => code.trim()).filter(Boolean))];
+    return this.repository.updateAccess({
+      companyId: input.companyId,
+      expectedVersion: input.expectedVersion,
+      presetCode: input.presetCode as PartnerAccessPresetCode,
+      enabledPermissionCodes: permissionCodes,
+      note: input.note?.trim().slice(0, 500) || null,
+      correlationId: input.correlationId,
+    });
   }
 }
 

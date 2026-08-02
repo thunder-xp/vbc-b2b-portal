@@ -7,6 +7,7 @@ export { AdminUserDirectory } from "./AdminUserDirectory";
 export { AdminInvitationDirectory } from "./AdminInvitationDirectory";
 export { AdminAccessInspector } from "./AdminAccessInspector";
 export { AdminCompanyAccessSubjects } from "./AdminCompanyAccessSubjects";
+export { AdminCompanyPlatformAccess } from "./AdminCompanyPlatformAccess";
 export { AdminHistory } from "./AdminHistory";
 export {
   AdminIncidentList,

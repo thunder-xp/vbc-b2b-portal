@@ -5,3 +5,7 @@ export {
   revokeOnboardingCapabilityAction,
 } from "./admin-role.actions";
 export { runAdminSyncAction } from "./admin-sync.actions";
+export {
+  updateAdminCompanyAccessAction,
+  type CompanyAccessActionState,
+} from "./admin-company-access.actions";

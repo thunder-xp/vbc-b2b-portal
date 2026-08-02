@@ -40,6 +40,25 @@ describe("AdminCompanyService", () => {
     await expect(service.getOverview("not-a-company")).resolves.toBeNull();
     expect(repository.getOverview).not.toHaveBeenCalled();
   });
+
+  it("deduplicates manually selected capabilities before saving", async () => {
+    const repository = makeRepository();
+    const service = new AdminCompanyService(repository);
+
+    await service.updateAccess({
+      companyId: "00000000-0000-0000-0000-000000000001",
+      expectedVersion: 1,
+      presetCode: "custom",
+      enabledPermissionCodes: ["catalog.view", " catalog.view ", "stock.view"],
+      note: " Manual restriction ",
+      correlationId: "00000000-0000-0000-0000-000000000002",
+    });
+
+    expect(repository.updateAccess).toHaveBeenCalledWith(expect.objectContaining({
+      enabledPermissionCodes: ["catalog.view", "stock.view"],
+      note: "Manual restriction",
+    }));
+  });
 });
 
 function makeRepository(): AdminCompanyRepository {
@@ -54,5 +73,10 @@ function makeRepository(): AdminCompanyRepository {
       filter: "all",
     }),
     getOverview: vi.fn().mockResolvedValue(null),
+    getAccess: vi.fn().mockResolvedValue(null),
+    updateAccess: vi.fn().mockResolvedValue({
+      version: 2,
+      correlationId: "00000000-0000-0000-0000-000000000001",
+    }),
   };
 }

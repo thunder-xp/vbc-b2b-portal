@@ -59,3 +59,43 @@ export type AdminCompanyOverview = {
   latestAccessEventAt: string | null;
   warningCodes: string[];
 };
+
+export const PARTNER_ACCESS_PRESETS = [
+  "full_partner_access",
+  "orders_only",
+  "catalog_only",
+  "custom",
+] as const;
+
+export type PartnerAccessPresetCode = (typeof PARTNER_ACCESS_PRESETS)[number];
+
+export type AdminCompanyCapability = {
+  code: string;
+  description: string;
+  category: string;
+  enabled: boolean;
+};
+
+export type AdminCompanyAccess = {
+  companyId: string;
+  presetCode: PartnerAccessPresetCode;
+  version: number;
+  changedAt: string;
+  changedBy: string | null;
+  changeNote: string | null;
+  canManage: boolean;
+  presets: Array<{
+    code: PartnerAccessPresetCode;
+    name: string;
+    permissionCodes: string[];
+  }>;
+  capabilities: AdminCompanyCapability[];
+  recentEvents: Array<{
+    eventType: string;
+    presetCode: PartnerAccessPresetCode;
+    version: number;
+    note: string | null;
+    occurredAt: string;
+    actorName: string | null;
+  }>;
+};

@@ -11,6 +11,8 @@ import type {
   AdminCompanyOverview,
   AdminCompanyPage,
   AdminCompanySummary,
+  AdminCompanyAccess,
+  PartnerAccessPresetCode,
 } from "../../types";
 
 type AdminCompanyRow = {
@@ -105,6 +107,47 @@ export class SupabaseAdminCompanyRepository implements AdminCompanyRepository {
       latestAccessEventAt: row.latest_access_event_at,
       warningCodes: row.warning_codes ?? [],
     };
+  }
+
+  async getAccess(companyId: string): Promise<AdminCompanyAccess | null> {
+    return this.call<AdminCompanyAccess | null>("get_admin_partner_company_access", {
+      p_company_id: companyId,
+    });
+  }
+
+  async updateAccess(input: {
+    companyId: string;
+    expectedVersion: number;
+    presetCode: PartnerAccessPresetCode;
+    enabledPermissionCodes: string[];
+    note: string | null;
+    correlationId: string;
+  }): Promise<{ version: number; correlationId: string }> {
+    const supabase = await createClient();
+    const payload = {
+      p_company_id: input.companyId,
+      p_expected_version: input.expectedVersion,
+      p_preset_code: input.presetCode,
+      p_enabled_permission_codes: input.enabledPermissionCodes,
+      p_note: input.note,
+      p_correlation_id: input.correlationId,
+    };
+    const { data, error } = await supabase.rpc(
+      "update_admin_partner_company_access",
+      payload,
+    );
+    if (error?.code === "40001" || error?.message.includes("stale_company_access_version")) {
+      throw new Error("stale_company_access_version");
+    }
+    if (error || data === null) {
+      throw new RepositoryUnexpectedError({
+        operation: "update_admin_partner_company_access",
+        table: "partner_company_access_policies",
+        payloadKeys: Object.keys(payload),
+        cause: error,
+      });
+    }
+    return data as { version: number; correlationId: string };
   }
 
   private async call<T>(

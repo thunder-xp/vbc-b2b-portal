@@ -20,6 +20,10 @@ export {
   type AdminCompanyOverview,
   type AdminCompanyPage,
   type AdminCompanySummary,
+  type AdminCompanyAccess,
+  type AdminCompanyCapability,
+  type PartnerAccessPresetCode,
+  PARTNER_ACCESS_PRESETS,
 } from "./admin-company";
 export {
   ADMIN_INVITATION_FILTERS,

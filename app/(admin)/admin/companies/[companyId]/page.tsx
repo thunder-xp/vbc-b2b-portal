@@ -6,6 +6,7 @@ import { CompanyUsersPanel } from "@/src/modules/access-control/components/compa
 import {
   AdminCompanyOverviewView,
   AdminCompanyAccessSubjects,
+  AdminCompanyPlatformAccess,
   AdminHistory,
   AdminPageHeader,
   createAdminCompanyService,
@@ -30,7 +31,8 @@ export default async function AdminCompanyPage({
 }) {
   const context = await requireAdminPagePermission("admin.companies.view");
   const [{ companyId }, query] = await Promise.all([params, searchParams]);
-  const company = await createAdminCompanyService().getOverview(companyId);
+  const companyService = createAdminCompanyService();
+  const company = await companyService.getOverview(companyId);
   if (!company) notFound();
   const tabs = context.permissions.includes("admin.audit.view")
     ? TABS
@@ -39,20 +41,24 @@ export default async function AdminCompanyPage({
   const tab = tabs.some(([value]) => value === requestedTab)
     ? requestedTab
     : "overview";
-  const companyUsers =
+  const [companyUsers, platformAccess, history] = await Promise.all([
     tab === "users" || tab === "access"
-      ? await getCompanyUsersAction({
+      ? getCompanyUsersAction({
           companyId,
           page: numberValue(first(query.page)),
           includeEvents: false,
         })
-      : null;
-  const history = tab === "history"
-    ? await createAdminHistoryService().listCompany(
+      : Promise.resolve(null),
+    tab === "access"
+      ? companyService.getAccess(companyId)
+      : Promise.resolve(null),
+    tab === "history"
+      ? createAdminHistoryService().listCompany(
         companyId,
         first(query.page),
       )
-    : null;
+      : Promise.resolve(null),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -92,11 +98,14 @@ export default async function AdminCompanyPage({
           page={companyUsers.data.users}
           showAudit={false}
         />
-      ) : tab === "access" && companyUsers?.success ? (
-        <AdminCompanyAccessSubjects
-          companyId={companyId}
-          users={companyUsers.data.users}
-        />
+      ) : tab === "access" && companyUsers?.success && platformAccess ? (
+        <div className="space-y-6">
+          <AdminCompanyPlatformAccess access={platformAccess} />
+          <AdminCompanyAccessSubjects
+            companyId={companyId}
+            users={companyUsers.data.users}
+          />
+        </div>
       ) : tab === "history" && history ? (
         <AdminHistory
           baseHref={`/admin/companies/${encodeURIComponent(companyId)}?tab=history`}
