@@ -105,12 +105,14 @@ export const ADMIN_NAVIGATION: readonly AdminNavigationGroup[] = [
         href: "/admin/integrations/incidents",
         permission: "admin.integrations.view",
       },
+      { label: "Сервис 1С", href: "/admin/integrations/service", permission: "admin.service.view" },
     ],
   },
   {
     label: "Операции",
     items: [
       { label: "Заказы", href: "/admin/orders", permission: "admin.orders.view" },
+      { label: "Сервис", href: "/admin/service", permission: "admin.service.view" },
       {
         label: "Планируемые отгрузки",
         href: "/admin/planned-shipments",
