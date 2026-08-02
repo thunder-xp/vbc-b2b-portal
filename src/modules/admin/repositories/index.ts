@@ -21,4 +21,9 @@ export type {
   AdminRecentEventProjection,
 } from "./admin-dashboard.repository";
 export type { AdminOperationsRepository } from "./admin-operations.repository";
+export type {
+  AdminPartnerIntegrityRepository,
+  PartnerIntegrityRepairInput,
+  PartnerMembershipMutationInput,
+} from "./admin-partner-integrity.repository";
 export * from "./supabase";

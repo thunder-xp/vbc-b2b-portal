@@ -40,3 +40,7 @@ export {
   AdminOperationsService,
   createAdminOperationsService,
 } from "./admin-operations.service";
+export {
+  AdminPartnerIntegrityService,
+  createAdminPartnerIntegrityService,
+} from "./admin-partner-integrity.service";

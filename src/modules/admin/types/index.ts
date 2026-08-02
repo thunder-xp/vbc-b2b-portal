@@ -66,3 +66,11 @@ export type {
   AdminOperationalRecord,
 } from "./admin-operational";
 export type { AdminSupportPage, AdminSupportRecord } from "./admin-support";
+export type {
+  AdminPartnerMembership,
+  AdminPartnerUserIntegrity,
+  OnboardingIntegrityDiagnostic,
+  PartnerIntegrityOutcome,
+  PartnerIntegrityRepairResult,
+  PartnerIntegrityTargetCompany,
+} from "./admin-partner-integrity";

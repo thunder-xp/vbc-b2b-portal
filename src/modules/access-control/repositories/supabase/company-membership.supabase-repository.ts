@@ -23,16 +23,14 @@ export class SupabaseCompanyMembershipRepository
 {
   async findByUserId(userId: string): Promise<CompanyMembership[]> {
     const supabase = await createClient();
-    const { data, error } = await supabase
-      .from("company_memberships")
-      .select(COMPANY_MEMBERSHIP_COLUMNS)
-      .eq("user_id", userId);
+    const { data, error } = await supabase.rpc("list_own_company_memberships");
 
-    if (error) {
+    const rows = (data ?? []) as CompanyMembershipRow[];
+    if (error || rows.some((row) => row.user_id !== userId)) {
       throw new RepositoryUnexpectedError();
     }
 
-    return (data as CompanyMembershipRow[]).map(mapCompanyMembershipRow);
+    return rows.map(mapCompanyMembershipRow);
   }
 
   async findActiveMembership(

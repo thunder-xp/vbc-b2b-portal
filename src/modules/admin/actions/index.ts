@@ -9,3 +9,8 @@ export {
   updateAdminCompanyAccessAction,
   type CompanyAccessActionState,
 } from "./admin-company-access.actions";
+export {
+  moveOrAddPartnerMembershipAction,
+  repairApprovedOnboardingAction,
+  type PartnerIntegrityActionState,
+} from "./admin-partner-integrity.actions";

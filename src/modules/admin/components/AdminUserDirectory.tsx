@@ -94,6 +94,14 @@ export function AdminUserDirectory({
                     )}
                     {identityLabel(user.identityType)}
                   </p>
+                  {user.identityType === "partner" && user.userId ? (
+                    <Link
+                      className="mt-2 inline-block text-xs font-semibold text-emerald-700"
+                      href={`/admin/partners/users/${encodeURIComponent(user.userId)}`}
+                    >
+                      Открыть профиль партнёра
+                    </Link>
+                  ) : null}
                 </div>
                 <Field
                   label={user.identityType === "internal" ? "Роль платформы" : "Роль компании"}
