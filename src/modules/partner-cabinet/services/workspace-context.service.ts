@@ -62,6 +62,10 @@ export interface PartnerPriceTypeReadModel {
   findName(externalReference: string): Promise<string | null>;
 }
 
+export interface PartnerHistoryBootstrapEnsurer {
+  ensureFirstAccess(companyId: string, userId: string): Promise<unknown>;
+}
+
 export class DefaultPartnerWorkspaceContextService
   implements PartnerWorkspaceContextService
 {
@@ -71,6 +75,7 @@ export class DefaultPartnerWorkspaceContextService
     private readonly companyAccessService: CompanyAccessService,
     private readonly permissionService: PermissionService,
     private readonly priceTypeReadModel: PartnerPriceTypeReadModel,
+    private readonly historyBootstrapEnsurer?: PartnerHistoryBootstrapEnsurer,
   ) {}
 
   private readonly resolveWorkspaceContext = cache((userId: string) =>
@@ -156,7 +161,7 @@ export class DefaultPartnerWorkspaceContextService
       : null;
     const accessState: PartnerWorkspaceAccessState = priceTypeReference ? "active" : "missing_price_type";
 
-    return {
+    const context: PartnerWorkspaceContext = {
       userId: profile.id,
       userDisplayName: displayName,
       userEmail: profile.email,
@@ -179,6 +184,16 @@ export class DefaultPartnerWorkspaceContextService
         new Set(permissionContext.effectivePermissionCodes),
       ),
     };
+    if (this.historyBootstrapEnsurer) {
+      const startedAt = Date.now();
+      try {
+        await this.historyBootstrapEnsurer.ensureFirstAccess(context.companyId!, userId);
+        console.info({ event: "partner_order_history_bootstrap_first_access_checked", companyId: context.companyId, durationMs: Date.now() - startedAt });
+      } catch (error) {
+        console.error({ event: "partner_order_history_bootstrap_first_access_failed", companyId: context.companyId, errorType: error instanceof Error ? error.name : typeof error });
+      }
+    }
+    return context;
   }
 
   private async resolvePriceTypeName(reference: string | null): Promise<string | null> {

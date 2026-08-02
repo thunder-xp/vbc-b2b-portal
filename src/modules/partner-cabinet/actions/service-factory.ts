@@ -19,6 +19,7 @@ import { SupabaseDocumentRepository } from "../../documents/repositories";
 import { DefaultCatalogService } from "../../catalog/services";
 import { SupabaseCatalogRepository } from "../../catalog/repositories/supabase";
 import { SupabasePartnerMomentumRepository } from "../../partner-momentum/repositories";
+import { SupabaseOrderHistoryBootstrapRepository } from "../../orders/repositories/supabase";
 
 const priceTypeRepository = new SupabasePricingInventoryRepository();
 const workspaceContextService = new DefaultPartnerWorkspaceContextService(
@@ -27,6 +28,7 @@ const workspaceContextService = new DefaultPartnerWorkspaceContextService(
   createCompanyAccessService(),
   createPermissionService(),
   { findName: (reference) => priceTypeRepository.findPriceTypeName(reference) },
+  new SupabaseOrderHistoryBootstrapRepository(),
 );
 
 export function createPartnerWorkspaceContextService(): DefaultPartnerWorkspaceContextService {
