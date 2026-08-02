@@ -14,7 +14,7 @@ export default async function PartnerSearchPage({ searchParams }: {
     <div className="mx-auto max-w-5xl space-y-5">
       <header className="border-b border-zinc-200 pb-4">
         <h1 className="text-2xl font-semibold text-zinc-950">Поиск</h1>
-        <p className="mt-1 text-sm text-zinc-600">Товары, списки закупок, сметы и коммерческие предложения.</p>
+        <p className="mt-1 text-sm text-zinc-600">Товары, списки закупок, сметы, документы и сервисные заявки.</p>
       </header>
       <form action="/cabinet/search" className="flex gap-2" role="search">
         <label className="sr-only" htmlFor="workspace-search-page-input">Поиск по рабочему пространству</label>

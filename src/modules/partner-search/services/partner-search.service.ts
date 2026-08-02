@@ -11,6 +11,7 @@ const GROUP_ORDER: readonly PartnerSearchDocumentType[] = [
   "purchase_template",
   "commercial_campaign",
   "document",
+  "service_case",
 ];
 
 const GROUP_LABELS: Record<PartnerSearchDocumentType, string> = {
@@ -23,6 +24,7 @@ const GROUP_LABELS: Record<PartnerSearchDocumentType, string> = {
   purchase_template: "Шаблоны закупок",
   commercial_campaign: "Специальные предложения",
   document: "Документы",
+  service_case: "Сервисные заявки",
 };
 
 export class PartnerSearchService {

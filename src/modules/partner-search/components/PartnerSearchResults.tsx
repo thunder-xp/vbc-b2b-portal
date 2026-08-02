@@ -1,4 +1,4 @@
-import { Calculator, FileText, ListPlus, ListRestart, Megaphone, PackageSearch, Rows3, SearchX } from "lucide-react";
+import { Calculator, FileText, ListPlus, ListRestart, Megaphone, PackageSearch, Rows3, SearchX, Wrench } from "lucide-react";
 import Link from "next/link";
 
 import type { PartnerSearchDocumentType, PartnerSearchGroup } from "../types";
@@ -13,6 +13,7 @@ const ICONS: Record<PartnerSearchDocumentType, typeof PackageSearch> = {
   purchase_template: ListRestart,
   commercial_campaign: Megaphone,
   document: FileText,
+  service_case: Wrench,
 };
 
 export function PartnerSearchResults({ groups, query }: { groups: PartnerSearchGroup[]; query: string }) {
