@@ -4,6 +4,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 const sql = fs.readFileSync(path.join(process.cwd(), "supabase/migrations/20260802160000_partner_order_history_bootstrap.sql"), "utf8");
+const adminListFix = fs.readFileSync(path.join(process.cwd(), "supabase/migrations/20260802161000_order_history_bootstrap_admin_list_fix.sql"), "utf8");
 
 describe("partner order-history bootstrap migration", () => {
   it("defines durable state, immutable audit, RLS, and a 24-month range", () => {
@@ -42,5 +43,10 @@ describe("partner order-history bootstrap migration", () => {
   it("does not grant partner or browser direct table access", () => {
     expect(sql).toContain("revoke all on public.partner_order_history_bootstrap_state");
     expect(sql).not.toContain("grant select on public.partner_order_history_bootstrap_state to authenticated");
+  });
+
+  it("orders the admin JSON projection by its quoted camel-case alias", () => {
+    expect(adminListFix).toContain('row_value."requestedAt" desc');
+    expect(adminListFix).not.toContain("row_value.requested_at desc");
   });
 });
