@@ -1,4 +1,5 @@
 import { AdminCommercialSummaryView } from "./AdminCommercialSummary";
+import { AdminCommercialIntegrityView } from "./AdminCommercialIntegrity";
 import { AdminRetailPriceHistoryHealthView } from "./AdminRetailPriceHistoryHealth";
 import { AdminRetailPriceHistoryBackfill } from "./AdminRetailPriceHistoryBackfill";
 import { AdminRetailHistoryAbsenceDiagnostic } from "./AdminRetailHistoryAbsenceDiagnostic";
@@ -44,13 +45,16 @@ export async function AdminCommercialPage({
   const config = CONFIG[domain];
   await requireAdminPagePermission(config.permission);
   const service = createAdminOperationsService();
-  const [summary, retailHistoryHealth, retailHistoryAbsence] = await Promise.all([
+  const [summary, retailHistoryHealth, retailHistoryAbsence, commercialIntegrity] = await Promise.all([
     service.getCommercialSummary(domain, search),
     domain === "prices"
       ? service.getRetailPriceHistoryHealth()
       : Promise.resolve(null),
     domain === "prices"
       ? service.listProductsWithoutRetailHistory(retailHistoryAbsenceFilters ?? {})
+      : Promise.resolve(null),
+    domain === "stock"
+      ? service.getCommercialIntegrity()
       : Promise.resolve(null),
   ]);
 
@@ -62,6 +66,7 @@ export async function AdminCommercialPage({
         title={config.title}
       />
       <AdminCommercialSummaryView summary={summary} />
+      {commercialIntegrity ? <AdminCommercialIntegrityView integrity={commercialIntegrity} /> : null}
       {retailHistoryHealth ? <AdminRetailPriceHistoryHealthView health={retailHistoryHealth} /> : null}
       {retailHistoryHealth ? <AdminRetailPriceHistoryBackfill health={retailHistoryHealth} /> : null}
       {retailHistoryAbsence ? (

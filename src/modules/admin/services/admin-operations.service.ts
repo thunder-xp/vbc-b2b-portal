@@ -4,6 +4,7 @@ import type { AdminOperationsRepository } from "../repositories";
 import { SupabaseAdminOperationsRepository } from "../repositories";
 import type {
   AdminCommercialSummary,
+  AdminCommercialIntegrity,
   AdminRetailHistoryAbsenceFilters,
   AdminRetailHistoryAbsencePage,
   AdminRetailPriceHistoryHealth,
@@ -43,6 +44,10 @@ export class AdminOperationsService {
     search?: string,
   ): Promise<AdminCommercialSummary> {
     return this.repository.getCommercialSummary(domain, search?.slice(0, 100));
+  }
+
+  getCommercialIntegrity(): Promise<AdminCommercialIntegrity> {
+    return this.repository.getCommercialIntegrity();
   }
 
   getRetailPriceHistoryHealth(): Promise<AdminRetailPriceHistoryHealth> {

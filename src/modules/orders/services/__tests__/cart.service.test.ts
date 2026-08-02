@@ -30,6 +30,25 @@ describe("DefaultCartService", () => {
     expect(cart.totalUnitCount).toBe(2);
   });
 
+  it("preserves unknown stock as null instead of converting it to zero", async () => {
+    const dependencies = makeDependencies();
+    dependencies.pricingService.getProductCommercialViews.mockResolvedValueOnce([{
+      productId: "product-1",
+      partnerPrice: null,
+      retailPrice: null,
+      stock: null,
+    }]);
+
+    const cart = await dependencies.service.getCart("user-1");
+
+    expect(cart.lines[0]).toMatchObject({
+      availableStock: null,
+      retailUnitPrice: null,
+      availabilityGroup: "confirmation",
+    });
+    expect(cart.lines[0]).not.toHaveProperty("partnerUnitPrice");
+  });
+
   it("loads the sidebar badge through the lightweight aggregate only", async () => {
     const dependencies = makeDependencies();
 

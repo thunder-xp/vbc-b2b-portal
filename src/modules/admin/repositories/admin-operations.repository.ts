@@ -1,5 +1,6 @@
 import type {
   AdminCommercialSummary,
+  AdminCommercialIntegrity,
   AdminRetailHistoryAbsenceFilters,
   AdminRetailHistoryAbsencePage,
   AdminRetailPriceHistoryHealth,
@@ -27,6 +28,7 @@ export interface AdminOperationsRepository {
     domain: "catalog" | "prices" | "stock" | "arrivals",
     search?: string,
   ): Promise<AdminCommercialSummary>;
+  getCommercialIntegrity(): Promise<AdminCommercialIntegrity>;
   getRetailPriceHistoryHealth(): Promise<AdminRetailPriceHistoryHealth>;
   listProductsWithoutRetailHistory(
     input: AdminRetailHistoryAbsenceFilters,

@@ -6,6 +6,11 @@ import { getAuthenticatedUserId } from "../../access-control/actions/service-fac
 import type { CartDetailDto } from "../services";
 import { createCartService } from "./service-factory";
 
+export type CartCommercialRecheckResult = {
+  unresolvedPriceLines: number;
+  unresolvedStockLines: number;
+};
+
 export async function getCartAction(): Promise<ActionResult<CartDetailDto>> {
   try { return success("Cart loaded.", await createCartService().getCart(await getAuthenticatedUserId())); }
   catch (error) { return failureFromError(error); }
@@ -14,6 +19,33 @@ export async function getCartAction(): Promise<ActionResult<CartDetailDto>> {
 export async function getCartItemCountAction(): Promise<ActionResult<number>> {
   try { return success("Cart count loaded.", await createCartService().getItemCount(await getAuthenticatedUserId())); }
   catch (error) { return failureFromError(error); }
+}
+
+export async function recheckCartCommercialDataAction(
+  _state: ActionResult<CartCommercialRecheckResult | null>,
+): Promise<ActionResult<CartCommercialRecheckResult | null>> {
+  void _state;
+  try {
+    const cart = await createCartService().getCart(await getAuthenticatedUserId());
+    const unresolvedPriceLines = cart.lines.filter((line) =>
+      cart.commercialMode === "full"
+        ? line.partnerUnitPrice === null
+        : line.retailUnitPrice === null,
+    ).length;
+    const unresolvedStockLines = cart.lines.filter(
+      (line) => line.availableStock === null,
+    ).length;
+    revalidatePath("/cabinet/cart");
+    const data = { unresolvedPriceLines, unresolvedStockLines };
+    return success(
+      unresolvedPriceLines || unresolvedStockLines
+        ? "Данные перечитаны. Неразрешённые значения уточняются фоновыми синхронизациями; корзина сохранена."
+        : "Коммерческие данные корзины актуальны.",
+      data,
+    );
+  } catch (error) {
+    return failureFromError(error);
+  }
 }
 
 export async function getCartCheckoutIntentAction(

@@ -4,6 +4,7 @@ import { ProductLineThumbnail } from "@/src/modules/catalog/components/ProductLi
 import { getCartAction } from "@/src/modules/orders/actions";
 import { CartItemActions } from "@/src/modules/orders/components/CartItemActions";
 import { CartCheckoutCoordinator } from "@/src/modules/orders/components/CartCheckoutCoordinator";
+import { CartCommercialRecheck } from "@/src/modules/orders/components/CartCommercialRecheck";
 import { OrderSubmitForm } from "@/src/modules/orders/components/OrderSubmitForm";
 import { CreateEstimateFromCartButton } from "@/src/modules/estimates/components/CreateEstimateFromCartButton";
 import { SaveAsPurchasingListButton } from "@/src/modules/purchasing-lists/components";
@@ -57,7 +58,7 @@ export default async function CartPage() {
                     <div className="min-w-0">
                       <Link className="line-clamp-2 font-semibold text-zinc-950 hover:text-emerald-700" href={`/cabinet/catalog/${line.slug}`} prefetch={false}>{line.productName}</Link>
                       <p className="mt-1 text-xs text-zinc-500">Артикул: {line.sku}</p>
-                      <p className="mt-2 text-sm">{cart.commercialMode === "full" ? "Ваша цена" : "Розничная цена"}: <strong className="whitespace-nowrap">{cart.commercialMode === "full" ? line.partnerUnitPrice ?? "Цена уточняется" : line.retailUnitPrice ?? "Цена уточняется"}</strong></p>
+                      <p className="mt-2 text-sm">{cart.commercialMode === "full" ? "Ваша цена" : "Розничная цена"}: <strong className="whitespace-nowrap">{cart.commercialMode === "full" ? line.partnerUnitPrice ?? "Цена временно уточняется" : line.retailUnitPrice ?? "Цена временно уточняется"}</strong></p>
                       <p className="mt-1 text-xs text-zinc-600">{line.availableStock === null ? "Наличие уточняется" : line.availableStock > 0 ? `В наличии: ${line.availableStock} шт.` : "Нет в наличии"}</p>
                       {line.nearestArrivalDate && <p className="mt-1 text-xs text-zinc-600">Поступление: {line.nearestArrivalDate}{line.nearestArrivalQuantity !== null ? `, ${line.nearestArrivalQuantity} шт.` : ""}</p>}
                     </div>
@@ -77,9 +78,10 @@ export default async function CartPage() {
               <p className="mt-3 text-sm text-zinc-600">Единиц товара</p>
               <p className="mt-1 text-lg font-semibold">{cart.totalUnitCount}</p>
               <p className="mt-4 text-sm text-zinc-600">{cart.commercialMode === "full" ? "Итого" : "Справочная розничная сумма"}</p>
-              <p className="mt-1 text-xl font-semibold">{cart.commercialMode === "full" ? cart.total ?? "Требуется актуальная цена" : cart.retailReferenceTotal ?? "Цена уточняется"}</p>
+              <p className="mt-1 text-xl font-semibold">{cart.commercialMode === "full" ? cart.total ?? "Цена временно уточняется" : cart.retailReferenceTotal ?? "Цена временно уточняется"}</p>
               {cart.commercialMode === "retail_only" ? <p className="mt-3 text-xs leading-5 text-zinc-600">Заказ будет оформлен по коммерческим условиям вашей компании. Партнёрские цены скрыты в соответствии с настройками доступа.</p> : null}
             </div>
+            <CartCommercialRecheck />
             <CreateEstimateFromCartButton />
             <SaveAsPurchasingListButton source="cart" />
             <SaveAsPurchaseTemplateButton source={{ type: "cart" }} />

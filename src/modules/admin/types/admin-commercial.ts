@@ -11,6 +11,68 @@ export interface AdminCommercialSummary {
   records: readonly AdminCommercialRecord[];
 }
 
+export type CommercialIntegrityReason =
+  | "company_price_profile_missing"
+  | "missing_partner_price"
+  | "missing_retail"
+  | "missing_stock"
+  | "stale_partner_price"
+  | "stale_stock"
+  | "unpublished_product";
+
+export interface AdminCommercialIntegrity {
+  generatedAt: string;
+  cartSummary: {
+    activeLines: number;
+    fullyResolved: number;
+    missingPartnerPrice: number;
+    missingRetail: number;
+    missingStock: number;
+    staleStock: number;
+    stalePrice: number;
+    missingCompanyPriceProfile: number;
+    oldestUnresolvedAt: string | null;
+  };
+  cartLines: readonly {
+    id: string;
+    cartId: string;
+    companyName: string;
+    sku: string;
+    productName: string;
+    reasons: readonly CommercialIntegrityReason[];
+    hasConfirmedArrival: boolean;
+    updatedAt: string;
+  }[];
+  orderSummary: {
+    reviewRequired: number;
+    sourceDeleted: number;
+    zeroLocalLines: number;
+    partiallyResolved: number;
+  };
+  orders: readonly {
+    id: string;
+    orderNumber: string;
+    companyName: string;
+    sourceLineCount: number;
+    localLineCount: number;
+    unmappedLineCount: number;
+    reason: "source_document_deleted" | "source_zero_lines" | "zero_local_lines" | "partially_resolved" | "unmapped_products";
+    lastSyncedAt: string;
+  }[];
+  priceSync: AdminCommercialIntegritySyncState | null;
+  stockSync: AdminCommercialIntegritySyncState | null;
+}
+
+export interface AdminCommercialIntegritySyncState {
+  status: string;
+  stage: string | null;
+  lastSuccessfulAt: string | null;
+  failedStage: string | null;
+  databaseErrorCode: string | null;
+  safeError: string | null;
+  updatedAt: string;
+}
+
 export interface AdminRetailPriceHistoryHealth {
   productsWithCurrentRetail: number;
   productsWithHistory: number;

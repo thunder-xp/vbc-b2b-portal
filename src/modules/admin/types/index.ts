@@ -57,6 +57,8 @@ export type {
   AdminRetailHistoryAbsenceRecord,
   AdminCommercialRecord,
   AdminCommercialSummary,
+  AdminCommercialIntegrity,
+  CommercialIntegrityReason,
   AdminRetailPriceHistoryHealth,
   RetailHistoryAbsenceReason,
 } from "./admin-commercial";
