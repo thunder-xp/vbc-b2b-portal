@@ -38,7 +38,15 @@ const CATEGORY_LABELS: Record<string, string> = {
   commercial: "Коммерческие возможности",
 };
 
-export function AdminCompanyPlatformAccess({ access }: { access: AdminCompanyAccess }) {
+export function AdminCompanyPlatformAccess({
+  access,
+  conflict = false,
+  returnPath,
+}: {
+  access: AdminCompanyAccess;
+  conflict?: boolean;
+  returnPath: string;
+}) {
   const [state, formAction, pending] = useActionState(
     updateAdminCompanyAccessAction,
     INITIAL_STATE,
@@ -74,6 +82,7 @@ export function AdminCompanyPlatformAccess({ access }: { access: AdminCompanyAcc
       </div>
       <form action={formAction} className="space-y-5 p-5">
         <input name="companyId" type="hidden" value={access.companyId} />
+        <input name="returnPath" type="hidden" value={returnPath} />
         <input name="version" type="hidden" value={access.version} />
         <fieldset disabled={!access.canManage || pending}>
           <legend className="text-sm font-semibold text-zinc-900">Профиль доступа</legend>
@@ -147,7 +156,9 @@ export function AdminCompanyPlatformAccess({ access }: { access: AdminCompanyAcc
           ) : null}
         </div>
         <p aria-live="polite" className={state.status === "success" ? "text-sm text-emerald-700" : "text-sm text-red-700"}>
-          {state.message}
+          {conflict
+            ? "Доступ уже изменён другим администратором. Обновите данные и повторите попытку."
+            : state.message}
         </p>
       </form>
       <div className="border-t border-zinc-200 px-5 py-4">

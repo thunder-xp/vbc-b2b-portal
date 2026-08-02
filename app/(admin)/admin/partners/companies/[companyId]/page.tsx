@@ -9,11 +9,13 @@ import {
 
 export default async function AdminPartnerCompanyAccessPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ companyId: string }>;
+  searchParams: Promise<{ accessConflict?: string }>;
 }) {
   await requireAdminPagePermission("admin.companies.view");
-  const { companyId } = await params;
+  const [{ companyId }, query] = await Promise.all([params, searchParams]);
   const service = createAdminCompanyService();
   const [company, access] = await Promise.all([
     service.getOverview(companyId),
@@ -28,7 +30,11 @@ export default async function AdminPartnerCompanyAccessPage({
         eyebrow="Компания"
         title={company.displayName}
       />
-      <AdminCompanyPlatformAccess access={access} />
+      <AdminCompanyPlatformAccess
+        access={access}
+        conflict={query.accessConflict === "1"}
+        returnPath={`/admin/partners/companies/${companyId}`}
+      />
     </div>
   );
 }

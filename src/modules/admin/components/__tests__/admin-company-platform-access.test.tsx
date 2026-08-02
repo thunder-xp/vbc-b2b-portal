@@ -31,7 +31,12 @@ const access: AdminCompanyAccess = {
 
 describe("AdminCompanyPlatformAccess", () => {
   it("renders manual presets, capability preview, and no user-management toggle", () => {
-    render(<AdminCompanyPlatformAccess access={access} />);
+    render(
+      <AdminCompanyPlatformAccess
+        access={access}
+        returnPath="/admin/companies/company-1"
+      />,
+    );
 
     expect(screen.getByRole("heading", { name: "Platform access" })).toBeInTheDocument();
     expect(screen.getByLabelText("Полный доступ")).toBeChecked();
@@ -39,5 +44,17 @@ describe("AdminCompanyPlatformAccess", () => {
     expect(screen.getByLabelText(/finance\.view_company/)).toBeChecked();
     expect(screen.queryByText("company_users.manage")).not.toBeInTheDocument();
     expect(screen.getByText(/не зависят от статуса партнёра или вида цены/)).toBeInTheDocument();
+  });
+
+  it("keeps an optimistic-lock conflict visible after redirect", () => {
+    render(
+      <AdminCompanyPlatformAccess
+        access={access}
+        conflict
+        returnPath="/admin/companies/company-1"
+      />,
+    );
+
+    expect(screen.getByText(/другим администратором/i)).toBeInTheDocument();
   });
 });

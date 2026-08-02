@@ -100,7 +100,11 @@ export default async function AdminCompanyPage({
         />
       ) : tab === "access" && companyUsers?.success && platformAccess ? (
         <div className="space-y-6">
-          <AdminCompanyPlatformAccess access={platformAccess} />
+          <AdminCompanyPlatformAccess
+            access={platformAccess}
+            conflict={first(query.accessConflict) === "1"}
+            returnPath={`/admin/companies/${companyId}`}
+          />
           <AdminCompanyAccessSubjects
             companyId={companyId}
             users={companyUsers.data.users}

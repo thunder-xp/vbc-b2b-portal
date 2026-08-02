@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 
 import { createAdminCompanyService, requireAdminPermission } from "../services";
 
@@ -15,9 +16,13 @@ export async function updateAdminCompanyAccessAction(
   formData: FormData,
 ): Promise<CompanyAccessActionState> {
   const correlationId = crypto.randomUUID();
+  const companyId = String(formData.get("companyId") ?? "");
+  const canonicalPath = `/admin/companies/${companyId}`;
+  const alternatePath = `/admin/partners/companies/${companyId}`;
+  const requestedReturnPath = String(formData.get("returnPath") ?? "");
+  const returnPath = requestedReturnPath === alternatePath ? alternatePath : canonicalPath;
   try {
     await requireAdminPermission("admin.permissions.manage");
-    const companyId = String(formData.get("companyId") ?? "");
     await createAdminCompanyService().updateAccess({
       companyId,
       expectedVersion: Number(formData.get("version")),
@@ -38,6 +43,10 @@ export async function updateAdminCompanyAccessAction(
       correlationId,
       conflict,
     });
+    if (conflict) {
+      const separator = returnPath === canonicalPath ? "?tab=access&" : "?";
+      redirect(`${returnPath}${separator}accessConflict=1`);
+    }
     return {
       status: conflict ? "conflict" : "error",
       message: conflict
