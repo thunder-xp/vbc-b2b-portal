@@ -4,8 +4,8 @@ import { DefaultCatalogService } from "../../catalog/services";
 import { OneCProvider } from "../../integration/providers/one-c";
 import { getOneCEnv } from "../../../lib/env";
 import { createPricingInventoryService } from "../../pricing-inventory/actions/service-factory";
-import { SupabaseCartRepository, SupabaseOrderDateChangeRequestRepository, SupabaseOrderPriceRefreshRepository, SupabasePartnerOrderHistoryRepository, SupabasePartnerOrderRepository } from "../repositories/supabase";
-import { DefaultCartService, DefaultInternalOrderDateChangeService, DefaultOrderPriceRefreshService, DefaultPartnerOrderHistoryService, DefaultPartnerOrderService, PartnerOrderHistoryAutomationService, QuickReorderService } from "../services";
+import { SupabaseCartRepository, SupabaseOrderDateChangeRequestRepository, SupabaseOrderHistoryBootstrapRepository, SupabaseOrderPriceRefreshRepository, SupabasePartnerOrderHistoryRepository, SupabasePartnerOrderRepository } from "../repositories/supabase";
+import { DefaultCartService, DefaultInternalOrderDateChangeService, DefaultOrderPriceRefreshService, DefaultPartnerOrderHistoryService, DefaultPartnerOrderService, OrderHistoryBootstrapService, PartnerOrderHistoryAutomationService, QuickReorderService } from "../services";
 
 function dependencies() {
   const companyAccessService = createCompanyAccessService();
@@ -75,6 +75,13 @@ export function createPartnerOrderHistoryAutomationService(): PartnerOrderHistor
   return new PartnerOrderHistoryAutomationService(
     repository,
     createPartnerOrderHistoryProvider(),
+    createPartnerOrderHistoryService(),
+  );
+}
+
+export function createOrderHistoryBootstrapService(): OrderHistoryBootstrapService {
+  return new OrderHistoryBootstrapService(
+    new SupabaseOrderHistoryBootstrapRepository(),
     createPartnerOrderHistoryService(),
   );
 }

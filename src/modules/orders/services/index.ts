@@ -7,3 +7,4 @@ export * from "./internal-order-date-change.service";
 export * from "./order-submission.errors";
 export * from "./order-price-refresh.service";
 export * from "./order-history.errors";
+export * from "./order-history-bootstrap.service";

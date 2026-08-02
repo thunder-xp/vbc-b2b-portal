@@ -33,6 +33,10 @@
       "schedule": "30 4 * * *"
     },
     {
+      "path": "/api/cron/order-history-bootstrap",
+      "schedule": "*/2 * * * *"
+    },
+    {
       "path": "/api/cron/finance-contract-balances",
       "schedule": "5 * * * *"
     },
