@@ -39,6 +39,18 @@ describe("DefaultPartnerWorkspaceContextService", () => {
     });
   });
 
+  it("ensures order-history bootstrap once from the server-derived first-access context", async () => {
+    const ensureFirstAccess = vi.fn().mockResolvedValue({ status: "queued" });
+    await service({ historyBootstrapEnsurer: { ensureFirstAccess } }).getWorkspaceContext("partner-1");
+    expect(ensureFirstAccess).toHaveBeenCalledOnce();
+    expect(ensureFirstAccess).toHaveBeenCalledWith("company-1", "partner-1");
+  });
+
+  it("does not block first access when bootstrap enqueue is temporarily unavailable", async () => {
+    const ensureFirstAccess = vi.fn().mockRejectedValue(new Error("temporary"));
+    await expect(service({ historyBootstrapEnsurer: { ensureFirstAccess } }).getWorkspaceContext("partner-1")).resolves.toMatchObject({ accessState: "active" });
+  });
+
   it("keeps workspace access available when the local price-type mapping is unavailable", async () => {
     const context = await service({ priceTypeUnavailable: true }).getWorkspaceContext("partner-1");
 
@@ -158,6 +170,7 @@ type Fixtures = {
   accessRequestLookupFails?: boolean;
   priceTypeUnavailable?: boolean;
   priceTypeReadModel?: PartnerPriceTypeReadModel;
+  historyBootstrapEnsurer?: { ensureFirstAccess(companyId: string, userId: string): Promise<unknown> };
 };
 
 function service(fixtures: Fixtures = {}) {
@@ -222,6 +235,7 @@ function service(fixtures: Fixtures = {}) {
     companyAccessService,
     permissionService,
     priceTypeReadModel,
+    fixtures.historyBootstrapEnsurer,
   );
 }
 
