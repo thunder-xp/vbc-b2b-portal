@@ -219,6 +219,28 @@ describe("Partner workspace shell", () => {
     expect(screen.getByRole("link", { name: "Сметы" })).toHaveAttribute("aria-current", "page");
   });
 
+  it.each([
+    "/cabinet/service",
+    "/cabinet/service/new",
+    "/cabinet/service/11111111-1111-1111-1111-111111111111",
+  ])("keeps the service entry active for %s", (route) => {
+    pathname = route;
+    render(<PartnerSidebar hasWorkspaceAccess navigation={navigation} />);
+
+    const serviceLink = screen.getByRole("link", { name: "Сервис и гарантия" });
+    expect(serviceLink).toHaveAttribute("href", "/cabinet/service");
+    expect(serviceLink).toHaveAttribute("aria-current", "page");
+    expect(screen.getAllByRole("link", { name: "Сервис и гарантия" })).toHaveLength(1);
+    expect(serviceLink).not.toHaveTextContent("Скоро");
+  });
+
+  it("omits service navigation when the effective permission is absent", () => {
+    const unauthorized = resolveWorkspaceCapabilities(new Set(["catalog.view"])).navigation;
+    render(<PartnerSidebar hasWorkspaceAccess navigation={unauthorized} />);
+
+    expect(screen.queryByText("Сервис и гарантия")).not.toBeInTheDocument();
+  });
+
   it("opens each restored parent for its active child route", () => {
     pathname = "/cabinet/specifications/specification-1";
     const { unmount } = render(<PartnerSidebar hasWorkspaceAccess navigation={navigation} />);

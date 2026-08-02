@@ -59,6 +59,19 @@ describe("resolveWorkspaceCapabilities", () => {
     expect(resolveWorkspaceCapabilities(new Set()).navigation.some((item) => item.key === "finance")).toBe(false);
   });
 
+  it("exposes the released service workspace only through service.view", () => {
+    const authorized = resolveWorkspaceCapabilities(new Set(["service.view"]));
+    const serviceItem = authorized.navigation.filter((item) => item.key === "warranty");
+
+    expect(serviceItem).toHaveLength(1);
+    expect(serviceItem[0]).toMatchObject({
+      label: "Сервис и гарантия",
+      href: "/cabinet/service",
+      availability: "available",
+    });
+    expect(resolveWorkspaceCapabilities(new Set()).navigation.some((item) => item.key === "warranty")).toBe(false);
+  });
+
   it("applies server capability configuration to navigation and commercial visibility", () => {
     const model = resolveWorkspaceCapabilities(
       new Set(["catalog.view", "pricing.partner_price.view", "stock.view"]),
