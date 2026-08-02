@@ -149,6 +149,17 @@ export class SupabasePartnerOrderHistoryRepository implements PartnerOrderHistor
     return data ? mapSyncState(data as Row) : null;
   }
 
+  async getBootstrapState(companyId: string) {
+    const { data, error } = await (await createClient()).rpc("get_partner_order_history_bootstrap_status", { p_company_id: companyId });
+    if (error || !isRecord(data) || typeof data.status !== "string") throw new OrderHistoryRepositoryError();
+    return {
+      status: data.status as import("../../types").OrderHistoryBootstrapState["status"],
+      requestedAt: nullableText(data.requestedAt),
+      completedAt: nullableText(data.completedAt),
+      lastErrorCode: nullableText(data.lastErrorCode),
+    };
+  }
+
   async startSync(input: Parameters<PartnerOrderHistoryRepository["startSync"]>[0]) {
     const { data, error } = await createAdminClient().rpc("acquire_partner_order_history_sync", {
       p_company_id: input.companyId,

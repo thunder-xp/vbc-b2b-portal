@@ -25,6 +25,7 @@ import type {
   PartnerOrderHistoryItem,
   PartnerOrderHistorySyncMode,
   PartnerOrderHistorySyncState,
+  OrderHistoryBootstrapState,
 } from "../types";
 import {
   PartnerOrderIntegrationStatus,
@@ -132,6 +133,7 @@ export interface PartnerOrderHistoryService {
     totalPages: number;
     total: number;
     syncState: PartnerOrderHistorySyncState | null;
+    bootstrapState: OrderHistoryBootstrapState | null;
   }>;
   get(userId: string, orderId: string): Promise<PartnerOrderHistoryDetailDto>;
   syncOwnCompany(userId: string, mode: PartnerOrderHistorySyncMode): Promise<PartnerOrderHistorySyncResult>;
@@ -160,10 +162,11 @@ export class DefaultPartnerOrderHistoryService implements PartnerOrderHistorySer
     const filter = parseFilter(input.filter);
     const search = normalizeSearch(input.search);
     const page = parsePage(input.page);
-    const [portalOrders, historyIdentities, syncState] = await Promise.all([
+    const [portalOrders, historyIdentities, syncState, bootstrapState] = await Promise.all([
       this.portalOrderRepository.listByCompanyId(context.company.id),
       this.historyRepository.listVisibleIdentities?.(context.company.id) ?? Promise.resolve([]),
       this.historyRepository.getSyncState(context.company.id),
+      this.historyRepository.getBootstrapState?.(context.company.id) ?? Promise.resolve(null),
     ]);
     const localOrders = selectUnmergedConfirmedOrders(portalOrders, historyIdentities, filter, search);
     const start = (page - 1) * LIST_PAGE_SIZE;
@@ -190,6 +193,7 @@ export class DefaultPartnerOrderHistoryService implements PartnerOrderHistorySer
       totalPages: Math.max(1, Math.ceil(total / LIST_PAGE_SIZE)),
       total,
       syncState,
+      bootstrapState,
       freshness: evaluateFreshness(syncState?.finishedAt ?? syncState?.lastIncrementalSyncAt ?? syncState?.lastSuccessfulFullSyncAt, "activeOrder", "Заказы"),
     };
   }

@@ -41,6 +41,21 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
         <OrderHistoryRefreshButton hasCachedOrders={result.data.total > 0} />
       </header>
 
+      {result.data.bootstrapState && result.data.bootstrapState.status !== "succeeded" ? (
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3" role="status">
+          <p className="text-sm font-semibold text-zinc-900">
+            {result.data.bootstrapState.status.startsWith("failed")
+              ? "История закупок временно обновляется"
+              : "История закупок синхронизируется"}
+          </p>
+          <p className="mt-1 text-sm text-zinc-700">
+            {result.data.bootstrapState.status.startsWith("failed")
+              ? "Текущие заказы остаются доступны."
+              : "Некоторые рекомендации и показатели динамики появятся после загрузки истории заказов."}
+          </p>
+        </div>
+      ) : null}
+
       <div className="space-y-3 border-y border-zinc-200 py-4">
         <div className="flex gap-2 overflow-x-auto pb-1" aria-label="Состояние заказа">
           {FILTERS.map(([value, label]) => (

@@ -74,6 +74,7 @@ export async function listPartnerOrderHistoryAction(input: {
   totalPages: number;
   total: number;
   syncState: import("../types").PartnerOrderHistorySyncState | null;
+  bootstrapState: import("../types").OrderHistoryBootstrapState | null;
   freshness: import("../../integration/freshness").FreshnessView;
 }>> {
   try {

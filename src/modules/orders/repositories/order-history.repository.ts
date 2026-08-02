@@ -6,6 +6,7 @@ import type {
   PartnerOrderHistoryStateCode,
   PartnerOrderHistorySyncMode,
   PartnerOrderHistorySyncState,
+  OrderHistoryBootstrapState,
   OrderReorderSource,
 } from "../types";
 
@@ -47,6 +48,7 @@ export interface PartnerOrderHistoryRepository {
   listEvents(orderId: string): Promise<PartnerOrderHistoryEvent[]>;
   getSyncState(companyId: string): Promise<PartnerOrderHistorySyncState | null>;
   getSyncStateForAutomation?(companyId: string): Promise<PartnerOrderHistorySyncState | null>;
+  getBootstrapState?(companyId: string): Promise<OrderHistoryBootstrapState>;
   startSync(input: {
     companyId: string;
     counterpartyRef: string;
