@@ -59,6 +59,14 @@
     {
       "path": "/api/cron/product-relations",
       "schedule": "45 1 * * *"
+    },
+    {
+      "path": "/api/cron/partner-momentum",
+      "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/cron/partner-momentum-daily",
+      "schedule": "20 5 * * *"
     }
   ]
 }
