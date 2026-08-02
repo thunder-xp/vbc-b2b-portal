@@ -136,7 +136,7 @@ export class SupabaseAdminCompanyRepository implements AdminCompanyRepository {
       "update_admin_partner_company_access",
       payload,
     );
-    if (error?.code === "40001" || error?.message.includes("stale_company_access_version")) {
+    if (error?.code === "PT409" || error?.message.includes("stale_company_access_version")) {
       throw new Error("stale_company_access_version");
     }
     if (error || data === null) {

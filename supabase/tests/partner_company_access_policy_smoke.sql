@@ -88,7 +88,7 @@ begin
       target_company_id, target_version - 1, 'full_partner_access', '{}'::text[], 'Stale smoke update', gen_random_uuid()
     );
     raise exception 'stale_update_was_accepted';
-  exception when serialization_failure then
+  exception when sqlstate 'PT409' then
     null;
   end;
 

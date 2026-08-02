@@ -11,6 +11,10 @@ const projectionFix = fs.readFileSync(
   path.join(process.cwd(), "supabase/migrations/20260802123000_partner_company_access_projection_qualification.sql"),
   "utf8",
 );
+const conflictFix = fs.readFileSync(
+  path.join(process.cwd(), "supabase/migrations/20260802124500_partner_company_access_conflict_signal.sql"),
+  "utf8",
+);
 
 describe("partner company access policy migration", () => {
   it("assigns an explicit full-access policy to every new company", () => {
@@ -60,6 +64,12 @@ describe("partner company access policy migration", () => {
     expect(sql).toContain("insert into public.partner_company_access_events");
     expect(sql).toContain("correlation_id uuid not null");
     expect(sql).toContain("prevent_partner_company_access_event_mutation");
+  });
+
+  it("returns a stable HTTP conflict without transaction retry", () => {
+    expect(conflictFix).toContain("stale_company_access_version");
+    expect(conflictFix).toContain("errcode = 'PT409'");
+    expect(conflictFix).not.toContain("errcode = '40001'");
   });
 
   it("backfills existing companies without queuing historical bootstrap work", () => {
