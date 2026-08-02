@@ -18,6 +18,8 @@ import { QuickActions } from "./QuickActions";
 import { OpportunityCard } from "../../commercial-opportunities/components";
 import { CampaignCard } from "../../commercial-campaigns/components/CampaignCard";
 import { DocumentCard } from "../../documents/components";
+import { BehaviorViewEvent } from "../../behavior-analytics/components";
+import { dismissPartnerMomentumPromptAction } from "../../partner-momentum/actions";
 
 export function OperationalDashboard({
   workspace,
@@ -28,6 +30,7 @@ export function OperationalDashboard({
     <div className="space-y-7">
       <WorkspaceHeader workspace={workspace} />
       <AttentionSection items={workspace.attentionItems} />
+      <PurchasingDynamicsSection summary={workspace.purchasingDynamics} />
       <div className="grid gap-5 xl:grid-cols-2">
         <OrdersSection summary={workspace.orderSummary} />
         <ShipmentsSection summary={workspace.shipmentSummary} />
@@ -52,6 +55,33 @@ export function OperationalDashboard({
       />
       <CompanySection summary={workspace.companySummary} />
     </div>
+  );
+}
+
+function PurchasingDynamicsSection({ summary }: { summary: WorkspaceHomeDto["purchasingDynamics"] }) {
+  if (!summary?.actions.length) return null;
+  return (
+    <section aria-labelledby="purchasing-dynamics" className="border border-emerald-200 bg-emerald-50 p-4 sm:p-5">
+      <BehaviorViewEvent dedupeKey={`momentum:${summary.sourceFingerprint}`} eventName="momentum_prompt_viewed" metadataSafe={{ status_band: summary.status }} route="/cabinet" sourceSurface="partner_momentum" />
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="max-w-2xl">
+          <p className="text-xs font-semibold uppercase text-emerald-800">Динамика закупок</p>
+          <h2 className="mt-1 text-lg font-semibold text-zinc-950" id="purchasing-dynamics">{summary.title}</h2>
+          <p className="mt-1 text-sm text-zinc-700">{summary.explanation}</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {summary.actions.map((action) => (
+            <DashboardTrackedLink className="inline-flex min-h-11 items-center rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white hover:bg-emerald-800 focus-visible:ring-2 focus-visible:ring-emerald-500" eventName="momentum_action_opened" href={action.href} key={action.key} metadataSafe={{ action_type: action.key, status_band: summary.status }} sourceSurface="partner_momentum">
+              {action.label}
+            </DashboardTrackedLink>
+          ))}
+          <form action={dismissPartnerMomentumPromptAction}>
+            <input name="fingerprint" type="hidden" value={summary.sourceFingerprint} />
+            <button className="min-h-11 px-3 text-sm font-medium text-zinc-600 underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-emerald-500" type="submit">Скрыть</button>
+          </form>
+        </div>
+      </div>
+    </section>
   );
 }
 

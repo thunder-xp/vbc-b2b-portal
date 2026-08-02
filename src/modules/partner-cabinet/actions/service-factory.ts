@@ -18,6 +18,7 @@ import { SupabaseCommercialCampaignRepository } from "../../commercial-campaigns
 import { SupabaseDocumentRepository } from "../../documents/repositories";
 import { DefaultCatalogService } from "../../catalog/services";
 import { SupabaseCatalogRepository } from "../../catalog/repositories/supabase";
+import { SupabasePartnerMomentumRepository } from "../../partner-momentum/repositories";
 
 const priceTypeRepository = new SupabasePricingInventoryRepository();
 const workspaceContextService = new DefaultPartnerWorkspaceContextService(
@@ -47,5 +48,6 @@ export function createWorkspaceHomeService(): DefaultWorkspaceHomeService {
     new SupabaseCommercialCampaignRepository(),
     new SupabaseDocumentRepository(),
     catalogService,
+    new SupabasePartnerMomentumRepository(),
   );
 }

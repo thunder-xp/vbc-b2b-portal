@@ -27,6 +27,8 @@ import type { CommercialCampaignRepository } from "../../commercial-campaigns/re
 import type { PartnerCampaign } from "../../commercial-campaigns/types";
 import type { DocumentRepository } from "../../documents/repositories";
 import type { PartnerDocumentListItem } from "../../documents/types";
+import type { PartnerMomentumRepository } from "../../partner-momentum/repositories";
+import type { PartnerMomentumSummary } from "../../partner-momentum/types";
 
 export type WorkspaceQuickActionDto = {
   key: string;
@@ -135,6 +137,7 @@ export type WorkspaceHomeDto = {
     commercialReady: boolean;
   };
   commercialConfigurationMissing: boolean;
+  purchasingDynamics: PartnerMomentumSummary | null;
   commercialFreshness: Array<{
     domain: "rates" | "prices" | "stock" | "arrivals";
     label: string;
@@ -157,6 +160,7 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
     private readonly campaignRepository?: CommercialCampaignRepository,
     private readonly documentRepository?: DocumentRepository,
     private readonly productReferenceService?: ProductReferenceService,
+    private readonly momentumRepository?: PartnerMomentumRepository,
   ) {}
 
   async getWorkspaceHome(userId: string, loginGeneration = "legacy-session"): Promise<WorkspaceHomeDto> {
@@ -169,7 +173,7 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
       throw new InvalidStateError("Partner workspace access is not active.");
     }
 
-    const [freshness, dashboard, selections, notificationPage, opportunityPage, campaignPage, documentPage] = await Promise.all([
+    const [freshness, dashboard, selections, notificationPage, opportunityPage, campaignPage, documentPage, purchasingDynamics] = await Promise.all([
       this.commercialFreshnessReadModel.getFreshness(),
       this.dashboardRepository.getDashboard(context.companyId),
       this.dashboardRepository.getProductSelections?.(userId, context.companyId, loginGeneration) ?? Promise.resolve(null),
@@ -183,6 +187,9 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
         ?? Promise.resolve({ items: [], totalCount: 0 }),
       this.documentRepository?.listPartner(context.companyId, { section: "all", state: "current", page: 1, pageSize: 4 })
         ?? Promise.resolve({ items: [], totalCount: 0 }),
+      ["partner_owner", "partner_manager", "partner_buyer"].includes(context.membershipRoleCode ?? "")
+        ? this.momentumRepository?.getPartnerSummary(context.companyId) ?? Promise.resolve(null)
+        : Promise.resolve(null),
     ]);
     const reorderCandidates = selections?.previousProducts ?? dashboard.reorderProducts;
     const merchandisingCandidates = selections?.merchandisingProducts ?? dashboard.merchandisingProducts;
@@ -314,6 +321,7 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
       financeSummary: dashboard.financeSummary,
       companySummary: dashboard.companySummary,
       commercialConfigurationMissing: context.accessState === "missing_price_type",
+      purchasingDynamics,
       commercialFreshness: [
         freshnessItem("prices", "Цены", freshnessByDomain.get("prices")),
         freshnessItem("stock", "Остатки", freshnessByDomain.get("stock")),
