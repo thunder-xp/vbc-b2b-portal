@@ -50,7 +50,12 @@ describe("DefaultWorkspaceHomeService", () => {
       product: { id: "product-1", sku: "400123" },
       purchaseCount: 4,
     });
-    expect(workspace.quickActions).toHaveLength(6);
+    expect(workspace.quickActions.map((action) => action.key)).toEqual([
+      "cart",
+      "repeat_order",
+      "estimate",
+      "documents",
+    ]);
     expect(JSON.stringify(workspace)).not.toMatch(/f7df2069|33333333/);
   });
 
@@ -85,6 +90,15 @@ describe("DefaultWorkspaceHomeService", () => {
           objectNumber: "NSUU-1",
           occurredAt: "2026-07-29T00:00:00Z",
           comment: null,
+          title: null,
+          description: null,
+          plannedDate: "2026-07-29",
+          sourceFingerprint: "a".repeat(64),
+          dismissPolicy: "until_source_change",
+          severity: "warning",
+          href: "/cabinet/orders/order-1",
+          ctaLabel: "Открыть заказ",
+          relevanceState: "active",
         }],
       }),
       fakePricingInventoryService(),
@@ -98,7 +112,67 @@ describe("DefaultWorkspaceHomeService", () => {
     ]);
   });
 
-  it("adds unread critical notifications first and removes duplicate operational links", async () => {
+  it("uses the governed TEST return wording and cooldown policy", async () => {
+    const workspace = await new DefaultWorkspaceHomeService(
+      fakeContextService(),
+      fakeFreshness(),
+      fakeDashboardRepository({
+        attentionItems: [{
+          id: "11111111-1111-4111-8111-111111111111",
+          kind: "test_return_overdue",
+          objectId: "11111111-1111-4111-8111-111111111111",
+          objectNumber: "NSUU-001498",
+          occurredAt: "2026-08-01T00:00:00Z",
+          comment: null,
+          title: null,
+          description: null,
+          plannedDate: "2026-08-01",
+          sourceFingerprint: "b".repeat(32),
+          dismissPolicy: "cooldown_7_days",
+          severity: "warning",
+          href: "/cabinet/orders/11111111-1111-4111-8111-111111111111",
+          ctaLabel: "Открыть заказ",
+          relevanceState: "active",
+        }],
+      }),
+      fakePricingInventoryService(),
+    ).getWorkspaceHome("partner-1");
+
+    expect(workspace.attentionItems[0]).toMatchObject({
+      title: "Тестовый период завершён",
+      dismissPolicy: "cooldown_7_days",
+      href: "/cabinet/orders/11111111-1111-4111-8111-111111111111",
+      orderNumber: "NSUU-001498",
+      plannedDate: "2026-08-01",
+      isTest: true,
+    });
+    expect(workspace.attentionItems[0]?.consequence).toContain("вернуть оборудование");
+  });
+
+  it("dismisses attention through the company-scoped repository method", async () => {
+    const repository = fakeDashboardRepository();
+    repository.dismissAttention = vi.fn().mockResolvedValue(undefined);
+    const service = new DefaultWorkspaceHomeService(
+      fakeContextService(),
+      fakeFreshness(),
+      repository,
+      fakePricingInventoryService(),
+    );
+
+    await service.dismissAttention(
+      "partner-1",
+      "11111111-1111-4111-8111-111111111111",
+      "c".repeat(32),
+    );
+
+    expect(repository.dismissAttention).toHaveBeenCalledWith(
+      "company-1",
+      "11111111-1111-4111-8111-111111111111",
+      "c".repeat(32),
+    );
+  });
+
+  it("uses only the canonical dashboard attention projection", async () => {
     const notifications = fakeNotificationRepository();
     vi.mocked(notifications.list).mockResolvedValue({
       nextCursor: null,
@@ -118,20 +192,23 @@ describe("DefaultWorkspaceHomeService", () => {
           objectNumber: "NSUU-1",
           occurredAt: "2026-07-29T00:00:00Z",
           comment: null,
+          title: null,
+          description: null,
+          plannedDate: "2026-07-29",
+          sourceFingerprint: "a".repeat(64),
+          dismissPolicy: "until_source_change",
+          severity: "warning",
+          href: "/cabinet/orders/order-1",
+          ctaLabel: "Открыть заказ",
+          relevanceState: "active",
         }],
       }),
       fakePricingInventoryService(),
       notifications,
     ).getWorkspaceHome("partner-1");
 
-    expect(notifications.list).toHaveBeenCalledWith("company-1", {
-      unreadOnly: true,
-      pageSize: 8,
-    });
-    expect(workspace.attentionItems.map((item) => item.id)).toEqual([
-      "critical-1",
-      "warning-1",
-    ]);
+    expect(notifications.list).not.toHaveBeenCalled();
+    expect(workspace.attentionItems.map((item) => item.id)).toEqual(["warning-1"]);
   });
 
   it("uses the login-scoped snapshot, five unique products, and one batched image projection", async () => {
@@ -181,7 +258,60 @@ describe("DefaultWorkspaceHomeService", () => {
     expect(workspace.merchandisingProducts).toHaveLength(5);
     expect(new Set(workspace.reorderProducts.map((item) => item.product.id)).size).toBe(5);
     expect(productReferences.getProductReferencesByIds).toHaveBeenCalledOnce();
-    expect(workspace.reorderProducts[0]?.product.imageUrl).toBe("/products/product-1.jpg");
+    expect(workspace.reorderProducts.every((item) =>
+      item.product.imageUrl === `/products/${item.product.id}.jpg`)).toBe(true);
+  });
+
+  it("keeps bounded product blocks stable within a login and rotates a new login", async () => {
+    const candidates = Array.from({ length: 10 }, (_, index) => dashboardProduct(index + 1));
+    const dashboardRepository = fakeDashboardRepository();
+    dashboardRepository.getProductSelections = vi.fn().mockResolvedValue({
+      snapshotHit: true,
+      previousProducts: candidates,
+      merchandisingProducts: candidates.slice(0, 5),
+      previousSourceFingerprint: "orders-v1",
+      offerSourceFingerprint: "offers-v1",
+      previousCandidateCount: 10,
+      offerCandidateCount: 5,
+      rotationBucket: 10,
+    } satisfies WorkspaceDashboardSelections);
+    const opportunityRepository = {
+      list: vi.fn().mockResolvedValue({
+        totalCount: 10,
+        items: candidates.map((candidate) => opportunity(candidate.id)),
+      }),
+      dismiss: vi.fn(),
+    };
+    const service = new DefaultWorkspaceHomeService(
+      fakeContextService(),
+      fakeFreshness(),
+      dashboardRepository,
+      fakePricingInventoryService(),
+      undefined,
+      opportunityRepository as never,
+    );
+
+    const first = await service.getWorkspaceHome("partner-1", "login-a");
+    const same = await service.getWorkspaceHome("partner-1", "login-a");
+    const next = await service.getWorkspaceHome("partner-1", "login-b");
+    const ids = (workspace: typeof first) => workspace.reorderProducts.map((item) => item.product.id);
+    const opportunityIds = (workspace: typeof first) => workspace.opportunities.map((item) => item.id);
+
+    expect(ids(same)).toEqual(ids(first));
+    expect(opportunityIds(same)).toEqual(opportunityIds(first));
+    expect(ids(next)).not.toEqual(ids(first));
+    expect(opportunityIds(next)).not.toEqual(opportunityIds(first));
+    expect(first.reorderProducts).toHaveLength(5);
+    expect(first.opportunities).toHaveLength(4);
+    expect(first.merchandisingProducts.some((item) =>
+      first.opportunities.some((opportunityItem) =>
+        opportunityItem.product?.id === item.product.id))).toBe(false);
+    expect(opportunityRepository.list).toHaveBeenCalledWith({
+      companyId: "company-1",
+      filter: "all",
+      limit: 12,
+      offset: 0,
+    });
   });
 
   it("enriches all dashboard opportunities in the existing product-reference batch", async () => {
@@ -218,7 +348,7 @@ describe("DefaultWorkspaceHomeService", () => {
     ]);
   });
 
-  it("uses the bounded dashboard document projection", async () => {
+  it("does not block the concise dashboard on document reads", async () => {
     const documents = {
       listPartnerRecent: vi.fn().mockResolvedValue([]),
       listPartner: vi.fn(),
@@ -240,7 +370,7 @@ describe("DefaultWorkspaceHomeService", () => {
       documents,
     ).getWorkspaceHome("partner-1");
 
-    expect(documents.listPartnerRecent).toHaveBeenCalledWith("company-1", 4);
+    expect(documents.listPartnerRecent).not.toHaveBeenCalled();
     expect(documents.listPartner).not.toHaveBeenCalled();
   });
 

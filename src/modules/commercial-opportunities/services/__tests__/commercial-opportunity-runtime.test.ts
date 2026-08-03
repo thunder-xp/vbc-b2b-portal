@@ -21,7 +21,7 @@ describe("commercial opportunity runtime boundaries", () => {
     const repository = read("src/modules/commercial-opportunities/repositories/supabase/commercial-opportunity.supabase-repository.ts");
     expect(repository.match(/\.rpc\(/g)).toHaveLength(2);
     expect(repository).toContain("list_partner_commercial_opportunities");
-    expect(read("src/modules/partner-cabinet/services/workspace-home.service.ts")).toContain("limit: 4");
+    expect(read("src/modules/partner-cabinet/services/workspace-home.service.ts")).toContain("limit: 12");
   });
 
   it("protects the worker with canonical cron authorization", () => {

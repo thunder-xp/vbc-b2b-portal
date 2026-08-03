@@ -8,6 +8,7 @@ export {
   type WorkspaceProductDto,
   type WorkspaceQuickActionDto,
   type WorkspaceShipmentDto,
+  buildQuickActions,
 } from "./workspace-home.service";
 export {
   DefaultPartnerWorkspaceContextService,

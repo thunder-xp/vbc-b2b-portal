@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 import type { PartnerWorkspaceAccessState, WorkspaceNavigationItem } from "../services";
+import type { WorkspaceQuickActionDto } from "../services";
 import type { NotificationSummary } from "../../notifications";
 import { PartnerHeader } from "./PartnerHeader";
 import { PartnerMobileNavigation } from "./PartnerMobileNavigation";
@@ -13,6 +14,8 @@ export type PartnerWorkspaceShellContext = {
   membershipRole: string | null;
   membershipRoleCode: string | null;
   companyLogoUrl: string | null;
+  partnerStatus: string | null;
+  quickActions: WorkspaceQuickActionDto[];
   accessState: PartnerWorkspaceAccessState;
   navigation: WorkspaceNavigationItem[];
   cartItemCount: number;

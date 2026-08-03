@@ -8,6 +8,7 @@ export { UserMenu } from "./UserMenu";
 export { PartnerLayout } from "./PartnerLayout";
 export { PartnerSidebar } from "./PartnerSidebar";
 export { QuickActions } from "./QuickActions";
+export { QuickActionsMenu } from "./QuickActionsMenu";
 export { StatusBadge } from "./StatusBadge";
 export { WorkspaceCard } from "./WorkspaceCard";
 export { WorkspaceEmptyState } from "./WorkspaceEmptyState";

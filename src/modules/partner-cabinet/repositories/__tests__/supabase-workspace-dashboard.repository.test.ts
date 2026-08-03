@@ -30,7 +30,7 @@ describe("SupabaseWorkspaceDashboardRepository", () => {
     ).resolves.toMatchObject({ attentionItems: [], reorderProducts: [] });
     expect(mocks.rpc).toHaveBeenCalledOnce();
     expect(mocks.rpc).toHaveBeenCalledWith(
-      "get_partner_workspace_dashboard_v2",
+      "get_partner_workspace_dashboard_v3",
       { p_company_id: "11111111-1111-4111-8111-111111111111" },
     );
   });

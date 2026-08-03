@@ -37,27 +37,27 @@ describe("Partner Workspace operational home", () => {
   it("renders the operational hierarchy and honest empty states", async () => {
     render(await CabinetPage());
 
-    expect(screen.getByRole("heading", { name: "Доброе утро, Partner" })).toBeInTheDocument();
-    expect(screen.getByText(/Partner Company · Partner Owner/)).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: /Partner/ })).not.toBeInTheDocument();
     expect(screen.getByText("Требует внимания")).toBeInTheDocument();
     expect(screen.getByText("Всё в порядке. Срочных действий нет.")).toBeInTheDocument();
     expect(screen.getByText("Заказы")).toBeInTheDocument();
     expect(screen.getByText("Ближайшие отгрузки")).toBeInTheDocument();
     expect(screen.getByText("У компании пока нет заказов.")).toBeInTheDocument();
     expect(screen.getByText("Ближайшие отгрузки не запланированы.")).toBeInTheDocument();
+    expect(screen.getAllByRole("heading", { level: 2 })[0]).toHaveTextContent("Требует внимания");
   });
 
-  it("renders only role-allowed quick actions and no invented metrics", async () => {
+  it("keeps quick actions out of the dashboard body and shows no invented metrics", async () => {
     const { container } = render(await CabinetPage());
 
-    expect(screen.getByText("Весь каталог")).toBeInTheDocument();
-    expect(screen.getByText("Мои заказы")).toBeInTheDocument();
+    expect(screen.queryByText("Весь каталог")).not.toBeInTheDocument();
+    expect(screen.queryByText("Мои заказы")).not.toBeInTheDocument();
     expect(screen.queryByText("Финансы")).not.toBeInTheDocument();
     expect(screen.queryByText("Моя компания")).not.toBeInTheDocument();
     expect(container.textContent).not.toMatch(/1C integration|f7df2069|33333333/);
   });
 
-  it("renders a real commercial configuration warning", async () => {
+  it("renders canonical dismissible attention", async () => {
     mocks.getWorkspaceHomeAction.mockResolvedValue({
       success: true,
       errorCode: null,
@@ -65,19 +65,26 @@ describe("Partner Workspace operational home", () => {
       data: {
         ...workspaceData(),
         attentionItems: [{
-          id: "commercial-configuration",
-          kind: "commercial_configuration",
-          title: "Коммерческие условия ещё не настроены",
-          consequence: "Обратитесь к менеджеру Novotech для завершения настройки.",
-          href: "/cabinet/company",
+          id: "order-1",
+          kind: "shipment_overdue",
+          title: "Отгрузка заказа NSUU-1 просрочена",
+          consequence: "Откройте заказ и уточните дату.",
+          href: "/cabinet/orders/order-1",
           occurredAt: "2026-07-30T08:00:00Z",
+          sourceFingerprint: "a".repeat(64),
+          dismissPolicy: "until_source_change",
+          severity: "warning",
+          orderNumber: "NSUU-1",
+          plannedDate: "2026-07-30",
+          isTest: false,
+          ctaLabel: "Открыть заказ",
         }],
       },
     });
 
     render(await CabinetPage());
-    expect(screen.getByText("Коммерческие условия ещё не настроены")).toBeInTheDocument();
-    expect(screen.getByText("Обратитесь к менеджеру Novotech для завершения настройки.")).toBeInTheDocument();
+    expect(screen.getByText("Отгрузка заказа NSUU-1 просрочена")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Скрыть сообщение" })).toBeInTheDocument();
   });
 
   it("redirects unauthenticated users", async () => {
@@ -130,9 +137,13 @@ function workspaceData() {
     continuationItems: [],
     reorderProducts: [],
     merchandisingProducts: [],
+    opportunities: [],
+    campaigns: [],
+    recentDocuments: [],
     financeSummary: null,
     companySummary: null,
     commercialConfigurationMissing: false,
+    purchasingDynamics: null,
     commercialFreshness: [],
   };
 }

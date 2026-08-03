@@ -12,13 +12,10 @@ import {
 import { SupabaseCommercialFreshnessReadModel } from "../repositories/supabase-commercial-freshness.repository";
 import { SupabaseWorkspaceDashboardRepository } from "../repositories/supabase-workspace-dashboard.repository";
 import { createPricingInventoryService } from "../../pricing-inventory/actions/service-factory";
-import { SupabaseNotificationRepository } from "../../notifications";
 import { SupabaseCommercialOpportunityRepository } from "../../commercial-opportunities";
 import { SupabaseCommercialCampaignRepository } from "../../commercial-campaigns/repositories/supabase-commercial-campaign.repository";
-import { SupabaseDocumentRepository } from "../../documents/repositories";
 import { DefaultCatalogService } from "../../catalog/services";
 import { SupabaseCatalogRepository } from "../../catalog/repositories/supabase";
-import { SupabasePartnerMomentumRepository } from "../../partner-momentum/repositories";
 import { SupabaseOrderHistoryBootstrapRepository } from "../../orders/repositories/supabase";
 
 const priceTypeRepository = new SupabasePricingInventoryRepository();
@@ -45,11 +42,11 @@ export function createWorkspaceHomeService(): DefaultWorkspaceHomeService {
     new SupabaseCommercialFreshnessReadModel(),
     new SupabaseWorkspaceDashboardRepository(),
     createPricingInventoryService(),
-    new SupabaseNotificationRepository(),
+    undefined,
     new SupabaseCommercialOpportunityRepository(),
     new SupabaseCommercialCampaignRepository(),
-    new SupabaseDocumentRepository(),
+    undefined,
     catalogService,
-    new SupabasePartnerMomentumRepository(),
+    undefined,
   );
 }

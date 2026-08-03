@@ -1,24 +1,21 @@
 import {
   AlertTriangle,
   ArrowRight,
-  Building2,
   CalendarClock,
   CheckCircle2,
   CircleDollarSign,
   Clock3,
   PackageCheck,
-  Users,
+  X,
 } from "lucide-react";
 
 import { ProductCard } from "../../catalog/components/ProductCard";
 import { DashboardPurchaseTemplateButton } from "../../purchase-templates/components/DashboardPurchaseTemplateButton";
 import type { WorkspaceHomeDto } from "../services";
 import { DashboardTrackedLink } from "./DashboardTrackedLink";
-import { QuickActions } from "./QuickActions";
 import { OpportunityCard } from "../../commercial-opportunities/components/OpportunityCard";
 import { CampaignCard } from "../../commercial-campaigns/components/CampaignCard";
-import { DocumentCard } from "../../documents/components/DocumentCard";
-import { dismissPartnerMomentumPromptAction } from "../../partner-momentum/actions";
+import { dismissDashboardAttentionAction } from "../actions";
 
 export function OperationalDashboard({
   workspace,
@@ -27,18 +24,11 @@ export function OperationalDashboard({
 }) {
   return (
     <div className="space-y-7">
-      <WorkspaceHeader workspace={workspace} />
       <AttentionSection items={workspace.attentionItems} />
-      <PurchasingDynamicsSection summary={workspace.purchasingDynamics} />
       <div className="grid gap-5 xl:grid-cols-2">
         <OrdersSection summary={workspace.orderSummary} />
         <ShipmentsSection summary={workspace.shipmentSummary} />
       </div>
-      <QuickActions actions={workspace.quickActions} />
-      <ContinuationSection items={workspace.continuationItems} />
-      <OpportunitySection opportunities={workspace.opportunities} />
-      <CampaignSection campaigns={workspace.campaigns} />
-      <RecentDocumentsSection documents={workspace.recentDocuments} />
       <ProductSection
         analyticsSurface="dashboard_reorder"
         products={workspace.reorderProducts}
@@ -46,52 +36,29 @@ export function OperationalDashboard({
         workspace={workspace}
       />
       <FinanceSection summary={workspace.financeSummary} />
-      <ProductSection
-        analyticsSurface="dashboard_offers"
+      <OpportunitySection opportunities={workspace.opportunities} />
+      <NovotechOffersSection
+        campaigns={workspace.campaigns}
         products={workspace.merchandisingProducts}
-        title="Предложения Novotech"
         workspace={workspace}
       />
-      <CompanySection summary={workspace.companySummary} />
     </div>
   );
 }
 
-function PurchasingDynamicsSection({ summary }: { summary: WorkspaceHomeDto["purchasingDynamics"] }) {
-  if (!summary) return null;
-  const synchronizing = summary.status === "history_sync_pending" || summary.status === "history_sync_delayed";
+function NovotechOffersSection({ campaigns = [], products = [], workspace }: {
+  campaigns?: WorkspaceHomeDto["campaigns"];
+  products?: WorkspaceHomeDto["merchandisingProducts"];
+  workspace: WorkspaceHomeDto;
+}) {
+  if (!campaigns.length && !products.length) return null;
   return (
-    <section aria-labelledby="purchasing-dynamics" className={synchronizing ? "border border-amber-200 bg-amber-50 p-4 sm:p-5" : "border border-emerald-200 bg-emerald-50 p-4 sm:p-5"} role={synchronizing ? "status" : undefined}>
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div className="max-w-2xl">
-          <p className={synchronizing ? "text-xs font-semibold uppercase text-amber-800" : "text-xs font-semibold uppercase text-emerald-800"}>Динамика закупок</p>
-          <h2 className="mt-1 text-lg font-semibold text-zinc-950" id="purchasing-dynamics">{summary.title}</h2>
-          <p className="mt-1 text-sm text-zinc-700">{summary.explanation}</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {summary.actions.map((action) => (
-            <DashboardTrackedLink className="inline-flex min-h-11 items-center rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white hover:bg-emerald-800 focus-visible:ring-2 focus-visible:ring-emerald-500" eventName="momentum_action_opened" href={action.href} key={action.key} metadataSafe={{ action_type: action.key, status_band: summary.status }} sourceSurface="partner_momentum">
-              {action.label}
-            </DashboardTrackedLink>
-          ))}
-          {!synchronizing ? <form action={dismissPartnerMomentumPromptAction}>
-            <input name="fingerprint" type="hidden" value={summary.sourceFingerprint} />
-            <button className="min-h-11 px-3 text-sm font-medium text-zinc-600 underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-emerald-500" type="submit">Скрыть</button>
-          </form> : null}
-        </div>
-      </div>
+    <section aria-labelledby="dashboard-novotech-offers">
+      <SectionHeading actionHref="/cabinet/offers" actionLabel="Все предложения" id="dashboard-novotech-offers" title="Предложения Novotech" />
+      {campaigns.length ? <div className="mt-3 grid gap-3 xl:grid-cols-2">{campaigns.slice(0, 2).map((campaign) => <CampaignCard campaign={campaign} key={campaign.id} />)}</div> : null}
+      {products.length ? <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">{products.slice(0, 5).map((item) => <ProductCard analyticsEventName="dashboard_novotech_offer_opened" analyticsSurface="dashboard_offers" capabilities={workspace.capabilities.productCard} commercialView={item.commercialView} key={item.product.id} product={item.product} />)}</div> : null}
     </section>
   );
-}
-
-function RecentDocumentsSection({ documents = [] }: { documents?: WorkspaceHomeDto["recentDocuments"] }) {
-  if (!documents.length) return null;
-  return <section aria-labelledby="dashboard-documents"><SectionHeading actionHref="/cabinet/documents" actionLabel="Все документы" id="dashboard-documents" title="Новые документы" /><div className="mt-2">{documents.slice(0,4).map((document)=><DocumentCard compact document={document} key={document.id}/>)}</div></section>;
-}
-
-function CampaignSection({ campaigns = [] }: { campaigns?: WorkspaceHomeDto["campaigns"] }) {
-  if (!campaigns.length) return null;
-  return <section aria-labelledby="dashboard-campaigns"><SectionHeading actionHref="/cabinet/offers" actionLabel="Все предложения" id="dashboard-campaigns" title="Специальные предложения" /><div className="mt-3 grid gap-3 xl:grid-cols-2">{campaigns.slice(0, 2).map((campaign) => <CampaignCard campaign={campaign} key={campaign.id} />)}</div></section>;
 }
 
 function OpportunitySection({ opportunities = [] }: { opportunities?: WorkspaceHomeDto["opportunities"] }) {
@@ -100,29 +67,6 @@ function OpportunitySection({ opportunities = [] }: { opportunities?: WorkspaceH
     <SectionHeading actionHref="/cabinet/opportunities" actionLabel="Смотреть все возможности" id="dashboard-opportunities" title="Возможности для закупки" />
     <div className="mt-3 grid gap-3 xl:grid-cols-2">{opportunities.slice(0, 4).map((opportunity) => <OpportunityCard key={opportunity.id} opportunity={opportunity} />)}</div>
   </section>;
-}
-
-function WorkspaceHeader({ workspace }: { workspace: WorkspaceHomeDto }) {
-  return (
-    <header className="border-b border-zinc-200 pb-5">
-      <div>
-        <div className="min-w-0">
-          <h1 className="text-2xl font-semibold text-zinc-950 sm:text-3xl">
-            {workspace.identity.greeting}, {workspace.identity.firstName}
-          </h1>
-          <p className="mt-1 text-sm text-zinc-600">
-            {workspace.company.name} · {workspace.company.role}
-            {workspace.company.priceType
-              ? ` · Статус партнёра: ${workspace.company.priceType}`
-              : ""}
-          </p>
-          <p className="mt-2 text-xs text-zinc-500">
-            {freshnessLabel(workspace)}
-          </p>
-        </div>
-      </div>
-    </header>
-  );
 }
 
 function AttentionSection({
@@ -137,13 +81,20 @@ function AttentionSection({
         <ul className="mt-3 divide-y divide-zinc-200 border border-zinc-200 bg-white">
           {items.map((item) => (
             <li
-              className="grid gap-3 px-4 py-4 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center"
+              className="grid gap-3 px-4 py-4 sm:grid-cols-[auto_minmax(0,1fr)_auto_auto] sm:items-center"
               key={`${item.kind}:${item.id}`}
             >
               <span className="flex size-10 items-center justify-center rounded-md bg-amber-50 text-amber-700">
                 <AlertTriangle aria-hidden="true" className="size-5" />
               </span>
               <div className="min-w-0">
+                {item.isTest ? (
+                  <p className="mb-1 flex flex-wrap items-center gap-2 text-xs text-zinc-600">
+                    <span className="inline-flex rounded bg-amber-100 px-1.5 py-0.5 font-semibold text-amber-900">ТЕСТОВЫЙ</span>
+                    {item.orderNumber ? <span>{item.orderNumber}</span> : null}
+                    {item.plannedDate ? <span>до {formatDate(item.plannedDate)}</span> : null}
+                  </p>
+                ) : null}
                 <p className="font-semibold text-zinc-950">{item.title}</p>
                 <p className="mt-1 text-sm text-zinc-600">
                   {item.consequence}
@@ -159,9 +110,16 @@ function AttentionSection({
                 metadataSafe={{ kind: item.kind }}
                 sourceSurface="dashboard_attention"
               >
-                Открыть
+                {item.ctaLabel}
                 <ArrowRight aria-hidden="true" className="size-4" />
               </DashboardTrackedLink>
+              <form action={dismissDashboardAttentionAction}>
+                <input name="itemId" type="hidden" value={item.id} />
+                <input name="sourceFingerprint" type="hidden" value={item.sourceFingerprint} />
+                <button aria-label="Скрыть сообщение" className="inline-flex size-11 items-center justify-center rounded-md text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600" title="Скрыть сообщение" type="submit">
+                  <X aria-hidden="true" className="size-4" />
+                </button>
+              </form>
             </li>
           ))}
         </ul>
@@ -208,6 +166,7 @@ function OrdersSection({
                   <span className="font-semibold text-zinc-950">
                     {order.number}
                   </span>
+                  {order.isTest ? <span className="ml-2 inline-flex rounded bg-amber-100 px-1.5 py-0.5 text-[11px] font-semibold text-amber-900">ТЕСТОВЫЙ</span> : null}
                   <span className="mt-1 block text-xs text-zinc-500">
                     {formatDate(order.date)} · {order.positionCount} поз.
                     {order.plannedDate
@@ -271,6 +230,7 @@ function ShipmentsSection({
                   <span className="font-semibold text-zinc-950">
                     {shipment.orderNumber}
                   </span>
+                  {shipment.isTest ? <span className="ml-2 inline-flex rounded bg-amber-100 px-1.5 py-0.5 text-[11px] font-semibold text-amber-900">ТЕСТОВЫЙ</span> : null}
                   <span className="mt-1 block text-xs text-zinc-500">
                     {shipment.positionCount} поз. · {shipment.totalUnits} шт.
                     {shipment.pendingDateChange ? " · перенос рассматривается" : ""}
@@ -291,41 +251,6 @@ function ShipmentsSection({
       ) : (
         <CompactEmpty message="Ближайшие отгрузки не запланированы." />
       )}
-    </section>
-  );
-}
-
-function ContinuationSection({
-  items,
-}: {
-  items: WorkspaceHomeDto["continuationItems"];
-}) {
-  if (!items.length) return null;
-  return (
-    <section aria-labelledby="dashboard-continuation">
-      <SectionHeading id="dashboard-continuation" title="Продолжить работу" />
-      <div className="mt-3 grid gap-3 md:grid-cols-3">
-        {items.map((item) => (
-          <DashboardTrackedLink
-            className="flex min-h-28 flex-col justify-between border border-zinc-200 bg-white p-4 hover:border-emerald-500 focus-visible:ring-2 focus-visible:ring-emerald-500"
-            eventName="dashboard_continue_work_clicked"
-            href={item.href}
-            key={`${item.kind}:${item.id}`}
-            metadataSafe={{ workflow: item.kind }}
-            sourceSurface="dashboard_continue_work"
-          >
-            <span>
-              <span className="font-semibold text-zinc-950">{item.title}</span>
-              <span className="mt-1 block text-sm text-zinc-600">
-                {item.detail}
-              </span>
-            </span>
-            <span className="mt-3 text-xs text-zinc-500">
-              Обновлено {relativeDate(item.updatedAt)}
-            </span>
-          </DashboardTrackedLink>
-        ))}
-      </div>
     </section>
   );
 }
@@ -398,12 +323,7 @@ function FinanceSection({
         title="Финансы"
       />
       <div className="mt-3 border border-zinc-200 bg-white p-4">
-        {summary.stale ? (
-          <p className="mb-3 flex items-center gap-2 text-sm font-medium text-amber-800">
-            <Clock3 aria-hidden="true" className="size-4" />
-            Финансовые данные требуют обновления
-          </p>
-        ) : null}
+        {summary.lastSuccessfulAt ? <p className="mb-3 text-xs text-zinc-500">Обновлено: {formatDate(summary.lastSuccessfulAt)}</p> : null}
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {summary.totals.map((total) => (
             <div className="bg-zinc-50 p-3" key={total.currency}>
@@ -439,54 +359,6 @@ function FinanceSection({
         </div>
       </div>
     </section>
-  );
-}
-
-function CompanySection({
-  summary,
-}: {
-  summary: WorkspaceHomeDto["companySummary"];
-}) {
-  if (!summary) return null;
-  return (
-    <section aria-labelledby="dashboard-company">
-      <SectionHeading
-        actionHref="/cabinet/company/users"
-        actionLabel="Управление сотрудниками"
-        id="dashboard-company"
-        title="Моя компания"
-      />
-      <dl className="mt-3 grid gap-px border border-zinc-200 bg-zinc-200 sm:grid-cols-2 xl:grid-cols-4">
-        <Metric label="Активные сотрудники" value={summary.activeEmployees} />
-        <Metric label="Ожидают приглашения" value={summary.pendingInvitations} />
-        <Metric label="Приостановлены" value={summary.suspendedEmployees} />
-        <Metric label="Только розничные цены" value={summary.retailOnlyEmployees} />
-      </dl>
-      <div className="grid gap-px border-x border-b border-zinc-200 bg-zinc-200 sm:grid-cols-2">
-        <CompanyState
-          label="Статус кабинета"
-          value={summary.portalStatus === "active" ? "Активен" : "Требует проверки"}
-        />
-        <CompanyState
-          label="Коммерческая готовность"
-          value={summary.commercialReady ? "Настроена" : "Требует настройки"}
-        />
-      </div>
-      {summary.expiringInvitations ? (
-        <p className="border-x border-b border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          Скоро истекают приглашения: {summary.expiringInvitations}
-        </p>
-      ) : null}
-    </section>
-  );
-}
-
-function CompanyState({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="bg-white p-3">
-      <p className="text-xs text-zinc-500">{label}</p>
-      <p className="mt-1 text-sm font-semibold text-zinc-950">{value}</p>
-    </div>
   );
 }
 
@@ -569,35 +441,13 @@ function sectionEvent(id: string) {
 
 function metricIcon(label: string) {
   const className = "size-5 shrink-0 text-emerald-700";
-  if (/сотруд|приглаш/i.test(label)) {
-    return <Users aria-hidden="true" className={className} />;
-  }
   if (/отгруз|сегодня|дня|позже/i.test(label)) {
     return <CalendarClock aria-hidden="true" className={className} />;
   }
   if (/подтверж/i.test(label)) {
     return <PackageCheck aria-hidden="true" className={className} />;
   }
-  if (/актив/i.test(label)) {
-    return <Building2 aria-hidden="true" className={className} />;
-  }
   return <Clock3 aria-hidden="true" className={className} />;
-}
-
-function freshnessLabel(workspace: WorkspaceHomeDto): string {
-  const timestamps = workspace.commercialFreshness.flatMap((item) => {
-    const value = item.freshness.updatedAt;
-    return value && Number.isFinite(Date.parse(value)) ? [Date.parse(value)] : [];
-  });
-  if (!timestamps.length) return "Показаны последние подтверждённые данные";
-  const latest = new Date(Math.max(...timestamps));
-  return `Коммерческие данные обновлены ${new Intl.DateTimeFormat("ru-RU", {
-    day: "numeric",
-    month: "long",
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone: "Europe/Chisinau",
-  }).format(latest)}`;
 }
 
 function relativeDate(value: string): string {

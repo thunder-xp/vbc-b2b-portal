@@ -14,10 +14,10 @@ const page = fs.readFileSync(
   path.join(process.cwd(), "app/(partner)/cabinet/notifications/page.tsx"),
   "utf8",
 );
-const dashboard = fs.readFileSync(
+const dashboardMigration = fs.readFileSync(
   path.join(
     process.cwd(),
-    "src/modules/partner-cabinet/services/workspace-home.service.ts",
+    "supabase/migrations/20260803220000_concise_operational_dashboard.sql",
   ),
   "utf8",
 );
@@ -34,13 +34,11 @@ describe("watched-product notification experience", () => {
   });
 
   it("shows only mandatory cart product changes on dashboard attention", () => {
-    expect(dashboard).toContain('item.eventCode === "cart_product_price_changed"');
-    expect(dashboard).toContain(
-      'item.eventCode === "cart_product_availability_changed"',
-    );
-    expect(dashboard).not.toContain(
-      'item.eventCode === "watched_product_price_changed"',
-    );
+    expect(dashboardMigration).toContain("notification.mandatory");
+    expect(dashboardMigration).toContain("'cart_product_price_changed'");
+    expect(dashboardMigration).toContain("'cart_product_availability_changed'");
+    expect(dashboardMigration).not.toContain("'watched_product_price_changed'");
+    expect(dashboardMigration).toContain("'/cabinet/cart'");
   });
 
   it("exposes only aggregate product health", () => {

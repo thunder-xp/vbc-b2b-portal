@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { NotificationBell } from "@/src/modules/notifications/components/NotificationBell";
 import type { PartnerWorkspaceShellContext } from "./PartnerLayout";
 import { UserMenu } from "./UserMenu";
+import { QuickActionsMenu } from "./QuickActionsMenu";
 
 export function PartnerHeader({ context, mobileNavigation }: { context: PartnerWorkspaceShellContext; mobileNavigation?: ReactNode }) {
   const cartAvailable = context.navigation.some(
@@ -28,6 +29,7 @@ export function PartnerHeader({ context, mobileNavigation }: { context: PartnerW
         </div>
       </form>
       <div className="flex min-w-0 items-center justify-end gap-2">
+        <QuickActionsMenu actions={context.quickActions} />
         <NotificationBell
           initialSummary={context.notificationSummary}
           key={`${context.notificationSummary.unreadCount}:${context.notificationSummary.items[0]?.id ?? "empty"}:${context.notificationSummary.items[0]?.readAt ?? "unread"}`}

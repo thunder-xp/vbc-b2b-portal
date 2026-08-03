@@ -63,10 +63,15 @@ export function UserMenu({ context }: { context: PartnerWorkspaceShellContext })
           id="partner-user-menu"
           role="menu"
         >
-          <div className="border-b border-zinc-200 px-4 py-3">
-            <p className="truncate text-sm font-semibold text-zinc-950">{displayName}</p>
-            <p className="mt-1 truncate text-xs text-zinc-500">{context.membershipRole ?? "Партнёр"}</p>
-            <p className="mt-0.5 truncate text-xs text-zinc-500">{context.companyName ?? "Компания не выбрана"}</p>
+          <div className="flex min-w-0 items-start justify-between gap-3 border-b border-zinc-200 px-4 py-3">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-zinc-950">{displayName}</p>
+              <p className="mt-1 truncate text-xs text-zinc-500">{context.membershipRole ?? "Партнёр"}</p>
+              {context.partnerStatus ? <p className="mt-1 truncate text-xs font-semibold text-emerald-700">{context.partnerStatus}</p> : null}
+            </div>
+            <span aria-label={context.companyName ?? "Компания"} className="flex h-12 w-16 shrink-0 items-center justify-center rounded border border-zinc-200 bg-zinc-50 bg-contain bg-center bg-no-repeat text-xs font-semibold text-zinc-600" role="img" style={context.companyLogoUrl ? { backgroundImage: `url("${context.companyLogoUrl}")` } : undefined}>
+              {context.companyLogoUrl ? null : companyInitials(context.companyName)}
+            </span>
           </div>
           <nav aria-label="Настройки пользователя" className="p-1.5">
             <MenuLink href="/cabinet/company" icon={Building2} label="Моя компания" onSelect={() => setOpen(false)} />
@@ -83,6 +88,11 @@ export function UserMenu({ context }: { context: PartnerWorkspaceShellContext })
       ) : null}
     </div>
   );
+}
+
+function companyInitials(companyName: string | null): string {
+  const parts = (companyName ?? "Компания").trim().split(/\s+/).filter(Boolean);
+  return parts.slice(0, 2).map((part) => part[0]?.toUpperCase()).join("") || "К";
 }
 
 function MenuLink({ href, icon: Icon, label, onSelect }: {

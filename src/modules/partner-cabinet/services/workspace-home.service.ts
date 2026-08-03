@@ -15,7 +15,6 @@ import type {
 import type { WorkspaceNavigationItem } from "./workspace-capability.service";
 import type {
   NotificationRepository,
-  PartnerNotification,
 } from "../../notifications";
 import type {
   PartnerWorkspaceContext,
@@ -43,6 +42,13 @@ export type WorkspaceAttentionItemDto = {
   consequence: string;
   href: string;
   occurredAt: string;
+  sourceFingerprint: string;
+  dismissPolicy: "until_source_change" | "cooldown_7_days";
+  severity: "info" | "warning";
+  orderNumber: string | null;
+  plannedDate: string | null;
+  isTest: boolean;
+  ctaLabel: string;
 };
 
 export type WorkspaceOrderDto = {
@@ -54,6 +60,7 @@ export type WorkspaceOrderDto = {
   positionCount: number;
   formattedTotal: string | null;
   href: string;
+  isTest: boolean;
 };
 
 export type WorkspaceShipmentDto = {
@@ -65,6 +72,7 @@ export type WorkspaceShipmentDto = {
   totalUnits: number;
   pendingDateChange: boolean;
   href: string;
+  isTest: boolean;
 };
 
 export type WorkspaceContinuationDto = {
@@ -147,6 +155,7 @@ export type WorkspaceHomeDto = {
 
 export interface WorkspaceHomeService {
   getWorkspaceHome(userId: string, loginGeneration?: string): Promise<WorkspaceHomeDto>;
+  dismissAttention(userId: string, itemId: string, sourceFingerprint: string): Promise<void>;
 }
 
 export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
@@ -163,6 +172,22 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
     private readonly momentumRepository?: PartnerMomentumRepository,
   ) {}
 
+  async dismissAttention(
+    userId: string,
+    itemId: string,
+    sourceFingerprint: string,
+  ): Promise<void> {
+    const context = await this.workspaceContextService.getWorkspaceContext(userId);
+    if (!context.companyId || !this.dashboardRepository.dismissAttention) {
+      throw new InvalidStateError("Dashboard attention cannot be dismissed.");
+    }
+    await this.dashboardRepository.dismissAttention(
+      context.companyId,
+      itemId,
+      sourceFingerprint,
+    );
+  }
+
   async getWorkspaceHome(userId: string, loginGeneration = "legacy-session"): Promise<WorkspaceHomeDto> {
     const context = await this.workspaceContextService.getWorkspaceContext(userId);
     if (
@@ -174,38 +199,31 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
     }
     const companyId = context.companyId;
 
-    const [freshness, dashboard, selections, notificationPage, opportunityPage, campaignPage, documentPage, purchasingDynamics] = await Promise.all([
+    const [freshness, dashboard, selections, opportunityPage, campaignPage] = await Promise.all([
       timedDashboardRead("commercial_freshness", () => this.commercialFreshnessReadModel.getFreshness()),
       timedDashboardRead("dashboard_aggregate", () => this.dashboardRepository.getDashboard(companyId)),
       timedDashboardRead("product_selections", () => this.dashboardRepository.getProductSelections?.(userId, companyId, loginGeneration) ?? Promise.resolve(null)),
-      timedDashboardRead("notification_attention", () => this.notificationRepository?.list(companyId, {
-        unreadOnly: true,
-        pageSize: 8,
-      }) ?? Promise.resolve({ items: [], nextCursor: null })),
-      timedDashboardRead("opportunities", () => this.opportunityRepository?.list({ companyId, filter: "all", limit: 4, offset: 0 })
+      timedDashboardRead("opportunities", () => this.opportunityRepository?.list({ companyId, filter: "all", limit: 12, offset: 0 })
         ?? Promise.resolve({ items: [], totalCount: 0 })),
       timedDashboardRead("campaigns", () => this.campaignRepository?.listPartner({ companyId, filter: "active", limit: 2, offset: 0 })
         ?? Promise.resolve({ items: [], totalCount: 0 })),
-      timedDashboardRead("documents", async () => {
-        if (!this.documentRepository || !context.capabilities.canViewDashboardDocuments) {
-          return { items: [], totalCount: 0 };
-        }
-        if (this.documentRepository.listPartnerRecent) {
-          return { items: await this.documentRepository.listPartnerRecent(companyId, 4), totalCount: 0 };
-        }
-        return this.documentRepository.listPartner(companyId, { section: "all", state: "current", page: 1, pageSize: 4 });
-      }),
-      timedDashboardRead("purchasing_dynamics", () => ["partner_owner", "partner_manager", "partner_buyer"].includes(context.membershipRoleCode ?? "")
-        ? this.momentumRepository?.getPartnerSummary(companyId) ?? Promise.resolve(null)
-        : Promise.resolve(null)),
     ]);
-    const reorderCandidates = selections?.previousProducts ?? dashboard.reorderProducts;
+    const reorderCandidates = sessionOrder(
+      selections?.previousProducts ?? dashboard.reorderProducts,
+      loginGeneration,
+      "previous-purchases",
+    );
     const merchandisingCandidates = selections?.merchandisingProducts ?? dashboard.merchandisingProducts;
+    const opportunityCandidates = sessionOrder(
+      opportunityPage.items,
+      loginGeneration,
+      "opportunities",
+    ).slice(0, 4);
     const candidates = uniqueCandidates([
       ...reorderCandidates,
       ...merchandisingCandidates,
     ]);
-    const opportunityProductIds = [...new Set(opportunityPage.items.flatMap((item) => item.product ? [item.product.id] : []))];
+    const opportunityProductIds = [...new Set(opportunityCandidates.flatMap((item) => item.product ? [item.product.id] : []))];
     const referenceProductIds = [...new Set([
       ...candidates.map((candidate) => candidate.id),
       ...opportunityProductIds,
@@ -222,7 +240,10 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
       commercialViews.map((view) => [view.productId, view]),
     );
     const referenceByProduct = new Map(references.map((reference) => [reference.productId, reference]));
-    const opportunities = enrichOpportunityProductReferences(opportunityPage.items, references);
+    const opportunities = enrichOpportunityProductReferences(opportunityCandidates, references);
+    const opportunityProductIdsSet = new Set(
+      opportunities.flatMap((item) => item.product ? [item.product.id] : []),
+    );
     console.info({
       event: "dashboard_opportunity_image_enrichment_completed",
       productReferences: opportunityProductIds.length,
@@ -233,35 +254,7 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
     const freshnessByDomain = new Map(
       freshness.map((item) => [item.domain, item.updatedAt]),
     );
-    const directAttentionItems = dashboard.attentionItems.map(toAttentionItem);
-    const attentionItems = mergeNotificationAttention(
-      directAttentionItems,
-      notificationPage.items,
-    );
-
-    if (dashboard.financeSummary?.stale) {
-      attentionItems.push({
-        id: "finance-stale",
-        kind: "finance_stale",
-        title: "Финансовые данные требуют обновления",
-        consequence: "Показаны последние подтверждённые остатки по договорам.",
-        href: "/cabinet/finance",
-        occurredAt:
-          dashboard.financeSummary.lastSuccessfulAt
-          ?? new Date(0).toISOString(),
-      });
-    }
-    if (context.accessState === "missing_price_type") {
-      attentionItems.push({
-        id: "commercial-configuration",
-        kind: "commercial_configuration",
-        title: "Коммерческие условия ещё не настроены",
-        consequence: "Обратитесь к менеджеру Novotech для завершения настройки.",
-        href: "/cabinet/company",
-        occurredAt: new Date().toISOString(),
-      });
-    }
-
+    const attentionItems = dashboard.attentionItems.map(toAttentionItem);
     return {
       identity: {
         firstName: firstName(context.userDisplayName),
@@ -287,6 +280,7 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
           positionCount: order.positionCount,
           formattedTotal: formatMoney(order.total, order.currency),
           href: order.href,
+          isTest: order.isTest,
         })),
       },
       shipmentSummary: {
@@ -300,11 +294,11 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
           totalUnits: shipment.totalUnits,
           pendingDateChange: shipment.pendingDateChange,
           href: `/cabinet/orders/${shipment.id}`,
+          isTest: shipment.isTest,
         })),
       },
       quickActions: buildQuickActions(
         context.capabilities.navigation,
-        context.capabilities.canManageCompanyUsers ?? false,
       ),
       continuationItems: dashboard.continuationItems.map(toContinuation),
       reorderProducts: reorderCandidates.flatMap((candidate) => {
@@ -319,17 +313,20 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
             }]
           : [];
       }).slice(0, 5),
-      merchandisingProducts: merchandisingCandidates.slice(0, 5).map((candidate) => ({
-        product: toProduct(candidate, referenceByProduct.get(candidate.id)),
-        commercialView: commercialByProduct.get(candidate.id),
-      })),
+      merchandisingProducts: merchandisingCandidates
+        .filter((candidate) => !opportunityProductIdsSet.has(candidate.id))
+        .slice(0, 5)
+        .map((candidate) => ({
+          product: toProduct(candidate, referenceByProduct.get(candidate.id)),
+          commercialView: commercialByProduct.get(candidate.id),
+        })),
       opportunities,
       campaigns: campaignPage.items,
-      recentDocuments: documentPage.items,
+      recentDocuments: [],
       financeSummary: dashboard.financeSummary,
       companySummary: dashboard.companySummary,
       commercialConfigurationMissing: context.accessState === "missing_price_type",
-      purchasingDynamics,
+      purchasingDynamics: null,
       commercialFreshness: [
         freshnessItem("prices", "Цены", freshnessByDomain.get("prices")),
         freshnessItem("stock", "Остатки", freshnessByDomain.get("stock")),
@@ -357,51 +354,6 @@ async function timedDashboardRead<T>(stage: string, operation: () => Promise<T>)
   }
 }
 
-function mergeNotificationAttention(
-  direct: WorkspaceAttentionItemDto[],
-  notifications: PartnerNotification[],
-): WorkspaceAttentionItemDto[] {
-  const authoritativeLinks = new Set(direct.map((item) => item.href));
-  const notificationItems = notifications
-    .filter((item) =>
-      !item.readAt
-      && (item.severity === "critical" || item.severity === "warning")
-      && Boolean(item.actionUrl)
-      && !authoritativeLinks.has(item.actionUrl ?? ""),
-    )
-    .filter((item) =>
-      item.eventGroup !== "products"
-      || item.eventCode === "cart_product_price_changed"
-      || item.eventCode === "cart_product_availability_changed"
-    )
-    .sort((left, right) => attentionRank(left) - attentionRank(right))
-    .map((item) => ({
-      id: item.id,
-      kind: `notification_${item.eventCode}`,
-      title: item.title,
-      consequence: item.message,
-      href: item.actionUrl ?? "/cabinet/notifications",
-      occurredAt: item.occurredAt,
-    }));
-  return [...notificationItems, ...direct];
-}
-
-function severityRank(severity: PartnerNotification["severity"]): number {
-  if (severity === "critical") return 0;
-  if (severity === "warning") return 1;
-  return 2;
-}
-
-function attentionRank(notification: PartnerNotification): number {
-  if (
-    notification.eventCode === "cart_product_price_changed"
-    || notification.eventCode === "cart_product_availability_changed"
-  ) {
-    return 0;
-  }
-  return severityRank(notification.severity) + 1;
-}
-
 function freshnessItem(
   domain: "rates" | "prices" | "stock" | "arrivals",
   label: string,
@@ -423,65 +375,97 @@ function toAttentionItem(
     ReturnType<WorkspaceDashboardRepository["getDashboard"]>
   >["attentionItems"][number],
 ): WorkspaceAttentionItemDto {
-  const orderHref = `/cabinet/orders/${item.objectId}`;
+  const metadata = attentionMetadata(item);
+  if (
+    item.kind === "notification_cart_product_price_changed"
+    || item.kind === "notification_cart_product_availability_changed"
+  ) {
+    return {
+      ...metadata,
+      title: item.title ?? "Корзина требует проверки",
+      consequence: item.description ?? "Проверьте актуальные цены и наличие перед отправкой заказа.",
+    };
+  }
   switch (item.kind) {
+    case "test_return_overdue": {
+      const days = daysSince(item.plannedDate);
+      return {
+        ...metadata,
+        title: "Тестовый период завершён",
+        consequence: `Тестовый период завершён ${days} дн. назад. Просим вернуть оборудование в товарном виде на склад Novotech.`,
+      };
+    }
+    case "test_return_today":
+      return {
+        ...metadata,
+        title: "Тестовый период завершается сегодня",
+        consequence: "Просим подготовить оборудование к возврату.",
+      };
     case "portal_order_failure":
       return {
-        id: item.id,
-        kind: item.kind,
+        ...metadata,
         title: item.objectNumber
           ? `Заказ ${item.objectNumber} требует проверки`
           : "Отправка заказа требует проверки",
         consequence: "Корзина сохранена. Откройте заказ и проверьте статус.",
-        href: orderHref,
-        occurredAt: item.occurredAt,
       };
     case "shipment_overdue":
       return {
-        id: item.id,
-        kind: item.kind,
+        ...metadata,
         title: `Отгрузка заказа ${item.objectNumber ?? ""} просрочена`.trim(),
         consequence: "Проверьте текущую дату и при необходимости запросите перенос.",
-        href: orderHref,
-        occurredAt: item.occurredAt,
       };
     case "shipment_today":
       return {
-        id: item.id,
-        kind: item.kind,
+        ...metadata,
         title: `Отгрузка заказа ${item.objectNumber ?? ""} запланирована сегодня`.trim(),
         consequence: "Откройте заказ, чтобы проверить позиции и текущий статус.",
-        href: orderHref,
-        occurredAt: item.occurredAt,
       };
     case "date_change_rejected":
       return {
-        id: item.id,
-        kind: item.kind,
+        ...metadata,
         title: `Перенос даты по заказу ${item.objectNumber ?? ""} отклонён`.trim(),
         consequence: item.comment || "Откройте заказ для просмотра решения.",
-        href: orderHref,
-        occurredAt: item.occurredAt,
       };
     case "date_change_pending":
       return {
-        id: item.id,
-        kind: item.kind,
+        ...metadata,
         title: `Запрос переноса по заказу ${item.objectNumber ?? ""} рассматривается`.trim(),
         consequence: "Novotech проверяет возможность изменения даты отгрузки.",
-        href: orderHref,
-        occurredAt: item.occurredAt,
       };
     default:
       return {
-        id: item.id,
-        kind: item.kind,
-        title: "Срок приглашения сотрудника скоро истекает",
-        consequence: "Проверьте приглашение и при необходимости отправьте его повторно.",
-        href: "/cabinet/company/users",
-        occurredAt: item.occurredAt,
+        ...metadata,
+        title: "Заказ требует внимания",
+        consequence: "Откройте заказ и проверьте актуальное состояние.",
       };
   }
+}
+
+function attentionMetadata(
+  item: Awaited<ReturnType<WorkspaceDashboardRepository["getDashboard"]>>["attentionItems"][number],
+) {
+  return {
+    id: item.id,
+    kind: item.kind,
+    href: item.href,
+    occurredAt: item.occurredAt,
+    sourceFingerprint: item.sourceFingerprint,
+    dismissPolicy: item.dismissPolicy,
+    severity: item.severity,
+    orderNumber: item.objectNumber,
+    plannedDate: item.plannedDate,
+    isTest: item.kind === "test_return_overdue" || item.kind === "test_return_today",
+    ctaLabel: item.ctaLabel,
+  };
+}
+
+function daysSince(value: string | null): number {
+  if (!value) return 0;
+  const date = Date.parse(`${value.slice(0, 10)}T00:00:00Z`);
+  const now = new Date();
+  const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  return Math.max(0, Math.floor((today - date) / 86_400_000));
 }
 
 function toContinuation(
@@ -519,9 +503,8 @@ function toContinuation(
   };
 }
 
-function buildQuickActions(
+export function buildQuickActions(
   navigation: WorkspaceNavigationItem[],
-  canManageCompany: boolean,
 ): WorkspaceQuickActionDto[] {
   const hrefs = new Map(
     navigation.flatMap((item) =>
@@ -530,26 +513,14 @@ function buildQuickActions(
         : [],
     ),
   );
-  const candidates: Array<readonly [string, string, string | undefined]> = canManageCompany
-    ? [
-        ["catalog", "Весь каталог", hrefs.get("catalog")],
-        ["repeat_order", "Повторить заказ", hrefs.get("orders")],
-        ["purchase_templates", "Шаблоны закупок", hrefs.get("purchase_templates")],
-        ["estimate", "Создать смету", hrefs.get("proposals")],
-        ["orders", "Мои заказы", hrefs.get("orders")],
-        ["finance", "Финансы", hrefs.get("finance")],
-        ["company_users", "Управление сотрудниками", "/cabinet/company/users"],
-      ]
-    : [
-        ["catalog", "Весь каталог", hrefs.get("catalog")],
-        ["repeat_order", "Повторить заказ", hrefs.get("orders")],
-        ["purchase_templates", "Шаблоны закупок", hrefs.get("purchase_templates")],
-        ["cart", "Открыть корзину", hrefs.get("cart")],
-        ["estimate", "Создать смету", hrefs.get("proposals")],
-        ["orders", "Мои заказы", hrefs.get("orders")],
-        ["shipments", "Планируемые отгрузки", hrefs.get("reservations")],
-        ["finance", "Финансы", hrefs.get("finance")],
-      ];
+  const candidates: Array<readonly [string, string, string | undefined]> = [
+    ["cart", "Открыть корзину", hrefs.get("cart")],
+    ["repeat_order", "Повторить заказ", hrefs.get("orders")],
+    ["estimate", "Создать смету", hrefs.get("proposals") ? `${hrefs.get("proposals")}/new` : undefined],
+    ["register_warranty", "Создать сервисную заявку", hrefs.get("warranty") ? `${hrefs.get("warranty")}/new` : undefined],
+    ["purchase_templates", "Открыть шаблоны закупок", hrefs.get("purchase_templates")],
+    ["documents", "Найти документ", hrefs.get("documents")],
+  ];
 
   return candidates.flatMap(([key, label, href]) =>
     href ? [{ key, label, href }] : [],
@@ -587,6 +558,23 @@ function uniqueCandidates(
   candidates: WorkspaceDashboardProductCandidate[],
 ): WorkspaceDashboardProductCandidate[] {
   return [...new Map(candidates.map((item) => [item.id, item])).values()];
+}
+
+function sessionOrder<T extends { id: string }>(
+  items: readonly T[],
+  loginGeneration: string,
+  scope: string,
+): T[] {
+  if (items.length < 2) return [...items];
+  return [...items].sort((left, right) => {
+    const leftRank = createHash("sha256")
+      .update(`${scope}:${loginGeneration}:${left.id}`)
+      .digest("hex");
+    const rightRank = createHash("sha256")
+      .update(`${scope}:${loginGeneration}:${right.id}`)
+      .digest("hex");
+    return leftRank.localeCompare(rightRank) || left.id.localeCompare(right.id);
+  });
 }
 
 function isCurrentlySellable(
@@ -648,3 +636,4 @@ function greeting(): string {
   if (hour < 18) return "Добрый день";
   return "Добрый вечер";
 }
+import { createHash } from "node:crypto";

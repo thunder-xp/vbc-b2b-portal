@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 
 import { getPartnerWorkspaceContextAction } from "@/src/modules/partner-cabinet/actions/workspace-context.action";
 import { PartnerLayout } from "@/src/modules/partner-cabinet/components/PartnerLayout";
+import { buildQuickActions } from "@/src/modules/partner-cabinet/services";
 import { WorkspaceAccessState } from "@/src/modules/partner-cabinet/components/WorkspaceAccessState";
 import { getNotificationSummaryAction } from "@/src/modules/notifications/actions/notification.actions";
 import { getCartItemCountAction } from "@/src/modules/orders/actions/cart.actions";
@@ -34,6 +35,8 @@ export default async function CabinetLayout({ children }: { children: ReactNode 
     membershipRole: context.membershipRole,
     membershipRoleCode: context.membershipRoleCode,
     companyLogoUrl: context.companyLogoUrl,
+    partnerStatus: context.capabilities.productCard.showPartnerPrice ? context.priceTypeName : null,
+    quickActions: buildQuickActions(context.capabilities.navigation),
     accessState: context.accessState,
     navigation: context.capabilities.navigation,
     cartItemCount: cartItemCountResult?.success ? cartItemCountResult.data : 0,

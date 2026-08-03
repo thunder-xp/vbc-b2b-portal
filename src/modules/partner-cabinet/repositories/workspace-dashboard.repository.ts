@@ -21,6 +21,15 @@ export type WorkspaceDashboardProjection = {
     objectNumber: string | null;
     occurredAt: string;
     comment: string | null;
+    title: string | null;
+    description: string | null;
+    plannedDate: string | null;
+    sourceFingerprint: string;
+    dismissPolicy: "until_source_change" | "cooldown_7_days";
+    severity: "info" | "warning";
+    href: string;
+    ctaLabel: string;
+    relevanceState: "active";
   }>;
   orderSummary: {
     active: number;
@@ -38,6 +47,7 @@ export type WorkspaceDashboardProjection = {
       total: number | null;
       currency: string | null;
       href: string;
+      isTest: boolean;
     }>;
   };
   shipmentSummary: {
@@ -54,6 +64,7 @@ export type WorkspaceDashboardProjection = {
       posted: boolean;
       stateCode: string | null;
       pendingDateChange: boolean;
+      isTest: boolean;
     }>;
   };
   continuationItems: Array<{
@@ -105,4 +116,9 @@ export interface WorkspaceDashboardRepository {
     companyId: string,
     loginGeneration: string,
   ): Promise<WorkspaceDashboardSelections>;
+  dismissAttention?(
+    companyId: string,
+    itemId: string,
+    sourceFingerprint: string,
+  ): Promise<void>;
 }

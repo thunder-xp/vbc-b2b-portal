@@ -33,6 +33,18 @@ const dashboardSchema = z.object({
     objectNumber: z.string().nullable(),
     occurredAt: z.string(),
     comment: z.string().nullable(),
+    title: z.string().nullable(),
+    description: z.string().nullable(),
+    plannedDate: z.string().nullable(),
+    sourceFingerprint: z.string().regex(/^[0-9a-f]{32}$/),
+    dismissPolicy: z.enum(["until_source_change", "cooldown_7_days"]),
+    severity: z.enum(["info", "warning"]),
+    href: z.union([
+      z.literal("/cabinet/cart"),
+      z.string().startsWith("/cabinet/orders/"),
+    ]),
+    ctaLabel: z.string().min(1),
+    relevanceState: z.literal("active"),
   })),
   orderSummary: z.object({
     active: z.number().int().nonnegative(),
@@ -50,6 +62,7 @@ const dashboardSchema = z.object({
       total: z.number().nonnegative().nullable(),
       currency: z.string().nullable(),
       href: z.string(),
+      isTest: z.boolean(),
     })),
   }),
   shipmentSummary: z.object({
@@ -66,6 +79,7 @@ const dashboardSchema = z.object({
       posted: z.boolean(),
       stateCode: z.string().nullable(),
       pendingDateChange: z.boolean(),
+      isTest: z.boolean(),
     })),
   }),
   continuationItems: z.array(z.object({
@@ -126,7 +140,7 @@ export class SupabaseWorkspaceDashboardRepository
 {
   async getDashboard(companyId: string): Promise<WorkspaceDashboardProjection> {
     const { data, error } = await (await createClient()).rpc(
-      "get_partner_workspace_dashboard_v2",
+      "get_partner_workspace_dashboard_v3",
       { p_company_id: companyId },
     );
 
@@ -136,6 +150,22 @@ export class SupabaseWorkspaceDashboardRepository
     }
 
     return parsed.data satisfies WorkspaceDashboardProjection;
+  }
+
+  async dismissAttention(
+    companyId: string,
+    itemId: string,
+    sourceFingerprint: string,
+  ): Promise<void> {
+    const { error } = await (await createClient()).rpc(
+      "dismiss_partner_dashboard_attention",
+      {
+        p_company_id: companyId,
+        p_item_id: itemId,
+        p_source_fingerprint: sourceFingerprint,
+      },
+    );
+    if (error) throw new WorkspaceDashboardRepositoryError();
   }
 
   async getProductSelections(

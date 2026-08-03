@@ -20,6 +20,8 @@ const context = {
   membershipRole: "Владелец компании",
   membershipRoleCode: "partner_owner",
   companyLogoUrl: null,
+  partnerStatus: "GOLD",
+  quickActions: [],
   accessState: "active" as const,
   navigation: resolveWorkspaceCapabilities(new Set(["catalog.view", "opportunities.view", "campaigns.view", "orders.create", "orders.manage", "purchasing_lists.view", "purchase_templates.view", "reservations.manage", "specifications.manage", "estimates.view", "estimates.manage", "finance.view_company", "documents.view_company", "service.view"])).navigation,
   cartItemCount: 0,
@@ -177,6 +179,35 @@ describe("Partner workspace shell", () => {
     await user.keyboard("{Escape}");
     expect(screen.queryByRole("menu", { name: "Меню пользователя" })).not.toBeInTheDocument();
     expect(trigger).toHaveFocus();
+  });
+
+  it("shows governed quick actions in the header and dismisses the menu safely", async () => {
+    const user = userEvent.setup();
+    render(<div><PartnerHeader context={{
+      ...context,
+      quickActions: [{ key: "cart", label: "Открыть корзину", href: "/cabinet/cart" }],
+    }} /><button type="button">Снаружи</button></div>);
+    const trigger = screen.getByRole("button", { name: "Быстрые действия" });
+
+    await user.click(trigger);
+    expect(trigger).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("menuitem", { name: "Открыть корзину" })).toHaveAttribute("href", "/cabinet/cart");
+    fireEvent.pointerDown(screen.getByRole("button", { name: "Снаружи" }));
+    expect(screen.queryByRole("menuitem", { name: "Открыть корзину" })).not.toBeInTheDocument();
+
+    await user.click(trigger);
+    await user.keyboard("{Escape}");
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+    expect(trigger).toHaveFocus();
+  });
+
+  it("shows the role, partner status, and company identity in the user menu", async () => {
+    const user = userEvent.setup();
+    render(<PartnerHeader context={context} />);
+    await user.click(screen.getByRole("button", { name: "Открыть меню пользователя" }));
+
+    expect(screen.getByText("GOLD")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Partner Company" })).toHaveTextContent("PC");
   });
 
   it("automatically expands the commercial group for an active child route", () => {
