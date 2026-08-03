@@ -579,6 +579,11 @@ export async function approveOnboardingRequestV3Action(
       throw new WizardMutationError(
         result.failureCode ?? "unknown_retryable",
         result.correlationId,
+        {
+          failingStage: result.failingStage,
+          sqlState: result.sqlState,
+          safeError: result.safeError,
+        },
       );
     }
     return result.idempotent
@@ -663,7 +668,15 @@ async function mutateWizard(
         )
       : null;
     const reason = diagnostic?.reason ?? extractSafeReason(error);
-    const failureDetails = diagnostic ?? { reason, correlationId };
+    const failureDetails = diagnostic ?? (error instanceof WizardMutationError
+      ? {
+          reason,
+          correlationId,
+          failingStage: error.failingStage,
+          sqlState: error.sqlState,
+          originalMessage: error.safeError,
+        }
+      : { reason, correlationId });
     console.error({
       event: "onboarding_approval_wizard_mutation_failed",
       ...failureDetails,
@@ -716,12 +729,22 @@ function safeActionErrorCode(error: unknown): string {
 class WizardMutationError extends Error {
   readonly code: string;
   readonly correlationId: string;
+  readonly failingStage: string | null;
+  readonly sqlState: string | null;
+  readonly safeError: string | null;
 
-  constructor(code: string, correlationId = crypto.randomUUID()) {
+  constructor(
+    code: string,
+    correlationId = crypto.randomUUID(),
+    diagnostic: { failingStage?: string; sqlState?: string; safeError?: string } = {},
+  ) {
     super(code);
     this.name = "WizardMutationError";
     this.code = code;
     this.correlationId = correlationId;
+    this.failingStage = diagnostic.failingStage ?? null;
+    this.sqlState = diagnostic.sqlState ?? null;
+    this.safeError = diagnostic.safeError ?? null;
   }
 }
 
@@ -740,6 +763,11 @@ function approvalFailureMessage(code?: string, currentWizardStep?: number | null
     invalid_price_profile: "Выбранный статус партнёра недоступен для этой компании.",
     invalid_initial_profile: "Выбранный профиль доступа недоступен.",
     permission_denied: "Недостаточно прав для выполнения операции.",
+    ONBOARDING_DRAFT_VERSION_CONFLICT: "Данные заявки изменились. Обновите страницу.",
+    ONBOARDING_MANAGER_INVALID: "Назначенный менеджер недоступен. Проверьте назначение.",
+    ONBOARDING_COMMERCIAL_VALIDATION_FAILED: "Коммерческие данные не прошли проверку.",
+    ONBOARDING_COMMERCIAL_PERSISTENCE_FAILED: "Не удалось сохранить подключение. Данные заявки сохранены.",
+    ONBOARDING_INFRASTRUCTURE_FAILURE: "Сервис временно недоступен. Повторите попытку позже.",
     unknown_retryable: "Не удалось завершить подключение. Черновик сохранён; повторите попытку.",
   }[code ?? "unknown_retryable"] ?? "Не удалось завершить подключение. Черновик сохранён.";
   return message;

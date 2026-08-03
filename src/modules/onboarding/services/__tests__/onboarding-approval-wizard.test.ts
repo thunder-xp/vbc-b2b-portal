@@ -31,6 +31,10 @@ const commercialRepair = readFileSync(
   resolve("supabase/migrations/20260801220000_onboarding_commercial_step_diagnostics_repair.sql"),
   "utf8",
 );
+const finalApprovalStabilization = readFileSync(
+  resolve("supabase/migrations/20260803110000_onboarding_final_approval_stabilization.sql"),
+  "utf8",
+);
 
 describe("onboarding approval business profiles", () => {
   it("maps owner, manager, buyer, accounting, and retail-only to canonical roles", () => {
@@ -180,5 +184,27 @@ describe("onboarding approval draft and atomic v3 migration", () => {
     expect(actions.match(/event: "onboarding_approval_wizard_mutation_failed"/g)).toHaveLength(1);
     expect(wizard).toContain("const { pending } = useFormStatus()");
     expect(wizard).toContain("disabled={disabled || pending}");
+  });
+
+  it("restores the canonical cabinet notification route without weakening the allowlist", () => {
+    expect(finalApprovalStabilization).toContain("select value = '/cabinet'");
+    expect(finalApprovalStabilization).not.toContain("drop constraint partner_notifications_action_url_check");
+  });
+
+  it("keeps final approval atomic and initializes the active company context", () => {
+    expect(finalApprovalStabilization).toContain("approve_partner_access_request_v3");
+    expect(finalApprovalStabilization).toContain("insert into public.user_company_context_preferences");
+    expect(finalApprovalStabilization).toContain("on conflict (user_id) do update");
+    expect(finalApprovalStabilization).toContain("pg_advisory_xact_lock");
+  });
+
+  it("returns structured final-approval diagnostics before the fallback", () => {
+    expect(finalApprovalStabilization).toContain("failure_stage := 'notification_projection'");
+    expect(finalApprovalStabilization).toContain("failure_sqlstate := sqlstate");
+    expect(finalApprovalStabilization).toContain("'failingStage', failure_stage");
+    expect(finalApprovalStabilization).toContain("'sqlState', failure_sqlstate");
+    expect(finalApprovalStabilization).toContain("when sqlstate like '23%' then 'ONBOARDING_COMMERCIAL_PERSISTENCE_FAILED'");
+    expect(actions).toContain("failingStage: result.failingStage");
+    expect(actions).toContain("sqlState: error.sqlState");
   });
 });

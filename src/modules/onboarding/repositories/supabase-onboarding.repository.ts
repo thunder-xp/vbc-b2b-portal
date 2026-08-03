@@ -233,6 +233,9 @@ const approvalResultSchema = z.object({
   membershipOutcome: z.enum(["created", "reused"]).optional(),
   failureCode: z.string().optional(),
   correlationId: z.string().uuid().optional(),
+  failingStage: z.string().max(80).optional(),
+  sqlState: z.string().regex(/^[0-9A-Z]{5}$/).optional(),
+  safeError: z.string().max(300).optional(),
 });
 
 const healthSchema = z.object({

@@ -411,4 +411,7 @@ export type OnboardingApprovalResult = {
   membershipOutcome?: "created" | "reused";
   failureCode?: string;
   correlationId?: string;
+  failingStage?: string;
+  sqlState?: string;
+  safeError?: string;
 };
