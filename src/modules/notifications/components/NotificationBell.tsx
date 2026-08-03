@@ -8,6 +8,7 @@ import { markNotificationReadAction } from "../actions/notification.actions";
 import { recordBehaviorInteraction } from "../../behavior-analytics/components";
 import type { NotificationSummary } from "../types";
 import { NotificationSeverityLabel } from "./NotificationSeverityLabel";
+import { NOTIFICATIONS_MARKED_ALL_READ_EVENT } from "./notification-client-events";
 
 export function NotificationBell({ initialSummary }: { initialSummary: NotificationSummary }) {
   const [open, setOpen] = useState(false);
@@ -15,6 +16,21 @@ export function NotificationBell({ initialSummary }: { initialSummary: Notificat
   const [pending, startTransition] = useTransition();
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    const onMarkedAllRead = (event: Event) => {
+      const markedAt = (event as CustomEvent<{ markedAt: string }>).detail.markedAt;
+      setSummary((current) => ({
+        unreadCount: 0,
+        items: current.items.map((item) => ({
+          ...item,
+          readAt: item.readAt ?? markedAt,
+        })),
+      }));
+    };
+    window.addEventListener(NOTIFICATIONS_MARKED_ALL_READ_EVENT, onMarkedAllRead);
+    return () => window.removeEventListener(NOTIFICATIONS_MARKED_ALL_READ_EVENT, onMarkedAllRead);
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -124,6 +140,7 @@ export function NotificationBell({ initialSummary }: { initialSummary: Notificat
                         <Link
                           className="inline-flex min-h-11 items-center gap-1.5 text-sm font-medium text-emerald-700 hover:text-emerald-900"
                           href={item.actionUrl}
+                          prefetch={false}
                           onClick={() => {
                             markRead(item.id);
                             setOpen(false);
@@ -174,6 +191,7 @@ export function NotificationBell({ initialSummary }: { initialSummary: Notificat
             <Link
               className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-zinc-950 px-4 text-sm font-medium text-white hover:bg-zinc-800"
               href="/cabinet/notifications"
+              prefetch={false}
               onClick={() => setOpen(false)}
             >
               Все уведомления

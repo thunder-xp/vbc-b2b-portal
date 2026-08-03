@@ -14,14 +14,23 @@ import type {
   NotificationPreference,
   NotificationDeliveryMode,
   NotificationSummary,
+  MarkAllNotificationsReadResult,
 } from "../types";
 import { createNotificationService } from "./service-factory";
+import { emitNotificationMetric } from "./notification-observability";
 
 export async function getNotificationSummaryAction(): Promise<ActionResult<NotificationSummary>> {
+  const startedAt = performance.now();
   try {
+    const result = await createNotificationService().getSummary(await getAuthenticatedUserId());
+    emitNotificationMetric({
+      event: "notification_badge_loaded",
+      durationMs: performance.now() - startedAt,
+      unreadCount: result.unreadCount,
+    });
     return success(
       "Уведомления загружены.",
-      await createNotificationService().getSummary(await getAuthenticatedUserId()),
+      result,
     );
   } catch (error) {
     return failureFromError(error);
@@ -56,14 +65,30 @@ export async function markNotificationReadAction(
   }
 }
 
-export async function markAllNotificationsReadAction(): Promise<ActionResult<number>> {
+export async function markAllNotificationsReadAction(): Promise<
+  ActionResult<MarkAllNotificationsReadResult>
+> {
+  const startedAt = performance.now();
+  emitNotificationMetric({ event: "notification_mark_all_started" });
   try {
     const affected = await createNotificationService().markAllRead(
       await getAuthenticatedUserId(),
     );
     revalidatePath("/cabinet/notifications");
+    emitNotificationMetric({
+      event: "notification_mark_all_completed",
+      durationMs: performance.now() - startedAt,
+      affectedCount: affected.affectedCount,
+      unreadCount: affected.unreadCount,
+      correlationId: affected.correlationId,
+    });
     return success("Все уведомления прочитаны.", affected);
   } catch (error) {
+    emitNotificationMetric({
+      event: "notification_mark_all_failed",
+      durationMs: performance.now() - startedAt,
+      safeErrorType: error instanceof Error ? error.name : "unknown",
+    });
     return failureFromError(error);
   }
 }

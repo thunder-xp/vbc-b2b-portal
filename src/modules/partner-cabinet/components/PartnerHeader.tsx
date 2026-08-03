@@ -30,7 +30,10 @@ export function PartnerHeader({ context, onMenuClick }: { context: PartnerWorksp
         </div>
       </form>
       <div className="flex min-w-0 items-center justify-end gap-2">
-        <NotificationBell initialSummary={context.notificationSummary} />
+        <NotificationBell
+          initialSummary={context.notificationSummary}
+          key={`${context.notificationSummary.unreadCount}:${context.notificationSummary.items[0]?.id ?? "empty"}:${context.notificationSummary.items[0]?.readAt ?? "unread"}`}
+        />
         {cartAvailable ? (
           <Link aria-label={`Корзина: ${context.cartItemCount} позиций`} className="relative inline-flex h-11 w-11 items-center justify-center rounded-md border border-zinc-300 bg-white text-zinc-700 transition hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600" href="/cabinet/cart" prefetch={false}>
             <ShoppingCart aria-hidden="true" className="size-[19px]" />

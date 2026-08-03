@@ -10,6 +10,7 @@ import {
   markNotificationReadAction,
 } from "../actions/notification.actions";
 import { recordBehaviorInteraction } from "../../behavior-analytics/components";
+import { notifyAllNotificationsRead } from "./notification-client-events";
 
 export function NotificationActions({
   notificationId,
@@ -82,25 +83,37 @@ export function NotificationActions({
 export function MarkAllNotificationsReadButton({ disabled }: { disabled: boolean }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
   return (
-    <button
-      className="inline-flex min-h-11 items-center gap-2 rounded-md border border-zinc-300 bg-white px-4 text-sm font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
-      disabled={disabled || pending}
-      onClick={() => startTransition(async () => {
-        const result = await markAllNotificationsReadAction();
-        if (result.success) {
-          recordBehaviorInteraction({
-            eventName: "notifications_marked_all_read",
-            route: "/cabinet/notifications",
-            sourceSurface: "notification_page",
+    <div>
+      <button
+        className="inline-flex min-h-11 items-center gap-2 rounded-md border border-zinc-300 bg-white px-4 text-sm font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
+        disabled={disabled || pending}
+        onClick={() => {
+          setError(null);
+          startTransition(async () => {
+            const result = await markAllNotificationsReadAction();
+            if (!result.success) {
+              setError("Не удалось отметить уведомления прочитанными. Попробуйте ещё раз.");
+              return;
+            }
+            notifyAllNotificationsRead(result.data);
+            if (result.data.affectedCount > 0) {
+              recordBehaviorInteraction({
+                eventName: "notifications_marked_all_read",
+                route: "/cabinet/notifications",
+                sourceSurface: "notification_page",
+              });
+            }
+            router.refresh();
           });
-          router.refresh();
-        }
-      })}
-      type="button"
-    >
-      <Check aria-hidden="true" size={16} />
-      {pending ? "Обновление..." : "Прочитать все"}
-    </button>
+        }}
+        type="button"
+      >
+        <Check aria-hidden="true" size={16} />
+        {pending ? "Обновление..." : "Прочитать все"}
+      </button>
+      {error && <p aria-live="polite" className="mt-2 text-sm text-rose-700">{error}</p>}
+    </div>
   );
 }

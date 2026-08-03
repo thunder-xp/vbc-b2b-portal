@@ -1,12 +1,16 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { NotificationBell } from "../components";
+import { MarkAllNotificationsReadButton, NotificationBell } from "../components";
 
 const markRead = vi.fn();
+const markAllRead = vi.fn();
+const refresh = vi.fn();
 vi.mock("../actions/notification.actions", () => ({
   markNotificationReadAction: (...args: unknown[]) => markRead(...args),
+  markAllNotificationsReadAction: (...args: unknown[]) => markAllRead(...args),
 }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
 vi.mock("../../behavior-analytics/components", () => ({
   recordBehaviorInteraction: vi.fn(),
 }));
@@ -59,5 +63,24 @@ describe("NotificationBell", () => {
     render(<NotificationBell initialSummary={summary} />);
     fireEvent.click(screen.getByRole("button", { name: /Уведомления/ }));
     expect(screen.getAllByRole("listitem")).toHaveLength(1);
+  });
+
+  it("updates the badge and popover immediately after mark-all succeeds", async () => {
+    markAllRead.mockResolvedValueOnce({
+      success: true,
+      data: {
+        affectedCount: 1,
+        unreadCount: 0,
+        correlationId: "00000000-0000-4000-8000-000000000099",
+        markedAt: "2026-07-30T11:00:00Z",
+      },
+    });
+    render(<><NotificationBell initialSummary={summary} /><MarkAllNotificationsReadButton disabled={false} /></>);
+
+    fireEvent.click(screen.getByRole("button", { name: "Прочитать все" }));
+
+    await waitFor(() => expect(refresh).toHaveBeenCalledOnce());
+    expect(screen.getByRole("button", { name: /непрочитанных 0/i })).toBeInTheDocument();
+    expect(screen.queryByText("1", { selector: "span" })).not.toBeInTheDocument();
   });
 });

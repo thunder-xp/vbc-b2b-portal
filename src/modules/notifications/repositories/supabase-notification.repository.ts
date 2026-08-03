@@ -11,12 +11,13 @@ import type {
   NotificationPreference,
   NotificationDeliveryMode,
   NotificationSummary,
+  MarkAllNotificationsReadResult,
 } from "../types";
 
 const itemSchema = z.object({
   id: z.string().uuid(),
   eventCode: z.string().min(1),
-  eventGroup: z.enum(["orders", "shipments", "company_access", "products", "documents", "service"]),
+  eventGroup: z.enum(["orders", "shipments", "company_access", "products", "commercial", "documents", "service"]),
   severity: z.enum(["critical", "warning", "information", "success"]),
   mandatory: z.boolean(),
   title: z.string(),
@@ -41,11 +42,17 @@ const pageSchema = z.object({
   }).nullable(),
 });
 const preferencesSchema = z.array(z.object({
-  eventGroup: z.enum(["orders", "shipments", "company_access", "products", "documents", "service"]),
+  eventGroup: z.enum(["orders", "shipments", "company_access", "products", "commercial", "documents", "service"]),
   inAppEnabled: z.boolean(),
   emailEnabled: z.boolean(),
   deliveryMode: z.enum(["immediate", "daily", "off"]),
 }));
+const markAllReadSchema = z.object({
+  affectedCount: z.number().int().nonnegative(),
+  unreadCount: z.number().int().nonnegative(),
+  correlationId: z.string().uuid(),
+  markedAt: z.string(),
+});
 
 export class NotificationRepositoryError extends Error {
   constructor(readonly safeCode?: string) {
@@ -88,13 +95,14 @@ export class SupabaseNotificationRepository implements NotificationRepository {
     });
   }
 
-  async markAllRead(companyId: string): Promise<number> {
+  async markAllRead(companyId: string): Promise<MarkAllNotificationsReadResult> {
     const client = await createClient();
-    const { data, error } = await client.rpc("mark_all_partner_notifications_read", {
+    const { data, error } = await client.rpc("mark_all_partner_notifications_read_v2", {
       p_company_id: companyId,
     });
-    if (error || typeof data !== "number") throw new NotificationRepositoryError(error?.code);
-    return data;
+    const parsed = markAllReadSchema.safeParse(data);
+    if (error || !parsed.success) throw new NotificationRepositoryError(error?.code);
+    return parsed.data;
   }
 
   async dismiss(companyId: string, notificationId: string): Promise<string> {

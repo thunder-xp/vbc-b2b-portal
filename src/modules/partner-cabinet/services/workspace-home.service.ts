@@ -179,7 +179,7 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
       this.dashboardRepository.getProductSelections?.(userId, context.companyId, loginGeneration) ?? Promise.resolve(null),
       this.notificationRepository?.list(context.companyId, {
         unreadOnly: true,
-        pageSize: 20,
+        pageSize: 8,
       }) ?? Promise.resolve({ items: [], nextCursor: null }),
       this.opportunityRepository?.list({ companyId: context.companyId, filter: "all", limit: 4, offset: 0 })
         ?? Promise.resolve({ items: [], totalCount: 0 }),

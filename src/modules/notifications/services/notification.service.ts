@@ -9,6 +9,7 @@ import type {
   NotificationPreference,
   NotificationDeliveryMode,
   NotificationSummary,
+  MarkAllNotificationsReadResult,
   PartnerNotification,
 } from "../types";
 
@@ -44,7 +45,7 @@ export class NotificationService {
     return this.repository.markRead(await this.resolveCompanyId(userId), notificationId);
   }
 
-  async markAllRead(userId: string): Promise<number> {
+  async markAllRead(userId: string): Promise<MarkAllNotificationsReadResult> {
     return this.repository.markAllRead(await this.resolveCompanyId(userId));
   }
 

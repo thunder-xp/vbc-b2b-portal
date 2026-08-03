@@ -16,6 +16,7 @@ const groupLabels = {
   shipments: "Отгрузки",
   company_access: "Доступ сотрудников",
   products: "Товары и поступления",
+  commercial: "Специальные предложения",
   documents: "Документы",
   service: "Сервисные заявки",
 } as const;

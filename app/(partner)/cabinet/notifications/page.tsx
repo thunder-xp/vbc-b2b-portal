@@ -57,6 +57,7 @@ export default async function CabinetNotificationsPage({
           <Link
             className="inline-flex min-h-11 items-center rounded-md border border-zinc-300 bg-white px-4 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
             href="/cabinet/notifications/settings"
+            prefetch={false}
           >
             Настройки
           </Link>
@@ -77,6 +78,7 @@ export default async function CabinetNotificationsPage({
             }`}
             href={`/cabinet/notifications?filter=${filter.value}`}
             key={filter.value}
+            prefetch={false}
           >
             {filter.label}
           </Link>
@@ -142,6 +144,7 @@ export default async function CabinetNotificationsPage({
                         <Link
                           className="inline-flex min-h-11 items-center gap-1.5 self-start text-sm font-medium text-emerald-700 hover:text-emerald-900 sm:self-auto"
                           href={item.actionUrl}
+                          prefetch={false}
                         >
                           {item.actionLabel}
                           <ExternalLink aria-hidden="true" size={15} />
@@ -157,6 +160,7 @@ export default async function CabinetNotificationsPage({
             <Link
               className="inline-flex min-h-11 items-center rounded-md border border-zinc-300 bg-white px-4 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
               href={nextPageUrl(selected, result.data.nextCursor)}
+              prefetch={false}
             >
               Показать ещё
             </Link>

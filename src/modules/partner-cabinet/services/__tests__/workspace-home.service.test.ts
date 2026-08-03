@@ -125,7 +125,7 @@ describe("DefaultWorkspaceHomeService", () => {
 
     expect(notifications.list).toHaveBeenCalledWith("company-1", {
       unreadOnly: true,
-      pageSize: 20,
+      pageSize: 8,
     });
     expect(workspace.attentionItems.map((item) => item.id)).toEqual([
       "critical-1",

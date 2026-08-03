@@ -63,7 +63,12 @@ function createRepository(): NotificationRepository {
     getSummary: vi.fn().mockResolvedValue({ unreadCount: 1, items: [notification] }),
     list: vi.fn(),
     markRead: vi.fn(),
-    markAllRead: vi.fn(),
+    markAllRead: vi.fn().mockResolvedValue({
+      affectedCount: 1,
+      unreadCount: 0,
+      correlationId: "00000000-0000-4000-8000-000000000099",
+      markedAt: "2026-07-30T11:00:00Z",
+    }),
     dismiss: vi.fn(),
     getPreferences: vi.fn(),
     setPreference: vi.fn(),

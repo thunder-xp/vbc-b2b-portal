@@ -3,6 +3,7 @@ export type NotificationEventGroup =
   | "shipments"
   | "company_access"
   | "products"
+  | "commercial"
   | "documents"
   | "service";
 export type NotificationSeverity = "critical" | "warning" | "information" | "success";
@@ -27,6 +28,13 @@ export type PartnerNotification = {
 export type NotificationSummary = {
   unreadCount: number;
   items: PartnerNotification[];
+};
+
+export type MarkAllNotificationsReadResult = {
+  affectedCount: number;
+  unreadCount: number;
+  correlationId: string;
+  markedAt: string;
 };
 
 export type NotificationCursor = {

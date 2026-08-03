@@ -18,6 +18,7 @@ export function ProductNotificationLink({
     <Link
       className={className}
       href={actionUrl}
+      prefetch={false}
       onClick={() => {
         recordBehaviorInteraction({
           eventName: "product_notification_opened",

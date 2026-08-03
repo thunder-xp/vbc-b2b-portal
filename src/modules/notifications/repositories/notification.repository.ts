@@ -4,13 +4,14 @@ import type {
   NotificationPreference,
   NotificationDeliveryMode,
   NotificationSummary,
+  MarkAllNotificationsReadResult,
 } from "../types";
 
 export interface NotificationRepository {
   getSummary(companyId: string, limit?: number): Promise<NotificationSummary>;
   list(companyId: string, filter: NotificationListFilter): Promise<NotificationPage>;
   markRead(companyId: string, notificationId: string): Promise<string>;
-  markAllRead(companyId: string): Promise<number>;
+  markAllRead(companyId: string): Promise<MarkAllNotificationsReadResult>;
   dismiss(companyId: string, notificationId: string): Promise<string>;
   getPreferences(companyId: string): Promise<NotificationPreference[]>;
   setPreference(
