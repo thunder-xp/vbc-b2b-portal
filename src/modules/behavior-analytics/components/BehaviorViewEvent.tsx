@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import Link from "next/link";
 
 import {
@@ -45,28 +45,35 @@ export function BehaviorViewEvent({
   searchQuery?: string;
   sourceSurface?: string;
 }) {
+  const navigationIdRef = useRef<string | null>(null);
   useEffect(() => {
+    navigationIdRef.current ??= crypto.randomUUID();
+    const navigationId = navigationIdRef.current;
     const events = [
       { brandId, categoryId, dedupeKey, eventName, metadataSafe, productId, resultCount, route, searchQuery, sourceSurface },
       ...additionalEvents,
-    ].filter((event) => !sessionStorage.getItem(`novotech-behavior-view:${event.dedupeKey}`));
+    ].filter((event) => !sessionStorage.getItem(`novotech-behavior-view:${navigationId}:${event.dedupeKey}`));
     if (!events.length) return;
     const sessionId = getSessionId();
     for (const event of events) {
-      sessionStorage.setItem(`novotech-behavior-view:${event.dedupeKey}`, "pending");
+      sessionStorage.setItem(`novotech-behavior-view:${navigationId}:${event.dedupeKey}`, "pending");
     }
     void recordBehaviorEventsAction(events.map((event) => {
-      const input: Omit<typeof event, "dedupeKey"> & { dedupeKey?: string; sessionId: string } = {
+      const input: Omit<typeof event, "dedupeKey"> & {
+        dedupeKey?: string;
+        navigationId: string;
+        sessionId: string;
+      } = {
         ...event,
         sessionId,
+        navigationId,
       };
       delete input.dedupeKey;
       return input;
     })).then((result) => {
       for (const event of events) {
-        const storageKey = `novotech-behavior-view:${event.dedupeKey}`;
-        if (!result.recorded) sessionStorage.removeItem(storageKey);
-        else sessionStorage.setItem(storageKey, "recorded");
+        const storageKey = `novotech-behavior-view:${navigationId}:${event.dedupeKey}`;
+        sessionStorage.setItem(storageKey, result.recorded ? "recorded" : "failed");
       }
     });
   }, [

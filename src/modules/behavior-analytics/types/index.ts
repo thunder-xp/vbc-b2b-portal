@@ -132,6 +132,7 @@ export type RecordBehaviorEventInput = {
   quantity?: number;
   sourceSurface?: string;
   metadataSafe?: SafeBehaviorMetadata;
+  navigationId?: string;
 };
 
 export type BehaviorAnalyticsPreview = {

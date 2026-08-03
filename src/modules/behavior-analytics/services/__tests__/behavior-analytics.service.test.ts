@@ -49,11 +49,35 @@ describe("BehaviorAnalyticsService", () => {
     };
     expect(input).not.toHaveProperty("companyId");
   });
+
+  it("resolves company access once and persists a bounded batch", async () => {
+    const repository = repositoryStub();
+    const access = accessStub();
+    const service = new BehaviorAnalyticsService(repository, access);
+    await service.recordBatch("user-1", [
+      {
+        eventName: "partner_dashboard_viewed",
+        navigationId: "22222222-2222-4222-8222-222222222222",
+        route: "/cabinet",
+        sessionId: SESSION_ID,
+      },
+      {
+        eventName: "momentum_prompt_viewed",
+        navigationId: "22222222-2222-4222-8222-222222222222",
+        route: "/cabinet",
+        sessionId: SESSION_ID,
+      },
+    ]);
+    expect(access.getOwnMemberships).toHaveBeenCalledOnce();
+    expect(access.getActiveCompanyContext).toHaveBeenCalledOnce();
+    expect(repository.recordBatch).toHaveBeenCalledOnce();
+  });
 });
 
 function repositoryStub(): BehaviorAnalyticsRepository {
   return {
     record: vi.fn().mockResolvedValue("event-1"),
+    recordBatch: vi.fn().mockResolvedValue(["event-1"]),
     getAdminPreview: vi.fn(),
   };
 }

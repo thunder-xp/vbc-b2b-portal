@@ -15,8 +15,16 @@ export interface OrderHistoryBootstrapRepository {
 }
 
 export class OrderHistoryBootstrapRepositoryError extends Error {
-  constructor() {
-    super("Order-history bootstrap persistence failed.");
+  constructor(
+    readonly operation: string,
+    readonly databaseCode: string | null = null,
+    readonly databaseMessage: string | null = null,
+    readonly databaseDetails: string | null = null,
+    readonly databaseHint: string | null = null,
+    readonly databaseConstraint: string | null = null,
+    options?: ErrorOptions,
+  ) {
+    super("Order-history bootstrap persistence failed.", options);
     this.name = "OrderHistoryBootstrapRepositoryError";
   }
 }

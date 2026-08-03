@@ -62,6 +62,30 @@ describe("BehaviorViewEvent", () => {
 
     await waitFor(() => expect(mocks.recordBatch).toHaveBeenCalledTimes(1));
     expect(mocks.recordBatch.mock.calls[0][0]).toHaveLength(2);
+    expect(mocks.recordBatch.mock.calls[0][0][0].navigationId).toMatch(
+      /^[0-9a-f-]{36}$/,
+    );
+  });
+
+  it("does not retry a failed view during the same navigation", async () => {
+    mocks.recordBatch.mockResolvedValueOnce({ recorded: false });
+    const view = render(
+      <BehaviorViewEvent
+        dedupeKey="dashboard"
+        eventName="partner_dashboard_viewed"
+        route="/cabinet"
+      />,
+    );
+    await waitFor(() => expect(mocks.recordBatch).toHaveBeenCalledTimes(1));
+    view.rerender(
+      <BehaviorViewEvent
+        dedupeKey="dashboard"
+        eventName="partner_dashboard_viewed"
+        route="/cabinet"
+      />,
+    );
+    await Promise.resolve();
+    expect(mocks.recordBatch).toHaveBeenCalledTimes(1);
   });
 
   it("keeps catalog navigation usable when analytics rejects", async () => {

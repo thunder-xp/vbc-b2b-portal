@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createClient } from "@/src/lib/supabase/server";
+import { getSafeDatabaseError } from "@/src/lib/observability/safe-database-error";
 
 import type {
   BehaviorAnalyticsPreview,
@@ -44,9 +45,32 @@ export class SupabaseBehaviorAnalyticsRepository
         p_metadata_safe: input.metadataSafe ?? {},
       });
     if (error || typeof data !== "string") {
-      throw new BehaviorAnalyticsRepositoryError(error?.code);
+      throw repositoryError(
+        momentumEvent
+          ? "record_partner_momentum_behavior_event"
+          : "record_partner_behavior_event",
+        error ?? new Error("Behavior event RPC returned an invalid result."),
+      );
     }
     return data;
+  }
+
+  async recordBatch(
+    companyId: string,
+    inputs: RecordBehaviorEventInput[],
+  ): Promise<string[]> {
+    const supabase = await createClient();
+    const { data, error } = await supabase.rpc(
+      "record_partner_behavior_events_batch",
+      { p_company_id: companyId, p_events: inputs },
+    );
+    if (error || !isBatchResult(data)) {
+      throw repositoryError(
+        "record_partner_behavior_events_batch",
+        error ?? new Error("Behavior event batch RPC returned an invalid result."),
+      );
+    }
+    return data.eventIds;
   }
 
   async getAdminPreview(
@@ -59,10 +83,29 @@ export class SupabaseBehaviorAnalyticsRepository
       { p_days: days, p_limit: limit },
     );
     if (error || !isPreview(data)) {
-      throw new BehaviorAnalyticsRepositoryError(error?.code);
+      throw repositoryError("get_admin_behavior_analytics", error);
     }
     return data;
   }
+}
+
+function isBatchResult(value: unknown): value is { eventIds: string[] } {
+  if (!value || typeof value !== "object") return false;
+  const eventIds = (value as { eventIds?: unknown }).eventIds;
+  return Array.isArray(eventIds) && eventIds.every((id) => typeof id === "string");
+}
+
+function repositoryError(operation: string, cause: unknown): BehaviorAnalyticsRepositoryError {
+  const safe = getSafeDatabaseError(cause);
+  return new BehaviorAnalyticsRepositoryError(
+    operation,
+    safe.code,
+    safe.message,
+    safe.details,
+    safe.hint,
+    safe.constraint,
+    cause instanceof Error ? { cause } : undefined,
+  );
 }
 
 function isPreview(value: unknown): value is BehaviorAnalyticsPreview {

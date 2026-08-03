@@ -51,6 +51,31 @@ export class BehaviorAnalyticsService {
     });
   }
 
+  async recordBatch(
+    userId: string,
+    inputs: RecordBehaviorEventInput[],
+  ): Promise<string[]> {
+    if (inputs.length < 1 || inputs.length > 5) {
+      throw new BehaviorAnalyticsValidationError("ANALYTICS_BATCH_INVALID");
+    }
+    inputs.forEach(validateInput);
+    const memberships = await this.companyAccessService.getOwnMemberships(userId);
+    const membership = memberships.find(
+      (candidate) => candidate.status === MembershipStatus.Active,
+    );
+    if (!membership) {
+      throw new BehaviorAnalyticsValidationError("ANALYTICS_COMPANY_REQUIRED");
+    }
+    await this.companyAccessService.getActiveCompanyContext(
+      userId,
+      membership.companyId,
+    );
+    return this.repository.recordBatch(
+      membership.companyId,
+      inputs.map(normalizeInput),
+    );
+  }
+
   getAdminPreview(days = 30, limit = 10): Promise<BehaviorAnalyticsPreview> {
     return this.repository.getAdminPreview(
       Number.isInteger(days) && days >= 1 && days <= 90 ? days : 30,
@@ -73,10 +98,21 @@ function validateInput(input: RecordBehaviorEventInput): void {
     Object.keys(input.metadataSafe ?? {}).some((key) =>
       FORBIDDEN_METADATA_KEY.test(key)
     ) ||
-    JSON.stringify(input.metadataSafe ?? {}).length > 1800
+    JSON.stringify(input.metadataSafe ?? {}).length > 1800 ||
+    (input.navigationId !== undefined && !isUuid(input.navigationId))
   ) {
     throw new BehaviorAnalyticsValidationError("ANALYTICS_EVENT_INVALID");
   }
+}
+
+function normalizeInput(input: RecordBehaviorEventInput): RecordBehaviorEventInput {
+  return {
+    ...input,
+    route: normalizeRoute(input.route),
+    searchQuery: normalizeSearch(input.searchQuery),
+    sourceSurface: input.sourceSurface?.trim().slice(0, 50) || undefined,
+    metadataSafe: input.metadataSafe ?? {},
+  };
 }
 
 function normalizeRoute(route: string): string {

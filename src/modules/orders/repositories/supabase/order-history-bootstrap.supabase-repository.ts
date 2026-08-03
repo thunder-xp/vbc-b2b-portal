@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { createAdminClient } from "@/src/lib/supabase/admin";
 import { createClient } from "@/src/lib/supabase/server";
+import { getSafeDatabaseError } from "@/src/lib/observability/safe-database-error";
 
 import type { AdminOrderHistoryBootstrapPage, OrderHistoryBootstrapClaim, OrderHistoryBootstrapState } from "../../types";
 import { OrderHistoryBootstrapRepositoryError, type OrderHistoryBootstrapRepository } from "../order-history-bootstrap.repository";
@@ -29,22 +30,22 @@ export class SupabaseOrderHistoryBootstrapRepository implements OrderHistoryBoot
       p_requested_by_user_id: userId,
       p_force: false,
     });
-    if (error) throw new OrderHistoryBootstrapRepositoryError();
+    if (error) throw repositoryError("enqueue_partner_order_history_bootstrap", error);
     return parseState(data);
   }
 
   async getStatus(companyId: string): Promise<OrderHistoryBootstrapState> {
     const { data, error } = await (await createClient()).rpc("get_partner_order_history_bootstrap_status", { p_company_id: companyId });
-    if (error) throw new OrderHistoryBootstrapRepositoryError();
+    if (error) throw repositoryError("get_partner_order_history_bootstrap_status", error);
     return parseState(data);
   }
 
   async claim(): Promise<OrderHistoryBootstrapClaim | null> {
     const { data, error } = await createAdminClient().rpc("claim_partner_order_history_bootstrap", { p_stale_after_seconds: 1800 });
-    if (error) throw new OrderHistoryBootstrapRepositoryError();
+    if (error) throw repositoryError("claim_partner_order_history_bootstrap", error);
     if (data === null) return null;
     const parsed = claimSchema.safeParse(data);
-    if (!parsed.success) throw new OrderHistoryBootstrapRepositoryError();
+    if (!parsed.success) throw repositoryError("parse_bootstrap_claim", parsed.error);
     return parsed.data;
   }
 
@@ -52,7 +53,7 @@ export class SupabaseOrderHistoryBootstrapRepository implements OrderHistoryBoot
     const { error } = await createAdminClient().rpc("complete_partner_order_history_bootstrap", {
       p_bootstrap_id: claim.id, p_lock_token: claim.lockToken, p_result: result,
     });
-    if (error) throw new OrderHistoryBootstrapRepositoryError();
+    if (error) throw repositoryError("complete_partner_order_history_bootstrap", error);
   }
 
   async fail(claim: OrderHistoryBootstrapClaim, errorCode: string, retryable: boolean): Promise<void> {
@@ -60,12 +61,13 @@ export class SupabaseOrderHistoryBootstrapRepository implements OrderHistoryBoot
       p_bootstrap_id: claim.id, p_lock_token: claim.lockToken,
       p_error_code: errorCode.slice(0, 80), p_retryable: retryable,
     });
-    if (error) throw new OrderHistoryBootstrapRepositoryError();
+    if (error) throw repositoryError("fail_partner_order_history_bootstrap", error);
   }
 
   async listAdmin(limit = 50): Promise<AdminOrderHistoryBootstrapPage> {
     const { data, error } = await (await createClient()).rpc("list_admin_order_history_bootstraps", { p_limit: Math.max(1, Math.min(limit, 100)) });
-    if (error || !isRecord(data) || !isRecord(data.summary) || !Array.isArray(data.items)) throw new OrderHistoryBootstrapRepositoryError();
+    if (error) throw repositoryError("list_admin_order_history_bootstraps", error);
+    if (!isRecord(data) || !isRecord(data.summary) || !Array.isArray(data.items)) throw repositoryError("parse_admin_order_history_bootstraps");
     return {
       summary: {
         notRequested: number(data.summary.notRequested), queued: number(data.summary.queued),
@@ -82,14 +84,14 @@ export class SupabaseOrderHistoryBootstrapRepository implements OrderHistoryBoot
       p_company_id: companyId, p_requested_by_source: "admin_manual",
       p_requested_by_user_id: null, p_force: true,
     });
-    if (error) throw new OrderHistoryBootstrapRepositoryError();
+    if (error) throw repositoryError("enqueue_partner_order_history_bootstrap_admin", error);
     return parseState(data);
   }
 }
 
 function parseState(value: unknown): OrderHistoryBootstrapState {
   const parsed = stateSchema.safeParse(value);
-  if (!parsed.success) throw new OrderHistoryBootstrapRepositoryError();
+  if (!parsed.success) throw repositoryError("parse_bootstrap_state", parsed.error);
   return { status: parsed.data.status, requestedAt: parsed.data.requestedAt ?? null, completedAt: parsed.data.completedAt ?? null, lastErrorCode: parsed.data.lastErrorCode ?? null };
 }
 function mapAdminItem(value: unknown): AdminOrderHistoryBootstrapPage["items"] {
@@ -108,3 +110,16 @@ function isRecord(value: unknown): value is Record<string, unknown> { return typ
 function text(value: unknown): string { return typeof value === "string" ? value : ""; }
 function nullableText(value: unknown): string | null { return typeof value === "string" && value ? value : null; }
 function number(value: unknown): number { const parsed = Number(value); return Number.isFinite(parsed) ? parsed : 0; }
+
+function repositoryError(operation: string, cause?: unknown): OrderHistoryBootstrapRepositoryError {
+  const safe = getSafeDatabaseError(cause);
+  return new OrderHistoryBootstrapRepositoryError(
+    operation,
+    safe.code,
+    safe.message,
+    safe.details,
+    safe.hint,
+    safe.constraint,
+    cause instanceof Error ? { cause } : undefined,
+  );
+}
