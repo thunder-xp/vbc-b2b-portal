@@ -7,6 +7,15 @@ import type { AdminDocumentListItem, DocumentDownloadDescriptor, DocumentHealth,
 type Row = Record<string, unknown>;
 
 export class SupabaseDocumentRepository implements DocumentRepository {
+  async listPartnerRecent(companyId: string, limit: number) {
+    const { data, error } = await (await createClient()).rpc("list_partner_dashboard_documents", {
+      p_company_id: companyId,
+      p_limit: limit,
+    });
+    if (error || !Array.isArray(data)) throw new DocumentRepositoryError(error?.code ?? null);
+    return data.flatMap(mapListItem);
+  }
+
   async listPartner(companyId: string, input: Parameters<DocumentRepository["listPartner"]>[1]) {
     const { data, error } = await (await createClient()).rpc("list_partner_documents", {
       p_company_id: companyId, p_query: input.query ?? "", p_section: input.section ?? "all", p_document_type: input.documentType ?? null,

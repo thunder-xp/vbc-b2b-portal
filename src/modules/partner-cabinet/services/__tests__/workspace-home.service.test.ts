@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { PricingInventoryService } from "../../../pricing-inventory";
 import type { NotificationRepository } from "../../../notifications";
+import type { DocumentRepository } from "../../../documents/repositories";
 import type { CommercialFreshnessReadModel } from "../../repositories/commercial-freshness.repository";
 import type {
   WorkspaceDashboardProjection,
@@ -215,6 +216,53 @@ describe("DefaultWorkspaceHomeService", () => {
       "/products/camera.jpg",
       "/products/recorder.jpg",
     ]);
+  });
+
+  it("uses the bounded dashboard document projection", async () => {
+    const documents = {
+      listPartnerRecent: vi.fn().mockResolvedValue([]),
+      listPartner: vi.fn(),
+    } as unknown as DocumentRepository;
+
+    await new DefaultWorkspaceHomeService(
+      fakeContextService({
+        capabilities: resolveWorkspaceCapabilities(new Set([
+          "documents.view_company",
+          "documents.view_product",
+        ])),
+      }),
+      fakeFreshness(),
+      fakeDashboardRepository(),
+      fakePricingInventoryService(),
+      undefined,
+      undefined,
+      undefined,
+      documents,
+    ).getWorkspaceHome("partner-1");
+
+    expect(documents.listPartnerRecent).toHaveBeenCalledWith("company-1", 4);
+    expect(documents.listPartner).not.toHaveBeenCalled();
+  });
+
+  it("skips the dashboard document read when no document type is permitted", async () => {
+    const documents = {
+      listPartnerRecent: vi.fn(),
+      listPartner: vi.fn(),
+    } as unknown as DocumentRepository;
+
+    await new DefaultWorkspaceHomeService(
+      fakeContextService(),
+      fakeFreshness(),
+      fakeDashboardRepository(),
+      fakePricingInventoryService(),
+      undefined,
+      undefined,
+      undefined,
+      documents,
+    ).getWorkspaceHome("partner-1");
+
+    expect(documents.listPartnerRecent).not.toHaveBeenCalled();
+    expect(documents.listPartner).not.toHaveBeenCalled();
   });
 });
 

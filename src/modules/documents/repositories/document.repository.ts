@@ -7,6 +7,7 @@ export class DocumentRepositoryError extends Error {
 
 export interface DocumentRepository {
   listPartner(companyId: string, filters: PartnerDocumentFilters & { page: number; pageSize: number }): Promise<{ items: PartnerDocumentListItem[]; totalCount: number }>;
+  listPartnerRecent?(companyId: string, limit: number): Promise<PartnerDocumentListItem[]>;
   getPartner(companyId: string, documentId: string): Promise<PartnerDocumentDetail | null>;
   authorizeDownload(companyId: string, documentId: string, correlationId: string): Promise<DocumentDownloadDescriptor>;
   recordDownload(companyId: string, documentId: string, correlationId: string, succeeded: boolean, safeErrorCode?: string): Promise<void>;

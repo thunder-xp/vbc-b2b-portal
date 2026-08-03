@@ -186,8 +186,15 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
         ?? Promise.resolve({ items: [], totalCount: 0 })),
       timedDashboardRead("campaigns", () => this.campaignRepository?.listPartner({ companyId, filter: "active", limit: 2, offset: 0 })
         ?? Promise.resolve({ items: [], totalCount: 0 })),
-      timedDashboardRead("documents", () => this.documentRepository?.listPartner(companyId, { section: "all", state: "current", page: 1, pageSize: 4 })
-        ?? Promise.resolve({ items: [], totalCount: 0 })),
+      timedDashboardRead("documents", async () => {
+        if (!this.documentRepository || !context.capabilities.canViewDashboardDocuments) {
+          return { items: [], totalCount: 0 };
+        }
+        if (this.documentRepository.listPartnerRecent) {
+          return { items: await this.documentRepository.listPartnerRecent(companyId, 4), totalCount: 0 };
+        }
+        return this.documentRepository.listPartner(companyId, { section: "all", state: "current", page: 1, pageSize: 4 });
+      }),
       timedDashboardRead("purchasing_dynamics", () => ["partner_owner", "partner_manager", "partner_buyer"].includes(context.membershipRoleCode ?? "")
         ? this.momentumRepository?.getPartnerSummary(companyId) ?? Promise.resolve(null)
         : Promise.resolve(null)),

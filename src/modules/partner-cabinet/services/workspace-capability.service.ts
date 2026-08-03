@@ -51,6 +51,7 @@ export type WorkspaceCapabilityModel = {
   canCreateCommercialProposal: boolean;
   canUseWarranty: boolean;
   canViewKnowledgeBase: boolean;
+  canViewDashboardDocuments: boolean;
   canManageCompanyUsers?: boolean;
 };
 
@@ -145,6 +146,11 @@ export function resolveWorkspaceCapabilities(
     canCreateCommercialProposal: configuration.commercialProposalAccess !== false && hasPermission("estimates.manage"),
     canUseWarranty: configuration.warrantyAccess !== false && hasPermission("service.view"),
     canViewKnowledgeBase: configuration.knowledgeBaseAccess !== false && hasPermission("catalog.view"),
+    canViewDashboardDocuments: [
+      "documents.view_accounting",
+      "documents.view_commercial",
+      "documents.view_product",
+    ].some(hasPermission),
     canManageCompanyUsers: hasPermission("company_users.manage"),
   };
 }
