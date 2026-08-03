@@ -8,5 +8,6 @@ export * from "./views";
 export * from "./AttachmentUpload";
 export * from "./warranty-policy";
 export * from "./operations-components";
+export * from "./ServiceDashboardBlock";
 export * from "./document-actions";
 export * from "./ServiceDocumentUpload";

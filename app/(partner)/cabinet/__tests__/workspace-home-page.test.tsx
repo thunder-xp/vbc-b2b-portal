@@ -12,9 +12,12 @@ vi.mock("next/navigation", () => ({ redirect: mocks.redirect }));
 vi.mock("@/src/modules/partner-cabinet/actions/workspace-home.action", () => ({
   getWorkspaceHomeAction: mocks.getWorkspaceHomeAction,
 }));
-vi.mock("@/src/modules/behavior-analytics/components", () => ({
+vi.mock("@/src/modules/behavior-analytics/components/BehaviorViewEvent", () => ({
   BehaviorViewEvent: () => null,
   recordBehaviorInteraction: vi.fn(),
+}));
+vi.mock("@/src/modules/service-center/actions", () => ({
+  getPartnerServiceDashboardAction: vi.fn().mockResolvedValue({ success: true, data: [] }),
 }));
 vi.mock("server-only", () => ({}));
 

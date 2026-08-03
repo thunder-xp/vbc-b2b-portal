@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
-import { recordBehaviorInteraction } from "../../behavior-analytics/components";
+import { recordBehaviorInteraction } from "../../behavior-analytics/components/BehaviorViewEvent";
 import type { WorkspaceQuickActionDto } from "../services";
 
 const icons = {

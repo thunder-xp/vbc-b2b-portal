@@ -1,13 +1,12 @@
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
-import { BehaviorViewEvent } from "@/src/modules/behavior-analytics/components";
+import { BehaviorViewEvent } from "@/src/modules/behavior-analytics/components/BehaviorViewEvent";
 import { getWorkspaceHomeAction } from "@/src/modules/partner-cabinet/actions/workspace-home.action";
-import {
-  OperationalDashboard,
-  WorkspaceEmptyState,
-} from "@/src/modules/partner-cabinet/components";
-import { getPartnerServiceDashboardAction, ServiceDashboardBlock } from "@/src/modules/service-center";
+import { OperationalDashboard } from "@/src/modules/partner-cabinet/components/OperationalDashboard";
+import { WorkspaceEmptyState } from "@/src/modules/partner-cabinet/components/WorkspaceEmptyState";
+import { getPartnerServiceDashboardAction } from "@/src/modules/service-center/actions";
+import { ServiceDashboardBlock } from "@/src/modules/service-center/ServiceDashboardBlock";
 
 export default async function CabinetPage() {
   const result = await getWorkspaceHomeAction();

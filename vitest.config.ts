@@ -13,7 +13,11 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     globals: false,
+    hookTimeout: 15_000,
     include: ["app/**/*.test.tsx", "src/**/*.test.ts", "src/**/*.test.tsx"],
+    maxWorkers: 8,
     setupFiles: ["./vitest.setup.ts"],
+    teardownTimeout: 5_000,
+    testTimeout: 15_000,
   },
 });

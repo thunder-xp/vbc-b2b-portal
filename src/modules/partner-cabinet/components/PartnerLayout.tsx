@@ -1,11 +1,9 @@
-"use client";
-
 import type { ReactNode } from "react";
-import { useState } from "react";
 
 import type { PartnerWorkspaceAccessState, WorkspaceNavigationItem } from "../services";
 import type { NotificationSummary } from "../../notifications";
 import { PartnerHeader } from "./PartnerHeader";
+import { PartnerMobileNavigation } from "./PartnerMobileNavigation";
 import { PartnerSidebar } from "./PartnerSidebar";
 
 export type PartnerWorkspaceShellContext = {
@@ -28,7 +26,6 @@ export function PartnerLayout({
   children: ReactNode;
   context: PartnerWorkspaceShellContext;
 }) {
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const hasWorkspaceAccess = context.accessState === "active" || context.accessState === "missing_price_type";
 
   return (
@@ -36,16 +33,16 @@ export function PartnerLayout({
       <div className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:block lg:w-64">
         <PartnerSidebar hasWorkspaceAccess={hasWorkspaceAccess} navigation={context.navigation} />
       </div>
-      {isDrawerOpen && (
-        <div className="fixed inset-0 z-40 lg:hidden">
-          <button aria-label="Close navigation" className="absolute inset-0 bg-zinc-950/40" onClick={() => setIsDrawerOpen(false)} type="button" />
-          <div className="relative h-full w-64 max-w-[85vw]">
-            <PartnerSidebar hasWorkspaceAccess={hasWorkspaceAccess} navigation={context.navigation} onNavigate={() => setIsDrawerOpen(false)} />
-          </div>
-        </div>
-      )}
       <div className="lg:pl-64">
-        <PartnerHeader context={context} onMenuClick={() => setIsDrawerOpen(true)} />
+        <PartnerHeader
+          context={context}
+          mobileNavigation={(
+            <PartnerMobileNavigation
+              hasWorkspaceAccess={hasWorkspaceAccess}
+              navigation={context.navigation}
+            />
+          )}
+        />
         <main className="px-4 py-6 lg:px-8">{children}</main>
       </div>
     </div>

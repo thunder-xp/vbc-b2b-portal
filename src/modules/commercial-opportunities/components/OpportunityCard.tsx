@@ -7,8 +7,8 @@ import { useState, useTransition } from "react";
 
 import { recordBehaviorInteraction } from "../../behavior-analytics/components/BehaviorViewEvent";
 import { CatalogCardImage } from "../../catalog/components/CatalogCardImage";
-import { addToCartAction } from "../../orders/actions";
-import { dismissCommercialOpportunityAction } from "../actions";
+import { addToCartAction } from "../../orders/actions/cart.actions";
+import { dismissCommercialOpportunityAction } from "../actions/commercial-opportunity.actions";
 import type { CommercialOpportunity } from "../types";
 
 export function OpportunityCard({ opportunity }: { opportunity: CommercialOpportunity }) {

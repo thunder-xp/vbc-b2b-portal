@@ -11,7 +11,7 @@ import { ProductAvailabilityBlock } from "./ProductAvailabilityBlock";
 import { ProductComparisonAction } from "./ProductComparisonAction";
 import { ProductSpecificationAction } from "./ProductSpecificationAction";
 import { MerchandisingBadges } from "./MerchandisingBadges";
-import { BehaviorTrackedLink } from "../../behavior-analytics/components";
+import { BehaviorTrackedLink } from "../../behavior-analytics/components/BehaviorViewEvent";
 import type { BehaviorEventName } from "../../behavior-analytics/types";
 
 type ProductCardProps = { product: CatalogProductCardDto; analyticsEventName?: BehaviorEventName; analyticsSurface?: string; cartSuccessEventName?: BehaviorEventName; commercialView?: ProductCommercialViewDto; capabilities: ProductCardCapabilityModel; companyId?: string | null; contextLine?: string; favorite?: boolean; imagePriority?: boolean; userId?: string | null };

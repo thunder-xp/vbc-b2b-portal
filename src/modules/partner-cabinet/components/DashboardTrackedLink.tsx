@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 
-import { recordBehaviorInteraction } from "../../behavior-analytics/components";
+import { recordBehaviorInteraction } from "../../behavior-analytics/components/BehaviorViewEvent";
 import type { BehaviorEventName } from "../../behavior-analytics/types";
 
 export function DashboardTrackedLink({

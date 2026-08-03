@@ -2,13 +2,11 @@ import type { ReactNode } from "react";
 
 import { redirect } from "next/navigation";
 
-import { getPartnerWorkspaceContextAction } from "@/src/modules/partner-cabinet/actions";
-import { getCartItemCountAction } from "@/src/modules/orders/actions";
-import { getNotificationSummaryAction } from "@/src/modules/notifications/actions";
-import {
-  PartnerLayout,
-  WorkspaceAccessState,
-} from "@/src/modules/partner-cabinet/components";
+import { getPartnerWorkspaceContextAction } from "@/src/modules/partner-cabinet/actions/workspace-context.action";
+import { PartnerLayout } from "@/src/modules/partner-cabinet/components/PartnerLayout";
+import { WorkspaceAccessState } from "@/src/modules/partner-cabinet/components/WorkspaceAccessState";
+import { getNotificationSummaryAction } from "@/src/modules/notifications/actions/notification.actions";
+import { getCartItemCountAction } from "@/src/modules/orders/actions/cart.actions";
 
 export default async function CabinetLayout({ children }: { children: ReactNode }) {
   const result = await getPartnerWorkspaceContextAction();

@@ -10,15 +10,15 @@ import {
   Users,
 } from "lucide-react";
 
-import { ProductCard } from "../../catalog/components";
+import { ProductCard } from "../../catalog/components/ProductCard";
 import { DashboardPurchaseTemplateButton } from "../../purchase-templates/components/DashboardPurchaseTemplateButton";
 import type { WorkspaceHomeDto } from "../services";
 import { DashboardTrackedLink } from "./DashboardTrackedLink";
 import { QuickActions } from "./QuickActions";
-import { OpportunityCard } from "../../commercial-opportunities/components";
+import { OpportunityCard } from "../../commercial-opportunities/components/OpportunityCard";
 import { CampaignCard } from "../../commercial-campaigns/components/CampaignCard";
-import { DocumentCard } from "../../documents/components";
-import { BehaviorViewEvent } from "../../behavior-analytics/components";
+import { DocumentCard } from "../../documents/components/DocumentCard";
+import { BehaviorViewEvent } from "../../behavior-analytics/components/BehaviorViewEvent";
 import { dismissPartnerMomentumPromptAction } from "../../partner-momentum/actions";
 
 export function OperationalDashboard({

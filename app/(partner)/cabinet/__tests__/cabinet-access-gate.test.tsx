@@ -7,14 +7,19 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("next/navigation", () => ({ redirect: mocks.redirect }));
-vi.mock("@/src/modules/partner-cabinet/actions", () => ({
+vi.mock("@/src/modules/partner-cabinet/actions/workspace-context.action", () => ({
   getPartnerWorkspaceContextAction: mocks.getPartnerWorkspaceContextAction,
 }));
-vi.mock("@/src/modules/orders/actions", () => ({
+vi.mock("@/src/modules/orders/actions/cart.actions", () => ({
   getCartItemCountAction: vi.fn().mockResolvedValue({ success: true, data: 0 }),
 }));
-vi.mock("@/src/modules/partner-cabinet/components", () => ({
+vi.mock("@/src/modules/notifications/actions/notification.actions", () => ({
+  getNotificationSummaryAction: vi.fn().mockResolvedValue({ success: true, data: { unreadCount: 0, items: [] } }),
+}));
+vi.mock("@/src/modules/partner-cabinet/components/PartnerLayout", () => ({
   PartnerLayout: ({ children }: { children: React.ReactNode }) => <section data-testid="partner-layout">{children}</section>,
+}));
+vi.mock("@/src/modules/partner-cabinet/components/WorkspaceAccessState", () => ({
   WorkspaceAccessState: ({ state }: { state: string }) => <div>STATE:{state}</div>,
 }));
 

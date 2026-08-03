@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { PartnerHeader } from "../PartnerHeader";
+import { PartnerMobileNavigation } from "../PartnerMobileNavigation";
 import { PartnerSidebar } from "../PartnerSidebar";
 import { CompanyCard } from "../CompanyCard";
 import { resolveWorkspaceCapabilities } from "../../services";
@@ -149,6 +150,19 @@ describe("Partner workspace shell", () => {
     expect(screen.queryByRole("button", { name: "Выйти" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Открыть меню пользователя" }));
     expect(screen.getByRole("menuitem", { name: "Выйти" })).toBeInTheDocument();
+  });
+
+  it("hydrates only the mobile navigation island and dismisses its drawer", async () => {
+    const user = userEvent.setup();
+    render(<PartnerMobileNavigation hasWorkspaceAccess navigation={navigation} />);
+
+    const trigger = screen.getByRole("button", { name: "Открыть навигацию" });
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+    await user.click(trigger);
+    expect(trigger).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("navigation", { name: "Рабочие разделы" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Закрыть навигацию" }));
+    expect(screen.queryByRole("navigation", { name: "Рабочие разделы" })).not.toBeInTheDocument();
   });
 
   it("dismisses the user menu outside and on Escape with focus restoration", async () => {
