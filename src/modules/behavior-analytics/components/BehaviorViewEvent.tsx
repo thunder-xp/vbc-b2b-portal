@@ -3,7 +3,10 @@
 import { useEffect } from "react";
 import Link from "next/link";
 
-import { recordBehaviorEventAction } from "../actions";
+import {
+  recordBehaviorEventAction,
+  recordBehaviorEventsAction,
+} from "../actions";
 import type {
   BehaviorEventName,
   SafeBehaviorMetadata,
@@ -12,6 +15,7 @@ import type {
 const SESSION_KEY = "novotech-behavior-session";
 
 export function BehaviorViewEvent({
+  additionalEvents = [],
   brandId,
   categoryId,
   dedupeKey,
@@ -23,6 +27,13 @@ export function BehaviorViewEvent({
   searchQuery,
   sourceSurface,
 }: {
+  additionalEvents?: Array<{
+    dedupeKey: string;
+    eventName: BehaviorEventName;
+    metadataSafe?: SafeBehaviorMetadata;
+    route: string;
+    sourceSurface?: string;
+  }>;
   brandId?: string;
   categoryId?: string;
   dedupeKey: string;
@@ -35,26 +46,31 @@ export function BehaviorViewEvent({
   sourceSurface?: string;
 }) {
   useEffect(() => {
-    const storageKey = `novotech-behavior-view:${dedupeKey}`;
-    if (sessionStorage.getItem(storageKey)) return;
+    const events = [
+      { brandId, categoryId, dedupeKey, eventName, metadataSafe, productId, resultCount, route, searchQuery, sourceSurface },
+      ...additionalEvents,
+    ].filter((event) => !sessionStorage.getItem(`novotech-behavior-view:${event.dedupeKey}`));
+    if (!events.length) return;
     const sessionId = getSessionId();
-    sessionStorage.setItem(storageKey, "pending");
-    void recordBehaviorEventAction({
-      brandId,
-      categoryId,
-      eventName,
-      metadataSafe,
-      productId,
-      resultCount,
-      route,
-      searchQuery,
-      sessionId,
-      sourceSurface,
-    }).then((result) => {
-      if (!result.recorded) sessionStorage.removeItem(storageKey);
-      else sessionStorage.setItem(storageKey, "recorded");
+    for (const event of events) {
+      sessionStorage.setItem(`novotech-behavior-view:${event.dedupeKey}`, "pending");
+    }
+    void recordBehaviorEventsAction(events.map((event) => {
+      const input: Omit<typeof event, "dedupeKey"> & { dedupeKey?: string; sessionId: string } = {
+        ...event,
+        sessionId,
+      };
+      delete input.dedupeKey;
+      return input;
+    })).then((result) => {
+      for (const event of events) {
+        const storageKey = `novotech-behavior-view:${event.dedupeKey}`;
+        if (!result.recorded) sessionStorage.removeItem(storageKey);
+        else sessionStorage.setItem(storageKey, "recorded");
+      }
     });
   }, [
+    additionalEvents,
     brandId,
     categoryId,
     dedupeKey,

@@ -18,7 +18,19 @@ export default async function CabinetPage() {
   const workspace = result.data;
   return (
     <div className="space-y-6">
-      <BehaviorViewEvent dedupeKey="partner-dashboard-v2" eventName="partner_dashboard_viewed" route="/cabinet" sourceSurface="partner_dashboard" />
+      <BehaviorViewEvent
+        additionalEvents={workspace.purchasingDynamics ? [{
+          dedupeKey: `momentum:${workspace.purchasingDynamics.sourceFingerprint}`,
+          eventName: "momentum_prompt_viewed",
+          metadataSafe: { status_band: workspace.purchasingDynamics.status },
+          route: "/cabinet",
+          sourceSurface: "partner_momentum",
+        }] : undefined}
+        dedupeKey="partner-dashboard-v2"
+        eventName="partner_dashboard_viewed"
+        route="/cabinet"
+        sourceSurface="partner_dashboard"
+      />
       <OperationalDashboard workspace={workspace} />
       <Suspense fallback={null}>
         <ServiceDashboard />

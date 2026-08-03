@@ -29,6 +29,26 @@ export async function recordBehaviorEventAction(
   }
 }
 
+export async function recordBehaviorEventsAction(
+  inputs: RecordBehaviorEventInput[],
+): Promise<{ recorded: boolean }> {
+  if (inputs.length < 1 || inputs.length > 5) return { recorded: false };
+
+  try {
+    const userId = await getAuthenticatedUserId();
+    const service = createService();
+    await Promise.all(inputs.map((input) => service.record(userId, input)));
+    return { recorded: true };
+  } catch (error) {
+    console.warn({
+      event: "partner_behavior_event_batch_recording_warning",
+      eventCount: inputs.length,
+      errorType: error instanceof Error ? error.name : typeof error,
+    });
+    return { recorded: false };
+  }
+}
+
 export async function getBehaviorAnalyticsPreviewAction(): Promise<
   BehaviorAnalyticsPreview
 > {

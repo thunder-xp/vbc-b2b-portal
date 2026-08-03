@@ -3,10 +3,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   record: vi.fn().mockResolvedValue({ recorded: true }),
+  recordBatch: vi.fn().mockResolvedValue({ recorded: true }),
 }));
 
 vi.mock("../../actions", () => ({
   recordBehaviorEventAction: mocks.record,
+  recordBehaviorEventsAction: mocks.recordBatch,
 }));
 
 import {
@@ -18,6 +20,7 @@ import {
 describe("BehaviorViewEvent", () => {
   beforeEach(() => {
     mocks.record.mockClear();
+    mocks.recordBatch.mockClear();
     sessionStorage.clear();
   });
 
@@ -29,7 +32,7 @@ describe("BehaviorViewEvent", () => {
         route="/cabinet/catalog"
       />,
     );
-    await waitFor(() => expect(mocks.record).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(mocks.recordBatch).toHaveBeenCalledTimes(1));
     view.rerender(
       <BehaviorViewEvent
         dedupeKey="catalog:all"
@@ -38,7 +41,27 @@ describe("BehaviorViewEvent", () => {
       />,
     );
     await Promise.resolve();
-    expect(mocks.record).toHaveBeenCalledTimes(1);
+    expect(mocks.recordBatch).toHaveBeenCalledTimes(1);
+  });
+
+  it("records dashboard and momentum views through one request", async () => {
+    render(
+      <BehaviorViewEvent
+        additionalEvents={[{
+          dedupeKey: "momentum:fingerprint-1",
+          eventName: "momentum_prompt_viewed",
+          metadataSafe: { status_band: "growing" },
+          route: "/cabinet",
+          sourceSurface: "partner_momentum",
+        }]}
+        dedupeKey="dashboard"
+        eventName="partner_dashboard_viewed"
+        route="/cabinet"
+      />,
+    );
+
+    await waitFor(() => expect(mocks.recordBatch).toHaveBeenCalledTimes(1));
+    expect(mocks.recordBatch.mock.calls[0][0]).toHaveLength(2);
   });
 
   it("keeps catalog navigation usable when analytics rejects", async () => {
