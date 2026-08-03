@@ -172,24 +172,25 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
     ) {
       throw new InvalidStateError("Partner workspace access is not active.");
     }
+    const companyId = context.companyId;
 
     const [freshness, dashboard, selections, notificationPage, opportunityPage, campaignPage, documentPage, purchasingDynamics] = await Promise.all([
-      this.commercialFreshnessReadModel.getFreshness(),
-      this.dashboardRepository.getDashboard(context.companyId),
-      this.dashboardRepository.getProductSelections?.(userId, context.companyId, loginGeneration) ?? Promise.resolve(null),
-      this.notificationRepository?.list(context.companyId, {
+      timedDashboardRead("commercial_freshness", () => this.commercialFreshnessReadModel.getFreshness()),
+      timedDashboardRead("dashboard_aggregate", () => this.dashboardRepository.getDashboard(companyId)),
+      timedDashboardRead("product_selections", () => this.dashboardRepository.getProductSelections?.(userId, companyId, loginGeneration) ?? Promise.resolve(null)),
+      timedDashboardRead("notification_attention", () => this.notificationRepository?.list(companyId, {
         unreadOnly: true,
         pageSize: 8,
-      }) ?? Promise.resolve({ items: [], nextCursor: null }),
-      this.opportunityRepository?.list({ companyId: context.companyId, filter: "all", limit: 4, offset: 0 })
-        ?? Promise.resolve({ items: [], totalCount: 0 }),
-      this.campaignRepository?.listPartner({ companyId: context.companyId, filter: "active", limit: 2, offset: 0 })
-        ?? Promise.resolve({ items: [], totalCount: 0 }),
-      this.documentRepository?.listPartner(context.companyId, { section: "all", state: "current", page: 1, pageSize: 4 })
-        ?? Promise.resolve({ items: [], totalCount: 0 }),
-      ["partner_owner", "partner_manager", "partner_buyer"].includes(context.membershipRoleCode ?? "")
-        ? this.momentumRepository?.getPartnerSummary(context.companyId) ?? Promise.resolve(null)
-        : Promise.resolve(null),
+      }) ?? Promise.resolve({ items: [], nextCursor: null })),
+      timedDashboardRead("opportunities", () => this.opportunityRepository?.list({ companyId, filter: "all", limit: 4, offset: 0 })
+        ?? Promise.resolve({ items: [], totalCount: 0 })),
+      timedDashboardRead("campaigns", () => this.campaignRepository?.listPartner({ companyId, filter: "active", limit: 2, offset: 0 })
+        ?? Promise.resolve({ items: [], totalCount: 0 })),
+      timedDashboardRead("documents", () => this.documentRepository?.listPartner(companyId, { section: "all", state: "current", page: 1, pageSize: 4 })
+        ?? Promise.resolve({ items: [], totalCount: 0 })),
+      timedDashboardRead("purchasing_dynamics", () => ["partner_owner", "partner_manager", "partner_buyer"].includes(context.membershipRoleCode ?? "")
+        ? this.momentumRepository?.getPartnerSummary(companyId) ?? Promise.resolve(null)
+        : Promise.resolve(null)),
     ]);
     const reorderCandidates = selections?.previousProducts ?? dashboard.reorderProducts;
     const merchandisingCandidates = selections?.merchandisingProducts ?? dashboard.merchandisingProducts;
@@ -333,6 +334,19 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
         ),
       ],
     };
+  }
+}
+
+async function timedDashboardRead<T>(stage: string, operation: () => Promise<T>): Promise<T> {
+  const startedAt = performance.now();
+  try {
+    return await operation();
+  } finally {
+    console.info(JSON.stringify({
+      event: "dashboard_read_completed",
+      stage,
+      durationMs: Math.round((performance.now() - startedAt) * 100) / 100,
+    }));
   }
 }
 
