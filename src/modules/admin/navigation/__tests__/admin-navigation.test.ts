@@ -37,6 +37,8 @@ const allPermissions = [
   "admin.service.view",
   "support.view_all",
   "support.diagnostics.view",
+  "knowledge.edit",
+  "knowledge.analytics.view",
 ];
 
 describe("admin navigation", () => {

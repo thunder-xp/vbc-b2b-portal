@@ -1,0 +1,3 @@
+import { AdminKnowledgeEditor,getKnowledgeEditorOptionsAction } from "@/src/modules/knowledge-base";
+import { requireAdminPagePermission } from "@/src/modules/admin";
+export default async function NewKnowledgeArticlePage(){await requireAdminPagePermission("knowledge.create");const options=await getKnowledgeEditorOptionsAction();if(!options)return <p>Редактор временно недоступен.</p>;return <main className="mx-auto max-w-5xl space-y-6"><header><h1 className="text-2xl font-semibold">Новый материал</h1><p className="mt-2 text-sm text-zinc-600">Создайте безопасный структурированный черновик.</p></header><AdminKnowledgeEditor options={options}/></main>}

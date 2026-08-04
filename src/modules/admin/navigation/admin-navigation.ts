@@ -107,6 +107,7 @@ export const ADMIN_NAVIGATION: readonly AdminNavigationGroup[] = [
       },
       { label: "Сервис 1С", href: "/admin/integrations/service", permission: "admin.service.view" },
       { label: "Диагностика IT-поддержки", href: "/admin/integrations/support", permission: "support.diagnostics.view" },
+      { label: "Диагностика базы знаний", href: "/admin/integrations/knowledge", permission: "knowledge.analytics.view" },
     ],
   },
   {
@@ -115,6 +116,7 @@ export const ADMIN_NAVIGATION: readonly AdminNavigationGroup[] = [
       { label: "Заказы", href: "/admin/orders", permission: "admin.orders.view" },
       { label: "Сервис", href: "/admin/service", permission: "admin.service.view" },
       { label: "IT-поддержка", href: "/admin/support", permission: "support.view_all" },
+      { label: "База знаний", href: "/admin/knowledge", permission: "knowledge.edit" },
       {
         label: "Планируемые отгрузки",
         href: "/admin/planned-shipments",
