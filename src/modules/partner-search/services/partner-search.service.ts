@@ -13,6 +13,7 @@ const GROUP_ORDER: readonly PartnerSearchDocumentType[] = [
   "document",
   "service_case",
   "support_ticket",
+  "knowledge",
 ];
 
 const GROUP_LABELS: Record<PartnerSearchDocumentType, string> = {
@@ -27,6 +28,7 @@ const GROUP_LABELS: Record<PartnerSearchDocumentType, string> = {
   document: "Документы",
   service_case: "Сервисные заявки",
   support_ticket: "IT-поддержка",
+  knowledge: "База знаний",
 };
 
 export class PartnerSearchService {

@@ -9,7 +9,8 @@ export type PartnerSearchDocumentType =
   | "commercial_campaign"
   | "document"
   | "service_case"
-  | "support_ticket";
+  | "support_ticket"
+  | "knowledge";
 
 export type PartnerSearchResult = {
   documentType: PartnerSearchDocumentType;
