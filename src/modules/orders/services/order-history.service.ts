@@ -148,26 +148,30 @@ export class DefaultPartnerOrderHistoryService implements PartnerOrderHistorySer
     private readonly portalOrderRepository: PartnerOrderRepository,
     private readonly companyAccessService: CompanyAccessService,
     private readonly permissionService: PermissionService,
-    private readonly orderProvider: OrderProvider,
+    private readonly orderProvider?: OrderProvider,
     private readonly dateChangeRepository?: OrderDateChangeRequestRepository,
     private readonly productReferenceService?: ProductReferenceService,
   ) {}
 
   async list(userId: string, input: { filter?: string | null; search?: string | null; page?: number | string | null }) {
     const context = await this.resolveContext(userId, ORDERS_VIEW_PERMISSION);
-    const canViewPartnerPrice = await this.canViewPartnerPrice(
-      userId,
-      context.company.id,
-    );
     const filter = parseFilter(input.filter);
     const search = normalizeSearch(input.search);
     const page = parsePage(input.page);
-    const [portalOrders, historyIdentities, syncState, bootstrapState] = await Promise.all([
-      this.portalOrderRepository.listByCompanyId(context.company.id),
-      this.historyRepository.listVisibleIdentities?.(context.company.id) ?? Promise.resolve([]),
+    const [portalOrders, canViewPartnerPrice, syncState, bootstrapState] = await Promise.all([
+      this.portalOrderRepository.listConfirmedByCompanyId?.(context.company.id)
+        ?? this.portalOrderRepository.listByCompanyId(context.company.id),
+      this.canViewPartnerPrice(userId, context.company.id),
       this.historyRepository.getSyncState(context.company.id),
       this.historyRepository.getBootstrapState?.(context.company.id) ?? Promise.resolve(null),
     ]);
+    const historyIdentities = await (this.historyRepository.listVisibleIdentities?.(
+      context.company.id,
+      {
+        external1cRefs: portalOrders.flatMap((order) => order.external1cRef ? [order.external1cRef] : []),
+        portalOrderIds: portalOrders.map((order) => order.id),
+      },
+    ) ?? Promise.resolve([]));
     const localOrders = selectUnmergedConfirmedOrders(portalOrders, historyIdentities, filter, search);
     const start = (page - 1) * LIST_PAGE_SIZE;
     const pageLocalOrders = localOrders.slice(start, start + LIST_PAGE_SIZE);
@@ -388,6 +392,8 @@ export class DefaultPartnerOrderHistoryService implements PartnerOrderHistorySer
   }
 
   async syncCompany(companyId: string, counterpartyRef: string, mode: PartnerOrderHistorySyncMode): Promise<PartnerOrderHistorySyncResult> {
+    if (!this.orderProvider) throw new InvalidStateError("Order history synchronization provider is unavailable.");
+    const orderProvider = this.orderProvider;
     const context = { company: { id: companyId } };
     const current = this.historyRepository.getSyncStateForAutomation
       ? await this.historyRepository.getSyncStateForAutomation(context.company.id)
@@ -428,7 +434,7 @@ export class DefaultPartnerOrderHistoryService implements PartnerOrderHistorySer
       do {
         if (page >= MAX_PAGES) throw new Error("1C order history exceeded the safe page limit.");
         console.info({ event: "partner_order_history_sync_page_started", syncId, page: page + 1, cursor, top: PAGE_SIZE });
-        const result = await this.orderProvider.fetchSalesOrderHistory({
+        const result = await orderProvider.fetchSalesOrderHistory({
           partnerCompanyReference: { providerCode: "one-c", externalId: counterpartyRef, externalType: "counterparty" },
           page: { limit: PAGE_SIZE, cursor },
           historySyncContext: { syncId, page: page + 1 },

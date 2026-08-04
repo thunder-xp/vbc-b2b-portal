@@ -116,6 +116,16 @@ export class SupabasePartnerOrderRepository implements PartnerOrderRepository {
     return ((data ?? []) as Row[]).map(mapOrder);
   }
 
+  async listConfirmedByCompanyId(companyId: string): Promise<PartnerOrder[]> {
+    const { data, error } = await (await createClient()).from("partner_orders").select(ORDER_COLUMNS)
+      .eq("company_id", companyId)
+      .eq("status", PartnerOrderStatus.Submitted)
+      .eq("integration_status", PartnerOrderIntegrationStatus.Confirmed)
+      .order("created_at", { ascending: false });
+    if (error) throw new OrderRepositoryError();
+    return ((data ?? []) as Row[]).map(mapOrder);
+  }
+
   async findById(orderId: string): Promise<PartnerOrder | null> {
     const { data, error } = await (await createClient()).from("partner_orders").select(ORDER_COLUMNS)
       .eq("id", orderId).maybeSingle();

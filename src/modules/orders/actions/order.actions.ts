@@ -5,7 +5,7 @@ import { type ActionResult, failureFromError, invalidInput, success } from "../.
 import { createUserProfileService, getAuthenticatedUserId } from "../../access-control/actions/service-factory";
 import { ForbiddenError } from "../../access-control/services";
 import { UserType } from "../../access-control/types";
-import { OrderHistorySyncError, type PartnerOrderHistoryDetailDto, type PartnerOrderHistorySummaryDto, type PartnerOrderHistorySyncResult, type PartnerOrderDetailDto, type PartnerOrderSummaryDto, type PlannedShipmentDto } from "../services";
+import { type PartnerOrderHistoryDetailDto, type PartnerOrderHistorySyncResult, type PartnerOrderDetailDto, type PartnerOrderSummaryDto, type PlannedShipmentDto } from "../services";
 import type { PartnerOrder } from "../types";
 import { createPartnerOrderHistoryService, createPartnerOrderService } from "./service-factory";
 import { orderSubmissionFailure } from "./order-action-error";
@@ -60,36 +60,6 @@ export async function listPartnerOrdersAction(): Promise<ActionResult<PartnerOrd
 export async function getPartnerOrderAction(orderId: string): Promise<ActionResult<PartnerOrderDetailDto>> {
   try { return success("Order loaded.", await createPartnerOrderService().getOrder(await getAuthenticatedUserId(), orderId)); }
   catch (error) { return failureFromError(error); }
-}
-
-export async function listPartnerOrderHistoryAction(input: {
-  filter?: string | null;
-  search?: string | null;
-  page?: number | string | null;
-} = {}): Promise<ActionResult<{
-  orders: PartnerOrderHistorySummaryDto[];
-  filter: "all" | "processing" | "open" | "preorder" | "test" | "completed";
-  search: string;
-  page: number;
-  totalPages: number;
-  total: number;
-  syncState: import("../types").PartnerOrderHistorySyncState | null;
-  bootstrapState: import("../types").OrderHistoryBootstrapState | null;
-  freshness: import("../../integration/freshness").FreshnessView;
-}>> {
-  try {
-    return success("Order history loaded.", await createPartnerOrderHistoryService().list(await getAuthenticatedUserId(), input));
-  } catch (error) {
-    if (error instanceof OrderHistorySyncError) {
-      return {
-        success: false,
-        errorCode: error.code,
-        message: `Код события: ${error.correlationId}.`,
-        data: null,
-      };
-    }
-    return failureFromError(error);
-  }
 }
 
 export async function getPartnerOrderHistoryAction(orderId: string): Promise<ActionResult<PartnerOrderHistoryDetailDto>> {

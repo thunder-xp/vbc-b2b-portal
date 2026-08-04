@@ -42,7 +42,10 @@ export interface PartnerOrderHistoryRepository {
     offset?: number;
     limit?: number;
   }): Promise<{ items: PartnerOrderHistory[]; total: number }>;
-  listVisibleIdentities?(companyId: string): Promise<PartnerOrderHistoryIdentity[]>;
+  listVisibleIdentities?(
+    companyId: string,
+    candidates?: { external1cRefs: string[]; portalOrderIds: string[] },
+  ): Promise<PartnerOrderHistoryIdentity[]>;
   findVisibleById(orderId: string): Promise<PartnerOrderHistory | null>;
   listItemsByOrderIds(orderIds: string[]): Promise<PartnerOrderHistoryItem[]>;
   listEvents(orderId: string): Promise<PartnerOrderHistoryEvent[]>;

@@ -14,4 +14,11 @@ describe("order history portal identity resolution", () => {
     );
     expect(source).toContain('.eq("partner_visible", true).maybeSingle()');
   });
+
+  it("uses bounded tenant RPCs for list identity matching and pagination", () => {
+    expect(source).toContain('.rpc("get_partner_order_history_identity_matches"');
+    expect(source).toContain("p_external_refs: candidates.external1cRefs");
+    expect(source).toContain('.rpc("get_partner_order_history_page"');
+    expect(source).not.toContain('.select("external_1c_order_ref, portal_order_id")');
+  });
 });

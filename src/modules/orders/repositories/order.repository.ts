@@ -49,6 +49,7 @@ export interface CartRepository {
 export interface PartnerOrderRepository {
   findBySubmissionKey(submissionKey: string): Promise<PartnerOrder | null>;
   listByCompanyId(companyId: string): Promise<PartnerOrder[]>;
+  listConfirmedByCompanyId?(companyId: string): Promise<PartnerOrder[]>;
   findById(orderId: string): Promise<PartnerOrder | null>;
   listItems(orderId: string): Promise<PartnerOrderItem[]>;
   listItemsByOrderIds(orderIds: string[]): Promise<PartnerOrderItem[]>;

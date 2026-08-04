@@ -7,9 +7,11 @@ import OrdersPage from "../page";
 const mocks = vi.hoisted(() => ({ list: vi.fn(), get: vi.fn(), refresh: vi.fn(), notFound: vi.fn() }));
 
 vi.mock("@/src/modules/orders/actions", () => ({
-  listPartnerOrderHistoryAction: mocks.list,
   getPartnerOrderHistoryAction: mocks.get,
   refreshPartnerOrderHistoryAction: mocks.refresh,
+}));
+vi.mock("@/src/modules/orders/actions/order-history-list.actions", () => ({
+  listPartnerOrderHistoryAction: mocks.list,
 }));
 vi.mock("@/src/modules/orders/actions/order.actions", () => ({ refreshPartnerOrderHistoryAction: mocks.refresh }));
 vi.mock("@/src/modules/purchasing-lists/components", () => ({

@@ -78,26 +78,34 @@ export class SupabasePartnerOrderHistoryRepository implements PartnerOrderHistor
   }
 
   async listVisible(input: Parameters<PartnerOrderHistoryRepository["listVisible"]>[0]): Promise<{ items: PartnerOrderHistory[]; total: number }> {
-    let query = (await createClient()).from("partner_order_history").select(HISTORY_COLUMNS, { count: "exact" })
-      .eq("company_id", input.companyId).eq("partner_visible", true)
-      .order("one_c_document_date", { ascending: false }).order("id", { ascending: true });
-    if (input.filter === "processing") query = query.eq("one_c_posted", false);
-    else if (input.filter !== "all") query = query.eq("one_c_posted", true).eq("one_c_state_code", input.filter);
-    if (input.search) query = query.eq("one_c_posted", true).ilike("external_1c_order_number", `%${escapeLike(input.search)}%`);
     const page = input.page ?? 1;
     const pageSize = input.pageSize ?? 25;
     const from = input.offset ?? (page - 1) * pageSize;
     const limit = input.limit ?? pageSize;
-    const { data, error, count } = await query.range(from, from + Math.max(1, limit) - 1);
-    if (error) throw new OrderHistoryRepositoryError();
-    return { items: limit > 0 ? ((data ?? []) as Row[]).map(mapHistory) : [], total: count ?? 0 };
+    const { data, error } = await (await createClient()).rpc("get_partner_order_history_page", {
+      p_company_id: input.companyId,
+      p_filter: input.filter,
+      p_search: input.search,
+      p_offset: from,
+      p_limit: limit,
+    });
+    if (error || !isRecord(data) || !Array.isArray(data.items)) throw new OrderHistoryRepositoryError();
+    return {
+      items: (data.items as Row[]).map(mapHistory),
+      total: numberValue(data.total),
+    };
   }
 
-  async listVisibleIdentities(companyId: string) {
-    const { data, error } = await (await createClient()).from("partner_order_history")
-      .select("external_1c_order_ref, portal_order_id")
-      .eq("company_id", companyId)
-      .eq("partner_visible", true);
+  async listVisibleIdentities(
+    companyId: string,
+    candidates: { external1cRefs: string[]; portalOrderIds: string[] } = { external1cRefs: [], portalOrderIds: [] },
+  ) {
+    if (candidates.external1cRefs.length === 0 && candidates.portalOrderIds.length === 0) return [];
+    const { data, error } = await (await createClient()).rpc("get_partner_order_history_identity_matches", {
+      p_company_id: companyId,
+      p_external_refs: candidates.external1cRefs,
+      p_portal_order_ids: candidates.portalOrderIds,
+    });
     if (error) throw new OrderHistoryRepositoryError();
     return ((data ?? []) as Row[]).map((row) => ({
       external1cOrderRef: text(row.external_1c_order_ref),
@@ -348,7 +356,6 @@ function mapSyncState(row: Row): PartnerOrderHistorySyncState {
   };
 }
 
-function escapeLike(value: string): string { return value.replace(/[\\%_]/g, "\\$&"); }
 function text(value: unknown): string { return typeof value === "string" ? value : ""; }
 function nullableText(value: unknown): string | null { return typeof value === "string" ? value : null; }
 function numberValue(value: unknown): number { const number = Number(value); return Number.isFinite(number) ? number : 0; }

@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { BehaviorViewEvent } from "@/src/modules/behavior-analytics/components";
-import { listPartnerOrderHistoryAction } from "@/src/modules/orders/actions";
+import { listPartnerOrderHistoryAction } from "@/src/modules/orders/actions/order-history-list.actions";
 import { OrderHistoryRefreshButton } from "@/src/modules/orders/components/OrderHistoryRefreshButton";
 
 const FILTERS = [

@@ -226,6 +226,10 @@ describe("DefaultPartnerOrderHistoryService", () => {
     expect(result.total).toBe(1);
     expect(result.orders).toHaveLength(1);
     expect(result.orders[0]?.id).toBe(synchronized.id);
+    expect(repository.listVisibleIdentities).toHaveBeenCalledWith(COMPANY_ID, {
+      external1cRefs: [portalOrder.external1cRef],
+      portalOrderIds: [portalOrder.id],
+    });
   });
 
   it("imports more than 100 orders through continuation pages", async () => {
