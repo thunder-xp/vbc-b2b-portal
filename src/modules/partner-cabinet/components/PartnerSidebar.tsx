@@ -25,9 +25,10 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import type { WorkspaceCapabilityKey, WorkspaceNavigationItem } from "../services";
+import { NavigationPendingIndicator } from "./NavigationPendingIndicator";
 
 const icons = {
   dashboard: Gauge,
@@ -89,10 +90,30 @@ function NavigationItem({
   pathname: string;
   submenu?: boolean;
 }) {
+  const [intentPrefetch, setIntentPrefetch] = useState(false);
+  const hoverTimer = useRef<ReturnType<typeof setTimeout>>(null);
   const Icon = icons[item.icon];
   const enabled = Boolean(hasWorkspaceAccess && item.availability === "available" && item.href);
   const active = enabled && isRouteActive(pathname, item.href);
   const spacing = submenu ? "min-h-11 py-2 pl-3 pr-2" : "min-h-11 px-3 py-2";
+
+  useEffect(() => () => {
+    if (hoverTimer.current) clearTimeout(hoverTimer.current);
+  }, []);
+
+  const startHoverPrefetch = () => {
+    if (intentPrefetch || hoverTimer.current) return;
+    hoverTimer.current = setTimeout(() => {
+      hoverTimer.current = null;
+      setIntentPrefetch(true);
+    }, 100);
+  };
+
+  const cancelHoverPrefetch = () => {
+    if (!hoverTimer.current) return;
+    clearTimeout(hoverTimer.current);
+    hoverTimer.current = null;
+  };
 
   if (!enabled) {
     return (
@@ -114,11 +135,15 @@ function NavigationItem({
       }`}
       href={item.href!}
       onClick={onNavigate}
-      prefetch={false}
+      onFocus={() => setIntentPrefetch(true)}
+      onMouseEnter={startHoverPrefetch}
+      onMouseLeave={cancelHoverPrefetch}
+      prefetch={intentPrefetch}
       tabIndex={expanded ? undefined : -1}
     >
       <Icon aria-hidden="true" className="size-4 shrink-0" />
       <span className="min-w-0 flex-1 truncate">{item.label}</span>
+      <NavigationPendingIndicator />
     </Link>
   );
 }

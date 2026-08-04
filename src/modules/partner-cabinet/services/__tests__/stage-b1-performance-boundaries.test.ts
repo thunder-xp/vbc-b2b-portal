@@ -33,9 +33,24 @@ describe("Stage B1 authenticated rendering boundaries", () => {
       ]),
       source("src/modules/catalog/components/CatalogFilterLink.tsx"),
     ]);
-    expect(files.join("\n").match(/prefetch=\{false\}/g)?.length).toBeGreaterThanOrEqual(9);
+    expect(files[0]).toContain("prefetch={intentPrefetch}");
+    expect(files[0]).toContain("onMouseEnter={startHoverPrefetch}");
+    expect(files[0]).toContain("onMouseLeave={cancelHoverPrefetch}");
+    expect(files[0]).toContain("}, 100)");
+    expect(files[0]).toContain("onFocus={() => setIntentPrefetch(true)}");
+    expect(files.slice(1).join("\n").match(/prefetch=\{false\}/g)?.length).toBeGreaterThanOrEqual(8);
     expect(files[3]).toContain("CatalogFilterLink");
     expect(catalogFilterLink).toContain("prefetch={false}");
+  });
+
+  it("provides fixed-size transition feedback without route-wide client state", async () => {
+    const [indicator, loading] = await Promise.all([
+      source("src/modules/partner-cabinet/components/NavigationPendingIndicator.tsx"),
+      source("app/(partner)/cabinet/loading.tsx"),
+    ]);
+    expect(indicator).toContain("useLinkStatus");
+    expect(indicator).toContain('pending ? "visible" : "invisible"');
+    expect(loading).toContain('role="status"');
   });
 
   it("disables automatic workspace-card prefetch", async () => {
