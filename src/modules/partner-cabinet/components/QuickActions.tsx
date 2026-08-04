@@ -26,6 +26,7 @@ const icons = {
   purchase_templates: ListRestart,
   cart: ShoppingCart,
   register_warranty: ShieldPlus,
+  it_support: ShieldPlus,
 } as const;
 
 export function QuickActions({ actions }: { actions: WorkspaceQuickActionDto[] }) {

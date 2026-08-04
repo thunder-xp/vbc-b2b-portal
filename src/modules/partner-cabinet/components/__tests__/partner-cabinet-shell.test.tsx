@@ -23,7 +23,7 @@ const context = {
   partnerStatus: "GOLD",
   quickActions: [],
   accessState: "active" as const,
-  navigation: resolveWorkspaceCapabilities(new Set(["catalog.view", "opportunities.view", "campaigns.view", "orders.create", "orders.manage", "purchasing_lists.view", "purchase_templates.view", "reservations.manage", "specifications.manage", "estimates.view", "estimates.manage", "finance.view_company", "documents.view_company", "service.view"])).navigation,
+  navigation: resolveWorkspaceCapabilities(new Set(["catalog.view", "opportunities.view", "campaigns.view", "orders.create", "orders.manage", "purchasing_lists.view", "purchase_templates.view", "reservations.manage", "specifications.manage", "estimates.view", "estimates.manage", "finance.view_company", "documents.view_company", "service.view", "support.view"])).navigation,
   cartItemCount: 0,
   notificationSummary: { unreadCount: 0, items: [] },
 };
@@ -94,8 +94,7 @@ describe("Partner workspace shell", () => {
       "Проектная защита",
       "Сметы и КП",
       "Заказы и финансы",
-      "Сервис и гарантия",
-      "База знаний",
+      "Гарантия и техподдержка",
     ]);
 
     const selectionButton = screen.getByRole("button", { name: "Подбор товаров" });
@@ -136,8 +135,12 @@ describe("Partner workspace shell", () => {
     expect(screen.getByRole("link", { name: "Заказы" })).toHaveAttribute("href", "/cabinet/orders");
     expect(screen.getByRole("link", { name: "Финансы" })).toHaveAttribute("href", "/cabinet/finance");
     expect(screen.getByRole("link", { name: "Документы" })).toHaveAttribute("href", "/cabinet/documents");
-    expect(screen.getByText("Сервис и гарантия")).toBeInTheDocument();
-    expect(screen.getByText("База знаний")).toBeInTheDocument();
+    const supportButton = screen.getByRole("button", { name: "Гарантия и техподдержка" });
+    await user.click(supportButton);
+    const supportGroup = within(document.getElementById("support-navigation")!);
+    expect(supportGroup.getByRole("link", { name: "Сервисный центр" })).toHaveAttribute("href", "/cabinet/service");
+    expect(supportGroup.getByRole("link", { name: "IT-поддержка" })).toHaveAttribute("href", "/cabinet/support");
+    expect(supportGroup.getByText("База знаний")).toBeInTheDocument();
     expect(screen.queryByText("Моя компания")).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /Корзина/ })).not.toBeInTheDocument();
 
@@ -272,10 +275,11 @@ describe("Partner workspace shell", () => {
     pathname = route;
     render(<PartnerSidebar hasWorkspaceAccess navigation={navigation} />);
 
-    const serviceLink = screen.getByRole("link", { name: "Сервис и гарантия" });
+    expect(screen.getByRole("button", { name: "Гарантия и техподдержка" })).toHaveAttribute("aria-expanded", "true");
+    const serviceLink = screen.getByRole("link", { name: "Сервисный центр" });
     expect(serviceLink).toHaveAttribute("href", "/cabinet/service");
     expect(serviceLink).toHaveAttribute("aria-current", "page");
-    expect(screen.getAllByRole("link", { name: "Сервис и гарантия" })).toHaveLength(1);
+    expect(screen.getAllByRole("link", { name: "Сервисный центр" })).toHaveLength(1);
     expect(serviceLink).not.toHaveTextContent("Скоро");
   });
 
@@ -283,7 +287,7 @@ describe("Partner workspace shell", () => {
     const unauthorized = resolveWorkspaceCapabilities(new Set(["catalog.view"])).navigation;
     render(<PartnerSidebar hasWorkspaceAccess navigation={unauthorized} />);
 
-    expect(screen.queryByText("Сервис и гарантия")).not.toBeInTheDocument();
+    expect(screen.queryByText("Сервисный центр")).not.toBeInTheDocument();
   });
 
   it("opens each restored parent for its active child route", () => {

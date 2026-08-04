@@ -31,7 +31,7 @@ describe("resolveWorkspaceCapabilities", () => {
       "Сметы и КП",
       "Заказы",
       "Документы",
-      "Сервис и гарантия",
+      "Сервисный центр",
       "База знаний",
       "Моя компания",
     ]);
@@ -65,7 +65,7 @@ describe("resolveWorkspaceCapabilities", () => {
 
     expect(serviceItem).toHaveLength(1);
     expect(serviceItem[0]).toMatchObject({
-      label: "Сервис и гарантия",
+      label: "Сервисный центр",
       href: "/cabinet/service",
       availability: "available",
     });

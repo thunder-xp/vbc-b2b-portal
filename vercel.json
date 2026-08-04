@@ -75,6 +75,10 @@
     {
       "path": "/api/cron/service-sla",
       "schedule": "20 * * * *"
+    },
+    {
+      "path": "/api/cron/support-sla",
+      "schedule": "*/5 * * * *"
     }
   ]
 }

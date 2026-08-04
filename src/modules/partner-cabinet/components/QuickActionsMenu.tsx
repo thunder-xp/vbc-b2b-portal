@@ -11,6 +11,7 @@ const icons = {
   repeat_order: History,
   estimate: FilePlus2,
   register_warranty: Wrench,
+  it_support: Wrench,
   purchase_templates: ListRestart,
   documents: FileSearch,
 } as const;

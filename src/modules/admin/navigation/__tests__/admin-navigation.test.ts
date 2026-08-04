@@ -35,6 +35,8 @@ const allPermissions = [
   "admin.settings.view",
   "admin.documents.view",
   "admin.service.view",
+  "support.view_all",
+  "support.diagnostics.view",
 ];
 
 describe("admin navigation", () => {
@@ -53,6 +55,14 @@ describe("admin navigation", () => {
     expect(items).toHaveLength(
       ADMIN_NAVIGATION.flatMap((group) => group.items).length,
     );
+  });
+
+  it("exposes the support queue and diagnostics only through support permissions", () => {
+    expect(buildAdminNavigation(["support.view_all", "support.diagnostics.view"]).flatMap((group) => group.items).map((item) => item.href)).toEqual([
+      "/admin/integrations/support",
+      "/admin/support",
+    ]);
+    expect(buildAdminNavigation([])).toEqual([]);
   });
 
   it.each([

@@ -46,13 +46,14 @@ const icons = {
   finance: Landmark,
   documents: FileText,
   warranty: LifeBuoy,
+  support: LifeBuoy,
   knowledge_base: BookOpen,
   company: Building2,
 } satisfies Record<WorkspaceCapabilityKey, typeof Gauge>;
 
 const primaryNavigationOrder: readonly WorkspaceCapabilityKey[] = ["dashboard", "catalog"];
 const businessNavigationOrder: readonly WorkspaceCapabilityKey[] = ["opportunities", "offers"];
-const trailingNavigationOrder: readonly WorkspaceCapabilityKey[] = ["warranty", "knowledge_base"];
+const supportNavigationOrder: readonly WorkspaceCapabilityKey[] = ["warranty", "support", "knowledge_base"];
 
 const selectionNavigationOrder: readonly WorkspaceCapabilityKey[] = [
   "purchasing_lists",
@@ -220,7 +221,7 @@ export function PartnerSidebar({
     const item = navigationByKey.get(key);
     return item ? [item] : [];
   });
-  const trailingNavigation = trailingNavigationOrder.flatMap((key) => {
+  const supportNavigation = supportNavigationOrder.flatMap((key) => {
     const item = navigationByKey.get(key);
     return item ? [item] : [];
   });
@@ -274,9 +275,7 @@ export function PartnerSidebar({
           />
           <ExpandableNavigationGroup hasWorkspaceAccess={hasWorkspaceAccess} icon={ListChecks} id="orders-finance-navigation" items={commercialNavigation} label="Заказы и финансы" onNavigate={onNavigate} pathname={pathname} />
 
-          {trailingNavigation.map((item) => (
-            <NavigationItem hasWorkspaceAccess={hasWorkspaceAccess} item={item} key={item.key} onNavigate={onNavigate} pathname={pathname} />
-          ))}
+          <ExpandableNavigationGroup hasWorkspaceAccess={hasWorkspaceAccess} icon={LifeBuoy} id="support-navigation" items={supportNavigation} label="Гарантия и техподдержка" onNavigate={onNavigate} pathname={pathname} />
         </div>
       </nav>
 

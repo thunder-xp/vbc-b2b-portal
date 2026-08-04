@@ -28,6 +28,7 @@ import type { DocumentRepository } from "../../documents/repositories";
 import type { PartnerDocumentListItem } from "../../documents/types";
 import type { PartnerMomentumRepository } from "../../partner-momentum/repositories";
 import type { PartnerMomentumSummary } from "../../partner-momentum/types";
+import type { PartnerSupportRepository, SupportDashboardItem } from "../../partner-support";
 
 export type WorkspaceQuickActionDto = {
   key: string;
@@ -151,6 +152,7 @@ export type WorkspaceHomeDto = {
     label: string;
     freshness: FreshnessView;
   }>;
+  supportTickets?: SupportDashboardItem[];
 };
 
 export interface WorkspaceHomeService {
@@ -170,6 +172,7 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
     private readonly documentRepository?: DocumentRepository,
     private readonly productReferenceService?: ProductReferenceService,
     private readonly momentumRepository?: PartnerMomentumRepository,
+    private readonly supportRepository?: PartnerSupportRepository,
   ) {}
 
   async dismissAttention(
@@ -199,7 +202,7 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
     }
     const companyId = context.companyId;
 
-    const [freshness, dashboard, selections, opportunityPage, campaignPage] = await Promise.all([
+    const [freshness, dashboard, selections, opportunityPage, campaignPage, supportTickets] = await Promise.all([
       timedDashboardRead("commercial_freshness", () => this.commercialFreshnessReadModel.getFreshness()),
       timedDashboardRead("dashboard_aggregate", () => this.dashboardRepository.getDashboard(companyId)),
       timedDashboardRead("product_selections", () => this.dashboardRepository.getProductSelections?.(userId, companyId, loginGeneration) ?? Promise.resolve(null)),
@@ -207,6 +210,7 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
         ?? Promise.resolve({ items: [], totalCount: 0 })),
       timedDashboardRead("campaigns", () => this.campaignRepository?.listPartner({ companyId, filter: "active", limit: 2, offset: 0 })
         ?? Promise.resolve({ items: [], totalCount: 0 })),
+      timedDashboardRead("support_tickets", () => this.supportRepository?.dashboard(companyId) ?? Promise.resolve([])),
     ]);
     const reorderCandidates = sessionOrder(
       selections?.previousProducts ?? dashboard.reorderProducts,
@@ -337,6 +341,7 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
           freshnessByDomain.get("arrivals"),
         ),
       ],
+      supportTickets,
     };
   }
 }
@@ -518,13 +523,14 @@ export function buildQuickActions(
     ["repeat_order", "Повторить заказ", hrefs.get("orders")],
     ["estimate", "Создать смету", hrefs.get("proposals") ? `${hrefs.get("proposals")}/new` : undefined],
     ["register_warranty", "Создать сервисную заявку", hrefs.get("warranty") ? `${hrefs.get("warranty")}/new` : undefined],
+    ["it_support", "Обратиться в IT-поддержку", hrefs.get("support") ? `${hrefs.get("support")}/new` : undefined],
     ["purchase_templates", "Открыть шаблоны закупок", hrefs.get("purchase_templates")],
     ["documents", "Найти документ", hrefs.get("documents")],
   ];
 
   return candidates.flatMap(([key, label, href]) =>
     href ? [{ key, label, href }] : [],
-  ).slice(0, 6);
+  ).slice(0, 7);
 }
 
 function toProduct(

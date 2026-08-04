@@ -15,13 +15,14 @@ type SearchRow = {
 export class SupabasePartnerSearchRepository implements PartnerSearchRepository {
   async search(companyId: string, query: string, limit: number): Promise<PartnerSearchResult[]> {
     const supabase = await createClient();
-    const [workspace, documents, serviceCases] = await Promise.all([
+    const [workspace, documents, serviceCases, supportTickets] = await Promise.all([
       supabase.rpc("search_partner_workspace", { p_company_id: companyId, p_query: query, p_limit: limit }),
       supabase.rpc("search_partner_documents", { p_company_id: companyId, p_query: query, p_limit: Math.min(10, limit) }),
       supabase.rpc("search_partner_service_cases", { p_company_id: companyId, p_query: query, p_limit: Math.min(10, limit) }),
+      supabase.rpc("search_partner_support_tickets", { p_company_id: companyId, p_query: query, p_limit: Math.min(10, limit) }),
     ]);
-    if (workspace.error || documents.error || serviceCases.error) throw new RepositoryUnexpectedError();
-    return ([...((workspace.data ?? []) as SearchRow[]), ...((documents.data ?? []) as SearchRow[]), ...((serviceCases.data ?? []) as SearchRow[])]).map((row) => ({
+    if (workspace.error || documents.error || serviceCases.error || supportTickets.error) throw new RepositoryUnexpectedError();
+    return ([...((workspace.data ?? []) as SearchRow[]), ...((documents.data ?? []) as SearchRow[]), ...((serviceCases.data ?? []) as SearchRow[]), ...((supportTickets.data ?? []) as SearchRow[])]).map((row) => ({
       documentType: row.document_type,
       documentId: row.document_id,
       title: row.title,

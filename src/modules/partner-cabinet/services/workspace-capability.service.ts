@@ -15,6 +15,7 @@ export type WorkspaceCapabilityKey =
   | "finance"
   | "documents"
   | "warranty"
+  | "support"
   | "knowledge_base"
   | "company";
 
@@ -94,7 +95,8 @@ const WORKSPACE_CAPABILITIES: readonly CapabilityDefinition[] = [
   { key: "orders", label: "Заказы", href: "/cabinet/orders", requiredPermission: "orders.manage", released: true, unavailableBehavior: "hide" },
   { key: "finance", label: "Финансы", href: "/cabinet/finance", requiredPermission: "finance.view_company", released: true, unavailableBehavior: "hide" },
   { key: "documents", label: "Документы", href: "/cabinet/documents", requiredPermission: "documents.view_company", released: true, unavailableBehavior: "hide" },
-  { key: "warranty", label: "Сервис и гарантия", href: "/cabinet/service", requiredPermission: "service.view", released: true, unavailableBehavior: "hide" },
+  { key: "warranty", label: "Сервисный центр", href: "/cabinet/service", requiredPermission: "service.view", released: true, unavailableBehavior: "hide" },
+  { key: "support", label: "IT-поддержка", href: "/cabinet/support", requiredPermission: "support.view", released: true, unavailableBehavior: "hide" },
   { key: "knowledge_base", label: "База знаний", href: null, requiredPermission: "catalog.view", released: false, unavailableBehavior: "show_coming_soon" },
   { key: "company", label: "Моя компания", href: "/cabinet/company", requiredPermission: null, released: true, unavailableBehavior: "hide" },
 ];

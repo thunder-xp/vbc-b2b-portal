@@ -17,6 +17,7 @@ import { SupabaseCommercialCampaignRepository } from "../../commercial-campaigns
 import { DefaultCatalogService } from "../../catalog/services";
 import { SupabaseCatalogRepository } from "../../catalog/repositories/supabase";
 import { SupabaseOrderHistoryBootstrapRepository } from "../../orders/repositories/supabase";
+import { SupabasePartnerSupportRepository } from "../../partner-support";
 
 const priceTypeRepository = new SupabasePricingInventoryRepository();
 const workspaceContextService = new DefaultPartnerWorkspaceContextService(
@@ -48,5 +49,6 @@ export function createWorkspaceHomeService(): DefaultWorkspaceHomeService {
     undefined,
     catalogService,
     undefined,
+    new SupabasePartnerSupportRepository(),
   );
 }

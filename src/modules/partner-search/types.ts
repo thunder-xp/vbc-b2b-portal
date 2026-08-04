@@ -8,7 +8,8 @@ export type PartnerSearchDocumentType =
   | "purchase_template"
   | "commercial_campaign"
   | "document"
-  | "service_case";
+  | "service_case"
+  | "support_ticket";
 
 export type PartnerSearchResult = {
   documentType: PartnerSearchDocumentType;

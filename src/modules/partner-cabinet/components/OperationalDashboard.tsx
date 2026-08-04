@@ -16,6 +16,7 @@ import { DashboardTrackedLink } from "./DashboardTrackedLink";
 import { OpportunityCard } from "../../commercial-opportunities/components/OpportunityCard";
 import { CampaignCard } from "../../commercial-campaigns/components/CampaignCard";
 import { dismissDashboardAttentionAction } from "../actions";
+import { SupportDashboardBlock } from "../../partner-support";
 
 export function OperationalDashboard({
   workspace,
@@ -25,6 +26,7 @@ export function OperationalDashboard({
   return (
     <div className="space-y-7">
       <AttentionSection items={workspace.attentionItems} />
+      <SupportDashboardBlock items={workspace.supportTickets ?? []} />
       <div className="grid gap-5 xl:grid-cols-2">
         <OrdersSection summary={workspace.orderSummary} />
         <ShipmentsSection summary={workspace.shipmentSummary} />
