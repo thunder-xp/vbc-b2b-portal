@@ -12,6 +12,7 @@ import { BehaviorViewEvent } from "@/src/modules/behavior-analytics/components";
 import { listProductDocumentsAction } from "@/src/modules/documents/actions";
 import { RelatedDocuments } from "@/src/modules/documents/components";
 import { getProductRelationSectionsAction, getProductRelationSummaryAction, ProductRelationSectionsView } from "@/src/modules/product-relations";
+import { getProductKnowledgeAction, KnowledgeCardView } from "@/src/modules/knowledge-base";
 
 type ProductDetailPageProps = {
   params: Promise<{
@@ -44,7 +45,7 @@ export default async function ProductDetailPage({
   }
 
   const needsCommercialContext = activeTab === "overview" || activeTab === "relations";
-  const [productResult, commercialViewsResult, workspaceResult, merchandisingResult, retailHistoryResult, centralDocumentsResult, relationResult, relationSummaryResult] = await Promise.all([
+  const [productResult, commercialViewsResult, workspaceResult, merchandisingResult, retailHistoryResult, centralDocumentsResult, relationResult, relationSummaryResult, knowledgeResult] = await Promise.all([
     getCatalogProductDetailByIdAction(identityResult.data.id, detailProjection(activeTab)),
     needsCommercialContext ? getProductCommercialViewsAction([identityResult.data.id]) : Promise.resolve(null),
     needsCommercialContext ? getPartnerWorkspaceContextAction() : Promise.resolve(null),
@@ -55,6 +56,7 @@ export default async function ProductDetailPage({
     activeTab === "datasheet" ? listProductDocumentsAction(identityResult.data.id) : Promise.resolve(null),
     activeTab === "relations" ? getProductRelationSectionsAction(identityResult.data.id) : Promise.resolve(null),
     activeTab === "overview" ? getProductRelationSummaryAction(identityResult.data.id) : Promise.resolve(null),
+    activeTab === "overview" ? getProductKnowledgeAction(identityResult.data.id) : Promise.resolve(null),
   ]);
 
   if (!productResult.success) return <EmptyCatalog message={productResult.message} title="Product unavailable" />;
@@ -92,6 +94,7 @@ export default async function ProductDetailPage({
         route={`/cabinet/catalog/${productResult.data.slug}`}
         sourceSurface="product_detail"
       />
+      {activeTab === "overview" && knowledgeResult?.success && knowledgeResult.data.length ? <section className="mx-auto max-w-7xl px-4 pb-10"><h2 className="text-lg font-semibold">Полезные материалы</h2><div className="mt-3 grid gap-3 md:grid-cols-3">{knowledgeResult.data.map((article) => <KnowledgeCardView article={article} key={article.id} />)}</div></section> : null}
       {activeTab === "datasheet" ? <div className="mx-auto max-w-7xl px-4 pb-8"><RelatedDocuments documents={centralDocumentsResult?.success ? centralDocumentsResult.data.items : []} emptyMessage="Дополнительные сертификаты и инструкции пока не опубликованы." title="Центр документов" /></div> : null}
       <ProductDetail
       activeTab={activeTab}
