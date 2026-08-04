@@ -8,7 +8,7 @@ import { BehaviorAnalyticsService, BehaviorAnalyticsValidationError } from "../b
 const SESSION_ID = "11111111-1111-4111-8111-111111111111";
 
 describe("BehaviorAnalyticsService", () => {
-  it("derives company context and normalizes search server-side", async () => {
+  it("derives company context and discards search text server-side", async () => {
     const repository = repositoryStub();
     const service = new BehaviorAnalyticsService(repository, accessStub());
     await service.record("user-1", {
@@ -21,9 +21,24 @@ describe("BehaviorAnalyticsService", () => {
       "company-1",
       expect.objectContaining({
         route: "/cabinet/catalog",
-        searchQuery: "camera ip",
+        searchQuery: undefined,
       }),
     );
+  });
+
+  it("discards search text from bounded batches", async () => {
+    const repository = repositoryStub();
+    const service = new BehaviorAnalyticsService(repository, accessStub());
+    await service.recordBatch("user-1", [{
+      eventName: "search_no_results",
+      route: "/cabinet/catalog",
+      searchQuery: "private project reference",
+      resultCount: 0,
+      sessionId: SESSION_ID,
+    }]);
+    expect(repository.recordBatch).toHaveBeenCalledWith("company-1", [
+      expect.objectContaining({ searchQuery: undefined }),
+    ]);
   });
 
   it("rejects unknown events and sensitive metadata", async () => {

@@ -45,7 +45,7 @@ export class BehaviorAnalyticsService {
     return this.repository.record(membership.companyId, {
       ...input,
       route: normalizeRoute(input.route),
-      searchQuery: normalizeSearch(input.searchQuery),
+      searchQuery: undefined,
       sourceSurface: input.sourceSurface?.trim().slice(0, 50) || undefined,
       metadataSafe: input.metadataSafe ?? {},
     });
@@ -109,7 +109,7 @@ function normalizeInput(input: RecordBehaviorEventInput): RecordBehaviorEventInp
   return {
     ...input,
     route: normalizeRoute(input.route),
-    searchQuery: normalizeSearch(input.searchQuery),
+    searchQuery: undefined,
     sourceSurface: input.sourceSurface?.trim().slice(0, 50) || undefined,
     metadataSafe: input.metadataSafe ?? {},
   };
@@ -121,11 +121,6 @@ function normalizeRoute(route: string): string {
     throw new BehaviorAnalyticsValidationError("ANALYTICS_ROUTE_INVALID");
   }
   return normalized;
-}
-
-function normalizeSearch(value: string | undefined): string | undefined {
-  return value?.trim().toLocaleLowerCase().replace(/\s+/g, " ").slice(0, 100)
-    || undefined;
 }
 
 function isUuid(value: string): boolean {
