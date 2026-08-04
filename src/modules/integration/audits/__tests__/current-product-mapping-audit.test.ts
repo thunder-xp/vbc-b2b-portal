@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import { classifyProductMappingEvidence } from "../current-product-mapping-audit";
@@ -60,5 +63,17 @@ describe("current 1C product mapping audit", () => {
       .toBe("outside_portal_scope");
     expect(classifyProductMappingEvidence({ reference: "bad", product: null, ancestry: { insideRoot: null, complete: true }, characteristicEvidence: [] }).classification)
       .toBe("malformed_source_reference");
+  });
+
+  it("keeps the audit read-only and independent of names or SKUs", () => {
+    const source = readFileSync(join(process.cwd(), "src/modules/integration/audits/current-product-mapping-audit.ts"), "utf8");
+
+    expect(source).toContain('.is("product_id", null)');
+    expect(source).not.toMatch(/\.insert\(|\.upsert\(|\.delete\(/);
+    expect(source).not.toMatch(/\.from\([^;]*?\.update\(/);
+    expect(source).not.toMatch(/\.select\([^\n]*(?:sku|product_name)/i);
+    expect(source).toContain("mapConcurrent");
+    expect(source).toContain("productCache");
+    expect(source).toContain("characteristicCache");
   });
 });
