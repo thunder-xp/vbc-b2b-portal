@@ -4,6 +4,10 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { cache } from "react";
 import {
+  emitRequestTotal,
+  measurePerformanceStage,
+} from "@/src/lib/performance/request-diagnostics";
+import {
   failureFromError,
   success,
   type ActionResult,
@@ -52,12 +56,23 @@ export async function getKnowledgeLandingAction(): Promise<
   ActionResult<KnowledgeLanding | null>
 > {
   try {
+    const activeCompanyId = await measurePerformanceStage(
+      "knowledge_landing",
+      "company_context",
+      companyId,
+    );
     return success(
       "База знаний загружена.",
-      await service.landing(await companyId()),
+      await measurePerformanceStage(
+        "knowledge_landing",
+        "landing_rpc",
+        () => service.landing(activeCompanyId),
+      ),
     );
   } catch (error) {
     return failureFromError(error);
+  } finally {
+    emitRequestTotal("knowledge_landing");
   }
 }
 export async function searchKnowledgeAction(

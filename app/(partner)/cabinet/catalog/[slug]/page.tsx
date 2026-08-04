@@ -12,7 +12,8 @@ import { BehaviorViewEvent } from "@/src/modules/behavior-analytics/components";
 import { listProductDocumentsAction } from "@/src/modules/documents/actions";
 import { RelatedDocuments } from "@/src/modules/documents/components";
 import { getProductRelationSectionsAction, getProductRelationSummaryAction, ProductRelationSectionsView } from "@/src/modules/product-relations";
-import { getProductKnowledgeAction, KnowledgeCardView } from "@/src/modules/knowledge-base";
+import { getProductKnowledgeAction } from "@/src/modules/knowledge-base/actions";
+import { KnowledgeCardView } from "@/src/modules/knowledge-base/landing-components";
 
 type ProductDetailPageProps = {
   params: Promise<{
