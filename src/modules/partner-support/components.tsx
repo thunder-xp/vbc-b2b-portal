@@ -1,5 +1,6 @@
 "use client";
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
+import { KnowledgeSuggestions } from "../knowledge-base";
 import { addSupportReplyAction, createSupportTicketAction, partnerSupportTransitionAction, transitionSupportTicketAction } from "./actions";
 import { SUPPORT_CATEGORIES, SUPPORT_PRIORITIES, SUPPORT_PRIORITY_LABELS, SUPPORT_STATUSES, SUPPORT_STATUS_LABELS, type SupportAssignee, type SupportTicketDetail } from "./types";
 
@@ -7,9 +8,11 @@ const initial = { success: true as const, errorCode: null, message: "", data: nu
 const field = "min-h-11 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100";
 export function SupportTicketForm({ idempotencyKey }: { idempotencyKey: string }) {
   const [state, action, pending] = useActionState(createSupportTicketAction, initial);
+  const [description, setDescription] = useState("");
   return <form action={action} className="space-y-5" noValidate>
     <input name="idempotencyKey" type="hidden" value={idempotencyKey} />
-    <Field label="Опишите проблему"><textarea aria-describedby="support-description-help" aria-label="Опишите проблему" className={`${field} min-h-40 resize-y`} maxLength={5000} minLength={20} name="description" required /><span className="text-xs font-normal text-zinc-500" id="support-description-help">Опишите, что произошло, какой результат вы ожидали и что мешает продолжить работу.</span></Field>
+    <Field label="Опишите проблему"><textarea aria-describedby="support-description-help" aria-label="Опишите проблему" className={`${field} min-h-40 resize-y`} maxLength={5000} minLength={20} name="description" onChange={(event) => setDescription(event.target.value)} required value={description} /><span className="text-xs font-normal text-zinc-500" id="support-description-help">Опишите, что произошло, какой результат вы ожидали и что мешает продолжить работу.</span></Field>
+    <KnowledgeSuggestions source="support" text={description} />
     <Field label="Приоритет"><select aria-describedby="support-priority-help" aria-label="Приоритет" className={field} defaultValue="medium" name="priority">{SUPPORT_PRIORITIES.map((value) => <option key={value} value={value}>{SUPPORT_PRIORITY_LABELS[value]}</option>)}</select><span className="text-xs font-normal text-zinc-500" id="support-priority-help">Высокий — работа заблокирована. Средний — есть обходной путь. Низкий — вопрос или небольшое неудобство.</span></Field>
     <div><label className="grid gap-1.5 text-sm font-medium">Приложение (необязательно)<input accept=".jpg,.jpeg,.png,.webp,.pdf" aria-label="Приложение (необязательно)" className="min-h-11 rounded-md border border-zinc-300 p-2" name="attachment" type="file" /></label><p className="mt-1 text-xs text-zinc-500">JPG, PNG, WEBP или PDF, не более 15 МБ. Ошибка загрузки не помешает создать заявку.</p></div>
     {state.message ? <p aria-live="polite" className={state.success ? "text-sm text-emerald-700" : "text-sm text-rose-700"}>{state.message}</p> : null}

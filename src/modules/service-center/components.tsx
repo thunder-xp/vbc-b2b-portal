@@ -1,12 +1,272 @@
 "use client";
-import { useActionState } from "react";
-import { createServiceCaseAction,addServiceMessageAction,transitionServiceCaseAction } from "./actions";
-import { SERVICE_CASE_TYPES,SERVICE_STATUS_LABELS,SERVICE_STATUSES,SERVICE_TYPE_LABELS,type ServiceCaseDetail,type ServiceSelectionData } from "./types";
+import { useActionState, useState } from "react";
+import { KnowledgeSuggestions } from "../knowledge-base";
+import {
+  createServiceCaseAction,
+  addServiceMessageAction,
+  transitionServiceCaseAction,
+} from "./actions";
+import {
+  SERVICE_CASE_TYPES,
+  SERVICE_STATUS_LABELS,
+  SERVICE_STATUSES,
+  SERVICE_TYPE_LABELS,
+  type ServiceCaseDetail,
+  type ServiceSelectionData,
+} from "./types";
 
-const initial={success:true as const,errorCode:null,message:"",data:null};
-const field="min-h-11 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100";
-export function ServiceCaseForm({selections}:{selections:ServiceSelectionData}){const[state,action,pending]=useActionState(createServiceCaseAction,initial);return <form action={action} className="space-y-5" noValidate><div className="grid gap-4 sm:grid-cols-2"><Field label="Тип обращения"><select className={field} name="caseType" required>{SERVICE_CASE_TYPES.map(value=><option key={value} value={value}>{SERVICE_TYPE_LABELS[value]}</option>)}</select></Field><Field label="Заказ (при наличии)"><select className={field} name="orderId"><option value="">Без привязки к заказу</option>{selections.orders.map(order=><option key={order.id} value={order.id}>{order.number} · {new Date(order.date).toLocaleDateString("ru-RU")}</option>)}</select></Field><Field label="Товар"><select className={field} name="productId"><option value="">Товар будет уточнён</option>{selections.products.map(product=><option key={product.id} value={product.id}>{product.sku} · {product.name}</option>)}</select></Field><Field label="Позиция заказа"><select className={field} name="orderLineId"><option value="">Не выбрана</option>{selections.orders.flatMap(order=>order.lines.map(line=><option key={line.id} value={line.id}>{order.number} · {line.sku ?? "Без SKU"} · {line.name ?? "Товар из 1С"}</option>))}</select></Field><Field label="Серийный номер"><input className={field} maxLength={120} name="enteredSerial" placeholder="Если известен" /></Field><Field label="Категория неисправности"><input className={field} maxLength={100} name="faultCategory" required /></Field><Field label="Когда возникла проблема"><input className={field} name="issueStartedOn" type="date" /></Field><Field label="Предпочтительный контакт"><input className={field} maxLength={200} name="preferredContact" /></Field></div><Field label="Описание проблемы"><textarea className={`${field} min-h-28`} minLength={10} maxLength={4000} name="description" required /></Field><Field label="Наблюдаемые симптомы"><textarea className={`${field} min-h-20`} maxLength={2000} name="symptoms" /></Field><div className="grid gap-4 sm:grid-cols-2"><Choice label="Оборудование включается?" name="powersOn"/><Choice label="Сброс к заводским настройкам выполнен?" name="factoryResetAttempted"/></div><label className="flex min-h-11 items-start gap-3 text-sm text-zinc-700"><input className="mt-1 size-4" name="evidenceConsent" required type="checkbox"/>Я согласен на обработку материалов, переданных для диагностики.</label><p className="text-sm text-zinc-600">При ручном серийном номере гарантия требует проверки Novotech. Возможность прямой замены подтверждается только после диагностики.</p>{state.message?<p aria-live="polite" className={state.success?"text-sm text-emerald-700":"text-sm text-rose-700"}>{state.message}</p>:null}<button className="min-h-11 rounded-md bg-emerald-700 px-5 py-2 text-sm font-semibold text-white disabled:opacity-60" disabled={pending} type="submit">{pending?"Отправка...":"Создать заявку"}</button></form>}
-function Field({label,children}:{label:string;children:React.ReactNode}){return <label className="grid gap-1.5 text-sm font-medium text-zinc-800">{label}{children}</label>}
-function Choice({label,name}:{label:string;name:string}){return <Field label={label}><select className={field} name={name}><option value="">Не указано</option><option value="yes">Да</option><option value="no">Нет</option></select></Field>}
-export function PartnerServiceResponse({caseId}:{caseId:string}){const[state,action,pending]=useActionState(addServiceMessageAction,initial);return <form action={action} className="space-y-3"><input name="caseId" type="hidden" value={caseId}/><Field label="Дополнительная информация"><textarea className={`${field} min-h-24`} maxLength={4000} name="message" required/></Field>{state.message?<p aria-live="polite" className="text-sm text-zinc-700">{state.message}</p>:null}<button className="min-h-11 rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white disabled:opacity-60" disabled={pending}>Отправить</button></form>}
-export function InternalServiceTransition({detail}:{detail:ServiceCaseDetail}){const[state,action,pending]=useActionState(transitionServiceCaseAction,initial);return <form action={action} className="space-y-4"><input name="caseId" type="hidden" value={detail.id}/><input name="expectedVersion" type="hidden" value={detail.version}/><Field label="Следующий статус"><select className={field} name="status" defaultValue=""> <option disabled value="">Выберите статус</option>{SERVICE_STATUSES.map(value=><option key={value} value={value}>{SERVICE_STATUS_LABELS[value]}</option>)}</select></Field><Field label="Сообщение партнёру"><textarea className={`${field} min-h-20`} maxLength={4000} name="partnerMessage"/></Field><Field label="Внутренняя заметка"><textarea className={`${field} min-h-20`} maxLength={4000} name="internalNote"/></Field>{state.message?<p aria-live="polite" className="text-sm text-zinc-700">{state.message}</p>:null}<button className="min-h-11 rounded-md bg-zinc-900 px-4 text-sm font-semibold text-white disabled:opacity-60" disabled={pending}>{pending?"Сохранение...":"Обновить заявку"}</button></form>}
+const initial = {
+  success: true as const,
+  errorCode: null,
+  message: "",
+  data: null,
+};
+const field =
+  "min-h-11 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100";
+export function ServiceCaseForm({
+  selections,
+}: {
+  selections: ServiceSelectionData;
+}) {
+  const [state, action, pending] = useActionState(
+    createServiceCaseAction,
+    initial,
+  );
+  const [description, setDescription] = useState("");
+  return (
+    <form action={action} className="space-y-5" noValidate>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="Тип обращения">
+          <select className={field} name="caseType" required>
+            {SERVICE_CASE_TYPES.map((value) => (
+              <option key={value} value={value}>
+                {SERVICE_TYPE_LABELS[value]}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Заказ (при наличии)">
+          <select className={field} name="orderId">
+            <option value="">Без привязки к заказу</option>
+            {selections.orders.map((order) => (
+              <option key={order.id} value={order.id}>
+                {order.number} ·{" "}
+                {new Date(order.date).toLocaleDateString("ru-RU")}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Товар">
+          <select className={field} name="productId">
+            <option value="">Товар будет уточнён</option>
+            {selections.products.map((product) => (
+              <option key={product.id} value={product.id}>
+                {product.sku} · {product.name}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Позиция заказа">
+          <select className={field} name="orderLineId">
+            <option value="">Не выбрана</option>
+            {selections.orders.flatMap((order) =>
+              order.lines.map((line) => (
+                <option key={line.id} value={line.id}>
+                  {order.number} · {line.sku ?? "Без SKU"} ·{" "}
+                  {line.name ?? "Товар из 1С"}
+                </option>
+              )),
+            )}
+          </select>
+        </Field>
+        <Field label="Серийный номер">
+          <input
+            className={field}
+            maxLength={120}
+            name="enteredSerial"
+            placeholder="Если известен"
+          />
+        </Field>
+        <Field label="Категория неисправности">
+          <input
+            className={field}
+            maxLength={100}
+            name="faultCategory"
+            required
+          />
+        </Field>
+        <Field label="Когда возникла проблема">
+          <input className={field} name="issueStartedOn" type="date" />
+        </Field>
+        <Field label="Предпочтительный контакт">
+          <input className={field} maxLength={200} name="preferredContact" />
+        </Field>
+      </div>
+      <Field label="Описание проблемы">
+        <textarea
+          className={`${field} min-h-28`}
+          minLength={10}
+          maxLength={4000}
+          name="description"
+          onChange={(event) => setDescription(event.target.value)}
+          required
+          value={description}
+        />
+      </Field>
+      <KnowledgeSuggestions source="service" text={description} />
+      <Field label="Наблюдаемые симптомы">
+        <textarea
+          className={`${field} min-h-20`}
+          maxLength={2000}
+          name="symptoms"
+        />
+      </Field>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Choice label="Оборудование включается?" name="powersOn" />
+        <Choice
+          label="Сброс к заводским настройкам выполнен?"
+          name="factoryResetAttempted"
+        />
+      </div>
+      <label className="flex min-h-11 items-start gap-3 text-sm text-zinc-700">
+        <input
+          className="mt-1 size-4"
+          name="evidenceConsent"
+          required
+          type="checkbox"
+        />
+        Я согласен на обработку материалов, переданных для диагностики.
+      </label>
+      <p className="text-sm text-zinc-600">
+        При ручном серийном номере гарантия требует проверки Novotech.
+        Возможность прямой замены подтверждается только после диагностики.
+      </p>
+      {state.message ? (
+        <p
+          aria-live="polite"
+          className={
+            state.success ? "text-sm text-emerald-700" : "text-sm text-rose-700"
+          }
+        >
+          {state.message}
+        </p>
+      ) : null}
+      <button
+        className="min-h-11 rounded-md bg-emerald-700 px-5 py-2 text-sm font-semibold text-white disabled:opacity-60"
+        disabled={pending}
+        type="submit"
+      >
+        {pending ? "Отправка..." : "Создать заявку"}
+      </button>
+    </form>
+  );
+}
+function Field({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <label className="grid gap-1.5 text-sm font-medium text-zinc-800">
+      {label}
+      {children}
+    </label>
+  );
+}
+function Choice({ label, name }: { label: string; name: string }) {
+  return (
+    <Field label={label}>
+      <select className={field} name={name}>
+        <option value="">Не указано</option>
+        <option value="yes">Да</option>
+        <option value="no">Нет</option>
+      </select>
+    </Field>
+  );
+}
+export function PartnerServiceResponse({ caseId }: { caseId: string }) {
+  const [state, action, pending] = useActionState(
+    addServiceMessageAction,
+    initial,
+  );
+  return (
+    <form action={action} className="space-y-3">
+      <input name="caseId" type="hidden" value={caseId} />
+      <Field label="Дополнительная информация">
+        <textarea
+          className={`${field} min-h-24`}
+          maxLength={4000}
+          name="message"
+          required
+        />
+      </Field>
+      {state.message ? (
+        <p aria-live="polite" className="text-sm text-zinc-700">
+          {state.message}
+        </p>
+      ) : null}
+      <button
+        className="min-h-11 rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white disabled:opacity-60"
+        disabled={pending}
+      >
+        Отправить
+      </button>
+    </form>
+  );
+}
+export function InternalServiceTransition({
+  detail,
+}: {
+  detail: ServiceCaseDetail;
+}) {
+  const [state, action, pending] = useActionState(
+    transitionServiceCaseAction,
+    initial,
+  );
+  return (
+    <form action={action} className="space-y-4">
+      <input name="caseId" type="hidden" value={detail.id} />
+      <input name="expectedVersion" type="hidden" value={detail.version} />
+      <Field label="Следующий статус">
+        <select className={field} name="status" defaultValue="">
+          {" "}
+          <option disabled value="">
+            Выберите статус
+          </option>
+          {SERVICE_STATUSES.map((value) => (
+            <option key={value} value={value}>
+              {SERVICE_STATUS_LABELS[value]}
+            </option>
+          ))}
+        </select>
+      </Field>
+      <Field label="Сообщение партнёру">
+        <textarea
+          className={`${field} min-h-20`}
+          maxLength={4000}
+          name="partnerMessage"
+        />
+      </Field>
+      <Field label="Внутренняя заметка">
+        <textarea
+          className={`${field} min-h-20`}
+          maxLength={4000}
+          name="internalNote"
+        />
+      </Field>
+      {state.message ? (
+        <p aria-live="polite" className="text-sm text-zinc-700">
+          {state.message}
+        </p>
+      ) : null}
+      <button
+        className="min-h-11 rounded-md bg-zinc-900 px-4 text-sm font-semibold text-white disabled:opacity-60"
+        disabled={pending}
+      >
+        {pending ? "Сохранение..." : "Обновить заявку"}
+      </button>
+    </form>
+  );
+}
