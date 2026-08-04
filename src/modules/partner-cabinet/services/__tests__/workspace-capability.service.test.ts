@@ -18,6 +18,7 @@ describe("resolveWorkspaceCapabilities", () => {
       "estimates.manage",
       "documents.view_company",
       "service.view",
+      "knowledge.view",
     ]));
 
     expect(model.navigation.map((item) => item.label)).toEqual([
@@ -42,6 +43,7 @@ describe("resolveWorkspaceCapabilities", () => {
     expect(model.productCard.canAddToOrder).toBe(true);
     expect(model.productCard.canManagePurchasingLists).toBe(true);
     expect(model.productCard).toMatchObject({ showPrice: true, showStock: true, showWarehouseAvailability: true });
+    expect(model.navigation.find((item) => item.key === "knowledge_base")).toMatchObject({ href: "/cabinet/knowledge", availability: "available" });
   });
 
   it("hides role-protected modules and commercial fields when permissions are absent", () => {

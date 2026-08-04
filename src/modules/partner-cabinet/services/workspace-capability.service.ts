@@ -97,7 +97,7 @@ const WORKSPACE_CAPABILITIES: readonly CapabilityDefinition[] = [
   { key: "documents", label: "Документы", href: "/cabinet/documents", requiredPermission: "documents.view_company", released: true, unavailableBehavior: "hide" },
   { key: "warranty", label: "Сервисный центр", href: "/cabinet/service", requiredPermission: "service.view", released: true, unavailableBehavior: "hide" },
   { key: "support", label: "IT-поддержка", href: "/cabinet/support", requiredPermission: "support.view", released: true, unavailableBehavior: "hide" },
-  { key: "knowledge_base", label: "База знаний", href: null, requiredPermission: "catalog.view", released: false, unavailableBehavior: "show_coming_soon" },
+  { key: "knowledge_base", label: "База знаний", href: "/cabinet/knowledge", requiredPermission: "knowledge.view", released: true, unavailableBehavior: "hide" },
   { key: "company", label: "Моя компания", href: "/cabinet/company", requiredPermission: null, released: true, unavailableBehavior: "hide" },
 ];
 
@@ -147,7 +147,7 @@ export function resolveWorkspaceCapabilities(
     },
     canCreateCommercialProposal: configuration.commercialProposalAccess !== false && hasPermission("estimates.manage"),
     canUseWarranty: configuration.warrantyAccess !== false && hasPermission("service.view"),
-    canViewKnowledgeBase: configuration.knowledgeBaseAccess !== false && hasPermission("catalog.view"),
+    canViewKnowledgeBase: configuration.knowledgeBaseAccess !== false && hasPermission("knowledge.view"),
     canViewDashboardDocuments: [
       "documents.view_accounting",
       "documents.view_commercial",
