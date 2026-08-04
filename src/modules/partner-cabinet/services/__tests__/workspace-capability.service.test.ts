@@ -22,7 +22,7 @@ describe("resolveWorkspaceCapabilities", () => {
 
     expect(model.navigation.map((item) => item.label)).toEqual([
       "Рабочий стол",
-      "Каталог",
+      "Каталог товаров",
       "Корзина",
       "Избранное",
       "Сравнение",

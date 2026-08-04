@@ -275,7 +275,7 @@ export function PartnerSidebar({
           />
           <ExpandableNavigationGroup hasWorkspaceAccess={hasWorkspaceAccess} icon={ListChecks} id="orders-finance-navigation" items={commercialNavigation} label="Заказы и финансы" onNavigate={onNavigate} pathname={pathname} />
 
-          <ExpandableNavigationGroup hasWorkspaceAccess={hasWorkspaceAccess} icon={LifeBuoy} id="support-navigation" items={supportNavigation} label="Гарантия и техподдержка" onNavigate={onNavigate} pathname={pathname} />
+          <ExpandableNavigationGroup hasWorkspaceAccess={hasWorkspaceAccess} icon={LifeBuoy} id="support-navigation" items={supportNavigation} label="Гарантия и поддержка" onNavigate={onNavigate} pathname={pathname} />
         </div>
       </nav>
 

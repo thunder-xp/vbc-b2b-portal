@@ -82,7 +82,7 @@ type CapabilityDefinition = {
 const WORKSPACE_CAPABILITIES: readonly CapabilityDefinition[] = [
   { key: "reservations", label: "Резервирование", href: "/cabinet/reservation-requests", requiredPermission: "reservations.manage", released: true, unavailableBehavior: "hide" },
   { key: "dashboard", label: "Рабочий стол", href: "/cabinet", requiredPermission: null, released: true, unavailableBehavior: "hide" },
-  { key: "catalog", label: "Каталог", href: "/cabinet/catalog", requiredPermission: "catalog.view", released: true, unavailableBehavior: "hide" },
+  { key: "catalog", label: "Каталог товаров", href: "/cabinet/catalog", requiredPermission: "catalog.view", released: true, unavailableBehavior: "hide" },
   { key: "opportunities", label: "Возможности для закупки", href: "/cabinet/opportunities", requiredPermission: "opportunities.view", released: true, unavailableBehavior: "hide" },
   { key: "offers", label: "Специальные предложения", href: "/cabinet/offers", requiredPermission: "campaigns.view", released: true, unavailableBehavior: "hide" },
   { key: "cart", label: "Корзина", href: "/cabinet/cart", requiredPermission: "orders.manage", released: true, unavailableBehavior: "hide" },
