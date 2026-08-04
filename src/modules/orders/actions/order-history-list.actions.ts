@@ -16,10 +16,8 @@ import type {
   OrderHistoryBootstrapState,
   PartnerOrderHistorySyncState,
 } from "../types";
-import {
-  OrderHistorySyncError,
-  type PartnerOrderHistorySummaryDto,
-} from "../services";
+import { OrderHistorySyncError } from "../services/order-history.errors";
+import type { PartnerOrderHistorySummaryDto } from "../services/order-history.service";
 import { createPartnerOrderHistoryListService } from "./order-history-list.factory";
 
 export async function listPartnerOrderHistoryAction(input: {
