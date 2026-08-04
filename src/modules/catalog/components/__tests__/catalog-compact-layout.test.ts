@@ -39,11 +39,12 @@ describe("compact catalog layout", () => {
     expect(card).not.toContain("min-h-8 items-center px-3 pt-2");
   });
 
-  it("removes routine freshness labels but retains stale warnings", () => {
+  it("removes generic catalog freshness messaging", () => {
     expect(results).not.toContain("stockFreshness.label");
     expect(results).not.toContain("priceFreshness.label");
-    expect(results).toContain("staleWarning");
-    expect(results).toContain("text-amber-800");
+    expect(results).not.toContain("staleWarning");
+    expect(results).not.toContain("evaluateFreshness");
+    expect(results).not.toContain("Данные давно не обновлялись");
   });
 });
 
