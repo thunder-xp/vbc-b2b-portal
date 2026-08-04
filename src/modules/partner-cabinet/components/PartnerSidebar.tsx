@@ -119,7 +119,7 @@ function NavigationItem({
     return (
       <span className={`flex items-center gap-3 rounded-md text-sm text-zinc-500 ${spacing}`}>
         <Icon aria-hidden="true" className="size-4 shrink-0" />
-        <span className="min-w-0 flex-1 truncate">{item.label}</span>
+        <span className="min-w-0 flex-1 whitespace-nowrap">{item.label}</span>
         <span className="shrink-0 text-[10px] font-semibold uppercase">Скоро</span>
       </span>
     );
@@ -142,7 +142,7 @@ function NavigationItem({
       tabIndex={expanded ? undefined : -1}
     >
       <Icon aria-hidden="true" className="size-4 shrink-0" />
-      <span className="min-w-0 flex-1 truncate">{item.label}</span>
+      <span className="min-w-0 flex-1 whitespace-nowrap">{item.label}</span>
       <NavigationPendingIndicator />
     </Link>
   );
@@ -152,7 +152,7 @@ function ComingSoonNavigationItem({ icon: Icon, label }: { icon: typeof Gauge; l
   return (
     <span className="flex min-h-11 items-center gap-3 rounded-md py-2 pl-3 pr-2 text-sm text-zinc-500">
       <Icon aria-hidden="true" className="size-4 shrink-0" />
-      <span className="min-w-0 flex-1 truncate">{label}</span>
+      <span className="min-w-0 flex-1 whitespace-nowrap">{label}</span>
       <span className="shrink-0 text-[10px] font-semibold uppercase">Скоро</span>
     </span>
   );
@@ -196,7 +196,7 @@ function ExpandableNavigationGroup({
         type="button"
       >
         <Icon aria-hidden="true" className={`size-4 shrink-0 ${routeActive ? "text-emerald-300" : ""}`} />
-        <span className="min-w-0 flex-1 truncate">{label}</span>
+        <span className="min-w-0 flex-1 whitespace-nowrap">{label}</span>
         <Chevron aria-hidden="true" className="size-4 shrink-0" />
       </button>
       <div
@@ -300,7 +300,7 @@ export function PartnerSidebar({
           />
           <ExpandableNavigationGroup hasWorkspaceAccess={hasWorkspaceAccess} icon={ListChecks} id="orders-finance-navigation" items={commercialNavigation} label="Заказы и финансы" onNavigate={onNavigate} pathname={pathname} />
 
-          <ExpandableNavigationGroup hasWorkspaceAccess={hasWorkspaceAccess} icon={LifeBuoy} id="support-navigation" items={supportNavigation} label="Гарантия и поддержка" onNavigate={onNavigate} pathname={pathname} />
+          <ExpandableNavigationGroup hasWorkspaceAccess={hasWorkspaceAccess} icon={LifeBuoy} id="support-navigation" items={supportNavigation} label="Гарантия и техподдержка" onNavigate={onNavigate} pathname={pathname} />
         </div>
       </nav>
 

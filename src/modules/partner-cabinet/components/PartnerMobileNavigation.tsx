@@ -33,7 +33,7 @@ export function PartnerMobileNavigation({
             onClick={() => setIsOpen(false)}
             type="button"
           />
-          <div className="relative h-full w-64 max-w-[85vw]">
+          <div className="relative h-full w-72 max-w-[85vw]">
             <PartnerSidebar
               hasWorkspaceAccess={hasWorkspaceAccess}
               navigation={navigation}

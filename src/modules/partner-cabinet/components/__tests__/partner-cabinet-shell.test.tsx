@@ -94,7 +94,7 @@ describe("Partner workspace shell", () => {
       "Проектная защита",
       "Сметы и КП",
       "Заказы и финансы",
-      "Гарантия и поддержка",
+      "Гарантия и техподдержка",
     ]);
 
     const selectionButton = screen.getByRole("button", { name: "Подбор товаров" });
@@ -135,7 +135,7 @@ describe("Partner workspace shell", () => {
     expect(screen.getByRole("link", { name: "Заказы" })).toHaveAttribute("href", "/cabinet/orders");
     expect(screen.getByRole("link", { name: "Финансы" })).toHaveAttribute("href", "/cabinet/finance");
     expect(screen.getByRole("link", { name: "Документы" })).toHaveAttribute("href", "/cabinet/documents");
-    const supportButton = screen.getByRole("button", { name: "Гарантия и поддержка" });
+    const supportButton = screen.getByRole("button", { name: "Гарантия и техподдержка" });
     await user.click(supportButton);
     const supportGroup = within(document.getElementById("support-navigation")!);
     expect(supportGroup.getByRole("link", { name: "Сервисный центр" })).toHaveAttribute("href", "/cabinet/service");
@@ -275,7 +275,7 @@ describe("Partner workspace shell", () => {
     pathname = route;
     render(<PartnerSidebar hasWorkspaceAccess navigation={navigation} />);
 
-    expect(screen.getByRole("button", { name: "Гарантия и поддержка" })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("button", { name: "Гарантия и техподдержка" })).toHaveAttribute("aria-expanded", "true");
     const serviceLink = screen.getByRole("link", { name: "Сервисный центр" });
     expect(serviceLink).toHaveAttribute("href", "/cabinet/service");
     expect(serviceLink).toHaveAttribute("aria-current", "page");
