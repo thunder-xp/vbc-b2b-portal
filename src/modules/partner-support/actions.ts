@@ -13,7 +13,35 @@ import { createClient } from "@/src/lib/supabase/server";
 function support() { return new PartnerSupportService(new SupabasePartnerSupportRepository(), createCompanyAccessService()); }
 export async function listSupportTicketsAction(input: Record<string, unknown> = {}): Promise<ActionResult<SupportTicketPage>> { try { return success("Заявки загружены.", await support().listPartner(await getAuthenticatedUserId(), input)); } catch (error) { return failureFromError(error); } }
 export async function getSupportTicketAction(id: string): Promise<ActionResult<SupportTicketDetail | null>> { try { return success("Заявка загружена.", await support().getPartner(await getAuthenticatedUserId(), id)); } catch (error) { return failureFromError(error); } }
-export async function createSupportTicketAction(_state: ActionResult<null>, formData: FormData): Promise<ActionResult<null>> { try { const userId = await getAuthenticatedUserId(); const created = await support().create(userId, { description: text(formData, "description"), priority: text(formData, "priority"), idempotencyKey: text(formData, "idempotencyKey"), locale: "ru" }); let attachmentFailed = false; const attachment = formData.get("attachment"); if (attachment instanceof File && attachment.size > 0) { try { const { data: canManage } = await (await createClient()).rpc("can_manage_partner_support_attachment", { p_ticket_id: created.id }); if (!canManage) throw new Error("Attachment access denied"); await storeSupportAttachment({ ticketId: created.id, userId, file: attachment }); } catch (error) { attachmentFailed = true; console.error({ event: "partner_support_optional_attachment_failed", ticketId: created.id, errorName: error instanceof Error ? error.name : "unknown" }); } } revalidatePath("/cabinet/support"); redirect(`/cabinet/support/${created.id}?created=1${attachmentFailed ? "&attachment=failed" : ""}`); } catch (error) { return failureFromError(error); } }
+export async function createSupportTicketAction(_state: ActionResult<null>, formData: FormData): Promise<ActionResult<null>> {
+  let destination: string;
+  try {
+    const userId = await getAuthenticatedUserId();
+    const created = await support().create(userId, {
+      description: text(formData, "description"),
+      priority: text(formData, "priority"),
+      idempotencyKey: text(formData, "idempotencyKey"),
+      locale: "ru",
+    });
+    let attachmentFailed = false;
+    const attachment = formData.get("attachment");
+    if (attachment instanceof File && attachment.size > 0) {
+      try {
+        const { data: canManage } = await (await createClient()).rpc("can_manage_partner_support_attachment", { p_ticket_id: created.id });
+        if (!canManage) throw new Error("Attachment access denied");
+        await storeSupportAttachment({ ticketId: created.id, userId, file: attachment });
+      } catch (error) {
+        attachmentFailed = true;
+        console.error({ event: "partner_support_optional_attachment_failed", ticketId: created.id, errorName: error instanceof Error ? error.name : "unknown" });
+      }
+    }
+    revalidatePath("/cabinet/support");
+    destination = `/cabinet/support/${created.id}?created=1${attachmentFailed ? "&attachment=failed" : ""}`;
+  } catch (error) {
+    return failureFromError(error);
+  }
+  redirect(destination);
+}
 export async function addSupportReplyAction(_state: ActionResult<null>, formData: FormData): Promise<ActionResult<null>> { try { const id = text(formData, "ticketId"); await support().reply(await getAuthenticatedUserId(), { ticketId: id, expectedVersion: Number(text(formData, "expectedVersion")), message: text(formData, "message") }); revalidatePath(`/cabinet/support/${id}`); revalidatePath("/cabinet"); return success("Сообщение отправлено.", null); } catch (error) { return failureFromError(error); } }
 export async function partnerSupportTransitionAction(_state: ActionResult<null>, formData: FormData): Promise<ActionResult<null>> { try { const id = text(formData, "ticketId"); await support().partnerTransition(await getAuthenticatedUserId(), { ticketId: id, expectedVersion: Number(text(formData, "expectedVersion")), action: text(formData, "action") }); revalidatePath(`/cabinet/support/${id}`); revalidatePath("/cabinet/support"); revalidatePath("/cabinet"); return success("Статус заявки обновлён.", null); } catch (error) { return failureFromError(error); } }
 export async function listAdminSupportTicketsAction(input: Record<string, unknown> = {}): Promise<ActionResult<SupportTicketPage>> { try { await requireAnyAdminPermission(["support.view_all", "support.view_assigned"]); return success("Очередь загружена.", await support().listAdmin(input)); } catch (error) { return failureFromError(error); } }
