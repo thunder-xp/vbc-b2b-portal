@@ -4,5 +4,4 @@ import type {
   OneCSalesOrderPayload,
 } from "./one-c-provider.types";
 
-export interface OneCOrderMapper
-  extends OrderMapper<OneCSalesOrderPayload, OneCSalesOrderExportResultPayload> {}
+export type OneCOrderMapper = OrderMapper<OneCSalesOrderPayload, OneCSalesOrderExportResultPayload>;

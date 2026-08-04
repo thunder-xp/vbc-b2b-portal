@@ -10,8 +10,7 @@ import type {
   OneCStockBalancePayload,
 } from "./one-c-provider.types";
 
-export interface OneCPricingMapper
-  extends PricingMapper<OneCProductPricePayload, OneCStockBalancePayload> {}
+export type OneCPricingMapper = PricingMapper<OneCProductPricePayload, OneCStockBalancePayload>;
 
 const PROVIDER_CODE = "one-c";
 

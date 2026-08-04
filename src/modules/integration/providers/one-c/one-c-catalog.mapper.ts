@@ -12,12 +12,11 @@ import type {
   OneCCatalogProductPayload,
 } from "./one-c-provider.types";
 
-export interface OneCCatalogMapper
-  extends CatalogMapper<
+export type OneCCatalogMapper = CatalogMapper<
     OneCCatalogProductPayload,
     OneCCatalogCategoryPayload,
     OneCCatalogBrandPayload
-  > {}
+  >;
 
 const PROVIDER_CODE = "one-c";
 

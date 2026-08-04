@@ -6,8 +6,7 @@ import type {
 } from "../../dto";
 import type { OneCStockBalancePayload } from "./one-c-provider.types";
 
-export interface OneCInventoryMapper
-  extends ERPMapper<OneCStockBalancePayload, StockBalanceDTO> {}
+export type OneCInventoryMapper = ERPMapper<OneCStockBalancePayload, StockBalanceDTO>;
 
 const PROVIDER_CODE = "one-c";
 

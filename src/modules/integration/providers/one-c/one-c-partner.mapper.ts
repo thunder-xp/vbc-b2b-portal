@@ -17,8 +17,7 @@ import type {
 } from "./one-c-provider.types";
 import { parseOptionalOneCGuid } from "./one-c-guid";
 
-export interface OneCPartnerMapper
-  extends ERPMapper<OneCPartnerCompanySyncPayload, PartnerCompanyDTO> {}
+export type OneCPartnerMapper = ERPMapper<OneCPartnerCompanySyncPayload, PartnerCompanyDTO>;
 
 const PROVIDER_CODE = "one-c";
 
