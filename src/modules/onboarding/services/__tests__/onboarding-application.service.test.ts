@@ -15,14 +15,20 @@ const APPLICATION_ID = "689b8aa3-4b47-4eda-b91e-b77f182667d0";
 
 describe("OnboardingApplicationService", () => {
   it("loads a production-shaped access request by application id", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime("2026-08-01T12:00:00.000Z");
     const detail = detailRecord();
     const getDetail = vi.fn().mockResolvedValue(detail);
 
-    await expect(service(getDetail).getDetail(APPLICATION_ID)).resolves.toMatchObject({
-      request: detail.request,
-      companyVerification: { outcome: "exact_match_found", blocked: false },
-    });
-    expect(getDetail).toHaveBeenCalledWith(APPLICATION_ID);
+    try {
+      await expect(service(getDetail).getDetail(APPLICATION_ID)).resolves.toMatchObject({
+        request: detail.request,
+        companyVerification: { outcome: "exact_match_found", blocked: false },
+      });
+      expect(getDetail).toHaveBeenCalledWith(APPLICATION_ID);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("returns typed not-found errors for missing and malformed application ids", async () => {
