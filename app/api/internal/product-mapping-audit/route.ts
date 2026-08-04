@@ -22,6 +22,7 @@ export async function GET(request: Request): Promise<Response> {
       offset,
       limit,
       errorType: error instanceof Error ? error.name : typeof error,
+      safeMessage: error instanceof Error ? error.message : "unknown_error",
       deployedCommitSha: process.env.VERCEL_GIT_COMMIT_SHA?.trim() || "local",
     });
     return Response.json({ error: "Product mapping audit failed." }, { status: 503 });

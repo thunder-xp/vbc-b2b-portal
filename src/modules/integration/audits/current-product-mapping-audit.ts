@@ -354,8 +354,23 @@ class AuditOneCClient {
       signal: AbortSignal.timeout(this.config.requestTimeoutMs),
     });
     if (response.status === 404) return null;
-    if (!response.ok) throw new Error(`1C product audit failed with HTTP ${response.status}.`);
-    const value: unknown = await response.json();
+    const responseBody = await response.text();
+    if (!response.ok) {
+      console.error({
+        event: "current_product_mapping_source_lookup_failed",
+        resource,
+        referenceFingerprint: fingerprint(reference),
+        httpStatus: response.status,
+        safeResponseBody: responseBody.replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, "[guid]").slice(0, 1000),
+      });
+      throw new Error(`1C product audit failed with HTTP ${response.status}.`);
+    }
+    let value: unknown;
+    try {
+      value = JSON.parse(responseBody);
+    } catch {
+      throw new Error("1C product audit response is not JSON.");
+    }
     if (!isRecord(value) || text(value.Ref_Key).toLowerCase() !== reference.toLowerCase()) throw new Error("1C product audit response is invalid.");
     return value;
   }
