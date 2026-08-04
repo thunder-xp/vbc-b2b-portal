@@ -119,7 +119,9 @@ describe("BehaviorViewEvent", () => {
     });
 
     expect(mocks.record).not.toHaveBeenCalled();
-    vi.runAllTimers();
+    vi.advanceTimersByTime(29_999);
+    expect(mocks.record).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
     expect(mocks.record).toHaveBeenCalledTimes(1);
     vi.useRealTimers();
   });

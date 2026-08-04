@@ -177,7 +177,7 @@ export function recordBehaviorInteraction(input: BehaviorInteractionInput): void
 
 export function scheduleBehaviorInteraction(input: BehaviorInteractionInput): void {
   const record = () => recordBehaviorInteraction(input);
-  setTimeout(record, 1_000);
+  setTimeout(record, 30_000);
 }
 
 function getSessionId(): string {
