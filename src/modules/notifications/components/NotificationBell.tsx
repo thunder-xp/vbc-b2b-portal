@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
 
 import { markNotificationReadAction } from "../actions/notification.actions";
-import { recordBehaviorInteraction } from "../../behavior-analytics/components/BehaviorViewEvent";
+import { recordBehaviorInteraction, scheduleBehaviorInteraction } from "../../behavior-analytics/components/BehaviorViewEvent";
 import type { NotificationSummary } from "../types";
 import { NotificationSeverityLabel } from "./NotificationSeverityLabel";
 import { NOTIFICATIONS_MARKED_ALL_READ_EVENT } from "./notification-client-events";
@@ -83,7 +83,7 @@ export function NotificationBell({ initialSummary }: { initialSummary: Notificat
         onClick={() => setOpen((value) => {
           const next = !value;
           if (next) {
-            recordBehaviorInteraction({
+            scheduleBehaviorInteraction({
               eventName: "notifications_opened",
               route: "/cabinet/notifications",
               sourceSurface: "notification_bell",

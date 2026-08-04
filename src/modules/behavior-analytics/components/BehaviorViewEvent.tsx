@@ -159,18 +159,25 @@ export function BehaviorTrackedCatalogLink({
   );
 }
 
-export function recordBehaviorInteraction(input: {
+type BehaviorInteractionInput = {
   eventName: BehaviorEventName;
   metadataSafe?: SafeBehaviorMetadata;
   productId?: string;
   quantity?: number;
   route: string;
   sourceSurface: string;
-}): void {
+};
+
+export function recordBehaviorInteraction(input: BehaviorInteractionInput): void {
   void recordBehaviorEventAction({
     ...input,
     sessionId: getSessionId(),
   }).catch(() => undefined);
+}
+
+export function scheduleBehaviorInteraction(input: BehaviorInteractionInput): void {
+  const record = () => recordBehaviorInteraction(input);
+  setTimeout(record, 1_000);
 }
 
 function getSessionId(): string {

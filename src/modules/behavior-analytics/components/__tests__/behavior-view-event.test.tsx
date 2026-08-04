@@ -15,6 +15,7 @@ import {
   BehaviorTrackedCatalogLink,
   BehaviorViewEvent,
   recordBehaviorInteraction,
+  scheduleBehaviorInteraction,
 } from "../BehaviorViewEvent";
 
 describe("BehaviorViewEvent", () => {
@@ -107,5 +108,19 @@ describe("BehaviorViewEvent", () => {
       route: "/cabinet",
       sourceSurface: "dashboard_quick_actions",
     })).not.toThrow();
+  });
+
+  it("defers menu telemetry beyond the interaction-critical window", () => {
+    vi.useFakeTimers();
+    scheduleBehaviorInteraction({
+      eventName: "notifications_opened",
+      route: "/cabinet/notifications",
+      sourceSurface: "notification_bell",
+    });
+
+    expect(mocks.record).not.toHaveBeenCalled();
+    vi.runAllTimers();
+    expect(mocks.record).toHaveBeenCalledTimes(1);
+    vi.useRealTimers();
   });
 });
