@@ -13,7 +13,6 @@ const PRODUCT_SELECT = [
   "Ref_Key", "Parent_Key", "IsFolder", "DeletionMark", "Недействителен",
   "PS_ВидНоменклатурыБУ", "ЭтоНабор", "DataVersion", "ДатаИзменения",
 ].join(",");
-const CHARACTERISTIC_SELECT = "Ref_Key,Owner_Key,DeletionMark,DataVersion";
 const MAX_PAGE_SIZE = 50;
 const LOOKUP_CONCURRENCY = 8;
 const MAX_PARENT_DEPTH = 32;
@@ -330,20 +329,22 @@ class AuditOneCClient {
   }
 
   async characteristic(reference: string): Promise<LookupResult<CharacteristicEvidence>> {
-    const result = await this.read(CHARACTERISTIC_RESOURCE, reference, CHARACTERISTIC_SELECT);
+    const result = await this.read(CHARACTERISTIC_RESOURCE, reference, null);
     if (!result) return { status: "missing" };
     return { status: "found", value: {
       reference: text(result.Ref_Key).toLowerCase(),
-      ownerReference: guidOrNull(result.Owner_Key),
+      ownerReference: guidOrNull(result.Owner)
+        ?? guidOrNull(result["Владелец_Key"])
+        ?? guidOrNull(result["Номенклатура_Key"]),
       deleted: result.DeletionMark === true,
       sourceVersion: nullableText(result.DataVersion),
     } };
   }
 
-  private async read(resource: string, reference: string, select: string): Promise<Record<string, unknown> | null> {
+  private async read(resource: string, reference: string, select: string | null): Promise<Record<string, unknown> | null> {
     if (!isNonZeroGuid(reference) || !this.config.baseUrl || !this.config.username || !this.config.password) return null;
     const url = new URL(`${this.config.baseUrl.replace(/\/$/, "")}/${resource}(guid'${reference}')`);
-    url.searchParams.set("$select", select);
+    if (select) url.searchParams.set("$select", select);
     url.searchParams.set("$format", "json");
     const response = await fetch(url, {
       headers: {
