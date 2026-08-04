@@ -10,6 +10,14 @@ export type KnowledgeArticleType =
   | "release_note"
   | "product_documentation";
 export type KnowledgeStatus = "draft" | "review" | "published" | "archived";
+
+export class KnowledgeVersionConflictError extends Error {
+  constructor() {
+    super("Knowledge article version conflict.");
+    this.name = "KnowledgeVersionConflictError";
+  }
+}
+
 export type KnowledgeBlock = {
   type: string;
   text?: string;

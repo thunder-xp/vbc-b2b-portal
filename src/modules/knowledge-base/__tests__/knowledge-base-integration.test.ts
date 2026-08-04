@@ -36,6 +36,14 @@ describe("knowledge application integration", () => {
       "setTimeout(async",
     );
   });
+
+  it("resolves knowledge access from active company membership without commercial context", () => {
+    const source = read("src/modules/knowledge-base/actions.ts");
+    expect(source).toContain("createCompanyAccessService");
+    expect(source).toContain("MembershipStatus.Active");
+    expect(source).toContain("getActiveCompanyContext");
+    expect(source).not.toContain("createPartnerWorkspaceContextService");
+  });
   it("renders no arbitrary HTML or eager video iframe", () => {
     const source = read("src/modules/knowledge-base/components.tsx");
     expect(source).not.toContain("dangerouslySetInnerHTML");

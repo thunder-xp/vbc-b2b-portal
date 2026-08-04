@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { KnowledgeService, parseBlocks } from "../service";
 import type { KnowledgeRepository } from "../repository";
+import { KnowledgeVersionConflictError } from "../types";
 
 function repository(): KnowledgeRepository {
   return {
@@ -66,5 +67,11 @@ describe("KnowledgeService", () => {
       true,
       null,
     );
+  });
+
+  it("exposes a dedicated stale-version error", () => {
+    expect(new KnowledgeVersionConflictError()).toMatchObject({
+      name: "KnowledgeVersionConflictError",
+    });
   });
 });

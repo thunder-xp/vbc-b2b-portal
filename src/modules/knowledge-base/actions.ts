@@ -2,16 +2,21 @@
 import { createHash } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { cache } from "react";
 import {
   failureFromError,
   success,
   type ActionResult,
 } from "../access-control/actions/action-result";
-import { getAuthenticatedUserId } from "../access-control/actions/service-factory";
-import { createPartnerWorkspaceContextService } from "../partner-cabinet/actions/service-factory";
+import {
+  createCompanyAccessService,
+  getAuthenticatedUserId,
+} from "../access-control/actions/service-factory";
+import { MembershipStatus } from "../access-control/types";
 import { requireAdminPermission } from "../admin/services/admin-workspace.service";
 import { SupabaseKnowledgeRepository } from "./supabase.repository";
 import { KnowledgeService } from "./service";
+import { KnowledgeVersionConflictError } from "./types";
 import type {
   KnowledgeArticle,
   KnowledgeCard,
@@ -19,14 +24,30 @@ import type {
 } from "./types";
 
 const service = new KnowledgeService(new SupabaseKnowledgeRepository());
-async function companyId() {
-  const userId = await getAuthenticatedUserId();
-  const context =
-    await createPartnerWorkspaceContextService().getWorkspaceContext(userId);
-  if (!context.companyId || context.accessState !== "active")
-    throw new Error("Knowledge access denied.");
-  return context.companyId;
+function versionConflict(): ActionResult<null> {
+  return {
+    success: false,
+    errorCode: "KNOWLEDGE_VERSION_CONFLICT",
+    message:
+      "Материал уже изменён другим пользователем. Обновите страницу и повторите действие.",
+    data: null,
+  };
 }
+const companyId = cache(async () => {
+  const userId = await getAuthenticatedUserId();
+  const companyAccess = createCompanyAccessService();
+  const membership = (await companyAccess.getOwnMemberships(userId)).find(
+    (item) => item.status === MembershipStatus.Active,
+  );
+  if (!membership) throw new Error("Knowledge access denied.");
+  const context = await companyAccess.getActiveCompanyContext(
+    userId,
+    membership.companyId,
+  );
+  if (!context.company.id)
+    throw new Error("Knowledge access denied.");
+  return context.company.id;
+});
 export async function getKnowledgeLandingAction(): Promise<
   ActionResult<KnowledgeLanding | null>
 > {
@@ -146,6 +167,8 @@ export async function saveKnowledgeArticleAction(
     revalidatePath("/admin/knowledge");
     redirect(`/admin/knowledge/${id}`);
   } catch (error) {
+    if (error instanceof KnowledgeVersionConflictError)
+      return versionConflict();
     return failureFromError(error);
   }
 }
@@ -171,6 +194,8 @@ export async function transitionKnowledgeArticleAction(
     revalidatePath("/admin/knowledge");
     return success("Статус обновлён.", result);
   } catch (error) {
+    if (error instanceof KnowledgeVersionConflictError)
+      return versionConflict();
     return failureFromError(error);
   }
 }

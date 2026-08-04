@@ -8,9 +8,15 @@ import type {
   KnowledgeDiagnostics,
   KnowledgeLanding,
 } from "./types";
+import { KnowledgeVersionConflictError } from "./types";
 
 async function rpc<T>(name: string, args: Record<string, unknown>): Promise<T> {
   const { data, error } = await (await createClient()).rpc(name, args);
+  if (
+    error?.code === "P0001" &&
+    error.message.includes("KNOWLEDGE_VERSION_CONFLICT")
+  )
+    throw new KnowledgeVersionConflictError();
   if (error) throw new RepositoryUnexpectedError();
   return data as T;
 }
