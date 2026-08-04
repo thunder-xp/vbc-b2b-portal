@@ -1,10 +1,12 @@
+import { timingSafeEqual } from "node:crypto";
+
 import { authorizeCronRequest } from "@/src/lib/cron-auth";
 import { runCurrentProductMappingAuditPage } from "@/src/modules/integration/audits/current-product-mapping-audit";
 
 export const maxDuration = 300;
 
 export async function GET(request: Request): Promise<Response> {
-  if (!(await authorizeCronRequest(request)).authorized) {
+  if (!(await authorized(request))) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
   const url = new URL(request.url);
@@ -26,9 +28,17 @@ export async function GET(request: Request): Promise<Response> {
   }
 }
 
+async function authorized(request: Request): Promise<boolean> {
+  const dedicatedSecret = process.env.PRODUCT_MAPPING_AUDIT_SECRET?.trim();
+  if (!dedicatedSecret) return (await authorizeCronRequest(request)).authorized;
+  const supplied = request.headers.get("authorization")?.match(/^Bearer ([^\s]+)$/i)?.[1] ?? "";
+  const expectedBytes = Buffer.from(dedicatedSecret);
+  const suppliedBytes = Buffer.from(supplied);
+  return expectedBytes.length === suppliedBytes.length && timingSafeEqual(expectedBytes, suppliedBytes);
+}
+
 function boundedInteger(value: string | null, minimum: number, maximum: number, fallback: number): number {
   if (!value || !/^\d+$/.test(value)) return fallback;
   const parsed = Number(value);
   return Number.isSafeInteger(parsed) && parsed >= minimum && parsed <= maximum ? parsed : fallback;
 }
-
