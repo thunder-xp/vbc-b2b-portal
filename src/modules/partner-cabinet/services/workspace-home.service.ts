@@ -259,6 +259,30 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
       freshness.map((item) => [item.domain, item.updatedAt]),
     );
     const attentionItems = dashboard.attentionItems.map(toAttentionItem);
+    const reorderProducts = reorderCandidates.flatMap((candidate) => {
+      const commercialView = commercialByProduct.get(candidate.id);
+      return isCurrentlySellable(commercialView)
+        ? [{
+            product: toProduct(candidate, referenceByProduct.get(candidate.id)),
+            commercialView,
+            purchaseCount: candidate.purchaseCount,
+            lastPurchasedAt: candidate.lastPurchasedAt,
+            typicalQuantity: candidate.typicalQuantity,
+          }]
+        : [];
+    }).slice(0, 5);
+    const merchandisingProducts = merchandisingCandidates
+      .filter((candidate) => !opportunityProductIdsSet.has(candidate.id))
+      .slice(0, 5)
+      .map((candidate) => ({
+        product: toProduct(candidate, referenceByProduct.get(candidate.id)),
+        commercialView: commercialByProduct.get(candidate.id),
+      }));
+
+    logDashboardShortage("previous_purchases", reorderProducts.length, 5);
+    logDashboardShortage("opportunities", opportunities.length, 4);
+    logDashboardShortage("novotech_offers", merchandisingProducts.length, 5);
+
     return {
       identity: {
         firstName: firstName(context.userDisplayName),
@@ -305,25 +329,8 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
         context.capabilities.navigation,
       ),
       continuationItems: dashboard.continuationItems.map(toContinuation),
-      reorderProducts: reorderCandidates.flatMap((candidate) => {
-        const commercialView = commercialByProduct.get(candidate.id);
-        return isCurrentlySellable(commercialView)
-          ? [{
-              product: toProduct(candidate, referenceByProduct.get(candidate.id)),
-              commercialView,
-              purchaseCount: candidate.purchaseCount,
-              lastPurchasedAt: candidate.lastPurchasedAt,
-              typicalQuantity: candidate.typicalQuantity,
-            }]
-          : [];
-      }).slice(0, 5),
-      merchandisingProducts: merchandisingCandidates
-        .filter((candidate) => !opportunityProductIdsSet.has(candidate.id))
-        .slice(0, 5)
-        .map((candidate) => ({
-          product: toProduct(candidate, referenceByProduct.get(candidate.id)),
-          commercialView: commercialByProduct.get(candidate.id),
-        })),
+      reorderProducts,
+      merchandisingProducts,
       opportunities,
       campaigns: campaignPage.items,
       recentDocuments: [],
@@ -344,6 +351,17 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
       supportTickets,
     };
   }
+}
+
+function logDashboardShortage(section: string, eligibleCount: number, targetCount: number): void {
+  if (eligibleCount >= targetCount) return;
+  console.info({
+    event: "dashboard_product_selection_shortage",
+    section,
+    eligibleCount,
+    targetCount,
+    reason: eligibleCount === 0 ? "no_eligible_candidates" : "insufficient_eligible_candidates",
+  });
 }
 
 async function timedDashboardRead<T>(stage: string, operation: () => Promise<T>): Promise<T> {

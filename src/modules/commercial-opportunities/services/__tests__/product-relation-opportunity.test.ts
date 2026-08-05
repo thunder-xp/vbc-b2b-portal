@@ -23,8 +23,9 @@ describe("product relation opportunity", () => {
     expect(migration).not.toContain("partner_notification");
   });
 
-  it("renders the governed Russian reason and action", () => {
+  it("renders the governed Russian reason through canonical product actions", () => {
     expect(card).toContain("Товар заканчивается. Доступен аналог.");
-    expect(card).toContain("Посмотреть аналоги");
+    expect(card).toContain("CatalogQuantityCartAction");
+    expect(card).not.toContain("Посмотреть аналоги");
   });
 });

@@ -8,15 +8,17 @@ import type { BehaviorEventName } from "../../behavior-analytics/types";
 import { addToCartAction } from "../../orders/actions/cart.actions";
 
 export function CatalogQuantityCartAction({
+  initialQuantity = 1,
   productId,
   sourceSurface = "product_card",
   successEventName,
 }: {
+  initialQuantity?: number;
   productId: string;
   sourceSurface?: string;
   successEventName?: BehaviorEventName;
 }) {
-  const [quantityInput, setQuantityInput] = useState("1");
+  const [quantityInput, setQuantityInput] = useState(String(initialQuantity));
   const [feedback, setFeedback] = useState<{ message: string; success: boolean } | null>(null);
   const [pending, startTransition] = useTransition();
   const submissionInFlight = useRef(false);

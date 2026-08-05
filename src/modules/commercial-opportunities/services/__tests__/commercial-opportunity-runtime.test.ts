@@ -13,7 +13,8 @@ describe("commercial opportunity runtime boundaries", () => {
 
   it("delegates cart mutations and never creates orders directly", () => {
     const card = read("src/modules/commercial-opportunities/components/OpportunityCard.tsx");
-    expect(card).toContain("addToCartAction(product.id");
+    expect(card).toContain("CatalogQuantityCartAction");
+    expect(read("src/modules/catalog/components/CatalogQuantityCartAction.tsx")).toContain("addToCartAction(productId");
     expect(card).not.toMatch(/createOrder|submitOrder|Document_Заказ/);
   });
 

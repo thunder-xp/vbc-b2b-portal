@@ -7,11 +7,13 @@ import { useState, useTransition } from "react";
 
 import { recordBehaviorInteraction } from "../../behavior-analytics/components/BehaviorViewEvent";
 import { CatalogCardImage } from "../../catalog/components/CatalogCardImage";
-import { addToCartAction } from "../../orders/actions/cart.actions";
+import { CatalogQuantityCartAction } from "../../catalog/components/CatalogQuantityCartAction";
+import { ProductSpecificationAction } from "../../catalog/components/ProductSpecificationAction";
+import { FavoriteProductButton } from "../../purchasing-lists/components/FavoriteProductButton";
 import { dismissCommercialOpportunityAction } from "../actions/commercial-opportunity.actions";
 import type { CommercialOpportunity } from "../types";
 
-export function OpportunityCard({ opportunity }: { opportunity: CommercialOpportunity }) {
+export function OpportunityCard({ canAddToOrder = true, canAddToSpecification = true, canManagePurchasingLists = true, opportunity }: { canAddToOrder?: boolean; canAddToSpecification?: boolean; canManagePurchasingLists?: boolean; opportunity: CommercialOpportunity }) {
   const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -42,35 +44,15 @@ export function OpportunityCard({ opportunity }: { opportunity: CommercialOpport
     });
   }
 
-  function addToCart() {
-    if (!product) return;
-    startTransition(async () => {
-      const result = await addToCartAction(product.id, suggestedQuantity(opportunity));
-      setMessage(result.message);
-      if (result.success) {
-        recordBehaviorInteraction({
-          eventName: "opportunity_added_to_cart",
-          productId: product.id,
-          metadataSafe: { opportunityType: opportunity.type },
-          route: "/cabinet/opportunities",
-          sourceSurface: "opportunity_card",
-        });
-        router.refresh();
-      }
-    });
-  }
-
   return (
     <article className="grid min-w-0 gap-4 border border-zinc-200 bg-white p-4 sm:grid-cols-[7rem_minmax(0,1fr)]">
-      <div className="relative flex aspect-[4/3] items-center justify-center overflow-hidden rounded-md bg-zinc-100">
-        {product ? <CatalogCardImage alt={`${product.name}, ${product.sku}`} sizes="112px" src={product.reference?.thumbnail ?? product.imageUrl} variant="md" /> : <ShoppingCart aria-hidden="true" className="size-8 text-zinc-400" />}
-      </div>
+      {product ? <Link aria-label={`Открыть товар ${product.name}`} className="relative flex aspect-[4/3] items-center justify-center overflow-hidden rounded-md bg-zinc-100 outline-none focus-visible:ring-2 focus-visible:ring-emerald-500" href={href} prefetch={false}><CatalogCardImage alt={`${product.name}, ${product.sku}`} sizes="112px" src={product.reference?.thumbnail ?? product.imageUrl} variant="md" /></Link> : <div className="relative flex aspect-[4/3] items-center justify-center overflow-hidden rounded-md bg-zinc-100"><ShoppingCart aria-hidden="true" className="size-8 text-zinc-400" /></div>}
       <div className="min-w-0">
         <div className="flex min-w-0 items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="text-xs font-semibold uppercase text-emerald-700">{opportunityLabel(opportunity.type)}</p>
             {product ? <p className="mt-1 text-xs text-zinc-500">Артикул {product.sku}</p> : null}
-            <h2 className="mt-1 line-clamp-2 font-semibold text-zinc-950" title={title}>{title}</h2>
+            <h2 className="mt-1 line-clamp-2 font-semibold text-zinc-950" title={title}>{product ? <Link className="rounded hover:text-emerald-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500" href={href} prefetch={false}>{title}</Link> : title}</h2>
           </div>
           <button aria-label={`Не показывать: ${title}`} className="flex size-11 shrink-0 items-center justify-center rounded-md text-zinc-500 hover:bg-zinc-100 focus-visible:ring-2 focus-visible:ring-emerald-500" disabled={pending} onClick={dismiss} title="Не показывать" type="button"><EyeOff aria-hidden="true" className="size-4" /></button>
         </div>
@@ -83,9 +65,11 @@ export function OpportunityCard({ opportunity }: { opportunity: CommercialOpport
           <div>{availabilityLabel(product)}</div>
         </div> : null}
 
-        <div className="mt-4 flex flex-wrap gap-2">
-          {product && (product.partnerPrice || product.retailPrice) ? <button className="inline-flex min-h-11 items-center gap-2 rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white hover:bg-emerald-800 focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-60" disabled={pending} onClick={addToCart} type="button"><ShoppingCart aria-hidden="true" className="size-4" />{pending ? "Добавление..." : "Добавить в корзину"}</button> : null}
-          <Link className="inline-flex min-h-11 items-center gap-2 rounded-md border border-zinc-300 px-4 text-sm font-semibold text-zinc-800 focus-visible:ring-2 focus-visible:ring-emerald-500" href={href} onClick={() => recordBehaviorInteraction({ eventName: template ? "opportunity_template_opened" : product ? "opportunity_product_opened" : "opportunity_repeat_started", productId: product?.id, metadataSafe: { opportunityType: opportunity.type }, route: "/cabinet/opportunities", sourceSurface: "opportunity_card" })} prefetch={false}>{template ? "Проверить шаблон" : opportunity.type === "previous_order_repeatable" ? "Повторить закупку" : opportunity.type === "source_product_low_stock_with_available_analog" ? "Посмотреть аналоги" : "Открыть товар"}<ArrowRight aria-hidden="true" className="size-4" /></Link>
+        <div className="mt-4 flex flex-wrap items-start gap-2">
+          {product && canAddToOrder && (product.partnerPrice || product.retailPrice) ? <div className="min-w-[15rem] flex-1"><CatalogQuantityCartAction initialQuantity={suggestedQuantity(opportunity)} productId={product.id} sourceSurface="opportunity_card" successEventName="opportunity_added_to_cart" /></div> : null}
+          {product && canManagePurchasingLists ? <FavoriteProductButton initialSaved={false} productId={product.id} /> : null}
+          {product && canAddToSpecification ? <ProductSpecificationAction productId={product.id} /> : null}
+          {!product ? <Link className="inline-flex min-h-11 items-center gap-2 rounded-md border border-zinc-300 px-4 text-sm font-semibold text-zinc-800 focus-visible:ring-2 focus-visible:ring-emerald-500" href={href} onClick={() => recordBehaviorInteraction({ eventName: template ? "opportunity_template_opened" : "opportunity_repeat_started", metadataSafe: { opportunityType: opportunity.type }, route: "/cabinet/opportunities", sourceSurface: "opportunity_card" })} prefetch={false}>{template ? "Проверить шаблон" : "Повторить закупку"}<ArrowRight aria-hidden="true" className="size-4" /></Link> : null}
         </div>
         {message ? <p aria-live="polite" className="mt-2 text-sm font-medium text-emerald-700">{message}</p> : null}
       </div>

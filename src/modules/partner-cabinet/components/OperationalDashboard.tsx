@@ -38,7 +38,7 @@ export function OperationalDashboard({
         workspace={workspace}
       />
       <FinanceSection summary={workspace.financeSummary} />
-      <OpportunitySection opportunities={workspace.opportunities} />
+      <OpportunitySection opportunities={workspace.opportunities} workspace={workspace} />
       <NovotechOffersSection
         campaigns={workspace.campaigns}
         products={workspace.merchandisingProducts}
@@ -63,11 +63,11 @@ function NovotechOffersSection({ campaigns = [], products = [], workspace }: {
   );
 }
 
-function OpportunitySection({ opportunities = [] }: { opportunities?: WorkspaceHomeDto["opportunities"] }) {
+function OpportunitySection({ opportunities = [], workspace }: { opportunities?: WorkspaceHomeDto["opportunities"]; workspace: WorkspaceHomeDto }) {
   if (!opportunities.length) return null;
   return <section aria-labelledby="dashboard-opportunities">
     <SectionHeading actionHref="/cabinet/opportunities" actionLabel="Смотреть все возможности" id="dashboard-opportunities" title="Возможности для закупки" />
-    <div className="mt-3 grid gap-3 xl:grid-cols-2">{opportunities.slice(0, 4).map((opportunity) => <OpportunityCard key={opportunity.id} opportunity={opportunity} />)}</div>
+    <div className="mt-3 grid gap-3 xl:grid-cols-2">{opportunities.slice(0, 4).map((opportunity) => <OpportunityCard canAddToOrder={workspace.capabilities.productCard.canAddToOrder} canAddToSpecification={workspace.capabilities.productCard.canAddToSpecification} canManagePurchasingLists={workspace.capabilities.productCard.canManagePurchasingLists} key={opportunity.id} opportunity={opportunity} />)}</div>
   </section>;
 }
 
