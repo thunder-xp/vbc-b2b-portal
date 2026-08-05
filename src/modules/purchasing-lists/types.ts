@@ -3,7 +3,7 @@ import type { CommercialProductState } from "../pricing-inventory/services";
 export type PurchasingListVisibility = "private" | "company";
 export type PurchasingListSourceType = "manual" | "catalog" | "cart" | "order" | "quick_reorder" | "duplicate" | "favorite" | "legacy_favorite";
 export type PurchasingList = { id: string; companyId: string; name: string; description: string | null; visibility: PurchasingListVisibility; createdBy: string; updatedBy: string; revision: number; createdAt: string; updatedAt: string; archivedAt: string | null; isSystemFavorites?: boolean };
-export type PurchasingListItem = { id: string; listId: string; productId: string; quantity: number; position: number; note: string | null; sourceType: PurchasingListSourceType; sourceReferenceId: string | null; sourceUnitPrice: number | null; sourceCurrencyCode: string | null; createdAt: string; updatedAt: string };
+export type PurchasingListItem = { id: string; listId: string; productId: string; quantity: number; position: number; note: string | null; sourceType: PurchasingListSourceType; sourceReferenceId: string | null; sourceUnitPrice: number | null; sourceCurrencyCode: string | null; productNameSnapshot?: string | null; productImageUrlSnapshot?: string | null; createdAt: string; updatedAt: string };
 export type PurchasingListSummaryDto = PurchasingList & { ownerName: string; itemCount: number; totalQuantity: number; warningCount: number; canManage: boolean };
 export type PurchasingListLineDto = Omit<
   PurchasingListItem,

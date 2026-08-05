@@ -129,9 +129,9 @@ export class PurchasingListService {
         return {
           ...safeItem,
           sku: product?.sku ?? "Без артикула",
-          productName: product?.name ?? "Недоступный товар",
+          productName: product?.name ?? item.productNameSnapshot ?? "Недоступный товар",
           slug: product?.slug ?? "",
-          imageUrl: product?.imageUrl ?? null,
+          imageUrl: product?.imageUrl ?? item.productImageUrlSnapshot ?? null,
           ...(view?.partnerPrice
             ? {
                 currentPartnerPrice: view.partnerPrice.formattedAmount,
