@@ -15,7 +15,7 @@ export function ProductPricingBlock({ commercialView, freshness, showPartnerPric
       {showPartnerPrice ? <DetailMetric label="Валовая прибыль" value={commercialView?.commercialOpportunity?.formattedGrossProfitMdl} /> : null}
       {showPartnerPrice ? <DetailMetric label="Наценка" value={commercialView?.commercialOpportunity?.formattedMarkup} /> : null}
     </div>
-    {commercialView?.commercialRateFreshness ? <div className="border-t border-zinc-200 px-4 py-2 text-xs text-zinc-500"><p>{commercialView.commercialRateFreshness.label}</p>{commercialView.commercialRateFreshness.staleNotice ? <p className="mt-1 text-amber-700">{commercialView.commercialRateFreshness.staleNotice}</p> : null}</div> : freshness ? <div className="border-t border-zinc-200 px-4 py-2 text-xs text-zinc-500"><p>{freshness.label}</p>{freshness.staleNotice ? <p className="mt-1 text-amber-700">{freshness.staleNotice}</p> : null}</div> : null}
+    {commercialView?.commercialRateFreshness ? <div className="border-t border-zinc-200 px-4 py-2 text-xs text-zinc-500"><p>{commercialView.commercialRateFreshness.label}</p></div> : freshness ? <div className="border-t border-zinc-200 px-4 py-2 text-xs text-zinc-500"><p>{freshness.label}</p></div> : null}
   </div>;
 }
 

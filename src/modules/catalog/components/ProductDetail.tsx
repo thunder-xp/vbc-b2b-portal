@@ -55,24 +55,23 @@ export function ProductDetail({ activeTab = "overview", canAddToOrder = false, c
     </nav>
     {activeTab === "overview" ? (
       <>
-        <div className="grid gap-5 md:grid-cols-[minmax(0,360px)_minmax(0,1fr)] md:items-start lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)] lg:gap-7" data-testid="product-detail-layout">
-          <div data-testid="product-detail-image"><ProductImageGallery fallbackImageUrl={product.imageUrl} images={product.images} productId={product.id} productName={product.name} /></div>
-          <div className="min-w-0" data-testid="product-detail-content">
-            <OverviewTab canAddToOrder={canAddToOrder} canManagePurchasingLists={canManagePurchasingLists} companyId={companyId} commercialView={commercialView} hasAnalogs={hasAnalogs} initialFavorite={initialFavorite} priceFreshness={priceFreshness} product={product} stockFreshness={stockFreshness} userId={userId} />
-          </div>
-        </div>
+        <ProductTabLayout product={product}><OverviewTab canAddToOrder={canAddToOrder} canManagePurchasingLists={canManagePurchasingLists} companyId={companyId} commercialView={commercialView} hasAnalogs={hasAnalogs} initialFavorite={initialFavorite} priceFreshness={priceFreshness} product={product} stockFreshness={stockFreshness} userId={userId} /></ProductTabLayout>
         <KeyCharacteristicsSummary product={product} />
       </>
-    ) : (
-      <div className="min-w-0" data-testid="product-detail-content">
-        {activeTab === "description" ? <DescriptionTab product={product} /> : null}
-        {activeTab === "characteristics" ? <CharacteristicsTab product={product} /> : null}
-        {activeTab === "datasheet" ? <DatasheetTab product={product} /> : null}
-        {activeTab === "pricing" ? <PricingHistoryTab error={retailPriceHistoryError} history={retailPriceHistory} productId={product.id} /> : null}
-        {activeTab === "relations" ? relationsContent : null}
-      </div>
-    )}
+    ) : activeTab === "relations" ? <div className="min-w-0" data-testid="product-detail-content">{relationsContent}</div> : <ProductTabLayout product={product}>
+      {activeTab === "description" ? <DescriptionTab product={product} /> : null}
+      {activeTab === "characteristics" ? <CharacteristicsTab product={product} /> : null}
+      {activeTab === "datasheet" ? <DatasheetTab product={product} /> : null}
+      {activeTab === "pricing" ? <PricingHistoryTab error={retailPriceHistoryError} history={retailPriceHistory} productId={product.id} /> : null}
+    </ProductTabLayout>}
   </article>;
+}
+
+function ProductTabLayout({ children, product }: { children: ReactNode; product: CatalogProductDetailDto }) {
+  return <div className="grid gap-5 md:grid-cols-[minmax(0,360px)_minmax(0,1fr)] md:items-start lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)] lg:gap-7" data-testid="product-detail-layout">
+    <div data-testid="product-detail-image"><ProductImageGallery fallbackImageUrl={product.imageUrl} images={product.images} productId={product.id} productName={product.name} /></div>
+    <div className="min-w-0" data-testid="product-detail-content">{children}</div>
+  </div>;
 }
 
 function OverviewTab({ canAddToOrder, canManagePurchasingLists, companyId, commercialView, hasAnalogs, initialFavorite, priceFreshness, product, stockFreshness, userId }: Omit<ProductDetailProps, "activeTab" | "relationsContent">) {
@@ -149,7 +148,6 @@ function AvailabilityBlock({ commercialView, freshness }: { commercialView?: Pro
         <Metric label="Дата поступления" value={stock.expectedArrival?.formattedExpectedDate ?? "Не подтверждена"} />
       </dl> : <p className="text-sm text-zinc-600">Данные о наличии пока недоступны.</p>}
       {freshness ? <p className="mt-4 text-xs text-zinc-500">{freshness.label}</p> : null}
-      {freshness?.staleNotice ? <p className="mt-1 text-xs text-amber-700">{freshness.staleNotice}</p> : null}
     </div>
   </section>;
 }

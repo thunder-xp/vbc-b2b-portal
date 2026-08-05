@@ -3,6 +3,7 @@ import Link from "next/link";
 import { BehaviorViewEvent } from "@/src/modules/behavior-analytics/components";
 import { listPartnerOrderHistoryAction } from "@/src/modules/orders/actions/order-history-list.actions";
 import { OrderHistoryRefreshButton } from "@/src/modules/orders/components/OrderHistoryRefreshButton";
+import { NumberedPagination } from "@/src/modules/platform-ui";
 
 const FILTERS = [
   ["all", "Все"],
@@ -36,7 +37,6 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
           <h1 className="mt-1 text-2xl font-semibold">Заказы</h1>
           <p className="mt-2 text-sm text-zinc-600">Состояние заказов, планируемые даты отгрузки и позиции, требующие внимания.</p>
           <p className="mt-1 text-xs text-zinc-500">{result.data.freshness.label}</p>
-          {result.data.freshness.staleNotice ? <p className="mt-1 text-xs text-amber-700">{result.data.freshness.staleNotice}</p> : null}
         </div>
         <OrderHistoryRefreshButton hasCachedOrders={result.data.total > 0} />
       </header>
@@ -100,13 +100,13 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
         </div>
       ) : (
         <div className="overflow-hidden rounded-md border border-zinc-200 bg-white">
-          <div className="hidden grid-cols-[minmax(190px,1fr)_110px_130px_140px_110px_110px_120px] gap-3 border-b border-zinc-200 bg-zinc-50 px-4 py-3 text-xs font-semibold uppercase text-zinc-500 xl:grid">
-            <span>Заказ</span><span>Создан</span><span>Статус</span><span>Итого</span><span>Планируемая отгрузка</span><span>Состав</span><span>Обновлено</span>
+          <div className="hidden grid-cols-[minmax(170px,1fr)_100px_120px_130px_130px_100px_120px_150px] gap-3 border-b border-zinc-200 bg-zinc-50 px-4 py-3 text-xs font-semibold uppercase text-zinc-500 xl:grid">
+            <span>Заказ</span><span>Создан</span><span>Статус</span><span>Итого</span><span>Планируемая отгрузка</span><span>Состав</span><span>Обновлено</span><span>Действия</span>
           </div>
           <ul className="divide-y divide-zinc-200">
             {result.data.orders.map((order) => (
-              <li className="grid gap-2 p-4 xl:relative xl:block xl:p-0" key={order.id}>
-                <Link className="grid gap-2 outline-none hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-600 xl:grid-cols-[minmax(190px,1fr)_110px_130px_140px_110px_110px_120px] xl:items-center xl:p-4 xl:pr-36" href={`/cabinet/orders/${order.id}`} prefetch={false}>
+              <li className="grid gap-2 p-4 xl:grid-cols-[minmax(170px,1fr)_100px_120px_130px_130px_100px_120px_150px] xl:items-center xl:gap-3" key={order.id}>
+                <Link className="grid gap-2 rounded outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 xl:contents" href={`/cabinet/orders/${order.id}`} prefetch={false}>
                   <span className="font-semibold text-zinc-950">{order.primaryLabel}</span>
                   <span className="text-sm text-zinc-600">{formatDate(order.documentDate)}</span>
                   <span className="text-sm font-medium text-zinc-700">{order.statusLabel}</span>
@@ -115,17 +115,11 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
                   <span className="text-sm text-zinc-600">{order.positionCount} поз. · {order.totalUnitCount} ед.</span>
                   <span className="text-sm text-zinc-500">{formatDateTime(order.lastSynchronizedAt)}</span>
                 </Link>
-                <Link className="inline-flex min-h-11 w-fit items-center rounded-md border border-zinc-300 bg-white px-3 text-xs font-semibold text-zinc-700 hover:border-emerald-600 hover:text-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 xl:absolute xl:right-4 xl:top-4" href={`/cabinet/orders/${order.id}/reorder`} prefetch={false}>Повторить заказ</Link>
+                <Link className="inline-flex min-h-11 w-fit items-center rounded-md border border-zinc-300 bg-white px-3 text-xs font-semibold text-zinc-700 hover:border-emerald-600 hover:text-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600" href={`/cabinet/orders/${order.id}/reorder`} prefetch={false}>Повторить заказ</Link>
               </li>
             ))}
           </ul>
-          {result.data.totalPages > 1 ? (
-            <nav aria-label="Страницы заказов" className="flex items-center justify-between border-t border-zinc-200 px-4 py-3 text-sm">
-              <Link className={result.data.page <= 1 ? "pointer-events-none text-zinc-300" : "font-medium text-emerald-700"} href={pageHref(result.data.page - 1, result.data.filter, result.data.search)} prefetch={false}>Назад</Link>
-              <span className="text-zinc-600">Страница {result.data.page} из {result.data.totalPages}</span>
-              <Link className={result.data.page >= result.data.totalPages ? "pointer-events-none text-zinc-300" : "font-medium text-emerald-700"} href={pageHref(result.data.page + 1, result.data.filter, result.data.search)} prefetch={false}>Далее</Link>
-            </nav>
-          ) : null}
+          <div className="px-4 pb-4"><NumberedPagination ariaLabel="Страницы заказов" currentPage={result.data.page} hrefForPage={(targetPage) => pageHref(targetPage, result.data.filter, result.data.search)} totalPages={result.data.totalPages} /></div>
         </div>
       )}
     </div>

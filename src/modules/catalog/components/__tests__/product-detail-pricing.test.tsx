@@ -60,11 +60,17 @@ describe("ProductDetail information architecture", () => {
     expect(screen.getByTestId("product-detail-image").compareDocumentPosition(screen.getByTestId("product-detail-content")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it.each(["description", "characteristics", "datasheet", "pricing", "relations"] as const)("uses a full-width content layout without duplicating the image for %s", (activeTab) => {
+  it.each(["description", "characteristics", "datasheet", "pricing"] as const)("uses the shared image/content layout for %s", (activeTab) => {
     render(<ProductDetail activeTab={activeTab} product={product} />);
+    expect(screen.getByTestId("product-detail-layout")).toBeInTheDocument();
+    expect(screen.getByText("Изображение товара product-1")).toBeInTheDocument();
+    expect(screen.queryByText("← Вернуться в каталог")).not.toBeInTheDocument();
+  });
+
+  it("does not duplicate the main image on the relations tab", () => {
+    render(<ProductDetail activeTab="relations" product={product} relationsContent={<div>Relations</div>} />);
     expect(screen.queryByTestId("product-detail-layout")).not.toBeInTheDocument();
     expect(screen.queryByText("Изображение товара product-1")).not.toBeInTheDocument();
-    expect(screen.queryByText("← Вернуться в каталог")).not.toBeInTheDocument();
   });
 
   it("keeps title first and SKU directly below in Overview", () => {

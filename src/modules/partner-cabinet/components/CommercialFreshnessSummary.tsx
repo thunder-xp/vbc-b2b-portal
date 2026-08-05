@@ -11,7 +11,6 @@ export function CommercialFreshnessSummary({ items }: { items: WorkspaceHomeDto[
         <span className="truncate text-zinc-500">{statusLabel(item.freshness.status)}</span>
       </div>)}
     </div>
-    {records.some((item) => item.freshness.status === "stale" || item.freshness.status === "unknown") ? <p className="mt-3 text-xs font-medium text-amber-800">Часть данных обновлялась давно. Показаны последние подтверждённые значения.</p> : null}
   </section>;
 }
 

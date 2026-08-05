@@ -17,12 +17,14 @@ describe("FinanceOverview states", () => {
 
   it("keeps a previous snapshot visible after synchronization failure", () => {
     const model = overview("failed_with_snapshot");
+    model.synchronizedAt = "2026-08-05T12:00:00.000Z";
     model.contracts = [{ id: "b", companyId: "c", externalContractRef: "r", contractNumber: "NS-1", contractName: "NS-1", currencyRef: "m", currencyCode: "MDL", signedBalance: "100", sourceVersion: null, synchronizedAt: new Date().toISOString(), balanceType: "receivable", absoluteDisplayAmount: "100.00" }];
     model.summaries = [{ currencyCode: "MDL", receivableTotal: "100.00", advanceTotal: "0.00" }];
     model.showLastConfirmedNotice = true;
     render(<FinanceOverview overview={model} />);
-    expect(screen.getByText(/Данные давно не обновлялись/)).toBeInTheDocument();
+    expect(screen.queryByText(/Данные давно не обновлялись/)).not.toBeInTheDocument();
     expect(screen.getByText("NS-1")).toBeInTheDocument();
+    expect(screen.getAllByText(/Обновлено/).length).toBeGreaterThan(0);
   });
 });
 

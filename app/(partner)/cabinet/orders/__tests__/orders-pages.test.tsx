@@ -115,7 +115,7 @@ describe("partner order history pages", () => {
     render(await OrderDetailPage({ params: Promise.resolve({ id: summary.id }) }));
 
     expect(screen.getByRole("heading", { name: "№ NSUU-001" })).toBeInTheDocument();
-    expect(screen.getByText("Заказ из истории Novotech")).toBeInTheDocument();
+    expect(screen.queryByText("Заказ из истории Novotech")).not.toBeInTheDocument();
     expect(screen.getByText("Camera")).toBeInTheDocument();
     expect(screen.queryByText("Снимок при отправке из платформы")).not.toBeInTheDocument();
     expect(screen.getByText("Планируемая отгрузка")).toBeInTheDocument();

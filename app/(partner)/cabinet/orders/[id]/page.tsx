@@ -37,10 +37,7 @@ export default async function OrderDetailPage({ params, searchParams }: OrderDet
         <p className="text-xs font-semibold uppercase text-emerald-700">Заказ партнёра</p>
         <h2 className="mt-1 text-2xl font-semibold">{order.primaryLabel}</h2>
         <p className="mt-2 text-sm font-medium text-zinc-700">{order.statusLabel}</p>
-        <p className="mt-2 max-w-2xl text-sm text-zinc-600">{order.posted ? "Следующий шаг зависит от текущего статуса и планируемой даты отгрузки." : "Менеджер Novotech проверяет состав и условия заказа. После подтверждения статус обновится автоматически."}</p>
         <p className="mt-1 text-xs text-zinc-500">{order.freshness.label}</p>
-        {order.freshness.staleNotice ? <p className="mt-1 text-xs text-amber-700">{order.freshness.staleNotice}</p> : null}
-        {order.originLabel ? <p className="mt-1 text-sm text-zinc-500">{order.originLabel}</p> : null}
         <dl className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Metric label="Компания" value={order.companyName} />
           <Metric label="Дата заказа" value={formatDate(order.documentDate)} />
@@ -61,8 +58,8 @@ export default async function OrderDetailPage({ params, searchParams }: OrderDet
           <ul className="divide-y divide-zinc-200">
             {order.lines.map((line, index) => (
               <li className="grid gap-3 p-4 sm:grid-cols-[4rem_minmax(0,1fr)_90px_140px_140px] sm:items-center" key={`${line.sku ?? line.productName}-${index}`}>
-                <ProductLineThumbnail imageUrl={line.product?.thumbnail ?? null} productName={line.productName} />
-                <div><p className="font-medium text-zinc-950">{line.productName}</p>{line.sku ? <p className="text-xs text-zinc-500">{line.sku}</p> : null}{!line.product ? <p className="mt-1 text-xs text-zinc-500">Товар из истории 1С</p> : null}</div>
+                {line.product ? <Link aria-label={`Открыть товар ${line.productName}`} className="rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600" href={`/cabinet/catalog/${line.product.slug}`} prefetch={false}><ProductLineThumbnail imageUrl={line.product.thumbnail} productName={line.productName} /></Link> : <ProductLineThumbnail imageUrl={null} productName={line.productName} />}
+                <div>{line.product ? <Link className="font-medium text-zinc-950 hover:text-emerald-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600" href={`/cabinet/catalog/${line.product.slug}`} prefetch={false}>{line.productName}</Link> : <p className="font-medium text-zinc-950">{line.productName}</p>}{line.sku ? <p className="text-xs text-zinc-500">{line.sku}</p> : null}{!line.product ? <p className="mt-1 text-xs text-zinc-500">Товар из истории 1С</p> : null}</div>
                 <span className="text-sm text-zinc-700">{line.quantity} ед.</span>
                 <span className="text-sm text-zinc-700">{line.unitPrice ?? "Цена скрыта"}</span>
                 <span className="text-sm font-semibold text-zinc-950">{line.lineTotal ?? "—"}</span>
@@ -79,8 +76,8 @@ export default async function OrderDetailPage({ params, searchParams }: OrderDet
           <ul className="mt-3 divide-y divide-zinc-200 border border-zinc-200 bg-white">
             {order.portalSnapshot.lines.map((line, index) => (
               <li className="grid gap-3 p-3 sm:grid-cols-[3rem_minmax(0,1fr)_auto] sm:items-center" key={`${line.sku}-${index}`}>
-                <ProductLineThumbnail imageUrl={line.product?.thumbnail ?? null} productName={line.productName} size="compact" />
-                <div><p className="font-medium text-zinc-950">{line.productName}</p><p className="text-xs text-zinc-500">{line.sku} · {line.quantity} ед.</p></div>
+                {line.product ? <Link aria-label={`Открыть товар ${line.productName}`} className="rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600" href={`/cabinet/catalog/${line.product.slug}`} prefetch={false}><ProductLineThumbnail imageUrl={line.product.thumbnail} productName={line.productName} size="compact" /></Link> : <ProductLineThumbnail imageUrl={null} productName={line.productName} size="compact" />}
+                <div>{line.product ? <Link className="font-medium text-zinc-950 hover:text-emerald-700" href={`/cabinet/catalog/${line.product.slug}`} prefetch={false}>{line.productName}</Link> : <p className="font-medium text-zinc-950">{line.productName}</p>}<p className="text-xs text-zinc-500">{line.sku} · {line.quantity} ед.</p></div>
                 <p className="text-sm font-semibold text-zinc-950">{line.lineTotal ?? "—"}</p>
               </li>
             ))}
