@@ -6,6 +6,7 @@ import { listEstimatesAction } from "@/src/modules/estimates/actions";
 import { EstimateStatusBadge, estimateStatusLabels } from "@/src/modules/estimates/components/EstimateStatusBadge";
 import { EstimateListActions } from "@/src/modules/estimates/components/EstimateListActions";
 import type { EstimateStatus } from "@/src/modules/estimates/types";
+import { NumberedPagination } from "@/src/modules/platform-ui";
 
 type SearchParams = { search?: string; status?: string; versionStatus?: string; dateFrom?: string; dateTo?: string; page?: string };
 const quickFilters = [
@@ -90,14 +91,13 @@ export default async function EstimatesPage({ searchParams }: { searchParams: Pr
 }
 
 function Pagination({ current, query, total }: { current: number; query: SearchParams; total: number }) {
-  if (total <= 1) return null;
   const href = (page: number) => {
     const params = new URLSearchParams();
     for (const key of ["search", "status", "versionStatus", "dateFrom", "dateTo"] as const) if (query[key]) params.set(key, query[key]!);
     params.set("page", String(page));
     return `/cabinet/estimates?${params.toString()}`;
   };
-  return <nav aria-label="Страницы смет" className="flex items-center justify-between text-sm"><Link aria-disabled={current <= 1} className={`font-semibold ${current <= 1 ? "pointer-events-none text-zinc-300" : "text-emerald-700"}`} href={href(current - 1)} prefetch={false}>← Назад</Link><span className="text-zinc-500">Страница {current} из {total}</span><Link aria-disabled={current >= total} className={`font-semibold ${current >= total ? "pointer-events-none text-zinc-300" : "text-emerald-700"}`} href={href(current + 1)} prefetch={false}>Далее →</Link></nav>;
+  return <NumberedPagination ariaLabel="Страницы смет" currentPage={current} hrefForPage={href} totalPages={total} />;
 }
 
 function formatDate(value: string) {

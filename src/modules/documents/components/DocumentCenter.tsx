@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { NumberedPagination } from "../../platform-ui";
+
 import { DOCUMENT_SECTIONS, DOCUMENT_TYPE_LABELS } from "../document-taxonomy";
 import type { DocumentSection, DocumentStateFilter, PartnerDocumentPage, PartnerDocumentType } from "../types";
 import { DocumentCard } from "./DocumentCard";
@@ -16,11 +18,9 @@ export function DocumentCenter({ page, filters }: { page: PartnerDocumentPage; f
     </form>
     <p aria-live="polite" className="text-sm text-zinc-600">Найдено документов: {page.totalCount}</p>
     {page.items.length ? <div>{page.items.map((document)=><DocumentCard document={document} key={document.id} />)}</div> : <section className="border-y border-zinc-200 py-10 text-center"><h2 className="font-semibold text-zinc-950">Документы не найдены</h2><p className="mt-2 text-sm text-zinc-600">Измените период или фильтры. Новые документы появятся после публикации.</p></section>}
-    {page.totalPages > 1 ? <nav aria-label="Страницы документов" className="flex items-center justify-between"><PageLink disabled={page.page<=1} href={href({...filters,page:page.page-1})}>Назад</PageLink><span className="text-sm text-zinc-600">{page.page} из {page.totalPages}</span><PageLink disabled={page.page>=page.totalPages} href={href({...filters,page:page.page+1})}>Далее</PageLink></nav> : null}
+    <NumberedPagination ariaLabel="Страницы документов" currentPage={page.page} hrefForPage={(targetPage) => href({ ...filters, page: targetPage })} totalPages={page.totalPages} />
   </div>;
 }
 
 function Field({label,children}:{label:string;children:React.ReactNode}){return <label className="grid gap-1 text-sm font-medium text-zinc-800">{label}<span className="[&_input]:h-11 [&_input]:w-full [&_input]:rounded-md [&_input]:border [&_input]:border-zinc-300 [&_input]:px-3 [&_select]:h-11 [&_select]:w-full [&_select]:rounded-md [&_select]:border [&_select]:border-zinc-300 [&_select]:px-3">{children}</span></label>}
 function href(values:Record<string,string|number|undefined>){const params=new URLSearchParams();Object.entries(values).forEach(([key,value])=>{if(value!==undefined&&value!==""&&!(key==="section"&&value==="all"))params.set(key,String(value));});const query=params.toString();return query?`/cabinet/documents?${query}`:"/cabinet/documents";}
-function PageLink({disabled,href,children}:{disabled:boolean;href:string;children:React.ReactNode}){return disabled?<span className="rounded-md border border-zinc-200 px-4 py-2 text-sm text-zinc-400">{children}</span>:<Link className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-semibold" href={href}>{children}</Link>}
-
