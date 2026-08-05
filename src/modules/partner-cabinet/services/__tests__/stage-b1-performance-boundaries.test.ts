@@ -8,10 +8,43 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "..
 
 describe("Stage B1 authenticated rendering boundaries", () => {
   it("keeps normal workspace rendering independent from the 1C provider", async () => {
-    const factory = await source("src/modules/partner-cabinet/actions/service-factory.ts");
+    const factory = await source("src/modules/partner-cabinet/actions/workspace-context.factory.ts");
     expect(factory).not.toContain("getOneCEnv");
     expect(factory).not.toContain("createPartnerLookupService");
-    expect(factory).toContain("findPriceTypeName");
+    expect(factory).toContain("SupabasePartnerPriceTypeReadModel");
+  });
+
+  it("keeps the shared shell on a lightweight runtime import graph", async () => {
+    const [action, factory, repository] = await Promise.all([
+      source("src/modules/partner-cabinet/actions/workspace-context.action.ts"),
+      source("src/modules/partner-cabinet/actions/workspace-context.factory.ts"),
+      source("src/modules/partner-cabinet/repositories/supabase-partner-shell.repository.ts"),
+    ]);
+    expect(action).toContain('from "./workspace-context.factory"');
+    expect(action).not.toContain('from "./service-factory"');
+    expect(factory).not.toMatch(/Catalog|Campaign|Opportunity|PartnerSupport|WorkspaceDashboard/);
+    expect(repository).not.toContain("createAdminClient");
+    expect(repository).not.toMatch(/OneC|integration\/providers/);
+  });
+
+  it("reuses one request-scoped Supabase client and defers non-rendered bootstrap work", async () => {
+    const [serverClient, factory, service] = await Promise.all([
+      source("src/lib/supabase/server.ts"),
+      source("src/modules/partner-cabinet/actions/workspace-context.factory.ts"),
+      source("src/modules/partner-cabinet/services/workspace-context.service.ts"),
+    ]);
+    expect(serverClient).toContain("export const createClient = cache(");
+    expect(factory).toContain("after(task)");
+    expect(service).toContain("scheduleDeferredTask");
+  });
+
+  it("keeps bounded cart and notification reads parallel and failure-tolerant", async () => {
+    const layout = await source("app/(partner)/cabinet/layout.tsx");
+    expect(layout).toContain("await Promise.all([");
+    expect(layout).toContain("getCartItemCountAction");
+    expect(layout).toContain("getNotificationSummaryAction");
+    expect(layout).toContain("cartItemCountResult?.success ? cartItemCountResult.data : 0");
+    expect(layout).toContain("notificationSummaryResult.success");
   });
 
   it("uses the lightweight cart aggregate for the shell badge", async () => {

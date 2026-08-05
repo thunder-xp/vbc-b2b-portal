@@ -51,6 +51,25 @@ describe("DefaultPartnerWorkspaceContextService", () => {
     await expect(service({ historyBootstrapEnsurer: { ensureFirstAccess } }).getWorkspaceContext("partner-1")).resolves.toMatchObject({ accessState: "active" });
   });
 
+  it("allows the runtime factory to defer bootstrap work beyond shell rendering", async () => {
+    const ensureFirstAccess = vi.fn().mockResolvedValue({ status: "queued" });
+    let deferredTask: (() => Promise<void>) | undefined;
+    const scheduleDeferredTask = vi.fn(async (task: () => Promise<void>) => {
+      deferredTask = task;
+    });
+
+    const context = await service({
+      historyBootstrapEnsurer: { ensureFirstAccess },
+      scheduleDeferredTask,
+    }).getWorkspaceContext("partner-1");
+
+    expect(context.accessState).toBe("active");
+    expect(scheduleDeferredTask).toHaveBeenCalledOnce();
+    expect(ensureFirstAccess).not.toHaveBeenCalled();
+    await deferredTask!();
+    expect(ensureFirstAccess).toHaveBeenCalledWith("company-1", "partner-1");
+  });
+
   it("keeps workspace access available when the local price-type mapping is unavailable", async () => {
     const context = await service({ priceTypeUnavailable: true }).getWorkspaceContext("partner-1");
 
@@ -171,6 +190,7 @@ type Fixtures = {
   priceTypeUnavailable?: boolean;
   priceTypeReadModel?: PartnerPriceTypeReadModel;
   historyBootstrapEnsurer?: { ensureFirstAccess(companyId: string, userId: string): Promise<unknown> };
+  scheduleDeferredTask?: (task: () => Promise<void>) => Promise<void>;
 };
 
 function service(fixtures: Fixtures = {}) {
@@ -236,6 +256,7 @@ function service(fixtures: Fixtures = {}) {
     permissionService,
     priceTypeReadModel,
     fixtures.historyBootstrapEnsurer,
+    fixtures.scheduleDeferredTask,
   );
 }
 

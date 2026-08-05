@@ -68,6 +68,10 @@ export interface PartnerHistoryBootstrapEnsurer {
   ensureFirstAccess(companyId: string, userId: string): Promise<unknown>;
 }
 
+export type PartnerShellDeferredTaskScheduler = (
+  task: () => Promise<void>,
+) => Promise<void>;
+
 export class DefaultPartnerWorkspaceContextService
   implements PartnerWorkspaceContextService
 {
@@ -78,6 +82,7 @@ export class DefaultPartnerWorkspaceContextService
     private readonly permissionService: PermissionService,
     private readonly priceTypeReadModel: PartnerPriceTypeReadModel,
     private readonly historyBootstrapEnsurer?: PartnerHistoryBootstrapEnsurer,
+    private readonly scheduleDeferredTask: PartnerShellDeferredTaskScheduler = async (task) => task(),
   ) {}
 
   private readonly resolveWorkspaceContext = cache((userId: string) =>
@@ -187,35 +192,41 @@ export class DefaultPartnerWorkspaceContextService
       ),
     };
     if (this.historyBootstrapEnsurer) {
-      const startedAt = Date.now();
-      const correlationId = crypto.randomUUID();
-      try {
-        await this.historyBootstrapEnsurer.ensureFirstAccess(context.companyId!, userId);
-        console.info({ event: "partner_order_history_bootstrap_first_access_checked", correlationId, companyId: context.companyId, durationMs: Date.now() - startedAt, ...getReleaseMetadata() });
-      } catch (error) {
-        const repositoryError = error instanceof OrderHistoryBootstrapRepositoryError ? error : null;
-        console.error({
-          event: "partner_order_history_bootstrap_first_access_failed",
-          correlationId,
-          companyId: context.companyId,
-          operation: repositoryError?.operation ?? "ensure_first_access",
-          repositoryMethod: "SupabaseOrderHistoryBootstrapRepository.ensureFirstAccess",
-          rpc: "enqueue_partner_order_history_bootstrap",
-          stage: "bootstrap_enqueue",
-          errorType: error instanceof Error ? error.name : typeof error,
-          sqlState: repositoryError?.databaseCode ?? null,
-          safeDatabaseMessage: repositoryError?.databaseMessage ?? null,
-          details: repositoryError?.databaseDetails ?? null,
-          hint: repositoryError?.databaseHint ?? null,
-          constraint: repositoryError?.databaseConstraint ?? null,
-          stack: error instanceof Error ? error.stack : null,
-          durationMs: Date.now() - startedAt,
-          attemptNumber: 1,
-          ...getReleaseMetadata(),
-        });
-      }
+      await this.scheduleDeferredTask(() =>
+        this.ensureHistoryBootstrap(context.companyId!, userId),
+      );
     }
     return context;
+  }
+
+  private async ensureHistoryBootstrap(companyId: string, userId: string): Promise<void> {
+    const startedAt = Date.now();
+    const correlationId = crypto.randomUUID();
+    try {
+      await this.historyBootstrapEnsurer!.ensureFirstAccess(companyId, userId);
+      console.info({ event: "partner_order_history_bootstrap_first_access_checked", correlationId, companyId, durationMs: Date.now() - startedAt, ...getReleaseMetadata() });
+    } catch (error) {
+      const repositoryError = error instanceof OrderHistoryBootstrapRepositoryError ? error : null;
+      console.error({
+        event: "partner_order_history_bootstrap_first_access_failed",
+        correlationId,
+        companyId,
+        operation: repositoryError?.operation ?? "ensure_first_access",
+        repositoryMethod: "SupabasePartnerHistoryBootstrapEnsurer.ensureFirstAccess",
+        rpc: "enqueue_partner_order_history_bootstrap",
+        stage: "bootstrap_enqueue",
+        errorType: error instanceof Error ? error.name : typeof error,
+        sqlState: repositoryError?.databaseCode ?? null,
+        safeDatabaseMessage: repositoryError?.databaseMessage ?? null,
+        details: repositoryError?.databaseDetails ?? null,
+        hint: repositoryError?.databaseHint ?? null,
+        constraint: repositoryError?.databaseConstraint ?? null,
+        stack: error instanceof Error ? error.stack : null,
+        durationMs: Date.now() - startedAt,
+        attemptNumber: 1,
+        ...getReleaseMetadata(),
+      });
+    }
   }
 
   private async resolvePriceTypeName(reference: string | null): Promise<string | null> {

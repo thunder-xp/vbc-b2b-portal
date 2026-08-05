@@ -1,12 +1,7 @@
 import {
-  createAccessRequestService,
   createCompanyAccessService,
-  createPermissionService,
-  createUserProfileService,
 } from "../../access-control/actions/service-factory";
-import { SupabasePricingInventoryRepository } from "../../pricing-inventory/repositories/supabase";
 import {
-  DefaultPartnerWorkspaceContextService,
   DefaultWorkspaceHomeService,
 } from "../services";
 import { SupabaseCommercialFreshnessReadModel } from "../repositories/supabase-commercial-freshness.repository";
@@ -16,22 +11,10 @@ import { SupabaseCommercialOpportunityRepository } from "../../commercial-opport
 import { SupabaseCommercialCampaignRepository } from "../../commercial-campaigns/repositories/supabase-commercial-campaign.repository";
 import { DefaultCatalogService } from "../../catalog/services";
 import { SupabaseCatalogRepository } from "../../catalog/repositories/supabase";
-import { SupabaseOrderHistoryBootstrapRepository } from "../../orders/repositories/supabase";
 import { SupabasePartnerSupportRepository } from "../../partner-support";
+import { createPartnerWorkspaceContextService } from "./workspace-context.factory";
 
-const priceTypeRepository = new SupabasePricingInventoryRepository();
-const workspaceContextService = new DefaultPartnerWorkspaceContextService(
-  createUserProfileService(),
-  createAccessRequestService(),
-  createCompanyAccessService(),
-  createPermissionService(),
-  { findName: (reference) => priceTypeRepository.findPriceTypeName(reference) },
-  new SupabaseOrderHistoryBootstrapRepository(),
-);
-
-export function createPartnerWorkspaceContextService(): DefaultPartnerWorkspaceContextService {
-  return workspaceContextService;
-}
+export { createPartnerWorkspaceContextService } from "./workspace-context.factory";
 
 export function createWorkspaceHomeService(): DefaultWorkspaceHomeService {
   const catalogService = new DefaultCatalogService(

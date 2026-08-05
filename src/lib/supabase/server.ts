@@ -2,11 +2,12 @@ import "server-only";
 
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { cache } from "react";
 
 import { getSupabaseServerEnv } from "@/src/lib/env";
 import { recordDatabaseQuery } from "@/src/lib/performance/request-diagnostics";
 
-export async function createClient() {
+export const createClient = cache(async function createClient() {
   const cookieStore = await cookies();
   const { url, anonKey } = getSupabaseServerEnv();
 
@@ -47,7 +48,7 @@ export async function createClient() {
       },
     },
   });
-}
+});
 
 function isPostgrestRequest(input: RequestInfo | URL): boolean {
   const rawUrl = input instanceof Request ? input.url : input.toString();

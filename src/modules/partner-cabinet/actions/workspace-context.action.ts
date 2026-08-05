@@ -7,7 +7,7 @@ import {
 } from "../../access-control/actions/action-result";
 import { getAuthenticatedUserId } from "../../access-control/actions/service-factory";
 import type { PartnerWorkspaceContext } from "../services";
-import { createPartnerWorkspaceContextService } from "./service-factory";
+import { createPartnerWorkspaceContextService } from "./workspace-context.factory";
 import {
   emitRequestTotal,
   measurePerformanceStage,
