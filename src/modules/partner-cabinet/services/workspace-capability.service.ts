@@ -17,6 +17,8 @@ export type WorkspaceCapabilityKey =
   | "warranty"
   | "support"
   | "knowledge_base"
+  | "loyalty_affiliate"
+  | "loyalty_bonus"
   | "company";
 
 export type WorkspaceCapabilityAvailability = "available" | "coming_soon";
@@ -98,6 +100,8 @@ const WORKSPACE_CAPABILITIES: readonly CapabilityDefinition[] = [
   { key: "warranty", label: "Сервисный центр", href: "/cabinet/service", requiredPermission: "service.view", released: true, unavailableBehavior: "hide" },
   { key: "support", label: "IT-поддержка", href: "/cabinet/support", requiredPermission: "support.view", released: true, unavailableBehavior: "hide" },
   { key: "knowledge_base", label: "База знаний", href: "/cabinet/knowledge", requiredPermission: "knowledge.view", released: true, unavailableBehavior: "hide" },
+  { key: "loyalty_affiliate", label: "Аффилированная программа", href: "/cabinet/loyalty/affiliate", requiredPermission: "catalog.view", released: true, unavailableBehavior: "hide" },
+  { key: "loyalty_bonus", label: "Бонусная программа", href: "/cabinet/loyalty/bonus", requiredPermission: "catalog.view", released: true, unavailableBehavior: "hide" },
   { key: "company", label: "Моя компания", href: "/cabinet/company", requiredPermission: null, released: true, unavailableBehavior: "hide" },
 ];
 

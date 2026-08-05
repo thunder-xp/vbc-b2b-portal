@@ -40,7 +40,7 @@ describe("Partner workspace shell", () => {
     render(<PartnerHeader context={context} />);
 
     expect(screen.getByText("Partner User")).toBeInTheDocument();
-    expect(screen.getByText("Partner Company")).toBeInTheDocument();
+    expect(screen.queryByText("Рабочее пространство")).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Открыть меню пользователя" }));
     expect(screen.getByText("Владелец компании")).toBeInTheDocument();
     expect(screen.queryByText("role-1")).not.toBeInTheDocument();
@@ -94,6 +94,7 @@ describe("Partner workspace shell", () => {
       "Проектная защита",
       "Сметы и КП",
       "Заказы и финансы",
+      "Программы лояльности",
       "Гарантия и техподдержка",
     ]);
 

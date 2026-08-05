@@ -6,9 +6,11 @@ import type { WorkspaceNavigationItem } from "../services/workspace-capability.s
 import { PartnerSidebar } from "./PartnerSidebar";
 
 export function PartnerMobileNavigation({
+  companyName,
   hasWorkspaceAccess,
   navigation,
 }: {
+  companyName?: string | null;
   hasWorkspaceAccess: boolean;
   navigation: WorkspaceNavigationItem[];
 }) {
@@ -35,6 +37,7 @@ export function PartnerMobileNavigation({
           />
           <div className="relative h-full w-72 max-w-[85vw]">
             <PartnerSidebar
+              companyName={companyName}
               hasWorkspaceAccess={hasWorkspaceAccess}
               navigation={navigation}
               onNavigate={() => setIsOpen(false)}

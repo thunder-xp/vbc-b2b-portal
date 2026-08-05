@@ -14,13 +14,7 @@ export function PartnerHeader({ context, mobileNavigation }: { context: PartnerW
 
   return (
     <header className="grid min-h-16 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-zinc-200 bg-white px-4 py-2 lg:grid-cols-[minmax(10rem,1fr)_minmax(18rem,36rem)_auto] lg:px-6">
-      <div className="flex min-w-0 items-center gap-3">
-        {mobileNavigation}
-        <div className="min-w-0">
-          <p className="truncate text-[11px] font-medium uppercase text-zinc-500">Рабочее пространство</p>
-          <p className="truncate text-sm font-semibold text-zinc-950">{context.companyName ?? "Доступ к компании не настроен"}</p>
-        </div>
-      </div>
+      <div className="flex min-w-0 items-center gap-3">{mobileNavigation}</div>
       <form action="/cabinet/search" className="order-3 col-span-2 flex min-w-0 lg:order-none lg:col-span-1" role="search">
         <label className="sr-only" htmlFor="partner-global-search">Поиск по рабочему пространству</label>
         <div className="relative w-full">

@@ -34,6 +34,8 @@ describe("resolveWorkspaceCapabilities", () => {
       "Документы",
       "Сервисный центр",
       "База знаний",
+      "Аффилированная программа",
+      "Бонусная программа",
       "Моя компания",
     ]);
     expect(model.navigation.find((item) => item.key === "projects")).toMatchObject({ href: "/cabinet/specifications", availability: "available" });

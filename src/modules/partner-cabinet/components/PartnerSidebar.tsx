@@ -13,6 +13,7 @@ import {
   Landmark,
   FolderKanban,
   Gauge,
+  Gift,
   LifeBuoy,
   ListChecks,
   ListPlus,
@@ -49,6 +50,8 @@ const icons = {
   warranty: LifeBuoy,
   support: LifeBuoy,
   knowledge_base: BookOpen,
+  loyalty_affiliate: Gift,
+  loyalty_bonus: Gift,
   company: Building2,
 } satisfies Record<WorkspaceCapabilityKey, typeof Gauge>;
 
@@ -68,6 +71,7 @@ const projectNavigationOrder: readonly WorkspaceCapabilityKey[] = [
 ];
 const estimatesNavigationOrder: readonly WorkspaceCapabilityKey[] = ["proposals"];
 const commercialNavigationOrder: readonly WorkspaceCapabilityKey[] = ["orders", "finance", "documents"];
+const loyaltyNavigationOrder: readonly WorkspaceCapabilityKey[] = ["loyalty_affiliate", "loyalty_bonus"];
 
 function isRouteActive(pathname: string, href: string | null): boolean {
   if (!href) return false;
@@ -228,10 +232,12 @@ function ExpandableNavigationGroup({
 }
 
 export function PartnerSidebar({
+  companyName,
   hasWorkspaceAccess = true,
   navigation,
   onNavigate,
 }: {
+  companyName?: string | null;
   hasWorkspaceAccess?: boolean;
   navigation: WorkspaceNavigationItem[];
   onNavigate?: () => void;
@@ -267,12 +273,17 @@ export function PartnerSidebar({
     const item = navigationByKey.get(key);
     return item ? [item] : [];
   });
+  const loyaltyNavigation = loyaltyNavigationOrder.flatMap((key) => {
+    const item = navigationByKey.get(key);
+    return item ? [item] : [];
+  });
 
   return (
     <aside className="flex h-full min-h-0 flex-col overflow-hidden border-r border-zinc-200 bg-zinc-950 text-white">
       <div className="shrink-0 border-b border-white/10 px-4 py-4">
         <p className="text-xs font-semibold uppercase text-emerald-300">Novotech</p>
         <p className="mt-1 text-base font-semibold">Кабинет партнёра</p>
+        <p className="mt-1 truncate text-xs text-zinc-400" title={companyName ?? undefined}>{companyName ?? "Компания не выбрана"}</p>
       </div>
 
       <nav aria-label="Рабочие разделы" className="min-h-0 flex-1 overflow-y-auto px-2 py-3">
@@ -299,6 +310,8 @@ export function PartnerSidebar({
             trailingContent={estimatesNavigation.length > 0 ? <ComingSoonNavigationItem icon={FileText} label="Генератор КП" /> : null}
           />
           <ExpandableNavigationGroup hasWorkspaceAccess={hasWorkspaceAccess} icon={ListChecks} id="orders-finance-navigation" items={commercialNavigation} label="Заказы и финансы" onNavigate={onNavigate} pathname={pathname} />
+
+          <ExpandableNavigationGroup hasWorkspaceAccess={hasWorkspaceAccess} icon={Gift} id="loyalty-navigation" items={loyaltyNavigation} label="Программы лояльности" onNavigate={onNavigate} pathname={pathname} />
 
           <ExpandableNavigationGroup hasWorkspaceAccess={hasWorkspaceAccess} icon={LifeBuoy} id="support-navigation" items={supportNavigation} label="Гарантия и техподдержка" onNavigate={onNavigate} pathname={pathname} />
         </div>
