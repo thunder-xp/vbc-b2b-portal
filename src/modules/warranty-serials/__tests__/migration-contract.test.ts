@@ -4,11 +4,19 @@ import { describe, expect, it } from "vitest";
 
 const sql = readFileSync(resolve(process.cwd(), "supabase/migrations/20260806220000_warranty_serial_evidence.sql"), "utf8");
 const mappingIndexSql = readFileSync(resolve(process.cwd(), "supabase/migrations/20260807001500_warranty_serial_mapping_indexes.sql"), "utf8");
+const setBasedRebuildSql = readFileSync(resolve(process.cwd(), "supabase/migrations/20260807010500_warranty_serial_set_based_rebuild.sql"), "utf8");
 
 describe("warranty serial migration contract", () => {
   it("indexes exact normalized company and product mapping used during publication", () => {
     expect(mappingIndexSql).toContain("on public.one_c_counterparties(lower(external_1c_id))");
     expect(mappingIndexSql).toContain("on public.catalog_products(lower(external_1c_id))");
+  });
+
+  it("rebuilds derived state as a set-based indexed projection", () => {
+    expect(setBasedRebuildSql).toContain("select distinct on (event.normalized_serial_hash)");
+    expect(setBasedRebuildSql).toContain("insert into public.warranty_serial_state");
+    expect(setBasedRebuildSql).toContain("get diagnostics rebuilt=row_count");
+    expect(setBasedRebuildSql).not.toContain("for target_hash in");
   });
   it("creates immutable event history and rebuildable state behind RLS", () => {
     expect(sql).toContain("create table public.warranty_serial_events");
