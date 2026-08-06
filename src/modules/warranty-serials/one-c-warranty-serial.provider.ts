@@ -1,9 +1,10 @@
 import "server-only";
 
 import { createHash } from "node:crypto";
+import { setTimeout as delay } from "node:timers/promises";
 import { z } from "zod";
 
-import { OneCODataClient } from "@/src/modules/integration/providers/one-c/one-c-odata-client";
+import { OneCODataClient, OneCODataHttpError } from "@/src/modules/integration/providers/one-c/one-c-odata-client";
 import { parseOptionalOneCGuid, parseRequiredOneCGuid } from "@/src/modules/integration/providers/one-c/one-c-guid";
 import type { WarrantySourceDocument, WarrantySourceEvent, WarrantySourcePage } from "./types";
 
@@ -27,13 +28,13 @@ export class OneCWarrantySerialProvider {
     const select = input.stage === "sale_scan"
       ? "Ref_Key,DataVersion,Number,Date,Posted,DeletionMark,Контрагент_Key,Договор_Key,Заказ,Заказ_Type,СтруктурнаяЕдиница_Key,Организация_Key"
       : "Ref_Key,DataVersion,Number,Date,Posted,DeletionMark,ВидОперации,Контрагент_Key,ДокументОснование,ДокументОснование_Type,Организация_Key,СтруктурнаяЕдиница_Key";
-    const payload = await this.client.getLiteralDateRange(entity, {
+    const payload = await readWithRetry(() => this.client.getLiteralDateRange(entity, {
       startDate: input.rangeStart,
       endDate: input.rangeEnd,
       select,
       top: input.top,
       skip: input.skip,
-    }, { requestKind: `warranty_${input.stage}_headers` });
+    }, { requestKind: `warranty_${input.stage}_headers` }));
     const parsed = headerEnvelope.parse(payload);
     const results = await mapBounded(parsed.value, this.concurrency, (header) =>
       input.stage === "return_scan" && header["ВидОперации"] !== "ВозвратОтПокупателя"
@@ -49,9 +50,9 @@ export class OneCWarrantySerialProvider {
 
   private async readDocument(stage: Stage, header: Row): Promise<{ document: WarrantySourceDocument; events: WarrantySourceEvent[] }> {
     const document = sourceDocument(stage, header);
-    const detail = asRow(await this.client.get(`${document.sourceEntity}(guid'${document.sourceDocumentRef}')`, {
+    const detail = asRow(await readWithRetry(() => this.client.get(`${document.sourceEntity}(guid'${document.sourceDocumentRef}')`, {
       "$select": "Ref_Key,DataVersion,Number,Date,Posted,DeletionMark,ВидОперации,Контрагент_Key,ДокументОснование,ДокументОснование_Type,Организация_Key,СтруктурнаяЕдиница_Key,Запасы,СерииНоменклатуры",
-    }, { requestKind: `warranty_${stage}_detail` }));
+    }, { requestKind: `warranty_${stage}_detail` })));
     return { document, events: await this.mapEvents(stage, detail, document) };
   }
 
@@ -116,16 +117,16 @@ export class OneCWarrantySerialProvider {
 
   private resolveSerial(ref: string) {
     return cached(this.serialCache, ref, async () => {
-      const row = asRow(await this.client.get(`Catalog_СерииНоменклатуры(guid'${ref}')`, { "$select": "Ref_Key,Description,DeletionMark" }, { requestKind: "warranty_serial_catalog" }));
+      const row = asRow(await readWithRetry(() => this.client.get(`Catalog_СерииНоменклатуры(guid'${ref}')`, { "$select": "Ref_Key,Description,DeletionMark" }, { requestKind: "warranty_serial_catalog" })));
       return row.DeletionMark === true ? null : nullableString(row.Description);
     });
   }
 
   private resolveProduct(ref: string) {
     return cached(this.productCache, ref, async () => {
-      const row = asRow(await this.client.get(`Catalog_Номенклатура(guid'${ref}')`, {
+      const row = asRow(await readWithRetry(() => this.client.get(`Catalog_Номенклатура(guid'${ref}')`, {
         "$select": "Ref_Key,Артикул,Description,ГарантийныйСрок,ИспользоватьСерииНоменклатуры,DeletionMark,Недействителен",
-      }, { requestKind: "warranty_product_catalog" }));
+      }, { requestKind: "warranty_product_catalog" })));
       if (row.DeletionMark === true || row["Недействителен"] === true) return null;
       return { sku: nullableString(row["Артикул"]), name: nullableString(row.Description), warrantyMonths: warrantyMonths(row["ГарантийныйСрок"]) };
     });
@@ -168,6 +169,17 @@ async function mapBounded<T, R>(items: T[], concurrency: number, mapper: (item: 
     while (cursor < items.length) { const index = cursor++; result[index] = await mapper(items[index]!, index); }
   }));
   return result;
+}
+
+async function readWithRetry<T>(operation: () => Promise<T>): Promise<T> {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return await operation();
+    } catch (error) {
+      if (!(error instanceof OneCODataHttpError) || error.diagnostic.statusCode < 500 || attempt >= 2) throw error;
+      await delay(250 * (attempt + 1));
+    }
+  }
 }
 
 export const warrantySerialSourceEntities = { sales: SALES, returns: RETURNS } as const;

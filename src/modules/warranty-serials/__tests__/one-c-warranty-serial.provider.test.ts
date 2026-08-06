@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { OneCODataClient } from "@/src/modules/integration/providers/one-c/one-c-odata-client";
+import { OneCODataHttpError, type OneCODataClient } from "@/src/modules/integration/providers/one-c/one-c-odata-client";
 import { OneCWarrantySerialProvider } from "../one-c-warranty-serial.provider";
 
 const saleRef = "11111111-1111-1111-1111-111111111111";
@@ -9,6 +9,17 @@ const productRef = "44444444-4444-4444-4444-444444444444";
 const serialRef = "55555555-5555-5555-5555-555555555555";
 
 describe("OneCWarrantySerialProvider", () => {
+  it("retries bounded transient 1C server failures", async () => {
+    const diagnostic = { failedStage: "http_response", receivedContentType: "application/json", requestKind: "warranty_sale_headers", resourceName: "Document", queryParameterNames: [], statusCode: 500, jsonParseFailure: false, parseErrorName: null, bodyLength: 0, bomDetected: false, emptyBody: false };
+    const getLiteralDateRange = vi.fn()
+      .mockRejectedValueOnce(new OneCODataHttpError(diagnostic))
+      .mockResolvedValue({ value: [] });
+    const provider = new OneCWarrantySerialProvider({ get: vi.fn(), getLiteralDateRange } as unknown as OneCODataClient);
+
+    await expect(provider.fetchPage({ stage: "sale_scan", skip: 0, top: 25, rangeStart: "2021-01-01", rangeEnd: "2026-08-06" })).resolves.toMatchObject({ headersReceived: 0, pageComplete: true });
+    expect(getLiteralDateRange).toHaveBeenCalledTimes(2);
+  });
+
   it("joins serials to exact stock lines and caches product and serial catalog reads", async () => {
     const get = vi.fn(async (resource: string) => {
       if (resource.startsWith("Document_РасходнаяНакладная(")) return detail(saleRef);
