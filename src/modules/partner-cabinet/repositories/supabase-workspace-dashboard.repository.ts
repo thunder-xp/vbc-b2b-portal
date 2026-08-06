@@ -122,7 +122,7 @@ const selectionsSchema = z.object({
   previousSourceFingerprint: z.string(),
   offerSourceFingerprint: z.string(),
   previousProducts: z.array(productCandidateSchema).max(12),
-  merchandisingProducts: z.array(productCandidateSchema).max(5),
+  merchandisingProducts: z.array(productCandidateSchema).max(12),
   previousCandidateCount: z.number().int().nonnegative(),
   offerCandidateCount: z.number().int().nonnegative(),
   rotationBucket: z.number().int().nonnegative(),
