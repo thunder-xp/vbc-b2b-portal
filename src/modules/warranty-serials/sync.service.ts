@@ -18,6 +18,15 @@ export type WarrantySerialSyncStepResult = {
   durationMs: number;
 };
 
+export type WarrantySerialSyncBatchResult = {
+  status: "idle" | "progressed" | "completed";
+  steps: number;
+  headersReceived: number;
+  eventsPublished: number;
+  durationMs: number;
+  runId?: string;
+};
+
 export class WarrantySerialSyncService {
   constructor(private readonly provider: OneCWarrantySerialProvider, private readonly repository: WarrantySerialRepository) {}
 
@@ -91,6 +100,24 @@ export class WarrantySerialSyncService {
       });
       throw error;
     }
+  }
+
+  async runBatch(maxSteps = 20, maxDurationMs = 240_000): Promise<WarrantySerialSyncBatchResult> {
+    const started = performance.now();
+    let steps = 0;
+    let headersReceived = 0;
+    let eventsPublished = 0;
+    let runId: string | undefined;
+    while (steps < maxSteps && performance.now() - started < maxDurationMs) {
+      const result = await this.runStep();
+      if (result.status === "idle") return { status: steps ? "progressed" : "idle", steps, headersReceived, eventsPublished, durationMs: elapsed(started), runId };
+      steps += 1;
+      runId = result.runId ?? runId;
+      headersReceived += result.headersReceived ?? 0;
+      eventsPublished += result.eventsPublished ?? 0;
+      if (result.status === "completed") return { status: "completed", steps, headersReceived, eventsPublished, durationMs: elapsed(started), runId };
+    }
+    return { status: "progressed", steps, headersReceived, eventsPublished, durationMs: elapsed(started), runId };
   }
 }
 

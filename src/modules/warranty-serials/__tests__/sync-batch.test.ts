@@ -1,0 +1,31 @@
+import { describe, expect, it, vi } from "vitest";
+import { WarrantySerialSyncService } from "../sync.service";
+
+describe("WarrantySerialSyncService batch", () => {
+  it("processes bounded pages and stops after completion", async () => {
+    const repository = {
+      claim: vi.fn()
+        .mockResolvedValueOnce(claim("sale_scan", 0))
+        .mockResolvedValueOnce(claim("state_rebuild", 0)),
+      publish: vi.fn().mockResolvedValue({}),
+      complete: vi.fn().mockResolvedValue({}),
+      fail: vi.fn(),
+    };
+    const provider = { fetchPage: vi.fn().mockResolvedValue({ documents: [], events: [], headersReceived: 0, pageComplete: true }) };
+    const result = await new WarrantySerialSyncService(provider as never, repository as never).runBatch(20);
+    expect(result).toMatchObject({ status: "completed", steps: 2, headersReceived: 0 });
+    expect(repository.complete).toHaveBeenCalledOnce();
+  });
+
+  it("never exceeds the configured step bound", async () => {
+    const repository = { claim: vi.fn().mockResolvedValue(claim("sale_scan", 0)), publish: vi.fn(), complete: vi.fn(), fail: vi.fn() };
+    const provider = { fetchPage: vi.fn().mockResolvedValue({ documents: [], events: [], headersReceived: 25, pageComplete: false }) };
+    const result = await new WarrantySerialSyncService(provider as never, repository as never).runBatch(3);
+    expect(result).toMatchObject({ status: "progressed", steps: 3, headersReceived: 75 });
+    expect(provider.fetchPage).toHaveBeenCalledTimes(3);
+  });
+});
+
+function claim(stage: "sale_scan" | "return_scan" | "state_rebuild", skip: number) {
+  return { runId: "11111111-1111-1111-1111-111111111111", lockToken: "22222222-2222-2222-2222-222222222222", mode: "full", stage, skip, pageSize: 25, rangeStart: "2021-08-06", rangeEnd: "2026-08-06" };
+}
