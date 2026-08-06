@@ -2,7 +2,7 @@ import "server-only";
 
 import { createCipheriv, createDecipheriv, createHmac, randomBytes } from "node:crypto";
 
-const SERIAL_PATTERN = /^[A-Z0-9][A-Z0-9._/-]{1,119}$/;
+const SERIAL_PATTERN = /^[\p{L}\p{N}][\p{L}\p{N}._/\\:+#-]{1,119}$/u;
 
 export class WarrantySerialConfigurationError extends Error {
   constructor(name: string) {

@@ -6,7 +6,7 @@ import { getOneCODataErrorResponseBody } from "@/src/modules/integration/provide
 import { getOneCSafeDiagnostic } from "@/src/modules/integration/providers/one-c/one-c-safe-diagnostic";
 import type { OneCWarrantySerialProvider } from "./one-c-warranty-serial.provider";
 import type { WarrantySerialRepository, WarrantySyncClaim } from "./repository";
-import { hashSerial, maskSerial, normalizeSerial, protectSerial } from "./serial-security";
+import { hashSerial, maskSerial, normalizeSerial, protectSerial, WarrantySerialValidationError } from "./serial-security";
 import type { WarrantySourceEvent } from "./types";
 
 export type WarrantySerialSyncStepResult = {
@@ -46,7 +46,25 @@ export class WarrantySerialSyncService {
         rangeStart: claim.rangeStart,
         rangeEnd: claim.rangeEnd,
       });
-      const events = page.events.map((event) => protectEvent(event));
+      const events = page.events.flatMap((event) => {
+        try {
+          return [protectEvent(event)];
+        } catch (error) {
+          if (!(error instanceof WarrantySerialValidationError)) throw error;
+          console.warn({
+            event: "warranty_serial_source_value_rejected",
+            runId: claim.runId,
+            stage: claim.stage,
+            sourceEntity: event.sourceEntity,
+            sourceDocumentRef: event.sourceDocumentRef,
+            sourceLineNumber: event.sourceLineNumber,
+            sourceSerialLineNumber: event.sourceSerialLineNumber,
+            serialLength: event.serial.length,
+            reason: "malformed_serial",
+          });
+          return [];
+        }
+      });
       await this.repository.publish({
         runId: claim.runId,
         lockToken: claim.lockToken,

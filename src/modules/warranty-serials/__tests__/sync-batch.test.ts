@@ -24,6 +24,18 @@ describe("WarrantySerialSyncService batch", () => {
     expect(result).toMatchObject({ status: "progressed", steps: 3, headersReceived: 75 });
     expect(provider.fetchPage).toHaveBeenCalledTimes(3);
   });
+
+  it("quarantines malformed source serials without aborting a page", async () => {
+    process.env.WARRANTY_SERIAL_HASH_SECRET = "h".repeat(48);
+    process.env.WARRANTY_SERIAL_ENCRYPTION_KEY = Buffer.alloc(32, 1).toString("base64");
+    const repository = { claim: vi.fn().mockResolvedValueOnce(claim("sale_scan", 0)).mockResolvedValueOnce(null), publish: vi.fn(), complete: vi.fn(), fail: vi.fn() };
+    const provider = { fetchPage: vi.fn().mockResolvedValue({ documents: [], headersReceived: 1, pageComplete: true, events: [{ serial: "BAD*SERIAL", eventType: "sale_observed", sourceEntity: "Document_РасходнаяНакладная", sourceDocumentRef: "11111111-1111-1111-1111-111111111111", relatedSourceDocumentRef: null, sourceDocumentNumber: "NS-1", sourceDocumentDate: "2026-08-01T00:00:00Z", sourcePosted: true, sourceDeletionMark: false, sourceDataVersion: "1", sourceLineNumber: 1, sourceSerialLineNumber: 1, sourceLinkKey: "A", counterpartyRef: null, productRef: null, characteristicRef: null, organizationRef: null, warehouseRef: null, quantity: 1, productSkuSnapshot: null, productNameSnapshot: null, warrantyMonthsSnapshot: null, mappingState: "mapped", reviewReasonCodes: [] }] }) };
+    const result = await new WarrantySerialSyncService(provider as never, repository as never).runBatch(2);
+    expect(result.status).toBe("progressed");
+    expect(repository.publish).toHaveBeenCalledWith(expect.objectContaining({ events: [] }));
+    delete process.env.WARRANTY_SERIAL_HASH_SECRET;
+    delete process.env.WARRANTY_SERIAL_ENCRYPTION_KEY;
+  });
 });
 
 function claim(stage: "sale_scan" | "return_scan" | "state_rebuild", skip: number) {

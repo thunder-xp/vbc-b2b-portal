@@ -16,6 +16,7 @@ describe("warranty serial security", () => {
   it("normalizes case, Unicode, and formatting spaces while preserving separators", () => {
     expect(normalizeSerial("  ab-12 / cd  ")).toBe("AB-12/CD");
     expect(normalizeSerial("ＡＢ-１２")).toBe("AB-12");
+    expect(normalizeSerial("  серия/12:А  ")).toBe("СЕРИЯ/12:А");
   });
 
   it("rejects empty and malformed values", () => {
