@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 import { z } from "zod";
 
+import { IntegrationProviderUnavailableError, IntegrationTimeoutError } from "@/src/modules/integration/errors";
 import { OneCODataClient, OneCODataHttpError } from "@/src/modules/integration/providers/one-c/one-c-odata-client";
 import { parseOptionalOneCGuid, parseRequiredOneCGuid } from "@/src/modules/integration/providers/one-c/one-c-guid";
 import type { WarrantySourceDocument, WarrantySourceEvent, WarrantySourcePage } from "./types";
@@ -176,7 +177,10 @@ async function readWithRetry<T>(operation: () => Promise<T>): Promise<T> {
     try {
       return await operation();
     } catch (error) {
-      if (!(error instanceof OneCODataHttpError) || error.diagnostic.statusCode < 500 || attempt >= 2) throw error;
+      const retryable = error instanceof IntegrationProviderUnavailableError
+        || error instanceof IntegrationTimeoutError
+        || (error instanceof OneCODataHttpError && error.diagnostic.statusCode >= 500);
+      if (!retryable || attempt >= 2) throw error;
       await delay(250 * (attempt + 1));
     }
   }

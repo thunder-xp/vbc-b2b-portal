@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { OneCODataHttpError, type OneCODataClient } from "@/src/modules/integration/providers/one-c/one-c-odata-client";
+import { IntegrationProviderUnavailableError } from "@/src/modules/integration/errors";
 import { OneCWarrantySerialProvider } from "../one-c-warranty-serial.provider";
 
 const saleRef = "11111111-1111-1111-1111-111111111111";
@@ -17,6 +18,16 @@ describe("OneCWarrantySerialProvider", () => {
     const provider = new OneCWarrantySerialProvider({ get: vi.fn(), getLiteralDateRange } as unknown as OneCODataClient);
 
     await expect(provider.fetchPage({ stage: "sale_scan", skip: 0, top: 25, rangeStart: "2021-01-01", rangeEnd: "2026-08-06" })).resolves.toMatchObject({ headersReceived: 0, pageComplete: true });
+    expect(getLiteralDateRange).toHaveBeenCalledTimes(2);
+  });
+
+  it("retries bounded transport failures", async () => {
+    const getLiteralDateRange = vi.fn()
+      .mockRejectedValueOnce(new IntegrationProviderUnavailableError("unavailable"))
+      .mockResolvedValue({ value: [] });
+    const provider = new OneCWarrantySerialProvider({ get: vi.fn(), getLiteralDateRange } as unknown as OneCODataClient);
+
+    await expect(provider.fetchPage({ stage: "return_scan", skip: 100, top: 25, rangeStart: "2021-01-01", rangeEnd: "2026-08-06" })).resolves.toMatchObject({ headersReceived: 0, pageComplete: true });
     expect(getLiteralDateRange).toHaveBeenCalledTimes(2);
   });
 
