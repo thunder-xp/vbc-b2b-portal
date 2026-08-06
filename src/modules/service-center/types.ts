@@ -49,6 +49,7 @@ export type ServiceCaseDetail = {
 
 export type ServiceCaseCreateInput = {
   caseType: ServiceCaseType; productId: string | null; orderId: string | null; orderLineId: string | null;
+  warrantyVerificationId: string | null;
   enteredSerial: string; faultCategory: string; description: string; symptoms: string;
   issueStartedOn: string | null; powersOn: boolean | null; factoryResetAttempted: boolean | null;
   preferredContact: string; evidenceConsent: boolean;

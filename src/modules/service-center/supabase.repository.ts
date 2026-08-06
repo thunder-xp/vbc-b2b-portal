@@ -12,12 +12,13 @@ export class SupabaseServiceCenterRepository implements ServiceCenterRepository 
   }
   async get(caseId: string) { return this.rpc<ServiceCaseDetail | null>("get_service_case", { p_case_id: caseId }); }
   async create(companyId: string, input: ServiceCaseCreateInput) {
-    return this.rpc<{ id: string; caseNumber: string; status: ServiceStatus }>("create_service_case", {
+    return this.rpc<{ id: string; caseNumber: string; status: ServiceStatus }>("create_service_case_v2", {
       p_company_id: companyId, p_case_type: input.caseType, p_product_id: input.productId, p_order_id: input.orderId,
       p_order_line_id: input.orderLineId, p_entered_serial: input.enteredSerial, p_fault_category: input.faultCategory,
       p_description: input.description, p_symptoms: input.symptoms, p_issue_started_on: input.issueStartedOn,
       p_powers_on: input.powersOn, p_factory_reset: input.factoryResetAttempted, p_preferred_contact: input.preferredContact,
       p_evidence_consent: input.evidenceConsent,
+      p_warranty_verification_id: input.warrantyVerificationId,
     });
   }
   async addPartnerMessage(caseId: string, message: string) { return this.rpc<string>("add_service_case_partner_message", { p_case_id: caseId, p_message: message }); }

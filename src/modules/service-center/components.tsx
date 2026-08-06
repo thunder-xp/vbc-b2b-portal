@@ -14,6 +14,7 @@ import {
   type ServiceCaseDetail,
   type ServiceSelectionData,
 } from "./types";
+import type { PartnerWarrantyLookup } from "../warranty-serials/types";
 
 const initial = {
   success: true as const,
@@ -25,8 +26,10 @@ const field =
   "min-h-11 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100";
 export function ServiceCaseForm({
   selections,
+  verification = null,
 }: {
   selections: ServiceSelectionData;
+  verification?: PartnerWarrantyLookup | null;
 }) {
   const [state, action, pending] = useActionState(
     createServiceCaseAction,
@@ -35,6 +38,7 @@ export function ServiceCaseForm({
   const [description, setDescription] = useState("");
   return (
     <form action={action} className="space-y-5" noValidate>
+      {verification ? <input name="warrantyVerificationId" type="hidden" value={verification.verificationId} /> : null}
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Тип обращения">
           <select className={field} name="caseType" required>
@@ -57,14 +61,14 @@ export function ServiceCaseForm({
           </select>
         </Field>
         <Field label="Товар">
-          <select className={field} name="productId">
+          {verification ? <><input name="productId" type="hidden" value={verification.productId ?? ""} /><p className="min-h-11 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm">{verification.sku} · {verification.productName}</p></> : <select className={field} name="productId">
             <option value="">Товар будет уточнён</option>
             {selections.products.map((product) => (
               <option key={product.id} value={product.id}>
                 {product.sku} · {product.name}
               </option>
             ))}
-          </select>
+          </select>}
         </Field>
         <Field label="Позиция заказа">
           <select className={field} name="orderLineId">
@@ -80,12 +84,12 @@ export function ServiceCaseForm({
           </select>
         </Field>
         <Field label="Серийный номер">
-          <input
+          {verification ? <p className="min-h-11 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm">{verification.maskedSerial}</p> : <input
             className={field}
             maxLength={120}
             name="enteredSerial"
             placeholder="Если известен"
-          />
+          />}
         </Field>
         <Field label="Категория неисправности">
           <input
