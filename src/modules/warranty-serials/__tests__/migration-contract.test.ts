@@ -3,8 +3,13 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const sql = readFileSync(resolve(process.cwd(), "supabase/migrations/20260806220000_warranty_serial_evidence.sql"), "utf8");
+const mappingIndexSql = readFileSync(resolve(process.cwd(), "supabase/migrations/20260807001500_warranty_serial_mapping_indexes.sql"), "utf8");
 
 describe("warranty serial migration contract", () => {
+  it("indexes exact normalized company and product mapping used during publication", () => {
+    expect(mappingIndexSql).toContain("on public.one_c_counterparties(lower(external_1c_id))");
+    expect(mappingIndexSql).toContain("on public.catalog_products(lower(external_1c_id))");
+  });
   it("creates immutable event history and rebuildable state behind RLS", () => {
     expect(sql).toContain("create table public.warranty_serial_events");
     expect(sql).toContain("create table public.warranty_serial_state");
