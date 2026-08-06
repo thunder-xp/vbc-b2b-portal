@@ -6,6 +6,10 @@ const sql = readFileSync(
   resolve(process.cwd(), "supabase/migrations/20260806234500_warranty_serial_full_history.sql"),
   "utf8",
 );
+const resumeSql = readFileSync(
+  resolve(process.cwd(), "supabase/migrations/20260806235500_warranty_serial_single_resume.sql"),
+  "utf8",
+);
 
 describe("warranty serial full-history migration", () => {
   it("uses the earliest verified source year for full and historical scans", () => {
@@ -23,5 +27,11 @@ describe("warranty serial full-history migration", () => {
   it("keeps the recent incremental window bounded", () => {
     expect(sql).toContain("else business_date-90 end");
     expect(sql).toContain("pg_advisory_xact_lock(hashtext('warranty_serial_sync_claim'))");
+  });
+
+  it("never resumes superseded bootstrap attempts", () => {
+    expect(resumeSql).toContain("safe_error_code='superseded_full_bootstrap'");
+    expect(resumeSql).toContain("safe_error_code is distinct from 'superseded_full_bootstrap'");
+    expect(resumeSql).toContain("order by pages_fetched desc,started_at desc limit 1");
   });
 });
