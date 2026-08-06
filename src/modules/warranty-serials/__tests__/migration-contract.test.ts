@@ -6,6 +6,7 @@ const sql = readFileSync(resolve(process.cwd(), "supabase/migrations/20260806220
 const mappingIndexSql = readFileSync(resolve(process.cwd(), "supabase/migrations/20260807001500_warranty_serial_mapping_indexes.sql"), "utf8");
 const setBasedRebuildSql = readFileSync(resolve(process.cwd(), "supabase/migrations/20260807010500_warranty_serial_set_based_rebuild.sql"), "utf8");
 const batchedRebuildSql = readFileSync(resolve(process.cwd(), "supabase/migrations/20260807013000_warranty_serial_batched_rebuild.sql"), "utf8");
+const terminalGuardSql = readFileSync(resolve(process.cwd(), "supabase/migrations/20260807014500_warranty_serial_rebuild_terminal_guard.sql"), "utf8");
 
 describe("warranty serial migration contract", () => {
   it("indexes exact normalized company and product mapping used during publication", () => {
@@ -25,6 +26,13 @@ describe("warranty serial migration contract", () => {
     expect(batchedRebuildSql).toContain("limit p_limit");
     expect(batchedRebuildSql).toContain("rebuild_warranty_serial_states_batch(p_run_id,run.rebuild_cursor,250)");
     expect(batchedRebuildSql).toContain("status=case when terminal then 'succeeded' else status end");
+  });
+
+  it("finishes only when no event hash remains after the rebuild cursor", () => {
+    expect(terminalGuardSql).toContain("normalized_serial_hash>coalesce(last_hash,'')");
+    expect(terminalGuardSql).toContain("delete from public.warranty_serial_state");
+    expect(terminalGuardSql).toContain("safe_error_code='rebuild_terminal_guard_corrected'");
+    expect(terminalGuardSql).not.toContain("terminal:=(batch->>'complete')::boolean");
   });
   it("creates immutable event history and rebuildable state behind RLS", () => {
     expect(sql).toContain("create table public.warranty_serial_events");
