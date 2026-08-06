@@ -35,6 +35,8 @@ const allPermissions = [
   "admin.settings.view",
   "admin.documents.view",
   "admin.service.view",
+  "admin.service.serial.verify",
+  "admin.integrations.warranty_serials.view",
   "support.view_all",
   "support.diagnostics.view",
   "knowledge.edit",

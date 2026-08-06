@@ -106,6 +106,7 @@ export const ADMIN_NAVIGATION: readonly AdminNavigationGroup[] = [
         permission: "admin.integrations.view",
       },
       { label: "Сервис 1С", href: "/admin/integrations/service", permission: "admin.service.view" },
+      { label: "Серийные номера", href: "/admin/integrations/warranty-serials", permission: "admin.integrations.warranty_serials.view" },
       { label: "Диагностика IT-поддержки", href: "/admin/integrations/support", permission: "support.diagnostics.view" },
       { label: "Диагностика базы знаний", href: "/admin/integrations/knowledge", permission: "knowledge.analytics.view" },
     ],
@@ -115,6 +116,7 @@ export const ADMIN_NAVIGATION: readonly AdminNavigationGroup[] = [
     items: [
       { label: "Заказы", href: "/admin/orders", permission: "admin.orders.view" },
       { label: "Сервис", href: "/admin/service", permission: "admin.service.view" },
+      { label: "Проверка серийного номера", href: "/admin/service/serial-verification", permission: "admin.service.serial.verify" },
       { label: "IT-поддержка", href: "/admin/support", permission: "support.view_all" },
       { label: "База знаний", href: "/admin/knowledge", permission: "knowledge.edit" },
       {
