@@ -138,6 +138,30 @@ export class OneCODataClient {
     ));
   }
 
+  async getLiteralDateRange(
+    resource: string,
+    input: { startDate: string; endDate: string; select: string; top: number; skip: number },
+    options: OneCODataProbeOptions = {},
+  ): Promise<unknown> {
+    const { baseUrl, username, password } = this.config;
+    if (!baseUrl || !username || !password) throw new IntegrationProviderUnavailableError("1C OData is not configured.");
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(input.startDate) || !/^\d{4}-\d{2}-\d{2}$/.test(input.endDate)
+      || !/^[A-Za-zА-Яа-яЁё0-9_,]+$/u.test(input.select)
+      || !Number.isSafeInteger(input.top) || input.top < 1 || input.top > 100
+      || !Number.isSafeInteger(input.skip) || input.skip < 0) {
+      throw new IntegrationValidationError("1C literal date-range query is invalid.");
+    }
+    const literalQuery = `$filter=Date ge datetime'${input.startDate}T00:00:00' and Date le datetime'${input.endDate}T23:59:59'&$select=${input.select}&$top=${input.top}&$skip=${input.skip}&$format=json`;
+    const exactUrl = `${baseUrl.replace(/\/$/, "")}/${resource.replace(/^\//, "")}?${literalQuery}`;
+    return this.readResult(await this.probeRequest(
+      exactUrl,
+      options.requestKind ?? "collection",
+      resource,
+      ["$filter", "$select", "$top", "$skip", "$format"],
+      options,
+    ));
+  }
+
   private readResult(result: OneCODataProbeResult): unknown {
     const requestDiagnostic = toSafeDiagnostic(result, result.requestKind);
     const responseBody = probeResponseBodies.get(result) ?? null;

@@ -11,28 +11,29 @@ const serialRef = "55555555-5555-5555-5555-555555555555";
 describe("OneCWarrantySerialProvider", () => {
   it("joins serials to exact stock lines and caches product and serial catalog reads", async () => {
     const get = vi.fn(async (resource: string) => {
-      if (resource === "Document_РасходнаяНакладная") return { value: [header(saleRef)] };
       if (resource.startsWith("Document_РасходнаяНакладная(")) return detail(saleRef);
       if (resource.startsWith("Catalog_СерииНоменклатуры")) return { Ref_Key: serialRef, Description: " ab-12 ", DeletionMark: false };
       if (resource.startsWith("Catalog_Номенклатура")) return { Ref_Key: productRef, Артикул: "400123", Description: "Camera", ГарантийныйСрок: "36", DeletionMark: false, Недействителен: false };
       throw new Error(resource);
     });
-    const result = await new OneCWarrantySerialProvider({ get } as unknown as OneCODataClient).fetchPage({ stage: "sale_scan", skip: 0, top: 25, rangeStart: "2021-01-01", rangeEnd: "2026-08-06" });
+    const getLiteralDateRange = vi.fn().mockResolvedValue({ value: [header(saleRef)] });
+    const result = await new OneCWarrantySerialProvider({ get, getLiteralDateRange } as unknown as OneCODataClient).fetchPage({ stage: "sale_scan", skip: 0, top: 25, rangeStart: "2021-01-01", rangeEnd: "2026-08-06" });
     expect(result.events).toHaveLength(2);
     expect(result.events[0]).toMatchObject({ serial: "ab-12", productRef, counterpartyRef: buyerRef, sourceLinkKey: "A", warrantyMonthsSnapshot: 36, eventType: "sale_observed" });
     expect(get.mock.calls.filter(([resource]) => String(resource).startsWith("Catalog_СерииНоменклатуры"))).toHaveLength(1);
     expect(get.mock.calls.filter(([resource]) => String(resource).startsWith("Catalog_Номенклатура"))).toHaveLength(1);
+    expect(getLiteralDateRange).toHaveBeenCalledWith("Document_РасходнаяНакладная", expect.objectContaining({ top: 25, skip: 0 }), expect.anything());
   });
 
   it("creates conflict evidence when a return lacks an exact source sale", async () => {
     const get = vi.fn(async (resource: string) => {
-      if (resource === "Document_ПриходнаяНакладная") return { value: [{ ...header(returnRef), ВидОперации: "ВозвратОтПокупателя" }] };
       if (resource.startsWith("Document_ПриходнаяНакладная(")) return { ...detail(returnRef), ВидОперации: "ВозвратОтПокупателя", ДокументОснование: null, ДокументОснование_Type: null };
       if (resource.startsWith("Catalog_СерииНоменклатуры")) return { Description: "SERIAL-1", DeletionMark: false };
       if (resource.startsWith("Catalog_Номенклатура")) return { Артикул: "400123", Description: "Camera", ГарантийныйСрок: 36, DeletionMark: false };
       throw new Error(resource);
     });
-    const result = await new OneCWarrantySerialProvider({ get } as unknown as OneCODataClient).fetchPage({ stage: "return_scan", skip: 0, top: 25, rangeStart: "2021-01-01", rangeEnd: "2026-08-06" });
+    const getLiteralDateRange = vi.fn().mockResolvedValue({ value: [{ ...header(returnRef), ВидОперации: "ВозвратОтПокупателя" }] });
+    const result = await new OneCWarrantySerialProvider({ get, getLiteralDateRange } as unknown as OneCODataClient).fetchPage({ stage: "return_scan", skip: 0, top: 25, rangeStart: "2021-01-01", rangeEnd: "2026-08-06" });
     expect(result.events[0]).toMatchObject({ eventType: "conflict_observed", mappingState: "conflict", reviewReasonCodes: ["return_source_sale_missing"] });
   });
 });

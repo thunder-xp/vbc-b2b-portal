@@ -2,6 +2,8 @@ import "server-only";
 
 import { createHash } from "node:crypto";
 
+import { getOneCODataErrorResponseBody } from "@/src/modules/integration/providers/one-c/one-c-odata-client";
+import { getOneCSafeDiagnostic } from "@/src/modules/integration/providers/one-c/one-c-safe-diagnostic";
 import type { OneCWarrantySerialProvider } from "./one-c-warranty-serial.provider";
 import type { WarrantySerialRepository, WarrantySyncClaim } from "./repository";
 import { hashSerial, maskSerial, normalizeSerial, protectSerial } from "./serial-security";
@@ -76,7 +78,17 @@ export class WarrantySerialSyncService {
     } catch (error) {
       const safeErrorCode = safeCode(error);
       await safeFail(this.repository, claim, safeErrorCode);
-      console.error({ event: "warranty_serial_sync_step_failed", runId: claim.runId, stage: claim.stage, safeErrorCode });
+      const diagnostic = getOneCSafeDiagnostic(error);
+      console.error({
+        event: "warranty_serial_sync_step_failed",
+        runId: claim.runId,
+        stage: claim.stage,
+        safeErrorCode,
+        statusCode: diagnostic?.statusCode ?? null,
+        resourceName: diagnostic?.resourceName ?? null,
+        queryParameterNames: diagnostic?.queryParameterNames ?? [],
+        safeResponseBody: getOneCODataErrorResponseBody(error)?.slice(0, 4000) ?? null,
+      });
       throw error;
     }
   }

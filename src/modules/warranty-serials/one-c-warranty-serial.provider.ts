@@ -27,11 +27,12 @@ export class OneCWarrantySerialProvider {
     const select = input.stage === "sale_scan"
       ? "Ref_Key,DataVersion,Number,Date,Posted,DeletionMark,Контрагент_Key,Договор_Key,Заказ,Заказ_Type,СтруктурнаяЕдиница_Key,Организация_Key"
       : "Ref_Key,DataVersion,Number,Date,Posted,DeletionMark,ВидОперации,Контрагент_Key,ДокументОснование,ДокументОснование_Type,Организация_Key,СтруктурнаяЕдиница_Key";
-    const payload = await this.client.get(entity, {
-      "$filter": `Date ge datetime'${input.rangeStart}T00:00:00' and Date le datetime'${input.rangeEnd}T23:59:59'`,
-      "$select": select,
-      "$top": String(input.top),
-      "$skip": String(input.skip),
+    const payload = await this.client.getLiteralDateRange(entity, {
+      startDate: input.rangeStart,
+      endDate: input.rangeEnd,
+      select,
+      top: input.top,
+      skip: input.skip,
     }, { requestKind: `warranty_${input.stage}_headers` });
     const parsed = headerEnvelope.parse(payload);
     const results = await mapBounded(parsed.value, this.concurrency, (header) =>
