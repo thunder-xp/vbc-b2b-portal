@@ -288,7 +288,7 @@ begin
   if not found or run.status<>'running' or run.lock_token is distinct from p_lock_token or run.current_stage<>p_stage then
     raise exception 'Warranty sync lease is stale' using errcode='40001';
   end if;
-  if p_skip<>case when p_stage='return_scan' then run.return_skip else run.sale_skip end then
+  if p_skip<>(case when p_stage='return_scan' then run.return_skip else run.sale_skip end) then
     raise exception 'Warranty sync cursor is stale' using errcode='40001';
   end if;
   if run.pages_fetched>=4000 then raise exception 'Warranty sync page limit reached' using errcode='54000'; end if;
