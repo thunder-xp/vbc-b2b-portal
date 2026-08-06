@@ -5,7 +5,7 @@ import { createHash } from "node:crypto";
 import { getOneCODataErrorResponseBody } from "@/src/modules/integration/providers/one-c/one-c-odata-client";
 import { getOneCSafeDiagnostic } from "@/src/modules/integration/providers/one-c/one-c-safe-diagnostic";
 import type { OneCWarrantySerialProvider } from "./one-c-warranty-serial.provider";
-import type { WarrantySerialRepository, WarrantySyncClaim } from "./repository";
+import { WarrantySerialRepositoryError, type WarrantySerialRepository, type WarrantySyncClaim } from "./repository";
 import { hashSerial, maskSerial, normalizeSerial, protectSerial, WarrantySerialValidationError } from "./serial-security";
 import type { WarrantySourceEvent } from "./types";
 
@@ -111,6 +111,8 @@ export class WarrantySerialSyncService {
         runId: claim.runId,
         stage: claim.stage,
         safeErrorCode,
+        repositoryOperation: error instanceof WarrantySerialRepositoryError ? error.operation : null,
+        repositoryCode: error instanceof WarrantySerialRepositoryError ? error.code : null,
         statusCode: diagnostic?.statusCode ?? null,
         resourceName: diagnostic?.resourceName ?? null,
         queryParameterNames: diagnostic?.queryParameterNames ?? [],
