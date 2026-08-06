@@ -36,8 +36,8 @@ export class WarrantySerialSyncService {
     if (!claim) return { status: "idle", durationMs: elapsed(started) };
     try {
       if (claim.stage === "state_rebuild") {
-        await this.repository.complete(claim);
-        return { status: "completed", runId: claim.runId, stage: claim.stage, durationMs: elapsed(started) };
+        const rebuilt = await this.repository.complete(claim);
+        return { status: rebuilt.status === "succeeded" ? "completed" : "page_published", runId: claim.runId, stage: claim.stage, durationMs: elapsed(started) };
       }
       const page = await this.provider.fetchPage({
         stage: claim.stage,

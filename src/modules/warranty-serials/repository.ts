@@ -49,8 +49,8 @@ export class WarrantySerialRepository {
     });
   }
 
-  async complete(claim: WarrantySyncClaim) {
-    return this.adminRpc<Record<string, unknown>>("complete_warranty_serial_sync_run", {
+  async complete(claim: WarrantySyncClaim): Promise<{ status: "running" | "succeeded"; statesRebuilt: number; totalStatesRebuilt: number }> {
+    return this.adminRpc<{ status: "running" | "succeeded"; statesRebuilt: number; totalStatesRebuilt: number }>("complete_warranty_serial_sync_run", {
       p_run_id: claim.runId,
       p_lock_token: claim.lockToken,
     });

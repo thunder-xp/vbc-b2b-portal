@@ -8,13 +8,26 @@ describe("WarrantySerialSyncService batch", () => {
         .mockResolvedValueOnce(claim("sale_scan", 0))
         .mockResolvedValueOnce(claim("state_rebuild", 0)),
       publish: vi.fn().mockResolvedValue({}),
-      complete: vi.fn().mockResolvedValue({}),
+      complete: vi.fn().mockResolvedValue({ status: "succeeded", statesRebuilt: 1, totalStatesRebuilt: 1 }),
       fail: vi.fn(),
     };
     const provider = { fetchPage: vi.fn().mockResolvedValue({ documents: [], events: [], headersReceived: 0, pageComplete: true }) };
     const result = await new WarrantySerialSyncService(provider as never, repository as never).runBatch(20);
     expect(result).toMatchObject({ status: "completed", steps: 2, headersReceived: 0 });
     expect(repository.complete).toHaveBeenCalledOnce();
+  });
+
+  it("continues bounded state-rebuild batches until the terminal batch", async () => {
+    const repository = {
+      claim: vi.fn().mockResolvedValue(claim("state_rebuild", 0)),
+      publish: vi.fn(),
+      complete: vi.fn()
+        .mockResolvedValueOnce({ status: "running", statesRebuilt: 250, totalStatesRebuilt: 250 })
+        .mockResolvedValueOnce({ status: "succeeded", statesRebuilt: 10, totalStatesRebuilt: 260 }),
+      fail: vi.fn(),
+    };
+    const result = await new WarrantySerialSyncService({} as never, repository as never).runBatch(20);
+    expect(result).toMatchObject({ status: "completed", steps: 2 });
   });
 
   it("never exceeds the configured step bound", async () => {
