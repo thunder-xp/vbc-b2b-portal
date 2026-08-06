@@ -58,6 +58,7 @@ export type {
   AdminCommercialRecord,
   AdminCommercialSummary,
   AdminCommercialIntegrity,
+  AdminStockReconciliation,
   CommercialIntegrityReason,
   AdminRetailPriceHistoryHealth,
   RetailHistoryAbsenceReason,

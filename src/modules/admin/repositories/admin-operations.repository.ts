@@ -1,6 +1,7 @@
 import type {
   AdminCommercialSummary,
   AdminCommercialIntegrity,
+  AdminStockReconciliation,
   AdminRetailHistoryAbsenceFilters,
   AdminRetailHistoryAbsencePage,
   AdminRetailPriceHistoryHealth,
@@ -29,6 +30,7 @@ export interface AdminOperationsRepository {
     search?: string,
   ): Promise<AdminCommercialSummary>;
   getCommercialIntegrity(): Promise<AdminCommercialIntegrity>;
+  getStockReconciliation(): Promise<AdminStockReconciliation>;
   getRetailPriceHistoryHealth(): Promise<AdminRetailPriceHistoryHealth>;
   listProductsWithoutRetailHistory(
     input: AdminRetailHistoryAbsenceFilters,

@@ -73,6 +73,37 @@ export interface AdminCommercialIntegritySyncState {
   updatedAt: string;
 }
 
+export interface AdminStockReconciliation {
+  latest: {
+    syncId: string;
+    snapshotTime: string;
+    warehouseScopeVersion: string;
+    status: "succeeded";
+    totalProducts: number;
+    exactMatches: number;
+    sourceZeroLocalPositive: number;
+    sourcePositiveLocalZero: number;
+    quantityMismatches: number;
+    missingWarehouseMappings: number;
+    missingProductMappings: number;
+    duplicateSourceRows: number;
+    stalePublishedRows: number;
+    characteristicConflicts: number;
+    durationMs: number;
+    completedAt: string;
+  } | null;
+  changes: readonly {
+    productId: string;
+    sku: string;
+    name: string;
+    previousAvailable: number | null;
+    sourceAvailable: number;
+    publishedAvailable: number | null;
+    classification: "source_zero_local_positive" | "source_positive_local_zero" | "quantity_mismatch";
+    postPublicationMatch: boolean;
+  }[];
+}
+
 export interface AdminRetailPriceHistoryHealth {
   productsWithCurrentRetail: number;
   productsWithHistory: number;

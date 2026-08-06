@@ -1,5 +1,6 @@
 import { AdminCommercialSummaryView } from "./AdminCommercialSummary";
 import { AdminCommercialIntegrityView } from "./AdminCommercialIntegrity";
+import { AdminStockReconciliationView } from "./AdminStockReconciliation";
 import { AdminRetailPriceHistoryHealthView } from "./AdminRetailPriceHistoryHealth";
 import { AdminRetailPriceHistoryBackfill } from "./AdminRetailPriceHistoryBackfill";
 import { AdminRetailHistoryAbsenceDiagnostic } from "./AdminRetailHistoryAbsenceDiagnostic";
@@ -43,9 +44,9 @@ export async function AdminCommercialPage({
   search?: string;
 }) {
   const config = CONFIG[domain];
-  await requireAdminPagePermission(config.permission);
+  const context = await requireAdminPagePermission(config.permission);
   const service = createAdminOperationsService();
-  const [summary, retailHistoryHealth, retailHistoryAbsence, commercialIntegrity] = await Promise.all([
+  const [summary, retailHistoryHealth, retailHistoryAbsence, commercialIntegrity, stockReconciliation] = await Promise.all([
     service.getCommercialSummary(domain, search),
     domain === "prices"
       ? service.getRetailPriceHistoryHealth()
@@ -55,6 +56,9 @@ export async function AdminCommercialPage({
       : Promise.resolve(null),
     domain === "stock"
       ? service.getCommercialIntegrity()
+      : Promise.resolve(null),
+    domain === "stock"
+      ? service.getStockReconciliation()
       : Promise.resolve(null),
   ]);
 
@@ -67,6 +71,7 @@ export async function AdminCommercialPage({
       />
       <AdminCommercialSummaryView summary={summary} />
       {commercialIntegrity ? <AdminCommercialIntegrityView integrity={commercialIntegrity} /> : null}
+      {stockReconciliation ? <AdminStockReconciliationView canRun={context.permissions.includes("admin.integrations.manage")} reconciliation={stockReconciliation} /> : null}
       {retailHistoryHealth ? <AdminRetailPriceHistoryHealthView health={retailHistoryHealth} /> : null}
       {retailHistoryHealth ? <AdminRetailPriceHistoryBackfill health={retailHistoryHealth} /> : null}
       {retailHistoryAbsence ? (

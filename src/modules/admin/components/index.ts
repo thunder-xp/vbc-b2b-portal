@@ -18,6 +18,7 @@ export { AdminSyncControls } from "./AdminSyncControls";
 export { AdminCommercialSummaryView } from "./AdminCommercialSummary";
 export { AdminCommercialPage } from "./AdminCommercialPage";
 export { AdminCommercialIntegrityView } from "./AdminCommercialIntegrity";
+export { AdminStockReconciliationView } from "./AdminStockReconciliation";
 export { AdminRetailPriceHistoryHealthView } from "./AdminRetailPriceHistoryHealth";
 export { AdminRetailPriceHistoryBackfill } from "./AdminRetailPriceHistoryBackfill";
 export { AdminRetailHistoryAbsenceDiagnostic } from "./AdminRetailHistoryAbsenceDiagnostic";
