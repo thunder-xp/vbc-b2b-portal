@@ -7,6 +7,7 @@ const mappingIndexSql = readFileSync(resolve(process.cwd(), "supabase/migrations
 const setBasedRebuildSql = readFileSync(resolve(process.cwd(), "supabase/migrations/20260807010500_warranty_serial_set_based_rebuild.sql"), "utf8");
 const batchedRebuildSql = readFileSync(resolve(process.cwd(), "supabase/migrations/20260807013000_warranty_serial_batched_rebuild.sql"), "utf8");
 const terminalGuardSql = readFileSync(resolve(process.cwd(), "supabase/migrations/20260807014500_warranty_serial_rebuild_terminal_guard.sql"), "utf8");
+const partnerPermissionScopeSql = readFileSync(resolve(process.cwd(), "supabase/migrations/20260807220000_warranty_serial_partner_permission_scope.sql"), "utf8");
 
 describe("warranty serial migration contract", () => {
   it("indexes exact normalized company and product mapping used during publication", () => {
@@ -60,5 +61,12 @@ describe("warranty serial migration contract", () => {
     expect(sql).toContain("run.pages_fetched>=4000");
     expect(sql).toContain("last_sale_company_id=p_company_id");
     expect(sql).toContain("Serial verification rate limit exceeded");
+  });
+
+  it("keeps serial verification in the canonical partner permission projection", () => {
+    expect(partnerPermissionScopeSql).toContain("set scope = 'partner'");
+    expect(partnerPermissionScopeSql).toContain("code = 'service.serial.verify'");
+    expect(partnerPermissionScopeSql).toContain("'full_partner_access'");
+    expect(partnerPermissionScopeSql).toContain("on conflict do nothing");
   });
 });
