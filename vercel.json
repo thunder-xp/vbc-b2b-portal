@@ -87,6 +87,10 @@
     {
       "path": "/api/cron/support-sla",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/estimate-lifecycle",
+      "schedule": "*/15 * * * *"
     }
   ]
 }

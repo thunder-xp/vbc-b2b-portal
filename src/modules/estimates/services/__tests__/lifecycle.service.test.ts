@@ -34,6 +34,18 @@ describe("EstimateLifecycleService", () => {
     expect(dependencies.lifecycle.transitionVersion).toHaveBeenCalledWith({ versionId: "version-1", status: "sent", channel: "email", note: "Customer" });
   });
 
+  it("requires and forwards a governed rejection reason", async () => {
+    const dependencies = makeDependencies();
+    await expect(dependencies.service.transitionVersion("user-1", "version-1", "rejected"))
+      .rejects.toThrow("Выберите причину отклонения.");
+    await dependencies.service.transitionVersion("user-1", "version-1", "rejected", null, "", "price");
+    expect(dependencies.lifecycle.transitionVersion).toHaveBeenCalledWith(expect.objectContaining({
+      versionId: "version-1",
+      status: "rejected",
+      rejectionReason: "price",
+    }));
+  });
+
   it("denies cross-company duplication and version access", async () => {
     const dependencies = makeDependencies();
     vi.mocked(dependencies.estimates.findById).mockResolvedValue({ ...dependencies.estimate, companyId: "company-2" });

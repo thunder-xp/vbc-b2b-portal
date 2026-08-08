@@ -2,6 +2,7 @@ import type {
   CustomerProposalDto,
   Estimate,
   EstimateSentChannel,
+  EstimateRejectionReason,
   EstimateVersion,
   EstimateVersionStatus,
   ProposalTemplate,
@@ -34,6 +35,7 @@ export interface EstimateLifecycleRepository {
     status: Exclude<EstimateVersionStatus, "prepared" | "archived">;
     channel?: EstimateSentChannel | null;
     note?: string | null;
+    rejectionReason?: EstimateRejectionReason | null;
   }): Promise<EstimateVersion>;
   restoreDraft(versionId: string, prices: RefreshedProductPrice[]): Promise<Estimate>;
   duplicate(estimateId: string): Promise<Estimate>;

@@ -33,6 +33,14 @@ export type EstimateRow = {
   gross_profit_amount: number | string | null;
   overall_margin_percent: number | string | null;
   status: Estimate["status"];
+  lifecycle_status: Estimate["lifecycleStatus"];
+  lifecycle_sent_at: string | null;
+  lifecycle_expires_at: string | null;
+  lifecycle_accepted_at: string | null;
+  lifecycle_rejected_at: string | null;
+  lifecycle_rejection_reason: Estimate["lifecycleRejectionReason"];
+  lifecycle_converted_at: string | null;
+  lifecycle_order_id: string | null;
   total_amount: number | string;
   has_incomplete_pricing: boolean;
   proposal_template_id?: string | null;
@@ -143,6 +151,14 @@ export function mapEstimateRow(row: EstimateRow): Estimate {
     grossProfitAmount: nullableNumber(row.gross_profit_amount),
     overallMarginPercent: nullableNumber(row.overall_margin_percent),
     status: row.status,
+    lifecycleStatus: row.lifecycle_status,
+    lifecycleSentAt: row.lifecycle_sent_at,
+    lifecycleExpiresAt: row.lifecycle_expires_at,
+    lifecycleAcceptedAt: row.lifecycle_accepted_at,
+    lifecycleRejectedAt: row.lifecycle_rejected_at,
+    lifecycleRejectionReason: row.lifecycle_rejection_reason,
+    lifecycleConvertedAt: row.lifecycle_converted_at,
+    lifecycleOrderId: row.lifecycle_order_id,
     totalAmount: Number(row.total_amount),
     hasIncompletePricing: row.has_incomplete_pricing,
     proposalTemplateId: row.proposal_template_id ?? null,

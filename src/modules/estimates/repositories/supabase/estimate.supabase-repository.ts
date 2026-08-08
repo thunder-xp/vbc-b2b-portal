@@ -21,7 +21,7 @@ import {
   type PartnerServiceRow,
 } from "./mappers";
 
-const ESTIMATE_COLUMNS = "id, company_id, created_by, estimate_number, name, final_customer_id, customer_name, project_name, currency_code, currency_rate, currency_rate_effective_date, validity_days, global_discount_percent, vat_mode, vat_rate_percent, subtotal_amount, line_discount_total, section_discount_total, global_discount_amount, charges_total, vat_amount, total_excluding_vat, gross_profit_amount, overall_margin_percent, status, total_amount, has_incomplete_pricing, proposal_template_id, proposal_settings, source_estimate_id, source_version_id, accepted_version_id, revision, archived_at, created_at, updated_at";
+const ESTIMATE_COLUMNS = "id, company_id, created_by, estimate_number, name, final_customer_id, customer_name, project_name, currency_code, currency_rate, currency_rate_effective_date, validity_days, global_discount_percent, vat_mode, vat_rate_percent, subtotal_amount, line_discount_total, section_discount_total, global_discount_amount, charges_total, vat_amount, total_excluding_vat, gross_profit_amount, overall_margin_percent, status, lifecycle_status, lifecycle_sent_at, lifecycle_expires_at, lifecycle_accepted_at, lifecycle_rejected_at, lifecycle_rejection_reason, lifecycle_converted_at, lifecycle_order_id, total_amount, has_incomplete_pricing, proposal_template_id, proposal_settings, source_estimate_id, source_version_id, accepted_version_id, revision, archived_at, created_at, updated_at";
 const SECTION_COLUMNS = "id, estimate_id, name, sort_order, show_subtotal, discount_percent, created_at, updated_at";
 const ITEM_COLUMNS = "id, estimate_id, section_id, line_type, product_id, service_id, external_nomenclature_id, position, sku_snapshot, product_name_snapshot, source_unit_price, source_currency_code, source_snapshot_at, pricing_mode, pricing_input_value, internal_cost_unit_price, converted_cost_unit_price, exchange_rate, exchange_rate_effective_date, line_discount_percent, description, quantity, unit, selling_unit_price, line_total, line_subtotal, line_discount_amount, net_line_total, created_at, updated_at";
 const CHARGE_COLUMNS = "id, estimate_id, charge_type, description, amount, vat_applicable, customer_visible, sort_order, created_at, updated_at";
@@ -57,6 +57,7 @@ export class SupabaseEstimateRepository implements EstimateRepository {
       .range(input.offset, input.offset + input.limit - 1);
 
     if (input.status) query = query.eq("status", input.status);
+    if (input.lifecycleStatus) query = query.eq("lifecycle_status", input.lifecycleStatus);
     if (versionEstimateIds) query = query.in("id", versionEstimateIds);
     if (input.dateFrom) query = query.gte("updated_at", input.dateFrom);
     if (input.dateTo) query = query.lt("updated_at", input.dateTo);
@@ -185,7 +186,7 @@ export class SupabaseEstimateRepository implements EstimateRepository {
         estimateNumber: String(row.estimate_number),
         name: String(row.name),
         projectName: typeof row.project_name === "string" ? row.project_name : null,
-        status: row.status as import("../../types").EstimateStatus,
+        status: row.status as import("../../types").EstimateLifecycleStatus,
         updatedAt: String(row.updated_at),
       })),
     };

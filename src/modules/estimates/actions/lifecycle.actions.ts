@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { type ActionResult, failureFromError, success } from "../../access-control/actions/action-result";
-import type { EstimateCartConversionSummary, EstimateSentChannel, EstimateWorkflowDto, ProposalTemplate } from "../types";
+import type { EstimateCartConversionSummary, EstimateRejectionReason, EstimateSentChannel, EstimateWorkflowDto, ProposalTemplate } from "../types";
 import { createEstimateLifecycleService, getAuthenticatedUserId } from "./service-factory";
 
 export async function getEstimateWorkflowAction(estimateId: string): Promise<ActionResult<EstimateWorkflowDto>> {
@@ -31,9 +31,9 @@ export async function markEstimateReadyAction(estimateId: string, expectedRevisi
   } catch (error) { return failureFromError(error); }
 }
 
-export async function transitionEstimateVersionAction(versionId: string, status: "sent" | "accepted" | "rejected", channel?: EstimateSentChannel | null, note = ""): Promise<ActionResult<EstimateVersionReceipt>> {
+export async function transitionEstimateVersionAction(versionId: string, status: "sent" | "accepted" | "rejected", channel?: EstimateSentChannel | null, note = "", rejectionReason?: EstimateRejectionReason | null): Promise<ActionResult<EstimateVersionReceipt>> {
   try {
-    const result = await createEstimateLifecycleService().transitionVersion(await getAuthenticatedUserId(), versionId, status, channel, note);
+    const result = await createEstimateLifecycleService().transitionVersion(await getAuthenticatedUserId(), versionId, status, channel, note, rejectionReason);
     revalidateEstimate(result.estimateId);
     return success(status === "sent" ? "Версия отмечена как отправленная." : status === "accepted" ? "Версия отмечена как принятая." : "Версия отмечена как отклонённая.", versionReceipt(result));
   } catch (error) { return failureFromError(error); }

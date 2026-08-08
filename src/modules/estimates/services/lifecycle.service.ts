@@ -9,6 +9,7 @@ import type {
   Estimate,
   EstimateCartConversionSummary,
   EstimateSentChannel,
+  EstimateRejectionReason,
   EstimateVersion,
   EstimateVersionStatus,
   EstimateWorkflowDto,
@@ -56,6 +57,10 @@ export class EstimateLifecycleService {
     return {
       estimateId: estimate.id,
       estimateStatus: normalizeEstimateStatus(estimate.status),
+      lifecycleStatus: estimate.lifecycleStatus ?? "draft",
+      lifecycleExpiresAt: estimate.lifecycleExpiresAt ?? null,
+      lifecycleRejectionReason: estimate.lifecycleRejectionReason ?? null,
+      lifecycleOrderId: estimate.lifecycleOrderId ?? null,
       acceptedVersionId: estimate.acceptedVersionId ?? null,
       emailDeliveryAvailable: isProposalEmailConfigured(),
       versions: versions.map((version) => {
@@ -109,12 +114,19 @@ export class EstimateLifecycleService {
     return this.lifecycleRepository.markReady(normalizeId(estimateId), normalizeRevision(expectedRevision));
   }
 
-  async transitionVersion(userId: string, versionId: string, status: "sent" | "accepted" | "rejected", channel?: EstimateSentChannel | null, note?: string): Promise<EstimateVersion> {
+  async transitionVersion(userId: string, versionId: string, status: "sent" | "accepted" | "rejected", channel?: EstimateSentChannel | null, note?: string, rejectionReason?: EstimateRejectionReason | null): Promise<EstimateVersion> {
     const companyId = await this.resolveCompany(userId, MANAGE_PERMISSION);
     const version = await this.lifecycleRepository.findVersion(normalizeId(versionId));
     if (!version || version.companyId !== companyId) throw new NotFoundError("Версия сметы не найдена.");
     if (status === "sent" && channel && !(["email", "messenger", "printed", "other"] as const).includes(channel)) throw new InvalidStateError("Выберите способ отправки.");
-    const result = await this.lifecycleRepository.transitionVersion({ versionId: version.id, status, channel: channel ?? null, note: normalizeOptional(note, 1000) });
+    if (status === "rejected" && !rejectionReason) throw new InvalidStateError("Выберите причину отклонения.");
+    const result = await this.lifecycleRepository.transitionVersion({
+      versionId: version.id,
+      status,
+      channel: channel ?? null,
+      note: normalizeOptional(note, 1000),
+      ...(status === "rejected" ? { rejectionReason } : {}),
+    });
     console.info({ event: `estimate_version_${status}`, estimateId: version.estimateId, versionId: version.id });
     return result;
   }

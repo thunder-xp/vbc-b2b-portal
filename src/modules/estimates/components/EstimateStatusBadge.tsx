@@ -1,22 +1,28 @@
-import type { EstimateStatus } from "../types";
+import type { EstimateLifecycleStatus, EstimateStatus } from "../types";
 import { canonicalStatuses, StatusBadge } from "../../platform-ui";
 
-const labels: Record<EstimateStatus, string> = {
+export type EstimateDisplayStatus = EstimateLifecycleStatus | EstimateStatus;
+
+const labels: Record<EstimateDisplayStatus, string> = {
   draft: "Черновик",
   ready: "Готово",
   sent: "Отправлено",
   accepted: "Принято",
   rejected: "Отклонено",
+  expired: "Срок истёк",
+  converted_to_order: "Переведено в заказ",
   archived: "Архив",
 };
 
-export function EstimateStatusBadge({ status }: { status: EstimateStatus }) {
+export function EstimateStatusBadge({ status = "draft" }: { status?: EstimateDisplayStatus }) {
   const descriptor = status === "draft" ? canonicalStatuses.draft
     : status === "ready" ? canonicalStatuses.ready
       : status === "sent" ? canonicalStatuses.sent
         : status === "accepted" ? canonicalStatuses.accepted
           : status === "rejected" ? canonicalStatuses.rejected
-            : canonicalStatuses.archived;
+            : status === "archived" ? canonicalStatuses.archived
+              : status === "converted_to_order" ? canonicalStatuses.ready
+                : canonicalStatuses.expired;
   return <StatusBadge label={labels[status]} status={descriptor} />;
 }
 

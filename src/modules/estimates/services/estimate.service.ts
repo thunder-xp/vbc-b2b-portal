@@ -13,7 +13,7 @@ import type { PricingInventoryService } from "../../pricing-inventory/services";
 import { evaluateFreshness } from "../../integration/freshness";
 import type { AddEstimateLineInput, EstimateRepository, ExternalNomenclatureRecord, SaveEstimateCommercialInput } from "../repositories";
 import { EstimateRepositoryError } from "../repositories";
-import { isFinalCustomerIndustryCode, type Estimate, type EstimateAggregate, type EstimateChargeType, type EstimateCurrencyChangePolicy, type EstimateItem, type EstimatePricingMode, type EstimateStatus, type EstimateUnit, type EstimateVatMode, type FinalCustomerIndustryCode } from "../types";
+import { isFinalCustomerIndustryCode, type Estimate, type EstimateAggregate, type EstimateChargeType, type EstimateCurrencyChangePolicy, type EstimateItem, type EstimateLifecycleStatus, type EstimatePricingMode, type EstimateStatus, type EstimateUnit, type EstimateVatMode, type FinalCustomerIndustryCode } from "../types";
 import { calculateCommercialLine, calculateEstimateCommercials, convertMoney, resolveCurrencyRate } from "./commercial-calculation";
 
 const VIEW_PERMISSION = "estimates.view";
@@ -25,6 +25,7 @@ const MAX_PRODUCT_BATCH = 50;
 export type EstimateListFilters = {
   search?: string;
   status?: EstimateStatus;
+  lifecycleStatus?: EstimateLifecycleStatus;
   versionStatus?: import("../types").EstimateVersionStatus | "has_sent";
   dateFrom?: string;
   dateTo?: string;
@@ -36,7 +37,8 @@ export type EstimateSummaryDto = {
   estimateNumber: string;
   name: string;
   customerProject: string;
-  status: EstimateStatus;
+  status: EstimateLifecycleStatus;
+  archived: boolean;
   total: string;
   currencyCode: string;
   createdAt: string;
@@ -96,6 +98,7 @@ export type EstimateDetailDto = {
   vatMode: EstimateVatMode;
   vatRatePercent: number;
   status: EstimateStatus;
+  lifecycleStatus?: EstimateLifecycleStatus;
   commercialMode?: "full" | "retail_only";
   revision: number;
   updatedAt: string;
@@ -314,6 +317,7 @@ export class DefaultEstimateService implements EstimateService {
       companyId,
       search: normalizeOptional(filters.search, 100),
       status: normalizeStatus(filters.status),
+      lifecycleStatus: normalizeLifecycleStatus(filters.lifecycleStatus),
       versionStatus: normalizeVersionFilter(filters.versionStatus),
       dateFrom: normalizeDate(filters.dateFrom),
       dateTo: endExclusive(filters.dateTo),
@@ -326,7 +330,8 @@ export class DefaultEstimateService implements EstimateService {
         estimateNumber: record.estimateNumber,
         name: record.name,
         customerProject: [record.customerName, record.projectName].filter(Boolean).join(" · ") || "Без заказчика и объекта",
-        status: record.status,
+        status: record.lifecycleStatus ?? "draft",
+        archived: record.status === "archived",
         total: formatMoney(record.totalAmount, record.currencyCode),
         currencyCode: record.currencyCode,
         createdAt: record.createdAt,
@@ -1200,6 +1205,10 @@ function normalizeStatus(value: EstimateStatus | undefined): EstimateStatus | un
   return value && (["draft", "ready", "sent", "accepted", "rejected", "archived"] as const).includes(value) ? value : undefined;
 }
 
+function normalizeLifecycleStatus(value: EstimateLifecycleStatus | undefined): EstimateLifecycleStatus | undefined {
+  return value && (["draft", "sent", "accepted", "rejected", "expired", "converted_to_order"] as const).includes(value) ? value : undefined;
+}
+
 function normalizeVersionFilter(value: EstimateListFilters["versionStatus"]): EstimateListFilters["versionStatus"] {
   return value && (["prepared", "sent", "accepted", "rejected", "archived", "has_sent"] as const).includes(value) ? value : undefined;
 }
@@ -1269,6 +1278,7 @@ function toCommercialDetail(aggregate: EstimateAggregate, images = new Map<strin
     vatMode: estimate.vatMode,
     vatRatePercent: estimate.vatRatePercent,
     status: estimate.status,
+    lifecycleStatus: estimate.lifecycleStatus ?? "draft",
     revision: estimate.revision,
     updatedAt: estimate.updatedAt,
     total: formatMoney(calculated.finalTotal, estimate.currencyCode),
@@ -1343,6 +1353,7 @@ function legacyToDetail(estimate: Estimate, items: EstimateItem[]) {
     currencyCode: estimate.currencyCode,
     validityDays: estimate.validityDays,
     status: estimate.status,
+    lifecycleStatus: estimate.lifecycleStatus ?? "draft",
     revision: estimate.revision,
     updatedAt: estimate.updatedAt,
     total: formatMoney(estimate.totalAmount, estimate.currencyCode),

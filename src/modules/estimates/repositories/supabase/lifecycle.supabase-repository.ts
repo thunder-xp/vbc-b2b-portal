@@ -30,11 +30,12 @@ type VersionRow = {
   accepted_at: string | null;
   rejected_at: string | null;
   rejection_reason: string | null;
+  rejection_reason_code: EstimateVersion["rejectionReasonCode"];
 };
 
 type TemplateRow = { id: string; company_id: string | null; template_key: string; name: string; configuration: ProposalSettings; is_system: boolean };
 
-const VERSION_COLUMNS = "id, estimate_id, company_id, version_number, estimate_revision, status, estimate_number, currency_code, total_amount, snapshot, customer_proposal_snapshot, proposal_template_id, note, change_reason, created_by, created_at, sent_at, sent_channel, accepted_at, rejected_at, rejection_reason";
+const VERSION_COLUMNS = "id, estimate_id, company_id, version_number, estimate_revision, status, estimate_number, currency_code, total_amount, snapshot, customer_proposal_snapshot, proposal_template_id, note, change_reason, created_by, created_at, sent_at, sent_channel, accepted_at, rejected_at, rejection_reason, rejection_reason_code";
 const VERSION_LIST_COLUMNS = `${VERSION_COLUMNS}, creator:user_profiles!estimate_versions_created_by_fkey(full_name)`;
 
 export class SupabaseEstimateLifecycleRepository implements EstimateLifecycleRepository {
@@ -77,11 +78,12 @@ export class SupabaseEstimateLifecycleRepository implements EstimateLifecycleRep
   }
 
   async transitionVersion(input: Parameters<EstimateLifecycleRepository["transitionVersion"]>[0]) {
-    return this.versionRpc("transition_estimate_version", {
+    return this.versionRpc("transition_estimate_version_v2", {
       target_version_id: input.versionId,
       target_status: input.status,
       target_channel: input.channel ?? null,
       target_note: input.note ?? null,
+      target_rejection_reason: input.rejectionReason ?? null,
     });
   }
 
@@ -159,6 +161,7 @@ function mapVersion(row: VersionRow): EstimateVersion {
     createdByName: row.creator?.[0]?.full_name?.trim() || null, createdAt: row.created_at,
     sentAt: row.sent_at, sentChannel: row.sent_channel, acceptedAt: row.accepted_at,
     rejectedAt: row.rejected_at, rejectionReason: row.rejection_reason,
+    rejectionReasonCode: row.rejection_reason_code,
   };
 }
 

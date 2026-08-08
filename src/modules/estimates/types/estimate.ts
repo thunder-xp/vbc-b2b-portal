@@ -1,4 +1,6 @@
 export type EstimateStatus = "draft" | "ready" | "sent" | "accepted" | "rejected" | "archived";
+export type EstimateLifecycleStatus = "draft" | "sent" | "accepted" | "rejected" | "expired" | "converted_to_order";
+export type EstimateRejectionReason = "price" | "no_budget" | "other_supplier" | "project_changed" | "postponed" | "other";
 export type EstimateLineType = "product" | "service" | "custom" | "external";
 export type EstimateUnit = "pcs" | "hour" | "meter" | "set" | "visit" | "service";
 export type EstimatePricingMode = "direct" | "markup" | "margin";
@@ -39,7 +41,7 @@ export interface FinalCustomerDetail extends FinalCustomer {
     estimateNumber: string;
     name: string;
     projectName: string | null;
-    status: EstimateStatus;
+    status: EstimateLifecycleStatus;
     updatedAt: string;
   }>;
   lastActivityAt: string | null;
@@ -71,6 +73,14 @@ export interface Estimate {
   grossProfitAmount: number | null;
   overallMarginPercent: number | null;
   status: EstimateStatus;
+  lifecycleStatus?: EstimateLifecycleStatus;
+  lifecycleSentAt?: string | null;
+  lifecycleExpiresAt?: string | null;
+  lifecycleAcceptedAt?: string | null;
+  lifecycleRejectedAt?: string | null;
+  lifecycleRejectionReason?: EstimateRejectionReason | null;
+  lifecycleConvertedAt?: string | null;
+  lifecycleOrderId?: string | null;
   totalAmount: number;
   hasIncompletePricing: boolean;
   proposalTemplateId?: string | null;

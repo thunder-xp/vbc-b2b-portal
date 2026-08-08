@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, Copy, Download, FileClock, FilePlus2, ShoppingCart } from "lucide-react";
+import { CheckCircle2, Copy, Download, FileClock, FilePlus2, Send, ShoppingCart, XCircle } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
@@ -14,16 +14,19 @@ import {
   duplicateEstimateAction,
   markEstimateReadyAction,
   saveEstimateAsTemplateAction,
+  transitionEstimateVersionAction,
 } from "../actions/lifecycle.actions";
 import { generateEstimateVersionPdfAction } from "../actions/proposal.actions";
 import type { EstimateWorkflowDto } from "../types";
 import { SendProposalDialog } from "./SendProposalDialog";
+import { EstimateStatusBadge } from "./EstimateStatusBadge";
 
 export function EstimateWorkflowPanel({ initialWorkflow, revision }: { initialWorkflow: EstimateWorkflowDto; revision: number }) {
   const router = useRouter();
   const [workflow, setWorkflow] = useState(initialWorkflow);
   const [message, setMessage] = useState<string | null>(null);
   const [note, setNote] = useState("");
+  const [rejectionReason, setRejectionReason] = useState<import("../types").EstimateRejectionReason | "">("");
   const [conversionVersionId, setConversionVersionId] = useState<string | null | undefined>(undefined);
   const [pending, startTransition] = useTransition();
   const run = (operation: () => Promise<{ success: boolean; message: string }>, after?: () => void) => startTransition(async () => {
@@ -34,7 +37,6 @@ export function EstimateWorkflowPanel({ initialWorkflow, revision }: { initialWo
   const addToCart = (versionId: string | null) => startTransition(async () => {
     const result = await addEstimateEquipmentToCartAction(workflow.estimateId, versionId, crypto.randomUUID());
     if (!result.success) return setMessage(result.message);
-    recordBehaviorInteraction({ eventName: "proposal_converted_to_order", route: "/cabinet/estimates/detail", sourceSurface: "proposal_workflow" });
     setMessage(`${result.message} Добавлено: ${result.data.added}, обновлено: ${result.data.updated}, цена изменилась: ${result.data.changedPrice}, недоступно: ${result.data.unavailable + result.data.inactive}, без цены: ${result.data.missingPrice}, пропущено: ${result.data.skipped}.`);
   });
   const duplicate = () => startTransition(async () => {
@@ -50,7 +52,7 @@ export function EstimateWorkflowPanel({ initialWorkflow, revision }: { initialWo
 
   return <section className="space-y-4 border-y border-zinc-200 bg-white px-4 py-5 sm:px-5">
     <header className="flex flex-wrap items-start justify-between gap-3">
-      <div><p className="text-xs font-semibold uppercase text-emerald-700">Коммерческое предложение</p><h2 className="mt-1 text-lg font-semibold">Версии предложения</h2><p className="mt-1 text-sm text-zinc-500">Каждая версия фиксирует цены, состав и условия. Отправленные и принятые версии неизменяемы; для правок создайте новую версию.</p></div>
+      <div><div className="flex flex-wrap items-center gap-2"><p className="text-xs font-semibold uppercase text-emerald-700">Коммерческое предложение</p><EstimateStatusBadge status={workflow.lifecycleStatus} /></div><h2 className="mt-1 text-lg font-semibold">Версии предложения</h2><p className="mt-1 text-sm text-zinc-500">Каждая версия фиксирует цены, состав и условия. Отправленные и принятые версии неизменяемы; для правок создайте новую версию.</p>{workflow.lifecycleStatus === "sent" && workflow.lifecycleExpiresAt ? <p className="mt-1 text-xs text-zinc-500">Действительно до {formatDate(workflow.lifecycleExpiresAt)}</p> : null}</div>
       <div className="flex flex-wrap gap-2">
         {workflow.estimateStatus === "draft" && <button className={secondary} disabled={pending || !workflow.readiness.ready} onClick={() => run(() => markEstimateReadyAction(workflow.estimateId, revision))} type="button"><CheckCircle2 className="size-4" />Отметить как готово</button>}
         <button className={secondary} disabled={pending} onClick={duplicate} type="button"><Copy className="size-4" />Дублировать</button>
@@ -88,7 +90,9 @@ export function EstimateWorkflowPanel({ initialWorkflow, revision }: { initialWo
           {version.pdfStatus !== "ready" && <button className={iconButton} disabled={pending} onClick={() => run(() => generateEstimateVersionPdfAction(version.id), () => recordBehaviorInteraction({ eventName: "proposal_pdf_generated", route: "/cabinet/estimates/detail", sourceSurface: "proposal_workflow" }))} type="button"><Download className="size-4" />Сформировать PDF</button>}
           {version.pdfDocumentId && version.pdfStatus === "ready" && <Link className={iconButton} href={`/api/estimates/documents/${version.pdfDocumentId}`}><Download className="size-4" />Скачать PDF</Link>}
           <SendProposalDialog canSend={workflow.emailDeliveryAvailable && (version.status === "prepared" || version.status === "sent") && version.pdfStatus === "ready"} defaults={version.deliveryDefaults} deliveries={version.deliveries} emailAvailable={workflow.emailDeliveryAvailable} pdfReady={version.pdfStatus === "ready"} versionId={version.id} versionLabel={version.label} />
-          {(version.status === "rejected" || version.status === "accepted") && <button className={secondary} disabled={pending} onClick={() => restoreVersion(version.id)} type="button"><FilePlus2 className="size-4" />Создать новую версию</button>}
+          {version.status === "prepared" && version.pdfStatus === "ready" && workflow.lifecycleStatus === "draft" ? <button className={secondary} disabled={pending} onClick={() => run(() => transitionEstimateVersionAction(version.id, "sent", "other"))} type="button"><Send className="size-4" />Отправлено заказчику</button> : null}
+          {version.status === "sent" && workflow.lifecycleStatus === "sent" ? <><button className={primary} disabled={pending} onClick={() => run(() => transitionEstimateVersionAction(version.id, "accepted"))} type="button"><CheckCircle2 className="size-4" />Принято заказчиком</button><label className="sr-only" htmlFor={`rejection-${version.id}`}>Причина отклонения</label><select className={`${input} w-auto min-w-44`} id={`rejection-${version.id}`} onChange={(event) => setRejectionReason(event.target.value as typeof rejectionReason)} value={rejectionReason}><option value="">Причина отклонения</option><option value="price">Цена</option><option value="no_budget">Нет бюджета</option><option value="other_supplier">Выбран другой поставщик</option><option value="project_changed">Изменился проект</option><option value="postponed">Отложено</option><option value="other">Другое</option></select><button className={secondary} disabled={pending || !rejectionReason} onClick={() => run(() => transitionEstimateVersionAction(version.id, "rejected", null, "", rejectionReason || undefined))} type="button"><XCircle className="size-4" />Отклонено</button></> : null}
+          {(version.status === "rejected" || version.status === "accepted" || (version.status === "sent" && workflow.lifecycleStatus === "expired")) && <button className={secondary} disabled={pending} onClick={() => restoreVersion(version.id)} type="button"><FilePlus2 className="size-4" />Создать новую версию</button>}
           {version.status === "accepted" && <button className={primary} disabled={pending} onClick={() => setConversionVersionId(version.id)} type="button"><ShoppingCart className="size-4" />Создать заказ</button>}
         </div>
       </article>) : <p className="py-8 text-center text-sm text-zinc-500">Версий пока нет. Сохраните смету и создайте первую коммерческую версию.</p>}

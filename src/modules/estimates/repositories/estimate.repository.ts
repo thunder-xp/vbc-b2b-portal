@@ -3,6 +3,7 @@ import type {
   EstimateAggregate,
   EstimateLineType,
   EstimateStatus,
+  EstimateLifecycleStatus,
   EstimateUnit,
   EstimateVatMode,
   EstimatePricingMode,
@@ -19,6 +20,7 @@ export type EstimateListInput = {
   companyId: string;
   search?: string;
   status?: EstimateStatus;
+  lifecycleStatus?: EstimateLifecycleStatus;
   versionStatus?: import("../types").EstimateVersionStatus | "has_sent";
   dateFrom?: string;
   dateTo?: string;

@@ -1,5 +1,6 @@
 import type { CustomerProposalDto } from "./proposal";
 import type { ProposalDeliverySummaryDto } from "./delivery";
+import type { EstimateLifecycleStatus, EstimateRejectionReason } from "./estimate";
 
 export type EstimateVersionStatus = "prepared" | "sent" | "accepted" | "rejected" | "archived";
 export type EstimateSentChannel = "email" | "messenger" | "printed" | "other";
@@ -27,6 +28,7 @@ export type EstimateVersion = {
   acceptedAt: string | null;
   rejectedAt: string | null;
   rejectionReason: string | null;
+  rejectionReasonCode?: EstimateRejectionReason | null;
 };
 
 export type EstimateVersionSnapshot = {
@@ -59,6 +61,10 @@ export type EstimateVersionListItemDto = {
 export type EstimateWorkflowDto = {
   estimateId: string;
   estimateStatus: "draft" | "ready" | "archived";
+  lifecycleStatus?: EstimateLifecycleStatus;
+  lifecycleExpiresAt?: string | null;
+  lifecycleRejectionReason?: EstimateRejectionReason | null;
+  lifecycleOrderId?: string | null;
   acceptedVersionId: string | null;
   emailDeliveryAvailable: boolean;
   versions: EstimateVersionListItemDto[];
