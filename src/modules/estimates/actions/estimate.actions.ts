@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { type ActionResult, failureFromError, invalidInput, success } from "../../access-control/actions/action-result";
-import type { EstimateCommercialCheckDto, EstimateCommercialOptionsDto, EstimateDetailDto, EstimateListFilters, EstimateProductPickerDto, EstimateServiceDto, EstimateServiceSelection, SaveEstimateCommercialCommand } from "../services";
+import type { EstimateCommercialCheckDto, EstimateCommercialOptionsDto, EstimateDetailDto, EstimateListFilters, EstimateProductPickerDto, EstimateServiceDto, EstimateServiceSelection, ExternalNomenclatureInput, SaveEstimateCommercialCommand } from "../services";
 import type { EstimateUnit } from "../types";
 import { createEstimateService, getAuthenticatedUserId } from "./service-factory";
 
@@ -13,6 +13,7 @@ export type CreateEstimateActionInput = {
   projectName?: string | null;
   currencyCode: string;
   validityDays: number;
+  requestKey: string;
 };
 
 export async function listEstimatesAction(filters: EstimateListFilters = {}) {
@@ -56,7 +57,7 @@ export async function searchEstimateProductsAction(input: { search?: string; cat
     const userId = await getAuthenticatedUserId();
     return success("Товары загружены.", await createEstimateService().searchProducts(userId, input));
   } catch (error) {
-    return failureFromError(error);
+    return estimateFailure(error, "product_search");
   }
 }
 
@@ -77,8 +78,29 @@ export async function createEstimateAction(input: CreateEstimateActionInput): Pr
     revalidatePath("/cabinet/estimates");
     return success("Смета создана.", { id: estimate.id });
   } catch (error) {
-    return failureFromError(error);
+    console.error({ event: "estimate_creation_failed", errorName: error instanceof Error ? error.name : typeof error, deployedCommitSha: process.env.VERCEL_GIT_COMMIT_SHA ?? null });
+    const result = failureFromError(error);
+    return result.errorCode === "SYSTEM_ERROR"
+      ? { ...result, message: "Не удалось создать смету. Проверьте данные и повторите попытку." }
+      : result;
   }
+}
+
+export async function searchExternalNomenclatureAction(query: string) {
+  if (query.trim().length < 2) return success("Введите минимум два символа.", []);
+  try {
+    const userId = await getAuthenticatedUserId();
+    return success("Похожие позиции найдены.", await createEstimateService().searchExternalNomenclature(userId, query));
+  } catch (error) {
+    return estimateFailure(error, "external_nomenclature_search");
+  }
+}
+
+export async function addEstimateExternalLineAction(estimateId: string, input: { expectedRevision: number } & ExternalNomenclatureInput): Promise<ActionResult<EstimateDetailDto>> {
+  return runEstimateMutation(
+    (userId) => createEstimateService().addExternalLine(userId, estimateId, input.expectedRevision, input),
+    "Внешняя позиция добавлена.",
+  );
 }
 
 export async function getEstimateAction(estimateId: string): Promise<ActionResult<EstimateDetailDto>> {
@@ -180,6 +202,22 @@ async function runEstimateMutation(
     const detail = await mutation(userId);
     return success(message, detail);
   } catch (error) {
-    return failureFromError(error);
+    return estimateFailure(error, "mutation");
   }
+}
+
+function estimateFailure(error: unknown, stage: string) {
+  console.error({
+    event: "estimate_action_failed",
+    stage,
+    errorName: error instanceof Error ? error.name : typeof error,
+    databaseCode: typeof error === "object" && error !== null && "databaseCode" in error
+      ? String(error.databaseCode ?? "") || null
+      : null,
+    deployedCommitSha: process.env.VERCEL_GIT_COMMIT_SHA ?? null,
+  });
+  const result = failureFromError(error);
+  return result.errorCode === "SYSTEM_ERROR"
+    ? { ...result, message: "Не удалось выполнить действие. Данные сметы сохранены — повторите попытку." }
+    : result;
 }

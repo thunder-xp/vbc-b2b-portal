@@ -1,22 +1,22 @@
 "use client";
 
-import { Check, PackagePlus, Plus, Search, Wrench } from "lucide-react";
+import { Check, PackagePlus, Search, Wrench } from "lucide-react";
 import { useMemo, useState, useTransition } from "react";
 
 import { ProductThumbnail } from "../../catalog/components/ProductThumbnail";
 import { recordBehaviorInteraction } from "../../behavior-analytics/components";
 
 import {
-  addEstimateCustomLineAction,
   addEstimateProductsAction,
   addEstimateServicesAction,
   searchEstimateProductsAction,
 } from "../actions/estimate.actions";
 import type { EstimateDetailDto, EstimateProductPickerDto, EstimateServiceDto } from "../services";
+import { ExternalNomenclaturePicker } from "./ExternalNomenclaturePicker";
 
 const inputClass = "min-h-11 min-w-0 rounded-md border border-zinc-300 bg-white px-2 text-sm outline-none focus:border-emerald-600 focus-visible:ring-2 focus-visible:ring-emerald-200 disabled:bg-zinc-100";
 const buttonClass = "inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-700 outline-none hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-45";
-type Mode = "product" | "service" | "custom";
+type Mode = "product" | "service" | "external";
 
 export function EstimateLinePicker({ estimate, services, onResult, disabled }: {
   estimate: EstimateDetailDto;
@@ -70,7 +70,7 @@ export function EstimateLinePicker({ estimate, services, onResult, disabled }: {
       <div aria-label="Тип позиции" className="flex flex-wrap gap-2" role="tablist">
         <ModeButton active={mode === "product"} disabled={disabled} label="Оборудование" onClick={() => setMode("product")} />
         <ModeButton active={mode === "service"} disabled={disabled} label="Добавить работы и услуги" onClick={() => setMode("service")} />
-        <ModeButton active={mode === "custom"} disabled={disabled} label="Своя позиция" onClick={() => setMode("custom")} />
+        <ModeButton active={mode === "external"} disabled={disabled} label="Внешняя позиция" onClick={() => setMode("external")} />
       </div>
       {message && <p aria-live="polite" className="text-sm text-zinc-600">{message}</p>}
     </div>
@@ -119,12 +119,7 @@ export function EstimateLinePicker({ estimate, services, onResult, disabled }: {
       <div className="flex justify-end"><button className="inline-flex min-h-11 items-center gap-2 rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white disabled:opacity-45" disabled={disabled || pending || !Object.keys(serviceSelection).length} onClick={() => run(() => addEstimateServicesAction(estimate.id, estimate.revision, Object.entries(serviceSelection).map(([serviceId, selection]) => ({ serviceId, quantity: selection.quantity, sellingUnitPrice: selection.price }))), "estimate_service_added")} type="button"><Wrench className="size-4" />Добавить выбранные ({Object.keys(serviceSelection).length})</button></div>
     </div>}
 
-    {mode === "custom" && <form className="mt-4 grid gap-2 sm:grid-cols-[minmax(12rem,1fr)_7rem_8rem_auto]" onSubmit={(event) => { event.preventDefault(); if (disabled) return; const data = new FormData(event.currentTarget); run(() => addEstimateCustomLineAction(estimate.id, { expectedRevision: estimate.revision, description: String(data.get("description")), unit: "service", quantity: Number(data.get("quantity")), sellingUnitPrice: Number(data.get("price")) }), "estimate_service_added"); }}>
-      <input aria-label="Описание" className={inputClass} disabled={disabled} name="description" placeholder="Описание собственной работы или материала" required />
-      <input aria-label="Количество" className={inputClass} defaultValue="1" disabled={disabled} min="0.001" name="quantity" step="0.001" type="number" />
-      <input aria-label="Цена" className={inputClass} disabled={disabled} min="0" name="price" placeholder="Цена" step="0.01" type="number" />
-      <button className={buttonClass} disabled={disabled || pending} type="submit"><Plus className="size-4" />Добавить</button>
-    </form>}
+    {mode === "external" && <ExternalNomenclaturePicker disabled={disabled} estimate={estimate} onResult={onResult} />}
   </section>;
 }
 

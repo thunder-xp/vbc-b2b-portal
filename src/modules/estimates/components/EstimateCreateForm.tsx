@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 
 import { recordBehaviorInteraction } from "../../behavior-analytics/components";
 import { ActionFeedback, actionClassName, FormField } from "../../platform-ui";
@@ -11,10 +11,12 @@ export function EstimateCreateForm({ currencies }: { currencies: string[] }) {
   const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const requestKey = useRef(crypto.randomUUID());
 
   return (
     <form
       className="space-y-5"
+      onChange={() => { requestKey.current = crypto.randomUUID(); }}
       onSubmit={(event) => {
         event.preventDefault();
         const form = new FormData(event.currentTarget);
@@ -25,6 +27,7 @@ export function EstimateCreateForm({ currencies }: { currencies: string[] }) {
             projectName: String(form.get("projectName") ?? ""),
             currencyCode: String(form.get("currencyCode") ?? ""),
             validityDays: Number(form.get("validityDays")),
+            requestKey: requestKey.current,
           });
           setMessage(result.message);
           if (result.success) {
@@ -51,7 +54,7 @@ export function EstimateCreateForm({ currencies }: { currencies: string[] }) {
         <button className={actionClassName.primary} disabled={pending || !currencies.length} type="submit">
           {pending ? "Создание..." : "Создать смету"}
         </button>
-        {message && <ActionFeedback kind="error" message={`${message} Введённые данные сохранены.`} />}
+        {message && <ActionFeedback kind={message === "Смета создана." ? "success" : "error"} message={message === "Смета создана." ? message : `${message} Введённые данные сохранены.`} />}
       </div>
     </form>
   );

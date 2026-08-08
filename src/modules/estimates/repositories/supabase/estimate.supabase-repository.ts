@@ -23,7 +23,7 @@ import {
 
 const ESTIMATE_COLUMNS = "id, company_id, created_by, estimate_number, name, customer_name, project_name, currency_code, currency_rate, currency_rate_effective_date, validity_days, global_discount_percent, vat_mode, vat_rate_percent, subtotal_amount, line_discount_total, section_discount_total, global_discount_amount, charges_total, vat_amount, total_excluding_vat, gross_profit_amount, overall_margin_percent, status, total_amount, has_incomplete_pricing, proposal_template_id, proposal_settings, source_estimate_id, source_version_id, accepted_version_id, revision, archived_at, created_at, updated_at";
 const SECTION_COLUMNS = "id, estimate_id, name, sort_order, show_subtotal, discount_percent, created_at, updated_at";
-const ITEM_COLUMNS = "id, estimate_id, section_id, line_type, product_id, service_id, position, sku_snapshot, product_name_snapshot, source_unit_price, source_currency_code, source_snapshot_at, pricing_mode, pricing_input_value, internal_cost_unit_price, converted_cost_unit_price, exchange_rate, exchange_rate_effective_date, line_discount_percent, description, quantity, unit, selling_unit_price, line_total, line_subtotal, line_discount_amount, net_line_total, created_at, updated_at";
+const ITEM_COLUMNS = "id, estimate_id, section_id, line_type, product_id, service_id, external_nomenclature_id, position, sku_snapshot, product_name_snapshot, source_unit_price, source_currency_code, source_snapshot_at, pricing_mode, pricing_input_value, internal_cost_unit_price, converted_cost_unit_price, exchange_rate, exchange_rate_effective_date, line_discount_percent, description, quantity, unit, selling_unit_price, line_total, line_subtotal, line_discount_amount, net_line_total, created_at, updated_at";
 const CHARGE_COLUMNS = "id, estimate_id, charge_type, description, amount, vat_applicable, customer_visible, sort_order, created_at, updated_at";
 
 type EstimateListRow = EstimateRow & {
@@ -129,16 +129,55 @@ export class SupabaseEstimateRepository implements EstimateRepository {
 
   async create(input: CreateEstimateInput): Promise<Estimate> {
     const supabase = await createClient();
-    const { data, error } = await supabase.rpc("create_estimate", {
+    const { data, error } = await supabase.rpc("create_estimate_v2", {
       target_company_id: input.companyId,
       estimate_name: input.name,
       target_customer_name: input.customerName ?? "",
       target_project_name: input.projectName ?? "",
       target_currency_code: input.currencyCode,
       target_validity_days: input.validityDays,
+      target_request_key: input.requestKey,
     });
     if (error || !data) throw mapRepositoryError(error?.code);
     return mapEstimateRow(data as EstimateRow);
+  }
+
+  async searchExternalNomenclature(query: string, limit: number) {
+    const { data, error } = await (await createClient()).rpc("search_external_nomenclature", {
+      search_query: query,
+      result_limit: limit,
+    });
+    if (error) throw mapRepositoryError(error.code);
+    return (data ?? []).map((row: Record<string, unknown>) => ({
+      id: String(row.id),
+      manufacturer: String(row.manufacturer),
+      model: String(row.model),
+      name: String(row.name),
+      category: typeof row.category === "string" ? row.category : null,
+      unit: row.unit as import("../../types").EstimateUnit,
+      specification: typeof row.specification === "string" ? row.specification : null,
+      exactIdentityMatch: row.exact_identity_match === true,
+    }));
+  }
+
+  async addExternalLine(input: import("../estimate.repository").AddExternalEstimateLineInput): Promise<void> {
+    const { error } = await (await createClient()).rpc("add_estimate_external_item", {
+      target_estimate_id: input.estimateId,
+      expected_revision: input.expectedRevision,
+      target_request_key: input.requestKey,
+      target_request_fingerprint: input.requestFingerprint,
+      existing_external_item_id: input.existingExternalItemId,
+      target_manufacturer: input.manufacturer,
+      target_model: input.model,
+      target_name: input.name,
+      target_category: input.category ?? "",
+      target_unit: input.unit,
+      target_specification: input.specification ?? "",
+      target_quantity: input.quantity,
+      target_selling_unit_price: input.sellingUnitPrice,
+      force_create_new: input.forceCreateNew,
+    });
+    if (error) throw mapRepositoryError(error.code);
   }
 
   async createFromPurchasingList(input: Parameters<EstimateRepository["createFromPurchasingList"]>[0]) {
@@ -317,9 +356,11 @@ function toLinePayload(line: AddEstimateLineInput) {
 }
 
 function mapRepositoryError(code: string | undefined): EstimateRepositoryError {
-  if (code === "40001") return new EstimateRepositoryError("conflict");
-  if (code === "P0002") return new EstimateRepositoryError("not_found");
-  return new EstimateRepositoryError();
+  if (code === "40001") return new EstimateRepositoryError("conflict", code);
+  if (code === "P0002") return new EstimateRepositoryError("not_found", code);
+  if (code === "23505") return new EstimateRepositoryError("duplicate", code);
+  if (code === "22023") return new EstimateRepositoryError("invalid", code);
+  return new EstimateRepositoryError("persistence", code ?? null);
 }
 
 function escapePostgrestPattern(value: string): string {

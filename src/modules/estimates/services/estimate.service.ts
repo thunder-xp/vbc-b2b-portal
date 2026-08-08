@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import Decimal from "decimal.js";
 
 import type { CompanyAccessService, PermissionService } from "../../access-control/services";
@@ -11,7 +11,7 @@ import { MembershipStatus } from "../../access-control/types";
 import type { CatalogService } from "../../catalog/services";
 import type { PricingInventoryService } from "../../pricing-inventory/services";
 import { evaluateFreshness } from "../../integration/freshness";
-import type { AddEstimateLineInput, EstimateRepository, SaveEstimateCommercialInput } from "../repositories";
+import type { AddEstimateLineInput, EstimateRepository, ExternalNomenclatureRecord, SaveEstimateCommercialInput } from "../repositories";
 import { EstimateRepositoryError } from "../repositories";
 import type { Estimate, EstimateAggregate, EstimateChargeType, EstimateCurrencyChangePolicy, EstimateItem, EstimatePricingMode, EstimateStatus, EstimateUnit, EstimateVatMode } from "../types";
 import { calculateCommercialLine, calculateEstimateCommercials, convertMoney, resolveCurrencyRate } from "./commercial-calculation";
@@ -56,6 +56,7 @@ export type EstimateLineDto = {
   sectionId: string;
   lineType: EstimateItem["lineType"];
   productId: string | null;
+  externalNomenclatureId?: string | null;
   imageUrl?: string | null;
   position: number;
   sku: string | null;
@@ -168,6 +169,8 @@ export type EstimateCommercialOptionsDto = {
   rateFreshness?: { label: string; staleNotice: string | null };
 };
 
+export type ExternalNomenclatureDto = ExternalNomenclatureRecord;
+
 export type EstimateServiceSelection = {
   serviceId: string;
   quantity: number;
@@ -180,9 +183,24 @@ export type CreateEstimateCommand = {
   projectName?: string | null;
   currencyCode: string;
   validityDays: number;
+  requestKey?: string;
 };
 
-export type SaveEstimateCommand = Omit<CreateEstimateCommand, "currencyCode"> & {
+export type ExternalNomenclatureInput = {
+  existingExternalItemId?: string | null;
+  manufacturer: string;
+  model: string;
+  name: string;
+  category?: string | null;
+  unit: EstimateUnit;
+  specification?: string | null;
+  quantity: number;
+  sellingUnitPrice: number;
+  forceCreateNew: boolean;
+  requestKey: string;
+};
+
+export type SaveEstimateCommand = Omit<CreateEstimateCommand, "currencyCode" | "requestKey"> & {
   expectedRevision: number;
 };
 
@@ -219,6 +237,7 @@ export interface EstimateService {
   getCommercialOptions(userId: string): Promise<EstimateCommercialOptionsDto>;
   listServices(userId: string): Promise<EstimateServiceDto[]>;
   searchProducts(userId: string, input: { search?: string; categoryId?: string; brandId?: string }): Promise<EstimateProductPickerDto>;
+  searchExternalNomenclature(userId: string, query: string): Promise<ExternalNomenclatureRecord[]>;
   checkCurrentProductState(userId: string, estimateId: string): Promise<EstimateCommercialCheckDto>;
   createDraft(userId: string, input: CreateEstimateCommand): Promise<Estimate>;
   createFromPurchasingList(userId: string, input: { listId: string; name: string; requestKey: string; items: Array<{ itemId: string; productId: string; quantity: number }> }): Promise<{ estimateId: string; repeated: boolean; added: number; skipped: number }>;
@@ -229,6 +248,7 @@ export interface EstimateService {
   addServices(userId: string, estimateId: string, expectedRevision: number, selections: EstimateServiceSelection[]): Promise<EstimateDetailDto>;
   addService(userId: string, estimateId: string, expectedRevision: number, serviceId: string, quantity: number, sellingUnitPrice: number): Promise<EstimateDetailDto>;
   addCustomLine(userId: string, estimateId: string, expectedRevision: number, description: string, unit: EstimateUnit, quantity: number, sellingUnitPrice: number): Promise<EstimateDetailDto>;
+  addExternalLine(userId: string, estimateId: string, expectedRevision: number, input: ExternalNomenclatureInput): Promise<EstimateDetailDto>;
   updateLine(userId: string, estimateId: string, itemId: string, expectedRevision: number, input: { description: string; unit: EstimateUnit; quantity: number; sellingUnitPrice: number }): Promise<EstimateDetailDto>;
   removeLine(userId: string, estimateId: string, itemId: string, expectedRevision: number): Promise<EstimateDetailDto>;
   removeLines(userId: string, estimateId: string, itemIds: string[], expectedRevision: number): Promise<EstimateDetailDto>;
@@ -248,7 +268,7 @@ export class DefaultEstimateService implements EstimateService {
     const companyId = await this.resolveCompany(userId, PRICING_PERMISSION);
     const canViewPartnerPrice = await this.canViewPartnerPrice(userId, companyId);
     const [currencies, rate] = await Promise.all([
-      this.pricingInventoryService.listAvailableCurrencyCodes?.(userId) ?? Promise.resolve([]),
+      this.listAvailableCurrencies(userId),
       this.pricingInventoryService.getApprovedUsdMdlRateSnapshot?.(userId) ?? Promise.resolve(null),
     ]);
     return {
@@ -302,7 +322,24 @@ export class DefaultEstimateService implements EstimateService {
 
   async listAvailableCurrencies(userId: string): Promise<string[]> {
     await this.resolveCompany(userId, VIEW_PERMISSION);
-    return this.pricingInventoryService.listAvailableCurrencyCodes?.(userId) ?? [];
+    const [published, rate] = await Promise.all([
+      this.pricingInventoryService.listAvailableCurrencyCodes?.(userId) ?? Promise.resolve([]),
+      this.pricingInventoryService.getApprovedUsdMdlRateSnapshot?.(userId) ?? Promise.resolve(null),
+    ]);
+    const currencies = new Set(published);
+    if (rate && (currencies.has("USD") || currencies.has("MDL"))) {
+      currencies.add("USD");
+      currencies.add("MDL");
+    }
+    return [...currencies].filter((value) => /^[A-Z]{3}$/.test(value)).sort((left, right) => left === "USD" ? -1 : right === "USD" ? 1 : left.localeCompare(right));
+  }
+
+  async searchExternalNomenclature(userId: string, query: string): Promise<ExternalNomenclatureRecord[]> {
+    await this.resolveCompany(userId, VIEW_PERMISSION);
+    const normalized = normalizeRequired(query, 300, "Введите производителя, модель или название.");
+    if (normalized.length < 2) return [];
+    if (!this.repository.searchExternalNomenclature) throw new InvalidStateError("Библиотека внешних позиций временно недоступна.");
+    return this.repository.searchExternalNomenclature(normalized, 8);
   }
 
   async listServices(userId: string): Promise<EstimateServiceDto[]> {
@@ -334,7 +371,7 @@ export class DefaultEstimateService implements EstimateService {
       this.catalogService.listCategories(userId),
       this.catalogService.listBrands(userId),
     ]);
-    const commercial = await this.pricingInventoryService.getProductCommercialViews(
+    const commercial = result.commercialViews ?? await this.pricingInventoryService.getProductCommercialViews(
       userId,
       result.products.map((product) => product.id),
     );
@@ -414,7 +451,7 @@ export class DefaultEstimateService implements EstimateService {
     if (!currencies.includes(normalized.currencyCode)) {
       throw new InvalidStateError("Estimate currency is not available in published commercial data.");
     }
-    return this.repository.create({ companyId, ...normalized });
+    return this.repository.create({ companyId, ...normalized, requestKey: normalizeUuid(input.requestKey ?? randomUUID(), "Ключ создания сметы некорректен.") });
   }
 
   async createFromPurchasingList(userId: string, input: { listId: string; name: string; requestKey: string; items: Array<{ itemId: string; productId: string; quantity: number }> }) {
@@ -858,6 +895,34 @@ export class DefaultEstimateService implements EstimateService {
     return context.company.id;
   }
 
+  async addExternalLine(userId: string, estimateId: string, expectedRevision: number, input: ExternalNomenclatureInput): Promise<EstimateDetailDto> {
+    await this.ensureDraft(userId, estimateId, PRICING_PERMISSION, expectedRevision);
+    const existingExternalItemId = input.existingExternalItemId ? normalizeUuid(input.existingExternalItemId, "Внешняя позиция некорректна.") : null;
+    const normalized = {
+      manufacturer: normalizeRequired(input.manufacturer, 120, "Укажите производителя."),
+      model: normalizeRequired(input.model, 160, "Укажите модель."),
+      name: normalizeRequired(input.name, 300, "Укажите название позиции."),
+      category: normalizeOptional(input.category ?? undefined, 160) ?? null,
+      unit: normalizeUnit(input.unit),
+      specification: normalizeOptional(input.specification ?? undefined, 2000) ?? null,
+      quantity: normalizeQuantity(input.quantity),
+      sellingUnitPrice: normalizeMoney(input.sellingUnitPrice),
+      forceCreateNew: input.forceCreateNew === true,
+    };
+    const requestKey = normalizeUuid(input.requestKey, "Ключ добавления позиции некорректен.");
+    const requestFingerprint = createHash("sha256").update(JSON.stringify({ existingExternalItemId, ...normalized })).digest("hex");
+    try {
+      if (!this.repository.addExternalLine) throw new InvalidStateError("Добавление внешних позиций временно недоступно.");
+      await this.repository.addExternalLine({ estimateId, expectedRevision, requestKey, requestFingerprint, existingExternalItemId, ...normalized });
+    } catch (error) {
+      if (error instanceof EstimateRepositoryError && error.code === "duplicate") {
+        throw new InvalidStateError("Похожая позиция уже существует в системе. Выберите существующую позицию, чтобы не создавать дубликат.");
+      }
+      handleRepositoryConflict(error);
+    }
+    return this.getDetail(userId, estimateId);
+  }
+
   private async canViewPartnerPrice(
     userId: string,
     companyId: string,
@@ -931,7 +996,7 @@ function preserveConfidentialEstimateInputs(
   };
 }
 
-function normalizeMetadata(input: CreateEstimateCommand) {
+function normalizeMetadata(input: Pick<CreateEstimateCommand, "name" | "customerName" | "projectName" | "currencyCode" | "validityDays">) {
   const name = normalizeRequired(input.name, 200, "Estimate name is invalid.");
   const customerName = normalizeOptional(input.customerName ?? undefined, 200) ?? null;
   const projectName = normalizeOptional(input.projectName ?? undefined, 200) ?? null;
@@ -1127,6 +1192,7 @@ function toCommercialDetail(aggregate: EstimateAggregate, images = new Map<strin
         sectionId: item.sectionId,
         lineType: item.lineType,
         productId: item.productId,
+        externalNomenclatureId: item.externalNomenclatureId,
         imageUrl: item.productId ? images.get(item.productId) ?? null : null,
         position: item.position,
         sku: item.skuSnapshot,
@@ -1174,6 +1240,7 @@ function legacyToDetail(estimate: Estimate, items: EstimateItem[]) {
       id: item.id,
       lineType: item.lineType,
       productId: item.productId,
+      externalNomenclatureId: item.externalNomenclatureId,
       position: item.position,
       sku: item.skuSnapshot,
       description: item.description,

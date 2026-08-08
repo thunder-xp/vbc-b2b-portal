@@ -38,6 +38,35 @@ export type CreateEstimateInput = {
   projectName: string | null;
   currencyCode: string;
   validityDays: number;
+  requestKey: string;
+};
+
+export type ExternalNomenclatureRecord = {
+  id: string;
+  manufacturer: string;
+  model: string;
+  name: string;
+  category: string | null;
+  unit: EstimateUnit;
+  specification: string | null;
+  exactIdentityMatch: boolean;
+};
+
+export type AddExternalEstimateLineInput = {
+  estimateId: string;
+  expectedRevision: number;
+  requestKey: string;
+  requestFingerprint: string;
+  existingExternalItemId: string | null;
+  manufacturer: string;
+  model: string;
+  name: string;
+  category: string | null;
+  unit: EstimateUnit;
+  specification: string | null;
+  quantity: number;
+  sellingUnitPrice: number;
+  forceCreateNew: boolean;
 };
 
 export type AddEstimateLineInput = {
@@ -106,6 +135,8 @@ export interface EstimateRepository {
   findById(estimateId: string): Promise<Estimate | null>;
   findAggregateById(estimateId: string): Promise<EstimateAggregate | null>;
   create(input: CreateEstimateInput): Promise<Estimate>;
+  searchExternalNomenclature?(query: string, limit: number): Promise<ExternalNomenclatureRecord[]>;
+  addExternalLine?(input: AddExternalEstimateLineInput): Promise<void>;
   createFromPurchasingList(input: {
     listId: string;
     requestKey: string;
@@ -154,7 +185,10 @@ export interface EstimateRepository {
 }
 
 export class EstimateRepositoryError extends Error {
-  constructor(public readonly code: "conflict" | "not_found" | "persistence" = "persistence") {
+  constructor(
+    public readonly code: "conflict" | "not_found" | "duplicate" | "invalid" | "persistence" = "persistence",
+    public readonly databaseCode: string | null = null,
+  ) {
     super("Estimate persistence failed.");
     this.name = "EstimateRepositoryError";
   }

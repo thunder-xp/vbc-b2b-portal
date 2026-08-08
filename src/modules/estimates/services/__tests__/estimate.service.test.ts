@@ -66,6 +66,8 @@ describe("DefaultEstimateService", () => {
       findById: vi.fn().mockResolvedValue(estimate),
       findAggregateById: vi.fn().mockResolvedValue(aggregate([])),
       create: vi.fn().mockResolvedValue(estimate),
+      searchExternalNomenclature: vi.fn().mockResolvedValue([]),
+      addExternalLine: vi.fn().mockResolvedValue(undefined),
       createFromPurchasingList: vi.fn().mockResolvedValue({ estimateId: estimate.id, repeated: false }),
       updateDraft: vi.fn().mockResolvedValue({ ...estimate, revision: 4 }),
       saveCommercialDraft: vi.fn().mockResolvedValue({ ...estimate, revision: 4 }),
@@ -245,6 +247,44 @@ describe("DefaultEstimateService", () => {
     expect(catalog.getProductsByIds).not.toHaveBeenCalled();
     expect(pricing.getProductCommercialViews).not.toHaveBeenCalled();
     expect(detail.total).toContain("100");
+  });
+
+  it("reuses the catalog aggregate commercial projection in product search", async () => {
+    vi.mocked(catalog.listProducts).mockResolvedValue({
+      products: [{ id: "product-1", sku: "200007", name: "U-POE-af", slug: "u-poe-af", shortDescription: null, imageUrl: null, brand: null, category: null, keyCharacteristics: [], datasheet: null }],
+      page: 1,
+      pageSize: 12,
+      hasNextPage: false,
+      isDemoData: false,
+      totalCount: 1,
+      facets: [],
+      commercialViews: [{ productId: "product-1", partnerPrice: { amount: 50.125, currencyCode: "USD", formattedAmount: "$50.13", lastUpdatedAt: "2026-07-16T09:00:00Z" }, retailPrice: null, stock: null, isDemoData: false }],
+    });
+
+    const result = await service.searchProducts("user-1", { search: "200007" });
+
+    expect(result.products).toEqual([expect.objectContaining({ id: "product-1", partnerPrice: "$50.13" })]);
+    expect(pricing.getProductCommercialViews).not.toHaveBeenCalled();
+  });
+
+  it("offers governed USD and MDL when a published conversion rate exists", async () => {
+    vi.mocked(pricing.listAvailableCurrencyCodes!).mockResolvedValue(["USD"]);
+    await expect(service.listAvailableCurrencies("user-1")).resolves.toEqual(["USD", "MDL"]);
+    expect(pricing.getApprovedUsdMdlRateSnapshot).toHaveBeenCalledOnce();
+  });
+
+  it("searches the shared library once and adds an external line through one atomic call", async () => {
+    vi.mocked(repository.searchExternalNomenclature!).mockResolvedValue([{ id: "external-1", manufacturer: "Ajax", model: "Hub 2", name: "Hub", category: null, unit: "pcs", specification: null, exactIdentityMatch: true }]);
+    await expect(service.searchExternalNomenclature("user-1", "Ajax Hub 2")).resolves.toHaveLength(1);
+    await service.addExternalLine("user-1", "estimate-1", 3, {
+      existingExternalItemId: "11111111-1111-4111-8111-111111111111",
+      manufacturer: "Ajax", model: "Hub 2", name: "Hub", unit: "pcs",
+      quantity: 1, sellingUnitPrice: 100, forceCreateNew: false,
+      requestKey: "22222222-2222-4222-8222-222222222222",
+    });
+    expect(repository.searchExternalNomenclature).toHaveBeenCalledTimes(1);
+    expect(repository.addExternalLine).toHaveBeenCalledTimes(1);
+    expect(repository.addExternalLine).toHaveBeenCalledWith(expect.objectContaining({ existingExternalItemId: "11111111-1111-4111-8111-111111111111", forceCreateNew: false }));
   });
 
   it("uses the permitted retail rate without storing partner cost", async () => {

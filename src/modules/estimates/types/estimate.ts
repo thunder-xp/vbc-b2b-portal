@@ -1,5 +1,5 @@
 export type EstimateStatus = "draft" | "ready" | "sent" | "accepted" | "rejected" | "archived";
-export type EstimateLineType = "product" | "service" | "custom";
+export type EstimateLineType = "product" | "service" | "custom" | "external";
 export type EstimateUnit = "pcs" | "hour" | "meter" | "set" | "visit" | "service";
 export type EstimatePricingMode = "direct" | "markup" | "margin";
 export type EstimateVatMode = "included" | "separate" | "excluded" | "none";
@@ -62,6 +62,7 @@ export interface EstimateItem {
   lineType: EstimateLineType;
   productId: string | null;
   serviceId: string | null;
+  externalNomenclatureId?: string | null;
   position: number;
   skuSnapshot: string | null;
   productNameSnapshot: string | null;

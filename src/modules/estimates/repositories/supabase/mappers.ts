@@ -63,6 +63,7 @@ export type EstimateItemRow = {
   line_type: EstimateItem["lineType"];
   product_id: string | null;
   service_id: string | null;
+  external_nomenclature_id: string | null;
   position: number;
   sku_snapshot: string | null;
   product_name_snapshot: string | null;
@@ -175,6 +176,7 @@ export function mapEstimateItemRow(row: EstimateItemRow): EstimateItem {
     lineType: row.line_type,
     productId: row.product_id,
     serviceId: row.service_id,
+    externalNomenclatureId: row.external_nomenclature_id,
     position: row.position,
     skuSnapshot: row.sku_snapshot,
     productNameSnapshot: row.product_name_snapshot,
