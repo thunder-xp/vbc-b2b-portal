@@ -11,6 +11,7 @@ export type WorkspaceCapabilityKey =
   | "projects"
   | "reservations"
   | "proposals"
+  | "customers"
   | "orders"
   | "finance"
   | "documents"
@@ -94,6 +95,7 @@ const WORKSPACE_CAPABILITIES: readonly CapabilityDefinition[] = [
   { key: "solution_selection", label: "Подбор решения", href: null, requiredPermission: "catalog.view", released: false, unavailableBehavior: "show_coming_soon" },
   { key: "projects", label: "Спецификации", href: "/cabinet/specifications", requiredPermission: "specifications.manage", released: true, unavailableBehavior: "hide" },
   { key: "proposals", label: "Сметы и КП", href: "/cabinet/estimates", requiredPermission: "estimates.view", released: true, unavailableBehavior: "hide" },
+  { key: "customers", label: "Мои заказчики", href: "/cabinet/customers", requiredPermission: "estimates.view", released: true, unavailableBehavior: "hide" },
   { key: "orders", label: "Заказы", href: "/cabinet/orders", requiredPermission: "orders.manage", released: true, unavailableBehavior: "hide" },
   { key: "finance", label: "Финансы", href: "/cabinet/finance", requiredPermission: "finance.view_company", released: true, unavailableBehavior: "hide" },
   { key: "documents", label: "Документы", href: "/cabinet/documents", requiredPermission: "documents.view_company", released: true, unavailableBehavior: "hide" },

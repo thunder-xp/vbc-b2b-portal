@@ -9,6 +9,9 @@ import type {
   EstimateChargeType,
   PartnerService,
   FinalCustomer,
+  FinalCustomerDetail,
+  FinalCustomerIndustryCode,
+  FinalCustomerListRecord,
   FinalCustomerType,
 } from "../types";
 
@@ -42,6 +45,14 @@ export type CreateEstimateInput = {
   currencyCode: string;
   validityDays: number;
   requestKey: string;
+};
+
+export type FinalCustomerListInput = {
+  companyId: string;
+  search?: string;
+  industryCode?: FinalCustomerIndustryCode;
+  limit: number;
+  offset: number;
 };
 
 export type ExternalNomenclatureRecord = {
@@ -140,13 +151,15 @@ export interface EstimateRepository {
   findAggregateById(estimateId: string): Promise<EstimateAggregate | null>;
   create(input: CreateEstimateInput): Promise<Estimate>;
   searchFinalCustomers?(companyId: string, query: string, limit: number): Promise<FinalCustomer[]>;
+  listFinalCustomers?(input: FinalCustomerListInput): Promise<{ records: FinalCustomerListRecord[]; totalCount: number }>;
+  getFinalCustomerDetail?(companyId: string, customerId: string, estimateLimit: number): Promise<FinalCustomerDetail | null>;
   createFinalCustomer?(input: {
     companyId: string;
     displayName: string;
     customerType: FinalCustomerType;
     fiscalCode: string | null;
     locality: string | null;
-    industry: string | null;
+    industryCode: FinalCustomerIndustryCode | null;
   }): Promise<FinalCustomer>;
   updateFinalCustomer?(input: {
     companyId: string;
@@ -156,7 +169,7 @@ export interface EstimateRepository {
     customerType: FinalCustomerType;
     fiscalCode: string | null;
     locality: string | null;
-    industry: string | null;
+    industryCode: FinalCustomerIndustryCode | null;
   }): Promise<FinalCustomer>;
   archiveFinalCustomer?(customerId: string, expectedRevision: number): Promise<void>;
   searchExternalNomenclature?(query: string, limit: number): Promise<ExternalNomenclatureRecord[]>;

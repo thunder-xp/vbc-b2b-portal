@@ -13,7 +13,7 @@ import type { PricingInventoryService } from "../../pricing-inventory/services";
 import { evaluateFreshness } from "../../integration/freshness";
 import type { AddEstimateLineInput, EstimateRepository, ExternalNomenclatureRecord, SaveEstimateCommercialInput } from "../repositories";
 import { EstimateRepositoryError } from "../repositories";
-import type { Estimate, EstimateAggregate, EstimateChargeType, EstimateCurrencyChangePolicy, EstimateItem, EstimatePricingMode, EstimateStatus, EstimateUnit, EstimateVatMode } from "../types";
+import { isFinalCustomerIndustryCode, type Estimate, type EstimateAggregate, type EstimateChargeType, type EstimateCurrencyChangePolicy, type EstimateItem, type EstimatePricingMode, type EstimateStatus, type EstimateUnit, type EstimateVatMode, type FinalCustomerIndustryCode } from "../types";
 import { calculateCommercialLine, calculateEstimateCommercials, convertMoney, resolveCurrencyRate } from "./commercial-calculation";
 
 const VIEW_PERMISSION = "estimates.view";
@@ -148,6 +148,12 @@ export type EstimateProductPickerDto = {
   brands: Array<{ id: string; name: string }>;
 };
 
+export type FinalCustomerListFilters = {
+  search?: string;
+  industryCode?: string;
+  page?: number;
+};
+
 export type EstimateCommercialCheckDto = {
   checkedAt: string;
   lines: Array<{
@@ -242,19 +248,21 @@ export interface EstimateService {
   searchProducts(userId: string, input: { search?: string; categoryId?: string; brandId?: string }): Promise<EstimateProductPickerDto>;
   searchExternalNomenclature(userId: string, query: string): Promise<ExternalNomenclatureRecord[]>;
   searchFinalCustomers(userId: string, query: string): Promise<import("../types").FinalCustomer[]>;
+  listFinalCustomers(userId: string, filters: FinalCustomerListFilters): Promise<{ records: import("../types").FinalCustomerListRecord[]; page: number; totalPages: number; totalCount: number }>;
+  getFinalCustomerDetail(userId: string, customerId: string): Promise<import("../types").FinalCustomerDetail>;
   createFinalCustomer(userId: string, input: {
     displayName: string;
     customerType: import("../types").FinalCustomerType;
     fiscalCode?: string | null;
     locality?: string | null;
-    industry?: string | null;
+    industryCode?: FinalCustomerIndustryCode | null;
   }): Promise<import("../types").FinalCustomer>;
   updateFinalCustomer(userId: string, customerId: string, expectedRevision: number, input: {
     displayName: string;
     customerType: import("../types").FinalCustomerType;
     fiscalCode?: string | null;
     locality?: string | null;
-    industry?: string | null;
+    industryCode?: FinalCustomerIndustryCode | null;
   }): Promise<import("../types").FinalCustomer>;
   checkCurrentProductState(userId: string, estimateId: string): Promise<EstimateCommercialCheckDto>;
   createDraft(userId: string, input: CreateEstimateCommand): Promise<Estimate>;
@@ -360,24 +368,54 @@ export class DefaultEstimateService implements EstimateService {
     return this.repository.searchFinalCustomers(companyId, normalized, 8);
   }
 
+  async listFinalCustomers(userId: string, filters: FinalCustomerListFilters) {
+    const companyId = await this.resolveCompany(userId, VIEW_PERMISSION);
+    if (!this.repository.listFinalCustomers) throw new InvalidStateError("Список заказчиков временно недоступен.");
+    const page = normalizePage(filters.page);
+    const industryCode = filters.industryCode && isFinalCustomerIndustryCode(filters.industryCode) ? filters.industryCode : undefined;
+    const result = await this.repository.listFinalCustomers({
+      companyId,
+      search: normalizeOptional(filters.search, 100),
+      industryCode,
+      limit: PAGE_SIZE,
+      offset: (page - 1) * PAGE_SIZE,
+    });
+    return { ...result, page, totalPages: Math.max(1, Math.ceil(result.totalCount / PAGE_SIZE)) };
+  }
+
+  async getFinalCustomerDetail(userId: string, customerId: string) {
+    const companyId = await this.resolveCompany(userId, VIEW_PERMISSION);
+    if (!this.repository.getFinalCustomerDetail) throw new InvalidStateError("Заказчик временно недоступен.");
+    const customer = await this.repository.getFinalCustomerDetail(companyId, normalizeUuid(customerId, "Заказчик некорректен."), 50);
+    if (!customer) throw new NotFoundError("Заказчик не найден.");
+    return customer;
+  }
+
   async createFinalCustomer(userId: string, input: {
     displayName: string;
     customerType: import("../types").FinalCustomerType;
     fiscalCode?: string | null;
     locality?: string | null;
-    industry?: string | null;
+    industryCode?: FinalCustomerIndustryCode | null;
   }) {
     const companyId = await this.resolveCompany(userId, MANAGE_PERMISSION);
     if (!(["company", "individual"] as const).includes(input.customerType)) throw new InvalidStateError("Тип заказчика некорректен.");
     if (!this.repository.createFinalCustomer) throw new InvalidStateError("Создание заказчика временно недоступно.");
-    return this.repository.createFinalCustomer({
-      companyId,
-      displayName: normalizeRequired(input.displayName, 200, "Укажите заказчика."),
-      customerType: input.customerType,
-      fiscalCode: normalizeOptional(input.fiscalCode ?? undefined, 32) ?? null,
-      locality: normalizeOptional(input.locality ?? undefined, 120) ?? null,
-      industry: normalizeOptional(input.industry ?? undefined, 120) ?? null,
-    });
+    try {
+      return await this.repository.createFinalCustomer({
+        companyId,
+        displayName: normalizeRequired(input.displayName, 200, "Укажите заказчика."),
+        customerType: input.customerType,
+        fiscalCode: normalizeOptional(input.fiscalCode ?? undefined, 32) ?? null,
+        locality: normalizeOptional(input.locality ?? undefined, 120) ?? null,
+        industryCode: normalizeIndustryCode(input.industryCode),
+      });
+    } catch (error) {
+      if (error instanceof EstimateRepositoryError && error.code === "duplicate") {
+        throw new InvalidStateError("Похожий заказчик уже существует. Найдите и выберите его из списка.");
+      }
+      throw error;
+    }
   }
 
   async updateFinalCustomer(userId: string, customerId: string, expectedRevision: number, input: {
@@ -385,20 +423,27 @@ export class DefaultEstimateService implements EstimateService {
     customerType: import("../types").FinalCustomerType;
     fiscalCode?: string | null;
     locality?: string | null;
-    industry?: string | null;
+    industryCode?: FinalCustomerIndustryCode | null;
   }) {
     const companyId = await this.resolveCompany(userId, MANAGE_PERMISSION);
     if (!this.repository.updateFinalCustomer) throw new InvalidStateError("Изменение заказчика временно недоступно.");
-    return this.repository.updateFinalCustomer({
-      companyId,
-      customerId: normalizeUuid(customerId, "Заказчик некорректен."),
-      expectedRevision: normalizeRevision(expectedRevision),
-      displayName: normalizeRequired(input.displayName, 200, "Укажите заказчика."),
-      customerType: input.customerType,
-      fiscalCode: normalizeOptional(input.fiscalCode ?? undefined, 32) ?? null,
-      locality: normalizeOptional(input.locality ?? undefined, 120) ?? null,
-      industry: normalizeOptional(input.industry ?? undefined, 120) ?? null,
-    });
+    try {
+      return await this.repository.updateFinalCustomer({
+        companyId,
+        customerId: normalizeUuid(customerId, "Заказчик некорректен."),
+        expectedRevision: normalizeRevision(expectedRevision),
+        displayName: normalizeRequired(input.displayName, 200, "Укажите заказчика."),
+        customerType: input.customerType,
+        fiscalCode: normalizeOptional(input.fiscalCode ?? undefined, 32) ?? null,
+        locality: normalizeOptional(input.locality ?? undefined, 120) ?? null,
+        industryCode: normalizeIndustryCode(input.industryCode),
+      });
+    } catch (error) {
+      if (error instanceof EstimateRepositoryError && error.code === "duplicate") {
+        throw new InvalidStateError("Похожий заказчик уже существует. Используйте существующую запись.");
+      }
+      throw error;
+    }
   }
 
   async listServices(userId: string): Promise<EstimateServiceDto[]> {
@@ -1326,6 +1371,12 @@ void legacyToDetail;
 
 function formatMoney(amount: number, currencyCode: string): string {
   return new Intl.NumberFormat("ru-RU", { style: "currency", currency: currencyCode, minimumFractionDigits: 2 }).format(amount);
+}
+
+function normalizeIndustryCode(value: FinalCustomerIndustryCode | null | undefined): FinalCustomerIndustryCode | null {
+  if (value === null || value === undefined) return null;
+  if (!isFinalCustomerIndustryCode(value)) throw new InvalidStateError("Выберите отрасль из списка.");
+  return value;
 }
 
 function sameMoney(left: number | null, right: number | null): boolean {

@@ -67,7 +67,9 @@ describe("DefaultEstimateService", () => {
       findAggregateById: vi.fn().mockResolvedValue(aggregate([])),
       create: vi.fn().mockResolvedValue(estimate),
       searchFinalCustomers: vi.fn().mockResolvedValue([]),
-      createFinalCustomer: vi.fn().mockResolvedValue({ id: "customer-1", companyId: "company-1", displayName: "Customer", customerType: "company", fiscalCode: null, locality: null, industry: null, revision: 1, archivedAt: null, createdAt: "2026-08-08T10:00:00Z", updatedAt: "2026-08-08T10:00:00Z" }),
+      listFinalCustomers: vi.fn().mockResolvedValue({ records: [], totalCount: 0 }),
+      getFinalCustomerDetail: vi.fn().mockResolvedValue(null),
+      createFinalCustomer: vi.fn().mockResolvedValue({ id: "customer-1", companyId: "company-1", displayName: "Customer", customerType: "company", fiscalCode: null, locality: null, industry: null, industryCode: null, revision: 1, archivedAt: null, createdAt: "2026-08-08T10:00:00Z", updatedAt: "2026-08-08T10:00:00Z" }),
       searchExternalNomenclature: vi.fn().mockResolvedValue([]),
       addExternalLine: vi.fn().mockResolvedValue(undefined),
       createFromPurchasingList: vi.fn().mockResolvedValue({ estimateId: estimate.id, repeated: false }),
@@ -142,6 +144,19 @@ describe("DefaultEstimateService", () => {
     expect(repository.createFinalCustomer).toHaveBeenCalledWith(expect.objectContaining({
       companyId: "company-1", displayName: "NADZOR SRL", fiscalCode: "0200046888",
     }));
+  });
+
+  it("lists final customers with bounded paging and governed industry", async () => {
+    await service.listFinalCustomers("user-1", { search: "Nad", industryCode: "security_integrator", page: 2 });
+    expect(repository.listFinalCustomers).toHaveBeenCalledWith({
+      companyId: "company-1", search: "Nad", industryCode: "security_integrator", limit: 20, offset: 20,
+    });
+  });
+
+  it("warns before creating an obvious duplicate final customer", async () => {
+    vi.mocked(repository.createFinalCustomer!).mockRejectedValue(new EstimateRepositoryError("duplicate"));
+    await expect(service.createFinalCustomer("user-1", { displayName: "NADZOR", customerType: "company" }))
+      .rejects.toThrow("Похожий заказчик уже существует");
   });
 
   it("does not expose an estimate from another company", async () => {

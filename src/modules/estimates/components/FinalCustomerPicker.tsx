@@ -4,7 +4,7 @@ import { Building2, Plus, Search, UserRound } from "lucide-react";
 import { useEffect, useId, useState, useTransition } from "react";
 
 import { createFinalCustomerAction, searchFinalCustomersAction, updateFinalCustomerAction } from "../actions/estimate.actions";
-import type { FinalCustomer, FinalCustomerType } from "../types";
+import { FINAL_CUSTOMER_INDUSTRIES, type FinalCustomer, type FinalCustomerIndustryCode, type FinalCustomerType } from "../types";
 
 type Props = {
   disabled?: boolean;
@@ -49,12 +49,12 @@ export function FinalCustomerPicker({ disabled = false, initialName, onChange, v
     onChange?.(customer);
   };
 
-  return <div className="space-y-2">
+  return <div className="min-w-0 max-w-full space-y-2">
     <label className="block text-sm font-medium text-zinc-700" htmlFor={`${listId}-input`}>Заказчик <span aria-hidden="true" className="text-red-600">*</span></label>
     <input name="finalCustomerId" type="hidden" value={value ?? ""} />
-    {value ? <div className="flex min-h-11 items-center justify-between gap-3 rounded-md border border-emerald-200 bg-emerald-50 px-3">
+    {value ? <div className="flex min-h-11 min-w-0 max-w-full flex-wrap items-center justify-between gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3">
       <span className="min-w-0 truncate text-sm font-medium text-zinc-900">{selectedName}</span>
-      {!disabled && <span className="flex shrink-0 gap-3">{selectedCustomer && <button className="min-h-9 text-sm font-semibold text-emerald-800" onClick={() => setCreating(true)} type="button">Редактировать</button>}<button className="min-h-9 text-sm font-semibold text-emerald-800" onClick={() => { setQuery(""); setSelectedName(""); setSelectedCustomer(null); onChange?.(null); }} type="button">Выбрать другого</button></span>}
+      {!disabled && <span className="flex min-w-0 flex-wrap gap-3">{selectedCustomer && <button className="min-h-9 text-sm font-semibold text-emerald-800" onClick={() => setCreating(true)} type="button">Редактировать</button>}<button className="min-h-9 text-sm font-semibold text-emerald-800" onClick={() => { setQuery(""); setSelectedName(""); setSelectedCustomer(null); onChange?.(null); }} type="button">Выбрать другого</button></span>}
     </div> : <div className="relative">
       <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-3.5 size-4 text-zinc-400" />
       <input
@@ -93,6 +93,7 @@ function CustomerCreateFields({ customer, disabled, initialName, onCancel, onCre
   onMessage: (message: string) => void;
 }) {
   const [customerType, setCustomerType] = useState<FinalCustomerType>(customer?.customerType ?? "company");
+  const [industryCode, setIndustryCode] = useState<FinalCustomerIndustryCode | "">(customer?.industryCode ?? "");
   const [pending, startTransition] = useTransition();
   return <fieldset className="grid gap-3 rounded-md border border-zinc-200 bg-zinc-50 p-4" disabled={disabled || pending}>
     <legend className="px-1 text-sm font-semibold">{customer ? "Реквизиты заказчика" : "Новый заказчик"}</legend>
@@ -101,7 +102,7 @@ function CustomerCreateFields({ customer, disabled, initialName, onCancel, onCre
     <div className="grid gap-3 sm:grid-cols-3">
       <label className="text-xs font-medium text-zinc-600">IDNO<input className={inputClass} defaultValue={customer?.fiscalCode ?? ""} maxLength={32} name="newCustomerFiscalCode" /></label>
       <label className="text-xs font-medium text-zinc-600">Населённый пункт<input className={inputClass} defaultValue={customer?.locality ?? ""} maxLength={120} name="newCustomerLocality" /></label>
-      <label className="text-xs font-medium text-zinc-600">Отрасль<input className={inputClass} defaultValue={customer?.industry ?? ""} maxLength={120} name="newCustomerIndustry" /></label>
+      <label className="text-xs font-medium text-zinc-600">Отрасль<select className={inputClass} name="newCustomerIndustryCode" onChange={(event) => setIndustryCode(event.target.value as FinalCustomerIndustryCode | "")} value={industryCode}><option value="">Не указана</option>{FINAL_CUSTOMER_INDUSTRIES.map((industry) => <option key={industry.code} value={industry.code}>{industry.label}</option>)}</select></label>
     </div>
     <div className="flex flex-wrap justify-end gap-2">
       <button className="min-h-11 rounded-md border border-zinc-300 bg-white px-4 text-sm font-semibold" onClick={onCancel} type="button">Отмена</button>
@@ -110,7 +111,7 @@ function CustomerCreateFields({ customer, disabled, initialName, onCancel, onCre
         if (!fieldset) return;
         const get = (name: string) => (fieldset.querySelector(`[name="${name}"]`) as HTMLInputElement | null)?.value ?? "";
         startTransition(async () => {
-          const payload = { displayName: get("newCustomerName"), customerType, fiscalCode: get("newCustomerFiscalCode"), locality: get("newCustomerLocality"), industry: get("newCustomerIndustry") };
+          const payload = { displayName: get("newCustomerName"), customerType, fiscalCode: get("newCustomerFiscalCode"), locality: get("newCustomerLocality"), industryCode: industryCode || null };
           const result = customer
             ? await updateFinalCustomerAction(customer.id, customer.revision, payload)
             : await createFinalCustomerAction(payload);

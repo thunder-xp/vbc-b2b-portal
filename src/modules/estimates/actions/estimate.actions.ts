@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { type ActionResult, failureFromError, invalidInput, success } from "../../access-control/actions/action-result";
 import type { EstimateCommercialCheckDto, EstimateCommercialOptionsDto, EstimateDetailDto, EstimateListFilters, EstimateProductPickerDto, EstimateServiceDto, EstimateServiceSelection, ExternalNomenclatureInput, SaveEstimateCommercialCommand } from "../services";
-import type { EstimateUnit } from "../types";
+import type { EstimateUnit, FinalCustomerIndustryCode } from "../types";
 import { createEstimateService, getAuthenticatedUserId } from "./service-factory";
 
 export type CreateEstimateActionInput = {
@@ -32,7 +32,7 @@ export async function createFinalCustomerAction(input: {
   customerType: "company" | "individual";
   fiscalCode?: string | null;
   locality?: string | null;
-  industry?: string | null;
+  industryCode?: FinalCustomerIndustryCode | null;
 }) {
   if (!input.displayName?.trim()) return invalidInput("Укажите заказчика.");
   try {
@@ -48,12 +48,30 @@ export async function updateFinalCustomerAction(customerId: string, expectedRevi
   customerType: "company" | "individual";
   fiscalCode?: string | null;
   locality?: string | null;
-  industry?: string | null;
+  industryCode?: FinalCustomerIndustryCode | null;
 }) {
   if (!input.displayName?.trim()) return invalidInput("Укажите заказчика.");
   try {
     const userId = await getAuthenticatedUserId();
     return success("Заказчик обновлён.", await createEstimateService().updateFinalCustomer(userId, customerId, expectedRevision, input));
+  } catch (error) {
+    return failureFromError(error);
+  }
+}
+
+export async function listFinalCustomersAction(filters: { search?: string; industryCode?: string; page?: number } = {}) {
+  try {
+    const userId = await getAuthenticatedUserId();
+    return success("Заказчики загружены.", await createEstimateService().listFinalCustomers(userId, filters));
+  } catch (error) {
+    return failureFromError(error);
+  }
+}
+
+export async function getFinalCustomerAction(customerId: string) {
+  try {
+    const userId = await getAuthenticatedUserId();
+    return success("Заказчик загружен.", await createEstimateService().getFinalCustomerDetail(userId, customerId));
   } catch (error) {
     return failureFromError(error);
   }

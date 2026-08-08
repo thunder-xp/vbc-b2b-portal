@@ -5,6 +5,8 @@ export type EstimatePricingMode = "direct" | "markup" | "margin";
 export type EstimateVatMode = "included" | "separate" | "excluded" | "none";
 export type EstimateChargeType = "delivery" | "installation" | "commissioning" | "transport" | "other";
 export type EstimateCurrencyChangePolicy = "convert_all" | "preserve_manual";
+import type { FinalCustomerIndustryCode } from "./final-customer";
+
 export type FinalCustomerType = "company" | "individual";
 
 export interface FinalCustomer {
@@ -15,10 +17,32 @@ export interface FinalCustomer {
   fiscalCode: string | null;
   locality: string | null;
   industry: string | null;
+  industryCode: FinalCustomerIndustryCode | null;
   revision: number;
   archivedAt: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface FinalCustomerListRecord extends FinalCustomer {
+  estimateCount: number;
+  lastEstimateAt: string | null;
+  lastEstimateId: string | null;
+  lastEstimateNumber: string | null;
+  lastProjectName: string | null;
+  totalCount: number;
+}
+
+export interface FinalCustomerDetail extends FinalCustomer {
+  estimates: Array<{
+    id: string;
+    estimateNumber: string;
+    name: string;
+    projectName: string | null;
+    status: EstimateStatus;
+    updatedAt: string;
+  }>;
+  lastActivityAt: string | null;
 }
 
 export interface Estimate {

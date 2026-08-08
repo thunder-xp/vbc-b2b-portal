@@ -44,6 +44,7 @@ const icons = {
   projects: FolderKanban,
   reservations: ClipboardList,
   proposals: Calculator,
+  customers: Building2,
   orders: ListChecks,
   finance: Landmark,
   documents: FileText,
@@ -69,7 +70,7 @@ const projectNavigationOrder: readonly WorkspaceCapabilityKey[] = [
   "solution_selection",
   "projects",
 ];
-const estimatesNavigationOrder: readonly WorkspaceCapabilityKey[] = ["proposals"];
+const estimatesNavigationOrder: readonly WorkspaceCapabilityKey[] = ["proposals", "customers"];
 const commercialNavigationOrder: readonly WorkspaceCapabilityKey[] = ["orders", "finance", "documents"];
 const loyaltyNavigationOrder: readonly WorkspaceCapabilityKey[] = ["loyalty_affiliate", "loyalty_bonus"];
 
@@ -259,7 +260,7 @@ export function PartnerSidebar({
   const estimatesNavigation = estimatesNavigationOrder.flatMap((key) => {
     const item = navigationByKey.get(key);
     if (!item) return [];
-    return [{ ...item, label: "Сметы" }];
+    return [{ ...item, label: item.key === "proposals" ? "Сметы" : item.label }];
   });
   const selectionNavigation = selectionNavigationOrder.flatMap((key) => {
     const item = navigationByKey.get(key);

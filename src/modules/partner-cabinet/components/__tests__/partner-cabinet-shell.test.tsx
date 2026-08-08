@@ -121,6 +121,7 @@ describe("Partner workspace shell", () => {
     await user.click(estimatesButton);
     const estimatesGroup = within(document.getElementById("estimates-navigation")!);
     expect(estimatesGroup.getByRole("link", { name: "Сметы" })).toHaveAttribute("href", "/cabinet/estimates");
+    expect(estimatesGroup.getByRole("link", { name: "Мои заказчики" })).toHaveAttribute("href", "/cabinet/customers");
     expect(estimatesGroup.getByText("Генератор КП")).toBeInTheDocument();
     expect(estimatesGroup.getByText("Скоро")).toBeInTheDocument();
     expect(estimatesGroup.queryByRole("link", { name: "Генератор КП" })).not.toBeInTheDocument();

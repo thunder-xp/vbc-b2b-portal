@@ -153,21 +153,59 @@ export class SupabaseEstimateRepository implements EstimateRepository {
     return (data ?? []).map(mapFinalCustomerRow);
   }
 
+  async listFinalCustomers(input: Parameters<NonNullable<EstimateRepository["listFinalCustomers"]>>[0]) {
+    const { data, error } = await (await createClient()).rpc("list_partner_final_customers", {
+      target_company_id: input.companyId,
+      search_query: input.search ?? "",
+      industry_filter: input.industryCode ?? null,
+      result_limit: input.limit,
+      result_offset: input.offset,
+    });
+    if (error) throw mapRepositoryError(error.code);
+    const records = (data ?? []).map(mapFinalCustomerListRow);
+    return { records, totalCount: records[0]?.totalCount ?? 0 };
+  }
+
+  async getFinalCustomerDetail(companyId: string, customerId: string, estimateLimit: number) {
+    const { data, error } = await (await createClient()).rpc("get_partner_final_customer_detail", {
+      target_company_id: companyId,
+      target_customer_id: customerId,
+      estimate_limit: estimateLimit,
+    });
+    if (error) throw mapRepositoryError(error.code);
+    if (!data) return null;
+    const payload = data as Record<string, unknown>;
+    const customer = mapFinalCustomerRow(payload.customer as Record<string, unknown>);
+    const estimates = Array.isArray(payload.estimates) ? payload.estimates as Record<string, unknown>[] : [];
+    return {
+      ...customer,
+      lastActivityAt: typeof payload.last_activity_at === "string" ? payload.last_activity_at : null,
+      estimates: estimates.map((row) => ({
+        id: String(row.id),
+        estimateNumber: String(row.estimate_number),
+        name: String(row.name),
+        projectName: typeof row.project_name === "string" ? row.project_name : null,
+        status: row.status as import("../../types").EstimateStatus,
+        updatedAt: String(row.updated_at),
+      })),
+    };
+  }
+
   async createFinalCustomer(input: Parameters<NonNullable<EstimateRepository["createFinalCustomer"]>>[0]): Promise<FinalCustomer> {
-    const { data, error } = await (await createClient()).rpc("create_partner_final_customer", {
+    const { data, error } = await (await createClient()).rpc("create_partner_final_customer_v2", {
       target_company_id: input.companyId,
       target_display_name: input.displayName,
       target_customer_type: input.customerType,
       target_fiscal_code: input.fiscalCode ?? "",
       target_locality: input.locality ?? "",
-      target_industry: input.industry ?? "",
+      target_industry_code: input.industryCode,
     });
     if (error || !data) throw mapRepositoryError(error?.code);
     return mapFinalCustomerRow(data as Record<string, unknown>);
   }
 
   async updateFinalCustomer(input: Parameters<NonNullable<EstimateRepository["updateFinalCustomer"]>>[0]): Promise<FinalCustomer> {
-    const { data, error } = await (await createClient()).rpc("update_partner_final_customer", {
+    const { data, error } = await (await createClient()).rpc("update_partner_final_customer_v2", {
       target_company_id: input.companyId,
       target_customer_id: input.customerId,
       expected_revision: input.expectedRevision,
@@ -175,7 +213,7 @@ export class SupabaseEstimateRepository implements EstimateRepository {
       target_customer_type: input.customerType,
       target_fiscal_code: input.fiscalCode ?? "",
       target_locality: input.locality ?? "",
-      target_industry: input.industry ?? "",
+      target_industry_code: input.industryCode,
     });
     if (error || !data) throw mapRepositoryError(error?.code);
     return mapFinalCustomerRow(data as Record<string, unknown>);
@@ -422,10 +460,23 @@ function mapFinalCustomerRow(row: Record<string, unknown>): FinalCustomer {
     fiscalCode: typeof row.fiscal_code === "string" ? row.fiscal_code : null,
     locality: typeof row.locality === "string" ? row.locality : null,
     industry: typeof row.industry === "string" ? row.industry : null,
+    industryCode: typeof row.industry_code === "string" ? row.industry_code as FinalCustomer["industryCode"] : null,
     revision: Number(row.revision),
     archivedAt: typeof row.archived_at === "string" ? row.archived_at : null,
     createdAt: String(row.created_at),
     updatedAt: String(row.updated_at),
+  };
+}
+
+function mapFinalCustomerListRow(row: Record<string, unknown>): import("../../types").FinalCustomerListRecord {
+  return {
+    ...mapFinalCustomerRow(row),
+    estimateCount: Number(row.estimate_count ?? 0),
+    lastEstimateAt: typeof row.last_estimate_at === "string" ? row.last_estimate_at : null,
+    lastEstimateId: typeof row.last_estimate_id === "string" ? row.last_estimate_id : null,
+    lastEstimateNumber: typeof row.last_estimate_number === "string" ? row.last_estimate_number : null,
+    lastProjectName: typeof row.last_project_name === "string" ? row.last_project_name : null,
+    totalCount: Number(row.total_count ?? 0),
   };
 }
 
