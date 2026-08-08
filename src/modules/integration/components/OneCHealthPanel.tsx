@@ -5,8 +5,10 @@ import { useState, useTransition } from "react";
 import {
   runOneCHealthCheckAction,
   runOneCRelationMetadataAuditAction,
+  runOneCServiceMetadataAuditAction,
 } from "../actions";
 import type { OneCRelationMetadataAudit } from "../providers/one-c/one-c-relation-metadata-audit";
+import type { OneCServiceMetadataAudit } from "../providers/one-c/one-c-service-metadata-audit";
 import type {
   OneCConfigurationHealth,
   OneCHealthCheck,
@@ -26,6 +28,7 @@ export function OneCHealthPanel({
 }) {
   const [report, setReport] = useState<OneCHealthReport | null>(null);
   const [relationAudit, setRelationAudit] = useState<OneCRelationMetadataAudit | null>(null);
+  const [serviceAudit, setServiceAudit] = useState<OneCServiceMetadataAudit | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -52,6 +55,19 @@ export function OneCHealthPanel({
         return;
       }
       setRelationAudit(result.data);
+    });
+  }
+
+  function runServiceAudit() {
+    setError(null);
+    startTransition(async () => {
+      const result = await runOneCServiceMetadataAuditAction();
+      if (!result.success) {
+        setServiceAudit(null);
+        setError(result.message);
+        return;
+      }
+      setServiceAudit(result.data);
     });
   }
 
@@ -87,6 +103,14 @@ export function OneCHealthPanel({
           <button
             className="rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-900 disabled:cursor-not-allowed disabled:opacity-60"
             disabled={isPending}
+            onClick={runServiceAudit}
+            type="button"
+          >
+            {isPending ? "Проверка..." : "Проверить метаданные сервиса"}
+          </button>
+          <button
+            className="rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-900 disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={isPending}
             onClick={runRelationAudit}
             type="button"
           >
@@ -102,7 +126,34 @@ export function OneCHealthPanel({
 
       {report ? <DiagnosticReport report={report} /> : null}
       {relationAudit ? <RelationMetadataAudit audit={relationAudit} /> : null}
+      {serviceAudit ? <ServiceMetadataAudit audit={serviceAudit} /> : null}
     </div>
+  );
+}
+
+function ServiceMetadataAudit({ audit }: { audit: OneCServiceMetadataAudit }) {
+  return (
+    <section className="rounded-lg border border-zinc-200 bg-white p-5" data-testid="one-c-service-metadata-audit">
+      <h2 className="font-semibold text-zinc-950">Метаданные сервиса и ремонта</h2>
+      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+        <Metric label="Entity types" value={String(audit.entityTypeCount)} />
+        <Metric label="Кандидатов" value={String(audit.candidateCount)} />
+        <Metric label="Размер metadata" value={`${audit.metadataBytes} bytes`} />
+      </div>
+      <div className="mt-4 space-y-3">
+        {audit.candidates.map((candidate) => (
+          <details className="rounded-md border border-zinc-200 p-4" key={candidate.entityType}>
+            <summary className="cursor-pointer font-medium text-zinc-950">
+              {candidate.entitySet ?? candidate.entityType}
+            </summary>
+            <p className="mt-2 text-xs text-zinc-500">{candidate.matchedTerms.join(", ")}</p>
+            <p className="mt-2 break-words text-sm text-zinc-700">
+              {candidate.properties.map(({ name }) => name).join(", ")}
+            </p>
+          </details>
+        ))}
+      </div>
+    </section>
   );
 }
 

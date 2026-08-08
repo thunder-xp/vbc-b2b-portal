@@ -3,6 +3,7 @@ export { getDailyCatalogSyncStateAction, runDailyCatalogSyncAction } from "./cat
 export {
   runOneCHealthCheckAction,
   runOneCRelationMetadataAuditAction,
+  runOneCServiceMetadataAuditAction,
 } from "./one-c-health.action";
 export {
   getOneCPartnerContractsAction,

@@ -16,6 +16,10 @@ import {
   auditOneCRelationMetadata,
   type OneCRelationMetadataAudit,
 } from "../providers/one-c/one-c-relation-metadata-audit";
+import {
+  auditOneCServiceMetadata,
+  type OneCServiceMetadataAudit,
+} from "../providers/one-c/one-c-service-metadata-audit";
 
 export async function runOneCHealthCheckAction(): Promise<ActionResult<OneCHealthReport>> {
   try {
@@ -48,6 +52,20 @@ export async function runOneCRelationMetadataAuditAction(): Promise<
     return success(
       "1C relation metadata inventory completed.",
       await auditOneCRelationMetadata(getOneCEnv()),
+    );
+  } catch (error) {
+    return failureFromError(error);
+  }
+}
+
+export async function runOneCServiceMetadataAuditAction(): Promise<
+  ActionResult<OneCServiceMetadataAudit>
+> {
+  try {
+    await requireAdminPermission("admin.diagnostics.run");
+    return success(
+      "1C service metadata inventory completed.",
+      await auditOneCServiceMetadata(getOneCEnv()),
     );
   } catch (error) {
     return failureFromError(error);
