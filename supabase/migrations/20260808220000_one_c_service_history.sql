@@ -371,7 +371,7 @@ end $$;
 
 create or replace function public.list_partner_service_history(p_company_id uuid,p_query text default '',p_filter text default 'all',p_page integer default 1,p_page_size integer default 20)
 returns jsonb language sql stable security definer set search_path=public set row_security=off as $$
-with input as(select lower(btrim(coalesce(p_query,''))) q,case when p_filter in ('active','ready','completed','all') then p_filter else 'all' end filter,
+with input as(select lower(btrim(coalesce(p_query,''))) q,case when p_filter in ('active','ready','completed','all') then p_filter else 'all' end filter_mode,
   greatest(p_page,1) page,least(greatest(p_page_size,1),50) page_size),
 unified as (
  select c.id,'portal' source_type,c.case_number number,c.created_at document_date,c.status status,
@@ -395,7 +395,7 @@ unified as (
 ), visible as (
  select unified.* from unified,input where public.has_permission(p_company_id,'service.view')
  and (input.q='' or lower(number||' '||coalesce(sku,'')||' '||coalesce(product_name,'')||' '||coalesce(masked_serial,'')) like '%'||input.q||'%')
- and (input.filter='all' or input.filter='active' and active or input.filter='ready' and ready or input.filter='completed' and completed)
+ and (input.filter_mode='all' or input.filter_mode='active' and active or input.filter_mode='ready' and ready or input.filter_mode='completed' and completed)
 ), paged as (select visible.*,count(*) over() total_count from visible order by document_date desc,id desc
  offset(select (page-1)*page_size from input) limit(select page_size from input))
 select jsonb_build_object('items',coalesce(jsonb_agg(jsonb_build_object('id',id,'sourceType',source_type,'number',number,

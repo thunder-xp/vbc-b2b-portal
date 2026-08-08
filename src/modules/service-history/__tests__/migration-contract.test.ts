@@ -54,5 +54,7 @@ describe("1C service-history migration contract", () => {
     expect(sql).toContain("60 months");
     expect(sql).toContain("120 days");
     expect(sql).toContain("<> '00000000-0000-0000-0000-000000000000'");
+    expect(sql).toContain("end filter_mode");
+    expect(sql).not.toContain("end filter,");
   });
 });
