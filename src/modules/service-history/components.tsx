@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { ProductImage } from "@/src/modules/catalog/components/ProductImage";
+import { ProductLineThumbnail } from "@/src/modules/catalog/components/ProductLineThumbnail";
 import { ONE_C_SERVICE_STATUS_LABELS, type AdminOneCServiceHistoryPage, type OneCServiceHistoryDetail, type UnifiedServiceHistoryPage } from "./types";
 
 const portalStatusLabels: Record<string, string> = {
@@ -28,23 +29,23 @@ export function UnifiedServiceHistoryList({ page, query = "", filter = "all" }: 
   return <><div className="overflow-hidden rounded-md border border-zinc-200 bg-white">
     <ul className="divide-y divide-zinc-200">
       {page.items.map((item) => <li key={`${item.sourceType}:${item.id}`}>
-        <Link className="grid min-h-28 gap-3 p-4 hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-600 sm:grid-cols-[72px_minmax(0,1fr)_180px_auto] sm:items-center" href={item.href} prefetch={false}>
-          <div className="aspect-square overflow-hidden rounded-md border border-zinc-200 bg-zinc-50">
-            <ProductImage alt={item.productName ?? "Оборудование"} sizes="72px" src={item.productImageUrl} />
-          </div>
+        <div className="grid min-h-28 grid-cols-[64px_minmax(0,1fr)] items-start gap-3 p-4 hover:bg-zinc-50 sm:grid-cols-[64px_minmax(0,1fr)_180px_auto] sm:items-center">
+          <ProductLineThumbnail href={item.productHref ?? undefined} imageUrl={item.productImageUrl} productName={item.productName ?? "Оборудование"} size="service" />
           <div className="min-w-0">
             <p className="text-xs font-semibold uppercase text-emerald-700">{item.number}</p>
-            <p className="mt-1 line-clamp-2 font-medium" title={item.productName ?? undefined}>{item.productName ?? "Оборудование уточняется"}</p>
+            {item.productHref
+              ? <Link className="mt-1 block line-clamp-2 font-medium hover:text-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600" href={item.productHref} prefetch={false} title={item.productName ?? undefined}>{item.productName ?? "Оборудование уточняется"}</Link>
+              : <p className="mt-1 line-clamp-2 font-medium" title={item.productName ?? undefined}>{item.productName ?? "Оборудование уточняется"}</p>}
             <p className="mt-1 text-xs text-zinc-500">{[item.productSku, item.maskedSerial].filter(Boolean).join(" · ") || "Без дополнительной маркировки"}</p>
             {item.reportedFault ? <p className="mt-2 line-clamp-2 text-sm text-zinc-600">{item.reportedFault}</p> : null}
           </div>
-          <div>
+          <div className="col-span-2 sm:col-span-1">
             <p className="text-sm font-medium text-zinc-900">{statusLabel(item.status)}</p>
             {item.status === "ready_for_pickup" ? <p className="mt-1 text-sm font-semibold text-emerald-700">Оборудование готово к выдаче.</p> : null}
             <p className="mt-1 text-xs text-zinc-500">{new Date(item.date).toLocaleDateString("ru-RU")}</p>
           </div>
-          <span className="inline-flex min-h-11 items-center justify-center rounded-md border border-zinc-300 px-3 text-sm font-semibold">Открыть</span>
-        </Link>
+          <Link className="col-span-2 inline-flex min-h-11 items-center justify-center rounded-md border border-zinc-300 px-3 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 sm:col-span-1" href={item.href} prefetch={false}>Открыть</Link>
+        </div>
       </li>)}
     </ul>
   </div>{pages > 1 ? <nav aria-label="Страницы истории" className="flex items-center justify-between gap-3"><PaginationLink disabled={page.page <= 1} filter={filter} page={page.page - 1} query={query}>Назад</PaginationLink><span className="text-sm text-zinc-600">Страница {page.page} из {pages}</span><PaginationLink disabled={page.page >= pages} filter={filter} page={page.page + 1} query={query}>Далее</PaginationLink></nav> : null}</>;

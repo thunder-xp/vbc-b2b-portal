@@ -34,6 +34,7 @@ export type UnifiedServiceHistoryItem = {
   productSku: string | null;
   productName: string | null;
   productImageUrl: string | null;
+  productHref: string | null;
   maskedSerial: string | null;
   reportedFault: string | null;
   warrantyState: string | null;
