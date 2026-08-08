@@ -23,6 +23,9 @@ describe("proposal PDF renderer", () => {
     expect(text).toContain("Оборудование");
     expect(text).toContain("Клиент SRL");
     expect(text).toContain("ИТОГО");
+    expect(text).toContain("Действительно до: 30 июля 2026 г.");
+    expect(text).toContain("Контакт: Ivan Partner");
+    expect(text).toContain("НДС: начисляется отдельно, 20%");
   }, 30_000);
 
   it("paginates 1, 20, 100, and 300 line proposals within the server budget", async () => {
@@ -57,6 +60,12 @@ describe("proposal PDF renderer", () => {
     expect(definition).toContain("Монтаж");
   });
 
+  it("allows long commercial terms to paginate instead of forcing one unbreakable block", () => {
+    const definition = JSON.stringify(createDocumentDefinition(fixture(1)));
+    expect(definition).toContain('"dontBreakRows":true');
+    expect(definition).not.toContain('"unbreakable":true,"stack":[{"text":"Условия предложения"');
+  });
+
   it("deduplicates repeated approved image downloads and rejects unapproved origins", async () => {
     vi.stubEnv("PUBLIC_APP_URL", "https://www.nsd.md");
     const image = "https://firebasestorage.googleapis.com/v0/b/novotech-systems-5449b.appspot.com/o/products%2Fcamera_thumb.jpg?alt=media";
@@ -78,6 +87,22 @@ describe("proposal PDF renderer", () => {
     fetchMock.mockRestore();
     vi.unstubAllEnvs();
   });
+
+  it("converts a governed WebP company asset for PDF compatibility", async () => {
+    vi.stubEnv("PUBLIC_APP_URL", "https://www.nsd.md");
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://project.supabase.co");
+    const { default: sharp } = await import("sharp");
+    const webp = await sharp({ create: { width: 2, height: 2, channels: 4, background: "#15803d" } }).webp().toBuffer();
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(webp, { status: 200, headers: { "content-type": "image/webp", "content-length": String(webp.byteLength) } }));
+    const base = fixture(1);
+    const logoUrl = "https://project.supabase.co/storage/v1/render/image/public/company-logos/company/logo.webp";
+
+    const images = await loadProposalImages({ ...base, branding: { ...base.branding, logoUrl } });
+
+    expect(images.get(logoUrl)).toMatch(/^data:image\/png;base64,/);
+    vi.restoreAllMocks();
+    vi.unstubAllEnvs();
+  });
 });
 
-function fixture(lineCount: number): CustomerProposalDto { return { schemaVersion: "2026-07-16-v1", estimateNumber: "KP-2026-000001", generatedForDate: "2026-07-16", customerName: "Клиент SRL", projectName: "Объект", currencyCode: "USD", settings: { ...DEFAULT_PROPOSAL_SETTINGS, deliveryTerms: "Condiții de livrare" }, branding: { companyName: "Партнёр SRL", legalName: null, contactName: null, phone: null, email: null, website: null, fiscalInformation: null, address: null, logoUrl: null }, sections: [{ name: "Оборудование", subtotal: lineCount * 100, lines: Array.from({ length: lineCount }, (_, index) => ({ position: index + 1, lineType: "product", description: `Камера видеонаблюдения ${index + 1}`, sku: `SKU-${index + 1}`, imageUrl: null, quantity: 1, unitLabel: "шт.", unitPrice: 100, lineDiscountPercent: 0, lineTotal: 100 })) }], charges: [], totals: { subtotal: lineCount * 100, discounts: 0, charges: 0, totalExcludingVat: lineCount * 100, vat: 0, total: lineCount * 100 } }; }
+function fixture(lineCount: number): CustomerProposalDto { return { schemaVersion: "2026-08-08-v2", estimateNumber: "KP-2026-000001", generatedForDate: "2026-07-16", validUntilDate: "2026-07-30", customerName: "Клиент SRL", projectName: "Объект", currencyCode: "USD", vatMode: "separate", vatRatePercent: 20, settings: { ...DEFAULT_PROPOSAL_SETTINGS, deliveryTerms: "Condiții de livrare" }, branding: { companyName: "Партнёр SRL", legalName: null, contactName: "Ivan Partner", phone: null, email: null, website: null, fiscalInformation: null, address: null, logoUrl: null }, sections: [{ name: "Оборудование", subtotal: lineCount * 100, lines: Array.from({ length: lineCount }, (_, index) => ({ position: index + 1, lineType: "product", description: `Камера видеонаблюдения ${index + 1}`, sku: `SKU-${index + 1}`, imageUrl: null, quantity: 1, unitLabel: "шт.", unitPrice: 100, lineDiscountPercent: 0, lineTotal: 100 })) }], charges: [], totals: { subtotal: lineCount * 100, discounts: 0, charges: 0, totalExcludingVat: lineCount * 100, vat: 0, total: lineCount * 100 } }; }

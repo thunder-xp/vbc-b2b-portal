@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { InvalidStateError, NotFoundError } from "../../../access-control/services";
 import type { EstimateRepository, ProposalRepository } from "../../repositories";
@@ -14,6 +14,9 @@ const readyDocument: GeneratedEstimateDocument = { id: "doc-1", companyId: "comp
 describe("DefaultProposalService", () => {
   let estimates: EstimateRepository; let proposals: ProposalRepository; let service: DefaultProposalService;
   beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-16T10:00:00Z"));
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://project.supabase.co");
     estimates = { findAggregateById: vi.fn().mockResolvedValue(aggregate()), findById: vi.fn().mockResolvedValue(aggregate().estimate) } as unknown as EstimateRepository;
     proposals = {
       listTemplates: vi.fn().mockResolvedValue([template]), getBranding: vi.fn().mockResolvedValue(null), getProductImages: vi.fn().mockResolvedValue(new Map([["product-1", "https://www.nsd.md/camera.png"]])),
@@ -22,13 +25,16 @@ describe("DefaultProposalService", () => {
       claimGeneration: vi.fn().mockResolvedValue(readyDocument), markGenerating: vi.fn(), markReady: vi.fn(), markFailed: vi.fn(), findDocument: vi.fn().mockResolvedValue(readyDocument), uploadPdf: vi.fn(), downloadPdf: vi.fn(),
       findVersionProposal: vi.fn(), claimVersionGeneration: vi.fn(),
     };
-    service = new DefaultProposalService(estimates, proposals, { getOwnMemberships: vi.fn().mockResolvedValue([{ companyId: "company-1", status: "active" }]), getActiveCompanyContext: vi.fn().mockResolvedValue({ company: { id: "company-1", displayName: "Partner SRL" }, user: { fullName: "Ivan", email: "ivan@example.com", phone: "+373" } }) } as never, { ensurePermission: vi.fn().mockResolvedValue({ isAllowed: true }) } as never);
+    service = new DefaultProposalService(estimates, proposals, { getOwnMemberships: vi.fn().mockResolvedValue([{ companyId: "company-1", status: "active" }]), getActiveCompanyContext: vi.fn().mockResolvedValue({ company: { id: "company-1", displayName: "Partner SRL", logoAssetPath: "company-1/logo mark.png" }, user: { fullName: "Ivan", email: "ivan@example.com", phone: "+373" } }) } as never, { ensurePermission: vi.fn().mockResolvedValue({ isAllowed: true }) } as never);
   });
+  afterEach(() => { vi.useRealTimers(); vi.unstubAllEnvs(); });
 
   it("prepares one immutable customer allowlist without internal commercial fields", async () => {
     const preview = await service.preparePreview("user-1", "estimate-1");
     const serialized = JSON.stringify(preview.proposal);
     expect(preview.proposal.sections[0].lines[0]).toEqual(expect.objectContaining({ lineType: "product", sku: "400691", unitPrice: 100, lineTotal: 200 }));
+    expect(preview.proposal).toEqual(expect.objectContaining({ schemaVersion: "2026-08-08-v2", validUntilDate: "2026-07-30", vatMode: "separate", vatRatePercent: 20 }));
+    expect(preview.proposal.branding).toEqual(expect.objectContaining({ contactName: "Ivan", logoUrl: "https://project.supabase.co/storage/v1/render/image/public/company-logos/company-1/logo%20mark.png?width=128&height=96&resize=contain&quality=70" }));
     for (const forbidden of ["companyId", "productId", "external1c", "internalCost", "marginPercent", "permission", "roleId"]) expect(serialized).not.toContain(forbidden);
     expect(Object.isFrozen(preview.proposal)).toBe(true);
     expect(proposals.getProductImages).toHaveBeenCalledTimes(1);

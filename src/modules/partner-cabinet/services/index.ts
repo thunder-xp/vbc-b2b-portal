@@ -16,6 +16,7 @@ export {
   type PartnerWorkspaceContext,
   type PartnerWorkspaceContextService,
 } from "./workspace-context.service";
+export { companyLogoUrl } from "./company-logo-url";
 export {
   resolveWorkspaceCapabilities,
   type ProductCardCapabilityModel,

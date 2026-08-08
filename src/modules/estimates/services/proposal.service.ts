@@ -4,6 +4,7 @@ import type { CompanyAccessService, PermissionService } from "../../access-contr
 import { InvalidStateError, NotFoundError } from "../../access-control/services";
 import { MembershipStatus } from "../../access-control/types";
 import { normalizeProductImageUrl } from "../../catalog/components/product-image-source";
+import { companyLogoUrl } from "../../partner-cabinet/services/company-logo-url";
 import type { EstimateRepository, ProposalRepository } from "../repositories";
 import type { CustomerProposalDto, GeneratedEstimateDocument, ProposalSettings, ProposalTemplate } from "../types";
 
@@ -65,7 +66,7 @@ export class DefaultProposalService {
     const normalizedTemplates = templates.map((template) => ({ ...template, configuration: normalizeSettings({ ...DEFAULT_PROPOSAL_SETTINGS, ...template.configuration }) }));
     const selectedTemplate = normalizedTemplates.find((template) => template.id === stored.templateId) ?? normalizedTemplates.find((template) => template.key === "equipment_supply") ?? normalizedTemplates[0];
     const settings = normalizeSettings({ ...DEFAULT_PROPOSAL_SETTINGS, ...selectedTemplate?.configuration, ...stored.settings });
-    const dto = prepareCustomerProposal({ aggregate, settings, companyName: context.company.displayName, userName: context.user.fullName, userEmail: context.user.email, userPhone: context.user.phone, profile, images });
+    const dto = prepareCustomerProposal({ aggregate, settings, companyName: context.company.displayName, companyLogoUrl: companyLogoUrl(context.company.logoAssetPath ?? null), userName: context.user.fullName, userEmail: context.user.email, userPhone: context.user.phone, profile, images });
     console.info({ event: "estimate_proposal_preview_prepared", estimateId: aggregate.estimate.id, companyId: context.company.id, lineCount: aggregate.items.length });
     return { proposal: dto, estimateId: aggregate.estimate.id, estimateRevision: aggregate.estimate.revision, selectedTemplateId: selectedTemplate?.id ?? null, templates: normalizedTemplates };
   }
@@ -146,7 +147,7 @@ export class DefaultProposalService {
 
 function prepareCustomerProposal(input: {
   aggregate: Awaited<ReturnType<EstimateRepository["findAggregateById"]>> & {};
-  settings: ProposalSettings; companyName: string; userName: string | null; userEmail: string; userPhone: string | null;
+  settings: ProposalSettings; companyName: string; companyLogoUrl: string | null; userName: string | null; userEmail: string; userPhone: string | null;
   profile: Partial<import("../types").ProposalBranding> | null; images: Map<string, string | null>;
 }): CustomerProposalDto {
   const { estimate, sections, items, charges } = input.aggregate;
@@ -160,11 +161,12 @@ function prepareCustomerProposal(input: {
     return { name: section.name, subtotal: lines.reduce((sum, line) => sum + line.lineTotal, 0), lines };
   });
   const customerCharges = charges.filter((charge) => charge.customerVisible).sort((a, b) => a.sortOrder - b.sortOrder).map((charge) => ({ description: charge.description, amount: charge.amount }));
+  const generatedForDate = new Date().toISOString().slice(0, 10);
   return deepFreeze({
-    schemaVersion: "2026-07-16-v1" as const, estimateNumber: estimate.estimateNumber,
-    generatedForDate: new Date().toISOString().slice(0, 10), customerName: estimate.customerName, projectName: estimate.projectName,
-    currencyCode: estimate.currencyCode, settings: { ...input.settings },
-    branding: { companyName: input.companyName, legalName: input.profile?.legalName ?? null, contactName: input.profile?.contactName ?? input.userName, phone: input.profile?.phone ?? input.userPhone, email: input.profile?.email ?? input.userEmail, website: input.profile?.website ?? null, fiscalInformation: input.profile?.fiscalInformation ?? null, address: input.profile?.address ?? null, logoUrl: normalizePortalImageUrl(input.profile?.logoUrl ?? null) },
+    schemaVersion: "2026-08-08-v2" as const, estimateNumber: estimate.estimateNumber,
+    generatedForDate, validUntilDate: addUtcDays(generatedForDate, estimate.validityDays), customerName: estimate.customerName, projectName: estimate.projectName,
+    currencyCode: estimate.currencyCode, vatMode: estimate.vatMode, vatRatePercent: estimate.vatRatePercent, settings: { ...input.settings },
+    branding: { companyName: input.companyName, legalName: input.profile?.legalName ?? null, contactName: input.profile?.contactName ?? input.userName, phone: input.profile?.phone ?? input.userPhone, email: input.profile?.email ?? input.userEmail, website: input.profile?.website ?? null, fiscalInformation: input.profile?.fiscalInformation ?? null, address: input.profile?.address ?? null, logoUrl: normalizePortalImageUrl(input.profile?.logoUrl ?? null) ?? normalizePortalImageUrl(input.companyLogoUrl) },
     sections: sectionRows, charges: customerCharges,
     totals: { subtotal: estimate.subtotalAmount, discounts: estimate.lineDiscountTotal + estimate.sectionDiscountTotal + estimate.globalDiscountAmount, charges: estimate.chargesTotal, totalExcludingVat: estimate.totalExcludingVat, vat: estimate.vatAmount, total: estimate.totalAmount },
   });
@@ -197,6 +199,11 @@ function normalizePortalImageUrl(value: string | null): string | null {
     const sensitiveQuery = [...url.searchParams.keys()].some((key) => /token|signature|apikey|authorization/i.test(key));
     return url.protocol === "https:" && !url.username && !url.password && !sensitiveQuery && hosts.has(url.hostname) ? url.toString() : null;
   } catch { return null; }
+}
+function addUtcDays(value: string, days: number): string {
+  const date = new Date(`${value}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
 }
 function deepFreeze<T>(value: T): T {
   if (value && typeof value === "object" && !Object.isFrozen(value)) {

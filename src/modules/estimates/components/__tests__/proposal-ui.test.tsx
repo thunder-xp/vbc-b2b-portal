@@ -20,6 +20,10 @@ describe("proposal UI", () => {
     expect(screen.getByText("Коммерческое предложение")).toBeInTheDocument();
     expect(screen.getByText("Камера 1")).toBeInTheDocument();
     expect(screen.getByText("ИТОГО")).toBeInTheDocument();
+    expect(screen.getByText("Действительно до")).toBeInTheDocument();
+    expect(screen.getByText("30 июля 2026 г.")).toBeInTheDocument();
+    expect(screen.getByText("Контакт: Ivan Partner")).toBeInTheDocument();
+    expect(screen.getByText("начисляется отдельно, 20%")).toBeInTheDocument();
     expect(screen.queryByText(/себестоимость|маржа|1C|permission/i)).not.toBeInTheDocument();
   });
 
@@ -54,4 +58,4 @@ describe("proposal UI", () => {
   });
 });
 
-function proposal(lineCount = 1): CustomerProposalDto { const total = lineCount * 100; return { schemaVersion: "2026-07-16-v1", estimateNumber: "KP-1", generatedForDate: "2026-07-16", customerName: "Customer", projectName: "Site", currencyCode: "USD", settings, branding: { companyName: "Partner SRL", legalName: null, contactName: null, phone: null, email: null, website: null, fiscalInformation: null, address: null, logoUrl: null }, sections: [{ name: "Оборудование", subtotal: total, lines: Array.from({ length: lineCount }, (_, index) => ({ position: index + 1, lineType: "product", description: `Камера ${index + 1}`, sku: `400${index}`, imageUrl: null, quantity: 1, unitLabel: "шт.", unitPrice: 100, lineDiscountPercent: 0, lineTotal: 100 })) }], charges: [], totals: { subtotal: total, discounts: 0, charges: 0, totalExcludingVat: total, vat: 0, total } }; }
+function proposal(lineCount = 1): CustomerProposalDto { const total = lineCount * 100; return { schemaVersion: "2026-08-08-v2", estimateNumber: "KP-1", generatedForDate: "2026-07-16", validUntilDate: "2026-07-30", customerName: "Customer", projectName: "Site", currencyCode: "USD", vatMode: "separate", vatRatePercent: 20, settings, branding: { companyName: "Partner SRL", legalName: null, contactName: "Ivan Partner", phone: null, email: null, website: null, fiscalInformation: null, address: null, logoUrl: null }, sections: [{ name: "Оборудование", subtotal: total, lines: Array.from({ length: lineCount }, (_, index) => ({ position: index + 1, lineType: "product", description: `Камера ${index + 1}`, sku: `400${index}`, imageUrl: null, quantity: 1, unitLabel: "шт.", unitPrice: 100, lineDiscountPercent: 0, lineTotal: 100 })) }], charges: [], totals: { subtotal: total, discounts: 0, charges: 0, totalExcludingVat: total, vat: 0, total } }; }

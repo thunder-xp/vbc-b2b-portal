@@ -22,6 +22,7 @@ import {
   resolveWorkspaceCapabilities,
   type WorkspaceCapabilityModel,
 } from "./workspace-capability.service";
+import { companyLogoUrl } from "./company-logo-url";
 
 export type PartnerWorkspaceAccessState =
   | "active"
@@ -268,11 +269,4 @@ function emptyContext(
     priceTypeName: null,
     capabilities: resolveWorkspaceCapabilities(new Set()),
   };
-}
-
-function companyLogoUrl(assetPath: string | null): string | null {
-  const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-  if (!assetPath || !baseUrl) return null;
-  const encodedPath = assetPath.split("/").map(encodeURIComponent).join("/");
-  return `${baseUrl.replace(/\/$/, "")}/storage/v1/render/image/public/company-logos/${encodedPath}?width=128&height=96&resize=contain&quality=70`;
 }

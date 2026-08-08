@@ -62,12 +62,15 @@ export type CustomerProposalSection = Readonly<{
 }>;
 
 export type CustomerProposalDto = Readonly<{
-  schemaVersion: "2026-07-16-v1";
+  schemaVersion: "2026-07-16-v1" | "2026-08-08-v2";
   estimateNumber: string;
   generatedForDate: string;
+  validUntilDate?: string | null;
   customerName: string | null;
   projectName: string | null;
   currencyCode: string;
+  vatMode?: import("./estimate").EstimateVatMode;
+  vatRatePercent?: number;
   settings: Readonly<ProposalSettings>;
   branding: Readonly<ProposalBranding>;
   sections: ReadonlyArray<CustomerProposalSection>;

@@ -23,7 +23,7 @@ export async function renderProposalPdf(proposal: CustomerProposalDto): Promise<
 export function createDocumentDefinition(proposal: CustomerProposalDto, images = new Map<string, string>()): TDocumentDefinitions {
   const content: Array<Record<string, unknown>> = [
     { columns: [brandingBlock(proposal, images), { text: proposal.settings.title, style: "title", alignment: "right" }], margin: [0, 0, 0, 22] },
-    { columns: [{ stack: [{ text: "ПОЛУЧАТЕЛЬ", style: "eyebrow" }, { text: proposal.customerName || "Не указан", style: "heading" }, proposal.projectName ? { text: proposal.projectName, color: "#52525b", margin: [0, 3, 0, 0] } : { text: "" }] }, { stack: [{ text: proposal.estimateNumber, style: "documentNumber" }, { text: formatDate(proposal.generatedForDate), alignment: "right", color: "#71717a" }] }], margin: [0, 0, 0, 18] },
+    { columns: [{ stack: [{ text: "ПОЛУЧАТЕЛЬ", style: "eyebrow" }, { text: proposal.customerName || "Не указан", style: "heading" }, proposal.projectName ? { text: proposal.projectName, color: "#52525b", margin: [0, 3, 0, 0] } : { text: "" }] }, { stack: documentMetadata(proposal) }], margin: [0, 0, 0, 18] },
   ];
   if (proposal.settings.introduction) content.push({ text: proposal.settings.introduction, margin: [0, 0, 0, 16], lineHeight: 1.25 });
 
@@ -44,13 +44,14 @@ export function createDocumentDefinition(proposal: CustomerProposalDto, images =
     pageSize: "A4", pageMargins: [38, 45, 38, 52], content,
     defaultStyle: { font: "Roboto", fontSize: 9, color: "#27272a" },
     styles: { title: { fontSize: 21, bold: true, color: "#14532d" }, eyebrow: { fontSize: 7, bold: true, color: "#15803d", characterSpacing: 1 }, heading: { fontSize: 13, bold: true }, documentNumber: { fontSize: 11, bold: true, alignment: "right" }, section: { fontSize: 12, bold: true, color: "#14532d" } },
+    pageBreakBefore: (currentNode: { style?: string }, followingNodesOnPage: unknown[]) => currentNode.style === "section" && followingNodesOnPage.length === 0,
     footer: (currentPage: number, pageCount: number) => ({ columns: [{ text: proposal.settings.footerNote || proposal.branding.companyName, color: "#71717a", fontSize: 7 }, { text: `${currentPage} / ${pageCount}`, alignment: "right", color: "#71717a", fontSize: 7 }], margin: [38, 18, 38, 0] }),
     info: { title: `${proposal.settings.title} ${proposal.estimateNumber}`, author: proposal.branding.companyName, subject: "Коммерческое предложение" },
   } as unknown as TDocumentDefinitions;
 }
 
 function brandingBlock(proposal: CustomerProposalDto, images: Map<string, string>): Record<string, unknown> {
-  const lines = [proposal.branding.legalName || proposal.branding.companyName, proposal.branding.address, proposal.branding.fiscalInformation, proposal.branding.phone, proposal.branding.email, proposal.branding.website].filter(Boolean) as string[];
+  const lines = [proposal.branding.legalName || proposal.branding.companyName, proposal.branding.contactName ? `Контакт: ${proposal.branding.contactName}` : null, proposal.branding.address, proposal.branding.fiscalInformation, proposal.branding.phone, proposal.branding.email, proposal.branding.website].filter(Boolean) as string[];
   const stack: Array<Record<string, unknown>> = [{ text: proposal.branding.companyName, fontSize: 15, bold: true, color: "#166534" }, ...lines.map((text) => ({ text, fontSize: 7, color: "#52525b", margin: [0, 2, 0, 0] }))];
   if (proposal.settings.showPartnerLogo && proposal.branding.logoUrl && images.has(proposal.branding.logoUrl)) stack.unshift({ image: images.get(proposal.branding.logoUrl), width: 70, height: 36, fit: [70, 36], margin: [0, 0, 0, 5] });
   return { stack };
@@ -88,7 +89,19 @@ function totalsBlock(proposal: CustomerProposalDto): Record<string, unknown> {
 function termsBlock(proposal: CustomerProposalDto): Record<string, unknown> {
   const terms = [["Поставка", proposal.settings.deliveryTerms], ["Оплата", proposal.settings.paymentTerms], ["Гарантия", proposal.settings.warrantyTerms], ["Срок действия", proposal.settings.validityText], ["Монтаж", proposal.settings.installationNotes], ["Исключения", proposal.settings.exclusions], ["Примечание", proposal.settings.customerNote]].filter(([, value]) => value);
   if (!terms.length) return { text: "" };
-  return { unbreakable: true, stack: [{ text: "Условия предложения", style: "section", margin: [0, 5, 0, 7] }, { table: { widths: [90, "*"], body: terms.map(([label, value]) => [{ text: label, bold: true, color: "#3f3f46" }, { text: value }]) }, layout: "lightHorizontalLines" }] };
+  return { stack: [{ text: "Условия предложения", style: "section", margin: [0, 5, 0, 7] }, { table: { widths: [90, "*"], dontBreakRows: true, body: terms.map(([label, value]) => [{ text: label, bold: true, color: "#3f3f46" }, { text: value }]) }, layout: "lightHorizontalLines" }] };
+}
+
+function documentMetadata(proposal: CustomerProposalDto): Array<Record<string, unknown>> {
+  const rows: Array<Record<string, unknown>> = [
+    { text: proposal.estimateNumber, style: "documentNumber" },
+    { text: `Дата: ${formatDate(proposal.generatedForDate)}`, alignment: "right", color: "#71717a" },
+  ];
+  if (proposal.validUntilDate) rows.push({ text: `Действительно до: ${formatDate(proposal.validUntilDate)}`, alignment: "right", color: "#71717a" });
+  rows.push({ text: `Валюта: ${proposal.currencyCode}`, alignment: "right", color: "#71717a" });
+  const vat = vatModeLabel(proposal);
+  if (vat) rows.push({ text: `НДС: ${vat}`, alignment: "right", color: "#71717a" });
+  return rows;
 }
 
 export async function loadProposalImages(proposal: CustomerProposalDto): Promise<Map<string, string>> {
@@ -102,12 +115,17 @@ async function fetchTrustedImage(rawUrl: string): Promise<string | null> {
   if (!url) return null;
   const controller = new AbortController(); const timer = setTimeout(() => controller.abort(), 2500);
   try {
-    const response = await fetch(url, { signal: controller.signal, redirect: "error", headers: { Accept: "image/png,image/jpeg" } });
+    const response = await fetch(url, { signal: controller.signal, redirect: "error", headers: { Accept: "image/png,image/jpeg,image/webp" } });
     const type = response.headers.get("content-type")?.split(";")[0] ?? "";
     const length = Number(response.headers.get("content-length") ?? 0);
-    if (!response.ok || !["image/png", "image/jpeg"].includes(type) || length > 1_000_000) return null;
+    if (!response.ok || !["image/png", "image/jpeg", "image/webp"].includes(type) || length > 1_000_000) return null;
     const bytes = new Uint8Array(await response.arrayBuffer());
     if (bytes.byteLength > 1_000_000) return null;
+    if (type === "image/webp") {
+      const { default: sharp } = await import("sharp");
+      const png = await sharp(bytes).png().toBuffer();
+      return png.byteLength <= 1_000_000 ? `data:image/png;base64,${png.toString("base64")}` : null;
+    }
     return `data:${type};base64,${Buffer.from(bytes).toString("base64")}`;
   } catch { return null; } finally { clearTimeout(timer); }
 }
@@ -136,6 +154,14 @@ function trustedPortalUrl(rawUrl: string): URL | null {
 }
 
 function isProductProposalLine(line: CustomerProposalLine): boolean { return line.lineType === "product" || (!line.lineType && Boolean(line.sku || line.imageUrl)); }
+function vatModeLabel(proposal: CustomerProposalDto): string | null {
+  const rate = proposal.vatRatePercent ?? 0;
+  if (proposal.vatMode === "included") return `включён${rate ? `, ${formatNumber(rate)}%` : ""}`;
+  if (proposal.vatMode === "separate") return `начисляется отдельно${rate ? `, ${formatNumber(rate)}%` : ""}`;
+  if (proposal.vatMode === "excluded") return "не включён";
+  if (proposal.vatMode === "none") return "не применяется";
+  return null;
+}
 
 async function mapConcurrent<T, R>(items: T[], limit: number, mapper: (item: T) => Promise<R>): Promise<R[]> {
   const output = new Array<R>(items.length); let cursor = 0;
