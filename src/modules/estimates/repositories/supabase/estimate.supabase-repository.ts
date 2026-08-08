@@ -137,7 +137,7 @@ export class SupabaseEstimateRepository implements EstimateRepository {
       target_project_name: input.projectName ?? "",
       target_currency_code: input.currencyCode,
       target_validity_days: input.validityDays,
-      target_request_key: input.requestKey,
+      request_key: input.requestKey,
     });
     if (error || !data) throw mapRepositoryError(error?.code);
     return mapEstimateRow(data as EstimateRow);
