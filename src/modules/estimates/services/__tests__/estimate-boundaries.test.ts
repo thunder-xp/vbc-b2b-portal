@@ -21,7 +21,7 @@ describe("estimate architecture boundaries", () => {
   it("uses one atomic commercial mutation and no global cache invalidation", () => {
     const repository = read("src/modules/estimates/repositories/supabase/estimate.supabase-repository.ts");
     const actions = read("src/modules/estimates/actions/estimate.actions.ts");
-    expect(repository).toContain('supabase.rpc("save_estimate_commercial_draft"');
+    expect(repository).toContain('supabase.rpc("save_estimate_commercial_draft_v2"');
     expect(actions).not.toContain('revalidatePath("/")');
   });
 });

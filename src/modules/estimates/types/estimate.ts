@@ -5,6 +5,21 @@ export type EstimatePricingMode = "direct" | "markup" | "margin";
 export type EstimateVatMode = "included" | "separate" | "excluded" | "none";
 export type EstimateChargeType = "delivery" | "installation" | "commissioning" | "transport" | "other";
 export type EstimateCurrencyChangePolicy = "convert_all" | "preserve_manual";
+export type FinalCustomerType = "company" | "individual";
+
+export interface FinalCustomer {
+  id: string;
+  companyId: string;
+  displayName: string;
+  customerType: FinalCustomerType;
+  fiscalCode: string | null;
+  locality: string | null;
+  industry: string | null;
+  revision: number;
+  archivedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export interface Estimate {
   id: string;
@@ -12,6 +27,7 @@ export interface Estimate {
   createdBy: string;
   estimateNumber: string;
   name: string;
+  finalCustomerId?: string | null;
   customerName: string | null;
   projectName: string | null;
   currencyCode: string;

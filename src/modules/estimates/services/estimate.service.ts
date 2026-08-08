@@ -85,6 +85,7 @@ export type EstimateDetailDto = {
   id: string;
   estimateNumber: string;
   name: string;
+  finalCustomerId?: string | null;
   customerName: string | null;
   projectName: string | null;
   currencyCode: string;
@@ -179,6 +180,7 @@ export type EstimateServiceSelection = {
 
 export type CreateEstimateCommand = {
   name: string;
+  finalCustomerId?: string | null;
   customerName?: string | null;
   projectName?: string | null;
   currencyCode: string;
@@ -207,6 +209,7 @@ export type SaveEstimateCommand = Omit<CreateEstimateCommand, "currencyCode" | "
 export type SaveEstimateCommercialCommand = {
   expectedRevision: number;
   name: string;
+  finalCustomerId?: string | null;
   customerName?: string | null;
   projectName?: string | null;
   validityDays: number;
@@ -238,6 +241,21 @@ export interface EstimateService {
   listServices(userId: string): Promise<EstimateServiceDto[]>;
   searchProducts(userId: string, input: { search?: string; categoryId?: string; brandId?: string }): Promise<EstimateProductPickerDto>;
   searchExternalNomenclature(userId: string, query: string): Promise<ExternalNomenclatureRecord[]>;
+  searchFinalCustomers(userId: string, query: string): Promise<import("../types").FinalCustomer[]>;
+  createFinalCustomer(userId: string, input: {
+    displayName: string;
+    customerType: import("../types").FinalCustomerType;
+    fiscalCode?: string | null;
+    locality?: string | null;
+    industry?: string | null;
+  }): Promise<import("../types").FinalCustomer>;
+  updateFinalCustomer(userId: string, customerId: string, expectedRevision: number, input: {
+    displayName: string;
+    customerType: import("../types").FinalCustomerType;
+    fiscalCode?: string | null;
+    locality?: string | null;
+    industry?: string | null;
+  }): Promise<import("../types").FinalCustomer>;
   checkCurrentProductState(userId: string, estimateId: string): Promise<EstimateCommercialCheckDto>;
   createDraft(userId: string, input: CreateEstimateCommand): Promise<Estimate>;
   createFromPurchasingList(userId: string, input: { listId: string; name: string; requestKey: string; items: Array<{ itemId: string; productId: string; quantity: number }> }): Promise<{ estimateId: string; repeated: boolean; added: number; skipped: number }>;
@@ -332,6 +350,55 @@ export class DefaultEstimateService implements EstimateService {
     if (normalized.length < 2) return [];
     if (!this.repository.searchExternalNomenclature) throw new InvalidStateError("Библиотека внешних позиций временно недоступна.");
     return this.repository.searchExternalNomenclature(normalized, 8);
+  }
+
+  async searchFinalCustomers(userId: string, query: string) {
+    const companyId = await this.resolveCompany(userId, VIEW_PERMISSION);
+    const normalized = normalizeOptional(query, 100);
+    if (!normalized || normalized.length < 2) return [];
+    if (!this.repository.searchFinalCustomers) throw new InvalidStateError("Поиск заказчиков временно недоступен.");
+    return this.repository.searchFinalCustomers(companyId, normalized, 8);
+  }
+
+  async createFinalCustomer(userId: string, input: {
+    displayName: string;
+    customerType: import("../types").FinalCustomerType;
+    fiscalCode?: string | null;
+    locality?: string | null;
+    industry?: string | null;
+  }) {
+    const companyId = await this.resolveCompany(userId, MANAGE_PERMISSION);
+    if (!(["company", "individual"] as const).includes(input.customerType)) throw new InvalidStateError("Тип заказчика некорректен.");
+    if (!this.repository.createFinalCustomer) throw new InvalidStateError("Создание заказчика временно недоступно.");
+    return this.repository.createFinalCustomer({
+      companyId,
+      displayName: normalizeRequired(input.displayName, 200, "Укажите заказчика."),
+      customerType: input.customerType,
+      fiscalCode: normalizeOptional(input.fiscalCode ?? undefined, 32) ?? null,
+      locality: normalizeOptional(input.locality ?? undefined, 120) ?? null,
+      industry: normalizeOptional(input.industry ?? undefined, 120) ?? null,
+    });
+  }
+
+  async updateFinalCustomer(userId: string, customerId: string, expectedRevision: number, input: {
+    displayName: string;
+    customerType: import("../types").FinalCustomerType;
+    fiscalCode?: string | null;
+    locality?: string | null;
+    industry?: string | null;
+  }) {
+    const companyId = await this.resolveCompany(userId, MANAGE_PERMISSION);
+    if (!this.repository.updateFinalCustomer) throw new InvalidStateError("Изменение заказчика временно недоступно.");
+    return this.repository.updateFinalCustomer({
+      companyId,
+      customerId: normalizeUuid(customerId, "Заказчик некорректен."),
+      expectedRevision: normalizeRevision(expectedRevision),
+      displayName: normalizeRequired(input.displayName, 200, "Укажите заказчика."),
+      customerType: input.customerType,
+      fiscalCode: normalizeOptional(input.fiscalCode ?? undefined, 32) ?? null,
+      locality: normalizeOptional(input.locality ?? undefined, 120) ?? null,
+      industry: normalizeOptional(input.industry ?? undefined, 120) ?? null,
+    });
   }
 
   async listServices(userId: string): Promise<EstimateServiceDto[]> {
@@ -440,10 +507,12 @@ export class DefaultEstimateService implements EstimateService {
     const companyId = await this.resolveCompany(userId, MANAGE_PERMISSION);
     const currencies = await this.pricingInventoryService.listAvailableCurrencyCodes?.(userId) ?? [];
     const normalized = normalizeMetadata(input);
+    const finalCustomerId = input.finalCustomerId ? normalizeUuid(input.finalCustomerId, "Выберите заказчика.") : null;
+    if (!finalCustomerId) throw new InvalidStateError("Выберите или создайте заказчика.");
     if (!currencies.includes(normalized.currencyCode)) {
       throw new InvalidStateError("Estimate currency is not available in published commercial data.");
     }
-    return this.repository.create({ companyId, ...normalized, requestKey: normalizeUuid(input.requestKey ?? randomUUID(), "Ключ создания сметы некорректен.") });
+    return this.repository.create({ companyId, ...normalized, finalCustomerId, requestKey: normalizeUuid(input.requestKey ?? randomUUID(), "Ключ создания сметы некорректен.") });
   }
 
   async createFromPurchasingList(userId: string, input: { listId: string; name: string; requestKey: string; items: Array<{ itemId: string; productId: string; quantity: number }> }) {
@@ -546,6 +615,7 @@ export class DefaultEstimateService implements EstimateService {
         estimateId,
         expectedRevision: input.expectedRevision,
         name: normalized.name,
+        finalCustomerId: input.finalCustomerId ? normalizeUuid(input.finalCustomerId, "Выберите заказчика.") : null,
         customerName: normalized.customerName,
         projectName: normalized.projectName,
         validityDays: normalized.validityDays,
@@ -850,6 +920,9 @@ export class DefaultEstimateService implements EstimateService {
       expectedRevision: input.expectedRevision,
       settings: {
         ...metadata,
+        finalCustomerId: input.finalCustomerId
+          ? normalizeUuid(input.finalCustomerId, "Выберите заказчика.")
+          : aggregate.estimate.finalCustomerId ?? null,
         currencyRate: currencyChanged ? oldToNewRate : aggregate.estimate.currencyRate,
         currencyRateEffectiveDate: currencyChanged ? rateSnapshot!.effectiveDate : aggregate.estimate.currencyRateEffectiveDate,
         vatMode,
@@ -1140,6 +1213,7 @@ function toCommercialDetail(aggregate: EstimateAggregate, images = new Map<strin
     id: estimate.id,
     estimateNumber: estimate.estimateNumber,
     name: estimate.name,
+    finalCustomerId: estimate.finalCustomerId,
     customerName: estimate.customerName,
     projectName: estimate.projectName,
     currencyCode: estimate.currencyCode,
@@ -1218,6 +1292,7 @@ function legacyToDetail(estimate: Estimate, items: EstimateItem[]) {
     id: estimate.id,
     estimateNumber: estimate.estimateNumber,
     name: estimate.name,
+    finalCustomerId: estimate.finalCustomerId,
     customerName: estimate.customerName,
     projectName: estimate.projectName,
     currencyCode: estimate.currencyCode,

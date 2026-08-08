@@ -66,6 +66,8 @@ describe("DefaultEstimateService", () => {
       findById: vi.fn().mockResolvedValue(estimate),
       findAggregateById: vi.fn().mockResolvedValue(aggregate([])),
       create: vi.fn().mockResolvedValue(estimate),
+      searchFinalCustomers: vi.fn().mockResolvedValue([]),
+      createFinalCustomer: vi.fn().mockResolvedValue({ id: "customer-1", companyId: "company-1", displayName: "Customer", customerType: "company", fiscalCode: null, locality: null, industry: null, revision: 1, archivedAt: null, createdAt: "2026-08-08T10:00:00Z", updatedAt: "2026-08-08T10:00:00Z" }),
       searchExternalNomenclature: vi.fn().mockResolvedValue([]),
       addExternalLine: vi.fn().mockResolvedValue(undefined),
       createFromPurchasingList: vi.fn().mockResolvedValue({ estimateId: estimate.id, repeated: false }),
@@ -123,10 +125,23 @@ describe("DefaultEstimateService", () => {
   });
 
   it("creates a company-owned draft only with a published currency", async () => {
-    await service.createDraft("user-1", { name: "  Estimate  ", currencyCode: "usd", validityDays: 14 });
+    await service.createDraft("user-1", { name: "  Estimate  ", finalCustomerId: "11111111-1111-1111-1111-111111111111", currencyCode: "usd", validityDays: 14 });
 
     expect(repository.create).toHaveBeenCalledWith(expect.objectContaining({ companyId: "company-1", name: "Estimate", currencyCode: "USD" }));
-    await expect(service.createDraft("user-1", { name: "Estimate", currencyCode: "EUR", validityDays: 14 })).rejects.toBeInstanceOf(InvalidStateError);
+    await expect(service.createDraft("user-1", { name: "Estimate", finalCustomerId: "11111111-1111-1111-1111-111111111111", currencyCode: "EUR", validityDays: 14 })).rejects.toBeInstanceOf(InvalidStateError);
+    await expect(service.createDraft("user-1", { name: "Estimate", currencyCode: "USD", validityDays: 14 })).rejects.toBeInstanceOf(InvalidStateError);
+  });
+
+  it("searches and creates final customers only through the active company boundary", async () => {
+    await service.searchFinalCustomers("user-1", "Nad");
+    expect(repository.searchFinalCustomers).toHaveBeenCalledWith("company-1", "Nad", 8);
+
+    await service.createFinalCustomer("user-1", {
+      displayName: " NADZOR SRL ", customerType: "company", fiscalCode: "0200046888", locality: "Chisinau",
+    });
+    expect(repository.createFinalCustomer).toHaveBeenCalledWith(expect.objectContaining({
+      companyId: "company-1", displayName: "NADZOR SRL", fiscalCode: "0200046888",
+    }));
   });
 
   it("does not expose an estimate from another company", async () => {

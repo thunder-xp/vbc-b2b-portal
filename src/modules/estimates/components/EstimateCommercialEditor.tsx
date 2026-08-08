@@ -18,6 +18,7 @@ import type { EstimateChargeType, EstimateCurrencyChangePolicy, EstimatePricingM
 import { EstimateStatusBadge } from "./EstimateStatusBadge";
 import { EstimateBulkToolbar } from "./EstimateBulkToolbar";
 import { EstimateLinePicker } from "./EstimateLinePicker";
+import { FinalCustomerPicker } from "./FinalCustomerPicker";
 
 const inputClass = "min-h-11 min-w-0 rounded-md border border-zinc-300 bg-white px-2 text-sm outline-none focus:border-emerald-600 focus-visible:ring-2 focus-visible:ring-emerald-200 disabled:bg-zinc-100";
 const buttonClass = "inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-700 outline-none hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-45";
@@ -34,6 +35,7 @@ const chargeTypes: Array<{ value: EstimateChargeType; label: string }> = [
 ];
 
 type Draft = Pick<EstimateDetailDto, "name" | "customerName" | "projectName" | "validityDays" | "currencyCode" | "vatMode" | "vatRatePercent" | "globalDiscountPercent" | "lines" | "charges"> & {
+  finalCustomerId: string | null;
   sections: Array<Pick<EstimateDetailDto["sections"][number], "id" | "name" | "sortOrder" | "showSubtotal" | "discountPercent">>;
 };
 
@@ -95,6 +97,7 @@ export function EstimateCommercialEditor({ initialEstimate, services, commercial
     const payload: SaveEstimateCommercialCommand = {
       expectedRevision: estimate.revision,
       name: draft.name,
+      finalCustomerId: draft.finalCustomerId,
       customerName: draft.customerName,
       projectName: draft.projectName,
       validityDays: draft.validityDays,
@@ -136,7 +139,7 @@ export function EstimateCommercialEditor({ initialEstimate, services, commercial
 
     <section className="grid gap-3 border-y border-zinc-200 bg-white p-4 md:grid-cols-3 xl:grid-cols-6">
       <Field label="Название"><input className={`${inputClass} w-full`} disabled={!isDraft} maxLength={200} onChange={(e) => update((d) => ({ ...d, name: e.target.value }))} value={draft.name} /></Field>
-      <Field label="Заказчик"><input className={`${inputClass} w-full`} disabled={!isDraft} onChange={(e) => update((d) => ({ ...d, customerName: e.target.value }))} value={draft.customerName ?? ""} /></Field>
+      <div className="md:col-span-2 xl:col-span-2"><FinalCustomerPicker disabled={!isDraft} initialName={draft.customerName} onChange={(customer) => update((d) => ({ ...d, finalCustomerId: customer?.id ?? null, customerName: customer?.displayName ?? null }))} value={draft.finalCustomerId} /></div>
       <Field label="Проект / объект"><input className={`${inputClass} w-full`} disabled={!isDraft} onChange={(e) => update((d) => ({ ...d, projectName: e.target.value }))} value={draft.projectName ?? ""} /></Field>
       <Field label="Валюта"><select className={`${inputClass} w-full`} disabled={!isDraft || retailOnly} onChange={(e) => e.target.value !== draft.currencyCode && setCurrencyChoice(e.target.value)} value={draft.currencyCode}>{commercialOptions.currencies.map((currency) => <option key={currency}>{currency}</option>)}</select></Field>
       <Field label="НДС"><select className={`${inputClass} w-full`} disabled={!isDraft} onChange={(e) => update((d) => ({ ...d, vatMode: e.target.value as EstimateVatMode }))} value={draft.vatMode}><option value="included">Цены с НДС</option><option value="separate">НДС начисляется отдельно</option><option value="excluded">Цены без НДС</option><option value="none">НДС не применяется</option></select></Field>
@@ -280,7 +283,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 function Info({ label, value }: { label: string; value: string }) { return <div><p className="text-xs text-zinc-500">{label}</p><p className="mt-1 text-sm">{value}</p></div>; }
 function NumberInput({ value, onValue, disabled, nullable = false }: { value: number | null; onValue: (value: number | null) => void; disabled?: boolean; nullable?: boolean }) { return <input className={`${inputClass} w-full`} disabled={disabled} min="0" onChange={(event) => onValue(event.target.value === "" ? (nullable ? null : 0) : Number(event.target.value))} step="0.01" type="number" value={value ?? ""} />; }
 function ReorderButtons({ onUp, onDown, up, down, disabled }: { onUp: () => void; onDown: () => void; up: boolean; down: boolean; disabled: boolean }) { return <span className="flex"><button aria-label="Переместить вверх" className="p-2" disabled={disabled || up} onClick={onUp} type="button"><ArrowUp className="size-4" /></button><button aria-label="Переместить вниз" className="p-2" disabled={disabled || down} onClick={onDown} type="button"><ArrowDown className="size-4" /></button></span>; }
-function toDraft(estimate: EstimateDetailDto): Draft { return { name: estimate.name, customerName: estimate.customerName, projectName: estimate.projectName, validityDays: estimate.validityDays, currencyCode: estimate.currencyCode, vatMode: estimate.vatMode, vatRatePercent: estimate.vatRatePercent, globalDiscountPercent: estimate.globalDiscountPercent, sections: estimate.sections.map(({ id, name, sortOrder, showSubtotal, discountPercent }) => ({ id, name, sortOrder, showSubtotal, discountPercent })), lines: estimate.lines.map((item) => ({ ...item })), charges: estimate.charges.map((item) => ({ ...item })) }; }
+function toDraft(estimate: EstimateDetailDto): Draft { return { name: estimate.name, finalCustomerId: estimate.finalCustomerId ?? null, customerName: estimate.customerName, projectName: estimate.projectName, validityDays: estimate.validityDays, currencyCode: estimate.currencyCode, vatMode: estimate.vatMode, vatRatePercent: estimate.vatRatePercent, globalDiscountPercent: estimate.globalDiscountPercent, sections: estimate.sections.map(({ id, name, sortOrder, showSubtotal, discountPercent }) => ({ id, name, sortOrder, showSubtotal, discountPercent })), lines: estimate.lines.map((item) => ({ ...item })), charges: estimate.charges.map((item) => ({ ...item })) }; }
 function updateLine(draft: Draft, setDraft: React.Dispatch<React.SetStateAction<Draft>>, setDirty: (value: boolean) => void, id: string, patch: Partial<Draft["lines"][number]>) { setDraft({ ...draft, lines: draft.lines.map((line) => line.id === id ? { ...line, ...patch } : line) }); setDirty(true); }
 function toggleSet(current: Set<string>, value: string) { const next = new Set(current); if (next.has(value)) next.delete(value); else next.add(value); return next; }
 function toggleMany(current: Set<string>, values: string[], selected: boolean) { const next = new Set(current); for (const value of values) { if (selected) next.add(value); else next.delete(value); } return next; }

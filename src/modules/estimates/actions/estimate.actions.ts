@@ -9,12 +9,55 @@ import { createEstimateService, getAuthenticatedUserId } from "./service-factory
 
 export type CreateEstimateActionInput = {
   name: string;
+  finalCustomerId?: string | null;
   customerName?: string | null;
   projectName?: string | null;
   currencyCode: string;
   validityDays: number;
   requestKey: string;
 };
+
+export async function searchFinalCustomersAction(query: string) {
+  if (query.trim().length < 2) return success("Введите минимум два символа.", []);
+  try {
+    const userId = await getAuthenticatedUserId();
+    return success("Заказчики найдены.", await createEstimateService().searchFinalCustomers(userId, query));
+  } catch (error) {
+    return failureFromError(error);
+  }
+}
+
+export async function createFinalCustomerAction(input: {
+  displayName: string;
+  customerType: "company" | "individual";
+  fiscalCode?: string | null;
+  locality?: string | null;
+  industry?: string | null;
+}) {
+  if (!input.displayName?.trim()) return invalidInput("Укажите заказчика.");
+  try {
+    const userId = await getAuthenticatedUserId();
+    return success("Заказчик создан.", await createEstimateService().createFinalCustomer(userId, input));
+  } catch (error) {
+    return failureFromError(error);
+  }
+}
+
+export async function updateFinalCustomerAction(customerId: string, expectedRevision: number, input: {
+  displayName: string;
+  customerType: "company" | "individual";
+  fiscalCode?: string | null;
+  locality?: string | null;
+  industry?: string | null;
+}) {
+  if (!input.displayName?.trim()) return invalidInput("Укажите заказчика.");
+  try {
+    const userId = await getAuthenticatedUserId();
+    return success("Заказчик обновлён.", await createEstimateService().updateFinalCustomer(userId, customerId, expectedRevision, input));
+  } catch (error) {
+    return failureFromError(error);
+  }
+}
 
 export async function listEstimatesAction(filters: EstimateListFilters = {}) {
   try {
@@ -112,7 +155,7 @@ export async function getEstimateAction(estimateId: string): Promise<ActionResul
   }
 }
 
-export async function saveEstimateAction(estimateId: string, input: { expectedRevision: number; name: string; customerName?: string | null; projectName?: string | null; validityDays: number }): Promise<ActionResult<EstimateDetailDto>> {
+export async function saveEstimateAction(estimateId: string, input: { expectedRevision: number; name: string; finalCustomerId?: string | null; customerName?: string | null; projectName?: string | null; validityDays: number }): Promise<ActionResult<EstimateDetailDto>> {
   if (!input.name?.trim()) return invalidInput("Укажите название сметы.");
   return runEstimateMutation(
     (userId) => createEstimateService().saveDraft(userId, estimateId, input),

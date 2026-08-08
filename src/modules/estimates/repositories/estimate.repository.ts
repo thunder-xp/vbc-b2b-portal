@@ -8,6 +8,8 @@ import type {
   EstimatePricingMode,
   EstimateChargeType,
   PartnerService,
+  FinalCustomer,
+  FinalCustomerType,
 } from "../types";
 
 export type EstimateListInput = {
@@ -34,6 +36,7 @@ export type EstimateListRecord = Estimate & {
 export type CreateEstimateInput = {
   companyId: string;
   name: string;
+  finalCustomerId: string | null;
   customerName: string | null;
   projectName: string | null;
   currencyCode: string;
@@ -93,6 +96,7 @@ export type SaveEstimateCommercialInput = {
   expectedRevision: number;
   settings: {
     name: string;
+    finalCustomerId: string | null;
     customerName: string | null;
     projectName: string | null;
     validityDays: number;
@@ -135,6 +139,26 @@ export interface EstimateRepository {
   findById(estimateId: string): Promise<Estimate | null>;
   findAggregateById(estimateId: string): Promise<EstimateAggregate | null>;
   create(input: CreateEstimateInput): Promise<Estimate>;
+  searchFinalCustomers?(companyId: string, query: string, limit: number): Promise<FinalCustomer[]>;
+  createFinalCustomer?(input: {
+    companyId: string;
+    displayName: string;
+    customerType: FinalCustomerType;
+    fiscalCode: string | null;
+    locality: string | null;
+    industry: string | null;
+  }): Promise<FinalCustomer>;
+  updateFinalCustomer?(input: {
+    companyId: string;
+    customerId: string;
+    expectedRevision: number;
+    displayName: string;
+    customerType: FinalCustomerType;
+    fiscalCode: string | null;
+    locality: string | null;
+    industry: string | null;
+  }): Promise<FinalCustomer>;
+  archiveFinalCustomer?(customerId: string, expectedRevision: number): Promise<void>;
   searchExternalNomenclature?(query: string, limit: number): Promise<ExternalNomenclatureRecord[]>;
   addExternalLine?(input: AddExternalEstimateLineInput): Promise<void>;
   createFromPurchasingList(input: {
@@ -163,6 +187,7 @@ export interface EstimateRepository {
     estimateId: string;
     expectedRevision: number;
     name: string;
+    finalCustomerId: string | null;
     customerName: string | null;
     projectName: string | null;
     validityDays: number;

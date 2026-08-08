@@ -13,6 +13,7 @@ export type EstimateRow = {
   created_by: string;
   estimate_number: string;
   name: string;
+  final_customer_id?: string | null;
   customer_name: string | null;
   project_name: string | null;
   currency_code: string;
@@ -122,6 +123,7 @@ export function mapEstimateRow(row: EstimateRow): Estimate {
     createdBy: row.created_by,
     estimateNumber: row.estimate_number,
     name: row.name,
+    finalCustomerId: row.final_customer_id ?? null,
     customerName: row.customer_name,
     projectName: row.project_name,
     currencyCode: row.currency_code,

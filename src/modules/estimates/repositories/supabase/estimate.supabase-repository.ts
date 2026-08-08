@@ -9,7 +9,7 @@ import type {
   SaveEstimateCommercialInput,
 } from "../estimate.repository";
 import { EstimateRepositoryError } from "../estimate.repository";
-import type { Estimate, EstimateAggregate, PartnerService } from "../../types";
+import type { Estimate, EstimateAggregate, FinalCustomer, PartnerService } from "../../types";
 import {
   mapEstimateAggregateRow,
   mapEstimateRow,
@@ -21,7 +21,7 @@ import {
   type PartnerServiceRow,
 } from "./mappers";
 
-const ESTIMATE_COLUMNS = "id, company_id, created_by, estimate_number, name, customer_name, project_name, currency_code, currency_rate, currency_rate_effective_date, validity_days, global_discount_percent, vat_mode, vat_rate_percent, subtotal_amount, line_discount_total, section_discount_total, global_discount_amount, charges_total, vat_amount, total_excluding_vat, gross_profit_amount, overall_margin_percent, status, total_amount, has_incomplete_pricing, proposal_template_id, proposal_settings, source_estimate_id, source_version_id, accepted_version_id, revision, archived_at, created_at, updated_at";
+const ESTIMATE_COLUMNS = "id, company_id, created_by, estimate_number, name, final_customer_id, customer_name, project_name, currency_code, currency_rate, currency_rate_effective_date, validity_days, global_discount_percent, vat_mode, vat_rate_percent, subtotal_amount, line_discount_total, section_discount_total, global_discount_amount, charges_total, vat_amount, total_excluding_vat, gross_profit_amount, overall_margin_percent, status, total_amount, has_incomplete_pricing, proposal_template_id, proposal_settings, source_estimate_id, source_version_id, accepted_version_id, revision, archived_at, created_at, updated_at";
 const SECTION_COLUMNS = "id, estimate_id, name, sort_order, show_subtotal, discount_percent, created_at, updated_at";
 const ITEM_COLUMNS = "id, estimate_id, section_id, line_type, product_id, service_id, external_nomenclature_id, position, sku_snapshot, product_name_snapshot, source_unit_price, source_currency_code, source_snapshot_at, pricing_mode, pricing_input_value, internal_cost_unit_price, converted_cost_unit_price, exchange_rate, exchange_rate_effective_date, line_discount_percent, description, quantity, unit, selling_unit_price, line_total, line_subtotal, line_discount_amount, net_line_total, created_at, updated_at";
 const CHARGE_COLUMNS = "id, estimate_id, charge_type, description, amount, vat_applicable, customer_visible, sort_order, created_at, updated_at";
@@ -129,9 +129,10 @@ export class SupabaseEstimateRepository implements EstimateRepository {
 
   async create(input: CreateEstimateInput): Promise<Estimate> {
     const supabase = await createClient();
-    const { data, error } = await supabase.rpc("create_estimate_v2", {
+    const { data, error } = await supabase.rpc("create_estimate_v3", {
       target_company_id: input.companyId,
       estimate_name: input.name,
+      target_final_customer_id: input.finalCustomerId,
       target_customer_name: input.customerName ?? "",
       target_project_name: input.projectName ?? "",
       target_currency_code: input.currencyCode,
@@ -140,6 +141,52 @@ export class SupabaseEstimateRepository implements EstimateRepository {
     });
     if (error || !data) throw mapRepositoryError(error?.code);
     return mapEstimateRow(data as EstimateRow);
+  }
+
+  async searchFinalCustomers(companyId: string, query: string, limit: number): Promise<FinalCustomer[]> {
+    const { data, error } = await (await createClient()).rpc("search_partner_final_customers", {
+      target_company_id: companyId,
+      search_query: query,
+      result_limit: limit,
+    });
+    if (error) throw mapRepositoryError(error.code);
+    return (data ?? []).map(mapFinalCustomerRow);
+  }
+
+  async createFinalCustomer(input: Parameters<NonNullable<EstimateRepository["createFinalCustomer"]>>[0]): Promise<FinalCustomer> {
+    const { data, error } = await (await createClient()).rpc("create_partner_final_customer", {
+      target_company_id: input.companyId,
+      target_display_name: input.displayName,
+      target_customer_type: input.customerType,
+      target_fiscal_code: input.fiscalCode ?? "",
+      target_locality: input.locality ?? "",
+      target_industry: input.industry ?? "",
+    });
+    if (error || !data) throw mapRepositoryError(error?.code);
+    return mapFinalCustomerRow(data as Record<string, unknown>);
+  }
+
+  async updateFinalCustomer(input: Parameters<NonNullable<EstimateRepository["updateFinalCustomer"]>>[0]): Promise<FinalCustomer> {
+    const { data, error } = await (await createClient()).rpc("update_partner_final_customer", {
+      target_company_id: input.companyId,
+      target_customer_id: input.customerId,
+      expected_revision: input.expectedRevision,
+      target_display_name: input.displayName,
+      target_customer_type: input.customerType,
+      target_fiscal_code: input.fiscalCode ?? "",
+      target_locality: input.locality ?? "",
+      target_industry: input.industry ?? "",
+    });
+    if (error || !data) throw mapRepositoryError(error?.code);
+    return mapFinalCustomerRow(data as Record<string, unknown>);
+  }
+
+  async archiveFinalCustomer(customerId: string, expectedRevision: number): Promise<void> {
+    const { error } = await (await createClient()).rpc("archive_partner_final_customer", {
+      target_customer_id: customerId,
+      expected_revision: expectedRevision,
+    });
+    if (error) throw mapRepositoryError(error.code);
   }
 
   async searchExternalNomenclature(query: string, limit: number) {
@@ -204,15 +251,17 @@ export class SupabaseEstimateRepository implements EstimateRepository {
     estimateId: string;
     expectedRevision: number;
     name: string;
+    finalCustomerId: string | null;
     customerName: string | null;
     projectName: string | null;
     validityDays: number;
   }): Promise<Estimate> {
     const supabase = await createClient();
-    const { data, error } = await supabase.rpc("update_estimate_draft", {
+    const { data, error } = await supabase.rpc("update_estimate_draft_v2", {
       target_estimate_id: input.estimateId,
       expected_revision: input.expectedRevision,
       estimate_name: input.name,
+      target_final_customer_id: input.finalCustomerId,
       target_customer_name: input.customerName ?? "",
       target_project_name: input.projectName ?? "",
       target_validity_days: input.validityDays,
@@ -223,9 +272,10 @@ export class SupabaseEstimateRepository implements EstimateRepository {
 
   async saveCommercialDraft(input: SaveEstimateCommercialInput): Promise<Estimate> {
     const supabase = await createClient();
-    const { data, error } = await supabase.rpc("save_estimate_commercial_draft", {
+    const { data, error } = await supabase.rpc("save_estimate_commercial_draft_v2", {
       target_estimate_id: input.estimateId,
       expected_revision: input.expectedRevision,
+      target_final_customer_id: input.settings.finalCustomerId,
       estimate_settings: {
         name: input.settings.name,
         customer_name: input.settings.customerName,
@@ -361,6 +411,22 @@ function mapRepositoryError(code: string | undefined): EstimateRepositoryError {
   if (code === "23505") return new EstimateRepositoryError("duplicate", code);
   if (code === "22023") return new EstimateRepositoryError("invalid", code);
   return new EstimateRepositoryError("persistence", code ?? null);
+}
+
+function mapFinalCustomerRow(row: Record<string, unknown>): FinalCustomer {
+  return {
+    id: String(row.id),
+    companyId: String(row.company_id),
+    displayName: String(row.display_name),
+    customerType: row.customer_type as FinalCustomer["customerType"],
+    fiscalCode: typeof row.fiscal_code === "string" ? row.fiscal_code : null,
+    locality: typeof row.locality === "string" ? row.locality : null,
+    industry: typeof row.industry === "string" ? row.industry : null,
+    revision: Number(row.revision),
+    archivedAt: typeof row.archived_at === "string" ? row.archived_at : null,
+    createdAt: String(row.created_at),
+    updatedAt: String(row.updated_at),
+  };
 }
 
 function escapePostgrestPattern(value: string): string {

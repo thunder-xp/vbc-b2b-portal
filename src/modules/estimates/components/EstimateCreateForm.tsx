@@ -6,11 +6,13 @@ import { useRef, useState, useTransition } from "react";
 import { recordBehaviorInteraction } from "../../behavior-analytics/components";
 import { ActionFeedback, actionClassName, FormField } from "../../platform-ui";
 import { createEstimateAction } from "../actions/estimate.actions";
+import { FinalCustomerPicker } from "./FinalCustomerPicker";
 
 export function EstimateCreateForm({ currencies }: { currencies: string[] }) {
   const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [finalCustomerId, setFinalCustomerId] = useState<string | null>(null);
   const requestKey = useRef(crypto.randomUUID());
 
   return (
@@ -23,7 +25,7 @@ export function EstimateCreateForm({ currencies }: { currencies: string[] }) {
         startTransition(async () => {
           const result = await createEstimateAction({
             name: String(form.get("name") ?? ""),
-            customerName: String(form.get("customerName") ?? ""),
+            finalCustomerId,
             projectName: String(form.get("projectName") ?? ""),
             currencyCode: String(form.get("currencyCode") ?? ""),
             validityDays: Number(form.get("validityDays")),
@@ -38,8 +40,8 @@ export function EstimateCreateForm({ currencies }: { currencies: string[] }) {
       }}
     >
       <Field label="Название сметы" name="name" placeholder="Видеонаблюдение для склада" required />
+      <FinalCustomerPicker onChange={(customer) => setFinalCustomerId(customer?.id ?? null)} value={finalCustomerId} />
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Заказчик" name="customerName" placeholder="Необязательно" />
         <Field label="Проект / объект" name="projectName" placeholder="Необязательно" />
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
@@ -51,7 +53,7 @@ export function EstimateCreateForm({ currencies }: { currencies: string[] }) {
       </div>
       {!currencies.length && <p className="text-sm text-amber-800">Нет доступной опубликованной валюты. Обновите коммерческие данные.</p>}
       <div className="flex flex-wrap items-center gap-3">
-        <button className={actionClassName.primary} disabled={pending || !currencies.length} type="submit">
+        <button className={actionClassName.primary} disabled={pending || !currencies.length || !finalCustomerId} type="submit">
           {pending ? "Создание..." : "Создать смету"}
         </button>
         {message && <ActionFeedback kind={message === "Смета создана." ? "success" : "error"} message={message === "Смета создана." ? message : `${message} Введённые данные сохранены.`} />}

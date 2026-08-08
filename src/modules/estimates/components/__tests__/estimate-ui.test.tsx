@@ -1,15 +1,17 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import type { EstimateDetailDto, EstimateProductPickerDto } from "../../services";
-import { searchEstimateProductsAction } from "../../actions/estimate.actions";
+import { searchEstimateProductsAction, searchFinalCustomersAction } from "../../actions/estimate.actions";
 import { EstimateCreateForm } from "../EstimateCreateForm";
 import { EstimateEditor } from "../EstimateEditor";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 vi.mock("../../actions/estimate.actions", () => ({
   createEstimateAction: vi.fn(),
+  createFinalCustomerAction: vi.fn(),
+  searchFinalCustomersAction: vi.fn(),
   addEstimateCustomLineAction: vi.fn(),
   addEstimateProductsAction: vi.fn(),
   addEstimateServiceAction: vi.fn(),
@@ -83,6 +85,22 @@ describe("estimate UI", () => {
     render(<EstimateCreateForm currencies={["MDL", "USD"]} />);
     expect(screen.getByRole("textbox", { name: "Название сметы" })).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: "Валюта" })).toHaveValue("MDL");
+    expect(screen.getByRole("combobox", { name: /Заказчик/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Создать смету" })).toBeDisabled();
+  });
+
+  it("does not preload final customers and enables creation after a bounded selection", async () => {
+    const user = userEvent.setup();
+    vi.mocked(searchFinalCustomersAction).mockResolvedValue({ success: true, errorCode: null, message: "Заказчики найдены.", data: [{
+      id: "11111111-1111-1111-1111-111111111111", companyId: "company-1", displayName: "NADZOR SRL",
+      customerType: "company", fiscalCode: "0200046888", locality: "Chișinău", industry: null,
+      revision: 1, archivedAt: null, createdAt: "2026-08-08T10:00:00Z", updatedAt: "2026-08-08T10:00:00Z",
+    }] });
+    render(<EstimateCreateForm currencies={["USD"]} />);
+    expect(searchFinalCustomersAction).not.toHaveBeenCalled();
+    await user.type(screen.getByRole("combobox", { name: /Заказчик/ }), "NA");
+    await waitFor(() => expect(searchFinalCustomersAction).toHaveBeenCalledWith("NA"));
+    await user.click(await screen.findByRole("option", { name: /NADZOR SRL/ }));
     expect(screen.getByRole("button", { name: "Создать смету" })).toBeEnabled();
   });
 
