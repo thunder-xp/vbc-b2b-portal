@@ -55,7 +55,7 @@ export function OneCServiceHistorySummary({ detail }: { detail: OneCServiceHisto
     <section className="grid gap-4 border-b border-zinc-200 pb-6 sm:grid-cols-2 lg:grid-cols-4">
       <Metric label="Статус" value={ONE_C_SERVICE_STATUS_LABELS[detail.status]} />
       <Metric label="Дата приёма" value={new Date(detail.date).toLocaleDateString("ru-RU")} />
-      <Metric label="Серийный номер" value={detail.maskedSerial ?? "Не указан"} />
+      <Metric label="Серийный номер" value={detail.serial ?? detail.maskedSerial ?? "Не указан"} />
       <Metric label="Гарантия" value={warrantyLabel(detail.warrantyState)} />
     </section>
     <section className="grid gap-5 sm:grid-cols-[160px_minmax(0,1fr)]">

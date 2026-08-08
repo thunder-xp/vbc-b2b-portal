@@ -162,6 +162,31 @@ export class OneCODataClient {
     ));
   }
 
+  async getLiteralGuidBatch(
+    resource: string,
+    input: { refs: string[]; select: string },
+    options: OneCODataProbeOptions = {},
+  ): Promise<unknown> {
+    const { baseUrl, username, password } = this.config;
+    if (!baseUrl || !username || !password) throw new IntegrationProviderUnavailableError("1C OData is not configured.");
+    const refs = [...new Set(input.refs.map((ref) => ref.toLowerCase()))];
+    if (!refs.length || refs.length > 20
+      || refs.some((ref) => !/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(ref) || ref === "00000000-0000-0000-0000-000000000000")
+      || !/^[A-Za-zА-Яа-яЁё0-9_,]+$/u.test(input.select)) {
+      throw new IntegrationValidationError("1C GUID batch query is invalid.");
+    }
+    const filter = refs.map((ref) => `Ref_Key eq guid'${ref}'`).join(" or ");
+    const literalQuery = `$filter=${filter}&$select=${input.select}&$top=${refs.length}&$format=json`;
+    const exactUrl = `${baseUrl.replace(/\/$/, "")}/${resource.replace(/^\//, "")}?${literalQuery}`;
+    return this.readResult(await this.probeRequest(
+      exactUrl,
+      options.requestKind ?? "collection",
+      resource,
+      ["$filter", "$select", "$top", "$format"],
+      options,
+    ));
+  }
+
   private readResult(result: OneCODataProbeResult): unknown {
     const requestDiagnostic = toSafeDiagnostic(result, result.requestKind);
     const responseBody = probeResponseBodies.get(result) ?? null;

@@ -56,6 +56,8 @@ export type OneCServiceHistoryDetail = {
   sourceStatus: string | null;
   product: { id: string | null; sku: string | null; name: string | null; imageUrl: string | null; href: string | null };
   maskedSerial: string | null;
+  serial?: string | null;
+  protectedSerial?: string | null;
   reportedFault: string | null;
   resolution: string | null;
   warrantyState: string | null;
@@ -74,6 +76,10 @@ export type ServiceHistoryDiagnostics = {
   unmappedProducts: number;
   serialLinked: number;
   serialUnlinked: number;
+  serialResolved?: number;
+  serialUnmapped?: number;
+  serialConflicting?: number;
+  warrantyStateLinked?: number;
   activeRepairs: number;
   readyForPickup: number;
   issued: number;
@@ -109,6 +115,19 @@ export type ServiceHistorySyncClaim = {
   rangeStart: string;
   rangeEnd: string;
   baseline: boolean;
+};
+
+export type ServiceSerialResolution = {
+  state: "resolved" | "unmapped" | "conflict";
+  value: string | null;
+  sourceFingerprint: string;
+};
+
+export type ServiceSerialEnrichmentClaim = {
+  runId: string;
+  lockToken: string;
+  rows: Array<{ id: string; serialRef: string }>;
+  pageComplete: boolean;
 };
 
 export type OneCServiceSourceRow = {

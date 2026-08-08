@@ -2,7 +2,7 @@ import "server-only";
 
 import { createAdminClient } from "@/src/lib/supabase/admin";
 import { createClient } from "@/src/lib/supabase/server";
-import type { AdminOneCServiceHistoryPage, OneCServiceHistoryDetail, ServiceHistoryDiagnostics, ServiceHistorySyncClaim, UnifiedServiceHistoryPage } from "./types";
+import type { AdminOneCServiceHistoryPage, OneCServiceHistoryDetail, ServiceHistoryDiagnostics, ServiceHistorySyncClaim, ServiceSerialEnrichmentClaim, UnifiedServiceHistoryPage } from "./types";
 
 export class ServiceHistoryRepositoryError extends Error {
   constructor(readonly operation: string, readonly code: string | null = null) {
@@ -24,6 +24,20 @@ export class ServiceHistoryRepository {
   }
   async fail(claim: ServiceHistorySyncClaim, code: string) {
     await this.adminRpc("fail_one_c_service_history_sync", { p_run_id: claim.runId, p_lock_token: claim.lockToken, p_error_code: code });
+  }
+  claimSerialEnrichment(pageSize = 100) {
+    return this.adminRpc<ServiceSerialEnrichmentClaim | null>("claim_one_c_service_serial_enrichment", { p_page_size: pageSize });
+  }
+  publishSerialEnrichment(input: { claim: ServiceSerialEnrichmentClaim; rows: unknown[] }) {
+    return this.adminRpc<Record<string, unknown>>("publish_one_c_service_serial_enrichment", {
+      p_run_id: input.claim.runId,
+      p_lock_token: input.claim.lockToken,
+      p_rows: input.rows,
+      p_page_complete: input.claim.pageComplete,
+    });
+  }
+  async failSerialEnrichment(claim: ServiceSerialEnrichmentClaim, code: string) {
+    await this.adminRpc("fail_one_c_service_serial_enrichment", { p_run_id: claim.runId, p_lock_token: claim.lockToken, p_error_code: code });
   }
   listPartner(input: { companyId: string; query: string; filter: string; page: number }) {
     return this.userRpc<UnifiedServiceHistoryPage>("list_partner_service_history", { p_company_id: input.companyId, p_query: input.query, p_filter: input.filter, p_page: input.page, p_page_size: 20 });

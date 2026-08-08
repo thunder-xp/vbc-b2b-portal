@@ -10,7 +10,10 @@ export async function GET(request: Request) {
   const started = performance.now();
   if (!(await authorizeCronRequest(request)).authorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
-    const result = await createServiceHistorySyncService().runBatch();
+    const service = createServiceHistorySyncService();
+    const history = await service.runBatch(20, 150_000);
+    const serialEnrichment = await service.runSerialEnrichmentBatch(20, 120_000);
+    const result = { status: history.status === "completed" || serialEnrichment.status === "completed" ? "completed" : history.status === "progressed" || serialEnrichment.status === "progressed" ? "progressed" : "idle", history, serialEnrichment };
     console.info({ event: "one_c_service_history_worker_completed", ...result, deployedCommitSha: process.env.VERCEL_GIT_COMMIT_SHA?.trim() || "local" });
     return NextResponse.json(result, { status: result.status === "idle" ? 202 : 200, headers: { "Cache-Control": "no-store" } });
   } catch (error) {

@@ -24,6 +24,7 @@ describe("1C service-history runtime wiring", () => {
   it("runs 1C access only behind the authenticated bounded cron worker", () => {
     expect(cron).toContain("authorizeCronRequest");
     expect(cron).toContain("runBatch");
+    expect(cron).toContain("runSerialEnrichmentBatch");
     expect(cron).toContain("maxDuration = 300");
   });
 

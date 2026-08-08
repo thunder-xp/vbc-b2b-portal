@@ -5,10 +5,11 @@ import { z } from "zod";
 
 import { OneCODataClient } from "@/src/modules/integration/providers/one-c/one-c-odata-client";
 import { parseOptionalOneCGuid, parseRequiredOneCGuid } from "@/src/modules/integration/providers/one-c/one-c-guid";
-import type { OneCServiceSourceRow, OneCServiceStatus } from "./types";
+import type { OneCServiceSourceRow, OneCServiceStatus, ServiceSerialResolution } from "./types";
 
 const SOURCE = "Document_ПриемИПередачаВРемонт";
 const STATUS_SOURCE = "Catalog_ЭтапыРемонта";
+const SERIAL_SOURCE = "Catalog_СерииНоменклатуры";
 const SELECT = "Ref_Key,DataVersion,Number,Date,DeletionMark,Posted,Контрагент_Key,Договор_Key,Номенклатура_Key,Характеристика_Key,Серия_Key,СостояниеРемонта_Key,СервисЦентр_Key,ОписаниеНеисправности,ОписаниеРемонта,ДокументПродажи";
 const envelope = z.object({ value: z.array(z.record(z.string(), z.unknown())) });
 
@@ -49,6 +50,46 @@ export class OneCServiceHistoryProvider {
       });
     }
     return this.statuses;
+  }
+}
+
+export class OneCServiceSerialProvider {
+  private readonly cache = new Map<string, ServiceSerialResolution>();
+
+  constructor(private readonly client: OneCODataClient, private readonly concurrency = 3) {}
+
+  async resolve(refs: string[]): Promise<Map<string, ServiceSerialResolution>> {
+    const uniqueRefs = [...new Set(refs.map((ref) => ref.toLowerCase()))];
+    const missing = uniqueRefs.filter((ref) => !this.cache.has(ref));
+    const batches = chunk(missing, 20);
+    await mapBounded(batches, this.concurrency, async (batch) => {
+      const payload = await this.client.getLiteralGuidBatch(SERIAL_SOURCE, {
+        refs: batch,
+        select: "Ref_Key,Description,DeletionMark,DataVersion",
+      }, { requestKind: "service_history_serial_catalog_batch" });
+      const grouped = new Map<string, Array<Record<string, unknown>>>();
+      for (const row of envelope.parse(payload).value) {
+        const ref = parseOptionalOneCGuid(row.Ref_Key)?.toLowerCase();
+        if (ref && batch.includes(ref)) grouped.set(ref, [...(grouped.get(ref) ?? []), row]);
+      }
+      for (const ref of batch) {
+        const rows = grouped.get(ref) ?? [];
+        const row = rows[0];
+        const value = row && row.DeletionMark !== true ? nullableText(row.Description) : null;
+        const state = rows.length > 1 ? "conflict" : value ? "resolved" : "unmapped";
+        this.cache.set(ref, {
+          state,
+          value: state === "resolved" ? value : null,
+          sourceFingerprint: createHash("sha256").update([
+            ref,
+            state,
+            value ?? "",
+            row ? nullableText(row.DataVersion) ?? "" : "",
+          ].join("|"), "utf8").digest("hex"),
+        });
+      }
+    });
+    return new Map(uniqueRefs.map((ref) => [ref, this.cache.get(ref)!]));
   }
 }
 
@@ -115,4 +156,15 @@ function nullableText(value: unknown) { return text(value) || null; }
 function requiredDate(value: unknown) { const date = new Date(text(value)); if (Number.isNaN(date.getTime())) throw new Error("Invalid 1C service date."); return date.toISOString(); }
 function validatePage(skip: number, top: number) { if (!Number.isSafeInteger(skip) || skip < 0 || !Number.isSafeInteger(top) || top < 1 || top > 100) throw new Error("Invalid service-history page."); }
 
-export const oneCServiceHistoryEntities = { source: SOURCE, status: STATUS_SOURCE } as const;
+export const oneCServiceHistoryEntities = { source: SOURCE, status: STATUS_SOURCE, serial: SERIAL_SOURCE } as const;
+
+function chunk<T>(items: T[], size: number): T[][] {
+  return Array.from({ length: Math.ceil(items.length / size) }, (_, index) => items.slice(index * size, (index + 1) * size));
+}
+
+async function mapBounded<T>(items: T[], concurrency: number, mapper: (item: T) => Promise<void>): Promise<void> {
+  let cursor = 0;
+  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, async () => {
+    while (cursor < items.length) await mapper(items[cursor++]!);
+  }));
+}

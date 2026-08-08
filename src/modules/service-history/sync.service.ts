@@ -1,10 +1,17 @@
 import "server-only";
 
-import type { OneCServiceHistoryProvider } from "./one-c-service-history.provider";
+import { createHash } from "node:crypto";
+
+import { hashSerial, maskSerial, normalizeSerial, protectSerial, WarrantySerialValidationError } from "@/src/modules/warranty-serials/serial-security";
+import type { OneCServiceHistoryProvider, OneCServiceSerialProvider } from "./one-c-service-history.provider";
 import type { ServiceHistoryRepository } from "./repository";
 
 export class ServiceHistorySyncService {
-  constructor(private readonly provider: OneCServiceHistoryProvider, private readonly repository: ServiceHistoryRepository) {}
+  constructor(
+    private readonly provider: OneCServiceHistoryProvider,
+    private readonly repository: ServiceHistoryRepository,
+    private readonly serialProvider?: OneCServiceSerialProvider,
+  ) {}
 
   async runStep() {
     const started = performance.now();
@@ -62,6 +69,74 @@ export class ServiceHistorySyncService {
     }
     return { status: "progressed", steps, rowsReceived, runId, durationMs: elapsed(started) };
   }
+
+  async runSerialEnrichmentStep() {
+    const started = performance.now();
+    if (!this.serialProvider) return { status: "idle" as const, rowsProcessed: 0, durationMs: elapsed(started) };
+    const claim = await this.repository.claimSerialEnrichment();
+    if (!claim) return { status: "idle" as const, rowsProcessed: 0, durationMs: elapsed(started) };
+    try {
+      const resolutions = await this.serialProvider.resolve(claim.rows.map((row) => row.serialRef));
+      const rows = claim.rows.map((row) => protectResolution(row.id, row.serialRef, resolutions.get(row.serialRef.toLowerCase())!));
+      const publication = await this.repository.publishSerialEnrichment({ claim, rows });
+      console.info({
+        event: "one_c_service_history_serial_enrichment_published",
+        runId: claim.runId,
+        rowsProcessed: rows.length,
+        pageComplete: claim.pageComplete,
+        durationMs: elapsed(started),
+      });
+      return { status: claim.pageComplete ? "completed" as const : "progressed" as const, rowsProcessed: rows.length, publication, durationMs: elapsed(started) };
+    } catch (error) {
+      const safeCode = (error instanceof Error ? error.name : typeof error).replace(/[^A-Za-z0-9_]/g, "_").slice(0, 100);
+      try { await this.repository.failSerialEnrichment(claim, safeCode); } catch { /* Preserve the provider failure. */ }
+      console.error({ event: "one_c_service_history_serial_enrichment_failed", runId: claim.runId, safeCode });
+      throw error;
+    }
+  }
+
+  async runSerialEnrichmentBatch(maxSteps = 20, maxDurationMs = 240_000) {
+    const started = performance.now();
+    let steps = 0;
+    let rowsProcessed = 0;
+    while (steps < maxSteps && performance.now() - started < maxDurationMs) {
+      const result = await this.runSerialEnrichmentStep();
+      if (result.status === "idle") return { status: steps ? "progressed" : "idle", steps, rowsProcessed, durationMs: elapsed(started) };
+      steps += 1;
+      rowsProcessed += result.rowsProcessed;
+      if (result.status === "completed") return { status: "completed", steps, rowsProcessed, durationMs: elapsed(started) };
+    }
+    return { status: "progressed", steps, rowsProcessed, durationMs: elapsed(started) };
+  }
 }
 
 function elapsed(started: number) { return Math.round(performance.now() - started); }
+
+function protectResolution(id: string, serialRef: string, resolution: { state: "resolved" | "unmapped" | "conflict"; value: string | null; sourceFingerprint: string }) {
+  if (resolution.state !== "resolved" || !resolution.value) return {
+    id,
+    serial_ref: serialRef,
+    resolution_state: resolution.state,
+    serial_source_fingerprint: resolution.sourceFingerprint,
+  };
+  try {
+    const normalized = normalizeSerial(resolution.value);
+    return {
+      id,
+      serial_ref: serialRef,
+      resolution_state: "resolved",
+      serial_hash: hashSerial(normalized),
+      protected_serial: protectSerial(normalized),
+      masked_serial: maskSerial(normalized),
+      serial_source_fingerprint: createHash("sha256").update(`${resolution.sourceFingerprint}|${normalized}`, "utf8").digest("hex"),
+    };
+  } catch (error) {
+    if (!(error instanceof WarrantySerialValidationError)) throw error;
+    return {
+      id,
+      serial_ref: serialRef,
+      resolution_state: "conflict",
+      serial_source_fingerprint: resolution.sourceFingerprint,
+    };
+  }
+}

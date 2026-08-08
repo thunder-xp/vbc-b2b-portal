@@ -35,6 +35,23 @@ describe("OneCODataClient", () => {
     expect(url.searchParams.getAll("$format")).toEqual(["json"]);
   });
 
+  it("preserves a bounded literal GUID batch query for the 1C serial catalog", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ value: [] }));
+    vi.stubGlobal("fetch", fetchMock);
+    const first = "11111111-1111-1111-1111-111111111111";
+    const second = "22222222-2222-2222-2222-222222222222";
+
+    await client().getLiteralGuidBatch("Catalog_СерииНоменклатуры", {
+      refs: [first, second], select: "Ref_Key,Description,DeletionMark,DataVersion",
+    });
+
+    const exactUrl = String(fetchMock.mock.calls[0]![0]);
+    expect(exactUrl).toContain(`$filter=Ref_Key eq guid'${first}' or Ref_Key eq guid'${second}'`);
+    expect(exactUrl).toContain("&$select=Ref_Key,Description,DeletionMark,DataVersion&$top=2&$format=json");
+    expect(exactUrl).not.toContain("%24filter");
+    expect(exactUrl).not.toContain("+eq+");
+  });
+
   it("rejects a successful Atom response before provider mapping", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("<feed />", {
       status: 200,
