@@ -40,7 +40,7 @@ export class SupabaseServiceCenterRepository implements ServiceCenterRepository 
       products: (products ?? []).map((row) => ({ id: row.id, sku: row.sku, name: row.name })),
     };
   }
-  async getDashboard(companyId: string) { return this.rpc<ServiceDashboardItem[]>("get_partner_service_dashboard", { p_company_id: companyId }); }
+  async getDashboard(companyId: string) { return this.rpc<ServiceDashboardItem[]>("get_partner_service_dashboard_v2", { p_company_id: companyId }); }
   async getAdminAttention(limit: number) { return this.rpc<ServiceAdminAttentionItem[]>("get_admin_service_attention", { p_limit: limit }); }
   async getDiagnostics() { return this.rpc<ServiceDiagnostics>("get_service_diagnostics", {}); }
   private async rpc<T>(name: string, args: Record<string, unknown>): Promise<T> {

@@ -20,7 +20,7 @@ export function ServiceDashboardBlock({ items }: { items: ServiceDashboardItem[]
             <div className="min-w-0">
               <p className="text-xs font-semibold uppercase text-emerald-700">{item.caseNumber}</p>
               <h3 className="mt-1 truncate font-semibold" title={item.productName ?? item.caseNumber}>{item.productName ?? "Сервисная заявка"}</h3>
-              <p className="mt-2 text-sm text-zinc-600">{SERVICE_STATUS_LABELS[item.status]}</p>
+              <p className="mt-2 text-sm text-zinc-600">{SERVICE_STATUS_LABELS[item.status as keyof typeof SERVICE_STATUS_LABELS] ?? (item.status === "repair_in_progress" ? "В ремонте" : item.status === "issued_to_customer" ? "Выдано" : "Статус уточняется")}</p>
               <p className="mt-1 text-sm font-medium">{item.nextAction}</p>
             </div>
             <Link aria-label={`Открыть заявку ${item.caseNumber}`} className="min-h-11 self-end rounded-md border border-zinc-300 px-3 py-2.5 text-sm font-semibold" href={item.href}>Открыть</Link>

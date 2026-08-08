@@ -61,7 +61,7 @@ export type ServiceSelectionData = {
 };
 
 export type ServiceDashboardItem = {
-  id: string; caseNumber: string; status: ServiceStatus; productName: string | null;
+  id: string; caseNumber: string; status: ServiceStatus | "repair_in_progress" | "issued_to_customer" | "unknown"; productName: string | null;
   productImageUrl: string | null; updatedAt: string; nextAction: string; href: string;
 };
 export type ServiceAdminAttentionItem = {
