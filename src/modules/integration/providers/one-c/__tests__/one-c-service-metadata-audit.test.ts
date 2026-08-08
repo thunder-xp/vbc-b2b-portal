@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { auditOneCServiceMetadata } from "../one-c-service-metadata-audit";
+import { auditOneCServiceMetadata, auditOneCServiceSource } from "../one-c-service-metadata-audit";
 
 const config = {
   baseUrl: "https://erp.example/odata/standard.odata",
@@ -39,7 +39,30 @@ describe("auditOneCServiceMetadata", () => {
       "1C OData is not configured.",
     );
   });
+
+  it("audits live source shape without returning protected values", async () => {
+    vi.stubGlobal("fetch", vi.fn()
+      .mockResolvedValueOnce(json([{ Ref_Key: "doc", DataVersion: "v1", Number: "SRV-1", Date: "2026-08-08T10:00:00", Posted: true, DeletionMark: false, Контрагент_Key: "buyer", Номенклатура_Key: "product", Серия_Key: "serial", СостояниеРемонта_Key: "status", ОписаниеНеисправности: "private fault", ОписаниеРемонта: "private result" }]))
+      .mockResolvedValueOnce(json([{ Ref_Key: "status", Code: "1", Description: "Принят в ремонт", DeletionMark: false }])));
+
+    const result = await auditOneCServiceSource(config);
+
+    expect(result.rowsReceived).toBe(1);
+    expect(result.representativeRows[0]).toMatchObject({
+      number: "SRV-1",
+      statusDescription: "Принят в ремонт",
+      reportedFaultLength: 13,
+      repairResultLength: 14,
+    });
+    expect(JSON.stringify(result)).not.toContain("private fault");
+    expect(JSON.stringify(result)).not.toContain("private result");
+    expect(JSON.stringify(result)).not.toContain("buyer");
+  });
 });
+
+function json(value: unknown[]): Response {
+  return new Response(JSON.stringify({ value }), { status: 200, headers: { "content-type": "application/json" } });
+}
 
 function metadata(): string {
   return `<?xml version="1.0" encoding="utf-8"?>

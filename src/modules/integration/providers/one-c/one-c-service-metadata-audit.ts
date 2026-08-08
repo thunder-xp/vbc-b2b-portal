@@ -43,6 +43,69 @@ export type OneCServiceMetadataAudit = {
   candidates: OneCServiceMetadataCandidate[];
 };
 
+export type OneCServiceSourceAudit = {
+  sourceEntity: "Document_ПриемИПередачаВРемонт";
+  statusEntity: "Catalog_ЭтапыРемонта";
+  documentStatus: number;
+  statusCatalogStatus: number;
+  rowsReceived: number;
+  sourceKeys: string[];
+  sourceValueTypes: Record<string, string>;
+  statusCatalog: { code: string | null; description: string; active: boolean }[];
+  representativeRows: {
+    number: string;
+    date: string;
+    posted: boolean;
+    deleted: boolean;
+    statusDescription: string | null;
+    productReferencePresent: boolean;
+    serialReferencePresent: boolean;
+    counterpartyReferencePresent: boolean;
+    contractReferencePresent: boolean;
+    serviceCenterReferencePresent: boolean;
+    sourceSalePresent: boolean;
+    warrantyTermPresent: boolean;
+    reportedFaultLength: number;
+    repairResultLength: number;
+    dataVersionPresent: boolean;
+  }[];
+};
+
+const SERVICE_HEADER_SELECT = [
+  "Ref_Key",
+  "DataVersion",
+  "Number",
+  "Date",
+  "DeletionMark",
+  "Posted",
+  "Контрагент_Key",
+  "Организация_Key",
+  "Договор_Key",
+  "Номенклатура_Key",
+  "Характеристика_Key",
+  "Серия_Key",
+  "СостояниеРемонта_Key",
+  "СервисЦентр_Key",
+  "СтруктурнаяЕдиница_Key",
+  "Ответственный_Key",
+  "ОписаниеНеисправности",
+  "ОписаниеМеханическихПовреждений",
+  "ОписаниеРемонта",
+  "РезультатРемонта",
+  "ДокументПродажи",
+  "СрокДействияГарантии",
+  "Гарантийный",
+  "ДатаОкончанияРемонта",
+  "ДатаПередачаВСервисныйЦентр",
+  "ДатаРемонтВыполнен",
+  "ДатаВыдачаИзРемонта",
+  "ВыдачаИзРемонта",
+  "ПередачаВСервисныйЦентр",
+  "РемонтВыполнен",
+] as const;
+
+const ZERO_GUID = "00000000-0000-0000-0000-000000000000";
+
 export async function auditOneCServiceMetadata(
   config: Pick<OneCEnv, "baseUrl" | "username" | "password" | "requestTimeoutMs">,
 ): Promise<OneCServiceMetadataAudit> {
@@ -95,6 +158,100 @@ export async function auditOneCServiceMetadata(
     candidatesTruncated: candidates.length > MAX_CANDIDATES,
     candidates: candidates.slice(0, MAX_CANDIDATES),
   };
+}
+
+export async function auditOneCServiceSource(
+  config: Pick<OneCEnv, "baseUrl" | "username" | "password" | "requestTimeoutMs">,
+): Promise<OneCServiceSourceAudit> {
+  const { baseUrl, username, password } = config;
+  if (!baseUrl || !username || !password) {
+    throw new IntegrationProviderUnavailableError("1C OData is not configured.");
+  }
+  const root = baseUrl.replace(/\/$/, "");
+  const authorization = `Basic ${Buffer.from(`${username}:${password}`, "utf8").toString("base64")}`;
+  const [documentResponse, statusResponse] = await Promise.all([
+    fetch(`${root}/Document_ПриемИПередачаВРемонт?$select=${SERVICE_HEADER_SELECT.join(",")}&$top=100&$format=json`, {
+      headers: { Accept: "application/json", Authorization: authorization },
+      signal: AbortSignal.timeout(config.requestTimeoutMs),
+    }),
+    fetch(`${root}/Catalog_ЭтапыРемонта?$select=Ref_Key,Code,Description,DeletionMark&$top=100&$format=json`, {
+      headers: { Accept: "application/json", Authorization: authorization },
+      signal: AbortSignal.timeout(config.requestTimeoutMs),
+    }),
+  ]);
+  if (!documentResponse.ok || !statusResponse.ok) {
+    throw new IntegrationProviderUnavailableError("1C service source audit is unavailable.");
+  }
+  const documentEnvelope = parseEnvelope(await documentResponse.json());
+  const statusEnvelope = parseEnvelope(await statusResponse.json());
+  const statuses = new Map(statusEnvelope.map((row) => [text(row.Ref_Key), text(row.Description)]));
+  const sortedRows = [...documentEnvelope].sort((left, right) =>
+    Date.parse(text(right.Date)) - Date.parse(text(left.Date)),
+  );
+
+  return {
+    sourceEntity: "Document_ПриемИПередачаВРемонт",
+    statusEntity: "Catalog_ЭтапыРемонта",
+    documentStatus: documentResponse.status,
+    statusCatalogStatus: statusResponse.status,
+    rowsReceived: documentEnvelope.length,
+    sourceKeys: [...new Set(documentEnvelope.flatMap((row) => Object.keys(row)))].sort(),
+    sourceValueTypes: summarizeValueTypes(documentEnvelope),
+    statusCatalog: statusEnvelope.flatMap((row) => {
+      const description = text(row.Description);
+      return description
+        ? [{ code: nullableText(row.Code), description, active: row.DeletionMark !== true }]
+        : [];
+    }),
+    representativeRows: sortedRows.slice(0, 20).map((row) => ({
+      number: text(row.Number),
+      date: text(row.Date),
+      posted: row.Posted === true,
+      deleted: row.DeletionMark === true,
+      statusDescription: statuses.get(text(row.СостояниеРемонта_Key)) || null,
+      productReferencePresent: hasReference(row.Номенклатура_Key),
+      serialReferencePresent: hasReference(row.Серия_Key),
+      counterpartyReferencePresent: hasReference(row.Контрагент_Key),
+      contractReferencePresent: hasReference(row.Договор_Key),
+      serviceCenterReferencePresent: hasReference(row.СервисЦентр_Key),
+      sourceSalePresent: hasReference(row.ДокументПродажи),
+      warrantyTermPresent: row.СрокДействияГарантии !== null && row.СрокДействияГарантии !== undefined,
+      reportedFaultLength: text(row.ОписаниеНеисправности).length,
+      repairResultLength: text(row.ОписаниеРемонта || row.РезультатРемонта).length,
+      dataVersionPresent: text(row.DataVersion).length > 0,
+    })),
+  };
+}
+
+function parseEnvelope(value: unknown): XmlNode[] {
+  if (!isRecord(value) || !Array.isArray(value.value) || !value.value.every(isRecord)) {
+    throw new IntegrationValidationError("1C service source envelope is invalid.");
+  }
+  return value.value;
+}
+
+function summarizeValueTypes(rows: XmlNode[]): Record<string, string> {
+  const result: Record<string, string> = {};
+  for (const row of rows) {
+    for (const [key, value] of Object.entries(row)) {
+      if (value === null || value === undefined) continue;
+      result[key] ??= Array.isArray(value) ? "array" : typeof value;
+    }
+  }
+  return result;
+}
+
+function hasReference(value: unknown): boolean {
+  const normalized = text(value).toLowerCase();
+  return normalized.length > 0 && normalized !== ZERO_GUID;
+}
+
+function text(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function nullableText(value: unknown): string | null {
+  return text(value) || null;
 }
 
 function mapCandidate(

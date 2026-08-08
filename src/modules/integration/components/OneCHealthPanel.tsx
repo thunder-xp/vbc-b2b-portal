@@ -6,9 +6,11 @@ import {
   runOneCHealthCheckAction,
   runOneCRelationMetadataAuditAction,
   runOneCServiceMetadataAuditAction,
+  runOneCServiceSourceAuditAction,
 } from "../actions";
 import type { OneCRelationMetadataAudit } from "../providers/one-c/one-c-relation-metadata-audit";
 import type { OneCServiceMetadataAudit } from "../providers/one-c/one-c-service-metadata-audit";
+import type { OneCServiceSourceAudit } from "../providers/one-c/one-c-service-metadata-audit";
 import type {
   OneCConfigurationHealth,
   OneCHealthCheck,
@@ -29,6 +31,7 @@ export function OneCHealthPanel({
   const [report, setReport] = useState<OneCHealthReport | null>(null);
   const [relationAudit, setRelationAudit] = useState<OneCRelationMetadataAudit | null>(null);
   const [serviceAudit, setServiceAudit] = useState<OneCServiceMetadataAudit | null>(null);
+  const [serviceSourceAudit, setServiceSourceAudit] = useState<OneCServiceSourceAudit | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -71,6 +74,19 @@ export function OneCHealthPanel({
     });
   }
 
+  function runServiceSourceAudit() {
+    setError(null);
+    startTransition(async () => {
+      const result = await runOneCServiceSourceAuditAction();
+      if (!result.success) {
+        setServiceSourceAudit(null);
+        setError(result.message);
+        return;
+      }
+      setServiceSourceAudit(result.data);
+    });
+  }
+
   return (
     <div className="space-y-5">
       <section className="rounded-lg border border-zinc-200 bg-white p-5">
@@ -103,6 +119,14 @@ export function OneCHealthPanel({
           <button
             className="rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-900 disabled:cursor-not-allowed disabled:opacity-60"
             disabled={isPending}
+            onClick={runServiceSourceAudit}
+            type="button"
+          >
+            {isPending ? "Проверка..." : "Проверить live-контракт сервиса"}
+          </button>
+          <button
+            className="rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-900 disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={isPending}
             onClick={runServiceAudit}
             type="button"
           >
@@ -127,7 +151,37 @@ export function OneCHealthPanel({
       {report ? <DiagnosticReport report={report} /> : null}
       {relationAudit ? <RelationMetadataAudit audit={relationAudit} /> : null}
       {serviceAudit ? <ServiceMetadataAudit audit={serviceAudit} /> : null}
+      {serviceSourceAudit ? <ServiceSourceAudit audit={serviceSourceAudit} /> : null}
     </div>
+  );
+}
+
+function ServiceSourceAudit({ audit }: { audit: OneCServiceSourceAudit }) {
+  return (
+    <section className="rounded-lg border border-zinc-200 bg-white p-5" data-testid="one-c-service-source-audit">
+      <h2 className="font-semibold text-zinc-950">Live-контракт сервиса</h2>
+      <p className="mt-2 text-sm text-zinc-600">
+        {audit.sourceEntity}: {audit.rowsReceived} строк, HTTP {audit.documentStatus}
+      </p>
+      <p className="mt-2 break-words text-sm text-zinc-700">Поля: {audit.sourceKeys.join(", ")}</p>
+      <p className="mt-2 break-words text-sm text-zinc-700">
+        Типы: {Object.entries(audit.sourceValueTypes).map(([key, value]) => `${key}:${value}`).join(", ")}
+      </p>
+      <div className="mt-4 space-y-2">
+        {audit.statusCatalog.map((status) => (
+          <p className="text-sm text-zinc-700" key={`${status.code}:${status.description}`}>
+            {status.code ?? "—"}: {status.description} ({status.active ? "active" : "deleted"})
+          </p>
+        ))}
+      </div>
+      <div className="mt-4 space-y-3">
+        {audit.representativeRows.map((row) => (
+          <pre className="overflow-x-auto rounded-md bg-zinc-950 p-3 text-xs text-zinc-100" key={`${row.number}:${row.date}`}>
+            {JSON.stringify(row, null, 2)}
+          </pre>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -148,7 +202,7 @@ function ServiceMetadataAudit({ audit }: { audit: OneCServiceMetadataAudit }) {
             </summary>
             <p className="mt-2 text-xs text-zinc-500">{candidate.matchedTerms.join(", ")}</p>
             <p className="mt-2 break-words text-sm text-zinc-700">
-              {candidate.properties.map(({ name }) => name).join(", ")}
+              {candidate.properties.map(({ name, type }) => `${name}:${type ?? "unknown"}`).join(", ")}
             </p>
           </details>
         ))}
