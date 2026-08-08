@@ -268,9 +268,9 @@ describe("DefaultEstimateService", () => {
   });
 
   it("offers governed USD and MDL when a published conversion rate exists", async () => {
-    vi.mocked(pricing.listAvailableCurrencyCodes!).mockResolvedValue(["USD"]);
+    vi.mocked(pricing.listAvailableCurrencyCodes!).mockResolvedValue(["USD", "MDL"]);
     await expect(service.listAvailableCurrencies("user-1")).resolves.toEqual(["USD", "MDL"]);
-    expect(pricing.getApprovedUsdMdlRateSnapshot).toHaveBeenCalledOnce();
+    expect(pricing.getApprovedUsdMdlRateSnapshot).not.toHaveBeenCalled();
   });
 
   it("searches the shared library once and adds an external line through one atomic call", async () => {

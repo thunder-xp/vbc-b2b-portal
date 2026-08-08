@@ -27,6 +27,18 @@ import {
 } from "../workspace-context.service";
 
 describe("DefaultPartnerWorkspaceContextService", () => {
+  it("serves company logos through a bounded image transform", async () => {
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://project.supabase.co");
+    const context = await service({
+      company: company({ logoAssetPath: "company/logo with space.jpg" }),
+    }).getWorkspaceContext("partner-1");
+
+    expect(context.companyLogoUrl).toBe(
+      "https://project.supabase.co/storage/v1/render/image/public/company-logos/company/logo%20with%20space.jpg?width=128&height=96&resize=contain&quality=70",
+    );
+    vi.unstubAllEnvs();
+  });
+
   it("resolves the approved active partner context with role and price type name", async () => {
     const context = await service().getWorkspaceContext("partner-1");
 

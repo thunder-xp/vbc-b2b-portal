@@ -322,16 +322,8 @@ export class DefaultEstimateService implements EstimateService {
 
   async listAvailableCurrencies(userId: string): Promise<string[]> {
     await this.resolveCompany(userId, VIEW_PERMISSION);
-    const [published, rate] = await Promise.all([
-      this.pricingInventoryService.listAvailableCurrencyCodes?.(userId) ?? Promise.resolve([]),
-      this.pricingInventoryService.getApprovedUsdMdlRateSnapshot?.(userId) ?? Promise.resolve(null),
-    ]);
-    const currencies = new Set(published);
-    if (rate && (currencies.has("USD") || currencies.has("MDL"))) {
-      currencies.add("USD");
-      currencies.add("MDL");
-    }
-    return [...currencies].filter((value) => /^[A-Z]{3}$/.test(value)).sort((left, right) => left === "USD" ? -1 : right === "USD" ? 1 : left.localeCompare(right));
+    const published = await this.pricingInventoryService.listAvailableCurrencyCodes?.(userId) ?? [];
+    return [...new Set(published)].filter((value) => /^[A-Z]{3}$/.test(value)).sort((left, right) => left === "USD" ? -1 : right === "USD" ? 1 : left.localeCompare(right));
   }
 
   async searchExternalNomenclature(userId: string, query: string): Promise<ExternalNomenclatureRecord[]> {
