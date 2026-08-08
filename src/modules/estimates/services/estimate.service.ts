@@ -59,6 +59,7 @@ export type EstimateLineDto = {
   lineType: EstimateItem["lineType"];
   productId: string | null;
   externalNomenclatureId?: string | null;
+  externalDemand?: import("../types").ExternalDemandState | null;
   imageUrl?: string | null;
   position: number;
   sku: string | null;
@@ -1314,6 +1315,7 @@ function toCommercialDetail(aggregate: EstimateAggregate, images = new Map<strin
         lineType: item.lineType,
         productId: item.productId,
         externalNomenclatureId: item.externalNomenclatureId,
+        externalDemand: item.externalDemand ?? null,
         imageUrl: item.productId ? images.get(item.productId) ?? null : null,
         position: item.position,
         sku: item.skuSnapshot,
@@ -1364,6 +1366,7 @@ function legacyToDetail(estimate: Estimate, items: EstimateItem[]) {
       lineType: item.lineType,
       productId: item.productId,
       externalNomenclatureId: item.externalNomenclatureId,
+      externalDemand: item.externalDemand ?? null,
       position: item.position,
       sku: item.skuSnapshot,
       description: item.description,

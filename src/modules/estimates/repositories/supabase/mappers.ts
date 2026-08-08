@@ -96,6 +96,7 @@ export type EstimateItemRow = {
   net_line_total: number | string | null;
   created_at: string;
   updated_at: string;
+  estimate_external_item_requests?: { id: string; status: import("../../types").ExternalDemandStatus | null; version: number } | Array<{ id: string; status: import("../../types").ExternalDemandStatus | null; version: number }> | null;
 };
 
 export type PartnerServiceRow = {
@@ -187,6 +188,8 @@ export function mapEstimateSectionRow(row: EstimateSectionRow): EstimateSection 
 }
 
 export function mapEstimateItemRow(row: EstimateItemRow): EstimateItem {
+  const relation = row.estimate_external_item_requests;
+  const demand = Array.isArray(relation) ? relation[0] : relation;
   return {
     id: row.id,
     estimateId: row.estimate_id,
@@ -195,6 +198,7 @@ export function mapEstimateItemRow(row: EstimateItemRow): EstimateItem {
     productId: row.product_id,
     serviceId: row.service_id,
     externalNomenclatureId: row.external_nomenclature_id,
+    externalDemand: demand ? { id: demand.id, status: demand.status, version: demand.version } : null,
     position: row.position,
     skuSnapshot: row.sku_snapshot,
     productNameSnapshot: row.product_name_snapshot,

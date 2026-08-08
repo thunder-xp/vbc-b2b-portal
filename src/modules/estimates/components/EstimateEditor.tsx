@@ -16,6 +16,7 @@ import {
   searchEstimateProductsAction,
   updateEstimateLineAction,
 } from "../actions/estimate.actions";
+import { setExternalDemandAction } from "../actions/demand.actions";
 import type { EstimateDetailDto, EstimateProductPickerDto, EstimateServiceDto } from "../services";
 import type { EstimateUnit } from "../types";
 import { EstimateStatusBadge } from "./EstimateStatusBadge";
@@ -47,6 +48,19 @@ export function EstimateEditor({ initialEstimate, services }: { initialEstimate:
       const result = await mutation();
       setMessage(result.message);
       if (result.success) setEstimate(result.data);
+    });
+  };
+
+  const applyDemand = (lineId: string, action: "request" | "cancel") => {
+    startTransition(async () => {
+      const result = await setExternalDemandAction(estimate.id, lineId, action);
+      setMessage(result.message);
+      if (result.success) {
+        setEstimate((current) => ({
+          ...current,
+          lines: current.lines.map((line) => line.id === lineId ? { ...line, externalDemand: result.data } : line),
+        }));
+      }
     });
   };
 
@@ -127,7 +141,14 @@ export function EstimateEditor({ initialEstimate, services }: { initialEstimate:
                     }}
                   >
                     <span className="text-sm font-semibold text-zinc-500">{line.position}</span>
-                    <label className="text-xs font-medium text-zinc-500">Описание<input className={lineInputClass} defaultValue={line.description} disabled={!isDraft} maxLength={2000} name="description" required />{line.sku && <span className="mt-1 block text-[11px] text-zinc-500">SKU {line.sku}</span>}</label>
+                    <div className="min-w-0 text-xs font-medium text-zinc-500">
+                      <label>Описание<input className={lineInputClass} defaultValue={line.description} disabled={!isDraft} maxLength={2000} name="description" required />{line.sku && <span className="mt-1 block text-[11px] text-zinc-500">SKU {line.sku}</span>}</label>
+                      {line.lineType === "external" && <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <span className="text-[11px] font-normal text-zinc-600">{externalDemandLabel(line.externalDemand?.status ?? null)}</span>
+                        {(line.externalDemand?.status == null || line.externalDemand.status === "cancelled") && <button className="min-h-9 rounded-md border border-emerald-300 px-3 text-xs font-semibold text-emerald-800 disabled:opacity-50" disabled={pending} onClick={() => applyDemand(line.id, "request")} type="button">Запросить предложение Novotech</button>}
+                        {line.externalDemand?.status === "new" && <button className="min-h-9 rounded-md border border-zinc-300 px-3 text-xs font-semibold text-zinc-700 disabled:opacity-50" disabled={pending} onClick={() => applyDemand(line.id, "cancel")} type="button">Отменить запрос</button>}
+                      </div>}
+                    </div>
                     <label className="text-xs font-medium text-zinc-500">Кол-во<input className={lineInputClass} defaultValue={line.quantity} disabled={!isDraft} max={999999} min="0.001" name="quantity" required step="0.001" type="number" /></label>
                     <label className="text-xs font-medium text-zinc-500">Ед.<select className={lineInputClass} defaultValue={line.unit} disabled={!isDraft} name="unit">{units.map((unit) => <option key={unit.value} value={unit.value}>{unit.label}</option>)}</select></label>
                     <div><p className="text-xs font-medium text-zinc-500">Опорная</p><p className="mt-2 text-sm text-zinc-700">{line.sourcePrice ?? "—"}</p></div>
@@ -276,4 +297,9 @@ function DisabledToolbarButton({ icon: Icon, label }: { icon: typeof Eye; label:
 
 function formatDateTime(value: string) {
   return new Intl.DateTimeFormat("ru-RU", { dateStyle: "short", timeStyle: "short" }).format(new Date(value));
+}
+
+function externalDemandLabel(status: import("../types").ExternalDemandStatus | null) {
+  if (!status) return "Предложение Novotech не запрашивалось";
+  return ({ new: "Запрос отправлен", reviewing: "Запрос рассматривается", solution_proposed: "Решение предложено", closed: "Запрос закрыт", cancelled: "Запрос отменён" } as const)[status];
 }

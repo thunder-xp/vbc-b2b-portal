@@ -8,6 +8,7 @@ export type EstimateVatMode = "included" | "separate" | "excluded" | "none";
 export type EstimateChargeType = "delivery" | "installation" | "commissioning" | "transport" | "other";
 export type EstimateCurrencyChangePolicy = "convert_all" | "preserve_manual";
 import type { FinalCustomerIndustryCode } from "./final-customer";
+import type { ExternalDemandState } from "./demand";
 
 export type FinalCustomerType = "company" | "individual";
 
@@ -113,6 +114,7 @@ export interface EstimateItem {
   productId: string | null;
   serviceId: string | null;
   externalNomenclatureId?: string | null;
+  externalDemand?: ExternalDemandState | null;
   position: number;
   skuSnapshot: string | null;
   productNameSnapshot: string | null;
