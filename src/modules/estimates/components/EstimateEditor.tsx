@@ -42,6 +42,8 @@ export function EstimateEditor({ initialEstimate, services }: { initialEstimate:
   const [message, setMessage] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const isDraft = estimate.status === "draft";
+  const canManageExternalDemand = estimate.status !== "archived"
+    && ["draft", "sent", "accepted"].includes(estimate.lifecycleStatus ?? "draft");
 
   const applyMutation = (mutation: () => ReturnType<typeof saveEstimateAction>) => {
     startTransition(async () => {
@@ -145,8 +147,8 @@ export function EstimateEditor({ initialEstimate, services }: { initialEstimate:
                       <label>Описание<input className={lineInputClass} defaultValue={line.description} disabled={!isDraft} maxLength={2000} name="description" required />{line.sku && <span className="mt-1 block text-[11px] text-zinc-500">SKU {line.sku}</span>}</label>
                       {line.lineType === "external" && <div className="mt-2 flex flex-wrap items-center gap-2">
                         <span className="text-[11px] font-normal text-zinc-600">{externalDemandLabel(line.externalDemand?.status ?? null)}</span>
-                        {(line.externalDemand?.status == null || line.externalDemand.status === "cancelled") && <button className="min-h-9 rounded-md border border-emerald-300 px-3 text-xs font-semibold text-emerald-800 disabled:opacity-50" disabled={pending} onClick={() => applyDemand(line.id, "request")} type="button">Запросить предложение Novotech</button>}
-                        {line.externalDemand?.status === "new" && <button className="min-h-9 rounded-md border border-zinc-300 px-3 text-xs font-semibold text-zinc-700 disabled:opacity-50" disabled={pending} onClick={() => applyDemand(line.id, "cancel")} type="button">Отменить запрос</button>}
+                        {canManageExternalDemand && (line.externalDemand?.status == null || line.externalDemand.status === "cancelled") && <button className="min-h-9 rounded-md border border-emerald-300 px-3 text-xs font-semibold text-emerald-800 disabled:opacity-50" disabled={pending} onClick={() => applyDemand(line.id, "request")} type="button">Запросить предложение Novotech</button>}
+                        {canManageExternalDemand && line.externalDemand?.status === "new" && <button className="min-h-9 rounded-md border border-zinc-300 px-3 text-xs font-semibold text-zinc-700 disabled:opacity-50" disabled={pending} onClick={() => applyDemand(line.id, "cancel")} type="button">Отменить запрос</button>}
                       </div>}
                     </div>
                     <label className="text-xs font-medium text-zinc-500">Кол-во<input className={lineInputClass} defaultValue={line.quantity} disabled={!isDraft} max={999999} min="0.001" name="quantity" required step="0.001" type="number" /></label>

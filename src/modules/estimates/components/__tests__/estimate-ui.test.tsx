@@ -22,6 +22,7 @@ vi.mock("../../actions/estimate.actions", () => ({
   searchEstimateProductsAction: vi.fn(),
   updateEstimateLineAction: vi.fn(),
 }));
+vi.mock("../../actions/demand.actions", () => ({ setExternalDemandAction: vi.fn() }));
 
 const detail: EstimateDetailDto = {
   id: "estimate-1",
@@ -125,9 +126,14 @@ describe("estimate UI", () => {
   });
 
   it("makes archived estimates read-only", () => {
-    render(<EstimateEditor initialEstimate={{ ...detail, status: "archived" }} services={[]} />);
+    render(<EstimateEditor initialEstimate={{
+      ...detail,
+      status: "archived",
+      lines: [{ ...detail.lines[0], lineType: "external", productId: null, externalNomenclatureId: "external-1" }],
+    }} services={[]} />);
     expect(screen.getByRole("button", { name: "Сохранить" })).toBeDisabled();
     expect(screen.queryByRole("tab", { name: "Товары" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "В архив" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Запросить предложение Novotech" })).not.toBeInTheDocument();
   });
 });
