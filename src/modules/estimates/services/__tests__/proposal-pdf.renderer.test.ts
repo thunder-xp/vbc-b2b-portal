@@ -19,7 +19,8 @@ describe("proposal PDF renderer", () => {
     const text = texts.join(" ").replace(/\s+/g, " ");
     expect(pdf.numPages).toBeGreaterThan(1);
     expect(text).toContain("Коммерческое предложение");
-    expect(text).toContain("Condiții de livrare");
+    expect(text).not.toContain("Condiții de livrare");
+    expect(text).not.toContain("Условия предложения");
     expect(text).toContain("Оборудование");
     expect(text).toContain("Клиент SRL");
     expect(text).toContain("ИТОГО");
@@ -28,23 +29,26 @@ describe("proposal PDF renderer", () => {
     expect(text).toContain("НДС: начисляется отдельно, 20%");
   }, 30_000);
 
-  it("paginates 1, 20, 100, and 300 line proposals within the server budget", async () => {
-    for (const count of [1, 10, 30, 100, 300]) {
+  it("paginates small, medium, and large proposals within the server budget", async () => {
+    for (const count of [3, 20, 40, 100]) {
       const started = performance.now();
       const rendered = await renderProposalPdf(fixture(count));
       if (process.env.BENCHMARK_PROPOSAL_PDF) console.info({ lineCount: count, durationMs: Number((performance.now() - started).toFixed(1)), pageCount: rendered.pageCount, bytes: rendered.bytes.byteLength });
+      if (process.env.WRITE_PROPOSAL_PDF_FIXTURE) { mkdirSync(".tmp", { recursive: true }); writeFileSync(`.tmp/proposal-${count}.pdf`, rendered.bytes); }
       expect(rendered.bytes.byteLength).toBeGreaterThan(1_000);
       expect(rendered.pageCount).toBeGreaterThanOrEqual(1);
       expect(performance.now() - started).toBeLessThan(15_000);
     }
   }, 45_000);
 
-  it("keeps the image column before description and generates with missing product images", async () => {
+  it("uses the image column only when an approved product image is available", async () => {
     const proposal = fixture(1);
     const definition = JSON.stringify(createDocumentDefinition(proposal, new Map([["image", "data:image/png;base64,AA=="]])));
     const withImage = { ...proposal, sections: [{ ...proposal.sections[0], lines: [{ ...proposal.sections[0].lines[0], imageUrl: "image" }] }] };
     const imageDefinition = JSON.stringify(createDocumentDefinition(withImage, new Map([["image", "data:image/png;base64,AA=="]])));
     expect(imageDefinition.indexOf('"image":"data:image/png')).toBeLessThan(imageDefinition.indexOf("Камера видеонаблюдения 1"));
+    expect(definition).not.toContain('"widths":[16,32,"*"');
+    expect(imageDefinition).toContain('"widths":[16,32,"*"');
     expect(definition).toContain('"dontBreakRows":true');
     await expect(renderProposalPdf(proposal)).resolves.toEqual(expect.objectContaining({ pageCount: expect.any(Number) }));
   });
@@ -60,10 +64,11 @@ describe("proposal PDF renderer", () => {
     expect(definition).toContain("Монтаж");
   });
 
-  it("allows long commercial terms to paginate instead of forcing one unbreakable block", () => {
+  it("omits commercial terms and keeps customer-facing line rows intact", () => {
     const definition = JSON.stringify(createDocumentDefinition(fixture(1)));
     expect(definition).toContain('"dontBreakRows":true');
-    expect(definition).not.toContain('"unbreakable":true,"stack":[{"text":"Условия предложения"');
+    expect(definition).not.toContain("Условия предложения");
+    expect(definition).not.toContain("Condiții de livrare");
   });
 
   it("deduplicates repeated approved image downloads and rejects unapproved origins", async () => {

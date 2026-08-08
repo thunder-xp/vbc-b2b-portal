@@ -292,14 +292,11 @@ function deliveryStatusLabel(status: ProposalDelivery["status"]) {
 }
 
 function readinessFromAggregate(aggregate: NonNullable<Awaited<ReturnType<EstimateRepository["findAggregateById"]>>>) {
-  const settings = aggregate.estimate.proposalSettings ?? {};
   const checks = [
     { label: "Добавлена хотя бы одна позиция", passed: aggregate.items.length > 0 },
     { label: "Для всех позиций указаны цены", passed: !aggregate.estimate.hasIncompletePricing && aggregate.items.every((item) => item.sellingUnitPrice !== null) },
     { label: "Валюта сметы определена", passed: /^[A-Z]{3}$/.test(aggregate.estimate.currencyCode) },
     { label: "Итоговая сумма рассчитана", passed: Number.isFinite(aggregate.estimate.totalAmount) && aggregate.estimate.totalAmount >= 0 },
-    { label: "Заполнены условия оплаты", passed: typeof settings.paymentTerms === "string" ? settings.paymentTerms.trim().length > 0 : true },
-    { label: "Заполнены условия поставки", passed: typeof settings.deliveryTerms === "string" ? settings.deliveryTerms.trim().length > 0 : true },
   ];
   return { ready: checks.every((check) => check.passed), checks };
 }
@@ -311,8 +308,6 @@ function readinessFromProposal(proposal: import("../types").CustomerProposalDto)
     { label: "Для всех позиций указаны цены", passed: lines.every((line) => Number.isFinite(line.unitPrice) && Number.isFinite(line.lineTotal)) },
     { label: "Валюта сметы определена", passed: /^[A-Z]{3}$/.test(proposal.currencyCode) },
     { label: "Итоговая сумма рассчитана", passed: Number.isFinite(proposal.totals.total) && proposal.totals.total >= 0 },
-    { label: "Заполнены условия оплаты", passed: proposal.settings.paymentTerms.trim().length > 0 },
-    { label: "Заполнены условия поставки", passed: proposal.settings.deliveryTerms.trim().length > 0 },
   ];
   return { ready: checks.every((check) => check.passed), checks };
 }

@@ -112,9 +112,10 @@ describe("estimate UI", () => {
 
     expect(screen.getByText("KP-2026-000001")).toBeInTheDocument();
     expect(screen.getAllByText("$100.00")).toHaveLength(2);
-    expect(screen.getByRole("button", { name: "Предпросмотр" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "PDF" })).toBeDisabled();
+    expect(screen.getByRole("link", { name: "Предпросмотр КП" })).toHaveAttribute("href", "/cabinet/estimates/estimate-1/preview");
+    expect(screen.queryByRole("button", { name: "PDF" })).not.toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Товары" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: "Товары" }).compareDocumentPosition(screen.getByRole("heading", { name: "Позиции сметы" })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(searchEstimateProductsAction).not.toHaveBeenCalled();
     await user.click(screen.getByRole("button", { name: "Найти" }));
     expect(await screen.findByText("SKU 400691")).toBeInTheDocument();

@@ -22,15 +22,15 @@ export async function renderProposalPdf(proposal: CustomerProposalDto): Promise<
 
 export function createDocumentDefinition(proposal: CustomerProposalDto, images = new Map<string, string>()): TDocumentDefinitions {
   const content: Array<Record<string, unknown>> = [
-    { columns: [brandingBlock(proposal, images), { text: proposal.settings.title, style: "title", alignment: "right" }], margin: [0, 0, 0, 22] },
-    { columns: [{ stack: [{ text: "ПОЛУЧАТЕЛЬ", style: "eyebrow" }, { text: proposal.customerName || "Не указан", style: "heading" }, proposal.projectName ? { text: proposal.projectName, color: "#52525b", margin: [0, 3, 0, 0] } : { text: "" }] }, { stack: documentMetadata(proposal) }], margin: [0, 0, 0, 18] },
+    { columns: [brandingBlock(proposal, images), { text: proposal.settings.title, style: "title", alignment: "right" }], margin: [0, 0, 0, 14] },
+    { columns: [{ stack: [{ text: "ПОЛУЧАТЕЛЬ", style: "eyebrow" }, { text: proposal.customerName || "Не указан", style: "heading" }, proposal.projectName ? { text: proposal.projectName, color: "#52525b", margin: [0, 2, 0, 0] } : { text: "" }] }, { stack: documentMetadata(proposal) }], margin: [0, 0, 0, 12] },
   ];
-  if (proposal.settings.introduction) content.push({ text: proposal.settings.introduction, margin: [0, 0, 0, 16], lineHeight: 1.25 });
+  if (proposal.settings.introduction) content.push({ text: proposal.settings.introduction, margin: [0, 0, 0, 10], lineHeight: 1.15 });
 
   for (const section of proposal.sections) {
-    content.push({ text: section.name, style: "section", margin: [0, 14, 0, 7] });
+    content.push({ text: section.name, style: "section", margin: [0, 9, 0, 4] });
     content.push(productTable(proposal, section.lines, images));
-    if (proposal.settings.showSectionSubtotals) content.push({ columns: [{ text: "" }, { text: `Итого по разделу: ${money(section.subtotal, proposal.currencyCode)}`, bold: true, alignment: "right", margin: [0, 7, 0, 10] }] });
+    if (proposal.settings.showSectionSubtotals) content.push({ columns: [{ text: "" }, { text: `Итого по разделу: ${money(section.subtotal, proposal.currencyCode)}`, bold: true, alignment: "right", margin: [0, 5, 0, 6] }] });
   }
 
   if (proposal.charges.length) {
@@ -38,12 +38,11 @@ export function createDocumentDefinition(proposal: CustomerProposalDto, images =
     content.push({ table: { widths: ["*", 110], body: proposal.charges.map((charge) => [{ text: charge.description }, { text: money(charge.amount, proposal.currencyCode), alignment: "right" }]) }, layout: "lightHorizontalLines" });
   }
   content.push(totalsBlock(proposal));
-  content.push(termsBlock(proposal));
 
   return {
-    pageSize: "A4", pageMargins: [38, 45, 38, 52], content,
-    defaultStyle: { font: "Roboto", fontSize: 9, color: "#27272a" },
-    styles: { title: { fontSize: 21, bold: true, color: "#14532d" }, eyebrow: { fontSize: 7, bold: true, color: "#15803d", characterSpacing: 1 }, heading: { fontSize: 13, bold: true }, documentNumber: { fontSize: 11, bold: true, alignment: "right" }, section: { fontSize: 12, bold: true, color: "#14532d" } },
+    pageSize: "A4", pageMargins: [32, 32, 32, 40], content,
+    defaultStyle: { font: "Roboto", fontSize: 8.5, color: "#27272a" },
+    styles: { title: { fontSize: 18, bold: true, color: "#14532d" }, eyebrow: { fontSize: 7, bold: true, color: "#15803d", characterSpacing: 1 }, heading: { fontSize: 12, bold: true }, documentNumber: { fontSize: 10, bold: true, alignment: "right" }, section: { fontSize: 11, bold: true, color: "#14532d" } },
     pageBreakBefore: (currentNode: { style?: string }, followingNodesOnPage: unknown[]) => currentNode.style === "section" && followingNodesOnPage.length === 0,
     footer: (currentPage: number, pageCount: number) => ({ columns: [{ text: proposal.settings.footerNote || proposal.branding.companyName, color: "#71717a", fontSize: 7 }, { text: `${currentPage} / ${pageCount}`, alignment: "right", color: "#71717a", fontSize: 7 }], margin: [38, 18, 38, 0] }),
     info: { title: `${proposal.settings.title} ${proposal.estimateNumber}`, author: proposal.branding.companyName, subject: "Коммерческое предложение" },
@@ -52,13 +51,13 @@ export function createDocumentDefinition(proposal: CustomerProposalDto, images =
 
 function brandingBlock(proposal: CustomerProposalDto, images: Map<string, string>): Record<string, unknown> {
   const lines = [proposal.branding.legalName || proposal.branding.companyName, proposal.branding.contactName ? `Контакт: ${proposal.branding.contactName}` : null, proposal.branding.address, proposal.branding.fiscalInformation, proposal.branding.phone, proposal.branding.email, proposal.branding.website].filter(Boolean) as string[];
-  const stack: Array<Record<string, unknown>> = [{ text: proposal.branding.companyName, fontSize: 15, bold: true, color: "#166534" }, ...lines.map((text) => ({ text, fontSize: 7, color: "#52525b", margin: [0, 2, 0, 0] }))];
-  if (proposal.settings.showPartnerLogo && proposal.branding.logoUrl && images.has(proposal.branding.logoUrl)) stack.unshift({ image: images.get(proposal.branding.logoUrl), width: 70, height: 36, fit: [70, 36], margin: [0, 0, 0, 5] });
+  const stack: Array<Record<string, unknown>> = [{ text: proposal.branding.companyName, fontSize: 14, bold: true, color: "#166534" }, ...lines.map((text) => ({ text, fontSize: 7, color: "#52525b", margin: [0, 1, 0, 0] }))];
+  if (proposal.settings.showPartnerLogo && proposal.branding.logoUrl && images.has(proposal.branding.logoUrl)) stack.unshift({ image: images.get(proposal.branding.logoUrl), width: 64, height: 32, fit: [64, 32], margin: [0, 0, 0, 3] });
   return { stack };
 }
 
 function productTable(proposal: CustomerProposalDto, lines: ReadonlyArray<CustomerProposalLine>, images: Map<string, string>): Record<string, unknown> {
-  const showImage = proposal.settings.showProductImages && lines.some(isProductProposalLine);
+  const showImage = proposal.settings.showProductImages && lines.some((line) => isProductProposalLine(line) && Boolean(line.imageUrl && images.has(line.imageUrl)));
   const headers: Array<Record<string, unknown>> = [{ text: "№", bold: true }, ...(showImage ? [{ text: "", bold: true }] : []), { text: "Наименование", bold: true }, { text: "Кол-во", bold: true, alignment: "right" }];
   if (proposal.settings.showUnitPrice) headers.push({ text: "Цена", bold: true, alignment: "right" });
   if (proposal.settings.showLineDiscount) headers.push({ text: "Скидка", bold: true, alignment: "right" });
@@ -66,15 +65,15 @@ function productTable(proposal: CustomerProposalDto, lines: ReadonlyArray<Custom
   const rows = lines.map((line) => {
     const description: Record<string, unknown> = { stack: [{ text: line.description, bold: true }, ...(proposal.settings.showSku && line.sku ? [{ text: `SKU ${line.sku}`, fontSize: 7, color: "#71717a" }] : [])] };
     const row: Array<Record<string, unknown>> = [{ text: String(line.position), color: "#71717a" }];
-    if (showImage) row.push(isProductProposalLine(line) ? line.imageUrl && images.has(line.imageUrl) ? { image: images.get(line.imageUrl)!, width: 34, height: 34, fit: [34, 34] } : { text: "—", color: "#a1a1aa", alignment: "center", margin: [0, 11, 0, 0] } : { text: "" });
+    if (showImage) row.push(isProductProposalLine(line) ? line.imageUrl && images.has(line.imageUrl) ? { image: images.get(line.imageUrl)!, width: 26, height: 26, fit: [26, 26] } : { text: "—", color: "#a1a1aa", alignment: "center", margin: [0, 7, 0, 0] } : { text: "" });
     row.push(description, { text: `${formatNumber(line.quantity)} ${line.unitLabel}`, alignment: "right", noWrap: true });
     if (proposal.settings.showUnitPrice) row.push({ text: money(line.unitPrice, proposal.currencyCode), alignment: "right", noWrap: true });
     if (proposal.settings.showLineDiscount) row.push({ text: line.lineDiscountPercent ? `${formatNumber(line.lineDiscountPercent)}%` : "—", alignment: "right" });
     row.push({ text: money(line.lineTotal, proposal.currencyCode), alignment: "right", bold: true, noWrap: true });
     return row;
   });
-  const widths: Array<number | "*"> = [18, ...(showImage ? [40] : []), "*", 48, ...(proposal.settings.showUnitPrice ? [70] : []), ...(proposal.settings.showLineDiscount ? [42] : []), 74];
-  return { table: { headerRows: 1, widths, dontBreakRows: true, body: [headers, ...rows] }, layout: { fillColor: (rowIndex: number) => rowIndex === 0 ? "#ecfdf5" : rowIndex % 2 === 0 ? "#fafafa" : null, hLineColor: () => "#d4d4d8", vLineColor: () => "#e4e4e7", paddingTop: () => 6, paddingBottom: () => 6, paddingLeft: () => 5, paddingRight: () => 5 } };
+  const widths: Array<number | "*"> = [16, ...(showImage ? [32] : []), "*", 46, ...(proposal.settings.showUnitPrice ? [66] : []), ...(proposal.settings.showLineDiscount ? [38] : []), 70];
+  return { table: { headerRows: 1, widths, dontBreakRows: true, body: [headers, ...rows] }, layout: { fillColor: (rowIndex: number) => rowIndex === 0 ? "#ecfdf5" : rowIndex % 2 === 0 ? "#fafafa" : null, hLineColor: () => "#d4d4d8", vLineColor: () => "#e4e4e7", paddingTop: () => 4, paddingBottom: () => 4, paddingLeft: () => 4, paddingRight: () => 4 } };
 }
 
 function totalsBlock(proposal: CustomerProposalDto): Record<string, unknown> {
@@ -82,14 +81,8 @@ function totalsBlock(proposal: CustomerProposalDto): Record<string, unknown> {
   if (proposal.totals.discounts) rows.push([{ text: "Скидки" }, { text: `− ${money(proposal.totals.discounts, proposal.currencyCode)}`, alignment: "right" }]);
   if (proposal.totals.charges) rows.push([{ text: "Дополнительные услуги" }, { text: money(proposal.totals.charges, proposal.currencyCode), alignment: "right" }]);
   if (proposal.settings.showVatBreakdown) rows.push([{ text: "Без НДС" }, { text: money(proposal.totals.totalExcludingVat, proposal.currencyCode), alignment: "right" }], [{ text: "НДС" }, { text: money(proposal.totals.vat, proposal.currencyCode), alignment: "right" }]);
-  rows.push([{ text: "ИТОГО", bold: true, fontSize: 12, color: "#14532d" }, { text: money(proposal.totals.total, proposal.currencyCode), bold: true, fontSize: 12, color: "#14532d", alignment: "right" }]);
-  return { unbreakable: true, columns: [{ width: "*", text: "" }, { width: 260, table: { widths: ["*", 100], body: rows }, layout: "lightHorizontalLines", margin: [0, 18, 0, 18] }] };
-}
-
-function termsBlock(proposal: CustomerProposalDto): Record<string, unknown> {
-  const terms = [["Поставка", proposal.settings.deliveryTerms], ["Оплата", proposal.settings.paymentTerms], ["Гарантия", proposal.settings.warrantyTerms], ["Срок действия", proposal.settings.validityText], ["Монтаж", proposal.settings.installationNotes], ["Исключения", proposal.settings.exclusions], ["Примечание", proposal.settings.customerNote]].filter(([, value]) => value);
-  if (!terms.length) return { text: "" };
-  return { stack: [{ text: "Условия предложения", style: "section", margin: [0, 5, 0, 7] }, { table: { widths: [90, "*"], dontBreakRows: true, body: terms.map(([label, value]) => [{ text: label, bold: true, color: "#3f3f46" }, { text: value }]) }, layout: "lightHorizontalLines" }] };
+  rows.push([{ text: "ИТОГО", bold: true, fontSize: 13, color: "#14532d", fillColor: "#ecfdf5", margin: [4, 3, 4, 3] }, { text: money(proposal.totals.total, proposal.currencyCode), bold: true, fontSize: 13, color: "#14532d", alignment: "right", fillColor: "#ecfdf5", margin: [4, 3, 4, 3] }]);
+  return { unbreakable: true, columns: [{ width: "*", text: "" }, { width: 240, table: { widths: ["*", 96], body: rows }, layout: "lightHorizontalLines", margin: [0, 12, 0, 0] }] };
 }
 
 function documentMetadata(proposal: CustomerProposalDto): Array<Record<string, unknown>> {

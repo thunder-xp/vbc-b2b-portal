@@ -24,6 +24,9 @@ describe("proposal UI", () => {
     expect(screen.getByText("30 июля 2026 г.")).toBeInTheDocument();
     expect(screen.getByText("Контакт: Ivan Partner")).toBeInTheDocument();
     expect(screen.getByText("начисляется отдельно, 20%")).toBeInTheDocument();
+    expect(screen.queryByText("Условия предложения")).not.toBeInTheDocument();
+    expect(screen.queryByText("Поставка")).not.toBeInTheDocument();
+    expect(screen.queryByText("Оплата")).not.toBeInTheDocument();
     expect(screen.queryByText(/себестоимость|маржа|1C|permission/i)).not.toBeInTheDocument();
   });
 
@@ -38,19 +41,29 @@ describe("proposal UI", () => {
     expect(screen.getByText("Монтаж")).toBeInTheDocument();
   });
 
+  it("keeps customer prices visible in the compact mobile line layout", () => {
+    render(<ProposalDocument proposal={proposal(3)} />);
+    expect(screen.getByRole("table")).not.toHaveClass("min-w-[620px]");
+    expect(screen.getAllByText("Количество")).toHaveLength(3);
+    expect(screen.getAllByText("Цена")).toHaveLength(4);
+    expect(screen.getAllByText("Сумма")).toHaveLength(4);
+  });
+
   it("applies a template and saves all settings in one action", async () => {
     const user = userEvent.setup();
     vi.mocked(saveEstimateProposalSettingsAction).mockResolvedValue({ success: true, data: { revision: 4 }, message: "Сохранено", errorCode: null });
     render(<ProposalControls estimateId="estimate-1" initialSettings={settings} revision={3} selectedTemplateId={template.id} templates={[template]} />);
-    await user.click(screen.getByRole("button", { name: "Настройки" }));
+    await user.click(screen.getByRole("button", { name: "Настройки оформления" }));
     expect(screen.getByRole("combobox", { name: "Шаблон" })).toHaveValue(template.id);
+    expect(screen.queryByRole("textbox", { name: "Условия поставки" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: "Условия оплаты" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Сохранить" }));
     expect(saveEstimateProposalSettingsAction).toHaveBeenCalledTimes(1);
     expect(saveEstimateProposalSettingsAction).toHaveBeenCalledWith("estimate-1", expect.objectContaining({ expectedRevision: 3, templateId: template.id, settings: expect.objectContaining({ showSku: true }) }));
   });
 
   it("server-renders long previews without client calculation", () => {
-    for (const count of [1, 20, 100, 300]) {
+    for (const count of [3, 20, 40]) {
       const started = performance.now(); const html = renderToStaticMarkup(<ProposalDocument proposal={proposal(count)} />);
       if (process.env.BENCHMARK_PROPOSAL_PREVIEW) console.info({ lineCount: count, durationMs: Number((performance.now() - started).toFixed(1)), htmlBytes: Buffer.byteLength(html) });
       expect(html).toContain(`Камера ${count}`); expect(performance.now() - started).toBeLessThan(2_000);

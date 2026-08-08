@@ -1,6 +1,7 @@
 "use client";
 
-import { Archive, Check, Copy, Eye, FileDown, MoreHorizontal, Save, ShoppingCart, Trash2 } from "lucide-react";
+import { Archive, Check, Eye, Save, Trash2 } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
@@ -33,7 +34,6 @@ const editorInputClass = "mt-1.5 h-10 w-full rounded-md border border-zinc-300 b
 const lineInputClass = "mt-1.5 h-9 w-full min-w-0 rounded-md border border-zinc-300 bg-white px-2 text-sm outline-none focus:border-emerald-600 focus-visible:ring-2 focus-visible:ring-emerald-200";
 const toolbarPrimaryClass = "inline-flex h-9 items-center gap-2 rounded-md bg-emerald-700 px-3 text-sm font-semibold text-white outline-none hover:bg-emerald-800 focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-50";
 const toolbarSecondaryClass = "inline-flex h-9 items-center gap-2 rounded-md border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-700 outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:cursor-not-allowed disabled:opacity-45";
-const toolbarIconClass = "inline-flex size-9 items-center justify-center rounded-md border border-zinc-300 bg-white text-zinc-700 outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:cursor-not-allowed disabled:opacity-45";
 const lineActionClass = "inline-flex size-9 items-center justify-center rounded-md outline-none hover:bg-zinc-100 focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-50";
 
 export function EstimateEditor({ initialEstimate, services }: { initialEstimate: EstimateDetailDto; services: EstimateServiceDto[] }) {
@@ -80,11 +80,7 @@ export function EstimateEditor({ initialEstimate, services }: { initialEstimate:
           </div>
           <div className="flex flex-wrap gap-2">
             <button className={toolbarPrimaryClass} disabled={pending || !isDraft} form="estimate-metadata-form" type="submit"><Save className="size-4" />Сохранить</button>
-            <DisabledToolbarButton icon={Eye} label="Предпросмотр" />
-            <DisabledToolbarButton icon={FileDown} label="PDF" />
-            <DisabledToolbarButton icon={Copy} label="Дублировать" />
-            <DisabledToolbarButton icon={ShoppingCart} label="В корзину" />
-            <button aria-label="Другие действия" className={toolbarIconClass} disabled title="Доступно в следующих этапах" type="button"><MoreHorizontal className="size-4" /></button>
+            <Link className={toolbarSecondaryClass} href={`/cabinet/estimates/${estimate.id}/preview`} prefetch={false}><Eye className="size-4" />Предпросмотр КП</Link>
           </div>
         </div>
       </header>
@@ -116,10 +112,10 @@ export function EstimateEditor({ initialEstimate, services }: { initialEstimate:
 
       <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_18rem]">
         <main className="min-w-0 space-y-5">
+          {isDraft && <AddContentPanel estimate={estimate} onMessage={setMessage} onResult={(next, nextMessage) => { setEstimate(next); setMessage(nextMessage); }} pending={pending} services={services} startTransition={startTransition} />}
           <section className="overflow-hidden border-y border-zinc-200 bg-white">
             <div className="flex items-center justify-between gap-3 border-b border-zinc-200 px-4 py-3">
               <div><h2 className="font-semibold text-zinc-950">Позиции сметы</h2><p className="text-xs text-zinc-500">{estimate.itemCount} позиций</p></div>
-              <span className="text-xs text-zinc-500">Явное сохранение без перезагрузки страницы</span>
             </div>
             {estimate.lines.length ? (
               <div className="divide-y divide-zinc-100">
@@ -165,7 +161,6 @@ export function EstimateEditor({ initialEstimate, services }: { initialEstimate:
             ) : <p className="px-5 py-12 text-center text-sm text-zinc-500">Добавьте оборудование, работу или произвольную позицию.</p>}
           </section>
 
-          {isDraft && <AddContentPanel estimate={estimate} onMessage={setMessage} onResult={(next, nextMessage) => { setEstimate(next); setMessage(nextMessage); }} pending={pending} services={services} startTransition={startTransition} />}
         </main>
 
         <aside className="sticky top-24 border-y border-zinc-200 bg-white px-5 py-5">
@@ -173,9 +168,6 @@ export function EstimateEditor({ initialEstimate, services }: { initialEstimate:
           <p className="mt-2 text-2xl font-semibold text-zinc-950">{estimate.total}</p>
           <p className="mt-1 text-sm text-zinc-500">Валюта: {estimate.currencyCode}</p>
           {estimate.hasIncompletePricing && <p className="mt-4 rounded-md bg-amber-50 p-3 text-xs text-amber-900">Для части позиций не задана цена продажи. Итог пока неполный.</p>}
-          <div className="mt-5 border-t border-zinc-200 pt-4 text-xs text-zinc-500">
-            <p>Скидки, наценка, маржа и НДС появятся в следующем коммерческом этапе.</p>
-          </div>
           {isDraft && <button
             className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-red-700 disabled:opacity-50"
             disabled={pending}
@@ -291,10 +283,6 @@ function CustomLineForm({ estimate, pending, submit }: { estimate: EstimateDetai
     <label className="text-xs font-medium text-zinc-600">Цена, {estimate.currencyCode}<input className={editorInputClass} min="0" name="sellingUnitPrice" required step="0.01" type="number" /></label>
     <button className="h-10 rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white disabled:opacity-50" disabled={pending} type="submit">Добавить</button>
   </form>;
-}
-
-function DisabledToolbarButton({ icon: Icon, label }: { icon: typeof Eye; label: string }) {
-  return <button className={toolbarSecondaryClass} disabled title="Доступно в следующих этапах" type="button"><Icon className="size-4" />{label}</button>;
 }
 
 function formatDateTime(value: string) {
