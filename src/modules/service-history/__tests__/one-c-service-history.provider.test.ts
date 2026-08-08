@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { OneCServiceHistoryProvider, normalizeOneCServiceStatus, oneCServiceHistoryEntities } from "../one-c-service-history.provider";
+import { OneCServiceHistoryProvider, normalizeCompletedWork, normalizeOneCServiceStatus, oneCServiceHistoryEntities } from "../one-c-service-history.provider";
 
 const DOCUMENT = "11111111-1111-1111-1111-111111111111";
 const COMPANY = "22222222-2222-2222-2222-222222222222";
@@ -46,6 +46,15 @@ describe("OneCServiceHistoryProvider", () => {
   it("keeps exact company and product references and does not infer identities", async () => {
     const result = await new OneCServiceHistoryProvider(fakeClient([sourceRow()]) as never).fetchPage({ skip: 0, top: 100, rangeStart: "2021-08-08", rangeEnd: "2026-08-08" });
     expect(result.rows[0]).toMatchObject({ counterpartyRef: COMPANY, productRef: PRODUCT, sourceStatus: "К выдаче", normalizedStatus: "ready_for_pickup" });
+  });
+
+  it("imports authoritative completed-work text with safe whitespace and line breaks", async () => {
+    const result = await new OneCServiceHistoryProvider(fakeClient([
+      sourceRow({ ОписаниеРемонта: "  Тест\r\nв ремонте не нуждается  " }),
+    ]) as never).fetchPage({ skip: 0, top: 100, rangeStart: "2021-08-08", rangeEnd: "2026-08-08" });
+
+    expect(result.rows[0]?.completedWorkSummary).toBe("Тест\nв ремонте не нуждается");
+    expect(normalizeCompletedWork(" \u0000 \r\n ")).toBeNull();
   });
 });
 

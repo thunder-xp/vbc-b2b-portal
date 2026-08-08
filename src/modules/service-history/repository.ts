@@ -12,9 +12,9 @@ export class ServiceHistoryRepositoryError extends Error {
 }
 
 export class ServiceHistoryRepository {
-  claim() { return this.adminRpc<ServiceHistorySyncClaim | null>("claim_one_c_service_history_sync", { p_page_size: 100 }); }
+  claim() { return this.adminRpc<ServiceHistorySyncClaim | null>("claim_one_c_service_history_sync_v2", { p_page_size: 100 }); }
   publish(input: { claim: ServiceHistorySyncClaim; rows: unknown[]; pageComplete: boolean }) {
-    return this.adminRpc<Record<string, unknown>>("publish_one_c_service_history_page", {
+    return this.adminRpc<Record<string, unknown>>("publish_one_c_service_history_page_v2", {
       p_run_id: input.claim.runId,
       p_lock_token: input.claim.lockToken,
       p_skip: input.claim.skip,

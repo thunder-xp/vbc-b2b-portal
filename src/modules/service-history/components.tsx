@@ -50,7 +50,7 @@ export function UnifiedServiceHistoryList({ page, query = "", filter = "all" }: 
   </div>{pages > 1 ? <nav aria-label="Страницы истории" className="flex items-center justify-between gap-3"><PaginationLink disabled={page.page <= 1} filter={filter} page={page.page - 1} query={query}>Назад</PaginationLink><span className="text-sm text-zinc-600">Страница {page.page} из {pages}</span><PaginationLink disabled={page.page >= pages} filter={filter} page={page.page + 1} query={query}>Далее</PaginationLink></nav> : null}</>;
 }
 
-export function OneCServiceHistorySummary({ detail }: { detail: OneCServiceHistoryDetail }) {
+export function OneCServiceHistorySummary({ detail, internal = false }: { detail: OneCServiceHistoryDetail; internal?: boolean }) {
   return <div className="space-y-7">
     <section className="grid gap-4 border-b border-zinc-200 pb-6 sm:grid-cols-2 lg:grid-cols-4">
       <Metric label="Статус" value={ONE_C_SERVICE_STATUS_LABELS[detail.status]} />
@@ -67,6 +67,7 @@ export function OneCServiceHistorySummary({ detail }: { detail: OneCServiceHisto
       </div>
     </section>
     <TextSection title="Заявленная неисправность" value={detail.reportedFault ?? "Описание не указано."} />
+    {detail.completedWorkSummary ? <TextSection title={internal ? "Содержание выполненных работ" : "Выполненные работы"} value={detail.completedWorkSummary} /> : null}
     {detail.resolution ? <TextSection title="Результат обслуживания" value={detail.resolution} /> : null}
     <section className="grid gap-4 sm:grid-cols-2">
       <Metric label="Гарантия до" value={formatOptionalDate(detail.warrantyEndDate)} />

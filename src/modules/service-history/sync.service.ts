@@ -39,6 +39,7 @@ export class ServiceHistorySyncService {
           service_center_ref: row.serviceCenterRef,
           reported_fault: row.reportedFault,
           source_repair_description: row.sourceRepairDescription,
+          completed_work_summary: row.completedWorkSummary,
           source_sale_reference: row.sourceSaleReference,
           source_fingerprint: row.sourceFingerprint,
         })),
@@ -58,6 +59,8 @@ export class ServiceHistorySyncService {
     const started = performance.now();
     let steps = 0;
     let rowsReceived = 0;
+    let completedWorkChecked = 0;
+    let completedWorkPopulated = 0;
     let runId: string | undefined;
     while (steps < maxSteps && performance.now() - started < maxDurationMs) {
       const result = await this.runStep();
@@ -65,9 +68,11 @@ export class ServiceHistorySyncService {
       steps += 1;
       runId = result.runId;
       rowsReceived += result.rowsReceived;
-      if (result.status === "completed") return { status: "completed", steps, rowsReceived, runId, durationMs: elapsed(started) };
+      completedWorkChecked += numericResult(result.publication.completedWorkChecked);
+      completedWorkPopulated += numericResult(result.publication.completedWorkPopulated);
+      if (result.status === "completed") return { status: "completed", steps, rowsReceived, completedWorkChecked, completedWorkPopulated, completedWorkEmpty: completedWorkChecked - completedWorkPopulated, runId, durationMs: elapsed(started) };
     }
-    return { status: "progressed", steps, rowsReceived, runId, durationMs: elapsed(started) };
+    return { status: "progressed", steps, rowsReceived, completedWorkChecked, completedWorkPopulated, completedWorkEmpty: completedWorkChecked - completedWorkPopulated, runId, durationMs: elapsed(started) };
   }
 
   async runSerialEnrichmentStep() {
@@ -111,6 +116,7 @@ export class ServiceHistorySyncService {
 }
 
 function elapsed(started: number) { return Math.round(performance.now() - started); }
+function numericResult(value: unknown) { return typeof value === "number" && Number.isFinite(value) ? value : 0; }
 
 function protectResolution(id: string, serialRef: string, resolution: { state: "resolved" | "unmapped" | "conflict"; value: string | null; sourceFingerprint: string }) {
   if (resolution.state !== "resolved" || !resolution.value) return {

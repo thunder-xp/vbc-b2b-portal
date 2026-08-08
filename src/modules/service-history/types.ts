@@ -60,6 +60,7 @@ export type OneCServiceHistoryDetail = {
   serial?: string | null;
   protectedSerial?: string | null;
   reportedFault: string | null;
+  completedWorkSummary: string | null;
   resolution: string | null;
   warrantyState: string | null;
   warrantyStartDate: string | null;
@@ -149,6 +150,7 @@ export type OneCServiceSourceRow = {
   serviceCenterRef: string | null;
   reportedFault: string | null;
   sourceRepairDescription: string | null;
+  completedWorkSummary: string | null;
   sourceSaleReference: string | null;
   sourceFingerprint: string;
 };

@@ -11,6 +11,7 @@ const SOURCE = "Document_ПриемИПередачаВРемонт";
 const STATUS_SOURCE = "Catalog_ЭтапыРемонта";
 const SERIAL_SOURCE = "Catalog_СерииНоменклатуры";
 const SELECT = "Ref_Key,DataVersion,Number,Date,DeletionMark,Posted,Контрагент_Key,Договор_Key,Номенклатура_Key,Характеристика_Key,Серия_Key,СостояниеРемонта_Key,СервисЦентр_Key,ОписаниеНеисправности,ОписаниеРемонта,ДокументПродажи";
+const MAX_COMPLETED_WORK_LENGTH = 8_000;
 const envelope = z.object({ value: z.array(z.record(z.string(), z.unknown())) });
 
 export class OneCServiceHistoryProvider {
@@ -102,6 +103,7 @@ function mapRow(row: Record<string, unknown>, statuses: ReadonlyMap<string, stri
   const sourceDeletionMark = row.DeletionMark === true;
   const sourceDataVersion = nullableText(row.DataVersion);
   const sourceRepairDescription = nullableText(row.ОписаниеРемонта);
+  const completedWorkSummary = normalizeCompletedWork(row.ОписаниеРемонта);
   return {
     sourceDocumentRef,
     sourceDocumentNumber: text(row.Number),
@@ -120,6 +122,7 @@ function mapRow(row: Record<string, unknown>, statuses: ReadonlyMap<string, stri
     serviceCenterRef: parseOptionalOneCGuid(row.СервисЦентр_Key),
     reportedFault: nullableText(row.ОписаниеНеисправности),
     sourceRepairDescription,
+    completedWorkSummary,
     sourceSaleReference: parseOptionalOneCGuid(row.ДокументПродажи),
     sourceFingerprint: createHash("sha256").update([
       sourceDocumentRef,
@@ -153,6 +156,14 @@ function requiredGuid(value: unknown, field: string) {
 }
 function text(value: unknown) { return typeof value === "string" ? value.trim() : ""; }
 function nullableText(value: unknown) { return text(value) || null; }
+export function normalizeCompletedWork(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const normalized = value
+    .replace(/\r\n?/g, "\n")
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "")
+    .trim();
+  return normalized ? normalized.slice(0, MAX_COMPLETED_WORK_LENGTH) : null;
+}
 function requiredDate(value: unknown) { const date = new Date(text(value)); if (Number.isNaN(date.getTime())) throw new Error("Invalid 1C service date."); return date.toISOString(); }
 function validatePage(skip: number, top: number) { if (!Number.isSafeInteger(skip) || skip < 0 || !Number.isSafeInteger(top) || top < 1 || top > 100) throw new Error("Invalid service-history page."); }
 

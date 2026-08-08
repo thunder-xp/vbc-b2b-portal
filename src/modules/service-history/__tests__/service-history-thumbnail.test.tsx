@@ -34,6 +34,7 @@ const detail: OneCServiceHistoryDetail = {
   product: { id: "product-1", sku: "190023", name: "Camera", imageUrl: baseItem.productImageUrl, href: baseItem.productHref },
   maskedSerial: "0MP***002",
   reportedFault: "No image",
+  completedWorkSummary: null,
   resolution: null,
   warrantyState: "covered",
   warrantyStartDate: null,
