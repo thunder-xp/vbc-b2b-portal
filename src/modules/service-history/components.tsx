@@ -1,6 +1,5 @@
 import Link from "next/link";
 
-import { ProductImage } from "@/src/modules/catalog/components/ProductImage";
 import { ProductLineThumbnail } from "@/src/modules/catalog/components/ProductLineThumbnail";
 import { ONE_C_SERVICE_STATUS_LABELS, type AdminOneCServiceHistoryPage, type OneCServiceHistoryDetail, type UnifiedServiceHistoryPage } from "./types";
 
@@ -59,10 +58,8 @@ export function OneCServiceHistorySummary({ detail }: { detail: OneCServiceHisto
       <Metric label="Серийный номер" value={detail.serial ?? detail.maskedSerial ?? "Не указан"} />
       <Metric label="Гарантия" value={warrantyLabel(detail.warrantyState)} />
     </section>
-    <section className="grid gap-5 sm:grid-cols-[160px_minmax(0,1fr)]">
-      <div className="aspect-square overflow-hidden rounded-md border border-zinc-200 bg-zinc-50">
-        <ProductImage alt={detail.product.name ?? "Оборудование"} sizes="160px" src={detail.product.imageUrl} />
-      </div>
+    <section className="grid grid-cols-[96px_minmax(0,1fr)] items-start gap-5 sm:grid-cols-[120px_minmax(0,1fr)]">
+      <ProductLineThumbnail href={detail.product.href ?? undefined} imageUrl={detail.product.imageUrl} productName={detail.product.name ?? "Оборудование"} size="detail" />
       <div>
         <h2 className="text-lg font-semibold">{detail.product.name ?? "Оборудование уточняется"}</h2>
         {detail.product.sku ? <p className="mt-1 text-sm text-zinc-500">SKU: {detail.product.sku}</p> : null}

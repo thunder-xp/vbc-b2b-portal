@@ -1,8 +1,8 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { UnifiedServiceHistoryList } from "../components";
-import type { UnifiedServiceHistoryItem } from "../types";
+import { OneCServiceHistorySummary, UnifiedServiceHistoryList } from "../components";
+import type { OneCServiceHistoryDetail, UnifiedServiceHistoryItem } from "../types";
 
 vi.mock("next/image", () => ({ default: ({ alt, className, src }: { alt: string; className: string; src: string }) => <span aria-label={alt} className={className} data-src={src} role="img" /> }));
 
@@ -23,6 +23,24 @@ const baseItem: UnifiedServiceHistoryItem = {
   warrantyEndDate: null,
   updatedAt: "2026-08-01T10:00:00Z",
   href: "/cabinet/service/history/history-1",
+};
+
+const detail: OneCServiceHistoryDetail = {
+  id: "history-1",
+  number: "NSUU-000229",
+  date: "2026-08-01T10:00:00Z",
+  status: "accepted",
+  sourceStatus: "Accepted",
+  product: { id: "product-1", sku: "190023", name: "Camera", imageUrl: baseItem.productImageUrl, href: baseItem.productHref },
+  maskedSerial: "0MP***002",
+  reportedFault: "No image",
+  resolution: null,
+  warrantyState: "covered",
+  warrantyStartDate: null,
+  warrantyEndDate: null,
+  serviceCenter: null,
+  updatedAt: "2026-08-01T10:00:00Z",
+  events: [],
 };
 
 function renderList(item: UnifiedServiceHistoryItem) {
@@ -63,5 +81,29 @@ describe("service history product thumbnails", () => {
     expect(thumbnail.className).not.toContain("h-full");
     expect(container.querySelector("li > a")).not.toBeInTheDocument();
     expect(container.querySelector("li > div")).toHaveClass("grid-cols-[64px_minmax(0,1fr)]");
+  });
+
+  it("bounds mapped detail images at 96px mobile and 120px desktop", () => {
+    render(<OneCServiceHistorySummary detail={detail} />);
+
+    expect(screen.getByTestId("product-line-thumbnail")).toHaveClass(
+      "size-24",
+      "max-h-24",
+      "max-w-24",
+      "sm:size-30",
+      "sm:max-h-30",
+      "sm:max-w-30",
+      "overflow-hidden",
+      "relative",
+    );
+    expect(screen.getByRole("img", { name: "Camera" })).toHaveAttribute("data-src", baseItem.productImageUrl);
+  });
+
+  it("keeps a broken detail image inside the same bounded fallback", () => {
+    render(<OneCServiceHistorySummary detail={{ ...detail, product: { ...detail.product, imageUrl: "https://invalid.example/image.jpg", href: null } }} />);
+
+    expect(screen.getByTestId("product-line-thumbnail")).toHaveClass("size-24", "sm:size-30", "overflow-hidden");
+    expect(screen.getByRole("img", { name: "Camera" })).toHaveAttribute("data-src", "/product-placeholder.svg");
+    expect(screen.queryByRole("link", { name: "Camera" })).not.toBeInTheDocument();
   });
 });

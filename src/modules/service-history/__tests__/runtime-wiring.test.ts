@@ -7,6 +7,7 @@ const detailPage = read("app/(partner)/cabinet/service/history/[id]/page.tsx");
 const repository = read("src/modules/service-history/repository.ts");
 const cron = read("app/api/cron/service-history/route.ts");
 const dashboardRepository = read("src/modules/service-center/supabase.repository.ts");
+const imageProjection = read("supabase/migrations/20260808233000_service_center_canonical_product_images.sql");
 
 describe("1C service-history runtime wiring", () => {
   it("renders portal and 1C history through one bounded aggregate", () => {
@@ -30,6 +31,15 @@ describe("1C service-history runtime wiring", () => {
 
   it("uses the bounded dashboard projection without another dashboard block", () => {
     expect(dashboardRepository).toContain('"get_partner_service_dashboard_v2"');
+  });
+
+  it("resolves canonical product images in one bounded database aggregate", () => {
+    expect(imageProjection).toContain("coalesce(p.image_source_url, p.image_url");
+    expect(imageProjection).toContain("canonical_images as");
+    expect(imageProjection).toContain("from paged");
+    expect(imageProjection).toContain("catalog_product_images");
+    expect(imageProjection).not.toContain("OneCODataClient");
+    expect(imageProjection).not.toContain("Document_");
   });
 });
 

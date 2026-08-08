@@ -40,7 +40,7 @@ export type ServiceCaseDetail = {
   preferredContact: string | null; purchaseVerificationState: string; warrantyState: string;
   warrantyEndDate: string | null; replacementState: string; assignedInternalUserId: string | null;
   createdAt: string; updatedAt: string; version: number;
-  product: { id: string; sku: string; name: string; imageUrl: string | null } | null;
+  product: { id: string; sku: string; name: string; imageUrl: string | null; href: string | null } | null;
   order: { id: string; number: string; date: string } | null;
   events: Array<{ id: string; type: string; message: string | null; occurredAt: string }>;
   attachments: Array<{ id: string; fileName: string; mimeType: string; fileSize: number; createdAt: string }>;
