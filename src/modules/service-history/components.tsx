@@ -84,7 +84,13 @@ export function AdminOneCServiceHistoryList({ page }: { page: AdminOneCServiceHi
 }
 
 function statusLabel(status: string) { return ONE_C_SERVICE_STATUS_LABELS[status as keyof typeof ONE_C_SERVICE_STATUS_LABELS] ?? portalStatusLabels[status] ?? "Статус уточняется"; }
-function warrantyLabel(value: string | null) { return ({ eligible: "Гарантия подтверждена", expired: "Гарантия истекла", active: "Гарантия действует" } as Record<string, string>)[value ?? ""] ?? "Требует проверки"; }
+function warrantyLabel(value: string | null) { return ({
+  eligible: "Гарантия подтверждена", covered: "Гарантия подтверждена", active: "Гарантия действует",
+  expired: "Гарантия истекла", returned: "Оборудование возвращено", cancelled: "Гарантия не действует",
+  warranty_period_missing: "Срок гарантии уточняется",
+  sale_confirmed_review_required: "Требует проверки", source_incomplete: "Требует проверки",
+  manual_review_required: "Требует проверки", conflict: "Требует проверки",
+} as Record<string, string>)[value ?? ""] ?? "Требует проверки"; }
 function formatOptionalDate(value: string | null) { return value ? new Date(value).toLocaleDateString("ru-RU") : "Не указано"; }
 function Metric({ label, value }: { label: string; value: string }) { return <dl><dt className="text-xs font-semibold uppercase text-zinc-500">{label}</dt><dd className="mt-1 text-sm font-medium text-zinc-900">{value}</dd></dl>; }
 function TextSection({ title, value }: { title: string; value: string }) { return <section><h2 className="text-lg font-semibold">{title}</h2><p className="mt-2 whitespace-pre-wrap text-sm text-zinc-700">{value}</p></section>; }
