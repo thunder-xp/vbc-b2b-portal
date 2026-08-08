@@ -77,6 +77,10 @@
       "schedule": "20 * * * *"
     },
     {
+      "path": "/api/cron/service-history",
+      "schedule": "*/5 * * * *"
+    },
+    {
       "path": "/api/cron/warranty-serials",
       "schedule": "*/2 * * * *"
     },
