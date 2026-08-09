@@ -82,6 +82,7 @@ describe("DefaultEstimateService", () => {
       removeLine: vi.fn().mockResolvedValue(undefined),
       removeLines: vi.fn().mockResolvedValue(undefined),
       archive: vi.fn().mockResolvedValue(undefined),
+      deleteArchived: vi.fn().mockResolvedValue(undefined),
       listServices: vi.fn().mockResolvedValue([serviceRecord]),
     };
     catalog = {
@@ -134,6 +135,17 @@ describe("DefaultEstimateService", () => {
     expect(repository.create).toHaveBeenCalledWith(expect.objectContaining({ companyId: "company-1", name: "Estimate", currencyCode: "USD" }));
     await expect(service.createDraft("user-1", { name: "Estimate", finalCustomerId: "11111111-1111-1111-1111-111111111111", currencyCode: "EUR", validityDays: 14 })).rejects.toBeInstanceOf(InvalidStateError);
     await expect(service.createDraft("user-1", { name: "Estimate", currencyCode: "USD", validityDays: 14 })).rejects.toBeInstanceOf(InvalidStateError);
+  });
+
+  it("deletes only an archived estimate through the governed repository operation", async () => {
+    vi.mocked(repository.findById).mockResolvedValue({ ...estimate, status: "archived", archivedAt: "2026-08-09T10:00:00Z" });
+    await service.deleteArchived("user-1", estimate.id, estimate.revision, "33333333-3333-4333-8333-333333333333");
+    expect(repository.deleteArchived).toHaveBeenCalledWith(estimate.id, estimate.revision, "33333333-3333-4333-8333-333333333333", "Удалено пользователем из архива.");
+  });
+
+  it("rejects deletion before the estimate is archived", async () => {
+    await expect(service.deleteArchived("user-1", estimate.id, estimate.revision, "33333333-3333-4333-8333-333333333333")).rejects.toThrow("Удалить можно только архивную смету");
+    expect(repository.deleteArchived).not.toHaveBeenCalled();
   });
 
   it("searches and creates final customers only through the active company boundary", async () => {

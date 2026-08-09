@@ -63,6 +63,7 @@ export function EstimateCommercialEditor({ initialEstimate, services, commercial
   const [targetSectionId, setTargetSectionId] = useState(initialEstimate.sections[0]?.id ?? "");
   const [lineSearch, setLineSearch] = useState("");
   const [sectionFilter, setSectionFilter] = useState("all");
+  const sectionTitleFocusId = useRef<string | null>(null);
   const sectionRequestKey = useRef<string | null>(null);
   const isDraft = estimate.status === "draft";
   const retailOnly = estimate.commercialMode === "retail_only";
@@ -186,6 +187,7 @@ export function EstimateCommercialEditor({ initialEstimate, services, commercial
       setMessage(result.message);
       if (!result.success) return;
       const createdSection = result.data.sections.find((section) => !previousSectionIds.has(section.id));
+      sectionTitleFocusId.current = createdSection?.id ?? null;
       acceptServer(result.data, result.message);
       setSectionFilter("all");
       setTargetSectionId(createdSection?.id ?? result.data.sections[result.data.sections.length - 1]?.id ?? "");
@@ -204,7 +206,7 @@ export function EstimateCommercialEditor({ initialEstimate, services, commercial
     <header className="sticky top-0 z-20 -mx-4 border-b border-zinc-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur lg:-mx-8 lg:px-8">
       <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
         <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2"><Link className="text-xs font-semibold text-emerald-700" href="/cabinet/estimates" prefetch={false}>← Сметы и КП</Link><strong className="text-xs uppercase text-zinc-500">{estimate.estimateNumber}</strong><EstimateStatusBadge status={estimate.status === "archived" ? "archived" : estimate.lifecycleStatus} /><span className="rounded bg-zinc-100 px-2 py-1 text-xs font-semibold text-zinc-600">Версия {estimate.revision}</span>{dirty && <span className="text-xs font-semibold text-amber-700">Не сохранено</span>}</div>
+          <div className="flex flex-wrap items-center gap-2"><Link className="text-xs font-semibold text-emerald-700" href="/cabinet/estimates" prefetch={false}>← Сметы и КП</Link><strong className="text-xs uppercase text-zinc-500">{estimate.estimateNumber}</strong><EstimateStatusBadge status={estimate.status === "archived" ? "archived" : estimate.lifecycleStatus} />{dirty && <span className="text-xs font-semibold text-amber-700">Не сохранено</span>}</div>
           <h1 className="mt-1 truncate text-xl font-semibold text-zinc-950" title={draft.name}>{draft.name || "Без названия"}</h1>
           <dl className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-600"><Meta label="Заказчик" value={draft.customerName ?? "Не выбран"} /><Meta label="Проект" value={draft.projectName ?? "Не указан"} /><Meta label="Расчёт" value={`${draft.currencyCode} · ${vatModeLabel(draft.vatMode)}`} /><Meta label="Срок" value={`${draft.validityDays} дн.`} /></dl>
         </div>
@@ -232,10 +234,9 @@ export function EstimateCommercialEditor({ initialEstimate, services, commercial
 
     <div className="grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_20rem]">
       <main className="min-w-0 space-y-4">
-        {isDraft && targetSection && <EstimateLinePicker disabled={dirty} estimate={estimate} mode={pickerMode} onModeChange={setPickerMode} onResult={acceptServer} onTargetSectionChange={setTargetSectionId} services={services} targetSectionId={targetSection.id} targetSections={draft.sections} workspaceControls={<div className="grid min-w-0 gap-2 sm:grid-cols-[minmax(10rem,1fr)_12rem_auto]">
+        {isDraft && targetSection && <EstimateLinePicker disabled={dirty} estimate={estimate} mode={pickerMode} onModeChange={setPickerMode} onResult={acceptServer} onTargetSectionChange={setTargetSectionId} services={services} targetSectionId={targetSection.id} targetSections={draft.sections} workspaceControls={<div className="grid min-w-0 gap-2 sm:grid-cols-[minmax(10rem,1fr)_12rem]">
           <label className="relative min-w-0"><span className="sr-only">Поиск по позициям сметы</span><Search className="pointer-events-none absolute left-3 top-3.5 size-4 text-zinc-400" /><input className={`${inputClass} w-full pl-9`} onChange={(event) => setLineSearch(event.target.value)} placeholder="Поиск по позициям" value={lineSearch} /></label>
           <label className="relative min-w-0"><span className="sr-only">Фильтр разделов</span><ListFilter className="pointer-events-none absolute left-3 top-3.5 size-4 text-zinc-400" /><select className={`${inputClass} w-full pl-9`} onChange={(event) => setSectionFilter(event.target.value)} value={sectionFilter}><option value="all">Все разделы</option>{draft.sections.map((section) => <option key={section.id} value={section.id}>{section.name}</option>)}</select></label>
-          <button className={buttonClass} disabled={!isDraft || dirty || pending} onClick={addSection} type="button"><Plus className="size-4" />{pending ? "Добавление..." : "Раздел"}</button>
         </div>} />}
         {commercialCheck ? <section className="border-y border-zinc-200 bg-white p-4"><PriceCheckPanel
             checkedLineIds={checkedLineIds}
@@ -271,7 +272,7 @@ export function EstimateCommercialEditor({ initialEstimate, services, commercial
           sections={draft.sections}
           selectedCount={selectedLineIds.size}
         />
-        <div className="flex flex-wrap items-end justify-between gap-2"><div><p className="text-xs font-semibold uppercase text-emerald-700">Рабочая область</p><h2 className="mt-1 text-lg font-semibold">Разделы и позиции</h2></div><p className="text-xs text-zinc-500">{draft.lines.length} поз. · {draft.sections.length} разд.</p></div>
+        <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-lg font-semibold">Разделы и позиции</h2><p className="mt-1 text-xs text-zinc-500">{draft.lines.length} поз. · {draft.sections.length} разд.</p></div>{isDraft ? <button className={buttonClass} disabled={dirty || pending} onClick={addSection} type="button"><Plus className="size-4" />{pending ? "Добавление..." : "Добавить раздел"}</button> : null}</div>
         {visibleSections.map((section) => {
           const sectionIndex = draft.sections.findIndex((item) => item.id === section.id);
           const sectionLines = draft.lines.filter((line) => line.sectionId === section.id);
@@ -282,7 +283,7 @@ export function EstimateCommercialEditor({ initialEstimate, services, commercial
             <div className="grid items-center gap-2 border-b border-zinc-200 p-3 sm:grid-cols-[auto_auto_minmax(10rem,1fr)_7rem_auto_auto]">
               <button aria-expanded={!isCollapsed} aria-label="Свернуть раздел" className="p-2" onClick={() => setCollapsed((current) => toggleSet(current, section.id))} type="button">{isCollapsed ? <ChevronRight className="size-4" /> : <ChevronDown className="size-4" />}</button>
               <input aria-label={`Выбрать все позиции раздела ${section.name}`} checked={sectionLines.length > 0 && sectionLines.every((line) => selectedLineIds.has(line.id))} disabled={!isDraft || !sectionLines.length} onChange={(event) => setSelectedLineIds((current) => toggleMany(current, sectionLines.map((line) => line.id), event.target.checked))} type="checkbox" />
-              <input aria-label="Название раздела" className={inputClass} disabled={!isDraft} onChange={(e) => update((d) => ({ ...d, sections: d.sections.map((item) => item.id === section.id ? { ...item, name: e.target.value } : item) }))} value={section.name} />
+              <input aria-label="Название раздела" className={inputClass} data-section-title-id={section.id} disabled={!isDraft} onChange={(e) => update((d) => ({ ...d, sections: d.sections.map((item) => item.id === section.id ? { ...item, name: e.target.value } : item) }))} ref={(node) => { if (node && sectionTitleFocusId.current === section.id) { node.focus(); node.select(); sectionTitleFocusId.current = null; } }} value={section.name} />
               <Field label="Скидка %"><NumberInput disabled={!isDraft} onValue={(value) => update((d) => ({ ...d, sections: d.sections.map((item) => item.id === section.id ? { ...item, discountPercent: value ?? 0 } : item) }))} value={section.discountPercent} /></Field>
               <span className="text-right text-sm font-semibold">{money(sectionTotal?.total ?? 0, draft.currencyCode)}</span>
               <div className="flex items-center">
@@ -295,19 +296,19 @@ export function EstimateCommercialEditor({ initialEstimate, services, commercial
               const sectionLineIndex = sectionLines.findIndex((item) => item.id === line.id);
               const calculated = preview.value?.lines.find((item) => item.id === line.id);
               return <div className="p-3" data-line-type={line.lineType} data-testid="estimate-line-row" key={line.id}>
-                <div className="grid grid-cols-2 items-start gap-2 sm:grid-cols-4 xl:grid-cols-[1.5rem_1.5rem_minmax(12rem,1fr)_4.75rem_4.75rem_6rem_5rem_7rem_4.5rem]">
-                  <input aria-label={`Выбрать позицию ${lineIndex + 1}`} checked={selectedLineIds.has(line.id)} className="mt-7 xl:col-span-1" disabled={!isDraft} onChange={(event) => setSelectedLineIds((current) => toggleMany(current, [line.id], event.target.checked))} type="checkbox" />
-                  <span className="mt-6 text-sm text-zinc-500 xl:col-span-1">{lineIndex + 1}</span>
-                  <div className={`${line.lineType === "product" ? "grid grid-cols-[3rem_minmax(0,1fr)] gap-2" : ""} col-span-2 min-w-0 sm:col-span-4 xl:col-span-1`}>
-                    {line.lineType === "product" && <ProductLineThumbnail imageUrl={line.imageUrl ?? null} productName={line.description} size="compact" />}
-                    <Field label="Позиция"><div className="mb-1 flex min-h-4 flex-wrap items-center gap-2"><span className={lineTypeTone(line.lineType)}>{lineTypeLabel(line.lineType)}</span>{line.sku && <span className="text-[10px] text-zinc-500">SKU {line.sku}</span>}</div><input className={`${inputClass} w-full`} disabled={!isDraft} onChange={(e) => updateLine(draft, setDraft, setDirty, line.id, { description: e.target.value })} required={line.lineType === "custom" || line.lineType === "external"} title={line.description} value={line.description} /></Field>
+                <div className="grid grid-cols-[1.25rem_1.5rem_3rem_minmax(0,1fr)] items-start gap-2 xl:grid-cols-[1.25rem_1.5rem_3.5rem_minmax(9rem,1fr)_4.25rem_4.5rem_5.5rem_4.75rem_6rem_5.75rem]" data-testid="estimate-line-grid">
+                  <input aria-label={`Выбрать позицию ${lineIndex + 1}`} checked={selectedLineIds.has(line.id)} className="self-center" disabled={!isDraft} onChange={(event) => setSelectedLineIds((current) => toggleMany(current, [line.id], event.target.checked))} type="checkbox" />
+                  <span className="self-center text-sm text-zinc-500">{lineIndex + 1}</span>
+                  <div className="flex min-h-16 items-center justify-center">{line.lineType === "product" ? <ProductLineThumbnail imageUrl={line.imageUrl ?? null} productName={line.description} size="compact" /> : <span aria-hidden="true" className="size-12" />}</div>
+                  <Field label="Позиция"><div className="mb-1 flex min-h-4 flex-wrap items-center gap-2"><span className={lineTypeTone(line.lineType)}>{lineTypeLabel(line.lineType)}</span>{line.sku && <span className="text-[10px] text-zinc-500">SKU {line.sku}</span>}</div><input className={`${inputClass} w-full`} disabled={!isDraft} onChange={(e) => updateLine(draft, setDraft, setDirty, line.id, { description: e.target.value })} required={line.lineType === "custom" || line.lineType === "external"} title={line.description} value={line.description} /></Field>
+                  <div className="col-span-4 grid grid-cols-2 gap-2 sm:grid-cols-5 xl:contents">
+                    <Field label="Кол-во"><NumberInput disabled={!isDraft} onValue={(value) => updateLine(draft, setDraft, setDirty, line.id, { quantity: value ?? 0 })} value={line.quantity} /></Field>
+                    <Field label="Ед."><select className={`${inputClass} w-full`} disabled={!isDraft} onChange={(e) => updateLine(draft, setDraft, setDirty, line.id, { unit: e.target.value as EstimateUnit })} value={line.unit}>{units.map((unit) => <option key={unit.value} value={unit.value}>{unit.label}</option>)}</select></Field>
+                    <Field label={line.pricingMode === "direct" ? "Цена" : line.pricingMode === "markup" ? "Наценка %" : "Маржа %"}><NumberInput disabled={!isDraft} nullable onValue={(value) => updateLine(draft, setDraft, setDirty, line.id, { pricingInputValue: value })} value={line.pricingInputValue} /></Field>
+                    <Field label="Скидка %"><NumberInput disabled={!isDraft} onValue={(value) => updateLine(draft, setDraft, setDirty, line.id, { lineDiscountPercent: value ?? 0 })} value={line.lineDiscountPercent} /></Field>
+                    <div className="min-w-0"><p className="text-xs font-medium text-zinc-500">Итого</p><p className="mt-3 truncate text-sm font-semibold" title={calculated?.lineTotal === null || calculated?.lineTotal === undefined ? "Цена не задана" : money(calculated.lineTotal, draft.currencyCode)}>{calculated?.lineTotal === null || calculated?.lineTotal === undefined ? "Цена не задана" : money(calculated.lineTotal, draft.currencyCode)}</p></div>
                   </div>
-                  <Field label="Кол-во"><NumberInput disabled={!isDraft} onValue={(value) => updateLine(draft, setDraft, setDirty, line.id, { quantity: value ?? 0 })} value={line.quantity} /></Field>
-                  <Field label="Ед."><select className={`${inputClass} w-full`} disabled={!isDraft} onChange={(e) => updateLine(draft, setDraft, setDirty, line.id, { unit: e.target.value as EstimateUnit })} value={line.unit}>{units.map((unit) => <option key={unit.value} value={unit.value}>{unit.label}</option>)}</select></Field>
-                  <Field label={line.pricingMode === "direct" ? "Цена" : line.pricingMode === "markup" ? "Наценка %" : "Маржа %"}><NumberInput disabled={!isDraft} nullable onValue={(value) => updateLine(draft, setDraft, setDirty, line.id, { pricingInputValue: value })} value={line.pricingInputValue} /></Field>
-                  <Field label="Скидка %"><NumberInput disabled={!isDraft} onValue={(value) => updateLine(draft, setDraft, setDirty, line.id, { lineDiscountPercent: value ?? 0 })} value={line.lineDiscountPercent} /></Field>
-                  <div className="min-w-0"><p className="text-xs font-medium text-zinc-500">Итого</p><p className="mt-3 truncate text-sm font-semibold" title={calculated?.lineTotal === null || calculated?.lineTotal === undefined ? "Цена не задана" : money(calculated.lineTotal, draft.currencyCode)}>{calculated?.lineTotal === null || calculated?.lineTotal === undefined ? "Цена не задана" : money(calculated.lineTotal, draft.currencyCode)}</p></div>
-                  <div className="flex min-h-11 items-center justify-end xl:mt-4"><ReorderButtons disabled={!isDraft} down={sectionLineIndex === sectionLines.length - 1} onDown={() => update((d) => ({ ...d, lines: moveLineWithinSection(d.lines, line.id, 1) }))} onUp={() => update((d) => ({ ...d, lines: moveLineWithinSection(d.lines, line.id, -1) }))} up={sectionLineIndex === 0} /><button aria-label="Удалить позицию" className="p-2 text-red-700" disabled={!isDraft || dirty} onClick={() => mutate(() => removeEstimateLineAction(estimate.id, line.id, estimate.revision))} type="button"><Trash2 className="size-4" /></button></div>
+                  <div className="col-span-4 flex min-h-11 items-center justify-end xl:col-span-1 xl:self-center"><ReorderButtons disabled={!isDraft} down={sectionLineIndex === sectionLines.length - 1} onDown={() => update((d) => ({ ...d, lines: moveLineWithinSection(d.lines, line.id, 1) }))} onUp={() => update((d) => ({ ...d, lines: moveLineWithinSection(d.lines, line.id, -1) }))} up={sectionLineIndex === 0} /><button aria-label="Удалить позицию" className="p-2 text-red-700" disabled={!isDraft || dirty} onClick={() => mutate(() => removeEstimateLineAction(estimate.id, line.id, estimate.revision))} type="button"><Trash2 className="size-4" /></button></div>
                 </div>
               </div>;
             }) : <p className="p-5 text-sm text-zinc-500">{normalizedLineSearch ? "В разделе нет позиций по этому запросу." : "В разделе пока нет позиций."}</p>}<div className="flex flex-wrap items-center justify-between gap-3 border-t border-zinc-200 px-3 py-2"><span className="text-xs text-zinc-500">Подытог раздела: <strong className="text-zinc-800">{money(sectionTotal?.total ?? 0, draft.currencyCode)}</strong></span>{isDraft ? <button className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-emerald-700 outline-none focus-visible:ring-2 focus-visible:ring-emerald-500" disabled={dirty} onClick={() => openPickerForSection(section.id)} type="button"><Plus className="size-4" />Добавить позицию в раздел</button> : null}</div></div>}

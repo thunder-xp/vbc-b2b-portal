@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, Copy, Download, FileClock, FilePlus2, Send, ShoppingCart, XCircle } from "lucide-react";
+import { CheckCircle2, Copy, Download, Send, ShoppingCart, XCircle } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
@@ -9,107 +9,60 @@ import { recordBehaviorInteraction } from "../../behavior-analytics/components";
 import { ConfirmationDialog } from "../../platform-ui";
 import {
   addEstimateEquipmentToCartAction,
-  createDraftFromEstimateVersionAction,
-  createEstimateVersionAction,
   duplicateEstimateAction,
   markEstimateReadyAction,
   saveEstimateAsTemplateAction,
   transitionEstimateVersionAction,
 } from "../actions/lifecycle.actions";
 import { generateEstimateVersionPdfAction } from "../actions/proposal.actions";
-import type { EstimateWorkflowDto } from "../types";
+import type { EstimateRejectionReason, EstimateWorkflowDto } from "../types";
 import { SendProposalDialog } from "./SendProposalDialog";
 import { EstimateStatusBadge } from "./EstimateStatusBadge";
 
 export function EstimateWorkflowPanel({ initialWorkflow, revision }: { initialWorkflow: EstimateWorkflowDto; revision: number }) {
   const router = useRouter();
-  const [workflow, setWorkflow] = useState(initialWorkflow);
   const [message, setMessage] = useState<string | null>(null);
-  const [note, setNote] = useState("");
-  const [rejectionReason, setRejectionReason] = useState<import("../types").EstimateRejectionReason | "">("");
-  const [conversionVersionId, setConversionVersionId] = useState<string | null | undefined>(undefined);
+  const [rejectionReason, setRejectionReason] = useState<EstimateRejectionReason | "">("");
+  const [conversionOpen, setConversionOpen] = useState(false);
   const [pending, startTransition] = useTransition();
+  const proposal = initialWorkflow.versions.find((item) => item.id === initialWorkflow.acceptedVersionId) ?? initialWorkflow.versions[0] ?? null;
   const run = (operation: () => Promise<{ success: boolean; message: string }>, after?: () => void) => startTransition(async () => {
     const result = await operation();
     setMessage(result.message);
     if (result.success) { after?.(); router.refresh(); }
   });
-  const addToCart = (versionId: string | null) => startTransition(async () => {
-    const result = await addEstimateEquipmentToCartAction(workflow.estimateId, versionId, crypto.randomUUID());
+  const duplicate = () => startTransition(async () => {
+    const result = await duplicateEstimateAction(initialWorkflow.estimateId);
+    setMessage(result.message);
+    if (result.success) router.push(`/cabinet/estimates/${result.data.estimateId}`);
+  });
+  const addToCart = () => startTransition(async () => {
+    const result = await addEstimateEquipmentToCartAction(initialWorkflow.estimateId, proposal?.id ?? null, crypto.randomUUID());
     if (!result.success) return setMessage(result.message);
     setMessage(`${result.message} Добавлено: ${result.data.added}, обновлено: ${result.data.updated}, цена изменилась: ${result.data.changedPrice}, недоступно: ${result.data.unavailable + result.data.inactive}, без цены: ${result.data.missingPrice}, пропущено: ${result.data.skipped}.`);
-  });
-  const duplicate = () => startTransition(async () => {
-    const result = await duplicateEstimateAction(workflow.estimateId);
-    setMessage(result.message);
-    if (result.success) router.push(`/cabinet/estimates/${result.data.estimateId}`);
-  });
-  const restoreVersion = (versionId: string) => startTransition(async () => {
-    const result = await createDraftFromEstimateVersionAction(versionId);
-    setMessage(result.message);
-    if (result.success) router.push(`/cabinet/estimates/${result.data.estimateId}`);
   });
 
   return <section className="space-y-4 border-y border-zinc-200 bg-white px-4 py-5 sm:px-5">
     <header className="flex flex-wrap items-start justify-between gap-3">
-      <div><div className="flex flex-wrap items-center gap-2"><p className="text-xs font-semibold uppercase text-emerald-700">Коммерческое предложение</p><EstimateStatusBadge status={workflow.lifecycleStatus} /></div><h2 className="mt-1 text-lg font-semibold">Версии предложения</h2><p className="mt-1 text-sm text-zinc-500">Каждая версия фиксирует цены, состав и условия. Отправленные и принятые версии неизменяемы; для правок создайте новую версию.</p>{workflow.lifecycleStatus === "sent" && workflow.lifecycleExpiresAt ? <p className="mt-1 text-xs text-zinc-500">Действительно до {formatDate(workflow.lifecycleExpiresAt)}</p> : null}</div>
+      <div><div className="flex flex-wrap items-center gap-2"><p className="text-xs font-semibold uppercase text-emerald-700">Коммерческое предложение</p><EstimateStatusBadge status={initialWorkflow.lifecycleStatus} /></div><h2 className="mt-1 text-lg font-semibold">Отправка и статус</h2>{initialWorkflow.lifecycleStatus === "sent" && initialWorkflow.lifecycleExpiresAt ? <p className="mt-1 text-xs text-zinc-500">Действительно до {formatDate(initialWorkflow.lifecycleExpiresAt)}</p> : null}</div>
       <div className="flex flex-wrap gap-2">
-        {workflow.estimateStatus === "draft" && <button className={secondary} disabled={pending || !workflow.readiness.ready} onClick={() => run(() => markEstimateReadyAction(workflow.estimateId, revision))} type="button"><CheckCircle2 className="size-4" />Отметить как готово</button>}
+        {initialWorkflow.estimateStatus === "draft" && <button className={secondary} disabled={pending || !initialWorkflow.readiness.ready} onClick={() => run(() => markEstimateReadyAction(initialWorkflow.estimateId, revision))} type="button"><CheckCircle2 className="size-4" />Отметить как готово</button>}
         <button className={secondary} disabled={pending} onClick={duplicate} type="button"><Copy className="size-4" />Дублировать</button>
-        <button className={secondary} disabled={pending} onClick={() => setConversionVersionId(null)} type="button"><ShoppingCart className="size-4" />Проверить для заказа</button>
+        <TemplateButton estimateId={initialWorkflow.estimateId} pending={pending} setMessage={setMessage} startTransition={startTransition} />
       </div>
     </header>
 
-    {!workflow.readiness.ready && <div className="bg-amber-50 px-3 py-3 text-sm text-amber-950"><p className="font-semibold">Перед созданием версии:</p><ul className="mt-1 grid gap-1 sm:grid-cols-2">{workflow.readiness.checks.filter((check) => !check.passed).map((check) => <li key={check.label}>• {check.label}</li>)}</ul></div>}
     {message && <p aria-live="polite" className="border-l-4 border-emerald-600 bg-emerald-50 px-3 py-2 text-sm">{message}</p>}
-
-    <div className="grid gap-2 sm:grid-cols-[minmax(12rem,1fr)_auto_auto]">
-      <input aria-label="Комментарий к версии" className={input} maxLength={1000} onChange={(event) => setNote(event.target.value)} placeholder="Комментарий к версии (необязательно)" value={note} />
-      <button className={primary} disabled={pending || !workflow.readiness.ready} onClick={() => startTransition(async () => {
-        const result = await createEstimateVersionAction(workflow.estimateId, revision, note);
-        setMessage(result.message);
-        if (result.success) {
-          recordBehaviorInteraction({ eventName: workflow.versions.length ? "proposal_version_created" : "proposal_created", route: "/cabinet/estimates/detail", sourceSurface: "proposal_workflow" });
-          setWorkflow((current) => ({ ...current, versions: [{
-            id: result.data.id, versionNumber: result.data.versionNumber, label: `${result.data.estimateNumber} / версия ${result.data.versionNumber}`,
-            status: result.data.status, statusLabel: "Подготовлено", total: new Intl.NumberFormat("ru-RU", { style: "currency", currency: result.data.currencyCode }).format(result.data.totalAmount),
-            currencyCode: result.data.currencyCode, note: result.data.note, createdAt: result.data.createdAt, createdByName: result.data.createdByName ?? "Пользователь компании", sentAt: null, acceptedAt: null, rejectedAt: null, pdfDocumentId: null, pdfStatus: null, deliveries: [],
-          }, ...current.versions] }));
-          setNote("");
-        }
-      })} type="button"><FilePlus2 className="size-4" />Подготовить коммерческое предложение</button>
-      <TemplateButton estimateId={workflow.estimateId} pending={pending} setMessage={setMessage} startTransition={startTransition} />
-    </div>
-
-    <div className="divide-y divide-zinc-200 border-t border-zinc-200">
-      {workflow.versions.length ? workflow.versions.map((version) => <article className="grid gap-3 py-4 lg:grid-cols-[minmax(13rem,1fr)_9rem_minmax(18rem,auto)] lg:items-center" key={version.id}>
-        <div><div className="flex flex-wrap items-center gap-2"><Link className="font-semibold text-zinc-950 hover:text-emerald-700" href={`/cabinet/estimates/${workflow.estimateId}/versions/${version.id}/preview`}>{version.label}</Link><VersionBadge status={version.status} /><span className="text-xs text-zinc-500">Зафиксированная версия</span></div><p className="mt-1 text-xs text-zinc-500">{formatDate(version.createdAt)} · {version.createdByName}{version.note ? ` · ${version.note}` : ""}</p></div>
-        <div><p className="font-semibold">{version.total}</p><p className="text-xs text-zinc-500">PDF: {version.pdfStatus ? pdfLabel(version.pdfStatus) : "не сформирован"}</p>{version.sentAt ? <p className="mt-1 text-xs text-zinc-500">Отправлено {formatDate(version.sentAt)}</p> : null}</div>
-        <div className="flex flex-wrap justify-start gap-2 lg:justify-end">
-          <Link className={iconButton} href={`/cabinet/estimates/${workflow.estimateId}/versions/${version.id}/preview`}><FileClock className="size-4" />Предпросмотр</Link>
-          {version.pdfStatus !== "ready" && <button className={iconButton} disabled={pending} onClick={() => run(() => generateEstimateVersionPdfAction(version.id), () => recordBehaviorInteraction({ eventName: "proposal_pdf_generated", route: "/cabinet/estimates/detail", sourceSurface: "proposal_workflow" }))} type="button"><Download className="size-4" />Сформировать PDF</button>}
-          {version.pdfDocumentId && version.pdfStatus === "ready" && <Link className={iconButton} href={`/api/estimates/documents/${version.pdfDocumentId}`}><Download className="size-4" />Скачать PDF</Link>}
-          <SendProposalDialog canSend={workflow.emailDeliveryAvailable && (version.status === "prepared" || version.status === "sent") && version.pdfStatus === "ready"} defaults={version.deliveryDefaults} deliveries={version.deliveries} emailAvailable={workflow.emailDeliveryAvailable} pdfReady={version.pdfStatus === "ready"} versionId={version.id} versionLabel={version.label} />
-          {version.status === "prepared" && version.pdfStatus === "ready" && workflow.lifecycleStatus === "draft" ? <button className={secondary} disabled={pending} onClick={() => run(() => transitionEstimateVersionAction(version.id, "sent", "other"))} type="button"><Send className="size-4" />Отправлено заказчику</button> : null}
-          {version.status === "sent" && workflow.lifecycleStatus === "sent" ? <><button className={primary} disabled={pending} onClick={() => run(() => transitionEstimateVersionAction(version.id, "accepted"))} type="button"><CheckCircle2 className="size-4" />Принято заказчиком</button><label className="sr-only" htmlFor={`rejection-${version.id}`}>Причина отклонения</label><select className={`${input} w-auto min-w-44`} id={`rejection-${version.id}`} onChange={(event) => setRejectionReason(event.target.value as typeof rejectionReason)} value={rejectionReason}><option value="">Причина отклонения</option><option value="price">Цена</option><option value="no_budget">Нет бюджета</option><option value="other_supplier">Выбран другой поставщик</option><option value="project_changed">Изменился проект</option><option value="postponed">Отложено</option><option value="other">Другое</option></select><button className={secondary} disabled={pending || !rejectionReason} onClick={() => run(() => transitionEstimateVersionAction(version.id, "rejected", null, "", rejectionReason || undefined))} type="button"><XCircle className="size-4" />Отклонено</button></> : null}
-          {(version.status === "rejected" || version.status === "accepted" || (version.status === "sent" && workflow.lifecycleStatus === "expired")) && <button className={secondary} disabled={pending} onClick={() => restoreVersion(version.id)} type="button"><FilePlus2 className="size-4" />Создать новую версию</button>}
-          {version.status === "accepted" && <button className={primary} disabled={pending} onClick={() => setConversionVersionId(version.id)} type="button"><ShoppingCart className="size-4" />Создать заказ</button>}
-        </div>
-      </article>) : <p className="py-8 text-center text-sm text-zinc-500">Версий пока нет. Сохраните смету и создайте первую коммерческую версию.</p>}
-    </div>
-    <ConfirmationDialog
-      confirmLabel="Добавить оборудование в корзину"
-      consequence="В корзину попадут только позиции оборудования. Услуги и ручные позиции останутся в смете."
-      open={conversionVersionId !== undefined}
-      onCancel={() => setConversionVersionId(undefined)}
-      onConfirm={() => {
-        const versionId = conversionVersionId ?? null;
-        setConversionVersionId(undefined);
-        addToCart(versionId);
-      }}
-      pending={pending}
-      title="Создание заказа"
-    ><div className="space-y-3 text-sm text-zinc-700"><p className="font-medium text-zinc-950">{conversionVersionId ? workflow.versions.find((version) => version.id === conversionVersionId)?.label ?? "Принятая версия" : "Текущая смета"}</p><p>Перед добавлением сервер проверит актуальные цены и доступность. Изменения будут показаны в результате, заказ в 1С на этом шаге не создаётся.</p></div></ConfirmationDialog>
+    {!proposal ? <p className="py-3 text-sm text-zinc-500">Сохраните расчёт и подготовьте коммерческое предложение в блоке итогов.</p> : <div className="flex flex-wrap items-center gap-2 border-t border-zinc-200 pt-4">
+      <Link className={secondary} href={`/cabinet/estimates/${initialWorkflow.estimateId}/versions/${proposal.id}/preview`} prefetch={false}>Предпросмотр</Link>
+      {proposal.pdfStatus !== "ready" ? <button className={secondary} disabled={pending} onClick={() => run(() => generateEstimateVersionPdfAction(proposal.id), () => recordBehaviorInteraction({ eventName: "proposal_pdf_generated", route: "/cabinet/estimates/detail", sourceSurface: "proposal_workflow" }))} type="button"><Download className="size-4" />Сформировать PDF</button> : null}
+      {proposal.pdfDocumentId && proposal.pdfStatus === "ready" ? <Link className={secondary} href={`/api/estimates/documents/${proposal.pdfDocumentId}`}><Download className="size-4" />Скачать PDF</Link> : null}
+      <SendProposalDialog canSend={initialWorkflow.emailDeliveryAvailable && (proposal.status === "prepared" || proposal.status === "sent") && proposal.pdfStatus === "ready"} defaults={proposal.deliveryDefaults} deliveries={proposal.deliveries} emailAvailable={initialWorkflow.emailDeliveryAvailable} pdfReady={proposal.pdfStatus === "ready"} versionId={proposal.id} versionLabel="Коммерческое предложение" />
+      {proposal.status === "prepared" && proposal.pdfStatus === "ready" && initialWorkflow.lifecycleStatus === "draft" ? <button className={secondary} disabled={pending} onClick={() => run(() => transitionEstimateVersionAction(proposal.id, "sent", "other"))} type="button"><Send className="size-4" />Отправлено заказчику</button> : null}
+      {proposal.status === "sent" && initialWorkflow.lifecycleStatus === "sent" ? <><button className={primary} disabled={pending} onClick={() => run(() => transitionEstimateVersionAction(proposal.id, "accepted"))} type="button"><CheckCircle2 className="size-4" />Принято заказчиком</button><label className="sr-only" htmlFor="estimate-rejection-reason">Причина отклонения</label><select className={`${input} w-auto min-w-44`} id="estimate-rejection-reason" onChange={(event) => setRejectionReason(event.target.value as typeof rejectionReason)} value={rejectionReason}><option value="">Причина отклонения</option><option value="price">Цена</option><option value="no_budget">Нет бюджета</option><option value="other_supplier">Выбран другой поставщик</option><option value="project_changed">Изменился проект</option><option value="postponed">Отложено</option><option value="other">Другое</option></select><button className={secondary} disabled={pending || !rejectionReason} onClick={() => run(() => transitionEstimateVersionAction(proposal.id, "rejected", null, "", rejectionReason || undefined))} type="button"><XCircle className="size-4" />Отклонено</button></> : null}
+      {proposal.status === "accepted" ? <button className={primary} disabled={pending} onClick={() => setConversionOpen(true)} type="button"><ShoppingCart className="size-4" />Создать заказ</button> : <button className={secondary} disabled={pending} onClick={() => setConversionOpen(true)} type="button"><ShoppingCart className="size-4" />Проверить для заказа</button>}
+    </div>}
+    <ConfirmationDialog confirmLabel="Добавить оборудование в корзину" consequence="В корзину попадут только позиции оборудования. Услуги и ручные позиции останутся в смете." open={conversionOpen} onCancel={() => setConversionOpen(false)} onConfirm={() => { setConversionOpen(false); addToCart(); }} pending={pending} title="Создание заказа"><p className="text-sm text-zinc-700">Перед добавлением сервер проверит актуальные цены и доступность. Заказ в 1С на этом шаге не создаётся.</p></ConfirmationDialog>
   </section>;
 }
 
@@ -118,10 +71,7 @@ function TemplateButton({ estimateId, pending, setMessage, startTransition }: { 
   return <details className="relative"><summary className={`${secondary} cursor-pointer list-none`}>Сохранить как шаблон</summary><div className="absolute right-0 z-10 mt-2 w-72 border border-zinc-200 bg-white p-3 shadow-lg"><label className="text-xs font-medium">Название<input className={`${input} mt-1`} maxLength={120} onChange={(event) => setName(event.target.value)} value={name} /></label><button className={`${primary} mt-3 w-full`} disabled={pending || !name.trim()} onClick={() => startTransition(async () => { const result = await saveEstimateAsTemplateAction(estimateId, name); setMessage(result.message); if (result.success) setName(""); })} type="button">Сохранить</button></div></details>;
 }
 
-function VersionBadge({ status }: { status: EstimateWorkflowDto["versions"][number]["status"] }) { const label = ({ prepared: "Подготовлено", sent: "Отправлено", accepted: "Принято", rejected: "Отклонено", archived: "Архивировано" } as const)[status]; const tone = status === "accepted" ? "bg-emerald-100 text-emerald-800" : status === "rejected" ? "bg-red-100 text-red-800" : status === "sent" ? "bg-blue-100 text-blue-800" : "bg-zinc-100 text-zinc-700"; return <span className={`px-2 py-1 text-xs font-semibold ${tone}`}>{label}</span>; }
 function formatDate(value: string) { return new Intl.DateTimeFormat("ru-RU", { dateStyle: "short", timeStyle: "short" }).format(new Date(value)); }
-function pdfLabel(status: NonNullable<EstimateWorkflowDto["versions"][number]["pdfStatus"]>) { return ({ queued: "в очереди", generating: "формируется", ready: "готов", failed: "ошибка" } as const)[status]; }
 const input = "min-h-11 w-full border border-zinc-300 bg-white px-3 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100";
 const primary = "inline-flex min-h-11 items-center justify-center gap-2 bg-emerald-700 px-4 text-sm font-semibold text-white disabled:opacity-45";
 const secondary = "inline-flex min-h-11 items-center justify-center gap-2 border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-700 disabled:opacity-45";
-const iconButton = "inline-flex min-h-11 items-center justify-center gap-2 border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-700";

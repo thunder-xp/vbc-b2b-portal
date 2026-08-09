@@ -49,7 +49,7 @@ describe("EstimateCommercialEditor", () => {
   it("renders the compact workspace header and keeps detailed settings collapsed", () => {
     renderEditor();
     expect(screen.getByRole("heading", { name: "CCTV" })).toBeInTheDocument();
-    expect(screen.getByText("Версия 3")).toBeInTheDocument();
+    expect(screen.queryByText(/Версия 3/)).not.toBeInTheDocument();
     expect(screen.getByTitle("Заказчик: Customer")).toBeInTheDocument();
     expect(screen.getByTitle("Проект: Site")).toBeInTheDocument();
     expect(screen.getByText("Параметры сметы").closest("details")).not.toHaveAttribute("open");
@@ -114,12 +114,13 @@ describe("EstimateCommercialEditor", () => {
     const createdSection = { id: "33333333-3333-4333-8333-333333333333", name: "Новый раздел", sortOrder: 1, showSubtotal: true, discountPercent: 0, subtotal: 0, discountAmount: 0, total: 0 };
     vi.mocked(addEstimateSectionAction).mockResolvedValue({ success: true, data: { ...detail, revision: 4, sections: [...detail.sections, createdSection] }, message: "Раздел добавлен.", errorCode: null });
     renderEditor();
-    await user.click(screen.getByRole("button", { name: "Раздел" }));
+    await user.click(screen.getByRole("button", { name: "Добавить раздел" }));
 
     expect(addEstimateSectionAction).toHaveBeenCalledWith("estimate-1", 3, { name: "Новый раздел", requestKey: expect.any(String) });
     const sectionNameInputs = screen.getAllByLabelText("Название раздела");
     expect(sectionNameInputs).toHaveLength(2);
     expect(sectionNameInputs[1]).toHaveValue("Новый раздел");
+    expect(sectionNameInputs[1]).toHaveFocus();
     expect(screen.getByRole("combobox", { name: "Фильтр разделов" })).toHaveTextContent("Новый раздел");
     expect(screen.getAllByText("Новый раздел").length).toBeGreaterThan(1);
     await user.click(screen.getByRole("tab", { name: "Добавить оборудование" }));
@@ -143,7 +144,10 @@ describe("EstimateCommercialEditor", () => {
     expect(screen.queryByRole("combobox", { name: "Режим" })).not.toBeInTheDocument();
     const rows = screen.getAllByTestId("estimate-line-row");
     expect(rows).toHaveLength(3);
-    for (const row of rows) expect(row.firstElementChild).toHaveClass("xl:grid-cols-[1.5rem_1.5rem_minmax(12rem,1fr)_4.75rem_4.75rem_6rem_5rem_7rem_4.5rem]");
+    for (const row of rows) {
+      expect(row.firstElementChild).toHaveAttribute("data-testid", "estimate-line-grid");
+      expect(row.firstElementChild).toHaveClass("xl:grid-cols-[1.25rem_1.5rem_3.5rem_minmax(9rem,1fr)_4.25rem_4.5rem_5.5rem_4.75rem_6rem_5.75rem]");
+    }
   });
 
   it("shows currency conversion confirmation and preserves manual-price choice", async () => {

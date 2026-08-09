@@ -2,21 +2,21 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { archiveEstimateAction } from "../../actions/estimate.actions";
+import { archiveEstimateAction, deleteArchivedEstimateAction } from "../../actions/estimate.actions";
 import { duplicateEstimateAction } from "../../actions/lifecycle.actions";
 import { EstimateListActions } from "../EstimateListActions";
 
 const push = vi.fn();
 const refresh = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push, refresh }) }));
-vi.mock("../../actions/estimate.actions", () => ({ archiveEstimateAction: vi.fn() }));
+vi.mock("../../actions/estimate.actions", () => ({ archiveEstimateAction: vi.fn(), deleteArchivedEstimateAction: vi.fn() }));
 vi.mock("../../actions/lifecycle.actions", () => ({ duplicateEstimateAction: vi.fn() }));
 
 describe("EstimateListActions", () => {
   beforeEach(() => vi.clearAllMocks());
 
   it("links directly to the latest ready PDF", () => {
-    render(<EstimateListActions archived={false} estimateId="estimate-1" latestPdfDocumentId="document-1" latestVersionId="version-1" revision={3} />);
+    render(<EstimateListActions archived={false} estimateId="estimate-1" latestPdfDocumentId="document-1" revision={3} />);
     expect(screen.getByRole("link", { name: "Открыть последний PDF" })).toHaveAttribute("href", "/api/estimates/documents/document-1");
   });
 
@@ -24,7 +24,7 @@ describe("EstimateListActions", () => {
     const user = userEvent.setup();
     vi.mocked(duplicateEstimateAction).mockResolvedValue({ success: true, data: { estimateId: "copy-1" }, message: "Копия создана", errorCode: null });
     vi.mocked(archiveEstimateAction).mockResolvedValue({ success: true, data: null, message: "Архивировано", errorCode: null });
-    render(<EstimateListActions archived={false} estimateId="estimate-1" latestPdfDocumentId={null} latestVersionId="version-1" revision={3} />);
+    render(<EstimateListActions archived={false} estimateId="estimate-1" latestPdfDocumentId={null} revision={3} />);
 
     await user.click(screen.getByRole("button", { name: "Дублировать смету" }));
     expect(duplicateEstimateAction).toHaveBeenCalledWith("estimate-1");
@@ -34,8 +34,20 @@ describe("EstimateListActions", () => {
     expect(refresh).toHaveBeenCalledOnce();
   });
 
-  it("does not expose archive for archived estimates", () => {
-    render(<EstimateListActions archived estimateId="estimate-1" latestPdfDocumentId={null} latestVersionId={null} revision={3} />);
+  it("exposes governed deletion only for archived estimates", async () => {
+    const user = userEvent.setup();
+    vi.mocked(deleteArchivedEstimateAction).mockResolvedValue({ success: true, data: null, message: "Удалено", errorCode: null });
+    render(<EstimateListActions archived estimateId="estimate-1" latestPdfDocumentId={null} revision={3} />);
     expect(screen.queryByRole("button", { name: "Архивировать смету" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Удалить смету" }));
+    expect(screen.getByRole("dialog", { name: "Удалить архивную смету?" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Удалить" }));
+    expect(deleteArchivedEstimateAction).toHaveBeenCalledWith("estimate-1", 3, expect.any(String));
+    expect(refresh).toHaveBeenCalledOnce();
+  });
+
+  it("does not expose deletion for active estimates", () => {
+    render(<EstimateListActions archived={false} estimateId="estimate-1" latestPdfDocumentId={null} revision={3} />);
+    expect(screen.queryByRole("button", { name: "Удалить смету" })).not.toBeInTheDocument();
   });
 });

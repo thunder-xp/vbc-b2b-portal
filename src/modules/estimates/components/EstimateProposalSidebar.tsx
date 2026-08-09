@@ -15,7 +15,7 @@ export function EstimateProposalSidebar({ workflow, revision, disabled = false, 
   const passedChecks = readiness.checks.filter((check) => check.passed).length;
   const checkCount = readiness.checks.length;
   const progress = checkCount ? Math.round((passedChecks / checkCount) * 100) : 100;
-  const latestVersion = workflow.versions[0] ?? null;
+  const latestProposal = workflow.versions[0] ?? null;
 
   return <section aria-labelledby="proposal-readiness-title" className="border-t border-zinc-200 pt-5">
     <div className="flex items-start justify-between gap-3">
@@ -27,14 +27,8 @@ export function EstimateProposalSidebar({ workflow, revision, disabled = false, 
     </div>
     {!readiness.ready ? <ul className="mt-3 space-y-1 text-xs text-amber-900">{readiness.checks.filter((check) => !check.passed).map((check) => <li key={check.label}>• {check.label}</li>)}</ul> : <p className="mt-3 text-xs text-emerald-800">Расчёт готов к подготовке предложения.</p>}
 
-    <div className="mt-4 border-y border-zinc-200 py-3">
-      <p className="text-xs text-zinc-500">Последняя версия</p>
-      <p className="mt-1 text-sm font-semibold text-zinc-900">{latestVersion?.label ?? "Версий пока нет"}</p>
-      {latestVersion ? <p className="mt-1 text-xs text-zinc-500">{latestVersion.statusLabel} · {latestVersion.total}</p> : null}
-    </div>
-
     <div className="mt-4 grid gap-2">
-      <Link className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-700 outline-none hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-emerald-500" href={latestVersion ? `/cabinet/estimates/${workflow.estimateId}/versions/${latestVersion.id}/preview` : `/cabinet/estimates/${workflow.estimateId}/preview`} prefetch={false}><Eye className="size-4" />Предпросмотр КП</Link>
+      <Link className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-700 outline-none hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-emerald-500" href={latestProposal ? `/cabinet/estimates/${workflow.estimateId}/versions/${latestProposal.id}/preview` : `/cabinet/estimates/${workflow.estimateId}/preview`} prefetch={false}><Eye className="size-4" />Предпросмотр КП</Link>
       <button className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-emerald-700 px-3 text-sm font-semibold text-white outline-none hover:bg-emerald-800 focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-45" disabled={disabled || pending || !readiness.ready} onClick={() => startTransition(async () => {
         const result = await createEstimateVersionAction(workflow.estimateId, revision, "");
         setMessage(result.message);
@@ -43,6 +37,5 @@ export function EstimateProposalSidebar({ workflow, revision, disabled = false, 
     </div>
     {disabled ? <p className="mt-2 text-xs text-amber-800">Сохраните изменения перед подготовкой КП.</p> : null}
     {message ? <p aria-live="polite" className="mt-3 text-xs text-zinc-700">{message}</p> : null}
-    <a className="mt-3 inline-flex min-h-11 items-center text-xs font-semibold text-emerald-700" href="#proposal-versions">Версии и отправка</a>
   </section>;
 }

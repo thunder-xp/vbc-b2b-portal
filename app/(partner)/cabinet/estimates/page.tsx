@@ -8,7 +8,7 @@ import { EstimateListActions } from "@/src/modules/estimates/components/Estimate
 import type { EstimateLifecycleStatus, EstimateStatus } from "@/src/modules/estimates/types";
 import { NumberedPagination } from "@/src/modules/platform-ui";
 
-type SearchParams = { search?: string; status?: string; lifecycleStatus?: string; versionStatus?: string; dateFrom?: string; dateTo?: string; page?: string };
+type SearchParams = { search?: string; status?: string; lifecycleStatus?: string; dateFrom?: string; dateTo?: string; page?: string };
 const quickFilters = [
   { label: "Все", href: "/cabinet/estimates" },
   { label: "Черновики", href: "/cabinet/estimates?lifecycleStatus=draft" },
@@ -25,7 +25,6 @@ export default async function EstimatesPage({ searchParams }: { searchParams: Pr
     search: query.search,
     status: query.status as EstimateStatus | undefined,
     lifecycleStatus: query.lifecycleStatus as EstimateLifecycleStatus | undefined,
-    versionStatus: query.versionStatus as "has_sent" | "accepted" | "rejected" | undefined,
     dateFrom: query.dateFrom,
     dateTo: query.dateTo,
     page: Number(query.page),
@@ -43,10 +42,9 @@ export default async function EstimatesPage({ searchParams }: { searchParams: Pr
         {quickFilters.map((filter) => <Link className="min-h-11 shrink-0 rounded-md border border-zinc-300 bg-white px-3 py-2.5 text-sm font-medium text-zinc-700 hover:border-emerald-600 hover:text-emerald-700" href={filter.href} key={filter.href} prefetch={false}>{filter.label}</Link>)}
       </nav>
 
-      <form className="grid gap-3 border-b border-zinc-200 pb-5 md:grid-cols-[minmax(14rem,1fr)_12rem_12rem_10rem_10rem_auto]">
+      <form className="grid gap-3 border-b border-zinc-200 pb-5 md:grid-cols-[minmax(14rem,1fr)_12rem_10rem_10rem_auto]">
         <label className="relative"><Search aria-hidden="true" className="absolute left-3 top-3 size-4 text-zinc-400" /><span className="sr-only">Поиск</span><input className="h-10 w-full rounded-md border border-zinc-300 pl-9 pr-3 text-sm" defaultValue={query.search} name="search" placeholder="Номер, название, заказчик, объект" /></label>
         <label><span className="sr-only">Этап работы</span><select className="h-10 w-full rounded-md border border-zinc-300 bg-white px-3 text-sm" defaultValue={query.lifecycleStatus ?? ""} name="lifecycleStatus"><option value="">Все этапы</option>{Object.entries(estimateStatusLabels).filter(([value]) => value !== "archived" && value !== "ready").map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-        <label><span className="sr-only">Статус версии</span><select className="h-10 w-full rounded-md border border-zinc-300 bg-white px-3 text-sm" defaultValue={query.versionStatus ?? ""} name="versionStatus"><option value="">Все версии</option><option value="has_sent">Есть отправленная версия</option><option value="accepted">Принято</option><option value="rejected">Отклонено</option></select></label>
         <label><span className="sr-only">Дата с</span><input className="h-10 w-full rounded-md border border-zinc-300 px-3 text-sm" defaultValue={query.dateFrom} name="dateFrom" type="date" /></label>
         <label><span className="sr-only">Дата по</span><input className="h-10 w-full rounded-md border border-zinc-300 px-3 text-sm" defaultValue={query.dateTo} name="dateTo" type="date" /></label>
         <button className="h-10 rounded-md border border-zinc-300 bg-white px-4 text-sm font-semibold" type="submit">Применить</button>
@@ -60,12 +58,12 @@ export default async function EstimatesPage({ searchParams }: { searchParams: Pr
             {result.data.records.map((estimate) => <article className="border-y border-zinc-200 bg-white px-4 py-4" key={estimate.id}>
               <div className="flex items-start justify-between gap-3"><div className="min-w-0"><Link className="font-semibold text-zinc-950" href={`/cabinet/estimates/${estimate.id}`} prefetch={false}>{estimate.estimateNumber}</Link><p className="truncate text-sm text-zinc-600">{estimate.name}</p></div><EstimateStatusBadge status={estimate.archived ? "archived" : estimate.status} /></div>
               <p className="mt-3 text-sm text-zinc-600">{estimate.customerProject}</p>
-              <div className="mt-3 flex items-end justify-between gap-3"><div><p className="font-semibold">{estimate.total}</p><p className="text-xs text-zinc-500">{estimate.itemCount} позиций · обновлено {formatDate(estimate.updatedAt)}</p><p className="mt-1 text-xs text-zinc-500">{pdfState(estimate.latestPdfDocumentId, estimate.versionCount)}</p></div><EstimateListActions archived={estimate.archived} estimateId={estimate.id} latestPdfDocumentId={estimate.latestPdfDocumentId} latestVersionId={estimate.latestVersionId} revision={estimate.revision} /></div>
+              <div className="mt-3 flex items-end justify-between gap-3"><div><p className="font-semibold">{estimate.total}</p><p className="text-xs text-zinc-500">{estimate.itemCount} позиций · обновлено {formatDate(estimate.updatedAt)}</p><p className="mt-1 text-xs text-zinc-500">{proposalState(estimate.latestPdfDocumentId, estimate.versionCount > 0)}</p></div><EstimateListActions archived={estimate.archived} estimateId={estimate.id} latestPdfDocumentId={estimate.latestPdfDocumentId} revision={estimate.revision} /></div>
             </article>)}
           </div>
           <div className="hidden overflow-x-auto border-y border-zinc-200 bg-white md:block">
             <table className="w-full min-w-[960px] text-left text-sm">
-              <thead className="bg-zinc-50 text-xs uppercase text-zinc-500"><tr><th className="px-4 py-3">Смета</th><th className="px-4 py-3">Заказчик / объект</th><th className="px-4 py-3">Статус</th><th className="px-4 py-3 text-right">Итого</th><th className="px-4 py-3">Даты</th><th className="px-4 py-3">КП и PDF</th><th className="px-4 py-3">Автор</th><th className="px-4 py-3">Действия</th></tr></thead>
+              <thead className="bg-zinc-50 text-xs uppercase text-zinc-500"><tr><th className="px-4 py-3">Смета</th><th className="px-4 py-3">Заказчик / объект</th><th className="px-4 py-3">Статус</th><th className="px-4 py-3 text-right">Итого</th><th className="px-4 py-3">Даты</th><th className="px-4 py-3">КП</th><th className="px-4 py-3">Автор</th><th className="px-4 py-3">Действия</th></tr></thead>
               <tbody className="divide-y divide-zinc-100">
                 {result.data.records.map((estimate) => (
                   <tr className="hover:bg-zinc-50" key={estimate.id}>
@@ -74,9 +72,9 @@ export default async function EstimatesPage({ searchParams }: { searchParams: Pr
                     <td className="px-4 py-4"><EstimateStatusBadge status={estimate.archived ? "archived" : estimate.status} /></td>
                     <td className="px-4 py-4 text-right font-semibold">{estimate.total}</td>
                     <td className="px-4 py-4 text-zinc-600"><span className="block">Создана {formatDate(estimate.createdAt)}</span><span className="mt-1 block text-xs text-zinc-500">Обновлена {formatDate(estimate.updatedAt)}</span></td>
-                    <td className="px-4 py-4"><span className="font-semibold">{estimate.versionCount} вер.</span>{estimate.latestVersionStatus && <p className="mt-1 text-xs text-zinc-500">Последняя: {versionLabel(estimate.latestVersionStatus)}</p>}<p className="mt-1 text-xs text-zinc-500">{pdfState(estimate.latestPdfDocumentId, estimate.versionCount)}</p>{estimate.hasAcceptedVersion && <p className="mt-1 text-xs font-semibold text-emerald-700">Есть принятая версия</p>}</td>
+                    <td className="px-4 py-4"><p className="text-xs text-zinc-600">{proposalState(estimate.latestPdfDocumentId, estimate.versionCount > 0)}</p>{estimate.hasAcceptedVersion && <p className="mt-1 text-xs font-semibold text-emerald-700">Принято заказчиком</p>}</td>
                     <td className="px-4 py-4 text-zinc-600">{estimate.createdByName}</td>
-                    <td className="px-4 py-4"><EstimateListActions archived={estimate.archived} estimateId={estimate.id} latestPdfDocumentId={estimate.latestPdfDocumentId} latestVersionId={estimate.latestVersionId} revision={estimate.revision} /></td>
+                    <td className="px-4 py-4"><EstimateListActions archived={estimate.archived} estimateId={estimate.id} latestPdfDocumentId={estimate.latestPdfDocumentId} revision={estimate.revision} /></td>
                   </tr>
                 ))}
               </tbody>
@@ -94,7 +92,7 @@ export default async function EstimatesPage({ searchParams }: { searchParams: Pr
 function Pagination({ current, query, total }: { current: number; query: SearchParams; total: number }) {
   const href = (page: number) => {
     const params = new URLSearchParams();
-    for (const key of ["search", "status", "lifecycleStatus", "versionStatus", "dateFrom", "dateTo"] as const) if (query[key]) params.set(key, query[key]!);
+    for (const key of ["search", "status", "lifecycleStatus", "dateFrom", "dateTo"] as const) if (query[key]) params.set(key, query[key]!);
     params.set("page", String(page));
     return `/cabinet/estimates?${params.toString()}`;
   };
@@ -105,5 +103,4 @@ function formatDate(value: string) {
   return new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(value));
 }
 
-function versionLabel(value: import("@/src/modules/estimates/types").EstimateVersionStatus) { return ({ prepared: "Подготовлено", sent: "Отправлено", accepted: "Принято", rejected: "Отклонено", archived: "Архив" } as const)[value]; }
-function pdfState(documentId: string | null, versionCount: number) { return documentId ? "PDF готов" : versionCount ? "PDF не сформирован" : "КП ещё не подготовлено"; }
+function proposalState(documentId: string | null, prepared: boolean) { return documentId ? "PDF готов" : prepared ? "КП подготовлено" : "КП ещё не подготовлено"; }

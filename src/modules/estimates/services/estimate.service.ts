@@ -295,6 +295,7 @@ export interface EstimateService {
   removeLine(userId: string, estimateId: string, itemId: string, expectedRevision: number): Promise<EstimateDetailDto>;
   removeLines(userId: string, estimateId: string, itemIds: string[], expectedRevision: number): Promise<EstimateDetailDto>;
   archive(userId: string, estimateId: string, expectedRevision: number): Promise<void>;
+  deleteArchived(userId: string, estimateId: string, expectedRevision: number, requestKey: string): Promise<void>;
 }
 
 export class DefaultEstimateService implements EstimateService {
@@ -1024,6 +1025,23 @@ export class DefaultEstimateService implements EstimateService {
     const context = await this.companyAccessService.getActiveCompanyContext(userId, membership?.companyId ?? "");
     await this.permissionService.ensurePermission(userId, context.company.id, permission);
     return context.company.id;
+  }
+
+  async deleteArchived(userId: string, estimateId: string, expectedRevision: number, requestKey: string): Promise<void> {
+    const companyId = await this.resolveCompany(userId, MANAGE_PERMISSION);
+    const normalizedEstimateId = normalizeId(estimateId);
+    const estimate = await this.repository.findById(normalizedEstimateId);
+    if (!estimate || estimate.companyId !== companyId) throw new NotFoundError("Estimate was not found.");
+    if (estimate.status !== "archived") throw new InvalidStateError("Удалить можно только архивную смету.");
+    if (estimate.revision !== normalizeRevision(expectedRevision)) throw new InvalidStateError("Смета была изменена. Обновите архив и повторите действие.");
+    try {
+      await this.repository.deleteArchived(normalizedEstimateId, estimate.revision, normalizeUuid(requestKey, "Ключ удаления некорректен."), "Удалено пользователем из архива.");
+    } catch (error) {
+      if (error instanceof EstimateRepositoryError && error.code === "invalid") {
+        throw new InvalidStateError("Смету нельзя удалить: у неё есть защищённая история предложения или заказа.");
+      }
+      handleRepositoryConflict(error);
+    }
   }
 
   async addExternalLine(userId: string, estimateId: string, expectedRevision: number, input: ExternalNomenclatureInput): Promise<EstimateDetailDto> {

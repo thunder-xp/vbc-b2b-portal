@@ -53,6 +53,7 @@ export class SupabaseEstimateRepository implements EstimateRepository {
       .from("estimates")
       .select(`${ESTIMATE_COLUMNS}, estimate_items(count), creator:user_profiles!estimates_created_by_fkey(full_name)`, { count: "exact" })
       .eq("company_id", input.companyId)
+      .is("deleted_at", null)
       .order("updated_at", { ascending: false })
       .range(input.offset, input.offset + input.limit - 1);
 
@@ -110,6 +111,7 @@ export class SupabaseEstimateRepository implements EstimateRepository {
       .from("estimates")
       .select(`${ESTIMATE_COLUMNS}, estimate_sections(${SECTION_COLUMNS}), estimate_items(${ITEM_COLUMNS}), estimate_charges(${CHARGE_COLUMNS})`)
       .eq("id", estimateId)
+      .is("deleted_at", null)
       .maybeSingle();
 
     if (error) throw mapRepositoryError(error.code);
@@ -122,6 +124,7 @@ export class SupabaseEstimateRepository implements EstimateRepository {
       .from("estimates")
       .select(ESTIMATE_COLUMNS)
       .eq("id", estimateId)
+      .is("deleted_at", null)
       .maybeSingle();
 
     if (error) throw mapRepositoryError(error.code);
@@ -426,6 +429,17 @@ export class SupabaseEstimateRepository implements EstimateRepository {
     if (error) throw mapRepositoryError(error.code);
   }
 
+  async deleteArchived(estimateId: string, expectedRevision: number, requestKey: string, reason: string): Promise<void> {
+    const supabase = await createClient();
+    const { error } = await supabase.rpc("delete_archived_estimate", {
+      target_estimate_id: estimateId,
+      expected_revision: expectedRevision,
+      target_request_key: requestKey,
+      target_reason: reason,
+    });
+    if (error) throw mapRepositoryError(error.code);
+  }
+
   async listServices(companyId: string): Promise<PartnerService[]> {
     const supabase = await createClient();
     const { data, error } = await supabase
@@ -464,7 +478,7 @@ function mapRepositoryError(code: string | undefined): EstimateRepositoryError {
   if (code === "40001") return new EstimateRepositoryError("conflict", code);
   if (code === "P0002") return new EstimateRepositoryError("not_found", code);
   if (code === "23505") return new EstimateRepositoryError("duplicate", code);
-  if (code === "22023") return new EstimateRepositoryError("invalid", code);
+  if (code === "22023" || code === "23514") return new EstimateRepositoryError("invalid", code);
   return new EstimateRepositoryError("persistence", code ?? null);
 }
 

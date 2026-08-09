@@ -17,7 +17,7 @@ export function EstimateCreateForm({ currencies }: { currencies: string[] }) {
 
   return (
     <form
-      className="space-y-5"
+      className="grid gap-x-5 gap-y-4 sm:grid-cols-2"
       onChange={() => { requestKey.current = crypto.randomUUID(); }}
       onSubmit={(event) => {
         event.preventDefault();
@@ -39,20 +39,17 @@ export function EstimateCreateForm({ currencies }: { currencies: string[] }) {
         });
       }}
     >
-      <Field label="Название сметы" name="name" placeholder="Видеонаблюдение для склада" required />
-      <FinalCustomerPicker onChange={(customer) => setFinalCustomerId(customer?.id ?? null)} value={finalCustomerId} />
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Проект / объект" name="projectName" placeholder="Необязательно" />
-      </div>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <FormField label="Валюта" required>{(props) =>
-          <select {...props} className="h-11 w-full rounded-md border border-zinc-300 bg-white px-3 outline-none focus:border-emerald-600" disabled={!currencies.length} name="currencyCode" required>
-            {currencies.map((currency) => <option key={currency} value={currency}>{currency}</option>)}
-          </select>}</FormField>
-        <FormField helperText="От 1 до 365 дней." label="Срок действия, дней" required>{(props) => <input {...props} className="h-11 w-full rounded-md border border-zinc-300 px-3 outline-none focus:border-emerald-600" defaultValue={14} max={365} min={1} name="validityDays" required type="number" />}</FormField>
-      </div>
-      {!currencies.length && <p className="text-sm text-amber-800">Нет доступной опубликованной валюты. Обновите коммерческие данные.</p>}
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="sm:col-span-2"><Field label="Название сметы" name="name" placeholder="Видеонаблюдение для склада" required /></div>
+      <div className="min-w-0 sm:col-span-2"><FinalCustomerPicker onChange={(customer) => setFinalCustomerId(customer?.id ?? null)} value={finalCustomerId} /></div>
+      <Field label="Проект / объект" name="projectName" placeholder="Необязательно" />
+      <FormField helperText="От 1 до 365 дней." label="Срок действия, дней" required>{(props) => <input {...props} className="h-11 w-full rounded-md border border-zinc-300 px-3 outline-none focus:border-emerald-600" defaultValue={14} max={365} min={1} name="validityDays" required type="number" />}</FormField>
+      <FormField label="Валюта" required>{(props) =>
+        <select {...props} className="h-11 w-full rounded-md border border-zinc-300 bg-white px-3 outline-none focus:border-emerald-600" disabled={!currencies.length} name="currencyCode" required>
+          {currencies.map((currency) => <option key={currency} value={currency}>{currency}</option>)}
+        </select>}</FormField>
+      <div className="flex min-h-11 flex-col justify-center rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2"><span className="text-sm font-medium text-zinc-800">НДС</span><span className="text-xs text-zinc-500">Настраивается в рабочей смете</span></div>
+      {!currencies.length && <p className="text-sm text-amber-800 sm:col-span-2">Нет доступной опубликованной валюты. Обновите коммерческие данные.</p>}
+      <div className="flex flex-wrap items-center gap-3 border-t border-zinc-200 pt-4 sm:col-span-2">
         <button className={actionClassName.primary} disabled={pending || !currencies.length || !finalCustomerId} type="submit">
           {pending ? "Создание..." : "Создать смету"}
         </button>

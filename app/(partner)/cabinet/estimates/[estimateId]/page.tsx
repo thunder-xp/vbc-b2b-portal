@@ -17,9 +17,9 @@ export default async function EstimateEditorPage({ params }: { params: Promise<{
     return <p className="border-l-4 border-red-500 bg-red-50 px-4 py-3 text-sm text-red-800">{estimate.message}</p>;
   }
   if (!services.success || !commercialOptions.success || !workflow.success) return <p className="border-l-4 border-red-500 bg-red-50 px-4 py-3 text-sm text-red-800">Не удалось загрузить данные редактора.</p>;
-  const workflowKey = `${estimate.data.revision}:${workflow.data.estimateStatus}:${workflow.data.versions.map((version) => `${version.id}:${version.status}:${version.pdfStatus}`).join("|")}`;
+  const workflowKey = `${estimate.data.revision}:${workflow.data.estimateStatus}:${workflow.data.lifecycleStatus}:${workflow.data.versions[0]?.id ?? "none"}:${workflow.data.versions[0]?.status ?? "none"}:${workflow.data.versions[0]?.pdfStatus ?? "none"}`;
   return <div className="space-y-5">
     <EstimateCommercialEditor commercialOptions={commercialOptions.data} initialEstimate={estimate.data} services={services.data} workflow={workflow.data} />
-    <div id="proposal-versions"><EstimateWorkflowPanel initialWorkflow={workflow.data} key={workflowKey} revision={estimate.data.revision} /></div>
+    <EstimateWorkflowPanel initialWorkflow={workflow.data} key={workflowKey} revision={estimate.data.revision} />
   </div>;
 }

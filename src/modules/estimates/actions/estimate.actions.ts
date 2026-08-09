@@ -262,6 +262,17 @@ export async function archiveEstimateAction(estimateId: string, expectedRevision
   }
 }
 
+export async function deleteArchivedEstimateAction(estimateId: string, expectedRevision: number, requestKey: string): Promise<ActionResult<null>> {
+  try {
+    const userId = await getAuthenticatedUserId();
+    await createEstimateService().deleteArchived(userId, estimateId, expectedRevision, requestKey);
+    revalidatePath("/cabinet/estimates");
+    return success("Архивная смета удалена.", null);
+  } catch (error) {
+    return failureFromError(error);
+  }
+}
+
 async function runEstimateMutation(
   mutation: (userId: string) => Promise<EstimateDetailDto>,
   message: string,

@@ -8,8 +8,6 @@ vi.mock("next/navigation", () => ({
 }));
 vi.mock("../../actions/lifecycle.actions", () => ({
   addEstimateEquipmentToCartAction: vi.fn(),
-  createDraftFromEstimateVersionAction: vi.fn(),
-  createEstimateVersionAction: vi.fn(),
   duplicateEstimateAction: vi.fn(),
   markEstimateReadyAction: vi.fn(),
   saveEstimateAsTemplateAction: vi.fn(),
@@ -23,7 +21,7 @@ vi.mock("../../actions/delivery.actions", () => ({
 }));
 
 describe("EstimateWorkflowPanel ergonomics", () => {
-  it("explains immutable versions and renders explicit proposal actions", () => {
+  it("renders proposal actions without exposing snapshot version management", () => {
     render(<EstimateWorkflowPanel initialWorkflow={{
       estimateId: "estimate-1",
       estimateStatus: "draft",
@@ -50,11 +48,11 @@ describe("EstimateWorkflowPanel ergonomics", () => {
       }],
     }} revision={3} />);
 
-    expect(screen.getByText(/Отправленные и принятые версии неизменяемы/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Подготовить коммерческое предложение" })).toBeEnabled();
+    expect(screen.getByRole("heading", { name: "Отправка и статус" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Предпросмотр" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Сформировать PDF" })).toBeInTheDocument();
-    expect(screen.getByText("Зафиксированная версия")).toBeInTheDocument();
+    expect(screen.queryByText(/версия/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Создать новую версию" })).not.toBeInTheDocument();
   });
 
   it("reviews eligible equipment before converting an accepted version", async () => {
@@ -78,7 +76,7 @@ describe("EstimateWorkflowPanel ergonomics", () => {
     await user.click(screen.getByRole("button", { name: "Создать заказ" }));
     expect(screen.getByRole("dialog", { name: "Создание заказа" })).toBeInTheDocument();
     expect(screen.getByText(/только позиции оборудования/)).toBeInTheDocument();
-    expect(screen.getByText(/заказ в 1С на этом шаге не создаётся/)).toBeInTheDocument();
+    expect(screen.getByText(/заказ в 1С на этом шаге не создаётся/i)).toBeInTheDocument();
     await user.keyboard("{Escape}");
     expect(screen.queryByRole("dialog", { name: "Создание заказа" })).not.toBeInTheDocument();
   });

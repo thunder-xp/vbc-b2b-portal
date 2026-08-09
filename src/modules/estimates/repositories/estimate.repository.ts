@@ -240,6 +240,7 @@ export interface EstimateRepository {
   removeLine(estimateId: string, itemId: string, expectedRevision: number): Promise<void>;
   removeLines(estimateId: string, itemIds: string[], expectedRevision: number): Promise<void>;
   archive(estimateId: string, expectedRevision: number): Promise<void>;
+  deleteArchived(estimateId: string, expectedRevision: number, requestKey: string, reason: string): Promise<void>;
   listServices(companyId: string): Promise<PartnerService[]>;
 }
 
