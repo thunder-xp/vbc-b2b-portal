@@ -12,19 +12,10 @@ export function EstimateProposalSidebar({ workflow, revision, disabled = false, 
   const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
-  const passedChecks = readiness.checks.filter((check) => check.passed).length;
-  const checkCount = readiness.checks.length;
-  const progress = checkCount ? Math.round((passedChecks / checkCount) * 100) : 100;
   const latestProposal = workflow.versions[0] ?? null;
 
   return <section aria-labelledby="proposal-readiness-title" className="border-t border-zinc-200 pt-5">
-    <div className="flex items-start justify-between gap-3">
-      <div><p className="text-xs font-semibold uppercase text-emerald-700">КП</p><h2 className="mt-1 font-semibold text-zinc-950" id="proposal-readiness-title">Готовность предложения</h2></div>
-      <span className="text-sm font-semibold text-zinc-700">{progress}%</span>
-    </div>
-    <div aria-label={`Готовность коммерческого предложения: ${progress}%`} className="mt-3 h-1.5 overflow-hidden rounded-full bg-zinc-200" role="progressbar" aria-valuemax={100} aria-valuemin={0} aria-valuenow={progress}>
-      <div className="h-full bg-emerald-600 transition-[width]" style={{ width: `${progress}%` }} />
-    </div>
+    <div><p className="text-xs font-semibold uppercase text-emerald-700">КП</p><h2 className="mt-1 font-semibold text-zinc-950" id="proposal-readiness-title">Готовность предложения</h2></div>
     {!readiness.ready ? <ul className="mt-3 space-y-1 text-xs text-amber-900">{readiness.checks.filter((check) => !check.passed).map((check) => <li key={check.label}>• {check.label}</li>)}</ul> : <p className="mt-3 text-xs text-emerald-800">Расчёт готов к подготовке предложения.</p>}
 
     <div className="mt-4 grid gap-2">

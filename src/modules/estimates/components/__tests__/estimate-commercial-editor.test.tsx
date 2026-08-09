@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { addEstimateSectionAction, checkEstimateCommercialStateAction, removeEstimateLinesAction, saveEstimateCommercialAction } from "../../actions/estimate.actions";
+import { checkEstimateCommercialStateAction, removeEstimateLineAction, saveEstimateCommercialAction } from "../../actions/estimate.actions";
 import type { EstimateDetailDto } from "../../services";
 import type { EstimateWorkflowDto } from "../../types";
 import { EstimateCommercialEditor } from "../EstimateCommercialEditor";
@@ -28,7 +28,12 @@ const detail: EstimateDetailDto = {
   updatedAt: "2026-07-16T10:00:00Z", total: "$100.00",
   totals: { subtotal: 100, lineDiscountTotal: 0, sectionDiscountTotal: 0, globalDiscountAmount: 0, chargesTotal: 0, vatAmount: 0, totalExcludingVat: 100, finalTotal: 100, grossProfit: 20, overallMarginPercent: 20 },
   hasIncompletePricing: false, itemCount: 1,
-  sections: [{ id: "11111111-1111-1111-1111-111111111111", name: "Оборудование", sortOrder: 0, showSubtotal: true, discountPercent: 0, subtotal: 100, discountAmount: 0, total: 100 }],
+  sections: [
+    { id: "11111111-1111-1111-1111-111111111111", name: "Оборудование", systemKey: "equipment", sortOrder: 0, showSubtotal: true, discountPercent: 0, subtotal: 100, discountAmount: 0, total: 100 },
+    { id: "11111111-1111-1111-1111-111111111112", name: "Монтажные материалы", systemKey: "installation_materials", sortOrder: 1, showSubtotal: true, discountPercent: 0, subtotal: 0, discountAmount: 0, total: 0 },
+    { id: "11111111-1111-1111-1111-111111111113", name: "Монтажные работы", systemKey: "installation_works", sortOrder: 2, showSubtotal: true, discountPercent: 0, subtotal: 0, discountAmount: 0, total: 0 },
+    { id: "11111111-1111-1111-1111-111111111114", name: "Пусконаладочные работы", systemKey: "commissioning_works", sortOrder: 3, showSubtotal: true, discountPercent: 0, subtotal: 0, discountAmount: 0, total: 0 },
+  ],
   lines: [{
     id: "22222222-2222-2222-2222-222222222222", sectionId: "11111111-1111-1111-1111-111111111111", lineType: "product", productId: "product-1", position: 1, sku: "400691", description: "Camera", quantity: 1,
     unit: "pcs", unitLabel: "шт.", sourcePrice: "$80.00", sourceCurrencyCode: "USD", sourceSnapshotAt: "2026-07-16T09:00:00Z",
@@ -57,17 +62,18 @@ describe("EstimateCommercialEditor", () => {
     expect(screen.getByRole("button", { name: "Сохранить и выйти" })).toBeInTheDocument();
   });
 
-  it("places addition and filtering controls before the section workspace", async () => {
+  it("opens a contextual picker from its governed section", async () => {
     const user = userEvent.setup();
     renderEditor();
-    const addEquipment = screen.getByRole("tab", { name: "Добавить оборудование" });
-    const workspaceHeading = screen.getByRole("heading", { name: "Разделы и позиции" });
-    expect(addEquipment.compareDocumentPosition(workspaceHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const addEquipment = screen.getByRole("button", { name: "Добавить оборудование" });
     expect(screen.queryByLabelText("SKU, модель или название")).not.toBeInTheDocument();
     await user.click(addEquipment);
     expect(screen.getByLabelText("SKU, модель или название")).toBeInTheDocument();
+    expect(screen.getByText("Добавление: Оборудование")).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Каталог Novotech" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByPlaceholderText("Поиск по позициям")).toBeInTheDocument();
-    expect(screen.getByRole("combobox", { name: "Фильтр разделов" })).toHaveValue("all");
+    expect(screen.queryByRole("combobox", { name: "Фильтр разделов" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("combobox", { name: "Раздел назначения" })).not.toBeInTheDocument();
   });
 
   it("keeps totals, readiness, preview, and proposal preparation together", () => {
@@ -75,7 +81,7 @@ describe("EstimateCommercialEditor", () => {
     const summary = screen.getByRole("heading", { name: "Коммерческий расчёт" });
     const readiness = screen.getByRole("heading", { name: "Готовность предложения" });
     expect(summary.compareDocumentPosition(readiness) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(screen.getByRole("progressbar", { name: "Готовность коммерческого предложения: 100%" })).toBeInTheDocument();
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Предпросмотр КП" })).toHaveAttribute("href", "/cabinet/estimates/estimate-1/preview");
     expect(screen.getByRole("button", { name: "Подготовить КП" })).toBeEnabled();
   });
@@ -109,28 +115,15 @@ describe("EstimateCommercialEditor", () => {
     }));
   });
 
-  it("creates a section immediately and synchronizes workspace, picker, and summary", async () => {
-    const user = userEvent.setup();
-    const createdSection = { id: "33333333-3333-4333-8333-333333333333", name: "Новый раздел", sortOrder: 1, showSubtotal: true, discountPercent: 0, subtotal: 0, discountAmount: 0, total: 0 };
-    vi.mocked(addEstimateSectionAction).mockResolvedValue({ success: true, data: { ...detail, revision: 4, sections: [...detail.sections, createdSection] }, message: "Раздел добавлен.", errorCode: null });
+  it("renders exactly the four governed sections without structural controls", () => {
     renderEditor();
-    await user.click(screen.getByRole("button", { name: "Добавить раздел" }));
-
-    expect(addEstimateSectionAction).toHaveBeenCalledWith("estimate-1", 3, { name: "Новый раздел", requestKey: expect.any(String) });
-    const sectionNameInputs = screen.getAllByLabelText("Название раздела");
-    expect(sectionNameInputs).toHaveLength(2);
-    expect(sectionNameInputs[1]).toHaveValue("Новый раздел");
-    expect(sectionNameInputs[1]).toHaveFocus();
-    expect(screen.getByRole("combobox", { name: "Фильтр разделов" })).toHaveTextContent("Новый раздел");
-    expect(screen.getAllByText("Новый раздел").length).toBeGreaterThan(1);
-    await user.click(screen.getByRole("tab", { name: "Добавить оборудование" }));
-    expect(screen.getByRole("combobox", { name: "Раздел назначения" })).toHaveValue(createdSection.id);
-    await user.clear(sectionNameInputs[1]);
-    await user.type(screen.getAllByLabelText("Название раздела")[1], "Монтаж");
-    await user.click(screen.getAllByRole("button", { name: "Переместить вверх" }).at(-1)!);
-    expect(screen.getAllByLabelText("Название раздела")[0]).toHaveValue("Монтаж");
-    await user.click(screen.getAllByRole("button", { name: "Свернуть раздел" })[0]);
-    expect(saveEstimateCommercialAction).not.toHaveBeenCalled();
+    for (const name of ["Оборудование", "Монтажные материалы", "Монтажные работы", "Пусконаладочные работы"]) {
+      expect(screen.getByRole("heading", { name, level: 3 })).toBeInTheDocument();
+    }
+    expect(screen.queryByRole("button", { name: "Добавить раздел" })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Название раздела")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Переместить вверх" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: /Выбрать все позиции раздела/ })).not.toBeInTheDocument();
   });
 
   it("uses one aligned row layout and removes commercial-detail expansion blocks", () => {
@@ -146,8 +139,9 @@ describe("EstimateCommercialEditor", () => {
     expect(rows).toHaveLength(3);
     for (const row of rows) {
       expect(row.firstElementChild).toHaveAttribute("data-testid", "estimate-line-grid");
-      expect(row.firstElementChild).toHaveClass("xl:grid-cols-[1.25rem_1.5rem_3.5rem_minmax(9rem,1fr)_4.25rem_4.5rem_5.5rem_4.75rem_6rem_5.75rem]");
+      expect(row.firstElementChild).toHaveClass("xl:grid-cols-[1.75rem_3rem_minmax(9rem,1fr)_4.25rem_4.5rem_5.25rem_4.75rem_5.5rem_2.75rem]");
     }
+    expect(screen.getByTestId("estimate-line-header")).toHaveTextContent("№ФотоПозицияКол-воЕд.ЦенаСкидкаИтого");
   });
 
   it("shows currency conversion confirmation and preserves manual-price choice", async () => {
@@ -160,34 +154,22 @@ describe("EstimateCommercialEditor", () => {
     expect(screen.getByRole("combobox", { name: "Валюта" })).toHaveValue("MDL");
   });
 
-  it("previews a bulk markup and persists it in the existing atomic save", async () => {
-    const user = userEvent.setup();
-    vi.mocked(saveEstimateCommercialAction).mockResolvedValue({ success: true, data: { ...detail, revision: 4 }, message: "Saved", errorCode: null });
+  it("does not expose bulk selection or row movement controls", () => {
     renderEditor();
-
-    await user.click(screen.getByRole("checkbox", { name: "Выбрать позицию 1" }));
-    await user.clear(screen.getByRole("spinbutton", { name: "Наценка для выбранных" }));
-    await user.type(screen.getByRole("spinbutton", { name: "Наценка для выбранных" }), "30");
-    await user.click(screen.getByRole("button", { name: "Применить наценку" }));
-
-    expect(saveEstimateCommercialAction).not.toHaveBeenCalled();
-    expect(screen.getByText("Наценка применена: 1.")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Сохранить" }));
-    expect(saveEstimateCommercialAction).toHaveBeenCalledWith("estimate-1", expect.objectContaining({
-      lines: [expect.objectContaining({ pricingInputValue: 30, pricingMode: "markup" })],
-    }));
+    expect(screen.queryByRole("checkbox", { name: "Выбрать позицию 1" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Применить наценку" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Переместить вверх" })).not.toBeInTheDocument();
   });
 
-  it("removes selected lines through one batch action", async () => {
+  it("removes one row through the existing governed action", async () => {
     const user = userEvent.setup();
-    vi.mocked(removeEstimateLinesAction).mockResolvedValue({ success: true, data: { ...detail, lines: [], revision: 4 }, message: "Removed", errorCode: null });
+    vi.mocked(removeEstimateLineAction).mockResolvedValue({ success: true, data: { ...detail, lines: [], revision: 4 }, message: "Removed", errorCode: null });
     renderEditor();
 
-    await user.click(screen.getByRole("checkbox", { name: "Выбрать позицию 1" }));
-    await user.click(screen.getByRole("button", { name: "Удалить" }));
+    await user.click(screen.getByRole("button", { name: "Удалить позицию" }));
 
-    expect(removeEstimateLinesAction).toHaveBeenCalledTimes(1);
-    expect(removeEstimateLinesAction).toHaveBeenCalledWith("estimate-1", ["22222222-2222-2222-2222-222222222222"], 3);
+    expect(removeEstimateLineAction).toHaveBeenCalledTimes(1);
+    expect(removeEstimateLineAction).toHaveBeenCalledWith("estimate-1", "22222222-2222-2222-2222-222222222222", 3);
   });
 
   it("exposes and executes the editor save shortcut without a global listener", async () => {

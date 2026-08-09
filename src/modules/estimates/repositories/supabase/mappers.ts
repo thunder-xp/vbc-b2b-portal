@@ -58,6 +58,7 @@ export type EstimateSectionRow = {
   id: string;
   estimate_id: string;
   name: string;
+  system_key: EstimateSection["systemKey"];
   sort_order: number;
   show_subtotal: boolean;
   discount_percent: number | string;
@@ -179,6 +180,7 @@ export function mapEstimateSectionRow(row: EstimateSectionRow): EstimateSection 
     id: row.id,
     estimateId: row.estimate_id,
     name: row.name,
+    systemKey: row.system_key ?? null,
     sortOrder: row.sort_order,
     showSubtotal: row.show_subtotal,
     discountPercent: Number(row.discount_percent),

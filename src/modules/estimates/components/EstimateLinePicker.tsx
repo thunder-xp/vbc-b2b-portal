@@ -18,7 +18,7 @@ const inputClass = "min-h-11 min-w-0 rounded-md border border-zinc-300 bg-white 
 const buttonClass = "inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-700 outline-none hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-45";
 export type EstimateLinePickerMode = "product" | "service" | "external";
 
-export function EstimateLinePicker({ estimate, services, onResult, disabled, mode, onModeChange, targetSectionId, targetSections, onTargetSectionChange, workspaceControls }: {
+export function EstimateLinePicker({ estimate, services, onResult, disabled, mode, onModeChange, targetSectionId, allowedModes, contextLabel }: {
   estimate: EstimateDetailDto;
   services: EstimateServiceDto[];
   onResult: (next: EstimateDetailDto, message: string) => void;
@@ -26,9 +26,8 @@ export function EstimateLinePicker({ estimate, services, onResult, disabled, mod
   mode: EstimateLinePickerMode | null;
   onModeChange: (mode: EstimateLinePickerMode | null) => void;
   targetSectionId: string;
-  targetSections: Array<{ id: string; name: string }>;
-  onTargetSectionChange: (sectionId: string) => void;
-  workspaceControls?: React.ReactNode;
+  allowedModes: ReadonlyArray<EstimateLinePickerMode>;
+  contextLabel: string;
 }) {
   const [products, setProducts] = useState<EstimateProductPickerDto>({ products: [], categories: [], brands: [] });
   const [productSelection, setProductSelection] = useState<Record<string, number>>({});
@@ -87,15 +86,14 @@ export function EstimateLinePicker({ estimate, services, onResult, disabled, mod
   }}>
     <div className="space-y-3 p-3 sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div aria-label="Тип позиции" className="flex flex-wrap gap-2" role="tablist">
-          <ModeButton active={mode === "product"} disabled={disabled} label="Добавить оборудование" onClick={() => onModeChange(mode === "product" ? null : "product")} />
-          <ModeButton active={mode === "service"} disabled={disabled} label="Добавить работы" onClick={() => onModeChange(mode === "service" ? null : "service")} />
-          <ModeButton active={mode === "external"} disabled={disabled} label="Добавить внешнюю позицию" onClick={() => onModeChange(mode === "external" ? null : "external")} />
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-zinc-900">Добавление: {contextLabel}</p>
+          {allowedModes.length > 1 ? <div aria-label="Источник позиции" className="mt-2 flex flex-wrap gap-2" role="tablist">
+            {allowedModes.map((allowedMode) => <ModeButton active={mode === allowedMode} disabled={disabled} key={allowedMode} label={pickerModeLabel(allowedMode)} onClick={() => onModeChange(allowedMode)} />)}
+          </div> : null}
         </div>
         {mode ? <button aria-label="Закрыть добавление позиций" className="inline-flex size-11 items-center justify-center rounded-md text-zinc-500 hover:bg-zinc-100 focus-visible:ring-2 focus-visible:ring-emerald-500" onClick={() => onModeChange(null)} type="button"><X className="size-4" /></button> : null}
       </div>
-      {workspaceControls}
-      {mode ? <label className="flex min-h-11 min-w-0 items-center gap-2 text-xs text-zinc-600"><span className="shrink-0">Раздел назначения</span><select aria-label="Раздел назначения" className={`${inputClass} min-w-0 flex-1`} disabled={disabled || pending} onChange={(event) => onTargetSectionChange(event.target.value)} value={targetSectionId}>{targetSections.map((section) => <option key={section.id} value={section.id}>{section.name}</option>)}</select></label> : null}
       {message && <p aria-live="polite" className="text-sm text-zinc-600">{message}</p>}
     </div>
     {disabled && <p className="mt-3 text-xs text-amber-800">Сохраните или отмените текущие изменения перед добавлением позиций.</p>}
@@ -149,4 +147,10 @@ export function EstimateLinePicker({ estimate, services, onResult, disabled, mod
 
 function ModeButton({ active, disabled, label, onClick }: { active: boolean; disabled: boolean; label: string; onClick: () => void }) {
   return <button aria-selected={active} className={`${buttonClass} ${active ? "border-emerald-600 bg-emerald-50 text-emerald-800" : ""}`} disabled={disabled} onClick={onClick} role="tab" type="button">{active && <Check className="size-4" />}{label}</button>;
+}
+
+function pickerModeLabel(mode: EstimateLinePickerMode): string {
+  if (mode === "product") return "Каталог Novotech";
+  if (mode === "service") return "Работы и услуги";
+  return "Внешняя позиция";
 }

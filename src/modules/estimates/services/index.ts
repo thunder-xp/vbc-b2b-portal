@@ -6,3 +6,4 @@ export * from "./proposal-delivery.service";
 export * from "./proposal-email.provider";
 export * from "./commercial-calculation";
 export * from "./estimate-bulk-operations";
+export * from "./estimate-sections";

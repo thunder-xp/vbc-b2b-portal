@@ -15,6 +15,7 @@ import type { AddEstimateLineInput, EstimateRepository, ExternalNomenclatureReco
 import { EstimateRepositoryError } from "../repositories";
 import { isFinalCustomerIndustryCode, type Estimate, type EstimateAggregate, type EstimateChargeType, type EstimateCurrencyChangePolicy, type EstimateItem, type EstimateLifecycleStatus, type EstimatePricingMode, type EstimateStatus, type EstimateUnit, type EstimateVatMode, type FinalCustomerIndustryCode } from "../types";
 import { calculateCommercialLine, calculateEstimateCommercials, convertMoney, resolveCurrencyRate } from "./commercial-calculation";
+import { CANONICAL_ESTIMATE_SECTION_BY_KEY, canonicalSectionOrder } from "./estimate-sections";
 
 const VIEW_PERMISSION = "estimates.view";
 const MANAGE_PERMISSION = "estimates.manage";
@@ -118,7 +119,7 @@ export type EstimateDetailDto = {
   };
   hasIncompletePricing: boolean;
   itemCount: number;
-  sections: Array<{ id: string; name: string; sortOrder: number; showSubtotal: boolean; discountPercent: number; subtotal: number; discountAmount: number; total: number }>;
+  sections: Array<{ id: string; name: string; systemKey?: import("../types").EstimateSectionSystemKey | null; sortOrder: number; showSubtotal: boolean; discountPercent: number; subtotal: number; discountAmount: number; total: number }>;
   lines: EstimateLineDto[];
   charges: Array<{ id: string; chargeType: EstimateChargeType; description: string; amount: number; vatApplicable: boolean; customerVisible: boolean; sortOrder: number }>;
 };
@@ -878,17 +879,28 @@ export class DefaultEstimateService implements EstimateService {
 
     if (input.sections.length < 1 || input.sections.length > 100) throw new InvalidStateError("Смета должна содержать от 1 до 100 разделов.");
     const existingSectionIds = new Set(aggregate.sections.map((section) => section.id));
+    const existingSectionsById = new Map(aggregate.sections.map((section) => [section.id, section]));
     const sectionIds = new Set<string>();
     const sections = input.sections.map((section, index) => {
       const id = normalizeUuid(section.id, "Раздел сметы некорректен.");
       if (sectionIds.has(id)) throw new InvalidStateError("Разделы сметы не должны повторяться.");
       sectionIds.add(id);
+      const existing = existingSectionsById.get(id);
+      const canonical = existing?.systemKey ? CANONICAL_ESTIMATE_SECTION_BY_KEY.get(existing.systemKey) : null;
+      if (canonical && (
+        section.name.trim() !== canonical.name
+        || index !== canonicalSectionOrder(existing!.systemKey ?? null)
+        || section.showSubtotal !== true
+        || Number(section.discountPercent) !== 0
+      )) {
+        throw new InvalidStateError("Системные разделы сметы нельзя переименовывать, перемещать или изменять.");
+      }
       return {
         id,
-        name: normalizeRequired(section.name, 120, "Название раздела некорректно."),
-        sortOrder: index,
-        showSubtotal: section.showSubtotal,
-        discountPercent: normalizePercentage(section.discountPercent, "Скидка раздела должна быть от 0 до 100%."),
+        name: canonical?.name ?? normalizeRequired(section.name, 120, "Название раздела некорректно."),
+        sortOrder: canonical ? canonicalSectionOrder(existing!.systemKey ?? null) : index,
+        showSubtotal: canonical ? true : section.showSubtotal,
+        discountPercent: canonical ? 0 : normalizePercentage(section.discountPercent, "Скидка раздела должна быть от 0 до 100%."),
       };
     });
     if ([...existingSectionIds].some((id) => !sectionIds.has(id))) throw new InvalidStateError("Удаление разделов пока не поддерживается.");
@@ -1347,6 +1359,7 @@ function toCommercialDetail(aggregate: EstimateAggregate, images = new Map<strin
     sections: sections.map((section) => ({
       id: section.id,
       name: section.name,
+      systemKey: section.systemKey,
       sortOrder: section.sortOrder,
       showSubtotal: section.showSubtotal,
       discountPercent: section.discountPercent,

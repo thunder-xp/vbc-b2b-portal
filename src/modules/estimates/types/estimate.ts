@@ -7,6 +7,7 @@ export type EstimatePricingMode = "direct" | "markup" | "margin";
 export type EstimateVatMode = "included" | "separate" | "excluded" | "none";
 export type EstimateChargeType = "delivery" | "installation" | "commissioning" | "transport" | "other";
 export type EstimateCurrencyChangePolicy = "convert_all" | "preserve_manual";
+export type EstimateSectionSystemKey = "equipment" | "installation_materials" | "installation_works" | "commissioning_works";
 import type { FinalCustomerIndustryCode } from "./final-customer";
 import type { ExternalDemandState } from "./demand";
 
@@ -99,6 +100,7 @@ export interface EstimateSection {
   id: string;
   estimateId: string;
   name: string;
+  systemKey?: EstimateSectionSystemKey | null;
   sortOrder: number;
   showSubtotal: boolean;
   discountPercent: number;

@@ -293,6 +293,32 @@ describe("DefaultEstimateService", () => {
     expect(detail.total).toContain("100");
   });
 
+  it("rejects structural changes to a canonical estimate section", async () => {
+    const sectionId = "11111111-1111-1111-1111-111111111111";
+    const itemId = "22222222-2222-2222-2222-222222222222";
+    const commercialAggregate = aggregate([{ ...item(1), id: itemId, sectionId }]);
+    commercialAggregate.sections = [{ ...commercialAggregate.sections[0], id: sectionId, name: "Оборудование", systemKey: "equipment" }];
+    vi.mocked(repository.findAggregateById).mockResolvedValue(commercialAggregate);
+
+    await expect(service.saveCommercialDraft("user-1", estimate.id, {
+      expectedRevision: 3,
+      name: "Estimate",
+      customerName: null,
+      projectName: null,
+      validityDays: 14,
+      currencyCode: "USD",
+      currencyChangePolicy: "preserve_manual",
+      vatMode: "none",
+      vatRatePercent: 0,
+      globalDiscountPercent: 0,
+      sections: [{ id: sectionId, name: "Переименованный раздел", sortOrder: 0, showSubtotal: true, discountPercent: 0 }],
+      lines: [{ id: itemId, sectionId, position: 1, description: "Line", quantity: 1, unit: "pcs", pricingMode: "direct", pricingInputValue: 10, internalCostUnitPrice: null, lineDiscountPercent: 0 }],
+      charges: [],
+    })).rejects.toThrow("Системные разделы сметы нельзя переименовывать");
+
+    expect(repository.saveCommercialDraft).not.toHaveBeenCalled();
+  });
+
   it("reuses the catalog aggregate commercial projection in product search", async () => {
     vi.mocked(catalog.listProducts).mockResolvedValue({
       products: [{ id: "product-1", sku: "200007", name: "U-POE-af", slug: "u-poe-af", shortDescription: null, imageUrl: null, brand: null, category: null, keyCharacteristics: [], datasheet: null }],

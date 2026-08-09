@@ -18,7 +18,7 @@ describe("estimate workspace architecture", () => {
   });
 
   it("uses a bounded responsive canvas instead of the overflowing fixed line grid", () => {
-    expect(editor).toContain("xl:grid-cols-[1.25rem_1.5rem_3.5rem_minmax(9rem,1fr)_4.25rem_4.5rem_5.5rem_4.75rem_6rem_5.75rem]");
+    expect(editor).toContain("xl:grid-cols-[1.75rem_3rem_minmax(9rem,1fr)_4.25rem_4.5rem_5.25rem_4.75rem_5.5rem_2.75rem]");
     expect(editor).toContain("xl:grid-cols-[minmax(0,1fr)_20rem]");
     expect(editor).not.toContain("lg:grid-cols-12 lg:items-end");
     expect(editor).not.toContain("md:grid-cols-[1.5rem_2.5rem_minmax(12rem,1fr)");
@@ -34,10 +34,11 @@ describe("estimate workspace architecture", () => {
     expect(listPage).not.toContain("versionStatus");
   });
 
-  it("uses one balanced creation grid without changing the post-create VAT rule", () => {
+  it("uses one balanced creation grid and leaves VAT for the workspace", () => {
     expect(createForm).toContain('className="grid gap-x-5 gap-y-4 sm:grid-cols-2"');
     expect(createForm).toContain('className="sm:col-span-2"><Field label="Название сметы"');
-    expect(createForm).toContain("Настраивается в рабочей смете");
+    expect(createForm).not.toContain("Настраивается в рабочей смете");
+    expect(createForm).not.toContain('label="НДС"');
     expect(createForm).not.toMatch(/disabled[^>]*name="vat/i);
   });
 });
