@@ -114,6 +114,14 @@ export type AddEstimateLineBatchInput = {
   lines: AddEstimateLineInput[];
 };
 
+export type AddEstimateSectionInput = {
+  estimateId: string;
+  expectedRevision: number;
+  requestKey: string;
+  requestFingerprint: string;
+  name: string;
+};
+
 export type SaveEstimateCommercialInput = {
   estimateId: string;
   expectedRevision: number;
@@ -218,6 +226,7 @@ export interface EstimateRepository {
     validityDays: number;
   }): Promise<Estimate>;
   saveCommercialDraft(input: SaveEstimateCommercialInput): Promise<Estimate>;
+  addSection(input: AddEstimateSectionInput): Promise<void>;
   addLines(input: AddEstimateLineBatchInput): Promise<void>;
   updateLine(input: {
     estimateId: string;

@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { checkEstimateCommercialStateAction, removeEstimateLinesAction, saveEstimateCommercialAction } from "../../actions/estimate.actions";
+import { addEstimateSectionAction, checkEstimateCommercialStateAction, removeEstimateLinesAction, saveEstimateCommercialAction } from "../../actions/estimate.actions";
 import type { EstimateDetailDto } from "../../services";
 import type { EstimateWorkflowDto } from "../../types";
 import { EstimateCommercialEditor } from "../EstimateCommercialEditor";
@@ -13,6 +13,7 @@ vi.mock("../../actions/estimate.actions", () => ({
   addEstimateProductsAction: vi.fn(),
   addEstimateServiceAction: vi.fn(),
   addEstimateServicesAction: vi.fn(),
+  addEstimateSectionAction: vi.fn(),
   checkEstimateCommercialStateAction: vi.fn(),
   removeEstimateLineAction: vi.fn(),
   removeEstimateLinesAction: vi.fn(),
@@ -88,12 +89,15 @@ describe("EstimateCommercialEditor", () => {
     expect(screen.getByDisplayValue("Installation")).toBeInTheDocument();
   });
 
-  it("updates commercial preview locally and sends one batch only on Save", async () => {
+  it("updates the line draft locally and sends one batch only on Save", async () => {
     const user = userEvent.setup();
     vi.mocked(saveEstimateCommercialAction).mockResolvedValue({ success: true, data: { ...detail, revision: 4 }, message: "Saved", errorCode: null });
     renderEditor();
 
-    await user.selectOptions(screen.getByRole("combobox", { name: "Режим" }), "markup");
+    const quantity = screen.getByRole("spinbutton", { name: "Кол-во" });
+    await user.clear(quantity);
+    await user.type(quantity, "2");
+    await user.tab();
     expect(saveEstimateCommercialAction).not.toHaveBeenCalled();
     expect(screen.getByText("Не сохранено")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Сохранить" }));
@@ -101,16 +105,26 @@ describe("EstimateCommercialEditor", () => {
     expect(saveEstimateCommercialAction).toHaveBeenCalledTimes(1);
     expect(saveEstimateCommercialAction).toHaveBeenCalledWith("estimate-1", expect.objectContaining({
       expectedRevision: 3,
-      lines: [expect.objectContaining({ pricingMode: "markup" })],
+      lines: [expect.objectContaining({ quantity: 2 })],
     }));
   });
 
-  it("creates, renames, collapses, and reorders sections without a request", async () => {
+  it("creates a section immediately and synchronizes workspace, picker, and summary", async () => {
     const user = userEvent.setup();
+    const createdSection = { id: "33333333-3333-4333-8333-333333333333", name: "Новый раздел", sortOrder: 1, showSubtotal: true, discountPercent: 0, subtotal: 0, discountAmount: 0, total: 0 };
+    vi.mocked(addEstimateSectionAction).mockResolvedValue({ success: true, data: { ...detail, revision: 4, sections: [...detail.sections, createdSection] }, message: "Раздел добавлен.", errorCode: null });
     renderEditor();
     await user.click(screen.getByRole("button", { name: "Раздел" }));
-    expect(screen.getByDisplayValue("Новый раздел")).toBeInTheDocument();
-    await user.clear(screen.getByDisplayValue("Новый раздел"));
+
+    expect(addEstimateSectionAction).toHaveBeenCalledWith("estimate-1", 3, { name: "Новый раздел", requestKey: expect.any(String) });
+    const sectionNameInputs = screen.getAllByLabelText("Название раздела");
+    expect(sectionNameInputs).toHaveLength(2);
+    expect(sectionNameInputs[1]).toHaveValue("Новый раздел");
+    expect(screen.getByRole("combobox", { name: "Фильтр разделов" })).toHaveTextContent("Новый раздел");
+    expect(screen.getAllByText("Новый раздел").length).toBeGreaterThan(1);
+    await user.click(screen.getByRole("tab", { name: "Добавить оборудование" }));
+    expect(screen.getByRole("combobox", { name: "Раздел назначения" })).toHaveValue(createdSection.id);
+    await user.clear(sectionNameInputs[1]);
     await user.type(screen.getAllByLabelText("Название раздела")[1], "Монтаж");
     await user.click(screen.getAllByRole("button", { name: "Переместить вверх" }).at(-1)!);
     expect(screen.getAllByLabelText("Название раздела")[0]).toHaveValue("Монтаж");
@@ -118,20 +132,18 @@ describe("EstimateCommercialEditor", () => {
     expect(saveEstimateCommercialAction).not.toHaveBeenCalled();
   });
 
-  it("removes only empty sections and clearly identifies manual lines", async () => {
-    const user = userEvent.setup();
+  it("uses one aligned row layout and removes commercial-detail expansion blocks", () => {
     const manualLine = { ...detail.lines[0], id: "manual-line", lineType: "custom" as const, productId: null, sku: null, imageUrl: null, description: "Кабельные работы" };
-    render(<EstimateCommercialEditor commercialOptions={{ currencies: ["USD"], usdMdlRate: 17.5, rateEffectiveDate: "2026-07-16" }} initialEstimate={{ ...detail, lines: [manualLine] }} services={[]} workflow={workflow} />);
+    const externalLine = { ...manualLine, id: "external-line", lineType: "external" as const, description: "Внешняя камера" };
+    render(<EstimateCommercialEditor commercialOptions={{ currencies: ["USD"], usdMdlRate: 17.5, rateEffectiveDate: "2026-07-16" }} initialEstimate={{ ...detail, lines: [detail.lines[0], manualLine, externalLine] }} services={[]} workflow={workflow} />);
 
     expect(screen.getByText("Ручная позиция")).toBeInTheDocument();
-    expect(screen.getByText(/не связана с каталогом/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Удалить раздел Оборудование" })).toBeDisabled();
-
-    await user.click(screen.getByRole("button", { name: "Раздел" }));
-    const removeEmpty = screen.getByRole("button", { name: "Удалить раздел Новый раздел" });
-    expect(removeEmpty).toBeEnabled();
-    await user.click(removeEmpty);
-    expect(screen.queryByDisplayValue("Новый раздел")).not.toBeInTheDocument();
+    expect(screen.getByText("Внешняя позиция")).toBeInTheDocument();
+    expect(screen.queryByText("Коммерческие детали")).not.toBeInTheDocument();
+    expect(screen.queryByRole("combobox", { name: "Режим" })).not.toBeInTheDocument();
+    const rows = screen.getAllByTestId("estimate-line-row");
+    expect(rows).toHaveLength(3);
+    for (const row of rows) expect(row.firstElementChild).toHaveClass("xl:grid-cols-[1.5rem_1.5rem_minmax(12rem,1fr)_4.75rem_4.75rem_6rem_5rem_7rem_4.5rem]");
   });
 
   it("shows currency conversion confirmation and preserves manual-price choice", async () => {
@@ -180,7 +192,10 @@ describe("EstimateCommercialEditor", () => {
     renderEditor();
     expect(screen.getByRole("button", { name: "Сохранить" })).toHaveAttribute("aria-keyshortcuts", "Control+S Meta+S");
 
-    await user.selectOptions(screen.getByRole("combobox", { name: "Режим" }), "markup");
+    const quantity = screen.getByRole("spinbutton", { name: "Кол-во" });
+    await user.clear(quantity);
+    await user.type(quantity, "2");
+    await user.tab();
     await user.keyboard("{Control>}s{/Control}");
     expect(saveEstimateCommercialAction).toHaveBeenCalledTimes(1);
   });
@@ -195,7 +210,7 @@ describe("EstimateCommercialEditor", () => {
     render(<EstimateCommercialEditor commercialOptions={{ currencies: ["USD"], usdMdlRate: 17.5, rateEffectiveDate: "2026-07-16" }} initialEstimate={{ ...detail, lines, itemCount: lines.length }} services={[]} workflow={workflow} />);
 
     fireEvent.change(screen.getByPlaceholderText("Поиск по позициям"), { target: { value: "Position 119" } });
-    expect(screen.getByRole("textbox", { name: /^Описание/ })).toHaveValue("Position 119");
+    expect(screen.getByTitle("Position 119")).toBeInTheDocument();
     expect(screen.queryByDisplayValue("Position 1")).not.toBeInTheDocument();
     expect(saveEstimateCommercialAction).not.toHaveBeenCalled();
   });

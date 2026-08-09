@@ -14,8 +14,9 @@ describe("estimate workspace architecture", () => {
   });
 
   it("uses a bounded responsive canvas instead of the overflowing fixed line grid", () => {
-    expect(editor).toContain("grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-12");
+    expect(editor).toContain("grid grid-cols-2 items-start gap-2 sm:grid-cols-4 xl:grid-cols-[1.5rem_1.5rem_minmax(12rem,1fr)_4.75rem_4.75rem_6rem_5rem_7rem_4.5rem]");
     expect(editor).toContain("xl:grid-cols-[minmax(0,1fr)_20rem]");
+    expect(editor).not.toContain("lg:grid-cols-12 lg:items-end");
     expect(editor).not.toContain("md:grid-cols-[1.5rem_2.5rem_minmax(12rem,1fr)");
   });
 

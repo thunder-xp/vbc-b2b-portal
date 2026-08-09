@@ -76,6 +76,7 @@ describe("DefaultEstimateService", () => {
       createFromPurchasingList: vi.fn().mockResolvedValue({ estimateId: estimate.id, repeated: false }),
       updateDraft: vi.fn().mockResolvedValue({ ...estimate, revision: 4 }),
       saveCommercialDraft: vi.fn().mockResolvedValue({ ...estimate, revision: 4 }),
+      addSection: vi.fn().mockResolvedValue(undefined),
       addLines: vi.fn().mockResolvedValue(undefined),
       updateLine: vi.fn().mockResolvedValue(undefined),
       removeLine: vi.fn().mockResolvedValue(undefined),
@@ -317,6 +318,22 @@ describe("DefaultEstimateService", () => {
     expect(repository.searchExternalNomenclature).toHaveBeenCalledTimes(1);
     expect(repository.addExternalLine).toHaveBeenCalledTimes(1);
     expect(repository.addExternalLine).toHaveBeenCalledWith(expect.objectContaining({ existingExternalItemId: "11111111-1111-4111-8111-111111111111", forceCreateNew: false }));
+  });
+
+  it("creates a section through one governed idempotent repository call", async () => {
+    await service.addSection("user-1", estimate.id, 3, {
+      name: "Монтаж",
+      requestKey: "22222222-2222-4222-8222-222222222222",
+    });
+
+    expect(repository.addSection).toHaveBeenCalledTimes(1);
+    expect(repository.addSection).toHaveBeenCalledWith(expect.objectContaining({
+      estimateId: estimate.id,
+      expectedRevision: 3,
+      name: "Монтаж",
+      requestKey: "22222222-2222-4222-8222-222222222222",
+      requestFingerprint: expect.stringMatching(/^[0-9a-f]{64}$/),
+    }));
   });
 
   it("uses the permitted retail rate without storing partner cost", async () => {

@@ -363,6 +363,18 @@ export class SupabaseEstimateRepository implements EstimateRepository {
     if (error) throw mapRepositoryError(error.code);
   }
 
+  async addSection(input: import("../estimate.repository").AddEstimateSectionInput): Promise<void> {
+    const supabase = await createClient();
+    const { error } = await supabase.rpc("add_estimate_section_v2", {
+      target_estimate_id: input.estimateId,
+      expected_revision: input.expectedRevision,
+      target_request_key: input.requestKey,
+      target_request_fingerprint: input.requestFingerprint,
+      target_name: input.name,
+    });
+    if (error) throw mapRepositoryError(error.code);
+  }
+
   async updateLine(input: {
     estimateId: string;
     itemId: string;

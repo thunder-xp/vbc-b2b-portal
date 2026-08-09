@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { type ActionResult, failureFromError, invalidInput, success } from "../../access-control/actions/action-result";
-import type { EstimateCommercialCheckDto, EstimateCommercialOptionsDto, EstimateDetailDto, EstimateLineInsertion, EstimateListFilters, EstimateProductPickerDto, EstimateServiceDto, EstimateServiceSelection, ExternalNomenclatureInput, SaveEstimateCommercialCommand } from "../services";
+import type { EstimateCommercialCheckDto, EstimateCommercialOptionsDto, EstimateDetailDto, EstimateLineInsertion, EstimateListFilters, EstimateProductPickerDto, EstimateSectionInsertion, EstimateServiceDto, EstimateServiceSelection, ExternalNomenclatureInput, SaveEstimateCommercialCommand } from "../services";
 import type { EstimateUnit, FinalCustomerIndustryCode } from "../types";
 import { createEstimateService, getAuthenticatedUserId } from "./service-factory";
 
@@ -186,6 +186,14 @@ export async function saveEstimateCommercialAction(estimateId: string, input: Sa
   return runEstimateMutation(
     (userId) => createEstimateService().saveCommercialDraft(userId, estimateId, input),
     "Коммерческие условия сохранены.",
+  );
+}
+
+export async function addEstimateSectionAction(estimateId: string, expectedRevision: number, insertion: EstimateSectionInsertion): Promise<ActionResult<EstimateDetailDto>> {
+  if (!insertion.name?.trim()) return invalidInput("Укажите название раздела.");
+  return runEstimateMutation(
+    (userId) => createEstimateService().addSection(userId, estimateId, expectedRevision, insertion),
+    "Раздел добавлен.",
   );
 }
 

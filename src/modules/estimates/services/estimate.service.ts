@@ -203,6 +203,11 @@ export type EstimateLineInsertion = {
   requestKey: string;
 };
 
+export type EstimateSectionInsertion = {
+  name: string;
+  requestKey: string;
+};
+
 export type ExternalNomenclatureInput = {
   targetSectionId: string;
   existingExternalItemId?: string | null;
@@ -280,6 +285,7 @@ export interface EstimateService {
   getDetail(userId: string, estimateId: string): Promise<EstimateDetailDto>;
   saveDraft(userId: string, estimateId: string, input: SaveEstimateCommand): Promise<EstimateDetailDto>;
   saveCommercialDraft(userId: string, estimateId: string, input: SaveEstimateCommercialCommand): Promise<EstimateDetailDto>;
+  addSection(userId: string, estimateId: string, expectedRevision: number, insertion: EstimateSectionInsertion): Promise<EstimateDetailDto>;
   addProducts(userId: string, estimateId: string, expectedRevision: number, selections: Array<{ productId: string; quantity: number }>, insertion: EstimateLineInsertion): Promise<EstimateDetailDto>;
   addServices(userId: string, estimateId: string, expectedRevision: number, selections: EstimateServiceSelection[], insertion: EstimateLineInsertion): Promise<EstimateDetailDto>;
   addService(userId: string, estimateId: string, expectedRevision: number, serviceId: string, quantity: number, sellingUnitPrice: number, insertion: EstimateLineInsertion): Promise<EstimateDetailDto>;
@@ -1044,6 +1050,19 @@ export class DefaultEstimateService implements EstimateService {
       if (error instanceof EstimateRepositoryError && error.code === "duplicate") {
         throw new InvalidStateError("Похожая позиция уже существует в системе. Выберите существующую позицию, чтобы не создавать дубликат.");
       }
+      handleRepositoryConflict(error);
+    }
+    return this.getDetail(userId, estimateId);
+  }
+
+  async addSection(userId: string, estimateId: string, expectedRevision: number, insertion: EstimateSectionInsertion): Promise<EstimateDetailDto> {
+    await this.ensureDraft(userId, estimateId, PRICING_PERMISSION, expectedRevision);
+    const name = normalizeRequired(insertion.name, 120, "Название раздела некорректно.");
+    const requestKey = normalizeUuid(insertion.requestKey, "Ключ добавления раздела некорректен.");
+    const requestFingerprint = createHash("sha256").update(JSON.stringify({ name })).digest("hex");
+    try {
+      await this.repository.addSection({ estimateId, expectedRevision, requestKey, requestFingerprint, name });
+    } catch (error) {
       handleRepositoryConflict(error);
     }
     return this.getDetail(userId, estimateId);
