@@ -42,7 +42,7 @@ describe("EstimateLinePicker", () => {
     const user = userEvent.setup();
     vi.mocked(searchEstimateProductsAction).mockResolvedValue({ success: true, data: products, message: "Загружено", errorCode: null });
     vi.mocked(addEstimateProductsAction).mockResolvedValue({ success: true, data: estimate, message: "Добавлено", errorCode: null });
-    render(<EstimateLinePicker disabled={false} estimate={estimate} mode="product" onModeChange={vi.fn()} onResult={vi.fn()} services={services} />);
+    render(<EstimateLinePicker disabled={false} estimate={estimate} mode="product" onModeChange={vi.fn()} onResult={vi.fn()} onTargetSectionChange={vi.fn()} services={services} targetSectionId="section-2" targetSections={[{ id: "section-2", name: "Монтаж" }]} />);
 
     await user.type(screen.getByLabelText("SKU, модель или название"), "camera");
     await user.click(screen.getByRole("button", { name: "Найти" }));
@@ -59,13 +59,14 @@ describe("EstimateLinePicker", () => {
     expect(addEstimateProductsAction).toHaveBeenCalledWith("estimate-1", 3, [
       { productId: "product-1", quantity: 1 },
       { productId: "product-2", quantity: 3 },
-    ]);
+    ], expect.objectContaining({ targetSectionId: "section-2", requestKey: expect.any(String) }));
+    expect(screen.getByRole("combobox", { name: "Раздел назначения" })).toHaveValue("section-2");
   });
 
   it("adds multiple controlled services through one mutation", async () => {
     const user = userEvent.setup();
     vi.mocked(addEstimateServicesAction).mockResolvedValue({ success: true, data: estimate, message: "Добавлено", errorCode: null });
-    render(<EstimateLinePicker disabled={false} estimate={estimate} mode="service" onModeChange={vi.fn()} onResult={vi.fn()} services={services} />);
+    render(<EstimateLinePicker disabled={false} estimate={estimate} mode="service" onModeChange={vi.fn()} onResult={vi.fn()} onTargetSectionChange={vi.fn()} services={services} targetSectionId="section-2" targetSections={[{ id: "section-2", name: "Монтаж" }]} />);
 
     await user.click(screen.getByRole("checkbox", { name: "Выбрать Монтаж камеры" }));
     await user.click(screen.getByRole("checkbox", { name: "Выбрать Настройка системы" }));
@@ -75,6 +76,6 @@ describe("EstimateLinePicker", () => {
     expect(addEstimateServicesAction).toHaveBeenCalledWith("estimate-1", 3, [
       { serviceId: "service-1", quantity: 1, sellingUnitPrice: 10 },
       { serviceId: "service-2", quantity: 1, sellingUnitPrice: 25 },
-    ]);
+    ], expect.objectContaining({ targetSectionId: "section-2", requestKey: expect.any(String) }));
   });
 });

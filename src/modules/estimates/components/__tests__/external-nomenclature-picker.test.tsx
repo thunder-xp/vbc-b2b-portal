@@ -19,7 +19,7 @@ describe("ExternalNomenclaturePicker", () => {
     const user = userEvent.setup();
     vi.mocked(searchExternalNomenclatureAction).mockResolvedValue({ success: true, data: [match], message: "Найдено", errorCode: null });
     vi.mocked(addEstimateExternalLineAction).mockResolvedValue({ success: true, data: estimate, message: "Добавлено", errorCode: null });
-    render(<ExternalNomenclaturePicker disabled={false} estimate={estimate} onResult={vi.fn()} />);
+    render(<ExternalNomenclaturePicker disabled={false} estimate={estimate} onResult={vi.fn()} targetSectionId="section-2" />);
 
     await user.type(screen.getByLabelText("Производитель"), "Ajax");
     await user.type(screen.getByLabelText("Модель"), "Hub 2");
@@ -36,7 +36,7 @@ describe("ExternalNomenclaturePicker", () => {
     const user = userEvent.setup();
     vi.mocked(searchExternalNomenclatureAction).mockResolvedValue({ success: true, data: [match], message: "Найдено", errorCode: null });
     vi.mocked(addEstimateExternalLineAction).mockResolvedValue({ success: true, data: estimate, message: "Добавлено", errorCode: null });
-    render(<ExternalNomenclaturePicker disabled={false} estimate={estimate} onResult={vi.fn()} />);
+    render(<ExternalNomenclaturePicker disabled={false} estimate={estimate} onResult={vi.fn()} targetSectionId="section-2" />);
     await user.type(screen.getByLabelText("Производитель"), "Ajax");
     await user.type(screen.getByLabelText("Модель"), "Hub 2");
     await user.type(screen.getByLabelText("Название"), "Security hub custom");

@@ -248,7 +248,7 @@ function ProductPicker({ estimate, pending, submit }: { estimate: EstimateDetail
         event.preventDefault();
         const data = new FormData(event.currentTarget);
         const selections = products.products.flatMap((product) => data.get(`selected-${product.id}`) ? [{ productId: product.id, quantity: Number(data.get(`quantity-${product.id}`)) }] : []);
-        submit(() => addEstimateProductsAction(estimate.id, estimate.revision, selections));
+        submit(() => addEstimateProductsAction(estimate.id, estimate.revision, selections, { targetSectionId: estimate.sections[0].id, requestKey: crypto.randomUUID() }));
       }}>
         <div className="divide-y divide-zinc-100">
           {products.products.map((product) => (
@@ -267,7 +267,7 @@ function ProductPicker({ estimate, pending, submit }: { estimate: EstimateDetail
 }
 
 function ServiceForm({ estimate, pending, services, submit }: { estimate: EstimateDetailDto; pending: boolean; services: EstimateServiceDto[]; submit: (operation: () => ReturnType<typeof addEstimateProductsAction>) => void }) {
-  return <form className="grid gap-3 sm:grid-cols-[minmax(12rem,1fr)_7rem_9rem_auto] sm:items-end" onSubmit={(event) => { event.preventDefault(); const data = new FormData(event.currentTarget); submit(() => addEstimateServiceAction(estimate.id, { expectedRevision: estimate.revision, serviceId: String(data.get("serviceId")), quantity: Number(data.get("quantity")), sellingUnitPrice: Number(data.get("sellingUnitPrice")) })); }}>
+  return <form className="grid gap-3 sm:grid-cols-[minmax(12rem,1fr)_7rem_9rem_auto] sm:items-end" onSubmit={(event) => { event.preventDefault(); const data = new FormData(event.currentTarget); submit(() => addEstimateServiceAction(estimate.id, { expectedRevision: estimate.revision, serviceId: String(data.get("serviceId")), quantity: Number(data.get("quantity")), sellingUnitPrice: Number(data.get("sellingUnitPrice")), targetSectionId: estimate.sections[0].id, requestKey: crypto.randomUUID() })); }}>
     <label className="text-xs font-medium text-zinc-600">Работа / услуга<select className={editorInputClass} name="serviceId" required>{services.map((service) => <option key={service.id} value={service.id}>{service.name} · {service.unitLabel}</option>)}</select></label>
     <label className="text-xs font-medium text-zinc-600">Количество<input className={editorInputClass} defaultValue={1} min="0.001" name="quantity" required step="0.001" type="number" /></label>
     <label className="text-xs font-medium text-zinc-600">Цена, {estimate.currencyCode}<input className={editorInputClass} min="0" name="sellingUnitPrice" required step="0.01" type="number" /></label>
@@ -276,7 +276,7 @@ function ServiceForm({ estimate, pending, services, submit }: { estimate: Estima
 }
 
 function CustomLineForm({ estimate, pending, submit }: { estimate: EstimateDetailDto; pending: boolean; submit: (operation: () => ReturnType<typeof addEstimateProductsAction>) => void }) {
-  return <form className="grid gap-3 sm:grid-cols-[minmax(12rem,1fr)_7rem_8rem_9rem_auto] sm:items-end" onSubmit={(event) => { event.preventDefault(); const data = new FormData(event.currentTarget); submit(() => addEstimateCustomLineAction(estimate.id, { expectedRevision: estimate.revision, description: String(data.get("description")), quantity: Number(data.get("quantity")), unit: String(data.get("unit")) as EstimateUnit, sellingUnitPrice: Number(data.get("sellingUnitPrice")) })); }}>
+  return <form className="grid gap-3 sm:grid-cols-[minmax(12rem,1fr)_7rem_8rem_9rem_auto] sm:items-end" onSubmit={(event) => { event.preventDefault(); const data = new FormData(event.currentTarget); submit(() => addEstimateCustomLineAction(estimate.id, { expectedRevision: estimate.revision, description: String(data.get("description")), quantity: Number(data.get("quantity")), unit: String(data.get("unit")) as EstimateUnit, sellingUnitPrice: Number(data.get("sellingUnitPrice")), targetSectionId: estimate.sections[0].id, requestKey: crypto.randomUUID() })); }}>
     <label className="text-xs font-medium text-zinc-600">Описание<input className={editorInputClass} maxLength={2000} name="description" required /></label>
     <label className="text-xs font-medium text-zinc-600">Количество<input className={editorInputClass} defaultValue={1} min="0.001" name="quantity" required step="0.001" type="number" /></label>
     <label className="text-xs font-medium text-zinc-600">Ед.<select className={editorInputClass} name="unit">{units.map((unit) => <option key={unit.value} value={unit.value}>{unit.label}</option>)}</select></label>

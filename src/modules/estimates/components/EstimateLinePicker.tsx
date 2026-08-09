@@ -1,7 +1,7 @@
 "use client";
 
 import { Check, PackagePlus, Search, Wrench, X } from "lucide-react";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 
 import { ProductThumbnail } from "../../catalog/components/ProductThumbnail";
 import { recordBehaviorInteraction } from "../../behavior-analytics/components";
@@ -18,13 +18,16 @@ const inputClass = "min-h-11 min-w-0 rounded-md border border-zinc-300 bg-white 
 const buttonClass = "inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-700 outline-none hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-45";
 export type EstimateLinePickerMode = "product" | "service" | "external";
 
-export function EstimateLinePicker({ estimate, services, onResult, disabled, mode, onModeChange, workspaceControls }: {
+export function EstimateLinePicker({ estimate, services, onResult, disabled, mode, onModeChange, targetSectionId, targetSections, onTargetSectionChange, workspaceControls }: {
   estimate: EstimateDetailDto;
   services: EstimateServiceDto[];
   onResult: (next: EstimateDetailDto, message: string) => void;
   disabled: boolean;
   mode: EstimateLinePickerMode | null;
   onModeChange: (mode: EstimateLinePickerMode | null) => void;
+  targetSectionId: string;
+  targetSections: Array<{ id: string; name: string }>;
+  onTargetSectionChange: (sectionId: string) => void;
   workspaceControls?: React.ReactNode;
 }) {
   const [products, setProducts] = useState<EstimateProductPickerDto>({ products: [], categories: [], brands: [] });
@@ -34,11 +37,17 @@ export function EstimateLinePicker({ estimate, services, onResult, disabled, mod
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [message, setMessage] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const insertionRequest = useRef<{ signature: string; key: string } | null>(null);
   const filteredServices = useMemo(() => {
     const query = serviceSearch.trim().toLocaleLowerCase("ru");
     return query ? services.filter((service) => `${service.name} ${service.category}`.toLocaleLowerCase("ru").includes(query)) : services;
   }, [serviceSearch, services]);
 
+  const requestKeyFor = (payload: unknown) => {
+    const signature = JSON.stringify(payload);
+    if (insertionRequest.current?.signature !== signature) insertionRequest.current = { signature, key: crypto.randomUUID() };
+    return insertionRequest.current.key;
+  };
   const run = (operation: () => Promise<{ success: boolean; message: string; data: EstimateDetailDto | null }>, eventName?: "estimate_product_added" | "estimate_service_added") => startTransition(async () => {
     const result = await operation();
     setMessage(result.message);
@@ -46,6 +55,7 @@ export function EstimateLinePicker({ estimate, services, onResult, disabled, mod
       if (eventName) recordBehaviorInteraction({ eventName, route: "/cabinet/estimates/detail", sourceSurface: "estimate_line_picker" });
       setProductSelection({});
       setServiceSelection({});
+      insertionRequest.current = null;
       onResult(result.data, result.message);
     }
   });
@@ -67,7 +77,14 @@ export function EstimateLinePicker({ estimate, services, onResult, disabled, mod
     });
   };
 
-  return <section aria-label="Добавление позиций" className="border-y border-zinc-200 bg-white" id="estimate-line-picker">
+  useEffect(() => {
+    if (!mode) return;
+    requestAnimationFrame(() => document.getElementById(mode === "product" ? "estimate-product-search" : mode === "service" ? "estimate-service-search" : "estimate-external-manufacturer")?.focus());
+  }, [mode]);
+
+  return <section aria-label="Добавление позиций" className="border-y border-zinc-200 bg-white" id="estimate-line-picker" onKeyDown={(event) => {
+    if (event.key === "Escape" && mode) { event.preventDefault(); onModeChange(null); }
+  }}>
     <div className="space-y-3 p-3 sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div aria-label="Тип позиции" className="flex flex-wrap gap-2" role="tablist">
@@ -78,6 +95,7 @@ export function EstimateLinePicker({ estimate, services, onResult, disabled, mod
         {mode ? <button aria-label="Закрыть добавление позиций" className="inline-flex size-11 items-center justify-center rounded-md text-zinc-500 hover:bg-zinc-100 focus-visible:ring-2 focus-visible:ring-emerald-500" onClick={() => onModeChange(null)} type="button"><X className="size-4" /></button> : null}
       </div>
       {workspaceControls}
+      {mode ? <label className="flex min-h-11 min-w-0 items-center gap-2 text-xs text-zinc-600"><span className="shrink-0">Раздел назначения</span><select aria-label="Раздел назначения" className={`${inputClass} min-w-0 flex-1`} disabled={disabled || pending} onChange={(event) => onTargetSectionChange(event.target.value)} value={targetSectionId}>{targetSections.map((section) => <option key={section.id} value={section.id}>{section.name}</option>)}</select></label> : null}
       {message && <p aria-live="polite" className="text-sm text-zinc-600">{message}</p>}
     </div>
     {disabled && <p className="mt-3 text-xs text-amber-800">Сохраните или отмените текущие изменения перед добавлением позиций.</p>}
@@ -105,11 +123,11 @@ export function EstimateLinePicker({ estimate, services, onResult, disabled, mod
           </article>;
         })}
       </div>
-      <div className="flex justify-end"><button className="inline-flex min-h-11 items-center gap-2 rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white disabled:opacity-45" disabled={disabled || pending || !Object.keys(productSelection).length} onClick={() => run(() => addEstimateProductsAction(estimate.id, estimate.revision, Object.entries(productSelection).map(([productId, quantity]) => ({ productId, quantity }))), "estimate_product_added")} type="button"><PackagePlus className="size-4" />Добавить выбранные ({Object.keys(productSelection).length})</button></div>
+      <div className="flex justify-end"><button className="inline-flex min-h-11 items-center gap-2 rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white disabled:opacity-45" disabled={disabled || pending || !Object.keys(productSelection).length} onClick={() => { const selections = Object.entries(productSelection).map(([productId, quantity]) => ({ productId, quantity })); const insertion = { targetSectionId, requestKey: requestKeyFor({ targetSectionId, selections }) }; run(() => addEstimateProductsAction(estimate.id, estimate.revision, selections, insertion), "estimate_product_added"); }} type="button"><PackagePlus className="size-4" />Добавить выбранные ({Object.keys(productSelection).length})</button></div>
     </div>}
 
     {mode === "service" && <div className="space-y-3 border-t border-zinc-200 p-3 sm:p-4">
-      <label className="block text-sm font-medium text-zinc-700">Поиск работ и услуг<input className={`${inputClass} mt-1 w-full`} disabled={disabled} onChange={(event) => setServiceSearch(event.target.value)} placeholder="Монтаж, настройка, кабельные работы" value={serviceSearch} /></label>
+      <label className="block text-sm font-medium text-zinc-700">Поиск работ и услуг<input className={`${inputClass} mt-1 w-full`} disabled={disabled} id="estimate-service-search" onChange={(event) => setServiceSearch(event.target.value)} placeholder="Монтаж, настройка, кабельные работы" value={serviceSearch} /></label>
       <div className="max-h-80 divide-y divide-zinc-100 overflow-y-auto border-y border-zinc-200">{filteredServices.map((service) => {
         const selected = serviceSelection[service.id];
         return <div className="grid items-end gap-3 py-3 sm:grid-cols-[auto_minmax(12rem,1fr)_7rem_8rem]" key={service.id}>
@@ -122,10 +140,10 @@ export function EstimateLinePicker({ estimate, services, onResult, disabled, mod
           <label className="text-xs">Цена<input aria-label={`Цена ${service.name}`} className={`${inputClass} mt-1 w-full`} disabled={!selected} min="0" onChange={(event) => setServiceSelection((current) => ({ ...current, [service.id]: { ...current[service.id], price: Number(event.target.value) } }))} step="0.01" type="number" value={selected?.price ?? service.defaultSellingPrice ?? 0} /></label>
         </div>;
       })}</div>
-      <div className="flex justify-end"><button className="inline-flex min-h-11 items-center gap-2 rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white disabled:opacity-45" disabled={disabled || pending || !Object.keys(serviceSelection).length} onClick={() => run(() => addEstimateServicesAction(estimate.id, estimate.revision, Object.entries(serviceSelection).map(([serviceId, selection]) => ({ serviceId, quantity: selection.quantity, sellingUnitPrice: selection.price }))), "estimate_service_added")} type="button"><Wrench className="size-4" />Добавить выбранные ({Object.keys(serviceSelection).length})</button></div>
+      <div className="flex justify-end"><button className="inline-flex min-h-11 items-center gap-2 rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white disabled:opacity-45" disabled={disabled || pending || !Object.keys(serviceSelection).length} onClick={() => { const selections = Object.entries(serviceSelection).map(([serviceId, selection]) => ({ serviceId, quantity: selection.quantity, sellingUnitPrice: selection.price })); const insertion = { targetSectionId, requestKey: requestKeyFor({ targetSectionId, selections }) }; run(() => addEstimateServicesAction(estimate.id, estimate.revision, selections, insertion), "estimate_service_added"); }} type="button"><Wrench className="size-4" />Добавить выбранные ({Object.keys(serviceSelection).length})</button></div>
     </div>}
 
-    {mode === "external" && <div className="border-t border-zinc-200 p-3 sm:p-4"><ExternalNomenclaturePicker disabled={disabled} estimate={estimate} onResult={onResult} /></div>}
+    {mode === "external" && <div className="border-t border-zinc-200 p-3 sm:p-4"><ExternalNomenclaturePicker disabled={disabled} estimate={estimate} onResult={onResult} targetSectionId={targetSectionId} /></div>}
   </section>;
 }
 

@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -183,6 +183,21 @@ describe("EstimateCommercialEditor", () => {
     await user.selectOptions(screen.getByRole("combobox", { name: "Режим" }), "markup");
     await user.keyboard("{Control>}s{/Control}");
     expect(saveEstimateCommercialAction).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps a 120-line estimate searchable without server reads", async () => {
+    const lines = Array.from({ length: 120 }, (_, index) => ({
+      ...detail.lines[0],
+      id: `line-${index}`,
+      position: index + 1,
+      description: `Position ${index + 1}`,
+    }));
+    render(<EstimateCommercialEditor commercialOptions={{ currencies: ["USD"], usdMdlRate: 17.5, rateEffectiveDate: "2026-07-16" }} initialEstimate={{ ...detail, lines, itemCount: lines.length }} services={[]} workflow={workflow} />);
+
+    fireEvent.change(screen.getByPlaceholderText("Поиск по позициям"), { target: { value: "Position 119" } });
+    expect(screen.getByRole("textbox", { name: /^Описание/ })).toHaveValue("Position 119");
+    expect(screen.queryByDisplayValue("Position 1")).not.toBeInTheDocument();
+    expect(saveEstimateCommercialAction).not.toHaveBeenCalled();
   });
 
   it("compares current commercial data without mutating until selected prices are applied", async () => {

@@ -13,10 +13,11 @@ const units: Array<{ value: EstimateUnit; label: string }> = [
   { value: "set", label: "комплект" }, { value: "service", label: "услуга" },
 ];
 
-export function ExternalNomenclaturePicker({ estimate, disabled, onResult }: {
+export function ExternalNomenclaturePicker({ estimate, disabled, onResult, targetSectionId }: {
   estimate: EstimateDetailDto;
   disabled: boolean;
   onResult: (next: EstimateDetailDto, message: string) => void;
+  targetSectionId: string;
 }) {
   const [manufacturer, setManufacturer] = useState("");
   const [model, setModel] = useState("");
@@ -63,6 +64,7 @@ export function ExternalNomenclaturePicker({ estimate, disabled, onResult }: {
     startTransition(async () => {
       const result = await addEstimateExternalLineAction(estimate.id, {
         expectedRevision: estimate.revision,
+        targetSectionId,
         existingExternalItemId: forceCreateNew ? null : selected?.id ?? null,
         manufacturer,
         model,
@@ -88,7 +90,7 @@ export function ExternalNomenclaturePicker({ estimate, disabled, onResult }: {
     if (!disabled) submit(event.currentTarget, false);
   }}>
     <div className="grid gap-2 md:grid-cols-3">
-      <label className="text-xs font-medium text-zinc-600">Производитель<input className={`${inputClass} mt-1 w-full`} disabled={disabled || Boolean(selected)} maxLength={120} onChange={(event) => { searchSequence.current += 1; setMatches([]); setManufacturer(event.target.value); setSelected(null); }} required value={manufacturer} /></label>
+      <label className="text-xs font-medium text-zinc-600">Производитель<input className={`${inputClass} mt-1 w-full`} disabled={disabled || Boolean(selected)} id="estimate-external-manufacturer" maxLength={120} onChange={(event) => { searchSequence.current += 1; setMatches([]); setManufacturer(event.target.value); setSelected(null); }} required value={manufacturer} /></label>
       <label className="text-xs font-medium text-zinc-600">Модель<input className={`${inputClass} mt-1 w-full`} disabled={disabled || Boolean(selected)} maxLength={160} onChange={(event) => { searchSequence.current += 1; setMatches([]); setModel(event.target.value); setSelected(null); }} required value={model} /></label>
       <label className="text-xs font-medium text-zinc-600">Название<input className={`${inputClass} mt-1 w-full`} disabled={disabled || Boolean(selected)} maxLength={300} onChange={(event) => { searchSequence.current += 1; setMatches([]); setName(event.target.value); setSelected(null); }} required value={name} /></label>
     </div>

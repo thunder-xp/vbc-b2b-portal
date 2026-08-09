@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { type ActionResult, failureFromError, invalidInput, success } from "../../access-control/actions/action-result";
-import type { EstimateCommercialCheckDto, EstimateCommercialOptionsDto, EstimateDetailDto, EstimateListFilters, EstimateProductPickerDto, EstimateServiceDto, EstimateServiceSelection, ExternalNomenclatureInput, SaveEstimateCommercialCommand } from "../services";
+import type { EstimateCommercialCheckDto, EstimateCommercialOptionsDto, EstimateDetailDto, EstimateLineInsertion, EstimateListFilters, EstimateProductPickerDto, EstimateServiceDto, EstimateServiceSelection, ExternalNomenclatureInput, SaveEstimateCommercialCommand } from "../services";
 import type { EstimateUnit, FinalCustomerIndustryCode } from "../types";
 import { createEstimateService, getAuthenticatedUserId } from "./service-factory";
 
@@ -189,34 +189,34 @@ export async function saveEstimateCommercialAction(estimateId: string, input: Sa
   );
 }
 
-export async function addEstimateProductsAction(estimateId: string, expectedRevision: number, selections: Array<{ productId: string; quantity: number }>): Promise<ActionResult<EstimateDetailDto>> {
+export async function addEstimateProductsAction(estimateId: string, expectedRevision: number, selections: Array<{ productId: string; quantity: number }>, insertion: EstimateLineInsertion): Promise<ActionResult<EstimateDetailDto>> {
   if (!Array.isArray(selections) || !selections.length) return invalidInput("Выберите товары.");
   return runEstimateMutation(
-    (userId) => createEstimateService().addProducts(userId, estimateId, expectedRevision, selections),
+    (userId) => createEstimateService().addProducts(userId, estimateId, expectedRevision, selections, insertion),
     "Товары добавлены.",
   );
 }
 
-export async function addEstimateServiceAction(estimateId: string, input: { expectedRevision: number; serviceId: string; quantity: number; sellingUnitPrice: number }): Promise<ActionResult<EstimateDetailDto>> {
+export async function addEstimateServiceAction(estimateId: string, input: { expectedRevision: number; serviceId: string; quantity: number; sellingUnitPrice: number } & EstimateLineInsertion): Promise<ActionResult<EstimateDetailDto>> {
   if (!input.serviceId?.trim()) return invalidInput("Выберите работу или услугу.");
   return runEstimateMutation(
-    (userId) => createEstimateService().addService(userId, estimateId, input.expectedRevision, input.serviceId, input.quantity, input.sellingUnitPrice),
+    (userId) => createEstimateService().addService(userId, estimateId, input.expectedRevision, input.serviceId, input.quantity, input.sellingUnitPrice, input),
     "Услуга добавлена.",
   );
 }
 
-export async function addEstimateServicesAction(estimateId: string, expectedRevision: number, selections: EstimateServiceSelection[]): Promise<ActionResult<EstimateDetailDto>> {
+export async function addEstimateServicesAction(estimateId: string, expectedRevision: number, selections: EstimateServiceSelection[], insertion: EstimateLineInsertion): Promise<ActionResult<EstimateDetailDto>> {
   if (!Array.isArray(selections) || !selections.length) return invalidInput("Выберите работы или услуги.");
   return runEstimateMutation(
-    (userId) => createEstimateService().addServices(userId, estimateId, expectedRevision, selections),
+    (userId) => createEstimateService().addServices(userId, estimateId, expectedRevision, selections, insertion),
     "Работы и услуги добавлены.",
   );
 }
 
-export async function addEstimateCustomLineAction(estimateId: string, input: { expectedRevision: number; description: string; unit: EstimateUnit; quantity: number; sellingUnitPrice: number }): Promise<ActionResult<EstimateDetailDto>> {
+export async function addEstimateCustomLineAction(estimateId: string, input: { expectedRevision: number; description: string; unit: EstimateUnit; quantity: number; sellingUnitPrice: number } & EstimateLineInsertion): Promise<ActionResult<EstimateDetailDto>> {
   if (!input.description?.trim()) return invalidInput("Укажите описание позиции.");
   return runEstimateMutation(
-    (userId) => createEstimateService().addCustomLine(userId, estimateId, input.expectedRevision, input.description, input.unit, input.quantity, input.sellingUnitPrice),
+    (userId) => createEstimateService().addCustomLine(userId, estimateId, input.expectedRevision, input.description, input.unit, input.quantity, input.sellingUnitPrice, input),
     "Позиция добавлена.",
   );
 }

@@ -55,6 +55,7 @@ const serviceRecord: PartnerService = {
 };
 
 describe("DefaultEstimateService", () => {
+  const insertion = { targetSectionId: "11111111-1111-4111-8111-111111111111", requestKey: "22222222-2222-4222-8222-222222222222" };
   let repository: EstimateRepository;
   let catalog: CatalogService;
   let pricing: PricingInventoryService;
@@ -168,22 +169,22 @@ describe("DefaultEstimateService", () => {
     await service.addProducts("user-1", "estimate-1", 3, [
       { productId: "product-1", quantity: 2 },
       { productId: "product-1", quantity: 3 },
-    ]);
+    ], insertion);
 
     expect(catalog.getProductsByIds).toHaveBeenCalledTimes(1);
     expect(catalog.getProductsByIds).toHaveBeenCalledWith("user-1", ["product-1"]);
     expect(pricing.getProductCommercialViews).toHaveBeenCalledTimes(1);
-    expect(repository.addLines).toHaveBeenCalledWith("estimate-1", 3, [expect.objectContaining({ productId: "product-1", quantity: 3, sellingUnitPrice: 50.13 })]);
+    expect(repository.addLines).toHaveBeenCalledWith(expect.objectContaining({ estimateId: "estimate-1", expectedRevision: 3, targetSectionId: insertion.targetSectionId, requestKey: insertion.requestKey, lines: [expect.objectContaining({ productId: "product-1", quantity: 3, sellingUnitPrice: 50.13 })] }));
     expect(repository.findById).toHaveBeenCalledTimes(1);
     expect(repository.findAggregateById).toHaveBeenCalledTimes(1);
   });
 
   it("adds controlled services and custom lines through server validation", async () => {
-    await service.addService("user-1", "estimate-1", 3, "service-1", 2, 15.555);
-    expect(repository.addLines).toHaveBeenLastCalledWith("estimate-1", 3, [expect.objectContaining({ lineType: "service", serviceId: "service-1", quantity: 2, sellingUnitPrice: 15.56 })]);
+    await service.addService("user-1", "estimate-1", 3, "service-1", 2, 15.555, insertion);
+    expect(repository.addLines).toHaveBeenLastCalledWith(expect.objectContaining({ targetSectionId: insertion.targetSectionId, lines: [expect.objectContaining({ lineType: "service", serviceId: "service-1", quantity: 2, sellingUnitPrice: 15.56 })] }));
 
-    await service.addCustomLine("user-1", "estimate-1", 3, "  Кабельные работы  ", "meter", 10.5, 4.2);
-    expect(repository.addLines).toHaveBeenLastCalledWith("estimate-1", 3, [expect.objectContaining({ lineType: "custom", description: "Кабельные работы", unit: "meter", quantity: 10.5, sellingUnitPrice: 4.2 })]);
+    await service.addCustomLine("user-1", "estimate-1", 3, "  Кабельные работы  ", "meter", 10.5, 4.2, insertion);
+    expect(repository.addLines).toHaveBeenLastCalledWith(expect.objectContaining({ targetSectionId: insertion.targetSectionId, lines: [expect.objectContaining({ lineType: "custom", description: "Кабельные работы", unit: "meter", quantity: 10.5, sellingUnitPrice: 4.2 })] }));
   });
 
   it("adds several controlled services through one repository mutation", async () => {
@@ -193,14 +194,14 @@ describe("DefaultEstimateService", () => {
     await service.addServices("user-1", "estimate-1", 3, [
       { serviceId: "service-1", quantity: 2, sellingUnitPrice: 15.555 },
       { serviceId: "service-2", quantity: 1, sellingUnitPrice: 25 },
-    ]);
+    ], insertion);
 
     expect(repository.listServices).toHaveBeenCalledTimes(1);
     expect(repository.addLines).toHaveBeenCalledTimes(1);
-    expect(repository.addLines).toHaveBeenCalledWith("estimate-1", 3, [
+    expect(repository.addLines).toHaveBeenCalledWith(expect.objectContaining({ lines: [
       expect.objectContaining({ serviceId: "service-1", quantity: 2, sellingUnitPrice: 15.56 }),
       expect.objectContaining({ serviceId: "service-2", quantity: 1, sellingUnitPrice: 25 }),
-    ]);
+    ] }));
   });
 
   it("turns persistence revision conflicts into safe invalid-state errors", async () => {
@@ -311,6 +312,7 @@ describe("DefaultEstimateService", () => {
       manufacturer: "Ajax", model: "Hub 2", name: "Hub", unit: "pcs",
       quantity: 1, sellingUnitPrice: 100, forceCreateNew: false,
       requestKey: "22222222-2222-4222-8222-222222222222",
+      targetSectionId: "11111111-1111-4111-8111-111111111111",
     });
     expect(repository.searchExternalNomenclature).toHaveBeenCalledTimes(1);
     expect(repository.addExternalLine).toHaveBeenCalledTimes(1);
@@ -346,19 +348,17 @@ describe("DefaultEstimateService", () => {
 
     await service.addProducts("user-1", "estimate-1", 3, [
       { productId: "product-1", quantity: 1 },
-    ]);
+    ], insertion);
 
     expect(pricing.getRetailUsdMdlRateSnapshot).toHaveBeenCalledOnce();
-    expect(repository.addLines).toHaveBeenCalledWith(
-      "estimate-1",
-      3,
-      [expect.objectContaining({
+    expect(repository.addLines).toHaveBeenCalledWith(expect.objectContaining({
+      lines: [expect.objectContaining({
         sourceUnitPrice: null,
         sourceCurrencyCode: null,
         convertedCostUnitPrice: null,
         sellingUnitPrice: 100,
       })],
-    );
+    }));
   });
 
   it("omits confidential estimate fields for retail-only users", async () => {

@@ -3,7 +3,7 @@
 import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, ListFilter, MoreHorizontal, Plus, RotateCcw, Save, SaveAll, Search, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 
 import { ProductLineThumbnail } from "../../catalog/components/ProductLineThumbnail";
 import { recordBehaviorInteraction } from "../../behavior-analytics/components";
@@ -67,6 +67,7 @@ export function EstimateCommercialEditor({ initialEstimate, services, commercial
   const [sectionFilter, setSectionFilter] = useState("all");
   const isDraft = estimate.status === "draft";
   const retailOnly = estimate.commercialMode === "retail_only";
+  const targetSection = draft.sections.find((section) => section.id === targetSectionId) ?? draft.sections[0];
 
   const preview = useMemo(() => {
     try {
@@ -82,6 +83,37 @@ export function EstimateCommercialEditor({ initialEstimate, services, commercial
       return { value: null, error: error instanceof EstimateCalculationError ? error.message : "Проверьте коммерческие значения." };
     }
   }, [draft]);
+  const draftReadiness = useMemo(() => {
+    const invalidQuantityCount = draft.lines.filter((line) => !Number.isFinite(line.quantity) || line.quantity <= 0).length;
+    const missingPriceCount = draft.lines.filter((line) => line.pricingInputValue === null || !Number.isFinite(line.pricingInputValue)).length;
+    const checks = [
+      { label: "Добавьте хотя бы одну позицию", passed: draft.lines.length > 0 },
+      { label: invalidQuantityCount ? `У ${invalidQuantityCount} позиций указано некорректное количество` : "Количество по всем позициям указано", passed: invalidQuantityCount === 0 },
+      { label: missingPriceCount ? `У ${missingPriceCount} позиций не указана цена` : "Цены по всем позициям указаны", passed: missingPriceCount === 0 },
+      { label: "Валюта сметы определена", passed: /^[A-Z]{3}$/.test(draft.currencyCode) },
+      { label: preview.error ?? "Коммерческий итог рассчитан", passed: preview.value !== null },
+    ];
+    return { ready: checks.every((check) => check.passed), checks };
+  }, [draft.currencyCode, draft.lines, preview]);
+
+  useEffect(() => {
+    if (!dirty) return;
+    const warning = "В смете есть несохранённые изменения. Покинуть страницу?";
+    const beforeUnload = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = warning; };
+    const preventLinkNavigation = (event: MouseEvent) => {
+      const anchor = event.target instanceof Element ? event.target.closest("a[href]") : null;
+      if (!anchor || anchor.getAttribute("target") === "_blank") return;
+      const href = anchor.getAttribute("href");
+      if (!href || href.startsWith("#") || new URL(href, window.location.href).origin !== window.location.origin) return;
+      if (!window.confirm(warning)) { event.preventDefault(); event.stopPropagation(); }
+    };
+    window.addEventListener("beforeunload", beforeUnload);
+    document.addEventListener("click", preventLinkNavigation, true);
+    return () => {
+      window.removeEventListener("beforeunload", beforeUnload);
+      document.removeEventListener("click", preventLinkNavigation, true);
+    };
+  }, [dirty]);
 
   const update = (next: (current: Draft) => Draft) => {
     setDraft(next);
@@ -144,19 +176,6 @@ export function EstimateCommercialEditor({ initialEstimate, services, commercial
     setPickerMode(mode);
     requestAnimationFrame(() => document.getElementById("estimate-line-picker")?.scrollIntoView({ behavior: "smooth", block: "start" }));
   };
-  const acceptAddedLines = (next: EstimateDetailDto, nextMessage: string) => {
-    const existingIds = new Set(estimate.lines.map((line) => line.id));
-    const addedIds = new Set(next.lines.filter((line) => !existingIds.has(line.id)).map((line) => line.id));
-    if (!targetSectionId || !addedIds.size || next.lines.every((line) => !addedIds.has(line.id) || line.sectionId === targetSectionId)) {
-      acceptServer(next, nextMessage);
-      return;
-    }
-    setEstimate(next);
-    setDraft(toDraft({ ...next, lines: next.lines.map((line) => addedIds.has(line.id) ? { ...line, sectionId: targetSectionId } : line) }));
-    setDirty(true);
-    setSelectedLineIds(new Set());
-    setMessage(`${nextMessage} Позиции назначены выбранному разделу — сохраните смету.`);
-  };
   const normalizedLineSearch = lineSearch.trim().toLocaleLowerCase("ru");
   const visibleSections = draft.sections.filter((section) => sectionFilter === "all" || section.id === sectionFilter);
 
@@ -197,7 +216,7 @@ export function EstimateCommercialEditor({ initialEstimate, services, commercial
 
     <div className="grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_20rem]">
       <main className="min-w-0 space-y-4">
-        {isDraft && <EstimateLinePicker disabled={dirty} estimate={estimate} mode={pickerMode} onModeChange={setPickerMode} onResult={acceptAddedLines} services={services} workspaceControls={<div className="grid min-w-0 gap-2 sm:grid-cols-[minmax(10rem,1fr)_12rem_auto]">
+        {isDraft && targetSection && <EstimateLinePicker disabled={dirty} estimate={estimate} mode={pickerMode} onModeChange={setPickerMode} onResult={acceptServer} onTargetSectionChange={setTargetSectionId} services={services} targetSectionId={targetSection.id} targetSections={draft.sections} workspaceControls={<div className="grid min-w-0 gap-2 sm:grid-cols-[minmax(10rem,1fr)_12rem_auto]">
           <label className="relative min-w-0"><span className="sr-only">Поиск по позициям сметы</span><Search className="pointer-events-none absolute left-3 top-3.5 size-4 text-zinc-400" /><input className={`${inputClass} w-full pl-9`} onChange={(event) => setLineSearch(event.target.value)} placeholder="Поиск по позициям" value={lineSearch} /></label>
           <label className="relative min-w-0"><span className="sr-only">Фильтр разделов</span><ListFilter className="pointer-events-none absolute left-3 top-3.5 size-4 text-zinc-400" /><select className={`${inputClass} w-full pl-9`} onChange={(event) => setSectionFilter(event.target.value)} value={sectionFilter}><option value="all">Все разделы</option>{draft.sections.map((section) => <option key={section.id} value={section.id}>{section.name}</option>)}</select></label>
           <button className={buttonClass} disabled={!isDraft} onClick={() => update((d) => ({ ...d, sections: [...d.sections, { id: crypto.randomUUID(), name: "Новый раздел", sortOrder: d.sections.length, showSubtotal: true, discountPercent: 0 }] }))} type="button"><Plus className="size-4" />Раздел</button>
@@ -291,7 +310,7 @@ export function EstimateCommercialEditor({ initialEstimate, services, commercial
         {isDraft ? <button className={`${buttonClass} w-full border-dashed`} onClick={() => update((d) => ({ ...d, sections: [...d.sections, { id: crypto.randomUUID(), name: "Новый раздел", sortOrder: d.sections.length, showSubtotal: true, discountPercent: 0 }] }))} type="button"><Plus className="size-4" />Добавить раздел</button> : null}
         <Charges draft={draft} disabled={!isDraft} update={update} />
       </main>
-      <aside className="min-w-0 border-y border-zinc-200 bg-white p-5 xl:sticky xl:top-24"><Summary currency={draft.currencyCode} preview={preview.value} retailOnly={retailOnly} sections={draft.sections} /><EstimateProposalSidebar disabled={dirty} revision={estimate.revision} workflow={workflow} /></aside>
+      <aside className="min-w-0 border-y border-zinc-200 bg-white p-5 xl:sticky xl:top-24"><Summary currency={draft.currencyCode} preview={preview.value} retailOnly={retailOnly} sections={draft.sections} /><EstimateProposalSidebar disabled={dirty || pending} readiness={draftReadiness} revision={estimate.revision} workflow={workflow} /></aside>
     </div>
     {currencyChoice && <CurrencyDialog affectedLines={draft.lines.length} current={draft.currencyCode} effectiveDate={commercialOptions.rateEffectiveDate} manualLines={draft.lines.filter((line) => line.lineType !== "product" && line.pricingMode === "direct").length} onCancel={() => setCurrencyChoice(null)} onConfirm={(policy) => {
       if (!commercialOptions.usdMdlRate) return setMessage("Для смены валюты нет опубликованного курса.");
@@ -323,7 +342,16 @@ function CurrencyDialog({ current, target, rate, effectiveDate, affectedLines, m
 function Field({ label, children, className = "" }: { label: string; children: React.ReactNode; className?: string }) { return <label className={`min-w-0 text-xs font-medium text-zinc-600 ${className}`}><span className="mb-1 block">{label}</span>{children}</label>; }
 function Meta({ label, value }: { label: string; value: string }) { return <div className="min-w-0"><dt className="sr-only">{label}</dt><dd className="max-w-56 truncate" title={`${label}: ${value}`}><span className="text-zinc-400">{label}:</span> {value}</dd></div>; }
 function Info({ label, value }: { label: string; value: string }) { return <div><p className="text-xs text-zinc-500">{label}</p><p className="mt-1 text-sm">{value}</p></div>; }
-function NumberInput({ value, onValue, disabled, nullable = false }: { value: number | null; onValue: (value: number | null) => void; disabled?: boolean; nullable?: boolean }) { return <input className={`${inputClass} w-full`} disabled={disabled} min="0" onChange={(event) => onValue(event.target.value === "" ? (nullable ? null : 0) : Number(event.target.value))} step="0.01" type="number" value={value ?? ""} />; }
+function NumberInput({ value, onValue, disabled, nullable = false }: { value: number | null; onValue: (value: number | null) => void; disabled?: boolean; nullable?: boolean }) {
+  const commit = (inputValue: string) => {
+    const next = inputValue === "" ? (nullable ? null : 0) : Number(inputValue);
+    if (next !== value) onValue(next);
+  };
+  return <input className={`${inputClass} w-full`} defaultValue={value ?? ""} disabled={disabled} key={value ?? "empty"} min="0" onBlur={(event) => commit(event.currentTarget.value)} onKeyDown={(event) => {
+    if (event.key === "Enter") { event.preventDefault(); event.currentTarget.blur(); }
+    if (event.key === "Escape") { event.preventDefault(); event.currentTarget.value = value === null ? "" : String(value); event.currentTarget.blur(); }
+  }} step="0.01" type="number" />;
+}
 function ReorderButtons({ onUp, onDown, up, down, disabled }: { onUp: () => void; onDown: () => void; up: boolean; down: boolean; disabled: boolean }) { return <span className="flex"><button aria-label="Переместить вверх" className="p-2" disabled={disabled || up} onClick={onUp} type="button"><ArrowUp className="size-4" /></button><button aria-label="Переместить вниз" className="p-2" disabled={disabled || down} onClick={onDown} type="button"><ArrowDown className="size-4" /></button></span>; }
 function toDraft(estimate: EstimateDetailDto): Draft { return { name: estimate.name, finalCustomerId: estimate.finalCustomerId ?? null, customerName: estimate.customerName, projectName: estimate.projectName, validityDays: estimate.validityDays, currencyCode: estimate.currencyCode, vatMode: estimate.vatMode, vatRatePercent: estimate.vatRatePercent, globalDiscountPercent: estimate.globalDiscountPercent, sections: estimate.sections.map(({ id, name, sortOrder, showSubtotal, discountPercent }) => ({ id, name, sortOrder, showSubtotal, discountPercent })), lines: estimate.lines.map((item) => ({ ...item })), charges: estimate.charges.map((item) => ({ ...item })) }; }
 function updateLine(draft: Draft, setDraft: React.Dispatch<React.SetStateAction<Draft>>, setDirty: (value: boolean) => void, id: string, patch: Partial<Draft["lines"][number]>) { setDraft({ ...draft, lines: draft.lines.map((line) => line.id === id ? { ...line, ...patch } : line) }); setDirty(true); }

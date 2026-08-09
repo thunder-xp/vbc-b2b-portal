@@ -198,7 +198,13 @@ export type CreateEstimateCommand = {
   requestKey?: string;
 };
 
+export type EstimateLineInsertion = {
+  targetSectionId: string;
+  requestKey: string;
+};
+
 export type ExternalNomenclatureInput = {
+  targetSectionId: string;
   existingExternalItemId?: string | null;
   manufacturer: string;
   model: string;
@@ -274,10 +280,10 @@ export interface EstimateService {
   getDetail(userId: string, estimateId: string): Promise<EstimateDetailDto>;
   saveDraft(userId: string, estimateId: string, input: SaveEstimateCommand): Promise<EstimateDetailDto>;
   saveCommercialDraft(userId: string, estimateId: string, input: SaveEstimateCommercialCommand): Promise<EstimateDetailDto>;
-  addProducts(userId: string, estimateId: string, expectedRevision: number, selections: Array<{ productId: string; quantity: number }>): Promise<EstimateDetailDto>;
-  addServices(userId: string, estimateId: string, expectedRevision: number, selections: EstimateServiceSelection[]): Promise<EstimateDetailDto>;
-  addService(userId: string, estimateId: string, expectedRevision: number, serviceId: string, quantity: number, sellingUnitPrice: number): Promise<EstimateDetailDto>;
-  addCustomLine(userId: string, estimateId: string, expectedRevision: number, description: string, unit: EstimateUnit, quantity: number, sellingUnitPrice: number): Promise<EstimateDetailDto>;
+  addProducts(userId: string, estimateId: string, expectedRevision: number, selections: Array<{ productId: string; quantity: number }>, insertion: EstimateLineInsertion): Promise<EstimateDetailDto>;
+  addServices(userId: string, estimateId: string, expectedRevision: number, selections: EstimateServiceSelection[], insertion: EstimateLineInsertion): Promise<EstimateDetailDto>;
+  addService(userId: string, estimateId: string, expectedRevision: number, serviceId: string, quantity: number, sellingUnitPrice: number, insertion: EstimateLineInsertion): Promise<EstimateDetailDto>;
+  addCustomLine(userId: string, estimateId: string, expectedRevision: number, description: string, unit: EstimateUnit, quantity: number, sellingUnitPrice: number, insertion: EstimateLineInsertion): Promise<EstimateDetailDto>;
   addExternalLine(userId: string, estimateId: string, expectedRevision: number, input: ExternalNomenclatureInput): Promise<EstimateDetailDto>;
   updateLine(userId: string, estimateId: string, itemId: string, expectedRevision: number, input: { description: string; unit: EstimateUnit; quantity: number; sellingUnitPrice: number }): Promise<EstimateDetailDto>;
   removeLine(userId: string, estimateId: string, itemId: string, expectedRevision: number): Promise<EstimateDetailDto>;
@@ -677,7 +683,7 @@ export class DefaultEstimateService implements EstimateService {
     return this.getDetail(userId, estimateId);
   }
 
-  async addProducts(userId: string, estimateId: string, expectedRevision: number, selections: Array<{ productId: string; quantity: number }>): Promise<EstimateDetailDto> {
+  async addProducts(userId: string, estimateId: string, expectedRevision: number, selections: Array<{ productId: string; quantity: number }>, insertion: EstimateLineInsertion): Promise<EstimateDetailDto> {
     const estimate = await this.ensureDraft(userId, estimateId, PRICING_PERMISSION, expectedRevision);
     const canViewPartnerPrice = await this.canViewPartnerPrice(
       userId,
@@ -736,15 +742,15 @@ export class DefaultEstimateService implements EstimateService {
         sellingUnitPrice: convertedPrice,
       };
     });
-    await this.addLinesSafely(estimateId, expectedRevision, lines);
+    await this.addLinesSafely(estimateId, expectedRevision, lines, insertion);
     return this.getDetail(userId, estimateId);
   }
 
-  async addService(userId: string, estimateId: string, expectedRevision: number, serviceId: string, quantity: number, sellingUnitPrice: number): Promise<EstimateDetailDto> {
-    return this.addServices(userId, estimateId, expectedRevision, [{ serviceId, quantity, sellingUnitPrice }]);
+  async addService(userId: string, estimateId: string, expectedRevision: number, serviceId: string, quantity: number, sellingUnitPrice: number, insertion: EstimateLineInsertion): Promise<EstimateDetailDto> {
+    return this.addServices(userId, estimateId, expectedRevision, [{ serviceId, quantity, sellingUnitPrice }], insertion);
   }
 
-  async addServices(userId: string, estimateId: string, expectedRevision: number, selections: EstimateServiceSelection[]): Promise<EstimateDetailDto> {
+  async addServices(userId: string, estimateId: string, expectedRevision: number, selections: EstimateServiceSelection[], insertion: EstimateLineInsertion): Promise<EstimateDetailDto> {
     const estimate = await this.ensureDraft(userId, estimateId, PRICING_PERMISSION, expectedRevision);
     if (!Array.isArray(selections) || selections.length < 1 || selections.length > MAX_PRODUCT_BATCH) {
       throw new InvalidStateError("Select between 1 and 50 services.");
@@ -779,11 +785,11 @@ export class DefaultEstimateService implements EstimateService {
         sellingUnitPrice: normalizeMoney(selection.sellingUnitPrice),
       };
     });
-    await this.addLinesSafely(estimateId, expectedRevision, lines);
+    await this.addLinesSafely(estimateId, expectedRevision, lines, insertion);
     return this.getDetail(userId, estimateId);
   }
 
-  async addCustomLine(userId: string, estimateId: string, expectedRevision: number, description: string, unit: EstimateUnit, quantity: number, sellingUnitPrice: number): Promise<EstimateDetailDto> {
+  async addCustomLine(userId: string, estimateId: string, expectedRevision: number, description: string, unit: EstimateUnit, quantity: number, sellingUnitPrice: number, insertion: EstimateLineInsertion): Promise<EstimateDetailDto> {
     await this.ensureDraft(userId, estimateId, PRICING_PERMISSION, expectedRevision);
     await this.addLinesSafely(estimateId, expectedRevision, [{
       lineType: "custom",
@@ -798,7 +804,7 @@ export class DefaultEstimateService implements EstimateService {
       quantity: normalizeQuantity(quantity),
       unit: normalizeUnit(unit),
       sellingUnitPrice: normalizeMoney(sellingUnitPrice),
-    }]);
+    }], insertion);
     return this.getDetail(userId, estimateId);
   }
 
@@ -986,9 +992,12 @@ export class DefaultEstimateService implements EstimateService {
     };
   }
 
-  private async addLinesSafely(estimateId: string, expectedRevision: number, lines: AddEstimateLineInput[]) {
+  private async addLinesSafely(estimateId: string, expectedRevision: number, lines: AddEstimateLineInput[], insertion: EstimateLineInsertion) {
+    const targetSectionId = normalizeUuid(insertion.targetSectionId, "Раздел для добавления позиции некорректен.");
+    const requestKey = normalizeUuid(insertion.requestKey, "Ключ добавления позиции некорректен.");
+    const requestFingerprint = createHash("sha256").update(JSON.stringify({ targetSectionId, lines })).digest("hex");
     try {
-      await this.repository.addLines(estimateId, expectedRevision, lines);
+      await this.repository.addLines({ estimateId, expectedRevision, targetSectionId, requestKey, requestFingerprint, lines });
     } catch (error) {
       handleRepositoryConflict(error);
     }
@@ -1026,10 +1035,11 @@ export class DefaultEstimateService implements EstimateService {
       forceCreateNew: input.forceCreateNew === true,
     };
     const requestKey = normalizeUuid(input.requestKey, "Ключ добавления позиции некорректен.");
-    const requestFingerprint = createHash("sha256").update(JSON.stringify({ existingExternalItemId, ...normalized })).digest("hex");
+    const targetSectionId = normalizeUuid(input.targetSectionId, "Раздел для добавления позиции некорректен.");
+    const requestFingerprint = createHash("sha256").update(JSON.stringify({ targetSectionId, existingExternalItemId, ...normalized })).digest("hex");
     try {
       if (!this.repository.addExternalLine) throw new InvalidStateError("Добавление внешних позиций временно недоступно.");
-      await this.repository.addExternalLine({ estimateId, expectedRevision, requestKey, requestFingerprint, existingExternalItemId, ...normalized });
+      await this.repository.addExternalLine({ estimateId, expectedRevision, targetSectionId, requestKey, requestFingerprint, existingExternalItemId, ...normalized });
     } catch (error) {
       if (error instanceof EstimateRepositoryError && error.code === "duplicate") {
         throw new InvalidStateError("Похожая позиция уже существует в системе. Выберите существующую позицию, чтобы не создавать дубликат.");

@@ -247,9 +247,10 @@ export class SupabaseEstimateRepository implements EstimateRepository {
   }
 
   async addExternalLine(input: import("../estimate.repository").AddExternalEstimateLineInput): Promise<void> {
-    const { error } = await (await createClient()).rpc("add_estimate_external_item", {
+    const { error } = await (await createClient()).rpc("add_estimate_external_item_v2", {
       target_estimate_id: input.estimateId,
       expected_revision: input.expectedRevision,
+      target_section_id: input.targetSectionId,
       target_request_key: input.requestKey,
       target_request_fingerprint: input.requestFingerprint,
       existing_external_item_id: input.existingExternalItemId,
@@ -349,12 +350,15 @@ export class SupabaseEstimateRepository implements EstimateRepository {
     return mapEstimateRow(data as EstimateRow);
   }
 
-  async addLines(estimateId: string, expectedRevision: number, lines: AddEstimateLineInput[]): Promise<void> {
+  async addLines(input: import("../estimate.repository").AddEstimateLineBatchInput): Promise<void> {
     const supabase = await createClient();
-    const { error } = await supabase.rpc("add_estimate_items", {
-      target_estimate_id: estimateId,
-      expected_revision: expectedRevision,
-      line_items: lines.map(toLinePayload),
+    const { error } = await supabase.rpc("add_estimate_items_v2", {
+      target_estimate_id: input.estimateId,
+      expected_revision: input.expectedRevision,
+      target_section_id: input.targetSectionId,
+      target_request_key: input.requestKey,
+      target_request_fingerprint: input.requestFingerprint,
+      line_items: input.lines.map(toLinePayload),
     });
     if (error) throw mapRepositoryError(error.code);
   }

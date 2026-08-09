@@ -292,9 +292,12 @@ function deliveryStatusLabel(status: ProposalDelivery["status"]) {
 }
 
 function readinessFromAggregate(aggregate: NonNullable<Awaited<ReturnType<EstimateRepository["findAggregateById"]>>>) {
+  const invalidQuantityCount = aggregate.items.filter((item) => !Number.isFinite(item.quantity) || item.quantity <= 0).length;
+  const missingPriceCount = aggregate.items.filter((item) => item.sellingUnitPrice === null || !Number.isFinite(item.sellingUnitPrice)).length;
   const checks = [
     { label: "Добавлена хотя бы одна позиция", passed: aggregate.items.length > 0 },
-    { label: "Для всех позиций указаны цены", passed: !aggregate.estimate.hasIncompletePricing && aggregate.items.every((item) => item.sellingUnitPrice !== null) },
+    { label: invalidQuantityCount ? `У ${invalidQuantityCount} позиций указано некорректное количество` : "Количество по всем позициям указано", passed: invalidQuantityCount === 0 },
+    { label: missingPriceCount ? `У ${missingPriceCount} позиций не указана цена` : "Цены по всем позициям указаны", passed: !aggregate.estimate.hasIncompletePricing && missingPriceCount === 0 },
     { label: "Валюта сметы определена", passed: /^[A-Z]{3}$/.test(aggregate.estimate.currencyCode) },
     { label: "Итоговая сумма рассчитана", passed: Number.isFinite(aggregate.estimate.totalAmount) && aggregate.estimate.totalAmount >= 0 },
   ];
@@ -303,9 +306,12 @@ function readinessFromAggregate(aggregate: NonNullable<Awaited<ReturnType<Estima
 
 function readinessFromProposal(proposal: import("../types").CustomerProposalDto) {
   const lines = proposal.sections.flatMap((section) => section.lines);
+  const invalidQuantityCount = lines.filter((line) => !Number.isFinite(line.quantity) || line.quantity <= 0).length;
+  const missingPriceCount = lines.filter((line) => !Number.isFinite(line.unitPrice) || !Number.isFinite(line.lineTotal)).length;
   const checks = [
     { label: "Добавлена хотя бы одна позиция", passed: lines.length > 0 },
-    { label: "Для всех позиций указаны цены", passed: lines.every((line) => Number.isFinite(line.unitPrice) && Number.isFinite(line.lineTotal)) },
+    { label: invalidQuantityCount ? `У ${invalidQuantityCount} позиций указано некорректное количество` : "Количество по всем позициям указано", passed: invalidQuantityCount === 0 },
+    { label: missingPriceCount ? `У ${missingPriceCount} позиций не указана цена` : "Цены по всем позициям указаны", passed: missingPriceCount === 0 },
     { label: "Валюта сметы определена", passed: /^[A-Z]{3}$/.test(proposal.currencyCode) },
     { label: "Итоговая сумма рассчитана", passed: Number.isFinite(proposal.totals.total) && proposal.totals.total >= 0 },
   ];

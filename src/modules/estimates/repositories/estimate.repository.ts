@@ -71,6 +71,7 @@ export type ExternalNomenclatureRecord = {
 export type AddExternalEstimateLineInput = {
   estimateId: string;
   expectedRevision: number;
+  targetSectionId: string;
   requestKey: string;
   requestFingerprint: string;
   existingExternalItemId: string | null;
@@ -102,6 +103,15 @@ export type AddEstimateLineInput = {
   quantity: number;
   unit: EstimateUnit;
   sellingUnitPrice: number | null;
+};
+
+export type AddEstimateLineBatchInput = {
+  estimateId: string;
+  expectedRevision: number;
+  targetSectionId: string;
+  requestKey: string;
+  requestFingerprint: string;
+  lines: AddEstimateLineInput[];
 };
 
 export type SaveEstimateCommercialInput = {
@@ -208,7 +218,7 @@ export interface EstimateRepository {
     validityDays: number;
   }): Promise<Estimate>;
   saveCommercialDraft(input: SaveEstimateCommercialInput): Promise<Estimate>;
-  addLines(estimateId: string, expectedRevision: number, lines: AddEstimateLineInput[]): Promise<void>;
+  addLines(input: AddEstimateLineBatchInput): Promise<void>;
   updateLine(input: {
     estimateId: string;
     itemId: string;
