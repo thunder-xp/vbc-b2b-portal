@@ -7,6 +7,7 @@ import { normalizeProductImageUrl } from "../../catalog/components/product-image
 import { companyLogoUrl } from "../../partner-cabinet/services/company-logo-url";
 import type { EstimateRepository, ProposalRepository } from "../repositories";
 import type { CustomerProposalDto, GeneratedEstimateDocument, ProposalSettings, ProposalTemplate } from "../types";
+import { CANONICAL_ESTIMATE_SECTIONS, resolveCanonicalLineSectionKey } from "./estimate-sections";
 
 const VIEW_PERMISSION = "estimates.view";
 const MANAGE_PERMISSION = "estimates.manage";
@@ -151,12 +152,26 @@ function prepareCustomerProposal(input: {
   profile: Partial<import("../types").ProposalBranding> | null; images: Map<string, string | null>;
 }): CustomerProposalDto {
   const { estimate, sections, items, charges } = input.aggregate;
-  const sectionRows = [...sections].sort((a, b) => a.sortOrder - b.sortOrder).map((section) => {
-    const lines = items.filter((item) => item.sectionId === section.id).sort((a, b) => a.position - b.position).map((item) => ({
-      position: item.position, lineType: item.lineType, description: item.description, sku: item.skuSnapshot,
-      imageUrl: item.productId ? normalizeProposalProductImageUrl(input.images.get(item.productId) ?? null) : null,
-      quantity: item.quantity, unitLabel: unitLabel(item.unit), unitPrice: item.sellingUnitPrice!,
-      lineDiscountPercent: item.lineDiscountPercent, lineTotal: item.lineTotal!,
+  const sectionById = new Map(sections.map((section) => [section.id, section]));
+  const proposalLines = items.slice().sort((a, b) => a.position - b.position).map((item) => ({
+    sectionKey: resolveCanonicalLineSectionKey(item.lineType, sectionById.get(item.sectionId) ?? null),
+    position: item.position, lineType: item.lineType, description: item.description, sku: item.skuSnapshot,
+    imageUrl: item.productId ? normalizeProposalProductImageUrl(input.images.get(item.productId) ?? null) : null,
+    quantity: item.quantity, unitLabel: unitLabel(item.unit), unitPrice: item.sellingUnitPrice!,
+    lineDiscountPercent: item.lineDiscountPercent, lineTotal: item.lineTotal!,
+  }));
+  const sectionRows = CANONICAL_ESTIMATE_SECTIONS.map((section) => {
+    const lines = proposalLines.filter((line) => line.sectionKey === section.key).map((line) => ({
+      position: line.position,
+      lineType: line.lineType,
+      description: line.description,
+      sku: line.sku,
+      imageUrl: line.imageUrl,
+      quantity: line.quantity,
+      unitLabel: line.unitLabel,
+      unitPrice: line.unitPrice,
+      lineDiscountPercent: line.lineDiscountPercent,
+      lineTotal: line.lineTotal,
     }));
     return { name: section.name, subtotal: lines.reduce((sum, line) => sum + line.lineTotal, 0), lines };
   });

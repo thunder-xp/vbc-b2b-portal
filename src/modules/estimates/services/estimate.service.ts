@@ -619,7 +619,6 @@ export class DefaultEstimateService implements EstimateService {
 
   async checkCurrentProductState(userId: string, estimateId: string): Promise<EstimateCommercialCheckDto> {
     const companyId = await this.resolveCompany(userId, VIEW_PERMISSION);
-    const canViewPartnerPrice = await this.canViewPartnerPrice(userId, companyId);
     const aggregate = await this.repository.findAggregateById(normalizeId(estimateId));
     if (!aggregate || aggregate.estimate.companyId !== companyId) throw new NotFoundError("Estimate was not found.");
     const productLines = aggregate.items.filter((item) => item.lineType === "product" && item.productId);
@@ -629,18 +628,18 @@ export class DefaultEstimateService implements EstimateService {
       : [];
     const viewByProduct = new Map(views.map((view) => [view.productId, view]));
     const needsRate = views.some((view) => {
-      const price = canViewPartnerPrice ? view.partnerPrice : view.retailPrice;
+      const price = view.retailPrice;
       return price?.currencyCode && price.currencyCode !== aggregate.estimate.currencyCode;
     });
     const rate = needsRate
-      ? await this.pricingInventoryService.getApprovedUsdMdlRateSnapshot?.(userId) ?? null
+      ? await this.pricingInventoryService.getRetailUsdMdlRateSnapshot?.(userId) ?? null
       : null;
 
     return {
       checkedAt: new Date().toISOString(),
       lines: productLines.map((line) => {
         const view = viewByProduct.get(line.productId!);
-        const price = canViewPartnerPrice ? view?.partnerPrice : view?.retailPrice;
+        const price = view?.retailPrice;
         const exchangeRate = price?.currencyCode === aggregate.estimate.currencyCode
           ? 1
           : price?.currencyCode && rate
@@ -690,18 +689,40 @@ export class DefaultEstimateService implements EstimateService {
     const commercialById = new Map(commercialViews.map((view) => [view.productId, view]));
     const priced = normalizedItems.flatMap((item) => {
       const product = productById.get(item.productId);
-      const price = commercialById.get(item.productId)?.partnerPrice;
-      return product && price?.currencyCode && price.amount >= 0 ? [{ item, product, price }] : [];
+      const commercial = commercialById.get(item.productId);
+      const retailPrice = commercial?.retailPrice;
+      const partnerPrice = commercial?.partnerPrice;
+      return product && retailPrice?.currencyCode && retailPrice.amount >= 0 && partnerPrice?.currencyCode && partnerPrice.amount >= 0
+        ? [{ item, product, retailPrice, partnerPrice }]
+        : [];
     });
-    if (!priced.length) throw new InvalidStateError("No products with a current partner price were selected.");
-    const currencyCode = priced[0].price.currencyCode!;
-    const needsConversion = priced.some(({ price }) => price.currencyCode !== currencyCode);
-    const rate = needsConversion ? await this.pricingInventoryService.getApprovedUsdMdlRateSnapshot?.(userId) ?? null : null;
-    if (needsConversion && !rate) throw new InvalidStateError("No published rate is available for estimate conversion.");
-    const lines = priced.map(({ item, product, price }) => {
-      const exchangeRate = price.currencyCode === currencyCode ? 1 : resolveCurrencyRate(price.currencyCode!, currencyCode, rate!.mdlPerUsdRate);
-      const convertedCostUnitPrice = convertMoney(price.amount, exchangeRate);
-      return { itemId: item.itemId, productId: product.id, quantity: item.quantity, sku: product.sku, productName: product.name, sourceUnitPrice: price.amount, sourceCurrencyCode: price.currencyCode!, sourceSnapshotAt: price.lastUpdatedAt ?? null, sellingUnitPrice: convertedCostUnitPrice, convertedCostUnitPrice, exchangeRate, exchangeRateEffectiveDate: exchangeRate === 1 ? price.lastUpdatedAt?.slice(0, 10) ?? null : rate?.effectiveDate ?? null };
+    if (!priced.length) throw new InvalidStateError("No products with current RETAIL and partner prices were selected.");
+    const currencyCode = priced[0].retailPrice.currencyCode!;
+    const retailNeedsConversion = priced.some(({ retailPrice }) => retailPrice.currencyCode !== currencyCode);
+    const costNeedsConversion = priced.some(({ partnerPrice }) => partnerPrice.currencyCode !== currencyCode);
+    const [retailRate, costRate] = await Promise.all([
+      retailNeedsConversion ? this.pricingInventoryService.getRetailUsdMdlRateSnapshot?.(userId) ?? null : null,
+      costNeedsConversion ? this.pricingInventoryService.getApprovedUsdMdlRateSnapshot?.(userId) ?? null : null,
+    ]);
+    if (retailNeedsConversion && !retailRate) throw new InvalidStateError("No published RETAIL rate is available for estimate conversion.");
+    if (costNeedsConversion && !costRate) throw new InvalidStateError("No published partner rate is available for estimate conversion.");
+    const lines = priced.map(({ item, product, retailPrice, partnerPrice }) => {
+      const retailExchangeRate = retailPrice.currencyCode === currencyCode ? 1 : resolveCurrencyRate(retailPrice.currencyCode!, currencyCode, retailRate!.mdlPerUsdRate);
+      const costExchangeRate = partnerPrice.currencyCode === currencyCode ? 1 : resolveCurrencyRate(partnerPrice.currencyCode!, currencyCode, costRate!.mdlPerUsdRate);
+      return {
+        itemId: item.itemId,
+        productId: product.id,
+        quantity: item.quantity,
+        sku: product.sku,
+        productName: product.name,
+        sourceUnitPrice: partnerPrice.amount,
+        sourceCurrencyCode: partnerPrice.currencyCode!,
+        sourceSnapshotAt: partnerPrice.lastUpdatedAt ?? null,
+        sellingUnitPrice: convertMoney(retailPrice.amount, retailExchangeRate),
+        convertedCostUnitPrice: convertMoney(partnerPrice.amount, costExchangeRate),
+        exchangeRate: costExchangeRate,
+        exchangeRateEffectiveDate: costExchangeRate === 1 ? partnerPrice.lastUpdatedAt?.slice(0, 10) ?? null : costRate?.effectiveDate ?? null,
+      };
     });
     const requestFingerprint = createHash("sha256").update(`${input.listId}|${lines.slice().sort((a, b) => a.itemId.localeCompare(b.itemId)).map((line) => `${line.itemId}:${line.quantity}`).join("|")}`).digest("hex");
     const result = await this.repository.createFromPurchasingList({ listId: normalizeId(input.listId), requestKey: normalizeId(input.requestKey), requestFingerprint, name: normalizeRequired(input.name, 200, "Укажите название сметы."), currencyCode, items: lines, summary: { added: lines.length, skipped: normalizedItems.length - lines.length } });
@@ -711,6 +732,10 @@ export class DefaultEstimateService implements EstimateService {
   async getDetail(userId: string, estimateId: string): Promise<EstimateDetailDto> {
     const companyId = await this.resolveCompany(userId, VIEW_PERMISSION);
     const canViewPartnerPrice = await this.canViewPartnerPrice(userId, companyId);
+    return this.getDetailForCompany(userId, estimateId, companyId, canViewPartnerPrice);
+  }
+
+  private async getDetailForCompany(userId: string, estimateId: string, companyId: string, canViewPartnerPrice: boolean): Promise<EstimateDetailDto> {
     const aggregate = await this.repository.findAggregateById(normalizeId(estimateId));
     if (!aggregate || aggregate.estimate.companyId !== companyId) throw new NotFoundError("Estimate was not found.");
     const productIds = [...new Set(aggregate.items.flatMap((item) => item.productId ? [item.productId] : []))];
@@ -745,7 +770,9 @@ export class DefaultEstimateService implements EstimateService {
     } catch (error) {
       handleRepositoryConflict(error);
     }
-    const detail = await this.getDetail(userId, estimateId);
+    // Reuse the already verified tenant/access context after the mutation. Re-resolving
+    // it here previously allowed a successful commit to be reported as a failed Save.
+    const detail = await this.getDetailForCompany(userId, estimateId, companyId, canViewPartnerPrice);
     const logContext = {
       estimateId,
       companyId,
@@ -804,44 +831,42 @@ export class DefaultEstimateService implements EstimateService {
     ]);
     if (products.length !== ids.length) throw new NotFoundError("One or more catalog products were not found.");
     const commercialByProduct = new Map(commercialViews.map((view) => [view.productId, view]));
-    const needsConversion = commercialViews.some((view) => {
-      const price = canViewPartnerPrice ? view.partnerPrice : view.retailPrice;
-      return price?.currencyCode && price.currencyCode !== estimate.currencyCode;
-    });
-    const rateSnapshot = needsConversion
-      ? canViewPartnerPrice
-        ? await this.pricingInventoryService
-            .getApprovedUsdMdlRateSnapshot?.(userId) ?? null
-        : await this.pricingInventoryService
-            .getRetailUsdMdlRateSnapshot?.(userId) ?? null
-      : null;
-    if (needsConversion && !rateSnapshot) throw new InvalidStateError("Для пересчета товарной цены нет опубликованного курса.");
+    const retailNeedsConversion = commercialViews.some((view) => view.retailPrice?.currencyCode && view.retailPrice.currencyCode !== estimate.currencyCode);
+    const costNeedsConversion = canViewPartnerPrice && commercialViews.some((view) => view.partnerPrice?.currencyCode && view.partnerPrice.currencyCode !== estimate.currencyCode);
+    const [retailRateSnapshot, costRateSnapshot] = await Promise.all([
+      retailNeedsConversion ? this.pricingInventoryService.getRetailUsdMdlRateSnapshot?.(userId) ?? null : null,
+      costNeedsConversion ? this.pricingInventoryService.getApprovedUsdMdlRateSnapshot?.(userId) ?? null : null,
+    ]);
+    if (retailNeedsConversion && !retailRateSnapshot) throw new InvalidStateError("Для пересчета розничной цены нет опубликованного курса.");
+    if (costNeedsConversion && !costRateSnapshot) throw new InvalidStateError("Для пересчета закупочной цены нет опубликованного курса.");
     const lines: AddEstimateLineInput[] = products.map((product) => {
       const view = commercialByProduct.get(product.id);
-      const price = canViewPartnerPrice
-        ? view?.partnerPrice ?? null
-        : view?.retailPrice ?? null;
-      const sameCurrency = price?.currencyCode === estimate.currencyCode;
-      const exchangeRate = !price?.currencyCode ? null : sameCurrency ? 1 : resolveCurrencyRate(price.currencyCode, estimate.currencyCode, rateSnapshot!.mdlPerUsdRate);
-      const convertedPrice = price && exchangeRate ? convertMoney(price.amount, exchangeRate) : null;
+      const retailPrice = view?.retailPrice ?? null;
+      const costPrice = canViewPartnerPrice ? view?.partnerPrice ?? null : null;
+      const retailSameCurrency = retailPrice?.currencyCode === estimate.currencyCode;
+      const retailExchangeRate = !retailPrice?.currencyCode ? null : retailSameCurrency ? 1 : resolveCurrencyRate(retailPrice.currencyCode, estimate.currencyCode, retailRateSnapshot!.mdlPerUsdRate);
+      const sellingPrice = retailPrice && retailExchangeRate ? convertMoney(retailPrice.amount, retailExchangeRate) : null;
+      const costSameCurrency = costPrice?.currencyCode === estimate.currencyCode;
+      const costExchangeRate = !costPrice?.currencyCode ? null : costSameCurrency ? 1 : resolveCurrencyRate(costPrice.currencyCode, estimate.currencyCode, costRateSnapshot!.mdlPerUsdRate);
+      const convertedCost = costPrice && costExchangeRate ? convertMoney(costPrice.amount, costExchangeRate) : null;
       return {
         lineType: "product",
         productId: product.id,
         serviceId: null,
         skuSnapshot: product.sku,
         productNameSnapshot: product.name,
-        sourceUnitPrice: canViewPartnerPrice ? price?.amount ?? null : null,
-        sourceCurrencyCode: canViewPartnerPrice ? price?.currencyCode ?? null : null,
-        sourceSnapshotAt: canViewPartnerPrice ? price?.lastUpdatedAt ?? null : null,
-        convertedCostUnitPrice: canViewPartnerPrice ? convertedPrice : null,
-        exchangeRate: canViewPartnerPrice ? exchangeRate : null,
+        sourceUnitPrice: costPrice?.amount ?? null,
+        sourceCurrencyCode: costPrice?.currencyCode ?? null,
+        sourceSnapshotAt: costPrice?.lastUpdatedAt ?? null,
+        convertedCostUnitPrice: convertedCost,
+        exchangeRate: costExchangeRate,
         exchangeRateEffectiveDate: canViewPartnerPrice
-          ? sameCurrency ? price?.lastUpdatedAt?.slice(0, 10) ?? null : rateSnapshot?.effectiveDate ?? null
+          ? costSameCurrency ? costPrice?.lastUpdatedAt?.slice(0, 10) ?? null : costRateSnapshot?.effectiveDate ?? null
           : null,
         description: product.name,
         quantity: quantityById.get(product.id) ?? 1,
         unit: "pcs",
-        sellingUnitPrice: convertedPrice,
+        sellingUnitPrice: sellingPrice,
       };
     });
     await this.addLinesSafely(estimateId, expectedRevision, lines, insertion);
@@ -1081,8 +1106,9 @@ export class DefaultEstimateService implements EstimateService {
       };
     });
     const globalDiscountPercent = normalizePercentage(input.globalDiscountPercent, "Глобальная скидка должна быть от 0 до 100%.");
-    const vatRatePercent = normalizePercentage(input.vatRatePercent, "Ставка НДС должна быть от 0 до 100%.");
-    const vatMode = normalizeVatMode(input.vatMode);
+    const requestedVatMode = normalizeVatMode(input.vatMode);
+    const vatMode: EstimateVatMode = requestedVatMode === "none" ? "none" : "separate";
+    const vatRatePercent = vatMode === "none" ? 0 : 20;
     calculateEstimateCommercials({ lines, sections, charges, globalDiscountPercent, vatMode, vatRatePercent });
 
     return {

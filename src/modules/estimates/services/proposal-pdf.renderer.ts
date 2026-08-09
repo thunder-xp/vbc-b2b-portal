@@ -38,7 +38,6 @@ export function createDocumentDefinition(proposal: CustomerProposalDto, images =
     content.push({ table: { widths: ["*", 110], body: proposal.charges.map((charge) => [{ text: charge.description }, { text: money(charge.amount, proposal.currencyCode), alignment: "right" }]) }, layout: "lightHorizontalLines" });
   }
   content.push(totalsBlock(proposal));
-  content.push(proposalFooterBlock(proposal, images));
 
   return {
     pageSize: "A4", pageMargins: [32, 32, 32, 40], content,
@@ -51,7 +50,7 @@ export function createDocumentDefinition(proposal: CustomerProposalDto, images =
 }
 
 function brandingBlock(proposal: CustomerProposalDto, images: Map<string, string>): Record<string, unknown> {
-  const lines = [proposal.branding.legalName || proposal.branding.companyName, proposal.branding.contactName ? `Контакт: ${proposal.branding.contactName}` : null, proposal.branding.address, proposal.branding.fiscalInformation, proposal.branding.phone, proposal.branding.email, proposal.branding.website].filter(Boolean) as string[];
+  const lines = [proposal.branding.legalName || proposal.branding.companyName, proposal.branding.contactName ? `Ответственный: ${proposal.branding.contactName}` : null, proposal.branding.phone, proposal.branding.email, proposal.branding.address, proposal.branding.fiscalInformation, proposal.branding.website].filter(Boolean) as string[];
   const stack: Array<Record<string, unknown>> = [{ text: proposal.branding.companyName, fontSize: 14, bold: true, color: "#166534" }, ...lines.map((text) => ({ text, fontSize: 7, color: "#52525b", margin: [0, 1, 0, 0] }))];
   if (proposal.settings.showPartnerLogo && proposal.branding.logoUrl && images.has(proposal.branding.logoUrl)) stack.unshift({ image: images.get(proposal.branding.logoUrl), width: 64, height: 32, fit: [64, 32], margin: [0, 0, 0, 3] });
   return { stack };
@@ -91,22 +90,12 @@ function totalsBlock(proposal: CustomerProposalDto): Record<string, unknown> {
   return { unbreakable: true, columns: [{ width: "*", text: "" }, { width: 240, table: { widths: ["*", 96], body: rows }, layout: "lightHorizontalLines", margin: [0, 12, 0, 0] }] };
 }
 
-function proposalFooterBlock(proposal: CustomerProposalDto, images: Map<string, string>): Record<string, unknown> {
-  const details = [proposal.branding.contactName ? `Ответственный: ${proposal.branding.contactName}` : null, proposal.branding.phone, proposal.branding.email, proposal.settings.footerNote].filter(Boolean) as string[];
-  const stack: Array<Record<string, unknown>> = [{ text: proposal.branding.legalName || proposal.branding.companyName, bold: true, color: "#3f3f46" }, ...details.map((text) => ({ text, margin: [0, 1, 0, 0] }))];
-  const logo = proposal.settings.showPartnerLogo && proposal.branding.logoUrl && images.has(proposal.branding.logoUrl) ? [{ image: images.get(proposal.branding.logoUrl), width: 34, height: 24, fit: [34, 24] }] : [];
-  return { unbreakable: true, columns: [...logo, { stack, margin: logo.length ? [8, 0, 0, 0] : [0, 0, 0, 0] }], color: "#71717a", fontSize: 7.5, margin: [0, 14, 0, 0] };
-}
-
 function documentMetadata(proposal: CustomerProposalDto): Array<Record<string, unknown>> {
   const rows: Array<Record<string, unknown>> = [
     { text: proposal.estimateNumber, style: "documentNumber" },
     { text: `Дата: ${formatDate(proposal.generatedForDate)}`, alignment: "right", color: "#71717a" },
   ];
   if (proposal.validUntilDate) rows.push({ text: `Действительно до: ${formatDate(proposal.validUntilDate)}`, alignment: "right", color: "#71717a" });
-  rows.push({ text: `Валюта: ${proposal.currencyCode}`, alignment: "right", color: "#71717a" });
-  const vat = vatModeLabel(proposal);
-  if (vat) rows.push({ text: `НДС: ${vat}`, alignment: "right", color: "#71717a" });
   return rows;
 }
 
@@ -160,15 +149,6 @@ function trustedPortalUrl(rawUrl: string): URL | null {
 }
 
 function isProductProposalLine(line: CustomerProposalLine): boolean { return line.lineType === "product" || (!line.lineType && Boolean(line.sku || line.imageUrl)); }
-function vatModeLabel(proposal: CustomerProposalDto): string | null {
-  const rate = proposal.vatRatePercent ?? 0;
-  if (proposal.vatMode === "included") return `включён${rate ? `, ${formatNumber(rate)}%` : ""}`;
-  if (proposal.vatMode === "separate") return `начисляется отдельно${rate ? `, ${formatNumber(rate)}%` : ""}`;
-  if (proposal.vatMode === "excluded") return "не включён";
-  if (proposal.vatMode === "none") return "не применяется";
-  return null;
-}
-
 async function mapConcurrent<T, R>(items: T[], limit: number, mapper: (item: T) => Promise<R>): Promise<R[]> {
   const output = new Array<R>(items.length); let cursor = 0;
   await Promise.all(Array.from({ length: Math.min(limit, items.length) }, async () => { while (cursor < items.length) { const index = cursor++; output[index] = await mapper(items[index]); } }));

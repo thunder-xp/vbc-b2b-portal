@@ -9,7 +9,7 @@ export function ProposalDocument({ proposal }: { proposal: CustomerProposalDto }
   return <article aria-label={`Коммерческое предложение ${proposal.estimateNumber}`} className="mx-auto min-h-[297mm] w-full max-w-[210mm] overflow-hidden bg-white px-4 py-6 text-zinc-800 shadow-sm sm:px-8 sm:py-8" role="document">
     <header className="flex flex-col justify-between gap-4 border-b-2 border-emerald-700 pb-4 sm:flex-row">
       <div className="flex gap-3">{settings.showPartnerLogo && proposal.branding.logoUrl && <Image alt="" className="size-14 object-contain" height={56} referrerPolicy="no-referrer" src={proposal.branding.logoUrl} unoptimized width={56} />}<div><p className="text-xl font-bold text-emerald-800">{proposal.branding.companyName}</p>{proposal.branding.legalName && <p className="mt-1 text-xs text-zinc-500">{proposal.branding.legalName}</p>}<BrandingLines proposal={proposal} /></div></div>
-      <div className="sm:text-right"><h1 className="text-xl font-semibold text-zinc-950">{settings.title}</h1><p className="mt-2 font-mono text-sm font-semibold">{proposal.estimateNumber}</p><dl className="mt-2 space-y-1 text-xs text-zinc-500"><Meta label="Дата" value={formatDate(proposal.generatedForDate)} />{proposal.validUntilDate && <Meta label="Действительно до" value={formatDate(proposal.validUntilDate)} />}<Meta label="Валюта" value={proposal.currencyCode} />{vatModeLabel(proposal) && <Meta label="НДС" value={vatModeLabel(proposal)!} />}</dl></div>
+      <div className="sm:text-right"><h1 className="text-xl font-semibold text-zinc-950">{settings.title}</h1><p className="mt-2 font-mono text-sm font-semibold">{proposal.estimateNumber}</p><dl className="mt-2 space-y-1 text-xs text-zinc-500"><Meta label="Дата" value={formatDate(proposal.generatedForDate)} />{proposal.validUntilDate && <Meta label="Действительно до" value={formatDate(proposal.validUntilDate)} />}</dl></div>
     </header>
     <section className="grid gap-4 border-b border-zinc-200 py-4 sm:grid-cols-2"><div><Label>Получатель</Label><p className="mt-1 font-semibold text-zinc-950">{proposal.customerName || "Не указан"}</p>{proposal.projectName && <p className="mt-1 text-sm text-zinc-600">{proposal.projectName}</p>}</div>{settings.introduction && <p className="text-sm leading-5 text-zinc-600">{settings.introduction}</p>}</section>
     <div className="space-y-5 py-4">{proposal.sections.map((section) => {
@@ -35,11 +35,10 @@ export function ProposalDocument({ proposal }: { proposal: CustomerProposalDto }
     })}</div>
     {proposal.charges.length > 0 && <section className="border-t border-zinc-200 py-5"><h2 className="font-semibold text-emerald-800">Дополнительные работы и услуги</h2>{proposal.charges.map((charge) => <div className="mt-2 flex justify-between gap-4 text-sm" key={charge.description}><span>{charge.description}</span><strong>{money(charge.amount, proposal.currencyCode)}</strong></div>)}</section>}
     <ProposalTotals proposal={proposal} />
-    <ProposalFooter proposal={proposal} />
   </article>;
 }
 
-function BrandingLines({ proposal }: { proposal: CustomerProposalDto }) { const values = [proposal.branding.contactName ? `Контакт: ${proposal.branding.contactName}` : null, proposal.branding.address, proposal.branding.fiscalInformation, proposal.branding.phone, proposal.branding.email, proposal.branding.website].filter(Boolean); return <div className="mt-2 space-y-0.5 text-xs text-zinc-500">{values.map((value) => <p key={value}>{value}</p>)}</div>; }
+function BrandingLines({ proposal }: { proposal: CustomerProposalDto }) { const values = [proposal.branding.contactName ? `Ответственный: ${proposal.branding.contactName}` : null, proposal.branding.phone, proposal.branding.email, proposal.branding.address, proposal.branding.fiscalInformation, proposal.branding.website].filter(Boolean); return <div className="mt-2 space-y-0.5 text-xs text-zinc-500">{values.map((value) => <p key={value}>{value}</p>)}</div>; }
 function ProposalTotals({ proposal }: { proposal: CustomerProposalDto }) {
   const labels = proposalVatLabels(proposal);
   return <section className="ml-auto w-full max-w-sm break-inside-avoid border-y-2 border-emerald-700 bg-emerald-50 px-4 py-3" aria-label="Итоги предложения">
@@ -50,23 +49,11 @@ function ProposalTotals({ proposal }: { proposal: CustomerProposalDto }) {
     <div className="mt-2 flex justify-between gap-4 border-t border-emerald-700 pt-2 text-xl font-bold text-emerald-900"><span>К оплате</span><span>{money(proposal.totals.total, proposal.currencyCode)}</span></div>
   </section>;
 }
-function ProposalFooter({ proposal }: { proposal: CustomerProposalDto }) {
-  const contact = [proposal.branding.contactName ? `Ответственный: ${proposal.branding.contactName}` : null, proposal.branding.phone, proposal.branding.email].filter(Boolean);
-  return <footer className="mt-5 flex break-inside-avoid items-start gap-3 border-t border-zinc-200 pt-3 text-xs text-zinc-500">{proposal.settings.showPartnerLogo && proposal.branding.logoUrl && <Image alt="" className="size-9 shrink-0 object-contain" height={36} referrerPolicy="no-referrer" src={proposal.branding.logoUrl} unoptimized width={36} />}<div><p className="font-semibold text-zinc-700">{proposal.branding.legalName || proposal.branding.companyName}</p>{contact.map((value) => <p className="mt-0.5" key={value}>{value}</p>)}{proposal.settings.footerNote && <p className="mt-1">{proposal.settings.footerNote}</p>}</div></footer>;
-}
 function Total({ label, value }: { label: string; value: string }) { return <div className="flex justify-between gap-4 py-1 text-sm"><span className="text-zinc-600">{label}</span><span className="font-semibold">{value}</span></div>; }
 function MobileLabel({ children }: { children: React.ReactNode }) { return <span className="mb-0.5 block text-[10px] font-medium uppercase text-zinc-400 sm:hidden print:hidden">{children}</span>; }
 function Label({ children }: { children: React.ReactNode }) { return <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-700">{children}</p>; }
 function Meta({ label, value }: { label: string; value: string }) { return <div className="flex justify-between gap-3 sm:justify-end"><dt>{label}</dt><dd className="font-medium text-zinc-700">{value}</dd></div>; }
 function isProductProposalLine(line: CustomerProposalDto["sections"][number]["lines"][number]) { return line.lineType === "product" || (!line.lineType && Boolean(line.sku || line.imageUrl)); }
-function vatModeLabel(proposal: CustomerProposalDto): string | null {
-  const rate = proposal.vatRatePercent ?? 0;
-  if (proposal.vatMode === "included") return `включён${rate ? `, ${formatNumber(rate)}%` : ""}`;
-  if (proposal.vatMode === "separate") return `начисляется отдельно${rate ? `, ${formatNumber(rate)}%` : ""}`;
-  if (proposal.vatMode === "excluded") return "не включён";
-  if (proposal.vatMode === "none") return "не применяется";
-  return null;
-}
 function money(value: number, currency: string) { return new Intl.NumberFormat("ru-RU", { style: "currency", currency, minimumFractionDigits: 2 }).format(value); }
 function formatNumber(value: number) { return new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 3 }).format(value); }
 function formatDate(value: string) { return new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${value}T00:00:00Z`)); }

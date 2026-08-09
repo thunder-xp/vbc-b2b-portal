@@ -28,7 +28,7 @@ export async function sendProposalDeliveryAction(input: {
     });
   } catch (error) {
     console.error({ event: "proposal_delivery_action_failed", errorName: error instanceof Error ? error.name : typeof error });
-    return { success: false, errorCode: "PROPOSAL_DELIVERY_FAILED", message: "Письмо не отправлено. Проверьте данные и повторите попытку.", data: null };
+    return failureFromError(error);
   }
 }
 

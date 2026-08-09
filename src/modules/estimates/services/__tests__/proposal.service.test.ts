@@ -70,7 +70,12 @@ describe("DefaultProposalService", () => {
 
     expect(proposal.customerName).toBe("Echipamente Chișinău");
     expect(proposal.projectName).toBe("Проект Chișinău 2026");
-    expect(proposal.sections[0].name).toBe("Система видеонаблюдения");
+    expect(proposal.sections.map((section) => section.name)).toEqual([
+      "Оборудование",
+      "Монтажные материалы",
+      "Монтажные работы",
+      "Пусконаладочные работы",
+    ]);
     expect(proposal.sections[0].lines[0].description).toBe("Камеры / NVR / HDD");
     expect(Object.isFrozen(proposal)).toBe(true);
   });

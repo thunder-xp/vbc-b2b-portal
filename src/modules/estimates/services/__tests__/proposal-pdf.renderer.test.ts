@@ -28,8 +28,8 @@ describe("proposal PDF renderer", () => {
     expect(text).toContain("НДС (20%)");
     expect(text).toContain("К оплате");
     expect(text).toContain("Действительно до: 30 июля 2026 г.");
-    expect(text).toContain("Контакт: Ivan Partner");
-    expect(text).toContain("НДС: начисляется отдельно, 20%");
+    expect(text).toContain("Ответственный: Ivan Partner");
+    expect(text).not.toContain("НДС: начисляется отдельно, 20%");
   }, 30_000);
 
   it("paginates small, medium, and large proposals within the server budget", async () => {
@@ -82,7 +82,7 @@ describe("proposal PDF renderer", () => {
     expect(serialized).toContain('"text":"Итого за оборудование"');
     expect(serialized).toContain('"text":"К оплате"');
     expect(serialized).toContain('"text":"Ответственный: Ivan Partner"');
-    expect(serialized.match(/"unbreakable":true/g)).toHaveLength(2);
+    expect(serialized.match(/"unbreakable":true/g)).toHaveLength(1);
     expect(definition.pageBreakBefore({ style: "section" }, [])).toBe(true);
     expect(definition.pageBreakBefore({ style: "section" }, [{}])).toBe(false);
   });

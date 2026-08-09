@@ -121,6 +121,14 @@ describe("DefaultEstimateService", () => {
   });
 
   it("creates a purchasing-list estimate with one bulk commercial read and one atomic repository call", async () => {
+    vi.mocked(pricing.getProductCommercialViews).mockResolvedValue([{
+      productId: "product-1",
+      partnerPrice: { amount: 50.125, currencyCode: "USD", formattedAmount: "$50.13", lastUpdatedAt: "2026-07-16T09:00:00Z" },
+      retailPrice: { amount: 80, currencyCode: "USD", formattedAmount: "$80.00", lastUpdatedAt: "2026-07-16T09:00:00Z" },
+      stock: null,
+      isDemoData: false,
+      retailBelowPartnerPrice: false,
+    }]);
     const result = await service.createFromPurchasingList("user-1", {
       listId: "11111111-1111-4111-8111-111111111111",
       name: "Install kit",
@@ -130,6 +138,10 @@ describe("DefaultEstimateService", () => {
     expect(catalog.getProductsByIds).toHaveBeenCalledOnce();
     expect(pricing.getProductCommercialViews).toHaveBeenCalledOnce();
     expect(repository.createFromPurchasingList).toHaveBeenCalledOnce();
+    expect(repository.createFromPurchasingList).toHaveBeenCalledWith(expect.objectContaining({
+      currencyCode: "USD",
+      items: [expect.objectContaining({ sellingUnitPrice: 80, convertedCostUnitPrice: 50.13 })],
+    }));
     expect(result).toMatchObject({ estimateId: estimate.id, added: 1, skipped: 0 });
   });
 
@@ -183,6 +195,14 @@ describe("DefaultEstimateService", () => {
   });
 
   it("bulk-loads selected products and commercial values once", async () => {
+    vi.mocked(pricing.getProductCommercialViews).mockResolvedValue([{
+      productId: "product-1",
+      partnerPrice: { amount: 50.125, currencyCode: "USD", formattedAmount: "$50.13", lastUpdatedAt: "2026-07-16T09:00:00Z" },
+      retailPrice: { amount: 80, currencyCode: "USD", formattedAmount: "$80.00", lastUpdatedAt: "2026-07-16T09:00:00Z" },
+      stock: null,
+      isDemoData: false,
+      retailBelowPartnerPrice: false,
+    }]);
     await service.addProducts("user-1", "estimate-1", 3, [
       { productId: "product-1", quantity: 2 },
       { productId: "product-1", quantity: 3 },
@@ -191,7 +211,7 @@ describe("DefaultEstimateService", () => {
     expect(catalog.getProductsByIds).toHaveBeenCalledTimes(1);
     expect(catalog.getProductsByIds).toHaveBeenCalledWith("user-1", ["product-1"]);
     expect(pricing.getProductCommercialViews).toHaveBeenCalledTimes(1);
-    expect(repository.addLines).toHaveBeenCalledWith(expect.objectContaining({ estimateId: "estimate-1", expectedRevision: 3, targetSectionId: insertion.targetSectionId, requestKey: insertion.requestKey, lines: [expect.objectContaining({ productId: "product-1", quantity: 3, sellingUnitPrice: 50.13 })] }));
+    expect(repository.addLines).toHaveBeenCalledWith(expect.objectContaining({ estimateId: "estimate-1", expectedRevision: 3, targetSectionId: insertion.targetSectionId, requestKey: insertion.requestKey, lines: [expect.objectContaining({ productId: "product-1", quantity: 3, sellingUnitPrice: 80, convertedCostUnitPrice: 50.13 })] }));
     expect(repository.findById).toHaveBeenCalledTimes(1);
     expect(repository.findAggregateById).toHaveBeenCalledTimes(1);
   });
@@ -295,6 +315,27 @@ describe("DefaultEstimateService", () => {
     expect(catalog.getProductsByIds).not.toHaveBeenCalled();
     expect(pricing.getProductCommercialViews).not.toHaveBeenCalled();
     expect(detail.total).toContain("100");
+  });
+
+  it("normalizes current estimate VAT to the governed 20 percent or none", async () => {
+    const sectionId = "11111111-1111-1111-1111-111111111111";
+    const itemId = "22222222-2222-2222-2222-222222222222";
+    const commercialAggregate = aggregate([{ ...item(1), id: itemId, sectionId }]);
+    commercialAggregate.sections = [{ ...commercialAggregate.sections[0], id: sectionId }];
+    vi.mocked(repository.findAggregateById).mockResolvedValue(commercialAggregate);
+    const command = {
+      expectedRevision: 3, name: "Estimate", customerName: null, projectName: null, validityDays: 14,
+      currencyCode: "USD", currencyChangePolicy: "preserve_manual" as const, globalDiscountPercent: 0,
+      sections: [{ id: sectionId, name: "Equipment", sortOrder: 0, showSubtotal: true, discountPercent: 0 }],
+      lines: [{ id: itemId, sectionId, position: 1, description: "Line", quantity: 1, unit: "pcs" as const, pricingMode: "direct" as const, pricingInputValue: 10, internalCostUnitPrice: 5, lineDiscountPercent: 0 }],
+      charges: [],
+    };
+
+    await service.saveCommercialDraft("user-1", estimate.id, { ...command, vatMode: "included", vatRatePercent: 8 });
+    expect(repository.saveCommercialDraft).toHaveBeenLastCalledWith(expect.objectContaining({ settings: expect.objectContaining({ vatMode: "separate", vatRatePercent: 20 }) }));
+
+    await service.saveCommercialDraft("user-1", estimate.id, { ...command, vatMode: "none", vatRatePercent: 20 });
+    expect(repository.saveCommercialDraft).toHaveBeenLastCalledWith(expect.objectContaining({ settings: expect.objectContaining({ vatMode: "none", vatRatePercent: 0 }) }));
   });
 
   it("uses a persisted direct selling price when legacy pricing input is missing", async () => {
@@ -542,7 +583,7 @@ describe("DefaultEstimateService", () => {
     vi.mocked(pricing.getProductCommercialViews).mockResolvedValue([{
       productId: "product-1",
       partnerPrice: { amount: 50, currencyCode: "USD", formattedAmount: "$50.00", lastUpdatedAt: "2026-07-29T08:00:00Z" },
-      retailPrice: null,
+      retailPrice: { amount: 75, currencyCode: "USD", formattedAmount: "$75.00", lastUpdatedAt: "2026-07-29T08:00:00Z" },
       stock: { status: "in_stock", label: "В наличии: 8 шт.", exactPhysicalQuantity: 8, exactReservedQuantity: 0, exactAvailableQuantity: 8, exactIncomingQuantity: 0, hasVariantStock: false, expectedArrival: null, lastUpdatedAt: "2026-07-29T08:00:00Z" },
       isDemoData: false,
       retailBelowPartnerPrice: false,
@@ -553,7 +594,7 @@ describe("DefaultEstimateService", () => {
     expect(pricing.getProductCommercialViews).toHaveBeenCalledOnce();
     expect(pricing.getProductCommercialViews).toHaveBeenCalledWith("user-1", ["product-1"]);
     expect(catalog.getProductsByIds).not.toHaveBeenCalled();
-    expect(result.lines[0]).toMatchObject({ oldPrice: 60, currentPrice: 50, priceChanged: true, currentStock: "В наличии: 8 шт." });
+    expect(result.lines[0]).toMatchObject({ oldPrice: 60, currentPrice: 75, priceChanged: true, currentStock: "В наличии: 8 шт." });
   });
 });
 

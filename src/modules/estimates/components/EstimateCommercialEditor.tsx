@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, ChevronRight, MoreHorizontal, Plus, RotateCcw, Save, SaveAll, Search, Trash2 } from "lucide-react";
+import { Archive, ChevronDown, ChevronRight, Copy, MoreHorizontal, Plus, RotateCcw, Save, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
@@ -9,6 +9,7 @@ import { ProductLineThumbnail } from "../../catalog/components/ProductLineThumbn
 import { recordBehaviorInteraction } from "../../behavior-analytics/components";
 import {
   checkEstimateCommercialStateAction,
+  archiveEstimateAction,
   removeEstimateLineAction,
   saveEstimateCommercialAction,
 } from "../actions/estimate.actions";
@@ -20,6 +21,7 @@ import { EstimateStatusBadge } from "./EstimateStatusBadge";
 import { EstimateLinePicker, type EstimateLinePickerMode } from "./EstimateLinePicker";
 import { EstimateProposalSidebar } from "./EstimateProposalSidebar";
 import { FinalCustomerPicker } from "./FinalCustomerPicker";
+import { duplicateEstimateAction } from "../actions/lifecycle.actions";
 
 const inputClass = "min-h-11 min-w-0 rounded-md border border-zinc-300 bg-white px-2 text-sm outline-none focus:border-emerald-600 focus-visible:ring-2 focus-visible:ring-emerald-200 disabled:bg-zinc-100";
 const buttonClass = "inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-700 outline-none hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-45";
@@ -59,7 +61,6 @@ export function EstimateCommercialEditor({ initialEstimate, services, commercial
   const [dirty, setDirty] = useState(false);
   const [pickerMode, setPickerMode] = useState<EstimateLinePickerMode | null>(null);
   const [targetSectionId, setTargetSectionId] = useState(() => canonicalTargetSectionId(initialEstimate.sections, "equipment") ?? "");
-  const [lineSearch, setLineSearch] = useState("");
   const isDraft = estimate.status === "draft";
   const retailOnly = estimate.commercialMode === "retail_only";
 
@@ -127,7 +128,7 @@ export function EstimateCommercialEditor({ initialEstimate, services, commercial
     else setMessage(result.message);
   });
 
-  const save = (exitAfter = false) => {
+  const save = () => {
     if (!preview.value) return setMessage(preview.error);
     const payload: SaveEstimateCommercialCommand = {
       expectedRevision: estimate.revision,
@@ -139,7 +140,7 @@ export function EstimateCommercialEditor({ initialEstimate, services, commercial
       currencyCode: draft.currencyCode,
       currencyChangePolicy,
       vatMode: draft.vatMode,
-      vatRatePercent: draft.vatRatePercent,
+      vatRatePercent: draft.vatMode === "none" ? 0 : 20,
       globalDiscountPercent: draft.globalDiscountPercent,
       sections: draft.sections.map((section, sortOrder) => ({ ...section, sortOrder })),
       lines: draft.lines.map((line, position) => ({
@@ -149,7 +150,7 @@ export function EstimateCommercialEditor({ initialEstimate, services, commercial
       })),
       charges: draft.charges.map((charge, sortOrder) => ({ ...charge, sortOrder })),
     };
-    mutate(() => saveEstimateCommercialAction(estimate.id, payload), exitAfter ? () => router.push("/cabinet/estimates") : undefined);
+    mutate(() => saveEstimateCommercialAction(estimate.id, payload));
   };
   const checkCommercialState = () => startCheck(async () => {
     recordBehaviorInteraction({ eventName: "estimate_price_check_started", route: "/cabinet/estimates/detail", sourceSurface: "estimate_editor" });
@@ -165,7 +166,6 @@ export function EstimateCommercialEditor({ initialEstimate, services, commercial
     setPickerMode(mode);
     requestAnimationFrame(() => document.getElementById("estimate-line-picker")?.scrollIntoView?.({ behavior: "smooth", block: "start" }));
   };
-  const normalizedLineSearch = lineSearch.trim().toLocaleLowerCase("ru");
   const presentationSections = useMemo(
     () => buildCanonicalEstimateSectionPresentation({
       sections: draft.sections,
@@ -190,9 +190,8 @@ export function EstimateCommercialEditor({ initialEstimate, services, commercial
           <dl className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-600"><Meta label="Заказчик" value={draft.customerName ?? "Не выбран"} /><Meta label="Проект" value={draft.projectName ?? "Не указан"} /><Meta label="Расчёт" value={`${draft.currencyCode} · ${vatModeLabel(draft.vatMode)}`} /><Meta label="Срок" value={`${draft.validityDays} дн.`} /></dl>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <details className="relative"><summary className={`${buttonClass} cursor-pointer list-none`}><MoreHorizontal className="size-4" />Действия</summary><div className="absolute right-0 z-30 mt-2 grid w-72 gap-1 rounded-md border border-zinc-200 bg-white p-2 shadow-lg"><button className={`${buttonClass} justify-start border-0`} disabled={!dirty || pending || !isDraft} onClick={() => { setDraft(toDraft(estimate)); setDirty(false); }} type="button"><RotateCcw className="size-4" />Отменить изменения</button><button className={`${buttonClass} justify-start border-0`} disabled={checking || !isDraft || dirty} onClick={checkCommercialState} type="button"><RotateCcw className={`size-4 ${checking ? "animate-spin" : ""}`} />{checking ? "Проверка..." : "Проверить цены и наличие"}</button></div></details>
+          <details className="relative"><summary className={`${buttonClass} cursor-pointer list-none`}><MoreHorizontal className="size-4" />Действия</summary><div className="absolute right-0 z-30 mt-2 grid w-72 gap-1 rounded-md border border-zinc-200 bg-white p-2 shadow-lg"><button className={`${buttonClass} justify-start border-0`} disabled={!dirty || pending || !isDraft} onClick={() => { setDraft(toDraft(estimate)); setDirty(false); }} type="button"><RotateCcw className="size-4" />Отменить изменения</button><button className={`${buttonClass} justify-start border-0`} disabled={checking || !isDraft || dirty} onClick={checkCommercialState} type="button"><RotateCcw className={`size-4 ${checking ? "animate-spin" : ""}`} />{checking ? "Проверка..." : "Проверить розничные цены"}</button><button className={`${buttonClass} justify-start border-0`} disabled={pending || dirty} onClick={() => startTransition(async () => { const result = await duplicateEstimateAction(estimate.id); setMessage(result.message); if (result.success) router.push(`/cabinet/estimates/${result.data.estimateId}`); })} type="button"><Copy className="size-4" />Дублировать смету</button>{isDraft ? <button className={`${buttonClass} justify-start border-0 text-red-700`} disabled={pending || dirty} onClick={() => startTransition(async () => { const result = await archiveEstimateAction(estimate.id, estimate.revision); setMessage(result.message); if (result.success) router.push("/cabinet/estimates"); })} type="button"><Archive className="size-4" />Архивировать</button> : null}</div></details>
           <button aria-keyshortcuts="Control+S Meta+S" aria-label="Сохранить" className="inline-flex min-h-11 items-center gap-2 rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white disabled:opacity-45" disabled={!dirty || pending || !isDraft || !preview.value} onClick={() => save()} type="button"><Save className="size-4" />{pending ? "Сохранение..." : "Сохранить"}</button>
-          <button className={buttonClass} disabled={!dirty || pending || !isDraft || !preview.value} onClick={() => save(true)} type="button"><SaveAll className="size-4" />Сохранить и выйти</button>
         </div>
       </div>
     </header>
@@ -204,8 +203,7 @@ export function EstimateCommercialEditor({ initialEstimate, services, commercial
         <div className="min-w-0 max-w-full sm:col-span-2"><FinalCustomerPicker disabled={!isDraft} initialName={draft.customerName} onChange={(customer) => update((d) => ({ ...d, finalCustomerId: customer?.id ?? null, customerName: customer?.displayName ?? null }))} value={draft.finalCustomerId} /></div>
         <Field label="Проект / объект"><input className={`${inputClass} w-full`} disabled={!isDraft} onChange={(e) => update((d) => ({ ...d, projectName: e.target.value }))} value={draft.projectName ?? ""} /></Field>
         <Field label="Валюта"><select className={`${inputClass} w-full`} disabled={!isDraft || retailOnly} onChange={(e) => e.target.value !== draft.currencyCode && setCurrencyChoice(e.target.value)} value={draft.currencyCode}>{commercialOptions.currencies.map((currency) => <option key={currency}>{currency}</option>)}</select></Field>
-        <Field label="НДС"><select className={`${inputClass} w-full`} disabled={!isDraft} onChange={(e) => update((d) => ({ ...d, vatMode: e.target.value as EstimateVatMode }))} value={draft.vatMode}><option value="included">Цены с НДС</option><option value="separate">НДС начисляется отдельно</option><option value="excluded">Цены без НДС</option><option value="none">НДС не применяется</option></select></Field>
-        <Field label="Ставка НДС, %"><NumberInput disabled={!isDraft || draft.vatMode === "none"} onValue={(value) => update((d) => ({ ...d, vatRatePercent: value ?? 0 }))} value={draft.vatRatePercent} /></Field>
+        <Field label="НДС"><select className={`${inputClass} w-full`} disabled={!isDraft} onChange={(e) => update((d) => ({ ...d, vatMode: e.target.value as EstimateVatMode, vatRatePercent: e.target.value === "none" ? 0 : 20 }))} value={draft.vatMode === "none" ? "none" : "separate"}><option value="separate">НДС применяется (20%)</option><option value="none">НДС не применяется</option></select></Field>
         <Field label="Скидка на всю смету, %"><NumberInput disabled={!isDraft} onValue={(value) => update((d) => ({ ...d, globalDiscountPercent: value ?? 0 }))} value={draft.globalDiscountPercent} /></Field>
         <Field label="Срок, дней"><NumberInput disabled={!isDraft} onValue={(value) => update((d) => ({ ...d, validityDays: value ?? 1 }))} value={draft.validityDays} /></Field>
         {commercialOptions.rateFreshness ? <div className="text-xs text-zinc-500 sm:col-span-2 xl:col-span-4"><p>{commercialOptions.rateFreshness.label}</p>{commercialOptions.rateFreshness.staleNotice ? <p className="mt-1 text-amber-800">Курс устарел. Проверьте дату перед подготовкой предложения.</p> : null}</div> : null}
@@ -213,7 +211,6 @@ export function EstimateCommercialEditor({ initialEstimate, services, commercial
 
     <div className="grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_20rem]">
       <main className="min-w-0 space-y-4">
-        <label className="relative block min-w-0"><span className="sr-only">Поиск по позициям сметы</span><Search className="pointer-events-none absolute left-3 top-3.5 size-4 text-zinc-400" /><input className={`${inputClass} w-full pl-9`} onChange={(event) => setLineSearch(event.target.value)} placeholder="Поиск по позициям" value={lineSearch} /></label>
         {commercialCheck ? <section className="border-y border-zinc-200 bg-white p-4"><PriceCheckPanel
             checkedLineIds={checkedLineIds}
             check={commercialCheck}
@@ -237,7 +234,6 @@ export function EstimateCommercialEditor({ initialEstimate, services, commercial
         {presentationSections.map((section) => {
           const canonical = section.config;
           const sectionLines = section.lines;
-          const visibleSectionLines = normalizedLineSearch ? sectionLines.filter((line) => `${line.sku ?? ""} ${line.description}`.toLocaleLowerCase("ru").includes(normalizedLineSearch)) : sectionLines;
           const isCollapsed = collapsed.has(canonical.key);
           return <section className="border-y border-zinc-200 bg-white" data-section-key={canonical.key} key={canonical.key}>
             <div className="flex min-h-14 items-center gap-2 border-b border-zinc-200 px-3 py-2">
@@ -246,8 +242,8 @@ export function EstimateCommercialEditor({ initialEstimate, services, commercial
               <strong className="shrink-0 text-sm">{money(section.total, draft.currencyCode)}</strong>
             </div>
             {!isCollapsed && <div>
-              {visibleSectionLines.length ? <div className="hidden grid-cols-[3rem_minmax(9rem,1fr)_4.25rem_4.5rem_5.25rem_4.75rem_5.5rem_2.75rem] gap-2 border-b border-zinc-200 bg-zinc-50 px-3 py-2 text-[11px] font-semibold text-zinc-500 xl:grid" data-testid="estimate-line-header"><span>Фото</span><span>Позиция</span><span>Кол-во</span><span>Ед.</span><span>Цена</span><span>Скидка</span><span>Итого</span><span /></div> : null}
-              <div className="divide-y divide-zinc-100">{visibleSectionLines.length ? visibleSectionLines.map((line) => {
+              {sectionLines.length ? <div className="hidden grid-cols-[3rem_minmax(9rem,1fr)_4.25rem_4.5rem_5.25rem_4.75rem_5.5rem_2.75rem] gap-2 border-b border-zinc-200 bg-zinc-50 px-3 py-2 text-[11px] font-semibold text-zinc-500 xl:grid" data-testid="estimate-line-header"><span>Фото</span><span>Позиция</span><span>Кол-во</span><span>Ед.</span><span>Цена</span><span>Скидка</span><span>Итого</span><span /></div> : null}
+              <div className="divide-y divide-zinc-100">{sectionLines.length ? sectionLines.map((line) => {
               const calculated = preview.value?.lines.find((item) => item.id === line.id);
               return <div className="p-3" data-line-type={line.lineType} data-testid="estimate-line-row" key={line.id}>
                 <div className="grid grid-cols-[3rem_minmax(0,1fr)] items-start gap-2 xl:grid-cols-[3rem_minmax(9rem,1fr)_4.25rem_4.5rem_5.25rem_4.75rem_5.5rem_2.75rem]" data-testid="estimate-line-grid">
@@ -263,7 +259,7 @@ export function EstimateCommercialEditor({ initialEstimate, services, commercial
                   <div className="col-span-2 flex min-h-11 items-center justify-end xl:col-span-1 xl:self-start"><button aria-label="Удалить позицию" className="inline-flex size-11 items-center justify-center text-red-700" disabled={!isDraft || dirty} onClick={() => mutate(() => removeEstimateLineAction(estimate.id, line.id, estimate.revision))} type="button"><Trash2 className="size-4" /></button></div>
                 </div>
               </div>;
-            }) : <p className="p-5 text-sm text-zinc-500">{normalizedLineSearch ? "В разделе нет позиций по этому запросу." : "В разделе пока нет позиций."}</p>}</div>
+            }) : <p className="p-5 text-sm text-zinc-500">В разделе пока нет позиций.</p>}</div>
               <div className="flex flex-wrap items-center justify-between gap-3 border-t border-zinc-200 px-3 py-2"><span className="text-xs text-zinc-500">{canonical.subtotalLabel}: <strong className="text-zinc-800">{money(section.total, draft.currencyCode)}</strong></span>{isDraft ? <button className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-emerald-700 outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-45" disabled={dirty || !section.targetSectionId} onClick={() => section.targetSectionId && openPickerForSection(section.targetSectionId, canonical.defaultMode)} type="button"><Plus className="size-4" />{canonical.addLabel}</button> : null}</div>
               {isDraft && section.targetSectionId && targetSectionId === section.targetSectionId && pickerMode ? <EstimateLinePicker allowedModes={canonical.allowedModes} contextLabel={canonical.name} disabled={dirty} estimate={estimate} externalItemType={externalItemTypeForSection(canonical.key)} mode={pickerMode} onModeChange={setPickerMode} onResult={acceptServer} services={services} targetSectionId={section.targetSectionId} /> : null}
             </div>}
@@ -299,7 +295,8 @@ function Charges({ draft, disabled, update }: { draft: Draft; disabled: boolean;
 
 function Summary({ currency, preview, sections, vatMode, vatRatePercent }: { currency: string; preview: ReturnType<typeof calculateEstimateCommercials> | null; sections: PresentationSection[]; vatMode: EstimateVatMode; vatRatePercent: number }) {
   const vatApplicable = (vatMode === "included" || vatMode === "separate") && vatRatePercent > 0;
-  return <section aria-labelledby="estimate-summary-title"><p className="text-xs font-semibold uppercase text-zinc-500">КП / Итог</p><h2 className="mt-1 font-semibold text-zinc-950" id="estimate-summary-title">Коммерческий расчёт</h2><div className="mt-4 space-y-2">{sections.map((section) => <div className="flex justify-between gap-3 text-sm" key={section.config.key}><span className="min-w-0 truncate text-zinc-500" title={section.config.name}>{section.config.name}</span><span className="shrink-0">{money(section.total, currency)}</span></div>)}<div className="flex justify-between gap-3 border-t border-zinc-200 pt-2 text-sm"><span className="text-zinc-500">Итого без НДС</span><span>{money(preview?.totalExcludingVat ?? 0, currency)}</span></div>{vatApplicable ? <div className="flex justify-between gap-3 text-sm"><span className="text-zinc-500">НДС</span><span>{money(preview?.vatAmount ?? 0, currency)}</span></div> : null}</div><div className="mt-4 border-t pt-4"><p className="text-xs font-medium text-zinc-500">К оплате</p><p className="mt-1 text-2xl font-semibold">{money(preview?.finalTotal ?? 0, currency)}</p>{preview?.incompletePricing && <p className="mt-3 bg-amber-50 p-2 text-xs text-amber-900">Есть позиции без рассчитанной цены.</p>}</div></section>;
+  const totalDiscount = (preview?.lineDiscountTotal ?? 0) + (preview?.sectionDiscountTotal ?? 0) + (preview?.globalDiscountAmount ?? 0);
+  return <section aria-labelledby="estimate-summary-title"><h2 className="font-semibold text-zinc-950" id="estimate-summary-title">Коммерческий расчёт</h2><div className="mt-4 space-y-2">{sections.map((section) => <div className="flex justify-between gap-3 text-sm" key={section.config.key}><span className="min-w-0 truncate text-zinc-500" title={section.config.name}>{section.config.name}</span><span className="shrink-0">{money(section.total, currency)}</span></div>)}<div className="flex justify-between gap-3 border-t border-zinc-200 pt-2 text-sm"><span className="text-zinc-500">Общая скидка</span><span>{money(totalDiscount, currency)}</span></div><div className="flex justify-between gap-3 text-sm"><span className="text-zinc-500">Итого без НДС</span><span>{money(preview?.totalExcludingVat ?? 0, currency)}</span></div>{vatApplicable ? <div className="flex justify-between gap-3 text-sm"><span className="text-zinc-500">НДС</span><span>{money(preview?.vatAmount ?? 0, currency)}</span></div> : null}</div><div className="mt-4 border-t pt-4"><p className="text-xs font-medium text-zinc-500">К оплате</p><p className="mt-1 text-2xl font-semibold">{money(preview?.finalTotal ?? 0, currency)}</p>{preview?.incompletePricing && <p className="mt-3 bg-amber-50 p-2 text-xs text-amber-900">Есть позиции без рассчитанной цены.</p>}</div></section>;
 }
 
 function CurrencyDialog({ current, target, rate, effectiveDate, affectedLines, manualLines, onCancel, onConfirm }: { current: string; target: string; rate: number | null; effectiveDate: string | null; affectedLines: number; manualLines: number; onCancel: () => void; onConfirm: (policy: EstimateCurrencyChangePolicy) => void }) {
@@ -318,7 +315,7 @@ function NumberInput({ value, onValue, disabled, nullable = false }: { value: nu
     if (event.key === "Escape") { event.preventDefault(); event.currentTarget.value = value === null ? "" : String(value); event.currentTarget.blur(); }
   }} step="0.01" type="number" />;
 }
-function toDraft(estimate: EstimateDetailDto): Draft { return { name: estimate.name, finalCustomerId: estimate.finalCustomerId ?? null, customerName: estimate.customerName, projectName: estimate.projectName, validityDays: estimate.validityDays, currencyCode: estimate.currencyCode, vatMode: estimate.vatMode, vatRatePercent: estimate.vatRatePercent, globalDiscountPercent: estimate.globalDiscountPercent, sections: estimate.sections.map(({ id, name, systemKey, sortOrder, showSubtotal, discountPercent }) => ({ id, name, systemKey: systemKey ?? null, sortOrder, showSubtotal, discountPercent })), lines: estimate.lines.map((item) => ({ ...item })), charges: estimate.charges.map((item) => ({ ...item })) }; }
+function toDraft(estimate: EstimateDetailDto): Draft { const vatMode: EstimateVatMode = estimate.vatMode === "none" ? "none" : "separate"; return { name: estimate.name, finalCustomerId: estimate.finalCustomerId ?? null, customerName: estimate.customerName, projectName: estimate.projectName, validityDays: estimate.validityDays, currencyCode: estimate.currencyCode, vatMode, vatRatePercent: vatMode === "none" ? 0 : 20, globalDiscountPercent: estimate.globalDiscountPercent, sections: estimate.sections.map(({ id, name, systemKey, sortOrder, showSubtotal, discountPercent }) => ({ id, name, systemKey: systemKey ?? null, sortOrder, showSubtotal, discountPercent })), lines: estimate.lines.map((item) => ({ ...item })), charges: estimate.charges.map((item) => ({ ...item })) }; }
 function updateLine(draft: Draft, setDraft: React.Dispatch<React.SetStateAction<Draft>>, setDirty: (value: boolean) => void, id: string, patch: Partial<Draft["lines"][number]>) { setDraft({ ...draft, lines: draft.lines.map((line) => line.id === id ? { ...line, ...patch } : line) }); setDirty(true); }
 function toggleSet(current: Set<string>, value: string) { const next = new Set(current); if (next.has(value)) next.delete(value); else next.add(value); return next; }
 function lineTypeLabel(value: EstimateDetailDto["lines"][number]["lineType"]) { return value === "product" ? "Оборудование" : value === "service" ? "Работа / услуга" : value === "external" ? "Внешняя позиция" : "Ручная позиция"; }

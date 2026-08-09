@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -59,7 +59,7 @@ describe("EstimateCommercialEditor", () => {
     expect(screen.getByTitle("Проект: Site")).toBeInTheDocument();
     expect(screen.getByText("Параметры сметы").closest("details")).not.toHaveAttribute("open");
     expect(screen.getByRole("button", { name: "Сохранить" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Сохранить и выйти" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Сохранить и выйти" })).not.toBeInTheDocument();
   });
 
   it("opens a contextual picker from its governed section", async () => {
@@ -71,7 +71,6 @@ describe("EstimateCommercialEditor", () => {
     expect(screen.getByLabelText("SKU, модель или название")).toBeInTheDocument();
     expect(screen.getByText("Добавление: Оборудование")).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Каталог Novotech" })).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByPlaceholderText("Поиск по позициям")).toBeInTheDocument();
     expect(screen.queryByRole("combobox", { name: "Фильтр разделов" })).not.toBeInTheDocument();
     expect(screen.queryByRole("combobox", { name: "Раздел назначения" })).not.toBeInTheDocument();
   });
@@ -85,6 +84,7 @@ describe("EstimateCommercialEditor", () => {
     const sidebar = summary.closest("aside");
     expect(sidebar).not.toBeNull();
     expect(within(sidebar!).queryByText("НДС")).not.toBeInTheDocument();
+    expect(within(sidebar!).queryByText("КП / ИТОГ")).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Предпросмотр КП" })).toHaveAttribute("href", "/cabinet/estimates/estimate-1/preview");
     expect(screen.getByRole("button", { name: "Подготовить КП" })).toBeEnabled();
   });
@@ -116,6 +116,22 @@ describe("EstimateCommercialEditor", () => {
       expectedRevision: 3,
       lines: [expect.objectContaining({ quantity: 2 })],
     }));
+    expect(screen.queryByText("Не сохранено")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Добавить оборудование" })).toBeEnabled();
+  });
+
+  it("shows the monetary total of line, section, and global discounts once", () => {
+    const discounted = {
+      ...detail,
+      globalDiscountPercent: 10,
+      sections: detail.sections.map((section, index) => index === 0 ? { ...section, discountPercent: 10 } : section),
+      lines: [{ ...detail.lines[0], quantity: 1, pricingInputValue: 100, sellingUnitPrice: 100, lineDiscountPercent: 10 }],
+    };
+    render(<EstimateCommercialEditor commercialOptions={{ currencies: ["USD"], usdMdlRate: 17.5, rateEffectiveDate: "2026-07-16" }} initialEstimate={discounted} services={[]} workflow={workflow} />);
+
+    const summary = screen.getByRole("heading", { name: "Коммерческий расчёт" }).closest("aside");
+    expect(summary).not.toBeNull();
+    expect(within(summary!).getByText(/27,10/)).toBeInTheDocument();
   });
 
   it("renders exactly the four governed sections without structural controls", () => {
@@ -203,7 +219,7 @@ describe("EstimateCommercialEditor", () => {
     expect(saveEstimateCommercialAction).toHaveBeenCalledTimes(1);
   });
 
-  it("keeps a 120-line estimate searchable without server reads", async () => {
+  it("renders a 120-line estimate without the removed top-level search", () => {
     const lines = Array.from({ length: 120 }, (_, index) => ({
       ...detail.lines[0],
       id: `line-${index}`,
@@ -212,9 +228,10 @@ describe("EstimateCommercialEditor", () => {
     }));
     render(<EstimateCommercialEditor commercialOptions={{ currencies: ["USD"], usdMdlRate: 17.5, rateEffectiveDate: "2026-07-16" }} initialEstimate={{ ...detail, lines, itemCount: lines.length }} services={[]} workflow={workflow} />);
 
-    fireEvent.change(screen.getByPlaceholderText("Поиск по позициям"), { target: { value: "Position 119" } });
+    expect(screen.queryByPlaceholderText("Поиск по позициям")).not.toBeInTheDocument();
     expect(screen.getByTitle("Position 119")).toBeInTheDocument();
-    expect(screen.queryByDisplayValue("Position 1")).not.toBeInTheDocument();
+    expect(screen.getByDisplayValue("Position 1")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("Position 120")).toBeInTheDocument();
     expect(saveEstimateCommercialAction).not.toHaveBeenCalled();
   });
 
@@ -231,7 +248,7 @@ describe("EstimateCommercialEditor", () => {
     });
     renderEditor();
 
-    await user.click(screen.getByRole("button", { name: "Проверить цены и наличие" }));
+    await user.click(screen.getByRole("button", { name: "Проверить розничные цены" }));
     expect(checkEstimateCommercialStateAction).toHaveBeenCalledWith("estimate-1");
     expect(screen.getByText("В наличии: 8 шт.")).toBeInTheDocument();
     expect(saveEstimateCommercialAction).not.toHaveBeenCalled();

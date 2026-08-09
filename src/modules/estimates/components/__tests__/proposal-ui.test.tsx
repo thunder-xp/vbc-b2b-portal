@@ -25,8 +25,8 @@ describe("proposal UI", () => {
     expect(screen.getByText(/Итого за оборудование:/)).toBeInTheDocument();
     expect(screen.getByText("Действительно до")).toBeInTheDocument();
     expect(screen.getByText("30 июля 2026 г.")).toBeInTheDocument();
-    expect(screen.getByText("Контакт: Ivan Partner")).toBeInTheDocument();
-    expect(screen.getByText("начисляется отдельно, 20%")).toBeInTheDocument();
+    expect(screen.getByText("Ответственный: Ivan Partner")).toBeInTheDocument();
+    expect(screen.queryByText("начисляется отдельно, 20%")).not.toBeInTheDocument();
     expect(screen.queryByText("Условия предложения")).not.toBeInTheDocument();
     expect(screen.queryByText("Поставка")).not.toBeInTheDocument();
     expect(screen.queryByText("Оплата")).not.toBeInTheDocument();
@@ -74,8 +74,8 @@ describe("proposal UI", () => {
 
     expect(screen.queryByText(/Итого за монтажные работы/)).not.toBeInTheDocument();
     expect(screen.getByText("Ответственный: Ivan Partner")).toBeInTheDocument();
-    expect(screen.getAllByText("+373 22 00 00 00")).toHaveLength(2);
-    expect(screen.getAllByText("sales@example.md")).toHaveLength(2);
+    expect(screen.getAllByText("+373 22 00 00 00")).toHaveLength(1);
+    expect(screen.getAllByText("sales@example.md")).toHaveLength(1);
   });
 
   it("omits a zero VAT row when VAT does not apply", () => {
@@ -83,7 +83,7 @@ describe("proposal UI", () => {
     render(<ProposalDocument proposal={{ ...value, vatMode: "none", vatRatePercent: 0 }} />);
     const totals = screen.getByRole("region", { name: "Итоги предложения" });
     expect(within(totals).queryByText(/^НДС/)).not.toBeInTheDocument();
-    expect(screen.getByText("не применяется")).toBeInTheDocument();
+    expect(screen.queryByText("не применяется")).not.toBeInTheDocument();
   });
 
   it("applies a template and saves all settings in one action", async () => {

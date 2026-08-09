@@ -52,7 +52,7 @@ export function SendProposalDialog({ versionId, versionLabel, deliveries, canSen
       <form action={send} className="max-h-[calc(100vh-2rem)] w-full max-w-xl overflow-y-auto bg-white p-5 shadow-xl">
         <header className="flex items-start justify-between gap-4"><div><h3 className="text-lg font-semibold">Отправка предложения</h3><p className="mt-1 text-sm text-zinc-500">{versionLabel}</p></div><button aria-label="Закрыть" className="grid size-9 place-items-center" onClick={() => setOpen(false)} type="button"><X className="size-5" /></button></header>
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
-          <Field label="Email получателя"><input autoFocus className={input} maxLength={254} name="recipientEmail" required type="email" /></Field>
+          <Field label="Email получателя"><input aria-label="Email получателя" autoFocus className={input} maxLength={254} name="recipientEmail" required type="email" /><span className="text-xs font-normal text-zinc-500">Укажите подтверждённый адрес заказчика. Платформа не подставляет его автоматически.</span></Field>
           <Field label="Имя получателя"><input className={input} defaultValue={defaults?.recipientName} maxLength={160} name="recipientName" /></Field>
           <Field className="sm:col-span-2" label="Тема"><input className={input} defaultValue={defaults?.subject ?? `Коммерческое предложение ${versionLabel}`} maxLength={200} name="subject" required /></Field>
           <Field className="sm:col-span-2" label="Сообщение"><textarea className={`${input} min-h-24 py-2`} defaultValue={defaults?.message} maxLength={4000} name="message" /></Field>
