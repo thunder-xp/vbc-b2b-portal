@@ -120,6 +120,23 @@ describe("EstimateCommercialEditor", () => {
     expect(screen.getByRole("button", { name: "Добавить оборудование" })).toBeEnabled();
   });
 
+  it("enables Save as soon as a numeric value changes", async () => {
+    const user = userEvent.setup();
+    vi.mocked(saveEstimateCommercialAction).mockResolvedValue({ success: true, data: { ...detail, revision: 4 }, message: "Saved", errorCode: null });
+    renderEditor();
+
+    const price = screen.getByRole("spinbutton", { name: "Цена" });
+    await user.clear(price);
+    await user.type(price, "101");
+    const save = screen.getByRole("button", { name: "Сохранить" });
+    expect(save).toBeEnabled();
+    await user.click(save);
+
+    expect(saveEstimateCommercialAction).toHaveBeenCalledWith("estimate-1", expect.objectContaining({
+      lines: [expect.objectContaining({ pricingInputValue: 101 })],
+    }));
+  });
+
   it("shows the monetary total of line, section, and global discounts once", () => {
     const discounted = {
       ...detail,

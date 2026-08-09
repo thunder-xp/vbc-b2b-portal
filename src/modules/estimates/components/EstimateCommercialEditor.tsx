@@ -306,14 +306,22 @@ function CurrencyDialog({ current, target, rate, effectiveDate, affectedLines, m
 function Field({ label, children, className = "", labelClassName = "" }: { label: string; children: React.ReactNode; className?: string; labelClassName?: string }) { return <label className={`min-w-0 text-xs font-medium text-zinc-600 ${className}`}><span className={`mb-1 block ${labelClassName}`}>{label}</span>{children}</label>; }
 function Meta({ label, value }: { label: string; value: string }) { return <div className="min-w-0"><dt className="sr-only">{label}</dt><dd className="max-w-56 truncate" title={`${label}: ${value}`}><span className="text-zinc-400">{label}:</span> {value}</dd></div>; }
 function NumberInput({ value, onValue, disabled, nullable = false }: { value: number | null; onValue: (value: number | null) => void; disabled?: boolean; nullable?: boolean }) {
+  const [editor, setEditor] = useState({ sourceValue: value, inputValue: value === null ? "" : String(value) });
+  if (editor.sourceValue !== value) setEditor({ sourceValue: value, inputValue: value === null ? "" : String(value) });
   const commit = (inputValue: string) => {
     const next = inputValue === "" ? (nullable ? null : 0) : Number(inputValue);
     if (next !== value) onValue(next);
   };
-  return <input className={`${inputClass} w-full`} defaultValue={value ?? ""} disabled={disabled} key={value ?? "empty"} min="0" onBlur={(event) => commit(event.currentTarget.value)} onKeyDown={(event) => {
+  const edit = (nextInputValue: string) => {
+    setEditor({ sourceValue: value, inputValue: nextInputValue });
+    if (nextInputValue === "") return;
+    const next = Number(nextInputValue);
+    if (Number.isFinite(next) && next !== value) onValue(next);
+  };
+  return <input className={`${inputClass} w-full`} disabled={disabled} min="0" onBlur={(event) => commit(event.currentTarget.value)} onChange={(event) => edit(event.currentTarget.value)} onKeyDown={(event) => {
     if (event.key === "Enter") { event.preventDefault(); event.currentTarget.blur(); }
-    if (event.key === "Escape") { event.preventDefault(); event.currentTarget.value = value === null ? "" : String(value); event.currentTarget.blur(); }
-  }} step="0.01" type="number" />;
+    if (event.key === "Escape") { event.preventDefault(); setEditor({ sourceValue: value, inputValue: value === null ? "" : String(value) }); event.currentTarget.blur(); }
+  }} step="0.01" type="number" value={editor.inputValue} />;
 }
 function toDraft(estimate: EstimateDetailDto): Draft { const vatMode: EstimateVatMode = estimate.vatMode === "none" ? "none" : "separate"; return { name: estimate.name, finalCustomerId: estimate.finalCustomerId ?? null, customerName: estimate.customerName, projectName: estimate.projectName, validityDays: estimate.validityDays, currencyCode: estimate.currencyCode, vatMode, vatRatePercent: vatMode === "none" ? 0 : 20, globalDiscountPercent: estimate.globalDiscountPercent, sections: estimate.sections.map(({ id, name, systemKey, sortOrder, showSubtotal, discountPercent }) => ({ id, name, systemKey: systemKey ?? null, sortOrder, showSubtotal, discountPercent })), lines: estimate.lines.map((item) => ({ ...item })), charges: estimate.charges.map((item) => ({ ...item })) }; }
 function updateLine(draft: Draft, setDraft: React.Dispatch<React.SetStateAction<Draft>>, setDirty: (value: boolean) => void, id: string, patch: Partial<Draft["lines"][number]>) { setDraft({ ...draft, lines: draft.lines.map((line) => line.id === id ? { ...line, ...patch } : line) }); setDirty(true); }
