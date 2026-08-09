@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 
 const migration = readFileSync(resolve("supabase/migrations/20260809142000_estimate_fixed_business_sections.sql"), "utf8");
 const backfillMigration = readFileSync(resolve("supabase/migrations/20260809143000_backfill_estimate_canonical_sections.sql"), "utf8");
+const saveRepairMigration = readFileSync(resolve("supabase/migrations/20260809232000_estimate_canonical_section_save_repair.sql"), "utf8");
 
 describe("fixed estimate business sections migration", () => {
   it("defines the four canonical section identities and one key per estimate", () => {
@@ -54,5 +55,13 @@ describe("fixed estimate business sections migration", () => {
     expect(backfillMigration).toContain("canonical.name = section.name");
     expect(backfillMigration).toContain("candidate.candidate_number = 1");
     expect(backfillMigration).toContain("set system_key = candidate.system_key");
+  });
+
+  it("allows only the save RPC's bounded temporary ordering step", () => {
+    expect(saveRepairMigration).toContain("current_setting('app.estimate_batch_update', true) = 'on'");
+    expect(saveRepairMigration).toContain("new.sort_order = old.sort_order + 100000");
+    expect(saveRepairMigration).toContain("new.system_key is not distinct from old.system_key");
+    expect(saveRepairMigration).toContain("Canonical estimate section structure is immutable.");
+    expect(saveRepairMigration).toContain("revoke all on function public.protect_canonical_estimate_section() from public, anon, authenticated");
   });
 });
