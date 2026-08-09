@@ -27,6 +27,8 @@ describe("EstimateProposalSidebar", () => {
     const user = userEvent.setup();
     vi.mocked(createEstimateVersionAction).mockResolvedValue({ success: true, errorCode: null, message: "Версия создана.", data: { id: "version-1" } as never });
     render(<EstimateProposalSidebar revision={7} workflow={workflow} />);
+    expect(screen.getByRole("heading", { name: "Коммерческое предложение" })).toBeInTheDocument();
+    expect(screen.queryByText("Расчёт готов к подготовке предложения.")).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Подготовить КП" }));
     expect(createEstimateVersionAction).toHaveBeenCalledWith("estimate-1", 7, "");
     await waitFor(() => expect(refresh).toHaveBeenCalledTimes(1));

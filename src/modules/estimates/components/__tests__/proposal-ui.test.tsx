@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
@@ -76,6 +76,14 @@ describe("proposal UI", () => {
     expect(screen.getByText("Ответственный: Ivan Partner")).toBeInTheDocument();
     expect(screen.getAllByText("+373 22 00 00 00")).toHaveLength(2);
     expect(screen.getAllByText("sales@example.md")).toHaveLength(2);
+  });
+
+  it("omits a zero VAT row when VAT does not apply", () => {
+    const value = proposal();
+    render(<ProposalDocument proposal={{ ...value, vatMode: "none", vatRatePercent: 0 }} />);
+    const totals = screen.getByRole("region", { name: "Итоги предложения" });
+    expect(within(totals).queryByText(/^НДС/)).not.toBeInTheDocument();
+    expect(screen.getByText("не применяется")).toBeInTheDocument();
   });
 
   it("applies a template and saves all settings in one action", async () => {

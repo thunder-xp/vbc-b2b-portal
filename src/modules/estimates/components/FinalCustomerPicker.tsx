@@ -70,12 +70,11 @@ export function FinalCustomerPicker({ disabled = false, initialName, onChange, v
         role="combobox"
         value={query}
       />
-      {(results.length > 0 || (query.trim().length >= 2 && !pending)) && <div className="absolute z-30 mt-1 max-h-64 w-full overflow-y-auto rounded-md border border-zinc-200 bg-white p-1 shadow-lg" id={listId} role="listbox">
+      {results.length > 0 && <div className="absolute z-30 mt-1 max-h-64 w-full overflow-y-auto rounded-md border border-zinc-200 bg-white p-1 shadow-lg" id={listId} role="listbox">
         {results.map((customer) => <button aria-selected="false" className="flex min-h-11 w-full items-center gap-3 rounded px-3 text-left hover:bg-zinc-50 focus-visible:bg-zinc-50" key={customer.id} onClick={() => select(customer)} role="option" type="button">
           {customer.customerType === "company" ? <Building2 className="size-4 shrink-0 text-zinc-500" /> : <UserRound className="size-4 shrink-0 text-zinc-500" />}
           <span className="min-w-0"><span className="block truncate text-sm font-medium">{customer.displayName}</span><span className="block truncate text-xs text-zinc-500">{[customer.fiscalCode, customer.locality].filter(Boolean).join(" · ") || "Без дополнительных реквизитов"}</span></span>
         </button>)}
-        {!results.length && <p className="px-3 py-2 text-sm text-zinc-500">Совпадений нет.</p>}
       </div>}
     </div>}
     {!disabled && !value && <button className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-emerald-800" onClick={() => setCreating((current) => !current)} type="button"><Plus className="size-4" />Создать заказчика</button>}

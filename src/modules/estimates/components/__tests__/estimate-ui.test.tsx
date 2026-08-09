@@ -105,6 +105,16 @@ describe("estimate UI", () => {
     expect(screen.getByRole("button", { name: "Создать смету" })).toBeEnabled();
   });
 
+  it("keeps an empty customer autocomplete quiet and leaves creation available", async () => {
+    const user = userEvent.setup();
+    vi.mocked(searchFinalCustomersAction).mockResolvedValue({ success: true, errorCode: null, message: "Заказчики не найдены.", data: [] });
+    render(<EstimateCreateForm currencies={["USD"]} />);
+    await user.type(screen.getByRole("combobox", { name: /Заказчик/ }), "ZZ");
+    await waitFor(() => expect(searchFinalCustomersAction).toHaveBeenCalledWith("ZZ"));
+    expect(screen.queryByText("Совпадений нет.")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Создать заказчика" })).toBeInTheDocument();
+  });
+
   it("renders the editor shell, server totals, and three line sources", async () => {
     const user = userEvent.setup();
     vi.mocked(searchEstimateProductsAction).mockResolvedValue({ success: true, data: products, errorCode: null, message: "Товары загружены." });

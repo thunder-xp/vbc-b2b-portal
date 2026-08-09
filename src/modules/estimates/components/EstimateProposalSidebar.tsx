@@ -14,9 +14,10 @@ export function EstimateProposalSidebar({ workflow, revision, disabled = false, 
   const [pending, startTransition] = useTransition();
   const latestProposal = workflow.versions[0] ?? null;
 
-  return <section aria-labelledby="proposal-readiness-title" className="border-t border-zinc-200 pt-5">
-    <div><p className="text-xs font-semibold uppercase text-emerald-700">КП</p><h2 className="mt-1 font-semibold text-zinc-950" id="proposal-readiness-title">Готовность предложения</h2></div>
-    {!readiness.ready ? <ul className="mt-3 space-y-1 text-xs text-amber-900">{readiness.checks.filter((check) => !check.passed).map((check) => <li key={check.label}>• {check.label}</li>)}</ul> : <p className="mt-3 text-xs text-emerald-800">Расчёт готов к подготовке предложения.</p>}
+  const blockers = readiness.checks.filter((check) => !check.passed);
+  return <section aria-labelledby="proposal-actions-title" className="border-t border-zinc-200 pt-5">
+    <h2 className="text-sm font-semibold text-zinc-950" id="proposal-actions-title">Коммерческое предложение</h2>
+    {blockers.length ? <details className="mt-3 text-xs text-amber-900"><summary className="cursor-pointer font-medium">Нужно проверить: {blockers.length}</summary><ul className="mt-2 space-y-1">{blockers.map((check) => <li key={check.label}>• {check.label}</li>)}</ul></details> : null}
 
     <div className="mt-4 grid gap-2">
       <Link className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-700 outline-none hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-emerald-500" href={latestProposal ? `/cabinet/estimates/${workflow.estimateId}/versions/${latestProposal.id}/preview` : `/cabinet/estimates/${workflow.estimateId}/preview`} prefetch={false}><Eye className="size-4" />Предпросмотр КП</Link>

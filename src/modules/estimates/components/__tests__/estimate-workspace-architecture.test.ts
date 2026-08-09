@@ -18,10 +18,16 @@ describe("estimate workspace architecture", () => {
   });
 
   it("uses a bounded responsive canvas instead of the overflowing fixed line grid", () => {
-    expect(editor).toContain("xl:grid-cols-[1.75rem_3rem_minmax(9rem,1fr)_4.25rem_4.5rem_5.25rem_4.75rem_5.5rem_2.75rem]");
+    expect(editor).toContain("xl:grid-cols-[3rem_minmax(9rem,1fr)_4.25rem_4.5rem_5.25rem_4.75rem_5.5rem_2.75rem]");
     expect(editor).toContain("xl:grid-cols-[minmax(0,1fr)_20rem]");
     expect(editor).not.toContain("lg:grid-cols-12 lg:items-end");
     expect(editor).not.toContain("md:grid-cols-[1.5rem_2.5rem_minmax(12rem,1fr)");
+  });
+
+  it("renders only the canonical partner section projection", () => {
+    expect(editor).toContain("buildCanonicalEstimateSectionPresentation");
+    expect(editor).not.toContain("Исторический раздел");
+    expect(editor).not.toContain("visibleSections.map");
   });
 
   it("keeps lifecycle workflow while removing partner-facing version management", () => {

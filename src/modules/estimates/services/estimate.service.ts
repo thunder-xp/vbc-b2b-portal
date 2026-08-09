@@ -1310,7 +1310,7 @@ function toCommercialDetail(aggregate: EstimateAggregate, images = new Map<strin
       sectionId: item.sectionId,
       quantity: item.quantity,
       pricingMode: item.pricingMode,
-      pricingInputValue: item.pricingInputValue,
+      pricingInputValue: resolvePricingInputValue(item),
       convertedCostUnitPrice: item.convertedCostUnitPrice,
       lineDiscountPercent: item.lineDiscountPercent,
     })),
@@ -1387,7 +1387,7 @@ function toCommercialDetail(aggregate: EstimateAggregate, images = new Map<strin
         sourceCurrencyCode: item.sourceCurrencyCode,
         sourceSnapshotAt: item.sourceSnapshotAt,
         pricingMode: item.pricingMode,
-        pricingInputValue: item.pricingInputValue,
+        pricingInputValue: resolvePricingInputValue(item),
         internalCostUnitPrice: item.internalCostUnitPrice,
         convertedCostUnitPrice: item.convertedCostUnitPrice,
         exchangeRate: item.exchangeRate,
@@ -1402,6 +1402,11 @@ function toCommercialDetail(aggregate: EstimateAggregate, images = new Map<strin
     }),
     charges: charges.map(({ id, chargeType, description, amount, vatApplicable, customerVisible, sortOrder }) => ({ id, chargeType, description, amount, vatApplicable, customerVisible, sortOrder })),
   };
+}
+
+function resolvePricingInputValue(item: EstimateItem): number | null {
+  if (item.pricingInputValue !== null) return item.pricingInputValue;
+  return item.pricingMode === "direct" ? item.sellingUnitPrice : null;
 }
 
 function legacyToDetail(estimate: Estimate, items: EstimateItem[]) {

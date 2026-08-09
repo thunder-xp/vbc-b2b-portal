@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const migration = readFileSync(resolve("supabase/migrations/20260809142000_estimate_fixed_business_sections.sql"), "utf8");
+const backfillMigration = readFileSync(resolve("supabase/migrations/20260809143000_backfill_estimate_canonical_sections.sql"), "utf8");
 
 describe("fixed estimate business sections migration", () => {
   it("defines the four canonical section identities and one key per estimate", () => {
@@ -38,5 +39,20 @@ describe("fixed estimate business sections migration", () => {
     expect(migration).toContain("set search_path = public");
     expect(migration).toContain("revoke all on function public.protect_canonical_estimate_section() from public, anon, authenticated");
     expect(migration).toContain("revoke all on function public.initialize_canonical_estimate_sections(uuid) from public, anon, authenticated");
+  });
+
+  it("initializes existing estimates without moving or deleting historical lines", () => {
+    expect(backfillMigration).toContain("from public.estimates estimate");
+    expect(backfillMigration).toContain("cross join canonical");
+    expect(backfillMigration).toContain("on conflict (estimate_id, system_key) where system_key is not null do nothing");
+    expect(backfillMigration).not.toMatch(/update\s+public\.estimate_items/i);
+    expect(backfillMigration).not.toMatch(/delete\s+from/i);
+    expect(backfillMigration).toContain("set sort_order = sort_order + 1000000");
+  });
+
+  it("reuses one exact-name legacy section before inserting a missing canonical target", () => {
+    expect(backfillMigration).toContain("canonical.name = section.name");
+    expect(backfillMigration).toContain("candidate.candidate_number = 1");
+    expect(backfillMigration).toContain("set system_key = candidate.system_key");
   });
 });

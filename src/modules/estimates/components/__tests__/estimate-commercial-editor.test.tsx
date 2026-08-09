@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -76,12 +76,15 @@ describe("EstimateCommercialEditor", () => {
     expect(screen.queryByRole("combobox", { name: "Раздел назначения" })).not.toBeInTheDocument();
   });
 
-  it("keeps totals, readiness, preview, and proposal preparation together", () => {
+  it("keeps clean totals, preview, and proposal preparation together", () => {
     renderEditor();
     const summary = screen.getByRole("heading", { name: "Коммерческий расчёт" });
-    const readiness = screen.getByRole("heading", { name: "Готовность предложения" });
-    expect(summary.compareDocumentPosition(readiness) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const proposal = screen.getByRole("heading", { name: "Коммерческое предложение" });
+    expect(summary.compareDocumentPosition(proposal) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+    const sidebar = summary.closest("aside");
+    expect(sidebar).not.toBeNull();
+    expect(within(sidebar!).queryByText("НДС")).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Предпросмотр КП" })).toHaveAttribute("href", "/cabinet/estimates/estimate-1/preview");
     expect(screen.getByRole("button", { name: "Подготовить КП" })).toBeEnabled();
   });
@@ -124,6 +127,20 @@ describe("EstimateCommercialEditor", () => {
     expect(screen.queryByLabelText("Название раздела")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Переместить вверх" })).not.toBeInTheDocument();
     expect(screen.queryByRole("checkbox", { name: /Выбрать все позиции раздела/ })).not.toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /раздел «/ })).toHaveLength(4);
+  });
+
+  it("projects legacy mixed sections into the same four-section presentation", () => {
+    const legacySection = { ...detail.sections[0], id: "legacy-section", name: "Оборудование и услуги", systemKey: null, sortOrder: 9 };
+    const legacyProduct = { ...detail.lines[0], id: "legacy-product", sectionId: legacySection.id };
+    const legacyService = { ...detail.lines[0], id: "legacy-service", sectionId: legacySection.id, lineType: "service" as const, productId: null, description: "Монтаж" };
+    render(<EstimateCommercialEditor commercialOptions={{ currencies: ["USD"], usdMdlRate: 17.5, rateEffectiveDate: "2026-07-16" }} initialEstimate={{ ...detail, sections: [...detail.sections, legacySection], lines: [legacyProduct, legacyService] }} services={[]} workflow={workflow} />);
+
+    expect(screen.getAllByRole("heading", { level: 3 })).toHaveLength(4);
+    expect(screen.queryByRole("heading", { name: "Оборудование и услуги" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Исторический раздел")).not.toBeInTheDocument();
+    expect(screen.getByDisplayValue("Camera").closest("section")).toHaveAttribute("data-section-key", "equipment");
+    expect(screen.getByDisplayValue("Монтаж").closest("section")).toHaveAttribute("data-section-key", "installation_works");
   });
 
   it("uses one aligned row layout and removes commercial-detail expansion blocks", () => {
@@ -139,9 +156,9 @@ describe("EstimateCommercialEditor", () => {
     expect(rows).toHaveLength(3);
     for (const row of rows) {
       expect(row.firstElementChild).toHaveAttribute("data-testid", "estimate-line-grid");
-      expect(row.firstElementChild).toHaveClass("xl:grid-cols-[1.75rem_3rem_minmax(9rem,1fr)_4.25rem_4.5rem_5.25rem_4.75rem_5.5rem_2.75rem]");
+      expect(row.firstElementChild).toHaveClass("xl:grid-cols-[3rem_minmax(9rem,1fr)_4.25rem_4.5rem_5.25rem_4.75rem_5.5rem_2.75rem]");
     }
-    expect(screen.getByTestId("estimate-line-header")).toHaveTextContent("№ФотоПозицияКол-воЕд.ЦенаСкидкаИтого");
+    expect(screen.getByTestId("estimate-line-header")).toHaveTextContent("ФотоПозицияКол-воЕд.ЦенаСкидкаИтого");
   });
 
   it("shows currency conversion confirmation and preserves manual-price choice", async () => {

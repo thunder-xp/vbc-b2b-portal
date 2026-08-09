@@ -14,7 +14,7 @@ import {
 } from "../actions/estimate.actions";
 import { calculateEstimateCommercials, EstimateCalculationError, resolveCurrencyRate } from "../services/commercial-calculation";
 import type { EstimateCommercialCheckDto, EstimateCommercialOptionsDto, EstimateDetailDto, EstimateServiceDto, SaveEstimateCommercialCommand } from "../services";
-import { CANONICAL_ESTIMATE_SECTION_BY_KEY, canonicalSectionOrder } from "../services/estimate-sections";
+import { buildCanonicalEstimateSectionPresentation, resolveCanonicalSectionKey, type EstimateSectionPresentation } from "../services/estimate-sections";
 import type { EstimateChargeType, EstimateCurrencyChangePolicy, EstimateUnit, EstimateVatMode, EstimateWorkflowDto } from "../types";
 import { EstimateStatusBadge } from "./EstimateStatusBadge";
 import { EstimateLinePicker, type EstimateLinePickerMode } from "./EstimateLinePicker";
@@ -37,6 +37,8 @@ type Draft = Pick<EstimateDetailDto, "name" | "customerName" | "projectName" | "
   sections: Array<Pick<EstimateDetailDto["sections"][number], "id" | "name" | "systemKey" | "sortOrder" | "showSubtotal" | "discountPercent">>;
 };
 
+type PresentationSection = EstimateSectionPresentation<Draft["lines"][number]>;
+
 export function EstimateCommercialEditor({ initialEstimate, services, commercialOptions, workflow }: {
   initialEstimate: EstimateDetailDto;
   services: EstimateServiceDto[];
@@ -56,7 +58,7 @@ export function EstimateCommercialEditor({ initialEstimate, services, commercial
   const [checkedLineIds, setCheckedLineIds] = useState<Set<string>>(new Set());
   const [dirty, setDirty] = useState(false);
   const [pickerMode, setPickerMode] = useState<EstimateLinePickerMode | null>(null);
-  const [targetSectionId, setTargetSectionId] = useState(initialEstimate.sections[0]?.id ?? "");
+  const [targetSectionId, setTargetSectionId] = useState(() => canonicalTargetSectionId(initialEstimate.sections, "equipment") ?? "");
   const [lineSearch, setLineSearch] = useState("");
   const isDraft = estimate.status === "draft";
   const retailOnly = estimate.commercialMode === "retail_only";
@@ -117,7 +119,7 @@ export function EstimateCommercialEditor({ initialEstimate, services, commercial
     setDraft(toDraft(next));
     setDirty(false);
     setMessage(nextMessage);
-    setTargetSectionId((current) => next.sections.some((section) => section.id === current) ? current : (next.sections[0]?.id ?? ""));
+    setTargetSectionId((current) => next.sections.some((section) => section.id === current) ? current : (canonicalTargetSectionId(next.sections, "equipment") ?? ""));
   };
   const mutate = (operation: () => ReturnType<typeof saveEstimateCommercialAction>, after?: () => void) => startTransition(async () => {
     const result = await operation();
@@ -164,10 +166,15 @@ export function EstimateCommercialEditor({ initialEstimate, services, commercial
     requestAnimationFrame(() => document.getElementById("estimate-line-picker")?.scrollIntoView?.({ behavior: "smooth", block: "start" }));
   };
   const normalizedLineSearch = lineSearch.trim().toLocaleLowerCase("ru");
-  const visibleSections = [...draft.sections].sort((left, right) => {
-    const canonicalDifference = canonicalUiOrder(left) - canonicalUiOrder(right);
-    return canonicalDifference || left.sortOrder - right.sortOrder;
-  });
+  const presentationSections = useMemo(
+    () => buildCanonicalEstimateSectionPresentation({
+      sections: draft.sections,
+      lines: draft.lines,
+      calculatedLines: preview.value?.lines ?? [],
+      sectionTotals: preview.value?.sectionTotals ?? [],
+    }),
+    [draft, preview.value],
+  );
 
   return <div className="min-w-0 space-y-5" data-testid="estimate-workspace" onKeyDown={(event) => {
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
@@ -227,48 +234,44 @@ export function EstimateCommercialEditor({ initialEstimate, services, commercial
             }}
             onSelection={setCheckedLineIds}
           /></section> : null}
-        <div><h2 className="text-lg font-semibold">Смета</h2><p className="mt-1 text-xs text-zinc-500">{draft.lines.length} позиций</p></div>
-        {visibleSections.map((section) => {
-          const canonical = resolveCanonicalSection(section);
-          const sectionLines = draft.lines.filter((line) => line.sectionId === section.id);
+        {presentationSections.map((section) => {
+          const canonical = section.config;
+          const sectionLines = section.lines;
           const visibleSectionLines = normalizedLineSearch ? sectionLines.filter((line) => `${line.sku ?? ""} ${line.description}`.toLocaleLowerCase("ru").includes(normalizedLineSearch)) : sectionLines;
-          const sectionTotal = preview.value?.sectionTotals.find((item) => item.id === section.id);
-          const isCollapsed = collapsed.has(section.id);
-          return <section className="border-y border-zinc-200 bg-white" key={section.id}>
+          const isCollapsed = collapsed.has(canonical.key);
+          return <section className="border-y border-zinc-200 bg-white" data-section-key={canonical.key} key={canonical.key}>
             <div className="flex min-h-14 items-center gap-2 border-b border-zinc-200 px-3 py-2">
-              <button aria-expanded={!isCollapsed} aria-label="Свернуть раздел" className="p-2" onClick={() => setCollapsed((current) => toggleSet(current, section.id))} type="button">{isCollapsed ? <ChevronRight className="size-4" /> : <ChevronDown className="size-4" />}</button>
-              <div className="min-w-0 flex-1"><h3 className="truncate text-sm font-semibold text-zinc-950" title={section.name}>{section.name}</h3>{!canonical ? <p className="text-xs text-zinc-500">Исторический раздел</p> : null}</div>
-              <strong className="shrink-0 text-sm">{money(sectionTotal?.total ?? 0, draft.currencyCode)}</strong>
+              <button aria-expanded={!isCollapsed} aria-label={`${isCollapsed ? "Развернуть" : "Свернуть"} раздел «${canonical.name}»`} className="inline-flex size-11 items-center justify-center" onClick={() => setCollapsed((current) => toggleSet(current, canonical.key))} type="button">{isCollapsed ? <ChevronRight className="size-4" /> : <ChevronDown className="size-4" />}</button>
+              <div className="min-w-0 flex-1"><h3 className="truncate text-sm font-semibold text-zinc-950" title={canonical.name}>{canonical.name}</h3></div>
+              <strong className="shrink-0 text-sm">{money(section.total, draft.currencyCode)}</strong>
             </div>
             {!isCollapsed && <div>
-              {visibleSectionLines.length ? <div className="hidden grid-cols-[1.75rem_3rem_minmax(9rem,1fr)_4.25rem_4.5rem_5.25rem_4.75rem_5.5rem_2.75rem] gap-2 border-b border-zinc-200 bg-zinc-50 px-3 py-2 text-[11px] font-semibold text-zinc-500 xl:grid" data-testid="estimate-line-header"><span>№</span><span>Фото</span><span>Позиция</span><span>Кол-во</span><span>Ед.</span><span>Цена</span><span>Скидка</span><span>Итого</span><span /></div> : null}
+              {visibleSectionLines.length ? <div className="hidden grid-cols-[3rem_minmax(9rem,1fr)_4.25rem_4.5rem_5.25rem_4.75rem_5.5rem_2.75rem] gap-2 border-b border-zinc-200 bg-zinc-50 px-3 py-2 text-[11px] font-semibold text-zinc-500 xl:grid" data-testid="estimate-line-header"><span>Фото</span><span>Позиция</span><span>Кол-во</span><span>Ед.</span><span>Цена</span><span>Скидка</span><span>Итого</span><span /></div> : null}
               <div className="divide-y divide-zinc-100">{visibleSectionLines.length ? visibleSectionLines.map((line) => {
-              const lineIndex = draft.lines.findIndex((item) => item.id === line.id);
               const calculated = preview.value?.lines.find((item) => item.id === line.id);
               return <div className="p-3" data-line-type={line.lineType} data-testid="estimate-line-row" key={line.id}>
-                <div className="grid grid-cols-[1.75rem_3rem_minmax(0,1fr)] items-start gap-2 xl:grid-cols-[1.75rem_3rem_minmax(9rem,1fr)_4.25rem_4.5rem_5.25rem_4.75rem_5.5rem_2.75rem]" data-testid="estimate-line-grid">
-                  <span className="pt-3 text-sm text-zinc-500">{lineIndex + 1}</span>
+                <div className="grid grid-cols-[3rem_minmax(0,1fr)] items-start gap-2 xl:grid-cols-[3rem_minmax(9rem,1fr)_4.25rem_4.5rem_5.25rem_4.75rem_5.5rem_2.75rem]" data-testid="estimate-line-grid">
                   <div className="flex size-12 items-center justify-center overflow-hidden rounded border border-zinc-200 bg-zinc-50">{line.lineType === "product" ? <ProductLineThumbnail imageUrl={line.imageUrl ?? null} productName={line.description} size="compact" /> : <span aria-hidden="true" className="size-12" />}</div>
                   <Field label="Позиция" labelClassName="xl:sr-only"><input className={`${inputClass} w-full`} disabled={!isDraft} onChange={(e) => updateLine(draft, setDraft, setDirty, line.id, { description: e.target.value })} required={line.lineType === "custom" || line.lineType === "external"} title={line.description} value={line.description} /><div className="mt-1 flex min-h-4 flex-wrap items-center gap-2"><span className={lineTypeTone(line.lineType)}>{lineTypeLabel(line.lineType)}</span>{line.sku && <span className="text-[10px] text-zinc-500">SKU {line.sku}</span>}</div></Field>
-                  <div className="col-span-3 grid grid-cols-2 gap-2 sm:grid-cols-5 xl:contents">
+                  <div className="col-span-2 grid grid-cols-2 gap-2 sm:grid-cols-5 xl:contents">
                     <Field label="Кол-во" labelClassName="xl:sr-only"><NumberInput disabled={!isDraft} onValue={(value) => updateLine(draft, setDraft, setDirty, line.id, { quantity: value ?? 0 })} value={line.quantity} /></Field>
                     <Field label="Ед." labelClassName="xl:sr-only"><select className={`${inputClass} w-full`} disabled={!isDraft} onChange={(e) => updateLine(draft, setDraft, setDirty, line.id, { unit: e.target.value as EstimateUnit })} value={line.unit}>{units.map((unit) => <option key={unit.value} value={unit.value}>{unit.label}</option>)}</select></Field>
                     <Field label={line.pricingMode === "direct" ? "Цена" : line.pricingMode === "markup" ? "Наценка %" : "Маржа %"} labelClassName="xl:sr-only"><NumberInput disabled={!isDraft} nullable onValue={(value) => updateLine(draft, setDraft, setDirty, line.id, { pricingInputValue: value })} value={line.pricingInputValue} /></Field>
                     <Field label="Скидка %" labelClassName="xl:sr-only"><NumberInput disabled={!isDraft} onValue={(value) => updateLine(draft, setDraft, setDirty, line.id, { lineDiscountPercent: value ?? 0 })} value={line.lineDiscountPercent} /></Field>
-                    <div className="min-w-0"><p className="text-xs font-medium text-zinc-500 xl:sr-only">Итого</p><p className="mt-3 truncate text-sm font-semibold xl:mt-3" title={calculated?.lineTotal === null || calculated?.lineTotal === undefined ? "Цена не задана" : money(calculated.lineTotal, draft.currencyCode)}>{calculated?.lineTotal === null || calculated?.lineTotal === undefined ? "Цена не задана" : money(calculated.lineTotal, draft.currencyCode)}</p></div>
+                    <div className="min-w-0"><p className="text-xs font-medium text-zinc-500 xl:sr-only">Итого</p><p className="mt-3 flex min-h-5 items-center truncate text-sm font-semibold xl:mt-0 xl:min-h-11" title={calculated?.lineTotal === null || calculated?.lineTotal === undefined ? "Цена не задана" : money(calculated.lineTotal, draft.currencyCode)}>{calculated?.lineTotal === null || calculated?.lineTotal === undefined ? "Цена не задана" : money(calculated.lineTotal, draft.currencyCode)}</p></div>
                   </div>
-                  <div className="col-span-3 flex min-h-11 items-center justify-end xl:col-span-1 xl:self-start"><button aria-label="Удалить позицию" className="inline-flex size-11 items-center justify-center text-red-700" disabled={!isDraft || dirty} onClick={() => mutate(() => removeEstimateLineAction(estimate.id, line.id, estimate.revision))} type="button"><Trash2 className="size-4" /></button></div>
+                  <div className="col-span-2 flex min-h-11 items-center justify-end xl:col-span-1 xl:self-start"><button aria-label="Удалить позицию" className="inline-flex size-11 items-center justify-center text-red-700" disabled={!isDraft || dirty} onClick={() => mutate(() => removeEstimateLineAction(estimate.id, line.id, estimate.revision))} type="button"><Trash2 className="size-4" /></button></div>
                 </div>
               </div>;
             }) : <p className="p-5 text-sm text-zinc-500">{normalizedLineSearch ? "В разделе нет позиций по этому запросу." : "В разделе пока нет позиций."}</p>}</div>
-              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-zinc-200 px-3 py-2"><span className="text-xs text-zinc-500">{canonical?.subtotalLabel ?? `Итого за ${section.name.toLocaleLowerCase("ru")}`}: <strong className="text-zinc-800">{money(sectionTotal?.total ?? 0, draft.currencyCode)}</strong></span>{isDraft && canonical ? <button className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-emerald-700 outline-none focus-visible:ring-2 focus-visible:ring-emerald-500" disabled={dirty} onClick={() => openPickerForSection(section.id, canonical.defaultMode)} type="button"><Plus className="size-4" />{canonical.addLabel}</button> : null}</div>
-              {isDraft && canonical && targetSectionId === section.id && pickerMode ? <EstimateLinePicker allowedModes={canonical.allowedModes} contextLabel={canonical.name} disabled={dirty} estimate={estimate} mode={pickerMode} onModeChange={setPickerMode} onResult={acceptServer} services={services} targetSectionId={section.id} /> : null}
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-zinc-200 px-3 py-2"><span className="text-xs text-zinc-500">{canonical.subtotalLabel}: <strong className="text-zinc-800">{money(section.total, draft.currencyCode)}</strong></span>{isDraft ? <button className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-emerald-700 outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-45" disabled={dirty || !section.targetSectionId} onClick={() => section.targetSectionId && openPickerForSection(section.targetSectionId, canonical.defaultMode)} type="button"><Plus className="size-4" />{canonical.addLabel}</button> : null}</div>
+              {isDraft && section.targetSectionId && targetSectionId === section.targetSectionId && pickerMode ? <EstimateLinePicker allowedModes={canonical.allowedModes} contextLabel={canonical.name} disabled={dirty} estimate={estimate} mode={pickerMode} onModeChange={setPickerMode} onResult={acceptServer} services={services} targetSectionId={section.targetSectionId} /> : null}
             </div>}
           </section>;
         })}
         {isDraft || draft.charges.length ? <details className="border-y border-zinc-200 bg-white"><summary className="flex min-h-11 cursor-pointer items-center px-4 text-sm font-semibold">Дополнительные начисления</summary><Charges draft={draft} disabled={!isDraft} update={update} /></details> : null}
       </main>
-      <aside className="min-w-0 border-y border-zinc-200 bg-white p-5 xl:sticky xl:top-24"><Summary currency={draft.currencyCode} preview={preview.value} sections={visibleSections} /><EstimateProposalSidebar disabled={dirty || pending} readiness={draftReadiness} revision={estimate.revision} workflow={workflow} /></aside>
+      <aside className="min-w-0 border-y border-zinc-200 bg-white p-5 xl:sticky xl:top-24"><Summary currency={draft.currencyCode} preview={preview.value} sections={presentationSections} vatMode={draft.vatMode} vatRatePercent={draft.vatRatePercent} /><EstimateProposalSidebar disabled={dirty || pending} readiness={draftReadiness} revision={estimate.revision} workflow={workflow} /></aside>
     </div>
     {currencyChoice && <CurrencyDialog affectedLines={draft.lines.length} current={draft.currencyCode} effectiveDate={commercialOptions.rateEffectiveDate} manualLines={draft.lines.filter((line) => line.lineType !== "product" && line.pricingMode === "direct").length} onCancel={() => setCurrencyChoice(null)} onConfirm={(policy) => {
       if (!commercialOptions.usdMdlRate) return setMessage("Для смены валюты нет опубликованного курса.");
@@ -288,9 +291,9 @@ function Charges({ draft, disabled, update }: { draft: Draft; disabled: boolean;
   return <div className="border-t border-zinc-200 p-4"><div className="flex justify-end"><button className={buttonClass} disabled={disabled} onClick={() => update((d) => ({ ...d, charges: [...d.charges, { id: crypto.randomUUID(), chargeType: "delivery", description: "Доставка", amount: 0, vatApplicable: true, customerVisible: true, sortOrder: d.charges.length }] }))} type="button"><Plus className="size-4" />Добавить</button></div><div className="mt-3 space-y-2">{draft.charges.map((charge) => <div className="grid gap-2 sm:grid-cols-[10rem_minmax(10rem,1fr)_8rem_auto_auto]" key={charge.id}><select className={inputClass} disabled={disabled} onChange={(e) => update((d) => ({ ...d, charges: d.charges.map((item) => item.id === charge.id ? { ...item, chargeType: e.target.value as EstimateChargeType } : item) }))} value={charge.chargeType}>{chargeTypes.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}</select><input className={inputClass} disabled={disabled} onChange={(e) => update((d) => ({ ...d, charges: d.charges.map((item) => item.id === charge.id ? { ...item, description: e.target.value } : item) }))} value={charge.description} /><NumberInput disabled={disabled} onValue={(value) => update((d) => ({ ...d, charges: d.charges.map((item) => item.id === charge.id ? { ...item, amount: value ?? 0 } : item) }))} value={charge.amount} /><label className="flex items-center gap-2 text-xs"><input checked={charge.vatApplicable} disabled={disabled} onChange={(e) => update((d) => ({ ...d, charges: d.charges.map((item) => item.id === charge.id ? { ...item, vatApplicable: e.target.checked } : item) }))} type="checkbox" />НДС</label><button aria-label="Удалить начисление" className={buttonClass} disabled={disabled} onClick={() => update((d) => ({ ...d, charges: d.charges.filter((item) => item.id !== charge.id) }))} type="button"><Trash2 className="size-4" /></button></div>)}</div></div>;
 }
 
-function Summary({ currency, preview, sections }: { currency: string; preview: ReturnType<typeof calculateEstimateCommercials> | null; sections: Draft["sections"] }) {
-  const rows = preview ? [["Итого без НДС", preview.totalExcludingVat], ["НДС", preview.vatAmount]] as const : [];
-  return <section aria-labelledby="estimate-summary-title"><p className="text-xs font-semibold uppercase text-zinc-500">КП / Итог</p><h2 className="mt-1 font-semibold text-zinc-950" id="estimate-summary-title">Коммерческий расчёт</h2><div className="mt-4 space-y-2">{sections.map((section) => { const canonical = resolveCanonicalSection(section); return <div className="flex justify-between gap-3 text-sm" key={section.id}><span className="min-w-0 truncate text-zinc-500" title={canonical?.subtotalLabel ?? section.name}>{canonical?.subtotalLabel ?? section.name}</span><span className="shrink-0">{money(preview?.sectionTotals.find((item) => item.id === section.id)?.total ?? 0, currency)}</span></div>; })}{rows.map(([label, value]) => <div className="flex justify-between gap-3 text-sm" key={label}><span className="text-zinc-500">{label}</span><span>{money(value, currency)}</span></div>)}</div><div className="mt-4 border-t pt-4"><p className="text-xs font-medium text-zinc-500">К оплате</p><p className="mt-1 text-2xl font-semibold">{money(preview?.finalTotal ?? 0, currency)}</p>{preview?.incompletePricing && <p className="mt-3 bg-amber-50 p-2 text-xs text-amber-900">Есть позиции без рассчитанной цены.</p>}</div></section>;
+function Summary({ currency, preview, sections, vatMode, vatRatePercent }: { currency: string; preview: ReturnType<typeof calculateEstimateCommercials> | null; sections: PresentationSection[]; vatMode: EstimateVatMode; vatRatePercent: number }) {
+  const vatApplicable = (vatMode === "included" || vatMode === "separate") && vatRatePercent > 0;
+  return <section aria-labelledby="estimate-summary-title"><p className="text-xs font-semibold uppercase text-zinc-500">КП / Итог</p><h2 className="mt-1 font-semibold text-zinc-950" id="estimate-summary-title">Коммерческий расчёт</h2><div className="mt-4 space-y-2">{sections.map((section) => <div className="flex justify-between gap-3 text-sm" key={section.config.key}><span className="min-w-0 truncate text-zinc-500" title={section.config.name}>{section.config.name}</span><span className="shrink-0">{money(section.total, currency)}</span></div>)}<div className="flex justify-between gap-3 border-t border-zinc-200 pt-2 text-sm"><span className="text-zinc-500">Итого без НДС</span><span>{money(preview?.totalExcludingVat ?? 0, currency)}</span></div>{vatApplicable ? <div className="flex justify-between gap-3 text-sm"><span className="text-zinc-500">НДС</span><span>{money(preview?.vatAmount ?? 0, currency)}</span></div> : null}</div><div className="mt-4 border-t pt-4"><p className="text-xs font-medium text-zinc-500">К оплате</p><p className="mt-1 text-2xl font-semibold">{money(preview?.finalTotal ?? 0, currency)}</p>{preview?.incompletePricing && <p className="mt-3 bg-amber-50 p-2 text-xs text-amber-900">Есть позиции без рассчитанной цены.</p>}</div></section>;
 }
 
 function CurrencyDialog({ current, target, rate, effectiveDate, affectedLines, manualLines, onCancel, onConfirm }: { current: string; target: string; rate: number | null; effectiveDate: string | null; affectedLines: number; manualLines: number; onCancel: () => void; onConfirm: (policy: EstimateCurrencyChangePolicy) => void }) {
@@ -315,7 +318,6 @@ function toggleSet(current: Set<string>, value: string) { const next = new Set(c
 function lineTypeLabel(value: EstimateDetailDto["lines"][number]["lineType"]) { return value === "product" ? "Оборудование" : value === "service" ? "Работа / услуга" : value === "external" ? "Внешняя позиция" : "Ручная позиция"; }
 function lineTypeTone(value: EstimateDetailDto["lines"][number]["lineType"]) { return `rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase ${value === "product" ? "bg-emerald-50 text-emerald-800" : value === "service" ? "bg-blue-50 text-blue-800" : "bg-amber-100 text-amber-900"}`; }
 function vatModeLabel(mode: EstimateVatMode) { return mode === "included" ? "НДС включён" : mode === "separate" ? "НДС отдельно" : mode === "excluded" ? "без НДС" : "НДС не применяется"; }
-function resolveCanonicalSection(section: Draft["sections"][number]) { return section.systemKey ? CANONICAL_ESTIMATE_SECTION_BY_KEY.get(section.systemKey) : [...CANONICAL_ESTIMATE_SECTION_BY_KEY.values()].find((candidate) => candidate.name === section.name); }
-function canonicalUiOrder(section: Draft["sections"][number]) { const canonical = resolveCanonicalSection(section); return canonical ? canonicalSectionOrder(canonical.key) : Number.MAX_SAFE_INTEGER; }
+function canonicalTargetSectionId(sections: Draft["sections"], key: PresentationSection["config"]["key"]): string | null { return sections.find((section) => resolveCanonicalSectionKey(section) === key)?.id ?? null; }
 function money(value: number, currency: string) { return new Intl.NumberFormat("ru-RU", { style: "currency", currency }).format(value); }
 function formatNullableMoney(value: number | null, currency: string) { return value === null ? "Цена уточняется" : money(value, currency); }

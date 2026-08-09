@@ -293,6 +293,24 @@ describe("DefaultEstimateService", () => {
     expect(detail.total).toContain("100");
   });
 
+  it("uses a persisted direct selling price when legacy pricing input is missing", async () => {
+    vi.mocked(repository.findAggregateById).mockResolvedValue(aggregate([{
+      ...item(1),
+      lineType: "external",
+      externalNomenclatureId: "11111111-1111-4111-8111-111111111111",
+      pricingInputValue: null,
+      sellingUnitPrice: 2.5,
+      lineSubtotal: 2.5,
+      lineTotal: 2.5,
+    }]));
+
+    const detail = await service.getDetail("user-1", "estimate-1");
+
+    expect(detail.lines[0]).toMatchObject({ pricingMode: "direct", pricingInputValue: 2.5, sellingUnitPrice: 2.5 });
+    expect(detail.totals.finalTotal).toBe(2.5);
+    expect(detail.hasIncompletePricing).toBe(false);
+  });
+
   it("rejects structural changes to a canonical estimate section", async () => {
     const sectionId = "11111111-1111-1111-1111-111111111111";
     const itemId = "22222222-2222-2222-2222-222222222222";
