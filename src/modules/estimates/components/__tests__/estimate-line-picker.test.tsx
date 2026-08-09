@@ -42,7 +42,7 @@ describe("EstimateLinePicker", () => {
     const user = userEvent.setup();
     vi.mocked(searchEstimateProductsAction).mockResolvedValue({ success: true, data: products, message: "Загружено", errorCode: null });
     vi.mocked(addEstimateProductsAction).mockResolvedValue({ success: true, data: estimate, message: "Добавлено", errorCode: null });
-    render(<EstimateLinePicker allowedModes={["product", "external"]} contextLabel="Монтажные материалы" disabled={false} estimate={estimate} mode="product" onModeChange={vi.fn()} onResult={vi.fn()} services={services} targetSectionId="section-2" />);
+    render(<EstimateLinePicker allowedModes={["product", "external"]} contextLabel="Монтажные материалы" disabled={false} estimate={estimate} externalItemType="material" mode="product" onModeChange={vi.fn()} onResult={vi.fn()} services={services} targetSectionId="section-2" />);
 
     await user.type(screen.getByLabelText("SKU, модель или название"), "camera");
     await user.click(screen.getByRole("button", { name: "Найти" }));
@@ -67,7 +67,7 @@ describe("EstimateLinePicker", () => {
   it("adds multiple controlled services through one mutation", async () => {
     const user = userEvent.setup();
     vi.mocked(addEstimateServicesAction).mockResolvedValue({ success: true, data: estimate, message: "Добавлено", errorCode: null });
-    render(<EstimateLinePicker allowedModes={["service"]} contextLabel="Монтажные работы" disabled={false} estimate={estimate} mode="service" onModeChange={vi.fn()} onResult={vi.fn()} services={services} targetSectionId="section-2" />);
+    render(<EstimateLinePicker allowedModes={["service"]} contextLabel="Монтажные работы" disabled={false} estimate={estimate} externalItemType="service" mode="service" onModeChange={vi.fn()} onResult={vi.fn()} services={services} targetSectionId="section-2" />);
 
     await user.click(screen.getByRole("checkbox", { name: "Выбрать Монтаж камеры" }));
     await user.click(screen.getByRole("checkbox", { name: "Выбрать Настройка системы" }));

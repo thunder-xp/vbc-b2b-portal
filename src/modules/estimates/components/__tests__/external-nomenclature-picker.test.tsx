@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { addEstimateExternalLineAction, searchExternalNomenclatureAction } from "../../actions/estimate.actions";
 import type { EstimateDetailDto } from "../../services";
@@ -12,37 +12,44 @@ vi.mock("../../actions/estimate.actions", () => ({
 }));
 
 const estimate = { id: "estimate-1", revision: 3 } as EstimateDetailDto;
-const match = { id: "external-1", manufacturer: "Ajax", model: "Hub 2", name: "Security hub", category: "Alarm", unit: "pcs" as const, specification: null, exactIdentityMatch: true };
+const match = { id: "external-1", itemType: "equipment" as const, manufacturer: "Ajax", model: "Hub 2", name: "Security hub", category: "Alarm", unit: "pcs" as const, specification: null, exactIdentityMatch: true };
 
 describe("ExternalNomenclaturePicker", () => {
-  it("suggests a shared match and reuses it without exposing tenancy", async () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("searches only the active company's library by default", async () => {
     const user = userEvent.setup();
-    vi.mocked(searchExternalNomenclatureAction).mockResolvedValue({ success: true, data: [match], message: "Найдено", errorCode: null });
-    vi.mocked(addEstimateExternalLineAction).mockResolvedValue({ success: true, data: estimate, message: "Добавлено", errorCode: null });
-    render(<ExternalNomenclaturePicker disabled={false} estimate={estimate} onResult={vi.fn()} targetSectionId="section-2" />);
+    vi.mocked(searchExternalNomenclatureAction).mockResolvedValue({ success: true, data: [], message: "Найдено", errorCode: null });
+    render(<ExternalNomenclaturePicker disabled={false} estimate={estimate} itemType="equipment" onResult={vi.fn()} targetSectionId="section-2" />);
 
     await user.type(screen.getByLabelText("Производитель"), "Ajax");
     await user.type(screen.getByLabelText("Модель"), "Hub 2");
-    await user.type(screen.getByLabelText("Название"), "Security hub");
-    expect(await screen.findByText("Похожая позиция уже существует в системе. Выберите существующую позицию, чтобы не создавать дубликат.")).toBeInTheDocument();
-    expect(screen.queryByText(/компания|создал/i)).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Выбрать Ajax Hub 2" }));
+    await waitFor(() => expect(searchExternalNomenclatureAction).toHaveBeenCalledWith(expect.objectContaining({ itemType: "equipment", scope: "own" })));
+    expect(screen.getByText("Поиск в вашей номенклатуре")).toBeInTheDocument();
+  });
+
+  it("searches the anonymous shared library only after explicit expansion and adopts a selected identity", async () => {
+    const user = userEvent.setup();
+    vi.mocked(searchExternalNomenclatureAction).mockResolvedValue({ success: true, data: [match], message: "Найдено", errorCode: null });
+    vi.mocked(addEstimateExternalLineAction).mockResolvedValue({ success: true, data: estimate, message: "Добавлено", errorCode: null });
+    render(<ExternalNomenclaturePicker disabled={false} estimate={estimate} itemType="equipment" onResult={vi.fn()} targetSectionId="section-2" />);
+
+    await user.type(screen.getByLabelText("Производитель"), "Ajax");
+    await user.type(screen.getByLabelText("Модель"), "Hub 2");
+    await user.click(screen.getByRole("button", { name: "Расширить поиск" }));
+    await waitFor(() => expect(searchExternalNomenclatureAction).toHaveBeenCalledWith(expect.objectContaining({ itemType: "equipment", scope: "shared" })));
+    expect(screen.getByText("Поиск в общей библиотеке без данных о партнёрах")).toBeInTheDocument();
+    expect(screen.queryByText(/компания|создатель|партнёр использует/i)).not.toBeInTheDocument();
+    await user.click(await screen.findByRole("button", { name: "Выбрать Ajax Hub 2 Security hub" }));
     await user.type(screen.getByLabelText("Цена"), "100");
     await user.click(screen.getByRole("button", { name: "Добавить выбранную" }));
     await waitFor(() => expect(addEstimateExternalLineAction).toHaveBeenCalledWith("estimate-1", expect.objectContaining({ existingExternalItemId: "external-1", forceCreateNew: false })));
   });
 
-  it("requires an explicit force-create action when a likely duplicate exists", async () => {
-    const user = userEvent.setup();
-    vi.mocked(searchExternalNomenclatureAction).mockResolvedValue({ success: true, data: [match], message: "Найдено", errorCode: null });
-    vi.mocked(addEstimateExternalLineAction).mockResolvedValue({ success: true, data: estimate, message: "Добавлено", errorCode: null });
-    render(<ExternalNomenclaturePicker disabled={false} estimate={estimate} onResult={vi.fn()} targetSectionId="section-2" />);
-    await user.type(screen.getByLabelText("Производитель"), "Ajax");
-    await user.type(screen.getByLabelText("Модель"), "Hub 2");
-    await user.type(screen.getByLabelText("Название"), "Security hub custom");
-    expect(await screen.findByRole("button", { name: "Всё равно создать новую позицию" })).toBeEnabled();
-    await user.type(screen.getByLabelText("Цена"), "120");
-    await user.click(screen.getByRole("button", { name: "Всё равно создать новую позицию" }));
-    await waitFor(() => expect(addEstimateExternalLineAction).toHaveBeenCalledWith("estimate-1", expect.objectContaining({ existingExternalItemId: null, forceCreateNew: true })));
+  it("uses a service-only form without irrelevant manufacturer and model fields", () => {
+    render(<ExternalNomenclaturePicker disabled={false} estimate={estimate} itemType="service" onResult={vi.fn()} targetSectionId="section-4" />);
+    expect(screen.queryByLabelText("Производитель")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Модель")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Наименование")).toBeInTheDocument();
   });
 });

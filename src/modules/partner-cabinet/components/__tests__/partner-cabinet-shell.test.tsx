@@ -120,11 +120,10 @@ describe("Partner workspace shell", () => {
     expect(estimatesButton).toHaveAttribute("aria-expanded", "false");
     await user.click(estimatesButton);
     const estimatesGroup = within(document.getElementById("estimates-navigation")!);
-    expect(estimatesGroup.getByRole("link", { name: "Сметы" })).toHaveAttribute("href", "/cabinet/estimates");
+    expect(estimatesGroup.getByRole("link", { name: "Мои сметы" })).toHaveAttribute("href", "/cabinet/estimates");
     expect(estimatesGroup.getByRole("link", { name: "Мои заказчики" })).toHaveAttribute("href", "/cabinet/customers");
-    expect(estimatesGroup.getByText("Генератор КП")).toBeInTheDocument();
-    expect(estimatesGroup.getByText("Скоро")).toBeInTheDocument();
-    expect(estimatesGroup.queryByRole("link", { name: "Генератор КП" })).not.toBeInTheDocument();
+    expect(estimatesGroup.getByRole("link", { name: "Моя номенклатура" })).toHaveAttribute("href", "/cabinet/nomenclature");
+    expect(estimatesGroup.queryByText("Генератор КП")).not.toBeInTheDocument();
     expect(estimatesGroup.queryByText("Сметы и коммерческие предложения")).not.toBeInTheDocument();
     expect(estimatesGroup.queryByRole("link", { name: "Подбор решения" })).not.toBeInTheDocument();
     expect(estimatesGroup.queryByRole("link", { name: "Избранное" })).not.toBeInTheDocument();
@@ -267,7 +266,7 @@ describe("Partner workspace shell", () => {
     render(<PartnerSidebar hasWorkspaceAccess navigation={navigation} />);
 
     expect(screen.getByRole("button", { name: "Сметы и КП" })).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByRole("link", { name: "Сметы" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "Мои сметы" })).toHaveAttribute("aria-current", "page");
   });
 
   it.each([

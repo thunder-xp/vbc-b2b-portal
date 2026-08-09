@@ -3,7 +3,9 @@
 import { revalidatePath } from "next/cache";
 
 import { type ActionResult, failureFromError, invalidInput, success } from "../../access-control/actions/action-result";
-import type { EstimateCommercialCheckDto, EstimateCommercialOptionsDto, EstimateDetailDto, EstimateLineInsertion, EstimateListFilters, EstimateProductPickerDto, EstimateSectionInsertion, EstimateServiceDto, EstimateServiceSelection, ExternalNomenclatureInput, SaveEstimateCommercialCommand } from "../services";
+import { InvalidStateError } from "../../access-control/services";
+import type { EstimateCommercialCheckDto, EstimateCommercialOptionsDto, EstimateDetailDto, EstimateLineInsertion, EstimateListFilters, EstimateProductPickerDto, EstimateSectionInsertion, EstimateServiceDto, EstimateServiceSelection, ExternalNomenclatureInput, PartnerNomenclatureInput, PartnerNomenclatureListFilters, SaveEstimateCommercialCommand } from "../services";
+import type { ExternalNomenclatureItemType } from "../repositories";
 import type { EstimateUnit, FinalCustomerIndustryCode } from "../types";
 import { createEstimateService, getAuthenticatedUserId } from "./service-factory";
 
@@ -147,13 +149,57 @@ export async function createEstimateAction(input: CreateEstimateActionInput): Pr
   }
 }
 
-export async function searchExternalNomenclatureAction(query: string) {
+export async function searchExternalNomenclatureAction(input: { query: string; itemType: ExternalNomenclatureItemType; scope?: "own" | "shared" }) {
+  const query = input.query.trim();
   if (query.trim().length < 2) return success("Введите минимум два символа.", []);
   try {
     const userId = await getAuthenticatedUserId();
-    return success("Похожие позиции найдены.", await createEstimateService().searchExternalNomenclature(userId, query));
+    return success("Позиции найдены.", await createEstimateService().searchExternalNomenclature(userId, query, input.itemType, input.scope === "shared" ? "shared" : "own"));
   } catch (error) {
     return estimateFailure(error, "external_nomenclature_search");
+  }
+}
+
+export async function listPartnerNomenclatureAction(filters: PartnerNomenclatureListFilters = {}) {
+  try {
+    const userId = await getAuthenticatedUserId();
+    return success("Номенклатура загружена.", await createEstimateService().listPartnerNomenclature(userId, filters));
+  } catch (error) {
+    return failureFromError(error);
+  }
+}
+
+export async function createPartnerNomenclatureAction(input: PartnerNomenclatureInput) {
+  try {
+    const userId = await getAuthenticatedUserId();
+    const id = await createEstimateService().createPartnerNomenclature(userId, input);
+    revalidatePath("/cabinet/nomenclature");
+    return success("Позиция добавлена в вашу номенклатуру.", { id });
+  } catch (error) {
+    if (error instanceof InvalidStateError) return invalidInput(error.message);
+    return failureFromError(error);
+  }
+}
+
+export async function updatePartnerNomenclatureAction(itemId: string, expectedVersion: number, input: Omit<PartnerNomenclatureInput, "itemType" | "manufacturer" | "model" | "forceCreateNew" | "requestKey">) {
+  try {
+    const userId = await getAuthenticatedUserId();
+    const version = await createEstimateService().updatePartnerNomenclature(userId, itemId, expectedVersion, input);
+    revalidatePath("/cabinet/nomenclature");
+    return success("Позиция обновлена.", { version });
+  } catch (error) {
+    return failureFromError(error);
+  }
+}
+
+export async function archivePartnerNomenclatureAction(itemId: string, expectedVersion: number) {
+  try {
+    const userId = await getAuthenticatedUserId();
+    await createEstimateService().archivePartnerNomenclature(userId, itemId, expectedVersion);
+    revalidatePath("/cabinet/nomenclature");
+    return success("Позиция удалена из вашей номенклатуры.", null);
+  } catch (error) {
+    return failureFromError(error);
   }
 }
 

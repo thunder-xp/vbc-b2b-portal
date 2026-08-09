@@ -10,6 +10,12 @@ describe("estimate canonical section presentation", () => {
       "Монтажные работы",
       "Пусконаладочные работы",
     ]);
+    expect(CANONICAL_ESTIMATE_SECTIONS.map((section) => section.allowedModes)).toEqual([
+      ["product", "external"],
+      ["product", "external"],
+      ["service", "external"],
+      ["service", "external"],
+    ]);
   });
 
   it("respects governed and exact-name section identity", () => {

@@ -72,6 +72,10 @@ describe("DefaultEstimateService", () => {
       getFinalCustomerDetail: vi.fn().mockResolvedValue(null),
       createFinalCustomer: vi.fn().mockResolvedValue({ id: "customer-1", companyId: "company-1", displayName: "Customer", customerType: "company", fiscalCode: null, locality: null, industry: null, industryCode: null, revision: 1, archivedAt: null, createdAt: "2026-08-08T10:00:00Z", updatedAt: "2026-08-08T10:00:00Z" }),
       searchExternalNomenclature: vi.fn().mockResolvedValue([]),
+      listPartnerNomenclature: vi.fn().mockResolvedValue({ records: [], totalCount: 0 }),
+      createPartnerNomenclature: vi.fn().mockResolvedValue("11111111-1111-4111-8111-111111111111"),
+      updatePartnerNomenclature: vi.fn().mockResolvedValue(2),
+      archivePartnerNomenclature: vi.fn().mockResolvedValue(undefined),
       addExternalLine: vi.fn().mockResolvedValue(undefined),
       createFromPurchasingList: vi.fn().mockResolvedValue({ estimateId: estimate.id, repeated: false }),
       updateDraft: vi.fn().mockResolvedValue({ ...estimate, revision: 4 }),
@@ -361,9 +365,10 @@ describe("DefaultEstimateService", () => {
     expect(pricing.getApprovedUsdMdlRateSnapshot).not.toHaveBeenCalled();
   });
 
-  it("searches the shared library once and adds an external line through one atomic call", async () => {
-    vi.mocked(repository.searchExternalNomenclature!).mockResolvedValue([{ id: "external-1", manufacturer: "Ajax", model: "Hub 2", name: "Hub", category: null, unit: "pcs", specification: null, exactIdentityMatch: true }]);
-    await expect(service.searchExternalNomenclature("user-1", "Ajax Hub 2")).resolves.toHaveLength(1);
+  it("searches the selected bounded library once and adds an external line through one atomic call", async () => {
+    vi.mocked(repository.searchExternalNomenclature!).mockResolvedValue([{ id: "external-1", itemType: "equipment", manufacturer: "Ajax", model: "Hub 2", name: "Hub", category: null, unit: "pcs", specification: null, exactIdentityMatch: true }]);
+    await expect(service.searchExternalNomenclature("user-1", "Ajax Hub 2", "equipment", "own")).resolves.toHaveLength(1);
+    expect(repository.searchExternalNomenclature).toHaveBeenCalledWith("company-1", "Ajax Hub 2", "equipment", "own", 8);
     await service.addExternalLine("user-1", "estimate-1", 3, {
       existingExternalItemId: "11111111-1111-4111-8111-111111111111",
       manufacturer: "Ajax", model: "Hub 2", name: "Hub", unit: "pcs",
@@ -374,6 +379,22 @@ describe("DefaultEstimateService", () => {
     expect(repository.searchExternalNomenclature).toHaveBeenCalledTimes(1);
     expect(repository.addExternalLine).toHaveBeenCalledTimes(1);
     expect(repository.addExternalLine).toHaveBeenCalledWith(expect.objectContaining({ existingExternalItemId: "11111111-1111-4111-8111-111111111111", forceCreateNew: false }));
+  });
+
+  it("lists and mutates only the active company's reusable nomenclature", async () => {
+    await service.listPartnerNomenclature("user-1", { search: "Ajax", itemType: "equipment", page: 2 });
+    expect(repository.listPartnerNomenclature).toHaveBeenCalledWith({ companyId: "company-1", search: "Ajax", itemType: "equipment", limit: 20, offset: 20 });
+
+    await service.createPartnerNomenclature("user-1", {
+      itemType: "service",
+      name: "Монтаж видеокамеры",
+      unit: "service",
+      requestKey: "22222222-2222-4222-8222-222222222222",
+    });
+    expect(repository.createPartnerNomenclature).toHaveBeenCalledWith(expect.objectContaining({ companyId: "company-1", itemType: "service", manufacturer: null, model: null }));
+
+    await service.archivePartnerNomenclature("user-1", "11111111-1111-4111-8111-111111111111", 1);
+    expect(repository.archivePartnerNomenclature).toHaveBeenCalledWith("company-1", "11111111-1111-4111-8111-111111111111", 1);
   });
 
   it("creates a section through one governed idempotent repository call", async () => {

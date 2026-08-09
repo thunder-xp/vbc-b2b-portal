@@ -11,7 +11,7 @@ import { MembershipStatus } from "../../access-control/types";
 import type { CatalogService } from "../../catalog/services";
 import type { PricingInventoryService } from "../../pricing-inventory/services";
 import { evaluateFreshness } from "../../integration/freshness";
-import type { AddEstimateLineInput, EstimateRepository, ExternalNomenclatureRecord, SaveEstimateCommercialInput } from "../repositories";
+import type { AddEstimateLineInput, EstimateRepository, ExternalNomenclatureItemType, ExternalNomenclatureRecord, PartnerNomenclatureRecord, SaveEstimateCommercialInput } from "../repositories";
 import { EstimateRepositoryError } from "../repositories";
 import { isFinalCustomerIndustryCode, type Estimate, type EstimateAggregate, type EstimateChargeType, type EstimateCurrencyChangePolicy, type EstimateItem, type EstimateLifecycleStatus, type EstimatePricingMode, type EstimateStatus, type EstimateUnit, type EstimateVatMode, type FinalCustomerIndustryCode } from "../types";
 import { calculateCommercialLine, calculateEstimateCommercials, convertMoney, resolveCurrencyRate } from "./commercial-calculation";
@@ -182,6 +182,25 @@ export type EstimateCommercialOptionsDto = {
 };
 
 export type ExternalNomenclatureDto = ExternalNomenclatureRecord;
+export type PartnerNomenclatureDto = PartnerNomenclatureRecord;
+
+export type PartnerNomenclatureListFilters = {
+  search?: string;
+  itemType?: ExternalNomenclatureItemType;
+  page?: number;
+};
+
+export type PartnerNomenclatureInput = {
+  itemType: ExternalNomenclatureItemType;
+  manufacturer?: string | null;
+  model?: string | null;
+  name: string;
+  category?: string | null;
+  unit: EstimateUnit;
+  specification?: string | null;
+  forceCreateNew?: boolean;
+  requestKey: string;
+};
 
 export type EstimateServiceSelection = {
   serviceId: string;
@@ -212,8 +231,8 @@ export type EstimateSectionInsertion = {
 export type ExternalNomenclatureInput = {
   targetSectionId: string;
   existingExternalItemId?: string | null;
-  manufacturer: string;
-  model: string;
+  manufacturer?: string | null;
+  model?: string | null;
   name: string;
   category?: string | null;
   unit: EstimateUnit;
@@ -262,7 +281,11 @@ export interface EstimateService {
   getCommercialOptions(userId: string): Promise<EstimateCommercialOptionsDto>;
   listServices(userId: string): Promise<EstimateServiceDto[]>;
   searchProducts(userId: string, input: { search?: string; categoryId?: string; brandId?: string }): Promise<EstimateProductPickerDto>;
-  searchExternalNomenclature(userId: string, query: string): Promise<ExternalNomenclatureRecord[]>;
+  searchExternalNomenclature(userId: string, query: string, itemType: ExternalNomenclatureItemType, scope: "own" | "shared"): Promise<ExternalNomenclatureRecord[]>;
+  listPartnerNomenclature(userId: string, filters: PartnerNomenclatureListFilters): Promise<{ records: PartnerNomenclatureRecord[]; page: number; totalPages: number; totalCount: number }>;
+  createPartnerNomenclature(userId: string, input: PartnerNomenclatureInput): Promise<string>;
+  updatePartnerNomenclature(userId: string, itemId: string, expectedVersion: number, input: Omit<PartnerNomenclatureInput, "itemType" | "manufacturer" | "model" | "forceCreateNew" | "requestKey">): Promise<number>;
+  archivePartnerNomenclature(userId: string, itemId: string, expectedVersion: number): Promise<void>;
   searchFinalCustomers(userId: string, query: string): Promise<import("../types").FinalCustomer[]>;
   listFinalCustomers(userId: string, filters: FinalCustomerListFilters): Promise<{ records: import("../types").FinalCustomerListRecord[]; page: number; totalPages: number; totalCount: number }>;
   getFinalCustomerDetail(userId: string, customerId: string): Promise<import("../types").FinalCustomerDetail>;
@@ -372,12 +395,83 @@ export class DefaultEstimateService implements EstimateService {
     return [...new Set(published)].filter((value) => /^[A-Z]{3}$/.test(value)).sort((left, right) => left === "USD" ? -1 : right === "USD" ? 1 : left.localeCompare(right));
   }
 
-  async searchExternalNomenclature(userId: string, query: string): Promise<ExternalNomenclatureRecord[]> {
-    await this.resolveCompany(userId, VIEW_PERMISSION);
+  async searchExternalNomenclature(userId: string, query: string, itemType: ExternalNomenclatureItemType, scope: "own" | "shared"): Promise<ExternalNomenclatureRecord[]> {
+    const companyId = await this.resolveCompany(userId, VIEW_PERMISSION);
     const normalized = normalizeRequired(query, 300, "Введите производителя, модель или название.");
     if (normalized.length < 2) return [];
     if (!this.repository.searchExternalNomenclature) throw new InvalidStateError("Библиотека внешних позиций временно недоступна.");
-    return this.repository.searchExternalNomenclature(normalized, 8);
+    return this.repository.searchExternalNomenclature(companyId, normalized, normalizeExternalItemType(itemType), scope === "shared" ? "shared" : "own", 8);
+  }
+
+  async listPartnerNomenclature(userId: string, filters: PartnerNomenclatureListFilters) {
+    const companyId = await this.resolveCompany(userId, VIEW_PERMISSION);
+    if (!this.repository.listPartnerNomenclature) throw new InvalidStateError("Библиотека номенклатуры временно недоступна.");
+    const page = normalizePage(filters.page);
+    const result = await this.repository.listPartnerNomenclature({
+      companyId,
+      search: normalizeOptional(filters.search, 100),
+      itemType: filters.itemType ? normalizeExternalItemType(filters.itemType) : undefined,
+      limit: PAGE_SIZE,
+      offset: (page - 1) * PAGE_SIZE,
+    });
+    return {
+      records: result.records,
+      page,
+      totalPages: Math.max(1, Math.ceil(result.totalCount / PAGE_SIZE)),
+      totalCount: result.totalCount,
+    };
+  }
+
+  async createPartnerNomenclature(userId: string, input: PartnerNomenclatureInput): Promise<string> {
+    const companyId = await this.resolveCompany(userId, MANAGE_PERMISSION);
+    if (!this.repository.createPartnerNomenclature) throw new InvalidStateError("Создание номенклатуры временно недоступно.");
+    const itemType = normalizeExternalItemType(input.itemType);
+    const normalized = normalizePartnerNomenclatureInput(input, itemType);
+    const requestKey = normalizeUuid(input.requestKey, "Ключ создания номенклатуры некорректен.");
+    const requestFingerprint = createHash("sha256").update(JSON.stringify({ itemType, ...normalized })).digest("hex");
+    try {
+      return await this.repository.createPartnerNomenclature({
+        companyId,
+        requestKey,
+        requestFingerprint,
+        itemType,
+        ...normalized,
+        forceCreateNew: input.forceCreateNew === true,
+      });
+    } catch (error) {
+      if (error instanceof EstimateRepositoryError && error.code === "duplicate") {
+        throw new InvalidStateError("Похожая позиция уже есть в общей библиотеке. Расширьте поиск и выберите существующую либо подтвердите создание новой.");
+      }
+      handleRepositoryConflict(error);
+    }
+  }
+
+  async updatePartnerNomenclature(userId: string, itemId: string, expectedVersion: number, input: Omit<PartnerNomenclatureInput, "itemType" | "manufacturer" | "model" | "forceCreateNew" | "requestKey">): Promise<number> {
+    const companyId = await this.resolveCompany(userId, MANAGE_PERMISSION);
+    if (!this.repository.updatePartnerNomenclature) throw new InvalidStateError("Изменение номенклатуры временно недоступно.");
+    try {
+      return await this.repository.updatePartnerNomenclature({
+        companyId,
+        itemId: normalizeUuid(itemId, "Позиция номенклатуры некорректна."),
+        expectedVersion: normalizeNonnegativeVersion(expectedVersion),
+        name: normalizeRequired(input.name, 300, "Укажите название позиции."),
+        category: normalizeOptional(input.category ?? undefined, 160) ?? null,
+        unit: normalizeUnit(input.unit),
+        specification: normalizeOptional(input.specification ?? undefined, 2000) ?? null,
+      });
+    } catch (error) {
+      handleRepositoryConflict(error);
+    }
+  }
+
+  async archivePartnerNomenclature(userId: string, itemId: string, expectedVersion: number): Promise<void> {
+    const companyId = await this.resolveCompany(userId, MANAGE_PERMISSION);
+    if (!this.repository.archivePartnerNomenclature) throw new InvalidStateError("Архивация номенклатуры временно недоступна.");
+    try {
+      await this.repository.archivePartnerNomenclature(companyId, normalizeUuid(itemId, "Позиция номенклатуры некорректна."), normalizeNonnegativeVersion(expectedVersion));
+    } catch (error) {
+      handleRepositoryConflict(error);
+    }
   }
 
   async searchFinalCustomers(userId: string, query: string) {
@@ -1060,8 +1154,8 @@ export class DefaultEstimateService implements EstimateService {
     await this.ensureDraft(userId, estimateId, PRICING_PERMISSION, expectedRevision);
     const existingExternalItemId = input.existingExternalItemId ? normalizeUuid(input.existingExternalItemId, "Внешняя позиция некорректна.") : null;
     const normalized = {
-      manufacturer: normalizeRequired(input.manufacturer, 120, "Укажите производителя."),
-      model: normalizeRequired(input.model, 160, "Укажите модель."),
+      manufacturer: normalizeOptional(input.manufacturer ?? undefined, 120) ?? null,
+      model: normalizeOptional(input.model ?? undefined, 160) ?? null,
       name: normalizeRequired(input.name, 300, "Укажите название позиции."),
       category: normalizeOptional(input.category ?? undefined, 160) ?? null,
       unit: normalizeUnit(input.unit),
@@ -1261,6 +1355,22 @@ function normalizeUnit(value: EstimateUnit): EstimateUnit {
   return value;
 }
 
+function normalizeExternalItemType(value: ExternalNomenclatureItemType): ExternalNomenclatureItemType {
+  if (!(["equipment", "material", "service"] as const).includes(value)) throw new InvalidStateError("Тип номенклатуры некорректен.");
+  return value;
+}
+
+function normalizePartnerNomenclatureInput(input: PartnerNomenclatureInput, itemType: ExternalNomenclatureItemType) {
+  return {
+    manufacturer: itemType === "service" ? normalizeOptional(input.manufacturer ?? undefined, 120) ?? null : normalizeRequired(input.manufacturer ?? "", 120, "Укажите производителя."),
+    model: itemType === "service" ? normalizeOptional(input.model ?? undefined, 160) ?? null : normalizeRequired(input.model ?? "", 160, "Укажите модель."),
+    name: normalizeRequired(input.name, 300, "Укажите название позиции."),
+    category: normalizeOptional(input.category ?? undefined, 160) ?? null,
+    unit: normalizeUnit(input.unit),
+    specification: normalizeOptional(input.specification ?? undefined, 2000) ?? null,
+  };
+}
+
 function normalizeStatus(value: EstimateStatus | undefined): EstimateStatus | undefined {
   return value && (["draft", "ready", "sent", "accepted", "rejected", "archived"] as const).includes(value) ? value : undefined;
 }
@@ -1402,6 +1512,11 @@ function toCommercialDetail(aggregate: EstimateAggregate, images = new Map<strin
     }),
     charges: charges.map(({ id, chargeType, description, amount, vatApplicable, customerVisible, sortOrder }) => ({ id, chargeType, description, amount, vatApplicable, customerVisible, sortOrder })),
   };
+}
+
+function normalizeNonnegativeVersion(value: number): number {
+  if (!Number.isInteger(value) || value < 0) throw new InvalidStateError("Версия номенклатуры некорректна.");
+  return value;
 }
 
 function resolvePricingInputValue(item: EstimateItem): number | null {

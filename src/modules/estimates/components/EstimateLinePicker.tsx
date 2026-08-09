@@ -12,13 +12,14 @@ import {
   searchEstimateProductsAction,
 } from "../actions/estimate.actions";
 import type { EstimateDetailDto, EstimateProductPickerDto, EstimateServiceDto } from "../services";
+import type { ExternalNomenclatureItemType } from "../repositories";
 import { ExternalNomenclaturePicker } from "./ExternalNomenclaturePicker";
 
 const inputClass = "min-h-11 min-w-0 rounded-md border border-zinc-300 bg-white px-2 text-sm outline-none focus:border-emerald-600 focus-visible:ring-2 focus-visible:ring-emerald-200 disabled:bg-zinc-100";
 const buttonClass = "inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-700 outline-none hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-45";
 export type EstimateLinePickerMode = "product" | "service" | "external";
 
-export function EstimateLinePicker({ estimate, services, onResult, disabled, mode, onModeChange, targetSectionId, allowedModes, contextLabel }: {
+export function EstimateLinePicker({ estimate, services, onResult, disabled, mode, onModeChange, targetSectionId, allowedModes, contextLabel, externalItemType }: {
   estimate: EstimateDetailDto;
   services: EstimateServiceDto[];
   onResult: (next: EstimateDetailDto, message: string) => void;
@@ -28,6 +29,7 @@ export function EstimateLinePicker({ estimate, services, onResult, disabled, mod
   targetSectionId: string;
   allowedModes: ReadonlyArray<EstimateLinePickerMode>;
   contextLabel: string;
+  externalItemType: ExternalNomenclatureItemType;
 }) {
   const [products, setProducts] = useState<EstimateProductPickerDto>({ products: [], categories: [], brands: [] });
   const [productSelection, setProductSelection] = useState<Record<string, number>>({});
@@ -141,7 +143,7 @@ export function EstimateLinePicker({ estimate, services, onResult, disabled, mod
       <div className="flex justify-end"><button className="inline-flex min-h-11 items-center gap-2 rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white disabled:opacity-45" disabled={disabled || pending || !Object.keys(serviceSelection).length} onClick={() => { const selections = Object.entries(serviceSelection).map(([serviceId, selection]) => ({ serviceId, quantity: selection.quantity, sellingUnitPrice: selection.price })); const insertion = { targetSectionId, requestKey: requestKeyFor({ targetSectionId, selections }) }; run(() => addEstimateServicesAction(estimate.id, estimate.revision, selections, insertion), "estimate_service_added"); }} type="button"><Wrench className="size-4" />Добавить выбранные ({Object.keys(serviceSelection).length})</button></div>
     </div>}
 
-    {mode === "external" && <div className="border-t border-zinc-200 p-3 sm:p-4"><ExternalNomenclaturePicker disabled={disabled} estimate={estimate} onResult={onResult} targetSectionId={targetSectionId} /></div>}
+    {mode === "external" && <div className="border-t border-zinc-200 p-3 sm:p-4"><ExternalNomenclaturePicker disabled={disabled} estimate={estimate} itemType={externalItemType} onResult={onResult} targetSectionId={targetSectionId} /></div>}
   </section>;
 }
 

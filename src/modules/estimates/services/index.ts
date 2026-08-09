@@ -7,3 +7,4 @@ export * from "./proposal-email.provider";
 export * from "./commercial-calculation";
 export * from "./estimate-bulk-operations";
 export * from "./estimate-sections";
+export * from "./external-nomenclature";

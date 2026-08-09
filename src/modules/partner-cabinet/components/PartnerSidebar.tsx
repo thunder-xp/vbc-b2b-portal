@@ -26,7 +26,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type { WorkspaceCapabilityKey, WorkspaceNavigationItem } from "../services";
 import { NavigationPendingIndicator } from "./NavigationPendingIndicator";
@@ -45,6 +45,7 @@ const icons = {
   reservations: ClipboardList,
   proposals: Calculator,
   customers: Building2,
+  nomenclature: ClipboardList,
   orders: ListChecks,
   finance: Landmark,
   documents: FileText,
@@ -70,7 +71,7 @@ const projectNavigationOrder: readonly WorkspaceCapabilityKey[] = [
   "solution_selection",
   "projects",
 ];
-const estimatesNavigationOrder: readonly WorkspaceCapabilityKey[] = ["proposals", "customers"];
+const estimatesNavigationOrder: readonly WorkspaceCapabilityKey[] = ["proposals", "customers", "nomenclature"];
 const commercialNavigationOrder: readonly WorkspaceCapabilityKey[] = ["orders", "finance", "documents"];
 const loyaltyNavigationOrder: readonly WorkspaceCapabilityKey[] = ["loyalty_affiliate", "loyalty_bonus"];
 
@@ -153,16 +154,6 @@ function NavigationItem({
   );
 }
 
-function ComingSoonNavigationItem({ icon: Icon, label }: { icon: typeof Gauge; label: string }) {
-  return (
-    <span className="flex min-h-11 items-center gap-3 rounded-md py-2 pl-3 pr-2 text-sm text-zinc-500">
-      <Icon aria-hidden="true" className="size-4 shrink-0" />
-      <span className="min-w-0 flex-1 whitespace-nowrap">{label}</span>
-      <span className="shrink-0 text-[10px] font-semibold uppercase">Скоро</span>
-    </span>
-  );
-}
-
 function ExpandableNavigationGroup({
   icon: Icon,
   hasWorkspaceAccess,
@@ -171,7 +162,6 @@ function ExpandableNavigationGroup({
   label,
   onNavigate,
   pathname,
-  trailingContent,
 }: {
   icon: typeof Gauge;
   hasWorkspaceAccess: boolean;
@@ -180,7 +170,6 @@ function ExpandableNavigationGroup({
   label: string;
   onNavigate?: () => void;
   pathname: string;
-  trailingContent?: ReactNode;
 }) {
   const routeActive = items.some((item) => isRouteActive(pathname, item.href));
   const [open, setOpen] = useState(false);
@@ -224,7 +213,6 @@ function ExpandableNavigationGroup({
                 submenu
               />
             ))}
-            {trailingContent}
           </div>
         </div>
       </div>
@@ -260,7 +248,7 @@ export function PartnerSidebar({
   const estimatesNavigation = estimatesNavigationOrder.flatMap((key) => {
     const item = navigationByKey.get(key);
     if (!item) return [];
-    return [{ ...item, label: item.key === "proposals" ? "Сметы" : item.label }];
+    return [{ ...item, label: item.key === "proposals" ? "Мои сметы" : item.label }];
   });
   const selectionNavigation = selectionNavigationOrder.flatMap((key) => {
     const item = navigationByKey.get(key);
@@ -308,7 +296,6 @@ export function PartnerSidebar({
             label="Сметы и КП"
             onNavigate={onNavigate}
             pathname={pathname}
-            trailingContent={estimatesNavigation.length > 0 ? <ComingSoonNavigationItem icon={FileText} label="Генератор КП" /> : null}
           />
           <ExpandableNavigationGroup hasWorkspaceAccess={hasWorkspaceAccess} icon={ListChecks} id="orders-finance-navigation" items={commercialNavigation} label="Заказы и финансы" onNavigate={onNavigate} pathname={pathname} />
 

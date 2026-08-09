@@ -231,26 +231,81 @@ export class SupabaseEstimateRepository implements EstimateRepository {
     if (error) throw mapRepositoryError(error.code);
   }
 
-  async searchExternalNomenclature(query: string, limit: number) {
-    const { data, error } = await (await createClient()).rpc("search_external_nomenclature", {
+  async searchExternalNomenclature(companyId: string, query: string, itemType: import("../estimate.repository").ExternalNomenclatureItemType, scope: "own" | "shared", limit: number) {
+    const { data, error } = await (await createClient()).rpc(scope === "own" ? "search_partner_external_nomenclature" : "search_shared_external_nomenclature", {
+      target_company_id: companyId,
       search_query: query,
+      target_item_type: itemType,
       result_limit: limit,
     });
     if (error) throw mapRepositoryError(error.code);
-    return (data ?? []).map((row: Record<string, unknown>) => ({
-      id: String(row.id),
-      manufacturer: String(row.manufacturer),
-      model: String(row.model),
-      name: String(row.name),
-      category: typeof row.category === "string" ? row.category : null,
-      unit: row.unit as import("../../types").EstimateUnit,
-      specification: typeof row.specification === "string" ? row.specification : null,
-      exactIdentityMatch: row.exact_identity_match === true,
-    }));
+    return (data ?? []).map(mapExternalNomenclatureRow);
+  }
+
+  async listPartnerNomenclature(input: import("../estimate.repository").PartnerNomenclatureListInput) {
+    const { data, error } = await (await createClient()).rpc("list_partner_external_nomenclature", {
+      target_company_id: input.companyId,
+      search_query: input.search ?? null,
+      target_item_type: input.itemType ?? null,
+      result_limit: input.limit,
+      result_offset: input.offset,
+    });
+    if (error) throw mapRepositoryError(error.code);
+    const rows = (data ?? []) as Array<Record<string, unknown>>;
+    return {
+      records: rows.map((row) => ({
+        ...mapExternalNomenclatureRow(row),
+        lastUsedAt: typeof row.last_used_at === "string" ? row.last_used_at : null,
+        createdAt: String(row.created_at),
+        version: Number(row.version),
+      })),
+      totalCount: rows.length ? Number(rows[0].total_count) : 0,
+    };
+  }
+
+  async createPartnerNomenclature(input: Parameters<NonNullable<EstimateRepository["createPartnerNomenclature"]>>[0]) {
+    const { data, error } = await (await createClient()).rpc("create_partner_external_nomenclature", {
+      target_company_id: input.companyId,
+      target_request_key: input.requestKey,
+      target_request_fingerprint: input.requestFingerprint,
+      target_item_type: input.itemType,
+      target_manufacturer: input.manufacturer ?? "",
+      target_model: input.model ?? "",
+      target_name: input.name,
+      target_category: input.category ?? "",
+      target_unit: input.unit,
+      target_specification: input.specification ?? "",
+      force_create_new: input.forceCreateNew,
+    });
+    if (error) throw mapRepositoryError(error.code);
+    return String(data);
+  }
+
+  async updatePartnerNomenclature(input: Parameters<NonNullable<EstimateRepository["updatePartnerNomenclature"]>>[0]) {
+    const { data, error } = await (await createClient()).rpc("update_partner_external_nomenclature", {
+      target_company_id: input.companyId,
+      target_external_nomenclature_id: input.itemId,
+      expected_version: input.expectedVersion,
+      target_name: input.name,
+      target_category: input.category ?? "",
+      target_unit: input.unit,
+      target_specification: input.specification ?? "",
+    });
+    if (error) throw mapRepositoryError(error.code);
+    return Number(data);
+  }
+
+  async archivePartnerNomenclature(companyId: string, itemId: string, expectedVersion: number) {
+    const { error } = await (await createClient()).rpc("archive_partner_external_nomenclature", {
+      target_company_id: companyId,
+      target_external_nomenclature_id: itemId,
+      expected_version: expectedVersion,
+    });
+    if (error) throw mapRepositoryError(error.code);
   }
 
   async addExternalLine(input: import("../estimate.repository").AddExternalEstimateLineInput): Promise<void> {
-    const { error } = await (await createClient()).rpc("add_estimate_external_item_v2", {
+    const { error } = await (await createClient()).rpc("add_estimate_external_item_v3", {
       target_estimate_id: input.estimateId,
       expected_revision: input.expectedRevision,
       target_section_id: input.targetSectionId,
@@ -471,6 +526,20 @@ function toLinePayload(line: AddEstimateLineInput) {
     quantity: line.quantity,
     unit: line.unit,
     selling_unit_price: line.sellingUnitPrice,
+  };
+}
+
+function mapExternalNomenclatureRow(row: Record<string, unknown>): import("../estimate.repository").ExternalNomenclatureRecord {
+  return {
+    id: String(row.id),
+    itemType: row.item_type as import("../estimate.repository").ExternalNomenclatureItemType,
+    manufacturer: typeof row.manufacturer === "string" ? row.manufacturer : null,
+    model: typeof row.model === "string" ? row.model : null,
+    name: String(row.name),
+    category: typeof row.category === "string" ? row.category : null,
+    unit: row.unit as import("../../types").EstimateUnit,
+    specification: typeof row.specification === "string" ? row.specification : null,
+    exactIdentityMatch: row.exact_identity_match === true,
   };
 }
 

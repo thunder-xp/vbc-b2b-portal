@@ -4,17 +4,20 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const sql = readFileSync(resolve("supabase/migrations/20260809130000_estimate_atomic_section_insertion.sql"), "utf8");
+const nomenclatureSql = readFileSync(resolve("supabase/migrations/20260809190000_partner_external_nomenclature_library.sql"), "utf8");
 const repository = readFileSync(resolve("src/modules/estimates/repositories/supabase/estimate.supabase-repository.ts"), "utf8");
 const editor = readFileSync(resolve("src/modules/estimates/components/EstimateCommercialEditor.tsx"), "utf8");
 
 describe("estimate atomic section insertion migration", () => {
-  it("keeps legacy RPCs intact and adds section-aware versioned contracts", () => {
+  it("keeps legacy RPCs intact and uses the adoption-aware versioned contract", () => {
     expect(sql).toContain("function public.add_estimate_items_v2(");
     expect(sql).toContain("function public.add_estimate_external_item_v2(");
     expect(sql).not.toContain("function public.add_estimate_items(");
     expect(sql).not.toContain("function public.add_estimate_external_item(");
     expect(repository).toContain('.rpc("add_estimate_items_v2"');
-    expect(repository).toContain('.rpc("add_estimate_external_item_v2"');
+    expect(nomenclatureSql).toContain("function public.add_estimate_external_item_v3(");
+    expect(nomenclatureSql).not.toContain("drop function public.add_estimate_external_item_v2");
+    expect(repository).toContain('.rpc("add_estimate_external_item_v3"');
   });
 
   it("validates section ownership and inserts directly into the selected section", () => {

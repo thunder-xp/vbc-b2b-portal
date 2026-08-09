@@ -59,13 +59,30 @@ export type FinalCustomerListInput = {
 
 export type ExternalNomenclatureRecord = {
   id: string;
-  manufacturer: string;
-  model: string;
+  itemType: ExternalNomenclatureItemType;
+  manufacturer: string | null;
+  model: string | null;
   name: string;
   category: string | null;
   unit: EstimateUnit;
   specification: string | null;
   exactIdentityMatch: boolean;
+};
+
+export type ExternalNomenclatureItemType = "equipment" | "material" | "service";
+
+export type PartnerNomenclatureListInput = {
+  companyId: string;
+  search?: string;
+  itemType?: ExternalNomenclatureItemType;
+  limit: number;
+  offset: number;
+};
+
+export type PartnerNomenclatureRecord = Omit<ExternalNomenclatureRecord, "exactIdentityMatch"> & {
+  lastUsedAt: string | null;
+  createdAt: string;
+  version: number;
 };
 
 export type AddExternalEstimateLineInput = {
@@ -75,8 +92,8 @@ export type AddExternalEstimateLineInput = {
   requestKey: string;
   requestFingerprint: string;
   existingExternalItemId: string | null;
-  manufacturer: string;
-  model: string;
+  manufacturer: string | null;
+  model: string | null;
   name: string;
   category: string | null;
   unit: EstimateUnit;
@@ -192,7 +209,31 @@ export interface EstimateRepository {
     industryCode: FinalCustomerIndustryCode | null;
   }): Promise<FinalCustomer>;
   archiveFinalCustomer?(customerId: string, expectedRevision: number): Promise<void>;
-  searchExternalNomenclature?(query: string, limit: number): Promise<ExternalNomenclatureRecord[]>;
+  searchExternalNomenclature?(companyId: string, query: string, itemType: ExternalNomenclatureItemType, scope: "own" | "shared", limit: number): Promise<ExternalNomenclatureRecord[]>;
+  listPartnerNomenclature?(input: PartnerNomenclatureListInput): Promise<{ records: PartnerNomenclatureRecord[]; totalCount: number }>;
+  createPartnerNomenclature?(input: {
+    companyId: string;
+    requestKey: string;
+    requestFingerprint: string;
+    itemType: ExternalNomenclatureItemType;
+    manufacturer: string | null;
+    model: string | null;
+    name: string;
+    category: string | null;
+    unit: EstimateUnit;
+    specification: string | null;
+    forceCreateNew: boolean;
+  }): Promise<string>;
+  updatePartnerNomenclature?(input: {
+    companyId: string;
+    itemId: string;
+    expectedVersion: number;
+    name: string;
+    category: string | null;
+    unit: EstimateUnit;
+    specification: string | null;
+  }): Promise<number>;
+  archivePartnerNomenclature?(companyId: string, itemId: string, expectedVersion: number): Promise<void>;
   addExternalLine?(input: AddExternalEstimateLineInput): Promise<void>;
   createFromPurchasingList(input: {
     listId: string;

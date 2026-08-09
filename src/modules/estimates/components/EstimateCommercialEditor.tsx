@@ -15,7 +15,7 @@ import {
 import { calculateEstimateCommercials, EstimateCalculationError, resolveCurrencyRate } from "../services/commercial-calculation";
 import type { EstimateCommercialCheckDto, EstimateCommercialOptionsDto, EstimateDetailDto, EstimateServiceDto, SaveEstimateCommercialCommand } from "../services";
 import { buildCanonicalEstimateSectionPresentation, resolveCanonicalSectionKey, type EstimateSectionPresentation } from "../services/estimate-sections";
-import type { EstimateChargeType, EstimateCurrencyChangePolicy, EstimateUnit, EstimateVatMode, EstimateWorkflowDto } from "../types";
+import type { EstimateChargeType, EstimateCurrencyChangePolicy, EstimateSectionSystemKey, EstimateUnit, EstimateVatMode, EstimateWorkflowDto } from "../types";
 import { EstimateStatusBadge } from "./EstimateStatusBadge";
 import { EstimateLinePicker, type EstimateLinePickerMode } from "./EstimateLinePicker";
 import { EstimateProposalSidebar } from "./EstimateProposalSidebar";
@@ -265,7 +265,7 @@ export function EstimateCommercialEditor({ initialEstimate, services, commercial
               </div>;
             }) : <p className="p-5 text-sm text-zinc-500">{normalizedLineSearch ? "В разделе нет позиций по этому запросу." : "В разделе пока нет позиций."}</p>}</div>
               <div className="flex flex-wrap items-center justify-between gap-3 border-t border-zinc-200 px-3 py-2"><span className="text-xs text-zinc-500">{canonical.subtotalLabel}: <strong className="text-zinc-800">{money(section.total, draft.currencyCode)}</strong></span>{isDraft ? <button className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-emerald-700 outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-45" disabled={dirty || !section.targetSectionId} onClick={() => section.targetSectionId && openPickerForSection(section.targetSectionId, canonical.defaultMode)} type="button"><Plus className="size-4" />{canonical.addLabel}</button> : null}</div>
-              {isDraft && section.targetSectionId && targetSectionId === section.targetSectionId && pickerMode ? <EstimateLinePicker allowedModes={canonical.allowedModes} contextLabel={canonical.name} disabled={dirty} estimate={estimate} mode={pickerMode} onModeChange={setPickerMode} onResult={acceptServer} services={services} targetSectionId={section.targetSectionId} /> : null}
+              {isDraft && section.targetSectionId && targetSectionId === section.targetSectionId && pickerMode ? <EstimateLinePicker allowedModes={canonical.allowedModes} contextLabel={canonical.name} disabled={dirty} estimate={estimate} externalItemType={externalItemTypeForSection(canonical.key)} mode={pickerMode} onModeChange={setPickerMode} onResult={acceptServer} services={services} targetSectionId={section.targetSectionId} /> : null}
             </div>}
           </section>;
         })}
@@ -281,6 +281,12 @@ export function EstimateCommercialEditor({ initialEstimate, services, commercial
       setCurrencyChoice(null);
     }} rate={commercialOptions.usdMdlRate} target={currencyChoice} />}
   </div>;
+}
+
+function externalItemTypeForSection(key: EstimateSectionSystemKey): "equipment" | "material" | "service" {
+  if (key === "equipment") return "equipment";
+  if (key === "installation_materials") return "material";
+  return "service";
 }
 
 function PriceCheckPanel({ check, checkedLineIds, onSelection, onApply, onKeep }: { check: EstimateCommercialCheckDto; checkedLineIds: Set<string>; onSelection: (ids: Set<string>) => void; onApply: () => void; onKeep: () => void }) {
