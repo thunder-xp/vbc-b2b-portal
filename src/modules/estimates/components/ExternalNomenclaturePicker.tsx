@@ -36,7 +36,7 @@ export function ExternalNomenclaturePicker({ estimate, disabled, itemType, onRes
   const requestKey = useRef(crypto.randomUUID());
 
   useEffect(() => {
-    const identityQuery = isService ? name.trim() : [manufacturer, model].map((value) => value.trim()).filter(Boolean).join(" ") || name.trim();
+    const identityQuery = isService ? name.trim() : [manufacturer, model].map((value) => value.trim()).filter(Boolean).join("") || name.trim();
     if (selected || identityQuery.length < 2) return;
     const sequence = ++searchSequence.current;
     const timer = window.setTimeout(() => {

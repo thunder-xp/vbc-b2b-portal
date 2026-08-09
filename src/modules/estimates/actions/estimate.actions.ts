@@ -207,6 +207,7 @@ export async function addEstimateExternalLineAction(estimateId: string, input: {
   return runEstimateMutation(
     (userId) => createEstimateService().addExternalLine(userId, estimateId, input.expectedRevision, input),
     "Внешняя позиция добавлена.",
+    true,
   );
 }
 
@@ -322,12 +323,14 @@ export async function deleteArchivedEstimateAction(estimateId: string, expectedR
 async function runEstimateMutation(
   mutation: (userId: string) => Promise<EstimateDetailDto>,
   message: string,
+  preserveInvalidStateMessage = false,
 ): Promise<ActionResult<EstimateDetailDto>> {
   try {
     const userId = await getAuthenticatedUserId();
     const detail = await mutation(userId);
     return success(message, detail);
   } catch (error) {
+    if (preserveInvalidStateMessage && error instanceof InvalidStateError) return invalidInput(error.message);
     return estimateFailure(error, "mutation");
   }
 }

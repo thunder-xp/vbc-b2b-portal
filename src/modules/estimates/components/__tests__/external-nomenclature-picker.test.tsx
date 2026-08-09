@@ -25,6 +25,7 @@ describe("ExternalNomenclaturePicker", () => {
     await user.type(screen.getByLabelText("Производитель"), "Ajax");
     await user.type(screen.getByLabelText("Модель"), "Hub 2");
     await waitFor(() => expect(searchExternalNomenclatureAction).toHaveBeenCalledWith(expect.objectContaining({ itemType: "equipment", scope: "own" })));
+    expect(searchExternalNomenclatureAction).toHaveBeenCalledWith(expect.objectContaining({ query: "AjaxHub 2" }));
     expect(screen.getByText("Поиск в вашей номенклатуре")).toBeInTheDocument();
   });
 
