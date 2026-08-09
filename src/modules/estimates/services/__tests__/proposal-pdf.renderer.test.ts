@@ -23,7 +23,10 @@ describe("proposal PDF renderer", () => {
     expect(text).not.toContain("Условия предложения");
     expect(text).toContain("Оборудование");
     expect(text).toContain("Клиент SRL");
-    expect(text).toContain("ИТОГО");
+    expect(text).toContain("Итого за оборудование");
+    expect(text).toContain("Итого без НДС");
+    expect(text).toContain("НДС (20%)");
+    expect(text).toContain("К оплате");
     expect(text).toContain("Действительно до: 30 июля 2026 г.");
     expect(text).toContain("Контакт: Ivan Partner");
     expect(text).toContain("НДС: начисляется отдельно, 20%");
@@ -47,8 +50,8 @@ describe("proposal PDF renderer", () => {
     const withImage = { ...proposal, sections: [{ ...proposal.sections[0], lines: [{ ...proposal.sections[0].lines[0], imageUrl: "image" }] }] };
     const imageDefinition = JSON.stringify(createDocumentDefinition(withImage, new Map([["image", "data:image/png;base64,AA=="]])));
     expect(imageDefinition.indexOf('"image":"data:image/png')).toBeLessThan(imageDefinition.indexOf("Камера видеонаблюдения 1"));
-    expect(definition).not.toContain('"widths":[16,32,"*"');
-    expect(imageDefinition).toContain('"widths":[16,32,"*"');
+    expect(definition).not.toContain('"widths":[14,28,54,"*"');
+    expect(imageDefinition).toContain('"widths":[14,28,54,"*"');
     expect(definition).toContain('"dontBreakRows":true');
     await expect(renderProposalPdf(proposal)).resolves.toEqual(expect.objectContaining({ pageCount: expect.any(Number) }));
   });
@@ -69,6 +72,25 @@ describe("proposal PDF renderer", () => {
     expect(definition).toContain('"dontBreakRows":true');
     expect(definition).not.toContain("Условия предложения");
     expect(definition).not.toContain("Condiții de livrare");
+  });
+
+  it("keeps section totals in the table and final blocks unbreakable", () => {
+    const definition = createDocumentDefinition(fixture(40)) as unknown as { content: Array<Record<string, unknown>>; pageBreakBefore: (currentNode: { style?: string }, followingNodesOnPage: unknown[]) => boolean };
+    const serialized = JSON.stringify(definition);
+
+    expect(serialized).toContain('"headerRows":1');
+    expect(serialized).toContain('"text":"Итого за оборудование"');
+    expect(serialized).toContain('"text":"К оплате"');
+    expect(serialized).toContain('"text":"Ответственный: Ivan Partner"');
+    expect(serialized.match(/"unbreakable":true/g)).toHaveLength(2);
+    expect(definition.pageBreakBefore({ style: "section" }, [])).toBe(true);
+    expect(definition.pageBreakBefore({ style: "section" }, [{}])).toBe(false);
+  });
+
+  it("does not create section totals for empty sections", () => {
+    const value = fixture(1);
+    const definition = JSON.stringify(createDocumentDefinition({ ...value, sections: [{ name: "Монтажные работы", subtotal: 0, lines: [] }] }));
+    expect(definition).not.toContain("Итого за монтажные работы");
   });
 
   it("deduplicates repeated approved image downloads and rejects unapproved origins", async () => {

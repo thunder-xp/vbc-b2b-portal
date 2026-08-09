@@ -19,7 +19,10 @@ describe("proposal UI", () => {
     render(<ProposalDocument proposal={proposal()} />);
     expect(screen.getByText("Коммерческое предложение")).toBeInTheDocument();
     expect(screen.getByText("Камера 1")).toBeInTheDocument();
-    expect(screen.getByText("ИТОГО")).toBeInTheDocument();
+    expect(screen.getByText("К оплате")).toBeInTheDocument();
+    expect(screen.getByText("Итого без НДС")).toBeInTheDocument();
+    expect(screen.getByText("НДС (20%)")).toBeInTheDocument();
+    expect(screen.getByText(/Итого за оборудование:/)).toBeInTheDocument();
     expect(screen.getByText("Действительно до")).toBeInTheDocument();
     expect(screen.getByText("30 июля 2026 г.")).toBeInTheDocument();
     expect(screen.getByText("Контакт: Ivan Partner")).toBeInTheDocument();
@@ -32,7 +35,7 @@ describe("proposal UI", () => {
 
   it("places one product thumbnail column before description and leaves service lines image-free", () => {
     const value = proposal();
-    const product = { ...value.sections[0].lines[0], lineType: "product" as const, imageUrl: null };
+    const product = { ...value.sections[0].lines[0], lineType: "product" as const, imageUrl: "https://www.nsd.md/image.jpg" };
     const service = { ...product, position: 2, lineType: "service" as const, sku: null, imageUrl: null, description: "Монтаж" };
     render(<ProposalDocument proposal={{ ...value, sections: [{ ...value.sections[0], lines: [product, service] }] }} />);
     expect(screen.getAllByTestId("product-line-thumbnail")).toHaveLength(1);
@@ -45,8 +48,34 @@ describe("proposal UI", () => {
     render(<ProposalDocument proposal={proposal(3)} />);
     expect(screen.getByRole("table")).not.toHaveClass("min-w-[620px]");
     expect(screen.getAllByText("Количество")).toHaveLength(3);
-    expect(screen.getAllByText("Цена")).toHaveLength(4);
+    expect(screen.getAllByText("Цена за единицу")).toHaveLength(3);
+    expect(screen.getByText("Цена за ед.")).toBeInTheDocument();
     expect(screen.getAllByText("Сумма")).toHaveLength(4);
+  });
+
+  it("keeps the required commercial columns and bounds long descriptions", () => {
+    const value = proposal();
+    const longDescription = `Камера ${"с подробным техническим описанием ".repeat(20)}`;
+    render(<ProposalDocument proposal={{ ...value, sections: [{ ...value.sections[0], lines: [{ ...value.sections[0].lines[0], description: longDescription }] }] }} />);
+
+    for (const label of ["№", "Код / модель", "Описание", "Ед.", "Кол-во", "Цена за ед.", "Сумма"]) {
+      expect(screen.getAllByText(label).length).toBeGreaterThan(0);
+    }
+    const description = document.querySelector("p[title]");
+    expect(description).not.toBeNull();
+    expect(description!).toHaveAttribute("title", longDescription);
+    expect(description!.textContent?.endsWith("…")).toBe(true);
+    expect(description!.textContent!.length).toBeLessThanOrEqual(221);
+  });
+
+  it("does not render a subtotal for an empty section and renders compact contact details", () => {
+    const value = proposal();
+    render(<ProposalDocument proposal={{ ...value, branding: { ...value.branding, phone: "+373 22 00 00 00", email: "sales@example.md" }, sections: [{ name: "Монтажные работы", subtotal: 0, lines: [] }] }} />);
+
+    expect(screen.queryByText(/Итого за монтажные работы/)).not.toBeInTheDocument();
+    expect(screen.getByText("Ответственный: Ivan Partner")).toBeInTheDocument();
+    expect(screen.getAllByText("+373 22 00 00 00")).toHaveLength(2);
+    expect(screen.getAllByText("sales@example.md")).toHaveLength(2);
   });
 
   it("applies a template and saves all settings in one action", async () => {
