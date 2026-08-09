@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, PackagePlus, Search, Wrench } from "lucide-react";
+import { Check, PackagePlus, Search, Wrench, X } from "lucide-react";
 import { useMemo, useState, useTransition } from "react";
 
 import { ProductThumbnail } from "../../catalog/components/ProductThumbnail";
@@ -16,15 +16,17 @@ import { ExternalNomenclaturePicker } from "./ExternalNomenclaturePicker";
 
 const inputClass = "min-h-11 min-w-0 rounded-md border border-zinc-300 bg-white px-2 text-sm outline-none focus:border-emerald-600 focus-visible:ring-2 focus-visible:ring-emerald-200 disabled:bg-zinc-100";
 const buttonClass = "inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-700 outline-none hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-45";
-type Mode = "product" | "service" | "external";
+export type EstimateLinePickerMode = "product" | "service" | "external";
 
-export function EstimateLinePicker({ estimate, services, onResult, disabled }: {
+export function EstimateLinePicker({ estimate, services, onResult, disabled, mode, onModeChange, workspaceControls }: {
   estimate: EstimateDetailDto;
   services: EstimateServiceDto[];
   onResult: (next: EstimateDetailDto, message: string) => void;
   disabled: boolean;
+  mode: EstimateLinePickerMode | null;
+  onModeChange: (mode: EstimateLinePickerMode | null) => void;
+  workspaceControls?: React.ReactNode;
 }) {
-  const [mode, setMode] = useState<Mode>("product");
   const [products, setProducts] = useState<EstimateProductPickerDto>({ products: [], categories: [], brands: [] });
   const [productSelection, setProductSelection] = useState<Record<string, number>>({});
   const [serviceSelection, setServiceSelection] = useState<Record<string, { quantity: number; price: number }>>({});
@@ -65,18 +67,22 @@ export function EstimateLinePicker({ estimate, services, onResult, disabled }: {
     });
   };
 
-  return <section aria-label="Добавление позиций" className="border-y border-zinc-200 bg-white p-4">
-    <div className="flex flex-wrap items-center justify-between gap-3">
-      <div aria-label="Тип позиции" className="flex flex-wrap gap-2" role="tablist">
-        <ModeButton active={mode === "product"} disabled={disabled} label="Оборудование" onClick={() => setMode("product")} />
-        <ModeButton active={mode === "service"} disabled={disabled} label="Добавить работы и услуги" onClick={() => setMode("service")} />
-        <ModeButton active={mode === "external"} disabled={disabled} label="Внешняя позиция" onClick={() => setMode("external")} />
+  return <section aria-label="Добавление позиций" className="border-y border-zinc-200 bg-white" id="estimate-line-picker">
+    <div className="space-y-3 p-3 sm:p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div aria-label="Тип позиции" className="flex flex-wrap gap-2" role="tablist">
+          <ModeButton active={mode === "product"} disabled={disabled} label="Добавить оборудование" onClick={() => onModeChange(mode === "product" ? null : "product")} />
+          <ModeButton active={mode === "service"} disabled={disabled} label="Добавить работы" onClick={() => onModeChange(mode === "service" ? null : "service")} />
+          <ModeButton active={mode === "external"} disabled={disabled} label="Добавить внешнюю позицию" onClick={() => onModeChange(mode === "external" ? null : "external")} />
+        </div>
+        {mode ? <button aria-label="Закрыть добавление позиций" className="inline-flex size-11 items-center justify-center rounded-md text-zinc-500 hover:bg-zinc-100 focus-visible:ring-2 focus-visible:ring-emerald-500" onClick={() => onModeChange(null)} type="button"><X className="size-4" /></button> : null}
       </div>
+      {workspaceControls}
       {message && <p aria-live="polite" className="text-sm text-zinc-600">{message}</p>}
     </div>
     {disabled && <p className="mt-3 text-xs text-amber-800">Сохраните или отмените текущие изменения перед добавлением позиций.</p>}
 
-    {mode === "product" && <div className="mt-4 space-y-3">
+    {mode === "product" && <div className="space-y-3 border-t border-zinc-200 p-3 sm:p-4">
       <form className="grid gap-2 lg:grid-cols-[minmax(14rem,1fr)_12rem_12rem_auto]" onSubmit={(event) => { event.preventDefault(); if (!disabled) searchProducts(event.currentTarget); }}>
         <label className="sr-only" htmlFor="estimate-product-search">SKU, модель или название</label>
         <input className={inputClass} disabled={disabled} id="estimate-product-search" name="query" placeholder="SKU, модель или название" />
@@ -102,7 +108,7 @@ export function EstimateLinePicker({ estimate, services, onResult, disabled }: {
       <div className="flex justify-end"><button className="inline-flex min-h-11 items-center gap-2 rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white disabled:opacity-45" disabled={disabled || pending || !Object.keys(productSelection).length} onClick={() => run(() => addEstimateProductsAction(estimate.id, estimate.revision, Object.entries(productSelection).map(([productId, quantity]) => ({ productId, quantity }))), "estimate_product_added")} type="button"><PackagePlus className="size-4" />Добавить выбранные ({Object.keys(productSelection).length})</button></div>
     </div>}
 
-    {mode === "service" && <div className="mt-4 space-y-3">
+    {mode === "service" && <div className="space-y-3 border-t border-zinc-200 p-3 sm:p-4">
       <label className="block text-sm font-medium text-zinc-700">Поиск работ и услуг<input className={`${inputClass} mt-1 w-full`} disabled={disabled} onChange={(event) => setServiceSearch(event.target.value)} placeholder="Монтаж, настройка, кабельные работы" value={serviceSearch} /></label>
       <div className="max-h-80 divide-y divide-zinc-100 overflow-y-auto border-y border-zinc-200">{filteredServices.map((service) => {
         const selected = serviceSelection[service.id];
@@ -119,7 +125,7 @@ export function EstimateLinePicker({ estimate, services, onResult, disabled }: {
       <div className="flex justify-end"><button className="inline-flex min-h-11 items-center gap-2 rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white disabled:opacity-45" disabled={disabled || pending || !Object.keys(serviceSelection).length} onClick={() => run(() => addEstimateServicesAction(estimate.id, estimate.revision, Object.entries(serviceSelection).map(([serviceId, selection]) => ({ serviceId, quantity: selection.quantity, sellingUnitPrice: selection.price }))), "estimate_service_added")} type="button"><Wrench className="size-4" />Добавить выбранные ({Object.keys(serviceSelection).length})</button></div>
     </div>}
 
-    {mode === "external" && <ExternalNomenclaturePicker disabled={disabled} estimate={estimate} onResult={onResult} />}
+    {mode === "external" && <div className="border-t border-zinc-200 p-3 sm:p-4"><ExternalNomenclaturePicker disabled={disabled} estimate={estimate} onResult={onResult} /></div>}
   </section>;
 }
 

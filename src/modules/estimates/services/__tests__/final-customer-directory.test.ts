@@ -56,8 +56,9 @@ describe("final customer directory UI", () => {
   });
 
   it("constrains the settings band and picker at mobile widths", () => {
-    expect(editor).toContain("grid-cols-[minmax(0,1fr)]");
-    expect(editor).toContain("min-w-0 max-w-full md:col-span-2");
+    expect(editor).toContain("grid min-w-0 gap-3 border-t");
+    expect(editor).toContain("min-w-0 max-w-full sm:col-span-2");
+    expect(editor).toContain("grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-12");
     expect(picker).toContain("min-w-0 max-w-full space-y-2");
   });
 });

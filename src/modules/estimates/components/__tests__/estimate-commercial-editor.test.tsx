@@ -4,8 +4,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { checkEstimateCommercialStateAction, removeEstimateLinesAction, saveEstimateCommercialAction } from "../../actions/estimate.actions";
 import type { EstimateDetailDto } from "../../services";
+import type { EstimateWorkflowDto } from "../../types";
 import { EstimateCommercialEditor } from "../EstimateCommercialEditor";
 
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
 vi.mock("../../actions/estimate.actions", () => ({
   addEstimateCustomLineAction: vi.fn(),
   addEstimateProductsAction: vi.fn(),
@@ -34,17 +36,52 @@ const detail: EstimateDetailDto = {
     sellingUnitPrice: 100, formattedSellingUnitPrice: "$100.00", lineTotal: "$100.00", imageUrl: null,
   }], charges: [],
 };
+const workflow: EstimateWorkflowDto = { estimateId: "estimate-1", estimateStatus: "draft", lifecycleStatus: "draft", acceptedVersionId: null, emailDeliveryAvailable: false, versions: [], readiness: { ready: true, checks: [] } };
 
 function renderEditor() {
-  return render(<EstimateCommercialEditor commercialOptions={{ currencies: ["USD", "MDL"], usdMdlRate: 17.5, rateEffectiveDate: "2026-07-16" }} initialEstimate={detail} services={[]} />);
+  return render(<EstimateCommercialEditor commercialOptions={{ currencies: ["USD", "MDL"], usdMdlRate: 17.5, rateEffectiveDate: "2026-07-16" }} initialEstimate={detail} services={[]} workflow={workflow} />);
 }
 
 describe("EstimateCommercialEditor", () => {
   beforeEach(() => vi.clearAllMocks());
 
+  it("renders the compact workspace header and keeps detailed settings collapsed", () => {
+    renderEditor();
+    expect(screen.getByRole("heading", { name: "CCTV" })).toBeInTheDocument();
+    expect(screen.getByText("Версия 3")).toBeInTheDocument();
+    expect(screen.getByTitle("Заказчик: Customer")).toBeInTheDocument();
+    expect(screen.getByTitle("Проект: Site")).toBeInTheDocument();
+    expect(screen.getByText("Параметры сметы").closest("details")).not.toHaveAttribute("open");
+    expect(screen.getByRole("button", { name: "Сохранить" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Сохранить и выйти" })).toBeInTheDocument();
+  });
+
+  it("places addition and filtering controls before the section workspace", async () => {
+    const user = userEvent.setup();
+    renderEditor();
+    const addEquipment = screen.getByRole("tab", { name: "Добавить оборудование" });
+    const workspaceHeading = screen.getByRole("heading", { name: "Разделы и позиции" });
+    expect(addEquipment.compareDocumentPosition(workspaceHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.queryByLabelText("SKU, модель или название")).not.toBeInTheDocument();
+    await user.click(addEquipment);
+    expect(screen.getByLabelText("SKU, модель или название")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Поиск по позициям")).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Фильтр разделов" })).toHaveValue("all");
+  });
+
+  it("keeps totals, readiness, preview, and proposal preparation together", () => {
+    renderEditor();
+    const summary = screen.getByRole("heading", { name: "Коммерческий расчёт" });
+    const readiness = screen.getByRole("heading", { name: "Готовность предложения" });
+    expect(summary.compareDocumentPosition(readiness) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByRole("progressbar", { name: "Готовность коммерческого предложения: 100%" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Предпросмотр КП" })).toHaveAttribute("href", "/cabinet/estimates/estimate-1/preview");
+    expect(screen.getByRole("button", { name: "Подготовить КП" })).toBeEnabled();
+  });
+
   it("renders thumbnails only for product lines before their description", () => {
     const serviceLine = { ...detail.lines[0], id: "service-line", lineType: "service" as const, productId: null, sku: null, imageUrl: null, description: "Installation" };
-    render(<EstimateCommercialEditor commercialOptions={{ currencies: ["USD"], usdMdlRate: 17.5, rateEffectiveDate: "2026-07-16" }} initialEstimate={{ ...detail, lines: [detail.lines[0], serviceLine], itemCount: 2 }} services={[]} />);
+    render(<EstimateCommercialEditor commercialOptions={{ currencies: ["USD"], usdMdlRate: 17.5, rateEffectiveDate: "2026-07-16" }} initialEstimate={{ ...detail, lines: [detail.lines[0], serviceLine], itemCount: 2 }} services={[]} workflow={workflow} />);
     expect(screen.getAllByTestId("product-line-thumbnail")).toHaveLength(1);
     const productInput = screen.getByDisplayValue("Camera");
     expect(screen.getByTestId("product-line-thumbnail").compareDocumentPosition(productInput) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
@@ -58,7 +95,7 @@ describe("EstimateCommercialEditor", () => {
 
     await user.selectOptions(screen.getByRole("combobox", { name: "Режим" }), "markup");
     expect(saveEstimateCommercialAction).not.toHaveBeenCalled();
-    expect(screen.getByText("Есть несохраненные изменения")).toBeInTheDocument();
+    expect(screen.getByText("Не сохранено")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Сохранить" }));
 
     expect(saveEstimateCommercialAction).toHaveBeenCalledTimes(1);
@@ -84,7 +121,7 @@ describe("EstimateCommercialEditor", () => {
   it("removes only empty sections and clearly identifies manual lines", async () => {
     const user = userEvent.setup();
     const manualLine = { ...detail.lines[0], id: "manual-line", lineType: "custom" as const, productId: null, sku: null, imageUrl: null, description: "Кабельные работы" };
-    render(<EstimateCommercialEditor commercialOptions={{ currencies: ["USD"], usdMdlRate: 17.5, rateEffectiveDate: "2026-07-16" }} initialEstimate={{ ...detail, lines: [manualLine] }} services={[]} />);
+    render(<EstimateCommercialEditor commercialOptions={{ currencies: ["USD"], usdMdlRate: 17.5, rateEffectiveDate: "2026-07-16" }} initialEstimate={{ ...detail, lines: [manualLine] }} services={[]} workflow={workflow} />);
 
     expect(screen.getByText("Ручная позиция")).toBeInTheDocument();
     expect(screen.getByText(/не связана с каталогом/i)).toBeInTheDocument();
@@ -141,7 +178,7 @@ describe("EstimateCommercialEditor", () => {
     const user = userEvent.setup();
     vi.mocked(saveEstimateCommercialAction).mockResolvedValue({ success: true, data: { ...detail, revision: 4 }, message: "Saved", errorCode: null });
     renderEditor();
-    expect(screen.getByRole("button", { name: /Сохранить/ })).toHaveAttribute("aria-keyshortcuts", "Control+S Meta+S");
+    expect(screen.getByRole("button", { name: "Сохранить" })).toHaveAttribute("aria-keyshortcuts", "Control+S Meta+S");
 
     await user.selectOptions(screen.getByRole("combobox", { name: "Режим" }), "markup");
     await user.keyboard("{Control>}s{/Control}");

@@ -42,7 +42,7 @@ describe("EstimateLinePicker", () => {
     const user = userEvent.setup();
     vi.mocked(searchEstimateProductsAction).mockResolvedValue({ success: true, data: products, message: "Загружено", errorCode: null });
     vi.mocked(addEstimateProductsAction).mockResolvedValue({ success: true, data: estimate, message: "Добавлено", errorCode: null });
-    render(<EstimateLinePicker disabled={false} estimate={estimate} onResult={vi.fn()} services={services} />);
+    render(<EstimateLinePicker disabled={false} estimate={estimate} mode="product" onModeChange={vi.fn()} onResult={vi.fn()} services={services} />);
 
     await user.type(screen.getByLabelText("SKU, модель или название"), "camera");
     await user.click(screen.getByRole("button", { name: "Найти" }));
@@ -65,9 +65,8 @@ describe("EstimateLinePicker", () => {
   it("adds multiple controlled services through one mutation", async () => {
     const user = userEvent.setup();
     vi.mocked(addEstimateServicesAction).mockResolvedValue({ success: true, data: estimate, message: "Добавлено", errorCode: null });
-    render(<EstimateLinePicker disabled={false} estimate={estimate} onResult={vi.fn()} services={services} />);
+    render(<EstimateLinePicker disabled={false} estimate={estimate} mode="service" onModeChange={vi.fn()} onResult={vi.fn()} services={services} />);
 
-    await user.click(screen.getByRole("tab", { name: "Добавить работы и услуги" }));
     await user.click(screen.getByRole("checkbox", { name: "Выбрать Монтаж камеры" }));
     await user.click(screen.getByRole("checkbox", { name: "Выбрать Настройка системы" }));
     await user.click(screen.getByRole("button", { name: "Добавить выбранные (2)" }));
