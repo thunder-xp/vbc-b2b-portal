@@ -10,6 +10,7 @@ const serviceMappingSql = readFileSync(resolve("supabase/migrations/202608101700
 const servicePriceSql = readFileSync(resolve("supabase/migrations/20260810180000_proposal_generator_service_default_prices.sql"), "utf8");
 const vatIncludedSql = readFileSync(resolve("supabase/migrations/20260810190000_proposal_generator_vat_included_defaults.sql"), "utf8");
 const grossVatSql = readFileSync(resolve("supabase/migrations/20260810200000_proposal_generator_gross_vat_defaults.sql"), "utf8");
+const vatTotalsSql = readFileSync(resolve("supabase/migrations/20260810210000_proposal_generator_vat_totals_recalculation.sql"), "utf8");
 const serviceSource = readFileSync(resolve("src/modules/estimates/services/proposal-generator.service.ts"), "utf8");
 const adminPage = readFileSync(resolve("app/(admin)/admin/commercial/proposal-generator/page.tsx"), "utf8");
 
@@ -116,5 +117,16 @@ describe("proposal generator MVP migration", () => {
     expect(grossVatSql).toContain("public.create_estimate_from_generator_v2(");
     expect(grossVatSql).toContain("vat_rate_percent = case when target_vat_mode = 'included' then 20 else 0 end");
     expect(grossVatSql).not.toContain("default_selling_unit_price / 1.20");
+  });
+  it("recalculates persisted totals after applying the generated estimate VAT mode", () => {
+    expect(vatTotalsSql).toContain("create or replace function public.create_estimate_from_generator_v3");
+    expect(vatTotalsSql).toContain("set vat_mode = target_vat_mode");
+    expect(vatTotalsSql).toContain("perform public.recalculate_estimate_totals(created_estimate_id)");
+    expect(vatTotalsSql.indexOf("set vat_mode = target_vat_mode")).toBeLessThan(
+      vatTotalsSql.indexOf("perform public.recalculate_estimate_totals(created_estimate_id)"),
+    );
+    expect(vatTotalsSql).toContain("existing_estimate_id is not null");
+    expect(vatTotalsSql).toContain("security definer");
+    expect(vatTotalsSql).toContain("set search_path = public");
   });
 });
