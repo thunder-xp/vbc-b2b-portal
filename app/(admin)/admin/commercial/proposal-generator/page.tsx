@@ -7,8 +7,11 @@ export default async function ProposalGeneratorAdminPage() {
   if (!result.success) return <div className="space-y-3"><h1 className="text-2xl font-semibold">Генератор КП</h1><p className="border-l-4 border-red-500 bg-red-50 px-4 py-3 text-sm text-red-800">{result.message}</p></div>;
   const { summary, comments } = result.data;
   const metrics = [
-    ["Запусков", summary.usageCount], ["Компаний", summary.companiesCount], ["Смет создано", summary.estimatesCreated],
-    ["Завершение", `${summary.completionRate}%`], ["Позиций в среднем", summary.averageGeneratedLines], ["Неуточнённых позиций", summary.unresolvedCount],
+    ["Запусков", summary.usageCount], ["Генераций завершено", summary.generationCompleted], ["Ошибок генерации", summary.generationFailed],
+    ["Компаний", summary.companiesCount], ["Смет создано", summary.estimatesCreated], ["Конверсия в смету", `${summary.generatorToEstimateConversionRate}%`],
+    ["Среднее время генерации", `${summary.averageGenerationDurationMs} мс`], ["От генерации до сметы", `${summary.averageGenerationToEstimateMs} мс`],
+    ["Позиций в среднем", summary.averageGeneratedLines], ["Каталог", summary.resolvedCatalogCount], ["Своя номенклатура", summary.ownNomenclatureCount],
+    ["Общая номенклатура", summary.sharedNomenclatureCount], ["Неуточнённых позиций", summary.unresolvedCount],
   ];
   return <div className="space-y-6"><header><p className="text-sm font-semibold text-emerald-700">Пилот</p><h1 className="mt-1 text-2xl font-semibold">Генератор КП</h1><p className="mt-1 text-sm text-zinc-600">Минимальные агрегированные показатели использования. Тексты требований и коммерческие данные здесь не сохраняются.</p></header>
     <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{metrics.map(([label, value]) => <div className="rounded-md border border-zinc-200 bg-white p-4" key={label}><p className="text-sm text-zinc-500">{label}</p><p className="mt-1 text-2xl font-semibold">{value}</p></div>)}</section>

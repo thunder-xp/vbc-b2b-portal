@@ -38,9 +38,15 @@ export class ProposalGeneratorService {
     const companyId = await this.resolveCompany(userId, "estimates.manage");
     const requirement = input.requirement.trim().slice(0, 4000);
     if (requirement.length < 10 || !UUID.test(input.requestKey)) throw new InvalidStateError("Опишите задачу подробнее.");
-    const requirements = generateRequirements(requirement);
-    if (!requirements.length) throw new InvalidStateError("Не удалось выделить позиции. Добавьте перечень оборудования или работ.");
     const fingerprint = createHash("sha256").update(requirement).digest("hex");
+    let requirements: GeneratorRequirement[];
+    try {
+      requirements = generateRequirements(requirement);
+      if (!requirements.length) throw new InvalidStateError("Не удалось выделить позиции. Добавьте перечень оборудования или работ.");
+    } catch (error) {
+      await this.repository.recordSession({ companyId, requestKey: input.requestKey, fingerprint, requirementCount: 0, durationMs: Math.round(performance.now() - startedAt), failed: true });
+      throw error;
+    }
     const sessionId = await this.repository.recordSession({ companyId, requestKey: input.requestKey, fingerprint, requirementCount: requirements.length, durationMs: Math.round(performance.now() - startedAt) });
     return { sessionId, fingerprint, requirements };
   }

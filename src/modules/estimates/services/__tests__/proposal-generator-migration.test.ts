@@ -3,6 +3,9 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const sql = readFileSync(resolve("supabase/migrations/20260810130000_proposal_generator_mvp.sql"), "utf8");
+const telemetrySql = readFileSync(resolve("supabase/migrations/20260810140000_proposal_generator_telemetry_completion.sql"), "utf8");
+const serviceSource = readFileSync(resolve("src/modules/estimates/services/proposal-generator.service.ts"), "utf8");
+const adminPage = readFileSync(resolve("app/(admin)/admin/commercial/proposal-generator/page.tsx"), "utf8");
 
 describe("proposal generator MVP migration", () => {
   it("creates one atomic hand-off into canonical estimates with bounded input", () => {
@@ -28,5 +31,18 @@ describe("proposal generator MVP migration", () => {
   it("revokes tables and uses explicit search paths", () => {
     expect(sql).toContain("revoke all on table public.estimate_generator_sessions, public.estimate_generator_feedback from public, anon, authenticated");
     expect(sql).toContain("security definer set search_path = public");
+  });
+  it("reports the complete pilot funnel without persisting raw requirements", () => {
+    for (const metric of [
+      "generationCompleted", "generationFailed", "generatorToEstimateConversionRate",
+      "averageGenerationDurationMs", "averageGenerationToEstimateMs", "resolvedCatalogCount",
+      "ownNomenclatureCount", "sharedNomenclatureCount", "unresolvedCount",
+    ]) expect(telemetrySql).toContain(`'${metric}'`);
+    expect(telemetrySql).not.toMatch(/requirement_text|raw_requirement|prompt_text/i);
+    expect(adminPage).toContain("summary.sharedNomenclatureCount");
+  });
+  it("persists a bounded failed generation outcome", () => {
+    expect(serviceSource).toContain("failed: true");
+    expect(serviceSource).toContain("requirementCount: 0");
   });
 });

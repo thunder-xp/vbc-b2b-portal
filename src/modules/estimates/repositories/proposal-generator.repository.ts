@@ -11,10 +11,18 @@ export type GeneratorPreparedLine = AddEstimateLineInput & {
 export type GeneratorAdminReport = {
   summary: {
     usageCount: number;
+    generationCompleted: number;
+    generationFailed: number;
     companiesCount: number;
     estimatesCreated: number;
     completionRate: number;
+    generatorToEstimateConversionRate: number;
+    averageGenerationDurationMs: number;
+    averageGenerationToEstimateMs: number;
     averageGeneratedLines: number;
+    resolvedCatalogCount: number;
+    ownNomenclatureCount: number;
+    sharedNomenclatureCount: number;
     unresolvedCount: number;
     feedbackYes: number;
     feedbackPartial: number;
