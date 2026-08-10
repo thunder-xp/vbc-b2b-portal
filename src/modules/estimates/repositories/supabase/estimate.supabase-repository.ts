@@ -28,6 +28,9 @@ const CHARGE_COLUMNS = "id, estimate_id, charge_type, description, amount, vat_a
 
 type EstimateListRow = EstimateRow & {
   estimate_items: Array<{ count: number }>;
+  estimate_cart_conversions?: Array<{ count: number }>;
+  estimate_lifecycle_events?: Array<{ count: number }>;
+  estimate_proposal_deliveries?: Array<{ count: number }>;
   creator: { full_name: string | null } | null;
 };
 
@@ -49,9 +52,12 @@ export class SupabaseEstimateRepository implements EstimateRepository {
       versionEstimateIds = [...new Set((matchingVersions ?? []).map((version) => version.estimate_id))];
       if (!versionEstimateIds.length) return { records: [], totalCount: 0 };
     }
+    const deletionGuardColumns = input.status === "archived"
+      ? ", estimate_cart_conversions(count), estimate_lifecycle_events(count), estimate_proposal_deliveries(count)"
+      : "";
     let query = supabase
       .from("estimates")
-      .select(`${ESTIMATE_COLUMNS}, estimate_items(count), creator:user_profiles!estimates_created_by_fkey(full_name)`, { count: "exact" })
+      .select(`${ESTIMATE_COLUMNS}, estimate_items(count)${deletionGuardColumns}, creator:user_profiles!estimates_created_by_fkey(full_name)`, { count: "exact" })
       .eq("company_id", input.companyId)
       .is("deleted_at", null)
       .order("updated_at", { ascending: false })
@@ -72,15 +78,15 @@ export class SupabaseEstimateRepository implements EstimateRepository {
 
     const rows = data as unknown as EstimateListRow[];
     const estimateIds = rows.map((row) => row.id);
-    const versionMetadata = new Map<string, { count: number; latest: import("../../types").EstimateVersionStatus | null; latestVersionId: string | null }>();
+    const versionMetadata = new Map<string, { count: number; latest: import("../../types").EstimateVersionStatus | null; latestVersionId: string | null; hasProtectedVersion: boolean }>();
     const latestPdfByVersion = new Map<string, string>();
     if (estimateIds.length) {
       const { data: versions, error: versionError } = await supabase.from("estimate_versions")
         .select("id, estimate_id, version_number, status").in("estimate_id", estimateIds).order("version_number", { ascending: false });
       if (versionError) throw mapRepositoryError(versionError.code);
       for (const version of versions ?? []) {
-        const current = versionMetadata.get(version.estimate_id) ?? { count: 0, latest: null, latestVersionId: null };
-        versionMetadata.set(version.estimate_id, { count: current.count + 1, latest: current.latest ?? version.status, latestVersionId: current.latestVersionId ?? version.id });
+        const current = versionMetadata.get(version.estimate_id) ?? { count: 0, latest: null, latestVersionId: null, hasProtectedVersion: false };
+        versionMetadata.set(version.estimate_id, { count: current.count + 1, latest: current.latest ?? version.status, latestVersionId: current.latestVersionId ?? version.id, hasProtectedVersion: current.hasProtectedVersion || version.status !== "prepared" });
       }
       const versionIds = [...versionMetadata.values()].map((metadata) => metadata.latestVersionId).filter((id): id is string => Boolean(id));
       if (versionIds.length) {
@@ -100,6 +106,14 @@ export class SupabaseEstimateRepository implements EstimateRepository {
         latestVersionId: versionMetadata.get(row.id)?.latestVersionId ?? null,
         latestPdfDocumentId: latestPdfByVersion.get(versionMetadata.get(row.id)?.latestVersionId ?? "") ?? null,
         hasAcceptedVersion: Boolean(row.accepted_version_id),
+        canDeleteArchived: row.status === "archived"
+          && row.lifecycle_status === "draft"
+          && !row.lifecycle_order_id
+          && !row.accepted_version_id
+          && !versionMetadata.get(row.id)?.hasProtectedVersion
+          && (row.estimate_cart_conversions?.[0]?.count ?? 0) === 0
+          && (row.estimate_proposal_deliveries?.[0]?.count ?? 0) === 0
+          && (row.estimate_lifecycle_events?.[0]?.count ?? 0) <= 1,
       })),
       totalCount: count ?? 0,
     };
@@ -329,6 +343,24 @@ export class SupabaseEstimateRepository implements EstimateRepository {
       force_create_new: input.forceCreateNew,
     });
     if (error) throw mapRepositoryError(error.code);
+  }
+
+  async createWithProduct(input: import("../estimate.repository").CreateEstimateWithProductInput): Promise<{ estimateId: string; repeated: boolean }> {
+    const { data, error } = await (await createClient()).rpc("create_estimate_with_catalog_product", {
+      target_company_id: input.companyId,
+      estimate_name: input.name,
+      target_final_customer_id: input.finalCustomerId,
+      target_customer_name: input.customerName ?? "",
+      target_project_name: input.projectName ?? "",
+      target_currency_code: input.currencyCode,
+      target_validity_days: input.validityDays,
+      estimate_request_key: input.requestKey,
+      line_request_key: input.lineRequestKey,
+      line_request_fingerprint: input.requestFingerprint,
+      line_items: input.lines.map(toLinePayload),
+    });
+    if (error || typeof data !== "object" || data === null || Array.isArray(data)) throw mapRepositoryError(error?.code);
+    return { estimateId: typeof data.estimate_id === "string" ? data.estimate_id : "", repeated: data.repeated === true };
   }
 
   async createFromPurchasingList(input: Parameters<EstimateRepository["createFromPurchasingList"]>[0]) {

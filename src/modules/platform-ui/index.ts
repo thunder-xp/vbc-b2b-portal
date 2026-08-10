@@ -3,6 +3,7 @@ export * from "./ConfirmationDialog";
 export * from "./EmptyState";
 export * from "./FormField";
 export * from "./LoadingState";
+export * from "./IconActionTooltip";
 export * from "./NumberedPagination";
 export * from "./PageHeader";
 export * from "./RouteErrorState";

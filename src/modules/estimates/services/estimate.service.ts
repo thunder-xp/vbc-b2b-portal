@@ -52,6 +52,7 @@ export type EstimateSummaryDto = {
   latestVersionId: string | null;
   latestPdfDocumentId: string | null;
   hasAcceptedVersion: boolean;
+  canDeleteArchived: boolean;
 };
 
 export type EstimateLineDto = {
@@ -218,6 +219,12 @@ export type CreateEstimateCommand = {
   requestKey?: string;
 };
 
+export type CreateEstimateWithProductCommand = CreateEstimateCommand & {
+  productId: string;
+  quantity: number;
+  lineRequestKey: string;
+};
+
 export type EstimateLineInsertion = {
   targetSectionId: string;
   requestKey: string;
@@ -307,6 +314,7 @@ export interface EstimateService {
   }): Promise<import("../types").FinalCustomer>;
   checkCurrentProductState(userId: string, estimateId: string): Promise<EstimateCommercialCheckDto>;
   createDraft(userId: string, input: CreateEstimateCommand): Promise<Estimate>;
+  createDraftWithProduct(userId: string, input: CreateEstimateWithProductCommand): Promise<{ estimateId: string; repeated: boolean }>;
   createFromPurchasingList(userId: string, input: { listId: string; name: string; requestKey: string; items: Array<{ itemId: string; productId: string; quantity: number }> }): Promise<{ estimateId: string; repeated: boolean; added: number; skipped: number }>;
   getDetail(userId: string, estimateId: string): Promise<EstimateDetailDto>;
   saveDraft(userId: string, estimateId: string, input: SaveEstimateCommand): Promise<EstimateDetailDto>;
@@ -384,6 +392,7 @@ export class DefaultEstimateService implements EstimateService {
         latestVersionId: record.latestVersionId,
         latestPdfDocumentId: record.latestPdfDocumentId,
         hasAcceptedVersion: record.hasAcceptedVersion,
+        canDeleteArchived: record.canDeleteArchived,
       })),
       page,
       totalPages: Math.max(1, Math.ceil(result.totalCount / PAGE_SIZE)),
@@ -750,6 +759,27 @@ export class DefaultEstimateService implements EstimateService {
     return this.projectDetailForCompany(userId, aggregate, companyId, canViewPartnerPrice);
   }
 
+  async createDraftWithProduct(userId: string, input: CreateEstimateWithProductCommand): Promise<{ estimateId: string; repeated: boolean }> {
+    const companyId = await this.resolveCompany(userId, MANAGE_PERMISSION);
+    await this.permissionService.ensurePermission(userId, companyId, PRICING_PERMISSION);
+    const normalized = normalizeMetadata(input);
+    const finalCustomerId = input.finalCustomerId ? normalizeUuid(input.finalCustomerId, "Выберите заказчика.") : null;
+    if (!finalCustomerId) throw new InvalidStateError("Выберите или создайте заказчика.");
+    const currencies = await this.pricingInventoryService.listAvailableCurrencyCodes?.(userId) ?? [];
+    if (!currencies.includes(normalized.currencyCode)) throw new InvalidStateError("Estimate currency is not available in published commercial data.");
+    const lines = await this.buildProductLines(userId, { companyId, currencyCode: normalized.currencyCode }, [{ productId: input.productId, quantity: input.quantity }]);
+    const requestFingerprint = createHash("sha256").update(JSON.stringify({ companyId, finalCustomerId, ...normalized, lines })).digest("hex");
+    return this.repository.createWithProduct({
+      companyId,
+      ...normalized,
+      finalCustomerId,
+      requestKey: normalizeUuid(input.requestKey ?? randomUUID(), "Ключ создания сметы некорректен."),
+      lineRequestKey: normalizeUuid(input.lineRequestKey, "Ключ добавления товара некорректен."),
+      requestFingerprint,
+      lines,
+    });
+  }
+
   private async getDetailForCompany(userId: string, estimateId: string, companyId: string, canViewPartnerPrice: boolean): Promise<EstimateDetailDto> {
     const aggregate = await this.repository.findAggregateById(normalizeId(estimateId));
     return this.projectDetailForCompany(userId, aggregate, companyId, canViewPartnerPrice);
@@ -852,6 +882,12 @@ export class DefaultEstimateService implements EstimateService {
 
   async addProducts(userId: string, estimateId: string, expectedRevision: number, selections: Array<{ productId: string; quantity: number }>, insertion: EstimateLineInsertion): Promise<EstimateDetailDto> {
     const estimate = await this.ensureDraft(userId, estimateId, PRICING_PERMISSION, expectedRevision);
+    const lines = await this.buildProductLines(userId, estimate, selections);
+    await this.addLinesSafely(estimateId, expectedRevision, lines, insertion);
+    return this.getDetail(userId, estimateId);
+  }
+
+  private async buildProductLines(userId: string, estimate: Pick<Estimate, "companyId" | "currencyCode">, selections: Array<{ productId: string; quantity: number }>): Promise<AddEstimateLineInput[]> {
     const canViewPartnerPrice = await this.canViewPartnerPrice(
       userId,
       estimate.companyId,
@@ -907,8 +943,7 @@ export class DefaultEstimateService implements EstimateService {
         sellingUnitPrice: sellingPrice,
       };
     });
-    await this.addLinesSafely(estimateId, expectedRevision, lines, insertion);
-    return this.getDetail(userId, estimateId);
+    return lines;
   }
 
   async addService(userId: string, estimateId: string, expectedRevision: number, serviceId: string, quantity: number, sellingUnitPrice: number, insertion: EstimateLineInsertion): Promise<EstimateDetailDto> {

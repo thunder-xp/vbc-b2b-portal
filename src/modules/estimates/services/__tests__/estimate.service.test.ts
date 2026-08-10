@@ -67,6 +67,7 @@ describe("DefaultEstimateService", () => {
       findById: vi.fn().mockResolvedValue(estimate),
       findAggregateById: vi.fn().mockResolvedValue(aggregate([])),
       create: vi.fn().mockResolvedValue(estimate),
+      createWithProduct: vi.fn().mockResolvedValue({ estimateId: estimate.id, repeated: false }),
       searchFinalCustomers: vi.fn().mockResolvedValue([]),
       listFinalCustomers: vi.fn().mockResolvedValue({ records: [], totalCount: 0 }),
       getFinalCustomerDetail: vi.fn().mockResolvedValue(null),

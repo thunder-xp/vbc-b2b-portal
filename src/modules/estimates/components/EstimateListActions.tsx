@@ -5,16 +5,17 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
-import { ConfirmationDialog } from "../../platform-ui";
+import { ConfirmationDialog, IconActionTooltip } from "../../platform-ui";
 import { archiveEstimateAction, deleteArchivedEstimateAction } from "../actions/estimate.actions";
 import { duplicateEstimateAction } from "../actions/lifecycle.actions";
 
 const buttonClass = "inline-flex size-9 items-center justify-center border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-45";
 
-export function EstimateListActions({ estimateId, revision, archived, latestPdfDocumentId }: {
+export function EstimateListActions({ estimateId, revision, archived, canDeleteArchived = false, latestPdfDocumentId }: {
   estimateId: string;
   revision: number;
   archived: boolean;
+  canDeleteArchived?: boolean;
   latestPdfDocumentId: string | null;
 }) {
   const router = useRouter();
@@ -39,11 +40,11 @@ export function EstimateListActions({ estimateId, revision, archived, latestPdfD
 
   return <div>
     <div className="flex items-center gap-1">
-      <Link aria-label="Открыть смету" className={buttonClass} href={`/cabinet/estimates/${estimateId}`} prefetch={false}><ExternalLink className="size-4" /></Link>
-      {latestPdfDocumentId ? <Link aria-label="Открыть последний PDF" className={buttonClass} href={`/api/estimates/documents/${latestPdfDocumentId}`}><Download className="size-4" /></Link> : null}
-      <button aria-label="Дублировать смету" className={buttonClass} disabled={pending} onClick={duplicate} type="button"><Copy className="size-4" /></button>
-      {!archived && <button aria-label="Архивировать смету" className={buttonClass} disabled={pending} onClick={archive} type="button"><Archive className="size-4" /></button>}
-      {archived && <button aria-label="Удалить смету" className={`${buttonClass} text-red-700`} disabled={pending} onClick={() => setDeleteOpen(true)} type="button"><Trash2 className="size-4" /></button>}
+      <IconActionTooltip label="Открыть смету"><Link aria-label="Открыть смету" className={buttonClass} href={`/cabinet/estimates/${estimateId}`} prefetch={false}><ExternalLink className="size-4" /></Link></IconActionTooltip>
+      {latestPdfDocumentId ? <IconActionTooltip label="Открыть последний PDF"><Link aria-label="Открыть последний PDF" className={buttonClass} href={`/api/estimates/documents/${latestPdfDocumentId}`}><Download className="size-4" /></Link></IconActionTooltip> : null}
+      <IconActionTooltip label="Дублировать смету"><button aria-label="Дублировать смету" className={buttonClass} disabled={pending} onClick={duplicate} type="button"><Copy className="size-4" /></button></IconActionTooltip>
+      {!archived && <IconActionTooltip label="Архивировать смету"><button aria-label="Архивировать смету" className={buttonClass} disabled={pending} onClick={archive} type="button"><Archive className="size-4" /></button></IconActionTooltip>}
+      {archived && canDeleteArchived ? <IconActionTooltip label="Удалить смету"><button aria-label="Удалить смету" className={`${buttonClass} text-red-700`} disabled={pending} onClick={() => setDeleteOpen(true)} type="button"><Trash2 className="size-4" /></button></IconActionTooltip> : null}
     </div>
     {message && <span aria-live="polite" className="sr-only">{message}</span>}
     <ConfirmationDialog confirmLabel="Удалить" consequence="Смета исчезнет из архива. Защищённая история предложений и заказов не удаляется; связанные записи удалить нельзя." destructive onCancel={() => setDeleteOpen(false)} onConfirm={removeArchived} open={deleteOpen} pending={pending} title="Удалить архивную смету?" />

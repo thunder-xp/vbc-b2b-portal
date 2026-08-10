@@ -4,12 +4,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ProductComparisonAction } from "../ProductComparisonAction";
 import { ProductSpecificationAction } from "../ProductSpecificationAction";
 
-const listSpecifications = vi.fn();
+const listEstimates = vi.fn();
 const addItem = vi.fn();
 
-vi.mock("../../../project-specifications/actions", () => ({
-  listProjectSpecificationsAction: (...args: unknown[]) => listSpecifications(...args),
-  addProjectSpecificationItemAction: (...args: unknown[]) => addItem(...args),
+vi.mock("../../../estimates/actions/estimate.actions", () => ({
+  listEditableEstimatesForProductAction: (...args: unknown[]) => listEstimates(...args),
+  addCatalogProductToEstimateAction: (...args: unknown[]) => addItem(...args),
 }));
 vi.mock("../../../behavior-analytics/components/BehaviorViewEvent", () => ({
   recordBehaviorInteraction: vi.fn(),
@@ -67,23 +67,23 @@ describe("product secondary actions", () => {
     expect(screen.getByText("Можно сравнить не более 4 товаров.")).toBeInTheDocument();
   });
 
-  it("adds a real product and quantity to a selected draft specification", async () => {
-    listSpecifications.mockResolvedValue({
+  it("adds a canonical product and quantity to a selected editable estimate", async () => {
+    listEstimates.mockResolvedValue({
       success: true,
-      data: [{ id: "spec-1", projectName: "Site", status: "draft" }],
+      data: [{ id: "estimate-1", name: "Site", estimateNumber: "KP-1", revision: 3 }],
     });
     addItem.mockResolvedValue({ success: true, message: "ok", data: null });
     render(<ProductSpecificationAction productId="product-1" />);
     fireEvent.click(screen.getByRole("button", { name: "В смету" }));
     expect(screen.getByRole("button", { name: "В смету" })).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByRole("button", { name: "В смету" })).toHaveClass("bg-emerald-50");
-    await screen.findByRole("option", { name: "Site" });
+    await screen.findByRole("option", { name: "KP-1 · Site" });
     fireEvent.change(screen.getByLabelText("Количество"), {
       target: { value: "3" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Добавить" }));
     await waitFor(() =>
-      expect(addItem).toHaveBeenCalledWith("spec-1", "product-1", 3),
+      expect(addItem).toHaveBeenCalledWith(expect.objectContaining({ estimateId: "estimate-1", productId: "product-1", quantity: 3, requestKey: expect.any(String) })),
     );
   });
 });

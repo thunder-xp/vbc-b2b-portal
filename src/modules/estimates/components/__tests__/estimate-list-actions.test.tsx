@@ -37,7 +37,7 @@ describe("EstimateListActions", () => {
   it("exposes governed deletion only for archived estimates", async () => {
     const user = userEvent.setup();
     vi.mocked(deleteArchivedEstimateAction).mockResolvedValue({ success: true, data: null, message: "Удалено", errorCode: null });
-    render(<EstimateListActions archived estimateId="estimate-1" latestPdfDocumentId={null} revision={3} />);
+    render(<EstimateListActions archived canDeleteArchived estimateId="estimate-1" latestPdfDocumentId={null} revision={3} />);
     expect(screen.queryByRole("button", { name: "Архивировать смету" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Удалить смету" }));
     expect(screen.getByRole("dialog", { name: "Удалить архивную смету?" })).toBeInTheDocument();
@@ -48,6 +48,11 @@ describe("EstimateListActions", () => {
 
   it("does not expose deletion for active estimates", () => {
     render(<EstimateListActions archived={false} estimateId="estimate-1" latestPdfDocumentId={null} revision={3} />);
+    expect(screen.queryByRole("button", { name: "Удалить смету" })).not.toBeInTheDocument();
+  });
+
+  it("does not offer deletion when immutable commercial history protects an archived estimate", () => {
+    render(<EstimateListActions archived canDeleteArchived={false} estimateId="estimate-1" latestPdfDocumentId={null} revision={3} />);
     expect(screen.queryByRole("button", { name: "Удалить смету" })).not.toBeInTheDocument();
   });
 });

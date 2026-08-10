@@ -8,6 +8,32 @@ import type { EstimateCommercialCheckDto, EstimateCommercialOptionsDto, Estimate
 import type { ExternalNomenclatureItemType } from "../repositories";
 import type { EstimateUnit, FinalCustomerIndustryCode } from "../types";
 import { createEstimateService, getAuthenticatedUserId } from "./service-factory";
+import { resolveCanonicalSectionKey } from "../services/estimate-sections";
+
+export async function listEditableEstimatesForProductAction(): Promise<ActionResult<Array<{ id: string; name: string; estimateNumber: string; revision: number }>>> {
+  try {
+    const userId = await getAuthenticatedUserId();
+    const result = await createEstimateService().list(userId, { status: "draft", page: 1 });
+    return success("Доступные сметы загружены.", result.records.map(({ id, name, estimateNumber, revision }) => ({ id, name, estimateNumber, revision })));
+  } catch (error) {
+    return failureFromError(error);
+  }
+}
+
+export async function addCatalogProductToEstimateAction(input: { estimateId: string; productId: string; quantity: number; requestKey: string }): Promise<ActionResult<{ estimateId: string }>> {
+  try {
+    const userId = await getAuthenticatedUserId();
+    const service = createEstimateService();
+    const estimate = await service.getDetail(userId, input.estimateId);
+    const equipment = estimate.sections.find((section) => resolveCanonicalSectionKey(section) === "equipment");
+    if (!equipment) return invalidInput("В смете отсутствует раздел «Оборудование».");
+    await service.addProducts(userId, estimate.id, estimate.revision, [{ productId: input.productId, quantity: input.quantity }], { targetSectionId: equipment.id, requestKey: input.requestKey });
+    revalidatePath(`/cabinet/estimates/${estimate.id}`);
+    return success("Товар добавлен в смету.", { estimateId: estimate.id });
+  } catch (error) {
+    return estimateFailure(error, "catalog_product_add_to_estimate");
+  }
+}
 
 export type CreateEstimateActionInput = {
   name: string;
@@ -17,6 +43,8 @@ export type CreateEstimateActionInput = {
   currencyCode: string;
   validityDays: number;
   requestKey: string;
+  productId?: string | null;
+  lineRequestKey?: string | null;
 };
 
 export async function searchFinalCustomersAction(query: string) {
@@ -137,9 +165,16 @@ export async function createEstimateAction(input: CreateEstimateActionInput): Pr
   if (!input.name?.trim() || !input.currencyCode?.trim()) return invalidInput("Укажите название и валюту сметы.");
   try {
     const userId = await getAuthenticatedUserId();
-    const estimate = await createEstimateService().createDraft(userId, input);
+    const estimate = input.productId
+      ? await createEstimateService().createDraftWithProduct(userId, {
+          ...input,
+          productId: input.productId,
+          quantity: 1,
+          lineRequestKey: input.lineRequestKey ?? "",
+        })
+      : await createEstimateService().createDraft(userId, input);
     revalidatePath("/cabinet/estimates");
-    return success("Смета создана.", { id: estimate.id });
+    return success(input.productId ? "Смета создана, товар добавлен в раздел «Оборудование»." : "Смета создана.", { id: "estimateId" in estimate ? estimate.estimateId : estimate.id });
   } catch (error) {
     console.error({ event: "estimate_creation_failed", errorName: error instanceof Error ? error.name : typeof error, deployedCommitSha: process.env.VERCEL_GIT_COMMIT_SHA ?? null });
     const result = failureFromError(error);

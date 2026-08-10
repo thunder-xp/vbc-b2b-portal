@@ -36,6 +36,7 @@ export type EstimateListRecord = Estimate & {
   latestVersionId: string | null;
   latestPdfDocumentId: string | null;
   hasAcceptedVersion: boolean;
+  canDeleteArchived: boolean;
 };
 
 export type CreateEstimateInput = {
@@ -47,6 +48,12 @@ export type CreateEstimateInput = {
   currencyCode: string;
   validityDays: number;
   requestKey: string;
+};
+
+export type CreateEstimateWithProductInput = CreateEstimateInput & {
+  lineRequestKey: string;
+  requestFingerprint: string;
+  lines: AddEstimateLineInput[];
 };
 
 export type FinalCustomerListInput = {
@@ -190,6 +197,7 @@ export interface EstimateRepository {
   findById(estimateId: string): Promise<Estimate | null>;
   findAggregateById(estimateId: string): Promise<EstimateAggregate | null>;
   create(input: CreateEstimateInput): Promise<Estimate>;
+  createWithProduct(input: CreateEstimateWithProductInput): Promise<{ estimateId: string; repeated: boolean }>;
   searchFinalCustomers?(companyId: string, query: string, limit: number): Promise<FinalCustomer[]>;
   listFinalCustomers?(input: FinalCustomerListInput): Promise<{ records: FinalCustomerListRecord[]; totalCount: number }>;
   getFinalCustomerDetail?(companyId: string, customerId: string, estimateLimit: number): Promise<FinalCustomerDetail | null>;

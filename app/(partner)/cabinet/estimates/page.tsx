@@ -58,7 +58,7 @@ export default async function EstimatesPage({ searchParams }: { searchParams: Pr
             {result.data.records.map((estimate) => <article className="border-y border-zinc-200 bg-white px-4 py-4" key={estimate.id}>
               <div className="flex items-start justify-between gap-3"><div className="min-w-0"><Link className="font-semibold text-zinc-950" href={`/cabinet/estimates/${estimate.id}`} prefetch={false}>{estimate.estimateNumber}</Link><p className="truncate text-sm text-zinc-600">{estimate.name}</p></div><EstimateStatusBadge status={estimate.archived ? "archived" : estimate.status} /></div>
               <p className="mt-3 text-sm text-zinc-600">{estimate.customerProject}</p>
-              <div className="mt-3 flex items-end justify-between gap-3"><div><p className="font-semibold">{estimate.total}</p><p className="text-xs text-zinc-500">{estimate.itemCount} позиций · обновлено {formatDate(estimate.updatedAt)}</p><p className="mt-1 text-xs text-zinc-500">{proposalState(estimate.latestPdfDocumentId, estimate.versionCount > 0)}</p></div><EstimateListActions archived={estimate.archived} estimateId={estimate.id} latestPdfDocumentId={estimate.latestPdfDocumentId} revision={estimate.revision} /></div>
+              <div className="mt-3 flex items-end justify-between gap-3"><div><p className="font-semibold">{estimate.total}</p><p className="text-xs text-zinc-500">{estimate.itemCount} позиций · обновлено {formatDate(estimate.updatedAt)}</p><p className="mt-1 text-xs text-zinc-500">{proposalState(estimate.latestPdfDocumentId, estimate.versionCount > 0)}</p></div><EstimateListActions archived={estimate.archived} canDeleteArchived={estimate.canDeleteArchived} estimateId={estimate.id} latestPdfDocumentId={estimate.latestPdfDocumentId} revision={estimate.revision} /></div>
             </article>)}
           </div>
           <div className="hidden overflow-x-auto border-y border-zinc-200 bg-white md:block">
@@ -74,7 +74,7 @@ export default async function EstimatesPage({ searchParams }: { searchParams: Pr
                     <td className="px-4 py-4 text-zinc-600"><span className="block">Создана {formatDate(estimate.createdAt)}</span><span className="mt-1 block text-xs text-zinc-500">Обновлена {formatDate(estimate.updatedAt)}</span></td>
                     <td className="px-4 py-4"><p className="text-xs text-zinc-600">{proposalState(estimate.latestPdfDocumentId, estimate.versionCount > 0)}</p>{estimate.hasAcceptedVersion && <p className="mt-1 text-xs font-semibold text-emerald-700">Принято заказчиком</p>}</td>
                     <td className="px-4 py-4 text-zinc-600">{estimate.createdByName}</td>
-                    <td className="px-4 py-4"><EstimateListActions archived={estimate.archived} estimateId={estimate.id} latestPdfDocumentId={estimate.latestPdfDocumentId} revision={estimate.revision} /></td>
+                    <td className="px-4 py-4"><EstimateListActions archived={estimate.archived} canDeleteArchived={estimate.canDeleteArchived} estimateId={estimate.id} latestPdfDocumentId={estimate.latestPdfDocumentId} revision={estimate.revision} /></td>
                   </tr>
                 ))}
               </tbody>

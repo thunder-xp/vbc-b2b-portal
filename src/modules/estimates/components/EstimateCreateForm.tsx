@@ -8,17 +8,18 @@ import { ActionFeedback, actionClassName, FormField } from "../../platform-ui";
 import { createEstimateAction } from "../actions/estimate.actions";
 import { FinalCustomerPicker } from "./FinalCustomerPicker";
 
-export function EstimateCreateForm({ currencies }: { currencies: string[] }) {
+export function EstimateCreateForm({ currencies, initialProductId = null }: { currencies: string[]; initialProductId?: string | null }) {
   const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [finalCustomerId, setFinalCustomerId] = useState<string | null>(null);
   const requestKey = useRef(crypto.randomUUID());
+  const lineRequestKey = useRef(crypto.randomUUID());
 
   return (
     <form
       className="grid gap-x-5 gap-y-4 sm:grid-cols-2"
-      onChange={() => { requestKey.current = crypto.randomUUID(); }}
+      onChange={() => { requestKey.current = crypto.randomUUID(); lineRequestKey.current = crypto.randomUUID(); }}
       onSubmit={(event) => {
         event.preventDefault();
         const form = new FormData(event.currentTarget);
@@ -30,6 +31,8 @@ export function EstimateCreateForm({ currencies }: { currencies: string[] }) {
             currencyCode: String(form.get("currencyCode") ?? ""),
             validityDays: Number(form.get("validityDays")),
             requestKey: requestKey.current,
+            productId: initialProductId,
+            lineRequestKey: initialProductId ? lineRequestKey.current : null,
           });
           setMessage(result.message);
           if (result.success) {
@@ -52,7 +55,7 @@ export function EstimateCreateForm({ currencies }: { currencies: string[] }) {
         <button className={actionClassName.primary} disabled={pending || !currencies.length || !finalCustomerId} type="submit">
           {pending ? "Создание..." : "Создать смету"}
         </button>
-        {message && <ActionFeedback kind={message === "Смета создана." ? "success" : "error"} message={message === "Смета создана." ? message : `${message} Введённые данные сохранены.`} />}
+        {message && <ActionFeedback kind={message.startsWith("Смета создана") ? "success" : "error"} message={message.startsWith("Смета создана") ? message : `${message} Введённые данные сохранены.`} />}
       </div>
     </form>
   );
