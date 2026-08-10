@@ -33,7 +33,7 @@ export function ProposalGeneratorWorkspace({ currencies }: { currencies: string[
   const mode = selectedMode === undefined ? storedMode : selectedMode;
   const [requirement, setRequirement] = useState("");
   const [currencyCode, setCurrencyCode] = useState(currencies[0] ?? "USD");
-  const [vatMode, setVatMode] = useState<"none" | "separate">("none");
+  const [vatMode, setVatMode] = useState<"none" | "included">("none");
   const [session, setSession] = useState<{ id: string; fingerprint: string } | null>(null);
   const [requirements, setRequirements] = useState<GeneratorRequirement[]>([]);
   const [assumptions, setAssumptions] = useState<string[]>([]);
@@ -89,7 +89,7 @@ export function ProposalGeneratorWorkspace({ currencies }: { currencies: string[
       <div className="md:col-span-2"><FinalCustomerPicker onChange={setCustomer} value={customer?.id ?? null} /></div>
       <FormField label="Проект / объект">{(props) => <input {...props} className={inputClass} maxLength={200} onChange={(event) => setProjectName(event.target.value)} value={projectName} />}</FormField>
       <FormField label="Валюта" required>{(props) => <select {...props} className={inputClass} onChange={(event) => setCurrencyCode(event.target.value)} value={currencyCode}>{currencies.map((currency) => <option key={currency}>{currency}</option>)}</select>}</FormField>
-      <FormField label="НДС" required>{(props) => <select {...props} className={inputClass} onChange={(event) => setVatMode(event.target.value as "none" | "separate")} value={vatMode}><option value="none">НДС не применяется</option><option value="separate">НДС применяется (20%)</option></select>}</FormField>
+      <FormField label="НДС" required>{(props) => <select {...props} className={inputClass} onChange={(event) => setVatMode(event.target.value as "none" | "included")} value={vatMode}><option value="none">НДС не применяется</option><option value="included">НДС применяется (20%)</option></select>}</FormField>
       <div className="md:col-span-2"><button className={actionClassName.primary} disabled={pending || !customer || !requirements.length} onClick={create} type="button">{pending ? <><Loader2 className="size-4 animate-spin" />Создание...</> : <><Check className="size-4" />Создать смету</>}</button></div>
     </section>}
     {message && <ActionFeedback kind="error" message={message} />}

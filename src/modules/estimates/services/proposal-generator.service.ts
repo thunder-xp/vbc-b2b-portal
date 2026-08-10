@@ -20,7 +20,7 @@ export type CreateGeneratedEstimateInput = {
   name: string;
   projectName?: string | null;
   currencyCode: string;
-  vatMode: "none" | "separate";
+  vatMode: "none" | "included";
   validityDays: number;
   requestKey: string;
   requirements: GeneratorRequirement[];
@@ -214,7 +214,7 @@ export class ProposalGeneratorService {
 
 function validateCreateInput(input: CreateGeneratedEstimateInput) {
   if (![input.sessionId, input.finalCustomerId, input.requestKey].every((value) => UUID.test(value)) || !/^[0-9a-f]{64}$/.test(input.sessionFingerprint)) throw new InvalidStateError("Данные генератора некорректны.");
-  if (!input.name.trim() || input.name.length > 200 || !/^[A-Z]{3}$/.test(input.currencyCode) || !["none", "separate"].includes(input.vatMode) || input.validityDays < 1 || input.validityDays > 365) throw new InvalidStateError("Параметры сметы некорректны.");
+  if (!input.name.trim() || input.name.length > 200 || !/^[A-Z]{3}$/.test(input.currencyCode) || !["none", "included"].includes(input.vatMode) || input.validityDays < 1 || input.validityDays > 365) throw new InvalidStateError("Параметры сметы некорректны.");
   if (!input.requirements.length || input.requirements.length > 30) throw new InvalidStateError("Добавьте от 1 до 30 позиций.");
   for (const line of input.requirements) {
     if (!line.description.trim() || line.description.length > 500 || !Number.isFinite(line.quantity) || line.quantity <= 0 || line.quantity > 999999) throw new InvalidStateError("Проверьте описание и количество позиций.");
