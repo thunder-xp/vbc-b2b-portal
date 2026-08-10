@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { failureFromError, invalidInput, success } from "../../access-control/actions/action-result";
 import { requireAdminPermission } from "../../admin/services";
-import type { GeneratorRequirement } from "../services";
+import type { CctvCalculatorInput, GeneratorRequirement } from "../services";
 import { createProposalGeneratorService, getAuthenticatedUserId } from "./service-factory";
 
 export async function generateProposalDraftAction(input: { requirement: string; requestKey: string }) {
@@ -14,6 +14,16 @@ export async function generateProposalDraftAction(input: { requirement: string; 
     return success("Черновая структура сформирована. Проверьте позиции и выберите точные соответствия.", await createProposalGeneratorService().generate(userId, input));
   } catch (error) {
     console.error({ event: "estimate_generator_failed", errorName: error instanceof Error ? error.name : typeof error });
+    return failureFromError(error);
+  }
+}
+
+export async function calculateQuickProposalAction(input: { parameters: CctvCalculatorInput; currencyCode: string; requestKey: string }) {
+  try {
+    const userId = await getAuthenticatedUserId();
+    return success("Ориентировочный расчёт сформирован. Проверьте позиции и соответствия.", await createProposalGeneratorService().calculateCctv(userId, input));
+  } catch (error) {
+    console.error({ event: "estimate_generator_quick_calculation_failed", errorName: error instanceof Error ? error.name : typeof error });
     return failureFromError(error);
   }
 }
@@ -47,5 +57,28 @@ export async function getProposalGeneratorAdminReportAction() {
   try {
     await requireAdminPermission("admin.estimates.view");
     return success("Метрики генератора загружены.", await createProposalGeneratorService().getAdminReport());
+  } catch (error) { return failureFromError(error); }
+}
+
+export async function listProposalGeneratorProfilesAction() {
+  try {
+    await requireAdminPermission("admin.estimates.view");
+    return success("Профили загружены.", await createProposalGeneratorService().listCalculatorProfiles());
+  } catch (error) { return failureFromError(error); }
+}
+
+export async function searchProposalGeneratorTargetsAction(query: string) {
+  try {
+    await requireAdminPermission("admin.integrations.manage");
+    return success("Соответствия найдены.", await createProposalGeneratorService().searchCalculatorTargets(query));
+  } catch (error) { return failureFromError(error); }
+}
+
+export async function updateProposalGeneratorProfileAction(input: { profileKey: string; expectedVersion: number; targetType: "catalog" | "external_nomenclature" | "unresolved"; targetId: string | null }) {
+  try {
+    await requireAdminPermission("admin.integrations.manage");
+    const version = await createProposalGeneratorService().updateCalculatorProfile(input);
+    revalidatePath("/admin/commercial/proposal-generator");
+    return success("Соответствие сохранено.", { version });
   } catch (error) { return failureFromError(error); }
 }

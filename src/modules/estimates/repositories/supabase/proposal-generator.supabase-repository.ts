@@ -16,9 +16,20 @@ export class SupabaseProposalGeneratorRepository implements ProposalGeneratorRep
       target_requirement_count: input.requirementCount,
       target_duration_ms: input.durationMs,
       target_failed: input.failed ?? false,
+      target_generation_mode: input.generationMode ?? "description",
+      target_structured_facts: input.structuredFacts ?? null,
     });
     if (error || !data) fail(error?.code);
     return String(data);
+  }
+
+  async resolveCalculatorProfiles(companyId: string, profileKeys: string[]) {
+    if (!profileKeys.length) return [];
+    const { data, error } = await (await createClient()).rpc("resolve_estimate_generator_calculator_profiles", {
+      target_company_id: companyId, target_profile_keys: profileKeys,
+    });
+    if (error) fail(error.code);
+    return (data ?? []).map(mapProfile);
   }
 
   async resolveExternalNomenclature(companyId: string, ids: string[]): Promise<ExternalNomenclatureRecord[]> {
@@ -75,4 +86,39 @@ export class SupabaseProposalGeneratorRepository implements ProposalGeneratorRep
     if (error || !data) fail(error?.code);
     return data as unknown as Awaited<ReturnType<ProposalGeneratorRepository["getAdminReport"]>>;
   }
+
+  async listCalculatorProfiles() {
+    const { data, error } = await (await createClient()).rpc("list_estimate_generator_calculator_profiles");
+    if (error) fail(error.code);
+    return (data ?? []).map((row: Record<string, unknown>) => ({ ...mapProfile(row), systemType: "cctv" as const, isActive: row.is_active === true }));
+  }
+
+  async searchCalculatorTargets(query: string, limit: number) {
+    const { data, error } = await (await createClient()).rpc("search_estimate_generator_mapping_targets", { search_query: query, result_limit: limit });
+    if (error) fail(error.code);
+    return (data ?? []).map((row: Record<string, unknown>) => ({
+      targetType: row.target_type as "catalog" | "external_nomenclature", id: String(row.id), label: String(row.label),
+      secondary: typeof row.secondary === "string" ? row.secondary : null,
+    }));
+  }
+
+  async updateCalculatorProfile(input: Parameters<ProposalGeneratorRepository["updateCalculatorProfile"]>[0]) {
+    const { data, error } = await (await createClient()).rpc("update_estimate_generator_calculator_profile", {
+      target_profile_key: input.profileKey, expected_version: input.expectedVersion,
+      target_type: input.targetType, target_id: input.targetId,
+    });
+    if (error || data === null) fail(error?.code);
+    return Number(data);
+  }
+}
+
+function mapProfile(row: Record<string, unknown>) {
+  return {
+    profileKey: String(row.profile_key), label: String(row.label),
+    sectionKey: row.section_key as import("../../types").EstimateSectionSystemKey,
+    unit: row.unit as import("../estimate.repository").AddEstimateLineInput["unit"], version: Number(row.version),
+    resolution: row.resolution as "unresolved" | "catalog" | "own_nomenclature" | "shared_nomenclature",
+    resolvedId: typeof row.resolved_id === "string" ? row.resolved_id : null,
+    resolvedLabel: typeof row.resolved_label === "string" ? row.resolved_label : null,
+  };
 }

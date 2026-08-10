@@ -10,4 +10,5 @@ export * from "./estimate-sections";
 export * from "./external-nomenclature";
 export * from "./nomenclature-governance.service";
 export * from "./proposal-generator";
+export * from "./proposal-generator-calculator";
 export * from "./proposal-generator.service";

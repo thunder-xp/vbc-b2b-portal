@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 const sql = readFileSync(resolve("supabase/migrations/20260810130000_proposal_generator_mvp.sql"), "utf8");
 const telemetrySql = readFileSync(resolve("supabase/migrations/20260810140000_proposal_generator_telemetry_completion.sql"), "utf8");
+const calculatorSql = readFileSync(resolve("supabase/migrations/20260810150000_proposal_generator_quick_calculation.sql"), "utf8");
 const serviceSource = readFileSync(resolve("src/modules/estimates/services/proposal-generator.service.ts"), "utf8");
 const adminPage = readFileSync(resolve("app/(admin)/admin/commercial/proposal-generator/page.tsx"), "utf8");
 
@@ -44,5 +45,19 @@ describe("proposal generator MVP migration", () => {
   it("persists a bounded failed generation outcome", () => {
     expect(serviceSource).toContain("failed: true");
     expect(serviceSource).toContain("requirementCount: 0");
+  });
+  it("adds governed calculator mappings without raw narrative telemetry", () => {
+    expect(calculatorSql).toContain("estimate_generator_calculator_profiles");
+    expect(calculatorSql).toContain("target_generation_mode");
+    expect(calculatorSql).toContain("quick_calculation");
+    expect(calculatorSql).toContain("admin.integrations.manage");
+    expect(calculatorSql).toContain("expected_version");
+    expect(calculatorSql).not.toMatch(/requirement_text|raw_requirement|prompt_text/i);
+  });
+  it("resolves calculator mappings in one bounded RPC and preserves unresolved identities", () => {
+    expect(calculatorSql).toContain("resolve_estimate_generator_calculator_profiles");
+    expect(calculatorSql).toContain("profile.profile_key=any");
+    expect(calculatorSql).toContain("else 'unresolved'");
+    expect(calculatorSql).not.toContain("Document_ЗаказПокупателя");
   });
 });

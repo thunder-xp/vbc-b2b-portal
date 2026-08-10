@@ -9,6 +9,7 @@ import type { GeneratorPreparedLine, ProposalGeneratorRepository } from "../repo
 import type { EstimateSectionSystemKey } from "../types";
 import { convertMoney, resolveCurrencyRate } from "./commercial-calculation";
 import { countGeneratorResolutions, generateRequirements, type GeneratorRequirement } from "./proposal-generator";
+import { calculateCctvRequirements, cctvInputFingerprintPayload, type CctvCalculatorInput } from "./proposal-generator-calculator";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -44,11 +45,44 @@ export class ProposalGeneratorService {
       requirements = generateRequirements(requirement);
       if (!requirements.length) throw new InvalidStateError("Не удалось выделить позиции. Добавьте перечень оборудования или работ.");
     } catch (error) {
-      await this.repository.recordSession({ companyId, requestKey: input.requestKey, fingerprint, requirementCount: 0, durationMs: Math.round(performance.now() - startedAt), failed: true });
+      await this.repository.recordSession({ companyId, requestKey: input.requestKey, fingerprint, requirementCount: 0, durationMs: Math.round(performance.now() - startedAt), failed: true, generationMode: "description" });
       throw error;
     }
-    const sessionId = await this.repository.recordSession({ companyId, requestKey: input.requestKey, fingerprint, requirementCount: requirements.length, durationMs: Math.round(performance.now() - startedAt) });
+    const sessionId = await this.repository.recordSession({ companyId, requestKey: input.requestKey, fingerprint, requirementCount: requirements.length, durationMs: Math.round(performance.now() - startedAt), generationMode: "description" });
     return { sessionId, fingerprint, requirements };
+  }
+
+  async calculateCctv(userId: string, input: { parameters: CctvCalculatorInput; currencyCode: string; requestKey: string }) {
+    const startedAt = performance.now();
+    const companyId = await this.resolveCompany(userId, "estimates.manage");
+    if (!UUID.test(input.requestKey) || !/^[A-Z]{3}$/.test(input.currencyCode)) throw new InvalidStateError("Параметры расчёта некорректны.");
+    const facts = cctvInputFingerprintPayload(input.parameters);
+    const fingerprint = createHash("sha256").update(JSON.stringify(facts)).digest("hex");
+    let requirements: GeneratorRequirement[];
+    try {
+      const calculated = calculateCctvRequirements(input.parameters);
+      if (!calculated.length) throw new InvalidStateError("Укажите хотя бы одну камеру.");
+      const mappings = await this.repository.resolveCalculatorProfiles(companyId, [...new Set(calculated.map((line) => line.profileKey!))]);
+      const mappingByKey = new Map(mappings.map((mapping) => [mapping.profileKey, mapping]));
+      requirements = calculated.map((line) => {
+        const mapping = mappingByKey.get(line.profileKey!);
+        return mapping ? { ...line, resolution: mapping.resolution, resolvedId: mapping.resolvedId, resolvedLabel: mapping.resolvedLabel } : line;
+      });
+      const catalogIds = [...new Set(requirements.filter((line) => line.resolution === "catalog" && line.resolvedId).map((line) => line.resolvedId!))];
+      if (catalogIds.length) {
+        const commercial = await this.pricing.getProductCommercialViews(userId, catalogIds);
+        const priceById = new Map(commercial.map((view) => [view.productId, view.retailPrice]));
+        requirements = requirements.map((line) => {
+          const price = line.resolvedId ? priceById.get(line.resolvedId) : null;
+          return price?.currencyCode === input.currencyCode ? { ...line, sellingUnitPrice: price.amount, sellingCurrencyCode: price.currencyCode } : line;
+        });
+      }
+    } catch (error) {
+      await this.repository.recordSession({ companyId, requestKey: input.requestKey, fingerprint, requirementCount: 0, durationMs: Math.round(performance.now() - startedAt), failed: true, generationMode: "quick_calculation", structuredFacts: facts });
+      throw error;
+    }
+    const sessionId = await this.repository.recordSession({ companyId, requestKey: input.requestKey, fingerprint, requirementCount: requirements.length, durationMs: Math.round(performance.now() - startedAt), generationMode: "quick_calculation", structuredFacts: facts });
+    return { sessionId, fingerprint, requirements, assumptions: requirements.flatMap((line) => line.assumption ? [line.assumption] : []) };
   }
 
   async createEstimate(userId: string, input: CreateGeneratedEstimateInput) {
@@ -112,6 +146,23 @@ export class ProposalGeneratorService {
   }
 
   getAdminReport(limit = 20) { return this.repository.getAdminReport(Math.max(1, Math.min(limit, 50))); }
+
+  listCalculatorProfiles() { return this.repository.listCalculatorProfiles(); }
+
+  searchCalculatorTargets(query: string, limit = 12) {
+    const normalized = query.trim().slice(0, 120);
+    if (normalized.length < 2) throw new InvalidStateError("Введите не менее двух символов.");
+    return this.repository.searchCalculatorTargets(normalized, Math.max(1, Math.min(limit, 20)));
+  }
+
+  updateCalculatorProfile(input: { profileKey: string; expectedVersion: number; targetType: "catalog" | "external_nomenclature" | "unresolved"; targetId: string | null }) {
+    if (!/^cctv\.[a-z0-9.]+$/.test(input.profileKey) || !Number.isInteger(input.expectedVersion) || input.expectedVersion < 1
+      || !["catalog", "external_nomenclature", "unresolved"].includes(input.targetType)
+      || (input.targetType !== "unresolved" && (!input.targetId || !UUID.test(input.targetId)))) {
+      throw new InvalidStateError("Настройка профиля некорректна.");
+    }
+    return this.repository.updateCalculatorProfile(input);
+  }
 
   private async resolveCompany(userId: string, permission: string) {
     const memberships = await this.companyAccess.getOwnMemberships(userId);

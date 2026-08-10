@@ -5,6 +5,25 @@ import { ProposalGeneratorService } from "../proposal-generator.service";
 const uuid = (digit: string) => `${digit.repeat(8)}-${digit.repeat(4)}-${digit.repeat(4)}-${digit.repeat(4)}-${digit.repeat(12)}`;
 
 describe("ProposalGeneratorService", () => {
+  it("resolves quick-calculation profiles and prices in bounded batches", async () => {
+    const recordSession = vi.fn().mockResolvedValue(uuid("8"));
+    const resolveCalculatorProfiles = vi.fn().mockResolvedValue([
+      { profileKey: "cctv.indoor.standard", resolution: "catalog", resolvedId: uuid("2"), resolvedLabel: "CAM-1" },
+    ]);
+    const companyAccess = { getOwnMemberships: vi.fn().mockResolvedValue([{ companyId: uuid("4"), status: "active" }]), getActiveCompanyContext: vi.fn().mockResolvedValue({ company: { id: uuid("4") } }) };
+    const pricing = { getProductCommercialViews: vi.fn().mockResolvedValue([{ productId: uuid("2"), retailPrice: { amount: 150, currencyCode: "USD" } }]) };
+    const service = new ProposalGeneratorService({ recordSession, resolveCalculatorProfiles } as never, companyAccess as never, { ensurePermission: vi.fn() } as never, {} as never, pricing as never);
+    const result = await service.calculateCctv(uuid("1"), { requestKey: uuid("7"), currencyCode: "USD", parameters: {
+      objectType: "apartment", indoorCameraCount: 1, outdoorCameraCount: 0, archiveDays: 7, cableLength: 0,
+      installationRequested: false, commissioningRequested: false, remoteViewingRequested: false,
+      colorNight: false, highResolution: false, licensePlateRecognition: false, videoAnalytics: false, backupPower: false,
+    } });
+    expect(resolveCalculatorProfiles).toHaveBeenCalledTimes(1);
+    expect(pricing.getProductCommercialViews).toHaveBeenCalledTimes(1);
+    expect(result.requirements.find((line) => line.profileKey === "cctv.indoor.standard")).toMatchObject({ resolution: "catalog", sellingUnitPrice: 150 });
+    expect(recordSession).toHaveBeenCalledWith(expect.objectContaining({ generationMode: "quick_calculation", structuredFacts: expect.objectContaining({ systemType: "cctv" }) }));
+  });
+
   it("resolves catalog and external identities in bounded batches and initializes RETAIL selling price", async () => {
     const createEstimate = vi.fn().mockResolvedValue(uuid("9"));
     const resolveExternalNomenclature = vi.fn().mockResolvedValue([{ id: uuid("3"), name: "Монтаж камеры", unit: "service", itemType: "service" }]);

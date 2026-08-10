@@ -1,6 +1,7 @@
 export * from "./EstimateCreateForm";
 export * from "./ProposalGeneratorWorkspace";
 export * from "./ProposalGeneratorFeedback";
+export * from "./AdminProposalGeneratorProfiles";
 export * from "./EstimateCommercialEditor";
 export * from "./EstimateStatusBadge";
 export * from "./ExternalDemandAdminControls";

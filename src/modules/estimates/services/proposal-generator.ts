@@ -18,6 +18,10 @@ export type GeneratorRequirement = {
   resolution: GeneratorResolutionKind;
   resolvedId: string | null;
   resolvedLabel: string | null;
+  profileKey?: string | null;
+  assumption?: string | null;
+  sellingUnitPrice?: number | null;
+  sellingCurrencyCode?: string | null;
 };
 
 const SECTION_RULES: ReadonlyArray<{ key: EstimateSectionSystemKey; pattern: RegExp }> = [

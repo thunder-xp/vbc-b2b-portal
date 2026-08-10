@@ -2,31 +2,33 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
-const component = readFileSync(resolve("src/modules/estimates/components/ProposalGeneratorWorkspace.tsx"), "utf8");
+const workspace = readFileSync(resolve("src/modules/estimates/components/ProposalGeneratorWorkspace.tsx"), "utf8");
+const calculator = readFileSync(resolve("src/modules/estimates/components/ProposalQuickCalculator.tsx"), "utf8");
+const review = readFileSync(resolve("src/modules/estimates/components/ProposalGeneratorReview.tsx"), "utf8");
 const navigation = readFileSync(resolve("src/modules/partner-cabinet/services/workspace-capability.service.ts"), "utf8");
 
 describe("proposal generator UI contract", () => {
-  it("exposes the released generator from canonical partner navigation", () => {
+  it("keeps one canonical navigation entry", () => {
     expect(navigation).toContain('label: "Генератор КП"');
     expect(navigation).toContain('href: "/cabinet/estimates/generator"');
-    expect(navigation).toContain('requiredPermission: "estimates.manage"');
+    expect(navigation).not.toContain("Быстрый расчёт");
   });
-  it("renders two focused steps and all canonical sections", () => {
-    expect(component).toContain("Сформировать черновик");
-    expect(component).toContain("Шаг 2 из 2");
-    expect(component).toContain("GENERATOR_SECTIONS.map");
-    expect(component).toContain("Создать смету");
+  it("offers two modes and remembers the selection in session storage", () => {
+    expect(workspace).toContain("Быстрый расчёт"); expect(workspace).toContain("По описанию");
+    expect(workspace).toContain("novotech-proposal-generator-mode");
+    expect(workspace).toContain('dynamic(() => import("./ProposalQuickCalculator")');
   });
-  it("keeps resolution explicit and offers safe unresolved handling", () => {
-    expect(component).toContain("Требуется выбор позиции");
-    expect(component).toContain("Расширить поиск");
-    expect(component).toContain("Оставить как потребность");
-    expect(component).toContain("Создать внешнюю позицию");
-    expect(component).toContain("Цена не указана");
+  it("uses three calculator steps and minimal CCTV controls", () => {
+    expect(calculator).toContain("Шаг {step} из 3"); expect(workspace).toContain("Шаг 3 из 3");
+    for (const label of ["Камеры внутри", "Камеры снаружи", "Архив, дней", "Кабель, ориентировочно, м", "Дополнительные параметры"]) expect(calculator).toContain(label);
   });
-  it("uses responsive bounded layouts without a catalog preload", () => {
-    expect(component).toContain("overflow-x-clip");
-    expect(component).toContain("lg:grid-cols-");
-    expect(component).not.toContain("useEffect(");
+  it("converges both modes into one review and delays customer context", () => {
+    expect(workspace).toContain("ProposalGeneratorReview"); expect(workspace).toContain("createPanelOpen");
+    expect(workspace.indexOf("FinalCustomerPicker")).toBeLessThan(workspace.indexOf("function ProposalGeneratorWorkspace"));
+    expect(review).toContain("GENERATOR_SECTIONS.map"); expect(review).toContain("Оставить как потребность");
+  });
+  it("keeps responsive bounded layouts and explicit unresolved states", () => {
+    expect(workspace).toContain("overflow-x-clip"); expect(review).toContain("lg:grid-cols-");
+    expect(calculator).toContain("sm:grid-cols-2"); expect(review).toContain("Цена не указана");
   });
 });
