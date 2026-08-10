@@ -30,6 +30,7 @@ export function ProductThumbnail({
   variant = "md",
 }: ProductThumbnailProps) {
   const normalizedSrc = normalizeProductImageUrl(src);
+  const requiresAuthenticatedBrowserRequest = normalizedSrc?.startsWith("/api/nomenclature/covers/") === true;
   const [failedSrc, setFailedSrc] = useState<string | null>(null);
   const hasImage = Boolean(normalizedSrc) && failedSrc !== normalizedSrc;
   const image = (
@@ -45,6 +46,7 @@ export function ProductThumbnail({
       priority={priority}
       sizes={sizes}
       src={hasImage ? normalizedSrc! : "/product-placeholder.svg"}
+      unoptimized={requiresAuthenticatedBrowserRequest}
     />
   );
 

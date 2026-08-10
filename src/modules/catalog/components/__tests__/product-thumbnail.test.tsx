@@ -7,10 +7,10 @@ import { classifyProductImageSource, normalizeProductImageUrl, resolveProductIma
 import nextConfig from "../../../../../next.config";
 
 vi.mock("next/image", () => ({
-  default: ({ fill, priority, ...props }: React.ImgHTMLAttributes<HTMLImageElement> & { fill?: boolean; priority?: boolean }) => {
+  default: ({ fill, priority, unoptimized, ...props }: React.ImgHTMLAttributes<HTMLImageElement> & { fill?: boolean; priority?: boolean; unoptimized?: boolean }) => {
     void fill;
     void priority;
-    return createElement("img", props);
+    return createElement("img", { ...props, "data-unoptimized": String(Boolean(unoptimized)) });
   },
 }));
 
@@ -27,6 +27,12 @@ describe("ProductThumbnail", () => {
     expect(screen.getByRole("img", { name: "Camera" })).toHaveAttribute("loading", "lazy");
     expect(classifyProductImageSource(THUMBNAIL)).toBe("thumbnail");
     expect(resolveProductImageFit(THUMBNAIL)).toBe("contain");
+  });
+
+  it("loads private nomenclature covers directly in the authenticated browser", () => {
+    render(<div className="relative size-20"><ProductThumbnail alt="External item" sizes="80px" src="/api/nomenclature/covers/11111111-1111-1111-1111-111111111111" /></div>);
+    expect(screen.getByRole("img", { name: "External item" })).toHaveAttribute("data-unoptimized", "true");
+    expect(screen.getByRole("img", { name: "External item" })).toHaveAttribute("src", "/api/nomenclature/covers/11111111-1111-1111-1111-111111111111");
   });
 
   it("uses cover only for explicitly crop-composed thumbnails", () => {
