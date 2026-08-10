@@ -157,25 +157,27 @@ function NavigationItem({
 }
 
 function ExpandableNavigationGroup({
+  expanded,
   icon: Icon,
   hasWorkspaceAccess,
   id,
   items,
   label,
   onNavigate,
+  onToggle,
   pathname,
 }: {
   icon: typeof Gauge;
+  expanded: boolean;
   hasWorkspaceAccess: boolean;
   id: string;
   items: WorkspaceNavigationItem[];
   label: string;
   onNavigate?: () => void;
+  onToggle: () => void;
   pathname: string;
 }) {
   const routeActive = items.some((item) => isRouteActive(pathname, item.href));
-  const [open, setOpen] = useState(false);
-  const expanded = routeActive || open;
   const Chevron = expanded ? ChevronDown : ChevronRight;
 
   if (items.length === 0) return null;
@@ -188,7 +190,7 @@ function ExpandableNavigationGroup({
         className={`flex min-h-11 w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 ${
           routeActive ? "text-emerald-200" : "text-zinc-300 hover:bg-white/10 hover:text-white"
         }`}
-        onClick={() => setOpen((value) => !value)}
+        onClick={onToggle}
         type="button"
       >
         <Icon aria-hidden="true" className={`size-4 shrink-0 ${routeActive ? "text-emerald-300" : ""}`} />
@@ -268,6 +270,25 @@ export function PartnerSidebar({
     const item = navigationByKey.get(key);
     return item ? [item] : [];
   });
+  const activeGroupId = [
+    ["product-selection-navigation", selectionNavigation],
+    ["project-protection-navigation", projectNavigation],
+    ["estimates-navigation", estimatesNavigation],
+    ["orders-finance-navigation", commercialNavigation],
+    ["loyalty-navigation", loyaltyNavigation],
+    ["support-navigation", supportNavigation],
+  ].find(([, items]) => (items as WorkspaceNavigationItem[]).some((item) => isRouteActive(pathname, item.href)))?.[0] as string | undefined;
+  const [openGroupId, setOpenGroupId] = useState<string | null>(() => activeGroupId ?? null);
+  const [previousActiveGroupId, setPreviousActiveGroupId] = useState(activeGroupId);
+  if (activeGroupId !== previousActiveGroupId) {
+    setPreviousActiveGroupId(activeGroupId);
+    if (activeGroupId) setOpenGroupId(activeGroupId);
+  }
+
+  const groupProps = (id: string) => ({
+    expanded: openGroupId === id,
+    onToggle: () => setOpenGroupId((current) => current === id ? (activeGroupId === id ? id : null) : id),
+  });
 
   return (
     <aside className="flex h-full min-h-0 flex-col overflow-hidden border-r border-zinc-200 bg-zinc-950 text-white">
@@ -287,8 +308,7 @@ export function PartnerSidebar({
             <NavigationItem hasWorkspaceAccess={hasWorkspaceAccess} item={item} key={item.key} onNavigate={onNavigate} pathname={pathname} />
           ))}
 
-          <ExpandableNavigationGroup hasWorkspaceAccess={hasWorkspaceAccess} icon={SearchCheck} id="product-selection-navigation" items={selectionNavigation} label="Подбор товаров" onNavigate={onNavigate} pathname={pathname} />
-          <ExpandableNavigationGroup hasWorkspaceAccess={hasWorkspaceAccess} icon={ShieldCheck} id="project-protection-navigation" items={projectNavigation} label="Проектная защита" onNavigate={onNavigate} pathname={pathname} />
+          <ExpandableNavigationGroup {...groupProps("product-selection-navigation")} hasWorkspaceAccess={hasWorkspaceAccess} icon={SearchCheck} id="product-selection-navigation" items={selectionNavigation} label="Подбор товаров" onNavigate={onNavigate} pathname={pathname} />
 
           <ExpandableNavigationGroup
             hasWorkspaceAccess={hasWorkspaceAccess}
@@ -298,12 +318,14 @@ export function PartnerSidebar({
             label="Сметы и КП"
             onNavigate={onNavigate}
             pathname={pathname}
+            {...groupProps("estimates-navigation")}
           />
-          <ExpandableNavigationGroup hasWorkspaceAccess={hasWorkspaceAccess} icon={ListChecks} id="orders-finance-navigation" items={commercialNavigation} label="Заказы и финансы" onNavigate={onNavigate} pathname={pathname} />
+          <ExpandableNavigationGroup {...groupProps("orders-finance-navigation")} hasWorkspaceAccess={hasWorkspaceAccess} icon={ListChecks} id="orders-finance-navigation" items={commercialNavigation} label="Заказы и финансы" onNavigate={onNavigate} pathname={pathname} />
 
-          <ExpandableNavigationGroup hasWorkspaceAccess={hasWorkspaceAccess} icon={Gift} id="loyalty-navigation" items={loyaltyNavigation} label="Программы лояльности" onNavigate={onNavigate} pathname={pathname} />
+          <ExpandableNavigationGroup {...groupProps("loyalty-navigation")} hasWorkspaceAccess={hasWorkspaceAccess} icon={Gift} id="loyalty-navigation" items={loyaltyNavigation} label="Программы лояльности" onNavigate={onNavigate} pathname={pathname} />
 
-          <ExpandableNavigationGroup hasWorkspaceAccess={hasWorkspaceAccess} icon={LifeBuoy} id="support-navigation" items={supportNavigation} label="Гарантия и техподдержка" onNavigate={onNavigate} pathname={pathname} />
+          <ExpandableNavigationGroup {...groupProps("project-protection-navigation")} hasWorkspaceAccess={hasWorkspaceAccess} icon={ShieldCheck} id="project-protection-navigation" items={projectNavigation} label="Проектная защита" onNavigate={onNavigate} pathname={pathname} />
+          <ExpandableNavigationGroup {...groupProps("support-navigation")} hasWorkspaceAccess={hasWorkspaceAccess} icon={LifeBuoy} id="support-navigation" items={supportNavigation} label="Гарантия и техподдержка" onNavigate={onNavigate} pathname={pathname} />
         </div>
       </nav>
 

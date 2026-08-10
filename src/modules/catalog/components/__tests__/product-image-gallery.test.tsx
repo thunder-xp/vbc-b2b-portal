@@ -13,4 +13,14 @@ describe("ProductImageGallery identity", () => {
     expect(screen.getByRole("img")).toHaveAttribute("src", "/two.jpg");
     expect(screen.getByRole("img")).toHaveAttribute("alt", "Two");
   });
+
+  it("overlays merchandising badges inside the bounded image container", () => {
+    const { container } = render(<ProductImageGallery fallbackImageUrl="/one.jpg" images={[]} merchandisingLabels={["NEW", "HOT"]} productId="one" productName="One" />);
+
+    expect(screen.getByText("Новинка")).toBeInTheDocument();
+    expect(screen.getByText("Горячая цена")).toBeInTheDocument();
+    const overlay = screen.getByText("Новинка").closest<HTMLElement>(".absolute");
+    expect(overlay).toHaveClass("left-2", "top-2");
+    expect(container.querySelector(".aspect-\\[4\\/3\\]")).toContainElement(overlay);
+  });
 });

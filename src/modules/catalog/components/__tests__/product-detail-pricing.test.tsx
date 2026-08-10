@@ -30,9 +30,9 @@ describe("ProductDetail information architecture", () => {
 
     const text = container.textContent ?? "";
     expect(text.indexOf("Изображение товара product-1")).toBeLessThan(text.indexOf("IP Camera"));
-    expect(text.indexOf("Коммерческое предложение")).toBeLessThan(text.indexOf("Наличие и поступления"));
+    expect(screen.queryByText("Коммерческое предложение")).not.toBeInTheDocument();
     expect(text.indexOf("Наличие и поступления")).toBeLessThan(text.indexOf("В корзину"));
-    expect(screen.getByRole("heading", { name: "Ключевые характеристики" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Ключевые характеристики" })).not.toBeInTheDocument();
   });
 
   it("keeps the partner USD price visible without fabricating MDL when the published rate is unavailable", () => {
@@ -162,11 +162,11 @@ describe("ProductDetail information architecture", () => {
   it("renders all six compact tab destinations in the required order", () => {
     render(<ProductDetail product={product} />);
     const tabs = screen.getByRole("navigation", { name: "Разделы товара" });
-    expect(tabs.textContent).toMatch(/^ОбзорОписаниеХарактеристикиDatasheetЦенообразованиеАналоги и сопутствующие$/);
+    expect(tabs.textContent).toMatch(/^ОбзорОписаниеХарактеристикиИнструкцииЦенообразованиеАналоги и сопутствующие$/);
     expect(screen.getByRole("link", { name: "Обзор" })).toHaveAttribute("href", "?tab=overview");
     expect(screen.getByRole("link", { name: "Описание" })).toHaveAttribute("href", "?tab=description");
     expect(screen.getByRole("link", { name: "Характеристики" })).toHaveAttribute("href", "?tab=characteristics");
-    expect(screen.getByRole("link", { name: "Datasheet" })).toHaveAttribute("href", "?tab=datasheet");
+    expect(screen.getByRole("link", { name: "Инструкции" })).toHaveAttribute("href", "?tab=datasheet");
     expect(screen.getByRole("link", { name: "Ценообразование" })).toHaveAttribute("href", "?tab=pricing");
     expect(screen.getByRole("link", { name: "Аналоги и сопутствующие" })).toHaveAttribute("href", "?tab=relations");
   });

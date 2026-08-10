@@ -91,10 +91,10 @@ describe("Partner workspace shell", () => {
       "Возможности для закупки",
       "Специальные предложения",
       "Подбор товаров",
-      "Проектная защита",
       "Сметы и КП",
       "Заказы и финансы",
       "Программы лояльности",
+      "Проектная защита",
       "Гарантия и техподдержка",
     ]);
 
@@ -234,6 +234,21 @@ describe("Partner workspace shell", () => {
     expect(groupButton).toHaveAttribute("aria-expanded", "true");
     await user.keyboard(" ");
     expect(groupButton).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("keeps only one expandable navigation group open", async () => {
+    const user = userEvent.setup();
+    render(<PartnerSidebar hasWorkspaceAccess navigation={navigation} />);
+    const estimates = screen.getByRole("button", { name: "Сметы и КП" });
+    const commercial = screen.getByRole("button", { name: "Заказы и финансы" });
+
+    await user.click(estimates);
+    expect(estimates).toHaveAttribute("aria-expanded", "true");
+    expect(commercial).toHaveAttribute("aria-expanded", "false");
+
+    await user.click(commercial);
+    expect(estimates).toHaveAttribute("aria-expanded", "false");
+    expect(commercial).toHaveAttribute("aria-expanded", "true");
   });
 
   it("hides empty groups and keeps restricted children out of navigation", async () => {

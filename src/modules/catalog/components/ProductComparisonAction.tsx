@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { recordBehaviorInteraction } from "../../behavior-analytics/components/BehaviorViewEvent";
+import { IconActionTooltip } from "../../platform-ui";
 import {
   COMPARISON_CHANGED_EVENT,
   COMPARISON_LIMIT,
@@ -79,18 +80,23 @@ export function ProductComparisonAction({
 
   return (
     <div className="space-y-1">
-      <button
+      {compact ? <IconActionTooltip label={`${label} (${ids.length}/${COMPARISON_LIMIT})`}><button
         aria-describedby={`compare-count-${productId}`}
         aria-label={label}
         aria-pressed={selected}
         className={`inline-flex items-center justify-center gap-2 rounded-md border text-xs font-semibold outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 ${selected ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-50"} ${compact ? "size-11 p-0" : "h-11 px-3"}`}
         onClick={toggle}
-        title={compact ? `${label} (${ids.length}/${COMPARISON_LIMIT})` : undefined}
         type="button"
       >
         <Columns3 aria-hidden="true" className="size-4" />
-        {compact ? null : label}
-      </button>
+      </button></IconActionTooltip> : <button
+        aria-describedby={`compare-count-${productId}`}
+        aria-label={label}
+        aria-pressed={selected}
+        className={`inline-flex h-11 items-center justify-center gap-2 rounded-md border px-3 text-xs font-semibold outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 ${selected ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-50"}`}
+        onClick={toggle}
+        type="button"
+      ><Columns3 aria-hidden="true" className="size-4" />{label}</button>}
       <span className="sr-only" id={`compare-count-${productId}`}>
         Выбрано: {ids.length} из {COMPARISON_LIMIT}
       </span>

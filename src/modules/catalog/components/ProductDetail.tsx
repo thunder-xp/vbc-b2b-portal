@@ -6,7 +6,6 @@ import type { ProductCommercialViewDto, RetailPriceHistoryDto } from "../../pric
 import { buildCatalogHref, type CatalogProductDetailDto } from "../services";
 
 import { ExpandableDescription } from "./ExpandableDescription";
-import { MerchandisingBadges } from "./MerchandisingBadges";
 import { ProductActions } from "./ProductActions";
 import { ProductImageGallery } from "./ProductImageGallery";
 import { ProductPricingBlock } from "./ProductPricingBlock";
@@ -41,7 +40,7 @@ const TABS: Array<{ id: ProductDetailTab; label: string }> = [
   { id: "overview", label: "Обзор" },
   { id: "description", label: "Описание" },
   { id: "characteristics", label: "Характеристики" },
-  { id: "datasheet", label: "Datasheet" },
+  { id: "datasheet", label: "Инструкции" },
   { id: "pricing", label: "Ценообразование" },
   { id: "relations", label: "Аналоги и сопутствующие" },
 ];
@@ -56,7 +55,6 @@ export function ProductDetail({ activeTab = "overview", canAddToOrder = false, c
     {activeTab === "overview" ? (
       <>
         <ProductTabLayout product={product}><OverviewTab canAddToOrder={canAddToOrder} canManagePurchasingLists={canManagePurchasingLists} companyId={companyId} commercialView={commercialView} hasAnalogs={hasAnalogs} initialFavorite={initialFavorite} priceFreshness={priceFreshness} product={product} stockFreshness={stockFreshness} userId={userId} /></ProductTabLayout>
-        <KeyCharacteristicsSummary product={product} />
       </>
     ) : activeTab === "relations" ? <div className="min-w-0" data-testid="product-detail-content">{relationsContent}</div> : <ProductTabLayout product={product}>
       {activeTab === "description" ? <DescriptionTab product={product} /> : null}
@@ -69,21 +67,19 @@ export function ProductDetail({ activeTab = "overview", canAddToOrder = false, c
 
 function ProductTabLayout({ children, product }: { children: ReactNode; product: CatalogProductDetailDto }) {
   return <div className="grid gap-5 md:grid-cols-[minmax(0,360px)_minmax(0,1fr)] md:items-start lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)] lg:gap-7" data-testid="product-detail-layout">
-    <div data-testid="product-detail-image"><ProductImageGallery fallbackImageUrl={product.imageUrl} images={product.images} productId={product.id} productName={product.name} /></div>
+    <div data-testid="product-detail-image"><ProductImageGallery fallbackImageUrl={product.imageUrl} images={product.images} merchandisingLabels={product.merchandisingLabels} productId={product.id} productName={product.name} /></div>
     <div className="min-w-0" data-testid="product-detail-content">{children}</div>
   </div>;
 }
 
 function OverviewTab({ canAddToOrder, canManagePurchasingLists, companyId, commercialView, hasAnalogs, initialFavorite, priceFreshness, product, stockFreshness, userId }: Omit<ProductDetailProps, "activeTab" | "relationsContent">) {
   return <section aria-label="Обзор товара" data-testid="product-overview-tab">
-      <MerchandisingBadges labels={product.merchandisingLabels} />
       <h1 className="break-words text-3xl font-semibold text-zinc-950">{product.name}</h1>
       <p className="mt-1.5 text-sm font-medium text-zinc-600">Артикул: {product.sku}</p>
       {product.brand?.name ? <p className="mt-1.5 text-sm font-medium text-emerald-700">{product.brand.name}</p> : null}
 
-      <section aria-label="Текущая коммерческая информация" className="mt-5 border-t border-zinc-200 pt-5">
-        <h2 className="text-base font-semibold text-zinc-950">Коммерческое предложение</h2>
-        <div className="mt-3"><ProductPricingBlock commercialView={commercialView} freshness={priceFreshness} variant="detail" /></div>
+      <section aria-label="Текущая коммерческая информация" className="mt-5">
+        <ProductPricingBlock commercialView={commercialView} freshness={priceFreshness} variant="detail" />
       </section>
       <AvailabilityBlock commercialView={commercialView} freshness={stockFreshness} />
       <RelationPrompt hasAnalogs={hasAnalogs ?? false} stock={commercialView?.stock} />
@@ -124,21 +120,10 @@ function DescriptionTab({ product }: { product: CatalogProductDetailDto }) {
   );
 }
 
-function KeyCharacteristicsSummary({ product }: { product: CatalogProductDetailDto }) {
-  const items = product.keyCharacteristics.slice(0, 6);
-  if (!items.length) return null;
-  return <section aria-label="Ключевые характеристики" className="mt-6">
-    <div className="flex items-center justify-between gap-3"><h2 className="text-base font-semibold text-zinc-950">Ключевые характеристики</h2><Link className="text-sm font-semibold text-emerald-700" href="?tab=characteristics" prefetch={false}>Все характеристики</Link></div>
-    <dl className="mt-3 grid gap-px overflow-hidden rounded-md border border-zinc-200 bg-zinc-200 sm:grid-cols-2">
-      {items.map((item) => <div className="min-w-0 bg-white px-3 py-2.5" key={`${item.key ?? item.label}:${item.value}`}><dt className="truncate text-xs text-zinc-500" title={item.label}>{item.label}</dt><dd className="mt-0.5 truncate text-sm font-medium text-zinc-950" title={item.value}>{item.value}</dd></div>)}
-    </dl>
-  </section>;
-}
-
 function AvailabilityBlock({ commercialView, freshness }: { commercialView?: ProductCommercialViewDto; freshness?: FreshnessView | null }) {
   const stock = commercialView?.stock;
   const tone = getStockTone(stock?.status);
-  return <section aria-label="Текущая доступность" className="mt-6 border-t border-zinc-200 pt-6">
+  return <section aria-label="Текущая доступность" className="mt-6">
     <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="text-base font-semibold text-zinc-950">Наличие и поступления</h2><span className={`inline-flex rounded-full px-3 py-1 text-sm font-semibold ${tone.badge}`}>{stockStatusLabel(stock?.status)}</span></div>
     <div className={`mt-3 border p-4 ${tone.panel}`}>
       {stock ? <dl className="grid gap-4 text-sm sm:grid-cols-2">
@@ -162,7 +147,7 @@ function isUsableFilter(item: CatalogProductDetailDto["keyCharacteristics"][numb
 }
 
 function DatasheetTab({ product }: { product: CatalogProductDetailDto }) {
-  return <section aria-label="Документы товара"><h1 className="text-xl font-semibold text-zinc-950">Документы</h1>{product.documents.length ? <ul className="mt-3 divide-y divide-zinc-200 border-y border-zinc-200">{product.documents.map((document) => <li className="flex flex-wrap items-center justify-between gap-3 py-4 text-sm" key={document.id}><div><p className="font-medium text-zinc-950">{document.title}</p><p className="text-zinc-500">{document.documentType}</p></div><a className="font-medium text-emerald-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600" href={document.url} rel="noopener noreferrer" target="_blank">Открыть документ</a></li>)}</ul> : <p className="mt-3 border-y border-zinc-200 py-8 text-sm text-zinc-600">Документы товара пока недоступны.</p>}</section>;
+  return <section aria-label="Инструкции и документы товара"><h1 className="text-xl font-semibold text-zinc-950">Инструкции</h1>{product.documents.length ? <ul className="mt-3 divide-y divide-zinc-100">{product.documents.map((document) => <li className="flex flex-wrap items-center justify-between gap-3 py-3 text-sm" key={document.id}><div><p className="font-medium text-zinc-950">{document.title}</p><p className="text-zinc-500">{document.documentType}</p></div><a className="inline-flex min-h-11 items-center font-medium text-emerald-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600" href={document.url} rel="noopener noreferrer" target="_blank">Открыть документ</a></li>)}</ul> : <p className="mt-2 text-sm text-zinc-600">Инструкции для этого товара пока не опубликованы.</p>}</section>;
 }
 
 function PricingHistoryTab({ error, history, productId }: { error?: string | null; history?: RetailPriceHistoryDto | null; productId: string }) {
