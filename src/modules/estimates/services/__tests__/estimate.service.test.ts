@@ -334,6 +334,13 @@ describe("DefaultEstimateService", () => {
     await service.saveCommercialDraft("user-1", estimate.id, { ...command, vatMode: "included", vatRatePercent: 8 });
     expect(repository.saveCommercialDraft).toHaveBeenLastCalledWith(expect.objectContaining({ settings: expect.objectContaining({ vatMode: "separate", vatRatePercent: 20 }) }));
 
+    vi.mocked(repository.findAggregateById).mockResolvedValue({
+      ...commercialAggregate,
+      estimate: { ...commercialAggregate.estimate, vatMode: "included", vatRatePercent: 20 },
+    });
+    await service.saveCommercialDraft("user-1", estimate.id, { ...command, vatMode: "included", vatRatePercent: 8 });
+    expect(repository.saveCommercialDraft).toHaveBeenLastCalledWith(expect.objectContaining({ settings: expect.objectContaining({ vatMode: "included", vatRatePercent: 20 }) }));
+
     await service.saveCommercialDraft("user-1", estimate.id, { ...command, vatMode: "none", vatRatePercent: 20 });
     expect(repository.saveCommercialDraft).toHaveBeenLastCalledWith(expect.objectContaining({ settings: expect.objectContaining({ vatMode: "none", vatRatePercent: 0 }) }));
   });

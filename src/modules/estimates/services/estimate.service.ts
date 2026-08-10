@@ -1119,7 +1119,11 @@ export class DefaultEstimateService implements EstimateService {
     });
     const globalDiscountPercent = normalizePercentage(input.globalDiscountPercent, "Глобальная скидка должна быть от 0 до 100%.");
     const requestedVatMode = normalizeVatMode(input.vatMode);
-    const vatMode: EstimateVatMode = requestedVatMode === "none" ? "none" : "separate";
+    const vatMode: EstimateVatMode = requestedVatMode === "none"
+      ? "none"
+      : aggregate.estimate.vatMode === "included" && requestedVatMode === "included"
+        ? "included"
+        : "separate";
     const vatRatePercent = vatMode === "none" ? 0 : 20;
     calculateEstimateCommercials({ lines, sections, charges, globalDiscountPercent, vatMode, vatRatePercent });
 
