@@ -59,7 +59,7 @@ describe("ProposalGeneratorService", () => {
       ensurePermission: vi.fn(),
       getEffectivePermissionContext: vi.fn().mockResolvedValue({ userId: uuid("1"), companyId: uuid("4"), effectivePermissionCodes: ["pricing.partner_price.view"] }),
     };
-    const catalog = { getProductsByIds: vi.fn().mockResolvedValue([{ id: uuid("2"), sku: "CAM-1", name: "Камера" }]) };
+    const catalog = { getProductOrderIdentities: vi.fn().mockResolvedValue([{ id: uuid("2"), external1cId: uuid("9"), sku: "CAM-1", name: "Камера" }]) };
     const pricing = { getProductCommercialViews: vi.fn().mockResolvedValue([{ productId: uuid("2"), retailPrice: { amount: 150, currencyCode: "MDL" }, partnerPrice: null }]) };
     const service = new ProposalGeneratorService(repository as never, companyAccess as never, permissions as never, catalog as never, pricing as never);
     const result = await service.createEstimate(uuid("1"), {
@@ -71,7 +71,7 @@ describe("ProposalGeneratorService", () => {
         { id: "four", sectionKey: "equipment", description: "Архив 30 дней", quantity: 1, unit: "pcs", resolution: "unresolved", resolvedId: null, resolvedLabel: null },
       ],
     });
-    expect(catalog.getProductsByIds).toHaveBeenCalledTimes(1);
+    expect(catalog.getProductOrderIdentities).toHaveBeenCalledTimes(1);
     expect(pricing.getProductCommercialViews).toHaveBeenCalledTimes(1);
     expect(resolveExternalNomenclature).toHaveBeenCalledTimes(1);
     expect(resolveServices).toHaveBeenCalledTimes(1);

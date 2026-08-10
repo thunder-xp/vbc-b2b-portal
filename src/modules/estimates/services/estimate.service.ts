@@ -743,16 +743,29 @@ export class DefaultEstimateService implements EstimateService {
 
   async getDetail(userId: string, estimateId: string): Promise<EstimateDetailDto> {
     const companyId = await this.resolveCompany(userId, VIEW_PERMISSION);
-    const canViewPartnerPrice = await this.canViewPartnerPrice(userId, companyId);
-    return this.getDetailForCompany(userId, estimateId, companyId, canViewPartnerPrice);
+    const [aggregate, canViewPartnerPrice] = await Promise.all([
+      this.repository.findAggregateById(normalizeId(estimateId)),
+      this.canViewPartnerPrice(userId, companyId),
+    ]);
+    return this.projectDetailForCompany(userId, aggregate, companyId, canViewPartnerPrice);
   }
 
   private async getDetailForCompany(userId: string, estimateId: string, companyId: string, canViewPartnerPrice: boolean): Promise<EstimateDetailDto> {
     const aggregate = await this.repository.findAggregateById(normalizeId(estimateId));
+    return this.projectDetailForCompany(userId, aggregate, companyId, canViewPartnerPrice);
+  }
+
+  private async projectDetailForCompany(userId: string, aggregate: EstimateAggregate | null, companyId: string, canViewPartnerPrice: boolean): Promise<EstimateDetailDto> {
     if (!aggregate || aggregate.estimate.companyId !== companyId) throw new NotFoundError("Estimate was not found.");
     const productIds = [...new Set(aggregate.items.flatMap((item) => item.productId ? [item.productId] : []))];
-    const products = productIds.length ? await this.catalogService.getProductsByIds(userId, productIds) : [];
-    const images = new Map(products.map((product) => [product.id, product.imageUrl]));
+    const images = new Map<string, string | null>();
+    if (productIds.length && this.catalogService.getProductReferencesByIds) {
+      const products = await this.catalogService.getProductReferencesByIds(userId, productIds);
+      products.forEach((product) => images.set(product.productId, product.thumbnail));
+    } else if (productIds.length) {
+      const products = await this.catalogService.getProductsByIds(userId, productIds);
+      products.forEach((product) => images.set(product.id, product.imageUrl));
+    }
     return projectEstimateDetail(
       toCommercialDetail(aggregate, images),
       canViewPartnerPrice,
@@ -762,12 +775,16 @@ export class DefaultEstimateService implements EstimateService {
   async saveCommercialDraft(userId: string, estimateId: string, input: SaveEstimateCommercialCommand): Promise<EstimateDetailDto> {
     const startedAt = performance.now();
     const companyId = await this.resolveCompany(userId, PRICING_PERMISSION);
-    const aggregate = await this.repository.findAggregateById(normalizeId(estimateId));
+    const contextResolvedAt = performance.now();
+    const [aggregate, canViewPartnerPrice] = await Promise.all([
+      this.repository.findAggregateById(normalizeId(estimateId)),
+      this.canViewPartnerPrice(userId, companyId),
+    ]);
+    const aggregateResolvedAt = performance.now();
     if (!aggregate || aggregate.estimate.companyId !== companyId) throw new NotFoundError("Estimate was not found.");
     if (aggregate.estimate.status !== "draft") throw new InvalidStateError("Only draft estimates can be changed.");
     if (aggregate.estimate.revision !== normalizeRevision(input.expectedRevision)) throw new InvalidStateError("Estimate was changed in another session. Reload before saving.");
 
-    const canViewPartnerPrice = await this.canViewPartnerPrice(userId, companyId);
     if (!canViewPartnerPrice && input.currencyCode !== aggregate.estimate.currencyCode) {
       throw new InvalidStateError(
         "Изменение валюты требует полного коммерческого доступа.",
@@ -777,11 +794,13 @@ export class DefaultEstimateService implements EstimateService {
       ? input
       : preserveConfidentialEstimateInputs(aggregate, input);
     const normalized = await this.prepareCommercialSave(userId, aggregate, safeInput);
+    const preparedAt = performance.now();
     try {
       await this.repository.saveCommercialDraft(normalized);
     } catch (error) {
       handleRepositoryConflict(error);
     }
+    const savedAt = performance.now();
     // Reuse the already verified tenant/access context after the mutation. Re-resolving
     // it here previously allowed a successful commit to be reported as a failed Save.
     const detail = await this.getDetailForCompany(userId, estimateId, companyId, canViewPartnerPrice);
@@ -792,6 +811,13 @@ export class DefaultEstimateService implements EstimateService {
       sectionCount: input.sections.length,
       currency: input.currencyCode,
       durationMs: Math.round(performance.now() - startedAt),
+      stageMs: {
+        context: Math.round(contextResolvedAt - startedAt),
+        aggregateAndVisibility: Math.round(aggregateResolvedAt - contextResolvedAt),
+        validationAndCommercials: Math.round(preparedAt - aggregateResolvedAt),
+        saveRpc: Math.round(savedAt - preparedAt),
+        responseProjection: Math.round(performance.now() - savedAt),
+      },
       deployedCommitSha: process.env.VERCEL_GIT_COMMIT_SHA ?? null,
     };
     console.info({ event: "estimate_commercial_settings_updated", ...logContext });

@@ -132,14 +132,12 @@ export class DefaultPricingInventoryService implements PricingInventoryService {
 
   async getCommercialVisibility(userId: string): Promise<CommercialVisibilityContext> {
     const company = await this.resolveActiveCompany(userId);
-    const permissionContext =
-      await this.permissionService.getEffectivePermissionContext(userId, company.id);
-    return resolveCommercialVisibility(permissionContext);
+    return this.getCommercialVisibilityForCompany(userId, company.id);
   }
 
   async listAvailableCurrencyCodes(userId: string): Promise<string[]> {
     const company = await this.resolveActiveCompany(userId);
-    const visibility = await this.getCommercialVisibility(userId);
+    const visibility = await this.getCommercialVisibilityForCompany(userId, company.id);
     const canViewPrices =
       visibility.canViewPartnerPrice || visibility.canViewRetailPrice;
     if (!canViewPrices || !this.pricingInventoryRepository.listAvailableCurrencyCodes) return [];
@@ -176,7 +174,7 @@ export class DefaultPricingInventoryService implements PricingInventoryService {
     const company = await this.resolveActiveCompany(userId);
     const companyId = company.id;
     const [visibility, canViewStock] = await Promise.all([
-      this.getCommercialVisibility(userId),
+      this.getCommercialVisibilityForCompany(userId, companyId),
       this.permissionService.hasPermission(userId, companyId, STOCK_PERMISSION),
     ]);
     const canViewPartnerPrice =
@@ -429,6 +427,15 @@ export class DefaultPricingInventoryService implements PricingInventoryService {
     );
 
     return { id: activeMembership.companyId, external1cPriceTypeId: context.company.external1cPriceTypeId ?? null };
+  }
+
+  private async getCommercialVisibilityForCompany(
+    userId: string,
+    companyId: string,
+  ): Promise<CommercialVisibilityContext> {
+    const permissionContext =
+      await this.permissionService.getEffectivePermissionContext(userId, companyId);
+    return resolveCommercialVisibility(permissionContext);
   }
 }
 

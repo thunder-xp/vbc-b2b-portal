@@ -94,16 +94,16 @@ export class EstimateLifecycleService {
   }
 
   async createVersion(userId: string, estimateId: string, expectedRevision: number, note?: string, changeReason?: string): Promise<EstimateVersion> {
-    await this.resolveCompany(userId, MANAGE_PERMISSION);
     const startedAt = performance.now();
-    const preview = await this.proposalService.preparePreview(userId, estimateId);
+    const preview = await this.proposalService.preparePreview(userId, estimateId, MANAGE_PERMISSION);
+    const previewPreparedAt = performance.now();
     assertReady(readinessFromProposal(preview.proposal).checks);
     const created = await this.lifecycleRepository.createVersion({
       estimateId: normalizeId(estimateId), expectedRevision: normalizeRevision(expectedRevision),
       note: normalizeOptional(note, 1000), changeReason: normalizeOptional(changeReason, 1000),
       customerProposalSnapshot: preview.proposal,
     });
-    console.info({ event: "estimate_version_created", estimateId, versionId: created.id, versionNumber: created.versionNumber, lineCount: preview.proposal.sections.reduce((sum, section) => sum + section.lines.length, 0), durationMs: Math.round(performance.now() - startedAt) });
+    console.info({ event: "estimate_version_created", estimateId, versionId: created.id, versionNumber: created.versionNumber, lineCount: preview.proposal.sections.reduce((sum, section) => sum + section.lines.length, 0), durationMs: Math.round(performance.now() - startedAt), stageMs: { snapshotPreparation: Math.round(previewPreparedAt - startedAt), versionRpc: Math.round(performance.now() - previewPreparedAt) }, deployedCommitSha: process.env.VERCEL_GIT_COMMIT_SHA ?? null });
     return created;
   }
 

@@ -92,7 +92,14 @@ export class SupabaseProposalRepository implements ProposalRepository {
 
   async markGenerating(documentId: string) { await this.updateDocument(documentId, { status: "generating", safe_error: null }); }
   async markReady(input: { documentId: string; bucket: string; key: string; pageCount: number; fileSizeBytes: number; checksumSha256: string }) {
-    await this.updateDocument(input.documentId, { status: "ready", storage_bucket: input.bucket, storage_key: input.key, page_count: input.pageCount, file_size_bytes: input.fileSizeBytes, checksum_sha256: input.checksumSha256, generated_at: new Date().toISOString(), safe_error: null });
+    const supabase = await createClient();
+    const { data, error } = await supabase.from("generated_estimate_documents")
+      .update({ status: "ready", storage_bucket: input.bucket, storage_key: input.key, page_count: input.pageCount, file_size_bytes: input.fileSizeBytes, checksum_sha256: input.checksumSha256, generated_at: new Date().toISOString(), safe_error: null })
+      .eq("id", input.documentId)
+      .select(DOCUMENT_COLUMNS)
+      .single();
+    if (error || !data) throw new ProposalRepositoryError();
+    return mapDocument(data as DocumentRow);
   }
   async markFailed(documentId: string, safeError: string) { await this.updateDocument(documentId, { status: "failed", safe_error: safeError.slice(0, 500) }); }
 

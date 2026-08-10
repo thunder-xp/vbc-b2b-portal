@@ -56,14 +56,20 @@ export class ProposalGeneratorService {
   async calculateCctv(userId: string, input: { parameters: CctvCalculatorInput; currencyCode: string; requestKey: string }) {
     const startedAt = performance.now();
     const companyId = await this.resolveCompany(userId, "estimates.manage");
+    const contextResolvedAt = performance.now();
     if (!UUID.test(input.requestKey) || !/^[A-Z]{3}$/.test(input.currencyCode)) throw new InvalidStateError("Параметры расчёта некорректны.");
     const facts = cctvInputFingerprintPayload(input.parameters);
     const fingerprint = createHash("sha256").update(JSON.stringify(facts)).digest("hex");
     let requirements: GeneratorRequirement[];
+    let rulesCalculatedAt = contextResolvedAt;
+    let mappingsResolvedAt = contextResolvedAt;
+    let commercialResolvedAt = contextResolvedAt;
     try {
       const calculated = calculateCctvRequirements(input.parameters);
+      rulesCalculatedAt = performance.now();
       if (!calculated.length) throw new InvalidStateError("Укажите хотя бы одну камеру.");
       const mappings = await this.repository.resolveCalculatorProfiles(companyId, [...new Set(calculated.map((line) => line.profileKey).filter((key): key is NonNullable<typeof key> => key !== null))]);
+      mappingsResolvedAt = performance.now();
       const mappingByKey = new Map(mappings.map((mapping) => [mapping.profileKey, mapping]));
       requirements = calculated.map((line) => {
         const mapping = line.profileKey ? mappingByKey.get(line.profileKey) : null;
@@ -85,35 +91,55 @@ export class ProposalGeneratorService {
           return price?.currencyCode === input.currencyCode ? { ...line, sellingUnitPrice: price.amount, sellingCurrencyCode: price.currencyCode } : line;
         });
       }
+      commercialResolvedAt = performance.now();
     } catch (error) {
       await this.repository.recordSession({ companyId, requestKey: input.requestKey, fingerprint, requirementCount: 0, durationMs: Math.round(performance.now() - startedAt), failed: true, generationMode: "quick_calculation", structuredFacts: facts });
       throw error;
     }
-    const sessionId = await this.repository.recordSession({ companyId, requestKey: input.requestKey, fingerprint, requirementCount: requirements.length, durationMs: Math.round(performance.now() - startedAt), generationMode: "quick_calculation", structuredFacts: facts, resolutionCounts: countGeneratorResolutions(requirements) });
+    const telemetryStartedAt = performance.now();
+    const sessionId = await this.repository.recordSession({ companyId, requestKey: input.requestKey, fingerprint, requirementCount: requirements.length, durationMs: Math.round(telemetryStartedAt - startedAt), generationMode: "quick_calculation", structuredFacts: facts, resolutionCounts: countGeneratorResolutions(requirements) });
+    console.info({
+      event: "proposal_generator_quick_calculation_performance",
+      companyId,
+      sessionId,
+      requirementCount: requirements.length,
+      stageMs: {
+        context: Math.round(contextResolvedAt - startedAt),
+        rules: Math.round(rulesCalculatedAt - contextResolvedAt),
+        profileResolution: Math.round(mappingsResolvedAt - rulesCalculatedAt),
+        catalogCommercialResolution: Math.round(commercialResolvedAt - mappingsResolvedAt),
+        telemetryWrite: Math.round(performance.now() - telemetryStartedAt),
+      },
+      durationMs: Math.round(performance.now() - startedAt),
+      deployedCommitSha: process.env.VERCEL_GIT_COMMIT_SHA ?? null,
+    });
     return { sessionId, fingerprint, requirements, assumptions: requirements.flatMap((line) => line.assumption ? [line.assumption] : []) };
   }
 
   async createEstimate(userId: string, input: CreateGeneratedEstimateInput) {
+    const startedAt = performance.now();
     const companyId = await this.resolveCompany(userId, "estimates.pricing.manage");
+    const contextResolvedAt = performance.now();
     validateCreateInput(input);
     const catalogIds = [...new Set(input.requirements.filter((line) => line.resolution === "catalog").map((line) => line.resolvedId!))];
     const serviceIds = [...new Set(input.requirements.filter((line) => line.resolution === "service").map((line) => line.resolvedId!))];
     const serviceProfileKeys = [...new Set(input.requirements.filter((line) => line.resolution === "service" && line.profileKey).map((line) => line.profileKey!))];
     const externalIds = [...new Set(input.requirements.filter((line) => line.resolution === "own_nomenclature" || line.resolution === "shared_nomenclature").map((line) => line.resolvedId!))];
-    const [products, commercial, services, external, serviceProfiles] = await Promise.all([
-      catalogIds.length ? this.catalog.getProductsByIds(userId, catalogIds) : Promise.resolve([]),
+    const [products, commercial, services, external, serviceProfiles, permissionContext] = await Promise.all([
+      catalogIds.length ? this.catalog.getProductOrderIdentities(userId, catalogIds) : Promise.resolve([]),
       catalogIds.length ? this.pricing.getProductCommercialViews(userId, catalogIds) : Promise.resolve([]),
       this.repository.resolveServices(companyId, serviceIds),
       this.repository.resolveExternalNomenclature(companyId, externalIds),
       this.repository.resolveCalculatorProfiles(companyId, serviceProfileKeys),
+      this.permissions.getEffectivePermissionContext(userId, companyId),
     ]);
+    const projectionsResolvedAt = performance.now();
     if (products.length !== catalogIds.length || services.length !== serviceIds.length || external.length !== externalIds.length) throw new InvalidStateError("Одна из выбранных позиций больше недоступна. Повторите выбор.");
     const productById = new Map(products.map((product) => [product.id, product]));
     const commercialById = new Map(commercial.map((view) => [view.productId, view]));
     const serviceById = new Map(services.map((service) => [service.id, service]));
     const serviceProfileByKey = new Map(serviceProfiles.map((profile) => [profile.profileKey, profile]));
     const externalById = new Map(external.map((item) => [item.id, item]));
-    const permissionContext = await this.permissions.getEffectivePermissionContext(userId, companyId);
     const canViewPartnerPrice = resolveCommercialVisibility(permissionContext).canViewPartnerPrice;
     const needsRetailRate = commercial.some((view) => view.retailPrice?.currencyCode && view.retailPrice.currencyCode !== input.currencyCode);
     const needsCostRate = canViewPartnerPrice && commercial.some((view) => view.partnerPrice?.currencyCode && view.partnerPrice.currencyCode !== input.currencyCode);
@@ -121,6 +147,7 @@ export class ProposalGeneratorService {
       needsRetailRate ? this.pricing.getRetailUsdMdlRateSnapshot?.(userId) ?? null : null,
       needsCostRate ? this.pricing.getApprovedUsdMdlRateSnapshot?.(userId) ?? null : null,
     ]);
+    const ratesResolvedAt = performance.now();
     if (needsRetailRate && !retailRate) throw new InvalidStateError("Для пересчёта розничной цены нет опубликованного курса.");
     if (needsCostRate && !costRate) throw new InvalidStateError("Для пересчёта закупочной цены нет опубликованного курса.");
 
@@ -155,7 +182,23 @@ export class ProposalGeneratorService {
       }
       return { ...common, lineType: "custom", productId: null, externalNomenclatureId: null, skuSnapshot: null, productNameSnapshot: null, sourceUnitPrice: null, sourceCurrencyCode: null, sourceSnapshotAt: null, sellingUnitPrice: null };
     });
+    const linesPreparedAt = performance.now();
     const estimateId = await this.repository.createEstimate({ companyId, sessionId: input.sessionId, finalCustomerId: input.finalCustomerId, name: input.name.trim(), projectName: input.projectName?.trim() || null, currencyCode: input.currencyCode, vatMode: input.vatMode, validityDays: input.validityDays, requestKey: input.requestKey, fingerprint: input.sessionFingerprint, lines });
+    console.info({
+      event: "proposal_generator_estimate_creation_performance",
+      companyId,
+      estimateId,
+      lineCount: lines.length,
+      stageMs: {
+        context: Math.round(contextResolvedAt - startedAt),
+        boundedProjections: Math.round(projectionsResolvedAt - contextResolvedAt),
+        currencyRates: Math.round(ratesResolvedAt - projectionsResolvedAt),
+        prepareLines: Math.round(linesPreparedAt - ratesResolvedAt),
+        createRpc: Math.round(performance.now() - linesPreparedAt),
+      },
+      durationMs: Math.round(performance.now() - startedAt),
+      deployedCommitSha: process.env.VERCEL_GIT_COMMIT_SHA ?? null,
+    });
     return { estimateId, counts: countGeneratorResolutions(input.requirements) };
   }
 

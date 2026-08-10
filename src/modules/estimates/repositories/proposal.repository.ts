@@ -10,7 +10,7 @@ export interface ProposalRepository {
   findVersionProposal(versionId: string): Promise<{ estimateId: string; companyId: string; versionNumber: number; proposal: CustomerProposalDto } | null>;
   claimVersionGeneration(input: { versionId: string; fingerprint: string }): Promise<GeneratedEstimateDocument>;
   markGenerating(documentId: string): Promise<void>;
-  markReady(input: { documentId: string; bucket: string; key: string; pageCount: number; fileSizeBytes: number; checksumSha256: string }): Promise<void>;
+  markReady(input: { documentId: string; bucket: string; key: string; pageCount: number; fileSizeBytes: number; checksumSha256: string }): Promise<GeneratedEstimateDocument>;
   markFailed(documentId: string, safeError: string): Promise<void>;
   findDocument(documentId: string): Promise<GeneratedEstimateDocument | null>;
   uploadPdf(bucket: string, key: string, data: Uint8Array): Promise<void>;

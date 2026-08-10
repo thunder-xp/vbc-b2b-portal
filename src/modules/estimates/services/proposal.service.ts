@@ -49,9 +49,12 @@ export class DefaultProposalService {
     private readonly permissionService: PermissionService,
   ) {}
 
-  async preparePreview(userId: string, estimateId: string): Promise<ProposalPreviewDto> {
-    const context = await this.resolveContext(userId, VIEW_PERMISSION);
+  async preparePreview(userId: string, estimateId: string, permission = VIEW_PERMISSION): Promise<ProposalPreviewDto> {
+    const startedAt = performance.now();
+    const context = await this.resolveContext(userId, permission);
+    const contextResolvedAt = performance.now();
     const aggregate = await this.estimateRepository.findAggregateById(normalizeId(estimateId));
+    const aggregateResolvedAt = performance.now();
     if (!aggregate || aggregate.estimate.companyId !== context.company.id) throw new NotFoundError("Estimate was not found.");
     if (aggregate.estimate.hasIncompletePricing || aggregate.items.some((item) => item.sellingUnitPrice === null || item.lineTotal === null)) {
       throw new InvalidStateError("Заполните цены всех позиций перед подготовкой предложения.");
@@ -68,7 +71,19 @@ export class DefaultProposalService {
     const selectedTemplate = normalizedTemplates.find((template) => template.id === stored.templateId) ?? normalizedTemplates.find((template) => template.key === "equipment_supply") ?? normalizedTemplates[0];
     const settings = normalizeSettings({ ...DEFAULT_PROPOSAL_SETTINGS, ...selectedTemplate?.configuration, ...stored.settings });
     const dto = prepareCustomerProposal({ aggregate, settings, companyName: context.company.displayName, companyLogoUrl: companyLogoUrl(context.company.logoAssetPath ?? null), userName: context.user.fullName, userEmail: context.user.email, userPhone: context.user.phone, profile, images });
-    console.info({ event: "estimate_proposal_preview_prepared", estimateId: aggregate.estimate.id, companyId: context.company.id, lineCount: aggregate.items.length });
+    console.info({
+      event: "estimate_proposal_preview_prepared",
+      estimateId: aggregate.estimate.id,
+      companyId: context.company.id,
+      lineCount: aggregate.items.length,
+      durationMs: Math.round(performance.now() - startedAt),
+      stageMs: {
+        context: Math.round(contextResolvedAt - startedAt),
+        aggregate: Math.round(aggregateResolvedAt - contextResolvedAt),
+        supportingReadsAndProjection: Math.round(performance.now() - aggregateResolvedAt),
+      },
+      deployedCommitSha: process.env.VERCEL_GIT_COMMIT_SHA ?? null,
+    });
     return { proposal: dto, estimateId: aggregate.estimate.id, estimateRevision: aggregate.estimate.revision, selectedTemplateId: selectedTemplate?.id ?? null, templates: normalizedTemplates };
   }
 
@@ -97,25 +112,41 @@ export class DefaultProposalService {
   }
 
   async generateVersionPdf(userId: string, versionId: string): Promise<GeneratedEstimateDocument> {
-    const preview = await this.prepareVersionPreview(userId, versionId);
-    return this.generatePreparedVersionPdf(userId, preview);
+    const startedAt = performance.now();
+    const context = await this.resolveContext(userId, PDF_PERMISSION);
+    const contextResolvedAt = performance.now();
+    const normalizedVersionId = normalizeId(versionId);
+    const version = await this.proposalRepository.findVersionProposal(normalizedVersionId);
+    const versionResolvedAt = performance.now();
+    if (!version || version.companyId !== context.company.id) throw new NotFoundError("Версия сметы не найдена.");
+    const preview = { proposal: deepFreeze(version.proposal), estimateId: version.estimateId, versionId: normalizedVersionId, versionNumber: version.versionNumber };
+    const document = await this.generatePreparedVersionPdfForCompany(context.company.id, preview);
+    console.info({ event: "estimate_version_pdf_request_performance", estimateId: version.estimateId, versionId: normalizedVersionId, documentId: document.id, stageMs: { context: Math.round(contextResolvedAt - startedAt), snapshotRead: Math.round(versionResolvedAt - contextResolvedAt), fingerprintRenderAndStorage: Math.round(performance.now() - versionResolvedAt) }, durationMs: Math.round(performance.now() - startedAt), deployedCommitSha: process.env.VERCEL_GIT_COMMIT_SHA ?? null });
+    return document;
   }
 
   async generatePreparedVersionPdf(userId: string, preview: VersionProposalPreviewDto): Promise<GeneratedEstimateDocument> {
     const context = await this.resolveContext(userId, PDF_PERMISSION);
+    return this.generatePreparedVersionPdfForCompany(context.company.id, preview);
+  }
+
+  private async generatePreparedVersionPdfForCompany(companyId: string, preview: VersionProposalPreviewDto): Promise<GeneratedEstimateDocument> {
+    const startedAt = performance.now();
     const fingerprint = createHash("sha256").update(`version:${preview.versionId}:${stableJson(preview.proposal)}`).digest("hex");
     let document = await this.proposalRepository.claimVersionGeneration({ versionId: preview.versionId, fingerprint });
     if (document.status === "ready" || document.status === "generating") return document;
     await this.proposalRepository.markGenerating(document.id);
     try {
       const { renderProposalPdf } = await import("./proposal-pdf.renderer");
+      const rendererLoadedAt = performance.now();
       const rendered = await renderProposalPdf(preview.proposal);
-      const key = `${context.company.id}/${preview.estimateId}/versions/${preview.versionId}/${document.id}.pdf`;
+      const renderedAt = performance.now();
+      const key = `${companyId}/${preview.estimateId}/versions/${preview.versionId}/${document.id}.pdf`;
       await this.proposalRepository.uploadPdf(STORAGE_BUCKET, key, rendered.bytes);
+      const uploadedAt = performance.now();
       const checksum = createHash("sha256").update(rendered.bytes).digest("hex");
-      await this.proposalRepository.markReady({ documentId: document.id, bucket: STORAGE_BUCKET, key, pageCount: rendered.pageCount, fileSizeBytes: rendered.bytes.byteLength, checksumSha256: checksum });
-      document = (await this.proposalRepository.findDocument(document.id)) ?? document;
-      console.info({ event: "estimate_version_pdf_generation_completed", estimateId: preview.estimateId, versionId: preview.versionId, documentId: document.id, pageCount: rendered.pageCount });
+      document = await this.proposalRepository.markReady({ documentId: document.id, bucket: STORAGE_BUCKET, key, pageCount: rendered.pageCount, fileSizeBytes: rendered.bytes.byteLength, checksumSha256: checksum });
+      console.info({ event: "estimate_version_pdf_generation_completed", estimateId: preview.estimateId, versionId: preview.versionId, documentId: document.id, pageCount: rendered.pageCount, durationMs: Math.round(performance.now() - startedAt), stageMs: { claimAndLoadRenderer: Math.round(rendererLoadedAt - startedAt), render: Math.round(renderedAt - rendererLoadedAt), upload: Math.round(uploadedAt - renderedAt), markReady: Math.round(performance.now() - uploadedAt) }, deployedCommitSha: process.env.VERCEL_GIT_COMMIT_SHA ?? null });
       return document;
     } catch (error) {
       await this.proposalRepository.markFailed(document.id, "Не удалось сформировать PDF.");
