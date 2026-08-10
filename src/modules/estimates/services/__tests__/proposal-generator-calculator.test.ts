@@ -41,7 +41,8 @@ describe("CCTV quick calculator", () => {
     const result = calculateCctvRequirements(warehouse);
     expect(result.find((line) => line.profileKey === "cctv.install.camera")).toMatchObject({ quantity: 12, unit: "pcs" });
     expect(result.find((line) => line.profileKey === "cctv.install.cable")).toMatchObject({ quantity: 300, unit: "meter" });
-    expect(result.filter((line) => line.profileKey === "cctv.commissioning.system")).toHaveLength(1);
+    expect(result.find((line) => line.profileKey === "cctv.commissioning.system")).toMatchObject({ quantity: 12, unit: "service" });
+    expect(result.find((line) => line.profileKey === "cctv.commissioning.remote")).toMatchObject({ quantity: 1, unit: "service" });
     expect(result.some((line) => line.id === "cctv-install-infrastructure" || line.id === "cctv-commission-recorder")).toBe(false);
   });
 });

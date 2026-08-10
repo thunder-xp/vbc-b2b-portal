@@ -45,6 +45,33 @@ describe("ProposalGeneratorService", () => {
     expect(pricing.getProductCommercialViews).toHaveBeenCalledTimes(1);
   });
 
+  it("applies every approved VAT-included CCTV service tariff to its governed quantity", async () => {
+    const resolveCalculatorProfiles = vi.fn().mockResolvedValue([
+      { profileKey: "cctv.install.camera", resolution: "service", resolvedId: "2f4fbba6-d228-4375-9fb7-8badf2ba7357", resolvedLabel: "Монтаж видеокамеры", defaultSellingUnitPrice: 600, defaultSellingCurrencyCode: "MDL", defaultSellingVatMode: "included" },
+      { profileKey: "cctv.install.cable", resolution: "service", resolvedId: "c95756dc-f217-42b0-bbee-8fd7a9c1b9d8", resolvedLabel: "Прокладка кабеля", defaultSellingUnitPrice: 50, defaultSellingCurrencyCode: "MDL", defaultSellingVatMode: "included" },
+      { profileKey: "cctv.commissioning.system", resolution: "service", resolvedId: "a5dc22f4-8988-400d-a9c9-68405d2d72f2", resolvedLabel: "Пусконаладочные работы", defaultSellingUnitPrice: 250, defaultSellingCurrencyCode: "MDL", defaultSellingVatMode: "included" },
+      { profileKey: "cctv.commissioning.remote", resolution: "service", resolvedId: "09a3d8d8-ced8-4b41-923f-f8c4ea69b1ca", resolvedLabel: "Настройка оборудования", defaultSellingUnitPrice: 150, defaultSellingCurrencyCode: "MDL", defaultSellingVatMode: "included" },
+    ]);
+    const service = new ProposalGeneratorService(
+      { recordSession: vi.fn().mockResolvedValue(uuid("8")), resolveCalculatorProfiles } as never,
+      { getOwnMemberships: vi.fn().mockResolvedValue([{ companyId: uuid("4"), status: "active" }]), getActiveCompanyContext: vi.fn().mockResolvedValue({ company: { id: uuid("4") } }) } as never,
+      { ensurePermission: vi.fn() } as never,
+      {} as never,
+      { getProductCommercialViews: vi.fn().mockResolvedValue([]) } as never,
+    );
+
+    const result = await service.calculateCctv(uuid("1"), { requestKey: uuid("7"), currencyCode: "MDL", parameters: {
+      objectType: "warehouse", indoorCameraCount: 8, outdoorCameraCount: 4, archiveDays: 30, cableLength: 300,
+      installationRequested: true, commissioningRequested: true, remoteViewingRequested: true,
+      colorNight: false, highResolution: false, licensePlateRecognition: false, videoAnalytics: false, backupPower: false,
+    } });
+
+    expect(result.requirements.find((line) => line.profileKey === "cctv.install.camera")).toMatchObject({ quantity: 12, sellingUnitPrice: 600, sellingCurrencyCode: "MDL", sellingVatMode: "included" });
+    expect(result.requirements.find((line) => line.profileKey === "cctv.install.cable")).toMatchObject({ quantity: 300, sellingUnitPrice: 50, sellingCurrencyCode: "MDL", sellingVatMode: "included" });
+    expect(result.requirements.find((line) => line.profileKey === "cctv.commissioning.system")).toMatchObject({ quantity: 12, sellingUnitPrice: 250, sellingCurrencyCode: "MDL", sellingVatMode: "included" });
+    expect(result.requirements.find((line) => line.profileKey === "cctv.commissioning.remote")).toMatchObject({ quantity: 1, sellingUnitPrice: 150, sellingCurrencyCode: "MDL", sellingVatMode: "included" });
+  });
+
   it("resolves catalog and external identities in bounded batches and initializes RETAIL selling price", async () => {
     const createEstimate = vi.fn().mockResolvedValue(uuid("9"));
     const resolveExternalNomenclature = vi.fn().mockResolvedValue([{ id: uuid("3"), name: "Монтаж камеры", unit: "service", itemType: "service" }]);

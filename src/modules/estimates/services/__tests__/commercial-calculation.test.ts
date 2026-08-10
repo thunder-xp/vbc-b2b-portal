@@ -70,6 +70,21 @@ describe("estimate commercial calculation", () => {
     expect(result).toMatchObject({ totalExcludingVat: 500, vatAmount: 100, finalTotal: 600 });
   });
 
+  it("reconciles all approved CCTV service tariffs as VAT-inclusive", () => {
+    const result = calculateEstimateCommercials({
+      lines: [
+        { ...directLine, id: "camera-install", quantity: 12, pricingInputValue: 600, convertedCostUnitPrice: null, lineDiscountPercent: 0 },
+        { ...directLine, id: "cable-install", quantity: 300, pricingInputValue: 50, convertedCostUnitPrice: null, lineDiscountPercent: 0 },
+        { ...directLine, id: "commissioning", quantity: 12, pricingInputValue: 250, convertedCostUnitPrice: null, lineDiscountPercent: 0 },
+        { ...directLine, id: "remote-viewing", quantity: 1, pricingInputValue: 150, convertedCostUnitPrice: null, lineDiscountPercent: 0 },
+      ],
+      sections: [{ id: "section-1", discountPercent: 0 }], charges: [], globalDiscountPercent: 0,
+      vatMode: "included", vatRatePercent: 20,
+    });
+
+    expect(result).toMatchObject({ subtotal: 25_350, totalExcludingVat: 21_125, vatAmount: 4_225, finalTotal: 25_350 });
+  });
+
   it("uses deterministic financial rounding", () => {
     expect(calculateCommercialLine({ ...directLine, quantity: 3, pricingInputValue: 10.005, lineDiscountPercent: 0 })).toMatchObject({ sellingUnitPrice: 10.01, lineSubtotal: 30.03 });
   });

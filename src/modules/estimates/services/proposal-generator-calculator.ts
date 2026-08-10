@@ -73,7 +73,7 @@ export function calculateCctvRequirements(input: CctvCalculatorInput): Calculate
   }
 
   if (input.commissioningRequested) {
-    result.push(requirement("cctv-commission-system", "cctv.commissioning.system", "commissioning_works", "Пусконаладочные работы CCTV", 1, "service"));
+    result.push(requirement("cctv-commission-system", "cctv.commissioning.system", "commissioning_works", "Пусконаладочные работы CCTV", cameras, "service"));
   }
   // MVP: remote viewing reuses the governed generic equipment-configuration service.
   if (input.remoteViewingRequested) result.push(requirement("cctv-commission-remote", "cctv.commissioning.remote", "commissioning_works", "Настройка удалённого просмотра", 1, "service"));
