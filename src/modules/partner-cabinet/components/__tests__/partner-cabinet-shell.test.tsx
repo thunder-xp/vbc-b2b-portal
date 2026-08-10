@@ -123,7 +123,7 @@ describe("Partner workspace shell", () => {
     expect(estimatesGroup.getByRole("link", { name: "Мои сметы" })).toHaveAttribute("href", "/cabinet/estimates");
     expect(estimatesGroup.getByRole("link", { name: "Мои заказчики" })).toHaveAttribute("href", "/cabinet/customers");
     expect(estimatesGroup.getByRole("link", { name: "Моя номенклатура" })).toHaveAttribute("href", "/cabinet/nomenclature");
-    expect(estimatesGroup.queryByText("Генератор КП")).not.toBeInTheDocument();
+    expect(estimatesGroup.getByRole("link", { name: "Генератор КП" })).toHaveAttribute("href", "/cabinet/estimates/generator");
     expect(estimatesGroup.queryByText("Сметы и коммерческие предложения")).not.toBeInTheDocument();
     expect(estimatesGroup.queryByRole("link", { name: "Подбор решения" })).not.toBeInTheDocument();
     expect(estimatesGroup.queryByRole("link", { name: "Избранное" })).not.toBeInTheDocument();

@@ -23,6 +23,7 @@ import {
   SearchCheck,
   ShieldCheck,
   ShoppingCart,
+  WandSparkles,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -46,6 +47,7 @@ const icons = {
   proposals: Calculator,
   customers: Building2,
   nomenclature: ClipboardList,
+  proposal_generator: WandSparkles,
   orders: ListChecks,
   finance: Landmark,
   documents: FileText,
@@ -71,7 +73,7 @@ const projectNavigationOrder: readonly WorkspaceCapabilityKey[] = [
   "solution_selection",
   "projects",
 ];
-const estimatesNavigationOrder: readonly WorkspaceCapabilityKey[] = ["proposals", "customers", "nomenclature"];
+const estimatesNavigationOrder: readonly WorkspaceCapabilityKey[] = ["proposals", "customers", "nomenclature", "proposal_generator"];
 const commercialNavigationOrder: readonly WorkspaceCapabilityKey[] = ["orders", "finance", "documents"];
 const loyaltyNavigationOrder: readonly WorkspaceCapabilityKey[] = ["loyalty_affiliate", "loyalty_bonus"];
 

@@ -32,6 +32,7 @@ describe("resolveWorkspaceCapabilities", () => {
       "Сметы и КП",
       "Мои заказчики",
       "Моя номенклатура",
+      "Генератор КП",
       "Заказы",
       "Документы",
       "Сервисный центр",
@@ -44,6 +45,7 @@ describe("resolveWorkspaceCapabilities", () => {
     expect(model.navigation.find((item) => item.key === "proposals")).toMatchObject({ href: "/cabinet/estimates", availability: "available" });
     expect(model.navigation.find((item) => item.key === "customers")).toMatchObject({ href: "/cabinet/customers", availability: "available" });
     expect(model.navigation.find((item) => item.key === "nomenclature")).toMatchObject({ href: "/cabinet/nomenclature", availability: "available" });
+    expect(model.navigation.find((item) => item.key === "proposal_generator")).toMatchObject({ href: "/cabinet/estimates/generator", availability: "available" });
     expect(model.canCreateCommercialProposal).toBe(true);
     expect(model.productCard.canAddToSpecification).toBe(true);
     expect(model.productCard.canAddToOrder).toBe(true);

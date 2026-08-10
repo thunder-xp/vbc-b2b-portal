@@ -54,6 +54,11 @@ export const ADMIN_NAVIGATION: readonly AdminNavigationGroup[] = [
         permission: "admin.external_nomenclature.view",
       },
       {
+        label: "Генератор КП",
+        href: "/admin/commercial/proposal-generator",
+        permission: "admin.estimates.view",
+      },
+      {
         label: "Возможности для закупки",
         href: "/admin/commercial/opportunities",
         permission: "admin.opportunities.view",

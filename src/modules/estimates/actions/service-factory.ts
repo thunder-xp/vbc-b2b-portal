@@ -4,8 +4,8 @@ import { DefaultCatalogService } from "../../catalog/services";
 import { createPricingInventoryService } from "../../pricing-inventory/actions/service-factory";
 import { SupabaseCartRepository } from "../../orders/repositories/supabase";
 import { DefaultCartService } from "../../orders/services";
-import { SupabaseEstimateLifecycleRepository, SupabaseEstimateRepository, SupabaseProposalDeliveryRepository, SupabaseProposalRepository } from "../repositories/supabase";
-import { DefaultEstimateService, DefaultProposalService, EstimateLifecycleService, ProposalDeliveryService, SmtpProposalEmailProvider } from "../services";
+import { SupabaseEstimateLifecycleRepository, SupabaseEstimateRepository, SupabaseProposalDeliveryRepository, SupabaseProposalGeneratorRepository, SupabaseProposalRepository } from "../repositories/supabase";
+import { DefaultEstimateService, DefaultProposalService, EstimateLifecycleService, ProposalDeliveryService, ProposalGeneratorService, SmtpProposalEmailProvider } from "../services";
 
 export { getAuthenticatedUserId };
 
@@ -18,6 +18,16 @@ export function createEstimateService(): DefaultEstimateService {
     createPermissionService(),
     new DefaultCatalogService(new SupabaseCatalogRepository(), companyAccessService, pricingInventoryService),
     pricingInventoryService,
+  );
+}
+
+export function createProposalGeneratorService(): ProposalGeneratorService {
+  const companyAccessService = createCompanyAccessService();
+  const permissionService = createPermissionService();
+  const pricingInventoryService = createPricingInventoryService();
+  return new ProposalGeneratorService(
+    new SupabaseProposalGeneratorRepository(), companyAccessService, permissionService,
+    new DefaultCatalogService(new SupabaseCatalogRepository(), companyAccessService, pricingInventoryService), pricingInventoryService,
   );
 }
 

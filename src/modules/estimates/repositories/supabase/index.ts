@@ -1,4 +1,5 @@
 export * from "./estimate.supabase-repository";
+export * from "./proposal-generator.supabase-repository";
 export * from "./proposal.supabase-repository";
 export * from "./lifecycle.supabase-repository";
 export * from "./demand.supabase-repository";
