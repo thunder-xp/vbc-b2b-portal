@@ -14,17 +14,33 @@ describe("CCTV quick calculator", () => {
     expect(new Set(first.map((line) => line.sectionKey))).toEqual(new Set(["equipment", "installation_materials", "installation_works", "commissioning_works"]));
     expect(first.find((line) => line.profileKey === "cctv.indoor.standard")?.quantity).toBe(8);
     expect(first.find((line) => line.profileKey === "cctv.outdoor.standard")?.quantity).toBe(4);
-    expect(first.find((line) => line.profileKey === "cctv.cable")?.quantity).toBe(300);
+    expect(first.find((line) => line.profileKey === "cctv.cable.cat5e")?.quantity).toBe(300);
+    expect(first.find((line) => line.profileKey === "cctv.storage.8tb")?.quantity).toBe(2);
   });
   it("keeps every derived identity unresolved until an exact profile mapping exists", () => {
     expect(calculateCctvRequirements(warehouse).every((line) => line.resolution === "unresolved" && line.resolvedId === null)).toBe(true);
   });
   it("documents storage assumptions without pretending to exact engineering precision", () => {
-    const storage = calculateCctvRequirements(warehouse).find((line) => line.profileKey === "cctv.storage");
+    const storage = calculateCctvRequirements(warehouse).find((line) => line.profileKey === "cctv.storage.8tb");
     expect(storage?.assumption).toContain("усреднённом профиле записи");
   });
   it("omits installation and commissioning lines when not requested", () => {
     const result = calculateCctvRequirements({ ...warehouse, installationRequested: false, commissioningRequested: false, remoteViewingRequested: false });
     expect(result.some((line) => line.sectionKey === "installation_works" || line.sectionKey === "commissioning_works")).toBe(false);
+  });
+  it("uses approved capacity profiles and leaves unsupported capacity unresolved", () => {
+    const accepted = calculateCctvRequirements(warehouse);
+    expect(accepted.find((line) => line.id === "cctv-nvr")?.profileKey).toBe("cctv.nvr.16");
+    expect(accepted.find((line) => line.id === "cctv-poe")?.profileKey).toBe("cctv.poe.16");
+    const oversized = calculateCctvRequirements({ ...warehouse, indoorCameraCount: 17, outdoorCameraCount: 0 });
+    expect(oversized.find((line) => line.id === "cctv-nvr")).toMatchObject({ profileKey: null, resolution: "unresolved" });
+    expect(oversized.find((line) => line.id === "cctv-poe")).toMatchObject({ profileKey: null, resolution: "unresolved" });
+  });
+  it("uses canonical service units and prevents duplicate infrastructure and commissioning work", () => {
+    const result = calculateCctvRequirements(warehouse);
+    expect(result.find((line) => line.profileKey === "cctv.install.camera")).toMatchObject({ quantity: 12, unit: "pcs" });
+    expect(result.find((line) => line.profileKey === "cctv.install.cable")).toMatchObject({ quantity: 300, unit: "meter" });
+    expect(result.filter((line) => line.profileKey === "cctv.commissioning.system")).toHaveLength(1);
+    expect(result.some((line) => line.id === "cctv-install-infrastructure" || line.id === "cctv-commission-recorder")).toBe(false);
   });
 });

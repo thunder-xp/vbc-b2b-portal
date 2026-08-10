@@ -74,7 +74,7 @@ export async function searchProposalGeneratorTargetsAction(query: string) {
   } catch (error) { return failureFromError(error); }
 }
 
-export async function updateProposalGeneratorProfileAction(input: { profileKey: string; expectedVersion: number; targetType: "catalog" | "external_nomenclature" | "unresolved"; targetId: string | null }) {
+export async function updateProposalGeneratorProfileAction(input: { profileKey: string; expectedVersion: number; targetType: "catalog" | "service" | "external_nomenclature" | "unresolved"; targetId: string | null }) {
   try {
     await requireAdminPermission("admin.integrations.manage");
     const version = await createProposalGeneratorService().updateCalculatorProfile(input);

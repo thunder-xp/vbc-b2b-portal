@@ -1,6 +1,14 @@
 import type { AddEstimateLineInput, ExternalNomenclatureRecord } from "./estimate.repository";
 import type { EstimateSectionSystemKey } from "../types";
-type GeneratorResolutionKind = "unresolved" | "catalog" | "own_nomenclature" | "shared_nomenclature";
+type GeneratorResolutionKind = "unresolved" | "catalog" | "service" | "own_nomenclature" | "shared_nomenclature";
+
+export type GeneratorServiceRecord = {
+  id: string;
+  name: string;
+  unit: AddEstimateLineInput["unit"];
+  defaultCost: number | null;
+  defaultSellingPrice: number | null;
+};
 
 export type GeneratorProfileMapping = {
   profileKey: string;
@@ -37,6 +45,7 @@ export type GeneratorAdminReport = {
     averageGenerationToEstimateMs: number;
     averageGeneratedLines: number;
     resolvedCatalogCount: number;
+    resolvedServiceCount: number;
     ownNomenclatureCount: number;
     sharedNomenclatureCount: number;
     unresolvedCount: number;
@@ -63,10 +72,11 @@ export interface ProposalGeneratorRepository {
       archiveDays: number; cableLength: number; installationRequested: boolean; commissioningRequested: boolean;
       remoteViewingRequested: boolean; advancedFlags: string[];
     } | null;
-    resolutionCounts?: { catalog: number; own: number; shared: number; unresolved: number };
+    resolutionCounts?: { catalog: number; service: number; own: number; shared: number; unresolved: number };
   }): Promise<string>;
   resolveCalculatorProfiles(companyId: string, profileKeys: string[]): Promise<GeneratorProfileMapping[]>;
   resolveExternalNomenclature(companyId: string, ids: string[]): Promise<ExternalNomenclatureRecord[]>;
+  resolveServices(companyId: string, ids: string[]): Promise<GeneratorServiceRecord[]>;
   createEstimate(input: {
     companyId: string;
     sessionId: string;
@@ -83,6 +93,6 @@ export interface ProposalGeneratorRepository {
   canPromptFeedback(sessionId: string, estimateId: string): Promise<boolean>;
   getAdminReport(limit: number): Promise<GeneratorAdminReport>;
   listCalculatorProfiles(): Promise<GeneratorProfileAdminRow[]>;
-  searchCalculatorTargets(query: string, limit: number): Promise<Array<{ targetType: "catalog" | "external_nomenclature"; id: string; label: string; secondary: string | null }>>;
-  updateCalculatorProfile(input: { profileKey: string; expectedVersion: number; targetType: "catalog" | "external_nomenclature" | "unresolved"; targetId: string | null }): Promise<number>;
+  searchCalculatorTargets(query: string, limit: number): Promise<Array<{ targetType: "catalog" | "service" | "external_nomenclature"; id: string; label: string; secondary: string | null }>>;
+  updateCalculatorProfile(input: { profileKey: string; expectedVersion: number; targetType: "catalog" | "service" | "external_nomenclature" | "unresolved"; targetId: string | null }): Promise<number>;
 }

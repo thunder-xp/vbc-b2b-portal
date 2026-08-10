@@ -25,16 +25,15 @@ export type CctvCalculatorInput = {
 
 export type CalculatorProfileKey =
   | "cctv.indoor.standard" | "cctv.outdoor.standard"
-  | "cctv.nvr.8" | "cctv.nvr.16" | "cctv.nvr.32"
-  | "cctv.storage" | "cctv.poe" | "cctv.cable" | "cctv.mounting" | "cctv.ups"
-  | "cctv.install.camera" | "cctv.install.cable" | "cctv.install.infrastructure"
-  | "cctv.commissioning.camera" | "cctv.commissioning.recorder" | "cctv.commissioning.remote";
+  | "cctv.nvr.16" | "cctv.storage.8tb" | "cctv.poe.16" | "cctv.cable.cat5e"
+  | "cctv.mounting" | "cctv.ups" | "cctv.install.camera" | "cctv.install.cable"
+  | "cctv.commissioning.system" | "cctv.commissioning.remote";
 
-type CalculatedRequirement = GeneratorRequirement & { profileKey: CalculatorProfileKey; assumption?: string | null };
+type CalculatedRequirement = GeneratorRequirement & { profileKey: CalculatorProfileKey | null; assumption?: string | null };
 
 const requirement = (
   id: string,
-  profileKey: CalculatorProfileKey,
+  profileKey: CalculatorProfileKey | null,
   sectionKey: EstimateSectionSystemKey,
   description: string,
   quantity: number,
@@ -50,8 +49,6 @@ export function calculateCctvRequirements(input: CctvCalculatorInput): Calculate
   const cameras = input.indoorCameraCount + input.outdoorCameraCount;
   if (cameras === 0) return [];
 
-  const nvrCapacity = cameras <= 8 ? 8 : cameras <= 16 ? 16 : 32;
-  const nvrCount = Math.ceil(cameras / nvrCapacity);
   const storageMultiplier = (input.highResolution ? 1.5 : 1) * (input.colorNight ? 1.2 : 1) * (input.videoAnalytics ? 1.1 : 1);
   const estimatedStorageTb = Math.max(1, Math.ceil((cameras * input.archiveDays * 24 * storageMultiplier) / 1000));
   const storageDriveCount = Math.max(1, Math.ceil(estimatedStorageTb / 8));
@@ -60,26 +57,25 @@ export function calculateCctvRequirements(input: CctvCalculatorInput): Calculate
 
   if (input.indoorCameraCount) result.push(requirement("cctv-indoor", "cctv.indoor.standard", "equipment", "Камера видеонаблюдения для помещений", input.indoorCameraCount, "pcs"));
   if (input.outdoorCameraCount) result.push(requirement("cctv-outdoor", "cctv.outdoor.standard", "equipment", "Уличная камера видеонаблюдения", input.outdoorCameraCount, "pcs"));
-  result.push(requirement("cctv-nvr", `cctv.nvr.${nvrCapacity}` as CalculatorProfileKey, "equipment", `Сетевой видеорегистратор на ${nvrCapacity} каналов`, nvrCount, "pcs"));
-  result.push(requirement("cctv-storage", "cctv.storage", "equipment", `Накопитель для видеоархива, ориентировочно ${estimatedStorageTb} ТБ`, storageDriveCount, "pcs", assumptions));
-  result.push(requirement("cctv-poe", "cctv.poe", "equipment", "PoE-коммутатор для камер", Math.ceil(cameras / 16), "pcs"));
+  result.push(requirement("cctv-nvr", cameras <= 16 ? "cctv.nvr.16" : null, "equipment", cameras <= 16 ? "Сетевой видеорегистратор на 16 каналов" : "Видеорегистратор подходящей ёмкости", 1, "pcs"));
+  result.push(requirement("cctv-storage", "cctv.storage.8tb", "equipment", `Накопитель для видеоархива, ориентировочно ${estimatedStorageTb} ТБ`, storageDriveCount, "pcs", assumptions));
+  result.push(requirement("cctv-poe", cameras <= 16 ? "cctv.poe.16" : null, "equipment", cameras <= 16 ? "PoE-коммутатор на 16 портов" : "PoE-коммутация подходящей ёмкости", 1, "pcs"));
   if (input.backupPower) result.push(requirement("cctv-ups", "cctv.ups", "equipment", "Резервное питание системы видеонаблюдения", 1, "pcs"));
 
   if (input.cableLength > 0) {
-    result.push(requirement("cctv-cable", "cctv.cable", "installation_materials", "Кабель для системы видеонаблюдения", input.cableLength, "meter"));
+    result.push(requirement("cctv-cable", "cctv.cable.cat5e", "installation_materials", "Кабель Cat.5e для системы видеонаблюдения", input.cableLength, "meter"));
     result.push(requirement("cctv-mounting", "cctv.mounting", "installation_materials", "Монтажные коробки и комплектующие", cameras, "pcs"));
   }
 
   if (input.installationRequested) {
-    result.push(requirement("cctv-install-camera", "cctv.install.camera", "installation_works", "Монтаж камеры видеонаблюдения", cameras, "service"));
+    result.push(requirement("cctv-install-camera", "cctv.install.camera", "installation_works", "Монтаж камеры видеонаблюдения", cameras, "pcs"));
     if (input.cableLength > 0) result.push(requirement("cctv-install-cable", "cctv.install.cable", "installation_works", "Прокладка кабеля", input.cableLength, "meter"));
-    result.push(requirement("cctv-install-infrastructure", "cctv.install.infrastructure", "installation_works", "Монтаж регистратора и сетевого оборудования", nvrCount, "service"));
   }
 
   if (input.commissioningRequested) {
-    result.push(requirement("cctv-commission-camera", "cctv.commissioning.camera", "commissioning_works", "Настройка камер", cameras, "service"));
-    result.push(requirement("cctv-commission-recorder", "cctv.commissioning.recorder", "commissioning_works", "Настройка видеорегистратора", nvrCount, "service"));
+    result.push(requirement("cctv-commission-system", "cctv.commissioning.system", "commissioning_works", "Пусконаладочные работы CCTV", 1, "service"));
   }
+  // MVP: remote viewing reuses the governed generic equipment-configuration service.
   if (input.remoteViewingRequested) result.push(requirement("cctv-commission-remote", "cctv.commissioning.remote", "commissioning_works", "Настройка удалённого просмотра", 1, "service"));
 
   return result.slice(0, 30);

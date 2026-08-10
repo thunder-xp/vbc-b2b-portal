@@ -62,10 +62,10 @@ export class ProposalGeneratorService {
     try {
       const calculated = calculateCctvRequirements(input.parameters);
       if (!calculated.length) throw new InvalidStateError("Укажите хотя бы одну камеру.");
-      const mappings = await this.repository.resolveCalculatorProfiles(companyId, [...new Set(calculated.map((line) => line.profileKey!))]);
+      const mappings = await this.repository.resolveCalculatorProfiles(companyId, [...new Set(calculated.map((line) => line.profileKey).filter((key): key is NonNullable<typeof key> => key !== null))]);
       const mappingByKey = new Map(mappings.map((mapping) => [mapping.profileKey, mapping]));
       requirements = calculated.map((line) => {
-        const mapping = mappingByKey.get(line.profileKey!);
+        const mapping = line.profileKey ? mappingByKey.get(line.profileKey) : null;
         return mapping ? { ...line, resolution: mapping.resolution, resolvedId: mapping.resolvedId, resolvedLabel: mapping.resolvedLabel } : line;
       });
       const catalogIds = [...new Set(requirements.filter((line) => line.resolution === "catalog" && line.resolvedId).map((line) => line.resolvedId!))];
@@ -89,15 +89,18 @@ export class ProposalGeneratorService {
     const companyId = await this.resolveCompany(userId, "estimates.pricing.manage");
     validateCreateInput(input);
     const catalogIds = [...new Set(input.requirements.filter((line) => line.resolution === "catalog").map((line) => line.resolvedId!))];
+    const serviceIds = [...new Set(input.requirements.filter((line) => line.resolution === "service").map((line) => line.resolvedId!))];
     const externalIds = [...new Set(input.requirements.filter((line) => line.resolution === "own_nomenclature" || line.resolution === "shared_nomenclature").map((line) => line.resolvedId!))];
-    const [products, commercial, external] = await Promise.all([
+    const [products, commercial, services, external] = await Promise.all([
       catalogIds.length ? this.catalog.getProductsByIds(userId, catalogIds) : Promise.resolve([]),
       catalogIds.length ? this.pricing.getProductCommercialViews(userId, catalogIds) : Promise.resolve([]),
+      this.repository.resolveServices(companyId, serviceIds),
       this.repository.resolveExternalNomenclature(companyId, externalIds),
     ]);
-    if (products.length !== catalogIds.length || external.length !== externalIds.length) throw new InvalidStateError("Одна из выбранных позиций больше недоступна. Повторите выбор.");
+    if (products.length !== catalogIds.length || services.length !== serviceIds.length || external.length !== externalIds.length) throw new InvalidStateError("Одна из выбранных позиций больше недоступна. Повторите выбор.");
     const productById = new Map(products.map((product) => [product.id, product]));
     const commercialById = new Map(commercial.map((view) => [view.productId, view]));
+    const serviceById = new Map(services.map((service) => [service.id, service]));
     const externalById = new Map(external.map((item) => [item.id, item]));
     const permissionContext = await this.permissions.getEffectivePermissionContext(userId, companyId);
     const canViewPartnerPrice = resolveCommercialVisibility(permissionContext).canViewPartnerPrice;
@@ -121,6 +124,15 @@ export class ProposalGeneratorService {
         const cost = canViewPartnerPrice ? view?.partnerPrice ?? null : null;
         const costExchangeRate = !cost?.currencyCode ? null : cost.currencyCode === input.currencyCode ? 1 : resolveCurrencyRate(cost.currencyCode, input.currencyCode, costRate!.mdlPerUsdRate);
         return { ...common, lineType: "product", productId: product.id, externalNomenclatureId: null, skuSnapshot: product.sku, productNameSnapshot: product.name, description: product.name, sourceUnitPrice: cost?.amount ?? null, sourceCurrencyCode: cost?.currencyCode ?? null, sourceSnapshotAt: cost?.lastUpdatedAt ?? null, internalCostUnitPrice: cost?.amount ?? null, convertedCostUnitPrice: cost && costExchangeRate ? convertMoney(cost.amount, costExchangeRate) : null, exchangeRate: costExchangeRate, exchangeRateEffectiveDate: !costExchangeRate ? null : costExchangeRate === 1 ? cost?.lastUpdatedAt?.slice(0,10) ?? null : costRate?.effectiveDate ?? null, sellingUnitPrice: retail && rate ? convertMoney(retail.amount, rate) : null };
+      }
+      if (requirement.resolution === "service") {
+        const service = serviceById.get(requirement.resolvedId!);
+        if (!service || service.unit !== requirement.unit) throw new InvalidStateError("Выбранная услуга больше недоступна.");
+        return { ...common, lineType: "service", productId: null, serviceId: service.id, externalNomenclatureId: null,
+          skuSnapshot: null, productNameSnapshot: null, sourceUnitPrice: null, sourceCurrencyCode: null,
+          sourceSnapshotAt: null, internalCostUnitPrice: service.defaultCost, convertedCostUnitPrice: service.defaultCost,
+          exchangeRate: service.defaultCost === null ? null : 1, exchangeRateEffectiveDate: null,
+          description: service.name, sellingUnitPrice: service.defaultSellingPrice };
       }
       if (requirement.resolution === "own_nomenclature" || requirement.resolution === "shared_nomenclature") {
         const item = externalById.get(requirement.resolvedId!);
@@ -155,9 +167,9 @@ export class ProposalGeneratorService {
     return this.repository.searchCalculatorTargets(normalized, Math.max(1, Math.min(limit, 20)));
   }
 
-  updateCalculatorProfile(input: { profileKey: string; expectedVersion: number; targetType: "catalog" | "external_nomenclature" | "unresolved"; targetId: string | null }) {
+  updateCalculatorProfile(input: { profileKey: string; expectedVersion: number; targetType: "catalog" | "service" | "external_nomenclature" | "unresolved"; targetId: string | null }) {
     if (!/^cctv\.[a-z0-9.]+$/.test(input.profileKey) || !Number.isInteger(input.expectedVersion) || input.expectedVersion < 1
-      || !["catalog", "external_nomenclature", "unresolved"].includes(input.targetType)
+      || !["catalog", "service", "external_nomenclature", "unresolved"].includes(input.targetType)
       || (input.targetType !== "unresolved" && (!input.targetId || !UUID.test(input.targetId)))) {
       throw new InvalidStateError("Настройка профиля некорректна.");
     }

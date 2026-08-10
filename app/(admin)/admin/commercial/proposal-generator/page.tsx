@@ -12,7 +12,7 @@ export default async function ProposalGeneratorAdminPage() {
     ["Запусков", summary.usageCount], ["Генераций завершено", summary.generationCompleted], ["Ошибок генерации", summary.generationFailed],
     ["Компаний", summary.companiesCount], ["Смет создано", summary.estimatesCreated], ["Конверсия в смету", `${summary.generatorToEstimateConversionRate}%`],
     ["Среднее время генерации", `${summary.averageGenerationDurationMs} мс`], ["От генерации до сметы", `${summary.averageGenerationToEstimateMs} мс`],
-    ["Позиций в среднем", summary.averageGeneratedLines], ["Каталог", summary.resolvedCatalogCount], ["Своя номенклатура", summary.ownNomenclatureCount],
+    ["Позиций в среднем", summary.averageGeneratedLines], ["Каталог", summary.resolvedCatalogCount], ["Услуги", summary.resolvedServiceCount], ["Своя номенклатура", summary.ownNomenclatureCount],
     ["Общая номенклатура", summary.sharedNomenclatureCount], ["Неуточнённых позиций", summary.unresolvedCount],
   ];
   return <div className="space-y-6"><header><p className="text-sm font-semibold text-emerald-700">Пилот</p><h1 className="mt-1 text-2xl font-semibold">Генератор КП</h1><p className="mt-1 text-sm text-zinc-600">Агрегированные показатели использования. Тексты требований и коммерческие данные здесь не сохраняются.</p></header>

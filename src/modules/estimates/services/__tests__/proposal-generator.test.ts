@@ -20,6 +20,12 @@ describe("proposal generator deterministic extraction", () => {
     result[0].resolution = "catalog";
     result[1].resolution = "own_nomenclature";
     result[2].resolution = "shared_nomenclature";
-    expect(countGeneratorResolutions(result)).toEqual({ catalog: 1, own: 1, shared: 1, unresolved: 27 });
+    expect(countGeneratorResolutions(result)).toEqual({
+      catalog: 1,
+      service: 0,
+      own: 1,
+      shared: 1,
+      unresolved: 27,
+    });
   });
 });

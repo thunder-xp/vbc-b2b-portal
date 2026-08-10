@@ -9,8 +9,8 @@ function fail(code?: string): never {
 
 export class SupabaseProposalGeneratorRepository implements ProposalGeneratorRepository {
   async recordSession(input: Parameters<ProposalGeneratorRepository["recordSession"]>[0]): Promise<string> {
-    const counts = input.resolutionCounts ?? { catalog: 0, own: 0, shared: 0, unresolved: input.requirementCount };
-    const { data, error } = await (await createClient()).rpc("record_estimate_generator_session_v2", {
+    const counts = input.resolutionCounts ?? { catalog: 0, service: 0, own: 0, shared: 0, unresolved: input.requirementCount };
+    const { data, error } = await (await createClient()).rpc("record_estimate_generator_session_v3", {
       target_company_id: input.companyId,
       target_request_key: input.requestKey,
       target_request_fingerprint: input.fingerprint,
@@ -20,6 +20,7 @@ export class SupabaseProposalGeneratorRepository implements ProposalGeneratorRep
       target_generation_mode: input.generationMode ?? "description",
       target_structured_facts: input.structuredFacts ?? null,
       target_resolved_catalog_count: counts.catalog,
+      target_resolved_service_count: counts.service,
       target_own_nomenclature_count: counts.own,
       target_shared_nomenclature_count: counts.shared,
       target_unresolved_count: counts.unresolved,
@@ -51,10 +52,23 @@ export class SupabaseProposalGeneratorRepository implements ProposalGeneratorRep
     }));
   }
 
+  async resolveServices(companyId: string, ids: string[]) {
+    if (!ids.length) return [];
+    const { data, error } = await (await createClient()).rpc("resolve_generator_services", {
+      target_company_id: companyId, target_ids: ids,
+    });
+    if (error) fail(error.code);
+    return (data ?? []).map((row: Record<string, unknown>) => ({
+      id: String(row.id), name: String(row.name),
+      unit: row.default_unit as import("../../types").EstimateUnit,
+      defaultCost: nullableNumber(row.default_cost), defaultSellingPrice: nullableNumber(row.default_selling_price),
+    }));
+  }
+
   async createEstimate(input: Parameters<ProposalGeneratorRepository["createEstimate"]>[0]): Promise<string> {
     const lines = input.lines.map((line) => ({
       section_key: line.sectionKey, line_type: line.lineType, resolution: line.resolution,
-      product_id: line.productId, external_nomenclature_id: line.externalNomenclatureId ?? null,
+      product_id: line.productId, service_id: line.serviceId, external_nomenclature_id: line.externalNomenclatureId ?? null,
       sku_snapshot: line.skuSnapshot, product_name_snapshot: line.productNameSnapshot,
       source_unit_price: line.sourceUnitPrice, source_currency_code: line.sourceCurrencyCode,
       source_snapshot_at: line.sourceSnapshotAt, internal_cost_unit_price: line.internalCostUnitPrice ?? null,
@@ -102,7 +116,7 @@ export class SupabaseProposalGeneratorRepository implements ProposalGeneratorRep
     const { data, error } = await (await createClient()).rpc("search_estimate_generator_mapping_targets", { search_query: query, result_limit: limit });
     if (error) fail(error.code);
     return (data ?? []).map((row: Record<string, unknown>) => ({
-      targetType: row.target_type as "catalog" | "external_nomenclature", id: String(row.id), label: String(row.label),
+      targetType: row.target_type as "catalog" | "service" | "external_nomenclature", id: String(row.id), label: String(row.label),
       secondary: typeof row.secondary === "string" ? row.secondary : null,
     }));
   }
@@ -122,8 +136,12 @@ function mapProfile(row: Record<string, unknown>) {
     profileKey: String(row.profile_key), label: String(row.label),
     sectionKey: row.section_key as import("../../types").EstimateSectionSystemKey,
     unit: row.unit as import("../estimate.repository").AddEstimateLineInput["unit"], version: Number(row.version),
-    resolution: row.resolution as "unresolved" | "catalog" | "own_nomenclature" | "shared_nomenclature",
+    resolution: row.resolution as "unresolved" | "catalog" | "service" | "own_nomenclature" | "shared_nomenclature",
     resolvedId: typeof row.resolved_id === "string" ? row.resolved_id : null,
     resolvedLabel: typeof row.resolved_label === "string" ? row.resolved_label : null,
   };
+}
+
+function nullableNumber(value: unknown) {
+  return typeof value === "number" ? value : typeof value === "string" && value !== "" ? Number(value) : null;
 }

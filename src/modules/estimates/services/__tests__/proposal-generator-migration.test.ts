@@ -6,6 +6,7 @@ const sql = readFileSync(resolve("supabase/migrations/20260810130000_proposal_ge
 const telemetrySql = readFileSync(resolve("supabase/migrations/20260810140000_proposal_generator_telemetry_completion.sql"), "utf8");
 const calculatorSql = readFileSync(resolve("supabase/migrations/20260810150000_proposal_generator_quick_calculation.sql"), "utf8");
 const resolutionTelemetrySql = readFileSync(resolve("supabase/migrations/20260810160000_proposal_generator_resolution_telemetry.sql"), "utf8");
+const serviceMappingSql = readFileSync(resolve("supabase/migrations/20260810170000_proposal_generator_governed_service_mappings.sql"), "utf8");
 const serviceSource = readFileSync(resolve("src/modules/estimates/services/proposal-generator.service.ts"), "utf8");
 const adminPage = readFileSync(resolve("app/(admin)/admin/commercial/proposal-generator/page.tsx"), "utf8");
 
@@ -66,5 +67,20 @@ describe("proposal generator MVP migration", () => {
     expect(resolutionTelemetrySql).toContain("total_resolution_count<>target_requirement_count");
     expect(resolutionTelemetrySql).toContain("where id=session_id and estimate_id is null");
     expect(serviceSource).toContain("resolutionCounts: countGeneratorResolutions(requirements)");
+  });
+  it("extends governed profiles to canonical services with compatible units", () => {
+    expect(serviceMappingSql).toContain("partner_service_id");
+    expect(serviceMappingSql).toContain("'service'");
+    expect(serviceMappingSql).toContain("service.default_unit=profile.unit");
+    expect(serviceMappingSql).toContain("company_id is null");
+    expect(serviceMappingSql).toContain("resolve_generator_services");
+    expect(serviceMappingSql).not.toContain("insert into public.external_nomenclature_items");
+  });
+  it("preserves governed mapping audit, telemetry, and atomic service insertion", () => {
+    expect(serviceMappingSql).toContain("estimate_generator_calculator_profile_events");
+    expect(serviceMappingSql).toContain("resolved_service_count");
+    expect(serviceMappingSql).toContain("record_estimate_generator_session_v3");
+    expect(serviceMappingSql).toContain("'service',service.id");
+    expect(serviceMappingSql).toContain("service.default_selling_price");
   });
 });
