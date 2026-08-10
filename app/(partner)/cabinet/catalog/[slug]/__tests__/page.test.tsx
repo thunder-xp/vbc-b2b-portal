@@ -110,6 +110,9 @@ describe("product detail page data loading", () => {
       includeDocuments: true,
       includeImages: false,
     });
+    expect(screen.getByText("Инструкции для этого товара пока не опубликованы.")).toBeInTheDocument();
+    expect(screen.queryByText("Центр документов")).not.toBeInTheDocument();
+    expect(screen.queryByText("Дополнительные сертификаты и инструкции пока не опубликованы.")).not.toBeInTheDocument();
   });
 
   it("loads text only for Description without commercial or image reads", async () => {

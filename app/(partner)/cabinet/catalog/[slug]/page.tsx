@@ -9,8 +9,6 @@ import { getProductCommercialViewsAction, getRetailPriceHistoryAction } from "@/
 import { getPartnerWorkspaceContextAction } from "@/src/modules/partner-cabinet/actions";
 import { listFavoriteProductIdsAction } from "@/src/modules/purchasing-lists/actions";
 import { BehaviorViewEvent } from "@/src/modules/behavior-analytics/components";
-import { listProductDocumentsAction } from "@/src/modules/documents/actions";
-import { RelatedDocuments } from "@/src/modules/documents/components";
 import { getProductRelationSectionsAction, getProductRelationSummaryAction, ProductRelationSectionsView } from "@/src/modules/product-relations";
 import { getProductKnowledgeAction } from "@/src/modules/knowledge-base/actions";
 import { KnowledgeCardView } from "@/src/modules/knowledge-base/landing-components";
@@ -46,7 +44,7 @@ export default async function ProductDetailPage({
   }
 
   const needsCommercialContext = activeTab === "overview" || activeTab === "relations";
-  const [productResult, commercialViewsResult, workspaceResult, merchandisingResult, retailHistoryResult, centralDocumentsResult, relationResult, relationSummaryResult, knowledgeResult] = await Promise.all([
+  const [productResult, commercialViewsResult, workspaceResult, merchandisingResult, retailHistoryResult, relationResult, relationSummaryResult, knowledgeResult] = await Promise.all([
     getCatalogProductDetailByIdAction(identityResult.data.id, detailProjection(activeTab)),
     needsCommercialContext ? getProductCommercialViewsAction([identityResult.data.id]) : Promise.resolve(null),
     needsCommercialContext ? getPartnerWorkspaceContextAction() : Promise.resolve(null),
@@ -54,7 +52,6 @@ export default async function ProductDetailPage({
     activeTab === "pricing"
       ? getRetailPriceHistoryAction(identityResult.data.id, historyRange)
       : Promise.resolve(null),
-    activeTab === "datasheet" ? listProductDocumentsAction(identityResult.data.id) : Promise.resolve(null),
     activeTab === "relations" ? getProductRelationSectionsAction(identityResult.data.id) : Promise.resolve(null),
     activeTab === "overview" ? getProductRelationSummaryAction(identityResult.data.id) : Promise.resolve(null),
     activeTab === "overview" ? getProductKnowledgeAction(identityResult.data.id) : Promise.resolve(null),
@@ -96,7 +93,6 @@ export default async function ProductDetailPage({
         sourceSurface="product_detail"
       />
       {activeTab === "overview" && knowledgeResult?.success && knowledgeResult.data.length ? <section className="mx-auto max-w-7xl px-4 pb-10"><h2 className="text-lg font-semibold">Полезные материалы</h2><div className="mt-3 grid gap-3 md:grid-cols-3">{knowledgeResult.data.map((article) => <KnowledgeCardView article={article} key={article.id} />)}</div></section> : null}
-      {activeTab === "datasheet" ? <div className="mx-auto max-w-7xl px-4 pb-8"><RelatedDocuments documents={centralDocumentsResult?.success ? centralDocumentsResult.data.items : []} emptyMessage="Дополнительные сертификаты и инструкции пока не опубликованы." title="Центр документов" /></div> : null}
       <ProductDetail
       activeTab={activeTab}
       canAddToOrder={canAddToOrder}
