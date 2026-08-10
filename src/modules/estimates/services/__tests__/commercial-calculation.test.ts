@@ -61,6 +61,15 @@ describe("estimate commercial calculation", () => {
     expect(calculateEstimateCommercials({ ...input, vatMode: "none" })).toMatchObject({ vatAmount: 0, finalTotal: 132 });
   });
 
+  it("treats the approved 600 MDL service default as VAT-inclusive without adding VAT twice", () => {
+    const result = calculateEstimateCommercials({
+      lines: [{ ...directLine, quantity: 1, pricingInputValue: 600, convertedCostUnitPrice: null, lineDiscountPercent: 0 }],
+      sections: [{ id: "section-1", discountPercent: 0 }], charges: [], globalDiscountPercent: 0,
+      vatMode: "included", vatRatePercent: 20,
+    });
+    expect(result).toMatchObject({ totalExcludingVat: 500, vatAmount: 100, finalTotal: 600 });
+  });
+
   it("uses deterministic financial rounding", () => {
     expect(calculateCommercialLine({ ...directLine, quantity: 3, pricingInputValue: 10.005, lineDiscountPercent: 0 })).toMatchObject({ sellingUnitPrice: 10.01, lineSubtotal: 30.03 });
   });

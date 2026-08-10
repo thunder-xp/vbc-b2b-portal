@@ -75,6 +75,7 @@ export class SupabaseProposalGeneratorRepository implements ProposalGeneratorRep
       converted_cost_unit_price: line.convertedCostUnitPrice ?? null, exchange_rate: line.exchangeRate ?? null,
       exchange_rate_effective_date: line.exchangeRateEffectiveDate ?? null, description: line.description,
       quantity: line.quantity, unit: line.unit, selling_unit_price: line.sellingUnitPrice,
+      profile_key: line.profileKey ?? null,
     }));
     const { data, error } = await (await createClient()).rpc("create_estimate_from_generator", {
       target_company_id: input.companyId, target_session_id: input.sessionId, target_final_customer_id: input.finalCustomerId,
@@ -129,6 +130,15 @@ export class SupabaseProposalGeneratorRepository implements ProposalGeneratorRep
     if (error || data === null) fail(error?.code);
     return Number(data);
   }
+
+  async updateCalculatorServicePrice(input: Parameters<ProposalGeneratorRepository["updateCalculatorServicePrice"]>[0]) {
+    const { data, error } = await (await createClient()).rpc("update_estimate_generator_service_default_price", {
+      target_profile_key: input.profileKey, expected_version: input.expectedVersion,
+      target_unit_price: input.unitPrice, target_currency_code: input.currencyCode, target_vat_mode: input.vatMode,
+    });
+    if (error || data === null) fail(error?.code);
+    return Number(data);
+  }
 }
 
 function mapProfile(row: Record<string, unknown>) {
@@ -139,6 +149,9 @@ function mapProfile(row: Record<string, unknown>) {
     resolution: row.resolution as "unresolved" | "catalog" | "service" | "own_nomenclature" | "shared_nomenclature",
     resolvedId: typeof row.resolved_id === "string" ? row.resolved_id : null,
     resolvedLabel: typeof row.resolved_label === "string" ? row.resolved_label : null,
+    defaultSellingUnitPrice: nullableNumber(row.default_selling_unit_price),
+    defaultSellingCurrencyCode: typeof row.default_selling_currency_code === "string" ? row.default_selling_currency_code : null,
+    defaultSellingVatMode: row.default_selling_vat_mode === "included" || row.default_selling_vat_mode === "excluded" ? row.default_selling_vat_mode : null,
   };
 }
 

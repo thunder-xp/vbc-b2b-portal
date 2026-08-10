@@ -82,3 +82,15 @@ export async function updateProposalGeneratorProfileAction(input: { profileKey: 
     return success("Соответствие сохранено.", { version });
   } catch (error) { return failureFromError(error); }
 }
+
+export async function updateProposalGeneratorServicePriceAction(input: {
+  profileKey: string; expectedVersion: number; unitPrice: number | null;
+  currencyCode: string | null; vatMode: "included" | "excluded" | null;
+}) {
+  try {
+    await requireAdminPermission("admin.integrations.manage");
+    const version = await createProposalGeneratorService().updateCalculatorServicePrice(input);
+    revalidatePath("/admin/commercial/proposal-generator");
+    return success("Цена для расчёта сохранена.", { version });
+  } catch (error) { return failureFromError(error); }
+}

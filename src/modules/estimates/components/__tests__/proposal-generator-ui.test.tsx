@@ -6,6 +6,7 @@ const workspace = readFileSync(resolve("src/modules/estimates/components/Proposa
 const calculator = readFileSync(resolve("src/modules/estimates/components/ProposalQuickCalculator.tsx"), "utf8");
 const review = readFileSync(resolve("src/modules/estimates/components/ProposalGeneratorReview.tsx"), "utf8");
 const navigation = readFileSync(resolve("src/modules/partner-cabinet/services/workspace-capability.service.ts"), "utf8");
+const adminProfiles = readFileSync(resolve("src/modules/estimates/components/AdminProposalGeneratorProfiles.tsx"), "utf8");
 
 describe("proposal generator UI contract", () => {
   it("keeps one canonical navigation entry", () => {
@@ -30,5 +31,12 @@ describe("proposal generator UI contract", () => {
   it("keeps responsive bounded layouts and explicit unresolved states", () => {
     expect(workspace).toContain("overflow-x-clip"); expect(review).toContain("lg:grid-cols-");
     expect(calculator).toContain("sm:grid-cols-2"); expect(review).toContain("Цена не указана");
+  });
+  it("shows known-position totals, unpriced-work disclosure, and governed service price controls", () => {
+    expect(workspace).toContain("Ориентировочная стоимость известных позиций");
+    expect(workspace).toContain("требуется указать цену");
+    expect(adminProfiles).toContain("Цена услуги для быстрого расчёта");
+    expect(adminProfiles).toContain("НДС включён");
+    expect(adminProfiles).toContain("updateProposalGeneratorServicePriceAction");
   });
 });

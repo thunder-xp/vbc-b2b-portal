@@ -66,7 +66,14 @@ export class ProposalGeneratorService {
       const mappingByKey = new Map(mappings.map((mapping) => [mapping.profileKey, mapping]));
       requirements = calculated.map((line) => {
         const mapping = line.profileKey ? mappingByKey.get(line.profileKey) : null;
-        return mapping ? { ...line, resolution: mapping.resolution, resolvedId: mapping.resolvedId, resolvedLabel: mapping.resolvedLabel } : line;
+        const configuredServicePrice = mapping?.resolution === "service"
+          && mapping.defaultSellingCurrencyCode === input.currencyCode ? mapping.defaultSellingUnitPrice : null;
+        return mapping ? {
+          ...line, resolution: mapping.resolution, resolvedId: mapping.resolvedId, resolvedLabel: mapping.resolvedLabel,
+          sellingUnitPrice: configuredServicePrice,
+          sellingCurrencyCode: configuredServicePrice === null ? null : mapping.defaultSellingCurrencyCode,
+          sellingVatMode: configuredServicePrice === null ? null : mapping.defaultSellingVatMode,
+        } : line;
       });
       const catalogIds = [...new Set(requirements.filter((line) => line.resolution === "catalog" && line.resolvedId).map((line) => line.resolvedId!))];
       if (catalogIds.length) {
@@ -90,17 +97,20 @@ export class ProposalGeneratorService {
     validateCreateInput(input);
     const catalogIds = [...new Set(input.requirements.filter((line) => line.resolution === "catalog").map((line) => line.resolvedId!))];
     const serviceIds = [...new Set(input.requirements.filter((line) => line.resolution === "service").map((line) => line.resolvedId!))];
+    const serviceProfileKeys = [...new Set(input.requirements.filter((line) => line.resolution === "service" && line.profileKey).map((line) => line.profileKey!))];
     const externalIds = [...new Set(input.requirements.filter((line) => line.resolution === "own_nomenclature" || line.resolution === "shared_nomenclature").map((line) => line.resolvedId!))];
-    const [products, commercial, services, external] = await Promise.all([
+    const [products, commercial, services, external, serviceProfiles] = await Promise.all([
       catalogIds.length ? this.catalog.getProductsByIds(userId, catalogIds) : Promise.resolve([]),
       catalogIds.length ? this.pricing.getProductCommercialViews(userId, catalogIds) : Promise.resolve([]),
       this.repository.resolveServices(companyId, serviceIds),
       this.repository.resolveExternalNomenclature(companyId, externalIds),
+      this.repository.resolveCalculatorProfiles(companyId, serviceProfileKeys),
     ]);
     if (products.length !== catalogIds.length || services.length !== serviceIds.length || external.length !== externalIds.length) throw new InvalidStateError("Одна из выбранных позиций больше недоступна. Повторите выбор.");
     const productById = new Map(products.map((product) => [product.id, product]));
     const commercialById = new Map(commercial.map((view) => [view.productId, view]));
     const serviceById = new Map(services.map((service) => [service.id, service]));
+    const serviceProfileByKey = new Map(serviceProfiles.map((profile) => [profile.profileKey, profile]));
     const externalById = new Map(external.map((item) => [item.id, item]));
     const permissionContext = await this.permissions.getEffectivePermissionContext(userId, companyId);
     const canViewPartnerPrice = resolveCommercialVisibility(permissionContext).canViewPartnerPrice;
@@ -114,7 +124,7 @@ export class ProposalGeneratorService {
     if (needsCostRate && !costRate) throw new InvalidStateError("Для пересчёта закупочной цены нет опубликованного курса.");
 
     const lines: GeneratorPreparedLine[] = input.requirements.map((requirement) => {
-      const common = { sectionKey: requirement.sectionKey, serviceId: null, description: requirement.description, quantity: requirement.quantity, unit: requirement.unit, resolution: requirement.resolution };
+      const common = { sectionKey: requirement.sectionKey, serviceId: null, profileKey: requirement.profileKey ?? null, description: requirement.description, quantity: requirement.quantity, unit: requirement.unit, resolution: requirement.resolution };
       if (requirement.resolution === "catalog") {
         const product = productById.get(requirement.resolvedId!);
         const view = commercialById.get(requirement.resolvedId!);
@@ -128,11 +138,14 @@ export class ProposalGeneratorService {
       if (requirement.resolution === "service") {
         const service = serviceById.get(requirement.resolvedId!);
         if (!service || service.unit !== requirement.unit) throw new InvalidStateError("Выбранная услуга больше недоступна.");
+        const profile = requirement.profileKey ? serviceProfileByKey.get(requirement.profileKey) : null;
+        const configuredPrice = profile?.resolution === "service" && profile.resolvedId === service.id
+          && profile.defaultSellingCurrencyCode === input.currencyCode ? profile.defaultSellingUnitPrice : null;
         return { ...common, lineType: "service", productId: null, serviceId: service.id, externalNomenclatureId: null,
           skuSnapshot: null, productNameSnapshot: null, sourceUnitPrice: null, sourceCurrencyCode: null,
           sourceSnapshotAt: null, internalCostUnitPrice: service.defaultCost, convertedCostUnitPrice: service.defaultCost,
           exchangeRate: service.defaultCost === null ? null : 1, exchangeRateEffectiveDate: null,
-          description: service.name, sellingUnitPrice: service.defaultSellingPrice };
+          description: service.name, sellingUnitPrice: configuredPrice ?? service.defaultSellingPrice };
       }
       if (requirement.resolution === "own_nomenclature" || requirement.resolution === "shared_nomenclature") {
         const item = externalById.get(requirement.resolvedId!);
@@ -176,6 +189,19 @@ export class ProposalGeneratorService {
     return this.repository.updateCalculatorProfile(input);
   }
 
+  updateCalculatorServicePrice(input: {
+    profileKey: string; expectedVersion: number; unitPrice: number | null;
+    currencyCode: string | null; vatMode: "included" | "excluded" | null;
+  }) {
+    const empty = input.unitPrice === null && input.currencyCode === null && input.vatMode === null;
+    if (!/^cctv\.[a-z0-9.]+$/.test(input.profileKey) || !Number.isInteger(input.expectedVersion) || input.expectedVersion < 1
+      || (!empty && (!Number.isFinite(input.unitPrice) || input.unitPrice! <= 0 || input.unitPrice! > 9999999999999999.99
+        || !input.currencyCode?.match(/^[A-Z]{3}$/) || !["included", "excluded"].includes(input.vatMode ?? "")))) {
+      throw new InvalidStateError("Настройка цены некорректна.");
+    }
+    return this.repository.updateCalculatorServicePrice(input);
+  }
+
   private async resolveCompany(userId: string, permission: string) {
     const memberships = await this.companyAccess.getOwnMemberships(userId);
     const membership = memberships.find((item) => item.status === MembershipStatus.Active);
@@ -193,5 +219,6 @@ function validateCreateInput(input: CreateGeneratedEstimateInput) {
     if (!line.description.trim() || line.description.length > 500 || !Number.isFinite(line.quantity) || line.quantity <= 0 || line.quantity > 999999) throw new InvalidStateError("Проверьте описание и количество позиций.");
     if (!(["equipment", "installation_materials", "installation_works", "commissioning_works"] as EstimateSectionSystemKey[]).includes(line.sectionKey)) throw new InvalidStateError("Раздел позиции некорректен.");
     if (line.resolution !== "unresolved" && (!line.resolvedId || !UUID.test(line.resolvedId))) throw new InvalidStateError("Выбранная позиция некорректна.");
+    if (line.profileKey && !/^cctv\.[a-z0-9.]+$/.test(line.profileKey)) throw new InvalidStateError("Профиль позиции некорректен.");
   }
 }

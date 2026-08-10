@@ -22,7 +22,21 @@ export type GeneratorRequirement = {
   assumption?: string | null;
   sellingUnitPrice?: number | null;
   sellingCurrencyCode?: string | null;
+  sellingVatMode?: "included" | "excluded" | null;
 };
+
+export function summarizeGeneratorPricing(requirements: readonly GeneratorRequirement[], currencyCode: string) {
+  const priced = requirements.filter((line) => line.sellingUnitPrice != null && line.sellingCurrencyCode === currencyCode);
+  const unpricedWorks = requirements.filter((line) =>
+    (line.sectionKey === "installation_works" || line.sectionKey === "commissioning_works")
+      && (line.sellingUnitPrice == null || line.sellingCurrencyCode !== currencyCode),
+  ).length;
+  return {
+    knownTotal: priced.reduce((total, line) => total + line.sellingUnitPrice! * line.quantity, 0),
+    pricedCount: priced.length,
+    unpricedWorks,
+  };
+}
 
 const SECTION_RULES: ReadonlyArray<{ key: EstimateSectionSystemKey; pattern: RegExp }> = [
   { key: "commissioning_works", pattern: /настрой|конфиг|пусконалад|программир|тестирован/i },

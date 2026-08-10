@@ -7,7 +7,7 @@ import { useRef, useState, useSyncExternalStore, useTransition } from "react";
 
 import { ActionFeedback, actionClassName, FormField } from "../../platform-ui";
 import { createGeneratedEstimateAction, generateProposalDraftAction } from "../actions/proposal-generator.actions";
-import type { GeneratorRequirement } from "../services";
+import { summarizeGeneratorPricing, type GeneratorRequirement } from "../services/proposal-generator";
 import type { FinalCustomer } from "../types";
 import { FinalCustomerPicker } from "./FinalCustomerPicker";
 import { ProposalGeneratorReview } from "./ProposalGeneratorReview";
@@ -40,6 +40,7 @@ export function ProposalGeneratorWorkspace({ currencies }: { currencies: string[
   const [projectName, setProjectName] = useState("");
   const [createPanelOpen, setCreatePanelOpen] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const pricingSummary = summarizeGeneratorPricing(requirements, currencyCode);
 
   const chooseMode = (value: GeneratorMode | null) => {
     setSelectedMode(value); setSession(null); setRequirements([]); setAssumptions([]); setMessage(null); setCreatePanelOpen(false);
@@ -82,7 +83,7 @@ export function ProposalGeneratorWorkspace({ currencies }: { currencies: string[
   return <div className="mx-auto w-full max-w-6xl space-y-5 overflow-x-clip">
     <header className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-sm font-semibold text-emerald-700">Шаг 3 из 3 · Результат</p><h1 className="mt-1 text-2xl font-semibold">Проверьте структуру сметы</h1><p className="mt-1 text-sm text-zinc-600">Точные соответствия выбираются только вами. Неразрешённые позиции попадут в смету без цены.</p></div><button className={actionClassName.secondary} onClick={() => { setSession(null); setMessage(null); }} type="button"><ChevronLeft className="size-4" />Изменить исходные данные</button></header>
     <ProposalGeneratorReview currencyCode={currencyCode} onChange={setRequirements} requirements={requirements} />
-    {mode === "quick_calculation" && <section className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950"><strong>Ориентировочная стоимость</strong><p className="mt-1">Расчёт ориентировочный и не является коммерческим предложением.</p>{assumptions.map((item) => <p className="mt-1 text-xs" key={item}>{item}</p>)}</section>}
+    {mode === "quick_calculation" && <section className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950"><strong>Ориентировочная стоимость известных позиций</strong>{pricingSummary.knownTotal > 0 && <p className="mt-1 text-lg font-semibold">{pricingSummary.knownTotal.toFixed(2)} {currencyCode}</p>}<p className="mt-1">Расчёт ориентировочный и не является коммерческим предложением.</p>{pricingSummary.unpricedWorks > 0 && <p className="mt-1 font-medium">Для {pricingSummary.unpricedWorks} работ требуется указать цену.</p>}{assumptions.map((item) => <p className="mt-1 text-xs" key={item}>{item}</p>)}</section>}
     {createPanelOpen && <section className="grid gap-4 rounded-md border border-zinc-200 bg-white p-4 md:grid-cols-2">
       <div className="md:col-span-2"><FinalCustomerPicker onChange={setCustomer} value={customer?.id ?? null} /></div>
       <FormField label="Проект / объект">{(props) => <input {...props} className={inputClass} maxLength={200} onChange={(event) => setProjectName(event.target.value)} value={projectName} />}</FormField>

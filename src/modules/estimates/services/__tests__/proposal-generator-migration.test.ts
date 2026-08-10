@@ -7,6 +7,7 @@ const telemetrySql = readFileSync(resolve("supabase/migrations/20260810140000_pr
 const calculatorSql = readFileSync(resolve("supabase/migrations/20260810150000_proposal_generator_quick_calculation.sql"), "utf8");
 const resolutionTelemetrySql = readFileSync(resolve("supabase/migrations/20260810160000_proposal_generator_resolution_telemetry.sql"), "utf8");
 const serviceMappingSql = readFileSync(resolve("supabase/migrations/20260810170000_proposal_generator_governed_service_mappings.sql"), "utf8");
+const servicePriceSql = readFileSync(resolve("supabase/migrations/20260810180000_proposal_generator_service_default_prices.sql"), "utf8");
 const serviceSource = readFileSync(resolve("src/modules/estimates/services/proposal-generator.service.ts"), "utf8");
 const adminPage = readFileSync(resolve("app/(admin)/admin/commercial/proposal-generator/page.tsx"), "utf8");
 
@@ -82,5 +83,20 @@ describe("proposal generator MVP migration", () => {
     expect(serviceMappingSql).toContain("record_estimate_generator_session_v3");
     expect(serviceMappingSql).toContain("'service',service.id");
     expect(serviceMappingSql).toContain("service.default_selling_price");
+  });
+  it("adds calculator-scoped versioned service prices without changing canonical service pricing", () => {
+    expect(servicePriceSql).toContain("default_selling_unit_price");
+    expect(servicePriceSql).toContain("default_selling_currency_code");
+    expect(servicePriceSql).toContain("default_selling_vat_mode");
+    expect(servicePriceSql).toContain("service_price_changed");
+    expect(servicePriceSql).toContain("expected_version");
+    expect(servicePriceSql).toContain("admin.integrations.manage");
+    expect(servicePriceSql).not.toMatch(/update public\.partner_services/i);
+  });
+  it("revalidates calculator service pricing during atomic estimate insertion", () => {
+    expect(servicePriceSql).toContain("profile.profile_key=line->>'profile_key'");
+    expect(servicePriceSql).toContain("profile.partner_service_id=service.id");
+    expect(servicePriceSql).toContain("default_selling_currency_code=target_currency_code");
+    expect(servicePriceSql).not.toContain("Document_ЗаказПокупателя");
   });
 });

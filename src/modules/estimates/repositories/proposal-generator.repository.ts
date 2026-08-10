@@ -19,6 +19,9 @@ export type GeneratorProfileMapping = {
   resolution: GeneratorResolutionKind;
   resolvedId: string | null;
   resolvedLabel: string | null;
+  defaultSellingUnitPrice: number | null;
+  defaultSellingCurrencyCode: string | null;
+  defaultSellingVatMode: "included" | "excluded" | null;
 };
 
 export type GeneratorProfileAdminRow = GeneratorProfileMapping & {
@@ -30,6 +33,7 @@ export type GeneratorPreparedLine = AddEstimateLineInput & {
   sectionKey: EstimateSectionSystemKey;
   externalNomenclatureId?: string | null;
   resolution: GeneratorResolutionKind;
+  profileKey?: string | null;
 };
 
 export type GeneratorAdminReport = {
@@ -95,4 +99,11 @@ export interface ProposalGeneratorRepository {
   listCalculatorProfiles(): Promise<GeneratorProfileAdminRow[]>;
   searchCalculatorTargets(query: string, limit: number): Promise<Array<{ targetType: "catalog" | "service" | "external_nomenclature"; id: string; label: string; secondary: string | null }>>;
   updateCalculatorProfile(input: { profileKey: string; expectedVersion: number; targetType: "catalog" | "service" | "external_nomenclature" | "unresolved"; targetId: string | null }): Promise<number>;
+  updateCalculatorServicePrice(input: {
+    profileKey: string;
+    expectedVersion: number;
+    unitPrice: number | null;
+    currencyCode: string | null;
+    vatMode: "included" | "excluded" | null;
+  }): Promise<number>;
 }

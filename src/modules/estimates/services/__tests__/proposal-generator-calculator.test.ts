@@ -16,6 +16,7 @@ describe("CCTV quick calculator", () => {
     expect(first.find((line) => line.profileKey === "cctv.outdoor.standard")?.quantity).toBe(4);
     expect(first.find((line) => line.profileKey === "cctv.cable.cat5e")?.quantity).toBe(300);
     expect(first.find((line) => line.profileKey === "cctv.storage.8tb")?.quantity).toBe(2);
+    expect(first.find((line) => line.profileKey === "cctv.mounting")).toMatchObject({ quantity: 12, sectionKey: "installation_materials", unit: "pcs" });
   });
   it("keeps every derived identity unresolved until an exact profile mapping exists", () => {
     expect(calculateCctvRequirements(warehouse).every((line) => line.resolution === "unresolved" && line.resolvedId === null)).toBe(true);
