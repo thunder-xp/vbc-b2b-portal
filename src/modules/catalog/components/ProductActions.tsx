@@ -7,9 +7,9 @@ export function ProductActions({ canAddToOrder, canManagePurchasingLists = false
   return <div aria-label="Действия с товаром" className="mt-5 flex flex-wrap items-end gap-2">
     {canAddToOrder ? <AddToCartButton productId={productId} /> : null}
     <div aria-label="Дополнительные действия" className="flex flex-wrap items-end gap-2">
-      {canManagePurchasingLists ? <FavoriteProductButton initialSaved={initialFavorite} productId={productId} withListChooser /> : null}
-      <ProductSpecificationAction productId={productId} />
-      {companyId && userId ? <ProductComparisonAction categoryId={categoryId} companyId={companyId} productId={productId} userId={userId} /> : null}
+      {canManagePurchasingLists ? <FavoriteProductButton compact initialSaved={initialFavorite} productId={productId} withListChooser /> : null}
+      <ProductSpecificationAction compact productId={productId} />
+      {companyId && userId ? <ProductComparisonAction categoryId={categoryId} companyId={companyId} compact productId={productId} userId={userId} /> : null}
     </div>
   </div>;
 }
