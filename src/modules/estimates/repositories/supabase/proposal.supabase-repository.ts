@@ -92,7 +92,7 @@ export class SupabaseProposalRepository implements ProposalRepository {
 
   async markGenerating(documentId: string) { await this.updateDocument(documentId, { status: "generating", safe_error: null }); }
   async markReady(input: { documentId: string; bucket: string; key: string; pageCount: number; fileSizeBytes: number; checksumSha256: string }) {
-    const supabase = await createClient();
+    const supabase = createAdminClient();
     const { data, error } = await supabase.from("generated_estimate_documents")
       .update({ status: "ready", storage_bucket: input.bucket, storage_key: input.key, page_count: input.pageCount, file_size_bytes: input.fileSizeBytes, checksum_sha256: input.checksumSha256, generated_at: new Date().toISOString(), safe_error: null })
       .eq("id", input.documentId)
