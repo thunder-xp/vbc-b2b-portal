@@ -88,6 +88,7 @@ export interface ProposalGeneratorRepository {
     name: string;
     projectName: string | null;
     currencyCode: string;
+    vatMode: "none" | "separate";
     validityDays: number;
     requestKey: string;
     fingerprint: string;

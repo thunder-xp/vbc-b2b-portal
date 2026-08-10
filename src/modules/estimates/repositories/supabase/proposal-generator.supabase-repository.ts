@@ -77,9 +77,10 @@ export class SupabaseProposalGeneratorRepository implements ProposalGeneratorRep
       quantity: line.quantity, unit: line.unit, selling_unit_price: line.sellingUnitPrice,
       profile_key: line.profileKey ?? null,
     }));
-    const { data, error } = await (await createClient()).rpc("create_estimate_from_generator", {
+    const { data, error } = await (await createClient()).rpc("create_estimate_from_generator_v2", {
       target_company_id: input.companyId, target_session_id: input.sessionId, target_final_customer_id: input.finalCustomerId,
       estimate_name: input.name, target_project_name: input.projectName ?? "", target_currency_code: input.currencyCode,
+      target_vat_mode: input.vatMode,
       target_validity_days: input.validityDays, target_request_key: input.requestKey,
       target_request_fingerprint: input.fingerprint, generated_lines: lines,
     });

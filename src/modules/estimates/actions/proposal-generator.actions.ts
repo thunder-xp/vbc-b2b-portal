@@ -30,7 +30,7 @@ export async function calculateQuickProposalAction(input: { parameters: CctvCalc
 
 export async function createGeneratedEstimateAction(input: {
   sessionId: string; sessionFingerprint: string; finalCustomerId: string; name: string; projectName?: string | null;
-  currencyCode: string; validityDays: number; requestKey: string; requirements: GeneratorRequirement[];
+  currencyCode: string; vatMode: "none" | "separate"; validityDays: number; requestKey: string; requirements: GeneratorRequirement[];
 }) {
   try {
     const userId = await getAuthenticatedUserId();

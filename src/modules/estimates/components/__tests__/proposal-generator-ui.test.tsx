@@ -39,4 +39,10 @@ describe("proposal generator UI contract", () => {
     expect(adminProfiles).toContain("НДС включён");
     expect(adminProfiles).toContain("updateProposalGeneratorServicePriceAction");
   });
+  it("captures the estimate VAT choice before generator hand-off", () => {
+    expect(workspace).toContain('useState<"none" | "separate">("none")');
+    expect(workspace).toContain('label="НДС"');
+    expect(workspace).toContain('value="separate">НДС применяется (20%)');
+    expect(workspace).toContain("currencyCode, vatMode, validityDays");
+  });
 });

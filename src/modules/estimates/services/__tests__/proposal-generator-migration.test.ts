@@ -8,6 +8,7 @@ const calculatorSql = readFileSync(resolve("supabase/migrations/20260810150000_p
 const resolutionTelemetrySql = readFileSync(resolve("supabase/migrations/20260810160000_proposal_generator_resolution_telemetry.sql"), "utf8");
 const serviceMappingSql = readFileSync(resolve("supabase/migrations/20260810170000_proposal_generator_governed_service_mappings.sql"), "utf8");
 const servicePriceSql = readFileSync(resolve("supabase/migrations/20260810180000_proposal_generator_service_default_prices.sql"), "utf8");
+const vatIncludedSql = readFileSync(resolve("supabase/migrations/20260810190000_proposal_generator_vat_included_defaults.sql"), "utf8");
 const serviceSource = readFileSync(resolve("src/modules/estimates/services/proposal-generator.service.ts"), "utf8");
 const adminPage = readFileSync(resolve("app/(admin)/admin/commercial/proposal-generator/page.tsx"), "utf8");
 
@@ -98,5 +99,14 @@ describe("proposal generator MVP migration", () => {
     expect(servicePriceSql).toContain("profile.partner_service_id=service.id");
     expect(servicePriceSql).toContain("default_selling_currency_code=target_currency_code");
     expect(servicePriceSql).not.toContain("Document_ЗаказПокупателя");
+  });
+  it("normalizes VAT-included calculator defaults only at governed estimate creation", () => {
+    expect(vatIncludedSql).toContain("create_estimate_from_generator_v2");
+    expect(vatIncludedSql).toContain("target_vat_mode not in ('none', 'separate')");
+    expect(vatIncludedSql).toContain("profile.default_selling_vat_mode = 'included'");
+    expect(vatIncludedSql).toContain("round(profile.default_selling_unit_price / 1.20, 2)");
+    expect(vatIncludedSql).toContain("profile.default_selling_currency_code = target_currency_code");
+    expect(vatIncludedSql).toContain("existing_estimate_id is not null");
+    expect(vatIncludedSql).not.toMatch(/update public\.partner_services/i);
   });
 });
