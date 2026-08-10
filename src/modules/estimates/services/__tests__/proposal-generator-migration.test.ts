@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 const sql = readFileSync(resolve("supabase/migrations/20260810130000_proposal_generator_mvp.sql"), "utf8");
 const telemetrySql = readFileSync(resolve("supabase/migrations/20260810140000_proposal_generator_telemetry_completion.sql"), "utf8");
 const calculatorSql = readFileSync(resolve("supabase/migrations/20260810150000_proposal_generator_quick_calculation.sql"), "utf8");
+const resolutionTelemetrySql = readFileSync(resolve("supabase/migrations/20260810160000_proposal_generator_resolution_telemetry.sql"), "utf8");
 const serviceSource = readFileSync(resolve("src/modules/estimates/services/proposal-generator.service.ts"), "utf8");
 const adminPage = readFileSync(resolve("app/(admin)/admin/commercial/proposal-generator/page.tsx"), "utf8");
 
@@ -59,5 +60,11 @@ describe("proposal generator MVP migration", () => {
     expect(calculatorSql).toContain("profile.profile_key=any");
     expect(calculatorSql).toContain("else 'unresolved'");
     expect(calculatorSql).not.toContain("Document_ЗаказПокупателя");
+  });
+  it("records resolution facts before optional estimate creation", () => {
+    expect(resolutionTelemetrySql).toContain("record_estimate_generator_session_v2");
+    expect(resolutionTelemetrySql).toContain("total_resolution_count<>target_requirement_count");
+    expect(resolutionTelemetrySql).toContain("where id=session_id and estimate_id is null");
+    expect(serviceSource).toContain("resolutionCounts: countGeneratorResolutions(requirements)");
   });
 });

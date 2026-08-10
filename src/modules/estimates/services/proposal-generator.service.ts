@@ -48,7 +48,7 @@ export class ProposalGeneratorService {
       await this.repository.recordSession({ companyId, requestKey: input.requestKey, fingerprint, requirementCount: 0, durationMs: Math.round(performance.now() - startedAt), failed: true, generationMode: "description" });
       throw error;
     }
-    const sessionId = await this.repository.recordSession({ companyId, requestKey: input.requestKey, fingerprint, requirementCount: requirements.length, durationMs: Math.round(performance.now() - startedAt), generationMode: "description" });
+    const sessionId = await this.repository.recordSession({ companyId, requestKey: input.requestKey, fingerprint, requirementCount: requirements.length, durationMs: Math.round(performance.now() - startedAt), generationMode: "description", resolutionCounts: countGeneratorResolutions(requirements) });
     return { sessionId, fingerprint, requirements };
   }
 
@@ -81,7 +81,7 @@ export class ProposalGeneratorService {
       await this.repository.recordSession({ companyId, requestKey: input.requestKey, fingerprint, requirementCount: 0, durationMs: Math.round(performance.now() - startedAt), failed: true, generationMode: "quick_calculation", structuredFacts: facts });
       throw error;
     }
-    const sessionId = await this.repository.recordSession({ companyId, requestKey: input.requestKey, fingerprint, requirementCount: requirements.length, durationMs: Math.round(performance.now() - startedAt), generationMode: "quick_calculation", structuredFacts: facts });
+    const sessionId = await this.repository.recordSession({ companyId, requestKey: input.requestKey, fingerprint, requirementCount: requirements.length, durationMs: Math.round(performance.now() - startedAt), generationMode: "quick_calculation", structuredFacts: facts, resolutionCounts: countGeneratorResolutions(requirements) });
     return { sessionId, fingerprint, requirements, assumptions: requirements.flatMap((line) => line.assumption ? [line.assumption] : []) };
   }
 

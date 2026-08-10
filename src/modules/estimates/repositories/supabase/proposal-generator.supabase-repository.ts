@@ -9,7 +9,8 @@ function fail(code?: string): never {
 
 export class SupabaseProposalGeneratorRepository implements ProposalGeneratorRepository {
   async recordSession(input: Parameters<ProposalGeneratorRepository["recordSession"]>[0]): Promise<string> {
-    const { data, error } = await (await createClient()).rpc("record_estimate_generator_session", {
+    const counts = input.resolutionCounts ?? { catalog: 0, own: 0, shared: 0, unresolved: input.requirementCount };
+    const { data, error } = await (await createClient()).rpc("record_estimate_generator_session_v2", {
       target_company_id: input.companyId,
       target_request_key: input.requestKey,
       target_request_fingerprint: input.fingerprint,
@@ -18,6 +19,10 @@ export class SupabaseProposalGeneratorRepository implements ProposalGeneratorRep
       target_failed: input.failed ?? false,
       target_generation_mode: input.generationMode ?? "description",
       target_structured_facts: input.structuredFacts ?? null,
+      target_resolved_catalog_count: counts.catalog,
+      target_own_nomenclature_count: counts.own,
+      target_shared_nomenclature_count: counts.shared,
+      target_unresolved_count: counts.unresolved,
     });
     if (error || !data) fail(error?.code);
     return String(data);

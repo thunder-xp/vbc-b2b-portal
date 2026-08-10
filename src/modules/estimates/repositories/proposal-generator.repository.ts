@@ -63,6 +63,7 @@ export interface ProposalGeneratorRepository {
       archiveDays: number; cableLength: number; installationRequested: boolean; commissioningRequested: boolean;
       remoteViewingRequested: boolean; advancedFlags: string[];
     } | null;
+    resolutionCounts?: { catalog: number; own: number; shared: number; unresolved: number };
   }): Promise<string>;
   resolveCalculatorProfiles(companyId: string, profileKeys: string[]): Promise<GeneratorProfileMapping[]>;
   resolveExternalNomenclature(companyId: string, ids: string[]): Promise<ExternalNomenclatureRecord[]>;
