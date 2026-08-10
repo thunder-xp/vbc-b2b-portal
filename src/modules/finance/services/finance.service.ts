@@ -18,12 +18,7 @@ export class DefaultFinanceService {
   ) {}
 
   async getOverview(userId: string): Promise<FinanceOverview> {
-    const memberships = await this.companyAccessService.getOwnMemberships(userId);
-    const membership = memberships.find((row) => row.status === MembershipStatus.Active);
-    if (!membership) throw new NotFoundError();
-    const context = await this.companyAccessService.getActiveCompanyContext(userId, membership.companyId);
-    const companyId = context.company.id;
-    await this.permissionService.ensurePermission(userId, companyId, FINANCE_VIEW_PERMISSION);
+    const companyId = await this.getAuthorizedCompanyId(userId);
     const { balances: rows, syncState } = await this.repository.getOverviewData(companyId);
     const contracts = rows.flatMap((row) => {
       const signed = decimal(row.signedBalance);
@@ -58,6 +53,16 @@ export class DefaultFinanceService {
       state,
       showLastConfirmedNotice: syncState?.status === "failed" && contracts.length > 0,
     };
+  }
+
+  async getAuthorizedCompanyId(userId: string): Promise<string> {
+    const memberships = await this.companyAccessService.getOwnMemberships(userId);
+    const membership = memberships.find((row) => row.status === MembershipStatus.Active);
+    if (!membership) throw new NotFoundError();
+    const context = await this.companyAccessService.getActiveCompanyContext(userId, membership.companyId);
+    const companyId = context.company.id;
+    await this.permissionService.ensurePermission(userId, companyId, FINANCE_VIEW_PERMISSION);
+    return companyId;
   }
 }
 

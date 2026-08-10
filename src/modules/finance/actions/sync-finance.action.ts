@@ -4,7 +4,21 @@ import { ForbiddenError } from "../../access-control/services";
 import { failureFromError, success, type ActionResult } from "../../access-control/actions/action-result";
 import { getAuthenticatedUserId } from "../../access-control/actions/service-factory";
 import type { FinanceCompanySyncResult, FinanceSyncBatchResult } from "../services";
-import { createFinanceSyncAuthorizationService, createFinanceSyncCoordinator } from "./service-factory";
+import { createFinanceService, createFinanceSyncAuthorizationService, createFinanceSyncCoordinator } from "./service-factory";
+
+export async function synchronizeOwnFinanceCompanyAction(): Promise<ActionResult<FinanceCompanySyncResult>> {
+  try {
+    const userId = await getAuthenticatedUserId();
+    const companyId = await createFinanceService().getAuthorizedCompanyId(userId);
+    const result = await createFinanceSyncCoordinator().synchronizeCompany({ companyId, trigger: "manual", actorUserId: userId });
+    if (result.status === "failed") return { success: false, data: null, message: "Не удалось обновить финансовые данные. Последние подтверждённые данные сохранены.", errorCode: "SYSTEM_ERROR" };
+    if (result.status === "locked") return { success: false, data: null, message: "Обновление уже выполняется. Дождитесь завершения.", errorCode: "CONFLICT" };
+    if (result.status === "mapping_missing") return { success: false, data: null, message: "Для компании не настроена связь с 1С. Обратитесь к менеджеру Novotech.", errorCode: "INVALID_INPUT" };
+    return success(result.status === "zero_balance" ? "Данные обновлены. Ненулевых балансов нет." : "Финансовые данные обновлены из 1С.", result);
+  } catch (error) {
+    return failureFromError(error);
+  }
+}
 
 export async function synchronizeFinanceCompanyAction(companyId: string): Promise<ActionResult<FinanceCompanySyncResult>> {
   try {

@@ -36,6 +36,13 @@ type SyncStateRow = {
   last_duration_ms: number | null;
 };
 
+type FinanceSyncCompanyRow = {
+  company_id: string;
+  company_name: string;
+  counterparty_ref: string;
+  active_balance_count: number | string;
+};
+
 export class FinanceRepositoryError extends Error {
   constructor() {
     super("Finance repository operation failed.");
@@ -103,8 +110,21 @@ export class SupabaseFinanceRepository implements FinanceRepository {
 
   async listSyncCompanies(input: { afterCompanyId?: string; limit: number }): Promise<FinanceSyncCompany[]> {
     const client = createAdminClient();
+    if (!input.afterCompanyId) {
+      const { data, error } = await client.rpc("list_partner_finance_sync_companies", {
+        p_limit: input.limit,
+      });
+      if (error) throw new FinanceRepositoryError();
+      return ((data ?? []) as FinanceSyncCompanyRow[]).map((company) => ({
+        companyId: company.company_id,
+        companyName: company.company_name,
+        counterpartyRef: company.counterparty_ref,
+        activeBalanceCount: Number(company.active_balance_count),
+      }));
+    }
+
     let query = client.from("partner_companies").select("id,display_name,external_1c_id").eq("status", "active").order("id").limit(input.limit);
-    if (input.afterCompanyId) query = query.gt("id", input.afterCompanyId);
+    query = query.gt("id", input.afterCompanyId);
     const { data, error } = await query;
     if (error) throw new FinanceRepositoryError();
     const companies = data ?? [];
