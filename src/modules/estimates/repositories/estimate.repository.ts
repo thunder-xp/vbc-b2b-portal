@@ -66,6 +66,9 @@ export type ExternalNomenclatureRecord = {
   category: string | null;
   unit: EstimateUnit;
   specification: string | null;
+  curationStatus: "active" | "review_required" | "duplicate" | "archived";
+  hasCover: boolean;
+  coverScope: "canonical" | "partner" | null;
   exactIdentityMatch: boolean;
 };
 
@@ -234,6 +237,7 @@ export interface EstimateRepository {
     specification: string | null;
   }): Promise<number>;
   archivePartnerNomenclature?(companyId: string, itemId: string, expectedVersion: number): Promise<void>;
+  adoptPartnerNomenclature?(companyId: string, itemId: string): Promise<void>;
   addExternalLine?(input: AddExternalEstimateLineInput): Promise<void>;
   createFromPurchasingList(input: {
     listId: string;

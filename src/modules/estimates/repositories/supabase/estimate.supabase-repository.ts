@@ -232,10 +232,11 @@ export class SupabaseEstimateRepository implements EstimateRepository {
   }
 
   async searchExternalNomenclature(companyId: string, query: string, itemType: import("../estimate.repository").ExternalNomenclatureItemType, scope: "own" | "shared", limit: number) {
-    const { data, error } = await (await createClient()).rpc(scope === "own" ? "search_partner_external_nomenclature" : "search_shared_external_nomenclature", {
+    const { data, error } = await (await createClient()).rpc("search_external_nomenclature_v2", {
       target_company_id: companyId,
       search_query: query,
       target_item_type: itemType,
+      search_scope: scope,
       result_limit: limit,
     });
     if (error) throw mapRepositoryError(error.code);
@@ -243,7 +244,7 @@ export class SupabaseEstimateRepository implements EstimateRepository {
   }
 
   async listPartnerNomenclature(input: import("../estimate.repository").PartnerNomenclatureListInput) {
-    const { data, error } = await (await createClient()).rpc("list_partner_external_nomenclature", {
+    const { data, error } = await (await createClient()).rpc("list_partner_external_nomenclature_v2", {
       target_company_id: input.companyId,
       search_query: input.search ?? null,
       target_item_type: input.itemType ?? null,
@@ -301,6 +302,11 @@ export class SupabaseEstimateRepository implements EstimateRepository {
       target_external_nomenclature_id: itemId,
       expected_version: expectedVersion,
     });
+    if (error) throw mapRepositoryError(error.code);
+  }
+
+  async adoptPartnerNomenclature(companyId: string, itemId: string) {
+    const { error } = await (await createClient()).rpc("adopt_partner_external_nomenclature", { target_company_id: companyId, target_external_nomenclature_id: itemId });
     if (error) throw mapRepositoryError(error.code);
   }
 
@@ -539,6 +545,9 @@ function mapExternalNomenclatureRow(row: Record<string, unknown>): import("../es
     category: typeof row.category === "string" ? row.category : null,
     unit: row.unit as import("../../types").EstimateUnit,
     specification: typeof row.specification === "string" ? row.specification : null,
+    curationStatus: (row.curation_status ?? "review_required") as import("../estimate.repository").ExternalNomenclatureRecord["curationStatus"],
+    hasCover: row.has_cover === true,
+    coverScope: row.cover_scope === "canonical" || row.cover_scope === "partner" ? row.cover_scope : null,
     exactIdentityMatch: row.exact_identity_match === true,
   };
 }

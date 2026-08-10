@@ -7,6 +7,7 @@ import { addEstimateExternalLineAction, searchExternalNomenclatureAction } from 
 import type { ExternalNomenclatureItemType } from "../repositories";
 import type { EstimateDetailDto, ExternalNomenclatureDto } from "../services";
 import type { EstimateUnit } from "../types";
+import { NomenclatureCover } from "./NomenclatureCover";
 
 const inputClass = "min-h-11 min-w-0 rounded-md border border-zinc-300 bg-white px-2 text-sm outline-none focus:border-emerald-600 focus-visible:ring-2 focus-visible:ring-emerald-200 disabled:bg-zinc-100";
 const units: Array<{ value: EstimateUnit; label: string }> = [
@@ -110,7 +111,7 @@ export function ExternalNomenclaturePicker({ estimate, disabled, itemType, onRes
     {selected && <div className="flex flex-wrap items-center justify-between gap-2 border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900"><span className="inline-flex items-center gap-2"><Check className="size-4" />Выбрана позиция: {[selected.manufacturer, selected.model, selected.name].filter(Boolean).join(" · ")}</span><button className="font-semibold underline" onClick={resetSearch} type="button">Создать другую</button></div>}
     {!selected && matches.length > 0 && <div className="border border-amber-200 bg-amber-50 p-3">
       <p className="text-sm font-medium text-amber-950">Найдены похожие позиции. Используйте существующую или явно создайте новую.</p>
-      <div className="mt-2 grid gap-2">{matches.map((item) => <button aria-label={`Выбрать ${[item.manufacturer, item.model, item.name].filter(Boolean).join(" ")}`} className="flex min-h-11 items-center justify-between gap-3 border border-amber-200 bg-white px-3 py-2 text-left text-sm" key={item.id} onClick={() => choose(item)} type="button"><span><strong>{[item.manufacturer, item.model].filter(Boolean).join(" ") || item.name}</strong><span className="block text-xs text-zinc-600">{item.name}{item.category ? ` · ${item.category}` : ""} · {unitLabel(item.unit)}</span></span><span className="font-semibold text-emerald-700">Выбрать</span></button>)}</div>
+      <div className="mt-2 grid gap-2">{matches.map((item) => <button aria-label={`Выбрать ${[item.manufacturer, item.model, item.name].filter(Boolean).join(" ")}`} className="flex min-h-11 items-center justify-between gap-3 border border-amber-200 bg-white px-3 py-2 text-left text-sm" key={item.id} onClick={() => choose(item)} type="button"><span className="flex min-w-0 items-center gap-3"><NomenclatureCover hasCover={item.hasCover} itemId={item.id} name={item.name} size="sm" /><span className="min-w-0"><strong>{[item.manufacturer, item.model].filter(Boolean).join(" ") || item.name}</strong><span className="block text-xs text-zinc-600">{item.name}{item.category ? ` · ${item.category}` : ""} · {unitLabel(item.unit)}</span></span></span><span className="font-semibold text-emerald-700">Выбрать</span></button>)}</div>
     </div>}
 
     <div className="grid gap-2 md:grid-cols-[minmax(10rem,1fr)_9rem_7rem_8rem]">

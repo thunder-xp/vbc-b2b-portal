@@ -203,6 +203,11 @@ export async function archivePartnerNomenclatureAction(itemId: string, expectedV
   }
 }
 
+export async function adoptPartnerNomenclatureAction(itemId: string) {
+  try { const userId = await getAuthenticatedUserId(); await createEstimateService().adoptPartnerNomenclature(userId, itemId); revalidatePath("/cabinet/nomenclature"); return success("Позиция добавлена в вашу номенклатуру.", null); }
+  catch (error) { return failureFromError(error); }
+}
+
 export async function addEstimateExternalLineAction(estimateId: string, input: { expectedRevision: number } & ExternalNomenclatureInput): Promise<ActionResult<EstimateDetailDto>> {
   return runEstimateMutation(
     (userId) => createEstimateService().addExternalLine(userId, estimateId, input.expectedRevision, input),

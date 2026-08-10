@@ -4,12 +4,13 @@ import { Archive, Plus, Save } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
 
-import { archivePartnerNomenclatureAction, createPartnerNomenclatureAction, updatePartnerNomenclatureAction } from "../actions";
+import { archivePartnerNomenclatureAction, createPartnerNomenclatureAction, updatePartnerNomenclatureAction, updatePartnerNomenclatureCoverAction } from "../actions";
 import type { ExternalNomenclatureItemType } from "../repositories";
 import type { PartnerNomenclatureDto, PartnerNomenclatureInput } from "../services";
 import { externalNomenclatureItemTypeLabel } from "../services/external-nomenclature";
 import type { EstimateUnit } from "../types";
 import { DirectoryEditorDialog } from "./DirectoryEditorDialog";
+import { NomenclatureCover } from "./NomenclatureCover";
 
 const inputClass = "min-h-11 min-w-0 rounded-md border border-zinc-300 bg-white px-3 text-sm outline-none focus:border-emerald-600 focus-visible:ring-2 focus-visible:ring-emerald-200 disabled:bg-zinc-100";
 const units: Array<{ value: EstimateUnit; label: string }> = [
@@ -65,27 +66,27 @@ export function PartnerNomenclatureWorkspace({ records }: { records: PartnerNome
       createType={createType} duplicateWarning={duplicateWarning} item={editor === "new" ? null : editor}
       onClose={() => setEditor(null)} onCreate={(form, force) => create(form, force)} onCreateType={setCreateType}
       onUpdate={(item, form) => complete(() => updatePartnerNomenclatureAction(item.id, item.version, form))}
-      onArchive={(item) => complete(() => archivePartnerNomenclatureAction(item.id, item.version))} pending={pending}
+      onArchive={(item) => complete(() => archivePartnerNomenclatureAction(item.id, item.version))} onMessage={setMessage} pending={pending}
     /> : null}
   </div>;
 }
 
 function NomenclatureRow({ item, onEdit }: ItemProps) {
-  return <tr className="align-top"><td className="px-4 py-4"><strong>{item.name}</strong>{item.category && <span className="mt-1 block text-xs text-zinc-500">{item.category}</span>}</td><td className="px-4 py-4">{externalNomenclatureItemTypeLabel(item.itemType)}</td><td className="px-4 py-4">{item.manufacturer ?? "—"}</td><td className="px-4 py-4">{item.model ?? "—"}</td><td className="px-4 py-4">{unitLabel(item.unit)}</td><td className="px-4 py-4">{formatDate(item.lastUsedAt)}</td><td className="px-4 py-3"><EditButton item={item} onEdit={onEdit} /></td></tr>;
+  return <tr className="align-top"><td className="px-4 py-4"><div className="flex gap-3"><NomenclatureCover hasCover={item.hasCover} itemId={item.id} name={item.name} /><span><strong>{item.name}</strong>{item.category && <span className="mt-1 block text-xs text-zinc-500">{item.category}</span>}</span></div></td><td className="px-4 py-4">{externalNomenclatureItemTypeLabel(item.itemType)}</td><td className="px-4 py-4">{item.manufacturer ?? "—"}</td><td className="px-4 py-4">{item.model ?? "—"}</td><td className="px-4 py-4">{unitLabel(item.unit)}</td><td className="px-4 py-4">{formatDate(item.lastUsedAt)}</td><td className="px-4 py-3"><EditButton item={item} onEdit={onEdit} /></td></tr>;
 }
 
 function NomenclatureCard({ item, onEdit }: ItemProps) {
-  return <article className="border-y border-zinc-200 bg-white py-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><strong className="block break-words">{item.name}</strong><span className="mt-1 block text-xs text-zinc-500">{externalNomenclatureItemTypeLabel(item.itemType)} · {unitLabel(item.unit)}</span></div><EditButton item={item} onEdit={onEdit} /></div><dl className="mt-3 grid grid-cols-[8rem_minmax(0,1fr)] gap-2 text-sm"><dt className="text-zinc-500">Производитель</dt><dd className="break-words">{item.manufacturer ?? "—"}</dd><dt className="text-zinc-500">Модель / код</dt><dd className="break-words">{item.model ?? "—"}</dd><dt className="text-zinc-500">Использование</dt><dd>{formatDate(item.lastUsedAt)}</dd></dl></article>;
+  return <article className="border-y border-zinc-200 bg-white py-4"><div className="flex items-start justify-between gap-3"><div className="flex min-w-0 gap-3"><NomenclatureCover hasCover={item.hasCover} itemId={item.id} name={item.name} /><div className="min-w-0"><strong className="block break-words">{item.name}</strong><span className="mt-1 block text-xs text-zinc-500">{externalNomenclatureItemTypeLabel(item.itemType)} · {unitLabel(item.unit)}</span></div></div><EditButton item={item} onEdit={onEdit} /></div><dl className="mt-3 grid grid-cols-[8rem_minmax(0,1fr)] gap-2 text-sm"><dt className="text-zinc-500">Производитель</dt><dd className="break-words">{item.manufacturer ?? "—"}</dd><dt className="text-zinc-500">Модель / код</dt><dd className="break-words">{item.model ?? "—"}</dd><dt className="text-zinc-500">Использование</dt><dd>{formatDate(item.lastUsedAt)}</dd></dl></article>;
 }
 
 type ItemProps = { item: PartnerNomenclatureDto; onEdit: (item: PartnerNomenclatureDto) => void };
 function EditButton({ item, onEdit }: ItemProps) { return <button className="inline-flex min-h-11 items-center rounded-md border border-zinc-300 px-3 text-sm font-semibold" onClick={() => onEdit(item)} type="button">Изменить</button>; }
 
-function NomenclatureEditor({ item, createType, duplicateWarning, onClose, onCreate, onCreateType, onUpdate, onArchive, pending }: {
+function NomenclatureEditor({ item, createType, duplicateWarning, onClose, onCreate, onCreateType, onUpdate, onArchive, onMessage, pending }: {
   item: PartnerNomenclatureDto | null; createType: ExternalNomenclatureItemType; duplicateWarning: boolean; onClose: () => void;
   onCreate: (form: HTMLFormElement, force?: boolean) => void; onCreateType: (type: ExternalNomenclatureItemType) => void;
   onUpdate: (item: PartnerNomenclatureDto, input: { name: string; category: string; unit: EstimateUnit; specification: string }) => void;
-  onArchive: (item: PartnerNomenclatureDto) => void; pending: boolean;
+  onArchive: (item: PartnerNomenclatureDto) => void; onMessage: (message: string) => void; pending: boolean;
 }) {
   const effectiveType = item?.itemType ?? createType;
   return <DirectoryEditorDialog description={item ? "Изменения применяются только к представлению позиции в библиотеке вашей компании." : "Позиция будет доступна в библиотеке активной компании."} onClose={onClose} title={item ? "Изменить позицию" : "Новая позиция"}>
@@ -102,13 +103,26 @@ function NomenclatureEditor({ item, createType, duplicateWarning, onClose, onCre
       <Field label="Категория"><input className={`${inputClass} w-full`} defaultValue={item?.category ?? ""} maxLength={160} name="category" /></Field>
       <Field label="Единица измерения"><select className={`${inputClass} w-full`} defaultValue={item?.unit ?? (effectiveType === "service" ? "service" : "pcs")} key={item?.id ?? effectiveType} name="unit">{units.map((unit) => <option key={unit.value} value={unit.value}>{unit.label}</option>)}</select></Field>
       <Field className="sm:col-span-2" label="Описание"><textarea className={`${inputClass} min-h-24 w-full py-2`} defaultValue={item?.specification ?? ""} maxLength={2000} name="specification" /></Field>
-      <p className="text-xs text-zinc-500 sm:col-span-2">Изображение пока недоступно: для партнёрской номенклатуры нет утверждённого защищённого хранилища.</p>
+      {effectiveType !== "service" ? <CoverEditor item={item} pending={pending} onComplete={onClose} onMessage={onMessage} /> : null}
       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-zinc-200 pt-4 sm:col-span-2">
         {item ? <button className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-red-700" disabled={pending} onClick={() => onArchive(item)} type="button"><Archive className="size-4" />Убрать из библиотеки</button> : <span />}
         <div className="flex flex-wrap justify-end gap-2">{!item && duplicateWarning ? <button className="min-h-11 rounded-md border border-zinc-300 bg-white px-3 text-sm font-semibold" disabled={pending} onClick={(event) => onCreate(event.currentTarget.form!, true)} type="button">Всё равно создать новую</button> : null}<button className="min-h-11 rounded-md border border-zinc-300 px-4 text-sm font-semibold" onClick={onClose} type="button">Отмена</button><button className="inline-flex min-h-11 items-center gap-2 rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white disabled:opacity-45" disabled={pending} type="submit"><Save className="size-4" />{item ? "Сохранить" : "Создать"}</button></div>
       </div>
     </form>
   </DirectoryEditorDialog>;
+}
+
+function CoverEditor({ item, pending, onComplete, onMessage }: { item: PartnerNomenclatureDto | null; pending: boolean; onComplete: () => void; onMessage: (message: string) => void }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [coverPending, startTransition] = useTransition();
+  if (!item) return <p className="text-xs text-zinc-500 sm:col-span-2">Фото можно добавить сразу после создания позиции. JPG, PNG или WebP, до 2 МБ.</p>;
+  if (item.coverScope === "canonical" || item.curationStatus === "active") return <div className="flex items-center gap-3 sm:col-span-2"><NomenclatureCover hasCover={item.hasCover} itemId={item.id} name={item.name} size="lg" /><p className="text-xs text-zinc-500">Каноническая обложка управляется Novotech и доступна только для чтения.</p></div>;
+  const mutate = (intent: "upload" | "remove") => {
+    const data = new FormData(); data.set("intent", intent);
+    if (intent === "upload" && inputRef.current?.files?.[0]) data.set("cover", inputRef.current.files[0]);
+    startTransition(async () => { const result = await updatePartnerNomenclatureCoverAction(item.id, item.version, data); onMessage(result.message); if (result.success) onComplete(); });
+  };
+  return <div className="flex flex-wrap items-center gap-3 sm:col-span-2"><NomenclatureCover hasCover={item.hasCover} itemId={item.id} name={item.name} size="lg" /><div className="min-w-0 space-y-2"><input accept="image/jpeg,image/png,image/webp" className="block max-w-full text-sm" disabled={pending || coverPending} ref={inputRef} type="file" /><div className="flex flex-wrap gap-2"><button className="min-h-11 rounded-md border border-zinc-300 px-3 text-sm font-semibold disabled:opacity-50" disabled={pending || coverPending} onClick={() => mutate("upload")} type="button">{item.hasCover ? "Заменить фото" : "Загрузить фото"}</button>{item.hasCover ? <button className="min-h-11 text-sm font-semibold text-red-700 disabled:opacity-50" disabled={pending || coverPending} onClick={() => mutate("remove")} type="button">Удалить фото</button> : null}</div><p className="text-xs text-zinc-500">JPG, PNG или WebP, до 2 МБ.</p></div></div>;
 }
 
 function Field({ children, className = "", label }: { children: React.ReactNode; className?: string; label: string }) { return <label className={`min-w-0 text-xs font-medium text-zinc-600 ${className}`}>{label}<span className="mt-1 block">{children}</span></label>; }

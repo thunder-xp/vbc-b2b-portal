@@ -23,6 +23,7 @@ describe("estimate directories", () => {
   it("opens nomenclature editing in a bounded dialog and protects shared identity", async () => {
     const user = userEvent.setup();
     render(<PartnerNomenclatureWorkspace records={[{
+      curationStatus: "review_required", hasCover: false, coverScope: null,
       id: "item-1", itemType: "equipment", manufacturer: "AXIS", model: "M1", name: "Камера",
       category: "Видео", unit: "pcs", specification: "Описание", lastUsedAt: null,
       createdAt: "2026-08-09T10:00:00Z", version: 1,
@@ -34,7 +35,8 @@ describe("estimate directories", () => {
     expect(screen.getByRole("textbox", { name: "Производитель / бренд" })).toBeDisabled();
     expect(screen.getByRole("textbox", { name: "Модель / код" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Убрать из библиотеки" })).toBeInTheDocument();
-    expect(screen.getByText(/нет утверждённого защищённого хранилища/)).toBeInTheDocument();
+    expect(screen.getByText("JPG, PNG или WebP, до 2 МБ.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Загрузить фото" })).toBeInTheDocument();
   });
 
   it("creates a final customer from the same modal interaction language", async () => {

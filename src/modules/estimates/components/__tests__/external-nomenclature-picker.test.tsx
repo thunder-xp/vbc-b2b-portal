@@ -12,7 +12,7 @@ vi.mock("../../actions/estimate.actions", () => ({
 }));
 
 const estimate = { id: "estimate-1", revision: 3 } as EstimateDetailDto;
-const match = { id: "external-1", itemType: "equipment" as const, manufacturer: "Ajax", model: "Hub 2", name: "Security hub", category: "Alarm", unit: "pcs" as const, specification: null, exactIdentityMatch: true };
+const match = { id: "external-1", itemType: "equipment" as const, manufacturer: "Ajax", model: "Hub 2", name: "Security hub", category: "Alarm", unit: "pcs" as const, specification: null, curationStatus: "active" as const, hasCover: false, coverScope: null, exactIdentityMatch: true };
 
 describe("ExternalNomenclaturePicker", () => {
   beforeEach(() => vi.clearAllMocks());

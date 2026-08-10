@@ -286,6 +286,8 @@ export interface EstimateService {
   createPartnerNomenclature(userId: string, input: PartnerNomenclatureInput): Promise<string>;
   updatePartnerNomenclature(userId: string, itemId: string, expectedVersion: number, input: Omit<PartnerNomenclatureInput, "itemType" | "manufacturer" | "model" | "forceCreateNew" | "requestKey">): Promise<number>;
   archivePartnerNomenclature(userId: string, itemId: string, expectedVersion: number): Promise<void>;
+  getPartnerNomenclatureMutationContext(userId: string): Promise<{ companyId: string }>;
+  adoptPartnerNomenclature(userId: string, itemId: string): Promise<void>;
   searchFinalCustomers(userId: string, query: string): Promise<import("../types").FinalCustomer[]>;
   listFinalCustomers(userId: string, filters: FinalCustomerListFilters): Promise<{ records: import("../types").FinalCustomerListRecord[]; page: number; totalPages: number; totalCount: number }>;
   getFinalCustomerDetail(userId: string, customerId: string): Promise<import("../types").FinalCustomerDetail>;
@@ -472,6 +474,16 @@ export class DefaultEstimateService implements EstimateService {
     } catch (error) {
       handleRepositoryConflict(error);
     }
+  }
+
+  async getPartnerNomenclatureMutationContext(userId: string): Promise<{ companyId: string }> {
+    return { companyId: await this.resolveCompany(userId, MANAGE_PERMISSION) };
+  }
+
+  async adoptPartnerNomenclature(userId: string, itemId: string): Promise<void> {
+    const companyId = await this.resolveCompany(userId, MANAGE_PERMISSION);
+    if (!this.repository.adoptPartnerNomenclature) throw new InvalidStateError("Общая номенклатура временно недоступна.");
+    await this.repository.adoptPartnerNomenclature(companyId, normalizeUuid(itemId, "Позиция номенклатуры некорректна."));
   }
 
   async searchFinalCustomers(userId: string, query: string) {
@@ -1512,7 +1524,11 @@ function toCommercialDetail(aggregate: EstimateAggregate, images = new Map<strin
         productId: item.productId,
         externalNomenclatureId: item.externalNomenclatureId,
         externalDemand: item.externalDemand ?? null,
-        imageUrl: item.productId ? images.get(item.productId) ?? null : null,
+        imageUrl: item.productId
+          ? images.get(item.productId) ?? null
+          : item.externalNomenclatureId
+            ? `/api/nomenclature/covers/${item.externalNomenclatureId}`
+            : null,
         position: item.position,
         sku: item.skuSnapshot,
         description: item.description,

@@ -49,6 +49,11 @@ export const ADMIN_NAVIGATION: readonly AdminNavigationGroup[] = [
         permission: "admin.external_demand.view",
       },
       {
+        label: "Номенклатура партнёров",
+        href: "/admin/commercial/nomenclature",
+        permission: "admin.external_nomenclature.view",
+      },
+      {
         label: "Возможности для закупки",
         href: "/admin/commercial/opportunities",
         permission: "admin.opportunities.view",

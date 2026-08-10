@@ -3,3 +3,4 @@ export * from "./proposal.repository";
 export * from "./lifecycle.repository";
 export * from "./demand.repository";
 export * from "./delivery.repository";
+export * from "./nomenclature-governance.repository";

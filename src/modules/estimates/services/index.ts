@@ -8,3 +8,4 @@ export * from "./commercial-calculation";
 export * from "./estimate-bulk-operations";
 export * from "./estimate-sections";
 export * from "./external-nomenclature";
+export * from "./nomenclature-governance.service";

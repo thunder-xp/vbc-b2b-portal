@@ -407,7 +407,7 @@ describe("DefaultEstimateService", () => {
   });
 
   it("searches the selected bounded library once and adds an external line through one atomic call", async () => {
-    vi.mocked(repository.searchExternalNomenclature!).mockResolvedValue([{ id: "external-1", itemType: "equipment", manufacturer: "Ajax", model: "Hub 2", name: "Hub", category: null, unit: "pcs", specification: null, exactIdentityMatch: true }]);
+    vi.mocked(repository.searchExternalNomenclature!).mockResolvedValue([{ id: "external-1", itemType: "equipment", manufacturer: "Ajax", model: "Hub 2", name: "Hub", category: null, unit: "pcs", specification: null, curationStatus: "active", hasCover: false, coverScope: null, exactIdentityMatch: true }]);
     await expect(service.searchExternalNomenclature("user-1", "Ajax Hub 2", "equipment", "own")).resolves.toHaveLength(1);
     expect(repository.searchExternalNomenclature).toHaveBeenCalledWith("company-1", "Ajax Hub 2", "equipment", "own", 8);
     await service.addExternalLine("user-1", "estimate-1", 3, {
