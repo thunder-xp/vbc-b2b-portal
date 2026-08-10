@@ -32,7 +32,7 @@ export function ProposalGeneratorWorkspace({ currencies }: { currencies: string[
   const [selectedMode, setSelectedMode] = useState<GeneratorMode | null | undefined>(undefined);
   const mode = selectedMode === undefined ? storedMode : selectedMode;
   const [requirement, setRequirement] = useState("");
-  const [currencyCode, setCurrencyCode] = useState(currencies[0] ?? "USD");
+  const [currencyCode, setCurrencyCode] = useState(currencies.includes("MDL") ? "MDL" : currencies[0] ?? "USD");
   const [vatMode, setVatMode] = useState<"none" | "included">("none");
   const [session, setSession] = useState<{ id: string; fingerprint: string } | null>(null);
   const [requirements, setRequirements] = useState<GeneratorRequirement[]>([]);

@@ -39,6 +39,9 @@ describe("proposal generator UI contract", () => {
     expect(adminProfiles).toContain("НДС включён");
     expect(adminProfiles).toContain("updateProposalGeneratorServicePriceAction");
   });
+  it("prefers the governed MDL calculator currency when it is available", () => {
+    expect(workspace).toContain('currencies.includes("MDL") ? "MDL" : currencies[0] ?? "USD"');
+  });
   it("captures the estimate VAT choice before generator hand-off", () => {
     expect(workspace).toContain('useState<"none" | "included">("none")');
     expect(workspace).toContain('label="НДС"');
