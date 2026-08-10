@@ -28,9 +28,6 @@ const CHARGE_COLUMNS = "id, estimate_id, charge_type, description, amount, vat_a
 
 type EstimateListRow = EstimateRow & {
   estimate_items: Array<{ count: number }>;
-  estimate_cart_conversions?: Array<{ count: number }>;
-  estimate_lifecycle_events?: Array<{ count: number }>;
-  estimate_proposal_deliveries?: Array<{ count: number }>;
   creator: { full_name: string | null } | null;
 };
 
@@ -52,12 +49,9 @@ export class SupabaseEstimateRepository implements EstimateRepository {
       versionEstimateIds = [...new Set((matchingVersions ?? []).map((version) => version.estimate_id))];
       if (!versionEstimateIds.length) return { records: [], totalCount: 0 };
     }
-    const deletionGuardColumns = input.status === "archived"
-      ? ", estimate_cart_conversions(count), estimate_lifecycle_events(count), estimate_proposal_deliveries(count)"
-      : "";
     let query = supabase
       .from("estimates")
-      .select(`${ESTIMATE_COLUMNS}, estimate_items(count)${deletionGuardColumns}, creator:user_profiles!estimates_created_by_fkey(full_name)`, { count: "exact" })
+      .select(`${ESTIMATE_COLUMNS}, estimate_items(count), creator:user_profiles!estimates_created_by_fkey(full_name)`, { count: "exact" })
       .eq("company_id", input.companyId)
       .is("deleted_at", null)
       .order("updated_at", { ascending: false })
@@ -80,10 +74,27 @@ export class SupabaseEstimateRepository implements EstimateRepository {
     const estimateIds = rows.map((row) => row.id);
     const versionMetadata = new Map<string, { count: number; latest: import("../../types").EstimateVersionStatus | null; latestVersionId: string | null; hasProtectedVersion: boolean }>();
     const latestPdfByVersion = new Map<string, string>();
+    const protectedEstimateIds = new Set<string>();
     if (estimateIds.length) {
-      const { data: versions, error: versionError } = await supabase.from("estimate_versions")
-        .select("id, estimate_id, version_number, status").in("estimate_id", estimateIds).order("version_number", { ascending: false });
+      const [versionResult, deletionGuardResults] = await Promise.all([
+        supabase.from("estimate_versions")
+          .select("id, estimate_id, version_number, status").in("estimate_id", estimateIds).order("version_number", { ascending: false }),
+        input.status === "archived"
+          ? Promise.all([
+            supabase.from("estimate_cart_conversions").select("estimate_id").in("estimate_id", estimateIds),
+            supabase.from("estimate_proposal_deliveries").select("estimate_id").in("estimate_id", estimateIds),
+            supabase.from("estimate_lifecycle_events").select("estimate_id, to_status").in("estimate_id", estimateIds).neq("to_status", "draft"),
+          ])
+          : Promise.resolve(null),
+      ]);
+      const { data: versions, error: versionError } = versionResult;
       if (versionError) throw mapRepositoryError(versionError.code);
+      if (deletionGuardResults) {
+        for (const result of deletionGuardResults) {
+          if (result.error) throw mapRepositoryError(result.error.code);
+          for (const dependency of result.data ?? []) protectedEstimateIds.add(dependency.estimate_id);
+        }
+      }
       for (const version of versions ?? []) {
         const current = versionMetadata.get(version.estimate_id) ?? { count: 0, latest: null, latestVersionId: null, hasProtectedVersion: false };
         versionMetadata.set(version.estimate_id, { count: current.count + 1, latest: current.latest ?? version.status, latestVersionId: current.latestVersionId ?? version.id, hasProtectedVersion: current.hasProtectedVersion || version.status !== "prepared" });
@@ -111,9 +122,7 @@ export class SupabaseEstimateRepository implements EstimateRepository {
           && !row.lifecycle_order_id
           && !row.accepted_version_id
           && !versionMetadata.get(row.id)?.hasProtectedVersion
-          && (row.estimate_cart_conversions?.[0]?.count ?? 0) === 0
-          && (row.estimate_proposal_deliveries?.[0]?.count ?? 0) === 0
-          && (row.estimate_lifecycle_events?.[0]?.count ?? 0) <= 1,
+          && !protectedEstimateIds.has(row.id),
       })),
       totalCount: count ?? 0,
     };
