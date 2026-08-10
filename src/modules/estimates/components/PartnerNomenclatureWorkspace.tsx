@@ -8,6 +8,7 @@ import { archivePartnerNomenclatureAction, createPartnerNomenclatureAction, upda
 import type { ExternalNomenclatureItemType } from "../repositories";
 import type { PartnerNomenclatureDto, PartnerNomenclatureInput } from "../services";
 import { externalNomenclatureItemTypeLabel } from "../services/external-nomenclature";
+import { nomenclatureCoverFileError } from "../services/nomenclature-cover.policy";
 import type { EstimateUnit } from "../types";
 import { DirectoryEditorDialog } from "./DirectoryEditorDialog";
 import { NomenclatureCover } from "./NomenclatureCover";
@@ -119,7 +120,12 @@ function CoverEditor({ item, pending, onComplete, onMessage }: { item: PartnerNo
   if (item.coverScope === "canonical" || item.curationStatus === "active") return <div className="flex items-center gap-3 sm:col-span-2"><NomenclatureCover hasCover={item.hasCover} itemId={item.id} name={item.name} size="lg" /><p className="text-xs text-zinc-500">Каноническая обложка управляется Novotech и доступна только для чтения.</p></div>;
   const mutate = (intent: "upload" | "remove") => {
     const data = new FormData(); data.set("intent", intent);
-    if (intent === "upload" && inputRef.current?.files?.[0]) data.set("cover", inputRef.current.files[0]);
+    if (intent === "upload") {
+      const file = inputRef.current?.files?.[0];
+      const error = nomenclatureCoverFileError(file);
+      if (error) { onMessage(error); return; }
+      data.set("cover", file!);
+    }
     startTransition(async () => { const result = await updatePartnerNomenclatureCoverAction(item.id, item.version, data); onMessage(result.message); if (result.success) onComplete(); });
   };
   return <div className="flex flex-wrap items-center gap-3 sm:col-span-2"><NomenclatureCover hasCover={item.hasCover} itemId={item.id} name={item.name} size="lg" /><div className="min-w-0 space-y-2"><input accept="image/jpeg,image/png,image/webp" className="block max-w-full text-sm" disabled={pending || coverPending} ref={inputRef} type="file" /><div className="flex flex-wrap gap-2"><button className="min-h-11 rounded-md border border-zinc-300 px-3 text-sm font-semibold disabled:opacity-50" disabled={pending || coverPending} onClick={() => mutate("upload")} type="button">{item.hasCover ? "Заменить фото" : "Загрузить фото"}</button>{item.hasCover ? <button className="min-h-11 text-sm font-semibold text-red-700 disabled:opacity-50" disabled={pending || coverPending} onClick={() => mutate("remove")} type="button">Удалить фото</button> : null}</div><p className="text-xs text-zinc-500">JPG, PNG или WebP, до 2 МБ.</p></div></div>;

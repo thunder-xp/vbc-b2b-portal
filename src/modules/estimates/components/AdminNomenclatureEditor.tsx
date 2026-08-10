@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
 import { markAdminNomenclatureDuplicateAction, updateAdminNomenclatureAction, updateAdminNomenclatureCoverAction } from "../actions";
 import type { AdminNomenclatureDetail, ExternalNomenclatureItemType, NomenclatureCurationStatus } from "../repositories";
+import { nomenclatureCoverFileError } from "../services/nomenclature-cover.policy";
 import { NomenclatureCover } from "./NomenclatureCover";
 
 const input = "min-h-11 w-full min-w-0 rounded-md border border-zinc-300 bg-white px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500";
@@ -29,7 +30,7 @@ export function AdminNomenclatureEditor({ item }: { item: AdminNomenclatureDetai
       <section className="border border-zinc-200 bg-white p-4"><h2 className="font-semibold">Дубликат</h2><p className="mt-1 text-xs text-zinc-500">Будущие поиск и принятие используют каноническую позицию. Исторические строки смет не переписываются.</p><input aria-label="ID канонической позиции" className={`${input} mt-3`} id="canonical-id" placeholder="UUID канонической позиции" /><textarea aria-label="Причина объединения" className={`${input} mt-3 min-h-20 py-2`} id="duplicate-reason" placeholder="Причина (не менее 10 символов)" /><button className="mt-3 min-h-11 rounded-md border border-red-300 px-3 text-sm font-semibold text-red-700" onClick={()=>{const canonical=(document.getElementById("canonical-id") as HTMLInputElement).value;const reason=(document.getElementById("duplicate-reason") as HTMLTextAreaElement).value;complete(()=>markAdminNomenclatureDuplicateAction(item.id,canonical,reason));}} type="button">Перенаправить на каноническую</button></section>
     </aside>
   </div>;
-  function cover(intent:"upload"|"remove") { const data=new FormData();data.set("intent",intent);data.set("reason",(document.getElementById("cover-reason") as HTMLTextAreaElement).value);if(intent==="upload"&&fileRef.current?.files?.[0])data.set("cover",fileRef.current.files[0]);complete(()=>updateAdminNomenclatureCoverAction(item.id,item.version,data)); }
+  function cover(intent:"upload"|"remove") { const data=new FormData();data.set("intent",intent);data.set("reason",(document.getElementById("cover-reason") as HTMLTextAreaElement).value);if(intent==="upload"){const file=fileRef.current?.files?.[0];const error=nomenclatureCoverFileError(file);if(error){setMessage(error);return;}data.set("cover",file!);}complete(()=>updateAdminNomenclatureCoverAction(item.id,item.version,data)); }
 }
 function Field({children,className="",label}:{children:React.ReactNode;className?:string;label:string}){return <label className={`min-w-0 text-xs font-medium text-zinc-600 ${className}`}>{label}<span className="mt-1 block">{children}</span></label>}
 function value(data:FormData,key:string){const result=String(data.get(key)??"").trim();return result||null;}

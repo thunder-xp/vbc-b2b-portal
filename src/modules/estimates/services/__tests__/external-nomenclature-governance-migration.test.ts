@@ -3,6 +3,8 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const sql = readFileSync(resolve("supabase/migrations/20260810100000_external_nomenclature_governance.sql"), "utf8");
+const coverPathFixSql = readFileSync(resolve("supabase/migrations/20260810110000_fix_nomenclature_cover_path_validation.sql"), "utf8");
+const coverConstraintFixSql = readFileSync(resolve("supabase/migrations/20260810111000_fix_nomenclature_cover_shape_constraints.sql"), "utf8");
 describe("external nomenclature governance migration", () => {
   it("keeps canonical identity separate from company presentation", () => {
     expect(sql).toContain("curation_status text not null default 'review_required'");
@@ -33,5 +35,14 @@ describe("external nomenclature governance migration", () => {
     expect(sql).toContain("item.version<>expected_version");
     expect(sql).toContain("canonical_cover_uploaded");
     expect(sql).toContain("duplicate_redirected");
+  });
+  it("accepts generated partner and canonical WebP storage keys", () => {
+    expect(coverPathFixSql).toContain("/[0-9a-f-]{36}\\.webp$");
+    expect(coverPathFixSql).not.toContain("/[0-9a-f-]{36}\\\\.webp$");
+    expect(coverPathFixSql).toContain("^partner/");
+    expect(coverPathFixSql).toContain("^canonical/");
+    expect(coverConstraintFixSql).toContain("^partner/[0-9a-f-]{36}/[0-9a-f-]{36}/[0-9a-f-]{36}\\.webp$");
+    expect(coverConstraintFixSql).toContain("^canonical/[0-9a-f-]{36}/[0-9a-f-]{36}\\.webp$");
+    expect(coverConstraintFixSql).not.toContain("{36}\\\\.webp$");
   });
 });

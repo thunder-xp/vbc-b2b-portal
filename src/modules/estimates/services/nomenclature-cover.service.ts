@@ -2,9 +2,12 @@ import "server-only";
 
 import sharp from "sharp";
 
-export const NOMENCLATURE_COVER_MAX_SOURCE_BYTES = 2 * 1024 * 1024;
+import { NOMENCLATURE_COVER_ACCEPTED_TYPES, NOMENCLATURE_COVER_MAX_SOURCE_BYTES } from "./nomenclature-cover.policy";
+
+export { NOMENCLATURE_COVER_MAX_SOURCE_BYTES } from "./nomenclature-cover.policy";
+
 export const NOMENCLATURE_COVER_MAX_OUTPUT_BYTES = 256 * 1024;
-const ACCEPTED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+const ACCEPTED_TYPES = new Set<string>(NOMENCLATURE_COVER_ACCEPTED_TYPES);
 
 export type ProcessedNomenclatureCover = {
   bytes: Buffer;
