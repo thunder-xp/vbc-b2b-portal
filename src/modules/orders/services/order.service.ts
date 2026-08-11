@@ -233,9 +233,17 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
         this.options.useLegacyMinimalOrderPayload
           ? diagnosticStep(
               "commercial_exchange_rate_resolution",
-              () => this.pricingInventoryService.getApprovedUsdMdlRate
-                ? this.pricingInventoryService.getApprovedUsdMdlRate(userId)
-                : Promise.resolve(null),
+              async () => {
+                if (this.pricingInventoryService.getAuthoritativeUsdMdlRateSnapshot) {
+                  return (
+                    await this.pricingInventoryService
+                      .getAuthoritativeUsdMdlRateSnapshot(userId)
+                  )?.mdlPerUsdRate ?? null;
+                }
+                return this.pricingInventoryService.getApprovedUsdMdlRate
+                  ? this.pricingInventoryService.getApprovedUsdMdlRate(userId)
+                  : null;
+              },
               { cartId: cart.id, companyId: company.id, submissionKey },
             )
           : Promise.resolve<number | null>(null),

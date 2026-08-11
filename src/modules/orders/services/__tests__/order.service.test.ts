@@ -204,7 +204,9 @@ describe("DefaultPartnerOrderService", () => {
 
     await dependencies.service.submit("user-1", input());
 
-    expect(dependencies.pricingService.getApprovedUsdMdlRate).toHaveBeenCalledWith("user-1");
+    expect(dependencies.pricingService.getAuthoritativeUsdMdlRateSnapshot)
+      .toHaveBeenCalledWith("user-1");
+    expect(dependencies.pricingService.getApprovedUsdMdlRate).not.toHaveBeenCalled();
     expect(dependencies.orderProvider.exportSalesOrder).toHaveBeenCalledWith(expect.objectContaining({
       currency: "MDL",
       documentTotal: 439,
@@ -272,7 +274,7 @@ describe("DefaultPartnerOrderService", () => {
 
   it("stops before idempotency acquisition when the approved commercial rate is unavailable", async () => {
     const dependencies = makeDependencies({ useLegacyMinimalOrderPayload: true });
-    dependencies.pricingService.getApprovedUsdMdlRate.mockResolvedValue(null);
+    dependencies.pricingService.getAuthoritativeUsdMdlRateSnapshot.mockResolvedValue(null);
 
     await expect(dependencies.service.submit("user-1", input()))
       .rejects.toMatchObject({
@@ -617,6 +619,12 @@ function makeDependencies(options: {
       commercialMode: options.commercialMode ?? "full",
       views: await getProductCommercialViews(userId, productIds),
     })),
+    getAuthoritativeUsdMdlRateSnapshot: vi.fn().mockResolvedValue({
+      sourceCode: "113",
+      mdlPerUsdRate: 17.56341414,
+      effectiveDate: "2026-08-11",
+      publishedAt: new Date().toISOString(),
+    }),
     getApprovedUsdMdlRate: vi.fn().mockResolvedValue(17.56341414),
   };
   const partnerProvider = {

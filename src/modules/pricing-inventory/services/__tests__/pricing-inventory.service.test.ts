@@ -349,6 +349,20 @@ describe("DefaultPricingInventoryService", () => {
     expect(repository.authoritativePriceReads).toBe(1);
   });
 
+  it("keeps the authoritative order conversion rate available to retail-only users", async () => {
+    const repository = new FakePricingInventoryRepository([], [], [], 17.35, 17.77);
+    const service = new DefaultPricingInventoryService(
+      repository,
+      new FakeCompanyAccessService(),
+      new FakePermissionService(["pricing.retail_price.view", "orders.manage"]),
+    );
+
+    await expect(
+      service.getAuthoritativeUsdMdlRateSnapshot("user-1"),
+    ).resolves.toMatchObject({ mdlPerUsdRate: 17.35 });
+    await expect(service.getApprovedUsdMdlRate("user-1")).resolves.toBeNull();
+  });
+
   it("returns only the permitted retail conversion snapshot", async () => {
     const repository = new FakePricingInventoryRepository(
       [],
