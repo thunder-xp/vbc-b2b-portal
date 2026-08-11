@@ -15,6 +15,10 @@ const grantsMigration = readFileSync(
   join(process.cwd(), "supabase/migrations/20260811121000_partner_employee_invitation_grants_hardening.sql"),
   "utf8",
 );
+const acceptanceFixMigration = readFileSync(
+  join(process.cwd(), "supabase/migrations/20260811130000_partner_employee_invitation_acceptance_fix.sql"),
+  "utf8",
+);
 
 describe("partner employee invitation simplification", () => {
   it("binds public preview to a hashed bearer token and exposes no raw authority inputs", () => {
@@ -64,5 +68,17 @@ describe("partner employee invitation simplification", () => {
     expect(callbackRoute).toContain("exchangeCodeForSession");
     expect(callbackRoute).toContain("acceptInvitation");
     expect(callbackRoute).not.toContain("/onboarding/access-request");
+  });
+
+  it("qualifies the membership override key in the executed acceptance RPC", () => {
+    expect(acceptanceFixMigration).toContain(
+      "membership_permission_override.membership_id = membership.id",
+    );
+    expect(acceptanceFixMigration).not.toMatch(
+      /delete from public\.membership_permission_overrides\s+where membership_id = membership\.id/,
+    );
+    expect(acceptanceFixMigration).toContain(
+      "grant execute on function public.accept_company_invitation(text) to authenticated",
+    );
   });
 });

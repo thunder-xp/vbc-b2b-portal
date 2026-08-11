@@ -16,11 +16,23 @@ export interface CompanyInvitationEmailProvider {
   send(message: CompanyInvitationEmail): Promise<void>;
 }
 
+export class CompanyInvitationEmailProviderError extends Error {
+  constructor(readonly category: "configuration" | "timeout" | "authentication" | "rejected" | "unavailable") {
+    super("Company invitation email provider failed.");
+    this.name = "CompanyInvitationEmailProviderError";
+  }
+}
+
 export class SmtpCompanyInvitationEmailProvider
   implements CompanyInvitationEmailProvider
 {
   async send(message: CompanyInvitationEmail): Promise<void> {
-    const config = smtpConfig();
+    let config: ReturnType<typeof smtpConfig>;
+    try {
+      config = smtpConfig();
+    } catch {
+      throw new CompanyInvitationEmailProviderError("configuration");
+    }
     const transporter = nodemailer.createTransport({
       host: config.host,
       port: config.port,
@@ -47,10 +59,20 @@ export class SmtpCompanyInvitationEmailProvider
         text,
         html: `<p>Здравствуйте, ${escapeHtml(message.employeeName)}.</p><p>${escapeHtml(message.inviterName)} приглашает вас в кабинет партнёра Novotech компании <strong>${escapeHtml(message.companyName)}</strong>.</p><p><strong>Роль:</strong> ${escapeHtml(message.roleLabel)}</p><p><a href="${escapeHtml(message.invitationUrl)}">Принять приглашение</a></p><p>Ссылка действует до ${escapeHtml(formatDate(message.expiresAt))}.</p><p>Если вы не ожидали приглашение, проигнорируйте это письмо.</p>`,
       });
+    } catch (error) {
+      throw new CompanyInvitationEmailProviderError(categoryOf(error));
     } finally {
       transporter.close();
     }
   }
+}
+
+function categoryOf(error: unknown): CompanyInvitationEmailProviderError["category"] {
+  const code = error && typeof error === "object" && "code" in error ? String(error.code) : "";
+  if (/TIMEOUT|ETIMEDOUT/i.test(code)) return "timeout";
+  if (/AUTH|EAUTH/i.test(code)) return "authentication";
+  if (/EENVELOPE|EMESSAGE|EREJECTED/i.test(code)) return "rejected";
+  return "unavailable";
 }
 
 function smtpConfig() {

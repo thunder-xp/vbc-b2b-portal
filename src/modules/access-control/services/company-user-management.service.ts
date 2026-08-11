@@ -7,7 +7,10 @@ import type {
   CompanyUserPriceAccess,
   ManageableCompany,
 } from "../types";
-import type { CompanyInvitationEmailProvider } from "./company-invitation-email.provider";
+import {
+  CompanyInvitationEmailProviderError,
+  type CompanyInvitationEmailProvider,
+} from "./company-invitation-email.provider";
 import { AccessControlError, InvalidStateError } from "./errors";
 import type { PermissionService } from "./permission.service";
 import { generateInvitationToken, hashInvitationToken } from "./invitation-token.service";
@@ -215,6 +218,9 @@ export class CompanyUserManagementService {
       console.error({
         event: "company_invitation_email_failed",
         errorType: error instanceof Error ? error.name : typeof error,
+        errorCategory: error instanceof CompanyInvitationEmailProviderError
+          ? error.category
+          : "unavailable",
       });
       await this.recordDelivery(invitationId, "failed");
       return "copy_link";
