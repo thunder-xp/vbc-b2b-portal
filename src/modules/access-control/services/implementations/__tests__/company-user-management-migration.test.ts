@@ -6,6 +6,10 @@ const sql = readFileSync(
   resolve("supabase/migrations/20260726100000_company_user_management.sql"),
   "utf8",
 );
+const resendFixSql = readFileSync(
+  resolve("supabase/migrations/20260811140000_partner_employee_invitation_resend_fix.sql"),
+  "utf8",
+);
 
 describe("company user management migration", () => {
   it("extends the existing invitation table without storing plaintext tokens", () => {
@@ -61,5 +65,12 @@ describe("company user management migration", () => {
     expect(sql).toContain("public.can_manage_company_users(p_company_id)");
     expect(sql).toContain("count(*) over()");
     expect(sql).not.toContain("auth.admin");
+  });
+
+  it("qualifies resend counters so output variables cannot shadow invitation columns", () => {
+    expect(resendFixSql).toContain("token_version = invitation.token_version + 1");
+    expect(resendFixSql).toContain("send_count = invitation.send_count + 1");
+    expect(resendFixSql).not.toContain("token_version = token_version + 1");
+    expect(resendFixSql).not.toContain("send_count = send_count + 1");
   });
 });
