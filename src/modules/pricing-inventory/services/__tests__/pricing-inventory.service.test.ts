@@ -331,6 +331,24 @@ describe("DefaultPricingInventoryService", () => {
     expect(repository.authoritativeRateReads).toBe(1);
   });
 
+  it("returns authoritative order pricing with the existing retail-only visibility context", async () => {
+    const repository = new FakePricingInventoryRepository([
+      makePrice(null, 45.81, goldPriceType, "999"),
+      makePrice(null, 89, MSRP_PRICE_TYPE_EXTERNAL_REF, "USD"),
+    ], [], [], 17.35, 17.77);
+    const service = new DefaultPricingInventoryService(
+      repository,
+      new FakeCompanyAccessService(),
+      new FakePermissionService(["pricing.retail_price.view", "orders.manage"]),
+    );
+
+    const result = await service.getAuthoritativeOrderPricing("user-1", ["product-1"]);
+
+    expect(result.commercialMode).toBe("retail_only");
+    expect(result.views[0]?.partnerPrice?.amount).toBe(45.81);
+    expect(repository.authoritativePriceReads).toBe(1);
+  });
+
   it("returns only the permitted retail conversion snapshot", async () => {
     const repository = new FakePricingInventoryRepository(
       [],

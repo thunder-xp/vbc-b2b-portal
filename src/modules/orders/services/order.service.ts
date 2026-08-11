@@ -194,15 +194,20 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
         ),
         diagnosticStep(
           "partner_price_resolution",
-          () => this.pricingInventoryService.getAuthoritativeProductCommercialViews
-            ? this.pricingInventoryService.getAuthoritativeProductCommercialViews(
+          () => this.pricingInventoryService.getAuthoritativeOrderPricing
+            ? this.pricingInventoryService.getAuthoritativeOrderPricing(
                 userId,
                 productIds,
               )
-            : this.pricingInventoryService.getProductCommercialViews(
-                userId,
-                productIds,
-              ),
+            : (this.pricingInventoryService.getAuthoritativeProductCommercialViews
+                ? this.pricingInventoryService.getAuthoritativeProductCommercialViews(
+                    userId,
+                    productIds,
+                  )
+                : this.pricingInventoryService.getProductCommercialViews(
+                    userId,
+                    productIds,
+                  )).then((views) => ({ commercialMode: "full" as const, views })),
           { cartId: cart.id, companyId: company.id, submissionKey },
         ),
         diagnosticStep(
@@ -248,8 +253,9 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
       if (error instanceof RecoverableOrderSubmissionError) throw error;
       throw new RecoverableOrderSubmissionError("Order preflight validation failed.");
     }
-    const [identities, initialCommercialViews, contract, priceType, approvedUsdMdlRate] = resolvedInputs;
-    let commercialViews = initialCommercialViews;
+    const [identities, initialOrderPricing, contract, priceType, approvedUsdMdlRate] = resolvedInputs;
+    let commercialViews = initialOrderPricing.views;
+    const commercialMode = initialOrderPricing.commercialMode;
     const identitiesById = new Map(identities.map((item) => [item.id, item]));
     const initialViewsById = new Map(commercialViews.map((item) => [item.productId, item]));
     const staleProductIds = productIds.filter((productId) => {
@@ -296,9 +302,15 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
           correlationId,
         ), { cartId: cart.id, companyId: company.id, submissionKey, staleProductCount: staleProductIds.length });
       }
-      commercialViews = this.pricingInventoryService.getAuthoritativeProductCommercialViews
-        ? await this.pricingInventoryService.getAuthoritativeProductCommercialViews(userId, productIds)
-        : await this.pricingInventoryService.getProductCommercialViews(userId, productIds);
+      const refreshedOrderPricing = this.pricingInventoryService.getAuthoritativeOrderPricing
+        ? await this.pricingInventoryService.getAuthoritativeOrderPricing(userId, productIds)
+        : {
+            commercialMode,
+            views: this.pricingInventoryService.getAuthoritativeProductCommercialViews
+              ? await this.pricingInventoryService.getAuthoritativeProductCommercialViews(userId, productIds)
+              : await this.pricingInventoryService.getProductCommercialViews(userId, productIds),
+          };
+      commercialViews = refreshedOrderPricing.views;
       const refreshedViewsById = new Map(commercialViews.map((item) => [item.productId, item]));
       const missingProductIds = staleProductIds.filter((productId) => !refreshedViewsById.get(productId)?.partnerPrice);
       if (missingProductIds.length) {
@@ -330,10 +342,20 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
         durationMs: refreshResult.durationMs,
         changedProductCount: changedProductIds.length,
       });
-      if (changedProductIds.length) {
+      if (changedProductIds.length && commercialMode === "full") {
         failOrderSubmission("partner_price_comparison", new RecoverableOrderSubmissionError(
           "One or more authoritative partner prices changed.", "ORDER_PRICE_CHANGED",
         ), { cartId: cart.id, companyId: company.id, submissionKey, changedProductCount: changedProductIds.length });
+      }
+      if (changedProductIds.length) {
+        console.info({
+          event: "partner_order_hidden_price_refresh_accepted",
+          cartId: cart.id,
+          companyId: company.id,
+          submissionKey,
+          commercialMode,
+          changedProductCount: changedProductIds.length,
+        });
       }
     }
     const staleStockProducts = commercialViews.filter((view) => !view.stock?.lastUpdatedAt || isStale(view.stock.lastUpdatedAt, "stock"));

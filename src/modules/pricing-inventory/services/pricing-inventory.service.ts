@@ -68,6 +68,10 @@ export type ProductCommercialViewDto = {
 };
 
 export type ProductCommercialInternalDto = ProductCommercialViewDto & { retailBelowPartnerPrice: boolean };
+export type AuthoritativeOrderPricingContext = {
+  commercialMode: CommercialVisibilityContext["mode"];
+  views: ProductCommercialInternalDto[];
+};
 export type ProductCommercialSnapshot = {
   productId: string;
   canViewStock: boolean;
@@ -99,6 +103,10 @@ export interface PricingInventoryService {
     userId: string,
     productIds: string[],
   ): Promise<ProductCommercialInternalDto[]>;
+  getAuthoritativeOrderPricing?(
+    userId: string,
+    productIds: string[],
+  ): Promise<AuthoritativeOrderPricingContext>;
   getProductIdsByAvailability?(
     userId: string,
     availability: ProductAvailabilityFilter,
@@ -166,11 +174,37 @@ export class DefaultPricingInventoryService implements PricingInventoryService {
     return this.loadProductCommercialViews(userId, normalizedProductIds, true);
   }
 
+  async getAuthoritativeOrderPricing(
+    userId: string,
+    productIds: string[],
+  ): Promise<AuthoritativeOrderPricingContext> {
+    const normalizedProductIds = normalizeProductIds(productIds);
+    if (!normalizedProductIds.length) {
+      return {
+        commercialMode: (await this.getCommercialVisibility(userId)).mode,
+        views: [],
+      };
+    }
+    return this.loadProductCommercialContext(userId, normalizedProductIds, true);
+  }
+
   private async loadProductCommercialViews(
     userId: string,
     normalizedProductIds: string[],
     authoritativePartnerPricing: boolean,
   ): Promise<ProductCommercialInternalDto[]> {
+    return (await this.loadProductCommercialContext(
+      userId,
+      normalizedProductIds,
+      authoritativePartnerPricing,
+    )).views;
+  }
+
+  private async loadProductCommercialContext(
+    userId: string,
+    normalizedProductIds: string[],
+    authoritativePartnerPricing: boolean,
+  ): Promise<AuthoritativeOrderPricingContext> {
     const company = await this.resolveActiveCompany(userId);
     const companyId = company.id;
     const [visibility, canViewStock] = await Promise.all([
@@ -220,7 +254,7 @@ export class DefaultPricingInventoryService implements PricingInventoryService {
         : Promise.resolve<CommercialRateSnapshot>({ partnerPriceUsdToMdl: null, retailPriceUsdToMdl: null }),
     ]);
 
-    return normalizedProductIds.map((productId) => {
+    const views = normalizedProductIds.map((productId) => {
       const partnerPrice = canViewPartnerPrice
         ? selectPriceForProduct(partnerPrices, productId, companyId)
         : null;
@@ -273,6 +307,7 @@ export class DefaultPricingInventoryService implements PricingInventoryService {
           && Boolean(partnerPriceMdl && retailPrice && retailPrice.amount < partnerPriceMdl.amount),
       };
     });
+    return { commercialMode: visibility.mode, views };
   }
 
   async getProductIdsByAvailability(

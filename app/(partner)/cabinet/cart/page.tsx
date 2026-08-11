@@ -83,8 +83,13 @@ export default async function CartPage() {
             </div>
             <CartCommercialRecheck />
             <CreateEstimateFromCartButton />
-            <SaveAsPurchasingListButton source="cart" />
-            <SaveAsPurchaseTemplateButton source={{ type: "cart" }} />
+            <div
+              aria-label="Дополнительные действия с корзиной"
+              className="grid gap-2 [&>button]:h-11 [&>button]:w-full [&>button]:justify-center"
+            >
+              <SaveAsPurchasingListButton source="cart" />
+              <SaveAsPurchaseTemplateButton source={{ type: "cart" }} />
+            </div>
             <OrderSubmitForm
               cartId={cart.id!}
               intentVersion={cart.intentVersion!}

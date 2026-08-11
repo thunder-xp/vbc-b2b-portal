@@ -30,6 +30,31 @@ describe("DefaultCartService", () => {
     expect(cart.totalUnitCount).toBe(2);
   });
 
+  it("redacts partner prices and totals for a retail-only employee", async () => {
+    const dependencies = makeDependencies();
+    dependencies.pricingService.getCommercialVisibility = vi.fn().mockResolvedValue({
+      mode: "retail_only",
+      canViewPartnerPrice: false,
+      canViewPartnerTotals: false,
+      canViewRetailPrice: true,
+    });
+    dependencies.pricingService.getProductCommercialViews.mockResolvedValueOnce([{
+      productId: "product-1",
+      partnerPrice: null,
+      retailPrice: { amount: 20, currencyCode: "MDL", formattedAmount: "20,00 MDL" },
+      stock: { exactAvailableQuantity: 5, expectedArrival: null },
+    }]);
+
+    const cart = await dependencies.service.getCart("user-1");
+
+    expect(cart.commercialMode).toBe("retail_only");
+    expect(cart).not.toHaveProperty("total");
+    expect(cart.lines[0]).not.toHaveProperty("partnerUnitPrice");
+    expect(cart.lines[0]).not.toHaveProperty("partnerLineTotal");
+    expect(cart.retailReferenceTotal).toContain("40,00");
+    expect(JSON.stringify(cart)).not.toContain("10.00");
+  });
+
   it("preserves unknown stock as null instead of converting it to zero", async () => {
     const dependencies = makeDependencies();
     dependencies.pricingService.getProductCommercialViews.mockResolvedValueOnce([{
@@ -104,7 +129,10 @@ function makeDependencies() {
     getProductOrderIdentities: vi.fn().mockResolvedValue([{ id: "product-1" }]),
     getProductsByIds: vi.fn().mockResolvedValue([{ id: "product-1", slug: "camera", name: "Camera", sku: "SKU-1", imageUrl: "https://example.test/camera-thumb.jpg" }]),
   };
-  const pricingService = { getProductCommercialViews: vi.fn().mockResolvedValue([{ productId: "product-1", partnerPrice: { amount: 10, currencyCode: "USD", formattedAmount: "$10.00" }, stock: { exactAvailableQuantity: 5, expectedArrival: null } }]) };
+  const pricingService: {
+    getProductCommercialViews: ReturnType<typeof vi.fn>;
+    getCommercialVisibility?: ReturnType<typeof vi.fn>;
+  } = { getProductCommercialViews: vi.fn().mockResolvedValue([{ productId: "product-1", partnerPrice: { amount: 10, currencyCode: "USD", formattedAmount: "$10.00" }, stock: { exactAvailableQuantity: 5, expectedArrival: null } }]) };
   const service = new DefaultCartService(repository, companyAccessService as never, permissionService as never, catalogService as never, pricingService as never);
   return { service, repository, companyAccessService, permissionService, catalogService, pricingService };
 }

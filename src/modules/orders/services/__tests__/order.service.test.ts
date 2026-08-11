@@ -16,6 +16,18 @@ describe("DefaultPartnerOrderService", () => {
 
   afterEach(() => vi.restoreAllMocks());
 
+  it("stops before pricing and export when order capability is denied", async () => {
+    const dependencies = makeDependencies();
+    dependencies.permissionService.ensurePermission.mockRejectedValueOnce(
+      new Error("Forbidden"),
+    );
+
+    await expect(dependencies.service.submit("user-1", input())).rejects.toThrow("Forbidden");
+
+    expect(dependencies.pricingService.getAuthoritativeOrderPricing).not.toHaveBeenCalled();
+    expect(dependencies.orderProvider.exportSalesOrder).not.toHaveBeenCalled();
+  });
+
   it("reloads current prices, snapshots them, exports once, and persists the returned 1C identity", async () => {
     const dependencies = makeDependencies();
     const result = await dependencies.service.submit("user-1", input());
@@ -105,6 +117,35 @@ describe("DefaultPartnerOrderService", () => {
     });
     expect(dependencies.orderRepository.beginSubmission).not.toHaveBeenCalled();
     expect(dependencies.orderProvider.exportSalesOrder).not.toHaveBeenCalled();
+  });
+
+  it("lets a retail-only employee order with the refreshed hidden company price", async () => {
+    const dependencies = makeDependencies({ commercialMode: "retail_only" });
+    const staleAt = new Date(Date.now() - 37 * 60 * 60 * 1000).toISOString();
+    dependencies.pricingService.getProductCommercialViews
+      .mockResolvedValueOnce([withPriceUpdatedAt(commercial("product-1", 12.5), staleAt)])
+      .mockResolvedValueOnce([commercial("product-1", 13)]);
+
+    await expect(dependencies.service.submit("user-1", input())).resolves.toMatchObject({
+      status: PartnerOrderStatus.Submitted,
+    });
+
+    expect(dependencies.orderRepository.beginSubmission).toHaveBeenCalledWith(
+      expect.objectContaining({
+        items: [expect.objectContaining({ partnerUnitPrice: 13, lineTotal: 26 })],
+      }),
+    );
+    expect(dependencies.orderProvider.exportSalesOrder).toHaveBeenCalledWith(
+      expect.objectContaining({
+        documentTotal: 26,
+        items: [expect.objectContaining({ price: { amount: 13, currency: "USD" } })],
+      }),
+    );
+    expect(console.info).toHaveBeenCalledWith(expect.objectContaining({
+      event: "partner_order_hidden_price_refresh_accepted",
+      commercialMode: "retail_only",
+      changedProductCount: 1,
+    }));
   });
 
   it("preserves the cart when authoritative price refresh fails", async () => {
@@ -546,7 +587,10 @@ describe("DefaultPartnerOrderService", () => {
   });
 });
 
-function makeDependencies(options: { useLegacyMinimalOrderPayload?: boolean } = {}) {
+function makeDependencies(options: {
+  useLegacyMinimalOrderPayload?: boolean;
+  commercialMode?: "full" | "retail_only" | "hidden";
+} = {}) {
   const cartRepository = {
     findActive: vi.fn().mockResolvedValue({ id: "44444444-4444-4444-8444-444444444444", companyId: "company-1", createdBy: "user-1", status: "active", intentVersion: 7, createdAt: "2026-01-01", updatedAt: "2026-01-01" }),
     listItems: vi.fn().mockResolvedValue([{ id: "item-1", cartId: "cart-1", productId: "product-1", quantity: 2, createdAt: "2026-01-01", updatedAt: "2026-01-01" }]),
@@ -566,8 +610,13 @@ function makeDependencies(options: { useLegacyMinimalOrderPayload?: boolean } = 
   const companyAccessService = { getOwnMemberships: vi.fn().mockResolvedValue([{ companyId: "company-1", status: "active" }]), getActiveCompanyContext: vi.fn().mockResolvedValue({ company }) };
   const permissionService = { ensurePermission: vi.fn().mockResolvedValue({ isAllowed: true }) };
   const catalogService = { getProductOrderIdentities: vi.fn().mockResolvedValue([{ id: "product-1", external1cId: "66666666-6666-4666-8666-666666666666", sku: "SKU-1", name: "Camera" }]) };
+  const getProductCommercialViews = vi.fn().mockResolvedValue([{ productId: "product-1", partnerPrice: { amount: 12.5, currencyCode: "USD", formattedAmount: "$12.50", lastUpdatedAt: new Date().toISOString() }, stock: { exactAvailableQuantity: 5, expectedArrival: null, lastUpdatedAt: new Date().toISOString() } }]);
   const pricingService = {
-    getProductCommercialViews: vi.fn().mockResolvedValue([{ productId: "product-1", partnerPrice: { amount: 12.5, currencyCode: "USD", formattedAmount: "$12.50", lastUpdatedAt: new Date().toISOString() }, stock: { exactAvailableQuantity: 5, expectedArrival: null, lastUpdatedAt: new Date().toISOString() } }]),
+    getProductCommercialViews,
+    getAuthoritativeOrderPricing: vi.fn(async (userId: string, productIds: string[]) => ({
+      commercialMode: options.commercialMode ?? "full",
+      views: await getProductCommercialViews(userId, productIds),
+    })),
     getApprovedUsdMdlRate: vi.fn().mockResolvedValue(17.56341414),
   };
   const partnerProvider = {
@@ -578,7 +627,7 @@ function makeDependencies(options: { useLegacyMinimalOrderPayload?: boolean } = 
   const orderProvider = { exportSalesOrder: vi.fn().mockResolvedValue(exportResult()), findExportedSalesOrders: vi.fn() };
   const priceRefreshService = { refresh: vi.fn().mockResolvedValue({ verifiedAt: new Date().toISOString(), productCount: 1, providerRequestCount: 1, deduplicated: false, durationMs: 25 }) };
   const service = new DefaultPartnerOrderService(cartRepository as never, orderRepository as never, companyAccessService as never, permissionService as never, catalogService as never, pricingService as never, partnerProvider as never, orderProvider as never, options, priceRefreshService);
-  return { service, cartRepository, orderRepository, catalogService, pricingService, partnerProvider, orderProvider, priceRefreshService, company };
+  return { service, cartRepository, orderRepository, catalogService, pricingService, partnerProvider, orderProvider, priceRefreshService, permissionService, company };
 }
 
 function input() {
