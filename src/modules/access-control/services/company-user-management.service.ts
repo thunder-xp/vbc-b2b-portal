@@ -1,6 +1,7 @@
 import type { CompanyUserManagementRepository } from "../repositories";
 import type {
   CompanyInvitationAcceptance,
+  CompanyInvitationPreview,
   CompanyUserEvent,
   CompanyUserPage,
   CompanyUserPriceAccess,
@@ -90,11 +91,12 @@ export class CompanyUserManagementService {
       };
     }
     const invitationUrl = buildInvitationUrl(input.applicationUrl, token.plaintext);
-    const delivery = await this.deliver({
+    const delivery = await this.deliver(invitation.invitationId, {
       to: email,
       employeeName: fullName,
       companyName: input.companyName,
       inviterName: input.inviterName,
+      roleLabel: roleLabel(input.roleCode),
       invitationUrl,
       expiresAt: invitation.expiresAt,
     });
@@ -114,12 +116,14 @@ export class CompanyUserManagementService {
     const token = generateInvitationToken();
     const expiresAt = new Date(Date.now() + INVITATION_TTL_MS).toISOString();
     const invitation = await this.repository.reissueInvitation(input.invitationId, token.hash, expiresAt);
+    const preview = await this.repository.getInvitationPreview(token.hash);
     const invitationUrl = buildInvitationUrl(input.applicationUrl, token.plaintext);
-    const delivery = await this.deliver({
+    const delivery = await this.deliver(invitation.invitationId, {
       to: invitation.email,
       employeeName: invitation.fullName,
       companyName: input.companyName,
       inviterName: input.inviterName,
+      roleLabel: roleLabel(preview?.roleCode ?? ""),
       invitationUrl,
       expiresAt: invitation.expiresAt,
     });
@@ -134,6 +138,16 @@ export class CompanyUserManagementService {
   acceptInvitation(token: string): Promise<CompanyInvitationAcceptance> {
     if (!token || token.length > 256) throw new InvalidStateError("Invitation token is invalid.");
     return this.repository.acceptInvitation(hashInvitationToken(token));
+  }
+
+  getInvitationPreview(token: string): Promise<CompanyInvitationPreview | null> {
+    if (!token || token.length > 256) return Promise.resolve(null);
+    return this.repository.getInvitationPreview(hashInvitationToken(token));
+  }
+
+  async revokeAccess(actorUserId: string, companyId: string, membershipId: string, reason: string): Promise<void> {
+    await this.permissionService.ensurePermission(actorUserId, companyId, MANAGEMENT_PERMISSION);
+    await this.repository.revokeMembershipAccess(membershipId, normalizeReason(reason));
   }
 
   async suspend(actorUserId: string, companyId: string, membershipId: string, reason: string): Promise<void> {
@@ -192,18 +206,41 @@ export class CompanyUserManagementService {
     );
   }
 
-  private async deliver(message: Parameters<CompanyInvitationEmailProvider["send"]>[0]): Promise<"email_sent" | "copy_link"> {
+  private async deliver(invitationId: string, message: Parameters<CompanyInvitationEmailProvider["send"]>[0]): Promise<"email_sent" | "copy_link"> {
     try {
       await this.emailProvider.send(message);
+      await this.recordDelivery(invitationId, "sent");
       return "email_sent";
     } catch (error) {
       console.error({
         event: "company_invitation_email_failed",
         errorType: error instanceof Error ? error.name : typeof error,
       });
+      await this.recordDelivery(invitationId, "failed");
       return "copy_link";
     }
   }
+
+  private async recordDelivery(invitationId: string, status: "sent" | "failed"): Promise<void> {
+    try {
+      await this.repository.recordInvitationDelivery(invitationId, status);
+    } catch (error) {
+      console.error({
+        event: "company_invitation_delivery_tracking_failed",
+        status,
+        errorType: error instanceof Error ? error.name : typeof error,
+      });
+    }
+  }
+}
+
+function roleLabel(roleCode: string): string {
+  return ({
+    partner_manager: "Менеджер",
+    partner_buyer: "Покупатель",
+    partner_accounting: "Бухгалтер",
+    partner_viewer: "Наблюдатель",
+  } as Record<string, string>)[roleCode] ?? "Сотрудник компании";
 }
 
 function validateAssignableRole(roleCode: string): void {

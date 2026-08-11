@@ -94,8 +94,8 @@ export async function createEmployeeInvitationAction(
     return {
       success: true,
       message: result.delivery === "email_sent"
-        ? "Приглашение отправлено."
-        : "Приглашение создано. Передайте сотруднику одноразовую ссылку.",
+        ? `Приглашение отправлено на ${requiredFormText(formData, "email").trim().toLowerCase()}`
+        : "Приглашение создано, но письмо не отправлено. Скопируйте ссылку.",
       invitationUrl: result.invitationUrl || null,
     };
   } catch (error) {
@@ -153,6 +153,20 @@ export async function suspendCompanyEmployeeAction(formData: FormData): Promise<
     "company_users.manage",
   );
   await createCompanyUserManagementService().suspend(
+    scope.userId,
+    scope.company.id,
+    requiredFormText(formData, "membershipId"),
+    requiredFormText(formData, "reason"),
+  );
+  revalidateCompanyUserPaths(scope.company.id);
+}
+
+export async function revokeCompanyEmployeeAccessAction(formData: FormData): Promise<void> {
+  const scope = await resolveCompanyScope(
+    optionalText(formData, "companyId"),
+    "company_users.manage",
+  );
+  await createCompanyUserManagementService().revokeAccess(
     scope.userId,
     scope.company.id,
     requiredFormText(formData, "membershipId"),

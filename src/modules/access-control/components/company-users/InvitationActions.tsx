@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { Check, Copy } from "lucide-react";
+import { useActionState, useState } from "react";
 
 import {
   reissueEmployeeInvitationAction,
@@ -24,6 +25,7 @@ export function InvitationActions({
     reissueEmployeeInvitationAction,
     INITIAL_STATE,
   );
+  const [copied, setCopied] = useState(false);
 
   return (
     <div className="grid gap-2">
@@ -31,12 +33,12 @@ export function InvitationActions({
         {companyId ? <input name="companyId" type="hidden" value={companyId} /> : null}
         <input name="invitationId" type="hidden" value={invitationId} />
         <button className="min-h-11 text-xs font-semibold text-emerald-700 disabled:text-zinc-400" disabled={pending}>
-          {pending ? "Обновляем..." : "Отправить новую ссылку"}
+          {pending ? "Отправляем..." : "Отправить повторно"}
         </button>
       </form>
       {state.message ? <p className="text-xs text-zinc-600">{state.message}</p> : null}
       {state.invitationUrl ? (
-        <input aria-label="Новая одноразовая ссылка" className="h-11 min-w-0 rounded border border-amber-300 bg-amber-50 px-2 font-mono text-[11px]" readOnly value={state.invitationUrl} />
+        <button className="inline-flex min-h-11 items-center gap-2 text-xs font-semibold text-zinc-700" onClick={async () => { await navigator.clipboard.writeText(state.invitationUrl!); setCopied(true); }} type="button">{copied ? <Check className="size-4" /> : <Copy className="size-4" />}{copied ? "Ссылка скопирована" : "Скопировать ссылку"}</button>
       ) : null}
     </div>
   );

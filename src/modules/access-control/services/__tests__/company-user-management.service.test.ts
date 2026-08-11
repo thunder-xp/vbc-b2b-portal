@@ -14,7 +14,10 @@ const repository = {
   createInvitation: vi.fn(),
   reissueInvitation: vi.fn(),
   revokeInvitation: vi.fn(),
+  recordInvitationDelivery: vi.fn(),
+  getInvitationPreview: vi.fn(),
   acceptInvitation: vi.fn(),
+  revokeMembershipAccess: vi.fn(),
   setMembershipState: vi.fn(),
   updateMembershipAccess: vi.fn(),
   appointOwner: vi.fn(),
@@ -35,6 +38,8 @@ const service = new CompanyUserManagementService(repository, permissions, email)
 describe("CompanyUserManagementService", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    email.send.mockResolvedValue(undefined);
+    repository.recordInvitationDelivery.mockResolvedValue(undefined);
     permissions.ensurePermission = vi.fn().mockResolvedValue({
       isAllowed: true,
       permissionCode: "company_users.manage",
@@ -75,6 +80,7 @@ describe("CompanyUserManagementService", () => {
     expect(result.invitationUrl).not.toContain(
       repository.createInvitation.mock.calls[0][0].tokenHash,
     );
+    expect(repository.recordInvitationDelivery).toHaveBeenCalledWith("invitation", "sent");
   });
 
   it("stores retail-only intent without applying UI redaction", async () => {
@@ -112,6 +118,7 @@ describe("CompanyUserManagementService", () => {
     const result = await service.createInvitation(invitationInput());
     expect(result.delivery).toBe("copy_link");
     expect(result.invitationUrl).toContain("/auth/invitations/");
+    expect(repository.recordInvitationDelivery).toHaveBeenCalledWith("invitation", "failed");
   });
 
   it("does not generate a second link for an idempotent repeated request", async () => {
@@ -147,6 +154,11 @@ describe("CompanyUserManagementService", () => {
       "active",
       "Review completed",
     );
+  });
+
+  it("revokes only the selected company membership through the governed repository operation", async () => {
+    await service.revokeAccess("actor", "company", "membership", "Employment ended");
+    expect(repository.revokeMembershipAccess).toHaveBeenCalledWith("membership", "Employment ended");
   });
 
   it("requires a bounded reason before a sensitive mutation", async () => {

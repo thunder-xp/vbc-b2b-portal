@@ -39,22 +39,16 @@ export default async function OnboardingPage() {
   }
 
   const membershipsResult = await getOwnMembershipsAction();
-  const requestsResult = await getOwnAccessRequestsAction();
-
   const hasActiveMembership =
     membershipsResult.success &&
     membershipsResult.data.some(
       (membership) => membership.status === MembershipStatus.Active,
     );
-  const hasApprovedRequest =
-    requestsResult.success &&
-    requestsResult.data.some(
-      (request) => request.status === AccessRequestStatus.Approved,
-    );
-
-  if (hasActiveMembership && hasApprovedRequest) {
+  if (hasActiveMembership) {
     redirect("/cabinet");
   }
+
+  const requestsResult = await getOwnAccessRequestsAction();
 
   if (
     requestsResult.success &&

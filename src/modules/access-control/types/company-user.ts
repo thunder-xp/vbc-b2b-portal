@@ -50,6 +50,16 @@ export type CompanyInvitationAcceptance = {
   repeated: boolean;
 };
 
+export type CompanyInvitationPreview = {
+  companyName: string;
+  invitedEmail: string;
+  invitedFullName: string;
+  roleCode: string;
+  expiresAt: string;
+  status: "pending" | "accepted" | "expired" | "revoked";
+  accountExists: boolean;
+};
+
 export type ManageableCompany = {
   id: string;
   displayName: string;

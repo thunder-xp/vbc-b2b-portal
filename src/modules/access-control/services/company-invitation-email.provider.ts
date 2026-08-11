@@ -7,6 +7,7 @@ export type CompanyInvitationEmail = {
   employeeName: string;
   companyName: string;
   inviterName: string;
+  roleLabel: string;
   invitationUrl: string;
   expiresAt: string;
 };
@@ -33,6 +34,7 @@ export class SmtpCompanyInvitationEmailProvider
     const text = [
       `Здравствуйте, ${message.employeeName}.`,
       `${message.inviterName} приглашает вас в кабинет компании ${message.companyName}.`,
+      `Роль: ${message.roleLabel}`,
       `Откройте защищённую ссылку до ${formatDate(message.expiresAt)}:`,
       message.invitationUrl,
       "Если вы не ожидали приглашение, проигнорируйте это письмо.",
@@ -43,7 +45,7 @@ export class SmtpCompanyInvitationEmailProvider
         to: message.to,
         subject,
         text,
-        html: `<p>Здравствуйте, ${escapeHtml(message.employeeName)}.</p><p>${escapeHtml(message.inviterName)} приглашает вас в кабинет компании <strong>${escapeHtml(message.companyName)}</strong>.</p><p><a href="${escapeHtml(message.invitationUrl)}">Принять приглашение</a></p><p>Ссылка действует до ${escapeHtml(formatDate(message.expiresAt))}.</p><p>Если вы не ожидали приглашение, проигнорируйте это письмо.</p>`,
+        html: `<p>Здравствуйте, ${escapeHtml(message.employeeName)}.</p><p>${escapeHtml(message.inviterName)} приглашает вас в кабинет партнёра Novotech компании <strong>${escapeHtml(message.companyName)}</strong>.</p><p><strong>Роль:</strong> ${escapeHtml(message.roleLabel)}</p><p><a href="${escapeHtml(message.invitationUrl)}">Принять приглашение</a></p><p>Ссылка действует до ${escapeHtml(formatDate(message.expiresAt))}.</p><p>Если вы не ожидали приглашение, проигнорируйте это письмо.</p>`,
       });
     } finally {
       transporter.close();

@@ -1,8 +1,8 @@
 import {
   appointCompanyOwnerAction,
   restoreCompanyEmployeeAction,
+  revokeCompanyEmployeeAccessAction,
   revokeEmployeeInvitationAction,
-  suspendCompanyEmployeeAction,
   transferCompanyOwnerAction,
   updateCompanyEmployeeAccessAction,
 } from "../../actions/company-users.actions";
@@ -33,6 +33,9 @@ export function CompanyUsersPanel({
       record.roleCode === "partner_owner" &&
       record.membershipStatus === "active",
   )?.recordId;
+  const employees = page.records.filter((record) => record.recordType === "membership" && record.membershipStatus !== "revoked");
+  const pendingInvitations = page.records.filter((record) => record.recordType === "invitation" && record.invitationStatus === "pending");
+  const history = page.records.filter((record) => record.membershipStatus === "revoked" || (record.recordType === "invitation" && record.invitationStatus !== "pending"));
   return (
     <div className="space-y-6">
       <header>
@@ -43,55 +46,22 @@ export function CompanyUsersPanel({
         <p className="mt-2 text-sm text-zinc-600">{companyName}. Управление ролями и доступом без передачи паролей.</p>
       </header>
       <InvitationForm companyId={adminCompanyId} />
-      <section className="overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm">
-        <div className="border-b border-zinc-200 px-5 py-4">
-          <h2 className="font-semibold text-zinc-950">Сотрудники и приглашения</h2>
-          <p className="text-sm text-zinc-500">Всего: {page.totalCount}</p>
-        </div>
-        <div className="divide-y divide-zinc-200">
-          {page.records.length ? page.records.map((record) => (
-            <article className="grid gap-4 p-5 lg:grid-cols-[1.4fr_1fr_1fr_1.5fr]" key={`${record.recordType}:${record.recordId}`}>
-              <div className="min-w-0">
-                <p className="truncate font-semibold text-zinc-950">{record.fullName}</p>
-                <p className="truncate text-sm text-zinc-500">{record.email}</p>
-                <p className="mt-1 text-xs text-zinc-500">{statusLabel(record.membershipStatus ?? record.invitationStatus)}</p>
-              </div>
-              <div className="text-sm">
-                <p className="text-xs font-medium uppercase text-zinc-500">Роль</p>
-                <p className="mt-1 font-medium text-zinc-900">{getPartnerRoleLabel(record.roleCode)}</p>
-                <p className="mt-1 text-xs text-zinc-500">{getPartnerRoleDescription(record.roleCode)}</p>
-              </div>
-              <div className="text-sm">
-                <p className="text-xs font-medium uppercase text-zinc-500">Цены</p>
-                <p className="mt-1 text-zinc-900">{record.priceAccess === "retail_only" ? "Только розничные цены" : "Полный доступ к коммерческим ценам"}</p>
-              </div>
-              <div className="min-w-0">
-                {record.recordType === "invitation" ? (
-                  <div className="flex flex-wrap gap-4">
-                    {record.invitationStatus === "pending" ? <InvitationActions companyId={adminCompanyId} invitationId={record.recordId} /> : null}
-                    {record.invitationStatus === "pending" ? (
-                      <form action={revokeEmployeeInvitationAction}>
-                        <HiddenScope companyId={adminCompanyId} name="invitationId" value={record.recordId} />
-                        <ReasonField />
-                        <button className="min-h-11 text-xs font-semibold text-red-700">Отозвать</button>
-                      </form>
-                    ) : null}
-                  </div>
-                ) : (
-                  <MembershipActions
-                    companyId={adminCompanyId}
-                    currentOwnerMembershipId={currentOwnerMembershipId}
-                    record={record}
-                  />
-                )}
-              </div>
-            </article>
-          )) : <p className="p-8 text-center text-sm text-zinc-500">Сотрудников и приглашений пока нет.</p>}
-        </div>
-      </section>
+      <UserRecordsSection companyId={adminCompanyId} currentOwnerMembershipId={currentOwnerMembershipId} empty="Активных сотрудников пока нет." records={employees} title="Сотрудники" />
+      <UserRecordsSection companyId={adminCompanyId} currentOwnerMembershipId={currentOwnerMembershipId} empty="Ожидающих приглашений нет." records={pendingInvitations} title="Ожидают принятия" />
+      {history.length ? <UserRecordsSection companyId={adminCompanyId} currentOwnerMembershipId={currentOwnerMembershipId} empty="" records={history} title="История доступа" /> : null}
       {isAdmin && showAudit ? <AuditTrail events={events} /> : null}
     </div>
   );
+}
+
+function UserRecordsSection({ companyId, currentOwnerMembershipId, empty, records, title }: {
+  companyId?: string;
+  currentOwnerMembershipId?: string;
+  empty: string;
+  records: CompanyUserPage["records"];
+  title: string;
+}) {
+  return <section className="overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm"><div className="border-b border-zinc-200 px-5 py-4"><h2 className="font-semibold text-zinc-950">{title}</h2><p className="text-sm text-zinc-500">Всего: {records.length}</p></div><div className="divide-y divide-zinc-200">{records.length ? records.map((record) => <article className="grid gap-4 p-5 lg:grid-cols-[1.4fr_1fr_1fr_1.5fr]" key={`${record.recordType}:${record.recordId}`}><div className="min-w-0"><p className="truncate font-semibold text-zinc-950">{record.fullName}</p><p className="truncate text-sm text-zinc-500">{record.email}</p><p className="mt-1 text-xs text-zinc-500">{statusLabel(record.membershipStatus ?? record.invitationStatus)}</p></div><div className="text-sm"><p className="text-xs font-medium uppercase text-zinc-500">Роль</p><p className="mt-1 font-medium text-zinc-900">{getPartnerRoleLabel(record.roleCode)}</p><p className="mt-1 text-xs text-zinc-500">{getPartnerRoleDescription(record.roleCode)}</p></div><div className="text-sm"><p className="text-xs font-medium uppercase text-zinc-500">Доступ к ценам</p><p className="mt-1 text-zinc-900">{record.priceAccess === "retail_only" ? "Только розничные цены" : "Коммерческие цены"}</p></div><div className="min-w-0">{record.recordType === "invitation" ? record.invitationStatus === "pending" ? <div className="flex flex-wrap gap-4"><InvitationActions companyId={companyId} invitationId={record.recordId} /><form action={revokeEmployeeInvitationAction}><HiddenScope companyId={companyId} name="invitationId" value={record.recordId} /><ReasonField /><button className="min-h-11 text-xs font-semibold text-red-700">Отозвать</button></form></div> : null : record.membershipStatus !== "revoked" ? <MembershipActions companyId={companyId} currentOwnerMembershipId={currentOwnerMembershipId} record={record} /> : null}</div></article>) : <p className="p-8 text-center text-sm text-zinc-500">{empty}</p>}</div></section>;
 }
 
 function MembershipActions({
@@ -123,11 +93,11 @@ function MembershipActions({
         <button className="min-h-11 justify-self-start text-xs font-semibold text-emerald-700">Подтвердить изменение доступа</button>
       </form>
       <div className="flex flex-wrap gap-4">
-        <form action={record.membershipStatus === "suspended" ? restoreCompanyEmployeeAction : suspendCompanyEmployeeAction}>
+        <form action={record.membershipStatus === "suspended" ? restoreCompanyEmployeeAction : revokeCompanyEmployeeAccessAction}>
           <HiddenScope companyId={companyId} name="membershipId" value={record.recordId} />
           <ReasonField />
           <button className="min-h-11 text-xs font-semibold text-zinc-700">
-            {record.membershipStatus === "suspended" ? "Восстановить" : "Приостановить"}
+            {record.membershipStatus === "suspended" ? "Восстановить" : "Отозвать доступ"}
           </button>
         </form>
         {record.roleCode !== "partner_owner" && record.membershipStatus === "active" ? (
@@ -208,6 +178,7 @@ function eventLabel(type: string): string {
     invitation_accepted: "Приглашение принято",
     employee_suspended: "Доступ сотрудника приостановлен",
     employee_restored: "Доступ сотрудника восстановлен",
+    employee_access_revoked: "Доступ сотрудника отозван",
     role_changed: "Роль сотрудника изменена",
     price_access_changed: "Доступ к ценам изменён",
     owner_appointed: "Назначен владелец компании",

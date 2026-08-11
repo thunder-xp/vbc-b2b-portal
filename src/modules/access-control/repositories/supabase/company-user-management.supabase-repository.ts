@@ -2,6 +2,7 @@ import { createClient } from "@/src/lib/supabase/server";
 
 import type {
   CompanyInvitationAcceptance,
+  CompanyInvitationPreview,
   CompanyInvitationResult,
   CompanyUserEvent,
   CompanyUserPage,
@@ -121,6 +122,35 @@ export class SupabaseCompanyUserManagementRepository
     });
   }
 
+  async recordInvitationDelivery(invitationId: string, status: "sent" | "failed"): Promise<void> {
+    await this.rpc("record_company_invitation_email_delivery", {
+      p_invitation_id: invitationId,
+      p_status: status,
+    });
+  }
+
+  async getInvitationPreview(tokenHash: string): Promise<CompanyInvitationPreview | null> {
+    const rows = await this.rpc<Array<{
+      company_name: string;
+      invited_email: string;
+      invited_full_name: string;
+      role_code: string;
+      expires_at: string;
+      invitation_status: CompanyInvitationPreview["status"];
+      account_exists: boolean;
+    }>>("get_company_invitation_preview", { p_token_hash: tokenHash });
+    const row = rows?.[0];
+    return row ? {
+      companyName: row.company_name,
+      invitedEmail: row.invited_email,
+      invitedFullName: row.invited_full_name,
+      roleCode: row.role_code,
+      expiresAt: row.expires_at,
+      status: row.invitation_status,
+      accountExists: row.account_exists,
+    } : null;
+  }
+
   async acceptInvitation(tokenHash: string): Promise<CompanyInvitationAcceptance> {
     const rows = await this.rpc<Array<{
       invitation_id: string;
@@ -141,6 +171,13 @@ export class SupabaseCompanyUserManagementRepository
     await this.rpc("set_company_membership_state_v2", {
       p_membership_id: membershipId,
       p_target_status: status,
+      p_reason: reason,
+    });
+  }
+
+  async revokeMembershipAccess(membershipId: string, reason: string): Promise<void> {
+    await this.rpc("revoke_company_membership_access", {
+      p_membership_id: membershipId,
       p_reason: reason,
     });
   }

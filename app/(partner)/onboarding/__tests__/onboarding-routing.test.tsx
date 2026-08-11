@@ -215,7 +215,7 @@ describe("onboarding route decisions", () => {
     expect(mocks.redirect).not.toHaveBeenCalledWith("/cabinet");
   });
 
-  it("onboarding entry requires approved request plus active membership for cabinet", async () => {
+  it("invited employee with an active membership bypasses generic access request", async () => {
     mocks.getOwnMembershipsAction.mockResolvedValue({
       success: true,
       errorCode: null,
@@ -243,7 +243,7 @@ describe("onboarding route decisions", () => {
           requestedFiscalCode: "BG123456789",
           contactPhone: "+359 1 234",
           message: null,
-          status: AccessRequestStatus.Approved,
+          status: AccessRequestStatus.PendingReview,
           decisionReason: null,
           createdAt: "2026-07-09T00:00:00.000Z",
           updatedAt: "2026-07-09T00:00:00.000Z",
@@ -252,6 +252,7 @@ describe("onboarding route decisions", () => {
     });
 
     await expect(OnboardingPage()).rejects.toThrow("NEXT_REDIRECT:/cabinet");
+    expect(mocks.getOwnAccessRequestsAction).not.toHaveBeenCalled();
   });
 
   it("renders rejected request state", async () => {

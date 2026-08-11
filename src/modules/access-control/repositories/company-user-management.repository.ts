@@ -1,5 +1,6 @@
 import type {
   CompanyInvitationAcceptance,
+  CompanyInvitationPreview,
   CompanyInvitationResult,
   CompanyUserEvent,
   CompanyUserPage,
@@ -25,7 +26,10 @@ export interface CompanyUserManagementRepository {
   createInvitation(input: CreateCompanyInvitationRecordInput): Promise<CompanyInvitationResult>;
   reissueInvitation(invitationId: string, tokenHash: string, expiresAt: string): Promise<CompanyInvitationResult>;
   revokeInvitation(invitationId: string, reason: string): Promise<void>;
+  recordInvitationDelivery(invitationId: string, status: "sent" | "failed"): Promise<void>;
+  getInvitationPreview(tokenHash: string): Promise<CompanyInvitationPreview | null>;
   acceptInvitation(tokenHash: string): Promise<CompanyInvitationAcceptance>;
+  revokeMembershipAccess(membershipId: string, reason: string): Promise<void>;
   setMembershipState(membershipId: string, status: "active" | "suspended", reason: string): Promise<void>;
   updateMembershipAccess(membershipId: string, roleCode: string, priceAccess: CompanyUserPriceAccess, reason: string): Promise<void>;
   appointOwner(membershipId: string, reason: string): Promise<void>;

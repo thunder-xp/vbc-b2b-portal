@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 
 import { createClient } from "@/src/lib/supabase/server";
+import { createCompanyUserManagementService } from "@/src/modules/access-control/actions/service-factory";
 
 export type AuthActionState = {
   error: string | null;
@@ -27,6 +28,15 @@ export async function signInAction(
     return { error: "Email or password is incorrect." };
   }
 
+  const invitationToken = tokenFromInvitationPath(nextPath);
+  if (invitationToken) {
+    try {
+      await createCompanyUserManagementService().acceptInvitation(invitationToken);
+    } catch {
+      redirect(`${nextPath}?error=acceptance_failed`);
+    }
+    redirect("/cabinet");
+  }
   redirect(nextPath ?? "/cabinet");
 }
 
@@ -75,6 +85,12 @@ function safeNextPath(value: FormDataEntryValue | null): string | null {
   return path.startsWith("/") && !path.startsWith("//") && path.length <= 500
     ? path
     : null;
+}
+
+function tokenFromInvitationPath(path: string | null): string | null {
+  if (!path) return null;
+  const match = /^\/auth\/invitations\/([A-Za-z0-9_-]{20,256})$/.exec(path);
+  return match?.[1] ?? null;
 }
 
 export async function signOutAction(): Promise<void> {
