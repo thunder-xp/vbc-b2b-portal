@@ -58,15 +58,17 @@ function brandingBlock(proposal: CustomerProposalDto, images: Map<string, string
 
 function productTable(proposal: CustomerProposalDto, sectionName: string, sectionSubtotal: number, lines: ReadonlyArray<CustomerProposalLine>, images: Map<string, string>): Record<string, unknown> {
   const showImage = proposal.settings.showProductImages && lines.some((line) => isProductProposalLine(line) && Boolean(line.imageUrl && images.has(line.imageUrl)));
-  const headers: Array<Record<string, unknown>> = [{ text: "№", bold: true }, ...(showImage ? [{ text: "", bold: true }] : []), { text: "Код / модель", bold: true }, { text: "Описание", bold: true }, { text: "Ед.", bold: true }, { text: "Кол-во", bold: true, alignment: "right" }];
+  const showCodeColumn = proposal.schemaVersion !== "2026-08-11-v3";
+  const headers: Array<Record<string, unknown>> = [{ text: "№", bold: true }, ...(showImage ? [{ text: "", bold: true }] : []), ...(showCodeColumn ? [{ text: "Код / модель", bold: true }] : []), { text: "Описание", bold: true }, { text: "Ед.", bold: true }, { text: "Кол-во", bold: true, alignment: "right" }];
   if (proposal.settings.showUnitPrice) headers.push({ text: "Цена за ед.", bold: true, alignment: "right" });
   if (proposal.settings.showLineDiscount) headers.push({ text: "Скидка", bold: true, alignment: "right" });
   headers.push({ text: "Сумма", bold: true, alignment: "right" });
   const rows = lines.map((line) => {
-    const description: Record<string, unknown> = { text: conciseProposalDescription(line.description), bold: true, lineHeight: 1.08 };
+    const description: Record<string, unknown> = { text: showCodeColumn || !line.sku ? conciseProposalDescription(line.description) : [{ text: `${line.sku}\n`, fontSize: 7, color: "#52525b" }, { text: conciseProposalDescription(line.description), bold: true }], lineHeight: 1.08 };
     const row: Array<Record<string, unknown>> = [{ text: String(line.position), color: "#71717a" }];
     if (showImage) row.push(isProductProposalLine(line) ? line.imageUrl && images.has(line.imageUrl) ? { image: images.get(line.imageUrl)!, width: 26, height: 26, fit: [26, 26] } : { text: "—", color: "#a1a1aa", alignment: "center", margin: [0, 7, 0, 0] } : { text: "" });
-    row.push({ text: line.sku || "—", fontSize: 7, color: "#52525b" }, description, { text: line.unitLabel, noWrap: true }, { text: formatNumber(line.quantity), alignment: "right", noWrap: true });
+    if (showCodeColumn) row.push({ text: line.sku || "—", fontSize: 7, color: "#52525b" });
+    row.push(description, { text: line.unitLabel, noWrap: true }, { text: formatNumber(line.quantity), alignment: "right", noWrap: true });
     if (proposal.settings.showUnitPrice) row.push({ text: money(line.unitPrice, proposal.currencyCode), alignment: "right", noWrap: true });
     if (proposal.settings.showLineDiscount) row.push({ text: line.lineDiscountPercent ? `${formatNumber(line.lineDiscountPercent)}%` : "—", alignment: "right" });
     row.push({ text: money(line.lineTotal, proposal.currencyCode), alignment: "right", bold: true, noWrap: true });
@@ -75,7 +77,7 @@ function productTable(proposal: CustomerProposalDto, sectionName: string, sectio
   if (proposal.settings.showSectionSubtotals && lines.length > 0) {
     rows.push([{ text: sectionSubtotalLabel(sectionName), colSpan: headers.length - 1, alignment: "right", bold: true, fillColor: "#f4f4f5" }, ...Array.from({ length: headers.length - 2 }, () => ({ text: "", fillColor: "#f4f4f5" })), { text: money(sectionSubtotal, proposal.currencyCode), alignment: "right", bold: true, fillColor: "#f4f4f5", noWrap: true }]);
   }
-  const widths: Array<number | "*"> = [14, ...(showImage ? [28] : []), 54, "*", 24, 30, ...(proposal.settings.showUnitPrice ? [58] : []), ...(proposal.settings.showLineDiscount ? [34] : []), 62];
+  const widths: Array<number | "*"> = [14, ...(showImage ? [28] : []), ...(showCodeColumn ? [54] : []), "*", 24, 30, ...(proposal.settings.showUnitPrice ? [58] : []), ...(proposal.settings.showLineDiscount ? [34] : []), 62];
   return { table: { headerRows: 1, widths, dontBreakRows: true, body: [headers, ...rows] }, layout: { fillColor: (rowIndex: number) => rowIndex === 0 ? "#ecfdf5" : rowIndex % 2 === 0 ? "#fafafa" : null, hLineColor: () => "#d4d4d8", vLineColor: () => "#e4e4e7", paddingTop: () => 4, paddingBottom: () => 4, paddingLeft: () => 3, paddingRight: () => 3 } };
 }
 

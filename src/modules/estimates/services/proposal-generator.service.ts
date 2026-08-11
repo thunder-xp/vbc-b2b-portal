@@ -9,7 +9,7 @@ import type { GeneratorPreparedLine, ProposalGeneratorRepository } from "../repo
 import type { EstimateSectionSystemKey } from "../types";
 import { convertMoney, resolveCurrencyRate } from "./commercial-calculation";
 import { countGeneratorResolutions, generateRequirements, type GeneratorRequirement } from "./proposal-generator";
-import { calculateCctvRequirements, cctvInputFingerprintPayload, type CctvCalculatorInput } from "./proposal-generator-calculator";
+import { automaticRecorderChannels, calculateCctvRequirements, CCTV_CALCULATOR_PROFILE_KEYS, cctvInputFingerprintPayload, type CctvCalculatorInput } from "./proposal-generator-calculator";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -65,18 +65,21 @@ export class ProposalGeneratorService {
     let mappingsResolvedAt = contextResolvedAt;
     let commercialResolvedAt = contextResolvedAt;
     try {
-      const calculated = calculateCctvRequirements(input.parameters);
+      const mappings = await this.repository.resolveCalculatorProfiles(companyId, [...CCTV_CALCULATOR_PROFILE_KEYS]);
+      mappingsResolvedAt = performance.now();
+      const calculated = calculateCctvRequirements(input.parameters, mappings);
       rulesCalculatedAt = performance.now();
       if (!calculated.length) throw new InvalidStateError("Укажите хотя бы одну камеру.");
-      const mappings = await this.repository.resolveCalculatorProfiles(companyId, [...new Set(calculated.map((line) => line.profileKey).filter((key): key is NonNullable<typeof key> => key !== null))]);
-      mappingsResolvedAt = performance.now();
       const mappingByKey = new Map(mappings.map((mapping) => [mapping.profileKey, mapping]));
       requirements = calculated.map((line) => {
         const mapping = line.profileKey ? mappingByKey.get(line.profileKey) : null;
         const configuredServicePrice = mapping?.resolution === "service"
           && mapping.defaultSellingCurrencyCode === input.currencyCode ? mapping.defaultSellingUnitPrice : null;
+        const identity = mapping?.resolvedLabel ? splitResolvedCatalogLabel(mapping.resolvedLabel) : null;
         return mapping ? {
-          ...line, resolution: mapping.resolution, resolvedId: mapping.resolvedId, resolvedLabel: mapping.resolvedLabel,
+          ...line, resolution: mapping.resolution, resolvedId: mapping.resolvedId, resolvedLabel: identity?.name ?? mapping.resolvedLabel,
+          resolvedSku: mapping.resolution === "catalog" ? identity?.sku ?? null : null,
+          description: mapping.resolution === "unresolved" ? line.description : identity?.name ?? mapping.resolvedLabel ?? line.description,
           sellingUnitPrice: configuredServicePrice,
           sellingCurrencyCode: configuredServicePrice === null ? null : mapping.defaultSellingCurrencyCode,
           sellingVatMode: configuredServicePrice === null ? null : mapping.defaultSellingVatMode,
@@ -97,7 +100,17 @@ export class ProposalGeneratorService {
       throw error;
     }
     const telemetryStartedAt = performance.now();
-    const sessionId = await this.repository.recordSession({ companyId, requestKey: input.requestKey, fingerprint, requirementCount: requirements.length, durationMs: Math.round(telemetryStartedAt - startedAt), generationMode: "quick_calculation", structuredFacts: facts, resolutionCounts: countGeneratorResolutions(requirements) });
+    const cameraCount = input.parameters.indoorCameraCount + input.parameters.outdoorCameraCount;
+    const storageLine = requirements.find((line) => line.id === "cctv-storage");
+    const poeLine = requirements.find((line) => line.id === "cctv-poe");
+    const storageCapacity = storageLine?.profileKey?.match(/^cctv\.storage\.(\d+)tb$/)?.[1];
+    const structuredFacts = {
+      ...facts,
+      autoNvrProfile: automaticRecorderChannels(cameraCount) ? `cctv.nvr.${automaticRecorderChannels(cameraCount)}` : null,
+      proposedHddCapacityTb: storageCapacity ? Number(storageCapacity) * (storageLine?.quantity ?? 1) : null,
+      poeAutoProfile: poeLine?.profileKey ?? null,
+    };
+    const sessionId = await this.repository.recordSession({ companyId, requestKey: input.requestKey, fingerprint, requirementCount: requirements.length, durationMs: Math.round(telemetryStartedAt - startedAt), generationMode: "quick_calculation", structuredFacts, resolutionCounts: countGeneratorResolutions(requirements) });
     console.info({
       event: "proposal_generator_quick_calculation_performance",
       companyId,
@@ -105,9 +118,9 @@ export class ProposalGeneratorService {
       requirementCount: requirements.length,
       stageMs: {
         context: Math.round(contextResolvedAt - startedAt),
-        rules: Math.round(rulesCalculatedAt - contextResolvedAt),
-        profileResolution: Math.round(mappingsResolvedAt - rulesCalculatedAt),
-        catalogCommercialResolution: Math.round(commercialResolvedAt - mappingsResolvedAt),
+        profileResolution: Math.round(mappingsResolvedAt - contextResolvedAt),
+        rules: Math.round(rulesCalculatedAt - mappingsResolvedAt),
+        catalogCommercialResolution: Math.round(commercialResolvedAt - rulesCalculatedAt),
         telemetryWrite: Math.round(performance.now() - telemetryStartedAt),
       },
       durationMs: Math.round(performance.now() - startedAt),
@@ -253,6 +266,11 @@ export class ProposalGeneratorService {
     await this.permissions.ensurePermission(userId, context.company.id, permission);
     return context.company.id;
   }
+}
+
+function splitResolvedCatalogLabel(label: string) {
+  const separator = label.indexOf(" · ");
+  return separator < 0 ? { sku: null, name: label } : { sku: label.slice(0, separator), name: label.slice(separator + 3) };
 }
 
 function validateCreateInput(input: CreateGeneratedEstimateInput) {

@@ -27,6 +27,7 @@ export function ProposalGeneratorWorkspace({ currencies }: { currencies: string[
   const router = useRouter();
   const generationKey = useRef(crypto.randomUUID());
   const creationKey = useRef(crypto.randomUUID());
+  const createPanelRef = useRef<HTMLElement>(null);
   const [pending, startTransition] = useTransition();
   const storedMode = useSyncExternalStore(subscribeToSessionMode, readSessionMode, () => null);
   const [selectedMode, setSelectedMode] = useState<GeneratorMode | null | undefined>(undefined);
@@ -50,19 +51,28 @@ export function ProposalGeneratorWorkspace({ currencies }: { currencies: string[
   };
   const generate = () => startTransition(async () => {
     const result = await generateProposalDraftAction({ requirement, requestKey: generationKey.current });
-    setMessage(result.message);
+    setMessage(result.success ? null : result.message);
     if (result.success) { setSession({ id: result.data.sessionId, fingerprint: result.data.fingerprint }); setRequirements(result.data.requirements); }
   });
   const create = () => startTransition(async () => {
-    if (!session || !customer) return;
-    const result = await createGeneratedEstimateAction({
-      sessionId: session.id, sessionFingerprint: session.fingerprint, finalCustomerId: customer.id,
-      name: projectName.trim() || `КП для ${customer.displayName}`, projectName, currencyCode, vatMode, validityDays: 14,
-      requestKey: creationKey.current, requirements,
-    });
-    setMessage(result.message);
-    if (result.success) router.push(`/cabinet/estimates/${result.data.estimateId}?generatorSession=${session.id}`);
+    if (!session) { setMessage("Расчёт больше недоступен. Сформируйте его повторно."); return; }
+    if (!customer) { setMessage("Выберите заказчика, чтобы создать смету."); return; }
+    try {
+      const result = await createGeneratedEstimateAction({
+        sessionId: session.id, sessionFingerprint: session.fingerprint, finalCustomerId: customer.id,
+        name: projectName.trim() || `КП для ${customer.displayName}`, projectName, currencyCode, vatMode, validityDays: 14,
+        requestKey: creationKey.current, requirements,
+      });
+      setMessage(result.success ? null : result.message);
+      if (result.success) router.push(`/cabinet/estimates/${result.data.estimateId}?generatorSession=${session.id}`);
+    } catch {
+      setMessage("Не удалось создать смету. Данные сохранены на экране — повторите попытку.");
+    }
   });
+  const openCreatePanel = () => {
+    setCreatePanelOpen(true); setMessage(null);
+    window.setTimeout(() => createPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }), 0);
+  };
 
   if (!session && !mode) return <ModeChoice onChoose={chooseMode} />;
   if (!session && mode === "quick_calculation") return <div className="mx-auto w-full max-w-5xl space-y-6">
@@ -85,15 +95,15 @@ export function ProposalGeneratorWorkspace({ currencies }: { currencies: string[
     <header className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-sm font-semibold text-emerald-700">Шаг 3 из 3 · Результат</p><h1 className="mt-1 text-2xl font-semibold">Проверьте структуру сметы</h1><p className="mt-1 text-sm text-zinc-600">Точные соответствия выбираются только вами. Неразрешённые позиции попадут в смету без цены.</p></div><button className={actionClassName.secondary} onClick={() => { setSession(null); setMessage(null); }} type="button"><ChevronLeft className="size-4" />Изменить исходные данные</button></header>
     <ProposalGeneratorReview currencyCode={currencyCode} onChange={setRequirements} requirements={requirements} />
     {mode === "quick_calculation" && <section className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950"><strong>Ориентировочная стоимость известных позиций</strong>{pricingSummary.knownTotal > 0 && <p className="mt-1 text-lg font-semibold">{pricingSummary.knownTotal.toFixed(2)} {currencyCode}</p>}<p className="mt-1">Расчёт ориентировочный и не является коммерческим предложением.</p>{pricingSummary.unpricedWorks > 0 && <p className="mt-1 font-medium">Для {pricingSummary.unpricedWorks} работ требуется указать цену.</p>}{assumptions.map((item) => <p className="mt-1 text-xs" key={item}>{item}</p>)}</section>}
-    {createPanelOpen && <section className="grid gap-4 rounded-md border border-zinc-200 bg-white p-4 md:grid-cols-2">
+    {createPanelOpen && <section className="grid scroll-mt-24 gap-4 rounded-md border border-zinc-200 bg-white p-4 md:grid-cols-2" ref={createPanelRef}>
       <div className="md:col-span-2"><FinalCustomerPicker onChange={setCustomer} value={customer?.id ?? null} /></div>
       <FormField label="Проект / объект">{(props) => <input {...props} className={inputClass} maxLength={200} onChange={(event) => setProjectName(event.target.value)} value={projectName} />}</FormField>
       <FormField label="Валюта" required>{(props) => <select {...props} className={inputClass} onChange={(event) => setCurrencyCode(event.target.value)} value={currencyCode}>{currencies.map((currency) => <option key={currency}>{currency}</option>)}</select>}</FormField>
       <FormField label="НДС" required>{(props) => <select {...props} className={inputClass} onChange={(event) => setVatMode(event.target.value as "none" | "included")} value={vatMode}><option value="none">НДС не применяется</option><option value="included">НДС применяется (20%)</option></select>}</FormField>
-      <div className="md:col-span-2"><button className={actionClassName.primary} disabled={pending || !customer || !requirements.length} onClick={create} type="button">{pending ? <><Loader2 className="size-4 animate-spin" />Создание...</> : <><Check className="size-4" />Создать смету</>}</button></div>
+      <div className="md:col-span-2"><button className={actionClassName.primary} disabled={pending || !requirements.length} onClick={create} type="button">{pending ? <><Loader2 className="size-4 animate-spin" />Создание...</> : <><Check className="size-4" />Создать смету</>}</button></div>
     </section>}
     {message && <ActionFeedback kind="error" message={message} />}
-    <div className="sticky bottom-0 flex flex-wrap items-center justify-between gap-3 border-t border-zinc-200 bg-white/95 px-4 py-4 backdrop-blur"><p className="text-sm text-zinc-600">{requirements.length} позиций · {requirements.filter((line) => line.resolution === "unresolved").length} требуют уточнения</p><button className={actionClassName.primary} disabled={!requirements.length} onClick={() => setCreatePanelOpen(true)} type="button"><Check className="size-4" />Создать смету</button></div>
+    <div className="sticky bottom-0 flex flex-wrap items-center justify-between gap-3 border-t border-zinc-200 bg-white/95 px-4 py-4 backdrop-blur"><p className="text-sm text-zinc-600">{requirements.length} позиций · {requirements.filter((line) => line.resolution === "unresolved").length} требуют уточнения</p><button className={actionClassName.primary} disabled={!requirements.length} onClick={openCreatePanel} type="button"><Check className="size-4" />Перейти к созданию</button></div>
   </div>;
 }
 

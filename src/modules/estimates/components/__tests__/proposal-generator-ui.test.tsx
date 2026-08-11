@@ -22,6 +22,22 @@ describe("proposal generator UI contract", () => {
   it("uses three calculator steps and minimal CCTV controls", () => {
     expect(calculator).toContain("Шаг {step} из 3"); expect(workspace).toContain("Шаг 3 из 3");
     for (const label of ["Камеры внутри", "Камеры снаружи", "Архив, дней", "Кабель, ориентировочно, м", "Дополнительные параметры"]) expect(calculator).toContain(label);
+    expect(calculator).toContain('label="Регистратор"');
+    expect(calculator).toContain("Автоматически"); expect(calculator).toContain("Не нужен");
+    expect(calculator).toContain("CCTV_CAMERA_RESOLUTIONS.map");
+  });
+  it("updates authoritative replacement identity and RETAIL presentation", () => {
+    expect(review).toContain("selectCatalog(item)");
+    expect(review).toContain("resolvedSku: item.sku");
+    expect(review).toContain("resolvedImageUrl: item.imageUrl");
+    expect(review).toContain("retailPriceAmount");
+    expect(review).toContain("Исходная потребность:");
+  });
+  it("never silently ignores estimate creation", () => {
+    expect(workspace).toContain("Выберите заказчика, чтобы создать смету.");
+    expect(workspace).toContain("Данные сохранены на экране");
+    expect(workspace).toContain("Перейти к созданию");
+    expect(workspace).toContain("scrollIntoView");
   });
   it("converges both modes into one review and delays customer context", () => {
     expect(workspace).toContain("ProposalGeneratorReview"); expect(workspace).toContain("createPanelOpen");

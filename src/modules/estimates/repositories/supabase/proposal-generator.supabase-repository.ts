@@ -10,7 +10,7 @@ function fail(code?: string): never {
 export class SupabaseProposalGeneratorRepository implements ProposalGeneratorRepository {
   async recordSession(input: Parameters<ProposalGeneratorRepository["recordSession"]>[0]): Promise<string> {
     const counts = input.resolutionCounts ?? { catalog: 0, service: 0, own: 0, shared: 0, unresolved: input.requirementCount };
-    const { data, error } = await (await createClient()).rpc("record_estimate_generator_session_v3", {
+    const { data, error } = await (await createClient()).rpc("record_estimate_generator_session_v4", {
       target_company_id: input.companyId,
       target_request_key: input.requestKey,
       target_request_fingerprint: input.fingerprint,
@@ -77,7 +77,7 @@ export class SupabaseProposalGeneratorRepository implements ProposalGeneratorRep
       quantity: line.quantity, unit: line.unit, selling_unit_price: line.sellingUnitPrice,
       profile_key: line.profileKey ?? null,
     }));
-    const { data, error } = await (await createClient()).rpc("create_estimate_from_generator_v3", {
+    const { data, error } = await (await createClient()).rpc("create_estimate_from_generator_v4", {
       target_company_id: input.companyId, target_session_id: input.sessionId, target_final_customer_id: input.finalCustomerId,
       estimate_name: input.name, target_project_name: input.projectName ?? "", target_currency_code: input.currencyCode,
       target_vat_mode: input.vatMode,
@@ -153,6 +153,9 @@ function mapProfile(row: Record<string, unknown>) {
     defaultSellingUnitPrice: nullableNumber(row.default_selling_unit_price),
     defaultSellingCurrencyCode: typeof row.default_selling_currency_code === "string" ? row.default_selling_currency_code : null,
     defaultSellingVatMode: row.default_selling_vat_mode === "included" || row.default_selling_vat_mode === "excluded" ? row.default_selling_vat_mode : null,
+    recorderChannels: nullableNumber(row.recorder_channels), integratedPoePorts: nullableNumber(row.integrated_poe_ports),
+    driveBayCount: nullableNumber(row.drive_bay_count), poePortCount: nullableNumber(row.poe_port_count),
+    storageCapacityTb: nullableNumber(row.storage_capacity_tb),
   };
 }
 

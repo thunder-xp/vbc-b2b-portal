@@ -13,11 +13,14 @@ export type GeneratorRequirement = {
   id: string;
   sectionKey: EstimateSectionSystemKey;
   description: string;
+  requirementDescription?: string | null;
   quantity: number;
   unit: EstimateUnit;
   resolution: GeneratorResolutionKind;
   resolvedId: string | null;
   resolvedLabel: string | null;
+  resolvedSku?: string | null;
+  resolvedImageUrl?: string | null;
   profileKey?: string | null;
   assumption?: string | null;
   sellingUnitPrice?: number | null;

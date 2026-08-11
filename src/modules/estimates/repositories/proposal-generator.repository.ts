@@ -22,6 +22,11 @@ export type GeneratorProfileMapping = {
   defaultSellingUnitPrice: number | null;
   defaultSellingCurrencyCode: string | null;
   defaultSellingVatMode: "included" | "excluded" | null;
+  recorderChannels: number | null;
+  integratedPoePorts: number | null;
+  driveBayCount: number | null;
+  poePortCount: number | null;
+  storageCapacityTb: number | null;
 };
 
 export type GeneratorProfileAdminRow = GeneratorProfileMapping & {
@@ -63,6 +68,12 @@ export type GeneratorAdminReport = {
     quickCalculationCompleted: number;
     quickCalculationUnresolvedCount: number;
     averageQuickCalculationToEstimateMs: number;
+    nvrManualOverrideCount: number;
+    nvrRemovedCount: number;
+    autoProductReplacementCount: number;
+    poeReplacementCount: number;
+    poeRemovedCount: number;
+    hddCapacityCorrectionCount: number;
   };
   comments: Array<{ answer: "yes" | "partial" | "no"; comment: string; created_at: string }>;
   quickCalculationByObjectType: Array<{ objectType: string; starts: number; estimatesCreated: number }>;
@@ -73,8 +84,10 @@ export interface ProposalGeneratorRepository {
     companyId: string; requestKey: string; fingerprint: string; requirementCount: number; durationMs: number; failed?: boolean;
     generationMode?: "description" | "quick_calculation"; structuredFacts?: {
       systemType: "cctv"; objectType: string; indoorCameraCount: number; outdoorCameraCount: number;
+      indoorResolutionMp: number; outdoorResolutionMp: number; recorderSelection: "auto" | "none" | number;
       archiveDays: number; cableLength: number; installationRequested: boolean; commissioningRequested: boolean;
       remoteViewingRequested: boolean; advancedFlags: string[];
+      autoNvrProfile?: string | null; proposedHddCapacityTb?: number | null; poeAutoProfile?: string | null;
     } | null;
     resolutionCounts?: { catalog: number; service: number; own: number; shared: number; unresolved: number };
   }): Promise<string>;

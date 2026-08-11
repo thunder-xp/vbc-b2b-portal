@@ -209,7 +209,7 @@ function prepareCustomerProposal(input: {
   const customerCharges = charges.filter((charge) => charge.customerVisible).sort((a, b) => a.sortOrder - b.sortOrder).map((charge) => ({ description: charge.description, amount: charge.amount }));
   const generatedForDate = new Date().toISOString().slice(0, 10);
   return deepFreeze({
-    schemaVersion: "2026-08-08-v2" as const, estimateNumber: estimate.estimateNumber,
+    schemaVersion: "2026-08-11-v3" as const, estimateNumber: estimate.estimateNumber,
     generatedForDate, validUntilDate: addUtcDays(generatedForDate, estimate.validityDays), customerName: estimate.customerName, projectName: estimate.projectName,
     currencyCode: estimate.currencyCode, vatMode: estimate.vatMode, vatRatePercent: estimate.vatRatePercent, settings: { ...input.settings },
     branding: { companyName: input.companyName, legalName: input.profile?.legalName ?? null, contactName: input.profile?.contactName ?? input.userName, phone: input.profile?.phone ?? input.userPhone, email: input.profile?.email ?? input.userEmail, website: input.profile?.website ?? null, fiscalInformation: input.profile?.fiscalInformation ?? null, address: input.profile?.address ?? null, logoUrl: normalizePortalImageUrl(input.profile?.logoUrl ?? null) ?? normalizePortalImageUrl(input.companyLogoUrl) },

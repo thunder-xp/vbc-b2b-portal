@@ -5,7 +5,11 @@ import { useRef, useState, useTransition } from "react";
 
 import { ActionFeedback, actionClassName, FormField } from "../../platform-ui";
 import { calculateQuickProposalAction } from "../actions/proposal-generator.actions";
-import type { CctvCalculatorInput, CctvObjectType, GeneratorRequirement } from "../services";
+import {
+  CCTV_CAMERA_RESOLUTIONS, CCTV_RECORDER_CHANNELS, type CctvCalculatorInput,
+  type CctvCameraResolution, type CctvObjectType, type CctvRecorderSelection,
+} from "../services/proposal-generator-calculator";
+import type { GeneratorRequirement } from "../services/proposal-generator";
 
 const objectTypes: Array<{ value: CctvObjectType; label: string }> = [
   { value: "apartment", label: "Квартира" }, { value: "house", label: "Частный дом" },
@@ -15,9 +19,10 @@ const objectTypes: Array<{ value: CctvObjectType; label: string }> = [
 ];
 
 const defaults: CctvCalculatorInput = {
-  objectType: "warehouse", indoorCameraCount: 8, outdoorCameraCount: 4, archiveDays: 30, cableLength: 300,
+  objectType: "warehouse", indoorCameraCount: 8, indoorResolutionMp: 6,
+  outdoorCameraCount: 4, outdoorResolutionMp: 4, recorderSelection: "auto", archiveDays: 30, cableLength: 300,
   installationRequested: true, commissioningRequested: true, remoteViewingRequested: true,
-  colorNight: false, highResolution: false, licensePlateRecognition: false, videoAnalytics: false, backupPower: false,
+  colorNight: false, licensePlateRecognition: false, videoAnalytics: false, backupPower: false,
 };
 
 export type QuickCalculationResult = { sessionId: string; fingerprint: string; requirements: GeneratorRequirement[]; assumptions: string[] };
@@ -56,8 +61,9 @@ export function ProposalQuickCalculator({ currencyCode, onBack, onCalculated }: 
     </> : <>
       <div><h2 className="text-xl font-semibold">Параметры видеонаблюдения</h2><p className="mt-1 text-sm text-zinc-600">Укажите ориентировочный объём. Точные модели можно проверить на следующем шаге.</p></div>
       <div className="grid gap-4 md:grid-cols-2">
-        <Counter label="Камеры внутри" max={128} onChange={(value) => patch("indoorCameraCount", value)} value={parameters.indoorCameraCount} />
-        <Counter label="Камеры снаружи" max={128} onChange={(value) => patch("outdoorCameraCount", value)} value={parameters.outdoorCameraCount} />
+        <CameraCounter label="Камеры внутри" max={128} onChange={(value) => patch("indoorCameraCount", value)} onResolutionChange={(value) => patch("indoorResolutionMp", value)} resolution={parameters.indoorResolutionMp} value={parameters.indoorCameraCount} />
+        <CameraCounter label="Камеры снаружи" max={128} onChange={(value) => patch("outdoorCameraCount", value)} onResolutionChange={(value) => patch("outdoorResolutionMp", value)} resolution={parameters.outdoorResolutionMp} value={parameters.outdoorCameraCount} />
+        <FormField label="Регистратор">{(props) => <select {...props} className="min-h-11 w-full rounded-md border border-zinc-300 bg-white px-3 text-sm" onChange={(event) => patch("recorderSelection", parseRecorderSelection(event.target.value))} value={String(parameters.recorderSelection)}><option value="auto">Автоматически</option><option value="none">Не нужен</option>{CCTV_RECORDER_CHANNELS.map((channels) => <option key={channels} value={channels}>{channels} каналов</option>)}</select>}</FormField>
         <FormField label="Архив, дней">{(props) => <select {...props} className="min-h-11 w-full rounded-md border border-zinc-300 bg-white px-3 text-sm" onChange={(event) => patch("archiveDays", Number(event.target.value))} value={parameters.archiveDays}>{[7,14,30,60,90].map((days) => <option key={days} value={days}>{days}</option>)}</select>}</FormField>
         <FormField label="Кабель, ориентировочно, м">{(props) => <input {...props} className="min-h-11 w-full rounded-md border border-zinc-300 px-3 text-sm" max={20000} min={0} onChange={(event) => patch("cableLength", Math.max(0, Math.round(Number(event.target.value))))} type="number" value={parameters.cableLength} />}</FormField>
       </div>
@@ -70,7 +76,6 @@ export function ProposalQuickCalculator({ currencyCode, onBack, onCalculated }: 
         <summary className="min-h-11 cursor-pointer px-4 py-3 text-sm font-semibold">Дополнительные параметры</summary>
         <div className="grid gap-2 border-t border-zinc-200 p-4 sm:grid-cols-2">
           <Toggle checked={parameters.colorNight} label="Цветное изображение ночью" onChange={(value) => patch("colorNight", value)} />
-          <Toggle checked={parameters.highResolution} label="Более высокое разрешение" onChange={(value) => patch("highResolution", value)} />
           <Toggle checked={parameters.licensePlateRecognition} label="Распознавание номеров" onChange={(value) => patch("licensePlateRecognition", value)} />
           <Toggle checked={parameters.videoAnalytics} label="Видеоаналитика" onChange={(value) => patch("videoAnalytics", value)} />
           <Toggle checked={parameters.backupPower} label="Резервное питание" onChange={(value) => patch("backupPower", value)} />
@@ -82,12 +87,26 @@ export function ProposalQuickCalculator({ currencyCode, onBack, onCalculated }: 
   </section>;
 }
 
-function Counter({ label, value, max, onChange }: { label: string; value: number; max: number; onChange: (value: number) => void }) {
-  return <div><span className="text-sm font-medium text-zinc-700">{label}</span><div className="mt-1 grid grid-cols-[44px_minmax(0,1fr)_44px] overflow-hidden rounded-md border border-zinc-300">
+function Counter({ label, value, max, onChange, hideLabel = false }: { label: string; value: number; max: number; onChange: (value: number) => void; hideLabel?: boolean }) {
+  return <div><span className={hideLabel ? "sr-only" : "text-sm font-medium text-zinc-700"}>{label}</span><div className={`${hideLabel ? "" : "mt-1 "}grid grid-cols-[44px_minmax(0,1fr)_44px] overflow-hidden rounded-md border border-zinc-300`}>
     <button aria-label={`Уменьшить: ${label}`} className="grid min-h-11 place-items-center border-r border-zinc-300" disabled={value <= 0} onClick={() => onChange(value - 1)} type="button"><Minus className="size-4" /></button>
     <input aria-label={label} className="min-w-0 text-center text-sm font-semibold outline-none" max={max} min={0} onChange={(event) => onChange(Math.max(0, Math.min(max, Math.round(Number(event.target.value)))))} type="number" value={value} />
     <button aria-label={`Увеличить: ${label}`} className="grid min-h-11 place-items-center border-l border-zinc-300" disabled={value >= max} onClick={() => onChange(value + 1)} type="button"><Plus className="size-4" /></button>
   </div></div>;
+}
+
+function CameraCounter({ label, value, resolution, max, onChange, onResolutionChange }: {
+  label: string; value: number; resolution: CctvCameraResolution; max: number;
+  onChange: (value: number) => void; onResolutionChange: (value: CctvCameraResolution) => void;
+}) {
+  return <div><span className="text-sm font-medium text-zinc-700">{label}</span><div className="mt-1 grid min-w-0 grid-cols-[minmax(0,1fr)_6rem] gap-2">
+    <Counter hideLabel label={label} max={max} onChange={onChange} value={value} />
+    <select aria-label={`Разрешение: ${label}`} className="min-h-11 min-w-0 rounded-md border border-zinc-300 bg-white px-2 text-sm font-medium" onChange={(event) => onResolutionChange(Number(event.target.value) as CctvCameraResolution)} value={resolution}>{CCTV_CAMERA_RESOLUTIONS.map((mp) => <option key={mp} value={mp}>{mp} Мп</option>)}</select>
+  </div></div>;
+}
+
+function parseRecorderSelection(value: string): CctvRecorderSelection {
+  return value === "auto" || value === "none" ? value : Number(value) as CctvRecorderSelection;
 }
 
 function Toggle({ checked, label, onChange }: { checked: boolean; label: string; onChange: (value: boolean) => void }) {

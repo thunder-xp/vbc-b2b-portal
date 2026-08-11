@@ -8,7 +8,7 @@ describe("ProposalGeneratorService", () => {
   it("resolves quick-calculation profiles and prices in bounded batches", async () => {
     const recordSession = vi.fn().mockResolvedValue(uuid("8"));
     const resolveCalculatorProfiles = vi.fn().mockResolvedValue([
-      { profileKey: "cctv.indoor.standard", resolution: "catalog", resolvedId: uuid("2"), resolvedLabel: "CAM-1", defaultSellingUnitPrice: null, defaultSellingCurrencyCode: null, defaultSellingVatMode: null },
+      { profileKey: "cctv.indoor.6mp", resolution: "catalog", resolvedId: uuid("2"), resolvedLabel: "CAM-1 · Camera", defaultSellingUnitPrice: null, defaultSellingCurrencyCode: null, defaultSellingVatMode: null },
     ]);
     const companyAccess = { getOwnMemberships: vi.fn().mockResolvedValue([{ companyId: uuid("4"), status: "active" }]), getActiveCompanyContext: vi.fn().mockResolvedValue({ company: { id: uuid("4") } }) };
     const pricing = { getProductCommercialViews: vi.fn().mockResolvedValue([{ productId: uuid("2"), retailPrice: { amount: 150, currencyCode: "USD" } }]) };
@@ -16,11 +16,12 @@ describe("ProposalGeneratorService", () => {
     const result = await service.calculateCctv(uuid("1"), { requestKey: uuid("7"), currencyCode: "USD", parameters: {
       objectType: "apartment", indoorCameraCount: 1, outdoorCameraCount: 0, archiveDays: 7, cableLength: 0,
       installationRequested: false, commissioningRequested: false, remoteViewingRequested: false,
-      colorNight: false, highResolution: false, licensePlateRecognition: false, videoAnalytics: false, backupPower: false,
+      indoorResolutionMp: 6, outdoorResolutionMp: 4, recorderSelection: "auto",
+      colorNight: false, licensePlateRecognition: false, videoAnalytics: false, backupPower: false,
     } });
     expect(resolveCalculatorProfiles).toHaveBeenCalledTimes(1);
     expect(pricing.getProductCommercialViews).toHaveBeenCalledTimes(1);
-    expect(result.requirements.find((line) => line.profileKey === "cctv.indoor.standard")).toMatchObject({ resolution: "catalog", sellingUnitPrice: 150 });
+    expect(result.requirements.find((line) => line.profileKey === "cctv.indoor.6mp")).toMatchObject({ resolution: "catalog", resolvedLabel: "Camera", resolvedSku: "CAM-1", sellingUnitPrice: 150 });
     expect(recordSession).toHaveBeenCalledWith(expect.objectContaining({ generationMode: "quick_calculation", structuredFacts: expect.objectContaining({ systemType: "cctv" }) }));
   });
 
@@ -38,7 +39,8 @@ describe("ProposalGeneratorService", () => {
     const result = await service.calculateCctv(uuid("1"), { requestKey: uuid("7"), currencyCode: "MDL", parameters: {
       objectType: "warehouse", indoorCameraCount: 8, outdoorCameraCount: 4, archiveDays: 30, cableLength: 300,
       installationRequested: true, commissioningRequested: false, remoteViewingRequested: false,
-      colorNight: false, highResolution: false, licensePlateRecognition: false, videoAnalytics: false, backupPower: false,
+      indoorResolutionMp: 6, outdoorResolutionMp: 4, recorderSelection: "auto",
+      colorNight: false, licensePlateRecognition: false, videoAnalytics: false, backupPower: false,
     } });
     expect(result.requirements.find((line) => line.profileKey === "cctv.mounting")).toMatchObject({ resolvedId: pfaId, resolution: "catalog", quantity: 12, sellingUnitPrice: 275 });
     expect(result.requirements.find((line) => line.profileKey === "cctv.install.camera")).toMatchObject({ resolvedId: installId, resolution: "service", quantity: 12, sellingUnitPrice: 600, sellingCurrencyCode: "MDL", sellingVatMode: "included" });
@@ -63,7 +65,8 @@ describe("ProposalGeneratorService", () => {
     const result = await service.calculateCctv(uuid("1"), { requestKey: uuid("7"), currencyCode: "MDL", parameters: {
       objectType: "warehouse", indoorCameraCount: 8, outdoorCameraCount: 4, archiveDays: 30, cableLength: 300,
       installationRequested: true, commissioningRequested: true, remoteViewingRequested: true,
-      colorNight: false, highResolution: false, licensePlateRecognition: false, videoAnalytics: false, backupPower: false,
+      indoorResolutionMp: 6, outdoorResolutionMp: 4, recorderSelection: "auto",
+      colorNight: false, licensePlateRecognition: false, videoAnalytics: false, backupPower: false,
     } });
 
     expect(result.requirements.find((line) => line.profileKey === "cctv.install.camera")).toMatchObject({ quantity: 12, sellingUnitPrice: 600, sellingCurrencyCode: "MDL", sellingVatMode: "included" });

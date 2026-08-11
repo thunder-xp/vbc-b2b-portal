@@ -8,6 +8,13 @@ import { createDocumentDefinition, loadProposalImages, renderProposalPdf, resolv
 vi.mock("server-only", () => ({}));
 
 describe("proposal PDF renderer", () => {
+  it("removes the dedicated code column only for new v3 snapshots", () => {
+    const current = JSON.stringify(createDocumentDefinition({ ...fixture(1), schemaVersion: "2026-08-11-v3" }));
+    const historical = JSON.stringify(createDocumentDefinition({ ...fixture(1), schemaVersion: "2026-08-08-v2" }));
+    expect(current).not.toContain("Код / модель");
+    expect(current).toContain("SKU-1\\n");
+    expect(historical).toContain("Код / модель");
+  });
   it("renders extractable Cyrillic and Romanian text with repeated multipage content", async () => {
     const proposal = fixture(100);
     const rendered = await renderProposalPdf(proposal);

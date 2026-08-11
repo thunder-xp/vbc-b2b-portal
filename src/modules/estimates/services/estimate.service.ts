@@ -147,6 +147,8 @@ export type EstimateProductPickerDto = {
     brandName: string | null;
     partnerPrice?: string | null;
     retailPrice: string | null;
+    retailPriceAmount?: number | null;
+    retailPriceCurrencyCode?: string | null;
     stock: string;
     expectedArrival: string | null;
   }>;
@@ -629,6 +631,8 @@ export class DefaultEstimateService implements EstimateService {
             ? { partnerPrice: view.partnerPrice.formattedAmount }
             : {}),
           retailPrice: view?.retailPrice?.formattedAmount ?? null,
+          retailPriceAmount: view?.retailPrice?.amount ?? null,
+          retailPriceCurrencyCode: view?.retailPrice?.currencyCode ?? null,
           stock: view?.stock?.label ?? "Наличие уточняется",
           expectedArrival: view?.stock?.expectedArrival?.formattedExpectedDate ?? null,
         };
