@@ -19,6 +19,10 @@ const acceptanceFixMigration = readFileSync(
   join(process.cwd(), "supabase/migrations/20260811130000_partner_employee_invitation_acceptance_fix.sql"),
   "utf8",
 );
+const companyUserActions = readFileSync(
+  join(process.cwd(), "src/modules/access-control/actions/company-users.actions.ts"),
+  "utf8",
+);
 
 describe("partner employee invitation simplification", () => {
   it("binds public preview to a hashed bearer token and exposes no raw authority inputs", () => {
@@ -80,5 +84,12 @@ describe("partner employee invitation simplification", () => {
     expect(acceptanceFixMigration).toContain(
       "grant execute on function public.accept_company_invitation(text) to authenticated",
     );
+  });
+
+  it("describes SMTP handoff without claiming mailbox delivery", () => {
+    expect(companyUserActions).toContain("Письмо передано на отправку:");
+    expect(companyUserActions).toContain("Новая ссылка передана на отправку.");
+    expect(companyUserActions).not.toContain("Приглашение отправлено на");
+    expect(companyUserActions).not.toContain("Новая ссылка отправлена.");
   });
 });

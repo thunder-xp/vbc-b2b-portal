@@ -94,7 +94,7 @@ export async function createEmployeeInvitationAction(
     return {
       success: true,
       message: result.delivery === "email_sent"
-        ? `Приглашение отправлено на ${requiredFormText(formData, "email").trim().toLowerCase()}`
+        ? `Письмо передано на отправку: ${requiredFormText(formData, "email").trim().toLowerCase()}`
         : "Приглашение создано, но письмо не отправлено. Скопируйте ссылку.",
       invitationUrl: result.invitationUrl || null,
     };
@@ -124,7 +124,7 @@ export async function reissueEmployeeInvitationAction(
     return {
       success: true,
       message: result.delivery === "email_sent"
-        ? "Новая ссылка отправлена."
+        ? "Новая ссылка передана на отправку."
         : "Новая одноразовая ссылка создана.",
       invitationUrl: result.invitationUrl,
     };
