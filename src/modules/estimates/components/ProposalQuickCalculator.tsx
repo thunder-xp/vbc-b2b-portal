@@ -1,9 +1,9 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, Minus, Plus, Video } from "lucide-react";
-import { useRef, useState, useTransition } from "react";
+import { Cable, Camera, ChevronLeft, ChevronRight, Cctv, HardDrive, Minus, Plus, Server, Video, type LucideIcon } from "lucide-react";
+import { type ReactNode, useRef, useState, useTransition } from "react";
 
-import { ActionFeedback, actionClassName, FormField } from "../../platform-ui";
+import { ActionFeedback, actionClassName } from "../../platform-ui";
 import { calculateQuickProposalAction } from "../actions/proposal-generator.actions";
 import {
   CCTV_CAMERA_RESOLUTIONS, CCTV_RECORDER_CHANNELS, type CctvCalculatorInput,
@@ -58,33 +58,80 @@ export function ProposalQuickCalculator({ currencyCode, onBack, onCalculated }: 
         key={object.value} onClick={() => patch("objectType", object.value)} type="button"
       ><Video aria-hidden="true" className="mb-2 size-4" />{object.label}</button>)}</div>
       <button className={actionClassName.primary} onClick={() => setStep(2)} type="button">Продолжить<ChevronRight className="size-4" /></button>
-    </> : <>
-      <div><h2 className="text-xl font-semibold">Параметры видеонаблюдения</h2><p className="mt-1 text-sm text-zinc-600">Укажите ориентировочный объём. Точные модели можно проверить на следующем шаге.</p></div>
-      <div className="grid gap-4 md:grid-cols-2">
-        <CameraCounter label="Камеры внутри" max={128} onChange={(value) => patch("indoorCameraCount", value)} onResolutionChange={(value) => patch("indoorResolutionMp", value)} resolution={parameters.indoorResolutionMp} value={parameters.indoorCameraCount} />
-        <CameraCounter label="Камеры снаружи" max={128} onChange={(value) => patch("outdoorCameraCount", value)} onResolutionChange={(value) => patch("outdoorResolutionMp", value)} resolution={parameters.outdoorResolutionMp} value={parameters.outdoorCameraCount} />
-        <FormField label="Регистратор">{(props) => <select {...props} className="min-h-11 w-full rounded-md border border-zinc-300 bg-white px-3 text-sm" onChange={(event) => patch("recorderSelection", parseRecorderSelection(event.target.value))} value={String(parameters.recorderSelection)}><option value="auto">Автоматически</option><option value="none">Не нужен</option>{CCTV_RECORDER_CHANNELS.map((channels) => <option key={channels} value={channels}>{channels} каналов</option>)}</select>}</FormField>
-        <FormField label="Архив, дней">{(props) => <select {...props} className="min-h-11 w-full rounded-md border border-zinc-300 bg-white px-3 text-sm" onChange={(event) => patch("archiveDays", Number(event.target.value))} value={parameters.archiveDays}>{[7,14,30,60,90].map((days) => <option key={days} value={days}>{days}</option>)}</select>}</FormField>
-        <FormField label="Кабель, ориентировочно, м">{(props) => <input {...props} className="min-h-11 w-full rounded-md border border-zinc-300 px-3 text-sm" max={20000} min={0} onChange={(event) => patch("cableLength", Math.max(0, Math.round(Number(event.target.value))))} type="number" value={parameters.cableLength} />}</FormField>
+    </> : <div className="overflow-hidden rounded-md border border-zinc-200 bg-white shadow-sm">
+      <header className="border-b border-zinc-200 px-4 py-4 sm:px-5">
+        <h2 className="text-xl font-semibold">Параметры видеонаблюдения</h2>
+        <p className="mt-1 text-sm text-zinc-600">Укажите ориентировочный объём. Точные модели можно проверить на следующем шаге.</p>
+      </header>
+
+      <div className="divide-y divide-zinc-200">
+        <ParameterRow icon={Camera} subtitle="Камеры для помещений" title="Камеры внутри"
+          primary={<Control label="Количество, шт."><Counter hideLabel label="Камеры внутри" max={128} onChange={(value) => patch("indoorCameraCount", value)} value={parameters.indoorCameraCount} /></Control>}
+          secondary={<ResolutionSelect label="Разрешение" onChange={(value) => patch("indoorResolutionMp", value)} value={parameters.indoorResolutionMp} />}
+        />
+        <ParameterRow icon={Cctv} subtitle="Камеры для улицы" title="Камеры снаружи"
+          primary={<Control label="Количество, шт."><Counter hideLabel label="Камеры снаружи" max={128} onChange={(value) => patch("outdoorCameraCount", value)} value={parameters.outdoorCameraCount} /></Control>}
+          secondary={<ResolutionSelect label="Разрешение" onChange={(value) => patch("outdoorResolutionMp", value)} value={parameters.outdoorResolutionMp} />}
+        />
+        <ParameterRow icon={Server} subtitle="Запись и хранение видео" title="Видеорегистратор"
+          primary={<Control label="Количество, шт."><output aria-label="Количество видеорегистраторов" className="flex min-h-11 items-center rounded-md border border-zinc-200 bg-zinc-50 px-3 text-sm font-semibold text-zinc-700">{parameters.recorderSelection === "none" ? 0 : 1}</output></Control>}
+          secondary={<Control label="Конфигурация"><select aria-label="Конфигурация видеорегистратора" className={controlClassName} onChange={(event) => patch("recorderSelection", parseRecorderSelection(event.target.value))} value={String(parameters.recorderSelection)}><option value="auto">Автоматически</option><option value="none">Не нужен</option>{CCTV_RECORDER_CHANNELS.map((channels) => <option key={channels} value={channels}>{channels} каналов</option>)}</select></Control>}
+        />
+        <ParameterRow icon={HardDrive} subtitle="Срок хранения записей" title="Архив"
+          primary={<Control label="Глубина архива"><select aria-label="Архив, дней" className={controlClassName} onChange={(event) => patch("archiveDays", Number(event.target.value))} value={parameters.archiveDays}>{[7,14,30,60,90].map((days) => <option key={days} value={days}>{days} дней</option>)}</select></Control>}
+        />
+        <ParameterRow icon={Cable} subtitle="Ориентировочная длина трассы" title="Кабель"
+          primary={<Control label="Длина, м"><input aria-label="Кабель, ориентировочно, м" className={controlClassName} max={20000} min={0} onChange={(event) => patch("cableLength", Math.max(0, Math.round(Number(event.target.value))))} type="number" value={parameters.cableLength} /></Control>}
+        />
       </div>
-      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-        <Toggle checked={parameters.installationRequested} label="Нужен монтаж" onChange={(value) => patch("installationRequested", value)} />
-        <Toggle checked={parameters.commissioningRequested} label="Нужна настройка / пусконаладка" onChange={(value) => patch("commissioningRequested", value)} />
-        <Toggle checked={parameters.remoteViewingRequested} label="Удалённый просмотр" onChange={(value) => patch("remoteViewingRequested", value)} />
-      </div>
-      <details className="rounded-md border border-zinc-200" onToggle={(event) => setAdvanced(event.currentTarget.open)} open={advanced}>
-        <summary className="min-h-11 cursor-pointer px-4 py-3 text-sm font-semibold">Дополнительные параметры</summary>
-        <div className="grid gap-2 border-t border-zinc-200 p-4 sm:grid-cols-2">
-          <Toggle checked={parameters.colorNight} label="Цветное изображение ночью" onChange={(value) => patch("colorNight", value)} />
-          <Toggle checked={parameters.licensePlateRecognition} label="Распознавание номеров" onChange={(value) => patch("licensePlateRecognition", value)} />
-          <Toggle checked={parameters.videoAnalytics} label="Видеоаналитика" onChange={(value) => patch("videoAnalytics", value)} />
-          <Toggle checked={parameters.backupPower} label="Резервное питание" onChange={(value) => patch("backupPower", value)} />
+
+      <section className="border-t border-emerald-100 bg-emerald-50/70 px-4 py-4 sm:px-5" aria-labelledby="quick-calculation-options">
+        <h3 className="text-sm font-semibold text-emerald-950" id="quick-calculation-options">Дополнительные опции</h3>
+        <div className="mt-3 grid gap-2 md:grid-cols-3">
+          <Toggle checked={parameters.installationRequested} label="Нужен монтаж" onChange={(value) => patch("installationRequested", value)} />
+          <Toggle checked={parameters.commissioningRequested} label="Нужна настройка / пусконаладка" onChange={(value) => patch("commissioningRequested", value)} />
+          <Toggle checked={parameters.remoteViewingRequested} label="Удалённый просмотр" onChange={(value) => patch("remoteViewingRequested", value)} />
         </div>
-      </details>
-      {message && <ActionFeedback kind="error" message={message} />}
-      <button className={actionClassName.primary} disabled={pending || parameters.indoorCameraCount + parameters.outdoorCameraCount === 0} onClick={calculate} type="button">{pending ? "Расчёт..." : "Показать результат"}<ChevronRight className="size-4" /></button>
-    </>}
+      </section>
+
+      <div className="border-t border-zinc-200 px-4 py-4 sm:px-5">
+        <details className="rounded-md border border-zinc-200 bg-white" onToggle={(event) => setAdvanced(event.currentTarget.open)} open={advanced}>
+          <summary className="min-h-11 cursor-pointer px-4 py-3 text-sm font-semibold">Дополнительные параметры</summary>
+          <div className="grid gap-2 border-t border-zinc-200 p-4 sm:grid-cols-2">
+            <Toggle checked={parameters.colorNight} label="Цветное изображение ночью" onChange={(value) => patch("colorNight", value)} />
+            <Toggle checked={parameters.licensePlateRecognition} label="Распознавание номеров" onChange={(value) => patch("licensePlateRecognition", value)} />
+            <Toggle checked={parameters.videoAnalytics} label="Видеоаналитика" onChange={(value) => patch("videoAnalytics", value)} />
+            <Toggle checked={parameters.backupPower} label="Резервное питание" onChange={(value) => patch("backupPower", value)} />
+          </div>
+        </details>
+        {message && <div className="mt-4"><ActionFeedback kind="error" message={message} /></div>}
+        <button className={`${actionClassName.primary} mt-4`} disabled={pending || parameters.indoorCameraCount + parameters.outdoorCameraCount === 0} onClick={calculate} type="button">{pending ? "Расчёт..." : "Показать результат"}<ChevronRight className="size-4" /></button>
+      </div>
+    </div>}
   </section>;
+}
+
+const controlClassName = "min-h-11 w-full min-w-0 rounded-md border border-zinc-300 bg-white px-3 text-sm";
+
+function ParameterRow({ icon: Icon, title, subtitle, primary, secondary }: {
+  icon: LucideIcon; title: string; subtitle: string; primary: ReactNode; secondary?: ReactNode;
+}) {
+  return <div className="grid min-w-0 gap-4 px-4 py-4 md:grid-cols-2 md:items-end sm:px-5 lg:grid-cols-[minmax(16rem,1.15fr)_minmax(11rem,0.85fr)_minmax(11rem,0.85fr)] lg:items-center">
+    <div className="flex min-w-0 items-center gap-3 md:col-span-2 lg:col-span-1">
+      <span className="grid size-13 shrink-0 place-items-center rounded-md border border-emerald-100 bg-emerald-50 text-emerald-700"><Icon aria-hidden="true" className="size-6" /></span>
+      <span className="min-w-0"><strong className="block text-sm font-semibold text-zinc-950">{title}</strong><span className="mt-0.5 block text-sm text-zinc-500">{subtitle}</span></span>
+    </div>
+    <div className={secondary ? "min-w-0" : "min-w-0 md:col-span-2 lg:col-span-2"}>{primary}</div>
+    {secondary && <div className="min-w-0">{secondary}</div>}
+  </div>;
+}
+
+function Control({ label, children }: { label: string; children: ReactNode }) {
+  return <div><span className="mb-1 block text-xs font-medium text-zinc-600">{label}</span>{children}</div>;
+}
+
+function ResolutionSelect({ label, value, onChange }: { label: string; value: CctvCameraResolution; onChange: (value: CctvCameraResolution) => void }) {
+  return <Control label={label}><select aria-label={label} className={controlClassName} onChange={(event) => onChange(Number(event.target.value) as CctvCameraResolution)} value={value}>{CCTV_CAMERA_RESOLUTIONS.map((mp) => <option key={mp} value={mp}>{mp} Мп</option>)}</select></Control>;
 }
 
 function Counter({ label, value, max, onChange, hideLabel = false }: { label: string; value: number; max: number; onChange: (value: number) => void; hideLabel?: boolean }) {
@@ -95,20 +142,10 @@ function Counter({ label, value, max, onChange, hideLabel = false }: { label: st
   </div></div>;
 }
 
-function CameraCounter({ label, value, resolution, max, onChange, onResolutionChange }: {
-  label: string; value: number; resolution: CctvCameraResolution; max: number;
-  onChange: (value: number) => void; onResolutionChange: (value: CctvCameraResolution) => void;
-}) {
-  return <div><span className="text-sm font-medium text-zinc-700">{label}</span><div className="mt-1 grid min-w-0 grid-cols-[minmax(0,1fr)_6rem] gap-2">
-    <Counter hideLabel label={label} max={max} onChange={onChange} value={value} />
-    <select aria-label={`Разрешение: ${label}`} className="min-h-11 min-w-0 rounded-md border border-zinc-300 bg-white px-2 text-sm font-medium" onChange={(event) => onResolutionChange(Number(event.target.value) as CctvCameraResolution)} value={resolution}>{CCTV_CAMERA_RESOLUTIONS.map((mp) => <option key={mp} value={mp}>{mp} Мп</option>)}</select>
-  </div></div>;
-}
-
 function parseRecorderSelection(value: string): CctvRecorderSelection {
   return value === "auto" || value === "none" ? value : Number(value) as CctvRecorderSelection;
 }
 
 function Toggle({ checked, label, onChange }: { checked: boolean; label: string; onChange: (value: boolean) => void }) {
-  return <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md border border-zinc-200 px-3 text-sm"><input checked={checked} className="size-4 accent-emerald-700" onChange={(event) => onChange(event.target.checked)} type="checkbox" /><span>{label}</span></label>;
+  return <label className={`flex min-h-11 cursor-pointer items-center gap-3 rounded-md border px-3 py-2 text-sm transition-colors ${checked ? "border-emerald-200 bg-white text-emerald-950" : "border-zinc-200 bg-white text-zinc-700"}`}><input checked={checked} className="size-4 shrink-0 accent-emerald-700" onChange={(event) => onChange(event.target.checked)} type="checkbox" /><span>{label}</span></label>;
 }

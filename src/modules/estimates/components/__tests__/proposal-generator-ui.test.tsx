@@ -22,9 +22,25 @@ describe("proposal generator UI contract", () => {
   it("uses three calculator steps and minimal CCTV controls", () => {
     expect(calculator).toContain("Шаг {step} из 3"); expect(workspace).toContain("Шаг 3 из 3");
     for (const label of ["Камеры внутри", "Камеры снаружи", "Архив, дней", "Кабель, ориентировочно, м", "Дополнительные параметры"]) expect(calculator).toContain(label);
-    expect(calculator).toContain('label="Регистратор"');
+    expect(calculator).toContain('title="Видеорегистратор"');
     expect(calculator).toContain("Автоматически"); expect(calculator).toContain("Не нужен");
     expect(calculator).toContain("CCTV_CAMERA_RESOLUTIONS.map");
+  });
+  it("uses the approved five-row CCTV parameter workspace", () => {
+    expect(calculator).toContain("function ParameterRow");
+    expect(calculator.match(/<ParameterRow/g)).toHaveLength(5);
+    for (const title of ["Камеры внутри", "Камеры снаружи", "Видеорегистратор", "Архив", "Кабель"]) expect(calculator).toContain(`title="${title}"`);
+    for (const icon of ["Camera", "Cctv", "Server", "HardDrive", "Cable"]) expect(calculator).toContain(`icon={${icon}}`);
+    expect(calculator).toContain("divide-y divide-zinc-200");
+    expect(calculator).toContain("Дополнительные опции");
+    expect(calculator).toContain("md:grid-cols-3");
+  });
+  it("keeps responsive controls bounded and advanced parameters collapsed by default", () => {
+    expect(calculator).toContain("min-w-0");
+    expect(calculator).toContain("md:grid-cols-2");
+    expect(calculator).toContain("lg:grid-cols-[minmax(16rem,1.15fr)_minmax(11rem,0.85fr)_minmax(11rem,0.85fr)]");
+    expect(calculator).toContain("const [advanced, setAdvanced] = useState(false)");
+    expect(calculator).toContain("open={advanced}");
   });
   it("updates authoritative replacement identity and RETAIL presentation", () => {
     expect(review).toContain("selectCatalog(item)");
