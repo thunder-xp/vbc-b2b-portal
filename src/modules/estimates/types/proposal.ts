@@ -62,7 +62,7 @@ export type CustomerProposalSection = Readonly<{
 }>;
 
 export type CustomerProposalDto = Readonly<{
-  schemaVersion: "2026-07-16-v1" | "2026-08-08-v2" | "2026-08-11-v3";
+  schemaVersion: "2026-07-16-v1" | "2026-08-08-v2" | "2026-08-11-v3" | "2026-08-12-v4";
   estimateNumber: string;
   generatedForDate: string;
   validUntilDate?: string | null;

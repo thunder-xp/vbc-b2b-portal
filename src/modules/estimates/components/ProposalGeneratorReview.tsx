@@ -9,6 +9,7 @@ import { searchEstimateProductsAction, searchExternalNomenclatureAction } from "
 import type { ExternalNomenclatureRecord } from "../repositories";
 import type { EstimateProductPickerDto } from "../services/estimate.service";
 import { GENERATOR_SECTIONS, type GeneratorRequirement, type GeneratorResolutionKind } from "../services/proposal-generator";
+import { NomenclatureCover } from "./NomenclatureCover";
 
 type CatalogResult = EstimateProductPickerDto["products"][number];
 type LineState = "automatic" | "manual" | "required" | "incompatible";
@@ -52,14 +53,17 @@ function GeneratorLine({ line, currencyCode, state, onChange, onRemove }: {
     const [products, nomenclature] = await Promise.all([itemType === "service" ? Promise.resolve(null) : searchEstimateProductsAction({ search: query }), searchExternalNomenclatureAction({ query, itemType, scope: nextScope })]);
     setCatalog(products?.success ? products.data.products.slice(0, 6) : []); setExternal(nomenclature.success ? nomenclature.data : []); setScope(nextScope);
   });
-  const select = (resolution: GeneratorResolutionKind, id: string, label: string) => {
-    onChange({ resolution, resolvedId: id, resolvedLabel: label, description: label, resolvedSku: null, resolvedImageUrl: null, resolvedStockLabel: null, sellingUnitPrice: null, sellingCurrencyCode: null, sellingVatMode: null });
+  const select = (resolution: GeneratorResolutionKind, item: ExternalNomenclatureRecord) => {
+    onChange({ resolution, resolvedId: item.id, resolvedLabel: item.name, description: item.name, resolvedSku: null, resolvedImageUrl: null,
+      resolvedHasCover: item.hasCover, resolvedCoverScope: item.coverScope, resolvedStockLabel: null,
+      resolvedItemType: item.itemType,
+      sellingUnitPrice: null, sellingCurrencyCode: null, sellingVatMode: null });
     setSearchOpen(false);
   };
   const selectCatalog = (item: CatalogResult) => {
     onChange({
       resolution: "catalog", resolvedId: item.id, resolvedLabel: item.name, description: item.name,
-      resolvedSku: item.sku, resolvedImageUrl: item.imageUrl, resolvedStockLabel: item.stock,
+      resolvedSku: item.sku, resolvedImageUrl: item.imageUrl, resolvedHasCover: false, resolvedCoverScope: null, resolvedItemType: "equipment", resolvedStockLabel: item.stock,
       sellingUnitPrice: item.retailPriceCurrencyCode === currencyCode ? item.retailPriceAmount : null,
       sellingCurrencyCode: item.retailPriceCurrencyCode === currencyCode ? item.retailPriceCurrencyCode : null,
       sellingVatMode: null,
@@ -68,27 +72,31 @@ function GeneratorLine({ line, currencyCode, state, onChange, onRemove }: {
   };
   const unitPrice = line.sellingUnitPrice != null && line.sellingCurrencyCode === currencyCode ? line.sellingUnitPrice : null;
   const amount = unitPrice == null ? null : unitPrice * line.quantity;
+  const hasProductVisual = line.sectionKey === "equipment" || line.sectionKey === "installation_materials";
+  const showsCatalogImage = hasProductVisual && line.resolution === "catalog";
+  const showsNomenclatureCover = hasProductVisual && line.resolvedItemType !== "service"
+    && (line.resolution === "own_nomenclature" || line.resolution === "shared_nomenclature");
+  const hasVisualColumn = showsCatalogImage || showsNomenclatureCover;
   return <article className="min-w-0 p-4">
-    <div className="grid min-w-0 gap-3 lg:grid-cols-[minmax(13rem,1fr)_6rem_7.5rem_7.5rem_auto] lg:items-center">
-      <div className="flex min-w-0 items-start gap-3">
-        {line.resolution === "catalog" && <ProductLineThumbnail imageUrl={line.resolvedImageUrl ?? null} productName={line.resolvedLabel ?? line.description} size="compact" />}
-        <div className="min-w-0">
+    <div className="grid min-w-0 gap-3 lg:grid-cols-[3rem_minmax(11rem,1fr)_5.5rem_8.5rem_auto] lg:items-center">
+      {showsCatalogImage && <ProductLineThumbnail imageUrl={line.resolvedImageUrl ?? null} productName={line.resolvedLabel ?? line.description} size="compact" />}
+      {showsNomenclatureCover && <NomenclatureCover hasCover={line.resolvedHasCover === true} itemId={line.resolvedId!} name={line.resolvedLabel ?? line.description} size="sm" />}
+      <div className={`min-w-0 ${hasVisualColumn ? "" : "lg:col-span-2"}`}>
           {line.resolution === "unresolved" ? <input aria-label="Описание позиции" className={inputClass} maxLength={500} onChange={(event) => onChange({ description: event.target.value })} value={line.description} /> : <p className="break-words text-sm font-semibold text-zinc-950">{line.resolvedLabel ?? line.description}</p>}
           {line.resolvedSku && <p className="mt-0.5 text-xs text-zinc-500">SKU {line.resolvedSku}</p>}
           <LineStateBadge state={state} />
-          {line.requirementDescription && line.requirementDescription !== line.description && <p className="mt-1 text-xs text-zinc-500">Назначение: {line.requirementDescription}</p>}
+          {line.requirementDescription && line.requirementDescription !== line.description && <p className="mt-1 text-xs text-zinc-500">Исходная потребность: {line.requirementDescription}</p>}
           {line.resolvedStockLabel && <p className="mt-1 text-xs font-medium text-zinc-700">{line.resolvedStockLabel}</p>}
+          <p className="mt-1 text-xs text-zinc-600"><span>{unitPrice == null ? "Цена уточняется" : `${unitPrice.toFixed(2)} ${currencyCode}`}</span>{amount != null && <strong className="ml-2 text-zinc-950">· {amount.toFixed(2)} {currencyCode}</strong>}</p>
           {line.assumption && <p className="mt-1 text-xs text-zinc-500">{line.assumption}</p>}
-        </div>
       </div>
       <label className="text-xs font-medium text-zinc-600">Количество<input aria-label="Количество" className={`${inputClass} mt-1`} min="0.01" onChange={(event) => onChange({ quantity: Number(event.target.value) })} step="0.01" type="number" value={line.quantity} /><span className="mt-1 block text-zinc-500">{unitLabels[line.unit]}</span></label>
-      <Metric label="Цена за единицу" value={unitPrice == null ? "Цена уточняется" : `${unitPrice.toFixed(2)} ${currencyCode}`} />
-      <Metric emphasis label="Сумма" value={amount == null ? "Не рассчитана" : `${amount.toFixed(2)} ${currencyCode}`} />
+      <label className="text-xs font-medium text-zinc-600">Раздел<select aria-label="Раздел" className={`${inputClass} mt-1`} onChange={(event) => onChange({ sectionKey: event.target.value as GeneratorRequirement["sectionKey"] })} value={line.sectionKey}>{GENERATOR_SECTIONS.map((section) => <option key={section.key} value={section.key}>{section.label}</option>)}</select></label>
       <div className="flex gap-2 lg:justify-end"><button className="inline-flex min-h-11 items-center gap-2 rounded-md border border-zinc-300 px-3 text-sm font-semibold" onClick={() => setSearchOpen((value) => !value)} type="button"><Search className="size-4" />{line.resolution === "unresolved" ? "Выбрать" : "Заменить"}</button><button aria-label="Удалить позицию" className="grid size-11 place-items-center rounded-md border border-zinc-300" onClick={onRemove} type="button"><Trash2 className="size-4" /></button></div>
     </div>
     {searchOpen && <div className="mt-4 space-y-3 rounded-md border border-zinc-200 bg-zinc-50 p-3"><div className="flex flex-col gap-2 sm:flex-row"><input aria-label="Поиск соответствия" className={inputClass} onChange={(event) => setQuery(event.target.value)} value={query} /><button className={actionClassName.secondary} disabled={pending || query.trim().length < 2} onClick={() => search("own")} type="button">Найти</button><button className={actionClassName.secondary} disabled={pending || query.trim().length < 2} onClick={() => search("shared")} type="button">Расширить поиск</button></div>
-      <div className="grid gap-2 md:grid-cols-2">{catalog.map((item) => <button className="grid min-h-20 grid-cols-[48px_minmax(0,1fr)] gap-3 rounded-md border bg-white p-3 text-left text-sm" key={item.id} onClick={() => selectCatalog(item)} type="button"><ProductLineThumbnail imageUrl={item.imageUrl} productName={item.name} size="compact" /><span className="min-w-0"><strong className="block break-words">{item.name}</strong><span className="mt-1 block text-xs text-zinc-500">SKU {item.sku} · {item.retailPrice ?? "Цена уточняется"}</span><span className="mt-1 block text-xs font-medium text-zinc-700">{item.stock}</span></span></button>)}{external.map((item) => <button className="min-h-20 rounded-md border bg-white p-3 text-left text-sm" key={item.id} onClick={() => select(scope === "shared" ? "shared_nomenclature" : "own_nomenclature", item.id, item.name)} type="button"><strong>{item.name}</strong><span className="mt-1 block text-xs text-zinc-500">Цена уточняется</span></button>)}</div>
-      <div className="flex gap-2"><button className="min-h-11 text-sm font-semibold text-emerald-800" onClick={() => { const original = line.requirementDescription ?? line.description; onChange({ description: original, resolution: "unresolved", resolvedId: null, resolvedLabel: null, resolvedSku: null, resolvedImageUrl: null, resolvedStockLabel: null, sellingUnitPrice: null, sellingCurrencyCode: null, sellingVatMode: null }); setSearchOpen(false); }} type="button">Оставить как потребность</button><button aria-label="Закрыть поиск" className="ml-auto grid size-11 place-items-center" onClick={() => setSearchOpen(false)} type="button"><X className="size-4" /></button></div>
+      <div className="grid gap-2 md:grid-cols-2">{catalog.map((item) => <button className="grid min-h-20 grid-cols-[48px_minmax(0,1fr)] gap-3 rounded-md border bg-white p-3 text-left text-sm" key={item.id} onClick={() => selectCatalog(item)} type="button"><ProductLineThumbnail imageUrl={item.imageUrl} productName={item.name} size="compact" /><span className="min-w-0"><strong className="block break-words">{item.name}</strong><span className="mt-1 block text-xs text-zinc-500">SKU {item.sku} · {item.retailPrice ?? "Цена уточняется"}</span><span className="mt-1 block text-xs font-medium text-zinc-700">{item.stock}</span></span></button>)}{external.map((item) => <button className={`grid min-h-20 gap-3 rounded-md border bg-white p-3 text-left text-sm ${item.itemType === "service" ? "" : "grid-cols-[48px_minmax(0,1fr)]"}`} key={item.id} onClick={() => select(scope === "shared" ? "shared_nomenclature" : "own_nomenclature", item)} type="button">{item.itemType !== "service" && <NomenclatureCover hasCover={item.hasCover} itemId={item.id} name={item.name} size="sm" />}<span className="min-w-0"><strong className="block break-words">{item.name}</strong><span className="mt-1 block text-xs text-zinc-500">Цена уточняется</span></span></button>)}</div>
+      <div className="flex gap-2"><button className="min-h-11 text-sm font-semibold text-emerald-800" onClick={() => { const original = line.requirementDescription ?? line.description; onChange({ description: original, resolution: "unresolved", resolvedId: null, resolvedLabel: null, resolvedSku: null, resolvedImageUrl: null, resolvedHasCover: false, resolvedCoverScope: null, resolvedItemType: null, resolvedStockLabel: null, sellingUnitPrice: null, sellingCurrencyCode: null, sellingVatMode: null }); setSearchOpen(false); }} type="button">Оставить как потребность</button><button aria-label="Закрыть поиск" className="ml-auto grid size-11 place-items-center" onClick={() => setSearchOpen(false)} type="button"><X className="size-4" /></button></div>
     </div>}
   </article>;
 }
@@ -105,10 +113,6 @@ function LineStateBadge({ state }: { state: LineState }) {
       : state === "incompatible" ? ["Несовместимо", "bg-red-50 text-red-800"]
         : ["Требует выбора", "bg-amber-50 text-amber-900"];
   return <span className={`mt-1.5 inline-flex rounded px-2 py-0.5 text-xs font-medium ${content[1]}`}>{content[0]}</span>;
-}
-
-function Metric({ label, value, emphasis = false }: { label: string; value: string; emphasis?: boolean }) {
-  return <p className="text-sm"><span className="block text-xs font-medium text-zinc-500">{label}</span><span className={`mt-1 block ${emphasis ? "font-semibold text-zinc-950" : "text-zinc-700"}`}>{value}</span></p>;
 }
 
 function sectionTotal(lines: readonly GeneratorRequirement[], currencyCode: string) {

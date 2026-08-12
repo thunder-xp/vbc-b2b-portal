@@ -91,11 +91,17 @@ export class ProposalGeneratorService {
       });
       const catalogIds = [...new Set(requirements.filter((line) => line.resolution === "catalog" && line.resolvedId).map((line) => line.resolvedId!))];
       if (catalogIds.length) {
-        const commercial = await this.pricing.getProductCommercialViews(userId, catalogIds);
+        const [commercial, productReferences] = await Promise.all([
+          this.pricing.getProductCommercialViews(userId, catalogIds),
+          this.catalog.getProductReferencesByIds?.(userId, catalogIds) ?? Promise.resolve([]),
+        ]);
         const commercialById = new Map(commercial.map((view) => [view.productId, view]));
+        const productReferenceById = new Map(productReferences.map((product) => [product.productId, product]));
         requirements = requirements.map((line) => {
           const view = line.resolvedId ? commercialById.get(line.resolvedId) : null;
-          const withStock = view?.stock ? { ...line, resolvedStockLabel: view.stock.label } : line;
+          const reference = line.resolvedId ? productReferenceById.get(line.resolvedId) : null;
+          const withImage = reference ? { ...line, resolvedImageUrl: reference.thumbnail } : line;
+          const withStock = view?.stock ? { ...withImage, resolvedStockLabel: view.stock.label } : withImage;
           return view?.retailPrice?.currencyCode === input.currencyCode
             ? { ...withStock, sellingUnitPrice: view.retailPrice.amount, sellingCurrencyCode: view.retailPrice.currencyCode }
             : withStock;

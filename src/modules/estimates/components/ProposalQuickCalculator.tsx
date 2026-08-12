@@ -1,6 +1,9 @@
 "use client";
 
-import { Cable, Camera, ChevronLeft, ChevronRight, Cctv, HardDrive, Minus, Plus, Server, Video, type LucideIcon } from "lucide-react";
+import {
+  BriefcaseBusiness, Building2, Cable, Camera, ChevronLeft, ChevronRight, Cctv, Factory, HardDrive,
+  House, Minus, Plus, Server, Shapes, Store, Utensils, Warehouse, type LucideIcon,
+} from "lucide-react";
 import { type ReactNode, useRef, useState, useTransition } from "react";
 
 import { ActionFeedback, actionClassName } from "../../platform-ui";
@@ -11,11 +14,11 @@ import {
 } from "../services/proposal-generator-calculator";
 import type { GeneratorRequirement } from "../services/proposal-generator";
 
-const objectTypes: Array<{ value: CctvObjectType; label: string }> = [
-  { value: "apartment", label: "Квартира" }, { value: "house", label: "Частный дом" },
-  { value: "office", label: "Офис" }, { value: "retail", label: "Магазин / Retail" },
-  { value: "warehouse", label: "Склад" }, { value: "industrial", label: "Промышленный объект" },
-  { value: "horeca", label: "HoReCa" }, { value: "other", label: "Другое" },
+const objectTypes: Array<{ value: CctvObjectType; label: string; icon: LucideIcon }> = [
+  { value: "apartment", label: "Квартира", icon: Building2 }, { value: "house", label: "Частный дом", icon: House },
+  { value: "office", label: "Офис", icon: BriefcaseBusiness }, { value: "retail", label: "Магазин / Retail", icon: Store },
+  { value: "warehouse", label: "Склад", icon: Warehouse }, { value: "industrial", label: "Промышленный объект", icon: Factory },
+  { value: "horeca", label: "HoReCa", icon: Utensils }, { value: "other", label: "Другое", icon: Shapes },
 ];
 
 const defaults: CctvCalculatorInput = {
@@ -52,11 +55,11 @@ export function ProposalQuickCalculator({ currencyCode, onBack, onCalculated }: 
     </div>
     {step === 1 ? <>
       <div><h2 className="text-xl font-semibold">Объект</h2><p className="mt-1 text-sm text-zinc-600">Выберите тип объекта. Это задаёт только полезные начальные значения.</p></div>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{objectTypes.map((object) => <button
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{objectTypes.map((object) => { const ObjectIcon = object.icon; return <button
         aria-pressed={parameters.objectType === object.value}
-        className={`min-h-16 rounded-md border p-3 text-left text-sm font-semibold transition-colors ${parameters.objectType === object.value ? "border-emerald-600 bg-emerald-50 text-emerald-900" : "border-zinc-200 bg-white hover:border-zinc-400"}`}
+        className={`flex min-h-16 items-center gap-3 rounded-md border p-3 text-left text-sm font-semibold transition-colors ${parameters.objectType === object.value ? "border-emerald-600 bg-emerald-50 text-emerald-900" : "border-zinc-200 bg-white hover:border-zinc-400"}`}
         key={object.value} onClick={() => patch("objectType", object.value)} type="button"
-      ><Video aria-hidden="true" className="mb-2 size-4" />{object.label}</button>)}</div>
+      ><ObjectIcon aria-hidden="true" className="size-5 shrink-0" />{object.label}</button>; })}</div>
       <button className={actionClassName.primary} onClick={() => setStep(2)} type="button">Продолжить<ChevronRight className="size-4" /></button>
     </> : <div className="overflow-hidden rounded-md border border-zinc-200 bg-white shadow-sm">
       <header className="border-b border-zinc-200 px-4 py-4 sm:px-5">

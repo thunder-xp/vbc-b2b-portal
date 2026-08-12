@@ -33,7 +33,7 @@ describe("DefaultProposalService", () => {
     const preview = await service.preparePreview("user-1", "estimate-1");
     const serialized = JSON.stringify(preview.proposal);
     expect(preview.proposal.sections[0].lines[0]).toEqual(expect.objectContaining({ lineType: "product", sku: "400691", unitPrice: 100, lineTotal: 200 }));
-    expect(preview.proposal).toEqual(expect.objectContaining({ schemaVersion: "2026-08-11-v3", validUntilDate: "2026-07-30", vatMode: "separate", vatRatePercent: 20 }));
+    expect(preview.proposal).toEqual(expect.objectContaining({ schemaVersion: "2026-08-12-v4", validUntilDate: "2026-07-30", vatMode: "separate", vatRatePercent: 20 }));
     expect(preview.proposal.branding).toEqual(expect.objectContaining({ contactName: "Ivan", logoUrl: "https://project.supabase.co/storage/v1/render/image/public/company-logos/company-1/logo%20mark.png?width=128&height=96&resize=contain&quality=70" }));
     for (const forbidden of ["companyId", "productId", "external1c", "internalCost", "marginPercent", "permission", "roleId"]) expect(serialized).not.toContain(forbidden);
     expect(Object.isFrozen(preview.proposal)).toBe(true);

@@ -53,6 +53,29 @@ describe("proposal UI", () => {
     expect(screen.getAllByText("Сумма")).toHaveLength(4);
   });
 
+  it("restarts presentation numbering in every section only for new proposal snapshots", () => {
+    const value = proposal();
+    const line = value.sections[0].lines[0];
+    const sections = [
+      { name: "Оборудование", subtotal: 100, lines: [{ ...line, position: 7 }] },
+      { name: "Монтажные материалы", subtotal: 100, lines: [{ ...line, position: 8, description: "Кабель" }] },
+    ];
+    const { unmount } = render(<ProposalDocument proposal={{ ...value, schemaVersion: "2026-08-12-v4", sections }} />);
+    expect(screen.getAllByRole("table").map((table) => within(table).getAllByRole("row")[1].children[0]?.textContent)).toEqual(["1", "1"]);
+    unmount();
+    render(<ProposalDocument proposal={{ ...value, schemaVersion: "2026-08-11-v3", sections }} />);
+    expect(screen.getAllByRole("table").map((table) => within(table).getAllByRole("row")[1].children[0]?.textContent)).toEqual(["7", "8"]);
+  });
+
+  it("continues to obey the existing proposal discount visibility setting", () => {
+    const value = proposal();
+    const { unmount } = render(<ProposalDocument proposal={value} />);
+    expect(screen.getAllByText("Скидка").length).toBeGreaterThan(0);
+    unmount();
+    render(<ProposalDocument proposal={{ ...value, settings: { ...value.settings, showLineDiscount: false } }} />);
+    expect(screen.queryByText("Скидка")).not.toBeInTheDocument();
+  });
+
   it("keeps the required commercial columns and bounds long descriptions", () => {
     const value = proposal();
     const longDescription = `Камера ${"с подробным техническим описанием ".repeat(20)}`;

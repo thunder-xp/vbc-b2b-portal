@@ -8,12 +8,32 @@ import { createDocumentDefinition, loadProposalImages, renderProposalPdf, resolv
 vi.mock("server-only", () => ({}));
 
 describe("proposal PDF renderer", () => {
-  it("removes the dedicated code column only for new v3 snapshots", () => {
-    const current = JSON.stringify(createDocumentDefinition({ ...fixture(1), schemaVersion: "2026-08-11-v3" }));
+  it("removes the dedicated code column for current proposal snapshots", () => {
+    const current = JSON.stringify(createDocumentDefinition({ ...fixture(1), schemaVersion: "2026-08-12-v4" }));
     const historical = JSON.stringify(createDocumentDefinition({ ...fixture(1), schemaVersion: "2026-08-08-v2" }));
     expect(current).not.toContain("Код / модель");
     expect(current).toContain("SKU-1\\n");
     expect(historical).toContain("Код / модель");
+  });
+  it("matches HTML semantics by restarting new-snapshot numbering per section", () => {
+    const base = fixture(1);
+    const line = base.sections[0].lines[0];
+    const proposal = { ...base, schemaVersion: "2026-08-12-v4" as const, sections: [
+      { name: "Оборудование", subtotal: 100, lines: [{ ...line, position: 7 }] },
+      { name: "Монтажные материалы", subtotal: 100, lines: [{ ...line, position: 8, description: "Кабель" }] },
+    ] };
+    const tables: Array<{ body: Array<Array<{ text?: string }>> }> = [];
+    const visit = (value: unknown): void => {
+      if (!value || typeof value !== "object") return;
+      const record = value as Record<string, unknown>;
+      if (record.table && typeof record.table === "object") {
+        const table = record.table as { body?: Array<Array<{ text?: string }>> };
+        if (table.body?.[0]?.[0]?.text === "№") tables.push(table as { body: Array<Array<{ text?: string }>> });
+      }
+      Object.values(record).forEach(visit);
+    };
+    visit(createDocumentDefinition(proposal));
+    expect(tables.map((table) => table.body[1][0].text)).toEqual(["1", "1"]);
   });
   it("renders extractable Cyrillic and Romanian text with repeated multipage content", async () => {
     const proposal = fixture(100);

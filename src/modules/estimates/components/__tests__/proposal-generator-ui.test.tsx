@@ -26,6 +26,11 @@ describe("proposal generator UI contract", () => {
     expect(calculator).toContain("Автоматически"); expect(calculator).toContain("Не нужен");
     expect(calculator).toContain("CCTV_CAMERA_RESOLUTIONS.map");
   });
+  it("uses a semantic lightweight icon for every object type", () => {
+    for (const icon of ["Building2", "House", "Store", "Warehouse", "Factory", "Utensils", "Shapes"]) expect(calculator).toContain(`icon: ${icon}`);
+    expect(calculator).toContain("const ObjectIcon = object.icon");
+    expect(calculator).not.toContain("<Video aria-hidden");
+  });
   it("uses the approved five-row CCTV parameter workspace", () => {
     expect(calculator).toContain("function ParameterRow");
     expect(calculator.match(/<ParameterRow/g)).toHaveLength(5);
@@ -47,9 +52,11 @@ describe("proposal generator UI contract", () => {
     expect(review).toContain("selectCatalog(item)");
     expect(review).toContain("resolvedSku: item.sku");
     expect(review).toContain("resolvedImageUrl: item.imageUrl");
+    expect(review).toContain("resolvedHasCover: item.hasCover");
+    expect(review).toContain("<NomenclatureCover");
     expect(review).toContain("retailPriceAmount");
     expect(review).toContain("resolvedStockLabel");
-    expect(review).toContain("Назначение:");
+    expect(review).toContain("Исходная потребность:");
     expect(workspace).toContain("governedResolvedId");
     expect(workspace).toContain("Для выбранной замены регистратора нет подтверждённых данных");
   });
@@ -67,7 +74,8 @@ describe("proposal generator UI contract", () => {
   it("keeps responsive bounded layouts and explicit unresolved states", () => {
     expect(workspace).toContain("overflow-x-clip"); expect(review).toContain("lg:grid-cols-");
     expect(calculator).toContain("sm:grid-cols-2"); expect(review).toContain("Цена уточняется");
-    expect(review).toContain("minmax(13rem,1fr)_6rem_7.5rem_7.5rem_auto");
+    expect(review).toContain("3rem_minmax(11rem,1fr)_5.5rem_8.5rem_auto");
+    expect(review).toContain('aria-label="Раздел"');
   });
   it("shows known-position totals, unpriced-work disclosure, and governed service price controls", () => {
     expect(workspace).toContain("Ориентировочный расчёт");
@@ -101,7 +109,8 @@ describe("proposal generator UI contract", () => {
     expect(review).toContain("line.resolvedLabel ?? line.description");
     expect(review).toContain("resolvedStockLabel: item.stock");
     expect(review).toContain('line.resolution === "unresolved" ? "Выбрать" : "Заменить"');
-    expect(review).not.toContain('aria-label="Раздел"');
+    expect(review).toContain('aria-label="Раздел"');
+    expect(review).toContain('item.itemType === "service" ? ""');
   });
   it("guards the actual calculator recorder identity after replacement", () => {
     expect(workspace).toContain('line.id === "cctv-nvr"');

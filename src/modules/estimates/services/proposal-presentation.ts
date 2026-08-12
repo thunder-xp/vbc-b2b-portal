@@ -15,6 +15,14 @@ export function sectionSubtotalLabel(sectionName: string): string {
   return `Итого за ${sectionName.trim().toLocaleLowerCase("ru-RU")}`;
 }
 
+export function proposalLineNumber(
+  schemaVersion: CustomerProposalDto["schemaVersion"],
+  sectionIndex: number,
+  persistedPosition: number,
+): number {
+  return schemaVersion === "2026-08-12-v4" ? sectionIndex + 1 : persistedPosition;
+}
+
 export function proposalVatLabels(proposal: CustomerProposalDto): {
   excludingVat: string;
   vat: string | null;

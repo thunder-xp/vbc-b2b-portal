@@ -22,6 +22,9 @@ export type GeneratorRequirement = {
   resolvedLabel: string | null;
   resolvedSku?: string | null;
   resolvedImageUrl?: string | null;
+  resolvedHasCover?: boolean;
+  resolvedCoverScope?: "canonical" | "partner" | null;
+  resolvedItemType?: "equipment" | "material" | "service" | null;
   resolvedStockLabel?: string | null;
   profileKey?: string | null;
   assumption?: string | null;
