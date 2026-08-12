@@ -7,6 +7,8 @@ import type {
   PublicRetailProductDetailDto,
   PublicRetailProductPageDto,
   PublicRetailPublicationMetrics,
+  PublicRetailCartDto,
+  PublicRetailCartMutationDto,
 } from "./types";
 
 const uuid = z.string().uuid();
@@ -120,4 +122,28 @@ export function parsePublicRetailCalculatorProductResolutions(value: unknown) {
 
 export function parsePublicRetailPublicationMetrics(value: unknown): PublicRetailPublicationMetrics {
   return publicationMetrics.parse(value);
+}
+
+const cartItem = z.object({
+  publicProductId: uuid, bundleId: uuid.nullable(), source: z.enum(["catalog", "product_detail", "cctv_calculator"]),
+  commercialGroup: z.enum(["equipment", "materials"]), slug: slug.nullable(), sku: z.string().min(1).max(100),
+  name: localizedText, image: media.nullable(), quantity: z.coerce.number().int().min(1).max(99),
+  price: price.nullable(), availability, lineAmount: z.coerce.number().positive().nullable(), stale: z.boolean(), priceChanged: z.boolean(),
+}).strict();
+const installationIntent = z.object({ cameraInstallation: z.boolean(), cableLaying: z.boolean(), commissioning: z.boolean(), remoteViewing: z.boolean() }).strict();
+const cartBundle = z.object({ id: uuid, source: z.literal("cctv_calculator"), installationIntent: installationIntent.nullable() }).strict();
+const cartTotals = z.object({ equipment: z.coerce.number().nonnegative().nullable(), materials: z.coerce.number().nonnegative().nullable(), total: z.coerce.number().nonnegative().nullable(), currency: z.string().regex(/^[A-Z]{3}$/).nullable() }).strict();
+
+export function parsePublicRetailCart(value: unknown): PublicRetailCartDto {
+  return z.object({ revision: z.coerce.number().int().nonnegative(), distinctItemCount: z.coerce.number().int().nonnegative(), totalQuantity: z.coerce.number().int().nonnegative(), items: z.array(cartItem).max(100), bundles: z.array(cartBundle).max(20), totals: cartTotals }).strict().parse(value);
+}
+export function parsePublicRetailCartMutation(value: unknown): PublicRetailCartMutationDto {
+  return z.object({ revision: z.coerce.number().int().positive(), distinctItemCount: z.coerce.number().int().nonnegative(), totalQuantity: z.coerce.number().int().nonnegative(), repeated: z.boolean(), bundleId: uuid.nullable() }).strict().parse(value);
+}
+
+export function parsePublicRetailCartSummary(value: unknown): { distinctItemCount: number; totalQuantity: number } {
+  return z.object({
+    distinctItemCount: z.coerce.number().int().nonnegative(),
+    totalQuantity: z.coerce.number().int().nonnegative(),
+  }).strict().parse(value);
 }

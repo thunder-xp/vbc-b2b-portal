@@ -4,6 +4,7 @@ import Link from "next/link";
 
 import { availabilityCopy, availabilityTone, formatRetailPrice, retailCopy } from "../presentation";
 import type { PublicRetailLocale, PublicRetailProductSummaryDto } from "../types";
+import { PublicRetailAddToCartButton } from "./PublicRetailAddToCartButton";
 
 export function PublicRetailProductCard({ product, locale }: { product: PublicRetailProductSummaryDto; locale: PublicRetailLocale }) {
   const copy = retailCopy[locale];
@@ -17,6 +18,6 @@ export function PublicRetailProductCard({ product, locale }: { product: PublicRe
       {product.highlights.length ? <ul className="mt-3 space-y-1 text-xs leading-5 text-zinc-600">{product.highlights.slice(0, 3).map((item) => <li className="line-clamp-1" key={item.key}><span className="text-zinc-400">{item.label}:</span> {item.value}</li>)}</ul> : <p className="mt-3 line-clamp-2 text-xs leading-5 text-zinc-500">{product.shortDescription}</p>}
     </div>
     <div className="px-4 pt-4"><p className={`text-xs font-semibold ${availabilityTone(product.availability)}`}>{availabilityCopy[locale][product.availability]}</p><p className="mt-2 text-lg font-semibold tabular-nums">{formatRetailPrice(product.price.amount, product.price.currency, locale)}</p><p className="text-[11px] text-zinc-400">{copy.price}</p></div>
-    <div className="p-4"><Link className="flex min-h-11 items-center justify-center rounded-sm bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-emerald-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700" href={`/products/${product.slug}?lang=${locale}`}>{copy.details}</Link></div>
+    <div className="grid gap-2 p-4"><PublicRetailAddToCartButton compact locale={locale} publicProductId={product.id} source="catalog" /><Link className="flex min-h-11 items-center justify-center border border-zinc-300 px-4 text-sm font-semibold hover:border-emerald-700" href={`/products/${product.slug}?lang=${locale}`}>{copy.details}</Link></div>
   </article>;
 }

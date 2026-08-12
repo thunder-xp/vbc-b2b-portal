@@ -78,3 +78,35 @@ export type PublicRetailPublicationMetrics = {
   productsWithStructuredSpecifications: number;
   checksum: string;
 };
+
+export type PublicRetailCartSource = "catalog" | "product_detail" | "cctv_calculator";
+export type PublicRetailCartItemDto = {
+  publicProductId: string;
+  bundleId: string | null;
+  source: PublicRetailCartSource;
+  commercialGroup: "equipment" | "materials";
+  slug: string | null;
+  sku: string;
+  name: string;
+  image: PublicRetailMediaDto | null;
+  quantity: number;
+  price: PublicRetailPriceDto | null;
+  availability: PublicRetailAvailability;
+  lineAmount: number | null;
+  stale: boolean;
+  priceChanged: boolean;
+};
+export type PublicRetailCartBundleDto = {
+  id: string;
+  source: "cctv_calculator";
+  installationIntent: { cameraInstallation: boolean; cableLaying: boolean; commissioning: boolean; remoteViewing: boolean } | null;
+};
+export type PublicRetailCartDto = {
+  revision: number;
+  distinctItemCount: number;
+  totalQuantity: number;
+  items: PublicRetailCartItemDto[];
+  bundles: PublicRetailCartBundleDto[];
+  totals: { equipment: number | null; materials: number | null; total: number | null; currency: string | null };
+};
+export type PublicRetailCartMutationDto = { revision: number; distinctItemCount: number; totalQuantity: number; repeated: boolean; bundleId: string | null };

@@ -1,5 +1,7 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 
 import { PublicRetailCatalog } from "../components/PublicRetailCatalog";
 import { PublicRetailProductCard } from "../components/PublicRetailProductCard";
@@ -29,11 +31,12 @@ describe("public retail UX", () => {
     expect(screen.queryByText(/шт\./)).not.toBeInTheDocument();
   });
 
-  it("renders a bounded image fallback and a detail action, never cart commerce", () => {
+  it("renders a bounded image fallback with governed cart and detail actions", () => {
     render(<PublicRetailProductCard locale="ru" product={product} />);
     expect(screen.getByText("Изображение отсутствует")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "В корзину" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Подробнее" })).toHaveAttribute("href", "/products/camera-model-1?lang=ru");
-    expect(screen.queryByText(/Купить|В корзину|Оформить заказ/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Купить|Оформить заказ/)).not.toBeInTheDocument();
   });
 
   it("renders bounded category filters, search result and pagination", () => {

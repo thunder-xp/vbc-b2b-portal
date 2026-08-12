@@ -26,6 +26,7 @@ export const retailCopy = {
     previous: "Назад",
     next: "Далее",
     menu: "Меню",
+    cart: "Корзина",
   },
   ro: {
     catalog: "Catalog",
@@ -52,6 +53,7 @@ export const retailCopy = {
     previous: "Înapoi",
     next: "Înainte",
     menu: "Meniu",
+    cart: "Coș",
   },
 } as const;
 

@@ -4,10 +4,11 @@ import type { ReactNode } from "react";
 
 import { retailCopy } from "../presentation";
 import type { PublicRetailLocale } from "../types";
+import { PublicRetailCartBadge } from "./PublicRetailCartBadge";
 
-type Props = { children: ReactNode; locale: PublicRetailLocale; languagePath: string };
+type Props = { children: ReactNode; locale: PublicRetailLocale; languagePath: string; cartQuantity?: number };
 
-export function PublicRetailShell({ children, locale, languagePath }: Props) {
+export function PublicRetailShell({ children, locale, languagePath, cartQuantity }: Props) {
   const copy = retailCopy[locale];
   const languageHref = (next: PublicRetailLocale) => `${languagePath}${languagePath.includes("?") ? "&" : "?"}lang=${next}`;
   const links = [
@@ -35,6 +36,7 @@ export function PublicRetailShell({ children, locale, languagePath }: Props) {
           <input className="h-10 min-w-0 flex-1 bg-transparent px-2 text-sm outline-none placeholder:text-zinc-400" id="retail-header-search" name="q" placeholder={copy.search} />
         </form>
         <div className="ml-auto flex items-center gap-1 lg:ml-0">
+          <PublicRetailCartBadge locale={locale} totalQuantity={cartQuantity} />
           <Link aria-current={locale === "ru" ? "page" : undefined} className={`min-h-11 px-2 py-3 text-xs font-semibold ${locale === "ru" ? "text-emerald-700" : "text-zinc-500"}`} href={languageHref("ru")}>RU</Link>
           <span aria-hidden="true" className="text-zinc-300">/</span>
           <Link aria-current={locale === "ro" ? "page" : undefined} className={`min-h-11 px-2 py-3 text-xs font-semibold ${locale === "ro" ? "text-emerald-700" : "text-zinc-500"}`} href={languageHref("ro")}>RO</Link>
