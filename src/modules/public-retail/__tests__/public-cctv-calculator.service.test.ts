@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { PublicRetailReadRepository } from "../repositories/public-retail.repository";
 import {
   normalizePublicCctvInput,
+  publicCctvInitialInputFromSearchParams,
   PublicCctvCalculatorService,
   type PublicCctvCalculatorInput,
 } from "../services/public-cctv-calculator.service";
@@ -141,5 +142,18 @@ describe("PublicCctvCalculatorService", () => {
     expect(() => normalizePublicCctvInput(input({ indoorCameraCount: 33 }))).toThrow();
     expect(() => normalizePublicCctvInput(input({ indoorCameraCount: 0, outdoorCameraCount: 0 }))).toThrow();
     expect(() => normalizePublicCctvInput(input({ cableLength: 20_001 }))).toThrow();
+  });
+
+  it("does not overwrite fresh-flow installation defaults with absent query flags", () => {
+    expect(publicCctvInitialInputFromSearchParams({ lang: "ru", object: "warehouse" })).toBeUndefined();
+    expect(publicCctvInitialInputFromSearchParams({
+      lang: "ru", object: "warehouse", indoor: "2", outdoor: "2",
+      quality: "recommended", archive: "14", cable: "100",
+    })).toEqual(expect.objectContaining({
+      cameraInstallationRequested: false,
+      cableLayingRequested: false,
+      commissioningRequested: false,
+      remoteViewingRequested: false,
+    }));
   });
 });

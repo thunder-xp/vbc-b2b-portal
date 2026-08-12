@@ -186,6 +186,19 @@ export function publicCctvInputFromSearchParams(searchParams: Record<string, str
   });
 }
 
+export function publicCctvInitialInputFromSearchParams(
+  searchParams: Record<string, string | string[] | undefined>,
+): PublicCctvCalculatorInput | undefined {
+  const hasConfiguredInput = ["indoor", "outdoor", "quality", "archive", "cable"]
+    .some((key) => searchParams[key] !== undefined);
+  if (!hasConfiguredInput) return undefined;
+  try {
+    return publicCctvInputFromSearchParams(searchParams);
+  } catch {
+    return undefined;
+  }
+}
+
 function engineObjectType(value: PublicCctvObjectType): CctvObjectType { return value === "production" ? "industrial" : value; }
 function includeRequirement(requirement: CctvTechnicalRequirement, input: PublicCctvCalculatorInput) {
   if (requirement.kind === "camera_installation") return input.cameraInstallationRequested;
