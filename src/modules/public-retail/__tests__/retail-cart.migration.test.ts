@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 const migration = readFileSync(join(process.cwd(), "supabase/migrations/20260812230000_governed_anonymous_retail_cart.sql"), "utf8");
 const runtimeFix = readFileSync(join(process.cwd(), "supabase/migrations/20260812231000_fix_retail_cart_rpc_variable_scope.sql"), "utf8");
+const bundleQuantityFix = readFileSync(join(process.cwd(), "supabase/migrations/20260812232000_allow_bounded_retail_cart_bundle_quantities.sql"), "utf8");
 const actions = readFileSync(join(process.cwd(), "src/modules/public-retail/actions/retail-cart.actions.ts"), "utf8");
 const service = readFileSync(join(process.cwd(), "src/modules/public-retail/services/retail-cart.service.ts"), "utf8");
 const cartPage = readFileSync(join(process.cwd(), "app/cart/page.tsx"), "utf8");
@@ -59,6 +60,12 @@ describe("governed anonymous Retail Cart migration", () => {
     expect(migration).toContain("revoke all on function public.ensure_active_retail_cart(text), public.retail_cart_mutation_result(uuid,boolean,uuid) from public, anon, authenticated");
     expect(runtimeFix).toContain("target_cart_id");
     expect(runtimeFix).not.toMatch(/declare cart_id uuid|declare cart_id uuid;/i);
+  });
+
+  it("keeps standalone quantities capped while supporting governed calculator cable lengths", () => {
+    expect(runtimeFix).toContain("p_quantity not between 1 and 99");
+    expect(bundleQuantityFix).toContain("quantity between 1 and 20000");
+    expect(bundleQuantityFix).toContain("case when p_bundle_id is null then 99 else 20000 end");
   });
 
   it("adds only a fully resolved calculator system through the atomic server action", () => {

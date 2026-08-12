@@ -127,7 +127,7 @@ export function parsePublicRetailPublicationMetrics(value: unknown): PublicRetai
 const cartItem = z.object({
   publicProductId: uuid, bundleId: uuid.nullable(), source: z.enum(["catalog", "product_detail", "cctv_calculator"]),
   commercialGroup: z.enum(["equipment", "materials"]), slug: slug.nullable(), sku: z.string().min(1).max(100),
-  name: localizedText, image: media.nullable(), quantity: z.coerce.number().int().min(1).max(99),
+  name: localizedText, image: media.nullable(), quantity: z.coerce.number().int().min(1).max(20_000),
   price: price.nullable(), availability, lineAmount: z.coerce.number().positive().nullable(), stale: z.boolean(), priceChanged: z.boolean(),
 }).strict();
 const installationIntent = z.object({ cameraInstallation: z.boolean(), cableLaying: z.boolean(), commissioning: z.boolean(), remoteViewing: z.boolean() }).strict();

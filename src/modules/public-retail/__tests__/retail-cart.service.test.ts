@@ -44,11 +44,24 @@ describe("RetailCartService", () => {
     ] }));
   });
 
+  it("accepts governed calculator material quantities above the standalone retail limit", async () => {
+    const repo = repository();
+    await new RetailCartService(repo).addCctvSystem(hash, {
+      requestId,
+      items: [{ publicProductId: secondProductId, quantity: 300, commercialGroup: "materials" }],
+      installationIntent: null,
+    });
+    expect(repo.addBundle).toHaveBeenCalledWith(hash, expect.objectContaining({
+      items: [{ publicProductId: secondProductId, quantity: 300, commercialGroup: "materials" }],
+    }));
+  });
+
   it("rejects malformed identities, unsafe quantities and unknown installation fields", async () => {
     const service = new RetailCartService(repository());
     await expect(service.addProduct(hash, { publicProductId: "SKU-1", quantity: 1, source: "catalog", requestId })).rejects.toBeInstanceOf(RetailCartInputError);
     await expect(service.addProduct(hash, { publicProductId: productId, quantity: 0, source: "catalog", requestId })).rejects.toBeInstanceOf(RetailCartInputError);
     await expect(service.addProduct(hash, { publicProductId: productId, quantity: 100, source: "catalog", requestId })).rejects.toBeInstanceOf(RetailCartInputError);
+    await expect(service.addCctvSystem(hash, { items: [{ publicProductId: productId, quantity: 20_001, commercialGroup: "materials" }], installationIntent: null, requestId })).rejects.toBeInstanceOf(RetailCartInputError);
     await expect(service.addCctvSystem(hash, { items: [{ publicProductId: productId, quantity: 1, commercialGroup: "equipment" }], installationIntent: { guessedPrice: true }, requestId })).rejects.toBeInstanceOf(RetailCartInputError);
   });
 

@@ -24,19 +24,20 @@ export class RetailCartService {
     for (const item of input.items) {
       if (!(["equipment", "materials"] as const).includes(item.commercialGroup)) throw new RetailCartInputError();
       const id = publicId(item.publicProductId); const key = `${id}:${item.commercialGroup}`; const previous = grouped.get(key);
-      grouped.set(key, { publicProductId: id, commercialGroup: item.commercialGroup, quantity: quantity((previous?.quantity ?? 0) + item.quantity) });
+      grouped.set(key, { publicProductId: id, commercialGroup: item.commercialGroup, quantity: bundleQuantity((previous?.quantity ?? 0) + item.quantity) });
     }
     const installationIntent = normalizeIntent(input.installationIntent);
     const command = { items: [...grouped.values()], installationIntent, requestId: requestId(input.requestId) };
     try { return await this.repository.addBundle(validHash(tokenHash), { ...command, fingerprint: fingerprint(command) }); } catch (error) { throw translateCartError(error); }
   }
-  async updateQuantity(tokenHash: string, input: { publicProductId: string; bundleId: string | null; quantity: number; expectedRevision: number }) { try { return await this.repository.updateQuantity(validHash(tokenHash), { publicProductId: publicId(input.publicProductId), bundleId: optionalPublicId(input.bundleId), quantity: quantity(input.quantity), expectedRevision: revision(input.expectedRevision) }); } catch (error) { throw translateConflict(error); } }
+  async updateQuantity(tokenHash: string, input: { publicProductId: string; bundleId: string | null; quantity: number; expectedRevision: number }) { try { const bundleId = optionalPublicId(input.bundleId); return await this.repository.updateQuantity(validHash(tokenHash), { publicProductId: publicId(input.publicProductId), bundleId, quantity: bundleId ? bundleQuantity(input.quantity) : quantity(input.quantity), expectedRevision: revision(input.expectedRevision) }); } catch (error) { throw translateConflict(error); } }
   async removeItem(tokenHash: string, input: { publicProductId: string; bundleId: string | null; expectedRevision: number }) { try { return await this.repository.removeItem(validHash(tokenHash), { publicProductId: publicId(input.publicProductId), bundleId: optionalPublicId(input.bundleId), expectedRevision: revision(input.expectedRevision) }); } catch (error) { throw translateConflict(error); } }
 }
 function validHash(value: string) { if (!/^[0-9a-f]{64}$/.test(value)) throw new RetailCartInputError(); return value; }
 function publicId(value: string) { if (!PUBLIC_ID.test(value)) throw new RetailCartInputError(); return value.toLowerCase(); }
 function optionalPublicId(value: string | null) { return value === null ? null : publicId(value); }
 function quantity(value: number) { if (!Number.isInteger(value) || value < 1 || value > 99) throw new RetailCartInputError(); return value; }
+function bundleQuantity(value: number) { if (!Number.isInteger(value) || value < 1 || value > 20_000) throw new RetailCartInputError(); return value; }
 function revision(value: number) { if (!Number.isInteger(value) || value < 0) throw new RetailCartInputError(); return value; }
 function requestId(value: string) { if (!UUID.test(value)) throw new RetailCartInputError(); return value.toLowerCase(); }
 function fingerprint(value: unknown) { return createHash("sha256").update(JSON.stringify(value)).digest("hex"); }
