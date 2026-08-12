@@ -1,0 +1,104 @@
+import type { PublicRetailReadRepository } from "../repositories/public-retail.repository";
+import {
+  PUBLIC_RETAIL_AVAILABILITY,
+  PUBLIC_RETAIL_LOCALES,
+  type PublicRetailAvailability,
+  type PublicRetailLocale,
+} from "../types";
+
+export type PublicRetailListInput = {
+  locale?: string;
+  categorySlug?: string;
+  search?: string;
+  availability?: string;
+  facets?: Record<string, string[]>;
+  page?: number;
+  pageSize?: number;
+};
+
+export class PublicRetailService {
+  constructor(private readonly repository: PublicRetailReadRepository) {}
+
+  listRetailCategories(locale?: string) {
+    return this.repository.listCategories(normalizeLocale(locale));
+  }
+
+  async getRetailCategory(slug: string, locale?: string) {
+    const normalizedSlug = normalizeSlug(slug);
+    return (await this.repository.listCategories(normalizeLocale(locale)))
+      .find((category) => category.slug === normalizedSlug) ?? null;
+  }
+
+  listRetailProducts(input: PublicRetailListInput = {}) {
+    const pageSize = integerInRange(input.pageSize, 24, 1, 48);
+    const page = integerInRange(input.page, 1, 1, 209);
+    return this.repository.listProducts({
+      locale: normalizeLocale(input.locale),
+      categorySlug: optionalSlug(input.categorySlug),
+      search: normalizeSearch(input.search),
+      availability: normalizeAvailability(input.availability),
+      facets: normalizeFacets(input.facets),
+      limit: pageSize,
+      offset: (page - 1) * pageSize,
+    });
+  }
+
+  searchRetailProducts(query: string, input: Omit<PublicRetailListInput, "search"> = {}) {
+    return this.listRetailProducts({ ...input, search: query });
+  }
+
+  getRetailProduct(slug: string, locale?: string) {
+    return this.repository.getProduct(normalizeSlug(slug), normalizeLocale(locale));
+  }
+
+  listRetailFacets(categorySlug?: string, locale?: string) {
+    return this.repository.listFacets(optionalSlug(categorySlug), normalizeLocale(locale));
+  }
+}
+
+function normalizeFacets(value: Record<string, string[]> | undefined): Record<string, string[]> | undefined {
+  if (!value) return undefined;
+  const entries = Object.entries(value);
+  if (entries.length > 8) throw new Error("Too many Public Retail facets.");
+  const normalized = Object.fromEntries(entries.map(([key, selected]) => {
+    const normalizedKey = key.trim();
+    const normalizedValues = [...new Set(selected.map((item) => item.trim()).filter(Boolean))];
+    if (!normalizedKey || normalizedKey.length > 160 || normalizedValues.length < 1 || normalizedValues.length > 10
+      || normalizedValues.some((item) => item.length > 1000)) {
+      throw new Error("Invalid Public Retail facet.");
+    }
+    return [normalizedKey, normalizedValues];
+  }));
+  return Object.keys(normalized).length ? normalized : undefined;
+}
+
+function normalizeAvailability(value: string | undefined): PublicRetailAvailability | undefined {
+  return PUBLIC_RETAIL_AVAILABILITY.find((candidate) => candidate === value);
+}
+
+function normalizeLocale(value: string | undefined): PublicRetailLocale {
+  return PUBLIC_RETAIL_LOCALES.includes(value as PublicRetailLocale) ? value as PublicRetailLocale : "ru";
+}
+
+function normalizeSlug(value: string): string {
+  const normalized = value.trim().toLowerCase();
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(normalized) || normalized.length > 160) {
+    throw new Error("Invalid Public Retail slug.");
+  }
+  return normalized;
+}
+
+function optionalSlug(value: string | undefined): string | undefined {
+  return value?.trim() ? normalizeSlug(value) : undefined;
+}
+
+function normalizeSearch(value: string | undefined): string | undefined {
+  const normalized = value?.trim().replace(/\s+/g, " ");
+  if (!normalized) return undefined;
+  if (normalized.length > 100) throw new Error("Public Retail search is too long.");
+  return normalized;
+}
+
+function integerInRange(value: number | undefined, fallback: number, minimum: number, maximum: number): number {
+  return Number.isInteger(value) && value! >= minimum && value! <= maximum ? value! : fallback;
+}

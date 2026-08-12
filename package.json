@@ -12,6 +12,7 @@
     "lint": "eslint",
     "sync:commercial-rate": "tsx --no-cache scripts/sync-commercial-exchange-rate.ts",
     "sync:onboarding-directory": "tsx --conditions=react-server --no-cache scripts/sync-onboarding-directory.ts",
+    "publish:public-retail": "tsx --conditions=react-server --no-cache scripts/publish-public-retail-projection.ts",
     "test": "vitest run"
   },
   "dependencies": {

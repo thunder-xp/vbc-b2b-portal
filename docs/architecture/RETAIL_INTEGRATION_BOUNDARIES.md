@@ -78,6 +78,8 @@ The public Retail projection is local, versioned, and atomically published from 
 
 It must not expose partner/procurement prices, contracts, debts, margins, company-scoped data, raw 1C references, sync diagnostics, or integration payloads. Failed publication preserves the prior valid projection. Public rendering makes no live 1C or payment-provider call.
 
+The canonical implementation lives in `src/modules/public-retail`. Anonymous consumers use only its strict DTOs and bounded read service for categories, product pages/details, category facets, structured facet filters, and search. Reads use a cookie-free anonymous client and never resolve Partner identity or company context. A Service Role publisher builds an immutable candidate snapshot, validates its checksum and counts, and switches the current publication atomically; publication credentials and source identities are not part of the public runtime.
+
 ## Operational Reliability
 
 - External commands use idempotency keys and request fingerprints.
