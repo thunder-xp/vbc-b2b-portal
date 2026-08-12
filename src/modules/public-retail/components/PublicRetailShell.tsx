@@ -24,7 +24,7 @@ export function PublicRetailShell({ children, locale, languagePath, cartQuantity
       <div className="mx-auto flex min-h-17 max-w-[1440px] items-center gap-4 px-4 sm:px-6 lg:px-8">
         <Link aria-label="Novotech Systems" className="flex shrink-0 items-center gap-2.5" href={`/?lang=${locale}`}>
           <span className="grid size-9 place-items-center rounded-sm bg-emerald-700 text-white"><ShieldCheck aria-hidden="true" className="size-5" /></span>
-          <span className="text-sm font-bold sm:text-base">NOVOTECH <span className="font-medium text-zinc-500">SYSTEMS</span></span>
+          <span className="text-sm font-bold sm:text-base">NOVOTECH <span className="hidden font-medium text-zinc-500 sm:inline">SYSTEMS</span></span>
         </Link>
         <nav aria-label="Основная навигация" className="ml-auto hidden items-center gap-5 xl:flex">
           {links.map(([label, href]) => <Link className="text-sm font-medium text-zinc-700 hover:text-emerald-700" href={href} key={href}>{label}</Link>)}
