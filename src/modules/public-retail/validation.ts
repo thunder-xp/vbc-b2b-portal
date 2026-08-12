@@ -45,7 +45,7 @@ const summary = z.object({
   calculatorEligible: z.boolean(),
 }).strict();
 
-const detail = summary.extend({
+const detailPayload = summary.omit({ category: true, highlights: true }).extend({
   description: z.string().max(50_000).nullable(),
   categoryPath: z.array(z.object({ id: uuid, slug, name: localizedText }).strict()).max(12),
   gallery: z.array(media).max(24),
@@ -95,7 +95,14 @@ export function parsePublicRetailProductPage(value: unknown): PublicRetailProduc
 }
 
 export function parsePublicRetailProduct(value: unknown): PublicRetailProductDetailDto {
-  return detail.parse(value);
+  const product = detailPayload.parse(value);
+  const category = product.categoryPath.at(-1);
+
+  return {
+    ...product,
+    category: category ? { slug: category.slug, name: category.name } : null,
+    highlights: product.specifications.slice(0, 3),
+  };
 }
 
 export function parsePublicRetailFacets(value: unknown): PublicRetailFacetDto[] {

@@ -1,0 +1,112 @@
+import type { PublicRetailAvailability, PublicRetailLocale } from "./types";
+
+export const retailCopy = {
+  ru: {
+    catalog: "Каталог",
+    chooseSystem: "Подобрать систему",
+    services: "Услуги и монтаж",
+    delivery: "Доставка",
+    support: "Поддержка",
+    partners: "Для партнёров",
+    search: "Поиск по модели, артикулу или названию",
+    searchAction: "Найти",
+    details: "Подробнее",
+    filters: "Фильтры",
+    apply: "Применить",
+    reset: "Сбросить",
+    products: "Товары",
+    found: "Найдено товаров",
+    noProducts: "По заданным условиям товары не найдены.",
+    allCategories: "Все категории",
+    price: "Розничная цена",
+    sku: "Артикул",
+    specifications: "Характеристики",
+    description: "Описание",
+    backToCatalog: "Вернуться в каталог",
+    previous: "Назад",
+    next: "Далее",
+    menu: "Меню",
+  },
+  ro: {
+    catalog: "Catalog",
+    chooseSystem: "Alege un sistem",
+    services: "Servicii și instalare",
+    delivery: "Livrare",
+    support: "Suport",
+    partners: "Pentru parteneri",
+    search: "Căutare după model, cod sau denumire",
+    searchAction: "Caută",
+    details: "Detalii",
+    filters: "Filtre",
+    apply: "Aplică",
+    reset: "Resetează",
+    products: "Produse",
+    found: "Produse găsite",
+    noProducts: "Nu am găsit produse pentru filtrele selectate.",
+    allCategories: "Toate categoriile",
+    price: "Preț cu amănuntul",
+    sku: "Cod produs",
+    specifications: "Caracteristici",
+    description: "Descriere",
+    backToCatalog: "Înapoi la catalog",
+    previous: "Înapoi",
+    next: "Înainte",
+    menu: "Meniu",
+  },
+} as const;
+
+export const availabilityCopy: Record<PublicRetailLocale, Record<PublicRetailAvailability, string>> = {
+  ru: {
+    in_stock: "В наличии",
+    low_stock: "Заканчивается",
+    available_to_order: "Под заказ",
+    unavailable: "Нет в наличии",
+    unknown: "Наличие уточняется",
+  },
+  ro: {
+    in_stock: "În stoc",
+    low_stock: "Stoc limitat",
+    available_to_order: "La comandă",
+    unavailable: "Indisponibil",
+    unknown: "Disponibilitatea se confirmă",
+  },
+};
+
+export const featuredRetailCategories = [
+  { slug: "catalog-item-772c9d50", ru: "Видеонаблюдение", ro: "Supraveghere video", icon: "camera" },
+  { slug: "catalog-item-f5379005", ru: "Охранные системы", ro: "Sisteme de alarmă", icon: "shield" },
+  { slug: "catalog-item-fe802fd7", ru: "Контроль доступа", ro: "Control acces", icon: "key" },
+  { slug: "catalog-item-772c9d4b", ru: "Домофония", ro: "Interfonie", icon: "door" },
+  { slug: "catalog-item-eedee611", ru: "Сетевое оборудование", ro: "Echipamente de rețea", icon: "network" },
+  { slug: "catalog-item-eedee60b", ru: "Электропитание", ro: "Alimentare electrică", icon: "power" },
+  { slug: "catalog-item-f5379001", ru: "Монтажные материалы", ro: "Materiale de instalare", icon: "cable" },
+] as const;
+
+export const protectedObjectOptions = [
+  { key: "apartment", ru: "Квартира", ro: "Apartament", icon: "building" },
+  { key: "house", ru: "Частный дом", ro: "Casă", icon: "house" },
+  { key: "office", ru: "Офис", ro: "Birou", icon: "briefcase" },
+  { key: "retail", ru: "Магазин", ro: "Magazin", icon: "store" },
+  { key: "warehouse", ru: "Склад", ro: "Depozit", icon: "warehouse" },
+  { key: "production", ru: "Производство", ro: "Producție", icon: "factory" },
+  { key: "horeca", ru: "HoReCa", ro: "HoReCa", icon: "utensils" },
+  { key: "other", ru: "Другое", ro: "Alt obiect", icon: "shapes" },
+] as const;
+
+export function publicRetailLocale(value: string | string[] | undefined): PublicRetailLocale {
+  return (Array.isArray(value) ? value[0] : value) === "ro" ? "ro" : "ru";
+}
+export function formatRetailPrice(amount: number, currency: string, locale: PublicRetailLocale): string {
+  return new Intl.NumberFormat(locale === "ro" ? "ro-MD" : "ru-MD", {
+    style: "currency",
+    currency,
+    maximumFractionDigits: 2,
+  }).format(amount);
+}
+
+export function availabilityTone(value: PublicRetailAvailability): string {
+  if (value === "in_stock") return "text-emerald-700";
+  if (value === "low_stock" || value === "available_to_order") return "text-amber-700";
+  if (value === "unavailable") return "text-zinc-500";
+  return "text-zinc-600";
+}

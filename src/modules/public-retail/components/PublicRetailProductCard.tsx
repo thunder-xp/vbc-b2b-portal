@@ -1,0 +1,22 @@
+import { ImageIcon } from "lucide-react";
+import Image from "next/image";
+import Link from "next/link";
+
+import { availabilityCopy, availabilityTone, formatRetailPrice, retailCopy } from "../presentation";
+import type { PublicRetailLocale, PublicRetailProductSummaryDto } from "../types";
+
+export function PublicRetailProductCard({ product, locale }: { product: PublicRetailProductSummaryDto; locale: PublicRetailLocale }) {
+  const copy = retailCopy[locale];
+  return <article className="group grid min-w-0 grid-rows-[auto_auto_1fr_auto_auto] border border-zinc-200 bg-white">
+    <Link className="relative block aspect-[4/3] overflow-hidden bg-zinc-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700" href={`/products/${product.slug}?lang=${locale}`}>
+      {product.image ? <Image alt={product.image.alt || product.name} className="object-contain p-4 transition-transform duration-200 group-hover:scale-[1.02]" fill loading="lazy" sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw" src={product.image.url} /> : <span className="grid size-full place-items-center text-zinc-300"><ImageIcon aria-hidden="true" className="size-12" /><span className="sr-only">{locale === "ro" ? "Imagine indisponibilă" : "Изображение отсутствует"}</span></span>}
+    </Link>
+    <div className="px-4 pt-4"><p className="text-[11px] font-semibold uppercase text-zinc-500">{product.brand?.name ?? product.category?.name ?? "Novotech"}</p><p className="mt-1 text-xs text-zinc-400">{copy.sku}: {product.sku}</p></div>
+    <div className="px-4 pt-2">
+      <Link className="line-clamp-3 text-sm font-semibold leading-5 text-zinc-900 hover:text-emerald-700" href={`/products/${product.slug}?lang=${locale}`} title={product.name}>{product.name}</Link>
+      {product.highlights.length ? <ul className="mt-3 space-y-1 text-xs leading-5 text-zinc-600">{product.highlights.slice(0, 3).map((item) => <li className="line-clamp-1" key={item.key}><span className="text-zinc-400">{item.label}:</span> {item.value}</li>)}</ul> : <p className="mt-3 line-clamp-2 text-xs leading-5 text-zinc-500">{product.shortDescription}</p>}
+    </div>
+    <div className="px-4 pt-4"><p className={`text-xs font-semibold ${availabilityTone(product.availability)}`}>{availabilityCopy[locale][product.availability]}</p><p className="mt-2 text-lg font-semibold tabular-nums">{formatRetailPrice(product.price.amount, product.price.currency, locale)}</p><p className="text-[11px] text-zinc-400">{copy.price}</p></div>
+    <div className="p-4"><Link className="flex min-h-11 items-center justify-center rounded-sm bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-emerald-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700" href={`/products/${product.slug}?lang=${locale}`}>{copy.details}</Link></div>
+  </article>;
+}

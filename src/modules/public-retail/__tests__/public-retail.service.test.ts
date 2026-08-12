@@ -79,9 +79,20 @@ describe("PublicRetailService", () => {
 describe("Public Retail DTO allowlist", () => {
   it("accepts the narrow public summary and detail contracts", () => {
     expect(parsePublicRetailProductPage({ items: [summary()], totalCount: 1, limit: 24, offset: 0 }).items).toHaveLength(1);
-    expect(parsePublicRetailProduct({
-      ...summary(), description: "Description", categoryPath: [], gallery: [], specifications: [],
-    }).id).toBe(publicId);
+    const { category: _category, highlights: _highlights, ...detailPayload } = summary();
+    void _category;
+    void _highlights;
+    const product = parsePublicRetailProduct({
+      ...detailPayload,
+      description: "Description",
+      categoryPath: [{ id: publicId, slug: "cameras", name: "Cameras" }],
+      gallery: [],
+      specifications: [{ key: "resolution", label: "Resolution", value: "4 MP" }],
+    });
+
+    expect(product.id).toBe(publicId);
+    expect(product.category).toEqual({ slug: "cameras", name: "Cameras" });
+    expect(product.highlights).toEqual([{ key: "resolution", label: "Resolution", value: "4 MP" }]);
   });
 
   it.each(["external_1c_id", "company_id", "partner_price", "available_quantity", "warehouse_name"])(

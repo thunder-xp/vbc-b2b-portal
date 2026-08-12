@@ -2,9 +2,10 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Партнёрская платформа",
+  metadataBase: new URL("https://www.nsd.md"),
+  title: "Novotech Systems",
   description:
-    "Безопасный B2B-кабинет для партнёров: каталог, цены, наличие, документы и спецификации.",
+    "Системы безопасности, профессиональное оборудование и решения Novotech.",
 };
 
 export default function RootLayout({
