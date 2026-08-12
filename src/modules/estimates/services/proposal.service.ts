@@ -146,7 +146,7 @@ export class DefaultProposalService {
       const uploadedAt = performance.now();
       const checksum = createHash("sha256").update(rendered.bytes).digest("hex");
       document = await this.proposalRepository.markReady({ documentId: document.id, bucket: STORAGE_BUCKET, key, pageCount: rendered.pageCount, fileSizeBytes: rendered.bytes.byteLength, checksumSha256: checksum });
-      console.info({ event: "estimate_version_pdf_generation_completed", estimateId: preview.estimateId, versionId: preview.versionId, documentId: document.id, pageCount: rendered.pageCount, durationMs: Math.round(performance.now() - startedAt), stageMs: { claimAndLoadRenderer: Math.round(rendererLoadedAt - startedAt), render: Math.round(renderedAt - rendererLoadedAt), upload: Math.round(uploadedAt - renderedAt), markReady: Math.round(performance.now() - uploadedAt) }, deployedCommitSha: process.env.VERCEL_GIT_COMMIT_SHA ?? null });
+      console.info({ event: "estimate_version_pdf_generation_completed", estimateId: preview.estimateId, versionId: preview.versionId, documentId: document.id, pageCount: rendered.pageCount, fileSizeBytes: rendered.bytes.byteLength, imagePerformance: rendered.performance, durationMs: Math.round(performance.now() - startedAt), stageMs: { claimAndLoadRenderer: Math.round(rendererLoadedAt - startedAt), render: Math.round(renderedAt - rendererLoadedAt), upload: Math.round(uploadedAt - renderedAt), markReady: Math.round(performance.now() - uploadedAt) }, deployedCommitSha: process.env.VERCEL_GIT_COMMIT_SHA ?? null });
       return document;
     } catch (error) {
       await this.proposalRepository.markFailed(document.id, "Не удалось сформировать PDF.");

@@ -9,16 +9,56 @@ import { conciseProposalDescription, proposalLineNumber, proposalVatLabels, sect
 import type { CustomerProposalDto, CustomerProposalLine } from "../types";
 
 type PdfMakeRuntime = { addVirtualFileSystem(vfs: unknown): void; setUrlAccessPolicy(callback: (url: string) => boolean): void; createPdf(definition: unknown): { getBuffer(): Promise<Buffer> } };
+export type ProposalPdfPerformance = {
+  imageReferenceCount: number;
+  uniqueImageCount: number;
+  imageRequestCount: number;
+  loadedImageCount: number;
+  failedImageCount: number;
+  timedOutImageCount: number;
+  sourceImageBytes: number;
+  embeddedImageBytes: number;
+  stageMs: {
+    imageIdentityResolution: number;
+    imageFetchWall: number;
+    imageFetchAggregate: number;
+    imageTransformAggregate: number;
+    imagePreparation: number;
+    documentDefinition: number;
+    pdfRendererAndImageEmbedding: number;
+  };
+};
+type PreparedImage = { dataUrl: string | null; sourceBytes: number; fetchMs: number; transformMs: number; timedOut: boolean };
 const runtime = pdfMake as unknown as PdfMakeRuntime;
 runtime.addVirtualFileSystem(robotoFonts);
 runtime.setUrlAccessPolicy(() => false);
 
-export async function renderProposalPdf(proposal: CustomerProposalDto): Promise<{ bytes: Uint8Array; pageCount: number }> {
-  const images = proposal.settings.showProductImages ? await loadProposalImages(proposal) : new Map<string, string>();
+export async function renderProposalPdf(proposal: CustomerProposalDto): Promise<{ bytes: Uint8Array; pageCount: number; performance: ProposalPdfPerformance }> {
+  const imagePreparationStartedAt = performance.now();
+  const preparedImages = proposal.settings.showProductImages
+    ? await prepareProposalImages(proposal)
+    : emptyPreparedImages();
+  const imagePreparationFinishedAt = performance.now();
+  const images = preparedImages.images;
+  const definitionStartedAt = performance.now();
   const definition = createDocumentDefinition(proposal, images);
+  const definitionFinishedAt = performance.now();
   const buffer = await runtime.createPdf(definition).getBuffer();
+  const rendererFinishedAt = performance.now();
   const bytes = new Uint8Array(buffer);
-  return { bytes, pageCount: countPdfPages(bytes) };
+  return {
+    bytes,
+    pageCount: countPdfPages(bytes),
+    performance: {
+      ...preparedImages.performance,
+      stageMs: {
+        ...preparedImages.performance.stageMs,
+        imagePreparation: roundedMs(imagePreparationFinishedAt - imagePreparationStartedAt),
+        documentDefinition: roundedMs(definitionFinishedAt - definitionStartedAt),
+        pdfRendererAndImageEmbedding: roundedMs(rendererFinishedAt - definitionFinishedAt),
+      },
+    },
+  };
 }
 
 export function createDocumentDefinition(proposal: CustomerProposalDto, images = new Map<string, string>()): TDocumentDefinitions {
@@ -101,31 +141,75 @@ function documentMetadata(proposal: CustomerProposalDto): Array<Record<string, u
   return rows;
 }
 
-export async function loadProposalImages(proposal: CustomerProposalDto): Promise<Map<string, string>> {
-  const urls = [...new Set([...(proposal.settings.showPartnerLogo && proposal.branding.logoUrl ? [proposal.branding.logoUrl] : []), ...proposal.sections.flatMap((section) => section.lines.flatMap((line) => isProductProposalLine(line) && line.imageUrl ? [line.imageUrl] : []))])].slice(0, 60);
-  const entries = await mapConcurrent(urls, 4, async (url) => [url, await fetchTrustedImage(url)] as const);
-  return new Map(entries.filter((entry): entry is readonly [string, string] => Boolean(entry[1])));
+export async function loadProposalImages(proposal: CustomerProposalDto, options?: { timeoutMs?: number }): Promise<Map<string, string>> {
+  return (await prepareProposalImages(proposal, options)).images;
 }
 
-async function fetchTrustedImage(rawUrl: string): Promise<string | null> {
-  const url = resolveProposalImageRequestUrl(rawUrl);
-  if (!url) return null;
-  const controller = new AbortController(); const timer = setTimeout(() => controller.abort(), 2500);
+async function prepareProposalImages(proposal: CustomerProposalDto, options?: { timeoutMs?: number }) {
+  const identityStartedAt = performance.now();
+  const references = [...(proposal.settings.showPartnerLogo && proposal.branding.logoUrl ? [proposal.branding.logoUrl] : []), ...proposal.sections.flatMap((section) => section.lines.flatMap((line) => isProductProposalLine(line) && line.imageUrl ? [line.imageUrl] : []))];
+  const urls = [...new Set(references)].slice(0, 60);
+  const requests = urls.flatMap((rawUrl) => {
+    const requestUrl = resolveProposalImageRequestUrl(rawUrl);
+    return requestUrl ? [{ rawUrl, requestUrl }] : [];
+  });
+  const identityFinishedAt = performance.now();
+  const fetchStartedAt = performance.now();
+  const timeoutMs = Math.max(1, Math.min(options?.timeoutMs ?? 2500, 2500));
+  const entries = await mapConcurrent(requests, 4, async ({ rawUrl, requestUrl }) => [rawUrl, await fetchTrustedImage(requestUrl, timeoutMs)] as const);
+  const fetchFinishedAt = performance.now();
+  const images = new Map(entries.flatMap(([rawUrl, result]) => result.dataUrl ? [[rawUrl, result.dataUrl] as const] : []));
+  const results = entries.map(([, result]) => result);
+  return {
+    images,
+    performance: {
+      imageReferenceCount: references.length,
+      uniqueImageCount: urls.length,
+      imageRequestCount: requests.length,
+      loadedImageCount: images.size,
+      failedImageCount: requests.length - images.size,
+      timedOutImageCount: results.filter((result) => result.timedOut).length,
+      sourceImageBytes: results.reduce((sum, result) => sum + result.sourceBytes, 0),
+      embeddedImageBytes: [...images.values()].reduce((sum, dataUrl) => sum + Buffer.byteLength(dataUrl), 0),
+      stageMs: {
+        imageIdentityResolution: roundedMs(identityFinishedAt - identityStartedAt),
+        imageFetchWall: roundedMs(fetchFinishedAt - fetchStartedAt),
+        imageFetchAggregate: roundedMs(results.reduce((sum, result) => sum + result.fetchMs, 0)),
+        imageTransformAggregate: roundedMs(results.reduce((sum, result) => sum + result.transformMs, 0)),
+        imagePreparation: 0,
+        documentDefinition: 0,
+        pdfRendererAndImageEmbedding: 0,
+      },
+    } satisfies ProposalPdfPerformance,
+  };
+}
+
+async function fetchTrustedImage(url: URL, timeoutMs: number): Promise<PreparedImage> {
+  const controller = new AbortController(); const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const fetchStartedAt = performance.now();
   try {
     const response = await fetch(url, { signal: controller.signal, redirect: "error", headers: { Accept: "image/png,image/jpeg,image/webp" } });
     const type = response.headers.get("content-type")?.split(";")[0] ?? "";
     const length = Number(response.headers.get("content-length") ?? 0);
-    if (!response.ok || !["image/png", "image/jpeg", "image/webp"].includes(type) || length > 1_000_000) return null;
+    if (!response.ok || !["image/png", "image/jpeg", "image/webp"].includes(type) || length > 1_000_000) return failedPreparedImage(performance.now() - fetchStartedAt);
     const bytes = new Uint8Array(await response.arrayBuffer());
-    if (bytes.byteLength > 1_000_000) return null;
+    const fetchedAt = performance.now();
+    if (bytes.byteLength > 1_000_000) return failedPreparedImage(fetchedAt - fetchStartedAt, bytes.byteLength);
     if (type === "image/webp") {
+      const transformStartedAt = performance.now();
       const { default: sharp } = await import("sharp");
       const png = await sharp(bytes).png().toBuffer();
-      return png.byteLength <= 1_000_000 ? `data:image/png;base64,${png.toString("base64")}` : null;
+      return { dataUrl: png.byteLength <= 1_000_000 ? `data:image/png;base64,${png.toString("base64")}` : null, sourceBytes: bytes.byteLength, fetchMs: fetchedAt - fetchStartedAt, transformMs: performance.now() - transformStartedAt, timedOut: false };
     }
-    return `data:${type};base64,${Buffer.from(bytes).toString("base64")}`;
-  } catch { return null; } finally { clearTimeout(timer); }
+    return { dataUrl: `data:${type};base64,${Buffer.from(bytes).toString("base64")}`, sourceBytes: bytes.byteLength, fetchMs: fetchedAt - fetchStartedAt, transformMs: 0, timedOut: false };
+  } catch { return { ...failedPreparedImage(performance.now() - fetchStartedAt), timedOut: controller.signal.aborted }; } finally { clearTimeout(timer); }
 }
+
+function failedPreparedImage(fetchMs: number, sourceBytes = 0): PreparedImage { return { dataUrl: null, sourceBytes, fetchMs, transformMs: 0, timedOut: false }; }
+function emptyPreparedImages() {
+  return { images: new Map<string, string>(), performance: { imageReferenceCount: 0, uniqueImageCount: 0, imageRequestCount: 0, loadedImageCount: 0, failedImageCount: 0, timedOutImageCount: 0, sourceImageBytes: 0, embeddedImageBytes: 0, stageMs: { imageIdentityResolution: 0, imageFetchWall: 0, imageFetchAggregate: 0, imageTransformAggregate: 0, imagePreparation: 0, documentDefinition: 0, pdfRendererAndImageEmbedding: 0 } } satisfies ProposalPdfPerformance };
+}
+function roundedMs(value: number): number { return Math.round(value * 10) / 10; }
 
 export function resolveProposalImageRequestUrl(rawUrl: string): URL | null {
   const productImage = normalizeProductImageUrl(rawUrl);

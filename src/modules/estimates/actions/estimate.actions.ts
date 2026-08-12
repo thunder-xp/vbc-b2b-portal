@@ -143,7 +143,7 @@ export async function listEstimateServicesAction(): Promise<ActionResult<Estimat
   }
 }
 
-export async function searchEstimateProductsAction(input: { search?: string; categoryId?: string; brandId?: string }): Promise<ActionResult<EstimateProductPickerDto>> {
+export async function searchEstimateProductsAction(input: { search?: string; categoryId?: string; brandId?: string; includeFacets?: boolean }): Promise<ActionResult<EstimateProductPickerDto>> {
   try {
     const userId = await getAuthenticatedUserId();
     return success("Товары загружены.", await createEstimateService().searchProducts(userId, input));

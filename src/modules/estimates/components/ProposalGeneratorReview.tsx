@@ -50,7 +50,7 @@ function GeneratorLine({ line, currencyCode, state, onChange, onRemove }: {
   const [scope, setScope] = useState<"own" | "shared">("own"); const [pending, startTransition] = useTransition();
   const itemType = line.sectionKey === "installation_materials" ? "material" : line.sectionKey === "equipment" ? "equipment" : "service";
   const search = (nextScope: "own" | "shared") => startTransition(async () => {
-    const [products, nomenclature] = await Promise.all([itemType === "service" ? Promise.resolve(null) : searchEstimateProductsAction({ search: query }), searchExternalNomenclatureAction({ query, itemType, scope: nextScope })]);
+    const [products, nomenclature] = await Promise.all([itemType === "service" ? Promise.resolve(null) : searchEstimateProductsAction({ search: query, includeFacets: false }), searchExternalNomenclatureAction({ query, itemType, scope: nextScope })]);
     setCatalog(products?.success ? products.data.products.slice(0, 6) : []); setExternal(nomenclature.success ? nomenclature.data : []); setScope(nextScope);
   });
   const select = (resolution: GeneratorResolutionKind, item: ExternalNomenclatureRecord) => {

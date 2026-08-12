@@ -408,6 +408,14 @@ describe("DefaultEstimateService", () => {
     expect(pricing.getProductCommercialViews).not.toHaveBeenCalled();
   });
 
+  it("skips unused catalog facets for generator replacement search", async () => {
+    await service.searchProducts("user-1", { search: "camera", includeFacets: false });
+
+    expect(catalog.listProducts).toHaveBeenCalledOnce();
+    expect(catalog.listCategories).not.toHaveBeenCalled();
+    expect(catalog.listBrands).not.toHaveBeenCalled();
+  });
+
   it("offers governed USD and MDL when a published conversion rate exists", async () => {
     vi.mocked(pricing.listAvailableCurrencyCodes!).mockResolvedValue(["USD", "MDL"]);
     await expect(service.listAvailableCurrencies("user-1")).resolves.toEqual(["USD", "MDL"]);

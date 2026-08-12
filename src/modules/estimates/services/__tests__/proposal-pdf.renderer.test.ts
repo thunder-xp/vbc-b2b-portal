@@ -71,6 +71,27 @@ describe("proposal PDF renderer", () => {
     }
   }, 45_000);
 
+  it("benchmarks bounded image preparation across proposal sizes", async () => {
+    vi.stubEnv("PUBLIC_APP_URL", "https://www.nsd.md");
+    const { default: sharp } = await import("sharp");
+    const jpeg = await sharp({ create: { width: 64, height: 64, channels: 3, background: "#d4d4d8" } }).jpeg({ quality: 70 }).toBuffer();
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async () => new Response(jpeg, { status: 200, headers: { "content-type": "image/jpeg", "content-length": String(jpeg.byteLength) } }));
+
+    for (const count of [3, 20, 40, 100]) {
+      const base = fixture(count);
+      const proposal = { ...base, sections: [{ ...base.sections[0], lines: base.sections[0].lines.map((line, index) => ({ ...line, imageUrl: `https://firebasestorage.googleapis.com/v0/b/novotech-systems-5449b.appspot.com/o/products%2Fbenchmark-${index}.jpg?alt=media` })) }] };
+      const rendered = await renderProposalPdf(proposal);
+      if (process.env.BENCHMARK_PROPOSAL_PDF) console.info({ lineCount: count, imageCount: rendered.performance.loadedImageCount, imageResolutionMs: rendered.performance.stageMs.imageIdentityResolution, imagePreparationMs: rendered.performance.stageMs.imagePreparation, rendererMs: rendered.performance.stageMs.pdfRendererAndImageEmbedding, pageCount: rendered.pageCount, bytes: rendered.bytes.byteLength });
+      expect(rendered.performance.loadedImageCount).toBe(Math.min(count, 60));
+      expect(rendered.performance.imageRequestCount).toBe(Math.min(count, 60));
+      expect(rendered.performance.failedImageCount).toBe(0);
+    }
+
+    expect(fetchMock).toHaveBeenCalledTimes(3 + 20 + 40 + 60);
+    vi.restoreAllMocks();
+    vi.unstubAllEnvs();
+  }, 30_000);
+
   it("uses the image column only when an approved product image is available", async () => {
     const proposal = fixture(1);
     const definition = JSON.stringify(createDocumentDefinition(proposal, new Map([["image", "data:image/png;base64,AA=="]])));
@@ -154,6 +175,21 @@ describe("proposal PDF renderer", () => {
     const images = await loadProposalImages({ ...base, branding: { ...base.branding, logoUrl } });
 
     expect(images.get(logoUrl)).toMatch(/^data:image\/png;base64,/);
+    vi.restoreAllMocks();
+    vi.unstubAllEnvs();
+  });
+
+  it("omits an unavailable image after the bounded timeout", async () => {
+    vi.stubEnv("PUBLIC_APP_URL", "https://www.nsd.md");
+    const image = "https://firebasestorage.googleapis.com/v0/b/novotech-systems-5449b.appspot.com/o/products%2Fslow.jpg?alt=media";
+    vi.spyOn(globalThis, "fetch").mockImplementation((_input, init) => new Promise((_resolve, reject) => {
+      init?.signal?.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")), { once: true });
+    }));
+    const base = fixture(1);
+    const proposal = { ...base, sections: [{ ...base.sections[0], lines: [{ ...base.sections[0].lines[0], imageUrl: image }] }] };
+
+    await expect(loadProposalImages(proposal, { timeoutMs: 10 })).resolves.toEqual(new Map());
+
     vi.restoreAllMocks();
     vi.unstubAllEnvs();
   });

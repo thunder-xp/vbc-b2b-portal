@@ -289,7 +289,7 @@ export interface EstimateService {
   listAvailableCurrencies(userId: string): Promise<string[]>;
   getCommercialOptions(userId: string): Promise<EstimateCommercialOptionsDto>;
   listServices(userId: string): Promise<EstimateServiceDto[]>;
-  searchProducts(userId: string, input: { search?: string; categoryId?: string; brandId?: string }): Promise<EstimateProductPickerDto>;
+  searchProducts(userId: string, input: { search?: string; categoryId?: string; brandId?: string; includeFacets?: boolean }): Promise<EstimateProductPickerDto>;
   searchExternalNomenclature(userId: string, query: string, itemType: ExternalNomenclatureItemType, scope: "own" | "shared"): Promise<ExternalNomenclatureRecord[]>;
   listPartnerNomenclature(userId: string, filters: PartnerNomenclatureListFilters): Promise<{ records: PartnerNomenclatureRecord[]; page: number; totalPages: number; totalCount: number }>;
   createPartnerNomenclature(userId: string, input: PartnerNomenclatureInput): Promise<string>;
@@ -599,8 +599,11 @@ export class DefaultEstimateService implements EstimateService {
     }));
   }
 
-  async searchProducts(userId: string, input: { search?: string; categoryId?: string; brandId?: string }): Promise<EstimateProductPickerDto> {
+  async searchProducts(userId: string, input: { search?: string; categoryId?: string; brandId?: string; includeFacets?: boolean }): Promise<EstimateProductPickerDto> {
+    const startedAt = performance.now();
     await this.resolveCompany(userId, VIEW_PERMISSION);
+    const contextResolvedAt = performance.now();
+    const includeFacets = input.includeFacets !== false;
     const [result, categories, brands] = await Promise.all([
       this.catalogService.listProducts(userId, {
         search: normalizeOptional(input.search, 100),
@@ -609,15 +612,17 @@ export class DefaultEstimateService implements EstimateService {
         page: 1,
         pageSize: 12,
       }),
-      this.catalogService.listCategories(userId),
-      this.catalogService.listBrands(userId),
+      includeFacets ? this.catalogService.listCategories(userId) : Promise.resolve([]),
+      includeFacets ? this.catalogService.listBrands(userId) : Promise.resolve([]),
     ]);
+    const catalogResolvedAt = performance.now();
     const commercial = result.commercialViews ?? await this.pricingInventoryService.getProductCommercialViews(
       userId,
       result.products.map((product) => product.id),
     );
+    const commercialResolvedAt = performance.now();
     const commercialByProduct = new Map(commercial.map((view) => [view.productId, view]));
-    return {
+    const dto: EstimateProductPickerDto = {
       products: result.products.map((product) => {
         const view = commercialByProduct.get(product.id);
         return {
@@ -640,6 +645,20 @@ export class DefaultEstimateService implements EstimateService {
       categories: categories.map(({ id, name }) => ({ id, name })),
       brands: brands.map(({ id, name }) => ({ id, name })),
     };
+    console.info({
+      event: "estimate_product_search_performance",
+      includeFacets,
+      resultCount: dto.products.length,
+      stageMs: {
+        context: Math.round(contextResolvedAt - startedAt),
+        catalogAndFacets: Math.round(catalogResolvedAt - contextResolvedAt),
+        commercialFallback: Math.round(commercialResolvedAt - catalogResolvedAt),
+        projection: Math.round(performance.now() - commercialResolvedAt),
+      },
+      durationMs: Math.round(performance.now() - startedAt),
+      deployedCommitSha: process.env.VERCEL_GIT_COMMIT_SHA ?? null,
+    });
+    return dto;
   }
 
   async checkCurrentProductState(userId: string, estimateId: string): Promise<EstimateCommercialCheckDto> {
