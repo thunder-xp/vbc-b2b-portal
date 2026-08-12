@@ -8,6 +8,7 @@ import type {
 } from "../public-retail.repository";
 import {
   parsePublicRetailCategories,
+  parsePublicRetailCalculatorProductResolutions,
   parsePublicRetailFacets,
   parsePublicRetailProduct,
   parsePublicRetailProductPage,
@@ -58,5 +59,14 @@ export class SupabasePublicRetailReadRepository implements PublicRetailReadRepos
     });
     if (error) throw new PublicRetailRepositoryError();
     return parsePublicRetailFacets(data);
+  }
+
+  async resolveCalculatorProducts(profileKeys: string[], locale: PublicRetailLocale) {
+    const { data, error } = await createPublicReadClient().rpc("resolve_public_retail_calculator_products", {
+      p_profile_keys: profileKeys,
+      p_locale: locale,
+    });
+    if (error) throw new PublicRetailRepositoryError();
+    return parsePublicRetailCalculatorProductResolutions(data);
   }
 }

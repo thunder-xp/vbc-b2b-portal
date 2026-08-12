@@ -1,5 +1,6 @@
 import type {
   PublicRetailCategoryDto,
+  PublicRetailCalculatorProductResolutionDto,
   PublicRetailFacetDto,
   PublicRetailLocale,
   PublicRetailProductDetailDto,
@@ -22,6 +23,7 @@ export interface PublicRetailReadRepository {
   listProducts(input: ListPublicRetailProductsInput): Promise<PublicRetailProductPageDto>;
   getProduct(slug: string, locale: PublicRetailLocale): Promise<PublicRetailProductDetailDto | null>;
   listFacets(categorySlug: string | undefined, locale: PublicRetailLocale): Promise<PublicRetailFacetDto[]>;
+  resolveCalculatorProducts(profileKeys: string[], locale: PublicRetailLocale): Promise<PublicRetailCalculatorProductResolutionDto[]>;
 }
 
 export interface PublicRetailPublicationRepository {

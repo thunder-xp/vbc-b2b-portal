@@ -54,6 +54,15 @@ export class PublicRetailService {
   listRetailFacets(categorySlug?: string, locale?: string) {
     return this.repository.listFacets(optionalSlug(categorySlug), normalizeLocale(locale));
   }
+
+  resolveCalculatorProducts(profileKeys: string[], locale?: string) {
+    const normalized = [...new Set(profileKeys.map((key) => key.trim()))];
+    if (normalized.length < 1 || normalized.length > 30
+      || normalized.some((key) => !/^cctv\.[a-z0-9]+(?:\.[a-z0-9]+)*$/.test(key) || key.length > 100)) {
+      throw new Error("Invalid Public Retail calculator profiles.");
+    }
+    return this.repository.resolveCalculatorProducts(normalized, normalizeLocale(locale));
+  }
 }
 
 function normalizeFacets(value: Record<string, string[]> | undefined): Record<string, string[]> | undefined {

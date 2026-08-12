@@ -12,7 +12,7 @@ export function PublicRetailShell({ children, locale, languagePath }: Props) {
   const languageHref = (next: PublicRetailLocale) => `${languagePath}${languagePath.includes("?") ? "&" : "?"}lang=${next}`;
   const links = [
     [copy.catalog, `/catalog?lang=${locale}`],
-    [copy.chooseSystem, `/solutions/cctv?lang=${locale}`],
+    [copy.chooseSystem, `/calculator/cctv?lang=${locale}`],
     [copy.services, `/?lang=${locale}#installation`],
     [copy.delivery, `/?lang=${locale}#delivery`],
     [copy.support, `/?lang=${locale}#support`],

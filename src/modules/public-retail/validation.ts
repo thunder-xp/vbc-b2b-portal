@@ -29,6 +29,7 @@ const media = z.object({ url: z.string().url(), alt: z.string().max(500) }).stri
 const specification = z.object({ key: z.string().min(1).max(160), label: localizedText, value: localizedText }).strict();
 const brand = z.object({ slug, name: localizedText }).strict();
 const categorySummary = z.object({ slug, name: localizedText }).strict();
+const calculatorProfileKey = z.string().regex(/^cctv\.[a-z0-9]+(?:\.[a-z0-9]+)*$/).max(100);
 
 const summary = z.object({
   id: uuid,
@@ -107,6 +108,14 @@ export function parsePublicRetailProduct(value: unknown): PublicRetailProductDet
 
 export function parsePublicRetailFacets(value: unknown): PublicRetailFacetDto[] {
   return z.array(facet).max(200).parse(value);
+}
+
+export function parsePublicRetailCalculatorProductResolutions(value: unknown) {
+  return z.array(z.object({
+    profileKey: calculatorProfileKey,
+    matchCount: z.coerce.number().int().min(0).max(10),
+    product: summary.nullable(),
+  }).strict()).max(30).parse(value);
 }
 
 export function parsePublicRetailPublicationMetrics(value: unknown): PublicRetailPublicationMetrics {

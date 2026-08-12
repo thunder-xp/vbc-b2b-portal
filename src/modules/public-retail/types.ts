@@ -54,6 +54,12 @@ export type PublicRetailProductPageDto = {
   offset: number;
 };
 
+export type PublicRetailCalculatorProductResolutionDto = {
+  profileKey: string;
+  matchCount: number;
+  product: PublicRetailProductSummaryDto | null;
+};
+
 export type PublicRetailFacetDto = {
   key: string;
   label: string;

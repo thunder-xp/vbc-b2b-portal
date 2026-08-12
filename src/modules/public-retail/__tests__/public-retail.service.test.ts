@@ -35,6 +35,7 @@ describe("PublicRetailService", () => {
       listProducts,
       getProduct: vi.fn(),
       listFacets: vi.fn(),
+      resolveCalculatorProducts: vi.fn(),
     } as PublicRetailReadRepository;
 
     await new PublicRetailService(repository).listRetailProducts({
@@ -64,7 +65,7 @@ describe("PublicRetailService", () => {
   it("falls back to Russian and rejects unbounded input", async () => {
     const repository = {
       listCategories: vi.fn(), listProducts: vi.fn().mockResolvedValue({}),
-      getProduct: vi.fn(), listFacets: vi.fn(),
+      getProduct: vi.fn(), listFacets: vi.fn(), resolveCalculatorProducts: vi.fn(),
     } as unknown as PublicRetailReadRepository;
     const service = new PublicRetailService(repository);
 

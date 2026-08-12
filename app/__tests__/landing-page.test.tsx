@@ -24,7 +24,7 @@ describe("public retail landing", () => {
     render(await Home({ searchParams: Promise.resolve({}) }));
 
     expect(screen.getByRole("heading", { name: "Системы безопасности под ключ" })).toBeInTheDocument();
-    expect(screen.getAllByRole("link", { name: /Подобрать систему/ }).some((link) => link.getAttribute("href") === "/solutions/cctv?lang=ru")).toBe(true);
+    expect(screen.getAllByRole("link", { name: /Подобрать систему/ }).some((link) => link.getAttribute("href") === "/calculator/cctv?lang=ru")).toBe(true);
     expect(screen.getAllByRole("link", { name: "Для партнёров" })[0]).toHaveAttribute("href", "/cabinet");
     expect(screen.queryByText("Партнёрская платформа Novotech")).not.toBeInTheDocument();
     expect(screen.queryByText("Стать партнёром")).not.toBeInTheDocument();
