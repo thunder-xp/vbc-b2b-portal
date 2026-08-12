@@ -128,7 +128,7 @@ function CctvCompatibilitySummary({ value, requirements, hasUnverifiedRecorderRe
   const driveText = value.archive.selectedDrives.length
     ? value.archive.selectedDrives.map((drive) => `${drive.quantity} × ${drive.capacityTb} TB`).join(" + ") : "Требуется выбор накопителя";
   const status = blocking ? { title: "Нужно исправить конфигурацию", description: "Исправьте несовместимые позиции перед созданием сметы.", className: "border-red-200 bg-red-50 text-red-900", icon: AlertTriangle }
-    : warningCount ? { title: "Конфигурация требует проверки", description: `Есть ${warningCount} ${recommendationWord(warningCount)}, которые стоит проверить.`, className: "border-amber-200 bg-amber-50 text-amber-950", icon: AlertTriangle }
+    : warningCount ? { title: "Конфигурация требует проверки", description: recommendationDescription(warningCount), className: "border-amber-200 bg-amber-50 text-amber-950", icon: AlertTriangle }
       : { title: "Конфигурация готова", description: "Все обязательные компоненты совместимы.", className: "border-emerald-200 bg-emerald-50 text-emerald-950", icon: CircleCheck };
   const StatusIcon = status.icon;
   return <section className="space-y-3" aria-label="Совместимость конфигурации">
@@ -166,7 +166,11 @@ function CommercialSummary({ requirements, currencyCode, pricingSummary, vatMode
   </aside>;
 }
 
-function recommendationWord(count: number) { return count === 1 ? "рекомендация" : count >= 2 && count <= 4 ? "рекомендации" : "рекомендаций"; }
+function recommendationDescription(count: number) {
+  if (count === 1) return "Есть 1 рекомендация, которую стоит проверить.";
+  const noun = count >= 2 && count <= 4 ? "рекомендации" : "рекомендаций";
+  return `Есть ${count} ${noun}, которые стоит проверить.`;
+}
 function pricePositionWord(count: number) { return count === 1 ? "позиции" : "позиций"; }
 
 function ModeChoice({ onChoose }: { onChoose: (mode: GeneratorMode) => void }) {

@@ -91,6 +91,7 @@ describe("proposal generator UI contract", () => {
     expect(workspace).toContain("Проверьте конфигурацию");
     expect(workspace).toContain("Конфигурация готова");
     expect(workspace).toContain("Конфигурация требует проверки");
+    expect(workspace).toContain("Есть 1 рекомендация, которую стоит проверить.");
     expect(workspace).toContain("Нужно исправить конфигурацию");
     for (const decision of ["Регистратор", "Архив", "PoE"]) expect(workspace).toContain(`title="${decision}"`);
     expect(workspace).not.toContain("Изменить исходные данные");
