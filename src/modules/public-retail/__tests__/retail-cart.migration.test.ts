@@ -11,6 +11,7 @@ const cartPage = readFileSync(join(process.cwd(), "app/cart/page.tsx"), "utf8");
 const resultPage = readFileSync(join(process.cwd(), "app/calculator/cctv/result/page.tsx"), "utf8");
 const addButton = readFileSync(join(process.cwd(), "src/modules/public-retail/components/PublicRetailAddToCartButton.tsx"), "utf8");
 const retailShell = readFileSync(join(process.cwd(), "src/modules/public-retail/components/PublicRetailShell.tsx"), "utf8");
+const cartBadge = readFileSync(join(process.cwd(), "src/modules/public-retail/components/PublicRetailCartBadgeClient.tsx"), "utf8");
 const cartRepository = readFileSync(join(process.cwd(), "src/modules/public-retail/repositories/supabase/retail-cart.supabase-repository.ts"), "utf8");
 
 describe("governed anonymous Retail Cart migration", () => {
@@ -85,5 +86,6 @@ describe("governed anonymous Retail Cart migration", () => {
     expect(addButton).toContain("PUBLIC_RETAIL_CART_UPDATED_EVENT");
     expect(addButton).not.toContain("router.refresh");
     expect(retailShell).toContain('hidden font-medium text-zinc-500 sm:inline');
+    expect(cartBadge).toContain('quantity > 99 ? "99+" : quantity');
   });
 });
