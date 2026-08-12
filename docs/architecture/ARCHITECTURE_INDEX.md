@@ -1,6 +1,7 @@
 # Architecture Index
 
 - [Buyer Behavior And Recommendation Architecture](./BUYER_BEHAVIOR_AND_RECOMMENDATION_ARCHITECTURE.md)
+- [Retail and Installation Marketplace Architecture](./RETAIL_MARKETPLACE_ARCHITECTURE.md)
 
 This index is the table of contents for the Novotech Partner Platform Architecture Book.
 
@@ -28,7 +29,11 @@ This index is the table of contents for the Novotech Partner Platform Architectu
 17. `docs/architecture/ONE_C_PARTNER_SEARCH_BINDING_DESIGN.md`
 18. `docs/architecture/SYNC_ENGINE_DESIGN.md`
 19. `docs/architecture/PARTNER_ORDER_HISTORY_SYNC_DESIGN.md`
-20. `docs/domain/PARTNER_DOMAIN.md`
+20. `docs/architecture/RETAIL_MARKETPLACE_ARCHITECTURE.md`
+21. `docs/domain/RETAIL_ORDER_DOMAIN.md`
+22. `docs/domain/INSTALLATION_MARKETPLACE_DOMAIN.md`
+23. `docs/architecture/RETAIL_INTEGRATION_BOUNDARIES.md`
+24. `docs/domain/PARTNER_DOMAIN.md`
 20. `docs/domain/ACCESS_CONTROL_DOMAIN.md`
 21. `docs/domain/CATALOG_DOMAIN.md`
 22. `docs/domain/PRICING_INVENTORY_DOMAIN.md`
@@ -46,6 +51,8 @@ This index is the table of contents for the Novotech Partner Platform Architectu
 
 ## Business Domains
 
+- `docs/domain/RETAIL_ORDER_DOMAIN.md` - Guest identity, Retail Cart, immutable Retail Order snapshots, independent payment relationship, activation, and order history.
+- `docs/domain/INSTALLATION_MARKETPLACE_DOMAIN.md` - Fixed installation tariffs, providers, eligibility, requirements, assignment attempts, execution, privacy transition, and operational settlement.
 - `docs/domain/PARTNER_DOMAIN.md` - Partner companies, users, managers, access profiles, statuses, loyalty, lifecycle, and ownership boundaries.
 - `docs/domain/ACCESS_CONTROL_DOMAIN.md` - Access profiles, permissions, visibility depth, order permissions, finance permissions, admin override, and edge cases.
 - `docs/domain/CATALOG_DOMAIN.md` - Product catalog, brands, categories, product groups, images, documents, attributes, analogs, search, and fast order readiness.
@@ -57,6 +64,8 @@ This index is the table of contents for the Novotech Partner Platform Architectu
 
 ## Architecture
 
+- `docs/architecture/RETAIL_MARKETPLACE_ARCHITECTURE.md` - Authoritative Retail Marketplace bounded contexts, public/partner/internal boundaries, order and installation architecture, security, performance, rollout, and implementation sequence.
+- `docs/architecture/RETAIL_INTEGRATION_BOUNDARIES.md` - Deferred provider-neutral Payment/MAIB boundary, governed simulator, Retail-to-1C port, public projection, and unresolved external contracts.
 - `docs/ARCHITECTURE.md` - Initial product architecture, separation from Engineering CRM, 1C source-of-truth principle, domains, MVP scope, and non-goals.
 - `docs/architecture/SYSTEM_CONTEXT.md` - Actors, external systems, data directions, and responsibility boundaries.
 - `docs/architecture/EVENT_FLOWS.md` - Key business event flows with triggers, actors, steps, systems, data movement, failures, and logging.
@@ -154,6 +163,7 @@ Future schema documentation should be created before SQL implementation.
 - [Temporary Commercial Rate Publication](./COMMERCIAL_RATE_MANUAL_PUBLICATION.md)
 
 - `docs/architecture/INTEGRATION_ARCHITECTURE.md` - 1C integration philosophy, synchronized domains, read/write operations, sync strategy, cache strategy, failure handling, logging, monitoring, async future, and MVP limits.
+- `docs/architecture/RETAIL_INTEGRATION_BOUNDARIES.md` - Retail payment and 1C adapter boundaries; MAIB is intentionally deferred and no ERP values are guessed.
 - `docs/architecture/ONE_C_PROVIDER_DESIGN.md` - Provider-specific 1C adapter design that keeps 1C payloads behind neutral integration contracts.
 - `docs/architecture/ONE_C_PARTNER_SEARCH_BINDING_DESIGN.md` - 1C partner lookup flow for internal approval, selected reference binding, and provider DTO boundaries.
 - `docs/architecture/SYNC_ENGINE_DESIGN.md` - Provider-neutral sync orchestration design for importing ERP data into portal read models without implementing runtime workers.

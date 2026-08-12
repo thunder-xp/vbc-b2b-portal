@@ -39,6 +39,18 @@ Core principle: 1C owns commercial and accounting truth. The portal owns partner
 | Audit log | Portal | No | Append-only | No | Tracks portal access, permission, workflow, and sensitive actions. |
 | Integration log | Portal | No | Append-only | No | Tracks 1C read/write attempts, sync status, failures, and references. |
 | User settings | Portal | No | Yes | No | Personal portal preferences and notification settings. |
+| Public Retail projection | Portal projection of approved 1C/business facts | Yes | Publication workflow only | No | Public-safe, versioned, atomic projection; excludes partner/company commercial data and raw 1C references. |
+| Retail customer / guest identity | Portal | No | Customer-owned fields through governed flow | No | Separate from partner users and `partner_final_customers`; token/account scoped and privacy protected. |
+| Retail cart | Portal | No | Yes, by owning guest/customer | No | Mutable and expiring pre-order state; not a payment or official order. |
+| Retail Order snapshot | Portal operational/commercial record | No | Lifecycle only after lock | Future controlled export | Immutable record of what Novotech offered/sold; independent from B2B `PartnerOrder`. |
+| Retail payment attempt | Payment provider for external result; Portal for orchestration/evidence | Yes | Governed transitions only | No | Provider state is separate from Retail Order; MAIB implementation is deferred. |
+| Installation tariff | Portal / Novotech business policy | No | Governed version publication only | Future aggregate service only | Fixed customer-facing rate; installer cannot bid or redefine it. |
+| Installation commission rule | Portal / Novotech business policy | No | Governed version publication only | Future settlement handoff | Separate from customer tariff and confidential outside authorized operations/finance. |
+| Installation Requirement | Portal | No | Governed execution workflow | Aggregate only in future Retail order export | Detailed work remains Portal-owned. |
+| Installation Provider profile | Portal | No | Authorized Marketplace administration | No | Marketplace eligibility is separate from B2B authorization. |
+| Installation assignment attempt | Portal | No | State transitions only | No | Immutable offer history; reassignment creates a new attempt. |
+| Installation execution | Portal | No | Authorized provider/internal workflow | No | Scheduling, work progress, evidence, and customer confirmation. |
+| Installation settlement projection | Portal operational projection; 1C accounting truth | Yes | Governed operational transitions | Future controlled export | Portal calculates accrual evidence; 1C owns official payable, reconciliation, and payment. |
 
 ## Rules for Deciding Data Ownership
 
@@ -49,6 +61,7 @@ Core principle: 1C owns commercial and accounting truth. The portal owns partner
 - If the portal enriches source data for search, labels, grouping, or display, the enrichment must not redefine the official meaning of 1C data.
 - If ownership is unclear, choose the safer owner and document the decision before implementation.
 - If data may create financial, legal, or relationship risk, treat 1C as owner unless explicitly approved otherwise.
+- Retail Order state, Payment state, assignment state, 1C export state, and settlement state must remain independent even when combined in a customer-facing projection.
 
 ## Examples of Wrong Ownership Decisions
 
@@ -62,6 +75,9 @@ Core principle: 1C owns commercial and accounting truth. The portal owns partner
 - Using loyalty level alone to expose sensitive finance data without an explicit access profile permission.
 - Creating portal-only invoice or accounting document records that differ from 1C.
 - Retrying order creation without duplicate protection and creating multiple 1C orders.
+- Reusing `PartnerOrder`, B2B contracts, partner prices, or `partner_final_customers` for anonymous Retail commerce.
+- Marking a Retail Order paid from a provider handoff, UI action, or production simulator without verified payment evidence.
+- Rewriting an assignment row when a provider declines instead of preserving the attempt and creating a new one.
 
 ## MVP Ownership Summary
 
@@ -73,6 +89,8 @@ In the MVP:
 - The portal may write to 1C only for new order creation and product reservations.
 - The portal must revalidate sensitive price and stock data with 1C before order creation or reservation.
 - The portal must survive temporary 1C outages by supporting safe read-only or draft workflows, not by inventing official commercial data.
+- Retail Marketplace is a separate Portal bounded context. Its real MAIB adapter and Retail-to-1C mapping remain unavailable until provider, fiscal, and ERP contracts are approved.
+- Before MAIB approval, production must not simulate payment or activate an order as financially paid.
 
 ## Future Review Rules
 

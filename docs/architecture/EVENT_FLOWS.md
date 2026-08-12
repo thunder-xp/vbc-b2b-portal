@@ -722,3 +722,112 @@ Validation failure state, optional order request, manager task, integration log.
 ### Audit / Logging Requirements
 
 Log outage signal, failed operation, checkout state, partner impact, retry decision, and manager task if created.
+
+## Retail Checkout Lock
+
+### Trigger
+
+A public Retail customer confirms contact, address, and order review.
+
+### Actor
+
+Guest or future authenticated Retail customer.
+
+### Steps
+
+1. Server validates token-scoped cart ownership and optimistic revision.
+2. Server resolves only published Retail product, commercial, calculator, and tariff versions.
+3. Cart, immutable Retail Order snapshot, order lines, and `retail_order_created` event are committed atomically under a submission key and request fingerprint.
+4. Order enters `awaiting_payment`; a provider-neutral Payment Attempt may be created later.
+
+### Failure and Audit
+
+Duplicate checkout returns the prior matching order. Stale cart, changed publication, or invalid ownership fails safely without partial order creation. Record correlation ID, versions, counts, totals, and safe failure classification without customer PII or raw 1C identifiers.
+
+## Retail Payment Confirmation and Activation
+
+### Trigger
+
+Verified normalized payment evidence from a future provider adapter, or a governed non-production simulator.
+
+### Actor
+
+Payment integration worker; simulator is restricted to authorized internal actors outside production.
+
+### Steps
+
+1. Verify and deduplicate provider event identity, order/attempt, amount, and currency.
+2. Record append-only payment evidence and transition the Payment Attempt to `paid`.
+3. Idempotently transition the Retail Order from `awaiting_payment` to `confirmed`.
+4. Atomically enqueue installation activation, Retail-to-1C export, assignment dispatch, and customer notification.
+5. Process downstream work asynchronously.
+
+### Failure and Audit
+
+Provider handoff alone is not payment confirmation. Replayed or out-of-order evidence is safe. Downstream failure does not undo payment; it enters operational retry/reconciliation. Production rejects simulated payment unconditionally.
+
+## Installation Assignment and Reassignment
+
+### Trigger
+
+An activated paid Installation Requirement needs a provider, or its current offer is declined/timed out.
+
+### Actor
+
+Bounded assignment worker or authorized internal operator.
+
+### Steps
+
+1. Lock/version-check the requirement and confirm no active attempt exists.
+2. Apply hard eligibility filters and deterministic indexed ranking against the local provider projection.
+3. Create one immutable offer attempt and deadline.
+4. On acceptance, unlock minimum operational customer data and create execution state.
+5. On decline or timeout, close the attempt and create a new attempt for the next eligible provider.
+6. Fall back to a Novotech internal team, then an internal operational incident when no provider is available.
+
+### Failure and Audit
+
+Customer order and payment remain unchanged. Every offer, selection version, accept/decline/timeout reason, reassignment, and fallback is append-only and idempotent. Customers receive only safe operational status.
+
+## Installation Completion and Settlement Eligibility
+
+### Trigger
+
+The accepted provider completes work and customer confirmation or an approved confirmation-timeout policy is satisfied.
+
+### Actor
+
+Provider, Retail customer, and governed settlement worker.
+
+### Steps
+
+1. Provider records completion and governed evidence.
+2. Customer confirms or reports an issue through token-scoped access.
+3. With no active dispute, create one operational settlement accrual from immutable tariff and commission snapshots.
+4. Mark it payable-ready only after all approved evidence is present.
+5. Future integration exports the settlement to 1C for accounting and payment reconciliation.
+
+### Failure and Audit
+
+Acceptance or scheduling alone never creates a payable. Disputes block settlement. Duplicate completion, confirmation, or accrual events are deduplicated. Portal history remains immutable; 1C remains official accounting and payout truth.
+
+## Retail-to-1C Export
+
+### Trigger
+
+An activated Retail Order has an idempotent export command after ERP contracts are approved.
+
+### Actor
+
+Retail integration worker.
+
+### Steps
+
+1. Load the locked Retail commercial snapshot.
+2. Map canonical equipment/material lines and one aggregate `Instalarea sistemului` service.
+3. Submit through the provider-neutral Retail Order export port.
+4. Read back and reconcile the external order before marking export confirmed.
+
+### Failure and Audit
+
+No detailed assignment, work, compensation, or commission data is exported as customer-order lines. Unknown outcomes enter reconciliation and are never retried blindly. Payment and Retail Order confirmation remain intact during 1C outage.
