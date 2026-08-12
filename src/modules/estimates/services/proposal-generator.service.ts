@@ -92,10 +92,13 @@ export class ProposalGeneratorService {
       const catalogIds = [...new Set(requirements.filter((line) => line.resolution === "catalog" && line.resolvedId).map((line) => line.resolvedId!))];
       if (catalogIds.length) {
         const commercial = await this.pricing.getProductCommercialViews(userId, catalogIds);
-        const priceById = new Map(commercial.map((view) => [view.productId, view.retailPrice]));
+        const commercialById = new Map(commercial.map((view) => [view.productId, view]));
         requirements = requirements.map((line) => {
-          const price = line.resolvedId ? priceById.get(line.resolvedId) : null;
-          return price?.currencyCode === input.currencyCode ? { ...line, sellingUnitPrice: price.amount, sellingCurrencyCode: price.currencyCode } : line;
+          const view = line.resolvedId ? commercialById.get(line.resolvedId) : null;
+          const withStock = view?.stock ? { ...line, resolvedStockLabel: view.stock.label } : line;
+          return view?.retailPrice?.currencyCode === input.currencyCode
+            ? { ...withStock, sellingUnitPrice: view.retailPrice.amount, sellingCurrencyCode: view.retailPrice.currencyCode }
+            : withStock;
         });
       }
       commercialResolvedAt = performance.now();

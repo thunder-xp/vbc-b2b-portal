@@ -22,6 +22,7 @@ export type GeneratorRequirement = {
   resolvedLabel: string | null;
   resolvedSku?: string | null;
   resolvedImageUrl?: string | null;
+  resolvedStockLabel?: string | null;
   profileKey?: string | null;
   assumption?: string | null;
   sellingUnitPrice?: number | null;

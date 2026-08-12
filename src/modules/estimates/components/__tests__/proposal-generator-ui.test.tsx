@@ -31,6 +31,7 @@ describe("proposal generator UI contract", () => {
     expect(review).toContain("resolvedSku: item.sku");
     expect(review).toContain("resolvedImageUrl: item.imageUrl");
     expect(review).toContain("retailPriceAmount");
+    expect(review).toContain("resolvedStockLabel");
     expect(review).toContain("Исходная потребность:");
     expect(workspace).toContain("governedResolvedId");
     expect(workspace).toContain("Для выбранной замены регистратора нет подтверждённых данных");

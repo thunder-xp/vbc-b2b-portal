@@ -11,7 +11,7 @@ describe("ProposalGeneratorService", () => {
       { profileKey: "cctv.indoor.6mp", resolution: "catalog", resolvedId: uuid("2"), resolvedLabel: "CAM-1 · Camera", defaultSellingUnitPrice: null, defaultSellingCurrencyCode: null, defaultSellingVatMode: null },
     ]);
     const companyAccess = { getOwnMemberships: vi.fn().mockResolvedValue([{ companyId: uuid("4"), status: "active" }]), getActiveCompanyContext: vi.fn().mockResolvedValue({ company: { id: uuid("4") } }) };
-    const pricing = { getProductCommercialViews: vi.fn().mockResolvedValue([{ productId: uuid("2"), retailPrice: { amount: 150, currencyCode: "USD" } }]) };
+    const pricing = { getProductCommercialViews: vi.fn().mockResolvedValue([{ productId: uuid("2"), retailPrice: { amount: 150, currencyCode: "USD" }, stock: { label: "Нет в наличии" } }]) };
     const service = new ProposalGeneratorService({ recordSession, resolveCalculatorProfiles } as never, companyAccess as never, { ensurePermission: vi.fn() } as never, {} as never, pricing as never);
     const result = await service.calculateCctv(uuid("1"), { requestKey: uuid("7"), currencyCode: "USD", parameters: {
       objectType: "apartment", indoorCameraCount: 1, outdoorCameraCount: 0, archiveDays: 7, cableLength: 0,
@@ -21,7 +21,9 @@ describe("ProposalGeneratorService", () => {
     } });
     expect(resolveCalculatorProfiles).toHaveBeenCalledTimes(1);
     expect(pricing.getProductCommercialViews).toHaveBeenCalledTimes(1);
-    expect(result.requirements.find((line) => line.profileKey === "cctv.indoor.6mp")).toMatchObject({ resolution: "catalog", resolvedLabel: "Camera", resolvedSku: "CAM-1", sellingUnitPrice: 150 });
+    expect(result.requirements.find((line) => line.profileKey === "cctv.indoor.6mp")).toMatchObject({
+      resolution: "catalog", resolvedLabel: "Camera", resolvedSku: "CAM-1", sellingUnitPrice: 150, resolvedStockLabel: "Нет в наличии",
+    });
     expect(recordSession).toHaveBeenCalledWith(expect.objectContaining({
       generationMode: "quick_calculation",
       structuredFacts: expect.objectContaining({
