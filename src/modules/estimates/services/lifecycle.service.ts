@@ -4,7 +4,7 @@ import { MembershipStatus } from "../../access-control/types";
 import type { CatalogService } from "../../catalog/services";
 import type { CartService } from "../../orders/services";
 import type { PricingInventoryService } from "../../pricing-inventory/services";
-import type { EstimateLifecycleRepository, EstimateRepository, ProposalDeliveryRepository, RefreshedProductPrice } from "../repositories";
+import { EstimateVersionConflictError, type EstimateLifecycleRepository, type EstimateRepository, type ProposalDeliveryRepository, type RefreshedProductPrice } from "../repositories";
 import type {
   Estimate,
   EstimateCartConversionSummary,
@@ -93,16 +93,22 @@ export class EstimateLifecycleService {
     };
   }
 
-  async createVersion(userId: string, estimateId: string, expectedRevision: number, note?: string, changeReason?: string): Promise<EstimateVersion> {
+  async createVersion(userId: string, estimateId: string, expectedRevision: number, requestKey: string, note?: string, changeReason?: string): Promise<EstimateVersion> {
     const startedAt = performance.now();
     const preview = await this.proposalService.preparePreview(userId, estimateId, MANAGE_PERMISSION);
     const previewPreparedAt = performance.now();
     assertReady(readinessFromProposal(preview.proposal).checks);
-    const created = await this.lifecycleRepository.createVersion({
-      estimateId: normalizeId(estimateId), expectedRevision: normalizeRevision(expectedRevision),
+    const command = {
+      estimateId: normalizeId(estimateId), expectedRevision: normalizeRevision(expectedRevision), requestKey: normalizeUuid(requestKey),
       note: normalizeOptional(note, 1000), changeReason: normalizeOptional(changeReason, 1000),
       customerProposalSnapshot: preview.proposal,
+    };
+    const result = await this.lifecycleRepository.createVersion({
+      ...command,
+      requestFingerprint: createHash("sha256").update(JSON.stringify(command)).digest("hex"),
     });
+    if (result.status === "conflict") throw new EstimateVersionConflictError(result.currentRevision);
+    const created = result.version;
     console.info({ event: "estimate_version_created", estimateId, versionId: created.id, versionNumber: created.versionNumber, lineCount: preview.proposal.sections.reduce((sum, section) => sum + section.lines.length, 0), durationMs: Math.round(performance.now() - startedAt), stageMs: { snapshotPreparation: Math.round(previewPreparedAt - startedAt), versionRpc: Math.round(performance.now() - previewPreparedAt) }, deployedCommitSha: process.env.VERCEL_GIT_COMMIT_SHA ?? null });
     return created;
   }
@@ -334,3 +340,4 @@ function normalizeId(value: string): string { const normalized = value.trim(); i
 function normalizeUuid(value: string): string { const normalized = value.trim().toLowerCase(); if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(normalized)) throw new InvalidStateError("Ключ операции некорректен."); return normalized; }
 function normalizeRequired(value: string, max: number, message: string): string { const normalized = value.trim(); if (!normalized || normalized.length > max) throw new InvalidStateError(message); return normalized; }
 function normalizeOptional(value: string | undefined, max: number): string | null { const normalized = value?.trim(); if (!normalized) return null; if (normalized.length > max) throw new InvalidStateError("Текст слишком длинный."); return normalized; }
+import { createHash } from "node:crypto";

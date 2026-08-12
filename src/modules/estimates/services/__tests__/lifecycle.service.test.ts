@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { NotFoundError } from "../../../access-control/services";
-import type { EstimateLifecycleRepository, EstimateRepository } from "../../repositories";
+import { EstimateVersionConflictError, type EstimateLifecycleRepository, type EstimateRepository } from "../../repositories";
 import type { CustomerProposalDto, Estimate, EstimateVersion } from "../../types";
 import { EstimateLifecycleService } from "../lifecycle.service";
 
@@ -17,15 +17,25 @@ describe("EstimateLifecycleService", () => {
 
   it.each([20, 100, 300])("creates one exact %i-line version without per-line writes", async (lineCount) => {
     const dependencies = makeDependencies(lineCount);
-    const result = await dependencies.service.createVersion("user-1", "estimate-1", 3, "Offer", "Rates changed");
+    const result = await dependencies.service.createVersion("user-1", "estimate-1", 3, "11111111-1111-4111-8111-111111111111", "Offer", "Rates changed");
     expect(result.versionNumber).toBe(1);
     expect(dependencies.lifecycle.createVersion).toHaveBeenCalledOnce();
     expect(dependencies.lifecycle.createVersion).toHaveBeenCalledWith(expect.objectContaining({
       estimateId: "estimate-1", expectedRevision: 3, note: "Offer", changeReason: "Rates changed",
+      requestKey: "11111111-1111-4111-8111-111111111111", requestFingerprint: expect.stringMatching(/^[0-9a-f]{64}$/),
       customerProposalSnapshot: dependencies.proposal,
     }));
     expect(dependencies.proposalService.preparePreview).toHaveBeenCalledOnce();
     expect(dependencies.estimates.findAggregateById).not.toHaveBeenCalled();
+  });
+
+  it("turns one structured stale result into one terminal domain conflict", async () => {
+    const dependencies = makeDependencies();
+    vi.mocked(dependencies.lifecycle.createVersion).mockResolvedValue({ status: "conflict", currentRevision: 4, code: "ESTIMATE_VERSION_CONFLICT" });
+    await expect(dependencies.service.createVersion("user-1", "estimate-1", 3, "11111111-1111-4111-8111-111111111111"))
+      .rejects.toEqual(expect.objectContaining({ name: EstimateVersionConflictError.name, currentRevision: 4 }));
+    expect(dependencies.lifecycle.createVersion).toHaveBeenCalledOnce();
+    expect(dependencies.proposalService.preparePreview).toHaveBeenCalledOnce();
   });
 
   it("delegates valid transitions to one guarded repository operation", async () => {
@@ -106,7 +116,7 @@ function makeDependencies(lineCount = 1) {
   };
   const lifecycle = {
     listVersions: vi.fn().mockResolvedValue([version]), findVersion: vi.fn().mockResolvedValue(version), listLatestDocuments: vi.fn().mockResolvedValue(new Map()),
-    createVersion: vi.fn().mockResolvedValue(version), markReady: vi.fn().mockResolvedValue(estimate), transitionVersion: vi.fn().mockResolvedValue(version),
+    createVersion: vi.fn().mockResolvedValue({ status: "created", version, repeated: false }), markReady: vi.fn().mockResolvedValue(estimate), transitionVersion: vi.fn().mockResolvedValue(version),
     restoreDraft: vi.fn().mockResolvedValue(estimate), duplicate: vi.fn().mockResolvedValue({ ...estimate, id: "estimate-copy" }), createTemplate: vi.fn(), createFromCart: vi.fn().mockResolvedValue(estimate),
   } satisfies EstimateLifecycleRepository;
   const estimates = { findById: vi.fn().mockResolvedValue(estimate), findAggregateById: vi.fn().mockResolvedValue(aggregate) } as unknown as EstimateRepository;

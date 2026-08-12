@@ -18,6 +18,10 @@ export type RefreshedProductPrice = {
   exchangeRateDate: string | null;
 };
 
+export type EstimateVersionCreationResult =
+  | { status: "created"; version: EstimateVersion; repeated: boolean }
+  | { status: "conflict"; currentRevision: number; code: "ESTIMATE_VERSION_CONFLICT" };
+
 export interface EstimateLifecycleRepository {
   listVersions(estimateId: string): Promise<EstimateVersion[]>;
   findVersion(versionId: string): Promise<EstimateVersion | null>;
@@ -25,10 +29,12 @@ export interface EstimateLifecycleRepository {
   createVersion(input: {
     estimateId: string;
     expectedRevision: number;
+    requestKey: string;
+    requestFingerprint: string;
     note: string | null;
     changeReason: string | null;
     customerProposalSnapshot: CustomerProposalDto;
-  }): Promise<EstimateVersion>;
+  }): Promise<EstimateVersionCreationResult>;
   markReady(estimateId: string, expectedRevision: number): Promise<Estimate>;
   transitionVersion(input: {
     versionId: string;
@@ -65,5 +71,12 @@ export class EstimateLifecycleRepositoryError extends Error {
   constructor(readonly code: string | null = null) {
     super("Estimate lifecycle persistence failed.");
     this.name = "EstimateLifecycleRepositoryError";
+  }
+}
+
+export class EstimateVersionConflictError extends Error {
+  constructor(readonly currentRevision: number) {
+    super("Estimate changed before version creation.");
+    this.name = "EstimateVersionConflictError";
   }
 }

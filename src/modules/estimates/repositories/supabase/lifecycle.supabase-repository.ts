@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createClient } from "@/src/lib/supabase/server";
+import { withBoundedSerializationRetry } from "@/src/lib/database/serialization-retry";
 
 import type { EstimateVersion, ProposalSettings, ProposalTemplate } from "../../types";
 import type { EstimateLifecycleRepository } from "../lifecycle.repository";
@@ -64,13 +65,26 @@ export class SupabaseEstimateLifecycleRepository implements EstimateLifecycleRep
   }
 
   async createVersion(input: Parameters<EstimateLifecycleRepository["createVersion"]>[0]) {
-    return this.versionRpc("create_estimate_version", {
-      target_estimate_id: input.estimateId,
-      expected_revision: input.expectedRevision,
-      target_note: input.note,
-      target_change_reason: input.changeReason,
-      target_customer_snapshot: input.customerProposalSnapshot,
+    const { data, error } = await withBoundedSerializationRetry(async () => {
+      const response = await (await createClient()).rpc("create_estimate_version_v2", {
+        target_estimate_id: input.estimateId,
+        expected_revision: input.expectedRevision,
+        target_request_key: input.requestKey,
+        target_request_fingerprint: input.requestFingerprint,
+        target_note: input.note,
+        target_change_reason: input.changeReason,
+        target_customer_snapshot: input.customerProposalSnapshot,
+      });
+      if (response.error?.code === "40001") throw response.error;
+      return response;
     });
+    if (error || !data) throw new EstimateLifecycleRepositoryError(error?.code ?? null);
+    const result = data as { status?: unknown; version?: unknown; repeated?: unknown; currentRevision?: unknown; code?: unknown };
+    if (result.status === "conflict" && result.code === "ESTIMATE_VERSION_CONFLICT") {
+      return { status: "conflict" as const, currentRevision: Number(result.currentRevision), code: "ESTIMATE_VERSION_CONFLICT" as const };
+    }
+    if (result.status !== "created" || !result.version) throw new EstimateLifecycleRepositoryError("invalid_response");
+    return { status: "created" as const, version: mapVersion(result.version as VersionRow), repeated: result.repeated === true };
   }
 
   async markReady(estimateId: string, expectedRevision: number) {

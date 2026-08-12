@@ -5,18 +5,25 @@ import { revalidatePath } from "next/cache";
 import { type ActionResult, failureFromError, success } from "../../access-control/actions/action-result";
 import type { EstimateCartConversionSummary, EstimateRejectionReason, EstimateSentChannel, EstimateWorkflowDto, ProposalTemplate } from "../types";
 import { createEstimateLifecycleService, getAuthenticatedUserId } from "./service-factory";
+import { EstimateVersionConflictError } from "../repositories";
 
 export async function getEstimateWorkflowAction(estimateId: string): Promise<ActionResult<EstimateWorkflowDto>> {
   try { return success("История версий загружена.", await createEstimateLifecycleService().getWorkflow(await getAuthenticatedUserId(), estimateId)); }
   catch (error) { return failureFromError(error); }
 }
 
-export async function createEstimateVersionAction(estimateId: string, expectedRevision: number, note = "", changeReason = ""): Promise<ActionResult<EstimateVersionReceipt>> {
+export async function createEstimateVersionAction(estimateId: string, expectedRevision: number, requestKey: string, note = "", changeReason = ""): Promise<ActionResult<EstimateVersionReceipt>> {
   try {
-    const result = await createEstimateLifecycleService().createVersion(await getAuthenticatedUserId(), estimateId, expectedRevision, note, changeReason);
+    const result = await createEstimateLifecycleService().createVersion(await getAuthenticatedUserId(), estimateId, expectedRevision, requestKey, note, changeReason);
     revalidateEstimate(estimateId);
     return success(`Версия ${result.versionNumber} создана.`, versionReceipt(result));
-  } catch (error) { return failureFromError(error); }
+  } catch (error) {
+    if (error instanceof EstimateVersionConflictError) {
+      console.info({ event: "estimate_version_conflict", estimateId, expectedRevision, currentRevision: error.currentRevision, automaticRetryCount: 0, deployedCommitSha: process.env.VERCEL_GIT_COMMIT_SHA ?? null });
+      return { success: false, errorCode: "ESTIMATE_VERSION_CONFLICT", message: "Смета изменилась. Загружена актуальная версия — проверьте её и повторите подготовку КП.", data: null };
+    }
+    return failureFromError(error);
+  }
 }
 
 export async function markEstimateReadyAction(estimateId: string, expectedRevision: number): Promise<ActionResult<EstimateMutationReceipt>> {

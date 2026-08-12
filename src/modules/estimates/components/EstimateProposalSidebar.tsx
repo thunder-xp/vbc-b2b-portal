@@ -3,7 +3,7 @@
 import { Eye, FilePlus2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 
 import { createEstimateVersionAction } from "../actions/lifecycle.actions";
 import type { EstimateWorkflowDto } from "../types";
@@ -11,6 +11,8 @@ import type { EstimateWorkflowDto } from "../types";
 export function EstimateProposalSidebar({ workflow, revision, disabled = false, readiness = workflow.readiness }: { workflow: EstimateWorkflowDto; revision: number; disabled?: boolean; readiness?: EstimateWorkflowDto["readiness"] }) {
   const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
+  const [requestKey, setRequestKey] = useState(() => crypto.randomUUID());
+  const submitting = useRef(false);
   const [pending, startTransition] = useTransition();
   const latestProposal = workflow.versions[0] ?? null;
 
@@ -22,9 +24,18 @@ export function EstimateProposalSidebar({ workflow, revision, disabled = false, 
     <div className="mt-4 grid gap-2">
       <Link className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-700 outline-none hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-emerald-500" href={latestProposal ? `/cabinet/estimates/${workflow.estimateId}/versions/${latestProposal.id}/preview` : `/cabinet/estimates/${workflow.estimateId}/preview`} prefetch={false}><Eye className="size-4" />Предпросмотр КП</Link>
       <button className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-emerald-700 px-3 text-sm font-semibold text-white outline-none hover:bg-emerald-800 focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-45" disabled={disabled || pending || !readiness.ready} onClick={() => startTransition(async () => {
-        const result = await createEstimateVersionAction(workflow.estimateId, revision, "");
-        setMessage(result.message);
-        if (result.success) router.refresh();
+        if (submitting.current) return;
+        submitting.current = true;
+        try {
+          const result = await createEstimateVersionAction(workflow.estimateId, revision, requestKey, "");
+          setMessage(result.message);
+          if (result.success || result.errorCode === "ESTIMATE_VERSION_CONFLICT") {
+            setRequestKey(crypto.randomUUID());
+            router.refresh();
+          }
+        } finally {
+          submitting.current = false;
+        }
       })} type="button"><FilePlus2 className="size-4" />{pending ? "Подготовка..." : "Подготовить КП"}</button>
     </div>
     {disabled ? <p className="mt-2 text-xs text-amber-800">Сохраните изменения перед подготовкой КП.</p> : null}
