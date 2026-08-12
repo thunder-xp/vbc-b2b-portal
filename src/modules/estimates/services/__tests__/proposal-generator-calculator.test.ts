@@ -129,4 +129,26 @@ describe("CCTV quick calculator", () => {
     expect(result.compatibility.recorder.profileKey).toBe("cctv.nvr.8");
     expect(result.compatibility.compatibleConfigurationFound).toBe(true);
   });
+
+  it.each([
+    { name: "A", cameraCount: 2, recorderSelection: "auto" as const, recorder: "cctv.nvr.4", storage: ["cctv.storage.2tb"], blocking: null },
+    { name: "B", cameraCount: 6, recorderSelection: "auto" as const, recorder: "cctv.nvr.8", storage: ["cctv.storage.6tb"], blocking: null },
+    { name: "C", cameraCount: 12, recorderSelection: "auto" as const, resolution: 6 as const, recorder: "cctv.nvr.32", storage: ["cctv.storage.8tb", "cctv.storage.6tb"], blocking: null },
+    { name: "D", cameraCount: 12, recorderSelection: 8 as const, recorder: "cctv.nvr.8", storage: [], blocking: "recorder_channels_insufficient" },
+    { name: "E", cameraCount: 20, recorderSelection: "auto" as const, archiveDays: 7, recorder: "cctv.nvr.32", storage: ["cctv.storage.4tb"], blocking: null },
+    { name: "F", cameraCount: 6, recorderSelection: 8 as const, recorder: "cctv.nvr.8", storage: ["cctv.storage.6tb"], blocking: null },
+  ])("preserves accepted B2B scenario $name", (scenario) => {
+    const result = calculateCctvConfiguration({
+      ...warehouse,
+      indoorCameraCount: scenario.cameraCount,
+      outdoorCameraCount: 0,
+      indoorResolutionMp: scenario.resolution ?? 4,
+      recorderSelection: scenario.recorderSelection,
+      archiveDays: scenario.archiveDays ?? 30,
+      cableLength: 100,
+    });
+    expect(result.compatibility.recorder.profileKey).toBe(scenario.recorder);
+    expect(result.compatibility.archive.selectedDrives.map((drive) => drive.profileKey)).toEqual(scenario.storage);
+    expect(result.compatibility.issues.find((issue) => issue.severity === "blocking")?.code ?? null).toBe(scenario.blocking);
+  });
 });
