@@ -67,6 +67,7 @@ describe("proposal generator UI contract", () => {
   it("keeps responsive bounded layouts and explicit unresolved states", () => {
     expect(workspace).toContain("overflow-x-clip"); expect(review).toContain("lg:grid-cols-");
     expect(calculator).toContain("sm:grid-cols-2"); expect(review).toContain("Цена уточняется");
+    expect(review).toContain("minmax(13rem,1fr)_6rem_7.5rem_7.5rem_auto");
   });
   it("shows known-position totals, unpriced-work disclosure, and governed service price controls", () => {
     expect(workspace).toContain("Ориентировочный расчёт");

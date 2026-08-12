@@ -69,7 +69,7 @@ function GeneratorLine({ line, currencyCode, state, onChange, onRemove }: {
   const unitPrice = line.sellingUnitPrice != null && line.sellingCurrencyCode === currencyCode ? line.sellingUnitPrice : null;
   const amount = unitPrice == null ? null : unitPrice * line.quantity;
   return <article className="min-w-0 p-4">
-    <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(16rem,1fr)_7rem_9rem_9rem_auto] lg:items-center">
+    <div className="grid min-w-0 gap-3 lg:grid-cols-[minmax(13rem,1fr)_6rem_7.5rem_7.5rem_auto] lg:items-center">
       <div className="flex min-w-0 items-start gap-3">
         {line.resolution === "catalog" && <ProductLineThumbnail imageUrl={line.resolvedImageUrl ?? null} productName={line.resolvedLabel ?? line.description} size="compact" />}
         <div className="min-w-0">
