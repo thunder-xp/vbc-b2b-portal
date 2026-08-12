@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 
 import { PublicRetailShell } from "@/src/modules/public-retail/components/PublicRetailShell";
-import { availabilityCopy, availabilityTone, formatRetailPrice } from "@/src/modules/public-retail/presentation";
+import { availabilityCopy, availabilityTone, formatRetailPrice, publicRetailLocale } from "@/src/modules/public-retail/presentation";
 import { getPublicCctvCalculatorService } from "@/src/modules/public-retail/server";
 import {
   publicCctvInputFromSearchParams,
@@ -12,11 +12,16 @@ import {
   type PublicCctvResultLine,
 } from "@/src/modules/public-retail/services/public-cctv-calculator.service";
 
-export const metadata: Metadata = {
-  title: "Предварительный расчёт CCTV | Novotech",
-  description: "Подобранная система видеонаблюдения и ориентировочная розничная стоимость.",
-  robots: { index: false, follow: false },
-};
+export async function generateMetadata({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }): Promise<Metadata> {
+  const locale = publicRetailLocale((await searchParams).lang);
+  return {
+    title: locale === "ro" ? "Calcul preliminar CCTV | Novotech" : "Предварительный расчёт CCTV | Novotech",
+    description: locale === "ro"
+      ? "Sistemul de supraveghere video selectat şi costul estimativ cu amănuntul."
+      : "Подобранная система видеонаблюдения и ориентировочная розничная стоимость.",
+    robots: { index: false, follow: false },
+  };
+}
 
 const GROUPS: PublicCctvResultLine["group"][] = ["cameras", "recorder", "archive", "network", "materials", "works"];
 
@@ -45,7 +50,7 @@ export default async function PublicCctvResultPage({ searchParams }: { searchPar
   ));
 
   return <PublicRetailShell languagePath="/calculator/cctv/result" locale={effectiveLocale}>
-    <main className="min-h-[calc(100vh-4rem)] bg-zinc-50">
+    <main className="min-h-[calc(100vh-4rem)] bg-zinc-50" lang={effectiveLocale}>
       <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8 lg:py-14">
         {!result || !input ? <FailureState locale={effectiveLocale} modifyHref={modifyHref} /> : <>
           <header className="border-b border-zinc-200 pb-8">
