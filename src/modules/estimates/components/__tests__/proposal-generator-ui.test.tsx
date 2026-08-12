@@ -29,7 +29,8 @@ describe("proposal generator UI contract", () => {
   it("uses the approved five-row CCTV parameter workspace", () => {
     expect(calculator).toContain("function ParameterRow");
     expect(calculator.match(/<ParameterRow/g)).toHaveLength(5);
-    for (const title of ["Камеры внутри", "Камеры снаружи", "Видеорегистратор", "Архив", "Кабель"]) expect(calculator).toContain(`title="${title}"`);
+    for (const title of ["Камеры внутри", "Камеры снаружи", "Видеорегистратор", "Архив (хранение)", "Кабель"]) expect(calculator).toContain(`title="${title}"`);
+    for (const copy of ["Устанавливаются в помещениях", "Устанавливаются на улице", "Запись и хранение архива", "Срок хранения записи", "Общая длина кабеля", "Разрешение, Мп", "Количество каналов", "Длина кабеля, м"]) expect(calculator).toContain(copy);
     for (const icon of ["Camera", "Cctv", "Server", "HardDrive", "Cable"]) expect(calculator).toContain(`icon={${icon}}`);
     expect(calculator).toContain("divide-y divide-zinc-200");
     expect(calculator).toContain("Дополнительные опции");

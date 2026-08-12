@@ -65,23 +65,23 @@ export function ProposalQuickCalculator({ currencyCode, onBack, onCalculated }: 
       </header>
 
       <div className="divide-y divide-zinc-200">
-        <ParameterRow icon={Camera} subtitle="Камеры для помещений" title="Камеры внутри"
+        <ParameterRow icon={Camera} subtitle="Устанавливаются в помещениях" title="Камеры внутри"
           primary={<Control label="Количество, шт."><Counter hideLabel label="Камеры внутри" max={128} onChange={(value) => patch("indoorCameraCount", value)} value={parameters.indoorCameraCount} /></Control>}
-          secondary={<ResolutionSelect label="Разрешение" onChange={(value) => patch("indoorResolutionMp", value)} value={parameters.indoorResolutionMp} />}
+          secondary={<ResolutionSelect label="Разрешение, Мп" onChange={(value) => patch("indoorResolutionMp", value)} value={parameters.indoorResolutionMp} />}
         />
-        <ParameterRow icon={Cctv} subtitle="Камеры для улицы" title="Камеры снаружи"
+        <ParameterRow icon={Cctv} subtitle="Устанавливаются на улице" title="Камеры снаружи"
           primary={<Control label="Количество, шт."><Counter hideLabel label="Камеры снаружи" max={128} onChange={(value) => patch("outdoorCameraCount", value)} value={parameters.outdoorCameraCount} /></Control>}
-          secondary={<ResolutionSelect label="Разрешение" onChange={(value) => patch("outdoorResolutionMp", value)} value={parameters.outdoorResolutionMp} />}
+          secondary={<ResolutionSelect label="Разрешение, Мп" onChange={(value) => patch("outdoorResolutionMp", value)} value={parameters.outdoorResolutionMp} />}
         />
-        <ParameterRow icon={Server} subtitle="Запись и хранение видео" title="Видеорегистратор"
+        <ParameterRow icon={Server} subtitle="Запись и хранение архива" title="Видеорегистратор"
           primary={<Control label="Количество, шт."><output aria-label="Количество видеорегистраторов" className="flex min-h-11 items-center rounded-md border border-zinc-200 bg-zinc-50 px-3 text-sm font-semibold text-zinc-700">{parameters.recorderSelection === "none" ? 0 : 1}</output></Control>}
-          secondary={<Control label="Конфигурация"><select aria-label="Конфигурация видеорегистратора" className={controlClassName} onChange={(event) => patch("recorderSelection", parseRecorderSelection(event.target.value))} value={String(parameters.recorderSelection)}><option value="auto">Автоматически</option><option value="none">Не нужен</option>{CCTV_RECORDER_CHANNELS.map((channels) => <option key={channels} value={channels}>{channels} каналов</option>)}</select></Control>}
+          secondary={<Control label="Количество каналов"><select aria-label="Количество каналов видеорегистратора" className={controlClassName} onChange={(event) => patch("recorderSelection", parseRecorderSelection(event.target.value))} value={String(parameters.recorderSelection)}><option value="auto">Автоматически</option><option value="none">Не нужен</option>{CCTV_RECORDER_CHANNELS.map((channels) => <option key={channels} value={channels}>{channels}</option>)}</select></Control>}
         />
-        <ParameterRow icon={HardDrive} subtitle="Срок хранения записей" title="Архив"
-          primary={<Control label="Глубина архива"><select aria-label="Архив, дней" className={controlClassName} onChange={(event) => patch("archiveDays", Number(event.target.value))} value={parameters.archiveDays}>{[7,14,30,60,90].map((days) => <option key={days} value={days}>{days} дней</option>)}</select></Control>}
+        <ParameterRow icon={HardDrive} subtitle="Срок хранения записи" title="Архив (хранение)"
+          primary={<Control label="Архив, дней"><select aria-label="Архив, дней" className={controlClassName} onChange={(event) => patch("archiveDays", Number(event.target.value))} value={parameters.archiveDays}>{[7,14,30,60,90].map((days) => <option key={days} value={days}>{days} дней</option>)}</select></Control>}
         />
-        <ParameterRow icon={Cable} subtitle="Ориентировочная длина трассы" title="Кабель"
-          primary={<Control label="Длина, м"><input aria-label="Кабель, ориентировочно, м" className={controlClassName} max={20000} min={0} onChange={(event) => patch("cableLength", Math.max(0, Math.round(Number(event.target.value))))} type="number" value={parameters.cableLength} /></Control>}
+        <ParameterRow icon={Cable} subtitle="Общая длина кабеля" title="Кабель"
+          primary={<Control label="Длина кабеля, м"><input aria-label="Кабель, ориентировочно, м" className={controlClassName} max={20000} min={0} onChange={(event) => patch("cableLength", Math.max(0, Math.round(Number(event.target.value))))} type="number" value={parameters.cableLength} /></Control>}
         />
       </div>
 
