@@ -32,6 +32,8 @@ describe("proposal generator UI contract", () => {
     expect(review).toContain("resolvedImageUrl: item.imageUrl");
     expect(review).toContain("retailPriceAmount");
     expect(review).toContain("Исходная потребность:");
+    expect(workspace).toContain("governedResolvedId");
+    expect(workspace).toContain("Для выбранной замены регистратора нет подтверждённых данных");
   });
   it("never silently ignores estimate creation", () => {
     expect(workspace).toContain("Выберите заказчика, чтобы создать смету.");

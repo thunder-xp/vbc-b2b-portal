@@ -9,7 +9,7 @@ import type { GeneratorPreparedLine, ProposalGeneratorRepository } from "../repo
 import type { EstimateSectionSystemKey } from "../types";
 import { convertMoney, resolveCurrencyRate } from "./commercial-calculation";
 import { countGeneratorResolutions, generateRequirements, type GeneratorRequirement } from "./proposal-generator";
-import { automaticRecorderChannels, calculateCctvRequirements, CCTV_CALCULATOR_PROFILE_KEYS, cctvInputFingerprintPayload, type CctvCalculatorInput } from "./proposal-generator-calculator";
+import { calculateCctvConfiguration, CCTV_CALCULATOR_PROFILE_KEYS, cctvInputFingerprintPayload, type CctvCalculatorInput, type CctvConfigurationSummary } from "./proposal-generator-calculator";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -61,13 +61,16 @@ export class ProposalGeneratorService {
     const facts = cctvInputFingerprintPayload(input.parameters);
     const fingerprint = createHash("sha256").update(JSON.stringify(facts)).digest("hex");
     let requirements: GeneratorRequirement[];
+    let compatibility: CctvConfigurationSummary;
     let rulesCalculatedAt = contextResolvedAt;
     let mappingsResolvedAt = contextResolvedAt;
     let commercialResolvedAt = contextResolvedAt;
     try {
       const mappings = await this.repository.resolveCalculatorProfiles(companyId, [...CCTV_CALCULATOR_PROFILE_KEYS]);
       mappingsResolvedAt = performance.now();
-      const calculated = calculateCctvRequirements(input.parameters, mappings);
+      const calculation = calculateCctvConfiguration(input.parameters, mappings);
+      compatibility = calculation.compatibility;
+      const calculated = calculation.requirements;
       rulesCalculatedAt = performance.now();
       if (!calculated.length) throw new InvalidStateError("Укажите хотя бы одну камеру.");
       const mappingByKey = new Map(mappings.map((mapping) => [mapping.profileKey, mapping]));
@@ -77,7 +80,8 @@ export class ProposalGeneratorService {
           && mapping.defaultSellingCurrencyCode === input.currencyCode ? mapping.defaultSellingUnitPrice : null;
         const identity = mapping?.resolvedLabel ? splitResolvedCatalogLabel(mapping.resolvedLabel) : null;
         return mapping ? {
-          ...line, resolution: mapping.resolution, resolvedId: mapping.resolvedId, resolvedLabel: identity?.name ?? mapping.resolvedLabel,
+          ...line, resolution: mapping.resolution, resolvedId: mapping.resolvedId, governedResolvedId: mapping.resolvedId,
+          resolvedLabel: identity?.name ?? mapping.resolvedLabel,
           resolvedSku: mapping.resolution === "catalog" ? identity?.sku ?? null : null,
           description: mapping.resolution === "unresolved" ? line.description : identity?.name ?? mapping.resolvedLabel ?? line.description,
           sellingUnitPrice: configuredServicePrice,
@@ -100,15 +104,16 @@ export class ProposalGeneratorService {
       throw error;
     }
     const telemetryStartedAt = performance.now();
-    const cameraCount = input.parameters.indoorCameraCount + input.parameters.outdoorCameraCount;
-    const storageLine = requirements.find((line) => line.id === "cctv-storage");
     const poeLine = requirements.find((line) => line.id === "cctv-poe");
-    const storageCapacity = storageLine?.profileKey?.match(/^cctv\.storage\.(\d+)tb$/)?.[1];
     const structuredFacts = {
       ...facts,
-      autoNvrProfile: automaticRecorderChannels(cameraCount) ? `cctv.nvr.${automaticRecorderChannels(cameraCount)}` : null,
-      proposedHddCapacityTb: storageCapacity ? Number(storageCapacity) * (storageLine?.quantity ?? 1) : null,
+      autoNvrProfile: compatibility.automaticRecorderProfile,
+      proposedHddCapacityTb: compatibility.archive.physicalCapacityTb,
       poeAutoProfile: poeLine?.profileKey ?? null,
+      storageIncompatibilityDetected: compatibility.issues.some((issue) => issue.code === "storage_incompatible"),
+      insufficientPoeWarning: compatibility.issues.some((issue) => issue.code === "insufficient_poe"),
+      automaticRecorderProfile: compatibility.automaticRecorderProfile,
+      compatibleConfigurationFound: compatibility.compatibleConfigurationFound,
     };
     const sessionId = await this.repository.recordSession({ companyId, requestKey: input.requestKey, fingerprint, requirementCount: requirements.length, durationMs: Math.round(telemetryStartedAt - startedAt), generationMode: "quick_calculation", structuredFacts, resolutionCounts: countGeneratorResolutions(requirements) });
     console.info({
@@ -126,7 +131,7 @@ export class ProposalGeneratorService {
       durationMs: Math.round(performance.now() - startedAt),
       deployedCommitSha: process.env.VERCEL_GIT_COMMIT_SHA ?? null,
     });
-    return { sessionId, fingerprint, requirements, assumptions: requirements.flatMap((line) => line.assumption ? [line.assumption] : []) };
+    return { sessionId, fingerprint, requirements, assumptions: requirements.flatMap((line) => line.assumption ? [line.assumption] : []), compatibility };
   }
 
   async createEstimate(userId: string, input: CreateGeneratedEstimateInput) {

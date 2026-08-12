@@ -22,7 +22,16 @@ describe("ProposalGeneratorService", () => {
     expect(resolveCalculatorProfiles).toHaveBeenCalledTimes(1);
     expect(pricing.getProductCommercialViews).toHaveBeenCalledTimes(1);
     expect(result.requirements.find((line) => line.profileKey === "cctv.indoor.6mp")).toMatchObject({ resolution: "catalog", resolvedLabel: "Camera", resolvedSku: "CAM-1", sellingUnitPrice: 150 });
-    expect(recordSession).toHaveBeenCalledWith(expect.objectContaining({ generationMode: "quick_calculation", structuredFacts: expect.objectContaining({ systemType: "cctv" }) }));
+    expect(recordSession).toHaveBeenCalledWith(expect.objectContaining({
+      generationMode: "quick_calculation",
+      structuredFacts: expect.objectContaining({
+        systemType: "cctv",
+        storageIncompatibilityDetected: expect.any(Boolean),
+        insufficientPoeWarning: expect.any(Boolean),
+        automaticRecorderProfile: null,
+        compatibleConfigurationFound: false,
+      }),
+    }));
   });
 
   it("uses the exact governed PFA-130E mapping and VAT-included camera installation default", async () => {

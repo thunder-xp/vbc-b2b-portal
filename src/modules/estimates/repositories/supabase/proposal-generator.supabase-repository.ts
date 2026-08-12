@@ -10,7 +10,7 @@ function fail(code?: string): never {
 export class SupabaseProposalGeneratorRepository implements ProposalGeneratorRepository {
   async recordSession(input: Parameters<ProposalGeneratorRepository["recordSession"]>[0]): Promise<string> {
     const counts = input.resolutionCounts ?? { catalog: 0, service: 0, own: 0, shared: 0, unresolved: input.requirementCount };
-    const { data, error } = await (await createClient()).rpc("record_estimate_generator_session_v4", {
+    const { data, error } = await (await createClient()).rpc("record_estimate_generator_session_v5", {
       target_company_id: input.companyId,
       target_request_key: input.requestKey,
       target_request_fingerprint: input.fingerprint,
@@ -156,6 +156,9 @@ function mapProfile(row: Record<string, unknown>) {
     recorderChannels: nullableNumber(row.recorder_channels), integratedPoePorts: nullableNumber(row.integrated_poe_ports),
     driveBayCount: nullableNumber(row.drive_bay_count), poePortCount: nullableNumber(row.poe_port_count),
     storageCapacityTb: nullableNumber(row.storage_capacity_tb),
+    maxDriveCapacityTb: nullableNumber(row.max_drive_capacity_tb),
+    compatibilityVerified: row.compatibility_verified === true,
+    compatibilityEvidenceSource: typeof row.compatibility_evidence_source === "string" ? row.compatibility_evidence_source : null,
   };
 }
 

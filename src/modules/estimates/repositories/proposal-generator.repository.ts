@@ -27,6 +27,9 @@ export type GeneratorProfileMapping = {
   driveBayCount: number | null;
   poePortCount: number | null;
   storageCapacityTb: number | null;
+  maxDriveCapacityTb: number | null;
+  compatibilityVerified: boolean;
+  compatibilityEvidenceSource: string | null;
 };
 
 export type GeneratorProfileAdminRow = GeneratorProfileMapping & {
@@ -74,6 +77,9 @@ export type GeneratorAdminReport = {
     poeReplacementCount: number;
     poeRemovedCount: number;
     hddCapacityCorrectionCount: number;
+    storageIncompatibilityCount: number;
+    insufficientPoeWarningCount: number;
+    compatibleConfigurationCount: number;
   };
   comments: Array<{ answer: "yes" | "partial" | "no"; comment: string; created_at: string }>;
   quickCalculationByObjectType: Array<{ objectType: string; starts: number; estimatesCreated: number }>;
@@ -88,6 +94,8 @@ export interface ProposalGeneratorRepository {
       archiveDays: number; cableLength: number; installationRequested: boolean; commissioningRequested: boolean;
       remoteViewingRequested: boolean; advancedFlags: string[];
       autoNvrProfile?: string | null; proposedHddCapacityTb?: number | null; poeAutoProfile?: string | null;
+      storageIncompatibilityDetected?: boolean; insufficientPoeWarning?: boolean;
+      automaticRecorderProfile?: string | null; compatibleConfigurationFound?: boolean;
     } | null;
     resolutionCounts?: { catalog: number; service: number; own: number; shared: number; unresolved: number };
   }): Promise<string>;

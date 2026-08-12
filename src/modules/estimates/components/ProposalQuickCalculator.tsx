@@ -7,7 +7,7 @@ import { ActionFeedback, actionClassName, FormField } from "../../platform-ui";
 import { calculateQuickProposalAction } from "../actions/proposal-generator.actions";
 import {
   CCTV_CAMERA_RESOLUTIONS, CCTV_RECORDER_CHANNELS, type CctvCalculatorInput,
-  type CctvCameraResolution, type CctvObjectType, type CctvRecorderSelection,
+  type CctvCameraResolution, type CctvConfigurationSummary, type CctvObjectType, type CctvRecorderSelection,
 } from "../services/proposal-generator-calculator";
 import type { GeneratorRequirement } from "../services/proposal-generator";
 
@@ -25,7 +25,7 @@ const defaults: CctvCalculatorInput = {
   colorNight: false, licensePlateRecognition: false, videoAnalytics: false, backupPower: false,
 };
 
-export type QuickCalculationResult = { sessionId: string; fingerprint: string; requirements: GeneratorRequirement[]; assumptions: string[] };
+export type QuickCalculationResult = { sessionId: string; fingerprint: string; requirements: GeneratorRequirement[]; assumptions: string[]; compatibility: CctvConfigurationSummary };
 
 export function ProposalQuickCalculator({ currencyCode, onBack, onCalculated }: {
   currencyCode: string; onBack: () => void; onCalculated: (result: QuickCalculationResult) => void;

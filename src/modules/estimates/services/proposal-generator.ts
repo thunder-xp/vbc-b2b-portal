@@ -18,6 +18,7 @@ export type GeneratorRequirement = {
   unit: EstimateUnit;
   resolution: GeneratorResolutionKind;
   resolvedId: string | null;
+  governedResolvedId?: string | null;
   resolvedLabel: string | null;
   resolvedSku?: string | null;
   resolvedImageUrl?: string | null;

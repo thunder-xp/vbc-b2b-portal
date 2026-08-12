@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { automaticRecorderChannels, calculateCctvRequirements } from "../proposal-generator-calculator";
+import { automaticRecorderChannels, calculateCctvConfiguration, calculateCctvRequirements } from "../proposal-generator-calculator";
+
+const verifiedRecorder = (profileKey: string, channels: number, poe: number, bays: number, maxDrive: number) => ({
+  profileKey, recorderChannels: channels, integratedPoePorts: poe, driveBayCount: bays,
+  maxDriveCapacityTb: maxDrive, compatibilityVerified: true, resolution: "catalog" as const,
+});
+const approvedStorage = [2, 4, 6, 8].map((capacity) => ({ profileKey: `cctv.storage.${capacity}tb`, storageCapacityTb: capacity, resolution: "catalog" as const }));
 
 const warehouse = {
   objectType: "warehouse" as const, indoorCameraCount: 8, indoorResolutionMp: 6 as const,
@@ -32,18 +38,17 @@ describe("CCTV quick calculator", () => {
 
   it("uses governed recorder PoE capacity and the smallest external switch profile", () => {
     const result = calculateCctvRequirements({ ...warehouse, indoorCameraCount: 6, outdoorCameraCount: 0 }, [
-      { profileKey: "cctv.nvr.8", recorderChannels: 8, integratedPoePorts: 4, driveBayCount: 1 },
-      { profileKey: "cctv.poe.4", poePortCount: 4 }, { profileKey: "cctv.poe.8", poePortCount: 8 },
-      { profileKey: "cctv.storage.8tb", storageCapacityTb: 8 },
+      verifiedRecorder("cctv.nvr.8", 8, 4, 1, 8),
+      { profileKey: "cctv.poe.4", poePortCount: 4, resolution: "catalog" as const }, { profileKey: "cctv.poe.8", poePortCount: 8, resolution: "catalog" as const },
+      ...approvedStorage,
     ]);
     expect(result.find((line) => line.id === "cctv-poe")).toMatchObject({ profileKey: "cctv.poe.4", quantity: 1 });
   });
 
   it("selects governed HDD capacity without always forcing 8 TB and respects drive bays", () => {
     const capabilities = [
-      { profileKey: "cctv.nvr.4", recorderChannels: 4, integratedPoePorts: 0, driveBayCount: 1 },
-      { profileKey: "cctv.storage.2tb", storageCapacityTb: 2 }, { profileKey: "cctv.storage.4tb", storageCapacityTb: 4 },
-      { profileKey: "cctv.storage.8tb", storageCapacityTb: 8 }, { profileKey: "cctv.poe.4", poePortCount: 4 },
+      verifiedRecorder("cctv.nvr.4", 4, 0, 1, 8), ...approvedStorage,
+      { profileKey: "cctv.poe.4", poePortCount: 4, resolution: "catalog" as const },
     ];
     const twoMp = calculateCctvRequirements({ ...warehouse, indoorCameraCount: 2, indoorResolutionMp: 2, outdoorCameraCount: 0, archiveDays: 7 }, capabilities);
     expect(twoMp.find((line) => line.id === "cctv-storage")?.profileKey).toBe("cctv.storage.2tb");
@@ -62,5 +67,66 @@ describe("CCTV quick calculator", () => {
 
   it("leaves unsupported recorder capacity unresolved", () => {
     expect(calculateCctvRequirements({ ...warehouse, indoorCameraCount: 33, outdoorCameraCount: 0 }).find((line) => line.id === "cctv-nvr")).toMatchObject({ profileKey: null, resolution: "unresolved" });
+  });
+
+  it("fails closed when recorder compatibility metadata is unknown", () => {
+    const result = calculateCctvConfiguration({ ...warehouse, indoorCameraCount: 6, outdoorCameraCount: 0 }, [
+      { profileKey: "cctv.nvr.8", recorderChannels: 8, resolution: "catalog" }, ...approvedStorage,
+    ]);
+    expect(result.compatibility.compatibleConfigurationFound).toBe(false);
+    expect(result.compatibility.issues).toContainEqual(expect.objectContaining({ severity: "blocking", code: "recorder_metadata_unverified" }));
+  });
+
+  it("escalates to a storage-compatible recorder and ranks a mixed HDD plan by minimum excess", () => {
+    const result = calculateCctvConfiguration(warehouse, [
+      verifiedRecorder("cctv.nvr.16", 16, 0, 1, 8), verifiedRecorder("cctv.nvr.32", 32, 0, 2, 16),
+      ...approvedStorage, { profileKey: "cctv.poe.16", poePortCount: 16, resolution: "catalog" },
+    ]);
+    expect(result.compatibility.recorder.profileKey).toBe("cctv.nvr.32");
+    expect(result.compatibility.archive).toMatchObject({ requiredCapacityTb: 12, physicalCapacityTb: 12 });
+    expect(result.compatibility.archive.selectedDrives).toEqual([
+      { profileKey: "cctv.storage.8tb", capacityTb: 8, quantity: 1 },
+      { profileKey: "cctv.storage.4tb", capacityTb: 4, quantity: 1 },
+    ]);
+  });
+
+  it("blocks a manually selected recorder with too few channels without replacing it", () => {
+    const result = calculateCctvConfiguration({ ...warehouse, recorderSelection: 8 }, [
+      verifiedRecorder("cctv.nvr.8", 8, 8, 1, 20), ...approvedStorage,
+    ]);
+    expect(result.compatibility.recorder.profileKey).toBe("cctv.nvr.8");
+    expect(result.compatibility.issues).toContainEqual(expect.objectContaining({ severity: "blocking", code: "recorder_channels_insufficient" }));
+  });
+
+  it("subtracts integrated PoE and leaves external PoE unresolved above the approved 24-port tier", () => {
+    const covered = calculateCctvConfiguration({ ...warehouse, indoorCameraCount: 6, outdoorCameraCount: 0 }, [
+      verifiedRecorder("cctv.nvr.8", 8, 8, 1, 20), ...approvedStorage,
+    ]);
+    expect(covered.requirements.some((line) => line.id === "cctv-poe")).toBe(false);
+    const partial = calculateCctvConfiguration({ ...warehouse, indoorCameraCount: 20, outdoorCameraCount: 0, archiveDays: 7 }, [
+      verifiedRecorder("cctv.nvr.32", 32, 8, 2, 16), ...approvedStorage,
+      { profileKey: "cctv.poe.16", poePortCount: 16, resolution: "catalog" },
+    ]);
+    expect(partial.compatibility.externalPoePortsRequired).toBe(12);
+    expect(partial.requirements.find((line) => line.id === "cctv-poe")?.profileKey).toBe("cctv.poe.16");
+  });
+
+  it("never activates the unapproved 12 TB profile", () => {
+    const result = calculateCctvConfiguration(warehouse, [
+      verifiedRecorder("cctv.nvr.16", 16, 0, 1, 20), ...approvedStorage,
+      { profileKey: "cctv.storage.12tb", storageCapacityTb: 12, resolution: "catalog" },
+      { profileKey: "cctv.poe.16", poePortCount: 16, resolution: "catalog" },
+    ]);
+    expect(result.compatibility.archive.selectedDrives).toEqual([]);
+    expect(result.compatibility.issues).toContainEqual(expect.objectContaining({ code: "storage_incompatible" }));
+  });
+
+  it("does not let stock availability override verified technical compatibility", () => {
+    const unavailableButCompatible = { ...verifiedRecorder("cctv.nvr.8", 8, 8, 1, 20), availableStock: 0 };
+    const result = calculateCctvConfiguration({ ...warehouse, indoorCameraCount: 6, outdoorCameraCount: 0, archiveDays: 7 }, [
+      unavailableButCompatible, ...approvedStorage,
+    ]);
+    expect(result.compatibility.recorder.profileKey).toBe("cctv.nvr.8");
+    expect(result.compatibility.compatibleConfigurationFound).toBe(true);
   });
 });

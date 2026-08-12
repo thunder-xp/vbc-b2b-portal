@@ -8,6 +8,7 @@ import { useRef, useState, useSyncExternalStore, useTransition } from "react";
 import { ActionFeedback, actionClassName, FormField } from "../../platform-ui";
 import { createGeneratedEstimateAction, generateProposalDraftAction } from "../actions/proposal-generator.actions";
 import { summarizeGeneratorPricing, type GeneratorRequirement } from "../services/proposal-generator";
+import type { CctvConfigurationSummary } from "../services/proposal-generator-calculator";
 import type { FinalCustomer } from "../types";
 import { FinalCustomerPicker } from "./FinalCustomerPicker";
 import { ProposalGeneratorReview } from "./ProposalGeneratorReview";
@@ -38,14 +39,22 @@ export function ProposalGeneratorWorkspace({ currencies }: { currencies: string[
   const [session, setSession] = useState<{ id: string; fingerprint: string } | null>(null);
   const [requirements, setRequirements] = useState<GeneratorRequirement[]>([]);
   const [assumptions, setAssumptions] = useState<string[]>([]);
+  const [compatibility, setCompatibility] = useState<CctvConfigurationSummary | null>(null);
   const [customer, setCustomer] = useState<FinalCustomer | null>(null);
   const [projectName, setProjectName] = useState("");
   const [createPanelOpen, setCreatePanelOpen] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const pricingSummary = summarizeGeneratorPricing(requirements, currencyCode);
+  const recorder = requirements.find((line) => line.id === "cctv-recorder");
+  const unverifiedRecorderReplacement = Boolean(
+    recorder?.governedResolvedId && recorder.resolvedId !== recorder.governedResolvedId,
+  );
+  const hasBlockingCompatibility = Boolean(
+    compatibility?.issues.some((issue) => issue.severity === "blocking") || unverifiedRecorderReplacement,
+  );
 
   const chooseMode = (value: GeneratorMode | null) => {
-    setSelectedMode(value); setSession(null); setRequirements([]); setAssumptions([]); setMessage(null); setCreatePanelOpen(false);
+    setSelectedMode(value); setSession(null); setRequirements([]); setAssumptions([]); setCompatibility(null); setMessage(null); setCreatePanelOpen(false);
     if (value) window.sessionStorage.setItem("novotech-proposal-generator-mode", value);
     else window.sessionStorage.removeItem("novotech-proposal-generator-mode");
   };
@@ -78,7 +87,7 @@ export function ProposalGeneratorWorkspace({ currencies }: { currencies: string[
   if (!session && mode === "quick_calculation") return <div className="mx-auto w-full max-w-5xl space-y-6">
     <GeneratorHeader description="Видеонаблюдение · ориентировочный подбор без выдуманных товаров и цен." title="Быстрый расчёт" />
     <ProposalQuickCalculator currencyCode={currencyCode} onBack={() => chooseMode(null)} onCalculated={(result) => {
-      setSession({ id: result.sessionId, fingerprint: result.fingerprint }); setRequirements(result.requirements); setAssumptions(result.assumptions);
+      setSession({ id: result.sessionId, fingerprint: result.fingerprint }); setRequirements(result.requirements); setAssumptions(result.assumptions); setCompatibility(result.compatibility);
     }} />
   </div>;
   if (!session) return <div className="mx-auto w-full max-w-4xl space-y-6">
@@ -94,17 +103,33 @@ export function ProposalGeneratorWorkspace({ currencies }: { currencies: string[
   return <div className="mx-auto w-full max-w-6xl space-y-5 overflow-x-clip">
     <header className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-sm font-semibold text-emerald-700">Шаг 3 из 3 · Результат</p><h1 className="mt-1 text-2xl font-semibold">Проверьте структуру сметы</h1><p className="mt-1 text-sm text-zinc-600">Точные соответствия выбираются только вами. Неразрешённые позиции попадут в смету без цены.</p></div><button className={actionClassName.secondary} onClick={() => { setSession(null); setMessage(null); }} type="button"><ChevronLeft className="size-4" />Изменить исходные данные</button></header>
     <ProposalGeneratorReview currencyCode={currencyCode} onChange={setRequirements} requirements={requirements} />
+    {mode === "quick_calculation" && compatibility && <CctvCompatibilitySummary hasUnverifiedRecorderReplacement={unverifiedRecorderReplacement} value={compatibility} />}
     {mode === "quick_calculation" && <section className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950"><strong>Ориентировочная стоимость известных позиций</strong>{pricingSummary.knownTotal > 0 && <p className="mt-1 text-lg font-semibold">{pricingSummary.knownTotal.toFixed(2)} {currencyCode}</p>}<p className="mt-1">Расчёт ориентировочный и не является коммерческим предложением.</p>{pricingSummary.unpricedWorks > 0 && <p className="mt-1 font-medium">Для {pricingSummary.unpricedWorks} работ требуется указать цену.</p>}{assumptions.map((item) => <p className="mt-1 text-xs" key={item}>{item}</p>)}</section>}
     {createPanelOpen && <section className="grid scroll-mt-24 gap-4 rounded-md border border-zinc-200 bg-white p-4 md:grid-cols-2" ref={createPanelRef}>
       <div className="md:col-span-2"><FinalCustomerPicker onChange={setCustomer} value={customer?.id ?? null} /></div>
       <FormField label="Проект / объект">{(props) => <input {...props} className={inputClass} maxLength={200} onChange={(event) => setProjectName(event.target.value)} value={projectName} />}</FormField>
       <FormField label="Валюта" required>{(props) => <select {...props} className={inputClass} onChange={(event) => setCurrencyCode(event.target.value)} value={currencyCode}>{currencies.map((currency) => <option key={currency}>{currency}</option>)}</select>}</FormField>
       <FormField label="НДС" required>{(props) => <select {...props} className={inputClass} onChange={(event) => setVatMode(event.target.value as "none" | "included")} value={vatMode}><option value="none">НДС не применяется</option><option value="included">НДС применяется (20%)</option></select>}</FormField>
-      <div className="md:col-span-2"><button className={actionClassName.primary} disabled={pending || !requirements.length} onClick={create} type="button">{pending ? <><Loader2 className="size-4 animate-spin" />Создание...</> : <><Check className="size-4" />Создать смету</>}</button></div>
+      <div className="md:col-span-2"><button className={actionClassName.primary} disabled={pending || !requirements.length || hasBlockingCompatibility} onClick={create} type="button">{pending ? <><Loader2 className="size-4 animate-spin" />Создание...</> : <><Check className="size-4" />Создать смету</>}</button></div>
     </section>}
     {message && <ActionFeedback kind="error" message={message} />}
-    <div className="sticky bottom-0 flex flex-wrap items-center justify-between gap-3 border-t border-zinc-200 bg-white/95 px-4 py-4 backdrop-blur"><p className="text-sm text-zinc-600">{requirements.length} позиций · {requirements.filter((line) => line.resolution === "unresolved").length} требуют уточнения</p><button className={actionClassName.primary} disabled={!requirements.length} onClick={openCreatePanel} type="button"><Check className="size-4" />Перейти к созданию</button></div>
+    <div className="sticky bottom-0 flex flex-wrap items-center justify-between gap-3 border-t border-zinc-200 bg-white/95 px-4 py-4 backdrop-blur"><p className="text-sm text-zinc-600">{requirements.length} позиций · {requirements.filter((line) => line.resolution === "unresolved").length} требуют уточнения</p><button className={actionClassName.primary} disabled={!requirements.length || hasBlockingCompatibility} onClick={openCreatePanel} type="button"><Check className="size-4" />Перейти к созданию</button></div>
   </div>;
+}
+
+function CctvCompatibilitySummary({ value, hasUnverifiedRecorderReplacement }: { value: CctvConfigurationSummary; hasUnverifiedRecorderReplacement: boolean }) {
+  const driveText = value.archive.selectedDrives.length
+    ? value.archive.selectedDrives.map((drive) => `${drive.quantity} × ${drive.capacityTb} TB`).join(" + ") : "Требуется выбор накопителя";
+  return <section className="grid gap-4 rounded-md border border-zinc-200 bg-white p-4 text-sm md:grid-cols-2" aria-label="Совместимость конфигурации">
+    <div><h2 className="font-semibold">Регистратор</h2><p className="mt-1">{value.recorder.channels ? `${value.recorder.channels} каналов` : "Не выбран"}</p>
+      <p className="text-zinc-600">HDD: {value.recorder.driveBayCount == null || value.recorder.maxDriveCapacityTb == null ? "данные уточняются" : `${value.recorder.driveBayCount} сл. × до ${value.recorder.maxDriveCapacityTb} TB`}</p>
+      <p className="text-zinc-600">PoE встроенный: {value.recorder.integratedPoePorts == null ? "данные уточняются" : value.recorder.integratedPoePorts ? `${value.recorder.integratedPoePorts} портов` : "нет"}</p></div>
+    <div><h2 className="font-semibold">Архив</h2><p className="mt-1">Расчётно: ~{value.archive.requiredCapacityTb} TB</p><p className="text-zinc-600">Выбрано: {driveText}</p><p className="text-zinc-600">Физическая ёмкость: {value.archive.physicalCapacityTb == null ? "не определена" : `${value.archive.physicalCapacityTb} TB`}</p></div>
+    {(value.issues.length > 0 || hasUnverifiedRecorderReplacement) && <div className="space-y-2 md:col-span-2">
+      {hasUnverifiedRecorderReplacement && <p className="border-l-4 border-red-500 bg-red-50 px-3 py-2 text-red-800"><strong>Конфигурация не проверена: </strong>Для выбранной замены регистратора нет подтверждённых данных о каналах и накопителях.</p>}
+      {value.issues.map((issue) => <p className={issue.severity === "blocking" ? "border-l-4 border-red-500 bg-red-50 px-3 py-2 text-red-800" : "border-l-4 border-amber-500 bg-amber-50 px-3 py-2 text-amber-900"} key={issue.code}><strong>{issue.severity === "blocking" ? "Конфигурация несовместима: " : "Проверьте: "}</strong>{issue.message}</p>)}
+    </div>}
+  </section>;
 }
 
 function ModeChoice({ onChoose }: { onChoose: (mode: GeneratorMode) => void }) {
