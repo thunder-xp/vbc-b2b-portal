@@ -49,14 +49,14 @@ describe("proposal generator UI contract", () => {
     expect(review).toContain("resolvedImageUrl: item.imageUrl");
     expect(review).toContain("retailPriceAmount");
     expect(review).toContain("resolvedStockLabel");
-    expect(review).toContain("Исходная потребность:");
+    expect(review).toContain("Назначение:");
     expect(workspace).toContain("governedResolvedId");
     expect(workspace).toContain("Для выбранной замены регистратора нет подтверждённых данных");
   });
   it("never silently ignores estimate creation", () => {
     expect(workspace).toContain("Выберите заказчика, чтобы создать смету.");
     expect(workspace).toContain("Данные сохранены на экране");
-    expect(workspace).toContain("Перейти к созданию");
+    expect(workspace).toContain("Создать смету");
     expect(workspace).toContain("scrollIntoView");
   });
   it("converges both modes into one review and delays customer context", () => {
@@ -66,10 +66,11 @@ describe("proposal generator UI contract", () => {
   });
   it("keeps responsive bounded layouts and explicit unresolved states", () => {
     expect(workspace).toContain("overflow-x-clip"); expect(review).toContain("lg:grid-cols-");
-    expect(calculator).toContain("sm:grid-cols-2"); expect(review).toContain("Цена не указана");
+    expect(calculator).toContain("sm:grid-cols-2"); expect(review).toContain("Цена уточняется");
   });
   it("shows known-position totals, unpriced-work disclosure, and governed service price controls", () => {
-    expect(workspace).toContain("Ориентировочная стоимость известных позиций");
+    expect(workspace).toContain("Ориентировочный расчёт");
+    expect(workspace).toContain("Известная стоимость");
     expect(workspace).toContain("требуется указать цену");
     expect(adminProfiles).toContain("Цена услуги для быстрого расчёта");
     expect(adminProfiles).toContain("НДС включён");
@@ -83,5 +84,25 @@ describe("proposal generator UI contract", () => {
     expect(workspace).toContain('label="НДС"');
     expect(workspace).toContain('value="included">НДС применяется (20%)');
     expect(workspace).toContain("currencyCode, vatMode, validityDays");
+  });
+  it("presents Step 3 as a technical configuration review", () => {
+    expect(workspace).toContain("Шаг 3 из 3 · Результат");
+    expect(workspace).toContain("Проверьте конфигурацию");
+    expect(workspace).toContain("Конфигурация готова");
+    expect(workspace).toContain("Конфигурация требует проверки");
+    expect(workspace).toContain("Нужно исправить конфигурацию");
+    for (const decision of ["Регистратор", "Архив", "PoE"]) expect(workspace).toContain(`title="${decision}"`);
+    expect(workspace).not.toContain("Изменить исходные данные");
+  });
+  it("uses the canonical row states and primary replacement identity", () => {
+    for (const state of ["Подобрано автоматически", "Выбрано вручную", "Требует выбора", "Несовместимо"]) expect(review).toContain(state);
+    expect(review).toContain("line.resolvedLabel ?? line.description");
+    expect(review).toContain("resolvedStockLabel: item.stock");
+    expect(review).toContain('line.resolution === "unresolved" ? "Выбрать" : "Заменить"');
+    expect(review).not.toContain('aria-label="Раздел"');
+  });
+  it("guards the actual calculator recorder identity after replacement", () => {
+    expect(workspace).toContain('line.id === "cctv-nvr"');
+    expect(workspace).not.toContain('line.id === "cctv-recorder"');
   });
 });
