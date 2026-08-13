@@ -5,6 +5,8 @@ import { InvalidStateError, resolveCommercialVisibility } from "../../access-con
 import { MembershipStatus } from "../../access-control/types";
 import type { CatalogService } from "../../catalog/services";
 import type { PricingInventoryService } from "../../pricing-inventory/services";
+import { selectCctvCameraCandidates } from "../../cctv-calculation";
+import type { SupabaseCctvCameraCandidateRepository } from "../../cctv-calculation/cctv-camera-candidate.repository";
 import type { GeneratorPreparedLine, ProposalGeneratorRepository } from "../repositories";
 import type { EstimateSectionSystemKey } from "../types";
 import { convertMoney, resolveCurrencyRate } from "./commercial-calculation";
@@ -33,6 +35,7 @@ export class ProposalGeneratorService {
     private readonly permissions: PermissionService,
     private readonly catalog: CatalogService,
     private readonly pricing: PricingInventoryService,
+    private readonly cameraCandidates?: Pick<SupabaseCctvCameraCandidateRepository, "resolve">,
   ) {}
 
   async generate(userId: string, input: { requirement: string; requestKey: string }) {
@@ -65,8 +68,14 @@ export class ProposalGeneratorService {
     let rulesCalculatedAt = contextResolvedAt;
     let mappingsResolvedAt = contextResolvedAt;
     let commercialResolvedAt = contextResolvedAt;
+    const recommendedCameraProductIds: string[] = [];
     try {
-      const mappings = await this.repository.resolveCalculatorProfiles(companyId, [...CCTV_CALCULATOR_PROFILE_KEYS]);
+      const placements = [input.parameters.indoorCameraCount > 0 && "indoor", input.parameters.outdoorCameraCount > 0 && "outdoor"]
+        .filter((value): value is "indoor" | "outdoor" => Boolean(value));
+      const [mappings, cameraPool] = await Promise.all([
+        this.repository.resolveCalculatorProfiles(companyId, [...CCTV_CALCULATOR_PROFILE_KEYS]),
+        this.cameraCandidates?.resolve(input.parameters.objectType, placements) ?? Promise.resolve([]),
+      ]);
       mappingsResolvedAt = performance.now();
       const calculation = calculateCctvConfiguration(input.parameters, mappings);
       compatibility = calculation.compatibility;
@@ -75,6 +84,21 @@ export class ProposalGeneratorService {
       if (!calculated.length) throw new InvalidStateError("Укажите хотя бы одну камеру.");
       const mappingByKey = new Map(mappings.map((mapping) => [mapping.profileKey, mapping]));
       requirements = calculated.map((line) => {
+        const cameraKind = line.id === "cctv-indoor" ? "indoor_camera" : line.id === "cctv-outdoor" ? "outdoor_camera" : null;
+        if (cameraKind && this.cameraCandidates) {
+          const selected = selectCctvCameraCandidates(input.parameters, {
+            kind: cameraKind,
+            cameraResolutionMp: cameraKind === "indoor_camera" ? input.parameters.indoorResolutionMp : input.parameters.outdoorResolutionMp,
+          }, cameraPool).recommended;
+          if (selected) {
+            recommendedCameraProductIds.push(selected.productId);
+            const candidate = cameraPool.find((item) => item.productId === selected.productId)!;
+            return { ...line, resolution: "catalog" as const, resolvedId: selected.productId,
+              governedResolvedId: selected.productId, resolvedLabel: candidate.name, resolvedSku: candidate.sku,
+              description: candidate.name };
+          }
+          return line;
+        }
         const mapping = line.profileKey ? mappingByKey.get(line.profileKey) : null;
         const configuredServicePrice = mapping?.resolution === "service"
           && mapping.defaultSellingCurrencyCode === input.currencyCode ? mapping.defaultSellingUnitPrice : null;
@@ -123,6 +147,8 @@ export class ProposalGeneratorService {
       insufficientPoeWarning: compatibility.issues.some((issue) => issue.code === "insufficient_poe"),
       automaticRecorderProfile: compatibility.automaticRecorderProfile,
       compatibleConfigurationFound: compatibility.compatibleConfigurationFound,
+      cameraSelectionPolicyVersion: "cctv_camera_selection_v1",
+      recommendedCameraProductIds,
     };
     const sessionId = await this.repository.recordSession({ companyId, requestKey: input.requestKey, fingerprint, requirementCount: requirements.length, durationMs: Math.round(telemetryStartedAt - startedAt), generationMode: "quick_calculation", structuredFacts, resolutionCounts: countGeneratorResolutions(requirements) });
     console.info({

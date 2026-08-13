@@ -41,16 +41,22 @@ export default async function PublicCctvResultPage({ searchParams }: { searchPar
     event: "public_cctv_calculation_completed",
     status: result?.status ?? "failed",
     calculationPerformance: result?.performance ?? null,
+    cameraSelection: result?.cameraSelection ?? null,
   });
   const effectiveLocale = input?.locale ?? locale;
   const ru = effectiveLocale === "ru";
   const modifyHref = `/calculator/cctv?${safeQueryString(query)}`;
+  const economySelected = (Array.isArray(query.variant) ? query.variant[0] : query.variant) === "economy" && Boolean(result?.economyLines);
+  const displayedLines = economySelected ? result?.economyLines ?? result?.lines ?? [] : result?.lines ?? [];
+  const displayedTotals = economySelected ? result?.economyTotals ?? result?.totals : result?.totals;
+  const variantQuery = new URLSearchParams(safeQueryString(query));
+  if (economySelected) variantQuery.delete("variant"); else variantQuery.set("variant","economy");
   const installationRequested = Boolean(input && (
     input.cameraInstallationRequested || input.cableLayingRequested
     || input.commissioningRequested || input.remoteViewingRequested
   ));
   const cartItems = result?.status === "resolved"
-    ? result.lines.flatMap((line) => line.kind === "product" && line.product ? [{
+    ? displayedLines.flatMap((line) => line.kind === "product" && line.product ? [{
       publicProductId: line.product.id,
       quantity: line.quantity,
       commercialGroup: line.group === "materials" ? "materials" as const : "equipment" as const,
@@ -63,7 +69,7 @@ export default async function PublicCctvResultPage({ searchParams }: { searchPar
     commissioning: input.commissioningRequested,
     remoteViewing: input.remoteViewingRequested,
   } : null;
-  const workScope = result?.lines.flatMap((line) => line.kind === "work" ? [{
+  const workScope = displayedLines.flatMap((line) => line.kind === "work" ? [{
     kind: line.requirementKind,
     quantity: line.quantity,
     unitCode: line.unitCode,
@@ -82,13 +88,13 @@ export default async function PublicCctvResultPage({ searchParams }: { searchPar
           {result.unresolved.length ? <section className="mt-8 border-l-4 border-amber-500 bg-amber-50 p-5"><h2 className="font-semibold">{ru ? "Не удалось подобрать одну из позиций" : "Una dintre poziții nu a putut fi selectată"}</h2><ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-amber-950">{result.unresolved.map((item) => <li key={item}>{item}</li>)}</ul><p className="mt-3 text-sm text-amber-900">{ru ? "Мы не подменяем её похожим товаром без подтверждённой совместимости." : "Nu o înlocuim cu un produs similar fără compatibilitate confirmată."}</p></section> : null}
 
           <div className="mt-10 grid gap-10 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
-            <div className="space-y-10">{GROUPS.map((group) => {
-              const lines = result.lines.filter((line) => line.group === group);
+            <div className="space-y-10">{result.economyLines ? <section className="flex flex-wrap items-center justify-between gap-3 border border-zinc-200 bg-white p-4"><div><p className="font-semibold">{economySelected ? (ru ? "Эконом вариант" : "Varianta economică") : (ru ? "Рекомендуем" : "Recomandăm")}</p><p className="mt-1 text-sm text-zinc-600">{economySelected ? (ru ? "Более доступный вариант с сохранением выбранных параметров." : "O variantă mai accesibilă, cu aceiași parametri.") : (ru ? "Оптимальный вариант по технической совместимости и наличию." : "Varianta optimă după compatibilitate și disponibilitate.")}</p></div><Link className="inline-flex min-h-11 items-center border border-zinc-300 px-4 text-sm font-semibold" href={`/calculator/cctv/result?${variantQuery.toString()}`}>{economySelected ? (ru ? "Показать рекомендуемый" : "Arată recomandarea") : (ru ? "Показать дешевле" : "Arată mai ieftin")}</Link></section> : null}{GROUPS.map((group) => {
+              const lines = displayedLines.filter((line) => line.group === group);
               if (!lines.length) return null;
               return <section key={group}><h2 className="text-xl font-semibold">{groupLabel(group, input.locale)}</h2><div className="mt-4 divide-y divide-zinc-200 border-y border-zinc-200 bg-white">{lines.map((line) => <ResultLine key={line.key} line={line} locale={input.locale} />)}</div></section>;
             })}<section><h2 className="text-xl font-semibold">{ru ? "Почему выбрана эта конфигурация" : "De ce a fost aleasă această configurație"}</h2><ul className="mt-4 space-y-3 text-sm leading-6 text-zinc-700">{result.explanations.map((explanation) => <li className="flex gap-3" key={explanation}><CheckCircle2 className="mt-0.5 size-5 shrink-0 text-emerald-700" />{explanation}</li>)}</ul></section></div>
 
-            <aside className="border border-zinc-200 bg-white p-5 lg:sticky lg:top-24"><p className="text-xs font-semibold uppercase text-emerald-700">{ru ? "Предварительный расчёт" : "Calcul preliminar"}</p><h2 className="mt-2 text-xl font-semibold">{ru ? "Ориентировочная стоимость системы" : "Costul estimativ al sistemului"}</h2><dl className="mt-5 space-y-3 text-sm"><TotalRow label={ru ? "Оборудование" : "Echipamente"} locale={input.locale} value={result.totals.equipment} currency={result.totals.currency} /><TotalRow label={ru ? "Материалы" : "Materiale"} locale={input.locale} value={result.totals.materials} currency={result.totals.currency} />{installationRequested ? <TotalRow label={ru ? "Монтаж и настройка" : "Instalare și configurare"} locale={input.locale} value={result.totals.installation} currency={result.totals.currency} /> : null}</dl><div className="mt-5 border-t border-zinc-200 pt-5"><div className="flex items-end justify-between gap-4"><span className="font-semibold">{ru ? "Итого" : "Total"}</span><strong className="text-2xl tabular-nums">{result.totals.total !== null && result.totals.currency ? formatRetailPrice(result.totals.total, result.totals.currency, input.locale) : "—"}</strong></div></div><p className="mt-5 text-xs leading-5 text-zinc-500">{installationRequested ? (ru ? "Финальный объём монтажа и длина кабеля уточняются после проверки объекта." : "Volumul final al instalării și lungimea cablului se confirmă după verificarea obiectivului.") : (ru ? "Финальная длина кабеля уточняется после проверки объекта." : "Lungimea finală a cablului se confirmă după verificarea obiectivului.")}</p><div className="mt-6 grid gap-3">{result.status === "resolved" && cartItems.length > 0 ? <PublicRetailAddSystemButton calculatorInput={input} installationIntent={installationIntent} installationPricing={result.installationPricing} items={cartItems} locale={input.locale} workScope={workScope} /> : null}<Link className="inline-flex min-h-12 items-center justify-center border border-zinc-300 px-4 text-sm font-semibold" href={`/catalog?lang=${input.locale}`}>{ru ? "Перейти к каталогу" : "Deschide catalogul"}</Link><Link className="inline-flex min-h-12 items-center justify-center gap-2 border border-zinc-300 px-4 text-sm font-semibold" href={modifyHref}><ArrowLeft className="size-4" />{ru ? "Изменить параметры" : "Modifică parametrii"}</Link></div></aside>
+            <aside className="border border-zinc-200 bg-white p-5 lg:sticky lg:top-24"><p className="text-xs font-semibold uppercase text-emerald-700">{ru ? "Предварительный расчёт" : "Calcul preliminar"}</p><h2 className="mt-2 text-xl font-semibold">{ru ? "Ориентировочная стоимость системы" : "Costul estimativ al sistemului"}</h2><dl className="mt-5 space-y-3 text-sm"><TotalRow label={ru ? "Оборудование" : "Echipamente"} locale={input.locale} value={displayedTotals?.equipment ?? null} currency={displayedTotals?.currency ?? null} /><TotalRow label={ru ? "Материалы" : "Materiale"} locale={input.locale} value={displayedTotals?.materials ?? null} currency={displayedTotals?.currency ?? null} />{installationRequested ? <TotalRow label={ru ? "Монтаж и настройка" : "Instalare și configurare"} locale={input.locale} value={displayedTotals?.installation ?? null} currency={displayedTotals?.currency ?? null} /> : null}</dl><div className="mt-5 border-t border-zinc-200 pt-5"><div className="flex items-end justify-between gap-4"><span className="font-semibold">{ru ? "Итого" : "Total"}</span><strong className="text-2xl tabular-nums">{displayedTotals?.total !== null && displayedTotals?.currency ? formatRetailPrice(displayedTotals!.total!, displayedTotals.currency, input.locale) : "—"}</strong></div></div><p className="mt-5 text-xs leading-5 text-zinc-500">{installationRequested ? (ru ? "Финальный объём монтажа и длина кабеля уточняются после проверки объекта." : "Volumul final al instalării și lungimea cablului se confirmă după verificarea obiectivului.") : (ru ? "Финальная длина кабеля уточняется после проверки объекта." : "Lungimea finală a cablului se confirmă după verificarea obiectivului.")}</p><div className="mt-6 grid gap-3">{result.status === "resolved" && cartItems.length > 0 ? <PublicRetailAddSystemButton calculatorInput={{...input,selectedVariant:economySelected?"economy":"recommended",policyVersion:result.cameraSelection.policyVersion}} installationIntent={installationIntent} installationPricing={result.installationPricing} items={cartItems} locale={input.locale} workScope={workScope} /> : null}<Link className="inline-flex min-h-12 items-center justify-center border border-zinc-300 px-4 text-sm font-semibold" href={`/catalog?lang=${input.locale}`}>{ru ? "Перейти к каталогу" : "Deschide catalogul"}</Link><Link className="inline-flex min-h-12 items-center justify-center gap-2 border border-zinc-300 px-4 text-sm font-semibold" href={modifyHref}><ArrowLeft className="size-4" />{ru ? "Изменить параметры" : "Modifică parametrii"}</Link></div></aside>
           </div>
         </>}
       </div>

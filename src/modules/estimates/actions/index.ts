@@ -1,5 +1,6 @@
 export * from "./estimate.actions";
 export * from "./proposal-generator.actions";
+export * from "./cctv-camera-pools.actions";
 export * from "./proposal.actions";
 export * from "./lifecycle.actions";
 export * from "./demand.actions";

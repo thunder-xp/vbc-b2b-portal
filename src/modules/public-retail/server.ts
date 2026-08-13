@@ -7,11 +7,13 @@ import { PublicCctvCalculatorService } from "./services/public-cctv-calculator.s
 import { getRetailInstallationPricingService } from "@/src/modules/retail-marketplace/server";
 import { PublicRetailService } from "./services/public-retail.service";
 import type { PublicRetailLocale } from "./types";
+import { SupabaseCctvCameraCandidateRepository } from "../cctv-calculation/cctv-camera-candidate.repository";
 
 const service = new PublicRetailService(new SupabasePublicRetailReadRepository());
 const calculator = new PublicCctvCalculatorService(
   new SupabasePublicRetailReadRepository(),
   getRetailInstallationPricingService(),
+  new SupabaseCctvCameraCandidateRepository(),
 );
 
 export function getPublicRetailService(): PublicRetailService {

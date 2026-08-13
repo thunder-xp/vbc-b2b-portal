@@ -38,6 +38,35 @@ describe("ProposalGeneratorService", () => {
     }));
   });
 
+  it("consumes the shared camera policy in one pool read and records its version", async () => {
+    const recordSession = vi.fn().mockResolvedValue(uuid("8"));
+    const cameraId = uuid("2");
+    const cameraCandidates = { resolve: vi.fn().mockResolvedValue([{ candidateId: uuid("9"), objectType: "warehouse",
+      placement: "indoor", productId: cameraId, manualPriority: "normal", enabled: true, resolutionMp: 6,
+      networkCamera: true, poeSupported: null, colorNight: null, anpr: null, videoAnalytics: null,
+      technicalVerified: true, availableStock: 40, recentSalesQty: 0, lastSaleAt: null, signalUpdatedAt: null,
+      sku: "CAM-6", name: "Camera 6 MP", imageUrl: null, publicProduct: null }]) };
+    const service = new ProposalGeneratorService(
+      { recordSession, resolveCalculatorProfiles: vi.fn().mockResolvedValue([]) } as never,
+      { getOwnMemberships: vi.fn().mockResolvedValue([{ companyId: uuid("4"), status: "active" }]), getActiveCompanyContext: vi.fn().mockResolvedValue({ company: { id: uuid("4") } }) } as never,
+      { ensurePermission: vi.fn() } as never,
+      { getProductReferencesByIds: vi.fn().mockResolvedValue([]) } as never,
+      { getProductCommercialViews: vi.fn().mockResolvedValue([{ productId: cameraId, retailPrice: { amount: 100, currencyCode: "MDL" } }]) } as never,
+      cameraCandidates as never,
+    );
+    const result = await service.calculateCctv(uuid("1"), { requestKey: uuid("7"), currencyCode: "MDL", parameters: {
+      objectType: "warehouse", indoorCameraCount: 1, outdoorCameraCount: 0, archiveDays: 7, cableLength: 0,
+      installationRequested: false, commissioningRequested: false, remoteViewingRequested: false,
+      indoorResolutionMp: 6, outdoorResolutionMp: 4, recorderSelection: "auto", colorNight: false,
+      licensePlateRecognition: false, videoAnalytics: false, backupPower: false,
+    } });
+    expect(cameraCandidates.resolve).toHaveBeenCalledOnce();
+    expect(result.requirements.find((line) => line.id === "cctv-indoor")).toMatchObject({ resolvedId: cameraId, resolution: "catalog" });
+    expect(recordSession).toHaveBeenCalledWith(expect.objectContaining({ structuredFacts: expect.objectContaining({
+      cameraSelectionPolicyVersion: "cctv_camera_selection_v1", recommendedCameraProductIds: [cameraId],
+    }) }));
+  });
+
   it("uses the exact governed PFA-130E mapping and VAT-included camera installation default", async () => {
     const recordSession = vi.fn().mockResolvedValue(uuid("8"));
     const pfaId = "0a4a7f2f-3ac6-4429-b0ee-3a3a00749df5";

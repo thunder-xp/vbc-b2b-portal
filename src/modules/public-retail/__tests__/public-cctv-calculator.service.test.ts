@@ -101,6 +101,22 @@ describe("PublicCctvCalculatorService", () => {
     expect(result.totals.total).toBe(productLines.reduce((sum, line) => sum + (line.amount ?? 0), 0));
   });
 
+  it("uses the shared governed camera policy and returns a cheaper public alternative without ranking internals", async () => {
+    const fixture = repository();
+    const recommended = { ...product("recommended"), id: uuid("6"), price: { amount: 120, currency: "MDL", vatPresentation: "included" as const } };
+    const economy = { ...product("economy"), id: uuid("7"), price: { amount: 80, currency: "MDL", vatPresentation: "included" as const } };
+    const cameraCandidates = { resolve: vi.fn().mockResolvedValue([
+      candidate(uuid("2"), recommended, { availableStock: 80, recentSalesQty: 0 }),
+      candidate(uuid("3"), economy, { availableStock: 20, recentSalesQty: 60 }),
+    ]) };
+    const result = await new PublicCctvCalculatorService(fixture.repository, undefined, cameraCandidates as never).calculate(input());
+    expect(cameraCandidates.resolve).toHaveBeenCalledOnce();
+    expect(result.lines.find((line) => line.requirementKind === "indoor_camera")?.product?.id).toBe(recommended.id);
+    expect(result.economyLines?.find((line) => line.requirementKind === "indoor_camera")?.product?.id).toBe(economy.id);
+    expect(result.cameraSelection).toEqual(expect.objectContaining({ policyVersion: "cctv_camera_selection_v1" }));
+    expect(JSON.stringify(result)).not.toMatch(/priorityScore|slowSalesScore|recentSalesQty|availableStock/);
+  });
+
   it("keeps installation quantities unpriced and respects independent choices", async () => {
     const fixture = repository();
     const result = await new PublicCctvCalculatorService(fixture.repository).calculate(input({
@@ -177,3 +193,12 @@ describe("PublicCctvCalculatorService", () => {
     }));
   });
 });
+
+function uuid(digit: string) { return `${digit.repeat(8)}-${digit.repeat(4)}-${digit.repeat(4)}-${digit.repeat(4)}-${digit.repeat(12)}`; }
+function candidate(productId: string, publicProduct: PublicRetailProductSummaryDto, overrides: Record<string, unknown>) {
+  return { candidateId: uuid("9"), objectType: "warehouse", placement: "indoor", productId,
+    manualPriority: "normal", enabled: true, resolutionMp: 6, networkCamera: true, poeSupported: null,
+    colorNight: null, anpr: null, videoAnalytics: null, technicalVerified: true, availableStock: 1,
+    recentSalesQty: 0, lastSaleAt: null, signalUpdatedAt: null, sku: publicProduct.sku, name: publicProduct.name,
+    imageUrl: null, publicProduct, ...overrides };
+}

@@ -1,8 +1,11 @@
 import {
   calculateCctvTechnicalPlan,
+  selectCctvCameraCandidates,
+  selectEconomyAlternative,
   type CctvObjectType,
   type CctvTechnicalRequirement,
 } from "@/src/modules/cctv-calculation";
+import type { SupabaseCctvCameraCandidateRepository } from "@/src/modules/cctv-calculation/cctv-camera-candidate.repository";
 
 import type { PublicRetailReadRepository } from "../repositories/public-retail.repository";
 import type { PublicRetailAvailability, PublicRetailLocale, PublicRetailProductSummaryDto } from "../types";
@@ -61,6 +64,9 @@ export type PublicCctvCalculatorResult = {
   installationPricing: InstallationPricingResult;
   totals: { equipment: number | null; materials: number | null; installation: number | null; total: number | null; currency: string | null };
   performance: { engineMs: number; resolutionMs: number; installationPricingMs: number; totalMs: number };
+  cameraSelection: { policyVersion: string; recommendedProductIds: string[]; economyProductIds: string[] };
+  economyLines: PublicCctvResultLine[] | null;
+  economyTotals: PublicCctvCalculatorResult["totals"] | null;
 };
 
 type InstallationPricing = {
@@ -82,6 +88,7 @@ export class PublicCctvCalculatorService {
   constructor(
     private readonly repository: PublicRetailReadRepository,
     private readonly installationPricing?: InstallationPricing,
+    private readonly cameraCandidates?: Pick<SupabaseCctvCameraCandidateRepository, "resolve">,
   ) {}
 
   async calculate(input: PublicCctvCalculatorInput): Promise<PublicCctvCalculatorResult> {
@@ -116,16 +123,22 @@ export class PublicCctvCalculatorService {
     }]);
     const profileKeys = [...new Set(productRequirements.flatMap((requirement) => requirement.profileKey ? [requirement.profileKey] : []))];
     const pricingStartedAt = performance.now();
-    const [resolutions, installationPricing] = await Promise.all([
+    const placements = [normalized.indoorCameraCount > 0 && "indoor", normalized.outdoorCameraCount > 0 && "outdoor"]
+      .filter((value): value is "indoor" | "outdoor" => Boolean(value));
+    const [resolutions, installationPricing, cameraPool] = await Promise.all([
       profileKeys.length ? this.repository.resolveCalculatorProducts(profileKeys, normalized.locale) : [],
       workRequirements.length && this.installationPricing
         ? this.installationPricing.price(workRequirements)
         : Promise.resolve(emptyInstallationPricing(workRequirements)),
+      this.cameraCandidates?.resolve(engineObjectType(normalized.objectType), placements, normalized.locale) ?? Promise.resolve([]),
     ]);
     const resolutionCompletedAt = performance.now();
     const resolutionByProfile = new Map(resolutions.map((resolution) => [resolution.profileKey, resolution]));
     const pricedWorkByType = new Map(installationPricing.lines.map((line) => [line.serviceType, line]));
     const unresolved: string[] = [];
+    const recommendedIds: string[] = [];
+    const economyIds: string[] = [];
+    const economyByRequirement = new Map<string, PublicRetailProductSummaryDto>();
 
     const lines = requirements.map((requirement, index): PublicCctvResultLine => {
       const label = requirementLabel(requirement, normalized.locale);
@@ -140,7 +153,20 @@ export class PublicCctvCalculatorService {
         };
       }
       const resolution = requirement.profileKey ? resolutionByProfile.get(requirement.profileKey) : null;
-      const product = resolution?.matchCount === 1 ? resolution.product : null;
+      let product = resolution?.matchCount === 1 ? resolution.product : null;
+      if (this.cameraCandidates && (requirement.kind === "indoor_camera" || requirement.kind === "outdoor_camera")) {
+        const selection = selectCctvCameraCandidates(technical.normalizedInput, requirement, cameraPool);
+        const publicById = new Map(cameraPool.flatMap((item) => item.publicProduct
+          ? [[item.productId, item.publicProduct as PublicRetailProductSummaryDto] as const] : []));
+        const publicEligible = selection.eligible.filter((candidate) => publicById.has(candidate.productId));
+        const recommended = publicEligible[0] ?? null;
+        product = recommended ? publicById.get(recommended.productId) ?? null : null;
+        if (recommended && product) recommendedIds.push(recommended.productId);
+        const prices = new Map([...publicById].map(([id, item]) => [id, item.price.amount]));
+        const economy = selectEconomyAlternative(publicEligible, prices, recommended?.productId ?? null);
+        const alternative = economy ? publicById.get(economy.productId) : null;
+        if (economy && alternative) { economyByRequirement.set(requirement.id, alternative); economyIds.push(economy.productId); }
+      }
       if (!product) unresolved.push(label);
       return {
         key: `product-${index + 1}`, kind: "product", group: resultGroup(requirement.kind), label, requirementKind: requirement.kind, unitCode: unitCode(requirement.unit),
@@ -162,6 +188,18 @@ export class PublicCctvCalculatorService {
     const technicalReady = technical.compatibility.ready && !technical.compatibility.issues.some((issue) => issue.severity === "blocking");
     if (!technicalReady) unresolved.push(normalized.locale === "ro" ? "Configurația tehnică necesită verificare" : "Техническая конфигурация требует проверки");
     const totalCompletedAt = performance.now();
+    const economyLines = economyByRequirement.size ? lines.map((line) => {
+      const requirement = requirements.find((item) => item.kind === line.requirementKind);
+      const alternative = requirement ? economyByRequirement.get(requirement.id) : null;
+      return alternative ? { ...line, product: alternative, unitPrice: alternative.price.amount,
+        amount: roundMoney(alternative.price.amount * line.quantity), currency: alternative.price.currency,
+        availability: alternative.availability } : line;
+    }) : null;
+    const economyEquipment = economyLines ? subtotal(economyLines, ["cameras", "recorder", "archive", "network"], currency) : null;
+    const economyMaterials = economyLines ? subtotal(economyLines, ["materials"], currency) : null;
+    const economyTotals = economyLines ? { equipment: economyEquipment, materials: economyMaterials, installation,
+      total: economyEquipment === null || economyMaterials === null || installation === null || !commercialCurrency
+        ? null : roundMoney(economyEquipment + economyMaterials + installation), currency: commercialCurrency } : null;
 
     return {
       status: technicalReady && unresolved.length === 0 ? "resolved" : "needs_review",
@@ -173,6 +211,9 @@ export class PublicCctvCalculatorService {
       unresolved: [...new Set(unresolved)],
       explanations: explainDecisions(technical, normalized.locale),
       installationPricing,
+      cameraSelection: { policyVersion: "cctv_camera_selection_v1", recommendedProductIds: recommendedIds, economyProductIds: economyIds },
+      economyLines,
+      economyTotals,
       totals: {
         equipment, materials, installation,
         total: equipment === null || materials === null || installation === null || !commercialCurrency

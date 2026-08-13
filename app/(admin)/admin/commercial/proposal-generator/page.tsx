@@ -1,11 +1,11 @@
-import { getProposalGeneratorAdminReportAction, listProposalGeneratorProfilesAction } from "@/src/modules/estimates/actions";
-import { AdminProposalGeneratorProfiles } from "@/src/modules/estimates/components";
+import { getProposalGeneratorAdminReportAction, listCctvCameraPoolsAction, listProposalGeneratorProfilesAction } from "@/src/modules/estimates/actions";
+import { AdminCctvCameraPools, AdminProposalGeneratorProfiles } from "@/src/modules/estimates/components";
 
 const feedbackLabels = { yes: "Да", partial: "Частично", no: "Нет" } as const;
 const objectLabels: Record<string, string> = { apartment: "Квартира", house: "Частный дом", office: "Офис", retail: "Магазин / Retail", warehouse: "Склад", industrial: "Промышленный объект", horeca: "HoReCa", other: "Другое" };
 
 export default async function ProposalGeneratorAdminPage() {
-  const [reportResult, profilesResult] = await Promise.all([getProposalGeneratorAdminReportAction(), listProposalGeneratorProfilesAction()]);
+  const [reportResult, profilesResult, poolsResult] = await Promise.all([getProposalGeneratorAdminReportAction(), listProposalGeneratorProfilesAction(), listCctvCameraPoolsAction()]);
   if (!reportResult.success) return <div className="space-y-3"><h1 className="text-2xl font-semibold">Генератор КП</h1><p className="border-l-4 border-red-500 bg-red-50 px-4 py-3 text-sm text-red-800">{reportResult.message}</p></div>;
   const { summary, comments, quickCalculationByObjectType } = reportResult.data;
   const metrics = [
@@ -25,6 +25,7 @@ export default async function ProposalGeneratorAdminPage() {
       {quickCalculationByObjectType.length > 0 && <div className="mt-4"><h3 className="text-sm font-semibold">Объекты CCTV</h3><div className="mt-2 flex flex-wrap gap-2">{quickCalculationByObjectType.map((item) => <span className="rounded border border-zinc-200 px-2 py-1 text-xs" key={item.objectType}>{objectLabels[item.objectType] ?? item.objectType}: {item.starts} / {item.estimatesCreated}</span>)}</div></div>}
     </section>
     {profilesResult.success ? <AdminProposalGeneratorProfiles initialProfiles={profilesResult.data} /> : <p className="border-l-4 border-amber-500 bg-amber-50 px-4 py-3 text-sm">{profilesResult.message}</p>}
+    {poolsResult.success ? <AdminCctvCameraPools initialRows={poolsResult.data} /> : <p className="border-l-4 border-amber-500 bg-amber-50 px-4 py-3 text-sm">{poolsResult.message}</p>}
     <section className="rounded-md border border-zinc-200 bg-white p-4"><h2 className="font-semibold">Обратная связь</h2><div className="mt-3 flex flex-wrap gap-4 text-sm"><span>Да: <strong>{summary.feedbackYes}</strong></span><span>Частично: <strong>{summary.feedbackPartial}</strong></span><span>Нет: <strong>{summary.feedbackNo}</strong></span></div><div className="mt-4 divide-y divide-zinc-100">{comments.length ? comments.map((comment, index) => <article className="py-3 text-sm" key={`${comment.created_at}-${index}`}><p className="font-medium">{feedbackLabels[comment.answer]}</p><p className="mt-1 text-zinc-700">{comment.comment}</p><time className="mt-1 block text-xs text-zinc-500">{new Intl.DateTimeFormat("ru-RU", { dateStyle: "medium" }).format(new Date(comment.created_at))}</time></article>) : <p className="py-3 text-sm text-zinc-500">Комментариев пока нет.</p>}</div></section>
   </div>;
 }

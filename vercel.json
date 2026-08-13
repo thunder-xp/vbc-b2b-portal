@@ -95,6 +95,10 @@
     {
       "path": "/api/cron/installation-assignments",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/cctv-camera-signals",
+      "schedule": "50 * * * *"
     }
   ]
 }
