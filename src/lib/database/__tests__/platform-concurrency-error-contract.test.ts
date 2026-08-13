@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const migration = readFileSync(
-  "supabase/migrations/20260813170021_platform_concurrency_error_contract.sql",
+  "supabase/migrations/20260813172946_platform_concurrency_error_contract.sql",
   "utf8",
 );
 const architecture = readFileSync("docs/architecture/BACKEND_ARCHITECTURE.md", "utf8");
