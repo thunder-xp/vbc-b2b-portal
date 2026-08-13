@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { failureFromError, invalidInput, success } from "../../access-control/actions/action-result";
+import { DomainConflictError } from "../../access-control/services";
 import { requireAdminPermission } from "../../admin/services";
 import { CCTV_OBJECT_TYPES, type CctvCameraPlacement, type CctvCameraPriority } from "../../cctv-calculation";
 import { SupabaseCctvCameraCandidateRepository } from "../../cctv-calculation/cctv-camera-candidate.repository";
@@ -9,6 +10,13 @@ import { SupabaseCctvObjectConfigurationRepository } from "../../cctv-calculatio
 import type { CctvServiceCode } from "../../cctv-calculation";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function cctvConfigurationFailure(error: unknown) {
+  if (error instanceof Error && ["CCTV_CAMERA_POOL_CONFLICT", "CCTV_SERVICE_BINDING_CONFLICT"].includes(error.message)) {
+    return failureFromError(new DomainConflictError(error.message, "Настройка изменилась. Обновите страницу и повторите действие."));
+  }
+  return failureFromError(error);
+}
 
 export async function listCctvCameraPoolsAction() {
   try { await requireAdminPermission("admin.estimates.view"); return success("Пулы камер загружены.", await new SupabaseCctvCameraCandidateRepository().listAdmin()); }
@@ -49,7 +57,7 @@ export async function upsertCctvCameraPoolAction(input: { objectType: string; pl
     if (!saved) throw new Error("Saved CCTV camera candidate is unavailable.");
     revalidatePath("/admin/commercial/proposal-generator");
     return success("Кандидат камеры сохранён.", saved);
-  } catch (error) { return failureFromError(error); }
+  } catch (error) { return cctvConfigurationFailure(error); }
 }
 
 export async function removeCctvCameraPoolAction(input: { candidateId: string; expectedVersion: number }) {
@@ -59,7 +67,7 @@ export async function removeCctvCameraPoolAction(input: { candidateId: string; e
     await new SupabaseCctvCameraCandidateRepository().removeAdmin(input.candidateId, input.expectedVersion);
     revalidatePath("/admin/commercial/proposal-generator");
     return success("Кандидат удалён из пула.", input.candidateId);
-  } catch (error) { return failureFromError(error); }
+  } catch (error) { return cctvConfigurationFailure(error); }
 }
 
 export async function upsertCctvObjectServiceBindingAction(input: { objectType: string; serviceCode: CctvServiceCode;
@@ -78,5 +86,5 @@ export async function upsertCctvObjectServiceBindingAction(input: { objectType: 
     if (!saved) throw new Error("Saved CCTV service binding is unavailable.");
     revalidatePath("/admin/commercial/proposal-generator");
     return success("Настройка услуги сохранена.", saved);
-  } catch (error) { return failureFromError(error); }
+  } catch (error) { return cctvConfigurationFailure(error); }
 }
