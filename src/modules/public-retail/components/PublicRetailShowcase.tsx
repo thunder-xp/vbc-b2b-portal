@@ -13,20 +13,20 @@ export function PublicRetailShowcase({ locale, showcase }: { locale: PublicRetai
       <form action="/catalog" className="flex w-full max-w-xl sm:w-auto sm:min-w-[32rem]" role="search"><input name="lang" type="hidden" value={locale} /><label className="sr-only" htmlFor="showcase-search">{copy.search}</label><input className="min-h-11 min-w-0 flex-1 border border-r-0 border-zinc-300 px-3 text-sm outline-none focus:border-emerald-700" id="showcase-search" name="q" placeholder={copy.search} /><button className="min-h-11 bg-emerald-700 px-5 text-sm font-semibold text-white hover:bg-emerald-800">{copy.searchAction}</button></form>
     </header>
     <div className="divide-y divide-zinc-200">
-      <ShowcaseSection href={`/catalog?lang=${locale}&view=popular`} locale={locale} products={showcase.popular} title={copy.popularProducts} />
-      <ShowcaseSection href={`/catalog?lang=${locale}&view=new`} locale={locale} products={showcase.new} title={copy.newProducts} />
-      <ShowcaseSection href={`/catalog?lang=${locale}&view=hot`} locale={locale} products={showcase.hot} title={copy.hotPrice} />
+      <ShowcaseSection badge={copy.popularBadge} href={`/catalog?lang=${locale}&view=popular`} locale={locale} products={showcase.popular} title={copy.popularProducts} />
+      <ShowcaseSection badge={copy.newBadge} href={`/catalog?lang=${locale}&view=new`} locale={locale} products={showcase.new} title={copy.newProducts} />
+      <ShowcaseSection badge={copy.hotBadge} href={`/catalog?lang=${locale}&view=hot`} locale={locale} products={showcase.hot} title={copy.hotPrice} />
     </div>
   </div>;
 }
 
-function ShowcaseSection({ href, locale, products, title }: { href: string; locale: PublicRetailLocale; products: PublicRetailProductSummaryDto[]; title: string }) {
+function ShowcaseSection({ badge, href, locale, products, title }: { badge: string; href: string; locale: PublicRetailLocale; products: PublicRetailProductSummaryDto[]; title: string }) {
   const copy = retailCopy[locale];
-  return <section className="py-8" aria-labelledby={`showcase-${href.split("=").at(-1)}`}>
-    <div className="mb-5 flex items-center justify-between gap-4">
+  return <section className="py-7" aria-labelledby={`showcase-${href.split("=").at(-1)}`}>
+    <div className="mb-4 flex items-center justify-between gap-4">
       <h2 className="text-xl font-semibold" id={`showcase-${href.split("=").at(-1)}`}>{title}</h2>
       <Link className="inline-flex min-h-11 shrink-0 items-center gap-2 text-sm font-semibold text-emerald-800 hover:text-emerald-950" href={href}>{copy.showAll}<ArrowRight aria-hidden="true" className="size-4" /></Link>
     </div>
-    {products.length ? <div className="grid grid-cols-2 items-stretch gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 xl:gap-4">{products.map((product) => <PublicRetailProductCard key={product.id} locale={locale} product={product} />)}</div> : <p className="border border-dashed border-zinc-300 px-6 py-10 text-center text-sm text-zinc-600">{copy.emptyShowcase}</p>}
+    {products.length ? <div className="grid grid-cols-2 items-stretch gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">{products.map((product) => <PublicRetailProductCard badge={badge} key={product.id} locale={locale} product={product} />)}</div> : <p className="border border-dashed border-zinc-300 px-6 py-10 text-center text-sm text-zinc-600">{copy.emptyShowcase}</p>}
   </section>;
 }

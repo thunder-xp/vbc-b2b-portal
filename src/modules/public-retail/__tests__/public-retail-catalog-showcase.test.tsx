@@ -31,6 +31,16 @@ describe("Public Retail catalog showcase", () => {
     expect(screen.getAllByRole("link", { name: /Показать все/ }).map((link) => link.getAttribute("href"))).toEqual([
       "/catalog?lang=ru&view=popular", "/catalog?lang=ru&view=new", "/catalog?lang=ru&view=hot",
     ]);
+    expect(screen.getByText("Популярный")).toBeInTheDocument();
+    expect(screen.getByText("Новинка")).toBeInTheDocument();
+    expect(screen.getAllByText("Горячая цена")).toHaveLength(2);
+  });
+
+  it("localizes section-derived merchandising badges in Romanian", () => {
+    render(<PublicRetailShowcase locale="ro" showcase={{ popular: [product], new: [product], hot: [product] }} />);
+    expect(screen.getByText("Popular")).toBeInTheDocument();
+    expect(screen.getByText("Noutate")).toBeInTheDocument();
+    expect(screen.getAllByText("Preț special")).toHaveLength(2);
   });
 
   it("keeps an empty governed section visible without fabricating products", () => {

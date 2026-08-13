@@ -45,8 +45,25 @@ describe("public retail UX", () => {
     const image = screen.getByRole("img", { name: "Camera" });
     const media = image.closest("a");
     expect(media?.closest("article")).toHaveClass("grid-cols-[minmax(0,1fr)]", "overflow-hidden");
-    expect(media).toHaveClass("h-36", "sm:h-44", "xl:h-48", "w-full", "min-w-0", "max-w-full", "overflow-hidden");
+    expect(media).toHaveClass("h-32", "sm:h-40", "xl:h-44", "w-full", "min-w-0", "max-w-full", "overflow-hidden");
     expect(image).toHaveClass("size-full", "max-h-full", "max-w-full", "object-contain");
+  });
+
+  it("keeps identity, highlights, commercial state and actions in stable tracks", () => {
+    render(<PublicRetailProductCard badge="Популярный" locale="ru" product={{ ...product, name: "Очень длинное название камеры видеонаблюдения с технической моделью" }} />);
+    expect(screen.getByText("Популярный")).toHaveClass("absolute", "left-2", "top-2");
+    expect(screen.getByRole("link", { name: "Очень длинное название камеры видеонаблюдения с технической моделью" })).toHaveClass("line-clamp-2", "min-h-10");
+    expect(screen.getByRole("list")).toHaveClass("min-h-[3.75rem]");
+    expect(screen.getByText("Наличие уточняется")).toHaveClass("min-h-5");
+    expect(screen.getByText("1 299 MDL")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "В корзину" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Подробнее" })).toBeInTheDocument();
+  });
+
+  it("does not substitute long descriptions when governed highlights are absent", () => {
+    render(<PublicRetailProductCard locale="ru" product={{ ...product, highlights: [], shortDescription: "Длинное техническое описание" }} />);
+    expect(screen.queryByText("Длинное техническое описание")).not.toBeInTheDocument();
+    expect(screen.getByRole("list")).toBeEmptyDOMElement();
   });
 
   it("renders bounded category filters, search result and pagination", () => {

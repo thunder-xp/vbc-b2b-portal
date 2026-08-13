@@ -21,8 +21,11 @@ export const retailCopy = {
     showcase: "Витрина",
     popular: "Популярное",
     popularProducts: "Популярные товары",
+    popularBadge: "Популярный",
     newProducts: "Новинки",
+    newBadge: "Новинка",
     hotPrice: "Горячая цена",
+    hotBadge: "Горячая цена",
     showAll: "Показать все",
     emptyShowcase: "В этой подборке пока нет товаров.",
     byPrice: "По цене",
@@ -60,8 +63,11 @@ export const retailCopy = {
     showcase: "Vitrină",
     popular: "Populare",
     popularProducts: "Produse populare",
+    popularBadge: "Popular",
     newProducts: "Noutăți",
+    newBadge: "Noutate",
     hotPrice: "Preț special",
+    hotBadge: "Preț special",
     showAll: "Vezi toate",
     emptyShowcase: "Momentan nu sunt produse în această selecție.",
     byPrice: "După preț",
@@ -128,6 +134,12 @@ export function formatRetailPrice(amount: number, currency: string, locale: Publ
     currency,
     maximumFractionDigits: 2,
   }).format(amount);
+}
+
+export function formatRetailCardPrice(amount: number, currency: string, locale: PublicRetailLocale): string {
+  return `${new Intl.NumberFormat(locale === "ro" ? "ro-MD" : "ru-MD", {
+    maximumFractionDigits: 2,
+  }).format(amount)} ${currency}`;
 }
 
 export function availabilityTone(value: PublicRetailAvailability): string {
