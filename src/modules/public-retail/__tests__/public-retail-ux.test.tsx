@@ -53,7 +53,8 @@ describe("public retail UX", () => {
     render(<PublicRetailProductCard badge="Популярный" locale="ru" product={{ ...product, name: "Очень длинное название камеры видеонаблюдения с технической моделью" }} />);
     expect(screen.getByText("Популярный")).toHaveClass("absolute", "left-2", "top-2");
     expect(screen.getByRole("link", { name: "Очень длинное название камеры видеонаблюдения с технической моделью" })).toHaveClass("line-clamp-2", "min-h-10");
-    expect(screen.getByRole("list")).toHaveClass("min-h-[3.75rem]");
+    expect(screen.getByText("Brand · Артикул CAM-001")).toHaveClass("truncate");
+    expect(screen.getByRole("list")).toHaveClass("min-h-10");
     expect(screen.getByText("Наличие уточняется")).toHaveClass("min-h-5");
     expect(screen.getByText("1 299 MDL")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "В корзину" })).toBeInTheDocument();
@@ -64,6 +65,17 @@ describe("public retail UX", () => {
     render(<PublicRetailProductCard locale="ru" product={{ ...product, highlights: [], shortDescription: "Длинное техническое описание" }} />);
     expect(screen.queryByText("Длинное техническое описание")).not.toBeInTheDocument();
     expect(screen.getByRole("list")).toBeEmptyDOMElement();
+  });
+
+  it("limits card highlights to two and keeps availability readable beyond color", () => {
+    render(<PublicRetailProductCard locale="ru" product={{ ...product, highlights: [
+      { key: "one", label: "One", value: "1" },
+      { key: "two", label: "Two", value: "2" },
+      { key: "three", label: "Three", value: "3" },
+    ] }} />);
+    expect(screen.getAllByRole("listitem")).toHaveLength(2);
+    const availability = screen.getByText("Наличие уточняется");
+    expect(availability.querySelector("[aria-hidden='true']")).toHaveClass("rounded-full", "bg-current");
   });
 
   it("renders bounded category filters, search result and pagination", () => {
