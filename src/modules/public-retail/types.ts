@@ -90,6 +90,7 @@ export type PublicRetailCartItemDto = {
   name: string;
   image: PublicRetailMediaDto | null;
   quantity: number;
+  unitCode: "piece" | "meter" | "service";
   price: PublicRetailPriceDto | null;
   availability: PublicRetailAvailability;
   lineAmount: number | null;
@@ -100,6 +101,9 @@ export type PublicRetailCartBundleDto = {
   id: string;
   source: "cctv_calculator";
   installationIntent: { cameraInstallation: boolean; cableLaying: boolean; commissioning: boolean; remoteViewing: boolean } | null;
+  calculatorVersion?: string;
+  calculatorInput?: Record<string, unknown> | null;
+  workScope?: Array<{ kind: string; quantity: number; unitCode: "piece" | "meter" | "service" }> | null;
 };
 export type PublicRetailCartDto = {
   revision: number;
@@ -110,3 +114,49 @@ export type PublicRetailCartDto = {
   totals: { equipment: number | null; materials: number | null; total: number | null; currency: string | null };
 };
 export type PublicRetailCartMutationDto = { revision: number; distinctItemCount: number; totalQuantity: number; repeated: boolean; bundleId: string | null };
+
+export type PublicRetailCheckoutLineDto = {
+  publicProductId: string;
+  bundleId: string | null;
+  source: PublicRetailCartSource;
+  commercialGroup: "equipment" | "materials";
+  slug: string;
+  sku: string;
+  name: string;
+  imageUrl: string | null;
+  quantity: number;
+  unitCode: "piece" | "meter" | "service";
+  unitPrice: number;
+  lineTotal: number;
+  currency: string;
+  vatPresentation: PublicRetailVatPresentation;
+  availability: PublicRetailAvailability;
+  priceChanged: boolean;
+  missing: boolean;
+};
+export type PublicRetailCheckoutDto = {
+  cartRevision: number;
+  publicationId: string;
+  eligible: boolean;
+  blockingReason: "empty_cart" | "unpublished_product" | "unavailable_product" | "currency_conflict" | null;
+  priceChanged: boolean;
+  fingerprint: string;
+  lines: PublicRetailCheckoutLineDto[];
+  bundles: PublicRetailCartBundleDto[];
+  totals: { equipment: number; materials: number; total: number; currency: string; vatPresentation: PublicRetailVatPresentation | "mixed" };
+};
+export type RetailAddressDto = { locality: string; street: string; building: string; unit: string | null; postalCode: string | null; instructions: string | null };
+export type PublicRetailOrderDto = {
+  orderNumber: string;
+  status: "awaiting_payment";
+  createdAt: string;
+  locale: PublicRetailLocale;
+  customer: { name: string; phone: string; email: string | null };
+  deliveryAddress: RetailAddressDto;
+  installationAddress: RetailAddressDto | null;
+  installationIntent: Array<{ bundleId: string; intent: Record<string, boolean>; workScope: unknown[] | null }>;
+  calculatorEvidence: Array<{ bundleId: string; source: "cctv_calculator"; calculatorVersion: string; calculatorInput: Record<string, unknown> | null }>;
+  totals: PublicRetailCheckoutDto["totals"];
+  lines: Array<Omit<PublicRetailCheckoutLineDto, "bundleId" | "priceChanged" | "missing"> & { lineNumber: number }>;
+};
+export type PublicRetailOrderCreatedDto = { orderNumber: string; status: "awaiting_payment"; repeated: boolean; accessExpiresAt: string };

@@ -2,6 +2,7 @@ import "server-only";
 import { createHash } from "node:crypto";
 import type { RetailCartRepository } from "../repositories/retail-cart.repository";
 import type { PublicRetailLocale } from "../types";
+import { normalizePublicCctvInput, type PublicCctvCalculatorInput } from "./public-cctv-calculator.service";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const PUBLIC_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -18,16 +19,19 @@ export class RetailCartService {
     if (!(["catalog", "product_detail"] as const).includes(normalized.source)) throw new RetailCartInputError();
     try { return await this.repository.addProduct(validHash(tokenHash), { ...normalized, fingerprint: fingerprint(normalized) }); } catch (error) { throw translateCartError(error); }
   }
-  async addCctvSystem(tokenHash: string, input: { items: Array<{ publicProductId: string; quantity: number; commercialGroup: "equipment" | "materials" }>; installationIntent: Record<string, boolean> | null; requestId: string }) {
+  async addCctvSystem(tokenHash: string, input: { items: Array<{ publicProductId: string; quantity: number; commercialGroup: "equipment" | "materials"; unitCode: "piece" | "meter" | "service" }>; installationIntent: Record<string, boolean> | null; calculatorInput: Record<string, unknown>; workScope: Array<{ kind: string; quantity: number; unitCode: "piece" | "meter" | "service" }>; requestId: string }) {
     if (!Array.isArray(input.items) || input.items.length < 1 || input.items.length > 30) throw new RetailCartInputError();
-    const grouped = new Map<string, { publicProductId: string; quantity: number; commercialGroup: "equipment" | "materials" }>();
+    const grouped = new Map<string, { publicProductId: string; quantity: number; commercialGroup: "equipment" | "materials"; unitCode: "piece" | "meter" | "service" }>();
     for (const item of input.items) {
       if (!(["equipment", "materials"] as const).includes(item.commercialGroup)) throw new RetailCartInputError();
-      const id = publicId(item.publicProductId); const key = `${id}:${item.commercialGroup}`; const previous = grouped.get(key);
-      grouped.set(key, { publicProductId: id, commercialGroup: item.commercialGroup, quantity: bundleQuantity((previous?.quantity ?? 0) + item.quantity) });
+      if (!( ["piece", "meter", "service"] as const).includes(item.unitCode)) throw new RetailCartInputError();
+      const id = publicId(item.publicProductId); const key = `${id}:${item.commercialGroup}:${item.unitCode}`; const previous = grouped.get(key);
+      grouped.set(key, { publicProductId: id, commercialGroup: item.commercialGroup, unitCode: item.unitCode, quantity: bundleQuantity((previous?.quantity ?? 0) + item.quantity) });
     }
     const installationIntent = normalizeIntent(input.installationIntent);
-    const command = { items: [...grouped.values()], installationIntent, requestId: requestId(input.requestId) };
+    const calculatorInput = normalizePublicCctvInput(input.calculatorInput as PublicCctvCalculatorInput);
+    const workScope = normalizeWorkScope(input.workScope);
+    const command = { items: [...grouped.values()], installationIntent, calculatorInput, workScope, requestId: requestId(input.requestId) };
     try { return await this.repository.addBundle(validHash(tokenHash), { ...command, fingerprint: fingerprint(command) }); } catch (error) { throw translateCartError(error); }
   }
   async updateQuantity(tokenHash: string, input: { publicProductId: string; bundleId: string | null; quantity: number; expectedRevision: number }) { try { const bundleId = optionalPublicId(input.bundleId); return await this.repository.updateQuantity(validHash(tokenHash), { publicProductId: publicId(input.publicProductId), bundleId, quantity: bundleId ? bundleQuantity(input.quantity) : quantity(input.quantity), expectedRevision: revision(input.expectedRevision) }); } catch (error) { throw translateConflict(error); } }
@@ -42,5 +46,6 @@ function revision(value: number) { if (!Number.isInteger(value) || value < 0) th
 function requestId(value: string) { if (!UUID.test(value)) throw new RetailCartInputError(); return value.toLowerCase(); }
 function fingerprint(value: unknown) { return createHash("sha256").update(JSON.stringify(value)).digest("hex"); }
 function normalizeIntent(value: Record<string, boolean> | null) { if (!value) return null; const keys = ["cameraInstallation", "cableLaying", "commissioning", "remoteViewing"] as const; if (Object.keys(value).some((key) => !keys.includes(key as typeof keys[number])) || keys.some((key) => typeof value[key] !== "boolean")) throw new RetailCartInputError(); return Object.fromEntries(keys.map((key) => [key, value[key]])); }
+function normalizeWorkScope(value: Array<{ kind: string; quantity: number; unitCode: "piece" | "meter" | "service" }>) { const kinds = ["camera_installation", "cable_laying", "commissioning", "remote_configuration"]; if (!Array.isArray(value) || value.length > 20 || value.some((item) => !kinds.includes(item.kind) || !Number.isFinite(item.quantity) || item.quantity <= 0 || item.quantity > 20_000 || !(["piece", "meter", "service"] as const).includes(item.unitCode))) throw new RetailCartInputError(); return value.map((item) => ({ kind: item.kind, quantity: item.quantity, unitCode: item.unitCode })); }
 function translateConflict(error: unknown) { return error && typeof error === "object" && "code" in error && error.code === "40001" ? new RetailCartConflictError() : error; }
 function translateCartError(error: unknown) { return error && typeof error === "object" && "code" in error && error.code === "28000" ? new RetailCartExpiredError() : error; }

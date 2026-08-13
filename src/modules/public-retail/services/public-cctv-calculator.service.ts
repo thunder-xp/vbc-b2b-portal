@@ -34,6 +34,8 @@ export type PublicCctvResultLine = {
   kind: "product" | "work";
   group: "cameras" | "recorder" | "archive" | "network" | "materials" | "works";
   label: string;
+  requirementKind: CctvTechnicalRequirement["kind"];
+  unitCode: "piece" | "meter" | "service";
   quantity: number;
   unitLabel: string;
   product: PublicRetailProductSummaryDto | null;
@@ -103,7 +105,7 @@ export class PublicCctvCalculatorService {
     const lines = requirements.map((requirement, index): PublicCctvResultLine => {
       const label = requirementLabel(requirement, normalized.locale);
       if (!PRODUCT_KINDS.has(requirement.kind)) return {
-        key: `work-${index + 1}`, kind: "work", group: "works", label,
+        key: `work-${index + 1}`, kind: "work", group: "works", label, requirementKind: requirement.kind, unitCode: unitCode(requirement.unit),
         quantity: requirement.quantity, unitLabel: unitLabel(requirement.unit, normalized.locale),
         product: null, unitPrice: null, amount: null, currency: null, availability: null,
       };
@@ -111,7 +113,7 @@ export class PublicCctvCalculatorService {
       const product = resolution?.matchCount === 1 ? resolution.product : null;
       if (!product) unresolved.push(label);
       return {
-        key: `product-${index + 1}`, kind: "product", group: resultGroup(requirement.kind), label,
+        key: `product-${index + 1}`, kind: "product", group: resultGroup(requirement.kind), label, requirementKind: requirement.kind, unitCode: unitCode(requirement.unit),
         quantity: requirement.quantity, unitLabel: unitLabel(requirement.unit, normalized.locale), product,
         unitPrice: product?.price.amount ?? null,
         amount: product ? roundMoney(product.price.amount * requirement.quantity) : null,
@@ -233,6 +235,7 @@ function unitLabel(unit: CctvTechnicalRequirement["unit"], locale: PublicRetailL
   if (unit === "service") return locale === "ro" ? "serviciu" : "услуга";
   return locale === "ro" ? "buc." : "шт.";
 }
+function unitCode(unit: CctvTechnicalRequirement["unit"]): "piece" | "meter" | "service" { return unit === "meters" ? "meter" : unit === "service" ? "service" : "piece"; }
 function explainDecisions(technical: ReturnType<typeof calculateCctvTechnicalPlan>, locale: PublicRetailLocale): string[] {
   const recorder = technical.compatibility.recorder;
   const poe = technical.compatibility.poe;

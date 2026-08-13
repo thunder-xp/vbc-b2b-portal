@@ -73,15 +73,18 @@ describe("governed anonymous Retail Cart migration", () => {
   it("adds only a fully resolved calculator system through the atomic server action", () => {
     expect(resultPage).toContain('result.status === "resolved"');
     expect(resultPage).toContain("PublicRetailAddSystemButton");
-    expect(resultPage).toContain('commercialGroup: line.group === "materials"');
+    expect(resultPage).toContain('line.group === "materials"');
+    expect(resultPage).toContain("unitCode: line.unitCode");
     expect(service).toContain("repository.addBundle");
   });
 
-  it("renders bilingual responsive review without checkout or reservation", () => {
+  it("renders bilingual responsive review with pilot-gated checkout and no reservation", () => {
     expect(cartPage).toContain("Добавление в корзину не резервирует товар");
     expect(cartPage).toContain("Adăugarea în coș nu rezervă produsul");
     expect(cartPage).toContain("Продолжить выбор");
-    expect(cartPage).not.toMatch(/checkout|Оплатить|Plătește|Оформить заказ/i);
+    expect(cartPage).toContain("isRetailCheckoutEnabled");
+    expect(cartPage).toContain("Оформить заказ");
+    expect(cartPage).not.toMatch(/Оплатить|Plătește/i);
     expect(cartPage).toContain("sm:grid-cols-[80px_minmax(0,1fr)_auto]");
     expect(addButton).toContain("PUBLIC_RETAIL_CART_UPDATED_EVENT");
     expect(addButton).not.toContain("router.refresh");

@@ -9,6 +9,8 @@ const productId = "10000000-0000-4000-8000-000000000001";
 const secondProductId = "10000000-0000-4000-8000-000000000002";
 const requestId = "20000000-0000-4000-8000-000000000001";
 const mutation = { revision: 1, distinctItemCount: 1, totalQuantity: 1, repeated: false, bundleId: null };
+const calculatorInput = { locale: "ru" as const, objectType: "warehouse" as const, indoorCameraCount: 2, outdoorCameraCount: 1, quality: "standard" as const, archiveDays: 30 as const, cableLength: 300, cameraInstallationRequested: true, cableLayingRequested: true, commissioningRequested: false, remoteViewingRequested: false, backupPower: false };
+const workScope = [{ kind: "camera_installation", quantity: 3, unitCode: "piece" as const }];
 
 function repository(): RetailCartRepository {
   return {
@@ -31,16 +33,18 @@ describe("RetailCartService", () => {
     const service = new RetailCartService(repo);
     await service.addCctvSystem(hash, {
       requestId,
+      calculatorInput,
+      workScope,
       items: [
-        { publicProductId: productId, quantity: 2, commercialGroup: "equipment" },
-        { publicProductId: productId, quantity: 3, commercialGroup: "equipment" },
-        { publicProductId: secondProductId, quantity: 10, commercialGroup: "materials" },
+        { publicProductId: productId, quantity: 2, commercialGroup: "equipment", unitCode: "piece" },
+        { publicProductId: productId, quantity: 3, commercialGroup: "equipment", unitCode: "piece" },
+        { publicProductId: secondProductId, quantity: 10, commercialGroup: "materials", unitCode: "meter" },
       ],
       installationIntent: { cameraInstallation: true, cableLaying: true, commissioning: false, remoteViewing: false },
     });
     expect(repo.addBundle).toHaveBeenCalledWith(hash, expect.objectContaining({ items: [
-      { publicProductId: productId, quantity: 5, commercialGroup: "equipment" },
-      { publicProductId: secondProductId, quantity: 10, commercialGroup: "materials" },
+      { publicProductId: productId, quantity: 5, commercialGroup: "equipment", unitCode: "piece" },
+      { publicProductId: secondProductId, quantity: 10, commercialGroup: "materials", unitCode: "meter" },
     ] }));
   });
 
@@ -48,11 +52,13 @@ describe("RetailCartService", () => {
     const repo = repository();
     await new RetailCartService(repo).addCctvSystem(hash, {
       requestId,
-      items: [{ publicProductId: secondProductId, quantity: 300, commercialGroup: "materials" }],
+      calculatorInput,
+      workScope: [],
+      items: [{ publicProductId: secondProductId, quantity: 300, commercialGroup: "materials", unitCode: "meter" }],
       installationIntent: null,
     });
     expect(repo.addBundle).toHaveBeenCalledWith(hash, expect.objectContaining({
-      items: [{ publicProductId: secondProductId, quantity: 300, commercialGroup: "materials" }],
+      items: [{ publicProductId: secondProductId, quantity: 300, commercialGroup: "materials", unitCode: "meter" }],
     }));
   });
 
@@ -61,8 +67,8 @@ describe("RetailCartService", () => {
     await expect(service.addProduct(hash, { publicProductId: "SKU-1", quantity: 1, source: "catalog", requestId })).rejects.toBeInstanceOf(RetailCartInputError);
     await expect(service.addProduct(hash, { publicProductId: productId, quantity: 0, source: "catalog", requestId })).rejects.toBeInstanceOf(RetailCartInputError);
     await expect(service.addProduct(hash, { publicProductId: productId, quantity: 100, source: "catalog", requestId })).rejects.toBeInstanceOf(RetailCartInputError);
-    await expect(service.addCctvSystem(hash, { items: [{ publicProductId: productId, quantity: 20_001, commercialGroup: "materials" }], installationIntent: null, requestId })).rejects.toBeInstanceOf(RetailCartInputError);
-    await expect(service.addCctvSystem(hash, { items: [{ publicProductId: productId, quantity: 1, commercialGroup: "equipment" }], installationIntent: { guessedPrice: true }, requestId })).rejects.toBeInstanceOf(RetailCartInputError);
+    await expect(service.addCctvSystem(hash, { items: [{ publicProductId: productId, quantity: 20_001, commercialGroup: "materials", unitCode: "meter" }], installationIntent: null, calculatorInput, workScope: [], requestId })).rejects.toBeInstanceOf(RetailCartInputError);
+    await expect(service.addCctvSystem(hash, { items: [{ publicProductId: productId, quantity: 1, commercialGroup: "equipment", unitCode: "piece" }], installationIntent: { guessedPrice: true }, calculatorInput, workScope: [], requestId })).rejects.toBeInstanceOf(RetailCartInputError);
   });
 
   it("classifies only the explicit expired-cart SQLSTATE for governed token recovery", async () => {
@@ -74,7 +80,7 @@ describe("RetailCartService", () => {
   it("serializes only the strict Public Retail cart DTO", () => {
     const safe = {
       revision: 3, distinctItemCount: 1, totalQuantity: 2,
-      items: [{ publicProductId: productId, bundleId: null, source: "catalog", commercialGroup: "equipment", slug: "camera-1", sku: "CAM-1", name: "Camera", image: null, quantity: 2, price: { amount: 100, currency: "MDL", vatPresentation: "not_specified" }, availability: "in_stock", lineAmount: 200, stale: false, priceChanged: false }],
+      items: [{ publicProductId: productId, bundleId: null, source: "catalog", commercialGroup: "equipment", slug: "camera-1", sku: "CAM-1", name: "Camera", image: null, quantity: 2, unitCode: "piece", price: { amount: 100, currency: "MDL", vatPresentation: "not_specified" }, availability: "in_stock", lineAmount: 200, stale: false, priceChanged: false }],
       bundles: [], totals: { equipment: 200, materials: 0, total: 200, currency: "MDL" },
     };
     expect(parsePublicRetailCart(safe)).toEqual(safe);

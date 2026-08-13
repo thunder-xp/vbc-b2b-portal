@@ -8,6 +8,9 @@ const mocks = vi.hoisted(() => ({ listRetailCategories: vi.fn() }));
 vi.mock("@/src/modules/public-retail/server", () => ({
   getPublicRetailService: () => ({ listRetailCategories: mocks.listRetailCategories }),
 }));
+vi.mock("@/src/modules/public-retail/components/PublicRetailCartBadge", () => ({
+  PublicRetailCartBadge: () => <a href="/cart">Cart</a>,
+}));
 
 import Home from "../page";
 
