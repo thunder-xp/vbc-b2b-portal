@@ -6,6 +6,7 @@ export const PUBLIC_RETAIL_AVAILABILITY = [
 export type PublicRetailLocale = (typeof PUBLIC_RETAIL_LOCALES)[number];
 export type PublicRetailAvailability = (typeof PUBLIC_RETAIL_AVAILABILITY)[number];
 export type PublicRetailVatPresentation = "included" | "excluded" | "not_specified";
+export type PublicRetailCatalogMode = "popular" | "new" | "price_asc" | "price_desc";
 
 export type PublicRetailPriceDto = {
   amount: number;
@@ -15,6 +16,7 @@ export type PublicRetailPriceDto = {
 
 export type PublicRetailMediaDto = { url: string; alt: string };
 export type PublicRetailSpecificationDto = { key: string; label: string; value: string };
+export type PublicRetailDocumentDto = { type: "datasheet"; url: string };
 
 export type PublicRetailCategoryDto = {
   id: string;
@@ -45,6 +47,7 @@ export type PublicRetailProductDetailDto = PublicRetailProductSummaryDto & {
   categoryPath: Array<{ id: string; slug: string; name: string }>;
   gallery: PublicRetailMediaDto[];
   specifications: PublicRetailSpecificationDto[];
+  datasheet: PublicRetailDocumentDto | null;
 };
 
 export type PublicRetailProductPageDto = {

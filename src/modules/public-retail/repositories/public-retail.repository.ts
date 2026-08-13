@@ -1,5 +1,6 @@
 import type {
   PublicRetailCategoryDto,
+  PublicRetailCatalogMode,
   PublicRetailCalculatorProductResolutionDto,
   PublicRetailFacetDto,
   PublicRetailLocale,
@@ -14,6 +15,7 @@ export type ListPublicRetailProductsInput = {
   search?: string;
   availability?: string;
   facets?: Record<string, string[]>;
+  mode?: PublicRetailCatalogMode;
   limit: number;
   offset: number;
 };

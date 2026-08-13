@@ -6,6 +6,7 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 import { PublicRetailCatalog } from "../components/PublicRetailCatalog";
 import { PublicRetailProductCard } from "../components/PublicRetailProductCard";
 import { availabilityCopy } from "../presentation";
+import { retailCopy } from "../presentation";
 import type { PublicRetailProductSummaryDto } from "../types";
 
 const product: PublicRetailProductSummaryDto = {
@@ -49,10 +50,30 @@ describe("public retail UX", () => {
   });
 
   it("renders bounded category filters, search result and pagination", () => {
-    render(<PublicRetailCatalog categories={[{ id: "20000000-0000-4000-8000-000000000001", parentId: null, slug: "video", name: "Видеонаблюдение", description: null, productCount: 25 }]} facets={[{ key: "resolution", label: "Разрешение", values: [{ value: "4 Мп", count: 12 }], coverage: 12 }]} locale="ru" products={{ items: [product], totalCount: 25, limit: 24, offset: 0 }} state={{ category: "video", facets: { resolution: ["4 Мп"] }, page: 1 }} />);
+    render(<PublicRetailCatalog categories={[{ id: "20000000-0000-4000-8000-000000000001", parentId: null, slug: "video", name: "Видеонаблюдение", description: null, productCount: 25 }]} facets={[{ key: "resolution", label: "Разрешение", values: [{ value: "4 Мп", count: 12 }], coverage: 12 }]} locale="ru" products={{ items: [product], totalCount: 25, limit: 24, offset: 0 }} state={{ category: "video", facets: { resolution: ["4 Мп"] }, mode: "price_asc", page: 1 }} />);
     expect(screen.getByRole("heading", { name: "Каталог" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Витрина" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Популярное" })).toHaveAttribute("href", "/catalog?lang=ru&view=popular");
+    expect(screen.getByRole("link", { name: "Новинки" })).toHaveAttribute("href", "/catalog?lang=ru&view=new");
+    expect(screen.getByRole("link", { name: "По цене" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getAllByLabelText("Все категории").length).toBeGreaterThan(0);
     expect(screen.getAllByRole("checkbox", { name: /4 Мп/ }).length).toBeGreaterThan(0);
     expect(screen.getByText("1 / 2")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Далее" })).toHaveAttribute("href", expect.stringContaining("page=2"));
+    expect(screen.getByRole("link", { name: "Далее" })).toHaveAttribute("href", expect.stringContaining("sort=price_asc"));
+  });
+
+  it("localizes the storefront controls in Romanian", () => {
+    render(<PublicRetailCatalog categories={[]} facets={[]} locale="ro" products={{ items: [], totalCount: 0, limit: 24, offset: 0 }} state={{ facets: {}, mode: "popular", page: 1 }} />);
+    expect(screen.getByRole("heading", { name: "Vitrină" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Populare" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "Noutăți" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "După preț" })).toBeInTheDocument();
+    expect(screen.getAllByLabelText("Toate categoriile").length).toBeGreaterThan(0);
+  });
+
+  it("provides localized customer-facing datasheet copy", () => {
+    expect(retailCopy.ru).toMatchObject({ documents: "Документы", datasheet: "Datasheet", openDocument: "Открыть" });
+    expect(retailCopy.ro).toMatchObject({ documents: "Documente", datasheet: "Fișă tehnică", openDocument: "Deschide" });
   });
 });

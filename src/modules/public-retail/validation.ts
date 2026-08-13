@@ -32,6 +32,21 @@ const media = z.object({ url: z.string().url(), alt: z.string().max(500) }).stri
   return { ...value, url: safeUrl };
 });
 const specification = z.object({ key: z.string().min(1).max(160), label: localizedText, value: localizedText }).strict();
+const datasheet = z.object({ type: z.literal("datasheet"), url: z.string().url().max(2000) }).strict()
+  .transform((value, context) => {
+    try {
+      const url = new URL(value.url);
+      const approvedHost = url.hostname === "materialfile.dahuasecurity.com" || url.hostname === "www.dahuasecurity.com";
+      if (url.protocol !== "https:" || !approvedHost || url.username || url.password || !url.pathname.toLowerCase().endsWith(".pdf")) {
+        context.addIssue({ code: "custom", message: "Unsafe Public Retail datasheet URL." });
+        return z.NEVER;
+      }
+      return { type: "datasheet" as const, url: url.toString() };
+    } catch {
+      context.addIssue({ code: "custom", message: "Invalid Public Retail datasheet URL." });
+      return z.NEVER;
+    }
+  });
 const brand = z.object({ slug, name: localizedText }).strict();
 const categorySummary = z.object({ slug, name: localizedText }).strict();
 const calculatorProfileKey = z.string().regex(/^cctv\.[a-z0-9]+(?:\.[a-z0-9]+)*$/).max(100);
@@ -56,6 +71,7 @@ const detailPayload = summary.omit({ category: true, highlights: true }).extend(
   categoryPath: z.array(z.object({ id: uuid, slug, name: localizedText }).strict()).max(12),
   gallery: z.array(media).max(24),
   specifications: z.array(specification).max(300),
+  datasheet: datasheet.nullable(),
 }).strict();
 
 const category = z.object({

@@ -16,14 +16,17 @@ export default async function PublicCatalogPage({ searchParams }: { searchParams
   const q = single(params.q)?.trim() || undefined;
   const category = single(params.category)?.trim() || undefined;
   const availability = single(params.availability)?.trim() || undefined;
+  const view = single(params.view)?.trim();
+  const sort = single(params.sort)?.trim();
   const page = Math.max(1, Number(single(params.page)) || 1);
   const facets = Object.fromEntries(Object.entries(params).filter(([key]) => key.startsWith("facet_")).slice(0, 8).map(([key, value]) => [key.slice(6), (Array.isArray(value) ? value : [value]).filter((item): item is string => Boolean(item))]));
+  const mode = q ? undefined : sort === "price_desc" ? "price_desc" : sort === "price_asc" ? "price_asc" : view === "new" ? "new" : view === "popular" || (!category && !availability && Object.keys(facets).length === 0) ? "popular" : undefined;
   const service = getPublicRetailService();
   const [categories, products, categoryFacets] = await Promise.all([
     service.listRetailCategories(locale),
-    service.listRetailProducts({ locale, categorySlug: category, search: q, availability, facets, page, pageSize: 24 }),
+    service.listRetailProducts({ locale, categorySlug: category, search: q, availability, facets, mode, page, pageSize: 24 }),
     service.listRetailFacets(category, locale),
   ]);
 
-  return <PublicRetailShell languagePath="/catalog" locale={locale}><main><PublicRetailCatalog categories={categories} facets={categoryFacets} locale={locale} products={products} state={{ q, category, availability, facets, page }} /></main></PublicRetailShell>;
+  return <PublicRetailShell languagePath="/catalog" locale={locale}><main><PublicRetailCatalog categories={categories} facets={categoryFacets} locale={locale} products={products} state={{ q, category, availability, facets, mode, page }} /></main></PublicRetailShell>;
 }

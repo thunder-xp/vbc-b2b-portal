@@ -3,6 +3,7 @@ import {
   PUBLIC_RETAIL_AVAILABILITY,
   PUBLIC_RETAIL_LOCALES,
   type PublicRetailAvailability,
+  type PublicRetailCatalogMode,
   type PublicRetailLocale,
 } from "../types";
 
@@ -14,6 +15,7 @@ export type PublicRetailListInput = {
   facets?: Record<string, string[]>;
   page?: number;
   pageSize?: number;
+  mode?: string;
 };
 
 export class PublicRetailService {
@@ -38,6 +40,7 @@ export class PublicRetailService {
       search: normalizeSearch(input.search),
       availability: normalizeAvailability(input.availability),
       facets: normalizeFacets(input.facets),
+      mode: normalizeMode(input.mode, Boolean(normalizeSearch(input.search))),
       limit: pageSize,
       offset: (page - 1) * pageSize,
     });
@@ -63,6 +66,11 @@ export class PublicRetailService {
     }
     return this.repository.resolveCalculatorProducts(normalized, normalizeLocale(locale));
   }
+}
+
+function normalizeMode(value: string | undefined, searchActive: boolean): PublicRetailCatalogMode | undefined {
+  if (searchActive) return undefined;
+  return (["popular", "new", "price_asc", "price_desc"] as const).find((candidate) => candidate === value);
 }
 
 function normalizeFacets(value: Record<string, string[]> | undefined): Record<string, string[]> | undefined {

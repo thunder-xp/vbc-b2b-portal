@@ -55,6 +55,7 @@ describe("PublicRetailService", () => {
       search: "camera ip",
       availability: "in_stock",
       facets: { resolution: ["4 MP"] },
+      mode: undefined,
       limit: 48,
       offset: 96,
     });
@@ -75,6 +76,22 @@ describe("PublicRetailService", () => {
     }));
     expect(() => service.listRetailProducts({ search: "x".repeat(101) })).toThrow();
   });
+
+  it("uses governed showcase modes and lets search override merchandising", async () => {
+    const listProducts = vi.fn().mockResolvedValue({ items: [], totalCount: 0, limit: 24, offset: 0 });
+    const repository = {
+      listCategories: vi.fn(), listProducts, getProduct: vi.fn(),
+      listFacets: vi.fn(), resolveCalculatorProducts: vi.fn(),
+    } as unknown as PublicRetailReadRepository;
+    const service = new PublicRetailService(repository);
+
+    await service.listRetailProducts({ mode: "popular" });
+    await service.listRetailProducts({ mode: "new" });
+    await service.listRetailProducts({ mode: "price_asc" });
+    await service.listRetailProducts({ mode: "popular", search: "camera" });
+
+    expect(listProducts.mock.calls.map(([input]) => input.mode)).toEqual(["popular", "new", "price_asc", undefined]);
+  });
 });
 
 describe("Public Retail DTO allowlist", () => {
@@ -89,6 +106,7 @@ describe("Public Retail DTO allowlist", () => {
       categoryPath: [{ id: publicId, slug: "cameras", name: "Cameras" }],
       gallery: [],
       specifications: [{ key: "resolution", label: "Resolution", value: "4 MP" }],
+      datasheet: null,
     });
 
     expect(product.id).toBe(publicId);
@@ -109,6 +127,26 @@ describe("Public Retail DTO allowlist", () => {
     expect(() => parsePublicRetailProductPage({
       items: [{ ...summary(), image: { url: "https://example.com/private.jpg", alt: "Private" } }],
       totalCount: 1, limit: 24, offset: 0,
+    })).toThrow();
+  });
+
+  it("accepts only a dedicated allowlisted HTTPS datasheet field", () => {
+    const { category: _category, highlights: _highlights, ...detailPayload } = summary();
+    void _category;
+    void _highlights;
+    const base = {
+      ...detailPayload, description: null, categoryPath: [], gallery: [], specifications: [],
+    };
+    const safe = parsePublicRetailProduct({
+      ...base,
+      datasheet: { type: "datasheet", url: "https://materialfile.dahuasecurity.com/files/camera.pdf" },
+    });
+    expect(safe.datasheet?.url).toContain("materialfile.dahuasecurity.com/files/camera.pdf");
+    expect(() => parsePublicRetailProduct({
+      ...base, datasheet: { type: "datasheet", url: "https://example.com/camera.pdf" },
+    })).toThrow();
+    expect(() => parsePublicRetailProduct({
+      ...base, datasheet: { type: "datasheet", url: "javascript:alert(1)" },
     })).toThrow();
   });
 });
