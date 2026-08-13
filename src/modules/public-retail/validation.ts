@@ -138,8 +138,9 @@ const cartBundle = z.object({
   id: uuid, source: z.literal("cctv_calculator"), installationIntent: installationIntent.nullable(),
   calculatorVersion: z.string().min(1).max(100).optional(), calculatorInput: z.record(z.string(), z.unknown()).nullable().optional(),
   workScope: z.array(z.object({ kind: z.string().min(1).max(80), quantity: z.coerce.number().positive(), unitCode: z.enum(["piece", "meter", "service"]) }).strict()).max(20).nullable().optional(),
+  installationPricing: z.object({ tariffSetId: uuid, tariffVersion: z.coerce.number().int().positive(), currency: z.string().regex(/^[A-Z]{3}$/), vatTreatment: z.enum(["included", "excluded", "not_specified"]), lines: z.array(z.object({ serviceType: z.string().min(1).max(80), quantity: z.coerce.number().positive(), unitCode: z.enum(["piece", "meter", "service"]), unitPrice: z.coerce.number().nonnegative(), amount: z.coerce.number().nonnegative() }).strict()).max(20), subtotal: z.coerce.number().nonnegative() }).strict().nullable().optional(),
 }).strict();
-const cartTotals = z.object({ equipment: z.coerce.number().nonnegative().nullable(), materials: z.coerce.number().nonnegative().nullable(), total: z.coerce.number().nonnegative().nullable(), currency: z.string().regex(/^[A-Z]{3}$/).nullable() }).strict();
+const cartTotals = z.object({ equipment: z.coerce.number().nonnegative().nullable(), materials: z.coerce.number().nonnegative().nullable(), installation: z.coerce.number().nonnegative().nullable(), total: z.coerce.number().nonnegative().nullable(), currency: z.string().regex(/^[A-Z]{3}$/).nullable() }).strict();
 
 export function parsePublicRetailCart(value: unknown): PublicRetailCartDto {
   return z.object({ revision: z.coerce.number().int().nonnegative(), distinctItemCount: z.coerce.number().int().nonnegative(), totalQuantity: z.coerce.number().int().nonnegative(), items: z.array(cartItem).max(100), bundles: z.array(cartBundle).max(20), totals: cartTotals }).strict().parse(value);

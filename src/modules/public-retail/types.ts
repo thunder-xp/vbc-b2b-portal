@@ -104,6 +104,14 @@ export type PublicRetailCartBundleDto = {
   calculatorVersion?: string;
   calculatorInput?: Record<string, unknown> | null;
   workScope?: Array<{ kind: string; quantity: number; unitCode: "piece" | "meter" | "service" }> | null;
+  installationPricing?: {
+    tariffSetId: string;
+    tariffVersion: number;
+    currency: string;
+    vatTreatment: PublicRetailVatPresentation;
+    lines: Array<{ serviceType: string; quantity: number; unitCode: "piece" | "meter" | "service"; unitPrice: number; amount: number }>;
+    subtotal: number;
+  } | null;
 };
 export type PublicRetailCartDto = {
   revision: number;
@@ -111,7 +119,7 @@ export type PublicRetailCartDto = {
   totalQuantity: number;
   items: PublicRetailCartItemDto[];
   bundles: PublicRetailCartBundleDto[];
-  totals: { equipment: number | null; materials: number | null; total: number | null; currency: string | null };
+  totals: { equipment: number | null; materials: number | null; installation: number | null; total: number | null; currency: string | null };
 };
 export type PublicRetailCartMutationDto = { revision: number; distinctItemCount: number; totalQuantity: number; repeated: boolean; bundleId: string | null };
 

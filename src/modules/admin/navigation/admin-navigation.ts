@@ -59,6 +59,11 @@ export const ADMIN_NAVIGATION: readonly AdminNavigationGroup[] = [
         permission: "admin.estimates.view",
       },
       {
+        label: "Retail: монтаж",
+        href: "/admin/retail/installation",
+        permission: "admin.retail_marketplace.view",
+      },
+      {
         label: "Возможности для закупки",
         href: "/admin/commercial/opportunities",
         permission: "admin.opportunities.view",

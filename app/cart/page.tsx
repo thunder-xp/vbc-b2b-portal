@@ -52,6 +52,7 @@ function CartContent({ cart, locale }: { cart: PublicRetailCartDto; locale: Publ
       <dl className="mt-5 space-y-3 text-sm">
         <SummaryRow label={ru ? "Товары и оборудование" : "Produse și echipamente"} locale={locale} value={cart.totals.equipment} currency={cart.totals.currency} />
         {cart.items.some((item) => item.commercialGroup === "materials") ? <SummaryRow label={ru ? "Материалы" : "Materiale"} locale={locale} value={cart.totals.materials} currency={cart.totals.currency} /> : null}
+        {cart.bundles.some((bundle) => bundle.installationPricing) ? <SummaryRow label={ru ? "Монтаж и настройка" : "Instalare și configurare"} locale={locale} value={cart.totals.installation} currency={cart.totals.currency} /> : null}
       </dl>
       <div className="mt-5 border-t border-zinc-200 pt-5"><div className="flex items-end justify-between gap-4"><span className="font-semibold">{ru ? "Текущая сумма" : "Suma curentă"}</span><strong className="text-xl tabular-nums">{money(cart.totals.total, cart.totals.currency, locale)}</strong></div></div>
       {hasStaleItems ? <p className="mt-4 text-sm leading-5 text-amber-700">{ru ? "Одна или несколько позиций больше не доступны в текущем каталоге. Итог будет показан после их удаления или повторного подбора." : "Una sau mai multe poziții nu mai sunt disponibile în catalogul curent. Totalul va fi afișat după eliminarea sau selectarea lor din nou."}</p> : null}
@@ -65,7 +66,14 @@ function CartContent({ cart, locale }: { cart: PublicRetailCartDto; locale: Publ
 function CartBundle({ bundle, items, locale, revision, index }: { bundle: PublicRetailCartBundleDto; items: PublicRetailCartItemDto[]; locale: PublicRetailLocale; revision: number; index: number }) {
   const ru = locale === "ru";
   const intent = bundle.installationIntent && Object.values(bundle.installationIntent).some(Boolean);
-  return <section className="space-y-3"><div><p className="text-xs font-semibold uppercase text-emerald-700">{ru ? `Система ${index + 1}` : `Sistem ${index + 1}`}</p><h2 className="mt-1 text-xl font-semibold">{ru ? "Система видеонаблюдения" : "Sistem de supraveghere video"}</h2></div><CartGroup items={items} locale={locale} revision={revision} />{intent ? <p className="border-l-4 border-emerald-600 bg-emerald-50 p-3 text-sm text-emerald-950">{ru ? "Монтаж будет рассчитан отдельно." : "Instalarea va fi calculată separat."}</p> : null}</section>;
+  return <section className="space-y-3">
+    <div><p className="text-xs font-semibold uppercase text-emerald-700">{ru ? `Система ${index + 1}` : `Sistem ${index + 1}`}</p><h2 className="mt-1 text-xl font-semibold">{ru ? "Система видеонаблюдения" : "Sistem de supraveghere video"}</h2></div>
+    <CartGroup items={items} locale={locale} revision={revision} />
+    {intent && bundle.installationPricing ? <div className="border-l-4 border-emerald-600 bg-emerald-50 p-3 text-sm text-emerald-950">
+      <p className="font-semibold">{ru ? "Монтаж и настройка" : "Instalare și configurare"}</p>
+      <p className="mt-1">{money(bundle.installationPricing.subtotal, bundle.installationPricing.currency, locale)}</p>
+    </div> : intent ? <p className="border-l-4 border-amber-500 bg-amber-50 p-3 text-sm text-amber-950">{ru ? "Тариф на монтаж требует подтверждения." : "Tariful de instalare trebuie confirmat."}</p> : null}
+  </section>;
 }
 
 function CartGroup({ items, label, locale, revision }: { items: PublicRetailCartItemDto[]; label?: string; locale: PublicRetailLocale; revision: number }) {

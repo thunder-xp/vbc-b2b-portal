@@ -6,6 +6,11 @@ import {
 
 import type { PublicRetailReadRepository } from "../repositories/public-retail.repository";
 import type { PublicRetailAvailability, PublicRetailLocale, PublicRetailProductSummaryDto } from "../types";
+import type {
+  InstallationPricingResult,
+  InstallationServiceType,
+  InstallationUnitCode,
+} from "@/src/modules/retail-marketplace";
 
 export const PUBLIC_CCTV_OBJECT_TYPES = [
   "apartment", "house", "office", "retail", "warehouse", "production", "horeca", "other",
@@ -53,8 +58,13 @@ export type PublicCctvCalculatorResult = {
   lines: PublicCctvResultLine[];
   unresolved: string[];
   explanations: string[];
-  totals: { equipment: number | null; materials: number | null; installation: null; total: number | null; currency: string | null };
-  performance: { engineMs: number; resolutionMs: number; totalMs: number };
+  installationPricing: InstallationPricingResult;
+  totals: { equipment: number | null; materials: number | null; installation: number | null; total: number | null; currency: string | null };
+  performance: { engineMs: number; resolutionMs: number; installationPricingMs: number; totalMs: number };
+};
+
+type InstallationPricing = {
+  price(requirements: Array<{ serviceType: InstallationServiceType; quantity: number; unitCode: InstallationUnitCode }>): Promise<InstallationPricingResult>;
 };
 
 const QUALITY_INPUTS: Record<PublicCctvQualityLevel, { indoor: 2 | 4 | 6 | 8; outdoor: 2 | 4 | 6 | 8 }> = {
@@ -69,7 +79,10 @@ const PRODUCT_KINDS = new Set<CctvTechnicalRequirement["kind"]>([
 ]);
 
 export class PublicCctvCalculatorService {
-  constructor(private readonly repository: PublicRetailReadRepository) {}
+  constructor(
+    private readonly repository: PublicRetailReadRepository,
+    private readonly installationPricing?: InstallationPricing,
+  ) {}
 
   async calculate(input: PublicCctvCalculatorInput): Promise<PublicCctvCalculatorResult> {
     const startedAt = performance.now();
@@ -96,19 +109,36 @@ export class PublicCctvCalculatorService {
 
     const requirements = technical.requirements.filter((requirement) => includeRequirement(requirement, normalized));
     const productRequirements = requirements.filter((requirement) => PRODUCT_KINDS.has(requirement.kind));
+    const workRequirements = requirements.flatMap((requirement) => PRODUCT_KINDS.has(requirement.kind) ? [] : [{
+      serviceType: requirement.kind as InstallationServiceType,
+      quantity: requirement.quantity,
+      unitCode: unitCode(requirement.unit),
+    }]);
     const profileKeys = [...new Set(productRequirements.flatMap((requirement) => requirement.profileKey ? [requirement.profileKey] : []))];
-    const resolutions = profileKeys.length ? await this.repository.resolveCalculatorProducts(profileKeys, normalized.locale) : [];
+    const pricingStartedAt = performance.now();
+    const [resolutions, installationPricing] = await Promise.all([
+      profileKeys.length ? this.repository.resolveCalculatorProducts(profileKeys, normalized.locale) : [],
+      workRequirements.length && this.installationPricing
+        ? this.installationPricing.price(workRequirements)
+        : Promise.resolve(emptyInstallationPricing(workRequirements)),
+    ]);
     const resolutionCompletedAt = performance.now();
     const resolutionByProfile = new Map(resolutions.map((resolution) => [resolution.profileKey, resolution]));
+    const pricedWorkByType = new Map(installationPricing.lines.map((line) => [line.serviceType, line]));
     const unresolved: string[] = [];
 
     const lines = requirements.map((requirement, index): PublicCctvResultLine => {
       const label = requirementLabel(requirement, normalized.locale);
-      if (!PRODUCT_KINDS.has(requirement.kind)) return {
+      if (!PRODUCT_KINDS.has(requirement.kind)) {
+        const priced = pricedWorkByType.get(requirement.kind as InstallationServiceType);
+        if (!priced) unresolved.push(normalized.locale === "ro" ? "Tariful de instalare trebuie confirmat" : "Тариф на монтаж требует подтверждения");
+        return {
         key: `work-${index + 1}`, kind: "work", group: "works", label, requirementKind: requirement.kind, unitCode: unitCode(requirement.unit),
         quantity: requirement.quantity, unitLabel: unitLabel(requirement.unit, normalized.locale),
-        product: null, unitPrice: null, amount: null, currency: null, availability: null,
-      };
+        product: null, unitPrice: priced?.unitPrice ?? null, amount: priced?.amount ?? null,
+        currency: installationPricing.currency, availability: null,
+        };
+      }
       const resolution = requirement.profileKey ? resolutionByProfile.get(requirement.profileKey) : null;
       const product = resolution?.matchCount === 1 ? resolution.product : null;
       if (!product) unresolved.push(label);
@@ -127,6 +157,8 @@ export class PublicCctvCalculatorService {
     if (currencies.length > 1) unresolved.push(normalized.locale === "ro" ? "Monede incompatibile" : "Несовместимые валюты");
     const equipment = subtotal(lines, ["cameras", "recorder", "archive", "network"], currency);
     const materials = subtotal(lines, ["materials"], currency);
+    const installation = installationPricing.subtotal;
+    const commercialCurrency = mergeCurrency(currency, workRequirements.length ? installationPricing.currency : currency);
     const technicalReady = technical.compatibility.ready && !technical.compatibility.issues.some((issue) => issue.severity === "blocking");
     if (!technicalReady) unresolved.push(normalized.locale === "ro" ? "Configurația tehnică necesită verificare" : "Техническая конфигурация требует проверки");
     const totalCompletedAt = performance.now();
@@ -140,17 +172,32 @@ export class PublicCctvCalculatorService {
       lines,
       unresolved: [...new Set(unresolved)],
       explanations: explainDecisions(technical, normalized.locale),
+      installationPricing,
       totals: {
-        equipment, materials, installation: null,
-        total: equipment === null || materials === null ? null : roundMoney(equipment + materials), currency,
+        equipment, materials, installation,
+        total: equipment === null || materials === null || installation === null || !commercialCurrency
+          ? null : roundMoney(equipment + materials + installation),
+        currency: commercialCurrency,
       },
       performance: {
         engineMs: roundTiming(engineCompletedAt - startedAt),
         resolutionMs: roundTiming(resolutionCompletedAt - engineCompletedAt),
+        installationPricingMs: roundTiming(resolutionCompletedAt - pricingStartedAt),
         totalMs: roundTiming(totalCompletedAt - startedAt),
       },
     };
   }
+}
+
+function emptyInstallationPricing(requirements: Array<{ serviceType: InstallationServiceType }>): InstallationPricingResult {
+  if (!requirements.length) return { complete: true, tariffSetId: null, tariffVersion: null, currency: null, vatTreatment: null, lines: [], subtotal: 0, missing: [] };
+  return { complete: false, tariffSetId: null, tariffVersion: null, currency: null, vatTreatment: null, lines: [], subtotal: null, missing: [...new Set(requirements.map((row) => row.serviceType))] };
+}
+
+function mergeCurrency(productCurrency: string | null, installationCurrency: string | null): string | null {
+  if (!productCurrency) return installationCurrency;
+  if (!installationCurrency) return productCurrency;
+  return productCurrency === installationCurrency ? productCurrency : null;
 }
 
 export function normalizePublicCctvInput(input: PublicCctvCalculatorInput): PublicCctvCalculatorInput {

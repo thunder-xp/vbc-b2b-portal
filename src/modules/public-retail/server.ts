@@ -4,11 +4,15 @@ import { cache } from "react";
 
 import { SupabasePublicRetailReadRepository } from "./repositories/supabase/public-retail.supabase-repository";
 import { PublicCctvCalculatorService } from "./services/public-cctv-calculator.service";
+import { getRetailInstallationPricingService } from "@/src/modules/retail-marketplace/server";
 import { PublicRetailService } from "./services/public-retail.service";
 import type { PublicRetailLocale } from "./types";
 
 const service = new PublicRetailService(new SupabasePublicRetailReadRepository());
-const calculator = new PublicCctvCalculatorService(new SupabasePublicRetailReadRepository());
+const calculator = new PublicCctvCalculatorService(
+  new SupabasePublicRetailReadRepository(),
+  getRetailInstallationPricingService(),
+);
 
 export function getPublicRetailService(): PublicRetailService {
   return service;

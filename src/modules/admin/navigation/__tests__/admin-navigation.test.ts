@@ -19,6 +19,7 @@ const allPermissions = [
   "admin.analytics.view",
   "admin.external_demand.view",
   "admin.external_nomenclature.view",
+  "admin.retail_marketplace.view",
   "admin.opportunities.view",
   "partner_momentum.view_assigned",
   "campaigns.view",

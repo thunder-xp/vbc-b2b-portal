@@ -119,6 +119,26 @@ describe("PublicCctvCalculatorService", () => {
     expect(result.totals.installation).toBeNull();
   });
 
+  it("prices installation from one governed tariff set without changing the technical engine", async () => {
+    const fixture = repository();
+    const pricing = { price: vi.fn().mockResolvedValue({ complete: true, tariffSetId: "30000000-0000-4000-8000-000000000001", tariffVersion: 3, currency: "MDL", vatTreatment: "included", lines: [
+      { serviceType: "camera_installation", quantity: 2, unitCode: "piece", unitPrice: 100, amount: 200 },
+      { serviceType: "cable_laying", quantity: 100, unitCode: "meter", unitPrice: 5, amount: 500 },
+    ], subtotal: 700, missing: [] }) };
+    const result = await new PublicCctvCalculatorService(fixture.repository, pricing).calculate(input({ cameraInstallationRequested: true, cableLayingRequested: true }));
+    expect(pricing.price).toHaveBeenCalledOnce();
+    expect(result.totals.installation).toBe(700);
+    expect(result.lines.filter((line) => line.kind === "work").every((line) => line.amount !== null)).toBe(true);
+    expect(result.status).toBe("resolved");
+  });
+
+  it("fails closed when installation is requested without an authoritative tariff", async () => {
+    const fixture = repository();
+    const result = await new PublicCctvCalculatorService(fixture.repository, { price: vi.fn().mockResolvedValue({ complete: false, tariffSetId: null, tariffVersion: null, currency: null, vatTreatment: null, lines: [], subtotal: null, missing: ["commissioning"] }) }).calculate(input({ commissioningRequested: true }));
+    expect(result.status).toBe("needs_review");
+    expect(result.totals.total).toBeNull();
+  });
+
   it("fails closed for missing or ambiguous governed profiles", async () => {
     const fixture = repository({ missing: new Set(["cctv.indoor.6mp"]) });
     const result = await new PublicCctvCalculatorService(fixture.repository).calculate(input());

@@ -11,6 +11,7 @@ const requestId = "20000000-0000-4000-8000-000000000001";
 const mutation = { revision: 1, distinctItemCount: 1, totalQuantity: 1, repeated: false, bundleId: null };
 const calculatorInput = { locale: "ru" as const, objectType: "warehouse" as const, indoorCameraCount: 2, outdoorCameraCount: 1, quality: "standard" as const, archiveDays: 30 as const, cableLength: 300, cameraInstallationRequested: true, cableLayingRequested: true, commissioningRequested: false, remoteViewingRequested: false, backupPower: false };
 const workScope = [{ kind: "camera_installation", quantity: 3, unitCode: "piece" as const }];
+const installationPricing = { complete: true, tariffSetId: "30000000-0000-4000-8000-000000000001", tariffVersion: 1, currency: "MDL", vatTreatment: "included", lines: [], subtotal: 300 };
 
 function repository(): RetailCartRepository {
   return {
@@ -35,6 +36,7 @@ describe("RetailCartService", () => {
       requestId,
       calculatorInput,
       workScope,
+      installationPricing,
       items: [
         { publicProductId: productId, quantity: 2, commercialGroup: "equipment", unitCode: "piece" },
         { publicProductId: productId, quantity: 3, commercialGroup: "equipment", unitCode: "piece" },
@@ -45,7 +47,7 @@ describe("RetailCartService", () => {
     expect(repo.addBundle).toHaveBeenCalledWith(hash, expect.objectContaining({ items: [
       { publicProductId: productId, quantity: 5, commercialGroup: "equipment", unitCode: "piece" },
       { publicProductId: secondProductId, quantity: 10, commercialGroup: "materials", unitCode: "meter" },
-    ] }));
+    ], installationPricing }));
   });
 
   it("accepts governed calculator material quantities above the standalone retail limit", async () => {
@@ -81,7 +83,7 @@ describe("RetailCartService", () => {
     const safe = {
       revision: 3, distinctItemCount: 1, totalQuantity: 2,
       items: [{ publicProductId: productId, bundleId: null, source: "catalog", commercialGroup: "equipment", slug: "camera-1", sku: "CAM-1", name: "Camera", image: null, quantity: 2, unitCode: "piece", price: { amount: 100, currency: "MDL", vatPresentation: "not_specified" }, availability: "in_stock", lineAmount: 200, stale: false, priceChanged: false }],
-      bundles: [], totals: { equipment: 200, materials: 0, total: 200, currency: "MDL" },
+      bundles: [], totals: { equipment: 200, materials: 0, installation: 0, total: 200, currency: "MDL" },
     };
     expect(parsePublicRetailCart(safe)).toEqual(safe);
     expect(() => parsePublicRetailCart({ ...safe, companyId: "secret" })).toThrow();
