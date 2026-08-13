@@ -3,6 +3,7 @@ import { SupabaseCatalogRepository } from "../../catalog/repositories/supabase";
 import { DefaultCatalogService } from "../../catalog/services";
 import { createPricingInventoryService } from "../../pricing-inventory/actions/service-factory";
 import { SupabaseCctvCameraCandidateRepository } from "../../cctv-calculation/cctv-camera-candidate.repository";
+import { SupabaseCctvObjectConfigurationRepository } from "../../cctv-calculation/cctv-object-configuration.repository";
 import { SupabaseCartRepository } from "../../orders/repositories/supabase";
 import { DefaultCartService } from "../../orders/services";
 import { SupabaseEstimateLifecycleRepository, SupabaseEstimateRepository, SupabaseProposalDeliveryRepository, SupabaseProposalGeneratorRepository, SupabaseProposalRepository } from "../repositories/supabase";
@@ -30,6 +31,7 @@ export function createProposalGeneratorService(): ProposalGeneratorService {
     new SupabaseProposalGeneratorRepository(), companyAccessService, permissionService,
     new DefaultCatalogService(new SupabaseCatalogRepository(), companyAccessService, pricingInventoryService), pricingInventoryService,
     new SupabaseCctvCameraCandidateRepository(),
+    new SupabaseCctvObjectConfigurationRepository(),
   );
 }
 

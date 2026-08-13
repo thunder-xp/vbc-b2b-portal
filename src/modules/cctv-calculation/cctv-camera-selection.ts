@@ -24,6 +24,8 @@ export type CctvCameraPoolAdminRow = CctvCameraCandidateRecord & {
   version: number;
   evidenceSource: string | null;
   publicPublished: boolean;
+  retailPriceAmount: number | null;
+  retailPriceCurrency: string | null;
 };
 
 export type CctvCameraCandidateSearchRow = {

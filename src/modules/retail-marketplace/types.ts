@@ -1,4 +1,6 @@
-export type InstallationServiceType = "camera_installation" | "cable_laying" | "commissioning" | "remote_configuration";
+export type InstallationServiceType = "camera_installation" | "cable_laying" | "commissioning" | "remote_configuration"
+  | "equipment_installation_class_2" | "equipment_installation_class_3"
+  | "cable_routing_class_2" | "cable_routing_class_3" | "ai_scenario_programming";
 export type InstallationUnitCode = "piece" | "meter" | "service";
 
 export type InstallationTariffSetDto = {

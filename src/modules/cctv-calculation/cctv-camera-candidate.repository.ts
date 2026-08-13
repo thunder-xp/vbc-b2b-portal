@@ -31,6 +31,7 @@ export class SupabaseCctvCameraCandidateRepository {
       signalUpdatedAt: stringOrNull(row.signal_updated_at), sku: String(row.sku), name: String(row.product_name),
       imageUrl: stringOrNull(row.image_url), publicProduct: null, notes: stringOrNull(row.notes), version: Number(row.version),
       evidenceSource: stringOrNull(row.evidence_source), publicPublished: row.public_published === true,
+      retailPriceAmount: numberOrNull(row.retail_price_amount), retailPriceCurrency: stringOrNull(row.retail_price_currency),
     }));
   }
 
@@ -63,6 +64,14 @@ export class SupabaseCctvCameraCandidateRepository {
     });
     if (error || !data?.[0]) throw new Error(error?.code === "PT409" ? "CCTV_CAMERA_POOL_CONFLICT" : "CCTV camera candidate could not be saved.");
     return { candidateId: String(data[0].candidate_id), version: Number(data[0].resulting_version) };
+  }
+
+  async removeAdmin(candidateId: string, expectedVersion: number) {
+    const { data, error } = await (await createClient()).rpc("remove_cctv_camera_candidate", {
+      target_candidate_id: candidateId, expected_version: expectedVersion,
+    });
+    if (error || data == null) throw new Error(error?.code === "PT409" ? "CCTV_CAMERA_POOL_CONFLICT" : "CCTV camera candidate could not be removed.");
+    return Number(data);
   }
 }
 

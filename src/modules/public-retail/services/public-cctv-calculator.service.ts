@@ -70,7 +70,7 @@ export type PublicCctvCalculatorResult = {
 };
 
 type InstallationPricing = {
-  price(requirements: Array<{ serviceType: InstallationServiceType; quantity: number; unitCode: InstallationUnitCode }>): Promise<InstallationPricingResult>;
+  price(objectType: CctvObjectType, requirements: Array<{ serviceType: InstallationServiceType; quantity: number; unitCode: InstallationUnitCode }>): Promise<InstallationPricingResult>;
 };
 
 const QUALITY_INPUTS: Record<PublicCctvQualityLevel, { indoor: 2 | 4 | 6 | 8; outdoor: 2 | 4 | 6 | 8 }> = {
@@ -128,7 +128,7 @@ export class PublicCctvCalculatorService {
     const [resolutions, installationPricing, cameraPool] = await Promise.all([
       profileKeys.length ? this.repository.resolveCalculatorProducts(profileKeys, normalized.locale) : [],
       workRequirements.length && this.installationPricing
-        ? this.installationPricing.price(workRequirements)
+        ? this.installationPricing.price(engineObjectType(normalized.objectType), workRequirements)
         : Promise.resolve(emptyInstallationPricing(workRequirements)),
       this.cameraCandidates?.resolve(engineObjectType(normalized.objectType), placements, normalized.locale) ?? Promise.resolve([]),
     ]);

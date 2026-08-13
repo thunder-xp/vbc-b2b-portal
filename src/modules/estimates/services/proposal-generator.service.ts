@@ -7,6 +7,7 @@ import type { CatalogService } from "../../catalog/services";
 import type { PricingInventoryService } from "../../pricing-inventory/services";
 import { selectCctvCameraCandidates } from "../../cctv-calculation";
 import type { SupabaseCctvCameraCandidateRepository } from "../../cctv-calculation/cctv-camera-candidate.repository";
+import type { SupabaseCctvObjectConfigurationRepository } from "../../cctv-calculation/cctv-object-configuration.repository";
 import type { GeneratorPreparedLine, ProposalGeneratorRepository } from "../repositories";
 import type { EstimateSectionSystemKey } from "../types";
 import { convertMoney, resolveCurrencyRate } from "./commercial-calculation";
@@ -36,6 +37,7 @@ export class ProposalGeneratorService {
     private readonly catalog: CatalogService,
     private readonly pricing: PricingInventoryService,
     private readonly cameraCandidates?: Pick<SupabaseCctvCameraCandidateRepository, "resolve">,
+    private readonly objectServices?: Pick<SupabaseCctvObjectConfigurationRepository, "resolve" | "resolveForGenerator">,
   ) {}
 
   async generate(userId: string, input: { requirement: string; requestKey: string }) {
@@ -72,9 +74,10 @@ export class ProposalGeneratorService {
     try {
       const placements = [input.parameters.indoorCameraCount > 0 && "indoor", input.parameters.outdoorCameraCount > 0 && "outdoor"]
         .filter((value): value is "indoor" | "outdoor" => Boolean(value));
-      const [mappings, cameraPool] = await Promise.all([
+      const [mappings, cameraPool, governedServices] = await Promise.all([
         this.repository.resolveCalculatorProfiles(companyId, [...CCTV_CALCULATOR_PROFILE_KEYS]),
         this.cameraCandidates?.resolve(input.parameters.objectType, placements) ?? Promise.resolve([]),
+        this.objectServices?.resolve(input.parameters.objectType, requestedServiceTypes(input.parameters)) ?? Promise.resolve([]),
       ]);
       mappingsResolvedAt = performance.now();
       const calculation = calculateCctvConfiguration(input.parameters, mappings);
@@ -83,6 +86,7 @@ export class ProposalGeneratorService {
       rulesCalculatedAt = performance.now();
       if (!calculated.length) throw new InvalidStateError("Укажите хотя бы одну камеру.");
       const mappingByKey = new Map(mappings.map((mapping) => [mapping.profileKey, mapping]));
+      const serviceByRequestType = new Map(governedServices.map((service) => [service.requestServiceType, service]));
       requirements = calculated.map((line) => {
         const cameraKind = line.id === "cctv-indoor" ? "indoor_camera" : line.id === "cctv-outdoor" ? "outdoor_camera" : null;
         if (cameraKind && this.cameraCandidates) {
@@ -100,8 +104,17 @@ export class ProposalGeneratorService {
           return line;
         }
         const mapping = line.profileKey ? mappingByKey.get(line.profileKey) : null;
-        const configuredServicePrice = mapping?.resolution === "service"
-          && mapping.defaultSellingCurrencyCode === input.currencyCode ? mapping.defaultSellingUnitPrice : null;
+        const serviceType = serviceTypeForProfile(line.profileKey);
+        const governedService = serviceType ? serviceByRequestType.get(serviceType) : null;
+        if (serviceType && this.objectServices && (!governedService?.serviceCode || !governedService.partnerServiceId
+          || governedService.partnerServiceId !== mapping?.resolvedId || governedService.unitPrice == null)) {
+          return { ...line, resolution: "unresolved" as const, resolvedId: null, governedResolvedId: null,
+            resolvedLabel: null, sellingUnitPrice: null, sellingCurrencyCode: null, sellingVatMode: null };
+        }
+        const governedServicePrice = mapping?.resolution === "service" && governedService?.partnerServiceId === mapping.resolvedId
+          && governedService.currency === input.currencyCode ? governedService.unitPrice : null;
+        const configuredServicePrice = governedServicePrice ?? (!this.objectServices && mapping?.resolution === "service"
+          && mapping.defaultSellingCurrencyCode === input.currencyCode ? mapping.defaultSellingUnitPrice : null);
         const identity = mapping?.resolvedLabel ? splitResolvedCatalogLabel(mapping.resolvedLabel) : null;
         return mapping ? {
           ...line, resolution: mapping.resolution, resolvedId: mapping.resolvedId, governedResolvedId: mapping.resolvedId,
@@ -109,8 +122,11 @@ export class ProposalGeneratorService {
           resolvedSku: mapping.resolution === "catalog" ? identity?.sku ?? null : null,
           description: mapping.resolution === "unresolved" ? line.description : identity?.name ?? mapping.resolvedLabel ?? line.description,
           sellingUnitPrice: configuredServicePrice,
-          sellingCurrencyCode: configuredServicePrice === null ? null : mapping.defaultSellingCurrencyCode,
-          sellingVatMode: configuredServicePrice === null ? null : mapping.defaultSellingVatMode,
+          sellingCurrencyCode: configuredServicePrice === null ? null
+            : governedService?.currency ?? mapping.defaultSellingCurrencyCode,
+          sellingVatMode: configuredServicePrice === null ? null : governedService
+            ? governedService.vatTreatment === "excluded" ? "excluded" : "included"
+            : mapping?.defaultSellingVatMode ?? null,
         } : line;
       });
       const catalogIds = [...new Set(requirements.filter((line) => line.resolution === "catalog" && line.resolvedId).map((line) => line.resolvedId!))];
@@ -178,12 +194,13 @@ export class ProposalGeneratorService {
     const serviceIds = [...new Set(input.requirements.filter((line) => line.resolution === "service").map((line) => line.resolvedId!))];
     const serviceProfileKeys = [...new Set(input.requirements.filter((line) => line.resolution === "service" && line.profileKey).map((line) => line.profileKey!))];
     const externalIds = [...new Set(input.requirements.filter((line) => line.resolution === "own_nomenclature" || line.resolution === "shared_nomenclature").map((line) => line.resolvedId!))];
-    const [products, commercial, services, external, serviceProfiles, permissionContext] = await Promise.all([
+    const [products, commercial, services, external, governedServices, permissionContext] = await Promise.all([
       catalogIds.length ? this.catalog.getProductOrderIdentities(userId, catalogIds) : Promise.resolve([]),
       catalogIds.length ? this.pricing.getProductCommercialViews(userId, catalogIds) : Promise.resolve([]),
       this.repository.resolveServices(companyId, serviceIds),
       this.repository.resolveExternalNomenclature(companyId, externalIds),
-      this.repository.resolveCalculatorProfiles(companyId, serviceProfileKeys),
+      this.objectServices?.resolveForGenerator(companyId, input.sessionId, serviceProfileKeys)
+        ?? this.repository.resolveCalculatorProfiles(companyId, serviceProfileKeys),
       this.permissions.getEffectivePermissionContext(userId, companyId),
     ]);
     const projectionsResolvedAt = performance.now();
@@ -191,7 +208,7 @@ export class ProposalGeneratorService {
     const productById = new Map(products.map((product) => [product.id, product]));
     const commercialById = new Map(commercial.map((view) => [view.productId, view]));
     const serviceById = new Map(services.map((service) => [service.id, service]));
-    const serviceProfileByKey = new Map(serviceProfiles.map((profile) => [profile.profileKey, profile]));
+    const serviceProfileByKey = new Map(governedServices.map((profile) => [profile.profileKey, profile]));
     const externalById = new Map(external.map((item) => [item.id, item]));
     const canViewPartnerPrice = resolveCommercialVisibility(permissionContext).canViewPartnerPrice;
     const needsRetailRate = commercial.some((view) => view.retailPrice?.currencyCode && view.retailPrice.currencyCode !== input.currencyCode);
@@ -220,8 +237,10 @@ export class ProposalGeneratorService {
         const service = serviceById.get(requirement.resolvedId!);
         if (!service || service.unit !== requirement.unit) throw new InvalidStateError("Выбранная услуга больше недоступна.");
         const profile = requirement.profileKey ? serviceProfileByKey.get(requirement.profileKey) : null;
-        const configuredPrice = profile?.resolution === "service" && profile.resolvedId === service.id
-          && profile.defaultSellingCurrencyCode === input.currencyCode ? profile.defaultSellingUnitPrice : null;
+        const configuredPrice = profile && "partnerServiceId" in profile
+          ? profile.partnerServiceId === service.id && profile.currency === input.currencyCode ? profile.unitPrice : null
+          : profile && "resolution" in profile && profile.resolution === "service" && profile.resolvedId === service.id
+            && profile.defaultSellingCurrencyCode === input.currencyCode ? profile.defaultSellingUnitPrice : null;
         return { ...common, lineType: "service", productId: null, serviceId: service.id, externalNomenclatureId: null,
           skuSnapshot: null, productNameSnapshot: null, sourceUnitPrice: null, sourceCurrencyCode: null,
           sourceSnapshotAt: null, internalCostUnitPrice: service.defaultCost, convertedCostUnitPrice: service.defaultCost,
@@ -306,6 +325,23 @@ export class ProposalGeneratorService {
     await this.permissions.ensurePermission(userId, context.company.id, permission);
     return context.company.id;
   }
+}
+
+function requestedServiceTypes(input: CctvCalculatorInput) {
+  return [
+    input.installationRequested && "camera_installation",
+    input.installationRequested && input.cableLength > 0 && "cable_laying",
+    input.commissioningRequested && "commissioning",
+    input.remoteViewingRequested && "remote_configuration",
+  ].filter((value): value is "camera_installation" | "cable_laying" | "commissioning" | "remote_configuration" => Boolean(value));
+}
+
+function serviceTypeForProfile(profileKey?: string | null): "camera_installation" | "cable_laying" | "commissioning" | "remote_configuration" | null {
+  if (profileKey === "cctv.install.camera") return "camera_installation";
+  if (profileKey === "cctv.install.cable") return "cable_laying";
+  if (profileKey === "cctv.commissioning.system") return "commissioning";
+  if (profileKey === "cctv.commissioning.remote") return "remote_configuration";
+  return null;
 }
 
 function splitResolvedCatalogLabel(label: string) {
