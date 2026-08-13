@@ -25,6 +25,10 @@ export class PublicRetailService {
     return this.repository.listCategories(normalizeLocale(locale));
   }
 
+  getRetailShowcase(locale?: string) {
+    return this.repository.getShowcase(normalizeLocale(locale));
+  }
+
   async getRetailCategory(slug: string, locale?: string) {
     const normalizedSlug = normalizeSlug(slug);
     return (await this.repository.listCategories(normalizeLocale(locale)))
@@ -70,7 +74,7 @@ export class PublicRetailService {
 
 function normalizeMode(value: string | undefined, searchActive: boolean): PublicRetailCatalogMode | undefined {
   if (searchActive) return undefined;
-  return (["popular", "new", "price_asc", "price_desc"] as const).find((candidate) => candidate === value);
+  return (["popular", "new", "hot", "price_asc", "price_desc"] as const).find((candidate) => candidate === value);
 }
 
 function normalizeFacets(value: Record<string, string[]> | undefined): Record<string, string[]> | undefined {

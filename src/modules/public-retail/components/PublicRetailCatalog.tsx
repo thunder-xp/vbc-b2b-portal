@@ -20,6 +20,7 @@ export function PublicRetailCatalog({ categories, facets, locale, products, stat
       <nav aria-label={copy.showcase} className="mt-3 flex max-w-full gap-2 overflow-x-auto pb-1">
         <ShowcaseLink active={!state.q && state.mode === "popular"} href={`/catalog?lang=${locale}&view=popular`} label={copy.popular} />
         <ShowcaseLink active={!state.q && state.mode === "new"} href={`/catalog?lang=${locale}&view=new`} label={copy.newProducts} />
+        <ShowcaseLink active={!state.q && state.mode === "hot"} href={`/catalog?lang=${locale}&view=hot`} label={copy.hotPrice} />
         <ShowcaseLink active={!state.q && state.mode === "price_asc"} href={`/catalog?lang=${locale}&sort=price_asc`} label={copy.byPrice} />
       </nav>
     </section>

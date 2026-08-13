@@ -33,6 +33,7 @@ describe("PublicRetailService", () => {
     const repository = {
       listCategories: vi.fn(),
       listProducts,
+      getShowcase: vi.fn(),
       getProduct: vi.fn(),
       listFacets: vi.fn(),
       resolveCalculatorProducts: vi.fn(),

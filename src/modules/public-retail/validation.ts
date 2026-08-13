@@ -12,6 +12,7 @@ import type {
   PublicRetailCheckoutDto,
   PublicRetailOrderCreatedDto,
   PublicRetailOrderDto,
+  PublicRetailShowcaseDto,
 } from "./types";
 
 const uuid = z.string().uuid();
@@ -113,6 +114,14 @@ export function parsePublicRetailProductPage(value: unknown): PublicRetailProduc
     totalCount: z.coerce.number().int().nonnegative(),
     limit: z.coerce.number().int().min(1).max(48),
     offset: z.coerce.number().int().min(0).max(10_000),
+  }).strict().parse(value);
+}
+
+export function parsePublicRetailShowcase(value: unknown): PublicRetailShowcaseDto {
+  return z.object({
+    popular: z.array(summary).max(5),
+    new: z.array(summary).max(5),
+    hot: z.array(summary).max(5),
   }).strict().parse(value);
 }
 

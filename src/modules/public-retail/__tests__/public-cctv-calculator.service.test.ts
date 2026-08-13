@@ -54,7 +54,7 @@ function repository(options: { missing?: Set<string>; ambiguous?: Set<string> } 
   })));
   return {
     repository: {
-      listCategories: vi.fn(), listProducts: vi.fn(), getProduct: vi.fn(), listFacets: vi.fn(),
+      listCategories: vi.fn(), listProducts: vi.fn(), getShowcase: vi.fn(), getProduct: vi.fn(), listFacets: vi.fn(),
       resolveCalculatorProducts,
     } as PublicRetailReadRepository,
     resolveCalculatorProducts,

@@ -3,7 +3,7 @@ import path from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-const sql = fs.readFileSync(path.join(process.cwd(), "supabase/migrations/20260813101948_public_retail_showcase_and_datasheet.sql"), "utf8");
+const sql = fs.readFileSync(path.join(process.cwd(), "supabase/migrations/20260813104205_public_retail_showcase_and_datasheet.sql"), "utf8");
 
 describe("Public Retail showcase migration", () => {
   it("projects only governed merchandising labels into the immutable snapshot", () => {

@@ -12,6 +12,7 @@ import {
   parsePublicRetailFacets,
   parsePublicRetailProduct,
   parsePublicRetailProductPage,
+  parsePublicRetailShowcase,
 } from "../../validation";
 import type { PublicRetailLocale } from "../../types";
 
@@ -30,7 +31,14 @@ export class SupabasePublicRetailReadRepository implements PublicRetailReadRepos
   }
 
   async listProducts(input: ListPublicRetailProductsInput) {
-    const { data, error } = await createPublicReadClient().rpc("list_public_retail_products_v2", {
+    const client = createPublicReadClient();
+    const request = input.mode === "hot"
+      ? client.rpc("list_public_retail_hot_products", {
+          p_locale: input.locale,
+          p_limit: input.limit,
+          p_offset: input.offset,
+        })
+      : client.rpc("list_public_retail_products_v2", {
       p_locale: input.locale,
       p_category_slug: input.categorySlug ?? null,
       p_search: input.search ?? null,
@@ -39,9 +47,16 @@ export class SupabasePublicRetailReadRepository implements PublicRetailReadRepos
       p_mode: input.mode ?? null,
       p_limit: input.limit,
       p_offset: input.offset,
-    });
+        });
+    const { data, error } = await request;
     if (error) throw new PublicRetailRepositoryError();
     return parsePublicRetailProductPage(data);
+  }
+
+  async getShowcase(locale: PublicRetailLocale) {
+    const { data, error } = await createPublicReadClient().rpc("get_public_retail_showcase", { p_locale: locale });
+    if (error) throw new PublicRetailRepositoryError();
+    return parsePublicRetailShowcase(data);
   }
 
   async getProduct(slug: string, locale: PublicRetailLocale) {
