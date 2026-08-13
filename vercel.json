@@ -91,6 +91,10 @@
     {
       "path": "/api/cron/estimate-lifecycle",
       "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/installation-assignments",
+      "schedule": "*/5 * * * *"
     }
   ]
 }

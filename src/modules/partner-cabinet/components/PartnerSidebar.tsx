@@ -18,6 +18,7 @@ import {
   ListChecks,
   ListPlus,
   ListRestart,
+  Wrench,
   Lightbulb,
   Megaphone,
   SearchCheck,
@@ -49,6 +50,7 @@ const icons = {
   nomenclature: ClipboardList,
   proposal_generator: WandSparkles,
   orders: ListChecks,
+  installation_orders: Wrench,
   finance: Landmark,
   documents: FileText,
   warranty: LifeBuoy,
@@ -75,6 +77,7 @@ const projectNavigationOrder: readonly WorkspaceCapabilityKey[] = [
 ];
 const estimatesNavigationOrder: readonly WorkspaceCapabilityKey[] = ["proposals", "customers", "nomenclature", "proposal_generator"];
 const commercialNavigationOrder: readonly WorkspaceCapabilityKey[] = ["orders", "finance", "documents"];
+const installationNavigationOrder: readonly WorkspaceCapabilityKey[] = ["installation_orders"];
 const loyaltyNavigationOrder: readonly WorkspaceCapabilityKey[] = ["loyalty_affiliate", "loyalty_bonus"];
 
 function isRouteActive(pathname: string, href: string | null): boolean {
@@ -266,6 +269,10 @@ export function PartnerSidebar({
     const item = navigationByKey.get(key);
     return item ? [item] : [];
   });
+  const installationNavigation = installationNavigationOrder.flatMap((key) => {
+    const item = navigationByKey.get(key);
+    return item ? [item] : [];
+  });
   const loyaltyNavigation = loyaltyNavigationOrder.flatMap((key) => {
     const item = navigationByKey.get(key);
     return item ? [item] : [];
@@ -321,6 +328,10 @@ export function PartnerSidebar({
             {...groupProps("estimates-navigation")}
           />
           <ExpandableNavigationGroup {...groupProps("orders-finance-navigation")} hasWorkspaceAccess={hasWorkspaceAccess} icon={ListChecks} id="orders-finance-navigation" items={commercialNavigation} label="Заказы и финансы" onNavigate={onNavigate} pathname={pathname} />
+
+          {installationNavigation.map((item) => (
+            <NavigationItem hasWorkspaceAccess={hasWorkspaceAccess} item={item} key={item.key} onNavigate={onNavigate} pathname={pathname} />
+          ))}
 
           <ExpandableNavigationGroup {...groupProps("loyalty-navigation")} hasWorkspaceAccess={hasWorkspaceAccess} icon={Gift} id="loyalty-navigation" items={loyaltyNavigation} label="Программы лояльности" onNavigate={onNavigate} pathname={pathname} />
 

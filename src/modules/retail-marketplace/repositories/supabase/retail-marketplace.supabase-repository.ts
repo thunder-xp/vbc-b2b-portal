@@ -1,10 +1,11 @@
 import "server-only";
 
 import { createPublicReadClient } from "@/src/lib/supabase/public";
+import { createAdminClient } from "@/src/lib/supabase/admin";
 import { createClient } from "@/src/lib/supabase/server";
 
 import type { RetailMarketplaceRepository } from "../retail-marketplace.repository";
-import { adminReportSchema, publicProvidersSchema, tariffSetSchema } from "../../validation";
+import { adminReportSchema, assignmentAdminReportSchema, assignmentResponseSchema, dispatchResultSchema, partnerAssignmentsSchema, publicProvidersSchema, tariffSetSchema } from "../../validation";
 
 export class RetailMarketplaceRepositoryError extends Error {
   constructor(readonly code: "invalid" | "conflict" | "forbidden" | "unavailable" = "unavailable") { super("Retail Marketplace operation failed."); this.name = "RetailMarketplaceRepositoryError"; }
@@ -35,5 +36,33 @@ export class SupabaseRetailMarketplaceRepository implements RetailMarketplaceRep
   async saveProvider(input: Parameters<RetailMarketplaceRepository["saveProvider"]>[0]) {
     const { data, error } = await (await createClient()).rpc("admin_save_installation_provider", { p_provider_id: input.providerId, p_provider_type: input.providerType, p_backing_id: input.backingId, p_profile: input.profile, p_competencies: input.competencies, p_region_codes: input.regionCodes, p_expected_revision: input.expectedRevision, p_reason: input.reason });
     if (error || !data) fail(error?.code); return String(data);
+  }
+  async activatePilot(input: Parameters<RetailMarketplaceRepository["activatePilot"]>[0]) {
+    const { data, error } = await (await createClient()).rpc("activate_installation_requirement_pilot", { p_retail_order_id: input.retailOrderId, p_selection_mode: input.selectionMode, p_preferred_provider_id: input.preferredProviderId, p_region_code: input.regionCode, p_requested_scheduling_context: input.schedulingContext, p_reason: input.reason, p_idempotency_key: input.idempotencyKey });
+    if (error) fail(error.code); return dispatchResultSchema.parse(data);
+  }
+  async dispatch(requirementId: string) {
+    const { data, error } = await (await createClient()).rpc("dispatch_installation_requirement", { p_requirement_id: requirementId, p_source: "automatic" });
+    if (error) fail(error.code); return dispatchResultSchema.parse(data);
+  }
+  async listPartnerAssignments(companyId: string, view: Parameters<RetailMarketplaceRepository["listPartnerAssignments"]>[1]) {
+    const { data, error } = await (await createClient()).rpc("partner_list_installation_assignments", { p_company_id: companyId, p_view: view });
+    if (error) fail(error.code); return partnerAssignmentsSchema.parse(data);
+  }
+  async respondToAssignment(input: Parameters<RetailMarketplaceRepository["respondToAssignment"]>[0]) {
+    const { data, error } = await (await createClient()).rpc("partner_respond_installation_assignment", { p_company_id: input.companyId, p_attempt_id: input.attemptId, p_decision: input.decision, p_reason_code: input.reasonCode, p_reason_text: input.reasonText, p_idempotency_key: input.idempotencyKey });
+    if (error) fail(error.code); return assignmentResponseSchema.parse(data);
+  }
+  async getAssignmentAdminReport(limit = 100) {
+    const { data, error } = await (await createClient()).rpc("admin_get_installation_assignments", { p_limit: limit });
+    if (error) fail(error.code); return assignmentAdminReportSchema.parse(data);
+  }
+  async reassign(input: Parameters<RetailMarketplaceRepository["reassign"]>[0]) {
+    const { data, error } = await (await createClient()).rpc("admin_reassign_installation_requirement", { p_requirement_id: input.requirementId, p_provider_id: input.providerId, p_expected_revision: input.expectedRevision, p_reason: input.reason });
+    if (error) fail(error.code); return dispatchResultSchema.parse(data);
+  }
+  async runAssignmentWorker(limit: number) {
+    const { data, error } = await createAdminClient().rpc("run_installation_assignment_worker", { p_limit: limit });
+    if (error) fail(error.code); return data as Awaited<ReturnType<RetailMarketplaceRepository["runAssignmentWorker"]>>;
   }
 }

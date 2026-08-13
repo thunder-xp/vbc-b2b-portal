@@ -66,6 +66,10 @@ export class RetailCheckoutService {
   getOrder(accessTokenHash: string, locale: PublicRetailLocale) {
     return this.repository.getOrder(validHash(accessTokenHash), locale);
   }
+
+  getInstallationStatus(accessTokenHash: string, locale: PublicRetailLocale) {
+    return this.repository.getInstallationStatus(validHash(accessTokenHash), locale);
+  }
 }
 
 export function normalizeMoldovaPhone(value: string): string {

@@ -42,4 +42,12 @@ export class SupabaseRetailCheckoutRepository implements RetailCheckoutRepositor
     const data = await this.rpc("get_public_retail_order", { p_access_token_hash: accessTokenHash, p_locale: locale });
     return data === null ? null : parsePublicRetailOrder(data);
   }
+  async getInstallationStatus(accessTokenHash: string, locale: "ru" | "ro") {
+    const data = await this.rpc("get_public_retail_installation_status", { p_access_token_hash: accessTokenHash, p_locale: locale });
+    if (data === null) return null;
+    const value = data as { status?: unknown; label?: unknown };
+    if ((value.status !== "selecting_team" && value.status !== "assigned") || typeof value.label !== "string") throw new RetailCheckoutRepositoryError("invalid_response");
+    const status: "selecting_team" | "assigned" = value.status;
+    return { status, label: value.label };
+  }
 }

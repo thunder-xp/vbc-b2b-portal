@@ -12,4 +12,20 @@ export const adminReportSchema = z.object({
   partnerCompanies: z.array(z.object({ id: z.uuid(), name: z.string() })),
   internalTeams: z.array(z.object({ id: z.uuid(), name: z.string() })),
 });
+const assignmentStatus = z.enum(["offered", "accepted", "declined", "timed_out", "withdrawn"]);
+const address = z.object({ locality: z.string(), street: z.string(), building: z.string(), unit: z.string().nullable().optional(), postalCode: z.string().nullable().optional(), instructions: z.string().nullable().optional() });
+export const partnerAssignmentsSchema = z.array(z.object({
+  attemptId: z.uuid(), requirementId: z.uuid(), ordinal: z.coerce.number().int().positive(), status: assignmentStatus,
+  source: z.enum(["customer_selected", "automatic", "manual_internal", "reassignment", "fallback_internal"]),
+  offeredAt: z.string(), deadlineAt: z.string(), locality: z.string(), systemType: z.literal("cctv"),
+  scope: z.array(z.object({ serviceType, quantity: z.coerce.number().positive(), unitCode })).max(20),
+  customerInstallationCharge: z.null(), providerPayable: z.null(),
+  customer: z.object({ name: z.string(), phone: z.string(), email: z.string().nullable() }).nullable(), exactAddress: address.nullable(),
+  execution: z.object({ id: z.uuid(), state: z.enum(["scheduling", "scheduled", "in_progress", "completed", "cancelled"]) }).nullable(),
+})).max(200);
+export const dispatchResultSchema = z.object({ requirementId: z.uuid(), status: z.enum(["assignment_pending", "offered", "assigned", "assignment_unavailable"]), attemptId: z.uuid().optional(), providerId: z.uuid().optional(), source: z.string().optional(), ordinal: z.coerce.number().int().positive().optional(), repeated: z.boolean() });
+export const assignmentResponseSchema = z.object({ attemptId: z.uuid(), requirementId: z.uuid().optional(), status: z.enum(["accepted", "declined"]), executionId: z.uuid().optional(), repeated: z.boolean() });
+export const assignmentAdminReportSchema = z.object({ requirements: z.array(z.object({
+  id: z.uuid(), orderNumber: z.string(), status: z.enum(["assignment_pending", "offered", "reassignment_pending", "assigned", "assignment_unavailable"]), selectionMode: z.enum(["customer_selected", "automatic"]), locality: z.string(), customerInstallationCharge: z.coerce.number().nonnegative(), currency: z.string(), revision: z.coerce.number().int().nonnegative(), currentAttemptId: z.uuid().nullable(), acceptedProviderId: z.uuid().nullable(), activatedAt: z.string(), attempts: z.array(z.object({ id: z.uuid(), ordinal: z.coerce.number().int().positive(), providerId: z.uuid(), source: z.string(), status: assignmentStatus, offeredAt: z.string(), deadlineAt: z.string(), declineReasonCode: z.string().nullable() }))
+})).max(200) });
 export { serviceType, tariffLine, unitCode };

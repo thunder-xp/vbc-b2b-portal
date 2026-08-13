@@ -39,3 +39,59 @@ export type RetailMarketplaceAdminReport = {
   partnerCompanies: Array<{ id: string; name: string }>;
   internalTeams: Array<{ id: string; name: string }>;
 };
+
+export type InstallationAssignmentView = "offers" | "active" | "completed";
+export type InstallationAssignmentStatus = "offered" | "accepted" | "declined" | "timed_out" | "withdrawn";
+
+export type PartnerInstallationAssignmentDto = {
+  attemptId: string;
+  requirementId: string;
+  ordinal: number;
+  status: InstallationAssignmentStatus;
+  source: "customer_selected" | "automatic" | "manual_internal" | "reassignment" | "fallback_internal";
+  offeredAt: string;
+  deadlineAt: string;
+  locality: string;
+  systemType: "cctv";
+  scope: Array<{ serviceType: InstallationServiceType; quantity: number; unitCode: InstallationUnitCode }>;
+  customerInstallationCharge: null;
+  providerPayable: null;
+  customer: { name: string; phone: string; email: string | null } | null;
+  exactAddress: { locality: string; street: string; building: string; unit?: string | null; postalCode?: string | null; instructions?: string | null } | null;
+  execution: { id: string; state: "scheduling" | "scheduled" | "in_progress" | "completed" | "cancelled" } | null;
+};
+
+export type InstallationDispatchResult = {
+  requirementId: string;
+  status: "assignment_pending" | "offered" | "assigned" | "assignment_unavailable";
+  attemptId?: string;
+  providerId?: string;
+  source?: string;
+  ordinal?: number;
+  repeated: boolean;
+};
+
+export type InstallationAssignmentResponse = {
+  attemptId: string;
+  requirementId?: string;
+  status: "accepted" | "declined";
+  executionId?: string;
+  repeated: boolean;
+};
+
+export type InstallationAssignmentAdminReport = {
+  requirements: Array<{
+    id: string;
+    orderNumber: string;
+    status: "assignment_pending" | "offered" | "reassignment_pending" | "assigned" | "assignment_unavailable";
+    selectionMode: "customer_selected" | "automatic";
+    locality: string;
+    customerInstallationCharge: number;
+    currency: string;
+    revision: number;
+    currentAttemptId: string | null;
+    acceptedProviderId: string | null;
+    activatedAt: string;
+    attempts: Array<{ id: string; ordinal: number; providerId: string; source: string; status: InstallationAssignmentStatus; offeredAt: string; deadlineAt: string; declineReasonCode: string | null }>;
+  }>;
+};

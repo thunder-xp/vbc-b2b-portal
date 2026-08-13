@@ -4,8 +4,9 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { requireAdminPermission } from "@/src/modules/admin/services";
+import { getPartnerWorkspaceContextAction } from "@/src/modules/partner-cabinet/actions/workspace-context.action";
 
-import { getRetailMarketplaceRepository } from "./server";
+import { getInstallationAssignmentDispatcher, getRetailMarketplaceRepository } from "./server";
 
 const path = "/admin/retail/installation";
 
@@ -75,3 +76,45 @@ export async function saveInstallationProviderAction(formData: FormData) {
 }
 
 function nullable(value: string) { return value.trim() || null; }
+
+export async function respondInstallationOfferAction(formData: FormData) {
+  const context = await getPartnerWorkspaceContextAction();
+  if (!context.success || !context.data.companyId || context.data.accessState !== "active") redirect("/cabinet");
+  const decision = String(formData.get("decision")) as "accept" | "decline";
+  await getInstallationAssignmentDispatcher().respond({
+    companyId: context.data.companyId,
+    attemptId: String(formData.get("attemptId") ?? ""),
+    decision,
+    reasonCode: nullable(String(formData.get("reasonCode") ?? "")),
+    reasonText: nullable(String(formData.get("reasonText") ?? "")),
+    idempotencyKey: String(formData.get("idempotencyKey") ?? ""),
+  });
+  revalidatePath("/cabinet/installation-orders");
+  redirect(`/cabinet/installation-orders?result=${decision}`);
+}
+
+export async function activateInstallationPilotAction(formData: FormData) {
+  await requireAdminPermission("admin.retail_marketplace.manage");
+  await getInstallationAssignmentDispatcher().activatePilot({
+    retailOrderId: String(formData.get("retailOrderId") ?? ""),
+    selectionMode: String(formData.get("selectionMode") ?? "automatic") as "automatic" | "customer_selected",
+    preferredProviderId: nullable(String(formData.get("preferredProviderId") ?? "")),
+    regionCode: String(formData.get("regionCode") ?? ""),
+    reason: String(formData.get("reason") ?? ""),
+    idempotencyKey: String(formData.get("idempotencyKey") ?? ""),
+  });
+  revalidatePath(path);
+  redirect(`${path}?saved=activation`);
+}
+
+export async function reassignInstallationRequirementAction(formData: FormData) {
+  await requireAdminPermission("admin.retail_marketplace.manage");
+  await getInstallationAssignmentDispatcher().reassign({
+    requirementId: String(formData.get("requirementId") ?? ""),
+    providerId: String(formData.get("providerId") ?? ""),
+    expectedRevision: Number(formData.get("revision") ?? -1),
+    reason: String(formData.get("reason") ?? ""),
+  });
+  revalidatePath(path);
+  redirect(`${path}?saved=reassigned`);
+}

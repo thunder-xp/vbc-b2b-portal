@@ -13,7 +13,7 @@ const submissionKey = "20000000-0000-4000-8000-000000000001";
 const created = { orderNumber: "R-2026-000001", status: "awaiting_payment" as const, repeated: false, accessExpiresAt: "2027-02-09T10:00:00.000Z" };
 
 function repository(): RetailCheckoutRepository {
-  return { getCheckout: vi.fn(), createOrder: vi.fn().mockResolvedValue(created), getOrder: vi.fn() };
+  return { getCheckout: vi.fn(), createOrder: vi.fn().mockResolvedValue(created), getOrder: vi.fn(), getInstallationStatus: vi.fn() };
 }
 function input() { return { locale: "ru" as const, checkoutFingerprint: fingerprint, submissionKey, name: " Ivan Test ", phone: "060 123 456", email: "TEST@EXAMPLE.COM", deliveryAddress: { locality: "Chișinău", street: "Test", building: "1" }, installationSameAsDelivery: true, processingAcknowledged: true }; }
 

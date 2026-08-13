@@ -15,4 +15,5 @@ export interface RetailCheckoutRepository {
   getCheckout(tokenHash: string, locale: PublicRetailLocale): Promise<PublicRetailCheckoutDto | null>;
   createOrder(tokenHash: string, command: RetailCheckoutCreateCommand): Promise<PublicRetailOrderCreatedDto>;
   getOrder(accessTokenHash: string, locale: PublicRetailLocale): Promise<PublicRetailOrderDto | null>;
+  getInstallationStatus(accessTokenHash: string, locale: PublicRetailLocale): Promise<{ status: "selecting_team" | "assigned"; label: string } | null>;
 }

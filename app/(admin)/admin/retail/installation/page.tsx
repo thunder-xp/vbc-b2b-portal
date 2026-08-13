@@ -1,5 +1,7 @@
 import {
+  activateInstallationPilotAction,
   publishInstallationTariffAction,
+  reassignInstallationRequirementAction,
   saveInstallationProviderAction,
   saveInstallationTariffDraftAction,
 } from "@/src/modules/retail-marketplace/actions";
@@ -15,7 +17,7 @@ const lineLabels = {
 
 export default async function RetailInstallationAdminPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   await requireAdminPagePermission("admin.retail_marketplace.view");
-  const [report, query] = await Promise.all([getRetailMarketplaceRepository().getAdminReport(), searchParams]);
+  const [report, assignments, query] = await Promise.all([getRetailMarketplaceRepository().getAdminReport(), getRetailMarketplaceRepository().getAssignmentAdminReport(), searchParams]);
   const draft = report.tariffSets.find((set) => set.status === "draft");
   const published = report.tariffSets.find((set) => set.status === "published");
   return <main className="space-y-8">
@@ -52,6 +54,19 @@ export default async function RetailInstallationAdminPage({ searchParams }: { se
         <fieldset className="md:col-span-2"><legend className="text-sm font-medium">Регионы</legend><div className="mt-2 flex flex-wrap gap-4">{report.regions.map((region) => <label className="flex min-h-11 items-center gap-2 text-sm" key={region.id}><input defaultChecked={provider.regions.includes(region.code)} name="regions" type="checkbox" value={region.code} />{region.nameRu}</label>)}</div></fieldset>
         <label className="grid gap-1 text-sm md:col-span-2"><span className="font-medium">Причина изменения</span><input className="min-h-11 border border-zinc-300 px-3" minLength={5} name="reason" required /></label><button className="min-h-11 bg-zinc-900 px-4 text-sm font-semibold text-white" type="submit">Сохранить исполнителя</button>
       </form>)}</div>
+    </section>
+    <section className="space-y-4" aria-labelledby="assignment-operations-title">
+      <div><h2 className="text-xl font-semibold" id="assignment-operations-title">Назначение монтажных заказов</h2><p className="text-sm text-zinc-600">Пилотная активация доступна только внутренним операторам. Она не меняет оплату или коммерческий снимок RetailOrder.</p></div>
+      <details className="border border-zinc-200 bg-white p-4"><summary className="min-h-11 cursor-pointer font-semibold">Активировать пилотное назначение</summary><form action={activateInstallationPilotAction} className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <Field defaultValue="" label="RetailOrder ID" name="retailOrderId"/><label className="grid gap-1 text-sm"><span className="font-medium">Режим</span><select className="min-h-11 border border-zinc-300 px-3" defaultValue="automatic" name="selectionMode"><option value="automatic">Автоматически</option><option value="customer_selected">Выбран заказчиком</option></select></label>
+        <label className="grid gap-1 text-sm"><span className="font-medium">Предпочтительный исполнитель</span><select className="min-h-11 border border-zinc-300 px-3" name="preferredProviderId"><option value="">Не выбран</option>{report.providers.map((provider)=><option key={provider.id} value={provider.id}>{provider.backingName}</option>)}</select></label>
+        <label className="grid gap-1 text-sm"><span className="font-medium">Регион</span><select className="min-h-11 border border-zinc-300 px-3" name="regionCode">{report.regions.map((region)=><option key={region.id} value={region.code}>{region.nameRu}</option>)}</select></label>
+        <input name="idempotencyKey" type="hidden" value={crypto.randomUUID()}/><label className="grid gap-1 text-sm md:col-span-2"><span className="font-medium">Причина пилотной активации</span><input className="min-h-11 border border-zinc-300 px-3" minLength={10} name="reason" required/></label><button className="min-h-11 bg-zinc-900 px-4 text-sm font-semibold text-white" type="submit">Активировать и назначить</button>
+      </form></details>
+      <div className="grid gap-3">{assignments.requirements.length ? assignments.requirements.map((requirement)=><article className="border border-zinc-200 bg-white p-4" key={requirement.id}><div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-semibold">{requirement.orderNumber} · {requirement.locality}</h3><p className="text-sm text-zinc-600">{requirement.status} · {requirement.customerInstallationCharge} {requirement.currency} · {requirement.selectionMode}</p></div><span className="rounded bg-zinc-100 px-2 py-1 text-xs font-semibold">{requirement.attempts.length} попыток</span></div>
+        <ol className="mt-3 grid gap-2 text-sm">{requirement.attempts.map((attempt)=><li className="flex flex-wrap justify-between gap-2 border-t border-zinc-100 pt-2" key={attempt.id}><span>#{attempt.ordinal} · {report.providers.find((provider)=>provider.id===attempt.providerId)?.backingName ?? "Исполнитель"}</span><span>{attempt.status} · {attempt.source}</span></li>)}</ol>
+        {requirement.status !== "assigned" ? <form action={reassignInstallationRequirementAction} className="mt-4 grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]"><input name="requirementId" type="hidden" value={requirement.id}/><input name="revision" type="hidden" value={requirement.revision}/><select aria-label="Исполнитель" className="min-h-11 border border-zinc-300 px-3" name="providerId" required>{report.providers.map((provider)=><option key={provider.id} value={provider.id}>{provider.backingName}</option>)}</select><input aria-label="Причина переназначения" className="min-h-11 border border-zinc-300 px-3" minLength={10} name="reason" placeholder="Причина переназначения" required/><button className="min-h-11 border border-zinc-900 px-4 text-sm font-semibold">Переназначить</button></form> : null}
+      </article>) : <p className="border border-zinc-200 bg-white p-4 text-sm text-zinc-600">Активированных монтажных требований пока нет.</p>}</div>
     </section>
   </main>;
 }
