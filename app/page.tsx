@@ -34,12 +34,11 @@ export default async function Home({ searchParams }: { searchParams: Params }) {
         <div aria-hidden="true" className="absolute inset-0 bg-zinc-950/55" />
         <div className="relative mx-auto flex min-h-[560px] max-w-[1440px] items-center px-4 py-14 sm:min-h-[600px] sm:px-6 lg:min-h-[620px] lg:px-8">
           <div className="max-w-2xl text-white">
-            <p className="text-sm font-semibold uppercase text-emerald-300">Novotech Security Systems</p>
-            <h1 className="mt-4 text-4xl font-semibold leading-tight sm:text-5xl lg:text-6xl">{ru ? "Системы безопасности под ключ" : "Sisteme de securitate complete"}</h1>
+            <h1 className="text-4xl font-semibold leading-tight sm:text-5xl lg:text-6xl">{ru ? "Системы безопасности под ключ" : "Sisteme de securitate complete"}</h1>
             <p className="mt-6 max-w-xl text-base leading-7 text-zinc-100 sm:text-lg">{ru ? "Поможем рассчитать систему, выбрать совместимое оборудование, организовать доставку и профессиональный монтаж." : "Vă ajutăm să calculați sistemul, să alegeți echipamente compatibile și să organizați livrarea și instalarea profesională."}</p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Link className="inline-flex min-h-12 items-center justify-center gap-2 rounded-sm bg-emerald-600 px-6 text-sm font-semibold text-white hover:bg-emerald-500" href={`/calculator/cctv?lang=${locale}`}>{ru ? "Подобрать систему" : "Alege un sistem"}<ArrowRight aria-hidden="true" className="size-4" /></Link>
-              <Link className="inline-flex min-h-12 items-center justify-center rounded-sm border border-white/70 bg-white/10 px-6 text-sm font-semibold text-white hover:bg-white hover:text-zinc-950" href={`/catalog?lang=${locale}`}>{ru ? "Перейти в каталог" : "Deschide catalogul"}</Link>
+              <Link className="inline-flex min-h-12 items-center justify-center gap-2 rounded-sm bg-emerald-600 px-6 text-sm font-semibold text-white hover:bg-emerald-500" href={`/catalog?lang=${locale}`}>{ru ? "Перейти в каталог" : "Deschide catalogul"}<ArrowRight aria-hidden="true" className="size-4" /></Link>
+              <Link className="inline-flex min-h-12 items-center justify-center rounded-sm border border-white/70 bg-white/10 px-6 text-sm font-semibold text-white hover:bg-white hover:text-zinc-950" href={`/calculator/cctv?lang=${locale}`}>{ru ? "Подобрать систему" : "Alege un sistem"}</Link>
             </div>
             <ul className="mt-8 flex flex-wrap gap-x-7 gap-y-3 text-sm text-zinc-100"><li>{ru ? "Гарантия на оборудование" : "Garanție pentru echipamente"}</li><li>{ru ? "Доставка по Молдове" : "Livrare în Moldova"}</li><li>{ru ? "Техническая консультация" : "Consultanță tehnică"}</li></ul>
           </div>

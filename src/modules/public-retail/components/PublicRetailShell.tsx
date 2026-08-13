@@ -52,11 +52,21 @@ export function PublicRetailShell({ children, locale, languagePath, cartQuantity
       </div>
     </header>
     {children}
-    <footer className="border-t border-zinc-200 bg-zinc-950 text-zinc-300" id="support">
-      <div className="mx-auto grid max-w-[1440px] gap-8 px-4 py-10 sm:px-6 md:grid-cols-[1fr_auto] lg:px-8">
-        <div><p className="font-semibold text-white">NOVOTECH SYSTEMS</p><p className="mt-2 max-w-xl text-sm leading-6 text-zinc-400">{locale === "ro" ? "Echipamente și soluții profesionale de securitate în Moldova." : "Профессиональное оборудование и решения для безопасности в Молдове."}</p></div>
-        <div className="flex flex-wrap items-start gap-x-6 gap-y-3 text-sm"><Link href={`/catalog?lang=${locale}`}>{copy.catalog}</Link><Link href="/cabinet">{copy.partners}</Link></div>
+    <footer className="border-t border-zinc-800 bg-zinc-950 text-zinc-400" id="support">
+      <div className="mx-auto grid max-w-[1440px] gap-x-8 gap-y-7 px-4 py-8 sm:grid-cols-2 sm:px-6 lg:grid-cols-[1.2fr_1fr_1fr_1fr] lg:px-8">
+        <div><p className="text-sm font-semibold text-white">NOVOTECH SYSTEMS</p><p className="mt-2 max-w-sm text-xs leading-5">{locale === "ro" ? "Echipamente și soluții profesionale de securitate în Moldova." : "Профессиональное оборудование и решения для безопасности в Молдове."}</p></div>
+        <FooterGroup title={locale === "ro" ? "Catalog" : "Каталог"}><FooterLink href={`/catalog?lang=${locale}`}>{copy.catalog}</FooterLink><FooterLink href={`/calculator/cctv?lang=${locale}`}>{copy.chooseSystem}</FooterLink></FooterGroup>
+        <FooterGroup title={locale === "ro" ? "Informații" : "Информация"}><FooterLink href={`/?lang=${locale}#installation`}>{copy.services}</FooterLink><FooterLink href={`/?lang=${locale}#delivery`}>{copy.delivery}</FooterLink></FooterGroup>
+        <FooterGroup title={locale === "ro" ? "Contacte și magazine" : "Контакты и магазины"}><FooterLink href={`/?lang=${locale}#support`}>{copy.support}</FooterLink><FooterLink href="/cabinet">{copy.partners}</FooterLink><p className="text-xs leading-5 text-zinc-500">{locale === "ro" ? "Adresele și programul se confirmă înainte de vizită." : "Адреса и график уточняйте перед визитом."}</p></FooterGroup>
       </div>
     </footer>
   </div>;
+}
+
+function FooterGroup({ children, title }: { children: ReactNode; title: string }) {
+  return <section><h2 className="text-xs font-semibold uppercase text-zinc-200">{title}</h2><div className="mt-3 grid gap-2 text-sm">{children}</div></section>;
+}
+
+function FooterLink({ children, href }: { children: ReactNode; href: string }) {
+  return <Link className="w-fit hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500" href={href}>{children}</Link>;
 }

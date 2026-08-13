@@ -15,7 +15,7 @@ export async function saveInstallationTariffDraftAction(formData: FormData) {
   const lines = [
     ["camera_installation", "piece"],
     ["cable_laying", "meter"],
-    ["commissioning", "service"],
+    ["commissioning", "piece"],
     ["remote_configuration", "service"],
   ].flatMap(([serviceType, unitCode]) => {
     const raw = String(formData.get(serviceType) ?? "").trim();

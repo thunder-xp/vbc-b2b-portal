@@ -39,6 +39,15 @@ describe("public retail UX", () => {
     expect(screen.queryByText(/Купить|Оформить заказ/)).not.toBeInTheDocument();
   });
 
+  it("constrains product media to the card grid track", () => {
+    render(<PublicRetailProductCard locale="ru" product={{ ...product, image: { url: "https://www.nsd.md/storage/v1/object/public/public-product-media/product/image.webp", alt: "Camera" } }} />);
+    const image = screen.getByRole("img", { name: "Camera" });
+    const media = image.closest("a");
+    expect(media?.closest("article")).toHaveClass("grid-cols-[minmax(0,1fr)]", "overflow-hidden");
+    expect(media).toHaveClass("h-36", "sm:h-44", "xl:h-48", "w-full", "min-w-0", "max-w-full", "overflow-hidden");
+    expect(image).toHaveClass("size-full", "max-h-full", "max-w-full", "object-contain");
+  });
+
   it("renders bounded category filters, search result and pagination", () => {
     render(<PublicRetailCatalog categories={[{ id: "20000000-0000-4000-8000-000000000001", parentId: null, slug: "video", name: "Видеонаблюдение", description: null, productCount: 25 }]} facets={[{ key: "resolution", label: "Разрешение", values: [{ value: "4 Мп", count: 12 }], coverage: 12 }]} locale="ru" products={{ items: [product], totalCount: 25, limit: 24, offset: 0 }} state={{ category: "video", facets: { resolution: ["4 Мп"] }, page: 1 }} />);
     expect(screen.getByRole("heading", { name: "Каталог" })).toBeInTheDocument();

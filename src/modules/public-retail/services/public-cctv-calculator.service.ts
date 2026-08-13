@@ -112,7 +112,7 @@ export class PublicCctvCalculatorService {
     const workRequirements = requirements.flatMap((requirement) => PRODUCT_KINDS.has(requirement.kind) ? [] : [{
       serviceType: requirement.kind as InstallationServiceType,
       quantity: requirement.quantity,
-      unitCode: unitCode(requirement.unit),
+      unitCode: installationUnitCode(requirement),
     }]);
     const profileKeys = [...new Set(productRequirements.flatMap((requirement) => requirement.profileKey ? [requirement.profileKey] : []))];
     const pricingStartedAt = performance.now();
@@ -133,8 +133,8 @@ export class PublicCctvCalculatorService {
         const priced = pricedWorkByType.get(requirement.kind as InstallationServiceType);
         if (!priced) unresolved.push(normalized.locale === "ro" ? "Tariful de instalare trebuie confirmat" : "Тариф на монтаж требует подтверждения");
         return {
-        key: `work-${index + 1}`, kind: "work", group: "works", label, requirementKind: requirement.kind, unitCode: unitCode(requirement.unit),
-        quantity: requirement.quantity, unitLabel: unitLabel(requirement.unit, normalized.locale),
+        key: `work-${index + 1}`, kind: "work", group: "works", label, requirementKind: requirement.kind, unitCode: installationUnitCode(requirement),
+        quantity: requirement.quantity, unitLabel: installationUnitLabel(requirement, normalized.locale),
         product: null, unitPrice: priced?.unitPrice ?? null, amount: priced?.amount ?? null,
         currency: installationPricing.currency, availability: null,
         };
@@ -283,6 +283,12 @@ function unitLabel(unit: CctvTechnicalRequirement["unit"], locale: PublicRetailL
   return locale === "ro" ? "buc." : "шт.";
 }
 function unitCode(unit: CctvTechnicalRequirement["unit"]): "piece" | "meter" | "service" { return unit === "meters" ? "meter" : unit === "service" ? "service" : "piece"; }
+function installationUnitCode(requirement: CctvTechnicalRequirement): InstallationUnitCode {
+  return requirement.kind === "commissioning" ? "piece" : unitCode(requirement.unit);
+}
+function installationUnitLabel(requirement: CctvTechnicalRequirement, locale: PublicRetailLocale): string {
+  return requirement.kind === "commissioning" ? (locale === "ro" ? "cameră" : "камера") : unitLabel(requirement.unit, locale);
+}
 function explainDecisions(technical: ReturnType<typeof calculateCctvTechnicalPlan>, locale: PublicRetailLocale): string[] {
   const recorder = technical.compatibility.recorder;
   const poe = technical.compatibility.poe;
