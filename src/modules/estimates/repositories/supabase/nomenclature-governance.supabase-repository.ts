@@ -44,4 +44,4 @@ function mapRecord(row: Record<string, unknown>): AdminNomenclatureRecord {
     firstObserved: String(row.first_observed ?? row.created_at), lastObserved: String(row.last_observed ?? row.updated_at) };
 }
 function text(value: unknown) { return typeof value === "string" ? value : null; }
-function mapError(code?: string) { return new EstimateRepositoryError(code === "40001" ? "conflict" : code === "P0002" ? "not_found" : code === "22023" ? "invalid" : "persistence", code ?? null); }
+function mapError(code?: string) { return new EstimateRepositoryError(code === "PT409" ? "conflict" : code === "P0002" ? "not_found" : code === "22023" ? "invalid" : "persistence", code ?? null); }

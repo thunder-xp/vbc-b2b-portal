@@ -33,6 +33,13 @@ export class InvalidStateError extends AccessControlError {
   }
 }
 
+export class DomainConflictError extends AccessControlError {
+  constructor(readonly code: string, message = "The resource changed. Reload it and try again.") {
+    super(message);
+    this.name = "DomainConflictError";
+  }
+}
+
 export class DuplicateRequestError extends AccessControlError {
   constructor(message = "A duplicate access request already exists.") {
     super(message);

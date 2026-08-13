@@ -14,4 +14,4 @@ export interface ServiceCenterRepository {
   getDiagnostics(): Promise<ServiceDiagnostics>;
 }
 
-export class ServiceCenterRepositoryError extends Error { constructor() { super("Service data is temporarily unavailable."); this.name = "ServiceCenterRepositoryError"; } }
+export class ServiceCenterRepositoryError extends Error { constructor(readonly code: string | null = null) { super("Service data is temporarily unavailable."); this.name = "ServiceCenterRepositoryError"; } }

@@ -12,4 +12,4 @@ export interface PartnerSupportRepository {
   dashboard(companyId: string): Promise<SupportDashboardItem[]>;
   diagnostics(): Promise<SupportDiagnostics>;
 }
-export class PartnerSupportRepositoryError extends Error { constructor() { super("Support data is temporarily unavailable."); this.name = "PartnerSupportRepositoryError"; } }
+export class PartnerSupportRepositoryError extends Error { constructor(readonly code: string | null = null) { super("Support data is temporarily unavailable."); this.name = "PartnerSupportRepositoryError"; } }

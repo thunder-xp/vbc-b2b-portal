@@ -594,7 +594,7 @@ function mapExternalNomenclatureRow(row: Record<string, unknown>): import("../es
 }
 
 function mapRepositoryError(code: string | undefined): EstimateRepositoryError {
-  if (code === "40001") return new EstimateRepositoryError("conflict", code);
+  if (code === "PT409") return new EstimateRepositoryError("conflict", code);
   if (code === "P0002") return new EstimateRepositoryError("not_found", code);
   if (code === "23505") return new EstimateRepositoryError("duplicate", code);
   if (code === "22023" || code === "23514") return new EstimateRepositoryError("invalid", code);

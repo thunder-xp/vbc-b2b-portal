@@ -1,14 +1,14 @@
 import { createHash } from "node:crypto";
 
 import type { CompanyAccessService, PermissionService } from "../../access-control/services";
-import { InvalidStateError, NotFoundError } from "../../access-control/services";
+import { DomainConflictError, InvalidStateError, NotFoundError } from "../../access-control/services";
 import { MembershipStatus } from "../../access-control/types";
 import type { CatalogProductCardDto, CatalogService } from "../../catalog/services";
 import type { CartService } from "../../orders/services";
 import type { PartnerOrderHistoryRepository } from "../../orders/repositories";
 import type { PricingInventoryService, ProductCommercialViewDto } from "../../pricing-inventory/services";
 import type { PurchasingListService } from "../../purchasing-lists/services";
-import type { PurchaseTemplateIndexRecord, PurchaseTemplateItemInput, PurchaseTemplateRepository } from "../repositories";
+import { PurchaseTemplateRepositoryError, type PurchaseTemplateIndexRecord, type PurchaseTemplateItemInput, type PurchaseTemplateRepository } from "../repositories";
 import type { PurchaseTemplate, PurchaseTemplateCartResultDto, PurchaseTemplateDetailDto, PurchaseTemplateLineDto, PurchaseTemplateLineState, PurchaseTemplatePageDto, PurchaseTemplatePreviewSummary, PurchaseTemplateSourceType, PurchaseTemplateVisibility } from "../types";
 
 const PAGE_SIZE = 20;
@@ -124,7 +124,7 @@ export class PurchaseTemplateService {
       const products = await this.catalogService.getProductsByIds(userId, items.map((item) => item.productId));
       if (products.length !== new Set(items.map((item) => item.productId)).size) throw new NotFoundError("A selected product is unavailable.");
     }
-    return this.repository.update({ templateId: detail.id, expectedRevision: input.expectedRevision, ...normalizeMetadata(input), items });
+    return templateMutation(() => this.repository.update({ templateId: detail.id, expectedRevision: input.expectedRevision, ...normalizeMetadata(input), items }));
   }
 
   async copy(userId: string, templateId: string, requestKey: string) {
@@ -139,7 +139,7 @@ export class PurchaseTemplateService {
     const detail = await this.getDetail(userId, templateId);
     await this.permissionService.ensurePermission(userId, detail.companyId, "purchase_templates.archive");
     if (!detail.canEdit || detail.revision !== expectedRevision) throw new InvalidStateError("Purchase template cannot be archived.");
-    return this.repository.archive(detail.id, expectedRevision);
+    return templateMutation(() => this.repository.archive(detail.id, expectedRevision));
   }
 
   async addToCart(userId: string, input: { templateId: string; requestKey: string; multiplier: number; selections?: Array<{ itemId: string; quantity: number }> }): Promise<PurchaseTemplateCartResultDto> {
@@ -182,6 +182,17 @@ export class PurchaseTemplateService {
     const context = await this.companyAccessService.getActiveCompanyContext(userId, membership?.companyId ?? "");
     await this.permissionService.ensurePermission(userId, context.company.id, permission);
     return context.company.id;
+  }
+}
+
+async function templateMutation<T>(operation: () => Promise<T>) {
+  try {
+    return await operation();
+  } catch (error) {
+    if (error instanceof PurchaseTemplateRepositoryError && error.code === "PT409") {
+      throw new DomainConflictError("PURCHASE_TEMPLATE_CONFLICT", "Шаблон изменился. Обновите страницу и повторите действие.");
+    }
+    throw error;
   }
 }
 

@@ -1,7 +1,7 @@
 import "server-only";
 import { MembershipStatus } from "../access-control/types";
-import type { CompanyAccessService } from "../access-control/services";
-import type { ServiceCenterRepository } from "./repository";
+import { DomainConflictError, type CompanyAccessService } from "../access-control/services";
+import { ServiceCenterRepositoryError, type ServiceCenterRepository } from "./repository";
 import { SERVICE_CASE_TYPES, SERVICE_STATUSES, type ServiceCaseCreateInput, type ServiceStatus } from "./types";
 
 export class ServiceCenterValidationError extends Error { constructor(message: string) { super(message); this.name = "ServiceCenterValidationError"; } }
@@ -23,7 +23,7 @@ export class ServiceCenterService {
   async partnerAction(userId: string, input: { caseId: string; expectedVersion: number; action: string; message: string }) {
     await this.companyId(userId);
     if (!["provide_information","confirm_equipment_sent","cancel"].includes(input.action)) throw new ServiceCenterValidationError("Действие недоступно.");
-    return this.repository.performPartnerAction({ caseId: uuid(input.caseId), expectedVersion: Math.max(1,Math.trunc(input.expectedVersion)), action: input.action, message: trim(input.message,4000) });
+    return serviceMutation(() => this.repository.performPartnerAction({ caseId: uuid(input.caseId), expectedVersion: Math.max(1,Math.trunc(input.expectedVersion)), action: input.action, message: trim(input.message,4000) }));
   }
   async dashboard(userId: string) { return this.repository.getDashboard(await this.companyId(userId)); }
   async adminAttention() { return this.repository.getAdminAttention(10); }
@@ -32,10 +32,11 @@ export class ServiceCenterService {
   async getAdmin(caseId: string) { return this.repository.get(uuid(caseId)); }
   async transition(input: { caseId: string; expectedVersion: number; status: string; partnerMessage: string; internalNote: string; assigneeId: string | null }) {
     const status = validStatus(input.status); if (!status) throw new ServiceCenterValidationError("Выберите следующий статус.");
-    return this.repository.transition({ ...input, caseId: uuid(input.caseId), expectedVersion: Math.max(1, Math.trunc(input.expectedVersion)), status, partnerMessage: trim(input.partnerMessage, 4000), internalNote: trim(input.internalNote, 4000), assigneeId: input.assigneeId ? uuid(input.assigneeId) : null });
+    return serviceMutation(() => this.repository.transition({ ...input, caseId: uuid(input.caseId), expectedVersion: Math.max(1, Math.trunc(input.expectedVersion)), status, partnerMessage: trim(input.partnerMessage, 4000), internalNote: trim(input.internalNote, 4000), assigneeId: input.assigneeId ? uuid(input.assigneeId) : null }));
   }
   private async companyId(userId: string) { const membership=(await this.companyAccess.getOwnMemberships(userId)).find((item)=>item.status===MembershipStatus.Active); if(!membership) throw new ServiceCenterValidationError("Активная компания не найдена."); return (await this.companyAccess.getActiveCompanyContext(userId,membership.companyId)).company.id; }
 }
+async function serviceMutation<T>(operation: () => Promise<T>) { try { return await operation(); } catch (error) { if (error instanceof ServiceCenterRepositoryError && error.code === "PT409") throw new DomainConflictError("SERVICE_CASE_CONFLICT", "Обращение изменилось. Обновите страницу и повторите действие."); throw error; } }
 function trim(value: unknown, max: number) { return typeof value === "string" ? value.trim().slice(0,max) : ""; }
 function page(value: unknown) { const parsed=Number(value); return Number.isSafeInteger(parsed)&&parsed>0?Math.min(parsed,100000):1; }
 function validStatus(value: unknown): ServiceStatus|null { return typeof value === "string"&&SERVICE_STATUSES.includes(value as ServiceStatus)?value as ServiceStatus:null; }

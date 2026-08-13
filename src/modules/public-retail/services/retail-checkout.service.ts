@@ -57,7 +57,7 @@ export class RetailCheckoutService {
     try {
       return await this.repository.createOrder(validHash(tokenHash), { ...command, requestFingerprint });
     } catch (error) {
-      if (error instanceof RetailCheckoutRepositoryError && (error.code === "40001" || error.code === "23505")) throw new RetailCheckoutConflictError();
+      if (error instanceof RetailCheckoutRepositoryError && (error.code === "PT409" || error.code === "23505")) throw new RetailCheckoutConflictError();
       if (error instanceof RetailCheckoutRepositoryError && (error.code === "P0002" || error.code === "28000")) throw new RetailCheckoutUnavailableError(error.detail);
       throw error;
     }

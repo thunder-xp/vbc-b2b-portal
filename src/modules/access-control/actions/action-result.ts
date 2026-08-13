@@ -2,6 +2,7 @@ import {
   AccessControlError,
   ApprovalError,
   DuplicateRequestError,
+  DomainConflictError,
   ForbiddenError,
   InvalidStateError,
   MembershipRequiredError,
@@ -61,6 +62,10 @@ export function failureFromError(error: unknown): FailedActionResult {
 
   if (error instanceof InvalidStateError) {
     return failure("INVALID_STATE", "This action is not valid for the current state.");
+  }
+
+  if (error instanceof DomainConflictError) {
+    return failure(error.code, error.message);
   }
 
   if (error instanceof DuplicateRequestError) {

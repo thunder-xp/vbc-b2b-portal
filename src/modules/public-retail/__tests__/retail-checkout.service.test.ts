@@ -38,7 +38,7 @@ describe("RetailCheckoutService", () => {
 
   it("requires consent and rejects stale checkout conflicts safely", async () => {
     await expect(new RetailCheckoutService(repository()).createOrder(hash, "c".repeat(64), { ...input(), processingAcknowledged: false })).rejects.toBeInstanceOf(RetailCheckoutInputError);
-    const repo = repository(); vi.mocked(repo.createOrder).mockRejectedValue(new RetailCheckoutRepositoryError("40001"));
+    const repo = repository(); vi.mocked(repo.createOrder).mockRejectedValue(new RetailCheckoutRepositoryError("PT409"));
     await expect(new RetailCheckoutService(repo).createOrder(hash, "c".repeat(64), input())).rejects.toBeInstanceOf(RetailCheckoutConflictError);
   });
 

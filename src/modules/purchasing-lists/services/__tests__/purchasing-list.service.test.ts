@@ -4,7 +4,7 @@ import type { CatalogService } from "../../../catalog/services";
 import type { CartService } from "../../../orders/services";
 import type { PartnerOrderHistoryRepository } from "../../../orders/repositories";
 import type { PricingInventoryService } from "../../../pricing-inventory/services";
-import type { PurchasingListRepository, PurchasingListRecord } from "../../repositories";
+import { PurchasingListRepositoryError, type PurchasingListRepository, type PurchasingListRecord } from "../../repositories";
 import type { PurchasingListEstimateGateway } from "../purchasing-list.service";
 import { PurchasingListService } from "../purchasing-list.service";
 
@@ -70,6 +70,7 @@ describe("PurchasingListService", () => {
     expect(repository.updateItems).toHaveBeenCalledOnce();
   });
 
+  it("returns one stable conflict without retrying a concurrent update", async () => { vi.mocked(repository.updateItems).mockRejectedValue(new PurchasingListRepositoryError("PT409")); await expect(service.updateItems(USER, LIST, 1, [{ itemId: ITEM, quantity: 5, position: 1 }])).rejects.toMatchObject({ code: "PURCHASING_LIST_CONFLICT" }); expect(repository.updateItems).toHaveBeenCalledOnce(); });
   it("duplicates without changing the source", async () => { await service.duplicate(USER, LIST); expect(repository.duplicate).toHaveBeenCalledOnce(); expect(repository.updateMetadata).not.toHaveBeenCalled(); });
 
   it("loads index commercial data once for all products", async () => { await service.list(USER); expect(catalog.getProductsByIds).toHaveBeenCalledOnce(); expect(pricing.getProductCommercialViews).toHaveBeenCalledOnce(); });

@@ -49,7 +49,7 @@ describe("onboarding mutation diagnostics", () => {
   });
 
   it.each([
-    ["stale_approval_draft", "40001", "ONBOARDING_DRAFT_VERSION_CONFLICT"],
+    ["stale_approval_draft", "PT409", "ONBOARDING_DRAFT_VERSION_CONFLICT"],
     ["onboarding_manager_invalid", "22023", "ONBOARDING_MANAGER_INVALID"],
     ["invalid_price_profile", "22023", "ONBOARDING_PARTNER_STATUS_INVALID"],
     ["onboarding_price_type_required", "22023", "ONBOARDING_PRICE_TYPE_REQUIRED"],
@@ -58,6 +58,10 @@ describe("onboarding mutation diagnostics", () => {
     ["connection failure", "08006", "ONBOARDING_INFRASTRUCTURE_FAILURE"],
   ])("classifies %s", (message, sqlState, expected) => {
     expect(classifyOnboardingMutationError(message, sqlState)).toBe(expected);
+  });
+
+  it("does not disguise a genuine serialization failure as a domain conflict", () => {
+    expect(classifyOnboardingMutationError("could not serialize access", "40001")).toBe("unknown_retryable");
   });
 
   it("does not retain unsafe failing-row details", () => {

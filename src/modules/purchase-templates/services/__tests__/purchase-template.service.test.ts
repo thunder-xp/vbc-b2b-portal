@@ -5,7 +5,7 @@ import type { CartService } from "../../../orders/services";
 import type { PartnerOrderHistoryRepository } from "../../../orders/repositories";
 import type { PricingInventoryService } from "../../../pricing-inventory/services";
 import type { PurchasingListService } from "../../../purchasing-lists/services";
-import type { PurchaseTemplateRecord, PurchaseTemplateRepository } from "../../repositories";
+import { PurchaseTemplateRepositoryError, type PurchaseTemplateRecord, type PurchaseTemplateRepository } from "../../repositories";
 import { PurchaseTemplateService } from "../purchase-template.service";
 
 const USER = "11111111-1111-4111-8111-111111111111";
@@ -78,6 +78,8 @@ describe("PurchaseTemplateService", () => {
     expect(repository.create).toHaveBeenCalledWith(expect.objectContaining({ sourceType: "dashboard_reorder", name: "Вы покупали ранее", items: [expect.objectContaining({ productId: PRODUCT, preferredQuantity: 2 })] }));
     expect(catalog.getProductsByIds).toHaveBeenCalledOnce();
   });
+
+  it("returns one stable conflict without retrying a concurrent update", async () => { vi.mocked(repository.update).mockRejectedValue(new PurchaseTemplateRepositoryError("PT409")); await expect(service.update(USER, { templateId: TEMPLATE, expectedRevision: 1, name: "Changed", visibility: "private", items: [] })).rejects.toMatchObject({ code: "PURCHASE_TEMPLATE_CONFLICT" }); expect(repository.update).toHaveBeenCalledOnce(); });
 
   it("loads current product and commercial truth once for the whole detail", async () => {
     const detail = await service.getDetail(USER, TEMPLATE);

@@ -186,6 +186,14 @@ Rules:
 - Return user-safe messages from Server Actions.
 - Prefer safe failure over silent success.
 
+### PostgreSQL Error Contract
+
+- SQLSTATE `40001` is reserved for a genuine PostgreSQL serialization failure. Infrastructure may retry it at most three attempts with jittered exponential backoff.
+- Expected stale revisions, lifecycle races, and already-processed commands are domain conflicts. Return a structured domain result where available, or `PT409` at an RPC exception boundary.
+- Never automatically retry `PT409`, validation, authentication, authorization, or business-state failures.
+- An idempotent replay returns the existing result and must not duplicate notifications, events, or other side effects.
+- Expected domain conflicts may be logged at info/warn with safe identifiers; they must not be reported as infrastructure failures or generate `40001` error storms.
+
 ## Dependency Rules
 
 Allowed dependency direction:

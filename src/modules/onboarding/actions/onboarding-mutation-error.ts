@@ -89,7 +89,7 @@ export function classifyOnboardingMutationError(
 ): OnboardingMutationErrorCode {
   const normalized = message?.toLowerCase() ?? "";
 
-  if (normalized.includes("stale_approval_draft") || normalized.includes("stale_request_revision") || sqlState === "40001") {
+  if (normalized.includes("stale_approval_draft") || normalized.includes("stale_request_revision") || sqlState === "PT409") {
     return "ONBOARDING_DRAFT_VERSION_CONFLICT";
   }
   if (normalized.includes("onboarding_manager_invalid") || normalized.includes("permission_denied")) {

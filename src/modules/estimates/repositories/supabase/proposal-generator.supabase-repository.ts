@@ -4,7 +4,7 @@ import type { ExternalNomenclatureRecord, ProposalGeneratorRepository } from "..
 import { EstimateRepositoryError } from "../estimate.repository";
 
 function fail(code?: string): never {
-  throw new EstimateRepositoryError(code === "40001" || code === "23505" ? "conflict" : code === "42501" ? "not_found" : code === "22023" ? "invalid" : "persistence");
+  throw new EstimateRepositoryError(code === "PT409" || code === "23505" ? "conflict" : code === "42501" ? "not_found" : code === "22023" ? "invalid" : "persistence");
 }
 
 export class SupabaseProposalGeneratorRepository implements ProposalGeneratorRepository {

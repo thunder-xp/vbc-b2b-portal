@@ -10,7 +10,7 @@ import { adminReportSchema, assignmentAdminReportSchema, assignmentResponseSchem
 export class RetailMarketplaceRepositoryError extends Error {
   constructor(readonly code: "invalid" | "conflict" | "forbidden" | "unavailable" = "unavailable") { super("Retail Marketplace operation failed."); this.name = "RetailMarketplaceRepositoryError"; }
 }
-function fail(code?: string): never { throw new RetailMarketplaceRepositoryError(code === "22023" ? "invalid" : code === "40001" || code === "23505" ? "conflict" : code === "42501" ? "forbidden" : "unavailable"); }
+function fail(code?: string): never { throw new RetailMarketplaceRepositoryError(code === "22023" ? "invalid" : code === "PT409" || code === "23505" ? "conflict" : code === "42501" ? "forbidden" : "unavailable"); }
 
 export class SupabaseRetailMarketplaceRepository implements RetailMarketplaceRepository {
   async getCurrentTariffs(systemType: "cctv") {

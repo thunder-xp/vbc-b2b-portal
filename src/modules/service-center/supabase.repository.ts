@@ -45,7 +45,7 @@ export class SupabaseServiceCenterRepository implements ServiceCenterRepository 
   async getDiagnostics() { return this.rpc<ServiceDiagnostics>("get_service_diagnostics", {}); }
   private async rpc<T>(name: string, args: Record<string, unknown>): Promise<T> {
     const { data, error } = await (await createClient()).rpc(name, args);
-    if (error) { console.error({ event: "service_center_rpc_failed", rpc: name, code: error.code }); throw new ServiceCenterRepositoryError(); }
+    if (error) { const log = error.code === "PT409" ? console.info : console.error; log({ event: error.code === "PT409" ? "service_case_conflict" : "service_center_rpc_failed", rpc: name, code: error.code }); throw new ServiceCenterRepositoryError(error.code); }
     return data as T;
   }
 }

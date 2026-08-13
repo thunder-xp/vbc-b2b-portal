@@ -54,5 +54,5 @@ function normalizeInstallationPricing(value: Record<string, unknown> | null, wor
     || !Number.isInteger(value.tariffVersion) || !Array.isArray(value.lines) || typeof value.subtotal !== "number") throw new RetailCartInputError();
   return value;
 }
-function translateConflict(error: unknown) { return error && typeof error === "object" && "code" in error && error.code === "40001" ? new RetailCartConflictError() : error; }
+function translateConflict(error: unknown) { return error && typeof error === "object" && "code" in error && error.code === "PT409" ? new RetailCartConflictError() : error; }
 function translateCartError(error: unknown) { return error && typeof error === "object" && "code" in error && error.code === "28000" ? new RetailCartExpiredError() : error; }

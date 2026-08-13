@@ -1,13 +1,13 @@
 import { createHash } from "node:crypto";
 
 import type { CompanyAccessService, PermissionService } from "../../access-control/services";
-import { InvalidStateError, NotFoundError } from "../../access-control/services";
+import { DomainConflictError, InvalidStateError, NotFoundError } from "../../access-control/services";
 import { MembershipStatus } from "../../access-control/types";
 import type { CatalogService } from "../../catalog/services";
 import type { CartService } from "../../orders/services";
 import type { PartnerOrderHistoryRepository } from "../../orders/repositories";
 import { classifyCommercialProductState, commercialProductStateLabels, type PricingInventoryService } from "../../pricing-inventory/services";
-import type { PurchasingListRepository } from "../repositories";
+import { PurchasingListRepositoryError, type PurchasingListRepository } from "../repositories";
 import type { PurchasingList, PurchasingListConversionResultDto, PurchasingListDetailDto, PurchasingListPageDto, PurchasingListVisibility } from "../types";
 
 const VIEW_PERMISSION = "purchasing_lists.view";
@@ -194,13 +194,13 @@ export class PurchasingListService {
     if (!detail.canManage) throw new InvalidStateError("Purchasing list cannot be changed.");
     const productId = requireUuid(input.productId);
     if (!(await this.catalogService.getProductsByIds(userId, [productId])).length) throw new NotFoundError("Product was not found.");
-    return this.repository.mergeItems({ listId: detail.id, expectedRevision: detail.revision, mergeMode: input.mergeMode, sourceType: "catalog", sourceReferenceId: null, items: [{ productId, quantity: normalizeQuantity(input.quantity) }] });
+    return listMutation(() => this.repository.mergeItems({ listId: detail.id, expectedRevision: detail.revision, mergeMode: input.mergeMode, sourceType: "catalog", sourceReferenceId: null, items: [{ productId, quantity: normalizeQuantity(input.quantity) }] }));
   }
 
   async updateMetadata(userId: string, listId: string, expectedRevision: number, input: { name: string; description?: string | null; visibility: PurchasingListVisibility }) {
     const detail = await this.requireManageable(userId, listId, expectedRevision);
     if (detail.isSystemFavorites) throw new InvalidStateError("System favorites metadata cannot be changed.");
-    return this.repository.updateMetadata({ listId, expectedRevision, ...normalizeMetadata(input) });
+    return listMutation(() => this.repository.updateMetadata({ listId, expectedRevision, ...normalizeMetadata(input) }));
   }
 
   async updateItems(userId: string, listId: string, expectedRevision: number, items: Array<{ itemId: string; quantity: number; position: number; note?: string | null }>) {
@@ -209,14 +209,14 @@ export class PurchasingListService {
     const known = new Set(detail.lines.map((line) => line.id));
     const normalized = items.map((item) => ({ itemId: requireUuid(item.itemId), quantity: normalizeQuantity(item.quantity), position: normalizePosition(item.position), note: normalizeOptional(item.note, 500) }));
     if (new Set(normalized.map((item) => item.itemId)).size !== normalized.length || normalized.some((item) => !known.has(item.itemId))) throw new NotFoundError("List item was not found.");
-    return this.repository.updateItems({ listId: detail.id, expectedRevision, items: normalized });
+    return listMutation(() => this.repository.updateItems({ listId: detail.id, expectedRevision, items: normalized }));
   }
 
   async removeItems(userId: string, listId: string, expectedRevision: number, itemIds: string[]) {
     const detail = await this.requireManageable(userId, listId, expectedRevision);
     const normalized = [...new Set(itemIds.map(requireUuid))];
     if (!normalized.length || normalized.some((id) => !detail.lines.some((line) => line.id === id))) throw new NotFoundError("List item was not found.");
-    return this.repository.removeItems({ listId: detail.id, expectedRevision, itemIds: normalized });
+    return listMutation(() => this.repository.removeItems({ listId: detail.id, expectedRevision, itemIds: normalized }));
   }
 
   async setArchived(userId: string, listId: string, expectedRevision: number, archived: boolean) {
@@ -225,7 +225,7 @@ export class PurchasingListService {
     if (detail.visibility === "private" && detail.createdBy !== userId) throw new InvalidStateError("Purchasing list cannot be changed.");
     if (detail.isSystemFavorites) throw new InvalidStateError("System favorites cannot be archived.");
     if (detail.revision !== expectedRevision) throw new InvalidStateError("Purchasing list changed. Reload it.");
-    return this.repository.setArchived({ listId: detail.id, expectedRevision, archived });
+    return listMutation(() => this.repository.setArchived({ listId: detail.id, expectedRevision, archived }));
   }
 
   async duplicate(userId: string, listId: string, name?: string) {
@@ -272,6 +272,17 @@ export class PurchasingListService {
     const context = await this.companyAccessService.getActiveCompanyContext(userId, membership?.companyId ?? "");
     await this.permissionService.ensurePermission(userId, context.company.id, permission);
     return context.company.id;
+  }
+}
+
+async function listMutation<T>(operation: () => Promise<T>) {
+  try {
+    return await operation();
+  } catch (error) {
+    if (error instanceof PurchasingListRepositoryError && error.code === "PT409") {
+      throw new DomainConflictError("PURCHASING_LIST_CONFLICT", "Список изменился. Обновите страницу и повторите действие.");
+    }
+    throw error;
   }
 }
 
