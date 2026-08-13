@@ -1,4 +1,4 @@
-import type { InstallationAssignmentAdminReport, InstallationAssignmentResponse, InstallationAssignmentView, InstallationDispatchResult, InstallationTariffSetDto, PartnerInstallationAssignmentDto, PublicInstallationProviderDto, RetailMarketplaceAdminReport } from "../types";
+import type { InstallationAssignmentAdminReport, InstallationAssignmentResponse, InstallationAssignmentView, InstallationDispatchResult, InstallationExecutionCommand, InstallationExecutionResult, InstallationTariffSetDto, PartnerInstallationAssignmentDto, PublicInstallationProviderDto, RetailMarketplaceAdminReport } from "../types";
 
 export interface RetailMarketplaceRepository {
   getCurrentTariffs(systemType: "cctv"): Promise<InstallationTariffSetDto | null>;
@@ -11,6 +11,8 @@ export interface RetailMarketplaceRepository {
   dispatch(requirementId: string): Promise<InstallationDispatchResult>;
   listPartnerAssignments(companyId: string, view: InstallationAssignmentView): Promise<PartnerInstallationAssignmentDto[]>;
   respondToAssignment(input: { companyId: string; attemptId: string; decision: "accept" | "decline"; reasonCode: string | null; reasonText: string | null; idempotencyKey: string }): Promise<InstallationAssignmentResponse>;
+  transitionPartnerExecution(input: { companyId: string; executionId: string; command: Extract<InstallationExecutionCommand, "schedule" | "start" | "complete">; expectedRevision: number; payload: Record<string, unknown>; idempotencyKey: string }): Promise<InstallationExecutionResult>;
+  transitionAdminExecution(input: { executionId: string; command: InstallationExecutionCommand; expectedRevision: number; payload: Record<string, unknown>; idempotencyKey: string }): Promise<InstallationExecutionResult>;
   getAssignmentAdminReport(limit?: number): Promise<InstallationAssignmentAdminReport>;
   reassign(input: { requirementId: string; providerId: string; expectedRevision: number; reason: string }): Promise<InstallationDispatchResult>;
   runAssignmentWorker(limit: number): Promise<{ runId?: string; status: "succeeded" | "locked"; claimed: number; timedOut?: number; dispatched?: number; unavailable?: number }>;

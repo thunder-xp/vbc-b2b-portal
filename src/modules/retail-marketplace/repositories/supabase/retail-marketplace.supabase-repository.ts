@@ -5,7 +5,7 @@ import { createAdminClient } from "@/src/lib/supabase/admin";
 import { createClient } from "@/src/lib/supabase/server";
 
 import type { RetailMarketplaceRepository } from "../retail-marketplace.repository";
-import { adminReportSchema, assignmentAdminReportSchema, assignmentResponseSchema, dispatchResultSchema, partnerAssignmentsSchema, publicProvidersSchema, tariffSetSchema } from "../../validation";
+import { adminReportSchema, assignmentAdminReportSchema, assignmentResponseSchema, dispatchResultSchema, executionResultSchema, partnerAssignmentsSchema, publicProvidersSchema, tariffSetSchema } from "../../validation";
 
 export class RetailMarketplaceRepositoryError extends Error {
   constructor(readonly code: "invalid" | "conflict" | "forbidden" | "unavailable" = "unavailable") { super("Retail Marketplace operation failed."); this.name = "RetailMarketplaceRepositoryError"; }
@@ -52,6 +52,14 @@ export class SupabaseRetailMarketplaceRepository implements RetailMarketplaceRep
   async respondToAssignment(input: Parameters<RetailMarketplaceRepository["respondToAssignment"]>[0]) {
     const { data, error } = await (await createClient()).rpc("partner_respond_installation_assignment", { p_company_id: input.companyId, p_attempt_id: input.attemptId, p_decision: input.decision, p_reason_code: input.reasonCode, p_reason_text: input.reasonText, p_idempotency_key: input.idempotencyKey });
     if (error) fail(error.code); return assignmentResponseSchema.parse(data);
+  }
+  async transitionPartnerExecution(input: Parameters<RetailMarketplaceRepository["transitionPartnerExecution"]>[0]) {
+    const { data, error } = await (await createClient()).rpc("partner_transition_installation_execution", { p_company_id: input.companyId, p_execution_id: input.executionId, p_command: input.command, p_expected_revision: input.expectedRevision, p_payload: input.payload, p_idempotency_key: input.idempotencyKey });
+    if (error) fail(error.code); return executionResultSchema.parse(data);
+  }
+  async transitionAdminExecution(input: Parameters<RetailMarketplaceRepository["transitionAdminExecution"]>[0]) {
+    const { data, error } = await (await createClient()).rpc("admin_transition_installation_execution", { p_execution_id: input.executionId, p_command: input.command, p_expected_revision: input.expectedRevision, p_payload: input.payload, p_idempotency_key: input.idempotencyKey });
+    if (error) fail(error.code); return executionResultSchema.parse(data);
   }
   async getAssignmentAdminReport(limit = 100) {
     const { data, error } = await (await createClient()).rpc("admin_get_installation_assignments", { p_limit: limit });

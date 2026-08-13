@@ -70,6 +70,15 @@ export class RetailCheckoutService {
   getInstallationStatus(accessTokenHash: string, locale: PublicRetailLocale) {
     return this.repository.getInstallationStatus(validHash(accessTokenHash), locale);
   }
+
+  transitionInstallation(accessTokenHash: string, input: { command: "confirm" | "report_issue"; expectedRevision: number; category?: string | null; note?: string | null; idempotencyKey: string }) {
+    const categories = new Set(["work_incomplete", "installation_quality", "equipment_issue", "schedule_service_issue", "other"]);
+    const category = input.category?.trim() || null;
+    const note = input.note?.trim() || null;
+    if (!UUID.test(input.idempotencyKey) || !Number.isSafeInteger(input.expectedRevision) || input.expectedRevision < 0 || (note?.length ?? 0) > 500
+      || (input.command === "report_issue" && (!category || !categories.has(category))) || (input.command === "confirm" && category !== null)) throw new RetailCheckoutInputError();
+    return this.repository.transitionInstallation({ accessTokenHash: validHash(accessTokenHash), command: input.command, expectedRevision: input.expectedRevision, category, note, idempotencyKey: input.idempotencyKey });
+  }
 }
 
 export function normalizeMoldovaPhone(value: string): string {

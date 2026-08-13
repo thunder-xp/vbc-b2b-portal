@@ -168,3 +168,13 @@ export type PublicRetailOrderDto = {
   lines: Array<Omit<PublicRetailCheckoutLineDto, "bundleId" | "priceChanged" | "missing"> & { lineNumber: number }>;
 };
 export type PublicRetailOrderCreatedDto = { orderNumber: string; status: "awaiting_payment"; repeated: boolean; accessExpiresAt: string };
+export type PublicRetailInstallationStatusDto = {
+  status: "selecting_team" | "scheduling" | "scheduled" | "in_progress" | "completed_by_provider" | "customer_confirmation_pending" | "customer_confirmed" | "issue_reported" | "disputed" | "resolved" | "cancelled";
+  label: string;
+  scheduledStartAt: string | null;
+  scheduledEndAt: string | null;
+  revision: number | null;
+  confirmationRequired: boolean;
+  issueReportingAllowed: boolean;
+  providerName: string | null;
+};

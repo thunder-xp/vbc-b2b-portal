@@ -93,6 +93,38 @@ export async function respondInstallationOfferAction(formData: FormData) {
   redirect(`/cabinet/installation-orders?result=${decision}`);
 }
 
+export async function transitionPartnerInstallationExecutionAction(formData: FormData) {
+  const context = await getPartnerWorkspaceContextAction();
+  if (!context.success || !context.data.companyId || context.data.accessState !== "active") redirect("/cabinet");
+  await getInstallationAssignmentDispatcher().transitionPartner({
+    companyId: context.data.companyId,
+    executionId: String(formData.get("executionId") ?? ""),
+    command: String(formData.get("command") ?? "") as "schedule" | "start" | "complete",
+    expectedRevision: Number(formData.get("revision") ?? -1),
+    scheduledStartAt: nullable(String(formData.get("scheduledStartAt") ?? "")),
+    scheduledEndAt: nullable(String(formData.get("scheduledEndAt") ?? "")),
+    note: nullable(String(formData.get("note") ?? "")),
+    idempotencyKey: String(formData.get("idempotencyKey") ?? ""),
+  });
+  revalidatePath("/cabinet/installation-orders");
+  redirect("/cabinet/installation-orders?view=active&result=updated");
+}
+
+export async function transitionAdminInstallationExecutionAction(formData: FormData) {
+  await requireAdminPermission("admin.retail_marketplace.manage");
+  await getInstallationAssignmentDispatcher().transitionAdmin({
+    executionId: String(formData.get("executionId") ?? ""),
+    command: String(formData.get("command") ?? "") as "schedule" | "start" | "complete" | "open_dispute" | "resolve_dispute" | "cancel",
+    expectedRevision: Number(formData.get("revision") ?? -1),
+    scheduledStartAt: nullable(String(formData.get("scheduledStartAt") ?? "")),
+    scheduledEndAt: nullable(String(formData.get("scheduledEndAt") ?? "")),
+    note: nullable(String(formData.get("note") ?? "")),
+    idempotencyKey: String(formData.get("idempotencyKey") ?? ""),
+  });
+  revalidatePath(path);
+  redirect(`${path}?saved=execution`);
+}
+
 export async function activateInstallationPilotAction(formData: FormData) {
   await requireAdminPermission("admin.retail_marketplace.manage");
   await getInstallationAssignmentDispatcher().activatePilot({

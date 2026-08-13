@@ -42,10 +42,14 @@ export type RetailMarketplaceAdminReport = {
 
 export type InstallationAssignmentView = "offers" | "active" | "completed";
 export type InstallationAssignmentStatus = "offered" | "accepted" | "declined" | "timed_out" | "withdrawn";
+export type InstallationExecutionState = "scheduling" | "scheduled" | "in_progress" | "completed_by_provider" | "customer_confirmation_pending" | "customer_confirmed" | "issue_reported" | "disputed" | "resolved" | "cancelled";
+export type InstallationExecutionCommand = "schedule" | "start" | "complete" | "open_dispute" | "resolve_dispute" | "cancel";
+export type InstallationExecutionResult = { executionId: string; state: InstallationExecutionState; revision: number; repeated: boolean; scheduledStartAt: string | null; scheduledEndAt: string | null };
 
 export type PartnerInstallationAssignmentDto = {
   attemptId: string;
   requirementId: string;
+  orderNumber: string;
   ordinal: number;
   status: InstallationAssignmentStatus;
   source: "customer_selected" | "automatic" | "manual_internal" | "reassignment" | "fallback_internal";
@@ -58,7 +62,7 @@ export type PartnerInstallationAssignmentDto = {
   providerPayable: null;
   customer: { name: string; phone: string; email: string | null } | null;
   exactAddress: { locality: string; street: string; building: string; unit?: string | null; postalCode?: string | null; instructions?: string | null } | null;
-  execution: { id: string; state: "scheduling" | "scheduled" | "in_progress" | "completed" | "cancelled" } | null;
+  execution: { id: string; state: InstallationExecutionState; revision: number; scheduledStartAt: string | null; scheduledEndAt: string | null; providerCompletedAt: string | null; customerConfirmedAt: string | null; issueCategory: string | null; completedAt: string | null } | null;
 };
 
 export type InstallationDispatchResult = {
@@ -92,6 +96,7 @@ export type InstallationAssignmentAdminReport = {
     currentAttemptId: string | null;
     acceptedProviderId: string | null;
     activatedAt: string;
+    execution: { id: string; state: InstallationExecutionState; revision: number; providerId: string; scheduledStartAt: string | null; scheduledEndAt: string | null; updatedAt: string; issueCategory: string | null } | null;
     attempts: Array<{ id: string; ordinal: number; providerId: string; source: string; status: InstallationAssignmentStatus; offeredAt: string; deadlineAt: string; declineReasonCode: string | null }>;
   }>;
 };

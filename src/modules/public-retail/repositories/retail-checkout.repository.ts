@@ -1,4 +1,4 @@
-import type { PublicRetailCheckoutDto, PublicRetailLocale, PublicRetailOrderCreatedDto, PublicRetailOrderDto, RetailAddressDto } from "../types";
+import type { PublicRetailCheckoutDto, PublicRetailInstallationStatusDto, PublicRetailLocale, PublicRetailOrderCreatedDto, PublicRetailOrderDto, RetailAddressDto } from "../types";
 
 export type RetailCheckoutCreateCommand = {
   locale: PublicRetailLocale;
@@ -15,5 +15,6 @@ export interface RetailCheckoutRepository {
   getCheckout(tokenHash: string, locale: PublicRetailLocale): Promise<PublicRetailCheckoutDto | null>;
   createOrder(tokenHash: string, command: RetailCheckoutCreateCommand): Promise<PublicRetailOrderCreatedDto>;
   getOrder(accessTokenHash: string, locale: PublicRetailLocale): Promise<PublicRetailOrderDto | null>;
-  getInstallationStatus(accessTokenHash: string, locale: PublicRetailLocale): Promise<{ status: "selecting_team" | "assigned"; label: string } | null>;
+  getInstallationStatus(accessTokenHash: string, locale: PublicRetailLocale): Promise<PublicRetailInstallationStatusDto | null>;
+  transitionInstallation(input: { accessTokenHash: string; command: "confirm" | "report_issue"; expectedRevision: number; category: string | null; note: string | null; idempotencyKey: string }): Promise<{ state: string; revision: number; repeated: boolean }>;
 }

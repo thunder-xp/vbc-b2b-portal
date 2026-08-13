@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { RetailMarketplaceRepository } from "../repositories/retail-marketplace.repository";
 import { InstallationAssignmentDispatcher, InstallationAssignmentInputError } from "../services/installation-assignment.service";
 
-const migration = fs.readFileSync(path.resolve("supabase/migrations/20260813081110_retail_installation_assignment_engine.sql"), "utf8");
+const migration = fs.readFileSync(path.resolve("supabase/migrations/20260813090352_retail_installation_assignment_engine.sql"), "utf8");
 const ids = {
   requirement: "10000000-0000-4000-8000-000000000001",
   attempt: "20000000-0000-4000-8000-000000000002",
@@ -16,7 +16,7 @@ const ids = {
 function repository(): RetailMarketplaceRepository {
   return {
     getCurrentTariffs: vi.fn(), listPublicProviders: vi.fn(), getAdminReport: vi.fn(), saveTariffDraft: vi.fn(), publishTariff: vi.fn(), saveProvider: vi.fn(),
-    activatePilot: vi.fn().mockResolvedValue({ requirementId: ids.requirement, status: "offered", attemptId: ids.attempt, repeated: false }), dispatch: vi.fn(), listPartnerAssignments: vi.fn().mockResolvedValue([]), respondToAssignment: vi.fn().mockResolvedValue({ attemptId: ids.attempt, status: "accepted", repeated: false }), getAssignmentAdminReport: vi.fn(), reassign: vi.fn(), runAssignmentWorker: vi.fn(),
+    activatePilot: vi.fn().mockResolvedValue({ requirementId: ids.requirement, status: "offered", attemptId: ids.attempt, repeated: false }), dispatch: vi.fn(), listPartnerAssignments: vi.fn().mockResolvedValue([]), respondToAssignment: vi.fn().mockResolvedValue({ attemptId: ids.attempt, status: "accepted", repeated: false }), transitionPartnerExecution: vi.fn(), transitionAdminExecution: vi.fn(), getAssignmentAdminReport: vi.fn(), reassign: vi.fn(), runAssignmentWorker: vi.fn(),
   };
 }
 

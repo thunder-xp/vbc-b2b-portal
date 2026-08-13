@@ -3,6 +3,7 @@ import "server-only";
 import { createPublicReadClient } from "@/src/lib/supabase/public";
 
 import { parsePublicRetailCheckout, parsePublicRetailOrder, parsePublicRetailOrderCreated } from "../../validation";
+import type { PublicRetailInstallationStatusDto } from "../../types";
 import type { RetailCheckoutRepository } from "../retail-checkout.repository";
 
 export class RetailCheckoutRepositoryError extends Error {
@@ -45,9 +46,15 @@ export class SupabaseRetailCheckoutRepository implements RetailCheckoutRepositor
   async getInstallationStatus(accessTokenHash: string, locale: "ru" | "ro") {
     const data = await this.rpc("get_public_retail_installation_status", { p_access_token_hash: accessTokenHash, p_locale: locale });
     if (data === null) return null;
-    const value = data as { status?: unknown; label?: unknown };
-    if ((value.status !== "selecting_team" && value.status !== "assigned") || typeof value.label !== "string") throw new RetailCheckoutRepositoryError("invalid_response");
-    const status: "selecting_team" | "assigned" = value.status;
-    return { status, label: value.label };
+    const value = data as Record<string, unknown>;
+    const states = ["selecting_team", "scheduling", "scheduled", "in_progress", "completed_by_provider", "customer_confirmation_pending", "customer_confirmed", "issue_reported", "disputed", "resolved", "cancelled"];
+    if (!states.includes(String(value.status)) || typeof value.label !== "string") throw new RetailCheckoutRepositoryError("invalid_response");
+    return { status: value.status as PublicRetailInstallationStatusDto["status"], label: value.label, scheduledStartAt: typeof value.scheduledStartAt === "string" ? value.scheduledStartAt : null, scheduledEndAt: typeof value.scheduledEndAt === "string" ? value.scheduledEndAt : null, revision: typeof value.revision === "number" ? value.revision : null, confirmationRequired: value.confirmationRequired === true, issueReportingAllowed: value.issueReportingAllowed === true, providerName: typeof value.providerName === "string" ? value.providerName : null };
+  }
+  async transitionInstallation(input: Parameters<RetailCheckoutRepository["transitionInstallation"]>[0]) {
+    const data = await this.rpc("customer_transition_installation_execution", { p_access_token_hash: input.accessTokenHash, p_command: input.command, p_expected_revision: input.expectedRevision, p_payload: { category: input.category, note: input.note }, p_idempotency_key: input.idempotencyKey });
+    const value = data as Record<string, unknown>;
+    if (typeof value.state !== "string" || typeof value.revision !== "number" || typeof value.repeated !== "boolean") throw new RetailCheckoutRepositoryError("invalid_response");
+    return { state: value.state, revision: value.revision, repeated: value.repeated };
   }
 }
