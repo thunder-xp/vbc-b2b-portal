@@ -31,9 +31,10 @@ export function AdminCctvCameraPools({ initialRows, initialConfigurations }: {
   const [placement,setPlacement]=useState<CctvCameraPlacement>("indoor");
   const configuration=configurations.find((item)=>item.objectType===objectType) ?? initialConfigurations[0];
   const preview=useMemo(()=>cameraPreview(rows,objectType),[rows,objectType]);
+  const poolCounts=useMemo(()=>cameraPoolCounts(rows,objectType,preview),[rows,objectType,preview]);
   const diagnostics=getCctvConfigurationDiagnostics({
-    indoorCandidates: rows.filter((row)=>row.objectType===objectType&&row.placement==="indoor").length,
-    outdoorCandidates: rows.filter((row)=>row.objectType===objectType&&row.placement==="outdoor").length,
+    indoorCandidates: poolCounts.indoor.effective,
+    outdoorCandidates: poolCounts.outdoor.effective,
     indoorEligible: preview.indoor.eligible.length,
     outdoorEligible: preview.outdoor.eligible.length,
     services: configuration?.services ?? [],
@@ -51,21 +52,22 @@ export function AdminCctvCameraPools({ initialRows, initialConfigurations }: {
       <div className="min-w-0">
         <div aria-label="Раздел настройки" className="grid grid-cols-3 border-b border-zinc-200" role="tablist">{(["cameras","services","summary"] as WorkspaceTab[]).map((value)=><button aria-selected={tab===value} className={`min-h-11 border-b-2 px-3 text-sm font-medium ${tab===value?"border-emerald-700 text-emerald-800":"border-transparent text-zinc-600"}`} key={value} onClick={()=>setTab(value)} role="tab" type="button">{value==="cameras"?"Камеры":value==="services"?"Услуги":"Сводка"}</button>)}</div>
         <div className="p-4">
-          {tab==="cameras"&&<CamerasWorkspace objectType={objectType} placement={placement} preview={preview} rows={rows} setPlacement={setPlacement} onRemoved={removeCamera} onSaved={saveCamera}/>}
+          {tab==="cameras"&&<CamerasWorkspace objectType={objectType} placement={placement} poolCounts={poolCounts} preview={preview} rows={rows} setPlacement={setPlacement} onRemoved={removeCamera} onSaved={saveCamera}/>}
           {tab==="services"&&configuration&&<ServicesWorkspace configuration={configuration} onSaved={saveService}/>}
-          {tab==="summary"&&configuration&&<SummaryWorkspace configuration={configuration} diagnostics={diagnostics} objectType={objectType} preview={preview}/>}
+          {tab==="summary"&&configuration&&<SummaryWorkspace configuration={configuration} diagnostics={diagnostics} objectType={objectType} poolCounts={poolCounts}/>}
         </div>
       </div>
     </div>
   </section>;
 }
 
-function CamerasWorkspace({objectType,placement,preview,rows,setPlacement,onSaved,onRemoved}:{objectType:(typeof CCTV_OBJECT_TYPES)[number];placement:CctvCameraPlacement;preview:ReturnType<typeof cameraPreview>;rows:CctvCameraPoolAdminRow[];setPlacement:(value:CctvCameraPlacement)=>void;onSaved:(row:CctvCameraPoolAdminRow)=>void;onRemoved:(id:string)=>void}) {
+function CamerasWorkspace({objectType,placement,poolCounts,preview,rows,setPlacement,onSaved,onRemoved}:{objectType:(typeof CCTV_OBJECT_TYPES)[number];placement:CctvCameraPlacement;poolCounts:ReturnType<typeof cameraPoolCounts>;preview:ReturnType<typeof cameraPreview>;rows:CctvCameraPoolAdminRow[];setPlacement:(value:CctvCameraPlacement)=>void;onSaved:(row:CctvCameraPoolAdminRow)=>void;onRemoved:(id:string)=>void}) {
   const visible=rows.filter((row)=>row.objectType===objectType&&row.placement===placement);
   const selection=placement==="indoor"?preview.indoor:preview.outdoor;
   return <div className="space-y-4">
     <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><div><h3 className="font-semibold">Кандидаты камер · {objectLabels[objectType]}</h3><p className="mt-1 text-sm text-zinc-600">Техническая совместимость проверяется общей политикой до коммерческого ранжирования.</p></div><div className="grid min-w-64 grid-cols-2"><button aria-pressed={placement==="indoor"} className={`min-h-11 border px-3 text-sm ${placement==="indoor"?"border-emerald-700 bg-emerald-50":"border-zinc-300"}`} onClick={()=>setPlacement("indoor")} type="button">В помещении</button><button aria-pressed={placement==="outdoor"} className={`min-h-11 border px-3 text-sm ${placement==="outdoor"?"border-emerald-700 bg-emerald-50":"border-zinc-300"}`} onClick={()=>setPlacement("outdoor")} type="button">На улице</button></div></div>
     <CameraPreview selection={selection}/>
+    <PoolSourceSummary counts={poolCounts[placement]}/>
     <CandidateSearch objectType={objectType} placement={placement} onSaved={onSaved}/>
     {visible.length?<div className="overflow-x-auto"><table className="min-w-[900px] w-full text-left text-sm"><thead className="border-y border-zinc-200 bg-zinc-50 text-xs text-zinc-600"><tr><th className="p-2">Кандидат</th><th className="p-2">Характеристики</th><th className="p-2">Сигналы</th><th className="p-2">Приоритет</th><th className="p-2">Состояние</th><th className="p-2 text-right">Действия</th></tr></thead><tbody>{visible.map((row)=><CandidateEditor key={row.candidateId} row={row} onRemoved={onRemoved} onSaved={onSaved}/>)}</tbody></table></div>:<p className="border-l-4 border-amber-500 bg-amber-50 px-4 py-3 text-sm">Для этого объекта и размещения нет собственного пула. Общий пул используется только как явный fallback.</p>}
   </div>;
@@ -91,9 +93,9 @@ function ServiceEditor({objectType,row,onSaved}:{objectType:CctvObjectConfigurat
   return <tr className="border-t border-zinc-200"><td className="p-2"><strong>{row.label}</strong>{!row.partnerServiceId&&<span className="mt-1 block text-xs text-amber-700">B2B-позиция услуги не связана</span>}</td><td className="p-2">{unitLabel(row.unitCode)}</td><td className="p-2">{row.tariffActive?<strong>{row.unitPrice?.toFixed(2)} {row.currency}</strong>:<span className="text-amber-700">Нет в активном тарифе</span>}</td><td className="p-2"><input aria-label={`Включить ${row.label}`} checked={enabled} onChange={(event)=>{setEnabled(event.target.checked);if(!event.target.checked)setSuggested(false);}} type="checkbox"/></td><td className="p-2"><input aria-label={`Предлагать ${row.label} по умолчанию`} checked={suggested} disabled={!enabled} onChange={(event)=>setSuggested(event.target.checked)} type="checkbox"/></td><td className="p-2 text-right"><button className={actionClassName.secondary} disabled={pending} onClick={()=>startTransition(async()=>{const result=await upsertCctvObjectServiceBindingAction({objectType,serviceCode:row.serviceCode,enabled,calculatorDefault:suggested,displayOrder:row.displayOrder,notes:row.notes??"",expectedVersion:row.version});setMessage(result.message);if(result.success)onSaved(result.data);})} type="button"><Save className="size-4"/>Сохранить</button>{message&&<span className={`mt-1 block text-xs ${message.includes("сохранена")?"text-emerald-700":"text-red-700"}`}>{message}</span>}</td></tr>;
 }
 
-function SummaryWorkspace({configuration,diagnostics,objectType,preview}:{configuration:CctvObjectConfiguration;diagnostics:string[];objectType:(typeof CCTV_OBJECT_TYPES)[number];preview:ReturnType<typeof cameraPreview>}) {
+function SummaryWorkspace({configuration,diagnostics,objectType,poolCounts}:{configuration:CctvObjectConfiguration;diagnostics:string[];objectType:(typeof CCTV_OBJECT_TYPES)[number];poolCounts:ReturnType<typeof cameraPoolCounts>}) {
   const enabled=configuration.services.filter((service)=>service.enabled);
-  return <div className="space-y-5"><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><Metric label="Камеры внутри" value={preview.indoor.eligible.length}/><Metric label="Камеры снаружи" value={preview.outdoor.eligible.length}/><Metric label="Услуги включены" value={enabled.length}/><Metric label="По умолчанию" value={enabled.filter((service)=>service.calculatorDefault).length}/></div>
+  return <div className="space-y-5"><div className="grid gap-3 lg:grid-cols-2"><PoolSourceSummary counts={poolCounts.indoor} label="В помещении"/><PoolSourceSummary counts={poolCounts.outdoor} label="На улице"/></div><div className="grid gap-3 sm:grid-cols-2"><Metric label="Услуги включены" value={enabled.length}/><Metric label="По умолчанию" value={enabled.filter((service)=>service.calculatorDefault).length}/></div>
     <section><h3 className="font-semibold">Диагностика</h3><div className="mt-2 space-y-2">{diagnostics.length?diagnostics.map((message)=><p className="flex gap-2 border-l-4 border-amber-500 bg-amber-50 px-3 py-2 text-sm" key={message}><AlertTriangle className="mt-0.5 size-4 shrink-0"/>{message}</p>):<p className="flex gap-2 border-l-4 border-emerald-500 bg-emerald-50 px-3 py-2 text-sm"><CheckCircle2 className="mt-0.5 size-4 shrink-0"/>Базовая конфигурация объекта готова.</p>}</div></section>
     <section className="grid gap-3 sm:grid-cols-2"><div className="rounded-md border border-zinc-200 p-3"><h3 className="font-semibold">B2B</h3><p className="mt-1 text-sm text-zinc-600">Общая камера-политика, объектные услуги и общий тариф. Ручная замена в смете сохраняется.</p><Link className={`${actionClassName.secondary} mt-3`} href="/cabinet/estimates/generator" target="_blank">Preview as B2B calculator<ExternalLink className="size-4"/></Link></div><div className="rounded-md border border-zinc-200 p-3"><h3 className="font-semibold">B2C</h3><p className="mt-1 text-sm text-zinc-600">Те же правила, только опубликованные Public Retail товары и безопасный публичный DTO.</p><Link className={`${actionClassName.secondary} mt-3`} href={`/calculator/cctv?object=${publicObjectType(objectType)}`} target="_blank">Preview as B2C calculator<ExternalLink className="size-4"/></Link></div></section>
   </div>;
@@ -124,6 +126,15 @@ function cameraPreview(rows:CctvCameraPoolAdminRow[],objectType:(typeof CCTV_OBJ
     outdoor: enrich(selectCctvCameraCandidates(input,{kind:"outdoor_camera",cameraResolutionMp:4},rows)),
   };
 }
+function cameraPoolCounts(rows:CctvCameraPoolAdminRow[],objectType:(typeof CCTV_OBJECT_TYPES)[number],preview:ReturnType<typeof cameraPreview>) {
+  const count=(placement:CctvCameraPlacement)=>({
+    own: rows.filter((row)=>row.objectType===objectType&&row.placement===placement).length,
+    inherited: objectType==="other"?0:preview[placement].eligible.filter((row)=>row.objectType==="other").length,
+    effective: preview[placement].eligible.length,
+  });
+  return {indoor:count("indoor"),outdoor:count("outdoor")};
+}
+function PoolSourceSummary({counts,label}:{counts:{own:number;inherited:number;effective:number};label?:string}) { return <section className="rounded-md border border-zinc-200 p-3"><p className="text-sm font-semibold">{label??"Источник пула"}</p><dl className="mt-2 grid grid-cols-3 gap-2 text-sm"><div><dt className="text-zinc-500">Собственный пул</dt><dd className="font-semibold">{counts.own}</dd></div><div><dt className="text-zinc-500">Наследовано</dt><dd className="font-semibold">{counts.inherited}</dd></div><div><dt className="text-zinc-500">Используется в расчёте</dt><dd className="font-semibold">{counts.effective}</dd></div></dl></section>; }
 function Metric({label,value}:{label:string;value:number}) { return <div className="rounded-md border border-zinc-200 p-3"><p className="text-xs text-zinc-500">{label}</p><p className="mt-1 text-2xl font-semibold">{value}</p></div>; }
 function unitLabel(value:string) { return value==="piece"?"шт.":value==="meter"?"м":"услуга"; }
 function publicObjectType(value:string) { return value==="industrial"?"production":value; }
