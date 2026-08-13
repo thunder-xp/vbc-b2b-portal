@@ -31,12 +31,22 @@ export class OrderHistoryBootstrapService {
     const startedAt = Date.now();
     try {
       const result = await this.historyService.syncCompany(claim.companyId, claim.counterpartyRef, "full");
-      await this.repository.complete(claim, {
+      const completion = await this.repository.complete(claim, {
         pagesFetched: result.pagesFetched,
         rawReceived: result.rawReceived,
         received: result.received,
         rejected: result.rejected,
       });
+      if (completion.status === "coordination_conflict") {
+        console.warn({
+          event: "partner_order_history_bootstrap_coordination_conflict",
+          bootstrapId: claim.id,
+          companyId: claim.companyId,
+          code: completion.code,
+          durationMs: Date.now() - startedAt,
+        });
+        return { processed: false, bootstrapId: claim.id, companyId: claim.companyId };
+      }
       console.info({
         event: "partner_order_history_bootstrap_completed",
         bootstrapId: claim.id,

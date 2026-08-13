@@ -5,6 +5,7 @@ import { z } from "zod";
 import { createAdminClient } from "@/src/lib/supabase/admin";
 import { createClient } from "@/src/lib/supabase/server";
 import { getSafeDatabaseError } from "@/src/lib/observability/safe-database-error";
+import { getWorkerCoordinationResult } from "@/src/lib/workers/coordination-result";
 
 import type { AdminOrderHistoryBootstrapPage, OrderHistoryBootstrapClaim, OrderHistoryBootstrapState } from "../../types";
 import { OrderHistoryBootstrapRepositoryError, type OrderHistoryBootstrapRepository } from "../order-history-bootstrap.repository";
@@ -49,11 +50,15 @@ export class SupabaseOrderHistoryBootstrapRepository implements OrderHistoryBoot
     return parsed.data;
   }
 
-  async complete(claim: OrderHistoryBootstrapClaim, result: Record<string, unknown>): Promise<void> {
-    const { error } = await createAdminClient().rpc("complete_partner_order_history_bootstrap", {
+  async complete(claim: OrderHistoryBootstrapClaim, result: Record<string, unknown>) {
+    const { data, error } = await createAdminClient().rpc("complete_partner_order_history_bootstrap_v2", {
       p_bootstrap_id: claim.id, p_lock_token: claim.lockToken, p_result: result,
     });
-    if (error) throw repositoryError("complete_partner_order_history_bootstrap", error);
+    if (error) throw repositoryError("complete_partner_order_history_bootstrap_v2", error);
+    const conflict = getWorkerCoordinationResult(data);
+    if (conflict) return conflict;
+    if (!isRecord(data) || data.status !== "completed") throw repositoryError("parse_complete_partner_order_history_bootstrap_v2");
+    return { status: "completed" as const };
   }
 
   async fail(claim: OrderHistoryBootstrapClaim, errorCode: string, retryable: boolean): Promise<void> {

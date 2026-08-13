@@ -3,6 +3,7 @@ import "server-only";
 import { createHash } from "node:crypto";
 
 import { hashSerial, maskSerial, normalizeSerial, protectSerial, WarrantySerialValidationError } from "@/src/modules/warranty-serials/serial-security";
+import { getWorkerCoordinationResult } from "@/src/lib/workers/coordination-result";
 import type { OneCServiceHistoryProvider, OneCServiceSerialProvider } from "./one-c-service-history.provider";
 import type { ServiceHistoryRepository } from "./repository";
 
@@ -45,6 +46,8 @@ export class ServiceHistorySyncService {
         })),
         pageComplete: page.pageComplete,
       });
+      const conflict = getWorkerCoordinationResult(publication);
+      if (conflict) return coordinationResult("history", claim.runId, claim.skip, conflict.code, started);
       console.info({ event: "one_c_service_history_page_published", runId: claim.runId, skip: claim.skip, rowsReceived: page.rows.length, pageComplete: page.pageComplete, durationMs: elapsed(started) });
       return { status: page.pageComplete ? "completed" as const : "progressed" as const, runId: claim.runId, rowsReceived: page.rows.length, publication, durationMs: elapsed(started) };
     } catch (error) {
@@ -71,6 +74,7 @@ export class ServiceHistorySyncService {
       completedWorkChecked += numericResult(result.publication.completedWorkChecked);
       completedWorkPopulated += numericResult(result.publication.completedWorkPopulated);
       if (result.status === "completed") return { status: "completed", steps, rowsReceived, completedWorkChecked, completedWorkPopulated, completedWorkEmpty: completedWorkChecked - completedWorkPopulated, runId, durationMs: elapsed(started) };
+      if (result.status === "superseded") return { status: "superseded", steps, rowsReceived, completedWorkChecked, completedWorkPopulated, completedWorkEmpty: completedWorkChecked - completedWorkPopulated, runId, durationMs: elapsed(started) };
     }
     return { status: "progressed", steps, rowsReceived, completedWorkChecked, completedWorkPopulated, completedWorkEmpty: completedWorkChecked - completedWorkPopulated, runId, durationMs: elapsed(started) };
   }
@@ -84,6 +88,13 @@ export class ServiceHistorySyncService {
       const resolutions = await this.serialProvider.resolve(claim.rows.map((row) => row.serialRef));
       const rows = claim.rows.map((row) => protectResolution(row.id, row.serialRef, resolutions.get(row.serialRef.toLowerCase())!));
       const publication = await this.repository.publishSerialEnrichment({ claim, rows });
+      const conflict = getWorkerCoordinationResult(publication);
+      if (conflict) {
+        if (conflict.code === "stale_source") {
+          try { await this.repository.failSerialEnrichment(claim, "stale_source"); } catch { /* The lease may already be superseded. */ }
+        }
+        return coordinationResult("serial_enrichment", claim.runId, null, conflict.code, started, 0);
+      }
       console.info({
         event: "one_c_service_history_serial_enrichment_published",
         runId: claim.runId,
@@ -110,6 +121,7 @@ export class ServiceHistorySyncService {
       steps += 1;
       rowsProcessed += result.rowsProcessed;
       if (result.status === "completed") return { status: "completed", steps, rowsProcessed, durationMs: elapsed(started) };
+      if (result.status === "superseded") return { status: "superseded", steps, rowsProcessed, durationMs: elapsed(started) };
     }
     return { status: "progressed", steps, rowsProcessed, durationMs: elapsed(started) };
   }
@@ -117,6 +129,10 @@ export class ServiceHistorySyncService {
 
 function elapsed(started: number) { return Math.round(performance.now() - started); }
 function numericResult(value: unknown) { return typeof value === "number" && Number.isFinite(value) ? value : 0; }
+function coordinationResult(stage: string, runId: string, skip: number | null, code: string, started: number, rowsProcessed?: number) {
+  console.warn({ event: "one_c_service_history_coordination_conflict", stage, runId, skip, code });
+  return { status: "superseded" as const, runId, rowsReceived: 0, rowsProcessed: rowsProcessed ?? 0, publication: {} as Record<string, unknown>, durationMs: elapsed(started) };
+}
 
 function protectResolution(id: string, serialRef: string, resolution: { state: "resolved" | "unmapped" | "conflict"; value: string | null; sourceFingerprint: string }) {
   if (resolution.state !== "resolved" || !resolution.value) return {

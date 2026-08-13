@@ -193,6 +193,7 @@ Rules:
 - Never automatically retry `PT409`, validation, authentication, authorization, or business-state failures.
 - An idempotent replay returns the existing result and must not duplicate notifications, events, or other side effects.
 - Expected domain conflicts may be logged at info/warn with safe identifiers; they must not be reported as infrastructure failures or generate `40001` error storms.
+- Worker lease loss, stale cursors, replayed pages, superseded runs, and duplicate completion are expected coordination outcomes. Worker RPCs return a stable `coordination_conflict` result; callers stop in O(1), never fail another owner's lease, and resume only through the next governed claim. A legacy exception wrapper may use `PT409`, never `40001`.
 
 ## Dependency Rules
 

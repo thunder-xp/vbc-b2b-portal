@@ -64,4 +64,17 @@ describe("1C service-history serial enrichment", () => {
     expect(published[0]).toMatchObject({ resolution_state: "resolved", masked_serial: "S***1" });
     expect(JSON.stringify(published)).not.toContain("free text");
   });
+
+  it("does not retry or fail a serial-enrichment lease owned by a newer worker", async () => {
+    const claim = { runId: "run-1", lockToken: "lock-1", pageComplete: false, rows: [] };
+    const repository = {
+      claimSerialEnrichment: vi.fn().mockResolvedValue(claim),
+      publishSerialEnrichment: vi.fn().mockResolvedValue({ status: "coordination_conflict", code: "lease_lost", runId: "run-1" }),
+      failSerialEnrichment: vi.fn(),
+    };
+    const service = new ServiceHistorySyncService({} as never, repository as never, { resolve: vi.fn().mockResolvedValue(new Map()) } as never);
+    await expect(service.runSerialEnrichmentBatch(20)).resolves.toMatchObject({ status: "superseded", steps: 1 });
+    expect(repository.publishSerialEnrichment).toHaveBeenCalledOnce();
+    expect(repository.failSerialEnrichment).not.toHaveBeenCalled();
+  });
 });

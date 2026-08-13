@@ -38,6 +38,30 @@ describe("WarrantySerialSyncService batch", () => {
     expect(provider.fetchPage).toHaveBeenCalledTimes(3);
   });
 
+  it("treats lease loss as one bounded coordination result without a failure write", async () => {
+    const repository = {
+      claim: vi.fn().mockResolvedValue(claim("state_rebuild", 0)), publish: vi.fn(),
+      complete: vi.fn().mockResolvedValue({ status: "coordination_conflict", code: "lease_lost", runId: "run" }), fail: vi.fn(),
+    };
+    const result = await new WarrantySerialSyncService({} as never, repository as never).runBatch(20);
+    expect(result).toMatchObject({ status: "superseded", steps: 1 });
+    expect(repository.complete).toHaveBeenCalledOnce();
+    expect(repository.fail).not.toHaveBeenCalled();
+  });
+
+  it("fails a repeated page once but never retries it inside the batch", async () => {
+    const repository = {
+      claim: vi.fn().mockResolvedValue(claim("sale_scan", 0)),
+      publish: vi.fn().mockResolvedValue({ status: "coordination_conflict", code: "replayed_page", runId: "run" }),
+      complete: vi.fn(), fail: vi.fn(),
+    };
+    const provider = { fetchPage: vi.fn().mockResolvedValue({ documents: [], events: [], headersReceived: 25, pageComplete: false }) };
+    const result = await new WarrantySerialSyncService(provider as never, repository as never).runBatch(20);
+    expect(result).toMatchObject({ status: "superseded", steps: 1 });
+    expect(repository.publish).toHaveBeenCalledOnce();
+    expect(repository.fail).toHaveBeenCalledOnce();
+  });
+
   it("quarantines malformed source serials without aborting a page", async () => {
     process.env.WARRANTY_SERIAL_HASH_SECRET = "h".repeat(48);
     process.env.WARRANTY_SERIAL_ENCRYPTION_KEY = Buffer.alloc(32, 1).toString("base64");

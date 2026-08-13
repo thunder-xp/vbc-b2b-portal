@@ -4,13 +4,14 @@ import { createHash } from "node:crypto";
 
 import { getOneCODataErrorResponseBody } from "@/src/modules/integration/providers/one-c/one-c-odata-client";
 import { getOneCSafeDiagnostic } from "@/src/modules/integration/providers/one-c/one-c-safe-diagnostic";
+import { getWorkerCoordinationResult } from "@/src/lib/workers/coordination-result";
 import type { OneCWarrantySerialProvider } from "./one-c-warranty-serial.provider";
 import { WarrantySerialRepositoryError, type WarrantySerialRepository, type WarrantySyncClaim } from "./repository";
 import { hashSerial, maskSerial, normalizeSerial, protectSerial, WarrantySerialValidationError } from "./serial-security";
 import type { WarrantySourceEvent } from "./types";
 
 export type WarrantySerialSyncStepResult = {
-  status: "idle" | "page_published" | "completed";
+  status: "idle" | "page_published" | "completed" | "superseded";
   runId?: string;
   stage?: string;
   headersReceived?: number;
@@ -19,7 +20,7 @@ export type WarrantySerialSyncStepResult = {
 };
 
 export type WarrantySerialSyncBatchResult = {
-  status: "idle" | "progressed" | "completed";
+  status: "idle" | "progressed" | "completed" | "superseded";
   steps: number;
   headersReceived: number;
   eventsPublished: number;
@@ -37,6 +38,8 @@ export class WarrantySerialSyncService {
     try {
       if (claim.stage === "state_rebuild") {
         const rebuilt = await this.repository.complete(claim);
+        const conflict = getWorkerCoordinationResult(rebuilt);
+        if (conflict) return coordinationResult(claim, conflict.code, started);
         return { status: rebuilt.status === "succeeded" ? "completed" : "page_published", runId: claim.runId, stage: claim.stage, durationMs: elapsed(started) };
       }
       const page = await this.provider.fetchPage({
@@ -65,7 +68,7 @@ export class WarrantySerialSyncService {
           return [];
         }
       });
-      await this.repository.publish({
+      const publication = await this.repository.publish({
         runId: claim.runId,
         lockToken: claim.lockToken,
         stage: claim.stage,
@@ -84,6 +87,11 @@ export class WarrantySerialSyncService {
         events,
         pageComplete: page.pageComplete,
       });
+      const conflict = getWorkerCoordinationResult(publication);
+      if (conflict) {
+        if (conflict.code === "replayed_page") await safeFail(this.repository, claim, "replayed_page");
+        return coordinationResult(claim, conflict.code, started);
+      }
       console.info({
         event: "warranty_serial_sync_step_published",
         runId: claim.runId,
@@ -136,6 +144,7 @@ export class WarrantySerialSyncService {
       headersReceived += result.headersReceived ?? 0;
       eventsPublished += result.eventsPublished ?? 0;
       if (result.status === "completed") return { status: "completed", steps, headersReceived, eventsPublished, durationMs: elapsed(started), runId };
+      if (result.status === "superseded") return { status: "superseded", steps, headersReceived, eventsPublished, durationMs: elapsed(started), runId };
     }
     return { status: "progressed", steps, headersReceived, eventsPublished, durationMs: elapsed(started), runId };
   }
@@ -188,3 +197,7 @@ function protectEvent(event: WarrantySourceEvent) {
 function elapsed(started: number) { return Math.round(performance.now() - started); }
 function safeCode(error: unknown) { return (error instanceof Error ? error.name : typeof error).replace(/[^A-Za-z0-9_]/g, "_").slice(0, 100); }
 async function safeFail(repository: WarrantySerialRepository, claim: WarrantySyncClaim, code: string) { try { await repository.fail(claim, code); } catch { /* Preserve the original provider failure. */ } }
+function coordinationResult(claim: WarrantySyncClaim, code: string, started: number): WarrantySerialSyncStepResult {
+  console.warn({ event: "warranty_serial_sync_coordination_conflict", runId: claim.runId, stage: claim.stage, code });
+  return { status: "superseded", runId: claim.runId, stage: claim.stage, durationMs: elapsed(started) };
+}

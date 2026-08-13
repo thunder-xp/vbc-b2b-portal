@@ -39,12 +39,21 @@ describe("OrderHistoryBootstrapService", () => {
     expect(repository.fail).toHaveBeenCalledWith(CLAIM, "Error", true);
     expect(repository.complete).not.toHaveBeenCalled();
   });
+
+  it("stops after one structured stale completion without marking the newer lease failed", async () => {
+    const repository = fakeRepository();
+    vi.mocked(repository.complete).mockResolvedValue({ status: "coordination_conflict", code: "lease_lost", runId: CLAIM.id });
+    const result = await new OrderHistoryBootstrapService(repository, fakeHistoryService()).processOne();
+    expect(result).toEqual({ processed: false, bootstrapId: CLAIM.id, companyId: CLAIM.companyId });
+    expect(repository.complete).toHaveBeenCalledOnce();
+    expect(repository.fail).not.toHaveBeenCalled();
+  });
 });
 
 function fakeRepository(): OrderHistoryBootstrapRepository {
   return {
     ensureFirstAccess: vi.fn(), getStatus: vi.fn(), claim: vi.fn().mockResolvedValue(CLAIM),
-    complete: vi.fn(), fail: vi.fn(), listAdmin: vi.fn(), enqueueAdmin: vi.fn(),
+    complete: vi.fn().mockResolvedValue({ status: "completed" }), fail: vi.fn(), listAdmin: vi.fn(), enqueueAdmin: vi.fn(),
   };
 }
 
