@@ -108,6 +108,15 @@ export function parsePublicRetailCategories(value: unknown): PublicRetailCategor
   return z.array(category).parse(value);
 }
 
+const publicPartnerDirectoryRecord = z.object({
+  displayName: localizedText,
+  logoAssetPath: z.string().regex(/^[0-9a-f-]{36}\/[0-9a-f-]{36}\.(?:png|jpg|webp)$/).max(100).nullable(),
+}).strict();
+
+export function parsePublicPartnerDirectoryRecords(value: unknown) {
+  return z.array(publicPartnerDirectoryRecord).max(100).parse(value);
+}
+
 export function parsePublicRetailProductPage(value: unknown): PublicRetailProductPageDto {
   return z.object({
     items: z.array(summary).max(48),

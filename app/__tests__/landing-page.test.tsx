@@ -30,7 +30,8 @@ describe("public retail landing", () => {
     expect(screen.queryByText(/NOVOTECH SECURITY SYSTEMS/i)).not.toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: "Перейти в каталог" })[0]).toHaveClass("bg-emerald-600");
     expect(screen.getAllByRole("link", { name: /Подобрать систему/ }).some((link) => link.getAttribute("href") === "/calculator/cctv?lang=ru")).toBe(true);
-    expect(screen.getAllByRole("link", { name: "Для партнёров" })[0]).toHaveAttribute("href", "/cabinet");
+    expect(screen.getAllByRole("link", { name: "Наши партнёры" })[0]).toHaveAttribute("href", "/partners?lang=ru");
+    expect(screen.queryByRole("search")).not.toBeInTheDocument();
     expect(screen.queryByText("Партнёрская платформа Novotech")).not.toBeInTheDocument();
     expect(screen.queryByText("Стать партнёром")).not.toBeInTheDocument();
   });

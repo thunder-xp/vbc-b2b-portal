@@ -15,6 +15,7 @@ export type PublicRetailPriceDto = {
 };
 
 export type PublicRetailMediaDto = { url: string; alt: string };
+export type PublicPartnerDirectoryEntryDto = { displayName: string; logoUrl: string | null };
 export type PublicRetailSpecificationDto = { key: string; label: string; value: string };
 export type PublicRetailDocumentDto = { type: "datasheet"; url: string };
 

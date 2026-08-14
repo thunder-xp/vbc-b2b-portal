@@ -6,11 +6,14 @@ import { SupabasePublicRetailReadRepository } from "./repositories/supabase/publ
 import { PublicCctvCalculatorService } from "./services/public-cctv-calculator.service";
 import { getCctvObjectServicePricingService } from "@/src/modules/retail-marketplace/server";
 import { PublicRetailService } from "./services/public-retail.service";
+import { PublicPartnerDirectoryService } from "./services/public-partner-directory.service";
 import type { PublicRetailLocale } from "./types";
 import { SupabaseCctvCameraCandidateRepository } from "../cctv-calculation/cctv-camera-candidate.repository";
 import { SupabaseCctvObjectConfigurationRepository } from "../cctv-calculation/cctv-object-configuration.repository";
+import { SupabasePublicPartnerDirectoryRepository } from "./repositories/supabase/public-partner-directory.supabase-repository";
 
 const service = new PublicRetailService(new SupabasePublicRetailReadRepository());
+const partnerDirectory = new PublicPartnerDirectoryService(new SupabasePublicPartnerDirectoryRepository());
 const calculator = new PublicCctvCalculatorService(
   new SupabasePublicRetailReadRepository(),
   getCctvObjectServicePricingService(),
@@ -19,6 +22,9 @@ const calculator = new PublicCctvCalculatorService(
 
 export function getPublicRetailService(): PublicRetailService {
   return service;
+}
+export function getPublicPartnerDirectoryService(): PublicPartnerDirectoryService {
+  return partnerDirectory;
 }
 export function getPublicCctvCalculatorService(): PublicCctvCalculatorService {
   return calculator;

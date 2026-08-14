@@ -1,4 +1,4 @@
-import { Menu, Search, ShieldCheck } from "lucide-react";
+import { Menu, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
@@ -29,23 +29,17 @@ export function PublicRetailShell({ children, locale, languagePath, cartQuantity
         <nav aria-label="Основная навигация" className="ml-auto hidden items-center gap-5 xl:flex">
           {links.map(([label, href]) => <Link className="text-sm font-medium text-zinc-700 hover:text-emerald-700" href={href} key={href}>{label}</Link>)}
         </nav>
-        <form action="/catalog" className="ml-auto hidden min-w-52 items-center border-b border-zinc-300 lg:flex xl:ml-2" role="search">
-          <input name="lang" type="hidden" value={locale} />
-          <Search aria-hidden="true" className="size-4 shrink-0 text-zinc-500" />
-          <label className="sr-only" htmlFor="retail-header-search">{copy.search}</label>
-          <input className="h-10 min-w-0 flex-1 bg-transparent px-2 text-sm outline-none placeholder:text-zinc-400" id="retail-header-search" name="q" placeholder={copy.search} />
-        </form>
         <div className="ml-auto flex items-center gap-1 lg:ml-0">
           <PublicRetailCartBadge locale={locale} totalQuantity={cartQuantity} />
           <Link aria-current={locale === "ru" ? "page" : undefined} className={`min-h-11 px-2 py-3 text-xs font-semibold ${locale === "ru" ? "text-emerald-700" : "text-zinc-500"}`} href={languageHref("ru")}>RU</Link>
           <span aria-hidden="true" className="text-zinc-300">/</span>
           <Link aria-current={locale === "ro" ? "page" : undefined} className={`min-h-11 px-2 py-3 text-xs font-semibold ${locale === "ro" ? "text-emerald-700" : "text-zinc-500"}`} href={languageHref("ro")}>RO</Link>
-          <Link className="hidden min-h-11 items-center border-l border-zinc-200 pl-4 text-sm font-semibold text-zinc-700 hover:text-emerald-700 sm:flex" href="/cabinet">{copy.partners}</Link>
+          <Link className="hidden min-h-11 items-center border-l border-zinc-200 pl-4 text-sm font-semibold text-zinc-700 hover:text-emerald-700 sm:flex" href={`/partners?lang=${locale}`}>{copy.partners}</Link>
           <details className="relative xl:hidden">
             <summary aria-label={copy.menu} className="grid size-11 cursor-pointer list-none place-items-center rounded-sm hover:bg-zinc-100"><Menu aria-hidden="true" className="size-5" /></summary>
             <nav aria-label="Мобильная навигация" className="absolute right-0 top-12 w-[min(22rem,calc(100vw-2rem))] border border-zinc-200 bg-white p-2 shadow-xl">
               {links.map(([label, href]) => <Link className="flex min-h-11 items-center px-3 text-sm font-medium hover:bg-zinc-50" href={href} key={href}>{label}</Link>)}
-              <Link className="flex min-h-11 items-center border-t border-zinc-100 px-3 text-sm font-semibold text-emerald-700" href="/cabinet">{copy.partners}</Link>
+              <Link className="flex min-h-11 items-center border-t border-zinc-100 px-3 text-sm font-semibold text-emerald-700" href={`/partners?lang=${locale}`}>{copy.partners}</Link>
             </nav>
           </details>
         </div>
@@ -57,7 +51,7 @@ export function PublicRetailShell({ children, locale, languagePath, cartQuantity
         <div><p className="text-sm font-semibold text-white">NOVOTECH SYSTEMS</p><p className="mt-2 max-w-sm text-xs leading-5">{locale === "ro" ? "Echipamente și soluții profesionale de securitate în Moldova." : "Профессиональное оборудование и решения для безопасности в Молдове."}</p></div>
         <FooterGroup title={locale === "ro" ? "Catalog" : "Каталог"}><FooterLink href={`/catalog?lang=${locale}`}>{copy.catalog}</FooterLink><FooterLink href={`/calculator/cctv?lang=${locale}`}>{copy.chooseSystem}</FooterLink></FooterGroup>
         <FooterGroup title={locale === "ro" ? "Informații" : "Информация"}><FooterLink href={`/?lang=${locale}#installation`}>{copy.services}</FooterLink><FooterLink href={`/?lang=${locale}#delivery`}>{copy.delivery}</FooterLink></FooterGroup>
-        <FooterGroup title={locale === "ro" ? "Contacte și magazine" : "Контакты и магазины"}><FooterLink href={`/?lang=${locale}#support`}>{copy.support}</FooterLink><FooterLink href="/cabinet">{copy.partners}</FooterLink><p className="text-xs leading-5 text-zinc-500">{locale === "ro" ? "Adresele și programul se confirmă înainte de vizită." : "Адреса и график уточняйте перед визитом."}</p></FooterGroup>
+        <FooterGroup title={locale === "ro" ? "Contacte și magazine" : "Контакты и магазины"}><FooterLink href={`/?lang=${locale}#support`}>{copy.support}</FooterLink><FooterLink href={`/partners?lang=${locale}`}>{copy.partners}</FooterLink><p className="text-xs leading-5 text-zinc-500">{locale === "ro" ? "Adresele și programul se confirmă înainte de vizită." : "Адреса и график уточняйте перед визитом."}</p></FooterGroup>
       </div>
     </footer>
   </div>;
