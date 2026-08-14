@@ -16,7 +16,7 @@ describe("PublicCctvCalculator", () => {
 
   it("calculates explicitly from step three without a review step", () => {
     const serviceOptions = [{ objectType: "house" as const, requestServiceType: "ai_scenario_programming" as const,
-      labelRu: "Программирование AI-сценариев", labelRo: "Programarea scenariilor AI" }];
+      labelRu: "Программирование AI-сценария", labelRo: "Programarea scenariului AI" }];
     const { container } = render(<PublicCctvCalculator locale="ru" serviceOptions={serviceOptions} />);
     const submit = vi.fn((event: Event) => event.preventDefault());
     container.querySelector("form")!.addEventListener("submit", submit);

@@ -360,7 +360,14 @@ function InstallationStep({
     )
     .map((item) => ({
       key: keyByType[item.requestServiceType],
-      label: ru ? item.labelRu : item.labelRo,
+      label:
+        item.requestServiceType === "ai_scenario_programming"
+          ? ru
+            ? "Программирование AI-сценариев"
+            : "Programarea scenariilor AI"
+          : ru
+            ? item.labelRu
+            : item.labelRo,
     }));
   return (
     <div>
