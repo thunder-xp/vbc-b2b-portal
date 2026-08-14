@@ -1,0 +1,337 @@
+-- Decouple shared CCTV tariff/object availability from legacy B2B service mappings.
+
+create table public.cctv_estimate_service_adapters (
+  service_code text primary key references public.cctv_service_definitions(code) on delete restrict,
+  estimate_service_id uuid not null unique references public.partner_services(id) on delete restrict,
+  created_at timestamptz not null default now()
+);
+
+alter table public.cctv_estimate_service_adapters enable row level security;
+revoke all on table public.cctv_estimate_service_adapters from public,anon,authenticated;
+grant select,insert,update,delete on table public.cctv_estimate_service_adapters to service_role;
+
+do $$
+declare
+  definition public.cctv_service_definitions;
+  adapter_service_id uuid;
+begin
+  for definition in
+    select * from public.cctv_service_definitions where active order by sort_order
+  loop
+    adapter_service_id := definition.partner_service_id;
+    if adapter_service_id is null then
+      insert into public.partner_services(
+        company_id,name,default_unit,description,sort_order,is_active,
+        default_cost,default_selling_price,vat_applicable,category
+      ) values (
+        null,definition.label_ru,
+        case definition.unit_code when 'piece' then 'pcs' else definition.unit_code end,
+        'Estimate presentation adapter for normalized service ' || definition.code,
+        definition.sort_order,true,null,null,true,'service'
+      ) returning id into adapter_service_id;
+    end if;
+    insert into public.cctv_estimate_service_adapters(service_code,estimate_service_id)
+    values(definition.code,adapter_service_id);
+  end loop;
+end;
+$$;
+
+comment on table public.cctv_estimate_service_adapters is
+  'Presentation-only bridge from normalized CCTV services to Estimate service lines. Tariff and availability never depend on this table.';
+
+create or replace function public.resolve_cctv_object_services(
+  target_object_type text,target_service_types text[]
+) returns jsonb
+language plpgsql stable security definer set search_path=public
+as $$
+declare result jsonb; tariff public.installation_tariff_sets;
+begin
+  if target_object_type not in ('apartment','house','office','retail','warehouse','industrial','horeca','other')
+    or coalesce(cardinality(target_service_types),0)<1 or cardinality(target_service_types)>4
+    or exists(select 1 from unnest(target_service_types) value
+      where value not in ('camera_installation','cable_laying','commissioning','remote_configuration')) then
+    raise exception 'Invalid CCTV service request.' using errcode='22023';
+  end if;
+  select * into tariff from public.installation_tariff_sets where system_type='cctv'
+    and status in ('published','superseded') and effective_from<=now()
+    and (effective_to is null or effective_to>now()) limit 1;
+  select coalesce(jsonb_agg(jsonb_build_object(
+    'requestServiceType',requested.service_type,'serviceCode',chosen.code,'serviceLabel',chosen.label_ru,
+    'estimateServiceId',adapter.estimate_service_id,'partnerServiceId',chosen.partner_service_id,
+    'unitCode',chosen.unit_code,'unitPrice',line.customer_unit_price,'currency',tariff.currency,
+    'vatTreatment',tariff.vat_treatment,'tariffSetId',tariff.id,'tariffVersion',tariff.version
+  ) order by requested.ordinality),'[]'::jsonb) into result
+  from unnest(target_service_types) with ordinality requested(service_type,ordinality)
+  left join lateral (
+    select definition.* from public.cctv_object_service_bindings binding
+    join public.cctv_service_definitions definition on definition.code=binding.service_code and definition.active
+    where binding.object_type=target_object_type and binding.enabled and binding.calculator_default
+      and definition.family=case requested.service_type
+        when 'camera_installation' then 'equipment_installation'
+        when 'cable_laying' then 'cable_routing'
+        when 'commissioning' then 'commissioning'
+        else 'remote_viewing_configuration' end
+    order by binding.display_order,definition.sort_order limit 1
+  ) chosen on true
+  left join public.cctv_estimate_service_adapters adapter on adapter.service_code=chosen.code
+  left join public.installation_tariffs line
+    on line.tariff_set_id=tariff.id and line.service_type=chosen.tariff_service_type;
+  return result;
+end;
+$$;
+
+revoke all on function public.resolve_cctv_object_services(text,text[]) from public,anon,authenticated;
+grant execute on function public.resolve_cctv_object_services(text,text[]) to service_role;
+
+create or replace function public.upsert_cctv_object_service_binding(
+  target_object_type text,target_service_code text,target_enabled boolean,target_calculator_default boolean,
+  target_display_order smallint,target_notes text,expected_version integer
+) returns table(binding_id uuid,resulting_version integer)
+language plpgsql security definer set search_path=public
+as $$
+declare
+  existing public.cctv_object_service_bindings;
+  saved public.cctv_object_service_bindings;
+begin
+  if not public.has_internal_permission('admin.integrations.manage') then
+    raise exception 'Forbidden.' using errcode='42501';
+  end if;
+  if target_object_type not in ('apartment','house','office','retail','warehouse','industrial','horeca','other')
+    or not exists(select 1 from public.cctv_service_definitions where code=target_service_code and active)
+    or target_display_order not between 1 and 100 or char_length(coalesce(target_notes,''))>1000
+    or (target_calculator_default and not target_enabled) then
+    raise exception 'Invalid service binding.' using errcode='22023';
+  end if;
+  if target_enabled and not exists(
+    select 1
+    from public.cctv_service_definitions definition
+    join public.installation_tariffs line on line.service_type=definition.tariff_service_type
+    join public.installation_tariff_sets tariff on tariff.id=line.tariff_set_id
+    where definition.code=target_service_code and line.customer_unit_price>0
+      and tariff.system_type='cctv' and tariff.status='published'
+      and tariff.effective_from<=now() and (tariff.effective_to is null or tariff.effective_to>now())
+  ) then
+    raise exception 'Enabled service requires an active tariff.' using errcode='22023';
+  end if;
+  select * into existing from public.cctv_object_service_bindings
+  where object_type=target_object_type and service_code=target_service_code for update;
+  if existing.id is null or existing.version<>expected_version then
+    raise exception 'CCTV_SERVICE_BINDING_CONFLICT' using errcode='PT409';
+  end if;
+  if target_calculator_default then
+    update public.cctv_object_service_bindings other
+    set calculator_default=false,version=version+1,updated_by=auth.uid(),updated_at=now()
+    from public.cctv_service_definitions selected,public.cctv_service_definitions current
+    where selected.code=target_service_code and current.code=other.service_code and current.family=selected.family
+      and other.object_type=target_object_type and other.id<>existing.id and other.calculator_default;
+  end if;
+  update public.cctv_object_service_bindings
+  set enabled=target_enabled,calculator_default=case when target_enabled then target_calculator_default else false end,
+    display_order=target_display_order,notes=nullif(btrim(coalesce(target_notes,'')),''),version=version+1,
+    updated_by=auth.uid(),updated_at=now()
+  where id=existing.id returning * into saved;
+  insert into public.cctv_object_service_binding_events(
+    binding_id,event_type,actor_user_id,previous_snapshot,resulting_snapshot
+  ) values(
+    saved.id,case when existing.enabled and not saved.enabled then 'binding_disabled'
+      when not existing.enabled and saved.enabled then 'binding_enabled'
+      when existing.calculator_default<>saved.calculator_default then 'default_changed'
+      else 'binding_updated' end,
+    auth.uid(),to_jsonb(existing),to_jsonb(saved)
+  );
+  return query select saved.id,saved.version;
+end;
+$$;
+
+revoke all on function public.upsert_cctv_object_service_binding(
+  text,text,boolean,boolean,smallint,text,integer
+) from public,anon;
+grant execute on function public.upsert_cctv_object_service_binding(
+  text,text,boolean,boolean,smallint,text,integer
+) to authenticated;
+
+create or replace function public.admin_save_cctv_service_configuration(
+  target_object_type text,
+  target_service_code text,
+  target_unit_price numeric,
+  target_enabled boolean,
+  target_calculator_default boolean,
+  target_display_order smallint,
+  target_notes text,
+  expected_binding_version integer,
+  expected_tariff_set_id uuid,
+  expected_tariff_version integer,
+  target_reason text
+) returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  definition public.cctv_service_definitions;
+  binding public.cctv_object_service_bindings;
+  saved_binding public.cctv_object_service_bindings;
+  other_binding public.cctv_object_service_bindings;
+  saved_other public.cctv_object_service_bindings;
+  current_tariff public.installation_tariff_sets;
+  new_tariff_id uuid;
+  next_version integer;
+  current_price numeric(14,2);
+  effective_price numeric(14,2);
+  price_changed boolean;
+  binding_changed boolean;
+  published_at_value timestamptz := now();
+  required_count integer;
+begin
+  if not public.has_internal_permission('admin.retail_marketplace.manage')
+    or not public.has_internal_permission('admin.integrations.manage')
+    or not public.has_internal_permission('admin.estimates.view') then
+    raise exception 'Forbidden.' using errcode = '42501';
+  end if;
+  if target_object_type not in ('apartment','house','office','retail','warehouse','industrial','horeca','other')
+    or target_display_order not between 1 and 100
+    or char_length(coalesce(target_notes,'')) > 1000
+    or char_length(btrim(coalesce(target_reason,''))) < 5
+    or expected_binding_version < 1
+    or expected_tariff_version < 1
+    or target_unit_price is not null and (
+      target_unit_price <= 0 or target_unit_price > 999999999999.99
+      or round(target_unit_price,2) <> target_unit_price
+    ) then
+    raise exception 'Invalid CCTV service configuration.' using errcode = '22023';
+  end if;
+
+  perform pg_advisory_xact_lock(hashtext('retail-installation-tariff:cctv'));
+
+  select * into current_tariff
+  from public.installation_tariff_sets
+  where system_type = 'cctv' and status = 'published'
+  for update;
+  if current_tariff.id is null or current_tariff.id <> expected_tariff_set_id
+    or current_tariff.version <> expected_tariff_version then
+    raise exception 'CCTV_TARIFF_CONFLICT' using errcode = 'PT409';
+  end if;
+
+  select * into definition from public.cctv_service_definitions
+  where code = target_service_code and active;
+  select * into binding from public.cctv_object_service_bindings
+  where object_type = target_object_type and service_code = target_service_code for update;
+  if definition.code is null or binding.id is null or binding.version <> expected_binding_version then
+    raise exception 'CCTV_SERVICE_BINDING_CONFLICT' using errcode = 'PT409';
+  end if;
+
+  select customer_unit_price into current_price from public.installation_tariffs
+  where tariff_set_id = current_tariff.id and service_type = definition.tariff_service_type;
+  if current_price is not null and target_unit_price is null then
+    raise exception 'Published tariff price cannot be cleared.' using errcode = '22023';
+  end if;
+  effective_price := coalesce(target_unit_price,current_price);
+  if target_enabled and effective_price is null then
+    raise exception 'Enabled service requires an active tariff.' using errcode = '22023';
+  end if;
+  if target_calculator_default and not target_enabled then
+    raise exception 'Default service must be enabled.' using errcode = '22023';
+  end if;
+
+  price_changed := current_price is distinct from target_unit_price and target_unit_price is not null;
+  binding_changed := binding.enabled is distinct from target_enabled
+    or binding.calculator_default is distinct from (target_calculator_default and target_enabled)
+    or binding.display_order is distinct from target_display_order
+    or binding.notes is distinct from nullif(btrim(coalesce(target_notes,'')),'');
+
+  if price_changed then
+    select coalesce(max(version),0)+1 into next_version
+    from public.installation_tariff_sets where system_type = 'cctv';
+    insert into public.installation_tariff_sets(
+      system_type,version,status,currency,vat_treatment,effective_from,created_by
+    ) values(
+      'cctv',next_version,'draft',current_tariff.currency,current_tariff.vat_treatment,
+      published_at_value,auth.uid()
+    ) returning id into new_tariff_id;
+    insert into public.retail_marketplace_events(
+      aggregate_type,aggregate_id,event_type,actor_user_id,safe_evidence
+    ) values(
+      'tariff_set',new_tariff_id,'tariff_draft_created',auth.uid(),
+      jsonb_build_object('reason',btrim(target_reason),'serviceCode',definition.code,
+        'serviceType',definition.tariff_service_type,'previousPrice',current_price,'newPrice',target_unit_price)
+    );
+    insert into public.installation_tariffs(tariff_set_id,service_type,unit_code,customer_unit_price)
+    select new_tariff_id,line.service_type,line.unit_code,line.customer_unit_price
+    from public.installation_tariffs line
+    where line.tariff_set_id = current_tariff.id and line.service_type <> definition.tariff_service_type;
+    insert into public.installation_tariffs(tariff_set_id,service_type,unit_code,customer_unit_price)
+    values(new_tariff_id,definition.tariff_service_type,definition.unit_code,target_unit_price);
+    select count(*) into required_count from public.installation_tariffs
+    where tariff_set_id = new_tariff_id and (service_type,unit_code) in (
+      ('camera_installation','piece'),('cable_laying','meter'),
+      ('commissioning','piece'),('remote_configuration','service')
+    );
+    if required_count <> 4 then
+      raise exception 'Complete CCTV tariff set required.' using errcode = '22023';
+    end if;
+    update public.installation_tariff_sets
+    set status='superseded',effective_to=published_at_value,revision=revision+1,updated_at=published_at_value
+    where id=current_tariff.id;
+    insert into public.retail_marketplace_events(
+      aggregate_type,aggregate_id,event_type,actor_user_id,safe_evidence
+    ) values(
+      'tariff_set',current_tariff.id,'tariff_superseded',auth.uid(),
+      jsonb_build_object('replacementId',new_tariff_id,'serviceCode',definition.code,
+        'previousPrice',current_price,'newPrice',target_unit_price)
+    );
+    update public.installation_tariff_sets
+    set status='published',published_by=auth.uid(),published_at=published_at_value,
+      revision=revision+1,updated_at=published_at_value where id=new_tariff_id;
+    insert into public.retail_marketplace_events(
+      aggregate_type,aggregate_id,event_type,actor_user_id,safe_evidence
+    ) values(
+      'tariff_set',new_tariff_id,'tariff_published',auth.uid(),
+      jsonb_build_object('reason',btrim(target_reason),'version',next_version,'serviceCode',definition.code,
+        'serviceType',definition.tariff_service_type,'previousPrice',current_price,'newPrice',target_unit_price)
+    );
+  end if;
+
+  if binding_changed then
+    if target_calculator_default and target_enabled then
+      for other_binding in
+        select other.* from public.cctv_object_service_bindings other
+        join public.cctv_service_definitions current_definition on current_definition.code=other.service_code
+        where other.object_type=target_object_type and other.id<>binding.id
+          and current_definition.family=definition.family and other.calculator_default
+        for update of other
+      loop
+        update public.cctv_object_service_bindings
+        set calculator_default=false,version=version+1,updated_by=auth.uid(),updated_at=now()
+        where id=other_binding.id returning * into saved_other;
+        insert into public.cctv_object_service_binding_events(
+          binding_id,event_type,actor_user_id,previous_snapshot,resulting_snapshot
+        ) values(other_binding.id,'default_changed',auth.uid(),to_jsonb(other_binding),to_jsonb(saved_other));
+      end loop;
+    end if;
+    update public.cctv_object_service_bindings
+    set enabled=target_enabled,
+      calculator_default=case when target_enabled then target_calculator_default else false end,
+      display_order=target_display_order,notes=nullif(btrim(coalesce(target_notes,'')),''),
+      version=version+1,updated_by=auth.uid(),updated_at=now()
+    where id=binding.id returning * into saved_binding;
+    insert into public.cctv_object_service_binding_events(
+      binding_id,event_type,actor_user_id,previous_snapshot,resulting_snapshot
+    ) values(
+      saved_binding.id,
+      case when binding.enabled and not saved_binding.enabled then 'binding_disabled'
+        when not binding.enabled and saved_binding.enabled then 'binding_enabled'
+        when binding.calculator_default is distinct from saved_binding.calculator_default then 'default_changed'
+        else 'binding_updated' end,
+      auth.uid(),to_jsonb(binding),to_jsonb(saved_binding)
+    );
+  end if;
+  return public.get_all_cctv_object_configurations();
+end;
+$$;
+
+revoke all on function public.admin_save_cctv_service_configuration(
+  text,text,numeric,boolean,boolean,smallint,text,integer,uuid,integer,text
+) from public,anon;
+grant execute on function public.admin_save_cctv_service_configuration(
+  text,text,numeric,boolean,boolean,smallint,text,integer,uuid,integer,text
+) to authenticated,service_role;

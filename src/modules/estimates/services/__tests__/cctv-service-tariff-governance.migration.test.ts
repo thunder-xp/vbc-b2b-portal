@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 const sql = readFileSync(resolve("supabase/migrations/20260814055148_govern_cctv_service_tariff_row_edits.sql"), "utf8");
 const timestampRepairSql = readFileSync(resolve("supabase/migrations/20260814063137_align_cctv_tariff_publication_timestamp.sql"), "utf8");
+const decouplingSql = readFileSync(resolve("supabase/migrations/20260814084538_decouple_cctv_service_tariffs_from_legacy_b2b.sql"), "utf8");
 const objectConfigurationSql = readFileSync(resolve("supabase/migrations/20260813202551_cctv_object_service_bindings.sql"), "utf8");
 const publicTariffSql = readFileSync(resolve("supabase/migrations/20260813055501_retail_installation_marketplace_foundation.sql"), "utf8");
 
@@ -49,5 +50,28 @@ describe("CCTV service tariff row governance migration", () => {
     expect(timestampRepairSql).toContain("published_at_value timestamptz := now()");
     expect(timestampRepairSql).not.toContain("clock_timestamp()");
     expect(timestampRepairSql).toContain("return public.get_all_cctv_object_configurations()");
+  });
+
+  it("publishes and enables normalized services without a legacy B2B mapping", () => {
+    expect(decouplingSql).toContain("create table public.cctv_estimate_service_adapters");
+    expect(decouplingSql).toContain("if target_enabled and effective_price is null then");
+    expect(decouplingSql).not.toContain("Enabled service requires an active tariff and B2B mapping.");
+    expect(decouplingSql).toContain("Enabled service requires an active tariff.");
+    expect(decouplingSql).toContain("Default service must be enabled.");
+  });
+
+  it("keeps one shared tariff while adapting normalized identities only at the Estimate boundary", () => {
+    expect(decouplingSql).toContain("'estimateServiceId',adapter.estimate_service_id");
+    expect(decouplingSql).toContain("line.service_type=chosen.tariff_service_type");
+    expect(decouplingSql).toContain("default_cost,default_selling_price");
+    expect(decouplingSql).toContain("definition.sort_order,true,null,null,true,'service'");
+    expect(decouplingSql).not.toContain("customer_unit_price)\n      select");
+  });
+
+  it("keeps the adapter private and the governed tariff mutation permissioned", () => {
+    expect(decouplingSql).toContain("alter table public.cctv_estimate_service_adapters enable row level security");
+    expect(decouplingSql).toContain("revoke all on table public.cctv_estimate_service_adapters from public,anon,authenticated");
+    expect(decouplingSql).toContain("admin.retail_marketplace.manage");
+    expect(decouplingSql).toContain("admin.integrations.manage");
   });
 });

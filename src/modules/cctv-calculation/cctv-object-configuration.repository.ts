@@ -98,6 +98,8 @@ function parseResolvedService(value: unknown): CctvResolvedObjectService {
     requestServiceType: String(row.requestServiceType) as CctvServiceRequestType,
     profileKey: typeof row.profileKey === "string" ? row.profileKey : undefined,
     serviceCode: typeof row.serviceCode === "string" ? row.serviceCode as CctvServiceCode : null,
+    serviceLabel: typeof row.serviceLabel === "string" ? row.serviceLabel : null,
+    estimateServiceId: typeof row.estimateServiceId === "string" ? row.estimateServiceId : null,
     partnerServiceId: typeof row.partnerServiceId === "string" ? row.partnerServiceId : null,
     unitCode: typeof row.unitCode === "string" ? row.unitCode as CctvResolvedObjectService["unitCode"] : null,
     unitPrice: row.unitPrice == null ? null : Number(row.unitPrice), currency: typeof row.currency === "string" ? row.currency : null,

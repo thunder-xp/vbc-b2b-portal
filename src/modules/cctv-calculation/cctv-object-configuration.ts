@@ -40,6 +40,8 @@ export type CctvResolvedObjectService = {
   requestServiceType: CctvServiceRequestType;
   profileKey?: string;
   serviceCode: CctvServiceCode | null;
+  serviceLabel: string | null;
+  estimateServiceId: string | null;
   partnerServiceId: string | null;
   unitCode: "piece" | "meter" | "service" | null;
   unitPrice: number | null;
@@ -68,6 +70,5 @@ export function getCctvConfigurationDiagnostics(input: {
     enabled.length === 0 && "Для объекта не включены услуги.",
     enabled.length > 0 && defaults.length === 0 && "Не выбраны услуги по умолчанию.",
     ...enabled.filter((service) => !service.tariffActive).map((service) => `${service.label}: нет активного тарифа.`),
-    ...defaults.filter((service) => !service.partnerServiceId).map((service) => `${service.label}: нет связанной позиции услуги для B2B.`),
   ].filter((message): message is string => Boolean(message));
 }

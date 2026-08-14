@@ -106,12 +106,23 @@ export class ProposalGeneratorService {
         const mapping = line.profileKey ? mappingByKey.get(line.profileKey) : null;
         const serviceType = serviceTypeForProfile(line.profileKey);
         const governedService = serviceType ? serviceByRequestType.get(serviceType) : null;
-        if (serviceType && this.objectServices && (!governedService?.serviceCode || !governedService.partnerServiceId
-          || governedService.partnerServiceId !== mapping?.resolvedId || governedService.unitPrice == null)) {
+        if (serviceType && this.objectServices && (!governedService?.serviceCode
+          || !governedService.estimateServiceId || governedService.unitPrice == null)) {
           return { ...line, resolution: "unresolved" as const, resolvedId: null, governedResolvedId: null,
             resolvedLabel: null, sellingUnitPrice: null, sellingCurrencyCode: null, sellingVatMode: null };
         }
-        const governedServicePrice = mapping?.resolution === "service" && governedService?.partnerServiceId === mapping.resolvedId
+        if (serviceType && this.objectServices && governedService?.serviceCode && governedService.estimateServiceId) {
+          const configuredPrice = governedService.currency === input.currencyCode ? governedService.unitPrice : null;
+          return { ...line, resolution: "service" as const, resolvedId: governedService.estimateServiceId,
+            governedResolvedId: governedService.estimateServiceId,
+            resolvedLabel: governedService.serviceLabel ?? line.description,
+            description: governedService.serviceLabel ?? line.description,
+            sellingUnitPrice: configuredPrice,
+            sellingCurrencyCode: configuredPrice === null ? null : governedService.currency,
+            sellingVatMode: configuredPrice === null ? null
+              : governedService.vatTreatment === "excluded" ? "excluded" : "included" };
+        }
+        const governedServicePrice = mapping?.resolution === "service" && governedService?.estimateServiceId === mapping.resolvedId
           && governedService.currency === input.currencyCode ? governedService.unitPrice : null;
         const configuredServicePrice = governedServicePrice ?? (!this.objectServices && mapping?.resolution === "service"
           && mapping.defaultSellingCurrencyCode === input.currencyCode ? mapping.defaultSellingUnitPrice : null);
@@ -237,8 +248,8 @@ export class ProposalGeneratorService {
         const service = serviceById.get(requirement.resolvedId!);
         if (!service || service.unit !== requirement.unit) throw new InvalidStateError("Выбранная услуга больше недоступна.");
         const profile = requirement.profileKey ? serviceProfileByKey.get(requirement.profileKey) : null;
-        const configuredPrice = profile && "partnerServiceId" in profile
-          ? profile.partnerServiceId === service.id && profile.currency === input.currencyCode ? profile.unitPrice : null
+        const configuredPrice = profile && "estimateServiceId" in profile
+          ? profile.estimateServiceId === service.id && profile.currency === input.currencyCode ? profile.unitPrice : null
           : profile && "resolution" in profile && profile.resolution === "service" && profile.resolvedId === service.id
             && profile.defaultSellingCurrencyCode === input.currencyCode ? profile.defaultSellingUnitPrice : null;
         return { ...common, lineType: "service", productId: null, serviceId: service.id, externalNomenclatureId: null,

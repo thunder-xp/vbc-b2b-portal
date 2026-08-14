@@ -123,8 +123,8 @@ describe("ProposalGeneratorService", () => {
       { profileKey: "cctv.install.cable", resolution: "service", resolvedId: uuid("3"), resolvedLabel: "Cable routing", defaultSellingUnitPrice: 999, defaultSellingCurrencyCode: "USD", defaultSellingVatMode: "excluded" },
     ]);
     const resolve = vi.fn().mockResolvedValue([
-      { requestServiceType: "camera_installation", serviceCode: "equipment_installation_class_1", partnerServiceId: uuid("2"), unitCode: "piece", unitPrice: 600, currency: "MDL", vatTreatment: "included", tariffSetId: uuid("8"), tariffVersion: 3 },
-      { requestServiceType: "cable_laying", serviceCode: "cable_routing_class_1", partnerServiceId: uuid("3"), unitCode: "meter", unitPrice: 50, currency: "MDL", vatTreatment: "included", tariffSetId: uuid("8"), tariffVersion: 3 },
+      { requestServiceType: "camera_installation", serviceCode: "equipment_installation_class_2", serviceLabel: "Equipment installation II", estimateServiceId: uuid("5"), partnerServiceId: null, unitCode: "piece", unitPrice: 600, currency: "MDL", vatTreatment: "included", tariffSetId: uuid("8"), tariffVersion: 3 },
+      { requestServiceType: "cable_laying", serviceCode: "cable_routing_class_2", serviceLabel: "Cable routing II", estimateServiceId: uuid("6"), partnerServiceId: null, unitCode: "meter", unitPrice: 50, currency: "MDL", vatTreatment: "included", tariffSetId: uuid("8"), tariffVersion: 3 },
     ]);
     const service = new ProposalGeneratorService(
       { recordSession: vi.fn().mockResolvedValue(uuid("8")), resolveCalculatorProfiles } as never,
@@ -146,9 +146,11 @@ describe("ProposalGeneratorService", () => {
     expect(resolve).toHaveBeenCalledOnce();
     expect(resolve).toHaveBeenCalledWith("warehouse", ["camera_installation", "cable_laying"]);
     expect(result.requirements.find((line) => line.profileKey === "cctv.install.camera")).toMatchObject({
+      resolution: "service", resolvedId: uuid("5"), resolvedLabel: "Equipment installation II",
       sellingUnitPrice: 600, sellingCurrencyCode: "MDL", sellingVatMode: "included",
     });
     expect(result.requirements.find((line) => line.profileKey === "cctv.install.cable")).toMatchObject({
+      resolution: "service", resolvedId: uuid("6"), resolvedLabel: "Cable routing II",
       sellingUnitPrice: 50, sellingCurrencyCode: "MDL", sellingVatMode: "included",
     });
   });
@@ -158,6 +160,10 @@ describe("ProposalGeneratorService", () => {
     const resolveExternalNomenclature = vi.fn().mockResolvedValue([{ id: uuid("3"), name: "Монтаж камеры", unit: "service", itemType: "service" }]);
     const resolveServices = vi.fn().mockResolvedValue([{ id: uuid("4"), name: "Монтаж видеокамеры", unit: "pcs", defaultCost: null, defaultSellingPrice: null }]);
     const resolveCalculatorProfiles = vi.fn().mockResolvedValue([{ profileKey: "cctv.install.camera", resolution: "service", resolvedId: uuid("4"), defaultSellingUnitPrice: 600, defaultSellingCurrencyCode: "MDL", defaultSellingVatMode: "included" }]);
+    const resolveForGenerator = vi.fn().mockResolvedValue([{ profileKey: "cctv.install.camera", requestServiceType: "camera_installation",
+      serviceCode: "equipment_installation_class_2", serviceLabel: "Монтаж оборудования · класс II",
+      estimateServiceId: uuid("4"), partnerServiceId: null, unitCode: "piece", unitPrice: 640,
+      currency: "MDL", vatTreatment: "included", tariffSetId: uuid("8"), tariffVersion: 5 }]);
     const repository = { createEstimate, resolveExternalNomenclature, resolveServices, resolveCalculatorProfiles };
     const companyAccess = {
       getOwnMemberships: vi.fn().mockResolvedValue([{ companyId: uuid("4"), status: "active" }]),
@@ -169,7 +175,8 @@ describe("ProposalGeneratorService", () => {
     };
     const catalog = { getProductOrderIdentities: vi.fn().mockResolvedValue([{ id: uuid("2"), external1cId: uuid("9"), sku: "CAM-1", name: "Камера" }]) };
     const pricing = { getProductCommercialViews: vi.fn().mockResolvedValue([{ productId: uuid("2"), retailPrice: { amount: 150, currencyCode: "MDL" }, partnerPrice: null }]) };
-    const service = new ProposalGeneratorService(repository as never, companyAccess as never, permissions as never, catalog as never, pricing as never);
+    const service = new ProposalGeneratorService(repository as never, companyAccess as never, permissions as never,
+      catalog as never, pricing as never, undefined, { resolveForGenerator } as never);
     const result = await service.createEstimate(uuid("1"), {
       sessionId: uuid("5"), sessionFingerprint: "a".repeat(64), finalCustomerId: uuid("6"), name: "Склад", currencyCode: "MDL", vatMode: "included", validityDays: 14, requestKey: uuid("7"),
       requirements: [
@@ -186,8 +193,9 @@ describe("ProposalGeneratorService", () => {
     const submitted = createEstimate.mock.calls[0][0];
     expect(submitted.vatMode).toBe("included");
     expect(submitted.lines[0]).toMatchObject({ lineType: "product", sellingUnitPrice: 150, sourceUnitPrice: null });
-    expect(resolveCalculatorProfiles).toHaveBeenCalledTimes(1);
-    expect(submitted.lines[1]).toMatchObject({ lineType: "service", serviceId: uuid("4"), profileKey: "cctv.install.camera", sellingUnitPrice: 600, unit: "pcs" });
+    expect(resolveForGenerator).toHaveBeenCalledWith(uuid("4"), uuid("5"), ["cctv.install.camera"]);
+    expect(resolveCalculatorProfiles).not.toHaveBeenCalled();
+    expect(submitted.lines[1]).toMatchObject({ lineType: "service", serviceId: uuid("4"), profileKey: "cctv.install.camera", sellingUnitPrice: 640, unit: "pcs" });
     expect(submitted.lines[2]).toMatchObject({ lineType: "external", sellingUnitPrice: null, externalNomenclatureId: uuid("3") });
     expect(submitted.lines[3]).toMatchObject({ lineType: "custom", sellingUnitPrice: null });
     expect(result.counts).toEqual({ catalog: 1, service: 1, own: 1, shared: 0, unresolved: 1 });

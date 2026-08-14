@@ -25,12 +25,15 @@ describe("admin CCTV services workspace", () => {
     expect(component).toContain('inputMode="decimal"');
     expect(component).toContain('step="0.01"');
     expect(component).toContain('placeholder="Не задан"');
-    expect(component).toContain("const canEnable=canManage&&priceValid&&Boolean(row.partnerServiceId)");
+    expect(component).toContain("const canEnable=canManage&&priceValid");
+    expect(component).toContain('normalizedPrice!==""&&!priceValid');
+    expect(component).toContain("Сначала укажите тариф.");
     expect(component).toContain('disabled={!canManage}');
     expect(component).toContain('disabled={!canEnable}');
     expect(component).toContain('disabled={!canManage||!enabled}');
     expect(component).toContain("if(!event.target.checked)setSuggested(false)");
     expect(component).toContain("saveCctvServiceConfigurationAction");
+    expect(component).not.toContain("B2B-позиция услуги не связана");
   });
 
   it("renders labeled cards below desktop without a seven-column minimum width", () => {

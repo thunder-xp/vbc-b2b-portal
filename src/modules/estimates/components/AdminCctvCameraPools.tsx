@@ -100,20 +100,21 @@ function ServiceEditor({configuration,row,canManage,onSaved}:{configuration:Cctv
   const normalizedPrice=price.trim();
   const priceValid=/^\d{1,12}(?:\.\d{1,2})?$/.test(normalizedPrice)&&Number(normalizedPrice)>0;
   const priceRequired=row.tariffActive||enabled||suggested;
-  const canEnable=canManage&&priceValid&&Boolean(row.partnerServiceId);
+  const canEnable=canManage&&priceValid;
   const dirty=normalizedPrice!==initialPrice||enabled!==row.enabled||suggested!==row.calculatorDefault;
-  const saveDisabled=!canManage||pending||!dirty||!configuration.tariffSet||(priceRequired&&!priceValid);
+  const saveDisabled=!canManage||pending||!dirty||!configuration.tariffSet
+    ||(normalizedPrice!==""&&!priceValid)||(priceRequired&&!priceValid);
   const save=()=>startTransition(async()=>{
     if(!configuration.tariffSet)return;
     const result=await saveCctvServiceConfigurationAction({objectType:configuration.objectType,serviceCode:row.serviceCode,unitPrice:normalizedPrice,enabled,calculatorDefault:suggested,displayOrder:row.displayOrder,notes:row.notes??"",expectedBindingVersion:row.version,expectedTariffSetId:configuration.tariffSet.id,expectedTariffVersion:configuration.tariffSet.version});
     setMessage(result.message);if(result.success)onSaved(result.data);
   });
   return <article className="grid min-w-0 gap-3 border-t border-zinc-200 p-3 text-sm first:border-t-0 xl:grid-cols-[minmax(220px,1.8fr)_4rem_4.5rem_9.5rem_5.5rem_6.5rem_7.5rem] xl:items-center xl:gap-2" role="row">
-    <div className="min-w-0"><span className="text-xs text-zinc-500 xl:hidden">Услуга</span><strong className="block break-words">{familyLabels[row.family]}</strong>{!row.partnerServiceId&&<span className="mt-1 block text-xs text-amber-700">B2B-позиция услуги не связана</span>}</div>
+    <div className="min-w-0"><span className="text-xs text-zinc-500 xl:hidden">Услуга</span><strong className="block break-words">{familyLabels[row.family]}</strong></div>
     <div><span className="text-xs text-zinc-500 xl:hidden">Класс</span><span className="block">{classLabel(row.complexityClass)}</span></div>
     <div><span className="text-xs text-zinc-500 xl:hidden">Ед.</span><span className="block">{unitLabel(row.unitCode)}</span></div>
     <label className="min-w-0"><span className="text-xs text-zinc-500 xl:hidden">Общий тариф</span><span className="sr-only">Общий тариф: {row.label}</span><span className="flex min-h-11 items-center overflow-hidden rounded-md border border-zinc-300 bg-white focus-within:border-emerald-700 focus-within:ring-2 focus-within:ring-emerald-100"><input aria-label={`Общий тариф ${row.label}`} className="min-w-0 flex-1 bg-transparent px-2 py-2 outline-none disabled:bg-zinc-50" disabled={!canManage} inputMode="decimal" min="0.01" onChange={(event)=>{setPrice(event.target.value);setMessage(null);}} placeholder="Не задан" step="0.01" type="number" value={price}/><span className="border-l border-zinc-200 px-2 text-xs text-zinc-600">{configuration.tariffSet?.currency??"MDL"}</span></span>{!priceValid&&normalizedPrice!==""&&<span className="mt-1 block text-xs text-red-700">Введите положительную сумму, не более двух знаков после запятой.</span>}</label>
-    <label className={`flex min-h-11 items-center gap-2 ${canEnable?"":"text-zinc-500"}`}><input aria-label={`Включить ${row.label}`} checked={enabled} disabled={!canEnable} onChange={(event)=>{setEnabled(event.target.checked);if(!event.target.checked)setSuggested(false);setMessage(null);}} type="checkbox"/>Включена</label>
+    <label className={`min-h-11 ${canEnable?"":"text-zinc-500"}`}><span className="flex min-h-11 items-center gap-2"><input aria-label={`Включить ${row.label}`} checked={enabled} disabled={!canEnable} onChange={(event)=>{setEnabled(event.target.checked);if(!event.target.checked)setSuggested(false);setMessage(null);}} type="checkbox"/>Включена</span>{!priceValid&&<span className="block text-xs text-amber-700">Сначала укажите тариф.</span>}</label>
     <label className={`flex min-h-11 items-center gap-2 ${enabled&&canManage?"":"text-zinc-500"}`}><input aria-label={`Предлагать ${row.label} по умолчанию`} checked={suggested} disabled={!canManage||!enabled} onChange={(event)=>{setSuggested(event.target.checked);setMessage(null);}} type="checkbox"/>По умолчанию</label>
     <div className="min-w-0 xl:text-right"><button className={`${actionClassName.secondary} w-full xl:w-auto`} disabled={saveDisabled} onClick={save} type="button"><Save className="size-4"/>{pending?"Сохранение…":"Сохранить"}</button>{message&&<span aria-live="polite" className={`mt-1 block text-xs ${message.includes("сохранены")?"text-emerald-700":"text-red-700"}`}>{message}</span>}</div>
   </article>;
