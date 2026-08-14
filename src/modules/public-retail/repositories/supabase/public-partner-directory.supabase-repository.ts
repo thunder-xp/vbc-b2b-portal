@@ -14,7 +14,7 @@ export class PublicPartnerDirectoryRepositoryError extends Error {
 
 export class SupabasePublicPartnerDirectoryRepository implements PublicPartnerDirectoryRepository {
   async listPublished() {
-    const { data, error } = await createPublicReadClient().rpc("list_public_partner_directory");
+    const { data, error } = await createPublicReadClient({ cache: "no-store" }).rpc("list_public_partner_directory");
     if (error) throw new PublicPartnerDirectoryRepositoryError();
     return parsePublicPartnerDirectoryRecords(data);
   }

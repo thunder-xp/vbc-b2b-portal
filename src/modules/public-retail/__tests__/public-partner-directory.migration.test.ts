@@ -3,6 +3,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 const sql = fs.readFileSync(path.join(process.cwd(), "supabase/migrations/20260814172316_public_partner_directory.sql"), "utf8");
+const repository = fs.readFileSync(path.join(process.cwd(), "src/modules/public-retail/repositories/supabase/public-partner-directory.supabase-repository.ts"), "utf8");
 
 describe("public partner directory migration", () => {
   it("fails closed and never infers publication from active company status", () => {
@@ -18,6 +19,7 @@ describe("public partner directory migration", () => {
     expect(sql).toContain("limit 100");
     expect(sql).toContain("grant execute on function public.list_public_partner_directory() to anon");
     expect(sql).not.toMatch(/grant\s+select[\s\S]+partner_companies[\s\S]+anon/i);
+    expect(repository).toContain('createPublicReadClient({ cache: "no-store" })');
   });
 
   it("revokes publication when a partner changes an approved logo", () => {
