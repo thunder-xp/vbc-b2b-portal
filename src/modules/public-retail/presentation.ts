@@ -8,6 +8,7 @@ export const retailCopy = {
     delivery: "Доставка",
     support: "Поддержка",
     partners: "Наши партнёры",
+    partnerCabinet: "Кабинет партнёра",
     search: "Поиск по модели, артикулу или названию",
     searchAction: "Найти",
     details: "Подробнее",
@@ -50,6 +51,7 @@ export const retailCopy = {
     delivery: "Livrare",
     support: "Suport",
     partners: "Partenerii noștri",
+    partnerCabinet: "Cabinet partener",
     search: "Căutare după model, cod sau denumire",
     searchAction: "Caută",
     details: "Detalii",
@@ -128,6 +130,11 @@ export const protectedObjectOptions = [
 export function publicRetailLocale(value: string | string[] | undefined): PublicRetailLocale {
   return (Array.isArray(value) ? value[0] : value) === "ro" ? "ro" : "ru";
 }
+
+export function publicRetailFullCatalogHref(locale: PublicRetailLocale): string {
+  return `/catalog?lang=${locale}&view=all`;
+}
+
 export function formatRetailPrice(amount: number, currency: string, locale: PublicRetailLocale): string {
   return new Intl.NumberFormat(locale === "ro" ? "ro-MD" : "ru-MD", {
     style: "currency",

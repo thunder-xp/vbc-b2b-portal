@@ -19,5 +19,6 @@ export function PublicRetailCartBadgeClient({ initialQuantity, locale }: { initi
     return () => window.removeEventListener(PUBLIC_RETAIL_CART_UPDATED_EVENT, update);
   }, []);
 
-  return <Link aria-label={`${locale === "ro" ? "Coș" : "Корзина"}: ${quantity}`} className="relative grid size-11 place-items-center text-zinc-700 hover:text-emerald-700" href={`/cart?lang=${locale}`}><ShoppingCart aria-hidden="true" className="size-5" />{quantity > 0 ? <span className="absolute right-0.5 top-0.5 min-w-4 rounded-full bg-emerald-700 px-1 text-center text-[10px] font-bold leading-4 text-white">{quantity > 99 ? "99+" : quantity}</span> : null}</Link>;
+  const label = locale === "ro" ? "Coș" : "Корзина";
+  return <Link aria-label={`${label}: ${quantity}`} className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-sm border border-zinc-300 bg-zinc-50 px-2 text-sm font-semibold text-zinc-800 hover:border-emerald-600 hover:bg-emerald-50 hover:text-emerald-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 sm:gap-2 sm:px-3" href={`/cart?lang=${locale}`}><ShoppingCart aria-hidden="true" className="size-4" /><span>{label}</span>{quantity > 0 ? <span className="min-w-5 rounded-full bg-emerald-700 px-1.5 text-center text-[10px] font-bold leading-5 text-white">{quantity > 99 ? "99+" : quantity}</span> : null}</Link>;
 }

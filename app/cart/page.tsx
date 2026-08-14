@@ -5,7 +5,7 @@ import Link from "next/link";
 
 import { PublicRetailCartItemActions } from "@/src/modules/public-retail/components/PublicRetailCartItemActions";
 import { PublicRetailShell } from "@/src/modules/public-retail/components/PublicRetailShell";
-import { availabilityCopy, availabilityTone, formatRetailPrice, publicRetailLocale } from "@/src/modules/public-retail/presentation";
+import { availabilityCopy, availabilityTone, formatRetailPrice, publicRetailFullCatalogHref, publicRetailLocale } from "@/src/modules/public-retail/presentation";
 import { getRetailCartTokenHash } from "@/src/modules/public-retail/retail-cart-cookie";
 import { getRetailCartService } from "@/src/modules/public-retail/retail-cart-server";
 import { isRetailCheckoutEnabled } from "@/src/modules/public-retail/retail-checkout-server";
@@ -94,7 +94,7 @@ function CartLine({ item, locale, revision }: { item: PublicRetailCartItemDto; l
 
 function EmptyCart({ locale }: { locale: PublicRetailLocale }) {
   const ru = locale === "ru";
-  return <section className="mx-auto grid max-w-lg justify-items-center py-20 text-center"><PackageOpen aria-hidden="true" className="size-12 text-zinc-300" /><h2 className="mt-5 text-2xl font-semibold">{ru ? "Корзина пуста" : "Coșul este gol"}</h2><p className="mt-3 text-sm leading-6 text-zinc-600">{ru ? "Добавьте отдельный товар или готовую систему видеонаблюдения." : "Adăugați un produs sau un sistem de supraveghere video configurat."}</p><Link className="mt-6 inline-flex min-h-12 items-center justify-center bg-emerald-700 px-5 text-sm font-semibold text-white" href={`/catalog?lang=${locale}`}>{ru ? "Перейти в каталог" : "Deschide catalogul"}</Link></section>;
+  return <section className="mx-auto grid max-w-lg justify-items-center py-20 text-center"><PackageOpen aria-hidden="true" className="size-12 text-zinc-300" /><h2 className="mt-5 text-2xl font-semibold">{ru ? "Корзина пуста" : "Coșul este gol"}</h2><p className="mt-3 text-sm leading-6 text-zinc-600">{ru ? "Добавьте отдельный товар или готовую систему видеонаблюдения." : "Adăugați un produs sau un sistem de supraveghere video configurat."}</p><Link className="mt-6 inline-flex min-h-12 items-center justify-center bg-emerald-700 px-5 text-sm font-semibold text-white" href={publicRetailFullCatalogHref(locale)}>{ru ? "Перейти в каталог" : "Deschide catalogul"}</Link></section>;
 }
 
 function SummaryRow({ label, value, currency, locale }: { label: string; value: number | null; currency: string | null; locale: PublicRetailLocale }) {

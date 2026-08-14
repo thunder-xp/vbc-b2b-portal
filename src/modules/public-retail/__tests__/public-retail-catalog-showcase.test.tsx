@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { PublicRetailShowcase } from "../components/PublicRetailShowcase";
+import { publicRetailFullCatalogHref } from "../presentation";
 import { parsePublicRetailShowcase } from "../validation";
 import type { PublicRetailProductSummaryDto } from "../types";
 
@@ -68,5 +69,7 @@ describe("Public Retail catalog showcase", () => {
     expect(page).toContain("if (!hasListingIntent(params))");
     expect(page).toContain("key.startsWith(\"facet_\")");
     expect(page).toContain("view === \"hot\" ? \"hot\"");
+    expect(publicRetailFullCatalogHref("ru")).toBe("/catalog?lang=ru&view=all");
+    expect(publicRetailFullCatalogHref("ro")).toBe("/catalog?lang=ro&view=all");
   });
 });

@@ -88,7 +88,9 @@ describe("governed anonymous Retail Cart migration", () => {
     expect(cartPage).toContain("sm:grid-cols-[80px_minmax(0,1fr)_auto]");
     expect(addButton).toContain("PUBLIC_RETAIL_CART_UPDATED_EVENT");
     expect(addButton).not.toContain("router.refresh");
-    expect(retailShell).toContain('hidden font-medium text-zinc-500 sm:inline');
+    expect(retailShell).toContain('<span className="hidden sm:inline">SYSTEMS</span>');
+    expect(retailShell).toContain('md:block">DISTRIBUTION</span>');
+    expect(retailShell).toContain('<PublicRetailCartBadge locale={locale} totalQuantity={cartQuantity} />');
     expect(cartBadge).toContain('quantity > 99 ? "99+" : quantity');
   });
 });
