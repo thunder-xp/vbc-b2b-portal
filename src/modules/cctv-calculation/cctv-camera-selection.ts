@@ -6,7 +6,8 @@ export type CctvCameraPriority = "high" | "normal" | "low";
 
 export type CctvCameraCandidate = {
   candidateId: string; objectType: CctvObjectType; placement: CctvCameraPlacement; productId: string;
-  manualPriority: CctvCameraPriority; enabled: boolean; resolutionMp: number; networkCamera: boolean;
+  manualPriority: CctvCameraPriority; enabled: boolean; eligibleForRecommended: boolean; eligibleForEconomy: boolean;
+  resolutionMp: number; networkCamera: boolean;
   poeSupported: boolean | null; colorNight: boolean | null; anpr: boolean | null; videoAnalytics: boolean | null;
   technicalVerified: boolean; availableStock: number; recentSalesQty: number; lastSaleAt: string | null;
   signalUpdatedAt: string | null;
@@ -54,10 +55,12 @@ export function selectCctvCameraCandidates(
   input: Pick<CctvTechnicalInput, "objectType" | "colorNight" | "licensePlateRecognition" | "videoAnalytics">,
   requirement: CameraRequirement,
   candidates: readonly CctvCameraCandidate[],
-): { policyVersion: typeof CCTV_CAMERA_SELECTION_POLICY_VERSION; eligible: CctvCameraRanking[]; recommended: CctvCameraRanking | null } {
+): { policyVersion: typeof CCTV_CAMERA_SELECTION_POLICY_VERSION; eligible: CctvCameraRanking[];
+  recommendedEligible: CctvCameraRanking[]; economyEligible: CctvCameraRanking[]; recommended: CctvCameraRanking | null } {
   const placement = requirement.kind === "indoor_camera" ? "indoor" : requirement.kind === "outdoor_camera" ? "outdoor" : null;
   const requiredResolutionMp = requirement.cameraResolutionMp;
-  if (!placement || requiredResolutionMp == null) return { policyVersion: CCTV_CAMERA_SELECTION_POLICY_VERSION, eligible: [], recommended: null };
+  if (!placement || requiredResolutionMp == null) return { policyVersion: CCTV_CAMERA_SELECTION_POLICY_VERSION,
+    eligible: [], recommendedEligible: [], economyEligible: [], recommended: null };
   const eligibleIn = (objectType: CctvObjectType) => candidates.filter((candidate) => candidate.enabled
     && candidate.objectType === objectType && candidate.placement === placement && candidate.technicalVerified && candidate.networkCamera
     && candidate.resolutionMp >= requiredResolutionMp && candidate.availableStock > 0
@@ -69,7 +72,10 @@ export function selectCctvCameraCandidates(
       || left.productId.localeCompare(right.productId));
   const exact = eligibleIn(input.objectType);
   const eligible = exact.length ? exact : eligibleIn("other");
-  return { policyVersion: CCTV_CAMERA_SELECTION_POLICY_VERSION, eligible, recommended: eligible[0] ?? null };
+  const recommendedEligible = eligible.filter((candidate) => candidate.eligibleForRecommended);
+  const economyEligible = eligible.filter((candidate) => candidate.eligibleForEconomy);
+  return { policyVersion: CCTV_CAMERA_SELECTION_POLICY_VERSION, eligible, recommendedEligible, economyEligible,
+    recommended: recommendedEligible[0] ?? null };
 }
 
 export function selectEconomyAlternative<T extends CctvCameraRanking>(

@@ -43,9 +43,11 @@ export async function searchCctvCameraCandidatesAction(input: {
 }
 
 export async function upsertCctvCameraPoolAction(input: { objectType: string; placement: CctvCameraPlacement;
-  productId: string; manualPriority: CctvCameraPriority; enabled: boolean; notes: string; expectedVersion: number | null }) {
+  productId: string; manualPriority: CctvCameraPriority; enabled: boolean; eligibleForRecommended: boolean;
+  eligibleForEconomy: boolean; notes: string; expectedVersion: number | null }) {
   if (!CCTV_OBJECT_TYPES.includes(input.objectType as never) || !["indoor","outdoor"].includes(input.placement)
     || !["high","normal","low"].includes(input.manualPriority) || !UUID.test(input.productId)
+    || typeof input.eligibleForRecommended !== "boolean" || typeof input.eligibleForEconomy !== "boolean"
     || input.notes.length > 1000 || (input.expectedVersion !== null && (!Number.isInteger(input.expectedVersion) || input.expectedVersion < 1))) {
     return invalidInput("Настройка пула некорректна.");
   }

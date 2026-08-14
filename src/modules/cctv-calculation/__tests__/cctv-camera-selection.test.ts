@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { selectCctvCameraCandidates, selectEconomyAlternative, type CctvCameraCandidate } from "../cctv-camera-selection";
 
 const base: CctvCameraCandidate = { candidateId:"1",objectType:"warehouse",placement:"outdoor",productId:"b",
-  manualPriority:"normal",enabled:true,resolutionMp:4,networkCamera:true,poeSupported:true,colorNight:true,anpr:false,
+  manualPriority:"normal",enabled:true,eligibleForRecommended:true,eligibleForEconomy:true,resolutionMp:4,networkCamera:true,poeSupported:true,colorNight:true,anpr:false,
   videoAnalytics:true,technicalVerified:true,availableStock:50,recentSalesQty:9,lastSaleAt:null,signalUpdatedAt:null };
 const input={objectType:"warehouse" as const,colorNight:false,licensePlateRecognition:false,videoAnalytics:false};
 const requirement={kind:"outdoor_camera" as const,cameraResolutionMp:4 as const};
@@ -31,5 +31,16 @@ describe("CCTV camera selection policy",()=>{
   it("selects the cheapest alternative from the same eligible ranking",()=>{
     const ranked=selectCctvCameraCandidates(input,requirement,[base,{...base,productId:"a"},{...base,productId:"c"}]).eligible;
     expect(selectEconomyAlternative(ranked,new Map([["a",80],["b",100],["c",90]]),"b")?.productId).toBe("a");
+  });
+  it("keeps Recommended and Economy eligibility independent",()=>{
+    const recommendedOnly={...base,productId:"recommended",eligibleForEconomy:false};
+    const economyOnly={...base,productId:"economy",eligibleForRecommended:false};
+    const selection=selectCctvCameraCandidates(input,requirement,[recommendedOnly,economyOnly]);
+    expect(selection.recommended?.productId).toBe("recommended");
+    expect(selection.economyEligible.map((item)=>item.productId)).toEqual(["economy"]);
+  });
+  it("never chooses a technically incompatible Economy candidate",()=>{
+    const ranked=selectCctvCameraCandidates(input,requirement,[base,{...base,productId:"cheap",resolutionMp:2}]);
+    expect(selectEconomyAlternative(ranked.economyEligible,new Map([["b",100],["cheap",1]]),null)?.productId).toBe("b");
   });
 });

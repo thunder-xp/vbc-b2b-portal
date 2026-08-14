@@ -23,6 +23,8 @@ export class SupabaseCctvCameraCandidateRepository {
       candidateId: String(row.id), objectType: String(row.object_type) as CctvObjectType,
       placement: row.placement_type as CctvCameraPlacement, productId: String(row.product_id),
       manualPriority: row.manual_priority as CctvCameraPriority, enabled: row.enabled === true,
+      eligibleForRecommended: row.eligible_for_recommended === true,
+      eligibleForEconomy: row.eligible_for_economy === true,
       resolutionMp: Number(row.resolution_mp), networkCamera: row.network_camera === true,
       poeSupported: booleanOrNull(row.poe_supported), colorNight: booleanOrNull(row.color_night),
       anpr: booleanOrNull(row.anpr), videoAnalytics: booleanOrNull(row.video_analytics),
@@ -56,10 +58,13 @@ export class SupabaseCctvCameraCandidateRepository {
   }
 
   async upsertAdmin(input: { objectType: CctvObjectType; placement: CctvCameraPlacement; productId: string;
-    manualPriority: CctvCameraPriority; enabled: boolean; notes: string; expectedVersion: number | null }) {
+    manualPriority: CctvCameraPriority; enabled: boolean; eligibleForRecommended: boolean;
+    eligibleForEconomy: boolean; notes: string; expectedVersion: number | null }) {
     const { data, error } = await (await createClient()).rpc("upsert_cctv_camera_candidate", {
       target_object_type: input.objectType, target_placement_type: input.placement, target_product_id: input.productId,
       target_manual_priority: input.manualPriority, target_enabled: input.enabled, target_notes: input.notes,
+      target_eligible_for_recommended: input.eligibleForRecommended,
+      target_eligible_for_economy: input.eligibleForEconomy,
       expected_version: input.expectedVersion,
     });
     if (error || !data?.[0]) throw new Error(error?.code === "PT409" ? "CCTV_CAMERA_POOL_CONFLICT" : "CCTV camera candidate could not be saved.");
@@ -85,7 +90,9 @@ function parseCandidate(value: unknown): CctvCameraCandidateRecord {
   return {
     candidateId: String(row.candidateId), objectType: String(row.objectType) as CctvObjectType,
     placement, productId: String(row.productId), manualPriority: priority as CctvCameraPriority,
-    enabled: row.enabled === true, resolutionMp: Number(row.resolutionMp), networkCamera: row.networkCamera === true,
+    enabled: row.enabled === true, eligibleForRecommended: row.eligibleForRecommended === true,
+    eligibleForEconomy: row.eligibleForEconomy === true,
+    resolutionMp: Number(row.resolutionMp), networkCamera: row.networkCamera === true,
     poeSupported: booleanOrNull(row.poeSupported), colorNight: booleanOrNull(row.colorNight),
     anpr: booleanOrNull(row.anpr), videoAnalytics: booleanOrNull(row.videoAnalytics),
     technicalVerified: row.technicalVerified === true, availableStock: Number(row.availableStock ?? 0),

@@ -31,6 +31,8 @@ describe("CCTV camera pool actions", () => {
       productId: "11111111-1111-1111-1111-111111111111",
       manualPriority: "high",
       enabled: true,
+      eligibleForRecommended: true,
+      eligibleForEconomy: false,
       notes: "",
       expectedVersion: 1,
     })).resolves.toEqual({

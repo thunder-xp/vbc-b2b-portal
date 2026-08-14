@@ -35,6 +35,7 @@ export type PublicCctvCalculatorInput = {
   cableLayingRequested: boolean;
   commissioningRequested: boolean;
   remoteViewingRequested: boolean;
+  aiScenarioProgrammingRequested: boolean;
   backupPower: boolean;
 };
 export type PublicCctvResultLine = {
@@ -42,7 +43,7 @@ export type PublicCctvResultLine = {
   kind: "product" | "work";
   group: "cameras" | "recorder" | "archive" | "network" | "materials" | "works";
   label: string;
-  requirementKind: CctvTechnicalRequirement["kind"];
+  requirementKind: CctvTechnicalRequirement["kind"] | "ai_scenario_programming";
   unitCode: "piece" | "meter" | "service";
   quantity: number;
   unitLabel: string;
@@ -116,11 +117,14 @@ export class PublicCctvCalculatorService {
 
     const requirements = technical.requirements.filter((requirement) => includeRequirement(requirement, normalized));
     const productRequirements = requirements.filter((requirement) => PRODUCT_KINDS.has(requirement.kind));
-    const workRequirements = requirements.flatMap((requirement) => PRODUCT_KINDS.has(requirement.kind) ? [] : [{
+    const workRequirements: Array<{ serviceType: InstallationServiceType; quantity: number; unitCode: InstallationUnitCode }> = requirements.flatMap((requirement) => PRODUCT_KINDS.has(requirement.kind) ? [] : [{
       serviceType: requirement.kind as InstallationServiceType,
       quantity: requirement.quantity,
       unitCode: installationUnitCode(requirement),
     }]);
+    if (normalized.aiScenarioProgrammingRequested) workRequirements.push({
+      serviceType: "ai_scenario_programming", quantity: 1, unitCode: "service",
+    });
     const profileKeys = [...new Set(productRequirements.flatMap((requirement) => requirement.profileKey ? [requirement.profileKey] : []))];
     const pricingStartedAt = performance.now();
     const placements = [normalized.indoorCameraCount > 0 && "indoor", normalized.outdoorCameraCount > 0 && "outdoor"]
@@ -158,12 +162,13 @@ export class PublicCctvCalculatorService {
         const selection = selectCctvCameraCandidates(technical.normalizedInput, requirement, cameraPool);
         const publicById = new Map(cameraPool.flatMap((item) => item.publicProduct
           ? [[item.productId, item.publicProduct as PublicRetailProductSummaryDto] as const] : []));
-        const publicEligible = selection.eligible.filter((candidate) => publicById.has(candidate.productId));
-        const recommended = publicEligible[0] ?? null;
+        const recommendedEligible = selection.recommendedEligible.filter((candidate) => publicById.has(candidate.productId));
+        const economyEligible = selection.economyEligible.filter((candidate) => publicById.has(candidate.productId));
+        const recommended = recommendedEligible[0] ?? null;
         product = recommended ? publicById.get(recommended.productId) ?? null : null;
         if (recommended && product) recommendedIds.push(recommended.productId);
         const prices = new Map([...publicById].map(([id, item]) => [id, item.price.amount]));
-        const economy = selectEconomyAlternative(publicEligible, prices, recommended?.productId ?? null);
+        const economy = selectEconomyAlternative(economyEligible, prices, recommended?.productId ?? null);
         const alternative = economy ? publicById.get(economy.productId) : null;
         if (economy && alternative) { economyByRequirement.set(requirement.id, alternative); economyIds.push(economy.productId); }
       }
@@ -177,6 +182,16 @@ export class PublicCctvCalculatorService {
         availability: product?.availability ?? null,
       };
     });
+    if (normalized.aiScenarioProgrammingRequested) {
+      const priced = pricedWorkByType.get("ai_scenario_programming");
+      if (!priced) unresolved.push(normalized.locale === "ro" ? "Tariful pentru scenariile AI trebuie confirmat" : "Тариф на AI-сценарии требует подтверждения");
+      lines.push({ key: "work-ai-scenario", kind: "work", group: "works",
+        label: normalized.locale === "ro" ? "Programarea scenariilor AI" : "Программирование AI-сценариев",
+        requirementKind: "ai_scenario_programming", unitCode: "service", quantity: 1,
+        unitLabel: normalized.locale === "ro" ? "serviciu" : "услуга", product: null,
+        unitPrice: priced?.unitPrice ?? null, amount: priced?.amount ?? null,
+        currency: installationPricing.currency, availability: null });
+    }
 
     const currencies = [...new Set(lines.flatMap((line) => line.currency ? [line.currency] : []))];
     const currency = currencies.length === 1 ? currencies[0] : null;
@@ -249,7 +264,7 @@ export function normalizePublicCctvInput(input: PublicCctvCalculatorInput): Publ
     || input.indoorCameraCount + input.outdoorCameraCount < 1 || input.indoorCameraCount + input.outdoorCameraCount > 32
     || !Number.isInteger(input.cableLength) || input.cableLength < 0 || input.cableLength > 20000
     || ![input.cameraInstallationRequested, input.cableLayingRequested, input.commissioningRequested,
-      input.remoteViewingRequested, input.backupPower].every((value) => typeof value === "boolean")) {
+      input.remoteViewingRequested, input.aiScenarioProgrammingRequested, input.backupPower].every((value) => typeof value === "boolean")) {
     throw new Error("Invalid Public CCTV calculator input.");
   }
   return { ...input };
@@ -272,6 +287,7 @@ export function publicCctvInputFromSearchParams(searchParams: Record<string, str
     cableLayingRequested: scalar("layCable") === "1",
     commissioningRequested: scalar("commissioning") === "1",
     remoteViewingRequested: scalar("remote") === "1",
+    aiScenarioProgrammingRequested: scalar("aiScenario") === "1",
     backupPower: scalar("backup") === "1",
   });
 }

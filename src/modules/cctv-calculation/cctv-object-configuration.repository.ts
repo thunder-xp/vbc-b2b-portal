@@ -3,7 +3,8 @@ import "server-only";
 import { createAdminClient } from "@/src/lib/supabase/admin";
 import { createClient } from "@/src/lib/supabase/server";
 import type { CctvObjectType } from "./cctv-engine";
-import type { CctvObjectConfiguration, CctvResolvedObjectService, CctvServiceCode, CctvServiceRequestType } from "./cctv-object-configuration";
+import type { CctvObjectConfiguration, CctvResolvedObjectService, CctvServiceCode, CctvServiceRequestType,
+  PublicCctvServiceOption } from "./cctv-object-configuration";
 
 export class SupabaseCctvObjectConfigurationRepository {
   async listAdmin(): Promise<CctvObjectConfiguration[]> {
@@ -25,6 +26,17 @@ export class SupabaseCctvObjectConfigurationRepository {
     });
     if (error || !Array.isArray(data)) throw new Error("CCTV object services are unavailable.");
     return data.map(parseResolvedService);
+  }
+
+  async listPublicOptions(): Promise<PublicCctvServiceOption[]> {
+    const { data, error } = await createAdminClient().rpc("list_public_cctv_service_options");
+    if (error || !Array.isArray(data)) throw new Error("Public CCTV service options are unavailable.");
+    return data.map((value) => {
+      const row = value as Record<string, unknown>;
+      return { objectType: String(row.objectType) as CctvObjectType,
+        requestServiceType: String(row.requestServiceType) as CctvServiceRequestType,
+        labelRu: String(row.labelRu), labelRo: String(row.labelRo) };
+    });
   }
 
   async resolveForGenerator(companyId: string, sessionId: string, profileKeys: string[]): Promise<CctvResolvedObjectService[]> {

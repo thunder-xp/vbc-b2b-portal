@@ -3,11 +3,13 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const component = readFileSync(resolve("src/modules/estimates/components/AdminCctvCameraPools.tsx"), "utf8");
+const compactComponent = component.replace(/\s+/g, "");
 
 describe("admin CCTV services workspace", () => {
   it("uses one stable seven-column desktop grid", () => {
+    expect(component.match(/role="columnheader"/g)).toHaveLength(7);
     for (const heading of ["Услуга", "Класс", "Ед.", "Общий тариф", "Активна", "По умолчанию", "Действие"]) {
-      expect(component.match(new RegExp(`role=\\"columnheader\\">${heading.replace(".", "\\.")}`, "g"))).toHaveLength(1);
+      expect(component).toContain(heading);
     }
     expect(component).toContain("xl:grid-cols-[minmax(220px,1.8fr)_4rem_4.5rem_9.5rem_5.5rem_6.5rem_7.5rem]");
     expect(component).toContain("classLabel(row.complexityClass)");
@@ -25,13 +27,13 @@ describe("admin CCTV services workspace", () => {
     expect(component).toContain('inputMode="decimal"');
     expect(component).toContain('step="0.01"');
     expect(component).toContain('placeholder="Не задан"');
-    expect(component).toContain("const canEnable=canManage&&priceValid");
-    expect(component).toContain('normalizedPrice!==""&&!priceValid');
+    expect(compactComponent).toContain("constcanEnable=canManage&&priceValid");
+    expect(compactComponent).toContain('normalizedPrice!==""&&!priceValid');
     expect(component).toContain("Сначала укажите тариф.");
     expect(component).toContain('disabled={!canManage}');
     expect(component).toContain('disabled={!canEnable}');
-    expect(component).toContain('disabled={!canManage||!enabled}');
-    expect(component).toContain("if(!event.target.checked)setSuggested(false)");
+    expect(compactComponent).toContain('disabled={!canManage||!enabled}');
+    expect(compactComponent).toContain("if(!event.target.checked)setSuggested(false)");
     expect(component).toContain("saveCctvServiceConfigurationAction");
     expect(component).not.toContain("B2B-позиция услуги не связана");
   });

@@ -38,8 +38,9 @@ export class CctvObjectServicePricingService {
   }
 }
 
-function isCalculatorService(value: InstallationServiceType): value is "camera_installation" | "cable_laying" | "commissioning" | "remote_configuration" {
-  return value === "camera_installation" || value === "cable_laying" || value === "commissioning" || value === "remote_configuration";
+function isCalculatorService(value: InstallationServiceType): value is "camera_installation" | "cable_laying" | "commissioning" | "remote_configuration" | "ai_scenario_programming" {
+  return value === "camera_installation" || value === "cable_laying" || value === "commissioning"
+    || value === "remote_configuration" || value === "ai_scenario_programming";
 }
 function emptyResult(): InstallationPricingResult {
   return { complete: true, tariffSetId: null, tariffVersion: null, currency: null, vatTreatment: null, lines: [], subtotal: 0, missing: [] };

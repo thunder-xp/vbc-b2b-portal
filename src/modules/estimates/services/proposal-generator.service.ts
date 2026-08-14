@@ -101,7 +101,8 @@ export class ProposalGeneratorService {
               governedResolvedId: selected.productId, resolvedLabel: candidate.name, resolvedSku: candidate.sku,
               description: candidate.name };
           }
-          return line;
+          return { ...line, resolution: "unresolved" as const, resolvedId: null, governedResolvedId: null,
+            resolvedLabel: null, sellingUnitPrice: null, sellingCurrencyCode: null, sellingVatMode: null };
         }
         const mapping = line.profileKey ? mappingByKey.get(line.profileKey) : null;
         const serviceType = serviceTypeForProfile(line.profileKey);

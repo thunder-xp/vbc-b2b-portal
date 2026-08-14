@@ -8,6 +8,7 @@ import { getCctvObjectServicePricingService } from "@/src/modules/retail-marketp
 import { PublicRetailService } from "./services/public-retail.service";
 import type { PublicRetailLocale } from "./types";
 import { SupabaseCctvCameraCandidateRepository } from "../cctv-calculation/cctv-camera-candidate.repository";
+import { SupabaseCctvObjectConfigurationRepository } from "../cctv-calculation/cctv-object-configuration.repository";
 
 const service = new PublicRetailService(new SupabasePublicRetailReadRepository());
 const calculator = new PublicCctvCalculatorService(
@@ -22,5 +23,6 @@ export function getPublicRetailService(): PublicRetailService {
 export function getPublicCctvCalculatorService(): PublicCctvCalculatorService {
   return calculator;
 }
+export const getPublicCctvServiceOptions = cache(() => new SupabaseCctvObjectConfigurationRepository().listPublicOptions());
 export const getPublicRetailProduct = cache((slug: string, locale: PublicRetailLocale) =>
   service.getRetailProduct(slug, locale));

@@ -4,6 +4,7 @@ import { PublicCctvCalculator } from "@/src/modules/public-retail/components/Pub
 import { PublicRetailShell } from "@/src/modules/public-retail/components/PublicRetailShell";
 import { publicRetailLocale } from "@/src/modules/public-retail/presentation";
 import { publicCctvInitialInputFromSearchParams } from "@/src/modules/public-retail/services/public-cctv-calculator.service";
+import { getPublicCctvServiceOptions } from "@/src/modules/public-retail/server";
 
 export async function generateMetadata({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }): Promise<Metadata> {
   const locale = publicRetailLocale((await searchParams).lang);
@@ -21,7 +22,8 @@ export default async function PublicCctvCalculatorPage({ searchParams }: { searc
   const locale = publicRetailLocale(query.lang);
   const initialObject = Array.isArray(query.object) ? query.object[0] : query.object;
   const initialInput = publicCctvInitialInputFromSearchParams(query);
+  const serviceOptions = await getPublicCctvServiceOptions().catch(() => []);
   return <PublicRetailShell languagePath="/calculator/cctv" locale={locale}>
-    <main className="min-h-[calc(100vh-4rem)] bg-zinc-50" lang={locale}><PublicCctvCalculator initialInput={initialInput} initialObject={initialObject} locale={locale} /></main>
+    <main className="min-h-[calc(100vh-4rem)] bg-zinc-50" lang={locale}><PublicCctvCalculator initialInput={initialInput} initialObject={initialObject} locale={locale} serviceOptions={serviceOptions} /></main>
   </PublicRetailShell>;
 }

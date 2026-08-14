@@ -1,7 +1,7 @@
 import type { CctvObjectType } from "./cctv-engine";
 
 export const CCTV_SERVICE_REQUEST_TYPES = [
-  "camera_installation", "cable_laying", "commissioning", "remote_configuration",
+  "camera_installation", "cable_laying", "commissioning", "remote_configuration", "ai_scenario_programming",
 ] as const;
 export type CctvServiceRequestType = (typeof CCTV_SERVICE_REQUEST_TYPES)[number];
 export type CctvServiceFamily = "cable_routing" | "equipment_installation" | "commissioning"
@@ -49,6 +49,13 @@ export type CctvResolvedObjectService = {
   vatTreatment: "included" | "excluded" | "not_specified" | null;
   tariffSetId: string | null;
   tariffVersion: number | null;
+};
+
+export type PublicCctvServiceOption = {
+  objectType: CctvObjectType;
+  requestServiceType: CctvServiceRequestType;
+  labelRu: string;
+  labelRo: string;
 };
 
 export function getCctvConfigurationDiagnostics(input: {

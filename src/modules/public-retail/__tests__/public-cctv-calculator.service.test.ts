@@ -41,6 +41,7 @@ function input(overrides: Partial<PublicCctvCalculatorInput> = {}): PublicCctvCa
     cableLayingRequested: false,
     commissioningRequested: false,
     remoteViewingRequested: false,
+    aiScenarioProgrammingRequested: false,
     backupPower: false,
     ...overrides,
   };
@@ -148,6 +149,16 @@ describe("PublicCctvCalculatorService", () => {
     expect(result.status).toBe("resolved");
   });
 
+  it("prices AI scenario programming through the shared governed tariff", async () => {
+    const fixture = repository();
+    const pricing = { price: vi.fn().mockResolvedValue({ complete: true, tariffSetId: uuid("3"), tariffVersion: 10,
+      currency: "MDL", vatTreatment: "included", lines: [{ serviceType: "ai_scenario_programming", quantity: 1,
+        unitCode: "service", unitPrice: 1000, amount: 1000 }], subtotal: 1000, missing: [] }) };
+    const result = await new PublicCctvCalculatorService(fixture.repository, pricing).calculate(input({ aiScenarioProgrammingRequested: true }));
+    expect(pricing.price).toHaveBeenCalledWith("warehouse", [expect.objectContaining({ serviceType: "ai_scenario_programming" })]);
+    expect(result.lines).toContainEqual(expect.objectContaining({ requirementKind: "ai_scenario_programming", amount: 1000 }));
+  });
+
   it("fails closed when installation is requested without an authoritative tariff", async () => {
     const fixture = repository();
     const result = await new PublicCctvCalculatorService(fixture.repository, { price: vi.fn().mockResolvedValue({ complete: false, tariffSetId: null, tariffVersion: null, currency: null, vatTreatment: null, lines: [], subtotal: null, missing: ["commissioning"] }) }).calculate(input({ commissioningRequested: true }));
@@ -197,7 +208,8 @@ describe("PublicCctvCalculatorService", () => {
 function uuid(digit: string) { return `${digit.repeat(8)}-${digit.repeat(4)}-${digit.repeat(4)}-${digit.repeat(4)}-${digit.repeat(12)}`; }
 function candidate(productId: string, publicProduct: PublicRetailProductSummaryDto, overrides: Record<string, unknown>) {
   return { candidateId: uuid("9"), objectType: "warehouse", placement: "indoor", productId,
-    manualPriority: "normal", enabled: true, resolutionMp: 6, networkCamera: true, poeSupported: null,
+    manualPriority: "normal", enabled: true, eligibleForRecommended: true, eligibleForEconomy: true,
+    resolutionMp: 6, networkCamera: true, poeSupported: null,
     colorNight: null, anpr: null, videoAnalytics: null, technicalVerified: true, availableStock: 1,
     recentSalesQty: 0, lastSaleAt: null, signalUpdatedAt: null, sku: publicProduct.sku, name: publicProduct.name,
     imageUrl: null, publicProduct, ...overrides };

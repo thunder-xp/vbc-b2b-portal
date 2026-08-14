@@ -53,7 +53,7 @@ export default async function PublicCctvResultPage({ searchParams }: { searchPar
   if (economySelected) variantQuery.delete("variant"); else variantQuery.set("variant","economy");
   const installationRequested = Boolean(input && (
     input.cameraInstallationRequested || input.cableLayingRequested
-    || input.commissioningRequested || input.remoteViewingRequested
+    || input.commissioningRequested || input.remoteViewingRequested || input.aiScenarioProgrammingRequested
   ));
   const cartItems = result?.status === "resolved"
     ? displayedLines.flatMap((line) => line.kind === "product" && line.product ? [{
@@ -68,6 +68,7 @@ export default async function PublicCctvResultPage({ searchParams }: { searchPar
     cableLaying: input.cableLayingRequested,
     commissioning: input.commissioningRequested,
     remoteViewing: input.remoteViewingRequested,
+    aiScenarioProgramming: input.aiScenarioProgrammingRequested,
   } : null;
   const workScope = displayedLines.flatMap((line) => line.kind === "work" ? [{
     kind: line.requirementKind,

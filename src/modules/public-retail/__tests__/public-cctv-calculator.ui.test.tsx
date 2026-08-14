@@ -14,6 +14,18 @@ describe("PublicCctvCalculator", () => {
     expect(container.querySelector('form[action="/calculator/cctv/result"]')).not.toBeNull();
   });
 
+  it("calculates explicitly from step three without a review step", () => {
+    const serviceOptions = [{ objectType: "house" as const, requestServiceType: "ai_scenario_programming" as const,
+      labelRu: "Программирование AI-сценариев", labelRo: "Programarea scenariilor AI" }];
+    render(<PublicCctvCalculator locale="ru" serviceOptions={serviceOptions} />);
+    fireEvent.click(screen.getByRole("button", { name: "Продолжить" }));
+    fireEvent.click(screen.getByRole("button", { name: "Продолжить" }));
+    expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuemax", "3");
+    expect(screen.getByText("Программирование AI-сценариев")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Показать систему" })).toHaveAttribute("type", "submit");
+    expect(screen.queryByText("Проверьте параметры")).not.toBeInTheDocument();
+  });
+
   it("provides localized controls and preserves minimum touch targets", () => {
     render(<PublicCctvCalculator locale="ro" />);
     fireEvent.click(screen.getByRole("button", { name: "Continuă" }));
@@ -27,7 +39,7 @@ describe("PublicCctvCalculator", () => {
       locale: "ru", objectType: "warehouse", indoorCameraCount: 8, outdoorCameraCount: 4,
       quality: "maximum", archiveDays: 30, cableLength: 300,
       cameraInstallationRequested: true, cableLayingRequested: false,
-      commissioningRequested: true, remoteViewingRequested: true, backupPower: true,
+      commissioningRequested: true, remoteViewingRequested: true, aiScenarioProgrammingRequested: false, backupPower: true,
     }} />);
 
     expect(screen.getByRole("button", { name: "Склад" })).toHaveAttribute("aria-pressed", "true");

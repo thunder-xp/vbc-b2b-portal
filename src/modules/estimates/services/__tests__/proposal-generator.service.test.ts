@@ -42,7 +42,8 @@ describe("ProposalGeneratorService", () => {
     const recordSession = vi.fn().mockResolvedValue(uuid("8"));
     const cameraId = uuid("2");
     const cameraCandidates = { resolve: vi.fn().mockResolvedValue([{ candidateId: uuid("9"), objectType: "warehouse",
-      placement: "indoor", productId: cameraId, manualPriority: "normal", enabled: true, resolutionMp: 6,
+      placement: "indoor", productId: cameraId, manualPriority: "normal", enabled: true,
+      eligibleForRecommended: true, eligibleForEconomy: true, resolutionMp: 6,
       networkCamera: true, poeSupported: null, colorNight: null, anpr: null, videoAnalytics: null,
       technicalVerified: true, availableStock: 40, recentSalesQty: 0, lastSaleAt: null, signalUpdatedAt: null,
       sku: "CAM-6", name: "Camera 6 MP", imageUrl: null, publicProduct: null }]) };
