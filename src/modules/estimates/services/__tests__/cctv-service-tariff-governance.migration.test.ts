@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const sql = readFileSync(resolve("supabase/migrations/20260814055148_govern_cctv_service_tariff_row_edits.sql"), "utf8");
+const timestampRepairSql = readFileSync(resolve("supabase/migrations/20260814063137_align_cctv_tariff_publication_timestamp.sql"), "utf8");
 const objectConfigurationSql = readFileSync(resolve("supabase/migrations/20260813202551_cctv_object_service_bindings.sql"), "utf8");
 const publicTariffSql = readFileSync(resolve("supabase/migrations/20260813055501_retail_installation_marketplace_foundation.sql"), "utf8");
 
@@ -42,5 +43,11 @@ describe("CCTV service tariff row governance migration", () => {
     expect(objectConfigurationSql).toMatch(/resolve_generator_cctv_object_services[\s\S]*installation_tariffs/);
     expect(publicTariffSql).toMatch(/get_current_public_installation_tariffs[\s\S]*installation_tariffs/);
     expect(sql).toContain("return public.get_all_cctv_object_configurations()");
+  });
+
+  it("returns the newly published version within the saving transaction", () => {
+    expect(timestampRepairSql).toContain("published_at_value timestamptz := now()");
+    expect(timestampRepairSql).not.toContain("clock_timestamp()");
+    expect(timestampRepairSql).toContain("return public.get_all_cctv_object_configurations()");
   });
 });
