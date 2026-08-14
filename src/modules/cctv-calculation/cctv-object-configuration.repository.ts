@@ -46,6 +46,25 @@ export class SupabaseCctvObjectConfigurationRepository {
     if (error || !data?.[0]) throw new Error(error?.code === "PT409" ? "CCTV_SERVICE_BINDING_CONFLICT" : "CCTV service binding could not be saved.");
     return { bindingId: String(data[0].binding_id), version: Number(data[0].resulting_version) };
   }
+
+  async saveAdminConfiguration(input: { objectType: CctvObjectType; serviceCode: CctvServiceCode;
+    unitPrice: number | null; enabled: boolean; calculatorDefault: boolean; displayOrder: number; notes: string;
+    expectedBindingVersion: number; expectedTariffSetId: string; expectedTariffVersion: number; reason: string;
+  }): Promise<CctvObjectConfiguration[]> {
+    const { data, error } = await (await createClient()).rpc("admin_save_cctv_service_configuration", {
+      target_object_type: input.objectType, target_service_code: input.serviceCode, target_unit_price: input.unitPrice,
+      target_enabled: input.enabled, target_calculator_default: input.calculatorDefault,
+      target_display_order: input.displayOrder, target_notes: input.notes,
+      expected_binding_version: input.expectedBindingVersion, expected_tariff_set_id: input.expectedTariffSetId,
+      expected_tariff_version: input.expectedTariffVersion, target_reason: input.reason,
+    });
+    if (error || !Array.isArray(data)) {
+      if (error?.code === "PT409") throw new Error(error.message.includes("CCTV_TARIFF_CONFLICT")
+        ? "CCTV_TARIFF_CONFLICT" : "CCTV_SERVICE_BINDING_CONFLICT");
+      throw new Error("CCTV service configuration could not be saved.");
+    }
+    return data.map((item) => parseConfiguration(item as Record<string, unknown>));
+  }
 }
 
 function parseConfiguration(value: Record<string, unknown>): CctvObjectConfiguration {

@@ -7,6 +7,7 @@ const calculator = readFileSync(resolve("src/modules/estimates/components/Propos
 const review = readFileSync(resolve("src/modules/estimates/components/ProposalGeneratorReview.tsx"), "utf8");
 const navigation = readFileSync(resolve("src/modules/partner-cabinet/services/workspace-capability.service.ts"), "utf8");
 const adminProfiles = readFileSync(resolve("src/modules/estimates/components/AdminProposalGeneratorProfiles.tsx"), "utf8");
+const adminCctvServices = readFileSync(resolve("src/modules/estimates/components/AdminCctvCameraPools.tsx"), "utf8");
 
 describe("proposal generator UI contract", () => {
   it("keeps one canonical navigation entry", () => {
@@ -77,13 +78,14 @@ describe("proposal generator UI contract", () => {
     expect(review).toContain("3rem_minmax(11rem,1fr)_5.5rem_8.5rem_auto");
     expect(review).toContain('aria-label="Раздел"');
   });
-  it("shows known-position totals, unpriced-work disclosure, and governed service price controls", () => {
+  it("shows known-position totals, unpriced-work disclosure, and canonical shared service tariffs", () => {
     expect(workspace).toContain("Ориентировочный расчёт");
     expect(workspace).toContain("Известная стоимость");
     expect(workspace).toContain("требуется указать цену");
-    expect(adminProfiles).toContain("Цена услуги для быстрого расчёта");
-    expect(adminProfiles).toContain("НДС включён");
-    expect(adminProfiles).toContain("updateProposalGeneratorServicePriceAction");
+    expect(adminProfiles).toContain("Цена берётся из опубликованного общего тарифа монтажных услуг");
+    expect(adminProfiles).not.toContain("updateProposalGeneratorServicePriceAction");
+    expect(adminCctvServices).toContain("Общий тариф");
+    expect(adminCctvServices).toContain("saveCctvServiceConfigurationAction");
   });
   it("prefers the governed MDL calculator currency when it is available", () => {
     expect(workspace).toContain('currencies.includes("MDL") ? "MDL" : currencies[0] ?? "USD"');

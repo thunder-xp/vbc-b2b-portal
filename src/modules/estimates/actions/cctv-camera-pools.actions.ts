@@ -12,7 +12,7 @@ import type { CctvServiceCode } from "../../cctv-calculation";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function cctvConfigurationFailure(error: unknown) {
-  if (error instanceof Error && ["CCTV_CAMERA_POOL_CONFLICT", "CCTV_SERVICE_BINDING_CONFLICT"].includes(error.message)) {
+  if (error instanceof Error && ["CCTV_CAMERA_POOL_CONFLICT", "CCTV_SERVICE_BINDING_CONFLICT", "CCTV_TARIFF_CONFLICT"].includes(error.message)) {
     return failureFromError(new DomainConflictError(error.message, "Настройка изменилась. Обновите страницу и повторите действие."));
   }
   return failureFromError(error);
@@ -86,5 +86,28 @@ export async function upsertCctvObjectServiceBindingAction(input: { objectType: 
     if (!saved) throw new Error("Saved CCTV service binding is unavailable.");
     revalidatePath("/admin/commercial/proposal-generator");
     return success("Настройка услуги сохранена.", saved);
+  } catch (error) { return cctvConfigurationFailure(error); }
+}
+
+export async function saveCctvServiceConfigurationAction(input: { objectType: string; serviceCode: CctvServiceCode;
+  unitPrice: string; enabled: boolean; calculatorDefault: boolean; displayOrder: number; notes: string;
+  expectedBindingVersion: number; expectedTariffSetId: string; expectedTariffVersion: number }) {
+  const price = input.unitPrice.trim();
+  if (!CCTV_OBJECT_TYPES.includes(input.objectType as never) || !UUID.test(input.expectedTariffSetId)
+    || !Number.isInteger(input.displayOrder) || input.displayOrder < 1 || input.displayOrder > 100
+    || input.notes.length > 1000 || !Number.isInteger(input.expectedBindingVersion) || input.expectedBindingVersion < 1
+    || !Number.isInteger(input.expectedTariffVersion) || input.expectedTariffVersion < 1
+    || (price !== "" && !/^\d{1,12}(?:\.\d{1,2})?$/.test(price))
+    || (price !== "" && Number(price) <= 0) || (input.calculatorDefault && !input.enabled)) {
+    return invalidInput("Проверьте тариф и состояние услуги.");
+  }
+  try {
+    await requireAdminPermission("admin.retail_marketplace.manage");
+    await requireAdminPermission("admin.integrations.manage");
+    const configurations = await new SupabaseCctvObjectConfigurationRepository().saveAdminConfiguration({
+      ...input, objectType: input.objectType as typeof CCTV_OBJECT_TYPES[number], unitPrice: price === "" ? null : Number(price),
+      reason: "Admin CCTV service row update",
+    });
+    return success("Настройка и общий тариф сохранены.", configurations);
   } catch (error) { return cctvConfigurationFailure(error); }
 }

@@ -12,17 +12,18 @@ import {
 import { actionClassName, ActionFeedback } from "../../platform-ui";
 import {
   removeCctvCameraPoolAction, searchCctvCameraCandidatesAction, upsertCctvCameraPoolAction,
-  upsertCctvObjectServiceBindingAction,
+  saveCctvServiceConfigurationAction,
 } from "../actions";
 
 const objectLabels: Record<string,string> = { apartment:"Квартира",house:"Частный дом",office:"Офис",retail:"Магазин / Retail",warehouse:"Склад",industrial:"Производство",horeca:"HoReCa",other:"Общий пул" };
 const priorityLabels = { high:"Высокий",normal:"Обычный",low:"Низкий" } as const;
-const familyLabels: Record<string,string> = { cable_routing:"Прокладка кабеля",equipment_installation:"Монтаж оборудования",commissioning:"Пусконаладка",remote_viewing_configuration:"Удалённый просмотр",ai_scenario_programming:"AI-сценарии" };
+const familyLabels: Record<string,string> = { cable_routing:"Прокладка кабеля",equipment_installation:"Монтаж оборудования",commissioning:"Пусконаладка",remote_viewing_configuration:"Удалённый просмотр",ai_scenario_programming:"Программирование AI-сценариев" };
 type WorkspaceTab = "cameras" | "services" | "summary";
 
-export function AdminCctvCameraPools({ initialRows, initialConfigurations }: {
+export function AdminCctvCameraPools({ initialRows, initialConfigurations, canManageServices }: {
   initialRows: CctvCameraPoolAdminRow[];
   initialConfigurations: CctvObjectConfiguration[];
+  canManageServices: boolean;
 }) {
   const [rows,setRows]=useState(initialRows);
   const [configurations,setConfigurations]=useState(initialConfigurations);
@@ -42,7 +43,7 @@ export function AdminCctvCameraPools({ initialRows, initialConfigurations }: {
   const saveCamera=(saved:CctvCameraPoolAdminRow)=>setRows((current)=>current.some((row)=>row.candidateId===saved.candidateId)
     ?current.map((row)=>row.candidateId===saved.candidateId?saved:row):[...current,saved]);
   const removeCamera=(candidateId:string)=>setRows((current)=>current.filter((row)=>row.candidateId!==candidateId));
-  const saveService=(saved:CctvObjectServiceBinding)=>setConfigurations((current)=>current.map((item)=>item.objectType!==objectType?item:{...item,services:item.services.map((service)=>service.serviceCode===saved.serviceCode?saved:service)}));
+  const saveServices=(saved:CctvObjectConfiguration[])=>setConfigurations(saved);
   return <section className="overflow-hidden rounded-md border border-zinc-200 bg-white">
     <header className="border-b border-zinc-200 px-4 py-4"><h2 className="font-semibold">Конфигурация CCTV по типу объекта</h2><p className="mt-1 text-sm text-zinc-600">Камеры, применимые услуги и диагностика в одном рабочем пространстве. Цены услуг берутся из общего опубликованного тарифа.</p></header>
     <div className="grid min-w-0 lg:grid-cols-[13rem_minmax(0,1fr)]">
@@ -53,7 +54,7 @@ export function AdminCctvCameraPools({ initialRows, initialConfigurations }: {
         <div aria-label="Раздел настройки" className="grid grid-cols-3 border-b border-zinc-200" role="tablist">{(["cameras","services","summary"] as WorkspaceTab[]).map((value)=><button aria-selected={tab===value} className={`min-h-11 border-b-2 px-3 text-sm font-medium ${tab===value?"border-emerald-700 text-emerald-800":"border-transparent text-zinc-600"}`} key={value} onClick={()=>setTab(value)} role="tab" type="button">{value==="cameras"?"Камеры":value==="services"?"Услуги":"Сводка"}</button>)}</div>
         <div className="p-4">
           {tab==="cameras"&&<CamerasWorkspace objectType={objectType} placement={placement} poolCounts={poolCounts} preview={preview} rows={rows} setPlacement={setPlacement} onRemoved={removeCamera} onSaved={saveCamera}/>}
-          {tab==="services"&&configuration&&<ServicesWorkspace configuration={configuration} onSaved={saveService}/>}
+          {tab==="services"&&configuration&&<ServicesWorkspace canManage={canManageServices} configuration={configuration} onSaved={saveServices}/>}
           {tab==="summary"&&configuration&&<SummaryWorkspace configuration={configuration} diagnostics={diagnostics} objectType={objectType} poolCounts={poolCounts}/>}
         </div>
       </div>
@@ -81,16 +82,41 @@ function CameraPreview({selection}:{selection:ReturnType<typeof cameraPreview>["
 }
 function PreviewValue({label,row}:{label:string;row:(CctvCameraPoolAdminRow&{score:number})|null}) { return <div><p className="text-xs font-medium uppercase text-zinc-500">{label}</p><p className="mt-1 font-semibold">{row?`${row.sku} · ${row.name}`:"Нет доступного кандидата"}</p>{row&&<p className="mt-1 text-xs text-zinc-600">{row.resolutionMp} Мп · остаток {row.availableStock} · продажи 90 дней {row.recentSalesQty}</p>}</div>; }
 
-function ServicesWorkspace({configuration,onSaved}:{configuration:CctvObjectConfiguration;onSaved:(row:CctvObjectServiceBinding)=>void}) {
+function ServicesWorkspace({configuration,canManage,onSaved}:{configuration:CctvObjectConfiguration;canManage:boolean;onSaved:(rows:CctvObjectConfiguration[])=>void}) {
   const groups=[...new Set(configuration.services.map((service)=>service.family))];
-  return <div className="space-y-5"><header className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between"><div><h3 className="font-semibold">Услуги · {objectLabels[configuration.objectType]}</h3><p className="mt-1 text-sm text-zinc-600">Привязка определяет доступность для объекта. Цена не копируется и поступает из опубликованного общего тарифа.</p></div><p className="text-sm text-zinc-600">Тариф: {configuration.tariffSet?`v${configuration.tariffSet.version} · ${configuration.tariffSet.currency}`:"не опубликован"}</p></header>
-    {groups.map((family)=><section key={family}><h4 className="mb-2 text-sm font-semibold">{familyLabels[family]}</h4><div className="overflow-x-auto"><table className="min-w-[780px] w-full text-left text-sm"><thead className="bg-zinc-50 text-xs text-zinc-600"><tr><th className="p-2">Услуга</th><th className="p-2">Единица</th><th className="p-2">Общий тариф</th><th className="p-2">Активна</th><th className="p-2">По умолчанию</th><th className="p-2 text-right">Действие</th></tr></thead><tbody>{configuration.services.filter((service)=>service.family===family).map((service)=><ServiceEditor key={service.bindingId} objectType={configuration.objectType} row={service} onSaved={onSaved}/>)}</tbody></table></div></section>)}
+  return <div className="space-y-4"><header className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between"><div><h3 className="font-semibold">Услуги · {objectLabels[configuration.objectType]}</h3><p className="mt-1 text-sm text-zinc-600">Тариф общий для B2B и B2C. Для типа объекта настраиваются только доступность и рекомендация.</p></div><p className="text-sm text-zinc-600">Тариф: {configuration.tariffSet?`v${configuration.tariffSet.version} · ${configuration.tariffSet.currency}`:"не опубликован"}</p></header>
+    <div className="overflow-hidden rounded-md border border-zinc-200">
+      <div className="hidden min-h-11 grid-cols-[minmax(220px,1.8fr)_4rem_4.5rem_9.5rem_5.5rem_6.5rem_7.5rem] items-center gap-2 bg-zinc-50 px-3 text-xs font-medium text-zinc-600 xl:grid" role="row">
+        <span role="columnheader">Услуга</span><span role="columnheader">Класс</span><span role="columnheader">Ед.</span><span role="columnheader">Общий тариф</span><span role="columnheader">Активна</span><span role="columnheader">По умолчанию</span><span className="text-right" role="columnheader">Действие</span>
+      </div>
+      {groups.map((family)=><section className="border-t border-zinc-200 first:border-t-0 xl:first:border-t" key={family}><h4 className="bg-zinc-50 px-3 py-2 text-sm font-semibold text-zinc-800">{familyLabels[family]}</h4>{configuration.services.filter((service)=>service.family===family).map((service)=><ServiceEditor canManage={canManage} configuration={configuration} key={`${service.bindingId}:${configuration.tariffSet?.version??0}`} row={service} onSaved={onSaved}/>)}</section>)}
+    </div>
   </div>;
 }
 
-function ServiceEditor({objectType,row,onSaved}:{objectType:CctvObjectConfiguration["objectType"];row:CctvObjectServiceBinding;onSaved:(row:CctvObjectServiceBinding)=>void}) {
-  const [enabled,setEnabled]=useState(row.enabled);const [suggested,setSuggested]=useState(row.calculatorDefault);const [message,setMessage]=useState<string|null>(null);const [pending,startTransition]=useTransition();
-  return <tr className="border-t border-zinc-200"><td className="p-2"><strong>{row.label}</strong>{!row.partnerServiceId&&<span className="mt-1 block text-xs text-amber-700">B2B-позиция услуги не связана</span>}</td><td className="p-2">{unitLabel(row.unitCode)}</td><td className="p-2">{row.tariffActive?<strong>{row.unitPrice?.toFixed(2)} {row.currency}</strong>:<span className="text-amber-700">Нет в активном тарифе</span>}</td><td className="p-2"><input aria-label={`Включить ${row.label}`} checked={enabled} onChange={(event)=>{setEnabled(event.target.checked);if(!event.target.checked)setSuggested(false);}} type="checkbox"/></td><td className="p-2"><input aria-label={`Предлагать ${row.label} по умолчанию`} checked={suggested} disabled={!enabled} onChange={(event)=>setSuggested(event.target.checked)} type="checkbox"/></td><td className="p-2 text-right"><button className={actionClassName.secondary} disabled={pending} onClick={()=>startTransition(async()=>{const result=await upsertCctvObjectServiceBindingAction({objectType,serviceCode:row.serviceCode,enabled,calculatorDefault:suggested,displayOrder:row.displayOrder,notes:row.notes??"",expectedVersion:row.version});setMessage(result.message);if(result.success)onSaved(result.data);})} type="button"><Save className="size-4"/>Сохранить</button>{message&&<span className={`mt-1 block text-xs ${message.includes("сохранена")?"text-emerald-700":"text-red-700"}`}>{message}</span>}</td></tr>;
+function ServiceEditor({configuration,row,canManage,onSaved}:{configuration:CctvObjectConfiguration;row:CctvObjectServiceBinding;canManage:boolean;onSaved:(rows:CctvObjectConfiguration[])=>void}) {
+  const initialPrice=row.unitPrice?.toFixed(2)??"";
+  const [price,setPrice]=useState(initialPrice);const [enabled,setEnabled]=useState(row.enabled);const [suggested,setSuggested]=useState(row.calculatorDefault);const [message,setMessage]=useState<string|null>(null);const [pending,startTransition]=useTransition();
+  const normalizedPrice=price.trim();
+  const priceValid=/^\d{1,12}(?:\.\d{1,2})?$/.test(normalizedPrice)&&Number(normalizedPrice)>0;
+  const priceRequired=row.tariffActive||enabled||suggested;
+  const canEnable=canManage&&priceValid&&Boolean(row.partnerServiceId);
+  const dirty=normalizedPrice!==initialPrice||enabled!==row.enabled||suggested!==row.calculatorDefault;
+  const saveDisabled=!canManage||pending||!dirty||!configuration.tariffSet||(priceRequired&&!priceValid);
+  const save=()=>startTransition(async()=>{
+    if(!configuration.tariffSet)return;
+    const result=await saveCctvServiceConfigurationAction({objectType:configuration.objectType,serviceCode:row.serviceCode,unitPrice:normalizedPrice,enabled,calculatorDefault:suggested,displayOrder:row.displayOrder,notes:row.notes??"",expectedBindingVersion:row.version,expectedTariffSetId:configuration.tariffSet.id,expectedTariffVersion:configuration.tariffSet.version});
+    setMessage(result.message);if(result.success)onSaved(result.data);
+  });
+  return <article className="grid min-w-0 gap-3 border-t border-zinc-200 p-3 text-sm first:border-t-0 xl:grid-cols-[minmax(220px,1.8fr)_4rem_4.5rem_9.5rem_5.5rem_6.5rem_7.5rem] xl:items-center xl:gap-2" role="row">
+    <div className="min-w-0"><span className="text-xs text-zinc-500 xl:hidden">Услуга</span><strong className="block break-words">{familyLabels[row.family]}</strong>{!row.partnerServiceId&&<span className="mt-1 block text-xs text-amber-700">B2B-позиция услуги не связана</span>}</div>
+    <div><span className="text-xs text-zinc-500 xl:hidden">Класс</span><span className="block">{classLabel(row.complexityClass)}</span></div>
+    <div><span className="text-xs text-zinc-500 xl:hidden">Ед.</span><span className="block">{unitLabel(row.unitCode)}</span></div>
+    <label className="min-w-0"><span className="text-xs text-zinc-500 xl:hidden">Общий тариф</span><span className="sr-only">Общий тариф: {row.label}</span><span className="flex min-h-11 items-center overflow-hidden rounded-md border border-zinc-300 bg-white focus-within:border-emerald-700 focus-within:ring-2 focus-within:ring-emerald-100"><input aria-label={`Общий тариф ${row.label}`} className="min-w-0 flex-1 bg-transparent px-2 py-2 outline-none disabled:bg-zinc-50" disabled={!canManage} inputMode="decimal" min="0.01" onChange={(event)=>{setPrice(event.target.value);setMessage(null);}} placeholder="Не задан" step="0.01" type="number" value={price}/><span className="border-l border-zinc-200 px-2 text-xs text-zinc-600">{configuration.tariffSet?.currency??"MDL"}</span></span>{!priceValid&&normalizedPrice!==""&&<span className="mt-1 block text-xs text-red-700">Введите положительную сумму, не более двух знаков после запятой.</span>}</label>
+    <label className={`flex min-h-11 items-center gap-2 ${canEnable?"":"text-zinc-500"}`}><input aria-label={`Включить ${row.label}`} checked={enabled} disabled={!canEnable} onChange={(event)=>{setEnabled(event.target.checked);if(!event.target.checked)setSuggested(false);setMessage(null);}} type="checkbox"/>Включена</label>
+    <label className={`flex min-h-11 items-center gap-2 ${enabled&&canManage?"":"text-zinc-500"}`}><input aria-label={`Предлагать ${row.label} по умолчанию`} checked={suggested} disabled={!canManage||!enabled} onChange={(event)=>{setSuggested(event.target.checked);setMessage(null);}} type="checkbox"/>По умолчанию</label>
+    <div className="min-w-0 xl:text-right"><button className={`${actionClassName.secondary} w-full xl:w-auto`} disabled={saveDisabled} onClick={save} type="button"><Save className="size-4"/>{pending?"Сохранение…":"Сохранить"}</button>{message&&<span aria-live="polite" className={`mt-1 block text-xs ${message.includes("сохранены")?"text-emerald-700":"text-red-700"}`}>{message}</span>}</div>
+  </article>;
 }
 
 function SummaryWorkspace({configuration,diagnostics,objectType,poolCounts}:{configuration:CctvObjectConfiguration;diagnostics:string[];objectType:(typeof CCTV_OBJECT_TYPES)[number];poolCounts:ReturnType<typeof cameraPoolCounts>}) {
@@ -137,4 +163,5 @@ function cameraPoolCounts(rows:CctvCameraPoolAdminRow[],objectType:(typeof CCTV_
 function PoolSourceSummary({counts,label}:{counts:{own:number;inherited:number;effective:number};label?:string}) { return <section className="rounded-md border border-zinc-200 p-3"><p className="text-sm font-semibold">{label??"Источник пула"}</p><dl className="mt-2 grid grid-cols-3 gap-2 text-sm"><div><dt className="text-zinc-500">Собственный пул</dt><dd className="font-semibold">{counts.own}</dd></div><div><dt className="text-zinc-500">Наследовано</dt><dd className="font-semibold">{counts.inherited}</dd></div><div><dt className="text-zinc-500">Используется в расчёте</dt><dd className="font-semibold">{counts.effective}</dd></div></dl></section>; }
 function Metric({label,value}:{label:string;value:number}) { return <div className="rounded-md border border-zinc-200 p-3"><p className="text-xs text-zinc-500">{label}</p><p className="mt-1 text-2xl font-semibold">{value}</p></div>; }
 function unitLabel(value:string) { return value==="piece"?"шт.":value==="meter"?"м":"услуга"; }
+function classLabel(value:number|null) { return value===1?"I":value===2?"II":value===3?"III":"—"; }
 function publicObjectType(value:string) { return value==="industrial"?"production":value; }
