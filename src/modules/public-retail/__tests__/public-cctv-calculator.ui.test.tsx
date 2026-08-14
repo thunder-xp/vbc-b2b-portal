@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { PublicCctvCalculator } from "../components/PublicCctvCalculator";
 
@@ -17,12 +17,15 @@ describe("PublicCctvCalculator", () => {
   it("calculates explicitly from step three without a review step", () => {
     const serviceOptions = [{ objectType: "house" as const, requestServiceType: "ai_scenario_programming" as const,
       labelRu: "Программирование AI-сценариев", labelRo: "Programarea scenariilor AI" }];
-    render(<PublicCctvCalculator locale="ru" serviceOptions={serviceOptions} />);
+    const { container } = render(<PublicCctvCalculator locale="ru" serviceOptions={serviceOptions} />);
+    const submit = vi.fn((event: Event) => event.preventDefault());
+    container.querySelector("form")!.addEventListener("submit", submit);
     fireEvent.click(screen.getByRole("button", { name: "Продолжить" }));
     fireEvent.click(screen.getByRole("button", { name: "Продолжить" }));
     expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuemax", "3");
     expect(screen.getByText("Программирование AI-сценариев")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Показать систему" })).toHaveAttribute("type", "submit");
+    expect(submit).not.toHaveBeenCalled();
     expect(screen.queryByText("Проверьте параметры")).not.toBeInTheDocument();
   });
 

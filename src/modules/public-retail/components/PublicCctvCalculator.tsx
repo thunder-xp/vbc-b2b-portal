@@ -187,7 +187,10 @@ export function PublicCctvCalculator({
             <button
               className="inline-flex min-h-12 items-center justify-center gap-2 bg-emerald-700 px-6 text-sm font-semibold text-white disabled:bg-zinc-300"
               disabled={!canContinue}
-              onClick={() => setStep((current) => Math.min(3, current + 1))}
+              onClick={(event) => {
+                event.preventDefault();
+                setStep((current) => Math.min(3, current + 1));
+              }}
               type="button"
             >
               {ru ? "Продолжить" : "Continuă"}
