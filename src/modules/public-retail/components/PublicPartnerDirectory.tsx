@@ -13,15 +13,19 @@ export function PublicPartnerDirectory({ locale, partners }: { locale: PublicRet
       <p className="mt-4 text-base leading-7 text-zinc-600">{ru ? "Компании, официально представленные в партнёрской сети Novotech." : "Companii prezentate oficial în rețeaua de parteneri Novotech."}</p>
     </header>
     {partners.length ? <ul className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-      {partners.map((partner) => <li className="grid min-h-48 grid-rows-[112px_auto] overflow-hidden rounded-md border border-zinc-200 bg-white" key={partner.displayName}>
-        <div className="relative grid place-items-center overflow-hidden bg-zinc-50 p-4">
-          {partner.logoUrl ? <Image alt={partner.displayName} className="object-contain p-4" fill sizes="(max-width: 639px) calc(100vw - 2rem), (max-width: 1023px) 50vw, 25vw" src={partner.logoUrl} /> : <Building2 aria-hidden="true" className="size-10 text-zinc-300" />}
-        </div>
-        <h2 className="flex min-h-16 items-center justify-center border-t border-zinc-100 px-4 py-3 text-center text-sm font-semibold leading-5 text-zinc-900">{partner.displayName}</h2>
-      </li>)}
+      {partners.map((partner) => <li key={partner.displayName}><PublicPartnerCard partner={partner} /></li>)}
     </ul> : <div className="mt-8 flex min-h-48 max-w-xl items-center gap-4 rounded-md border border-zinc-200 bg-zinc-50 p-6">
       <Building2 aria-hidden="true" className="size-9 shrink-0 text-zinc-300" />
       <p className="text-sm leading-6 text-zinc-600">{ru ? "Список партнёров готовится к публикации." : "Lista partenerilor este în curs de pregătire pentru publicare."}</p>
     </div>}
   </section>;
+}
+
+export function PublicPartnerCard({ partner }: { partner: PublicPartnerDirectoryEntryDto }) {
+  return <article className="grid min-h-48 grid-rows-[112px_auto] overflow-hidden rounded-md border border-zinc-200 bg-white">
+    <div className="relative grid place-items-center overflow-hidden bg-zinc-50 p-4">
+      {partner.logoUrl ? <Image alt={partner.displayName} className="object-contain p-4" fill sizes="(max-width: 639px) calc(100vw - 2rem), (max-width: 1023px) 50vw, 25vw" src={partner.logoUrl} /> : <Building2 aria-hidden="true" className="size-10 text-zinc-300" />}
+    </div>
+    <h2 className="flex min-h-16 items-center justify-center border-t border-zinc-100 px-4 py-3 text-center text-sm font-semibold leading-5 text-zinc-900">{partner.displayName}</h2>
+  </article>;
 }

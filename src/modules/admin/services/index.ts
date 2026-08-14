@@ -44,3 +44,7 @@ export {
   AdminPartnerIntegrityService,
   createAdminPartnerIntegrityService,
 } from "./admin-partner-integrity.service";
+export {
+  AdminPublicPartnerDirectoryService,
+  createAdminPublicPartnerDirectoryService,
+} from "./admin-public-partner-directory.service";

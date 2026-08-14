@@ -14,3 +14,7 @@ export {
   repairApprovedOnboardingAction,
   type PartnerIntegrityActionState,
 } from "./admin-partner-integrity.actions";
+export {
+  updateAdminPublicPartnerDirectoryAction,
+  type AdminPublicPartnerDirectoryActionState,
+} from "./admin-public-partner-directory.actions";

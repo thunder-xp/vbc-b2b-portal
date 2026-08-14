@@ -26,3 +26,4 @@ export { AdminOperationalPageView } from "./AdminOperationalPage";
 export { AdminSupportPageView } from "./AdminSupportPage";
 export { AdminGovernanceSummary } from "./AdminGovernanceSummary";
 export { AdminPartnerIntegrityDetail } from "./AdminPartnerIntegrityDetail";
+export { AdminPublicPartnerDirectory } from "./AdminPublicPartnerDirectory";

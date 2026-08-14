@@ -77,3 +77,10 @@ export type {
   PartnerIntegrityRepairResult,
   PartnerIntegrityTargetCompany,
 } from "./admin-partner-integrity";
+export {
+  ADMIN_PUBLIC_PARTNER_FILTERS,
+  type AdminPublicPartnerDirectoryPage,
+  type AdminPublicPartnerDirectoryRecord,
+  type AdminPublicPartnerFilter,
+  type UpdateAdminPublicPartnerDirectoryResult,
+} from "./admin-public-partner-directory";
