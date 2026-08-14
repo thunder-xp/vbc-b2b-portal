@@ -50,4 +50,12 @@ describe("admin public partner-directory UI", () => {
     fireEvent.change(screen.getByLabelText("Публичное название"), { target: { value: "Approved Public Name" } });
     expect(screen.getByRole("heading", { name: "Approved Public Name" })).toBeInTheDocument();
   });
+
+  it("formats governance timestamps in a deterministic Novotech timezone", () => {
+    render(<AdminPublicPartnerDirectory page={{
+      ...page,
+      records: [{ ...page.records[0], updatedAt: "2026-08-14T20:46:44Z" }],
+    }} />);
+    expect(screen.getByText(/23:46:44/)).toBeInTheDocument();
+  });
 });

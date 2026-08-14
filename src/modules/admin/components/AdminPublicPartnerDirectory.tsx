@@ -22,6 +22,11 @@ const FILTERS = {
   missing_logo: "Без логотипа",
   missing_public_name: "Без публичного названия",
 } as const;
+const DIRECTORY_DATE_TIME = new Intl.DateTimeFormat("ru-RU", {
+  dateStyle: "short",
+  timeStyle: "medium",
+  timeZone: "Europe/Chisinau",
+});
 
 export function AdminPublicPartnerDirectory({ page }: { page: AdminPublicPartnerDirectoryPage }) {
   return <div className="space-y-6">
@@ -81,7 +86,7 @@ function GovernanceRow({ record }: { record: AdminPublicPartnerDirectoryRecord }
             </p>
           </div>
         </div>
-        <p className="mt-3 text-xs text-zinc-500">Версия {record.revision}{record.updatedAt ? ` · обновлено ${new Date(record.updatedAt).toLocaleString("ru-RU")}` : ""}</p>
+        <p className="mt-3 text-xs text-zinc-500">Версия {record.revision}{record.updatedAt ? ` · обновлено ${DIRECTORY_DATE_TIME.format(new Date(record.updatedAt))}` : ""}</p>
       </div>
       <div className="grid gap-4">
         <label className="grid gap-1.5 text-sm font-medium">Публичное название
