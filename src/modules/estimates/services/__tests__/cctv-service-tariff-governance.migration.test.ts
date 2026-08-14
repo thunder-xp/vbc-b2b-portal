@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 const sql = readFileSync(resolve("supabase/migrations/20260814055148_govern_cctv_service_tariff_row_edits.sql"), "utf8");
 const timestampRepairSql = readFileSync(resolve("supabase/migrations/20260814063137_align_cctv_tariff_publication_timestamp.sql"), "utf8");
-const decouplingSql = readFileSync(resolve("supabase/migrations/20260814084538_decouple_cctv_service_tariffs_from_legacy_b2b.sql"), "utf8");
+const decouplingSql = readFileSync(resolve("supabase/migrations/20260814091424_decouple_cctv_service_tariffs_from_legacy_b2b.sql"), "utf8");
 const objectConfigurationSql = readFileSync(resolve("supabase/migrations/20260813202551_cctv_object_service_bindings.sql"), "utf8");
 const publicTariffSql = readFileSync(resolve("supabase/migrations/20260813055501_retail_installation_marketplace_foundation.sql"), "utf8");
 
