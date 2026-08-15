@@ -54,6 +54,8 @@ export class SupabaseCctvCameraCandidateRepository {
       availableStock: Number(row.available_stock ?? 0), recentSalesQty: Number(row.recent_sales_qty ?? 0),
       retailPriceAmount: numberOrNull(row.retail_price_amount), retailPriceCurrency: stringOrNull(row.retail_price_currency),
       alreadyInPool: row.already_in_pool === true,
+      existingPoolVersion: numberOrNull(row.existing_pool_version),
+      existingPoolArchived: row.existing_pool_archived === true,
     }));
   }
 

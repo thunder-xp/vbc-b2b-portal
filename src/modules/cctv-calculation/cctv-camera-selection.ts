@@ -44,6 +44,8 @@ export type CctvCameraCandidateSearchRow = {
   retailPriceAmount: number | null;
   retailPriceCurrency: string | null;
   alreadyInPool: boolean;
+  existingPoolVersion: number | null;
+  existingPoolArchived: boolean;
 };
 
 export type CctvCameraRanking = CctvCameraCandidate & {

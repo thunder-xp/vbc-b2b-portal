@@ -707,7 +707,7 @@ function CandidateSearch({
                 setResults((current) =>
                   current.map((item) =>
                     item.productId === row.productId
-                      ? { ...item, alreadyInPool: true }
+                      ? { ...item, alreadyInPool: true, existingPoolVersion: saved.version, existingPoolArchived: false }
                       : item,
                   ),
                 );
@@ -796,7 +796,7 @@ function CandidateSearchResult({
       </div>
       <button
         className={`${actionClassName.secondary} mt-2 w-full`}
-        disabled={pending || row.alreadyInPool}
+        disabled={pending || row.alreadyInPool || (row.existingPoolArchived && row.existingPoolVersion == null)}
         onClick={() =>
           startTransition(async () => {
             const result = await upsertCctvCameraPoolAction({
@@ -808,7 +808,7 @@ function CandidateSearchResult({
               eligibleForRecommended: recommended,
               eligibleForEconomy: economy,
               notes: "",
-              expectedVersion: null,
+              expectedVersion: row.existingPoolArchived ? row.existingPoolVersion : null,
             });
             setMessage(result.message);
             if (result.success) onSaved(result.data);
@@ -817,7 +817,11 @@ function CandidateSearchResult({
         type="button"
       >
         <Plus className="size-4" />
-        {row.alreadyInPool ? "Уже настроена" : "Добавить камеру"}
+        {row.alreadyInPool
+          ? "Уже настроена"
+          : row.existingPoolArchived
+            ? "Восстановить камеру"
+            : "Добавить камеру"}
       </button>
     </article>
   );
