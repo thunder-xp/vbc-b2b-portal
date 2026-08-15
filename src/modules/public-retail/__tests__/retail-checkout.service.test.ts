@@ -62,6 +62,7 @@ describe("RetailCheckoutService", () => {
   it("keeps the token-scoped public order DTO free of customer/database and 1C identities", () => {
     const safe = { orderNumber: "R-2026-000001", status: "awaiting_payment", createdAt: "2026-08-13T05:00:00+00:00", locale: "ru", customer: { name: "Test", phone: "+37360123456", email: null }, deliveryAddress: { locality: "Chisinau", street: "Test", building: "1", unit: null, postalCode: null, instructions: null }, installationAddress: null, installationIntent: [], calculatorEvidence: [], totals: { equipment: 100, materials: 0, installation: 0, equipmentDiscount: 0, total: 100, currency: "MDL", vatPresentation: "included" }, lines: [{ lineNumber: 1, publicProductId: "10000000-0000-4000-8000-000000000001", source: "catalog", commercialGroup: "equipment", slug: "camera", sku: "CAM-1", name: "Camera", imageUrl: null, quantity: 1, unitCode: "piece", unitPrice: 100, lineTotal: 100, currency: "MDL", vatPresentation: "included", availability: "in_stock" }] };
     expect(parsePublicRetailOrder(safe).orderNumber).toBe("R-2026-000001");
+    expect(parsePublicRetailOrder({ ...safe, installationIntent: [{ bundleId: "10000000-0000-4000-8000-000000000001", intent: null, workScope: null }] }).installationIntent).toEqual([]);
     expect(() => parsePublicRetailOrder({ ...safe, customerId: "secret" })).toThrow();
     expect(() => parsePublicRetailOrder({ ...safe, external1cId: "secret" })).toThrow();
   });

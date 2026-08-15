@@ -7,6 +7,11 @@ const runtimeFix = readFileSync(join(process.cwd(), "supabase/migrations/2026081
 const bundleQuantityFix = readFileSync(join(process.cwd(), "supabase/migrations/20260812232000_allow_bounded_retail_cart_bundle_quantities.sql"), "utf8");
 const objectTariffCartFix = readFileSync(join(process.cwd(), "supabase/migrations/20260815123932_align_retail_cart_work_scope_json_contract.sql"), "utf8");
 const aiIntentCartFix = readFileSync(join(process.cwd(), "supabase/migrations/20260815123652_accept_ai_intent_in_retail_cart_bundle.sql"), "utf8");
+const installationSnapshotFix = readFileSync(join(process.cwd(), "supabase/migrations/20260815125900_disambiguate_retail_installation_snapshot_trigger.sql"), "utf8");
+const requirementSystemTypeFix = readFileSync(join(process.cwd(), "supabase/migrations/20260815130300_supply_retail_installation_requirement_system_type.sql"), "utf8");
+const equipmentOnlySnapshotFix = readFileSync(join(process.cwd(), "supabase/migrations/20260815130600_skip_installation_snapshot_for_equipment_only_orders.sql"), "utf8");
+const nullIntentSnapshotFix = readFileSync(join(process.cwd(), "supabase/migrations/20260815131617_handle_null_retail_installation_intent.sql"), "utf8");
+const aiRequirementLineFix = readFileSync(join(process.cwd(), "supabase/migrations/20260815132015_allow_ai_installation_requirement_line.sql"), "utf8");
 const actions = readFileSync(join(process.cwd(), "src/modules/public-retail/actions/retail-cart.actions.ts"), "utf8");
 const service = readFileSync(join(process.cwd(), "src/modules/public-retail/services/retail-cart.service.ts"), "utf8");
 const cartPage = readFileSync(join(process.cwd(), "app/cart/page.tsx"), "utf8");
@@ -93,6 +98,36 @@ describe("governed anonymous Retail Cart migration", () => {
     expect(aiIntentCartFix).toContain("'aiScenarioProgramming'");
     expect(aiIntentCartFix).toContain("jsonb_object_keys(p_installation_intent)) <> 5");
     expect(aiIntentCartFix).toContain("jsonb_typeof(p_installation_intent->'aiScenarioProgramming') <> 'boolean'");
+  });
+
+  it("keeps the installation snapshot trigger unambiguous and trigger-only", () => {
+    expect(installationSnapshotFix).toContain("installation_price_snapshot as bundle_snapshot");
+    expect(installationSnapshotFix).toContain("into snapshot_count, snapshot_payload");
+    expect(installationSnapshotFix).not.toMatch(/installation_price_snapshot snapshot\b/);
+    expect(installationSnapshotFix).toContain("from public, anon, authenticated, service_role");
+  });
+
+  it("supplies the governed CCTV system type during paid installation activation", () => {
+    expect(requirementSystemTypeFix).toContain("retail_order_id, system_type, selection_mode");
+    expect(requirementSystemTypeFix).toContain("orders.id, 'cctv', orders.installation_selection_mode");
+    expect(requirementSystemTypeFix).toContain("to service_role");
+  });
+
+  it("does not require an installation snapshot when every governed intent is false", () => {
+    expect(equipmentOnlySnapshotFix).toContain("jsonb_each(coalesce(bundle->'intent', '{}'::jsonb))");
+    expect(equipmentOnlySnapshotFix).toContain("and (intent.value)::boolean");
+    expect(equipmentOnlySnapshotFix).toContain("return new");
+  });
+
+  it("treats a JSON-null installation intent as equipment-only", () => {
+    expect(nullIntentSnapshotFix).toContain("when jsonb_typeof(bundle->'intent') = 'object'");
+    expect(nullIntentSnapshotFix).toContain("else '{}'::jsonb");
+    expect(nullIntentSnapshotFix).toContain("return new");
+  });
+
+  it("retains governed AI programming in the paid installation requirement", () => {
+    expect(aiRequirementLineFix).toContain("installation_requirement_lines_service_type_check");
+    expect(aiRequirementLineFix).toContain("'ai_scenario_programming'");
   });
 
   it("renders bilingual responsive review with pilot-gated checkout and no reservation", () => {

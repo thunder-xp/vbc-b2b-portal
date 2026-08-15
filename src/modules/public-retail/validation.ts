@@ -230,14 +230,15 @@ export function parsePublicRetailCheckout(value: unknown): PublicRetailCheckoutD
 
 const address = z.object({ locality: localizedText, street: localizedText, building: localizedText, unit: z.string().max(80).nullable(), postalCode: z.string().max(20).nullable(), instructions: z.string().max(500).nullable() }).strict();
 export function parsePublicRetailOrder(value: unknown): PublicRetailOrderDto {
-  return z.object({ orderNumber: z.string().regex(/^R-[0-9]{4}-[0-9]{6}$/), status: z.enum(["awaiting_payment", "confirmed"]), createdAt: z.string().datetime({ offset: true }), locale: z.enum(["ru", "ro"]),
+  const order = z.object({ orderNumber: z.string().regex(/^R-[0-9]{4}-[0-9]{6}$/), status: z.enum(["awaiting_payment", "confirmed"]), createdAt: z.string().datetime({ offset: true }), locale: z.enum(["ru", "ro"]),
     customer: z.object({ name: localizedText, phone: z.string().regex(/^\+373[0-9]{8}$/), email: z.string().email().nullable() }).strict(),
     deliveryAddress: address, installationAddress: address.nullable(),
-    installationIntent: z.array(z.object({ bundleId: uuid, intent: z.record(z.string(), z.boolean()), workScope: z.array(z.unknown()).nullable() }).strict()).max(20),
+    installationIntent: z.array(z.object({ bundleId: uuid, intent: z.record(z.string(), z.boolean()).nullable(), workScope: z.array(z.unknown()).nullable() }).strict()).max(20),
     calculatorEvidence: z.array(z.object({ bundleId: uuid, source: z.literal("cctv_calculator"), calculatorVersion: z.string().min(1).max(100), calculatorInput: z.record(z.string(), z.unknown()).nullable() }).strict()).max(20),
     totals: checkoutTotals,
     lines: z.array(checkoutLine.omit({ bundleId: true, priceChanged: true, missing: true }).extend({ lineNumber: z.coerce.number().int().positive() }).strict()).max(100),
   }).strict().parse(value);
+  return { ...order, installationIntent: order.installationIntent.filter((entry): entry is typeof entry & { intent: Record<string, boolean> } => entry.intent !== null) };
 }
 export function parsePublicRetailCommercialOffer(value: unknown): PublicRetailCommercialOfferDto {
   return commercialOffer.parse(value);
