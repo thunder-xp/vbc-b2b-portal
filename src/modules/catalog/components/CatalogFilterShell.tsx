@@ -5,10 +5,16 @@ import { useEffect, useRef, useState } from "react";
 
 export function CatalogFilterShell({
   children,
+  closeLabel = "Закрыть фильтры",
+  panelLabel = "Фильтры каталога",
   selectedCount,
+  triggerLabel = "Фильтры",
 }: {
   children: React.ReactNode;
+  closeLabel?: string;
+  panelLabel?: string;
   selectedCount: number;
+  triggerLabel?: string;
 }) {
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLElement>(null);
@@ -54,18 +60,18 @@ export function CatalogFilterShell({
       type="button"
     >
       <SlidersHorizontal aria-hidden="true" className="size-4" />
-      Фильтры{selectedCount ? ` (${selectedCount})` : ""}
+      {triggerLabel}{selectedCount ? ` (${selectedCount})` : ""}
     </button>
-    {open ? <button aria-label="Закрыть фильтры" className="fixed inset-0 z-40 bg-zinc-950/30 lg:hidden" onClick={() => setOpen(false)} type="button" /> : null}
+    {open ? <button aria-label={closeLabel} className="fixed inset-0 z-40 bg-zinc-950/30 lg:hidden" onClick={() => setOpen(false)} type="button" /> : null}
     <aside
-      aria-label="Фильтры каталога"
+      aria-label={panelLabel}
       aria-modal={open || undefined}
       className={`${open ? "fixed inset-y-0 right-0 z-50 block w-[min(22rem,calc(100vw-2rem))] overflow-y-auto shadow-2xl" : "hidden"} rounded-l-lg border border-zinc-200 bg-white p-4 lg:static lg:block lg:w-auto lg:rounded-lg lg:shadow-sm`}
       ref={panelRef}
       role={open ? "dialog" : undefined}
     >
       <div className="mb-3 flex justify-end lg:hidden">
-        <button aria-label="Закрыть фильтры" className="rounded p-2 text-zinc-600 hover:bg-zinc-100" onClick={() => { setOpen(false); triggerRef.current?.focus(); }} type="button"><X aria-hidden="true" className="size-5" /></button>
+        <button aria-label={closeLabel} className="rounded p-2 text-zinc-600 hover:bg-zinc-100" onClick={() => { setOpen(false); triggerRef.current?.focus(); }} type="button"><X aria-hidden="true" className="size-5" /></button>
       </div>
       {children}
     </aside>

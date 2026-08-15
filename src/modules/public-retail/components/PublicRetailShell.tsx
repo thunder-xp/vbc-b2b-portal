@@ -28,7 +28,7 @@ export function PublicRetailShell({ children, locale, languagePath, cartQuantity
           <span className="grid size-9 place-items-center rounded-sm bg-emerald-700 text-white"><ShieldCheck aria-hidden="true" className="size-5" /></span>
           <span className="min-w-0 leading-none">
             <span className="block text-sm font-bold sm:text-base">NOVOTECH <span className="hidden sm:inline">SYSTEMS</span></span>
-            <span className="mt-1 hidden max-w-[210px] text-[10px] font-medium leading-3 text-zinc-500 xl:block">{publicCompanyContent.descriptor[locale]}</span>
+            <span className="mt-1 block text-[10px] font-medium leading-3 text-zinc-500">DISTRIBUTION</span>
           </span>
         </Link>
         <nav aria-label="Основная навигация" className="ml-auto hidden items-center gap-3 xl:flex">
@@ -65,8 +65,8 @@ export function PublicRetailShell({ children, locale, languagePath, cartQuantity
         <FooterGroup title={locale === "ro" ? "Catalog" : "Каталог"}><FooterLink href={`/catalog?lang=${locale}`}>{copy.catalog}</FooterLink><FooterLink href={`/calculator/cctv?lang=${locale}`}>{copy.chooseSystem}</FooterLink></FooterGroup>
         <FooterGroup title={locale === "ro" ? "Informații" : "Информация"}><FooterLink href={`/?lang=${locale}#installation`}>{copy.services}</FooterLink><FooterLink href={`/?lang=${locale}#delivery`}>{copy.delivery}</FooterLink></FooterGroup>
         <FooterGroup title={locale === "ro" ? "Contacte și magazine" : "Контакты и магазины"}>
-          {publicCompanyContent.stores.map((store) => <p className="flex gap-2 text-xs leading-5" key={store.phone}><MapPin aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" />{store.city[locale]}, {store.address[locale]}</p>)}
-          <a className="flex w-fit items-center gap-2 text-xs hover:text-white" href={`tel:${publicCompanyContent.customerPhone.replace(/\s/g, "")}`}><Phone aria-hidden="true" className="size-3.5" />{publicCompanyContent.customerPhone}</a>
+          {publicCompanyContent.stores.map((store) => <a className="flex w-fit gap-2 text-xs leading-5 hover:text-white" href={store.mapsHref} key={store.mapsHref} rel="noopener noreferrer" target="_blank"><MapPin aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" />{store.city[locale]}, {store.address[locale]}</a>)}
+          <a className="flex w-fit items-center gap-2 text-xs hover:text-white" href={publicCompanyContent.customerPhone.href}><Phone aria-hidden="true" className="size-3.5" />{publicCompanyContent.customerPhone.display}</a>
           <a className="flex w-fit items-center gap-2 text-xs hover:text-white" href={`mailto:${publicCompanyContent.email}`}><Mail aria-hidden="true" className="size-3.5" />{publicCompanyContent.email}</a>
           <p className="text-xs leading-5 text-zinc-500">{publicCompanyContent.hours.weekdays[locale]} · {publicCompanyContent.hours.saturday[locale]}</p>
           <FooterLink href={`/contacts?lang=${locale}`}>{copy.contacts}</FooterLink>

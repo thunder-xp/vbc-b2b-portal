@@ -3,6 +3,7 @@ import type { ProductCardCapabilityModel } from "../../partner-cabinet/services"
 import type { CatalogProductCardDto } from "../services";
 
 import { ProductCard } from "./ProductCard";
+import { CatalogProductGridFrame, CATALOG_PRODUCT_GRID_CLASS } from "./CatalogPresentationPrimitives";
 
 type ProductGridProps = {
   commercialViews?: Record<string, ProductCommercialViewDto>;
@@ -13,13 +14,12 @@ type ProductGridProps = {
   userId: string | null;
 };
 
-export const CATALOG_PRODUCT_GRID_CLASS =
-  "grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-5";
+export { CATALOG_PRODUCT_GRID_CLASS };
 
 export function ProductGrid({ capabilities, commercialViews = {}, companyId, favoriteProductIds = [], products, userId }: ProductGridProps) {
   const favorites = new Set(favoriteProductIds);
   return (
-    <div className={CATALOG_PRODUCT_GRID_CLASS}>
+    <CatalogProductGridFrame>
       {products.map((product, index) => (
         <ProductCard
           commercialView={commercialViews[product.id]}
@@ -32,6 +32,6 @@ export function ProductGrid({ capabilities, commercialViews = {}, companyId, fav
           userId={userId}
         />
       ))}
-    </div>
+    </CatalogProductGridFrame>
   );
 }

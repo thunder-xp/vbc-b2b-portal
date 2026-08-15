@@ -44,8 +44,8 @@ describe("public retail UX", () => {
     render(<PublicRetailProductCard locale="ru" product={{ ...product, image: { url: "https://www.nsd.md/storage/v1/object/public/public-product-media/product/image.webp", alt: "Camera" } }} />);
     const image = screen.getByRole("img", { name: "Camera" });
     const media = image.closest("a");
-    expect(media?.closest("article")).toHaveClass("grid-cols-[minmax(0,1fr)]", "overflow-hidden");
-    expect(media).toHaveClass("h-32", "sm:h-40", "xl:h-44", "w-full", "min-w-0", "max-w-full", "overflow-hidden");
+    expect(media?.closest("article")).toHaveClass("flex", "h-full", "overflow-hidden", "rounded-md");
+    expect(media).toHaveClass("aspect-[4/3]", "w-full", "min-w-0", "max-w-full", "overflow-hidden");
     expect(image).toHaveClass("size-full", "max-h-full", "max-w-full", "object-contain");
   });
 
@@ -53,9 +53,9 @@ describe("public retail UX", () => {
     render(<PublicRetailProductCard badge="Популярный" badgeCode="TOP" locale="ru" product={{ ...product, name: "Очень длинное название камеры видеонаблюдения с технической моделью" }} />);
     expect(screen.getByText("Популярный")).toHaveClass("text-emerald-800");
     expect(screen.getByText("Популярный").closest("span.absolute")).toHaveClass("left-2", "top-2");
-    expect(screen.getByRole("link", { name: "Очень длинное название камеры видеонаблюдения с технической моделью" })).toHaveClass("line-clamp-2", "min-h-10");
+    expect(screen.getByRole("link", { name: "Очень длинное название камеры видеонаблюдения с технической моделью" })).toHaveClass("line-clamp-2", "h-10");
     expect(screen.getByText("Brand · Артикул CAM-001")).toHaveClass("truncate");
-    expect(screen.getByRole("list")).toHaveClass("min-h-10");
+    expect(screen.getByRole("list")).toHaveClass("min-h-8");
     expect(screen.getByText("Наличие уточняется")).toHaveClass("min-h-5");
     expect(screen.getByText("1 299 MDL")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "В корзину" })).toBeInTheDocument();
@@ -89,9 +89,9 @@ describe("public retail UX", () => {
     expect(screen.getByRole("link", { name: "По цене" })).toHaveAttribute("aria-current", "page");
     expect(screen.getAllByLabelText("Все категории").length).toBeGreaterThan(0);
     expect(screen.getAllByRole("checkbox", { name: /4 Мп/ }).length).toBeGreaterThan(0);
-    expect(screen.getByText("1 / 2")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Далее" })).toHaveAttribute("href", expect.stringContaining("page=2"));
-    expect(screen.getByRole("link", { name: "Далее" })).toHaveAttribute("href", expect.stringContaining("sort=price_asc"));
+    expect(screen.getByText("1")).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "Следующая страница" })).toHaveAttribute("href", expect.stringContaining("page=2"));
+    expect(screen.getByRole("link", { name: "Следующая страница" })).toHaveAttribute("href", expect.stringContaining("sort=price_asc"));
   });
 
   it("localizes the storefront controls in Romanian", () => {

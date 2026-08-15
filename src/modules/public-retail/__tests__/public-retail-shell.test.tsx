@@ -45,9 +45,11 @@ describe("Public Retail shell", () => {
     expect(cart).toHaveTextContent("Корзина");
     expect(cart).toHaveTextContent("11");
     expect(within(header).getByRole("link", { name: "Novotech Systems Distribution" })).toHaveTextContent("NOVOTECH SYSTEMS");
-    expect(within(header).getByText("Прямой импортёр оборудования и решений для безопасности")).toBeInTheDocument();
-    expect(screen.getByText("Кишинёв, ул. Лев Толстой, 4")).toBeInTheDocument();
-    expect(screen.getByText("Бельцы, ул. Думитру Карачобану, 118")).toBeInTheDocument();
+    expect(within(header).getByText("DISTRIBUTION")).toBeInTheDocument();
+    expect(screen.getByText("Прямой импортёр оборудования и решений для безопасности")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Кишинёв, ул. Лев Толстой, 4" })).toHaveAttribute("target", "_blank");
+    expect(screen.getByRole("link", { name: "Бельцы, ул. Думитру Карачобану, 118" })).toHaveAttribute("target", "_blank");
+    expect(screen.getByRole("link", { name: "0 78 999 484" })).toHaveAttribute("href", "tel:+37378999484");
   });
 
   it("keeps authored Romanian labels and complete mobile navigation", () => {
