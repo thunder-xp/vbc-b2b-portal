@@ -200,7 +200,7 @@ const checkoutLine = z.object({
   vatPresentation: z.enum(["included", "excluded", "not_specified"]), availability,
   priceChanged: z.boolean(), missing: z.boolean(),
 }).strict();
-const commercialOffer = z.object({ id: uuid, status: z.enum(["active", "redeemed", "expired", "invalidated"]),
+const commercialOffer = z.object({ id: uuid, type: z.literal("economy_immediate_payment_discount"), status: z.enum(["active", "redeemed", "expired", "invalidated"]),
   policyVersion: z.literal("retail_equipment_conversion_offer_v1"), discountPercent: z.literal(10), scope: z.literal("equipment"),
   discountAmount: z.coerce.number().positive(), expiresAt: z.string().datetime({ offset: true }), currency: z.string().regex(/^[A-Z]{3}$/),
   resultingTotal: z.coerce.number().positive(), repeated: z.boolean().default(false) }).strict();

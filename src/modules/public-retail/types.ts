@@ -135,6 +135,7 @@ export type PublicRetailCartMutationDto = { revision: number; distinctItemCount:
 
 export type PublicRetailCommercialOfferDto = {
   id: string;
+  type: "economy_immediate_payment_discount";
   status: "active" | "redeemed" | "expired" | "invalidated";
   policyVersion: "retail_equipment_conversion_offer_v1";
   discountPercent: 10;

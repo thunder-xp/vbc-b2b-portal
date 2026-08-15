@@ -5,7 +5,7 @@ import { RetailCheckoutRepositoryError } from "../repositories/supabase/retail-c
 import { hashRetailCheckoutPilotToken, isRetailCheckoutEnabled } from "../retail-checkout-server";
 import { deriveRetailOrderAccessToken, hashRetailOrderAccessToken } from "../retail-order-token";
 import { normalizeMoldovaPhone, RetailCheckoutConflictError, RetailCheckoutInputError, RetailCheckoutService } from "../services/retail-checkout.service";
-import { parsePublicRetailOrder } from "../validation";
+import { parsePublicRetailCheckout, parsePublicRetailOrder } from "../validation";
 
 const hash = "a".repeat(64);
 const fingerprint = "b".repeat(64);
@@ -64,6 +64,17 @@ describe("RetailCheckoutService", () => {
     expect(parsePublicRetailOrder(safe).orderNumber).toBe("R-2026-000001");
     expect(() => parsePublicRetailOrder({ ...safe, customerId: "secret" })).toThrow();
     expect(() => parsePublicRetailOrder({ ...safe, external1cId: "secret" })).toThrow();
+  });
+
+  it("accepts the governed commercial-offer type returned by checkout", () => {
+    const safe = {
+      cartRevision: 1, publicationId: "10000000-0000-4000-8000-000000000001", eligible: true, blockingReason: null,
+      priceChanged: false, fingerprint, selectedVariant: "economy", installationRequired: false, installationOptions: null,
+      commercialOffer: { id: "30000000-0000-4000-8000-000000000001", type: "economy_immediate_payment_discount", status: "active", policyVersion: "retail_equipment_conversion_offer_v1", discountPercent: 10, scope: "equipment", discountAmount: 10, expiresAt: "2026-08-15T15:00:00+00:00", currency: "MDL", resultingTotal: 90 },
+      lines: [{ publicProductId: "20000000-0000-4000-8000-000000000001", bundleId: null, source: "catalog", commercialGroup: "equipment", slug: "camera", sku: "CAM-1", name: "Camera", imageUrl: null, quantity: 1, unitCode: "piece", unitPrice: 100, lineTotal: 100, currency: "MDL", vatPresentation: "included", availability: "in_stock", priceChanged: false, missing: false }],
+      bundles: [], totals: { equipment: 100, materials: 0, installation: 0, equipmentDiscount: 10, total: 90, currency: "MDL", vatPresentation: "included" },
+    };
+    expect(parsePublicRetailCheckout(safe).commercialOffer).toMatchObject({ type: "economy_immediate_payment_discount", repeated: false });
   });
 
   it("validates and delegates token-scoped installation confirmation", async () => {

@@ -5,6 +5,8 @@ import { describe, expect, it } from "vitest";
 const migration = readFileSync(join(process.cwd(), "supabase/migrations/20260812230000_governed_anonymous_retail_cart.sql"), "utf8");
 const runtimeFix = readFileSync(join(process.cwd(), "supabase/migrations/20260812231000_fix_retail_cart_rpc_variable_scope.sql"), "utf8");
 const bundleQuantityFix = readFileSync(join(process.cwd(), "supabase/migrations/20260812232000_allow_bounded_retail_cart_bundle_quantities.sql"), "utf8");
+const objectTariffCartFix = readFileSync(join(process.cwd(), "supabase/migrations/20260815123932_align_retail_cart_work_scope_json_contract.sql"), "utf8");
+const aiIntentCartFix = readFileSync(join(process.cwd(), "supabase/migrations/20260815123652_accept_ai_intent_in_retail_cart_bundle.sql"), "utf8");
 const actions = readFileSync(join(process.cwd(), "src/modules/public-retail/actions/retail-cart.actions.ts"), "utf8");
 const service = readFileSync(join(process.cwd(), "src/modules/public-retail/services/retail-cart.service.ts"), "utf8");
 const cartPage = readFileSync(join(process.cwd(), "app/cart/page.tsx"), "utf8");
@@ -76,6 +78,21 @@ describe("governed anonymous Retail Cart migration", () => {
     expect(resultPage).toContain('line.group === "materials"');
     expect(resultPage).toContain("unitCode: line.unitCode");
     expect(service).toContain("repository.addBundle");
+  });
+
+  it("revalidates object-specific installation pricing through the canonical resolver", () => {
+    expect(objectTariffCartFix).toContain("public.resolve_cctv_object_services");
+    expect(objectTariffCartFix).toContain("when 'production' then 'industrial'");
+    expect(objectTariffCartFix).toContain("ai_scenario_programming");
+    expect(objectTariffCartFix).not.toContain("tariff.service_type=scope.kind");
+    expect(objectTariffCartFix).toContain("jsonb_array_elements(p_work_scope) with ordinality");
+    expect(objectTariffCartFix).toContain("item.value->>'unitCode' unit_code");
+  });
+
+  it("persists the governed AI-service intent without weakening the bundle contract", () => {
+    expect(aiIntentCartFix).toContain("'aiScenarioProgramming'");
+    expect(aiIntentCartFix).toContain("jsonb_object_keys(p_installation_intent)) <> 5");
+    expect(aiIntentCartFix).toContain("jsonb_typeof(p_installation_intent->'aiScenarioProgramming') <> 'boolean'");
   });
 
   it("renders bilingual responsive review with pilot-gated checkout and no reservation", () => {
