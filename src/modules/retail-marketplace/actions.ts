@@ -125,18 +125,15 @@ export async function transitionAdminInstallationExecutionAction(formData: FormD
   redirect(`${path}?saved=execution`);
 }
 
-export async function activateInstallationPilotAction(formData: FormData) {
+export async function simulateRetailOrderPaymentAction(formData: FormData) {
   await requireAdminPermission("admin.retail_marketplace.manage");
-  await getInstallationAssignmentDispatcher().activatePilot({
+  await getInstallationAssignmentDispatcher().simulatePayment({
     retailOrderId: String(formData.get("retailOrderId") ?? ""),
-    selectionMode: String(formData.get("selectionMode") ?? "automatic") as "automatic" | "customer_selected",
-    preferredProviderId: nullable(String(formData.get("preferredProviderId") ?? "")),
-    regionCode: String(formData.get("regionCode") ?? ""),
     reason: String(formData.get("reason") ?? ""),
     idempotencyKey: String(formData.get("idempotencyKey") ?? ""),
   });
   revalidatePath(path);
-  redirect(`${path}?saved=activation`);
+  redirect(`${path}?saved=payment-activation`);
 }
 
 export async function reassignInstallationRequirementAction(formData: FormData) {

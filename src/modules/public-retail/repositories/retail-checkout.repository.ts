@@ -1,4 +1,4 @@
-import type { PublicRetailCheckoutDto, PublicRetailInstallationStatusDto, PublicRetailLocale, PublicRetailOrderCreatedDto, PublicRetailOrderDto, RetailAddressDto } from "../types";
+import type { PublicRetailCheckoutDto, PublicRetailCommercialOfferDto, PublicRetailInstallationStatusDto, PublicRetailLocale, PublicRetailOrderCreatedDto, PublicRetailOrderDto, RetailAddressDto } from "../types";
 
 export type RetailCheckoutCreateCommand = {
   locale: PublicRetailLocale;
@@ -9,10 +9,16 @@ export type RetailCheckoutCreateCommand = {
   customer: { name: string; phone: string; email: string | null; processingAcknowledged: true };
   deliveryAddress: RetailAddressDto;
   installationAddress: RetailAddressDto | null;
+  commercialOfferId: string | null;
+  installationSelectionMode: "customer_selected" | "automatic" | null;
+  preferredProviderId: string | null;
+  installationRegionCode: string | null;
 };
 
 export interface RetailCheckoutRepository {
   getCheckout(tokenHash: string, locale: PublicRetailLocale): Promise<PublicRetailCheckoutDto | null>;
+  createCommercialOffer(tokenHash: string, idempotencyKey: string, locale: PublicRetailLocale): Promise<PublicRetailCommercialOfferDto>;
+  getCommercialOffer(tokenHash: string, locale: PublicRetailLocale): Promise<PublicRetailCommercialOfferDto | null>;
   createOrder(tokenHash: string, command: RetailCheckoutCreateCommand): Promise<PublicRetailOrderCreatedDto>;
   getOrder(accessTokenHash: string, locale: PublicRetailLocale): Promise<PublicRetailOrderDto | null>;
   getInstallationStatus(accessTokenHash: string, locale: PublicRetailLocale): Promise<PublicRetailInstallationStatusDto | null>;

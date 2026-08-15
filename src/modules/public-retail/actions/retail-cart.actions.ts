@@ -21,6 +21,7 @@ export async function addPublicRetailProductAction(input: { publicProductId: str
 export async function addPublicRetailCctvSystemAction(input: { items: Array<{ publicProductId: string; quantity: number; commercialGroup: "equipment" | "materials"; unitCode: "piece" | "meter" | "service" }>; installationIntent: Record<string, boolean> | null; calculatorInput: Record<string, unknown>; workScope: Array<{ kind: string; quantity: number; unitCode: "piece" | "meter" | "service" }>; installationPricing: Record<string, unknown> | null; requestId: string; locale: PublicRetailLocale }): Promise<RetailCartActionResult> {
   try {
     const data = await withExpiredCartRecovery((hash) => getRetailCartService().addCctvSystem(hash, input));
+    console.info({ event: input.calculatorInput.selectedVariant === "economy" ? "economy_selected" : "recommended_selected", source: "public_cctv_calculator" });
     return { success: true, message: input.locale === "ro" ? "Sistemul a fost adăugat în coș." : "Система добавлена в корзину.", data };
   } catch (error) {
     safeCartFailure("add_cctv_system", error);

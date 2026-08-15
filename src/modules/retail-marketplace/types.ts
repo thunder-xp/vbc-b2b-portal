@@ -28,7 +28,7 @@ export type PublicInstallationProviderDto = {
   providerId: string;
   displayName: string;
   description: string | null;
-  logoPath: string | null;
+  logoUrl: string | null;
   coverage: string;
   systemType: "cctv";
   availability: "available" | "limited";
@@ -76,6 +76,7 @@ export type InstallationDispatchResult = {
   ordinal?: number;
   repeated: boolean;
 };
+export type RetailPaymentActivationResult = { orderId: string; orderNumber: string; status: "confirmed"; installationRequirementId: string | null; assignment: InstallationDispatchResult | null; repeated: boolean };
 
 export type InstallationAssignmentResponse = {
   attemptId: string;

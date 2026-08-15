@@ -5,7 +5,9 @@ import { createAdminClient } from "@/src/lib/supabase/admin";
 import { createClient } from "@/src/lib/supabase/server";
 
 import type { RetailMarketplaceRepository } from "../retail-marketplace.repository";
-import { adminReportSchema, assignmentAdminReportSchema, assignmentResponseSchema, dispatchResultSchema, executionResultSchema, partnerAssignmentsSchema, publicProvidersSchema, tariffSetSchema } from "../../validation";
+import { publicPartnerLogoUrl } from "@/src/modules/public-retail/services/public-partner-directory.service";
+
+import { adminReportSchema, assignmentAdminReportSchema, assignmentResponseSchema, dispatchResultSchema, executionResultSchema, partnerAssignmentsSchema, paymentActivationResultSchema, publicProvidersSchema, tariffSetSchema } from "../../validation";
 
 export class RetailMarketplaceRepositoryError extends Error {
   constructor(readonly code: "invalid" | "conflict" | "forbidden" | "unavailable" = "unavailable") { super("Retail Marketplace operation failed."); this.name = "RetailMarketplaceRepositoryError"; }
@@ -19,7 +21,8 @@ export class SupabaseRetailMarketplaceRepository implements RetailMarketplaceRep
   }
   async listPublicProviders(systemType: "cctv", regionCode: string, locale: "ru" | "ro") {
     const { data, error } = await createPublicReadClient().rpc("list_public_installation_providers", { p_system_type: systemType, p_region_code: regionCode, p_locale: locale });
-    if (error) fail(error.code); return publicProvidersSchema.parse(data);
+    if (error) fail(error.code);
+    return publicProvidersSchema.parse(data).map(({ logoPath, ...provider }) => ({ ...provider, logoUrl: publicPartnerLogoUrl(logoPath) }));
   }
   async getAdminReport() {
     const { data, error } = await (await createClient()).rpc("admin_get_retail_installation_marketplace");
@@ -37,9 +40,12 @@ export class SupabaseRetailMarketplaceRepository implements RetailMarketplaceRep
     const { data, error } = await (await createClient()).rpc("admin_save_installation_provider", { p_provider_id: input.providerId, p_provider_type: input.providerType, p_backing_id: input.backingId, p_profile: input.profile, p_competencies: input.competencies, p_region_codes: input.regionCodes, p_expected_revision: input.expectedRevision, p_reason: input.reason });
     if (error || !data) fail(error?.code); return String(data);
   }
-  async activatePilot(input: Parameters<RetailMarketplaceRepository["activatePilot"]>[0]) {
-    const { data, error } = await (await createClient()).rpc("activate_installation_requirement_pilot", { p_retail_order_id: input.retailOrderId, p_selection_mode: input.selectionMode, p_preferred_provider_id: input.preferredProviderId, p_region_code: input.regionCode, p_requested_scheduling_context: input.schedulingContext, p_reason: input.reason, p_idempotency_key: input.idempotencyKey });
-    if (error) fail(error.code); return dispatchResultSchema.parse(data);
+  async simulatePayment(input: Parameters<RetailMarketplaceRepository["simulatePayment"]>[0]) {
+    const { data, error } = await (await createClient()).rpc("simulate_retail_order_payment", {
+      p_retail_order_id: input.retailOrderId, p_idempotency_key: input.idempotencyKey, p_reason: input.reason,
+    });
+    if (error) fail(error.code);
+    return paymentActivationResultSchema.parse(data);
   }
   async dispatch(requirementId: string) {
     const { data, error } = await (await createClient()).rpc("dispatch_installation_requirement", { p_requirement_id: requirementId, p_source: "automatic" });

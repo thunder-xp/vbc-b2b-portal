@@ -1,10 +1,10 @@
 import {
-  activateInstallationPilotAction,
   publishInstallationTariffAction,
   reassignInstallationRequirementAction,
   saveInstallationProviderAction,
   saveInstallationTariffDraftAction,
   transitionAdminInstallationExecutionAction,
+  simulateRetailOrderPaymentAction,
 } from "@/src/modules/retail-marketplace/actions";
 import { getRetailMarketplaceRepository } from "@/src/modules/retail-marketplace/server";
 import type { InstallationAssignmentAdminReport } from "@/src/modules/retail-marketplace/types";
@@ -64,12 +64,10 @@ export default async function RetailInstallationAdminPage({ searchParams }: { se
       </form>)}</div>
     </section>
     <section className="space-y-4" aria-labelledby="assignment-operations-title">
-      <div><h2 className="text-xl font-semibold" id="assignment-operations-title">Назначение монтажных заказов</h2><p className="text-sm text-zinc-600">Пилотная активация доступна только внутренним операторам. Она не меняет оплату или коммерческий снимок RetailOrder.</p></div>
-      <details className="border border-zinc-200 bg-white p-4"><summary className="min-h-11 cursor-pointer font-semibold">Активировать пилотное назначение</summary><form action={activateInstallationPilotAction} className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <Field defaultValue="" label="RetailOrder ID" name="retailOrderId"/><label className="grid gap-1 text-sm"><span className="font-medium">Режим</span><select className="min-h-11 border border-zinc-300 px-3" defaultValue="automatic" name="selectionMode"><option value="automatic">Автоматически</option><option value="customer_selected">Выбран заказчиком</option></select></label>
-        <label className="grid gap-1 text-sm"><span className="font-medium">Предпочтительный исполнитель</span><select className="min-h-11 border border-zinc-300 px-3" name="preferredProviderId"><option value="">Не выбран</option>{report.providers.map((provider)=><option key={provider.id} value={provider.id}>{provider.backingName}</option>)}</select></label>
-        <label className="grid gap-1 text-sm"><span className="font-medium">Регион</span><select className="min-h-11 border border-zinc-300 px-3" name="regionCode">{report.regions.map((region)=><option key={region.id} value={region.code}>{region.nameRu}</option>)}</select></label>
-        <input name="idempotencyKey" type="hidden" value={crypto.randomUUID()}/><label className="grid gap-1 text-sm md:col-span-2"><span className="font-medium">Причина пилотной активации</span><input className="min-h-11 border border-zinc-300 px-3" minLength={10} name="reason" required/></label><button className="min-h-11 bg-zinc-900 px-4 text-sm font-semibold text-white" type="submit">Активировать и назначить</button>
+      <div><h2 className="text-xl font-semibold" id="assignment-operations-title">Назначение монтажных заказов</h2><p className="text-sm text-zinc-600">Назначение начинается только после подтверждённой оплаты. Симулятор использует тот же нейтральный путь активации, что и будущий платёжный адаптер.</p></div>
+      <details className="border border-zinc-200 bg-white p-4"><summary className="min-h-11 cursor-pointer font-semibold">Симулировать подтверждение оплаты</summary><form action={simulateRetailOrderPaymentAction} className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <Field defaultValue="" label="RetailOrder ID" name="retailOrderId"/>
+        <input name="idempotencyKey" type="hidden" value={crypto.randomUUID()}/><label className="grid gap-1 text-sm md:col-span-2"><span className="font-medium">Причина контролируемой симуляции</span><input className="min-h-11 border border-zinc-300 px-3" minLength={10} name="reason" required/></label><button className="min-h-11 bg-zinc-900 px-4 text-sm font-semibold text-white" type="submit">Подтвердить тестовую оплату</button>
       </form></details>
       <nav aria-label="Состояние исполнения" className="flex flex-wrap gap-2">{executionViews.map((view)=><a aria-current={executionView===view.key ? "page" : undefined} className={`inline-flex min-h-11 items-center border px-3 text-sm font-semibold ${executionView===view.key ? "border-zinc-900 bg-zinc-900 text-white" : "border-zinc-300 bg-white"}`} href={`/admin/retail/installation?executionView=${view.key}`} key={view.key}>{view.label}</a>)}</nav>
       <div className="grid gap-3">{filteredRequirements.length ? filteredRequirements.map((requirement)=><article className="border border-zinc-200 bg-white p-4" key={requirement.id}><div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-semibold">{requirement.orderNumber} · {requirement.locality}</h3><p className="text-sm text-zinc-600">{requirement.execution ? `${executionLabel(requirement.execution.state)} · ` : ""}{requirement.customerInstallationCharge} {requirement.currency} · {requirement.selectionMode}</p>{requirement.execution?.scheduledStartAt ? <p className="mt-1 text-sm">{new Intl.DateTimeFormat("ru-MD", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Chisinau" }).format(new Date(requirement.execution.scheduledStartAt))}</p> : null}</div><span className="rounded bg-zinc-100 px-2 py-1 text-xs font-semibold">{requirement.attempts.length} попыток</span></div>

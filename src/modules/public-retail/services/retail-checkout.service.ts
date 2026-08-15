@@ -25,6 +25,10 @@ export type RetailCheckoutInput = {
   installationSameAsDelivery: boolean;
   installationAddress?: RetailCheckoutInput["deliveryAddress"] | null;
   processingAcknowledged: boolean;
+  commercialOfferId?: string | null;
+  installationSelectionMode?: "customer_selected" | "automatic" | null;
+  preferredProviderId?: string | null;
+  installationRegionCode?: string | null;
 };
 
 export class RetailCheckoutService {
@@ -32,6 +36,15 @@ export class RetailCheckoutService {
 
   getCheckout(tokenHash: string | null, locale: PublicRetailLocale) {
     return tokenHash ? this.repository.getCheckout(validHash(tokenHash), locale) : Promise.resolve(null);
+  }
+
+  createCommercialOffer(tokenHash: string, idempotencyKey: string, locale: PublicRetailLocale) {
+    if (!UUID.test(idempotencyKey)) throw new RetailCheckoutInputError();
+    return this.repository.createCommercialOffer(validHash(tokenHash), idempotencyKey.toLowerCase(), locale);
+  }
+
+  getCommercialOffer(tokenHash: string | null, locale: PublicRetailLocale) {
+    return tokenHash ? this.repository.getCommercialOffer(validHash(tokenHash), locale) : Promise.resolve(null);
   }
 
   async createOrder(tokenHash: string, accessTokenHash: string, input: RetailCheckoutInput) {
@@ -43,7 +56,17 @@ export class RetailCheckoutService {
     };
     if (!input.processingAcknowledged || !UUID.test(input.submissionKey) || !HASH.test(input.checkoutFingerprint)) throw new RetailCheckoutInputError();
     const deliveryAddress = normalizeAddress(input.deliveryAddress);
-    const installationAddress = input.installationSameAsDelivery ? null : input.installationAddress ? normalizeAddress(input.installationAddress) : null;
+    const installationRequested = input.installationSelectionMode === "automatic" || input.installationSelectionMode === "customer_selected";
+    const installationAddress = installationRequested
+      ? input.installationSameAsDelivery ? deliveryAddress : input.installationAddress ? normalizeAddress(input.installationAddress) : null
+      : null;
+    const commercialOfferId = optionalUuid(input.commercialOfferId);
+    const preferredProviderId = optionalUuid(input.preferredProviderId);
+    const installationRegionCode = input.installationRegionCode?.trim().toUpperCase() || null;
+    const installationSelectionMode = input.installationSelectionMode ?? null;
+    if ((installationSelectionMode === "customer_selected") !== Boolean(preferredProviderId)
+      || (installationSelectionMode === null) !== (installationRegionCode === null)
+      || (installationRegionCode !== null && !/^MD(?:-[A-Z0-9]{1,8})?$/.test(installationRegionCode))) throw new RetailCheckoutInputError();
     const command = {
       locale: input.locale,
       checkoutFingerprint: input.checkoutFingerprint,
@@ -52,8 +75,13 @@ export class RetailCheckoutService {
       customer,
       deliveryAddress,
       installationAddress,
+      commercialOfferId,
+      installationSelectionMode,
+      preferredProviderId,
+      installationRegionCode,
     };
-    const requestFingerprint = fingerprint({ locale: command.locale, checkoutFingerprint: command.checkoutFingerprint, customer, deliveryAddress, installationAddress });
+    const requestFingerprint = fingerprint({ locale: command.locale, checkoutFingerprint: command.checkoutFingerprint, customer,
+      deliveryAddress, installationAddress, commercialOfferId, installationSelectionMode, preferredProviderId, installationRegionCode });
     try {
       return await this.repository.createOrder(validHash(tokenHash), { ...command, requestFingerprint });
     } catch (error) {
@@ -89,6 +117,7 @@ export function normalizeMoldovaPhone(value: string): string {
 }
 
 function validHash(value: string) { if (!HASH.test(value)) throw new RetailCheckoutInputError(); return value; }
+function optionalUuid(value: string | null | undefined) { const normalized = value?.trim() || null; if (normalized && !UUID.test(normalized)) throw new RetailCheckoutInputError(); return normalized?.toLowerCase() ?? null; }
 function boundedText(value: string, minimum: number, maximum: number) { const result = value.trim().replace(/\s+/g, " "); if (result.length < minimum || result.length > maximum) throw new RetailCheckoutInputError(); return result; }
 function optionalText(value: string | null | undefined, maximum: number) { const result = value?.trim() || null; if (result && result.length > maximum) throw new RetailCheckoutInputError(); return result; }
 function optionalEmail(value: string | null | undefined) { const result = value?.trim().toLowerCase() || null; if (result && (result.length > 254 || !EMAIL.test(result))) throw new RetailCheckoutInputError(); return result; }

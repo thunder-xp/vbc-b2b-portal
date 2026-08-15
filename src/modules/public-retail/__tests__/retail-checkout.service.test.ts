@@ -13,7 +13,7 @@ const submissionKey = "20000000-0000-4000-8000-000000000001";
 const created = { orderNumber: "R-2026-000001", status: "awaiting_payment" as const, repeated: false, accessExpiresAt: "2027-02-09T10:00:00.000Z" };
 
 function repository(): RetailCheckoutRepository {
-  return { getCheckout: vi.fn(), createOrder: vi.fn().mockResolvedValue(created), getOrder: vi.fn(), getInstallationStatus: vi.fn(), transitionInstallation: vi.fn() };
+  return { getCheckout: vi.fn(), createCommercialOffer: vi.fn(), getCommercialOffer: vi.fn(), createOrder: vi.fn().mockResolvedValue(created), getOrder: vi.fn(), getInstallationStatus: vi.fn(), transitionInstallation: vi.fn() };
 }
 function input() { return { locale: "ru" as const, checkoutFingerprint: fingerprint, submissionKey, name: " Ivan Test ", phone: "060 123 456", email: "TEST@EXAMPLE.COM", deliveryAddress: { locality: "Chișinău", street: "Test", building: "1" }, installationSameAsDelivery: true, processingAcknowledged: true }; }
 
@@ -58,7 +58,7 @@ describe("RetailCheckoutService", () => {
   });
 
   it("keeps the token-scoped public order DTO free of customer/database and 1C identities", () => {
-    const safe = { orderNumber: "R-2026-000001", status: "awaiting_payment", createdAt: "2026-08-13T05:00:00+00:00", locale: "ru", customer: { name: "Test", phone: "+37360123456", email: null }, deliveryAddress: { locality: "Chisinau", street: "Test", building: "1", unit: null, postalCode: null, instructions: null }, installationAddress: null, installationIntent: [], calculatorEvidence: [], totals: { equipment: 100, materials: 0, total: 100, currency: "MDL", vatPresentation: "included" }, lines: [{ lineNumber: 1, publicProductId: "10000000-0000-4000-8000-000000000001", source: "catalog", commercialGroup: "equipment", slug: "camera", sku: "CAM-1", name: "Camera", imageUrl: null, quantity: 1, unitCode: "piece", unitPrice: 100, lineTotal: 100, currency: "MDL", vatPresentation: "included", availability: "in_stock" }] };
+    const safe = { orderNumber: "R-2026-000001", status: "awaiting_payment", createdAt: "2026-08-13T05:00:00+00:00", locale: "ru", customer: { name: "Test", phone: "+37360123456", email: null }, deliveryAddress: { locality: "Chisinau", street: "Test", building: "1", unit: null, postalCode: null, instructions: null }, installationAddress: null, installationIntent: [], calculatorEvidence: [], totals: { equipment: 100, materials: 0, installation: 0, equipmentDiscount: 0, total: 100, currency: "MDL", vatPresentation: "included" }, lines: [{ lineNumber: 1, publicProductId: "10000000-0000-4000-8000-000000000001", source: "catalog", commercialGroup: "equipment", slug: "camera", sku: "CAM-1", name: "Camera", imageUrl: null, quantity: 1, unitCode: "piece", unitPrice: 100, lineTotal: 100, currency: "MDL", vatPresentation: "included", availability: "in_stock" }] };
     expect(parsePublicRetailOrder(safe).orderNumber).toBe("R-2026-000001");
     expect(() => parsePublicRetailOrder({ ...safe, customerId: "secret" })).toThrow();
     expect(() => parsePublicRetailOrder({ ...safe, external1cId: "secret" })).toThrow();

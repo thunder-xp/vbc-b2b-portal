@@ -16,7 +16,7 @@ const ids = {
 function repository(): RetailMarketplaceRepository {
   return {
     getCurrentTariffs: vi.fn(), listPublicProviders: vi.fn(), getAdminReport: vi.fn(), saveTariffDraft: vi.fn(), publishTariff: vi.fn(), saveProvider: vi.fn(),
-    activatePilot: vi.fn().mockResolvedValue({ requirementId: ids.requirement, status: "offered", attemptId: ids.attempt, repeated: false }), dispatch: vi.fn(), listPartnerAssignments: vi.fn().mockResolvedValue([]), respondToAssignment: vi.fn().mockResolvedValue({ attemptId: ids.attempt, status: "accepted", repeated: false }), transitionPartnerExecution: vi.fn(), transitionAdminExecution: vi.fn(), getAssignmentAdminReport: vi.fn(), reassign: vi.fn(), runAssignmentWorker: vi.fn(),
+    simulatePayment: vi.fn(), dispatch: vi.fn(), listPartnerAssignments: vi.fn().mockResolvedValue([]), respondToAssignment: vi.fn().mockResolvedValue({ attemptId: ids.attempt, status: "accepted", repeated: false }), transitionPartnerExecution: vi.fn(), transitionAdminExecution: vi.fn(), getAssignmentAdminReport: vi.fn(), reassign: vi.fn(), runAssignmentWorker: vi.fn(),
   };
 }
 

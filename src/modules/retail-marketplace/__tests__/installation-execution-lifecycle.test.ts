@@ -10,7 +10,7 @@ const partnerPage = fs.readFileSync(path.resolve("app/(partner)/cabinet/installa
 const customerPage = fs.readFileSync(path.resolve("app/order/[token]/page.tsx"), "utf8");
 const adminPage = fs.readFileSync(path.resolve("app/(admin)/admin/retail/installation/page.tsx"), "utf8");
 const id = (digit: number) => `${digit}0000000-0000-4000-8000-00000000000${digit}`;
-function repository(): RetailMarketplaceRepository { return { getCurrentTariffs: vi.fn(), listPublicProviders: vi.fn(), getAdminReport: vi.fn(), saveTariffDraft: vi.fn(), publishTariff: vi.fn(), saveProvider: vi.fn(), activatePilot: vi.fn(), dispatch: vi.fn(), listPartnerAssignments: vi.fn(), respondToAssignment: vi.fn(), transitionPartnerExecution: vi.fn().mockResolvedValue({ executionId: id(2), state: "scheduled", revision: 1, repeated: false, scheduledStartAt: "2026-08-20T07:00:00Z", scheduledEndAt: null }), transitionAdminExecution: vi.fn(), getAssignmentAdminReport: vi.fn(), reassign: vi.fn(), runAssignmentWorker: vi.fn() }; }
+function repository(): RetailMarketplaceRepository { return { getCurrentTariffs: vi.fn(), listPublicProviders: vi.fn(), getAdminReport: vi.fn(), saveTariffDraft: vi.fn(), publishTariff: vi.fn(), saveProvider: vi.fn(), simulatePayment: vi.fn(), dispatch: vi.fn(), listPartnerAssignments: vi.fn(), respondToAssignment: vi.fn(), transitionPartnerExecution: vi.fn().mockResolvedValue({ executionId: id(2), state: "scheduled", revision: 1, repeated: false, scheduledStartAt: "2026-08-20T07:00:00Z", scheduledEndAt: null }), transitionAdminExecution: vi.fn(), getAssignmentAdminReport: vi.fn(), reassign: vi.fn(), runAssignmentWorker: vi.fn() }; }
 
 describe("Installation execution lifecycle", () => {
   it("defines the bounded state machine and cancellation boundary", () => {

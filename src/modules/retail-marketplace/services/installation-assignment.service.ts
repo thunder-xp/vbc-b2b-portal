@@ -13,12 +13,9 @@ export class InstallationAssignmentInputError extends Error {
 export class InstallationAssignmentDispatcher {
   constructor(private readonly repository: RetailMarketplaceRepository) {}
 
-  activatePilot(input: { retailOrderId: string; selectionMode: "customer_selected" | "automatic"; preferredProviderId?: string | null; regionCode: string; schedulingContext?: Record<string, unknown>; reason: string; idempotencyKey: string }) {
-    const preferredProviderId = input.preferredProviderId ?? null;
-    if (!validId(input.retailOrderId) || !validId(input.idempotencyKey) || !/^MD(?:-[A-Z0-9]{1,8})?$/.test(input.regionCode)
-      || input.reason.trim().length < 10 || (input.selectionMode === "customer_selected") !== Boolean(preferredProviderId)
-      || (preferredProviderId !== null && !validId(preferredProviderId))) throw new InstallationAssignmentInputError();
-    return this.repository.activatePilot({ ...input, preferredProviderId, reason: input.reason.trim(), schedulingContext: input.schedulingContext ?? {} });
+  simulatePayment(input: { retailOrderId: string; reason: string; idempotencyKey: string }) {
+    if (!validId(input.retailOrderId) || !validId(input.idempotencyKey) || input.reason.trim().length < 10) throw new InstallationAssignmentInputError();
+    return this.repository.simulatePayment({ ...input, reason: input.reason.trim() });
   }
 
   list(companyId: string, view: InstallationAssignmentView) {

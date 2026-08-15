@@ -8,8 +8,8 @@ import { PublicRetailShell } from "@/src/modules/public-retail/components/Public
 import { availabilityCopy, availabilityTone, formatRetailPrice, publicRetailFullCatalogHref, publicRetailLocale } from "@/src/modules/public-retail/presentation";
 import { getRetailCartTokenHash } from "@/src/modules/public-retail/retail-cart-cookie";
 import { getRetailCartService } from "@/src/modules/public-retail/retail-cart-server";
-import { isRetailCheckoutEnabled } from "@/src/modules/public-retail/retail-checkout-server";
-import type { PublicRetailCartBundleDto, PublicRetailCartDto, PublicRetailCartItemDto, PublicRetailLocale } from "@/src/modules/public-retail/types";
+import { getRetailCheckoutService, isRetailCheckoutEnabled } from "@/src/modules/public-retail/retail-checkout-server";
+import type { PublicRetailCartBundleDto, PublicRetailCartDto, PublicRetailCartItemDto, PublicRetailCommercialOfferDto, PublicRetailLocale } from "@/src/modules/public-retail/types";
 
 export async function generateMetadata({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }): Promise<Metadata> {
   const locale = publicRetailLocale((await searchParams).lang);
@@ -18,7 +18,11 @@ export async function generateMetadata({ searchParams }: { searchParams: Promise
 
 export default async function PublicRetailCartPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const locale = publicRetailLocale((await searchParams).lang);
-  const cart = await getRetailCartService().getCart(await getRetailCartTokenHash(), locale).catch(() => null);
+  const tokenHash = await getRetailCartTokenHash();
+  const [cart, offer] = await Promise.all([
+    getRetailCartService().getCart(tokenHash, locale).catch(() => null),
+    getRetailCheckoutService().getCommercialOffer(tokenHash, locale).catch(() => null),
+  ]);
   const quantity = cart?.totalQuantity ?? 0;
 
   return <PublicRetailShell cartQuantity={quantity} languagePath="/cart" locale={locale}>
@@ -28,13 +32,13 @@ export default async function PublicRetailCartPage({ searchParams }: { searchPar
           <div><p className="text-xs font-semibold uppercase text-emerald-700">Novotech Retail</p><h1 className="mt-2 text-3xl font-semibold tracking-tight">{locale === "ro" ? "Coș" : "Корзина"}</h1></div>
           {quantity > 0 ? <p className="text-sm text-zinc-600">{locale === "ro" ? `${quantity} bucăți` : `${quantity} шт.`}</p> : null}
         </header>
-        {!cart || cart.items.length === 0 ? <EmptyCart locale={locale} /> : <CartContent cart={cart} locale={locale} />}
+        {!cart || cart.items.length === 0 ? <EmptyCart locale={locale} /> : <CartContent cart={cart} locale={locale} offer={offer} />}
       </div>
     </main>
   </PublicRetailShell>;
 }
 
-function CartContent({ cart, locale }: { cart: PublicRetailCartDto; locale: PublicRetailLocale }) {
+function CartContent({ cart, locale, offer }: { cart: PublicRetailCartDto; locale: PublicRetailLocale; offer: PublicRetailCommercialOfferDto | null }) {
   const ru = locale === "ru";
   const standalone = cart.items.filter((item) => item.bundleId === null);
   const hasStaleItems = cart.items.some((item) => item.stale);
@@ -53,8 +57,10 @@ function CartContent({ cart, locale }: { cart: PublicRetailCartDto; locale: Publ
         <SummaryRow label={ru ? "Товары и оборудование" : "Produse și echipamente"} locale={locale} value={cart.totals.equipment} currency={cart.totals.currency} />
         {cart.items.some((item) => item.commercialGroup === "materials") ? <SummaryRow label={ru ? "Материалы" : "Materiale"} locale={locale} value={cart.totals.materials} currency={cart.totals.currency} /> : null}
         {cart.bundles.some((bundle) => bundle.installationPricing) ? <SummaryRow label={ru ? "Монтаж и настройка" : "Instalare și configurare"} locale={locale} value={cart.totals.installation} currency={cart.totals.currency} /> : null}
+        {offer?.status === "active" ? <SummaryRow label={ru ? "Скидка на оборудование −10%" : "Reducere la echipamente −10%"} locale={locale} value={-offer.discountAmount} currency={offer.currency} /> : null}
       </dl>
-      <div className="mt-5 border-t border-zinc-200 pt-5"><div className="flex items-end justify-between gap-4"><span className="font-semibold">{ru ? "Текущая сумма" : "Suma curentă"}</span><strong className="text-xl tabular-nums">{money(cart.totals.total, cart.totals.currency, locale)}</strong></div></div>
+      <div className="mt-5 border-t border-zinc-200 pt-5"><div className="flex items-end justify-between gap-4"><span className="font-semibold">{ru ? "Текущая сумма" : "Suma curentă"}</span><strong className="text-xl tabular-nums">{offer?.status === "active" ? money(offer.resultingTotal, offer.currency, locale) : money(cart.totals.total, cart.totals.currency, locale)}</strong></div></div>
+      {offer?.status === "active" ? <p className="mt-3 text-xs leading-5 text-zinc-600">{ru ? `Предложение действует до ${formatExpiry(offer.expiresAt, locale)}. Материалы и монтаж не участвуют в скидке.` : `Oferta este valabilă până la ${formatExpiry(offer.expiresAt, locale)}. Materialele și instalarea nu sunt reduse.`}</p> : offer?.status === "expired" ? <p className="mt-3 text-xs leading-5 text-zinc-600">{ru ? "Срок предложения завершён. Применяется обычная цена эконом-варианта." : "Oferta a expirat. Se aplică prețul obișnuit al variantei economice."}</p> : null}
       {hasStaleItems ? <p className="mt-4 text-sm leading-5 text-amber-700">{ru ? "Одна или несколько позиций больше не доступны в текущем каталоге. Итог будет показан после их удаления или повторного подбора." : "Una sau mai multe poziții nu mai sunt disponibile în catalogul curent. Totalul va fi afișat după eliminarea sau selectarea lor din nou."}</p> : null}
       {checkoutAvailable ? <Link className="mt-6 inline-flex min-h-12 w-full items-center justify-center bg-emerald-700 px-4 text-sm font-semibold text-white hover:bg-emerald-800" href={`/checkout?lang=${locale}`}>{ru ? "Оформить заказ" : "Plasează comanda"}</Link> : null}
       <Link className={`${checkoutAvailable ? "mt-3" : "mt-6"} inline-flex min-h-12 w-full items-center justify-center border border-zinc-300 px-4 text-sm font-semibold text-zinc-800 hover:bg-zinc-50`} href={`/catalog?lang=${locale}`}>{ru ? "Продолжить выбор" : "Continuă selecția"}</Link>
@@ -104,4 +110,5 @@ function SummaryRow({ label, value, currency, locale }: { label: string; value: 
 function money(value: number | null, currency: string | null, locale: PublicRetailLocale) {
   return value !== null && currency ? formatRetailPrice(value, currency, locale) : "—";
 }
+function formatExpiry(value: string, locale: PublicRetailLocale) { return new Intl.DateTimeFormat(locale === "ru" ? "ru-MD" : "ro-MD", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Chisinau" }).format(new Date(value)); }
 function unitLabel(unit: PublicRetailCartItemDto["unitCode"], locale: PublicRetailLocale) { if (unit === "meter") return "m"; if (unit === "service") return locale === "ru" ? "усл." : "serv."; return locale === "ru" ? "шт." : "buc."; }

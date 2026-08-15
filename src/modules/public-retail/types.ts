@@ -110,7 +110,7 @@ export type PublicRetailCartItemDto = {
 export type PublicRetailCartBundleDto = {
   id: string;
   source: "cctv_calculator";
-  installationIntent: { cameraInstallation: boolean; cableLaying: boolean; commissioning: boolean; remoteViewing: boolean } | null;
+  installationIntent: { cameraInstallation: boolean; cableLaying: boolean; commissioning: boolean; remoteViewing: boolean; aiScenarioProgramming?: boolean } | null;
   calculatorVersion?: string;
   calculatorInput?: Record<string, unknown> | null;
   workScope?: Array<{ kind: string; quantity: number; unitCode: "piece" | "meter" | "service" }> | null;
@@ -132,6 +132,31 @@ export type PublicRetailCartDto = {
   totals: { equipment: number | null; materials: number | null; installation: number | null; total: number | null; currency: string | null };
 };
 export type PublicRetailCartMutationDto = { revision: number; distinctItemCount: number; totalQuantity: number; repeated: boolean; bundleId: string | null };
+
+export type PublicRetailCommercialOfferDto = {
+  id: string;
+  status: "active" | "redeemed" | "expired" | "invalidated";
+  policyVersion: "retail_equipment_conversion_offer_v1";
+  discountPercent: 10;
+  scope: "equipment";
+  discountAmount: number;
+  expiresAt: string;
+  currency: string;
+  resultingTotal: number;
+  repeated: boolean;
+};
+
+export type PublicInstallationCheckoutOptionsDto = {
+  regions: Array<{ code: string; name: string }>;
+  providers: Array<{
+    providerId: string;
+    regionCode: string;
+    displayName: string;
+    description: string | null;
+    logoUrl: string | null;
+    availability: "available" | "limited";
+  }>;
+};
 
 export type PublicRetailCheckoutLineDto = {
   publicProductId: string;
@@ -159,14 +184,18 @@ export type PublicRetailCheckoutDto = {
   blockingReason: "empty_cart" | "unpublished_product" | "unavailable_product" | "currency_conflict" | null;
   priceChanged: boolean;
   fingerprint: string;
+  selectedVariant: "recommended" | "economy" | null;
+  installationRequired: boolean;
+  installationOptions: PublicInstallationCheckoutOptionsDto | null;
+  commercialOffer: PublicRetailCommercialOfferDto | null;
   lines: PublicRetailCheckoutLineDto[];
   bundles: PublicRetailCartBundleDto[];
-  totals: { equipment: number; materials: number; total: number; currency: string; vatPresentation: PublicRetailVatPresentation | "mixed" };
+  totals: { equipment: number; materials: number; installation: number; equipmentDiscount: number; total: number; currency: string; vatPresentation: PublicRetailVatPresentation | "mixed" };
 };
 export type RetailAddressDto = { locality: string; street: string; building: string; unit: string | null; postalCode: string | null; instructions: string | null };
 export type PublicRetailOrderDto = {
   orderNumber: string;
-  status: "awaiting_payment";
+  status: "awaiting_payment" | "confirmed";
   createdAt: string;
   locale: PublicRetailLocale;
   customer: { name: string; phone: string; email: string | null };
@@ -177,7 +206,7 @@ export type PublicRetailOrderDto = {
   totals: PublicRetailCheckoutDto["totals"];
   lines: Array<Omit<PublicRetailCheckoutLineDto, "bundleId" | "priceChanged" | "missing"> & { lineNumber: number }>;
 };
-export type PublicRetailOrderCreatedDto = { orderNumber: string; status: "awaiting_payment"; repeated: boolean; accessExpiresAt: string };
+export type PublicRetailOrderCreatedDto = { orderNumber: string; status: "awaiting_payment" | "confirmed"; repeated: boolean; accessExpiresAt: string };
 export type PublicRetailInstallationStatusDto = {
   status: "selecting_team" | "scheduling" | "scheduled" | "in_progress" | "completed_by_provider" | "customer_confirmation_pending" | "customer_confirmed" | "issue_reported" | "disputed" | "resolved" | "cancelled";
   label: string;

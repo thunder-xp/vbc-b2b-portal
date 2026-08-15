@@ -9,11 +9,13 @@ import type {
   PublicRetailPublicationMetrics,
   PublicRetailCartDto,
   PublicRetailCartMutationDto,
+  PublicRetailCommercialOfferDto,
   PublicRetailCheckoutDto,
   PublicRetailOrderCreatedDto,
   PublicRetailOrderDto,
   PublicRetailShowcaseDto,
 } from "./types";
+import { publicPartnerLogoUrl } from "./services/public-partner-directory.service";
 
 const uuid = z.string().uuid();
 const slug = z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(160);
@@ -167,7 +169,7 @@ const cartItem = z.object({
   name: localizedText, image: media.nullable(), quantity: z.coerce.number().int().min(1).max(20_000), unitCode: z.enum(["piece", "meter", "service"]).default("piece"),
   price: price.nullable(), availability, lineAmount: z.coerce.number().positive().nullable(), stale: z.boolean(), priceChanged: z.boolean(),
 }).strict();
-const installationIntent = z.object({ cameraInstallation: z.boolean(), cableLaying: z.boolean(), commissioning: z.boolean(), remoteViewing: z.boolean() }).strict();
+const installationIntent = z.object({ cameraInstallation: z.boolean(), cableLaying: z.boolean(), commissioning: z.boolean(), remoteViewing: z.boolean(), aiScenarioProgramming: z.boolean().optional() }).strict();
 const cartBundle = z.object({
   id: uuid, source: z.literal("cctv_calculator"), installationIntent: installationIntent.nullable(),
   calculatorVersion: z.string().min(1).max(100).optional(), calculatorInput: z.record(z.string(), z.unknown()).nullable().optional(),
@@ -198,18 +200,37 @@ const checkoutLine = z.object({
   vatPresentation: z.enum(["included", "excluded", "not_specified"]), availability,
   priceChanged: z.boolean(), missing: z.boolean(),
 }).strict();
-const checkoutTotals = z.object({ equipment: z.coerce.number().nonnegative(), materials: z.coerce.number().nonnegative(), total: z.coerce.number().positive(), currency: z.string().regex(/^[A-Z]{3}$/), vatPresentation: z.enum(["included", "excluded", "not_specified", "mixed"]) }).strict();
+const commercialOffer = z.object({ id: uuid, status: z.enum(["active", "redeemed", "expired", "invalidated"]),
+  policyVersion: z.literal("retail_equipment_conversion_offer_v1"), discountPercent: z.literal(10), scope: z.literal("equipment"),
+  discountAmount: z.coerce.number().positive(), expiresAt: z.string().datetime({ offset: true }), currency: z.string().regex(/^[A-Z]{3}$/),
+  resultingTotal: z.coerce.number().positive(), repeated: z.boolean().default(false) }).strict();
+const installationOptions = z.object({
+  regions: z.array(z.object({ code: z.string().regex(/^MD(?:-[A-Z0-9]{1,8})?$/), name: localizedText }).strict()).max(100),
+  providers: z.array(z.object({ providerId: uuid, regionCode: z.string().regex(/^MD(?:-[A-Z0-9]{1,8})?$/), displayName: localizedText,
+    description: z.string().max(2000).nullable(), logoPath: z.string().regex(/^[0-9a-f-]{36}\/[0-9a-f-]{36}\.(?:png|jpg|webp)$/).max(100).nullable(), availability: z.enum(["available", "limited"]) }).strict()).max(200),
+}).strict();
+const checkoutTotals = z.object({ equipment: z.coerce.number().nonnegative(), materials: z.coerce.number().nonnegative(),
+  installation: z.coerce.number().nonnegative(), equipmentDiscount: z.coerce.number().nonnegative(), total: z.coerce.number().positive(),
+  currency: z.string().regex(/^[A-Z]{3}$/), vatPresentation: z.enum(["included", "excluded", "not_specified", "mixed"]) }).strict();
 
 export function parsePublicRetailCheckout(value: unknown): PublicRetailCheckoutDto {
-  return z.object({ cartRevision: z.coerce.number().int().nonnegative(), publicationId: uuid, eligible: z.boolean(),
+  const checkout = z.object({ cartRevision: z.coerce.number().int().nonnegative(), publicationId: uuid, eligible: z.boolean(),
     blockingReason: z.enum(["empty_cart", "unpublished_product", "unavailable_product", "currency_conflict"]).nullable(),
-    priceChanged: z.boolean(), fingerprint: z.string().regex(/^[0-9a-f]{64}$/), lines: z.array(checkoutLine).max(100),
+    priceChanged: z.boolean(), fingerprint: z.string().regex(/^[0-9a-f]{64}$/), selectedVariant: z.enum(["recommended", "economy"]).nullable(),
+    installationRequired: z.boolean(), installationOptions: installationOptions.nullable(), commercialOffer: commercialOffer.nullable(), lines: z.array(checkoutLine).max(100),
     bundles: z.array(cartBundle).max(20), totals: checkoutTotals }).strict().parse(value);
+  return {
+    ...checkout,
+    installationOptions: checkout.installationOptions ? {
+      regions: checkout.installationOptions.regions,
+      providers: checkout.installationOptions.providers.map(({ logoPath, ...provider }) => ({ ...provider, logoUrl: publicPartnerLogoUrl(logoPath) })),
+    } : null,
+  };
 }
 
 const address = z.object({ locality: localizedText, street: localizedText, building: localizedText, unit: z.string().max(80).nullable(), postalCode: z.string().max(20).nullable(), instructions: z.string().max(500).nullable() }).strict();
 export function parsePublicRetailOrder(value: unknown): PublicRetailOrderDto {
-  return z.object({ orderNumber: z.string().regex(/^R-[0-9]{4}-[0-9]{6}$/), status: z.literal("awaiting_payment"), createdAt: z.string().datetime({ offset: true }), locale: z.enum(["ru", "ro"]),
+  return z.object({ orderNumber: z.string().regex(/^R-[0-9]{4}-[0-9]{6}$/), status: z.enum(["awaiting_payment", "confirmed"]), createdAt: z.string().datetime({ offset: true }), locale: z.enum(["ru", "ro"]),
     customer: z.object({ name: localizedText, phone: z.string().regex(/^\+373[0-9]{8}$/), email: z.string().email().nullable() }).strict(),
     deliveryAddress: address, installationAddress: address.nullable(),
     installationIntent: z.array(z.object({ bundleId: uuid, intent: z.record(z.string(), z.boolean()), workScope: z.array(z.unknown()).nullable() }).strict()).max(20),
@@ -218,6 +239,9 @@ export function parsePublicRetailOrder(value: unknown): PublicRetailOrderDto {
     lines: z.array(checkoutLine.omit({ bundleId: true, priceChanged: true, missing: true }).extend({ lineNumber: z.coerce.number().int().positive() }).strict()).max(100),
   }).strict().parse(value);
 }
+export function parsePublicRetailCommercialOffer(value: unknown): PublicRetailCommercialOfferDto {
+  return commercialOffer.parse(value);
+}
 export function parsePublicRetailOrderCreated(value: unknown): PublicRetailOrderCreatedDto {
-  return z.object({ orderNumber: z.string().regex(/^R-[0-9]{4}-[0-9]{6}$/), status: z.literal("awaiting_payment"), repeated: z.boolean(), accessExpiresAt: z.string().datetime({ offset: true }) }).strict().parse(value);
+  return z.object({ orderNumber: z.string().regex(/^R-[0-9]{4}-[0-9]{6}$/), status: z.enum(["awaiting_payment", "confirmed"]), repeated: z.boolean(), accessExpiresAt: z.string().datetime({ offset: true }) }).strict().parse(value);
 }

@@ -13,7 +13,7 @@ export class PublicPartnerDirectoryService {
   }
 }
 
-function publicPartnerLogoUrl(assetPath: string | null): string | null {
+export function publicPartnerLogoUrl(assetPath: string | null): string | null {
   const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   if (!assetPath || !baseUrl) return null;
   const encodedPath = assetPath.split("/").map(encodeURIComponent).join("/");

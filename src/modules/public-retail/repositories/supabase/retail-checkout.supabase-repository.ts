@@ -2,7 +2,7 @@ import "server-only";
 
 import { createPublicReadClient } from "@/src/lib/supabase/public";
 
-import { parsePublicRetailCheckout, parsePublicRetailOrder, parsePublicRetailOrderCreated } from "../../validation";
+import { parsePublicRetailCheckout, parsePublicRetailCommercialOffer, parsePublicRetailOrder, parsePublicRetailOrderCreated } from "../../validation";
 import type { PublicRetailInstallationStatusDto } from "../../types";
 import type { RetailCheckoutRepository } from "../retail-checkout.repository";
 
@@ -21,12 +21,23 @@ export class SupabaseRetailCheckoutRepository implements RetailCheckoutRepositor
   }
 
   async getCheckout(tokenHash: string, locale: "ru" | "ro") {
-    const data = await this.rpc("get_public_retail_checkout", { p_token_hash: tokenHash, p_locale: locale });
+    const data = await this.rpc("get_public_retail_checkout_v2", { p_token_hash: tokenHash, p_locale: locale });
     return data === null ? null : parsePublicRetailCheckout(data);
   }
 
+  async createCommercialOffer(tokenHash: string, idempotencyKey: string, locale: "ru" | "ro") {
+    return parsePublicRetailCommercialOffer(await this.rpc("create_public_retail_commercial_offer", {
+      p_token_hash: tokenHash, p_idempotency_key: idempotencyKey, p_locale: locale,
+    }));
+  }
+
+  async getCommercialOffer(tokenHash: string, locale: "ru" | "ro") {
+    const data = await this.rpc("get_public_retail_commercial_offer", { p_token_hash: tokenHash, p_locale: locale });
+    return data === null ? null : parsePublicRetailCommercialOffer(data);
+  }
+
   async createOrder(tokenHash: string, command: Parameters<RetailCheckoutRepository["createOrder"]>[1]) {
-    return parsePublicRetailOrderCreated(await this.rpc("create_public_retail_order", {
+    return parsePublicRetailOrderCreated(await this.rpc("create_public_retail_order_v2", {
       p_token_hash: tokenHash,
       p_locale: command.locale,
       p_checkout_fingerprint: command.checkoutFingerprint,
@@ -36,6 +47,10 @@ export class SupabaseRetailCheckoutRepository implements RetailCheckoutRepositor
       p_customer: command.customer,
       p_delivery_address: command.deliveryAddress,
       p_installation_address: command.installationAddress,
+      p_commercial_offer_id: command.commercialOfferId,
+      p_installation_selection_mode: command.installationSelectionMode,
+      p_preferred_provider_id: command.preferredProviderId,
+      p_installation_region_code: command.installationRegionCode,
     }));
   }
 
