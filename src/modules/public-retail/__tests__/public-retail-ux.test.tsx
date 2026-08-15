@@ -44,18 +44,19 @@ describe("public retail UX", () => {
     render(<PublicRetailProductCard locale="ru" product={{ ...product, image: { url: "https://www.nsd.md/storage/v1/object/public/public-product-media/product/image.webp", alt: "Camera" } }} />);
     const image = screen.getByRole("img", { name: "Camera" });
     const media = image.closest("a");
-    expect(media?.closest("article")).toHaveClass("flex", "h-full", "overflow-hidden", "rounded-md");
+    expect(media?.closest("article")).toHaveClass("flex", "h-full", "overflow-hidden");
+    expect(media?.closest("article")).not.toHaveClass("rounded-md");
     expect(media).toHaveClass("aspect-[4/3]", "w-full", "min-w-0", "max-w-full", "overflow-hidden");
     expect(image).toHaveClass("size-full", "max-h-full", "max-w-full", "object-contain");
   });
 
-  it("keeps identity, highlights, commercial state and actions in stable tracks", () => {
+  it("keeps compact identity, commercial state and actions in stable tracks", () => {
     render(<PublicRetailProductCard badge="Популярный" badgeCode="TOP" locale="ru" product={{ ...product, name: "Очень длинное название камеры видеонаблюдения с технической моделью" }} />);
     expect(screen.getByText("Популярный")).toHaveClass("text-emerald-800");
     expect(screen.getByText("Популярный").closest("span.absolute")).toHaveClass("left-2", "top-2");
     expect(screen.getByRole("link", { name: "Очень длинное название камеры видеонаблюдения с технической моделью" })).toHaveClass("line-clamp-2", "h-10");
     expect(screen.getByText("Brand · Артикул CAM-001")).toHaveClass("truncate");
-    expect(screen.getByRole("list")).toHaveClass("min-h-8");
+    expect(screen.queryByRole("list")).not.toBeInTheDocument();
     expect(screen.getByText("Наличие уточняется")).toHaveClass("min-h-5");
     expect(screen.getByText("1 299 MDL")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "В корзину" })).toBeInTheDocument();
@@ -65,16 +66,16 @@ describe("public retail UX", () => {
   it("does not substitute long descriptions when governed highlights are absent", () => {
     render(<PublicRetailProductCard locale="ru" product={{ ...product, highlights: [], shortDescription: "Длинное техническое описание" }} />);
     expect(screen.queryByText("Длинное техническое описание")).not.toBeInTheDocument();
-    expect(screen.getByRole("list")).toBeEmptyDOMElement();
+    expect(screen.queryByRole("list")).not.toBeInTheDocument();
   });
 
-  it("limits card highlights to two and keeps availability readable beyond color", () => {
+  it("keeps listing-only highlights off the compact card and availability readable beyond color", () => {
     render(<PublicRetailProductCard locale="ru" product={{ ...product, highlights: [
       { key: "one", label: "One", value: "1" },
       { key: "two", label: "Two", value: "2" },
       { key: "three", label: "Three", value: "3" },
     ] }} />);
-    expect(screen.getAllByRole("listitem")).toHaveLength(2);
+    expect(screen.queryByRole("listitem")).not.toBeInTheDocument();
     const availability = screen.getByText("Наличие уточняется");
     expect(availability.querySelector("[aria-hidden='true']")).toHaveClass("rounded-full", "bg-current");
   });
@@ -87,8 +88,9 @@ describe("public retail UX", () => {
     expect(screen.getByRole("link", { name: "Популярное" })).toHaveAttribute("href", "/catalog?lang=ru&view=popular");
     expect(screen.getByRole("link", { name: "Новинки" })).toHaveAttribute("href", "/catalog?lang=ru&view=new");
     expect(screen.getByRole("link", { name: "По цене" })).toHaveAttribute("aria-current", "page");
-    expect(screen.getAllByLabelText("Все категории").length).toBeGreaterThan(0);
-    expect(screen.getAllByRole("checkbox", { name: /4 Мп/ }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("link", { name: "Все категории" }).length).toBeGreaterThan(0);
+    expect(screen.getByRole("link", { name: /4 Мп/ })).not.toHaveAttribute("href", expect.stringContaining("facet_resolution"));
+    expect(screen.getAllByRole("button", { name: "Применить" })).toHaveLength(1);
     expect(screen.getByText("1")).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: "Следующая страница" })).toHaveAttribute("href", expect.stringContaining("page=2"));
     expect(screen.getByRole("link", { name: "Следующая страница" })).toHaveAttribute("href", expect.stringContaining("sort=price_asc"));
@@ -100,7 +102,7 @@ describe("public retail UX", () => {
     expect(screen.getByRole("link", { name: "Populare" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: "Noutăți" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "După preț" })).toBeInTheDocument();
-    expect(screen.getAllByLabelText("Toate categoriile").length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("link", { name: "Toate categoriile" }).length).toBeGreaterThan(0);
   });
 
   it("provides localized customer-facing datasheet copy", () => {

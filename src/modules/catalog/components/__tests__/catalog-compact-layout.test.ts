@@ -35,8 +35,8 @@ describe("compact catalog layout", () => {
     expect(card).toContain("CatalogCardImage");
     expect(card).toContain('className="truncate');
     expect(card).toContain("line-clamp-2 h-10");
-    expect(cardFrame).toContain('className="h-[5.25rem]"');
-    expect(cardFrame).toContain('className="h-[3.25rem]"');
+    expect(cardFrame).toContain('compact ? "h-12" : "h-[5.25rem]"');
+    expect(cardFrame).toContain('compact ? "h-8" : "h-[3.25rem]"');
     expect(card).toContain("absolute left-2 top-2");
     expect(card).not.toContain("min-h-8 items-center px-3 pt-2");
   });

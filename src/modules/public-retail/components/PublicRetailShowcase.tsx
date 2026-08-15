@@ -25,8 +25,8 @@ export function PublicRetailShowcase({ locale, showcase }: { locale: PublicRetai
 
 function ShowcaseSection({ badge, badgeCode, href, locale, products, title }: { badge: string; badgeCode: MerchandisingLabelCode; href: string; locale: PublicRetailLocale; products: PublicRetailProductSummaryDto[]; title: string }) {
   const copy = retailCopy[locale];
-  return <section className="py-7" aria-labelledby={`showcase-${href.split("=").at(-1)}`}>
-    <div className="mb-4 flex items-center justify-between gap-4">
+  return <section className="py-5" aria-labelledby={`showcase-${href.split("=").at(-1)}`}>
+    <div className="mb-3 flex items-center justify-between gap-4">
       <h2 className="text-xl font-semibold" id={`showcase-${href.split("=").at(-1)}`}>{title}</h2>
       <Link className="inline-flex min-h-11 shrink-0 items-center gap-2 text-sm font-semibold text-emerald-800 hover:text-emerald-950" href={href}>{copy.showAll}<ArrowRight aria-hidden="true" className="size-4" /></Link>
     </div>

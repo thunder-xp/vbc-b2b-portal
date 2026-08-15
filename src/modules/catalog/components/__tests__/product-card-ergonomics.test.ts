@@ -15,9 +15,9 @@ describe("product card ergonomics contracts", () => {
   it("keeps deterministic identity, commercial, availability, and action zones", () => {
     expect(card).toContain("aspect-[4/3]");
     expect(card).toContain("line-clamp-2 h-10");
-    expect(cardFrame).toContain('className="h-[5.25rem]"');
-    expect(cardFrame).toContain('className="h-[3.25rem]"');
-    expect(cardFrame).toContain("mt-auto pt-3");
+    expect(cardFrame).toContain('compact ? "h-12" : "h-[5.25rem]"');
+    expect(cardFrame).toContain('compact ? "h-8" : "h-[3.25rem]"');
+    expect(cardFrame).toContain('compact ? "pt-2" : "pt-3"');
     expect(cardFrame).toContain("min-h-11 justify-end");
   });
 

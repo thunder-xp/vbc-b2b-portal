@@ -23,6 +23,9 @@ describe("shared B2B/B2C catalog presentation architecture", () => {
     expect(publicCatalog).toContain("CatalogFilterShell");
     expect(publicCatalog).toContain("CatalogProductGridFrame");
     expect(publicCatalog).toContain("NumberedPagination");
+    expect(publicCatalog).toContain("CatalogFilterLink");
+    expect(publicCatalog).not.toContain('type="checkbox"');
+    expect(publicCatalog).not.toContain('type="radio"');
   });
 
   it("keeps public retail commercial and cart boundaries separate", () => {
@@ -32,6 +35,8 @@ describe("shared B2B/B2C catalog presentation architecture", () => {
     expect(publicCard).toContain("PublicRetailAddToCartButton");
     expect(publicCard).not.toMatch(/ProductPricingBlock|ProductAvailabilityBlock|CatalogQuantityCartAction|commercialView|partnerPrice/);
     expect(publicCatalog).not.toMatch(/Supabase|from\(|listCatalogProductsAction|getPartnerWorkspaceContextAction/);
+    expect(publicCard).toContain('density="compact"');
+    expect(publicCard).toContain("square");
   });
 
   it("uses one governed public contact source in contacts and footer", () => {
