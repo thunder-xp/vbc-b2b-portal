@@ -22,10 +22,10 @@ describe("Public Retail shell", () => {
     expect(navigation.getAllByRole("link").map((link) => link.textContent)).toEqual([
       "Каталог",
       "Подобрать систему",
-      "Услуги и монтаж",
+      "Монтаж",
       "Доставка",
       "Поддержка",
-      "Наши партнёры",
+      "Контакты",
     ]);
     expect(navigation.getAllByRole("link").map((link) => link.getAttribute("href"))).toEqual([
       "/catalog?lang=ru",
@@ -33,7 +33,7 @@ describe("Public Retail shell", () => {
       "/?lang=ru#installation",
       "/?lang=ru#delivery",
       "/?lang=ru#support",
-      "/partners?lang=ru",
+      "/contacts?lang=ru",
     ]);
 
     const header = screen.getByRole("banner");
@@ -45,7 +45,9 @@ describe("Public Retail shell", () => {
     expect(cart).toHaveTextContent("Корзина");
     expect(cart).toHaveTextContent("11");
     expect(within(header).getByRole("link", { name: "Novotech Systems Distribution" })).toHaveTextContent("NOVOTECH SYSTEMS");
-    expect(within(header).getByText("DISTRIBUTION")).toBeInTheDocument();
+    expect(within(header).getByText("Прямой импортёр оборудования и решений для безопасности")).toBeInTheDocument();
+    expect(screen.getByText("Кишинёв, ул. Лев Толстой, 4")).toBeInTheDocument();
+    expect(screen.getByText("Бельцы, ул. Думитру Карачобану, 118")).toBeInTheDocument();
   });
 
   it("keeps authored Romanian labels and complete mobile navigation", () => {
@@ -55,11 +57,10 @@ describe("Public Retail shell", () => {
     expect(mobile.getAllByRole("link").map((link) => link.textContent)).toEqual([
       "Catalog",
       "Alege un sistem",
-      "Servicii și instalare",
+      "Instalare",
       "Livrare",
       "Suport",
-      "Partenerii noștri",
-      "Cabinet partener",
+      "Contacte",
       "RU",
       "RO",
     ]);

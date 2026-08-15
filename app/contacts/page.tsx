@@ -1,0 +1,48 @@
+import type { Metadata } from "next";
+import { Clock3, Mail, MapPin, Phone } from "lucide-react";
+
+import { PublicRetailShell } from "@/src/modules/public-retail/components/PublicRetailShell";
+import { publicRetailLocale } from "@/src/modules/public-retail/presentation";
+import { publicCompanyContent } from "@/src/modules/public-retail/public-company-content";
+
+type Params = Promise<Record<string, string | string[] | undefined>>;
+
+export const metadata: Metadata = {
+  title: "Контакты и магазины | Novotech",
+  description: "Контакты и адреса магазинов Novotech в Кишинёве и Бельцах.",
+};
+
+export default async function ContactsPage({ searchParams }: { searchParams: Params }) {
+  const locale = publicRetailLocale((await searchParams).lang);
+  const ru = locale === "ru";
+
+  return <PublicRetailShell languagePath="/contacts" locale={locale}>
+    <main className="mx-auto max-w-[1440px] px-4 py-10 sm:px-6 lg:px-8 lg:py-14">
+      <header className="max-w-3xl border-b border-zinc-200 pb-7">
+        <p className="text-xs font-semibold uppercase text-emerald-700">Novotech Systems</p>
+        <h1 className="mt-2 text-3xl font-semibold sm:text-4xl">{ru ? "Контакты и магазины" : "Contacte și magazine"}</h1>
+        <p className="mt-3 text-sm leading-6 text-zinc-600">{publicCompanyContent.descriptor[locale]}</p>
+      </header>
+
+      <section aria-labelledby="stores-heading" className="py-8">
+        <h2 className="text-xl font-semibold" id="stores-heading">{ru ? "Магазины" : "Magazine"}</h2>
+        <div className="mt-5 grid border-l border-t border-zinc-200 md:grid-cols-2">
+          {publicCompanyContent.stores.map((store) => <article className="border-b border-r border-zinc-200 p-5 sm:p-6" key={store.phone}>
+            <h3 className="text-lg font-semibold">{store.city[locale]}</h3>
+            <p className="mt-4 flex items-start gap-3 text-sm text-zinc-700"><MapPin aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-emerald-700" />{store.address[locale]}</p>
+            <a className="mt-3 flex min-h-11 w-fit items-center gap-3 text-sm font-semibold text-emerald-800 hover:text-emerald-950" href={`tel:${store.phone.replace(/\s/g, "")}`}><Phone aria-hidden="true" className="size-4" />{store.phone}</a>
+            <p className="mt-3 flex items-start gap-3 text-sm leading-6 text-zinc-600"><Clock3 aria-hidden="true" className="mt-1 size-4 shrink-0 text-emerald-700" /><span>{publicCompanyContent.hours.weekdays[locale]}<br />{publicCompanyContent.hours.saturday[locale]}</span></p>
+          </article>)}
+        </div>
+      </section>
+
+      <section aria-labelledby="customer-contact-heading" className="border-t border-zinc-200 py-8">
+        <h2 className="text-xl font-semibold" id="customer-contact-heading">{ru ? "Связаться с нами" : "Contactați-ne"}</h2>
+        <div className="mt-5 flex flex-col gap-3 text-sm sm:flex-row sm:gap-8">
+          <a className="flex min-h-11 w-fit items-center gap-3 font-semibold text-emerald-800 hover:text-emerald-950" href={`tel:${publicCompanyContent.customerPhone.replace(/\s/g, "")}`}><Phone aria-hidden="true" className="size-4" />{publicCompanyContent.customerPhone}</a>
+          <a className="flex min-h-11 w-fit items-center gap-3 font-semibold text-emerald-800 hover:text-emerald-950" href={`mailto:${publicCompanyContent.email}`}><Mail aria-hidden="true" className="size-4" />{publicCompanyContent.email}</a>
+        </div>
+      </section>
+    </main>
+  </PublicRetailShell>;
+}

@@ -23,7 +23,7 @@ const categories: PublicRetailCategoryDto[] = [
 describe("public retail landing", () => {
   beforeEach(() => mocks.listRetailCategories.mockResolvedValue(categories));
 
-  it("leads with system selection and routes explicit catalog actions to the full listing", async () => {
+  it("leads with system selection and routes the hero catalog action to the showcase", async () => {
     render(await Home({ searchParams: Promise.resolve({}) }));
 
     expect(screen.getByRole("heading", { name: "Системы безопасности под ключ" })).toBeInTheDocument();
@@ -32,10 +32,11 @@ describe("public retail landing", () => {
     const heroCatalog = screen.getByRole("link", { name: "Перейти в каталог" });
     if (!heroPrimary) throw new Error("Primary system-selection action is missing.");
     expect(heroPrimary).toHaveAttribute("href", "/calculator/cctv?lang=ru");
-    expect(heroCatalog).toHaveAttribute("href", "/catalog?lang=ru&view=all");
+    expect(heroCatalog).toHaveAttribute("href", "/catalog?lang=ru");
     expect(heroPrimary.compareDocumentPosition(heroCatalog) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getByRole("link", { name: "Открыть каталог" })).toHaveAttribute("href", "/catalog?lang=ru&view=all");
-    expect(screen.getAllByRole("link", { name: "Наши партнёры" })[0]).toHaveAttribute("href", "/partners?lang=ru");
+    expect(screen.getAllByRole("link", { name: "Контакты" })[0]).toHaveAttribute("href", "/contacts?lang=ru");
+    expect(screen.getAllByText("Прямой импортёр оборудования и решений для безопасности").length).toBeGreaterThan(0);
     expect(screen.queryByRole("search")).not.toBeInTheDocument();
     expect(screen.queryByText("Партнёрская платформа Novotech")).not.toBeInTheDocument();
     expect(screen.queryByText("Стать партнёром")).not.toBeInTheDocument();

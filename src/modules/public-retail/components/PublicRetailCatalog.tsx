@@ -1,7 +1,7 @@
-import { SlidersHorizontal } from "lucide-react";
+import { SlidersHorizontal, Sparkles } from "lucide-react";
 import Link from "next/link";
 
-import { retailCopy } from "../presentation";
+import { publicRetailShowcaseHref, retailCopy } from "../presentation";
 import type { PublicRetailAvailability, PublicRetailCatalogMode, PublicRetailCategoryDto, PublicRetailFacetDto, PublicRetailLocale, PublicRetailProductPageDto } from "../types";
 import { PublicRetailProductCard } from "./PublicRetailProductCard";
 
@@ -13,7 +13,10 @@ export function PublicRetailCatalog({ categories, facets, locale, products, stat
   return <div className="mx-auto max-w-[1440px] px-4 py-8 sm:px-6 lg:px-8">
     <header className="flex flex-wrap items-end justify-between gap-4 border-b border-zinc-200 pb-6">
       <div><p className="text-xs font-semibold uppercase text-emerald-700">Novotech Retail</p><h1 className="mt-2 text-3xl font-semibold tracking-tight">{copy.catalog}</h1><p className="mt-2 text-sm text-zinc-500">{copy.found}: {products.totalCount}</p></div>
-      <form action="/catalog" className="flex w-full max-w-xl sm:w-auto sm:min-w-[32rem]" role="search"><input name="lang" type="hidden" value={locale} /><label className="sr-only" htmlFor="catalog-search">{copy.search}</label><input className="min-h-11 min-w-0 flex-1 border border-r-0 border-zinc-300 px-3 text-sm outline-none focus:border-emerald-700" defaultValue={state.q} id="catalog-search" name="q" placeholder={copy.search} /><button className="min-h-11 bg-emerald-700 px-5 text-sm font-semibold text-white hover:bg-emerald-800">{copy.searchAction}</button></form>
+      <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row">
+        <form action="/catalog" className="flex min-w-0 flex-1 md:min-w-[28rem]" role="search"><input name="lang" type="hidden" value={locale} /><label className="sr-only" htmlFor="catalog-search">{copy.search}</label><input className="min-h-11 min-w-0 flex-1 border border-r-0 border-zinc-300 px-3 text-sm outline-none focus:border-emerald-700" defaultValue={state.q} id="catalog-search" name="q" placeholder={copy.search} /><button className="min-h-11 bg-emerald-700 px-5 text-sm font-semibold text-white hover:bg-emerald-800">{copy.searchAction}</button></form>
+        <Link className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 border border-zinc-300 px-4 text-sm font-semibold hover:border-emerald-700 hover:text-emerald-800" href={publicRetailShowcaseHref(locale)}><Sparkles aria-hidden="true" className="size-4" />{copy.showcase}</Link>
+      </div>
     </header>
     <section aria-labelledby="retail-showcase-heading" className="border-b border-zinc-200 py-5">
       <h2 className="text-sm font-semibold" id="retail-showcase-heading">{copy.showcase}</h2>

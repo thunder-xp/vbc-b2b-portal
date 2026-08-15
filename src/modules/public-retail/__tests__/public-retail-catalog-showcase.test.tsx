@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { PublicRetailShowcase } from "../components/PublicRetailShowcase";
-import { publicRetailFullCatalogHref } from "../presentation";
+import { publicRetailFullCatalogHref, publicRetailShowcaseHref } from "../presentation";
 import { parsePublicRetailShowcase } from "../validation";
 import type { PublicRetailProductSummaryDto } from "../types";
 
@@ -35,6 +35,10 @@ describe("Public Retail catalog showcase", () => {
     expect(screen.getByText("Популярный")).toBeInTheDocument();
     expect(screen.getByText("Новинка")).toBeInTheDocument();
     expect(screen.getAllByText("Горячая цена")).toHaveLength(2);
+    expect(screen.getByRole("link", { name: "Каталог" })).toHaveAttribute("href", "/catalog?lang=ru&view=all");
+    expect(screen.getByText("Популярный")).toHaveClass("text-emerald-800");
+    expect(screen.getByText("Новинка")).toHaveClass("text-sky-800");
+    expect(screen.getAllByText("Горячая цена")[1]).toHaveClass("text-rose-800");
   });
 
   it("localizes section-derived merchandising badges in Romanian", () => {
@@ -71,5 +75,7 @@ describe("Public Retail catalog showcase", () => {
     expect(page).toContain("view === \"hot\" ? \"hot\"");
     expect(publicRetailFullCatalogHref("ru")).toBe("/catalog?lang=ru&view=all");
     expect(publicRetailFullCatalogHref("ro")).toBe("/catalog?lang=ro&view=all");
+    expect(publicRetailShowcaseHref("ru")).toBe("/catalog?lang=ru");
+    expect(publicRetailShowcaseHref("ro")).toBe("/catalog?lang=ro");
   });
 });

@@ -50,8 +50,9 @@ describe("public retail UX", () => {
   });
 
   it("keeps identity, highlights, commercial state and actions in stable tracks", () => {
-    render(<PublicRetailProductCard badge="Популярный" locale="ru" product={{ ...product, name: "Очень длинное название камеры видеонаблюдения с технической моделью" }} />);
-    expect(screen.getByText("Популярный")).toHaveClass("absolute", "left-2", "top-2");
+    render(<PublicRetailProductCard badge="Популярный" badgeCode="TOP" locale="ru" product={{ ...product, name: "Очень длинное название камеры видеонаблюдения с технической моделью" }} />);
+    expect(screen.getByText("Популярный")).toHaveClass("text-emerald-800");
+    expect(screen.getByText("Популярный").closest("span.absolute")).toHaveClass("left-2", "top-2");
     expect(screen.getByRole("link", { name: "Очень длинное название камеры видеонаблюдения с технической моделью" })).toHaveClass("line-clamp-2", "min-h-10");
     expect(screen.getByText("Brand · Артикул CAM-001")).toHaveClass("truncate");
     expect(screen.getByRole("list")).toHaveClass("min-h-10");
@@ -82,6 +83,7 @@ describe("public retail UX", () => {
     render(<PublicRetailCatalog categories={[{ id: "20000000-0000-4000-8000-000000000001", parentId: null, slug: "video", name: "Видеонаблюдение", description: null, productCount: 25 }]} facets={[{ key: "resolution", label: "Разрешение", values: [{ value: "4 Мп", count: 12 }], coverage: 12 }]} locale="ru" products={{ items: [product], totalCount: 25, limit: 24, offset: 0 }} state={{ category: "video", facets: { resolution: ["4 Мп"] }, mode: "price_asc", page: 1 }} />);
     expect(screen.getByRole("heading", { name: "Каталог" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Витрина" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Витрина" })).toHaveAttribute("href", "/catalog?lang=ru");
     expect(screen.getByRole("link", { name: "Популярное" })).toHaveAttribute("href", "/catalog?lang=ru&view=popular");
     expect(screen.getByRole("link", { name: "Новинки" })).toHaveAttribute("href", "/catalog?lang=ru&view=new");
     expect(screen.getByRole("link", { name: "По цене" })).toHaveAttribute("aria-current", "page");

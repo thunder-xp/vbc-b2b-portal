@@ -20,8 +20,10 @@ const LABELS: Record<
 
 export function MerchandisingBadges({
   labels = [],
+  labelOverrides,
 }: {
   labels?: MerchandisingLabelCode[];
+  labelOverrides?: Partial<Record<MerchandisingLabelCode, string>>;
 }) {
   const visible = [...new Set(labels)].slice(0, 2);
   if (!visible.length) return null;
@@ -33,7 +35,7 @@ export function MerchandisingBadges({
           className={`rounded border px-1.5 py-0.5 text-[10px] font-semibold ${LABELS[code].className}`}
           key={code}
         >
-          {LABELS[code].label}
+          {labelOverrides?.[code] ?? LABELS[code].label}
         </span>
       ))}
     </div>

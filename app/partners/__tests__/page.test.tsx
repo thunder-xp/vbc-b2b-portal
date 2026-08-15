@@ -19,7 +19,7 @@ describe("public partners page", () => {
 
     expect(screen.getByRole("heading", { name: "Partenerii noștri" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Approved Partner" })).toBeInTheDocument();
-    expect(screen.getAllByRole("link", { name: "Partenerii noștri" })[0]).toHaveAttribute("href", "/partners?lang=ro");
+    expect(screen.getAllByRole("link", { name: "Contacte" })[0]).toHaveAttribute("href", "/contacts?lang=ro");
     expect(screen.queryByRole("search")).not.toBeInTheDocument();
     expect(container.innerHTML).not.toMatch(/companyId|external_1c|debt|contract|partnerPrice/i);
     expect(mocks.listPartners).toHaveBeenCalledOnce();

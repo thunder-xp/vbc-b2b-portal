@@ -141,7 +141,8 @@ describe("governed anonymous Retail Cart migration", () => {
     expect(addButton).toContain("PUBLIC_RETAIL_CART_UPDATED_EVENT");
     expect(addButton).not.toContain("router.refresh");
     expect(retailShell).toContain('<span className="hidden sm:inline">SYSTEMS</span>');
-    expect(retailShell).toContain('md:block">DISTRIBUTION</span>');
+    expect(retailShell).toContain("publicCompanyContent.descriptor[locale]");
+    expect(retailShell).toContain(">DISTRIBUTION</span>");
     expect(retailShell).toContain('<PublicRetailCartBadge locale={locale} totalQuantity={cartQuantity} />');
     expect(cartBadge).toContain('quantity > 99 ? "99+" : quantity');
   });

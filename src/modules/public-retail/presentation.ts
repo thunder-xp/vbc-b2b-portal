@@ -4,9 +4,10 @@ export const retailCopy = {
   ru: {
     catalog: "Каталог",
     chooseSystem: "Подобрать систему",
-    services: "Услуги и монтаж",
+    services: "Монтаж",
     delivery: "Доставка",
     support: "Поддержка",
+    contacts: "Контакты",
     partners: "Наши партнёры",
     partnerCabinet: "Кабинет партнёра",
     search: "Поиск по модели, артикулу или названию",
@@ -47,9 +48,10 @@ export const retailCopy = {
   ro: {
     catalog: "Catalog",
     chooseSystem: "Alege un sistem",
-    services: "Servicii și instalare",
+    services: "Instalare",
     delivery: "Livrare",
     support: "Suport",
+    contacts: "Contacte",
     partners: "Partenerii noștri",
     partnerCabinet: "Cabinet partener",
     search: "Căutare după model, cod sau denumire",
@@ -133,6 +135,10 @@ export function publicRetailLocale(value: string | string[] | undefined): Public
 
 export function publicRetailFullCatalogHref(locale: PublicRetailLocale): string {
   return `/catalog?lang=${locale}&view=all`;
+}
+
+export function publicRetailShowcaseHref(locale: PublicRetailLocale): string {
+  return `/catalog?lang=${locale}`;
 }
 
 export function formatRetailPrice(amount: number, currency: string, locale: PublicRetailLocale): string {
