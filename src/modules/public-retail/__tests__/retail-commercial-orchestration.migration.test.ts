@@ -75,3 +75,13 @@ describe("Retail commercial offer and paid activation migration", () => {
     expect(sql).toContain("from public, anon, authenticated");
   });
 });
+
+describe("Retail installation provider selector hardening", () => {
+  const selectorSql = fs.readFileSync(path.join(process.cwd(), "supabase/migrations/20260815115937_exclude_internal_installation_providers_from_public_selector.sql"), "utf8");
+
+  it("keeps internal fallback out of the customer-selectable provider list", () => {
+    expect(selectorSql).toContain("provider.provider_type='partner_company'");
+    expect(selectorSql).toContain("profile.public_profile_status='published'");
+    expect(selectorSql).toContain("provider.marketplace_enabled");
+  });
+});

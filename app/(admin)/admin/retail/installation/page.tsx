@@ -6,6 +6,7 @@ import {
   transitionAdminInstallationExecutionAction,
   simulateRetailOrderPaymentAction,
 } from "@/src/modules/retail-marketplace/actions";
+import { grantRetailCheckoutPilotAccessAction, revokeRetailCheckoutPilotAccessAction } from "@/src/modules/public-retail/actions/retail-checkout-pilot.actions";
 import { getRetailMarketplaceRepository } from "@/src/modules/retail-marketplace/server";
 import type { InstallationAssignmentAdminReport } from "@/src/modules/retail-marketplace/types";
 import { requireAdminPagePermission } from "@/src/modules/admin/services/admin-page-guard";
@@ -31,6 +32,14 @@ export default async function RetailInstallationAdminPage({ searchParams }: { se
   return <main className="space-y-8">
     <header><p className="text-sm font-semibold text-emerald-700">Retail Marketplace</p><h1 className="mt-1 text-2xl font-semibold">Монтаж: тарифы и исполнители</h1><p className="mt-2 max-w-3xl text-sm text-zinc-600">Тарифы Novotech и допуск исполнителей. Назначение заказов и выплаты в этот раздел не входят.</p></header>
     {query.saved ? <p className="border-l-4 border-emerald-600 bg-emerald-50 p-3 text-sm">Изменение сохранено.</p> : null}
+    {query.pilot ? <p className="border-l-4 border-emerald-600 bg-emerald-50 p-3 text-sm">{query.pilot === "granted" ? "Пилотный Checkout включён для этого браузера на 2 часа." : query.pilot === "revoked" ? "Пилотный Checkout отключён для этого браузера." : "Укажите причину не короче 10 символов."}</p> : null}
+    <section className="grid gap-4 border border-zinc-200 bg-white p-4 md:grid-cols-2" aria-labelledby="checkout-pilot-title">
+      <div><h2 className="text-xl font-semibold" id="checkout-pilot-title">Пилотный Checkout</h2><p className="mt-1 text-sm leading-6 text-zinc-600">Временный доступ применяется только к этому защищённому браузеру. Он не даёт права подтверждать оплату.</p></div>
+      <div className="grid gap-3">
+        <form action={grantRetailCheckoutPilotAccessAction} className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]"><input aria-label="Причина пилотного доступа" className="min-h-11 border border-zinc-300 px-3" minLength={10} name="reason" placeholder="Причина контролируемого теста" required /><button className="min-h-11 bg-emerald-700 px-4 text-sm font-semibold text-white">Разрешить на 2 часа</button></form>
+        <form action={revokeRetailCheckoutPilotAccessAction} className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]"><input aria-label="Причина отключения пилотного доступа" className="min-h-11 border border-zinc-300 px-3" minLength={10} name="reason" placeholder="Причина отключения" required /><button className="min-h-11 border border-zinc-900 px-4 text-sm font-semibold">Отключить доступ</button></form>
+      </div>
+    </section>
     <section className="space-y-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-xl font-semibold">Тарифы CCTV</h2><p className="text-sm text-zinc-600">Опубликованная версия: {published ? `v${published.version}` : "нет"}</p></div></div>
       <form action={saveInstallationTariffDraftAction} className="grid gap-4 border border-zinc-200 bg-white p-4 md:grid-cols-2 xl:grid-cols-4">
         <input name="tariffSetId" type="hidden" value={draft?.id ?? ""} /><input name="revision" type="hidden" value={draft?.revision ?? 0} />

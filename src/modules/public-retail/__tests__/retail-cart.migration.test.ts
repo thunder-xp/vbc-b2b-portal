@@ -82,7 +82,7 @@ describe("governed anonymous Retail Cart migration", () => {
     expect(cartPage).toContain("Добавление в корзину не резервирует товар");
     expect(cartPage).toContain("Adăugarea în coș nu rezervă produsul");
     expect(cartPage).toContain("Продолжить выбор");
-    expect(cartPage).toContain("isRetailCheckoutEnabled");
+    expect(cartPage).toContain("hasRetailCheckoutAccess");
     expect(cartPage).toContain("Оформить заказ");
     expect(cartPage).not.toMatch(/Оплатить|Plătește/i);
     expect(cartPage).toContain("sm:grid-cols-[80px_minmax(0,1fr)_auto]");

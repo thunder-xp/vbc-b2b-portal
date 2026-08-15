@@ -6,13 +6,13 @@ import { PublicRetailCheckoutForm } from "@/src/modules/public-retail/components
 import { PublicRetailShell } from "@/src/modules/public-retail/components/PublicRetailShell";
 import { publicRetailLocale } from "@/src/modules/public-retail/presentation";
 import { getRetailCartTokenHash } from "@/src/modules/public-retail/retail-cart-cookie";
-import { getRetailCheckoutService, isRetailCheckoutEnabled } from "@/src/modules/public-retail/retail-checkout-server";
+import { getRetailCheckoutService, hasRetailCheckoutAccess } from "@/src/modules/public-retail/retail-checkout-server";
 
 export const metadata: Metadata = { title: "Checkout | Novotech", robots: { index: false, follow: false } };
 export const dynamic = "force-dynamic";
 
 export default async function PublicRetailCheckoutPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  if (!isRetailCheckoutEnabled()) notFound();
+  if (!await hasRetailCheckoutAccess()) notFound();
   const locale = publicRetailLocale((await searchParams).lang);
   const checkout = await getRetailCheckoutService().getCheckout(await getRetailCartTokenHash(), locale).catch(() => null);
   const ru = locale === "ru";

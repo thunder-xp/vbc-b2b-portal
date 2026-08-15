@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { getRetailCartTokenCredential, rotateRetailCartTokenHash } from "../retail-cart-cookie";
-import { getRetailCheckoutService, isRetailCheckoutEnabled } from "../retail-checkout-server";
+import { getRetailCheckoutService, hasRetailCheckoutAccess } from "../retail-checkout-server";
 import { deriveRetailOrderAccessToken } from "../retail-order-token";
 import { hashRetailOrderAccessToken } from "../retail-order-token";
 import { RetailCheckoutConflictError, RetailCheckoutInputError, RetailCheckoutUnavailableError, type RetailCheckoutInput } from "../services/retail-checkout.service";
@@ -14,7 +14,7 @@ export type RetailOfferActionResult = { success: boolean; message: string; offer
 
 export async function createPublicRetailCommercialOfferAction(input: { locale: "ru" | "ro"; idempotencyKey: string }): Promise<RetailOfferActionResult> {
   const ru = input.locale === "ru";
-  if (!isRetailCheckoutEnabled()) return { success: false, message: ru ? "Предложение пока доступно только в пилотном режиме." : "Oferta este disponibilă momentan doar în regim pilot.", offer: null };
+  if (!await hasRetailCheckoutAccess()) return { success: false, message: ru ? "Предложение пока доступно только в пилотном режиме." : "Oferta este disponibilă momentan doar în regim pilot.", offer: null };
   const credential = await getRetailCartTokenCredential();
   if (!credential) return { success: false, message: ru ? "Сначала выберите эконом-вариант." : "Selectați mai întâi varianta economică.", offer: null };
   try {
@@ -30,7 +30,7 @@ export async function createPublicRetailCommercialOfferAction(input: { locale: "
 
 export async function createPublicRetailOrderAction(input: RetailCheckoutInput): Promise<RetailCheckoutActionResult> {
   const ru = input.locale === "ru";
-  if (!isRetailCheckoutEnabled()) return failure(ru ? "Оформление заказа пока доступно только в пилотном режиме." : "Plasarea comenzii este disponibilă momentan doar în regim pilot.");
+  if (!await hasRetailCheckoutAccess()) return failure(ru ? "Оформление заказа пока доступно только в пилотном режиме." : "Plasarea comenzii este disponibilă momentan doar în regim pilot.");
   const credential = await getRetailCartTokenCredential();
   if (!credential) return failure(ru ? "Корзина больше недоступна. Вернитесь в корзину." : "Coșul nu mai este disponibil. Reveniți în coș.");
   const access = deriveRetailOrderAccessToken(credential.token, input.submissionKey);

@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { RetailCheckoutRepository } from "../repositories/retail-checkout.repository";
 import { RetailCheckoutRepositoryError } from "../repositories/supabase/retail-checkout.supabase-repository";
-import { isRetailCheckoutEnabled } from "../retail-checkout-server";
+import { hashRetailCheckoutPilotToken, isRetailCheckoutEnabled } from "../retail-checkout-server";
 import { deriveRetailOrderAccessToken, hashRetailOrderAccessToken } from "../retail-order-token";
 import { normalizeMoldovaPhone, RetailCheckoutConflictError, RetailCheckoutInputError, RetailCheckoutService } from "../services/retail-checkout.service";
 import { parsePublicRetailOrder } from "../validation";
@@ -55,6 +55,8 @@ describe("RetailCheckoutService", () => {
     expect(isRetailCheckoutEnabled({})).toBe(false);
     expect(isRetailCheckoutEnabled({ RETAIL_CHECKOUT_ENABLED: "false" })).toBe(false);
     expect(isRetailCheckoutEnabled({ RETAIL_CHECKOUT_ENABLED: "true" })).toBe(true);
+    expect(hashRetailCheckoutPilotToken("x".repeat(43))).toMatch(/^[0-9a-f]{64}$/);
+    expect(hashRetailCheckoutPilotToken("predictable-short-token")).toBeNull();
   });
 
   it("keeps the token-scoped public order DTO free of customer/database and 1C identities", () => {

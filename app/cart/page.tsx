@@ -8,7 +8,7 @@ import { PublicRetailShell } from "@/src/modules/public-retail/components/Public
 import { availabilityCopy, availabilityTone, formatRetailPrice, publicRetailFullCatalogHref, publicRetailLocale } from "@/src/modules/public-retail/presentation";
 import { getRetailCartTokenHash } from "@/src/modules/public-retail/retail-cart-cookie";
 import { getRetailCartService } from "@/src/modules/public-retail/retail-cart-server";
-import { getRetailCheckoutService, isRetailCheckoutEnabled } from "@/src/modules/public-retail/retail-checkout-server";
+import { getRetailCheckoutService, hasRetailCheckoutAccess } from "@/src/modules/public-retail/retail-checkout-server";
 import type { PublicRetailCartBundleDto, PublicRetailCartDto, PublicRetailCartItemDto, PublicRetailCommercialOfferDto, PublicRetailLocale } from "@/src/modules/public-retail/types";
 
 export async function generateMetadata({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }): Promise<Metadata> {
@@ -19,9 +19,10 @@ export async function generateMetadata({ searchParams }: { searchParams: Promise
 export default async function PublicRetailCartPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const locale = publicRetailLocale((await searchParams).lang);
   const tokenHash = await getRetailCartTokenHash();
-  const [cart, offer] = await Promise.all([
+  const [cart, offer, checkoutAccess] = await Promise.all([
     getRetailCartService().getCart(tokenHash, locale).catch(() => null),
     getRetailCheckoutService().getCommercialOffer(tokenHash, locale).catch(() => null),
+    hasRetailCheckoutAccess(),
   ]);
   const quantity = cart?.totalQuantity ?? 0;
 
@@ -32,17 +33,17 @@ export default async function PublicRetailCartPage({ searchParams }: { searchPar
           <div><p className="text-xs font-semibold uppercase text-emerald-700">Novotech Retail</p><h1 className="mt-2 text-3xl font-semibold tracking-tight">{locale === "ro" ? "Coș" : "Корзина"}</h1></div>
           {quantity > 0 ? <p className="text-sm text-zinc-600">{locale === "ro" ? `${quantity} bucăți` : `${quantity} шт.`}</p> : null}
         </header>
-        {!cart || cart.items.length === 0 ? <EmptyCart locale={locale} /> : <CartContent cart={cart} locale={locale} offer={offer} />}
+        {!cart || cart.items.length === 0 ? <EmptyCart locale={locale} /> : <CartContent cart={cart} checkoutAccess={checkoutAccess} locale={locale} offer={offer} />}
       </div>
     </main>
   </PublicRetailShell>;
 }
 
-function CartContent({ cart, locale, offer }: { cart: PublicRetailCartDto; locale: PublicRetailLocale; offer: PublicRetailCommercialOfferDto | null }) {
+function CartContent({ cart, checkoutAccess, locale, offer }: { cart: PublicRetailCartDto; checkoutAccess: boolean; locale: PublicRetailLocale; offer: PublicRetailCommercialOfferDto | null }) {
   const ru = locale === "ru";
   const standalone = cart.items.filter((item) => item.bundleId === null);
   const hasStaleItems = cart.items.some((item) => item.stale);
-  const checkoutAvailable = isRetailCheckoutEnabled() && !hasStaleItems
+  const checkoutAvailable = checkoutAccess && !hasStaleItems
     && cart.totals.total !== null && !cart.items.some((item) => item.availability === "unavailable");
 
   return <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
@@ -64,7 +65,7 @@ function CartContent({ cart, locale, offer }: { cart: PublicRetailCartDto; local
       {hasStaleItems ? <p className="mt-4 text-sm leading-5 text-amber-700">{ru ? "Одна или несколько позиций больше не доступны в текущем каталоге. Итог будет показан после их удаления или повторного подбора." : "Una sau mai multe poziții nu mai sunt disponibile în catalogul curent. Totalul va fi afișat după eliminarea sau selectarea lor din nou."}</p> : null}
       {checkoutAvailable ? <Link className="mt-6 inline-flex min-h-12 w-full items-center justify-center bg-emerald-700 px-4 text-sm font-semibold text-white hover:bg-emerald-800" href={`/checkout?lang=${locale}`}>{ru ? "Оформить заказ" : "Plasează comanda"}</Link> : null}
       <Link className={`${checkoutAvailable ? "mt-3" : "mt-6"} inline-flex min-h-12 w-full items-center justify-center border border-zinc-300 px-4 text-sm font-semibold text-zinc-800 hover:bg-zinc-50`} href={`/catalog?lang=${locale}`}>{ru ? "Продолжить выбор" : "Continuă selecția"}</Link>
-      {!isRetailCheckoutEnabled() ? <p className="mt-3 text-xs leading-5 text-zinc-500">{ru ? "Оформление заказа пока доступно только в пилотном режиме." : "Plasarea comenzii este disponibilă momentan doar în regim pilot."}</p> : null}
+      {!checkoutAccess ? <p className="mt-3 text-xs leading-5 text-zinc-500">{ru ? "Оформление заказа пока доступно только в пилотном режиме." : "Plasarea comenzii este disponibilă momentan doar în regim pilot."}</p> : null}
     </aside>
   </div>;
 }
