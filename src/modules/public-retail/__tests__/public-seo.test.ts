@@ -5,6 +5,8 @@ import {
   hasCalculatorState,
   publicCatalogSeoState,
   publicLocalizedUrl,
+  publicArticleSchema,
+  publicInstallationServiceSchema,
   publicOrganizationSchemas,
   publicProductSchema,
 } from "../seo";
@@ -101,5 +103,19 @@ describe("public SEO contract", () => {
     expect(serialized).toContain("str. Lev Tolstoi 4");
     expect(serialized).not.toMatch(/latitude|longitude|vat|registration/i);
     expect(() => JSON.parse(serialized)).not.toThrow();
+  });
+
+  it("builds factual service and authored article schema without fabricated ratings", () => {
+    const service = publicInstallationServiceSchema("ru");
+    const article = publicArticleSchema({
+      locale: "ro",
+      path: "/guides/cctv-selection",
+      title: "Ghid CCTV",
+      description: "Ghid practic.",
+    });
+
+    expect(service).toMatchObject({ "@type": "Service", areaServed: { name: "Moldova" } });
+    expect(article).toMatchObject({ "@type": "Article", inLanguage: "ro" });
+    expect(JSON.stringify([service, article])).not.toMatch(/aggregateRating|review|priceRange/);
   });
 });

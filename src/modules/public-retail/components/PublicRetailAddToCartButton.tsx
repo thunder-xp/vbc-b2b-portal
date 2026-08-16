@@ -13,7 +13,7 @@ export function PublicRetailAddToCartButton({ publicProductId, locale, source, c
   const [pending, startTransition] = useTransition();
   const ru = locale === "ru";
 
-  return <div className="space-y-1"><button className={`inline-flex min-h-11 w-full items-center justify-center gap-2 bg-emerald-700 px-4 text-sm font-semibold text-white hover:bg-emerald-800 disabled:opacity-60 ${compact ? "" : "sm:w-auto"}`} disabled={pending} onClick={() => startTransition(async () => {
+  return <div className="space-y-1"><button className={`public-primary-action inline-flex min-h-11 w-full items-center justify-center gap-2 px-4 text-sm font-semibold disabled:opacity-60 ${compact ? "" : "sm:w-auto"}`} disabled={pending} onClick={() => startTransition(async () => {
     const result = await addPublicRetailProductAction({ publicProductId, quantity: 1, source, requestId, locale });
     setMessage(result.message);
     if (result.success && result.data) {

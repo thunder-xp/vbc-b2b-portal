@@ -5,16 +5,17 @@ import { createAdminClient } from "@/src/lib/supabase/admin";
 import { createClient } from "@/src/lib/supabase/server";
 
 import type { RetailMarketplaceRepository } from "../retail-marketplace.repository";
+import type { PublicInstallationLeadRepository } from "../public-installation-lead.repository";
 import { publicPartnerLogoUrl } from "@/src/modules/public-retail/services/public-partner-directory.service";
 
-import { adminReportSchema, assignmentAdminReportSchema, assignmentResponseSchema, dispatchResultSchema, executionResultSchema, partnerAssignmentsSchema, paymentActivationResultSchema, publicProvidersSchema, tariffSetSchema } from "../../validation";
+import { adminReportSchema, assignmentAdminReportSchema, assignmentResponseSchema, dispatchResultSchema, executionResultSchema, partnerAssignmentsSchema, paymentActivationResultSchema, publicInstallationLeadAdminSchema, publicInstallationLeadResultSchema, publicProvidersSchema, tariffSetSchema } from "../../validation";
 
 export class RetailMarketplaceRepositoryError extends Error {
   constructor(readonly code: "invalid" | "conflict" | "forbidden" | "unavailable" = "unavailable") { super("Retail Marketplace operation failed."); this.name = "RetailMarketplaceRepositoryError"; }
 }
 function fail(code?: string): never { throw new RetailMarketplaceRepositoryError(code === "22023" ? "invalid" : code === "PT409" || code === "23505" ? "conflict" : code === "42501" ? "forbidden" : "unavailable"); }
 
-export class SupabaseRetailMarketplaceRepository implements RetailMarketplaceRepository {
+export class SupabaseRetailMarketplaceRepository implements RetailMarketplaceRepository, PublicInstallationLeadRepository {
   async getCurrentTariffs(systemType: "cctv") {
     const { data, error } = await createPublicReadClient().rpc("get_current_public_installation_tariffs", { p_system_type: systemType });
     if (error) fail(error.code); return data ? tariffSetSchema.parse(data) : null;
@@ -78,5 +79,21 @@ export class SupabaseRetailMarketplaceRepository implements RetailMarketplaceRep
   async runAssignmentWorker(limit: number) {
     const { data, error } = await createAdminClient().rpc("run_installation_assignment_worker", { p_limit: limit });
     if (error) fail(error.code); return data as Awaited<ReturnType<RetailMarketplaceRepository["runAssignmentWorker"]>>;
+  }
+  async createPublicInstallationLead(input: Parameters<PublicInstallationLeadRepository["createPublicInstallationLead"]>[0]) {
+    const { data, error } = await createAdminClient().rpc("create_public_installation_lead", {
+      p_locale: input.locale, p_customer_name: input.customerName, p_phone_e164: input.phoneE164,
+      p_locality: input.locality, p_object_type: input.objectType, p_system_type: input.systemType,
+      p_comment: input.comment, p_source_path: input.sourcePath, p_consent: input.consent,
+      p_submission_key: input.submissionKey, p_requester_fingerprint: input.requesterFingerprint,
+      p_duplicate_fingerprint: input.duplicateFingerprint,
+    });
+    if (error) fail(error.code);
+    return publicInstallationLeadResultSchema.parse(data);
+  }
+  async listPublicInstallationLeads(limit = 50) {
+    const { data, error } = await (await createClient()).rpc("admin_list_public_installation_leads", { p_limit: limit });
+    if (error) fail(error.code);
+    return publicInstallationLeadAdminSchema.parse(data);
   }
 }

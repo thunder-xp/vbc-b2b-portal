@@ -21,18 +21,18 @@ describe("Public Retail shell", () => {
     const navigation = within(screen.getByRole("navigation", { name: "Основная навигация" }));
     expect(navigation.getAllByRole("link").map((link) => link.textContent)).toEqual([
       "Каталог",
-      "Подобрать систему",
+      "Решения",
       "Монтаж",
       "Доставка",
-      "Поддержка",
+      "О компании",
       "Контакты",
     ]);
     expect(navigation.getAllByRole("link").map((link) => link.getAttribute("href"))).toEqual([
       "/catalog?lang=ru",
       "/calculator/cctv?lang=ru",
-      "/?lang=ru#installation",
+      "/installation?lang=ru",
       "/?lang=ru#delivery",
-      "/?lang=ru#support",
+      "/?lang=ru#about",
       "/contacts?lang=ru",
     ]);
 
@@ -44,8 +44,10 @@ describe("Public Retail shell", () => {
     expect(cabinet.compareDocumentPosition(cart) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(cart).toHaveTextContent("Корзина");
     expect(cart).toHaveTextContent("11");
-    expect(within(header).getByRole("link", { name: "Novotech Systems Distribution" })).toHaveTextContent("NOVOTECH SYSTEMS");
-    expect(within(header).getByText("DISTRIBUTION")).toBeInTheDocument();
+    expect(within(header).getByRole("img", { name: "Novotech" })).toHaveAttribute("src", expect.stringContaining("novotech-logo-dark.webp"));
+    expect(within(screen.getByRole("contentinfo")).getByRole("img", { name: "Novotech" })).toHaveAttribute("src", expect.stringContaining("novotech-logo-light.webp"));
+    expect(within(header).getByRole("search")).toHaveAttribute("action", "/catalog");
+    expect(within(header).getByRole("searchbox")).toHaveAttribute("name", "q");
     expect(screen.getByText("Прямой импортёр оборудования и решений для безопасности")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Кишинёв, ул. Лев Толстой, 4" })).toHaveAttribute("target", "_blank");
     expect(screen.getByRole("link", { name: "Бельцы, ул. Думитру Карачобану, 118" })).toHaveAttribute("target", "_blank");
@@ -55,13 +57,13 @@ describe("Public Retail shell", () => {
   it("keeps authored Romanian labels and complete mobile navigation", () => {
     render(<PublicRetailShell languagePath="/" locale="ro"><main>content</main></PublicRetailShell>);
 
-    const mobile = within(screen.getByRole("navigation", { name: "Мобильная навигация" }));
+    const mobile = within(screen.getByRole("navigation", { name: "Navigare mobilă" }));
     expect(mobile.getAllByRole("link").map((link) => link.textContent)).toEqual([
       "Catalog",
-      "Alege un sistem",
+      "Soluții",
       "Instalare",
       "Livrare",
-      "Suport",
+      "Despre noi",
       "Contacte",
       "RU",
       "RO",

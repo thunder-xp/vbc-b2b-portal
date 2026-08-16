@@ -14,6 +14,7 @@ import { publicRetailShowcaseHref, publicRetailVisibleCategories, retailCopy } f
 import type { PublicRetailAvailability, PublicRetailCategoryDto, PublicRetailFacetDto, PublicRetailLocale, PublicRetailProductPageDto } from "../types";
 import { PublicRetailProductCard } from "./PublicRetailProductCard";
 import { PublicRetailCategoryMenu } from "./PublicRetailCategoryMenu";
+import { PublicRetailSearchForm } from "./PublicRetailSearchForm";
 
 type CatalogState = PublicRetailCatalogState;
 
@@ -26,8 +27,8 @@ export function PublicRetailCatalog({ categories, facets, locale, products, stat
     <div className="mt-5">
       <CatalogToolbarFrame>
         <PublicRetailCategoryMenu categories={visibleCategories} locale={locale} />
-        <form action="/catalog" className="flex min-w-0 flex-1" role="search"><input name="lang" type="hidden" value={locale} /><label className="sr-only" htmlFor="catalog-search">{copy.search}</label><input className="min-h-11 min-w-0 flex-1 border border-r-0 border-zinc-300 px-3 text-sm outline-none focus:border-emerald-700" defaultValue={state.q} id="catalog-search" name="q" placeholder={copy.search} /><button className="min-h-11 bg-emerald-700 px-5 text-sm font-semibold text-white hover:bg-emerald-800">{copy.searchAction}</button></form>
-        <Link className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 border border-zinc-300 px-4 text-sm font-semibold hover:border-emerald-700 hover:text-emerald-800" href={publicRetailShowcaseHref(locale)}><Sparkles aria-hidden="true" className="size-4" />{copy.showcase}</Link>
+        <PublicRetailSearchForm defaultValue={state.q} id="catalog" locale={locale} />
+        <Link className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 border border-zinc-300 px-4 text-sm font-semibold hover:border-blue-700 hover:text-blue-800" href={publicRetailShowcaseHref(locale)}><Sparkles aria-hidden="true" className="size-4" />{copy.showcase}</Link>
       </CatalogToolbarFrame>
     </div>
     <section aria-labelledby="retail-showcase-heading" className="border-b border-zinc-200 py-5">
@@ -53,7 +54,7 @@ function PublicCatalogFilters({ facets, locale, state }: { facets: PublicRetailF
   const copy = retailCopy[locale];
   const selectedCount = (state.availability ? 1 : 0) + Object.values(state.attributeFilters).reduce((sum, values) => sum + values.length, 0);
   return <CatalogFilterShell closeLabel={locale === "ro" ? "Închide filtrele" : "Закрыть фильтры"} panelLabel={locale === "ro" ? "Filtre catalog" : "Фильтры каталога"} selectedCount={selectedCount} square triggerLabel={copy.filters}>
-    <CatalogFilterPanel clearAction={<CatalogFilterLink className="text-xs font-medium text-emerald-700" href={`/catalog?lang=${locale}&view=all`}>{copy.reset}</CatalogFilterLink>} selectedCount={selectedCount} selectedLabel={locale === "ro" ? "Selectate" : "Выбрано"} title={copy.filters}>
+    <CatalogFilterPanel clearAction={<CatalogFilterLink className="text-xs font-medium text-blue-700" href={`/catalog?lang=${locale}&view=all`}>{copy.reset}</CatalogFilterLink>} selectedCount={selectedCount} selectedLabel={locale === "ro" ? "Selectate" : "Выбрано"} title={copy.filters}>
       <CatalogFilterGroup defaultOpen title={locale === "ro" ? "Disponibilitate" : "Наличие"}>
         <CatalogFilterOption href={publicRetailFilterHref(locale, state, { availability: null })} label={locale === "ro" ? "Toate" : "Все"} selected={!state.availability} />
         {(["in_stock", "low_stock", "available_to_order", "unavailable", "unknown"] as PublicRetailAvailability[]).map((value) => <CatalogFilterOption href={publicRetailFilterHref(locale, state, { availability: value })} key={value} label={availabilityFilterLabel(locale, value)} selected={state.availability === value} />)}
@@ -73,6 +74,6 @@ function Pagination({ locale, products, state }: { locale: PublicRetailLocale; p
   return <div className="mt-8"><NumberedPagination ariaLabel={locale === "ro" ? "Paginare catalog" : "Пагинация каталога"} currentPage={state.page} hrefForPage={hrefForPage} nextAriaLabel={locale === "ro" ? "Pagina următoare" : "Следующая страница"} nextLabel={retailCopy[locale].next} previousAriaLabel={locale === "ro" ? "Pagina precedentă" : "Предыдущая страница"} previousLabel={retailCopy[locale].previous} square totalPages={totalPages} /></div>;
 }
 
-function ShowcaseLink({ active, href, label }: { active: boolean; href: string; label: string }) { return <Link aria-current={active ? "page" : undefined} className={`grid min-h-11 shrink-0 place-items-center border px-4 text-sm font-semibold transition-colors ${active ? "border-emerald-700 bg-emerald-700 text-white" : "border-zinc-300 bg-white text-zinc-700 hover:border-emerald-700 hover:text-emerald-800"}`} href={href}>{label}</Link>; }
-function CatalogFilterOption({ count, href, label, selected }: { count?: number; href: string; label: string; selected: boolean }) { return <CatalogFilterLink className="flex min-h-9 items-center gap-2 px-2 text-sm text-zinc-700 hover:bg-zinc-50" href={href}><span aria-hidden className={`grid size-4 shrink-0 place-items-center border ${selected ? "border-emerald-700 bg-emerald-700 text-white" : "border-zinc-300"}`}>{selected ? <Check className="size-3" /> : null}</span><span className="min-w-0 flex-1 break-words">{label}</span>{typeof count === "number" ? <span className="text-xs text-zinc-400">{count}</span> : null}</CatalogFilterLink>; }
+function ShowcaseLink({ active, href, label }: { active: boolean; href: string; label: string }) { return <Link aria-current={active ? "page" : undefined} className={`grid min-h-11 shrink-0 place-items-center border px-4 text-sm font-semibold transition-colors ${active ? "border-blue-700 bg-blue-700 text-white" : "border-zinc-300 bg-white text-zinc-700 hover:border-blue-700 hover:text-blue-800"}`} href={href}>{label}</Link>; }
+function CatalogFilterOption({ count, href, label, selected }: { count?: number; href: string; label: string; selected: boolean }) { return <CatalogFilterLink className="flex min-h-9 items-center gap-2 px-2 text-sm text-zinc-700 hover:bg-zinc-50" href={href}><span aria-hidden className={`grid size-4 shrink-0 place-items-center border ${selected ? "border-blue-700 bg-blue-700 text-white" : "border-zinc-300"}`}>{selected ? <Check className="size-3" /> : null}</span><span className="min-w-0 flex-1 break-words">{label}</span>{typeof count === "number" ? <span className="text-xs text-zinc-400">{count}</span> : null}</CatalogFilterLink>; }
 function availabilityFilterLabel(locale: PublicRetailLocale, value: PublicRetailAvailability) { return locale === "ro" ? { in_stock: "În stoc", low_stock: "Stoc limitat", available_to_order: "La comandă", unavailable: "Indisponibil", unknown: "Disponibilitate în curs de confirmare" }[value] : { in_stock: "В наличии", low_stock: "Заканчивается", available_to_order: "Под заказ", unavailable: "Нет в наличии", unknown: "Наличие уточняется" }[value]; }

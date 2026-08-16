@@ -1,5 +1,18 @@
 import { z } from "zod";
 
+export const installationLeadObjectType = z.enum(["apartment", "house", "office", "retail", "warehouse", "production", "other"]);
+export const installationLeadSystemType = z.enum(["cctv", "access_control", "alarm", "intercom", "network", "other"]);
+export function normalizePublicInstallationSourcePath(value: string | null | undefined) {
+  if (value === "/" || value === "/installation" || value === "/calculator/cctv/result") return value;
+  return value && /^\/products\/[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value) ? value : "/installation";
+}
+export const publicInstallationLeadResultSchema = z.object({ status: z.enum(["accepted", "conflict", "rate_limited"]), leadId: z.uuid().nullable(), repeated: z.boolean() });
+export const publicInstallationLeadAdminSchema = z.array(z.object({
+  id: z.uuid(), createdAt: z.string(), locale: z.enum(["ru", "ro"]), customerName: z.string(), phone: z.string(), locality: z.string(),
+  objectType: installationLeadObjectType, systemType: installationLeadSystemType, comment: z.string().nullable(), sourcePath: z.string(),
+  status: z.enum(["new", "in_progress", "contacted", "closed"]),
+})).max(100);
+
 const serviceType = z.enum(["camera_installation", "cable_laying", "commissioning", "remote_configuration",
   "equipment_installation_class_2", "equipment_installation_class_3", "cable_routing_class_2", "cable_routing_class_3",
   "ai_scenario_programming"]);

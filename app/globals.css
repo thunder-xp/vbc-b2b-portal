@@ -3,6 +3,9 @@
 @layer components {
   .icon-action { @apply inline-flex size-9 items-center justify-center rounded-md border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 disabled:opacity-50; }
   .text-action { @apply inline-flex min-h-9 items-center justify-center gap-2 rounded-md border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-800 hover:bg-zinc-50 disabled:opacity-50; }
+  .public-primary-action { @apply bg-blue-700 text-white hover:bg-blue-800; }
+  .public-brand-link { @apply text-blue-700 hover:text-blue-800; }
+  .public-brand-eyebrow { @apply text-blue-700; }
 }
 
 :root {
@@ -30,4 +33,18 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-app-sans);
+}
+
+.public-retail {
+  --public-primary: #1769c2;
+  --public-primary-hover: #10549d;
+  --public-primary-soft: #edf6ff;
+  --public-indigo: #5b4ed1;
+  --public-violet: #8338b8;
+  --public-focus: #1769c2;
+}
+
+.public-retail :where(a, button, input, summary):focus-visible {
+  outline: 2px solid var(--public-focus);
+  outline-offset: 2px;
 }

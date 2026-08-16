@@ -3,6 +3,27 @@ export type InstallationServiceType = "camera_installation" | "cable_laying" | "
   | "cable_routing_class_2" | "cable_routing_class_3" | "ai_scenario_programming";
 export type InstallationUnitCode = "piece" | "meter" | "service";
 
+export type PublicInstallationLeadInput = {
+  locale: "ru" | "ro";
+  name: string;
+  phone: string;
+  locality: string;
+  objectType: "apartment" | "house" | "office" | "retail" | "warehouse" | "production" | "other";
+  systemType: "cctv" | "access_control" | "alarm" | "intercom" | "network" | "other";
+  comment: string | null;
+  sourcePath: string;
+  consent: boolean;
+  submissionKey: string;
+};
+
+export type PublicInstallationLeadResult = { status: "accepted" | "conflict" | "rate_limited"; leadId: string | null; repeated: boolean };
+export type PublicInstallationLeadAdminRow = Omit<PublicInstallationLeadInput, "name" | "consent" | "submissionKey"> & {
+  id: string;
+  createdAt: string;
+  customerName: string;
+  status: "new" | "in_progress" | "contacted" | "closed";
+};
+
 export type InstallationTariffSetDto = {
   tariffSetId: string;
   version: number;

@@ -61,7 +61,7 @@ export function buildPublicMetadata(input: PublicMetadataInput): Metadata {
     },
     openGraph: {
       type: "website",
-      siteName: "Novotech Systems Distribution",
+      siteName: "Novotech",
       url: publicLocalizedUrl(input.path, input.locale, canonicalParams),
       locale: input.locale === "ro" ? "ro_MD" : "ru_MD",
       alternateLocale: input.locale === "ro" ? ["ru_MD"] : ["ro_MD"],
@@ -147,7 +147,7 @@ export function publicOrganizationSchemas(
     {
       "@type": "Organization",
       "@id": organizationId,
-      name: "Novotech Systems Distribution",
+      name: "Novotech",
       url: publicLocalizedUrl("/", locale),
       email: publicCompanyContent.email,
       telephone: "+37378999484",
@@ -157,7 +157,7 @@ export function publicOrganizationSchemas(
     ...(includeWebsite ? [{
       "@type": "WebSite",
       "@id": `${publicLocalizedUrl("/", "ru")}#website`,
-      name: "Novotech Systems Distribution",
+      name: "Novotech",
       url: publicLocalizedUrl("/", locale),
       inLanguage: locale,
       publisher: { "@id": organizationId },
@@ -165,7 +165,7 @@ export function publicOrganizationSchemas(
     ...publicCompanyContent.stores.map((store, index) => ({
       "@type": "Store",
       "@id": `${publicLocalizedUrl("/contacts", "ru")}#store-${index + 1}`,
-      name: `Novotech Systems Distribution — ${store.city[locale]}`,
+      name: `Novotech — ${store.city[locale]}`,
       url: publicLocalizedUrl("/contacts", locale),
       telephone: store.phone.href.replace("tel:", ""),
       parentOrganization: { "@id": organizationId },
@@ -206,5 +206,39 @@ export function publicProductSchema(
       availability,
       seller: { "@id": `${publicLocalizedUrl("/", "ru")}#organization` },
     },
+  };
+}
+
+export function publicInstallationServiceSchema(locale: PublicRetailLocale): Record<string, unknown> {
+  const url = publicLocalizedUrl("/installation", locale);
+  return {
+    "@type": "Service",
+    "@id": `${url}#service`,
+    name: locale === "ro" ? "Instalarea sistemelor de securitate" : "Монтаж систем безопасности",
+    description: locale === "ro"
+      ? "Selecție, verificarea compatibilității, instalare și configurare a sistemelor de securitate în Moldova."
+      : "Подбор, проверка совместимости, монтаж и настройка систем безопасности в Молдове.",
+    areaServed: { "@type": "Country", name: "Moldova" },
+    provider: { "@id": `${publicLocalizedUrl("/", "ru")}#organization` },
+    url,
+  };
+}
+
+export function publicArticleSchema(input: {
+  locale: PublicRetailLocale;
+  path: string;
+  title: string;
+  description: string;
+}): Record<string, unknown> {
+  const url = publicLocalizedUrl(input.path, input.locale);
+  return {
+    "@type": "Article",
+    "@id": `${url}#article`,
+    headline: input.title,
+    description: input.description,
+    inLanguage: input.locale,
+    mainEntityOfPage: url,
+    author: { "@id": `${publicLocalizedUrl("/", "ru")}#organization` },
+    publisher: { "@id": `${publicLocalizedUrl("/", "ru")}#organization` },
   };
 }

@@ -7,7 +7,16 @@ import type { PublicRetailLocale } from "@/src/modules/public-retail/types";
 export const dynamic = "force-dynamic";
 
 const locales: PublicRetailLocale[] = ["ru", "ro"];
-const staticPaths = ["/", "/catalog", "/contacts", "/partners", "/calculator/cctv"];
+const staticPaths = [
+  "/",
+  "/catalog",
+  "/contacts",
+  "/partners",
+  "/calculator/cctv",
+  "/installation",
+  "/guides",
+  "/guides/cctv-selection",
+];
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const products = await listPublicSeoProducts();
