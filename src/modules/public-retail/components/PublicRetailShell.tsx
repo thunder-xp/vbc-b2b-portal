@@ -33,26 +33,26 @@ export function PublicRetailShell({ children, locale, languagePath, cartQuantity
           </span>
         </Link>
         <nav aria-label="Основная навигация" className="ml-auto hidden items-center gap-3 xl:flex">
-          {links.map(([label, href]) => <Link className="text-[13px] font-medium text-zinc-700 transition-colors hover:text-[#3083EB]" href={href} key={href}>{label}</Link>)}
+          {links.map(([label, href]) => <Link className="text-[13px] font-medium text-zinc-700 transition-colors hover:text-[#236FD0]" href={href} key={href}>{label}</Link>)}
         </nav>
         <div className="ml-auto flex items-center gap-1 xl:ml-0">
           <div className="hidden items-center md:flex">
-            <Link aria-current={locale === "ru" ? "page" : undefined} className={`min-h-11 px-2 py-3 text-xs font-semibold ${locale === "ru" ? "text-[#3083EB]" : "text-zinc-500"}`} href={languageHref("ru")}>RU</Link>
+            <Link aria-current={locale === "ru" ? "page" : undefined} className={`min-h-11 px-2 py-3 text-xs font-semibold ${locale === "ru" ? "text-[#236FD0]" : "text-zinc-500"}`} href={languageHref("ru")}>RU</Link>
             <span aria-hidden="true" className="text-zinc-300">/</span>
-            <Link aria-current={locale === "ro" ? "page" : undefined} className={`min-h-11 px-2 py-3 text-xs font-semibold ${locale === "ro" ? "text-[#3083EB]" : "text-zinc-500"}`} href={languageHref("ro")}>RO</Link>
+            <Link aria-current={locale === "ro" ? "page" : undefined} className={`min-h-11 px-2 py-3 text-xs font-semibold ${locale === "ro" ? "text-[#236FD0]" : "text-zinc-500"}`} href={languageHref("ro")}>RO</Link>
           </div>
-          <Link aria-label={copy.partnerCabinet} className="grid size-11 shrink-0 place-items-center rounded-sm text-zinc-700 hover:bg-blue-50 hover:text-[#3083EB] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#625DDD]" href="/cabinet">
+          <Link aria-label={copy.partnerCabinet} className="grid size-11 shrink-0 place-items-center rounded-sm text-zinc-700 hover:bg-blue-50 hover:text-[#236FD0] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#625DDD]" href="/cabinet">
             <CircleUserRound aria-hidden="true" className="size-5" />
           </Link>
           <PublicRetailCartBadge locale={locale} totalQuantity={cartQuantity} />
           <details className="relative xl:hidden">
             <summary aria-label={copy.menu} className="grid size-11 cursor-pointer list-none place-items-center rounded-sm hover:bg-zinc-100"><Menu aria-hidden="true" className="size-5" /></summary>
             <nav aria-label="Мобильная навигация" className="absolute right-0 top-12 w-[min(22rem,calc(100vw-2rem))] border border-zinc-200 bg-white p-2 shadow-xl">
-              {links.map(([label, href]) => <Link className="flex min-h-11 items-center px-3 text-sm font-medium hover:bg-blue-50 hover:text-[#3083EB]" href={href} key={href}>{label}</Link>)}
+              {links.map(([label, href]) => <Link className="flex min-h-11 items-center px-3 text-sm font-medium hover:bg-blue-50 hover:text-[#236FD0]" href={href} key={href}>{label}</Link>)}
               <div className="flex min-h-11 items-center border-t border-zinc-100 px-1">
-                <Link aria-current={locale === "ru" ? "page" : undefined} className={`inline-flex min-h-11 items-center px-3 text-xs font-semibold ${locale === "ru" ? "text-[#3083EB]" : "text-zinc-500"}`} href={languageHref("ru")}>RU</Link>
+                <Link aria-current={locale === "ru" ? "page" : undefined} className={`inline-flex min-h-11 items-center px-3 text-xs font-semibold ${locale === "ru" ? "text-[#236FD0]" : "text-zinc-500"}`} href={languageHref("ru")}>RU</Link>
                 <span aria-hidden="true" className="text-zinc-300">/</span>
-                <Link aria-current={locale === "ro" ? "page" : undefined} className={`inline-flex min-h-11 items-center px-3 text-xs font-semibold ${locale === "ro" ? "text-[#3083EB]" : "text-zinc-500"}`} href={languageHref("ro")}>RO</Link>
+                <Link aria-current={locale === "ro" ? "page" : undefined} className={`inline-flex min-h-11 items-center px-3 text-xs font-semibold ${locale === "ro" ? "text-[#236FD0]" : "text-zinc-500"}`} href={languageHref("ro")}>RO</Link>
               </div>
             </nav>
           </details>
