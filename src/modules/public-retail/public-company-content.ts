@@ -4,8 +4,8 @@ type LocalizedValue = Record<PublicRetailLocale, string>;
 
 export const publicCompanyContent = {
   descriptor: {
-    ru: "Прямой импортёр оборудования и решений для безопасности",
-    ro: "Importator direct de echipamente și soluții de securitate",
+    ru: "Прямой импортёр оборудования и решений для безопасности вашего дома и бизнеса.",
+    ro: "Importator direct de echipamente și soluții de securitate pentru casa și afacerea dumneavoastră.",
   } satisfies LocalizedValue,
   email: "info@nsd.md",
   customerPhone: { display: "0 79 31 33 53", normalized: "079313353", href: "tel:+37379313353" },

@@ -20,7 +20,7 @@ describe("Public Retail shell", () => {
 
     const navigation = within(screen.getByRole("navigation", { name: "Основная навигация" }));
     expect(navigation.getAllByRole("link").map((link) => link.textContent)).toEqual([
-      "Оборудование",
+      "Каталог",
       "Решения",
       "Монтаж",
       "Доставка",
@@ -28,7 +28,7 @@ describe("Public Retail shell", () => {
       "Контакты",
     ]);
     expect(navigation.getAllByRole("link").map((link) => link.getAttribute("href"))).toEqual([
-      "/catalog?lang=ru&view=all",
+      "/catalog?lang=ru",
       "/calculator/cctv?lang=ru",
       "/installation?lang=ru",
       "/?lang=ru#delivery",
@@ -45,16 +45,13 @@ describe("Public Retail shell", () => {
     expect(cart).toHaveTextContent("Корзина");
     expect(cart).toHaveTextContent("11");
     const brand = within(header).getByRole("link", { name: "Novotech Systems Distribution" });
-    const catalogTrigger = within(header).getByRole("link", { name: "Каталог" });
-    const search = within(header).getByRole("search");
     expect(within(header).getByRole("img", { name: "Novotech" })).toHaveAttribute("src", expect.stringContaining("novotech-logo-light-original"));
-    expect(catalogTrigger).toHaveClass("bg-zinc-950", "text-white", "sm:inline-flex");
-    expect(brand.compareDocumentPosition(catalogTrigger) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(catalogTrigger.compareDocumentPosition(search) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(brand).toHaveTextContent("NOVOTECH SYSTEMS");
+    expect(brand).toHaveTextContent("DISTRIBUTION");
+    expect(within(header).queryByRole("search")).not.toBeInTheDocument();
+    expect(within(header).queryByRole("searchbox")).not.toBeInTheDocument();
     expect(within(screen.getByRole("contentinfo")).getByRole("img", { name: "Novotech" })).toHaveAttribute("src", expect.stringContaining("novotech-logo-dark-original"));
-    expect(within(header).getByRole("search")).toHaveAttribute("action", "/catalog");
-    expect(within(header).getByRole("searchbox")).toHaveAttribute("name", "q");
-    expect(screen.getByText("Прямой импортёр оборудования и решений для безопасности")).toBeInTheDocument();
+    expect(screen.getByText("Прямой импортёр оборудования и решений для безопасности вашего дома и бизнеса.")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Кишинёв, ул. Лев Толстой, 4" })).toHaveAttribute("target", "_blank");
     expect(screen.getByRole("link", { name: "Бельцы, ул. Думитру Карачобану, 118" })).toHaveAttribute("target", "_blank");
     expect(screen.getByRole("link", { name: "0 79 31 33 53" })).toHaveAttribute("href", "tel:+37379313353");
@@ -68,7 +65,7 @@ describe("Public Retail shell", () => {
 
     const mobile = within(screen.getByRole("navigation", { name: "Navigare mobilă" }));
     expect(mobile.getAllByRole("link").map((link) => link.textContent)).toEqual([
-      "Echipamente",
+      "Catalog",
       "Soluții",
       "Instalare",
       "Livrare",
@@ -77,8 +74,8 @@ describe("Public Retail shell", () => {
       "RU",
       "RO",
     ]);
-    expect(within(screen.getByRole("banner")).getByRole("link", { name: "Catalog" })).toHaveAttribute("href", "/catalog?lang=ro");
-    expect(mobile.getByRole("link", { name: "Echipamente" })).toHaveAttribute("href", "/catalog?lang=ro&view=all");
+    expect(mobile.getByRole("link", { name: "Catalog" })).toHaveAttribute("href", "/catalog?lang=ro");
+    expect(within(screen.getByRole("banner")).queryByRole("search")).not.toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: "Cabinet partener" })[0]).toHaveAttribute("aria-label", "Cabinet partener");
     expect(screen.getByRole("link", { name: "Coș: 11" })).toHaveAttribute("href", "/cart?lang=ro");
     expect(screen.getByRole("heading", { name: "Informații" })).toBeInTheDocument();

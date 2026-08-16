@@ -9,7 +9,7 @@ import type { PublicRetailLocale } from "../types";
 import { PublicLocalityField } from "./PublicLocalityField";
 
 const initialState: InstallationLeadActionState = { status: "idle", message: "" };
-const inputClass = "mt-1 min-h-11 w-full border border-zinc-300 bg-white px-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-100";
+const inputClass = "mt-1 block h-11 w-full border border-zinc-300 bg-white px-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-100";
 
 export function PublicInstallationLeadForm({ locale, objectType, systemType, sourcePath, submissionKey }: {
   locale: PublicRetailLocale;
@@ -45,6 +45,6 @@ export function PublicInstallationLeadForm({ locale, objectType, systemType, sou
 }
 
 function SubmitButton({ ru }: { ru: boolean }) { const { pending } = useFormStatus(); return <button className="inline-flex min-h-12 items-center justify-center gap-2 bg-blue-700 px-5 text-sm font-semibold text-white hover:bg-blue-800 disabled:cursor-wait disabled:opacity-60" disabled={pending} type="submit">{pending ? <LoaderCircle aria-hidden="true" className="size-5 animate-spin" /> : <Send aria-hidden="true" className="size-5" />}{pending ? (ru ? "Отправляем…" : "Se trimite…") : (ru ? "Получить консультацию" : "Solicită consultanță")}</button>; }
-function Field({ children, className = "", label }: { children: React.ReactNode; className?: string; label: string }) { return <label className={`text-sm font-medium text-zinc-800 ${className}`}>{label}{children}</label>; }
+function Field({ children, className = "", label }: { children: React.ReactNode; className?: string; label: string }) { return <label className={`block text-sm font-medium text-zinc-800 ${className}`}>{label}{children}</label>; }
 function safeObjectType(value: string) { return ["apartment", "house", "office", "retail", "warehouse", "production", "other"].includes(value) ? value : "other"; }
 function safeSystemType(value: string) { return ["cctv", "access_control", "alarm", "intercom", "network", "other"].includes(value) ? value : "cctv"; }
