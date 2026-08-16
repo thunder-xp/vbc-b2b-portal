@@ -6,12 +6,14 @@ import { z } from "zod";
 import { installationLeadObjectType, installationLeadSystemType, normalizePublicInstallationSourcePath } from "../validation";
 import type { PublicInstallationLeadRepository } from "../repositories/public-installation-lead.repository";
 import type { PublicInstallationLeadInput } from "../types";
+import { resolveSubmittedLocality } from "../moldova-localities";
 
 const inputSchema = z.object({
   locale: z.enum(["ru", "ro"]),
   name: z.string().trim().min(2).max(120),
   phone: z.string().trim().min(8).max(30),
-  locality: z.string().trim().min(2).max(120),
+  localityCode: z.string().trim().min(1).max(80),
+  localityManual: z.string().trim().max(120),
   objectType: installationLeadObjectType,
   systemType: installationLeadSystemType,
   comment: z.string().trim().max(1000).nullable(),
@@ -30,12 +32,18 @@ export class PublicInstallationLeadService {
     if (!parsed.success) throw new PublicInstallationLeadInputError("Invalid public installation lead.");
     const phoneE164 = normalizePhone(parsed.data.phone);
     if (!phoneE164) throw new PublicInstallationLeadInputError("Invalid public installation lead phone.");
+    const locality = resolveSubmittedLocality({
+      code: parsed.data.localityCode,
+      locale: parsed.data.locale,
+      manualValue: parsed.data.localityManual,
+    });
+    if (!locality) throw new PublicInstallationLeadInputError("Invalid public installation lead locality.");
     const keyedHash = (value: string) => createHmac("sha256", fingerprintSecret).update(value, "utf8").digest("hex");
     return this.repository.createPublicInstallationLead({
       locale: parsed.data.locale,
       customerName: parsed.data.name,
       phoneE164,
-      locality: parsed.data.locality,
+      locality,
       objectType: parsed.data.objectType,
       systemType: parsed.data.systemType,
       comment: parsed.data.comment || null,
@@ -43,7 +51,7 @@ export class PublicInstallationLeadService {
       consent: true,
       submissionKey: parsed.data.submissionKey,
       requesterFingerprint: keyedHash(requestIdentity),
-      duplicateFingerprint: keyedHash([phoneE164, parsed.data.locality.toLocaleLowerCase("ro-MD"), parsed.data.objectType, parsed.data.systemType].join("|")),
+      duplicateFingerprint: keyedHash([phoneE164, locality.toLocaleLowerCase("ro-MD"), parsed.data.objectType, parsed.data.systemType].join("|")),
     });
   }
 }

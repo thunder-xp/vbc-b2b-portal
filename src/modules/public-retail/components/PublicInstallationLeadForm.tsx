@@ -6,6 +6,7 @@ import { useFormStatus } from "react-dom";
 
 import { submitPublicInstallationLeadAction, type InstallationLeadActionState } from "../actions/installation-lead.actions";
 import type { PublicRetailLocale } from "../types";
+import { PublicLocalityField } from "./PublicLocalityField";
 
 const initialState: InstallationLeadActionState = { status: "idle", message: "" };
 const inputClass = "mt-1 min-h-11 w-full border border-zinc-300 bg-white px-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-100";
@@ -29,7 +30,7 @@ export function PublicInstallationLeadForm({ locale, objectType, systemType, sou
     <div className="grid gap-4 sm:grid-cols-2">
       <Field label={ru ? "Имя" : "Nume"}><input autoComplete="name" className={inputClass} maxLength={120} minLength={2} name="name" required /></Field>
       <Field label={ru ? "Телефон" : "Telefon"}><input autoComplete="tel" className={inputClass} inputMode="tel" maxLength={30} name="phone" placeholder="+373 60 000 000" required /></Field>
-      <Field label={ru ? "Город / населённый пункт" : "Oraș / localitate"}><input autoComplete="address-level2" className={inputClass} maxLength={120} minLength={2} name="locality" required /></Field>
+      <PublicLocalityField locale={locale} />
       <Field label={ru ? "Тип объекта" : "Tipul obiectivului"}><select className={inputClass} defaultValue={safeObjectType(objectType)} name="objectType" required>
         <option value="apartment">{ru ? "Квартира" : "Apartament"}</option><option value="house">{ru ? "Дом" : "Casă"}</option><option value="office">{ru ? "Офис" : "Oficiu"}</option><option value="retail">{ru ? "Магазин / HoReCa" : "Magazin / HoReCa"}</option><option value="warehouse">{ru ? "Склад" : "Depozit"}</option><option value="production">{ru ? "Производство" : "Producție"}</option><option value="other">{ru ? "Другой объект" : "Alt obiectiv"}</option>
       </select></Field>

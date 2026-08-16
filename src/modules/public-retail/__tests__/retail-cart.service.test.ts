@@ -64,6 +64,21 @@ describe("RetailCartService", () => {
     }));
   });
 
+  it("preserves bounded provisional requirements with an explicit payment block", async () => {
+    const repo = repository();
+    const provisionalRequirements = [{ key: "product-1", requirementKind: "indoor_camera" as const, label: "Камера для помещения", quantity: 2, unitCode: "piece" as const, reason: "unresolved_identity" as const }];
+    await new RetailCartService(repo).addCctvSystem(hash, {
+      requestId,
+      calculatorInput: { ...calculatorInput, provisionalRequirements, paymentEligibility: "blocked_unresolved_requirements" },
+      workScope: [],
+      items: [{ publicProductId: secondProductId, quantity: 1, commercialGroup: "equipment", unitCode: "piece" }],
+      installationIntent: null,
+    });
+    expect(repo.addBundle).toHaveBeenCalledWith(hash, expect.objectContaining({
+      calculatorInput: expect.objectContaining({ provisionalRequirements, paymentEligibility: "blocked_unresolved_requirements" }),
+    }));
+  });
+
   it("rejects malformed identities, unsafe quantities and unknown installation fields", async () => {
     const service = new RetailCartService(repository());
     await expect(service.addProduct(hash, { publicProductId: "SKU-1", quantity: 1, source: "catalog", requestId })).rejects.toBeInstanceOf(RetailCartInputError);

@@ -7,7 +7,8 @@ export type PublicInstallationLeadInput = {
   locale: "ru" | "ro";
   name: string;
   phone: string;
-  locality: string;
+  localityCode: string;
+  localityManual: string;
   objectType: "apartment" | "house" | "office" | "retail" | "warehouse" | "production" | "other";
   systemType: "cctv" | "access_control" | "alarm" | "intercom" | "network" | "other";
   comment: string | null;
@@ -17,10 +18,11 @@ export type PublicInstallationLeadInput = {
 };
 
 export type PublicInstallationLeadResult = { status: "accepted" | "conflict" | "rate_limited"; leadId: string | null; repeated: boolean };
-export type PublicInstallationLeadAdminRow = Omit<PublicInstallationLeadInput, "name" | "consent" | "submissionKey"> & {
+export type PublicInstallationLeadAdminRow = Omit<PublicInstallationLeadInput, "name" | "consent" | "submissionKey" | "localityCode" | "localityManual"> & {
   id: string;
   createdAt: string;
   customerName: string;
+  locality: string;
   status: "new" | "in_progress" | "contacted" | "closed";
 };
 

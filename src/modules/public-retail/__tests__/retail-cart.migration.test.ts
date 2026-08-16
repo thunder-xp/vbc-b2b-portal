@@ -77,8 +77,9 @@ describe("governed anonymous Retail Cart migration", () => {
     expect(bundleQuantityFix).toContain("case when p_bundle_id is null then 99 else 20000 end");
   });
 
-  it("adds only a fully resolved calculator system through the atomic server action", () => {
-    expect(resultPage).toContain('result.status === "resolved"');
+  it("adds only real calculator products while preserving provisional evidence", () => {
+    expect(resultPage).toContain("result.provisionalRequirements");
+    expect(resultPage).toContain("blocked_unresolved_requirements");
     expect(resultPage).toContain("PublicRetailAddSystemButton");
     expect(resultPage).toContain('line.group === "materials"');
     expect(resultPage).toContain("unitCode: line.unitCode");
@@ -142,7 +143,8 @@ describe("governed anonymous Retail Cart migration", () => {
     expect(addButton).not.toContain("router.refresh");
     expect(retailShell).toContain('aria-label="Novotech Systems Distribution"');
     expect(retailShell).toContain("publicCompanyContent.descriptor[locale]");
-    expect(retailShell).toContain('src="/brand/novotech-symbol.webp"');
+    expect(retailShell).toContain("novotech-logo-${background}-original.webp");
+    expect(retailShell).not.toContain('src="/brand/novotech-symbol.webp"');
     expect(retailShell).not.toContain("ShieldCheck");
     expect(retailShell).toContain('<PublicRetailCartBadge locale={locale} totalQuantity={cartQuantity} />');
     expect(cartBadge).toContain('quantity > 99 ? "99+" : quantity');

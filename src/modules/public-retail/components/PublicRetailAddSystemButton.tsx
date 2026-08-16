@@ -18,6 +18,7 @@ export function PublicRetailAddSystemButton({ locale, items, installationIntent,
   const [offer, setOffer] = useState<PublicRetailCommercialOfferDto | null>(null);
   const [remainingSeconds, setRemainingSeconds] = useState(0);
   const ru = locale === "ru";
+  const provisional = Array.isArray(calculatorInput.provisionalRequirements) && calculatorInput.provisionalRequirements.length > 0;
 
   useEffect(() => {
     if (!offer || offer.status !== "active") return;
@@ -35,7 +36,7 @@ export function PublicRetailAddSystemButton({ locale, items, installationIntent,
       setRequestId(crypto.randomUUID());
       window.dispatchEvent(new CustomEvent(PUBLIC_RETAIL_CART_UPDATED_EVENT, { detail: { totalQuantity: result.data.totalQuantity } }));
     }
-  })} type="button"><ShoppingCart aria-hidden="true" className="size-4" />{pending ? (ru ? "Добавляем..." : "Se adaugă...") : selected ? (ru ? "Выбрано" : "Selectat") : selectedVariant === "economy" ? (ru ? "Выбрать эконом-вариант" : "Alege varianta economică") : (ru ? "Добавить систему в корзину" : "Adaugă sistemul în coș")}</button>
+  })} type="button"><ShoppingCart aria-hidden="true" className="size-4" />{pending ? (ru ? "Добавляем..." : "Se adaugă...") : selected ? (ru ? "Выбрано" : "Selectat") : provisional ? (ru ? "Добавить известные позиции" : "Adaugă pozițiile confirmate") : selectedVariant === "economy" ? (ru ? "Выбрать эконом-вариант" : "Alege varianta economică") : (ru ? "Добавить систему в корзину" : "Adaugă sistemul în coș")}</button>
     <p aria-live="polite" className="mt-2 min-h-5 text-xs text-emerald-700">{message}</p>
     {offerEnabled && selectedVariant === "economy" && selected && !offer ? <button className="mt-2 min-h-11 w-full text-sm font-semibold text-zinc-600 underline decoration-zinc-300 underline-offset-4 disabled:opacity-60" disabled={pending} onClick={() => startTransition(async () => {
       const result = await createPublicRetailCommercialOfferAction({ locale, idempotencyKey: crypto.randomUUID() });

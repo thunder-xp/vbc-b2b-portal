@@ -17,11 +17,11 @@ describe("public contacts page", () => {
     expect(screen.getByRole("link", { name: "ул. Лев Толстой, 4" })).toHaveAttribute("href", expect.stringContaining("google.com/maps/search"));
     expect(screen.getByRole("link", { name: "ул. Лев Толстой, 4" })).toHaveAttribute("rel", "noopener noreferrer");
     expect(screen.getByRole("link", { name: "ул. Думитру Карачобану, 118" })).toHaveAttribute("href", expect.stringContaining("google.com/maps/search"));
-    expect(screen.getAllByRole("link", { name: "0 78 999 484" })[0]).toHaveAttribute("href", "tel:+37378999484");
+    expect(screen.getAllByRole("link", { name: "0 79 31 33 53" })[0]).toHaveAttribute("href", "tel:+37379313353");
     expect(screen.getByRole("link", { name: "0 78 999 495" })).toHaveAttribute("href", "tel:+37378999495");
     expect(screen.getAllByText((_, element) => element?.tagName === "SPAN" && element.textContent?.includes("Пн–Пт: 09:00–18:00") === true)).toHaveLength(2);
     expect(screen.getAllByText((_, element) => element?.tagName === "SPAN" && element.textContent?.includes("Сб: 10:00–14:00") === true)).toHaveLength(2);
     expect(screen.getAllByRole("link", { name: "info@nsd.md" }).length).toBeGreaterThan(0);
-    expect(publicCompanyContent.stores.map((store) => store.phone.href)).toEqual(["tel:+37378999484", "tel:+37378999495"]);
+    expect(publicCompanyContent.stores.map((store) => store.phone.href)).toEqual(["tel:+37379313353", "tel:+37378999495"]);
   });
 });

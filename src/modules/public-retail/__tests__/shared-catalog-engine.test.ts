@@ -52,7 +52,7 @@ describe("shared B2B/B2C catalog presentation architecture", () => {
 
     expect(contacts).toContain("publicCompanyContent.stores");
     expect(shell).toContain("publicCompanyContent.stores");
-    expect(content).toContain("tel:+37378999484");
+    expect(content).toContain("tel:+37379313353");
     expect(content).toContain("tel:+37378999495");
     expect(content).not.toContain("078999441");
     expect(content).toContain("google.com/maps/search");

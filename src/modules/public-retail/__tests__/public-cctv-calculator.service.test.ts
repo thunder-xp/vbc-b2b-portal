@@ -11,7 +11,7 @@ import type { PublicRetailProductSummaryDto } from "../types";
 
 const publicId = "8d4fe3a1-3d8a-4fa0-9b0c-87df948fe07f";
 
-function product(profileKey: string): PublicRetailProductSummaryDto {
+function product(profileKey: string, availability: PublicRetailProductSummaryDto["availability"] = "in_stock"): PublicRetailProductSummaryDto {
   return {
     id: publicId,
     slug: profileKey.replaceAll(".", "-"),
@@ -22,7 +22,7 @@ function product(profileKey: string): PublicRetailProductSummaryDto {
     brand: null,
     category: null,
     price: { amount: 100, currency: "MDL", vatPresentation: "included" },
-    availability: "in_stock",
+    availability,
     highlights: [],
     calculatorEligible: true,
   };
@@ -47,11 +47,11 @@ function input(overrides: Partial<PublicCctvCalculatorInput> = {}): PublicCctvCa
   };
 }
 
-function repository(options: { missing?: Set<string>; ambiguous?: Set<string> } = {}) {
+function repository(options: { missing?: Set<string>; ambiguous?: Set<string>; availability?: PublicRetailProductSummaryDto["availability"] } = {}) {
   const resolveCalculatorProducts = vi.fn(async (profileKeys: string[]) => profileKeys.map((profileKey) => ({
     profileKey,
     matchCount: options.missing?.has(profileKey) ? 0 : options.ambiguous?.has(profileKey) ? 2 : 1,
-    product: options.missing?.has(profileKey) || options.ambiguous?.has(profileKey) ? null : product(profileKey),
+    product: options.missing?.has(profileKey) || options.ambiguous?.has(profileKey) ? null : product(profileKey, options.availability),
   })));
   return {
     repository: {
@@ -159,20 +159,36 @@ describe("PublicCctvCalculatorService", () => {
     expect(result.lines).toContainEqual(expect.objectContaining({ requirementKind: "ai_scenario_programming", amount: 1000 }));
   });
 
-  it("fails closed when installation is requested without an authoritative tariff", async () => {
+  it("keeps an unpriced installation requirement provisional without fabricating its tariff", async () => {
     const fixture = repository();
     const result = await new PublicCctvCalculatorService(fixture.repository, { price: vi.fn().mockResolvedValue({ complete: false, tariffSetId: null, tariffVersion: null, currency: null, vatTreatment: null, lines: [], subtotal: null, missing: ["commissioning"] }) }).calculate(input({ commissioningRequested: true }));
     expect(result.status).toBe("needs_review");
-    expect(result.totals.total).toBeNull();
+    expect(result.totals.total).toBeGreaterThan(0);
+    expect(result.totals.isPartial).toBe(true);
+    expect(result.provisionalRequirements).toContainEqual(expect.objectContaining({ reason: "price_pending", requirementKind: "commissioning" }));
   });
 
-  it("fails closed for missing or ambiguous governed profiles", async () => {
+  it("keeps missing governed profiles explicit without blocking known-line totals", async () => {
     const fixture = repository({ missing: new Set(["cctv.indoor.6mp"]) });
     const result = await new PublicCctvCalculatorService(fixture.repository).calculate(input());
 
     expect(result.status).toBe("needs_review");
     expect(result.unresolved).toContain("Камера для помещения");
     expect(result.lines.find((line) => line.label === "Камера для помещения")?.product).toBeNull();
+    expect(result.provisionalRequirements).toContainEqual(expect.objectContaining({
+      label: "Камера для помещения", reason: "unresolved_identity", quantity: 2,
+    }));
+    expect(result.totals.isPartial).toBe(true);
+    expect(result.totals.total).toBeGreaterThan(0);
+  });
+
+  it("keeps a governed out-of-stock product selectable without inventing availability", async () => {
+    const fixture = repository({ availability: "unavailable" });
+    const result = await new PublicCctvCalculatorService(fixture.repository).calculate(input());
+    expect(result.status).toBe("resolved");
+    expect(result.provisionalRequirements).toEqual([]);
+    expect(result.lines.filter((line) => line.kind === "product").every((line) => line.product?.availability === "unavailable")).toBe(true);
+    expect(result.totals.isPartial).toBe(false);
   });
 
   it("does not expose governed profile keys or internal commercial identifiers", async () => {

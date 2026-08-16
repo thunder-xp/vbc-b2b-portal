@@ -10,7 +10,7 @@ const LABELS: Record<
   },
   TOP: {
     label: "Популярный",
-    className: "border-emerald-200 bg-emerald-50 text-emerald-800",
+    className: "border-amber-300 bg-amber-50 text-amber-900",
   },
   HOT: {
     label: "Горячая цена",
@@ -40,7 +40,7 @@ export function MerchandisingBadges({
     <div aria-label="Подборки товара" className="flex flex-wrap gap-1.5">
       {visible.map((code) => (
         <span
-          className={`${square ? "" : "rounded"} border px-1.5 py-0.5 text-[10px] font-semibold ${tone === "retail" && code === "TOP" ? "border-indigo-200 bg-indigo-50 text-indigo-800" : LABELS[code].className}`}
+          className={`${square ? "" : "rounded"} border px-1.5 py-0.5 text-[10px] font-semibold ${tone === "retail" && code === "TOP" ? "border-amber-300 bg-amber-50 text-amber-900" : LABELS[code].className}`}
           key={code}
         >
           {labelOverrides?.[code] ?? LABELS[code].label}

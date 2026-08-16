@@ -150,9 +150,9 @@ export function publicOrganizationSchemas(
       name: "Novotech",
       url: publicLocalizedUrl("/", locale),
       email: publicCompanyContent.email,
-      telephone: "+37378999484",
+      telephone: publicCompanyContent.customerPhone.href.replace("tel:", ""),
       description: publicCompanyContent.descriptor[locale],
-      contactPoint: [{ "@type": "ContactPoint", contactType: "customer service", telephone: "+37378999484", areaServed: "MD", availableLanguage: ["ru", "ro"] }],
+      contactPoint: [{ "@type": "ContactPoint", contactType: "customer service", telephone: publicCompanyContent.customerPhone.href.replace("tel:", ""), areaServed: "MD", availableLanguage: ["ru", "ro"] }],
     },
     ...(includeWebsite ? [{
       "@type": "WebSite",

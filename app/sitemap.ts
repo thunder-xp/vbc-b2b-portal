@@ -10,6 +10,7 @@ const locales: PublicRetailLocale[] = ["ru", "ro"];
 const staticPaths = [
   "/",
   "/catalog",
+  "/about",
   "/contacts",
   "/partners",
   "/calculator/cctv",

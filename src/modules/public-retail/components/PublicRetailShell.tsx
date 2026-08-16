@@ -17,11 +17,11 @@ export function PublicRetailShell({ children, locale, languagePath, cartQuantity
   const equipmentLabel = ru ? "Оборудование" : "Echipamente";
   const languageHref = (next: PublicRetailLocale) => `${languagePath}${languagePath.includes("?") ? "&" : "?"}lang=${next}`;
   const links = [
-    [equipmentLabel, `/catalog?lang=${locale}`],
+    [equipmentLabel, `/catalog?lang=${locale}&view=all`],
     [ru ? "Решения" : "Soluții", `/calculator/cctv?lang=${locale}`],
     [copy.services, `/installation?lang=${locale}`],
     [copy.delivery, `/?lang=${locale}#delivery`],
-    [ru ? "О компании" : "Despre noi", `/?lang=${locale}#about`],
+    [ru ? "О компании" : "Despre noi", `/about?lang=${locale}`],
     [copy.contacts, `/contacts?lang=${locale}`],
   ] as const;
 
@@ -30,7 +30,7 @@ export function PublicRetailShell({ children, locale, languagePath, cartQuantity
       <div className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-8">
         <div className="flex min-h-16 items-center gap-3">
           <Link aria-label="Novotech Systems Distribution" className="flex min-h-12 shrink-0 items-center" href={`/?lang=${locale}`}>
-            <BrandLockup compact priority />
+            <OfficialLogo background="light" priority />
           </Link>
           <nav aria-label={ru ? "Основная навигация" : "Navigare principală"} className="ml-auto hidden items-center gap-4 xl:flex">
             {links.map(([label, href]) => <Link className="text-[13px] font-medium text-zinc-700 hover:text-blue-700" href={href} key={href}>{label}</Link>)}
@@ -67,10 +67,10 @@ export function PublicRetailShell({ children, locale, languagePath, cartQuantity
     {children}
     <footer className="border-t border-zinc-800 bg-zinc-950 text-zinc-400" id="support">
       <div className="mx-auto grid max-w-[1440px] gap-x-7 gap-y-8 px-4 py-9 sm:grid-cols-2 sm:px-6 lg:grid-cols-3 lg:px-8 xl:grid-cols-[1.3fr_.75fr_.75fr_.85fr_1.3fr]">
-        <div><BrandLockup inverse /><p className="mt-4 max-w-sm text-xs leading-5">{publicCompanyContent.descriptor[locale]}</p></div>
-        <FooterGroup title={equipmentLabel}><FooterLink href={`/catalog?lang=${locale}`}>{equipmentLabel}</FooterLink><FooterLink href={`/calculator/cctv?lang=${locale}`}>{copy.chooseSystem}</FooterLink></FooterGroup>
+        <div><OfficialLogo background="dark" /><p className="mt-4 max-w-sm text-xs leading-5">{publicCompanyContent.descriptor[locale]}</p></div>
+        <FooterGroup title={equipmentLabel}><FooterLink href={`/catalog?lang=${locale}&view=all`}>{equipmentLabel}</FooterLink><FooterLink href={`/calculator/cctv?lang=${locale}`}>{copy.chooseSystem}</FooterLink></FooterGroup>
         <FooterGroup title={ru ? "Услуги" : "Servicii"}><FooterLink href={`/installation?lang=${locale}`}>{copy.services}</FooterLink><FooterLink href={`/?lang=${locale}#delivery`}>{copy.delivery}</FooterLink></FooterGroup>
-        <FooterGroup title={ru ? "Информация" : "Informații"}><FooterLink href={`/?lang=${locale}#about`}>{ru ? "О компании" : "Despre companie"}</FooterLink><FooterLink href={`/guides?lang=${locale}`}>{ru ? "Полезные материалы" : "Ghiduri utile"}</FooterLink><FooterLink href={`/partners?lang=${locale}`}>{copy.partners}</FooterLink></FooterGroup>
+        <FooterGroup title={ru ? "Информация" : "Informații"}><FooterLink href={`/about?lang=${locale}`}>{ru ? "О компании" : "Despre companie"}</FooterLink><FooterLink href={`/guides?lang=${locale}`}>{ru ? "Полезные материалы" : "Ghiduri utile"}</FooterLink><FooterLink href={`/partners?lang=${locale}`}>{copy.partners}</FooterLink></FooterGroup>
         <FooterGroup title={ru ? "Контакты" : "Contacte"}>
           {publicCompanyContent.stores.map((store) => <a className="flex w-fit gap-2 text-xs leading-5 hover:text-white" href={store.mapsHref} key={store.mapsHref} rel="noopener noreferrer" target="_blank"><MapPin aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" />{store.city[locale]}, {store.address[locale]}</a>)}
           <a className="flex w-fit items-center gap-2 text-xs hover:text-white" href={publicCompanyContent.customerPhone.href}><Phone aria-hidden="true" className="size-3.5" />{publicCompanyContent.customerPhone.display}</a>
@@ -88,16 +88,15 @@ function FooterGroup({ children, title }: { children: ReactNode; title: string }
   return <section><h2 className="text-xs font-semibold uppercase text-zinc-200">{title}</h2><div className="mt-3 grid gap-2 text-sm">{children}</div></section>;
 }
 
-function BrandLockup({ compact = false, inverse = false, priority = false }: { compact?: boolean; inverse?: boolean; priority?: boolean }) {
-  return <span aria-label="Novotech Systems Distribution" className="flex items-center gap-3" role="img">
-    <span className={`grid size-12 shrink-0 place-items-center border bg-white ${inverse ? "border-zinc-600" : "border-blue-200"}`}>
-      <Image alt="" aria-hidden="true" className="size-9 object-contain" height={36} priority={priority} src="/brand/novotech-symbol.webp" width={36} />
-    </span>
-    <span className={`${compact ? "hidden sm:block" : "block"} text-[11px] font-bold leading-[1.25] ${inverse ? "text-white" : "text-zinc-950"}`}>
-      <span className="block">NOVOTECH SYSTEMS</span>
-      <span className={`block text-[10px] font-semibold ${inverse ? "text-zinc-300" : "text-zinc-500"}`}>DISTRIBUTION</span>
-    </span>
-  </span>;
+function OfficialLogo({ background, priority = false }: { background: "light" | "dark"; priority?: boolean }) {
+  return <Image
+    alt="Novotech"
+    className="size-14 shrink-0 object-contain sm:size-16"
+    height={64}
+    preload={priority}
+    src={`/brand/source/novotech-logo-${background}-original.webp`}
+    width={64}
+  />;
 }
 
 function FooterLink({ children, href }: { children: ReactNode; href: string }) {

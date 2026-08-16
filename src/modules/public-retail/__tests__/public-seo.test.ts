@@ -98,7 +98,7 @@ describe("public SEO contract", () => {
 
   it("uses only governed organization and store facts", () => {
     const serialized = JSON.stringify(publicOrganizationSchemas("ro", true));
-    expect(serialized).toContain("+37378999484");
+    expect(serialized).toContain("+37379313353");
     expect(serialized).toContain("+37378999495");
     expect(serialized).toContain("str. Lev Tolstoi 4");
     expect(serialized).not.toMatch(/latitude|longitude|vat|registration/i);

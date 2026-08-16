@@ -37,6 +37,16 @@ export type PublicCctvCalculatorInput = {
   remoteViewingRequested: boolean;
   aiScenarioProgrammingRequested: boolean;
   backupPower: boolean;
+  provisionalRequirements?: PublicCctvProvisionalRequirement[];
+  paymentEligibility?: "blocked_unresolved_requirements";
+};
+export type PublicCctvProvisionalRequirement = {
+  key: string;
+  requirementKind: PublicCctvResultLine["requirementKind"] | "technical_configuration";
+  label: string;
+  quantity: number;
+  unitCode: PublicCctvResultLine["unitCode"];
+  reason: "unresolved_identity" | "price_pending" | "technical_review";
 };
 export type PublicCctvResultLine = {
   key: string;
@@ -61,9 +71,10 @@ export type PublicCctvCalculatorResult = {
   outdoorResolutionMp: number;
   lines: PublicCctvResultLine[];
   unresolved: string[];
+  provisionalRequirements: PublicCctvProvisionalRequirement[];
   explanations: string[];
   installationPricing: InstallationPricingResult;
-  totals: { equipment: number | null; materials: number | null; installation: number | null; total: number | null; currency: string | null };
+  totals: { equipment: number | null; materials: number | null; installation: number | null; total: number | null; currency: string | null; isPartial: boolean };
   performance: { engineMs: number; resolutionMs: number; installationPricingMs: number; totalMs: number };
   cameraSelection: { policyVersion: string; recommendedProductIds: string[]; economyProductIds: string[] };
   economyLines: PublicCctvResultLine[] | null;
@@ -196,12 +207,28 @@ export class PublicCctvCalculatorService {
     const currencies = [...new Set(lines.flatMap((line) => line.currency ? [line.currency] : []))];
     const currency = currencies.length === 1 ? currencies[0] : null;
     if (currencies.length > 1) unresolved.push(normalized.locale === "ro" ? "Monede incompatibile" : "Несовместимые валюты");
-    const equipment = subtotal(lines, ["cameras", "recorder", "archive", "network"], currency);
-    const materials = subtotal(lines, ["materials"], currency);
-    const installation = installationPricing.subtotal;
+    const equipment = knownSubtotal(lines, ["cameras", "recorder", "archive", "network"], currency);
+    const materials = knownSubtotal(lines, ["materials"], currency);
+    const installation = knownSubtotal(lines, ["works"], installationPricing.currency);
     const commercialCurrency = mergeCurrency(currency, workRequirements.length ? installationPricing.currency : currency);
     const technicalReady = technical.compatibility.ready && !technical.compatibility.issues.some((issue) => issue.severity === "blocking");
     if (!technicalReady) unresolved.push(normalized.locale === "ro" ? "Configurația tehnică necesită verificare" : "Техническая конфигурация требует проверки");
+    const provisionalRequirements: PublicCctvProvisionalRequirement[] = lines.flatMap((line) => line.amount !== null ? [] : [{
+      key: line.key,
+      requirementKind: line.requirementKind,
+      label: line.label,
+      quantity: line.quantity,
+      unitCode: line.unitCode,
+      reason: line.kind === "product" ? "unresolved_identity" as const : "price_pending" as const,
+    }]);
+    if (!technicalReady) provisionalRequirements.push({
+      key: "technical-configuration",
+      requirementKind: "technical_configuration",
+      label: normalized.locale === "ro" ? "Configurația tehnică" : "Техническая конфигурация",
+      quantity: 1,
+      unitCode: "service",
+      reason: "technical_review",
+    });
     const totalCompletedAt = performance.now();
     const economyLines = economyByRequirement.size ? lines.map((line) => {
       const requirement = requirements.find((item) => item.kind === line.requirementKind);
@@ -210,11 +237,11 @@ export class PublicCctvCalculatorService {
         amount: roundMoney(alternative.price.amount * line.quantity), currency: alternative.price.currency,
         availability: alternative.availability } : line;
     }) : null;
-    const economyEquipment = economyLines ? subtotal(economyLines, ["cameras", "recorder", "archive", "network"], currency) : null;
-    const economyMaterials = economyLines ? subtotal(economyLines, ["materials"], currency) : null;
+    const economyEquipment = economyLines ? knownSubtotal(economyLines, ["cameras", "recorder", "archive", "network"], currency) : null;
+    const economyMaterials = economyLines ? knownSubtotal(economyLines, ["materials"], currency) : null;
     const economyTotals = economyLines ? { equipment: economyEquipment, materials: economyMaterials, installation,
-      total: economyEquipment === null || economyMaterials === null || installation === null || !commercialCurrency
-        ? null : roundMoney(economyEquipment + economyMaterials + installation), currency: commercialCurrency } : null;
+      total: knownTotal(economyEquipment, economyMaterials, installation, commercialCurrency), currency: commercialCurrency,
+      isPartial: provisionalRequirements.length > 0 } : null;
 
     return {
       status: technicalReady && unresolved.length === 0 ? "resolved" : "needs_review",
@@ -224,6 +251,7 @@ export class PublicCctvCalculatorService {
       outdoorResolutionMp: quality.outdoor,
       lines,
       unresolved: [...new Set(unresolved)],
+      provisionalRequirements,
       explanations: explainDecisions(technical, normalized.locale),
       installationPricing,
       cameraSelection: { policyVersion: "cctv_camera_selection_v1", recommendedProductIds: recommendedIds, economyProductIds: economyIds },
@@ -231,9 +259,9 @@ export class PublicCctvCalculatorService {
       economyTotals,
       totals: {
         equipment, materials, installation,
-        total: equipment === null || materials === null || installation === null || !commercialCurrency
-          ? null : roundMoney(equipment + materials + installation),
+        total: knownTotal(equipment, materials, installation, commercialCurrency),
         currency: commercialCurrency,
+        isPartial: provisionalRequirements.length > 0,
       },
       performance: {
         engineMs: roundTiming(engineCompletedAt - startedAt),
@@ -264,7 +292,9 @@ export function normalizePublicCctvInput(input: PublicCctvCalculatorInput): Publ
     || input.indoorCameraCount + input.outdoorCameraCount < 1 || input.indoorCameraCount + input.outdoorCameraCount > 32
     || !Number.isInteger(input.cableLength) || input.cableLength < 0 || input.cableLength > 20000
     || ![input.cameraInstallationRequested, input.cableLayingRequested, input.commissioningRequested,
-      input.remoteViewingRequested, input.aiScenarioProgrammingRequested, input.backupPower].every((value) => typeof value === "boolean")) {
+      input.remoteViewingRequested, input.aiScenarioProgrammingRequested, input.backupPower].every((value) => typeof value === "boolean")
+    || !validProvisionalRequirements(input.provisionalRequirements)
+    || (input.paymentEligibility !== undefined && input.paymentEligibility !== "blocked_unresolved_requirements")) {
     throw new Error("Invalid Public CCTV calculator input.");
   }
   return { ...input };
@@ -363,10 +393,24 @@ function explainDecisions(technical: ReturnType<typeof calculateCctvTechnicalPla
     : "Камеры получают питание через встроенный PoE видеорегистратора.");
   return messages;
 }
-function subtotal(lines: PublicCctvResultLine[], groups: PublicCctvResultLine["group"][], currency: string | null) {
+function knownSubtotal(lines: PublicCctvResultLine[], groups: PublicCctvResultLine["group"][], currency: string | null) {
   const selected = lines.filter((line) => groups.includes(line.group));
-  if (!currency || selected.some((line) => line.amount === null || line.currency !== currency)) return null;
-  return roundMoney(selected.reduce((sum, line) => sum + line.amount!, 0));
+  const known = selected.filter((line) => line.amount !== null && line.currency === currency);
+  if (!currency || (!known.length && selected.length > 0)) return selected.length ? null : 0;
+  return roundMoney(known.reduce((sum, line) => sum + line.amount!, 0));
+}
+function knownTotal(equipment: number | null, materials: number | null, installation: number | null, currency: string | null) {
+  if (!currency) return null;
+  const values = [equipment, materials, installation].filter((value): value is number => value !== null);
+  return values.length ? roundMoney(values.reduce((sum, value) => sum + value, 0)) : null;
+}
+function validProvisionalRequirements(value: PublicCctvProvisionalRequirement[] | undefined) {
+  if (value === undefined) return true;
+  const reasons = new Set(["unresolved_identity", "price_pending", "technical_review"]);
+  return Array.isArray(value) && value.length <= 30 && value.every((item) => typeof item.key === "string" && item.key.length <= 100
+    && typeof item.label === "string" && item.label.length >= 1 && item.label.length <= 200
+    && Number.isFinite(item.quantity) && item.quantity > 0 && item.quantity <= 20_000
+    && ["piece", "meter", "service"].includes(item.unitCode) && reasons.has(item.reason));
 }
 function boundedInteger(value: string | undefined, fallback: number, minimum: number, maximum: number): number {
   const parsed = Number(value);

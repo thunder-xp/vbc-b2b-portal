@@ -28,11 +28,11 @@ describe("Public Retail shell", () => {
       "Контакты",
     ]);
     expect(navigation.getAllByRole("link").map((link) => link.getAttribute("href"))).toEqual([
-      "/catalog?lang=ru",
+      "/catalog?lang=ru&view=all",
       "/calculator/cctv?lang=ru",
       "/installation?lang=ru",
       "/?lang=ru#delivery",
-      "/?lang=ru#about",
+      "/about?lang=ru",
       "/contacts?lang=ru",
     ]);
 
@@ -47,17 +47,17 @@ describe("Public Retail shell", () => {
     const brand = within(header).getByRole("link", { name: "Novotech Systems Distribution" });
     const catalogTrigger = within(header).getByRole("link", { name: "Каталог" });
     const search = within(header).getByRole("search");
-    expect(within(header).getByRole("img", { name: "Novotech Systems Distribution" })).toBeInTheDocument();
+    expect(within(header).getByRole("img", { name: "Novotech" })).toHaveAttribute("src", expect.stringContaining("novotech-logo-light-original"));
     expect(catalogTrigger).toHaveClass("bg-zinc-950", "text-white", "sm:inline-flex");
     expect(brand.compareDocumentPosition(catalogTrigger) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(catalogTrigger.compareDocumentPosition(search) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(within(screen.getByRole("contentinfo")).getByRole("img", { name: "Novotech Systems Distribution" })).toBeInTheDocument();
+    expect(within(screen.getByRole("contentinfo")).getByRole("img", { name: "Novotech" })).toHaveAttribute("src", expect.stringContaining("novotech-logo-dark-original"));
     expect(within(header).getByRole("search")).toHaveAttribute("action", "/catalog");
     expect(within(header).getByRole("searchbox")).toHaveAttribute("name", "q");
     expect(screen.getByText("Прямой импортёр оборудования и решений для безопасности")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Кишинёв, ул. Лев Толстой, 4" })).toHaveAttribute("target", "_blank");
     expect(screen.getByRole("link", { name: "Бельцы, ул. Думитру Карачобану, 118" })).toHaveAttribute("target", "_blank");
-    expect(screen.getByRole("link", { name: "0 78 999 484" })).toHaveAttribute("href", "tel:+37378999484");
+    expect(screen.getByRole("link", { name: "0 79 31 33 53" })).toHaveAttribute("href", "tel:+37379313353");
     expect(screen.getByRole("heading", { name: "Информация" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Контакты" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Контакты и магазины" })).not.toBeInTheDocument();
@@ -78,6 +78,7 @@ describe("Public Retail shell", () => {
       "RO",
     ]);
     expect(within(screen.getByRole("banner")).getByRole("link", { name: "Catalog" })).toHaveAttribute("href", "/catalog?lang=ro");
+    expect(mobile.getByRole("link", { name: "Echipamente" })).toHaveAttribute("href", "/catalog?lang=ro&view=all");
     expect(screen.getAllByRole("link", { name: "Cabinet partener" })[0]).toHaveAttribute("aria-label", "Cabinet partener");
     expect(screen.getByRole("link", { name: "Coș: 11" })).toHaveAttribute("href", "/cart?lang=ro");
     expect(screen.getByRole("heading", { name: "Informații" })).toBeInTheDocument();
