@@ -20,7 +20,7 @@ describe("Public Retail shell", () => {
 
     const navigation = within(screen.getByRole("navigation", { name: "Основная навигация" }));
     expect(navigation.getAllByRole("link").map((link) => link.textContent)).toEqual([
-      "Каталог",
+      "Оборудование",
       "Решения",
       "Монтаж",
       "Доставка",
@@ -44,7 +44,13 @@ describe("Public Retail shell", () => {
     expect(cabinet.compareDocumentPosition(cart) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(cart).toHaveTextContent("Корзина");
     expect(cart).toHaveTextContent("11");
-    expect(within(header).getByRole("img", { name: "Novotech" })).toHaveAttribute("src", expect.stringContaining("novotech-logo-dark.webp"));
+    const brand = within(header).getByRole("link", { name: "Novotech Systems Distribution" });
+    const catalogTrigger = within(header).getByRole("link", { name: "Каталог" });
+    const search = within(header).getByRole("search");
+    expect(within(header).getByRole("img", { name: "Novotech Systems Distribution" })).toBeInTheDocument();
+    expect(catalogTrigger).toHaveClass("bg-zinc-950", "text-white", "sm:inline-flex");
+    expect(brand.compareDocumentPosition(catalogTrigger) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(catalogTrigger.compareDocumentPosition(search) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(within(screen.getByRole("contentinfo")).getByRole("img", { name: "Novotech" })).toHaveAttribute("src", expect.stringContaining("novotech-logo-light.webp"));
     expect(within(header).getByRole("search")).toHaveAttribute("action", "/catalog");
     expect(within(header).getByRole("searchbox")).toHaveAttribute("name", "q");
@@ -59,7 +65,7 @@ describe("Public Retail shell", () => {
 
     const mobile = within(screen.getByRole("navigation", { name: "Navigare mobilă" }));
     expect(mobile.getAllByRole("link").map((link) => link.textContent)).toEqual([
-      "Catalog",
+      "Echipamente",
       "Soluții",
       "Instalare",
       "Livrare",
@@ -68,6 +74,7 @@ describe("Public Retail shell", () => {
       "RU",
       "RO",
     ]);
+    expect(within(screen.getByRole("banner")).getByRole("link", { name: "Catalog" })).toHaveAttribute("href", "/catalog?lang=ro");
     expect(screen.getAllByRole("link", { name: "Cabinet partener" })[0]).toHaveAttribute("aria-label", "Cabinet partener");
     expect(screen.getByRole("link", { name: "Coș: 11" })).toHaveAttribute("href", "/cart?lang=ro");
   });

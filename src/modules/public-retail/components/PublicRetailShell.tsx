@@ -14,9 +14,10 @@ type Props = { children: ReactNode; locale: PublicRetailLocale; languagePath: st
 export function PublicRetailShell({ children, locale, languagePath, cartQuantity }: Props) {
   const copy = retailCopy[locale];
   const ru = locale === "ru";
+  const equipmentLabel = ru ? "Оборудование" : "Echipamente";
   const languageHref = (next: PublicRetailLocale) => `${languagePath}${languagePath.includes("?") ? "&" : "?"}lang=${next}`;
   const links = [
-    [copy.catalog, `/catalog?lang=${locale}`],
+    [equipmentLabel, `/catalog?lang=${locale}`],
     [ru ? "Решения" : "Soluții", `/calculator/cctv?lang=${locale}`],
     [copy.services, `/installation?lang=${locale}`],
     [copy.delivery, `/?lang=${locale}#delivery`],
@@ -27,15 +28,19 @@ export function PublicRetailShell({ children, locale, languagePath, cartQuantity
   return <div className="public-retail min-h-screen bg-white text-zinc-950" lang={locale}>
     <header className="sticky top-0 z-50 border-b border-zinc-200 bg-white/95 backdrop-blur">
       <div className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-8">
-        <div className="flex min-h-16 items-center gap-3">
-          <Link aria-label="Novotech" className="flex min-h-11 shrink-0 items-center" href={`/?lang=${locale}`}>
-            <Image alt="Novotech" className="size-12 object-contain" height={48} priority src="/brand/novotech-logo-dark.webp" width={48} />
+        <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 py-2 sm:grid-cols-[auto_auto_minmax(0,1fr)_auto] xl:grid-cols-[auto_auto_minmax(12rem,1fr)_auto_auto]">
+          <Link aria-label="Novotech Systems Distribution" className="col-start-1 row-start-1 flex min-h-12 shrink-0 items-center" href={`/?lang=${locale}`}>
+            <BrandLockup />
           </Link>
-          <nav aria-label={ru ? "Основная навигация" : "Navigare principală"} className="ml-auto hidden items-center gap-4 xl:flex">
+          <Link className="hidden min-h-11 shrink-0 items-center bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-zinc-800 focus-visible:bg-zinc-800 sm:col-start-2 sm:row-start-1 sm:inline-flex" href={`/catalog?lang=${locale}`}>{copy.catalog}</Link>
+          <div className="col-span-3 row-start-2 min-w-0 sm:col-span-1 sm:col-start-3 sm:row-start-1">
+            <PublicRetailSearchForm locale={locale} />
+          </div>
+          <nav aria-label={ru ? "Основная навигация" : "Navigare principală"} className="hidden items-center gap-4 xl:col-start-4 xl:row-start-1 xl:flex">
             {links.map(([label, href]) => <Link className="text-[13px] font-medium text-zinc-700 hover:text-blue-700" href={href} key={href}>{label}</Link>)}
           </nav>
-          <div className="ml-auto flex items-center gap-1 xl:ml-0">
-            <div className="hidden items-center md:flex">
+          <div className="col-start-3 row-start-1 ml-auto flex items-center gap-1 sm:col-start-4 xl:col-start-5">
+            <div className="hidden items-center lg:flex">
               <Link aria-current={locale === "ru" ? "page" : undefined} className={`inline-flex min-h-11 items-center px-2 text-xs font-semibold ${locale === "ru" ? "text-blue-700" : "text-zinc-500"}`} href={languageHref("ru")}>RU</Link>
               <span aria-hidden="true" className="text-zinc-300">/</span>
               <Link aria-current={locale === "ro" ? "page" : undefined} className={`inline-flex min-h-11 items-center px-2 text-xs font-semibold ${locale === "ro" ? "text-blue-700" : "text-zinc-500"}`} href={languageHref("ro")}>RO</Link>
@@ -56,10 +61,6 @@ export function PublicRetailShell({ children, locale, languagePath, cartQuantity
               </nav>
             </details>
           </div>
-        </div>
-        <div className="flex gap-2 pb-3">
-          <Link className="hidden min-h-11 shrink-0 items-center bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-blue-800 sm:inline-flex" href={`/catalog?lang=${locale}`}>{copy.catalog}</Link>
-          <PublicRetailSearchForm locale={locale} />
         </div>
       </div>
     </header>
@@ -84,6 +85,18 @@ export function PublicRetailShell({ children, locale, languagePath, cartQuantity
 
 function FooterGroup({ children, title }: { children: ReactNode; title: string }) {
   return <section><h2 className="text-xs font-semibold uppercase text-zinc-200">{title}</h2><div className="mt-3 grid gap-2 text-sm">{children}</div></section>;
+}
+
+function BrandLockup() {
+  return <span aria-label="Novotech Systems Distribution" className="flex items-center gap-3" role="img">
+    <span className="grid size-12 shrink-0 place-items-center border border-blue-200 bg-white">
+      <Image alt="" aria-hidden="true" className="size-9 object-contain" height={36} priority src="/brand/novotech-symbol.webp" width={36} />
+    </span>
+    <span className="hidden text-[11px] font-bold leading-[1.25] text-zinc-950 lg:block">
+      <span className="block">NOVOTECH SYSTEMS</span>
+      <span className="block text-[10px] font-semibold text-zinc-500">DISTRIBUTION</span>
+    </span>
+  </span>;
 }
 
 function FooterLink({ children, href }: { children: ReactNode; href: string }) {
