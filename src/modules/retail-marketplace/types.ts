@@ -42,9 +42,15 @@ export type InstallationPricingResult = {
   tariffVersion: number | null;
   currency: string | null;
   vatTreatment: InstallationTariffSetDto["vatTreatment"] | null;
-  lines: Array<{ serviceType: InstallationServiceType; quantity: number; unitCode: InstallationUnitCode; unitPrice: number; amount: number }>;
+  lines: Array<{ serviceType: InstallationServiceType; quantity: number; unitCode: InstallationUnitCode; unitPrice: number; amount: number;
+    resolvedServiceCode?: string; serviceLabel?: string | null; complexityClass?: number | null }>;
   subtotal: number | null;
   missing: InstallationServiceType[];
+};
+
+export type InstallationPricingVariants = {
+  recommended: InstallationPricingResult;
+  economy: InstallationPricingResult;
 };
 
 export type PublicInstallationProviderDto = {

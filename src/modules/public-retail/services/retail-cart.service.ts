@@ -29,7 +29,8 @@ export class RetailCartService {
       grouped.set(key, { publicProductId: id, commercialGroup: item.commercialGroup, unitCode: item.unitCode, quantity: bundleQuantity((previous?.quantity ?? 0) + item.quantity) });
     }
     const installationIntent = normalizeIntent(input.installationIntent);
-    const calculatorInput = normalizePublicCctvInput(input.calculatorInput as PublicCctvCalculatorInput);
+    const selectedVariant = input.calculatorInput.selectedVariant === "economy" ? "economy" : "recommended";
+    const calculatorInput = { ...normalizePublicCctvInput(input.calculatorInput as PublicCctvCalculatorInput), selectedVariant };
     const workScope = normalizeWorkScope(input.workScope);
     const installationPricing = normalizeInstallationPricing(input.installationPricing ?? null, workScope);
     const command = { items: [...grouped.values()], installationIntent, calculatorInput, workScope, installationPricing, requestId: requestId(input.requestId) };

@@ -6,6 +6,7 @@ import { getPublicCctvCalculatorService } from "../server";
 import { RetailCartExpiredError } from "../services/retail-cart.service";
 import { normalizePublicCctvInput, type PublicCctvCalculatorInput } from "../services/public-cctv-calculator.service";
 import type { PublicRetailCartMutationDto, PublicRetailLocale } from "../types";
+import type { InstallationPricingResult } from "@/src/modules/retail-marketplace";
 
 export type RetailCartActionResult = { success: boolean; message: string; data: PublicRetailCartMutationDto | null };
 const fail = (message: string): RetailCartActionResult => ({ success: false, message, data: null });
@@ -28,6 +29,9 @@ export async function addPublicRetailCctvSystemAction(input: { items: Array<{ pu
     const selectedLines = selectedVariant === "economy" && calculation.economyLines
       ? calculation.economyLines
       : calculation.lines;
+    const selectedInstallationPricing = selectedVariant === "economy" && calculation.economyInstallationPricing
+      ? calculation.economyInstallationPricing
+      : calculation.installationPricing;
     const governedItems = selectedLines.flatMap((line) => line.kind === "product" && line.product ? [{
       publicProductId: line.product.id,
       quantity: line.quantity,
@@ -58,7 +62,7 @@ export async function addPublicRetailCctvSystemAction(input: { items: Array<{ pu
       installationIntent: governedInstallationIntent,
       calculatorInput: governedInput,
       workScope: governedWorkScope,
-      installationPricing: calculation.installationPricing,
+      installationPricing: cartInstallationPricing(selectedInstallationPricing),
       requestId: input.requestId,
     }));
     console.info({ event: selectedVariant === "economy" ? "economy_selected" : "recommended_selected", source: "public_cctv_calculator" });
@@ -70,6 +74,16 @@ export async function addPublicRetailCctvSystemAction(input: { items: Array<{ pu
     safeCartFailure("add_cctv_system", error);
     return fail(input.locale === "ro" ? "Configurația s-a modificat. Recalculați sistemul." : "Конфигурация изменилась. Пересчитайте систему.");
   }
+}
+
+function cartInstallationPricing(pricing: InstallationPricingResult) {
+  return {
+    complete: pricing.complete, tariffSetId: pricing.tariffSetId, tariffVersion: pricing.tariffVersion,
+    currency: pricing.currency, vatTreatment: pricing.vatTreatment, subtotal: pricing.subtotal, missing: pricing.missing,
+    lines: pricing.lines.map(({ serviceType, quantity, unitCode, unitPrice, amount }) => ({
+      serviceType, quantity, unitCode, unitPrice, amount,
+    })),
+  };
 }
 
 function normalizedCalculatorCommandInput(input: Record<string, unknown>): PublicCctvCalculatorInput {

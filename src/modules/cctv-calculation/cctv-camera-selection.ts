@@ -73,7 +73,9 @@ export function selectCctvCameraCandidates(
     .sort((left, right) => right.score - left.score || priorityWeight(right.manualPriority) - priorityWeight(left.manualPriority)
       || left.productId.localeCompare(right.productId));
   const exact = eligibleIn(input.objectType);
-  const eligible = exact.length ? exact : eligibleIn("other");
+  const inherited = input.objectType === "other" ? [] : eligibleIn("other");
+  const exactProductIds = new Set(exact.map((candidate) => candidate.productId));
+  const eligible = [...exact, ...inherited.filter((candidate) => !exactProductIds.has(candidate.productId))];
   const recommendedEligible = eligible.filter((candidate) => candidate.eligibleForRecommended);
   const economyEligible = eligible.filter((candidate) => candidate.eligibleForEconomy);
   return { policyVersion: CCTV_CAMERA_SELECTION_POLICY_VERSION, eligible, recommendedEligible, economyEligible,
@@ -83,7 +85,9 @@ export function selectCctvCameraCandidates(
 export function selectEconomyAlternative<T extends CctvCameraRanking>(
   ranked: readonly T[], prices: ReadonlyMap<string, number>, recommendedProductId: string | null,
 ): T | null {
-  return ranked.filter((candidate) => candidate.productId !== recommendedProductId && prices.has(candidate.productId))
+  const recommendedPrice = recommendedProductId ? prices.get(recommendedProductId) : undefined;
+  return ranked.filter((candidate) => candidate.productId !== recommendedProductId && prices.has(candidate.productId)
+      && (recommendedPrice === undefined || prices.get(candidate.productId)! < recommendedPrice))
     .sort((left, right) => prices.get(left.productId)! - prices.get(right.productId)!
       || left.productId.localeCompare(right.productId))[0] ?? null;
 }

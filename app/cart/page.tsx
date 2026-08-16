@@ -1,4 +1,4 @@
-import { ImageOff, PackageOpen, ShieldCheck } from "lucide-react";
+import { ImageOff, PackageOpen, ShieldCheck, Wrench } from "lucide-react";
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
@@ -45,12 +45,16 @@ function CartContent({ cart, checkoutAccess, locale, offer }: { cart: PublicReta
   const hasStaleItems = cart.items.some((item) => item.stale);
   const checkoutAvailable = checkoutAccess && !hasStaleItems
     && cart.totals.total !== null && !cart.items.some((item) => item.availability === "unavailable");
+  const hasEquipment = cart.items.some((item) => item.commercialGroup === "equipment");
+  const hasInstallation = cart.bundles.some((bundle) => bundle.installationIntent
+    && Object.values(bundle.installationIntent).some(Boolean));
 
   return <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
     <div className="space-y-8">
       {standalone.length > 0 ? <CartGroup items={standalone} label={ru ? "Товары" : "Produse"} locale={locale} revision={cart.revision} /> : null}
       {cart.bundles.map((bundle, index) => <CartBundle bundle={bundle} index={index} items={cart.items.filter((item) => item.bundleId === bundle.id)} key={bundle.id} locale={locale} revision={cart.revision} />)}
       <div className="flex gap-3 border-l-4 border-amber-500 bg-amber-50 p-4 text-sm leading-6 text-amber-950"><ShieldCheck aria-hidden="true" className="mt-0.5 size-5 shrink-0" /><p>{ru ? "Добавление в корзину не резервирует товар. Цена и доступность проверяются по текущим опубликованным данным." : "Adăugarea în coș nu rezervă produsul. Prețul și disponibilitatea sunt verificate din datele publicate curente."}</p></div>
+      {hasEquipment && !hasInstallation ? <InstallationUpsell locale={locale} /> : null}
     </div>
     <aside className="border border-zinc-200 bg-white p-5 lg:sticky lg:top-24">
       <h2 className="text-lg font-semibold">{ru ? "Итого" : "Total"}</h2>
@@ -68,6 +72,19 @@ function CartContent({ cart, checkoutAccess, locale, offer }: { cart: PublicReta
       {!checkoutAccess ? <p className="mt-3 text-xs leading-5 text-zinc-500">{ru ? "Оформление заказа пока доступно только в пилотном режиме." : "Plasarea comenzii este disponibilă momentan doar în regim pilot."}</p> : null}
     </aside>
   </div>;
+}
+
+function InstallationUpsell({ locale }: { locale: PublicRetailLocale }) {
+  const ru = locale === "ru";
+  return <section className="border border-blue-200 bg-blue-50 p-4 sm:flex sm:items-center sm:justify-between sm:gap-5">
+    <div className="flex gap-3"><Wrench aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-blue-700" /><div>
+      <h2 className="font-semibold text-blue-950">{ru ? "Нужен монтаж?" : "Aveți nevoie de instalare?"}</h2>
+      <p className="mt-1 text-sm leading-6 text-blue-900">{ru ? "Выберите нужные работы в существующем расчёте. Покупка только оборудования останется доступной." : "Selectați lucrările necesare în calculul existent. Puteți cumpăra în continuare doar echipamentul."}</p>
+    </div></div>
+    <Link className="mt-4 inline-flex min-h-11 shrink-0 items-center justify-center bg-blue-700 px-4 text-sm font-semibold text-white hover:bg-blue-800 sm:mt-0" href={`/calculator/cctv?lang=${locale}&source=cart`}>
+      {ru ? "Выбрать монтаж" : "Alegeți instalarea"}
+    </Link>
+  </section>;
 }
 
 function CartBundle({ bundle, items, locale, revision, index }: { bundle: PublicRetailCartBundleDto; items: PublicRetailCartItemDto[]; locale: PublicRetailLocale; revision: number; index: number }) {

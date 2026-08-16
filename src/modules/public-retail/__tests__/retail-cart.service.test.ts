@@ -50,6 +50,22 @@ describe("RetailCartService", () => {
     ], installationPricing }));
   });
 
+  it("preserves only the governed calculator variant for database tariff revalidation", async () => {
+    const repo = repository();
+    await new RetailCartService(repo).addCctvSystem(hash, {
+      requestId,
+      calculatorInput: { ...calculatorInput, selectedVariant: "economy" },
+      workScope,
+      installationPricing,
+      items: [{ publicProductId: productId, quantity: 1, commercialGroup: "equipment", unitCode: "piece" }],
+      installationIntent: { cameraInstallation: true, cableLaying: false, commissioning: false, remoteViewing: false, aiScenarioProgramming: false },
+    });
+
+    expect(repo.addBundle).toHaveBeenCalledWith(hash, expect.objectContaining({
+      calculatorInput: expect.objectContaining({ selectedVariant: "economy" }),
+    }));
+  });
+
   it("accepts governed calculator material quantities above the standalone retail limit", async () => {
     const repo = repository();
     await new RetailCartService(repo).addCctvSystem(hash, {

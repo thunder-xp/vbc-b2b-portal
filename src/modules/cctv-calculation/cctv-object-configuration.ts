@@ -49,6 +49,12 @@ export type CctvResolvedObjectService = {
   vatTreatment: "included" | "excluded" | "not_specified" | null;
   tariffSetId: string | null;
   tariffVersion: number | null;
+  complexityClass?: number | null;
+};
+
+export type CctvResolvedObjectServiceVariants = {
+  recommended: CctvResolvedObjectService[];
+  economy: CctvResolvedObjectService[];
 };
 
 export type PublicCctvServiceOption = {

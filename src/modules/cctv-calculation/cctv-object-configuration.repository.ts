@@ -3,7 +3,7 @@ import "server-only";
 import { createAdminClient } from "@/src/lib/supabase/admin";
 import { createClient } from "@/src/lib/supabase/server";
 import type { CctvObjectType } from "./cctv-engine";
-import type { CctvObjectConfiguration, CctvResolvedObjectService, CctvServiceCode, CctvServiceRequestType,
+import type { CctvObjectConfiguration, CctvResolvedObjectService, CctvResolvedObjectServiceVariants, CctvServiceCode, CctvServiceRequestType,
   PublicCctvServiceOption } from "./cctv-object-configuration";
 
 export class SupabaseCctvObjectConfigurationRepository {
@@ -26,6 +26,21 @@ export class SupabaseCctvObjectConfigurationRepository {
     });
     if (error || !Array.isArray(data)) throw new Error("CCTV object services are unavailable.");
     return data.map(parseResolvedService);
+  }
+
+  async resolveVariants(objectType: CctvObjectType, serviceTypes: CctvServiceRequestType[]): Promise<CctvResolvedObjectServiceVariants> {
+    if (!serviceTypes.length) return { recommended: [], economy: [] };
+    const { data, error } = await createAdminClient().rpc("resolve_cctv_object_service_variants", {
+      target_object_type: objectType, target_service_types: [...new Set(serviceTypes)],
+    });
+    if (error || !data || typeof data !== "object" || Array.isArray(data)) {
+      throw new Error("CCTV object service variants are unavailable.");
+    }
+    const row = data as Record<string, unknown>;
+    return {
+      recommended: Array.isArray(row.recommended) ? row.recommended.map(parseResolvedService) : [],
+      economy: Array.isArray(row.economy) ? row.economy.map(parseResolvedService) : [],
+    };
   }
 
   async listPublicOptions(): Promise<PublicCctvServiceOption[]> {
@@ -118,5 +133,6 @@ function parseResolvedService(value: unknown): CctvResolvedObjectService {
     vatTreatment: typeof row.vatTreatment === "string" ? row.vatTreatment as CctvResolvedObjectService["vatTreatment"] : null,
     tariffSetId: typeof row.tariffSetId === "string" ? row.tariffSetId : null,
     tariffVersion: row.tariffVersion == null ? null : Number(row.tariffVersion),
+    complexityClass: row.complexityClass == null ? null : Number(row.complexityClass),
   };
 }

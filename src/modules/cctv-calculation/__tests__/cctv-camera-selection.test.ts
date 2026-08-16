@@ -22,15 +22,20 @@ describe("CCTV camera selection policy",()=>{
     expect(first.eligible.map((item)=>item.productId)).toEqual(second.eligible.map((item)=>item.productId));
     expect(first.recommended?.productId).toBe("c");
   });
-  it("uses the explicit other pool only when the exact pool is empty",()=>{
+  it("merges the inherited pool and lets an exact product entry override its inherited duplicate",()=>{
     const fallback={...base,objectType:"other" as const,productId:"fallback"};
     expect(selectCctvCameraCandidates(input,requirement,[fallback]).recommended?.productId).toBe("fallback");
-    expect(selectCctvCameraCandidates(input,requirement,[fallback,base]).eligible.map((item)=>item.productId)).toEqual(["b"]);
+    expect(selectCctvCameraCandidates(input,requirement,[fallback,base]).eligible.map((item)=>item.productId)).toEqual(["b","fallback"]);
     expect(selectCctvCameraCandidates(input,requirement,[fallback,{...base,resolutionMp:2}]).recommended?.productId).toBe("fallback");
+    expect(selectCctvCameraCandidates(input,requirement,[{...fallback,productId:"b"},base]).eligible).toHaveLength(1);
   });
   it("selects the cheapest alternative from the same eligible ranking",()=>{
     const ranked=selectCctvCameraCandidates(input,requirement,[base,{...base,productId:"a"},{...base,productId:"c"}]).eligible;
     expect(selectEconomyAlternative(ranked,new Map([["a",80],["b",100],["c",90]]),"b")?.productId).toBe("a");
+  });
+  it("does not call a more expensive camera an Economy alternative",()=>{
+    const ranked=selectCctvCameraCandidates(input,requirement,[base,{...base,productId:"expensive"}]).eligible;
+    expect(selectEconomyAlternative(ranked,new Map([["b",100],["expensive",120]]),"b")).toBeNull();
   });
   it("keeps Recommended and Economy eligibility independent",()=>{
     const recommendedOnly={...base,productId:"recommended",eligibleForEconomy:false};

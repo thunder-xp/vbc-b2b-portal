@@ -118,6 +118,49 @@ describe("PublicCctvCalculatorService", () => {
     expect(JSON.stringify(result)).not.toMatch(/priorityScore|slowSalesScore|recentSalesQty|availableStock/);
   });
 
+  it("offers a genuinely cheaper Apartment economy result through one governed service-tier resolution", async () => {
+    const fixture = repository();
+    const camera = { ...product("apartment-camera"), id: uuid("6"), price: {
+      amount: 1044, currency: "MDL", vatPresentation: "included" as const,
+    } };
+    const cameraCandidates = { resolve: vi.fn().mockResolvedValue([
+      candidate(uuid("2"), camera, { objectType: "apartment", availableStock: 36 }),
+    ]) };
+    const price = vi.fn();
+    const priceVariants = vi.fn().mockResolvedValue({
+      recommended: installationPricing(600, 2, "equipment_installation_class_2"),
+      economy: installationPricing(450, 1, "equipment_installation_class_1"),
+    });
+
+    const result = await new PublicCctvCalculatorService(
+      fixture.repository,
+      { price, priceVariants },
+      cameraCandidates as never,
+    ).calculate(input({ objectType: "apartment", indoorCameraCount: 4, cameraInstallationRequested: true }));
+
+    expect(priceVariants).toHaveBeenCalledOnce();
+    expect(price).not.toHaveBeenCalled();
+    expect(cameraCandidates.resolve).toHaveBeenCalledOnce();
+    expect(fixture.resolveCalculatorProducts).toHaveBeenCalledOnce();
+    expect(result.economyTotals?.total).toBeLessThan(result.totals.total!);
+    expect(result.installationPricing.lines[0]).toMatchObject({ complexityClass: 2, unitPrice: 600 });
+    expect(result.economyInstallationPricing?.lines[0]).toMatchObject({ complexityClass: 1, unitPrice: 450 });
+    expect(result.economyLines?.find((line) => line.requirementKind === "indoor_camera")?.product?.id).toBe(camera.id);
+  });
+
+  it("suppresses Economy when neither camera nor service pricing is cheaper", async () => {
+    const fixture = repository();
+    const samePricing = installationPricing(450, 1, "equipment_installation_class_1");
+    const result = await new PublicCctvCalculatorService(fixture.repository, {
+      price: vi.fn(),
+      priceVariants: vi.fn().mockResolvedValue({ recommended: samePricing, economy: samePricing }),
+    }).calculate(input({ objectType: "apartment", cameraInstallationRequested: true }));
+
+    expect(result.economyLines).toBeNull();
+    expect(result.economyTotals).toBeNull();
+    expect(result.economyInstallationPricing).toBeNull();
+  });
+
   it("keeps installation quantities unpriced and respects independent choices", async () => {
     const fixture = repository();
     const result = await new PublicCctvCalculatorService(fixture.repository).calculate(input({
@@ -229,4 +272,11 @@ function candidate(productId: string, publicProduct: PublicRetailProductSummaryD
     colorNight: null, anpr: null, videoAnalytics: null, technicalVerified: true, availableStock: 1,
     recentSalesQty: 0, lastSaleAt: null, signalUpdatedAt: null, sku: publicProduct.sku, name: publicProduct.name,
     imageUrl: null, publicProduct, ...overrides };
+}
+
+function installationPricing(unitPrice: number, complexityClass: number, resolvedServiceCode: string) {
+  return { complete: true, tariffSetId: uuid("3"), tariffVersion: 13, currency: "MDL" as const,
+    vatTreatment: "included" as const, lines: [{ serviceType: "camera_installation" as const, quantity: 4,
+      unitCode: "piece" as const, unitPrice, amount: unitPrice * 4, complexityClass, resolvedServiceCode,
+      serviceLabel: `Installation class ${complexityClass}` }], subtotal: unitPrice * 4, missing: [] };
 }

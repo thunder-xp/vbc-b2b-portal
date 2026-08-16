@@ -15,7 +15,7 @@ import {
   Utensils,
   Warehouse,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 
 import { protectedObjectOptions } from "../presentation";
 import type {
@@ -283,6 +283,7 @@ function CameraStep({
       </p>
       <div className="mt-6 grid gap-4 sm:grid-cols-2">
         <Counter
+          icon={<DomeCameraIcon />}
           label={ru ? "Камеры внутри" : "Camere în interior"}
           locale={locale}
           max={32 - values.outdoor}
@@ -290,6 +291,7 @@ function CameraStep({
           value={values.indoor}
         />
         <Counter
+          icon={<BulletCameraIcon />}
           label={ru ? "Камеры снаружи" : "Camere în exterior"}
           locale={locale}
           max={32 - values.indoor}
@@ -450,12 +452,14 @@ function InstallationStep({
 }
 
 function Counter({
+  icon,
   label,
   locale,
   max,
   onChange,
   value,
 }: {
+  icon: ReactNode;
   label: string;
   locale: PublicRetailLocale;
   max: number;
@@ -466,7 +470,7 @@ function Counter({
   const increase = locale === "ro" ? "mărește" : "увеличить";
   return (
     <div className="border border-zinc-200 p-4">
-      <span className="text-sm font-semibold">{label}</span>
+      <span className="flex items-center gap-3 text-sm font-semibold"><span aria-hidden="true" className="grid size-10 place-items-center bg-blue-50 text-blue-700">{icon}</span>{label}</span>
       <div className="mt-4 grid grid-cols-[48px_1fr_48px] items-center">
         <button
           aria-label={`${label}: ${decrease}`}
@@ -495,6 +499,22 @@ function Counter({
       </div>
     </div>
   );
+}
+
+function DomeCameraIcon() {
+  return <svg aria-hidden="true" className="size-7" data-camera-shape="dome" fill="none" viewBox="0 0 32 32">
+    <path d="M8 17a8 8 0 0 1 16 0" stroke="currentColor" strokeWidth="2" />
+    <path d="M6 17h20v3H6zM10 20h12l-2 4h-8z" fill="currentColor" />
+    <circle cx="16" cy="14" fill="currentColor" r="2" />
+  </svg>;
+}
+
+function BulletCameraIcon() {
+  return <svg aria-hidden="true" className="size-7" data-camera-shape="bullet" fill="none" viewBox="0 0 32 32">
+    <path d="m7 10 15-3 4 4-4 8-15-3z" stroke="currentColor" strokeLinejoin="round" strokeWidth="2" />
+    <circle cx="21" cy="13" fill="currentColor" r="2" />
+    <path d="m14 18-2 6m0-3h8" stroke="currentColor" strokeLinecap="round" strokeWidth="2" />
+  </svg>;
 }
 function Choice({
   active,

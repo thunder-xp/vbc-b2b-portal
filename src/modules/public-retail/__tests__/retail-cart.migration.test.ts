@@ -12,6 +12,7 @@ const requirementSystemTypeFix = readFileSync(join(process.cwd(), "supabase/migr
 const equipmentOnlySnapshotFix = readFileSync(join(process.cwd(), "supabase/migrations/20260815130600_skip_installation_snapshot_for_equipment_only_orders.sql"), "utf8");
 const nullIntentSnapshotFix = readFileSync(join(process.cwd(), "supabase/migrations/20260815131617_handle_null_retail_installation_intent.sql"), "utf8");
 const aiRequirementLineFix = readFileSync(join(process.cwd(), "supabase/migrations/20260815132015_allow_ai_installation_requirement_line.sql"), "utf8");
+const economyServiceVariants = readFileSync(join(process.cwd(), "supabase/migrations/20260816203746_complete_cctv_economy_service_variants.sql"), "utf8");
 const actions = readFileSync(join(process.cwd(), "src/modules/public-retail/actions/retail-cart.actions.ts"), "utf8");
 const service = readFileSync(join(process.cwd(), "src/modules/public-retail/services/retail-cart.service.ts"), "utf8");
 const cartPage = readFileSync(join(process.cwd(), "app/cart/page.tsx"), "utf8");
@@ -129,6 +130,35 @@ describe("governed anonymous Retail Cart migration", () => {
   it("retains governed AI programming in the paid installation requirement", () => {
     expect(aiRequirementLineFix).toContain("installation_requirement_lines_service_type_check");
     expect(aiRequirementLineFix).toContain("'ai_scenario_programming'");
+  });
+
+  it("resolves the economy service tier in one governed bounded RPC", () => {
+    expect(economyServiceVariants).toContain("resolve_cctv_object_service_variants");
+    expect(economyServiceVariants).toContain("coalesce(cardinality(target_service_types),0)<1");
+    expect(economyServiceVariants).toContain("cardinality(target_service_types)>5");
+    expect(economyServiceVariants).toContain("definition.complexity_class=defaults.complexity_class-1");
+    expect(economyServiceVariants).toContain("binding.enabled");
+    expect(economyServiceVariants).toContain("revoke all on function public.resolve_cctv_object_service_variants(text,text[]) from public,anon,authenticated");
+    expect(economyServiceVariants).toContain("grant execute on function public.resolve_cctv_object_service_variants(text,text[]) to service_role");
+    expect(economyServiceVariants).not.toMatch(/400540|\bsku\b/i);
+    expect(economyServiceVariants).toContain("resolved_services:=resolved_variants->selected_variant");
+    expect(economyServiceVariants).toContain("selected_variant not in ('recommended','economy')");
+    expect(economyServiceVariants).toContain("to anon,service_role");
+  });
+
+  it("keeps Recommended and Economy switching reversible in the result URL", () => {
+    expect(resultPage).toContain('variantQuery.delete("variant")');
+    expect(resultPage).toContain('variantQuery.set("variant","economy")');
+    expect(resultPage).toContain("Вернуться к рекомендуемому");
+    expect(resultPage).toContain("Нужен вариант дешевле");
+  });
+
+  it("offers installation from an equipment-only cart without changing checkout", () => {
+    expect(cartPage).toContain("hasEquipment && !hasInstallation");
+    expect(cartPage).toContain("InstallationUpsell");
+    expect(cartPage).toContain("/calculator/cctv?lang=${locale}&source=cart");
+    expect(cartPage).toContain("Нужен монтаж?");
+    expect(cartPage).toContain("checkoutAvailable");
   });
 
   it("renders bilingual responsive review with pilot-gated checkout and no reservation", () => {

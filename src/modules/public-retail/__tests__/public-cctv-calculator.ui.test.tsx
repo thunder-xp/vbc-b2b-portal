@@ -30,11 +30,13 @@ describe("PublicCctvCalculator", () => {
   });
 
   it("provides localized controls and preserves minimum touch targets", () => {
-    render(<PublicCctvCalculator locale="ro" />);
+    const { container } = render(<PublicCctvCalculator locale="ro" />);
     fireEvent.click(screen.getByRole("button", { name: "Continuă" }));
 
     expect(screen.getByRole("button", { name: "Camere în interior: micșorează" })).toHaveClass("size-12");
     expect(screen.getByRole("button", { name: "Camere în interior: mărește" })).toHaveClass("size-12");
+    expect(container.querySelector('[data-camera-shape="dome"]')).not.toBeNull();
+    expect(container.querySelector('[data-camera-shape="bullet"]')).not.toBeNull();
   });
 
   it("restores governed values when a result is modified", () => {
