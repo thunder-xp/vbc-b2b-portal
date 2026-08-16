@@ -12,7 +12,7 @@ import type {
   PublishedMerchandisingAssignment,
 } from "../types";
 
-const LABEL_CODES = new Set<MerchandisingLabelCode>(["NEW", "TOP", "HOT"]);
+const LABEL_CODES = new Set<MerchandisingLabelCode>(["NEW", "TOP", "HOT", "SPECIAL_OFFER"]);
 const OPERATIONS = new Set(["assign", "revoke", "hide", "show"]);
 
 export class MerchandisingValidationError extends Error {
@@ -128,7 +128,7 @@ export class MerchandisingService {
     const endsAt = validTimestamp(input.endsAt);
     if (
       input.operation === "assign" &&
-      ((input.labelCode === "HOT" || input.labelCode === "NEW") && !endsAt)
+      ((input.labelCode === "HOT" || input.labelCode === "NEW" || input.labelCode === "SPECIAL_OFFER") && !endsAt)
     ) {
       throw new MerchandisingValidationError(
         "MERCHANDISING_EXPIRY_REQUIRED",

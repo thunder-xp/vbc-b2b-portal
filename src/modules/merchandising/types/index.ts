@@ -1,4 +1,4 @@
-export type MerchandisingLabelCode = "NEW" | "TOP" | "HOT";
+export type MerchandisingLabelCode = "NEW" | "TOP" | "HOT" | "SPECIAL_OFFER";
 export type MerchandisingSource =
   | "manual"
   | "one_c"

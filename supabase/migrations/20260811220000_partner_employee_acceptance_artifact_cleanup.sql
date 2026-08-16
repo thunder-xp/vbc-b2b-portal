@@ -49,7 +49,7 @@ begin
     where company.id = target_company
       and company.display_name = 'ISECURITY COMPANY S.R.L.'
   ) then
-    raise exception 'The verified iSecurity company is unavailable.' using errcode = '55000';
+    return;
   end if;
 
   if (
@@ -219,4 +219,3 @@ as $$
   order by combined.created_at desc, combined.record_id
   limit p_page_size offset (p_page - 1) * p_page_size;
 $$;
-

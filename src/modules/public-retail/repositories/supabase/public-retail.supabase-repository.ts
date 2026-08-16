@@ -68,10 +68,14 @@ export class SupabasePublicRetailReadRepository implements PublicRetailReadRepos
     return data === null ? null : parsePublicRetailProduct(data);
   }
 
-  async listFacets(categorySlug: string | undefined, locale: PublicRetailLocale) {
-    const { data, error } = await createPublicReadClient().rpc("list_public_retail_facets", {
-      p_category_slug: categorySlug ?? null,
-      p_locale: locale,
+  async listFacets(input: Pick<ListPublicRetailProductsInput, "availability" | "categorySlug" | "facets" | "locale" | "search">) {
+    const { data, error } = await createPublicReadClient().rpc("list_public_retail_facets_v2", {
+      p_category_slug: input.categorySlug ?? null,
+      p_search: input.search ?? null,
+      p_availability: input.availability ?? null,
+      p_facets: input.facets ?? {},
+      p_locale: input.locale,
+      p_max_values: 30,
     });
     if (error) throw new PublicRetailRepositoryError();
     return parsePublicRetailFacets(data);

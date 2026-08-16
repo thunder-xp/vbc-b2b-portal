@@ -44,7 +44,7 @@ describe("PublicRetailService", () => {
       categorySlug: "camere-video",
       search: "  camera   ip  ",
       availability: "in_stock",
-      facets: { resolution: [" 4 MP ", "4 MP"] },
+      facets: { "property_11111111-1111-1111-1111-111111111111": [" 4 MP ", "4 MP"] },
       page: 3,
       pageSize: 48,
     });
@@ -55,7 +55,7 @@ describe("PublicRetailService", () => {
       categorySlug: "camere-video",
       search: "camera ip",
       availability: "in_stock",
-      facets: { resolution: ["4 MP"] },
+      facets: { "property_11111111-1111-1111-1111-111111111111": ["4 MP"] },
       mode: undefined,
       limit: 48,
       offset: 96,
@@ -88,10 +88,33 @@ describe("PublicRetailService", () => {
 
     await service.listRetailProducts({ mode: "popular" });
     await service.listRetailProducts({ mode: "new" });
+    await service.listRetailProducts({ mode: "special" });
     await service.listRetailProducts({ mode: "price_asc" });
     await service.listRetailProducts({ mode: "popular", search: "camera" });
 
-    expect(listProducts.mock.calls.map(([input]) => input.mode)).toEqual(["popular", "new", "price_asc", undefined]);
+    expect(listProducts.mock.calls.map(([input]) => input.mode)).toEqual(["popular", "new", "special", "price_asc", undefined]);
+  });
+
+  it("passes the same bounded active filters to contextual facet aggregation", async () => {
+    const listFacets = vi.fn().mockResolvedValue([]);
+    const repository = {
+      listCategories: vi.fn(), listProducts: vi.fn(), getProduct: vi.fn(),
+      getShowcase: vi.fn(), listFacets, resolveCalculatorProducts: vi.fn(),
+    } as unknown as PublicRetailReadRepository;
+    await new PublicRetailService(repository).listRetailFacets({
+      availability: "in_stock",
+      categorySlug: "video",
+      facets: { "property_11111111-1111-1111-1111-111111111111": [" 4 MP ", "4 MP"] },
+      locale: "ro",
+      search: " camera  ip ",
+    });
+    expect(listFacets).toHaveBeenCalledWith({
+      availability: "in_stock",
+      categorySlug: "video",
+      facets: { "property_11111111-1111-1111-1111-111111111111": ["4 MP"] },
+      locale: "ro",
+      search: "camera ip",
+    });
   });
 });
 

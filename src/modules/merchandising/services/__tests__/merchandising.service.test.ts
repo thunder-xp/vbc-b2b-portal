@@ -9,7 +9,7 @@ const PRODUCT_ID = "11111111-1111-4111-8111-111111111111";
 const REQUEST_ID = "22222222-2222-4222-8222-222222222222";
 
 describe("MerchandisingService", () => {
-  it("requires expiry for HOT and manual NEW", () => {
+  it("requires expiry for HOT, manual NEW and Retail special offers", () => {
     const service = createService();
     expect(() => service.manage({
       requestId: REQUEST_ID,
@@ -24,6 +24,13 @@ describe("MerchandisingService", () => {
       productIds: [PRODUCT_ID],
       labelCode: "NEW",
       reason: "Новинка",
+    })).toThrowError("MERCHANDISING_EXPIRY_REQUIRED");
+    expect(() => service.manage({
+      requestId: REQUEST_ID,
+      operation: "assign",
+      productIds: [PRODUCT_ID],
+      labelCode: "SPECIAL_OFFER",
+      reason: "Розничная акция",
     })).toThrowError("MERCHANDISING_EXPIRY_REQUIRED");
   });
 

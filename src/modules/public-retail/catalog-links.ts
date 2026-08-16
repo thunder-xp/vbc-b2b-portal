@@ -1,10 +1,11 @@
 import type { PublicRetailCatalogMode, PublicRetailLocale } from "./types";
+import { catalogFacetQueryFields, updateCatalogFacetSelection } from "../catalog/services/catalog-facet-state";
 
 export type PublicRetailCatalogState = {
   q?: string;
   category?: string;
   availability?: string;
-  facets: Record<string, string[]>;
+  attributeFilters: Record<string, string[]>;
   mode?: PublicRetailCatalogMode;
   page: number;
 };
@@ -22,13 +23,9 @@ export function publicRetailFilterHref(
   if (availability) query.set("availability", availability);
   if (state.mode?.startsWith("price_")) query.set("sort", state.mode);
   else if (state.mode) query.set("view", state.mode);
-  const nextFacets = Object.fromEntries(Object.entries(state.facets).map(([key, values]) => [key, [...values]]));
-  if (change.facet) {
-    const values = nextFacets[change.facet.key] ?? [];
-    nextFacets[change.facet.key] = values.includes(change.facet.value) && change.facetMode !== "include"
-      ? values.filter((item) => item !== change.facet?.value)
-      : [...values, change.facet.value];
-  }
-  Object.entries(nextFacets).forEach(([key, values]) => values.forEach((value) => query.append(`facet_${key}`, value)));
+  const nextFacets = change.facet
+    ? updateCatalogFacetSelection(state.attributeFilters, change.facet.key, change.facet.value, change.facetMode)
+    : state.attributeFilters;
+  Object.entries(catalogFacetQueryFields(nextFacets)).forEach(([key, value]) => query.set(key, value));
   return `/catalog?${query}`;
 }

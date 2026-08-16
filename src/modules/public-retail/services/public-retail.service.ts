@@ -58,8 +58,14 @@ export class PublicRetailService {
     return this.repository.getProduct(normalizeSlug(slug), normalizeLocale(locale));
   }
 
-  listRetailFacets(categorySlug?: string, locale?: string) {
-    return this.repository.listFacets(optionalSlug(categorySlug), normalizeLocale(locale));
+  listRetailFacets(input: Pick<PublicRetailListInput, "availability" | "categorySlug" | "facets" | "locale" | "search"> = {}) {
+    return this.repository.listFacets({
+      availability: normalizeAvailability(input.availability),
+      categorySlug: optionalSlug(input.categorySlug),
+      facets: normalizeFacets(input.facets),
+      locale: normalizeLocale(input.locale),
+      search: normalizeSearch(input.search),
+    });
   }
 
   resolveCalculatorProducts(profileKeys: string[], locale?: string) {
@@ -74,7 +80,7 @@ export class PublicRetailService {
 
 function normalizeMode(value: string | undefined, searchActive: boolean): PublicRetailCatalogMode | undefined {
   if (searchActive) return undefined;
-  return (["popular", "new", "hot", "price_asc", "price_desc"] as const).find((candidate) => candidate === value);
+  return (["popular", "new", "hot", "special", "price_asc", "price_desc"] as const).find((candidate) => candidate === value);
 }
 
 function normalizeFacets(value: Record<string, string[]> | undefined): Record<string, string[]> | undefined {
@@ -84,7 +90,7 @@ function normalizeFacets(value: Record<string, string[]> | undefined): Record<st
   const normalized = Object.fromEntries(entries.map(([key, selected]) => {
     const normalizedKey = key.trim();
     const normalizedValues = [...new Set(selected.map((item) => item.trim()).filter(Boolean))];
-    if (!normalizedKey || normalizedKey.length > 160 || normalizedValues.length < 1 || normalizedValues.length > 10
+    if (!/^property_[0-9a-f-]{36}$/.test(normalizedKey) || normalizedValues.length < 1 || normalizedValues.length > 10
       || normalizedValues.some((item) => item.length > 1000)) {
       throw new Error("Invalid Public Retail facet.");
     }

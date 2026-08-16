@@ -16,6 +16,10 @@ const LABELS: Record<
     label: "Горячая цена",
     className: "border-rose-200 bg-rose-50 text-rose-800",
   },
+  SPECIAL_OFFER: {
+    label: "Спецпредложение",
+    className: "border-amber-200 bg-amber-50 text-amber-900",
+  },
 };
 
 export function MerchandisingBadges({

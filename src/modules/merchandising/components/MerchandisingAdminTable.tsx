@@ -91,6 +91,7 @@ export function MerchandisingAdminTable({
               <option value="NEW">Новинка</option>
               <option value="TOP">Популярный</option>
               <option value="HOT">Горячая цена</option>
+              <option value="SPECIAL_OFFER">Спецпредложение Retail</option>
             </select>
           </label>
           <label className="text-xs font-medium text-zinc-600">
@@ -266,6 +267,7 @@ function formatValidity(startsAt: string, endsAt: string | null): string {
 }
 
 function labelText(code: MerchandisingLabelCode): string {
+  if (code === "SPECIAL_OFFER") return "Спецпредложение Retail";
   return code === "NEW"
     ? "Новинка"
     : code === "TOP"

@@ -71,7 +71,8 @@ describe("Public Retail catalog showcase", () => {
   it("routes only a query-free catalog request to the showcase", () => {
     const page = readFileSync(join(process.cwd(), "app/catalog/page.tsx"), "utf8");
     expect(page).toContain("if (!hasListingIntent(params))");
-    expect(page).toContain("key.startsWith(\"facet_\")");
+    expect(page).toContain("key.startsWith(\"attr.\")");
+    expect(page).toContain('view === "special" ? "special"');
     expect(page).toContain("view === \"hot\" ? \"hot\"");
     expect(publicRetailFullCatalogHref("ru")).toBe("/catalog?lang=ru&view=all");
     expect(publicRetailFullCatalogHref("ro")).toBe("/catalog?lang=ro&view=all");

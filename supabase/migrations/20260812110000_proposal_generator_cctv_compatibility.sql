@@ -54,6 +54,13 @@ revoke all on function public.prevent_estimate_generator_compatibility_event_mut
 do $$
 declare item record; profile public.estimate_generator_calculator_profiles; product public.catalog_products; new_version integer;
 begin
+  if not exists (select 1 from public.catalog_products) then
+    update public.estimate_generator_calculator_profiles
+    set is_active=false,catalog_product_id=null,version=version+1,updated_at=now()
+    where profile_key in ('cctv.poe.32','cctv.storage.1tb','cctv.storage.12tb');
+    return;
+  end if;
+
   for item in select * from (values
     ('cctv.nvr.4','130146','DHI-NVR1104HS-P-S3-H',4,4,1,8,'https://material.dahuasecurity.com/uploads/soft/20231227/DHI-NVR1104HS-P-S3H_datasheet_20210112_RU.pdf'),
     ('cctv.nvr.8','130236','DHI-NVR2108HS-8P-4KS3',8,8,1,20,'https://materialfile.dahuasecurity.com/uploads/cpq/prm-os-srv-res/smart/datasheetzipfiles/NVR2108HS-8P-4KS3_S0_datasheet_20241119.pdf'),

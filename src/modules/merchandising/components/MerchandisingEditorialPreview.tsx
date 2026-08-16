@@ -8,6 +8,7 @@ const SECTION_TITLES = {
   TOP: "Популярные товары",
   NEW: "Новинки",
   HOT: "Горячие предложения",
+  SPECIAL_OFFER: "Спецпредложения Retail",
 } as const;
 
 export function MerchandisingEditorialPreview({

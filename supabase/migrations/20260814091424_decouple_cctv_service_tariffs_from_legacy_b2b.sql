@@ -20,6 +20,16 @@ begin
   loop
     adapter_service_id := definition.partner_service_id;
     if adapter_service_id is null then
+      select service.id
+      into adapter_service_id
+      from public.partner_services service
+      where service.company_id is null
+        and service.is_active
+        and lower(service.name) = lower(definition.label_ru)
+      order by service.id
+      limit 1;
+    end if;
+    if adapter_service_id is null then
       insert into public.partner_services(
         company_id,name,default_unit,description,sort_order,is_active,
         default_cost,default_selling_price,vat_applicable,category

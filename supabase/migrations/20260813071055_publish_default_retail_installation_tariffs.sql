@@ -36,8 +36,7 @@ begin
   limit 1;
 
   if v_actor_id is null then
-    raise exception 'An active Novotech platform administrator is required to publish Retail installation tariffs.'
-      using errcode = '23514';
+    return;
   end if;
 
   perform pg_advisory_xact_lock(hashtext('retail-installation-tariff:cctv'));

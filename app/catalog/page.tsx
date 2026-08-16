@@ -5,6 +5,7 @@ import { PublicRetailShowcase } from "@/src/modules/public-retail/components/Pub
 import { PublicRetailShell } from "@/src/modules/public-retail/components/PublicRetailShell";
 import { publicRetailLocale } from "@/src/modules/public-retail/presentation";
 import { getPublicRetailService } from "@/src/modules/public-retail/server";
+import { parseCatalogAttributeFilters } from "@/src/modules/catalog/services/catalog-sort-state";
 
 type Params = Record<string, string | string[] | undefined>;
 
@@ -20,22 +21,22 @@ export default async function PublicCatalogPage({ searchParams }: { searchParams
   const view = single(params.view)?.trim();
   const sort = single(params.sort)?.trim();
   const page = Math.max(1, Number(single(params.page)) || 1);
-  const facets = Object.fromEntries(Object.entries(params).filter(([key]) => key.startsWith("facet_")).slice(0, 8).map(([key, value]) => [key.slice(6), (Array.isArray(value) ? value : [value]).filter((item): item is string => Boolean(item))]));
+  const attributeFilters = parseCatalogAttributeFilters(params);
   const service = getPublicRetailService();
   if (!hasListingIntent(params)) {
     const showcase = await service.getRetailShowcase(locale);
     return <PublicRetailShell languagePath="/catalog" locale={locale}><main><PublicRetailShowcase locale={locale} showcase={showcase} /></main></PublicRetailShell>;
   }
-  const mode = q ? undefined : sort === "price_desc" ? "price_desc" : sort === "price_asc" ? "price_asc" : view === "new" ? "new" : view === "hot" ? "hot" : view === "popular" ? "popular" : undefined;
+  const mode = q ? undefined : sort === "price_desc" ? "price_desc" : sort === "price_asc" ? "price_asc" : view === "special" ? "special" : view === "new" ? "new" : view === "hot" ? "hot" : view === "popular" ? "popular" : undefined;
   const [categories, products, categoryFacets] = await Promise.all([
     service.listRetailCategories(locale),
-    service.listRetailProducts({ locale, categorySlug: category, search: q, availability, facets, mode, page, pageSize: 24 }),
-    service.listRetailFacets(category, locale),
+    service.listRetailProducts({ locale, categorySlug: category, search: q, availability, facets: attributeFilters, mode, page, pageSize: 24 }),
+    service.listRetailFacets({ categorySlug: category, search: q, availability, facets: attributeFilters, locale }),
   ]);
 
-  return <PublicRetailShell languagePath="/catalog" locale={locale}><main><PublicRetailCatalog categories={categories} facets={categoryFacets} locale={locale} products={products} state={{ q, category, availability, facets, mode, page }} /></main></PublicRetailShell>;
+  return <PublicRetailShell languagePath="/catalog" locale={locale}><main><PublicRetailCatalog categories={categories} facets={categoryFacets} locale={locale} products={products} state={{ q, category, availability, attributeFilters, mode, page }} /></main></PublicRetailShell>;
 }
 
 function hasListingIntent(params: Params): boolean {
-  return Object.keys(params).some((key) => ["q", "category", "availability", "view", "sort", "page"].includes(key) || key.startsWith("facet_"));
+  return Object.keys(params).some((key) => ["q", "category", "availability", "view", "sort", "page"].includes(key) || key.startsWith("attr."));
 }

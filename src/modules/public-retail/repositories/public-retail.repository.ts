@@ -26,7 +26,7 @@ export interface PublicRetailReadRepository {
   listProducts(input: ListPublicRetailProductsInput): Promise<PublicRetailProductPageDto>;
   getShowcase(locale: PublicRetailLocale): Promise<PublicRetailShowcaseDto>;
   getProduct(slug: string, locale: PublicRetailLocale): Promise<PublicRetailProductDetailDto | null>;
-  listFacets(categorySlug: string | undefined, locale: PublicRetailLocale): Promise<PublicRetailFacetDto[]>;
+  listFacets(input: Pick<ListPublicRetailProductsInput, "availability" | "categorySlug" | "facets" | "locale" | "search">): Promise<PublicRetailFacetDto[]>;
   resolveCalculatorProducts(profileKeys: string[], locale: PublicRetailLocale): Promise<PublicRetailCalculatorProductResolutionDto[]>;
 }
 

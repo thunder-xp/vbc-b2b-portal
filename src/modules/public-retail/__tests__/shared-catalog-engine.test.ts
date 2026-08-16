@@ -24,6 +24,12 @@ describe("shared B2B/B2C catalog presentation architecture", () => {
     expect(publicCatalog).toContain("CatalogProductGridFrame");
     expect(publicCatalog).toContain("NumberedPagination");
     expect(publicCatalog).toContain("CatalogFilterLink");
+    expect(b2bFilters).toContain("CatalogTechnicalFacetGroups");
+    expect(publicCatalog).toContain("CatalogTechnicalFacetGroups");
+    expect(read("src/modules/public-retail/catalog-links.ts")).toContain("catalogFacetQueryFields");
+    expect(read("src/modules/public-retail/catalog-links.ts")).toContain("updateCatalogFacetSelection");
+    expect(read("app/catalog/page.tsx")).toContain("parseCatalogAttributeFilters");
+    expect(read("app/catalog/page.tsx")).not.toContain('startsWith("facet_")');
     expect(publicCatalog).not.toContain('type="checkbox"');
     expect(publicCatalog).not.toContain('type="radio"');
   });
@@ -48,6 +54,7 @@ describe("shared B2B/B2C catalog presentation architecture", () => {
     expect(shell).toContain("publicCompanyContent.stores");
     expect(content).toContain("tel:+37378999484");
     expect(content).toContain("tel:+37378999495");
+    expect(content).not.toMatch(/078999441|079313353/);
     expect(content).toContain("google.com/maps/search");
   });
 });

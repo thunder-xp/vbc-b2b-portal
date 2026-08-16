@@ -72,9 +72,9 @@ create policy "Users can cancel own pending review access requests"
 on public.access_requests
 for update
 to authenticated
-using (user_profile_id = auth.uid() and status = 'pending_review')
+using (user_id = auth.uid() and status = 'pending_review')
 with check (
-  user_profile_id = auth.uid()
+  user_id = auth.uid()
   and status = 'cancelled'
   and company_id is null
   and requested_external_1c_id is null
