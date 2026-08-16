@@ -13,12 +13,12 @@ export function PublicRetailAddToCartButton({ publicProductId, locale, source, c
   const [pending, startTransition] = useTransition();
   const ru = locale === "ru";
 
-  return <div className="space-y-1"><button className={`inline-flex min-h-11 w-full items-center justify-center gap-2 bg-emerald-700 px-4 text-sm font-semibold text-white hover:bg-emerald-800 disabled:opacity-60 ${compact ? "" : "sm:w-auto"}`} disabled={pending} onClick={() => startTransition(async () => {
+  return <div className="space-y-1"><button className={`inline-flex min-h-11 w-full items-center justify-center gap-2 bg-[#3083EB] px-4 text-sm font-semibold text-white transition-colors hover:bg-[#236FD0] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#625DDD] disabled:opacity-60 ${compact ? "" : "sm:w-auto"}`} disabled={pending} onClick={() => startTransition(async () => {
     const result = await addPublicRetailProductAction({ publicProductId, quantity: 1, source, requestId, locale });
     setMessage(result.message);
     if (result.success && result.data) {
       setRequestId(crypto.randomUUID());
       window.dispatchEvent(new CustomEvent(PUBLIC_RETAIL_CART_UPDATED_EVENT, { detail: { totalQuantity: result.data.totalQuantity } }));
     }
-  })} type="button"><ShoppingCart aria-hidden="true" className="size-4" />{pending ? (ru ? "Добавляем..." : "Se adaugă...") : (ru ? "В корзину" : "În coș")}</button><p aria-live="polite" className="min-h-4 text-xs text-emerald-700">{message}</p></div>;
+  })} type="button"><ShoppingCart aria-hidden="true" className="size-4" />{pending ? (ru ? "Добавляем..." : "Se adaugă...") : (ru ? "В корзину" : "În coș")}</button><p aria-live="polite" className="min-h-4 text-xs text-[#236FD0]">{message}</p></div>;
 }
