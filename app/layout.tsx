@@ -5,8 +5,12 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://www.nsd.md"),
   title: "Novotech Systems Distribution",
   description:
-    "Системы безопасности, профессиональное оборудование и решения Novotech.",
+    "Системы безопасности, видеонаблюдение, профессиональное оборудование и монтаж в Молдове.",
   applicationName: "Novotech Systems Distribution",
+  icons: {
+    icon: "/icon.svg",
+    shortcut: "/icon.svg",
+  },
   openGraph: {
     siteName: "Novotech Systems Distribution",
     type: "website",
