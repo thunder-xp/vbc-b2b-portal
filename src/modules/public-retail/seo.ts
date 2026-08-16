@@ -5,6 +5,7 @@ import type { PublicRetailLocale, PublicRetailProductDetailDto } from "./types";
 
 export const PUBLIC_SITE_ORIGIN = "https://www.nsd.md";
 export const PUBLIC_SOCIAL_IMAGE = "/retail/security-installation-hero.webp";
+export const PUBLIC_BRAND_LOGO = "/retail/novotech-logo.svg";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -149,6 +150,7 @@ export function publicOrganizationSchemas(
       "@id": organizationId,
       name: "Novotech Systems Distribution",
       url: publicLocalizedUrl("/", locale),
+      logo: new URL(PUBLIC_BRAND_LOGO, PUBLIC_SITE_ORIGIN).toString(),
       email: publicCompanyContent.email,
       telephone: "+37378999484",
       description: publicCompanyContent.descriptor[locale],
