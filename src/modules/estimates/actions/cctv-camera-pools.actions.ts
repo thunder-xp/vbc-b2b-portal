@@ -28,7 +28,7 @@ export async function listCctvObjectConfigurationsAction() {
   catch (error) { return failureFromError(error); }
 }
 
-export async function searchCctvCameraCandidatesAction(input: {
+export async function addCctvCameraCandidateByQueryAction(input: {
   query: string; objectType: string; placement: CctvCameraPlacement;
 }) {
   const query = input.query.trim();
@@ -36,10 +36,57 @@ export async function searchCctvCameraCandidatesAction(input: {
     || !["indoor", "outdoor"].includes(input.placement)) return invalidInput("Введите минимум два символа.");
   try {
     await requireAdminPermission("admin.estimates.view");
-    return success("Кандидаты камер найдены.", await new SupabaseCctvCameraCandidateRepository().searchAdmin({
+    const repository = new SupabaseCctvCameraCandidateRepository();
+    const candidates = await repository.searchAdmin({
       query, objectType: input.objectType as typeof CCTV_OBJECT_TYPES[number], placement: input.placement,
-    }));
+    });
+    if (candidates.length === 0) return cameraCandidateFailure("CCTV_CAMERA_NOT_FOUND", "Камера не найдена.");
+    if (candidates.length > 1) return success("Найдено несколько камер. Выберите нужную.", {
+      status: "requires_selection" as const, candidates, saved: null,
+    });
+
+    const candidate = candidates[0];
+    if (candidate.alreadyInPool && !candidate.existingPoolArchived) {
+      return success("Камера уже добавлена в этот пул.", {
+        status: "already_in_pool" as const, candidates, saved: null,
+      });
+    }
+    if (candidate.existingPoolArchived && candidate.existingPoolVersion == null) {
+      return cameraCandidateFailure("CCTV_CAMERA_PERSISTENCE_ERROR", "Не удалось восстановить камеру в пуле.");
+    }
+
+    await requireAdminPermission("admin.integrations.manage");
+    try {
+      const result = await repository.upsertAdmin({
+        objectType: input.objectType as typeof CCTV_OBJECT_TYPES[number],
+        placement: input.placement,
+        productId: candidate.productId,
+        manualPriority: "normal",
+        enabled: true,
+        eligibleForRecommended: true,
+        eligibleForEconomy: true,
+        notes: "",
+        expectedVersion: candidate.existingPoolArchived ? candidate.existingPoolVersion : null,
+      });
+      const saved = (await repository.listAdmin()).find((row) => row.candidateId === result.candidateId);
+      if (!saved) throw new Error("Saved CCTV camera candidate is unavailable.");
+      revalidatePath("/admin/commercial/proposal-generator");
+      return success("Кандидат камеры сохранён.", {
+        status: "added" as const,
+        candidates: [{ ...candidate, alreadyInPool: true, existingPoolVersion: saved.version, existingPoolArchived: false }],
+        saved,
+      });
+    } catch (error) {
+      const failure = cctvConfigurationFailure(error);
+      return failure.errorCode === "SYSTEM_ERROR"
+        ? cameraCandidateFailure("CCTV_CAMERA_PERSISTENCE_ERROR", "Не удалось добавить камеру в пул.")
+        : failure;
+    }
   } catch (error) { return failureFromError(error); }
+}
+
+function cameraCandidateFailure(errorCode: string, message: string) {
+  return { success: false as const, errorCode, message, data: null };
 }
 
 export async function upsertCctvCameraPoolAction(input: { objectType: string; placement: CctvCameraPlacement;

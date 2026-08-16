@@ -26,7 +26,7 @@ import {
 import { actionClassName, ActionFeedback } from "../../platform-ui";
 import {
   removeCctvCameraPoolAction,
-  searchCctvCameraCandidatesAction,
+  addCctvCameraCandidateByQueryAction,
   upsertCctvCameraPoolAction,
   saveCctvServiceConfigurationAction,
 } from "../actions";
@@ -654,17 +654,26 @@ function CandidateSearch({
 }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<CctvCameraCandidateSearchRow[]>([]);
-  const [message, setMessage] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<{ kind: "success" | "information" | "error"; message: string } | null>(null);
   const [pending, startTransition] = useTransition();
   const runSearch = () =>
     startTransition(async () => {
-      const result = await searchCctvCameraCandidatesAction({
+      const result = await addCctvCameraCandidateByQueryAction({
         query,
         objectType,
         placement,
       });
-      setMessage(result.message);
-      setResults(result.success ? result.data : []);
+      if (!result.success) {
+        setResults([]);
+        setFeedback({ kind: "error", message: result.message });
+        return;
+      }
+      setResults(result.data.candidates);
+      if (result.data.saved) onSaved(result.data.saved);
+      setFeedback({
+        kind: result.data.status === "added" ? "success" : "information",
+        message: result.message,
+      });
     });
   return (
     <div className="space-y-3 border-y border-zinc-200 py-3">
@@ -712,15 +721,15 @@ function CandidateSearch({
                   ),
                 );
               }}
-              setMessage={setMessage}
+              setFeedback={setFeedback}
             />
           ))}
         </div>
       )}
-      {message && (
+      {feedback && (
         <ActionFeedback
-          kind={message.includes("сохранён") ? "success" : "error"}
-          message={message}
+          kind={feedback.kind}
+          message={feedback.message}
         />
       )}
     </div>
@@ -732,13 +741,13 @@ function CandidateSearchResult({
   placement,
   row,
   onSaved,
-  setMessage,
+  setFeedback,
 }: {
   objectType: (typeof CCTV_OBJECT_TYPES)[number];
   placement: CctvCameraPlacement;
   row: CctvCameraCandidateSearchRow;
   onSaved: (row: CctvCameraPoolAdminRow) => void;
-  setMessage: (value: string) => void;
+  setFeedback: (value: { kind: "success" | "information" | "error"; message: string }) => void;
 }) {
   const [recommended, setRecommended] = useState(true);
   const [economy, setEconomy] = useState(true);
@@ -810,7 +819,7 @@ function CandidateSearchResult({
               notes: "",
               expectedVersion: row.existingPoolArchived ? row.existingPoolVersion : null,
             });
-            setMessage(result.message);
+            setFeedback({ kind: result.success ? "success" : "error", message: result.message });
             if (result.success) onSaved(result.data);
           })
         }

@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 const component = readFileSync(resolve("src/modules/estimates/components/AdminCctvCameraPools.tsx"), "utf8");
 const compactComponent = component.replace(/\s+/g, "");
+const candidateSearch = component.slice(component.indexOf("function CandidateSearch("), component.indexOf("function CandidateEditor("));
 
 describe("admin CCTV services workspace", () => {
   it("uses one stable seven-column desktop grid", () => {
@@ -43,5 +44,12 @@ describe("admin CCTV services workspace", () => {
     expect(component).toContain("min-h-11");
     expect(component).not.toContain('min-w-[780px]');
     expect(component).not.toContain("upsertCctvObjectServiceBindingAction");
+  });
+
+  it("uses the typed camera-add result instead of classifying Russian copy as an error", () => {
+    expect(candidateSearch).toContain("addCctvCameraCandidateByQueryAction");
+    expect(candidateSearch).toContain('result.data.status === "added" ? "success" : "information"');
+    expect(candidateSearch).toContain('kind: result.success ? "success" : "error"');
+    expect(candidateSearch).not.toContain('message.includes("сохранён")');
   });
 });
