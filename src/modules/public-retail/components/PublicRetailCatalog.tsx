@@ -40,7 +40,7 @@ export function PublicRetailCatalog({ categories, facets, locale, products, stat
     <div className="mt-5 grid items-start gap-7 lg:grid-cols-[260px_minmax(0,1fr)]">
       <PublicCatalogFilters categories={visibleCategories} facets={facets} locale={locale} state={state} />
       <section aria-label={copy.products} className="min-w-0">
-        {products.items.length ? <CatalogProductGridFrame>{products.items.map((product) => <PublicRetailProductCard catalogState={state} key={product.id} locale={locale} product={product} />)}</CatalogProductGridFrame> : <EmptyCatalog message={copy.noProducts} title={copy.catalog} />}
+        {products.items.length ? <CatalogProductGridFrame>{products.items.map((product) => <PublicRetailProductCard catalogState={state} key={product.id} locale={locale} product={product} showFacetShortcuts />)}</CatalogProductGridFrame> : <EmptyCatalog message={copy.noProducts} title={copy.catalog} />}
         <Pagination locale={locale} products={products} state={state} />
       </section>
     </div>

@@ -57,7 +57,7 @@ describe("public retail UX", () => {
     expect(screen.getByText("Популярный").closest("span.absolute")).toHaveClass("left-2", "top-2");
     expect(screen.getByRole("link", { name: "Очень длинное название камеры видеонаблюдения с технической моделью" })).toHaveClass("line-clamp-2", "h-10");
     expect(screen.getByText("Brand · Артикул CAM-001")).toHaveClass("truncate");
-    expect(screen.getByRole("list", { name: "Характеристики" })).toBeInTheDocument();
+    expect(screen.queryByRole("list", { name: "Характеристики" })).not.toBeInTheDocument();
     expect(screen.getByText("Наличие уточняется")).toHaveClass("min-h-5");
     expect(screen.getByText("1 299 MDL")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "В корзину" })).toBeInTheDocument();
@@ -75,7 +75,7 @@ describe("public retail UX", () => {
       { key: "one", label: "One", value: "1" },
       { key: "two", label: "Two", value: "2" },
       { key: "three", label: "Three", value: "3" },
-    ] }} />);
+    ] }} showFacetShortcuts />);
     expect(screen.getAllByRole("listitem")).toHaveLength(2);
     expect(screen.getByRole("link", { name: "One: 1" })).toHaveAttribute("href", expect.stringContaining("facet_one=1"));
     expect(screen.getByRole("link", { name: "Two: 2" })).toHaveAttribute("href", expect.stringContaining("facet_two=2"));
