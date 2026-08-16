@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -40,6 +43,14 @@ describe("public retail landing", () => {
     expect(screen.getAllByRole("search").length).toBeGreaterThan(0);
     expect(screen.queryByText("Партнёрская платформа Novotech")).not.toBeInTheDocument();
     expect(screen.queryByText("Стать партнёром")).not.toBeInTheDocument();
+  });
+
+  it("preloads the responsive homepage LCP image through the supported Next Image API", () => {
+    const page = readFileSync(join(process.cwd(), "app/page.tsx"), "utf8");
+
+    expect(page).toContain('fill preload sizes="100vw" src="/retail/security-installation-hero.webp"');
+    expect(page).not.toMatch(/security-installation-hero\.webp[\s\S]{0,120}\bpriority\b/);
+    expect(page).not.toMatch(/security-installation-hero\.webp[\s\S]{0,120}\bfetchPriority\b/);
   });
 
   it("renders object discovery and only governed category tiles", async () => {

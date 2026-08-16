@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -44,7 +47,7 @@ describe("Public Retail shell", () => {
     expect(cabinet.compareDocumentPosition(cart) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(cart).toHaveTextContent("Корзина");
     expect(cart).toHaveTextContent("11");
-    const brand = within(header).getByRole("link", { name: "Novotech Systems Distribution" });
+    const brand = within(header).getByRole("link", { name: "NOVOTECH SYSTEMS DISTRIBUTION" });
     expect(within(header).getByRole("img", { name: "Novotech" })).toHaveAttribute("src", expect.stringContaining("novotech-logo-light-original"));
     expect(brand).toHaveTextContent("NOVOTECH SYSTEMS");
     expect(brand).toHaveTextContent("DISTRIBUTION");
@@ -90,5 +93,18 @@ describe("Public Retail shell", () => {
     expect(cart).toHaveTextContent("Корзина");
     expect(cart).toHaveTextContent("99+");
     expect(cart).toHaveClass("min-h-11", "border");
+  });
+
+  it("keeps public-shell contrast and prefetch policy explicit", () => {
+    const shell = readFileSync(join(process.cwd(), "src/modules/public-retail/components/PublicRetailShell.tsx"), "utf8");
+    const cart = readFileSync(join(process.cwd(), "src/modules/public-retail/components/PublicRetailCartBadgeClient.tsx"), "utf8");
+
+    expect(shell).toContain('text-xs leading-5 text-zinc-400');
+    expect(shell).toContain('py-4 text-xs text-zinc-400');
+    expect(shell).not.toContain('text-xs leading-5 text-zinc-500');
+    expect(shell).toContain('href="/cabinet" prefetch={false}');
+    expect(shell).toContain('href={href} prefetch={false}');
+    expect(shell).toContain('prefetch={prefetch ? undefined : false}');
+    expect(cart).toContain('prefetch={quantity > 0 ? undefined : false}');
   });
 });
