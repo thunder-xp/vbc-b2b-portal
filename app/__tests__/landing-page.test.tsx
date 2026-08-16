@@ -45,12 +45,12 @@ describe("public retail landing", () => {
     expect(screen.queryByText("Стать партнёром")).not.toBeInTheDocument();
   });
 
-  it("preloads the responsive homepage LCP image through the supported Next Image API", () => {
+  it("assigns high browser priority to the responsive homepage LCP image", () => {
     const page = readFileSync(join(process.cwd(), "app/page.tsx"), "utf8");
 
-    expect(page).toContain('fill preload sizes="100vw" src="/retail/security-installation-hero.webp"');
-    expect(page).not.toMatch(/security-installation-hero\.webp[\s\S]{0,120}\bpriority\b/);
-    expect(page).not.toMatch(/security-installation-hero\.webp[\s\S]{0,120}\bfetchPriority\b/);
+    expect(page).toContain('fetchPriority="high" fill sizes="100vw" src="/retail/security-installation-hero.webp"');
+    expect(page).not.toMatch(/\bpreload\b[\s\S]{0,120}security-installation-hero\.webp/);
+    expect(page).not.toMatch(/\bpriority\b[\s\S]{0,120}security-installation-hero\.webp/);
   });
 
   it("renders object discovery and only governed category tiles", async () => {
