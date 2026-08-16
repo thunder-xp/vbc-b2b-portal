@@ -1,21 +1,24 @@
-import { ImageIcon } from "lucide-react";
+import { ArrowRight, ImageIcon } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 
 import { MerchandisingBadges } from "../../catalog/components/MerchandisingBadges";
 import { CatalogProductCardFrame } from "../../catalog/components/CatalogProductCardFrame";
 import type { MerchandisingLabelCode } from "../../merchandising/types";
+import { publicRetailFilterHref, type PublicRetailCatalogState } from "../catalog-links";
 import { availabilityCopy, availabilityTone, formatRetailCardPrice, retailCopy } from "../presentation";
 import type { PublicRetailLocale, PublicRetailProductSummaryDto } from "../types";
 import { PublicRetailAddToCartButton } from "./PublicRetailAddToCartButton";
 
-export function PublicRetailProductCard({ product, locale, badge, badgeCode }: { product: PublicRetailProductSummaryDto; locale: PublicRetailLocale; badge?: string; badgeCode?: MerchandisingLabelCode }) {
+export function PublicRetailProductCard({ product, locale, badge, badgeCode, catalogState }: { product: PublicRetailProductSummaryDto; locale: PublicRetailLocale; badge?: string; badgeCode?: MerchandisingLabelCode; catalogState?: PublicRetailCatalogState }) {
   const copy = retailCopy[locale];
   const metadata = [product.brand?.name ?? product.category?.name ?? "Novotech", `${copy.sku} ${product.sku}`];
+  const facetState = catalogState ?? { category: product.category?.slug, facets: {}, page: 1 };
   return <CatalogProductCardFrame
-    actions={<div className="grid grid-cols-2 items-start gap-2"><PublicRetailAddToCartButton compact locale={locale} publicProductId={product.id} source="catalog" /><Link className="flex min-h-11 items-center justify-center border border-zinc-300 px-2 text-sm font-semibold hover:border-emerald-700 hover:text-emerald-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700" href={`/products/${product.slug}?lang=${locale}`}>{copy.details}</Link></div>}
+    actions={<div className="grid grid-cols-[minmax(0,1fr)_2.75rem] items-start gap-2"><PublicRetailAddToCartButton compact locale={locale} publicProductId={product.id} source="catalog" /><Link aria-label={locale === "ro" ? `Deschide ${product.name}` : `Открыть ${product.name}`} className="grid size-11 place-items-center border border-zinc-300 hover:border-emerald-700 hover:text-emerald-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700" href={`/products/${product.slug}?lang=${locale}`} title={copy.details}><ArrowRight aria-hidden="true" className="size-4" /></Link></div>}
     availability={<p className={`flex min-h-5 items-center gap-2 text-xs font-semibold ${availabilityTone(product.availability)}`}><span aria-hidden="true" className="size-1.5 shrink-0 rounded-full bg-current" />{availabilityCopy[locale][product.availability]}</p>}
     commercial={<div><p className="text-lg font-semibold tabular-nums">{formatRetailCardPrice(product.price.amount, product.price.currency, locale)}</p><p className="text-[11px] text-zinc-400">{copy.price}</p></div>}
+    context={product.highlights.length ? <ul aria-label={copy.specifications} className="flex h-5 min-w-0 gap-1 overflow-hidden">{product.highlights.slice(0, 2).map((item) => <li className="min-w-0" key={item.key}><Link aria-label={`${item.label}: ${item.value}`} className="block max-w-28 truncate border border-zinc-200 px-1.5 text-[11px] leading-[18px] text-zinc-600 hover:border-emerald-600 hover:text-emerald-800 focus-visible:outline-2 focus-visible:outline-emerald-600" href={publicRetailFilterHref(locale, facetState, { facet: { key: item.key, value: item.value }, facetMode: "include" })} prefetch={false} title={`${item.label}: ${item.value}`}>{item.value}</Link></li>)}</ul> : null}
     density="compact"
     media={<Link className="group relative block aspect-[4/3] w-full min-w-0 max-w-full overflow-hidden bg-zinc-50 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-600" href={`/products/${product.slug}?lang=${locale}`}>
       {badge && badgeCode ? <span className="absolute left-2 top-2 z-10 max-w-[calc(100%-1rem)] shadow-sm"><MerchandisingBadges labelOverrides={{ [badgeCode]: badge }} labels={[badgeCode]} square /></span> : null}

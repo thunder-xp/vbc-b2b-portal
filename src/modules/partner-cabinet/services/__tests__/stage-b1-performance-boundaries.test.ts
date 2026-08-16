@@ -63,6 +63,7 @@ describe("Stage B1 authenticated rendering boundaries", () => {
       source("src/modules/catalog/components/ProductDetail.tsx"),
       source("src/modules/catalog/components/CatalogFilters.tsx"),
       source("src/modules/catalog/components/CategoryMegaMenu.tsx"),
+      source("src/modules/catalog/components/CatalogCategoryMenu.tsx"),
       ]),
       source("src/modules/catalog/components/CatalogFilterLink.tsx"),
     ]);

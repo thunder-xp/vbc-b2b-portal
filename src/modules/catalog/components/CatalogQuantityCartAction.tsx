@@ -47,7 +47,7 @@ export function CatalogQuantityCartAction({
         value={quantityInput}
       />
       <button
-        aria-label="Добавить в корзину"
+        aria-label="В корзину"
         className="inline-flex h-11 min-w-0 items-center justify-center gap-2 rounded-md bg-emerald-700 px-2 text-sm font-semibold leading-tight text-white outline-none hover:bg-emerald-800 focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:opacity-60"
         disabled={pending || Boolean(quantityError)}
         onClick={() => {
@@ -77,7 +77,7 @@ export function CatalogQuantityCartAction({
         type="button"
       >
         <ShoppingCart aria-hidden="true" className="size-4 shrink-0" />
-        <span className="truncate">{pending ? "Добавление..." : "Добавить в корзину"}</span>
+        <span className="whitespace-nowrap">{pending ? "Добавляем..." : "В корзину"}</span>
       </button>
     </div>
     <p aria-live="polite" className={`min-h-4 text-xs font-medium ${quantityError || feedback?.success === false ? "text-red-700" : "text-emerald-700"}`} id={feedbackId}>

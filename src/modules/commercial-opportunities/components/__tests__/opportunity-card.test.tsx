@@ -21,7 +21,7 @@ describe("OpportunityCard", () => {
     render(<OpportunityCard opportunity={base} />);
     expect(screen.getByText("Можно повторить закупку")).toBeInTheDocument();
     expect(screen.getByText(/Вы покупали этот товар 4/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Добавить в корзину" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "В корзину" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Не показывать/ })).toBeInTheDocument();
   });
 

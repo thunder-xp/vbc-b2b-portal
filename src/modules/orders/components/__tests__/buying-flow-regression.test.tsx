@@ -19,7 +19,7 @@ describe("partner buying-flow interaction boundaries", () => {
   it("uses labelled touch-sized quantity and cart controls", () => {
     render(<CatalogQuantityCartAction productId="11111111-1111-4111-8111-111111111111" />);
     expect(screen.getByRole("spinbutton", { name: "Количество товара" })).toHaveClass("h-11");
-    expect(screen.getByRole("button", { name: "Добавить в корзину" })).toHaveClass("h-11");
+    expect(screen.getByRole("button", { name: "В корзину" })).toHaveClass("h-11");
   });
 
   it("validates direct quantity entry without silently replacing it", () => {
@@ -29,7 +29,7 @@ describe("partner buying-flow interaction boundaries", () => {
     expect(quantity).toHaveValue(0);
     expect(quantity).toHaveAttribute("aria-invalid", "true");
     expect(screen.getByText("Введите целое количество от 1 до 9999.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Добавить в корзину" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "В корзину" })).toBeDisabled();
   });
 
   it("uses the visible quantity, reports success, and blocks rapid duplicate clicks", async () => {
@@ -39,7 +39,7 @@ describe("partner buying-flow interaction boundaries", () => {
     }));
     render(<CatalogQuantityCartAction productId="11111111-1111-4111-8111-111111111111" />);
     fireEvent.change(screen.getByRole("spinbutton", { name: "Количество товара" }), { target: { value: "3" } });
-    const button = screen.getByRole("button", { name: "Добавить в корзину" });
+    const button = screen.getByRole("button", { name: "В корзину" });
     fireEvent.click(button);
     fireEvent.click(button);
     expect(addToCartAction).toHaveBeenCalledTimes(1);

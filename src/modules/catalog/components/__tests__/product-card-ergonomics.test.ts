@@ -36,7 +36,8 @@ describe("product card ergonomics contracts", () => {
 
   it("keeps the cart row narrow-safe without broad catalog invalidation", () => {
     expect(cartAction).toContain("grid-cols-[4.5rem_minmax(0,1fr)]");
-    expect(cartAction).toContain('className="truncate"');
+    expect(cartAction).toContain('className="whitespace-nowrap"');
+    expect(cartAction).toContain('"В корзину"');
     expect(cartAction).not.toContain("router.refresh");
     expect(cartAction).not.toContain("fetch(");
   });

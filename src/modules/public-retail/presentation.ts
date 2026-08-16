@@ -1,4 +1,26 @@
 import type { PublicRetailAvailability, PublicRetailLocale } from "./types";
+import type { PublicRetailCategoryDto } from "./types";
+
+export function publicRetailVisibleCategories(categories: PublicRetailCategoryDto[]): PublicRetailCategoryDto[] {
+  const excluded = new Set(categories
+    .filter((category) => normalizeCategoryName(category.name) === "PROJECT EQUIPMENT")
+    .map((category) => category.id));
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const category of categories) {
+      if (category.parentId && excluded.has(category.parentId) && !excluded.has(category.id)) {
+        excluded.add(category.id);
+        changed = true;
+      }
+    }
+  }
+  return categories.filter((category) => !excluded.has(category.id));
+}
+
+function normalizeCategoryName(value: string): string {
+  return value.replace(/[^a-z0-9]+/gi, " ").trim().toUpperCase();
+}
 
 export const retailCopy = {
   ru: {
