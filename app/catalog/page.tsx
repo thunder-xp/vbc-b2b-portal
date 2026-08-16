@@ -8,6 +8,8 @@ import { publicRetailLocale, publicRetailVisibleCategories } from "@/src/modules
 import { buildPublicMetadata, publicBreadcrumbSchema, publicCatalogSeoState, publicLocalizedUrl } from "@/src/modules/public-retail/seo";
 import { getPublicRetailCategories, getPublicRetailService } from "@/src/modules/public-retail/server";
 import { parseCatalogAttributeFilters } from "@/src/modules/catalog/services/catalog-sort-state";
+import { publicRetailCatalogReturnHref } from "@/src/modules/public-retail/catalog-links";
+import type { PublicRetailMerchandisingMode, PublicRetailPriceSort } from "@/src/modules/public-retail/types";
 
 type Params = Record<string, string | string[] | undefined>;
 
@@ -44,11 +46,15 @@ export default async function PublicCatalogPage({ searchParams }: { searchParams
   const availability = single(params.availability)?.trim() || undefined;
   const view = single(params.view)?.trim();
   const sort = single(params.sort)?.trim();
+  const returnHref = publicRetailCatalogReturnHref(locale, single(params.return));
   const page = Math.max(1, Number(single(params.page)) || 1);
   const attributeFilters = parseCatalogAttributeFilters(params);
   const service = getPublicRetailService();
   if (!hasListingIntent(params)) {
-    const showcase = await service.getRetailShowcase(locale);
+    const [showcase, categories] = await Promise.all([
+      service.getRetailShowcase(locale),
+      getPublicRetailCategories(locale),
+    ]);
     const schema = [
       { "@type": "CollectionPage", name: locale === "ro" ? "Catalog de sisteme de securitate" : "Каталог систем безопасности", url: publicLocalizedUrl("/catalog", locale) },
       publicBreadcrumbSchema([
@@ -56,9 +62,11 @@ export default async function PublicCatalogPage({ searchParams }: { searchParams
         { name: locale === "ro" ? "Catalog" : "Каталог", url: publicLocalizedUrl("/catalog", locale) },
       ]),
     ];
-    return <PublicRetailShell languagePath="/catalog" locale={locale}><PublicStructuredData data={schema} /><main><PublicRetailShowcase locale={locale} showcase={showcase} /></main></PublicRetailShell>;
+    return <PublicRetailShell languagePath="/catalog" locale={locale}><PublicStructuredData data={schema} /><main><PublicRetailShowcase categories={categories} locale={locale} showcase={showcase} /></main></PublicRetailShell>;
   }
-  const mode = q ? undefined : sort === "price_desc" ? "price_desc" : sort === "price_asc" ? "price_asc" : view === "special" ? "special" : view === "new" ? "new" : view === "hot" ? "hot" : view === "popular" ? "popular" : undefined;
+  const merchandisingMode: PublicRetailMerchandisingMode | undefined = q ? undefined : view === "special" ? "special" : view === "new" ? "new" : view === "hot" ? "hot" : view === "popular" ? "popular" : undefined;
+  const priceSort: PublicRetailPriceSort | undefined = sort === "price_desc" ? "price_desc" : sort === "price_asc" ? "price_asc" : undefined;
+  const mode = merchandisingMode ?? priceSort;
   const [categories, products, categoryFacets] = await Promise.all([
     getPublicRetailCategories(locale),
     service.listRetailProducts({ locale, categorySlug: category, search: q, availability, facets: attributeFilters, mode, page, pageSize: 24 }),
@@ -91,11 +99,11 @@ export default async function PublicCatalogPage({ searchParams }: { searchParams
       ...(activeCategory ? [{ name: activeCategory.name, url: canonicalUrl }] : []),
     ]),
   ];
-  return <PublicRetailShell languagePath="/catalog" locale={locale}><PublicStructuredData data={schema} /><main><PublicRetailCatalog categories={categories} facets={categoryFacets} locale={locale} products={products} state={{ q, category, availability, attributeFilters, mode, page }} /></main></PublicRetailShell>;
+  return <PublicRetailShell languagePath="/catalog" locale={locale}><PublicStructuredData data={schema} /><main><PublicRetailCatalog categories={categories} facets={categoryFacets} locale={locale} products={products} state={{ q, category, availability, attributeFilters, mode: merchandisingMode, sort: priceSort, returnHref, page }} /></main></PublicRetailShell>;
 }
 
 function hasListingIntent(params: Params): boolean {
-  return Object.keys(params).some((key) => ["q", "category", "availability", "view", "sort", "page"].includes(key) || key.startsWith("attr."));
+  return Object.keys(params).some((key) => ["q", "category", "availability", "view", "sort", "page", "return"].includes(key) || key.startsWith("attr."));
 }
 
 function single(value: string | string[] | undefined): string | undefined {

@@ -11,6 +11,7 @@ import { publicCompanyContent } from "@/src/modules/public-retail/public-company
 describe("public contacts page", () => {
   it("renders the governed public addresses, hours and contact channels", async () => {
     render(await ContactsPage({ searchParams: Promise.resolve({}) }));
+    expect(screen.getByRole("heading", { name: "Горячая линия" })).toBeInTheDocument();
 
     expect(screen.getByRole("heading", { level: 1, name: "Контакты и магазины" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "ул. Лев Толстой, 4" })).toHaveAttribute("href", expect.stringContaining("google.com/maps/search"));

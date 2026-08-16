@@ -6,7 +6,7 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 
 import { PublicRetailCatalog } from "../components/PublicRetailCatalog";
 import { PublicRetailProductCard } from "../components/PublicRetailProductCard";
-import { publicRetailFilterHref } from "../catalog-links";
+import { publicRetailCatalogReturnHref, publicRetailFilterHref, publicRetailMerchandisingHref } from "../catalog-links";
 import { availabilityCopy, publicRetailVisibleCategories } from "../presentation";
 import { retailCopy } from "../presentation";
 import type { PublicRetailProductSummaryDto } from "../types";
@@ -22,7 +22,7 @@ const product: PublicRetailProductSummaryDto = {
   category: { slug: "video", name: "Видеонаблюдение" },
   price: { amount: 1299, currency: "MDL", vatPresentation: "not_specified" },
   availability: "unknown",
-  highlights: [{ key: "resolution", label: "Разрешение", value: "4 Мп" }],
+  highlights: [{ key: "resolution", label: "Разрешение", value: "4 Мп", filterable: false }],
   calculatorEligible: true,
 };
 
@@ -57,7 +57,8 @@ describe("public retail UX", () => {
     expect(screen.getByText("Популярный")).toHaveClass("text-emerald-800");
     expect(screen.getByText("Популярный").closest("span.absolute")).toHaveClass("left-2", "top-2");
     expect(screen.getByRole("link", { name: "Очень длинное название камеры видеонаблюдения с технической моделью" })).toHaveClass("line-clamp-2", "h-10");
-    expect(screen.getByText("Brand · Артикул CAM-001")).toHaveClass("truncate");
+    expect(screen.getByText("Артикул CAM-001")).toHaveClass("truncate");
+    expect(screen.queryByText(/Brand ·/)).not.toBeInTheDocument();
     expect(screen.queryByRole("list", { name: "Характеристики" })).not.toBeInTheDocument();
     expect(screen.getByText("Наличие уточняется")).toHaveClass("min-h-5");
     expect(screen.getByText("1 299 MDL")).toBeInTheDocument();
@@ -73,10 +74,14 @@ describe("public retail UX", () => {
 
   it("turns bounded public highlights into server-driven facet shortcuts", () => {
     render(<PublicRetailProductCard locale="ru" product={{ ...product, highlights: [
-      { key: "property_11111111-1111-1111-1111-111111111111", label: "One", value: "1" },
-      { key: "property_22222222-2222-2222-2222-222222222222", label: "Two", value: "2" },
-      { key: "property_33333333-3333-3333-3333-333333333333", label: "Three", value: "3" },
-    ] }} showFacetShortcuts />);
+      { key: "property_11111111-1111-1111-1111-111111111111", label: "One", value: "1", filterable: false },
+      { key: "property_22222222-2222-2222-2222-222222222222", label: "Two", value: "2", filterable: false },
+      { key: "property_33333333-3333-3333-3333-333333333333", label: "Three", value: "3", filterable: false },
+    ] }} filterableFacetKeys={new Set([
+      "property_11111111-1111-1111-1111-111111111111",
+      "property_22222222-2222-2222-2222-222222222222",
+      "property_33333333-3333-3333-3333-333333333333",
+    ])} showFacetShortcuts />);
     expect(screen.getAllByRole("listitem")).toHaveLength(2);
     expect(screen.getByRole("link", { name: "One: 1" })).toHaveAttribute("href", expect.stringContaining("attr.property_11111111-1111-1111-1111-111111111111=1"));
     expect(screen.getByRole("link", { name: "Two: 2" })).toHaveAttribute("href", expect.stringContaining("attr.property_22222222-2222-2222-2222-222222222222=2"));
@@ -87,7 +92,7 @@ describe("public retail UX", () => {
 
   it("does not expose a shortcut for a non-governed highlight identity", () => {
     render(<PublicRetailProductCard locale="ru" product={{ ...product, highlights: [
-      { key: "free-text-attribute", label: "Legacy", value: "Unmapped" },
+      { key: "free-text-attribute", label: "Legacy", value: "Unmapped", filterable: false },
     ] }} showFacetShortcuts />);
     expect(screen.queryByRole("link", { name: "Legacy: Unmapped" })).not.toBeInTheDocument();
   });
@@ -111,16 +116,17 @@ describe("public retail UX", () => {
     expect(href).not.toContain("facet_");
   });
 
-  it("renders bounded category filters, search result and pagination", () => {
-    render(<PublicRetailCatalog categories={[{ id: "20000000-0000-4000-8000-000000000001", parentId: null, slug: "video", name: "Видеонаблюдение", description: null, productCount: 25 }]} facets={[{ key: "property_11111111-1111-1111-1111-111111111111", label: "Разрешение", values: [{ value: "4 Мп", count: 12 }], coverage: 12 }]} locale="ru" products={{ items: [product], totalCount: 25, limit: 24, offset: 0 }} state={{ category: "video", attributeFilters: { "property_11111111-1111-1111-1111-111111111111": ["4 Мп"] }, mode: "price_asc", page: 1 }} />);
+  it("renders technical filters, search result and pagination without a duplicate category block", () => {
+    render(<PublicRetailCatalog categories={[{ id: "20000000-0000-4000-8000-000000000001", parentId: null, slug: "video", name: "Видеонаблюдение", description: null, productCount: 25 }]} facets={[{ key: "property_11111111-1111-1111-1111-111111111111", label: "Разрешение", values: [{ value: "4 Мп", count: 12 }], coverage: 12 }]} locale="ru" products={{ items: [product], totalCount: 25, limit: 24, offset: 0 }} state={{ category: "video", attributeFilters: { "property_11111111-1111-1111-1111-111111111111": ["4 Мп"] }, sort: "price_asc", page: 1 }} />);
     expect(screen.getByRole("heading", { name: "Каталог" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Витрина" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Витрина" })).toHaveAttribute("href", "/catalog?lang=ru");
-    expect(screen.getByRole("link", { name: "Популярное" })).toHaveAttribute("href", "/catalog?lang=ru&view=popular");
-    expect(screen.getByRole("link", { name: "Новинки" })).toHaveAttribute("href", "/catalog?lang=ru&view=new");
-    expect(screen.getByRole("link", { name: "Спецпредложения" })).toHaveAttribute("href", "/catalog?lang=ru&view=special");
+    expect(screen.getByRole("link", { name: "Популярное" })).toHaveAttribute("href", expect.stringMatching(/^\/catalog\?lang=ru&view=popular&return=/));
+    expect(screen.getByRole("link", { name: "Новинки" })).toHaveAttribute("href", expect.stringMatching(/^\/catalog\?lang=ru&view=new&return=/));
+    expect(screen.getByRole("link", { name: "Спецпредложения" })).toHaveAttribute("href", expect.stringMatching(/^\/catalog\?lang=ru&view=special&return=/));
     expect(screen.queryByRole("link", { name: "По цене" })).not.toBeInTheDocument();
-    expect(screen.getAllByRole("link", { name: "Все категории" }).length).toBeGreaterThan(0);
+    expect(screen.queryByRole("heading", { name: "Категория" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Найдено товаров/)).not.toBeInTheDocument();
     const selectedFacet = screen.getByRole("link", { name: /4 Мп/ });
     expect(selectedFacet).not.toHaveAttribute("href", expect.stringContaining("attr.property_11111111-1111-1111-1111-111111111111"));
     expect(selectedFacet.querySelector("[aria-hidden='true']")).toHaveClass("bg-emerald-700");
@@ -136,7 +142,7 @@ describe("public retail UX", () => {
       { id: "root", parentId: null, slug: "video", name: "Видеонаблюдение", description: null, productCount: 12 },
       { id: "child", parentId: "root", slug: "cameras", name: "Камеры", description: null, productCount: 8 },
       { id: "leaf", parentId: "child", slug: "ip-cameras", name: "IP-камеры", description: null, productCount: 5 },
-      { id: "project", parentId: null, slug: "project", name: "-PROJECT EQUIPMENT-", description: null, productCount: 4 },
+      { id: "project", parentId: null, slug: "project-equipment-a7bad0fc", name: "-PROJECT EQUIPMENT-", description: null, productCount: 4 },
       { id: "project-child", parentId: "project", slug: "project-child", name: "Project child", description: null, productCount: 4 },
     ];
     expect(publicRetailVisibleCategories(categories).map((item) => item.id)).toEqual(["root", "child", "leaf"]);
@@ -150,8 +156,28 @@ describe("public retail UX", () => {
     expect(within(dialog).getByRole("link", { name: "IP-камеры" })).toHaveAttribute("href", "/catalog?lang=ru&category=ip-cameras");
   });
 
+  it("toggles merchandising back to the exact sanitized plain catalog state", () => {
+    const state = {
+      q: "camera",
+      category: "video",
+      availability: "in_stock",
+      attributeFilters: { "property_11111111-1111-1111-1111-111111111111": ["4 MP"] },
+      sort: "price_asc" as const,
+      page: 3,
+    };
+    const activeHref = publicRetailMerchandisingHref("ru", "popular", state);
+    const activeUrl = new URL(activeHref, "https://www.nsd.md");
+    const returnHref = activeUrl.searchParams.get("return") ?? undefined;
+    expect(returnHref).toContain("q=camera");
+    expect(returnHref).toContain("sort=price_asc");
+    expect(returnHref).toContain("page=3");
+    expect(publicRetailCatalogReturnHref("ru", returnHref)).toBe(returnHref);
+    expect(publicRetailMerchandisingHref("ru", "popular", { attributeFilters: {}, mode: "popular", returnHref, page: 1 })).toBe(returnHref);
+    expect(publicRetailCatalogReturnHref("ru", "https://evil.example/catalog?lang=ru")).toBeUndefined();
+  });
+
   it("keeps sorting on the catalog results header level", () => {
-    render(<PublicRetailCatalog categories={[]} facets={[]} locale="ru" products={{ items: [], totalCount: 0, limit: 24, offset: 0 }} state={{ attributeFilters: {}, mode: "popular", page: 1 }} />);
+    render(<PublicRetailCatalog categories={[]} facets={[]} locale="ru" products={{ items: [], totalCount: 0, limit: 24, offset: 0 }} state={{ attributeFilters: {}, page: 1 }} />);
     expect(screen.getByLabelText("Сортировка").closest("header")).toContainElement(screen.getByRole("heading", { level: 1, name: "Каталог" }));
     expect(screen.queryByRole("region", { name: "Управление каталогом" })).not.toBeInTheDocument();
   });
@@ -162,7 +188,7 @@ describe("public retail UX", () => {
     expect(screen.getByRole("link", { name: "Populare" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: "Noutăți" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Oferte speciale" })).toBeInTheDocument();
-    expect(screen.getAllByRole("link", { name: "Toate categoriile" }).length).toBeGreaterThan(0);
+    expect(screen.queryByRole("heading", { name: "Categorie" })).not.toBeInTheDocument();
   });
 
   it("keeps the Romanian card CTA short and the detail action accessible", () => {

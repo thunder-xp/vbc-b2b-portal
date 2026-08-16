@@ -9,7 +9,7 @@ import { catalogFacetQueryFields } from "../../catalog/services/catalog-facet-st
 import { EmptyCatalog } from "../../catalog/components/EmptyCatalog";
 import { CatalogProductGridFrame, CatalogResultsHeader, CatalogToolbarFrame } from "../../catalog/components/CatalogPresentationPrimitives";
 import { NumberedPagination } from "../../platform-ui";
-import { publicRetailFilterHref, type PublicRetailCatalogState } from "../catalog-links";
+import { publicRetailFilterHref, publicRetailMerchandisingHref, type PublicRetailCatalogState } from "../catalog-links";
 import { publicRetailShowcaseHref, publicRetailVisibleCategories, retailCopy } from "../presentation";
 import type { PublicRetailAvailability, PublicRetailCategoryDto, PublicRetailFacetDto, PublicRetailLocale, PublicRetailProductPageDto } from "../types";
 import { PublicRetailProductCard } from "./PublicRetailProductCard";
@@ -20,8 +20,9 @@ type CatalogState = PublicRetailCatalogState;
 export function PublicRetailCatalog({ categories, facets, locale, products, state }: { categories: PublicRetailCategoryDto[]; facets: PublicRetailFacetDto[]; locale: PublicRetailLocale; products: PublicRetailProductPageDto; state: CatalogState }) {
   const copy = retailCopy[locale];
   const visibleCategories = publicRetailVisibleCategories(categories);
+  const filterableFacetKeys = new Set(facets.map((facet) => facet.key));
   return <div className="mx-auto max-w-[1440px] px-4 py-8 sm:px-6 lg:px-8">
-    <CatalogResultsHeader action={<SortForm locale={locale} state={state} />} countLabel={`${copy.found}: ${products.totalCount}`} eyebrow="Novotech Retail" title={copy.catalog} />
+    <CatalogResultsHeader action={state.mode ? undefined : <SortForm locale={locale} state={state} />} eyebrow="Novotech Retail" title={copy.catalog} />
     <div className="mt-5">
       <CatalogToolbarFrame>
         <PublicRetailCategoryMenu categories={visibleCategories} locale={locale} />
@@ -32,31 +33,27 @@ export function PublicRetailCatalog({ categories, facets, locale, products, stat
     <section aria-labelledby="retail-showcase-heading" className="border-b border-zinc-200 py-5">
       <h2 className="text-sm font-semibold" id="retail-showcase-heading">{copy.showcase}</h2>
       <nav aria-label={copy.showcase} className="mt-3 flex max-w-full gap-2 overflow-x-auto pb-1">
-        <ShowcaseLink active={!state.q && state.mode === "popular"} href={`/catalog?lang=${locale}&view=popular`} label={copy.popular} />
-        <ShowcaseLink active={!state.q && state.mode === "new"} href={`/catalog?lang=${locale}&view=new`} label={copy.newProducts} />
-        <ShowcaseLink active={!state.q && state.mode === "hot"} href={`/catalog?lang=${locale}&view=hot`} label={copy.hotPrice} />
-        <ShowcaseLink active={!state.q && state.mode === "special"} href={`/catalog?lang=${locale}&view=special`} label={copy.specialOffers} />
+        <ShowcaseLink active={state.mode === "popular"} href={publicRetailMerchandisingHref(locale, "popular", state)} label={copy.popular} />
+        <ShowcaseLink active={state.mode === "new"} href={publicRetailMerchandisingHref(locale, "new", state)} label={copy.newProducts} />
+        <ShowcaseLink active={state.mode === "hot"} href={publicRetailMerchandisingHref(locale, "hot", state)} label={copy.hotPrice} />
+        <ShowcaseLink active={state.mode === "special"} href={publicRetailMerchandisingHref(locale, "special", state)} label={copy.specialOffers} />
       </nav>
     </section>
     <div className="mt-5 grid items-start gap-7 lg:grid-cols-[260px_minmax(0,1fr)]">
-      <PublicCatalogFilters categories={visibleCategories} facets={facets} locale={locale} state={state} />
+      <PublicCatalogFilters facets={facets} locale={locale} state={state} />
       <section aria-label={copy.products} className="min-w-0">
-        {products.items.length ? <CatalogProductGridFrame>{products.items.map((product) => <PublicRetailProductCard catalogState={state} key={product.id} locale={locale} product={product} showFacetShortcuts />)}</CatalogProductGridFrame> : <EmptyCatalog message={copy.noProducts} title={copy.catalog} />}
+        {products.items.length ? <CatalogProductGridFrame>{products.items.map((product) => <PublicRetailProductCard catalogState={state} filterableFacetKeys={filterableFacetKeys} key={product.id} locale={locale} product={product} showFacetShortcuts />)}</CatalogProductGridFrame> : <EmptyCatalog message={copy.noProducts} title={copy.catalog} />}
         <Pagination locale={locale} products={products} state={state} />
       </section>
     </div>
   </div>;
 }
 
-function PublicCatalogFilters({ categories, facets, locale, state }: { categories: PublicRetailCategoryDto[]; facets: PublicRetailFacetDto[]; locale: PublicRetailLocale; state: CatalogState }) {
+function PublicCatalogFilters({ facets, locale, state }: { facets: PublicRetailFacetDto[]; locale: PublicRetailLocale; state: CatalogState }) {
   const copy = retailCopy[locale];
-  const selectedCount = (state.category ? 1 : 0) + (state.availability ? 1 : 0) + Object.values(state.attributeFilters).reduce((sum, values) => sum + values.length, 0);
+  const selectedCount = (state.availability ? 1 : 0) + Object.values(state.attributeFilters).reduce((sum, values) => sum + values.length, 0);
   return <CatalogFilterShell closeLabel={locale === "ro" ? "Închide filtrele" : "Закрыть фильтры"} panelLabel={locale === "ro" ? "Filtre catalog" : "Фильтры каталога"} selectedCount={selectedCount} square triggerLabel={copy.filters}>
     <CatalogFilterPanel clearAction={<CatalogFilterLink className="text-xs font-medium text-emerald-700" href={`/catalog?lang=${locale}&view=all`}>{copy.reset}</CatalogFilterLink>} selectedCount={selectedCount} selectedLabel={locale === "ro" ? "Selectate" : "Выбрано"} title={copy.filters}>
-      <CatalogFilterGroup defaultOpen title={locale === "ro" ? "Categorie" : "Категория"}>
-        <CatalogFilterOption href={publicRetailFilterHref(locale, state, { category: null })} label={copy.allCategories} selected={!state.category} />
-        {categories.filter((item) => !item.parentId && !item.name.startsWith("-")).map((item) => <CatalogFilterOption count={item.productCount} href={publicRetailFilterHref(locale, state, { category: item.slug })} key={item.id} label={item.name} selected={state.category === item.slug} />)}
-      </CatalogFilterGroup>
       <CatalogFilterGroup defaultOpen title={locale === "ro" ? "Disponibilitate" : "Наличие"}>
         <CatalogFilterOption href={publicRetailFilterHref(locale, state, { availability: null })} label={locale === "ro" ? "Toate" : "Все"} selected={!state.availability} />
         {(["in_stock", "low_stock", "available_to_order", "unavailable", "unknown"] as PublicRetailAvailability[]).map((value) => <CatalogFilterOption href={publicRetailFilterHref(locale, state, { availability: value })} key={value} label={availabilityFilterLabel(locale, value)} selected={state.availability === value} />)}
@@ -67,12 +64,12 @@ function PublicCatalogFilters({ categories, facets, locale, state }: { categorie
 }
 
 function SortForm({ locale, state }: { locale: PublicRetailLocale; state: CatalogState }) {
-  return <form action="/catalog" aria-label={locale === "ro" ? "Sortare catalog" : "Сортировка каталога"} className="flex w-full flex-wrap items-center gap-2 text-sm text-zinc-600 sm:w-auto sm:justify-end"><input name="lang" type="hidden" value={locale} />{state.q ? <input name="q" type="hidden" value={state.q} /> : null}{state.category ? <input name="category" type="hidden" value={state.category} /> : null}{state.availability ? <input name="availability" type="hidden" value={state.availability} /> : null}{state.mode && !state.mode.startsWith("price_") ? <input name="view" type="hidden" value={state.mode} /> : null}{Object.entries(catalogFacetQueryFields(state.attributeFilters)).map(([name, value]) => <input key={name} name={name} type="hidden" value={value} />)}<label htmlFor="public-catalog-sort">{locale === "ro" ? "Sortare" : "Сортировка"}</label><select className="min-h-10 min-w-0 flex-1 border border-zinc-300 bg-white px-3 sm:flex-none" defaultValue={state.mode?.startsWith("price_") ? state.mode : ""} id="public-catalog-sort" name="sort"><option value="">{locale === "ro" ? "Implicit" : "По умолчанию"}</option><option value="price_asc">{locale === "ro" ? "Preț crescător" : "Цена по возрастанию"}</option><option value="price_desc">{locale === "ro" ? "Preț descrescător" : "Цена по убыванию"}</option></select><button className="min-h-10 border border-zinc-300 px-3 font-medium">{retailCopy[locale].apply}</button></form>;
+  return <form action="/catalog" aria-label={locale === "ro" ? "Sortare catalog" : "Сортировка каталога"} className="flex w-full flex-wrap items-center gap-2 text-sm text-zinc-600 sm:w-auto sm:justify-end"><input name="lang" type="hidden" value={locale} /><input name="view" type="hidden" value="all" />{state.q ? <input name="q" type="hidden" value={state.q} /> : null}{state.category ? <input name="category" type="hidden" value={state.category} /> : null}{state.availability ? <input name="availability" type="hidden" value={state.availability} /> : null}{Object.entries(catalogFacetQueryFields(state.attributeFilters)).map(([name, value]) => <input key={name} name={name} type="hidden" value={value} />)}<label htmlFor="public-catalog-sort">{locale === "ro" ? "Sortare" : "Сортировка"}</label><select className="min-h-10 min-w-0 flex-1 border border-zinc-300 bg-white px-3 sm:flex-none" defaultValue={state.sort ?? ""} id="public-catalog-sort" name="sort"><option value="">{locale === "ro" ? "Implicit" : "По умолчанию"}</option><option value="price_asc">{locale === "ro" ? "Preț crescător" : "Цена по возрастанию"}</option><option value="price_desc">{locale === "ro" ? "Preț descrescător" : "Цена по убыванию"}</option></select><button className="min-h-10 border border-zinc-300 px-3 font-medium">{retailCopy[locale].apply}</button></form>;
 }
 
 function Pagination({ locale, products, state }: { locale: PublicRetailLocale; products: PublicRetailProductPageDto; state: CatalogState }) {
   const totalPages = Math.max(1, Math.ceil(products.totalCount / products.limit));
-  const hrefForPage = (target: number) => { const query = new URLSearchParams({ lang: locale, page: String(target) }); if (state.q) query.set("q", state.q); if (state.category) query.set("category", state.category); if (state.availability) query.set("availability", state.availability); if (state.mode?.startsWith("price_")) query.set("sort", state.mode); else if (state.mode) query.set("view", state.mode); Object.entries(catalogFacetQueryFields(state.attributeFilters)).forEach(([key, value]) => query.set(key, value)); return `/catalog?${query}`; };
+  const hrefForPage = (target: number) => { const query = new URLSearchParams({ lang: locale, page: String(target) }); if (state.q) query.set("q", state.q); if (state.category) query.set("category", state.category); if (state.availability) query.set("availability", state.availability); if (state.sort) query.set("sort", state.sort); if (state.mode) query.set("view", state.mode); if (state.returnHref) query.set("return", state.returnHref); Object.entries(catalogFacetQueryFields(state.attributeFilters)).forEach(([key, value]) => query.set(key, value)); return `/catalog?${query}`; };
   return <div className="mt-8"><NumberedPagination ariaLabel={locale === "ro" ? "Paginare catalog" : "Пагинация каталога"} currentPage={state.page} hrefForPage={hrefForPage} nextAriaLabel={locale === "ro" ? "Pagina următoare" : "Следующая страница"} nextLabel={retailCopy[locale].next} previousAriaLabel={locale === "ro" ? "Pagina precedentă" : "Предыдущая страница"} previousLabel={retailCopy[locale].previous} square totalPages={totalPages} /></div>;
 }
 

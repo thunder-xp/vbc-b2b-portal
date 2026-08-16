@@ -54,7 +54,7 @@ export default async function ContactsPage({ searchParams }: { searchParams: Par
       </section>
 
       <section aria-labelledby="customer-contact-heading" className="border-t border-zinc-200 py-8">
-        <h2 className="text-xl font-semibold" id="customer-contact-heading">{ru ? "Связаться с нами" : "Contactați-ne"}</h2>
+        <h2 className="text-xl font-semibold" id="customer-contact-heading">{ru ? "Горячая линия" : "Linia fierbinte"}</h2>
         <div className="mt-5 flex flex-col gap-3 text-sm sm:flex-row sm:gap-8">
           <a className="flex min-h-11 w-fit items-center gap-3 font-semibold text-emerald-800 hover:text-emerald-950" href={publicCompanyContent.customerPhone.href}><Phone aria-hidden="true" className="size-4" />{publicCompanyContent.customerPhone.display}</a>
           <a className="flex min-h-11 w-fit items-center gap-3 font-semibold text-emerald-800 hover:text-emerald-950" href={`mailto:${publicCompanyContent.email}`}><Mail aria-hidden="true" className="size-4" />{publicCompanyContent.email}</a>

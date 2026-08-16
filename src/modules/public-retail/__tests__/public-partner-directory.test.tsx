@@ -50,7 +50,7 @@ describe("public partner directory", () => {
     expect(screen.getByRole("heading", { name: "Наши партнёры" })).toBeInTheDocument();
     expect(screen.getByRole("list")).toHaveClass("grid-cols-1", "sm:grid-cols-2", "lg:grid-cols-3", "xl:grid-cols-4");
     expect(screen.getAllByRole("article")[0]).toHaveClass("grid-rows-[112px_auto]", "overflow-hidden");
-    expect(screen.getByRole("img", { name: "Partner Two" })).toHaveClass("object-contain");
+    expect(screen.getByRole("img", { name: "Partner Two" })).toHaveClass("object-contain", "grayscale", "group-hover:grayscale-0");
   });
 
   it("localizes Romanian copy and keeps the empty state safe", () => {

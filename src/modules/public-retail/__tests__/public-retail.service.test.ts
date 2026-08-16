@@ -135,7 +135,7 @@ describe("Public Retail DTO allowlist", () => {
 
     expect(product.id).toBe(publicId);
     expect(product.category).toEqual({ slug: "cameras", name: "Cameras" });
-    expect(product.highlights).toEqual([{ key: "resolution", label: "Resolution", value: "4 MP" }]);
+    expect(product.highlights).toEqual([{ key: "resolution", label: "Resolution", value: "4 MP", filterable: false }]);
   });
 
   it.each(["external_1c_id", "company_id", "partner_price", "available_quantity", "warehouse_name"])(

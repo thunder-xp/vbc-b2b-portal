@@ -1,17 +1,19 @@
 import { ArrowRight, LayoutGrid } from "lucide-react";
 import Link from "next/link";
 
-import { publicRetailFullCatalogHref, retailCopy } from "../presentation";
+import { publicRetailFullCatalogHref, publicRetailVisibleCategories, retailCopy } from "../presentation";
 import type { MerchandisingLabelCode } from "../../merchandising/types";
-import type { PublicRetailLocale, PublicRetailProductSummaryDto, PublicRetailShowcaseDto } from "../types";
+import type { PublicRetailCategoryDto, PublicRetailLocale, PublicRetailProductSummaryDto, PublicRetailShowcaseDto } from "../types";
 import { PublicRetailProductCard } from "./PublicRetailProductCard";
+import { PublicRetailCategoryMenu } from "./PublicRetailCategoryMenu";
 import { CatalogProductGridFrame, CatalogResultsHeader, CatalogToolbarFrame } from "../../catalog/components/CatalogPresentationPrimitives";
 
-export function PublicRetailShowcase({ locale, showcase }: { locale: PublicRetailLocale; showcase: PublicRetailShowcaseDto }) {
+export function PublicRetailShowcase({ categories, locale, showcase }: { categories: PublicRetailCategoryDto[]; locale: PublicRetailLocale; showcase: PublicRetailShowcaseDto }) {
   const copy = retailCopy[locale];
   return <div className="mx-auto max-w-[1440px] px-4 py-8 sm:px-6 lg:px-8">
-    <CatalogResultsHeader eyebrow="Novotech Retail" title={copy.catalog} />
+    <CatalogResultsHeader eyebrow="Novotech Retail" title={copy.showcase} />
     <div className="mt-5"><CatalogToolbarFrame>
+        <PublicRetailCategoryMenu categories={publicRetailVisibleCategories(categories)} locale={locale} />
         <form action="/catalog" className="flex min-w-0 flex-1 md:min-w-[28rem]" role="search"><input name="lang" type="hidden" value={locale} /><label className="sr-only" htmlFor="showcase-search">{copy.search}</label><input className="min-h-11 min-w-0 flex-1 border border-r-0 border-zinc-300 px-3 text-sm outline-none focus:border-emerald-700" id="showcase-search" name="q" placeholder={copy.search} /><button className="min-h-11 bg-emerald-700 px-5 text-sm font-semibold text-white hover:bg-emerald-800">{copy.searchAction}</button></form>
         <Link className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 border border-zinc-300 px-4 text-sm font-semibold hover:border-emerald-700 hover:text-emerald-800" href={publicRetailFullCatalogHref(locale)}><LayoutGrid aria-hidden="true" className="size-4" />{copy.catalog}</Link>
     </CatalogToolbarFrame></div>

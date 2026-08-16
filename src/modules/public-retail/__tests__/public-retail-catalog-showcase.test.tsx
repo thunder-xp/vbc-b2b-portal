@@ -22,10 +22,12 @@ const product: PublicRetailProductSummaryDto = {
   highlights: [],
   calculatorEligible: false,
 };
+const categories = [{ id: "20000000-0000-4000-8000-000000000001", parentId: null, slug: "video", name: "Видеонаблюдение", description: null, productCount: 12 }];
 
 describe("Public Retail catalog showcase", () => {
   it("renders the three governed sections in order with exact listing links", () => {
-    render(<PublicRetailShowcase locale="ru" showcase={{ popular: [product], new: [product], hot: [product] }} />);
+    render(<PublicRetailShowcase categories={categories} locale="ru" showcase={{ popular: [product], new: [product], hot: [product] }} />);
+    expect(screen.getByRole("heading", { level: 1, name: "Витрина" })).toBeInTheDocument();
     expect(screen.getAllByRole("heading", { level: 2 }).map((heading) => heading.textContent)).toEqual([
       "Популярные товары", "Новинки", "Горячая цена",
     ]);
@@ -42,14 +44,14 @@ describe("Public Retail catalog showcase", () => {
   });
 
   it("localizes section-derived merchandising badges in Romanian", () => {
-    render(<PublicRetailShowcase locale="ro" showcase={{ popular: [product], new: [product], hot: [product] }} />);
+    render(<PublicRetailShowcase categories={categories} locale="ro" showcase={{ popular: [product], new: [product], hot: [product] }} />);
     expect(screen.getByText("Popular")).toBeInTheDocument();
     expect(screen.getByText("Noutate")).toBeInTheDocument();
     expect(screen.getAllByText("Preț special")).toHaveLength(2);
   });
 
   it("keeps an empty governed section visible without fabricating products", () => {
-    render(<PublicRetailShowcase locale="ru" showcase={{ popular: [], new: [], hot: [] }} />);
+    render(<PublicRetailShowcase categories={categories} locale="ru" showcase={{ popular: [], new: [], hot: [] }} />);
     expect(screen.getAllByText("В этой подборке пока нет товаров.")).toHaveLength(3);
   });
 

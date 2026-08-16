@@ -34,7 +34,12 @@ const media = z.object({ url: z.string().url(), alt: z.string().max(500) }).stri
   }
   return { ...value, url: safeUrl };
 });
-const specification = z.object({ key: z.string().min(1).max(160), label: localizedText, value: localizedText }).strict();
+const specification = z.object({
+  key: z.string().min(1).max(160),
+  label: localizedText,
+  value: localizedText,
+  filterable: z.boolean().default(false),
+}).strict();
 const datasheet = z.object({ type: z.literal("datasheet"), url: z.string().url().max(2000) }).strict()
   .transform((value, context) => {
     try {

@@ -22,9 +22,9 @@ export function PublicPartnerDirectory({ locale, partners }: { locale: PublicRet
 }
 
 export function PublicPartnerCard({ partner }: { partner: PublicPartnerDirectoryEntryDto }) {
-  return <article className="grid min-h-48 grid-rows-[112px_auto] overflow-hidden rounded-md border border-zinc-200 bg-white">
+  return <article className="group grid min-h-48 grid-rows-[112px_auto] overflow-hidden rounded-md border border-zinc-200 bg-white">
     <div className="relative grid place-items-center overflow-hidden bg-zinc-50 p-4">
-      {partner.logoUrl ? <Image alt={partner.displayName} className="object-contain p-4" fill sizes="(max-width: 639px) calc(100vw - 2rem), (max-width: 1023px) 50vw, 25vw" src={partner.logoUrl} /> : <Building2 aria-hidden="true" className="size-10 text-zinc-300" />}
+      {partner.logoUrl ? <Image alt={partner.displayName} className="object-contain p-4 grayscale transition-[filter] duration-200 group-hover:grayscale-0" fill sizes="(max-width: 639px) calc(100vw - 2rem), (max-width: 1023px) 50vw, 25vw" src={partner.logoUrl} /> : <Building2 aria-hidden="true" className="size-10 text-zinc-300" />}
     </div>
     <h2 className="flex min-h-16 items-center justify-center border-t border-zinc-100 px-4 py-3 text-center text-sm font-semibold leading-5 text-zinc-900">{partner.displayName}</h2>
   </article>;
