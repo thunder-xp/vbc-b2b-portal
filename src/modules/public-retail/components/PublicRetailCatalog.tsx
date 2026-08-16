@@ -23,7 +23,7 @@ export function PublicRetailCatalog({ categories, facets, locale, products, stat
   const visibleCategories = publicRetailVisibleCategories(categories);
   const filterableFacetKeys = new Set(facets.map((facet) => facet.key));
   return <div className="mx-auto max-w-[1440px] px-4 py-8 sm:px-6 lg:px-8">
-    <CatalogResultsHeader action={state.mode ? undefined : <SortForm locale={locale} state={state} />} eyebrow="Novotech Retail" title={copy.catalog} />
+    <CatalogResultsHeader action={state.mode ? undefined : <SortForm locale={locale} state={state} />} eyebrow="Novotech Retail" eyebrowTone="retail" title={copy.catalog} />
     <div className="mt-5">
       <CatalogToolbarFrame>
         <PublicRetailCategoryMenu categories={visibleCategories} locale={locale} />
@@ -59,7 +59,7 @@ function PublicCatalogFilters({ facets, locale, state }: { facets: PublicRetailF
         <CatalogFilterOption href={publicRetailFilterHref(locale, state, { availability: null })} label={locale === "ro" ? "Toate" : "Все"} selected={!state.availability} />
         {(["in_stock", "low_stock", "available_to_order", "unavailable", "unknown"] as PublicRetailAvailability[]).map((value) => <CatalogFilterOption href={publicRetailFilterHref(locale, state, { availability: value })} key={value} label={availabilityFilterLabel(locale, value)} selected={state.availability === value} />)}
       </CatalogFilterGroup>
-      <CatalogTechnicalFacetGroups facets={facets} hrefForSelection={(selection) => publicRetailFilterHref(locale, { ...state, attributeFilters: selection }, {})} selection={state.attributeFilters} />
+      <CatalogTechnicalFacetGroups facets={facets} hrefForSelection={(selection) => publicRetailFilterHref(locale, { ...state, attributeFilters: selection }, {})} selection={state.attributeFilters} tone="retail" />
     </CatalogFilterPanel>
   </CatalogFilterShell>;
 }
@@ -71,7 +71,7 @@ function SortForm({ locale, state }: { locale: PublicRetailLocale; state: Catalo
 function Pagination({ locale, products, state }: { locale: PublicRetailLocale; products: PublicRetailProductPageDto; state: CatalogState }) {
   const totalPages = Math.max(1, Math.ceil(products.totalCount / products.limit));
   const hrefForPage = (target: number) => { const query = new URLSearchParams({ lang: locale, page: String(target) }); if (state.q) query.set("q", state.q); if (state.category) query.set("category", state.category); if (state.availability) query.set("availability", state.availability); if (state.sort) query.set("sort", state.sort); if (state.mode) query.set("view", state.mode); if (state.returnHref) query.set("return", state.returnHref); Object.entries(catalogFacetQueryFields(state.attributeFilters)).forEach(([key, value]) => query.set(key, value)); return `/catalog?${query}`; };
-  return <div className="mt-8"><NumberedPagination ariaLabel={locale === "ro" ? "Paginare catalog" : "Пагинация каталога"} currentPage={state.page} hrefForPage={hrefForPage} nextAriaLabel={locale === "ro" ? "Pagina următoare" : "Следующая страница"} nextLabel={retailCopy[locale].next} previousAriaLabel={locale === "ro" ? "Pagina precedentă" : "Предыдущая страница"} previousLabel={retailCopy[locale].previous} square totalPages={totalPages} /></div>;
+  return <div className="mt-8"><NumberedPagination ariaLabel={locale === "ro" ? "Paginare catalog" : "Пагинация каталога"} currentPage={state.page} hrefForPage={hrefForPage} nextAriaLabel={locale === "ro" ? "Pagina următoare" : "Следующая страница"} nextLabel={retailCopy[locale].next} previousAriaLabel={locale === "ro" ? "Pagina precedentă" : "Предыдущая страница"} previousLabel={retailCopy[locale].previous} square tone="retail" totalPages={totalPages} /></div>;
 }
 
 function ShowcaseLink({ active, href, label }: { active: boolean; href: string; label: string }) { return <Link aria-current={active ? "page" : undefined} className={`grid min-h-11 shrink-0 place-items-center border px-4 text-sm font-semibold transition-colors ${active ? "border-blue-700 bg-blue-700 text-white" : "border-zinc-300 bg-white text-zinc-700 hover:border-blue-700 hover:text-blue-800"}`} href={href}>{label}</Link>; }

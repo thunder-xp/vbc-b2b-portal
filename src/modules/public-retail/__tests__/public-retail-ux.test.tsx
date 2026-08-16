@@ -54,7 +54,7 @@ describe("public retail UX", () => {
 
   it("keeps compact identity, commercial state and actions in stable tracks", () => {
     render(<PublicRetailProductCard badge="Популярный" badgeCode="TOP" locale="ru" product={{ ...product, name: "Очень длинное название камеры видеонаблюдения с технической моделью" }} />);
-    expect(screen.getByText("Популярный")).toHaveClass("text-emerald-800");
+    expect(screen.getByText("Популярный")).toHaveClass("text-indigo-800");
     expect(screen.getByText("Популярный").closest("span.absolute")).toHaveClass("left-2", "top-2");
     expect(screen.getByRole("link", { name: "Очень длинное название камеры видеонаблюдения с технической моделью" })).toHaveClass("line-clamp-2", "h-10");
     expect(screen.getByText("Артикул CAM-001")).toHaveClass("truncate");
@@ -129,7 +129,7 @@ describe("public retail UX", () => {
     expect(screen.queryByText(/Найдено товаров/)).not.toBeInTheDocument();
     const selectedFacet = screen.getByRole("link", { name: /4 Мп/ });
     expect(selectedFacet).not.toHaveAttribute("href", expect.stringContaining("attr.property_11111111-1111-1111-1111-111111111111"));
-    expect(selectedFacet.querySelector("[aria-hidden='true']")).toHaveClass("bg-emerald-700");
+    expect(selectedFacet.querySelector("[aria-hidden='true']")).toHaveClass("bg-blue-700");
     expect(screen.getAllByRole("button", { name: "Применить" })).toHaveLength(1);
     expect(screen.getByText("1")).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: "Следующая страница" })).toHaveAttribute("href", expect.stringContaining("page=2"));

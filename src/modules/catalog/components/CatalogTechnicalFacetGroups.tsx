@@ -13,10 +13,12 @@ export function CatalogTechnicalFacetGroups({
   facets,
   hrefForSelection,
   selection,
+  tone = "default",
 }: {
   facets: Facet[];
   hrefForSelection: (selection: CatalogFacetSelection) => string;
   selection: CatalogFacetSelection;
+  tone?: "default" | "retail";
 }) {
   return <>{facets.map((facet) => <CatalogFilterGroup key={facet.key} title={facet.label}>
     {facet.values.map((value) => {
@@ -27,7 +29,7 @@ export function CatalogTechnicalFacetGroups({
         href={hrefForSelection(next)}
         key={value.value}
       >
-        <span aria-hidden className={`size-4 rounded border ${selected ? "border-emerald-700 bg-emerald-700" : "border-zinc-300"}`} />
+        <span aria-hidden className={`size-4 rounded border ${selected ? tone === "retail" ? "border-blue-700 bg-blue-700" : "border-emerald-700 bg-emerald-700" : "border-zinc-300"}`} />
         <span className="min-w-0 flex-1 break-words">{value.value}</span>
         <span className="text-xs text-zinc-400">{value.count}</span>
       </CatalogFilterLink>;

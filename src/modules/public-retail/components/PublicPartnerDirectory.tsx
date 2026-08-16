@@ -8,7 +8,7 @@ export function PublicPartnerDirectory({ locale, partners }: { locale: PublicRet
 
   return <section className="mx-auto min-h-[calc(100vh-8rem)] max-w-[1440px] px-4 py-10 sm:px-6 sm:py-14 lg:px-8 lg:py-16">
     <header className="max-w-2xl">
-      <p className="text-sm font-semibold text-emerald-700">NOVOTECH SYSTEMS</p>
+      <p className="text-sm font-semibold text-blue-700">NOVOTECH SYSTEMS</p>
       <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">{ru ? "Наши партнёры" : "Partenerii noștri"}</h1>
       <p className="mt-4 text-base leading-7 text-zinc-600">{ru ? "Компании, официально представленные в партнёрской сети Novotech." : "Companii prezentate oficial în rețeaua de parteneri Novotech."}</p>
     </header>

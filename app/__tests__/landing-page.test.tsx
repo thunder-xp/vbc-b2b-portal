@@ -26,18 +26,18 @@ describe("public retail landing", () => {
   it("leads with system selection and routes the hero catalog action to the showcase", async () => {
     render(await Home({ searchParams: Promise.resolve({}) }));
 
-    expect(screen.getByRole("heading", { name: "Системы безопасности под ключ" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Системы безопасности для дома и бизнеса" })).toBeInTheDocument();
     expect(screen.queryByText(/NOVOTECH SECURITY SYSTEMS/i)).not.toBeInTheDocument();
-    const heroPrimary = screen.getAllByRole("link", { name: /Подобрать систему/ }).find((link) => link.classList.contains("bg-emerald-600"));
-    const heroCatalog = screen.getByRole("link", { name: "Перейти в каталог" });
+    const heroPrimary = screen.getAllByRole("link", { name: /Подобрать систему/ }).find((link) => link.classList.contains("public-primary-action"));
+    const heroCatalog = screen.getByRole("link", { name: "Купить оборудование" });
     if (!heroPrimary) throw new Error("Primary system-selection action is missing.");
     expect(heroPrimary).toHaveAttribute("href", "/calculator/cctv?lang=ru");
-    expect(heroCatalog).toHaveAttribute("href", "/catalog?lang=ru");
+    expect(heroCatalog).toHaveAttribute("href", "/catalog?lang=ru&view=all");
     expect(heroPrimary.compareDocumentPosition(heroCatalog) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getByRole("link", { name: "Открыть каталог" })).toHaveAttribute("href", "/catalog?lang=ru&view=all");
     expect(screen.getAllByRole("link", { name: "Контакты" })[0]).toHaveAttribute("href", "/contacts?lang=ru");
     expect(screen.getAllByText("Прямой импортёр оборудования и решений для безопасности").length).toBeGreaterThan(0);
-    expect(screen.queryByRole("search")).not.toBeInTheDocument();
+    expect(screen.getAllByRole("search").length).toBeGreaterThan(0);
     expect(screen.queryByText("Партнёрская платформа Novotech")).not.toBeInTheDocument();
     expect(screen.queryByText("Стать партнёром")).not.toBeInTheDocument();
   });
@@ -45,7 +45,7 @@ describe("public retail landing", () => {
   it("renders object discovery and only governed category tiles", async () => {
     render(await Home({ searchParams: Promise.resolve({}) }));
 
-    expect(screen.getByRole("heading", { name: "Что вам нужно защитить?" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Решение под вашу задачу" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Квартира/ })).toHaveAttribute("href", expect.stringContaining("object=apartment"));
     expect(screen.getByRole("heading", { name: "Видеонаблюдение" })).toBeInTheDocument();
     expect(screen.queryByText("-PROJECT EQUIPMENT-")).not.toBeInTheDocument();
@@ -54,8 +54,8 @@ describe("public retail landing", () => {
   it("renders authored Romanian chrome while catalog data may fall back deterministically", async () => {
     render(await Home({ searchParams: Promise.resolve({ lang: "ro" }) }));
 
-    expect(screen.getByRole("heading", { name: "Sisteme de securitate complete" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Ce doriți să protejați?" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Sisteme de securitate pentru casă și afaceri" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Soluție pentru obiectivul dvs." })).toBeInTheDocument();
     expect(mocks.listRetailCategories).toHaveBeenCalledWith("ro");
   });
 });

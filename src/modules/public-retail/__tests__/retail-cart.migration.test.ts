@@ -143,7 +143,6 @@ describe("governed anonymous Retail Cart migration", () => {
     expect(retailShell).toContain('aria-label="Novotech Systems Distribution"');
     expect(retailShell).toContain("publicCompanyContent.descriptor[locale]");
     expect(retailShell).toContain('src="/brand/novotech-symbol.webp"');
-    expect(retailShell).toContain('src="/brand/novotech-logo-light.webp"');
     expect(retailShell).not.toContain("ShieldCheck");
     expect(retailShell).toContain('<PublicRetailCartBadge locale={locale} totalQuantity={cartQuantity} />');
     expect(cartBadge).toContain('quantity > 99 ? "99+" : quantity');

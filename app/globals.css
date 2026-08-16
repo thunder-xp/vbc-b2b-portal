@@ -36,15 +36,16 @@ body {
 }
 
 .public-retail {
-  --public-primary: #1769c2;
-  --public-primary-hover: #10549d;
-  --public-primary-soft: #edf6ff;
-  --public-indigo: #5b4ed1;
-  --public-violet: #8338b8;
-  --public-focus: #1769c2;
+  --retail-primary: #1769c2;
+  --retail-primary-hover: #10549d;
+  --retail-primary-soft: #edf6ff;
+  --retail-brand-accent: #5b4ed1;
+  --retail-border: #d4d4d8;
+  --retail-muted: #71717a;
+  --retail-focus: #1769c2;
 }
 
 .public-retail :where(a, button, input, summary):focus-visible {
-  outline: 2px solid var(--public-focus);
+  outline: 2px solid var(--retail-focus);
   outline-offset: 2px;
 }

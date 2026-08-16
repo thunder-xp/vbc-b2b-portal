@@ -91,7 +91,7 @@ export function PublicCctvCalculator({
   return (
     <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8 lg:py-14">
       <header className="max-w-3xl">
-        <p className="text-xs font-semibold uppercase text-emerald-700">
+        <p className="public-brand-eyebrow text-xs font-semibold uppercase">
           CCTV · {ru ? "Предварительный расчёт" : "Calcul preliminar"}
         </p>
         <h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">
@@ -120,7 +120,7 @@ export function PublicCctvCalculator({
         </div>
         <div className="mt-2 h-1.5 bg-zinc-200">
           <div
-            className="h-full bg-emerald-700 transition-[width]"
+            className="h-full bg-blue-700 transition-[width]"
             style={{ width: `${(step * 100) / 3}%` }}
           />
         </div>
@@ -185,7 +185,7 @@ export function PublicCctvCalculator({
           </button>
           {step < 3 ? (
             <button
-              className="inline-flex min-h-12 items-center justify-center gap-2 bg-emerald-700 px-6 text-sm font-semibold text-white disabled:bg-zinc-300"
+              className="public-primary-action inline-flex min-h-12 items-center justify-center gap-2 px-6 text-sm font-semibold disabled:bg-zinc-300"
               disabled={!canContinue}
               onClick={(event) => {
                 event.preventDefault();
@@ -198,7 +198,7 @@ export function PublicCctvCalculator({
             </button>
           ) : (
             <button
-              className="inline-flex min-h-12 items-center justify-center gap-2 bg-emerald-700 px-6 text-sm font-semibold text-white"
+              className="public-primary-action inline-flex min-h-12 items-center justify-center gap-2 px-6 text-sm font-semibold"
               type="submit"
             >
               {ru ? "Показать систему" : "Arată sistemul"}
@@ -238,19 +238,19 @@ function ObjectStep({
           return (
             <button
               aria-pressed={active}
-              className={`min-h-28 border p-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 ${active ? "border-emerald-700 bg-emerald-50" : "border-zinc-200 hover:border-zinc-400"}`}
+              className={`min-h-28 border p-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${active ? "border-blue-700 bg-blue-50" : "border-zinc-200 hover:border-zinc-400"}`}
               key={item.key}
               onClick={() => onChange(item.key as PublicCctvObjectType)}
               type="button"
             >
-              <Icon aria-hidden="true" className="size-6 text-emerald-700" />
+              <Icon aria-hidden="true" className="size-6 text-blue-700" />
               <span className="mt-4 block text-sm font-semibold">
                 {ru ? item.ru : item.ro}
               </span>
               {active ? (
                 <Check
                   aria-hidden="true"
-                  className="ml-auto mt-2 size-4 text-emerald-700"
+                  className="ml-auto mt-2 size-4 text-blue-700"
                 />
               ) : null}
             </button>
@@ -508,7 +508,7 @@ function Choice({
   return (
     <button
       aria-pressed={active}
-      className={`min-h-12 border px-3 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 ${active ? "border-emerald-700 bg-emerald-50 text-emerald-900" : "border-zinc-300"}`}
+      className={`min-h-12 border px-3 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${active ? "border-blue-700 bg-blue-50 text-blue-900" : "border-zinc-300"}`}
       onClick={onClick}
       type="button"
     >
@@ -529,7 +529,7 @@ function Toggle({
     <label className="flex min-h-14 cursor-pointer items-center gap-3 border border-zinc-200 px-4 text-sm font-medium">
       <input
         checked={checked}
-        className="size-5 accent-emerald-700"
+        className="size-5 accent-blue-700"
         onChange={(event) => onChange(event.target.checked)}
         type="checkbox"
       />

@@ -51,13 +51,16 @@ describe("Public Retail shell", () => {
     expect(catalogTrigger).toHaveClass("bg-zinc-950", "text-white", "sm:inline-flex");
     expect(brand.compareDocumentPosition(catalogTrigger) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(catalogTrigger.compareDocumentPosition(search) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(within(screen.getByRole("contentinfo")).getByRole("img", { name: "Novotech" })).toHaveAttribute("src", expect.stringContaining("novotech-logo-light.webp"));
+    expect(within(screen.getByRole("contentinfo")).getByRole("img", { name: "Novotech Systems Distribution" })).toBeInTheDocument();
     expect(within(header).getByRole("search")).toHaveAttribute("action", "/catalog");
     expect(within(header).getByRole("searchbox")).toHaveAttribute("name", "q");
     expect(screen.getByText("Прямой импортёр оборудования и решений для безопасности")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Кишинёв, ул. Лев Толстой, 4" })).toHaveAttribute("target", "_blank");
     expect(screen.getByRole("link", { name: "Бельцы, ул. Думитру Карачобану, 118" })).toHaveAttribute("target", "_blank");
     expect(screen.getByRole("link", { name: "0 78 999 484" })).toHaveAttribute("href", "tel:+37378999484");
+    expect(screen.getByRole("heading", { name: "Информация" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Контакты" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Контакты и магазины" })).not.toBeInTheDocument();
   });
 
   it("keeps authored Romanian labels and complete mobile navigation", () => {
@@ -77,6 +80,8 @@ describe("Public Retail shell", () => {
     expect(within(screen.getByRole("banner")).getByRole("link", { name: "Catalog" })).toHaveAttribute("href", "/catalog?lang=ro");
     expect(screen.getAllByRole("link", { name: "Cabinet partener" })[0]).toHaveAttribute("aria-label", "Cabinet partener");
     expect(screen.getByRole("link", { name: "Coș: 11" })).toHaveAttribute("href", "/cart?lang=ro");
+    expect(screen.getByRole("heading", { name: "Informații" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Contacte" })).toBeInTheDocument();
   });
 
   it("renders the real cart utility as an icon-and-label button with its bounded count", () => {

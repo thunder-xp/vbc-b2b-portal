@@ -17,5 +17,6 @@ export function PublicRetailCategoryMenu({ categories, locale }: { categories: P
       trigger: ro ? "Categorii" : "Категории",
     }}
     square
+    tone="retail"
   />;
 }

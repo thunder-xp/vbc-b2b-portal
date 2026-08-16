@@ -30,7 +30,7 @@ export default async function PublicRetailCartPage({ searchParams }: { searchPar
     <main className="min-h-[calc(100vh-4rem)] bg-zinc-50" lang={locale}>
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8 lg:py-12">
         <header className="flex flex-wrap items-end justify-between gap-4 border-b border-zinc-200 pb-6">
-          <div><p className="text-xs font-semibold uppercase text-emerald-700">Novotech Retail</p><h1 className="mt-2 text-3xl font-semibold tracking-tight">{locale === "ro" ? "Coș" : "Корзина"}</h1></div>
+          <div><p className="text-xs font-semibold uppercase text-blue-700">Novotech Retail</p><h1 className="mt-2 text-3xl font-semibold tracking-tight">{locale === "ro" ? "Coș" : "Корзина"}</h1></div>
           {quantity > 0 ? <p className="text-sm text-zinc-600">{locale === "ro" ? `${quantity} bucăți` : `${quantity} шт.`}</p> : null}
         </header>
         {!cart || cart.items.length === 0 ? <EmptyCart locale={locale} /> : <CartContent cart={cart} checkoutAccess={checkoutAccess} locale={locale} offer={offer} />}
@@ -63,7 +63,7 @@ function CartContent({ cart, checkoutAccess, locale, offer }: { cart: PublicReta
       <div className="mt-5 border-t border-zinc-200 pt-5"><div className="flex items-end justify-between gap-4"><span className="font-semibold">{ru ? "Текущая сумма" : "Suma curentă"}</span><strong className="text-xl tabular-nums">{offer?.status === "active" ? money(offer.resultingTotal, offer.currency, locale) : money(cart.totals.total, cart.totals.currency, locale)}</strong></div></div>
       {offer?.status === "active" ? <p className="mt-3 text-xs leading-5 text-zinc-600">{ru ? `Предложение действует до ${formatExpiry(offer.expiresAt, locale)}. Материалы и монтаж не участвуют в скидке.` : `Oferta este valabilă până la ${formatExpiry(offer.expiresAt, locale)}. Materialele și instalarea nu sunt reduse.`}</p> : offer?.status === "expired" ? <p className="mt-3 text-xs leading-5 text-zinc-600">{ru ? "Срок предложения завершён. Применяется обычная цена эконом-варианта." : "Oferta a expirat. Se aplică prețul obișnuit al variantei economice."}</p> : null}
       {hasStaleItems ? <p className="mt-4 text-sm leading-5 text-amber-700">{ru ? "Одна или несколько позиций больше не доступны в текущем каталоге. Итог будет показан после их удаления или повторного подбора." : "Una sau mai multe poziții nu mai sunt disponibile în catalogul curent. Totalul va fi afișat după eliminarea sau selectarea lor din nou."}</p> : null}
-      {checkoutAvailable ? <Link className="mt-6 inline-flex min-h-12 w-full items-center justify-center bg-emerald-700 px-4 text-sm font-semibold text-white hover:bg-emerald-800" href={`/checkout?lang=${locale}`}>{ru ? "Оформить заказ" : "Plasează comanda"}</Link> : null}
+      {checkoutAvailable ? <Link className="mt-6 inline-flex min-h-12 w-full items-center justify-center bg-blue-700 px-4 text-sm font-semibold text-white hover:bg-blue-800" href={`/checkout?lang=${locale}`}>{ru ? "Оформить заказ" : "Plasează comanda"}</Link> : null}
       <Link className={`${checkoutAvailable ? "mt-3" : "mt-6"} inline-flex min-h-12 w-full items-center justify-center border border-zinc-300 px-4 text-sm font-semibold text-zinc-800 hover:bg-zinc-50`} href={`/catalog?lang=${locale}`}>{ru ? "Продолжить выбор" : "Continuă selecția"}</Link>
       {!checkoutAccess ? <p className="mt-3 text-xs leading-5 text-zinc-500">{ru ? "Оформление заказа пока доступно только в пилотном режиме." : "Plasarea comenzii este disponibilă momentan doar în regim pilot."}</p> : null}
     </aside>
@@ -74,9 +74,9 @@ function CartBundle({ bundle, items, locale, revision, index }: { bundle: Public
   const ru = locale === "ru";
   const intent = bundle.installationIntent && Object.values(bundle.installationIntent).some(Boolean);
   return <section className="space-y-3">
-    <div><p className="text-xs font-semibold uppercase text-emerald-700">{ru ? `Система ${index + 1}` : `Sistem ${index + 1}`}</p><h2 className="mt-1 text-xl font-semibold">{ru ? "Система видеонаблюдения" : "Sistem de supraveghere video"}</h2></div>
+    <div><p className="text-xs font-semibold uppercase text-blue-700">{ru ? `Система ${index + 1}` : `Sistem ${index + 1}`}</p><h2 className="mt-1 text-xl font-semibold">{ru ? "Система видеонаблюдения" : "Sistem de supraveghere video"}</h2></div>
     <CartGroup items={items} locale={locale} revision={revision} />
-    {intent && bundle.installationPricing ? <div className="border-l-4 border-emerald-600 bg-emerald-50 p-3 text-sm text-emerald-950">
+    {intent && bundle.installationPricing ? <div className="border-l-4 border-blue-600 bg-blue-50 p-3 text-sm text-blue-950">
       <p className="font-semibold">{ru ? "Монтаж и настройка" : "Instalare și configurare"}</p>
       <p className="mt-1">{money(bundle.installationPricing.subtotal, bundle.installationPricing.currency, locale)}</p>
     </div> : intent ? <p className="border-l-4 border-amber-500 bg-amber-50 p-3 text-sm text-amber-950">{ru ? "Тариф на монтаж требует подтверждения." : "Tariful de instalare trebuie confirmat."}</p> : null}
@@ -90,7 +90,7 @@ function CartGroup({ items, label, locale, revision }: { items: PublicRetailCart
 function CartLine({ item, locale, revision }: { item: PublicRetailCartItemDto; locale: PublicRetailLocale; revision: number }) {
   const ru = locale === "ru";
   const media = <div className="relative grid size-20 shrink-0 place-items-center overflow-hidden border border-zinc-200 bg-zinc-50">{item.image ? <Image alt={item.image.alt} className="object-contain p-2" fill sizes="80px" src={item.image.url} /> : <ImageOff aria-hidden="true" className="size-7 text-zinc-300" />}</div>;
-  const name = item.slug ? <Link className="font-semibold leading-5 hover:text-emerald-700" href={`/products/${item.slug}?lang=${locale}`}>{item.name}</Link> : <p className="font-semibold leading-5">{item.name}</p>;
+  const name = item.slug ? <Link className="font-semibold leading-5 hover:text-blue-700" href={`/products/${item.slug}?lang=${locale}`}>{item.name}</Link> : <p className="font-semibold leading-5">{item.name}</p>;
 
   return <article className="grid gap-4 p-4 sm:grid-cols-[80px_minmax(0,1fr)_auto] sm:items-center">
     {item.slug ? <Link aria-label={item.name} href={`/products/${item.slug}?lang=${locale}`}>{media}</Link> : media}
@@ -101,7 +101,7 @@ function CartLine({ item, locale, revision }: { item: PublicRetailCartItemDto; l
 
 function EmptyCart({ locale }: { locale: PublicRetailLocale }) {
   const ru = locale === "ru";
-  return <section className="mx-auto grid max-w-lg justify-items-center py-20 text-center"><PackageOpen aria-hidden="true" className="size-12 text-zinc-300" /><h2 className="mt-5 text-2xl font-semibold">{ru ? "Корзина пуста" : "Coșul este gol"}</h2><p className="mt-3 text-sm leading-6 text-zinc-600">{ru ? "Добавьте отдельный товар или готовую систему видеонаблюдения." : "Adăugați un produs sau un sistem de supraveghere video configurat."}</p><Link className="mt-6 inline-flex min-h-12 items-center justify-center bg-emerald-700 px-5 text-sm font-semibold text-white" href={publicRetailFullCatalogHref(locale)}>{ru ? "Перейти в каталог" : "Deschide catalogul"}</Link></section>;
+  return <section className="mx-auto grid max-w-lg justify-items-center py-20 text-center"><PackageOpen aria-hidden="true" className="size-12 text-zinc-300" /><h2 className="mt-5 text-2xl font-semibold">{ru ? "Корзина пуста" : "Coșul este gol"}</h2><p className="mt-3 text-sm leading-6 text-zinc-600">{ru ? "Добавьте отдельный товар или готовую систему видеонаблюдения." : "Adăugați un produs sau un sistem de supraveghere video configurat."}</p><Link className="mt-6 inline-flex min-h-12 items-center justify-center bg-blue-700 px-5 text-sm font-semibold text-white" href={publicRetailFullCatalogHref(locale)}>{ru ? "Перейти в каталог" : "Deschide catalogul"}</Link></section>;
 }
 
 function SummaryRow({ label, value, currency, locale }: { label: string; value: number | null; currency: string | null; locale: PublicRetailLocale }) {

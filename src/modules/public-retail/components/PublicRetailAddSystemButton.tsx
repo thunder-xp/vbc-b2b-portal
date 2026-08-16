@@ -27,7 +27,7 @@ export function PublicRetailAddSystemButton({ locale, items, installationIntent,
     return () => window.clearInterval(timer);
   }, [offer]);
 
-  return <div><button className="inline-flex min-h-12 w-full items-center justify-center gap-2 bg-emerald-700 px-4 text-sm font-semibold text-white disabled:opacity-60" disabled={pending || selected} onClick={() => startTransition(async () => {
+  return <div><button className="public-primary-action inline-flex min-h-12 w-full items-center justify-center gap-2 px-4 text-sm font-semibold disabled:opacity-60" disabled={pending || selected} onClick={() => startTransition(async () => {
     const result = await addPublicRetailCctvSystemAction({ locale, items, installationIntent, installationPricing, calculatorInput, workScope, requestId });
     setMessage(result.message);
     if (result.success && result.data) {
@@ -42,7 +42,7 @@ export function PublicRetailAddSystemButton({ locale, items, installationIntent,
       setMessage(result.message);
       if (result.offer) setOffer(result.offer);
     })} type="button">{ru ? "Всё ещё дорого?" : "Este încă prea scump?"}</button> : null}
-    {offer?.status === "active" && remainingSeconds > 0 ? <section className="mt-3 border border-emerald-200 bg-emerald-50 p-4 text-left text-emerald-950">
+    {offer?.status === "active" && remainingSeconds > 0 ? <section className="mt-3 border border-indigo-200 bg-indigo-50 p-4 text-left text-indigo-950">
       <div className="flex items-center gap-2 font-semibold"><Clock3 aria-hidden="true" className="size-4" />{ru ? "−10% на оборудование" : "−10% la echipamente"}</div>
       <p className="mt-1 text-sm">{ru ? "При оплате в течение часа. Материалы и монтаж не участвуют в скидке." : "La plata în decurs de o oră. Materialele și instalarea nu sunt reduse."}</p>
       <p className="mt-2 text-sm font-semibold tabular-nums" aria-label={ru ? `Предложение действует до ${new Date(offer.expiresAt).toLocaleTimeString("ru-MD")}` : `Oferta este valabilă până la ${new Date(offer.expiresAt).toLocaleTimeString("ro-MD")}`}>{formatCountdown(remainingSeconds)} · −{formatRetailPrice(offer.discountAmount, offer.currency, locale)}</p>
