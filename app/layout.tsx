@@ -3,9 +3,14 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.nsd.md"),
-  title: "Novotech Systems",
+  title: "Novotech Systems Distribution",
   description:
     "Системы безопасности, профессиональное оборудование и решения Novotech.",
+  applicationName: "Novotech Systems Distribution",
+  openGraph: {
+    siteName: "Novotech Systems Distribution",
+    type: "website",
+  },
 };
 
 export default function RootLayout({

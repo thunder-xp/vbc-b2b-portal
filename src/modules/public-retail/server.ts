@@ -30,5 +30,7 @@ export function getPublicCctvCalculatorService(): PublicCctvCalculatorService {
   return calculator;
 }
 export const getPublicCctvServiceOptions = cache(() => new SupabaseCctvObjectConfigurationRepository().listPublicOptions());
+export const getPublicRetailCategories = cache((locale: PublicRetailLocale) =>
+  service.listRetailCategories(locale));
 export const getPublicRetailProduct = cache((slug: string, locale: PublicRetailLocale) =>
   service.getRetailProduct(slug, locale));

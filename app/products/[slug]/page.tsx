@@ -5,7 +5,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { PublicRetailShell } from "@/src/modules/public-retail/components/PublicRetailShell";
+import { PublicStructuredData } from "@/src/modules/public-retail/components/PublicStructuredData";
 import { availabilityCopy, availabilityTone, formatRetailPrice, publicRetailLocale, retailCopy } from "@/src/modules/public-retail/presentation";
+import { buildPublicMetadata, compactSeoDescription, publicBreadcrumbSchema, publicLocalizedUrl, publicProductSchema } from "@/src/modules/public-retail/seo";
 import { getPublicRetailProduct } from "@/src/modules/public-retail/server";
 import { PublicRetailAddToCartButton } from "@/src/modules/public-retail/components/PublicRetailAddToCartButton";
 
@@ -16,7 +18,20 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   const locale = publicRetailLocale(query.lang);
   const product = await getPublicRetailProduct(slug, locale).catch(() => null);
   if (!product) return {};
-  return { title: `${product.name} | Novotech`, description: product.shortDescription ?? `${product.name}. Розничная цена и характеристики.`, alternates: { canonical: `/products/${product.slug}` } };
+  const fallback = locale === "ro"
+    ? `${product.name}. Preț cu amănuntul, disponibilitate și caracteristici.`
+    : `${product.name}. Розничная цена, наличие и характеристики.`;
+  const context = product.brand?.name ?? product.categoryPath.at(-1)?.name;
+  const title = context && !product.name.toLocaleLowerCase().includes(context.toLocaleLowerCase())
+    ? `${product.name} — ${context} | Novotech`
+    : `${product.name} | Novotech`;
+  return buildPublicMetadata({
+    locale,
+    path: `/products/${product.slug}`,
+    title,
+    description: compactSeoDescription(product.shortDescription ?? "", fallback),
+    images: product.image ? [product.image.url] : undefined,
+  });
 }
 export default async function PublicProductPage({ params, searchParams }: Props) {
   const [{ slug }, query] = await Promise.all([params, searchParams]);
@@ -25,8 +40,16 @@ export default async function PublicProductPage({ params, searchParams }: Props)
   if (!product) notFound();
   const copy = retailCopy[locale];
   const images = product.gallery.length ? product.gallery : product.image ? [product.image] : [];
-  return <PublicRetailShell languagePath={`/products/${product.slug}`} locale={locale}><main className="mx-auto max-w-[1280px] px-4 py-8 sm:px-6 lg:px-8">
-    <nav aria-label="Хлебные крошки" className="flex flex-wrap gap-2 text-xs text-zinc-500"><Link href={`/catalog?lang=${locale}`}>{copy.catalog}</Link>{product.categoryPath.map((category) => <span className="flex gap-2" key={category.id}><span aria-hidden="true">/</span><Link href={`/catalog?lang=${locale}&category=${category.slug}`}>{category.name}</Link></span>)}</nav>
+  const productUrl = publicLocalizedUrl(`/products/${product.slug}`, locale);
+  const breadcrumbItems = [
+    { name: locale === "ro" ? "Principală" : "Главная", url: publicLocalizedUrl("/", locale) },
+    { name: copy.catalog, url: publicLocalizedUrl("/catalog", locale) },
+    ...product.categoryPath.map((category) => ({ name: category.name, url: publicLocalizedUrl("/catalog", locale, { category: category.slug }) })),
+    { name: product.name, url: productUrl },
+  ];
+  const productSchema = publicProductSchema(product, locale);
+  return <PublicRetailShell languagePath={`/products/${product.slug}`} locale={locale}><PublicStructuredData data={[productSchema, publicBreadcrumbSchema(breadcrumbItems)]} /><main className="mx-auto max-w-[1280px] px-4 py-8 sm:px-6 lg:px-8">
+    <nav aria-label={locale === "ro" ? "Navigare ierarhică" : "Хлебные крошки"} className="flex flex-wrap gap-2 text-xs text-zinc-500"><Link href={`/?lang=${locale}`}>{locale === "ro" ? "Principală" : "Главная"}</Link><span aria-hidden="true">/</span><Link href={`/catalog?lang=${locale}`}>{copy.catalog}</Link>{product.categoryPath.map((category) => <span className="flex gap-2" key={category.id}><span aria-hidden="true">/</span><Link href={`/catalog?lang=${locale}&category=${category.slug}`}>{category.name}</Link></span>)}</nav>
     <div className="mt-6 grid gap-9 lg:grid-cols-[minmax(0,1fr)_minmax(360px,0.75fr)]">
       <section aria-label={locale === "ro" ? "Imagini produs" : "Изображения товара"}>{images.length ? <div className="grid gap-3 sm:grid-cols-2">{images.slice(0, 4).map((image, index) => <div className={`relative aspect-[4/3] overflow-hidden bg-zinc-50 ${index === 0 ? "sm:col-span-2" : ""}`} key={image.url}><Image alt={image.alt || product.name} className="object-contain p-6" fill priority={index === 0} sizes={index === 0 ? "(max-width: 1024px) 100vw, 60vw" : "30vw"} src={image.url} /></div>)}</div> : <div className="grid aspect-[4/3] place-items-center bg-zinc-50 text-zinc-300"><ImageIcon aria-hidden="true" className="size-16" /><span className="sr-only">Изображение отсутствует</span></div>}</section>
       <section className="lg:sticky lg:top-24 lg:self-start"><p className="text-xs font-semibold uppercase text-zinc-500">{product.brand?.name ?? product.categoryPath.at(-1)?.name ?? "Novotech"}</p><h1 className="mt-3 text-3xl font-semibold leading-tight sm:text-4xl">{product.name}</h1><p className="mt-3 text-sm text-zinc-500">{copy.sku}: {product.sku}</p><div className="mt-7 border-y border-zinc-200 py-6"><p className="text-3xl font-semibold tabular-nums">{formatRetailPrice(product.price.amount, product.price.currency, locale)}</p><p className="mt-1 text-xs text-zinc-500">{copy.price}</p><p className={`mt-4 text-sm font-semibold ${availabilityTone(product.availability)}`}>{availabilityCopy[locale][product.availability]}</p></div>{product.shortDescription ? <p className="mt-6 text-sm leading-7 text-zinc-600">{product.shortDescription}</p> : null}<div className="mt-6"><PublicRetailAddToCartButton locale={locale} publicProductId={product.id} source="product_detail" /></div>{product.calculatorEligible ? <Link className="mt-3 flex min-h-12 items-center justify-center border border-zinc-300 px-5 text-sm font-semibold hover:border-emerald-700" href={`/calculator/cctv?lang=${locale}`}>{copy.chooseSystem}</Link> : null}</section>

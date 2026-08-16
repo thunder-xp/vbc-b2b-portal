@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import type { Metadata } from "next";
 
 import { redirect } from "next/navigation";
 
@@ -8,6 +9,8 @@ import { buildQuickActions } from "@/src/modules/partner-cabinet/services";
 import { WorkspaceAccessState } from "@/src/modules/partner-cabinet/components/WorkspaceAccessState";
 import { getNotificationSummaryAction } from "@/src/modules/notifications/actions/notification.actions";
 import { getCartItemCountAction } from "@/src/modules/orders/actions/cart.actions";
+
+export const metadata: Metadata = { robots: { index: false, follow: false } };
 
 export default async function CabinetLayout({ children }: { children: ReactNode }) {
   const result = await getPartnerWorkspaceContextAction();

@@ -2,21 +2,38 @@ import type { Metadata } from "next";
 import { Clock3, Mail, MapPin, Phone } from "lucide-react";
 
 import { PublicRetailShell } from "@/src/modules/public-retail/components/PublicRetailShell";
+import { PublicStructuredData } from "@/src/modules/public-retail/components/PublicStructuredData";
 import { publicRetailLocale } from "@/src/modules/public-retail/presentation";
 import { publicCompanyContent } from "@/src/modules/public-retail/public-company-content";
+import { buildPublicMetadata, publicBreadcrumbSchema, publicLocalizedUrl, publicOrganizationSchemas } from "@/src/modules/public-retail/seo";
 
 type Params = Promise<Record<string, string | string[] | undefined>>;
 
-export const metadata: Metadata = {
-  title: "Контакты и магазины | Novotech",
-  description: "Контакты и адреса магазинов Novotech в Кишинёве и Бельцах.",
-};
+export async function generateMetadata({ searchParams }: { searchParams: Params }): Promise<Metadata> {
+  const locale = publicRetailLocale((await searchParams).lang);
+  return buildPublicMetadata({
+    locale,
+    path: "/contacts",
+    title: locale === "ro" ? "Contacte și magazine Novotech — Chișinău și Bălți" : "Контакты и магазины Novotech — Кишинёв и Бельцы",
+    description: locale === "ro"
+      ? "Adresele, telefoanele și programul magazinelor Novotech cu echipamente și soluții de securitate."
+      : "Адреса, телефоны и график магазинов Novotech с оборудованием и решениями для безопасности.",
+  });
+}
 
 export default async function ContactsPage({ searchParams }: { searchParams: Params }) {
   const locale = publicRetailLocale((await searchParams).lang);
   const ru = locale === "ru";
+  const schema = [
+    publicBreadcrumbSchema([
+      { name: ru ? "Главная" : "Principală", url: publicLocalizedUrl("/", locale) },
+      { name: ru ? "Контакты" : "Contacte", url: publicLocalizedUrl("/contacts", locale) },
+    ]),
+    ...publicOrganizationSchemas(locale),
+  ];
 
   return <PublicRetailShell languagePath="/contacts" locale={locale}>
+    <PublicStructuredData data={schema} />
     <main className="mx-auto max-w-[1440px] px-4 py-10 sm:px-6 lg:px-8 lg:py-14">
       <header className="max-w-3xl border-b border-zinc-200 pb-7">
         <p className="text-xs font-semibold uppercase text-emerald-700">Novotech Systems</p>

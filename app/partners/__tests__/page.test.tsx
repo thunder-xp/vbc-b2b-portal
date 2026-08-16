@@ -29,6 +29,6 @@ describe("public partners page", () => {
     const metadata = await generateMetadata({ searchParams: Promise.resolve({ lang: "ro" }) });
 
     expect(metadata.title).toBe("Partenerii noștri | Novotech");
-    expect(metadata.description).toBe("Rețeaua oficială de parteneri Novotech Systems.");
+    expect(metadata.description).toBe("Rețeaua oficială de parteneri de afaceri Novotech Systems din Moldova.");
   });
 });

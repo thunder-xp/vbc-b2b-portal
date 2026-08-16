@@ -21,7 +21,7 @@ export function PublicRetailShell({ children, locale, languagePath, cartQuantity
     [copy.contacts, `/contacts?lang=${locale}`],
   ] as const;
 
-  return <div className="min-h-screen bg-white text-zinc-950">
+  return <div className="min-h-screen bg-white text-zinc-950" lang={locale}>
     <header className="sticky top-0 z-50 border-b border-zinc-200 bg-white/95 backdrop-blur">
       <div className="mx-auto flex min-h-17 max-w-[1440px] items-center gap-3 px-4 sm:px-6 lg:px-8">
         <Link aria-label="Novotech Systems Distribution" className="flex min-h-11 shrink-0 items-center gap-2.5" href={`/?lang=${locale}`}>
@@ -63,7 +63,7 @@ export function PublicRetailShell({ children, locale, languagePath, cartQuantity
       <div className="mx-auto grid max-w-[1440px] gap-x-8 gap-y-7 px-4 py-8 sm:grid-cols-2 sm:px-6 lg:grid-cols-[1.2fr_.8fr_.8fr_1.4fr] lg:px-8">
         <div><p className="text-sm font-semibold text-white">NOVOTECH SYSTEMS <span className="ml-1 text-xs font-medium text-zinc-400">DISTRIBUTION</span></p><p className="mt-2 max-w-sm text-xs leading-5">{publicCompanyContent.descriptor[locale]}</p></div>
         <FooterGroup title={locale === "ro" ? "Catalog" : "Каталог"}><FooterLink href={`/catalog?lang=${locale}`}>{copy.catalog}</FooterLink><FooterLink href={`/calculator/cctv?lang=${locale}`}>{copy.chooseSystem}</FooterLink></FooterGroup>
-        <FooterGroup title={locale === "ro" ? "Informații" : "Информация"}><FooterLink href={`/?lang=${locale}#installation`}>{copy.services}</FooterLink><FooterLink href={`/?lang=${locale}#delivery`}>{copy.delivery}</FooterLink></FooterGroup>
+        <FooterGroup title={locale === "ro" ? "Informații" : "Информация"}><FooterLink href={`/?lang=${locale}#installation`}>{copy.services}</FooterLink><FooterLink href={`/?lang=${locale}#delivery`}>{copy.delivery}</FooterLink><FooterLink href={`/partners?lang=${locale}`}>{copy.partners}</FooterLink></FooterGroup>
         <FooterGroup title={locale === "ro" ? "Contacte și magazine" : "Контакты и магазины"}>
           {publicCompanyContent.stores.map((store) => <a className="flex w-fit gap-2 text-xs leading-5 hover:text-white" href={store.mapsHref} key={store.mapsHref} rel="noopener noreferrer" target="_blank"><MapPin aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" />{store.city[locale]}, {store.address[locale]}</a>)}
           <a className="flex w-fit items-center gap-2 text-xs hover:text-white" href={publicCompanyContent.customerPhone.href}><Phone aria-hidden="true" className="size-3.5" />{publicCompanyContent.customerPhone.display}</a>

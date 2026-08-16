@@ -9,15 +9,25 @@ import {
 import { PublicRetailShell } from "@/src/modules/public-retail/components/PublicRetailShell";
 import { featuredRetailCategories, protectedObjectOptions, publicRetailFullCatalogHref, publicRetailLocale, publicRetailShowcaseHref } from "@/src/modules/public-retail/presentation";
 import { publicCompanyContent } from "@/src/modules/public-retail/public-company-content";
+import { buildPublicMetadata, publicOrganizationSchemas } from "@/src/modules/public-retail/seo";
+import { PublicStructuredData } from "@/src/modules/public-retail/components/PublicStructuredData";
 import { getPublicRetailService } from "@/src/modules/public-retail/server";
 
 type Params = Promise<Record<string, string | string[] | undefined>>;
 
-export const metadata: Metadata = {
-  title: "Системы безопасности, оборудование и монтаж | Novotech",
-  description: "Подбор профессиональной системы безопасности, оборудование, доставка и организация монтажа в Молдове.",
-  alternates: { canonical: "/" },
-};
+export async function generateMetadata({ searchParams }: { searchParams: Params }): Promise<Metadata> {
+  const locale = publicRetailLocale((await searchParams).lang);
+  return buildPublicMetadata({
+    locale,
+    path: "/",
+    title: locale === "ro"
+      ? "Sisteme de securitate și instalare în Moldova | Novotech"
+      : "Системы безопасности и монтаж в Молдове | Novotech",
+    description: locale === "ro"
+      ? "Echipamente profesionale, calcul CCTV, livrare și instalare a sistemelor de securitate în Moldova."
+      : "Профессиональное оборудование, расчёт CCTV, доставка и монтаж систем безопасности в Молдове.",
+  });
+}
 
 export default async function Home({ searchParams }: { searchParams: Params }) {
   const params = await searchParams;
@@ -28,10 +38,13 @@ export default async function Home({ searchParams }: { searchParams: Params }) {
   const objectIcons = [Building2, House, BriefcaseBusiness, Store, Warehouse, Factory, Utensils, Shapes];
   const ru = locale === "ru";
 
+  const schema = publicOrganizationSchemas(locale, true);
+
   return <PublicRetailShell languagePath="/" locale={locale}>
+    <PublicStructuredData data={schema} />
     <main>
       <section className="relative isolate min-h-[560px] overflow-hidden sm:min-h-[600px] lg:min-h-[620px]">
-        <Image alt="Профессиональная установка системы видеонаблюдения" className="object-cover object-[68%_center]" fill priority sizes="100vw" src="/retail/security-installation-hero.webp" />
+        <Image alt={ru ? "Профессиональная установка системы видеонаблюдения" : "Instalarea profesională a unui sistem de supraveghere video"} className="object-cover object-[68%_center]" fill priority sizes="100vw" src="/retail/security-installation-hero.webp" />
         <div aria-hidden="true" className="absolute inset-0 bg-zinc-950/55" />
         <div className="relative mx-auto flex min-h-[560px] max-w-[1440px] items-center px-4 py-14 sm:min-h-[600px] sm:px-6 lg:min-h-[620px] lg:px-8">
           <div className="max-w-2xl text-white">

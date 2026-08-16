@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
+import { permanentRedirect } from "next/navigation";
 
 import { publicRetailLocale } from "@/src/modules/public-retail/presentation";
 
@@ -15,5 +15,5 @@ export default async function PublicCctvEntry({ searchParams }: {
   const query = await searchParams;
   const locale = publicRetailLocale(query.lang);
   const object = Array.isArray(query.object) ? query.object[0] : query.object;
-  redirect(`/calculator/cctv?lang=${locale}${object && /^[a-z]+$/.test(object) ? `&object=${object}` : ""}`);
+  permanentRedirect(`/calculator/cctv?lang=${locale}${object && /^[a-z]+$/.test(object) ? `&object=${object}` : ""}`);
 }

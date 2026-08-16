@@ -6,6 +6,7 @@ import Link from "next/link";
 import { PublicRetailAddSystemButton } from "@/src/modules/public-retail/components/PublicRetailAddSystemButton";
 import { PublicRetailShell } from "@/src/modules/public-retail/components/PublicRetailShell";
 import { availabilityCopy, availabilityTone, formatRetailPrice, publicRetailLocale } from "@/src/modules/public-retail/presentation";
+import { buildPublicMetadata } from "@/src/modules/public-retail/seo";
 import { getPublicCctvCalculatorService } from "@/src/modules/public-retail/server";
 import {
   publicCctvInputFromSearchParams,
@@ -15,13 +16,16 @@ import {
 
 export async function generateMetadata({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }): Promise<Metadata> {
   const locale = publicRetailLocale((await searchParams).lang);
-  return {
+  return buildPublicMetadata({
+    locale,
+    path: "/calculator/cctv",
     title: locale === "ro" ? "Calcul preliminar CCTV | Novotech" : "Предварительный расчёт CCTV | Novotech",
     description: locale === "ro"
       ? "Sistemul de supraveghere video selectat şi costul estimativ cu amănuntul."
       : "Подобранная система видеонаблюдения и ориентировочная розничная стоимость.",
-    robots: { index: false, follow: false },
-  };
+    index: false,
+    follow: false,
+  });
 }
 
 const GROUPS: PublicCctvResultLine["group"][] = ["cameras", "recorder", "archive", "network", "materials", "works"];
