@@ -29,6 +29,7 @@ describe("SupabaseCatalogSnapshotWriter attribute publication", () => {
 
     expect(client.stageInsert).toHaveBeenCalledTimes(2);
     expect(client.publish).toHaveBeenCalledOnce();
+    expect(client.api.rpc).toHaveBeenCalledTimes(2);
     expect(result).toMatchObject({ attributesUpserted: 201, attributesRemoved: 3, attributeUniquePairs: 201, attributeBatchesStaged: 2, attributePublicationTransactionSucceeded: true });
   });
 });

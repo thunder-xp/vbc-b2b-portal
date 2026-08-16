@@ -5,6 +5,7 @@ import { describe,expect,it } from "vitest";
 const sql=readFileSync(resolve("supabase/migrations/20260813191943_cctv_camera_candidate_pools.sql"),"utf8");
 const governanceSql=readFileSync(resolve("supabase/migrations/20260814112114_govern_cctv_camera_pool_modes_and_ai_service.sql"),"utf8");
 const hybridCameraSql=readFileSync(resolve("supabase/migrations/20260816192520_backfill_cctv_camera_capability_400540.sql"),"utf8");
+const attributeDerivationSql=readFileSync(resolve("supabase/migrations/20260816194611_derive_cctv_capabilities_from_attributes.sql"),"utf8");
 const restoreSql=readFileSync(resolve("supabase/migrations/20260815095808_restore_archived_cctv_camera_candidates.sql"),"utf8");
 describe("CCTV camera pool migration",()=>{
   it("keeps governance private and immutable",()=>{expect(sql).toContain("enable row level security");expect(sql).toContain("prevent_cctv_camera_candidate_event_update_delete");expect(sql).toContain("admin.integrations.manage");});
@@ -18,6 +19,26 @@ describe("CCTV camera pool migration",()=>{
     expect(hybridCameraSql).toContain("resolution.display_value::smallint");
     expect(hybridCameraSql).toContain("synchronized_catalog_attributes:400540_hybrid_transport");
     expect(hybridCameraSql).not.toContain("insert into public.cctv_camera_candidate_pools");
+  });
+  it("derives future network camera capability from governed attributes without SKU rules",()=>{
+    expect(attributeDerivationSql).toContain("reconcile_cctv_camera_capabilities(p_product_ids uuid[])");
+    expect(attributeDerivationSql).toContain("attribute.label = 'Разрешение-MPx'");
+    expect(attributeDerivationSql).toContain("attribute.label = 'Передача-данных'");
+    expect(attributeDerivationSql).toContain("attribute.label = 'Тип-объектива'");
+    expect(attributeDerivationSql).toContain("attribute.label = 'Форм-фактор'");
+    expect(attributeDerivationSql).toContain("'TCP-IP (Цифровая)'");
+    expect(attributeDerivationSql).toContain("'TCP+WIFI (Гибридная)'");
+    expect(attributeDerivationSql).toContain("'TCP+4G (Гибридная)'");
+    expect(attributeDerivationSql).not.toContain("400540");
+    expect(attributeDerivationSql).not.toContain("product.sku");
+  });
+  it("reconciles the bounded product batch inside transactional attribute publication",()=>{
+    expect(attributeDerivationSql).toContain("perform public.reconcile_cctv_camera_capabilities(p_product_ids)");
+    expect(attributeDerivationSql).toContain("product.id = any(p_product_ids)");
+    expect(attributeDerivationSql).toContain("capability.product_id = any(p_product_ids)");
+    expect(attributeDerivationSql).toContain("security invoker");
+    expect(attributeDerivationSql).toContain("grant execute on function public.reconcile_cctv_camera_capabilities(uuid[])");
+    expect(attributeDerivationSql).not.toMatch(/\bloop\b/i);
   });
   it("stores both selection modes on one governed membership",()=>{expect(governanceSql).toContain("eligible_for_recommended boolean not null");expect(governanceSql).toContain("eligible_for_economy boolean not null");expect(governanceSql).toContain("previous_snapshot");});
   it("distinguishes active and archived memberships for governed restore",()=>{
