@@ -28,7 +28,7 @@ export function PublicRetailShell({ children, locale, languagePath, cartQuantity
     <header className="sticky top-0 z-50 border-b border-zinc-200 bg-white/95 backdrop-blur">
       <div className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-8">
         <div className="flex min-h-16 items-center gap-3">
-          <Link aria-label="NOVOTECH SYSTEMS DISTRIBUTION" className="flex min-h-12 shrink-0 items-center gap-2" href={`/?lang=${locale}`} prefetch={false}>
+          <Link className="flex min-h-12 shrink-0 items-center gap-2" href={`/?lang=${locale}`} prefetch={false}>
             <OfficialLogo background="light" priority />
             <span className="hidden leading-none sm:block">
               <strong className="block text-[11px] font-semibold text-zinc-950">NOVOTECH SYSTEMS</strong>

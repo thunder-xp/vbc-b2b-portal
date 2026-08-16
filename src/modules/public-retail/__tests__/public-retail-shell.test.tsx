@@ -47,7 +47,7 @@ describe("Public Retail shell", () => {
     expect(cabinet.compareDocumentPosition(cart) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(cart).toHaveTextContent("Корзина");
     expect(cart).toHaveTextContent("11");
-    const brand = within(header).getByRole("link", { name: "NOVOTECH SYSTEMS DISTRIBUTION" });
+    const brand = within(header).getByRole("link", { name: "NovotechNOVOTECH SYSTEMSDISTRIBUTION" });
     expect(within(header).getByRole("img", { name: "Novotech" })).toHaveAttribute("src", expect.stringContaining("novotech-logo-light-original"));
     expect(brand).toHaveTextContent("NOVOTECH SYSTEMS");
     expect(brand).toHaveTextContent("DISTRIBUTION");
