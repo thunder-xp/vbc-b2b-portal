@@ -19,18 +19,23 @@ const staticPaths = [
   "/guides/cctv-selection",
 ];
 
+function sitemapXmlUrl(path: string, locale: PublicRetailLocale, params: Record<string, string> = {}) {
+  // Next 16's metadata serializer writes URL strings verbatim into XML.
+  return publicLocalizedUrl(path, locale, params).replaceAll("&", "&amp;");
+}
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const products = await listPublicSeoProducts();
   const categorySlugs = new Set(products.flatMap((product) => product.categoryPath.map((category) => category.slug)));
   const localized = (path: string, params: Record<string, string> = {}) => locales.map((locale) => ({
-    url: publicLocalizedUrl(path, locale, params),
+    url: sitemapXmlUrl(path, locale, params),
     changeFrequency: path.startsWith("/products/") ? "weekly" as const : "daily" as const,
     priority: path === "/" ? 1 : path === "/catalog" ? 0.9 : path.startsWith("/products/") ? 0.8 : 0.7,
     alternates: {
       languages: {
-        ru: publicLocalizedUrl(path, "ru", params),
-        ro: publicLocalizedUrl(path, "ro", params),
-        "x-default": publicLocalizedUrl(path, "ru", params),
+        ru: sitemapXmlUrl(path, "ru", params),
+        ro: sitemapXmlUrl(path, "ro", params),
+        "x-default": sitemapXmlUrl(path, "ru", params),
       },
     },
   }));
