@@ -22,7 +22,7 @@ export async function generateMetadata({ searchParams }: { searchParams: Params 
     locale,
     path: "/",
     title: locale === "ro" ? "Sisteme de securitate și instalare în Moldova | Novotech" : "Системы безопасности и монтаж в Молдове | Novotech",
-    description: locale === "ro" ? "Echipamente profesionale, calcul CCTV, livrare și instalare a sistemelor de securitate în Moldova." : "Профессиональное оборудование, расчёт CCTV, доставка и монтаж систем безопасности в Молдове.",
+    description: locale === "ro" ? "Echipamente profesionale pentru securitate, calcul CCTV, prețuri cu amănuntul, livrare și instalare în Moldova prin Novotech." : "Профессиональное оборудование для безопасности, расчёт CCTV, розничные цены, доставка и монтаж систем в Молдове от Novotech.",
   });
 }
 

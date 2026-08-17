@@ -18,7 +18,7 @@ export async function generateMetadata({ searchParams }: { searchParams: Params 
     locale,
     path: "/installation",
     title: locale === "ro" ? "Instalarea sistemelor de securitate în Moldova | Novotech" : "Монтаж систем безопасности в Молдове | Novotech",
-    description: locale === "ro" ? "Selecție, instalare și configurare profesională pentru supraveghere video și sisteme de securitate." : "Подбор, профессиональный монтаж и настройка видеонаблюдения и систем безопасности.",
+    description: locale === "ro" ? "Selecție, verificarea compatibilității, instalare și configurare profesională pentru supraveghere video și sisteme de securitate în Moldova." : "Подбор, проверка совместимости, профессиональный монтаж и настройка видеонаблюдения и систем безопасности по всей Молдове.",
   });
 }
 

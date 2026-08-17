@@ -40,9 +40,9 @@ export function PublicRetailShell({ children, locale, languagePath, cartQuantity
           </nav>
           <div className="ml-auto flex items-center gap-1 xl:ml-0">
             <div className="hidden items-center md:flex">
-              <Link aria-current={locale === "ru" ? "page" : undefined} className={`inline-flex min-h-11 items-center px-2 text-xs font-semibold ${locale === "ru" ? "text-blue-700" : "text-zinc-500"}`} href={languageHref("ru")} prefetch={false}>RU</Link>
+              <a aria-current={locale === "ru" ? "page" : undefined} className={`inline-flex min-h-11 items-center px-2 text-xs font-semibold ${locale === "ru" ? "text-blue-700" : "text-zinc-500"}`} href={languageHref("ru")}>RU</a>
               <span aria-hidden="true" className="text-zinc-300">/</span>
-              <Link aria-current={locale === "ro" ? "page" : undefined} className={`inline-flex min-h-11 items-center px-2 text-xs font-semibold ${locale === "ro" ? "text-blue-700" : "text-zinc-500"}`} href={languageHref("ro")} prefetch={false}>RO</Link>
+              <a aria-current={locale === "ro" ? "page" : undefined} className={`inline-flex min-h-11 items-center px-2 text-xs font-semibold ${locale === "ro" ? "text-blue-700" : "text-zinc-500"}`} href={languageHref("ro")}>RO</a>
             </div>
             <Link aria-label={copy.partnerCabinet} className="grid size-11 shrink-0 place-items-center rounded-sm text-zinc-700 hover:bg-zinc-100 hover:text-blue-700" href="/cabinet" prefetch={false}>
               <CircleUserRound aria-hidden="true" className="size-5" />
@@ -53,9 +53,9 @@ export function PublicRetailShell({ children, locale, languagePath, cartQuantity
               <nav aria-label={ru ? "Мобильная навигация" : "Navigare mobilă"} className="absolute right-0 top-12 w-[min(22rem,calc(100vw-2rem))] border border-zinc-200 bg-white p-2 shadow-xl">
                 {links.map(([label, href]) => <Link className="flex min-h-11 items-center px-3 text-sm font-medium hover:bg-blue-50 hover:text-blue-800" href={href} key={href} prefetch={false}>{label}</Link>)}
                 <div className="flex min-h-11 items-center border-t border-zinc-100 px-1">
-                  <Link aria-current={locale === "ru" ? "page" : undefined} className={`inline-flex min-h-11 items-center px-3 text-xs font-semibold ${locale === "ru" ? "text-blue-700" : "text-zinc-500"}`} href={languageHref("ru")} prefetch={false}>RU</Link>
+                  <a aria-current={locale === "ru" ? "page" : undefined} className={`inline-flex min-h-11 items-center px-3 text-xs font-semibold ${locale === "ru" ? "text-blue-700" : "text-zinc-500"}`} href={languageHref("ru")}>RU</a>
                   <span aria-hidden="true" className="text-zinc-300">/</span>
-                  <Link aria-current={locale === "ro" ? "page" : undefined} className={`inline-flex min-h-11 items-center px-3 text-xs font-semibold ${locale === "ro" ? "text-blue-700" : "text-zinc-500"}`} href={languageHref("ro")} prefetch={false}>RO</Link>
+                  <a aria-current={locale === "ro" ? "page" : undefined} className={`inline-flex min-h-11 items-center px-3 text-xs font-semibold ${locale === "ro" ? "text-blue-700" : "text-zinc-500"}`} href={languageHref("ro")}>RO</a>
                 </div>
               </nav>
             </details>

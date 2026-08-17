@@ -17,8 +17,8 @@ export async function generateMetadata({ searchParams }: { searchParams: Params 
     path: "/partners",
     title: locale === "ru" ? "Наши партнёры | Novotech" : "Partenerii noștri | Novotech",
     description: locale === "ru"
-      ? "Официальная деловая партнёрская сеть Novotech Systems в Молдове."
-      : "Rețeaua oficială de parteneri de afaceri Novotech Systems din Moldova.",
+      ? "Найдите проверенного партнёра Novotech в Молдове для подбора, поставки, монтажа и обслуживания профессиональных систем безопасности."
+      : "Găsiți un partener Novotech verificat în Moldova pentru selectarea, livrarea, instalarea și întreținerea sistemelor profesionale de securitate.",
   });
 }
 

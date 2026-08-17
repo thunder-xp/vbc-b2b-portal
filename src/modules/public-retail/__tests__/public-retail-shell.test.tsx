@@ -83,6 +83,10 @@ describe("Public Retail shell", () => {
     expect(screen.getByRole("link", { name: "Coș: 11" })).toHaveAttribute("href", "/cart?lang=ro");
     expect(screen.getByRole("heading", { name: "Informații" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Contacte" })).toBeInTheDocument();
+    for (const languageLink of screen.getAllByRole("link", { name: /^(RU|RO)$/ })) {
+      expect(languageLink.tagName).toBe("A");
+      expect(languageLink).not.toHaveAttribute("data-prefetch");
+    }
   });
 
   it("renders the real cart utility as an icon-and-label button with its bounded count", () => {

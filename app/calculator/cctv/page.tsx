@@ -16,8 +16,8 @@ export async function generateMetadata({ searchParams }: { searchParams: Promise
     path: "/calculator/cctv",
     title: locale === "ro" ? "Calcul sistem de supraveghere video | Novotech" : "Расчёт системы видеонаблюдения | Novotech",
     description: locale === "ro"
-      ? "Calculator CCTV pentru selectarea echipamentelor și instalarea unui sistem de supraveghere video în Moldova."
-      : "Калькулятор CCTV для подбора оборудования и монтажа системы видеонаблюдения в Молдове.",
+      ? "Calculați o configurație CCTV compatibilă: camere, recorder, arhivă, rețea, materiale și instalare profesională în Moldova."
+      : "Рассчитайте совместимую систему CCTV: камеры, регистратор, архив, сеть, материалы и профессиональный монтаж в Молдове.",
     index: !hasCalculatorState(params),
     follow: true,
   });

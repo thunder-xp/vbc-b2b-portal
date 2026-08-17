@@ -7,7 +7,7 @@ import { notFound } from "next/navigation";
 import { PublicRetailShell } from "@/src/modules/public-retail/components/PublicRetailShell";
 import { PublicStructuredData } from "@/src/modules/public-retail/components/PublicStructuredData";
 import { availabilityCopy, availabilityTone, formatRetailPrice, publicRetailLocale, retailCopy } from "@/src/modules/public-retail/presentation";
-import { buildPublicMetadata, compactSeoDescription, publicBreadcrumbSchema, publicLocalizedUrl, publicProductSchema } from "@/src/modules/public-retail/seo";
+import { buildPublicMetadata, publicBreadcrumbSchema, publicLocalizedUrl, publicProductSchema, publicProductSeoDescription } from "@/src/modules/public-retail/seo";
 import { getPublicRetailProduct } from "@/src/modules/public-retail/server";
 import { PublicRetailAddToCartButton } from "@/src/modules/public-retail/components/PublicRetailAddToCartButton";
 import { publicRetailFilterHref } from "@/src/modules/public-retail/catalog-links";
@@ -19,9 +19,6 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   const locale = publicRetailLocale(query.lang);
   const product = await getPublicRetailProduct(slug, locale).catch(() => null);
   if (!product) return {};
-  const fallback = locale === "ro"
-    ? `${product.name}. Preț cu amănuntul, disponibilitate și caracteristici.`
-    : `${product.name}. Розничная цена, наличие и характеристики.`;
   const context = product.brand?.name ?? product.categoryPath.at(-1)?.name;
   const title = context && !product.name.toLocaleLowerCase().includes(context.toLocaleLowerCase())
     ? `${product.name} — ${context} | Novotech`
@@ -30,7 +27,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
     locale,
     path: `/products/${product.slug}`,
     title,
-    description: compactSeoDescription(product.shortDescription ?? "", fallback),
+    description: publicProductSeoDescription(product.name, product.shortDescription, locale),
     images: product.image ? [product.image.url] : undefined,
   });
 }

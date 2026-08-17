@@ -5,7 +5,7 @@ import { PublicRetailShowcase } from "@/src/modules/public-retail/components/Pub
 import { PublicRetailShell } from "@/src/modules/public-retail/components/PublicRetailShell";
 import { PublicStructuredData } from "@/src/modules/public-retail/components/PublicStructuredData";
 import { publicRetailLocale, publicRetailVisibleCategories } from "@/src/modules/public-retail/presentation";
-import { buildPublicMetadata, publicBreadcrumbSchema, publicCatalogSeoState, publicLocalizedUrl } from "@/src/modules/public-retail/seo";
+import { buildPublicMetadata, publicBreadcrumbSchema, publicCatalogSeoState, publicCategorySeoDescription, publicLocalizedUrl } from "@/src/modules/public-retail/seo";
 import { getPublicRetailCategories, getPublicRetailService } from "@/src/modules/public-retail/server";
 import { parseCatalogAttributeFilters } from "@/src/modules/catalog/services/catalog-sort-state";
 import { publicRetailCatalogReturnHref } from "@/src/modules/public-retail/catalog-links";
@@ -23,14 +23,11 @@ export async function generateMetadata({ searchParams }: { searchParams: Promise
   const title = category
     ? locale === "ro" ? `${category.name}: catalog și prețuri | Novotech` : `${category.name}: каталог и цены | Novotech`
     : locale === "ro" ? "Catalog de sisteme de securitate | Novotech" : "Каталог систем безопасности | Novotech";
-  const fallback = category
-    ? locale === "ro" ? `${category.name}: echipamente profesionale, prețuri cu amănuntul și disponibilitate.` : `${category.name}: профессиональное оборудование, розничные цены и наличие.`
-    : locale === "ro" ? "Catalog cu amănuntul de echipamente profesionale pentru sisteme de securitate." : "Розничный каталог профессионального оборудования для систем безопасности.";
   return buildPublicMetadata({
     locale,
     path: "/catalog",
     title,
-    description: category?.description?.trim() || fallback,
+    description: publicCategorySeoDescription(category?.name, category?.description, locale),
     canonicalParams: state.canonicalParams,
     index: state.index,
     follow: true,

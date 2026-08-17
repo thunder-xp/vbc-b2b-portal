@@ -14,7 +14,7 @@ export async function generateMetadata({ searchParams }: { searchParams: Params 
     locale,
     path: "/guides",
     title: locale === "ro" ? "Ghiduri pentru sisteme de securitate | Novotech" : "Как выбрать систему безопасности | Novotech",
-    description: locale === "ro" ? "Ghiduri practice pentru alegerea echipamentelor și sistemelor de securitate." : "Практические материалы по выбору оборудования и систем безопасности.",
+    description: locale === "ro" ? "Ghiduri practice Novotech despre alegerea echipamentelor, compatibilitatea componentelor și pregătirea instalării sistemelor de securitate." : "Практические руководства Novotech по выбору оборудования, совместимости компонентов и подготовке монтажа систем безопасности.",
   });
 }
 

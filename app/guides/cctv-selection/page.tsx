@@ -12,7 +12,7 @@ type Params = Promise<Record<string, string | string[] | undefined>>;
 function content(locale: "ru" | "ro") {
   return locale === "ru" ? {
     title: "Как подобрать видеонаблюдение для дома или бизнеса",
-    description: "Практический порядок выбора камер, архива, сети, питания и монтажа системы видеонаблюдения.",
+    description: "Практическое руководство по выбору камер, видеорегистратора, глубины архива, сети, питания и подготовке монтажа системы CCTV.",
     intro: "Надёжная система начинается не с конкретной камеры, а с задач: какие зоны нужно видеть, насколько подробно и как долго хранить записи.",
     sections: [
       ["1. Определите зоны и задачи", "Отметьте входы, периметр, кассовые или складские зоны. Для каждой зоны решите, нужен общий обзор или распознавание деталей."],
@@ -23,7 +23,7 @@ function content(locale: "ru" | "ro") {
     ],
   } : {
     title: "Cum alegeți supravegherea video pentru casă sau afacere",
-    description: "Ordinea practică pentru alegerea camerelor, arhivei, rețelei, alimentării și instalării CCTV.",
+    description: "Ghid practic pentru alegerea camerelor, recorderului, arhivei, rețelei, alimentării și pregătirea instalării unui sistem CCTV.",
     intro: "Un sistem fiabil pornește de la obiective: ce zone trebuie observate, cât de detaliat și cât timp trebuie păstrate înregistrările.",
     sections: [
       ["1. Stabiliți zonele și obiectivele", "Marcați intrările, perimetrul, casele sau depozitul. Decideți pentru fiecare zonă dacă aveți nevoie de vedere generală sau de detalii."],
@@ -38,7 +38,8 @@ function content(locale: "ru" | "ro") {
 export async function generateMetadata({ searchParams }: { searchParams: Params }): Promise<Metadata> {
   const locale = publicRetailLocale((await searchParams).lang);
   const copy = content(locale);
-  return buildPublicMetadata({ locale, path: "/guides/cctv-selection", title: `${copy.title} | Novotech`, description: copy.description });
+  const title = locale === "ro" ? "Cum alegeți supravegherea video | Novotech" : "Как выбрать видеонаблюдение | Novotech";
+  return buildPublicMetadata({ locale, path: "/guides/cctv-selection", title, description: copy.description });
 }
 
 export default async function CctvGuidePage({ searchParams }: { searchParams: Params }) {

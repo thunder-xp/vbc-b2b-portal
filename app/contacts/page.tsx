@@ -16,8 +16,8 @@ export async function generateMetadata({ searchParams }: { searchParams: Params 
     path: "/contacts",
     title: locale === "ro" ? "Contacte și magazine Novotech — Chișinău și Bălți" : "Контакты и магазины Novotech — Кишинёв и Бельцы",
     description: locale === "ro"
-      ? "Adresele, telefoanele și programul magazinelor Novotech cu echipamente și soluții de securitate."
-      : "Адреса, телефоны и график магазинов Novotech с оборудованием и решениями для безопасности.",
+      ? "Adresele, telefoanele și programul magazinelor Novotech din Chișinău și Bălți, cu echipamente și soluții profesionale de securitate."
+      : "Адреса, телефоны и график магазинов Novotech в Кишинёве и Бельцах с профессиональным оборудованием и решениями для безопасности.",
   });
 }
 

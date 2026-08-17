@@ -48,7 +48,8 @@ const content = {
 
 export async function generateMetadata({ searchParams }: { searchParams: Params }): Promise<Metadata> {
   const locale = publicRetailLocale((await searchParams).lang);
-  return buildPublicMetadata({ locale, path: "/about", title: content[locale].title, description: content[locale].description });
+  const title = locale === "ro" ? "Despre Novotech | Sisteme de securitate" : "О компании Novotech | Системы безопасности";
+  return buildPublicMetadata({ locale, path: "/about", title, description: content[locale].description });
 }
 
 export default async function AboutPage({ searchParams }: { searchParams: Params }) {

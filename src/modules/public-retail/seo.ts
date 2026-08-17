@@ -124,6 +124,41 @@ export function compactSeoDescription(value: string, fallback: string): string {
   return normalized.length <= 158 ? normalized : `${normalized.slice(0, 155).trimEnd()}…`;
 }
 
+export function publicProductSeoDescription(
+  name: string,
+  description: string | null,
+  locale: PublicRetailLocale,
+): string {
+  const normalized = (description ?? "").replace(/\s+/g, " ").trim();
+  const fallback = locale === "ro"
+    ? `${name}. Preț cu amănuntul, caracteristici, disponibilitate și livrare în Moldova prin Novotech.`
+    : `${name}. Розничная цена, характеристики, наличие и доставка по Молдове в каталоге Novotech.`;
+  if (normalized.length < 40) return compactSeoDescription("", fallback);
+  if (normalized.length >= 120) return compactSeoDescription(normalized, fallback);
+  const suffix = locale === "ro"
+    ? " Preț, disponibilitate și livrare în Moldova prin Novotech."
+    : " Цена, наличие и доставка по Молдове в каталоге Novotech.";
+  return compactSeoDescription(`${normalized}${/[.!?]$/.test(normalized) ? "" : "."}${suffix}`, fallback);
+}
+
+export function publicCategorySeoDescription(
+  name: string | undefined,
+  description: string | null | undefined,
+  locale: PublicRetailLocale,
+): string {
+  const normalized = (description ?? "").replace(/\s+/g, " ").trim();
+  const subject = name ?? (locale === "ro" ? "Sisteme de securitate" : "Системы безопасности");
+  const fallback = locale === "ro"
+    ? `${subject}: echipamente profesionale, prețuri cu amănuntul, disponibilitate și livrare în Moldova prin Novotech.`
+    : `${subject}: профессиональное оборудование, розничные цены, наличие и доставка по Молдове в каталоге Novotech.`;
+  if (normalized.length < 40) return compactSeoDescription("", fallback);
+  if (normalized.length >= 120) return compactSeoDescription(normalized, fallback);
+  const suffix = locale === "ro"
+    ? " Consultați prețurile, disponibilitatea și livrarea prin Novotech."
+    : " Сравните цены, наличие и условия доставки в каталоге Novotech.";
+  return compactSeoDescription(`${normalized}${/[.!?]$/.test(normalized) ? "" : "."}${suffix}`, fallback);
+}
+
 export function publicBreadcrumbSchema(
   items: Array<{ name: string; url: string }>,
 ): Record<string, unknown> {

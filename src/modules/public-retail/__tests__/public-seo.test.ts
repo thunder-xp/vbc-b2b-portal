@@ -8,7 +8,9 @@ import {
   publicArticleSchema,
   publicInstallationServiceSchema,
   publicOrganizationSchemas,
+  publicCategorySeoDescription,
   publicProductSchema,
+  publicProductSeoDescription,
 } from "../seo";
 import type { PublicRetailProductDetailDto } from "../types";
 
@@ -64,6 +66,18 @@ describe("public SEO contract", () => {
     expect(hasCalculatorState({ lang: "ru" })).toBe(false);
     expect(hasCalculatorState({ lang: "ru", object: "warehouse" })).toBe(true);
     expect(publicLocalizedUrl("/calculator/cctv", "ru")).toBe("https://www.nsd.md/calculator/cctv?lang=ru");
+  });
+
+  it("keeps localized product and category descriptions useful and bounded", () => {
+    const shortProduct = publicProductSeoDescription("Camera X", "Cameră IP", "ro");
+    const shortCategory = publicCategorySeoDescription("Camere IP", "Echipamente CCTV.", "ro");
+    const longProduct = publicProductSeoDescription("Camera X", "x".repeat(200), "ru");
+
+    expect(shortProduct).toContain("Camera X");
+    expect(shortProduct).toContain("Moldova");
+    expect(shortCategory).toContain("Camere IP");
+    expect(shortCategory).toContain("Novotech");
+    expect([...longProduct]).toHaveLength(156);
   });
 
   it("builds RETAIL-only Product offers from the visible DTO", () => {
