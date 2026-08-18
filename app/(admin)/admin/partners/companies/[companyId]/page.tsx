@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 
 import {
   AdminCompanyPlatformAccess,
+  AdminCompanyContractMapping,
   AdminPageHeader,
   createAdminCompanyService,
   requireAdminPagePermission,
@@ -14,14 +15,15 @@ export default async function AdminPartnerCompanyAccessPage({
   params: Promise<{ companyId: string }>;
   searchParams: Promise<{ accessConflict?: string }>;
 }) {
-  await requireAdminPagePermission("admin.companies.view");
+  const context = await requireAdminPagePermission("admin.companies.view");
   const [{ companyId }, query] = await Promise.all([params, searchParams]);
   const service = createAdminCompanyService();
-  const [company, access] = await Promise.all([
+  const [company, access, contractMapping] = await Promise.all([
     service.getOverview(companyId),
     service.getAccess(companyId),
+    service.getContractMapping(companyId),
   ]);
-  if (!company || !access) notFound();
+  if (!company || !access || !contractMapping) notFound();
 
   return (
     <div className="space-y-6">
@@ -34,6 +36,10 @@ export default async function AdminPartnerCompanyAccessPage({
         access={access}
         conflict={query.accessConflict === "1"}
         returnPath={`/admin/partners/companies/${companyId}`}
+      />
+      <AdminCompanyContractMapping
+        canRefresh={context.permissions.includes("admin.integrations.manage")}
+        mapping={contractMapping}
       />
     </div>
   );

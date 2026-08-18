@@ -4,6 +4,7 @@ import { normalizeFiscalCode } from "@/src/modules/company-identity/fiscal-code"
 import {
   normalizeMatchText,
   normalizePhone,
+  parseContractRow,
   parseCounterpartyRow,
 } from "../counterparty-directory-normalization";
 import { countSnapshot } from "../counterparty-directory-sync.service";
@@ -84,6 +85,33 @@ describe("counterparty directory normalization", () => {
       Недействителен: false,
       DeletionMark: true,
     })).toMatchObject({ isActive: false, isDeleted: true });
+  });
+
+  it("preserves governed contract facts needed for local admin validation", () => {
+    expect(parseContractRow({
+      Ref_Key: "e5baa428-8919-11ee-129a-7239d3b7bd5c",
+      Code: "UU-002163",
+      Description: "NS-155/2211/23",
+      Owner: ACTIVE_REF,
+      Owner_Type: "StandardODATA.Catalog_Контрагенты",
+      НомерДоговора: "NS-155/2211/23",
+      ДатаДоговора: "2023-11-22T00:00:00",
+      ВидДоговора: "СПокупателем",
+      ВидЦенКонтрагента_Key: "23cb93ec-3eb5-11f0-8d8a-7239d3b7bd5c",
+      Организация_Key: "4643d461-aa49-4b70-9486-a59f80ee6af8",
+      ВалютаРасчетов_Key: "cf53f667-77a3-4c69-8146-2fd58525bbfc",
+      ДоговорПодписан: true,
+      Недействителен: false,
+      DeletionMark: false,
+    })).toMatchObject({
+      external1cId: "e5baa428-8919-11ee-129a-7239d3b7bd5c",
+      counterpartyExternal1cId: ACTIVE_REF,
+      contractType: "СПокупателем",
+      organizationExternal1cId: "4643d461-aa49-4b70-9486-a59f80ee6af8",
+      signed: true,
+      isActive: true,
+      isDefault: false,
+    });
   });
 
   it("counts duplicate fiscal codes and directory health without mutating rows", () => {

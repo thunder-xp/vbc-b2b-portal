@@ -3,6 +3,8 @@ import type {
   AdminCompanyOverview,
   AdminCompanyPage,
   AdminCompanyAccess,
+  AdminCompanyContractMappingProjection,
+  AdminContractMappingResult,
   PartnerAccessPresetCode,
 } from "../types";
 
@@ -19,6 +21,14 @@ export interface AdminCompanyRepository {
   ): Promise<AdminCompanyPage>;
   getOverview(companyId: string): Promise<AdminCompanyOverview | null>;
   getAccess(companyId: string): Promise<AdminCompanyAccess | null>;
+  getContractMapping(companyId: string): Promise<AdminCompanyContractMappingProjection | null>;
+  mapContract(input: {
+    companyId: string;
+    contractRef: string;
+    expectedVersion: number;
+    reason: string;
+    correlationId: string;
+  }): Promise<AdminContractMappingResult>;
   updateAccess(input: {
     companyId: string;
     expectedVersion: number;

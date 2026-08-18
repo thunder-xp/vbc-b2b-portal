@@ -104,6 +104,13 @@ export type CounterpartyContractRow = {
   external1cId: string;
   code: string | null;
   name: string;
+  number: string | null;
+  date: string | null;
+  contractType: string | null;
+  organizationExternal1cId: string | null;
+  currencyExternal1cId: string | null;
+  signed: boolean | null;
+  isDefault: boolean;
   priceTypeExternal1cId: string | null;
   isActive: boolean;
   isDeleted: boolean;

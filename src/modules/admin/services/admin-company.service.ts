@@ -8,6 +8,8 @@ import {
   type AdminCompanyOverview,
   type AdminCompanyPage,
   type AdminCompanyAccess,
+  type AdminCompanyContractMappingProjection,
+  type AdminContractMappingResult,
   type PartnerAccessPresetCode,
   PARTNER_ACCESS_PRESETS,
 } from "../types";
@@ -41,6 +43,33 @@ export class AdminCompanyService {
   getAccess(companyId: string): Promise<AdminCompanyAccess | null> {
     if (!COMPANY_ID_PATTERN.test(companyId)) return Promise.resolve(null);
     return this.repository.getAccess(companyId);
+  }
+
+  getContractMapping(companyId: string): Promise<AdminCompanyContractMappingProjection | null> {
+    if (!COMPANY_ID_PATTERN.test(companyId)) return Promise.resolve(null);
+    return this.repository.getContractMapping(companyId);
+  }
+
+  mapContract(input: {
+    companyId: string;
+    contractRef: string;
+    expectedVersion: number;
+    reason: string;
+    correlationId: string;
+  }): Promise<AdminContractMappingResult> {
+    const reason = input.reason.trim();
+    if (
+      !COMPANY_ID_PATTERN.test(input.companyId)
+      || !COMPANY_ID_PATTERN.test(input.contractRef)
+      || !COMPANY_ID_PATTERN.test(input.correlationId)
+      || !Number.isInteger(input.expectedVersion)
+      || input.expectedVersion < 1
+      || reason.length < 10
+      || reason.length > 500
+    ) {
+      throw new Error("Invalid contract mapping request.");
+    }
+    return this.repository.mapContract({ ...input, reason });
   }
 
   updateAccess(input: {

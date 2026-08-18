@@ -12,6 +12,8 @@ import type {
   AdminCompanyPage,
   AdminCompanySummary,
   AdminCompanyAccess,
+  AdminCompanyContractMappingProjection,
+  AdminContractMappingResult,
   PartnerAccessPresetCode,
 } from "../../types";
 
@@ -113,6 +115,32 @@ export class SupabaseAdminCompanyRepository implements AdminCompanyRepository {
     return this.call<AdminCompanyAccess | null>("get_admin_partner_company_access", {
       p_company_id: companyId,
     });
+  }
+
+  async getContractMapping(companyId: string): Promise<AdminCompanyContractMappingProjection | null> {
+    return this.call<AdminCompanyContractMappingProjection | null>(
+      "get_admin_partner_contract_mapping",
+      { p_company_id: companyId },
+    );
+  }
+
+  async mapContract(input: {
+    companyId: string;
+    contractRef: string;
+    expectedVersion: number;
+    reason: string;
+    correlationId: string;
+  }): Promise<AdminContractMappingResult> {
+    return this.call<AdminContractMappingResult>(
+      "map_admin_partner_company_contract",
+      {
+        p_company_id: input.companyId,
+        p_contract_ref: input.contractRef,
+        p_expected_version: input.expectedVersion,
+        p_reason: input.reason,
+        p_correlation_id: input.correlationId,
+      },
+    );
   }
 
   async updateAccess(input: {

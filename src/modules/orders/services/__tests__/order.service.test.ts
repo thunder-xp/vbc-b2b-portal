@@ -396,31 +396,33 @@ describe("DefaultPartnerOrderService", () => {
     expect(dependencies.orderProvider.exportSalesOrder).not.toHaveBeenCalled();
   });
 
-  it("blocks submission when the selected customer contract cannot be resolved", async () => {
+  it("blocks submission when the local company contract mapping is missing", async () => {
     const dependencies = makeDependencies();
-    dependencies.partnerProvider.resolveCustomerOrderContract.mockResolvedValue(null);
+    dependencies.company.external1cContractId = null;
     await expect(dependencies.service.submit("user-1", input())).rejects.toMatchObject({
       code: "ORDER_CONTRACT_MAPPING_MISSING",
     });
     expect(dependencies.orderProvider.exportSalesOrder).not.toHaveBeenCalled();
+    expect(dependencies.partnerProvider.resolveCustomerOrderContract).not.toHaveBeenCalled();
     expect(console.error).toHaveBeenCalledWith(expect.objectContaining({
       event: "partner_order_submission_failed",
-      stage: "contract_resolution",
+      stage: "contract_mapping",
+      adminResolutionPath: "/admin/companies/company-1?tab=integration",
     }));
   });
 
   it("logs the original preflight exception at the exact failing stage", async () => {
     const dependencies = makeDependencies();
-    dependencies.partnerProvider.resolveCustomerOrderContract.mockRejectedValue(new Error("Contract lookup failed."));
+    dependencies.partnerProvider.fetchPriceType.mockRejectedValue(new Error("Price type lookup failed."));
 
     await expect(dependencies.service.submit("user-1", input())).rejects.toBeInstanceOf(RecoverableOrderSubmissionError);
 
     expect(console.error).toHaveBeenCalledWith(expect.objectContaining({
       event: "partner_order_submission_failed",
-      stage: "contract_resolution",
+      stage: "price_type_currency_resolution",
       errorType: "Error",
       errorName: "Error",
-      errorMessage: "Contract lookup failed.",
+      errorMessage: "Price type lookup failed.",
     }));
     expect(dependencies.orderRepository.beginSubmission).not.toHaveBeenCalled();
     expect(dependencies.orderProvider.exportSalesOrder).not.toHaveBeenCalled();
@@ -428,7 +430,7 @@ describe("DefaultPartnerOrderService", () => {
 
   it("preserves a structured recoverable error raised during preflight", async () => {
     const dependencies = makeDependencies();
-    dependencies.partnerProvider.resolveCustomerOrderContract.mockRejectedValue(
+    dependencies.partnerProvider.fetchPriceType.mockRejectedValue(
       new RecoverableOrderSubmissionError(
         "Contract mapping is unavailable.",
         "ORDER_CONTRACT_MAPPING_MISSING",
@@ -495,14 +497,10 @@ describe("DefaultPartnerOrderService", () => {
     expect(dependencies.orderProvider.exportSalesOrder).not.toHaveBeenCalled();
   });
 
-  it("uses the default 1C customer contract when the company has no stored contract", async () => {
+  it("uses the mapped local 1C customer contract without a live contract lookup", async () => {
     const dependencies = makeDependencies();
-    dependencies.company.external1cContractId = null;
     await dependencies.service.submit("user-1", input());
-    expect(dependencies.partnerProvider.resolveCustomerOrderContract).toHaveBeenCalledWith(expect.objectContaining({
-      partnerReference: "11111111-1111-4111-8111-111111111111",
-      organizationReference: "4643d461-aa49-4b70-9486-a59f80ee6af8",
-    }));
+    expect(dependencies.partnerProvider.resolveCustomerOrderContract).not.toHaveBeenCalled();
     expect(dependencies.partnerProvider.fetchPartnerContracts).not.toHaveBeenCalled();
     expect(dependencies.orderProvider.exportSalesOrder).toHaveBeenCalledWith(expect.objectContaining({
       contractReference: expect.objectContaining({ externalId: "22222222-2222-4222-8222-222222222222" }),

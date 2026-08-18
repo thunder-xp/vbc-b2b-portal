@@ -5,6 +5,7 @@ import { getCompanyUsersAction } from "@/src/modules/access-control/actions/comp
 import { CompanyUsersPanel } from "@/src/modules/access-control/components/company-users";
 import {
   AdminCompanyOverviewView,
+  AdminCompanyContractMapping,
   AdminCompanyAccessSubjects,
   AdminCompanyPlatformAccess,
   AdminHistory,
@@ -41,7 +42,7 @@ export default async function AdminCompanyPage({
   const tab = tabs.some(([value]) => value === requestedTab)
     ? requestedTab
     : "overview";
-  const [companyUsers, platformAccess, history] = await Promise.all([
+  const [companyUsers, platformAccess, history, contractMapping] = await Promise.all([
     tab === "users" || tab === "access"
       ? getCompanyUsersAction({
           companyId,
@@ -57,6 +58,9 @@ export default async function AdminCompanyPage({
         companyId,
         first(query.page),
       )
+      : Promise.resolve(null),
+    tab === "integration"
+      ? companyService.getContractMapping(companyId)
       : Promise.resolve(null),
   ]);
 
@@ -87,8 +91,16 @@ export default async function AdminCompanyPage({
           </Link>
         ))}
       </nav>
-      {tab === "overview" || tab === "integration" ? (
+      {tab === "overview" ? (
         <AdminCompanyOverviewView company={company} />
+      ) : tab === "integration" && contractMapping ? (
+        <div className="space-y-6">
+          <AdminCompanyOverviewView company={company} />
+          <AdminCompanyContractMapping
+            canRefresh={context.permissions.includes("admin.integrations.manage")}
+            mapping={contractMapping}
+          />
+        </div>
       ) : tab === "users" && companyUsers?.success ? (
         <CompanyUsersPanel
           companyId={companyUsers.data.company.id}

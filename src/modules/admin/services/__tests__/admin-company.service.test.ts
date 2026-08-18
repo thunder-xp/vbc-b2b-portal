@@ -74,6 +74,11 @@ function makeRepository(): AdminCompanyRepository {
     }),
     getOverview: vi.fn().mockResolvedValue(null),
     getAccess: vi.fn().mockResolvedValue(null),
+    getContractMapping: vi.fn().mockResolvedValue(null),
+    mapContract: vi.fn().mockResolvedValue({
+      code: "CONTRACT_MAPPING_SUCCESS",
+      correlationId: "00000000-0000-0000-0000-000000000001",
+    }),
     updateAccess: vi.fn().mockResolvedValue({
       version: 2,
       correlationId: "00000000-0000-0000-0000-000000000001",

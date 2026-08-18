@@ -60,6 +60,61 @@ export type AdminCompanyOverview = {
   warningCodes: string[];
 };
 
+export const CONTRACT_MAPPING_RESULT_CODES = [
+  "CONTRACT_MAPPING_SUCCESS",
+  "CONTRACT_NOT_FOUND",
+  "CONTRACT_NOT_OWNED_BY_COMPANY",
+  "CONTRACT_INACTIVE",
+  "CONTRACT_INVALID_TYPE",
+  "CONTRACT_ORGANIZATION_MISMATCH",
+  "CONTRACT_PRICE_TYPE_MISMATCH",
+  "CONTRACT_MAPPING_CONFLICT",
+  "CONTRACT_MAPPING_FAILED",
+] as const;
+
+export type ContractMappingResultCode = (typeof CONTRACT_MAPPING_RESULT_CODES)[number];
+
+export type AdminContractCandidate = {
+  external1cId: string;
+  code: string | null;
+  name: string;
+  number: string | null;
+  date: string | null;
+  contractType: string | null;
+  organizationRef: string | null;
+  signed: boolean | null;
+  active: boolean;
+  deleted: boolean;
+  priceTypeRef: string | null;
+  priceTypeName: string | null;
+  currencyCode: string | null;
+  default: boolean;
+  synchronizedAt: string;
+};
+
+export type AdminCompanyContractMappingProjection = {
+  companyId: string;
+  counterpartyRef: string | null;
+  currentContractRef: string | null;
+  currentPriceTypeRef: string | null;
+  currentPriceTypeName: string | null;
+  currentCurrencyCode: string | null;
+  version: number;
+  canManage: boolean;
+  candidates: AdminContractCandidate[];
+};
+
+export type AdminContractMappingResult = {
+  code: ContractMappingResultCode;
+  correlationId: string;
+  contractRef?: string;
+  currentContractRef?: string | null;
+  currentPriceTypeRef?: string | null;
+  selectedPriceTypeRef?: string | null;
+  version?: number;
+  unchanged?: boolean;
+};
+
 export const PARTNER_ACCESS_PRESETS = [
   "full_partner_access",
   "orders_only",

@@ -1,9 +1,11 @@
 import "server-only";
 
 import type { OneCEnv } from "@/src/lib/env";
+import { parseRequiredOneCGuid } from "@/src/modules/integration/providers/one-c/one-c-guid";
 import { OneCODataClient } from "@/src/modules/integration/providers/one-c/one-c-odata-client";
 import {
   ONE_C_CONTRACT_FIELDS,
+  ONE_C_DEFAULT_PARTNER_CONTRACT_FIELDS,
   ONE_C_PARTNER_FIELDS,
   ONE_C_PRICE_TYPE_FIELDS,
   ONE_C_RESOURCES,
@@ -74,6 +76,22 @@ export class OneCCounterpartyDirectorySource {
       },
     );
 
+    const defaultContractRefs = new Set<string>();
+    const defaultContractScan = await this.scanCompleteCollection(
+      ONE_C_RESOURCES.defaultPartnerContracts,
+      ONE_C_DEFAULT_PARTNER_CONTRACT_FIELDS.join(","),
+      "counterparty_directory_default_contracts",
+      (row) => {
+        if (!isRecord(row)) {
+          failedRecords += 1;
+          return;
+        }
+        const contractRef = parseRequiredOneCGuid(row["Договор_Key"]);
+        if (contractRef) defaultContractRefs.add(contractRef);
+        else failedRecords += 1;
+      },
+    );
+
     const priceTypes = new Map<string, unknown>();
     const priceTypeScan = await this.scanCompleteCollection(
       ONE_C_RESOURCES.priceTypes,
@@ -94,7 +112,10 @@ export class OneCCounterpartyDirectorySource {
     );
 
     const uniqueCounterparties = deduplicateByExternal1cId(counterparties);
-    const uniqueContracts = deduplicateByExternal1cId(contracts);
+    const uniqueContracts = deduplicateByExternal1cId(contracts).map((contract) => ({
+      ...contract,
+      isDefault: defaultContractRefs.has(contract.external1cId),
+    }));
     const duplicateCounterpartyRows = counterparties.length - uniqueCounterparties.length;
     console.info({
       event: "one_c_counterparty_directory_source_deduplicated",
@@ -121,7 +142,7 @@ export class OneCCounterpartyDirectorySource {
       counterparties: uniqueCounterparties,
       contracts: uniqueContracts,
       priceProfiles: deduplicatePriceProfiles(priceProfiles),
-      pagesProcessed: partnerScan + contractScan + priceTypeScan,
+      pagesProcessed: partnerScan + contractScan + defaultContractScan + priceTypeScan,
       failedRecords,
       skippedCounterpartyRows,
       duplicateCounterpartyRows,

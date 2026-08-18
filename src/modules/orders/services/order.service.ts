@@ -3,7 +3,7 @@ import { NotFoundError } from "../../access-control/services";
 import { MembershipStatus } from "../../access-control/types";
 import type { CatalogService } from "../../catalog/services";
 import type { OrderProvider, PartnerProvider } from "../../integration/contracts";
-import type { ExternalReferenceDTO, SalesOrderDTO } from "../../integration/dto";
+import type { ExternalReferenceDTO, PartnerContractDTO, SalesOrderDTO } from "../../integration/dto";
 import { IntegrationProviderUnavailableError, IntegrationTimeoutError } from "../../integration/errors";
 import { isStale } from "../../integration/freshness";
 import { NOVOTECH_ONE_C_ORGANIZATION_REF } from "../../integration/config";
@@ -140,8 +140,25 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
         },
       );
     }
+    if (!isOneCGuid(company.external1cContractId)) {
+      failOrderSubmission(
+        "contract_mapping",
+        new RecoverableOrderSubmissionError(
+          "The partner company has no verified local 1C contract mapping.",
+          "ORDER_CONTRACT_MAPPING_MISSING",
+        ),
+        {
+          submissionKey,
+          companyId: company.id,
+          companyName: company.displayName,
+          adminResolutionPath: `/admin/companies/${company.id}?tab=integration`,
+        },
+      );
+    }
     const counterpartyRef = company.external1cId;
     const companyPriceTypeRef = company.external1cPriceTypeId;
+    const companyContractRef = requireUuid(company.external1cContractId ?? "", "Company contract");
+    const mappedContract = mappedCustomerContract(companyContractRef);
     const cart = await this.cartRepository.findActive(company.id, userId);
     if (!cart) throw new RecoverableOrderSubmissionError("The active cart is not available.");
     if (cart.id !== submittedCartId || cart.intentVersion !== expectedIntentVersion) {
@@ -210,21 +227,7 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
                   )).then((views) => ({ commercialMode: "full" as const, views })),
           { cartId: cart.id, companyId: company.id, submissionKey },
         ),
-        diagnosticStep(
-          "contract_resolution",
-          () => this.partnerProvider.resolveCustomerOrderContract({
-            partnerReference: counterpartyRef,
-            organizationReference: NOVOTECH_ONE_C_ORGANIZATION_REF,
-            effectiveAt: new Date().toISOString(),
-          }),
-          {
-            cartId: cart.id,
-            companyId: company.id,
-            counterpartyRef,
-            organizationRef: NOVOTECH_ONE_C_ORGANIZATION_REF,
-            submissionKey,
-          },
-        ),
+        Promise.resolve(mappedContract),
         diagnosticStep(
           "price_type_currency_resolution",
           () => this.partnerProvider.fetchPriceType({ reference: companyPriceTypeRef }),
@@ -652,7 +655,7 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
         oneCOrderStatus: exported.status,
         documentTotal: snapshots.reduce((total, item) => total + item.lineTotal, 0),
         currencyCode: currencyCodes[0]!,
-        contractNumber: contract.number ?? contract.code ?? null,
+        contractNumber: (contract.number ?? contract.code) || null,
       });
       console.info({
         event: "partner_order_submission_diagnostic",
@@ -854,6 +857,23 @@ export function assertLegacyExportIntegrity(
 }
 
 function ref(externalId: string, externalType: string): ExternalReferenceDTO { return { providerCode: "one-c", externalId, externalType }; }
+
+function mappedCustomerContract(contractRef: string): PartnerContractDTO {
+  return {
+    reference: ref(contractRef, "partner-contract"),
+    code: "",
+    name: "",
+    number: null,
+    date: null,
+    contractType: "СПокупателем",
+    organizationReference: ref(NOVOTECH_ONE_C_ORGANIZATION_REF, "organization"),
+    isDefault: true,
+    active: true,
+    priceTypeReference: null,
+    priceTypeName: null,
+    priceTypeSource: null,
+  };
+}
 function requireUuid(value: string, label: string): string { if (!isUuid(value)) throw new RecoverableOrderSubmissionError(`${label} is invalid.`); return value.toLowerCase(); }
 function requireIntentVersion(value: number): number {
   if (!Number.isSafeInteger(value) || value < 1) {

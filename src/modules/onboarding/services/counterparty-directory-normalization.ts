@@ -81,6 +81,13 @@ export function parseContractRow(row: unknown): CounterpartyContractRow | null {
     external1cId,
     code: normalizeDirectoryText(row.Code),
     name,
+    number: normalizeDirectoryText(row["НомерДоговора"]),
+    date: normalizeDirectoryText(row["ДатаДоговора"]),
+    contractType: normalizeDirectoryText(row["ВидДоговора"]),
+    organizationExternal1cId: parseRequiredOneCGuid(row["Организация_Key"]),
+    currencyExternal1cId: parseRequiredOneCGuid(row["ВалютаРасчетов_Key"]),
+    signed: typeof row["ДоговорПодписан"] === "boolean" ? row["ДоговорПодписан"] : null,
+    isDefault: false,
     priceTypeExternal1cId:
       parseRequiredOneCGuid(row["ВидЦенКонтрагента_Key"]) ??
       parseRequiredOneCGuid(row["ВидЦен_Key"]),
