@@ -411,6 +411,21 @@ describe("DefaultPartnerOrderService", () => {
     }));
   });
 
+  it("accepts a valid non-RFC 1C contract GUID from the governed local mapping", async () => {
+    const dependencies = makeDependencies();
+    dependencies.company.external1cContractId = "e5baa428-8919-11ee-129a-7239d3b7bd5c";
+
+    await dependencies.service.submit("user-1", input());
+
+    expect(dependencies.orderProvider.exportSalesOrder).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contractReference: expect.objectContaining({
+          externalId: "e5baa428-8919-11ee-129a-7239d3b7bd5c",
+        }),
+      }),
+    );
+  });
+
   it("logs the original preflight exception at the exact failing stage", async () => {
     const dependencies = makeDependencies();
     dependencies.partnerProvider.fetchPriceType.mockRejectedValue(new Error("Price type lookup failed."));

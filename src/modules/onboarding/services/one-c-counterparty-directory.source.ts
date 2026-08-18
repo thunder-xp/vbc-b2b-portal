@@ -87,8 +87,13 @@ export class OneCCounterpartyDirectorySource {
           return;
         }
         const contractRef = parseRequiredOneCGuid(row["Договор_Key"]);
-        if (contractRef) defaultContractRefs.add(contractRef);
-        else failedRecords += 1;
+        if (!contractRef) {
+          failedRecords += 1;
+          return;
+        }
+        if (row["ВидДоговора"] === "СПокупателем") {
+          defaultContractRefs.add(contractRef);
+        }
       },
     );
 

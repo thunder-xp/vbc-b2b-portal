@@ -7,6 +7,14 @@ const migration = readFileSync(
   join(process.cwd(), "supabase/migrations/20260818164828_admin_partner_contract_mapping.sql"),
   "utf8",
 );
+const referenceCheckRepair = readFileSync(
+  join(process.cwd(), "supabase/migrations/20260818165823_relax_one_c_contract_reference_checks.sql"),
+  "utf8",
+);
+const mappingGuidRepair = readFileSync(
+  join(process.cwd(), "supabase/migrations/20260818170424_use_one_c_guid_semantics_for_contract_mapping.sql"),
+  "utf8",
+);
 
 describe("admin partner contract mapping migration", () => {
   it("uses the synchronized local directory and one bounded candidate projection", () => {
@@ -49,5 +57,20 @@ describe("admin partner contract mapping migration", () => {
     expect(migration).toContain("set search_path = public");
     expect(migration).toContain("revoke all on function public.map_admin_partner_company_contract");
     expect(migration).toContain("admin.partner_integrity.manage");
+  });
+
+  it("accepts governed non-RFC 1C GUIDs while rejecting zero references", () => {
+    expect(referenceCheckRepair).toContain("[0-9a-f]{4}-[0-9a-f]{4}");
+    expect(referenceCheckRepair).not.toContain("[1-5][0-9a-f]{3}");
+    expect(referenceCheckRepair).not.toContain("[89ab][0-9a-f]{3}");
+    expect(referenceCheckRepair).toContain("00000000-0000-0000-0000-000000000000");
+  });
+
+  it("uses the same 1C GUID semantics at the atomic mapping boundary", () => {
+    expect(mappingGuidRepair).toContain("[0-9a-f]{4}-[0-9a-f]{4}");
+    expect(mappingGuidRepair).not.toContain("[1-5][0-9a-f]{3}");
+    expect(mappingGuidRepair).not.toContain("[89ab][0-9a-f]{3}");
+    expect(mappingGuidRepair).toContain("00000000-0000-0000-0000-000000000000");
+    expect(mappingGuidRepair).toContain("admin.partner_integrity.manage");
   });
 });

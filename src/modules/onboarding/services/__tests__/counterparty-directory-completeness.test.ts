@@ -69,7 +69,52 @@ describe("OneCCounterpartyDirectorySource completeness", () => {
       duplicateCounterpartyRows: 1,
     });
   });
+
+  it("marks only customer contracts from the default-contract register", async () => {
+    const customerContractRef = "e5baa428-8919-11ee-129a-7239d3b7bd5c";
+    const supplierContractRef = "246116a4-e4e6-11ed-0899-7239d3b7bd5c";
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+      const url = String(input);
+      const value = url.includes("Catalog_Контрагенты")
+        ? [{ Ref_Key: MULTI_REF, Description: "MULTI-SECURITY", Покупатель: true }]
+        : url.includes("Catalog_ДоговорыКонтрагентов")
+          ? [
+              contractRow(customerContractRef, "СПокупателем"),
+              contractRow(supplierContractRef, "СПоставщиком"),
+            ]
+          : url.includes("InformationRegister_ОсновныеДоговорыКонтрагента")
+            ? [
+                { Договор_Key: customerContractRef, ВидДоговора: "СПокупателем" },
+                { Договор_Key: supplierContractRef, ВидДоговора: "СПоставщиком" },
+              ]
+            : [];
+      return new Response(JSON.stringify({ value }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }));
+
+    const snapshot = await new OneCCounterpartyDirectorySource(env()).load();
+
+    expect(snapshot.contracts).toEqual(expect.arrayContaining([
+      expect.objectContaining({ external1cId: customerContractRef, isDefault: true }),
+      expect.objectContaining({ external1cId: supplierContractRef, isDefault: false }),
+    ]));
+  });
 });
+
+function contractRow(reference: string, contractType: string) {
+  return {
+    Ref_Key: reference,
+    Code: reference.slice(0, 8),
+    Description: reference,
+    Owner: MULTI_REF,
+    Owner_Type: "StandardODATA.Catalog_Контрагенты",
+    ВидДоговора: contractType,
+    Недействителен: false,
+    DeletionMark: false,
+  };
+}
 
 function env(): OneCEnv {
   return {

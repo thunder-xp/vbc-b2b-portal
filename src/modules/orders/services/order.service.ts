@@ -157,7 +157,7 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
     }
     const counterpartyRef = company.external1cId;
     const companyPriceTypeRef = company.external1cPriceTypeId;
-    const companyContractRef = requireUuid(company.external1cContractId ?? "", "Company contract");
+    const companyContractRef = requireOneCGuid(company.external1cContractId, "Company contract");
     const mappedContract = mappedCustomerContract(companyContractRef);
     const cart = await this.cartRepository.findActive(company.id, userId);
     if (!cart) throw new RecoverableOrderSubmissionError("The active cart is not available.");
@@ -875,6 +875,10 @@ function mappedCustomerContract(contractRef: string): PartnerContractDTO {
   };
 }
 function requireUuid(value: string, label: string): string { if (!isUuid(value)) throw new RecoverableOrderSubmissionError(`${label} is invalid.`); return value.toLowerCase(); }
+function requireOneCGuid(value: string | null | undefined, label: string): string {
+  if (!isOneCGuid(value)) throw new RecoverableOrderSubmissionError(`${label} is invalid.`);
+  return value.trim().toLowerCase();
+}
 function requireIntentVersion(value: number): number {
   if (!Number.isSafeInteger(value) || value < 1) {
     throw new RecoverableOrderSubmissionError(
