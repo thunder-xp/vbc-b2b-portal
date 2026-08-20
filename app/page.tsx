@@ -38,7 +38,7 @@ export default async function Home({ searchParams }: { searchParams: Params }) {
     <PublicStructuredData data={publicOrganizationSchemas(locale, true)} />
     <main>
       <section className="relative isolate min-h-[520px] overflow-hidden sm:min-h-[570px] lg:min-h-[600px]">
-        <Image alt={ru ? "Профессиональная установка системы видеонаблюдения" : "Instalarea profesională a unui sistem de supraveghere video"} className="object-cover object-[68%_center]" fetchPriority="high" fill sizes="100vw" src="/retail/security-installation-hero.webp" />
+        <Image alt={ru ? "Профессиональная установка системы видеонаблюдения" : "Instalarea profesională a unui sistem de supraveghere video"} className="object-cover object-[68%_center]" fetchPriority="high" fill loading="eager" sizes="100vw" src="/retail/security-installation-hero.webp" />
         <div aria-hidden="true" className="absolute inset-0 bg-zinc-950/60" />
         <div className="relative mx-auto flex min-h-[520px] max-w-[1440px] items-center px-4 py-12 sm:min-h-[570px] sm:px-6 lg:min-h-[600px] lg:px-8">
           <div className="max-w-2xl text-white">

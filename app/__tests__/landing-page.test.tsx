@@ -45,12 +45,21 @@ describe("public retail landing", () => {
     expect(screen.queryByText("Стать партнёром")).not.toBeInTheDocument();
   });
 
-  it("assigns high browser priority to the responsive homepage LCP image", () => {
+  it("assigns eager high browser priority to the responsive homepage LCP image", async () => {
     const page = readFileSync(join(process.cwd(), "app/page.tsx"), "utf8");
 
-    expect(page).toContain('fetchPriority="high" fill sizes="100vw" src="/retail/security-installation-hero.webp"');
+    expect(page).toContain('fetchPriority="high" fill loading="eager" sizes="100vw" src="/retail/security-installation-hero.webp"');
+    expect(page).not.toMatch(/loading="lazy"[\s\S]{0,120}security-installation-hero\.webp/);
     expect(page).not.toMatch(/\bpreload\b[\s\S]{0,120}security-installation-hero\.webp/);
     expect(page).not.toMatch(/\bpriority\b[\s\S]{0,120}security-installation-hero\.webp/);
+
+    const { container } = render(await Home({ searchParams: Promise.resolve({}) }));
+    const hero = container.querySelector<HTMLImageElement>('img[src*="security-installation-hero"]');
+
+    expect(hero).toHaveAttribute("loading", "eager");
+    expect(hero).toHaveAttribute("fetchpriority", "high");
+    expect(hero).toHaveAttribute("sizes", "100vw");
+    expect(hero?.getAttribute("srcset")).toContain("security-installation-hero");
   });
 
   it("renders object discovery and only governed category tiles", async () => {
