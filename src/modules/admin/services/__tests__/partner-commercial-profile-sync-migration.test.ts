@@ -7,6 +7,10 @@ const sql = fs.readFileSync(
   path.resolve("supabase/migrations/20260820082555_partner_company_commercial_profile_sync.sql"),
   "utf8",
 );
+const currencyRepairSql = fs.readFileSync(
+  path.resolve("supabase/migrations/20260820094500_commercial_profile_currency_semantics.sql"),
+  "utf8",
+);
 
 describe("partner commercial profile synchronization migration", () => {
   it("keeps the mapped contract as the only source of the published price type", () => {
@@ -28,6 +32,13 @@ describe("partner commercial profile synchronization migration", () => {
     expect(sql).toContain("COMMERCIAL_CURRENCY_MISMATCH");
     expect(sql).toContain("price_count = 0");
     expect(sql).toContain("price_synced_at < now() - interval '36 hours'");
+  });
+
+  it("allows a governed price currency to differ from the contract settlement currency", () => {
+    expect(currencyRepairSql).toContain("source_contract_currency is null");
+    expect(currencyRepairSql).toContain("source_price_currency is null");
+    expect(currencyRepairSql).toContain("source_price_currency <> lower(coalesce(local_price_type.currency_ref, ''))");
+    expect(currencyRepairSql).not.toContain("source_contract_currency <> source_price_currency");
   });
 
   it("preserves access policy independence and appends immutable audit", () => {
