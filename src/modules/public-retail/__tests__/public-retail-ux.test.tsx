@@ -182,6 +182,11 @@ describe("public retail UX", () => {
     expect(screen.queryByRole("region", { name: "Управление каталогом" })).not.toBeInTheDocument();
   });
 
+  it("names the full current replenishment collection explicitly", () => {
+    render(<PublicRetailCatalog categories={[]} facets={[]} locale="ru" products={{ items: [], totalCount: 0, limit: 24, offset: 0 }} state={{ attributeFilters: {}, mode: "replenishment", page: 1 }} />);
+    expect(screen.getByRole("heading", { level: 1, name: "Пополнение" })).toBeInTheDocument();
+  });
+
   it("localizes the storefront controls in Romanian", () => {
     render(<PublicRetailCatalog categories={[]} facets={[]} locale="ro" products={{ items: [], totalCount: 0, limit: 24, offset: 0 }} state={{ attributeFilters: {}, mode: "popular", page: 1 }} />);
     expect(screen.getByRole("heading", { name: "Vitrină" })).toBeInTheDocument();
