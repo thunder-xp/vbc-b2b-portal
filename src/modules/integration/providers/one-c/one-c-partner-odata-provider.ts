@@ -405,9 +405,9 @@ export class OneCPartnerODataProvider implements PartnerProvider {
   }
 
   private async getContractByReference(reference: string): Promise<OneCPartnerContractPayload | null> {
-    const payload = await this.client.get(
-      `${CONTRACTS_RESOURCE}(guid'${reference}')`,
-      { $select: CONTRACT_FIELDS },
+    const payload = await this.client.getLiteralGuidBatch(
+      CONTRACTS_RESOURCE,
+      { refs: [reference], select: CONTRACT_FIELDS },
       { requestKind: "partner_contract_validation" },
     );
     if (isCollectionPayload<OneCPartnerContractPayload>(payload)) return payload.value[0] ?? null;

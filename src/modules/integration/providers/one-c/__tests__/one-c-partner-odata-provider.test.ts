@@ -9,7 +9,7 @@ import {
   IntegrationUnauthorizedError,
   IntegrationValidationError,
 } from "../../../errors";
-import { ONE_C_RESOURCES } from "../one-c-odata-identifiers";
+import { ONE_C_CONTRACT_FIELDS, ONE_C_RESOURCES } from "../one-c-odata-identifiers";
 import { isLikelyOneCPartnerCode } from "../one-c-partner-odata-provider";
 import { OneCProvider } from "../one-c-provider";
 
@@ -266,7 +266,7 @@ describe("1C OData partner provider", () => {
     });
   });
 
-  it("re-reads exactly one mapped contract and its authoritative price type", async () => {
+  it("re-reads exactly one mapped contract through the literal collection shape", async () => {
     const fetchMock = sequence(
       record({ ...customerContractRow(), ВалютаРасчетов_Key: CURRENCY_ID }),
       record({ ...priceTypeRow(), ВалютаЦены_Key: CURRENCY_ID }),
@@ -280,9 +280,13 @@ describe("1C OData partner provider", () => {
     });
 
     expect(fetchMock).toHaveBeenCalledTimes(3);
-    expect(decodeURIComponent(String(fetchMock.mock.calls[0]?.[0]))).toContain(
-      `${ONE_C_RESOURCES.contracts}(guid'${CONTRACT_ID}')`,
-    );
+    const contractUrl = String(fetchMock.mock.calls[0]?.[0]);
+    expect(contractUrl).toContain(`${ONE_C_RESOURCES.contracts}?$filter=Ref_Key eq guid'${CONTRACT_ID}'`);
+    expect(contractUrl).toContain(`&$select=${ONE_C_CONTRACT_FIELDS.join(",")}`);
+    expect(contractUrl).toContain("&$top=1&$format=json");
+    expect(contractUrl).not.toContain("%24filter");
+    expect(contractUrl).not.toContain("+eq+");
+    expect(contractUrl).not.toContain("(guid");
     expect(decodeURIComponent(String(fetchMock.mock.calls[1]?.[0]))).toContain(
       `${ONE_C_RESOURCES.priceTypes}(guid'${PRICE_TYPE_ID}')`,
     );
