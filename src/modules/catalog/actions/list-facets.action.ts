@@ -14,6 +14,7 @@ import type { CatalogFacetDto, CatalogFacetListInput } from "../services";
 import { DefaultCatalogService } from "../services";
 import {
   normalizeCatalogAvailability,
+  normalizeCatalogCollection,
   normalizeCatalogFilters,
   normalizeMerchandisingLabel,
   normalizeCatalogOptionalText,
@@ -33,6 +34,7 @@ export async function listCatalogFacetsAction(
       brandId: normalizeCatalogOptionalText(input.brandId),
       search: normalizeCatalogOptionalText(input.search),
       availability: normalizeCatalogAvailability(input.availability),
+      collection: normalizeCatalogCollection(input.collection),
       merchandisingLabel: normalizeMerchandisingLabel(input.merchandisingLabel),
       attributeFilters: normalizeCatalogFilters(input.attributeFilters),
     }));

@@ -18,6 +18,7 @@ import type {
 import { DefaultCatalogService } from "../services";
 import {
   normalizeCatalogAvailability,
+  normalizeCatalogCollection,
   normalizeCatalogFilters,
   normalizeMerchandisingLabel,
   normalizeCatalogOptionalText,
@@ -40,6 +41,7 @@ export async function listCatalogProductsAction(
       sort: input.sort,
       attributeFilters: normalizeCatalogFilters(input.attributeFilters),
       availability,
+      collection: normalizeCatalogCollection(input.collection),
       merchandisingLabel: normalizeMerchandisingLabel(input.merchandisingLabel),
     }));
 

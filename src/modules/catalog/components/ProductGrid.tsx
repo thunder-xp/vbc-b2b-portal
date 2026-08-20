@@ -9,6 +9,7 @@ type ProductGridProps = {
   commercialViews?: Record<string, ProductCommercialViewDto>;
   capabilities: ProductCardCapabilityModel;
   companyId: string | null;
+  contextBadge?: string;
   favoriteProductIds?: string[];
   products: CatalogProductCardDto[];
   userId: string | null;
@@ -16,7 +17,7 @@ type ProductGridProps = {
 
 export { CATALOG_PRODUCT_GRID_CLASS };
 
-export function ProductGrid({ capabilities, commercialViews = {}, companyId, favoriteProductIds = [], products, userId }: ProductGridProps) {
+export function ProductGrid({ capabilities, commercialViews = {}, companyId, contextBadge, favoriteProductIds = [], products, userId }: ProductGridProps) {
   const favorites = new Set(favoriteProductIds);
   return (
     <CatalogProductGridFrame>
@@ -25,6 +26,7 @@ export function ProductGrid({ capabilities, commercialViews = {}, companyId, fav
           commercialView={commercialViews[product.id]}
           capabilities={capabilities}
           companyId={companyId}
+          contextBadge={contextBadge}
           favorite={favorites.has(product.id)}
           key={product.id}
           imagePriority={index === 0}

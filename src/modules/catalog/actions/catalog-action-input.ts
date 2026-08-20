@@ -1,5 +1,6 @@
 import type { CatalogProductListInput } from "../services";
 import type { MerchandisingLabelCode } from "../../merchandising/types";
+import type { CatalogCollection } from "../types";
 
 export function normalizeCatalogAvailability(
   value: CatalogProductListInput["availability"],
@@ -25,6 +26,12 @@ export function normalizeMerchandisingLabel(
   return value === "NEW" || value === "TOP" || value === "HOT"
     ? value
     : undefined;
+}
+
+export function normalizeCatalogCollection(
+  value: CatalogProductListInput["collection"],
+): CatalogCollection | undefined {
+  return value === "replenishment" ? value : undefined;
 }
 
 export function normalizeCatalogOptionalText(value: string | undefined): string | undefined {

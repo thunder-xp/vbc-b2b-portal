@@ -16,6 +16,7 @@ import type {
   CatalogProductImage,
 } from "../types";
 import type { ProductReferenceDto } from "../types";
+import type { CatalogCollection } from "../types";
 import { resolveProductImageFit } from "../components/product-image-source";
 import {
   parseCatalogSort,
@@ -50,12 +51,13 @@ export type CatalogProductListInput = {
   attributeFilters?: Record<string, string[]>;
   availability?: "all" | "in_stock" | "expected";
   availabilityProductIds?: string[];
+  collection?: CatalogCollection;
   merchandisingLabel?: MerchandisingLabelCode;
 };
 
 export type CatalogFacetListInput = Pick<
   CatalogProductListInput,
-  "categoryId" | "brandId" | "search" | "attributeFilters" | "availability" | "merchandisingLabel"
+  "categoryId" | "brandId" | "search" | "attributeFilters" | "availability" | "collection" | "merchandisingLabel"
 >;
 
 export type CatalogFacetDto = { key: string; label: string; values: Array<{ value: string; count: number; selected: boolean }> };
@@ -408,6 +410,7 @@ export class DefaultCatalogService implements CatalogService, ProductReferenceSe
         search: input.search,
         availability: input.availability ?? "all",
         attributeFilters,
+        collection: input.collection,
         merchandisingLabel: input.merchandisingLabel,
       }) ?? Promise.resolve([]),
     );
@@ -434,6 +437,7 @@ export class DefaultCatalogService implements CatalogService, ProductReferenceSe
         search: input.search,
         availability: input.availability ?? "all",
         attributeFilters: input.attributeFilters,
+        collection: input.collection,
         merchandisingLabel: input.merchandisingLabel,
         sort: input.sort,
         limit: input.pageSize,

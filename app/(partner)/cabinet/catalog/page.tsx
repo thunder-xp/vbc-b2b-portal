@@ -41,8 +41,8 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
 
   return <div className="space-y-6">
     <CatalogToolbarFrame>
-      <CategoryMegaMenu categories={categoriesResult.data} merchandisingLabel={routeState.merchandisingLabel} sort={routeState.sort} />
-      <CatalogSearch categoryId={routeState.categoryId} explicitAll={routeState.explicitAll} initialSearch={routeState.search} merchandisingLabel={routeState.merchandisingLabel} sort={routeState.sort} />
+      <CategoryMegaMenu categories={categoriesResult.data} collection={routeState.collection} merchandisingLabel={routeState.merchandisingLabel} sort={routeState.sort} />
+      <CatalogSearch categoryId={routeState.categoryId} collection={routeState.collection} explicitAll={routeState.explicitAll} initialSearch={routeState.search} merchandisingLabel={routeState.merchandisingLabel} sort={routeState.sort} />
       {routeState.mode === "curated" ? <Link className="inline-flex h-11 shrink-0 items-center gap-2 rounded-md border border-zinc-300 bg-white px-4 text-sm font-semibold text-zinc-900 hover:border-emerald-600 hover:text-emerald-800" href="/cabinet/catalog?view=all" prefetch={false}><LayoutGrid aria-hidden="true" className="size-4" /><span className="hidden sm:inline">Весь каталог</span></Link> : null}
     </CatalogToolbarFrame>
     {routeState.mode === "discovery" ? <CatalogBreadcrumb categories={categoriesResult.data} selectedId={routeState.categoryId} /> : null}
@@ -55,6 +55,7 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
             brandId={routeState.brandId}
             categories={categoriesResult.data}
             categoryId={routeState.categoryId}
+            collection={routeState.collection}
             explicitAll={routeState.explicitAll}
             initialViewMode={initialViewMode}
             merchandisingLabel={routeState.merchandisingLabel}
@@ -64,6 +65,7 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
               availability: routeState.availability,
               brandId: routeState.brandId,
               categoryId: routeState.categoryId,
+              collection: routeState.collection,
               merchandisingLabel: routeState.merchandisingLabel,
               page: routeState.page,
               pageSize: PAGE_SIZE,

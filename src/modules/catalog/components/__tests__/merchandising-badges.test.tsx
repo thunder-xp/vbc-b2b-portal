@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { MerchandisingBadges } from "../MerchandisingBadges";
+import { MerchandisingBadge, MerchandisingBadges } from "../MerchandisingBadges";
 
 describe("MerchandisingBadges", () => {
   it("uses partner-facing labels and renders at most two", () => {
@@ -14,5 +14,15 @@ describe("MerchandisingBadges", () => {
   it("renders nothing without active labels", () => {
     const { container } = render(<MerchandisingBadges />);
     expect(container).toBeEmptyDOMElement();
+  });
+
+  it("uses one canonical badge geometry with a semantic replenishment variant", () => {
+    render(<><MerchandisingBadge label="ПОПОЛНЕНИЕ" variant="REPLENISHMENT" /><MerchandisingBadges labels={["HOT"]} /></>);
+    const replenishment = screen.getByText("ПОПОЛНЕНИЕ");
+    const hot = screen.getByText("Горячая цена");
+    for (const badge of [replenishment, hot]) {
+      expect(badge).toHaveClass("min-h-6", "rounded-sm", "border", "px-2", "text-[11px]", "font-semibold", "shadow-sm");
+    }
+    expect(replenishment).toHaveClass("border-emerald-700", "bg-emerald-700", "text-white");
   });
 });

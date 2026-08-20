@@ -1,4 +1,5 @@
 import type { MerchandisingLabelCode } from "../../merchandising/types";
+import type { CatalogCollection } from "../types";
 import type { CatalogAvailability } from "../components/CatalogFilters";
 import { parseCatalogAttributeFilters } from "./catalog-sort-state";
 import { parseCatalogSort, type CatalogSort } from "./catalog-sorting";
@@ -9,6 +10,7 @@ export type CatalogRouteState = {
   attributeFilters: Record<string, string[]>;
   availability: CatalogAvailability;
   brandId?: string;
+  collection?: CatalogCollection;
   categoryId?: string;
   explicitAll: boolean;
   merchandisingLabel?: MerchandisingLabelCode;
@@ -25,7 +27,8 @@ export function parseCatalogRouteState(params: CatalogSearchParams): CatalogRout
   const brandId = parseIdentifier(single(params?.brand));
   const search = parseSearch(single(params?.search));
   const availability = parseAvailability(single(params?.availability));
-  const merchandisingLabel = parseMerchandisingLabel(single(params?.label));
+  const collection = parseCollection(single(params?.collection));
+  const merchandisingLabel = collection ? undefined : parseMerchandisingLabel(single(params?.label));
   const sort = parseCatalogSort(single(params?.sort));
   const attributeFilters = parseCatalogAttributeFilters(params);
   const explicitAll = single(params?.view) === "all";
@@ -33,6 +36,7 @@ export function parseCatalogRouteState(params: CatalogSearchParams): CatalogRout
     explicitAll
       || categoryId
       || brandId
+      || collection
       || search
       || merchandisingLabel
       || availability !== "all"
@@ -44,6 +48,7 @@ export function parseCatalogRouteState(params: CatalogSearchParams): CatalogRout
     attributeFilters,
     availability,
     brandId,
+    collection,
     categoryId,
     explicitAll,
     merchandisingLabel,
@@ -52,6 +57,10 @@ export function parseCatalogRouteState(params: CatalogSearchParams): CatalogRout
     search,
     sort,
   };
+}
+
+function parseCollection(value: string | undefined): CatalogCollection | undefined {
+  return value === "replenishment" ? value : undefined;
 }
 
 function single(value: string | string[] | undefined): string | undefined {

@@ -116,7 +116,7 @@ export async function listCatalogMerchandisingSectionsAction(): Promise<
         labelCode: "REPLENISHMENT",
         title: "Пополнение",
         products: replenishmentProducts,
-        href: "/cabinet/catalog/replenishment",
+        href: "/cabinet/catalog?collection=replenishment",
         contextBadge: "ПОПОЛНЕНИЕ",
         maxProducts: 5,
       });

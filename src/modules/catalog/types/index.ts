@@ -1,5 +1,6 @@
 export type { CatalogBrand } from "./brand";
 export type { CatalogCategory } from "./category";
+export type { CatalogCollection } from "./catalog-collection";
 export type {
   CatalogProductDocument,
   CatalogProductDocumentType,

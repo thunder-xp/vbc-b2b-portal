@@ -55,7 +55,7 @@ describe("public retail UX", () => {
   it("keeps compact identity, commercial state and actions in stable tracks", () => {
     render(<PublicRetailProductCard badge="Популярный" badgeCode="TOP" locale="ru" product={{ ...product, name: "Очень длинное название камеры видеонаблюдения с технической моделью" }} />);
     expect(screen.getByText("Популярный")).toHaveClass("border-amber-300", "bg-amber-50", "text-amber-900");
-    expect(screen.getByText("Популярный").closest("span.absolute")).toHaveClass("left-2", "top-2");
+    expect(screen.getByText("Популярный").closest("div.absolute")).toHaveClass("left-2", "top-2");
     expect(screen.getByRole("link", { name: "Очень длинное название камеры видеонаблюдения с технической моделью" })).toHaveClass("line-clamp-2", "h-10");
     expect(screen.getByText("Артикул CAM-001")).toHaveClass("truncate");
     expect(screen.queryByText(/Brand ·/)).not.toBeInTheDocument();
@@ -185,6 +185,10 @@ describe("public retail UX", () => {
   it("names the full current replenishment collection explicitly", () => {
     render(<PublicRetailCatalog categories={[]} facets={[]} locale="ru" products={{ items: [], totalCount: 0, limit: 24, offset: 0 }} state={{ attributeFilters: {}, mode: "replenishment", page: 1 }} />);
     expect(screen.getByRole("heading", { level: 1, name: "Пополнение" })).toBeInTheDocument();
+    const selector = screen.getByRole("link", { name: "Пополнение" });
+    expect(selector).toHaveAttribute("aria-current", "page");
+    expect(selector).toHaveClass("min-h-11", "px-4", "text-sm");
+    expect(selector).not.toHaveClass("min-h-6", "text-[11px]", "rounded-sm");
   });
 
   it("localizes the storefront controls in Romanian", () => {

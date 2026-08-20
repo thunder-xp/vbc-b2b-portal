@@ -7,12 +7,13 @@ import { useEffect, useRef, useState } from "react";
 import type { CatalogSearchSuggestionDto, CatalogSort } from "../services";
 import { ProductThumbnail } from "./ProductThumbnail";
 import type { MerchandisingLabelCode } from "../../merchandising/types";
+import type { CatalogCollection } from "../types";
 
 type SearchResponse =
   | { success: true; data: CatalogSearchSuggestionDto[] }
   | { success: false };
 
-export function CatalogSearch({ categoryId, explicitAll, initialSearch, merchandisingLabel, sort = "default" }: { categoryId?: string; explicitAll?: boolean; initialSearch?: string; merchandisingLabel?: MerchandisingLabelCode; sort?: CatalogSort }) {
+export function CatalogSearch({ categoryId, collection, explicitAll, initialSearch, merchandisingLabel, sort = "default" }: { categoryId?: string; collection?: CatalogCollection; explicitAll?: boolean; initialSearch?: string; merchandisingLabel?: MerchandisingLabelCode; sort?: CatalogSort }) {
   const [query, setQuery] = useState(initialSearch ?? "");
   const [results, setResults] = useState<CatalogSearchSuggestionDto[]>([]);
   const [loading, setLoading] = useState(false);
@@ -59,6 +60,7 @@ export function CatalogSearch({ categoryId, explicitAll, initialSearch, merchand
   return <div className="relative min-w-0 flex-1">
     <form action="/cabinet/catalog" className="relative">
       {categoryId && <input name="category" type="hidden" value={categoryId} />}
+      {collection && <input name="collection" type="hidden" value={collection} />}
       {explicitAll && <input name="view" type="hidden" value="all" />}
       {merchandisingLabel && <input name="label" type="hidden" value={merchandisingLabel} />}
       {sort !== "default" && <input name="sort" type="hidden" value={sort} />}

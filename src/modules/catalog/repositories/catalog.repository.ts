@@ -8,6 +8,7 @@ import type {
 } from "../types";
 import type { ProductCommercialSnapshot } from "../../pricing-inventory/services";
 import type { MerchandisingLabelCode } from "../../merchandising/types";
+import type { CatalogCollection } from "../types";
 
 export type ListCatalogProductsInput = {
   categoryId?: string;
@@ -30,6 +31,7 @@ export type CatalogPartnerPageInput = {
   search?: string;
   availability: "all" | "in_stock" | "expected";
   attributeFilters: CatalogAttributeFilters;
+  collection?: CatalogCollection;
   merchandisingLabel?: MerchandisingLabelCode;
   sort: "default" | "availability_asc" | "availability_desc" | "price_asc" | "price_desc" | "markup_asc" | "markup_desc";
   limit: number;
@@ -64,7 +66,7 @@ export type CatalogSearchSuggestion = {
 
 export type CatalogPartnerFacetInput = Pick<
   CatalogPartnerPageInput,
-  "companyId" | "categoryId" | "brandId" | "search" | "availability" | "attributeFilters" | "merchandisingLabel"
+  "companyId" | "categoryId" | "brandId" | "search" | "availability" | "attributeFilters" | "collection" | "merchandisingLabel"
 >;
 
 export type CatalogProductDetailAggregate = {

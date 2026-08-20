@@ -107,6 +107,15 @@ describe("catalog navigation", () => {
     );
   });
 
+  it("exposes replenishment through the canonical selection filter and clears it safely", () => {
+    render(<CatalogFilters collection="replenishment" />);
+    const replenishment = screen.getByRole("link", { name: /Пополнение/ });
+    expect(replenishment).toHaveAttribute("href", "/cabinet/catalog");
+    expect(replenishment.querySelector('[aria-label="Выбрано"]')).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Очистить всё" })).toHaveAttribute("href", "/cabinet/catalog");
+    expect(screen.getByRole("link", { name: /В наличии/ })).toHaveAttribute("href", "/cabinet/catalog?collection=replenishment&availability=in_stock");
+  });
+
   it("keeps every filter section collapsed and preserves selection after reopening", async () => {
     const user = userEvent.setup();
     render(<CatalogFilters availability="expected" facets={[{ key: "property_11111111-1111-4111-8111-111111111111", label: "Разрешение", values: [{ value: "4 MP", count: 3, selected: true }] }]} />);

@@ -10,7 +10,7 @@ import { ProductPricingBlock } from "./ProductPricingBlock";
 import { ProductAvailabilityBlock } from "./ProductAvailabilityBlock";
 import { ProductComparisonAction } from "./ProductComparisonAction";
 import { ProductSpecificationAction } from "./ProductSpecificationAction";
-import { MerchandisingBadges } from "./MerchandisingBadges";
+import { MerchandisingBadge, MerchandisingBadgeOverlay, MerchandisingBadges } from "./MerchandisingBadges";
 import { CatalogProductCardFrame } from "./CatalogProductCardFrame";
 import { BehaviorTrackedLink } from "../../behavior-analytics/components/BehaviorViewEvent";
 import type { BehaviorEventName } from "../../behavior-analytics/types";
@@ -20,9 +20,9 @@ type ProductCardProps = { product: CatalogProductCardDto; analyticsEventName?: B
 export function ProductCard({ analyticsEventName, analyticsSurface, cartSuccessEventName, capabilities, commercialView, companyId = null, contextBadge, contextLine, favorite = false, imagePriority = false, product, userId = null }: ProductCardProps) {
   const image = <>
     <CatalogCardImage alt={product.name} priority={imagePriority} sizes="(max-width: 639px) calc(100vw - 2rem), (max-width: 1023px) 50vw, (max-width: 1279px) 33vw, (max-width: 1535px) 25vw, 20vw" src={product.imageUrl} />
-    {contextBadge || product.merchandisingLabels?.length ? <div className="pointer-events-none absolute left-2 top-2 z-10 max-w-[calc(100%-1rem)] drop-shadow-sm">
-      {contextBadge ? <span className="inline-flex min-h-6 items-center rounded bg-sky-700 px-2 text-xs font-semibold text-white">{contextBadge}</span> : <MerchandisingBadges labels={product.merchandisingLabels ?? []} />}
-    </div> : null}
+    {contextBadge || product.merchandisingLabels?.length ? <MerchandisingBadgeOverlay>
+      {contextBadge ? <MerchandisingBadge label={contextBadge} variant="REPLENISHMENT" /> : <MerchandisingBadges labels={product.merchandisingLabels ?? []} />}
+    </MerchandisingBadgeOverlay> : null}
   </>;
 
   return <CatalogProductCardFrame

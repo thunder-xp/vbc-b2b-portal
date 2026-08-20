@@ -2,7 +2,7 @@ import { ArrowRight, ImageIcon } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 
-import { MerchandisingBadges } from "../../catalog/components/MerchandisingBadges";
+import { MerchandisingBadge, MerchandisingBadgeOverlay, MerchandisingBadges } from "../../catalog/components/MerchandisingBadges";
 import { CatalogProductCardFrame } from "../../catalog/components/CatalogProductCardFrame";
 import type { MerchandisingLabelCode } from "../../merchandising/types";
 import { publicRetailFilterHref, type PublicRetailCatalogState } from "../catalog-links";
@@ -24,7 +24,7 @@ export function PublicRetailProductCard({ product, locale, badge, badgeCode, con
     context={showFacetShortcuts && facetShortcuts.length ? <ul aria-label={copy.specifications} className="flex h-5 min-w-0 gap-1 overflow-hidden">{facetShortcuts.map((item) => <li className="min-w-0" key={item.key}><Link aria-label={`${item.label}: ${item.value}`} className="block max-w-28 truncate border border-zinc-200 px-1.5 text-[11px] leading-[18px] text-zinc-600 hover:border-blue-600 hover:text-blue-800 focus-visible:outline-2 focus-visible:outline-blue-600" href={publicRetailFilterHref(locale, facetState, { facet: { key: item.key, value: item.value }, facetMode: "include" })} prefetch={false} title={`${item.label}: ${item.value}`}>{item.value}</Link></li>)}</ul> : null}
     density="compact"
     media={<Link className="group relative block aspect-[4/3] w-full min-w-0 max-w-full overflow-hidden bg-zinc-50 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-600" href={`/products/${product.slug}?lang=${locale}`}>
-      {contextBadge ? <span className="absolute left-2 top-2 z-10 inline-flex min-h-6 max-w-[calc(100%-1rem)] items-center bg-blue-800 px-2 text-xs font-semibold text-white shadow-sm">{contextBadge}</span> : badge && badgeCode ? <span className="absolute left-2 top-2 z-10 max-w-[calc(100%-1rem)] shadow-sm"><MerchandisingBadges labelOverrides={{ [badgeCode]: badge }} labels={[badgeCode]} square tone="retail" /></span> : null}
+      {contextBadge ? <MerchandisingBadgeOverlay><MerchandisingBadge label={contextBadge} variant="REPLENISHMENT" /></MerchandisingBadgeOverlay> : badge && badgeCode ? <MerchandisingBadgeOverlay><MerchandisingBadges labelOverrides={{ [badgeCode]: badge }} labels={[badgeCode]} /></MerchandisingBadgeOverlay> : null}
       {product.image ? <Image alt={product.image.alt || product.name} className="size-full max-h-full max-w-full object-contain p-3 transition-transform duration-200 group-hover:scale-[1.02]" fill loading="lazy" sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, (max-width: 1280px) 25vw, 20vw" src={product.image.url} /> : <span className="grid size-full max-h-full max-w-full place-items-center overflow-hidden text-zinc-300"><ImageIcon aria-hidden="true" className="size-12" /><span className="sr-only">{locale === "ro" ? "Imagine indisponibilă" : "Изображение отсутствует"}</span></span>}
     </Link>}
     metadata={<p className="truncate text-[11px] font-medium uppercase text-zinc-500" title={metadata}>{metadata}</p>}

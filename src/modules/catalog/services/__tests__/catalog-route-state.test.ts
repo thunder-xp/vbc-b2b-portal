@@ -16,6 +16,7 @@ describe("parseCatalogRouteState", () => {
     brand: { brand: "brand-id" },
     availability: { availability: "in_stock" },
     label: { label: "TOP" },
+    collection: { collection: "replenishment" },
     sort: { sort: "price_desc" },
     "explicit all": { view: "all" },
     "technical filter": { [`attr.${attributeKey}`]: "4 MP" },
@@ -55,6 +56,7 @@ describe("parseCatalogRouteState", () => {
       attributeFilters: { [attributeKey]: ["PoE"] },
       availability: "expected",
       brandId: undefined,
+      collection: undefined,
       categoryId: "category-id",
       explicitAll: false,
       merchandisingLabel: undefined,
@@ -62,6 +64,15 @@ describe("parseCatalogRouteState", () => {
       page: 3,
       search: "dome",
       sort: "default",
+    });
+  });
+
+  it("treats replenishment as a first-class collection and ignores a conflicting label", () => {
+    expect(parseCatalogRouteState({ collection: "replenishment", label: "HOT", page: "2" })).toMatchObject({
+      collection: "replenishment",
+      merchandisingLabel: undefined,
+      mode: "discovery",
+      page: 2,
     });
   });
 });

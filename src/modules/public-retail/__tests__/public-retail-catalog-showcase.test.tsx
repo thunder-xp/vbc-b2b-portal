@@ -41,7 +41,7 @@ describe("Public Retail catalog showcase", () => {
     expect(screen.getByText("Популярный")).toHaveClass("text-amber-900");
     expect(screen.getByText("Новинка")).toHaveClass("text-sky-800");
     expect(screen.getAllByText("Горячая цена")[1]).toHaveClass("text-rose-800");
-    expect(screen.getByText("ПОПОЛНЕНИЕ")).toHaveClass("bg-blue-800");
+    expect(screen.getByText("ПОПОЛНЕНИЕ")).toHaveClass("bg-emerald-700", "rounded-sm", "text-[11px]");
   });
 
   it("localizes section-derived merchandising badges in Romanian", () => {

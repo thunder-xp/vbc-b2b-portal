@@ -1,4 +1,5 @@
 import type { MerchandisingLabelCode } from "../../merchandising/types";
+import type { ReactNode } from "react";
 
 const LABELS: Record<
   MerchandisingLabelCode,
@@ -22,16 +23,27 @@ const LABELS: Record<
   },
 };
 
+type MerchandisingBadgeVariant = MerchandisingLabelCode | "REPLENISHMENT";
+
+const BADGE_CLASS = "inline-flex min-h-6 max-w-full items-center rounded-sm border px-2 text-center text-[11px] font-semibold leading-4 shadow-sm [overflow-wrap:anywhere]";
+
+export function MerchandisingBadge({ label, variant }: { label: string; variant: MerchandisingBadgeVariant }) {
+  const className = variant === "REPLENISHMENT"
+    ? "border-emerald-700 bg-emerald-700 text-white"
+    : LABELS[variant].className;
+  return <span className={`${BADGE_CLASS} ${className}`}>{label}</span>;
+}
+
+export function MerchandisingBadgeOverlay({ children }: { children: ReactNode }) {
+  return <div className="pointer-events-none absolute left-2 top-2 z-10 max-w-[calc(100%-1rem)]">{children}</div>;
+}
+
 export function MerchandisingBadges({
   labels = [],
   labelOverrides,
-  square = false,
-  tone = "default",
 }: {
   labels?: MerchandisingLabelCode[];
   labelOverrides?: Partial<Record<MerchandisingLabelCode, string>>;
-  square?: boolean;
-  tone?: "default" | "retail";
 }) {
   const visible = [...new Set(labels)].slice(0, 2);
   if (!visible.length) return null;
@@ -39,12 +51,7 @@ export function MerchandisingBadges({
   return (
     <div aria-label="Подборки товара" className="flex flex-wrap gap-1.5">
       {visible.map((code) => (
-        <span
-          className={`${square ? "" : "rounded"} border px-1.5 py-0.5 text-[10px] font-semibold ${tone === "retail" && code === "TOP" ? "border-amber-300 bg-amber-50 text-amber-900" : LABELS[code].className}`}
-          key={code}
-        >
-          {labelOverrides?.[code] ?? LABELS[code].label}
-        </span>
+        <MerchandisingBadge key={code} label={labelOverrides?.[code] ?? LABELS[code].label} variant={code} />
       ))}
     </div>
   );

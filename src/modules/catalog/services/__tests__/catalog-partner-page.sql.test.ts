@@ -83,12 +83,22 @@ const catalogPageSource = readFileSync(
   join(process.cwd(), "app/(partner)/cabinet/catalog/page.tsx"),
   "utf8",
 );
+const replenishmentCollectionMigration = readFileSync(
+  join(process.cwd(), "supabase/migrations/20260820201820_integrate_replenishment_catalog_collection.sql"),
+  "utf8",
+);
+const replenishmentFacetContextMigration = readFileSync(
+  join(process.cwd(), "supabase/migrations/20260820202056_replenishment_catalog_facets_execution_context.sql"),
+  "utf8",
+);
 
 describe("catalog_partner_page_v3 page completeness", () => {
   it("uses one canonical eligible set for stable rows and total count", () => {
     expect(merchandisingProjectionMigration).toContain("filtered as (");
     expect(merchandisingProjectionMigration).toContain("commercial as (");
-    expect(merchandisingProjectionMigration).toContain("from ranked\n    where ordinal > p_offset and ordinal <= p_offset + p_limit");
+    expect(merchandisingProjectionMigration).toMatch(
+      /from ranked\r?\n\s+where ordinal > p_offset and ordinal <= p_offset \+ p_limit/,
+    );
     expect(merchandisingProjectionMigration).toContain("'totalCount', (select count(*) from commercial)");
     expect(merchandisingProjectionMigration).toContain("lower(commercial.name),");
     expect(merchandisingProjectionMigration).toContain("commercial.id");
@@ -97,6 +107,25 @@ describe("catalog_partner_page_v3 page completeness", () => {
   it("requests a complete twenty-card page from the bounded aggregate", () => {
     expect(catalogPageSource).toContain("const PAGE_SIZE = 20");
     expect(catalogPageSource).toContain("pageSize: PAGE_SIZE");
+  });
+});
+
+describe("replenishment catalog collection SQL", () => {
+  it("filters the canonical page and facets through the governed current snapshot", () => {
+    expect(replenishmentCollectionMigration).toContain("p_merchandising_label = 'REPLENISHMENT'");
+    expect(replenishmentCollectionMigration).toContain("current_warehouse_replenishment_items");
+    expect(replenishmentCollectionMigration).toContain("replenishment.singleton_key = 1");
+    expect(replenishmentCollectionMigration).toContain("create or replace function public.catalog_partner_facets_v2");
+    expect(replenishmentCollectionMigration).toContain("p_selection text default null");
+  });
+
+  it("retains authenticated-only execution for both catalog RPCs", () => {
+    expect(replenishmentCollectionMigration).toContain("from public, anon");
+    expect(replenishmentCollectionMigration).not.toMatch(/grant execute[\s\S]*to anon/);
+    expect(replenishmentFacetContextMigration).toContain(") security definer;");
+    expect(replenishmentFacetContextMigration).toContain(") set search_path = public;");
+    expect(replenishmentFacetContextMigration).toContain("from public, anon");
+    expect(replenishmentFacetContextMigration).not.toMatch(/grant execute[\s\S]*to anon/);
   });
 });
 

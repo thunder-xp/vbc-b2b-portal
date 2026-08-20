@@ -3,16 +3,17 @@
 import type { CatalogCategoryDto, CatalogSort } from "../services";
 import { buildCatalogHref } from "../services/catalog-sort-state";
 import type { MerchandisingLabelCode } from "../../merchandising/types";
+import type { CatalogCollection } from "../types";
 import { recordBehaviorInteraction } from "../../behavior-analytics/components/BehaviorViewEvent";
 import { CatalogCategoryMenu, buildCategoryTree, type CatalogCategoryNode } from "./CatalogCategoryMenu";
 
 export { buildCategoryTree };
 export type { CatalogCategoryNode };
 
-export function CategoryMegaMenu({ categories, merchandisingLabel, sort = "default" }: { categories: CatalogCategoryDto[]; merchandisingLabel?: MerchandisingLabelCode; sort?: CatalogSort }) {
+export function CategoryMegaMenu({ categories, collection, merchandisingLabel, sort = "default" }: { categories: CatalogCategoryDto[]; collection?: CatalogCollection; merchandisingLabel?: MerchandisingLabelCode; sort?: CatalogSort }) {
   return <CatalogCategoryMenu
     categories={categories}
-    categoryHref={(category) => buildCatalogHref({ categoryId: category.id, merchandisingLabel, sort })}
+    categoryHref={(category) => buildCatalogHref({ categoryId: category.id, collection, merchandisingLabel, sort })}
     labels={{
       back: "Назад",
       close: "Закрыть категории",
