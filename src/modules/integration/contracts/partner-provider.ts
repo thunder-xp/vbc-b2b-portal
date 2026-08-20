@@ -2,6 +2,8 @@ import type {
   IntegrationPageResultDTO,
   IntegrationSyncWindowDTO,
   PartnerCompanyDTO,
+  PartnerCommercialProfileLookupInputDTO,
+  PartnerCommercialProfileSourceDTO,
   PartnerContractDTO,
   PartnerContractLookupInputDTO,
   PartnerCustomerContractResolutionInputDTO,
@@ -21,6 +23,9 @@ export interface PartnerProvider {
   fetchPartnerContracts(
     input: PartnerContractLookupInputDTO,
   ): Promise<IntegrationPageResultDTO<PartnerContractDTO>>;
+  fetchCommercialProfile(
+    input: PartnerCommercialProfileLookupInputDTO,
+  ): Promise<PartnerCommercialProfileSourceDTO>;
   resolveCustomerOrderContract(
     input: PartnerCustomerContractResolutionInputDTO,
   ): Promise<PartnerContractDTO | null>;

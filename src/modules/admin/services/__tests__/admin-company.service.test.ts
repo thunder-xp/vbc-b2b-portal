@@ -59,6 +59,37 @@ describe("AdminCompanyService", () => {
       note: "Manual restriction",
     }));
   });
+
+  it("performs one exact contract and price-type read after acquiring the company lease", async () => {
+    const repository = makeRepository();
+    vi.mocked(repository.beginCommercialProfileSync).mockResolvedValue({
+      code: "COMMERCIAL_PROFILE_MISMATCH",
+      correlationId: "00000000-0000-0000-0000-000000000002",
+      claimed: true,
+      runId: "00000000-0000-0000-0000-000000000003",
+      counterpartyRef: "00000000-0000-0000-0000-000000000004",
+      contractRef: "00000000-0000-0000-0000-000000000005",
+    });
+    const provider = {
+      fetchCommercialProfile: vi.fn().mockResolvedValue({
+        counterpartyReference: "00000000-0000-0000-0000-000000000004",
+        contractReference: "00000000-0000-0000-0000-000000000005",
+      }),
+    };
+    const service = new AdminCompanyService(repository);
+
+    await service.synchronizeCommercialProfile({
+      companyId: "00000000-0000-0000-0000-000000000001",
+      expectedVersion: 1,
+      reason: "Verified mapped contract refresh",
+      correlationId: "00000000-0000-0000-0000-000000000002",
+      provider: provider as never,
+    });
+
+    expect(provider.fetchCommercialProfile).toHaveBeenCalledOnce();
+    expect(repository.publishCommercialProfileSync).toHaveBeenCalledOnce();
+    expect(repository.failCommercialProfileSync).not.toHaveBeenCalled();
+  });
 });
 
 function makeRepository(): AdminCompanyRepository {
@@ -79,6 +110,16 @@ function makeRepository(): AdminCompanyRepository {
       code: "CONTRACT_MAPPING_SUCCESS",
       correlationId: "00000000-0000-0000-0000-000000000001",
     }),
+    beginCommercialProfileSync: vi.fn().mockResolvedValue({
+      code: "COMMERCIAL_CONTRACT_MISSING",
+      correlationId: "00000000-0000-0000-0000-000000000001",
+      claimed: false,
+    }),
+    publishCommercialProfileSync: vi.fn().mockResolvedValue({
+      code: "COMMERCIAL_PROFILE_SYNC_SUCCESS",
+      correlationId: "00000000-0000-0000-0000-000000000001",
+    }),
+    failCommercialProfileSync: vi.fn().mockResolvedValue(undefined),
     updateAccess: vi.fn().mockResolvedValue({
       version: 2,
       correlationId: "00000000-0000-0000-0000-000000000001",

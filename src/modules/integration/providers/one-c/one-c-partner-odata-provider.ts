@@ -3,6 +3,8 @@ import type {
   IntegrationPageResultDTO,
   IntegrationSyncWindowDTO,
   PartnerCompanyDTO,
+  PartnerCommercialProfileLookupInputDTO,
+  PartnerCommercialProfileSourceDTO,
   PartnerContractDTO,
   PartnerContractLookupInputDTO,
   PartnerCustomerContractResolutionInputDTO,
@@ -72,6 +74,7 @@ export class OneCPartnerODataProvider implements PartnerProvider {
   async fetchPartnerCompanies(
     _input: IntegrationSyncWindowDTO,
   ): Promise<IntegrationPageResultDTO<PartnerCompanyDTO>> {
+    void _input;
     throw new IntegrationUnsupportedOperationError("1C partner import is not implemented.");
   }
 
@@ -164,6 +167,52 @@ export class OneCPartnerODataProvider implements PartnerProvider {
     }));
     logPipelineProgress("contract_mapping", "partner_contracts", items.length);
     return { items, nextCursor: null };
+  }
+
+  async fetchCommercialProfile(
+    input: PartnerCommercialProfileLookupInputDTO,
+  ): Promise<PartnerCommercialProfileSourceDTO> {
+    const partnerReference = requireUuid(input.partnerReference, "Partner reference");
+    const contractReference = requireUuid(input.contractReference, "Contract reference");
+    const contract = await this.getContractByReference(contractReference);
+    if (!contract) throw new IntegrationValidationError("Mapped 1C contract was not found.");
+
+    const priceTypeReference = parseRequiredOneCGuid(
+      contract["ВидЦенКонтрагента_Key"] ?? contract["ВидЦен_Key"],
+    );
+    const organizationReference = parseRequiredOneCGuid(contract["Организация_Key"]);
+    const [priceType, defaultRows] = await Promise.all([
+      priceTypeReference ? this.getPriceTypeByReference(priceTypeReference) : Promise.resolve(null),
+      organizationReference
+        ? this.fetchDefaultCustomerContractRows(buildDefaultCustomerContractUrl(
+          this.config.baseUrl,
+          partnerReference,
+          organizationReference,
+        ))
+        : Promise.resolve([]),
+    ]);
+    const isDefault = defaultRows.length === 1
+      && parseRequiredOneCGuid(defaultRows[0]?.["Договор_Key"]) === contractReference
+      && defaultRegisterRowMatches(defaultRows[0]!, partnerReference, organizationReference!);
+
+    return {
+      counterpartyReference: parseRequiredOneCGuid(contract.Owner) ?? "",
+      contractReference: parseRequiredOneCGuid(contract.Ref_Key) ?? "",
+      contractCode: contract.Code,
+      contractNumber: contract["НомерДоговора"] ?? null,
+      contractType: contract["ВидДоговора"] ?? null,
+      organizationReference,
+      contractCurrencyReference: parseRequiredOneCGuid(contract["ВалютаРасчетов_Key"]),
+      signed: contract["ДоговорПодписан"] ?? null,
+      default: isDefault,
+      active: isActiveContract(contract),
+      deleted: contract.DeletionMark === true,
+      priceTypeReference,
+      priceTypeName: priceType?.Description ?? null,
+      priceTypeCurrencyReference: parseRequiredOneCGuid(priceType?.["ВалютаЦены_Key"]),
+      priceTypeActive: priceType ? isActivePriceType(priceType) : false,
+      verifiedAt: new Date().toISOString(),
+    };
   }
 
   async resolveCustomerOrderContract(
@@ -364,6 +413,17 @@ export class OneCPartnerODataProvider implements PartnerProvider {
     if (isCollectionPayload<OneCPartnerContractPayload>(payload)) return payload.value[0] ?? null;
     if (isRecord(payload)) return payload as OneCPartnerContractPayload;
     throw new IntegrationValidationError("Invalid 1C contract record response.");
+  }
+
+  private async getPriceTypeByReference(reference: string): Promise<OneCPartnerPriceTypePayload | null> {
+    const payload = await this.client.get(
+      `${PRICE_TYPES_RESOURCE}(guid'${reference}')`,
+      { $select: PRICE_TYPE_FIELDS },
+      { requestKind: "partner_commercial_price_type_validation" },
+    );
+    if (isCollectionPayload<OneCPartnerPriceTypePayload>(payload)) return payload.value[0] ?? null;
+    if (isRecord(payload)) return payload as OneCPartnerPriceTypePayload;
+    throw new IntegrationValidationError("Invalid 1C price type response.");
   }
 
   private async fetchDefaultCustomerContractRows(

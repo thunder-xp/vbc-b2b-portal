@@ -17,6 +17,7 @@ const PARTNER_ID = "11111111-1111-4111-8111-111111111111";
 const CONTRACT_ID = "22222222-2222-4222-8222-222222222222";
 const ORGANIZATION_ID = "4643d461-aa49-4b70-9486-a59f80ee6af8";
 const PRICE_TYPE_ID = "33333333-3333-4333-8333-333333333333";
+const CURRENCY_ID = "55555555-5555-4555-8555-555555555555";
 const FALLBACK_PRICE_TYPE_ID = "44444444-4444-4444-8444-444444444444";
 const NON_RFC_PARTNER_ID = "18e36ea4-f68f-11f0-4393-7239d3b7bd5c";
 
@@ -263,6 +264,53 @@ describe("1C OData partner provider", () => {
       priceTypeSource: "counterparty",
       priceTypeName: "Distributor",
     });
+  });
+
+  it("re-reads exactly one mapped contract and its authoritative price type", async () => {
+    const fetchMock = sequence(
+      record({ ...customerContractRow(), ВалютаРасчетов_Key: CURRENCY_ID }),
+      record({ ...priceTypeRow(), ВалютаЦены_Key: CURRENCY_ID }),
+      collection([defaultContractRow()]),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await provider().partners.fetchCommercialProfile({
+      partnerReference: PARTNER_ID,
+      contractReference: CONTRACT_ID,
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(decodeURIComponent(String(fetchMock.mock.calls[0]?.[0]))).toContain(
+      `${ONE_C_RESOURCES.contracts}(guid'${CONTRACT_ID}')`,
+    );
+    expect(decodeURIComponent(String(fetchMock.mock.calls[1]?.[0]))).toContain(
+      `${ONE_C_RESOURCES.priceTypes}(guid'${PRICE_TYPE_ID}')`,
+    );
+    expect(result).toMatchObject({
+      counterpartyReference: PARTNER_ID,
+      contractReference: CONTRACT_ID,
+      organizationReference: ORGANIZATION_ID,
+      contractCurrencyReference: CURRENCY_ID,
+      priceTypeReference: PRICE_TYPE_ID,
+      priceTypeCurrencyReference: CURRENCY_ID,
+      priceTypeName: "Distributor",
+      default: true,
+      active: true,
+      deleted: false,
+    });
+  });
+
+  it("does not treat another active customer contract as the primary contract", async () => {
+    vi.stubGlobal("fetch", sequence(
+      record({ ...customerContractRow(), ВалютаРасчетов_Key: CURRENCY_ID }),
+      record({ ...priceTypeRow(), ВалютаЦены_Key: CURRENCY_ID }),
+      collection([{ ...defaultContractRow(), Договор_Key: "66666666-6666-4666-8666-666666666666" }]),
+    ));
+
+    await expect(provider().partners.fetchCommercialProfile({
+      partnerReference: PARTNER_ID,
+      contractReference: CONTRACT_ID,
+    })).resolves.toMatchObject({ default: false });
   });
 
   it("resolves the organization-scoped default customer contract from the register", async () => {

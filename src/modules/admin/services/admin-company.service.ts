@@ -1,5 +1,7 @@
 import "server-only";
 
+import type { PartnerProvider } from "@/src/modules/integration/contracts";
+
 import type { AdminCompanyRepository } from "../repositories";
 import { SupabaseAdminCompanyRepository } from "../repositories";
 import {
@@ -8,6 +10,7 @@ import {
   type AdminCompanyOverview,
   type AdminCompanyPage,
   type AdminCompanyAccess,
+  type AdminCommercialProfileSyncResult,
   type AdminCompanyContractMappingProjection,
   type AdminContractMappingResult,
   type PartnerAccessPresetCode,
@@ -70,6 +73,50 @@ export class AdminCompanyService {
       throw new Error("Invalid contract mapping request.");
     }
     return this.repository.mapContract({ ...input, reason });
+  }
+
+  async synchronizeCommercialProfile(input: {
+    companyId: string;
+    expectedVersion: number;
+    reason: string;
+    correlationId: string;
+    provider: PartnerProvider;
+  }): Promise<AdminCommercialProfileSyncResult> {
+    const reason = input.reason.trim();
+    if (
+      !COMPANY_ID_PATTERN.test(input.companyId)
+      || !COMPANY_ID_PATTERN.test(input.correlationId)
+      || !Number.isInteger(input.expectedVersion)
+      || input.expectedVersion < 1
+      || reason.length < 10
+      || reason.length > 500
+    ) {
+      throw new Error("Invalid commercial profile synchronization request.");
+    }
+
+    const claim = await this.repository.beginCommercialProfileSync({
+      companyId: input.companyId,
+      expectedVersion: input.expectedVersion,
+      reason,
+      correlationId: input.correlationId,
+    });
+    if (!claim.claimed || !claim.runId || !claim.counterpartyRef || !claim.contractRef) {
+      return claim;
+    }
+
+    try {
+      const source = await input.provider.fetchCommercialProfile({
+        partnerReference: claim.counterpartyRef,
+        contractReference: claim.contractRef,
+      });
+      return await this.repository.publishCommercialProfileSync(claim.runId, source);
+    } catch (error) {
+      await this.repository.failCommercialProfileSync(
+        claim.runId,
+        error instanceof Error ? error.name : "provider_failure",
+      );
+      throw error;
+    }
   }
 
   updateAccess(input: {

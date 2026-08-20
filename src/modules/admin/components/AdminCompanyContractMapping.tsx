@@ -7,8 +7,8 @@ import { NOVOTECH_ONE_C_ORGANIZATION_REF } from "@/src/modules/integration/confi
 
 import {
   mapAdminCompanyContractAction,
-  refreshAdminCompanyContractDirectoryAction,
-  type AdminContractDirectoryRefreshState,
+  synchronizeAdminCompanyCommercialProfileAction,
+  type AdminCommercialProfileSyncActionState,
   type AdminContractMappingActionState,
 } from "../actions";
 import type { AdminCompanyContractMappingProjection, AdminContractCandidate } from "../types";
@@ -21,27 +21,25 @@ const INITIAL_MAPPING_STATE: AdminContractMappingActionState = {
   selectedPriceTypeRef: null,
 };
 
-const INITIAL_REFRESH_STATE: AdminContractDirectoryRefreshState = {
-  status: "idle",
+const INITIAL_SYNC_STATE: AdminCommercialProfileSyncActionState = {
+  code: null,
   message: "",
   correlationId: null,
 };
 
 export function AdminCompanyContractMapping({
   mapping,
-  canRefresh,
 }: {
   mapping: AdminCompanyContractMappingProjection;
-  canRefresh: boolean;
 }) {
   const [selectedRef, setSelectedRef] = useState("");
   const [mappingState, mappingAction, mappingPending] = useActionState(
     mapAdminCompanyContractAction,
     INITIAL_MAPPING_STATE,
   );
-  const [refreshState, refreshAction, refreshPending] = useActionState(
-    refreshAdminCompanyContractDirectoryAction,
-    INITIAL_REFRESH_STATE,
+  const [syncState, syncAction, syncPending] = useActionState(
+    synchronizeAdminCompanyCommercialProfileAction,
+    INITIAL_SYNC_STATE,
   );
   const selected = useMemo(
     () => mapping.candidates.find((candidate) => candidate.external1cId === selectedRef) ?? null,
@@ -62,23 +60,47 @@ export function AdminCompanyContractMapping({
             {mapping.currentContractRef ?? "Не сопоставлен"}
           </p>
         </div>
-        {canRefresh ? (
-          <form action={refreshAction}>
-            <input name="companyId" type="hidden" value={mapping.companyId} />
-            <button
-              className="inline-flex min-h-11 items-center gap-2 border border-zinc-300 px-3 text-sm font-medium hover:bg-zinc-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900 disabled:opacity-60"
-              disabled={refreshPending}
-              type="submit"
-            >
-              <RefreshCw aria-hidden className={`size-4 ${refreshPending ? "animate-spin" : ""}`} />
-              {refreshPending ? "Проверка..." : "Повторно проверить в 1С"}
-            </button>
-          </form>
-        ) : null}
       </div>
 
-      {refreshState.message ? (
-        <p aria-live="polite" className="mt-3 text-sm text-zinc-700">{refreshState.message}</p>
+      <CommercialProfileFacts mapping={mapping} />
+
+      {mapping.canSync && mapping.currentContractRef ? (
+        <form action={syncAction} className="mt-5 grid gap-3 border-t border-zinc-200 pt-4">
+          <input name="companyId" type="hidden" value={mapping.companyId} />
+          <input name="expectedVersion" type="hidden" value={mapping.commercialProfileVersion} />
+          <label className="grid gap-1.5 text-sm font-medium">
+            Причина обновления
+            <input
+              className="min-h-11 border border-zinc-300 px-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900"
+              defaultValue="Проверка коммерческого профиля по основному договору 1С"
+              maxLength={500}
+              minLength={10}
+              name="reason"
+              required
+            />
+          </label>
+          <button
+            className="inline-flex min-h-11 w-fit items-center gap-2 bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-zinc-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900 disabled:opacity-60"
+            disabled={syncPending}
+            type="submit"
+          >
+            <RefreshCw aria-hidden className={`size-4 ${syncPending ? "animate-spin" : ""}`} />
+            {syncPending
+              ? "Проверка..."
+              : mapping.commercialProfileState === "mismatch"
+                ? "Применить данные из 1С"
+                : "Обновить коммерческий профиль из 1С"}
+          </button>
+        </form>
+      ) : null}
+
+      {syncState.message ? (
+        <p
+          aria-live="polite"
+          className={`mt-3 border p-3 text-sm ${syncState.code === "COMMERCIAL_PROFILE_SYNC_SUCCESS" ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-amber-200 bg-amber-50 text-amber-950"}`}
+        >
+          {syncState.message}
+        </p>
       ) : null}
 
       {mapping.canManage ? (
@@ -127,7 +149,7 @@ export function AdminCompanyContractMapping({
                   <p className="font-semibold">Вид цены не совпадает</p>
                   <p className="mt-1">Текущий профиль: {mapping.currentPriceTypeName ?? mapping.currentPriceTypeRef ?? "не задан"}</p>
                   <p>Договор: {selected.priceTypeName ?? selected.priceTypeRef ?? "не задан"}</p>
-                  <p className="mt-1">Сначала синхронизируйте коммерческие данные компании.</p>
+                  <p className="mt-1">Сопоставление сохранит договор, а коммерческий профиль останется неизменным до отдельного подтверждённого обновления из 1С.</p>
                 </div>
               </div>
             ) : null}
@@ -177,6 +199,35 @@ export function AdminCompanyContractMapping({
   );
 }
 
+function CommercialProfileFacts({ mapping }: { mapping: AdminCompanyContractMappingProjection }) {
+  const contract = mapping.candidates.find(
+    (candidate) => candidate.external1cId.toLowerCase() === mapping.currentContractRef?.toLowerCase(),
+  );
+  const mismatch = mapping.commercialProfileState === "mismatch";
+  return (
+    <div className="mt-5 border-y border-zinc-200 py-4">
+      {mismatch && contract ? (
+        <div className="mb-4 border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
+          <p><strong>Текущий профиль платформы:</strong> {mapping.currentPriceTypeName ?? "Не назначен"}</p>
+          <p><strong>Основной договор 1С:</strong> {contract.priceTypeName ?? "Вид цены не указан"}</p>
+        </div>
+      ) : null}
+      <dl className="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2 xl:grid-cols-3">
+        <Fact label="Контрагент 1С" value={mapping.counterpartyRef ?? "Не сопоставлен"} mono />
+        <Fact label="Договор" value={contract ? `${contract.code ?? "Без кода"} · ${contract.number ?? contract.name}` : "Не сопоставлен"} />
+        <Fact label="Организация" value={contract?.organizationRef ?? "Не определена"} mono />
+        <Fact label="Подписан" value={contract?.signed === null || contract?.signed === undefined ? "Не указано" : contract.signed ? "Да" : "Нет"} />
+        <Fact label="Вид цены договора" value={contract?.priceTypeName ?? contract?.priceTypeRef ?? "Не указан"} />
+        <Fact label="Опубликованный профиль" value={mapping.currentPriceTypeName ?? "Не назначен"} />
+        <Fact label="Статус партнёра" value={mapping.currentPriceTypeName ?? "Не назначен"} />
+        <Fact label="Валюта" value={mapping.currentCurrencyCode ?? "Не определена"} />
+        <Fact label="Последняя проверка" value={mapping.commercialProfileVerifiedAt ? formatDate(mapping.commercialProfileVerifiedAt) : "Ещё не проверен"} />
+        <Fact label="Состояние" value={profileStateLabel(mapping.commercialProfileState)} />
+      </dl>
+    </div>
+  );
+}
+
 function ContractFacts({ candidate }: { candidate: AdminContractCandidate }) {
   return (
     <div className="min-w-0">
@@ -215,4 +266,16 @@ function isStructurallySelectable(candidate: AdminContractCandidate): boolean {
 
 function formatDate(value: string): string {
   return new Intl.DateTimeFormat("ru-RU", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
+}
+
+function profileStateLabel(state: AdminCompanyContractMappingProjection["commercialProfileState"]): string {
+  return {
+    never_verified: "Не проверен",
+    aligned: "Соответствует 1С",
+    mismatch: "Вид цены не совпадает",
+    contract_missing: "Договор не сопоставлен",
+    contract_invalid: "Договор требует проверки",
+    price_type_unknown: "Вид цены не распознан",
+    price_data_stale: "Цены требуют обновления",
+  }[state];
 }

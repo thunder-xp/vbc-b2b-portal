@@ -99,9 +99,48 @@ export type AdminCompanyContractMappingProjection = {
   currentPriceTypeRef: string | null;
   currentPriceTypeName: string | null;
   currentCurrencyCode: string | null;
+  commercialProfileState: "never_verified" | "aligned" | "mismatch" | "contract_missing" | "contract_invalid" | "price_type_unknown" | "price_data_stale";
+  commercialProfileVersion: number;
+  commercialProfileVerifiedAt: string | null;
+  priceSnapshotAt: string | null;
+  publishedPriceCount: number;
   version: number;
   canManage: boolean;
+  canSync: boolean;
   candidates: AdminContractCandidate[];
+};
+
+export const COMMERCIAL_PROFILE_SYNC_RESULT_CODES = [
+  "COMMERCIAL_PROFILE_SYNC_SUCCESS",
+  "COMMERCIAL_PROFILE_MISMATCH",
+  "COMMERCIAL_CONTRACT_MISSING",
+  "COMMERCIAL_CONTRACT_INVALID",
+  "COMMERCIAL_PRICE_TYPE_MISSING",
+  "COMMERCIAL_PRICE_TYPE_UNKNOWN",
+  "COMMERCIAL_PRICE_DATA_STALE",
+  "COMMERCIAL_CURRENCY_MISMATCH",
+  "COMMERCIAL_PROFILE_SYNC_FAILED",
+] as const;
+
+export type CommercialProfileSyncResultCode =
+  (typeof COMMERCIAL_PROFILE_SYNC_RESULT_CODES)[number];
+
+export type AdminCommercialProfileSyncResult = {
+  code: CommercialProfileSyncResultCode;
+  correlationId: string;
+  version?: number;
+  claimed?: boolean;
+  runId?: string;
+  companyId?: string;
+  counterpartyRef?: string;
+  contractRef?: string;
+  previousPriceTypeRef?: string | null;
+  nextPriceTypeRef?: string | null;
+  derivedStatus?: string;
+  currencyCode?: string;
+  unchanged?: boolean;
+  idempotent?: boolean;
+  inProgress?: boolean;
 };
 
 export type AdminContractMappingResult = {

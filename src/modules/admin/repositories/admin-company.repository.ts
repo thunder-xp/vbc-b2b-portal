@@ -4,6 +4,7 @@ import type {
   AdminCompanyPage,
   AdminCompanyAccess,
   AdminCompanyContractMappingProjection,
+  AdminCommercialProfileSyncResult,
   AdminContractMappingResult,
   PartnerAccessPresetCode,
 } from "../types";
@@ -29,6 +30,17 @@ export interface AdminCompanyRepository {
     reason: string;
     correlationId: string;
   }): Promise<AdminContractMappingResult>;
+  beginCommercialProfileSync(input: {
+    companyId: string;
+    expectedVersion: number;
+    reason: string;
+    correlationId: string;
+  }): Promise<AdminCommercialProfileSyncResult>;
+  publishCommercialProfileSync(
+    runId: string,
+    source: import("../../integration/dto").PartnerCommercialProfileSourceDTO,
+  ): Promise<AdminCommercialProfileSyncResult>;
+  failCommercialProfileSync(runId: string, reason: string): Promise<void>;
   updateAccess(input: {
     companyId: string;
     expectedVersion: number;

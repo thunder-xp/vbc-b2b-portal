@@ -23,10 +23,13 @@ export {
   type AdminCompanyAccess,
   type AdminCompanyCapability,
   type AdminCompanyContractMappingProjection,
+  type AdminCommercialProfileSyncResult,
   type AdminContractCandidate,
   type AdminContractMappingResult,
   type ContractMappingResultCode,
   CONTRACT_MAPPING_RESULT_CODES,
+  type CommercialProfileSyncResultCode,
+  COMMERCIAL_PROFILE_SYNC_RESULT_CODES,
   type PartnerAccessPresetCode,
   PARTNER_ACCESS_PRESETS,
 } from "./admin-company";

@@ -15,7 +15,7 @@ export default async function AdminPartnerCompanyAccessPage({
   params: Promise<{ companyId: string }>;
   searchParams: Promise<{ accessConflict?: string }>;
 }) {
-  const context = await requireAdminPagePermission("admin.companies.view");
+  await requireAdminPagePermission("admin.companies.view");
   const [{ companyId }, query] = await Promise.all([params, searchParams]);
   const service = createAdminCompanyService();
   const [company, access, contractMapping] = await Promise.all([
@@ -38,7 +38,6 @@ export default async function AdminPartnerCompanyAccessPage({
         returnPath={`/admin/partners/companies/${companyId}`}
       />
       <AdminCompanyContractMapping
-        canRefresh={context.permissions.includes("admin.integrations.manage")}
         mapping={contractMapping}
       />
     </div>

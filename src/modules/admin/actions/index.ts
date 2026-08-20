@@ -12,8 +12,10 @@ export {
 export {
   mapAdminCompanyContractAction,
   refreshAdminCompanyContractDirectoryAction,
+  synchronizeAdminCompanyCommercialProfileAction,
   type AdminContractDirectoryRefreshState,
   type AdminContractMappingActionState,
+  type AdminCommercialProfileSyncActionState,
 } from "./admin-company-contract.actions";
 export {
   moveOrAddPartnerMembershipAction,

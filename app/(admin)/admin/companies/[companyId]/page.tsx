@@ -97,7 +97,6 @@ export default async function AdminCompanyPage({
         <div className="space-y-6">
           <AdminCompanyOverviewView company={company} />
           <AdminCompanyContractMapping
-            canRefresh={context.permissions.includes("admin.integrations.manage")}
             mapping={contractMapping}
           />
         </div>

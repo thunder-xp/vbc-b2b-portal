@@ -1,7 +1,9 @@
 import "server-only";
 
+import { createAdminClient } from "@/src/lib/supabase/admin";
 import { createClient } from "@/src/lib/supabase/server";
 import { RepositoryUnexpectedError } from "@/src/modules/access-control/repositories";
+import type { PartnerCommercialProfileSourceDTO } from "@/src/modules/integration/dto";
 
 import type {
   AdminCompanyRepository,
@@ -13,6 +15,7 @@ import type {
   AdminCompanySummary,
   AdminCompanyAccess,
   AdminCompanyContractMappingProjection,
+  AdminCommercialProfileSyncResult,
   AdminContractMappingResult,
   PartnerAccessPresetCode,
 } from "../../types";
@@ -141,6 +144,56 @@ export class SupabaseAdminCompanyRepository implements AdminCompanyRepository {
         p_correlation_id: input.correlationId,
       },
     );
+  }
+
+  async beginCommercialProfileSync(input: {
+    companyId: string;
+    expectedVersion: number;
+    reason: string;
+    correlationId: string;
+  }): Promise<AdminCommercialProfileSyncResult> {
+    return this.call<AdminCommercialProfileSyncResult>(
+      "begin_admin_partner_commercial_profile_sync",
+      {
+        p_company_id: input.companyId,
+        p_expected_version: input.expectedVersion,
+        p_reason: input.reason,
+        p_correlation_id: input.correlationId,
+      },
+    );
+  }
+
+  async publishCommercialProfileSync(
+    runId: string,
+    source: PartnerCommercialProfileSourceDTO,
+  ): Promise<AdminCommercialProfileSyncResult> {
+    const { data, error } = await createAdminClient().rpc(
+      "publish_partner_commercial_profile_sync",
+      { p_run_id: runId, p_source: source },
+    );
+    if (error || data === null) {
+      throw new RepositoryUnexpectedError({
+        operation: "publish_partner_commercial_profile_sync",
+        table: "partner_company_commercial_profile_sync_runs",
+        payloadKeys: ["p_run_id", "p_source"],
+        cause: error,
+      });
+    }
+    return data as AdminCommercialProfileSyncResult;
+  }
+
+  async failCommercialProfileSync(runId: string, reason: string): Promise<void> {
+    const { error } = await createAdminClient().rpc(
+      "fail_partner_commercial_profile_sync",
+      { p_run_id: runId, p_safe_reason: reason },
+    );
+    if (error) {
+      console.error({
+        event: "admin_commercial_profile_sync_failure_record_failed",
+        runId,
+        errorCode: error.code ?? null,
+      });
+    }
   }
 
   async updateAccess(input: {

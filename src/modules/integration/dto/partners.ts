@@ -39,6 +39,30 @@ export type PartnerPriceTypeLookupInputDTO = {
   reference: string;
 };
 
+export type PartnerCommercialProfileLookupInputDTO = {
+  partnerReference: string;
+  contractReference: string;
+};
+
+export type PartnerCommercialProfileSourceDTO = {
+  counterpartyReference: string;
+  contractReference: string;
+  contractCode: string;
+  contractNumber: string | null;
+  contractType: string | null;
+  organizationReference: string | null;
+  contractCurrencyReference: string | null;
+  signed: boolean | null;
+  default: boolean;
+  active: boolean;
+  deleted: boolean;
+  priceTypeReference: string | null;
+  priceTypeName: string | null;
+  priceTypeCurrencyReference: string | null;
+  priceTypeActive: boolean;
+  verifiedAt: string;
+};
+
 export type PartnerCompanyDTO = {
   reference: ExternalReferenceDTO;
   displayName: string;

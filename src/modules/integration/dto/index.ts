@@ -30,6 +30,8 @@ export type {
 } from "./orders";
 export type {
   PartnerCompanyDTO,
+  PartnerCommercialProfileLookupInputDTO,
+  PartnerCommercialProfileSourceDTO,
   PartnerContractDTO,
   PartnerContractLookupInputDTO,
   PartnerCustomerContractResolutionInputDTO,

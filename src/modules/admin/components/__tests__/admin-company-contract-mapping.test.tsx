@@ -6,7 +6,7 @@ import { AdminCompanyContractMapping } from "../AdminCompanyContractMapping";
 
 vi.mock("../../actions", () => ({
   mapAdminCompanyContractAction: vi.fn(),
-  refreshAdminCompanyContractDirectoryAction: vi.fn(),
+  synchronizeAdminCompanyCommercialProfileAction: vi.fn(),
 }));
 
 const mapping: AdminCompanyContractMappingProjection = {
@@ -16,8 +16,14 @@ const mapping: AdminCompanyContractMappingProjection = {
   currentPriceTypeRef: "23cb93ec-3eb5-11f0-8d8a-7239d3b7bd5c",
   currentPriceTypeName: "GOLD",
   currentCurrencyCode: "USD",
+  commercialProfileState: "contract_missing",
+  commercialProfileVersion: 1,
+  commercialProfileVerifiedAt: null,
+  priceSnapshotAt: "2026-08-18T16:00:42.557Z",
+  publishedPriceCount: 750,
   version: 1,
   canManage: true,
+  canSync: true,
   candidates: [
     candidate({ external1cId: "e5baa428-8919-11ee-129a-7239d3b7bd5c", name: "Customer GOLD", default: true }),
     candidate({ external1cId: "d1d54da8-a496-11ee-129a-7239d3b7bd5c", name: "Inactive", active: false }),
@@ -29,20 +35,20 @@ const mapping: AdminCompanyContractMappingProjection = {
 
 describe("AdminCompanyContractMapping", () => {
   it("shows one bounded local list with required governed contract facts", () => {
-    render(<AdminCompanyContractMapping canRefresh mapping={mapping} />);
+    render(<AdminCompanyContractMapping mapping={mapping} />);
 
     expect(screen.getByRole("heading", { name: "Основной договор 1С" })).toBeInTheDocument();
-    expect(screen.getByText("Не сопоставлен")).toBeInTheDocument();
+    expect(screen.getAllByText("Не сопоставлен")).toHaveLength(2);
     expect(screen.getByText("Customer GOLD")).toBeInTheDocument();
     expect(screen.getByText("Основной в 1С")).toBeInTheDocument();
     expect(screen.getAllByText("СПокупателем").length).toBeGreaterThan(0);
     expect(screen.getAllByText("GOLD").length).toBeGreaterThan(0);
     expect(screen.getAllByText("USD").length).toBeGreaterThan(0);
-    expect(screen.getByRole("button", { name: /Повторно проверить в 1С/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Обновить коммерческий профиль из 1С/ })).not.toBeInTheDocument();
   });
 
   it("allows the valid customer contract and rejects invalid candidate structures", () => {
-    render(<AdminCompanyContractMapping canRefresh={false} mapping={mapping} />);
+    render(<AdminCompanyContractMapping mapping={mapping} />);
 
     expect(screen.getByRole("radio", { name: /Customer GOLD/ })).toBeEnabled();
     expect(screen.getByRole("radio", { name: /Inactive/ })).toBeDisabled();
@@ -53,9 +59,22 @@ describe("AdminCompanyContractMapping", () => {
   });
 
   it("contains no browser-side Supabase input or free-text contract GUID", () => {
-    render(<AdminCompanyContractMapping canRefresh={false} mapping={mapping} />);
+    render(<AdminCompanyContractMapping mapping={mapping} />);
     expect(screen.queryByRole("textbox", { name: /GUID/i })).not.toBeInTheDocument();
     expect(screen.getAllByRole("radio")).toHaveLength(mapping.candidates.length);
+  });
+
+  it("offers only the governed 1C apply action for a mapped mismatch", () => {
+    render(<AdminCompanyContractMapping mapping={{
+      ...mapping,
+      currentContractRef: mapping.candidates[0]!.external1cId,
+      commercialProfileState: "mismatch",
+    }} />);
+
+    expect(screen.getByText(/Текущий профиль платформы:/)).toBeInTheDocument();
+    expect(screen.getByText(/Основной договор 1С:/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Применить данные из 1С" })).toBeInTheDocument();
+    expect(screen.queryByRole("combobox", { name: /вид цены/i })).not.toBeInTheDocument();
   });
 });
 
