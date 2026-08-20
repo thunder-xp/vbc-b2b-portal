@@ -1,4 +1,5 @@
-import type { PublicRetailAvailability, PublicRetailLocale } from "./types";
+import type { MerchandisingLabelCode } from "../merchandising/types";
+import type { PublicRetailAvailability, PublicRetailLocale, PublicRetailMerchandisingMode } from "./types";
 import type { PublicRetailCategoryDto } from "./types";
 
 export function publicRetailVisibleCategories(categories: PublicRetailCategoryDto[]): PublicRetailCategoryDto[] {
@@ -42,13 +43,14 @@ export const retailCopy = {
     showcase: "Витрина",
     popular: "Популярное",
     popularProducts: "Популярные товары",
-    popularBadge: "Популярный",
+    popularBadge: "Популярное",
     newProducts: "Новинки",
-    newBadge: "Новинка",
+    newBadge: "Новинки",
     hotPrice: "Горячая цена",
     hotBadge: "Горячая цена",
     replenishment: "Пополнение",
-    replenishmentBadge: "ПОПОЛНЕНИЕ",
+    replenishmentCollection: "Последнее поступление",
+    replenishmentBadge: "Пополнение",
     showAll: "Показать все",
     emptyShowcase: "В этой подборке пока нет товаров.",
     specialOffers: "Спецпредложения",
@@ -94,7 +96,8 @@ export const retailCopy = {
     hotPrice: "Preț special",
     hotBadge: "Preț special",
     replenishment: "Reaprovizionare",
-    replenishmentBadge: "REAPROVIZIONARE",
+    replenishmentCollection: "Ultima reaprovizionare",
+    replenishmentBadge: "Reaprovizionare",
     showAll: "Vezi toate",
     emptyShowcase: "Momentan nu sunt produse în această selecție.",
     specialOffers: "Oferte speciale",
@@ -113,6 +116,18 @@ export const retailCopy = {
     cart: "Coș",
   },
 } as const;
+
+export function publicRetailMerchandisingBadge(
+  locale: PublicRetailLocale,
+  mode: PublicRetailMerchandisingMode,
+): { label: string; variant: MerchandisingLabelCode | "REPLENISHMENT" } {
+  const copy = retailCopy[locale];
+  if (mode === "popular") return { label: copy.popularBadge, variant: "TOP" };
+  if (mode === "new") return { label: copy.newBadge, variant: "NEW" };
+  if (mode === "hot") return { label: copy.hotBadge, variant: "HOT" };
+  if (mode === "special") return { label: copy.specialOffers, variant: "SPECIAL_OFFER" };
+  return { label: copy.replenishmentBadge, variant: "REPLENISHMENT" };
+}
 
 export const availabilityCopy: Record<PublicRetailLocale, Record<PublicRetailAvailability, string>> = {
   ru: {

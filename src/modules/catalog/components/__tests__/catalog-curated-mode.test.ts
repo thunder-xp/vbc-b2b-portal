@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 const page = source("app/(partner)/cabinet/catalog/page.tsx");
 const curated = source("app/(partner)/cabinet/catalog/CuratedCatalogResults.tsx");
 const discovery = source("app/(partner)/cabinet/catalog/CatalogResults.tsx");
+const sectionsAction = source("src/modules/catalog/actions/list-merchandising-sections.action.ts");
 
 describe("catalog curated mode boundaries", () => {
   it("selects one mutually exclusive server data path", () => {
@@ -46,6 +47,14 @@ describe("catalog curated mode boundaries", () => {
     expect(sections).toContain("BehaviorTrackedCatalogLink");
     expect(sections).not.toContain("onClick=");
     expect(sections).not.toContain("recordBehaviorInteraction");
+  });
+
+  it("keeps the replenishment collection title separate from its card badge", () => {
+    expect(sectionsAction).toContain('title: "Последнее поступление"');
+    expect(sectionsAction).toContain('contextBadge: "Пополнение"');
+    expect(sectionsAction).not.toContain('contextBadge: "ПОПОЛНЕНИЕ"');
+    expect(discovery).toContain('collection === "replenishment" ? "Последнее поступление"');
+    expect(discovery).toContain('collection === "replenishment" ? "Пополнение"');
   });
 });
 

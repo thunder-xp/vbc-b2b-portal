@@ -6,11 +6,11 @@ const LABELS: Record<
   { label: string; className: string }
 > = {
   NEW: {
-    label: "Новинка",
+    label: "Новинки",
     className: "border-sky-200 bg-sky-50 text-sky-800",
   },
   TOP: {
-    label: "Популярный",
+    label: "Популярное",
     className: "border-amber-300 bg-amber-50 text-amber-900",
   },
   HOT: {
@@ -18,18 +18,18 @@ const LABELS: Record<
     className: "border-rose-200 bg-rose-50 text-rose-800",
   },
   SPECIAL_OFFER: {
-    label: "Спецпредложение",
+    label: "Спецпредложения",
     className: "border-amber-200 bg-amber-50 text-amber-900",
   },
 };
 
-type MerchandisingBadgeVariant = MerchandisingLabelCode | "REPLENISHMENT";
+export type MerchandisingBadgeVariant = MerchandisingLabelCode | "REPLENISHMENT";
 
 const BADGE_CLASS = "inline-flex min-h-6 max-w-full items-center rounded-sm border px-2 text-center text-[11px] font-semibold leading-4 shadow-sm [overflow-wrap:anywhere]";
 
 export function MerchandisingBadge({ label, variant }: { label: string; variant: MerchandisingBadgeVariant }) {
   const className = variant === "REPLENISHMENT"
-    ? "border-emerald-700 bg-emerald-700 text-white"
+    ? "border-emerald-700 bg-emerald-50 text-emerald-900"
     : LABELS[variant].className;
   return <span className={`${BADGE_CLASS} ${className}`}>{label}</span>;
 }

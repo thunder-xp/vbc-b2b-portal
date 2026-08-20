@@ -29,19 +29,19 @@ describe("Public Retail catalog showcase", () => {
     render(<PublicRetailShowcase categories={categories} locale="ru" showcase={{ popular: [product], new: [product], hot: [product], replenishment: [product] }} />);
     expect(screen.getByRole("heading", { level: 1, name: "Витрина" })).toBeInTheDocument();
     expect(screen.getAllByRole("heading", { level: 2 }).map((heading) => heading.textContent)).toEqual([
-      "Популярные товары", "Новинки", "Горячая цена", "Пополнение",
+      "Популярные товары", "Новинки", "Горячая цена", "Последнее поступление",
     ]);
     expect(screen.getAllByRole("link", { name: /Показать все/ }).map((link) => link.getAttribute("href"))).toEqual([
       "/catalog?lang=ru&view=popular", "/catalog?lang=ru&view=new", "/catalog?lang=ru&view=hot", "/catalog?lang=ru&view=replenishment",
     ]);
-    expect(screen.getByText("Популярный")).toBeInTheDocument();
-    expect(screen.getByText("Новинка")).toBeInTheDocument();
+    expect(screen.getByText("Популярное")).toBeInTheDocument();
+    expect(getMerchandisingBadge("Новинки")).toBeInTheDocument();
     expect(screen.getAllByText("Горячая цена")).toHaveLength(2);
     expect(screen.getByRole("link", { name: "Оборудование" })).toHaveAttribute("href", "/catalog?lang=ru&view=all");
-    expect(screen.getByText("Популярный")).toHaveClass("text-amber-900");
-    expect(screen.getByText("Новинка")).toHaveClass("text-sky-800");
+    expect(screen.getByText("Популярное")).toHaveClass("text-amber-900");
+    expect(getMerchandisingBadge("Новинки")).toHaveClass("text-sky-800");
     expect(screen.getAllByText("Горячая цена")[1]).toHaveClass("text-rose-800");
-    expect(screen.getByText("ПОПОЛНЕНИЕ")).toHaveClass("bg-emerald-700", "rounded-sm", "text-[11px]");
+    expect(screen.getByText("Пополнение")).toHaveClass("border-emerald-700", "bg-emerald-50", "text-emerald-900", "rounded-sm", "text-[11px]");
   });
 
   it("localizes section-derived merchandising badges in Romanian", () => {
@@ -83,3 +83,11 @@ describe("Public Retail catalog showcase", () => {
     expect(publicRetailShowcaseHref("ro")).toBe("/catalog?lang=ro");
   });
 });
+
+function getMerchandisingBadge(label: string): HTMLElement {
+  const badge = screen.getAllByText(label).find((element) => element.tagName === "SPAN");
+  if (!badge) {
+    throw new Error(`Merchandising badge not found: ${label}`);
+  }
+  return badge;
+}

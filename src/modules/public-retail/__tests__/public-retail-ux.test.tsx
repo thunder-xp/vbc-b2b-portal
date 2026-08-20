@@ -53,9 +53,9 @@ describe("public retail UX", () => {
   });
 
   it("keeps compact identity, commercial state and actions in stable tracks", () => {
-    render(<PublicRetailProductCard badge="Популярный" badgeCode="TOP" locale="ru" product={{ ...product, name: "Очень длинное название камеры видеонаблюдения с технической моделью" }} />);
-    expect(screen.getByText("Популярный")).toHaveClass("border-amber-300", "bg-amber-50", "text-amber-900");
-    expect(screen.getByText("Популярный").closest("div.absolute")).toHaveClass("left-2", "top-2");
+    render(<PublicRetailProductCard badge="Популярное" badgeVariant="TOP" locale="ru" product={{ ...product, name: "Очень длинное название камеры видеонаблюдения с технической моделью" }} />);
+    expect(screen.getByText("Популярное")).toHaveClass("border-amber-300", "bg-amber-50", "text-amber-900");
+    expect(screen.getByText("Популярное").closest("div.absolute")).toHaveClass("left-2", "top-2");
     expect(screen.getByRole("link", { name: "Очень длинное название камеры видеонаблюдения с технической моделью" })).toHaveClass("line-clamp-2", "h-10");
     expect(screen.getByText("Артикул CAM-001")).toHaveClass("truncate");
     expect(screen.queryByText(/Brand ·/)).not.toBeInTheDocument();
@@ -184,11 +184,26 @@ describe("public retail UX", () => {
 
   it("names the full current replenishment collection explicitly", () => {
     render(<PublicRetailCatalog categories={[]} facets={[]} locale="ru" products={{ items: [], totalCount: 0, limit: 24, offset: 0 }} state={{ attributeFilters: {}, mode: "replenishment", page: 1 }} />);
-    expect(screen.getByRole("heading", { level: 1, name: "Пополнение" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Последнее поступление" })).toBeInTheDocument();
     const selector = screen.getByRole("link", { name: "Пополнение" });
     expect(selector).toHaveAttribute("aria-current", "page");
     expect(selector).toHaveClass("min-h-11", "px-4", "text-sm");
     expect(selector).not.toHaveClass("min-h-6", "text-[11px]", "rounded-sm");
+  });
+
+  it.each([
+    ["popular", "Популярное", "text-amber-900"],
+    ["new", "Новинки", "text-sky-800"],
+    ["hot", "Горячая цена", "text-rose-800"],
+    ["special", "Спецпредложения", "text-amber-900"],
+    ["replenishment", "Пополнение", "text-emerald-900"],
+  ] as const)("shows the %s collection badge on every catalog card", (mode, label, tone) => {
+    render(<PublicRetailCatalog categories={[]} facets={[]} locale="ru" products={{ items: [product], totalCount: 1, limit: 24, offset: 0 }} state={{ attributeFilters: {}, mode, page: 1 }} />);
+    const badge = screen.getAllByText(label).find((element) => element.tagName === "SPAN");
+    if (!badge) {
+      throw new Error(`Merchandising badge not found: ${label}`);
+    }
+    expect(badge).toHaveClass("min-h-6", "rounded-sm", "border", "px-2", "text-[11px]", "font-semibold", tone);
   });
 
   it("localizes the storefront controls in Romanian", () => {

@@ -1,8 +1,8 @@
 import { ArrowRight, LayoutGrid } from "lucide-react";
 import Link from "next/link";
 
-import { publicRetailFullCatalogHref, publicRetailVisibleCategories, retailCopy } from "../presentation";
-import type { MerchandisingLabelCode } from "../../merchandising/types";
+import { publicRetailFullCatalogHref, publicRetailMerchandisingBadge, publicRetailVisibleCategories, retailCopy } from "../presentation";
+import type { PublicRetailMerchandisingMode } from "../types";
 import type { PublicRetailCategoryDto, PublicRetailLocale, PublicRetailProductSummaryDto, PublicRetailShowcaseDto } from "../types";
 import { PublicRetailProductCard } from "./PublicRetailProductCard";
 import { PublicRetailCategoryMenu } from "./PublicRetailCategoryMenu";
@@ -19,21 +19,22 @@ export function PublicRetailShowcase({ categories, locale, showcase }: { categor
         <Link className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 border border-zinc-300 px-4 text-sm font-semibold hover:border-blue-700 hover:text-blue-800" href={publicRetailFullCatalogHref(locale)}><LayoutGrid aria-hidden="true" className="size-4" />{locale === "ro" ? "Echipamente" : "Оборудование"}</Link>
     </CatalogToolbarFrame></div>
     <div className="divide-y divide-zinc-200">
-      <ShowcaseSection badge={copy.popularBadge} badgeCode="TOP" href={`/catalog?lang=${locale}&view=popular`} locale={locale} products={showcase.popular} title={copy.popularProducts} />
-      <ShowcaseSection badge={copy.newBadge} badgeCode="NEW" href={`/catalog?lang=${locale}&view=new`} locale={locale} products={showcase.new} title={copy.newProducts} />
-      <ShowcaseSection badge={copy.hotBadge} badgeCode="HOT" href={`/catalog?lang=${locale}&view=hot`} locale={locale} products={showcase.hot} title={copy.hotPrice} />
-      <ShowcaseSection contextBadge={copy.replenishmentBadge} href={`/catalog?lang=${locale}&view=replenishment`} locale={locale} products={showcase.replenishment} title={copy.replenishment} />
+      <ShowcaseSection href={`/catalog?lang=${locale}&view=popular`} locale={locale} mode="popular" products={showcase.popular} title={copy.popularProducts} />
+      <ShowcaseSection href={`/catalog?lang=${locale}&view=new`} locale={locale} mode="new" products={showcase.new} title={copy.newProducts} />
+      <ShowcaseSection href={`/catalog?lang=${locale}&view=hot`} locale={locale} mode="hot" products={showcase.hot} title={copy.hotPrice} />
+      <ShowcaseSection href={`/catalog?lang=${locale}&view=replenishment`} locale={locale} mode="replenishment" products={showcase.replenishment} title={copy.replenishmentCollection} />
     </div>
   </div>;
 }
 
-function ShowcaseSection({ badge, badgeCode, contextBadge, href, locale, products, title }: { badge?: string; badgeCode?: MerchandisingLabelCode; contextBadge?: string; href: string; locale: PublicRetailLocale; products: PublicRetailProductSummaryDto[]; title: string }) {
+function ShowcaseSection({ href, locale, mode, products, title }: { href: string; locale: PublicRetailLocale; mode: PublicRetailMerchandisingMode; products: PublicRetailProductSummaryDto[]; title: string }) {
   const copy = retailCopy[locale];
+  const badge = publicRetailMerchandisingBadge(locale, mode);
   return <section className="py-5" aria-labelledby={`showcase-${href.split("=").at(-1)}`}>
     <div className="mb-3 flex items-center justify-between gap-4">
       <h2 className="text-xl font-semibold" id={`showcase-${href.split("=").at(-1)}`}>{title}</h2>
       <Link className="inline-flex min-h-11 shrink-0 items-center gap-2 text-sm font-semibold text-blue-800 hover:text-blue-950" href={href}>{copy.showAll}<ArrowRight aria-hidden="true" className="size-4" /></Link>
     </div>
-    {products.length ? <CatalogProductGridFrame>{products.map((product) => <PublicRetailProductCard badge={badge} badgeCode={badgeCode} contextBadge={contextBadge} key={product.id} locale={locale} product={product} />)}</CatalogProductGridFrame> : <p className="border border-dashed border-zinc-300 px-6 py-10 text-center text-sm text-zinc-600">{copy.emptyShowcase}</p>}
+    {products.length ? <CatalogProductGridFrame>{products.map((product) => <PublicRetailProductCard badge={badge.label} badgeVariant={badge.variant} key={product.id} locale={locale} product={product} />)}</CatalogProductGridFrame> : <p className="border border-dashed border-zinc-300 px-6 py-10 text-center text-sm text-zinc-600">{copy.emptyShowcase}</p>}
   </section>;
 }

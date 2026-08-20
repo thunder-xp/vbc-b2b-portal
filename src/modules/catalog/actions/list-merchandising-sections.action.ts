@@ -114,10 +114,10 @@ export async function listCatalogMerchandisingSectionsAction(): Promise<
     if (replenishmentProducts.length) {
       sections.push({
         labelCode: "REPLENISHMENT",
-        title: "Пополнение",
+        title: "Последнее поступление",
         products: replenishmentProducts,
         href: "/cabinet/catalog?collection=replenishment",
-        contextBadge: "ПОПОЛНЕНИЕ",
+        contextBadge: "Пополнение",
         maxProducts: 5,
       });
     }

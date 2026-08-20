@@ -10,7 +10,7 @@ import { EmptyCatalog } from "../../catalog/components/EmptyCatalog";
 import { CatalogProductGridFrame, CatalogResultsHeader, CatalogToolbarFrame } from "../../catalog/components/CatalogPresentationPrimitives";
 import { NumberedPagination } from "../../platform-ui";
 import { publicRetailFilterHref, publicRetailMerchandisingHref, type PublicRetailCatalogState } from "../catalog-links";
-import { publicRetailShowcaseHref, publicRetailVisibleCategories, retailCopy } from "../presentation";
+import { publicRetailMerchandisingBadge, publicRetailShowcaseHref, publicRetailVisibleCategories, retailCopy } from "../presentation";
 import type { PublicRetailAvailability, PublicRetailCategoryDto, PublicRetailFacetDto, PublicRetailLocale, PublicRetailProductPageDto } from "../types";
 import { PublicRetailProductCard } from "./PublicRetailProductCard";
 import { PublicRetailCategoryMenu } from "./PublicRetailCategoryMenu";
@@ -20,7 +20,8 @@ type CatalogState = PublicRetailCatalogState;
 
 export function PublicRetailCatalog({ categories, facets, locale, products, state }: { categories: PublicRetailCategoryDto[]; facets: PublicRetailFacetDto[]; locale: PublicRetailLocale; products: PublicRetailProductPageDto; state: CatalogState }) {
   const copy = retailCopy[locale];
-  const pageTitle = state.mode === "replenishment" ? copy.replenishment : copy.catalog;
+  const pageTitle = state.mode === "replenishment" ? copy.replenishmentCollection : copy.catalog;
+  const collectionBadge = state.mode ? publicRetailMerchandisingBadge(locale, state.mode) : undefined;
   const visibleCategories = publicRetailVisibleCategories(categories);
   const filterableFacetKeys = new Set(facets.map((facet) => facet.key));
   return <div className="mx-auto max-w-[1440px] px-4 py-8 sm:px-6 lg:px-8">
@@ -45,7 +46,7 @@ export function PublicRetailCatalog({ categories, facets, locale, products, stat
     <div className="mt-5 grid items-start gap-7 lg:grid-cols-[260px_minmax(0,1fr)]">
       <PublicCatalogFilters facets={facets} locale={locale} state={state} />
       <section aria-label={copy.products} className="min-w-0">
-        {products.items.length ? <CatalogProductGridFrame>{products.items.map((product) => <PublicRetailProductCard catalogState={state} contextBadge={state.mode === "replenishment" ? copy.replenishmentBadge : undefined} filterableFacetKeys={filterableFacetKeys} key={product.id} locale={locale} product={product} showFacetShortcuts />)}</CatalogProductGridFrame> : <EmptyCatalog message={copy.noProducts} title={pageTitle} />}
+        {products.items.length ? <CatalogProductGridFrame>{products.items.map((product) => <PublicRetailProductCard badge={collectionBadge?.label} badgeVariant={collectionBadge?.variant} catalogState={state} filterableFacetKeys={filterableFacetKeys} key={product.id} locale={locale} product={product} showFacetShortcuts />)}</CatalogProductGridFrame> : <EmptyCatalog message={copy.noProducts} title={pageTitle} />}
         <Pagination locale={locale} products={products} state={state} />
       </section>
     </div>
