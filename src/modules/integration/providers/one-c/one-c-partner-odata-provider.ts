@@ -61,6 +61,7 @@ const PRICE_TYPES_RESOURCE = ONE_C_RESOURCES.priceTypes;
 const PARTNER_FIELDS = ONE_C_PARTNER_FIELDS.join(",");
 const CONTRACT_FIELDS = ONE_C_CONTRACT_FIELDS.join(",");
 const DEFAULT_CONTRACT_FIELDS = ONE_C_DEFAULT_PARTNER_CONTRACT_FIELDS.join(",");
+const COMMERCIAL_CONTRACT_COLLECTION_LIMIT = 5_000;
 const PRICE_TYPE_FIELDS = ONE_C_PRICE_TYPE_FIELDS.join(",");
 
 export class OneCPartnerODataProvider implements PartnerProvider {
@@ -174,7 +175,7 @@ export class OneCPartnerODataProvider implements PartnerProvider {
   ): Promise<PartnerCommercialProfileSourceDTO> {
     const partnerReference = requireUuid(input.partnerReference, "Partner reference");
     const contractReference = requireUuid(input.contractReference, "Contract reference");
-    const contract = await this.getContractByReference(contractReference);
+    const contract = await this.getCommercialContractByReference(contractReference);
     if (!contract) throw new IntegrationValidationError("Mapped 1C contract was not found.");
 
     const priceTypeReference = parseRequiredOneCGuid(
@@ -405,14 +406,32 @@ export class OneCPartnerODataProvider implements PartnerProvider {
   }
 
   private async getContractByReference(reference: string): Promise<OneCPartnerContractPayload | null> {
-    const payload = await this.client.getLiteralGuidBatch(
-      CONTRACTS_RESOURCE,
-      { refs: [reference], select: CONTRACT_FIELDS },
+    const payload = await this.client.get(
+      `${CONTRACTS_RESOURCE}(guid'${reference}')`,
+      { $select: CONTRACT_FIELDS },
       { requestKind: "partner_contract_validation" },
     );
     if (isCollectionPayload<OneCPartnerContractPayload>(payload)) return payload.value[0] ?? null;
     if (isRecord(payload)) return payload as OneCPartnerContractPayload;
     throw new IntegrationValidationError("Invalid 1C contract record response.");
+  }
+
+  private async getCommercialContractByReference(
+    reference: string,
+  ): Promise<OneCPartnerContractPayload | null> {
+    const payload = await this.client.getLiteral(
+      CONTRACTS_RESOURCE,
+      `$select=${CONTRACT_FIELDS}&$top=${COMMERCIAL_CONTRACT_COLLECTION_LIMIT}&$skip=0&$format=json`,
+      { requestKind: "partner_commercial_contract_validation" },
+    );
+    if (!isCollectionPayload<OneCPartnerContractPayload>(payload)) {
+      throw new IntegrationValidationError("Invalid 1C commercial contract response.");
+    }
+    const matches = payload.value.filter((row) => parseRequiredOneCGuid(row.Ref_Key) === reference);
+    if (matches.length > 1) {
+      throw new IntegrationValidationError("Duplicate 1C commercial contract response.");
+    }
+    return matches[0] ?? null;
   }
 
   private async getPriceTypeByReference(reference: string): Promise<OneCPartnerPriceTypePayload | null> {

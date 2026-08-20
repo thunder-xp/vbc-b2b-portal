@@ -9,7 +9,7 @@ import {
   IntegrationUnauthorizedError,
   IntegrationValidationError,
 } from "../../../errors";
-import { ONE_C_CONTRACT_FIELDS, ONE_C_RESOURCES } from "../one-c-odata-identifiers";
+import { ONE_C_RESOURCES } from "../one-c-odata-identifiers";
 import { isLikelyOneCPartnerCode } from "../one-c-partner-odata-provider";
 import { OneCProvider } from "../one-c-provider";
 
@@ -268,7 +268,10 @@ describe("1C OData partner provider", () => {
 
   it("re-reads exactly one mapped contract through the literal collection shape", async () => {
     const fetchMock = sequence(
-      record({ ...customerContractRow(), ВалютаРасчетов_Key: CURRENCY_ID }),
+      collection([
+        { ...contractRow(), Ref_Key: "77777777-7777-4777-8777-777777777777" },
+        { ...customerContractRow(), ВалютаРасчетов_Key: CURRENCY_ID },
+      ]),
       record({ ...priceTypeRow(), ВалютаЦены_Key: CURRENCY_ID }),
       collection([defaultContractRow()]),
     );
@@ -281,11 +284,9 @@ describe("1C OData partner provider", () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(3);
     const contractUrl = String(fetchMock.mock.calls[0]?.[0]);
-    expect(contractUrl).toContain(`${ONE_C_RESOURCES.contracts}?$filter=Ref_Key eq guid'${CONTRACT_ID}'`);
-    expect(contractUrl).toContain(`&$select=${ONE_C_CONTRACT_FIELDS.join(",")}`);
-    expect(contractUrl).toContain("&$top=1&$format=json");
-    expect(contractUrl).not.toContain("%24filter");
-    expect(contractUrl).not.toContain("+eq+");
+    expect(contractUrl).toContain(`${ONE_C_RESOURCES.contracts}?$select=`);
+    expect(contractUrl).toContain("&$top=5000&$skip=0&$format=json");
+    expect(contractUrl).not.toContain("$filter");
     expect(contractUrl).not.toContain("(guid");
     expect(decodeURIComponent(String(fetchMock.mock.calls[1]?.[0]))).toContain(
       `${ONE_C_RESOURCES.priceTypes}(guid'${PRICE_TYPE_ID}')`,
@@ -306,7 +307,7 @@ describe("1C OData partner provider", () => {
 
   it("does not treat another active customer contract as the primary contract", async () => {
     vi.stubGlobal("fetch", sequence(
-      record({ ...customerContractRow(), ВалютаРасчетов_Key: CURRENCY_ID }),
+      collection([{ ...customerContractRow(), ВалютаРасчетов_Key: CURRENCY_ID }]),
       record({ ...priceTypeRow(), ВалютаЦены_Key: CURRENCY_ID }),
       collection([{ ...defaultContractRow(), Договор_Key: "66666666-6666-4666-8666-666666666666" }]),
     ));
