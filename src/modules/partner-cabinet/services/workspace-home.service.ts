@@ -409,6 +409,13 @@ function toAttentionItem(
       consequence: item.description ?? "Проверьте актуальные цены и наличие перед отправкой заказа.",
     };
   }
+  if (item.kind === "notification_warehouse_arrival_completed") {
+    return {
+      ...metadata,
+      title: item.title ?? "Новое пополнение склада",
+      consequence: item.description ?? "Товары поступили на склад и доступны для отгрузки.",
+    };
+  }
   switch (item.kind) {
     case "test_return_overdue": {
       const days = daysSince(item.plannedDate);

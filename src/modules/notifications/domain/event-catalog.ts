@@ -26,6 +26,7 @@ export const PARTNER_NOTIFICATION_EVENT_CODES = [
   "cart_product_availability_changed",
   "campaign_started",
   "campaign_ending_soon",
+  "warehouse_arrival_completed",
   "service_case_created",
   "service_case_accepted",
   "service_information_requested",
@@ -80,6 +81,7 @@ type EventDefinition = {
     | "product"
     | "cart"
     | "campaign"
+    | "warehouse_arrival"
     | "service_case";
   expiryDays: number;
 };
@@ -118,6 +120,7 @@ export const PARTNER_NOTIFICATION_EVENT_CATALOG = {
   cart_product_availability_changed: definition("products", "warning", true, "cart", 30),
   campaign_started: definition("commercial", "information", false, "campaign", 90),
   campaign_ending_soon: definition("commercial", "information", false, "campaign", 30),
+  warehouse_arrival_completed: definition("commercial", "success", false, "warehouse_arrival", 90),
   service_case_created: definition("service", "information", false, "service_case", 90),
   service_case_accepted: definition("service", "information", false, "service_case", 90),
   service_information_requested: definition("service", "warning", false, "service_case", 90),

@@ -15,13 +15,13 @@ import { CatalogProductCardFrame } from "./CatalogProductCardFrame";
 import { BehaviorTrackedLink } from "../../behavior-analytics/components/BehaviorViewEvent";
 import type { BehaviorEventName } from "../../behavior-analytics/types";
 
-type ProductCardProps = { product: CatalogProductCardDto; analyticsEventName?: BehaviorEventName; analyticsSurface?: string; cartSuccessEventName?: BehaviorEventName; commercialView?: ProductCommercialViewDto; capabilities: ProductCardCapabilityModel; companyId?: string | null; contextLine?: string; favorite?: boolean; imagePriority?: boolean; userId?: string | null };
+type ProductCardProps = { product: CatalogProductCardDto; analyticsEventName?: BehaviorEventName; analyticsSurface?: string; cartSuccessEventName?: BehaviorEventName; commercialView?: ProductCommercialViewDto; capabilities: ProductCardCapabilityModel; companyId?: string | null; contextBadge?: string; contextLine?: string; favorite?: boolean; imagePriority?: boolean; userId?: string | null };
 
-export function ProductCard({ analyticsEventName, analyticsSurface, cartSuccessEventName, capabilities, commercialView, companyId = null, contextLine, favorite = false, imagePriority = false, product, userId = null }: ProductCardProps) {
+export function ProductCard({ analyticsEventName, analyticsSurface, cartSuccessEventName, capabilities, commercialView, companyId = null, contextBadge, contextLine, favorite = false, imagePriority = false, product, userId = null }: ProductCardProps) {
   const image = <>
     <CatalogCardImage alt={product.name} priority={imagePriority} sizes="(max-width: 639px) calc(100vw - 2rem), (max-width: 1023px) 50vw, (max-width: 1279px) 33vw, (max-width: 1535px) 25vw, 20vw" src={product.imageUrl} />
-    {product.merchandisingLabels?.length ? <div className="pointer-events-none absolute left-2 top-2 z-10 max-w-[calc(100%-1rem)] drop-shadow-sm">
-      <MerchandisingBadges labels={product.merchandisingLabels} />
+    {contextBadge || product.merchandisingLabels?.length ? <div className="pointer-events-none absolute left-2 top-2 z-10 max-w-[calc(100%-1rem)] drop-shadow-sm">
+      {contextBadge ? <span className="inline-flex min-h-6 items-center rounded bg-sky-700 px-2 text-xs font-semibold text-white">{contextBadge}</span> : <MerchandisingBadges labels={product.merchandisingLabels ?? []} />}
     </div> : null}
   </>;
 

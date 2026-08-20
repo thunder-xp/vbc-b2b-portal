@@ -29,7 +29,7 @@ export interface StockSyncStore {
   fail(syncId:string,stage:StockSyncStage,page:number,error:unknown):Promise<void>; failLaunch(syncId:string,message:string):Promise<void>;
 }
 
-const DOCUMENT_BATCH_SIZE=25, MAX_PAGES=5, BUDGET=45_000;
+const MAX_PAGES=5, BUDGET=45_000;
 
 export class ChunkedStockSyncService {
   constructor(private provider:StockBalanceProvider,private supplierProvider:SupplierArrivalProvider,private store:StockSyncStore,private now:()=>number=Date.now){}
@@ -44,13 +44,10 @@ export class ChunkedStockSyncService {
         state=await this.store.getState(); const stage=state.currentStage;
         if(!stage||stage==="completed"||stage==="stock_publication")break;
         if(stage==="supplier_order_documents"){
-          const refs=await this.store.listSupplierOrderRefs(syncId,state.nextSkip,DOCUMENT_BATCH_SIZE);
-          const documents=await this.supplierProvider.fetchSupplierOrderDocuments(refs);
+          const documents=await this.supplierProvider.fetchSupplierOrderSnapshot();
           await this.store.stageSupplierDocuments(syncId,documents); pages++;
-          const complete=refs.length<DOCUMENT_BATCH_SIZE;
-          await this.store.checkpoint(syncId,{stage:complete?"stock_publication":stage,nextSkip:complete?0:state.nextSkip+DOCUMENT_BATCH_SIZE,received:refs.length,kind:"supplier_documents",complete});
-          if(complete){await this.store.publish(syncId);return{state:await this.store.getState(),pages};}
-          continue;
+          await this.store.checkpoint(syncId,{stage:"stock_publication",nextSkip:0,received:documents.length,kind:"supplier_documents",complete:true});
+          await this.store.publish(syncId);return{state:await this.store.getState(),pages};
         }
         if(stage==="supplier_arrival_balance"){
           const page=await this.supplierProvider.fetchSupplierBalances(state.snapshotTime!);
@@ -79,7 +76,7 @@ export class SupabaseStockSyncStore implements StockSyncStore {
   async stageBalances(id:string,kind:StockBalanceKind,sourcePage:number,rows:StockStageRow[]){const client=createAdminClient(),payload=rows.map(r=>({external_product_ref:r.externalProductRef,external_warehouse_ref:r.externalWarehouseRef,external_characteristic_ref:r.externalCharacteristicRef,quantity:r.quantity}));let{data,error}=await client.rpc("stage_stock_balance_rows",{p_sync_id:id,p_kind:kind,p_source_page:sourcePage,p_rows:payload});if(error?.code==="PGRST202")({data,error}=await client.rpc("stage_stock_balance_rows",{p_sync_id:id,p_kind:kind,p_rows:payload}));if(error)throw dbError(error);return Number(data??0);}
   async stageSupplierBalances(id:string,sourcePage:number,rows:SupplierBalanceRow[]){const{error}=await createAdminClient().rpc("stage_supplier_arrival_balance_rows",{p_sync_id:id,p_source_page:sourcePage,p_rows:rows.map(r=>({external_supplier_order_ref:r.externalSupplierOrderRef,external_product_ref:r.externalProductRef,external_characteristic_ref:r.externalCharacteristicRef,remaining_quantity:r.remainingQuantity}))});if(error)throw dbError(error);}
   async listSupplierOrderRefs(id:string,offset:number,limit:number){const{data,error}=await createAdminClient().rpc("list_supplier_order_refs",{p_sync_id:id,p_offset:offset,p_limit:limit});if(error)throw dbError(error);return(data??[]).map((row:{external_supplier_order_ref:string})=>row.external_supplier_order_ref);}
-  async stageSupplierDocuments(id:string,rows:SupplierOrderDocumentRow[]){if(!rows.length)return;const{error}=await createAdminClient().from("supplier_order_document_stage").upsert(rows.map(r=>({sync_id:id,external_supplier_order_ref:r.externalSupplierOrderRef,is_posted:r.isPosted,is_deleted:r.isDeleted,is_closed:r.isClosed,external_state_ref:r.externalStateRef,expected_arrival_date:r.expectedArrivalDate,date_placement:r.datePlacement,source_version:r.sourceVersion})),{onConflict:"sync_id,external_supplier_order_ref"});if(error)throw dbError(error);}
+  async stageSupplierDocuments(id:string,rows:SupplierOrderDocumentRow[]){if(!rows.length)return;const client=createAdminClient();const{error}=await client.from("supplier_order_document_stage").upsert(rows.map(r=>({sync_id:id,external_supplier_order_ref:r.externalSupplierOrderRef,source_order_number:r.sourceOrderNumber,source_document_date:r.sourceDocumentDate,is_posted:r.isPosted,is_deleted:r.isDeleted,is_closed:r.isClosed,external_state_ref:r.externalStateRef,expected_arrival_date:r.expectedArrivalDate,date_placement:r.datePlacement,organization_ref:r.organizationRef,warehouse_ref:r.warehouseRef,source_version:r.sourceVersion})),{onConflict:"sync_id,external_supplier_order_ref"});if(error)throw dbError(error);const lines=rows.flatMap(r=>r.lines.map(line=>({sync_id:id,external_supplier_order_ref:r.externalSupplierOrderRef,line_number:line.lineNumber,external_product_ref:line.externalProductRef,external_characteristic_ref:line.externalCharacteristicRef,ordered_quantity:line.orderedQuantity,unit:line.unit,expected_arrival_date:line.expectedArrivalDate})));if(!lines.length)return;const{error:lineError}=await client.from("supplier_order_item_stage").upsert(lines,{onConflict:"sync_id,external_supplier_order_ref,line_number"});if(lineError)throw dbError(lineError);}
   async checkpoint(id:string,input:CheckpointInput){const state=await this.getState();const payload:Record<string,unknown>={status:"running",current_stage:input.stage,next_skip:input.nextSkip,pages_processed:state.pagesProcessed+1,scan_complete:input.complete??state.scanComplete,updated_at:new Date().toISOString()};const key=input.kind==="warehouses"?"warehouses_loaded":input.kind==="supplier_balance"?"supplier_balance_rows":input.kind==="supplier_documents"?"supplier_orders_requested":`${input.kind}_rows`;payload[key]=numericState(state,key)+input.received;if(input.supplierStats){payload.supplier_balance_groups=(state.supplierBalanceGroups??0)+input.supplierStats.groups;payload.supplier_positive_groups=(state.supplierPositiveGroups??0)+input.supplierStats.positive;payload.supplier_nonpositive_excluded=(state.supplierNonpositiveExcluded??0)+input.supplierStats.excluded;}const{error}=await createAdminClient().from("stock_sync_state").update(payload).eq("id","exact_stock").eq("active_sync_id",id);if(error)throw dbError(error);}
   async publish(id:string){const{error}=await createAdminClient().rpc("publish_exact_stock_snapshot",{p_sync_id:id});if(error)throw dbError(error);await projectPartnerProductTransitions(id);}
   async fail(id:string,stage:StockSyncStage,page:number,error:unknown){const e=error as{code?:string};await createAdminClient().from("stock_sync_state").update({status:"failed",last_failed_sync_id:id,active_sync_id:null,failed_stage:stage,failed_page:page,error_category:"stock_sync_failure",database_error_code:e?.code??null,safe_error:"Exact stock synchronization failed.",active_chunk_token:null,chunk_started_at:null,updated_at:new Date().toISOString()}).eq("id","exact_stock").eq("active_sync_id",id);}
