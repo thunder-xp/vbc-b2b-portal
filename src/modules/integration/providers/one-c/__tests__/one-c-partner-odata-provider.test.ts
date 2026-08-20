@@ -266,12 +266,14 @@ describe("1C OData partner provider", () => {
     });
   });
 
-  it("re-reads exactly one mapped contract through the literal collection shape", async () => {
+  it("uses the contract fallback price type when the counterparty price type is zero", async () => {
     const fetchMock = sequence(
-      collection([
-        { ...contractRow(), Ref_Key: "77777777-7777-4777-8777-777777777777" },
-        { ...customerContractRow(), ВалютаРасчетов_Key: CURRENCY_ID },
-      ]),
+      record({
+        ...customerContractRow(),
+        ВидЦенКонтрагента_Key: "00000000-0000-0000-0000-000000000000",
+        ВидЦен_Key: PRICE_TYPE_ID,
+        ВалютаРасчетов_Key: CURRENCY_ID,
+      }),
       record({ ...priceTypeRow(), ВалютаЦены_Key: CURRENCY_ID }),
       collection([defaultContractRow()]),
     );
@@ -283,11 +285,9 @@ describe("1C OData partner provider", () => {
     });
 
     expect(fetchMock).toHaveBeenCalledTimes(3);
-    const contractUrl = String(fetchMock.mock.calls[0]?.[0]);
-    expect(contractUrl).toContain(`${ONE_C_RESOURCES.contracts}?$select=`);
-    expect(contractUrl).toContain("&$top=5000&$skip=0&$format=json");
-    expect(contractUrl).not.toContain("$filter");
-    expect(contractUrl).not.toContain("(guid");
+    expect(decodeURIComponent(String(fetchMock.mock.calls[0]?.[0]))).toContain(
+      `${ONE_C_RESOURCES.contracts}(guid'${CONTRACT_ID}')`,
+    );
     expect(decodeURIComponent(String(fetchMock.mock.calls[1]?.[0]))).toContain(
       `${ONE_C_RESOURCES.priceTypes}(guid'${PRICE_TYPE_ID}')`,
     );
@@ -307,7 +307,7 @@ describe("1C OData partner provider", () => {
 
   it("does not treat another active customer contract as the primary contract", async () => {
     vi.stubGlobal("fetch", sequence(
-      collection([{ ...customerContractRow(), ВалютаРасчетов_Key: CURRENCY_ID }]),
+      record({ ...customerContractRow(), ВалютаРасчетов_Key: CURRENCY_ID }),
       record({ ...priceTypeRow(), ВалютаЦены_Key: CURRENCY_ID }),
       collection([{ ...defaultContractRow(), Договор_Key: "66666666-6666-4666-8666-666666666666" }]),
     ));
