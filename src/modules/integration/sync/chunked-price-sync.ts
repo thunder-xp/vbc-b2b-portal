@@ -3,7 +3,8 @@ import "server-only";
 import { createHash } from "node:crypto";
 
 import { createAdminClient } from "../../../lib/supabase/admin";
-import type { CurrencyStageRow, PriceChunkProvider, PriceRegisterStageRow, PriceTypeStageRow } from "../providers/one-c";
+import { IntegrationProviderUnavailableError, IntegrationTimeoutError } from "../errors";
+import { getOneCSafeDiagnostic, type CurrencyStageRow, type PriceChunkProvider, type PricePageIntegrity, type PriceRegisterStageRow, type PriceSyncPage, type PriceTypeStageRow } from "../providers/one-c";
 import { normalizePricePage, type PricePageDiagnostics } from "./price-page-normalization";
 import { projectPartnerProductTransitions } from "./product-notification-projection";
 
@@ -11,12 +12,14 @@ export const PRICE_SYNC_PAGE_SIZE = 500;
 export const PRICE_SYNC_PAGES_PER_INVOCATION = 5;
 export const PRICE_SYNC_DURATION_BUDGET_MS = 45_000;
 export const PRICE_SYNC_STALE_LOCK_MS = 10 * 60 * 1000;
+export const PRICE_SYNC_MAX_PAGE_RETRIES = 3;
+export const PRICE_SYNC_RETRY_DELAY_BUDGET_MS = 15_000;
 const RETAIL_PRICE_TYPE_REF = "e181c772-93fc-11e9-94cb-000c2988d323";
 const ZERO_CHARACTERISTIC_REF = "00000000-0000-0000-0000-000000000000";
 
 export type PriceSyncStatus = "never_run" | "queued" | "running" | "succeeded" | "failed";
 export type PriceSyncStage = "price_type_scan" | "currency_scan" | "price_register_scan" | "price_aggregation" | "price_publication" | "continuation_launch" | "completed";
-export type PriceSyncState = { status: PriceSyncStatus; activeSyncId: string | null; lastFailedSyncId: string | null; startedAt: string | null; finishedAt: string | null; lastSuccessfulSyncAt: string | null; currentStage: PriceSyncStage | null; nextSkip: number; pageSize: number; pagesProcessed: number; rowsScanned: number; rowsStaged: number; priceRowsReceived: number; priceUniqueKeys: number; priceDuplicateKeys: number; priceRowsDeduplicated: number; latestPricesResolved: number; pricesPublished: number; pricesDeactivated: number; unmatchedProducts: number; unknownPriceTypes: number; scanComplete: boolean; errorCategory: string | null; failedStage: string | null; databaseErrorCode: string | null; safeError: string | null; failedPage: number | null; activeChunkToken: string | null; chunkStartedAt: string | null; updatedAt: string };
+export type PriceSyncState = { status: PriceSyncStatus; activeSyncId: string | null; lastFailedSyncId: string | null; startedAt: string | null; finishedAt: string | null; lastSuccessfulSyncAt: string | null; currentStage: PriceSyncStage | null; nextSkip: number; pageSize: number; pagesProcessed: number; rowsScanned: number; rowsStaged: number; priceRowsReceived: number; priceUniqueKeys: number; priceDuplicateKeys: number; priceRowsDeduplicated: number; latestPricesResolved: number; pricesPublished: number; pricesDeactivated: number; unmatchedProducts: number; unknownPriceTypes: number; scanComplete: boolean; errorCategory: string | null; failedStage: string | null; databaseErrorCode: string | null; safeError: string | null; failedPage: number | null; activeChunkToken: string | null; chunkStartedAt: string | null; lastPageStage: PriceSyncStage | null; lastPageNumber: number | null; lastPageFingerprint: string | null; lastPageFirstKey: string | null; lastPageLastKey: string | null; retryCount: number; odataRequestCount: number; odataRequestDurationMs: number; stagingDurationMs: number; publicationDurationMs: number; updatedAt: string };
 export type PriceSyncChunkResult = { state: PriceSyncState; needsContinuation: boolean; pagesProcessedThisInvocation: number };
 
 export interface PriceSyncStateStore {
@@ -28,16 +31,19 @@ export interface PriceSyncStateStore {
   stageCurrencies(syncId: string, rows: CurrencyStageRow[]): Promise<number>;
   stagePrices(syncId: string, rows: PriceRegisterStageRow[]): Promise<number>;
   stageRetailHistory?(syncId: string, rows: PriceRegisterStageRow[], sourceOffset: number): Promise<number>;
-  checkpoint(syncId: string, input: { stage: PriceSyncStage; nextSkip: number; rowsScanned: number; rowsStaged: number; pageCompleted: boolean; scanComplete?: boolean; priceDiagnostics?: PricePageDiagnostics }): Promise<void>;
+  checkpoint(syncId: string, input: { stage: PriceSyncStage; processedStage?: PriceSyncStage; pageNumber?: number; pageIntegrity?: PricePageIntegrity; nextSkip: number; rowsScanned: number; rowsStaged: number; pageCompleted: boolean; scanComplete?: boolean; priceDiagnostics?: PricePageDiagnostics; retryCount?: number; requestCount?: number; requestDurationMs?: number; stagingDurationMs?: number }): Promise<void>;
   publish(syncId: string): Promise<void>;
   fail(syncId: string, category: string, stage: PriceSyncStage, page: number, databaseCode?: string, safeError?: string): Promise<void>;
   failLaunch(syncId: string, safeError: string): Promise<void>;
 }
 
 export class ChunkedPriceSyncService {
-  constructor(private readonly provider: PriceChunkProvider, private readonly store: PriceSyncStateStore, private readonly now: () => number = Date.now) {}
+  private readonly retry: { maxRetries: number; sleep: (ms: number) => Promise<void>; random: () => number };
+  constructor(private readonly provider: PriceChunkProvider, private readonly store: PriceSyncStateStore, private readonly now: () => number = Date.now, retry: Partial<{ maxRetries: number; sleep: (ms: number) => Promise<void>; random: () => number }> = {}) {
+    this.retry = { maxRetries: retry.maxRetries ?? PRICE_SYNC_MAX_PAGE_RETRIES, sleep: retry.sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms))), random: retry.random ?? Math.random };
+  }
 
-  start() { return this.store.start(); }
+  async start() { const result = await this.store.start(); if (result.started) console.info(observation("price_sync_started", result.state.activeSyncId, result.state.currentStage)); return result; }
   getState() { return this.store.getState(); }
   failLaunch(syncId: string, safeError: string) { return this.store.failLaunch(syncId, safeError); }
 
@@ -54,9 +60,14 @@ export class ChunkedPriceSyncService {
         state = await this.store.getState();
         if (state.activeSyncId !== syncId || !state.currentStage) return { state, needsContinuation: false, pagesProcessedThisInvocation: processed };
         const processedStage = state.currentStage;
-        const page = await this.fetchStagePage(processedStage, state.nextSkip, state.pageSize);
+        const pageNumber = state.pagesProcessed + 1;
+        const entityPage = Math.floor(state.nextSkip / state.pageSize) + 1;
+        const fetched = await this.fetchPageWithRetry(syncId, processedStage, pageNumber, entityPage, state.nextSkip, state.pageSize);
+        const page = fetched.page;
+        assertPageIntegrity(state, processedStage, pageNumber, page);
         const normalizedPricePage = processedStage === "price_register_scan" ? normalizePricePage(page.items as PriceRegisterStageRow[]) : null;
-        const staged = await this.stagePage(syncId, processedStage, normalizedPricePage?.rows ?? page.items);
+        const stagingStartedAt = performance.now();
+        const staged = await this.stagePage(syncId, processedStage, (normalizedPricePage?.rows ?? page.items) as PriceTypeStageRow[] | CurrencyStageRow[] | PriceRegisterStageRow[]);
         if (processedStage === "price_register_scan" && this.store.stageRetailHistory) {
           await this.store.stageRetailHistory(
             syncId,
@@ -64,14 +75,20 @@ export class ChunkedPriceSyncService {
             state.nextSkip,
           );
         }
+        const stagingDurationMs = Math.round(performance.now() - stagingStartedAt);
         processed += 1;
         const complete = page.rowCount < state.pageSize;
         const nextStage = complete ? followingStage(processedStage) : processedStage;
-        await this.store.checkpoint(syncId, { stage: nextStage, nextSkip: complete ? 0 : state.nextSkip + state.pageSize, rowsScanned: page.rowCount, rowsStaged: staged, pageCompleted: true, scanComplete: processedStage === "price_register_scan" && complete, priceDiagnostics: normalizedPricePage?.diagnostics });
+        await this.store.checkpoint(syncId, { stage: nextStage, processedStage, pageNumber, pageIntegrity: page.integrity, nextSkip: complete ? 0 : state.nextSkip + state.pageSize, rowsScanned: page.rowCount, rowsStaged: staged, pageCompleted: true, scanComplete: processedStage === "price_register_scan" && complete, priceDiagnostics: normalizedPricePage?.diagnostics, retryCount: fetched.retryCount, requestCount: fetched.retryCount + 1, requestDurationMs: fetched.durationMs, stagingDurationMs });
+        console.info(observation("price_sync_page_completed", syncId, processedStage, { entity: stageEntity(processedStage), page: pageNumber, entityPage, rows: page.rowCount, cumulativeRows: state.rowsScanned + page.rowCount, durationMs: fetched.durationMs, retryCount: fetched.retryCount, firstStableKey: page.integrity.firstStableKey, lastStableKey: page.integrity.lastStableKey, duplicatesDiscarded: normalizedPricePage?.diagnostics.rowsDeduplicated ?? 0 }));
         if (processedStage === "price_register_scan" && complete) {
+          console.info(observation("price_sync_scan_completed", syncId, processedStage, { rows: page.rowCount, cumulativeRows: state.rowsScanned + page.rowCount }));
+          console.info(observation("price_sync_validation_completed", syncId, "price_aggregation", { cumulativeRows: state.rowsScanned + page.rowCount }));
           await this.store.checkpoint(syncId, { stage: "price_publication", nextSkip: 0, rowsScanned: 0, rowsStaged: 0, pageCompleted: false, scanComplete: true });
+          console.info(observation("price_sync_publication_started", syncId, "price_publication"));
           await this.store.publish(syncId);
           const completedState = await this.store.getState();
+          console.info(observation("price_sync_publication_completed", syncId, "completed", { rows: completedState.pricesPublished, durationMs: completedState.publicationDurationMs }));
           console.info({ event: "price_sync_chunk_completed", syncId, stage: completedState.currentStage, nextSkip: completedState.nextSkip, pagesProcessed: completedState.pagesProcessed, rowsScanned: completedState.rowsScanned });
           return { state: completedState, needsContinuation: false, pagesProcessedThisInvocation: processed };
         }
@@ -84,9 +101,28 @@ export class ChunkedPriceSyncService {
     } catch (error) {
       const current = await this.store.getState();
       const stage = current.currentStage ?? "price_register_scan";
-      await this.store.fail(syncId, errorCategory(error, stage), stage, current.pagesProcessed + 1, databaseCode(error), safeDatabaseError(error));
-      console.error({ event: "price_sync_continuation_failed", syncId, stage, nextSkip: current.nextSkip, pagesProcessed: current.pagesProcessed, rowsScanned: current.rowsScanned });
+      await this.store.fail(syncId, errorCategory(error, stage), stage, current.pagesProcessed + 1, databaseCode(error), safeIntegrationError(error));
+      console.error(observation("price_sync_failed", syncId, stage, { page: current.pagesProcessed + 1, nextSkip: current.nextSkip, pagesProcessed: current.pagesProcessed, cumulativeRows: current.rowsScanned, safeError: safeIntegrationError(error), errorCategory: errorCategory(error, stage) }));
       return { state: await this.store.getState(), needsContinuation: false, pagesProcessedThisInvocation: processed };
+    }
+  }
+
+  private async fetchPageWithRetry(syncId: string, stage: PriceSyncStage, page: number, entityPage: number, skip: number, limit: number): Promise<{ page: PriceSyncPage<PriceTypeStageRow | CurrencyStageRow | PriceRegisterStageRow>; retryCount: number; durationMs: number }> {
+    const startedAt = performance.now();
+    let totalDelayMs = 0;
+    console.info(observation("price_sync_page_started", syncId, stage, { entity: stageEntity(stage), page, entityPage, skip }));
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        return { page: await this.fetchStagePage(stage, skip, limit), retryCount: attempt, durationMs: Math.round(performance.now() - startedAt) };
+      } catch (error) {
+        if (attempt >= this.retry.maxRetries || !isRetryablePageError(error)) throw error;
+        const diagnostic = getOneCSafeDiagnostic(error);
+        const delayMs = retryDelayMs(attempt, diagnostic?.retryAfterMs ?? null, this.retry.random());
+        if (totalDelayMs + delayMs > PRICE_SYNC_RETRY_DELAY_BUDGET_MS) throw error;
+        totalDelayMs += delayMs;
+        console.warn(observation("price_sync_page_retry", syncId, stage, { entity: stageEntity(stage), page, entityPage, retryAttempt: attempt + 1, delayMs, httpStatus: diagnostic?.statusCode ?? null, responseContentType: diagnostic?.receivedContentType ?? null, safeError: safeIntegrationError(error), requestDurationMs: Math.round(performance.now() - startedAt), upstreamConnectTimeMs: diagnostic?.upstreamConnectTimeMs ?? null, upstreamHeaderTimeMs: diagnostic?.upstreamHeaderTimeMs ?? null, upstreamResponseTimeMs: diagnostic?.upstreamResponseTimeMs ?? null, responseServer: diagnostic?.responseServer ?? null }));
+        await this.retry.sleep(delayMs);
+      }
     }
   }
 
@@ -114,7 +150,7 @@ export class SupabasePriceSyncStateStore implements PriceSyncStateStore {
     const syncId = crypto.randomUUID();
     await this.clearStages(current.activeSyncId ?? current.lastFailedSyncId);
     const now = new Date().toISOString();
-    const { error } = await client.from("price_sync_state").update({ status: "queued", active_sync_id: syncId, last_failed_sync_id: null, started_at: now, finished_at: null, current_stage: "price_type_scan", next_skip: 0, page_size: PRICE_SYNC_PAGE_SIZE, pages_processed: 0, rows_scanned: 0, rows_staged: 0, price_rows_received: 0, price_unique_keys: 0, price_duplicate_keys: 0, price_rows_deduplicated: 0, latest_prices_resolved: 0, prices_published: 0, prices_deactivated: 0, unmatched_products: 0, unknown_price_types: 0, scan_complete: false, error_category: null, failed_stage: null, database_error_code: null, safe_error: null, failed_page: null, lock_acquired_at: now, active_chunk_token: null, chunk_started_at: null, updated_at: now }).eq("id", "product_prices");
+    const { error } = await client.from("price_sync_state").update({ status: "queued", active_sync_id: syncId, last_failed_sync_id: null, started_at: now, finished_at: null, current_stage: "price_type_scan", next_skip: 0, page_size: PRICE_SYNC_PAGE_SIZE, pages_processed: 0, rows_scanned: 0, rows_staged: 0, price_rows_received: 0, price_unique_keys: 0, price_duplicate_keys: 0, price_rows_deduplicated: 0, latest_prices_resolved: 0, prices_published: 0, prices_deactivated: 0, unmatched_products: 0, unknown_price_types: 0, scan_complete: false, error_category: null, failed_stage: null, database_error_code: null, safe_error: null, failed_page: null, last_page_stage: null, last_page_number: null, last_page_fingerprint: null, last_page_first_key: null, last_page_last_key: null, retry_count: 0, odata_request_count: 0, odata_request_duration_ms: 0, staging_duration_ms: 0, publication_duration_ms: 0, lock_acquired_at: now, active_chunk_token: null, chunk_started_at: null, updated_at: now }).eq("id", "product_prices");
     if (error) throw persistenceError(error);
     return { state: await this.getState(), started: true };
   }
@@ -157,15 +193,17 @@ export class SupabasePriceSyncStateStore implements PriceSyncStateStore {
     if (error) throw persistenceError(error);
     return retailRows.length;
   }
-  async checkpoint(syncId: string, input: { stage: PriceSyncStage; nextSkip: number; rowsScanned: number; rowsStaged: number; pageCompleted: boolean; scanComplete?: boolean; priceDiagnostics?: PricePageDiagnostics }) { const client = createAdminClient(); const state = await this.getState(); if (state.activeSyncId !== syncId) throw Object.assign(new Error("Stale price sync."), { errorCategory: "stale_job" }); const d = input.priceDiagnostics; const { error } = await client.from("price_sync_state").update({ status: "running", current_stage: input.stage, next_skip: input.nextSkip, pages_processed: state.pagesProcessed + (input.pageCompleted ? 1 : 0), rows_scanned: state.rowsScanned + input.rowsScanned, rows_staged: state.rowsStaged + input.rowsStaged, price_rows_received: state.priceRowsReceived + (d?.received ?? 0), price_unique_keys: state.priceUniqueKeys + (d?.uniqueKeys ?? 0), price_duplicate_keys: state.priceDuplicateKeys + (d?.duplicateKeys ?? 0), price_rows_deduplicated: state.priceRowsDeduplicated + (d?.rowsDeduplicated ?? 0), scan_complete: input.scanComplete ?? state.scanComplete, updated_at: new Date().toISOString() }).eq("id", "product_prices").eq("active_sync_id", syncId); if (error) throw persistenceError(error); }
+  async checkpoint(syncId: string, input: { stage: PriceSyncStage; processedStage?: PriceSyncStage; pageNumber?: number; pageIntegrity?: PricePageIntegrity; nextSkip: number; rowsScanned: number; rowsStaged: number; pageCompleted: boolean; scanComplete?: boolean; priceDiagnostics?: PricePageDiagnostics; retryCount?: number; requestCount?: number; requestDurationMs?: number; stagingDurationMs?: number }) { const client = createAdminClient(); const state = await this.getState(); if (state.activeSyncId !== syncId) throw Object.assign(new Error("Stale price sync."), { errorCategory: "stale_job" }); const d = input.priceDiagnostics; const { error } = await client.from("price_sync_state").update({ status: "running", current_stage: input.stage, next_skip: input.nextSkip, pages_processed: state.pagesProcessed + (input.pageCompleted ? 1 : 0), rows_scanned: state.rowsScanned + input.rowsScanned, rows_staged: state.rowsStaged + input.rowsStaged, price_rows_received: state.priceRowsReceived + (d?.received ?? 0), price_unique_keys: state.priceUniqueKeys + (d?.uniqueKeys ?? 0), price_duplicate_keys: state.priceDuplicateKeys + (d?.duplicateKeys ?? 0), price_rows_deduplicated: state.priceRowsDeduplicated + (d?.rowsDeduplicated ?? 0), scan_complete: input.scanComplete ?? state.scanComplete, last_page_stage: input.pageCompleted ? input.processedStage : state.lastPageStage, last_page_number: input.pageCompleted ? input.pageNumber : state.lastPageNumber, last_page_fingerprint: input.pageCompleted ? input.pageIntegrity?.fingerprint : state.lastPageFingerprint, last_page_first_key: input.pageCompleted ? input.pageIntegrity?.firstStableKey : state.lastPageFirstKey, last_page_last_key: input.pageCompleted ? input.pageIntegrity?.lastStableKey : state.lastPageLastKey, retry_count: state.retryCount + (input.retryCount ?? 0), odata_request_count: state.odataRequestCount + (input.requestCount ?? 0), odata_request_duration_ms: state.odataRequestDurationMs + (input.requestDurationMs ?? 0), staging_duration_ms: state.stagingDurationMs + (input.stagingDurationMs ?? 0), updated_at: new Date().toISOString() }).eq("id", "product_prices").eq("active_sync_id", syncId); if (error) throw persistenceError(error); }
   async publish(syncId: string) {
     const client = createAdminClient();
+    const startedAt = performance.now();
     const discovery = await client.rpc("record_retail_price_history_discovery", { p_sync_id: syncId });
     if (discovery.error) throw Object.assign(persistenceError(discovery.error), { errorCategory: "publication_failure" });
     const { error } = await client.rpc("publish_product_prices_with_retail_history", { p_sync_id: syncId });
     if (error) throw Object.assign(persistenceError(error), { errorCategory: "publication_failure" });
     await projectPartnerProductTransitions(syncId);
     await client.from("retail_price_history_source_stage").delete().eq("sync_id", syncId);
+    await client.from("price_sync_state").update({ publication_duration_ms: Math.round(performance.now() - startedAt) }).eq("id", "product_prices");
   }
   async fail(syncId: string, category: string, stage: PriceSyncStage, page: number, code?: string, safeError?: string) {
     const client = createAdminClient();
@@ -187,13 +225,40 @@ export class SupabasePriceSyncStateStore implements PriceSyncStateStore {
 }
 
 function followingStage(stage: PriceSyncStage): PriceSyncStage { if (stage === "price_type_scan") return "currency_scan"; if (stage === "currency_scan") return "price_register_scan"; if (stage === "price_register_scan") return "price_aggregation"; return stage; }
+function stageEntity(stage: PriceSyncStage): string | null { if (stage === "price_type_scan") return "Catalog_\u0412\u0438\u0434\u044b\u0426\u0435\u043d"; if (stage === "currency_scan") return "Catalog_\u0412\u0430\u043b\u044e\u0442\u044b"; if (stage === "price_register_scan") return "InformationRegister_\u0426\u0435\u043d\u044b\u041d\u043e\u043c\u0435\u043d\u043a\u043b\u0430\u0442\u0443\u0440\u044b"; return null; }
+function assertPageIntegrity(state: PriceSyncState, stage: PriceSyncStage, pageNumber: number, page: PriceSyncPage<unknown>): void {
+  if (page.rowCount > state.pageSize || page.items.length !== page.rowCount) throw integrityFailure("Price page row count is inconsistent.");
+  if (state.lastPageStage !== stage) return;
+  if (state.lastPageNumber !== pageNumber - 1) throw integrityFailure("Price page sequence contains a missing range.");
+  if (page.rowCount > 0 && state.lastPageFingerprint === page.integrity.fingerprint) throw integrityFailure("Price scan returned a repeated page.");
+}
+function integrityFailure(message: string): Error { return Object.assign(new Error(message), { name: "PriceSyncPageIntegrityError", errorCategory: "page_integrity_failure", safeError: message }); }
+function isRetryablePageError(error: unknown): boolean {
+  if (error instanceof IntegrationTimeoutError) return true;
+  if (error instanceof IntegrationProviderUnavailableError) return isRecord(error) && typeof error.networkCode === "string" && ["ECONNRESET", "ETIMEDOUT", "ECONNREFUSED", "EPIPE", "UND_ERR_SOCKET", "UND_ERR_CONNECT_TIMEOUT", "UND_ERR_HEADERS_TIMEOUT"].includes(error.networkCode);
+  const status = getOneCSafeDiagnostic(error)?.statusCode;
+  return status !== null && status !== undefined && [429, 500, 502, 503, 504].includes(status);
+}
+function retryDelayMs(retryIndex: number, retryAfterMs: number | null, random: number): number {
+  const base = [500, 1_500, 3_000][retryIndex] ?? 3_000;
+  return Math.min(30_000, Math.max(retryAfterMs ?? 0, base + Math.round(base * 0.2 * Math.max(0, Math.min(1, random)))));
+}
+function safeIntegrationError(error: unknown): string | undefined {
+  const diagnostic = getOneCSafeDiagnostic(error);
+  if (diagnostic) return [`status=${diagnostic.statusCode ?? "network"}`, diagnostic.safeErrorSummary].filter(Boolean).join(" ").slice(0, 300);
+  if (isRecord(error) && typeof error.safeError === "string") return sanitizeDatabaseField(error.safeError);
+  if (error instanceof IntegrationTimeoutError) return "1C OData request timed out.";
+  if (error instanceof IntegrationProviderUnavailableError) return "1C OData connection failed.";
+  return safeDatabaseError(error);
+}
+function observation(event: string, syncId: string | null, stage: PriceSyncStage | null, details: Record<string, unknown> = {}) { return { event, syncId, stage, correlationId: syncId, deployedCommitSha: process.env.VERCEL_GIT_COMMIT_SHA?.trim() || "local", ...details }; }
 function errorCategory(error: unknown, stage: PriceSyncStage): string { if (isRecord(error) && typeof error.errorCategory === "string") return error.errorCategory; if (stage === "price_publication" || stage === "price_aggregation") return "publication_failure"; return "odata_failure"; }
 function databaseCode(error: unknown): string | undefined { return isRecord(error) && typeof error.code === "string" ? error.code : undefined; }
 function persistenceError(error: unknown): Error { const source = isRecord(error) ? error : {}; return Object.assign(new Error("Price synchronization persistence failed."), { name: "PriceSyncPersistenceError", errorCategory: "staging_failure", code: stringValue(source.code), databaseMessage: sanitizeDatabaseField(source.message), databaseDetails: sanitizeDatabaseField(source.details), databaseHint: sanitizeDatabaseField(source.hint) }); }
 function safeDatabaseError(error: unknown): string | undefined { if (!isRecord(error)) return undefined; const fields = [error.databaseMessage, error.databaseDetails, error.databaseHint].filter((value): value is string => typeof value === "string" && value.length > 0); return fields.length ? fields.join(" ").slice(0, 500) : undefined; }
 function sanitizeDatabaseField(value: unknown): string | undefined { if (typeof value !== "string" || !value.trim()) return undefined; return value.trim().replace(/[0-9a-f]{8}-[0-9a-f-]{27,}/gi, "[redacted]").replace(/'[^']*'/g, "'[redacted]'").replace(/\b\d+(?:\.\d+)?\b/g, "[number]").slice(0, 180); }
 function isRecord(value: unknown): value is Record<string, unknown> { return typeof value === "object" && value !== null; }
-function mapState(row: Record<string, unknown>): PriceSyncState { return { status: row.status as PriceSyncStatus, activeSyncId: stringOrNull(row.active_sync_id), lastFailedSyncId: stringOrNull(row.last_failed_sync_id), startedAt: stringOrNull(row.started_at), finishedAt: stringOrNull(row.finished_at), lastSuccessfulSyncAt: stringOrNull(row.last_successful_sync_at), currentStage: row.current_stage as PriceSyncStage | null, nextSkip: number(row.next_skip), pageSize: number(row.page_size), pagesProcessed: number(row.pages_processed), rowsScanned: number(row.rows_scanned), rowsStaged: number(row.rows_staged), priceRowsReceived: number(row.price_rows_received), priceUniqueKeys: number(row.price_unique_keys), priceDuplicateKeys: number(row.price_duplicate_keys), priceRowsDeduplicated: number(row.price_rows_deduplicated), latestPricesResolved: number(row.latest_prices_resolved), pricesPublished: number(row.prices_published), pricesDeactivated: number(row.prices_deactivated), unmatchedProducts: number(row.unmatched_products), unknownPriceTypes: number(row.unknown_price_types), scanComplete: row.scan_complete === true, errorCategory: stringOrNull(row.error_category), failedStage: stringOrNull(row.failed_stage), databaseErrorCode: stringOrNull(row.database_error_code), safeError: stringOrNull(row.safe_error), failedPage: typeof row.failed_page === "number" ? row.failed_page : null, activeChunkToken: stringOrNull(row.active_chunk_token), chunkStartedAt: stringOrNull(row.chunk_started_at), updatedAt: String(row.updated_at) }; }
+function mapState(row: Record<string, unknown>): PriceSyncState { return { status: row.status as PriceSyncStatus, activeSyncId: stringOrNull(row.active_sync_id), lastFailedSyncId: stringOrNull(row.last_failed_sync_id), startedAt: stringOrNull(row.started_at), finishedAt: stringOrNull(row.finished_at), lastSuccessfulSyncAt: stringOrNull(row.last_successful_sync_at), currentStage: row.current_stage as PriceSyncStage | null, nextSkip: number(row.next_skip), pageSize: number(row.page_size), pagesProcessed: number(row.pages_processed), rowsScanned: number(row.rows_scanned), rowsStaged: number(row.rows_staged), priceRowsReceived: number(row.price_rows_received), priceUniqueKeys: number(row.price_unique_keys), priceDuplicateKeys: number(row.price_duplicate_keys), priceRowsDeduplicated: number(row.price_rows_deduplicated), latestPricesResolved: number(row.latest_prices_resolved), pricesPublished: number(row.prices_published), pricesDeactivated: number(row.prices_deactivated), unmatchedProducts: number(row.unmatched_products), unknownPriceTypes: number(row.unknown_price_types), scanComplete: row.scan_complete === true, errorCategory: stringOrNull(row.error_category), failedStage: stringOrNull(row.failed_stage), databaseErrorCode: stringOrNull(row.database_error_code), safeError: stringOrNull(row.safe_error), failedPage: typeof row.failed_page === "number" ? row.failed_page : null, activeChunkToken: stringOrNull(row.active_chunk_token), chunkStartedAt: stringOrNull(row.chunk_started_at), lastPageStage: row.last_page_stage as PriceSyncStage | null, lastPageNumber: typeof row.last_page_number === "number" ? row.last_page_number : null, lastPageFingerprint: stringOrNull(row.last_page_fingerprint), lastPageFirstKey: stringOrNull(row.last_page_first_key), lastPageLastKey: stringOrNull(row.last_page_last_key), retryCount: number(row.retry_count), odataRequestCount: number(row.odata_request_count), odataRequestDurationMs: number(row.odata_request_duration_ms), stagingDurationMs: number(row.staging_duration_ms), publicationDurationMs: number(row.publication_duration_ms), updatedAt: String(row.updated_at) }; }
 function stringOrNull(value: unknown): string | null { return typeof value === "string" ? value : null; }
 function stringValue(value: unknown): string | undefined { return typeof value === "string" && value ? value : undefined; }
 function number(value: unknown): number { return typeof value === "number" ? value : 0; }

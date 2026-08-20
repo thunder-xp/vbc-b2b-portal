@@ -10,7 +10,7 @@ describe("OneCPriceChunkProvider", () => {
     const request = new URL(String(fetchMock.mock.calls[0][0]));
     expect(request.searchParams.get("$top")).toBe("500");
     expect(request.searchParams.get("$skip")).toBe("1500");
-    expect(request.searchParams.get("$orderby")).toBe("Period asc");
+    expect(request.searchParams.get("$orderby")).toBe("Period asc,\u0412\u0438\u0434\u0426\u0435\u043d_Key asc,\u041d\u043e\u043c\u0435\u043d\u043a\u043b\u0430\u0442\u0443\u0440\u0430_Key asc,\u0425\u0430\u0440\u0430\u043a\u0442\u0435\u0440\u0438\u0441\u0442\u0438\u043a\u0430_Key asc,\u0415\u0434\u0438\u043d\u0438\u0446\u0430\u0418\u0437\u043c\u0435\u0440\u0435\u043d\u0438\u044f asc,\u0412\u043a\u043b\u044e\u0447\u0430\u044f\u0425\u0430\u0440\u0430\u043a\u0442\u0435\u0440\u0438\u0441\u0442\u0438\u043a\u0438 asc,\u0426\u0435\u043d\u0430 asc,\u0410\u043a\u0442\u0443\u0430\u043b\u044c\u043d\u043e\u0441\u0442\u044c asc");
     expect(request.searchParams.get("$filter")).toBeNull();
     expect(result).toMatchObject({ rowCount: 1, items: [{ amount: 125, isCurrent: false }] });
   });

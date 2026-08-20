@@ -29,6 +29,12 @@ export type OneCODataProbeResult = {
   bomDetected: boolean;
   emptyBody: boolean;
   payload: unknown;
+  retryAfterMs?: number | null;
+  upstreamConnectTimeMs?: number | null;
+  upstreamHeaderTimeMs?: number | null;
+  upstreamResponseTimeMs?: number | null;
+  responseServer?: string | null;
+  safeErrorSummary?: string | null;
 };
 
 export type OneCODataProbeOptions = {
@@ -48,6 +54,12 @@ export type OneCODataSafeDiagnostic = {
   bodyLength: number | null;
   bomDetected: boolean;
   emptyBody: boolean;
+  retryAfterMs?: number | null;
+  upstreamConnectTimeMs?: number | null;
+  upstreamHeaderTimeMs?: number | null;
+  upstreamResponseTimeMs?: number | null;
+  responseServer?: string | null;
+  safeErrorSummary?: string | null;
 };
 
 const errorResponseBodies = new WeakMap<object, string | null>();
@@ -261,9 +273,9 @@ export class OneCODataClient {
       });
     } catch (error) {
       if (isAbortError(error)) {
-        throw new IntegrationTimeoutError("1C OData request timed out.");
+        throw Object.assign(new IntegrationTimeoutError("1C OData request timed out."), { cause: error });
       }
-      throw new IntegrationProviderUnavailableError("1C OData is unavailable.");
+      throw Object.assign(new IntegrationProviderUnavailableError("1C OData is unavailable."), { cause: error, networkCode: safeNetworkCode(error) });
     }
 
     const contentType = response.headers?.get?.("content-type") ?? null;
@@ -284,6 +296,7 @@ export class OneCODataClient {
         bomDetected: false,
         emptyBody: false,
         payload: null,
+        ...responseMetadata(response, null),
       };
     }
 
@@ -298,6 +311,7 @@ export class OneCODataClient {
       resourceName: resource,
       queryParameterNames,
       ...parsedBody,
+      ...responseMetadata(response, parsedBody.payload),
     };
     probeResponseBodies.set(result, responseBody);
 
@@ -404,8 +418,63 @@ function toSafeDiagnostic(
     bodyLength: result.bodyLength,
     bomDetected: result.bomDetected,
     emptyBody: result.emptyBody,
+    retryAfterMs: result.retryAfterMs ?? null,
+    upstreamConnectTimeMs: result.upstreamConnectTimeMs ?? null,
+    upstreamHeaderTimeMs: result.upstreamHeaderTimeMs ?? null,
+    upstreamResponseTimeMs: result.upstreamResponseTimeMs ?? null,
+    responseServer: result.responseServer ?? null,
+    safeErrorSummary: result.safeErrorSummary ?? null,
   };
 }
+
+function responseMetadata(response: Response, payload: unknown) {
+  return {
+    retryAfterMs: parseRetryAfter(response.headers?.get?.("retry-after") ?? null),
+    upstreamConnectTimeMs: parseTimingHeader(response.headers?.get?.("x-upstream-connect-time") ?? null),
+    upstreamHeaderTimeMs: parseTimingHeader(response.headers?.get?.("x-upstream-header-time") ?? null),
+    upstreamResponseTimeMs: parseTimingHeader(response.headers?.get?.("x-upstream-response-time") ?? null),
+    responseServer: safeHeaderToken(response.headers?.get?.("server") ?? null),
+    safeErrorSummary: safeODataErrorSummary(payload),
+  };
+}
+
+function parseRetryAfter(value: string | null): number | null {
+  if (!value) return null;
+  const seconds = Number(value);
+  if (Number.isFinite(seconds) && seconds >= 0) return Math.min(Math.round(seconds * 1000), 30_000);
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp) ? Math.max(0, Math.min(timestamp - Date.now(), 30_000)) : null;
+}
+
+function parseTimingHeader(value: string | null): number | null {
+  if (!value) return null;
+  const seconds = Number(value.split(",", 1)[0]?.trim());
+  return Number.isFinite(seconds) && seconds >= 0 ? Math.round(seconds * 1000) : null;
+}
+
+function safeHeaderToken(value: string | null): string | null { return value?.trim().replace(/[^a-z0-9._/-]/gi, "").slice(0, 80) || null; }
+
+function safeODataErrorSummary(payload: unknown): string | null {
+  if (!isRecord(payload) || !isODataErrorEnvelope(payload)) return null;
+  const envelope = isRecord(payload.error) ? payload.error : isRecord(payload["odata.error"]) ? payload["odata.error"] : null;
+  if (!envelope) return "odata_error";
+  const messageValue = isRecord(envelope.message) ? envelope.message.value : envelope.message;
+  const message = typeof messageValue === "string" ? messageValue : "odata_error";
+  return message.trim().replace(/[0-9a-f]{8}-[0-9a-f-]{27,}/gi, "[redacted]").replace(/'[^']*'/g, "'[redacted]'").slice(0, 180);
+}
+
+function safeNetworkCode(error: unknown): string | null {
+  let current: unknown = error;
+  const visited = new Set<object>();
+  while (current && typeof current === "object" && !visited.has(current)) {
+    visited.add(current);
+    if ("code" in current && typeof current.code === "string") return current.code.slice(0, 40);
+    current = "cause" in current ? current.cause : null;
+  }
+  return null;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> { return typeof value === "object" && value !== null; }
 
 function safeErrorName(error: unknown): string {
   if (error && typeof error === "object" && "name" in error && typeof error.name === "string") {

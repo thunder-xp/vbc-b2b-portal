@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import { IntegrationValidationError } from "../../errors";
 import { ONE_C_ZERO_GUID, parseOneCGuid, parseRequiredOneCGuid } from "./one-c-guid";
 import { OneCODataClient } from "./one-c-odata-client";
@@ -13,7 +15,8 @@ const CURRENCY_FIELDS = ["Ref_Key", "Code", "Description", "DeletionMark"].join(
 export type PriceRegisterStageRow = { externalProductRef: string; externalPriceTypeRef: string; externalCharacteristicRef: string; amount: number; isCurrent: boolean; effectiveAt: string };
 export type PriceTypeStageRow = { externalRef: string; externalCode: string; name: string; currencyRef: string | null; sourceVersion: string | null; isActive: boolean };
 export type CurrencyStageRow = { externalRef: string; code: string; name: string; isActive: boolean };
-export type PriceSyncPage<T> = { items: T[]; rowCount: number };
+export type PricePageIntegrity = { fingerprint: string; firstStableKey: string | null; lastStableKey: string | null };
+export type PriceSyncPage<T> = { items: T[]; rowCount: number; integrity: PricePageIntegrity };
 
 export interface PriceChunkProvider {
   fetchPriceTypes(skip: number, limit: number): Promise<PriceSyncPage<PriceTypeStageRow>>;
@@ -25,16 +28,34 @@ export class OneCPriceChunkProvider implements PriceChunkProvider {
   private readonly client: OneCODataClient;
   constructor(config: { baseUrl: string | null; username: string | null; password: string | null; requestTimeoutMs: number }) { this.client = new OneCODataClient(config); }
 
-  fetchPriceTypes(skip: number, limit: number) { return this.page(PRICE_TYPE_RESOURCE, PRICE_TYPE_FIELDS, "Ref_Key asc", skip, limit, mapPriceType); }
-  fetchCurrencies(skip: number, limit: number) { return this.page(CURRENCY_RESOURCE, CURRENCY_FIELDS, "Ref_Key asc", skip, limit, mapCurrency); }
-  fetchPrices(skip: number, limit: number) { return this.page(PRICE_RESOURCE, PRICE_FIELDS, "Period asc", skip, limit, mapPrice); }
+  fetchPriceTypes(skip: number, limit: number) { return this.page(PRICE_TYPE_RESOURCE, PRICE_TYPE_FIELDS, "Ref_Key asc", skip, limit, mapPriceType, catalogStableKey); }
+  fetchCurrencies(skip: number, limit: number) { return this.page(CURRENCY_RESOURCE, CURRENCY_FIELDS, "Ref_Key asc", skip, limit, mapCurrency, catalogStableKey); }
+  fetchPrices(skip: number, limit: number) { return this.page(PRICE_RESOURCE, PRICE_FIELDS, PRICE_ORDER, skip, limit, mapPrice, priceStableKey); }
 
-  private async page<T>(resource: string, select: string, orderby: string, skip: number, limit: number, mapper: (value: unknown) => T | null): Promise<PriceSyncPage<T>> {
+  private async page<T>(resource: string, select: string, orderby: string, skip: number, limit: number, mapper: (value: unknown) => T | null, stableKey: (value: unknown) => string | null): Promise<PriceSyncPage<T>> {
     const payload = await this.client.get(resource, { "$select": select, "$orderby": orderby, "$top": String(limit), "$skip": String(skip) }, { requestKind: "pricing_chunk_scan" });
     if (!isRecord(payload) || !Array.isArray(payload.value)) throw new IntegrationValidationError("1C pricing page is invalid.");
-    return { items: payload.value.flatMap((value) => { const mapped = mapper(value); return mapped ? [mapped] : []; }), rowCount: payload.value.length };
+    if (payload.value.length > limit) throw pageIntegrityError("1C pricing page exceeded the requested bound.");
+    const keys = payload.value.map(stableKey);
+    const items = payload.value.flatMap((value) => { const mapped = mapper(value); return mapped ? [mapped] : []; });
+    if (items.length !== payload.value.length || keys.some((key) => key === null)) throw pageIntegrityError("1C pricing page contains malformed identity data.");
+    const stableKeys = keys as string[];
+    return { items, rowCount: payload.value.length, integrity: { fingerprint: hash(stableKeys.join("\n")), firstStableKey: stableKeys[0] ? hash(stableKeys[0]) : null, lastStableKey: stableKeys.at(-1) ? hash(stableKeys.at(-1)!) : null } };
   }
 }
+
+const PRICE_ORDER = ["Period asc", "\u0412\u0438\u0434\u0426\u0435\u043d_Key asc", "\u041d\u043e\u043c\u0435\u043d\u043a\u043b\u0430\u0442\u0443\u0440\u0430_Key asc", "\u0425\u0430\u0440\u0430\u043a\u0442\u0435\u0440\u0438\u0441\u0442\u0438\u043a\u0430_Key asc", "\u0415\u0434\u0438\u043d\u0438\u0446\u0430\u0418\u0437\u043c\u0435\u0440\u0435\u043d\u0438\u044f asc", "\u0412\u043a\u043b\u044e\u0447\u0430\u044f\u0425\u0430\u0440\u0430\u043a\u0442\u0435\u0440\u0438\u0441\u0442\u0438\u043a\u0438 asc", "\u0426\u0435\u043d\u0430 asc", "\u0410\u043a\u0442\u0443\u0430\u043b\u044c\u043d\u043e\u0441\u0442\u044c asc"].join(",");
+
+function catalogStableKey(value: unknown): string | null { return isRecord(value) && typeof value.Ref_Key === "string" ? value.Ref_Key.toLowerCase() : null; }
+function priceStableKey(value: unknown): string | null {
+  if (!isRecord(value)) return null;
+  const required = [value.Period, value["\u0412\u0438\u0434\u0426\u0435\u043d_Key"], value["\u041d\u043e\u043c\u0435\u043d\u043a\u043b\u0430\u0442\u0443\u0440\u0430_Key"], value["\u0425\u0430\u0440\u0430\u043a\u0442\u0435\u0440\u0438\u0441\u0442\u0438\u043a\u0430_Key"], value["\u0426\u0435\u043d\u0430"]];
+  if (required.some((entry) => entry === null || entry === undefined)) return null;
+  const values = [...required.slice(0, 4), value["\u0415\u0434\u0438\u043d\u0438\u0446\u0430\u0418\u0437\u043c\u0435\u0440\u0435\u043d\u0438\u044f"] ?? "", value["\u0412\u043a\u043b\u044e\u0447\u0430\u044f\u0425\u0430\u0440\u0430\u043a\u0442\u0435\u0440\u0438\u0441\u0442\u0438\u043a\u0438"] ?? "", value["\u0426\u0435\u043d\u0430"], value["\u0410\u043a\u0442\u0443\u0430\u043b\u044c\u043d\u043e\u0441\u0442\u044c"] ?? ""];
+  return values.map((entry) => String(entry).toLowerCase()).join("|");
+}
+function pageIntegrityError(message: string): Error { return Object.assign(new IntegrationValidationError(message), { errorCategory: "page_integrity_failure" }); }
+function hash(value: string): string { return createHash("sha256").update(value).digest("hex"); }
 
 function mapPrice(value: unknown): PriceRegisterStageRow | null {
   if (!isRecord(value)) return null;
@@ -50,4 +71,4 @@ function isRecord(value: unknown): value is Record<string, unknown> { return typ
 function text(value: unknown): string { return typeof value === "string" ? value.trim() : ""; }
 function nullableText(value: unknown): string | null { return text(value) || null; }
 export const PRICE_SYNC_ZERO_CHARACTERISTIC = ONE_C_ZERO_GUID;
-export const ONE_C_PRICE_CHUNK_QUERY = { resource: PRICE_RESOURCE, select: PRICE_FIELDS, orderby: "Period asc" };
+export const ONE_C_PRICE_CHUNK_QUERY = { resource: PRICE_RESOURCE, select: PRICE_FIELDS, orderby: PRICE_ORDER };

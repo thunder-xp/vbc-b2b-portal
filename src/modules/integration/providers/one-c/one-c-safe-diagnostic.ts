@@ -18,6 +18,12 @@ export type OneCSafeDiagnostic = OneCODataSafeDiagnostic | {
   bomDetected: false;
   emptyBody: false;
   issuePaths: string[];
+  retryAfterMs?: number | null;
+  upstreamConnectTimeMs?: number | null;
+  upstreamHeaderTimeMs?: number | null;
+  upstreamResponseTimeMs?: number | null;
+  responseServer?: string | null;
+  safeErrorSummary?: string | null;
 };
 
 export function getOneCSafeDiagnostic(error: unknown): OneCSafeDiagnostic | null {

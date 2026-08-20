@@ -174,6 +174,17 @@ describe("OneCODataClient", () => {
       failedStage: "odata_response",
     });
   });
+
+  it("captures only allowlisted retry and upstream diagnostics", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ error: { message: { value: "Temporary source failure" } } }), { status: 429, headers: { "content-type": "application/json", "retry-after": "2", "server": "nginx/1.24", "x-upstream-connect-time": "0.010", "x-upstream-header-time": "0.125", "x-upstream-response-time": "0.250", "x-secret": "must-not-leak" } })));
+    try {
+      await client().get("InformationRegister_Prices");
+      throw new Error("Expected HTTP failure.");
+    } catch (error) {
+      expect(getOneCSafeDiagnostic(error)).toMatchObject({ statusCode: 429, retryAfterMs: 2_000, upstreamConnectTimeMs: 10, upstreamHeaderTimeMs: 125, upstreamResponseTimeMs: 250, responseServer: "nginx/1.24", safeErrorSummary: "Temporary source failure" });
+      expect(JSON.stringify(getOneCSafeDiagnostic(error))).not.toContain("must-not-leak");
+    }
+  });
 });
 
 function client(): OneCODataClient {
