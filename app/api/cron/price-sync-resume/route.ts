@@ -6,6 +6,7 @@ import {
   createChunkedPriceSyncService,
   createChunkedStockSyncService,
 } from "@/src/modules/integration/services";
+import { launchPriceSync } from "@/src/modules/integration/sync/price-sync-continuation";
 import {
   launchStockSync,
   StockLaunchError,
@@ -34,6 +35,19 @@ export async function GET(request: Request) {
     rowsScanned: state.rowsScanned,
   });
   const result = await service.continue(state.activeSyncId);
+
+  if (result.needsContinuation) {
+    try {
+      await launchPriceSync(state.activeSyncId, new URL(request.url).origin);
+    } catch {
+      console.warn({
+        event: "price_sync_watchdog_chain_deferred",
+        syncId: state.activeSyncId,
+        stage: result.state.currentStage,
+        reason: "next_scheduled_watchdog_required",
+      });
+    }
+  }
 
   if (result.state.status === "succeeded") {
     const stock = createChunkedStockSyncService(getOneCEnv());

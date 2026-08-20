@@ -9,7 +9,10 @@ import { launchPriceSync } from "@/src/modules/integration/sync/price-sync-conti
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const bodySchema = z.object({ syncId: z.string().uuid() }).strict();
+const bodySchema = z.object({
+  syncId: z.string().uuid(),
+  continuationHopsRemaining: z.number().int().min(0).max(2).default(2),
+}).strict();
 
 export async function POST(request: Request) {
   if (!authorized(request)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -32,8 +35,21 @@ export async function POST(request: Request) {
       durationMs: Date.now() - startedAt,
     });
     if (!result.needsContinuation) return;
+    if (parsed.data.continuationHopsRemaining === 0) {
+      console.info({
+        event: "price_sync_immediate_continuation_deferred",
+        syncId: parsed.data.syncId,
+        stage: result.state.currentStage,
+        reason: "bounded_chain_complete",
+      });
+      return;
+    }
     try {
-      await launchPriceSync(parsed.data.syncId, new URL(request.url).origin);
+      await launchPriceSync(
+        parsed.data.syncId,
+        new URL(request.url).origin,
+        parsed.data.continuationHopsRemaining - 1,
+      );
     } catch {
       console.warn({
         event: "price_sync_immediate_continuation_deferred",

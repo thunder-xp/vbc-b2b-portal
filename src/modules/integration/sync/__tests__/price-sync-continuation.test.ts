@@ -11,7 +11,14 @@ describe("price sync initial launcher", () => {
     await launchPriceSync(syncId, "https://ignored.example");
     expect(String(fetchMock.mock.calls[0][0])).toBe("https://www.nsd.md/api/internal/price-sync");
     expect(String(fetchMock.mock.calls[0][0])).not.toMatch(/^\/api/);
-    expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: "POST", body: JSON.stringify({ syncId }), headers: { Authorization: "Bearer top-secret", "Content-Type": "application/json" } });
+    expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: "POST", body: JSON.stringify({ syncId, continuationHopsRemaining: 2 }), headers: { Authorization: "Bearer top-secret", "Content-Type": "application/json" } });
+  });
+
+  it("passes the bounded continuation hop budget", async () => {
+    const fetchMock = vi.fn<(input: URL | RequestInfo, init?: RequestInit) => Promise<Response>>(async () => new Response(null, { status: 202 }));
+    vi.stubGlobal("fetch", fetchMock);
+    await launchPriceSync(syncId, "https://portal.example", 1);
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({ body: JSON.stringify({ syncId, continuationHopsRemaining: 1 }) });
   });
 
   it.each([200, 202])("accepts HTTP %s", async (status) => { vi.stubGlobal("fetch", vi.fn(async () => new Response(null, { status }))); await expect(launchPriceSync(syncId)).resolves.toMatchObject({ status }); });

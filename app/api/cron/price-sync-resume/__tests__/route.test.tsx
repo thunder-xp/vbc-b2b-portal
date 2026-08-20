@@ -1,17 +1,20 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ getState: vi.fn(), continueSync: vi.fn() }));
+const mocks = vi.hoisted(() => ({ getState: vi.fn(), continueSync: vi.fn(), launch: vi.fn() }));
 vi.mock("server-only", () => ({}));
 vi.mock("@/src/lib/env", () => ({ getOneCEnv: () => ({}) }));
 vi.mock("@/src/modules/integration/services", () => ({ createChunkedPriceSyncService: () => ({ getState: mocks.getState, continue: mocks.continueSync }) }));
+vi.mock("@/src/modules/integration/sync/price-sync-continuation", () => ({ launchPriceSync: mocks.launch }));
 
 import { GET } from "../route";
 
 describe("price sync cron resumer", () => {
-  beforeEach(() => { vi.stubEnv("CRON_SECRET", "cron-secret"); mocks.getState.mockResolvedValue(state); mocks.continueSync.mockResolvedValue({ state, needsContinuation: true, pagesProcessedThisInvocation: 1 }); });
+  beforeEach(() => { vi.stubEnv("CRON_SECRET", "cron-secret"); mocks.getState.mockResolvedValue(state); mocks.continueSync.mockResolvedValue({ state, needsContinuation: true, pagesProcessedThisInvocation: 1 }); mocks.launch.mockResolvedValue({ status: 202 }); });
   afterEach(() => { vi.clearAllMocks(); vi.unstubAllEnvs(); });
 
   it("resumes a queued job", async () => { const response = await GET(request()); expect(response.status).toBe(200); expect(mocks.continueSync).toHaveBeenCalledWith(state.activeSyncId); });
+  it("restarts a bounded immediate chain after watchdog progress", async () => { await GET(request()); expect(mocks.launch).toHaveBeenCalledWith(state.activeSyncId, "https://portal.example"); });
+  it("leaves the active sync for the next watchdog when relaunch fails", async () => { mocks.launch.mockRejectedValueOnce(new Error("handoff failed")); await expect(GET(request())).resolves.toBeInstanceOf(Response); });
   it("does nothing without a queued or running job", async () => { mocks.getState.mockResolvedValue({ ...state, status: "succeeded", activeSyncId: null }); await GET(request()); expect(mocks.continueSync).not.toHaveBeenCalled(); });
   it("ignores a fresh active claim", async () => { mocks.continueSync.mockResolvedValue({ state: { ...state, activeChunkToken: "fresh" }, needsContinuation: false, pagesProcessedThisInvocation: 0 }); const response = await GET(request()); await expect(response.json()).resolves.toMatchObject({ resumed: false }); });
   it("recovers a stale claim through the atomic service claim", async () => { mocks.continueSync.mockResolvedValue({ state, needsContinuation: true, pagesProcessedThisInvocation: 2 }); const response = await GET(request()); await expect(response.json()).resolves.toMatchObject({ resumed: true, pagesProcessed: 2 }); });

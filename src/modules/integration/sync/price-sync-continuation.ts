@@ -1,10 +1,16 @@
 export type PriceSyncLaunchResult = { status: 200 | 202; requestId: string | null; durationMs: number; route: string };
 
+export const PRICE_SYNC_IMMEDIATE_HOPS = 2;
+
 export class PriceSyncLaunchError extends Error {
   constructor(readonly safeMessage: string, readonly status: number | null = null) { super("Price synchronization continuation launch failed."); this.name = "PriceSyncLaunchError"; }
 }
 
-export async function launchPriceSync(syncId: string, requestOrigin?: string | null): Promise<PriceSyncLaunchResult> {
+export async function launchPriceSync(
+  syncId: string,
+  requestOrigin?: string | null,
+  continuationHopsRemaining = PRICE_SYNC_IMMEDIATE_HOPS,
+): Promise<PriceSyncLaunchResult> {
   const secret = process.env.PRICE_SYNC_SECRET ?? process.env.CRON_SECRET;
   if (!secret) throw new PriceSyncLaunchError("Price synchronization secret is not configured.");
   const route = resolvePriceSyncInternalUrl(requestOrigin).toString();
@@ -12,7 +18,7 @@ export async function launchPriceSync(syncId: string, requestOrigin?: string | n
   console.info({ event: "price_sync_initial_launch_started", syncId, stage: "continuation_launch", route: "/api/internal/price-sync" });
   let response: Response;
   try {
-    response = await fetch(route, { method: "POST", headers: { Authorization: `Bearer ${secret}`, "Content-Type": "application/json" }, body: JSON.stringify({ syncId }), cache: "no-store", signal: AbortSignal.timeout(4_000) });
+    response = await fetch(route, { method: "POST", headers: { Authorization: `Bearer ${secret}`, "Content-Type": "application/json" }, body: JSON.stringify({ syncId, continuationHopsRemaining }), cache: "no-store", signal: AbortSignal.timeout(4_000) });
   } catch {
     console.error({ event: "price_sync_initial_launch_failed", syncId, stage: "continuation_launch", route: "/api/internal/price-sync", status: null });
     throw new PriceSyncLaunchError("Internal endpoint could not be reached.");

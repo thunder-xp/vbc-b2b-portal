@@ -38,7 +38,14 @@ describe("internal price worker route", () => {
     expect(mocks.continueSync).not.toHaveBeenCalled();
     await mocks.afterCallbacks[0]!();
     expect(mocks.continueSync).toHaveBeenCalledOnce();
-    expect(mocks.launch).toHaveBeenCalledWith(syncId, "https://portal.example");
+    expect(mocks.launch).toHaveBeenCalledWith(syncId, "https://portal.example", 1);
+  });
+
+  it("stops the immediate chain when the bounded hop budget is exhausted", async () => {
+    await POST(request("secret", 0));
+    await mocks.afterCallbacks[0]!();
+    expect(mocks.continueSync).toHaveBeenCalledOnce();
+    expect(mocks.launch).not.toHaveBeenCalled();
   });
 
   it("does not relaunch after the terminal chunk", async () => {
@@ -55,10 +62,10 @@ describe("internal price worker route", () => {
   });
 });
 
-function request(secret: string) {
+function request(secret: string, continuationHopsRemaining = 2) {
   return new Request("https://portal.example/api/internal/price-sync", {
     method: "POST",
     headers: { authorization: `Bearer ${secret}`, "content-type": "application/json" },
-    body: JSON.stringify({ syncId }),
+    body: JSON.stringify({ syncId, continuationHopsRemaining }),
   });
 }
