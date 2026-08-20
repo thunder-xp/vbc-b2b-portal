@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 import { IntegrationProviderUnavailableError, IntegrationTimeoutError } from "../../errors";
 import type { PriceChunkProvider, PriceRegisterStageRow } from "../../providers/one-c";
-import { ChunkedPriceSyncService, isPriceSyncLockStale, PRICE_SYNC_PAGES_PER_INVOCATION, type PriceSyncStage, type PriceSyncState, type PriceSyncStateStore } from "../chunked-price-sync";
+import { ChunkedPriceSyncService, durationMetrics, isPriceSyncLockStale, PRICE_SYNC_PAGES_PER_INVOCATION, type PriceSyncStage, type PriceSyncState, type PriceSyncStateStore } from "../chunked-price-sync";
 
 describe("ChunkedPriceSyncService", () => {
   it("processes only the bounded number of pages and persists continuation offset", async () => {
@@ -169,6 +169,10 @@ describe("ChunkedPriceSyncService", () => {
     expect(isPriceSyncLockStale({ status: "running", updatedAt: now }, Date.parse(now))).toBe(false);
     expect(isPriceSyncLockStale({ status: "failed", updatedAt: "2026-07-12T11:00:00.000Z" }, Date.parse(now))).toBe(false);
   });
+
+  it("calculates compact remote-duration aggregates", () => {
+    expect(durationMetrics([100, 500, 200, 300, 400])).toEqual({ average: 300, p50: 300, p95: 500, max: 500 });
+  });
 });
 
 describe("transactional price snapshot SQL", () => {
@@ -195,6 +199,19 @@ describe("price page integrity migration", () => {
   });
 });
 
+describe("price sync performance metrics migration", () => {
+  const sql = readFileSync(resolve(process.cwd(), "supabase/migrations/20260820113324_price_sync_run_metrics.sql"), "utf8");
+  it("keeps one private compact aggregate per sync", () => {
+    expect(sql).toContain("create table public.price_sync_run_metrics");
+    expect(sql).toContain("p95_remote_duration_ms");
+    expect(sql).toContain("continuation_count");
+    expect(sql).toMatch(/revoke all[\s\S]*from public, anon, authenticated/i);
+  });
+  it("counts each claimed bounded worker invocation atomically", () => {
+    expect(sql).toMatch(/continuation_count\s*=\s*continuation_count\s*\+\s*1/i);
+  });
+});
+
 describe("retail history backfill failure lifecycle", () => {
   const source = readFileSync(
     resolve(process.cwd(), "src/modules/integration/sync/chunked-price-sync.ts"),
@@ -218,7 +235,7 @@ function providerFixture(options: { priceRows?: number; totalPriceRows?: number 
 }
 
 function storeFixture(overrides: Partial<PriceSyncState> = {}) {
-  const state: PriceSyncState = { status: "running", activeSyncId: syncId, lastFailedSyncId: null, startedAt: now, finishedAt: null, lastSuccessfulSyncAt: null, currentStage: "price_type_scan", nextSkip: 0, pageSize: 500, pagesProcessed: 0, rowsScanned: 0, rowsStaged: 0, priceRowsReceived: 0, priceUniqueKeys: 0, priceDuplicateKeys: 0, priceRowsDeduplicated: 0, latestPricesResolved: 0, pricesPublished: 0, pricesDeactivated: 0, unmatchedProducts: 0, unknownPriceTypes: 0, scanComplete: false, errorCategory: null, failedStage: null, databaseErrorCode: null, safeError: null, failedPage: null, activeChunkToken: null, chunkStartedAt: null, lastPageStage: null, lastPageNumber: null, lastPageFingerprint: null, lastPageFirstKey: null, lastPageLastKey: null, retryCount: 0, odataRequestCount: 0, odataRequestDurationMs: 0, stagingDurationMs: 0, publicationDurationMs: 0, updatedAt: now, ...overrides };
+  const state: PriceSyncState = { status: "running", activeSyncId: syncId, lastFailedSyncId: null, startedAt: now, finishedAt: null, lastSuccessfulSyncAt: null, currentStage: "price_type_scan", nextSkip: 0, pageSize: 500, pagesProcessed: 0, rowsScanned: 0, rowsStaged: 0, priceRowsReceived: 0, priceUniqueKeys: 0, priceDuplicateKeys: 0, priceRowsDeduplicated: 0, latestPricesResolved: 0, pricesPublished: 0, pricesDeactivated: 0, unmatchedProducts: 0, unknownPriceTypes: 0, scanComplete: false, errorCategory: null, failedStage: null, databaseErrorCode: null, safeError: null, failedPage: null, activeChunkToken: null, chunkStartedAt: null, lastPageStage: null, lastPageNumber: null, lastPageFingerprint: null, lastPageFirstKey: null, lastPageLastKey: null, retryCount: 0, odataRequestCount: 0, odataRequestDurationMs: 0, odataRequestDurationsMs: [], stagingDurationMs: 0, validationDurationMs: 0, publicationDurationMs: 0, continuationCount: 0, updatedAt: now, ...overrides };
   const store = {
     state,
     start: vi.fn(async () => ({ state, started: true })),
@@ -229,7 +246,7 @@ function storeFixture(overrides: Partial<PriceSyncState> = {}) {
     stageCurrencies: vi.fn(async (_id, rows) => rows.length),
     stagePrices: vi.fn(async (_id, rows) => rows.length),
     stageRetailHistory: vi.fn(async (_id, rows) => rows.length),
-    checkpoint: vi.fn(async (_id: string, input: { stage: PriceSyncStage; processedStage?: PriceSyncStage; pageNumber?: number; pageIntegrity?: ReturnType<typeof integrity>; nextSkip: number; rowsScanned: number; rowsStaged: number; pageCompleted: boolean; scanComplete?: boolean; priceDiagnostics?: { received: number; uniqueKeys: number; duplicateKeys: number; rowsDeduplicated: number }; retryCount?: number; requestCount?: number; requestDurationMs?: number; stagingDurationMs?: number }) => { state.status = "running"; state.currentStage = input.stage; state.nextSkip = input.nextSkip; state.pagesProcessed += input.pageCompleted ? 1 : 0; state.rowsScanned += input.rowsScanned; state.rowsStaged += input.rowsStaged; state.priceRowsReceived += input.priceDiagnostics?.received ?? 0; state.priceUniqueKeys += input.priceDiagnostics?.uniqueKeys ?? 0; state.priceDuplicateKeys += input.priceDiagnostics?.duplicateKeys ?? 0; state.priceRowsDeduplicated += input.priceDiagnostics?.rowsDeduplicated ?? 0; state.scanComplete = input.scanComplete ?? state.scanComplete; if (input.pageCompleted) { state.lastPageStage = input.processedStage ?? null; state.lastPageNumber = input.pageNumber ?? null; state.lastPageFingerprint = input.pageIntegrity?.fingerprint ?? null; state.lastPageFirstKey = input.pageIntegrity?.firstStableKey ?? null; state.lastPageLastKey = input.pageIntegrity?.lastStableKey ?? null; } state.retryCount += input.retryCount ?? 0; state.odataRequestCount += input.requestCount ?? 0; state.odataRequestDurationMs += input.requestDurationMs ?? 0; state.stagingDurationMs += input.stagingDurationMs ?? 0; }),
+    checkpoint: vi.fn(async (_id: string, input: { stage: PriceSyncStage; processedStage?: PriceSyncStage; pageNumber?: number; pageIntegrity?: ReturnType<typeof integrity>; nextSkip: number; rowsScanned: number; rowsStaged: number; pageCompleted: boolean; scanComplete?: boolean; priceDiagnostics?: { received: number; uniqueKeys: number; duplicateKeys: number; rowsDeduplicated: number }; retryCount?: number; requestCount?: number; requestDurationMs?: number; requestDurationsMs?: number[]; stagingDurationMs?: number }) => { state.status = "running"; state.currentStage = input.stage; state.nextSkip = input.nextSkip; state.pagesProcessed += input.pageCompleted ? 1 : 0; state.rowsScanned += input.rowsScanned; state.rowsStaged += input.rowsStaged; state.priceRowsReceived += input.priceDiagnostics?.received ?? 0; state.priceUniqueKeys += input.priceDiagnostics?.uniqueKeys ?? 0; state.priceDuplicateKeys += input.priceDiagnostics?.duplicateKeys ?? 0; state.priceRowsDeduplicated += input.priceDiagnostics?.rowsDeduplicated ?? 0; state.scanComplete = input.scanComplete ?? state.scanComplete; if (input.pageCompleted) { state.lastPageStage = input.processedStage ?? null; state.lastPageNumber = input.pageNumber ?? null; state.lastPageFingerprint = input.pageIntegrity?.fingerprint ?? null; state.lastPageFirstKey = input.pageIntegrity?.firstStableKey ?? null; state.lastPageLastKey = input.pageIntegrity?.lastStableKey ?? null; } state.retryCount += input.retryCount ?? 0; state.odataRequestCount += input.requestCount ?? 0; state.odataRequestDurationMs += input.requestDurationMs ?? 0; state.odataRequestDurationsMs.push(...(input.requestDurationsMs ?? [])); state.stagingDurationMs += input.stagingDurationMs ?? 0; }),
     publish: vi.fn(async () => { state.status = "succeeded"; state.activeSyncId = null; state.currentStage = "completed"; }),
     fail: vi.fn(async (_id, category, stage, page) => { state.status = "failed"; state.activeSyncId = null; state.errorCategory = category; state.failedStage = stage; state.failedPage = page; }),
     failLaunch: vi.fn(async (_id, safeError) => { state.status = "failed"; state.activeSyncId = null; state.errorCategory = "orchestration_failure"; state.failedStage = "continuation_launch"; state.safeError = safeError; }),
