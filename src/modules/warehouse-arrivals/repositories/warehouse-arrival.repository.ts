@@ -1,4 +1,4 @@
-import type { WarehouseArrivalFilters, WarehouseArrivalSummary } from "../types";
+import type { WarehouseArrivalFilters, WarehouseArrivalSummary, WarehouseReplenishmentCandidateItem } from "../types";
 
 export type WarehouseArrivalProjection = {
   id: string;
@@ -12,6 +12,7 @@ export interface WarehouseArrivalRepository {
   list(companyId: string, input: Required<Pick<WarehouseArrivalFilters, "availability" | "unseenOnly" | "pageSize">> & WarehouseArrivalFilters & { offset: number }): Promise<{ items: WarehouseArrivalSummary[]; totalCount: number }>;
   get(companyId: string, arrivalId: string): Promise<WarehouseArrivalProjection | null>;
   markSeen(companyId: string, arrivalId: string): Promise<void>;
+  getCurrentReplenishment(companyId: string): Promise<WarehouseReplenishmentCandidateItem[]>;
 }
 export class WarehouseArrivalRepositoryError extends Error {
   constructor() {

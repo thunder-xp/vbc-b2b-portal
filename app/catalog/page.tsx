@@ -61,7 +61,7 @@ export default async function PublicCatalogPage({ searchParams }: { searchParams
     ];
     return <PublicRetailShell languagePath="/catalog" locale={locale}><PublicStructuredData data={schema} /><main><PublicRetailShowcase categories={categories} locale={locale} showcase={showcase} /></main></PublicRetailShell>;
   }
-  const merchandisingMode: PublicRetailMerchandisingMode | undefined = q ? undefined : view === "special" ? "special" : view === "new" ? "new" : view === "hot" ? "hot" : view === "popular" ? "popular" : undefined;
+  const merchandisingMode: PublicRetailMerchandisingMode | undefined = q ? undefined : view === "replenishment" ? "replenishment" : view === "special" ? "special" : view === "new" ? "new" : view === "hot" ? "hot" : view === "popular" ? "popular" : undefined;
   const priceSort: PublicRetailPriceSort | undefined = sort === "price_desc" ? "price_desc" : sort === "price_asc" ? "price_asc" : undefined;
   const mode = merchandisingMode ?? priceSort;
   const [categories, products, categoryFacets] = await Promise.all([

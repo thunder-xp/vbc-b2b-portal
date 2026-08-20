@@ -80,7 +80,7 @@ export class PublicRetailService {
 
 function normalizeMode(value: string | undefined, searchActive: boolean): PublicRetailCatalogMode | undefined {
   if (searchActive) return undefined;
-  return (["popular", "new", "hot", "special", "price_asc", "price_desc"] as const).find((candidate) => candidate === value);
+  return (["popular", "new", "hot", "special", "replenishment", "price_asc", "price_desc"] as const).find((candidate) => candidate === value);
 }
 
 function normalizeFacets(value: Record<string, string[]> | undefined): Record<string, string[]> | undefined {

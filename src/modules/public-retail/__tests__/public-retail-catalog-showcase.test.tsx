@@ -25,14 +25,14 @@ const product: PublicRetailProductSummaryDto = {
 const categories = [{ id: "20000000-0000-4000-8000-000000000001", parentId: null, slug: "video", name: "Видеонаблюдение", description: null, productCount: 12 }];
 
 describe("Public Retail catalog showcase", () => {
-  it("renders the three governed sections in order with exact listing links", () => {
-    render(<PublicRetailShowcase categories={categories} locale="ru" showcase={{ popular: [product], new: [product], hot: [product] }} />);
+  it("renders the governed sections in order with exact listing links", () => {
+    render(<PublicRetailShowcase categories={categories} locale="ru" showcase={{ popular: [product], new: [product], hot: [product], replenishment: [product] }} />);
     expect(screen.getByRole("heading", { level: 1, name: "Витрина" })).toBeInTheDocument();
     expect(screen.getAllByRole("heading", { level: 2 }).map((heading) => heading.textContent)).toEqual([
-      "Популярные товары", "Новинки", "Горячая цена",
+      "Популярные товары", "Новинки", "Горячая цена", "Пополнение",
     ]);
     expect(screen.getAllByRole("link", { name: /Показать все/ }).map((link) => link.getAttribute("href"))).toEqual([
-      "/catalog?lang=ru&view=popular", "/catalog?lang=ru&view=new", "/catalog?lang=ru&view=hot",
+      "/catalog?lang=ru&view=popular", "/catalog?lang=ru&view=new", "/catalog?lang=ru&view=hot", "/catalog?lang=ru&view=replenishment",
     ]);
     expect(screen.getByText("Популярный")).toBeInTheDocument();
     expect(screen.getByText("Новинка")).toBeInTheDocument();
@@ -41,22 +41,23 @@ describe("Public Retail catalog showcase", () => {
     expect(screen.getByText("Популярный")).toHaveClass("text-amber-900");
     expect(screen.getByText("Новинка")).toHaveClass("text-sky-800");
     expect(screen.getAllByText("Горячая цена")[1]).toHaveClass("text-rose-800");
+    expect(screen.getByText("ПОПОЛНЕНИЕ")).toHaveClass("bg-blue-800");
   });
 
   it("localizes section-derived merchandising badges in Romanian", () => {
-    render(<PublicRetailShowcase categories={categories} locale="ro" showcase={{ popular: [product], new: [product], hot: [product] }} />);
+    render(<PublicRetailShowcase categories={categories} locale="ro" showcase={{ popular: [product], new: [product], hot: [product], replenishment: [product] }} />);
     expect(screen.getByText("Popular")).toBeInTheDocument();
     expect(screen.getByText("Noutate")).toBeInTheDocument();
     expect(screen.getAllByText("Preț special")).toHaveLength(2);
   });
 
   it("keeps an empty governed section visible without fabricating products", () => {
-    render(<PublicRetailShowcase categories={categories} locale="ru" showcase={{ popular: [], new: [], hot: [] }} />);
-    expect(screen.getAllByText("В этой подборке пока нет товаров.")).toHaveLength(3);
+    render(<PublicRetailShowcase categories={categories} locale="ru" showcase={{ popular: [], new: [], hot: [], replenishment: [] }} />);
+    expect(screen.getAllByText("В этой подборке пока нет товаров.")).toHaveLength(4);
   });
 
   it("rejects more than five products in any showcase section", () => {
-    expect(() => parsePublicRetailShowcase({ popular: Array(6).fill(product), new: [], hot: [] })).toThrow();
+    expect(() => parsePublicRetailShowcase({ popular: Array(6).fill(product), new: [], hot: [], replenishment: [] })).toThrow();
   });
 
   it("uses one bounded aggregate over governed TOP, NEW and HOT labels", () => {

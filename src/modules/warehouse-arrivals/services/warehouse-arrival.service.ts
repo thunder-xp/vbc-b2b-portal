@@ -1,9 +1,9 @@
 import { InvalidStateError } from "../../access-control/services";
 import type { CatalogService } from "../../catalog/services";
 import type { PartnerWorkspaceContextService } from "../../partner-cabinet/services";
-import type { PricingInventoryService } from "../../pricing-inventory";
+import type { PricingInventoryService, ProductCommercialViewDto } from "../../pricing-inventory";
 import type { WarehouseArrivalRepository } from "../repositories";
-import type { WarehouseArrivalDetail, WarehouseArrivalFilters, WarehouseArrivalPage, WarehouseArrivalPageData } from "../types";
+import type { WarehouseArrivalDetail, WarehouseArrivalFilters, WarehouseArrivalPage, WarehouseArrivalPageData, WarehouseReplenishmentPageData } from "../types";
 
 export class WarehouseArrivalService {
   constructor(
@@ -52,6 +52,30 @@ export class WarehouseArrivalService {
     await this.repository.markSeen(await this.companyId(userId), arrivalId);
   }
 
+  async getCurrentReplenishment(userId: string): Promise<WarehouseReplenishmentPageData> {
+    const context = await this.workspaceContext.getWorkspaceContext(userId);
+    const companyId = this.activeCompanyId(context.accessState, context.companyId);
+    const candidates = await this.repository.getCurrentReplenishment(companyId);
+    const productIds = candidates.map((item) => item.productId);
+    const [products, commercialViews] = await Promise.all([
+      this.catalog.getProductsByIds(userId, productIds),
+      this.pricing.getProductCommercialViews(userId, productIds),
+    ]);
+    const sourceOrder = new Map(candidates.map((item) => [item.productId, item.sourceLineNumber]));
+    const commercialByProduct = new Map(commercialViews.map((view) => [view.productId, view]));
+    const orderedProducts = products.toSorted((left, right) => {
+      const stockDifference = stockRank(commercialByProduct.get(left.id)) - stockRank(commercialByProduct.get(right.id));
+      return stockDifference || (sourceOrder.get(left.id) ?? Number.MAX_SAFE_INTEGER) - (sourceOrder.get(right.id) ?? Number.MAX_SAFE_INTEGER) || left.id.localeCompare(right.id);
+    });
+    return {
+      products: orderedProducts,
+      commercialViews,
+      companyId,
+      userId: context.userId,
+      productCardCapabilities: context.capabilities.productCard,
+    };
+  }
+
   private async companyId(userId: string) {
     const context = await this.workspaceContext.getWorkspaceContext(userId);
     return this.activeCompanyId(context.accessState, context.companyId);
@@ -63,4 +87,8 @@ export class WarehouseArrivalService {
     }
     return companyId;
   }
+}
+
+function stockRank(view: ProductCommercialViewDto | undefined): number {
+  return view?.stock?.status === "in_stock" || view?.stock?.status === "low_stock" ? 0 : 1;
 }

@@ -28,7 +28,29 @@ describe("WarehouseArrivalService", () => {
     await service.list(userId, { page: 2, pageSize: 500, unseenOnly: true });
     expect(repository.list).toHaveBeenCalledWith(companyId, expect.objectContaining({ offset: 50, pageSize: 50, unseenOnly: true }));
   });
+
+  it("loads the current replenishment with one bounded product and commercial batch", async () => {
+    const secondProductId = "55555555-5555-4555-8555-555555555555";
+    const repository = fixtureRepository();
+    repository.getCurrentReplenishment.mockResolvedValue([
+      { productId, sourceLineNumber: 1 },
+      { productId: secondProductId, sourceLineNumber: 2 },
+    ]);
+    const catalog = { getProductsByIds: vi.fn(async () => [
+      { id: productId, sku: "100", name: "Camera", slug: "camera", shortDescription: null, imageUrl: null, brand: null, category: null, keyCharacteristics: [], datasheet: null },
+      { id: secondProductId, sku: "200", name: "Recorder", slug: "recorder", shortDescription: null, imageUrl: null, brand: null, category: null, keyCharacteristics: [], datasheet: null },
+    ]) };
+    const pricing = { getProductCommercialViews: vi.fn(async () => [
+      { productId, partnerPrice: null, retailPrice: null, stock: { status: "unknown" }, isDemoData: false },
+      { productId: secondProductId, partnerPrice: null, retailPrice: null, stock: { status: "in_stock" }, isDemoData: false },
+    ]) };
+    const result = await new WarehouseArrivalService(repository, workspace().service, catalog as never, pricing as never).getCurrentReplenishment(userId);
+    expect(result.products.map((product) => product.id)).toEqual([secondProductId, productId]);
+    expect(repository.getCurrentReplenishment).toHaveBeenCalledOnce();
+    expect(catalog.getProductsByIds).toHaveBeenCalledOnce();
+    expect(pricing.getProductCommercialViews).toHaveBeenCalledOnce();
+  });
 });
 
 function workspace() { const getWorkspaceContext = vi.fn(async () => ({ accessState: "active", companyId, userId, capabilities: { productCard: {} } })); return { getWorkspaceContext, service: { getWorkspaceContext } as never }; }
-function fixtureRepository() { return { list: vi.fn(), get: vi.fn(), markSeen: vi.fn() }; }
+function fixtureRepository() { return { list: vi.fn(), get: vi.fn(), markSeen: vi.fn(), getCurrentReplenishment: vi.fn() }; }

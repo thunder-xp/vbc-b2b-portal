@@ -22,17 +22,18 @@ export function PublicRetailShowcase({ categories, locale, showcase }: { categor
       <ShowcaseSection badge={copy.popularBadge} badgeCode="TOP" href={`/catalog?lang=${locale}&view=popular`} locale={locale} products={showcase.popular} title={copy.popularProducts} />
       <ShowcaseSection badge={copy.newBadge} badgeCode="NEW" href={`/catalog?lang=${locale}&view=new`} locale={locale} products={showcase.new} title={copy.newProducts} />
       <ShowcaseSection badge={copy.hotBadge} badgeCode="HOT" href={`/catalog?lang=${locale}&view=hot`} locale={locale} products={showcase.hot} title={copy.hotPrice} />
+      <ShowcaseSection contextBadge={copy.replenishmentBadge} href={`/catalog?lang=${locale}&view=replenishment`} locale={locale} products={showcase.replenishment} title={copy.replenishment} />
     </div>
   </div>;
 }
 
-function ShowcaseSection({ badge, badgeCode, href, locale, products, title }: { badge: string; badgeCode: MerchandisingLabelCode; href: string; locale: PublicRetailLocale; products: PublicRetailProductSummaryDto[]; title: string }) {
+function ShowcaseSection({ badge, badgeCode, contextBadge, href, locale, products, title }: { badge?: string; badgeCode?: MerchandisingLabelCode; contextBadge?: string; href: string; locale: PublicRetailLocale; products: PublicRetailProductSummaryDto[]; title: string }) {
   const copy = retailCopy[locale];
   return <section className="py-5" aria-labelledby={`showcase-${href.split("=").at(-1)}`}>
     <div className="mb-3 flex items-center justify-between gap-4">
       <h2 className="text-xl font-semibold" id={`showcase-${href.split("=").at(-1)}`}>{title}</h2>
       <Link className="inline-flex min-h-11 shrink-0 items-center gap-2 text-sm font-semibold text-blue-800 hover:text-blue-950" href={href}>{copy.showAll}<ArrowRight aria-hidden="true" className="size-4" /></Link>
     </div>
-    {products.length ? <CatalogProductGridFrame>{products.map((product) => <PublicRetailProductCard badge={badge} badgeCode={badgeCode} key={product.id} locale={locale} product={product} />)}</CatalogProductGridFrame> : <p className="border border-dashed border-zinc-300 px-6 py-10 text-center text-sm text-zinc-600">{copy.emptyShowcase}</p>}
+    {products.length ? <CatalogProductGridFrame>{products.map((product) => <PublicRetailProductCard badge={badge} badgeCode={badgeCode} contextBadge={contextBadge} key={product.id} locale={locale} product={product} />)}</CatalogProductGridFrame> : <p className="border border-dashed border-zinc-300 px-6 py-10 text-center text-sm text-zinc-600">{copy.emptyShowcase}</p>}
   </section>;
 }

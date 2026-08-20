@@ -21,6 +21,12 @@ const detailSchema = z.object({
   seen: z.boolean(),
   productIds: z.array(z.string().uuid()).max(500),
 });
+const currentReplenishmentSchema = z.object({
+  items: z.array(z.object({
+    productId: z.string().uuid(),
+    sourceLineNumber: z.coerce.number().int().positive(),
+  }).strict()).max(500),
+}).strict();
 
 export class SupabaseWarehouseArrivalRepository implements WarehouseArrivalRepository {
   async list(companyId: string, input: Parameters<WarehouseArrivalRepository["list"]>[1]) {
@@ -58,5 +64,15 @@ export class SupabaseWarehouseArrivalRepository implements WarehouseArrivalRepos
       p_arrival_id: arrivalId,
     });
     if (error) throw new WarehouseArrivalRepositoryError();
+  }
+
+  async getCurrentReplenishment(companyId: string) {
+    const { data, error } = await (await createClient()).rpc(
+      "get_partner_current_warehouse_replenishment",
+      { p_company_id: companyId },
+    );
+    const parsed = currentReplenishmentSchema.safeParse(data);
+    if (error || !parsed.success) throw new WarehouseArrivalRepositoryError();
+    return parsed.data.items;
   }
 }

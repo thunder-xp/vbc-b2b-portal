@@ -138,6 +138,7 @@ export function parsePublicRetailShowcase(value: unknown): PublicRetailShowcaseD
     popular: z.array(summary).max(5),
     new: z.array(summary).max(5),
     hot: z.array(summary).max(5),
+    replenishment: z.array(summary).max(5),
   }).strict().parse(value);
 }
 

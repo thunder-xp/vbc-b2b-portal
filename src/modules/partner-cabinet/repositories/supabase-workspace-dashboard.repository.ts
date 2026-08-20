@@ -41,6 +41,7 @@ const dashboardSchema = z.object({
     severity: z.enum(["info", "warning"]),
     href: z.union([
       z.literal("/cabinet/cart"),
+      z.literal("/cabinet/catalog/replenishment"),
       z.string().startsWith("/cabinet/orders/"),
       z.string().startsWith("/cabinet/arrivals"),
     ]),
@@ -141,7 +142,7 @@ export class SupabaseWorkspaceDashboardRepository
 {
   async getDashboard(companyId: string): Promise<WorkspaceDashboardProjection> {
     const { data, error } = await (await createClient()).rpc(
-      "get_partner_workspace_dashboard_v4",
+      "get_partner_workspace_dashboard_v5",
       { p_company_id: companyId },
     );
 

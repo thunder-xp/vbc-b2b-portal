@@ -38,12 +38,13 @@ export function PublicRetailCatalog({ categories, facets, locale, products, stat
         <ShowcaseLink active={state.mode === "new"} href={publicRetailMerchandisingHref(locale, "new", state)} label={copy.newProducts} />
         <ShowcaseLink active={state.mode === "hot"} href={publicRetailMerchandisingHref(locale, "hot", state)} label={copy.hotPrice} />
         <ShowcaseLink active={state.mode === "special"} href={publicRetailMerchandisingHref(locale, "special", state)} label={copy.specialOffers} />
+        <ShowcaseLink active={state.mode === "replenishment"} href={publicRetailMerchandisingHref(locale, "replenishment", state)} label={copy.replenishment} />
       </nav>
     </section>
     <div className="mt-5 grid items-start gap-7 lg:grid-cols-[260px_minmax(0,1fr)]">
       <PublicCatalogFilters facets={facets} locale={locale} state={state} />
       <section aria-label={copy.products} className="min-w-0">
-        {products.items.length ? <CatalogProductGridFrame>{products.items.map((product) => <PublicRetailProductCard catalogState={state} filterableFacetKeys={filterableFacetKeys} key={product.id} locale={locale} product={product} showFacetShortcuts />)}</CatalogProductGridFrame> : <EmptyCatalog message={copy.noProducts} title={copy.catalog} />}
+        {products.items.length ? <CatalogProductGridFrame>{products.items.map((product) => <PublicRetailProductCard catalogState={state} contextBadge={state.mode === "replenishment" ? copy.replenishmentBadge : undefined} filterableFacetKeys={filterableFacetKeys} key={product.id} locale={locale} product={product} showFacetShortcuts />)}</CatalogProductGridFrame> : <EmptyCatalog message={copy.noProducts} title={copy.catalog} />}
         <Pagination locale={locale} products={products} state={state} />
       </section>
     </div>

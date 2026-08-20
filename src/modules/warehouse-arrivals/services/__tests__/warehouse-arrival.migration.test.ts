@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
-const sql = readFileSync(resolve(process.cwd(), "supabase/migrations/20260820172133_warehouse_arrival_notifications.sql"), "utf8");
+const sql = readFileSync(resolve(process.cwd(), "supabase/migrations/20260820180722_warehouse_arrival_notifications.sql"), "utf8");
 
 describe("warehouse arrival migration", () => {
   it("detects only the proven supplier status transition", () => {

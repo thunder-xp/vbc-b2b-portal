@@ -44,3 +44,16 @@ export type WarehouseArrivalPageData = {
   userId: string;
   productCardCapabilities: PartnerWorkspaceContext["capabilities"]["productCard"];
 };
+
+export type WarehouseReplenishmentCandidateItem = {
+  productId: string;
+  sourceLineNumber: number;
+};
+
+export type WarehouseReplenishmentPageData = {
+  products: CatalogProductCardDto[];
+  commercialViews: ProductCommercialViewDto[];
+  companyId: string;
+  userId: string;
+  productCardCapabilities: PartnerWorkspaceContext["capabilities"]["productCard"];
+};

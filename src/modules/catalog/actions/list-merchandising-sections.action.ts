@@ -13,8 +13,10 @@ import {
   createMerchandisingService,
 } from "../../merchandising/actions";
 import type { MerchandisingLabelCode } from "../../merchandising/types";
+import { createPartnerWorkspaceContextService } from "../../partner-cabinet/actions/service-factory";
 import { createPricingInventoryService } from "../../pricing-inventory/actions/service-factory";
 import type { ProductCommercialViewDto } from "../../pricing-inventory";
+import { SupabaseWarehouseArrivalRepository } from "../../warehouse-arrivals/repositories";
 import { SupabaseCatalogRepository } from "../repositories/supabase";
 import {
   DefaultCatalogService,
@@ -22,9 +24,12 @@ import {
 } from "../services";
 
 export type CatalogMerchandisingSection = {
-  labelCode: MerchandisingLabelCode;
+  labelCode: MerchandisingLabelCode | "REPLENISHMENT";
   title: string;
   products: CatalogProductCardDto[];
+  href?: string;
+  contextBadge?: string;
+  maxProducts?: number;
 };
 
 export type CatalogMerchandisingSectionsResult = {
@@ -46,12 +51,17 @@ export async function listCatalogMerchandisingSectionsAction(): Promise<
 > {
   try {
     const userId = await getAuthenticatedUserId();
-    const assignments = await createMerchandisingService().listPublished(
-      userId,
-      undefined,
-      10,
-    );
-    const productIds = [...new Set(assignments.map((item) => item.productId))];
+    const [assignments, context] = await Promise.all([
+      createMerchandisingService().listPublished(userId, undefined, 10),
+      createPartnerWorkspaceContextService().getWorkspaceContext(userId),
+    ]);
+    const replenishment = context.accessState === "active" && context.companyId
+      ? await new SupabaseWarehouseArrivalRepository().getCurrentReplenishment(context.companyId)
+      : [];
+    const productIds = [...new Set([
+      ...assignments.map((item) => item.productId),
+      ...replenishment.map((item) => item.productId),
+    ])];
     if (!productIds.length) {
       return success("Catalog merchandising is empty.", {
         sections: [],
@@ -78,8 +88,10 @@ export async function listCatalogMerchandisingSectionsAction(): Promise<
           .map((assignment) => assignment.labelCode),
       },
     ]));
+    const commercialByProduct = new Map(commercialViews.map((view) => [view.productId, view]));
+    const sourceOrder = new Map(replenishment.map((item) => [item.productId, item.sourceLineNumber]));
 
-    const sections = SECTION_ORDER.flatMap(({ labelCode, title }) => {
+    const sections: CatalogMerchandisingSection[] = SECTION_ORDER.flatMap(({ labelCode, title }) => {
       const sectionProducts = assignments
         .filter((assignment) => assignment.labelCode === labelCode)
         .flatMap((assignment) => {
@@ -90,6 +102,25 @@ export async function listCatalogMerchandisingSectionsAction(): Promise<
         ? [{ labelCode, title, products: sectionProducts }]
         : [];
     });
+    const replenishmentProducts = replenishment
+      .flatMap((item) => {
+        const product = productsById.get(item.productId);
+        return product ? [product] : [];
+      })
+      .toSorted((left, right) => {
+        const stockDifference = stockRank(commercialByProduct.get(left.id)) - stockRank(commercialByProduct.get(right.id));
+        return stockDifference || (sourceOrder.get(left.id) ?? Number.MAX_SAFE_INTEGER) - (sourceOrder.get(right.id) ?? Number.MAX_SAFE_INTEGER) || left.id.localeCompare(right.id);
+      });
+    if (replenishmentProducts.length) {
+      sections.push({
+        labelCode: "REPLENISHMENT",
+        title: "Пополнение",
+        products: replenishmentProducts,
+        href: "/cabinet/catalog/replenishment",
+        contextBadge: "ПОПОЛНЕНИЕ",
+        maxProducts: 5,
+      });
+    }
 
     return success("Catalog merchandising loaded.", {
       sections,
@@ -98,4 +129,8 @@ export async function listCatalogMerchandisingSectionsAction(): Promise<
   } catch (error) {
     return failureFromError(error);
   }
+}
+
+function stockRank(view: ProductCommercialViewDto | undefined): number {
+  return view?.stock?.status === "in_stock" || view?.stock?.status === "low_stock" ? 0 : 1;
 }

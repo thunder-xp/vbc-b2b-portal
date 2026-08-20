@@ -39,19 +39,20 @@ export function CatalogMerchandisingSections({
             <BehaviorTrackedCatalogLink
               ariaLabel={`Показать все: ${section.title}`}
               className="shrink-0 text-sm font-semibold text-emerald-700 hover:text-emerald-800"
-              href={`/cabinet/catalog?label=${section.labelCode}`}
+              href={section.href ?? `/cabinet/catalog?label=${section.labelCode}`}
               sourceSurface={section.labelCode}
             >
               Показать все
             </BehaviorTrackedCatalogLink>
           </div>
           <div className={CATALOG_PRODUCT_GRID_CLASS}>
-            {section.products.slice(0, 10).map((product) => (
+            {section.products.slice(0, section.maxProducts ?? 10).map((product) => (
               <ProductCard
                 analyticsSurface={section.labelCode}
                 capabilities={capabilities}
                 commercialView={commercialViews[product.id]}
                 companyId={companyId}
+                contextBadge={section.contextBadge}
                 key={product.id}
                 product={product}
                 userId={userId}

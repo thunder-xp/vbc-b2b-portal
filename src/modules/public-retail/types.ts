@@ -6,7 +6,7 @@ export const PUBLIC_RETAIL_AVAILABILITY = [
 export type PublicRetailLocale = (typeof PUBLIC_RETAIL_LOCALES)[number];
 export type PublicRetailAvailability = (typeof PUBLIC_RETAIL_AVAILABILITY)[number];
 export type PublicRetailVatPresentation = "included" | "excluded" | "not_specified";
-export type PublicRetailMerchandisingMode = "popular" | "new" | "hot" | "special";
+export type PublicRetailMerchandisingMode = "popular" | "new" | "hot" | "special" | "replenishment";
 export type PublicRetailPriceSort = "price_asc" | "price_desc";
 export type PublicRetailCatalogMode = PublicRetailMerchandisingMode | PublicRetailPriceSort;
 
@@ -64,6 +64,7 @@ export type PublicRetailShowcaseDto = {
   popular: PublicRetailProductSummaryDto[];
   new: PublicRetailProductSummaryDto[];
   hot: PublicRetailProductSummaryDto[];
+  replenishment: PublicRetailProductSummaryDto[];
 };
 
 export type PublicRetailCalculatorProductResolutionDto = {
