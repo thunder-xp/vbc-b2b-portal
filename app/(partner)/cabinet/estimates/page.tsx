@@ -97,7 +97,7 @@ export default async function EstimatesPage({
         ))}
       </nav>
 
-      <form className="grid gap-3 border-b border-zinc-200 pb-5 md:grid-cols-[minmax(14rem,1fr)_12rem_10rem_10rem_auto]">
+      <form className="grid gap-3 border-b border-zinc-200 pb-5 lg:grid-cols-[minmax(14rem,1fr)_12rem_10rem_10rem_auto]">
         <label className="relative">
           <Search
             aria-hidden="true"
@@ -167,10 +167,10 @@ export default async function EstimatesPage({
         </p>
       ) : result.data.records.length ? (
         <>
-          <div className="grid gap-3 md:hidden">
+          <div className="grid min-w-0 gap-3 lg:hidden">
             {result.data.records.map((estimate) => (
               <article
-                className="border-y border-zinc-200 bg-white px-4 py-4"
+                className="min-w-0 max-w-full border-y border-zinc-200 bg-white px-4 py-4"
                 key={estimate.id}
               >
                 <div className="flex items-start justify-between gap-3">
@@ -194,10 +194,10 @@ export default async function EstimatesPage({
                 <p className="mt-3 text-sm text-zinc-600">
                   {estimate.customerProject}
                 </p>
-                <div className="mt-3 flex items-end justify-between gap-3">
-                  <div>
+                <div className="mt-3 flex min-w-0 items-end justify-between gap-3">
+                  <div className="min-w-0">
                     <p className="font-semibold">{estimate.total}</p>
-                    <p className="text-xs text-zinc-500">
+                    <p className="break-words text-xs text-zinc-500">
                       {estimate.itemCount} {copy.positions} ·{" "}
                       {copy.updated.toLocaleLowerCase()}{" "}
                       {formatPartnerDate(estimate.updatedAt, locale)}
@@ -221,7 +221,7 @@ export default async function EstimatesPage({
               </article>
             ))}
           </div>
-          <div className="hidden overflow-x-auto border-y border-zinc-200 bg-white md:block">
+          <div className="hidden max-w-full overflow-x-auto border-y border-zinc-200 bg-white lg:block">
             <table className="w-full min-w-[960px] text-left text-sm">
               <thead className="bg-zinc-50 text-xs uppercase text-zinc-500">
                 <tr>
