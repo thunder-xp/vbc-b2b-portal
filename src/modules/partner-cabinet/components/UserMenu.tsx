@@ -6,8 +6,10 @@ import { useEffect, useRef, useState } from "react";
 
 import { signOutAction } from "@/src/modules/auth/actions/auth.actions";
 import type { PartnerWorkspaceShellContext } from "./PartnerLayout";
+import { usePartnerText } from "../../partner-locale";
 
 export function UserMenu({ context }: { context: PartnerWorkspaceShellContext }) {
+  const t = usePartnerText();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -39,7 +41,7 @@ export function UserMenu({ context }: { context: PartnerWorkspaceShellContext })
         aria-controls="partner-user-menu"
         aria-expanded={open}
         aria-haspopup="menu"
-        aria-label="Открыть меню пользователя"
+        aria-label={t("shell.openUserMenu")}
         className="inline-flex min-h-11 items-center gap-2 rounded-md border border-zinc-300 bg-white p-1.5 pr-2 text-zinc-700 transition hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
         onClick={() => setOpen((value) => !value)}
         ref={triggerRef}
@@ -58,7 +60,7 @@ export function UserMenu({ context }: { context: PartnerWorkspaceShellContext })
 
       {open ? (
         <div
-          aria-label="Меню пользователя"
+          aria-label={t("shell.userMenu")}
           className="fixed inset-x-3 top-28 z-50 overflow-hidden rounded-md border border-zinc-200 bg-white shadow-xl sm:absolute sm:inset-x-auto sm:right-0 sm:top-12 sm:w-72"
           id="partner-user-menu"
           role="menu"
@@ -66,22 +68,22 @@ export function UserMenu({ context }: { context: PartnerWorkspaceShellContext })
           <div className="flex min-w-0 items-start justify-between gap-3 border-b border-zinc-200 px-4 py-3">
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold text-zinc-950">{displayName}</p>
-              <p className="mt-1 truncate text-xs text-zinc-500">{context.membershipRole ?? "Партнёр"}</p>
+              <p className="mt-1 truncate text-xs text-zinc-500">{context.membershipRole ?? t("shell.partner")}</p>
               {context.partnerStatus ? <p className="mt-1 truncate text-xs font-semibold text-emerald-700">{context.partnerStatus}</p> : null}
             </div>
-            <span aria-label={context.companyName ?? "Компания"} className="flex h-12 w-16 shrink-0 items-center justify-center rounded border border-zinc-200 bg-zinc-50 bg-contain bg-center bg-no-repeat text-xs font-semibold text-zinc-600" role="img" style={context.companyLogoUrl ? { backgroundImage: `url("${context.companyLogoUrl}")` } : undefined}>
+            <span aria-label={context.companyName ?? t("common.company")} className="flex h-12 w-16 shrink-0 items-center justify-center rounded border border-zinc-200 bg-zinc-50 bg-contain bg-center bg-no-repeat text-xs font-semibold text-zinc-600" role="img" style={context.companyLogoUrl ? { backgroundImage: `url("${context.companyLogoUrl}")` } : undefined}>
               {context.companyLogoUrl ? null : companyInitials(context.companyName)}
             </span>
           </div>
-          <nav aria-label="Настройки пользователя" className="p-1.5">
-            <MenuLink href="/cabinet/company" icon={Building2} label="Моя компания" onSelect={() => setOpen(false)} />
-            <MenuLink href="/cabinet/notifications" icon={Bell} label="Уведомления" onSelect={() => setOpen(false)} />
-            <MenuLink href="/cabinet/profile" icon={UserRound} label="Профиль" onSelect={() => setOpen(false)} />
+          <nav aria-label={t("shell.userSettings")} className="p-1.5">
+            <MenuLink href="/cabinet/company" icon={Building2} label={t("shell.myCompany")} onSelect={() => setOpen(false)} />
+            <MenuLink href="/cabinet/notifications" icon={Bell} label={t("shell.notifications")} onSelect={() => setOpen(false)} />
+            <MenuLink href="/cabinet/profile" icon={UserRound} label={t("shell.profile")} onSelect={() => setOpen(false)} />
           </nav>
           <form action={signOutAction} className="border-t border-zinc-200 p-1.5">
             <button className="flex min-h-11 w-full items-center gap-3 rounded px-3 text-sm font-medium text-zinc-700 hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600" role="menuitem" type="submit">
               <LogOut aria-hidden="true" className="size-4" />
-              Выйти
+              {t("shell.signOut")}
             </button>
           </form>
         </div>

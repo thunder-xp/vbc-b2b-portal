@@ -26,7 +26,7 @@ describe("EstimateListActions", () => {
     vi.mocked(archiveEstimateAction).mockResolvedValue({ success: true, data: null, message: "Архивировано", errorCode: null });
     render(<EstimateListActions archived={false} estimateId="estimate-1" latestPdfDocumentId={null} revision={3} />);
 
-    await user.click(screen.getByRole("button", { name: "Дублировать смету" }));
+    await user.click(screen.getByRole("button", { name: "Дублировать" }));
     expect(duplicateEstimateAction).toHaveBeenCalledWith("estimate-1");
     expect(push).toHaveBeenCalledWith("/cabinet/estimates/copy-1");
     await user.click(screen.getByRole("button", { name: "Архивировать смету" }));
@@ -41,7 +41,7 @@ describe("EstimateListActions", () => {
     expect(screen.queryByRole("button", { name: "Архивировать смету" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Удалить смету" }));
     expect(screen.getByRole("dialog", { name: "Удалить архивную смету?" })).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Удалить" }));
+    await user.click(screen.getAllByRole("button", { name: "Удалить смету" })[1]);
     expect(deleteArchivedEstimateAction).toHaveBeenCalledWith("estimate-1", 3, expect.any(String));
     expect(refresh).toHaveBeenCalledOnce();
   });

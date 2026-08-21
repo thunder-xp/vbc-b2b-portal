@@ -14,6 +14,7 @@ vi.mock("next/navigation", () => ({ usePathname: () => pathname }));
 vi.mock("@/src/modules/auth/actions/auth.actions", () => ({ signOutAction: vi.fn() }));
 
 const context = {
+  locale: "ru" as const,
   userDisplayName: "Partner User",
   userEmail: "partner@example.com",
   companyName: "Partner Company",

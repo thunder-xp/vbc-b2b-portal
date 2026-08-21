@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { RetailMarketplaceRepository } from "../repositories/retail-marketplace.repository";
 import { InstallationAssignmentDispatcher, InstallationAssignmentInputError } from "../services/installation-assignment.service";
+import { installationCopy } from "@/src/modules/partner-locale";
 
 const sql = fs.readFileSync(path.resolve("supabase/migrations/20260813091615_retail_installation_execution_lifecycle.sql"), "utf8");
 const partnerPage = fs.readFileSync(path.resolve("app/(partner)/cabinet/installation-orders/page.tsx"), "utf8");
@@ -50,9 +51,11 @@ describe("Installation execution lifecycle", () => {
 
   it("keeps partner, customer, and internal operations on the same governed aggregate", () => {
     expect(partnerPage).toContain("transitionPartnerInstallationExecutionAction");
-    expect(partnerPage).toContain("Назначить дату");
-    expect(partnerPage).toContain("Начать работы");
-    expect(partnerPage).toContain("Завершить работы");
+    expect(partnerPage).toContain("copy.scheduleDate");
+    expect(partnerPage).toContain("installationCopy(locale).startWork");
+    expect(partnerPage).toContain("copy.completeWork");
+    expect(installationCopy("ru")).toMatchObject({ scheduleDate: "Назначить дату", startWork: "Начать работы", completeWork: "Завершить работы" });
+    expect(installationCopy("ro")).toMatchObject({ scheduleDate: "Stabilește data", startWork: "Începe lucrările", completeWork: "Finalizează lucrările" });
     expect(customerPage).toContain("respondToInstallationCompletionAction");
     expect(customerPage).toContain("Подтвердить выполнение");
     expect(customerPage).toContain("Есть проблема");

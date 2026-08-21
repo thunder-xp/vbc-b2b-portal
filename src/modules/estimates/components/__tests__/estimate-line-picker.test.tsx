@@ -51,8 +51,8 @@ describe("EstimateLinePicker", () => {
 
     await user.click(screen.getByRole("checkbox", { name: "Выбрать Camera Pro" }));
     await user.click(screen.getByRole("checkbox", { name: "Выбрать Recorder" }));
-    await user.clear(screen.getByRole("spinbutton", { name: "Количество Recorder" }));
-    await user.type(screen.getByRole("spinbutton", { name: "Количество Recorder" }), "3");
+    await user.clear(screen.getByRole("spinbutton", { name: "Кол-во Recorder" }));
+    await user.type(screen.getByRole("spinbutton", { name: "Кол-во Recorder" }), "3");
     await user.click(screen.getByRole("button", { name: "Добавить выбранные (2)" }));
 
     expect(addEstimateProductsAction).toHaveBeenCalledTimes(1);

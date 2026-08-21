@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
+import { getEstimatesCopy } from "@/src/modules/partner-locale";
 
 const page = readFileSync(join(process.cwd(), "app/(partner)/cabinet/nomenclature/page.tsx"), "utf8");
 const workspace = readFileSync(join(process.cwd(), "src/modules/estimates/components/PartnerNomenclatureWorkspace.tsx"), "utf8");
@@ -15,9 +16,11 @@ describe("partner nomenclature workspace", () => {
   });
 
   it("supports the three governed types without fake catalog or 1C fields", () => {
-    expect(workspace).toContain("Оборудование");
-    expect(workspace).toContain("Материал");
-    expect(workspace).toContain("Работа / услуга");
+    expect(workspace).toContain("copy.equipmentType");
+    expect(workspace).toContain("copy.materialType");
+    expect(workspace).toContain("copy.serviceType");
+    expect(getEstimatesCopy("ru")).toMatchObject({ equipmentType: "Оборудование", materialType: "Материал", serviceType: "Работа / услуга" });
+    expect(getEstimatesCopy("ro")).toMatchObject({ equipmentType: "Echipament", materialType: "Material", serviceType: "Lucrare / serviciu" });
     expect(workspace).not.toMatch(/Ref_Key|SKU|Остаток|Гарантия/);
   });
 

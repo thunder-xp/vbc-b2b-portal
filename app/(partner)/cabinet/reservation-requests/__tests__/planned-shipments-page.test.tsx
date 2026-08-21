@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import PlannedShipmentsPage from "../page";
+import { projectCopy } from "@/src/modules/partner-locale";
 
 const mocks = vi.hoisted(() => ({ list: vi.fn() }));
 vi.mock("@/src/modules/orders/actions", () => ({ listPlannedShipmentsAction: mocks.list }));
@@ -17,13 +18,13 @@ describe("PlannedShipmentsPage", () => {
     render(await PlannedShipmentsPage({ searchParams: Promise.resolve({}) }));
 
     expect(screen.getByRole("heading", { name: "Планируемые отгрузки" })).toBeInTheDocument();
-    expect(screen.getByText("Запланировано")).toBeInTheDocument();
-    expect(screen.getByText("Дата прошла")).toBeInTheDocument();
+    expect(screen.getByText(projectCopy("ru").later)).toBeInTheDocument();
+    expect(screen.getByText(projectCopy("ru").overdue)).toBeInTheDocument();
     expect(screen.getAllByText(/2 поз.*5 ед/)).toHaveLength(2);
     expect(mocks.list).toHaveBeenCalledWith({ page: null });
   });
 });
 
 function shipment(id: string, dateIndicator: "scheduled" | "overdue", dateIndicatorLabel: string) {
-  return { id, primaryLabel: `№ ${id}`, statusLabel: "Открыт", posted: true, documentDate: "2026-07-19T10:00:00Z", deliveryDate: "2026-07-25", documentTotal: "100,00 MDL", positionCount: 2, totalUnitCount: 5, lastSynchronizedAt: "2026-07-19T11:00:00Z", freshness: { status: "fresh", updatedAt: "2026-07-19T11:00:00Z", label: "Обновлено", staleNotice: null }, daysRemaining: 5, dateIndicator, dateIndicatorLabel };
+  return { id, primaryLabel: `№ ${id}`, statusLabel: "Открыт", statusCode: "open" as const, posted: true, documentDate: "2026-07-19T10:00:00Z", deliveryDate: "2026-07-25", documentTotal: "100,00 MDL", positionCount: 2, totalUnitCount: 5, lastSynchronizedAt: "2026-07-19T11:00:00Z", freshness: { status: "fresh", updatedAt: "2026-07-19T11:00:00Z", label: "Обновлено", staleNotice: null }, daysRemaining: 5, dateIndicator, dateIndicatorLabel };
 }

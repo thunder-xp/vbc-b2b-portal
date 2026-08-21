@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { secondaryCopy } from "@/src/modules/partner-locale";
 
 const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), "utf8");
 
@@ -8,7 +9,9 @@ describe("commercial opportunity runtime boundaries", () => {
   it("registers partner navigation, dashboard and a private canonical route", () => {
     expect(read("src/modules/partner-cabinet/services/workspace-capability.service.ts")).toContain('/cabinet/opportunities');
     expect(read("src/modules/partner-cabinet/components/OperationalDashboard.tsx")).toContain("opportunities.slice(0, 4)");
-    expect(read("app/(partner)/cabinet/opportunities/page.tsx")).toContain("Возможности для закупки");
+    expect(read("app/(partner)/cabinet/opportunities/page.tsx")).toContain("copy.opportunitiesTitle");
+    expect(secondaryCopy("ru").opportunitiesTitle).toBe("Возможности для закупки");
+    expect(secondaryCopy("ro").opportunitiesTitle).toBe("Oportunități de achiziție");
   });
 
   it("delegates cart mutations and never creates orders directly", () => {

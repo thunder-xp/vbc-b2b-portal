@@ -49,7 +49,7 @@ describe("CompanyUsersPanel", () => {
     expect(screen.getByText("Сотрудники")).toBeInTheDocument();
     expect(screen.getByText("Ожидают принятия")).toBeInTheDocument();
     expect(screen.getAllByText("Только розничные цены")).not.toHaveLength(0);
-    expect(screen.getByText("Активен")).toBeInTheDocument();
+    expect(screen.getByText("Активно")).toBeInTheDocument();
     expect(document.body.textContent).not.toContain("company_users.manage");
     expect(document.body.textContent).not.toContain("membership-secret");
   });

@@ -1,5 +1,11 @@
 "use client";
 import { useActionState, useState } from "react";
+import {
+  formatPartnerDate,
+  serviceFormCopy,
+  serviceTypeLabel,
+  usePartnerLocale,
+} from "@/src/modules/partner-locale";
 import { KnowledgeSuggestions } from "../knowledge-base";
 import {
   createServiceCaseAction,
@@ -10,7 +16,6 @@ import {
   SERVICE_CASE_TYPES,
   SERVICE_STATUS_LABELS,
   SERVICE_STATUSES,
-  SERVICE_TYPE_LABELS,
   type ServiceCaseDetail,
   type ServiceSelectionData,
 } from "./types";
@@ -35,63 +40,89 @@ export function ServiceCaseForm({
     createServiceCaseAction,
     initial,
   );
+  const locale = usePartnerLocale();
+  const copy = serviceFormCopy(locale);
   const [description, setDescription] = useState("");
   return (
     <form action={action} className="space-y-5" noValidate>
-      {verification ? <input name="warrantyVerificationId" type="hidden" value={verification.verificationId} /> : null}
+      {verification ? (
+        <input
+          name="warrantyVerificationId"
+          type="hidden"
+          value={verification.verificationId}
+        />
+      ) : null}
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Тип обращения">
+        <Field label={copy.caseType}>
           <select className={field} name="caseType" required>
             {SERVICE_CASE_TYPES.map((value) => (
               <option key={value} value={value}>
-                {SERVICE_TYPE_LABELS[value]}
+                {serviceTypeLabel(locale, value)}
               </option>
             ))}
           </select>
         </Field>
-        <Field label="Заказ (при наличии)">
+        <Field label={copy.order}>
           <select className={field} name="orderId">
-            <option value="">Без привязки к заказу</option>
+            <option value="">{copy.noOrder}</option>
             {selections.orders.map((order) => (
               <option key={order.id} value={order.id}>
-                {order.number} ·{" "}
-                {new Date(order.date).toLocaleDateString("ru-RU")}
+                {order.number} · {formatPartnerDate(order.date, locale)}
               </option>
             ))}
           </select>
         </Field>
-        <Field label="Товар">
-          {verification ? <><input name="productId" type="hidden" value={verification.productId ?? ""} /><p className="min-h-11 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm">{verification.sku} · {verification.productName}</p></> : <select className={field} name="productId">
-            <option value="">Товар будет уточнён</option>
-            {selections.products.map((product) => (
-              <option key={product.id} value={product.id}>
-                {product.sku} · {product.name}
-              </option>
-            ))}
-          </select>}
+        <Field label={copy.product}>
+          {verification ? (
+            <>
+              <input
+                name="productId"
+                type="hidden"
+                value={verification.productId ?? ""}
+              />
+              <p className="min-h-11 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm">
+                {verification.sku} · {verification.productName}
+              </p>
+            </>
+          ) : (
+            <select className={field} name="productId">
+              <option value="">{copy.productPending}</option>
+              {selections.products.map((product) => (
+                <option key={product.id} value={product.id}>
+                  {product.sku} · {product.name}
+                </option>
+              ))}
+            </select>
+          )}
         </Field>
-        <Field label="Позиция заказа">
+        <Field label={copy.orderLine}>
           <select className={field} name="orderLineId">
-            <option value="">Не выбрана</option>
+            <option value="">{copy.notSelected}</option>
             {selections.orders.flatMap((order) =>
               order.lines.map((line) => (
                 <option key={line.id} value={line.id}>
-                  {order.number} · {line.sku ?? "Без SKU"} ·{" "}
-                  {line.name ?? "Товар из 1С"}
+                  {order.number} · {line.sku ?? copy.noSku} ·{" "}
+                  {line.name ?? copy.oneCProduct}
                 </option>
               )),
             )}
           </select>
         </Field>
-        <Field label="Серийный номер">
-          {verification ? <p className="min-h-11 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm">{verification.maskedSerial}</p> : <input
-            className={field}
-            maxLength={120}
-            name="enteredSerial"
-            placeholder="Если известен"
-          />}
+        <Field label={copy.serial}>
+          {verification ? (
+            <p className="min-h-11 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm">
+              {verification.maskedSerial}
+            </p>
+          ) : (
+            <input
+              className={field}
+              maxLength={120}
+              name="enteredSerial"
+              placeholder={copy.serialPlaceholder}
+            />
+          )}
         </Field>
-        <Field label="Категория неисправности">
+        <Field label={copy.faultCategory}>
           <input
             className={field}
             maxLength={100}
@@ -99,14 +130,14 @@ export function ServiceCaseForm({
             required
           />
         </Field>
-        <Field label="Когда возникла проблема">
+        <Field label={copy.issueStarted}>
           <input className={field} name="issueStartedOn" type="date" />
         </Field>
-        <Field label="Предпочтительный контакт">
+        <Field label={copy.preferredContact}>
           <input className={field} maxLength={200} name="preferredContact" />
         </Field>
       </div>
-      <Field label="Описание проблемы">
+      <Field label={copy.description}>
         <textarea
           className={`${field} min-h-28`}
           minLength={10}
@@ -118,7 +149,7 @@ export function ServiceCaseForm({
         />
       </Field>
       <KnowledgeSuggestions source="service" text={description} />
-      <Field label="Наблюдаемые симптомы">
+      <Field label={copy.symptoms}>
         <textarea
           className={`${field} min-h-20`}
           maxLength={2000}
@@ -126,11 +157,8 @@ export function ServiceCaseForm({
         />
       </Field>
       <div className="grid gap-4 sm:grid-cols-2">
-        <Choice label="Оборудование включается?" name="powersOn" />
-        <Choice
-          label="Сброс к заводским настройкам выполнен?"
-          name="factoryResetAttempted"
-        />
+        <Choice label={copy.powersOn} name="powersOn" />
+        <Choice label={copy.resetDone} name="factoryResetAttempted" />
       </div>
       <label className="flex min-h-11 items-start gap-3 text-sm text-zinc-700">
         <input
@@ -139,12 +167,9 @@ export function ServiceCaseForm({
           required
           type="checkbox"
         />
-        Я согласен на обработку материалов, переданных для диагностики.
+        {copy.consent}
       </label>
-      <p className="text-sm text-zinc-600">
-        При ручном серийном номере гарантия требует проверки Novotech.
-        Возможность прямой замены подтверждается только после диагностики.
-      </p>
+      <p className="text-sm text-zinc-600">{copy.warrantyHint}</p>
       {state.message ? (
         <p
           aria-live="polite"
@@ -152,7 +177,7 @@ export function ServiceCaseForm({
             state.success ? "text-sm text-emerald-700" : "text-sm text-rose-700"
           }
         >
-          {state.message}
+          {state.success ? state.message : copy.actionError}
         </p>
       ) : null}
       <button
@@ -160,7 +185,7 @@ export function ServiceCaseForm({
         disabled={pending}
         type="submit"
       >
-        {pending ? "Отправка..." : "Создать заявку"}
+        {pending ? copy.sending : copy.create}
       </button>
     </form>
   );
@@ -180,17 +205,19 @@ function Field({
   );
 }
 function Choice({ label, name }: { label: string; name: string }) {
+  const copy = serviceFormCopy(usePartnerLocale());
   return (
     <Field label={label}>
       <select className={field} name={name}>
-        <option value="">Не указано</option>
-        <option value="yes">Да</option>
-        <option value="no">Нет</option>
+        <option value="">{copy.notProvided}</option>
+        <option value="yes">{copy.yes}</option>
+        <option value="no">{copy.no}</option>
       </select>
     </Field>
   );
 }
 export function PartnerServiceResponse({ caseId }: { caseId: string }) {
+  const copy = serviceFormCopy(usePartnerLocale());
   const [state, action, pending] = useActionState(
     addServiceMessageAction,
     initial,
@@ -198,7 +225,7 @@ export function PartnerServiceResponse({ caseId }: { caseId: string }) {
   return (
     <form action={action} className="space-y-3">
       <input name="caseId" type="hidden" value={caseId} />
-      <Field label="Дополнительная информация">
+      <Field label={copy.additional}>
         <textarea
           className={`${field} min-h-24`}
           maxLength={4000}
@@ -208,14 +235,14 @@ export function PartnerServiceResponse({ caseId }: { caseId: string }) {
       </Field>
       {state.message ? (
         <p aria-live="polite" className="text-sm text-zinc-700">
-          {state.message}
+          {state.success ? state.message : copy.actionError}
         </p>
       ) : null}
       <button
         className="min-h-11 rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white disabled:opacity-60"
         disabled={pending}
       >
-        Отправить
+        {copy.send}
       </button>
     </form>
   );

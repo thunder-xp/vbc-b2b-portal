@@ -57,10 +57,10 @@ describe("partner employee invitation simplification", () => {
   });
 
   it("allows anonymous preview but keeps every invitation mutation authenticated", () => {
-    expect(grantsMigration).toContain("get_company_invitation_preview(text)\n  to anon, authenticated");
-    expect(grantsMigration).toContain("record_company_invitation_email_delivery(uuid, text)\n  to authenticated");
-    expect(grantsMigration).toContain("revoke_company_membership_access(uuid, text)\n  to authenticated");
-    expect(grantsMigration).toContain("accept_company_invitation(text)\n  to authenticated");
+    expect(grantsMigration).toMatch(/get_company_invitation_preview\(text\)\r?\n  to anon, authenticated/);
+    expect(grantsMigration).toMatch(/record_company_invitation_email_delivery\(uuid, text\)\r?\n  to authenticated/);
+    expect(grantsMigration).toMatch(/revoke_company_membership_access\(uuid, text\)\r?\n  to authenticated/);
+    expect(grantsMigration).toMatch(/accept_company_invitation\(text\)\r?\n  to authenticated/);
     expect(grantsMigration).not.toMatch(/grant execute on function public\.accept_company_invitation\(text\)[\s\S]{0,30}to anon/);
   });
 

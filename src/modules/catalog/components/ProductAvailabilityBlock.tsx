@@ -1,15 +1,16 @@
 import type { ProductCommercialViewDto } from "../../pricing-inventory";
+import { getCatalogCopy, type PartnerLocale } from "../../partner-locale";
 
 type StockView = ProductCommercialViewDto["stock"];
 
-export function ProductAvailabilityBlock({ stock }: { stock?: StockView | null }) {
+export function ProductAvailabilityBlock({ locale = "ru", stock }: { locale?: PartnerLocale; stock?: StockView | null }) {
   const tone = getAvailabilityTone(stock?.status);
 
   return (
     <div className={`flex h-full min-w-0 items-center gap-2 border-l-2 px-2 py-1.5 ${tone.container}`}>
       <span aria-hidden="true" className={`size-2 shrink-0 rounded-full ${tone.indicator}`} />
       <span className={`line-clamp-2 whitespace-pre-line text-xs font-semibold leading-4 ${tone.text}`}>
-        {stock?.label ?? "Наличие уточняется"}
+        {stock?.label ?? getCatalogCopy(locale).availabilityPending}
       </span>
     </div>
   );

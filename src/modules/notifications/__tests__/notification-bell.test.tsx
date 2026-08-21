@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { MarkAllNotificationsReadButton, NotificationBell } from "../components";
+import { notificationCopy } from "../../partner-locale";
 
 const markRead = vi.fn();
 const markAllRead = vi.fn();
@@ -80,7 +81,7 @@ describe("NotificationBell", () => {
     fireEvent.click(screen.getByRole("button", { name: "Прочитать все" }));
 
     await waitFor(() => expect(refresh).toHaveBeenCalledOnce());
-    expect(screen.getByRole("button", { name: /непрочитанных 0/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: `${notificationCopy("ru").title}: ${notificationCopy("ru").unreadCount} 0` })).toBeInTheDocument();
     expect(screen.queryByText("1", { selector: "span" })).not.toBeInTheDocument();
   });
 });

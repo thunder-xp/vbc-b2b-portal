@@ -12,8 +12,8 @@ const recheckAction = action.slice(
 
 describe("cart commercial integrity UX", () => {
   it("uses honest unresolved price and stock labels", () => {
-    expect(page).toContain("Цена временно уточняется");
-    expect(page).toContain("Наличие уточняется");
+    expect(page).toContain("copy.pricePending");
+    expect(page).toContain("copy.stockPending");
     expect(page).not.toMatch(/availableStock\s*\?\?\s*0/);
   });
 
@@ -31,7 +31,7 @@ describe("cart commercial integrity UX", () => {
 
   it("keeps retail-only checkout explanatory without exposing partner totals", () => {
     expect(page).toContain("commercialMode === \"retail_only\"");
-    expect(page).toContain("Заказ будет оформлен по коммерческим условиям");
+    expect(page).toContain("copy.retailOnlyNote");
     expect(page).toContain("cart.retailReferenceTotal");
   });
 

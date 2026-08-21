@@ -3,6 +3,8 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import { getCatalogCopy } from "../../../partner-locale";
+
 const page = source("app/(partner)/cabinet/catalog/page.tsx");
 const curated = source("app/(partner)/cabinet/catalog/CuratedCatalogResults.tsx");
 const discovery = source("app/(partner)/cabinet/catalog/CatalogResults.tsx");
@@ -32,7 +34,9 @@ describe("catalog curated mode boundaries", () => {
 
   it("exposes a stable unfiltered full-catalog entry", () => {
     expect(page).toContain('href="/cabinet/catalog?view=all"');
-    expect(page).toContain("Весь каталог");
+    expect(page).toContain("copy.allCatalog");
+    expect(getCatalogCopy("ru").allCatalog).toBe("Весь каталог");
+    expect(getCatalogCopy("ro").allCatalog).toBe("Tot catalogul");
   });
 
   it("does not fetch or render hidden full-catalog data in curated mode", () => {
@@ -53,8 +57,10 @@ describe("catalog curated mode boundaries", () => {
     expect(sectionsAction).toContain('title: "Последнее поступление"');
     expect(sectionsAction).toContain('contextBadge: "Пополнение"');
     expect(sectionsAction).not.toContain('contextBadge: "ПОПОЛНЕНИЕ"');
-    expect(discovery).toContain('collection === "replenishment" ? "Последнее поступление"');
-    expect(discovery).toContain('collection === "replenishment" ? "Пополнение"');
+    expect(discovery).toContain('collection === "replenishment" ? copy.latestArrival');
+    expect(discovery).toContain('collection === "replenishment" ? copy.replenishment');
+    expect(getCatalogCopy("ru").latestArrival).toBe("Последнее поступление");
+    expect(getCatalogCopy("ru").replenishment).toBe("Пополнение");
   });
 });
 

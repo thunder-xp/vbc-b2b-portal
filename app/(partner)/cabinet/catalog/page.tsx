@@ -19,6 +19,8 @@ import {
   parseCatalogViewMode,
 } from "@/src/modules/catalog/services";
 import { getPartnerWorkspaceContextAction } from "@/src/modules/partner-cabinet/actions/workspace-context.action";
+import { getCatalogCopy } from "@/src/modules/partner-locale";
+import { getPartnerLocale } from "@/src/modules/partner-locale/server";
 
 import { CatalogResults } from "./CatalogResults";
 import { CuratedCatalogResults } from "./CuratedCatalogResults";
@@ -30,25 +32,26 @@ type CatalogPageProps = {
 const PAGE_SIZE = 20;
 
 export default async function CatalogPage({ searchParams }: CatalogPageProps) {
-  const [params, cookieStore] = await Promise.all([searchParams, cookies()]);
+  const [params, cookieStore, locale] = await Promise.all([searchParams, cookies(), getPartnerLocale()]);
+  const copy = getCatalogCopy(locale);
   const routeState = parseCatalogRouteState(params);
   const initialViewMode = parseCatalogViewMode(cookieStore.get(CATALOG_VIEW_COOKIE)?.value);
   const categoriesResult = await listCatalogCategoriesAction();
 
   if (!categoriesResult.success) {
-    return <EmptyCatalog message={categoriesResult.message} title="Каталог временно недоступен" />;
+    return <EmptyCatalog message={categoriesResult.message} title={copy.unavailableTitle} />;
   }
 
   return <div className="space-y-6">
     <CatalogToolbarFrame>
       <CategoryMegaMenu categories={categoriesResult.data} collection={routeState.collection} merchandisingLabel={routeState.merchandisingLabel} sort={routeState.sort} />
       <CatalogSearch categoryId={routeState.categoryId} collection={routeState.collection} explicitAll={routeState.explicitAll} initialSearch={routeState.search} merchandisingLabel={routeState.merchandisingLabel} sort={routeState.sort} />
-      {routeState.mode === "curated" ? <Link className="inline-flex h-11 shrink-0 items-center gap-2 rounded-md border border-zinc-300 bg-white px-4 text-sm font-semibold text-zinc-900 hover:border-emerald-600 hover:text-emerald-800" href="/cabinet/catalog?view=all" prefetch={false}><LayoutGrid aria-hidden="true" className="size-4" /><span className="hidden sm:inline">Весь каталог</span></Link> : null}
+      {routeState.mode === "curated" ? <Link className="inline-flex h-11 shrink-0 items-center gap-2 rounded-md border border-zinc-300 bg-white px-4 text-sm font-semibold text-zinc-900 hover:border-emerald-600 hover:text-emerald-800" href="/cabinet/catalog?view=all" prefetch={false}><LayoutGrid aria-hidden="true" className="size-4" /><span className="hidden sm:inline">{copy.allCatalog}</span></Link> : null}
     </CatalogToolbarFrame>
-    {routeState.mode === "discovery" ? <CatalogBreadcrumb categories={categoriesResult.data} selectedId={routeState.categoryId} /> : null}
-    <Suspense fallback={<CatalogResultsFallback curated={routeState.mode === "curated"} />}>
+    {routeState.mode === "discovery" ? <CatalogBreadcrumb categories={categoriesResult.data} locale={locale} selectedId={routeState.categoryId} /> : null}
+    <Suspense fallback={<CatalogResultsFallback ariaLabel={copy.loading} curated={routeState.mode === "curated"} />}>
       {routeState.mode === "curated"
-        ? <CuratedCatalogResults merchandisingPromise={listCatalogMerchandisingSectionsAction()} workspacePromise={getPartnerWorkspaceContextAction()} />
+        ? <CuratedCatalogResults locale={locale} merchandisingPromise={listCatalogMerchandisingSectionsAction()} workspacePromise={getPartnerWorkspaceContextAction()} />
         : <CatalogResults
             attributeFilters={routeState.attributeFilters}
             availability={routeState.availability}
@@ -58,6 +61,7 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
             collection={routeState.collection}
             explicitAll={routeState.explicitAll}
             initialViewMode={initialViewMode}
+            locale={locale}
             merchandisingLabel={routeState.merchandisingLabel}
             page={routeState.page}
             productsPromise={listCatalogProductsAction({
@@ -80,8 +84,8 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
   </div>;
 }
 
-function CatalogResultsFallback({ curated }: { curated: boolean }) {
-  return <div aria-busy="true" aria-label="Каталог загружается" className="space-y-6">
+function CatalogResultsFallback({ ariaLabel, curated }: { ariaLabel: string; curated: boolean }) {
+  return <div aria-busy="true" aria-label={ariaLabel} className="space-y-6">
     <div className="h-16 animate-pulse border-b border-zinc-200 bg-zinc-100" />
     {curated
       ? <div className="grid min-h-[300px] grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">{Array.from({ length: 5 }, (_, index) => <div className="h-[300px] animate-pulse rounded-md bg-zinc-100" key={index} />)}</div>

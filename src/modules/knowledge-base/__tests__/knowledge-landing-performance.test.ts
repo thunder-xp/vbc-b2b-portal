@@ -44,7 +44,7 @@ describe("knowledge landing performance", () => {
 
   it("does not execute search during the initial landing render", () => {
     const page = read("app/(partner)/cabinet/knowledge/page.tsx");
-    expect(page).toContain("query?searchKnowledgeAction(query):Promise.resolve(null)");
+    expect(page).toMatch(/query\s*\?\s*searchKnowledgeAction\(query\)\s*:\s*Promise\.resolve\(null\)/);
   });
 
   it("records bounded server-side context and RPC stages", () => {

@@ -1,4 +1,11 @@
-import { AlertTriangle, Check, Clock3, Info, LoaderCircle, Minus } from "lucide-react";
+import {
+  AlertTriangle,
+  Check,
+  Clock3,
+  Info,
+  LoaderCircle,
+  Minus,
+} from "lucide-react";
 
 import type { StatusDescriptor } from "./status-model";
 
@@ -10,13 +17,36 @@ const categoryClassName: Record<StatusDescriptor["category"], string> = {
   information: "border-blue-200 bg-blue-50 text-blue-800",
   running: "border-sky-200 bg-sky-50 text-sky-800",
 };
-const icons = { check: Check, clock: Clock3, alert: AlertTriangle, info: Info, loader: LoaderCircle, minus: Minus };
+const icons = {
+  check: Check,
+  clock: Clock3,
+  alert: AlertTriangle,
+  info: Info,
+  loader: LoaderCircle,
+  minus: Minus,
+};
 
-export function StatusBadge({ status, label }: { status: StatusDescriptor; label?: string }) {
+export function StatusBadge({
+  accessibleLabel,
+  status,
+  label,
+}: {
+  accessibleLabel?: string;
+  status: StatusDescriptor;
+  label?: string;
+}) {
   const Icon = icons[status.icon];
   const displayedLabel = label ?? status.label;
-  return <span aria-label={`Статус: ${displayedLabel}`} className={`inline-flex w-fit items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold ${categoryClassName[status.category]}`}>
-    <Icon aria-hidden="true" className={`size-3.5 ${status.category === "running" ? "motion-safe:animate-spin" : ""}`} />
-    {displayedLabel}
-  </span>;
+  return (
+    <span
+      aria-label={accessibleLabel ?? `Статус: ${displayedLabel}`}
+      className={`inline-flex w-fit items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold ${categoryClassName[status.category]}`}
+    >
+      <Icon
+        aria-hidden="true"
+        className={`size-3.5 ${status.category === "running" ? "motion-safe:animate-spin" : ""}`}
+      />
+      {displayedLabel}
+    </span>
+  );
 }

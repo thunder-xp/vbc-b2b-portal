@@ -42,7 +42,8 @@ describe("estimate workspace architecture", () => {
 
   it("uses one balanced creation grid and leaves VAT for the workspace", () => {
     expect(createForm).toContain('className="grid gap-x-5 gap-y-4 sm:grid-cols-2"');
-    expect(createForm).toContain('className="sm:col-span-2"><Field label="Название сметы"');
+    expect(createForm).toContain('className="sm:col-span-2">');
+    expect(createForm).toContain("label={copy.name}");
     expect(createForm).not.toContain("Настраивается в рабочей смете");
     expect(createForm).not.toContain('label="НДС"');
     expect(createForm).not.toMatch(/disabled[^>]*name="vat/i);

@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { describe, expect, it } from "vitest";
+import { notificationCopy } from "@/src/modules/partner-locale";
 
 const page = fs.readFileSync(
   path.join(process.cwd(), "app/(partner)/cabinet/notifications/page.tsx"),
@@ -16,7 +17,9 @@ describe("notification page boundaries", () => {
   it("supports keyset pagination and governed filters", () => {
     expect(page).toContain("cursorAt");
     expect(page).toContain("cursorId");
-    expect(page).toContain("Доступ сотрудников");
+    expect(page).toContain("copy.filterAccess");
+    expect(notificationCopy("ru").filterAccess).toBe("Доступ сотрудников");
+    expect(notificationCopy("ro").filterAccess).toBe("Accesul angajaților");
     expect(repository).toContain("p_cursor_occurred_at");
     expect(repository).toContain("p_cursor_id");
   });

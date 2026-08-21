@@ -6,13 +6,23 @@ import { notFound } from "next/navigation";
 import { getPartnerCampaignAction } from "@/src/modules/commercial-campaigns/actions";
 import { CampaignCartControl } from "@/src/modules/commercial-campaigns/components";
 import { ProductThumbnail } from "@/src/modules/catalog/components";
+import {
+  formatPartnerDate,
+  formatPartnerMoney,
+  secondaryCopy,
+} from "@/src/modules/partner-locale";
+import { getPartnerLocale } from "@/src/modules/partner-locale/server";
 
 export default async function OfferDetailPage({
   params,
 }: {
   params: Promise<{ campaignId: string }>;
 }) {
-  const { campaignId } = await params;
+  const [{ campaignId }, locale] = await Promise.all([
+    params,
+    getPartnerLocale(),
+  ]);
+  const copy = secondaryCopy(locale);
   const result = await getPartnerCampaignAction(campaignId);
   if (!result.success) notFound();
   const campaign = result.data;
@@ -24,10 +34,10 @@ export default async function OfferDetailPage({
             className="text-sm font-semibold text-emerald-700"
             href="/cabinet/offers"
           >
-            ← Все предложения
+            ← {copy.allOffers}
           </Link>
           <p className="mt-5 text-xs font-semibold uppercase text-emerald-700">
-            Специальное предложение
+            {copy.specialOffer}
           </p>
           <h1 className="mt-1 text-2xl font-semibold sm:text-3xl">
             {campaign.title}
@@ -35,7 +45,7 @@ export default async function OfferDetailPage({
           <p className="mt-3 max-w-3xl text-zinc-600">{campaign.description}</p>
           <p className="mt-5 inline-flex items-center gap-2 rounded-md bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-900">
             <CalendarClock className="size-4" />
-            Доступно до {formatDate(campaign.endsAt)}
+            {copy.availableUntil} {formatPartnerDate(campaign.endsAt, locale)}
           </p>
         </div>
         {campaign.imageAssetPath ? (
@@ -53,7 +63,7 @@ export default async function OfferDetailPage({
       </header>
       <section aria-labelledby="campaign-products">
         <h2 className="text-xl font-semibold" id="campaign-products">
-          Товары предложения
+          {copy.offerProducts}
         </h2>
         <div className="mt-3 grid gap-4 xl:grid-cols-2">
           {campaign.products.map((product) => (
@@ -83,28 +93,32 @@ export default async function OfferDetailPage({
                 </Link>
                 {product.price ? (
                   <p className="mt-3 text-lg font-semibold">
-                    Ваша цена:{" "}
-                    {formatMoney(product.price.amount, product.price.currency)}
+                    {copy.yourPrice}:{" "}
+                    {formatPartnerMoney(
+                      product.price.amount,
+                      product.price.currency,
+                      locale,
+                    )}
                   </p>
                 ) : (
                   <p className="mt-3 text-sm font-medium text-zinc-600">
-                    Цена уточняется
+                    {copy.pricePending}
                   </p>
                 )}
                 <p className="mt-2 flex items-center gap-1.5 text-sm">
                   {(product.availableQuantity ?? 0) > 0 ? (
                     <>
-                      <PackageCheck className="size-4 text-emerald-700" />В
-                      наличии: {product.availableQuantity} шт.
+                      <PackageCheck className="size-4 text-emerald-700" />
+                      {copy.inStock}: {product.availableQuantity} {copy.units}
                     </>
                   ) : product.expectedArrivalDate ? (
                     <>
                       <Truck className="size-4 text-amber-700" />
-                      Ожидается к поступлению —{" "}
-                      {formatDate(product.expectedArrivalDate)}
+                      {copy.expected} —{" "}
+                      {formatPartnerDate(product.expectedArrivalDate, locale)}
                     </>
                   ) : (
-                    <>Наличие уточняется</>
+                    <>{copy.availabilityPending}</>
                   )}
                 </p>
                 {product.partnerMessage ? (
@@ -113,9 +127,9 @@ export default async function OfferDetailPage({
                   </p>
                 ) : null}
                 <p className="mt-2 text-xs text-zinc-500">
-                  Минимум: {product.minimumQuantity} шт.
+                  {copy.minimum}: {product.minimumQuantity} {copy.units}
                   {product.maximumQuantityPerCompany
-                    ? ` · Лимит компании: ${product.maximumQuantityPerCompany} шт.`
+                    ? ` · ${copy.companyLimit}: ${product.maximumQuantityPerCompany} ${copy.units}`
                     : ""}
                 </p>
                 <CampaignCartControl
@@ -129,23 +143,10 @@ export default async function OfferDetailPage({
         </div>
       </section>
       <section className="rounded-md border border-zinc-200 bg-zinc-50 p-5">
-        <h2 className="font-semibold">Условия</h2>
+        <h2 className="font-semibold">{copy.terms}</h2>
         <p className="mt-2 text-sm text-zinc-700">{campaign.termsSummary}</p>
-        <p className="mt-2 text-sm text-zinc-600">
-          Количество ограничено текущим остатком. Товар кампанией не
-          резервируется.
-        </p>
+        <p className="mt-2 text-sm text-zinc-600">{copy.stockDisclaimer}</p>
       </section>
     </div>
-  );
-}
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat("ru-RU", { dateStyle: "medium" }).format(
-    new Date(value),
-  );
-}
-function formatMoney(amount: number, currency: string) {
-  return new Intl.NumberFormat("ru-RU", { style: "currency", currency }).format(
-    amount,
   );
 }

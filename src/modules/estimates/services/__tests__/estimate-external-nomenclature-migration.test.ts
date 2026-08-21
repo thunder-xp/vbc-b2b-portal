@@ -3,7 +3,7 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-const sql = readFileSync(join(process.cwd(), "supabase/migrations/20260808235900_estimate_external_nomenclature.sql"), "utf8");
+const sql = readFileSync(join(process.cwd(), "supabase/migrations/20260808235900_estimate_external_nomenclature.sql"), "utf8").replace(/\r\n/g, "\n");
 const idempotencyRepairSql = readFileSync(
   join(process.cwd(), "supabase/migrations/20260809002000_estimate_creation_idempotency_lock.sql"),
   "utf8",

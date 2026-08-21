@@ -69,7 +69,7 @@ describe("ProductCard workspace context", () => {
     const capabilities = resolveWorkspaceCapabilities(new Set(["catalog.view", "pricing.partner_price.view"])).productCard;
     render(<ProductCard capabilities={capabilities} commercialView={{ ...commercialView, partnerPriceMdl: null }} product={product} />);
     expect(screen.getByText("$45.81")).toBeInTheDocument();
-    expect(screen.getByText("MDL недоступна")).toHaveClass("text-zinc-500");
+    expect(screen.getByText("Цена в MDL временно недоступна")).toHaveClass("text-zinc-500");
     expect(screen.queryByText("800 MDL")).not.toBeInTheDocument();
   });
 

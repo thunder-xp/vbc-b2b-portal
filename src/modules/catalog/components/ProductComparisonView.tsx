@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 
 import { recordBehaviorInteraction } from "../../behavior-analytics/components/BehaviorViewEvent";
 import { AddToCartButton } from "../../orders/components/AddToCartButton";
+import { getCatalogCopy, usePartnerLocale, workspaceCopy } from "../../partner-locale";
 import { getCatalogComparisonAction, type CatalogComparisonDto } from "../actions";
 import { MerchandisingBadges } from "./MerchandisingBadges";
 import { ProductSpecificationAction } from "./ProductSpecificationAction";
@@ -31,8 +32,11 @@ export function ProductComparisonView({
   companyId,
   userId,
 }: ProductComparisonViewProps) {
+  const locale = usePartnerLocale();
+  const copy = workspaceCopy(locale);
+  const catalogCopy = getCatalogCopy(locale);
   const [comparison, setComparison] = useState<CatalogComparisonDto | null>(null);
-  const [message, setMessage] = useState("Загрузка сравнения…");
+  const [message, setMessage] = useState<string>(copy.compareLoading);
   const [failed, setFailed] = useState(false);
   const [highlightDifferences, setHighlightDifferences] = useState(false);
   const [reloadVersion, setReloadVersion] = useState(0);
@@ -46,12 +50,12 @@ export function ProductComparisonView({
       if (!ids.length) {
         if (active) {
           setComparison(null);
-          setMessage("Список сравнения пуст");
+          setMessage(copy.compareEmpty);
         }
         return;
       }
 
-      setMessage("Загрузка сравнения…");
+      setMessage(copy.compareLoading);
       const result = await getCatalogComparisonAction(ids);
       if (!active) return;
       if (result.success) {
@@ -60,7 +64,7 @@ export function ProductComparisonView({
       } else {
         setComparison(null);
         setFailed(true);
-        setMessage(result.message);
+        setMessage(copy.compareUnavailable);
       }
     };
     const sync = (event: Event) => {
@@ -77,7 +81,7 @@ export function ProductComparisonView({
       window.removeEventListener("storage", sync);
       window.removeEventListener(COMPARISON_CHANGED_EVENT, sync);
     };
-  }, [companyId, reloadVersion, userId]);
+  }, [companyId, copy.compareEmpty, copy.compareLoading, copy.compareUnavailable, reloadVersion, userId]);
 
   if (!comparison) {
     return (
@@ -114,7 +118,7 @@ export function ProductComparisonView({
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-zinc-600">
-          Выбрано {comparison.products.length} из {COMPARISON_LIMIT}
+          {copy.selected} {comparison.products.length} / {COMPARISON_LIMIT}
         </p>
         <div className="flex flex-wrap gap-2">
           <button
@@ -124,7 +128,7 @@ export function ProductComparisonView({
             type="button"
           >
             <Highlighter aria-hidden="true" className="size-4" />
-            Выделить отличия
+            {copy.highlightDifferences}
           </button>
           <button
             className="inline-flex min-h-10 items-center gap-2 rounded-md border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-800 hover:border-rose-500 hover:text-rose-700"
@@ -132,41 +136,39 @@ export function ProductComparisonView({
             type="button"
           >
             <Trash2 aria-hidden="true" className="size-4" />
-            Очистить
+            {copy.clear}
           </button>
         </div>
       </div>
 
       {comparison.products.length === 1 ? (
         <Notice>
-          Добавьте ещё один товар, чтобы увидеть различия характеристик.
+          {copy.addAnother}
         </Notice>
       ) : null}
       {comparison.mixedCategories ? (
         <Notice>
-          Товары относятся к разным категориям. Доступные характеристики
-          сопоставлены по названию.
+          {copy.mixedCategories}
         </Notice>
       ) : null}
       {comparison.excludedProductCount > 0 ? (
         <Notice tone="warning">
-          Некоторые товары больше недоступны и были исключены из сравнения.
+          {copy.productsExcluded}
         </Notice>
       ) : null}
       {comparison.warnings.includes("COMPARISON_ENRICHMENT_FAILED") ? (
         <Notice tone="warning">
-          Часть коммерческих данных временно недоступна. Товары и характеристики
-          остаются доступными.
+          {copy.commercialUnavailable}
         </Notice>
       ) : null}
 
       <div className="overflow-x-auto rounded-md border border-zinc-200">
         <table className="min-w-[760px] border-collapse text-left text-sm">
-          <caption className="sr-only">Сравнение товаров</caption>
+          <caption className="sr-only">{copy.compareTitle}</caption>
           <thead>
             <tr className="align-top">
               <th className="w-48 border-b border-r border-zinc-200 bg-zinc-50 p-3 text-zinc-500">
-                Параметр
+                {copy.parameter}
               </th>
               {comparison.products.map((product) => (
                 <th
@@ -175,9 +177,18 @@ export function ProductComparisonView({
                 >
                   <div className="flex h-full min-h-[21rem] flex-col">
                     <div className="flex items-start justify-between gap-2">
-                      <MerchandisingBadges labels={product.merchandisingLabels} />
+                      <MerchandisingBadges
+                        labelOverrides={{
+                          HOT: catalogCopy.hot,
+                          NEW: catalogCopy.new,
+                          SPECIAL_OFFER: catalogCopy.special,
+                          TOP: catalogCopy.top,
+                        }}
+                        labels={product.merchandisingLabels}
+                        productCollectionsLabel={catalogCopy.productCollections}
+                      />
                       <button
-                        aria-label={`Удалить ${product.name} из сравнения`}
+                        aria-label={`${copy.removeFromComparison}: ${product.name}`}
                         className="inline-flex size-10 shrink-0 items-center justify-center rounded-md text-zinc-500 hover:bg-zinc-100 hover:text-rose-700"
                         onClick={() => remove(product.id)}
                         type="button"
@@ -208,7 +219,7 @@ export function ProductComparisonView({
                       {product.name}
                     </Link>
                     <p className="mt-1 text-xs text-zinc-500">
-                      {product.brand?.name ?? product.category?.name ?? "Каталог"}
+                      {product.brand?.name ?? product.category?.name ?? copy.catalog}
                     </p>
                     <div className="mt-auto space-y-2 pt-3">
                       {canAddToOrder ? <AddToCartButton productId={product.id} /> : null}
@@ -220,7 +231,7 @@ export function ProductComparisonView({
                         href={`/cabinet/catalog/${product.slug}`}
                         prefetch={false}
                       >
-                        Открыть товар
+                        {copy.openProduct}
                       </Link>
                     </div>
                   </div>
@@ -231,28 +242,28 @@ export function ProductComparisonView({
           <tbody>
             {partnerPricingVisible ? (
               <ComparisonRow
-                label="Ваша цена"
+                label={copy.yourPrice}
                 values={comparison.products.map(
                   (product) =>
                     views.get(product.id)?.partnerPrice?.formattedAmount
-                    ?? "Цена уточняется",
+                    ?? copy.pricePending,
                 )}
               />
             ) : null}
             <ComparisonRow
-              label="Розничная цена"
+              label={copy.retailPrice}
               values={comparison.products.map(
                 (product) =>
                   views.get(product.id)?.retailPrice?.formattedAmount
-                  ?? "Цена уточняется",
+                  ?? copy.pricePending,
               )}
             />
             <ComparisonRow
-              label="Наличие"
+              label={copy.availability}
               values={comparison.products.map(
                 (product) =>
-                  views.get(product.id)?.stock?.label
-                  ?? "Наличие уточняется",
+                  localizeComparisonStock(locale, views.get(product.id)?.stock?.status)
+                  ?? copy.availabilityPending,
               )}
             />
             {comparison.matrix.map((row) => (
@@ -279,14 +290,15 @@ function ComparisonState({
   message: string;
   onRetry: () => void;
 }) {
+  const copy = workspaceCopy(usePartnerLocale());
   return (
     <div className="border-y border-zinc-200 py-12 text-center">
       <Columns3 aria-hidden="true" className="mx-auto size-8 text-zinc-400" />
       <h2 className="mt-3 text-lg font-semibold text-zinc-950">{message}</h2>
       <p className="mx-auto mt-2 max-w-lg text-sm text-zinc-600">
         {failed
-          ? "Проверьте соединение и повторите попытку."
-          : "Добавьте товары из каталога, чтобы сравнить цены, наличие и характеристики."}
+          ? copy.retryHint
+          : copy.compareEmptyHint}
       </p>
       <div className="mt-5 flex flex-wrap justify-center gap-2">
         {failed ? (
@@ -296,7 +308,7 @@ function ComparisonState({
             type="button"
           >
             <RotateCcw aria-hidden="true" className="size-4" />
-            Повторить
+            {copy.retry}
           </button>
         ) : null}
         <Link
@@ -304,11 +316,21 @@ function ComparisonState({
           href="/cabinet/catalog"
           prefetch={false}
         >
-          Открыть каталог
+          {copy.openCatalog}
         </Link>
       </div>
     </div>
   );
+}
+
+function localizeComparisonStock(locale: "ru" | "ro", status: string | undefined): string | null {
+  if (!status) return null;
+  const copy = getCatalogCopy(locale);
+  if (status === "in_stock") return copy.inStock;
+  if (status === "low_stock") return copy.lowStock;
+  if (status === "out_of_stock") return copy.outOfStock;
+  if (status === "expected") return copy.expected;
+  return copy.availabilityPending;
 }
 
 function ComparisonRow({

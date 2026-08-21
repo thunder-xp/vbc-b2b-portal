@@ -6,8 +6,10 @@ import type { NotificationSummary } from "../../notifications";
 import { PartnerHeader } from "./PartnerHeader";
 import { PartnerMobileNavigation } from "./PartnerMobileNavigation";
 import { PartnerSidebar } from "./PartnerSidebar";
+import { PartnerLocaleProvider, type PartnerLocale } from "../../partner-locale";
 
 export type PartnerWorkspaceShellContext = {
+  locale: PartnerLocale;
   userDisplayName: string;
   userEmail: string;
   companyName: string | null;
@@ -32,7 +34,8 @@ export function PartnerLayout({
   const hasWorkspaceAccess = context.accessState === "active" || context.accessState === "missing_price_type";
 
   return (
-    <div className="min-h-screen bg-zinc-50 text-zinc-950">
+    <PartnerLocaleProvider locale={context.locale}>
+    <div className="min-h-screen bg-zinc-50 text-zinc-950" lang={context.locale}>
       <div className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:block lg:w-72">
         <PartnerSidebar companyName={context.companyName} hasWorkspaceAccess={hasWorkspaceAccess} navigation={context.navigation} />
       </div>
@@ -50,5 +53,6 @@ export function PartnerLayout({
         <main className="px-4 py-6 lg:px-8">{children}</main>
       </div>
     </div>
+    </PartnerLocaleProvider>
   );
 }

@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
+import { getEstimatesCopy } from "@/src/modules/partner-locale";
 
 const migration = readFileSync(resolve("supabase/migrations/20260809007000_estimate_business_lifecycle.sql"), "utf8");
 const workflow = readFileSync(resolve("src/modules/estimates/components/EstimateWorkflowPanel.tsx"), "utf8");
@@ -29,9 +30,11 @@ describe("estimate business lifecycle", () => {
     for (const reason of ["price", "no_budget", "other_supplier", "project_changed", "postponed", "other"]) {
       expect(migration).toContain(`'${reason}'`);
     }
-    expect(workflow).toContain("Отправлено заказчику");
-    expect(workflow).toContain("Принято заказчиком");
-    expect(workflow).toContain("Причина отклонения");
+    expect(workflow).toContain("copy.sentToCustomer");
+    expect(workflow).toContain("copy.acceptedByCustomerAction");
+    expect(workflow).toContain("copy.rejectionReason");
+    expect(getEstimatesCopy("ru")).toMatchObject({ sentToCustomer: "Отправлено заказчику", acceptedByCustomerAction: "Принято заказчиком", rejectionReason: "Причина отклонения" });
+    expect(getEstimatesCopy("ro")).toMatchObject({ sentToCustomer: "Trimis clientului", acceptedByCustomerAction: "Acceptat de client", rejectionReason: "Motivul respingerii" });
   });
 
   it("derives order conversion only from confirmed order snapshots", () => {

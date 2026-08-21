@@ -4,6 +4,7 @@ import { BehaviorViewEvent } from "../../behavior-analytics/components";
 import { ProductCard } from "../../catalog/components/ProductCard";
 import type { CatalogProductCardDto } from "../../catalog/services";
 import type { ProductRelationCard, ProductRelationSections } from "../types";
+import { getCatalogCopy, type PartnerLocale } from "../../partner-locale";
 
 type Props = {
   sourceProductId: string;
@@ -13,6 +14,7 @@ type Props = {
   capabilities: ProductCardCapabilityModel;
   companyId?: string | null;
   userId?: string | null;
+  locale?: PartnerLocale;
 };
 
 export function ProductRelationSectionsView({
@@ -23,15 +25,17 @@ export function ProductRelationSectionsView({
   sourceSlug,
   sourceStock,
   userId,
+  locale = "ru",
 }: Props) {
+  const copy = getCatalogCopy(locale);
   if (!sections.analogs.length && !sections.related.length) {
     return (
-      <section aria-label="Аналоги и сопутствующие товары" className="rounded-md border border-zinc-200 bg-zinc-50 p-6 text-center" data-testid="product-relations-empty-state">
-        <p className="text-sm text-zinc-600">Для этого товара пока не настроены аналоги и сопутствующие товары.</p>
+      <section aria-label={copy.relations} className="rounded-md border border-zinc-200 bg-zinc-50 p-6 text-center" data-testid="product-relations-empty-state">
+        <p className="text-sm text-zinc-600">{copy.relationsEmpty}</p>
       </section>
     );
   }
-  const promotion = relationPromotionMessage(sourceStock?.status, sections.analogs.length);
+  const promotion = relationPromotionMessage(sourceStock?.status, sections.analogs.length, locale);
   return (
     <div className="space-y-8" data-testid="product-relations-tab-content">
       {sections.analogs.length ? (
@@ -42,7 +46,8 @@ export function ProductRelationSectionsView({
           description={promotion}
           sourceProductId={sourceProductId}
           sourceSlug={sourceSlug}
-          title="Аналогичные товары"
+          locale={locale}
+          title={copy.analogProducts}
           type="analog"
           userId={userId}
         />
@@ -54,7 +59,8 @@ export function ProductRelationSectionsView({
           companyId={companyId}
           sourceProductId={sourceProductId}
           sourceSlug={sourceSlug}
-          title="Сопутствующие товары"
+          locale={locale}
+          title={copy.relatedProducts}
           type="related"
           userId={userId}
         />
@@ -68,12 +74,14 @@ export function relationPromotionMessage(
     ? T extends { status: infer S } ? S | undefined : undefined
     : undefined,
   analogCount: number,
+  locale: PartnerLocale = "ru",
 ): string | null {
   if (analogCount < 1) return null;
+  const copy = getCatalogCopy(locale);
   switch (status) {
-    case "low_stock": return "Товар заканчивается на складе. Доступны аналоги.";
-    case "out_of_stock": return "Товар временно недоступен. Выберите подходящий аналог.";
-    case "expected": return "Товар ожидается к поступлению. Для срочной закупки доступны аналоги.";
+    case "low_stock": return copy.analogLowStock;
+    case "out_of_stock": return copy.analogOutOfStock;
+    case "expected": return copy.analogExpected;
     default: return null;
   }
 }
@@ -88,6 +96,7 @@ function RelationSection({
   title,
   type,
   userId,
+  locale,
 }: {
   capabilities: ProductCardCapabilityModel;
   cards: ProductRelationCard[];
@@ -98,6 +107,7 @@ function RelationSection({
   title: string;
   type: "analog" | "related";
   userId?: string | null;
+  locale: PartnerLocale;
 }) {
   const surface = type === "analog" ? "product_analog" : "product_related";
   return (
@@ -124,6 +134,7 @@ function RelationSection({
             commercialView={card.commercialView ?? undefined}
             companyId={companyId}
             key={`${type}:${card.id}`}
+            locale={locale}
             product={toProductCard(card)}
             userId={userId}
           />

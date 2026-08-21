@@ -1,6 +1,7 @@
 import type { ProductCommercialViewDto } from "../../pricing-inventory";
 import type { ProductCardCapabilityModel } from "../../partner-cabinet/services";
 import type { CatalogProductCardDto } from "../services";
+import type { PartnerLocale } from "../../partner-locale";
 
 import { ProductCard } from "./ProductCard";
 import { CatalogProductGridFrame, CATALOG_PRODUCT_GRID_CLASS } from "./CatalogPresentationPrimitives";
@@ -11,13 +12,14 @@ type ProductGridProps = {
   companyId: string | null;
   contextBadge?: string;
   favoriteProductIds?: string[];
+  locale?: PartnerLocale;
   products: CatalogProductCardDto[];
   userId: string | null;
 };
 
 export { CATALOG_PRODUCT_GRID_CLASS };
 
-export function ProductGrid({ capabilities, commercialViews = {}, companyId, contextBadge, favoriteProductIds = [], products, userId }: ProductGridProps) {
+export function ProductGrid({ capabilities, commercialViews = {}, companyId, contextBadge, favoriteProductIds = [], locale = "ru", products, userId }: ProductGridProps) {
   const favorites = new Set(favoriteProductIds);
   return (
     <CatalogProductGridFrame>
@@ -30,6 +32,7 @@ export function ProductGrid({ capabilities, commercialViews = {}, companyId, con
           favorite={favorites.has(product.id)}
           key={product.id}
           imagePriority={index === 0}
+          locale={locale}
           product={product}
           userId={userId}
         />

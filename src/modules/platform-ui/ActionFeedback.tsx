@@ -1,4 +1,8 @@
+"use client";
+
 import { AlertTriangle, CheckCircle2, Info, LoaderCircle } from "lucide-react";
+
+import { platformCopy, usePartnerLocale } from "../partner-locale";
 
 export type FeedbackKind = "success" | "warning" | "error" | "running" | "information";
 
@@ -17,13 +21,14 @@ export function ActionFeedback({ kind, title, message, correlationId }: {
   message: string;
   correlationId?: string | null;
 }) {
+  const copy = platformCopy(usePartnerLocale());
   const Icon = icons[kind];
   return <div aria-live={kind === "error" ? "assertive" : "polite"} className={`flex gap-3 border-l-4 px-4 py-3 text-sm ${styles[kind]}`} role={kind === "error" ? "alert" : "status"}>
     <Icon aria-hidden="true" className={`mt-0.5 size-4 shrink-0 ${kind === "running" ? "motion-safe:animate-spin" : ""}`} />
-    <div><p className="font-semibold">{title ?? defaultTitle(kind)}</p><p className="mt-0.5">{message}</p>{correlationId ? <p className="mt-1 text-xs opacity-70">Код обращения: {correlationId}</p> : null}</div>
+    <div><p className="font-semibold">{title ?? defaultTitle(kind, copy)}</p><p className="mt-0.5">{message}</p>{correlationId ? <p className="mt-1 text-xs opacity-70">{copy.referenceCode}: {correlationId}</p> : null}</div>
   </div>;
 }
 
-function defaultTitle(kind: FeedbackKind) {
-  return { success: "Готово", warning: "Обратите внимание", error: "Действие не выполнено", running: "Выполняется", information: "Информация" }[kind];
+function defaultTitle(kind: FeedbackKind, copy: ReturnType<typeof platformCopy>) {
+  return { success: copy.ready, warning: copy.attention, error: copy.failed, running: copy.running, information: copy.information }[kind];
 }

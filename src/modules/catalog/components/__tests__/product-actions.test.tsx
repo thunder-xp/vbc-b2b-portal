@@ -85,6 +85,6 @@ describe("product secondary actions", () => {
     await waitFor(() =>
       expect(addItem).toHaveBeenCalledWith(expect.objectContaining({ estimateId: "estimate-1", productId: "product-1", quantity: 3, requestKey: expect.any(String) })),
     );
-    expect(screen.getByText("ok")).toBeVisible();
+    expect(screen.getByText("Товар добавлен в смету.")).toBeVisible();
   });
 });

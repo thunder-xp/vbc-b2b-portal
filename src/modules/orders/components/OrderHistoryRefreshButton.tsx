@@ -4,6 +4,7 @@ import { RefreshCw } from "lucide-react";
 import { useActionState } from "react";
 
 import type { ActionResult } from "../../access-control/actions/action-result";
+import { getOrdersCopy, usePartnerLocale } from "../../partner-locale";
 import { refreshPartnerOrderHistoryAction } from "../actions/order.actions";
 import type { PartnerOrderHistorySyncResult } from "../services";
 
@@ -15,6 +16,7 @@ const initialState: ActionResult<PartnerOrderHistorySyncResult | null> = {
 };
 
 export function OrderHistoryRefreshButton({ hasCachedOrders }: { hasCachedOrders: boolean }) {
+  const copy = getOrdersCopy(usePartnerLocale());
   const [state, action, pending] = useActionState(async () => refreshPartnerOrderHistoryAction(), initialState);
   return (
     <div className="flex flex-col items-end gap-2">
@@ -25,16 +27,16 @@ export function OrderHistoryRefreshButton({ hasCachedOrders }: { hasCachedOrders
           type="submit"
         >
           <RefreshCw aria-hidden="true" className={pending ? "size-4 animate-spin" : "size-4"} />
-          {pending ? "Обновление..." : "Обновить из 1С"}
+          {pending ? copy.refreshing : copy.refreshFromOneC}
         </button>
       </form>
       {state.message ? (
         <p className={state.success ? "text-xs text-emerald-700" : "text-xs text-rose-700"} role="status">
           {state.success
-            ? state.message
+            ? copy.refreshSucceeded
             : hasCachedOrders
-              ? `Не удалось обновить историю. Показаны ранее загруженные данные. ${state.message}`
-              : `Не удалось получить заказы из 1С. Повторите попытку позже или сообщите менеджеру Novotech. ${state.message}`}
+              ? copy.refreshCachedFailed
+              : copy.refreshFailed}
         </p>
       ) : null}
     </div>

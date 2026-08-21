@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-const sql = readFileSync(resolve("supabase/migrations/20260809130000_estimate_atomic_section_insertion.sql"), "utf8");
+const sql = readFileSync(resolve("supabase/migrations/20260809130000_estimate_atomic_section_insertion.sql"), "utf8").replace(/\r\n/g, "\n");
 const nomenclatureSql = readFileSync(resolve("supabase/migrations/20260809190000_partner_external_nomenclature_library.sql"), "utf8");
 const repository = readFileSync(resolve("src/modules/estimates/repositories/supabase/estimate.supabase-repository.ts"), "utf8");
 const editor = readFileSync(resolve("src/modules/estimates/components/EstimateCommercialEditor.tsx"), "utf8");

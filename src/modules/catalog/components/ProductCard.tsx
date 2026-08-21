@@ -14,21 +14,23 @@ import { MerchandisingBadge, MerchandisingBadgeOverlay, MerchandisingBadges } fr
 import { CatalogProductCardFrame } from "./CatalogProductCardFrame";
 import { BehaviorTrackedLink } from "../../behavior-analytics/components/BehaviorViewEvent";
 import type { BehaviorEventName } from "../../behavior-analytics/types";
+import { getCatalogCopy, type PartnerLocale } from "../../partner-locale";
 
-type ProductCardProps = { product: CatalogProductCardDto; analyticsEventName?: BehaviorEventName; analyticsSurface?: string; cartSuccessEventName?: BehaviorEventName; commercialView?: ProductCommercialViewDto; capabilities: ProductCardCapabilityModel; companyId?: string | null; contextBadge?: string; contextLine?: string; favorite?: boolean; imagePriority?: boolean; userId?: string | null };
+type ProductCardProps = { product: CatalogProductCardDto; analyticsEventName?: BehaviorEventName; analyticsSurface?: string; cartSuccessEventName?: BehaviorEventName; commercialView?: ProductCommercialViewDto; capabilities: ProductCardCapabilityModel; companyId?: string | null; contextBadge?: string; contextLine?: string; favorite?: boolean; imagePriority?: boolean; locale?: PartnerLocale; userId?: string | null };
 
-export function ProductCard({ analyticsEventName, analyticsSurface, cartSuccessEventName, capabilities, commercialView, companyId = null, contextBadge, contextLine, favorite = false, imagePriority = false, product, userId = null }: ProductCardProps) {
+export function ProductCard({ analyticsEventName, analyticsSurface, cartSuccessEventName, capabilities, commercialView, companyId = null, contextBadge, contextLine, favorite = false, imagePriority = false, locale = "ru", product, userId = null }: ProductCardProps) {
+  const copy = getCatalogCopy(locale);
   const image = <>
     <CatalogCardImage alt={product.name} priority={imagePriority} sizes="(max-width: 639px) calc(100vw - 2rem), (max-width: 1023px) 50vw, (max-width: 1279px) 33vw, (max-width: 1535px) 25vw, 20vw" src={product.imageUrl} />
     {contextBadge || product.merchandisingLabels?.length ? <MerchandisingBadgeOverlay>
-      {contextBadge ? <MerchandisingBadge label={contextBadge} variant="REPLENISHMENT" /> : <MerchandisingBadges labels={product.merchandisingLabels ?? []} />}
+      {contextBadge ? <MerchandisingBadge label={contextBadge} variant="REPLENISHMENT" /> : <MerchandisingBadges labelOverrides={{ HOT: copy.hot, NEW: copy.new, SPECIAL_OFFER: copy.special, TOP: copy.top }} labels={product.merchandisingLabels ?? []} productCollectionsLabel={copy.productCollections} />}
     </MerchandisingBadgeOverlay> : null}
   </>;
 
   return <CatalogProductCardFrame
-    actions={capabilities.canAddToOrder ? <CatalogQuantityCartAction productId={product.id} sourceSurface={analyticsSurface} successEventName={cartSuccessEventName} /> : <Link className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-emerald-700 text-sm font-semibold text-emerald-700" href={`/cabinet/catalog/${product.slug}`} prefetch={false}>Подробнее</Link>}
-    availability={capabilities.showStock ? <ProductAvailabilityBlock stock={commercialView?.stock} /> : null}
-    commercial={capabilities.showPrice ? <ProductPricingBlock commercialView={commercialView} showPartnerPrice={capabilities.showPartnerPrice} showRetailPrice={capabilities.showRetailPrice} /> : null}
+    actions={capabilities.canAddToOrder ? <CatalogQuantityCartAction productId={product.id} sourceSurface={analyticsSurface} successEventName={cartSuccessEventName} /> : <Link className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-emerald-700 text-sm font-semibold text-emerald-700" href={`/cabinet/catalog/${product.slug}`} prefetch={false}>{copy.details}</Link>}
+    availability={capabilities.showStock ? <ProductAvailabilityBlock locale={locale} stock={commercialView?.stock} /> : null}
+    commercial={capabilities.showPrice ? <ProductPricingBlock commercialView={commercialView} locale={locale} showPartnerPrice={capabilities.showPartnerPrice} showRetailPrice={capabilities.showRetailPrice} /> : null}
     context={contextLine ? <p className="line-clamp-2 min-h-8 text-xs text-zinc-500">{contextLine}</p> : null}
     media={analyticsSurface ? <BehaviorTrackedLink className="relative block aspect-[4/3] overflow-hidden bg-zinc-100 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-600" eventName={analyticsEventName} href={`/cabinet/catalog/${product.slug}`} productId={product.id} sourceSurface={analyticsSurface}>{image}</BehaviorTrackedLink> : <Link className="relative block aspect-[4/3] overflow-hidden bg-zinc-100 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-600" href={`/cabinet/catalog/${product.slug}`} prefetch={false}>{image}</Link>}
     metadata={<p className="truncate text-[11px] font-medium uppercase text-zinc-500" title={`SKU ${product.sku}`}>SKU {product.sku}</p>}

@@ -1,10 +1,13 @@
 import { getPartnerWorkspaceContextAction } from "@/src/modules/partner-cabinet/actions";
 import { EmptyState, MembershipCard } from "@/src/modules/partner-cabinet/components";
+import { companyCopy } from "@/src/modules/partner-locale";
+import { getPartnerLocale } from "@/src/modules/partner-locale/server";
 
 export default async function CabinetMembershipsPage() {
-  const result = await getPartnerWorkspaceContextAction();
+  const [result, locale] = await Promise.all([getPartnerWorkspaceContextAction(), getPartnerLocale()]);
+  const copy = companyCopy(locale);
   if (!result.success || !result.data.companyName || !result.data.membershipRole) {
-    return <EmptyState message="Активное участие в компании не найдено." title="Доступ к компании" />;
+    return <EmptyState message={copy.noMembership} title={copy.companyAccess} />;
   }
-  return <MembershipCard context={result.data} />;
+  return <MembershipCard context={result.data} locale={locale} />;
 }

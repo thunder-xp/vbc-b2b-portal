@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { describe, expect, it } from "vitest";
+import { notificationCopy } from "@/src/modules/partner-locale";
 
 const sql = fs.readFileSync(
   path.join(
@@ -24,7 +25,9 @@ const dashboardMigration = fs.readFileSync(
 
 describe("watched-product notification experience", () => {
   it("supports the products inbox filter with the existing keyset query", () => {
-    expect(page).toContain('{ value: "products", label: "Товары" }');
+    expect(page).toContain('{ value: "products", label: copy.filterProducts }');
+    expect(notificationCopy("ru").filterProducts).toBe("Товары");
+    expect(notificationCopy("ro").filterProducts).toBe("Produse");
     expect(sql).toContain(
       "'orders', 'shipments', 'company_access', 'products'",
     );

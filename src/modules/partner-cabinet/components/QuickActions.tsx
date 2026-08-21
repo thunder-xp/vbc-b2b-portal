@@ -13,6 +13,7 @@ import {
 import Link from "next/link";
 
 import { recordBehaviorInteraction } from "../../behavior-analytics/components/BehaviorViewEvent";
+import { usePartnerText, type PartnerTranslationKey } from "../../partner-locale";
 import type { WorkspaceQuickActionDto } from "../services";
 
 const icons = {
@@ -29,19 +30,35 @@ const icons = {
   it_support: ShieldPlus,
 } as const;
 
+const actionKeys: Partial<Record<string, PartnerTranslationKey>> = {
+  cart: "quick.cart",
+  catalog: "quick.catalog",
+  company_users: "quick.company_users",
+  estimate: "quick.estimate",
+  finance: "quick.finance",
+  it_support: "quick.it_support",
+  orders: "quick.orders",
+  purchase_templates: "quick.purchase_templates",
+  register_warranty: "quick.register_warranty",
+  repeat_order: "quick.repeat_order",
+  shipments: "quick.shipments",
+};
+
 export function QuickActions({ actions }: { actions: WorkspaceQuickActionDto[] }) {
+  const t = usePartnerText();
   return (
     <section>
-      <h2 className="text-lg font-semibold text-zinc-950">Быстрые действия</h2>
+      <h2 className="text-lg font-semibold text-zinc-950">{t("quick.title")}</h2>
       <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {actions.map((action) => {
           const Icon = icons[action.key as keyof typeof icons] ?? ClipboardPlus;
+          const translationKey = actionKeys[action.key];
           const content = (
             <>
               <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-emerald-50 text-emerald-700">
                 <Icon aria-hidden="true" className="size-5" />
               </span>
-              <span className="min-w-0 flex-1 text-sm font-semibold">{action.label}</span>
+              <span className="min-w-0 flex-1 text-sm font-semibold">{translationKey ? t(translationKey) : action.label}</span>
             </>
           );
 

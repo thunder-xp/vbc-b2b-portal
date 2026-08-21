@@ -6,21 +6,23 @@ import type { MerchandisingLabelCode } from "../../merchandising/types";
 import type { CatalogCollection } from "../types";
 import { recordBehaviorInteraction } from "../../behavior-analytics/components/BehaviorViewEvent";
 import { CatalogCategoryMenu, buildCategoryTree, type CatalogCategoryNode } from "./CatalogCategoryMenu";
+import { getCatalogCopy, usePartnerLocale } from "../../partner-locale";
 
 export { buildCategoryTree };
 export type { CatalogCategoryNode };
 
 export function CategoryMegaMenu({ categories, collection, merchandisingLabel, sort = "default" }: { categories: CatalogCategoryDto[]; collection?: CatalogCollection; merchandisingLabel?: MerchandisingLabelCode; sort?: CatalogSort }) {
+  const copy = getCatalogCopy(usePartnerLocale());
   return <CatalogCategoryMenu
     categories={categories}
     categoryHref={(category) => buildCatalogHref({ categoryId: category.id, collection, merchandisingLabel, sort })}
     labels={{
-      back: "Назад",
-      close: "Закрыть категории",
-      dialog: "Категории каталога",
-      selectCategory: "Выберите категорию",
-      selectDirection: "Выберите направление",
-      trigger: "Категории",
+      back: copy.back,
+      close: copy.closeCategories,
+      dialog: copy.categoriesDialog,
+      selectCategory: copy.chooseCategory,
+      selectDirection: copy.chooseDirection,
+      trigger: copy.categories,
     }}
     onOpen={() => recordBehaviorInteraction({
       eventName: "filters_applied",

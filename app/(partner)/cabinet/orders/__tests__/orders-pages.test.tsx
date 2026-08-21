@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import OrderDetailPage from "../[id]/page";
 import OrdersPage from "../page";
+import { getOrdersCopy } from "@/src/modules/partner-locale";
 
 const mocks = vi.hoisted(() => ({ list: vi.fn(), get: vi.fn(), refresh: vi.fn(), notFound: vi.fn() }));
 
@@ -26,6 +27,7 @@ const summary = {
   id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
   primaryLabel: "№ NSUU-001",
   statusLabel: "Подтверждён",
+  statusCode: "open" as const,
   posted: true,
   documentDate: "2026-07-15T10:00:00Z",
   deliveryDate: "2026-08-01",
@@ -53,7 +55,7 @@ describe("partner order history pages", () => {
     render(await OrdersPage({ searchParams: Promise.resolve({}) }));
 
     expect(screen.getByRole("link", { name: /NSUU-001/ })).toHaveAttribute("href", `/cabinet/orders/${summary.id}`);
-    expect(screen.getByText("Подтверждён")).toBeInTheDocument();
+    expect(screen.getByText(getOrdersCopy("ru").statusOpen)).toBeInTheDocument();
     expect(screen.getByText("1 000,00 MDL")).toBeInTheDocument();
     expect(screen.getByText(/2 поз.*5 ед/)).toBeInTheDocument();
     expect(screen.getByText("Планируемая отгрузка")).toBeInTheDocument();

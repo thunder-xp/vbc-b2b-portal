@@ -19,14 +19,14 @@ describe("catalog streaming and interaction boundaries", () => {
   });
 
   it("keeps products outside one secondary facet Suspense boundary", () => {
-    expect(results).toContain("<Suspense fallback={<CatalogFacetFallback />}");
+    expect(results).toContain("<Suspense fallback={<CatalogFacetFallback copy={copy} />}");
     expect(results).toContain("<CatalogFacetResults");
     expect(results.indexOf("<CatalogPresentation")).toBeGreaterThan(results.indexOf("<CatalogFacetResults"));
     expect(results).toContain("facets={result.success ? result.data : []}");
   });
 
   it("renders active attribute values without waiting for facet labels", () => {
-    expect(results).toContain("`Характеристика: ${value}`");
+    expect(results).toContain("`${copy.characteristicFilter}: ${value}`");
     expect(results).not.toContain("productsResult.data.facets.find");
   });
 

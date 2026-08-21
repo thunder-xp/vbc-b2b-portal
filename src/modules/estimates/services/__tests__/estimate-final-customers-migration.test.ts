@@ -3,7 +3,7 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-const sql = readFileSync(join(process.cwd(), "supabase/migrations/20260809005000_partner_final_customers.sql"), "utf8");
+const sql = readFileSync(join(process.cwd(), "supabase/migrations/20260809005000_partner_final_customers.sql"), "utf8").replace(/\r\n/g, "\n");
 const repository = readFileSync(join(process.cwd(), "src/modules/estimates/repositories/supabase/estimate.supabase-repository.ts"), "utf8");
 const createEstimateRpc = repository.slice(repository.indexOf('supabase.rpc("create_estimate_v3"'), repository.indexOf("if (error || !data)", repository.indexOf('supabase.rpc("create_estimate_v3"')));
 

@@ -125,7 +125,7 @@ describe("ProductComparisonView", () => {
     await screen.findByText("Регистратор");
 
     fireEvent.click(screen.getByRole("button", {
-      name: "Удалить Камера из сравнения",
+      name: "Удалить из сравнения: Камера",
     }));
     await waitFor(() =>
       expect(JSON.parse(
@@ -163,7 +163,7 @@ describe("ProductComparisonView", () => {
     renderView();
     expect(await screen.findByRole("button", { name: "Повторить" }))
       .toBeInTheDocument();
-    expect(screen.getByText(/Код: safe-id/)).toBeInTheDocument();
+    expect(screen.queryByText(/safe-id/)).not.toBeInTheDocument();
   });
 });
 

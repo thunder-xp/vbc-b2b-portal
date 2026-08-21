@@ -16,6 +16,7 @@ import {
   type PartnerOrderSubmissionReceipt,
 } from "../actions/order.actions";
 import { useCartCheckoutCoordinator } from "./CartCheckoutCoordinator";
+import { getOrdersCopy, usePartnerLocale } from "../../partner-locale";
 
 const initial: ActionResult<PartnerOrderSubmissionReceipt | null> = {
   success: true,
@@ -44,6 +45,8 @@ export function OrderSubmitForm({
     submitCartOrderAction,
     initial,
   );
+  const locale = usePartnerLocale();
+  const copy = getOrdersCopy(locale);
   const [deliveryDate, setDeliveryDate] = useState("");
   const [checkoutIntentVersion, setCheckoutIntentVersion] = useState(
     intentVersion ?? 0,
@@ -55,10 +58,8 @@ export function OrderSubmitForm({
   const intentVersionRef = useRef<HTMLInputElement>(null);
   const bypassBarrierRef = useRef(false);
   const router = useRouter();
-  const {
-    flushPendingMutations,
-    hasPendingMutations,
-  } = useCartCheckoutCoordinator();
+  const { flushPendingMutations, hasPendingMutations } =
+    useCartCheckoutCoordinator();
 
   useEffect(() => {
     if (state.success && state.data?.id) {
@@ -76,9 +77,9 @@ export function OrderSubmitForm({
       router.refresh();
     }
     if (
-      !state.success
-      && isDefinitiveRecoverableFailure(state.errorCode)
-      && submissionKeyRef.current
+      !state.success &&
+      isDefinitiveRecoverableFailure(state.errorCode) &&
+      submissionKeyRef.current
     ) {
       submissionKeyRef.current.value = crypto.randomUUID();
     }
@@ -92,7 +93,8 @@ export function OrderSubmitForm({
     }
 
     event.preventDefault();
-    if (actionPending || phase === "validating" || phase === "submitting") return;
+    if (actionPending || phase === "validating" || phase === "submitting")
+      return;
 
     setBarrierError("");
     setPhase("cart_update_pending");
@@ -119,26 +121,26 @@ export function OrderSubmitForm({
         formRef.current?.requestSubmit();
       } catch {
         setPhase("failed_retryable");
-        setBarrierError(
-          "Не удалось сохранить изменения корзины. Проверьте количество в отмеченной позиции и повторите попытку.",
-        );
+        setBarrierError(copy.cartBarrierError);
       }
     })();
   };
 
-  const retryBlocked = !state.success
-    && ["ORDER_IN_PROGRESS", "ORDER_RECONCILIATION_REQUIRED"].includes(
+  const retryBlocked =
+    !state.success &&
+    ["ORDER_IN_PROGRESS", "ORDER_RECONCILIATION_REQUIRED"].includes(
       state.errorCode,
     );
-  const busy = actionPending
-    || hasPendingMutations
-    || phase === "cart_update_pending"
-    || phase === "validating";
+  const busy =
+    actionPending ||
+    hasPendingMutations ||
+    phase === "cart_update_pending" ||
+    phase === "validating";
 
   return (
     <form
       action={action}
-      aria-label="Проверка и отправка заказа"
+      aria-label={copy.checkoutReview}
       className="space-y-3 rounded-lg border border-zinc-200 bg-white p-4"
       onSubmit={handleSubmit}
       ref={formRef}
@@ -157,13 +159,13 @@ export function OrderSubmitForm({
         type="hidden"
       />
       <div>
-        <h2 className="font-semibold text-zinc-950">Проверка заказа</h2>
+        <h2 className="font-semibold text-zinc-950">{copy.checkoutReview}</h2>
         <p className="mt-1 text-xs leading-5 text-zinc-600">
-          Проверьте состав, количество и итоговую сумму перед отправкой.
+          {copy.checkoutReviewHint}
         </p>
       </div>
       <label className="block text-sm font-medium text-zinc-800">
-        Дата планируемой отгрузки
+        {copy.requestedDeliveryDate}
         <input
           className="mt-1 block h-10 w-full rounded-md border border-zinc-300 px-3"
           min={chisinauBusinessDate()}
@@ -176,27 +178,23 @@ export function OrderSubmitForm({
       </label>
       {deliveryDate ? (
         <p className="text-xs font-medium text-zinc-700">
-          Выбрано: {formatRussianBusinessDate(deliveryDate)}
+          {copy.selected}: {formatBusinessDate(deliveryDate, locale)}
         </p>
       ) : null}
-      <p className="text-xs leading-5 text-zinc-600">
-        До этой даты оборудование планируется удерживать под ваш заказ.
-        Менеджер Novotech свяжется с вами для подтверждения отгрузки.
-      </p>
+      <p className="text-xs leading-5 text-zinc-600">{copy.reservationHint}</p>
       <p className="rounded-md bg-emerald-50 p-3 text-xs leading-5 text-emerald-900">
-        Заказ будет передан в 1С Novotech. После обработки статус появится в
-        разделе «Заказы».
+        {copy.oneCSubmissionHint}
       </p>
       <button
         className="h-11 w-full rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white hover:bg-emerald-800 focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
         disabled={busy || retryBlocked}
         type="submit"
       >
-        {submitLabel(phase, actionPending, hasPendingMutations)}
+        {submitLabel(phase, actionPending, hasPendingMutations, copy)}
       </button>
       {hasPendingMutations ? (
         <p aria-live="polite" className="text-sm text-amber-800">
-          Сохраняем изменения корзины…
+          {copy.savingCart}
         </p>
       ) : null}
       {barrierError ? (
@@ -211,7 +209,7 @@ export function OrderSubmitForm({
             state.success ? "text-emerald-700" : "text-rose-700"
           }`}
         >
-          {state.message}
+          {state.success ? state.message : orderFailureMessage(state.errorCode, copy)}
         </p>
       ) : null}
     </form>
@@ -231,9 +229,12 @@ export function chisinauBusinessDate(now = new Date()): string {
   return `${value.year}-${value.month}-${value.day}`;
 }
 
-export function formatRussianBusinessDate(value: string): string {
+export function formatBusinessDate(
+  value: string,
+  locale: "ru" | "ro" = "ru",
+): string {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
-  return new Intl.DateTimeFormat("ru-RU", {
+  return new Intl.DateTimeFormat(locale === "ro" ? "ro-MD" : "ru-MD", {
     day: "numeric",
     month: "long",
     timeZone: "UTC",
@@ -241,25 +242,75 @@ export function formatRussianBusinessDate(value: string): string {
   }).format(new Date(`${value}T12:00:00Z`));
 }
 
+export function formatRussianBusinessDate(value: string): string {
+  return formatBusinessDate(value, "ru");
+}
+
 function submitLabel(
   phase: CheckoutPhase,
   actionPending: boolean,
   hasPendingMutations: boolean,
+  copy: ReturnType<typeof getOrdersCopy>,
 ): string {
-  if (actionPending || phase === "submitting") return "Отправляем заказ…";
-  if (phase === "validating") return "Проверяем заказ…";
+  if (actionPending || phase === "submitting") return copy.sendingOrder;
+  if (phase === "validating") return copy.validatingOrder;
   if (phase === "cart_update_pending" || hasPendingMutations) {
-    return "Сохраняем корзину…";
+    return copy.savingCartShort;
   }
-  return "Отправить заказ";
+  return copy.sendOrder;
 }
 
 function isDefinitiveRecoverableFailure(code: string | null): boolean {
-  return code !== null && ![
-    "ORDER_IN_PROGRESS",
-    "ORDER_RECONCILIATION_REQUIRED",
-    "ORDER_1C_TIMEOUT",
-    "ORDER_1C_ALREADY_CREATED",
-    "ORDER_READBACK_FAILED",
-  ].includes(code);
+  return (
+    code !== null &&
+    ![
+      "ORDER_IN_PROGRESS",
+      "ORDER_RECONCILIATION_REQUIRED",
+      "ORDER_1C_TIMEOUT",
+      "ORDER_1C_ALREADY_CREATED",
+      "ORDER_READBACK_FAILED",
+    ].includes(code)
+  );
+}
+
+function orderFailureMessage(
+  code: string | null,
+  copy: ReturnType<typeof getOrdersCopy>,
+): string {
+  switch (code) {
+    case "ORDER_IN_PROGRESS":
+      return copy.orderInProgress;
+    case "ORDER_RECONCILIATION_REQUIRED":
+    case "ORDER_1C_TIMEOUT":
+    case "ORDER_1C_ALREADY_CREATED":
+    case "ORDER_READBACK_FAILED":
+      return copy.orderReconciliationRequired;
+    case "ORDER_COMPANY_MAPPING_MISSING":
+      return copy.orderCompanyMappingMissing;
+    case "ORDER_CONTRACT_MAPPING_MISSING":
+      return copy.orderContractMappingMissing;
+    case "ORDER_PRODUCT_MAPPING_MISSING":
+      return copy.orderProductMappingMissing;
+    case "ORDER_PRICE_REFRESH_FAILED":
+    case "ORDER_PRICE_REFRESH_REQUIRED":
+    case "ORDER_PRICE_STALE":
+      return copy.orderPriceRefreshFailed;
+    case "ORDER_PRICE_CHANGED":
+      return copy.orderPriceChangedError;
+    case "ORDER_PRICE_DATA_MISSING":
+      return copy.orderPriceDataMissing;
+    case "ORDER_STOCK_CHANGED":
+      return copy.orderStockChanged;
+    case "ORDER_INVALID_SHIPMENT_DATE":
+      return copy.orderInvalidShipmentDate;
+    case "ORDER_CART_VERSION_CONFLICT":
+      return copy.orderCartVersionConflict;
+    case "ORDER_1C_VALIDATION_FAILED":
+      return copy.orderOneCValidationFailed;
+    case "ORDER_SUBMISSION_INFRASTRUCTURE_FAILURE":
+    case "ORDER_UNKNOWN_FAILURE":
+      return copy.orderInfrastructureFailure;
+    default:
+      return copy.retryOrContact;
+  }
 }

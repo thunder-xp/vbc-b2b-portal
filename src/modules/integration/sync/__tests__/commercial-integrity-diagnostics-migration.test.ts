@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 const sql = readFileSync(
   resolve("supabase/migrations/20260802190000_commercial_integrity_diagnostics.sql"),
   "utf8",
-);
+).replace(/\r\n/g, "\n");
 const failedStateSql = readFileSync(
   resolve("supabase/migrations/20260802191000_stock_publication_diagnostic_failed_state.sql"),
   "utf8",
@@ -13,7 +13,7 @@ const failedStateSql = readFileSync(
 const triggerRepairSql = readFileSync(
   resolve("supabase/migrations/20260802192000_commercial_opportunity_product_trigger_repair.sql"),
   "utf8",
-);
+).replace(/\r\n/g, "\n");
 const adminDiagnosticSql = readFileSync(
   resolve("supabase/migrations/20260802193000_commercial_integrity_admin_diagnostic.sql"),
   "utf8",

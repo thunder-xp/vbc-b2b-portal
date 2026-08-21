@@ -51,6 +51,7 @@ export type PartnerOrderHistorySummaryDto = {
   id: string;
   primaryLabel: string;
   statusLabel: string;
+  statusCode: "processing" | "unknown" | import("../types").PartnerOrderHistoryStateCode;
   posted: boolean;
   documentDate: string;
   deliveryDate: string | null;
@@ -72,7 +73,7 @@ export type PartnerOrderHistoryDetailDto = PartnerOrderHistorySummaryDto & {
     unitPrice?: string;
     lineTotal?: string;
   }>;
-  timeline: Array<{ label: string; occurredAt: string }>;
+  timeline: Array<{ eventType: PartnerOrderHistoryEvent["eventType"]; label: string; occurredAt: string }>;
   portalSnapshot: {
     total?: string;
     lines: Array<{
@@ -358,6 +359,7 @@ export class DefaultPartnerOrderHistoryService implements PartnerOrderHistorySer
       id: order.id,
       primaryLabel: `№ ${order.external1cNumber}`,
       statusLabel: "Обрабатывается",
+      statusCode: "processing",
       posted: false,
       documentDate: order.external1cDate,
       deliveryDate: order.requestedDeliveryDate,
@@ -374,6 +376,7 @@ export class DefaultPartnerOrderHistoryService implements PartnerOrderHistorySer
       originLabel: null,
       lines,
       timeline: [{
+        eventType: "received_by_one_c",
         label: "Заказ получен 1С",
         occurredAt: synchronizedAt,
       }],
@@ -664,6 +667,7 @@ function toConfirmedPortalSummary(
     id: order.id,
     primaryLabel: order.external1cNumber ? `№ ${order.external1cNumber}` : "Заказ принят",
     statusLabel: "Обрабатывается",
+    statusCode: "processing",
     posted: false,
     documentDate: order.external1cDate ?? updatedAt,
     deliveryDate: order.requestedDeliveryDate,
@@ -697,6 +701,7 @@ function toSummary(
     statusLabel: order.oneCPosted
       ? order.oneCStateCode ? STATE_LABELS[order.oneCStateCode] : "Статус уточняется"
       : "Обрабатывается",
+    statusCode: order.oneCPosted ? order.oneCStateCode ?? "unknown" : "processing",
     posted: order.oneCPosted,
     documentDate: order.oneCDocumentDate,
     deliveryDate: order.oneCDeliveryDate,
@@ -750,7 +755,7 @@ function toTimelineEvent(event: PartnerOrderHistoryEvent) {
     date_change_cancelled: "Запрос на перенос отменён",
     date_change_reflected: "Одобренная дата отражена в 1С",
   };
-  return { label: labels[event.eventType], occurredAt: event.occurredAt };
+  return { eventType: event.eventType, label: labels[event.eventType], occurredAt: event.occurredAt };
 }
 
 function parseFilter(value: string | null | undefined): PartnerOrderHistoryFilter {

@@ -160,7 +160,7 @@ describe("EstimateCommercialEditor", () => {
     expect(screen.queryByLabelText("Название раздела")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Переместить вверх" })).not.toBeInTheDocument();
     expect(screen.queryByRole("checkbox", { name: /Выбрать все позиции раздела/ })).not.toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: /раздел «/ })).toHaveLength(4);
+    expect(screen.getAllByRole("button", { name: /Свернуть раздел:/ })).toHaveLength(4);
   });
 
   it("projects legacy mixed sections into the same four-section presentation", () => {
@@ -191,7 +191,7 @@ describe("EstimateCommercialEditor", () => {
       expect(row.firstElementChild).toHaveAttribute("data-testid", "estimate-line-grid");
       expect(row.firstElementChild).toHaveClass("xl:grid-cols-[3rem_minmax(9rem,1fr)_4.25rem_4.5rem_5.25rem_4.75rem_5.5rem_2.75rem]");
     }
-    expect(screen.getByTestId("estimate-line-header")).toHaveTextContent("ФотоПозицияКол-воЕд.ЦенаСкидкаИтого");
+    expect(screen.getByTestId("estimate-line-header")).toHaveTextContent("ФотоПозицияКол-воЕд.Цена продажиСкидка, %Итого");
   });
 
   it("shows currency conversion confirmation and preserves manual-price choice", async () => {

@@ -32,6 +32,7 @@ import { useEffect, useRef, useState } from "react";
 
 import type { WorkspaceCapabilityKey, WorkspaceNavigationItem } from "../services";
 import { NavigationPendingIndicator } from "./NavigationPendingIndicator";
+import { partnerNavigationLabel, usePartnerLocale, usePartnerText } from "../../partner-locale";
 
 const icons = {
   dashboard: Gauge,
@@ -101,6 +102,7 @@ function NavigationItem({
   pathname: string;
   submenu?: boolean;
 }) {
+  const t = usePartnerText();
   const [intentPrefetch, setIntentPrefetch] = useState(false);
   const hoverTimer = useRef<ReturnType<typeof setTimeout>>(null);
   const Icon = icons[item.icon];
@@ -131,7 +133,7 @@ function NavigationItem({
       <span className={`flex items-center gap-3 rounded-md text-sm text-zinc-500 ${spacing}`}>
         <Icon aria-hidden="true" className="size-4 shrink-0" />
         <span className="min-w-0 flex-1 whitespace-nowrap">{item.label}</span>
-        <span className="shrink-0 text-[10px] font-semibold uppercase">Скоро</span>
+        <span className="shrink-0 text-[10px] font-semibold uppercase">{t("common.comingSoon")}</span>
       </span>
     );
   }
@@ -239,7 +241,9 @@ export function PartnerSidebar({
   onNavigate?: () => void;
 }) {
   const pathname = usePathname();
-  const navigationByKey = new Map(navigation.map((item) => [item.key, item]));
+  const locale = usePartnerLocale();
+  const t = usePartnerText();
+  const navigationByKey = new Map(navigation.map((item) => [item.key, { ...item, label: partnerNavigationLabel(locale, item.key) }]));
   const primaryNavigation = primaryNavigationOrder.flatMap((key) => {
     const item = navigationByKey.get(key);
     return item ? [item] : [];
@@ -255,7 +259,7 @@ export function PartnerSidebar({
   const estimatesNavigation = estimatesNavigationOrder.flatMap((key) => {
     const item = navigationByKey.get(key);
     if (!item) return [];
-    return [{ ...item, label: item.key === "proposals" ? "Мои сметы" : item.label }];
+    return [item];
   });
   const selectionNavigation = selectionNavigationOrder.flatMap((key) => {
     const item = navigationByKey.get(key);
@@ -301,11 +305,11 @@ export function PartnerSidebar({
     <aside className="flex h-full min-h-0 flex-col overflow-hidden border-r border-zinc-200 bg-zinc-950 text-white">
       <div className="shrink-0 border-b border-white/10 px-4 py-4">
         <p className="text-xs font-semibold uppercase text-emerald-300">Novotech</p>
-        <p className="mt-1 text-base font-semibold">Кабинет партнёра</p>
-        <p className="mt-1 truncate text-xs text-zinc-400" title={companyName ?? undefined}>{companyName ?? "Компания не выбрана"}</p>
+        <p className="mt-1 text-base font-semibold">{t("shell.partnerCabinet")}</p>
+        <p className="mt-1 truncate text-xs text-zinc-400" title={companyName ?? undefined}>{companyName ?? t("shell.companyNotSelected")}</p>
       </div>
 
-      <nav aria-label="Рабочие разделы" className="min-h-0 flex-1 overflow-y-auto px-2 py-3">
+      <nav aria-label={t("shell.workspaceNavigation")} className="min-h-0 flex-1 overflow-y-auto px-2 py-3">
         <div className="space-y-1">
           {primaryNavigation.map((item) => (
             <NavigationItem hasWorkspaceAccess={hasWorkspaceAccess} item={item} key={item.key} onNavigate={onNavigate} pathname={pathname} />
@@ -315,28 +319,28 @@ export function PartnerSidebar({
             <NavigationItem hasWorkspaceAccess={hasWorkspaceAccess} item={item} key={item.key} onNavigate={onNavigate} pathname={pathname} />
           ))}
 
-          <ExpandableNavigationGroup {...groupProps("product-selection-navigation")} hasWorkspaceAccess={hasWorkspaceAccess} icon={SearchCheck} id="product-selection-navigation" items={selectionNavigation} label="Подбор товаров" onNavigate={onNavigate} pathname={pathname} />
+          <ExpandableNavigationGroup {...groupProps("product-selection-navigation")} hasWorkspaceAccess={hasWorkspaceAccess} icon={SearchCheck} id="product-selection-navigation" items={selectionNavigation} label={t("nav.group.productSelection")} onNavigate={onNavigate} pathname={pathname} />
 
           <ExpandableNavigationGroup
             hasWorkspaceAccess={hasWorkspaceAccess}
             icon={Calculator}
             id="estimates-navigation"
             items={estimatesNavigation}
-            label="Сметы и КП"
+            label={t("nav.group.estimates")}
             onNavigate={onNavigate}
             pathname={pathname}
             {...groupProps("estimates-navigation")}
           />
-          <ExpandableNavigationGroup {...groupProps("orders-finance-navigation")} hasWorkspaceAccess={hasWorkspaceAccess} icon={ListChecks} id="orders-finance-navigation" items={commercialNavigation} label="Заказы и финансы" onNavigate={onNavigate} pathname={pathname} />
+          <ExpandableNavigationGroup {...groupProps("orders-finance-navigation")} hasWorkspaceAccess={hasWorkspaceAccess} icon={ListChecks} id="orders-finance-navigation" items={commercialNavigation} label={t("nav.group.ordersFinance")} onNavigate={onNavigate} pathname={pathname} />
 
           {installationNavigation.map((item) => (
             <NavigationItem hasWorkspaceAccess={hasWorkspaceAccess} item={item} key={item.key} onNavigate={onNavigate} pathname={pathname} />
           ))}
 
-          <ExpandableNavigationGroup {...groupProps("loyalty-navigation")} hasWorkspaceAccess={hasWorkspaceAccess} icon={Gift} id="loyalty-navigation" items={loyaltyNavigation} label="Программы лояльности" onNavigate={onNavigate} pathname={pathname} />
+          <ExpandableNavigationGroup {...groupProps("loyalty-navigation")} hasWorkspaceAccess={hasWorkspaceAccess} icon={Gift} id="loyalty-navigation" items={loyaltyNavigation} label={t("nav.group.loyalty")} onNavigate={onNavigate} pathname={pathname} />
 
-          <ExpandableNavigationGroup {...groupProps("project-protection-navigation")} hasWorkspaceAccess={hasWorkspaceAccess} icon={ShieldCheck} id="project-protection-navigation" items={projectNavigation} label="Проектная защита" onNavigate={onNavigate} pathname={pathname} />
-          <ExpandableNavigationGroup {...groupProps("support-navigation")} hasWorkspaceAccess={hasWorkspaceAccess} icon={LifeBuoy} id="support-navigation" items={supportNavigation} label="Гарантия и техподдержка" onNavigate={onNavigate} pathname={pathname} />
+          <ExpandableNavigationGroup {...groupProps("project-protection-navigation")} hasWorkspaceAccess={hasWorkspaceAccess} icon={ShieldCheck} id="project-protection-navigation" items={projectNavigation} label={t("nav.group.projectProtection")} onNavigate={onNavigate} pathname={pathname} />
+          <ExpandableNavigationGroup {...groupProps("support-navigation")} hasWorkspaceAccess={hasWorkspaceAccess} icon={LifeBuoy} id="support-navigation" items={supportNavigation} label={t("nav.group.support")} onNavigate={onNavigate} pathname={pathname} />
         </div>
       </nav>
 

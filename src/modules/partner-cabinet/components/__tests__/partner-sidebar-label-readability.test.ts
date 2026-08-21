@@ -23,7 +23,8 @@ describe("partner sidebar label readability", () => {
     expect(sidebar.match(/flex-1 whitespace-nowrap/g)?.length ?? 0).toBeGreaterThanOrEqual(3);
     expect(capabilities).toContain("Возможности для закупки");
     expect(capabilities).toContain("Специальные предложения");
-    expect(sidebar).toContain("Гарантия и техподдержка");
+    expect(sidebar).toContain('label={t("nav.group.support")}');
+    expect(sidebar).toContain("partnerNavigationLabel(locale, item.key)");
     expect(sidebar).toContain('className="size-4 shrink-0"');
   });
 });

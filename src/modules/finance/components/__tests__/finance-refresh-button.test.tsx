@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { FinanceRefreshButton } from "../FinanceRefreshButton";
+import { getFinanceCopy } from "../../../partner-locale";
 
 const refresh = vi.fn();
 const synchronize = vi.fn();
@@ -19,7 +20,7 @@ describe("FinanceRefreshButton", () => {
   });
 
   it("runs the governed own-company synchronization and refreshes after success", async () => {
-    synchronize.mockResolvedValue({ success: true, message: "Финансовые данные обновлены из 1С." });
+    synchronize.mockResolvedValue({ success: true, data: { status: "published" }, message: "Финансовые данные обновлены из 1С." });
     const user = userEvent.setup();
     render(<FinanceRefreshButton />);
 
@@ -27,7 +28,7 @@ describe("FinanceRefreshButton", () => {
 
     expect(synchronize).toHaveBeenCalledTimes(1);
     expect(refresh).toHaveBeenCalledTimes(1);
-    expect(await screen.findByText("Финансовые данные обновлены из 1С.")).toBeInTheDocument();
+    expect(await screen.findByText(getFinanceCopy("ru").syncSuccess)).toBeInTheDocument();
   });
 
   it("preserves the rendered snapshot when synchronization fails", async () => {
@@ -38,6 +39,6 @@ describe("FinanceRefreshButton", () => {
     await user.click(screen.getByRole("button", { name: "Обновить из 1С" }));
 
     expect(refresh).not.toHaveBeenCalled();
-    expect(await screen.findByText("Не удалось обновить финансовые данные.")).toBeInTheDocument();
+    expect(await screen.findByText(getFinanceCopy("ru").syncFailed)).toBeInTheDocument();
   });
 });

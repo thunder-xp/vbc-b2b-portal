@@ -18,7 +18,9 @@ describe("catalog freshness messaging cleanup", () => {
     expect(catalogResults).not.toContain("evaluateFreshness");
     expect(catalogResults).toContain("productsResult.data.products");
     expect(catalogResults).toContain("productsResult.data.totalCount");
-    expect(catalogResults).toContain("Каталог оборудования");
+    expect(catalogResults).toContain("copy.equipmentCatalog");
+    expect(readFileSync(join(process.cwd(), "src/modules/partner-locale/catalog-copy.ts"), "utf8"))
+      .toContain('equipmentCatalog: "Каталог оборудования"');
   });
 
   it("omits a root-only breadcrumb but retains useful category navigation", () => {
@@ -28,7 +30,7 @@ describe("catalog freshness messaging cleanup", () => {
 
     rerender(<CatalogBreadcrumb categories={categories} selectedId="cameras" />);
     expect(screen.getByRole("navigation", { name: "Хлебные крошки" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Каталог" })).toHaveAttribute("href", "/cabinet/catalog");
+    expect(screen.getByRole("link", { name: "Весь каталог" })).toHaveAttribute("href", "/cabinet/catalog");
     expect(screen.getByRole("link", { name: "Камеры" })).toBeInTheDocument();
   });
 

@@ -51,7 +51,7 @@ describe("partner buying-flow interaction boundaries", () => {
 
   it("presents a named review form and a single dominant submit action", () => {
     render(<OrderSubmitForm submissionKey="55555555-5555-4555-8555-555555555555" />);
-    expect(screen.getByRole("form", { name: "Проверка и отправка заказа" })).toBeInTheDocument();
+    expect(screen.getByRole("form", { name: "Проверка заказа" })).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "Отправить заказ" })).toHaveLength(1);
   });
 });

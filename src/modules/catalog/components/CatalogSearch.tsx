@@ -8,12 +8,14 @@ import type { CatalogSearchSuggestionDto, CatalogSort } from "../services";
 import { ProductThumbnail } from "./ProductThumbnail";
 import type { MerchandisingLabelCode } from "../../merchandising/types";
 import type { CatalogCollection } from "../types";
+import { getCatalogCopy, usePartnerLocale } from "../../partner-locale";
 
 type SearchResponse =
   | { success: true; data: CatalogSearchSuggestionDto[] }
   | { success: false };
 
 export function CatalogSearch({ categoryId, collection, explicitAll, initialSearch, merchandisingLabel, sort = "default" }: { categoryId?: string; collection?: CatalogCollection; explicitAll?: boolean; initialSearch?: string; merchandisingLabel?: MerchandisingLabelCode; sort?: CatalogSort }) {
+  const copy = getCatalogCopy(usePartnerLocale());
   const [query, setQuery] = useState(initialSearch ?? "");
   const [results, setResults] = useState<CatalogSearchSuggestionDto[]>([]);
   const [loading, setLoading] = useState(false);
@@ -65,11 +67,11 @@ export function CatalogSearch({ categoryId, collection, explicitAll, initialSear
       {merchandisingLabel && <input name="label" type="hidden" value={merchandisingLabel} />}
       {sort !== "default" && <input name="sort" type="hidden" value={sort} />}
       <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-3.5 size-4 text-zinc-400" />
-      <input aria-label="Поиск по каталогу" autoComplete="off" className="h-11 w-full rounded-md border border-zinc-300 bg-white pl-10 pr-24 text-sm outline-none focus:border-emerald-700" name="search" onChange={(event) => updateQuery(event.target.value)} placeholder="SKU, модель, название или бренд" type="search" value={query} />
-      <button className="absolute right-1 top-1 h-9 rounded-md bg-zinc-950 px-4 text-sm font-medium text-white" type="submit">Найти</button>
+      <input aria-label={copy.searchLabel} autoComplete="off" className="h-11 w-full rounded-md border border-zinc-300 bg-white pl-10 pr-24 text-sm outline-none focus:border-emerald-700" name="search" onChange={(event) => updateQuery(event.target.value)} placeholder={copy.searchPlaceholder} type="search" value={query} />
+      <button className="absolute right-1 top-1 h-9 rounded-md bg-zinc-950 px-4 text-sm font-medium text-white" type="submit">{copy.searchButton}</button>
     </form>
     {(loading || results.length > 0) && <div className="absolute left-0 right-0 top-12 z-30 rounded-lg border border-zinc-200 bg-white p-2 shadow-xl">
-      {loading ? <p className="p-3 text-sm text-zinc-500">Поиск...</p> : results.map((product) => <Link className="flex items-center gap-3 rounded-md p-2 hover:bg-zinc-50" href={`/cabinet/catalog/${product.slug}`} key={product.id} prefetch={false}>
+      {loading ? <p className="p-3 text-sm text-zinc-500">{copy.searching}</p> : results.map((product) => <Link className="flex items-center gap-3 rounded-md p-2 hover:bg-zinc-50" href={`/cabinet/catalog/${product.slug}`} key={product.id} prefetch={false}>
         <div className="relative flex size-12 shrink-0 items-center justify-center overflow-hidden rounded bg-zinc-100"><ProductThumbnail alt={product.name} className="object-contain p-1" sizes="48px" src={product.imageUrl} variant="xs" /></div>
         <div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold text-zinc-950">{product.name}</p><p className="text-xs text-zinc-500">{product.sku}{product.category ? ` · ${product.category.name}` : ""}</p></div>
       </Link>)}

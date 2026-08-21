@@ -69,7 +69,7 @@ describe("cart checkout mutation barrier", () => {
     fireEvent.change(screen.getByLabelText("Дата планируемой отгрузки"), {
       target: { value: "2099-01-10" },
     });
-    fireEvent.submit(screen.getByRole("form", { name: "Проверка и отправка заказа" }));
+    fireEvent.submit(screen.getByRole("form", { name: "Проверка заказа" }));
 
     expect(mocks.update).toHaveBeenCalledOnce();
     expect(mocks.getIntent).not.toHaveBeenCalled();
@@ -106,7 +106,7 @@ describe("cart checkout mutation barrier", () => {
     fireEvent.change(screen.getByLabelText("Дата планируемой отгрузки"), {
       target: { value: "2099-01-10" },
     });
-    fireEvent.submit(screen.getByRole("form", { name: "Проверка и отправка заказа" }));
+    fireEvent.submit(screen.getByRole("form", { name: "Проверка заказа" }));
 
     expect(
       await screen.findByText(/Не удалось сохранить изменения корзины/),

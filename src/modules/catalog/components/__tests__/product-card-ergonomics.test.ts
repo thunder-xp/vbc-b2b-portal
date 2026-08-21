@@ -28,16 +28,16 @@ describe("product card ergonomics contracts", () => {
   });
 
   it("keeps price and stock missing-data states stable and explicit", () => {
-    expect(pricing).toContain('value ?? "Цена уточняется"');
+    expect(pricing).toContain("missingValue={copy.pricePending}");
     expect(pricing).toContain("h-full");
-    expect(availability).toContain('stock?.label ?? "Наличие уточняется"');
+    expect(availability).toContain("stock?.label ?? getCatalogCopy(locale).availabilityPending");
     expect(availability).toContain("line-clamp-2");
   });
 
   it("keeps the cart row narrow-safe without broad catalog invalidation", () => {
     expect(cartAction).toContain("grid-cols-[4.5rem_minmax(0,1fr)]");
     expect(cartAction).toContain('className="whitespace-nowrap"');
-    expect(cartAction).toContain('"В корзину"');
+    expect(cartAction).toContain("copy.addToCart");
     expect(cartAction).not.toContain("router.refresh");
     expect(cartAction).not.toContain("fetch(");
   });

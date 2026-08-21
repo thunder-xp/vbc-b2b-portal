@@ -84,7 +84,7 @@ const products: EstimateProductPickerDto = {
 describe("estimate UI", () => {
   it("keeps estimate creation compact and limited to published currencies", () => {
     render(<EstimateCreateForm currencies={["MDL", "USD"]} />);
-    expect(screen.getByRole("textbox", { name: "Название сметы" })).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Название" })).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: "Валюта" })).toHaveValue("MDL");
     expect(screen.getByRole("combobox", { name: /Заказчик/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Создать смету" })).toBeDisabled();

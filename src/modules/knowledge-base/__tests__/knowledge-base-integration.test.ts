@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { getCatalogCopy } from "@/src/modules/partner-locale";
 const read = (value: string) =>
   fs.readFileSync(path.join(process.cwd(), value), "utf8");
 describe("knowledge application integration", () => {
@@ -25,7 +26,9 @@ describe("knowledge application integration", () => {
     );
     const page = read("app/(partner)/cabinet/catalog/[slug]/page.tsx");
     expect(migration).toContain("limit least(greatest(p_limit,1),3)");
-    expect(page).toContain("Полезные материалы");
+    expect(page).toContain("copy.usefulMaterials");
+    expect(getCatalogCopy("ru").usefulMaterials).toBe("Полезные материалы");
+    expect(getCatalogCopy("ro").usefulMaterials).toBe("Materiale utile");
   });
   it("suggests knowledge in support and service without blocking forms", () => {
     const support = read("src/modules/partner-support/components.tsx");

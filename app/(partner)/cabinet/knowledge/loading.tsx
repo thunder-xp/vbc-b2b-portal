@@ -1,6 +1,11 @@
+"use client";
+
+import { secondaryCopy, usePartnerLocale } from "@/src/modules/partner-locale";
+
 export default function KnowledgeLoading() {
+  const copy = secondaryCopy(usePartnerLocale());
   return (
-    <div aria-busy="true" aria-label="Загрузка базы знаний" className="space-y-6">
+    <div aria-busy="true" aria-label={copy.knowledgeLoading} className="space-y-6">
       <header>
         <div className="h-4 w-36 animate-pulse bg-zinc-200" />
         <div className="mt-3 h-8 w-52 animate-pulse bg-zinc-200" />

@@ -13,6 +13,13 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import {
+  formatPartnerDate,
+  knowledgeTypeLabel,
+  secondaryCopy,
+  usePartnerLocale,
+  type PartnerLocale,
+} from "@/src/modules/partner-locale";
+import {
   recordKnowledgeSuggestionAction,
   saveKnowledgeArticleAction,
   searchKnowledgeAction,
@@ -45,6 +52,8 @@ export function KnowledgeArticleView({
 }: {
   article: KnowledgeArticle;
 }) {
+  const locale = usePartnerLocale();
+  const copy = secondaryCopy(locale);
   return (
     <article className="mx-auto max-w-4xl">
       <header className="border-b border-zinc-200 pb-6">
@@ -52,28 +61,32 @@ export function KnowledgeArticleView({
           className="text-sm font-semibold text-emerald-700"
           href="/cabinet/knowledge"
         >
-          ← База знаний
+          ← {copy.knowledgeTitle}
         </Link>
         <p className="mt-5 text-xs font-semibold uppercase text-emerald-700">
-          {KNOWLEDGE_TYPE_LABELS[article.articleType]}
+          {knowledgeTypeLabel(locale, article.articleType)}
         </p>
         <h1 className="mt-2 text-3xl font-semibold text-zinc-950">
           {article.title}
         </h1>
         <p className="mt-3 text-lg text-zinc-600">{article.summary}</p>
         <p className="mt-4 text-xs text-zinc-500">
-          Обновлено {new Date(article.updatedAt).toLocaleDateString("ru-RU")}
+          {copy.knowledgeUpdated} {formatPartnerDate(article.updatedAt, locale)}
         </p>
       </header>
       <div className="prose prose-zinc mt-8 max-w-none">
         {article.content.map((block, index) => (
-          <KnowledgeBlockView block={block} key={`${block.type}-${index}`} />
+          <KnowledgeBlockView
+            block={block}
+            key={`${block.type}-${index}`}
+            locale={locale}
+          />
         ))}
       </div>
       {article.products.length ? (
         <RelatedSection
           icon={<BookOpen className="size-5" />}
-          title="Связанные товары"
+          title={copy.knowledgeProducts}
         >
           {article.products.map((p) => (
             <Link
@@ -92,7 +105,7 @@ export function KnowledgeArticleView({
       {article.documents.length ? (
         <RelatedSection
           icon={<FileText className="size-5" />}
-          title="Документы"
+          title={copy.knowledgeDocuments}
         >
           {article.documents.map((d) => (
             <Link
@@ -107,7 +120,10 @@ export function KnowledgeArticleView({
         </RelatedSection>
       ) : null}
       {article.videos.length ? (
-        <RelatedSection icon={<Video className="size-5" />} title="Видео">
+        <RelatedSection
+          icon={<Video className="size-5" />}
+          title={copy.knowledgeVideos}
+        >
           {article.videos.map((v) => (
             <a
               className="flex min-h-11 items-center justify-between border border-zinc-200 px-4 py-3 hover:border-emerald-400"
@@ -125,10 +141,10 @@ export function KnowledgeArticleView({
       {article.related.length ? (
         <RelatedSection
           icon={<BookOpen className="size-5" />}
-          title="Читайте также"
+          title={copy.knowledgeRelated}
         >
           {article.related.map((a) => (
-            <KnowledgeCardView article={a} key={a.id} />
+            <KnowledgeCardView article={a} key={a.id} locale={locale} />
           ))}
         </RelatedSection>
       ) : null}
@@ -136,7 +152,13 @@ export function KnowledgeArticleView({
     </article>
   );
 }
-function KnowledgeBlockView({ block }: { block: KnowledgeBlock }) {
+function KnowledgeBlockView({
+  block,
+  locale,
+}: {
+  block: KnowledgeBlock;
+  locale: PartnerLocale;
+}) {
   switch (block.type) {
     case "heading":
       return <h2>{block.text}</h2>;
@@ -190,7 +212,7 @@ function KnowledgeBlockView({ block }: { block: KnowledgeBlock }) {
                 : "/cabinet/support/new"
             }
           >
-            {block.text || "Обратиться за помощью"}
+            {block.text || secondaryCopy(locale).knowledgeHelp}
           </Link>
         </p>
       );
@@ -218,6 +240,7 @@ function RelatedSection({
   );
 }
 function KnowledgeFeedback({ articleId }: { articleId: string }) {
+  const copy = secondaryCopy(usePartnerLocale());
   const [state, action, pending] = useActionState(
     submitKnowledgeFeedbackAction,
     initial,
@@ -225,7 +248,7 @@ function KnowledgeFeedback({ articleId }: { articleId: string }) {
   const [negative, setNegative] = useState(false);
   return (
     <section className="mt-10 border-t border-zinc-200 pt-6">
-      <h2 className="font-semibold">Материал был полезен?</h2>
+      <h2 className="font-semibold">{copy.knowledgeUseful}</h2>
       <form action={action} className="mt-3 space-y-3">
         <input name="articleId" type="hidden" value={articleId} />
         <div className="flex gap-2">
@@ -237,7 +260,7 @@ function KnowledgeFeedback({ articleId }: { articleId: string }) {
             value="true"
           >
             <ThumbsUp className="size-4" />
-            Да
+            {copy.knowledgeYes}
           </button>
           <button
             className="inline-flex min-h-11 items-center gap-2 border border-zinc-300 px-4 text-sm font-semibold disabled:opacity-60"
@@ -247,22 +270,22 @@ function KnowledgeFeedback({ articleId }: { articleId: string }) {
             type="button"
           >
             <ThumbsDown className="size-4" />
-            Нет
+            {copy.knowledgeNo}
           </button>
         </div>
         {negative ? (
           <div className="flex flex-col gap-2 sm:flex-row">
             <select
-              aria-label="Причина"
+              aria-label={copy.knowledgeReason}
               className="min-h-11 border border-zinc-300 px-3 text-sm"
               defaultValue="not_solved"
               name="reason"
             >
-              <option value="outdated">Информация устарела</option>
-              <option value="unclear">Инструкция непонятна</option>
-              <option value="not_solved">Не помогло решить проблему</option>
-              <option value="missing_step">Отсутствует нужный шаг</option>
-              <option value="other">Другое</option>
+              <option value="outdated">{copy.knowledgeOutdated}</option>
+              <option value="unclear">{copy.knowledgeUnclear}</option>
+              <option value="not_solved">{copy.knowledgeNotSolved}</option>
+              <option value="missing_step">{copy.knowledgeMissingStep}</option>
+              <option value="other">{copy.knowledgeOther}</option>
             </select>
             <button
               className="min-h-11 bg-zinc-900 px-4 text-sm font-semibold text-white"
@@ -270,13 +293,13 @@ function KnowledgeFeedback({ articleId }: { articleId: string }) {
               type="submit"
               value="false"
             >
-              Отправить
+              {copy.knowledgeSend}
             </button>
           </div>
         ) : null}
         {state.message ? (
           <p aria-live="polite" className="text-sm text-emerald-700">
-            {state.message}
+            {state.success ? state.message : copy.knowledgeFeedbackError}
           </p>
         ) : null}
       </form>
@@ -291,6 +314,8 @@ export function KnowledgeSuggestions({
   source: "support" | "service";
   text: string;
 }) {
+  const locale = usePartnerLocale();
+  const copy = secondaryCopy(locale);
   const [result, setResult] = useState<{
     query: string;
     articles: KnowledgeCard[];
@@ -315,7 +340,7 @@ export function KnowledgeSuggestions({
     >
       <h2 className="flex items-center gap-2 text-sm font-semibold">
         <HelpCircle className="size-4" />
-        Возможно, ответ уже есть
+        {copy.knowledgeMaybeAnswer}
       </h2>
       <ul className="mt-3 space-y-2">
         {articles.map((a) => (
@@ -350,7 +375,7 @@ export function KnowledgeSuggestions({
                 type="button"
               >
                 <CheckCircle2 className="mr-1 inline size-4" />
-                Проблема решена
+                {copy.knowledgeSolved}
               </button>
             </div>
           </li>
@@ -372,7 +397,7 @@ export function KnowledgeSuggestions({
         }}
         type="button"
       >
-        Продолжить создание заявки
+        {copy.knowledgeContinue}
       </button>
     </aside>
   );

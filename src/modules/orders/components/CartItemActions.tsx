@@ -10,6 +10,7 @@ import {
   updateCartItemAction,
 } from "../actions/cart.actions";
 import { useCartCheckoutCoordinator } from "./CartCheckoutCoordinator";
+import { getOrdersCopy, usePartnerLocale } from "../../partner-locale";
 
 const initial: ActionResult<null> = {
   success: true,
@@ -32,69 +33,67 @@ export function CartItemActions({
   const confirmedRef = useRef(quantity);
   const pendingRef = useRef<Promise<boolean> | null>(null);
   const router = useRouter();
-  const {
-    registerLineFlusher,
-    trackMutation,
-  } = useCartCheckoutCoordinator();
+  const copy = getOrdersCopy(usePartnerLocale());
+  const { registerLineFlusher, trackMutation } = useCartCheckoutCoordinator();
 
   const setVisibleQuantity = useCallback((next: number) => {
     draftRef.current = next;
     setDraft(next);
   }, []);
 
-  const persist = useCallback(async (requested?: number): Promise<boolean> => {
-    if (requested !== undefined) setVisibleQuantity(requested);
+  const persist = useCallback(
+    async (requested?: number): Promise<boolean> => {
+      if (requested !== undefined) setVisibleQuantity(requested);
 
-    if (pendingRef.current) {
-      const activeMutation = pendingRef.current;
-      await activeMutation;
-      if (pendingRef.current === activeMutation) pendingRef.current = null;
-    }
+      if (pendingRef.current) {
+        const activeMutation = pendingRef.current;
+        await activeMutation;
+        if (pendingRef.current === activeMutation) pendingRef.current = null;
+      }
 
-    const next = draftRef.current;
-    if (!Number.isInteger(next) || next < 1 || next > 9999) {
-      setMessage("Укажите целое количество от 1 до 9999.");
-      return false;
-    }
-    if (next === confirmedRef.current) return true;
-
-    setPending(true);
-    setMessage("Сохраняем изменения корзины…");
-    const operation = (async () => {
-      const formData = new FormData();
-      formData.set("itemId", itemId);
-      formData.set("quantity", String(next));
-      const result = await updateCartItemAction(initial, formData);
-      if (!result.success) {
-        setMessage(
-          result.message
-          || "Не удалось сохранить количество. Проверьте значение и повторите попытку.",
-        );
+      const next = draftRef.current;
+      if (!Number.isInteger(next) || next < 1 || next > 9999) {
+        setMessage(copy.quantityRange);
         return false;
       }
-      confirmedRef.current = next;
-      setMessage(`Количество сохранено: ${next} шт.`);
-      recordBehaviorInteraction({
-        eventName: "cart_quantity_changed",
-        quantity: next,
-        route: "/cabinet/cart",
-        sourceSurface: "cart",
-      });
-      router.refresh();
-      return true;
-    })();
+      if (next === confirmedRef.current) return true;
 
-    const trackedMutation = trackMutation(operation);
-    pendingRef.current = trackedMutation;
-    try {
-      return await trackedMutation;
-    } finally {
-      if (pendingRef.current === trackedMutation) {
-        pendingRef.current = null;
-        setPending(false);
+      setPending(true);
+      setMessage(copy.savingCart);
+      const operation = (async () => {
+        const formData = new FormData();
+        formData.set("itemId", itemId);
+        formData.set("quantity", String(next));
+        const result = await updateCartItemAction(initial, formData);
+        if (!result.success) {
+          setMessage(copy.quantitySaveError);
+          return false;
+        }
+        confirmedRef.current = next;
+        setMessage(`${copy.quantitySaved}: ${next} ${copy.units}`);
+        recordBehaviorInteraction({
+          eventName: "cart_quantity_changed",
+          quantity: next,
+          route: "/cabinet/cart",
+          sourceSurface: "cart",
+        });
+        router.refresh();
+        return true;
+      })();
+
+      const trackedMutation = trackMutation(operation);
+      pendingRef.current = trackedMutation;
+      try {
+        return await trackedMutation;
+      } finally {
+        if (pendingRef.current === trackedMutation) {
+          pendingRef.current = null;
+          setPending(false);
+        }
       }
-    }
-  }, [itemId, router, setVisibleQuantity, trackMutation]);
+    },
+    [copy, itemId, router, setVisibleQuantity, trackMutation],
+  );
 
   useEffect(
     () => registerLineFlusher(itemId, () => persist(draftRef.current)),
@@ -111,16 +110,13 @@ export function CartItemActions({
   const remove = async () => {
     if (pendingRef.current) await pendingRef.current;
     setPending(true);
-    setMessage("Удаляем товар…");
+    setMessage(copy.removingProduct);
     const operation = (async () => {
       const formData = new FormData();
       formData.set("itemId", itemId);
       const result = await removeCartItemAction(initial, formData);
       setMessage(
-        result.message
-        || (result.success
-          ? "Товар удалён."
-          : "Не удалось удалить товар. Повторите попытку."),
+        result.success ? copy.productRemoved : copy.removeProductError,
       );
       if (result.success) {
         recordBehaviorInteraction({
@@ -143,7 +139,7 @@ export function CartItemActions({
     <div className="space-y-2">
       <div className="flex items-end gap-1.5">
         <button
-          aria-label="Уменьшить количество"
+          aria-label={copy.decreaseQuantity}
           className="inline-flex size-11 items-center justify-center rounded-md border border-zinc-300 disabled:cursor-not-allowed disabled:opacity-50"
           disabled={pending || draft <= 1}
           onClick={() => void persist(draftRef.current - 1)}
@@ -152,11 +148,11 @@ export function CartItemActions({
           <Minus aria-hidden="true" className="size-4" />
         </button>
         <label className="text-xs text-zinc-600">
-          Количество
+          {copy.quantity}
           <input
             aria-describedby={`${itemId}-quantity-status`}
             aria-invalid={!Number.isInteger(draft) || draft < 1 || draft > 9999}
-            aria-label="Количество товара"
+            aria-label={copy.productQuantity}
             className="mt-1 block h-11 w-20 rounded-md border border-zinc-300 px-2 text-center text-sm"
             disabled={pending}
             max={9999}
@@ -174,7 +170,7 @@ export function CartItemActions({
           />
         </label>
         <button
-          aria-label="Увеличить количество"
+          aria-label={copy.increaseQuantity}
           className="inline-flex size-11 items-center justify-center rounded-md border border-zinc-300 disabled:cursor-not-allowed disabled:opacity-50"
           disabled={pending || draft >= 9999}
           onClick={() => void persist(draftRef.current + 1)}
@@ -190,7 +186,7 @@ export function CartItemActions({
         type="button"
       >
         <Trash2 aria-hidden="true" className="size-4" />
-        Удалить
+        {copy.remove}
       </button>
       <p
         aria-live="polite"

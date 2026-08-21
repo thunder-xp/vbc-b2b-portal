@@ -17,30 +17,35 @@ import { OpportunityCard } from "../../commercial-opportunities/components/Oppor
 import { CampaignCard } from "../../commercial-campaigns/components/CampaignCard";
 import { dismissDashboardAttentionAction } from "../actions";
 import { SupportDashboardBlock } from "../../partner-support";
+import { formatPartnerDate, formatPartnerMoney, partnerText, type PartnerLocale } from "../../partner-locale";
 
 export function OperationalDashboard({
+  locale,
   workspace,
 }: {
+  locale: PartnerLocale;
   workspace: WorkspaceHomeDto;
 }) {
   return (
     <div className="space-y-7">
-      <AttentionSection items={workspace.attentionItems} />
-      <SupportDashboardBlock items={workspace.supportTickets ?? []} />
+      <AttentionSection items={workspace.attentionItems} locale={locale} />
+      <SupportDashboardBlock items={workspace.supportTickets ?? []} locale={locale} />
       <div className="grid gap-5 xl:grid-cols-2">
-        <OrdersSection summary={workspace.orderSummary} />
-        <ShipmentsSection summary={workspace.shipmentSummary} />
+        <OrdersSection locale={locale} summary={workspace.orderSummary} />
+        <ShipmentsSection locale={locale} summary={workspace.shipmentSummary} />
       </div>
       <ProductSection
         analyticsSurface="dashboard_reorder"
+        locale={locale}
         products={workspace.reorderProducts}
-        title="Вы покупали ранее"
+        title={partnerText(locale, "dashboard.previouslyPurchased")}
         workspace={workspace}
       />
-      <FinanceSection summary={workspace.financeSummary} />
-      <OpportunitySection opportunities={workspace.opportunities} workspace={workspace} />
+      <FinanceSection locale={locale} summary={workspace.financeSummary} />
+      <OpportunitySection locale={locale} opportunities={workspace.opportunities} workspace={workspace} />
       <NovotechOffersSection
         campaigns={workspace.campaigns}
+        locale={locale}
         products={workspace.merchandisingProducts}
         workspace={workspace}
       />
@@ -48,37 +53,40 @@ export function OperationalDashboard({
   );
 }
 
-function NovotechOffersSection({ campaigns = [], products = [], workspace }: {
+function NovotechOffersSection({ campaigns = [], locale, products = [], workspace }: {
   campaigns?: WorkspaceHomeDto["campaigns"];
+  locale: PartnerLocale;
   products?: WorkspaceHomeDto["merchandisingProducts"];
   workspace: WorkspaceHomeDto;
 }) {
   if (!campaigns.length && !products.length) return null;
   return (
     <section aria-labelledby="dashboard-novotech-offers">
-      <SectionHeading actionHref="/cabinet/offers" actionLabel="Все предложения" id="dashboard-novotech-offers" title="Предложения Novotech" />
+      <SectionHeading actionHref="/cabinet/offers" actionLabel={partnerText(locale, "dashboard.allOffers")} id="dashboard-novotech-offers" title={partnerText(locale, "dashboard.novotechOffers")} />
       {campaigns.length ? <div className="mt-3 grid gap-3 xl:grid-cols-2">{campaigns.slice(0, 2).map((campaign) => <CampaignCard campaign={campaign} key={campaign.id} />)}</div> : null}
       {products.length ? <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">{products.slice(0, 5).map((item) => <ProductCard analyticsEventName="dashboard_novotech_offer_opened" analyticsSurface="dashboard_offers" capabilities={workspace.capabilities.productCard} commercialView={item.commercialView} key={item.product.id} product={item.product} />)}</div> : null}
     </section>
   );
 }
 
-function OpportunitySection({ opportunities = [], workspace }: { opportunities?: WorkspaceHomeDto["opportunities"]; workspace: WorkspaceHomeDto }) {
+function OpportunitySection({ locale, opportunities = [], workspace }: { locale: PartnerLocale; opportunities?: WorkspaceHomeDto["opportunities"]; workspace: WorkspaceHomeDto }) {
   if (!opportunities.length) return null;
   return <section aria-labelledby="dashboard-opportunities">
-    <SectionHeading actionHref="/cabinet/opportunities" actionLabel="Смотреть все возможности" id="dashboard-opportunities" title="Возможности для закупки" />
+    <SectionHeading actionHref="/cabinet/opportunities" actionLabel={partnerText(locale, "dashboard.allOpportunities")} id="dashboard-opportunities" title={partnerText(locale, "dashboard.opportunities")} />
     <div className="mt-3 grid gap-3 xl:grid-cols-2">{opportunities.slice(0, 4).map((opportunity) => <OpportunityCard canAddToOrder={workspace.capabilities.productCard.canAddToOrder} canAddToSpecification={workspace.capabilities.productCard.canAddToSpecification} canManagePurchasingLists={workspace.capabilities.productCard.canManagePurchasingLists} key={opportunity.id} opportunity={opportunity} />)}</div>
   </section>;
 }
 
 function AttentionSection({
   items,
+  locale,
 }: {
   items: WorkspaceHomeDto["attentionItems"];
+  locale: PartnerLocale;
 }) {
   return (
     <section aria-labelledby="dashboard-attention">
-      <SectionHeading id="dashboard-attention" title="Требует внимания" />
+      <SectionHeading id="dashboard-attention" title={partnerText(locale, "dashboard.attention")} />
       {items.length ? (
         <ul className="mt-3 divide-y divide-zinc-200 border border-zinc-200 bg-white">
           {items.map((item) => (
@@ -92,9 +100,9 @@ function AttentionSection({
               <div className="min-w-0">
                 {item.isTest ? (
                   <p className="mb-1 flex flex-wrap items-center gap-2 text-xs text-zinc-600">
-                    <span className="inline-flex rounded bg-amber-100 px-1.5 py-0.5 font-semibold text-amber-900">ТЕСТОВЫЙ</span>
+                    <span className="inline-flex rounded bg-amber-100 px-1.5 py-0.5 font-semibold text-amber-900">{partnerText(locale, "dashboard.test")}</span>
                     {item.orderNumber ? <span>{item.orderNumber}</span> : null}
-                    {item.plannedDate ? <span>до {formatDate(item.plannedDate)}</span> : null}
+                    {item.plannedDate ? <span>{partnerText(locale, "dashboard.until")} {formatDate(item.plannedDate, locale)}</span> : null}
                   </p>
                 ) : null}
                 <p className="font-semibold text-zinc-950">{item.title}</p>
@@ -102,7 +110,7 @@ function AttentionSection({
                   {item.consequence}
                 </p>
                 <p className="mt-1 text-xs text-zinc-500">
-                  {relativeDate(item.occurredAt)}
+                  {relativeDate(item.occurredAt, locale)}
                 </p>
               </div>
               <DashboardTrackedLink
@@ -118,7 +126,7 @@ function AttentionSection({
               <form action={dismissDashboardAttentionAction}>
                 <input name="itemId" type="hidden" value={item.id} />
                 <input name="sourceFingerprint" type="hidden" value={item.sourceFingerprint} />
-                <button aria-label="Скрыть сообщение" className="inline-flex size-11 items-center justify-center rounded-md text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600" title="Скрыть сообщение" type="submit">
+                <button aria-label={partnerText(locale, "dashboard.hideMessage")} className="inline-flex size-11 items-center justify-center rounded-md text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600" title={partnerText(locale, "dashboard.hideMessage")} type="submit">
                   <X aria-hidden="true" className="size-4" />
                 </button>
               </form>
@@ -128,7 +136,7 @@ function AttentionSection({
       ) : (
         <div className="mt-3 flex items-center gap-3 border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
           <CheckCircle2 aria-hidden="true" className="size-5 shrink-0" />
-          Всё в порядке. Срочных действий нет.
+          {partnerText(locale, "dashboard.allWell")}
         </div>
       )}
     </section>
@@ -136,23 +144,25 @@ function AttentionSection({
 }
 
 function OrdersSection({
+  locale,
   summary,
 }: {
+  locale: PartnerLocale;
   summary: WorkspaceHomeDto["orderSummary"];
 }) {
   return (
     <section aria-labelledby="dashboard-orders" className="min-w-0">
       <SectionHeading
         actionHref="/cabinet/orders"
-        actionLabel="Все заказы"
+        actionLabel={partnerText(locale, "dashboard.allOrders")}
         id="dashboard-orders"
-        title="Заказы"
+        title={partnerText(locale, "dashboard.orders")}
       />
       <dl className="mt-3 grid grid-cols-2 gap-px border border-zinc-200 bg-zinc-200 sm:grid-cols-4">
-        <Metric label="Активные" value={summary.active} />
-        <Metric label="Подтверждённые" value={summary.confirmed} />
-        <Metric label="Требуют внимания" value={summary.attention} />
-        <Metric label="В обработке" value={summary.portalProcessing} />
+        <Metric icon="clock" label={partnerText(locale, "dashboard.active")} value={summary.active} />
+        <Metric icon="confirmed" label={partnerText(locale, "dashboard.confirmed")} value={summary.confirmed} />
+        <Metric icon="clock" label={partnerText(locale, "dashboard.needsAttention")} value={summary.attention} />
+        <Metric icon="clock" label={partnerText(locale, "dashboard.processing")} value={summary.portalProcessing} />
       </dl>
       {summary.recent.length ? (
         <ul className="divide-y divide-zinc-200 border-x border-b border-zinc-200 bg-white">
@@ -168,11 +178,11 @@ function OrdersSection({
                   <span className="font-semibold text-zinc-950">
                     {order.number}
                   </span>
-                  {order.isTest ? <span className="ml-2 inline-flex rounded bg-amber-100 px-1.5 py-0.5 text-[11px] font-semibold text-amber-900">ТЕСТОВЫЙ</span> : null}
+                  {order.isTest ? <span className="ml-2 inline-flex rounded bg-amber-100 px-1.5 py-0.5 text-[11px] font-semibold text-amber-900">{partnerText(locale, "dashboard.test")}</span> : null}
                   <span className="mt-1 block text-xs text-zinc-500">
-                    {formatDate(order.date)} · {order.positionCount} поз.
+                    {formatDate(order.date, locale)} · {order.positionCount} {partnerText(locale, "dashboard.positionsShort")}
                     {order.plannedDate
-                      ? ` · отгрузка ${formatDate(order.plannedDate)}`
+                      ? ` · ${partnerText(locale, "dashboard.shipment")} ${formatDate(order.plannedDate, locale)}`
                       : ""}
                   </span>
                 </span>
@@ -191,8 +201,8 @@ function OrdersSection({
       ) : (
         <CompactEmpty
           actionHref="/cabinet/catalog"
-          actionLabel="Перейти в каталог"
-          message="У компании пока нет заказов."
+          actionLabel={partnerText(locale, "dashboard.goCatalog")}
+          message={partnerText(locale, "dashboard.noOrders")}
         />
       )}
     </section>
@@ -200,23 +210,25 @@ function OrdersSection({
 }
 
 function ShipmentsSection({
+  locale,
   summary,
 }: {
+  locale: PartnerLocale;
   summary: WorkspaceHomeDto["shipmentSummary"];
 }) {
   return (
     <section aria-labelledby="dashboard-shipments" className="min-w-0">
       <SectionHeading
         actionHref="/cabinet/reservation-requests"
-        actionLabel="Все отгрузки"
+        actionLabel={partnerText(locale, "dashboard.allShipments")}
         id="dashboard-shipments"
-        title="Ближайшие отгрузки"
+        title={partnerText(locale, "dashboard.shipments")}
       />
       <dl className="mt-3 grid grid-cols-2 gap-px border border-zinc-200 bg-zinc-200 sm:grid-cols-4">
-        <Metric label="Просрочено" value={summary.overdue} />
-        <Metric label="Сегодня" value={summary.today} />
-        <Metric label="3 дня" value={summary.nextThreeDays} />
-        <Metric label="Позже" value={summary.later} />
+        <Metric icon="calendar" label={partnerText(locale, "dashboard.overdue")} value={summary.overdue} />
+        <Metric icon="calendar" label={partnerText(locale, "dashboard.today")} value={summary.today} />
+        <Metric icon="calendar" label={partnerText(locale, "dashboard.threeDays")} value={summary.nextThreeDays} />
+        <Metric icon="calendar" label={partnerText(locale, "dashboard.later")} value={summary.later} />
       </dl>
       {summary.items.length ? (
         <ul className="divide-y divide-zinc-200 border-x border-b border-zinc-200 bg-white">
@@ -232,18 +244,18 @@ function ShipmentsSection({
                   <span className="font-semibold text-zinc-950">
                     {shipment.orderNumber}
                   </span>
-                  {shipment.isTest ? <span className="ml-2 inline-flex rounded bg-amber-100 px-1.5 py-0.5 text-[11px] font-semibold text-amber-900">ТЕСТОВЫЙ</span> : null}
+                  {shipment.isTest ? <span className="ml-2 inline-flex rounded bg-amber-100 px-1.5 py-0.5 text-[11px] font-semibold text-amber-900">{partnerText(locale, "dashboard.test")}</span> : null}
                   <span className="mt-1 block text-xs text-zinc-500">
-                    {shipment.positionCount} поз. · {shipment.totalUnits} шт.
-                    {shipment.pendingDateChange ? " · перенос рассматривается" : ""}
+                    {shipment.positionCount} {partnerText(locale, "dashboard.positionsShort")} · {shipment.totalUnits} {partnerText(locale, "dashboard.unitsShort")}
+                    {shipment.pendingDateChange ? ` · ${partnerText(locale, "dashboard.dateChangePending")}` : ""}
                   </span>
                 </span>
                 <span className="shrink-0 text-right">
                   <span className="block text-sm font-semibold text-zinc-950">
-                    {formatDate(shipment.plannedDate)}
+                    {formatDate(shipment.plannedDate, locale)}
                   </span>
                   <span className="mt-1 block text-xs text-zinc-500">
-                    {shipmentDistance(shipment.plannedDate)}
+                    {shipmentDistance(shipment.plannedDate, locale)}
                   </span>
                 </span>
               </DashboardTrackedLink>
@@ -251,7 +263,7 @@ function ShipmentsSection({
           ))}
         </ul>
       ) : (
-        <CompactEmpty message="Ближайшие отгрузки не запланированы." />
+        <CompactEmpty message={partnerText(locale, "dashboard.noShipments")} />
       )}
     </section>
   );
@@ -259,11 +271,13 @@ function ShipmentsSection({
 
 function ProductSection({
   analyticsSurface,
+  locale,
   products,
   title,
   workspace,
 }: {
   analyticsSurface: string;
+  locale: PartnerLocale;
   products: WorkspaceHomeDto["reorderProducts"];
   title: string;
   workspace: WorkspaceHomeDto;
@@ -273,7 +287,7 @@ function ProductSection({
     <section aria-label={title}>
       <SectionHeading
         actionHref="/cabinet/catalog"
-        actionLabel="Открыть каталог"
+        actionLabel={partnerText(locale, "dashboard.openCatalog")}
         id={`dashboard-${analyticsSurface}`}
         title={title}
       />
@@ -293,9 +307,10 @@ function ProductSection({
               }
               capabilities={workspace.capabilities.productCard}
               commercialView={item.commercialView}
-              contextLine={analyticsSurface === "dashboard_reorder" ? purchaseContext(item) : undefined}
-            product={item.product}
-            key={item.product.id}
+              locale={locale}
+              contextLine={analyticsSurface === "dashboard_reorder" ? purchaseContext(item, locale) : undefined}
+              product={item.product}
+              key={item.product.id}
           />
         ))}
       </div>
@@ -304,15 +319,17 @@ function ProductSection({
   );
 }
 
-function purchaseContext(item: WorkspaceHomeDto["reorderProducts"][number]): string {
-  const date = item.lastPurchasedAt ? formatDate(item.lastPurchasedAt) : "дата уточняется";
+function purchaseContext(item: WorkspaceHomeDto["reorderProducts"][number], locale: PartnerLocale): string {
+  const date = item.lastPurchasedAt ? formatDate(item.lastPurchasedAt, locale) : partnerText(locale, "dashboard.datePending");
   const quantity = Math.max(1, Math.trunc(item.typicalQuantity ?? 1));
-  return `Последняя покупка: ${date} · обычно ${quantity} шт.`;
+  return `${partnerText(locale, "dashboard.lastPurchase")}: ${date} · ${partnerText(locale, "dashboard.usually")} ${quantity} ${partnerText(locale, "dashboard.unitsShort")}`;
 }
 
 function FinanceSection({
+  locale,
   summary,
 }: {
+  locale: PartnerLocale;
   summary: WorkspaceHomeDto["financeSummary"];
 }) {
   if (!summary) return null;
@@ -320,12 +337,12 @@ function FinanceSection({
     <section aria-labelledby="dashboard-finance">
       <SectionHeading
         actionHref="/cabinet/finance"
-        actionLabel="Открыть финансы"
+        actionLabel={partnerText(locale, "dashboard.openFinance")}
         id="dashboard-finance"
-        title="Финансы"
+        title={partnerText(locale, "dashboard.finance")}
       />
       <div className="mt-3 border border-zinc-200 bg-white p-4">
-        {summary.lastSuccessfulAt ? <p className="mb-3 text-xs text-zinc-500">Обновлено: {formatDate(summary.lastSuccessfulAt)}</p> : null}
+        {summary.lastSuccessfulAt ? <p className="mb-3 text-xs text-zinc-500">{partnerText(locale, "dashboard.updated")}: {formatDate(summary.lastSuccessfulAt, locale)}</p> : null}
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {summary.totals.map((total) => (
             <div className="bg-zinc-50 p-3" key={total.currency}>
@@ -333,15 +350,15 @@ function FinanceSection({
                 {total.currency}
               </p>
               <p className="mt-2 text-sm text-zinc-700">
-                К оплате:{" "}
+                {partnerText(locale, "dashboard.amountDue")}:{" "}
                 <strong className="text-zinc-950">
-                  {formatAmount(total.receivable, total.currency)}
+                  {formatAmount(total.receivable, total.currency, locale)}
                 </strong>
               </p>
               <p className="mt-1 text-sm text-zinc-700">
-                Аванс:{" "}
+                {partnerText(locale, "dashboard.advance")}:{" "}
                 <strong className="text-zinc-950">
-                  {formatAmount(total.advance, total.currency)}
+                  {formatAmount(total.advance, total.currency, locale)}
                 </strong>
               </p>
             </div>
@@ -352,7 +369,7 @@ function FinanceSection({
               className="size-6 text-emerald-700"
             />
             <div>
-              <p className="text-xs text-zinc-500">Договоры с балансом</p>
+              <p className="text-xs text-zinc-500">{partnerText(locale, "dashboard.contractsWithBalance")}</p>
               <p className="font-semibold text-zinc-950">
                 {summary.contractCount}
               </p>
@@ -395,10 +412,10 @@ function SectionHeading({
   );
 }
 
-function Metric({ label, value }: { label: string; value: number }) {
+function Metric({ icon, label, value }: { icon: "calendar" | "clock" | "confirmed"; label: string; value: number }) {
   return (
     <div className="flex min-h-20 items-center gap-3 bg-white p-3">
-      {metricIcon(label)}
+      {metricIcon(icon)}
       <div>
         <dt className="text-xs text-zinc-500">{label}</dt>
         <dd className="mt-1 text-xl font-semibold text-zinc-950">{value}</dd>
@@ -441,28 +458,28 @@ function sectionEvent(id: string) {
   return "dashboard_quick_action_clicked" as const;
 }
 
-function metricIcon(label: string) {
+function metricIcon(icon: "calendar" | "clock" | "confirmed") {
   const className = "size-5 shrink-0 text-emerald-700";
-  if (/отгруз|сегодня|дня|позже/i.test(label)) {
+  if (icon === "calendar") {
     return <CalendarClock aria-hidden="true" className={className} />;
   }
-  if (/подтверж/i.test(label)) {
+  if (icon === "confirmed") {
     return <PackageCheck aria-hidden="true" className={className} />;
   }
   return <Clock3 aria-hidden="true" className={className} />;
 }
 
-function relativeDate(value: string): string {
+function relativeDate(value: string, locale: PartnerLocale): string {
   const timestamp = Date.parse(value);
-  if (!Number.isFinite(timestamp)) return "дата уточняется";
+  if (!Number.isFinite(timestamp)) return partnerText(locale, "dashboard.datePending");
   const days = Math.round((timestamp - Date.now()) / 86_400_000);
-  if (days === 0) return "сегодня";
-  if (days === -1) return "вчера";
-  if (days === 1) return "завтра";
-  return formatDate(value);
+  if (days === 0) return partnerText(locale, "dashboard.today").toLocaleLowerCase();
+  if (days === -1) return partnerText(locale, "dashboard.yesterday");
+  if (days === 1) return partnerText(locale, "dashboard.tomorrow");
+  return formatDate(value, locale);
 }
 
-function shipmentDistance(value: string): string {
+function shipmentDistance(value: string, locale: PartnerLocale): string {
   const date = new Date(`${value.slice(0, 10)}T00:00:00Z`);
   const today = new Date();
   const current = Date.UTC(
@@ -471,31 +488,27 @@ function shipmentDistance(value: string): string {
     today.getUTCDate(),
   );
   const days = Math.round((date.getTime() - current) / 86_400_000);
-  if (days < 0) return `просрочено на ${Math.abs(days)} дн.`;
-  if (days === 0) return "сегодня";
-  return `через ${days} дн.`;
+  if (days < 0) return interpolate(partnerText(locale, "dashboard.daysAgo"), Math.abs(days));
+  if (days === 0) return partnerText(locale, "dashboard.today").toLocaleLowerCase();
+  return interpolate(partnerText(locale, "dashboard.inDays"), days);
 }
 
-function formatDate(value: string): string {
+function formatDate(value: string, locale: PartnerLocale): string {
   const date = new Date(value);
   return Number.isFinite(date.getTime())
-    ? new Intl.DateTimeFormat("ru-RU", {
+    ? formatPartnerDate(date, locale, {
         day: "numeric",
         month: "short",
         year: "numeric",
         timeZone: "UTC",
-      }).format(date)
-    : "Дата уточняется";
+      })
+    : partnerText(locale, "dashboard.datePending");
 }
 
-function formatAmount(amount: number, currency: string): string {
-  try {
-    return new Intl.NumberFormat("ru-RU", {
-      style: "currency",
-      currency,
-      currencyDisplay: "code",
-    }).format(amount);
-  } catch {
-    return `${amount.toFixed(2)} ${currency}`;
-  }
+function formatAmount(amount: number, currency: string, locale: PartnerLocale): string {
+  return formatPartnerMoney(amount, currency, locale);
+}
+
+function interpolate(template: string, count: number): string {
+  return template.replace("{count}", String(count));
 }

@@ -150,6 +150,8 @@ export type EstimateProductPickerDto = {
     retailPriceAmount?: number | null;
     retailPriceCurrencyCode?: string | null;
     stock: string;
+    stockStatus?: "in_stock" | "low_stock" | "expected" | "out_of_stock" | "unknown";
+    availableQuantity?: number | null;
     expectedArrival: string | null;
   }>;
   categories: Array<{ id: string; name: string }>;
@@ -639,6 +641,8 @@ export class DefaultEstimateService implements EstimateService {
           retailPriceAmount: view?.retailPrice?.amount ?? null,
           retailPriceCurrencyCode: view?.retailPrice?.currencyCode ?? null,
           stock: view?.stock?.label ?? "Наличие уточняется",
+          stockStatus: view?.stock?.status ?? "unknown",
+          availableQuantity: view?.stock?.exactAvailableQuantity ?? null,
           expectedArrival: view?.stock?.expectedArrival?.formattedExpectedDate ?? null,
         };
       }),

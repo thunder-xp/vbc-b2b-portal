@@ -6,11 +6,14 @@ import { useEffect, useRef, useState, useTransition } from "react";
 
 import { markNotificationReadAction } from "../actions/notification.actions";
 import { recordBehaviorInteraction, scheduleBehaviorInteraction } from "../../behavior-analytics/components/BehaviorViewEvent";
+import { notificationCopy, presentPartnerNotification, usePartnerLocale } from "../../partner-locale";
 import type { NotificationSummary } from "../types";
 import { NotificationSeverityLabel } from "./NotificationSeverityLabel";
 import { NOTIFICATIONS_MARKED_ALL_READ_EVENT } from "./notification-client-events";
 
 export function NotificationBell({ initialSummary }: { initialSummary: NotificationSummary }) {
+  const locale = usePartnerLocale();
+  const copy = notificationCopy(locale);
   const [open, setOpen] = useState(false);
   const [summary, setSummary] = useState(initialSummary);
   const [pending, startTransition] = useTransition();
@@ -22,10 +25,7 @@ export function NotificationBell({ initialSummary }: { initialSummary: Notificat
       const markedAt = (event as CustomEvent<{ markedAt: string }>).detail.markedAt;
       setSummary((current) => ({
         unreadCount: 0,
-        items: current.items.map((item) => ({
-          ...item,
-          readAt: item.readAt ?? markedAt,
-        })),
+        items: current.items.map((item) => ({ ...item, readAt: item.readAt ?? markedAt })),
       }));
     };
     window.addEventListener(NOTIFICATIONS_MARKED_ALL_READ_EVENT, onMarkedAllRead);
@@ -72,13 +72,15 @@ export function NotificationBell({ initialSummary }: { initialSummary: Notificat
     });
   };
 
+  const items = summary.items.map((item) => presentPartnerNotification(item, locale));
+
   return (
     <div className="relative" ref={rootRef}>
       <button
         aria-controls="partner-notification-popover"
         aria-expanded={open}
         aria-haspopup="dialog"
-        aria-label={`Уведомления: непрочитанных ${summary.unreadCount}`}
+        aria-label={`${copy.title}: ${copy.unreadCount} ${summary.unreadCount}`}
         className="relative inline-flex h-11 w-11 items-center justify-center rounded-md border border-zinc-300 bg-white text-zinc-700 transition hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
         onClick={() => setOpen((value) => {
           const next = !value;
@@ -104,22 +106,20 @@ export function NotificationBell({ initialSummary }: { initialSummary: Notificat
 
       {open && (
         <section
-          aria-label="Последние уведомления"
+          aria-label={copy.latest}
           className="fixed inset-x-3 top-28 z-50 max-h-[min(34rem,calc(100vh-8rem))] overflow-y-auto rounded-md border border-zinc-200 bg-white shadow-xl sm:absolute sm:inset-x-auto sm:right-0 sm:top-12 sm:w-[25rem]"
           id="partner-notification-popover"
           role="dialog"
         >
           <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-3">
-            <h2 className="text-sm font-semibold text-zinc-950">Уведомления</h2>
-            <span className="text-xs text-zinc-500">{summary.unreadCount} непрочитано</span>
+            <h2 className="text-sm font-semibold text-zinc-950">{copy.title}</h2>
+            <span className="text-xs text-zinc-500">{summary.unreadCount} {copy.unreadCount}</span>
           </div>
-          {summary.items.length === 0 ? (
-            <p className="px-4 py-8 text-center text-sm text-zinc-600">
-              Новых уведомлений пока нет.
-            </p>
+          {items.length === 0 ? (
+            <p className="px-4 py-8 text-center text-sm text-zinc-600">{copy.noNew}</p>
           ) : (
             <ul className="divide-y divide-zinc-100">
-              {summary.items.map((item) => (
+              {items.map((item) => (
                 <li className={item.readAt ? "bg-white" : "bg-emerald-50/40"} key={item.id}>
                   <article className="space-y-2 px-4 py-3">
                     <div className="flex items-start justify-between gap-3">
@@ -127,12 +127,8 @@ export function NotificationBell({ initialSummary }: { initialSummary: Notificat
                         <NotificationSeverityLabel severity={item.severity} />
                         <h3 className="mt-1 text-sm font-semibold text-zinc-950">{item.title}</h3>
                       </div>
-                      {!item.readAt && (
-                        <span className="sr-only">Непрочитано</span>
-                      )}
-                      <time className="shrink-0 text-xs text-zinc-500" dateTime={item.occurredAt}>
-                        {item.relativeTime}
-                      </time>
+                      {!item.readAt && <span className="sr-only">{copy.unread}</span>}
+                      <time className="shrink-0 text-xs text-zinc-500" dateTime={item.occurredAt}>{item.relativeTime}</time>
                     </div>
                     <p className="text-sm leading-5 text-zinc-600">{item.message}</p>
                     <div className="flex flex-wrap items-center gap-2">
@@ -144,41 +140,23 @@ export function NotificationBell({ initialSummary }: { initialSummary: Notificat
                           onClick={() => {
                             markRead(item.id);
                             setOpen(false);
-                            recordBehaviorInteraction({
-                              eventName: "notification_opened",
-                              route: "/cabinet/notifications",
-                              sourceSurface: "notification_bell",
-                              metadataSafe: { eventGroup: item.eventGroup },
-                            });
+                            recordBehaviorInteraction({ eventName: "notification_opened", route: "/cabinet/notifications", sourceSurface: "notification_bell", metadataSafe: { eventGroup: item.eventGroup } });
                             if (item.eventGroup === "products") {
+                              recordBehaviorInteraction({ eventName: "product_notification_opened", route: "/cabinet/notifications", sourceSurface: "notification_bell" });
                               recordBehaviorInteraction({
-                                eventName: "product_notification_opened",
-                                route: "/cabinet/notifications",
-                                sourceSurface: "notification_bell",
-                              });
-                              recordBehaviorInteraction({
-                                eventName: item.actionUrl === "/cabinet/cart"
-                                  ? "product_notification_cart_opened"
-                                  : "product_notification_product_opened",
+                                eventName: item.actionUrl === "/cabinet/cart" ? "product_notification_cart_opened" : "product_notification_product_opened",
                                 route: item.actionUrl ?? "/cabinet/notifications",
                                 sourceSurface: "notification_bell",
                               });
                             }
                           }}
                         >
-                          {item.actionLabel}
-                          <ExternalLink aria-hidden="true" size={14} />
+                          {item.actionLabel}<ExternalLink aria-hidden="true" size={14} />
                         </Link>
                       )}
                       {!item.readAt && (
-                        <button
-                          className="ml-auto inline-flex min-h-11 items-center gap-1.5 text-sm text-zinc-600 hover:text-zinc-950 disabled:opacity-50"
-                          disabled={pending}
-                          onClick={() => markRead(item.id)}
-                          type="button"
-                        >
-                          <Check aria-hidden="true" size={15} />
-                          Прочитано
+                        <button className="ml-auto inline-flex min-h-11 items-center gap-1.5 text-sm text-zinc-600 hover:text-zinc-950 disabled:opacity-50" disabled={pending} onClick={() => markRead(item.id)} type="button">
+                          <Check aria-hidden="true" size={15} />{copy.markRead}
                         </button>
                       )}
                     </div>
@@ -188,13 +166,8 @@ export function NotificationBell({ initialSummary }: { initialSummary: Notificat
             </ul>
           )}
           <div className="border-t border-zinc-200 p-3">
-            <Link
-              className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-zinc-950 px-4 text-sm font-medium text-white hover:bg-zinc-800"
-              href="/cabinet/notifications"
-              prefetch={false}
-              onClick={() => setOpen(false)}
-            >
-              Все уведомления
+            <Link className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-zinc-950 px-4 text-sm font-medium text-white hover:bg-zinc-800" href="/cabinet/notifications" prefetch={false} onClick={() => setOpen(false)}>
+              {copy.allNotifications}
             </Link>
           </div>
         </section>

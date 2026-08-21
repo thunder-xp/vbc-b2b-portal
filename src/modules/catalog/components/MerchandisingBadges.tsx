@@ -41,15 +41,17 @@ export function MerchandisingBadgeOverlay({ children }: { children: ReactNode })
 export function MerchandisingBadges({
   labels = [],
   labelOverrides,
+  productCollectionsLabel = "Подборки товара",
 }: {
   labels?: MerchandisingLabelCode[];
   labelOverrides?: Partial<Record<MerchandisingLabelCode, string>>;
+  productCollectionsLabel?: string;
 }) {
   const visible = [...new Set(labels)].slice(0, 2);
   if (!visible.length) return null;
 
   return (
-    <div aria-label="Подборки товара" className="flex flex-wrap gap-1.5">
+    <div aria-label={productCollectionsLabel} className="flex flex-wrap gap-1.5">
       {visible.map((code) => (
         <MerchandisingBadge key={code} label={labelOverrides?.[code] ?? LABELS[code].label} variant={code} />
       ))}

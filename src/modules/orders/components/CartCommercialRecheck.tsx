@@ -4,6 +4,7 @@ import { RefreshCw } from "lucide-react";
 import { useActionState } from "react";
 
 import type { ActionResult } from "../../access-control/actions/action-result";
+import { getOrdersCopy, usePartnerLocale } from "../../partner-locale";
 import {
   recheckCartCommercialDataAction,
   type CartCommercialRecheckResult,
@@ -17,6 +18,7 @@ const initial: ActionResult<CartCommercialRecheckResult | null> = {
 };
 
 export function CartCommercialRecheck() {
+  const copy = getOrdersCopy(usePartnerLocale());
   const [state, action, pending] = useActionState(
     recheckCartCommercialDataAction,
     initial,
@@ -29,11 +31,14 @@ export function CartCommercialRecheck() {
         disabled={pending}
         type="submit"
       >
-        <RefreshCw aria-hidden="true" className={`size-4 ${pending ? "animate-spin" : ""}`} />
-        {pending ? "Проверяем данные..." : "Перепроверить коммерческие данные"}
+        <RefreshCw
+          aria-hidden="true"
+          className={`size-4 ${pending ? "animate-spin" : ""}`}
+        />
+        {pending ? copy.recheckingCommercial : copy.recheckCommercial}
       </button>
       <p aria-live="polite" className="text-xs leading-5 text-zinc-600">
-        {state.message}
+        {state.success ? state.message : copy.retryOrContact}
       </p>
     </form>
   );

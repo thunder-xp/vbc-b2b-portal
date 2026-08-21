@@ -1,8 +1,9 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { getEstimatesCopy } from "@/src/modules/partner-locale";
 
-const migration = readFileSync(join(process.cwd(), "supabase/migrations/20260809006000_partner_final_customer_directory.sql"), "utf8");
+const migration = readFileSync(join(process.cwd(), "supabase/migrations/20260809006000_partner_final_customer_directory.sql"), "utf8").replace(/\r\n/g, "\n");
 const editor = readFileSync(join(process.cwd(), "src/modules/estimates/components/EstimateCommercialEditor.tsx"), "utf8");
 const picker = readFileSync(join(process.cwd(), "src/modules/estimates/components/FinalCustomerPicker.tsx"), "utf8");
 const listPage = readFileSync(join(process.cwd(), "app/(partner)/cabinet/customers/page.tsx"), "utf8");
@@ -44,8 +45,11 @@ describe("final customer directory migration", () => {
 
 describe("final customer directory UI", () => {
   it("renders the requested bounded fields and related estimates", () => {
-    for (const label of ["Заказчик", "Город / регион", "Отрасль", "Сметы", "Последняя смета", "Последний проект / объект"]) expect(listPage).toContain(label);
-    expect(detailPage).toContain("Связанные сметы");
+    for (const key of ["customer", "cityRegion", "industry", "lastEstimate", "lastProject"] as const) expect(listPage).toContain(`copy.${key}`);
+    expect(listPage).toContain("copy.estimateCount");
+    expect(detailPage).toContain("copy.relatedEstimates");
+    expect(getEstimatesCopy("ru")).toMatchObject({ customer: "Заказчик", cityRegion: "Город / регион", industry: "Отрасль", lastEstimate: "Последняя смета", lastProject: "Последний проект / объект", relatedEstimates: "Связанные сметы" });
+    expect(getEstimatesCopy("ro")).toMatchObject({ customer: "Client", cityRegion: "Oraș / regiune", industry: "Domeniu", lastEstimate: "Ultimul deviz", lastProject: "Ultimul proiect / obiectiv", relatedEstimates: "Devize asociate" });
     expect(detailPage).not.toMatch(/сделк|лид|воронк|звонк|напомин/i);
   });
 

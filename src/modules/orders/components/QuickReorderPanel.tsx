@@ -10,10 +10,12 @@ import { addQuickReorderToCartAction } from "../actions/reorder.actions";
 import type { QuickReorderConversionResultDto } from "../services";
 import { CatalogCardImage } from "../../catalog/components/CatalogCardImage";
 import { SaveAsPurchasingListButton } from "../../purchasing-lists/components";
+import { getOrdersCopy, usePartnerLocale, type OrdersCopy } from "../../partner-locale";
 
 const INITIAL_STATE: ActionResult<QuickReorderConversionResultDto | null> = { success: false, errorCode: "IDLE", message: "", data: null };
 
 export function QuickReorderPanel({ preview, requestKey: initialRequestKey }: { preview: QuickReorderPreviewDto; requestKey: string }) {
+  const copy = getOrdersCopy(usePartnerLocale());
   const [selected, setSelected] = useState(() => new Set(preview.lines.filter((line) => line.selectedByDefault).map((line) => line.lineId)));
   const [quantities, setQuantities] = useState<Record<string, number>>(() => Object.fromEntries(preview.lines.map((line) => [line.lineId, line.historicalQuantity])));
   const selectedCount = selected.size;
@@ -31,24 +33,24 @@ export function QuickReorderPanel({ preview, requestKey: initialRequestKey }: { 
     <section className="space-y-4" aria-labelledby="quick-reorder-title">
       <div className="flex flex-col gap-3 border-b border-zinc-200 pb-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase text-emerald-700">Повторная покупка</p>
-          <h1 className="mt-1 text-2xl font-semibold" id="quick-reorder-title">Купить снова из {preview.orderLabel}</h1>
-          <p className="mt-2 text-sm text-zinc-600">{preview.commercialMode === "full" ? "Проверьте текущие цены и выберите нужные позиции." : "Проверьте товары, количество и доступность. Партнёрские цены скрыты настройками доступа."}</p>
+          <p className="text-xs font-semibold uppercase text-emerald-700">{copy.quickReorderEyebrow}</p>
+          <h1 className="mt-1 text-2xl font-semibold" id="quick-reorder-title">{copy.buyAgainFrom} {preview.orderLabel}</h1>
+          <p className="mt-2 text-sm text-zinc-600">{preview.commercialMode === "full" ? copy.reviewPrices : copy.reviewRetailOnly}</p>
         </div>
-        <Link className="text-sm font-semibold text-emerald-700 hover:text-emerald-800" href={`/cabinet/orders/${preview.orderId}`} prefetch={false}>Вернуться к заказу</Link>
+        <Link className="text-sm font-semibold text-emerald-700 hover:text-emerald-800" href={`/cabinet/orders/${preview.orderId}`} prefetch={false}>{copy.backToOrder}</Link>
       </div>
 
-      <div className="flex flex-wrap gap-2" role="group" aria-label="Выбор позиций">
-        <ToolbarButton icon={CheckSquare} label="Выбрать все" onClick={() => setAll("all")} />
-        <ToolbarButton icon={Square} label="Снять выбор" onClick={() => setAll("none")} />
-        <ToolbarButton icon={RotateCcw} label="Только доступные" onClick={() => setAll("available")} />
+      <div className="flex flex-wrap gap-2" role="group" aria-label={copy.lineSelection}>
+        <ToolbarButton icon={CheckSquare} label={copy.selectAll} onClick={() => setAll("all")} />
+        <ToolbarButton icon={Square} label={copy.clearSelection} onClick={() => setAll("none")} />
+        <ToolbarButton icon={RotateCcw} label={copy.availableOnly} onClick={() => setAll("available")} />
       </div>
 
-      {preview.commercialMode === "full" ? <div className="grid gap-3 sm:grid-cols-4" aria-label="Изменения цен">
-        <SummaryMetric label="Без изменений" value={preview.commercialSummary.unchanged} />
-        <SummaryMetric label="Цена выросла" value={preview.commercialSummary.increased} tone="amber" />
-        <SummaryMetric label="Цена снизилась" value={preview.commercialSummary.decreased} tone="emerald" />
-        <SummaryMetric label="Сравнение недоступно" value={preview.commercialSummary.unavailable} />
+      {preview.commercialMode === "full" ? <div className="grid gap-3 sm:grid-cols-4" aria-label={copy.priceChanges}>
+        <SummaryMetric label={copy.unchanged} value={preview.commercialSummary.unchanged} />
+        <SummaryMetric label={copy.priceIncreased} value={preview.commercialSummary.increased} tone="amber" />
+        <SummaryMetric label={copy.priceDecreased} value={preview.commercialSummary.decreased} tone="emerald" />
+        <SummaryMetric label={copy.comparisonUnavailable} value={preview.commercialSummary.unavailable} />
       </div> : null}
 
       <ul className="divide-y divide-zinc-200 overflow-hidden rounded-md border border-zinc-200 bg-white">
@@ -57,7 +59,7 @@ export function QuickReorderPanel({ preview, requestKey: initialRequestKey }: { 
           return (
             <li className="grid gap-4 p-4 md:grid-cols-[28px_64px_minmax(180px,1fr)_150px_150px_130px] md:items-center" key={line.lineId}>
               <input
-                aria-label={`Выбрать ${line.productName}`}
+                aria-label={`${copy.selectProduct} ${line.productName}`}
                 checked={checked}
                 className="size-4 accent-emerald-700"
                 disabled={!line.canSelect}
@@ -73,16 +75,16 @@ export function QuickReorderPanel({ preview, requestKey: initialRequestKey }: { 
               </div>
               <div className="min-w-0">
                 <p className="font-semibold text-zinc-950">{line.productName}</p>
-                <p className="text-xs text-zinc-500">Артикул: {line.sku}</p>
-                <p className={`mt-2 text-xs font-semibold ${line.canSelect ? "text-emerald-700" : "text-amber-700"}`}>{line.statusLabel}</p>
-                <p className="mt-1 text-xs text-zinc-500">Наличие: {line.availableStock === null ? "уточняется" : `${line.availableStock} ед.`}</p>
-                {line.expectedArrival ? <p className="mt-1 text-xs text-zinc-500">Поступление: {line.expectedArrival.formattedDate ?? line.expectedArrival.date ?? "дата уточняется"}{line.expectedArrival.quantity !== null ? ` · ${line.expectedArrival.quantity} ед.` : ""}</p> : null}
-                {!line.canSelect ? <Link className="mt-1 inline-flex text-xs font-semibold text-emerald-700" href={line.replacementHref ?? "/cabinet/catalog"} prefetch={false}>Найти замену</Link> : null}
+                <p className="text-xs text-zinc-500">{copy.sku}: {line.sku}</p>
+                <p className={`mt-2 text-xs font-semibold ${line.canSelect ? "text-emerald-700" : "text-amber-700"}`}>{reorderStatusLabel(line.status, copy)}</p>
+                <p className="mt-1 text-xs text-zinc-500">{copy.availability}: {line.availableStock === null ? copy.pending : `${line.availableStock} ${copy.units}`}</p>
+                {line.expectedArrival ? <p className="mt-1 text-xs text-zinc-500">{copy.arrival}: {line.expectedArrival.formattedDate ?? line.expectedArrival.date ?? copy.arrivalDatePending}{line.expectedArrival.quantity !== null ? ` · ${line.expectedArrival.quantity} ${copy.units}` : ""}</p> : null}
+                {!line.canSelect ? <Link className="mt-1 inline-flex text-xs font-semibold text-emerald-700" href={line.replacementHref ?? "/cabinet/catalog"} prefetch={false}>{copy.findReplacement}</Link> : null}
               </div>
-              {preview.commercialMode === "full" ? <Price label="Цена в заказе" value={line.historicalUnitPrice?.formatted ?? "Недоступна"} /> : <Price label="Розничная цена" value={line.currentRetailPrice?.formatted ?? "Уточняется"} />}
-              {preview.commercialMode === "full" ? <Price label="Текущая цена" value={line.currentUnitPrice?.formatted ?? "Недоступна"} /> : <div />}
+              {preview.commercialMode === "full" ? <Price label={copy.orderPrice} value={line.historicalUnitPrice?.formatted ?? copy.unavailable} /> : <Price label={copy.retailPrice} value={line.currentRetailPrice?.formatted ?? copy.pending} />}
+              {preview.commercialMode === "full" ? <Price label={copy.currentPrice} value={line.currentUnitPrice?.formatted ?? copy.unavailable} /> : <div />}
               <div>
-                <label className="text-xs font-medium text-zinc-500" htmlFor={`quantity-${line.lineId}`}>Количество</label>
+                <label className="text-xs font-medium text-zinc-500" htmlFor={`quantity-${line.lineId}`}>{copy.quantity}</label>
                 <input
                   className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm disabled:bg-zinc-100"
                   disabled={!line.canSelect}
@@ -94,13 +96,13 @@ export function QuickReorderPanel({ preview, requestKey: initialRequestKey }: { 
                   type="number"
                   value={quantities[line.lineId]}
                 />
-                <p className="mt-1 text-xs text-zinc-500">Было: {line.historicalQuantity}</p>
+                <p className="mt-1 text-xs text-zinc-500">{copy.previousQuantity}: {line.historicalQuantity}</p>
               </div>
               {line.availableStock !== null && checked && quantities[line.lineId] > line.availableStock ? (
-                <p className="flex gap-2 text-xs text-amber-700 md:col-start-3 md:col-span-4"><TriangleAlert className="size-4 shrink-0" />Часть количества может потребовать подтверждения</p>
+                <p className="flex gap-2 text-xs text-amber-700 md:col-start-3 md:col-span-4"><TriangleAlert className="size-4 shrink-0" />{copy.partialQuantityWarning}</p>
               ) : null}
               {line.priceDifference ? <div className="text-xs md:col-start-4 md:col-span-3">
-                <span className={line.priceDifference.kind === "increased" ? "font-semibold text-amber-700" : line.priceDifference.kind === "decreased" ? "font-semibold text-emerald-700" : "text-zinc-500"}>{line.priceDifference.label}</span>
+                <span className={line.priceDifference.kind === "increased" ? "font-semibold text-amber-700" : line.priceDifference.kind === "decreased" ? "font-semibold text-emerald-700" : "text-zinc-500"}>{priceDifferenceLabel(line.priceDifference.kind, copy)}</span>
                 {line.priceDifference.formattedAbsoluteDifference && line.priceDifference.kind !== "unchanged" ? <span className="ml-2 text-zinc-600">{line.priceDifference.formattedAbsoluteDifference} · {line.priceDifference.formattedPercentageDifference}</span> : null}
               </div> : null}
             </li>
@@ -112,38 +114,46 @@ export function QuickReorderPanel({ preview, requestKey: initialRequestKey }: { 
         <input name="orderId" type="hidden" value={preview.orderId} />
         <input name="requestKey" type="hidden" value={requestKey} />
         <input name="lines" type="hidden" value={JSON.stringify(selectedLines)} />
-        <p className="text-sm text-zinc-700">Выбрано: <strong>{selectedCount}</strong> поз., <strong>{selectedUnits}</strong> ед.</p>
-        <button className="rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-zinc-300" disabled={!selectedCount || pending || (state.success && !newAttempt)} type="submit">{pending ? "Добавление..." : "Добавить выбранное в корзину"}</button>
+        <p className="text-sm text-zinc-700">{copy.selected}: <strong>{selectedCount}</strong> {copy.positions}, <strong>{selectedUnits}</strong> {copy.units}</p>
+        <button className="rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-zinc-300" disabled={!selectedCount || pending || (state.success && !newAttempt)} type="submit">{pending ? copy.adding : copy.addSelectedToCart}</button>
       </form>
-      <div className="flex justify-end"><SaveAsPurchasingListButton label="Сохранить выбранное как список" orderId={preview.orderId} selections={selectedLines} source="quick_reorder" /></div>
-      {state.errorCode !== "IDLE" && !state.success ? <p className="rounded-md border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">Не удалось добавить выбранные позиции. Выбор сохранён, проверьте данные и повторите попытку.</p> : null}
-      {state.success && state.data ? <ConversionSummary orderId={preview.orderId} result={state.data} onNewAttempt={() => { setRequestKey(crypto.randomUUID()); setNewAttempt(true); }} /> : null}
+      <div className="flex justify-end"><SaveAsPurchasingListButton label={copy.saveSelectedAsList} orderId={preview.orderId} selections={selectedLines} source="quick_reorder" /></div>
+      {state.errorCode !== "IDLE" && !state.success ? <p className="rounded-md border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">{copy.reorderAddError}</p> : null}
+      {state.success && state.data ? <ConversionSummary copy={copy} orderId={preview.orderId} result={state.data} onNewAttempt={() => { setRequestKey(crypto.randomUUID()); setNewAttempt(true); }} /> : null}
     </section>
   );
 }
 
-function ConversionSummary({ orderId, result, onNewAttempt }: { orderId: string; result: QuickReorderConversionResultDto; onNewAttempt: () => void }) {
+function ConversionSummary({ copy, orderId, result, onNewAttempt }: { copy: OrdersCopy; orderId: string; result: QuickReorderConversionResultDto; onNewAttempt: () => void }) {
   return (
     <div className="rounded-md border border-emerald-200 bg-emerald-50 p-4">
-      <h2 className="font-semibold text-emerald-950">Результат добавления</h2>
-      {result.repeated ? <p className="mt-1 text-xs text-emerald-800">Повторный запрос распознан: количество не увеличено повторно.</p> : null}
+      <h2 className="font-semibold text-emerald-950">{copy.addResult}</h2>
+      {result.repeated ? <p className="mt-1 text-xs text-emerald-800">{copy.repeatedRequest}</p> : null}
       <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-sm text-emerald-950">
-        <span>Добавлено: <strong>{result.added}</strong></span><span>Обновлено: <strong>{result.updated}</strong></span>
-        <span>Цена изменилась: <strong>{result.changedPrice}</strong></span><span>Нет текущей цены: <strong>{result.missingPrice}</strong></span>
-        <span>Недоступно: <strong>{result.unavailable}</strong></span><span>Неактивно: <strong>{result.inactive}</strong></span><span>Пропущено: <strong>{result.skipped}</strong></span>
+        <span>{copy.added}: <strong>{result.added}</strong></span><span>{copy.updated}: <strong>{result.updated}</strong></span>
+        <span>{copy.priceChanged}: <strong>{result.changedPrice}</strong></span><span>{copy.noCurrentPrice}: <strong>{result.missingPrice}</strong></span>
+        <span>{copy.unavailable}: <strong>{result.unavailable}</strong></span><span>{copy.inactive}: <strong>{result.inactive}</strong></span><span>{copy.skipped}: <strong>{result.skipped}</strong></span>
       </div>
-      <details className="mt-3 text-sm"><summary className="cursor-pointer font-medium">Показать позиции</summary><ul className="mt-2 space-y-1">{result.items.map((item) => <li key={item.lineId}>{item.sku} · {item.productName} — {conversionResultLabel(item.result)}</li>)}</ul></details>
+      <details className="mt-3 text-sm"><summary className="cursor-pointer font-medium">{copy.showItems}</summary><ul className="mt-2 space-y-1">{result.items.map((item) => <li key={item.lineId}>{item.sku} · {item.productName} — {conversionResultLabel(item.result, copy)}</li>)}</ul></details>
       <div className="mt-4 flex flex-wrap gap-2">
-        {result.cartId ? <Link className="rounded-md bg-emerald-700 px-3 py-2 text-sm font-semibold text-white" href="/cabinet/cart" prefetch={false}>Перейти в корзину</Link> : null}
-        <Link className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-sm font-semibold text-emerald-800" href={`/cabinet/orders/${orderId}`} prefetch={false}>Остаться в заказе</Link>
-        <button className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-sm font-semibold text-emerald-800" onClick={onNewAttempt} type="button">Добавить ещё раз</button>
+        {result.cartId ? <Link className="rounded-md bg-emerald-700 px-3 py-2 text-sm font-semibold text-white" href="/cabinet/cart" prefetch={false}>{copy.goToCart}</Link> : null}
+        <Link className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-sm font-semibold text-emerald-800" href={`/cabinet/orders/${orderId}`} prefetch={false}>{copy.stayInOrder}</Link>
+        <button className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-sm font-semibold text-emerald-800" onClick={onNewAttempt} type="button">{copy.addAgain}</button>
       </div>
     </div>
   );
 }
 
-function conversionResultLabel(result: QuickReorderConversionResultDto["items"][number]["result"]): string {
-  return ({ added: "Добавлено", updated: "Обновлено", price_changed: "Цена изменилась", missing_price: "Нет текущей цены", unavailable: "Недоступно", inactive: "Неактивно", skipped: "Пропущено" })[result];
+function conversionResultLabel(result: QuickReorderConversionResultDto["items"][number]["result"], copy: OrdersCopy): string {
+  return ({ added: copy.added, updated: copy.updated, price_changed: copy.priceChanged, missing_price: copy.noCurrentPrice, unavailable: copy.unavailable, inactive: copy.inactive, skipped: copy.skipped })[result];
+}
+
+function reorderStatusLabel(status: QuickReorderPreviewDto["lines"][number]["status"], copy: OrdersCopy): string {
+  return ({ available: copy.reorderAvailable, price_changed: copy.priceChanged, missing_price: copy.noCurrentPrice, temporarily_unavailable: copy.temporarilyUnavailable, unavailable: copy.noLongerAvailable, review_required: copy.reviewRequired })[status];
+}
+
+function priceDifferenceLabel(kind: NonNullable<QuickReorderPreviewDto["lines"][number]["priceDifference"]>["kind"], copy: OrdersCopy): string {
+  return ({ unchanged: copy.unchanged, increased: copy.priceIncreased, decreased: copy.priceDecreased, unavailable: copy.comparisonUnavailable })[kind];
 }
 
 function Price({ label, value }: { label: string; value: string }) {

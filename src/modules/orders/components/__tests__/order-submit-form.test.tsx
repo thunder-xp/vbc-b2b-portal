@@ -73,7 +73,7 @@ describe("OrderSubmitForm", () => {
     expect(mocks.submit).toHaveBeenCalledOnce();
 
     resolveSubmission?.({ success: false, errorCode: "ORDER_IN_PROGRESS", message: "Заказ уже отправляется.", data: null });
-    await screen.findByText("Заказ уже отправляется.");
+    await screen.findByText("Заказ уже отправляется. Подождите завершения операции.");
   });
 
   it("explains the operational meaning of the planned shipment date", () => {

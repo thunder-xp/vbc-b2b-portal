@@ -6,20 +6,24 @@ import type { ProductCardCapabilityModel } from "../../partner-cabinet/services"
 import { ProductCard } from "./ProductCard";
 import { CATALOG_PRODUCT_GRID_CLASS } from "./ProductGrid";
 import { BehaviorTrackedCatalogLink, BehaviorViewEvent } from "../../behavior-analytics/components/BehaviorViewEvent";
+import { getCatalogCopy, type PartnerLocale } from "../../partner-locale";
 
 export function CatalogMerchandisingSections({
   capabilities,
   commercialViews,
   companyId,
+  locale = "ru",
   sections,
   userId,
 }: {
   capabilities: ProductCardCapabilityModel;
   commercialViews: Record<string, ProductCommercialViewDto>;
   companyId: string | null;
+  locale?: PartnerLocale;
   sections: CatalogMerchandisingSection[];
   userId: string | null;
 }) {
+  const copy = getCatalogCopy(locale);
   if (!sections.length) return null;
 
   return (
@@ -37,12 +41,12 @@ export function CatalogMerchandisingSections({
               {section.title}
             </h2>
             <BehaviorTrackedCatalogLink
-              ariaLabel={`Показать все: ${section.title}`}
+              ariaLabel={`${copy.showAll}: ${section.title}`}
               className="shrink-0 text-sm font-semibold text-emerald-700 hover:text-emerald-800"
               href={section.href ?? `/cabinet/catalog?label=${section.labelCode}`}
               sourceSurface={section.labelCode}
             >
-              Показать все
+              {copy.showAll}
             </BehaviorTrackedCatalogLink>
           </div>
           <div className={CATALOG_PRODUCT_GRID_CLASS}>
@@ -54,6 +58,7 @@ export function CatalogMerchandisingSections({
                 companyId={companyId}
                 contextBadge={section.contextBadge}
                 key={product.id}
+                locale={locale}
                 product={product}
                 userId={userId}
               />

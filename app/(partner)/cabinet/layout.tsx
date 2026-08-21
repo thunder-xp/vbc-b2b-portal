@@ -9,15 +9,16 @@ import { buildQuickActions } from "@/src/modules/partner-cabinet/services";
 import { WorkspaceAccessState } from "@/src/modules/partner-cabinet/components/WorkspaceAccessState";
 import { getNotificationSummaryAction } from "@/src/modules/notifications/actions/notification.actions";
 import { getCartItemCountAction } from "@/src/modules/orders/actions/cart.actions";
+import { getPartnerLocale } from "@/src/modules/partner-locale/server";
 
 export const metadata: Metadata = { robots: { index: false, follow: false } };
 
 export default async function CabinetLayout({ children }: { children: ReactNode }) {
-  const result = await getPartnerWorkspaceContextAction();
+  const [result, locale] = await Promise.all([getPartnerWorkspaceContextAction(), getPartnerLocale()]);
 
   if (!result.success) {
     if (result.errorCode === "AUTH_REQUIRED") redirect("/auth/sign-in");
-    return <WorkspaceAccessState state="unavailable" />;
+    return <WorkspaceAccessState locale={locale} state="unavailable" />;
   }
 
   const context = result.data;
@@ -32,6 +33,7 @@ export default async function CabinetLayout({ children }: { children: ReactNode 
     getNotificationSummaryAction(),
   ]);
   const shell = {
+    locale,
     userDisplayName: context.userDisplayName,
     userEmail: context.userEmail,
     companyName: context.companyName,
@@ -49,13 +51,13 @@ export default async function CabinetLayout({ children }: { children: ReactNode 
   };
 
   if (context.accessState === "suspended") {
-    return <PartnerLayout context={shell}><WorkspaceAccessState state="suspended" /></PartnerLayout>;
+    return <PartnerLayout context={shell}><WorkspaceAccessState locale={locale} state="suspended" /></PartnerLayout>;
   }
   if (context.accessState === "missing_membership") {
-    return <PartnerLayout context={shell}><WorkspaceAccessState state="missing_membership" /></PartnerLayout>;
+    return <PartnerLayout context={shell}><WorkspaceAccessState locale={locale} state="missing_membership" /></PartnerLayout>;
   }
   if (context.accessState === "missing_company") {
-    return <PartnerLayout context={shell}><WorkspaceAccessState state="missing_company" /></PartnerLayout>;
+    return <PartnerLayout context={shell}><WorkspaceAccessState locale={locale} state="missing_company" /></PartnerLayout>;
   }
 
   return <PartnerLayout context={shell}>{children}</PartnerLayout>;

@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import type { WorkspaceNavigationItem } from "../services/workspace-capability.service";
 import { PartnerSidebar } from "./PartnerSidebar";
+import { usePartnerText } from "../../partner-locale";
 
 export function PartnerMobileNavigation({
   companyName,
@@ -14,13 +15,14 @@ export function PartnerMobileNavigation({
   hasWorkspaceAccess: boolean;
   navigation: WorkspaceNavigationItem[];
 }) {
+  const t = usePartnerText();
   const [isOpen, setIsOpen] = useState(false);
 
   return (
     <>
       <button
         aria-expanded={isOpen}
-        aria-label="Открыть навигацию"
+        aria-label={t("shell.openNavigation")}
         className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-zinc-300 text-zinc-700 focus-visible:ring-2 focus-visible:ring-emerald-600 lg:hidden"
         onClick={() => setIsOpen(true)}
         type="button"
@@ -30,7 +32,7 @@ export function PartnerMobileNavigation({
       {isOpen ? (
         <div className="fixed inset-0 z-40 lg:hidden">
           <button
-            aria-label="Закрыть навигацию"
+            aria-label={t("shell.closeNavigation")}
             className="absolute inset-0 bg-zinc-950/40"
             onClick={() => setIsOpen(false)}
             type="button"

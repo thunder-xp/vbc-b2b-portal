@@ -23,4 +23,12 @@ describe("ProductImageGallery identity", () => {
     expect(overlay).toHaveClass("left-2", "top-2");
     expect(container.querySelector(".aspect-\\[4\\/3\\]")).toContainElement(overlay);
   });
+
+  it("renders gallery merchandising badges in the active partner locale", () => {
+    render(<ProductImageGallery fallbackImageUrl="/one.jpg" images={[]} locale="ro" merchandisingLabels={["NEW", "HOT"]} productId="one" productName="One" />);
+
+    expect(screen.getByText("Noutăți")).toBeInTheDocument();
+    expect(screen.getByText("Preț special")).toBeInTheDocument();
+    expect(screen.queryByText("Новинки")).not.toBeInTheDocument();
+  });
 });

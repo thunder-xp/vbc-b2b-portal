@@ -4,6 +4,7 @@ import { FileSearch, FilePlus2, History, ListRestart, ShoppingCart, Wrench, Zap 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
+import { usePartnerLocale, usePartnerText, type PartnerTranslationKey } from "../../partner-locale";
 import type { WorkspaceQuickActionDto } from "../services";
 
 const icons = {
@@ -16,7 +17,19 @@ const icons = {
   documents: FileSearch,
 } as const;
 
+const actionKeys: Partial<Record<string, PartnerTranslationKey>> = {
+  cart: "quick.cart",
+  documents: "quick.documents",
+  estimate: "quick.estimate",
+  it_support: "quick.it_support",
+  purchase_templates: "quick.purchase_templates",
+  register_warranty: "quick.register_warranty",
+  repeat_order: "quick.repeat_order",
+};
+
 export function QuickActionsMenu({ actions }: { actions: WorkspaceQuickActionDto[] }) {
+  const locale = usePartnerLocale();
+  const t = usePartnerText();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -42,13 +55,14 @@ export function QuickActionsMenu({ actions }: { actions: WorkspaceQuickActionDto
   if (!actions.length) return null;
   return (
     <div className="relative" ref={rootRef}>
-      <button aria-controls="partner-quick-actions" aria-expanded={open} aria-haspopup="menu" aria-label="Быстрые действия" className="inline-flex size-11 items-center justify-center rounded-md border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600" onClick={() => setOpen((value) => !value)} ref={triggerRef} title="Быстрые действия" type="button">
+      <button aria-controls="partner-quick-actions" aria-expanded={open} aria-haspopup="menu" aria-label={t("quick.title")} className="inline-flex size-11 items-center justify-center rounded-md border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600" onClick={() => setOpen((value) => !value)} ref={triggerRef} title={t("quick.title")} type="button">
         <Zap aria-hidden="true" className="size-[19px]" />
       </button>
-      {open ? <nav aria-label="Быстрые действия" className="fixed inset-x-3 top-28 z-50 rounded-md border border-zinc-200 bg-white p-1.5 shadow-xl sm:absolute sm:inset-x-auto sm:right-0 sm:top-12 sm:w-72" id="partner-quick-actions" role="menu">
+      {open ? <nav aria-label={t("quick.title")} className="fixed inset-x-3 top-28 z-50 rounded-md border border-zinc-200 bg-white p-1.5 shadow-xl sm:absolute sm:inset-x-auto sm:right-0 sm:top-12 sm:w-72" id="partner-quick-actions" lang={locale} role="menu">
         {actions.map((action) => {
           const Icon = icons[action.key as keyof typeof icons] ?? FileSearch;
-          return <Link className="flex min-h-11 items-center gap-3 rounded px-3 text-sm font-medium text-zinc-700 hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600" href={action.href} key={action.key} onClick={() => setOpen(false)} prefetch={false} role="menuitem"><Icon aria-hidden="true" className="size-4" />{action.label}</Link>;
+          const translationKey = actionKeys[action.key];
+          return <Link className="flex min-h-11 items-center gap-3 rounded px-3 text-sm font-medium text-zinc-700 hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600" href={action.href} key={action.key} onClick={() => setOpen(false)} prefetch={false} role="menuitem"><Icon aria-hidden="true" className="size-4" />{translationKey ? t(translationKey) : action.label}</Link>;
         })}
       </nav> : null}
     </div>

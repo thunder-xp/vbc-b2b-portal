@@ -3,7 +3,7 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-const sql = readFileSync(join(process.cwd(), "supabase/migrations/20260809190000_partner_external_nomenclature_library.sql"), "utf8");
+const sql = readFileSync(join(process.cwd(), "supabase/migrations/20260809190000_partner_external_nomenclature_library.sql"), "utf8").replace(/\r\n/g, "\n");
 
 describe("partner external nomenclature library migration", () => {
   it("keeps shared identity separate from private company adoption", () => {

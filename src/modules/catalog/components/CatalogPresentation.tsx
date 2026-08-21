@@ -9,6 +9,7 @@ import { listFavoriteProductIdsAction } from "../../purchasing-lists/actions";
 import { ProductGrid } from "./ProductGrid";
 import { ProductList } from "./ProductList";
 import { CatalogViewSwitcher } from "./CatalogViewSwitcher";
+import { usePartnerLocale } from "../../partner-locale";
 
 export function CatalogPresentation({ capabilities, commercialViews, companyId, contextBadge, initialMode, products, userId }: {
   capabilities: ProductCardCapabilityModel;
@@ -19,6 +20,7 @@ export function CatalogPresentation({ capabilities, commercialViews, companyId, 
   products: CatalogProductCardDto[];
   userId: string | null;
 }) {
+  const locale = usePartnerLocale();
   const [mode, setMode] = useState(initialMode);
   const [favoriteProductIds, setFavoriteProductIds] = useState<string[]>([]);
   useEffect(() => {
@@ -32,7 +34,7 @@ export function CatalogPresentation({ capabilities, commercialViews, companyId, 
   return <div className="space-y-3">
     <div className="flex justify-end"><CatalogViewSwitcher mode={mode} onChange={setMode} /></div>
     {mode === "list"
-      ? <ProductList capabilities={capabilities} commercialViews={commercialViews} companyId={companyId} contextBadge={contextBadge} favoriteProductIds={favoriteProductIds} products={products} userId={userId} />
-      : <ProductGrid capabilities={capabilities} commercialViews={commercialViews} companyId={companyId} contextBadge={contextBadge} favoriteProductIds={favoriteProductIds} products={products} userId={userId} />}
+      ? <ProductList capabilities={capabilities} commercialViews={commercialViews} companyId={companyId} contextBadge={contextBadge} favoriteProductIds={favoriteProductIds} locale={locale} products={products} userId={userId} />
+      : <ProductGrid capabilities={capabilities} commercialViews={commercialViews} companyId={companyId} contextBadge={contextBadge} favoriteProductIds={favoriteProductIds} locale={locale} products={products} userId={userId} />}
   </div>;
 }
