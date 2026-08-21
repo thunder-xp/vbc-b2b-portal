@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   record: vi.fn().mockResolvedValue({ recorded: true }),
@@ -23,6 +23,10 @@ describe("BehaviorViewEvent", () => {
     mocks.record.mockClear();
     mocks.recordBatch.mockClear();
     sessionStorage.clear();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("deduplicates hydration and rerenders within one session", async () => {
@@ -123,6 +127,5 @@ describe("BehaviorViewEvent", () => {
     expect(mocks.record).not.toHaveBeenCalled();
     vi.advanceTimersByTime(1);
     expect(mocks.record).toHaveBeenCalledTimes(1);
-    vi.useRealTimers();
   });
 });

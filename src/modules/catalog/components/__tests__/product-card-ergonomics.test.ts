@@ -30,7 +30,8 @@ describe("product card ergonomics contracts", () => {
   it("keeps price and stock missing-data states stable and explicit", () => {
     expect(pricing).toContain("missingValue={copy.pricePending}");
     expect(pricing).toContain("h-full");
-    expect(availability).toContain("stock?.label ?? getCatalogCopy(locale).availabilityPending");
+    expect(availability).toContain("if (!stock) return copy.availabilityPending");
+    expect(availability).toContain("stock.exactAvailableQuantity");
     expect(availability).toContain("line-clamp-2");
   });
 

@@ -18,6 +18,8 @@ export const PARTNER_NOTIFICATION_EVENT_CODES = [
   "employee_suspended",
   "role_changed",
   "price_access_changed",
+  "onboarding_approved",
+  "onboarding_access_opened",
   "watched_product_back_in_stock",
   "watched_product_expected_arrival_added",
   "watched_product_arrived",
@@ -26,6 +28,11 @@ export const PARTNER_NOTIFICATION_EVENT_CODES = [
   "cart_product_availability_changed",
   "campaign_started",
   "campaign_ending_soon",
+  "new_invoice_available",
+  "reconciliation_statement_available",
+  "order_document_available",
+  "product_document_updated",
+  "document_expiring",
   "warehouse_arrival_completed",
   "service_case_created",
   "service_case_accepted",
@@ -41,6 +48,18 @@ export const PARTNER_NOTIFICATION_EVENT_CODES = [
   "service_case_closed",
   "service_case_rejected",
   "service_case_cancelled",
+  "support_ticket_created",
+  "support_ticket_accepted",
+  "support_ticket_reply",
+  "support_information_requested",
+  "support_solution_proposed",
+  "support_ticket_resolved",
+  "support_ticket_closed",
+  "support_ticket_rejected",
+  "service_history_accepted",
+  "service_history_ready_for_pickup",
+  "service_history_issued",
+  "installation_offer",
 ] as const;
 
 export type PartnerNotificationEventCode =
@@ -52,7 +71,10 @@ export const PARTNER_NOTIFICATION_GROUPS = [
   "company_access",
   "products",
   "commercial",
+  "documents",
   "service",
+  "support",
+  "installation",
 ] as const;
 
 export type PartnerNotificationGroup =
@@ -78,11 +100,16 @@ type EventDefinition = {
     | "date_change"
     | "invitation"
     | "membership"
+    | "access_request"
     | "product"
     | "cart"
     | "campaign"
     | "warehouse_arrival"
-    | "service_case";
+    | "document"
+    | "service_case"
+    | "support_ticket"
+    | "service_history"
+    | "installation_assignment_attempt";
   expiryDays: number;
 };
 
@@ -106,6 +133,8 @@ export const PARTNER_NOTIFICATION_EVENT_CATALOG = {
   employee_suspended: definition("company_access", "critical", true, "membership", 180),
   role_changed: definition("company_access", "information", true, "membership", 180),
   price_access_changed: definition("company_access", "warning", true, "membership", 180),
+  onboarding_approved: definition("company_access", "success", true, "access_request", 90),
+  onboarding_access_opened: definition("company_access", "success", true, "access_request", 90),
   watched_product_back_in_stock: definition("products", "success", false, "product", 30),
   watched_product_expected_arrival_added: definition(
     "products",
@@ -120,6 +149,11 @@ export const PARTNER_NOTIFICATION_EVENT_CATALOG = {
   cart_product_availability_changed: definition("products", "warning", true, "cart", 30),
   campaign_started: definition("commercial", "information", false, "campaign", 90),
   campaign_ending_soon: definition("commercial", "information", false, "campaign", 30),
+  new_invoice_available: definition("documents", "information", false, "document", 180),
+  reconciliation_statement_available: definition("documents", "information", false, "document", 180),
+  order_document_available: definition("documents", "information", false, "document", 180),
+  product_document_updated: definition("documents", "information", false, "document", 90),
+  document_expiring: definition("documents", "warning", false, "document", 30),
   warehouse_arrival_completed: definition("commercial", "success", false, "warehouse_arrival", 90),
   service_case_created: definition("service", "information", false, "service_case", 90),
   service_case_accepted: definition("service", "information", false, "service_case", 90),
@@ -135,6 +169,18 @@ export const PARTNER_NOTIFICATION_EVENT_CATALOG = {
   service_case_closed: definition("service", "success", false, "service_case", 90),
   service_case_rejected: definition("service", "warning", false, "service_case", 90),
   service_case_cancelled: definition("service", "information", false, "service_case", 90),
+  support_ticket_created: definition("support", "information", false, "support_ticket", 90),
+  support_ticket_accepted: definition("support", "information", false, "support_ticket", 90),
+  support_ticket_reply: definition("support", "information", false, "support_ticket", 90),
+  support_information_requested: definition("support", "warning", false, "support_ticket", 90),
+  support_solution_proposed: definition("support", "information", false, "support_ticket", 90),
+  support_ticket_resolved: definition("support", "success", false, "support_ticket", 90),
+  support_ticket_closed: definition("support", "success", false, "support_ticket", 90),
+  support_ticket_rejected: definition("support", "warning", false, "support_ticket", 90),
+  service_history_accepted: definition("service", "information", false, "service_history", 90),
+  service_history_ready_for_pickup: definition("service", "success", false, "service_history", 90),
+  service_history_issued: definition("service", "success", false, "service_history", 90),
+  installation_offer: definition("installation", "information", false, "installation_assignment_attempt", 30),
 } satisfies Record<PartnerNotificationEventCode, EventDefinition>;
 
 function definition(

@@ -17,6 +17,8 @@ const groupKeys = {
   commercial: "groupCommercial",
   documents: "groupDocuments",
   service: "groupService",
+  support: "groupSupport",
+  installation: "groupInstallation",
 } as const;
 
 export function NotificationPreferences({ preferences }: { preferences: NotificationPreference[] }) {

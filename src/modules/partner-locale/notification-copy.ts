@@ -43,6 +43,8 @@ export const notificationCopy = definePartnerCopy(
     groupCommercial: "Специальные предложения",
     groupDocuments: "Документы",
     groupService: "Сервисные заявки",
+    groupSupport: "Техническая поддержка",
+    groupInstallation: "Монтаж",
     groupDescription: "Системные уведомления помогают не пропустить важные изменения.",
     optional: "Необязательные уведомления",
     enabled: "В приложении включено",
@@ -98,6 +100,8 @@ export const notificationCopy = definePartnerCopy(
     groupCommercial: "Oferte speciale",
     groupDocuments: "Documente",
     groupService: "Solicitări de service",
+    groupSupport: "Suport tehnic",
+    groupInstallation: "Instalare",
     groupDescription: "Notificările de sistem vă ajută să urmăriți modificările importante.",
     optional: "Notificări opționale",
     enabled: "Activate în aplicație",
@@ -138,6 +142,8 @@ const roEvents: Record<PartnerNotificationEventCode, EventPresentation> = {
   employee_suspended: event("Accesul angajatului este suspendat", "Verificați accesul angajatului.", "Deschide accesul"),
   role_changed: event("Rolul angajatului s-a modificat", "Drepturile angajatului au fost actualizate.", "Deschide accesul"),
   price_access_changed: event("Accesul la prețuri s-a modificat", "Drepturile comerciale ale angajatului au fost actualizate.", "Deschide accesul"),
+  onboarding_approved: event("Accesul la cabinet a fost aprobat", "Compania a fost conectată la platforma partenerilor Novotech.", "Deschide cabinetul"),
+  onboarding_access_opened: event("Accesul la cabinet este deschis", "Compania a fost conectată la platforma partenerilor Novotech.", "Deschide cabinetul"),
   watched_product_back_in_stock: event("Produsul este din nou în stoc", "Un produs urmărit este disponibil.", "Deschide produsul"),
   watched_product_expected_arrival_added: event("A fost adăugată o reaprovizionare", "Pentru un produs urmărit este disponibilă o dată estimată.", "Deschide produsul"),
   watched_product_arrived: event("Produsul a fost reaprovizionat", "Un produs urmărit a ajuns în stoc.", "Deschide produsul"),
@@ -146,6 +152,11 @@ const roEvents: Record<PartnerNotificationEventCode, EventPresentation> = {
   cart_product_availability_changed: event("Disponibilitatea unui produs din coș s-a modificat", "Verificați disponibilitatea actuală înainte de trimiterea comenzii.", "Deschide coșul"),
   campaign_started: event("A început o ofertă specială", "Consultați condițiile ofertei Novotech.", "Deschide oferta"),
   campaign_ending_soon: event("Oferta se încheie în curând", "Consultați termenul și condițiile ofertei.", "Deschide oferta"),
+  new_invoice_available: event("Este disponibilă o factură nouă", "Un document comercial nou este disponibil pentru companie.", "Deschide documentul"),
+  reconciliation_statement_available: event("Este disponibil actul de verificare", "Un document comercial nou este disponibil pentru companie.", "Deschide documentul"),
+  order_document_available: event("Este disponibil un document al comenzii", "Un document comercial nou este disponibil pentru companie.", "Deschide documentul"),
+  product_document_updated: event("Documentația produsului a fost actualizată", "Consultați documentația actuală a produsului.", "Deschide documentul"),
+  document_expiring: event("Documentul expiră în curând", "Verificați termenul de valabilitate al documentului.", "Deschide documentul"),
   warehouse_arrival_completed: event("Reaprovizionarea a fost publicată", "Produsele noi sunt disponibile în catalog.", "Deschide catalogul"),
   service_case_created: serviceEvent("Solicitarea de service a fost creată"),
   service_case_accepted: serviceEvent("Solicitarea de service a fost acceptată"),
@@ -161,6 +172,18 @@ const roEvents: Record<PartnerNotificationEventCode, EventPresentation> = {
   service_case_closed: serviceEvent("Solicitarea de service a fost închisă"),
   service_case_rejected: serviceEvent("Solicitarea de service a fost respinsă"),
   service_case_cancelled: serviceEvent("Solicitarea de service a fost anulată"),
+  support_ticket_created: supportEvent("Solicitarea de suport a fost creată"),
+  support_ticket_accepted: supportEvent("Solicitarea de suport a fost acceptată"),
+  support_ticket_reply: supportEvent("A fost adăugat un răspuns la solicitarea de suport"),
+  support_information_requested: supportEvent("Sunt necesare informații suplimentare"),
+  support_solution_proposed: supportEvent("A fost propusă o soluție"),
+  support_ticket_resolved: supportEvent("Solicitarea de suport a fost soluționată"),
+  support_ticket_closed: supportEvent("Solicitarea de suport a fost închisă"),
+  support_ticket_rejected: supportEvent("Solicitarea de suport a fost respinsă"),
+  service_history_accepted: serviceHistoryEvent("Produsul a fost acceptat în service"),
+  service_history_ready_for_pickup: serviceHistoryEvent("Produsul este gata de ridicare"),
+  service_history_issued: serviceHistoryEvent("Produsul a fost eliberat din service"),
+  installation_offer: event("Comandă nouă pentru instalare", "Este disponibilă o ofertă nouă pentru instalarea sistemului CCTV.", "Deschide ofertele"),
 };
 
 export function presentPartnerNotification(
@@ -185,6 +208,14 @@ function event(title: string, message: string, action: string | null): EventPres
 
 function serviceEvent(title: string): EventPresentation {
   return event(title, "Verificați starea actuală a solicitării de service.", "Deschide solicitarea");
+}
+
+function supportEvent(title: string): EventPresentation {
+  return event(title, "Verificați starea actuală a solicitării de suport.", "Deschide solicitarea");
+}
+
+function serviceHistoryEvent(title: string): EventPresentation {
+  return event(title, "Verificați starea actuală în istoricul de service.", "Deschide istoricul");
 }
 
 function formatNotificationTime(value: string, locale: PartnerLocale): string {

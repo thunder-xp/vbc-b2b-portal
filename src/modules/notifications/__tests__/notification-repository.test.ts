@@ -56,4 +56,32 @@ describe("SupabaseNotificationRepository", () => {
       "00000000-0000-4000-8000-000000000010",
     )).resolves.toMatchObject({ items: [{ eventGroup: "commercial" }] });
   });
+
+  it.each(["documents", "support", "installation"] as const)(
+    "accepts the %s event group persisted by the governed projection",
+    async (eventGroup) => {
+      mocks.rpc.mockResolvedValue({
+        data: { unreadCount: 0, items: [{
+          id: "00000000-0000-4000-8000-000000000001",
+          eventCode: eventGroup === "documents" ? "order_document_available" : eventGroup === "support" ? "support_ticket_created" : "installation_offer",
+          eventGroup,
+          severity: "information",
+          mandatory: false,
+          title: "Историческое уведомление",
+          message: "Сохранённый исходный текст.",
+          actionLabel: "Открыть",
+          actionUrl: "/cabinet",
+          occurredAt: "2026-08-03T12:00:00Z",
+          readAt: null,
+          dismissedAt: null,
+          expiresAt: "2026-11-03T12:00:00Z",
+        }] },
+        error: null,
+      });
+
+      await expect(new SupabaseNotificationRepository().getSummary(
+        "00000000-0000-4000-8000-000000000010",
+      )).resolves.toMatchObject({ items: [{ eventGroup }] });
+    },
+  );
 });

@@ -105,13 +105,14 @@ describe("estimate commercial calculation", () => {
   });
 
   it.each([100, 300])("calculates %i lines within an interactive CPU budget", (count) => {
-    const startedAt = performance.now();
+    const startedAt = process.cpuUsage();
     const result = calculateEstimateCommercials({
       lines: Array.from({ length: count }, (_, index) => ({ ...directLine, id: `line-${index}` })),
       sections: [{ id: "section-1", discountPercent: 0 }],
       charges: [], globalDiscountPercent: 0, vatMode: "none", vatRatePercent: 0,
     });
     expect(result.lines).toHaveLength(count);
-    expect(performance.now() - startedAt).toBeLessThan(100);
+    const elapsed = process.cpuUsage(startedAt);
+    expect((elapsed.user + elapsed.system) / 1_000).toBeLessThan(100);
   });
 });

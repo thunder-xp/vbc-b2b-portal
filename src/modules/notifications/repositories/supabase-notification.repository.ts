@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { createClient } from "@/src/lib/supabase/server";
 
+import { PARTNER_NOTIFICATION_GROUPS } from "../domain/event-catalog";
 import type { NotificationRepository } from "./notification.repository";
 import type {
   NotificationListFilter,
@@ -17,7 +18,7 @@ import type {
 const itemSchema = z.object({
   id: z.string().uuid(),
   eventCode: z.string().min(1),
-  eventGroup: z.enum(["orders", "shipments", "company_access", "products", "commercial", "documents", "service"]),
+  eventGroup: z.enum(PARTNER_NOTIFICATION_GROUPS),
   severity: z.enum(["critical", "warning", "information", "success"]),
   mandatory: z.boolean(),
   title: z.string(),
@@ -42,7 +43,7 @@ const pageSchema = z.object({
   }).nullable(),
 });
 const preferencesSchema = z.array(z.object({
-  eventGroup: z.enum(["orders", "shipments", "company_access", "products", "commercial", "documents", "service"]),
+  eventGroup: z.enum(PARTNER_NOTIFICATION_GROUPS),
   inAppEnabled: z.boolean(),
   emailEnabled: z.boolean(),
   deliveryMode: z.enum(["immediate", "daily", "off"]),

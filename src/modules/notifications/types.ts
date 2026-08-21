@@ -1,11 +1,6 @@
-export type NotificationEventGroup =
-  | "orders"
-  | "shipments"
-  | "company_access"
-  | "products"
-  | "commercial"
-  | "documents"
-  | "service";
+import type { PartnerNotificationGroup } from "./domain/event-catalog";
+
+export type NotificationEventGroup = PartnerNotificationGroup;
 export type NotificationSeverity = "critical" | "warning" | "information" | "success";
 
 export type PartnerNotification = {
