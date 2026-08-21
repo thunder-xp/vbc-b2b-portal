@@ -1,15 +1,16 @@
 import type { EstimateLifecycleStatus, EstimateStatus } from "../types";
 import { canonicalStatuses, StatusBadge } from "../../platform-ui";
-import { partnerStatusLabel, usePartnerLocale } from "../../partner-locale";
+import { partnerStatusLabel, type PartnerLocale } from "../../partner-locale";
 
 export type EstimateDisplayStatus = EstimateLifecycleStatus | EstimateStatus;
 
 export function EstimateStatusBadge({
   status = "draft",
+  locale = "ru",
 }: {
   status?: EstimateDisplayStatus;
+  locale?: PartnerLocale;
 }) {
-  const locale = usePartnerLocale();
   const descriptor =
     status === "draft"
       ? canonicalStatuses.draft

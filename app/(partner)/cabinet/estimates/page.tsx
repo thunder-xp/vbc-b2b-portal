@@ -187,6 +187,7 @@ export default async function EstimatesPage({
                     </p>
                   </div>
                   <EstimateStatusBadge
+                    locale={locale}
                     status={estimate.archived ? "archived" : estimate.status}
                   />
                 </div>
@@ -257,6 +258,7 @@ export default async function EstimatesPage({
                     </td>
                     <td className="px-4 py-4">
                       <EstimateStatusBadge
+                        locale={locale}
                         status={
                           estimate.archived ? "archived" : estimate.status
                         }

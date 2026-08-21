@@ -134,7 +134,7 @@ export default async function CustomerDetailPage({
                     {estimate.projectName ?? copy.projectMissing}
                   </p>
                 </div>
-                <EstimateStatusBadge status={estimate.status} />
+                <EstimateStatusBadge locale={locale} status={estimate.status} />
                 <time className="text-sm text-zinc-500">
                   {formatPartnerDate(estimate.updatedAt, locale)}
                 </time>

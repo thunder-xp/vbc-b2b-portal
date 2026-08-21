@@ -16,4 +16,11 @@ describe("estimate lifecycle presentation", () => {
     render(<EstimateStatusBadge status={status} />);
     expect(screen.getByText(label)).toBeVisible();
   });
+
+  it("renders the Romanian status without requiring a client locale provider", () => {
+    render(<EstimateStatusBadge locale="ro" status="accepted" />);
+
+    expect(screen.getByText("Acceptat")).toBeVisible();
+    expect(screen.getByLabelText("Statut: Acceptat")).toBeVisible();
+  });
 });

@@ -393,6 +393,7 @@ export function EstimateCommercialEditor({
                 {estimate.estimateNumber}
               </strong>
               <EstimateStatusBadge
+                locale={locale}
                 status={
                   estimate.status === "archived"
                     ? "archived"
