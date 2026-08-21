@@ -32,7 +32,6 @@ export const ONE_C_DELIVERY_CARRIER_FIELDS = [
   "Ref_Key",
   "Code",
   "Description",
-  "Недействителен",
   "DeletionMark",
 ] as const;
 
