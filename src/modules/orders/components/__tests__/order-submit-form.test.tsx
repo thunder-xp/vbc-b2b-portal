@@ -78,8 +78,26 @@ describe("OrderSubmitForm", () => {
 
   it("explains the operational meaning of the planned shipment date", () => {
     render(<OrderSubmitForm submissionKey="55555555-5555-4555-8555-555555555555" />);
-    expect(screen.getByText(/До этой даты оборудование планируется удерживать/)).toBeInTheDocument();
-    expect(screen.getByText(/Заказ будет передан в 1С Novotech/)).toBeInTheDocument();
+    expect(screen.getByText("До этой даты оборудование резервируется под заказ.")).toBeInTheDocument();
+    expect(screen.queryByText(/Заказ будет передан в 1С Novotech/)).not.toBeInTheDocument();
+  });
+
+  it("submits semantic checkout choices without raw 1C references", () => {
+    const { container } = render(<OrderSubmitForm
+      checkoutOptions={{
+        counterpartyKind: "legal_entity",
+        paymentMethods: [
+          { value: "cashless", enabled: true, contractLabel: "NS-67/2104/22", unavailableReason: null },
+          { value: "cash", enabled: true, contractLabel: "С ПОКУПАТЕЛЕМ", unavailableReason: null },
+        ],
+        carriers: [{ id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", name: "Novotech Systems" }],
+      }}
+      submissionKey="55555555-5555-4555-8555-555555555555"
+    />);
+    expect(screen.getByRole("radio", { name: "Безналичный" })).toBeChecked();
+    expect(screen.getByText("Договор: NS-67/2104/22")).toBeInTheDocument();
+    expect(container.querySelector('input[name="paymentMethod"][value="cashless"]')).toBeChecked();
+    expect(container.innerHTML).not.toContain("Ref_Key");
   });
 
   it("uses the Chisinau business date without a UTC boundary shift", () => {

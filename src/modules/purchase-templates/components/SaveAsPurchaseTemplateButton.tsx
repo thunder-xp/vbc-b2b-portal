@@ -17,7 +17,7 @@ type Source =
   | { type: "order"; id: string }
   | { type: "purchasing_list"; id: string };
 
-export function SaveAsPurchaseTemplateButton({ source }: { source: Source }) {
+export function SaveAsPurchaseTemplateButton({ source, label }: { source: Source; label?: string }) {
   const router = useRouter();
   const copy = procurementCopy(usePartnerLocale());
   const [open, setOpen] = useState(false);
@@ -40,7 +40,7 @@ export function SaveAsPurchaseTemplateButton({ source }: { source: Source }) {
         type="button"
       >
         <BookmarkPlus aria-hidden="true" className="size-4" />
-        {copy.saveAsTemplate}
+        {label ?? copy.saveAsTemplate}
       </button>
       {open ? (
         <div

@@ -132,6 +132,7 @@ describe("counterparty directory normalization", () => {
       counterparties: [first!, second!],
       contracts: [],
       priceProfiles: [],
+      deliveryCarriers: [],
       pagesProcessed: 1,
       failedRecords: 0,
       skippedCounterpartyRows: 0,

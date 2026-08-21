@@ -7,6 +7,7 @@ import { ForbiddenError } from "../../access-control/services";
 import { UserType } from "../../access-control/types";
 import { type PartnerOrderHistoryDetailDto, type PartnerOrderHistorySyncResult, type PartnerOrderDetailDto, type PartnerOrderSummaryDto, type PlannedShipmentDto } from "../services";
 import type { PartnerOrder } from "../types";
+import type { CheckoutFulfillmentMethod, CheckoutPaymentMethod } from "../repositories";
 import { createPartnerOrderHistoryService, createPartnerOrderService } from "./service-factory";
 import { orderSubmissionFailure } from "./order-action-error";
 
@@ -18,19 +19,36 @@ export async function submitCartOrderAction(
   const expectedIntentVersion = Number(text(formData, "expectedIntentVersion"));
   const submissionKey = text(formData, "submissionKey");
   const requestedDeliveryDate = text(formData, "requestedDeliveryDate");
+  const paymentMethod = text(formData, "paymentMethod") as CheckoutPaymentMethod;
+  const paymentDate = text(formData, "paymentDate");
+  const fulfillmentMethod = text(formData, "fulfillmentMethod") as CheckoutFulfillmentMethod;
+  const carrierId = text(formData, "carrierId") || null;
   if (
     !cartId
     || !Number.isSafeInteger(expectedIntentVersion)
     || expectedIntentVersion < 1
     || !submissionKey
     || !requestedDeliveryDate
+    || !["cashless", "cash"].includes(paymentMethod)
+    || !paymentDate
+    || !["pickup", "delivery"].includes(fulfillmentMethod)
+    || (fulfillmentMethod === "delivery" && !carrierId)
   ) {
     return invalidInput("Проверьте корзину и дату отгрузки.");
   }
   try {
     const order = await createPartnerOrderService().submit(
       await getAuthenticatedUserId(),
-      { cartId, expectedIntentVersion, submissionKey, requestedDeliveryDate },
+      {
+        cartId,
+        expectedIntentVersion,
+        submissionKey,
+        requestedDeliveryDate,
+        paymentMethod,
+        paymentDate,
+        fulfillmentMethod,
+        carrierId,
+      },
     );
     revalidatePath("/cabinet", "layout"); revalidatePath("/cabinet/cart"); revalidatePath("/cabinet/orders");
     return success(`Заказ ${order.external1cNumber ?? ""} создан в 1С.`, {

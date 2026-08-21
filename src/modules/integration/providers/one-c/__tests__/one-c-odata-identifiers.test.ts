@@ -25,6 +25,7 @@ describe("1C OData identifiers", () => {
       partners: "Catalog_Контрагенты",
       contracts: "Catalog_ДоговорыКонтрагентов",
       defaultPartnerContracts: "InformationRegister_ОсновныеДоговорыКонтрагента",
+      deliveryCarriers: "Catalog_СлужбыДоставки",
       priceTypes: "Catalog_ВидыЦен",
     });
     expect(ONE_C_DEFAULT_PARTNER_CONTRACT_FIELDS).toEqual([

@@ -170,15 +170,13 @@ export default async function CartPage() {
             </div>
             <aside className="space-y-4 [&_button]:min-h-11 [&_input]:min-h-11">
               <div className="rounded-lg border border-zinc-200 bg-white p-4">
-                <p className="text-sm text-zinc-600">{copy.itemCount}</p>
-                <p className="mt-1 text-xl font-semibold">
-                  {cart.positionCount}
-                </p>
-                <p className="mt-3 text-sm text-zinc-600">{copy.unitCount}</p>
-                <p className="mt-1 text-lg font-semibold">
-                  {cart.totalUnitCount}
-                </p>
-                <p className="mt-4 text-sm text-zinc-600">
+                <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                  <dt className="text-zinc-600">{copy.itemCount}</dt>
+                  <dd className="text-right font-semibold">{cart.positionCount}</dd>
+                  <dt className="text-zinc-600">{copy.unitCount}</dt>
+                  <dd className="text-right font-semibold">{cart.totalUnitCount}</dd>
+                </dl>
+                <p className="mt-3 border-t border-zinc-200 pt-3 text-sm text-zinc-600">
                   {cart.commercialMode === "full"
                     ? copy.total
                     : copy.retailReferenceTotal}
@@ -200,13 +198,14 @@ export default async function CartPage() {
                 aria-label={copy.additionalCartActions}
                 className="grid gap-2 [&>button]:h-11 [&>button]:w-full [&>button]:justify-center"
               >
-                <SaveAsPurchasingListButton source="cart" />
-                <SaveAsPurchaseTemplateButton source={{ type: "cart" }} />
+                <SaveAsPurchasingListButton label={copy.saveToFavorites} source="cart" />
+                <SaveAsPurchaseTemplateButton label={copy.saveToTemplate} source={{ type: "cart" }} />
               </div>
               <OrderSubmitForm
                 cartId={cart.id!}
                 intentVersion={cart.intentVersion!}
                 submissionKey={crypto.randomUUID()}
+                checkoutOptions={cart.checkoutOptions}
               />
             </aside>
           </div>

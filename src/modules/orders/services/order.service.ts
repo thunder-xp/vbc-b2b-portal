@@ -1,13 +1,21 @@
+import { createHash } from "node:crypto";
+
 import type { CompanyAccessService, PermissionService } from "../../access-control/services";
 import { NotFoundError } from "../../access-control/services";
 import { MembershipStatus } from "../../access-control/types";
 import type { CatalogService } from "../../catalog/services";
 import type { OrderProvider, PartnerProvider } from "../../integration/contracts";
-import type { ExternalReferenceDTO, PartnerContractDTO, SalesOrderDTO } from "../../integration/dto";
+import type { ExternalReferenceDTO, SalesOrderDTO } from "../../integration/dto";
 import { IntegrationProviderUnavailableError, IntegrationTimeoutError } from "../../integration/errors";
 import { isStale } from "../../integration/freshness";
 import { NOVOTECH_ONE_C_ORGANIZATION_REF } from "../../integration/config";
 import type { PricingInventoryService } from "../../pricing-inventory/services";
+import type {
+  CheckoutConfigurationRepository,
+  CheckoutFulfillmentMethod,
+  CheckoutPaymentMethod,
+  CheckoutContractConfiguration,
+} from "../repositories";
 import { OrderRepositoryError, type CartRepository, type OrderItemSnapshotInput, type PartnerOrderRepository } from "../repositories/order.repository";
 import { CartStatus, PartnerOrderIntegrationStatus, PartnerOrderStatus, type PartnerOrder, type PartnerOrderItem } from "../types";
 import { OrderReconciliationRequiredError, OrderSubmissionInProgressError, RecoverableOrderSubmissionError } from "./order-submission.errors";
@@ -16,6 +24,7 @@ import {
   OrderPriceRefreshFailedError,
   type OrderPriceRefreshService,
 } from "./order-price-refresh.service";
+import { resolveCheckoutSelection, type CheckoutSelection } from "./checkout-configuration.service";
 
 export type PartnerOrderSummaryDto = {
   id: string;
@@ -52,6 +61,10 @@ export interface PartnerOrderService {
     expectedIntentVersion: number;
     submissionKey: string;
     requestedDeliveryDate: string;
+    paymentMethod?: CheckoutPaymentMethod;
+    paymentDate?: string;
+    fulfillmentMethod?: CheckoutFulfillmentMethod;
+    carrierId?: string | null;
   }): Promise<PartnerOrder>;
   listOwnCompanyOrders(userId: string): Promise<PartnerOrderSummaryDto[]>;
   getOrder(userId: string, orderId: string): Promise<PartnerOrderDetailDto>;
@@ -84,6 +97,7 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
     private readonly orderProvider: OrderProvider,
     private readonly options: PartnerOrderServiceOptions = {},
     private readonly priceRefreshService?: OrderPriceRefreshService,
+    private readonly checkoutConfigurationRepository?: CheckoutConfigurationRepository,
   ) {}
 
   async submit(userId: string, input: {
@@ -91,12 +105,17 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
     expectedIntentVersion: number;
     submissionKey: string;
     requestedDeliveryDate: string;
+    paymentMethod?: CheckoutPaymentMethod;
+    paymentDate?: string;
+    fulfillmentMethod?: CheckoutFulfillmentMethod;
+    carrierId?: string | null;
   }): Promise<PartnerOrder> {
     const preflightStartedAt = Date.now();
     const submittedCartId = requireUuid(input.cartId, "Cart");
     const expectedIntentVersion = requireIntentVersion(input.expectedIntentVersion);
     const submissionKey = requireUuid(input.submissionKey, "Submission key");
     const deliveryDate = normalizeDeliveryDate(input.requestedDeliveryDate);
+    const checkoutSelection = normalizeCheckoutSelection(input, deliveryDate);
     console.info(submissionEvent("partner_order_submission_started", "submission_started", {
       submissionKey, orderId: null, cartId: null, companyId: null,
     }));
@@ -158,8 +177,19 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
     const counterpartyRef = company.external1cId;
     const companyPriceTypeRef = company.external1cPriceTypeId;
     const companyContractRef = requireOneCGuid(company.external1cContractId, "Company contract");
-    const mappedContract = mappedCustomerContract(companyContractRef);
-    const cart = await this.cartRepository.findActive(company.id, userId);
+    const [checkoutConfiguration, cart] = await Promise.all([
+      this.checkoutConfigurationRepository
+        ? diagnosticStep(
+            "checkout_configuration_resolution",
+            () => this.checkoutConfigurationRepository!.getByCompanyId(company.id),
+            { companyId: company.id, submissionKey },
+          )
+        : Promise.resolve(null),
+      this.cartRepository.findActive(company.id, userId),
+    ]);
+    const resolvedCheckout = checkoutConfiguration
+      ? resolveCheckoutSelection(checkoutConfiguration, checkoutSelection)
+      : fallbackCheckoutSelection(checkoutSelection, companyContractRef, companyPriceTypeRef);
     if (!cart) throw new RecoverableOrderSubmissionError("The active cart is not available.");
     if (cart.id !== submittedCartId || cart.intentVersion !== expectedIntentVersion) {
       console.warn({
@@ -227,29 +257,11 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
                   )).then((views) => ({ commercialMode: "full" as const, views })),
           { cartId: cart.id, companyId: company.id, submissionKey },
         ),
-        Promise.resolve(mappedContract),
         diagnosticStep(
           "price_type_currency_resolution",
           () => this.partnerProvider.fetchPriceType({ reference: companyPriceTypeRef }),
           { cartId: cart.id, companyId: company.id, priceTypeRef: companyPriceTypeRef, submissionKey },
         ),
-        this.options.useLegacyMinimalOrderPayload
-          ? diagnosticStep(
-              "commercial_exchange_rate_resolution",
-              async () => {
-                if (this.pricingInventoryService.getAuthoritativeUsdMdlRateSnapshot) {
-                  return (
-                    await this.pricingInventoryService
-                      .getAuthoritativeUsdMdlRateSnapshot(userId)
-                  )?.mdlPerUsdRate ?? null;
-                }
-                return this.pricingInventoryService.getApprovedUsdMdlRate
-                  ? this.pricingInventoryService.getApprovedUsdMdlRate(userId)
-                  : null;
-              },
-              { cartId: cart.id, companyId: company.id, submissionKey },
-            )
-          : Promise.resolve<number | null>(null),
       ]);
     } catch (error) {
       console.error({
@@ -264,7 +276,7 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
       if (error instanceof RecoverableOrderSubmissionError) throw error;
       throw new RecoverableOrderSubmissionError("Order preflight validation failed.");
     }
-    const [identities, initialOrderPricing, contract, priceType, approvedUsdMdlRate] = resolvedInputs;
+    const [identities, initialOrderPricing, priceType] = resolvedInputs;
     let commercialViews = initialOrderPricing.views;
     const commercialMode = initialOrderPricing.commercialMode;
     const identitiesById = new Map(identities.map((item) => [item.id, item]));
@@ -374,29 +386,14 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
       console.warn({ event: "partner_order_preflight_warning", warning: "stale_stock", cartId: cart.id, companyId: company.id, submissionKey, staleProductCount: staleStockProducts.length });
     }
     console.info({ event: "partner_order_preflight_completed", cartId: cart.id, companyId: company.id, submissionKey, durationMs: Date.now() - preflightStartedAt, productCount: cartItems.length, databaseReadMode: "bulk" });
-    if (!contract) {
-      failOrderSubmission(
-        "contract_resolution",
-        new RecoverableOrderSubmissionError(
-          "The active 1C customer contract is unavailable.",
-          "ORDER_CONTRACT_MAPPING_MISSING",
-        ),
-        {
-          cartId: cart.id,
-          companyId: company.id,
-          counterpartyRef,
-          submissionKey,
-        },
-      );
-    }
-    if (!contract.organizationReference) {
+    if (!resolvedCheckout.contract.organizationRef) {
       failOrderSubmission(
         "organization_resolution",
         new RecoverableOrderSubmissionError(
           "The active 1C customer contract has no organization.",
           "ORDER_COMPANY_MAPPING_MISSING",
         ),
-        { cartId: cart.id, companyId: company.id, contractRef: contract.reference.externalId, submissionKey },
+        { cartId: cart.id, companyId: company.id, contractRef: resolvedCheckout.contract.contractRef, submissionKey },
       );
     }
     if (!priceType?.active || !priceType.currency) {
@@ -423,8 +420,8 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
       companyId: company.id,
       companyName: company.displayName,
       counterpartyRef,
-      contractRef: contract.reference.externalId,
-      organizationRef: contract.organizationReference.externalId,
+      contractRef: resolvedCheckout.contract.contractRef,
+      organizationRef: resolvedCheckout.contract.organizationRef,
       priceTypeRef: companyPriceTypeRef,
       currencyRef: priceType.currency,
       submissionKey,
@@ -505,21 +502,8 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
     });
     const currencyCodes = [...new Set(snapshots.map((item) => item.currencyCode))];
     if (currencyCodes.length !== 1) throw new RecoverableOrderSubmissionError("Cart prices use incompatible currencies.");
-    console.info({
-      event: "partner_order_submission_diagnostic",
-      stage: "commercial_exchange_rate_resolved",
-      cartId: cart.id,
-      companyId: company.id,
-      submissionKey,
-      required: this.options.useLegacyMinimalOrderPayload === true,
-      available: approvedUsdMdlRate !== null,
-    });
-    const exportSnapshots = this.options.useLegacyMinimalOrderPayload
-      ? convertOrderSnapshotsToMdl(snapshots, approvedUsdMdlRate)
-      : snapshots;
-    const exportCurrencyCode = this.options.useLegacyMinimalOrderPayload
-      ? "MDL"
-      : currencyCodes[0]!;
+    const exportSnapshots = snapshots;
+    const exportCurrencyCode = currencyCodes[0]!;
     console.info({
       event: "partner_order_submission_diagnostic",
       stage: "order_lines_resolved",
@@ -535,9 +519,20 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
 
     const salesOrder = buildSalesOrder({
       submissionKey, deliveryDate, companyRef: counterpartyRef,
-      contractRef: contract.reference.externalId, priceTypeRef: companyPriceTypeRef,
-      organizationReference: contract.organizationReference, currencyRef: priceType.currency,
+      contractRef: resolvedCheckout.contract.contractRef, priceTypeRef: companyPriceTypeRef,
+      organizationReference: ref(resolvedCheckout.contract.organizationRef!, "organization"), currencyRef: priceType.currency,
       currencyCode: exportCurrencyCode, snapshots: exportSnapshots,
+      paymentMethod: resolvedCheckout.paymentMethod,
+      paymentDate: resolvedCheckout.paymentDate,
+      fulfillmentMethod: resolvedCheckout.fulfillmentMethod,
+      carrierReference: resolvedCheckout.carrierExternalRef
+        ? ref(resolvedCheckout.carrierExternalRef, "delivery-carrier")
+        : null,
+    });
+    const requestFingerprint = checkoutRequestFingerprint({
+      cartId: cart.id,
+      expectedIntentVersion,
+      salesOrder,
     });
     console.info(submissionEvent("partner_order_payload_built", "payload_built", {
       submissionKey, orderId: null, cartId: cart.id, companyId: company.id,
@@ -561,7 +556,14 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
         expectedIntentVersion,
         submissionKey,
         submissionAttemptId: attemptId,
-        requestedDeliveryDate: deliveryDate, payloadSnapshot: toJsonRecord(salesOrder), items: snapshots,
+        requestedDeliveryDate: deliveryDate,
+        paymentMethod: resolvedCheckout.paymentMethod,
+        paymentDate: resolvedCheckout.paymentDate,
+        fulfillmentMethod: resolvedCheckout.fulfillmentMethod,
+        carrierId: resolvedCheckout.carrierId,
+        requestFingerprint,
+        payloadSnapshot: toJsonRecord(salesOrder),
+        items: snapshots,
       });
     } catch (error) {
       console.error({ event: "partner_order_transition_rejected", cartId: cart.id, cartStatus: cart.status, submissionKey, transition: "active_to_submitting", repositoryErrorCode: error instanceof OrderRepositoryError ? error.code : null, repositoryErrorMessage: error instanceof OrderRepositoryError ? error.databaseMessage : null });
@@ -655,7 +657,10 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
         oneCOrderStatus: exported.status,
         documentTotal: snapshots.reduce((total, item) => total + item.lineTotal, 0),
         currencyCode: currencyCodes[0]!,
-        contractNumber: (contract.number ?? contract.code) || null,
+        contractNumber: resolvedCheckout.contract.number?.trim()
+          || resolvedCheckout.contract.name.trim()
+          || null,
+        readBackResult: exported.readBack ?? {},
       });
       console.info({
         event: "partner_order_submission_diagnostic",
@@ -758,6 +763,7 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
       documentTotal: items.reduce((total, item) => total + item.lineTotal, 0),
       currencyCode: singleCurrency(items),
       contractNumber: order.contractNumber,
+      readBackResult: {},
     });
     console.info(orderLog("partner_order_reconciliation_completed", "confirmed", completed));
     return completed;
@@ -775,6 +781,8 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
 function buildSalesOrder(input: {
   submissionKey: string; deliveryDate: string; companyRef: string; contractRef: string; priceTypeRef: string;
   organizationReference: ExternalReferenceDTO; currencyRef: string; currencyCode: string; snapshots: OrderItemSnapshotInput[];
+  paymentMethod: CheckoutPaymentMethod; paymentDate: string; fulfillmentMethod: CheckoutFulfillmentMethod;
+  carrierReference: ExternalReferenceDTO | null;
 }): SalesOrderDTO {
   return {
     reference: null,
@@ -791,6 +799,10 @@ function buildSalesOrder(input: {
     status: "draft",
     currency: input.currencyCode,
     requestedDeliveryDate: input.deliveryDate,
+    paymentMethod: input.paymentMethod,
+    plannedPaymentDate: input.paymentDate,
+    fulfillmentMethod: input.fulfillmentMethod,
+    carrierReference: input.carrierReference,
     documentTotal: roundMoney(input.snapshots.reduce((sum, item) => sum + item.lineTotal, 0)),
     items: input.snapshots.map((item) => ({
       productReference: ref(item.externalProductRef, "catalog-product"), sku: item.sku, name: item.productName,
@@ -803,41 +815,6 @@ function buildSalesOrder(input: {
   };
 }
 
-function convertOrderSnapshotsToMdl(
-  snapshots: OrderItemSnapshotInput[],
-  approvedUsdMdlRate: number | null,
-): OrderItemSnapshotInput[] {
-  return snapshots.map((snapshot) => {
-    if (snapshot.currencyCode === "MDL") return snapshot;
-    if (snapshot.currencyCode !== "USD") {
-      throw new RecoverableOrderSubmissionError(
-        "The partner price currency cannot be converted for 1C.",
-        "ORDER_PRICE_CHANGED",
-      );
-    }
-    if (
-      approvedUsdMdlRate === null ||
-      !Number.isFinite(approvedUsdMdlRate) ||
-      approvedUsdMdlRate <= 0
-    ) {
-      throw new RecoverableOrderSubmissionError(
-        "The approved USD/MDL commercial rate is unavailable.",
-        "ORDER_PRICE_CHANGED",
-      );
-    }
-
-    const partnerUnitPrice = Math.round(
-      snapshot.partnerUnitPrice * approvedUsdMdlRate,
-    );
-    return {
-      ...snapshot,
-      partnerUnitPrice,
-      currencyCode: "MDL",
-      lineTotal: Math.round(snapshot.lineTotal * approvedUsdMdlRate),
-    };
-  });
-}
-
 export function assertLegacyExportIntegrity(
   expectedLineCount: number,
   order: SalesOrderDTO,
@@ -848,8 +825,8 @@ export function assertLegacyExportIntegrity(
       item.price !== null && Number.isFinite(item.price.amount) && item.price.amount > 0 &&
       Number.isFinite(item.lineTotal) && item.lineTotal > 0,
     );
-  const lineTotal = order.items.reduce((total, item) => total + item.lineTotal, 0);
-  if (!linesAreValid || lineTotal !== order.documentTotal) {
+  const lineTotal = roundMoney(order.items.reduce((total, item) => total + item.lineTotal, 0));
+  if (!linesAreValid || lineTotal !== roundMoney(order.documentTotal)) {
     throw new RecoverableOrderSubmissionError(
       "The legacy 1C order payload failed total integrity validation.",
     );
@@ -858,21 +835,63 @@ export function assertLegacyExportIntegrity(
 
 function ref(externalId: string, externalType: string): ExternalReferenceDTO { return { providerCode: "one-c", externalId, externalType }; }
 
-function mappedCustomerContract(contractRef: string): PartnerContractDTO {
+function fallbackCheckoutSelection(
+  selection: CheckoutSelection,
+  contractRef: string,
+  priceTypeRef: string,
+) {
+  if (selection.paymentMethod !== "cashless" || selection.fulfillmentMethod !== "pickup") {
+    throw new RecoverableOrderSubmissionError(
+      "The selected checkout configuration is unavailable.",
+      "ORDER_PAYMENT_METHOD_UNAVAILABLE",
+    );
+  }
   return {
-    reference: ref(contractRef, "partner-contract"),
-    code: "",
-    name: "",
-    number: null,
-    date: null,
-    contractType: "СПокупателем",
-    organizationReference: ref(NOVOTECH_ONE_C_ORGANIZATION_REF, "organization"),
-    isDefault: true,
-    active: true,
-    priceTypeReference: null,
-    priceTypeName: null,
-    priceTypeSource: null,
+    ...selection,
+    contract: {
+      contractRef,
+      name: "",
+      number: null,
+      active: true,
+      contractType: "СПокупателем",
+      organizationRef: NOVOTECH_ONE_C_ORGANIZATION_REF,
+      priceTypeRef,
+    } satisfies CheckoutContractConfiguration,
+    carrierExternalRef: null,
   };
+}
+
+function normalizeCheckoutSelection(
+  input: {
+    paymentMethod?: CheckoutPaymentMethod;
+    paymentDate?: string;
+    fulfillmentMethod?: CheckoutFulfillmentMethod;
+    carrierId?: string | null;
+  },
+  deliveryDate: string,
+): CheckoutSelection {
+  const paymentMethod = input.paymentMethod ?? "cashless";
+  const fulfillmentMethod = input.fulfillmentMethod ?? "pickup";
+  if (paymentMethod !== "cashless" && paymentMethod !== "cash") {
+    throw new RecoverableOrderSubmissionError("Payment method is invalid.", "ORDER_PAYMENT_METHOD_UNAVAILABLE");
+  }
+  if (fulfillmentMethod !== "pickup" && fulfillmentMethod !== "delivery") {
+    throw new RecoverableOrderSubmissionError("Fulfillment method is invalid.", "ORDER_FULFILLMENT_INVALID");
+  }
+  return {
+    paymentMethod,
+    paymentDate: normalizePaymentDate(input.paymentDate ?? deliveryDate),
+    fulfillmentMethod,
+    carrierId: input.carrierId ? requireUuid(input.carrierId, "Carrier") : null,
+  };
+}
+
+function checkoutRequestFingerprint(input: {
+  cartId: string;
+  expectedIntentVersion: number;
+  salesOrder: SalesOrderDTO;
+}): string {
+  return createHash("sha256").update(JSON.stringify(input)).digest("hex");
 }
 function requireUuid(value: string, label: string): string { if (!isUuid(value)) throw new RecoverableOrderSubmissionError(`${label} is invalid.`); return value.toLowerCase(); }
 function requireOneCGuid(value: string | null | undefined, label: string): string {
@@ -906,6 +925,19 @@ function normalizeDeliveryDate(value: string): string {
     throw new RecoverableOrderSubmissionError(
       "Requested delivery date is invalid.",
       "ORDER_INVALID_SHIPMENT_DATE",
+    );
+  }
+  return normalized;
+}
+function normalizePaymentDate(value: string): string {
+  const normalized = value.trim();
+  if (
+    !/^\d{4}-\d{2}-\d{2}$/.test(normalized) ||
+    Date.parse(`${normalized}T23:59:59Z`) < Date.now()
+  ) {
+    throw new RecoverableOrderSubmissionError(
+      "Payment date is invalid.",
+      "ORDER_INVALID_PAYMENT_DATE",
     );
   }
   return normalized;

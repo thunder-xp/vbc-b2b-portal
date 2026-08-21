@@ -97,6 +97,16 @@ export type CounterpartyDirectoryRow = {
   assignedManagerExternalId: string | null;
   assignedManagerName: string | null;
   sourceUpdatedAt: string | null;
+  counterpartyTypeCode: string | null;
+  governmentBodyTypeCode: string | null;
+};
+
+export type DeliveryCarrierRow = {
+  external1cId: string;
+  code: string | null;
+  name: string;
+  isActive: boolean;
+  isDeleted: boolean;
 };
 
 export type CounterpartyContractRow = {
@@ -132,6 +142,7 @@ export type CounterpartyDirectorySnapshot = {
   counterparties: CounterpartyDirectoryRow[];
   contracts: CounterpartyContractRow[];
   priceProfiles: CounterpartyPriceProfileRow[];
+  deliveryCarriers: DeliveryCarrierRow[];
   pagesProcessed: number;
   failedRecords: number;
   skippedCounterpartyRows: number;

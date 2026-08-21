@@ -1,4 +1,5 @@
 import type { Cart, CartItem, PartnerOrder, PartnerOrderItem, PartnerOrderStatus } from "../types";
+import type { CheckoutFulfillmentMethod, CheckoutPaymentMethod } from "./checkout-configuration.repository";
 
 export type OrderItemSnapshotInput = {
   productId: string;
@@ -59,6 +60,11 @@ export interface PartnerOrderRepository {
     submissionKey: string;
     submissionAttemptId: string;
     requestedDeliveryDate: string;
+    paymentMethod: CheckoutPaymentMethod;
+    paymentDate: string;
+    fulfillmentMethod: CheckoutFulfillmentMethod;
+    carrierId: string | null;
+    requestFingerprint: string;
     payloadSnapshot: Record<string, unknown>;
     items: OrderItemSnapshotInput[];
   }): Promise<PartnerOrder>;
@@ -71,6 +77,7 @@ export interface PartnerOrderRepository {
     documentTotal: number;
     currencyCode: string;
     contractNumber: string | null;
+    readBackResult: Record<string, unknown>;
   }): Promise<PartnerOrder>;
   failSubmission(input: {
     orderId: string;

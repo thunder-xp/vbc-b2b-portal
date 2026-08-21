@@ -32,6 +32,10 @@ export type SalesOrderDTO = {
   status: string;
   currency: string | null;
   requestedDeliveryDate: string;
+  paymentMethod?: "cashless" | "cash";
+  plannedPaymentDate?: string;
+  fulfillmentMethod?: "pickup" | "delivery";
+  carrierReference?: ExternalReferenceDTO | null;
   documentTotal: number;
   items: SalesOrderItemDTO[];
   comment: string | null;
@@ -48,6 +52,15 @@ export type SalesOrderExportResultDTO = {
   documentTotal: number;
   itemCount: number;
   totalUnits: number;
+  readBack?: {
+    priceTypeRef: string;
+    paymentMethod: "cashless" | "cash";
+    plannedPaymentDate: string;
+    fulfillmentMethod: "pickup" | "delivery";
+    carrierRef: string | null;
+    paymentAmount: number;
+    paymentVatAmount: number | null;
+  };
 };
 
 export type SalesOrderHistoryStateCode =

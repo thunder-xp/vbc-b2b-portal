@@ -3,7 +3,8 @@ import { InvalidStateError, NotFoundError } from "../../access-control/services"
 import { MembershipStatus } from "../../access-control/types";
 import type { CatalogService } from "../../catalog/services";
 import type { PricingInventoryService, ProductCommercialViewDto } from "../../pricing-inventory/services";
-import type { CartRepository } from "../repositories";
+import type { CartRepository, CheckoutConfigurationRepository } from "../repositories";
+import { toPartnerCheckoutOptions, type PartnerCheckoutOptionsDto } from "./checkout-configuration.service";
 
 export type CartLineDto = {
   id: string;
@@ -33,6 +34,7 @@ export type CartDetailDto = {
   retailReferenceTotal: string | null;
   commercialMode: "full" | "retail_only" | "hidden";
   submitting: boolean;
+  checkoutOptions?: PartnerCheckoutOptionsDto | null;
 };
 
 export type CartEstimateSourceDto = {
@@ -94,6 +96,7 @@ export class DefaultCartService implements CartService {
     private readonly permissionService: PermissionService,
     private readonly catalogService: CatalogService,
     private readonly pricingInventoryService: PricingInventoryService,
+    private readonly checkoutConfigurationRepository?: CheckoutConfigurationRepository,
   ) {}
 
   async getCart(userId: string): Promise<CartDetailDto> {
@@ -112,12 +115,14 @@ export class DefaultCartService implements CartService {
       retailReferenceTotal: null,
       commercialMode: visibility?.mode ?? "full",
       submitting: false,
+      checkoutOptions: null,
     };
     const items = await this.repository.listItems(cart.id);
     const productIds = items.map((item) => item.productId);
-    const [products, views] = await Promise.all([
+    const [products, views, checkoutConfiguration] = await Promise.all([
       this.catalogService.getProductsByIds(userId, productIds),
       this.pricingInventoryService.getProductCommercialViews(userId, productIds),
+      this.checkoutConfigurationRepository?.getByCompanyId(companyId) ?? null,
     ]);
     const productsById = new Map(products.map((product) => [product.id, product]));
     const viewsById = new Map(views.map((view) => [view.productId, view]));
@@ -151,6 +156,9 @@ export class DefaultCartService implements CartService {
       ),
       commercialMode: visibility?.mode ?? "full",
       submitting: cart.status === "submitting",
+      checkoutOptions: checkoutConfiguration
+        ? toPartnerCheckoutOptions(checkoutConfiguration)
+        : null,
     };
   }
 

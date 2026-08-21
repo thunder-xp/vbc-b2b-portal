@@ -1064,6 +1064,7 @@ async function readBackCreatedOrder(
 }
 
 export function buildOneCCustomerOrderPayload(order: SalesOrderDTO) {
+  const checkout = checkoutFields(order);
   return {
     Date: new Date().toISOString(),
     Posted: false,
@@ -1079,8 +1080,7 @@ export function buildOneCCustomerOrderPayload(order: SalesOrderDTO) {
     СтруктурнаяЕдиницаПродажи_Key: order.salesStructuralUnitReference.externalId,
     СтруктурнаяЕдиницаРезерв_Key: order.reservationStructuralUnitReference.externalId,
     ВидОперации: "ЗаказНаПродажу",
-    СпособДоставки: "Самовывоз",
-    ТипДенежныхСредств: "Безналичные",
+    ...checkout,
     НалогообложениеНДС: "ОблагаетсяНДС",
     НДСВключатьВСтоимость: true,
     СуммаВключаетНДС: true,
@@ -1115,15 +1115,19 @@ export function buildLegacyMinimalOneCCustomerOrderPayload(
   now = new Date(),
 ) {
   const requestedDeliveryDate = toOneCDateTime(order.requestedDeliveryDate);
+  const checkout = checkoutFields(order);
 
   return {
     Date: toOneCDateTime(now),
     ДатаОтгрузки: requestedDeliveryDate,
     Контрагент_Key: order.partnerCompanyReference.externalId,
     Договор_Key: order.contractReference.externalId,
+    Организация_Key: order.organizationReference.externalId,
+    ВидЦен_Key: order.priceTypeReference.externalId,
+    ВалютаДокумента_Key: order.currencyReference.externalId,
     Кратность: 1,
     СуммаДокумента: roundMoney(order.documentTotal),
-    СпособДоставки: "Самовывоз",
+    ...checkout,
     Комментарий: order.comment,
     Запасы: order.items.map((item, index) => ({
       СтавкаНДС_Key: item.vatRateReference.externalId,
@@ -1139,6 +1143,30 @@ export function buildLegacyMinimalOneCCustomerOrderPayload(
       Количество: item.quantity,
       Всего: roundMoney(item.lineTotal),
     })),
+  };
+}
+
+function checkoutFields(order: SalesOrderDTO) {
+  const paymentMethod = order.paymentMethod ?? "cashless";
+  const fulfillmentMethod = order.fulfillmentMethod ?? "pickup";
+  const plannedPaymentDate = order.plannedPaymentDate ?? order.requestedDeliveryDate;
+  const carrierRef = fulfillmentMethod === "delivery"
+    ? order.carrierReference?.externalId
+    : null;
+  if (fulfillmentMethod === "delivery" && !carrierRef) {
+    throw new IntegrationValidationError("1C delivery carrier is required.");
+  }
+  return {
+    ТипДенежныхСредств: paymentMethod === "cash" ? "Наличные" : "Безналичные",
+    СпособДоставки: fulfillmentMethod === "delivery" ? "Курьер" : "Самовывоз",
+    ...(carrierRef ? { СлужбаДоставки_Key: carrierRef } : {}),
+    ЗапланироватьОплату: true,
+    ПлатежныйКалендарь: [{
+      LineNumber: 1,
+      ДатаОплаты: toOneCDateTime(plannedPaymentDate),
+      ПроцентОплаты: 100,
+      СуммаОплаты: roundMoney(order.documentTotal),
+    }],
   };
 }
 
@@ -1180,9 +1208,16 @@ type CreatedOrderResponse = {
   СуммаДокумента?: number | string;
   Комментарий?: string;
   Запасы?: unknown[];
+  ВидЦен_Key?: string;
+  ВалютаДокумента_Key?: string;
+  ТипДенежныхСредств?: string;
+  ЗапланироватьОплату?: boolean;
+  ПлатежныйКалендарь?: unknown[];
+  СпособДоставки?: string;
+  СлужбаДоставки_Key?: string;
 };
 
-const readBackFields = "Ref_Key,Number,Date,Posted,Контрагент_Key,Договор_Key,ДатаОтгрузки,СуммаДокумента,Комментарий,Запасы";
+const readBackFields = "Ref_Key,Number,Date,Posted,Контрагент_Key,Договор_Key,ВидЦен_Key,ВалютаДокумента_Key,ТипДенежныхСредств,ЗапланироватьОплату,ПлатежныйКалендарь,СпособДоставки,СлужбаДоставки_Key,ДатаОтгрузки,СуммаДокумента,Комментарий,Запасы";
 
 function isVerifiedOrderReadBack(
   value: unknown,
@@ -1191,10 +1226,27 @@ function isVerifiedOrderReadBack(
 ): value is CreatedOrderResponse {
   if (!isCreatedOrderResponse(value) || value.Posted !== false) return false;
   const row = value as CreatedOrderResponse;
+  const paymentMethod = order.paymentMethod ?? "cashless";
+  const fulfillmentMethod = order.fulfillmentMethod ?? "pickup";
+  const expectedPaymentDate = order.plannedPaymentDate ?? order.requestedDeliveryDate;
+  const paymentRow = Array.isArray(row.ПлатежныйКалендарь)
+    ? row.ПлатежныйКалендарь.find((item) => item && typeof item === "object") as Record<string, unknown> | undefined
+    : undefined;
+  const carrierMatches = fulfillmentMethod === "pickup"
+    ? !row.СлужбаДоставки_Key || row.СлужбаДоставки_Key === "00000000-0000-0000-0000-000000000000"
+    : row.СлужбаДоставки_Key?.toLowerCase() === order.carrierReference?.externalId.toLowerCase();
   if (
     row.Ref_Key.toLowerCase() !== externalId.toLowerCase() ||
     row.Контрагент_Key?.toLowerCase() !== order.partnerCompanyReference.externalId.toLowerCase() ||
     row.Договор_Key?.toLowerCase() !== order.contractReference.externalId.toLowerCase() ||
+    row.ВидЦен_Key?.toLowerCase() !== order.priceTypeReference.externalId.toLowerCase() ||
+    row.ВалютаДокумента_Key?.toLowerCase() !== order.currencyReference.externalId.toLowerCase() ||
+    row.ТипДенежныхСредств !== (paymentMethod === "cash" ? "Наличные" : "Безналичные") ||
+    row.ЗапланироватьОплату !== true ||
+    normalizeOneCDate(typeof paymentRow?.ДатаОплаты === "string" ? paymentRow.ДатаОплаты : undefined) !== expectedPaymentDate ||
+    !moneyEquals(Number(paymentRow?.СуммаОплаты), order.documentTotal) ||
+    row.СпособДоставки !== (fulfillmentMethod === "delivery" ? "Курьер" : "Самовывоз") ||
+    !carrierMatches ||
     normalizeOneCDate(row.ДатаОтгрузки) !== normalizeOneCDate(order.requestedDeliveryDate) ||
     !moneyEquals(Number(row.СуммаДокумента), order.documentTotal) ||
     !Array.isArray(row.Запасы) ||
@@ -1241,6 +1293,9 @@ function isOrderCollection(value: unknown): value is { value: CreatedOrderRespon
 }
 
 function toExportResult(order: CreatedOrderResponse, expected: SalesOrderDTO): SalesOrderExportResultDTO {
+  const paymentRow = Array.isArray(order.ПлатежныйКалендарь)
+    ? order.ПлатежныйКалендарь.find((item) => item && typeof item === "object") as Record<string, unknown> | undefined
+    : undefined;
   return {
     orderReference: { providerCode: "one-c", externalId: order.Ref_Key, externalType: CUSTOMER_ORDER_TYPE },
     orderNumber: order.Number,
@@ -1251,6 +1306,17 @@ function toExportResult(order: CreatedOrderResponse, expected: SalesOrderDTO): S
     documentTotal: Number(order.СуммаДокумента),
     itemCount: expected.items.length,
     totalUnits: expected.items.reduce((total, item) => total + item.quantity, 0),
+    readBack: {
+      priceTypeRef: order.ВидЦен_Key ?? "",
+      paymentMethod: expected.paymentMethod ?? "cashless",
+      plannedPaymentDate: expected.plannedPaymentDate ?? expected.requestedDeliveryDate,
+      fulfillmentMethod: expected.fulfillmentMethod ?? "pickup",
+      carrierRef: expected.fulfillmentMethod === "delivery" ? order.СлужбаДоставки_Key ?? null : null,
+      paymentAmount: Number(paymentRow?.СуммаОплаты),
+      paymentVatAmount: Number.isFinite(Number(paymentRow?.СуммаНДСОплаты))
+        ? Number(paymentRow?.СуммаНДСОплаты)
+        : null,
+    },
   };
 }
 

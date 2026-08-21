@@ -3,6 +3,7 @@ export const ONE_C_RESOURCES = {
   contracts: "Catalog_ДоговорыКонтрагентов",
   defaultPartnerContracts: "InformationRegister_ОсновныеДоговорыКонтрагента",
   priceTypes: "Catalog_ВидыЦен",
+  deliveryCarriers: "Catalog_СлужбыДоставки",
 } as const;
 
 export const ONE_C_DEFAULT_PARTNER_CONTRACT_FIELDS = [
@@ -23,6 +24,16 @@ export const ONE_C_PARTNER_FIELDS = [
   "Недействителен",
   "DeletionMark",
   "IsFolder",
+  "ВидКонтрагента",
+  "ВидГосударственногоОргана",
+] as const;
+
+export const ONE_C_DELIVERY_CARRIER_FIELDS = [
+  "Ref_Key",
+  "Code",
+  "Description",
+  "Недействителен",
+  "DeletionMark",
 ] as const;
 
 export const ONE_C_CONTRACT_FIELDS = [

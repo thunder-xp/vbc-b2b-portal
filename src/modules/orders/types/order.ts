@@ -47,6 +47,7 @@ export type PartnerOrder = {
   cartId: string | null;
   submissionKey: string;
   submissionAttemptId: string;
+  requestFingerprint?: string | null;
   status: PartnerOrderStatus;
   integrationStatus: PartnerOrderIntegrationStatus;
   oneCOrderStatus: string | null;

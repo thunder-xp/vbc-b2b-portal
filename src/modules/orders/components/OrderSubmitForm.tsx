@@ -17,6 +17,7 @@ import {
 } from "../actions/order.actions";
 import { useCartCheckoutCoordinator } from "./CartCheckoutCoordinator";
 import { getOrdersCopy, usePartnerLocale } from "../../partner-locale";
+import type { PartnerCheckoutOptionsDto } from "../services";
 
 const initial: ActionResult<PartnerOrderSubmissionReceipt | null> = {
   success: true,
@@ -36,10 +37,12 @@ export function OrderSubmitForm({
   cartId,
   intentVersion,
   submissionKey,
+  checkoutOptions,
 }: {
   cartId?: string;
   intentVersion?: number;
   submissionKey: string;
+  checkoutOptions?: PartnerCheckoutOptionsDto | null;
 }) {
   const [state, action, actionPending] = useActionState(
     submitCartOrderAction,
@@ -47,7 +50,13 @@ export function OrderSubmitForm({
   );
   const locale = usePartnerLocale();
   const copy = getOrdersCopy(locale);
+  const options = checkoutOptions ?? defaultCheckoutOptions();
+  const initialPaymentMethod = options.paymentMethods.find((option) => option.enabled)?.value ?? "cashless";
   const [deliveryDate, setDeliveryDate] = useState("");
+  const [paymentDate, setPaymentDate] = useState(() => chisinauBusinessDate());
+  const [paymentMethod, setPaymentMethod] = useState(initialPaymentMethod);
+  const [fulfillmentMethod, setFulfillmentMethod] = useState<"pickup" | "delivery">("pickup");
+  const [carrierId, setCarrierId] = useState("");
   const [checkoutIntentVersion, setCheckoutIntentVersion] = useState(
     intentVersion ?? 0,
   );
@@ -136,6 +145,11 @@ export function OrderSubmitForm({
     hasPendingMutations ||
     phase === "cart_update_pending" ||
     phase === "validating";
+  const selectedPaymentOption = options.paymentMethods.find(
+    (option) => option.value === paymentMethod,
+  );
+  const checkoutUnavailable = !selectedPaymentOption?.enabled;
+  const deliveryUnavailable = options.carriers.length === 0;
 
   return (
     <form
@@ -158,12 +172,107 @@ export function OrderSubmitForm({
         ref={submissionKeyRef}
         type="hidden"
       />
-      <div>
-        <h2 className="font-semibold text-zinc-950">{copy.checkoutReview}</h2>
-        <p className="mt-1 text-xs leading-5 text-zinc-600">
-          {copy.checkoutReviewHint}
-        </p>
-      </div>
+      <h2 className="font-semibold text-zinc-950">{copy.checkoutReview}</h2>
+      <fieldset className="space-y-2">
+        <legend className="text-sm font-medium text-zinc-800">{copy.paymentMethod}</legend>
+        <div className="grid grid-cols-2 gap-2">
+          {options.paymentMethods.map((option) => (
+            <label
+              className={`flex min-h-11 items-center justify-center rounded-md border px-2 text-center text-sm font-medium ${
+                option.enabled
+                  ? "cursor-pointer border-zinc-300 has-[:checked]:border-emerald-700 has-[:checked]:bg-emerald-50"
+                  : "cursor-not-allowed border-zinc-200 bg-zinc-50 text-zinc-400"
+              }`}
+              key={option.value}
+              title={!option.enabled ? unavailableReason(option.unavailableReason, copy) : undefined}
+            >
+              <input
+                checked={paymentMethod === option.value}
+                className="sr-only"
+                disabled={!option.enabled}
+                name="paymentMethod"
+                onChange={() => setPaymentMethod(option.value)}
+                type="radio"
+                value={option.value}
+              />
+              {option.value === "cashless" ? copy.cashless : copy.cash}
+            </label>
+          ))}
+        </div>
+        {options.paymentMethods.filter((option) => !option.enabled).map((option) => (
+          <p className="text-xs text-zinc-600" key={`${option.value}-reason`}>
+            {option.value === "cashless" ? copy.cashless : copy.cash}: {unavailableReason(option.unavailableReason, copy)}
+          </p>
+        ))}
+        {selectedPaymentOption?.contractLabel ? (
+          <p className="text-xs text-zinc-600">
+            {copy.contract}: {selectedPaymentOption.contractLabel}
+          </p>
+        ) : null}
+      </fieldset>
+      <label className="block text-sm font-medium text-zinc-800">
+        {copy.paymentDate}
+        <input
+          className="mt-1 block h-10 w-full rounded-md border border-zinc-300 px-3"
+          min={chisinauBusinessDate()}
+          name="paymentDate"
+          onChange={(event) => setPaymentDate(event.target.value)}
+          required
+          type="date"
+          value={paymentDate}
+        />
+      </label>
+      <fieldset className="space-y-2">
+        <legend className="text-sm font-medium text-zinc-800">{copy.fulfillmentMethod}</legend>
+        <div className="grid grid-cols-2 gap-2">
+          {(["pickup", "delivery"] as const).map((method) => (
+            <label
+              className={`flex min-h-11 items-center justify-center rounded-md border px-2 text-center text-sm font-medium ${
+                method === "delivery" && deliveryUnavailable
+                  ? "cursor-not-allowed border-zinc-200 bg-zinc-50 text-zinc-400"
+                  : "cursor-pointer border-zinc-300 has-[:checked]:border-emerald-700 has-[:checked]:bg-emerald-50"
+              }`}
+              key={method}
+            >
+              <input
+                checked={fulfillmentMethod === method}
+                className="sr-only"
+                disabled={method === "delivery" && deliveryUnavailable}
+                name="fulfillmentMethod"
+                onChange={() => {
+                  setFulfillmentMethod(method);
+                  if (method === "pickup") setCarrierId("");
+                }}
+                type="radio"
+                value={method}
+              />
+              {method === "pickup" ? copy.pickup : copy.delivery}
+            </label>
+          ))}
+        </div>
+        {deliveryUnavailable ? (
+          <p className="text-xs text-zinc-600">{copy.deliveryUnavailable}</p>
+        ) : null}
+      </fieldset>
+      {fulfillmentMethod === "delivery" ? (
+        <label className="block text-sm font-medium text-zinc-800">
+          {copy.carrier}
+          <select
+            className="mt-1 block h-10 w-full rounded-md border border-zinc-300 bg-white px-3"
+            name="carrierId"
+            onChange={(event) => setCarrierId(event.target.value)}
+            required
+            value={carrierId}
+          >
+            <option value="">{copy.selectCarrier}</option>
+            {options.carriers.map((carrier) => (
+              <option key={carrier.id} value={carrier.id}>{carrier.name}</option>
+            ))}
+          </select>
+        </label>
+      ) : (
+        <input name="carrierId" type="hidden" value="" />
+      )}
       <label className="block text-sm font-medium text-zinc-800">
         {copy.requestedDeliveryDate}
         <input
@@ -181,17 +290,19 @@ export function OrderSubmitForm({
           {copy.selected}: {formatBusinessDate(deliveryDate, locale)}
         </p>
       ) : null}
-      <p className="text-xs leading-5 text-zinc-600">{copy.reservationHint}</p>
-      <p className="rounded-md bg-emerald-50 p-3 text-xs leading-5 text-emerald-900">
-        {copy.oneCSubmissionHint}
-      </p>
+      <p className="text-xs leading-5 text-zinc-600">{copy.shipmentDateHint}</p>
       <button
         className="h-11 w-full rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white hover:bg-emerald-800 focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
-        disabled={busy || retryBlocked}
+        disabled={busy || retryBlocked || checkoutUnavailable}
         type="submit"
       >
         {submitLabel(phase, actionPending, hasPendingMutations, copy)}
       </button>
+      {checkoutUnavailable ? (
+        <p aria-live="polite" className="text-sm text-amber-800">
+          {copy.checkoutUnavailable}
+        </p>
+      ) : null}
       {hasPendingMutations ? (
         <p aria-live="polite" className="text-sm text-amber-800">
           {copy.savingCart}
@@ -214,6 +325,26 @@ export function OrderSubmitForm({
       ) : null}
     </form>
   );
+}
+
+function defaultCheckoutOptions(): PartnerCheckoutOptionsDto {
+  return {
+    counterpartyKind: "unknown",
+    paymentMethods: [
+      { value: "cashless", enabled: true, contractLabel: null, unavailableReason: null },
+      { value: "cash", enabled: false, contractLabel: null, unavailableReason: "contract_unavailable" },
+    ],
+    carriers: [],
+  };
+}
+
+function unavailableReason(
+  reason: "contract_unavailable" | "physical_person_cash_only" | null,
+  copy: ReturnType<typeof getOrdersCopy>,
+): string | undefined {
+  if (reason === "physical_person_cash_only") return copy.physicalPersonCashOnly;
+  if (reason === "contract_unavailable") return copy.contractUnavailable;
+  return undefined;
 }
 
 export function chisinauBusinessDate(now = new Date()): string {
@@ -303,6 +434,14 @@ function orderFailureMessage(
       return copy.orderStockChanged;
     case "ORDER_INVALID_SHIPMENT_DATE":
       return copy.orderInvalidShipmentDate;
+    case "ORDER_INVALID_PAYMENT_DATE":
+      return copy.orderInvalidPaymentDate;
+    case "ORDER_PAYMENT_METHOD_UNAVAILABLE":
+      return copy.orderPaymentMethodUnavailable;
+    case "ORDER_FULFILLMENT_INVALID":
+      return copy.orderFulfillmentInvalid;
+    case "ORDER_CARRIER_REQUIRED":
+      return copy.orderCarrierRequired;
     case "ORDER_CART_VERSION_CONFLICT":
       return copy.orderCartVersionConflict;
     case "ORDER_1C_VALIDATION_FAILED":

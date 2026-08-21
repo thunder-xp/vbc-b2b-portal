@@ -193,6 +193,8 @@ export class CounterpartyDirectorySyncService {
           synchronization_version: syncId,
           source_updated_at: row.sourceUpdatedAt,
           synchronized_at: synchronizedAt,
+          counterparty_type_code: row.counterpartyTypeCode,
+          government_body_type_code: row.governmentBodyTypeCode,
         })),
       );
       if (error) throw persistenceError("counterparty_staging", error, batchIndex, batch.length);
@@ -236,6 +238,20 @@ export class CounterpartyDirectorySyncService {
           })),
         );
       if (error) throw persistenceError("price_profile_staging", error, batchIndex, batch.length);
+    }
+    for (const [batchIndex, batch] of chunks(snapshot.deliveryCarriers, BATCH_SIZE).entries()) {
+      const { error } = await client.from("one_c_delivery_carriers").insert(
+        batch.map((row) => ({
+          sync_id: syncId,
+          external_1c_id: row.external1cId,
+          code: row.code,
+          name: row.name,
+          is_active: row.isActive,
+          is_deleted: row.isDeleted,
+          synchronized_at: synchronizedAt,
+        })),
+      );
+      if (error) throw persistenceError("delivery_carrier_staging", error, batchIndex, batch.length);
     }
 
     const { error } = await client

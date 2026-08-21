@@ -51,7 +51,7 @@ function OperationalTable({
     <div className="overflow-x-auto border border-zinc-200 bg-white">
       <table className="min-w-[900px] w-full text-left text-sm">
         <thead className="border-b bg-zinc-50">
-          <tr>{["Компания", "Номер", "Статус", "Дата", "План", "Позиций", "Единиц"].map((label) => <th className="px-4 py-3" key={label}>{label}</th>)}</tr>
+          <tr>{["Компания", "Номер", "Статус", "Дата", "План", "Позиций", "Единиц", ...(view === "orders" ? ["Экспорт 1С"] : [])].map((label) => <th className="px-4 py-3" key={label}>{label}</th>)}</tr>
         </thead>
         <tbody className="divide-y">
           {data.records.map((record) => (
@@ -67,12 +67,40 @@ function OperationalTable({
               <td className="px-4 py-3">{format(record.plannedDate)}</td>
               <td className="px-4 py-3">{record.positions}</td>
               <td className="px-4 py-3">{record.units}</td>
+              {view === "orders" ? (
+                <td className="min-w-64 px-4 py-3">
+                  <ExportDiagnostic diagnostic={record.exportDiagnostic} />
+                </td>
+              ) : null}
             </tr>
           ))}
         </tbody>
       </table>
       {!data.records.length ? <p className="p-8 text-center text-zinc-500">Записей нет.</p> : null}
     </div>
+  );
+}
+
+function ExportDiagnostic({
+  diagnostic,
+}: {
+  diagnostic: OperationalPage["records"][number]["exportDiagnostic"];
+}) {
+  if (!diagnostic) return <span className="text-zinc-500">Нет данных</span>;
+  return (
+    <dl className="grid grid-cols-[auto_1fr] gap-x-2 gap-y-1 text-xs">
+      <dt className="text-zinc-500">Оплата</dt>
+      <dd>{diagnostic.paymentMethod === "cash" ? "Наличный" : "Безналичный"}</dd>
+      <dt className="text-zinc-500">Договор</dt><dd>{diagnostic.contract ?? "—"}</dd>
+      <dt className="text-zinc-500">Тип цен</dt><dd>{diagnostic.priceType ?? "—"}</dd>
+      <dt className="text-zinc-500">Дата оплаты</dt><dd>{format(diagnostic.plannedPaymentDate)}</dd>
+      <dt className="text-zinc-500">Получение</dt>
+      <dd>{diagnostic.fulfillmentMethod === "delivery" ? `Доставка${diagnostic.carrier ? `: ${diagnostic.carrier}` : ""}` : "Самовывоз"}</dd>
+      <dt className="text-zinc-500">Проверка</dt>
+      <dd className={diagnostic.readBackVerified ? "text-emerald-700" : "text-amber-700"}>
+        {diagnostic.readBackVerified ? "Совпадает" : "Ожидается"}
+      </dd>
+    </dl>
   );
 }
 

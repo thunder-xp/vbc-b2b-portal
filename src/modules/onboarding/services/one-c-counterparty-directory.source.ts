@@ -5,6 +5,7 @@ import { parseRequiredOneCGuid } from "@/src/modules/integration/providers/one-c
 import { OneCODataClient } from "@/src/modules/integration/providers/one-c/one-c-odata-client";
 import {
   ONE_C_CONTRACT_FIELDS,
+  ONE_C_DELIVERY_CARRIER_FIELDS,
   ONE_C_DEFAULT_PARTNER_CONTRACT_FIELDS,
   ONE_C_PARTNER_FIELDS,
   ONE_C_PRICE_TYPE_FIELDS,
@@ -19,6 +20,7 @@ import type {
 import {
   parseContractRow,
   parseCounterpartyRow,
+  parseDeliveryCarrierRow,
   toPriceProfileRow,
 } from "./counterparty-directory-normalization";
 
@@ -41,6 +43,7 @@ export class OneCCounterpartyDirectorySource {
   async load(): Promise<CounterpartyDirectorySnapshot> {
     const counterparties: CounterpartyDirectoryRow[] = [];
     const contracts: CounterpartyContractRow[] = [];
+    const deliveryCarriers: CounterpartyDirectorySnapshot["deliveryCarriers"] = [];
     let failedRecords = 0;
     let sourceCounterpartyRows = 0;
     let fetchedCounterpartyRows = 0;
@@ -115,6 +118,16 @@ export class OneCCounterpartyDirectorySource {
         }
       },
     );
+    const carrierScan = await this.scanCompleteCollection(
+      ONE_C_RESOURCES.deliveryCarriers,
+      ONE_C_DELIVERY_CARRIER_FIELDS.join(","),
+      "counterparty_directory_delivery_carriers",
+      (row) => {
+        const parsed = parseDeliveryCarrierRow(row);
+        if (parsed) deliveryCarriers.push(parsed);
+        else failedRecords += 1;
+      },
+    );
 
     const uniqueCounterparties = deduplicateByExternal1cId(counterparties);
     const uniqueContracts = deduplicateByExternal1cId(contracts).map((contract) => ({
@@ -147,7 +160,8 @@ export class OneCCounterpartyDirectorySource {
       counterparties: uniqueCounterparties,
       contracts: uniqueContracts,
       priceProfiles: deduplicatePriceProfiles(priceProfiles),
-      pagesProcessed: partnerScan + contractScan + defaultContractScan + priceTypeScan,
+      deliveryCarriers: deduplicateByExternal1cId(deliveryCarriers),
+      pagesProcessed: partnerScan + contractScan + defaultContractScan + priceTypeScan + carrierScan,
       failedRecords,
       skippedCounterpartyRows,
       duplicateCounterpartyRows,

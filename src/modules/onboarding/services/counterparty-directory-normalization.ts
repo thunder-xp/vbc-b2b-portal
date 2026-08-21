@@ -5,6 +5,7 @@ import type {
   CounterpartyContractRow,
   CounterpartyDirectoryRow,
   CounterpartyPriceProfileRow,
+  DeliveryCarrierRow,
 } from "../types";
 
 type UnknownRow = Record<string, unknown>;
@@ -59,6 +60,22 @@ export function parseCounterpartyRow(row: unknown): CounterpartyDirectoryRow | n
     assignedManagerExternalId: parseRequiredOneCGuid(row["МенеджерПокупателя_Key"]),
     assignedManagerName: null,
     sourceUpdatedAt: null,
+    counterpartyTypeCode: normalizeDirectoryText(row["ВидКонтрагента"]),
+    governmentBodyTypeCode: normalizeDirectoryText(row["ВидГосударственногоОргана"]),
+  };
+}
+
+export function parseDeliveryCarrierRow(row: unknown): DeliveryCarrierRow | null {
+  if (!isRecord(row)) return null;
+  const external1cId = parseRequiredOneCGuid(row.Ref_Key);
+  const name = normalizeDirectoryText(row.Description);
+  if (!external1cId || !name) return null;
+  return {
+    external1cId,
+    code: normalizeDirectoryText(row.Code),
+    name,
+    isActive: row["Недействителен"] !== true && row.DeletionMark !== true,
+    isDeleted: row.DeletionMark === true,
   };
 }
 

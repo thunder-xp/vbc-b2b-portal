@@ -21,6 +21,10 @@ const order: SalesOrderDTO = {
   reservationStructuralUnitReference: ref("86197770-0aac-431a-aad6-8e7099029bbb"),
   portalOrderReference: "55555555-5555-4555-8555-555555555555",
   status: "draft", currency: "USD", requestedDeliveryDate: "2099-01-10", documentTotal: 1314,
+  paymentMethod: "cashless",
+  plannedPaymentDate: "2099-01-10",
+  fulfillmentMethod: "pickup",
+  carrierReference: null,
   items: [{
     productReference: ref("66666666-6666-4666-8666-666666666666"), sku: "SKU-1", name: "Camera",
     quantity: 1, unitCode: null, price: { amount: 1314, currency: "USD" },
@@ -42,7 +46,7 @@ describe("OneCCustomerOrderProvider", () => {
     expect(Object.keys(payload).sort()).toEqual([
       "Автор_Key", "ВалютаДокумента_Key", "ВидОперации", "ВидЦен_Key", "ДатаОтгрузки", "Договор_Key",
       "Комментарий", "Контрагент_Key", "Кратность", "Курс", "НДСВключатьВСтоимость", "НалогообложениеНДС",
-      "Организация_Key", "Posted", "СпособДоставки", "СтруктурнаяЕдиницаРезерв_Key", "СтруктурнаяЕдиницаПродажи_Key",
+      "Организация_Key", "Posted", "ЗапланироватьОплату", "ПлатежныйКалендарь", "СпособДоставки", "СтруктурнаяЕдиницаРезерв_Key", "СтруктурнаяЕдиницаПродажи_Key",
       "СуммаВключаетНДС", "СуммаДокумента", "СостояниеЗаказа", "ТипДенежныхСредств", "УчитыватьВНУ", "Запасы", "Date",
     ].sort());
     expect(payload).toMatchObject({ Posted: false, Автор_Key: "272a1ac4-0194-11eb-8975-000c29cf9dd4", ДатаОтгрузки: "2099-01-10", СуммаДокумента: 1314 });
@@ -75,9 +79,20 @@ describe("OneCCustomerOrderProvider", () => {
       ДатаОтгрузки: "2099-01-10T00:00:00",
       Контрагент_Key: "11111111-1111-4111-8111-111111111111",
       Договор_Key: "22222222-2222-4222-8222-222222222222",
+      Организация_Key: "4643d461-aa49-4b70-9486-a59f80ee6af8",
+      ВидЦен_Key: "33333333-3333-4333-8333-333333333333",
+      ВалютаДокумента_Key: "44444444-4444-4444-8444-444444444444",
       Кратность: 1,
       СуммаДокумента: 1314,
       СпособДоставки: "Самовывоз",
+      ТипДенежныхСредств: "Безналичные",
+      ЗапланироватьОплату: true,
+      ПлатежныйКалендарь: [{
+        LineNumber: 1,
+        ДатаОплаты: "2099-01-10T00:00:00",
+        ПроцентОплаты: 100,
+        СуммаОплаты: 1314,
+      }],
       Комментарий: "Portal test",
       Запасы: [{
         СтавкаНДС_Key: "acf7b292-1a78-11e5-8b0f-00155d010501",
@@ -95,7 +110,7 @@ describe("OneCCustomerOrderProvider", () => {
       }],
     });
     expect(JSON.stringify(payload)).not.toMatch(
-      /Posted|Автор_Key|Организация_Key|ВидЦен_Key|ВалютаДокумента_Key|СостояниеЗаказа|Резерв|СуммаНДС|ПлатежныйКалендарь/,
+      /Posted|Автор_Key|СостояниеЗаказа|Резерв|СуммаНДС/,
     );
   });
 
@@ -260,6 +275,17 @@ function readBackRow(overrides: Record<string, unknown> = {}) {
     Posted: false,
     Контрагент_Key: order.partnerCompanyReference.externalId,
     Договор_Key: order.contractReference.externalId,
+    ВидЦен_Key: order.priceTypeReference.externalId,
+    ВалютаДокумента_Key: order.currencyReference.externalId,
+    ТипДенежныхСредств: "Безналичные",
+    ЗапланироватьОплату: true,
+    ПлатежныйКалендарь: [{
+      ДатаОплаты: "2099-01-10T00:00:00",
+      ПроцентОплаты: 100,
+      СуммаОплаты: order.documentTotal,
+    }],
+    СпособДоставки: "Самовывоз",
+    СлужбаДоставки_Key: "00000000-0000-0000-0000-000000000000",
     ДатаОтгрузки: "2099-01-10T00:00:00",
     СуммаДокумента: order.documentTotal,
     Комментарий: order.comment,

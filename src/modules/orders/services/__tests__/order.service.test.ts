@@ -40,6 +40,7 @@ describe("DefaultPartnerOrderService", () => {
       orderId: "order-1", external1cRef: "77777777-7777-4777-8777-777777777777",
       external1cNumber: "NSUU-TEST", external1cDate: "2026-07-13T20:17:30.000Z",
       oneCOrderStatus: "unposted", documentTotal: 25, currencyCode: "USD", contractNumber: null,
+      readBackResult: {},
     });
     expect(result.status).toBe(PartnerOrderStatus.Submitted);
     expect(dependencies.priceRefreshService.refresh).not.toHaveBeenCalled();
@@ -199,21 +200,22 @@ describe("DefaultPartnerOrderService", () => {
     },
   );
 
-  it("converts USD export prices to MDL with the approved commercial rate in legacy-minimal mode", async () => {
+  it("preserves authoritative currency and configured price type in legacy-minimal mode", async () => {
     const dependencies = makeDependencies({ useLegacyMinimalOrderPayload: true });
 
     await dependencies.service.submit("user-1", input());
 
     expect(dependencies.pricingService.getAuthoritativeUsdMdlRateSnapshot)
-      .toHaveBeenCalledWith("user-1");
+      .not.toHaveBeenCalled();
     expect(dependencies.pricingService.getApprovedUsdMdlRate).not.toHaveBeenCalled();
     expect(dependencies.orderProvider.exportSalesOrder).toHaveBeenCalledWith(expect.objectContaining({
-      currency: "MDL",
-      documentTotal: 439,
+      currency: "USD",
+      priceTypeReference: expect.objectContaining({ externalId: "33333333-3333-4333-8333-333333333333" }),
+      documentTotal: 25,
       items: [expect.objectContaining({
-        price: { amount: 220, currency: "MDL" },
+        price: { amount: 12.5, currency: "USD" },
         quantity: 2,
-        lineTotal: 439,
+        lineTotal: 25,
       })],
     }));
     expect(dependencies.orderRepository.beginSubmission.mock.calls[0][0].items[0]).toMatchObject({
@@ -223,7 +225,7 @@ describe("DefaultPartnerOrderService", () => {
     });
   });
 
-  it("converts every current cart line with independent legacy integer rounding", async () => {
+  it("preserves every current cart line in its authoritative currency", async () => {
     const dependencies = makeDependencies({ useLegacyMinimalOrderPayload: true });
     dependencies.cartRepository.listItems.mockResolvedValue([
       cartItem("product-1", 1), cartItem("product-2", 1),
@@ -250,14 +252,14 @@ describe("DefaultPartnerOrderService", () => {
       price: item.price.amount,
       total: item.lineTotal,
     }))).toEqual([
-      { quantity: 1, price: 1793, total: 1793 },
-      { quantity: 1, price: 3478, total: 3478 },
-      { quantity: 610, price: 5, total: 2786 },
-      { quantity: 1, price: 8868, total: 8868 },
+      { quantity: 1, price: 102.08, total: 102.08 },
+      { quantity: 1, price: 198, total: 198 },
+      { quantity: 610, price: 0.26, total: 158.6 },
+      { quantity: 1, price: 504.9, total: 504.9 },
     ]);
-    expect(exported.documentTotal).toBe(16925);
-    expect(exported.items[2].price.amount * exported.items[2].quantity).toBe(3050);
-    expect(exported.items[2].lineTotal).toBe(2786);
+    expect(exported.documentTotal).toBe(963.58);
+    expect(exported.items[2].price.amount * exported.items[2].quantity).toBe(158.6);
+    expect(exported.items[2].lineTotal).toBe(158.6);
   });
 
   it("rejects a missing line or header mismatch in the legacy preflight invariant", () => {
@@ -272,18 +274,15 @@ describe("DefaultPartnerOrderService", () => {
       .toThrow(RecoverableOrderSubmissionError);
   });
 
-  it("stops before idempotency acquisition when the approved commercial rate is unavailable", async () => {
+  it("does not require an exchange rate for the authoritative order currency", async () => {
     const dependencies = makeDependencies({ useLegacyMinimalOrderPayload: true });
     dependencies.pricingService.getAuthoritativeUsdMdlRateSnapshot.mockResolvedValue(null);
 
     await expect(dependencies.service.submit("user-1", input()))
-      .rejects.toMatchObject({
-        name: "RecoverableOrderSubmissionError",
-        code: "ORDER_PRICE_CHANGED",
-      });
+      .resolves.toMatchObject({ status: PartnerOrderStatus.Submitted });
 
-    expect(dependencies.orderRepository.beginSubmission).not.toHaveBeenCalled();
-    expect(dependencies.orderProvider.exportSalesOrder).not.toHaveBeenCalled();
+    expect(dependencies.orderRepository.beginSubmission).toHaveBeenCalledOnce();
+    expect(dependencies.orderProvider.exportSalesOrder).toHaveBeenCalledOnce();
   });
 
   it("blocks submission when a product has no valid 1C reference", async () => {

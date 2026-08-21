@@ -10,6 +10,17 @@ export interface AdminOperationalRecord {
   units: number;
   syncAt: string | null;
   warning: string | null;
+  exportDiagnostic: {
+    paymentMethod: "cashless" | "cash";
+    plannedPaymentDate: string;
+    fulfillmentMethod: "pickup" | "delivery";
+    carrier: string | null;
+    contract: string | null;
+    priceType: string | null;
+    readBackVerified: boolean;
+    readBackResult: Readonly<Record<string, unknown>> | null;
+    verifiedAt: string | null;
+  } | null;
 }
 
 export interface AdminOperationalPage {

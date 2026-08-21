@@ -41,14 +41,14 @@ describe("OneCCounterpartyDirectorySource completeness", () => {
       fetchedCounterpartyRows: 1_473,
       sourceCounterpartyRows: 1_473,
       duplicateCounterpartyRows: 0,
-      pagesProcessed: 4,
+      pagesProcessed: 5,
     });
     expect(snapshot.counterparties).toContainEqual(expect.objectContaining({
       external1cId: MULTI_REF,
       name: "MULTI-SECURITY",
       normalizedFiscalCode: "1020602003976",
     }));
-    expect(requestUrls).toHaveLength(4);
+    expect(requestUrls).toHaveLength(5);
     expect(requestUrls.every((url) => url.includes("$top=5000") && url.includes("$skip=0")))
       .toBe(true);
   });
