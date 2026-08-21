@@ -1,4 +1,5 @@
 export * from "./copy";
+export * from "./dashboard-attention-copy";
 export * from "./catalog-copy";
 export * from "./company-copy";
 export * from "./define-copy";

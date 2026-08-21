@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   getWorkspaceHomeAction: vi.fn(),
+  getPartnerLocale: vi.fn().mockResolvedValue("ru"),
   redirect: vi.fn((href: string) => {
     throw new Error(`NEXT_REDIRECT:${href}`);
   }),
@@ -11,6 +12,9 @@ const mocks = vi.hoisted(() => ({
 vi.mock("next/navigation", () => ({ redirect: mocks.redirect }));
 vi.mock("@/src/modules/partner-cabinet/actions/workspace-home.action", () => ({
   getWorkspaceHomeAction: mocks.getWorkspaceHomeAction,
+}));
+vi.mock("@/src/modules/partner-locale/server", () => ({
+  getPartnerLocale: mocks.getPartnerLocale,
 }));
 vi.mock("@/src/modules/behavior-analytics/components/BehaviorViewEvent", () => ({
   BehaviorViewEvent: () => null,
@@ -26,6 +30,7 @@ import CabinetPage from "../page";
 describe("Partner Workspace operational home", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.getPartnerLocale.mockResolvedValue("ru");
     mocks.getWorkspaceHomeAction.mockResolvedValue({
       success: true,
       errorCode: null,
@@ -85,6 +90,39 @@ describe("Partner Workspace operational home", () => {
     render(await CabinetPage());
     expect(screen.getByText("Отгрузка заказа NSUU-1 просрочена")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Скрыть сообщение" })).toBeInTheDocument();
+  });
+
+  it("renders governed attention in Romanian without persisted mojibake", async () => {
+    mocks.getPartnerLocale.mockResolvedValue("ro");
+    mocks.getWorkspaceHomeAction.mockResolvedValue({
+      success: true,
+      errorCode: null,
+      message: "Workspace loaded.",
+      data: {
+        ...workspaceData(),
+        attentionItems: [{
+          id: "arrival-1",
+          kind: "notification_warehouse_arrival_completed",
+          title: "Новое пополнение склада",
+          consequence: "Поставка завершена.",
+          href: "/cabinet/catalog/replenishment",
+          occurredAt: "2026-08-21T08:00:00Z",
+          sourceFingerprint: "a".repeat(32),
+          dismissPolicy: "until_source_change",
+          severity: "info",
+          orderNumber: null,
+          plannedDate: null,
+          isTest: false,
+          ctaLabel: "РџРѕСЃРјРѕС‚СЂРµС‚СЊ",
+        }],
+      },
+    });
+
+    render(await CabinetPage());
+    const attention = screen.getByRole("heading", { name: "Necesită atenție" }).closest("section");
+    expect(screen.getByText("Ultima aprovizionare a depozitului")).toBeInTheDocument();
+    expect(screen.getByText("Vezi ultima aprovizionare")).toBeInTheDocument();
+    expect(attention?.textContent).not.toMatch(/[\u0400-\u04ff]|�/u);
   });
 
   it("redirects unauthenticated users", async () => {

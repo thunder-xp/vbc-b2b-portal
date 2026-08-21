@@ -17,7 +17,7 @@ import { OpportunityCard } from "../../commercial-opportunities/components/Oppor
 import { CampaignCard } from "../../commercial-campaigns/components/CampaignCard";
 import { dismissDashboardAttentionAction } from "../actions";
 import { SupportDashboardBlock } from "../../partner-support";
-import { formatPartnerDate, formatPartnerMoney, partnerText, type PartnerLocale } from "../../partner-locale";
+import { formatPartnerDate, formatPartnerMoney, formatPartnerRelativeDate, partnerText, presentDashboardAttention, type PartnerLocale } from "../../partner-locale";
 
 export function OperationalDashboard({
   locale,
@@ -89,7 +89,9 @@ function AttentionSection({
       <SectionHeading id="dashboard-attention" title={partnerText(locale, "dashboard.attention")} />
       {items.length ? (
         <ul className="mt-3 divide-y divide-zinc-200 border border-zinc-200 bg-white">
-          {items.map((item) => (
+          {items.map((item) => {
+            const presentation = presentDashboardAttention(item, locale);
+            return (
             <li
               className="grid gap-3 px-4 py-4 sm:grid-cols-[auto_minmax(0,1fr)_auto_auto] sm:items-center"
               key={`${item.kind}:${item.id}`}
@@ -105,9 +107,9 @@ function AttentionSection({
                     {item.plannedDate ? <span>{partnerText(locale, "dashboard.until")} {formatDate(item.plannedDate, locale)}</span> : null}
                   </p>
                 ) : null}
-                <p className="font-semibold text-zinc-950">{item.title}</p>
+                <p className="font-semibold text-zinc-950">{presentation.title}</p>
                 <p className="mt-1 text-sm text-zinc-600">
-                  {item.consequence}
+                  {presentation.consequence}
                 </p>
                 <p className="mt-1 text-xs text-zinc-500">
                   {relativeDate(item.occurredAt, locale)}
@@ -120,7 +122,7 @@ function AttentionSection({
                 metadataSafe={{ kind: item.kind }}
                 sourceSurface="dashboard_attention"
               >
-                {item.ctaLabel}
+                {presentation.ctaLabel}
                 <ArrowRight aria-hidden="true" className="size-4" />
               </DashboardTrackedLink>
               <form action={dismissDashboardAttentionAction}>
@@ -131,7 +133,8 @@ function AttentionSection({
                 </button>
               </form>
             </li>
-          ))}
+            );
+          })}
         </ul>
       ) : (
         <div className="mt-3 flex items-center gap-3 border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
@@ -470,13 +473,7 @@ function metricIcon(icon: "calendar" | "clock" | "confirmed") {
 }
 
 function relativeDate(value: string, locale: PartnerLocale): string {
-  const timestamp = Date.parse(value);
-  if (!Number.isFinite(timestamp)) return partnerText(locale, "dashboard.datePending");
-  const days = Math.round((timestamp - Date.now()) / 86_400_000);
-  if (days === 0) return partnerText(locale, "dashboard.today").toLocaleLowerCase();
-  if (days === -1) return partnerText(locale, "dashboard.yesterday");
-  if (days === 1) return partnerText(locale, "dashboard.tomorrow");
-  return formatDate(value, locale);
+  return formatPartnerRelativeDate(value, locale) || partnerText(locale, "dashboard.datePending");
 }
 
 function shipmentDistance(value: string, locale: PartnerLocale): string {

@@ -50,6 +50,7 @@ export type WorkspaceAttentionItemDto = {
   plannedDate: string | null;
   isTest: boolean;
   ctaLabel: string;
+  consequenceSource?: "platform" | "source";
 };
 
 export type WorkspaceOrderDto = {
@@ -456,6 +457,7 @@ function toAttentionItem(
         ...metadata,
         title: `Перенос даты по заказу ${item.objectNumber ?? ""} отклонён`.trim(),
         consequence: item.comment || "Откройте заказ для просмотра решения.",
+        consequenceSource: item.comment ? "source" : "platform",
       };
     case "date_change_pending":
       return {
