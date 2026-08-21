@@ -1,5 +1,5 @@
 import type { ProductCommercialViewDto } from "../../pricing-inventory";
-import { getCatalogCopy, type PartnerLocale } from "../../partner-locale";
+import { formatPartnerDate, getCatalogCopy, type PartnerLocale } from "../../partner-locale";
 
 type StockView = ProductCommercialViewDto["stock"];
 
@@ -10,10 +10,33 @@ export function ProductAvailabilityBlock({ locale = "ru", stock }: { locale?: Pa
     <div className={`flex h-full min-w-0 items-center gap-2 border-l-2 px-2 py-1.5 ${tone.container}`}>
       <span aria-hidden="true" className={`size-2 shrink-0 rounded-full ${tone.indicator}`} />
       <span className={`line-clamp-2 whitespace-pre-line text-xs font-semibold leading-4 ${tone.text}`}>
-        {stock?.label ?? getCatalogCopy(locale).availabilityPending}
+        {availabilityLabel(stock, locale)}
       </span>
     </div>
   );
+}
+
+function availabilityLabel(stock: StockView | null | undefined, locale: PartnerLocale): string {
+  const copy = getCatalogCopy(locale);
+  if (!stock) return copy.availabilityPending;
+  const quantity = stock.exactAvailableQuantity;
+  const unit = locale === "ro" ? "buc." : "шт.";
+  switch (stock.status) {
+    case "in_stock":
+      return quantity === null ? copy.inStock : `${copy.inStock}: ${quantity} ${unit}`;
+    case "low_stock":
+      return quantity === null ? copy.lowStock : `${copy.remaining}: ${quantity} ${unit}`;
+    case "expected": {
+      const date = stock.expectedArrival?.expectedDate;
+      return date
+        ? `${copy.expectedArrival}\n${formatPartnerDate(date, locale, { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" })}`
+        : copy.expectedArrival;
+    }
+    case "out_of_stock":
+      return copy.outOfStock;
+    default:
+      return copy.availabilityPending;
+  }
 }
 
 function getAvailabilityTone(status: StockView extends infer T ? T extends { status: infer S } ? S | undefined : undefined : undefined) {

@@ -13,7 +13,7 @@ import { ProductActions } from "./ProductActions";
 import { ProductImageGallery } from "./ProductImageGallery";
 import { ProductPricingBlock } from "./ProductPricingBlock";
 import { RetailPriceHistoryChart } from "./RetailPriceHistoryChart";
-import { getCatalogCopy, type PartnerLocale } from "../../partner-locale";
+import { formatPartnerDate, getCatalogCopy, type PartnerLocale } from "../../partner-locale";
 
 export type ProductDetailTab =
   | "overview"
@@ -337,8 +337,14 @@ function AvailabilityBlock({
             <Metric
               label={copy.arrivalDate}
               value={
-                stock.expectedArrival?.formattedExpectedDate ??
-                copy.notConfirmed
+                stock.expectedArrival?.expectedDate
+                  ? formatPartnerDate(stock.expectedArrival.expectedDate, locale, {
+                      day: "numeric",
+                      month: "long",
+                      year: "numeric",
+                      timeZone: "UTC",
+                    })
+                  : copy.notConfirmed
               }
             />
           </dl>
@@ -346,11 +352,20 @@ function AvailabilityBlock({
           <p className="text-sm text-zinc-600">{copy.stockUnavailable}</p>
         )}
         {freshness ? (
-          <p className="mt-4 text-xs text-zinc-500">{freshness.label}</p>
+          <p className="mt-4 text-xs text-zinc-500">
+            {localizedFreshnessLabel(freshness, locale)}
+          </p>
         ) : null}
       </div>
     </section>
   );
+}
+function localizedFreshnessLabel(freshness: FreshnessView, locale: PartnerLocale): string {
+  const copy = getCatalogCopy(locale);
+  if (freshness.status === "fresh") return copy.commercialDataFresh;
+  if (freshness.status === "aging") return copy.commercialDataAging;
+  if (freshness.status === "stale") return copy.commercialDataStale;
+  return copy.commercialDataUnknown;
 }
 
 function CharacteristicsTab({

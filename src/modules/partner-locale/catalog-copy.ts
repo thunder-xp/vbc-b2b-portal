@@ -140,6 +140,8 @@ export const getCatalogCopy = definePartnerCopy(
     maximum: "Максимум",
     pending: "Уточняется",
     lowStock: "Мало на складе",
+    remaining: "Осталось",
+    expectedArrival: "Ожидается к поступлению",
     outOfStock: "Нет в наличии",
     usefulMaterials: "Полезные материалы",
     relationsLoadError:
@@ -317,6 +319,8 @@ export const getCatalogCopy = definePartnerCopy(
     maximum: "Maxim",
     pending: "Se confirmă",
     lowStock: "Stoc redus",
+    remaining: "Au rămas",
+    expectedArrival: "În curs de aprovizionare",
     outOfStock: "Stoc epuizat",
     usefulMaterials: "Materiale utile",
     relationsLoadError:
