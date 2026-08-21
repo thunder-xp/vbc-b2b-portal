@@ -1,4 +1,6 @@
 import type { SalesOrderHistoryDTO } from "../../integration/dto";
+import type { ProductReferenceDto } from "../../catalog/types";
+import type { PartnerDocumentListItem } from "../../documents/types";
 import type {
   PartnerOrderHistory,
   PartnerOrderHistoryEvent,
@@ -26,8 +28,34 @@ export type PartnerOrderHistoryIdentity = {
   portalOrderId: string | null;
 };
 
+export type PartnerOrderHistoryDetailAggregate = {
+  order: PartnerOrderHistory;
+  companyName: string;
+  canViewPartnerPrice: boolean;
+  items: PartnerOrderHistoryItem[];
+  events: PartnerOrderHistoryEvent[];
+  portalSnapshot: {
+    documentTotal: number | null;
+    currencyCode: string | null;
+    items: Array<{
+      productId: string;
+      productName: string;
+      sku: string;
+      quantity: number;
+      partnerUnitPrice: number | null;
+      lineTotal: number | null;
+      currencyCode: string | null;
+    }>;
+  } | null;
+  productReferences: ProductReferenceDto[];
+  documents: PartnerDocumentListItem[];
+};
+
 export interface PartnerOrderHistoryRepository {
   getReorderSource(orderId: string): Promise<OrderReorderSource | null>;
+  getDetailAggregate?(
+    orderId: string,
+  ): Promise<PartnerOrderHistoryDetailAggregate | null>;
   listPlannedShipments?(input: {
     companyId: string;
     page: number;

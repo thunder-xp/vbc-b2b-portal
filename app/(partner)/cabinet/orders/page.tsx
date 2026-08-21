@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { BehaviorViewEvent } from "@/src/modules/behavior-analytics/components";
 import { listPartnerOrderHistoryAction } from "@/src/modules/orders/actions/order-history-list.actions";
+import { OrderDetailIntentLink } from "@/src/modules/orders/components/OrderDetailIntentLink";
 import { OrderHistoryRefreshButton } from "@/src/modules/orders/components/OrderHistoryRefreshButton";
 import { NumberedPagination } from "@/src/modules/platform-ui";
 import {
@@ -177,10 +178,9 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
                 className="grid gap-2 p-4 xl:grid-cols-[minmax(170px,1fr)_100px_120px_130px_130px_100px_120px_150px] xl:items-center xl:gap-3"
                 key={order.id}
               >
-                <Link
+                <OrderDetailIntentLink
                   className="grid gap-2 rounded outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 xl:contents"
                   href={`/cabinet/orders/${order.id}`}
-                  prefetch={false}
                 >
                   <span className="font-semibold text-zinc-950">
                     {order.primaryLabel}
@@ -206,7 +206,7 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
                   <span className="text-sm text-zinc-500">
                     {formatDateTime(order.lastSynchronizedAt, locale)}
                   </span>
-                </Link>
+                </OrderDetailIntentLink>
                 <Link
                   className="inline-flex min-h-11 w-fit items-center rounded-md border border-zinc-300 bg-white px-3 text-xs font-semibold text-zinc-700 hover:border-emerald-600 hover:text-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
                   href={`/cabinet/orders/${order.id}/reorder`}

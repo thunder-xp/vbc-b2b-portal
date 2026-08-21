@@ -109,6 +109,65 @@ describe("DefaultPartnerOrderHistoryService", () => {
     expect(result.lines[1]?.product).toBeNull();
   });
 
+  it("loads historical detail, products, documents, and bounded history through one aggregate", async () => {
+    const record = history();
+    const getDetailAggregate = vi.fn().mockResolvedValue({
+      order: record,
+      companyName: "ALERT-SS SRL",
+      canViewPartnerPrice: true,
+      items: [historyLine(record.id, "item-1", "product-1", "400123")],
+      events: [],
+      portalSnapshot: null,
+      productReferences: [{
+        productId: "product-1",
+        slug: "camera",
+        sku: "400123",
+        name: "Camera",
+        thumbnail: "/products/camera.jpg",
+        thumbnailFit: "contain",
+        publicationState: "published",
+      }],
+      documents: [{
+        id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+        documentType: "invoice",
+        title: "Invoice",
+        documentNumber: "INV-1",
+        issueDate: "2026-07-15",
+        validFrom: null,
+        validUntil: null,
+        status: "available",
+        version: "1",
+        languageCode: "ru",
+        fileName: "invoice.pdf",
+        mimeType: "application/pdf",
+        fileSize: 100,
+        isCurrent: true,
+        sourceScope: "company_specific",
+        products: [],
+        orders: [{ id: record.id, number: record.external1cOrderNumber }],
+      }],
+    });
+    const repository = { ...historyRepository([]), getDetailAggregate };
+    const productReferences = { getProductReferencesByIds: vi.fn() };
+
+    const result = await service(
+      repository,
+      orderProvider(),
+      ["pricing.partner_price.view"],
+      undefined,
+      productReferences as unknown as ProductReferenceService,
+    ).get("user-1", record.id);
+
+    expect(getDetailAggregate).toHaveBeenCalledOnce();
+    expect(repository.findVisibleById).not.toHaveBeenCalled();
+    expect(repository.listItemsByOrderIds).not.toHaveBeenCalled();
+    expect(repository.listEvents).not.toHaveBeenCalled();
+    expect(productReferences.getProductReferencesByIds).not.toHaveBeenCalled();
+    expect(result.lines[0]?.product?.slug).toBe("camera");
+    expect(result.documents).toHaveLength(1);
+    expect(JSON.stringify(result)).not.toContain(record.external1cOrderRef);
+  });
+
   it("returns safe not-found while the deleted audit record remains in the repository", async () => {
     const deleted = history({ partnerVisible: false, oneCDeletionMark: true, hiddenReason: "deleted_in_1c" });
     const repository = historyRepository([], deleted);

@@ -109,6 +109,7 @@ describe("partner order history pages", () => {
         lines: [{ productName: "Camera", sku: "400691", quantity: 2, unitPrice: "500,00 MDL", lineTotal: "1 000,00 MDL" }],
         timeline: [{ label: "Импортирован из истории 1С", occurredAt: "2026-07-15T10:01:00Z" }],
         portalSnapshot: null,
+        documents: [],
       },
       errorCode: null,
       message: "",

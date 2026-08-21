@@ -63,8 +63,27 @@ export async function getPartnerOrderAction(orderId: string): Promise<ActionResu
 }
 
 export async function getPartnerOrderHistoryAction(orderId: string): Promise<ActionResult<PartnerOrderHistoryDetailDto>> {
+  const startedAt = performance.now();
   try {
-    return success("Order history loaded.", await createPartnerOrderHistoryService().get(await getAuthenticatedUserId(), orderId));
+    const userId = await getAuthenticatedUserId();
+    const authenticatedAt = performance.now();
+    const detail = await createPartnerOrderHistoryService().get(userId, orderId);
+    const completedAt = performance.now();
+    console.info(JSON.stringify({
+      event: "partner_order_detail_loaded",
+      stageMs: {
+        auth: Math.round((authenticatedAt - startedAt) * 100) / 100,
+        aggregate: Math.round((completedAt - authenticatedAt) * 100) / 100,
+      },
+      durationMs: Math.round((completedAt - startedAt) * 100) / 100,
+      lineCount: detail.lines.length,
+      historyEventCount: detail.timeline.length,
+      documentCount: detail.documents.length,
+      payloadBytes: Buffer.byteLength(JSON.stringify(detail)),
+      liveOneCCallCount: 0,
+      deployedCommitSha: process.env.VERCEL_GIT_COMMIT_SHA ?? "local",
+    }));
+    return success("Order history loaded.", detail);
   } catch (error) {
     return failureFromError(error);
   }

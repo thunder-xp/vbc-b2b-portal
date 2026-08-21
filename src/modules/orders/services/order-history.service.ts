@@ -1,6 +1,7 @@
 import type { CompanyAccessService, PermissionService } from "../../access-control/services";
 import type { ProductReferenceService } from "../../catalog/services";
 import type { ProductReferenceDto } from "../../catalog/types";
+import type { PartnerDocumentListItem } from "../../documents/types";
 import {
   InvalidStateError,
   NotFoundError,
@@ -85,6 +86,7 @@ export type PartnerOrderHistoryDetailDto = PartnerOrderHistorySummaryDto & {
       lineTotal?: string;
     }>;
   } | null;
+  documents: PartnerDocumentListItem[];
 };
 
 export type PlannedShipmentIndicator = "scheduled" | "soon" | "today" | "overdue";
@@ -265,12 +267,65 @@ export class DefaultPartnerOrderHistoryService implements PartnerOrderHistorySer
   }
 
   async get(userId: string, orderId: string): Promise<PartnerOrderHistoryDetailDto> {
+    const normalizedOrderId = requirePortalUuid(orderId);
+    const aggregate = this.historyRepository.getDetailAggregate
+      ? await this.historyRepository.getDetailAggregate(normalizedOrderId)
+      : null;
+    if (aggregate) {
+      const referenceByProduct = new Map(
+        aggregate.productReferences.map((reference) => [reference.productId, reference]),
+      );
+      const lineInputs = aggregate.items.map((item) => ({
+        ...toDetailLine(item, aggregate.canViewPartnerPrice),
+        productId: item.productId,
+      }));
+      const snapshot = aggregate.portalSnapshot;
+      const snapshotCurrency = snapshot?.currencyCode
+        ?? snapshot?.items.find((item) => item.currencyCode)?.currencyCode
+        ?? null;
+      const snapshotTotal = snapshot?.documentTotal
+        ?? snapshot?.items.reduce((total, item) => total + (item.lineTotal ?? 0), 0)
+        ?? null;
+      return {
+        ...toSummary(aggregate.order, aggregate.canViewPartnerPrice),
+        companyName: aggregate.companyName,
+        originLabel: aggregate.order.originType === "partner_platform"
+          ? null
+          : "Заказ из истории Novotech",
+        lines: lineInputs.map(({ productId, ...line }) => ({
+          ...line,
+          product: productId ? referenceByProduct.get(productId) ?? null : null,
+        })),
+        timeline: aggregate.events.map(toTimelineEvent),
+        portalSnapshot: snapshot ? {
+          ...(aggregate.canViewPartnerPrice && snapshotTotal !== null && snapshotCurrency
+            ? { total: formatMoney(snapshotTotal, snapshotCurrency) }
+            : {}),
+          lines: snapshot.items.map((item) => ({
+            product: referenceByProduct.get(item.productId) ?? null,
+            productName: item.productName,
+            sku: item.sku,
+            quantity: item.quantity,
+            ...(aggregate.canViewPartnerPrice
+              && item.currencyCode
+              && item.partnerUnitPrice !== null
+              && item.lineTotal !== null
+              ? {
+                  unitPrice: formatMoney(item.partnerUnitPrice, item.currencyCode),
+                  lineTotal: formatMoney(item.lineTotal, item.currencyCode),
+                }
+              : {}),
+          })),
+        } : null,
+        documents: aggregate.documents,
+      };
+    }
+
     const context = await this.resolveContext(userId, ORDERS_VIEW_PERMISSION);
     const canViewPartnerPrice = await this.canViewPartnerPrice(
       userId,
       context.company.id,
     );
-    const normalizedOrderId = requirePortalUuid(orderId);
     const order = await this.historyRepository.findVisibleById(normalizedOrderId);
     if (!order || order.companyId !== context.company.id || order.oneCDeletionMark || !order.partnerVisible) {
       const receipt = await this.loadConfirmedPortalReceipt(
@@ -312,6 +367,7 @@ export class DefaultPartnerOrderHistoryService implements PartnerOrderHistorySer
           product: referenceByProduct.get(productId) ?? null,
         })),
       } : null,
+      documents: [],
     };
   }
 
@@ -384,6 +440,7 @@ export class DefaultPartnerOrderHistoryService implements PartnerOrderHistorySer
         ...(formattedTotal ? { total: formattedTotal } : {}),
         lines,
       },
+      documents: [],
     };
   }
 

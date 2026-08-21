@@ -2,6 +2,8 @@ import "server-only";
 
 import { createAdminClient } from "@/src/lib/supabase/admin";
 import { createClient } from "@/src/lib/supabase/server";
+import { resolveProductImageFit } from "@/src/modules/catalog/components/product-image-source";
+import type { PartnerDocumentListItem } from "@/src/modules/documents/types";
 
 import type { SalesOrderHistoryDTO } from "../../../integration/dto";
 import type {
@@ -24,6 +26,66 @@ const SYNC_COLUMNS = "company_id, counterparty_ref, status, sync_mode, active_sy
 type Row = Record<string, unknown>;
 
 export class SupabasePartnerOrderHistoryRepository implements PartnerOrderHistoryRepository {
+  async getDetailAggregate(orderId: string) {
+    const startedAt = performance.now();
+    const { data, error } = await (await createClient()).rpc(
+      "get_partner_order_detail_v2",
+      { p_order_id: orderId, p_event_limit: 100, p_document_limit: 20 },
+    );
+    if (error) throw new OrderHistoryRepositoryError();
+    if (!isRecord(data)) return null;
+
+    const order = isRecord(data.order) ? data.order : null;
+    if (!order) return null;
+    const portalSnapshot = isRecord(data.portal_snapshot)
+      ? data.portal_snapshot
+      : null;
+
+    const aggregate = {
+      order: mapHistory(order),
+      companyName: text(data.company_name),
+      canViewPartnerPrice: data.can_view_partner_price === true,
+      items: records(data.items).map(mapItem),
+      events: records(data.events).map(mapEvent),
+      portalSnapshot: portalSnapshot ? {
+        documentTotal: nullableNumber(portalSnapshot.document_total),
+        currencyCode: nullableText(portalSnapshot.currency_code),
+        items: records(portalSnapshot.items).map((item) => ({
+          productId: text(item.product_id),
+          productName: text(item.product_name),
+          sku: text(item.sku),
+          quantity: numberValue(item.quantity),
+          partnerUnitPrice: nullableNumber(item.partner_unit_price),
+          lineTotal: nullableNumber(item.line_total),
+          currencyCode: nullableText(item.currency_code),
+        })),
+      } : null,
+      productReferences: records(data.products).map((product) => {
+        const thumbnail = nullableText(product.thumbnail);
+        return {
+          productId: text(product.product_id),
+          slug: text(product.slug),
+          sku: text(product.sku),
+          name: text(product.name),
+          thumbnail,
+          thumbnailFit: resolveProductImageFit(thumbnail),
+          publicationState: "published" as const,
+        };
+      }),
+      documents: records(data.documents).map(mapDocument),
+    };
+    console.info(JSON.stringify({
+      event: "partner_order_detail_aggregate_loaded",
+      durationMs: Math.round((performance.now() - startedAt) * 100) / 100,
+      lineCount: aggregate.items.length,
+      historyEventCount: aggregate.events.length,
+      documentCount: aggregate.documents.length,
+      productReferenceCount: aggregate.productReferences.length,
+      databaseCallCount: 1,
+    }));
+    return aggregate;
+  }
+
   async getReorderSource(orderId: string): Promise<OrderReorderSource | null> {
     const { data, error } = await (await createClient()).rpc("get_partner_order_reorder_source", {
       target_order_id: orderId,
@@ -356,7 +418,39 @@ function mapSyncState(row: Row): PartnerOrderHistorySyncState {
   };
 }
 
+function mapDocument(row: Row): PartnerDocumentListItem {
+  return {
+    id: text(row.id),
+    documentType: text(row.document_type) as PartnerDocumentListItem["documentType"],
+    title: text(row.title),
+    documentNumber: nullableText(row.document_number),
+    issueDate: nullableText(row.issue_date),
+    validFrom: nullableText(row.valid_from),
+    validUntil: nullableText(row.valid_until),
+    status: text(row.status) as PartnerDocumentListItem["status"],
+    version: text(row.version),
+    languageCode: text(row.language_code) as PartnerDocumentListItem["languageCode"],
+    fileName: nullableText(row.file_name),
+    mimeType: nullableText(row.mime_type),
+    fileSize: nullableNumber(row.file_size),
+    isCurrent: row.is_current === true,
+    sourceScope: text(row.source_scope) as PartnerDocumentListItem["sourceScope"],
+    products: records(row.related_products).map((product) => ({
+      id: text(product.id),
+      sku: text(product.sku),
+      name: text(product.name),
+      slug: text(product.slug),
+    })),
+    orders: records(row.related_orders).map((order) => ({
+      id: text(order.id),
+      number: text(order.number),
+    })),
+  };
+}
+
 function text(value: unknown): string { return typeof value === "string" ? value : ""; }
 function nullableText(value: unknown): string | null { return typeof value === "string" ? value : null; }
 function numberValue(value: unknown): number { const number = Number(value); return Number.isFinite(number) ? number : 0; }
+function nullableNumber(value: unknown): number | null { return value === null || value === undefined ? null : numberValue(value); }
 function isRecord(value: unknown): value is Record<string, unknown> { return typeof value === "object" && value !== null && !Array.isArray(value); }
+function records(value: unknown): Row[] { return Array.isArray(value) ? value.filter(isRecord) : []; }

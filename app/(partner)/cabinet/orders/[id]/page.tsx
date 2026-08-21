@@ -5,7 +5,6 @@ import { BehaviorViewEvent } from "@/src/modules/behavior-analytics/components";
 import { getPartnerOrderHistoryAction } from "@/src/modules/orders/actions";
 import { SaveAsPurchasingListButton } from "@/src/modules/purchasing-lists/components";
 import { SaveAsPurchaseTemplateButton } from "@/src/modules/purchase-templates/components";
-import { listOrderDocumentsAction } from "@/src/modules/documents/actions";
 import { RelatedDocuments } from "@/src/modules/documents/components";
 import { ProductLineThumbnail } from "@/src/modules/catalog/components";
 import {
@@ -44,7 +43,6 @@ export default async function OrderDetailPage({
     );
   }
   const order = result.data;
-  const documentsResult = await listOrderDocumentsAction(order.id);
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -258,7 +256,7 @@ export default async function OrderDetailPage({
       ) : null}
 
       <RelatedDocuments
-        documents={documentsResult.success ? documentsResult.data.items : []}
+        documents={order.documents}
         emptyMessage={copy.documentsPending}
         title={copy.orderDocuments}
       />
