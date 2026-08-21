@@ -6,6 +6,7 @@ import { OrderHistoryRefreshButton } from "@/src/modules/orders/components/Order
 import { NumberedPagination } from "@/src/modules/platform-ui";
 import {
   formatPartnerDate,
+  formatPartnerRelativeAge,
   getOrdersCopy,
   orderStatusLabel,
 } from "@/src/modules/partner-locale";
@@ -76,7 +77,9 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
           <h1 className="mt-1 text-2xl font-semibold">{copy.title}</h1>
           <p className="mt-2 text-sm text-zinc-600">{copy.description}</p>
           <p className="mt-1 text-xs text-zinc-500">
-            {result.data.freshness.label}
+            {result.data.freshness.updatedAt
+              ? `${copy.ordersUpdated} ${formatPartnerRelativeAge(result.data.freshness.updatedAt, locale)}`
+              : copy.updateTimeUnknown}
           </p>
         </div>
         <OrderHistoryRefreshButton hasCachedOrders={result.data.total > 0} />

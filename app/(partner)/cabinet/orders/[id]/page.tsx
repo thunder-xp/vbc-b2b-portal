@@ -10,6 +10,7 @@ import { RelatedDocuments } from "@/src/modules/documents/components";
 import { ProductLineThumbnail } from "@/src/modules/catalog/components";
 import {
   formatPartnerDate,
+  formatPartnerRelativeAge,
   getOrdersCopy,
   orderEventLabel,
   orderStatusLabel,
@@ -85,7 +86,11 @@ export default async function OrderDetailPage({
         <p className="mt-2 text-sm font-medium text-zinc-700">
           {orderStatusLabel(order.statusCode, copy)}
         </p>
-        <p className="mt-1 text-xs text-zinc-500">{order.freshness.label}</p>
+        <p className="mt-1 text-xs text-zinc-500">
+          {order.freshness.updatedAt
+            ? `${copy.updated} ${formatPartnerRelativeAge(order.freshness.updatedAt, locale)}`
+            : copy.updateTimeUnknown}
+        </p>
         <dl className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Metric label={copy.company} value={order.companyName} />
           <Metric label={copy.orderDate} value={formatDate(order.documentDate, locale)} />
