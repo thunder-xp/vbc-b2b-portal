@@ -200,7 +200,7 @@ describe("price page integrity migration", () => {
 });
 
 describe("price sync performance metrics migration", () => {
-  const sql = readFileSync(resolve(process.cwd(), "supabase/migrations/20260820113324_price_sync_run_metrics.sql"), "utf8");
+  const sql = readFileSync(resolve(process.cwd(), "supabase/migrations/20260820114452_price_sync_run_metrics.sql"), "utf8");
   it("keeps one private compact aggregate per sync", () => {
     expect(sql).toContain("create table public.price_sync_run_metrics");
     expect(sql).toContain("p95_remote_duration_ms");
