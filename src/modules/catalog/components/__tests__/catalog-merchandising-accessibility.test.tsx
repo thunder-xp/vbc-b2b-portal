@@ -8,7 +8,7 @@ vi.mock("../../behavior-analytics/components", () => ({
   BehaviorViewEvent: () => null,
 }));
 vi.mock("../ProductCard", () => ({
-  ProductCard: ({ product }: { product: { name: string } }) => <div>{product.name}</div>,
+  ProductCard: ({ contextBadge, product }: { contextBadge?: string; product: { name: string } }) => <div>{product.name}{contextBadge ? <span>{contextBadge}</span> : null}</div>,
 }));
 
 import { CatalogMerchandisingSections } from "../CatalogMerchandisingSections";
@@ -31,6 +31,29 @@ describe("CatalogMerchandisingSections accessibility", () => {
     expect(screen.getByRole("link", { name: "Показать все: Популярные товары" })).toHaveAttribute(
       "href",
       "/cabinet/catalog?label=TOP",
+    );
+  });
+
+  it("localizes the replenishment title, badge, and action in Romanian", () => {
+    render(<CatalogMerchandisingSections
+      capabilities={RESTRICTED_PRODUCT_CARD_CAPABILITIES}
+      commercialViews={{}}
+      companyId={null}
+      locale="ro"
+      sections={[{
+        contextBadge: "Пополнение",
+        href: "/cabinet/catalog?collection=replenishment",
+        labelCode: "REPLENISHMENT",
+        title: "Последнее поступление",
+        products: [{ id: "product", name: "Camera" } as never],
+      }]}
+      userId={null}
+    />);
+    expect(screen.getByRole("heading", { name: "Ultima aprovizionare" })).toBeInTheDocument();
+    expect(screen.getByText("Aprovizionare")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Afișează toate: Ultima aprovizionare" })).toHaveAttribute(
+      "href",
+      "/cabinet/catalog?collection=replenishment",
     );
   });
 });

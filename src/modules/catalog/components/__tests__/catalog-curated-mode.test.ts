@@ -33,10 +33,17 @@ describe("catalog curated mode boundaries", () => {
   });
 
   it("exposes a stable unfiltered full-catalog entry", () => {
-    expect(page).toContain('href="/cabinet/catalog?view=all"');
+    expect(page).toContain('curated ? "/cabinet/catalog?view=all"');
     expect(page).toContain("copy.allCatalog");
     expect(getCatalogCopy("ru").allCatalog).toBe("Весь каталог");
     expect(getCatalogCopy("ro").allCatalog).toBe("Tot catalogul");
+  });
+
+  it("exposes the inverse showcase navigation without preserving discovery state", () => {
+    expect(page).toContain('href={curated ? "/cabinet/catalog?view=all" : "/cabinet/catalog"}');
+    expect(page).toContain("copy.showcase");
+    expect(getCatalogCopy("ru").showcase).toBe("Витрина");
+    expect(getCatalogCopy("ro").showcase).toBe("Vitrină");
   });
 
   it("does not fetch or render hidden full-catalog data in curated mode", () => {

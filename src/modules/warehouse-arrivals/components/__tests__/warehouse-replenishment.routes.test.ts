@@ -23,7 +23,7 @@ describe("warehouse replenishment storefront routes", () => {
     expect(action).toContain("maxProducts: 5");
     expect(action).toContain('href: "/cabinet/catalog?collection=replenishment"');
     expect(sections).toContain("section.maxProducts ?? 10");
-    expect(sections).toContain("contextBadge={section.contextBadge}");
+    expect(sections).toContain('section.labelCode === "REPLENISHMENT" ? copy.replenishment : section.contextBadge');
   });
 
   it("integrates replenishment into canonical partner page and facet aggregates", () => {

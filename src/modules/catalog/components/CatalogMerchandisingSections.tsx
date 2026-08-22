@@ -38,10 +38,10 @@ export function CatalogMerchandisingSections({
           />
           <div className="mb-3 flex items-center justify-between gap-4">
             <h2 className="text-lg font-semibold text-zinc-950" id={`section-${section.labelCode}`}>
-              {section.title}
+              {section.labelCode === "REPLENISHMENT" ? copy.latestArrival : section.title}
             </h2>
             <BehaviorTrackedCatalogLink
-              ariaLabel={`${copy.showAll}: ${section.title}`}
+              ariaLabel={`${copy.showAll}: ${section.labelCode === "REPLENISHMENT" ? copy.latestArrival : section.title}`}
               className="shrink-0 text-sm font-semibold text-emerald-700 hover:text-emerald-800"
               href={section.href ?? `/cabinet/catalog?label=${section.labelCode}`}
               sourceSurface={section.labelCode}
@@ -56,7 +56,7 @@ export function CatalogMerchandisingSections({
                 capabilities={capabilities}
                 commercialView={commercialViews[product.id]}
                 companyId={companyId}
-                contextBadge={section.contextBadge}
+                contextBadge={section.labelCode === "REPLENISHMENT" ? copy.replenishment : section.contextBadge}
                 key={product.id}
                 locale={locale}
                 product={product}

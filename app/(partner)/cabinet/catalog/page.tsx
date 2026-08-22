@@ -1,4 +1,4 @@
-import { LayoutGrid } from "lucide-react";
+import { LayoutGrid, Sparkles } from "lucide-react";
 import { cookies } from "next/headers";
 import Link from "next/link";
 import { Suspense } from "react";
@@ -46,7 +46,7 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
     <CatalogToolbarFrame>
       <CategoryMegaMenu categories={categoriesResult.data} collection={routeState.collection} merchandisingLabel={routeState.merchandisingLabel} sort={routeState.sort} />
       <CatalogSearch categoryId={routeState.categoryId} collection={routeState.collection} explicitAll={routeState.explicitAll} initialSearch={routeState.search} merchandisingLabel={routeState.merchandisingLabel} sort={routeState.sort} />
-      {routeState.mode === "curated" ? <Link className="inline-flex h-11 shrink-0 items-center gap-2 rounded-md border border-zinc-300 bg-white px-4 text-sm font-semibold text-zinc-900 hover:border-emerald-600 hover:text-emerald-800" href="/cabinet/catalog?view=all" prefetch={false}><LayoutGrid aria-hidden="true" className="size-4" /><span className="hidden sm:inline">{copy.allCatalog}</span></Link> : null}
+      <CatalogModeLink curated={routeState.mode === "curated"} labels={{ allCatalog: copy.allCatalog, showcase: copy.showcase }} />
     </CatalogToolbarFrame>
     {routeState.mode === "discovery" ? <CatalogBreadcrumb categories={categoriesResult.data} locale={locale} selectedId={routeState.categoryId} /> : null}
     <Suspense fallback={<CatalogResultsFallback ariaLabel={copy.loading} curated={routeState.mode === "curated"} />}>
@@ -82,6 +82,18 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
           />}
     </Suspense>
   </div>;
+}
+
+function CatalogModeLink({ curated, labels }: { curated: boolean; labels: { allCatalog: string; showcase: string } }) {
+  const Icon = curated ? LayoutGrid : Sparkles;
+  return <Link
+    className="inline-flex h-11 shrink-0 items-center gap-2 rounded-md border border-zinc-300 bg-white px-4 text-sm font-semibold text-zinc-900 hover:border-emerald-600 hover:text-emerald-800"
+    href={curated ? "/cabinet/catalog?view=all" : "/cabinet/catalog"}
+    prefetch={false}
+  >
+    <Icon aria-hidden="true" className="size-4" />
+    <span className="hidden sm:inline">{curated ? labels.allCatalog : labels.showcase}</span>
+  </Link>;
 }
 
 function CatalogResultsFallback({ ariaLabel, curated }: { ariaLabel: string; curated: boolean }) {
