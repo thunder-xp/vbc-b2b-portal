@@ -7,7 +7,7 @@ import { notFound } from "next/navigation";
 import { PublicRetailShell } from "@/src/modules/public-retail/components/PublicRetailShell";
 import { PublicStructuredData } from "@/src/modules/public-retail/components/PublicStructuredData";
 import { availabilityCopy, availabilityTone, formatRetailPrice, publicRetailLocale, retailCopy } from "@/src/modules/public-retail/presentation";
-import { buildPublicMetadata, publicBreadcrumbSchema, publicLocalizedUrl, publicProductSchema, publicProductSeoDescription } from "@/src/modules/public-retail/seo";
+import { buildPublicMetadata, publicBreadcrumbSchema, publicLocalizedUrl, publicMerchantProductImageUrls, publicProductMedia, publicProductSchema, publicProductSeoDescription } from "@/src/modules/public-retail/seo";
 import { getPublicRetailProduct } from "@/src/modules/public-retail/server";
 import { PublicRetailAddToCartButton } from "@/src/modules/public-retail/components/PublicRetailAddToCartButton";
 import { publicRetailFilterHref } from "@/src/modules/public-retail/catalog-links";
@@ -28,7 +28,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
     path: `/products/${product.slug}`,
     title,
     description: publicProductSeoDescription(product.name, product.shortDescription, locale),
-    images: product.image ? [product.image.url] : undefined,
+    images: publicMerchantProductImageUrls(product),
   });
 }
 export default async function PublicProductPage({ params, searchParams }: Props) {
@@ -37,7 +37,7 @@ export default async function PublicProductPage({ params, searchParams }: Props)
   const product = await getPublicRetailProduct(slug, locale);
   if (!product) notFound();
   const copy = retailCopy[locale];
-  const images = product.gallery.length ? product.gallery : product.image ? [product.image] : [];
+  const images = publicProductMedia(product);
   const productUrl = publicLocalizedUrl(`/products/${product.slug}`, locale);
   const breadcrumbItems = [
     { name: locale === "ro" ? "Principală" : "Главная", url: publicLocalizedUrl("/", locale) },
@@ -46,7 +46,11 @@ export default async function PublicProductPage({ params, searchParams }: Props)
     { name: product.name, url: productUrl },
   ];
   const productSchema = publicProductSchema(product, locale);
-  return <PublicRetailShell languagePath={`/products/${product.slug}`} locale={locale}><PublicStructuredData data={[productSchema, publicBreadcrumbSchema(breadcrumbItems)]} /><main className="mx-auto max-w-[1280px] px-4 py-8 sm:px-6 lg:px-8">
+  const structuredData = [
+    ...(productSchema ? [productSchema] : []),
+    publicBreadcrumbSchema(breadcrumbItems),
+  ];
+  return <PublicRetailShell languagePath={`/products/${product.slug}`} locale={locale}><PublicStructuredData data={structuredData} /><main className="mx-auto max-w-[1280px] px-4 py-8 sm:px-6 lg:px-8">
     <nav aria-label={locale === "ro" ? "Navigare ierarhică" : "Хлебные крошки"} className="flex flex-wrap gap-2 text-xs text-zinc-500"><Link href={`/?lang=${locale}`}>{locale === "ro" ? "Principală" : "Главная"}</Link><span aria-hidden="true">/</span><Link href={`/catalog?lang=${locale}`}>{copy.catalog}</Link>{product.categoryPath.map((category) => <span className="flex gap-2" key={category.id}><span aria-hidden="true">/</span><Link href={`/catalog?lang=${locale}&category=${category.slug}`}>{category.name}</Link></span>)}</nav>
     <div className="mt-6 grid gap-9 lg:grid-cols-[minmax(0,1fr)_minmax(360px,0.75fr)]">
       <section aria-label={locale === "ro" ? "Imagini produs" : "Изображения товара"}>{images.length ? <div className="grid gap-3 sm:grid-cols-2">{images.slice(0, 4).map((image, index) => <div className={`relative aspect-[4/3] overflow-hidden bg-zinc-50 ${index === 0 ? "sm:col-span-2" : ""}`} key={image.url}><Image alt={image.alt || product.name} className="object-contain p-6" fill priority={index === 0} sizes={index === 0 ? "(max-width: 1024px) 100vw, 60vw" : "30vw"} src={image.url} /></div>)}</div> : <div className="grid aspect-[4/3] place-items-center bg-zinc-50 text-zinc-300"><ImageIcon aria-hidden="true" className="size-16" /><span className="sr-only">Изображение отсутствует</span></div>}</section>

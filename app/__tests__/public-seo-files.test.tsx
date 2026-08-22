@@ -29,8 +29,10 @@ describe("public SEO route wiring", () => {
     const productPage = read("app/products/[slug]/page.tsx");
     const seo = read("src/modules/public-retail/seo.ts");
     expect(productPage).toContain("publicProductSchema(product, locale)");
+    expect(productPage).toContain("...(productSchema ? [productSchema] : [])");
     expect(seo).toContain('"@type": "Product"');
     expect(seo).toContain('"@type": "Offer"');
+    expect(seo).toContain("if (!images.length) return null");
     expect(`${productPage}\n${seo}`).not.toMatch(/partnerPrice|purchasePrice|margin|external1c/i);
   });
 });

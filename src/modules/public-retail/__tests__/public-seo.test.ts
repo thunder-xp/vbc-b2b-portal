@@ -9,12 +9,33 @@ import {
   publicInstallationServiceSchema,
   publicOrganizationSchemas,
   publicCategorySeoDescription,
+  publicMerchantProductImageUrls,
   publicProductSchema,
   publicProductSeoDescription,
 } from "../seo";
 import type { PublicRetailProductDetailDto } from "../types";
 
 describe("public SEO contract", () => {
+  const product = {
+    id: "10000000-0000-4000-8000-000000000001",
+    slug: "camera-one",
+    sku: "CAM-1",
+    name: "Camera One",
+    shortDescription: "Public camera",
+    description: null,
+    image: { url: "https://firebasestorage.googleapis.com/v0/b/novotech-systems-5449b.appspot.com/o/products%2Fcamera.webp?alt=media&token=governed", alt: "Camera One" },
+    gallery: [],
+    brand: { slug: "dahua", name: "Dahua" },
+    category: { slug: "cameras", name: "Камеры" },
+    categoryPath: [{ id: "20000000-0000-4000-8000-000000000001", slug: "cameras", name: "Камеры" }],
+    price: { amount: 1250, currency: "MDL", vatPresentation: "included" },
+    availability: "in_stock",
+    highlights: [],
+    specifications: [],
+    calculatorEligible: true,
+    datasheet: null,
+  } satisfies PublicRetailProductDetailDto;
+
   it("creates distinct RU/RO canonicals and reciprocal hreflang", () => {
     const metadata = buildPublicMetadata({
       locale: "ro",
@@ -81,33 +102,44 @@ describe("public SEO contract", () => {
   });
 
   it("builds RETAIL-only Product offers from the visible DTO", () => {
-    const product = {
-      id: "10000000-0000-4000-8000-000000000001",
-      slug: "camera-one",
-      sku: "CAM-1",
-      name: "Camera One",
-      shortDescription: "Public camera",
-      description: null,
-      image: { url: "https://example.com/camera.webp", alt: "Camera One" },
-      gallery: [],
-      brand: { slug: "dahua", name: "Dahua" },
-      category: { slug: "cameras", name: "Камеры" },
-      categoryPath: [{ id: "20000000-0000-4000-8000-000000000001", slug: "cameras", name: "Камеры" }],
-      price: { amount: 1250, currency: "MDL", vatPresentation: "included" },
-      availability: "in_stock",
-      highlights: [],
-      specifications: [],
-      calculatorEligible: true,
-      datasheet: null,
-    } satisfies PublicRetailProductDetailDto;
-
     const schema = publicProductSchema(product, "ru");
-    expect(schema.offers).toEqual(expect.objectContaining({
+    expect(schema?.image).toEqual([product.image.url]);
+    expect(schema?.offers).toEqual(expect.objectContaining({
       price: "1250.00",
       priceCurrency: "MDL",
       availability: "https://schema.org/InStock",
     }));
     expect(JSON.stringify(schema)).not.toMatch(/partner|purchase|margin|warehouse|external_1c/i);
+  });
+
+  it("emits all governed gallery images as stable absolute URLs", () => {
+    const gallery = [
+      { url: "/products/camera-front.webp", alt: "Front" },
+      { url: "https://storage.googleapis.com/novotech-systems-5449b.appspot.com/products/camera-side.webp", alt: "Side" },
+    ];
+    const schema = publicProductSchema({ ...product, gallery }, "ru");
+
+    expect(schema?.image).toEqual([
+      "https://www.nsd.md/products/camera-front.webp",
+      gallery[1].url,
+    ]);
+  });
+
+  it("omits merchant Product and Offer schema without a governed real image", () => {
+    expect(publicProductSchema({ ...product, image: null }, "ru")).toBeNull();
+    expect(publicProductSchema({ ...product, image: { url: "/product-placeholder.svg", alt: "Fallback" } }, "ru")).toBeNull();
+  });
+
+  it("rejects malformed, non-HTTPS, private and transient optimization images", () => {
+    for (const url of [
+      "http://storage.googleapis.com/novotech-systems-5449b.appspot.com/camera.webp",
+      "https://example.com/private-camera.webp",
+      "https://www.nsd.md/_next/image?url=%2Fcamera.webp&w=640&q=75",
+      "blob:https://www.nsd.md/camera",
+      "not-a-url",
+    ]) {
+      expect(publicMerchantProductImageUrls({ ...product, image: { url, alt: "Camera" } })).toEqual([]);
+    }
   });
 
   it("uses only governed organization and store facts", () => {

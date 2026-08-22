@@ -1,10 +1,19 @@
 import type { Metadata } from "next";
 
+import { normalizeProductImageUrl } from "../catalog/components/product-image-source";
 import { publicCompanyContent } from "./public-company-content";
-import type { PublicRetailLocale, PublicRetailProductDetailDto } from "./types";
+import type { PublicRetailLocale, PublicRetailMediaDto, PublicRetailProductDetailDto } from "./types";
 
 export const PUBLIC_SITE_ORIGIN = "https://www.nsd.md";
 export const PUBLIC_SOCIAL_IMAGE = "/retail/security-installation-hero.webp";
+
+const NON_PRODUCT_PUBLIC_IMAGES = new Set([
+  "/brand/novotech-logo-dark.webp",
+  "/brand/novotech-logo-light.webp",
+  "/brand/novotech-symbol.webp",
+  "/product-placeholder.svg",
+  PUBLIC_SOCIAL_IMAGE,
+]);
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -213,9 +222,10 @@ export function publicOrganizationSchemas(
 export function publicProductSchema(
   product: PublicRetailProductDetailDto,
   locale: PublicRetailLocale,
-): Record<string, unknown> {
+): Record<string, unknown> | null {
   const productUrl = publicLocalizedUrl(`/products/${product.slug}`, locale);
-  const images = product.gallery.length ? product.gallery : product.image ? [product.image] : [];
+  const images = publicMerchantProductImageUrls(product);
+  if (!images.length) return null;
   const availability = {
     in_stock: "https://schema.org/InStock",
     low_stock: "https://schema.org/LimitedAvailability",
@@ -230,7 +240,7 @@ export function publicProductSchema(
     sku: product.sku,
     url: productUrl,
     description: product.shortDescription ?? product.description ?? undefined,
-    image: images.map((image) => image.url),
+    image: images,
     category: product.categoryPath.at(-1)?.name,
     brand: product.brand ? { "@type": "Brand", name: product.brand.name } : undefined,
     offers: {
@@ -242,6 +252,33 @@ export function publicProductSchema(
       seller: { "@id": `${publicLocalizedUrl("/", "ru")}#organization` },
     },
   };
+}
+
+export function publicProductMedia(product: PublicRetailProductDetailDto): PublicRetailMediaDto[] {
+  return product.gallery.length ? product.gallery : product.image ? [product.image] : [];
+}
+
+export function publicMerchantProductImageUrls(product: PublicRetailProductDetailDto): string[] {
+  return [...new Set(publicProductMedia(product)
+    .map((image) => canonicalPublicProductImageUrl(image.url))
+    .filter((url): url is string => Boolean(url)))];
+}
+
+function canonicalPublicProductImageUrl(value: string): string | null {
+  try {
+    const relative = value.startsWith("/") && !value.startsWith("//");
+    const normalized = relative ? value : normalizeProductImageUrl(value);
+    if (!normalized) return null;
+
+    const url = new URL(normalized, PUBLIC_SITE_ORIGIN);
+    if (url.protocol !== "https:" || url.username || url.password) return null;
+    if (url.origin === PUBLIC_SITE_ORIGIN) {
+      if (url.pathname === "/_next/image" || NON_PRODUCT_PUBLIC_IMAGES.has(url.pathname)) return null;
+    }
+    return url.toString();
+  } catch {
+    return null;
+  }
 }
 
 export function publicInstallationServiceSchema(locale: PublicRetailLocale): Record<string, unknown> {
