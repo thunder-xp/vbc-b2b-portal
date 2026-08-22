@@ -18,6 +18,7 @@ const navigationKeys = {
   customers: "nav.customers",
   nomenclature: "nav.nomenclature",
   proposal_generator: "nav.proposal_generator",
+  external_prices: "nav.external_prices",
   orders: "nav.orders",
   installation_orders: "nav.installation_orders",
   finance: "nav.finance",

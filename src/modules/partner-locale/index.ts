@@ -18,6 +18,7 @@ export * from "./service-support-copy";
 export * from "./secondary-copy";
 export * from "./status-copy";
 export * from "./workspace-copy";
+export * from "./external-prices-copy";
 export * from "./navigation";
 export * from "./notification-copy";
 export * from "./PartnerLanguageSwitch";

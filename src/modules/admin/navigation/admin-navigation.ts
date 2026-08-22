@@ -45,6 +45,11 @@ export const ADMIN_NAVIGATION: readonly AdminNavigationGroup[] = [
         permission: "admin.analytics.view",
       },
       {
+        label: "Конкурентные цены",
+        href: "/admin/commercial/competitive-pricing",
+        permission: "admin.analytics.view",
+      },
+      {
         label: "Неудовлетворённый спрос",
         href: "/admin/commercial/unmet-demand",
         permission: "admin.external_demand.view",

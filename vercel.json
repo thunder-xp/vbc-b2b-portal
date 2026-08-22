@@ -99,6 +99,10 @@
     {
       "path": "/api/cron/cctv-camera-signals",
       "schedule": "50 * * * *"
+    },
+    {
+      "path": "/api/cron/external-price-imports",
+      "schedule": "* * * * *"
     }
   ]
 }

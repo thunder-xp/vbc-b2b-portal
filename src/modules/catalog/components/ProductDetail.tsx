@@ -14,6 +14,8 @@ import { ProductImageGallery } from "./ProductImageGallery";
 import { ProductPricingBlock } from "./ProductPricingBlock";
 import { RetailPriceHistoryChart } from "./RetailPriceHistoryChart";
 import { formatPartnerDate, getCatalogCopy, type PartnerLocale } from "../../partner-locale";
+import { ExternalPriceComparison } from "../../external-prices/components/ExternalPriceComparison";
+import type { CurrentExternalPriceDto } from "../../external-prices/types";
 
 export type ProductDetailTab =
   | "overview"
@@ -39,6 +41,7 @@ type ProductDetailProps = {
   hasAnalogs?: boolean;
   relationsContent?: ReactNode;
   locale?: PartnerLocale;
+  externalPrices?: CurrentExternalPriceDto[];
 };
 
 export function ProductDetail({
@@ -50,6 +53,7 @@ export function ProductDetail({
   hasAnalogs = false,
   initialFavorite = false,
   locale = "ru",
+  externalPrices = [],
   priceFreshness,
   product,
   relationsContent,
@@ -102,6 +106,7 @@ export function ProductDetail({
               product={product}
               stockFreshness={stockFreshness}
               userId={userId}
+              externalPrices={externalPrices}
             />
           </ProductTabLayout>
         </>
@@ -177,6 +182,7 @@ function OverviewTab({
   product,
   stockFreshness,
   userId,
+  externalPrices = [],
 }: Omit<ProductDetailProps, "activeTab" | "relationsContent">) {
   const copy = getCatalogCopy(locale);
   return (
@@ -209,6 +215,7 @@ function OverviewTab({
         freshness={stockFreshness}
         locale={locale}
       />
+      <ExternalPriceComparison commercialView={commercialView} locale={locale} prices={externalPrices} />
       <RelationPrompt
         hasAnalogs={hasAnalogs ?? false}
         locale={locale}

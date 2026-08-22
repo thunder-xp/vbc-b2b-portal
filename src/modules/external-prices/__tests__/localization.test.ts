@@ -1,0 +1,2 @@
+import {describe,expect,it} from "vitest";import {getExternalPricesCopy} from "../../partner-locale";
+describe("external price localization",()=>{it("has business-natural RU and RO copy",()=>{expect(getExternalPricesCopy("ru").title).toBe("Цены поставщиков");expect(getExternalPricesCopy("ro").title).toBe("Prețurile furnizorilor");expect(getExternalPricesCopy("ro").confirmMapping).toBeTruthy();});});

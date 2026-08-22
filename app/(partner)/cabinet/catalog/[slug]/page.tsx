@@ -27,6 +27,7 @@ import { getProductKnowledgeAction } from "@/src/modules/knowledge-base/actions"
 import { KnowledgeCardView } from "@/src/modules/knowledge-base/landing-components";
 import { getCatalogCopy } from "@/src/modules/partner-locale";
 import { getPartnerLocale } from "@/src/modules/partner-locale/server";
+import { ExternalPriceRepository, type CurrentExternalPriceDto } from "@/src/modules/external-prices";
 
 type ProductDetailPageProps = {
   params: Promise<{
@@ -118,6 +119,7 @@ export default async function ProductDetailPage({
   let userId: string | null = null;
   let commercialView;
   let initialFavorite = false;
+  let externalPrices: CurrentExternalPriceDto[] = [];
   if (needsCommercialContext) {
     commercialView = commercialViewsResult?.success
       ? commercialViewsResult.data[0]
@@ -142,6 +144,9 @@ export default async function ProductDetailPage({
         favoriteResult.success &&
         favoriteResult.data.includes(productResult.data.id),
       );
+    }
+    if (activeTab === "overview" && companyId && workspaceResult?.success && workspaceResult.data.capabilities.navigation?.some((item) => item.key === "external_prices")) {
+      externalPrices = await new ExternalPriceRepository().getCurrent(companyId, productResult.data.id);
     }
   }
   const priceUpdatedAt = latestTimestamp([
@@ -228,6 +233,7 @@ export default async function ProductDetailPage({
         }
         stockFreshness={stockFreshness}
         userId={userId}
+        externalPrices={externalPrices}
       />
       <BehaviorViewEvent
         dedupeKey={`product-tab:${activeTab}:${productResult.data.id}`}

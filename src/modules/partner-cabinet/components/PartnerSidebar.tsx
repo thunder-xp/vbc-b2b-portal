@@ -22,6 +22,7 @@ import {
   Lightbulb,
   Megaphone,
   SearchCheck,
+  Tags,
   ShieldCheck,
   ShoppingCart,
   WandSparkles,
@@ -50,6 +51,7 @@ const icons = {
   customers: Building2,
   nomenclature: ClipboardList,
   proposal_generator: WandSparkles,
+  external_prices: Tags,
   orders: ListChecks,
   installation_orders: Wrench,
   finance: Landmark,
@@ -63,7 +65,7 @@ const icons = {
 } satisfies Record<WorkspaceCapabilityKey, typeof Gauge>;
 
 const primaryNavigationOrder: readonly WorkspaceCapabilityKey[] = ["dashboard", "catalog"];
-const businessNavigationOrder: readonly WorkspaceCapabilityKey[] = ["opportunities", "offers"];
+const businessNavigationOrder: readonly WorkspaceCapabilityKey[] = ["opportunities", "offers", "external_prices"];
 const supportNavigationOrder: readonly WorkspaceCapabilityKey[] = ["warranty", "support", "knowledge_base"];
 
 const selectionNavigationOrder: readonly WorkspaceCapabilityKey[] = [
