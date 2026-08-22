@@ -128,17 +128,7 @@ export class OneCCustomerOrderProvider implements OrderProvider {
 
     const verifiedOrder = await readBackCreatedOrder(this.config, order, value.Ref_Key);
 
-    return {
-      orderReference: { providerCode: "one-c", externalId: verifiedOrder.Ref_Key, externalType: CUSTOMER_ORDER_TYPE },
-      orderNumber: verifiedOrder.Number,
-      documentDate: new Date(verifiedOrder.Date).toISOString(),
-      status: "unposted",
-      exportedAt: new Date().toISOString(),
-      requestedDeliveryDate: order.requestedDeliveryDate,
-      documentTotal: Number(verifiedOrder.СуммаДокумента),
-      itemCount: order.items.length,
-      totalUnits: order.items.reduce((total, item) => total + item.quantity, 0),
-    };
+    return toExportResult(verifiedOrder, order);
   }
 
   async findExportedSalesOrders(order: SalesOrderDTO): Promise<SalesOrderExportResultDTO[]> {

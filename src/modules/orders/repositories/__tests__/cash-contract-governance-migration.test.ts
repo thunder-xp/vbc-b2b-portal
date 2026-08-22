@@ -7,6 +7,10 @@ const sql = readFileSync(
   join(process.cwd(), "supabase/migrations/20260822090000_cash_contract_governance.sql"),
   "utf8",
 );
+const checkoutCurrencySql = readFileSync(
+  join(process.cwd(), "supabase/migrations/20260822092324_align_cashless_checkout_settlement_currency.sql"),
+  "utf8",
+);
 
 describe("cash contract governance migration", () => {
   it("creates one explicit cash role without label inference", () => {
@@ -38,6 +42,13 @@ describe("cash contract governance migration", () => {
     expect(sql).toContain("resolved_price_type_ref := lower(btrim(coalesce(target_contract.price_type_external_1c_id, '')))");
     expect(sql).not.toContain("Оптовая");
     expect(sql).not.toContain("Оптовая цена");
+  });
+
+  it("permits cashless settlement currency differences without weakening cash qualification", () => {
+    expect(checkoutCurrencySql).toContain("target_payment_method = 'cash' and");
+    expect(checkoutCurrencySql).toContain("target_contract.contract_currency_external_1c_id");
+    expect(checkoutCurrencySql).toContain("target_payment_method = 'cashless' and resolved_price_type_ref");
+    expect(checkoutCurrencySql).toContain("public.qualify_partner_cash_contract_candidate");
   });
 
   it("keeps privileged helpers and projections off public callers", () => {

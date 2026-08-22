@@ -193,7 +193,17 @@ describe("OneCCustomerOrderProvider", () => {
     expect(decodeURIComponent(url.toString())).toBe("https://erp.example/odata/Document_ЗаказПокупателя?$format=json");
     expect(init.method).toBe("POST");
     expect(JSON.parse(String(init.body))).toMatchObject({ Posted: false, Автор_Key: "272a1ac4-0194-11eb-8975-000c29cf9dd4" });
-    expect(result).toMatchObject({ orderNumber: "NSUU-TEST", status: "unposted", orderReference: { externalId: "77777777-7777-4777-8777-777777777777" } });
+    expect(result).toMatchObject({
+      orderNumber: "NSUU-TEST",
+      status: "unposted",
+      orderReference: { externalId: "77777777-7777-4777-8777-777777777777" },
+      readBack: {
+        paymentMethod: "cashless",
+        plannedPaymentDate: "2099-01-09",
+        fulfillmentMethod: "pickup",
+        paymentAmount: 1314,
+      },
+    });
   });
 
   it("does not report success when the created order cannot be verified by read-back", async () => {
