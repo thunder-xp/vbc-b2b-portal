@@ -56,6 +56,16 @@ describe("public SEO contract", () => {
 
   it("keeps clean category pagination indexable", () => {
     expect(publicCatalogSeoState(
+      { lang: "ru" },
+      new Set(["cameras"]),
+    )).toEqual({
+      categorySlug: undefined,
+      page: 1,
+      index: true,
+      canonicalParams: { category: undefined, page: undefined },
+    });
+
+    expect(publicCatalogSeoState(
       { lang: "ru", category: "cameras", page: "2" },
       new Set(["cameras"]),
     )).toEqual({
@@ -73,6 +83,7 @@ describe("public SEO contract", () => {
       { sort: "price_asc" },
       { view: "special" },
       { "attr.resolution": "4 MP" },
+      { page: "1" },
     ]) {
       expect(publicCatalogSeoState(params, new Set()).index).toBe(false);
     }

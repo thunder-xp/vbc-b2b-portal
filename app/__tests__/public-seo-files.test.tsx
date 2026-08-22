@@ -23,6 +23,28 @@ describe("public SEO route wiring", () => {
     expect(read("app/(admin)/admin/layout.tsx")).toContain("index: false");
     expect(read("app/auth/layout.tsx")).toContain("index: false");
     expect(read("app/(partner)/onboarding/layout.tsx")).toContain("index: false");
+    expect(read("app/cart/page.tsx")).toContain("robots: { index: false, follow: false }");
+    expect(read("app/checkout/page.tsx")).toContain("robots: { index: false, follow: false }");
+  });
+
+  it("keeps public discovery on the canonical HTTPS www host", () => {
+    const seo = read("src/modules/public-retail/seo.ts");
+    const sitemap = read("app/sitemap.ts");
+    const robots = read("app/robots.ts");
+
+    expect(seo).toContain('PUBLIC_SITE_ORIGIN = "https://www.nsd.md"');
+    expect(sitemap).toContain("PUBLIC_SITE_ORIGIN");
+    expect(robots).toContain("PUBLIC_SITE_ORIGIN");
+    expect(`${seo}\n${sitemap}\n${robots}`).not.toContain("http://nsd.md");
+    expect(`${seo}\n${sitemap}\n${robots}`).not.toContain("http://www.nsd.md");
+  });
+
+  it("keeps published product pages in the indexable public metadata pipeline", () => {
+    const productPage = read("app/products/[slug]/page.tsx");
+
+    expect(productPage).toContain("buildPublicMetadata");
+    expect(productPage).toContain('path: `/products/${product.slug}`');
+    expect(productPage).not.toContain("index: false");
   });
 
   it("uses structured data without private commercial fields", () => {

@@ -22,7 +22,9 @@ describe("public sitemap", () => {
     expect(urls).toContain("https://www.nsd.md/?lang=ro");
     expect(urls).toContain("https://www.nsd.md/catalog?lang=ru&amp;category=cameras");
     expect(urls).toContain("https://www.nsd.md/products/camera-one?lang=ro");
+    expect(urls.every((url) => url.startsWith("https://www.nsd.md/"))).toBe(true);
     expect(urls.join("\n")).not.toMatch(/cart|checkout|cabinet|admin|search|sort|view|project-equipment/);
+    expect(urls.join("\n")).not.toMatch(/http:\/\/|https:\/\/nsd\.md/);
     expect(listPublicSeoProducts).toHaveBeenCalledTimes(1);
   });
 
