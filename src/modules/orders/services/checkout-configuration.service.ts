@@ -94,7 +94,9 @@ function validContract(
     && contract.priceTypeRef
     && contract.currencyRef
     && contract.currencyCode
-    && contract.contractCurrencyRef?.toLowerCase() === contract.currencyRef.toLowerCase()
+    && contract.contractCurrencyRef
+    && (requireCompanyPriceType
+      || contract.contractCurrencyRef.toLowerCase() === contract.currencyRef.toLowerCase())
     && (!requireCompanyPriceType || contract.priceTypeRef.toLowerCase() === config.priceTypeRef.toLowerCase()),
   );
 }

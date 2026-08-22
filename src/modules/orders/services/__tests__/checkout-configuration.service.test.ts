@@ -96,6 +96,15 @@ describe("checkout configuration", () => {
     expect(options.paymentMethods[0].enabled).toBe(false);
   });
 
+  it("allows a cashless settlement currency to differ from its governed price currency", () => {
+    const cashless = {
+      ...contract("contract-cashless", "NS-1"),
+      contractCurrencyRef: "settlement-currency",
+    };
+
+    expect(toPartnerCheckoutOptions(configuration({ cashless })).paymentMethods[0].enabled).toBe(true);
+  });
+
   it("allows a governed cash contract with its own validated price type and currency", () => {
     const cash = contract("contract-cash", "CASH-1", "cash-price-type");
     const config = configuration({ cash });
