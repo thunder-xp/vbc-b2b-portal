@@ -8,13 +8,11 @@ import type { OrderProvider, PartnerProvider } from "../../integration/contracts
 import type { ExternalReferenceDTO, SalesOrderDTO } from "../../integration/dto";
 import { IntegrationProviderUnavailableError, IntegrationTimeoutError } from "../../integration/errors";
 import { isStale } from "../../integration/freshness";
-import { NOVOTECH_ONE_C_ORGANIZATION_REF } from "../../integration/config";
 import type { PricingInventoryService } from "../../pricing-inventory/services";
 import type {
   CheckoutConfigurationRepository,
   CheckoutFulfillmentMethod,
   CheckoutPaymentMethod,
-  CheckoutContractConfiguration,
 } from "../repositories";
 import { OrderRepositoryError, type CartRepository, type OrderItemSnapshotInput, type PartnerOrderRepository } from "../repositories/order.repository";
 import { CartStatus, PartnerOrderIntegrationStatus, PartnerOrderStatus, type PartnerOrder, type PartnerOrderItem } from "../types";
@@ -93,7 +91,7 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
     private readonly permissionService: PermissionService,
     private readonly catalogService: CatalogService,
     private readonly pricingInventoryService: PricingInventoryService,
-    private readonly partnerProvider: PartnerProvider,
+    _partnerProvider: PartnerProvider,
     private readonly orderProvider: OrderProvider,
     private readonly options: PartnerOrderServiceOptions = {},
     private readonly priceRefreshService?: OrderPriceRefreshService,
@@ -176,7 +174,6 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
     }
     const counterpartyRef = company.external1cId;
     const companyPriceTypeRef = company.external1cPriceTypeId;
-    const companyContractRef = requireOneCGuid(company.external1cContractId, "Company contract");
     const [checkoutConfiguration, cart] = await Promise.all([
       this.checkoutConfigurationRepository
         ? diagnosticStep(
@@ -187,9 +184,32 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
         : Promise.resolve(null),
       this.cartRepository.findActive(company.id, userId),
     ]);
-    const resolvedCheckout = checkoutConfiguration
-      ? resolveCheckoutSelection(checkoutConfiguration, checkoutSelection)
-      : fallbackCheckoutSelection(checkoutSelection, companyContractRef, companyPriceTypeRef);
+    if (!checkoutConfiguration) {
+      failOrderSubmission(
+        "checkout_configuration_resolution",
+        new RecoverableOrderSubmissionError(
+          "The governed checkout configuration is unavailable.",
+          "ORDER_COMPANY_MAPPING_MISSING",
+        ),
+        { companyId: company.id, submissionKey },
+      );
+    }
+    const resolvedCheckout = resolveCheckoutSelection(checkoutConfiguration, checkoutSelection);
+    if (!isOneCGuid(checkoutConfiguration.currencyRef)) {
+      failOrderSubmission(
+        "price_type_currency_resolution",
+        new RecoverableOrderSubmissionError(
+          "The governed checkout currency is unavailable.",
+          "ORDER_COMPANY_MAPPING_MISSING",
+        ),
+        {
+          companyId: company.id,
+          priceTypeRef: companyPriceTypeRef,
+          submissionKey,
+        },
+      );
+    }
+    const checkoutCurrencyRef = checkoutConfiguration.currencyRef.trim().toLowerCase();
     if (!cart) throw new RecoverableOrderSubmissionError("The active cart is not available.");
     if (cart.id !== submittedCartId) {
       console.warn({
@@ -267,11 +287,6 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
                   )).then((views) => ({ commercialMode: "full" as const, views })),
           { cartId: cart.id, companyId: company.id, submissionKey },
         ),
-        diagnosticStep(
-          "price_type_currency_resolution",
-          () => this.partnerProvider.fetchPriceType({ reference: companyPriceTypeRef }),
-          { cartId: cart.id, companyId: company.id, priceTypeRef: companyPriceTypeRef, submissionKey },
-        ),
       ]);
     } catch (error) {
       console.error({
@@ -286,7 +301,7 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
       if (error instanceof RecoverableOrderSubmissionError) throw error;
       throw new RecoverableOrderSubmissionError("Order preflight validation failed.");
     }
-    const [identities, initialOrderPricing, priceType] = resolvedInputs;
+    const [identities, initialOrderPricing] = resolvedInputs;
     let commercialViews = initialOrderPricing.views;
     const commercialMode = initialOrderPricing.commercialMode;
     const identitiesById = new Map(identities.map((item) => [item.id, item]));
@@ -406,23 +421,6 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
         { cartId: cart.id, companyId: company.id, contractRef: resolvedCheckout.contract.contractRef, submissionKey },
       );
     }
-    if (!priceType?.active || !priceType.currency) {
-      failOrderSubmission(
-        "price_type_currency_resolution",
-        new RecoverableOrderSubmissionError(
-          "The active 1C price type or currency is unavailable.",
-          "ORDER_COMPANY_MAPPING_MISSING",
-        ),
-        {
-          cartId: cart.id,
-          companyId: company.id,
-          priceTypeRef: companyPriceTypeRef,
-          priceTypeActive: priceType?.active ?? null,
-          currencyRef: priceType?.currency ?? null,
-          submissionKey,
-        },
-      );
-    }
     console.info({
       event: "partner_order_submission_diagnostic",
       stage: "commercial_mapping_resolved",
@@ -433,7 +431,7 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
       contractRef: resolvedCheckout.contract.contractRef,
       organizationRef: resolvedCheckout.contract.organizationRef,
       priceTypeRef: companyPriceTypeRef,
-      currencyRef: priceType.currency,
+      currencyRef: checkoutCurrencyRef,
       submissionKey,
     });
 
@@ -530,7 +528,7 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
     const salesOrder = buildSalesOrder({
       submissionKey, deliveryDate, companyRef: counterpartyRef,
       contractRef: resolvedCheckout.contract.contractRef, priceTypeRef: companyPriceTypeRef,
-      organizationReference: ref(resolvedCheckout.contract.organizationRef!, "organization"), currencyRef: priceType.currency,
+      organizationReference: ref(resolvedCheckout.contract.organizationRef!, "organization"), currencyRef: checkoutCurrencyRef,
       currencyCode: exportCurrencyCode, snapshots: exportSnapshots,
       paymentMethod: resolvedCheckout.paymentMethod,
       paymentDate: resolvedCheckout.paymentDate,
@@ -845,32 +843,6 @@ export function assertLegacyExportIntegrity(
 
 function ref(externalId: string, externalType: string): ExternalReferenceDTO { return { providerCode: "one-c", externalId, externalType }; }
 
-function fallbackCheckoutSelection(
-  selection: CheckoutSelection,
-  contractRef: string,
-  priceTypeRef: string,
-) {
-  if (selection.paymentMethod !== "cashless" || selection.fulfillmentMethod !== "pickup") {
-    throw new RecoverableOrderSubmissionError(
-      "The selected checkout configuration is unavailable.",
-      "ORDER_PAYMENT_METHOD_UNAVAILABLE",
-    );
-  }
-  return {
-    ...selection,
-    contract: {
-      contractRef,
-      name: "",
-      number: null,
-      active: true,
-      contractType: "СПокупателем",
-      organizationRef: NOVOTECH_ONE_C_ORGANIZATION_REF,
-      priceTypeRef,
-    } satisfies CheckoutContractConfiguration,
-    carrierExternalRef: null,
-  };
-}
-
 function normalizeCheckoutSelection(
   input: {
     paymentMethod?: CheckoutPaymentMethod;
@@ -904,10 +876,6 @@ function checkoutRequestFingerprint(input: {
   return createHash("sha256").update(JSON.stringify(input)).digest("hex");
 }
 function requireUuid(value: string, label: string): string { if (!isUuid(value)) throw new RecoverableOrderSubmissionError(`${label} is invalid.`); return value.toLowerCase(); }
-function requireOneCGuid(value: string | null | undefined, label: string): string {
-  if (!isOneCGuid(value)) throw new RecoverableOrderSubmissionError(`${label} is invalid.`);
-  return value.trim().toLowerCase();
-}
 function requireIntentVersion(value: number): number {
   if (!Number.isSafeInteger(value) || value < 1) {
     throw new RecoverableOrderSubmissionError(

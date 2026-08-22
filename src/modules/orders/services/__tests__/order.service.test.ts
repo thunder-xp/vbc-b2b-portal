@@ -39,7 +39,7 @@ describe("DefaultPartnerOrderService", () => {
     expect(dependencies.orderRepository.completeSubmission).toHaveBeenCalledWith({
       orderId: "order-1", external1cRef: "77777777-7777-4777-8777-777777777777",
       external1cNumber: "NSUU-TEST", external1cDate: "2026-07-13T20:17:30.000Z",
-      oneCOrderStatus: "unposted", documentTotal: 25, currencyCode: "USD", contractNumber: null,
+      oneCOrderStatus: "unposted", documentTotal: 25, currencyCode: "USD", contractNumber: "NS-296/0302/20",
       readBackResult: {},
     });
     expect(result.status).toBe(PartnerOrderStatus.Submitted);
@@ -433,6 +433,13 @@ describe("DefaultPartnerOrderService", () => {
   it("accepts a valid non-RFC 1C contract GUID from the governed local mapping", async () => {
     const dependencies = makeDependencies();
     dependencies.company.external1cContractId = "e5baa428-8919-11ee-129a-7239d3b7bd5c";
+    dependencies.checkoutConfigurationRepository.getByCompanyId.mockResolvedValue({
+      ...checkoutConfiguration(),
+      cashless: {
+        ...checkoutConfiguration().cashless!,
+        contractRef: "e5baa428-8919-11ee-129a-7239d3b7bd5c",
+      },
+    });
 
     await dependencies.service.submit("user-1", input());
 
@@ -445,36 +452,34 @@ describe("DefaultPartnerOrderService", () => {
     );
   });
 
-  it("logs the original preflight exception at the exact failing stage", async () => {
+  it("uses the governed local price type currency without a live 1C lookup", async () => {
     const dependencies = makeDependencies();
-    dependencies.partnerProvider.fetchPriceType.mockRejectedValue(new Error("Price type lookup failed."));
 
-    await expect(dependencies.service.submit("user-1", input())).rejects.toBeInstanceOf(RecoverableOrderSubmissionError);
+    await dependencies.service.submit("user-1", input());
 
-    expect(console.error).toHaveBeenCalledWith(expect.objectContaining({
-      event: "partner_order_submission_failed",
-      stage: "price_type_currency_resolution",
-      errorType: "Error",
-      errorName: "Error",
-      errorMessage: "Price type lookup failed.",
-    }));
-    expect(dependencies.orderRepository.beginSubmission).not.toHaveBeenCalled();
-    expect(dependencies.orderProvider.exportSalesOrder).not.toHaveBeenCalled();
+    expect(dependencies.partnerProvider.fetchPriceType).not.toHaveBeenCalled();
+    expect(dependencies.orderProvider.exportSalesOrder).toHaveBeenCalledWith(
+      expect.objectContaining({
+        currencyReference: expect.objectContaining({
+          externalId: "44444444-4444-4444-8444-444444444444",
+        }),
+      }),
+    );
   });
 
-  it("preserves a structured recoverable error raised during preflight", async () => {
+  it("fails closed when the governed local checkout currency is unavailable", async () => {
     const dependencies = makeDependencies();
-    dependencies.partnerProvider.fetchPriceType.mockRejectedValue(
-      new RecoverableOrderSubmissionError(
-        "Contract mapping is unavailable.",
-        "ORDER_CONTRACT_MAPPING_MISSING",
-      ),
-    );
+    dependencies.checkoutConfigurationRepository.getByCompanyId.mockResolvedValue({
+      ...checkoutConfiguration(),
+      currencyRef: "",
+    });
 
     await expect(dependencies.service.submit("user-1", input())).rejects.toMatchObject({
-      code: "ORDER_CONTRACT_MAPPING_MISSING",
+      code: "ORDER_COMPANY_MAPPING_MISSING",
     });
     expect(dependencies.orderRepository.beginSubmission).not.toHaveBeenCalled();
+    expect(dependencies.partnerProvider.fetchPriceType).not.toHaveBeenCalled();
+    expect(dependencies.orderProvider.exportSalesOrder).not.toHaveBeenCalled();
   });
 
   it("preserves the cart and marks a rejected 1C write as failed", async () => {
@@ -664,10 +669,37 @@ function makeDependencies(options: {
     resolveCustomerOrderContract: vi.fn().mockResolvedValue({ reference: ref("22222222-2222-4222-8222-222222222222"), active: true, organizationReference: ref("4643d461-aa49-4b70-9486-a59f80ee6af8") }),
     fetchPriceType: vi.fn().mockResolvedValue({ active: true, currency: "44444444-4444-4444-8444-444444444444" }),
   };
+  const checkoutConfigurationRepository = {
+    getByCompanyId: vi.fn().mockResolvedValue(checkoutConfiguration()),
+  };
   const orderProvider = { exportSalesOrder: vi.fn().mockResolvedValue(exportResult()), findExportedSalesOrders: vi.fn() };
   const priceRefreshService = { refresh: vi.fn().mockResolvedValue({ verifiedAt: new Date().toISOString(), productCount: 1, providerRequestCount: 1, deduplicated: false, durationMs: 25 }) };
-  const service = new DefaultPartnerOrderService(cartRepository as never, orderRepository as never, companyAccessService as never, permissionService as never, catalogService as never, pricingService as never, partnerProvider as never, orderProvider as never, options, priceRefreshService);
-  return { service, cartRepository, orderRepository, catalogService, pricingService, partnerProvider, orderProvider, priceRefreshService, permissionService, company };
+  const service = new DefaultPartnerOrderService(cartRepository as never, orderRepository as never, companyAccessService as never, permissionService as never, catalogService as never, pricingService as never, partnerProvider as never, orderProvider as never, options, priceRefreshService, checkoutConfigurationRepository as never);
+  return { service, cartRepository, orderRepository, catalogService, pricingService, partnerProvider, orderProvider, priceRefreshService, checkoutConfigurationRepository, permissionService, company };
+}
+
+function checkoutConfiguration() {
+  return {
+    companyId: "company-1",
+    counterpartyTypeCode: "\u042e\u0440\u0438\u0434\u0438\u0447\u0435\u0441\u043a\u043e\u0435\u041b\u0438\u0446\u043e",
+    governmentBodyTypeCode: null,
+    counterpartyActive: true,
+    counterpartyRef: "11111111-1111-4111-8111-111111111111",
+    priceTypeRef: "33333333-3333-4333-8333-333333333333",
+    currencyRef: "44444444-4444-4444-8444-444444444444",
+    currencyCode: "USD",
+    cashless: {
+      contractRef: "22222222-2222-4222-8222-222222222222",
+      name: "NS-296/0302/20",
+      number: "NS-296/0302/20",
+      active: true,
+      contractType: "\u0421 \u043f\u043e\u043a\u0443\u043f\u0430\u0442\u0435\u043b\u0435\u043c",
+      organizationRef: "4643d461-aa49-4b70-9486-a59f80ee6af8",
+      priceTypeRef: "33333333-3333-4333-8333-333333333333",
+    },
+    cash: null,
+    carriers: [],
+  };
 }
 
 function input() {
