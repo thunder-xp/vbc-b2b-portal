@@ -112,6 +112,50 @@ describe("public SEO contract", () => {
     expect(JSON.stringify(schema)).not.toMatch(/partner|purchase|margin|warehouse|external_1c/i);
   });
 
+  it("emits known availability and omits unknown availability", () => {
+    const lowStock = publicProductSchema({ ...product, availability: "low_stock" }, "ru");
+    const unknown = publicProductSchema({ ...product, availability: "unknown" }, "ru");
+
+    expect(lowStock?.offers).toEqual(expect.objectContaining({
+      availability: "https://schema.org/LimitedAvailability",
+    }));
+    expect(unknown?.offers).not.toHaveProperty("availability");
+  });
+
+  it("uses the localized public category path and omits internal category buckets", () => {
+    const localized = publicProductSchema({
+      ...product,
+      categoryPath: [
+        { id: "20000000-0000-4000-8000-000000000001", slug: "security", name: "Sisteme de securitate" },
+        { id: "20000000-0000-4000-8000-000000000002", slug: "cameras", name: "Camere" },
+      ],
+    }, "ro");
+    const internal = publicProductSchema({
+      ...product,
+      categoryPath: [{
+        id: "20000000-0000-4000-8000-000000000003",
+        slug: "project-equipment-a7bad0fc",
+        name: "-PROJECT EQUIPMENT-",
+      }],
+    }, "ru");
+
+    expect(localized?.category).toBe("Sisteme de securitate > Camere");
+    expect(internal).not.toHaveProperty("category");
+    expect(JSON.stringify(internal)).not.toMatch(/PROJECT EQUIPMENT|20000000-0000-4000-8000-000000000003/);
+  });
+
+  it("emits governed brand only and does not fabricate product identifiers or policies", () => {
+    const governedBrand = publicProductSchema(product, "ru");
+    const noBrand = publicProductSchema({ ...product, brand: null }, "ru");
+
+    expect(governedBrand?.brand).toEqual({ "@type": "Brand", name: "Dahua" });
+    expect(noBrand).not.toHaveProperty("brand");
+    expect(governedBrand).not.toHaveProperty("gtin");
+    expect(governedBrand).not.toHaveProperty("mpn");
+    expect(governedBrand?.offers).not.toHaveProperty("shippingDetails");
+    expect(governedBrand?.offers).not.toHaveProperty("hasMerchantReturnPolicy");
+  });
+
   it("emits all governed gallery images as stable absolute URLs", () => {
     const gallery = [
       { url: "/products/camera-front.webp", alt: "Front" },

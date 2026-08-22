@@ -226,6 +226,7 @@ export function publicProductSchema(
   const productUrl = publicLocalizedUrl(`/products/${product.slug}`, locale);
   const images = publicMerchantProductImageUrls(product);
   if (!images.length) return null;
+  const category = publicMerchantProductCategory(product);
   const availability = {
     in_stock: "https://schema.org/InStock",
     low_stock: "https://schema.org/LimitedAvailability",
@@ -241,17 +242,37 @@ export function publicProductSchema(
     url: productUrl,
     description: product.shortDescription ?? product.description ?? undefined,
     image: images,
-    category: product.categoryPath.at(-1)?.name,
-    brand: product.brand ? { "@type": "Brand", name: product.brand.name } : undefined,
+    ...(category ? { category } : {}),
+    ...(product.brand ? { brand: { "@type": "Brand", name: product.brand.name } } : {}),
     offers: {
       "@type": "Offer",
       url: productUrl,
       price: product.price.amount.toFixed(2),
       priceCurrency: product.price.currency,
-      availability,
+      ...(availability ? { availability } : {}),
       seller: { "@id": `${publicLocalizedUrl("/", "ru")}#organization` },
     },
   };
+}
+
+function publicMerchantProductCategory(product: PublicRetailProductDetailDto): string | undefined {
+  const categoryPath = product.categoryPath.map((category) => ({
+    name: category.name.trim(),
+    slug: category.slug.trim().toLowerCase(),
+  }));
+  if (
+    !categoryPath.length
+    || categoryPath.some((category) => (
+      !category.name
+      || !/\p{L}/u.test(category.name)
+      || category.slug.startsWith("project-equipment")
+    ))
+  ) {
+    return undefined;
+  }
+
+  const value = categoryPath.map((category) => category.name).join(" > ");
+  return value.length <= 750 ? value : undefined;
 }
 
 export function publicProductMedia(product: PublicRetailProductDetailDto): PublicRetailMediaDto[] {
