@@ -242,7 +242,7 @@ export function publicProductSchema(
     url: productUrl,
     description: product.shortDescription ?? product.description ?? undefined,
     image: images,
-    ...(category ? { category } : {}),
+    ...(category ? { category: [category] } : {}),
     ...(product.brand ? { brand: { "@type": "Brand", name: product.brand.name } } : {}),
     offers: {
       "@type": "Offer",

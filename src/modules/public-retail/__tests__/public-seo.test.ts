@@ -139,7 +139,7 @@ describe("public SEO contract", () => {
       }],
     }, "ru");
 
-    expect(localized?.category).toBe("Sisteme de securitate > Camere");
+    expect(localized?.category).toEqual(["Sisteme de securitate > Camere"]);
     expect(internal).not.toHaveProperty("category");
     expect(JSON.stringify(internal)).not.toMatch(/PROJECT EQUIPMENT|20000000-0000-4000-8000-000000000003/);
   });
