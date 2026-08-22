@@ -13,6 +13,7 @@ import {
   publicProductSchema,
   publicProductSeoDescription,
 } from "../seo";
+import { availabilityCopy } from "../presentation";
 import type { PublicRetailProductDetailDto } from "../types";
 
 describe("public SEO contract", () => {
@@ -112,14 +113,48 @@ describe("public SEO contract", () => {
     expect(JSON.stringify(schema)).not.toMatch(/partner|purchase|margin|warehouse|external_1c/i);
   });
 
-  it("emits known availability and omits unknown availability", () => {
-    const lowStock = publicProductSchema({ ...product, availability: "low_stock" }, "ru");
-    const unknown = publicProductSchema({ ...product, availability: "unknown" }, "ru");
+  it("maps every governed availability and omits unknown availability", () => {
+    const expected = {
+      in_stock: "https://schema.org/InStock",
+      low_stock: "https://schema.org/LimitedAvailability",
+      available_to_order: "https://schema.org/BackOrder",
+      unavailable: "https://schema.org/OutOfStock",
+    } as const;
 
-    expect(lowStock?.offers).toEqual(expect.objectContaining({
-      availability: "https://schema.org/LimitedAvailability",
-    }));
-    expect(unknown?.offers).not.toHaveProperty("availability");
+    for (const [availability, schemaAvailability] of Object.entries(expected)) {
+      const schema = publicProductSchema({
+        ...product,
+        availability: availability as keyof typeof expected,
+      }, "ru");
+      expect(schema?.offers).toEqual(expect.objectContaining({ availability: schemaAvailability }));
+    }
+
+    expect(publicProductSchema({ ...product, availability: "unknown" }, "ru")?.offers)
+      .not.toHaveProperty("availability");
+  });
+
+  it("keeps visible RU/RO availability semantics aligned with Product offers", () => {
+    expect(availabilityCopy.ru).toEqual({
+      in_stock: "В наличии",
+      low_stock: "Заканчивается",
+      available_to_order: "Под заказ",
+      unavailable: "Нет в наличии",
+      unknown: "Наличие уточняется",
+    });
+    expect(availabilityCopy.ro).toEqual({
+      in_stock: "În stoc",
+      low_stock: "Stoc limitat",
+      available_to_order: "La comandă",
+      unavailable: "Indisponibil",
+      unknown: "Disponibilitatea se confirmă",
+    });
+  });
+
+  it("does not fabricate Product reviews or aggregate ratings", () => {
+    const schema = publicProductSchema(product, "ru");
+
+    expect(schema).not.toHaveProperty("review");
+    expect(schema).not.toHaveProperty("aggregateRating");
   });
 
   it("uses the localized public category path and omits internal category buckets", () => {
