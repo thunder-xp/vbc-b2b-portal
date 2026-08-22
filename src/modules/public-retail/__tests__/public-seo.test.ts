@@ -138,9 +138,18 @@ describe("public SEO contract", () => {
         name: "-PROJECT EQUIPMENT-",
       }],
     }, "ru");
+    const unsupportedCyrillic = publicProductSchema({
+      ...product,
+      categoryPath: [{
+        id: "20000000-0000-4000-8000-000000000004",
+        slug: "video-surveillance",
+        name: "Видеонаблюдение",
+      }],
+    }, "ru");
 
     expect(localized?.category).toEqual(["Sisteme de securitate > Camere"]);
     expect(internal).not.toHaveProperty("category");
+    expect(unsupportedCyrillic).not.toHaveProperty("category");
     expect(JSON.stringify(internal)).not.toMatch(/PROJECT EQUIPMENT|20000000-0000-4000-8000-000000000003/);
   });
 

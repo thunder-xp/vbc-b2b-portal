@@ -264,7 +264,7 @@ function publicMerchantProductCategory(product: PublicRetailProductDetailDto): s
     !categoryPath.length
     || categoryPath.some((category) => (
       !category.name
-      || !/\p{L}/u.test(category.name)
+      || !/[A-Za-z]/.test(category.name)
       || category.slug.startsWith("project-equipment")
     ))
   ) {
