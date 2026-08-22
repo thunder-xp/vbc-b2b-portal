@@ -92,7 +92,7 @@ function CatalogModeLink({ curated, labels }: { curated: boolean; labels: { allC
     prefetch={false}
   >
     <Icon aria-hidden="true" className="size-4" />
-    <span className="hidden sm:inline">{curated ? labels.allCatalog : labels.showcase}</span>
+    <span>{curated ? labels.allCatalog : labels.showcase}</span>
   </Link>;
 }
 

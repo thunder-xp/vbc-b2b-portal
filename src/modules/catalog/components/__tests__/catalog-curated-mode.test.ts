@@ -44,6 +44,7 @@ describe("catalog curated mode boundaries", () => {
     expect(page).toContain("copy.showcase");
     expect(getCatalogCopy("ru").showcase).toBe("Витрина");
     expect(getCatalogCopy("ro").showcase).toBe("Vitrină");
+    expect(page).not.toContain('className="hidden sm:inline"');
   });
 
   it("does not fetch or render hidden full-catalog data in curated mode", () => {
