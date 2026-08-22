@@ -141,7 +141,7 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
       companyId: company.id,
       companyName: company.displayName,
     });
-    if (!isOneCGuid(company.external1cId) || !isOneCGuid(company.external1cPriceTypeId)) {
+    if (!isOneCGuid(company.external1cId)) {
       failOrderSubmission(
         "counterparty_mapping",
         new RecoverableOrderSubmissionError(
@@ -157,7 +157,7 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
         },
       );
     }
-    if (!isOneCGuid(company.external1cContractId)) {
+    if (checkoutSelection.paymentMethod === "cashless" && !isOneCGuid(company.external1cContractId)) {
       failOrderSubmission(
         "contract_mapping",
         new RecoverableOrderSubmissionError(
@@ -173,7 +173,6 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
       );
     }
     const counterpartyRef = company.external1cId;
-    const companyPriceTypeRef = company.external1cPriceTypeId;
     const [checkoutConfiguration, cart] = await Promise.all([
       this.checkoutConfigurationRepository
         ? diagnosticStep(
@@ -195,7 +194,8 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
       );
     }
     const resolvedCheckout = resolveCheckoutSelection(checkoutConfiguration, checkoutSelection);
-    if (!isOneCGuid(checkoutConfiguration.currencyRef)) {
+    if (!isOneCGuid(resolvedCheckout.contract.priceTypeRef)
+      || !isOneCGuid(resolvedCheckout.contract.currencyRef)) {
       failOrderSubmission(
         "price_type_currency_resolution",
         new RecoverableOrderSubmissionError(
@@ -204,12 +204,13 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
         ),
         {
           companyId: company.id,
-          priceTypeRef: companyPriceTypeRef,
+          priceTypeRef: resolvedCheckout.contract.priceTypeRef,
           submissionKey,
         },
       );
     }
-    const checkoutCurrencyRef = checkoutConfiguration.currencyRef.trim().toLowerCase();
+    const checkoutPriceTypeRef = resolvedCheckout.contract.priceTypeRef.trim().toLowerCase();
+    const checkoutCurrencyRef = resolvedCheckout.contract.currencyRef.trim().toLowerCase();
     if (!cart) throw new RecoverableOrderSubmissionError("The active cart is not available.");
     if (cart.id !== submittedCartId) {
       console.warn({
@@ -275,6 +276,7 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
             ? this.pricingInventoryService.getAuthoritativeOrderPricing(
                 userId,
                 productIds,
+                checkoutPriceTypeRef,
               )
             : (this.pricingInventoryService.getAuthoritativeProductCommercialViews
                 ? this.pricingInventoryService.getAuthoritativeProductCommercialViews(
@@ -335,7 +337,7 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
       let refreshResult;
       try {
         refreshResult = await this.priceRefreshService.refresh({
-          externalPriceTypeRef: companyPriceTypeRef,
+          externalPriceTypeRef: checkoutPriceTypeRef,
           externalProductRefs: staleProductRefs,
         });
       } catch (error) {
@@ -351,7 +353,7 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
         ), { cartId: cart.id, companyId: company.id, submissionKey, staleProductCount: staleProductIds.length });
       }
       const refreshedOrderPricing = this.pricingInventoryService.getAuthoritativeOrderPricing
-        ? await this.pricingInventoryService.getAuthoritativeOrderPricing(userId, productIds)
+        ? await this.pricingInventoryService.getAuthoritativeOrderPricing(userId, productIds, checkoutPriceTypeRef)
         : {
             commercialMode,
             views: this.pricingInventoryService.getAuthoritativeProductCommercialViews
@@ -430,7 +432,7 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
       counterpartyRef,
       contractRef: resolvedCheckout.contract.contractRef,
       organizationRef: resolvedCheckout.contract.organizationRef,
-      priceTypeRef: companyPriceTypeRef,
+      priceTypeRef: checkoutPriceTypeRef,
       currencyRef: checkoutCurrencyRef,
       submissionKey,
     });
@@ -527,7 +529,7 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
 
     const salesOrder = buildSalesOrder({
       submissionKey, deliveryDate, companyRef: counterpartyRef,
-      contractRef: resolvedCheckout.contract.contractRef, priceTypeRef: companyPriceTypeRef,
+      contractRef: resolvedCheckout.contract.contractRef, priceTypeRef: checkoutPriceTypeRef,
       organizationReference: ref(resolvedCheckout.contract.organizationRef!, "organization"), currencyRef: checkoutCurrencyRef,
       currencyCode: exportCurrencyCode, snapshots: exportSnapshots,
       paymentMethod: resolvedCheckout.paymentMethod,

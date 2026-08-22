@@ -6,6 +6,7 @@ import { CompanyUsersPanel } from "@/src/modules/access-control/components/compa
 import {
   AdminCompanyOverviewView,
   AdminCompanyContractMapping,
+  AdminCompanyCashContractMapping,
   AdminCompanyAccessSubjects,
   AdminCompanyPlatformAccess,
   AdminHistory,
@@ -99,6 +100,7 @@ export default async function AdminCompanyPage({
           <AdminCompanyContractMapping
             mapping={contractMapping}
           />
+          <AdminCompanyCashContractMapping mapping={contractMapping} />
         </div>
       ) : tab === "users" && companyUsers?.success ? (
         <CompanyUsersPanel

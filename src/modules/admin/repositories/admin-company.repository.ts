@@ -4,6 +4,7 @@ import type {
   AdminCompanyPage,
   AdminCompanyAccess,
   AdminCompanyContractMappingProjection,
+  AdminCashContractMappingResult,
   AdminCommercialProfileSyncResult,
   AdminContractMappingResult,
   PartnerAccessPresetCode,
@@ -30,6 +31,13 @@ export interface AdminCompanyRepository {
     reason: string;
     correlationId: string;
   }): Promise<AdminContractMappingResult>;
+  mapCashContract(input: {
+    companyId: string;
+    contractRef: string | null;
+    expectedVersion: number;
+    reason: string;
+    correlationId: string;
+  }): Promise<AdminCashContractMappingResult>;
   beginCommercialProfileSync(input: {
     companyId: string;
     expectedVersion: number;

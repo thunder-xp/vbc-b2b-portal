@@ -88,8 +88,53 @@ export type AdminContractCandidate = {
   priceTypeRef: string | null;
   priceTypeName: string | null;
   currencyCode: string | null;
+  currencyRef: string | null;
   default: boolean;
   synchronizedAt: string;
+  cashQualified: boolean;
+  cashQualificationCode: CashContractQualificationCode;
+};
+
+export const CASH_CONTRACT_RESULT_CODES = [
+  "CASH_CONTRACT_MAPPING_SUCCESS",
+  "CASH_COMPANY_INACTIVE",
+  "CASH_CONTRACT_NOT_FOUND",
+  "CASH_CONTRACT_NOT_OWNED_BY_COMPANY",
+  "CASH_CONTRACT_INACTIVE",
+  "CASH_CONTRACT_INVALID_TYPE",
+  "CASH_CONTRACT_ORGANIZATION_MISMATCH",
+  "CASH_CONTRACT_PRICE_TYPE_MISSING",
+  "CASH_CONTRACT_PRICE_TYPE_INVALID",
+  "CASH_CONTRACT_CURRENCY_MISSING",
+  "CASH_CONTRACT_CURRENCY_MISMATCH",
+  "CASH_CONTRACT_MAPPING_CONFLICT",
+  "CASH_CONTRACT_MAPPING_FAILED",
+] as const;
+
+export type CashContractResultCode = (typeof CASH_CONTRACT_RESULT_CODES)[number];
+export type CashContractQualificationCode =
+  | "CASH_CONTRACT_QUALIFIED"
+  | Exclude<CashContractResultCode, "CASH_CONTRACT_MAPPING_SUCCESS" | "CASH_CONTRACT_MAPPING_CONFLICT" | "CASH_CONTRACT_MAPPING_FAILED">;
+
+export type AdminCashContractMapping = {
+  contractRole: "cash";
+  contractRef: string | null;
+  active: boolean;
+  version: number;
+  reason: string | null;
+  updatedAt: string | null;
+  qualificationCode: CashContractQualificationCode | "CASH_MAPPING_MISSING" | "CASH_MAPPING_REMOVED";
+  qualified: boolean;
+  events: Array<{
+    id: string;
+    eventType: "mapped" | "changed" | "removed";
+    previousContractRef: string | null;
+    newContractRef: string | null;
+    reason: string;
+    occurredAt: string;
+    mappingVersion: number;
+    qualificationCode: string | null;
+  }>;
 };
 
 export type AdminCompanyContractMappingProjection = {
@@ -107,6 +152,7 @@ export type AdminCompanyContractMappingProjection = {
   version: number;
   canManage: boolean;
   canSync: boolean;
+  cashMapping: AdminCashContractMapping;
   candidates: AdminContractCandidate[];
 };
 
@@ -150,6 +196,14 @@ export type AdminContractMappingResult = {
   currentContractRef?: string | null;
   currentPriceTypeRef?: string | null;
   selectedPriceTypeRef?: string | null;
+  version?: number;
+  unchanged?: boolean;
+};
+
+export type AdminCashContractMappingResult = {
+  code: CashContractResultCode;
+  correlationId: string;
+  contractRef?: string | null;
   version?: number;
   unchanged?: boolean;
 };

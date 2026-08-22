@@ -24,6 +24,17 @@ const mapping: AdminCompanyContractMappingProjection = {
   version: 1,
   canManage: true,
   canSync: true,
+  cashMapping: {
+    contractRole: "cash",
+    contractRef: null,
+    active: false,
+    version: 0,
+    reason: null,
+    updatedAt: null,
+    qualificationCode: "CASH_MAPPING_MISSING",
+    qualified: false,
+    events: [],
+  },
   candidates: [
     candidate({ external1cId: "e5baa428-8919-11ee-129a-7239d3b7bd5c", name: "Customer GOLD", default: true }),
     candidate({ external1cId: "d1d54da8-a496-11ee-129a-7239d3b7bd5c", name: "Inactive", active: false }),
@@ -93,8 +104,11 @@ function candidate(overrides: Partial<AdminCompanyContractMappingProjection["can
     priceTypeRef: "23cb93ec-3eb5-11f0-8d8a-7239d3b7bd5c",
     priceTypeName: "GOLD",
     currencyCode: "USD",
+    currencyRef: "currency-ref",
     default: false,
     synchronizedAt: "2026-08-18T16:00:42.557Z",
+    cashQualified: true,
+    cashQualificationCode: "CASH_CONTRACT_QUALIFIED" as const,
     ...overrides,
   };
 }

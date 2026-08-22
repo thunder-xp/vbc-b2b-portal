@@ -32,8 +32,8 @@ export type ResolvedCheckoutSelection = CheckoutSelection & {
 
 export function toPartnerCheckoutOptions(config: CheckoutConfiguration): PartnerCheckoutOptionsDto {
   const kind = counterpartyKind(config.counterpartyTypeCode, config.governmentBodyTypeCode);
-  const cashlessAllowed = kind !== "physical_person" && validContract(config.cashless, config);
-  const cashAllowed = validContract(config.cash, config);
+  const cashlessAllowed = kind !== "physical_person" && validContract(config.cashless, config, true);
+  const cashAllowed = validContract(config.cash, config, false);
   return {
     counterpartyKind: kind,
     paymentMethods: [
@@ -69,7 +69,7 @@ export function resolveCheckoutSelection(
       "ORDER_PAYMENT_METHOD_UNAVAILABLE",
     );
   }
-  if (!validContract(contract, config)) {
+  if (!validContract(contract, config, selection.paymentMethod === "cashless")) {
     throw new RecoverableOrderSubmissionError(
       "The selected payment contract is unavailable.",
       "ORDER_PAYMENT_METHOD_UNAVAILABLE",
@@ -94,12 +94,17 @@ export function resolveCheckoutSelection(
 function validContract(
   contract: CheckoutContractConfiguration | null,
   config: CheckoutConfiguration,
+  requireCompanyPriceType: boolean,
 ): contract is CheckoutContractConfiguration {
   return Boolean(
     contract?.active
     && normalizeContractType(contract.contractType) === "спокупателем"
     && contract.organizationRef?.toLowerCase() === NOVOTECH_ONE_C_ORGANIZATION_REF
-    && contract.priceTypeRef?.toLowerCase() === config.priceTypeRef.toLowerCase(),
+    && contract.priceTypeRef
+    && contract.currencyRef
+    && contract.currencyCode
+    && contract.contractCurrencyRef?.toLowerCase() === contract.currencyRef.toLowerCase()
+    && (!requireCompanyPriceType || contract.priceTypeRef.toLowerCase() === config.priceTypeRef.toLowerCase()),
   );
 }
 
@@ -128,4 +133,3 @@ function mappingError(): RecoverableOrderSubmissionError {
     "ORDER_COMPANY_MAPPING_MISSING",
   );
 }
-

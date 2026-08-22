@@ -13,6 +13,7 @@ import {
   type AdminCommercialProfileSyncResult,
   type AdminCompanyContractMappingProjection,
   type AdminContractMappingResult,
+  type AdminCashContractMappingResult,
   type PartnerAccessPresetCode,
   PARTNER_ACCESS_PRESETS,
 } from "../types";
@@ -73,6 +74,28 @@ export class AdminCompanyService {
       throw new Error("Invalid contract mapping request.");
     }
     return this.repository.mapContract({ ...input, reason });
+  }
+
+  mapCashContract(input: {
+    companyId: string;
+    contractRef: string | null;
+    expectedVersion: number;
+    reason: string;
+    correlationId: string;
+  }): Promise<AdminCashContractMappingResult> {
+    const reason = input.reason.trim();
+    if (
+      !COMPANY_ID_PATTERN.test(input.companyId)
+      || (input.contractRef !== null && !COMPANY_ID_PATTERN.test(input.contractRef))
+      || !COMPANY_ID_PATTERN.test(input.correlationId)
+      || !Number.isInteger(input.expectedVersion)
+      || input.expectedVersion < 0
+      || reason.length < 10
+      || reason.length > 500
+    ) {
+      throw new Error("Invalid cash contract mapping request.");
+    }
+    return this.repository.mapCashContract({ ...input, reason });
   }
 
   async synchronizeCommercialProfile(input: {

@@ -11,10 +11,13 @@ export {
 } from "./admin-company-access.actions";
 export {
   mapAdminCompanyContractAction,
+  mapAdminCompanyCashContractAction,
+  removeAdminCompanyCashContractAction,
   refreshAdminCompanyContractDirectoryAction,
   synchronizeAdminCompanyCommercialProfileAction,
   type AdminContractDirectoryRefreshState,
   type AdminContractMappingActionState,
+  type AdminCashContractMappingActionState,
   type AdminCommercialProfileSyncActionState,
 } from "./admin-company-contract.actions";
 export {

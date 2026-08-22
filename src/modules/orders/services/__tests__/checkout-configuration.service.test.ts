@@ -76,12 +76,25 @@ describe("checkout configuration", () => {
     expect(resolveCheckoutSelection(config, selection("cashless")).carrierExternalRef).toBeNull();
   });
 
-  it("rejects a contract whose price type differs from the company profile", () => {
+  it("rejects a cashless contract whose price type differs from the company profile", () => {
     const options = toPartnerCheckoutOptions(configuration({
       cashless: contract("contract-cashless", "NS-1", "other-price-type"),
     }));
 
     expect(options.paymentMethods[0].enabled).toBe(false);
+  });
+
+  it("allows a governed cash contract with its own validated price type and currency", () => {
+    const cash = contract("contract-cash", "CASH-1", "cash-price-type");
+    const config = configuration({ cash });
+
+    expect(toPartnerCheckoutOptions(config).paymentMethods[1].enabled).toBe(true);
+    expect(resolveCheckoutSelection(config, selection("cash")).contract.priceTypeRef).toBe("cash-price-type");
+  });
+
+  it("fails closed when contract and price-type currencies differ", () => {
+    const cash = { ...contract("contract-cash", "CASH-1"), contractCurrencyRef: "other-currency" };
+    expect(toPartnerCheckoutOptions(configuration({ cash })).paymentMethods[1].enabled).toBe(false);
   });
 });
 
@@ -103,6 +116,9 @@ function contract(contractRef: string, number: string, priceTypeRef = PRICE_TYPE
     contractType: "С покупателем",
     organizationRef: NOVOTECH_ONE_C_ORGANIZATION_REF,
     priceTypeRef,
+    currencyRef: "currency-ref",
+    currencyCode: "USD",
+    contractCurrencyRef: "currency-ref",
   };
 }
 
@@ -116,6 +132,7 @@ function configuration(overrides: Partial<CheckoutConfiguration> = {}): Checkout
     priceTypeRef: PRICE_TYPE_REF,
     currencyRef: "currency-ref",
     currencyCode: "USD",
+    cashDiagnosticCode: "CASH_CONTRACT_QUALIFIED",
     cashless: contract("contract-cashless", "NS-1"),
     cash: contract("contract-cash", "CASH-1"),
     carriers: [{ id: "carrier-local-id", name: "Carrier", externalRef: "carrier-1c-ref" }],

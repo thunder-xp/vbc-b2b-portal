@@ -467,15 +467,40 @@ describe("DefaultPartnerOrderService", () => {
     );
   });
 
+  it("reprices cash checkout with the governed cash contract price type", async () => {
+    const dependencies = makeDependencies();
+    const cashPriceTypeRef = "88888888-8888-4888-8888-888888888888";
+    dependencies.checkoutConfigurationRepository.getByCompanyId.mockResolvedValue({
+      ...checkoutConfiguration(),
+      cash: {
+        ...checkoutConfiguration().cashless!,
+        contractRef: "77777777-7777-4777-8777-777777777777",
+        number: "CASH-1",
+        priceTypeRef: cashPriceTypeRef,
+      },
+    });
+
+    await dependencies.service.submit("user-1", { ...input(), paymentMethod: "cash" });
+
+    expect(dependencies.pricingService.getAuthoritativeOrderPricing)
+      .toHaveBeenCalledWith("user-1", ["product-1"], cashPriceTypeRef);
+    expect(dependencies.orderProvider.exportSalesOrder).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contractReference: expect.objectContaining({ externalId: "77777777-7777-4777-8777-777777777777" }),
+        priceTypeReference: expect.objectContaining({ externalId: cashPriceTypeRef }),
+      }),
+    );
+  });
+
   it("fails closed when the governed local checkout currency is unavailable", async () => {
     const dependencies = makeDependencies();
     dependencies.checkoutConfigurationRepository.getByCompanyId.mockResolvedValue({
       ...checkoutConfiguration(),
-      currencyRef: "",
+      cashless: { ...checkoutConfiguration().cashless!, currencyRef: "" },
     });
 
     await expect(dependencies.service.submit("user-1", input())).rejects.toMatchObject({
-      code: "ORDER_COMPANY_MAPPING_MISSING",
+      code: "ORDER_PAYMENT_METHOD_UNAVAILABLE",
     });
     expect(dependencies.orderRepository.beginSubmission).not.toHaveBeenCalled();
     expect(dependencies.partnerProvider.fetchPriceType).not.toHaveBeenCalled();
@@ -688,6 +713,7 @@ function checkoutConfiguration() {
     priceTypeRef: "33333333-3333-4333-8333-333333333333",
     currencyRef: "44444444-4444-4444-8444-444444444444",
     currencyCode: "USD",
+    cashDiagnosticCode: "CASH_MAPPING_MISSING",
     cashless: {
       contractRef: "22222222-2222-4222-8222-222222222222",
       name: "NS-296/0302/20",
@@ -696,6 +722,9 @@ function checkoutConfiguration() {
       contractType: "\u0421 \u043f\u043e\u043a\u0443\u043f\u0430\u0442\u0435\u043b\u0435\u043c",
       organizationRef: "4643d461-aa49-4b70-9486-a59f80ee6af8",
       priceTypeRef: "33333333-3333-4333-8333-333333333333",
+      currencyRef: "44444444-4444-4444-8444-444444444444",
+      currencyCode: "USD",
+      contractCurrencyRef: "44444444-4444-4444-8444-444444444444",
     },
     cash: null,
     carriers: [],

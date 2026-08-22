@@ -4,6 +4,7 @@ export { AdminPageHeader } from "./AdminPageHeader";
 export { AdminCompanyDirectory } from "./AdminCompanyDirectory";
 export { AdminCompanyOverviewView } from "./AdminCompanyOverview";
 export { AdminCompanyContractMapping } from "./AdminCompanyContractMapping";
+export { AdminCompanyCashContractMapping } from "./AdminCompanyCashContractMapping";
 export { AdminUserDirectory } from "./AdminUserDirectory";
 export { AdminInvitationDirectory } from "./AdminInvitationDirectory";
 export { AdminAccessInspector } from "./AdminAccessInspector";

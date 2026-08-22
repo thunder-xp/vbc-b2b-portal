@@ -106,6 +106,7 @@ export interface PricingInventoryService {
   getAuthoritativeOrderPricing?(
     userId: string,
     productIds: string[],
+    externalPriceTypeRef?: string,
   ): Promise<AuthoritativeOrderPricingContext>;
   getProductIdsByAvailability?(
     userId: string,
@@ -177,6 +178,7 @@ export class DefaultPricingInventoryService implements PricingInventoryService {
   async getAuthoritativeOrderPricing(
     userId: string,
     productIds: string[],
+    externalPriceTypeRef?: string,
   ): Promise<AuthoritativeOrderPricingContext> {
     const normalizedProductIds = normalizeProductIds(productIds);
     if (!normalizedProductIds.length) {
@@ -185,7 +187,7 @@ export class DefaultPricingInventoryService implements PricingInventoryService {
         views: [],
       };
     }
-    return this.loadProductCommercialContext(userId, normalizedProductIds, true);
+    return this.loadProductCommercialContext(userId, normalizedProductIds, true, externalPriceTypeRef);
   }
 
   private async loadProductCommercialViews(
@@ -204,6 +206,7 @@ export class DefaultPricingInventoryService implements PricingInventoryService {
     userId: string,
     normalizedProductIds: string[],
     authoritativePartnerPricing: boolean,
+    externalPriceTypeRef?: string,
   ): Promise<AuthoritativeOrderPricingContext> {
     const company = await this.resolveActiveCompany(userId);
     const companyId = company.id;
@@ -214,20 +217,21 @@ export class DefaultPricingInventoryService implements PricingInventoryService {
     const canViewPartnerPrice =
       authoritativePartnerPricing || visibility.canViewPartnerPrice;
     const canViewRetailPrice = visibility.canViewRetailPrice;
+    const governedPriceTypeRef = externalPriceTypeRef ?? company.external1cPriceTypeId;
     const [partnerPrices, msrpPrices, stockBalances, supplierArrivals, commercialRates] = await Promise.all([
-      canViewPartnerPrice && company.external1cPriceTypeId
+      canViewPartnerPrice && governedPriceTypeRef
         ? (
           authoritativePartnerPricing
           && this.pricingInventoryRepository.listAuthoritativePricesForProducts
             ? this.pricingInventoryRepository.listAuthoritativePricesForProducts({
                 productIds: normalizedProductIds,
                 companyId,
-                external1cPriceTypeId: company.external1cPriceTypeId,
+                external1cPriceTypeId: governedPriceTypeRef,
               })
             : this.pricingInventoryRepository.listPricesForProducts({
             productIds: normalizedProductIds,
             companyId,
-            external1cPriceTypeId: company.external1cPriceTypeId ?? undefined,
+            external1cPriceTypeId: governedPriceTypeRef,
               })
         )
         : Promise.resolve<ProductPrice[]>([]),

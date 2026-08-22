@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import {
   AdminCompanyPlatformAccess,
   AdminCompanyContractMapping,
+  AdminCompanyCashContractMapping,
   AdminPageHeader,
   createAdminCompanyService,
   requireAdminPagePermission,
@@ -40,6 +41,7 @@ export default async function AdminPartnerCompanyAccessPage({
       <AdminCompanyContractMapping
         mapping={contractMapping}
       />
+      <AdminCompanyCashContractMapping mapping={contractMapping} />
     </div>
   );
 }

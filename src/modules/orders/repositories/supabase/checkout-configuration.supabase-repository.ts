@@ -29,6 +29,7 @@ implements CheckoutConfigurationRepository {
       priceTypeRef: text(data.priceTypeRef),
       currencyRef: text(data.currencyRef),
       currencyCode: text(data.currencyCode),
+      cashDiagnosticCode: nullableText(data.cashDiagnosticCode),
       cashless: contract(data.cashless),
       cash: contract(data.cash),
       carriers: Array.isArray(data.carriers)
@@ -52,6 +53,9 @@ function contract(value: unknown): CheckoutContractConfiguration | null {
     contractType: nullableText(value.contractType),
     organizationRef: nullableText(value.organizationRef),
     priceTypeRef: nullableText(value.priceTypeRef),
+    currencyRef: nullableText(value.currencyRef),
+    currencyCode: nullableText(value.currencyCode),
+    contractCurrencyRef: nullableText(value.contractCurrencyRef),
   };
 }
 
@@ -60,4 +64,3 @@ function isRecord(value: unknown): value is Row {
 }
 function text(value: unknown): string { return typeof value === "string" ? value : ""; }
 function nullableText(value: unknown): string | null { return typeof value === "string" && value ? value : null; }
-

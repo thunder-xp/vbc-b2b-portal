@@ -349,6 +349,24 @@ describe("DefaultPricingInventoryService", () => {
     expect(repository.authoritativePriceReads).toBe(1);
   });
 
+  it("prices an order through the server-selected governed contract price type", async () => {
+    const cashPriceType = "77777777-7777-4777-8777-777777777777";
+    const repository = new FakePricingInventoryRepository([
+      makePrice(null, 120, cashPriceType, "MDL"),
+      makePrice(null, 45.81, goldPriceType, "USD"),
+    ]);
+    const service = new DefaultPricingInventoryService(
+      repository,
+      new FakeCompanyAccessService(),
+      new FakePermissionService(["pricing.retail_price.view", "orders.manage"]),
+    );
+
+    const result = await service.getAuthoritativeOrderPricing("user-1", ["product-1"], cashPriceType);
+
+    expect(result.views[0]?.partnerPrice?.amount).toBe(120);
+    expect(repository.lastAuthoritativePriceInput?.external1cPriceTypeId).toBe(cashPriceType);
+  });
+
   it("keeps the authoritative order conversion rate available to retail-only users", async () => {
     const repository = new FakePricingInventoryRepository([], [], [], 17.35, 17.77);
     const service = new DefaultPricingInventoryService(
@@ -414,6 +432,7 @@ class FakePricingInventoryRepository implements PricingInventoryRepository {
   exchangeRateReads = 0;
   authoritativePriceReads = 0;
   authoritativeRateReads = 0;
+  lastAuthoritativePriceInput: ListProductPricesInput | null = null;
   retailHistory: RetailPriceHistoryRow | null = null;
   lastRetailHistoryInput: {
     productId: string;
@@ -461,6 +480,7 @@ class FakePricingInventoryRepository implements PricingInventoryRepository {
     input: ListProductPricesInput,
   ): Promise<ProductPrice[]> {
     this.authoritativePriceReads += 1;
+    this.lastAuthoritativePriceInput = input;
     return this.prices.filter(
       (price) =>
         (price.companyId === null || price.companyId === input.companyId)

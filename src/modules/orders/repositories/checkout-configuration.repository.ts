@@ -9,6 +9,9 @@ export type CheckoutContractConfiguration = {
   contractType: string | null;
   organizationRef: string | null;
   priceTypeRef: string | null;
+  currencyRef: string | null;
+  currencyCode: string | null;
+  contractCurrencyRef: string | null;
 };
 
 export type CheckoutCarrierConfiguration = {
@@ -26,6 +29,7 @@ export type CheckoutConfiguration = {
   priceTypeRef: string;
   currencyRef: string;
   currencyCode: string;
+  cashDiagnosticCode: string | null;
   cashless: CheckoutContractConfiguration | null;
   cash: CheckoutContractConfiguration | null;
   carriers: CheckoutCarrierConfiguration[];
@@ -34,4 +38,3 @@ export type CheckoutConfiguration = {
 export interface CheckoutConfigurationRepository {
   getByCompanyId(companyId: string): Promise<CheckoutConfiguration | null>;
 }
-

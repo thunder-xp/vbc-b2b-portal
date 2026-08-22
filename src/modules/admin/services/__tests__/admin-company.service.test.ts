@@ -110,6 +110,10 @@ function makeRepository(): AdminCompanyRepository {
       code: "CONTRACT_MAPPING_SUCCESS",
       correlationId: "00000000-0000-0000-0000-000000000001",
     }),
+    mapCashContract: vi.fn().mockResolvedValue({
+      code: "CASH_CONTRACT_MAPPING_SUCCESS",
+      correlationId: "00000000-0000-0000-0000-000000000001",
+    }),
     beginCommercialProfileSync: vi.fn().mockResolvedValue({
       code: "COMMERCIAL_CONTRACT_MISSING",
       correlationId: "00000000-0000-0000-0000-000000000001",

@@ -10,7 +10,11 @@ import {
   OneCCounterpartyDirectorySource,
 } from "@/src/modules/onboarding/services";
 
-import type { CommercialProfileSyncResultCode, ContractMappingResultCode } from "../types";
+import type {
+  CashContractResultCode,
+  CommercialProfileSyncResultCode,
+  ContractMappingResultCode,
+} from "../types";
 import { createAdminCompanyService, requireAdminPermission } from "../services";
 
 export type AdminContractMappingActionState = {
@@ -32,6 +36,62 @@ export type AdminCommercialProfileSyncActionState = {
   message: string;
   correlationId: string | null;
 };
+
+export type AdminCashContractMappingActionState = {
+  code: CashContractResultCode | null;
+  message: string;
+  correlationId: string | null;
+};
+
+export async function mapAdminCompanyCashContractAction(
+  _previousState: AdminCashContractMappingActionState,
+  formData: FormData,
+): Promise<AdminCashContractMappingActionState> {
+  return mutateCashContract(formData, String(formData.get("contractRef") ?? "") || null);
+}
+
+export async function removeAdminCompanyCashContractAction(
+  _previousState: AdminCashContractMappingActionState,
+  formData: FormData,
+): Promise<AdminCashContractMappingActionState> {
+  return mutateCashContract(formData, null);
+}
+
+async function mutateCashContract(
+  formData: FormData,
+  contractRef: string | null,
+): Promise<AdminCashContractMappingActionState> {
+  const correlationId = crypto.randomUUID();
+  const companyId = String(formData.get("companyId") ?? "");
+  try {
+    await requireAdminPermission("admin.partner_integrity.manage");
+    const result = await createAdminCompanyService().mapCashContract({
+      companyId,
+      contractRef,
+      expectedVersion: Number(formData.get("expectedVersion")),
+      reason: String(formData.get("reason") ?? ""),
+      correlationId,
+    });
+    if (result.code === "CASH_CONTRACT_MAPPING_SUCCESS") revalidateCompany(companyId);
+    return {
+      code: result.code,
+      message: cashMappingMessage(result.code, correlationId, contractRef === null),
+      correlationId: result.code === "CASH_CONTRACT_MAPPING_SUCCESS" ? null : correlationId,
+    };
+  } catch (error) {
+    console.error({
+      event: "admin_company_cash_contract_mapping_failed",
+      companyId,
+      correlationId,
+      errorType: error instanceof Error ? error.name : typeof error,
+    });
+    return {
+      code: "CASH_CONTRACT_MAPPING_FAILED",
+      message: cashMappingMessage("CASH_CONTRACT_MAPPING_FAILED", correlationId, contractRef === null),
+      correlationId,
+    };
+  }
+}
 
 export async function synchronizeAdminCompanyCommercialProfileAction(
   _previousState: AdminCommercialProfileSyncActionState,
@@ -166,6 +226,31 @@ function mappingMessage(code: ContractMappingResultCode, correlationId: string):
     CONTRACT_PRICE_TYPE_MISMATCH: "Вид цены договора отличается от коммерческого профиля компании. Сначала синхронизируйте коммерческие данные.",
     CONTRACT_MAPPING_CONFLICT: "Сопоставление уже изменено другим администратором. Обновите страницу и повторите действие.",
     CONTRACT_MAPPING_FAILED: `Не удалось сохранить сопоставление. Код обращения: ${correlationId}`,
+  };
+  return messages[code];
+}
+
+function cashMappingMessage(
+  code: CashContractResultCode,
+  correlationId: string,
+  removed: boolean,
+): string {
+  const messages: Record<CashContractResultCode, string> = {
+    CASH_CONTRACT_MAPPING_SUCCESS: removed
+      ? "Сопоставление договора для наличной оплаты удалено."
+      : "Договор для наличной оплаты сопоставлен.",
+    CASH_COMPANY_INACTIVE: "Компания неактивна. Сопоставление недоступно.",
+    CASH_CONTRACT_NOT_FOUND: "Договор отсутствует в опубликованном справочнике 1С.",
+    CASH_CONTRACT_NOT_OWNED_BY_COMPANY: "Договор принадлежит другому контрагенту.",
+    CASH_CONTRACT_INACTIVE: "Договор неактивен или помечен на удаление.",
+    CASH_CONTRACT_INVALID_TYPE: "Для оплаты можно использовать только договор с покупателем.",
+    CASH_CONTRACT_ORGANIZATION_MISMATCH: "Договор относится к другой организации Novotech.",
+    CASH_CONTRACT_PRICE_TYPE_MISSING: "В договоре не указан действительный вид цены.",
+    CASH_CONTRACT_PRICE_TYPE_INVALID: "Вид цены договора не опубликован или его валюта не подтверждена.",
+    CASH_CONTRACT_CURRENCY_MISSING: "Валюта расчётов договора не указана.",
+    CASH_CONTRACT_CURRENCY_MISMATCH: "Валюта договора не совпадает с валютой его вида цены.",
+    CASH_CONTRACT_MAPPING_CONFLICT: "Сопоставление изменено другим администратором. Обновите страницу.",
+    CASH_CONTRACT_MAPPING_FAILED: `Не удалось сохранить сопоставление. Код обращения: ${correlationId}`,
   };
   return messages[code];
 }

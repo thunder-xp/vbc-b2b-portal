@@ -149,7 +149,7 @@ export class SupabasePartnerOrderRepository implements PartnerOrderRepository {
   }
 
   async beginSubmission(input: Parameters<PartnerOrderRepository["beginSubmission"]>[0]): Promise<PartnerOrder> {
-    const { data, error } = await (await createClient()).rpc("begin_partner_order_submission_v3", {
+    const { data, error } = await (await createClient()).rpc("begin_partner_order_submission_v4", {
       target_cart_id: input.cartId,
       target_expected_intent_version: input.expectedIntentVersion,
       target_submission_key: input.submissionKey,
@@ -181,7 +181,7 @@ export class SupabasePartnerOrderRepository implements PartnerOrderRepository {
     if (error || !data) {
       console.error({
         event: "partner_order_repository_failed",
-        operation: "begin_partner_order_submission_v3",
+        operation: "begin_partner_order_submission_v4",
         table: "partner_orders",
         cartId: input.cartId,
         submissionKey: input.submissionKey,
