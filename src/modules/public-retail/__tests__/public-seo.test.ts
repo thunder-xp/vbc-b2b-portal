@@ -146,10 +146,19 @@ describe("public SEO contract", () => {
         name: "Видеонаблюдение",
       }],
     }, "ru");
+    const unsupportedMixedScript = publicProductSchema({
+      ...product,
+      categoryPath: [{
+        id: "20000000-0000-4000-8000-000000000005",
+        slug: "fire-systems-act",
+        name: "Пожарные системы act",
+      }],
+    }, "ru");
 
     expect(localized?.category).toEqual(["Sisteme de securitate > Camere"]);
     expect(internal).not.toHaveProperty("category");
     expect(unsupportedCyrillic).not.toHaveProperty("category");
+    expect(unsupportedMixedScript).not.toHaveProperty("category");
     expect(JSON.stringify(internal)).not.toMatch(/PROJECT EQUIPMENT|20000000-0000-4000-8000-000000000003/);
   });
 
