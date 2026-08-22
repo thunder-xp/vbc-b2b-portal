@@ -103,6 +103,41 @@ describe("cart checkout mutation barrier", () => {
     ).toBeInTheDocument();
     expect(mocks.submit).not.toHaveBeenCalled();
   });
+
+  it("returns to the editable form when checkout becomes invalid after the barrier", async () => {
+    let resolveUpdate:
+      | ((value: {
+          success: true;
+          errorCode: null;
+          message: string;
+          data: null;
+        }) => void)
+      | undefined;
+    mocks.update.mockReturnValue(new Promise((resolve) => {
+      resolveUpdate = resolve;
+    }));
+    renderFlow();
+
+    fireEvent.change(screen.getByRole("spinbutton", { name: "Количество товара" }), {
+      target: { value: "5" },
+    });
+    const date = screen.getByLabelText("Дата планируемой отгрузки");
+    fireEvent.change(date, { target: { value: "2099-01-10" } });
+    fireEvent.submit(screen.getByRole("form", { name: "Проверка заказа" }));
+    fireEvent.change(date, { target: { value: "" } });
+
+    resolveUpdate?.({
+      success: true,
+      errorCode: null,
+      message: "Количество обновлено.",
+      data: null,
+    });
+
+    await waitFor(() => expect(
+      screen.getByRole("button", { name: "Отправить заказ" }),
+    ).toBeEnabled());
+    expect(mocks.submit).not.toHaveBeenCalled();
+  });
 });
 
 function renderFlow() {

@@ -109,9 +109,14 @@ export function OrderSubmitForm({
           event: "checkout_mutation_barrier_completed",
           durationMs: Math.round(performance.now() - barrierStartedAt),
         });
+        const form = formRef.current;
+        if (!form || !form.reportValidity()) {
+          setPhase("idle");
+          return;
+        }
         setPhase("submitting");
         bypassBarrierRef.current = true;
-        formRef.current?.requestSubmit();
+        form.requestSubmit();
       } catch {
         setPhase("failed_retryable");
         setBarrierError(copy.cartBarrierError);
