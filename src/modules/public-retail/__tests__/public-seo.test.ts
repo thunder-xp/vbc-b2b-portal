@@ -126,7 +126,7 @@ describe("public SEO contract", () => {
     const localized = publicProductSchema({
       ...product,
       categoryPath: [
-        { id: "20000000-0000-4000-8000-000000000001", slug: "security", name: "Sisteme de securitate" },
+        { id: "20000000-0000-4000-8000-000000000001", slug: "security", name: "Sisteme de detecție" },
         { id: "20000000-0000-4000-8000-000000000002", slug: "cameras", name: "Camere" },
       ],
     }, "ro");
@@ -155,7 +155,7 @@ describe("public SEO contract", () => {
       }],
     }, "ru");
 
-    expect(localized?.category).toEqual(["Sisteme de securitate > Camere"]);
+    expect(localized?.category).toEqual(["Sisteme de detecție > Camere"]);
     expect(internal).not.toHaveProperty("category");
     expect(unsupportedCyrillic).not.toHaveProperty("category");
     expect(unsupportedMixedScript).not.toHaveProperty("category");

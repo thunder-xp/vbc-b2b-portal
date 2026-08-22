@@ -264,8 +264,7 @@ function publicMerchantProductCategory(product: PublicRetailProductDetailDto): s
     !categoryPath.length
     || categoryPath.some((category) => (
       !category.name
-      || !/^[\x20-\x7E]+$/.test(category.name)
-      || !/[A-Za-z]/.test(category.name)
+      || !hasOnlyLatinLetters(category.name)
       || category.slug.startsWith("project-equipment")
     ))
   ) {
@@ -274,6 +273,11 @@ function publicMerchantProductCategory(product: PublicRetailProductDetailDto): s
 
   const value = categoryPath.map((category) => category.name).join(" > ");
   return value.length <= 750 ? value : undefined;
+}
+
+function hasOnlyLatinLetters(value: string): boolean {
+  const letters = value.match(/\p{L}/gu);
+  return Boolean(letters?.length && letters.every((letter) => /\p{Script=Latin}/u.test(letter)));
 }
 
 export function publicProductMedia(product: PublicRetailProductDetailDto): PublicRetailMediaDto[] {
