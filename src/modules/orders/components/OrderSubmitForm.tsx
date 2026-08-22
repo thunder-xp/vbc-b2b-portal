@@ -5,6 +5,7 @@ import {
   useActionState,
   useEffect,
   useRef,
+  startTransition,
   useState,
 } from "react";
 import { useRouter } from "next/navigation";
@@ -28,7 +29,6 @@ const initial: ActionResult<PartnerOrderSubmissionReceipt | null> = {
 type CheckoutPhase =
   | "idle"
   | "cart_update_pending"
-  | "submitting"
   | "failed_retryable";
 
 export function OrderSubmitForm({
@@ -59,7 +59,6 @@ export function OrderSubmitForm({
   const [barrierError, setBarrierError] = useState("");
   const formRef = useRef<HTMLFormElement>(null);
   const submissionKeyRef = useRef<HTMLInputElement>(null);
-  const bypassBarrierRef = useRef(false);
   const router = useRouter();
   const { flushPendingMutations, hasPendingMutations } =
     useCartCheckoutCoordinator();
@@ -89,14 +88,8 @@ export function OrderSubmitForm({
   }, [router, state]);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
-    if (bypassBarrierRef.current) {
-      bypassBarrierRef.current = false;
-      setPhase("idle");
-      return;
-    }
-
     event.preventDefault();
-    if (actionPending || phase === "submitting")
+    if (actionPending)
       return;
 
     setBarrierError("");
@@ -114,9 +107,10 @@ export function OrderSubmitForm({
           setPhase("idle");
           return;
         }
-        setPhase("submitting");
-        bypassBarrierRef.current = true;
-        form.requestSubmit();
+        setPhase("idle");
+        startTransition(() => {
+          action(new FormData(form));
+        });
       } catch {
         setPhase("failed_retryable");
         setBarrierError(copy.cartBarrierError);
@@ -132,8 +126,7 @@ export function OrderSubmitForm({
   const busy =
     actionPending ||
     hasPendingMutations ||
-    phase === "cart_update_pending" ||
-    phase === "submitting";
+    phase === "cart_update_pending";
   const selectedPaymentOption = options.paymentMethods.find(
     (option) => option.value === paymentMethod,
   );
@@ -371,7 +364,7 @@ function submitLabel(
   hasPendingMutations: boolean,
   copy: ReturnType<typeof getOrdersCopy>,
 ): string {
-  if (actionPending || phase === "submitting") return copy.sendingOrder;
+  if (actionPending) return copy.sendingOrder;
   if (phase === "cart_update_pending" || hasPendingMutations) {
     return copy.savingCartShort;
   }

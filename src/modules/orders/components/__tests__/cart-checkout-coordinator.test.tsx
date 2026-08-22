@@ -42,6 +42,7 @@ describe("cart checkout mutation barrier", () => {
   });
 
   it("flushes direct quantity input before checkout validation and submission", async () => {
+    const requestSubmit = vi.spyOn(HTMLFormElement.prototype, "requestSubmit");
     let resolveUpdate:
       | ((value: {
           success: true;
@@ -74,6 +75,7 @@ describe("cart checkout mutation barrier", () => {
     });
 
     await waitFor(() => expect(mocks.submit).toHaveBeenCalledOnce());
+    expect(requestSubmit).not.toHaveBeenCalled();
     expect(
       view.container.querySelector<HTMLInputElement>(
         'input[name="expectedIntentVersion"]',
