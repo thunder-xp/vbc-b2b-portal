@@ -46,6 +46,26 @@ describe("DefaultPartnerOrderService", () => {
     expect(dependencies.priceRefreshService.refresh).not.toHaveBeenCalled();
   });
 
+  it("uses the server cart revision after the mutation barrier", async () => {
+    const dependencies = makeDependencies();
+    dependencies.cartRepository.findActive.mockResolvedValue({
+      id: "44444444-4444-4444-8444-444444444444",
+      companyId: "company-1",
+      createdBy: "user-1",
+      status: "active",
+      intentVersion: 8,
+      createdAt: "2026-01-01",
+      updatedAt: "2026-01-01",
+    });
+
+    await dependencies.service.submit("user-1", input());
+
+    expect(dependencies.orderRepository.beginSubmission).toHaveBeenCalledWith(
+      expect.objectContaining({ expectedIntentVersion: 8 }),
+    );
+    expect(dependencies.orderProvider.exportSalesOrder).toHaveBeenCalledOnce();
+  });
+
   it("blocks submission when the current partner price is older than the accepted window", async () => {
     const dependencies = makeDependencies();
     dependencies.pricingService.getProductCommercialViews.mockResolvedValue([{

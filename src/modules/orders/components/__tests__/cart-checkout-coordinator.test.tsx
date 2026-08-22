@@ -6,7 +6,6 @@ import { CartItemActions } from "../CartItemActions";
 import { OrderSubmitForm } from "../OrderSubmitForm";
 
 const mocks = vi.hoisted(() => ({
-  getIntent: vi.fn(),
   push: vi.fn(),
   refresh: vi.fn(),
   remove: vi.fn(),
@@ -18,7 +17,6 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: mocks.push, refresh: mocks.refresh }),
 }));
 vi.mock("../../actions/cart.actions", () => ({
-  getCartCheckoutIntentAction: mocks.getIntent,
   removeCartItemAction: mocks.remove,
   updateCartItemAction: mocks.update,
 }));
@@ -35,12 +33,6 @@ const cartId = "44444444-4444-4444-8444-444444444444";
 describe("cart checkout mutation barrier", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.getIntent.mockResolvedValue({
-      success: true,
-      errorCode: null,
-      message: "Cart intent loaded.",
-      data: { cartId, intentVersion: 8 },
-    });
     mocks.submit.mockResolvedValue({
       success: false,
       errorCode: "ORDER_UNKNOWN_FAILURE",
@@ -72,7 +64,6 @@ describe("cart checkout mutation barrier", () => {
     fireEvent.submit(screen.getByRole("form", { name: "Проверка заказа" }));
 
     expect(mocks.update).toHaveBeenCalledOnce();
-    expect(mocks.getIntent).not.toHaveBeenCalled();
     expect(mocks.submit).not.toHaveBeenCalled();
 
     resolveUpdate?.({
@@ -82,13 +73,12 @@ describe("cart checkout mutation barrier", () => {
       data: null,
     });
 
-    await waitFor(() => expect(mocks.getIntent).toHaveBeenCalledWith(cartId));
     await waitFor(() => expect(mocks.submit).toHaveBeenCalledOnce());
     expect(
       view.container.querySelector<HTMLInputElement>(
         'input[name="expectedIntentVersion"]',
       ),
-    ).toHaveValue("8");
+    ).toHaveValue("7");
   });
 
   it("does not submit when a visible quantity cannot be persisted", async () => {
@@ -111,7 +101,6 @@ describe("cart checkout mutation barrier", () => {
     expect(
       await screen.findByText(/Не удалось сохранить изменения корзины/),
     ).toBeInTheDocument();
-    expect(mocks.getIntent).not.toHaveBeenCalled();
     expect(mocks.submit).not.toHaveBeenCalled();
   });
 });

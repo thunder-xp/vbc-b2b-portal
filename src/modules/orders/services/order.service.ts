@@ -191,7 +191,7 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
       ? resolveCheckoutSelection(checkoutConfiguration, checkoutSelection)
       : fallbackCheckoutSelection(checkoutSelection, companyContractRef, companyPriceTypeRef);
     if (!cart) throw new RecoverableOrderSubmissionError("The active cart is not available.");
-    if (cart.id !== submittedCartId || cart.intentVersion !== expectedIntentVersion) {
+    if (cart.id !== submittedCartId) {
       console.warn({
         event: "partner_order_cart_intent_conflict",
         cartId: cart.id,
@@ -205,6 +205,16 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
         "Cart intent changed before checkout validation.",
         "ORDER_CART_VERSION_CONFLICT",
       );
+    }
+    const serverIntentVersion = cart.intentVersion;
+    if (serverIntentVersion !== expectedIntentVersion) {
+      console.info({
+        event: "partner_order_client_intent_refreshed",
+        cartId: cart.id,
+        submittedIntentVersion: expectedIntentVersion,
+        serverIntentVersion,
+        submissionKey,
+      });
     }
     if (cart.status === CartStatus.Submitting) {
       logRejectedTransition(cart.id, cart.status, submissionKey, null, "cart_already_submitting");
@@ -531,7 +541,7 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
     });
     const requestFingerprint = checkoutRequestFingerprint({
       cartId: cart.id,
-      expectedIntentVersion,
+      expectedIntentVersion: serverIntentVersion,
       salesOrder,
     });
     console.info(submissionEvent("partner_order_payload_built", "payload_built", {
@@ -553,7 +563,7 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
       });
       order = await this.orderRepository.beginSubmission({
         cartId: cart.id,
-        expectedIntentVersion,
+        expectedIntentVersion: serverIntentVersion,
         submissionKey,
         submissionAttemptId: attemptId,
         requestedDeliveryDate: deliveryDate,

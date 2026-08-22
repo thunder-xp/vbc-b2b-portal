@@ -10,7 +10,6 @@ import {
 import { useRouter } from "next/navigation";
 import type { ActionResult } from "../../access-control/actions/action-result";
 import { recordBehaviorInteraction } from "../../behavior-analytics/components/BehaviorViewEvent";
-import { getCartCheckoutIntentAction } from "../actions/cart.actions";
 import {
   submitCartOrderAction,
   type PartnerOrderSubmissionReceipt,
@@ -29,7 +28,6 @@ const initial: ActionResult<PartnerOrderSubmissionReceipt | null> = {
 type CheckoutPhase =
   | "idle"
   | "cart_update_pending"
-  | "validating"
   | "submitting"
   | "failed_retryable";
 
@@ -57,14 +55,10 @@ export function OrderSubmitForm({
   const [paymentMethod, setPaymentMethod] = useState(initialPaymentMethod);
   const [fulfillmentMethod, setFulfillmentMethod] = useState<"pickup" | "delivery">("pickup");
   const [carrierId, setCarrierId] = useState("");
-  const [checkoutIntentVersion, setCheckoutIntentVersion] = useState(
-    intentVersion ?? 0,
-  );
   const [phase, setPhase] = useState<CheckoutPhase>("idle");
   const [barrierError, setBarrierError] = useState("");
   const formRef = useRef<HTMLFormElement>(null);
   const submissionKeyRef = useRef<HTMLInputElement>(null);
-  const intentVersionRef = useRef<HTMLInputElement>(null);
   const bypassBarrierRef = useRef(false);
   const router = useRouter();
   const { flushPendingMutations, hasPendingMutations } =
@@ -102,7 +96,7 @@ export function OrderSubmitForm({
     }
 
     event.preventDefault();
-    if (actionPending || phase === "validating" || phase === "submitting")
+    if (actionPending || phase === "submitting")
       return;
 
     setBarrierError("");
@@ -111,21 +105,11 @@ export function OrderSubmitForm({
       const barrierStartedAt = performance.now();
       try {
         await flushPendingMutations();
-        setPhase("validating");
-        if (cartId) {
-          const currentIntent = await getCartCheckoutIntentAction(cartId);
-          if (!currentIntent.success || !intentVersionRef.current) {
-            throw new Error("Cart intent could not be confirmed.");
-          }
-          setCheckoutIntentVersion(currentIntent.data.intentVersion);
-          intentVersionRef.current.value = String(
-            currentIntent.data.intentVersion,
-          );
-        }
         console.info({
           event: "checkout_mutation_barrier_completed",
           durationMs: Math.round(performance.now() - barrierStartedAt),
         });
+        setPhase("submitting");
         bypassBarrierRef.current = true;
         formRef.current?.requestSubmit();
       } catch {
@@ -144,7 +128,7 @@ export function OrderSubmitForm({
     actionPending ||
     hasPendingMutations ||
     phase === "cart_update_pending" ||
-    phase === "validating";
+    phase === "submitting";
   const selectedPaymentOption = options.paymentMethods.find(
     (option) => option.value === paymentMethod,
   );
@@ -162,9 +146,8 @@ export function OrderSubmitForm({
       <input name="cartId" type="hidden" value={cartId ?? ""} />
       <input
         name="expectedIntentVersion"
-        ref={intentVersionRef}
         type="hidden"
-        value={checkoutIntentVersion || ""}
+        value={intentVersion || ""}
       />
       <input
         defaultValue={submissionKey}
@@ -384,7 +367,6 @@ function submitLabel(
   copy: ReturnType<typeof getOrdersCopy>,
 ): string {
   if (actionPending || phase === "submitting") return copy.sendingOrder;
-  if (phase === "validating") return copy.validatingOrder;
   if (phase === "cart_update_pending" || hasPendingMutations) {
     return copy.savingCartShort;
   }
