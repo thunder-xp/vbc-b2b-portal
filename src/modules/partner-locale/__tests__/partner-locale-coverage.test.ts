@@ -59,4 +59,17 @@ describe("partner locale coverage", () => {
     expect(Object.keys(ro)).toEqual(Object.keys(ru));
     expect(Object.values(ro).every((value) => value.trim().length > 0)).toBe(true);
   });
+
+  it("keeps checkout payment guidance exact in RU and RO", () => {
+    expect(getOrdersCopy("ru")).toMatchObject({
+      paymentDateRequired: "Укажите дату оплаты.",
+      cashlessUnavailable: "Нет активного договора для безналичной оплаты.",
+      cashUnavailable: "Нет активного договора для наличной оплаты.",
+    });
+    expect(getOrdersCopy("ro")).toMatchObject({
+      paymentDateRequired: "Selectați data plății.",
+      cashlessUnavailable: "Nu există un contract activ pentru plata prin transfer bancar.",
+      cashUnavailable: "Nu există un contract activ pentru plata în numerar.",
+    });
+  });
 });

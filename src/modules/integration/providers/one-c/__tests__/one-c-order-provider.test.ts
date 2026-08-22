@@ -22,7 +22,7 @@ const order: SalesOrderDTO = {
   portalOrderReference: "55555555-5555-4555-8555-555555555555",
   status: "draft", currency: "USD", requestedDeliveryDate: "2099-01-10", documentTotal: 1314,
   paymentMethod: "cashless",
-  plannedPaymentDate: "2099-01-10",
+  plannedPaymentDate: "2099-01-09",
   fulfillmentMethod: "pickup",
   carrierReference: null,
   items: [{
@@ -50,6 +50,13 @@ describe("OneCCustomerOrderProvider", () => {
       "СуммаВключаетНДС", "СуммаДокумента", "СостояниеЗаказа", "ТипДенежныхСредств", "УчитыватьВНУ", "Запасы", "Date",
     ].sort());
     expect(payload).toMatchObject({ Posted: false, Автор_Key: "272a1ac4-0194-11eb-8975-000c29cf9dd4", ДатаОтгрузки: "2099-01-10", СуммаДокумента: 1314 });
+    expect(payload.ЗапланироватьОплату).toBe(true);
+    expect(payload.ПлатежныйКалендарь).toEqual([{
+      LineNumber: 1,
+      ДатаОплаты: "2099-01-09T00:00:00",
+      ПроцентОплаты: 100,
+      СуммаОплаты: 1314,
+    }]);
     expect(payload).not.toHaveProperty("Ref_Key");
     expect(payload).not.toHaveProperty("Number");
     expect(payload.Запасы[0]).toMatchObject({ Цена: 1314, Количество: 1, Сумма: 1314, Всего: 1314, СуммаНДС: 0, ДатаОтгрузки: "2099-01-10", ТипНоменклатурыЗапас: true, Резерв: 0, РезервОтгрузка: 0 });
@@ -66,6 +73,20 @@ describe("OneCCustomerOrderProvider", () => {
     expect(payload).not.toHaveProperty("СтруктурнаяЕдиница_Key");
     expect(payload).not.toHaveProperty("ХозяйственнаяОперация");
     expect(payload).not.toHaveProperty("ВидОплаты");
+  });
+
+  it("requires an explicit payment date instead of copying shipment date", () => {
+    expect(() => buildOneCCustomerOrderPayload({
+      ...order,
+      plannedPaymentDate: undefined,
+    })).toThrow("1C payment date is required.");
+  });
+
+  it("requires an explicit governed payment method", () => {
+    expect(() => buildOneCCustomerOrderPayload({
+      ...order,
+      paymentMethod: undefined,
+    })).toThrow("1C payment method is required.");
   });
 
   it("builds the legacy-minimal allowlisted payload with full 1C datetimes", () => {
@@ -89,7 +110,7 @@ describe("OneCCustomerOrderProvider", () => {
       ЗапланироватьОплату: true,
       ПлатежныйКалендарь: [{
         LineNumber: 1,
-        ДатаОплаты: "2099-01-10T00:00:00",
+        ДатаОплаты: "2099-01-09T00:00:00",
         ПроцентОплаты: 100,
         СуммаОплаты: 1314,
       }],
@@ -280,7 +301,7 @@ function readBackRow(overrides: Record<string, unknown> = {}) {
     ТипДенежныхСредств: "Безналичные",
     ЗапланироватьОплату: true,
     ПлатежныйКалендарь: [{
-      ДатаОплаты: "2099-01-10T00:00:00",
+      ДатаОплаты: "2099-01-09T00:00:00",
       ПроцентОплаты: 100,
       СуммаОплаты: order.documentTotal,
     }],

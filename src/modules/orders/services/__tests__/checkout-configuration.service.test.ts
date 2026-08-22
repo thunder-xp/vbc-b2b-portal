@@ -30,16 +30,28 @@ describe("checkout configuration", () => {
     });
   });
 
-  it("allows only a governed cash contract for a physical person", () => {
+  it("derives physical-person payment methods only from governed contracts", () => {
     const options = toPartnerCheckoutOptions(configuration({
       counterpartyTypeCode: "ФизическоеЛицо",
     }));
 
-    expect(options.paymentMethods[0]).toMatchObject({
-      enabled: false,
-      unavailableReason: "physical_person_cash_only",
-    });
+    expect(options.paymentMethods[0].enabled).toBe(true);
     expect(options.paymentMethods[1].enabled).toBe(true);
+  });
+
+  it("supports a governed cash-only company", () => {
+    const options = toPartnerCheckoutOptions(configuration({ cashless: null }));
+
+    expect(options.paymentMethods).toEqual([
+      expect.objectContaining({ value: "cashless", enabled: false }),
+      expect.objectContaining({ value: "cash", enabled: true, contractLabel: "CASH-1" }),
+    ]);
+  });
+
+  it("fails closed when neither payment contract is governed", () => {
+    const options = toPartnerCheckoutOptions(configuration({ cashless: null, cash: null }));
+
+    expect(options.paymentMethods.every((method) => !method.enabled)).toBe(true);
   });
 
   it("resolves the exact cashless and cash contracts without browser references", () => {
@@ -95,6 +107,13 @@ describe("checkout configuration", () => {
   it("fails closed when contract and price-type currencies differ", () => {
     const cash = { ...contract("contract-cash", "CASH-1"), contractCurrencyRef: "other-currency" };
     expect(toPartnerCheckoutOptions(configuration({ cash })).paymentMethods[1].enabled).toBe(false);
+  });
+
+  it("rejects an absent payment date instead of deriving one", () => {
+    expect(() => resolveCheckoutSelection(configuration(), {
+      ...selection("cashless"),
+      paymentDate: "",
+    })).toThrow(expect.objectContaining({ code: "ORDER_INVALID_PAYMENT_DATE" }));
   });
 });
 

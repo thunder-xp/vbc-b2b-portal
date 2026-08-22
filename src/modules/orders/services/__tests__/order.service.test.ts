@@ -492,6 +492,43 @@ describe("DefaultPartnerOrderService", () => {
     );
   });
 
+  it("exports the manually selected payment date independently from shipment date", async () => {
+    const dependencies = makeDependencies();
+
+    await dependencies.service.submit("user-1", {
+      ...input(),
+      paymentDate: "2099-01-09",
+      requestedDeliveryDate: "2099-01-10",
+    });
+
+    expect(dependencies.orderProvider.exportSalesOrder).toHaveBeenCalledWith(
+      expect.objectContaining({
+        plannedPaymentDate: "2099-01-09",
+        requestedDeliveryDate: "2099-01-10",
+      }),
+    );
+  });
+
+  it("rejects a missing payment date before any 1C export", async () => {
+    const dependencies = makeDependencies();
+
+    await expect(dependencies.service.submit("user-1", {
+      ...input(),
+      paymentDate: "",
+    })).rejects.toMatchObject({ code: "ORDER_INVALID_PAYMENT_DATE" });
+    expect(dependencies.orderProvider.exportSalesOrder).not.toHaveBeenCalled();
+  });
+
+  it("rejects a malformed calendar payment date before any 1C export", async () => {
+    const dependencies = makeDependencies();
+
+    await expect(dependencies.service.submit("user-1", {
+      ...input(),
+      paymentDate: "2099-02-31",
+    })).rejects.toMatchObject({ code: "ORDER_INVALID_PAYMENT_DATE" });
+    expect(dependencies.orderProvider.exportSalesOrder).not.toHaveBeenCalled();
+  });
+
   it("fails closed when the governed local checkout currency is unavailable", async () => {
     const dependencies = makeDependencies();
     dependencies.checkoutConfigurationRepository.getByCompanyId.mockResolvedValue({
@@ -737,6 +774,10 @@ function input() {
     expectedIntentVersion: 7,
     submissionKey: SUBMISSION_KEY,
     requestedDeliveryDate: "2099-01-10",
+    paymentMethod: "cashless" as const,
+    paymentDate: "2099-01-09",
+    fulfillmentMethod: "pickup" as const,
+    carrierId: null,
   };
 }
 function ref(externalId: string) { return { providerCode: "one-c", externalId, externalType: "test" }; }

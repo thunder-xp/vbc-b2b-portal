@@ -59,6 +59,9 @@ describe("cart checkout mutation barrier", () => {
     fireEvent.change(screen.getByRole("spinbutton", { name: "Количество товара" }), {
       target: { value: "5" },
     });
+    fireEvent.change(screen.getByLabelText(/Дата оплаты/), {
+      target: { value: "2099-01-09" },
+    });
     fireEvent.change(screen.getByLabelText("Дата планируемой отгрузки"), {
       target: { value: "2099-01-10" },
     });
@@ -95,6 +98,9 @@ describe("cart checkout mutation barrier", () => {
     fireEvent.change(screen.getByRole("spinbutton", { name: "Количество товара" }), {
       target: { value: "9" },
     });
+    fireEvent.change(screen.getByLabelText(/Дата оплаты/), {
+      target: { value: "2099-01-09" },
+    });
     fireEvent.change(screen.getByLabelText("Дата планируемой отгрузки"), {
       target: { value: "2099-01-10" },
     });
@@ -123,6 +129,9 @@ describe("cart checkout mutation barrier", () => {
     fireEvent.change(screen.getByRole("spinbutton", { name: "Количество товара" }), {
       target: { value: "5" },
     });
+    fireEvent.change(screen.getByLabelText(/Дата оплаты/), {
+      target: { value: "2099-01-09" },
+    });
     const date = screen.getByLabelText("Дата планируемой отгрузки");
     fireEvent.change(date, { target: { value: "2099-01-10" } });
     fireEvent.submit(screen.getByRole("form", { name: "Проверка заказа" }));
@@ -137,7 +146,7 @@ describe("cart checkout mutation barrier", () => {
 
     await waitFor(() => expect(
       screen.getByRole("button", { name: "Отправить заказ" }),
-    ).toBeEnabled());
+    ).toBeDisabled());
     expect(mocks.submit).not.toHaveBeenCalled();
   });
 });
@@ -148,6 +157,14 @@ function renderFlow() {
       <CartItemActions itemId="item-1" quantity={2} />
       <OrderSubmitForm
         cartId={cartId}
+        checkoutOptions={{
+          counterpartyKind: "legal_entity",
+          paymentMethods: [
+            { value: "cashless", enabled: true, contractLabel: "NS-67/2104/22", unavailableReason: null },
+            { value: "cash", enabled: false, contractLabel: null, unavailableReason: "contract_unavailable" },
+          ],
+          carriers: [],
+        }}
         intentVersion={7}
         submissionKey="55555555-5555-4555-8555-555555555555"
       />

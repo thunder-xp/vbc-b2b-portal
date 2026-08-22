@@ -13,7 +13,7 @@ export type PartnerCheckoutOptionsDto = {
     value: CheckoutPaymentMethod;
     enabled: boolean;
     contractLabel: string | null;
-    unavailableReason: "contract_unavailable" | "physical_person_cash_only" | null;
+    unavailableReason: "contract_unavailable" | null;
   }>;
   carriers: Array<{ id: string; name: string }>;
 };
@@ -32,7 +32,7 @@ export type ResolvedCheckoutSelection = CheckoutSelection & {
 
 export function toPartnerCheckoutOptions(config: CheckoutConfiguration): PartnerCheckoutOptionsDto {
   const kind = counterpartyKind(config.counterpartyTypeCode, config.governmentBodyTypeCode);
-  const cashlessAllowed = kind !== "physical_person" && validContract(config.cashless, config, true);
+  const cashlessAllowed = validContract(config.cashless, config, true);
   const cashAllowed = validContract(config.cash, config, false);
   return {
     counterpartyKind: kind,
@@ -41,9 +41,7 @@ export function toPartnerCheckoutOptions(config: CheckoutConfiguration): Partner
         value: "cashless",
         enabled: cashlessAllowed,
         contractLabel: cashlessAllowed ? contractLabel(config.cashless!) : null,
-        unavailableReason: kind === "physical_person"
-          ? "physical_person_cash_only"
-          : cashlessAllowed ? null : "contract_unavailable",
+        unavailableReason: cashlessAllowed ? null : "contract_unavailable",
       },
       {
         value: "cash",
@@ -61,14 +59,7 @@ export function resolveCheckoutSelection(
   selection: CheckoutSelection,
 ): ResolvedCheckoutSelection {
   if (!config.counterpartyActive) throw mappingError();
-  const kind = counterpartyKind(config.counterpartyTypeCode, config.governmentBodyTypeCode);
   const contract = selection.paymentMethod === "cashless" ? config.cashless : config.cash;
-  if (selection.paymentMethod === "cashless" && kind === "physical_person") {
-    throw new RecoverableOrderSubmissionError(
-      "Cashless payment is not available for this counterparty.",
-      "ORDER_PAYMENT_METHOD_UNAVAILABLE",
-    );
-  }
   if (!validContract(contract, config, selection.paymentMethod === "cashless")) {
     throw new RecoverableOrderSubmissionError(
       "The selected payment contract is unavailable.",

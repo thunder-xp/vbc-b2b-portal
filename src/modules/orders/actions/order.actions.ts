@@ -30,7 +30,6 @@ export async function submitCartOrderAction(
     || !submissionKey
     || !requestedDeliveryDate
     || !["cashless", "cash"].includes(paymentMethod)
-    || !paymentDate
     || !["pickup", "delivery"].includes(fulfillmentMethod)
     || (fulfillmentMethod === "delivery" && !carrierId)
   ) {

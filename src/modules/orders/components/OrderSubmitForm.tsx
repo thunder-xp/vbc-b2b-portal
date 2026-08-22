@@ -49,10 +49,10 @@ export function OrderSubmitForm({
   const locale = usePartnerLocale();
   const copy = getOrdersCopy(locale);
   const options = checkoutOptions ?? defaultCheckoutOptions();
-  const initialPaymentMethod = options.paymentMethods.find((option) => option.enabled)?.value ?? "cashless";
+  const initialPaymentMethod = options.paymentMethods.find((option) => option.enabled)?.value ?? "";
   const [deliveryDate, setDeliveryDate] = useState("");
-  const [paymentDate, setPaymentDate] = useState(() => chisinauBusinessDate());
-  const [paymentMethod, setPaymentMethod] = useState(initialPaymentMethod);
+  const [paymentDate, setPaymentDate] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState<"cashless" | "cash" | "">(initialPaymentMethod);
   const [fulfillmentMethod, setFulfillmentMethod] = useState<"pickup" | "delivery">("pickup");
   const [carrierId, setCarrierId] = useState("");
   const [phase, setPhase] = useState<CheckoutPhase>("idle");
@@ -132,6 +132,12 @@ export function OrderSubmitForm({
   );
   const checkoutUnavailable = !selectedPaymentOption?.enabled;
   const deliveryUnavailable = options.carriers.length === 0;
+  const checkoutReady = Boolean(
+    selectedPaymentOption?.enabled
+    && isSelectableDate(paymentDate)
+    && isSelectableDate(deliveryDate)
+    && (fulfillmentMethod === "pickup" || carrierId),
+  );
 
   return (
     <form
@@ -165,7 +171,7 @@ export function OrderSubmitForm({
                   : "cursor-not-allowed border-zinc-200 bg-zinc-50 text-zinc-400"
               }`}
               key={option.value}
-              title={!option.enabled ? unavailableReason(option.unavailableReason, copy) : undefined}
+              title={!option.enabled ? unavailableReason(option.value, copy) : undefined}
             >
               <input
                 checked={paymentMethod === option.value}
@@ -182,7 +188,7 @@ export function OrderSubmitForm({
         </div>
         {options.paymentMethods.filter((option) => !option.enabled).map((option) => (
           <p className="text-xs text-zinc-600" key={`${option.value}-reason`}>
-            {option.value === "cashless" ? copy.cashless : copy.cash}: {unavailableReason(option.unavailableReason, copy)}
+            {unavailableReason(option.value, copy)}
           </p>
         ))}
         {selectedPaymentOption?.contractLabel ? (
@@ -202,6 +208,9 @@ export function OrderSubmitForm({
           type="date"
           value={paymentDate}
         />
+        {!paymentDate ? (
+          <span className="mt-1 block text-xs text-zinc-600">{copy.paymentDateRequired}</span>
+        ) : null}
       </label>
       <fieldset className="space-y-2">
         <legend className="text-sm font-medium text-zinc-800">{copy.fulfillmentMethod}</legend>
@@ -274,7 +283,7 @@ export function OrderSubmitForm({
       <p className="text-xs leading-5 text-zinc-600">{copy.shipmentDateHint}</p>
       <button
         className="h-11 w-full rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white hover:bg-emerald-800 focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
-        disabled={busy || retryBlocked || checkoutUnavailable}
+        disabled={busy || retryBlocked || checkoutUnavailable || !checkoutReady}
         type="submit"
       >
         {submitLabel(phase, actionPending, hasPendingMutations, copy)}
@@ -312,7 +321,7 @@ function defaultCheckoutOptions(): PartnerCheckoutOptionsDto {
   return {
     counterpartyKind: "unknown",
     paymentMethods: [
-      { value: "cashless", enabled: true, contractLabel: null, unavailableReason: null },
+      { value: "cashless", enabled: false, contractLabel: null, unavailableReason: "contract_unavailable" },
       { value: "cash", enabled: false, contractLabel: null, unavailableReason: "contract_unavailable" },
     ],
     carriers: [],
@@ -320,12 +329,10 @@ function defaultCheckoutOptions(): PartnerCheckoutOptionsDto {
 }
 
 function unavailableReason(
-  reason: "contract_unavailable" | "physical_person_cash_only" | null,
+  method: "cashless" | "cash",
   copy: ReturnType<typeof getOrdersCopy>,
-): string | undefined {
-  if (reason === "physical_person_cash_only") return copy.physicalPersonCashOnly;
-  if (reason === "contract_unavailable") return copy.contractUnavailable;
-  return undefined;
+): string {
+  return method === "cashless" ? copy.cashlessUnavailable : copy.cashUnavailable;
 }
 
 export function chisinauBusinessDate(now = new Date()): string {
@@ -339,6 +346,10 @@ export function chisinauBusinessDate(now = new Date()): string {
     parts.map((part) => [part.type, part.value]),
   );
   return `${value.year}-${value.month}-${value.day}`;
+}
+
+function isSelectableDate(value: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) && value >= chisinauBusinessDate();
 }
 
 export function formatBusinessDate(

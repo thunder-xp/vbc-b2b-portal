@@ -113,7 +113,7 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
     const expectedIntentVersion = requireIntentVersion(input.expectedIntentVersion);
     const submissionKey = requireUuid(input.submissionKey, "Submission key");
     const deliveryDate = normalizeDeliveryDate(input.requestedDeliveryDate);
-    const checkoutSelection = normalizeCheckoutSelection(input, deliveryDate);
+    const checkoutSelection = normalizeCheckoutSelection(input);
     console.info(submissionEvent("partner_order_submission_started", "submission_started", {
       submissionKey, orderId: null, cartId: null, companyId: null,
     }));
@@ -852,10 +852,9 @@ function normalizeCheckoutSelection(
     fulfillmentMethod?: CheckoutFulfillmentMethod;
     carrierId?: string | null;
   },
-  deliveryDate: string,
 ): CheckoutSelection {
-  const paymentMethod = input.paymentMethod ?? "cashless";
-  const fulfillmentMethod = input.fulfillmentMethod ?? "pickup";
+  const paymentMethod = input.paymentMethod;
+  const fulfillmentMethod = input.fulfillmentMethod;
   if (paymentMethod !== "cashless" && paymentMethod !== "cash") {
     throw new RecoverableOrderSubmissionError("Payment method is invalid.", "ORDER_PAYMENT_METHOD_UNAVAILABLE");
   }
@@ -864,7 +863,7 @@ function normalizeCheckoutSelection(
   }
   return {
     paymentMethod,
-    paymentDate: normalizePaymentDate(input.paymentDate ?? deliveryDate),
+    paymentDate: normalizePaymentDate(input.paymentDate ?? ""),
     fulfillmentMethod,
     carrierId: input.carrierId ? requireUuid(input.carrierId, "Carrier") : null,
   };
@@ -911,8 +910,11 @@ function normalizeDeliveryDate(value: string): string {
 }
 function normalizePaymentDate(value: string): string {
   const normalized = value.trim();
+  const parsed = Date.parse(`${normalized}T00:00:00Z`);
   if (
     !/^\d{4}-\d{2}-\d{2}$/.test(normalized) ||
+    !Number.isFinite(parsed) ||
+    new Date(parsed).toISOString().slice(0, 10) !== normalized ||
     Date.parse(`${normalized}T23:59:59Z`) < Date.now()
   ) {
     throw new RecoverableOrderSubmissionError(

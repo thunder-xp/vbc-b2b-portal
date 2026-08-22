@@ -1147,9 +1147,9 @@ export function buildLegacyMinimalOneCCustomerOrderPayload(
 }
 
 function checkoutFields(order: SalesOrderDTO) {
-  const paymentMethod = order.paymentMethod ?? "cashless";
+  const paymentMethod = requirePaymentMethod(order);
   const fulfillmentMethod = order.fulfillmentMethod ?? "pickup";
-  const plannedPaymentDate = order.plannedPaymentDate ?? order.requestedDeliveryDate;
+  const plannedPaymentDate = requirePlannedPaymentDate(order);
   const carrierRef = fulfillmentMethod === "delivery"
     ? order.carrierReference?.externalId
     : null;
@@ -1226,9 +1226,9 @@ function isVerifiedOrderReadBack(
 ): value is CreatedOrderResponse {
   if (!isCreatedOrderResponse(value) || value.Posted !== false) return false;
   const row = value as CreatedOrderResponse;
-  const paymentMethod = order.paymentMethod ?? "cashless";
+  const paymentMethod = requirePaymentMethod(order);
   const fulfillmentMethod = order.fulfillmentMethod ?? "pickup";
-  const expectedPaymentDate = order.plannedPaymentDate ?? order.requestedDeliveryDate;
+  const expectedPaymentDate = requirePlannedPaymentDate(order);
   const paymentRow = Array.isArray(row.ПлатежныйКалендарь)
     ? row.ПлатежныйКалендарь.find((item) => item && typeof item === "object") as Record<string, unknown> | undefined
     : undefined;
@@ -1308,8 +1308,8 @@ function toExportResult(order: CreatedOrderResponse, expected: SalesOrderDTO): S
     totalUnits: expected.items.reduce((total, item) => total + item.quantity, 0),
     readBack: {
       priceTypeRef: order.ВидЦен_Key ?? "",
-      paymentMethod: expected.paymentMethod ?? "cashless",
-      plannedPaymentDate: expected.plannedPaymentDate ?? expected.requestedDeliveryDate,
+      paymentMethod: requirePaymentMethod(expected),
+      plannedPaymentDate: requirePlannedPaymentDate(expected),
       fulfillmentMethod: expected.fulfillmentMethod ?? "pickup",
       carrierRef: expected.fulfillmentMethod === "delivery" ? order.СлужбаДоставки_Key ?? null : null,
       paymentAmount: Number(paymentRow?.СуммаОплаты),
@@ -1318,6 +1318,21 @@ function toExportResult(order: CreatedOrderResponse, expected: SalesOrderDTO): S
         : null,
     },
   };
+}
+
+function requirePlannedPaymentDate(order: SalesOrderDTO): string {
+  const value = order.plannedPaymentDate?.trim() ?? "";
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    throw new IntegrationValidationError("1C payment date is required.");
+  }
+  return value;
+}
+
+function requirePaymentMethod(order: SalesOrderDTO): "cashless" | "cash" {
+  if (order.paymentMethod !== "cashless" && order.paymentMethod !== "cash") {
+    throw new IntegrationValidationError("1C payment method is required.");
+  }
+  return order.paymentMethod;
 }
 
 function normalizeOneCDate(value: string | undefined): string | null {
