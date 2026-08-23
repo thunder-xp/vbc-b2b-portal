@@ -15,7 +15,8 @@ export async function GET(request: Request) {
   const service = createChunkedStockSyncService(getOneCEnv());
   const state = await service.getState();
   if (!state.activeSyncId || !["queued", "running"].includes(state.status)) {
-    return NextResponse.json({ resumed: false, status: state.status });
+    const projection = await service.resumePendingProjection();
+    return NextResponse.json({ resumed: false, status: state.status, publicRetail: projection?.status ?? "no_pending" });
   }
 
   const result = await service.continue(state.activeSyncId);

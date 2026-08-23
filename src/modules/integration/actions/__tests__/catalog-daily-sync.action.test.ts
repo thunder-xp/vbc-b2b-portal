@@ -21,15 +21,17 @@ describe("runDailyCatalogSyncAction", () => {
     mocks.createDailyCatalogSyncService.mockReturnValue({ runFullSync: mocks.runFullSync });
   });
   it("invokes only the daily full sync and revalidates after persisted success", async () => {
-    mocks.runFullSync.mockResolvedValue({ state, skippedBecauseRunning: false });
+    mocks.runFullSync.mockResolvedValue({ state, skippedBecauseRunning: false, projection });
     const result = await runDailyCatalogSyncAction();
     expect(result.success).toBe(true);
     expect(mocks.createDailyCatalogSyncService).toHaveBeenCalledOnce();
+    expect(mocks.runFullSync).toHaveBeenCalledWith("manual");
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/admin/integrations/catalog-sync");
   });
   it("does not return success for a persisted failed state", async () => {
-    mocks.runFullSync.mockResolvedValue({ state: { ...state, status: "failed" }, skippedBecauseRunning: false });
+    mocks.runFullSync.mockResolvedValue({ state: { ...state, status: "failed" }, skippedBecauseRunning: false, projection: null });
     await expect(runDailyCatalogSyncAction()).resolves.toMatchObject({ success: false, errorCode: "CATALOG_SYNC_FAILED" });
   });
 });
 const state = { status: "succeeded", rootName: "SECURITYPARK DISTRIBUTION", lastSuccessfulSyncAt: null, durationMs: 1, pagesProcessed: 1, foldersReceived: 1, productsReceived: 1, foldersUpserted: 1, productsUpserted: 1, rowsDeactivated: 0, errorCategory: null, failedStage: null, nextScheduledRun: "2026-07-13T02:00:00.000Z" };
+const projection = { status: "succeeded", runId: "11111111-1111-4111-8111-111111111111", sourceDomain: "catalog", trigger: "manual", publicationId: "22222222-2222-4222-8222-222222222222", checksum: "a".repeat(64), durationMs: 20, safeErrorCode: null };

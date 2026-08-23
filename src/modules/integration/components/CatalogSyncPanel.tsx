@@ -13,7 +13,7 @@ import {
   type CommercialSyncAllResult,
   type ExchangeRateSyncActionResult,
 } from "../actions";
-import type { CatalogSyncState, PriceSyncState, StockSyncState } from "../sync";
+import type { CatalogProjectionOutcome, CatalogSyncState, PriceSyncState, StockSyncState } from "../sync";
 
 export function CatalogSyncPanel() {
   const [allPending, startAll] = useTransition();
@@ -23,6 +23,7 @@ export function CatalogSyncPanel() {
   const [stockPending, startStock] = useTransition();
   const [state, setState] = useState<CatalogSyncState | null>(null);
   const [catalogMessage, setCatalogMessage] = useState<string | null>(null);
+  const [catalogProjection, setCatalogProjection] = useState<CatalogProjectionOutcome | null>(null);
   const [priceState, setPriceState] = useState<PriceSyncState | null>(null);
   const [stockState, setStockState] = useState<StockSyncState | null>(null);
   const [rateResult, setRateResult] = useState<ExchangeRateSyncActionResult | null>(null);
@@ -50,7 +51,7 @@ export function CatalogSyncPanel() {
   async function reloadState() { const result = await getDailyCatalogSyncStateAction(); if (result.success) setState(result.data); }
   async function reloadPriceState() { const result = await getPriceSyncStateAction(); if (result.success) setPriceState(result.data); }
   async function reloadStockState(){const result=await getStockSyncStateAction();if(result.success)setStockState(result.data);}
-  function runCatalog() { if (catalogPending) return; startCatalog(async () => { const result = await runDailyCatalogSyncAction(); setCatalogMessage(result.message); if (result.success) setState(result.data); else await reloadState(); }); }
+  function runCatalog() { if (catalogPending) return; startCatalog(async () => { const result = await runDailyCatalogSyncAction(); setCatalogMessage(result.message); if (result.success) { setState(result.data.state); setCatalogProjection(result.data.projection); } else { setCatalogProjection(null); await reloadState(); } }); }
   function runPrices() { if (pricePending) return; startPrice(async () => { const result = await syncPricesFromOneCAction(); if (result.success) setPriceState(result.data); }); }
   function runStock() { if (stockPending) return; startStock(async () => { const result = await syncStockFromOneCAction(); if(result.success)setStockState(result.data); }); }
   function runRates() { if (ratePending) return; startRate(async () => { const result = await syncExchangeRateFromOneCAction(); if (result.success) setRateResult(result.data); }); }
@@ -77,6 +78,7 @@ export function CatalogSyncPanel() {
     <SyncSection title="Структура каталога и товары" description="Синхронизирует структуру категорий и товары из группы SECURITYPARK DISTRIBUTION.">
       <div className="flex flex-wrap gap-2"><ActionButton pending={catalogPending} onClick={runCatalog}>Запустить полную синхронизацию</ActionButton><ActionButton pending={catalogPending} secondary onClick={runCatalog}>Повторить синхронизацию каталога</ActionButton></div>
       {catalogMessage && <p className="text-sm text-slate-700">{catalogMessage}</p>}
+      {catalogProjection ? <Report rows={[["B2B", "Updated"], ["Public Retail", projectionLabel(catalogProjection.status)], ["Publication ID", catalogProjection.publicationId ?? "-"], ["Projection duration", catalogProjection.durationMs === null ? "-" : `${catalogProjection.durationMs} ms`]]} /> : null}
       {state ? <CatalogStateView state={state} /> : <p className="text-sm text-slate-500">Загрузка состояния синхронизации...</p>}
     </SyncSection>
     <SyncSection title="Партнёрские цены" description="Обновляет цены из 1С для доступных типов цен.">
@@ -110,4 +112,11 @@ function stepLabel(status: CommercialSyncAllResult[keyof CommercialSyncAllResult
     case "deferred": return "После зависимого этапа";
     case "failed": return "Ошибка";
   }
+}
+
+function projectionLabel(status: CatalogProjectionOutcome["status"]): string {
+  if (status === "succeeded" || status === "already_completed") return "Published";
+  if (status === "queued") return "Queued";
+  if (status === "partial_success") return "Failed after B2B update";
+  return "Not started";
 }

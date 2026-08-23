@@ -11,6 +11,7 @@ import type {
   SupplierOrderDocumentRow,
 } from "../providers/one-c";
 import { projectPartnerProductTransitions } from "./product-notification-projection";
+import type { CatalogProjectionOutcome, CatalogSynchronizationOrchestrator, CatalogSynchronizationTrigger } from "./catalog-synchronization-orchestrator";
 
 export type StockSyncStatus = "never_run" | "queued" | "running" | "succeeded" | "failed";
 export type StockSyncStage = "warehouse_scan" | "physical_scan" | "reserved_scan" | "incoming_scan" | "supplier_arrival_balance" | "supplier_order_documents" | "stock_publication" | "completed";
@@ -32,8 +33,8 @@ export interface StockSyncStore {
 const MAX_PAGES=5, BUDGET=45_000;
 
 export class ChunkedStockSyncService {
-  constructor(private provider:StockBalanceProvider,private supplierProvider:SupplierArrivalProvider,private store:StockSyncStore,private now:()=>number=Date.now){}
-  start(){return this.store.start();} getState(){return this.store.getState();} failLaunch(id:string,message:string){return this.store.failLaunch(id,message);}
+  constructor(private provider:StockBalanceProvider,private supplierProvider:SupplierArrivalProvider,private store:StockSyncStore,private now:()=>number=Date.now,private orchestrator?:CatalogSynchronizationOrchestrator){}
+  async start(trigger:CatalogSynchronizationTrigger="scheduled"){const result=await this.store.start();if(result.started&&result.state.activeSyncId){try{await this.orchestrator?.registerSourceRun(result.state.activeSyncId,"stock",trigger);}catch(error){await this.store.failLaunch(result.state.activeSyncId,"Synchronization audit registration failed.");throw error;}}return result;} getState(){return this.store.getState();} resumePendingProjection(){return this.orchestrator?.resumePendingProjection()??Promise.resolve(null);} async failLaunch(id:string,message:string){await this.store.failLaunch(id,message);await this.orchestrator?.failSourceSync(id,"stock","CONTINUATION_LAUNCH_FAILED");}
   async continue(syncId:string){
     let state=await this.store.getState();
     if(state.activeSyncId!==syncId||!["queued","running"].includes(state.status))return{state,pages:0};
@@ -47,7 +48,7 @@ export class ChunkedStockSyncService {
           const documents=await this.supplierProvider.fetchSupplierOrderSnapshot();
           await this.store.stageSupplierDocuments(syncId,documents); pages++;
           await this.store.checkpoint(syncId,{stage:"stock_publication",nextSkip:0,received:documents.length,kind:"supplier_documents",complete:true});
-          await this.store.publish(syncId);return{state:await this.store.getState(),pages};
+          await this.store.publish(syncId);const completedState=await this.store.getState();const projection=await this.completeOrchestration(syncId,completedState);return{state:completedState,pages,projection};
         }
         if(stage==="supplier_arrival_balance"){
           const page=await this.supplierProvider.fetchSupplierBalances(state.snapshotTime!);
@@ -63,8 +64,9 @@ export class ChunkedStockSyncService {
         await this.store.checkpoint(syncId,{stage:complete?nextStage(stage):stage,nextSkip:complete?0:state.nextSkip+state.pageSize,received:page.rowCount,kind:stage==="warehouse_scan"?"warehouses":kindFor(stage)});
       }
       await this.store.release(syncId,token); return{state:await this.store.getState(),pages};
-    }catch(error){const current=await this.store.getState();console.error({event:"stock_sync_chunk_failed",stage:current.currentStage,errorType:error instanceof Error?error.name:typeof error,errorCode:readErrorCode(error),statusCode:readDiagnosticNumber(error,"statusCode"),requestKind:readDiagnosticString(error,"requestKind"),resourceName:readDiagnosticString(error,"resourceName")});await this.store.fail(syncId,current.currentStage??"physical_scan",current.pagesProcessed+1,error);return{state:await this.store.getState(),pages};}
+    }catch(error){const current=await this.store.getState();console.error({event:"stock_sync_chunk_failed",stage:current.currentStage,errorType:error instanceof Error?error.name:typeof error,errorCode:readErrorCode(error),statusCode:readDiagnosticNumber(error,"statusCode"),requestKind:readDiagnosticString(error,"requestKind"),resourceName:readDiagnosticString(error,"resourceName")});await this.store.fail(syncId,current.currentStage??"physical_scan",current.pagesProcessed+1,error);await this.orchestrator?.failSourceSync(syncId,"stock","STOCK_SYNC_FAILURE");return{state:await this.store.getState(),pages,projection:null};}
   }
+  private completeOrchestration(syncId:string,state:StockSyncState):Promise<CatalogProjectionOutcome|null>{if(!this.orchestrator)return Promise.resolve(null);return this.orchestrator.completeSourceSync({sourceSyncId:syncId,sourceDomain:"stock",changedCounts:{stockRows:state.rowsPublished,deactivated:state.rowsDeactivated,productsMatched:state.productsMatched,productsUnmatched:state.productsUnmatched},sourceDurationMs:durationBetween(state.startedAt,state.updatedAt)});}
 }
 
 export class SupabaseStockSyncStore implements StockSyncStore {
@@ -92,4 +94,5 @@ function str(value:unknown){return typeof value==="string"?value:null;} function
 function readErrorCode(error:unknown){return typeof error==="object"&&error&&"code" in error?String(error.code):null;}
 function readDiagnosticString(error:unknown,key:string){if(typeof error!=="object"||!error||!("diagnostic" in error)||typeof error.diagnostic!=="object"||!error.diagnostic)return null;const value=(error.diagnostic as Record<string,unknown>)[key];return typeof value==="string"?value:null;}
 function readDiagnosticNumber(error:unknown,key:string){if(typeof error!=="object"||!error||!("diagnostic" in error)||typeof error.diagnostic!=="object"||!error.diagnostic)return null;const value=(error.diagnostic as Record<string,unknown>)[key];return typeof value==="number"?value:null;}
+function durationBetween(startedAt:string|null,finishedAt:string|null){const start=startedAt?Date.parse(startedAt):Number.NaN,finish=finishedAt?Date.parse(finishedAt):Date.now();return Number.isFinite(start)&&Number.isFinite(finish)?Math.max(0,finish-start):0;}
 function isStartResult(value:unknown):value is{result:"acquired"|"locked"|"stale_lock_recovered"|"blocked_price"|"blocked_catalog";sync_id:string|null}{if(typeof value!=="object"||!value)return false;const row=value as Record<string,unknown>;return typeof row.result==="string"&&(typeof row.sync_id==="string"||row.sync_id===null);}

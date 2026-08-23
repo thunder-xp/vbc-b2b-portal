@@ -20,6 +20,7 @@ describe("price sync actions", () => {
   it("returns queued state before the full scan starts", async () => {
     const result = await syncPricesFromOneCAction();
     expect(result).toMatchObject({ success: true, data: { status: "queued" } });
+    expect(mocks.start).toHaveBeenCalledWith("manual");
     expect(mocks.launch).toHaveBeenCalledWith(state.activeSyncId, "https://portal.example");
   });
 

@@ -10,5 +10,6 @@ export { createChunkedStockSyncService } from "./chunked-stock-sync.factory";
 export { createPartnerLookupService } from "./partner-lookup.factory";
 export { createStockSyncEngine } from "./stock-sync.factory";
 export { createExchangeRateSyncService } from "./exchange-rate-sync.factory";
+export { createCatalogSynchronizationOrchestrator } from "./catalog-synchronization.factory";
 export type { PartnerLookupService } from "./partner-lookup.service";
 export { DefaultPartnerLookupService } from "./partner-lookup.service";

@@ -23,7 +23,8 @@ export async function GET(request: Request) {
   const service = createChunkedPriceSyncService(getOneCEnv());
   const state = await service.getState();
   if (!state.activeSyncId || !["queued", "running"].includes(state.status)) {
-    return NextResponse.json({ resumed: false, status: state.status });
+    const projection = await service.resumePendingProjection();
+    return NextResponse.json({ resumed: false, status: state.status, publicRetail: projection?.status ?? "no_pending" });
   }
 
   console.info({
@@ -51,7 +52,7 @@ export async function GET(request: Request) {
 
   if (result.state.status === "succeeded") {
     const stock = createChunkedStockSyncService(getOneCEnv());
-    const start = await stock.start();
+    const start = await stock.start(result.projection?.trigger ?? "scheduled");
     if (start.started && start.state.activeSyncId) {
       try {
         await launchStockSync(

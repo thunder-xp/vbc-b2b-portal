@@ -33,7 +33,15 @@ Failed runs never deactivate rows. A stale lock expires after two hours. Concurr
 
 ## Ownership
 
-Catalog sync owns identity, hierarchy, SKU/article, official name/description, active state, source version, and source modification time. It does not write prices, stock, reserve, expected arrivals, images, datasheets, marketing text, brand enrichment, or portal visibility overrides.
+Catalog sync owns identity, hierarchy, SKU/article, official name/description, governed source image, technical attributes, active state, source version, and source modification time. Separate synchronized projections own prices, stock, reserve, and expected arrivals. Catalog sync does not invent datasheets, marketing text, brand enrichment, or portal visibility overrides.
+
+## Unified B2B and Public Retail Publication
+
+Catalog, price, and stock synchronization each finish their canonical B2B read-model publication before invoking `CatalogSynchronizationOrchestrator`. The same server-only orchestrator is used by manual actions and scheduled workers. It records the source run and trigger, claims one global projection lease, builds the existing versioned Public Retail candidate, validates and atomically publishes it, and then revalidates only Public Retail catalog, product, and SEO caches.
+
+The orchestration ledger is idempotent by source domain and source sync ID. One publication can run at a time. Overlapping completions remain queued for the existing minute watchdog, failed projections use at most three bounded attempts, and a stale 30-minute projection lease is safely recovered. B2B source success is retained if Public Retail projection fails; the overall result is `partial_success`, never a generic success.
+
+Public Retail remains a public-safe snapshot. It consumes only global RETAIL pricing, governed public media and descriptions, visible resolved specifications, public categories, and derived availability. It never receives company pricing, contracts, exact warehouse balances, arrival quantities/dates, or partner context. No source synchronization or projection work runs from a public or partner page request.
 
 ## Schedule and Security
 

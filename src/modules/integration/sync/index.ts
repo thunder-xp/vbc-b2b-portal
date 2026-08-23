@@ -12,6 +12,17 @@ export { ChunkedStockSyncService, SupabaseStockSyncStore, type StockSyncState, t
 export { CATALOG_SYNC_CRON, CATALOG_SYNC_INTERVAL_HOURS } from "./catalog-schedule";
 export { acquireSyncRunLock, releaseSyncRunLock, type SyncLockResult } from "./sync-run-lock";
 export { DailyCatalogSyncService, type DailyCatalogSyncResult } from "./daily-catalog-sync.service";
+export {
+  CatalogSynchronizationOrchestrator,
+  type CatalogProjectionOutcome,
+  type CatalogSynchronizationChangedCounts,
+  type CatalogSynchronizationRunRepository,
+  type CatalogSynchronizationSourceDomain,
+  type CatalogSynchronizationTrigger,
+  type PublicRetailCacheInvalidator,
+  type PublicRetailProjectionPublisher,
+} from "./catalog-synchronization-orchestrator";
+export { SupabaseCatalogSynchronizationRunRepository } from "./catalog-synchronization-run.repository";
 export { ExchangeRateSyncService, type ExchangeRatePublisher, type PublishedExchangeRate } from "./exchange-rate-sync";
 export { SupabaseExchangeRatePublisher } from "./exchange-rate-supabase-publisher";
 export type { PriceSyncReport, PriceSyncReportStatus } from "./price-sync-engine";

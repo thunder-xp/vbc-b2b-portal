@@ -8,7 +8,7 @@ import { CatalogSyncPanel } from "../CatalogSyncPanel";
 
 const state = { status: "never_run", rootName: null, lastSuccessfulSyncAt: null, durationMs: null, pagesProcessed: 0, foldersReceived: 0, productsReceived: 0, foldersUpserted: 0, productsUpserted: 0, rowsDeactivated: 0, errorCategory: null, failedStage: null, nextScheduledRun: "2026-07-13T02:00:00.000Z" };
 describe("CatalogSyncPanel", () => {
-  beforeEach(() => { vi.clearAllMocks(); mocks.getState.mockResolvedValue({ success: true, data: state }); mocks.getPriceState.mockResolvedValue({ success: false });mocks.getStockState.mockResolvedValue({success:false}); mocks.runDaily.mockResolvedValue({ success: true, message: "done", data: state }); mocks.prices.mockResolvedValue({ success: false }); mocks.stock.mockResolvedValue({ success: false }); mocks.rates.mockResolvedValue({ success: false }); mocks.all.mockResolvedValue({ success: false }); });
+  beforeEach(() => { vi.clearAllMocks(); mocks.getState.mockResolvedValue({ success: true, data: state }); mocks.getPriceState.mockResolvedValue({ success: false });mocks.getStockState.mockResolvedValue({success:false}); mocks.runDaily.mockResolvedValue({ success: true, message: "done", data: { state, projection } }); mocks.prices.mockResolvedValue({ success: false }); mocks.stock.mockResolvedValue({ success: false }); mocks.rates.mockResolvedValue({ success: false }); mocks.all.mockResolvedValue({ success: false }); });
   it("renders focused pipelines and the safe commercial sequence", async () => {
     render(<CatalogSyncPanel />);
     expect(await screen.findByText("Коммерческие данные")).toBeInTheDocument();
@@ -24,6 +24,7 @@ describe("CatalogSyncPanel", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: "Повторить синхронизацию каталога" })).toBeEnabled());
     await user.click(screen.getByRole("button", { name: "Повторить синхронизацию каталога" }));
     expect(mocks.runDaily).toHaveBeenCalledTimes(2);
+    expect(screen.getByText("Published")).toBeInTheDocument();
   });
   it("runs price and stock through separate actions", async () => {
     const user = userEvent.setup(); render(<CatalogSyncPanel />);
@@ -45,3 +46,5 @@ describe("CatalogSyncPanel", () => {
     expect(screen.getByRole("button", { name: "Повторить синхронизацию цен" })).toBeEnabled();
   });
 });
+
+const projection = { runId: "11111111-1111-4111-8111-111111111111", sourceDomain: "catalog", trigger: "manual", status: "succeeded", publicationId: "22222222-2222-4222-8222-222222222222", checksum: "a".repeat(64), durationMs: 25, safeErrorCode: null };

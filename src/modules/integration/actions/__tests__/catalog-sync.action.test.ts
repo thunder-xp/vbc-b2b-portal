@@ -307,7 +307,7 @@ describe("syncCatalogFromOneCAction", () => {
         status: "queued",
       },
     });
-    expect(mocks.startPriceSync).toHaveBeenCalledOnce();
+    expect(mocks.startPriceSync).toHaveBeenCalledWith("manual");
   });
 
   it("returns a safe stock sync error when unauthenticated", async () => {
@@ -337,7 +337,7 @@ describe("syncCatalogFromOneCAction", () => {
       success: true,
       data: { status: "queued" },
     });
-    expect(mocks.startStockSync).toHaveBeenCalledOnce();
+    expect(mocks.startStockSync).toHaveBeenCalledWith("manual");
   });
 
   it("returns a safe partner search error when unauthenticated", async () => {

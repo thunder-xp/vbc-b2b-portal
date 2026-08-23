@@ -23,7 +23,7 @@ async function queryPublicSeoProducts(): Promise<PublicSeoProduct[]> {
 export const listPublicSeoProducts = unstable_cache(
   queryPublicSeoProducts,
   ["public-retail-seo-inventory-v1"],
-  { revalidate: 3600 },
+  { revalidate: 3600, tags: ["public-retail-publication"] },
 );
 
 export function parsePublicSeoProducts(rows: RawRow[]): PublicSeoProduct[] {

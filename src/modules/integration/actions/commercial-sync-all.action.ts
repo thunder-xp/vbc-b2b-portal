@@ -47,7 +47,7 @@ export async function syncAllCommercialDataAction(): Promise<ActionResult<Commer
     }
 
     const priceService = createChunkedPriceSyncService(getOneCEnv());
-    const priceStart = await priceService.start();
+    const priceStart = await priceService.start("manual");
     if (!priceStart.started || !priceStart.state.activeSyncId) {
       result.prices = "locked";
       result.stock = "deferred";
@@ -78,7 +78,7 @@ export async function syncAllCommercialDataAction(): Promise<ActionResult<Commer
 
 async function startStock(origin: string, result: CommercialSyncAllResult): Promise<void> {
   const stockService = createChunkedStockSyncService(getOneCEnv());
-  const stockStart = await stockService.start();
+  const stockStart = await stockService.start("manual");
   if (!stockStart.started || !stockStart.state.activeSyncId) {
     result.stock = "locked";
     result.arrivals = "locked";

@@ -14,7 +14,7 @@ export async function syncPricesFromOneCAction(): Promise<ActionResult<PriceSync
   try {
     await requireAdminPermission("admin.integrations.manage");
     const service = createChunkedPriceSyncService(getOneCEnv());
-    const result = await service.start();
+    const result = await service.start("manual");
     const syncId = result.state.activeSyncId;
     if (result.started && syncId) {
       console.info({ event: "price_sync_queued", syncId, stage: result.state.currentStage, nextSkip: result.state.nextSkip, pagesProcessed: result.state.pagesProcessed, rowsScanned: result.state.rowsScanned });
@@ -48,7 +48,7 @@ export async function startRetailPriceHistoryBackfillAction(
     }
 
     const service = createChunkedPriceSyncService(getOneCEnv());
-    const result = await service.start();
+    const result = await service.start("manual");
     const syncId = result.state.activeSyncId;
     if (!result.started || !syncId) {
       return {
