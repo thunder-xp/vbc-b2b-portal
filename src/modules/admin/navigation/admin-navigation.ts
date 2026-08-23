@@ -40,6 +40,11 @@ export const ADMIN_NAVIGATION: readonly AdminNavigationGroup[] = [
         permission: "admin.catalog.view",
       },
       {
+        label: "Локализация каталога",
+        href: "/admin/content/localization",
+        permission: "admin.catalog.view",
+      },
+      {
         label: "Аналитика спроса",
         href: "/admin/commercial/analytics",
         permission: "admin.analytics.view",

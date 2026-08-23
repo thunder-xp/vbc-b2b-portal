@@ -11,34 +11,6 @@ const MAX_PRODUCT_FACTS = 3;
 
 const genericDescription = /^(?:нет описания|описание отсутствует|no description|n\/a|[-–—])\.?$/iu;
 
-const romanianFacetLabels: Record<string, string> = {
-  "AI-Технологии": "Tehnologii AI",
-  "MicroSD": "MicroSD",
-  "PoE-Питание": "Alimentare PoE",
-  "Аналитика": "Analitică",
-  "Гибридные-каналы": "Canale hibride",
-  "Дальность-ИК": "Distanță IR",
-  "Защищенность": "Protecție",
-  "Класс": "Clasă",
-  "Материал": "Material",
-  "Микрофон": "Microfon",
-  "Оптические-порты": "Porturi optice",
-  "Передача-данных": "Transmisie de date",
-  "Передача-питания": "Transmitere alimentare",
-  "Порты": "Porturi",
-  "Пропускная-способность": "Lățime de bandă",
-  "Разрешение-MPx": "Rezoluție MPx",
-  "Светочувствительность": "Sensibilitate la lumină",
-  "Скорость": "Viteză",
-  "Технология": "Tehnologie",
-  "Тип-объектива": "Tip obiectiv",
-  "Тип-регистратора": "Tip recorder",
-  "Управляемый": "Administrabil",
-  "Фокусное-расстояние": "Distanță focală",
-  "Форм-фактор": "Formă constructivă",
-  "Цифровые-каналы": "Canale digitale",
-};
-
 export type PublicContentSource = "authored" | "governed" | "fallback";
 
 export type PublicCategoryContent = {
@@ -64,7 +36,7 @@ export function buildPublicCategoryContent(input: {
   const { category, categories, locale } = input;
   const authored = usefulText(input.authoredDescription);
   const governed = usefulText(category.description);
-  const facets = selectCategoryFacets(input.facets, locale);
+  const facets = selectCategoryFacets(input.facets);
   const parent = category.parentId
     ? categories.find((candidate) => candidate.id === category.parentId) ?? null
     : null;
@@ -82,8 +54,8 @@ export function buildPublicCategoryContent(input: {
     heading: category.name,
     intro,
     source,
-    metaTitle: categoryMetaTitle(category.name, locale),
-    metaDescription: categoryMetaDescription(category.name, facets, locale, authored ?? governed),
+    metaTitle: category.seoTitle ?? categoryMetaTitle(category.name, locale),
+    metaDescription: category.seoDescription ?? categoryMetaDescription(category.name, facets, locale, authored ?? governed),
     facets,
     parent,
     children,
@@ -108,7 +80,7 @@ export function resolvePublicProductDescription(
     ? categoryEntry.name
     : undefined;
   const facts = product.specifications.slice(0, MAX_PRODUCT_FACTS).map((specification) => ({
-    label: localizedFacetLabel(specification.label, locale),
+    label: specification.label,
     value: specification.value,
   }));
   return { text: productFallback(product.name, product.sku, category, facts, locale), source: "fallback" };
@@ -121,14 +93,11 @@ export function needsPublicProductFallback(
 }
 
 export function publicProductMetaDescription(
-  product: Pick<PublicRetailProductDetailDto, "name" | "sku" | "shortDescription" | "description" | "categoryPath" | "specifications">,
+  product: Pick<PublicRetailProductDetailDto, "name" | "sku" | "shortDescription" | "description" | "categoryPath" | "specifications" | "seoDescription">,
   locale: PublicRetailLocale,
 ): string {
+  if (product.seoDescription) return compactDescription(product.seoDescription, 158);
   return compactDescription(resolvePublicProductDescription(product, locale).text, 158);
-}
-
-export function localizedFacetLabel(label: string, locale: PublicRetailLocale): string {
-  return locale === "ro" ? romanianFacetLabels[label] ?? label : label;
 }
 
 export function isUsefulPublicDescription(value: string | null | undefined): boolean {
@@ -149,12 +118,12 @@ function usefulText(value: string | null | undefined): string | null {
   return normalized;
 }
 
-function selectCategoryFacets(facets: PublicRetailFacetDto[], locale: PublicRetailLocale): string[] {
+function selectCategoryFacets(facets: PublicRetailFacetDto[]): string[] {
   return facets
     .filter((facet) => facet.coverage > 0 && facet.label.trim())
     .sort((left, right) => right.coverage - left.coverage || left.label.localeCompare(right.label))
     .slice(0, MAX_CATEGORY_FACETS)
-    .map((facet) => localizedFacetLabel(facet.label, locale));
+    .map((facet) => facet.label);
 }
 
 function categoryFallback(

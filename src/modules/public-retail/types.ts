@@ -27,6 +27,8 @@ export type PublicRetailCategoryDto = {
   slug: string;
   name: string;
   description: string | null;
+  seoTitle?: string | null;
+  seoDescription?: string | null;
   productCount: number;
 };
 
@@ -47,6 +49,8 @@ export type PublicRetailProductSummaryDto = {
 
 export type PublicRetailProductDetailDto = PublicRetailProductSummaryDto & {
   description: string | null;
+  seoTitle?: string | null;
+  seoDescription?: string | null;
   categoryPath: Array<{ id: string; slug: string; name: string }>;
   gallery: PublicRetailMediaDto[];
   specifications: PublicRetailSpecificationDto[];

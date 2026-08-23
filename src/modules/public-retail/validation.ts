@@ -76,6 +76,8 @@ const summary = z.object({
 
 const detailPayload = summary.omit({ category: true, highlights: true }).extend({
   description: z.string().max(50_000).nullable(),
+  seoTitle: z.string().trim().min(1).max(200).nullable().optional(),
+  seoDescription: z.string().trim().min(1).max(500).nullable().optional(),
   categoryPath: z.array(z.object({ id: uuid, slug, name: localizedText }).strict()).max(12),
   gallery: z.array(media).max(24),
   specifications: z.array(specification).max(300),
@@ -88,6 +90,8 @@ const category = z.object({
   slug,
   name: localizedText,
   description: z.string().max(5000).nullable(),
+  seoTitle: z.string().trim().min(1).max(200).nullable().optional(),
+  seoDescription: z.string().trim().min(1).max(500).nullable().optional(),
   productCount: z.coerce.number().int().nonnegative(),
 }).strict();
 

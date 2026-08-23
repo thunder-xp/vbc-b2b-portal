@@ -107,6 +107,10 @@
     {
       "path": "/api/cron/commercial-intelligence",
       "schedule": "17 * * * *"
+    },
+    {
+      "path": "/api/cron/localization-translations",
+      "schedule": "*/5 * * * *"
     }
   ]
 }

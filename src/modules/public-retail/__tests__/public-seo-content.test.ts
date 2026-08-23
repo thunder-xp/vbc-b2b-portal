@@ -66,7 +66,12 @@ describe("public SEO content", () => {
       { key: "micro-sd", label: "MicroSD", values: [{ value: "256 GB", count: 6 }], coverage: 6 },
     ];
     const ru = buildPublicCategoryContent({ category: leaf, categories: [root, leaf], facets, locale: "ru" });
-    const ro = buildPublicCategoryContent({ category: leaf, categories: [root, leaf], facets, locale: "ro" });
+    const ro = buildPublicCategoryContent({
+      category: leaf,
+      categories: [root, leaf],
+      facets: facets.map((facet) => facet.key === "resolution" ? { ...facet, label: "Rezoluție MPx" } : facet),
+      locale: "ro",
+    });
 
     expect(ru.intro).toContain("Разрешение-MPx");
     expect(ro.intro).toContain("Rezoluție MPx");
@@ -76,7 +81,11 @@ describe("public SEO content", () => {
 
   it("creates factual product fallback from identity and governed specifications only", () => {
     const ru = resolvePublicProductDescription(product, "ru");
-    const ro = resolvePublicProductDescription(product, "ro");
+    const ro = resolvePublicProductDescription({
+      ...product,
+      specifications: product.specifications.map((specification) =>
+        specification.key === "resolution" ? { ...specification, label: "Rezoluție MPx" } : specification),
+    }, "ro");
 
     expect(ru).toMatchObject({ source: "fallback" });
     expect(ru.text).toContain("CAM-4");

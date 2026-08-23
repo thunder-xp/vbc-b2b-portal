@@ -25,9 +25,9 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   const product = await getPublicRetailProduct(slug, locale).catch(() => null);
   if (!product) return {};
   const context = product.brand?.name ?? product.categoryPath.at(-1)?.name;
-  const title = context && !product.name.toLocaleLowerCase().includes(context.toLocaleLowerCase())
+  const title = product.seoTitle ?? (context && !product.name.toLocaleLowerCase().includes(context.toLocaleLowerCase())
     ? `${product.name} — ${context} | Novotech`
-    : `${product.name} | Novotech`;
+    : `${product.name} | Novotech`);
   return buildPublicMetadata({
     locale,
     path: `/products/${product.slug}`,

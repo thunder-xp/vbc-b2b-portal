@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-const migration = readFileSync(join(process.cwd(), "supabase/migrations/20260823190000_public_retail_seo_content_and_related_products.sql"), "utf8");
+const migration = readFileSync(join(process.cwd(), "supabase/migrations/20260823170057_public_retail_seo_content_and_related_products.sql"), "utf8");
 
 describe("public related-products migration", () => {
   it("uses one bounded public-safe projection read and stable ranking", () => {
