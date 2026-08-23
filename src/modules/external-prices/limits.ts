@@ -1,0 +1,1 @@
+export const MAX_EXTERNAL_PRICE_FILE_SIZE = 64 * 1024 * 1024;

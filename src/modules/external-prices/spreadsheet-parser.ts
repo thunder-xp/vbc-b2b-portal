@@ -16,10 +16,11 @@ import type {
 
 const MAX_WORKSHEETS = 40;
 const MAX_ROWS = 50_000;
-const MAX_UNCOMPRESSED_BYTES = 60 * 1024 * 1024;
+const MAX_TOTAL_UNCOMPRESSED_BYTES = 256 * 1024 * 1024;
+const MAX_RELEVANT_UNCOMPRESSED_BYTES = 64 * 1024 * 1024;
 const MAX_ARCHIVE_ENTRIES = 2_000;
 const MAX_CELL_LENGTH = 4_000;
-const MODEL_PATTERN = /\b(?:DH-)?[A-Z]{1,6}(?:-[A-Z0-9]{2,}){1,8}(?:\([A-Z0-9.-]+\))?/i;
+const IDENTITY_COLUMNS = ["B", "C", "E"] as const;
 
 export class ExternalPriceSpreadsheetError extends Error {
   constructor(public readonly code: string) {
@@ -50,9 +51,11 @@ export function analyzeExternalPriceSpreadsheet(input: {
       const values = [...cells.values()].filter(Boolean);
       if (!values.length) continue;
       totalRows += 1;
-      const sourceName = value(cells, mapping.productName);
+      const mappedSourceName = value(cells, mapping.productName);
       const description = nullable(value(cells, mapping.description));
-      const model = extractDahuaModel(`${sourceName} ${description ?? ""}`);
+      const modelCell = findDahuaModelCell(cells, mapping.productName);
+      const sourceName = modelCell?.value || mappedSourceName;
+      const model = modelCell?.model ?? null;
       const partner = parsePrice(value(cells, mapping.partnerPrice));
       const retail = parsePrice(value(cells, mapping.retailPrice));
       if (!sourceName || (!partner.amount && partner.amount !== 0) && (!retail.amount && retail.amount !== 0)) {
@@ -107,16 +110,15 @@ export function normalizeProductModel(value: string): string {
 
 export function extractDahuaModel(value: string): string | null {
   const normalized = value.normalize("NFKC").toUpperCase();
-  const direct = normalized.match(/\b(?:DH|DHI)-[A-Z0-9]+(?:-[A-Z0-9]+)*(?:\([A-Z0-9.-]+\))?/);
-  if (direct) return direct[0];
-  if (!normalized.includes("DAHUA")) return null;
-  return normalized.match(MODEL_PATTERN)?.[0] ?? null;
+  const direct = normalized.match(/\b(?:DH|DHI)-[A-Z0-9]+(?:-[A-Z0-9]+)*(?:\s*\([A-Z0-9.-]+\))?/);
+  if (direct) return direct[0].replace(/\s+(?=\()/, "");
+  return null;
 }
 
 function parseXlsx(bytes: Uint8Array): SheetMatrix[] {
   validateZip(bytes);
   let archive: Record<string, Uint8Array>;
-  try { archive = unzipSync(bytes); } catch { throw new ExternalPriceSpreadsheetError("INVALID_XLSX"); }
+  try { archive = unzipSync(bytes, { filter: (file) => isRelevantXlsxPath(file.name) }); } catch { throw new ExternalPriceSpreadsheetError("INVALID_XLSX"); }
   const workbook = textFile(archive, "xl/workbook.xml");
   const relationships = textFile(archive, "xl/_rels/workbook.xml.rels");
   const sharedStrings = archive["xl/sharedStrings.xml"] ? parseSharedStrings(textFile(archive, "xl/sharedStrings.xml")) : [];
@@ -140,11 +142,12 @@ function parseWorksheet(xml: string, sharedStrings: string[]): Map<number, Map<s
   for (const rowMatch of xml.matchAll(/<row\b([^>]*)>([\s\S]*?)<\/row>/g)) {
     const rowNumber = Number(rowMatch[1].match(/\br="(\d+)"/)?.[1] ?? rows.size + 1);
     const cells = new Map<string, string>();
-    for (const cellMatch of rowMatch[2].matchAll(/<c\b([^>]*)>([\s\S]*?)<\/c>/g)) {
-      const reference = cellMatch[1].match(/\br="([A-Z]+)\d+"/)?.[1];
+    for (const cellMatch of rowMatch[2].matchAll(/<c\b([^>]*)\/>|<c\b([^>]*)>([\s\S]*?)<\/c>/g)) {
+      const attributes = cellMatch[1] ?? cellMatch[2] ?? "";
+      const body = cellMatch[3] ?? "";
+      const reference = attributes.match(/\br="([A-Z]+)\d+"/)?.[1];
       if (!reference) continue;
-      const type = cellMatch[1].match(/\bt="([^"]+)"/)?.[1];
-      const body = cellMatch[2];
+      const type = attributes.match(/\bt="([^"]+)"/)?.[1];
       const raw = type === "inlineStr"
         ? [...body.matchAll(/<t(?:\s[^>]*)?>([\s\S]*?)<\/t>/g)].map((part) => decodeXml(part[1])).join("")
         : decodeXml(body.match(/<v>([\s\S]*?)<\/v>/)?.[1] ?? "");
@@ -198,23 +201,30 @@ function detectMapping(sheets: SheetMatrix[], priceSchema: ExternalPriceSchema):
   const stats = [...columns].map((column) => ({
     column,
     model: samples.filter((row) => extractDahuaModel(value(row, column))).length,
-    price: samples.filter((row) => parsePrice(value(row, column)).amount !== null).length,
+    price: samples.filter((row) => isPriceLike(value(row, column))).length,
     text: samples.filter((row) => /[A-Za-zА-Яа-я]/.test(value(row, column))).length,
+    modelRows: samples.filter((row) => findDahuaModelCell(row) && isPriceLike(value(row, column))).length,
   }));
   const modelColumn = stats.sort((a, b) => b.model - a.model || b.text - a.text)[0]?.column ?? "C";
-  const priceColumns = stats.filter((item) => item.column !== modelColumn && item.price > 0).sort((a, b) => b.price - a.price || a.column.localeCompare(b.column));
+  const modelIndex = columnIndex(modelColumn);
+  const priceColumns = stats
+    .filter((item) => columnIndex(item.column) > modelIndex && item.price > 0)
+    .sort((a, b) => b.modelRows - a.modelRows || b.price - a.price || a.column.localeCompare(b.column));
   const primaryPrice = priceColumns[0]?.column ?? "F";
   const secondaryPrice = priceColumns[1]?.column ?? null;
+  const productCode = stats
+    .filter((item) => columnIndex(item.column) < modelIndex && item.modelRows > 0)
+    .sort((a, b) => b.modelRows - a.modelRows || a.column.localeCompare(b.column))[0]?.column ?? previousColumn(modelColumn);
   const mapping: ExternalPriceDetectedMapping = {
-    productCode: previousColumn(modelColumn),
+    productCode,
     productName: modelColumn,
     description: nextColumn(modelColumn),
     partnerPrice: priceSchema === "retail" ? null : primaryPrice,
-    retailPrice: priceSchema === "partner" ? null : priceSchema === "both" ? secondaryPrice : secondaryPrice,
+    retailPrice: priceSchema === "retail" ? primaryPrice : priceSchema === "both" ? secondaryPrice : null,
     signature: createHash("sha256").update(JSON.stringify({ sheets: sheets.map((sheet) => sheet.name), columns: [...columns].sort() })).digest("hex").slice(0, 32),
-    confidence: stats.find((item) => item.column === modelColumn)?.model ? "medium" : "low",
+    confidence: priceSchema === "detect" ? "low" : stats.find((item) => item.column === modelColumn)?.model ? "medium" : "low",
   };
-  if (priceSchema === "retail") mapping.retailPrice = primaryPrice;
+  if (priceSchema === "retail") mapping.partnerPrice = null;
   return mapping;
 }
 
@@ -228,16 +238,43 @@ function validateZip(bytes: Uint8Array): void {
   const entries = read16(bytes, eocd + 10);
   const centralOffset = read32(bytes, eocd + 16);
   if (entries > MAX_ARCHIVE_ENTRIES) throw new ExternalPriceSpreadsheetError("ARCHIVE_ENTRY_LIMIT_EXCEEDED");
-  let offset = centralOffset, total = 0;
+  let offset = centralOffset, total = 0, relevantTotal = 0;
   for (let count = 0; count < entries; count += 1) {
     if (read32(bytes, offset) !== 0x02014b50) throw new ExternalPriceSpreadsheetError("INVALID_XLSX");
     total += read32(bytes, offset + 24);
-    if (total > MAX_UNCOMPRESSED_BYTES) throw new ExternalPriceSpreadsheetError("UNCOMPRESSED_SIZE_LIMIT_EXCEEDED");
+    if (total > MAX_TOTAL_UNCOMPRESSED_BYTES) throw new ExternalPriceSpreadsheetError("UNCOMPRESSED_SIZE_LIMIT_EXCEEDED");
     const nameLength = read16(bytes, offset + 28), extraLength = read16(bytes, offset + 30), commentLength = read16(bytes, offset + 32);
     const name = new TextDecoder().decode(bytes.slice(offset + 46, offset + 46 + nameLength));
     if (name.includes("..") || name.startsWith("/") || name.startsWith("\\")) throw new ExternalPriceSpreadsheetError("UNSAFE_ARCHIVE_PATH");
+    if (isRelevantXlsxPath(name)) {
+      relevantTotal += read32(bytes, offset + 24);
+      if (relevantTotal > MAX_RELEVANT_UNCOMPRESSED_BYTES) throw new ExternalPriceSpreadsheetError("RELEVANT_CONTENT_SIZE_LIMIT_EXCEEDED");
+    }
     offset += 46 + nameLength + extraLength + commentLength;
   }
+}
+
+function findDahuaModelCell(cells: Map<string, string>, mappedColumn?: string | null): { value: string; model: string } | null {
+  const columns = [mappedColumn?.toUpperCase(), ...IDENTITY_COLUMNS].filter((column, index, all): column is string => Boolean(column) && all.indexOf(column) === index);
+  for (const column of columns) {
+    const cell = value(cells, column);
+    const model = extractDahuaModel(cell);
+    if (model) return { value: cell, model };
+  }
+  return null;
+}
+
+function isPriceLike(raw: string): boolean {
+  const normalized = raw.trim().replace(/\u00a0/g, " ");
+  if (!normalized || normalized.length > 80 || !/^[-+]?\d/.test(normalized)) return false;
+  return parsePrice(normalized).amount !== null;
+}
+
+function isRelevantXlsxPath(path: string): boolean {
+  return path === "xl/workbook.xml"
+    || path === "xl/_rels/workbook.xml.rels"
+    || path === "xl/sharedStrings.xml"
+    || /^xl\/worksheets\/sheet\d+\.xml$/i.test(path);
 }
 
 function textFile(archive: Record<string, Uint8Array>, path: string): string {

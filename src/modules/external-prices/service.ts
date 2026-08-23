@@ -1,5 +1,7 @@
 import "server-only";
 
+import { createHash } from "node:crypto";
+
 import type { PartnerWorkspaceContext } from "../partner-cabinet/services";
 import { matchExternalPriceRows } from "./matching";
 import { ExternalPriceRepository } from "./repository";
@@ -24,6 +26,8 @@ export class ExternalPriceService {
     const companyId = requiredText(job.companyId);
     try {
       const bytes = await this.repository.download(requiredText(job.storageBucket), requiredText(job.storageKey));
+      const actualHash = createHash("sha256").update(bytes).digest("hex");
+      if (actualHash !== requiredText(job.sourceFileHash)) throw new ExternalPriceSpreadsheetError("SOURCE_FILE_HASH_MISMATCH");
       const format = requiredText(job.fileFormat) as ExternalPriceFileFormat;
       const priceSchema = requiredText(job.priceSchema) as ExternalPriceSchema;
       let mapping = mappingValue(job.confirmedMapping);

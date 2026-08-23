@@ -2,6 +2,9 @@ import fs from "node:fs";import path from "node:path";import {describe,expect,it
 const sql=fs.readFileSync(path.join(process.cwd(),"supabase/migrations/20260822210132_external_price_intelligence.sql"),"utf8");
 const indexSql=fs.readFileSync(path.join(process.cwd(),"supabase/migrations/20260822214110_index_external_price_foreign_keys.sql"),"utf8");
 const hardeningSql=fs.readFileSync(path.join(process.cwd(),"supabase/migrations/20260822214338_harden_external_price_import_contract.sql"),"utf8");
+const realWorkbookSql=fs.readFileSync(path.join(process.cwd(),"supabase/migrations/20260823043754_support_real_exterior_price_workbook.sql"),"utf8");
+const actions=fs.readFileSync(path.join(process.cwd(),"src/modules/external-prices/actions.ts"),"utf8");
+const uploadForm=fs.readFileSync(path.join(process.cwd(),"src/modules/external-prices/components/ExternalPriceUploadForm.tsx"),"utf8");
 describe("external price intelligence migration",()=>{
   it("defines company-scoped immutable history and private storage",()=>{expect(sql).toContain("create table public.external_price_observations");expect(sql).toContain("create table public.current_external_prices");expect(sql).toContain("prevent_external_price_observation_mutation");expect(sql).toContain("'external-price-imports', 'external-price-imports', false");});
   it("keeps raw tables private and routes partners through scoped RPCs",()=>{expect(sql).toMatch(/revoke all on public\.external_price_sources[\s\S]+from public, anon, authenticated/);expect(sql).toContain("public.can_access_external_prices(p_company_id");expect(sql).toContain("grant execute on function public.get_current_external_prices(uuid,uuid) to authenticated");});
@@ -12,4 +15,5 @@ describe("external price intelligence migration",()=>{
   it("denies unresolved review rows at apply",()=>expect(sql).toContain("Review all ambiguous rows before applying."));
   it("indexes every new foreign-key lookup reported by the database advisor",()=>{expect(indexSql.match(/create index/g)).toHaveLength(14);expect(indexSql).toContain("current_external_prices_observation_idx");expect(indexSql).toContain("external_price_uploads_template_idx");});
   it("binds private storage keys to company uploads and refuses empty destructive snapshots",()=>{expect(hardeningSql).toContain("external_price_uploads_storage_key_check");expect(hardeningSql).toContain("At least one governed product match is required.");expect(hardeningSql.indexOf("At least one governed product match is required.")).toBeLessThan(hardeningSql.indexOf("delete from public.current_external_prices"));});
+  it("supports the measured Exterior workbook through a signed direct upload",()=>{expect(realWorkbookSql).toContain("file_size between 1 and 67108864");expect(realWorkbookSql).toContain("'sourceFileHash', target.source_file_hash");expect(actions).toContain("createSignedUploadUrl");expect(uploadForm).toContain("uploadToSignedUrl");expect(uploadForm).not.toContain('encType="multipart/form-data"');});
 });
