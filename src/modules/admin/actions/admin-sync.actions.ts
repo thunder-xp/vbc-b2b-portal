@@ -16,6 +16,8 @@ import {
   syncPricesFromOneCAction,
   syncStockFromOneCAction,
 } from "@/src/modules/integration/actions";
+import type { CatalogProjectionOutcome, CatalogSyncState } from "@/src/modules/integration/sync";
+import type { CatalogSyncActionResult } from "@/src/modules/integration/actions/catalog-daily-sync.action";
 import { createPartnerOrderHistoryAutomationService } from "@/src/modules/orders/actions/service-factory";
 import { createProductRelationSyncService } from "@/src/modules/integration/services/product-relation-sync.factory";
 
@@ -35,10 +37,29 @@ const DOMAINS = new Set<AdminSyncDomain>([
   "product_relations",
 ]);
 
+type CatalogStageStatus = "succeeded" | "queued" | "failed";
+
+export type AdminCatalogSyncResult = {
+  runId: string | null;
+  sourceB2BStatus: CatalogStageStatus;
+  publicRetailProjectionStatus: CatalogStageStatus;
+  publicRetailPublicationStatus: CatalogStageStatus;
+  overallStatus: CatalogStageStatus;
+  publicationId: string | null;
+  checksum: string | null;
+  sourceDurationMs: number | null;
+  publicRetailDurationMs: number | null;
+};
+
+export type AdminSyncActionData = {
+  domain: AdminSyncDomain;
+  catalog: AdminCatalogSyncResult | null;
+};
+
 export async function runAdminSyncAction(
   domain: string,
   reason: string,
-): Promise<ActionResult<null>> {
+): Promise<ActionResult<AdminSyncActionData>> {
   const startedAt = Date.now();
   let status: "started" | "completed" | "locked" | "failed" = "failed";
   let normalizedDomain: AdminSyncDomain | null = null;
@@ -52,6 +73,12 @@ export async function runAdminSyncAction(
     }
 
     const result = await executeSync(normalizedDomain);
+    const catalog =
+      normalizedDomain === "catalog" &&
+      result.success &&
+      isCatalogSyncActionResult(result.data)
+        ? toAdminCatalogSyncResult(result.data.state, result.data.projection)
+        : null;
     status = result.success
       ? ["prices", "stock", "commercial"].includes(normalizedDomain)
         ? "started"
@@ -65,12 +92,13 @@ export async function runAdminSyncAction(
       normalizedReason,
       status,
       Date.now() - startedAt,
+      catalog?.runId ?? null,
     );
     revalidatePath("/admin/integrations");
     revalidatePath("/admin/integrations/jobs");
 
     return result.success
-      ? success("Запуск зарегистрирован.", null)
+      ? success(result.message, { domain: normalizedDomain, catalog })
       : {
           success: false,
           errorCode: result.errorCode,
@@ -132,17 +160,79 @@ async function executeSync(domain: AdminSyncDomain) {
   }
 }
 
+function toAdminCatalogSyncResult(
+  state: CatalogSyncState,
+  projection: CatalogProjectionOutcome | null,
+): AdminCatalogSyncResult {
+  const sourceB2BStatus: CatalogStageStatus =
+    state.status === "succeeded" ? "succeeded" : "failed";
+  const publicRetailProjectionStatus = projectionStageStatus(projection);
+  const publicRetailPublicationStatus = publicationStageStatus(projection);
+  const overallStatus: CatalogStageStatus =
+    sourceB2BStatus === "succeeded" &&
+    publicRetailProjectionStatus === "succeeded" &&
+    publicRetailPublicationStatus === "succeeded"
+      ? "succeeded"
+      : publicRetailProjectionStatus === "queued" ||
+          publicRetailPublicationStatus === "queued"
+        ? "queued"
+        : "failed";
+
+  return {
+    runId: projection?.runId ?? null,
+    sourceB2BStatus,
+    publicRetailProjectionStatus,
+    publicRetailPublicationStatus,
+    overallStatus,
+    publicationId: projection?.publicationId ?? null,
+    checksum: projection?.checksum ?? null,
+    sourceDurationMs: state.durationMs,
+    publicRetailDurationMs: projection?.durationMs ?? null,
+  };
+}
+
+function isCatalogSyncActionResult(value: unknown): value is CatalogSyncActionResult {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "state" in value &&
+    "projection" in value
+  );
+}
+
+function projectionStageStatus(
+  projection: CatalogProjectionOutcome | null,
+): CatalogStageStatus {
+  if (projection?.status === "succeeded" || projection?.status === "already_completed") {
+    return "succeeded";
+  }
+  return projection?.status === "queued" ? "queued" : "failed";
+}
+
+function publicationStageStatus(
+  projection: CatalogProjectionOutcome | null,
+): CatalogStageStatus {
+  if (
+    (projection?.status === "succeeded" || projection?.status === "already_completed") &&
+    projection.publicationId
+  ) {
+    return "succeeded";
+  }
+  return projection?.status === "queued" ? "queued" : "failed";
+}
+
 function recordAudit(
   domain: AdminSyncDomain,
   reason: string,
   resultStatus: "started" | "completed" | "locked" | "failed",
   durationMs: number,
+  runId: string | null = null,
 ): Promise<string> {
   return new SupabaseAdminOperationsRepository().recordSyncAction({
     domain,
     reason,
     resultStatus,
-    runId: null,
+    runId,
     durationMs,
   });
 }

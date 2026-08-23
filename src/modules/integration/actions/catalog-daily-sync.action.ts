@@ -15,6 +15,7 @@ export async function runDailyCatalogSyncAction(): Promise<ActionResult<CatalogS
     await requireAdminPermission("admin.integrations.manage");
     const result = await createDailyCatalogSyncService(getOneCEnv()).runFullSync("manual");
     revalidatePath("/admin/integrations/catalog-sync");
+    revalidatePath("/admin/integrations");
     if (result.skippedBecauseRunning) return { success: false, errorCode: "SYNC_ALREADY_RUNNING", message: "Catalog synchronization is already running.", data: null };
     if (result.state.status !== "succeeded") return { success: false, errorCode: "CATALOG_SYNC_FAILED", message: "Catalog synchronization failed. Review the safe status details and retry.", data: null };
     return success(catalogCompletionMessage(result.projection), { state: result.state, projection: result.projection });

@@ -3,7 +3,10 @@
 import { RefreshCw } from "lucide-react";
 import { useState, useTransition } from "react";
 
-import { runAdminSyncAction } from "../actions";
+import {
+  runAdminSyncAction,
+  type AdminCatalogSyncResult,
+} from "../actions";
 import type { AdminSyncDomain } from "../types";
 
 const ACTIONS: ReadonlyArray<readonly [AdminSyncDomain, string]> = [
@@ -21,12 +24,14 @@ const ACTIONS: ReadonlyArray<readonly [AdminSyncDomain, string]> = [
 export function AdminSyncControls() {
   const [reason, setReason] = useState("");
   const [message, setMessage] = useState<string | null>(null);
+  const [catalogResult, setCatalogResult] = useState<AdminCatalogSyncResult | null>(null);
   const [pending, startTransition] = useTransition();
 
   function run(domain: AdminSyncDomain) {
     startTransition(async () => {
       const result = await runAdminSyncAction(domain, reason);
       setMessage(result.message);
+      setCatalogResult(result.success && result.data.domain === "catalog" ? result.data.catalog : null);
     });
   }
 
@@ -65,6 +70,41 @@ export function AdminSyncControls() {
           {message}
         </p>
       ) : null}
+      {catalogResult ? <CatalogSyncResult result={catalogResult} /> : null}
     </section>
   );
+}
+
+function CatalogSyncResult({ result }: { result: AdminCatalogSyncResult }) {
+  const stages = [
+    ["Источник / B2B", result.sourceB2BStatus],
+    ["Public Retail projection", result.publicRetailProjectionStatus],
+    ["Public Retail publication", result.publicRetailPublicationStatus],
+    ["Общий результат", result.overallStatus],
+  ] as const;
+
+  return (
+    <div className="mt-4" data-testid="catalog-sync-stage-result">
+      <dl className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+        {stages.map(([label, status]) => (
+          <div className="border border-zinc-200 bg-zinc-50 p-3" key={label}>
+            <dt className="text-xs font-medium text-zinc-600">{label}</dt>
+            <dd className="mt-1 text-sm font-semibold text-zinc-900">
+              {stageLabel(status)}
+            </dd>
+          </div>
+        ))}
+      </dl>
+      <p className="mt-2 break-all text-xs text-zinc-500">
+        Run ID: {result.runId ?? "-"}
+        {result.publicationId ? ` · Publication ID: ${result.publicationId}` : ""}
+      </p>
+    </div>
+  );
+}
+
+function stageLabel(status: "succeeded" | "queued" | "failed") {
+  if (status === "succeeded") return "Завершено";
+  if (status === "queued") return "В очереди";
+  return "Ошибка";
 }

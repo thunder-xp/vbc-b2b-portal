@@ -4,7 +4,11 @@ export {
   revokeInternalRoleAction,
   revokeOnboardingCapabilityAction,
 } from "./admin-role.actions";
-export { runAdminSyncAction } from "./admin-sync.actions";
+export {
+  runAdminSyncAction,
+  type AdminCatalogSyncResult,
+  type AdminSyncActionData,
+} from "./admin-sync.actions";
 export {
   updateAdminCompanyAccessAction,
   type CompanyAccessActionState,
