@@ -14,7 +14,7 @@ import { PublicRetailProductCard } from "@/src/modules/public-retail/components/
 import { PublicBreadcrumbs } from "@/src/modules/public-retail/components/PublicBreadcrumbs";
 import { CatalogProductGridFrame } from "@/src/modules/catalog/components/CatalogPresentationPrimitives";
 import { publicRetailFilterHref } from "@/src/modules/public-retail/catalog-links";
-import { isUsefulPublicDescription, publicProductMetaDescription, resolvePublicProductDescription } from "@/src/modules/public-retail/content";
+import { isUsefulPublicDescription, publicProductMetaDescription, resolvePublicProductDescription, sanitizePublicContentText } from "@/src/modules/public-retail/content";
 import { getPublicRetailRelatedProducts } from "@/src/modules/public-retail/server";
 
 type Props = { params: Promise<{ slug: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> };
@@ -46,7 +46,7 @@ export default async function PublicProductPage({ params, searchParams }: Props)
   const images = publicProductMedia(product);
   const resolvedDescription = resolvePublicProductDescription(product, locale);
   const summary = isUsefulPublicDescription(product.shortDescription)
-    ? product.shortDescription
+    ? sanitizePublicContentText(product.shortDescription ?? "")
     : resolvedDescription.source === "fallback" ? resolvedDescription.text : null;
   const productUrl = publicLocalizedUrl(`/products/${product.slug}`, locale);
   const breadcrumbItems = [
@@ -68,7 +68,7 @@ export default async function PublicProductPage({ params, searchParams }: Props)
     </div>
     {product.specifications.length ? <section className="mt-14 border-t border-zinc-200 pt-8"><h2 className="text-2xl font-semibold">{copy.specifications}</h2><dl className="mt-5 grid gap-x-8 sm:grid-cols-2">{product.specifications.map((item) => <div className="grid grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] gap-4 border-b border-zinc-100 py-3 text-sm" key={`${item.key}:${item.value}`}><dt className="text-zinc-500">{item.label}</dt><dd className="break-words font-medium">{item.filterable && /^property_[0-9a-f-]{36}$/.test(item.key) ? <Link className="text-blue-800 underline decoration-blue-300 underline-offset-4 hover:text-blue-950" href={publicRetailFilterHref(locale, { attributeFilters: {}, page: 1 }, { facet: { key: item.key, value: item.value }, facetMode: "include" })} prefetch={false}>{item.value}</Link> : item.value}</dd></div>)}</dl></section> : null}
     {product.datasheet ? <section className="mt-10 border-t border-zinc-200 pt-8"><h2 className="text-2xl font-semibold">{copy.documents}</h2><div className="mt-4 flex min-h-14 flex-wrap items-center justify-between gap-3 border border-zinc-200 p-3 sm:max-w-xl"><span className="flex items-center gap-3 text-sm font-semibold"><FileText aria-hidden="true" className="size-5 text-blue-700" />{copy.datasheet}</span><a aria-label={`${copy.openDocument}: ${copy.datasheet}`} className="inline-flex min-h-11 items-center gap-2 bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-blue-700" href={product.datasheet.url} rel="noopener noreferrer" target="_blank">{copy.openDocument}<ExternalLink aria-hidden="true" className="size-4" /></a></div></section> : null}
-    {product.description && resolvedDescription.source !== "fallback" ? <section className="mt-12 max-w-4xl" data-content-source={resolvedDescription.source}><h2 className="text-2xl font-semibold">{copy.description}</h2><p className="mt-4 whitespace-pre-line text-sm leading-7 text-zinc-600">{product.description}</p></section> : null}
+    {product.description && resolvedDescription.source !== "fallback" ? <section className="mt-12 max-w-4xl" data-content-source={resolvedDescription.source}><h2 className="text-2xl font-semibold">{copy.description}</h2><p className="mt-4 whitespace-pre-line text-sm leading-7 text-zinc-600">{resolvedDescription.text}</p></section> : null}
     {relatedProducts.length ? <section className="mt-12 border-t border-zinc-200 pt-8" aria-labelledby="related-products-heading"><div className="flex flex-wrap items-end justify-between gap-3"><div><p className="text-xs font-semibold text-blue-700">Novotech Retail</p><h2 className="mt-1 text-2xl font-semibold" id="related-products-heading">{locale === "ro" ? "Produse similare" : "Похожие товары"}</h2></div><Link className="inline-flex min-h-11 items-center text-sm font-semibold text-blue-800 hover:text-blue-950" href={`/catalog?lang=${locale}&category=${product.categoryPath.at(-1)?.slug ?? ""}`}>{locale === "ro" ? "Toată categoria" : "Вся категория"}</Link></div><div className="mt-5"><CatalogProductGridFrame>{relatedProducts.map((related) => <PublicRetailProductCard key={related.id} locale={locale} product={related} />)}</CatalogProductGridFrame></div></section> : null}
     <Link className="public-brand-link mt-10 inline-flex min-h-11 items-center gap-2 text-sm font-semibold" href={`/catalog?lang=${locale}`}><ArrowLeft aria-hidden="true" className="size-4" />{copy.backToCatalog}</Link>
   </main></PublicRetailShell>;

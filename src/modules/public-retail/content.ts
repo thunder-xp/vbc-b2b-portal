@@ -135,8 +135,16 @@ export function isUsefulPublicDescription(value: string | null | undefined): boo
   return usefulText(value) !== null;
 }
 
+export function sanitizePublicContentText(value: string): string {
+  return value
+    .replace(/\[cite:\s*\d+(?:\s*,\s*\d+)*\]/giu, "")
+    .replace(/\s+([,.;:])/g, "$1")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function usefulText(value: string | null | undefined): string | null {
-  const normalized = value?.replace(/\s+/g, " ").trim() ?? "";
+  const normalized = sanitizePublicContentText(value ?? "");
   if (normalized.length < MIN_USEFUL_DESCRIPTION_LENGTH || genericDescription.test(normalized)) return null;
   return normalized;
 }

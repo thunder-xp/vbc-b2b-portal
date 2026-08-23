@@ -5,6 +5,7 @@ import {
   needsPublicProductFallback,
   publicProductMetaDescription,
   resolvePublicProductDescription,
+  sanitizePublicContentText,
 } from "../content";
 import type { PublicRetailCategoryDto, PublicRetailProductDetailDto } from "../types";
 
@@ -95,6 +96,19 @@ describe("public SEO content", () => {
       text: governed.description,
     });
     expect(needsPublicProductFallback(governed)).toBe(false);
+  });
+
+  it("removes legacy source citation tokens without changing governed content", () => {
+    const governed = {
+      ...product,
+      description: "DHI-CAMERA-4MP is a governed camera description [cite: 5] with verified technical details.",
+    };
+
+    expect(resolvePublicProductDescription(governed, "ru")).toEqual({
+      source: "governed",
+      text: "DHI-CAMERA-4MP is a governed camera description with verified technical details.",
+    });
+    expect(sanitizePublicContentText("Fact one [cite: 2, 4]. Fact two.")).toBe("Fact one. Fact two.");
   });
 
   it("keeps fallback metadata concise and product-specific", () => {
