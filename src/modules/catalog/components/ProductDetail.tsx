@@ -301,7 +301,6 @@ function DescriptionTab({
 
 function AvailabilityBlock({
   commercialView,
-  freshness,
   locale,
 }: {
   commercialView?: ProductCommercialViewDto;
@@ -358,23 +357,10 @@ function AvailabilityBlock({
         ) : (
           <p className="text-sm text-zinc-600">{copy.stockUnavailable}</p>
         )}
-        {freshness && (freshness.status === "aging" || freshness.status === "stale") ? (
-          <p className="mt-2 text-xs text-zinc-500">
-            {localizedFreshnessLabel(freshness, locale)}
-          </p>
-        ) : null}
       </div>
     </section>
   );
 }
-function localizedFreshnessLabel(freshness: FreshnessView, locale: PartnerLocale): string {
-  const copy = getCatalogCopy(locale);
-  if (freshness.status === "fresh") return copy.commercialDataFresh;
-  if (freshness.status === "aging") return copy.commercialDataAging;
-  if (freshness.status === "stale") return copy.commercialDataStale;
-  return copy.commercialDataUnknown;
-}
-
 function CharacteristicsTab({
   locale,
   product,
