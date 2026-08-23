@@ -19,6 +19,13 @@ export async function GET(request: Request) {
     console.error({ event: "commercial_intelligence_projection_failed", code: error.code });
     return NextResponse.json({ ok: false }, { status: 500 });
   }
-  console.info({ event: "commercial_intelligence_projection_completed", durationMs: Math.round(performance.now() - startedAt), result: data });
-  return NextResponse.json({ ok: true, result: data });
+  const { data: reconciliation, error: reconciliationError } = await createAdminClient().rpc(
+    "reconcile_superseded_external_price_intelligence",
+  );
+  if (reconciliationError) {
+    console.error({ event: "commercial_intelligence_reconciliation_failed", code: reconciliationError.code });
+    return NextResponse.json({ ok: false }, { status: 500 });
+  }
+  console.info({ event: "commercial_intelligence_projection_completed", durationMs: Math.round(performance.now() - startedAt), result: data, reconciliation });
+  return NextResponse.json({ ok: true, result: data, reconciliation });
 }

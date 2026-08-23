@@ -27,7 +27,7 @@ export function ProductActions({
   return (
     <div
       aria-label={copy.productActions}
-      className="mt-5 flex flex-wrap items-end gap-2"
+      className="mt-3 flex flex-wrap items-end gap-2"
     >
       {canAddToOrder ? <AddToCartButton productId={productId} /> : null}
       <div

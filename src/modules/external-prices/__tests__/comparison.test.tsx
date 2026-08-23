@@ -36,6 +36,13 @@ describe("partner external-price comparison", () => {
     expect(screen.queryByText(/дешевле/)).not.toBeInTheDocument();
     expect(screen.queryByText(/сопоставима/)).not.toBeInTheDocument();
   });
+
+  it("renders a retail-only import without fabricating a partner comparison", () => {
+    render(<ExternalPriceComparison commercialView={commercialView} locale="ru" prices={[price("retail", 4_100, "MDL")]} />);
+    expect(screen.getByText(/Розничная цена/)).toBeInTheDocument();
+    expect(screen.queryByText(/Партнёрская цена/)).not.toBeInTheDocument();
+    expect(screen.getByText(/Цена сопоставима/)).toBeInTheDocument();
+  });
 });
 
 function price(priceType: "partner" | "retail", amount: number, currency: string) {

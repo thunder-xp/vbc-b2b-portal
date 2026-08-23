@@ -11,7 +11,7 @@ export default async function ExternalPricesPage() {
   if(!contextResult.success) throw new Error(contextResult.errorCode);
   const companyId=new ExternalPriceService().assertCompanyContext(contextResult.data);
   const repository=new ExternalPriceRepository();
-  const [sources,uploads]=await Promise.all([repository.listSources(),repository.listUploads(companyId)]);
+  const [sources,uploads]=await Promise.all([repository.listSources(companyId),repository.listUploads(companyId)]);
   const copy=getExternalPricesCopy(locale);
   return <main className="space-y-6">
     <header><p className="text-xs font-semibold uppercase text-emerald-700">Novotech B2B</p><h1 className="mt-1 text-2xl font-semibold text-zinc-950">{copy.title}</h1><p className="mt-2 max-w-3xl text-sm text-zinc-600">{copy.subtitle}</p></header>

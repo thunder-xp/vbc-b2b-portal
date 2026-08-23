@@ -150,7 +150,7 @@ function ProductTabLayout({
 }) {
   return (
     <div
-      className="grid gap-5 md:grid-cols-[minmax(0,360px)_minmax(0,1fr)] md:items-start lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)] lg:gap-7"
+      className="grid gap-4 md:grid-cols-[minmax(0,340px)_minmax(0,1fr)] md:items-start lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)] lg:gap-5"
       data-testid="product-detail-layout"
     >
       <div data-testid="product-detail-image">
@@ -190,7 +190,7 @@ function OverviewTab({
       aria-label={copy.productOverview}
       data-testid="product-overview-tab"
     >
-      <h1 className="break-words text-3xl font-semibold text-zinc-950">
+      <h1 className="break-words text-2xl font-semibold text-zinc-950">
         {product.name}
       </h1>
       <p className="mt-1.5 text-sm font-medium text-zinc-600">
@@ -202,7 +202,7 @@ function OverviewTab({
         </p>
       ) : null}
 
-      <section aria-label={copy.currentCommercial} className="mt-5">
+      <section aria-label={copy.currentCommercial} className="mt-3">
         <ProductPricingBlock
           commercialView={commercialView}
           freshness={priceFreshness}
@@ -312,7 +312,7 @@ function AvailabilityBlock({
   const stock = commercialView?.stock;
   const tone = getStockTone(stock?.status);
   return (
-    <section aria-label={copy.currentAvailability} className="mt-6">
+    <section aria-label={copy.currentAvailability} className="mt-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-base font-semibold text-zinc-950">
           {copy.stockAndArrivals}
@@ -323,9 +323,9 @@ function AvailabilityBlock({
           {stockStatusLabel(stock?.status, locale)}
         </span>
       </div>
-      <div className={`mt-3 border p-4 ${tone.panel}`}>
+      <div className={`mt-2 border p-3 ${tone.panel}`}>
         {stock ? (
-          <dl className="grid gap-4 text-sm sm:grid-cols-2">
+          <dl className="grid gap-2 text-sm sm:grid-cols-2">
             <Metric
               label={copy.available}
               value={formatQuantity(stock.exactAvailableQuantity, locale)}
@@ -358,8 +358,8 @@ function AvailabilityBlock({
         ) : (
           <p className="text-sm text-zinc-600">{copy.stockUnavailable}</p>
         )}
-        {freshness ? (
-          <p className="mt-4 text-xs text-zinc-500">
+        {freshness && freshness.status !== "fresh" ? (
+          <p className="mt-2 text-xs text-zinc-500">
             {localizedFreshnessLabel(freshness, locale)}
           </p>
         ) : null}

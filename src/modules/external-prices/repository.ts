@@ -19,8 +19,8 @@ export class ExternalPriceRepositoryError extends Error {
 }
 
 export class ExternalPriceRepository {
-  async listSources(): Promise<ExternalPriceSourceDto[]> {
-    const { data, error } = await (await createClient()).rpc("list_external_price_sources");
+  async listSources(companyId: string): Promise<ExternalPriceSourceDto[]> {
+    const { data, error } = await (await createClient()).rpc("list_external_price_sources", { p_company_id: companyId });
     if (error) throw new ExternalPriceRepositoryError(error.code);
     return array(data).flatMap(mapSource);
   }
@@ -56,6 +56,16 @@ export class ExternalPriceRepository {
   async confirmMapping(companyId: string, uploadId: string, mapping: ExternalPriceColumnMapping, saveTemplate: boolean): Promise<void> {
     const { error } = await (await createClient()).rpc("confirm_external_price_mapping", { p_company_id: companyId, p_upload_id: uploadId, p_mapping: mapping, p_save_template: saveTemplate });
     if (error) throw new ExternalPriceRepositoryError(error.code);
+  }
+
+  async startCorrection(input: { companyId: string; uploadId: string; mapping: ExternalPriceColumnMapping; priceSchema: string; snapshotScope: string; reason: string; correlationId: string }): Promise<JsonRecord> {
+    const { data, error } = await (await createClient()).rpc("start_external_price_upload_correction", {
+      p_company_id: input.companyId, p_upload_id: input.uploadId, p_mapping: input.mapping,
+      p_price_schema: input.priceSchema, p_snapshot_scope: input.snapshotScope,
+      p_reason: input.reason, p_correlation_id: input.correlationId,
+    });
+    if (error || !record(data)) throw new ExternalPriceRepositoryError(error?.code ?? null);
+    return data;
   }
 
   async reviewRow(companyId: string, uploadId: string, rowId: string, productId: string | null, skip: boolean): Promise<void> {

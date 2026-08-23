@@ -56,7 +56,7 @@ describe("ProductDetail information architecture", () => {
     const tabs = screen.getByRole("navigation", { name: "Разделы товара" });
     const layout = screen.getByTestId("product-detail-layout");
     expect(tabs.compareDocumentPosition(layout) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(layout).toHaveClass("md:grid-cols-[minmax(0,360px)_minmax(0,1fr)]");
+    expect(layout).toHaveClass("md:grid-cols-[minmax(0,340px)_minmax(0,1fr)]");
     expect(screen.getByTestId("product-detail-image").compareDocumentPosition(screen.getByTestId("product-detail-content")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 

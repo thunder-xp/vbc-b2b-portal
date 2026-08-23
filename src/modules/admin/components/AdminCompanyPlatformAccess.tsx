@@ -38,6 +38,11 @@ const CATEGORY_LABELS: Record<string, string> = {
   commercial: "Коммерческие возможности",
 };
 
+const CAPABILITY_LABELS: Record<string, string> = {
+  "external_prices.view": "Цены поставщиков",
+  "external_prices.manage": "Управление импортами цен поставщиков",
+};
+
 export function AdminCompanyPlatformAccess({
   access,
   conflict = false,
@@ -125,7 +130,7 @@ export function AdminCompanyPlatformAccess({
                         value={capability.code}
                       />
                       <span>
-                        <span className="block font-medium text-zinc-900">{capability.code}</span>
+                        <span className="block font-medium text-zinc-900">{CAPABILITY_LABELS[capability.code] ?? capability.code}</span>
                         <span className="block text-xs text-zinc-500">{capability.description}</span>
                       </span>
                     </label>

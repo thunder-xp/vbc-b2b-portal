@@ -65,13 +65,14 @@ const icons = {
 } satisfies Record<WorkspaceCapabilityKey, typeof Gauge>;
 
 const primaryNavigationOrder: readonly WorkspaceCapabilityKey[] = ["dashboard", "catalog"];
-const businessNavigationOrder: readonly WorkspaceCapabilityKey[] = ["opportunities", "offers", "external_prices"];
+const businessNavigationOrder: readonly WorkspaceCapabilityKey[] = ["opportunities", "offers"];
 const supportNavigationOrder: readonly WorkspaceCapabilityKey[] = ["warranty", "support", "knowledge_base"];
 
 const selectionNavigationOrder: readonly WorkspaceCapabilityKey[] = [
   "purchasing_lists",
   "purchase_templates",
   "comparison",
+  "external_prices",
 ];
 const projectNavigationOrder: readonly WorkspaceCapabilityKey[] = [
   "reservations",

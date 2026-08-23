@@ -17,13 +17,14 @@ export function ProductPricingBlock({ commercialView, freshness, locale = "ru", 
       {showPartnerPrice ? <DetailMetric label={copy.grossProfit} missingValue={copy.pricePending} value={commercialView?.commercialOpportunity?.formattedGrossProfitMdl} /> : null}
       {showPartnerPrice ? <DetailMetric label={copy.markup} missingValue={copy.pricePending} value={commercialView?.commercialOpportunity?.formattedMarkup} /> : null}
     </div>
-    {commercialView?.commercialRateFreshness ? <div className="border-t border-zinc-200 px-4 py-2 text-xs text-zinc-500"><p>{freshnessLabel(commercialView.commercialRateFreshness, copy)}</p></div> : freshness ? <div className="border-t border-zinc-200 px-4 py-2 text-xs text-zinc-500"><p>{freshnessLabel(freshness, copy)}</p></div> : null}
+    {visibleFreshness(commercialView?.commercialRateFreshness ?? freshness) ? <div className="border-t border-zinc-200 px-3 py-1.5 text-xs text-zinc-500"><p>{freshnessLabel(commercialView?.commercialRateFreshness ?? freshness!, copy)}</p></div> : null}
   </div>;
 }
 
 function DetailMetric({ emphasized = false, label, missingValue, price, secondaryValue, value, warning }: { emphasized?: boolean; label: string; missingValue: string; price?: ProductPriceViewDto | null; secondaryValue?: string | null; value?: string | null; warning?: string }) {
-  return <div className={`min-w-0 border-b border-r border-zinc-200 px-4 py-4 ${emphasized ? "bg-emerald-50" : "bg-white"}`}><p className="text-xs font-semibold text-zinc-500">{label}</p><p className={`mt-1 break-words font-semibold text-zinc-950 ${emphasized ? "text-xl" : "text-base"}`}>{price?.formattedAmount ?? value ?? missingValue}</p>{secondaryValue ? <p className="mt-1 text-sm font-medium text-zinc-600">{secondaryValue}</p> : null}{warning ? <p className="mt-2 text-xs text-amber-700">{warning}</p> : null}</div>;
+  return <div className={`min-w-0 border-b border-r border-zinc-200 px-3 py-2.5 ${emphasized ? "bg-emerald-50" : "bg-white"}`}><p className="text-xs font-semibold text-zinc-500">{label}</p><p className={`mt-0.5 break-words font-semibold text-zinc-950 ${emphasized ? "text-lg" : "text-base"}`}>{price?.formattedAmount ?? value ?? missingValue}</p>{secondaryValue ? <p className="mt-0.5 text-xs font-medium text-zinc-600">{secondaryValue}</p> : null}{warning ? <p className="mt-1 text-xs text-amber-700">{warning}</p> : null}</div>;
 }
+function visibleFreshness(freshness?: FreshnessView | null): freshness is FreshnessView { return Boolean(freshness && freshness.status !== "fresh"); }
 function formatSecondaryUsd(price?: ProductPriceViewDto | null): string | null { return price?.currencyCode === "USD" && price.formattedAmount ? `${price.formattedAmount} USD` : null; }
 function CardPrice({ emphasized = false, label, mdlEquivalentLabel = "MDL", missingValue, secondary = false, secondaryValue, value }: { emphasized?: boolean; label: string; mdlEquivalentLabel?: string; missingValue: string; secondary?: boolean; secondaryValue?: string | null; value?: string | null }) {
   const displayValue = value ?? missingValue;

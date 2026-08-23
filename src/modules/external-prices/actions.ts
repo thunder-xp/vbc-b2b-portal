@@ -3,6 +3,7 @@
 import { randomUUID } from "node:crypto";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 
 import { type ActionResult, failureFromError, invalidInput, success } from "../access-control/actions/action-result";
 import { getPartnerWorkspaceContextAction } from "../partner-cabinet/actions";
@@ -109,6 +110,30 @@ export async function reviewExternalPriceRowAction(formData: FormData): Promise<
 
 export async function applyExternalPriceUploadAction(formData: FormData): Promise<void> { const { companyId } = await context(); const id = required(formData, "uploadId"); await new ExternalPriceRepository().apply(companyId, id); revalidatePath(`/cabinet/competitor-prices/${id}`); }
 export async function archiveExternalPriceUploadAction(formData: FormData): Promise<void> { const { companyId } = await context(); const id = required(formData, "uploadId"); await new ExternalPriceRepository().archive(companyId, id); revalidatePath("/cabinet/competitor-prices"); }
+export async function correctExternalPriceUploadAction(formData: FormData): Promise<void> {
+  const { companyId } = await context();
+  const mapping: ExternalPriceColumnMapping = {
+    productCode: optional(formData, "productCode")?.toUpperCase() ?? null,
+    productName: required(formData, "productName").toUpperCase(),
+    description: optional(formData, "description")?.toUpperCase() ?? null,
+    partnerPrice: optional(formData, "partnerPrice")?.toUpperCase() ?? null,
+    retailPrice: optional(formData, "retailPrice")?.toUpperCase() ?? null,
+  };
+  validateColumns(mapping);
+  const correlationId = required(formData, "correlationId");
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(correlationId)) throw new Error("INVALID_INPUT");
+  const result = await new ExternalPriceRepository().startCorrection({
+    companyId, uploadId: required(formData, "uploadId"), mapping,
+    priceSchema: enumValue(formData, "priceSchema", ["partner", "retail", "both", "detect"] as const),
+    snapshotScope: enumValue(formData, "snapshotScope", ["full", "partial"] as const),
+    reason: required(formData, "reason"), correlationId,
+  });
+  const id = typeof result.id === "string" ? result.id : null;
+  if (!id) throw new Error("INVALID_CORRECTION_RESULT");
+  revalidatePath("/cabinet/competitor-prices");
+  revalidatePath(`/cabinet/competitor-prices/${id}`);
+  redirect(`/cabinet/competitor-prices/${id}`);
+}
 
 async function context() { const result = await getPartnerWorkspaceContextAction(); if (!result.success) throw new Error(result.errorCode); return { companyId: new ExternalPriceService().assertCompanyContext(result.data) }; }
 function required(data: FormData, key: string) { const value = data.get(key); if (typeof value !== "string" || !value.trim()) throw new Error("INVALID_INPUT"); return value.trim(); }
