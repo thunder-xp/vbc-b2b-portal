@@ -103,6 +103,10 @@
     {
       "path": "/api/cron/external-price-imports",
       "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/commercial-intelligence",
+      "schedule": "17 * * * *"
     }
   ]
 }

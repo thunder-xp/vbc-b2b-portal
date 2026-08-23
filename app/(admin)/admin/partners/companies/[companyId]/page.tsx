@@ -8,6 +8,7 @@ import {
   createAdminCompanyService,
   requireAdminPagePermission,
 } from "@/src/modules/admin";
+import { CommercialIntelligenceRepository, CompanyCompetitiveIntelligence } from "@/src/modules/commercial-intelligence";
 
 export default async function AdminPartnerCompanyAccessPage({
   params,
@@ -19,10 +20,11 @@ export default async function AdminPartnerCompanyAccessPage({
   await requireAdminPagePermission("admin.companies.view");
   const [{ companyId }, query] = await Promise.all([params, searchParams]);
   const service = createAdminCompanyService();
-  const [company, access, contractMapping] = await Promise.all([
+  const [company, access, contractMapping, competitiveIntelligence] = await Promise.all([
     service.getOverview(companyId),
     service.getAccess(companyId),
     service.getContractMapping(companyId),
+    new CommercialIntelligenceRepository().getCompany(companyId),
   ]);
   if (!company || !access || !contractMapping) notFound();
 
@@ -42,6 +44,7 @@ export default async function AdminPartnerCompanyAccessPage({
         mapping={contractMapping}
       />
       <AdminCompanyCashContractMapping mapping={contractMapping} />
+      <CompanyCompetitiveIntelligence data={competitiveIntelligence} />
     </div>
   );
 }

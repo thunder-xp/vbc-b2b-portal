@@ -159,3 +159,31 @@ RLS is enabled on merchandising and behavior tables. Direct grants are revoked.
 Partners read published merchandising only through company-bound RPCs. Admin
 mutations and aggregate analytics require explicit internal permissions.
 Service-role credentials are not used by application features.
+
+## Commercial Intelligence Foundation V1
+
+Commercial Intelligence uses three separate layers:
+
+1. Immutable sources: existing domain events, `partner_behavior_events`,
+   `external_price_observations`, and narrowly referenced `commercial_events`.
+2. Derived facts: normalized partner-product interactions, immutable competitive
+   snapshots, daily market aggregates, current price pressure, partner snapshots,
+   and partner-product features.
+3. Decision-ready projections: governed action candidates and explicit outcomes.
+
+Source observations are never rewritten. A single contributing company caps
+competitive confidence at `low`; confidence increases deterministically with
+freshness, exact identity, consistency, and independent company count. Currency
+differences remain `incomparable` and are never converted implicitly.
+
+Projection work is asynchronous. Source writes enqueue bounded company/product
+keys, and a service-role worker claims them with `SKIP LOCKED`, advisory locking,
+idempotent upserts, and resumable dirty rows. Partner catalog, dashboard, product
+detail, estimates, and checkout never calculate intelligence or call 1C.
+
+`ai_partner_commercial_context_v1(company_id)` is the versioned future read
+contract. It returns a compact internal-only structure containing the latest
+partner snapshot, bounded product features, price pressure, open action
+candidates, and explicit outcomes. It does not call an AI provider, expose raw
+operational tables, include free-form support/service text, or authorize an
+autonomous commercial action.
