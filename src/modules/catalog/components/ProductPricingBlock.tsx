@@ -24,7 +24,7 @@ export function ProductPricingBlock({ commercialView, freshness, locale = "ru", 
 function DetailMetric({ emphasized = false, label, missingValue, price, secondaryValue, value, warning }: { emphasized?: boolean; label: string; missingValue: string; price?: ProductPriceViewDto | null; secondaryValue?: string | null; value?: string | null; warning?: string }) {
   return <div className={`min-w-0 border-b border-r border-zinc-200 px-3 py-2.5 ${emphasized ? "bg-emerald-50" : "bg-white"}`}><p className="text-xs font-semibold text-zinc-500">{label}</p><p className={`mt-0.5 break-words font-semibold text-zinc-950 ${emphasized ? "text-lg" : "text-base"}`}>{price?.formattedAmount ?? value ?? missingValue}</p>{secondaryValue ? <p className="mt-0.5 text-xs font-medium text-zinc-600">{secondaryValue}</p> : null}{warning ? <p className="mt-1 text-xs text-amber-700">{warning}</p> : null}</div>;
 }
-function visibleFreshness(freshness?: FreshnessView | null): freshness is FreshnessView { return Boolean(freshness && freshness.status !== "fresh"); }
+function visibleFreshness(freshness?: FreshnessView | null): freshness is FreshnessView { return freshness?.status === "aging" || freshness?.status === "stale"; }
 function formatSecondaryUsd(price?: ProductPriceViewDto | null): string | null { return price?.currencyCode === "USD" && price.formattedAmount ? `${price.formattedAmount} USD` : null; }
 function CardPrice({ emphasized = false, label, mdlEquivalentLabel = "MDL", missingValue, secondary = false, secondaryValue, value }: { emphasized?: boolean; label: string; mdlEquivalentLabel?: string; missingValue: string; secondary?: boolean; secondaryValue?: string | null; value?: string | null }) {
   const displayValue = value ?? missingValue;

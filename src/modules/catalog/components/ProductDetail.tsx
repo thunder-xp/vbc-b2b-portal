@@ -358,7 +358,7 @@ function AvailabilityBlock({
         ) : (
           <p className="text-sm text-zinc-600">{copy.stockUnavailable}</p>
         )}
-        {freshness && freshness.status !== "fresh" ? (
+        {freshness && (freshness.status === "aging" || freshness.status === "stale") ? (
           <p className="mt-2 text-xs text-zinc-500">
             {localizedFreshnessLabel(freshness, locale)}
           </p>
