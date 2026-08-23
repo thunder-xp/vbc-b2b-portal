@@ -5,7 +5,7 @@ export function matchExternalPriceRows(rows: ParsedExternalPriceRow[], candidate
   const exact = group(candidates, (candidate) => normalizeProductModel(candidate.normalizedModel || candidate.name));
   const aliases = new Map<string, CatalogMatchCandidate>();
   for (const candidate of candidates) for (const alias of candidate.aliases) aliases.set(normalizeProductModel(alias), candidate);
-  return rows.map((row) => {
+  const matches: ExternalPriceMatch[] = rows.map((row) => {
     const normalized = row.normalizedModel ?? "";
     const exactMatches = exact.get(normalized) ?? [];
     if (exactMatches.length === 1) return matched(row, exactMatches[0], "exact_model", "matched");
@@ -21,6 +21,34 @@ export function matchExternalPriceRows(rows: ParsedExternalPriceRow[], candidate
       matchMethod: suggestions.length ? "suggested" : "none",
       matchStatus: suggestions.length ? "needs_review" : "unmatched",
       suggestedProducts: suggestions.map(({ id, sku, name }) => ({ id, sku, name })),
+    };
+  });
+  return requireReviewForConflictingExactPrices(matches, candidates);
+}
+
+function requireReviewForConflictingExactPrices(matches: ExternalPriceMatch[], candidates: CatalogMatchCandidate[]): ExternalPriceMatch[] {
+  const byProduct = group(
+    matches.filter((match) => match.catalogProductId && (match.partnerPrice !== null || match.retailPrice !== null)),
+    (match) => match.catalogProductId ?? "",
+  );
+  const conflicting = new Set<string>();
+  for (const [productId, productMatches] of byProduct) {
+    const partnerPrices = new Set(productMatches.flatMap((match) => match.partnerPrice === null ? [] : [match.partnerPrice]));
+    const retailPrices = new Set(productMatches.flatMap((match) => match.retailPrice === null ? [] : [match.retailPrice]));
+    if (partnerPrices.size > 1 || retailPrices.size > 1) conflicting.add(productId);
+  }
+  if (!conflicting.size) return matches;
+  const candidatesById = new Map(candidates.map((candidate) => [candidate.id, candidate]));
+  return matches.map((match) => {
+    const productId = match.catalogProductId;
+    if (!productId || !conflicting.has(productId)) return match;
+    const candidate = candidatesById.get(productId);
+    return {
+      ...match,
+      catalogProductId: null,
+      matchMethod: "suggested",
+      matchStatus: "needs_review",
+      suggestedProducts: candidate ? [{ id: candidate.id, sku: candidate.sku, name: candidate.name }] : [],
     };
   });
 }
