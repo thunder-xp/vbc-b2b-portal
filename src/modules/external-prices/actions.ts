@@ -18,7 +18,7 @@ export async function prepareExternalPriceUploadAction(input: {
   filename: string;
   size: number;
   hash: string;
-}): Promise<ActionResult<{ uploadId: string; storageKey: string; token: string }>> {
+}): Promise<ActionResult<{ uploadId: string; storageKey: string; signedUrl: string }>> {
   try {
     const contextResult = await getPartnerWorkspaceContextAction();
     if (!contextResult.success) return contextResult;
@@ -31,7 +31,7 @@ export async function prepareExternalPriceUploadAction(input: {
     const storageKey = `${companyId}/${uploadId}/${input.hash}.${format}`;
     const { data, error } = await createAdminClient().storage.from(BUCKET).createSignedUploadUrl(storageKey, { upsert: false });
     if (error) throw error;
-    return success("Файл готов к защищённой загрузке.", { uploadId, storageKey, token: data.token });
+    return success("Файл готов к защищённой загрузке.", { uploadId, storageKey, signedUrl: data.signedUrl });
   } catch (error) {
     return failureFromError(error);
   }

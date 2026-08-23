@@ -3,12 +3,9 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import { createClient } from "@/src/lib/supabase/client";
 import { getExternalPricesCopy, usePartnerLocale } from "../../partner-locale";
 import { finalizeExternalPriceUploadAction, prepareExternalPriceUploadAction } from "../actions";
 import type { ExternalPriceSourceDto } from "../types";
-
-const BUCKET = "external-price-imports";
 
 export function ExternalPriceUploadForm({ sources }: { sources: ExternalPriceSourceDto[] }) {
   const locale = usePartnerLocale(), copy = getExternalPricesCopy(locale), router = useRouter();
@@ -27,13 +24,8 @@ export function ExternalPriceUploadForm({ sources }: { sources: ExternalPriceSou
       const hash = await sha256(file);
       const prepared = await prepareExternalPriceUploadAction({ filename: file.name, size: file.size, hash });
       if (!prepared.success) { setState(prepared); return; }
-      const { error } = await createClient().storage.from(BUCKET).uploadToSignedUrl(
-        prepared.data.storageKey,
-        prepared.data.token,
-        file,
-        { contentType: file.type || undefined, upsert: false },
-      );
-      if (error) { setState({ success: false, message: "Не удалось загрузить файл. Повторите попытку." }); return; }
+      const upload = await uploadToSignedUrl(prepared.data.signedUrl, file);
+      if (!upload.ok) { setState({ success: false, message: "Не удалось загрузить файл. Повторите попытку." }); return; }
       formData.delete("file");
       formData.set("uploadId", prepared.data.uploadId);
       formData.set("storageKey", prepared.data.storageKey);
@@ -64,6 +56,13 @@ export function ExternalPriceUploadForm({ sources }: { sources: ExternalPriceSou
 async function sha256(file: File): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
   return [...new Uint8Array(digest)].map(value => value.toString(16).padStart(2, "0")).join("");
+}
+
+export async function uploadToSignedUrl(signedUrl: string, file: File): Promise<Response> {
+  const body = new FormData();
+  body.append("cacheControl", "3600");
+  body.append("", file);
+  return fetch(signedUrl, { method: "PUT", headers: { "x-upsert": "false" }, body });
 }
 
 function Field({ children, label }: { children: React.ReactNode; label: string }) { return <label className="space-y-1.5 text-sm font-medium text-zinc-800"><span>{label}</span>{children}</label>; }
