@@ -15,17 +15,24 @@ import type { PublicRetailAvailability, PublicRetailCategoryDto, PublicRetailFac
 import { PublicRetailProductCard } from "./PublicRetailProductCard";
 import { PublicRetailCategoryMenu } from "./PublicRetailCategoryMenu";
 import { PublicRetailSearchForm } from "./PublicRetailSearchForm";
+import { PublicBreadcrumbs, type PublicBreadcrumbItem } from "./PublicBreadcrumbs";
+import type { PublicCategoryContent } from "../content";
 
 type CatalogState = PublicRetailCatalogState;
 
-export function PublicRetailCatalog({ categories, facets, locale, products, state }: { categories: PublicRetailCategoryDto[]; facets: PublicRetailFacetDto[]; locale: PublicRetailLocale; products: PublicRetailProductPageDto; state: CatalogState }) {
+export function PublicRetailCatalog({ breadcrumbs, categories, categoryContent, facets, locale, products, state }: { breadcrumbs?: PublicBreadcrumbItem[]; categories: PublicRetailCategoryDto[]; categoryContent?: PublicCategoryContent | null; facets: PublicRetailFacetDto[]; locale: PublicRetailLocale; products: PublicRetailProductPageDto; state: CatalogState }) {
   const copy = retailCopy[locale];
-  const pageTitle = state.mode === "replenishment" ? copy.replenishmentCollection : copy.catalog;
+  const pageTitle = categoryContent?.heading ?? (state.mode === "replenishment" ? copy.replenishmentCollection : copy.catalog);
   const collectionBadge = state.mode ? publicRetailMerchandisingBadge(locale, state.mode) : undefined;
   const visibleCategories = publicRetailVisibleCategories(categories);
   const filterableFacetKeys = new Set(facets.map((facet) => facet.key));
   return <div className="mx-auto max-w-[1440px] px-4 py-8 sm:px-6 lg:px-8">
-    <CatalogResultsHeader action={state.mode ? undefined : <SortForm locale={locale} state={state} />} eyebrow="Novotech Retail" eyebrowTone="retail" title={pageTitle} />
+    {categoryContent && breadcrumbs ? <PublicBreadcrumbs items={breadcrumbs} label={locale === "ro" ? "Navigare ierarhică" : "Хлебные крошки"} /> : null}
+    {categoryContent ? <div className="mt-4" data-content-source={categoryContent.source}>
+      <CatalogResultsHeader action={state.mode ? undefined : <SortForm locale={locale} state={state} />} eyebrow="Novotech Retail" eyebrowTone="retail" title={pageTitle} />
+      <p className="mt-3 max-w-3xl text-sm leading-6 text-zinc-600">{categoryContent.intro}</p>
+      <CategoryTaxonomyLinks content={categoryContent} locale={locale} />
+    </div> : <CatalogResultsHeader action={state.mode ? undefined : <SortForm locale={locale} state={state} />} eyebrow="Novotech Retail" eyebrowTone="retail" title={pageTitle} />}
     <div className="mt-5">
       <CatalogToolbarFrame>
         <PublicRetailCategoryMenu categories={visibleCategories} locale={locale} />
@@ -51,6 +58,15 @@ export function PublicRetailCatalog({ categories, facets, locale, products, stat
       </section>
     </div>
   </div>;
+}
+
+function CategoryTaxonomyLinks({ content, locale }: { content: PublicCategoryContent; locale: PublicRetailLocale }) {
+  const links = content.children.length ? content.children : content.siblings;
+  if (!links.length) return null;
+  return <nav aria-label={locale === "ro" ? "Categorii asociate" : "Связанные категории"} className="mt-4 flex flex-wrap items-center gap-2">
+    <span className="mr-1 text-xs font-semibold text-zinc-500">{locale === "ro" ? "Vedeți și" : "Смотрите также"}</span>
+    {links.map((category) => <Link className="inline-flex min-h-10 items-center border border-zinc-200 px-3 text-xs font-semibold text-zinc-700 hover:border-blue-700 hover:text-blue-800" href={`/catalog?lang=${locale}&category=${category.slug}`} key={category.id}>{category.name}</Link>)}
+  </nav>;
 }
 
 function PublicCatalogFilters({ facets, locale, state }: { facets: PublicRetailFacetDto[]; locale: PublicRetailLocale; state: CatalogState }) {

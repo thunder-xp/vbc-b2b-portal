@@ -133,6 +133,10 @@ export function parsePublicRetailProductPage(value: unknown): PublicRetailProduc
   }).strict().parse(value);
 }
 
+export function parsePublicRetailProductSummaries(value: unknown) {
+  return z.array(summary).max(6).parse(value);
+}
+
 export function parsePublicRetailShowcase(value: unknown): PublicRetailShowcaseDto {
   return z.object({
     popular: z.array(summary).max(5),

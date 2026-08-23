@@ -12,6 +12,7 @@ import {
   parsePublicRetailFacets,
   parsePublicRetailProduct,
   parsePublicRetailProductPage,
+  parsePublicRetailProductSummaries,
   parsePublicRetailShowcase,
 } from "../../validation";
 import type { PublicRetailLocale } from "../../types";
@@ -66,6 +67,16 @@ export class SupabasePublicRetailReadRepository implements PublicRetailReadRepos
     });
     if (error) throw new PublicRetailRepositoryError();
     return data === null ? null : parsePublicRetailProduct(data);
+  }
+
+  async listRelatedProducts(slug: string, locale: PublicRetailLocale, limit: number) {
+    const { data, error } = await createPublicReadClient().rpc("list_public_retail_related_products", {
+      p_slug: slug,
+      p_locale: locale,
+      p_limit: limit,
+    });
+    if (error) throw new PublicRetailRepositoryError();
+    return parsePublicRetailProductSummaries(data);
   }
 
   async listFacets(input: Pick<ListPublicRetailProductsInput, "availability" | "categorySlug" | "facets" | "locale" | "search">) {

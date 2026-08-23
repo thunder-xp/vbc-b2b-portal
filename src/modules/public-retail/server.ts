@@ -34,3 +34,7 @@ export const getPublicRetailCategories = cache((locale: PublicRetailLocale) =>
   service.listRetailCategories(locale));
 export const getPublicRetailProduct = cache((slug: string, locale: PublicRetailLocale) =>
   service.getRetailProduct(slug, locale));
+export const getPublicRetailRelatedProducts = cache((slug: string, locale: PublicRetailLocale) =>
+  service.listRelatedProducts(slug, locale, 6));
+export const getPublicRetailCategoryFacets = cache((categorySlug: string, locale: PublicRetailLocale) =>
+  service.listRetailFacets({ categorySlug, locale }));

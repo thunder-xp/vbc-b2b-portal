@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { normalizeProductImageUrl } from "../catalog/components/product-image-source";
 import { publicCompanyContent } from "./public-company-content";
+import { resolvePublicProductDescription } from "./content";
 import type { PublicRetailLocale, PublicRetailMediaDto, PublicRetailProductDetailDto } from "./types";
 
 export const PUBLIC_SITE_ORIGIN = "https://www.nsd.md";
@@ -240,7 +241,7 @@ export function publicProductSchema(
     name: product.name,
     sku: product.sku,
     url: productUrl,
-    description: product.shortDescription ?? product.description ?? undefined,
+    description: resolvePublicProductDescription(product, locale).text,
     image: images,
     ...(category ? { category: [category] } : {}),
     ...(product.brand ? { brand: { "@type": "Brand", name: product.brand.name } } : {}),

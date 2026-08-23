@@ -58,6 +58,14 @@ export class PublicRetailService {
     return this.repository.getProduct(normalizeSlug(slug), normalizeLocale(locale));
   }
 
+  listRelatedProducts(slug: string, locale?: string, limit = 6) {
+    return this.repository.listRelatedProducts(
+      normalizeSlug(slug),
+      normalizeLocale(locale),
+      integerInRange(limit, 6, 1, 6),
+    );
+  }
+
   listRetailFacets(input: Pick<PublicRetailListInput, "availability" | "categorySlug" | "facets" | "locale" | "search"> = {}) {
     return this.repository.listFacets({
       availability: normalizeAvailability(input.availability),

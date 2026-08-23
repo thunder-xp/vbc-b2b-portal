@@ -35,6 +35,7 @@ describe("PublicRetailService", () => {
       listProducts,
       getShowcase: vi.fn(),
       getProduct: vi.fn(),
+      listRelatedProducts: vi.fn(),
       listFacets: vi.fn(),
       resolveCalculatorProducts: vi.fn(),
     } as PublicRetailReadRepository;
@@ -68,6 +69,7 @@ describe("PublicRetailService", () => {
     const repository = {
       listCategories: vi.fn(), listProducts: vi.fn().mockResolvedValue({}),
       getProduct: vi.fn(), listFacets: vi.fn(), resolveCalculatorProducts: vi.fn(),
+      listRelatedProducts: vi.fn(),
     } as unknown as PublicRetailReadRepository;
     const service = new PublicRetailService(repository);
 
@@ -82,6 +84,7 @@ describe("PublicRetailService", () => {
     const listProducts = vi.fn().mockResolvedValue({ items: [], totalCount: 0, limit: 24, offset: 0 });
     const repository = {
       listCategories: vi.fn(), listProducts, getProduct: vi.fn(),
+      listRelatedProducts: vi.fn(),
       listFacets: vi.fn(), resolveCalculatorProducts: vi.fn(),
     } as unknown as PublicRetailReadRepository;
     const service = new PublicRetailService(repository);
@@ -99,6 +102,7 @@ describe("PublicRetailService", () => {
     const listFacets = vi.fn().mockResolvedValue([]);
     const repository = {
       listCategories: vi.fn(), listProducts: vi.fn(), getProduct: vi.fn(),
+      listRelatedProducts: vi.fn(),
       getShowcase: vi.fn(), listFacets, resolveCalculatorProducts: vi.fn(),
     } as unknown as PublicRetailReadRepository;
     await new PublicRetailService(repository).listRetailFacets({
@@ -115,6 +119,19 @@ describe("PublicRetailService", () => {
       locale: "ro",
       search: "camera ip",
     });
+  });
+
+  it("resolves related products through one bounded repository call", async () => {
+    const listRelatedProducts = vi.fn().mockResolvedValue([]);
+    const repository = {
+      listCategories: vi.fn(), listProducts: vi.fn(), getShowcase: vi.fn(), getProduct: vi.fn(),
+      listRelatedProducts, listFacets: vi.fn(), resolveCalculatorProducts: vi.fn(),
+    } as PublicRetailReadRepository;
+
+    await new PublicRetailService(repository).listRelatedProducts("camera-one", "ro", 99);
+
+    expect(listRelatedProducts).toHaveBeenCalledOnce();
+    expect(listRelatedProducts).toHaveBeenCalledWith("camera-one", "ro", 6);
   });
 });
 

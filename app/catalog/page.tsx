@@ -5,8 +5,9 @@ import { PublicRetailShowcase } from "@/src/modules/public-retail/components/Pub
 import { PublicRetailShell } from "@/src/modules/public-retail/components/PublicRetailShell";
 import { PublicStructuredData } from "@/src/modules/public-retail/components/PublicStructuredData";
 import { publicRetailLocale, publicRetailVisibleCategories } from "@/src/modules/public-retail/presentation";
+import { buildPublicCategoryContent, type PublicCategoryContent } from "@/src/modules/public-retail/content";
 import { buildPublicMetadata, publicBreadcrumbSchema, publicCatalogSeoState, publicCategorySeoDescription, publicLocalizedUrl } from "@/src/modules/public-retail/seo";
-import { getPublicRetailCategories, getPublicRetailService } from "@/src/modules/public-retail/server";
+import { getPublicRetailCategories, getPublicRetailCategoryFacets, getPublicRetailService } from "@/src/modules/public-retail/server";
 import { parseCatalogAttributeFilters } from "@/src/modules/catalog/services/catalog-sort-state";
 import { publicRetailCatalogReturnHref } from "@/src/modules/public-retail/catalog-links";
 import type { PublicRetailMerchandisingMode, PublicRetailPriceSort } from "@/src/modules/public-retail/types";
@@ -20,14 +21,16 @@ export async function generateMetadata({ searchParams }: { searchParams: Promise
   const categories = requestedCategory ? publicRetailVisibleCategories(await getPublicRetailCategories(locale)) : [];
   const state = publicCatalogSeoState(params, new Set(categories.map((category) => category.slug)));
   const category = categories.find((item) => item.slug === state.categorySlug);
-  const title = category
-    ? locale === "ro" ? `${category.name}: catalog și prețuri | Novotech` : `${category.name}: каталог и цены | Novotech`
+  const facets = category ? await getPublicRetailCategoryFacets(category.slug, locale) : [];
+  const content = category ? buildPublicCategoryContent({ category, categories, facets, locale }) : null;
+  const title = content
+    ? content.metaTitle
     : locale === "ro" ? "Catalog de sisteme de securitate | Novotech" : "Каталог систем безопасности | Novotech";
   return buildPublicMetadata({
     locale,
     path: "/catalog",
     title,
-    description: publicCategorySeoDescription(category?.name, category?.description, locale),
+    description: content?.metaDescription ?? publicCategorySeoDescription(undefined, undefined, locale),
     canonicalParams: state.canonicalParams,
     index: state.index,
     follow: true,
@@ -64,16 +67,23 @@ export default async function PublicCatalogPage({ searchParams }: { searchParams
   const merchandisingMode: PublicRetailMerchandisingMode | undefined = q ? undefined : view === "replenishment" ? "replenishment" : view === "special" ? "special" : view === "new" ? "new" : view === "hot" ? "hot" : view === "popular" ? "popular" : undefined;
   const priceSort: PublicRetailPriceSort | undefined = sort === "price_desc" ? "price_desc" : sort === "price_asc" ? "price_asc" : undefined;
   const mode = merchandisingMode ?? priceSort;
+  const categoryFacetRead = category && !q && !availability && Object.keys(attributeFilters).length === 0
+    ? getPublicRetailCategoryFacets(category, locale)
+    : service.listRetailFacets({ categorySlug: category, search: q, availability, facets: attributeFilters, locale });
   const [categories, products, categoryFacets] = await Promise.all([
     getPublicRetailCategories(locale),
     service.listRetailProducts({ locale, categorySlug: category, search: q, availability, facets: attributeFilters, mode, page, pageSize: 24 }),
-    service.listRetailFacets({ categorySlug: category, search: q, availability, facets: attributeFilters, locale }),
+    categoryFacetRead,
   ]);
 
   const visibleCategories = publicRetailVisibleCategories(categories);
   const seoState = publicCatalogSeoState(params, new Set(visibleCategories.map((item) => item.slug)));
   const activeCategory = visibleCategories.find((item) => item.slug === seoState.categorySlug);
+  const categoryContent = activeCategory
+    ? buildPublicCategoryContent({ category: activeCategory, categories: visibleCategories, facets: categoryFacets, locale })
+    : null;
   const canonicalUrl = publicLocalizedUrl("/catalog", locale, seoState.canonicalParams);
+  const breadcrumbItems = publicCategoryBreadcrumbs(categoryContent, locale);
   const schema = [
     {
       "@type": "CollectionPage",
@@ -90,13 +100,20 @@ export default async function PublicCatalogPage({ searchParams }: { searchParams
         })),
       } } : {}),
     },
-    publicBreadcrumbSchema([
-      { name: locale === "ro" ? "Principală" : "Главная", url: publicLocalizedUrl("/", locale) },
-      { name: locale === "ro" ? "Catalog" : "Каталог", url: publicLocalizedUrl("/catalog", locale) },
-      ...(activeCategory ? [{ name: activeCategory.name, url: canonicalUrl }] : []),
-    ]),
+    publicBreadcrumbSchema(breadcrumbItems),
   ];
-  return <PublicRetailShell languagePath="/catalog" locale={locale}><PublicStructuredData data={schema} /><main><PublicRetailCatalog categories={categories} facets={categoryFacets} locale={locale} products={products} state={{ q, category, availability, attributeFilters, mode: merchandisingMode, sort: priceSort, returnHref, page }} /></main></PublicRetailShell>;
+  return <PublicRetailShell languagePath="/catalog" locale={locale}><PublicStructuredData data={schema} /><main><PublicRetailCatalog breadcrumbs={breadcrumbItems} categories={categories} categoryContent={categoryContent} facets={categoryFacets} locale={locale} products={products} state={{ q, category, availability, attributeFilters, mode: merchandisingMode, sort: priceSort, returnHref, page }} /></main></PublicRetailShell>;
+}
+
+function publicCategoryBreadcrumbs(content: PublicCategoryContent | null, locale: "ru" | "ro") {
+  return [
+    { name: locale === "ro" ? "Principală" : "Главная", url: publicLocalizedUrl("/", locale) },
+    { name: locale === "ro" ? "Catalog" : "Каталог", url: publicLocalizedUrl("/catalog", locale) },
+    ...(content?.path.map((category) => ({
+      name: category.name,
+      url: publicLocalizedUrl("/catalog", locale, { category: category.slug }),
+    })) ?? []),
+  ];
 }
 
 function hasListingIntent(params: Params): boolean {

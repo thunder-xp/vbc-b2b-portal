@@ -26,11 +26,18 @@ function sitemapXmlUrl(path: string, locale: PublicRetailLocale, params: Record<
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const products = await listPublicSeoProducts();
+  const categoryLastModified = new Map<string, Date>();
+  for (const product of products) {
+    if (!product.lastModified) continue;
+    for (const category of product.categoryPath) {
+      const current = categoryLastModified.get(category.slug);
+      if (!current || current < product.lastModified) categoryLastModified.set(category.slug, product.lastModified);
+    }
+  }
   const categorySlugs = new Set(products.flatMap((product) => product.categoryPath.map((category) => category.slug)));
-  const localized = (path: string, params: Record<string, string> = {}) => locales.map((locale) => ({
+  const localized = (path: string, params: Record<string, string> = {}, lastModified?: Date | null) => locales.map((locale) => ({
     url: sitemapXmlUrl(path, locale, params),
-    changeFrequency: path.startsWith("/products/") ? "weekly" as const : "daily" as const,
-    priority: path === "/" ? 1 : path === "/catalog" ? 0.9 : path.startsWith("/products/") ? 0.8 : 0.7,
+    ...(lastModified ? { lastModified } : {}),
     alternates: {
       languages: {
         ru: sitemapXmlUrl(path, "ru", params),
@@ -42,8 +49,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   return [
     ...staticPaths.flatMap((path) => localized(path)),
-    ...[...categorySlugs].sort().flatMap((category) => localized("/catalog", { category })),
-    ...products.flatMap((product) => localized(`/products/${product.slug}`)),
+    ...[...categorySlugs].sort().flatMap((category) => localized("/catalog", { category }, categoryLastModified.get(category))),
+    ...products.flatMap((product) => localized(`/products/${product.slug}`, {}, product.lastModified)),
   ];
 }
 

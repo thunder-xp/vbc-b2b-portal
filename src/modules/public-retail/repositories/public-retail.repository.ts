@@ -6,6 +6,7 @@ import type {
   PublicRetailLocale,
   PublicRetailProductDetailDto,
   PublicRetailProductPageDto,
+  PublicRetailProductSummaryDto,
   PublicRetailPublicationMetrics,
   PublicRetailShowcaseDto,
 } from "../types";
@@ -26,6 +27,7 @@ export interface PublicRetailReadRepository {
   listProducts(input: ListPublicRetailProductsInput): Promise<PublicRetailProductPageDto>;
   getShowcase(locale: PublicRetailLocale): Promise<PublicRetailShowcaseDto>;
   getProduct(slug: string, locale: PublicRetailLocale): Promise<PublicRetailProductDetailDto | null>;
+  listRelatedProducts(slug: string, locale: PublicRetailLocale, limit: number): Promise<PublicRetailProductSummaryDto[]>;
   listFacets(input: Pick<ListPublicRetailProductsInput, "availability" | "categorySlug" | "facets" | "locale" | "search">): Promise<PublicRetailFacetDto[]>;
   resolveCalculatorProducts(profileKeys: string[], locale: PublicRetailLocale): Promise<PublicRetailCalculatorProductResolutionDto[]>;
 }

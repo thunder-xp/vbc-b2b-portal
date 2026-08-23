@@ -10,8 +10,17 @@ describe("public SEO inventory", () => {
       { slug: "../../secret", category_path: [] },
     ];
     expect(parsePublicSeoProducts(rows)).toEqual([
-      { slug: "camera-one", categoryPath: [{ slug: "cameras" }] },
+      { slug: "camera-one", categoryPath: [{ slug: "cameras" }], lastModified: null },
     ]);
+  });
+
+  it("accepts only a trustworthy parseable publication timestamp", () => {
+    const result = parsePublicSeoProducts([
+      { slug: "camera-one", categoryPath: [], lastModified: "2026-08-23T12:00:00.000Z" },
+      { slug: "camera-two", categoryPath: [], lastModified: "invalid" },
+    ]);
+    expect(result[0]?.lastModified?.toISOString()).toBe("2026-08-23T12:00:00.000Z");
+    expect(result[1]?.lastModified).toBeNull();
   });
 
   it("excludes Project Equipment and every product beneath it", () => {

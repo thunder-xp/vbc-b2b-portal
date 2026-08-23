@@ -7,10 +7,10 @@ import { createPublicReadClient } from "@/src/lib/supabase/public";
 const MAX_SITEMAP_PRODUCTS = 5_000;
 
 type RawCategory = { slug?: unknown };
-type RawRow = { slug?: unknown; category_path?: unknown; categoryPath?: unknown };
+type RawRow = { slug?: unknown; category_path?: unknown; categoryPath?: unknown; last_modified?: unknown; lastModified?: unknown };
 
 export type PublicSeoCategory = { slug: string };
-export type PublicSeoProduct = { slug: string; categoryPath: PublicSeoCategory[] };
+export type PublicSeoProduct = { slug: string; categoryPath: PublicSeoCategory[]; lastModified: Date | null };
 
 async function queryPublicSeoProducts(): Promise<PublicSeoProduct[]> {
   const { data, error } = await createPublicReadClient().rpc("list_public_retail_sitemap_inventory");
@@ -34,9 +34,15 @@ export function parsePublicSeoProducts(rows: RawRow[]): PublicSeoProduct[] {
     const categoryPath = parseCategoryPath(row.category_path ?? row.categoryPath);
     if (categoryPath === null) continue;
     seen.add(row.slug);
-    products.push({ slug: row.slug, categoryPath });
+    products.push({ slug: row.slug, categoryPath, lastModified: parseLastModified(row.last_modified ?? row.lastModified) });
   }
   return products;
+}
+
+function parseLastModified(value: unknown): Date | null {
+  if (typeof value !== "string") return null;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.valueOf()) ? null : parsed;
 }
 
 function parseCategoryPath(value: unknown): PublicSeoCategory[] | null {
