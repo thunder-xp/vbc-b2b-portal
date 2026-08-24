@@ -28,6 +28,8 @@ import { KnowledgeCardView } from "@/src/modules/knowledge-base/landing-componen
 import { getCatalogCopy } from "@/src/modules/partner-locale";
 import { getPartnerLocale } from "@/src/modules/partner-locale/server";
 import { ExternalPriceRepository, type CurrentExternalPriceDto } from "@/src/modules/external-prices";
+import { CompetitiveIntelligenceRepository } from "@/src/modules/competitive-intelligence";
+import { ProductCompetitiveIntelligence } from "@/src/modules/competitive-intelligence/components";
 
 type ProductDetailPageProps = {
   params: Promise<{
@@ -67,6 +69,8 @@ export default async function ProductDetailPage({
     notFound();
   }
 
+  const needsWorkspaceContext =
+    activeTab === "overview" || activeTab === "relations" || activeTab === "analytics";
   const needsCommercialContext =
     activeTab === "overview" || activeTab === "relations";
   const [
@@ -86,7 +90,7 @@ export default async function ProductDetailPage({
     needsCommercialContext
       ? getProductCommercialViewsAction([identityResult.data.id])
       : Promise.resolve(null),
-    needsCommercialContext
+    needsWorkspaceContext
       ? getPartnerWorkspaceContextAction()
       : Promise.resolve(null),
     getProductMerchandisingLabelsAction(identityResult.data.id),
@@ -120,7 +124,7 @@ export default async function ProductDetailPage({
   let commercialView;
   let initialFavorite = false;
   let externalPrices: CurrentExternalPriceDto[] = [];
-  if (needsCommercialContext) {
+  if (needsWorkspaceContext) {
     commercialView = commercialViewsResult?.success
       ? commercialViewsResult.data[0]
       : undefined;
@@ -149,6 +153,11 @@ export default async function ProductDetailPage({
       externalPrices = await new ExternalPriceRepository().getCurrent(companyId, productResult.data.id);
     }
   }
+  const competitiveIntelligence =
+    activeTab === "analytics" && companyId && workspaceResult?.success &&
+    workspaceResult.data.capabilities.canViewCompetitiveIntelligence
+      ? await new CompetitiveIntelligenceRepository().getPartnerProduct(companyId, productResult.data.id)
+      : null;
   const priceUpdatedAt = latestTimestamp([
     commercialView?.partnerPrice?.lastUpdatedAt,
     commercialView?.retailPrice?.lastUpdatedAt,
@@ -217,6 +226,19 @@ export default async function ProductDetailPage({
             </p>
           ) : null
         }
+        analyticsContent={
+          activeTab === "analytics" && competitiveIntelligence ? (
+            <ProductCompetitiveIntelligence
+              data={competitiveIntelligence}
+              locale={locale}
+              productId={productResult.data.id}
+            />
+          ) : activeTab === "analytics" ? (
+            <p className="border-y border-zinc-200 py-8 text-center text-sm text-zinc-600">
+              {locale === "ro" ? "Analiza competitivă nu este disponibilă." : "Конкурентная аналитика недоступна."}
+            </p>
+          ) : null
+        }
         product={{
           ...productResult.data,
           merchandisingLabels: merchandisingResult.success
@@ -232,16 +254,19 @@ export default async function ProductDetailPage({
             : null
         }
         stockFreshness={stockFreshness}
+        showAnalyticsTab
         userId={userId}
         externalPrices={externalPrices}
       />
-      <BehaviorViewEvent
-        dedupeKey={`product-tab:${activeTab}:${productResult.data.id}`}
-        eventName={tabViewEvent(activeTab)}
-        productId={productResult.data.id}
-        route={`/cabinet/catalog/${productResult.data.slug}?tab=${activeTab}`}
-        sourceSurface={`product_${activeTab}_tab`}
-      />
+      {tabViewEvent(activeTab) ? (
+        <BehaviorViewEvent
+          dedupeKey={`product-tab:${activeTab}:${productResult.data.id}`}
+          eventName={tabViewEvent(activeTab)!}
+          productId={productResult.data.id}
+          route={`/cabinet/catalog/${productResult.data.slug}?tab=${activeTab}`}
+          sourceSurface={`product_${activeTab}_tab`}
+        />
+      ) : null}
     </>
   );
 }
@@ -252,6 +277,7 @@ function parseTab(value: string | string[] | undefined): ProductDetailTab {
     tab === "characteristics" ||
     tab === "datasheet" ||
     tab === "pricing" ||
+    tab === "analytics" ||
     tab === "relations"
     ? tab
     : "overview";
@@ -284,6 +310,8 @@ function tabViewEvent(tab: ProductDetailTab) {
       return "product_pricing_tab_viewed" as const;
     case "relations":
       return "product_relations_tab_viewed" as const;
+    case "analytics":
+      return null;
   }
 }
 

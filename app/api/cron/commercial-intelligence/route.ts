@@ -11,7 +11,8 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const startedAt = performance.now();
-  const { data, error } = await createAdminClient().rpc("refresh_commercial_intelligence", {
+  const admin = createAdminClient();
+  const { data, error } = await admin.rpc("refresh_commercial_intelligence", {
     p_product_limit: 100,
     p_company_limit: 50,
   });
@@ -19,13 +20,21 @@ export async function GET(request: Request) {
     console.error({ event: "commercial_intelligence_projection_failed", code: error.code });
     return NextResponse.json({ ok: false }, { status: 500 });
   }
-  const { data: reconciliation, error: reconciliationError } = await createAdminClient().rpc(
+  const { data: reconciliation, error: reconciliationError } = await admin.rpc(
     "reconcile_superseded_external_price_intelligence",
   );
   if (reconciliationError) {
     console.error({ event: "commercial_intelligence_reconciliation_failed", code: reconciliationError.code });
     return NextResponse.json({ ok: false }, { status: 500 });
   }
-  console.info({ event: "commercial_intelligence_projection_completed", durationMs: Math.round(performance.now() - startedAt), result: data, reconciliation });
-  return NextResponse.json({ ok: true, result: data, reconciliation });
+  const { data: competitivePrices, error: competitivePricesError } = await admin.rpc(
+    "refresh_competitive_price_intelligence",
+    { p_limit: 50 },
+  );
+  if (competitivePricesError) {
+    console.error({ event: "competitive_price_intelligence_projection_failed", code: competitivePricesError.code });
+    return NextResponse.json({ ok: false }, { status: 500 });
+  }
+  console.info({ event: "commercial_intelligence_projection_completed", durationMs: Math.round(performance.now() - startedAt), result: data, reconciliation, competitivePrices });
+  return NextResponse.json({ ok: true, result: data, reconciliation, competitivePrices });
 }

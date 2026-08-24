@@ -73,6 +73,14 @@ describe("ProductDetail information architecture", () => {
     expect(screen.queryByText("Изображение товара product-1")).not.toBeInTheDocument();
   });
 
+  it("shows the partner-only analytics tab through the canonical product tabs", () => {
+    const { rerender } = render(<ProductDetail product={product} />);
+    expect(screen.queryByRole("link", { name: "Аналитика" })).not.toBeInTheDocument();
+    rerender(<ProductDetail activeTab="analytics" analyticsContent={<div>Own observations</div>} product={product} showAnalyticsTab />);
+    expect(screen.getByRole("link", { name: "Аналитика" })).toHaveAttribute("href", "?tab=analytics");
+    expect(screen.getByText("Own observations")).toBeInTheDocument();
+  });
+
   it("keeps title first and SKU directly below in Overview", () => {
     const { container } = render(<ProductDetail product={product} />);
     const text = container.textContent ?? "";

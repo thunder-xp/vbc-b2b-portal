@@ -52,6 +52,14 @@ describe("resolveWorkspaceCapabilities", () => {
     expect(model.productCard.canManagePurchasingLists).toBe(true);
     expect(model.productCard).toMatchObject({ showPrice: true, showStock: true, showWarehouseAvailability: true });
     expect(model.navigation.find((item) => item.key === "knowledge_base")).toMatchObject({ href: "/cabinet/knowledge", availability: "available" });
+    expect(model.canViewCompetitiveIntelligence).toBe(false);
+    expect(model.canManageCompetitiveIntelligence).toBe(false);
+  });
+
+  it("projects competitive intelligence permissions without role checks in React", () => {
+    const model = resolveWorkspaceCapabilities(new Set(["competitive_intelligence.view", "competitive_intelligence.manage"]));
+    expect(model.canViewCompetitiveIntelligence).toBe(true);
+    expect(model.canManageCompetitiveIntelligence).toBe(true);
   });
 
   it("hides role-protected modules and commercial fields when permissions are absent", () => {

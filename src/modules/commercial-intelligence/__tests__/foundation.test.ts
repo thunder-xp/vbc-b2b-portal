@@ -143,9 +143,10 @@ describe("commercial intelligence acceptance contracts", () => {
   });
 
   it("uses batched projections instead of per-product RPC calls", () => {
-    expect(cron.match(/\.rpc\(/g)).toHaveLength(2);
+    expect(cron.match(/\.rpc\(/g)).toHaveLength(3);
     expect(cron).toContain('rpc("refresh_commercial_intelligence"');
     expect(cron).toContain('"reconcile_superseded_external_price_intelligence"');
+    expect(cron).toContain('"refresh_competitive_price_intelligence"');
     expect(migration).toContain("create temporary table ci_products");
   });
 });

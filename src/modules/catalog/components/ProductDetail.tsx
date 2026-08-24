@@ -23,6 +23,7 @@ export type ProductDetailTab =
   | "characteristics"
   | "datasheet"
   | "pricing"
+  | "analytics"
   | "relations";
 
 type ProductDetailProps = {
@@ -40,8 +41,10 @@ type ProductDetailProps = {
   userId?: string | null;
   hasAnalogs?: boolean;
   relationsContent?: ReactNode;
+  analyticsContent?: ReactNode;
   locale?: PartnerLocale;
   externalPrices?: CurrentExternalPriceDto[];
+  showAnalyticsTab?: boolean;
 };
 
 export function ProductDetail({
@@ -57,9 +60,11 @@ export function ProductDetail({
   priceFreshness,
   product,
   relationsContent,
+  analyticsContent,
   retailPriceHistory,
   retailPriceHistoryError,
   stockFreshness,
+  showAnalyticsTab = false,
   userId = null,
 }: ProductDetailProps) {
   const copy = getCatalogCopy(locale);
@@ -69,6 +74,7 @@ export function ProductDetail({
     { id: "characteristics", label: copy.characteristics },
     { id: "datasheet", label: copy.instructions },
     { id: "pricing", label: copy.pricing },
+    ...(showAnalyticsTab ? [{ id: "analytics" as const, label: locale === "ro" ? "Analiză" : "Аналитика" }] : []),
     { id: "relations", label: copy.relations },
   ];
   return (
@@ -110,9 +116,9 @@ export function ProductDetail({
             />
           </ProductTabLayout>
         </>
-      ) : activeTab === "relations" ? (
+      ) : activeTab === "relations" || activeTab === "analytics" ? (
         <div className="min-w-0" data-testid="product-detail-content">
-          {relationsContent}
+          {activeTab === "relations" ? relationsContent : analyticsContent}
         </div>
       ) : (
         <ProductTabLayout locale={locale} product={product}>

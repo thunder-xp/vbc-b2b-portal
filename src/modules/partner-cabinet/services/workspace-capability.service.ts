@@ -61,6 +61,8 @@ export type WorkspaceCapabilityModel = {
   canViewKnowledgeBase: boolean;
   canViewDashboardDocuments: boolean;
   canManageCompanyUsers?: boolean;
+  canViewCompetitiveIntelligence: boolean;
+  canManageCompetitiveIntelligence: boolean;
 };
 
 export type WorkspaceCapabilityConfiguration = {
@@ -168,5 +170,7 @@ export function resolveWorkspaceCapabilities(
       "documents.view_product",
     ].some(hasPermission),
     canManageCompanyUsers: hasPermission("company_users.manage"),
+    canViewCompetitiveIntelligence: hasPermission("competitive_intelligence.view"),
+    canManageCompetitiveIntelligence: hasPermission("competitive_intelligence.manage"),
   };
 }

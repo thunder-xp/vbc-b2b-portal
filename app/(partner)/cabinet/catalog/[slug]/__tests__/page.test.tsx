@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   getWorkspace: vi.fn(),
   getRelationSections: vi.fn(),
   getRelationSummary: vi.fn(),
+  getCompetitive: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({ notFound: vi.fn() }));
@@ -34,6 +35,8 @@ vi.mock("@/src/modules/catalog/components/ProductImageGallery", () => ({ Product
 vi.mock("@/src/modules/orders/components/AddToCartButton", () => ({ AddToCartButton: () => <button type="button">В корзину</button> }));
 vi.mock("@/src/modules/catalog/components/ProductActions", () => ({ ProductActions: () => <button type="button">В корзину</button> }));
 vi.mock("@/src/modules/catalog/components/ExpandableDescription", () => ({ ExpandableDescription: ({ text }: { text: string }) => <p>{text}</p> }));
+vi.mock("@/src/modules/competitive-intelligence", () => ({ CompetitiveIntelligenceRepository: class { getPartnerProduct = mocks.getCompetitive; } }));
+vi.mock("@/src/modules/competitive-intelligence/components", () => ({ ProductCompetitiveIntelligence: () => <div>Own competitive observations</div> }));
 
 import ProductDetailPage from "../page";
 
@@ -44,7 +47,8 @@ describe("product detail page data loading", () => {
     mocks.getProduct.mockResolvedValue({ success: true, data: product });
     mocks.getCommercial.mockResolvedValue({ success: true, data: [commercialView] });
     mocks.getRetailHistory.mockResolvedValue({ success: true, data: retailHistory });
-    mocks.getWorkspace.mockResolvedValue({ success: true, data: { companyId: "company-1", capabilities: { productCard: { canAddToOrder: true } } } });
+    mocks.getWorkspace.mockResolvedValue({ success: true, data: { companyId: "company-1", capabilities: { productCard: { canAddToOrder: true }, canViewCompetitiveIntelligence: true } } });
+    mocks.getCompetitive.mockResolvedValue({ canManage: true, competitors: [], observations: [], summary: { observationCount: 0 } });
     mocks.getRelationSummary.mockResolvedValue({ success: true, data: { hasAnalogs: true, hasRelated: true } });
     mocks.getRelationSections.mockResolvedValue({ success: true, data: { analogs: [{ id: "analog-1" }], related: [{ id: "related-1" }], synchronizedAt: null } });
   });
@@ -101,6 +105,16 @@ describe("product detail page data loading", () => {
     expect(mocks.getRetailHistory).toHaveBeenCalledWith("product-1", undefined);
     expect(screen.getByText("История розничной цены")).toBeInTheDocument();
     expect(screen.getByText("2 399,00 MDL")).toBeInTheDocument();
+  });
+
+  it("loads one bounded competitive projection only for Analytics", async () => {
+    render(await ProductDetailPage({ params: Promise.resolve({ slug: "ip-camera" }), searchParams: Promise.resolve({ tab: "analytics" }) }));
+    expect(mocks.getWorkspace).toHaveBeenCalledOnce();
+    expect(mocks.getCommercial).not.toHaveBeenCalled();
+    expect(mocks.getCompetitive).toHaveBeenCalledOnce();
+    expect(mocks.getCompetitive).toHaveBeenCalledWith("company-1", "product-1");
+    expect(screen.getByText("Own competitive observations")).toBeInTheDocument();
+    expect(screen.getAllByTestId("behavior-event").map((node) => node.dataset.eventName)).toEqual(["product_viewed"]);
   });
 
   it("loads documents only for the Datasheet tab", async () => {
