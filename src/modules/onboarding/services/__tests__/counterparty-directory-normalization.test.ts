@@ -6,6 +6,7 @@ import {
   normalizePhone,
   parseContractRow,
   parseCounterpartyRow,
+  toPriceProfileRow,
 } from "../counterparty-directory-normalization";
 import { countSnapshot } from "../counterparty-directory-sync.service";
 import { deduplicateByExternal1cId } from "../one-c-counterparty-directory.source";
@@ -111,6 +112,35 @@ describe("counterparty directory normalization", () => {
       signed: true,
       isActive: true,
       isDefault: false,
+    });
+  });
+
+  it("preserves authoritative price-type currency for contract qualification", () => {
+    const contract = parseContractRow({
+      Ref_Key: "e5baa428-8919-11ee-129a-7239d3b7bd5c",
+      Owner: ACTIVE_REF,
+      /*
+      Owner_Type: "StandardODATA.Catalog_РљРѕРЅС‚СЂР°РіРµРЅС‚С‹",
+      Description: "Customer contract",
+      Р’РёРґР¦РµРЅРљРѕРЅС‚СЂР°РіРµРЅС‚Р°_Key: "23cb93ec-3eb5-11f0-8d8a-7239d3b7bd5c",
+      */
+      Owner_Type: "StandardODATA.Catalog_\u041a\u043e\u043d\u0442\u0440\u0430\u0433\u0435\u043d\u0442\u044b",
+      Description: "Customer contract",
+      ["\u0412\u0438\u0434\u0426\u0435\u043d\u041a\u043e\u043d\u0442\u0440\u0430\u0433\u0435\u043d\u0442\u0430_Key"]: "23cb93ec-3eb5-11f0-8d8a-7239d3b7bd5c",
+    });
+    expect(toPriceProfileRow(contract!, {
+      Ref_Key: "23cb93ec-3eb5-11f0-8d8a-7239d3b7bd5c",
+      Description: "GOLD",
+      /*
+      Р’Р°Р»СЋС‚Р°Р¦РµРЅС‹_Key: "94f0c790-1b5a-11e5-942b-00155d010112",
+      Р¦РµРЅС‹РђРєС‚СѓР°Р»СЊРЅС‹: true,
+      */
+      ["\u0412\u0430\u043b\u044e\u0442\u0430\u0426\u0435\u043d\u044b_Key"]: "94f0c790-1b5a-11e5-942b-00155d010112",
+      ["\u0426\u0435\u043d\u044b\u0410\u043a\u0442\u0443\u0430\u043b\u044c\u043d\u044b"]: true,
+      DeletionMark: false,
+    })).toMatchObject({
+      name: "GOLD",
+      currencyExternal1cId: "94f0c790-1b5a-11e5-942b-00155d010112",
     });
   });
 

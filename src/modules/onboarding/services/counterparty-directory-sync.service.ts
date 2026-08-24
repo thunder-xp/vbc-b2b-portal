@@ -232,6 +232,7 @@ export class CounterpartyDirectorySyncService {
             external_1c_id: row.external1cId,
             code: row.code,
             name: row.name,
+            currency_external_1c_id: row.currencyExternal1cId,
             is_active: row.isActive,
             is_deleted: row.isDeleted,
             synchronized_at: synchronizedAt,

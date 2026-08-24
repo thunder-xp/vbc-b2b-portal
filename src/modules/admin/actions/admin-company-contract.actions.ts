@@ -217,6 +217,7 @@ function revalidateCompany(companyId: string): void {
 
 function mappingMessage(code: ContractMappingResultCode, correlationId: string): string {
   const messages: Record<ContractMappingResultCode, string> = {
+    CONTRACT_PRICE_TYPE_MISSING: "В договоре не указан действительный вид цены.",
     CONTRACT_MAPPING_SUCCESS: "Основной договор 1С сопоставлен.",
     CONTRACT_NOT_FOUND: "Выбранный договор отсутствует в опубликованном справочнике 1С.",
     CONTRACT_NOT_OWNED_BY_COMPANY: "Выбранный договор принадлежит другому контрагенту.",
@@ -224,6 +225,9 @@ function mappingMessage(code: ContractMappingResultCode, correlationId: string):
     CONTRACT_INVALID_TYPE: "Можно сопоставить только договор с покупателем.",
     CONTRACT_ORGANIZATION_MISMATCH: "Договор относится к другой организации Novotech.",
     CONTRACT_PRICE_TYPE_MISMATCH: "Вид цены договора отличается от коммерческого профиля компании. Сначала синхронизируйте коммерческие данные.",
+    CONTRACT_PRICE_TYPE_INVALID: "Вид цены договора не опубликован или его валюта не подтверждена.",
+    CONTRACT_PRICE_TYPE_CURRENCY_MISMATCH: "Валюта вида цены не соответствует опубликованному виду цены.",
+    CONTRACT_SETTLEMENT_CURRENCY_MISSING: "Договорная валюта не указана в опубликованных данных 1С.",
     CONTRACT_MAPPING_CONFLICT: "Сопоставление уже изменено другим администратором. Обновите страницу и повторите действие.",
     CONTRACT_MAPPING_FAILED: `Не удалось сохранить сопоставление. Код обращения: ${correlationId}`,
   };
@@ -247,6 +251,7 @@ function cashMappingMessage(
     CASH_CONTRACT_ORGANIZATION_MISMATCH: "Договор относится к другой организации Novotech.",
     CASH_CONTRACT_PRICE_TYPE_MISSING: "В договоре не указан действительный вид цены.",
     CASH_CONTRACT_PRICE_TYPE_INVALID: "Вид цены договора не опубликован или его валюта не подтверждена.",
+    CASH_CONTRACT_PRICE_TYPE_CURRENCY_MISMATCH: "Валюта вида цены не соответствует опубликованному виду цены.",
     CASH_CONTRACT_CURRENCY_MISSING: "Валюта расчётов договора не указана.",
     CASH_CONTRACT_CURRENCY_MISMATCH: "Валюта договора не совпадает с валютой его вида цены.",
     CASH_CONTRACT_MAPPING_CONFLICT: "Сопоставление изменено другим администратором. Обновите страницу.",

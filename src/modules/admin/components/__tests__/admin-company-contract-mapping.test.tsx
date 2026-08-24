@@ -24,6 +24,8 @@ const mapping: AdminCompanyContractMappingProjection = {
   version: 1,
   canManage: true,
   canSync: true,
+  suggestedContractRef: "e5baa428-8919-11ee-129a-7239d3b7bd5c",
+  defaultContractAmbiguous: false,
   cashMapping: {
     contractRole: "cash",
     contractRef: null,
@@ -62,6 +64,7 @@ describe("AdminCompanyContractMapping", () => {
     render(<AdminCompanyContractMapping mapping={mapping} />);
 
     expect(screen.getByRole("radio", { name: /Customer GOLD/ })).toBeEnabled();
+    expect(screen.getByRole("radio", { name: /Customer GOLD/ })).toBeChecked();
     expect(screen.getByRole("radio", { name: /Inactive/ })).toBeDisabled();
     expect(screen.getByRole("radio", { name: /Deleted/ })).toBeDisabled();
     expect(screen.getByRole("radio", { name: /Supplier/ })).toBeDisabled();
@@ -90,6 +93,7 @@ describe("AdminCompanyContractMapping", () => {
 });
 
 function candidate(overrides: Partial<AdminCompanyContractMappingProjection["candidates"][number]>) {
+  const selectable = !["Inactive", "Deleted", "Supplier", "Wrong organization"].includes(overrides.name ?? "");
   return {
     external1cId: "3cbb3466-f03b-11ef-0280-7239d3b7bd5c",
     code: "UU-002389",
@@ -103,8 +107,12 @@ function candidate(overrides: Partial<AdminCompanyContractMappingProjection["can
     deleted: false,
     priceTypeRef: "23cb93ec-3eb5-11f0-8d8a-7239d3b7bd5c",
     priceTypeName: "GOLD",
-    currencyCode: "USD",
-    currencyRef: "currency-ref",
+    settlementCurrencyCode: "MDL",
+    settlementCurrencyRef: "settlement-currency-ref",
+    priceCurrencyCode: "USD",
+    priceCurrencyRef: "price-currency-ref",
+    selectable,
+    qualificationCode: selectable ? "CONTRACT_QUALIFIED" as const : "CONTRACT_INACTIVE" as const,
     default: false,
     synchronizedAt: "2026-08-18T16:00:42.557Z",
     cashQualified: true,

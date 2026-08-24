@@ -131,6 +131,7 @@ export type CounterpartyPriceProfileRow = {
   external1cId: string;
   code: string | null;
   name: string;
+  currencyExternal1cId: string | null;
   isActive: boolean;
   isDeleted: boolean;
 };

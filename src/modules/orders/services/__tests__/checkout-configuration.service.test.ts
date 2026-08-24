@@ -113,9 +113,9 @@ describe("checkout configuration", () => {
     expect(resolveCheckoutSelection(config, selection("cash")).contract.priceTypeRef).toBe("cash-price-type");
   });
 
-  it("fails closed when contract and price-type currencies differ", () => {
+  it("allows settlement currency to differ from the governed price-type currency", () => {
     const cash = { ...contract("contract-cash", "CASH-1"), contractCurrencyRef: "other-currency" };
-    expect(toPartnerCheckoutOptions(configuration({ cash })).paymentMethods[1].enabled).toBe(false);
+    expect(toPartnerCheckoutOptions(configuration({ cash })).paymentMethods[1].enabled).toBe(true);
   });
 
   it("rejects an absent payment date instead of deriving one", () => {

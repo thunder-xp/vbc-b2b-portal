@@ -82,7 +82,8 @@ export function AdminCompanyCashContractMapping({
                     <Fact label="Тип" value={candidate.contractType ?? "Не указан"} />
                     <Fact label="Организация" value={candidate.organizationRef ?? "Не указана"} mono />
                     <Fact label="Вид цены" value={candidate.priceTypeName ?? candidate.priceTypeRef ?? "Не указан"} />
-                    <Fact label="Валюта" value={candidate.currencyCode ?? "Не определена"} />
+                    <Fact label="Договорная валюта" value={candidate.settlementCurrencyCode ?? candidate.settlementCurrencyRef ?? "Не определена"} />
+                    <Fact label="Валюта цен" value={candidate.priceCurrencyCode ?? candidate.priceCurrencyRef ?? "Не определена"} />
                   </dl>
                 </div>
               </label>
@@ -180,6 +181,7 @@ function qualificationLabel(code: string): string {
     CASH_CONTRACT_ORGANIZATION_MISMATCH: "Другая организация",
     CASH_CONTRACT_PRICE_TYPE_MISSING: "Нет вида цены",
     CASH_CONTRACT_PRICE_TYPE_INVALID: "Вид цены недействителен",
+    CASH_CONTRACT_PRICE_TYPE_CURRENCY_MISMATCH: "Валюта вида цены не соответствует опубликованному виду цены",
     CASH_CONTRACT_CURRENCY_MISSING: "Нет валюты договора",
     CASH_CONTRACT_CURRENCY_MISMATCH: "Валюта не совпадает",
     CASH_CONTRACT_QUALIFIED: "Сопоставление действительно",

@@ -3,8 +3,6 @@
 import { CheckCircle2, RefreshCw, ShieldAlert } from "lucide-react";
 import { useActionState, useMemo, useState } from "react";
 
-import { NOVOTECH_ONE_C_ORGANIZATION_REF } from "@/src/modules/integration/config";
-
 import {
   mapAdminCompanyContractAction,
   synchronizeAdminCompanyCommercialProfileAction,
@@ -32,7 +30,7 @@ export function AdminCompanyContractMapping({
 }: {
   mapping: AdminCompanyContractMappingProjection;
 }) {
-  const [selectedRef, setSelectedRef] = useState("");
+  const [selectedRef, setSelectedRef] = useState(mapping.suggestedContractRef ?? "");
   const [mappingState, mappingAction, mappingPending] = useActionState(
     mapAdminCompanyContractAction,
     INITIAL_MAPPING_STATE,
@@ -113,8 +111,13 @@ export function AdminCompanyContractMapping({
             <input name="expectedVersion" type="hidden" value={mapping.version} />
 
             <div className="grid gap-3" role="radiogroup" aria-label="Договоры контрагента из 1С">
+              {mapping.defaultContractAmbiguous ? (
+                <p className="border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
+                  В 1С опубликовано несколько разных основных договоров. Выберите договор после проверки источника.
+                </p>
+              ) : null}
               {mapping.candidates.length ? mapping.candidates.map((candidate) => {
-                const allowed = isStructurallySelectable(candidate);
+                const allowed = candidate.selectable;
                 return (
                   <label
                     className={`grid gap-3 border p-4 md:grid-cols-[auto_minmax(0,1fr)] ${
@@ -188,7 +191,13 @@ export function AdminCompanyContractMapping({
               disabled={mappingPending || !selectedRef}
               type="submit"
             >
-              {mappingPending ? "Сохранение..." : mapping.currentContractRef ? "Изменить договор" : "Сопоставить договор"}
+              {mappingPending
+                ? "Сохранение..."
+                : mapping.currentContractRef
+                  ? "Изменить договор"
+                  : selectedRef === mapping.suggestedContractRef && selectedRef
+                    ? "Сопоставить основной договор"
+                    : "Сопоставить договор"}
             </button>
           </form>
         </details>
@@ -235,6 +244,7 @@ function ContractFacts({ candidate }: { candidate: AdminContractCandidate }) {
         <span className="font-semibold">{candidate.name}</span>
         {candidate.default ? <span className="border border-sky-200 bg-sky-50 px-2 py-0.5 text-xs text-sky-800">Основной в 1С</span> : null}
         {!candidate.active || candidate.deleted ? <span className="border border-red-200 bg-red-50 px-2 py-0.5 text-xs text-red-800">Недоступен</span> : null}
+        {!candidate.selectable ? <span className="border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs text-amber-950">{contractQualificationLabel(candidate)}</span> : null}
       </div>
       <dl className="mt-2 grid gap-x-5 gap-y-1 text-xs sm:grid-cols-2 xl:grid-cols-3">
         <Fact label="Номер" value={candidate.number ?? "Не указан"} />
@@ -245,7 +255,8 @@ function ContractFacts({ candidate }: { candidate: AdminContractCandidate }) {
         <Fact label="Подписан" value={candidate.signed === null ? "Не указано" : candidate.signed ? "Да" : "Нет"} />
         <Fact label="Состояние" value={candidate.deleted ? "Помечен на удаление" : candidate.active ? "Активен" : "Неактивен"} />
         <Fact label="Вид цены" value={candidate.priceTypeName ?? candidate.priceTypeRef ?? "Не указан"} />
-        <Fact label="Валюта" value={candidate.currencyCode ?? "Не определена"} />
+        <Fact label="Договорная валюта" value={candidate.settlementCurrencyCode ?? candidate.settlementCurrencyRef ?? "Не определена"} />
+        <Fact label="Валюта цен" value={candidate.priceCurrencyCode ?? candidate.priceCurrencyRef ?? "Не определена"} />
         <Fact label="Синхронизирован" value={formatDate(candidate.synchronizedAt)} />
       </dl>
     </div>
@@ -256,12 +267,20 @@ function Fact({ label, value, mono = false }: { label: string; value: string; mo
   return <div><dt className="text-zinc-500">{label}</dt><dd className={`break-words ${mono ? "font-mono" : "font-medium"}`}>{value}</dd></div>;
 }
 
-function isStructurallySelectable(candidate: AdminContractCandidate): boolean {
-  const normalizedType = candidate.contractType?.toLocaleLowerCase("ru-RU").replace(/[^а-яa-z]/g, "");
-  return candidate.active
-    && !candidate.deleted
-    && normalizedType === "спокупателем"
-    && candidate.organizationRef?.toLowerCase() === NOVOTECH_ONE_C_ORGANIZATION_REF;
+function contractQualificationLabel(candidate: AdminContractCandidate): string {
+  if (candidate.qualificationCode === "CONTRACT_PRICE_TYPE_CURRENCY_MISMATCH") {
+    return `Валюта вида цены не соответствует опубликованному виду цены: ${candidate.priceCurrencyRef ?? "источник не указан"} / ${candidate.priceCurrencyCode ?? "локальная валюта не указана"}`;
+  }
+  return ({
+    CONTRACT_NOT_FOUND: "Договор не найден",
+    CONTRACT_NOT_OWNED_BY_COMPANY: "Другой контрагент",
+    CONTRACT_INACTIVE: "Договор неактивен",
+    CONTRACT_INVALID_TYPE: "Неверный тип договора",
+    CONTRACT_ORGANIZATION_MISMATCH: "Другая организация",
+    CONTRACT_PRICE_TYPE_MISSING: "Вид цены не указан",
+    CONTRACT_PRICE_TYPE_INVALID: "Вид цены недействителен",
+    CONTRACT_SETTLEMENT_CURRENCY_MISSING: "Договорная валюта не указана",
+  } as Record<string, string>)[candidate.qualificationCode] ?? "Требуется проверка";
 }
 
 function formatDate(value: string): string {

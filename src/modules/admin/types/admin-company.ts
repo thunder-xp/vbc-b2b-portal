@@ -68,6 +68,10 @@ export const CONTRACT_MAPPING_RESULT_CODES = [
   "CONTRACT_INVALID_TYPE",
   "CONTRACT_ORGANIZATION_MISMATCH",
   "CONTRACT_PRICE_TYPE_MISMATCH",
+  "CONTRACT_PRICE_TYPE_MISSING",
+  "CONTRACT_PRICE_TYPE_INVALID",
+  "CONTRACT_PRICE_TYPE_CURRENCY_MISMATCH",
+  "CONTRACT_SETTLEMENT_CURRENCY_MISSING",
   "CONTRACT_MAPPING_CONFLICT",
   "CONTRACT_MAPPING_FAILED",
 ] as const;
@@ -87,13 +91,29 @@ export type AdminContractCandidate = {
   deleted: boolean;
   priceTypeRef: string | null;
   priceTypeName: string | null;
-  currencyCode: string | null;
-  currencyRef: string | null;
+  settlementCurrencyCode: string | null;
+  settlementCurrencyRef: string | null;
+  priceCurrencyCode: string | null;
+  priceCurrencyRef: string | null;
+  selectable: boolean;
+  qualificationCode: ContractCandidateQualificationCode;
   default: boolean;
   synchronizedAt: string;
   cashQualified: boolean;
   cashQualificationCode: CashContractQualificationCode;
 };
+
+export type ContractCandidateQualificationCode =
+  | "CONTRACT_QUALIFIED"
+  | "CONTRACT_NOT_FOUND"
+  | "CONTRACT_NOT_OWNED_BY_COMPANY"
+  | "CONTRACT_INACTIVE"
+  | "CONTRACT_INVALID_TYPE"
+  | "CONTRACT_ORGANIZATION_MISMATCH"
+  | "CONTRACT_PRICE_TYPE_MISSING"
+  | "CONTRACT_PRICE_TYPE_INVALID"
+  | "CONTRACT_PRICE_TYPE_CURRENCY_MISMATCH"
+  | "CONTRACT_SETTLEMENT_CURRENCY_MISSING";
 
 export const CASH_CONTRACT_RESULT_CODES = [
   "CASH_CONTRACT_MAPPING_SUCCESS",
@@ -105,6 +125,7 @@ export const CASH_CONTRACT_RESULT_CODES = [
   "CASH_CONTRACT_ORGANIZATION_MISMATCH",
   "CASH_CONTRACT_PRICE_TYPE_MISSING",
   "CASH_CONTRACT_PRICE_TYPE_INVALID",
+  "CASH_CONTRACT_PRICE_TYPE_CURRENCY_MISMATCH",
   "CASH_CONTRACT_CURRENCY_MISSING",
   "CASH_CONTRACT_CURRENCY_MISMATCH",
   "CASH_CONTRACT_MAPPING_CONFLICT",
@@ -152,6 +173,8 @@ export type AdminCompanyContractMappingProjection = {
   version: number;
   canManage: boolean;
   canSync: boolean;
+  suggestedContractRef: string | null;
+  defaultContractAmbiguous: boolean;
   cashMapping: AdminCashContractMapping;
   candidates: AdminContractCandidate[];
 };

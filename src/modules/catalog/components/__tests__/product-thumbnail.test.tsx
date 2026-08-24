@@ -53,6 +53,12 @@ describe("ProductThumbnail", () => {
     expect(normalizeProductImageUrl(`${THUMBNAIL}&redirect=https://attacker.example`)).toBeNull();
   });
 
+  it("accepts only the governed normalized-image bucket", () => {
+    expect(normalizeProductImageUrl("https://psfbmdfezgyruscqbqbn.supabase.co/storage/v1/object/public/catalog-normalized-images/product/image.webp"))
+      .toContain("catalog-normalized-images/product/image.webp");
+    expect(normalizeProductImageUrl("https://psfbmdfezgyruscqbqbn.supabase.co/storage/v1/object/public/other/image.webp")).toBeNull();
+  });
+
   it("replaces a broken approved source with the local placeholder", () => {
     render(<div className="relative size-20"><ProductThumbnail alt="Camera 400123" sizes="80px" src={THUMBNAIL} /></div>);
     fireEvent.error(screen.getByRole("img", { name: "Camera 400123" }));

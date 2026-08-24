@@ -129,6 +129,7 @@ export function toPriceProfileRow(
     external1cId,
     code: normalizeDirectoryText(priceType.Code),
     name,
+    currencyExternal1cId: parseRequiredOneCGuid(priceType["ВалютаЦены_Key"]),
     isActive: priceType["ЦеныАктуальны"] !== false && priceType.DeletionMark !== true,
     isDeleted: priceType.DeletionMark === true,
   };

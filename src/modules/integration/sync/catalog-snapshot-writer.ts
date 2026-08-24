@@ -1,7 +1,7 @@
 import "server-only";
 
 import { createAdminClient } from "../../../lib/supabase/admin";
-import type { CatalogCategoryDTO, CatalogProductDTO, CatalogSnapshotDTO } from "../dto";
+import type { CatalogCategoryDTO, CatalogSnapshotDTO } from "../dto";
 import { normalizeCatalogAttributes } from "./catalog-attribute-publication";
 import { catalogPersistenceError, type CatalogPersistenceErrorMetadata } from "./catalog-persistence-error";
 
@@ -46,7 +46,7 @@ export class SupabaseCatalogSnapshotWriter implements CatalogSnapshotWriter {
     let productsUpserted = 0;
     const productIds = new Map<string, string>();
     for (const batch of chunks(snapshot.products, BATCH_SIZE)) {
-      const payload = batch.map((product) => ({ external_1c_id: product.reference.externalId, external_parent_1c_id: product.categoryReference?.externalId ?? null, category_id: product.categoryReference ? categoryIds.get(product.categoryReference.externalId) ?? null : null, sku: product.sku, name: product.name, slug: stableSlug(product.slug, product.name || product.sku, product.reference.externalId), short_description: product.shortDescription, description: product.description, full_description: product.fullDescription ?? product.description, image_source_url: product.imageUrl, enrichment_synced_at: new Date().toISOString(), enrichment_source_version: product.metadata.sourceVersion ?? null, is_active: product.isActive, source_version: product.metadata.sourceVersion ?? null, source_modified_at: product.metadata.sourceUpdatedAt, source_root_1c_id: snapshot.rootReference.externalId, last_seen_sync_id: syncId }));
+      const payload = batch.map((product) => ({ external_1c_id: product.reference.externalId, external_parent_1c_id: product.categoryReference?.externalId ?? null, category_id: product.categoryReference ? categoryIds.get(product.categoryReference.externalId) ?? null : null, sku: product.sku, name: product.name, slug: stableSlug(product.slug, product.name || product.sku, product.reference.externalId), short_description: product.shortDescription, description: product.description, full_description: product.fullDescription ?? product.description, image_original_url: product.imageUrl, enrichment_synced_at: new Date().toISOString(), enrichment_source_version: product.metadata.sourceVersion ?? null, is_active: product.isActive, source_version: product.metadata.sourceVersion ?? null, source_modified_at: product.metadata.sourceUpdatedAt, source_root_1c_id: snapshot.rootReference.externalId, last_seen_sync_id: syncId }));
       const { data, error } = await client.from("catalog_products").upsert(payload, { onConflict: "external_1c_id" }).select("id, external_1c_id");
       if (error) throw new Error("Catalog product batch failed.");
       for (const row of data) productIds.set(row.external_1c_id, row.id);

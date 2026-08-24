@@ -1,10 +1,12 @@
 const PRODUCT_IMAGE_HOSTS = new Set([
   "firebasestorage.googleapis.com",
+  "psfbmdfezgyruscqbqbn.supabase.co",
   "storage.googleapis.com",
 ]);
 
 const FIREBASE_PRODUCT_PATH = /^\/v0\/b\/novotech-systems-5449b\.appspot\.com\/o\//;
 const STORAGE_PRODUCT_PATH = /^\/novotech-systems-5449b\.appspot\.com\//;
+const NORMALIZED_PRODUCT_PATH = /^\/storage\/v1\/object\/public\/catalog-normalized-images\//;
 
 export type ProductImageSourceKind = "fallback" | "original" | "rejected" | "thumbnail";
 export type ProductImageFit = "contain" | "cover";
@@ -22,6 +24,9 @@ export function normalizeProductImageUrl(value: string | null): string | null {
       return null;
     }
     if (url.hostname === "storage.googleapis.com" && !STORAGE_PRODUCT_PATH.test(url.pathname)) {
+      return null;
+    }
+    if (url.hostname === "psfbmdfezgyruscqbqbn.supabase.co" && !NORMALIZED_PRODUCT_PATH.test(url.pathname)) {
       return null;
     }
     if ([...url.searchParams.keys()].some((key) => key !== "alt" && key !== "token")) {
