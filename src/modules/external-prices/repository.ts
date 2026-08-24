@@ -68,9 +68,10 @@ export class ExternalPriceRepository {
     return data;
   }
 
-  async reviewRow(companyId: string, uploadId: string, rowId: string, productId: string | null, skip: boolean): Promise<void> {
-    const { error } = await (await createClient()).rpc("review_external_price_row", { p_company_id: companyId, p_upload_id: uploadId, p_row_id: rowId, p_catalog_product_id: productId, p_skip: skip });
-    if (error) throw new ExternalPriceRepositoryError(error.code);
+  async reviewRow(companyId: string, uploadId: string, rowId: string, productId: string | null, skip: boolean): Promise<JsonRecord> {
+    const { data, error } = await (await createClient()).rpc("review_external_price_row", { p_company_id: companyId, p_upload_id: uploadId, p_row_id: rowId, p_catalog_product_id: productId, p_skip: skip });
+    if (error || !record(data)) throw new ExternalPriceRepositoryError(error?.code ?? null);
+    return data;
   }
 
   async apply(companyId: string, uploadId: string): Promise<JsonRecord> {

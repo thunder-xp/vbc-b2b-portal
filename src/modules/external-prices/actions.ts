@@ -9,7 +9,7 @@ import { type ActionResult, failureFromError, invalidInput, success } from "../a
 import { getPartnerWorkspaceContextAction } from "../partner-cabinet/actions";
 import { createAdminClient } from "@/src/lib/supabase/admin";
 import { MAX_EXTERNAL_PRICE_FILE_SIZE } from "./limits";
-import { ExternalPriceRepository } from "./repository";
+import { ExternalPriceRepository, ExternalPriceRepositoryError } from "./repository";
 import { ExternalPriceService } from "./service";
 import type { ExternalPriceColumnMapping, ExternalPriceFileFormat } from "./types";
 
@@ -104,11 +104,31 @@ export async function reviewExternalPriceRowAction(formData: FormData): Promise<
   const { companyId } = await context();
   const uploadId = required(formData, "uploadId"), rowId = required(formData, "rowId");
   const skip = formData.get("decision") === "skip";
-  await new ExternalPriceRepository().reviewRow(companyId, uploadId, rowId, skip ? null : required(formData, "productId"), skip);
+  let conflict = false;
+  try {
+    const result = await new ExternalPriceRepository().reviewRow(companyId, uploadId, rowId, skip ? null : required(formData, "productId"), skip);
+    conflict = result.errorCode === "CONFLICTING_DUPLICATE_PRICE";
+  } catch (error) {
+    if (!(error instanceof ExternalPriceRepositoryError) || error.code !== "PT409") throw error;
+    conflict = true;
+  }
   revalidatePath(`/cabinet/competitor-prices/${uploadId}`);
+  if (conflict) redirect(`/cabinet/competitor-prices/${uploadId}?notice=price_conflict`);
 }
 
-export async function applyExternalPriceUploadAction(formData: FormData): Promise<void> { const { companyId } = await context(); const id = required(formData, "uploadId"); await new ExternalPriceRepository().apply(companyId, id); revalidatePath(`/cabinet/competitor-prices/${id}`); }
+export async function applyExternalPriceUploadAction(formData: FormData): Promise<void> {
+  const { companyId } = await context();
+  const id = required(formData, "uploadId");
+  let conflict = false;
+  try {
+    await new ExternalPriceRepository().apply(companyId, id);
+  } catch (error) {
+    if (!(error instanceof ExternalPriceRepositoryError) || error.code !== "PT409") throw error;
+    conflict = true;
+  }
+  revalidatePath(`/cabinet/competitor-prices/${id}`);
+  if (conflict) redirect(`/cabinet/competitor-prices/${id}?notice=price_conflict`);
+}
 export async function archiveExternalPriceUploadAction(formData: FormData): Promise<void> { const { companyId } = await context(); const id = required(formData, "uploadId"); await new ExternalPriceRepository().archive(companyId, id); revalidatePath("/cabinet/competitor-prices"); }
 export async function correctExternalPriceUploadAction(formData: FormData): Promise<void> {
   const { companyId } = await context();

@@ -7,6 +7,7 @@ const mappingCorrectionSql=fs.readFileSync(path.join(process.cwd(),"supabase/mig
 const mappingCorrectionEventSql=fs.readFileSync(path.join(process.cwd(),"supabase/migrations/20260823060057_allow_external_price_mapping_corrected_event.sql"),"utf8");
 const duplicateApplicationSql=fs.readFileSync(path.join(process.cwd(),"supabase/migrations/20260823061500_harden_external_price_duplicate_application.sql"),"utf8");
 const governanceSql=fs.readFileSync(path.join(process.cwd(),"supabase/migrations/20260823113000_supplier_price_governance_and_exterior_reclassification.sql"),"utf8");
+const conflictReviewSql=fs.readFileSync(path.join(process.cwd(),"supabase/migrations/20260824213000_preserve_external_price_conflict_review.sql"),"utf8");
 const actions=fs.readFileSync(path.join(process.cwd(),"src/modules/external-prices/actions.ts"),"utf8");
 const uploadForm=fs.readFileSync(path.join(process.cwd(),"src/modules/external-prices/components/ExternalPriceUploadForm.tsx"),"utf8");
 describe("external price intelligence migration",()=>{
@@ -26,4 +27,5 @@ describe("external price intelligence migration",()=>{
   it("uses the view capability as the master feature gate for every supplier-price permission",()=>{expect(governanceSql).toContain("public.has_permission(p_company_id, 'external_prices.view')");expect(governanceSql).toContain("list_external_price_sources(p_company_id uuid)");expect(governanceSql).toContain("revoke all on function public.list_external_price_sources() from public, anon, authenticated");});
   it("reclassifies the authoritative Exterior evidence from partner to retail once",()=>{expect(governanceSql).toContain("Price_Exterior 08.08.2026_edit.xlsx");expect(governanceSql).toContain("'previousPriceLevel','partner','newPriceLevel','retail'");expect(governanceSql).toContain("normalized_model,source_description,null,partner_price,currency");expect(governanceSql).toContain("where upload_id=original_upload.id");});
   it("reconciles false partner pressure without mutating historical snapshots",()=>{expect(governanceSql).toContain("delete from public.partner_product_price_pressure");expect(governanceSql).toContain("current.price_type='partner'");expect(governanceSql).not.toMatch(/delete from public\.competitive_price_snapshots/);});
+  it("keeps manually matched conflicting prices in governed review",()=>{expect(conflictReviewSql).toContain("CONFLICTING_DUPLICATE_PRICE");expect(conflictReviewSql).toContain("target_row.retail_price <> other.retail_price");expect(conflictReviewSql).toContain("'reason', 'conflicting_price'");expect(conflictReviewSql).toContain("match_status = 'needs_review'");expect(conflictReviewSql).toContain("price_conflict_detected");});
 });
