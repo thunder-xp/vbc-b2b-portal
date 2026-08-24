@@ -24,6 +24,10 @@ const batchRankingQualificationMigration = fs.readFileSync(
   path.join(process.cwd(), "supabase/migrations/20260824080256_qualify_ro_localization_batch_rank_columns.sql"),
   "utf8",
 );
+const specificationValueMigration = fs.readFileSync(
+  path.join(process.cwd(), "supabase/migrations/20260824084207_localize_public_retail_specification_values.sql"),
+  "utf8",
+);
 
 describe("portal localization overlay migration", () => {
   it("keeps overlays generic, unique, private, and separate from commercial truth", () => {
@@ -157,6 +161,19 @@ describe("portal localization overlay migration", () => {
   it("resolves PL/pgSQL output-column names deterministically", () => {
     expect(batchRankingQualificationMigration).toContain("#variable_conflict use_column");
     expect(batchRankingQualificationMigration).toContain("create or replace function public.rank_portal_localization_product_batch");
+  });
+
+  it("localizes governed specification values at snapshot build time without changing filter identity", () => {
+    expect(specificationValueMigration).toContain("('ru', 'ro', 'Да', 'Da', 'technical')");
+    expect(specificationValueMigration).toContain("('ru', 'ro', 'NVR (Цифровой)', 'NVR (digital)', 'technical')");
+    expect(specificationValueMigration).toContain("'valueRo',coalesce(value_term.localized_term,spec.value->>'value')");
+    expect(specificationValueMigration).toContain(
+      "'value',case when p_locale='ro' then coalesce(value->>'valueRo',value->>'value') else value->>'value' end",
+    );
+    expect(specificationValueMigration).toContain(
+      "coalesce(attribute.resolved_display_value, attribute.display_value) = value->>'value'",
+    );
+    expect(specificationValueMigration).not.toContain("localization_terminology term where");
   });
 });
 
