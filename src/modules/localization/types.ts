@@ -1,8 +1,10 @@
 export const LOCALIZATION_ENTITY_TYPES = ["category", "product"] as const;
-export const LOCALIZATION_STATUSES = ["missing", "machine_draft", "reviewed", "outdated"] as const;
+export const LOCALIZATION_STATUSES = ["missing", "draft", "reviewed", "outdated"] as const;
+export const LOCALIZATION_CONTENT_SOURCES = ["manual", "machine", "imported"] as const;
 
 export type LocalizationEntityType = (typeof LOCALIZATION_ENTITY_TYPES)[number];
 export type LocalizationStatus = (typeof LOCALIZATION_STATUSES)[number];
+export type LocalizationContentSource = (typeof LOCALIZATION_CONTENT_SOURCES)[number];
 export type LocalizationMutationAction = "save_draft" | "review" | "revert_machine_draft";
 
 export type LocalizationContent = {
@@ -22,10 +24,12 @@ export type LocalizationWorkbenchItem = {
   currentHash: string;
   localizationId: string | null;
   localizedName: string | null;
+  localizedShortDescription: string | null;
   localizedDescription: string | null;
   seoTitle: string | null;
   seoDescription: string | null;
-  translationStatus: Exclude<LocalizationStatus, "missing"> | null;
+  translationStatus: "machine_draft" | "reviewed" | "outdated" | null;
+  contentSource: LocalizationContentSource | null;
   sourceHash: string | null;
   outdatedAgainstHash: string | null;
   translationVersion: number | null;
@@ -34,6 +38,37 @@ export type LocalizationWorkbenchItem = {
   reviewedAt: string | null;
   machineDraftContent: LocalizationContent | null;
   effectiveStatus: LocalizationStatus;
+};
+
+export type LocalizationTransferRow = {
+  entityType: LocalizationEntityType;
+  entityId: string;
+  entityReference: string | null;
+  sku: string | null;
+  locale: "ro";
+  sourceName: string;
+  sourceHash: string;
+  localizedName: string | null;
+  shortDescription: string | null;
+  description: string | null;
+  seoTitle: string | null;
+  seoDescription: string | null;
+  status: LocalizationStatus;
+};
+
+export type LocalizationImportPreview = {
+  rows: Array<{
+    row: number;
+    valid: boolean;
+    reason: string | null;
+    entityType: string | null;
+    entityId: string | null;
+    entityReference: string | null;
+    sourceName: string | null;
+    currentHash: string | null;
+  }>;
+  validCount: number;
+  invalidCount: number;
 };
 
 export type LocalizationSummary = {

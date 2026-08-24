@@ -3,7 +3,13 @@ import "server-only";
 import type { PublicRetailProjectionPublisher } from "../integration/sync/catalog-synchronization-orchestrator";
 import type { LocalizationRepository } from "./localization.repository";
 import type { LocalizationTranslationProvider } from "./translation-provider";
-import type { LocalizationContent, LocalizationEntityType, LocalizationMutationAction, LocalizationStatus } from "./types";
+import type {
+  LocalizationContent,
+  LocalizationEntityType,
+  LocalizationMutationAction,
+  LocalizationStatus,
+  LocalizationTransferRow,
+} from "./types";
 
 export class LocalizationService {
   constructor(
@@ -27,6 +33,34 @@ export class LocalizationService {
   }) {
     validateMutation(input);
     return this.repository.manage({ ...input, locale: "ro", content: normalizeContent(input.content) });
+  }
+
+  exportRows(input: { entityType?: string; status?: string; limit?: number }) {
+    const entityType: LocalizationEntityType = input.entityType === "product" ? "product" : "category";
+    const status = isStatus(input.status) ? input.status : undefined;
+    return this.repository.exportRows({
+      entityType,
+      locale: "ro",
+      status,
+      limit: Math.min(positiveInteger(input.limit, entityType === "category" ? 100 : 50), 100),
+    });
+  }
+
+  parseImport(payload: string): LocalizationTransferRow[] {
+    if (!payload || payload.length > 512_000) throw new LocalizationValidationError();
+    let parsed: unknown;
+    try { parsed = JSON.parse(payload); } catch { throw new LocalizationValidationError(); }
+    if (!Array.isArray(parsed) || parsed.length < 1 || parsed.length > 100) throw new LocalizationValidationError();
+    return parsed.map(parseTransferRow);
+  }
+
+  previewImport(rows: LocalizationTransferRow[]) {
+    return this.repository.previewImport(rows, "ro");
+  }
+
+  importRows(rows: LocalizationTransferRow[], actorUserId: string) {
+    if (!isUuid(actorUserId)) throw new LocalizationValidationError();
+    return this.repository.importRows(rows, "ro", actorUserId);
   }
 
   requestRetranslation(entityType: LocalizationEntityType, entityId: string, actorUserId: string) {
@@ -115,7 +149,36 @@ function validateMutation(input: Parameters<LocalizationService["save"]>[0]) {
 }
 function isUuid(value: string) { return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value); }
 function positiveInteger(value: number | undefined, fallback: number) { return Number.isInteger(value) && Number(value) > 0 ? Number(value) : fallback; }
-function isStatus(value?: string): value is LocalizationStatus { return ["missing","machine_draft","reviewed","outdated"].includes(value ?? ""); }
+function isStatus(value?: string): value is LocalizationStatus { return ["missing","draft","reviewed","outdated"].includes(value ?? ""); }
+function parseTransferRow(value: unknown): LocalizationTransferRow {
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new LocalizationValidationError();
+  const row = value as Record<string, unknown>;
+  const entityType = row.entityType;
+  const status = row.status;
+  if ((entityType !== "category" && entityType !== "product") || !isUuid(String(row.entityId ?? ""))
+    || row.locale !== "ro" || (status !== "draft" && status !== "reviewed")
+    || !/^[0-9a-f]{64}$/.test(String(row.sourceHash ?? ""))) throw new LocalizationValidationError();
+  const nullable = (input: unknown, max: number) => {
+    if (input === null || input === undefined || input === "") return null;
+    if (typeof input !== "string") throw new LocalizationValidationError();
+    return input.trim().slice(0, max) || null;
+  };
+  return {
+    entityType,
+    entityId: String(row.entityId),
+    entityReference: nullable(row.entityReference, 500),
+    sku: nullable(row.sku, 200),
+    locale: "ro",
+    sourceName: nullable(row.sourceName, 500) ?? "",
+    sourceHash: String(row.sourceHash),
+    localizedName: nullable(row.localizedName, 500),
+    shortDescription: nullable(row.shortDescription, 2_000),
+    description: nullable(row.description, entityType === "category" ? 10_000 : 50_000),
+    seoTitle: nullable(row.seoTitle, 200),
+    seoDescription: nullable(row.seoDescription, 500),
+    status,
+  };
+}
 function safeProviderCode(error: unknown) {
   const candidate = error && typeof error === "object" && "safeCode" in error ? String(error.safeCode) : "TRANSLATION_PROVIDER_FAILED";
   return candidate.replace(/[^A-Z0-9_]/gi, "_").toUpperCase().slice(0, 120);

@@ -6,6 +6,8 @@ import type {
   LocalizationEntityType,
   LocalizationMutationAction,
   LocalizationStatus,
+  LocalizationImportPreview,
+  LocalizationTransferRow,
   LocalizationWorkbenchPage,
 } from "./types";
 
@@ -18,6 +20,14 @@ export interface LocalizationRepository {
     page: number;
     pageSize: number;
   }): Promise<LocalizationWorkbenchPage>;
+  exportRows(input: {
+    entityType: LocalizationEntityType;
+    locale: string;
+    status?: LocalizationStatus;
+    limit: number;
+  }): Promise<LocalizationTransferRow[]>;
+  previewImport(rows: LocalizationTransferRow[], locale: string): Promise<LocalizationImportPreview>;
+  importRows(rows: LocalizationTransferRow[], locale: string, actorUserId: string): Promise<{ importedCount: number }>;
   manage(input: {
     entityType: LocalizationEntityType;
     entityId: string;

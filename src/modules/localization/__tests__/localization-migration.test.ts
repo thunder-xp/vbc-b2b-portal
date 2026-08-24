@@ -8,6 +8,10 @@ const machineDraftOrderingMigration = fs.readFileSync(
   path.join(process.cwd(), "supabase/migrations/20260823204500_order_localization_machine_drafts_by_version.sql"),
   "utf8",
 );
+const manualWorkflowMigration = fs.readFileSync(
+  path.join(process.cwd(), "supabase/migrations/20260824051958_manual_ro_localization_workflow.sql"),
+  "utf8",
+);
 
 describe("portal localization overlay migration", () => {
   it("keeps overlays generic, unique, private, and separate from commercial truth", () => {
@@ -78,6 +82,33 @@ describe("portal localization overlay migration", () => {
     expect(machineDraftOrderingMigration).not.toContain(
       "order by revision.created_at desc,revision.id desc limit 1",
     );
+  });
+
+  it("adds a provider-neutral content source without weakening private access", () => {
+    expect(manualWorkflowMigration).toMatch(/content_source in \('manual','machine','imported'\)/);
+    expect(manualWorkflowMigration).toContain("new.content_source := 'machine'");
+    expect(manualWorkflowMigration).toMatch(/revoke all on function[\s\S]*preview_portal_localization_import[\s\S]*from public,anon,authenticated/);
+    expect(manualWorkflowMigration).not.toMatch(/grant execute on function[\s\S]*import_portal_localizations[\s\S]*to authenticated/);
+  });
+
+  it("limits transfer to published entities and validates the complete batch before writes", () => {
+    const importFunction = manualWorkflowMigration.slice(
+      manualWorkflowMigration.indexOf("create or replace function public.import_portal_localizations"),
+      manualWorkflowMigration.indexOf("insert into public.localization_terminology"),
+    );
+    expect(manualWorkflowMigration).toContain("not between 1 and 100");
+    expect(manualWorkflowMigration).toContain("ENTITY_NOT_PUBLIC_OR_UNKNOWN");
+    expect(manualWorkflowMigration).toContain("SOURCE_HASH_MISMATCH");
+    expect(manualWorkflowMigration).toContain("LOCALIZATION_IMPORT_CONFLICT");
+    expect(importFunction.indexOf("preview:=public.preview_portal_localization_import"))
+      .toBeLessThan(importFunction.indexOf("for input_row in select value from jsonb_array_elements(p_rows)"));
+    expect(manualWorkflowMigration).not.toMatch(/update public\.localization_revisions/);
+  });
+
+  it("scopes manual work to the public snapshot and excludes Project Equipment", () => {
+    expect(manualWorkflowMigration).toContain("public.list_portal_localization_sources");
+    expect(manualWorkflowMigration).toContain("category.name <> '-PROJECT EQUIPMENT-'");
+    expect(manualWorkflowMigration).toContain("path->>'nameRu'='-PROJECT EQUIPMENT-'");
   });
 });
 

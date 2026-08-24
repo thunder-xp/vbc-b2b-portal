@@ -6,7 +6,8 @@ import { LocalizationService } from "../localization.service";
 
 function repository(): LocalizationRepository {
   return {
-    getWorkbench: vi.fn(), manage: vi.fn(), requestRetranslation: vi.fn(),
+    getWorkbench: vi.fn(), exportRows: vi.fn(), previewImport: vi.fn(), importRows: vi.fn(),
+    manage: vi.fn(), requestRetranslation: vi.fn(),
     claim: vi.fn().mockResolvedValue({
       runId: "10000000-0000-4000-8000-000000000001",
       terminology: { "Разрешение": "Rezoluție" },
@@ -75,5 +76,26 @@ describe("LocalizationService", () => {
     const result = await new LocalizationService(repo, new FakeLocalizationTranslationProvider(), publisher).processBatch();
     expect(result).toMatchObject({ completed: 2, applied: 0 });
     expect(publisher.publishCurrentProjection).not.toHaveBeenCalled();
+  });
+
+  it("parses a bounded manual JSON import without accepting missing identities", () => {
+    const service = new LocalizationService(repository());
+    const row = {
+      entityType: "product", entityId: "10000000-0000-4000-8000-000000000003", entityReference: "400448",
+      sku: "400448", locale: "ro", sourceName: "Camera", sourceHash: "a".repeat(64),
+      localizedName: "Cameră", shortDescription: "Descriere scurtă", description: "Descriere",
+      seoTitle: "Cameră | Novotech", seoDescription: "Cameră de supraveghere.", status: "reviewed",
+    };
+    expect(service.parseImport(JSON.stringify([row]))).toEqual([row]);
+    expect(() => service.parseImport(JSON.stringify([{ ...row, entityId: "" }]))).toThrow("Localization input is invalid.");
+    expect(() => service.parseImport(JSON.stringify(Array.from({ length: 101 }, () => row)))).toThrow();
+  });
+
+  it("uses a bounded export for the first product wave", async () => {
+    const repo = repository();
+    vi.mocked(repo.exportRows).mockResolvedValue([]);
+    const service = new LocalizationService(repo);
+    await service.exportRows({ entityType: "product", limit: 500 });
+    expect(repo.exportRows).toHaveBeenCalledWith({ entityType: "product", locale: "ro", status: undefined, limit: 100 });
   });
 });

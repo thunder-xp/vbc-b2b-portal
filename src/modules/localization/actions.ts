@@ -9,6 +9,10 @@ import { PublicRetailPublicationService } from "../public-retail/services/public
 import { SupabasePublicRetailPublicationRepository } from "../public-retail/repositories/supabase/public-retail-publication.supabase-repository";
 
 export type LocalizationActionResult = { success: true; message: string } | { success: false; message: string; code: string };
+export type LocalizationTransferActionResult = LocalizationActionResult & {
+  payload?: string;
+  preview?: { validCount: number; invalidCount: number; rows: Array<{ row: number; valid: boolean; reason: string | null; sourceName: string | null }> };
+};
 
 export async function saveLocalizationAction(input: {
   entityType: LocalizationEntityType; entityId: string; action: "save_draft" | "review";
@@ -25,6 +29,47 @@ export async function saveLocalizationAction(input: {
   } catch (error) {
     const code = error && typeof error === "object" && "code" in error ? String(error.code) : "LOCALIZATION_MUTATION_FAILED";
     return { success: false, code, message: code === "PT409" ? "Источник или версия изменились. Обновите страницу." : "Не удалось сохранить локализацию." };
+  }
+}
+
+export async function exportLocalizationAction(input: {
+  entityType: LocalizationEntityType; status?: "missing" | "draft" | "reviewed" | "outdated"; limit?: number;
+}): Promise<LocalizationTransferActionResult> {
+  try {
+    await requireAdminPermission("admin.catalog.manage");
+    const rows = await createLocalizationService().exportRows(input);
+    return { success: true, message: `Подготовлено записей: ${rows.length}.`, payload: JSON.stringify(rows, null, 2) };
+  } catch {
+    return { success: false, code: "LOCALIZATION_EXPORT_FAILED", message: "Не удалось подготовить экспорт." };
+  }
+}
+
+export async function previewLocalizationImportAction(payload: string): Promise<LocalizationTransferActionResult> {
+  try {
+    await requireAdminPermission("admin.catalog.manage");
+    const service = createLocalizationService();
+    const preview = await service.previewImport(service.parseImport(payload));
+    return { success: true, message: preview.invalidCount ? "Импорт содержит ошибки." : "Файл готов к импорту.", preview };
+  } catch {
+    return { success: false, code: "LOCALIZATION_IMPORT_INVALID", message: "Файл не прошёл проверку." };
+  }
+}
+
+export async function importLocalizationAction(payload: string): Promise<LocalizationTransferActionResult> {
+  try {
+    const context = await requireAdminPermission("admin.catalog.manage");
+    const service = createLocalizationService();
+    const result = await service.importRows(service.parseImport(payload), context.userId);
+    const published = await publishLocalizationSnapshot();
+    revalidatePath("/admin/content/localization");
+    return { success: true, message: published
+      ? `Импортировано и опубликовано: ${result.importedCount}.`
+      : `Импортировано: ${result.importedCount}. Публикация будет повторена.` };
+  } catch (error) {
+    const code = error && typeof error === "object" && "code" in error ? String(error.code) : "LOCALIZATION_IMPORT_FAILED";
+    return { success: false, code, message: code === "PT409"
+      ? "Исходные данные изменились. Выполните новый экспорт."
+      : "Не удалось импортировать локализацию." };
   }
 }
 
