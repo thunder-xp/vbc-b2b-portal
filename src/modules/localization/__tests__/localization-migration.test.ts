@@ -12,6 +12,10 @@ const manualWorkflowMigration = fs.readFileSync(
   path.join(process.cwd(), "supabase/migrations/20260824051958_manual_ro_localization_workflow.sql"),
   "utf8",
 );
+const boundedImportMigration = fs.readFileSync(
+  path.join(process.cwd(), "supabase/migrations/20260824075932_bound_localization_import_source_resolution.sql"),
+  "utf8",
+);
 
 describe("portal localization overlay migration", () => {
   it("keeps overlays generic, unique, private, and separate from commercial truth", () => {
@@ -109,6 +113,18 @@ describe("portal localization overlay migration", () => {
     expect(manualWorkflowMigration).toContain("public.list_portal_localization_sources");
     expect(manualWorkflowMigration).toContain("category.name <> '-PROJECT EQUIPMENT-'");
     expect(manualWorkflowMigration).toContain("path->>'nameRu'='-PROJECT EQUIPMENT-'");
+  });
+
+  it("resolves public localization sources once per bounded import batch", () => {
+    expect(boundedImportMigration).toContain("product_sources as materialized");
+    expect(boundedImportMigration).toContain("category_sources as materialized");
+    expect(boundedImportMigration).toContain("source_hash := input_row->>'sourceHash'");
+    expect(boundedImportMigration).not.toMatch(
+      /for input_row[\s\S]*from public\.list_portal_localization_sources\(input_row->>'entityType'/,
+    );
+    expect(boundedImportMigration).toMatch(
+      /revoke all on function public\.preview_portal_localization_import[\s\S]*from public, anon, authenticated/,
+    );
   });
 });
 
