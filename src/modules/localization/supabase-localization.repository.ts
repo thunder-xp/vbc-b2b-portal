@@ -32,7 +32,7 @@ const item = z.object({
     localizedName: z.string().nullable(), shortDescription: z.string().nullable().optional(),
     description: z.string().nullable().optional(), intro: z.string().nullable().optional(),
     seoTitle: z.string().nullable(), seoDescription: z.string().nullable(),
-  }).passthrough().nullable(),
+  }).passthrough().nullable().optional(),
   effective_status: z.enum(["missing", "draft", "reviewed", "outdated"]),
   sort_order: z.number().optional(),
 }).passthrough();
@@ -96,7 +96,7 @@ export class SupabaseLocalizationRepository implements LocalizationRepository {
         translationStatus: row.translation_status, contentSource: row.content_source, sourceHash: row.source_hash,
         outdatedAgainstHash: row.outdated_against_hash, translationVersion: row.translation_version,
         revision: row.revision, translatedAt: row.translated_at, reviewedAt: row.reviewed_at,
-        machineDraftContent: row.machine_draft_content,
+        machineDraftContent: row.machine_draft_content ?? null,
         effectiveStatus: row.effective_status,
       })),
       totalCount: parsed.totalCount, page: input.page, pageSize: input.pageSize, summary: parsed.summary,

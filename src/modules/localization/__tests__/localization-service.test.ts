@@ -98,4 +98,13 @@ describe("LocalizationService", () => {
     await service.exportRows({ entityType: "product", limit: 500 });
     expect(repo.exportRows).toHaveBeenCalledWith({ entityType: "product", locale: "ro", status: undefined, limit: 100 });
   });
+
+  it("keeps the manual workbench independent of optional machine draft history", async () => {
+    const repo = repository();
+    vi.mocked(repo.getWorkbench).mockResolvedValue({ items: [], totalCount: 0, page: 1, pageSize: 20,
+      summary: { missingProducts: 0, machineDraftProducts: 0, reviewedProducts: 0, outdatedProducts: 0,
+        missingCategories: 0, machineDraftCategories: 0, reviewedCategories: 0, outdatedCategories: 0,
+        queuedJobs: 0, failedJobs: 0, lastRun: null } });
+    await expect(new LocalizationService(repo).listWorkbench({})).resolves.toMatchObject({ items: [] });
+  });
 });
