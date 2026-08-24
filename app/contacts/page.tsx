@@ -38,7 +38,7 @@ export default async function ContactsPage({ searchParams }: { searchParams: Par
       <header className="max-w-3xl border-b border-zinc-200 pb-7">
         <p className="text-xs font-semibold uppercase text-blue-700">Novotech Systems</p>
         <h1 className="mt-2 text-3xl font-semibold sm:text-4xl">{ru ? "Контакты и магазины" : "Contacte și magazine"}</h1>
-        <p className="mt-3 text-sm leading-6 text-zinc-600">{publicCompanyContent.descriptor[locale]}</p>
+        <p className="mt-3 text-sm leading-6 text-zinc-600">{publicCompanyContent.slogan[locale]}</p>
       </header>
 
       <section aria-labelledby="stores-heading" className="py-8">

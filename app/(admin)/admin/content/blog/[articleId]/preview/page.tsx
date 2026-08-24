@@ -1,0 +1,6 @@
+import { notFound } from "next/navigation";
+import { requireAdminPagePermission } from "@/src/modules/admin";
+import { PublicBlogArticleView } from "@/src/modules/public-blog/components";
+import { getAdminBlogService } from "@/src/modules/public-blog/server";
+
+export default async function AdminBlogPreviewPage({ params, searchParams }: { params: Promise<{ articleId: string }>; searchParams: Promise<{ locale?: string }> }) { await requireAdminPagePermission("admin.catalog.manage"); const [{ articleId }, query] = await Promise.all([params, searchParams]); const locale = query.locale === "ro" ? "ro" : "ru"; const article = await getAdminBlogService().get(articleId, locale); if (!article) notFound(); const preview = { ...article, publishedAt: article.publishedAt ?? new Date().toISOString(), updatedAt: new Date().toISOString(), heroUrl: article.heroPublicUrl, products: [], categories: [], services: [], related: [] }; return <main className="bg-white p-4 sm:p-8"><p className="mx-auto mb-8 max-w-4xl border-l-4 border-amber-500 bg-amber-50 p-4 text-sm">Внутренний предпросмотр. Страница закрыта от индексации административным layout.</p><PublicBlogArticleView article={preview} locale={locale} /></main>; }

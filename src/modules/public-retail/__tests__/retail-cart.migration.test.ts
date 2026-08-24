@@ -172,7 +172,7 @@ describe("governed anonymous Retail Cart migration", () => {
     expect(addButton).toContain("PUBLIC_RETAIL_CART_UPDATED_EVENT");
     expect(addButton).not.toContain("router.refresh");
     expect(retailShell).not.toContain('aria-label="Novotech Systems Distribution"');
-    expect(retailShell).toContain("publicCompanyContent.descriptor[locale]");
+    expect(retailShell).toContain("publicCompanyContent.slogan[locale]");
     expect(retailShell).toContain("novotech-logo-${background}-original.webp");
     expect(retailShell).not.toContain('src="/brand/novotech-symbol.webp"');
     expect(retailShell).not.toContain("ShieldCheck");

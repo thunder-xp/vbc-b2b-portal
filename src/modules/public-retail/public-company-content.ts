@@ -3,6 +3,10 @@ import type { PublicRetailLocale } from "./types";
 type LocalizedValue = Record<PublicRetailLocale, string>;
 
 export const publicCompanyContent = {
+  slogan: {
+    ru: "Прямой импортер оборудования и решений.",
+    ro: "Importator direct de echipamente și soluții.",
+  } satisfies LocalizedValue,
   descriptor: {
     ru: "Прямой импортёр оборудования и решений для безопасности вашего дома и бизнеса.",
     ro: "Importator direct de echipamente și soluții de securitate pentru casa și afacerea dumneavoastră.",

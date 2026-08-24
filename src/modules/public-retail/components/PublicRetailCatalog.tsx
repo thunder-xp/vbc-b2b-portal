@@ -17,10 +17,12 @@ import { PublicRetailCategoryMenu } from "./PublicRetailCategoryMenu";
 import { PublicRetailSearchForm } from "./PublicRetailSearchForm";
 import { PublicBreadcrumbs, type PublicBreadcrumbItem } from "./PublicBreadcrumbs";
 import type { PublicCategoryContent } from "../content";
+import type { PublicBlogCard } from "../../public-blog/types";
+import { PublicBlogInlineLinks } from "../../public-blog/components";
 
 type CatalogState = PublicRetailCatalogState;
 
-export function PublicRetailCatalog({ breadcrumbs, categories, categoryContent, facets, locale, products, state }: { breadcrumbs?: PublicBreadcrumbItem[]; categories: PublicRetailCategoryDto[]; categoryContent?: PublicCategoryContent | null; facets: PublicRetailFacetDto[]; locale: PublicRetailLocale; products: PublicRetailProductPageDto; state: CatalogState }) {
+export function PublicRetailCatalog({ blogArticles = [], breadcrumbs, categories, categoryContent, facets, locale, products, state }: { blogArticles?: PublicBlogCard[]; breadcrumbs?: PublicBreadcrumbItem[]; categories: PublicRetailCategoryDto[]; categoryContent?: PublicCategoryContent | null; facets: PublicRetailFacetDto[]; locale: PublicRetailLocale; products: PublicRetailProductPageDto; state: CatalogState }) {
   const copy = retailCopy[locale];
   const pageTitle = categoryContent?.heading ?? (state.mode === "replenishment" ? copy.replenishmentCollection : copy.catalog);
   const collectionBadge = state.mode ? publicRetailMerchandisingBadge(locale, state.mode) : undefined;
@@ -57,6 +59,7 @@ export function PublicRetailCatalog({ breadcrumbs, categories, categoryContent, 
         <Pagination locale={locale} products={products} state={state} />
       </section>
     </div>
+    <PublicBlogInlineLinks articles={blogArticles} locale={locale} title={locale === "ro" ? "Ghiduri pentru această categorie" : "Материалы по этой категории"} />
   </div>;
 }
 

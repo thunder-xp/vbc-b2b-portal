@@ -39,7 +39,7 @@ describe("public retail landing", () => {
     expect(heroPrimary.compareDocumentPosition(heroCatalog) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getByRole("link", { name: "Открыть каталог" })).toHaveAttribute("href", "/catalog?lang=ru&view=all");
     expect(screen.getAllByRole("link", { name: "Контакты" })[0]).toHaveAttribute("href", "/contacts?lang=ru");
-    expect(screen.getAllByText("Прямой импортёр оборудования и решений для безопасности вашего дома и бизнеса.").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Прямой импортер оборудования и решений.").length).toBeGreaterThan(0);
     expect(screen.getAllByRole("search").length).toBeGreaterThan(0);
     expect(screen.queryByText("Партнёрская платформа Novotech")).not.toBeInTheDocument();
     expect(screen.queryByText("Стать партнёром")).not.toBeInTheDocument();

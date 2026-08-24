@@ -11,6 +11,7 @@ import { getPublicRetailCategories, getPublicRetailCategoryFacets, getPublicReta
 import { parseCatalogAttributeFilters } from "@/src/modules/catalog/services/catalog-sort-state";
 import { publicRetailCatalogReturnHref } from "@/src/modules/public-retail/catalog-links";
 import type { PublicRetailMerchandisingMode, PublicRetailPriceSort } from "@/src/modules/public-retail/types";
+import { getPublicBlogForCategory } from "@/src/modules/public-blog/server";
 
 type Params = Record<string, string | string[] | undefined>;
 
@@ -82,6 +83,9 @@ export default async function PublicCatalogPage({ searchParams }: { searchParams
   const categoryContent = activeCategory
     ? buildPublicCategoryContent({ category: activeCategory, categories: visibleCategories, facets: categoryFacets, locale })
     : null;
+  const usefulMaterials = activeCategory
+    ? await getPublicBlogForCategory(activeCategory.id, locale).catch(() => [])
+    : [];
   const canonicalUrl = publicLocalizedUrl("/catalog", locale, seoState.canonicalParams);
   const breadcrumbItems = publicCategoryBreadcrumbs(categoryContent, locale);
   const schema = [
@@ -102,7 +106,7 @@ export default async function PublicCatalogPage({ searchParams }: { searchParams
     },
     publicBreadcrumbSchema(breadcrumbItems),
   ];
-  return <PublicRetailShell languagePath="/catalog" locale={locale}><PublicStructuredData data={schema} /><main><PublicRetailCatalog breadcrumbs={breadcrumbItems} categories={categories} categoryContent={categoryContent} facets={categoryFacets} locale={locale} products={products} state={{ q, category, availability, attributeFilters, mode: merchandisingMode, sort: priceSort, returnHref, page }} /></main></PublicRetailShell>;
+  return <PublicRetailShell languagePath="/catalog" locale={locale}><PublicStructuredData data={schema} /><main><PublicRetailCatalog blogArticles={usefulMaterials} breadcrumbs={breadcrumbItems} categories={categories} categoryContent={categoryContent} facets={categoryFacets} locale={locale} products={products} state={{ q, category, availability, attributeFilters, mode: merchandisingMode, sort: priceSort, returnHref, page }} /></main></PublicRetailShell>;
 }
 
 function publicCategoryBreadcrumbs(content: PublicCategoryContent | null, locale: "ru" | "ro") {

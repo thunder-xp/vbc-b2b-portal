@@ -45,6 +45,11 @@ export const ADMIN_NAVIGATION: readonly AdminNavigationGroup[] = [
         permission: "admin.catalog.view",
       },
       {
+        label: "Публичный блог",
+        href: "/admin/content/blog",
+        permission: "admin.catalog.manage",
+      },
+      {
         label: "Аналитика спроса",
         href: "/admin/commercial/analytics",
         permission: "admin.analytics.view",

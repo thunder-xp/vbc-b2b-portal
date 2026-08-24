@@ -13,6 +13,8 @@ import { featuredRetailCategories, protectedObjectOptions, publicRetailFullCatal
 import { publicCompanyContent } from "@/src/modules/public-retail/public-company-content";
 import { buildPublicMetadata, publicOrganizationSchemas } from "@/src/modules/public-retail/seo";
 import { getPublicRetailService } from "@/src/modules/public-retail/server";
+import { getPublicBlogLanding } from "@/src/modules/public-blog/server";
+import { PublicBlogCardView } from "@/src/modules/public-blog/components";
 
 type Params = Promise<Record<string, string | string[] | undefined>>;
 
@@ -28,7 +30,10 @@ export async function generateMetadata({ searchParams }: { searchParams: Params 
 
 export default async function Home({ searchParams }: { searchParams: Params }) {
   const locale = publicRetailLocale((await searchParams).lang);
-  const categories = await getPublicRetailService().listRetailCategories(locale);
+  const [categories, blog] = await Promise.all([
+    getPublicRetailService().listRetailCategories(locale),
+    getPublicBlogLanding(locale, null, 1, 3).catch(() => ({ items: [], total: 0, categories: [] })),
+  ]);
   const categoryBySlug = new Map(categories.map((category) => [category.slug, category]));
   const categoryIcons = [Camera, ShieldCheck, KeyRound, Building2, Network, PlugZap, Cable];
   const objectIcons = [Building2, House, BriefcaseBusiness, Store, Warehouse, Factory, Utensils];
@@ -42,7 +47,7 @@ export default async function Home({ searchParams }: { searchParams: Params }) {
         <div aria-hidden="true" className="absolute inset-0 bg-zinc-950/60" />
         <div className="relative mx-auto flex min-h-[520px] max-w-[1440px] items-center px-4 py-12 sm:min-h-[570px] sm:px-6 lg:min-h-[600px] lg:px-8">
           <div className="max-w-2xl text-white">
-            <p className="text-sm font-semibold text-blue-200">{publicCompanyContent.descriptor[locale]}</p>
+            <p className="text-sm font-semibold text-blue-200">{publicCompanyContent.slogan[locale]}</p>
             <h1 className="mt-3 text-4xl font-semibold leading-tight sm:text-5xl lg:text-6xl">{ru ? "Системы безопасности для дома и бизнеса" : "Sisteme de securitate pentru casă și afaceri"}</h1>
             <p className="mt-5 max-w-xl text-base leading-7 text-zinc-100 sm:text-lg">{ru ? "Выберите оборудование самостоятельно или получите расчёт совместимой системы с доставкой и профессиональным монтажом." : "Alegeți echipamentul sau obțineți calculul unui sistem compatibil, cu livrare și instalare profesională."}</p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -83,7 +88,7 @@ export default async function Home({ searchParams }: { searchParams: Params }) {
         [ru ? "Поддержка и гарантия" : "Suport și garanție", ru ? "Консультация по оборудованию до и после покупки." : "Consultanță privind echipamentele înainte și după cumpărare."],
       ].map(([title, text]) => <div key={title}><CheckCircle2 aria-hidden="true" className="size-6 text-blue-400" /><h2 className="mt-4 text-lg font-semibold">{title}</h2><p className="mt-2 text-sm leading-6 text-zinc-300">{text}</p></div>)}</div></section>
 
-      <section className="mx-auto max-w-[1440px] px-4 py-12 sm:px-6 lg:px-8"><div className="flex flex-wrap items-end justify-between gap-4"><div><p className="public-brand-eyebrow text-xs font-semibold uppercase">{ru ? "Полезно знать" : "Ghiduri"}</p><h2 className="mt-2 text-2xl font-semibold">{ru ? "Как выбрать систему" : "Cum alegeți sistemul"}</h2></div><Link className="public-brand-link inline-flex min-h-11 items-center gap-2 text-sm font-semibold" href={`/guides?lang=${locale}`}>{ru ? "Все материалы" : "Toate ghidurile"}<ArrowRight aria-hidden="true" className="size-4" /></Link></div><Link className="mt-6 block border border-zinc-200 p-5 hover:border-blue-500" href={`/guides/cctv-selection?lang=${locale}`}><h3 className="text-lg font-semibold">{ru ? "Как подобрать видеонаблюдение для дома или бизнеса" : "Cum alegeți supravegherea video pentru casă sau afacere"}</h3><p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-600">{ru ? "Камеры, архив, сеть и монтаж: практический порядок выбора без лишних технических сложностей." : "Camere, arhivă, rețea și instalare: o ordine practică de alegere."}</p></Link></section>
+      <section className="mx-auto max-w-[1440px] px-4 py-12 sm:px-6 lg:px-8"><div className="flex flex-wrap items-end justify-between gap-4"><div><p className="public-brand-eyebrow text-xs font-semibold uppercase">{ru ? "Полезно знать" : "Ghiduri"}</p><h2 className="mt-2 text-2xl font-semibold">{ru ? "Как выбрать систему" : "Cum alegeți sistemul"}</h2></div><Link className="public-brand-link inline-flex min-h-11 items-center gap-2 text-sm font-semibold" href={`/blog?lang=${locale}`}>{ru ? "Все материалы" : "Toate materialele"}<ArrowRight aria-hidden="true" className="size-4" /></Link></div>{blog.items.length ? <div className="mt-6 grid gap-5 md:grid-cols-3">{blog.items.slice(0, 3).map((article) => <PublicBlogCardView article={article} key={article.id} locale={locale} />)}</div> : <Link className="mt-6 block border border-zinc-200 p-5 hover:border-blue-500" href={`/blog?lang=${locale}`}><h3 className="text-lg font-semibold">{ru ? "Практические руководства Novotech" : "Ghiduri practice Novotech"}</h3><p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-600">{ru ? "Материалы по выбору, монтажу и эксплуатации систем безопасности." : "Materiale despre alegerea, instalarea și utilizarea sistemelor de securitate."}</p></Link>}</section>
 
       <section className="bg-blue-800 text-white" id="delivery"><div className="mx-auto flex max-w-[1440px] flex-col gap-5 px-4 py-10 sm:px-6 md:flex-row md:items-center md:justify-between lg:px-8"><div><h2 className="text-2xl font-semibold">{ru ? "Уже знаете нужную модель?" : "Știți deja modelul necesar?"}</h2><p className="mt-2 text-sm text-blue-100">{ru ? "Найдите товар по модели, артикулу или названию." : "Găsiți produsul după model, cod sau denumire."}</p></div><Link className="inline-flex min-h-12 items-center justify-center bg-white px-6 text-sm font-semibold text-blue-900" href={publicRetailFullCatalogHref(locale)}>{ru ? "Открыть каталог" : "Deschide catalogul"}</Link></div></section>
     </main>

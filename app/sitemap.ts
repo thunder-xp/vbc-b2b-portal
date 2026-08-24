@@ -3,6 +3,7 @@ import type { MetadataRoute } from "next";
 import { PUBLIC_SITE_ORIGIN, publicLocalizedUrl } from "@/src/modules/public-retail/seo";
 import { listPublicSeoProducts } from "@/src/modules/public-retail/seo-inventory";
 import type { PublicRetailLocale } from "@/src/modules/public-retail/types";
+import { getPublicBlogService } from "@/src/modules/public-blog/server";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,7 @@ const staticPaths = [
   "/installation",
   "/guides",
   "/guides/cctv-selection",
+  "/blog",
 ];
 
 function sitemapXmlUrl(path: string, locale: PublicRetailLocale, params: Record<string, string> = {}) {
@@ -25,7 +27,10 @@ function sitemapXmlUrl(path: string, locale: PublicRetailLocale, params: Record<
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const products = await listPublicSeoProducts();
+  const [products, blogEntries] = await Promise.all([
+    listPublicSeoProducts(),
+    getPublicBlogService().sitemap().catch(() => []),
+  ]);
   const categoryLastModified = new Map<string, Date>();
   for (const product of products) {
     if (!product.lastModified) continue;
@@ -51,6 +56,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...staticPaths.flatMap((path) => localized(path)),
     ...[...categorySlugs].sort().flatMap((category) => localized("/catalog", { category }, categoryLastModified.get(category))),
     ...products.flatMap((product) => localized(`/products/${product.slug}`, {}, product.lastModified)),
+    ...blogEntries.map((entry) => {
+      const available = blogEntries.filter((candidate) => candidate.slug === entry.slug).map((candidate) => candidate.locale);
+      const languages = Object.fromEntries([
+        ...available.map((locale) => [locale, sitemapXmlUrl(`/blog/${entry.slug}`, locale)]),
+        ...(available.includes("ru") ? [["x-default", sitemapXmlUrl(`/blog/${entry.slug}`, "ru")]] : []),
+      ]);
+      return { url: sitemapXmlUrl(`/blog/${entry.slug}`, entry.locale), lastModified: new Date(entry.lastModified), alternates: { languages } };
+    }),
   ];
 }
 

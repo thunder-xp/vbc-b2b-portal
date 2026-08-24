@@ -41,10 +41,13 @@ describe("Public Retail shell", () => {
 
     const header = screen.getByRole("banner");
     const cabinet = within(header).getAllByRole("link", { name: "Кабинет партнёра" })[0];
+    const language = within(header).getByRole("link", { name: "Переключить на румынский" });
     const cart = within(header).getByRole("link", { name: "Корзина: 11" });
     expect(cabinet).toHaveAttribute("href", "/cabinet");
     expect(cabinet.textContent).toBe("");
-    expect(cabinet.compareDocumentPosition(cart) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(cabinet.compareDocumentPosition(language) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(language).toHaveTextContent("RO");
+    expect(language.compareDocumentPosition(cart) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(cart).toHaveTextContent("Корзина");
     expect(cart).toHaveTextContent("11");
     const brand = within(header).getByRole("link", { name: "NovotechNOVOTECH SYSTEMSDISTRIBUTION" });
@@ -54,7 +57,8 @@ describe("Public Retail shell", () => {
     expect(within(header).queryByRole("search")).not.toBeInTheDocument();
     expect(within(header).queryByRole("searchbox")).not.toBeInTheDocument();
     expect(within(screen.getByRole("contentinfo")).getByRole("img", { name: "Novotech" })).toHaveAttribute("src", expect.stringContaining("novotech-logo-dark-original"));
-    expect(screen.getByText("Прямой импортёр оборудования и решений для безопасности вашего дома и бизнеса.")).toBeInTheDocument();
+    expect(screen.getByText("Прямой импортер оборудования и решений.")).toBeInTheDocument();
+    expect(within(screen.getByRole("contentinfo")).getByText("NOVOTECH SYSTEMS")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Кишинёв, ул. Лев Толстой, 4" })).toHaveAttribute("target", "_blank");
     expect(screen.getByRole("link", { name: "Бельцы, ул. Думитру Карачобану, 118" })).toHaveAttribute("target", "_blank");
     expect(screen.getByRole("link", { name: "0 79 31 33 53" })).toHaveAttribute("href", "tel:+37379313353");
@@ -74,8 +78,6 @@ describe("Public Retail shell", () => {
       "Livrare",
       "Despre noi",
       "Contacte",
-      "RU",
-      "RO",
     ]);
     expect(mobile.getByRole("link", { name: "Catalog" })).toHaveAttribute("href", "/catalog?lang=ro");
     expect(within(screen.getByRole("banner")).queryByRole("search")).not.toBeInTheDocument();
@@ -83,10 +85,7 @@ describe("Public Retail shell", () => {
     expect(screen.getByRole("link", { name: "Coș: 11" })).toHaveAttribute("href", "/cart?lang=ro");
     expect(screen.getByRole("heading", { name: "Informații" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Contacte" })).toBeInTheDocument();
-    for (const languageLink of screen.getAllByRole("link", { name: /^(RU|RO)$/ })) {
-      expect(languageLink.tagName).toBe("A");
-      expect(languageLink).not.toHaveAttribute("data-prefetch");
-    }
+    expect(within(screen.getByRole("banner")).getByRole("link", { name: "Comută în limba rusă" })).toHaveTextContent("RU");
   });
 
   it("renders the real cart utility as an icon-and-label button with its bounded count", () => {

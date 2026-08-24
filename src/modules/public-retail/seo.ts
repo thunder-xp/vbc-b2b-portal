@@ -27,6 +27,8 @@ type PublicMetadataInput = {
   follow?: boolean;
   canonicalParams?: Record<string, string | number | undefined>;
   images?: string[];
+  availableLocales?: PublicRetailLocale[];
+  openGraphType?: "website" | "article";
 };
 
 export function publicLocalizedUrl(
@@ -64,13 +66,21 @@ export function buildPublicMetadata(input: PublicMetadataInput): Metadata {
   return {
     title: input.title,
     description: input.description,
-    alternates: publicAlternates(input.path, input.locale, canonicalParams),
+    alternates: input.availableLocales
+      ? {
+          canonical: publicLocalizedUrl(input.path, input.locale, canonicalParams),
+          languages: Object.fromEntries([
+            ...input.availableLocales.map((locale) => [locale, publicLocalizedUrl(input.path, locale, canonicalParams)]),
+            ...(input.availableLocales.includes("ru") ? [["x-default", publicLocalizedUrl(input.path, "ru", canonicalParams)]] : []),
+          ]),
+        }
+      : publicAlternates(input.path, input.locale, canonicalParams),
     robots: {
       index: input.index ?? true,
       follow: input.follow ?? true,
     },
     openGraph: {
-      type: "website",
+      type: input.openGraphType ?? "website",
       siteName: "Novotech",
       url: publicLocalizedUrl(input.path, input.locale, canonicalParams),
       locale: input.locale === "ro" ? "ro_MD" : "ru_MD",
@@ -328,6 +338,9 @@ export function publicArticleSchema(input: {
   path: string;
   title: string;
   description: string;
+  image?: string | null;
+  publishedAt?: string;
+  updatedAt?: string;
 }): Record<string, unknown> {
   const url = publicLocalizedUrl(input.path, input.locale);
   return {
@@ -335,6 +348,9 @@ export function publicArticleSchema(input: {
     "@id": `${url}#article`,
     headline: input.title,
     description: input.description,
+    ...(input.image ? { image: [new URL(input.image, PUBLIC_SITE_ORIGIN).toString()] } : {}),
+    ...(input.publishedAt ? { datePublished: input.publishedAt } : {}),
+    ...(input.updatedAt ? { dateModified: input.updatedAt } : {}),
     inLanguage: input.locale,
     mainEntityOfPage: url,
     author: { "@id": `${publicLocalizedUrl("/", "ru")}#organization` },
