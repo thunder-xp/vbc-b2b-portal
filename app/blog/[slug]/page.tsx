@@ -25,7 +25,7 @@ export default async function BlogArticlePage({ params, searchParams }: Props) {
   const article = await getPublicBlogArticle(slug, locale);
   if (!article) notFound();
   const home = locale === "ro" ? "Principală" : "Главная";
-  const blog = locale === "ro" ? "Materiale utile" : "Полезные материалы";
+  const blog = locale === "ro" ? "Blog" : "Блог";
   const breadcrumbs = [{ name: home, url: publicLocalizedUrl("/", locale) }, { name: blog, url: publicLocalizedUrl("/blog", locale) }, { name: article.title, url: publicLocalizedUrl(`/blog/${slug}`, locale) }];
   return <PublicRetailShell languagePath={`/blog/${slug}`} locale={locale}><PublicStructuredData data={[publicBreadcrumbSchema(breadcrumbs), publicArticleSchema({ locale, path: `/blog/${slug}`, title: article.title, description: article.excerpt, image: article.heroUrl, publishedAt: article.publishedAt, updatedAt: article.updatedAt })]} /><main className="px-4 py-8 sm:px-6 lg:px-8"><div className="mx-auto max-w-[1280px]"><PublicBreadcrumbs items={breadcrumbs} label={locale === "ro" ? "Navigare ierarhică" : "Хлебные крошки"} /></div><div className="mt-8"><PublicBlogArticleView article={article} locale={locale} /></div></main></PublicRetailShell>;
 }
