@@ -31,5 +31,7 @@ describe("localization admin workbench", () => {
     expect(transfer).toContain("importLocalizationAction");
     expect(transfer).toContain("previewLocalizationImportAction");
     expect(transfer).toContain("file.size > 512_000");
+    expect(transfer).toContain('status: entityType === "product" ? "missing" : undefined');
+    expect(transfer).toContain("100 приоритетных товаров");
   });
 });

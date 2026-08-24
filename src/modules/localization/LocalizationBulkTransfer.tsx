@@ -22,7 +22,11 @@ export function LocalizationBulkTransfer({ canManage, entityType }: {
   const [pending, startTransition] = useTransition();
 
   const exportRows = () => startTransition(async () => {
-    const result = await exportLocalizationAction({ entityType, limit: entityType === "category" ? 100 : 50 });
+    const result = await exportLocalizationAction({
+      entityType,
+      limit: 100,
+      status: entityType === "product" ? "missing" : undefined,
+    });
     setMessage(result.message);
     if (!result.success || !result.payload) return;
     const blob = new Blob([result.payload], { type: "application/json;charset=utf-8" });
@@ -73,7 +77,7 @@ export function LocalizationBulkTransfer({ canManage, entityType }: {
   return <section className="border border-zinc-200 bg-white p-4" aria-labelledby="localization-transfer-title">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div><h2 className="font-semibold" id="localization-transfer-title">Пакетная локализация</h2><p className="mt-1 text-xs text-zinc-500">JSON, максимум 100 записей. Импорт применяется только после полной проверки.</p></div>
-      <button className="min-h-11 border border-zinc-300 bg-white px-4 text-sm font-semibold disabled:opacity-50" disabled={pending} onClick={exportRows} type="button">Экспортировать {entityType === "category" ? "категории" : "50 товаров"}</button>
+      <button className="min-h-11 border border-zinc-300 bg-white px-4 text-sm font-semibold disabled:opacity-50" disabled={pending} onClick={exportRows} type="button">Экспортировать {entityType === "category" ? "категории" : "100 приоритетных товаров"}</button>
     </div>
     <div className="mt-4 flex flex-wrap items-center gap-2">
       <input accept="application/json,.json" className="block min-h-11 max-w-full text-sm" onChange={(event)=>void selectFile(event.target.files?.[0])} ref={inputRef} type="file" />

@@ -16,6 +16,14 @@ const boundedImportMigration = fs.readFileSync(
   path.join(process.cwd(), "supabase/migrations/20260824075932_bound_localization_import_source_resolution.sql"),
   "utf8",
 );
+const batchRankingMigration = fs.readFileSync(
+  path.join(process.cwd(), "supabase/migrations/20260824080000_rank_ro_localization_batch_2.sql"),
+  "utf8",
+);
+const batchRankingQualificationMigration = fs.readFileSync(
+  path.join(process.cwd(), "supabase/migrations/20260824080256_qualify_ro_localization_batch_rank_columns.sql"),
+  "utf8",
+);
 
 describe("portal localization overlay migration", () => {
   it("keeps overlays generic, unique, private, and separate from commercial truth", () => {
@@ -125,6 +133,30 @@ describe("portal localization overlay migration", () => {
     expect(boundedImportMigration).toMatch(
       /revoke all on function public\.preview_portal_localization_import[\s\S]*from public, anon, authenticated/,
     );
+  });
+
+  it("ranks a bounded, auditable Batch 2 without selecting localized or project products", () => {
+    expect(batchRankingMigration).toContain("rank_portal_localization_product_batch");
+    expect(batchRankingMigration).toContain("p_limit not between 1 and 100");
+    expect(batchRankingMigration).toContain("commercial_seo_readiness");
+    expect(batchRankingMigration).toContain("weak_description_remediation");
+    expect(batchRankingMigration).toContain("merchandisingRank");
+    expect(batchRankingMigration).toContain("readinessPenalty");
+    expect(batchRankingMigration).toContain("seoPenalty");
+    expect(batchRankingMigration).toContain("path->>'nameRu'='-PROJECT EQUIPMENT-'");
+    expect(batchRankingMigration).toMatch(/not exists \([\s\S]*public\.product_localizations/);
+    expect(batchRankingMigration).toContain("grant execute on function public.rank_portal_localization_product_batch(text,integer) to service_role");
+    expect(batchRankingMigration).not.toMatch(/grant execute on function public\.rank_portal_localization_product_batch[\s\S]*to authenticated/);
+  });
+
+  it("uses the ranked cohort only for explicit missing-product exports", () => {
+    expect(batchRankingMigration).toContain("elsif p_status='missing' then");
+    expect(batchRankingMigration).toContain("public.rank_portal_localization_product_batch(p_locale,p_limit)");
+  });
+
+  it("resolves PL/pgSQL output-column names deterministically", () => {
+    expect(batchRankingQualificationMigration).toContain("#variable_conflict use_column");
+    expect(batchRankingQualificationMigration).toContain("create or replace function public.rank_portal_localization_product_batch");
   });
 });
 
