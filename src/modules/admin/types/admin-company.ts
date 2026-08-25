@@ -174,6 +174,7 @@ export type AdminCompanyContractMappingProjection = {
   canManage: boolean;
   canSync: boolean;
   suggestedContractRef: string | null;
+  suggestedCashContractRef: string | null;
   defaultContractAmbiguous: boolean;
   cashMapping: AdminCashContractMapping;
   candidates: AdminContractCandidate[];

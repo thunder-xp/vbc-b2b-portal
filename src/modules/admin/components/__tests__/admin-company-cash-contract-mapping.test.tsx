@@ -20,6 +20,17 @@ describe("AdminCompanyCashContractMapping", () => {
     expect(screen.queryByRole("textbox", { name: /GUID/i })).not.toBeInTheDocument();
   });
 
+  it("offers the qualified primary contract through the governed mapping action", () => {
+    const value = mapping();
+    value.currentContractRef = value.candidates[0]!.external1cId;
+    value.suggestedCashContractRef = value.candidates[0]!.external1cId;
+
+    render(<AdminCompanyCashContractMapping mapping={value} />);
+
+    expect(screen.getByText("Основной договор подходит для наличной оплаты")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Использовать основной договор для наличной оплаты" })).toBeEnabled();
+  });
+
   it("shows governed removal and immutable history for an active mapping", () => {
     const value = mapping();
     value.cashMapping = {
@@ -42,6 +53,7 @@ describe("AdminCompanyCashContractMapping", () => {
         qualificationCode: "CASH_CONTRACT_QUALIFIED",
       }],
     };
+    value.suggestedCashContractRef = null;
     render(<AdminCompanyCashContractMapping mapping={value} />);
 
     expect(screen.getByText("Сопоставление действительно")).toBeInTheDocument();
@@ -67,6 +79,7 @@ function mapping(): AdminCompanyContractMappingProjection {
     canManage: true,
     canSync: true,
     suggestedContractRef: null,
+    suggestedCashContractRef: null,
     defaultContractAmbiguous: false,
     cashMapping: {
       contractRole: "cash",

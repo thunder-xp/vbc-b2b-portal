@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, ShieldAlert, Trash2 } from "lucide-react";
+import { CheckCircle2, ShieldAlert, Sparkles, Trash2 } from "lucide-react";
 import { useActionState, useMemo, useState } from "react";
 
 import {
@@ -22,13 +22,18 @@ export function AdminCompanyCashContractMapping({
   mapping: AdminCompanyContractMappingProjection;
 }) {
   const [selectedRef, setSelectedRef] = useState(mapping.cashMapping.active ? mapping.cashMapping.contractRef ?? "" : "");
+  const [suggestionState, suggestionAction, suggestionPending] = useActionState(mapAdminCompanyCashContractAction, INITIAL_STATE);
   const [mapState, mapAction, mapPending] = useActionState(mapAdminCompanyCashContractAction, INITIAL_STATE);
   const [removeState, removeAction, removePending] = useActionState(removeAdminCompanyCashContractAction, INITIAL_STATE);
   const selected = useMemo(
     () => mapping.candidates.find((candidate) => candidate.external1cId === selectedRef) ?? null,
     [mapping.candidates, selectedRef],
   );
-  const state = removeState.message ? removeState : mapState;
+  const suggested = useMemo(
+    () => mapping.candidates.find((candidate) => candidate.external1cId === mapping.suggestedCashContractRef) ?? null,
+    [mapping.candidates, mapping.suggestedCashContractRef],
+  );
+  const state = removeState.message ? removeState : suggestionState.message ? suggestionState : mapState;
 
   return (
     <section className="border border-zinc-200 bg-white p-5">
@@ -42,6 +47,38 @@ export function AdminCompanyCashContractMapping({
         </div>
         <Status mapping={mapping} />
       </div>
+
+      {mapping.canManage && suggested ? (
+        <form action={suggestionAction} className="mt-5 border border-sky-200 bg-sky-50 p-4">
+          <input name="companyId" type="hidden" value={mapping.companyId} />
+          <input name="contractRef" type="hidden" value={suggested.external1cId} />
+          <input name="expectedVersion" type="hidden" value={mapping.cashMapping.version} />
+          <input
+            name="reason"
+            type="hidden"
+            value="Основной договор подтверждён как договор для наличной оплаты"
+          />
+          <div className="flex gap-3">
+            <Sparkles aria-hidden className="mt-0.5 size-5 shrink-0 text-sky-800" />
+            <div className="min-w-0">
+              <p className="font-semibold text-sky-950">Основной договор подходит для наличной оплаты</p>
+              <dl className="mt-2 grid gap-x-5 gap-y-1 text-sm sm:grid-cols-2">
+                <Fact label="Договор" value={suggested.number ?? suggested.name} />
+                <Fact label="Валюта расчётов" value={suggested.settlementCurrencyCode ?? "Не определена"} />
+                <Fact label="Вид цены" value={suggested.priceTypeName ?? suggested.priceTypeRef ?? "Не указан"} />
+                <Fact label="Валюта цен" value={suggested.priceCurrencyCode ?? "Не определена"} />
+              </dl>
+              <button
+                className="mt-3 min-h-11 bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-zinc-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900 disabled:opacity-60"
+                disabled={suggestionPending}
+                type="submit"
+              >
+                {suggestionPending ? "Сохранение..." : "Использовать основной договор для наличной оплаты"}
+              </button>
+            </div>
+          </div>
+        </form>
+      ) : null}
 
       {mapping.canManage ? (
         <form action={mapAction} className="mt-5 space-y-4 border-t border-zinc-200 pt-4">
@@ -103,7 +140,7 @@ export function AdminCompanyCashContractMapping({
 
           <button
             className="min-h-11 bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-zinc-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900 disabled:opacity-60"
-            disabled={mapPending || !selected?.cashQualified}
+            disabled={mapPending || suggestionPending || !selected?.cashQualified}
             type="submit"
           >
             {mapPending ? "Сохранение..." : mapping.cashMapping.active ? "Изменить сопоставление" : "Сопоставить договор"}

@@ -25,6 +25,7 @@ const mapping: AdminCompanyContractMappingProjection = {
   canManage: true,
   canSync: true,
   suggestedContractRef: "e5baa428-8919-11ee-129a-7239d3b7bd5c",
+  suggestedCashContractRef: null,
   defaultContractAmbiguous: false,
   cashMapping: {
     contractRole: "cash",
