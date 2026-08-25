@@ -29,7 +29,9 @@ describe("competitive intelligence architecture boundaries", () => {
 
   it("uses responsive grids without page-level horizontal overflow", () => {
     expect(form).toContain("sm:grid-cols-2");
+    expect(form).toContain("xl:grid-cols-3");
     expect(form).toContain("min-w-0");
+    expect(form).not.toContain("lg:grid-cols-[");
     expect(form).not.toContain("overflow-x-auto");
   });
 

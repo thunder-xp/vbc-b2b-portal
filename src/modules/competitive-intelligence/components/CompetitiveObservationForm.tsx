@@ -40,7 +40,7 @@ export function CompetitiveObservationForm({
     <form action={action} className="border-y border-zinc-200 py-4" ref={formRef}>
       <input name="productId" type="hidden" value={productId} />
       <input name="idempotencyKey" type="hidden" value={idempotencyKey} />
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(11rem,1.3fr)_minmax(8rem,0.8fr)_7rem_9rem_7rem_10rem] lg:items-end">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 xl:items-end">
         <Field label={copy.competitor}>
           <select className={controlClass} name="competitorId" onChange={(event) => setCompetitorId(event.target.value)} value={competitorId}>
             {competitors.map((competitor) => <option key={competitor.id} value={competitor.id}>{competitor.name}</option>)}
@@ -49,7 +49,7 @@ export function CompetitiveObservationForm({
         </Field>
         {competitorId === "other" ? (
           <Field label={copy.competitorName}><input className={controlClass} maxLength={120} name="otherCompetitorName" required /></Field>
-        ) : <div className="hidden lg:block" />}
+        ) : null}
         <Field label={copy.price}><input className={controlClass} inputMode="decimal" min="0.0001" name="price" required step="0.0001" type="number" /></Field>
         <Field label={copy.currency}><select className={controlClass} defaultValue="MDL" name="currency"><option>MDL</option><option>USD</option><option>EUR</option></select></Field>
         <Field label={copy.quantity}><input className={controlClass} defaultValue="1" inputMode="decimal" min="0.001" name="quantity" required step="0.001" type="number" /></Field>
