@@ -36,11 +36,13 @@ export function OrderSubmitForm({
   intentVersion,
   submissionKey,
   checkoutOptions,
+  reconciliationLocked = false,
 }: {
   cartId?: string;
   intentVersion?: number;
   submissionKey: string;
   checkoutOptions?: PartnerCheckoutOptionsDto | null;
+  reconciliationLocked?: boolean;
 }) {
   const [state, action, actionPending] = useActionState(
     submitCartOrderAction,
@@ -119,10 +121,11 @@ export function OrderSubmitForm({
   };
 
   const retryBlocked =
-    !state.success &&
-    ["ORDER_IN_PROGRESS", "ORDER_RECONCILIATION_REQUIRED"].includes(
-      state.errorCode,
-    );
+    reconciliationLocked ||
+    (!state.success &&
+      ["ORDER_IN_PROGRESS", "ORDER_RECONCILIATION_REQUIRED"].includes(
+        state.errorCode,
+      ));
   const busy =
     actionPending ||
     hasPendingMutations ||

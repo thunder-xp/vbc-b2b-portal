@@ -18,9 +18,19 @@ export type OrderItemSnapshotInput = {
   nearestArrivalQuantity: number | null;
 };
 
+export type CartReconciliationLock = {
+  orderId: string;
+  correlationId: string | null;
+  startedAt: string;
+  lastAttemptAt: string | null;
+  attemptCount: number;
+};
+
 export interface CartRepository {
   getActiveItemCount(companyId: string): Promise<number>;
   findActive(companyId: string, userId: string): Promise<Cart | null>;
+  findReconciliationLock(cartId: string): Promise<CartReconciliationLock | null>;
+  findReconciliationLockForItem(itemId: string): Promise<CartReconciliationLock | null>;
   listItems(cartId: string): Promise<CartItem[]>;
   addItem(companyId: string, productId: string, quantity: number): Promise<CartItem>;
   updateItemQuantity(itemId: string, quantity: number): Promise<CartItem>;
@@ -92,6 +102,29 @@ export interface PartnerOrderRepository {
     submissionKey: string;
   }): Promise<PartnerOrder>;
   markManualReviewRequired(orderId: string): Promise<PartnerOrder>;
+}
+
+export type ClaimedOrderReconciliation = {
+  orderId: string;
+  correlationId: string;
+  attemptNumber: number;
+};
+
+export type OrderReconciliationAttemptResult =
+  | "confirmed"
+  | "confirmed_not_created"
+  | "manual_review_required"
+  | "retry_scheduled";
+
+export interface OrderReconciliationRepository {
+  claim(limit: number, leaseSeconds: number): Promise<ClaimedOrderReconciliation[]>;
+  finish(input: {
+    orderId: string;
+    correlationId: string;
+    result: OrderReconciliationAttemptResult;
+    safeErrorCode?: string | null;
+    retryAfterSeconds?: number | null;
+  }): Promise<boolean>;
 }
 
 export class OrderRepositoryError extends Error {

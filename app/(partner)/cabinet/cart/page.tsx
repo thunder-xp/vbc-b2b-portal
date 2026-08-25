@@ -73,6 +73,22 @@ export default async function CartPage() {
         </div>
       ) : (
         <CartCheckoutCoordinator>
+          {cart.reconciliationLock ? (
+            <div
+              aria-live="polite"
+              className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950"
+              role="status"
+            >
+              {cart.reconciliationLock.stale
+                ? copy.cartReconciliationStale
+                : copy.cartReconciliationLocked}
+              {cart.reconciliationLock.stale && cart.reconciliationLock.correlationId ? (
+                <span className="mt-1 block font-mono text-xs">
+                  {copy.correlationCode}: {cart.reconciliationLock.correlationId}
+                </span>
+              ) : null}
+            </div>
+          ) : null}
           <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
             <div className="space-y-4">
               {groups.map((group) => {
@@ -159,6 +175,7 @@ export default async function CartPage() {
                           </div>
                           <CartItemActions
                             itemId={line.id}
+                            locked={cart.reconciliationLock !== null}
                             quantity={line.quantity}
                           />
                         </li>
@@ -206,6 +223,7 @@ export default async function CartPage() {
                 intentVersion={cart.intentVersion!}
                 submissionKey={crypto.randomUUID()}
                 checkoutOptions={cart.checkoutOptions}
+                reconciliationLocked={cart.reconciliationLock !== null}
               />
             </aside>
           </div>

@@ -3,9 +3,10 @@ import { SupabaseCatalogRepository } from "../../catalog/repositories/supabase";
 import { DefaultCatalogService } from "../../catalog/services";
 import { OneCProvider } from "../../integration/providers/one-c";
 import { getOneCEnv } from "../../../lib/env";
+import { createAdminClient } from "../../../lib/supabase/admin";
 import { createPricingInventoryService } from "../../pricing-inventory/actions/service-factory";
-import { SupabaseCartRepository, SupabaseCheckoutConfigurationRepository, SupabaseOrderDateChangeRequestRepository, SupabaseOrderHistoryBootstrapRepository, SupabaseOrderPriceRefreshRepository, SupabasePartnerOrderHistoryRepository, SupabasePartnerOrderRepository } from "../repositories/supabase";
-import { DefaultCartService, DefaultInternalOrderDateChangeService, DefaultOrderPriceRefreshService, DefaultPartnerOrderHistoryService, DefaultPartnerOrderService, OrderHistoryBootstrapService, PartnerOrderHistoryAutomationService, QuickReorderService } from "../services";
+import { SupabaseCartRepository, SupabaseCheckoutConfigurationRepository, SupabaseOrderDateChangeRequestRepository, SupabaseOrderHistoryBootstrapRepository, SupabaseOrderPriceRefreshRepository, SupabaseOrderReconciliationRepository, SupabasePartnerOrderHistoryRepository, SupabasePartnerOrderRepository } from "../repositories/supabase";
+import { DefaultCartService, DefaultInternalOrderDateChangeService, DefaultOrderPriceRefreshService, DefaultPartnerOrderHistoryService, DefaultPartnerOrderService, OrderHistoryBootstrapService, OrderReconciliationWorkerService, PartnerOrderHistoryAutomationService, QuickReorderService } from "../services";
 
 function dependencies() {
   const companyAccessService = createCompanyAccessService();
@@ -30,6 +31,12 @@ export function createCartService(): DefaultCartService {
 }
 
 export function createPartnerOrderService(): DefaultPartnerOrderService {
+  return createPartnerOrderServiceWithRepository(new SupabasePartnerOrderRepository());
+}
+
+function createPartnerOrderServiceWithRepository(
+  orderRepository: SupabasePartnerOrderRepository,
+): DefaultPartnerOrderService {
   const value = dependencies();
   const env = getOneCEnv();
   const provider = new OneCProvider({
@@ -42,7 +49,7 @@ export function createPartnerOrderService(): DefaultPartnerOrderService {
     useLegacyMinimalOrderPayload: env.useLegacyMinimalOrderPayload === true,
   });
   return new DefaultPartnerOrderService(
-    value.cartRepository, value.orderRepository, value.companyAccessService, value.permissionService,
+    value.cartRepository, orderRepository, value.companyAccessService, value.permissionService,
     value.catalogService, value.pricingInventoryService, provider.partners, provider.orders,
     { useLegacyMinimalOrderPayload: env.useLegacyMinimalOrderPayload === true },
     new DefaultOrderPriceRefreshService(
@@ -50,6 +57,15 @@ export function createPartnerOrderService(): DefaultPartnerOrderService {
       new SupabaseOrderPriceRefreshRepository(),
     ),
     new SupabaseCheckoutConfigurationRepository(),
+  );
+}
+
+export function createOrderReconciliationWorkerService(): OrderReconciliationWorkerService {
+  return new OrderReconciliationWorkerService(
+    new SupabaseOrderReconciliationRepository(),
+    createPartnerOrderServiceWithRepository(
+      new SupabasePartnerOrderRepository(createAdminClient),
+    ),
   );
 }
 

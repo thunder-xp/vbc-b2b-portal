@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { InvalidStateError } from "../../../access-control/services";
+import { DomainConflictError, InvalidStateError } from "../../../access-control/services";
 import type { CartRepository } from "../../repositories";
 import { DefaultCartService } from "../cart.service";
 
@@ -28,6 +28,40 @@ describe("DefaultCartService", () => {
     expect(cart.total).toContain("20,00");
     expect(cart.positionCount).toBe(1);
     expect(cart.totalUnitCount).toBe(2);
+    expect(dependencies.repository.findReconciliationLock).not.toHaveBeenCalled();
+  });
+
+  it("projects a submitting cart reconciliation lock without changing its lines", async () => {
+    const dependencies = makeDependencies();
+    dependencies.repository.findActive.mockResolvedValueOnce({
+      id: "cart-1", companyId: "company-1", createdBy: "user-1", status: "submitting",
+      intentVersion: 7, createdAt: "2026-08-25T09:56:00Z", updatedAt: "2026-08-25T09:56:00Z",
+    });
+    dependencies.repository.findReconciliationLock.mockResolvedValueOnce({
+      orderId: "order-1", correlationId: "correlation-1",
+      startedAt: "2026-08-25T09:56:00Z", lastAttemptAt: null, attemptCount: 0,
+    });
+
+    const cart = await dependencies.service.getCart("user-1");
+
+    expect(cart.lines).toHaveLength(1);
+    expect(cart.reconciliationLock).toMatchObject({ correlationId: "correlation-1", attemptCount: 0 });
+    expect(dependencies.repository.findReconciliationLock).toHaveBeenCalledOnce();
+  });
+
+  it("returns a stable domain conflict when a locked cart mutation is attempted", async () => {
+    const dependencies = makeDependencies();
+    dependencies.repository.removeItem.mockRejectedValueOnce(new Error("not active"));
+    dependencies.repository.findReconciliationLockForItem.mockResolvedValueOnce({
+      orderId: "order-1", correlationId: "correlation-1",
+      startedAt: "2026-08-25T09:56:00Z", lastAttemptAt: null, attemptCount: 0,
+    });
+
+    await expect(dependencies.service.removeItem("user-1", "item-1")).rejects.toMatchObject({
+      name: "DomainConflictError",
+      code: "CART_RECONCILIATION_STALE",
+      message: "correlation-1",
+    } satisfies Partial<DomainConflictError>);
   });
 
   it("redacts partner prices and totals for a retail-only employee", async () => {
@@ -117,6 +151,8 @@ function makeDependencies() {
   const repository = {
     getActiveItemCount: vi.fn().mockResolvedValue(2),
     findActive: vi.fn().mockResolvedValue({ id: "cart-1", companyId: "company-1", createdBy: "user-1", status: "active", intentVersion: 7, createdAt: "2026-01-01", updatedAt: "2026-01-01" }),
+    findReconciliationLock: vi.fn().mockResolvedValue(null),
+    findReconciliationLockForItem: vi.fn().mockResolvedValue(null),
     listItems: vi.fn().mockResolvedValue([{ id: "item-1", cartId: "cart-1", productId: "product-1", quantity: 2, createdAt: "2026-01-01", updatedAt: "2026-01-01" }]),
     addItem: vi.fn(), updateItemQuantity: vi.fn(), removeItem: vi.fn(), mergeEstimateProducts: vi.fn(), mergeOrderReorderItems: vi.fn(),
   } satisfies CartRepository;

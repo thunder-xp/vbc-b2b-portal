@@ -22,9 +22,11 @@ const initial: ActionResult<null> = {
 export function CartItemActions({
   itemId,
   quantity,
+  locked = false,
 }: {
   itemId: string;
   quantity: number;
+  locked?: boolean;
 }) {
   const [draft, setDraft] = useState(quantity);
   const [message, setMessage] = useState("");
@@ -66,7 +68,7 @@ export function CartItemActions({
         formData.set("quantity", String(next));
         const result = await updateCartItemAction(initial, formData);
         if (!result.success) {
-          setMessage(copy.quantitySaveError);
+          setMessage(reconciliationMessage(result, copy) ?? copy.quantitySaveError);
           return false;
         }
         confirmedRef.current = next;
@@ -116,7 +118,9 @@ export function CartItemActions({
       formData.set("itemId", itemId);
       const result = await removeCartItemAction(initial, formData);
       setMessage(
-        result.success ? copy.productRemoved : copy.removeProductError,
+        result.success
+          ? copy.productRemoved
+          : (reconciliationMessage(result, copy) ?? copy.removeProductError),
       );
       if (result.success) {
         recordBehaviorInteraction({
@@ -141,7 +145,7 @@ export function CartItemActions({
         <button
           aria-label={copy.decreaseQuantity}
           className="inline-flex size-11 items-center justify-center rounded-md border border-zinc-300 disabled:cursor-not-allowed disabled:opacity-50"
-          disabled={pending || draft <= 1}
+          disabled={locked || pending || draft <= 1}
           onClick={() => void persist(draftRef.current - 1)}
           type="button"
         >
@@ -154,7 +158,7 @@ export function CartItemActions({
             aria-invalid={!Number.isInteger(draft) || draft < 1 || draft > 9999}
             aria-label={copy.productQuantity}
             className="mt-1 block h-11 w-20 rounded-md border border-zinc-300 px-2 text-center text-sm"
-            disabled={pending}
+            disabled={locked || pending}
             max={9999}
             min={1}
             onBlur={() => void persist()}
@@ -172,7 +176,7 @@ export function CartItemActions({
         <button
           aria-label={copy.increaseQuantity}
           className="inline-flex size-11 items-center justify-center rounded-md border border-zinc-300 disabled:cursor-not-allowed disabled:opacity-50"
-          disabled={pending || draft >= 9999}
+          disabled={locked || pending || draft >= 9999}
           onClick={() => void persist(draftRef.current + 1)}
           type="button"
         >
@@ -181,7 +185,7 @@ export function CartItemActions({
       </div>
       <button
         className="inline-flex min-h-11 items-center gap-2 text-xs font-semibold text-rose-700 disabled:opacity-50"
-        disabled={pending}
+        disabled={locked || pending}
         onClick={() => void remove()}
         type="button"
       >
@@ -197,4 +201,20 @@ export function CartItemActions({
       </p>
     </div>
   );
+}
+
+function reconciliationMessage(
+  result: ActionResult<null>,
+  copy: ReturnType<typeof getOrdersCopy>,
+): string | null {
+  if (result.success) return null;
+  if (result.errorCode === "CART_RECONCILIATION_LOCKED") {
+    return copy.cartReconciliationLocked;
+  }
+  if (result.errorCode === "CART_RECONCILIATION_STALE") {
+    return result.message
+      ? `${copy.cartReconciliationStale} ${copy.correlationCode}: ${result.message}.`
+      : copy.cartReconciliationStale;
+  }
+  return null;
 }

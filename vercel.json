@@ -37,6 +37,10 @@
       "schedule": "*/2 * * * *"
     },
     {
+      "path": "/api/cron/order-reconciliation",
+      "schedule": "*/2 * * * *"
+    },
+    {
       "path": "/api/cron/finance-contract-balances",
       "schedule": "5 * * * *"
     },

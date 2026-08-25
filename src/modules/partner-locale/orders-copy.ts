@@ -127,6 +127,11 @@ export const getOrdersCopy = definePartnerCopy(
     removingProduct: "Удаляем товар…",
     productRemoved: "Товар удалён.",
     removeProductError: "Не удалось удалить товар. Повторите попытку.",
+    cartReconciliationLocked:
+      "Корзина временно заблокирована: проверяем результат предыдущей отправки заказа в 1С.",
+    cartReconciliationStale:
+      "Проверка заказа задержалась. Обратитесь к администратору.",
+    correlationCode: "Код обращения",
     decreaseQuantity: "Уменьшить количество",
     increaseQuantity: "Увеличить количество",
     productQuantity: "Количество товара",
@@ -373,6 +378,11 @@ export const getOrdersCopy = definePartnerCopy(
     removingProduct: "Produsul se elimină…",
     productRemoved: "Produs eliminat.",
     removeProductError: "Produsul nu a putut fi eliminat. Încercați din nou.",
+    cartReconciliationLocked:
+      "Coșul este blocat temporar: verificăm rezultatul trimiterii anterioare a comenzii în 1C.",
+    cartReconciliationStale:
+      "Verificarea comenzii întârzie. Contactați administratorul.",
+    correlationCode: "Cod de referință",
     decreaseQuantity: "Micșorează cantitatea",
     increaseQuantity: "Mărește cantitatea",
     productQuantity: "Cantitatea produsului",

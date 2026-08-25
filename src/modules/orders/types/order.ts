@@ -63,6 +63,9 @@ export type PartnerOrder = {
   contractNumber: string | null;
   confirmedAt: string | null;
   lastReconciledAt: string | null;
+  reconciliationAttemptCount?: number;
+  reconciliationLastAttemptAt?: string | null;
+  reconciliationCorrelationId?: string | null;
   submittedAt: string | null;
   createdAt: string;
   updatedAt: string;

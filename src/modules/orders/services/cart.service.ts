@@ -1,5 +1,5 @@
 import type { CompanyAccessService, PermissionService } from "../../access-control/services";
-import { InvalidStateError, NotFoundError } from "../../access-control/services";
+import { DomainConflictError, InvalidStateError, NotFoundError } from "../../access-control/services";
 import { MembershipStatus } from "../../access-control/types";
 import type { CatalogService } from "../../catalog/services";
 import type { PricingInventoryService, ProductCommercialViewDto } from "../../pricing-inventory/services";
@@ -34,6 +34,11 @@ export type CartDetailDto = {
   retailReferenceTotal: string | null;
   commercialMode: "full" | "retail_only" | "hidden";
   submitting: boolean;
+  reconciliationLock: {
+    stale: boolean;
+    correlationId: string | null;
+    attemptCount: number;
+  } | null;
   checkoutOptions?: PartnerCheckoutOptionsDto | null;
 };
 
@@ -88,6 +93,7 @@ export interface CartService {
 }
 
 const ORDERS_PERMISSION = "orders.manage";
+const STALE_RECONCILIATION_MS = 10 * 60 * 1000;
 
 export class DefaultCartService implements CartService {
   constructor(
@@ -115,9 +121,15 @@ export class DefaultCartService implements CartService {
       retailReferenceTotal: null,
       commercialMode: visibility?.mode ?? "full",
       submitting: false,
+      reconciliationLock: null,
       checkoutOptions: null,
     };
-    const items = await this.repository.listItems(cart.id);
+    const [items, reconciliation] = await Promise.all([
+      this.repository.listItems(cart.id),
+      cart.status === "submitting"
+        ? this.repository.findReconciliationLock(cart.id)
+        : Promise.resolve(null),
+    ]);
     const productIds = items.map((item) => item.productId);
     const [products, views, checkoutConfiguration] = await Promise.all([
       this.catalogService.getProductsByIds(userId, productIds),
@@ -156,6 +168,13 @@ export class DefaultCartService implements CartService {
       ),
       commercialMode: visibility?.mode ?? "full",
       submitting: cart.status === "submitting",
+      reconciliationLock: reconciliation
+        ? {
+            stale: Date.now() - new Date(reconciliation.startedAt).getTime() >= STALE_RECONCILIATION_MS,
+            correlationId: reconciliation.correlationId,
+            attemptCount: reconciliation.attemptCount,
+          }
+        : null,
       checkoutOptions: checkoutConfiguration
         ? toPartnerCheckoutOptions(checkoutConfiguration)
         : null,
@@ -191,12 +210,22 @@ export class DefaultCartService implements CartService {
 
   async updateQuantity(userId: string, itemId: string, quantity: number): Promise<void> {
     await this.resolveCompanyId(userId);
-    await this.repository.updateItemQuantity(itemId.trim(), normalizeQuantity(quantity));
+    const normalizedItemId = itemId.trim();
+    try {
+      await this.repository.updateItemQuantity(normalizedItemId, normalizeQuantity(quantity));
+    } catch (error) {
+      await this.rethrowCartMutationError(normalizedItemId, error);
+    }
   }
 
   async removeItem(userId: string, itemId: string): Promise<void> {
     await this.resolveCompanyId(userId);
-    await this.repository.removeItem(itemId.trim());
+    const normalizedItemId = itemId.trim();
+    try {
+      await this.repository.removeItem(normalizedItemId);
+    } catch (error) {
+      await this.rethrowCartMutationError(normalizedItemId, error);
+    }
   }
 
   async getEstimateSource(userId: string): Promise<CartEstimateSourceDto> {
@@ -290,6 +319,16 @@ export class DefaultCartService implements CartService {
     const context = await this.companyAccessService.getActiveCompanyContext(userId, membership?.companyId ?? "");
     await this.permissionService.ensurePermission(userId, context.company.id, ORDERS_PERMISSION);
     return context.company.id;
+  }
+
+  private async rethrowCartMutationError(itemId: string, originalError: unknown): Promise<never> {
+    const reconciliation = await this.repository.findReconciliationLockForItem(itemId);
+    if (!reconciliation) throw originalError;
+    const stale = Date.now() - new Date(reconciliation.startedAt).getTime() >= STALE_RECONCILIATION_MS;
+    throw new DomainConflictError(
+      stale ? "CART_RECONCILIATION_STALE" : "CART_RECONCILIATION_LOCKED",
+      reconciliation.correlationId ?? "",
+    );
   }
 }
 

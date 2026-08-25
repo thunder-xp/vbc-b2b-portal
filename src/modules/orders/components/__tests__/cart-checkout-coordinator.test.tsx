@@ -39,6 +39,12 @@ describe("cart checkout mutation barrier", () => {
       message: "Заказ не был отправлен.",
       data: null,
     });
+    mocks.remove.mockResolvedValue({
+      success: true,
+      errorCode: null,
+      message: "Товар удалён.",
+      data: null,
+    });
   });
 
   it("flushes direct quantity input before checkout validation and submission", async () => {
@@ -148,6 +154,42 @@ describe("cart checkout mutation barrier", () => {
       screen.getByRole("button", { name: "Отправить заказ" }),
     ).toBeDisabled());
     expect(mocks.submit).not.toHaveBeenCalled();
+  });
+
+  it("shows the specific reconciliation message instead of a generic delete failure", async () => {
+    mocks.remove.mockResolvedValueOnce({
+      success: false,
+      errorCode: "CART_RECONCILIATION_LOCKED",
+      message: "correlation-1",
+      data: null,
+    });
+    render(
+      <CartCheckoutCoordinator>
+        <CartItemActions itemId="item-1" quantity={2} />
+      </CartCheckoutCoordinator>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Удалить" }));
+
+    expect(await screen.findByText(
+      "Корзина временно заблокирована: проверяем результат предыдущей отправки заказа в 1С.",
+    )).toBeInTheDocument();
+  });
+
+  it("disables cart mutation and submission controls while reconciliation is active", () => {
+    render(
+      <CartCheckoutCoordinator>
+        <CartItemActions itemId="item-1" locked quantity={2} />
+        <OrderSubmitForm
+          cartId={cartId}
+          reconciliationLocked
+          submissionKey="55555555-5555-4555-8555-555555555555"
+        />
+      </CartCheckoutCoordinator>,
+    );
+
+    expect(screen.getByRole("button", { name: "Удалить" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Отправить заказ" })).toBeDisabled();
   });
 });
 
