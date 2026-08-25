@@ -72,6 +72,8 @@ create policy "Users can cancel own pending review access requests"
 on public.access_requests
 for update
 to authenticated
+-- At this point in history access_requests is owned by user_id.
+-- 20260710070500 canonicalizes this column to user_profile_id.
 using (user_id = auth.uid() and status = 'pending_review')
 with check (
   user_id = auth.uid()

@@ -36,6 +36,7 @@ begin
   limit 1;
 
   if v_actor_id is null then
+    -- A fresh replay has no production administrator to own seeded tariffs.
     return;
   end if;
 

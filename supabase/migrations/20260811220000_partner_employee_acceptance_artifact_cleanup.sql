@@ -49,6 +49,7 @@ begin
     where company.id = target_company
       and company.display_name = 'ISECURITY COMPANY S.R.L.'
   ) then
+    -- Fresh databases do not contain the production acceptance fixture.
     return;
   end if;
 

@@ -11,6 +11,7 @@ alter table public.stock_balance_stage_receipts enable row level security;
 revoke all on public.stock_balance_stage_receipts from public, anon, authenticated;
 grant select, insert, update, delete on public.stock_balance_stage_receipts to service_role;
 
+-- The foundation migration already defines this signature; replay must replace it.
 create or replace function public.stage_stock_balance_rows(
   p_sync_id uuid,
   p_kind text,

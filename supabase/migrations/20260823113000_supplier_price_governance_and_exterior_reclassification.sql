@@ -286,6 +286,7 @@ begin
   where lower(source.code)='exterior' and upload.original_filename='Price_Exterior 08.08.2026_edit.xlsx'
     and upload.status='applied' and upload.superseded_at is null and upload.confirmed_mapping->>'partnerPrice'='F'
     and nullif(upload.confirmed_mapping->>'retailPrice','') is null;
+  if repair_count=0 then return; end if;
   if repair_count<>1 then raise exception 'Exterior repair requires exactly one authoritative applied upload.'; end if;
   select upload.* into original_upload
   from public.external_price_uploads upload join public.external_price_sources source on source.id=upload.external_price_source_id
