@@ -29,7 +29,23 @@ describe("partner competitive intelligence UI", () => {
     render(<CompetitiveObservationForm competitors={data.competitors} locale="ru" productId="22222222-2222-4222-8222-222222222222" today="2026-08-24" />);
     expect(screen.getByLabelText("Цена")).toHaveAttribute("inputmode", "decimal");
     expect(screen.getByLabelText("Количество")).toHaveValue(1);
+    expect(screen.queryByLabelText("НДС")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Действительно до")).not.toBeInTheDocument();
     expect(screen.getByText("Дополнительные условия").closest("details")).not.toHaveAttribute("open");
+  });
+
+  it.each([
+    ["ru", /Сохраняйте цены конкурентов по каждой модели/, /решения о закупке/],
+    ["ro", /Salvați prețurile concurenților pentru fiecare model/, /decizii de achiziție/],
+  ] as const)("renders the partner-value copy in %s", (locale, first, second) => {
+    render(<ProductCompetitiveIntelligence data={data} locale={locale} productId="22222222-2222-4222-8222-222222222222" />);
+    expect(screen.getByText(first)).toHaveTextContent(second);
+  });
+
+  it("keeps historical observations with legacy VAT modes readable", () => {
+    render(<ProductCompetitiveIntelligence data={data} locale="ru" productId="22222222-2222-4222-8222-222222222222" />);
+    expect(screen.getByRole("table")).toHaveTextContent("Exterior");
+    expect(screen.getByRole("table")).toHaveTextContent("2 450 MDL");
   });
 
   it("renders a concise empty state and hides mutation controls for read-only access", () => {

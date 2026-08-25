@@ -55,12 +55,7 @@ export function CompetitiveObservationForm({
         <Field label={copy.quantity}><input className={controlClass} defaultValue="1" inputMode="decimal" min="0.001" name="quantity" required step="0.001" type="number" /></Field>
         <Field label={copy.date}><input className={controlClass} defaultValue={today} max={today} name="observationDate" required type="date" /></Field>
       </div>
-      <div className="mt-3 grid gap-3 sm:grid-cols-[minmax(10rem,1fr)_auto] sm:items-end">
-        <Field label={copy.vat}>
-          <select className={controlClass} defaultValue="not_specified" name="vatMode">
-            {Object.entries(copy.vatLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-          </select>
-        </Field>
+      <div className="mt-3 flex justify-end">
         <button className="min-h-11 bg-zinc-950 px-5 text-sm font-semibold text-white hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950 disabled:opacity-60" disabled={pending} type="submit">
           {pending ? copy.saving : copy.save}
         </button>
@@ -69,7 +64,6 @@ export function CompetitiveObservationForm({
         <summary className="min-h-11 cursor-pointer py-3 text-sm font-semibold text-zinc-700">{copy.details}</summary>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <Field label={copy.source}><select className={controlClass} defaultValue="verbal" name="sourceType">{Object.entries(copy.sourceLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></Field>
-          <Field label={copy.validity}><input className={controlClass} min={today} name="validUntil" type="date" /></Field>
           <Field label={copy.evidence}><input accept="image/jpeg,image/png,image/webp,application/pdf" className={`${controlClass} p-2`} name="evidence" type="file" /></Field>
           <Field label={copy.payment}><input className={controlClass} maxLength={500} name="paymentTerms" /></Field>
           <Field label={copy.delivery}><input className={controlClass} maxLength={500} name="deliveryTerms" /></Field>

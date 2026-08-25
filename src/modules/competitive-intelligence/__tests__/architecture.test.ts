@@ -32,4 +32,15 @@ describe("competitive intelligence architecture boundaries", () => {
     expect(form).toContain("min-w-0");
     expect(form).not.toContain("overflow-x-auto");
   });
+
+  it("governs VAT and removed validity server-side for new observations", () => {
+    expect(form).not.toContain('name="vatMode"');
+    expect(form).not.toContain('name="validUntil"');
+    const actions = readFileSync(resolve("src/modules/competitive-intelligence/actions.ts"), "utf8");
+    expect(actions).toContain('NEW_OBSERVATION_VAT_MODE = "included"');
+    expect(actions).toContain("p_vat_mode: NEW_OBSERVATION_VAT_MODE");
+    expect(actions).toContain("p_valid_until: null");
+    expect(actions).not.toContain('enumValue(formData, "vatMode"');
+    expect(actions).not.toContain('dateValue(formData, "validUntil"');
+  });
 });

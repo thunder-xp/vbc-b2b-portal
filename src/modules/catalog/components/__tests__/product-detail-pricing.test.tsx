@@ -79,6 +79,8 @@ describe("ProductDetail information architecture", () => {
     rerender(<ProductDetail activeTab="analytics" analyticsContent={<div>Own observations</div>} product={product} showAnalyticsTab />);
     expect(screen.getByRole("link", { name: "Аналитика" })).toHaveAttribute("href", "?tab=analytics");
     expect(screen.getByText("Own observations")).toBeInTheDocument();
+    expect(screen.getByTestId("product-detail-layout")).toBeInTheDocument();
+    expect(screen.getByText("Изображение товара product-1")).toBeInTheDocument();
   });
 
   it("keeps title first and SKU directly below in Overview", () => {

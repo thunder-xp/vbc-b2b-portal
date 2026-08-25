@@ -292,7 +292,7 @@ function detailProjection(tab: ProductDetailTab) {
     includeAttributes:
       tab === "overview" || tab === "characteristics" || tab === "datasheet",
     includeDocuments: tab === "datasheet",
-    includeImages: tab === "overview",
+    includeImages: tab === "overview" || tab === "analytics",
   };
 }
 

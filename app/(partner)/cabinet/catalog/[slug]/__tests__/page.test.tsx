@@ -113,6 +113,12 @@ describe("product detail page data loading", () => {
     expect(mocks.getCommercial).not.toHaveBeenCalled();
     expect(mocks.getCompetitive).toHaveBeenCalledOnce();
     expect(mocks.getCompetitive).toHaveBeenCalledWith("company-1", "product-1");
+    expect(mocks.getProduct).toHaveBeenCalledWith("product-1", {
+      includeAttributes: false,
+      includeDocuments: false,
+      includeImages: true,
+    });
+    expect(screen.getByText("Gallery")).toBeInTheDocument();
     expect(screen.getByText("Own competitive observations")).toBeInTheDocument();
     expect(screen.getAllByTestId("behavior-event").map((node) => node.dataset.eventName)).toEqual(["product_viewed"]);
   });

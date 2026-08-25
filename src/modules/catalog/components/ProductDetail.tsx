@@ -116,10 +116,14 @@ export function ProductDetail({
             />
           </ProductTabLayout>
         </>
-      ) : activeTab === "relations" || activeTab === "analytics" ? (
+      ) : activeTab === "relations" ? (
         <div className="min-w-0" data-testid="product-detail-content">
-          {activeTab === "relations" ? relationsContent : analyticsContent}
+          {relationsContent}
         </div>
+      ) : activeTab === "analytics" ? (
+        <ProductTabLayout locale={locale} product={product}>
+          {analyticsContent}
+        </ProductTabLayout>
       ) : (
         <ProductTabLayout locale={locale} product={product}>
           {activeTab === "description" ? (

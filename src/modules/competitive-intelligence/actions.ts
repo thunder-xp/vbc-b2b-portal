@@ -18,7 +18,6 @@ import {
   COMPETITIVE_INTELLIGENCE_MAX_EVIDENCE_BYTES,
   COMPETITIVE_INTELLIGENCE_MIME_TYPES,
   COMPETITIVE_INTELLIGENCE_SOURCE_TYPES,
-  COMPETITIVE_INTELLIGENCE_VAT_MODES,
 } from "./service";
 import {
   CompetitiveIntelligenceRepository,
@@ -27,6 +26,7 @@ import {
 import type { CompetitiveObservationReceipt } from "./types";
 
 const repository = new CompetitiveIntelligenceRepository();
+const NEW_OBSERVATION_VAT_MODE = "included" as const;
 
 export async function createCompetitiveObservationAction(
   _state: ActionResult<CompetitiveObservationReceipt> | null,
@@ -55,11 +55,8 @@ export async function createCompetitiveObservationAction(
     const observedPrice = positiveNumber(formData, "price", 4);
     const quantity = positiveNumber(formData, "quantity", 3);
     const currency = enumValue(formData, "currency", COMPETITIVE_INTELLIGENCE_CURRENCIES);
-    const vatMode = enumValue(formData, "vatMode", COMPETITIVE_INTELLIGENCE_VAT_MODES);
     const sourceType = enumValue(formData, "sourceType", COMPETITIVE_INTELLIGENCE_SOURCE_TYPES);
     const observationDate = dateValue(formData, "observationDate", true)!;
-    const validUntil = dateValue(formData, "validUntil", false);
-    if (validUntil && validUntil < observationDate) return invalidInput(locale === "ro" ? "Termenul de valabilitate este incorect." : "Срок действия указан неверно.");
 
     const evidenceFile = formData.get("evidence");
     let evidence: Record<string, unknown> | null = null;
@@ -91,11 +88,11 @@ export async function createCompetitiveObservationAction(
       p_submitted_competitor_name: competitorId ? null : otherCompetitorName,
       p_observed_price: observedPrice,
       p_currency: currency,
-      p_vat_mode: vatMode,
+      p_vat_mode: NEW_OBSERVATION_VAT_MODE,
       p_quantity: quantity,
       p_observation_date: observationDate,
       p_source_type: sourceType,
-      p_valid_until: validUntil,
+      p_valid_until: null,
       p_payment_terms: optionalText(formData, "paymentTerms", 500),
       p_delivery_terms: optionalText(formData, "deliveryTerms", 500),
       p_comment: optionalText(formData, "comment", 1000),
