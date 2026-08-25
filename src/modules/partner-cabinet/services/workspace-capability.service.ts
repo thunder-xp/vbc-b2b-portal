@@ -14,7 +14,6 @@ export type WorkspaceCapabilityKey =
   | "customers"
   | "nomenclature"
   | "proposal_generator"
-  | "external_prices"
   | "orders"
   | "installation_orders"
   | "finance"
@@ -104,7 +103,6 @@ const WORKSPACE_CAPABILITIES: readonly CapabilityDefinition[] = [
   { key: "customers", label: "Мои заказчики", href: "/cabinet/customers", requiredPermission: "estimates.view", released: true, unavailableBehavior: "hide" },
   { key: "nomenclature", label: "Моя номенклатура", href: "/cabinet/nomenclature", requiredPermission: "estimates.view", released: true, unavailableBehavior: "hide" },
   { key: "proposal_generator", label: "Генератор КП", href: "/cabinet/estimates/generator", requiredPermission: "estimates.manage", released: true, unavailableBehavior: "hide" },
-  { key: "external_prices", label: "Цены поставщиков", href: "/cabinet/competitor-prices", requiredPermission: "external_prices.view", released: true, unavailableBehavior: "hide" },
   { key: "orders", label: "Заказы", href: "/cabinet/orders", requiredPermission: "orders.manage", released: true, unavailableBehavior: "hide" },
   { key: "installation_orders", label: "Заказы на монтаж", href: "/cabinet/installation-orders", requiredPermission: "installation_marketplace.manage", released: true, unavailableBehavior: "hide" },
   { key: "finance", label: "Финансы", href: "/cabinet/finance", requiredPermission: "finance.view_company", released: true, unavailableBehavior: "hide" },

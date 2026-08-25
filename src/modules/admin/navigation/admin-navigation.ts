@@ -55,8 +55,8 @@ export const ADMIN_NAVIGATION: readonly AdminNavigationGroup[] = [
         permission: "admin.analytics.view",
       },
       {
-        label: "Конкурентные цены",
-        href: "/admin/commercial/competitive-pricing",
+        label: "Прайс-листы конкурентов",
+        href: "/admin/market-intelligence/price-lists",
         permission: "admin.analytics.view",
       },
       {

@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   getRelationSections: vi.fn(),
   getRelationSummary: vi.fn(),
   getCompetitive: vi.fn(),
+  getCompetitorPricing: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({ notFound: vi.fn() }));
@@ -37,6 +38,7 @@ vi.mock("@/src/modules/catalog/components/ProductActions", () => ({ ProductActio
 vi.mock("@/src/modules/catalog/components/ExpandableDescription", () => ({ ExpandableDescription: ({ text }: { text: string }) => <p>{text}</p> }));
 vi.mock("@/src/modules/competitive-intelligence", () => ({ CompetitiveIntelligenceRepository: class { getPartnerProduct = mocks.getCompetitive; } }));
 vi.mock("@/src/modules/competitive-intelligence/components", () => ({ ProductCompetitiveIntelligence: () => <div>Own competitive observations</div> }));
+vi.mock("@/src/modules/competitive-intelligence/retail-pricing.service", () => ({ CompetitorRetailPricingService: class { getProductPricing = mocks.getCompetitorPricing; } }));
 
 import ProductDetailPage from "../page";
 
@@ -49,6 +51,7 @@ describe("product detail page data loading", () => {
     mocks.getRetailHistory.mockResolvedValue({ success: true, data: retailHistory });
     mocks.getWorkspace.mockResolvedValue({ success: true, data: { companyId: "company-1", capabilities: { productCard: { canAddToOrder: true }, canViewCompetitiveIntelligence: true } } });
     mocks.getCompetitive.mockResolvedValue({ canManage: true, competitors: [], observations: [], summary: { observationCount: 0 } });
+    mocks.getCompetitorPricing.mockResolvedValue([]);
     mocks.getRelationSummary.mockResolvedValue({ success: true, data: { hasAnalogs: true, hasRelated: true } });
     mocks.getRelationSections.mockResolvedValue({ success: true, data: { analogs: [{ id: "analog-1" }], related: [{ id: "related-1" }], synchronizedAt: null } });
   });
@@ -59,6 +62,8 @@ describe("product detail page data loading", () => {
     expect(mocks.getCommercial).toHaveBeenCalledWith(["product-1"]);
     expect(mocks.getRelationSummary).toHaveBeenCalledWith("product-1");
     expect(mocks.getRelationSections).not.toHaveBeenCalled();
+    expect(mocks.getCompetitorPricing).toHaveBeenCalledOnce();
+    expect(mocks.getCompetitorPricing).toHaveBeenCalledWith("company-1", "product-1", commercialView);
     expect(screen.getByText("Ваша цена")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "В корзину" })).toBeInTheDocument();
     expect(
@@ -113,6 +118,7 @@ describe("product detail page data loading", () => {
     expect(mocks.getCommercial).not.toHaveBeenCalled();
     expect(mocks.getCompetitive).toHaveBeenCalledOnce();
     expect(mocks.getCompetitive).toHaveBeenCalledWith("company-1", "product-1");
+    expect(mocks.getCompetitorPricing).not.toHaveBeenCalled();
     expect(mocks.getProduct).toHaveBeenCalledWith("product-1", {
       includeAttributes: false,
       includeDocuments: false,

@@ -135,9 +135,114 @@ export type ProductMarketIntelligenceProfile = {
   id: string;
   sku: string;
   name: string;
+  retailReferences: Array<{
+    competitorId: string;
+    competitorName: string;
+    price: number;
+    currency: string;
+    effectiveDate: string;
+    previousPrice: number | null;
+    changePercent: number | null;
+  }>;
   cohorts: Array<Record<string, unknown>>;
   signals: Array<Record<string, unknown>>;
   timeline: Array<Record<string, unknown>>;
+};
+
+export type CompetitorRetailImportStatus =
+  | "uploaded"
+  | "analyzing"
+  | "mapping_required"
+  | "ready_for_review"
+  | "applied"
+  | "failed"
+  | "archived";
+
+export type AdminCompetitorRetailImportSummary = {
+  id: string;
+  competitorId: string;
+  competitorName: string;
+  fileName: string;
+  effectiveDate: string;
+  currency: string;
+  status: CompetitorRetailImportStatus;
+  rows: number;
+  mapped: number;
+  unmapped: number;
+  changed: number;
+  unchanged: number;
+  errors: number;
+  createdAt: string;
+  appliedAt: string | null;
+  safeErrorCode: string | null;
+};
+
+export type AdminCompetitorRetailImportList = {
+  competitors: CompetitorOption[];
+  imports: AdminCompetitorRetailImportSummary[];
+};
+
+export type AdminCompetitorRetailImportRow = {
+  id: string;
+  competitorProductId: string;
+  sku: string | null;
+  model: string | null;
+  name: string;
+  description: string | null;
+  price: number;
+  currency: string;
+  sheet: string;
+  row: number;
+  productId: string | null;
+  matchMethod: string;
+  status: "mapped" | "needs_review" | "unmapped" | "ignored";
+  suggestions: Array<{ id: string; sku: string; name: string }>;
+};
+
+export type AdminCompetitorRetailImportDetail = {
+  id: string;
+  competitorId: string;
+  competitorName: string;
+  fileName: string;
+  effectiveDate: string;
+  currency: string;
+  snapshotScope: "full" | "partial";
+  status: CompetitorRetailImportStatus;
+  detectedMapping: Record<string, unknown> | null;
+  confirmedMapping: Record<string, unknown> | null;
+  totalRows: number;
+  candidateRows: number;
+  matchedRows: number;
+  reviewRows: number;
+  unmappedRows: number;
+  ignoredRows: number;
+  markerRows: number;
+  changedRows: number;
+  unchangedRows: number;
+  safeErrorCode: string | null;
+  createdAt: string;
+  appliedAt: string | null;
+  correlationId: string;
+  rows: AdminCompetitorRetailImportRow[];
+};
+
+export type ProductCompetitorPricingItem = {
+  competitorId: string;
+  competitorName: string;
+  retailPrice: number;
+  retailCurrency: string;
+  retailEffectiveDate: string;
+  ownPrice: number | null;
+  ownCurrency: string | null;
+  ownObservationDate: string | null;
+  ownQuantity: number | null;
+  retailDiscountAmount: number | null;
+  retailDiscountPercent: number | null;
+  novotechPrice: number | null;
+  novotechCurrency: string | null;
+  novotechDifferenceAmount: number | null;
+  novotechDifferencePercent: number | null;
+  comparisonStatus: "comparable" | "currency_mismatch" | "price_unavailable";
 };
 
 export type CompetitiveEvidenceDescriptor = {

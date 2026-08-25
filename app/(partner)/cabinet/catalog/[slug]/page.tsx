@@ -27,9 +27,10 @@ import { getProductKnowledgeAction } from "@/src/modules/knowledge-base/actions"
 import { KnowledgeCardView } from "@/src/modules/knowledge-base/landing-components";
 import { getCatalogCopy } from "@/src/modules/partner-locale";
 import { getPartnerLocale } from "@/src/modules/partner-locale/server";
-import { ExternalPriceRepository, type CurrentExternalPriceDto } from "@/src/modules/external-prices";
 import { CompetitiveIntelligenceRepository } from "@/src/modules/competitive-intelligence";
 import { ProductCompetitiveIntelligence } from "@/src/modules/competitive-intelligence/components";
+import { CompetitorRetailPricingService } from "@/src/modules/competitive-intelligence/retail-pricing.service";
+import type { ProductCompetitorPricingItem } from "@/src/modules/competitive-intelligence/types";
 
 type ProductDetailPageProps = {
   params: Promise<{
@@ -116,6 +117,7 @@ export default async function ProductDetailPage({
       />
     );
   if (!productResult.data) notFound();
+  const product = productResult.data;
 
   let canAddToOrder = false;
   let canManagePurchasingLists = false;
@@ -123,7 +125,8 @@ export default async function ProductDetailPage({
   let userId: string | null = null;
   let commercialView;
   let initialFavorite = false;
-  let externalPrices: CurrentExternalPriceDto[] = [];
+  let competitorPricing: ProductCompetitorPricingItem[] = [];
+  let canViewCompetitiveIntelligence = false;
   if (needsWorkspaceContext) {
     commercialView = commercialViewsResult?.success
       ? commercialViewsResult.data[0]
@@ -140,22 +143,38 @@ export default async function ProductDetailPage({
       ? workspaceResult.data.companyId
       : null;
     userId = workspaceResult?.success ? workspaceResult.data.userId : null;
-    if (activeTab === "overview" && canManagePurchasingLists) {
-      const favoriteResult = await listFavoriteProductIdsAction([
-        productResult.data.id,
+    canViewCompetitiveIntelligence = Boolean(
+      workspaceResult?.success &&
+      workspaceResult.data.capabilities.canViewCompetitiveIntelligence,
+    );
+    if (activeTab === "overview") {
+      const [favoriteResult, pricingResult] = await Promise.all([
+        canManagePurchasingLists
+          ? listFavoriteProductIdsAction([product.id])
+          : Promise.resolve(null),
+        companyId && canViewCompetitiveIntelligence
+          ? new CompetitorRetailPricingService()
+              .getProductPricing(companyId, product.id, commercialView)
+              .catch((error: unknown) => {
+                console.error({
+                  event: "product_competitor_pricing_read_failed",
+                  errorType: error instanceof Error ? error.name : typeof error,
+                  productId: product.id,
+                });
+                return [];
+              })
+          : Promise.resolve([]),
       ]);
       initialFavorite = Boolean(
-        favoriteResult.success &&
-        favoriteResult.data.includes(productResult.data.id),
+        favoriteResult?.success &&
+        favoriteResult.data.includes(product.id),
       );
-    }
-    if (activeTab === "overview" && companyId && workspaceResult?.success && workspaceResult.data.capabilities.navigation?.some((item) => item.key === "external_prices")) {
-      externalPrices = await new ExternalPriceRepository().getCurrent(companyId, productResult.data.id);
+      competitorPricing = pricingResult;
     }
   }
   const competitiveIntelligence =
     activeTab === "analytics" && companyId && workspaceResult?.success &&
-    workspaceResult.data.capabilities.canViewCompetitiveIntelligence
+    canViewCompetitiveIntelligence
       ? await new CompetitiveIntelligenceRepository().getPartnerProduct(companyId, productResult.data.id)
       : null;
   const priceUpdatedAt = latestTimestamp([
@@ -254,9 +273,9 @@ export default async function ProductDetailPage({
             : null
         }
         stockFreshness={stockFreshness}
-        showAnalyticsTab
+        showAnalyticsTab={canViewCompetitiveIntelligence}
         userId={userId}
-        externalPrices={externalPrices}
+        competitorPricing={competitorPricing}
       />
       {tabViewEvent(activeTab) ? (
         <BehaviorViewEvent

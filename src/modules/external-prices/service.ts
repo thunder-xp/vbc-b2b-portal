@@ -13,9 +13,7 @@ export class ExternalPriceService {
 
   assertCompanyContext(context: PartnerWorkspaceContext): string {
     if (context.accessState !== "active" || !context.companyId) throw new Error("EXTERNAL_PRICE_ACCESS_DENIED");
-    const allowed = context.capabilities.navigation.some((item) => item.key === "external_prices");
-    if (!allowed) throw new Error("EXTERNAL_PRICE_ACCESS_DENIED");
-    return context.companyId;
+    throw new Error("EXTERNAL_PRICE_ACCESS_DENIED");
   }
 
   async processNextJob(): Promise<{ status: "idle" | "mapping_required" | "ready_for_review" | "failed"; uploadId?: string; durationMs: number }> {

@@ -22,7 +22,6 @@ import {
   Lightbulb,
   Megaphone,
   SearchCheck,
-  Tags,
   ShieldCheck,
   ShoppingCart,
   WandSparkles,
@@ -51,7 +50,6 @@ const icons = {
   customers: Building2,
   nomenclature: ClipboardList,
   proposal_generator: WandSparkles,
-  external_prices: Tags,
   orders: ListChecks,
   installation_orders: Wrench,
   finance: Landmark,
@@ -72,7 +70,6 @@ const selectionNavigationOrder: readonly WorkspaceCapabilityKey[] = [
   "purchasing_lists",
   "purchase_templates",
   "comparison",
-  "external_prices",
 ];
 const projectNavigationOrder: readonly WorkspaceCapabilityKey[] = [
   "reservations",
