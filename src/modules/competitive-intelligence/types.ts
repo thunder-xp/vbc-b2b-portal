@@ -194,6 +194,7 @@ export type AdminCompetitorRetailImportRow = {
   sheet: string;
   row: number;
   productId: string | null;
+  mappedProduct?: { id: string; sku: string; name: string } | null;
   matchMethod: string;
   status: "mapped" | "needs_review" | "unmapped" | "ignored";
   suggestions: Array<{ id: string; sku: string; name: string }>;
