@@ -11,6 +11,15 @@ import type {
 } from "./types";
 
 type JsonRecord = Record<string, unknown>;
+export type MigratedRetailImportSource = {
+  bucket: string;
+  key: string;
+  hash: string;
+  format: "xlsx" | "csv";
+  currency: string;
+  confirmedMapping: JsonRecord;
+  observations: Array<{ sheet: string; row: number; productId: string }>;
+};
 
 export class CompetitorRetailPricingRepositoryError extends Error {
   constructor(public readonly code: string | null) {
@@ -31,26 +40,10 @@ export class CompetitorRetailPricingRepository {
     if (error) throw new CompetitorRetailPricingRepositoryError(error.code);
     if (!record(data)) return null;
     const detail = data as unknown as AdminCompetitorRetailImportDetail;
-    const rows = detail.rows.length ? detail.rows : await this.listMigratedLegacyRows(importId);
-    return { ...detail, rows: await this.attachMappedProducts(rows) };
+    return { ...detail, rows: await this.attachMappedProducts(detail.rows) };
   }
 
-  private async listMigratedLegacyRows(importId: string): Promise<AdminCompetitorRetailImportRow[]> {
-    const admin = createAdminClient();
-    const { data: imported, error: importError } = await admin.from("competitor_retail_price_imports")
-      .select("legacy_external_price_upload_id").eq("id", importId).maybeSingle();
-    if (importError) throw new CompetitorRetailPricingRepositoryError(importError.code);
-    const legacyUploadId = text(imported?.legacy_external_price_upload_id);
-    if (!legacyUploadId) return [];
-    const { data: rows, error } = await admin.from("external_price_import_rows")
-      .select("id,source_sheet,source_row,source_product_code,source_product_name,normalized_model,source_description,retail_price,currency,catalog_product_id,match_method,match_status,suggested_products")
-      .eq("upload_id", legacyUploadId).not("retail_price", "is", null)
-      .order("source_sheet").order("source_row").limit(500);
-    if (error) throw new CompetitorRetailPricingRepositoryError(error.code);
-    return (rows ?? []).flatMap(mapMigratedLegacyRow);
-  }
-
-  private async attachMappedProducts(rows: AdminCompetitorRetailImportRow[]): Promise<AdminCompetitorRetailImportRow[]> {
+  async attachMappedProducts(rows: AdminCompetitorRetailImportRow[]): Promise<AdminCompetitorRetailImportRow[]> {
     const ids = [...new Set(rows.flatMap((row) => row.productId ? [row.productId] : []))];
     if (!ids.length) return rows;
     const products = new Map<string, { id: string; sku: string; name: string }>();
@@ -61,6 +54,32 @@ export class CompetitorRetailPricingRepository {
       for (const product of data ?? []) products.set(product.id, { id: product.id, sku: product.sku, name: product.name });
     }
     return rows.map((row) => ({ ...row, mappedProduct: row.productId ? products.get(row.productId) ?? null : null }));
+  }
+
+  async getMigratedImportSource(importId: string): Promise<MigratedRetailImportSource | null> {
+    const admin = createAdminClient();
+    const { data: imported, error: importError } = await admin.from("competitor_retail_price_imports")
+      .select("legacy_external_price_upload_id").eq("id", importId).maybeSingle();
+    if (importError) throw new CompetitorRetailPricingRepositoryError(importError.code);
+    const legacyUploadId = text(imported?.legacy_external_price_upload_id);
+    if (!legacyUploadId) return null;
+    const [{ data: upload, error: uploadError }, { data: observations, error: observationError }] = await Promise.all([
+      admin.from("external_price_uploads")
+        .select("storage_bucket,storage_key,source_file_hash,file_format,currency,confirmed_mapping")
+        .eq("id", legacyUploadId).maybeSingle(),
+      admin.from("external_price_observations")
+        .select("source_sheet,source_row,catalog_product_id").eq("upload_id", legacyUploadId),
+    ]);
+    if (uploadError || observationError) throw new CompetitorRetailPricingRepositoryError(uploadError?.code ?? observationError?.code ?? null);
+    if (!upload || !record(upload.confirmed_mapping) || !["xlsx", "csv"].includes(upload.file_format)) return null;
+    return {
+      bucket: upload.storage_bucket, key: upload.storage_key, hash: upload.source_file_hash,
+      format: upload.file_format as "xlsx" | "csv", currency: upload.currency,
+      confirmedMapping: upload.confirmed_mapping,
+      observations: (observations ?? []).map((observation) => ({
+        sheet: observation.source_sheet, row: observation.source_row, productId: observation.catalog_product_id,
+      })),
+    };
   }
 
   async createImport(input: {
@@ -208,21 +227,7 @@ export class CompetitorRetailPricingRepository {
 
 type ImportStats = { sheetNames: string[]; totalRows: number; candidateRows: number; ignoredRows: number; markerRows: number };
 function identityKey(value: ExternalPriceMatch) { return [value.sourceCode, value.normalizedModel, value.sourceName].map((item) => normalizeCompetitorName(item ?? "")).join("|"); }
-function mapMigratedLegacyRow(value: unknown): AdminCompetitorRetailImportRow[] {
-  if (!record(value) || typeof value.retail_price !== "number") return [];
-  const status = text(value.match_status);
-  return [{
-    id: text(value.id), competitorProductId: text(value.id), sku: nullableText(value.source_product_code),
-    model: nullableText(value.normalized_model), name: text(value.source_product_name) || text(value.normalized_model) || text(value.source_product_code) || "Без названия",
-    description: nullableText(value.source_description), price: value.retail_price, currency: text(value.currency),
-    sheet: text(value.source_sheet), row: Number(value.source_row), productId: nullableText(value.catalog_product_id),
-    matchMethod: text(value.match_method), status: status === "matched" || status === "matched_alias" ? "mapped"
-      : status === "ignored" || status === "skipped" ? "ignored" : status === "needs_review" ? "needs_review" : "unmapped",
-    suggestions: array(value.suggested_products).flatMap((suggestion) => record(suggestion) ? [{ id: text(suggestion.id), sku: text(suggestion.sku), name: text(suggestion.name) }] : []),
-  }];
-}
 function array(value: unknown): unknown[] { return Array.isArray(value) ? value : []; }
 function record(value: unknown): value is JsonRecord { return typeof value === "object" && value !== null && !Array.isArray(value); }
 function text(value: unknown) { return typeof value === "string" ? value : ""; }
-function nullableText(value: unknown) { const result = text(value); return result || null; }
 function isText(value: unknown): value is string { return typeof value === "string"; }

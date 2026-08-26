@@ -8,9 +8,34 @@ import { analyzeExternalPriceSpreadsheet, ExternalPriceSpreadsheetError } from "
 import type { ExternalPriceColumnMapping, ExternalPriceFileFormat } from "../external-prices/types";
 import { buildProductCompetitorPricing } from "./service";
 import { CompetitorRetailPricingRepository } from "./retail-pricing.repository";
+import type { AdminCompetitorRetailImportDetail, AdminCompetitorRetailImportRow } from "./types";
 
 export class CompetitorRetailPricingService {
   constructor(private readonly repository = new CompetitorRetailPricingRepository()) {}
+
+  async getImport(importId: string): Promise<AdminCompetitorRetailImportDetail | null> {
+    const detail = await this.repository.getImport(importId);
+    if (!detail || detail.rows.length || detail.candidateRows === 0) return detail;
+    try {
+      const source = await this.repository.getMigratedImportSource(importId);
+      if (!source) return detail;
+      const bytes = await this.repository.download(source.bucket, source.key);
+      if (createHash("sha256").update(bytes).digest("hex") !== source.hash) throw new ExternalPriceSpreadsheetError("SOURCE_FILE_HASH_MISMATCH");
+      const mapping = mappingValue(source.confirmedMapping);
+      if (!mapping) return detail;
+      const analysis = analyzeExternalPriceSpreadsheet({ bytes, format: source.format, priceSchema: "retail", mapping });
+      const matches = matchExternalPriceRows(analysis.rows, await this.repository.listCandidates());
+      const rows = buildMigratedRetailImportRows(importId, source.currency, matches, source.observations);
+      return { ...detail, rows: await this.repository.attachMappedProducts(rows) };
+    } catch (error) {
+      console.error({
+        event: "competitor_retail_legacy_detail_failed", importId,
+        safeErrorCode: error instanceof ExternalPriceSpreadsheetError ? error.code : "LEGACY_DETAIL_FAILED",
+        errorType: error instanceof Error ? error.name : typeof error,
+      });
+      return detail;
+    }
+  }
 
   async getProductPricing(companyId: string, productId: string, commercialView?: ProductCommercialViewDto) {
     const read = await this.repository.getProductPricing(companyId, productId);
@@ -48,6 +73,28 @@ export class CompetitorRetailPricingService {
       return { status: "failed" as const, importId, durationMs: Math.round(performance.now() - startedAt) };
     }
   }
+}
+
+export function buildMigratedRetailImportRows(
+  importId: string,
+  currency: string,
+  matches: ReturnType<typeof matchExternalPriceRows>,
+  observations: Array<{ sheet: string; row: number; productId: string }>,
+): AdminCompetitorRetailImportRow[] {
+  const observed = new Map(observations.map((item) => [`${item.sheet}:${item.row}`, item.productId]));
+  return matches.flatMap((match) => {
+    if (match.retailPrice === null) return [];
+    const key = `${match.sheet}:${match.row}`;
+    const productId = observed.get(key) ?? null;
+    return [{
+      id: `${importId}:${key}`, competitorProductId: `${importId}:${key}`, sku: match.sourceCode,
+      model: match.normalizedModel, name: match.sourceName, description: match.description,
+      price: match.retailPrice, currency, sheet: match.sheet, row: match.row, productId,
+      matchMethod: productId ? "legacy_observation" : match.matchMethod,
+      status: productId ? "mapped" : match.matchStatus === "needs_review" ? "ignored" : "unmapped",
+      suggestions: match.suggestedProducts,
+    } satisfies AdminCompetitorRetailImportRow];
+  });
 }
 
 function required(value: unknown) { if (typeof value !== "string" || !value) throw new Error("INVALID_JOB"); return value; }

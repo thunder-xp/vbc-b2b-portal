@@ -4,15 +4,26 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { AdminCompetitorRetailImportReview } from "../components/AdminCompetitorRetailImportReview";
+import { buildMigratedRetailImportRows } from "../retail-pricing.service";
 import type { AdminCompetitorRetailImportDetail } from "../types";
 
 describe("admin competitor retail import detail", () => {
-  it("uses a bounded legacy-row fallback only for the governed migrated import", () => {
+  it("uses the governed legacy linkage without reading partner row tables in the request path", () => {
     const repository = readFileSync(resolve("src/modules/competitive-intelligence/retail-pricing.repository.ts"), "utf8");
     expect(repository).toContain("legacy_external_price_upload_id");
-    expect(repository).toContain('.eq("upload_id", legacyUploadId)');
-    expect(repository).toContain('.limit(500)');
-    expect(repository).toContain("attachMappedProducts(rows)");
+    expect(repository).toContain("attachMappedProducts(detail.rows)");
+    expect(repository).not.toContain('from("external_price_import_rows")');
+  });
+
+  it("reconstructs applied mapped, skipped, and unmatched rows from immutable source evidence", () => {
+    const rows = buildMigratedRetailImportRows("import-1", "USD", [
+      match(2, "matched", "product-1"),
+      match(3, "needs_review", null),
+      match(4, "unmatched", null),
+    ], [{ sheet: "Price", row: 2, productId: "product-1" }]);
+    expect(rows.map((row) => [row.row, row.status, row.productId])).toEqual([
+      [2, "mapped", "product-1"], [3, "ignored", null], [4, "unmapped", null],
+    ]);
   });
 
   it("shows exact mapped product identity and keeps applied unmatched rows read-only", () => {
@@ -52,5 +63,14 @@ function detail(status: AdminCompetitorRetailImportDetail["status"]): AdminCompe
         productId: null, matchMethod: "none", status: "unmapped", suggestions: [],
       },
     ],
+  };
+}
+
+function match(row: number, status: "matched" | "needs_review" | "unmatched", productId: string | null) {
+  return {
+    sheet: "Price", row, sourceCode: `EXT-${row}`, sourceName: `Exterior ${row}`, normalizedModel: `MODEL-${row}`,
+    description: null, partnerPrice: null, retailPrice: 100 + row, marker: null, catalogProductId: productId,
+    matchMethod: status === "matched" ? "exact_model" as const : status === "needs_review" ? "suggested" as const : "none" as const,
+    matchStatus: status, suggestedProducts: [],
   };
 }
