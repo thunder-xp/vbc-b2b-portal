@@ -253,7 +253,7 @@ function cashMappingMessage(
     CASH_CONTRACT_PRICE_TYPE_INVALID: "Вид цены договора не опубликован или его валюта не подтверждена.",
     CASH_CONTRACT_PRICE_TYPE_CURRENCY_MISMATCH: "Валюта вида цены не соответствует опубликованному виду цены.",
     CASH_CONTRACT_CURRENCY_MISSING: "Валюта расчётов договора не указана.",
-    CASH_CONTRACT_CURRENCY_MISMATCH: "Валюта договора не совпадает с валютой его вида цены.",
+    CASH_CONTRACT_CURRENCY_MISMATCH: "Диагностика создана по устаревшему правилу валют. Перепроверьте договор.",
     CASH_CONTRACT_MAPPING_CONFLICT: "Сопоставление изменено другим администратором. Обновите страницу.",
     CASH_CONTRACT_MAPPING_FAILED: `Не удалось сохранить сопоставление. Код обращения: ${correlationId}`,
   };
@@ -274,7 +274,7 @@ function commercialProfileMessage(
     COMMERCIAL_PRICE_TYPE_MISSING: "В основном договоре 1С не указан вид цены.",
     COMMERCIAL_PRICE_TYPE_UNKNOWN: "Вид цены договора отсутствует в локальном опубликованном справочнике.",
     COMMERCIAL_PRICE_DATA_STALE: "Цены этого профиля отсутствуют или устарели. Профиль компании не изменён.",
-    COMMERCIAL_CURRENCY_MISMATCH: "Валюта договора, вида цены и локального профиля не совпадает. Профиль компании не изменён.",
+    COMMERCIAL_CURRENCY_MISMATCH: "Валюта вида цены 1С не соответствует валюте опубликованных цен. Профиль компании не изменён.",
     COMMERCIAL_PROFILE_SYNC_FAILED: `Не удалось обновить коммерческий профиль. Код обращения: ${correlationId}`,
   };
   return messages[code];

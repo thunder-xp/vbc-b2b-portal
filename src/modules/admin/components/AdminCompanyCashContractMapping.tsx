@@ -220,7 +220,7 @@ function qualificationLabel(code: string): string {
     CASH_CONTRACT_PRICE_TYPE_INVALID: "Вид цены недействителен",
     CASH_CONTRACT_PRICE_TYPE_CURRENCY_MISMATCH: "Валюта вида цены не соответствует опубликованному виду цены",
     CASH_CONTRACT_CURRENCY_MISSING: "Нет валюты договора",
-    CASH_CONTRACT_CURRENCY_MISMATCH: "Валюта не совпадает",
+    CASH_CONTRACT_CURRENCY_MISMATCH: "Устаревшая проверка валюты",
     CASH_CONTRACT_QUALIFIED: "Сопоставление действительно",
   } as Record<string, string>)[code] ?? "Требуется проверка";
 }

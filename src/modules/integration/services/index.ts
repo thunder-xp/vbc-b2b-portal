@@ -11,5 +11,15 @@ export { createPartnerLookupService } from "./partner-lookup.factory";
 export { createStockSyncEngine } from "./stock-sync.factory";
 export { createExchangeRateSyncService } from "./exchange-rate-sync.factory";
 export { createCatalogSynchronizationOrchestrator } from "./catalog-synchronization.factory";
+export {
+  validateCommercialCurrencyContext,
+  validatePriceCurrencyAlignment,
+  validateSettlementCurrency,
+} from "./commercial-currency";
+export type {
+  CommercialCurrencyContext,
+  CommercialCurrencyValidation,
+  CommercialCurrencyValidationCode,
+} from "./commercial-currency";
 export type { PartnerLookupService } from "./partner-lookup.service";
 export { DefaultPartnerLookupService } from "./partner-lookup.service";

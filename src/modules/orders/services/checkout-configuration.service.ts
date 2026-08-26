@@ -1,4 +1,5 @@
 import { NOVOTECH_ONE_C_ORGANIZATION_REF } from "../../integration/config";
+import { validateCommercialCurrencyContext } from "../../integration/services/commercial-currency";
 import type {
   CheckoutConfiguration,
   CheckoutContractConfiguration,
@@ -87,14 +88,22 @@ function validContract(
   config: CheckoutConfiguration,
   requireCompanyPriceType: boolean,
 ): contract is CheckoutContractConfiguration {
+  const currencyValidation = contract
+    ? validateCommercialCurrencyContext({
+        settlementCurrencyRef: contract.settlementCurrencyRef,
+        settlementCurrencyCode: contract.settlementCurrencyCode,
+        authoritativePriceCurrencyRef: contract.authoritativePriceCurrencyRef,
+        authoritativePriceCurrencyCode: contract.authoritativePriceCurrencyCode,
+        publishedPriceCurrencyRef: contract.publishedPriceCurrencyRef,
+        publishedPriceCurrencyCode: contract.publishedPriceCurrencyCode,
+      })
+    : null;
   return Boolean(
     contract?.active
     && normalizeContractType(contract.contractType) === "спокупателем"
     && contract.organizationRef?.toLowerCase() === NOVOTECH_ONE_C_ORGANIZATION_REF
     && contract.priceTypeRef
-    && contract.currencyRef
-    && contract.currencyCode
-    && contract.contractCurrencyRef
+    && currencyValidation?.valid
     && (!requireCompanyPriceType || contract.priceTypeRef.toLowerCase() === config.priceTypeRef.toLowerCase()),
   );
 }

@@ -99,7 +99,7 @@ describe("checkout configuration", () => {
   it("allows a cashless settlement currency to differ from its governed price currency", () => {
     const cashless = {
       ...contract("contract-cashless", "NS-1"),
-      contractCurrencyRef: "settlement-currency",
+      settlementCurrencyRef: "settlement-currency",
     };
 
     expect(toPartnerCheckoutOptions(configuration({ cashless })).paymentMethods[0].enabled).toBe(true);
@@ -114,8 +114,30 @@ describe("checkout configuration", () => {
   });
 
   it("allows settlement currency to differ from the governed price-type currency", () => {
-    const cash = { ...contract("contract-cash", "CASH-1"), contractCurrencyRef: "other-currency" };
+    const cash = { ...contract("contract-cash", "CASH-1"), settlementCurrencyRef: "other-currency" };
     expect(toPartnerCheckoutOptions(configuration({ cash })).paymentMethods[1].enabled).toBe(true);
+  });
+
+  it.each([
+    {
+      name: "missing settlement currency",
+      override: { settlementCurrencyRef: null },
+    },
+    {
+      name: "missing authoritative price currency",
+      override: { authoritativePriceCurrencyRef: null },
+    },
+    {
+      name: "missing published price currency",
+      override: { publishedPriceCurrencyRef: null },
+    },
+    {
+      name: "authoritative and published price currency mismatch",
+      override: { publishedPriceCurrencyRef: "different-price-currency" },
+    },
+  ])("fails closed for $name", ({ override }) => {
+    const cashless = { ...contract("contract-cashless", "NS-1"), ...override };
+    expect(toPartnerCheckoutOptions(configuration({ cashless })).paymentMethods[0].enabled).toBe(false);
   });
 
   it("rejects an absent payment date instead of deriving one", () => {
@@ -144,9 +166,12 @@ function contract(contractRef: string, number: string, priceTypeRef = PRICE_TYPE
     contractType: "С покупателем",
     organizationRef: NOVOTECH_ONE_C_ORGANIZATION_REF,
     priceTypeRef,
-    currencyRef: "currency-ref",
-    currencyCode: "USD",
-    contractCurrencyRef: "currency-ref",
+    settlementCurrencyRef: "settlement-currency-ref",
+    settlementCurrencyCode: "MDL",
+    authoritativePriceCurrencyRef: "price-currency-ref",
+    authoritativePriceCurrencyCode: "USD",
+    publishedPriceCurrencyRef: "price-currency-ref",
+    publishedPriceCurrencyCode: "USD",
   };
 }
 
@@ -158,8 +183,8 @@ function configuration(overrides: Partial<CheckoutConfiguration> = {}): Checkout
     counterpartyActive: true,
     counterpartyRef: "counterparty-ref",
     priceTypeRef: PRICE_TYPE_REF,
-    currencyRef: "currency-ref",
-    currencyCode: "USD",
+    publishedPriceCurrencyRef: "price-currency-ref",
+    publishedPriceCurrencyCode: "USD",
     cashDiagnosticCode: "CASH_CONTRACT_QUALIFIED",
     cashless: contract("contract-cashless", "NS-1"),
     cash: contract("contract-cash", "CASH-1"),

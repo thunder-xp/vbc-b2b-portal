@@ -9,9 +9,12 @@ export type CheckoutContractConfiguration = {
   contractType: string | null;
   organizationRef: string | null;
   priceTypeRef: string | null;
-  currencyRef: string | null;
-  currencyCode: string | null;
-  contractCurrencyRef: string | null;
+  settlementCurrencyRef: string | null;
+  settlementCurrencyCode: string | null;
+  authoritativePriceCurrencyRef: string | null;
+  authoritativePriceCurrencyCode: string | null;
+  publishedPriceCurrencyRef: string | null;
+  publishedPriceCurrencyCode: string | null;
 };
 
 export type CheckoutCarrierConfiguration = {
@@ -27,8 +30,8 @@ export type CheckoutConfiguration = {
   counterpartyActive: boolean;
   counterpartyRef: string;
   priceTypeRef: string;
-  currencyRef: string;
-  currencyCode: string;
+  publishedPriceCurrencyRef: string;
+  publishedPriceCurrencyCode: string;
   cashDiagnosticCode: string | null;
   cashless: CheckoutContractConfiguration | null;
   cash: CheckoutContractConfiguration | null;

@@ -533,7 +533,7 @@ describe("DefaultPartnerOrderService", () => {
     const dependencies = makeDependencies();
     dependencies.checkoutConfigurationRepository.getByCompanyId.mockResolvedValue({
       ...checkoutConfiguration(),
-      cashless: { ...checkoutConfiguration().cashless!, currencyRef: "" },
+      cashless: { ...checkoutConfiguration().cashless!, publishedPriceCurrencyRef: "" },
     });
 
     await expect(dependencies.service.submit("user-1", input())).rejects.toMatchObject({
@@ -541,6 +541,22 @@ describe("DefaultPartnerOrderService", () => {
     });
     expect(dependencies.orderRepository.beginSubmission).not.toHaveBeenCalled();
     expect(dependencies.partnerProvider.fetchPriceType).not.toHaveBeenCalled();
+    expect(dependencies.orderProvider.exportSalesOrder).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when line prices do not use the governed published price currency", async () => {
+    const dependencies = makeDependencies();
+    dependencies.pricingService.getProductCommercialViews.mockResolvedValue([{
+      ...commercial("product-1", 12.5),
+      partnerPrice: {
+        ...commercial("product-1", 12.5).partnerPrice,
+        currencyCode: "MDL",
+      },
+    }]);
+
+    await expect(dependencies.service.submit("user-1", input())).rejects.toMatchObject({
+      code: "ORDER_PRICE_CHANGED",
+    });
     expect(dependencies.orderProvider.exportSalesOrder).not.toHaveBeenCalled();
   });
 
@@ -606,7 +622,12 @@ describe("DefaultPartnerOrderService", () => {
         name: "Cash contract",
         number: "CASH-1",
         contractRef: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
-        contractCurrencyRef: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        settlementCurrencyRef: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        settlementCurrencyCode: "MDL",
+        authoritativePriceCurrencyRef: "44444444-4444-4444-8444-444444444444",
+        authoritativePriceCurrencyCode: "USD",
+        publishedPriceCurrencyRef: "44444444-4444-4444-8444-444444444444",
+        publishedPriceCurrencyCode: "USD",
       },
     });
 
@@ -803,8 +824,8 @@ function checkoutConfiguration() {
     counterpartyActive: true,
     counterpartyRef: "11111111-1111-4111-8111-111111111111",
     priceTypeRef: "33333333-3333-4333-8333-333333333333",
-    currencyRef: "44444444-4444-4444-8444-444444444444",
-    currencyCode: "USD",
+    publishedPriceCurrencyRef: "44444444-4444-4444-8444-444444444444",
+    publishedPriceCurrencyCode: "USD",
     cashDiagnosticCode: "CASH_MAPPING_MISSING",
     cashless: {
       contractRef: "22222222-2222-4222-8222-222222222222",
@@ -814,9 +835,12 @@ function checkoutConfiguration() {
       contractType: "\u0421 \u043f\u043e\u043a\u0443\u043f\u0430\u0442\u0435\u043b\u0435\u043c",
       organizationRef: "4643d461-aa49-4b70-9486-a59f80ee6af8",
       priceTypeRef: "33333333-3333-4333-8333-333333333333",
-      currencyRef: "44444444-4444-4444-8444-444444444444",
-      currencyCode: "USD",
-      contractCurrencyRef: "44444444-4444-4444-8444-444444444444",
+      settlementCurrencyRef: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      settlementCurrencyCode: "MDL",
+      authoritativePriceCurrencyRef: "44444444-4444-4444-8444-444444444444",
+      authoritativePriceCurrencyCode: "USD",
+      publishedPriceCurrencyRef: "44444444-4444-4444-8444-444444444444",
+      publishedPriceCurrencyCode: "USD",
     },
     cash: null,
     carriers: [],

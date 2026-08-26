@@ -200,7 +200,7 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
     }
     const resolvedCheckout = resolveCheckoutSelection(checkoutConfiguration, checkoutSelection);
     if (!isOneCGuid(resolvedCheckout.contract.priceTypeRef)
-      || !isOneCGuid(resolvedCheckout.contract.currencyRef)) {
+      || !isOneCGuid(resolvedCheckout.contract.publishedPriceCurrencyRef)) {
       failOrderSubmission(
         "price_type_currency_resolution",
         new RecoverableOrderSubmissionError(
@@ -215,7 +215,9 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
       );
     }
     const checkoutPriceTypeRef = resolvedCheckout.contract.priceTypeRef.trim().toLowerCase();
-    const checkoutCurrencyRef = resolvedCheckout.contract.currencyRef.trim().toLowerCase();
+    const checkoutPublishedPriceCurrencyRef = resolvedCheckout.contract.publishedPriceCurrencyRef
+      .trim()
+      .toLowerCase();
     if (!cart) throw new RecoverableOrderSubmissionError("The active cart is not available.");
     if (cart.id !== submittedCartId) {
       console.warn({
@@ -438,7 +440,8 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
       contractRef: resolvedCheckout.contract.contractRef,
       organizationRef: resolvedCheckout.contract.organizationRef,
       priceTypeRef: checkoutPriceTypeRef,
-      currencyRef: checkoutCurrencyRef,
+      settlementCurrencyRef: resolvedCheckout.contract.settlementCurrencyRef,
+      publishedPriceCurrencyRef: checkoutPublishedPriceCurrencyRef,
       submissionKey,
     });
 
@@ -519,6 +522,22 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
     if (currencyCodes.length !== 1) throw new RecoverableOrderSubmissionError("Cart prices use incompatible currencies.");
     const exportSnapshots = snapshots;
     const exportCurrencyCode = currencyCodes[0]!;
+    if (exportCurrencyCode !== resolvedCheckout.contract.publishedPriceCurrencyCode) {
+      failOrderSubmission(
+        "price_type_currency_resolution",
+        new RecoverableOrderSubmissionError(
+          "Published order prices do not match the governed price-type currency.",
+          "ORDER_PRICE_CHANGED",
+        ),
+        {
+          cartId: cart.id,
+          companyId: company.id,
+          submissionKey,
+          publishedPriceCurrencyCode: resolvedCheckout.contract.publishedPriceCurrencyCode,
+          linePriceCurrencyCode: exportCurrencyCode,
+        },
+      );
+    }
     console.info({
       event: "partner_order_submission_diagnostic",
       stage: "order_lines_resolved",
@@ -535,7 +554,8 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
     const salesOrder = buildSalesOrder({
       submissionKey, deliveryDate, companyRef: counterpartyRef,
       contractRef: resolvedCheckout.contract.contractRef, priceTypeRef: checkoutPriceTypeRef,
-      organizationReference: ref(resolvedCheckout.contract.organizationRef!, "organization"), currencyRef: checkoutCurrencyRef,
+      organizationReference: ref(resolvedCheckout.contract.organizationRef!, "organization"),
+      publishedPriceCurrencyRef: checkoutPublishedPriceCurrencyRef,
       currencyCode: exportCurrencyCode, snapshots: exportSnapshots,
       paymentMethod: resolvedCheckout.paymentMethod,
       paymentDate: resolvedCheckout.paymentDate,
@@ -851,7 +871,8 @@ function mapOrderPreparationRepositoryError(error: unknown): RecoverableOrderSub
 
 function buildSalesOrder(input: {
   submissionKey: string; deliveryDate: string; companyRef: string; contractRef: string; priceTypeRef: string;
-  organizationReference: ExternalReferenceDTO; currencyRef: string; currencyCode: string; snapshots: OrderItemSnapshotInput[];
+  organizationReference: ExternalReferenceDTO; publishedPriceCurrencyRef: string; currencyCode: string;
+  snapshots: OrderItemSnapshotInput[];
   paymentMethod: CheckoutPaymentMethod; paymentDate: string; fulfillmentMethod: CheckoutFulfillmentMethod;
   carrierReference: ExternalReferenceDTO | null;
 }): SalesOrderDTO {
@@ -862,7 +883,7 @@ function buildSalesOrder(input: {
     authorReference: ref(REST_AUTHOR_REF, "user"),
     organizationReference: input.organizationReference,
     priceTypeReference: ref(input.priceTypeRef, "price-type"),
-    currencyReference: ref(input.currencyRef, "currency"),
+    currencyReference: ref(input.publishedPriceCurrencyRef, "currency"),
     orderStateReference: ref(ORDER_STATE_REF, "order-state"),
     salesStructuralUnitReference: ref(SALES_STRUCTURAL_UNIT_REF, "structural-unit"),
     reservationStructuralUnitReference: ref(RESERVATION_STRUCTURAL_UNIT_REF, "structural-unit"),

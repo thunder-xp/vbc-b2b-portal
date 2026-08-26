@@ -67,6 +67,18 @@ Contracts and commercial terms come from 1C.
 
 The portal may use contract references to display allowed partner pricing or order context, but it must not become the owner of contract truth.
 
+#### Currency Semantic Invariant
+
+Commercial flows must keep three meanings explicit:
+
+- **Settlement currency** belongs to the selected 1C contract and describes settlement/accounting terms.
+- **Authoritative price currency** belongs to the exact 1C price type selected by that contract.
+- **Published price currency** belongs to the local governed price projection used for cart and order amounts.
+
+Settlement currency is validated independently for presence and valid identity. It is not required to equal either price currency. The authoritative and published price currencies must match exactly; otherwise pricing and order submission fail closed. No portal layer performs an implicit FX conversion or falls back to another price type.
+
+Order payloads continue to send the published price currency as the document/line-price currency and send the settlement semantics through the exact governed contract reference. Field names, logs, DTOs, and diagnostics must preserve these meanings rather than using an unqualified `currency` name.
+
 ### Orders
 
 Confirmed orders are owned by 1C after successful creation.

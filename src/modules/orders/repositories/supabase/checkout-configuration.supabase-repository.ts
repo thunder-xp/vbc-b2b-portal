@@ -27,8 +27,8 @@ implements CheckoutConfigurationRepository {
       counterpartyActive: data.counterpartyActive === true,
       counterpartyRef: text(data.counterpartyRef),
       priceTypeRef: text(data.priceTypeRef),
-      currencyRef: text(data.currencyRef),
-      currencyCode: text(data.currencyCode),
+      publishedPriceCurrencyRef: text(data.publishedPriceCurrencyRef ?? data.currencyRef),
+      publishedPriceCurrencyCode: text(data.publishedPriceCurrencyCode ?? data.currencyCode),
       cashDiagnosticCode: nullableText(data.cashDiagnosticCode),
       cashless: contract(data.cashless),
       cash: contract(data.cash),
@@ -53,9 +53,14 @@ function contract(value: unknown): CheckoutContractConfiguration | null {
     contractType: nullableText(value.contractType),
     organizationRef: nullableText(value.organizationRef),
     priceTypeRef: nullableText(value.priceTypeRef),
-    currencyRef: nullableText(value.currencyRef),
-    currencyCode: nullableText(value.currencyCode),
-    contractCurrencyRef: nullableText(value.contractCurrencyRef),
+    settlementCurrencyRef: nullableText(value.settlementCurrencyRef ?? value.contractCurrencyRef),
+    settlementCurrencyCode: nullableText(value.settlementCurrencyCode),
+    authoritativePriceCurrencyRef: nullableText(
+      value.authoritativePriceCurrencyRef ?? value.currencyRef,
+    ),
+    authoritativePriceCurrencyCode: nullableText(value.authoritativePriceCurrencyCode),
+    publishedPriceCurrencyRef: nullableText(value.publishedPriceCurrencyRef ?? value.currencyRef),
+    publishedPriceCurrencyCode: nullableText(value.publishedPriceCurrencyCode ?? value.currencyCode),
   };
 }
 
