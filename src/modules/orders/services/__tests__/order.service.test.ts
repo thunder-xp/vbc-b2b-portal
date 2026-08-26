@@ -562,14 +562,69 @@ describe("DefaultPartnerOrderService", () => {
       .toMatchObject({ code: "ORDER_CART_VERSION_CONFLICT" });
   });
 
-  it("does not misclassify another submission RPC failure as a cart conflict", async () => {
+  it("retains a typed payload failure from the submission preparation boundary", async () => {
     const dependencies = makeDependencies();
     dependencies.orderRepository.beginSubmission.mockRejectedValue(
       new OrderRepositoryError("23514", "Order submission is invalid."),
     );
 
     await expect(dependencies.service.submit("user-1", input())).rejects
-      .toMatchObject({ code: "ORDER_UNKNOWN_FAILURE" });
+      .toMatchObject({ code: "ORDER_PAYLOAD_VALIDATION_FAILED" });
+    expect(dependencies.orderProvider.exportSalesOrder).not.toHaveBeenCalled();
+  });
+
+  it("retains a typed contract failure returned by the submission validator", async () => {
+    const dependencies = makeDependencies();
+    dependencies.orderRepository.beginSubmission.mockRejectedValue(
+      new OrderRepositoryError("PT409", "ORDER_CONTRACT_INVALID"),
+    );
+
+    await expect(dependencies.service.submit("user-1", input())).rejects
+      .toMatchObject({ code: "ORDER_CONTRACT_INVALID" });
+    expect(dependencies.orderProvider.exportSalesOrder).not.toHaveBeenCalled();
+  });
+
+  it("maps the legacy cash contract guard to the same typed contract failure", async () => {
+    const dependencies = makeDependencies();
+    dependencies.orderRepository.beginSubmission.mockRejectedValue(
+      new OrderRepositoryError("23514", "Order contract mapping is invalid."),
+    );
+
+    await expect(dependencies.service.submit("user-1", input())).rejects
+      .toMatchObject({ code: "ORDER_CONTRACT_INVALID" });
+  });
+
+  it("builds a valid governed cash payload for a physical-person counterparty", async () => {
+    const dependencies = makeDependencies();
+    const config = checkoutConfiguration();
+    dependencies.checkoutConfigurationRepository.getByCompanyId.mockResolvedValue({
+      ...config,
+      counterpartyTypeCode: "ФизическоеЛицо",
+      cashDiagnosticCode: "CASH_CONTRACT_QUALIFIED",
+      cash: {
+        ...config.cashless,
+        name: "Cash contract",
+        number: "CASH-1",
+        contractRef: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        contractCurrencyRef: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      },
+    });
+
+    await dependencies.service.submit("user-1", { ...input(), paymentMethod: "cash" });
+
+    expect(dependencies.orderRepository.beginSubmission).toHaveBeenCalledWith(
+      expect.objectContaining({
+        paymentMethod: "cash",
+        payloadSnapshot: expect.objectContaining({
+          contractReference: expect.objectContaining({
+            externalId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          }),
+          currencyReference: expect.objectContaining({
+            externalId: "44444444-4444-4444-8444-444444444444",
+          }),
+        }),
+      }),
+    );
   });
 
   it("classifies a missing database function as an infrastructure failure", async () => {

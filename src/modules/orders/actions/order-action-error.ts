@@ -44,6 +44,16 @@ function recoverableMessage(error: RecoverableOrderSubmissionError): string {
       return "Проверьте плановую дату отгрузки и повторите отправку.";
     case "ORDER_CART_VERSION_CONFLICT":
       return "Корзина была изменена в другой вкладке или на другом устройстве. Мы загрузили актуальную версию.";
+    case "ORDER_COUNTERPARTY_TYPE_UNSUPPORTED":
+      return correlatedMessage("Тип клиента не поддерживается для отправки заказа. Обратитесь к менеджеру Novotech.", error);
+    case "ORDER_PAYMENT_CONFIGURATION_INVALID":
+      return correlatedMessage("Проверьте способ и дату оплаты. Если ошибка повторится, обратитесь к менеджеру Novotech.", error);
+    case "ORDER_FULFILLMENT_CONFIGURATION_INVALID":
+      return correlatedMessage("Проверьте способ получения заказа и перевозчика.", error);
+    case "ORDER_CONTRACT_INVALID":
+      return correlatedMessage("Договор для выбранного способа оплаты требует проверки Novotech. Корзина сохранена.", error);
+    case "ORDER_PAYLOAD_VALIDATION_FAILED":
+      return correlatedMessage("Данные заказа не прошли проверку. Корзина сохранена — обратитесь к менеджеру Novotech.", error);
     case "ORDER_1C_VALIDATION_FAILED":
       return "1С отклонила данные заказа. Корзина сохранена — обратитесь к менеджеру Novotech.";
     case "ORDER_1C_TIMEOUT":
@@ -55,6 +65,10 @@ function recoverableMessage(error: RecoverableOrderSubmissionError): string {
     default:
       return "Заказ не был отправлен. Корзина сохранена. Повторите попытку.";
   }
+}
+
+function correlatedMessage(message: string, error: RecoverableOrderSubmissionError): string {
+  return `${message} Код обращения: ${orderCorrelationCode(error.correlationId)}.`;
 }
 
 function orderCorrelationCode(correlationId: string): string {

@@ -16,7 +16,12 @@ import type {
 } from "../repositories";
 import { OrderRepositoryError, type CartRepository, type OrderItemSnapshotInput, type PartnerOrderRepository } from "../repositories/order.repository";
 import { CartStatus, PartnerOrderIntegrationStatus, PartnerOrderStatus, type PartnerOrder, type PartnerOrderItem } from "../types";
-import { OrderReconciliationRequiredError, OrderSubmissionInProgressError, RecoverableOrderSubmissionError } from "./order-submission.errors";
+import {
+  OrderReconciliationRequiredError,
+  OrderSubmissionInProgressError,
+  RecoverableOrderSubmissionError,
+  type RecoverableOrderSubmissionCode,
+} from "./order-submission.errors";
 import {
   OrderPriceDataMissingError,
   OrderPriceRefreshFailedError,
@@ -577,6 +582,21 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
       });
     } catch (error) {
       console.error({ event: "partner_order_transition_rejected", cartId: cart.id, cartStatus: cart.status, submissionKey, transition: "active_to_submitting", repositoryErrorCode: error instanceof OrderRepositoryError ? error.code : null, repositoryErrorMessage: error instanceof OrderRepositoryError ? error.databaseMessage : null });
+      const preparationError = mapOrderPreparationRepositoryError(error);
+      if (preparationError) {
+        console.warn({
+          event: "partner_order_preparation_rejected",
+          stage: "idempotency_acquisition",
+          cartId: cart.id,
+          companyId: company.id,
+          submissionKey,
+          submissionAttemptId: attemptId,
+          databaseErrorCode: error instanceof OrderRepositoryError ? error.code : null,
+          domainErrorCode: preparationError.code,
+          correlationId: preparationError.correlationId,
+        });
+        throw preparationError;
+      }
       if (
         error instanceof OrderRepositoryError
         && error.code === "P0001"
@@ -786,6 +806,47 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
     await this.permissionService.ensurePermission(userId, context.company.id, ORDERS_PERMISSION);
     return context;
   }
+}
+
+const ORDER_PREPARATION_CODES = new Set<RecoverableOrderSubmissionCode>([
+  "ORDER_CART_VERSION_CONFLICT",
+  "ORDER_INVALID_SHIPMENT_DATE",
+  "ORDER_PAYMENT_CONFIGURATION_INVALID",
+  "ORDER_FULFILLMENT_CONFIGURATION_INVALID",
+  "ORDER_COMPANY_MAPPING_MISSING",
+  "ORDER_CONTRACT_INVALID",
+  "ORDER_PAYLOAD_VALIDATION_FAILED",
+]);
+
+function mapOrderPreparationRepositoryError(error: unknown): RecoverableOrderSubmissionError | null {
+  if (!(error instanceof OrderRepositoryError)) return null;
+
+  const databaseMessage = error.databaseMessage ?? "";
+  if (error.code === "PT409") {
+    const domainCode = databaseMessage.trim() as RecoverableOrderSubmissionCode;
+    if (ORDER_PREPARATION_CODES.has(domainCode)) {
+      return new RecoverableOrderSubmissionError(databaseMessage, domainCode);
+    }
+  }
+
+  if (error.code !== "23514") return null;
+
+  if (databaseMessage.includes("company mapping")) {
+    return new RecoverableOrderSubmissionError(databaseMessage, "ORDER_COMPANY_MAPPING_MISSING");
+  }
+  if (databaseMessage.includes("contract mapping")) {
+    return new RecoverableOrderSubmissionError(databaseMessage, "ORDER_CONTRACT_INVALID");
+  }
+  if (databaseMessage.includes("carrier") || databaseMessage.includes("Pickup")) {
+    return new RecoverableOrderSubmissionError(
+      databaseMessage,
+      "ORDER_FULFILLMENT_CONFIGURATION_INVALID",
+    );
+  }
+  if (databaseMessage.includes("commercial mapping") || databaseMessage.includes("Order submission")) {
+    return new RecoverableOrderSubmissionError(databaseMessage, "ORDER_PAYLOAD_VALIDATION_FAILED");
+  }
+  return null;
 }
 
 function buildSalesOrder(input: {

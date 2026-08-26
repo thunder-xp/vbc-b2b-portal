@@ -31,6 +31,15 @@ describe("orderSubmissionFailure", () => {
       "Проверьте плановую дату отгрузки и повторите отправку.",
     ],
     [
+      new RecoverableOrderSubmissionError(
+        "ORDER_CONTRACT_INVALID",
+        "ORDER_CONTRACT_INVALID",
+        "12345678-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      ),
+      "ORDER_CONTRACT_INVALID",
+      "Договор для выбранного способа оплаты требует проверки Novotech. Корзина сохранена. Код обращения: ORD-12345678.",
+    ],
+    [
       new OrderSubmissionInProgressError(),
       "ORDER_IN_PROGRESS",
       "Заказ уже отправляется. Подождите завершения операции.",

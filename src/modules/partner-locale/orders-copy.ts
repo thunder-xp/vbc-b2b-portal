@@ -197,6 +197,16 @@ export const getOrdersCopy = definePartnerCopy(
     orderCarrierRequired: "Выберите перевозчика для доставки.",
     orderCartVersionConflict:
       "Корзина была изменена в другой вкладке или на другом устройстве. Загружена актуальная версия.",
+    orderCounterpartyTypeUnsupported:
+      "Тип клиента не поддерживается для отправки заказа. Обратитесь к менеджеру Novotech.",
+    orderPaymentConfigurationInvalid:
+      "Проверьте способ и дату оплаты. Если ошибка повторится, обратитесь к менеджеру Novotech.",
+    orderFulfillmentConfigurationInvalid:
+      "Проверьте способ получения заказа и перевозчика.",
+    orderContractInvalid:
+      "Договор для выбранного способа оплаты требует проверки Novotech. Корзина сохранена.",
+    orderPayloadValidationFailed:
+      "Данные заказа не прошли проверку. Корзина сохранена — обратитесь к менеджеру Novotech.",
     orderOneCValidationFailed:
       "1С отклонила данные заказа. Корзина сохранена — обратитесь к менеджеру Novotech.",
     orderInfrastructureFailure:
@@ -448,6 +458,16 @@ export const getOrdersCopy = definePartnerCopy(
     orderCarrierRequired: "Selectați transportatorul pentru livrare.",
     orderCartVersionConflict:
       "Coșul a fost modificat într-o altă filă sau pe alt dispozitiv. A fost încărcată versiunea actuală.",
+    orderCounterpartyTypeUnsupported:
+      "Tipul clientului nu este acceptat pentru trimiterea comenzii. Contactați managerul Novotech.",
+    orderPaymentConfigurationInvalid:
+      "Verificați metoda și data plății. Dacă eroarea persistă, contactați managerul Novotech.",
+    orderFulfillmentConfigurationInvalid:
+      "Verificați metoda de primire a comenzii și transportatorul.",
+    orderContractInvalid:
+      "Contractul pentru metoda de plată selectată necesită verificarea Novotech. Coșul a fost păstrat.",
+    orderPayloadValidationFailed:
+      "Datele comenzii nu au trecut verificarea. Coșul a fost păstrat — contactați managerul Novotech.",
     orderOneCValidationFailed:
       "1C a respins datele comenzii. Coșul a fost păstrat — contactați managerul Novotech.",
     orderInfrastructureFailure:

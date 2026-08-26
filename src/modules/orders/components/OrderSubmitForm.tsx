@@ -313,7 +313,7 @@ export function OrderSubmitForm({
             state.success ? "text-emerald-700" : "text-rose-700"
           }`}
         >
-          {state.success ? state.message : orderFailureMessage(state.errorCode, copy)}
+          {state.success ? state.message : orderFailureMessage(state.errorCode, copy, state.message)}
         </p>
       ) : null}
     </form>
@@ -401,6 +401,7 @@ function isDefinitiveRecoverableFailure(code: string | null): boolean {
 function orderFailureMessage(
   code: string | null,
   copy: ReturnType<typeof getOrdersCopy>,
+  serverMessage = "",
 ): string {
   switch (code) {
     case "ORDER_IN_PROGRESS":
@@ -438,6 +439,16 @@ function orderFailureMessage(
       return copy.orderCarrierRequired;
     case "ORDER_CART_VERSION_CONFLICT":
       return copy.orderCartVersionConflict;
+    case "ORDER_COUNTERPARTY_TYPE_UNSUPPORTED":
+      return withCorrelation(copy.orderCounterpartyTypeUnsupported, serverMessage);
+    case "ORDER_PAYMENT_CONFIGURATION_INVALID":
+      return withCorrelation(copy.orderPaymentConfigurationInvalid, serverMessage);
+    case "ORDER_FULFILLMENT_CONFIGURATION_INVALID":
+      return withCorrelation(copy.orderFulfillmentConfigurationInvalid, serverMessage);
+    case "ORDER_CONTRACT_INVALID":
+      return withCorrelation(copy.orderContractInvalid, serverMessage);
+    case "ORDER_PAYLOAD_VALIDATION_FAILED":
+      return withCorrelation(copy.orderPayloadValidationFailed, serverMessage);
     case "ORDER_1C_VALIDATION_FAILED":
       return copy.orderOneCValidationFailed;
     case "ORDER_SUBMISSION_INFRASTRUCTURE_FAILURE":
@@ -446,4 +457,9 @@ function orderFailureMessage(
     default:
       return copy.retryOrContact;
   }
+}
+
+function withCorrelation(message: string, serverMessage: string): string {
+  const correlationCode = serverMessage.match(/ORD-[A-F0-9]{8}/)?.[0];
+  return correlationCode ? `${message} ${correlationCode}` : message;
 }
