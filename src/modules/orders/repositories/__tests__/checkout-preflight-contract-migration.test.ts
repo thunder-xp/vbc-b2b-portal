@@ -4,7 +4,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 const migration = fs.readFileSync(
-  path.resolve("supabase/migrations/20260827081043_restore_checkout_preflight_contract.sql"),
+  path.resolve("supabase/migrations/20260827062547_restore_checkout_preflight_contract.sql"),
   "utf8",
 );
 
