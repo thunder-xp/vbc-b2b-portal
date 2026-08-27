@@ -10,6 +10,16 @@ function repository(): AdminPublicPartnerDirectoryRepository {
   return {
     list: vi.fn().mockResolvedValue({ records: [], totalCount: 26, publishedCount: 3, page: 1, pageSize: 25 }),
     update: vi.fn().mockResolvedValue({ companyId, revision: 2, visible: true, changed: true, correlationId }),
+    updateLogo: vi.fn().mockResolvedValue({
+      companyId,
+      previousLogoAssetPath: null,
+      logoAssetPath: `${companyId}/4002e638-d41b-4464-8c82-76d89aa50875.webp`,
+      revision: 2,
+      visible: true,
+      changed: true,
+      auditEventId: "50a675ca-bc65-4748-ab91-20a438974bea",
+      correlationId,
+    }),
   };
 }
 
@@ -49,5 +59,28 @@ describe("admin public partner-directory service", () => {
       correlationId,
     })).toThrow("PUBLIC_PARTNER_NAME_REQUIRED");
     expect(repo.update).not.toHaveBeenCalled();
+  });
+
+  it("validates deterministic company-owned logo paths before the RPC", async () => {
+    const repo = repository();
+    const path = `${companyId}/4002e638-d41b-4464-8c82-76d89aa50875.webp`;
+    await new AdminPublicPartnerDirectoryService(repo).updateLogo({
+      companyId,
+      expectedRevision: 1,
+      logoAssetPath: path,
+      correlationId,
+    });
+    expect(repo.updateLogo).toHaveBeenCalledWith(expect.objectContaining({ logoAssetPath: path }));
+  });
+
+  it("rejects a logo path owned by another company", () => {
+    const repo = repository();
+    expect(() => new AdminPublicPartnerDirectoryService(repo).updateLogo({
+      companyId,
+      expectedRevision: 1,
+      logoAssetPath: "458f1ac5-a219-433a-af5e-dc4b44d77444/4002e638-d41b-4464-8c82-76d89aa50875.webp",
+      correlationId,
+    })).toThrow("ADMIN_COMPANY_LOGO_INPUT_INVALID");
+    expect(repo.updateLogo).not.toHaveBeenCalled();
   });
 });

@@ -5,8 +5,8 @@ import { revalidatePath } from "next/cache";
 
 import { createAdminClient } from "@/src/lib/supabase/admin";
 import { createClient } from "@/src/lib/supabase/server";
+import { validateCompanyLogo } from "@/src/modules/company-identity/company-logo";
 import { getAuthenticatedUserId } from "../../access-control/actions/service-factory";
-import { validateCompanyLogo } from "../services/company-logo.service";
 import { createPartnerWorkspaceContextService } from "./service-factory";
 
 export type CompanyLogoActionState = {
@@ -31,7 +31,7 @@ export async function updateCompanyLogoAction(
       const file = formData.get("logo");
       if (!(file instanceof File)) return failure("Выберите файл логотипа.");
       const bytes = new Uint8Array(await file.arrayBuffer());
-      const extension = validateCompanyLogo(bytes, file.type);
+      const extension = validateCompanyLogo(bytes, file.type, file.name);
       uploadedPath = `${context.companyId}/${randomUUID()}.${extension}`;
       const { error } = await createAdminClient().storage
         .from("company-logos")

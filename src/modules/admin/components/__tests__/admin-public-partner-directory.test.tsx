@@ -2,8 +2,10 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("../../actions", () => ({
+  updateAdminCompanyLogoAction: vi.fn(),
   updateAdminPublicPartnerDirectoryAction: vi.fn(),
 }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 
 import { AdminPublicPartnerDirectory } from "../AdminPublicPartnerDirectory";
 
@@ -34,8 +36,24 @@ describe("admin public partner-directory UI", () => {
     expect(screen.getByRole("heading", { name: "Публичный каталог партнёров" })).toBeInTheDocument();
     expect(screen.getByText("Canonical Company")).toBeInTheDocument();
     expect(screen.getByText("Логотип отсутствует: публичная карточка использует безопасную заглушку.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Загрузить логотип" })).toBeInTheDocument();
     expect(screen.getByLabelText("Показывать в каталоге партнёров")).not.toBeChecked();
     expect(container.innerHTML).not.toMatch(/debt|contract|external_1c|partnerPrice/i);
+  });
+
+  it("shows immediate replace and remove controls for an existing canonical logo", () => {
+    render(<AdminPublicPartnerDirectory page={{
+      ...page,
+      records: [{
+        ...page.records[0],
+        currentLogoUrl: "https://project.supabase.co/storage/v1/object/public/company-logos/company/logo.webp",
+        approvedLogoUrl: "https://project.supabase.co/storage/v1/object/public/company-logos/company/logo.webp",
+      }],
+    }} />);
+    expect(screen.getByRole("img", { name: "Логотип Canonical Company" })).toHaveClass("object-contain");
+    expect(screen.getByRole("button", { name: "Заменить логотип" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Удалить логотип" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Использовать текущий логотип компании")).toBeChecked();
   });
 
   it("blocks an empty public name when visibility is enabled", () => {

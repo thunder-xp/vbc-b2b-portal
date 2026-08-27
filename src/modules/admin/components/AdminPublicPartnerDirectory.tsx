@@ -1,20 +1,24 @@
 "use client";
 
-import { Building2, Eye, EyeOff } from "lucide-react";
+import { Building2, Eye, EyeOff, ImageUp, Trash2 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useActionState, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useActionState, useEffect, useState } from "react";
 
 import { PublicPartnerCard } from "@/src/modules/public-retail/components/PublicPartnerDirectory";
 
 import {
+  updateAdminCompanyLogoAction,
   updateAdminPublicPartnerDirectoryAction,
+  type AdminCompanyLogoActionState,
   type AdminPublicPartnerDirectoryActionState,
 } from "../actions";
 import type { AdminPublicPartnerDirectoryPage, AdminPublicPartnerDirectoryRecord } from "../types";
 import { AdminPageHeader } from "./AdminPageHeader";
 
 const INITIAL: AdminPublicPartnerDirectoryActionState = { status: "idle", message: "" };
+const INITIAL_LOGO: AdminCompanyLogoActionState = { status: "idle", message: "" };
 const FILTERS = {
   all: "Все активные",
   visible: "Опубликованные",
@@ -56,7 +60,7 @@ export function AdminPublicPartnerDirectory({ page }: { page: AdminPublicPartner
       <button className="min-h-11 self-end bg-zinc-950 px-4 text-sm font-semibold text-white">Применить</button>
     </form>
     <section className="space-y-4" aria-label="Компании">
-      {page.records.length ? page.records.map((record) => <GovernanceRow key={record.companyId} record={record} />) : <p className="border border-zinc-200 bg-white px-5 py-12 text-center text-sm text-zinc-500">Компании по выбранным условиям не найдены.</p>}
+      {page.records.length ? page.records.map((record) => <GovernanceRow key={`${record.companyId}:${record.revision}`} record={record} />) : <p className="border border-zinc-200 bg-white px-5 py-12 text-center text-sm text-zinc-500">Компании по выбранным условиям не найдены.</p>}
     </section>
     <Pagination page={page} />
   </div>;
@@ -69,50 +73,84 @@ function GovernanceRow({ record }: { record: AdminPublicPartnerDirectoryRecord }
   const [useCurrentLogo, setUseCurrentLogo] = useState(Boolean(record.currentLogoUrl && record.currentLogoUrl === record.approvedLogoUrl));
   const previewName = publicName.trim() || "Название для публикации";
 
-  return <article className="border border-zinc-200 bg-white p-4 sm:p-5">
-    <form action={action} className="grid gap-5 xl:grid-cols-[minmax(12rem,0.8fr)_minmax(20rem,1.5fr)_15rem] xl:items-start">
+  return <article className="grid gap-5 border border-zinc-200 bg-white p-4 sm:p-5 xl:grid-cols-[minmax(16rem,0.9fr)_minmax(20rem,1.4fr)_15rem] xl:items-start">
+    <CompanyLogoControl record={record} />
+    <form action={action} className="grid gap-4">
       <input name="companyId" type="hidden" value={record.companyId} />
       <input name="revision" type="hidden" value={record.revision} />
-      <div className="min-w-0">
-        <div className="flex items-center gap-3">
-          <div className="relative grid size-16 shrink-0 place-items-center overflow-hidden rounded-md border border-zinc-200 bg-zinc-50">
-            {record.currentLogoUrl ? <Image alt="" className="object-contain p-2" fill sizes="64px" src={record.currentLogoUrl} /> : <Building2 aria-hidden className="size-7 text-zinc-300" />}
-          </div>
-          <div className="min-w-0">
-            <h2 className="break-words font-semibold">{record.companyName}</h2>
-            <p className="mt-1 flex items-center gap-1 text-xs text-zinc-500">
-              {record.visible ? <Eye aria-hidden className="size-3.5 text-emerald-700" /> : <EyeOff aria-hidden className="size-3.5" />}
-              {record.visible ? "Показывается публично" : "Скрыта"}
-            </p>
-          </div>
-        </div>
-        <p className="mt-3 text-xs text-zinc-500">Версия {record.revision}{record.updatedAt ? ` · обновлено ${DIRECTORY_DATE_TIME.format(new Date(record.updatedAt))}` : ""}</p>
-      </div>
-      <div className="grid gap-4">
-        <label className="grid gap-1.5 text-sm font-medium">Публичное название
-          <input className="min-h-11 min-w-0 border border-zinc-300 px-3" maxLength={160} name="publicDisplayName" onChange={(event) => setPublicName(event.target.value)} required={visible} value={publicName} />
-        </label>
-        <label className={`flex min-h-11 items-center gap-3 text-sm ${record.currentLogoUrl ? "" : "text-zinc-400"}`}>
-          <input checked={useCurrentLogo} disabled={!record.currentLogoUrl || pending} name="useCurrentLogo" onChange={(event) => setUseCurrentLogo(event.target.checked)} type="checkbox" />
-          Использовать текущий логотип компании
-        </label>
-        {!record.currentLogoUrl ? <p className="text-xs text-zinc-500">Логотип отсутствует: публичная карточка использует безопасную заглушку.</p> : null}
-        <label className="flex min-h-11 items-center gap-3 text-sm font-semibold">
-          <input checked={visible} disabled={pending} name="visible" onChange={(event) => setVisible(event.target.checked)} type="checkbox" />
-          Показывать в каталоге партнёров
-        </label>
-        {visible && !publicName.trim() ? <p className="text-sm text-amber-700">Для публикации укажите публичное название.</p> : null}
-        <div className="flex flex-wrap items-center gap-3">
-          <button className="min-h-11 bg-emerald-700 px-4 text-sm font-semibold text-white disabled:opacity-50" disabled={pending || (visible && !publicName.trim())} type="submit">{pending ? "Сохранение..." : "Сохранить"}</button>
-          <span aria-live="polite" className={`text-sm ${state.status === "error" || state.status === "conflict" ? "text-red-700" : "text-emerald-700"}`}>{state.message}</span>
-        </div>
-      </div>
-      <div>
-        <p className="mb-2 text-xs font-semibold uppercase text-zinc-500">Предпросмотр карточки</p>
-        <PublicPartnerCard partner={{ displayName: previewName, logoUrl: useCurrentLogo ? record.currentLogoUrl : null }} />
+      <label className="grid gap-1.5 text-sm font-medium">Публичное название
+        <input className="min-h-11 min-w-0 border border-zinc-300 px-3" maxLength={160} name="publicDisplayName" onChange={(event) => setPublicName(event.target.value)} required={visible} value={publicName} />
+      </label>
+      <label className={`flex min-h-11 items-center gap-3 text-sm ${record.currentLogoUrl ? "" : "text-zinc-400"}`}>
+        <input checked={useCurrentLogo} disabled={!record.currentLogoUrl || pending} name="useCurrentLogo" onChange={(event) => setUseCurrentLogo(event.target.checked)} type="checkbox" />
+        Использовать текущий логотип компании
+      </label>
+      {!record.currentLogoUrl ? <p className="text-xs text-zinc-500">Логотип отсутствует: публичная карточка использует безопасную заглушку.</p> : null}
+      <label className="flex min-h-11 items-center gap-3 text-sm font-semibold">
+        <input checked={visible} disabled={pending} name="visible" onChange={(event) => setVisible(event.target.checked)} type="checkbox" />
+        Показывать в каталоге партнёров
+      </label>
+      {visible && !publicName.trim() ? <p className="text-sm text-amber-700">Для публикации укажите публичное название.</p> : null}
+      <div className="flex flex-wrap items-center gap-3">
+        <button className="min-h-11 bg-emerald-700 px-4 text-sm font-semibold text-white disabled:opacity-50" disabled={pending || (visible && !publicName.trim())} type="submit">{pending ? "Сохранение..." : "Сохранить"}</button>
+        <span aria-live="polite" className={`text-sm ${state.status === "error" || state.status === "conflict" ? "text-red-700" : "text-emerald-700"}`}>{state.message}</span>
       </div>
     </form>
+    <div>
+      <p className="mb-2 text-xs font-semibold uppercase text-zinc-500">Предпросмотр карточки</p>
+      <PublicPartnerCard partner={{ displayName: previewName, logoUrl: useCurrentLogo ? record.currentLogoUrl : null }} />
+    </div>
   </article>;
+}
+
+function CompanyLogoControl({ record }: { record: AdminPublicPartnerDirectoryRecord }) {
+  const router = useRouter();
+  const [state, action, pending] = useActionState(updateAdminCompanyLogoAction, INITIAL_LOGO);
+
+  useEffect(() => {
+    if (state.status === "success") router.refresh();
+  }, [router, state.status]);
+
+  return <div className="min-w-0">
+    <div className="flex items-start gap-3">
+      <div className="relative grid size-24 shrink-0 place-items-center overflow-hidden rounded-md border border-zinc-200 bg-zinc-50">
+        {record.currentLogoUrl ? <Image alt={`Логотип ${record.companyName}`} className="object-contain p-2" fill sizes="96px" src={record.currentLogoUrl} /> : <Building2 aria-hidden className="size-9 text-zinc-300" />}
+      </div>
+      <div className="min-w-0">
+        <h2 className="break-words font-semibold">{record.companyName}</h2>
+        <p className="mt-1 flex items-center gap-1 text-xs text-zinc-500">
+          {record.visible ? <Eye aria-hidden className="size-3.5 text-emerald-700" /> : <EyeOff aria-hidden className="size-3.5" />}
+          {record.visible ? "Показывается публично" : "Скрыта"}
+        </p>
+        <p className="mt-2 text-xs text-zinc-500">Версия {record.revision}{record.updatedAt ? ` · обновлено ${DIRECTORY_DATE_TIME.format(new Date(record.updatedAt))}` : ""}</p>
+      </div>
+    </div>
+    <form action={action} className="mt-4 grid gap-3">
+      <input name="companyId" type="hidden" value={record.companyId} />
+      <input name="revision" type="hidden" value={record.revision} />
+      <label className="sr-only" htmlFor={`company-logo-${record.companyId}`}>Файл логотипа</label>
+      <input
+        accept="image/png,image/jpeg,image/webp"
+        className="min-h-11 min-w-0 border border-zinc-300 bg-white px-3 py-2 text-sm file:mr-3 file:border-0 file:bg-transparent file:font-semibold"
+        disabled={pending}
+        id={`company-logo-${record.companyId}`}
+        name="logo"
+        required
+        type="file"
+      />
+      <div className="flex flex-wrap gap-2">
+        <button className="inline-flex min-h-11 items-center justify-center gap-2 bg-zinc-950 px-4 text-sm font-semibold text-white disabled:opacity-50" disabled={pending} type="submit">
+          <ImageUp aria-hidden className="size-4" />
+          {pending ? "Загрузка..." : record.currentLogoUrl ? "Заменить логотип" : "Загрузить логотип"}
+        </button>
+        {record.currentLogoUrl ? <button className="inline-flex min-h-11 items-center justify-center gap-2 border border-zinc-300 px-3 text-sm font-semibold text-zinc-700 disabled:opacity-50" disabled={pending} formNoValidate name="intent" type="submit" value="remove">
+          <Trash2 aria-hidden className="size-4" />
+          Удалить логотип
+        </button> : null}
+      </div>
+      <p aria-live="polite" className={`text-sm ${state.status === "error" || state.status === "conflict" ? "text-red-700" : "text-emerald-700"}`}>{state.message}</p>
+    </form>
+  </div>;
 }
 
 function Pagination({ page }: { page: AdminPublicPartnerDirectoryPage }) {

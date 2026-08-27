@@ -38,3 +38,14 @@ export type UpdateAdminPublicPartnerDirectoryResult = {
   changed: boolean;
   correlationId: string;
 };
+
+export type UpdateAdminCompanyLogoResult = {
+  companyId: string;
+  previousLogoAssetPath: string | null;
+  logoAssetPath: string | null;
+  revision: number;
+  visible: boolean;
+  changed: boolean;
+  auditEventId: string | null;
+  correlationId: string;
+};

@@ -96,4 +96,5 @@ export {
   type AdminPublicPartnerDirectoryRecord,
   type AdminPublicPartnerFilter,
   type UpdateAdminPublicPartnerDirectoryResult,
+  type UpdateAdminCompanyLogoResult,
 } from "./admin-public-partner-directory";

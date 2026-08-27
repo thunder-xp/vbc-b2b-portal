@@ -33,6 +33,16 @@ const updateResult = z.object({
   changed: z.boolean(),
   correlationId: uuid,
 }).strict();
+const updateLogoResult = z.object({
+  companyId: uuid,
+  previousLogoAssetPath: z.string().max(100).nullable(),
+  logoAssetPath: z.string().max(100).nullable(),
+  revision: z.number().int().positive(),
+  visible: z.boolean(),
+  changed: z.boolean(),
+  auditEventId: uuid.nullable(),
+  correlationId: uuid,
+}).strict();
 
 export class SupabaseAdminPublicPartnerDirectoryRepository implements AdminPublicPartnerDirectoryRepository {
   async list(input: Parameters<AdminPublicPartnerDirectoryRepository["list"]>[0]) {
@@ -83,6 +93,27 @@ export class SupabaseAdminPublicPartnerDirectoryRepository implements AdminPubli
     if (domainCode) throw new Error(domainCode);
     if (error || data === null) throw unexpected("update_admin_public_partner_directory", payload, error);
     return updateResult.parse(data);
+  }
+
+  async updateLogo(input: Parameters<AdminPublicPartnerDirectoryRepository["updateLogo"]>[0]) {
+    const supabase = await createClient();
+    const payload = {
+      p_company_id: input.companyId,
+      p_expected_revision: input.expectedRevision,
+      p_logo_asset_path: input.logoAssetPath,
+      p_correlation_id: input.correlationId,
+    };
+    const { data, error } = await supabase.rpc("update_admin_partner_company_logo", payload);
+    if (error?.code === "PT409") throw new Error("ADMIN_COMPANY_LOGO_CONFLICT");
+    const domainCode = [
+      "ADMIN_COMPANY_LOGO_INPUT_INVALID",
+      "ADMIN_COMPANY_LOGO_PATH_INVALID",
+      "ADMIN_COMPANY_LOGO_COMPANY_NOT_FOUND",
+      "ADMIN_COMPANY_LOGO_COMPANY_INACTIVE",
+    ].find((code) => error?.message.includes(code));
+    if (domainCode) throw new Error(domainCode);
+    if (error || data === null) throw unexpected("update_admin_partner_company_logo", payload, error);
+    return updateLogoResult.parse(data);
   }
 }
 

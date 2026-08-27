@@ -11,13 +11,18 @@ export type CompanyLogoExtension = (typeof IMAGE_TYPES)[keyof typeof IMAGE_TYPES
 export function validateCompanyLogo(
   bytes: Uint8Array,
   contentType: string,
+  fileName: string,
 ): CompanyLogoExtension {
   if (bytes.byteLength === 0 || bytes.byteLength > MAX_COMPANY_LOGO_BYTES) {
     throw new Error("COMPANY_LOGO_SIZE");
   }
 
   const extension = IMAGE_TYPES[contentType as keyof typeof IMAGE_TYPES];
-  if (!extension || !matchesImageSignature(bytes, extension)) {
+  const fileExtension = fileName.trim().toLowerCase().match(/\.([a-z0-9]+)$/)?.[1];
+  const extensionMatches = extension === "jpg"
+    ? fileExtension === "jpg" || fileExtension === "jpeg"
+    : fileExtension === extension;
+  if (!extension || !extensionMatches || !matchesImageSignature(bytes, extension)) {
     throw new Error("COMPANY_LOGO_FORMAT");
   }
   return extension;

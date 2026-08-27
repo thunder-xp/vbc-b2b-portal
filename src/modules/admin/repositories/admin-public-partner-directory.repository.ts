@@ -1,6 +1,7 @@
 import type {
   AdminPublicPartnerDirectoryPage,
   AdminPublicPartnerFilter,
+  UpdateAdminCompanyLogoResult,
   UpdateAdminPublicPartnerDirectoryResult,
 } from "../types";
 
@@ -19,4 +20,10 @@ export interface AdminPublicPartnerDirectoryRepository {
     useCurrentLogo: boolean;
     correlationId: string;
   }): Promise<UpdateAdminPublicPartnerDirectoryResult>;
+  updateLogo(input: {
+    companyId: string;
+    expectedRevision: number;
+    logoAssetPath: string | null;
+    correlationId: string;
+  }): Promise<UpdateAdminCompanyLogoResult>;
 }

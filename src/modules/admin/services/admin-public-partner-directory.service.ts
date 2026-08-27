@@ -45,6 +45,24 @@ export class AdminPublicPartnerDirectoryService {
     }
     return this.repository.update({ ...input, publicDisplayName });
   }
+
+  updateLogo(input: {
+    companyId: string;
+    expectedRevision: number;
+    logoAssetPath: string | null;
+    correlationId: string;
+  }) {
+    if (!UUID.test(input.companyId) || !UUID.test(input.correlationId)
+      || !Number.isInteger(input.expectedRevision) || input.expectedRevision < 1
+      || (input.logoAssetPath !== null
+        && !new RegExp(
+          `^${input.companyId}/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\\.(png|jpg|webp)$`,
+          "i",
+        ).test(input.logoAssetPath))) {
+      throw new Error("ADMIN_COMPANY_LOGO_INPUT_INVALID");
+    }
+    return this.repository.updateLogo(input);
+  }
 }
 
 function positiveInteger(value?: string): number {

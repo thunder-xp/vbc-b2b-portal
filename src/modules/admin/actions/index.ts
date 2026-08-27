@@ -30,6 +30,8 @@ export {
   type PartnerIntegrityActionState,
 } from "./admin-partner-integrity.actions";
 export {
+  updateAdminCompanyLogoAction,
   updateAdminPublicPartnerDirectoryAction,
+  type AdminCompanyLogoActionState,
   type AdminPublicPartnerDirectoryActionState,
 } from "./admin-public-partner-directory.actions";
