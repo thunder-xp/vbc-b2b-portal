@@ -8,7 +8,11 @@ import {
   OrderSubmitForm,
 } from "../OrderSubmitForm";
 
-const mocks = vi.hoisted(() => ({ submit: vi.fn(), push: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  refresh: vi.fn(),
+  replace: vi.fn(),
+  submit: vi.fn(),
+}));
 const governedCashlessOptions = {
   counterpartyKind: "legal_entity" as const,
   paymentMethods: [
@@ -18,7 +22,9 @@ const governedCashlessOptions = {
   carriers: [],
 };
 
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: mocks.push }) }));
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: mocks.refresh, replace: mocks.replace }),
+}));
 vi.mock("../../actions/order.actions", () => ({ submitCartOrderAction: mocks.submit }));
 
 describe("OrderSubmitForm", () => {
@@ -59,15 +65,44 @@ describe("OrderSubmitForm", () => {
   });
 
   it("redirects a confirmed result to the immutable order detail without resubmitting", async () => {
-    mocks.submit.mockResolvedValue({ success: true, errorCode: null, message: "Заказ создан.", data: { id: "order-1" } });
+    mocks.submit.mockResolvedValue({
+      success: true,
+      errorCode: null,
+      message: "Заказ создан.",
+      data: { id: "order-1", redirectTo: "/cabinet/orders/order-1?submitted=1" },
+    });
     const user = userEvent.setup();
-    render(<OrderSubmitForm checkoutOptions={governedCashlessOptions} submissionKey="55555555-5555-4555-8555-555555555555" />);
+    const view = render(<OrderSubmitForm checkoutOptions={governedCashlessOptions} submissionKey="55555555-5555-4555-8555-555555555555" />);
 
     await user.type(screen.getByLabelText(/Дата оплаты/), "2099-01-09");
     await user.type(screen.getByLabelText("Дата планируемой отгрузки"), "2099-01-10");
     await user.click(screen.getByRole("button", { name: "Отправить заказ" }));
 
-    await waitFor(() => expect(mocks.push).toHaveBeenCalledWith("/cabinet/orders/order-1?submitted=1"));
+    await waitFor(() => expect(mocks.replace).toHaveBeenCalledWith("/cabinet/orders/order-1?submitted=1"));
+    expect(mocks.submit).toHaveBeenCalledOnce();
+    view.rerender(<OrderSubmitForm checkoutOptions={governedCashlessOptions} submissionKey="55555555-5555-4555-8555-555555555555" />);
+    expect(mocks.replace).toHaveBeenCalledOnce();
+  });
+
+  it("keeps the confirmed redirect when cart revalidation unmounts the form", async () => {
+    let resolveSubmission: ((value: unknown) => void) | undefined;
+    mocks.submit.mockReturnValue(new Promise((resolve) => { resolveSubmission = resolve; }));
+    const user = userEvent.setup();
+    const view = render(<OrderSubmitForm checkoutOptions={governedCashlessOptions} submissionKey="55555555-5555-4555-8555-555555555555" />);
+    await user.type(screen.getByLabelText(/Дата оплаты/), "2099-01-09");
+    await user.type(screen.getByLabelText("Дата планируемой отгрузки"), "2099-01-10");
+    await user.click(screen.getByRole("button", { name: "Отправить заказ" }));
+
+    view.rerender(<div>Корзина пуста</div>);
+    resolveSubmission?.({
+      success: true,
+      errorCode: null,
+      message: "Заказ создан.",
+      data: { id: "order-1", redirectTo: "/cabinet/orders/order-1?submitted=1" },
+    });
+
+    await waitFor(() => expect(mocks.replace).toHaveBeenCalledWith("/cabinet/orders/order-1?submitted=1"));
+    expect(mocks.replace).toHaveBeenCalledOnce();
     expect(mocks.submit).toHaveBeenCalledOnce();
   });
 
@@ -83,6 +118,7 @@ describe("OrderSubmitForm", () => {
     await user.click(button);
     expect(screen.getByRole("button", { name: "Отправляем заказ…" })).toBeDisabled();
     expect(mocks.submit).toHaveBeenCalledOnce();
+    expect(mocks.replace).not.toHaveBeenCalled();
 
     resolveSubmission?.({ success: false, errorCode: "ORDER_IN_PROGRESS", message: "Заказ уже отправляется.", data: null });
     await screen.findByText("Заказ уже отправляется. Подождите завершения операции.");

@@ -8,6 +8,7 @@ import { UserType } from "../../access-control/types";
 import { type PartnerOrderHistoryDetailDto, type PartnerOrderHistorySyncResult, type PartnerOrderDetailDto, type PartnerOrderSummaryDto, type PlannedShipmentDto } from "../services";
 import type { PartnerOrder } from "../types";
 import type { CheckoutFulfillmentMethod, CheckoutPaymentMethod } from "../repositories";
+import { partnerOrderRedirectTo } from "../order-navigation";
 import { createPartnerOrderHistoryService, createPartnerOrderService } from "./service-factory";
 import { orderSubmissionFailure } from "./order-action-error";
 
@@ -53,6 +54,7 @@ export async function submitCartOrderAction(
     return success(`Заказ ${order.external1cNumber ?? ""} создан в 1С.`, {
       id: order.id,
       external1cNumber: order.external1cNumber,
+      redirectTo: partnerOrderRedirectTo(order.id),
       status: order.status,
     });
   } catch (error) {
@@ -67,7 +69,7 @@ export async function submitCartOrderAction(
 export type PartnerOrderSubmissionReceipt = Pick<
   PartnerOrder,
   "id" | "external1cNumber" | "status"
->;
+> & { redirectTo: string };
 
 export async function listPartnerOrdersAction(): Promise<ActionResult<PartnerOrderSummaryDto[]>> {
   try { return success("Orders loaded.", await createPartnerOrderService().listOwnCompanyOrders(await getAuthenticatedUserId())); }

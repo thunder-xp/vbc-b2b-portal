@@ -2,11 +2,9 @@
 
 import {
   type FormEvent,
-  useActionState,
-  useEffect,
   useRef,
-  startTransition,
   useState,
+  useTransition,
 } from "react";
 import { useRouter } from "next/navigation";
 import type { ActionResult } from "../../access-control/actions/action-result";
@@ -44,10 +42,8 @@ export function OrderSubmitForm({
   checkoutOptions?: PartnerCheckoutOptionsDto | null;
   reconciliationLocked?: boolean;
 }) {
-  const [state, action, actionPending] = useActionState(
-    submitCartOrderAction,
-    initial,
-  );
+  const [state, setState] = useState(initial);
+  const [actionPending, startActionTransition] = useTransition();
   const locale = usePartnerLocale();
   const copy = getOrdersCopy(locale);
   const options = checkoutOptions ?? defaultCheckoutOptions();
@@ -59,35 +55,11 @@ export function OrderSubmitForm({
   const [carrierId, setCarrierId] = useState("");
   const [phase, setPhase] = useState<CheckoutPhase>("idle");
   const [barrierError, setBarrierError] = useState("");
+  const [currentSubmissionKey, setCurrentSubmissionKey] = useState(submissionKey);
   const formRef = useRef<HTMLFormElement>(null);
-  const submissionKeyRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const { flushPendingMutations, hasPendingMutations } =
     useCartCheckoutCoordinator();
-
-  useEffect(() => {
-    if (state.success && state.data?.id) {
-      recordBehaviorInteraction({
-        eventName: "order_submitted",
-        route: "/cabinet/cart",
-        sourceSurface: "checkout",
-      });
-      router.push(`/cabinet/orders/${state.data.id}?submitted=1`);
-    }
-  }, [router, state]);
-
-  useEffect(() => {
-    if (!state.success && state.errorCode === "ORDER_CART_VERSION_CONFLICT") {
-      router.refresh();
-    }
-    if (
-      !state.success &&
-      isDefinitiveRecoverableFailure(state.errorCode) &&
-      submissionKeyRef.current
-    ) {
-      submissionKeyRef.current.value = crypto.randomUUID();
-    }
-  }, [router, state]);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -110,8 +82,27 @@ export function OrderSubmitForm({
           return;
         }
         setPhase("idle");
-        startTransition(() => {
-          action(new FormData(form));
+        startActionTransition(async () => {
+          const result = await submitCartOrderAction(initial, new FormData(form));
+          if (result.success && result.data?.redirectTo) {
+            recordBehaviorInteraction({
+              eventName: "order_submitted",
+              route: "/cabinet/cart",
+              sourceSurface: "checkout",
+            });
+            router.replace(result.data.redirectTo);
+            return;
+          }
+
+          setState(result);
+          if (result.errorCode === "ORDER_CART_VERSION_CONFLICT") {
+            router.refresh();
+          }
+          if (
+            isDefinitiveRecoverableFailure(result.errorCode)
+          ) {
+            setCurrentSubmissionKey(crypto.randomUUID());
+          }
         });
       } catch {
         setPhase("failed_retryable");
@@ -144,7 +135,6 @@ export function OrderSubmitForm({
 
   return (
     <form
-      action={action}
       aria-label={copy.checkoutReview}
       className="space-y-3 rounded-lg border border-zinc-200 bg-white p-4"
       onSubmit={handleSubmit}
@@ -157,10 +147,9 @@ export function OrderSubmitForm({
         value={intentVersion || ""}
       />
       <input
-        defaultValue={submissionKey}
         name="submissionKey"
-        ref={submissionKeyRef}
         type="hidden"
+        value={currentSubmissionKey}
       />
       <h2 className="font-semibold text-zinc-950">{copy.checkoutReview}</h2>
       <fieldset className="space-y-2">
