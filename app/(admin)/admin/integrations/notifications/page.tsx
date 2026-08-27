@@ -1,4 +1,7 @@
-import { getNotificationHealthAction } from "@/src/modules/notifications/actions";
+import {
+  getNotificationHealthAction,
+  retryNotificationDeliveryAction,
+} from "@/src/modules/notifications/actions";
 import { requireAdminPagePermission } from "@/src/modules/admin/services";
 import {
   getPriceSyncStateAction,
@@ -83,6 +86,72 @@ export default async function NotificationHealthPage() {
             value={health.lastProductProjectionRun?.status ?? "Нет"}
           />
         </dl>
+      </section>
+      <section className="rounded-md border border-zinc-200 bg-white p-5">
+        <h2 className="font-semibold text-zinc-950">Шлюз транзакционных уведомлений</h2>
+        <dl className="mt-4 grid gap-4 text-sm sm:grid-cols-5">
+          <Detail label="В очереди" value={String(health.gateway.queued)} />
+          <Detail label="Обрабатывается" value={String(health.gateway.processing)} />
+          <Detail label="Отправлено за 24 часа" value={String(health.gateway.sentLast24Hours)} />
+          <Detail label="Ожидает повтора" value={String(health.gateway.failed)} />
+          <Detail label="Требует внимания" value={String(health.gateway.deadLetter)} />
+        </dl>
+        {health.gateway.recentDeliveries.length ? (
+          <div className="mt-5 overflow-x-auto">
+            <table className="w-full min-w-[1100px] text-left text-sm">
+              <thead className="text-zinc-500">
+                <tr>
+                  <th className="pb-2 font-medium">Событие</th>
+                  <th className="pb-2 font-medium">Компания / заказ</th>
+                  <th className="pb-2 font-medium">Канал / получатель</th>
+                  <th className="pb-2 font-medium">Статус</th>
+                  <th className="pb-2 font-medium">Попытки</th>
+                  <th className="pb-2 font-medium">Отправлено</th>
+                  <th className="pb-2 font-medium">Безопасная ошибка</th>
+                  <th className="pb-2 font-medium">Correlation ID</th>
+                  <th className="pb-2"><span className="sr-only">Действия</span></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-100">
+                {health.gateway.recentDeliveries.map((delivery) => (
+                  <tr key={delivery.deliveryId ?? delivery.eventId}>
+                    <td className="py-3 font-mono text-xs text-zinc-900">{delivery.eventType}</td>
+                    <td className="py-3 text-zinc-700">
+                      <span className="block font-medium text-zinc-900">{delivery.companyName}</span>
+                      <span>{delivery.orderNumber ?? delivery.partnerOrderId}</span>
+                    </td>
+                    <td className="py-3 text-zinc-700">
+                      <span className="block">{delivery.channel}</span>
+                      <span>{delivery.recipient}</span>
+                    </td>
+                    <td className="py-3 text-zinc-700">{delivery.status}</td>
+                    <td className="py-3 text-zinc-700">{delivery.attempts}</td>
+                    <td className="py-3 text-zinc-700">{delivery.sentAt ?? "—"}</td>
+                    <td className="py-3 text-zinc-700">{delivery.safeError ?? "—"}</td>
+                    <td className="py-3 font-mono text-xs text-zinc-700">{delivery.correlationId}</td>
+                    <td className="py-3 text-right">
+                      {delivery.deliveryId
+                        && delivery.safeError !== "recipient_unavailable"
+                        && (delivery.status === "failed" || delivery.status === "dead_letter") ? (
+                        <form action={retryNotificationDeliveryAction}>
+                          <input type="hidden" name="deliveryId" value={delivery.deliveryId} />
+                          <button
+                            className="min-h-11 border border-zinc-300 px-3 text-sm font-medium text-zinc-900 hover:bg-zinc-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950"
+                            type="submit"
+                          >
+                            Повторить
+                          </button>
+                        </form>
+                      ) : null}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="mt-3 text-sm text-zinc-600">Доставок пока нет.</p>
+        )}
       </section>
       <section className="rounded-md border border-zinc-200 bg-white p-5">
         <h2 className="font-semibold text-zinc-950">Авторизация планировщика</h2>

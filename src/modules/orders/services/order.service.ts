@@ -889,7 +889,7 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
       documentTotal: items.reduce((total, item) => total + item.lineTotal, 0),
       currencyCode: singleCurrency(items),
       contractNumber: order.contractNumber,
-      readBackResult: {},
+      readBackResult: match.readBack ?? {},
     });
     console.info(orderLog("partner_order_reconciliation_completed", "confirmed", completed));
     return completed;

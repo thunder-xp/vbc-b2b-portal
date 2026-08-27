@@ -737,7 +737,19 @@ describe("DefaultPartnerOrderService", () => {
     const pending = order({ id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", status: PartnerOrderStatus.Unknown, integrationStatus: PartnerOrderIntegrationStatus.ReconciliationRequired });
     dependencies.orderRepository.findById.mockResolvedValue(pending);
     dependencies.orderRepository.listItems.mockResolvedValue([orderItem()]);
-    dependencies.orderProvider.findExportedSalesOrders.mockResolvedValue([exportResult()]);
+    const match = {
+      ...exportResult(),
+      readBack: {
+        priceTypeRef: "99999999-9999-4999-8999-999999999999",
+        paymentMethod: "cashless" as const,
+        plannedPaymentDate: "2099-01-09",
+        fulfillmentMethod: "pickup" as const,
+        carrierRef: null,
+        paymentAmount: 25,
+        paymentVatAmount: 4.17,
+      },
+    };
+    dependencies.orderProvider.findExportedSalesOrders.mockResolvedValue([match]);
 
     const result = await dependencies.service.reconcileInternal(pending.id);
 
@@ -746,6 +758,7 @@ describe("DefaultPartnerOrderService", () => {
     expect(dependencies.orderRepository.completeSubmission).toHaveBeenCalledWith(expect.objectContaining({
       orderId: pending.id,
       external1cNumber: "NSUU-TEST",
+      readBackResult: match.readBack,
     }));
   });
 

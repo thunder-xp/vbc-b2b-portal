@@ -7,6 +7,7 @@ export type ProposalEmailMessage = {
   subject: string;
   text: string;
   html: string;
+  messageId?: string;
   attachment?: { filename: string; content: Uint8Array };
 };
 
@@ -58,6 +59,7 @@ export class SmtpProposalEmailProvider implements ProposalEmailProvider {
       const result = await transporter.sendMail({
         from: { name: config.fromName, address: config.fromEmail }, to: message.to,
         subject: message.subject, text: message.text, html: message.html,
+        messageId: message.messageId,
         attachments: message.attachment ? [{ filename: message.attachment.filename, content: Buffer.from(message.attachment.content), contentType: "application/pdf" }] : undefined,
       });
       return { messageId: typeof result.messageId === "string" ? result.messageId.slice(0, 300) : null, category: "accepted" as const };

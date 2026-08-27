@@ -63,6 +63,30 @@ const healthSchema = z.object({
     authorizedCount: z.number().int().nonnegative(),
     deniedCount: z.number().int().nonnegative(),
   })),
+  gateway: z.object({
+    queued: z.number().int().nonnegative(),
+    processing: z.number().int().nonnegative(),
+    sentLast24Hours: z.number().int().nonnegative(),
+    failed: z.number().int().nonnegative(),
+    deadLetter: z.number().int().nonnegative(),
+    recentDeliveries: z.array(z.object({
+      deliveryId: z.string().uuid().nullable(),
+      eventId: z.string().uuid(),
+      eventType: z.string(),
+      companyId: z.string().uuid(),
+      companyName: z.string(),
+      partnerOrderId: z.string().uuid(),
+      orderNumber: z.string().nullable(),
+      channel: z.enum(["email", "sms", "telegram"]),
+      recipient: z.string(),
+      status: z.enum(["queued", "processing", "sent", "failed", "dead_letter"]),
+      attempts: z.number().int().nonnegative(),
+      sentAt: z.string().nullable(),
+      safeError: z.string().nullable(),
+      correlationId: z.string().uuid(),
+      createdAt: z.string(),
+    })),
+  }),
 });
 
 export class SupabaseNotificationHealthRepository
@@ -70,19 +94,34 @@ export class SupabaseNotificationHealthRepository
 {
   async getHealth(): Promise<NotificationHealth> {
     const client = await createClient();
-    const [notificationResult, cronResult] = await Promise.all([
+    const [notificationResult, cronResult, gatewayResult] = await Promise.all([
       client.rpc("get_admin_notification_health"),
       client.rpc("get_admin_cron_route_health"),
+      client.rpc("get_admin_notification_gateway_health"),
     ]);
     const parsed = healthSchema.safeParse({
       ...notificationResult.data,
       cronRoutes: cronResult.data,
+      gateway: gatewayResult.data,
     });
-    if (notificationResult.error || cronResult.error || !parsed.success) {
+    if (notificationResult.error || cronResult.error || gatewayResult.error || !parsed.success) {
       throw new NotificationRepositoryError(
-        notificationResult.error?.code ?? cronResult.error?.code,
+        notificationResult.error?.code ?? cronResult.error?.code ?? gatewayResult.error?.code,
       );
     }
     return parsed.data;
+  }
+
+  async retryDelivery(deliveryId: string): Promise<boolean> {
+    const client = await createClient();
+    const { data, error } = await client.rpc(
+      "retry_admin_notification_delivery",
+      { p_delivery_id: deliveryId },
+    );
+    const parsed = z.object({ retried: z.boolean() }).safeParse(data);
+    if (error || !parsed.success) {
+      throw new NotificationRepositoryError(error?.code);
+    }
+    return parsed.data.retried;
   }
 }

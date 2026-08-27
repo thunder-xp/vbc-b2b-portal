@@ -113,4 +113,28 @@ export type NotificationHealth = {
     authorizedCount: number;
     deniedCount: number;
   }>;
+  gateway: {
+    queued: number;
+    processing: number;
+    sentLast24Hours: number;
+    failed: number;
+    deadLetter: number;
+    recentDeliveries: Array<{
+      deliveryId: string | null;
+      eventId: string;
+      eventType: string;
+      companyId: string;
+      companyName: string;
+      partnerOrderId: string;
+      orderNumber: string | null;
+      channel: "email" | "sms" | "telegram";
+      recipient: string;
+      status: "queued" | "processing" | "sent" | "failed" | "dead_letter";
+      attempts: number;
+      sentAt: string | null;
+      safeError: string | null;
+      correlationId: string;
+      createdAt: string;
+    }>;
+  };
 };
