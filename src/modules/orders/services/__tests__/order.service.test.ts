@@ -46,6 +46,47 @@ describe("DefaultPartnerOrderService", () => {
     expect(dependencies.priceRefreshService.refresh).not.toHaveBeenCalled();
   });
 
+  it("re-reads a stale checkout projection once and completes the same submit intent", async () => {
+    const dependencies = makeDependencies();
+    dependencies.checkoutConfigurationRepository.getByCompanyId
+      .mockResolvedValueOnce({
+        ...checkoutConfiguration(),
+        cashless: {
+          ...checkoutConfiguration().cashless!,
+          publishedPriceCurrencyRef: null,
+        },
+      })
+      .mockResolvedValueOnce(checkoutConfiguration());
+
+    await expect(dependencies.service.submit("user-1", input())).resolves.toMatchObject({
+      status: PartnerOrderStatus.Submitted,
+    });
+
+    expect(dependencies.checkoutConfigurationRepository.getByCompanyId).toHaveBeenCalledTimes(2);
+    expect(dependencies.orderRepository.beginSubmission).toHaveBeenCalledOnce();
+    expect(dependencies.orderProvider.exportSalesOrder).toHaveBeenCalledOnce();
+  });
+
+  it("caps stale checkout projection recovery at one re-read", async () => {
+    const dependencies = makeDependencies();
+    const stale = {
+      ...checkoutConfiguration(),
+      cashless: {
+        ...checkoutConfiguration().cashless!,
+        publishedPriceCurrencyRef: null,
+      },
+    };
+    dependencies.checkoutConfigurationRepository.getByCompanyId.mockResolvedValue(stale);
+
+    await expect(dependencies.service.submit("user-1", input())).rejects.toMatchObject({
+      code: "ORDER_PAYMENT_METHOD_UNAVAILABLE",
+    });
+
+    expect(dependencies.checkoutConfigurationRepository.getByCompanyId).toHaveBeenCalledTimes(2);
+    expect(dependencies.orderRepository.beginSubmission).not.toHaveBeenCalled();
+    expect(dependencies.orderProvider.exportSalesOrder).not.toHaveBeenCalled();
+  });
+
   it("uses the server cart revision after the mutation barrier", async () => {
     const dependencies = makeDependencies();
     dependencies.cartRepository.findActive.mockResolvedValue({

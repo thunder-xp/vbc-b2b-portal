@@ -50,8 +50,9 @@ function recoverableMessage(error: RecoverableOrderSubmissionError): string {
       return correlatedMessage("Проверьте способ и дату оплаты. Если ошибка повторится, обратитесь к менеджеру Novotech.", error);
     case "ORDER_FULFILLMENT_CONFIGURATION_INVALID":
       return correlatedMessage("Проверьте способ получения заказа и перевозчика.", error);
+    case "ORDER_PAYMENT_METHOD_UNAVAILABLE":
     case "ORDER_CONTRACT_INVALID":
-      return correlatedMessage("Договор для выбранного способа оплаты требует проверки Novotech. Корзина сохранена.", error);
+      return correlatedMessage("Для выбранного способа оплаты нет действующего договора. Выберите другой доступный способ оплаты.", error);
     case "ORDER_PAYLOAD_VALIDATION_FAILED":
       return correlatedMessage("Данные заказа не прошли проверку. Корзина сохранена — обратитесь к менеджеру Novotech.", error);
     case "ORDER_1C_VALIDATION_FAILED":

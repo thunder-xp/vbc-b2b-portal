@@ -27,7 +27,10 @@ import {
   OrderPriceRefreshFailedError,
   type OrderPriceRefreshService,
 } from "./order-price-refresh.service";
-import { resolveCheckoutSelection, type CheckoutSelection } from "./checkout-configuration.service";
+import {
+  evaluateCheckoutReadiness,
+  type CheckoutSelection,
+} from "./checkout-configuration.service";
 
 export type PartnerOrderSummaryDto = {
   id: string;
@@ -178,7 +181,7 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
       );
     }
     const counterpartyRef = company.external1cId;
-    const [checkoutConfiguration, cart] = await Promise.all([
+    const [initialCheckoutConfiguration, cart] = await Promise.all([
       this.checkoutConfigurationRepository
         ? diagnosticStep(
             "checkout_configuration_resolution",
@@ -188,17 +191,61 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
         : Promise.resolve(null),
       this.cartRepository.findActive(company.id, userId),
     ]);
-    if (!checkoutConfiguration) {
-      failOrderSubmission(
-        "checkout_configuration_resolution",
-        new RecoverableOrderSubmissionError(
-          "The governed checkout configuration is unavailable.",
-          "ORDER_COMPANY_MAPPING_MISSING",
-        ),
-        { companyId: company.id, submissionKey },
+    let checkoutReadiness = evaluateCheckoutReadiness(
+      initialCheckoutConfiguration,
+      checkoutSelection,
+      true,
+    );
+    console.info({
+      event: "partner_order_checkout_preflight",
+      stage: "checkout_configuration",
+      status: checkoutReadiness.status,
+      code: checkoutReadiness.code,
+      companyId: company.id,
+      submissionKey,
+      recoveryAttempt: 0,
+    });
+    if (checkoutReadiness.status === "RECOVERABLE") {
+      console.info({
+        event: "partner_order_checkout_recovery_attempted",
+        recovery: checkoutReadiness.code,
+        companyId: company.id,
+        submissionKey,
+      });
+      const refreshedCheckoutConfiguration = this.checkoutConfigurationRepository
+        ? await diagnosticStep(
+            "checkout_configuration_recovery",
+            () => this.checkoutConfigurationRepository!.getByCompanyId(company.id),
+            { companyId: company.id, submissionKey },
+          )
+        : null;
+      checkoutReadiness = evaluateCheckoutReadiness(
+        refreshedCheckoutConfiguration,
+        checkoutSelection,
+        false,
       );
+      console.info({
+        event: checkoutReadiness.status === "READY"
+          ? "partner_order_checkout_recovery_succeeded"
+          : "partner_order_checkout_recovery_failed",
+        recovery: "STALE_CHECKOUT_PROJECTION",
+        status: checkoutReadiness.status,
+        code: checkoutReadiness.code,
+        companyId: company.id,
+        submissionKey,
+        recoveryAttempt: 1,
+      });
     }
-    const resolvedCheckout = resolveCheckoutSelection(checkoutConfiguration, checkoutSelection);
+    if (checkoutReadiness.status !== "READY") {
+      console.warn({
+        event: "partner_order_checkout_blocked",
+        reason: checkoutReadiness.code,
+        companyId: company.id,
+        submissionKey,
+      });
+      throw checkoutReadiness.error;
+    }
+    const resolvedCheckout = checkoutReadiness.resolved;
     if (!isOneCGuid(resolvedCheckout.contract.priceTypeRef)
       || !isOneCGuid(resolvedCheckout.contract.publishedPriceCurrencyRef)) {
       failOrderSubmission(
@@ -320,6 +367,15 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
       return !updatedAt || isStale(updatedAt, "price");
     });
     if (staleProductIds.length) {
+      console.info({
+        event: "partner_order_checkout_preflight",
+        stage: "price_snapshot",
+        status: "RECOVERABLE",
+        code: "STALE_PRICE_SNAPSHOT",
+        companyId: company.id,
+        submissionKey,
+        recoveryAttempt: 0,
+      });
       console.warn({
         event: "partner_order_price_refresh_required",
         code: "ORDER_PRICE_REFRESH_REQUIRED",
@@ -343,6 +399,12 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
       }));
       let refreshResult;
       try {
+        console.info({
+          event: "partner_order_checkout_recovery_attempted",
+          recovery: "STALE_PRICE_SNAPSHOT",
+          companyId: company.id,
+          submissionKey,
+        });
         refreshResult = await this.priceRefreshService.refresh({
           externalPriceTypeRef: checkoutPriceTypeRef,
           externalProductRefs: staleProductRefs,
@@ -351,6 +413,13 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
         const correlationId = error instanceof OrderPriceDataMissingError || error instanceof OrderPriceRefreshFailedError
           ? error.correlationId
           : crypto.randomUUID();
+        console.warn({
+          event: "partner_order_checkout_recovery_failed",
+          recovery: "STALE_PRICE_SNAPSHOT",
+          companyId: company.id,
+          submissionKey,
+          correlationId,
+        });
         failOrderSubmission("partner_price_refresh", new RecoverableOrderSubmissionError(
           error instanceof OrderPriceDataMissingError
             ? "Authoritative partner price data is missing."
@@ -398,6 +467,13 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
         deduplicated: refreshResult.deduplicated,
         durationMs: refreshResult.durationMs,
         changedProductCount: changedProductIds.length,
+      });
+      console.info({
+        event: "partner_order_checkout_recovery_succeeded",
+        recovery: "STALE_PRICE_SNAPSHOT",
+        companyId: company.id,
+        submissionKey,
+        recoveryAttempt: 1,
       });
       if (changedProductIds.length && commercialMode === "full") {
         failOrderSubmission("partner_price_comparison", new RecoverableOrderSubmissionError(

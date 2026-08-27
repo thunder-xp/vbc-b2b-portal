@@ -38,3 +38,17 @@ classification.
 - Only PostgreSQL marker `CART_INTENT_VERSION_CONFLICT` maps to the cross-tab
   cart message. Other persistence failures remain retryable technical errors.
 - Existing submission-key and 1C reconciliation behavior remains unchanged.
+
+## Checkout friction release gate
+
+- A qualified active partner completes a healthy checkout in one submit action.
+- Recoverable local projection or price freshness is retried at most once before
+  durable submission ownership is acquired.
+- Current server qualification wins over stale browser presentation state.
+- Settlement currency is validated independently from the aligned
+  authoritative/published price currency.
+- A genuine contract, permission, product, or prior-submission ambiguity remains
+  fail-closed and produces no export side effect.
+- One submission key and request fingerprint produce at most one portal order
+  and one 1C export.
+- Normal page rendering performs no live 1C request.

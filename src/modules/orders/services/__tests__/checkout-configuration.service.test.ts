@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { NOVOTECH_ONE_C_ORGANIZATION_REF } from "../../../integration/config";
 import type { CheckoutConfiguration } from "../../repositories";
 import {
+  evaluateCheckoutReadiness,
   resolveCheckoutSelection,
   toPartnerCheckoutOptions,
 } from "../checkout-configuration.service";
@@ -116,6 +117,45 @@ describe("checkout configuration", () => {
   it("allows settlement currency to differ from the governed price-type currency", () => {
     const cash = { ...contract("contract-cash", "CASH-1"), settlementCurrencyRef: "other-currency" };
     expect(toPartnerCheckoutOptions(configuration({ cash })).paymentMethods[1].enabled).toBe(true);
+  });
+
+  it("classifies a complete MDL-settlement and USD-price context as ready", () => {
+    expect(evaluateCheckoutReadiness(configuration(), selection("cash"), true)).toMatchObject({
+      status: "READY",
+      code: "CHECKOUT_READY",
+      resolved: {
+        contract: {
+          settlementCurrencyCode: "MDL",
+          publishedPriceCurrencyCode: "USD",
+        },
+      },
+    });
+  });
+
+  it("allows one bounded re-read for a stale qualified checkout projection", () => {
+    const stale = configuration({
+      cash: { ...contract("contract-cash", "CASH-1"), publishedPriceCurrencyRef: null },
+    });
+
+    expect(evaluateCheckoutReadiness(stale, selection("cash"), true)).toMatchObject({
+      status: "RECOVERABLE",
+      code: "STALE_CHECKOUT_PROJECTION",
+    });
+    expect(evaluateCheckoutReadiness(stale, selection("cash"), false)).toMatchObject({
+      status: "BLOCKED",
+      code: "ORDER_PAYMENT_METHOD_UNAVAILABLE",
+    });
+  });
+
+  it("does not classify a real price-currency mismatch as recoverable", () => {
+    const mismatched = configuration({
+      cash: { ...contract("contract-cash", "CASH-1"), publishedPriceCurrencyRef: "other-currency" },
+    });
+
+    expect(evaluateCheckoutReadiness(mismatched, selection("cash"), true)).toMatchObject({
+      status: "BLOCKED",
+      code: "ORDER_PAYMENT_METHOD_UNAVAILABLE",
+    });
   });
 
   it.each([

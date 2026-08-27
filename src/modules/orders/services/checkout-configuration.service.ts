@@ -31,6 +31,19 @@ export type ResolvedCheckoutSelection = CheckoutSelection & {
   carrierExternalRef: string | null;
 };
 
+export type CheckoutReadiness =
+  | { status: "READY"; code: "CHECKOUT_READY"; resolved: ResolvedCheckoutSelection }
+  | {
+      status: "RECOVERABLE";
+      code: "STALE_CHECKOUT_PROJECTION";
+      error: RecoverableOrderSubmissionError;
+    }
+  | {
+      status: "BLOCKED";
+      code: RecoverableOrderSubmissionError["code"];
+      error: RecoverableOrderSubmissionError;
+    };
+
 export function toPartnerCheckoutOptions(config: CheckoutConfiguration): PartnerCheckoutOptionsDto {
   const kind = counterpartyKind(config.counterpartyTypeCode, config.governmentBodyTypeCode);
   const cashlessAllowed = validContract(config.cashless, config, true);
@@ -83,6 +96,39 @@ export function resolveCheckoutSelection(
   return { ...selection, contract, carrierExternalRef: carrier.externalRef };
 }
 
+export function evaluateCheckoutReadiness(
+  config: CheckoutConfiguration | null,
+  selection: CheckoutSelection,
+  allowProjectionRecovery: boolean,
+): CheckoutReadiness {
+  if (!config) {
+    const error = mappingError();
+    return allowProjectionRecovery
+      ? { status: "RECOVERABLE", code: "STALE_CHECKOUT_PROJECTION", error }
+      : { status: "BLOCKED", code: error.code, error };
+  }
+
+  try {
+    return {
+      status: "READY",
+      code: "CHECKOUT_READY",
+      resolved: resolveCheckoutSelection(config, selection),
+    };
+  } catch (error) {
+    const submissionError = error instanceof RecoverableOrderSubmissionError
+      ? error
+      : new RecoverableOrderSubmissionError();
+    if (allowProjectionRecovery && isStaleProjectionCandidate(config, selection, submissionError)) {
+      return {
+        status: "RECOVERABLE",
+        code: "STALE_CHECKOUT_PROJECTION",
+        error: submissionError,
+      };
+    }
+    return { status: "BLOCKED", code: submissionError.code, error: submissionError };
+  }
+}
+
 function validContract(
   contract: CheckoutContractConfiguration | null,
   config: CheckoutConfiguration,
@@ -132,4 +178,22 @@ function mappingError(): RecoverableOrderSubmissionError {
     "The partner counterparty mapping is unavailable.",
     "ORDER_COMPANY_MAPPING_MISSING",
   );
+}
+
+function isStaleProjectionCandidate(
+  config: CheckoutConfiguration,
+  selection: CheckoutSelection,
+  error: RecoverableOrderSubmissionError,
+): boolean {
+  if (error.code !== "ORDER_PAYMENT_METHOD_UNAVAILABLE") return false;
+  const contract = selection.paymentMethod === "cashless" ? config.cashless : config.cash;
+  if (selection.paymentMethod === "cash" && config.cashDiagnosticCode === "CASH_CONTRACT_QUALIFIED" && !contract) {
+    return true;
+  }
+  if (!contract?.active || !contract.contractRef) return false;
+  return !contract.organizationRef
+    || !contract.priceTypeRef
+    || !contract.settlementCurrencyRef
+    || !contract.authoritativePriceCurrencyRef
+    || !contract.publishedPriceCurrencyRef;
 }
