@@ -4,7 +4,12 @@ import {
   createAdminOperationsService,
   requireAdminPagePermission,
 } from "@/src/modules/admin";
-import { enqueueOrderHistoryBootstrapAction, listOrderHistoryBootstrapsAction } from "@/src/modules/orders/actions";
+import {
+  enqueueOrderHistoryBootstrapAction,
+  enqueueOrderHistoryIntegrityAuditAction,
+  listOrderHistoryBootstrapsAction,
+  listOrderHistoryIntegrityAuditsAction,
+} from "@/src/modules/orders/actions";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -15,14 +20,14 @@ export default async function AdminIntegrationJobsPage({
 }) {
   await requireAdminPagePermission("admin.integrations.view");
   const params = await searchParams;
-  const [page, bootstraps] = await Promise.all([createAdminOperationsService().listSyncJobs({
+  const [page, bootstraps, integrityAudits] = await Promise.all([createAdminOperationsService().listSyncJobs({
     domain: scalar(params.domain),
     status: scalar(params.status),
     trigger: scalar(params.trigger),
     from: scalar(params.from),
     to: scalar(params.to),
     page: Number(scalar(params.page) ?? 1),
-  }), listOrderHistoryBootstrapsAction()]);
+  }), listOrderHistoryBootstrapsAction(), listOrderHistoryIntegrityAuditsAction()]);
 
   return (
     <div className="space-y-6">
@@ -53,9 +58,23 @@ export default async function AdminIntegrationJobsPage({
                   <td className="p-3 font-medium">{item.companyName}</td><td className="p-3">{bootstrapLabel(item.status)}</td>
                   <td className="p-3">{item.sourceRows} / {item.publishedRows}{item.rejectedRows ? ` · отклонено ${item.rejectedRows}` : ""}</td>
                   <td className="p-3 text-zinc-600">{formatRange(item.earliestOrderAt, item.latestOrderAt)}</td>
-                  <td className="p-3"><form action={enqueueOrderHistoryBootstrapAction}><input name="companyId" type="hidden" value={item.companyId} /><button className="min-h-11 rounded-md border border-zinc-300 px-3 font-semibold hover:border-emerald-600" type="submit">Загрузить историю заказов</button></form></td>
+                  <td className="p-3"><div className="flex flex-wrap gap-2"><form action={enqueueOrderHistoryBootstrapAction}><input name="companyId" type="hidden" value={item.companyId} /><button className="min-h-11 rounded-md border border-zinc-300 px-3 font-semibold hover:border-emerald-600" type="submit">Загрузить историю заказов</button></form><form action={enqueueOrderHistoryIntegrityAuditAction}><input name="companyId" type="hidden" value={item.companyId} /><button className="min-h-11 rounded-md border border-zinc-300 px-3 font-semibold hover:border-blue-600" type="submit">Проверить целостность</button></form></div></td>
                 </tr>
               ))}</tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
+      {integrityAudits.success && integrityAudits.data.length ? (
+        <section aria-labelledby="order-history-integrity" className="space-y-3 border-t border-zinc-200 pt-6">
+          <div>
+            <h2 className="text-lg font-semibold text-zinc-950" id="order-history-integrity">Проверки целостности истории заказов</h2>
+            <p className="mt-1 text-sm text-zinc-600">Редкая двухпроходная проверка выполняется в фоне. Обычная синхронизация остаётся инкрементальной.</p>
+          </div>
+          <div className="overflow-x-auto border border-zinc-200 bg-white">
+            <table className="min-w-full text-left text-sm">
+              <thead className="bg-zinc-50 text-xs uppercase text-zinc-500"><tr><th className="p-3">Компания</th><th className="p-3">Статус</th><th className="p-3">Проходы</th><th className="p-3">Скрыто</th><th className="p-3">Завершено</th></tr></thead>
+              <tbody className="divide-y divide-zinc-200">{integrityAudits.data.map((audit) => <tr key={audit.id}><td className="p-3 font-medium">{audit.companyName}</td><td className="p-3">{audit.status}</td><td className="p-3">{audit.passOneCount ?? "—"} / {audit.passTwoCount ?? "—"}</td><td className="p-3">{audit.hiddenCount}</td><td className="p-3 text-zinc-600">{audit.finishedAt ? new Date(audit.finishedAt).toLocaleString("ru-RU") : "—"}</td></tr>)}</tbody>
             </table>
           </div>
         </section>

@@ -1,7 +1,6 @@
 import type { OrderProvider } from "../../integration/contracts";
 import type { SalesOrderHistoryDTO } from "../../integration/dto";
 import type { PartnerOrderHistoryRepository } from "../repositories";
-import type { PartnerOrderHistory } from "../types";
 import type { PartnerOrderHistoryService } from "./order-history.service";
 
 const ACTIVE_ORDER_BATCH_SIZE = 25;
@@ -29,13 +28,13 @@ export class PartnerOrderHistoryAutomationService {
 
   async refreshActiveOrders(): Promise<ActiveOrderRefreshResult> {
     const startedAt = this.now();
-    if (!this.repository.listActiveRefreshCandidates || !this.repository.touchSynchronizedOrders) throw new Error("Active-order automation repository is unavailable.");
+    if (!this.repository.listActiveRefreshCandidates || !this.repository.applyExistenceResults) throw new Error("Active-order automation repository is unavailable.");
     const candidates = await this.repository.listActiveRefreshCandidates({
       olderThan: new Date(startedAt - ACTIVE_ORDER_MIN_AGE_MS).toISOString(),
       limit: ACTIVE_ORDER_BATCH_SIZE,
     });
     if (!candidates.length) return emptyActiveResult(this.now() - startedAt);
-    if (!this.provider.fetchSalesOrderHistoryByReferences) throw new Error("Exact active-order refresh is unavailable.");
+    if (!this.provider.fetchSalesOrderHistoryByReferences || !this.provider.verifySalesOrderHistoryReferences) throw new Error("Exact active-order refresh is unavailable.");
 
     let updated = 0;
     let hidden = 0;
@@ -48,32 +47,54 @@ export class PartnerOrderHistoryAutomationService {
       if (!companyId || !counterpartyRef) continue;
       const syncId = crypto.randomUUID();
       const syncedAt = new Date(this.now()).toISOString();
-      const result = await this.provider.fetchSalesOrderHistoryByReferences({
+      const verification = await this.provider.verifySalesOrderHistoryReferences({
         partnerCompanyReference: externalReference(counterpartyRef, "counterparty"),
         orderReferences: companyCandidates.map(({ order }) => externalReference(order.external1cOrderRef, "customer-order")),
         historySyncContext: { syncId, page: 1 },
       });
-      oneCCallCount += result.rawRowCount + result.enrichmentWarningCount;
-      warnings += result.enrichmentWarningCount;
+      oneCCallCount += verification.requestCount;
       const currentByRef = new Map(companyCandidates.map(({ order }) => [order.external1cOrderRef.toLowerCase(), order]));
+      const changedReferences = verification.results.filter((result) => {
+        if (result.status !== "exists" || !result.header) return false;
+        const current = currentByRef.get(result.reference.externalId.toLowerCase());
+        if (!current) return false;
+        if (current.oneCSourceVersion === result.header.sourceVersion && current.partnerVisible && !current.oneCDeletionMark) {
+          unchanged += 1;
+          return false;
+        }
+        return true;
+      });
       const changed: SalesOrderHistoryDTO[] = [];
-      for (const fetched of result.items) {
-        const current = currentByRef.get(fetched.reference.externalId.toLowerCase());
-        if (!current) continue;
-        const normalized = { ...fetched, currencyCode: fetched.currencyCode ?? current.currencyCode };
-        if (sameCurrentHeader(current, normalized)) unchanged += 1;
-        else changed.push(normalized);
+      if (changedReferences.length) {
+        const details = await this.provider.fetchSalesOrderHistoryByReferences({
+          partnerCompanyReference: externalReference(counterpartyRef, "counterparty"),
+          orderReferences: changedReferences.map((result) => result.reference),
+          historySyncContext: { syncId, page: 1 },
+        });
+        oneCCallCount += details.requestCount ?? changedReferences.length;
+        warnings += details.enrichmentWarningCount + details.lineWarningCount;
+        for (const fetched of details.items) {
+          const current = currentByRef.get(fetched.reference.externalId.toLowerCase());
+          if (!current) continue;
+          changed.push({ ...fetched, currencyCode: fetched.currencyCode ?? current.currencyCode });
+        }
       }
       if (changed.length) {
         const batch = await this.repository.upsertBatch({ companyId, syncId, syncedAt, orders: changed });
         updated += batch.updated + batch.inserted;
         hidden += batch.hidden;
       }
-      await this.repository.touchSynchronizedOrders({
+      const applied = await this.repository.applyExistenceResults({
         companyId,
-        orderRefs: result.items.map((item) => item.reference.externalId),
-        syncedAt,
+        syncId,
+        verifiedAt: syncedAt,
+        results: verification.results.map((result) => ({
+          external1cOrderRef: result.reference.externalId,
+          status: result.status,
+        })),
       });
+      hidden += applied.hidden;
+      warnings += verification.results.filter((result) => result.status === "unknown").length;
     }
     const durationMs = this.now() - startedAt;
     console.info({
@@ -101,7 +122,7 @@ export class PartnerOrderHistoryAutomationService {
     let failed = 0;
     for (const company of companies) {
       try {
-        await this.historyService.syncCompany(company.companyId, company.counterpartyRef, "full");
+        await this.historyService.syncCompany(company.companyId, company.counterpartyRef, "incremental");
         completed += 1;
       } catch (error) {
         if (error instanceof Error && error.message.includes("already running")) skipped += 1;
@@ -122,20 +143,6 @@ function groupCandidates(candidates: import("../repositories").ActiveOrderRefres
     groups.set(key, [...(groups.get(key) ?? []), candidate]);
   }
   return groups;
-}
-
-function sameCurrentHeader(current: PartnerOrderHistory, fetched: SalesOrderHistoryDTO): boolean {
-  return current.external1cOrderNumber === fetched.number
-    && current.oneCPosted === fetched.posted
-    && current.oneCDeletionMark === fetched.deletionMark
-    && current.oneCStateRef === (fetched.stateReference?.externalId ?? null)
-    && current.oneCStateRaw === fetched.stateRaw
-    && current.oneCStateCode === (fetched.stateCode === "unknown" ? null : fetched.stateCode)
-    && current.oneCDocumentDate === fetched.documentDate
-    && current.oneCDeliveryDate === fetched.requestedDeliveryDate
-    && current.oneCSourceVersion === fetched.sourceVersion
-    && current.documentTotal === fetched.documentTotal
-    && current.currencyCode === fetched.currencyCode;
 }
 
 function externalReference(externalId: string, externalType: string) {

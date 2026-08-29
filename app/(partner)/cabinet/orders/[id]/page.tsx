@@ -270,7 +270,7 @@ export default async function OrderDetailPage({
                 className="flex items-baseline justify-between gap-4 text-sm"
                 key={`${event.occurredAt}-${index}`}
               >
-                <span className="text-zinc-800">{orderEventLabel(event.eventType, copy)}</span>
+                <span className="text-zinc-800">{orderEventLabel(event.eventType === "restored_from_1c" ? "sync_restored" : event.eventType, copy)}</span>
                 <time className="shrink-0 text-zinc-500">
                   {formatDateTime(event.occurredAt, locale)}
                 </time>

@@ -14,6 +14,8 @@ export type SalesOrderStatusFetchRequestDTO = IntegrationSyncWindowDTO & {
     syncId: string;
     page: number;
   };
+  historyReadMode?: "full" | "incremental_headers" | "integrity_headers";
+  historyDateFrom?: string;
 };
 
 export type SalesOrderHistoryPageResult = IntegrationPageResultDTO<SalesOrderHistoryDTO> & {
@@ -25,6 +27,20 @@ export type SalesOrderHistoryPageResult = IntegrationPageResultDTO<SalesOrderHis
   lineReadFailedReferences: string[];
   duplicateRowCount: number;
   enrichmentWarningCount: number;
+  requestCount?: number;
+  requestDurationMs?: number;
+};
+
+export type SalesOrderHistoryExistenceStatus = "exists" | "deletion_marked" | "absent" | "unknown";
+
+export type SalesOrderHistoryExistenceResult = {
+  results: Array<{
+    reference: ExternalReferenceDTO;
+    status: SalesOrderHistoryExistenceStatus;
+    header: SalesOrderHistoryDTO | null;
+  }>;
+  requestCount: number;
+  requestDurationMs: number;
 };
 
 export interface OrderProvider {
@@ -39,4 +55,7 @@ export interface OrderProvider {
   fetchSalesOrderHistoryByReferences?(
     input: SalesOrderStatusFetchRequestDTO & { orderReferences: ExternalReferenceDTO[] },
   ): Promise<SalesOrderHistoryPageResult>;
+  verifySalesOrderHistoryReferences?(
+    input: SalesOrderStatusFetchRequestDTO & { orderReferences: ExternalReferenceDTO[] },
+  ): Promise<SalesOrderHistoryExistenceResult>;
 }

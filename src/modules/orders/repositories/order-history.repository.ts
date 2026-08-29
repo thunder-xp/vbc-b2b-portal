@@ -23,6 +23,32 @@ export type OrderHistoryBatchResult = {
 export type OrderHistorySyncLockResult = "acquired" | "locked" | "stale_lock_recovered";
 export type OrderHistorySyncCompany = { companyId: string; counterpartyRef: string };
 export type ActiveOrderRefreshCandidate = { order: PartnerOrderHistory; counterpartyRef: string };
+export type OrderHistoryKnownHeader = Pick<PartnerOrderHistory,
+  "external1cOrderRef" | "oneCSourceVersion" | "partnerVisible" | "hiddenReason" | "oneCDeletionMark" | "currencyCode"
+>;
+export type OrderHistoryExistenceResult = {
+  external1cOrderRef: string;
+  status: "exists" | "deletion_marked" | "absent" | "unknown";
+};
+export type OrderHistorySyncMetrics = {
+  cursorStart: string | null;
+  cursorEnd: string | null;
+  overlapStart: string | null;
+  headersReceived: number;
+  newOrders: number;
+  changedOrders: number;
+  unchangedOrders: number;
+  lineRequests: number;
+  existenceRefsChecked: number;
+  existsCount: number;
+  deletedCount: number;
+  absentCount: number;
+  unknownCount: number;
+  oneCRequestCount: number;
+  oneCDurationMs: number;
+  dbWrites: number;
+  totalDurationMs: number;
+};
 export type PartnerOrderHistoryIdentity = {
   external1cOrderRef: string;
   portalOrderId: string | null;
@@ -88,6 +114,14 @@ export interface PartnerOrderHistoryRepository {
   }): Promise<OrderHistorySyncLockResult>;
   listSyncCompanies?(limit: number): Promise<OrderHistorySyncCompany[]>;
   listActiveRefreshCandidates?(input: { olderThan: string; limit: number }): Promise<ActiveOrderRefreshCandidate[]>;
+  listKnownHeaders?(companyId: string, orderRefs: string[]): Promise<OrderHistoryKnownHeader[]>;
+  listExistenceVerificationCandidates?(input: { companyId: string; limit: number }): Promise<PartnerOrderHistory[]>;
+  applyExistenceResults?(input: {
+    companyId: string;
+    syncId: string;
+    verifiedAt: string;
+    results: OrderHistoryExistenceResult[];
+  }): Promise<{ updated: number; hidden: number; restored: number }>;
   touchSynchronizedOrders?(input: { companyId: string; orderRefs: string[]; syncedAt: string }): Promise<number>;
   upsertBatch(input: {
     companyId: string;
@@ -104,6 +138,8 @@ export interface PartnerOrderHistoryRepository {
     inserted: number;
     updated: number;
     hidden: number;
+    incrementalDateWatermark: string | null;
+    metrics: OrderHistorySyncMetrics;
   }): Promise<void>;
   failSync(input: { companyId: string; syncId: string; safeError: string }): Promise<void>;
 }

@@ -18,10 +18,10 @@ import {
   type PartnerOrderHistoryRepository,
 } from "../order-history.repository";
 
-const HISTORY_COLUMNS = "id, company_id, portal_order_id, external_1c_order_ref, external_1c_order_number, one_c_posted, one_c_deletion_mark, one_c_state_ref, one_c_state_raw, one_c_state_code, one_c_document_date, one_c_delivery_date, one_c_source_version, one_c_last_synced_at, external_contract_ref, external_currency_ref, document_total, currency_code, origin_type, partner_visible, hidden_reason, position_count, total_unit_count, created_at, updated_at";
+const HISTORY_COLUMNS = "id, company_id, portal_order_id, external_1c_order_ref, external_1c_order_number, one_c_posted, one_c_deletion_mark, one_c_state_ref, one_c_state_raw, one_c_state_code, one_c_document_date, one_c_delivery_date, one_c_source_version, one_c_last_synced_at, last_existence_verified_at, last_existence_result, external_contract_ref, external_currency_ref, document_total, currency_code, origin_type, partner_visible, hidden_reason, position_count, total_unit_count, created_at, updated_at";
 const ITEM_COLUMNS = "id, order_history_id, line_number, product_id, external_product_ref, external_characteristic_ref, product_name, sku, quantity, unit_price, line_total, currency_code";
 const EVENT_COLUMNS = "id, order_history_id, event_type, occurred_at, previous_value, current_value";
-const SYNC_COLUMNS = "company_id, counterparty_ref, status, sync_mode, active_sync_id, last_successful_full_sync_at, last_incremental_sync_at, last_source_version, safe_error, records_received, records_inserted, records_updated, records_hidden, started_at, finished_at, updated_at";
+const SYNC_COLUMNS = "company_id, counterparty_ref, status, sync_mode, active_sync_id, last_successful_full_sync_at, last_incremental_sync_at, last_source_version, incremental_date_watermark, integrity_state, last_successful_full_audit_at, full_audit_requested_at, safe_error, records_received, records_inserted, records_updated, records_hidden, started_at, finished_at, updated_at";
 
 type Row = Record<string, unknown>;
 
@@ -268,6 +268,46 @@ export class SupabasePartnerOrderHistoryRepository implements PartnerOrderHistor
     });
   }
 
+  async listKnownHeaders(companyId: string, orderRefs: string[]) {
+    if (!orderRefs.length) return [];
+    const { data, error } = await createAdminClient().from("partner_order_history")
+      .select("external_1c_order_ref,one_c_source_version,partner_visible,hidden_reason,one_c_deletion_mark,currency_code")
+      .eq("company_id", companyId)
+      .in("external_1c_order_ref", orderRefs);
+    if (error) throw new OrderHistoryRepositoryError();
+    return ((data ?? []) as Row[]).map((row) => ({
+      external1cOrderRef: text(row.external_1c_order_ref),
+      oneCSourceVersion: nullableText(row.one_c_source_version),
+      partnerVisible: row.partner_visible === true,
+      hiddenReason: nullableText(row.hidden_reason),
+      oneCDeletionMark: row.one_c_deletion_mark === true,
+      currencyCode: nullableText(row.currency_code),
+    }));
+  }
+
+  async listExistenceVerificationCandidates(input: { companyId: string; limit: number }) {
+    const { data, error } = await createAdminClient().rpc("get_partner_order_history_existence_candidates", {
+      p_company_id: input.companyId,
+      p_limit: input.limit,
+    });
+    if (error) throw new OrderHistoryRepositoryError();
+    return ((data ?? []) as Row[]).map(mapHistory);
+  }
+
+  async applyExistenceResults(input: Parameters<NonNullable<PartnerOrderHistoryRepository["applyExistenceResults"]>>[0]) {
+    const { data, error } = await createAdminClient().rpc("apply_partner_order_history_existence_batch", {
+      p_company_id: input.companyId,
+      p_sync_id: input.syncId,
+      p_verified_at: input.verifiedAt,
+      p_results: input.results.map((result) => ({
+        external_1c_order_ref: result.external1cOrderRef,
+        status: result.status,
+      })),
+    });
+    if (error || !isRecord(data)) throw new OrderHistoryRepositoryError();
+    return { updated: numberValue(data.updated), hidden: numberValue(data.hidden), restored: numberValue(data.restored) };
+  }
+
   async touchSynchronizedOrders(input: { companyId: string; orderRefs: string[]; syncedAt: string }): Promise<number> {
     if (!input.orderRefs.length) return 0;
     const { data, error } = await createAdminClient().rpc("touch_partner_order_history_refs", {
@@ -280,8 +320,8 @@ export class SupabasePartnerOrderHistoryRepository implements PartnerOrderHistor
   }
 
   async upsertBatch(input: Parameters<PartnerOrderHistoryRepository["upsertBatch"]>[0]) {
-    const rpcName = "upsert_partner_order_history_batch";
-    const { data, error } = await createAdminClient().rpc("upsert_partner_order_history_batch", {
+    const rpcName = "upsert_partner_order_history_delta_batch";
+    const { data, error } = await createAdminClient().rpc("upsert_partner_order_history_delta_batch", {
       target_company_id: input.companyId,
       target_sync_id: input.syncId,
       target_synced_at: input.syncedAt,
@@ -310,23 +350,31 @@ export class SupabasePartnerOrderHistoryRepository implements PartnerOrderHistor
   }
 
   async completeSync(input: Parameters<PartnerOrderHistoryRepository["completeSync"]>[0]): Promise<void> {
-    const now = new Date().toISOString();
-    const payload: Record<string, unknown> = {
-      status: "succeeded",
-      active_sync_id: null,
-      last_source_version: input.lastSourceVersion,
-      safe_error: null,
-      records_received: input.received,
-      records_inserted: input.inserted,
-      records_updated: input.updated,
-      records_hidden: input.hidden,
-      finished_at: now,
-      updated_at: now,
-    };
-    payload[input.mode === "full" ? "last_successful_full_sync_at" : "last_incremental_sync_at"] = now;
-    const { error } = await createAdminClient().from("partner_order_history_sync_state").update(payload)
-      .eq("company_id", input.companyId).eq("active_sync_id", input.syncId);
-    if (error) throw new OrderHistoryRepositoryError();
+    const { data, error } = await createAdminClient().rpc("complete_partner_order_history_sync", {
+      p_company_id: input.companyId,
+      p_sync_id: input.syncId,
+      p_mode: input.mode,
+      p_incremental_date_watermark: input.incrementalDateWatermark,
+      p_metrics: {
+        overlap_start: input.metrics.overlapStart,
+        headers_received: input.metrics.headersReceived,
+        new_orders: input.metrics.newOrders,
+        changed_orders: input.metrics.changedOrders,
+        unchanged_orders: input.metrics.unchangedOrders,
+        line_requests: input.metrics.lineRequests,
+        existence_refs_checked: input.metrics.existenceRefsChecked,
+        exists_count: input.metrics.existsCount,
+        deleted_count: input.metrics.deletedCount,
+        absent_count: input.metrics.absentCount,
+        unknown_count: input.metrics.unknownCount,
+        one_c_request_count: input.metrics.oneCRequestCount,
+        one_c_duration_ms: Math.round(input.metrics.oneCDurationMs),
+        db_writes: input.metrics.dbWrites,
+        total_duration_ms: Math.round(input.metrics.totalDurationMs),
+        hidden: input.hidden,
+      },
+    });
+    if (error || data !== true) throw new OrderHistoryRepositoryError();
   }
 
   async failSync(input: Parameters<PartnerOrderHistoryRepository["failSync"]>[0]): Promise<void> {
@@ -339,6 +387,9 @@ export class SupabasePartnerOrderHistoryRepository implements PartnerOrderHistor
       updated_at: now,
     }).eq("company_id", input.companyId).eq("active_sync_id", input.syncId);
     if (error) throw new OrderHistoryRepositoryError();
+    await createAdminClient().from("partner_order_history_sync_runs").update({
+      status: "failed", safe_error: input.safeError, finished_at: now,
+    }).eq("id", input.syncId);
   }
 }
 
@@ -380,6 +431,8 @@ function mapHistory(row: Row): PartnerOrderHistory {
     oneCStateRaw: nullableText(row.one_c_state_raw), oneCStateCode: row.one_c_state_code as PartnerOrderHistory["oneCStateCode"],
     oneCDocumentDate: text(row.one_c_document_date), oneCDeliveryDate: nullableText(row.one_c_delivery_date),
     oneCSourceVersion: nullableText(row.one_c_source_version), oneCLastSyncedAt: text(row.one_c_last_synced_at),
+    lastExistenceVerifiedAt: nullableText(row.last_existence_verified_at),
+    lastExistenceResult: row.last_existence_result as PartnerOrderHistory["lastExistenceResult"],
     externalContractRef: nullableText(row.external_contract_ref), externalCurrencyRef: nullableText(row.external_currency_ref),
     documentTotal: numberValue(row.document_total), currencyCode: nullableText(row.currency_code),
     originType: row.origin_type as PartnerOrderHistory["originType"], partnerVisible: row.partner_visible === true,
@@ -412,6 +465,10 @@ function mapSyncState(row: Row): PartnerOrderHistorySyncState {
     status: row.status as PartnerOrderHistorySyncState["status"], syncMode: row.sync_mode as PartnerOrderHistorySyncState["syncMode"],
     activeSyncId: nullableText(row.active_sync_id), lastSuccessfulFullSyncAt: nullableText(row.last_successful_full_sync_at),
     lastIncrementalSyncAt: nullableText(row.last_incremental_sync_at), lastSourceVersion: nullableText(row.last_source_version),
+    incrementalDateWatermark: nullableText(row.incremental_date_watermark),
+    integrityState: (nullableText(row.integrity_state) ?? "healthy") as PartnerOrderHistorySyncState["integrityState"],
+    lastSuccessfulFullAuditAt: nullableText(row.last_successful_full_audit_at),
+    fullAuditRequestedAt: nullableText(row.full_audit_requested_at),
     safeError: nullableText(row.safe_error), recordsReceived: numberValue(row.records_received),
     recordsInserted: numberValue(row.records_inserted), recordsUpdated: numberValue(row.records_updated),
     recordsHidden: numberValue(row.records_hidden), startedAt: nullableText(row.started_at), finishedAt: nullableText(row.finished_at),

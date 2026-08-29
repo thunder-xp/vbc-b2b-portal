@@ -17,6 +17,8 @@ export type PartnerOrderHistory = {
   oneCDeliveryDate: string | null;
   oneCSourceVersion: string | null;
   oneCLastSyncedAt: string;
+  lastExistenceVerifiedAt?: string | null;
+  lastExistenceResult?: "exists" | "deletion_marked" | "absent" | "unknown" | null;
   externalContractRef: string | null;
   externalCurrencyRef: string | null;
   documentTotal: number;
@@ -48,7 +50,7 @@ export type PartnerOrderHistoryItem = {
 export type PartnerOrderHistoryEvent = {
   id: string;
   orderHistoryId: string;
-  eventType: "imported" | "received_by_one_c" | "posted" | "became_unposted" | "state_changed" | "delivery_date_changed" | "sync_restored" | "date_change_requested" | "date_change_approved" | "date_change_rejected" | "date_change_cancelled" | "date_change_reflected";
+  eventType: "imported" | "received_by_one_c" | "posted" | "became_unposted" | "state_changed" | "delivery_date_changed" | "sync_restored" | "restored_from_1c" | "date_change_requested" | "date_change_approved" | "date_change_rejected" | "date_change_cancelled" | "date_change_reflected";
   occurredAt: string;
   previousValue: string | null;
   currentValue: string | null;
@@ -63,6 +65,10 @@ export type PartnerOrderHistorySyncState = {
   lastSuccessfulFullSyncAt: string | null;
   lastIncrementalSyncAt: string | null;
   lastSourceVersion: string | null;
+  incrementalDateWatermark: string | null;
+  integrityState: "healthy" | "audit_requested" | "audit_running" | "check_required" | "failed";
+  lastSuccessfulFullAuditAt: string | null;
+  fullAuditRequestedAt: string | null;
   safeError: string | null;
   recordsReceived: number;
   recordsInserted: number;

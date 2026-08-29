@@ -55,7 +55,7 @@ describe("OneCCustomerOrderProvider history", () => {
     expect(url).not.toContain("%24filter");
     expect(url).not.toContain("+eq+");
     expect(url).not.toContain("guid%27");
-    expect(url).not.toContain("$orderby");
+    expect(url).toContain("$orderby=Ref_Key asc");
     expect(url).not.toContain("Запасы");
     expect(result.nextCursor).toBe("2");
   });
@@ -265,6 +265,60 @@ describe("OneCCustomerOrderProvider history", () => {
     vi.stubGlobal("fetch", historyFetch("Открыт", 1, { Posted: false, DeletionMark: true }));
     const result = await provider().orders.fetchSalesOrderHistory(request());
     expect(result.items[0]).toMatchObject({ posted: false, deletionMark: true, number: "NSUU-001" });
+  });
+
+  it("discovers incremental headers by Date without loading lines or reference enrichment", async () => {
+    const fetchMock = vi.fn(() => Promise.resolve(json({ value: [historyRow()] })));
+    vi.stubGlobal("fetch", fetchMock);
+    const result = await provider().orders.fetchSalesOrderHistory({
+      ...request(),
+      historyReadMode: "incremental_headers",
+      historyDateFrom: "2026-07-12T10:00:00.000Z",
+    });
+    const url = decodeURIComponent(String(fetchMock.mock.calls[0]![0]));
+    expect(url).toContain("Date ge datetime'2026-07-12T10:00:00'");
+    expect(url).toContain("$orderby=Date asc,Ref_Key asc");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(result.items[0]?.items).toEqual([]);
+    expect(result.lineRowCount).toBe(0);
+  });
+
+  it("verifies an exact reference batch and preserves DeletionMark classification", async () => {
+    const fetchMock = vi.fn(() => Promise.resolve(json({ value: [historyRow({ DeletionMark: true })] })));
+    vi.stubGlobal("fetch", fetchMock);
+    const result = await provider().orders.verifySalesOrderHistoryReferences!({
+      partnerCompanyReference: { providerCode: "one-c", externalId: COUNTERPARTY, externalType: "counterparty" },
+      orderReferences: [{ providerCode: "one-c", externalId: ORDER, externalType: "customer-order" }],
+    });
+    expect(result.results).toEqual([expect.objectContaining({ status: "deletion_marked" })]);
+    expect(result.requestCount).toBe(1);
+  });
+
+  it("classifies absence only after an authoritative singleton 404", async () => {
+    const fetchMock = vi.fn((input: string | URL | Request) => {
+      const url = decodeURIComponent(String(input));
+      return Promise.resolve(url.includes("Document_ЗаказПокупателя(guid'") ? json({}, 404) : json({ value: [] }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const result = await provider().orders.verifySalesOrderHistoryReferences!({
+      partnerCompanyReference: { providerCode: "one-c", externalId: COUNTERPARTY, externalType: "counterparty" },
+      orderReferences: [{ providerCode: "one-c", externalId: ORDER, externalType: "customer-order" }],
+    });
+    expect(result.results[0]?.status).toBe("absent");
+    expect(result.requestCount).toBe(2);
+  });
+
+  it("classifies a partial or failed exact verification as unknown instead of absent", async () => {
+    const fetchMock = vi.fn((input: string | URL | Request) => {
+      const url = decodeURIComponent(String(input));
+      return Promise.resolve(url.includes("Document_ЗаказПокупателя(guid'") ? json({}, 500) : json({ value: [] }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const result = await provider().orders.verifySalesOrderHistoryReferences!({
+      partnerCompanyReference: { providerCode: "one-c", externalId: COUNTERPARTY, externalType: "counterparty" },
+      orderReferences: [{ providerCode: "one-c", externalId: ORDER, externalType: "customer-order" }],
+    });
+    expect(result.results[0]?.status).toBe("unknown");
   });
 });
 

@@ -5,8 +5,8 @@ import { OneCProvider } from "../../integration/providers/one-c";
 import { getOneCEnv } from "../../../lib/env";
 import { createAdminClient } from "../../../lib/supabase/admin";
 import { createPricingInventoryService } from "../../pricing-inventory/actions/service-factory";
-import { SupabaseCartRepository, SupabaseCheckoutConfigurationRepository, SupabaseOrderDateChangeRequestRepository, SupabaseOrderHistoryBootstrapRepository, SupabaseOrderPriceRefreshRepository, SupabaseOrderReconciliationRepository, SupabasePartnerOrderHistoryRepository, SupabasePartnerOrderRepository } from "../repositories/supabase";
-import { DefaultCartService, DefaultInternalOrderDateChangeService, DefaultOrderPriceRefreshService, DefaultPartnerOrderHistoryService, DefaultPartnerOrderService, OrderHistoryBootstrapService, OrderReconciliationWorkerService, PartnerOrderHistoryAutomationService, QuickReorderService } from "../services";
+import { SupabaseCartRepository, SupabaseCheckoutConfigurationRepository, SupabaseOrderDateChangeRequestRepository, SupabaseOrderHistoryBootstrapRepository, SupabaseOrderHistoryIntegrityRepository, SupabaseOrderPriceRefreshRepository, SupabaseOrderReconciliationRepository, SupabasePartnerOrderHistoryRepository, SupabasePartnerOrderRepository } from "../repositories/supabase";
+import { DefaultCartService, DefaultInternalOrderDateChangeService, DefaultOrderPriceRefreshService, DefaultPartnerOrderHistoryService, DefaultPartnerOrderService, OrderHistoryBootstrapService, OrderHistoryIntegrityService, OrderReconciliationWorkerService, PartnerOrderHistoryAutomationService, QuickReorderService } from "../services";
 
 function dependencies() {
   const companyAccessService = createCompanyAccessService();
@@ -107,6 +107,13 @@ export function createOrderHistoryBootstrapService(): OrderHistoryBootstrapServi
   return new OrderHistoryBootstrapService(
     new SupabaseOrderHistoryBootstrapRepository(),
     createPartnerOrderHistoryService(),
+  );
+}
+
+export function createOrderHistoryIntegrityService(): OrderHistoryIntegrityService {
+  return new OrderHistoryIntegrityService(
+    new SupabaseOrderHistoryIntegrityRepository(),
+    createPartnerOrderHistoryProvider(),
   );
 }
 

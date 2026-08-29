@@ -17,6 +17,8 @@ export type {
 } from "./inventory-provider";
 export type {
   OrderProvider,
+  SalesOrderHistoryExistenceResult,
+  SalesOrderHistoryExistenceStatus,
   SalesOrderHistoryPageResult,
   SalesOrderStatusFetchRequestDTO,
 } from "./order-provider";

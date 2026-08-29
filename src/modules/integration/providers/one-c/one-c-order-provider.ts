@@ -1,4 +1,4 @@
-import type { OrderProvider, SalesOrderHistoryPageResult } from "../../contracts";
+import type { OrderProvider, SalesOrderHistoryExistenceResult, SalesOrderHistoryPageResult } from "../../contracts";
 import type {
   IntegrationPageResultDTO,
   SalesOrderDTO,
@@ -176,22 +176,27 @@ export class OneCCustomerOrderProvider implements OrderProvider {
 
     const limit = parseHistoryLimit(input.page?.limit);
     const skip = parseHistoryCursor(input.page?.cursor);
+    const headerOnly = input.historyReadMode === "incremental_headers" || input.historyReadMode === "integrity_headers";
+    const dateFilter = input.historyReadMode === "incremental_headers" && input.historyDateFrom
+      ? ` and Date ge datetime'${oneCDateLiteral(input.historyDateFrom)}'`
+      : "";
+    const orderBy = input.historyReadMode === "incremental_headers" ? "Date asc,Ref_Key asc" : "Ref_Key asc";
     const literalODataQuery =
-      `$filter=Контрагент_Key eq guid'${partnerRef}'` +
+      `$filter=Контрагент_Key eq guid'${partnerRef}'${dateFilter}` +
       `&$select=${HISTORY_ORDER_FIELDS}` +
-      `&$top=${limit}&$skip=${skip}&$format=json`;
+      `&$orderby=${orderBy}&$top=${limit}&$skip=${skip}&$format=json`;
     const exactFinalUrl = `${requiredBaseUrl(this.config)}/${CUSTOMER_ORDER_RESOURCE}?${literalODataQuery}`;
 
     console.info({
       event: "one_c_order_history_request",
       deployedCommitSha: process.env.VERCEL_GIT_COMMIT_SHA?.trim() || "local",
       historyProviderImplementation: this.constructor.name,
-      historyQueryMode: "scalar_headers_without_orderby",
+      historyQueryMode: input.historyReadMode ?? "full",
       queryBuilderMode: "literal_1c_compatible",
       urlSearchParamsUsed: false,
       filterLiteralPreserved: true,
       headerIncludesInventoryLines: false,
-      orderByApplied: false,
+      orderByApplied: true,
       resource: CUSTOMER_ORDER_RESOURCE,
       literalODataQuery,
       exactFinalUrl,
@@ -301,6 +306,21 @@ export class OneCCustomerOrderProvider implements OrderProvider {
       firstRefKey: rows[0]?.dto.reference.externalId ?? null,
       lastRefKey: rows.at(-1)?.dto.reference.externalId ?? null,
     });
+    if (headerOnly) {
+      return {
+        items: rows.map(toHistoryHeader),
+        nextCursor: envelope.value.length === limit ? String(skip + limit) : null,
+        rawRowCount: envelope.value.length,
+        mappedRowCount: rows.length,
+        rejectedRowCount,
+        lineRowCount: 0,
+        lineWarningCount: 0,
+        lineReadFailedReferences: [],
+        duplicateRowCount,
+        enrichmentWarningCount: 0,
+        requestCount: 1,
+      };
+    }
     const syncContext = input.historySyncContext ?? {
       syncId: "provider-only",
       page: Math.floor(skip / limit) + 1,
@@ -354,7 +374,7 @@ export class OneCCustomerOrderProvider implements OrderProvider {
     const partnerRef = input.partnerCompanyReference?.externalId.trim();
     if (!partnerRef || !isOneCGuid(partnerRef)) throw new IntegrationValidationError("1C counterparty reference is invalid.");
     const references = [...new Set(input.orderReferences.map((item) => item.externalId.trim().toLowerCase()))];
-    if (!references.length || references.length > 25 || references.some((reference) => !isOneCGuid(reference))) {
+    if (!references.length || references.length > 100 || references.some((reference) => !isOneCGuid(reference))) {
       throw new IntegrationValidationError("1C active order reference batch is invalid.");
     }
     const context = input.historySyncContext ?? { syncId: "active-order-refresh", page: 1 };
@@ -406,6 +426,90 @@ export class OneCCustomerOrderProvider implements OrderProvider {
       lineReadFailedReferences: [],
       duplicateRowCount: references.length - items.length,
       enrichmentWarningCount: warningCount,
+      requestCount: references.length,
+    };
+  }
+
+  async verifySalesOrderHistoryReferences(
+    input: Parameters<NonNullable<OrderProvider["verifySalesOrderHistoryReferences"]>>[0],
+  ): Promise<SalesOrderHistoryExistenceResult> {
+    const startedAt = performance.now();
+    const partnerRef = input.partnerCompanyReference?.externalId.trim();
+    if (!partnerRef || !isOneCGuid(partnerRef)) throw new IntegrationValidationError("1C counterparty reference is invalid.");
+    const references = [...new Set(input.orderReferences.map((item) => item.externalId.trim().toLowerCase()))];
+    if (!references.length || references.length > 25 || references.some((reference) => !isOneCGuid(reference))) {
+      throw new IntegrationValidationError("1C order existence batch is invalid.");
+    }
+
+    let requestCount = 1;
+    const referenceFilter = references.map((reference) => `Ref_Key eq guid'${reference}'`).join(" or ");
+    const query = `$filter=Контрагент_Key eq guid'${partnerRef}' and (${referenceFilter})&$select=${HISTORY_ORDER_FIELDS}&$top=${references.length}&$format=json`;
+    const requestUrl = `${requiredBaseUrl(this.config)}/${CUSTOMER_ORDER_RESOURCE}?${query}`;
+    let response: Response;
+    try {
+      response = await fetchOneC(this.config, requestUrl, "1C order existence verification is unavailable.");
+    } catch (error) {
+      if (error instanceof IntegrationUnauthorizedError || error instanceof IntegrationForbiddenError) throw error;
+      return unknownExistence(references, requestCount, performance.now() - startedAt);
+    }
+    const responseBody = await response.text();
+    if (response.status === 401 || response.status === 403) throw historyHttpError(response.status);
+    if (!response.ok) return unknownExistence(references, requestCount, performance.now() - startedAt);
+
+    let envelope: unknown;
+    try { envelope = JSON.parse(responseBody); }
+    catch { return unknownExistence(references, requestCount, performance.now() - startedAt); }
+    if (!isHistoryEnvelope(envelope)) return unknownExistence(references, requestCount, performance.now() - startedAt);
+
+    const found = new Map<string, ParsedHistoryRow>();
+    const conflicted = new Set<string>();
+    for (const value of envelope.value) {
+      const parsed = parseHistoryRow(value, partnerRef);
+      if (!parsed) return unknownExistence(references, requestCount, performance.now() - startedAt);
+      const reference = parsed.dto.reference.externalId.toLowerCase();
+      if (!references.includes(reference)) return unknownExistence(references, requestCount, performance.now() - startedAt);
+      const previous = found.get(reference);
+      if (previous && previous.dto.sourceVersion !== parsed.dto.sourceVersion) conflicted.add(reference);
+      else found.set(reference, parsed);
+    }
+
+    const missing = references.filter((reference) => !found.has(reference));
+    const singletonResults = await mapWithConcurrency(missing, HISTORY_LINE_CONCURRENCY, async (reference) => {
+      requestCount += 1;
+      const exactUrl = new URL(`${requiredBaseUrl(this.config)}/${CUSTOMER_ORDER_RESOURCE}(guid'${reference}')`);
+      exactUrl.searchParams.set("$select", HISTORY_ORDER_FIELDS);
+      exactUrl.searchParams.set("$format", "json");
+      try {
+        const exactResponse = await fetchOneC(this.config, exactUrl, "1C order existence verification is unavailable.");
+        const exactBody = await exactResponse.text();
+        if (exactResponse.status === 404) return [reference, { status: "absent" as const, header: null }] as const;
+        if (exactResponse.status === 401 || exactResponse.status === 403) throw historyHttpError(exactResponse.status);
+        if (!exactResponse.ok) return [reference, { status: "unknown" as const, header: null }] as const;
+        const value = JSON.parse(exactBody) as unknown;
+        const parsed = parseHistoryRow(value, partnerRef);
+        if (!parsed || parsed.dto.reference.externalId.toLowerCase() !== reference) {
+          return [reference, { status: "unknown" as const, header: null }] as const;
+        }
+        return [reference, existenceFromRow(parsed)] as const;
+      } catch (error) {
+        if (error instanceof IntegrationUnauthorizedError || error instanceof IntegrationForbiddenError) throw error;
+        return [reference, { status: "unknown" as const, header: null }] as const;
+      }
+    });
+    const singletonByReference = new Map<string, {
+      status: "exists" | "deletion_marked" | "absent" | "unknown";
+      header: SalesOrderHistoryDTO | null;
+    }>();
+    for (const [reference, value] of singletonResults) singletonByReference.set(reference, value);
+    return {
+      results: references.map((reference) => {
+        if (conflicted.has(reference)) return { reference: externalReference(reference, "customer-order"), status: "unknown" as const, header: null };
+        const row = found.get(reference);
+        const value = row ? existenceFromRow(row) : singletonByReference.get(reference) ?? { status: "unknown" as const, header: null };
+        return { reference: externalReference(reference, "customer-order"), ...value };
+      }),
+      requestCount,
+      requestDurationMs: Math.round((performance.now() - startedAt) * 100) / 100,
     };
   }
 
@@ -607,6 +711,42 @@ type HistoryReferenceResult = {
   safeResponseBody: string | null;
   warningReason: string | null;
 };
+
+function toHistoryHeader(row: ParsedHistoryRow): SalesOrderHistoryDTO {
+  return {
+    ...row.dto,
+    stateReference: row.stateRef ? externalReference(row.stateRef, "customer-order-state") : null,
+    stateRaw: null,
+    stateCode: null,
+    currencyCode: null,
+    items: [],
+  };
+}
+
+function existenceFromRow(row: ParsedHistoryRow) {
+  return {
+    status: row.dto.deletionMark ? "deletion_marked" as const : "exists" as const,
+    header: toHistoryHeader(row),
+  };
+}
+
+function unknownExistence(references: string[], requestCount: number, durationMs: number): SalesOrderHistoryExistenceResult {
+  return {
+    results: references.map((reference) => ({
+      reference: externalReference(reference, "customer-order"),
+      status: "unknown",
+      header: null,
+    })),
+    requestCount,
+    requestDurationMs: Math.round(durationMs * 100) / 100,
+  };
+}
+
+function oneCDateLiteral(value: string): string {
+  const parsed = new Date(value);
+  if (!Number.isFinite(parsed.getTime())) throw new IntegrationValidationError("1C order history Date cursor is invalid.");
+  return parsed.toISOString().replace(/\.\d{3}Z$/, "");
+}
 
 function parseHistoryRow(value: unknown, partnerRef: string): ParsedHistoryRow | null {
   if (!value || typeof value !== "object") return null;

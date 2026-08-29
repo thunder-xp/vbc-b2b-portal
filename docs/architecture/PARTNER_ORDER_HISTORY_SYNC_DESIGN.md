@@ -16,11 +16,15 @@ Production evidence shows `СостояниеЗаказа` as a GUID reference t
 
 ## Synchronization
 
-The provider queries `Document_ЗаказПокупателя` with an exact `Контрагент_Key` boundary, stable `Date, Ref_Key` ordering, `$top/$skip` pagination, and `Ref_Key` identity. The service follows continuation cursors until completion with explicit page-size and maximum-page guards. Persistence uses one service-role RPC per page to atomically upsert documents, replace current 1C lines, and append deduplicated proven events.
+Routine synchronization queries `Document_ЗаказПокупателя` with an exact `Контрагент_Key` boundary, `Date >= watermark - 72 hours`, stable `Date asc, Ref_Key asc` ordering, and bounded `$top/$skip` pagination. `DataVersion` is a per-object change detector, never a global cursor. Headers are compared with local `Ref_Key + DataVersion`; lines and enrichment are fetched only for new, changed, or locally damaged documents. Persistence receives delta rows only and replaces items only for those rows.
 
-The first company run is always full. Later manual runs use the incremental mode contract, but currently scan the complete counterparty history because a reliable 1C change-token field has not been proven. This is intentionally conservative and must be replaced only after production evidence identifies a safe incremental boundary.
+The first company run is always full. Later manual and scheduled runs are incremental and include one exact-reference verification batch of at most 25 known records. Exact verification classifies `exists`, `deletion_marked`, `absent`, and `unknown`; timeout, server error, or an incomplete response preserves visibility. A hidden record that reappears is restored automatically with an immutable `restored_from_1c` event.
 
-Failed or partial synchronization never deletes or replaces previously valid read-model history. Sync state records the last successful full and incremental timestamps, source version, status, safe error, and received/inserted/updated/hidden counters.
+Date discovery cannot guarantee an arbitrarily backdated newly-created 1C document. The 72-hour overlap covers ordinary date corrections and weekend posting, exact verification protects already-known identities, and a separate admin-enqueued two-pass full audit protects set completeness. At current production volume, run the full audit monthly and after any integrity warning, migration, or provider behavior change. Reassess that cadence if a company exceeds 10,000 history rows or if backdated-order evidence appears.
+
+The full audit is asynchronous. Both header-only passes use `Ref_Key asc`, bounded pages, page fingerprints, duplicate/conflicting-version detection, and count/set/version hash equality. No unseen local reference is hidden unless both complete passes agree. Mismatch marks integrity as requiring review and performs zero absence hiding.
+
+Failed or partial synchronization never advances the Date watermark and never deletes or replaces previously valid read-model history. Append-only run metrics record cursor bounds, header/delta counts, line and existence requests, 1C duration, database writes, and total duration.
 
 ## Ownership And Reconciliation
 
@@ -34,8 +38,6 @@ Partner reads require active company access plus `orders.view`. Manual refresh r
 
 Normal list and detail routes read Supabase only. Lists use indexed company/date filtering and deterministic 25-row pagination. Sync uses 100-order provider pages and bulk RPC persistence; line loading is batched and never one query per product.
 
-## Remaining Extension
+## Cross-Domain Roadmap (Not Implemented Here)
 
-- Prove a reliable 1C modification cursor before implementing a reduced incremental query.
-- Add an internal batch/scheduled trigger without duplicating synchronization logic.
-- Add operational metrics and retry scheduling around the existing sync-state contract.
+Prioritize future delta conversion by current 1C load, business criticality, and source safety: catalog, prices, counterparties/contracts, product relations, documents, then stock only after a safe stock delta mechanism is proven. Each domain requires its own authoritative cursor and deletion contract; this order-history design must not be copied blindly.

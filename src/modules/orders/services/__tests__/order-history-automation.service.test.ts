@@ -13,15 +13,15 @@ describe("PartnerOrderHistoryAutomationService", () => {
     const provider = exactProvider([dto()]);
     const result = await service(repository, provider).refreshActiveOrders();
     expect(repository.listActiveRefreshCandidates).toHaveBeenCalledWith(expect.objectContaining({ limit: 25 }));
-    expect(provider.fetchSalesOrderHistoryByReferences).toHaveBeenCalledWith(expect.objectContaining({ orderReferences: [{ providerCode: "one-c", externalId: ORDER_REF, externalType: "customer-order" }] }));
+    expect(provider.verifySalesOrderHistoryReferences).toHaveBeenCalledWith(expect.objectContaining({ orderReferences: [{ providerCode: "one-c", externalId: ORDER_REF, externalType: "customer-order" }] }));
     expect(result).toMatchObject({ received: 1, unchanged: 1, updated: 0, concurrencyLimit: 5 });
     expect(repository.upsertBatch).not.toHaveBeenCalled();
-    expect(repository.touchSynchronizedOrders).toHaveBeenCalledTimes(1);
+    expect(repository.applyExistenceResults).toHaveBeenCalledTimes(1);
   });
 
   it("updates changed state once and preserves a known currency when enrichment fails", async () => {
     const repository = repo([candidate()]);
-    const provider = exactProvider([{ ...dto(), posted: true, stateCode: "completed", stateRaw: "Завершен", currencyCode: null }]);
+    const provider = exactProvider([{ ...dto(), sourceVersion: "v2", posted: true, stateCode: "completed", stateRaw: "Завершен", currencyCode: null }]);
     await service(repository, provider).refreshActiveOrders();
     expect(repository.upsertBatch).toHaveBeenCalledWith(expect.objectContaining({
       orders: [expect.objectContaining({ stateCode: "completed", currencyCode: "MDL" })],
@@ -35,6 +35,7 @@ describe("PartnerOrderHistoryAutomationService", () => {
     const result = await new PartnerOrderHistoryAutomationService(repository, exactProvider([]), historyService).refreshCompanyHistories();
     expect(result).toEqual({ companies: 2, completed: 1, skipped: 0, failed: 1 });
     expect(historyService.syncCompany).toHaveBeenCalledTimes(2);
+    expect(historyService.syncCompany).toHaveBeenLastCalledWith("company-2", COUNTERPARTY, "incremental");
   });
 });
 
@@ -49,19 +50,26 @@ function service(repository: ReturnType<typeof repo>, provider: ReturnType<typeo
 function repo(candidates: Array<{ order: PartnerOrderHistory; counterpartyRef: string }>) {
   return {
     listActiveRefreshCandidates: vi.fn().mockResolvedValue(candidates),
-    touchSynchronizedOrders: vi.fn().mockResolvedValue(candidates.length),
+    applyExistenceResults: vi.fn().mockResolvedValue({ updated: candidates.length, hidden: 0, restored: 0 }),
     listSyncCompanies: vi.fn().mockResolvedValue([]),
     upsertBatch: vi.fn().mockResolvedValue({ inserted: 0, updated: 1, hidden: 0 }),
   } as unknown as PartnerOrderHistoryRepository & {
     listActiveRefreshCandidates: ReturnType<typeof vi.fn>;
-    touchSynchronizedOrders: ReturnType<typeof vi.fn>;
+    applyExistenceResults: ReturnType<typeof vi.fn>;
     listSyncCompanies: ReturnType<typeof vi.fn>;
     upsertBatch: ReturnType<typeof vi.fn>;
   };
 }
 
 function exactProvider(items: SalesOrderHistoryDTO[]) {
-  return { fetchSalesOrderHistoryByReferences: vi.fn().mockResolvedValue({ items, nextCursor: null, rawRowCount: items.length, mappedRowCount: items.length, rejectedRowCount: 0, lineRowCount: items.length, lineWarningCount: 0, lineReadFailedReferences: [], duplicateRowCount: 0, enrichmentWarningCount: 0 }) } as unknown as OrderProvider & { fetchSalesOrderHistoryByReferences: ReturnType<typeof vi.fn> };
+  return {
+    fetchSalesOrderHistoryByReferences: vi.fn().mockResolvedValue({ items, nextCursor: null, rawRowCount: items.length, mappedRowCount: items.length, rejectedRowCount: 0, lineRowCount: items.length, lineWarningCount: 0, lineReadFailedReferences: [], duplicateRowCount: 0, enrichmentWarningCount: 0, requestCount: items.length }),
+    verifySalesOrderHistoryReferences: vi.fn().mockResolvedValue({
+      results: items.map((item) => ({ reference: item.reference, status: item.deletionMark ? "deletion_marked" : "exists", header: { ...item, items: [] } })),
+      requestCount: 1,
+      requestDurationMs: 1,
+    }),
+  } as unknown as OrderProvider & { fetchSalesOrderHistoryByReferences: ReturnType<typeof vi.fn>; verifySalesOrderHistoryReferences: ReturnType<typeof vi.fn> };
 }
 
 function candidate() { return { order: history(), counterpartyRef: COUNTERPARTY }; }

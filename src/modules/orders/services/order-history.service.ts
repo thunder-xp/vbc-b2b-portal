@@ -38,6 +38,8 @@ const ORDERS_VIEW_PERMISSION = "orders.view";
 const ORDERS_MANAGE_PERMISSION = "orders.manage";
 const PAGE_SIZE = 100;
 const MAX_PAGES = 200;
+const INCREMENTAL_OVERLAP_MS = 72 * 60 * 60 * 1000;
+const EXISTENCE_BATCH_SIZE = 25;
 const LIST_PAGE_SIZE = 25;
 const PLANNED_SHIPMENT_PAGE_SIZE = 20;
 
@@ -119,6 +121,14 @@ export type PartnerOrderHistorySyncResult = {
   hidden: number;
   enrichmentWarnings: number;
   lineWarnings: number;
+  newOrders: number;
+  changedOrders: number;
+  unchangedOrders: number;
+  existenceRefsChecked: number;
+  oneCRequestCount: number;
+  oneCDurationMs: number;
+  dbWrites: number;
+  totalDurationMs: number;
 };
 
 export interface PartnerOrderHistoryService {
@@ -459,6 +469,10 @@ export class DefaultPartnerOrderHistoryService implements PartnerOrderHistorySer
       ? await this.historyRepository.getSyncStateForAutomation(context.company.id)
       : await this.historyRepository.getSyncState(context.company.id);
     const effectiveMode: PartnerOrderHistorySyncMode = current?.lastSuccessfulFullSyncAt ? mode : "full";
+    if (effectiveMode === "incremental") {
+      if (!current) throw new InvalidStateError("Order history synchronization state is unavailable.");
+      return this.syncIncrementalCompany(companyId, counterpartyRef, current);
+    }
 
     const syncId = crypto.randomUUID();
     const startedAt = new Date().toISOString();
@@ -584,9 +598,30 @@ export class DefaultPartnerOrderHistoryService implements PartnerOrderHistorySer
         inserted,
         updated,
         hidden,
+        incrementalDateWatermark: null,
+        metrics: {
+          cursorStart: null,
+          cursorEnd: null,
+          overlapStart: null,
+          headersReceived: received,
+          newOrders: inserted,
+          changedOrders: updated,
+          unchangedOrders: 0,
+          lineRequests: received - deferredDeletedOrders.length,
+          existenceRefsChecked: 0,
+          existsCount: 0,
+          deletedCount: hidden,
+          absentCount: 0,
+          unknownCount: 0,
+          oneCRequestCount: page + received - deferredDeletedOrders.length,
+          oneCDurationMs: Date.now() - Date.parse(startedAt),
+          dbWrites: inserted + updated + hidden,
+          totalDurationMs: Date.now() - Date.parse(startedAt),
+        },
       });
       console.info({ event: "partner_order_history_sync_completed", syncId, pages: page, rowsPerPage, rawReceived, received, duplicatesIgnored, linesFetched, rejected, inserted, updated, hidden, enrichmentWarnings, lineWarnings });
-      return { syncId, pagesFetched: page, rowsPerPage, rawReceived, received, duplicatesIgnored, linesFetched, rejected, inserted, updated, hidden, enrichmentWarnings, lineWarnings };
+      const totalDurationMs = Date.now() - Date.parse(startedAt);
+      return { syncId, pagesFetched: page, rowsPerPage, rawReceived, received, duplicatesIgnored, linesFetched, rejected, inserted, updated, hidden, enrichmentWarnings, lineWarnings, newOrders: inserted, changedOrders: updated, unchangedOrders: 0, existenceRefsChecked: 0, oneCRequestCount: page + received - deferredDeletedOrders.length, oneCDurationMs: totalDurationMs, dbWrites: inserted + updated + hidden, totalDurationMs };
     } catch (error) {
       const syncError = classifyOrderHistorySyncError(error, lastCommittedPage > 0);
       console.error({
@@ -617,6 +652,253 @@ export class DefaultPartnerOrderHistoryService implements PartnerOrderHistorySer
       });
       await this.historyRepository.failSync({
         companyId: context.company.id,
+        syncId,
+        safeError: `Не удалось обновить историю заказов. Код события: ${syncError.correlationId}.`,
+      });
+      throw syncError;
+    }
+  }
+
+  private async syncIncrementalCompany(
+    companyId: string,
+    counterpartyRef: string,
+    current: PartnerOrderHistorySyncState,
+  ): Promise<PartnerOrderHistorySyncResult> {
+    if (!this.orderProvider?.fetchSalesOrderHistoryByReferences
+      || !this.orderProvider.verifySalesOrderHistoryReferences
+      || !this.historyRepository.listKnownHeaders
+      || !this.historyRepository.listExistenceVerificationCandidates
+      || !this.historyRepository.applyExistenceResults) {
+      throw new InvalidStateError("Incremental order history synchronization is unavailable.");
+    }
+    const startedAtMs = Date.now();
+    const startedAt = new Date(startedAtMs).toISOString();
+    const syncId = crypto.randomUUID();
+    const cursorStart = current.incrementalDateWatermark ?? current.lastSuccessfulFullSyncAt ?? startedAt;
+    const overlapStart = new Date(Math.max(0, Date.parse(cursorStart) - INCREMENTAL_OVERLAP_MS)).toISOString();
+    const lockResult = await this.historyRepository.startSync({ companyId, counterpartyRef, syncId, mode: "incremental" });
+    if (lockResult === "locked") throw new OrderHistorySyncError("ORDER_HISTORY_LOCKED");
+
+    let cursor: string | null = null;
+    let page = 0;
+    let headersReceived = 0;
+    let newOrders = 0;
+    let changedOrders = 0;
+    let unchangedOrders = 0;
+    let inserted = 0;
+    let updated = 0;
+    let hidden = 0;
+    let restored = 0;
+    let linesFetched = 0;
+    let lineRequests = 0;
+    let rejected = 0;
+    let enrichmentWarnings = 0;
+    let lineWarnings = 0;
+    let oneCRequestCount = 0;
+    let oneCDurationMs = 0;
+    let dbWrites = 0;
+    let watermark = cursorStart;
+    const rowsPerPage: number[] = [];
+    const seen = new Map<string, string | null>();
+
+    try {
+      do {
+        if (page >= MAX_PAGES) throw new Error("1C incremental order history exceeded the safe page limit.");
+        const sourceStarted = performance.now();
+        const headers = await this.orderProvider.fetchSalesOrderHistory({
+          partnerCompanyReference: { providerCode: "one-c", externalId: counterpartyRef, externalType: "counterparty" },
+          page: { limit: PAGE_SIZE, cursor },
+          historySyncContext: { syncId, page: page + 1 },
+          historyReadMode: "incremental_headers",
+          historyDateFrom: overlapStart,
+        });
+        oneCDurationMs += performance.now() - sourceStarted;
+        oneCRequestCount += headers.requestCount ?? 1;
+        headersReceived += headers.items.length;
+        rejected += headers.rejectedRowCount;
+        rowsPerPage.push(headers.rawRowCount);
+        const pageHeaders: SalesOrderHistoryDTO[] = [];
+        for (const header of headers.items) {
+          const ref = header.reference.externalId.toLowerCase();
+          const previousVersion = seen.get(ref);
+          if (seen.has(ref)) {
+            if (previousVersion !== header.sourceVersion) throw new Error("1C incremental scan returned conflicting DataVersion values.");
+            continue;
+          }
+          seen.set(ref, header.sourceVersion);
+          pageHeaders.push(header);
+          if (!watermark || Date.parse(header.documentDate) > Date.parse(watermark)) watermark = header.documentDate;
+        }
+        const known = await this.historyRepository.listKnownHeaders(companyId, pageHeaders.map((header) => header.reference.externalId));
+        const knownByRef = new Map(known.map((header) => [header.external1cOrderRef.toLowerCase(), header]));
+        const detailReferences: SalesOrderHistoryDTO[] = [];
+        const deletionResults: import("../repositories").OrderHistoryExistenceResult[] = [];
+        for (const header of pageHeaders) {
+          const local = knownByRef.get(header.reference.externalId.toLowerCase());
+          if (header.deletionMark) {
+            if (local) deletionResults.push({ external1cOrderRef: header.reference.externalId, status: "deletion_marked" });
+            continue;
+          }
+          if (!local) {
+            newOrders += 1;
+            detailReferences.push(header);
+          } else if (local.oneCSourceVersion !== header.sourceVersion || !local.partnerVisible || local.oneCDeletionMark) {
+            changedOrders += 1;
+            detailReferences.push(header);
+          } else {
+            unchangedOrders += 1;
+          }
+        }
+        if (detailReferences.length) {
+          const detailStarted = performance.now();
+          const details = await this.orderProvider.fetchSalesOrderHistoryByReferences({
+            partnerCompanyReference: { providerCode: "one-c", externalId: counterpartyRef, externalType: "counterparty" },
+            orderReferences: detailReferences.map((header) => header.reference),
+            historySyncContext: { syncId, page: page + 1 },
+          });
+          oneCDurationMs += performance.now() - detailStarted;
+          oneCRequestCount += details.requestCount ?? detailReferences.length;
+          lineRequests += detailReferences.length;
+          linesFetched += details.lineRowCount;
+          lineWarnings += details.lineWarningCount;
+          enrichmentWarnings += details.enrichmentWarningCount;
+          if (details.lineReadFailedReferences.length) throw new Error("1C changed order lines were not read completely.");
+          const normalized = details.items.map((order) => ({
+            ...order,
+            currencyCode: order.currencyCode ?? knownByRef.get(order.reference.externalId.toLowerCase())?.currencyCode ?? null,
+          }));
+          const batch = await this.historyRepository.upsertBatch({ companyId, syncId, syncedAt: startedAt, orders: normalized });
+          inserted += batch.inserted;
+          updated += batch.updated;
+          hidden += batch.hidden;
+          dbWrites += batch.inserted + batch.updated + batch.hidden;
+        }
+        if (deletionResults.length) {
+          const result = await this.historyRepository.applyExistenceResults({ companyId, syncId, verifiedAt: startedAt, results: deletionResults });
+          hidden += result.hidden;
+          restored += result.restored;
+          dbWrites += result.updated;
+        }
+        cursor = headers.nextCursor;
+        page += 1;
+      } while (cursor !== null);
+
+      const candidates = await this.historyRepository.listExistenceVerificationCandidates({ companyId, limit: EXISTENCE_BATCH_SIZE });
+      let existsCount = 0;
+      let deletedCount = 0;
+      let absentCount = 0;
+      let unknownCount = 0;
+      if (candidates.length) {
+        const verify = await this.orderProvider.verifySalesOrderHistoryReferences({
+          partnerCompanyReference: { providerCode: "one-c", externalId: counterpartyRef, externalType: "counterparty" },
+          orderReferences: candidates.map((order) => ({ providerCode: "one-c", externalId: order.external1cOrderRef, externalType: "customer-order" })),
+          historySyncContext: { syncId, page: page + 1 },
+        });
+        oneCRequestCount += verify.requestCount;
+        oneCDurationMs += verify.requestDurationMs;
+        const candidateByRef = new Map(candidates.map((order) => [order.external1cOrderRef.toLowerCase(), order]));
+        const changed = verify.results.filter((result) => result.status === "exists" && result.header)
+          .filter((result) => {
+            const local = candidateByRef.get(result.reference.externalId.toLowerCase());
+            return local && (local.oneCSourceVersion !== result.header?.sourceVersion || !local.partnerVisible || local.oneCDeletionMark);
+          });
+        if (changed.length) {
+          const detailStarted = performance.now();
+          const details = await this.orderProvider.fetchSalesOrderHistoryByReferences({
+            partnerCompanyReference: { providerCode: "one-c", externalId: counterpartyRef, externalType: "counterparty" },
+            orderReferences: changed.map((result) => result.reference),
+            historySyncContext: { syncId, page: page + 1 },
+          });
+          oneCDurationMs += performance.now() - detailStarted;
+          oneCRequestCount += details.requestCount ?? changed.length;
+          lineRequests += changed.length;
+          linesFetched += details.lineRowCount;
+          const normalized = details.items.map((order) => ({
+            ...order,
+            currencyCode: order.currencyCode ?? candidateByRef.get(order.reference.externalId.toLowerCase())?.currencyCode ?? null,
+          }));
+          const batch = await this.historyRepository.upsertBatch({ companyId, syncId, syncedAt: startedAt, orders: normalized });
+          inserted += batch.inserted;
+          updated += batch.updated;
+          hidden += batch.hidden;
+          dbWrites += batch.inserted + batch.updated + batch.hidden;
+        }
+        const existenceResults = verify.results.map((result) => ({
+          external1cOrderRef: result.reference.externalId,
+          status: result.status,
+        }));
+        for (const result of existenceResults) {
+          if (result.status === "exists") existsCount += 1;
+          else if (result.status === "deletion_marked") deletedCount += 1;
+          else if (result.status === "absent") absentCount += 1;
+          else unknownCount += 1;
+        }
+        const applied = await this.historyRepository.applyExistenceResults({ companyId, syncId, verifiedAt: startedAt, results: existenceResults });
+        hidden += applied.hidden;
+        restored += applied.restored;
+        dbWrites += applied.updated;
+      }
+
+      const totalDurationMs = Date.now() - startedAtMs;
+      const metrics = {
+        cursorStart,
+        cursorEnd: watermark,
+        overlapStart,
+        headersReceived,
+        newOrders,
+        changedOrders,
+        unchangedOrders,
+        lineRequests,
+        existenceRefsChecked: candidates.length,
+        existsCount,
+        deletedCount,
+        absentCount,
+        unknownCount,
+        oneCRequestCount,
+        oneCDurationMs,
+        dbWrites,
+        totalDurationMs,
+      };
+      await this.historyRepository.completeSync({
+        companyId,
+        syncId,
+        mode: "incremental",
+        lastSourceVersion: null,
+        received: headersReceived,
+        inserted,
+        updated,
+        hidden,
+        incrementalDateWatermark: watermark,
+        metrics,
+      });
+      console.info({ event: "partner_order_history_incremental_completed", syncId, companyId, restored, ...metrics });
+      return {
+        syncId,
+        pagesFetched: page,
+        rowsPerPage,
+        rawReceived: headersReceived,
+        received: headersReceived,
+        duplicatesIgnored: headersReceived - seen.size,
+        linesFetched,
+        rejected,
+        inserted,
+        updated,
+        hidden,
+        enrichmentWarnings,
+        lineWarnings,
+        newOrders,
+        changedOrders,
+        unchangedOrders,
+        existenceRefsChecked: candidates.length,
+        oneCRequestCount,
+        oneCDurationMs,
+        dbWrites,
+        totalDurationMs,
+      };
+    } catch (error) {
+      const syncError = classifyOrderHistorySyncError(error, dbWrites > 0);
+      await this.historyRepository.failSync({
+        companyId,
         syncId,
         safeError: `Не удалось обновить историю заказов. Код события: ${syncError.correlationId}.`,
       });
@@ -806,6 +1088,7 @@ function toTimelineEvent(event: PartnerOrderHistoryEvent) {
     state_changed: "Состояние заказа изменено",
     delivery_date_changed: "Дата отгрузки изменена",
     sync_restored: "Синхронизация восстановлена",
+    restored_from_1c: "Документ восстановлен из 1С",
     date_change_requested: "Запрошен перенос даты",
     date_change_approved: "Перенос даты одобрен",
     date_change_rejected: "Перенос даты отклонён",

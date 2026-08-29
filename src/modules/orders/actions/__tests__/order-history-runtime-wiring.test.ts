@@ -60,19 +60,19 @@ describe("production order-history runtime wiring", () => {
     expect(headerUrl).not.toContain("%24filter");
     expect(headerUrl).not.toContain("+eq+");
     expect(headerUrl).not.toContain("guid%27");
-    expect(headerUrl).not.toContain("$orderby");
+    expect(headerUrl).toContain("$orderby=Ref_Key asc");
     expect(headerUrl).not.toContain("Запасы");
     expect(decodeURIComponent(lineUrl ?? "")).toContain("$select=Ref_Key,Запасы");
     expect(info).toHaveBeenCalledWith(expect.objectContaining({
       event: "one_c_order_history_request",
       deployedCommitSha: "test-commit",
       historyProviderImplementation: "OneCCustomerOrderProvider",
-      historyQueryMode: "scalar_headers_without_orderby",
+      historyQueryMode: "full",
       queryBuilderMode: "literal_1c_compatible",
       urlSearchParamsUsed: false,
       filterLiteralPreserved: true,
       headerIncludesInventoryLines: false,
-      orderByApplied: false,
+      orderByApplied: true,
     }));
   });
 });
