@@ -268,7 +268,10 @@ describe("OneCCustomerOrderProvider history", () => {
   });
 
   it("discovers incremental headers by Date without loading lines or reference enrichment", async () => {
-    const fetchMock = vi.fn(() => Promise.resolve(json({ value: [historyRow()] })));
+    const fetchMock = vi.fn((input: string | URL | Request) => {
+      void input;
+      return Promise.resolve(json({ value: [historyRow()] }));
+    });
     vi.stubGlobal("fetch", fetchMock);
     const result = await provider().orders.fetchSalesOrderHistory({
       ...request(),
