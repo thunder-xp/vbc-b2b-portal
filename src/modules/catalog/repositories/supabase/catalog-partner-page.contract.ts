@@ -34,7 +34,17 @@ export const CATALOG_PARTNER_PAGE_FIELDS = [
   "retail_rate_published_at",
   "can_view_stock",
   "merchandising_labels",
+  "key_characteristics",
 ] as const;
+
+type CatalogPartnerPageCharacteristicRow = {
+  key: string;
+  label: string;
+  value: string;
+  filterValue: string;
+  isFilterable: true;
+  valueType: string | null;
+};
 
 export type CatalogPartnerPageRow = {
   id: string;
@@ -72,6 +82,7 @@ export type CatalogPartnerPageRow = {
   retail_rate_published_at: string | null;
   can_view_stock: boolean;
   merchandising_labels: unknown;
+  key_characteristics: CatalogPartnerPageCharacteristicRow[];
 };
 
 export function isCatalogPartnerPageRow(value: unknown): value is CatalogPartnerPageRow {
@@ -90,7 +101,8 @@ export function isCatalogPartnerPageRow(value: unknown): value is CatalogPartner
     && nullableString(row.msrp_price_currency)
     && nullableNumber(row.available_quantity)
     && typeof row.can_view_stock === "boolean"
-    && isMerchandisingLabels(row.merchandising_labels);
+    && isMerchandisingLabels(row.merchandising_labels)
+    && isKeyCharacteristics(row.key_characteristics);
 }
 
 export function mapCatalogPartnerPageRow(row: CatalogPartnerPageRow): CatalogPartnerPageRecord {
@@ -111,9 +123,26 @@ export function mapCatalogPartnerPageRow(row: CatalogPartnerPageRow): CatalogPar
           slug: row.category_slug,
         }
       : null,
+    keyCharacteristics: row.key_characteristics,
     merchandisingLabels: row.merchandising_labels as Array<"NEW" | "TOP" | "HOT">,
     commercialSnapshot: mapCommercialSnapshot(row),
   };
+}
+
+function isKeyCharacteristics(value: unknown): value is CatalogPartnerPageCharacteristicRow[] {
+  return Array.isArray(value)
+    && value.length <= 3
+    && value.every((item) => {
+      if (!item || typeof item !== "object") return false;
+      const characteristic = item as Record<string, unknown>;
+      return typeof characteristic.key === "string"
+        && /^property_[0-9a-f-]{36}$/.test(characteristic.key)
+        && typeof characteristic.label === "string"
+        && typeof characteristic.value === "string"
+        && typeof characteristic.filterValue === "string"
+        && characteristic.isFilterable === true
+        && (characteristic.valueType === null || typeof characteristic.valueType === "string");
+    });
 }
 
 function isMerchandisingLabels(value: unknown): boolean {

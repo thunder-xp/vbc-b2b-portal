@@ -27,6 +27,7 @@ describe("catalog partner page contract", () => {
     expect(CATALOG_PARTNER_PAGE_FIELDS).toContain("partner_price_amount");
     expect(CATALOG_PARTNER_PAGE_FIELDS).toContain("msrp_price_amount");
     expect(CATALOG_PARTNER_PAGE_FIELDS).toContain("available_quantity");
+    expect(CATALOG_PARTNER_PAGE_FIELDS).toContain("key_characteristics");
   });
 
   it("maps image, partner price, and MSRP without silently dropping fields", () => {
@@ -36,6 +37,9 @@ describe("catalog partner page contract", () => {
     expect(mapped.commercialSnapshot.partnerPrice).toMatchObject({ priceAmount: 102.08, currency: "USD" });
     expect(mapped.commercialSnapshot.msrpPrice).toMatchObject({ priceAmount: 177, currency: "USD" });
     expect(mapped.commercialSnapshot.stock?.availableQuantity).toBe(22);
+    expect(mapped.keyCharacteristics).toEqual([
+      expect.objectContaining({ key: "property_11111111-1111-4111-8111-111111111111", value: "256 GB" }),
+    ]);
   });
 });
 
@@ -76,5 +80,13 @@ function productionCardRow(): Record<string, unknown> {
     retail_rate_published_at: "2026-07-19T00:00:00Z",
     can_view_stock: true,
     merchandising_labels: ["TOP", "NEW"],
+    key_characteristics: [{
+      key: "property_11111111-1111-4111-8111-111111111111",
+      label: "MicroSD",
+      value: "256 GB",
+      filterValue: "256 GB",
+      isFilterable: true,
+      valueType: "string",
+    }],
   };
 }

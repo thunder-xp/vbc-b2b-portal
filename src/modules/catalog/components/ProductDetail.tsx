@@ -6,7 +6,7 @@ import type {
   ProductCommercialViewDto,
   RetailPriceHistoryDto,
 } from "../../pricing-inventory";
-import { buildCatalogHref, type CatalogProductDetailDto } from "../services";
+import { buildCatalogHref, getCatalogCharacteristicFilterTarget, type CatalogProductDetailDto } from "../services";
 
 import { ExpandableDescription } from "./ExpandableDescription";
 import { ProductDetailContextRail } from "./ProductDetailContextRail";
@@ -371,7 +371,7 @@ function CharacteristicsTab({
             >
               <dt className="text-zinc-500">{item.label}</dt>
               <dd className="font-medium text-zinc-950">
-                {isUsableFilter(item) ? (
+                {getCatalogCharacteristicFilterTarget(item) ? (
                   <Link
                     aria-label={`${copy.showProducts}: ${item.label} — ${item.value}`}
                     className="rounded text-emerald-700 underline decoration-emerald-300 underline-offset-4 hover:text-emerald-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600"
@@ -397,19 +397,6 @@ function CharacteristicsTab({
         </p>
       )}
     </section>
-  );
-}
-
-function isUsableFilter(
-  item: CatalogProductDetailDto["keyCharacteristics"][number],
-): boolean {
-  const filterValue = item.filterValue ?? item.value;
-  return Boolean(
-    item.isFilterable &&
-    item.key &&
-    /^property_[0-9a-f-]{36}$/.test(item.key) &&
-    filterValue.trim() &&
-    !/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(filterValue),
   );
 }
 

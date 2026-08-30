@@ -16,6 +16,15 @@ describe("MerchandisingBadges", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
+  it("preserves canonical geometry and accessible text for icon content", () => {
+    render(<MerchandisingBadge icon={<svg aria-hidden="true" data-testid="badge-icon" />} label="Popular" variant="TOP" />);
+
+    const badge = screen.getByLabelText("Popular");
+    expect(screen.getByTestId("badge-icon")).toBeInTheDocument();
+    expect(screen.getByText("Popular")).toHaveClass("sr-only");
+    expect(badge).toHaveClass("min-h-6", "rounded-sm", "border", "size-6");
+  });
+
   it("uses one canonical badge geometry with a semantic replenishment variant", () => {
     render(<><MerchandisingBadge label="Пополнение" variant="REPLENISHMENT" /><MerchandisingBadges labels={["HOT"]} /></>);
     const replenishment = screen.getByText("Пополнение");

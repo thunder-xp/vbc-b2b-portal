@@ -27,11 +27,11 @@ export type MerchandisingBadgeVariant = MerchandisingLabelCode | "REPLENISHMENT"
 
 const BADGE_CLASS = "inline-flex min-h-6 max-w-full items-center rounded-sm border px-2 text-center text-[11px] font-semibold leading-4 shadow-sm [overflow-wrap:anywhere]";
 
-export function MerchandisingBadge({ label, variant }: { label: string; variant: MerchandisingBadgeVariant }) {
+export function MerchandisingBadge({ icon, label, variant }: { icon?: ReactNode; label: string; variant: MerchandisingBadgeVariant }) {
   const className = variant === "REPLENISHMENT"
     ? "border-emerald-700 bg-emerald-50 text-emerald-900"
     : LABELS[variant].className;
-  return <span className={`${BADGE_CLASS} ${className}`}>{label}</span>;
+  return <span aria-label={icon ? label : undefined} className={`${BADGE_CLASS} ${icon ? "size-6 justify-center px-0" : ""} ${className}`} title={icon ? label : undefined}>{icon}{icon ? <span className="sr-only">{label}</span> : label}</span>;
 }
 
 export function MerchandisingBadgeOverlay({ children }: { children: ReactNode }) {

@@ -46,6 +46,14 @@ export type CatalogPartnerPageRecord = {
   imageUrl: string | null;
   brand: Pick<CatalogBrand, "id" | "name" | "slug"> | null;
   category: Pick<CatalogCategory, "id" | "parentId" | "name" | "slug"> | null;
+  keyCharacteristics: Array<{
+    key: string;
+    label: string;
+    value: string;
+    filterValue: string;
+    isFilterable: true;
+    valueType: string | null;
+  }>;
   merchandisingLabels?: MerchandisingLabelCode[];
   commercialSnapshot: ProductCommercialSnapshot;
 };

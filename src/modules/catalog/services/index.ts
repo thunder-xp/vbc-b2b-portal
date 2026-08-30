@@ -23,6 +23,7 @@ export {
   type CatalogComparisonMatrixRow,
 } from "./catalog-comparison";
 export { buildCatalogHref, buildCatalogSortHiddenFields, parseCatalogAttributeFilters, type CatalogSortHiddenField } from "./catalog-sort-state";
+export { getCatalogCharacteristicFilterTarget, type CatalogCharacteristicFilterTarget } from "./catalog-characteristic-filter";
 export { buildCatalogPaginationItems, getCatalogTotalPages, type CatalogPaginationItem } from "./catalog-pagination";
 export {
   CATALOG_SORT_OPTIONS,

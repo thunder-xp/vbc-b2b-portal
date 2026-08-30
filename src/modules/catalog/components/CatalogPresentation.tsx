@@ -8,11 +8,13 @@ import type { CatalogProductCardDto, CatalogViewMode } from "../services";
 import { listFavoriteProductIdsAction } from "../../purchasing-lists/actions";
 import { ProductGrid } from "./ProductGrid";
 import { ProductList } from "./ProductList";
+import type { ProductListCatalogState } from "./ProductList";
 import { CatalogViewSwitcher } from "./CatalogViewSwitcher";
 import { usePartnerLocale } from "../../partner-locale";
 
-export function CatalogPresentation({ capabilities, commercialViews, companyId, contextBadge, initialMode, products, userId }: {
+export function CatalogPresentation({ capabilities, catalogState, commercialViews, companyId, contextBadge, initialMode, products, userId }: {
   capabilities: ProductCardCapabilityModel;
+  catalogState: ProductListCatalogState;
   commercialViews: Record<string, ProductCommercialViewDto>;
   companyId: string | null;
   contextBadge?: string;
@@ -34,7 +36,7 @@ export function CatalogPresentation({ capabilities, commercialViews, companyId, 
   return <div className="space-y-3">
     <div className="flex justify-end"><CatalogViewSwitcher mode={mode} onChange={setMode} /></div>
     {mode === "list"
-      ? <ProductList capabilities={capabilities} commercialViews={commercialViews} companyId={companyId} contextBadge={contextBadge} favoriteProductIds={favoriteProductIds} locale={locale} products={products} userId={userId} />
+      ? <ProductList capabilities={capabilities} catalogState={catalogState} commercialViews={commercialViews} companyId={companyId} contextBadge={contextBadge} favoriteProductIds={favoriteProductIds} locale={locale} products={products} userId={userId} />
       : <ProductGrid capabilities={capabilities} commercialViews={commercialViews} companyId={companyId} contextBadge={contextBadge} favoriteProductIds={favoriteProductIds} locale={locale} products={products} userId={userId} />}
   </div>;
 }

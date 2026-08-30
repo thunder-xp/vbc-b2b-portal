@@ -91,6 +91,10 @@ const replenishmentFacetContextMigration = readFileSync(
   join(process.cwd(), "supabase/migrations/20260820202056_replenishment_catalog_facets_execution_context.sql"),
   "utf8",
 );
+const cardCharacteristicsMigration = readFileSync(
+  join(process.cwd(), "supabase/migrations/20260830184347_expose_b2b_catalog_card_characteristics.sql"),
+  "utf8",
+);
 
 describe("catalog_partner_page_v3 page completeness", () => {
   it("uses one canonical eligible set for stable rows and total count", () => {
@@ -107,6 +111,24 @@ describe("catalog_partner_page_v3 page completeness", () => {
   it("requests a complete twenty-card page from the bounded aggregate", () => {
     expect(catalogPageSource).toContain("const PAGE_SIZE = 20");
     expect(catalogPageSource).toContain("pageSize: PAGE_SIZE");
+  });
+});
+
+describe("catalog_partner_page_v4 card characteristics", () => {
+  it("enriches only the bounded page in one batch and caps governed shortcuts", () => {
+    expect(cardCharacteristicsMigration).toContain("base_result := public.catalog_partner_page_v3(");
+    expect(cardCharacteristicsMigration).toContain("join public.catalog_product_attributes attribute");
+    expect(cardCharacteristicsMigration).toContain("attribute.is_visible");
+    expect(cardCharacteristicsMigration).toContain("attribute.is_filterable");
+    expect(cardCharacteristicsMigration).toContain("characteristic.characteristic_rank <= 3");
+    expect(cardCharacteristicsMigration).not.toContain("catalog_product_attributes attribute on true");
+  });
+
+  it("preserves the authenticated boundary and blocks unresolved identities", () => {
+    expect(cardCharacteristicsMigration).toContain("set search_path = ''");
+    expect(cardCharacteristicsMigration).toContain("attribute.resolution_status in ('not_required', 'resolved')");
+    expect(cardCharacteristicsMigration).toContain("from public, anon");
+    expect(cardCharacteristicsMigration).not.toMatch(/grant execute[\s\S]*to anon/);
   });
 });
 

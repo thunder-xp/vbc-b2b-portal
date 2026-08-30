@@ -93,7 +93,11 @@ describe("DefaultCatalogService listing projection", () => {
     expect(result.commercialViews?.[0]?.partnerPrice?.amount).toBe(30);
     expect(result.commercialViews?.[0]?.retailPrice?.formattedAmount).toBe("1 770 MDL");
     expect(result.products[0]?.imageUrl).toBe("https://example.test/product-high.png");
-    expect(result.products[0]).toMatchObject({ shortDescription: null, keyCharacteristics: [], datasheet: null });
+    expect(result.products[0]).toMatchObject({
+      shortDescription: null,
+      keyCharacteristics: [expect.objectContaining({ value: "256 GB", isFilterable: true })],
+      datasheet: null,
+    });
   });
 
   it("does not wait for secondary facets when loading the product page", async () => {
@@ -225,6 +229,14 @@ function aggregateProduct(id: string, sku: string, name: string, amount: number)
     imageUrl: `https://example.test/${id}.png`,
     brand: null,
     category: null,
+    keyCharacteristics: [{
+      key: "property_11111111-1111-4111-8111-111111111111",
+      label: "MicroSD",
+      value: "256 GB",
+      filterValue: "256 GB",
+      isFilterable: true as const,
+      valueType: "string",
+    }],
     commercialSnapshot: {
       productId: id,
       canViewStock: false,

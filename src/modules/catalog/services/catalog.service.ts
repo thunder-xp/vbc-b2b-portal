@@ -12,6 +12,7 @@ import type {
   CatalogBrand,
   CatalogCategory,
   CatalogProduct,
+  CatalogProductAttribute,
   CatalogProductDocument,
   CatalogProductImage,
 } from "../types";
@@ -381,7 +382,14 @@ export class DefaultCatalogService implements CatalogService, ProductReferenceSe
         brandMap,
         categoryMap,
         datasheetByProduct.get(product.id) ?? null,
-        selectCardHighlights(attributes.filter((attribute) => attribute.productId === product.id)).map((attribute) => ({ label: attribute.label, value: attribute.displayValue })),
+        selectCardHighlights(attributes.filter((attribute) => attribute.productId === product.id)).map((attribute) => ({
+          key: attribute.key,
+          label: attribute.label,
+          value: normalizeCharacteristicValue(attribute.resolvedDisplayValue ?? attribute.displayValue, attribute.valueType),
+          filterValue: attribute.displayValue.trim(),
+          isFilterable: true,
+          valueType: attribute.valueType,
+        })),
       )),
       page,
       pageSize,
@@ -463,7 +471,7 @@ export class DefaultCatalogService implements CatalogService, ProductReferenceSe
         imageUrl: item.imageUrl,
         brand: item.brand ? { ...item.brand, description: null, logoUrl: null } : null,
         category: item.category ? { ...item.category, description: null } : null,
-        keyCharacteristics: [],
+        keyCharacteristics: item.keyCharacteristics,
         datasheet: null,
         merchandisingLabels: item.merchandisingLabels ?? [],
       })),
@@ -955,7 +963,7 @@ function createBrandMap(brands: CatalogBrand[]): Map<string, CatalogBrand> {
 }
 
 const CARD_HIGHLIGHT_PRIORITY = [/разрешение/i, /poe/i, /wi-?fi/i, /ptz/i, /микрофон/i, /micro.?sd/i, /форм.?фактор/i];
-function selectCardHighlights<T extends { label: string; displayValue: string }>(attributes: T[]): T[] { return attributes.filter((item) => item.displayValue).sort((a, b) => highlightRank(a.label) - highlightRank(b.label) || a.label.localeCompare(b.label)).slice(0, 2); }
+function selectCardHighlights(attributes: CatalogProductAttribute[]): CatalogProductAttribute[] { return attributes.filter((item) => item.isVisible && item.isFilterable && item.resolutionStatus !== "unresolved" && item.displayValue.trim() && /^property_[0-9a-f-]{36}$/.test(item.key) && !/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(item.displayValue)).sort((a, b) => highlightRank(a.label) - highlightRank(b.label) || a.label.localeCompare(b.label)).slice(0, 3); }
 function highlightRank(label: string): number { const index = CARD_HIGHLIGHT_PRIORITY.findIndex((pattern) => pattern.test(label)); return index < 0 ? CARD_HIGHLIGHT_PRIORITY.length : index; }
 
 function createCategoryMap(
