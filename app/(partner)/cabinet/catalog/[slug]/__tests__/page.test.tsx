@@ -111,9 +111,9 @@ describe("product detail page data loading", () => {
     expect(mocks.getWorkspace).toHaveBeenCalledOnce();
     expect(mocks.getRelationSections).not.toHaveBeenCalled();
     expect(mocks.getRelationSummary).not.toHaveBeenCalled();
-    expect(mocks.getRetailHistory).toHaveBeenCalledWith("product-1", undefined);
+    expect(mocks.getRetailHistory).toHaveBeenCalledWith("product-1", "all");
     expect(screen.getByText("История розничной цены")).toBeInTheDocument();
-    expect(screen.getByText("2 399,00 MDL")).toBeInTheDocument();
+    expect(screen.getAllByText("2 399,00 MDL")).not.toHaveLength(0);
   });
 
   it("loads one bounded competitive projection only for Analytics", async () => {

@@ -311,7 +311,6 @@ function ProductSection({
               capabilities={workspace.capabilities.productCard}
               commercialView={item.commercialView}
               locale={locale}
-              contextLine={analyticsSurface === "dashboard_reorder" ? purchaseContext(item, locale) : undefined}
               product={item.product}
               key={item.product.id}
           />
@@ -320,12 +319,6 @@ function ProductSection({
       {analyticsSurface === "dashboard_reorder" ? <DashboardPurchaseTemplateButton items={products.slice(0, 5).map((item) => ({ productId: item.product.id, quantity: Math.max(1, Math.trunc(item.typicalQuantity ?? 1)) }))} /> : null}
     </section>
   );
-}
-
-function purchaseContext(item: WorkspaceHomeDto["reorderProducts"][number], locale: PartnerLocale): string {
-  const date = item.lastPurchasedAt ? formatDate(item.lastPurchasedAt, locale) : partnerText(locale, "dashboard.datePending");
-  const quantity = Math.max(1, Math.trunc(item.typicalQuantity ?? 1));
-  return `${partnerText(locale, "dashboard.lastPurchase")}: ${date} · ${partnerText(locale, "dashboard.usually")} ${quantity} ${partnerText(locale, "dashboard.unitsShort")}`;
 }
 
 function FinanceSection({

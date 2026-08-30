@@ -962,8 +962,8 @@ function createBrandMap(brands: CatalogBrand[]): Map<string, CatalogBrand> {
   return new Map(brands.map((brand) => [brand.id, brand]));
 }
 
-const CARD_HIGHLIGHT_PRIORITY = [/разрешение/i, /poe/i, /wi-?fi/i, /ptz/i, /микрофон/i, /micro.?sd/i, /форм.?фактор/i];
-function selectCardHighlights(attributes: CatalogProductAttribute[]): CatalogProductAttribute[] { return attributes.filter((item) => item.isVisible && item.isFilterable && item.resolutionStatus !== "unresolved" && item.displayValue.trim() && /^property_[0-9a-f-]{36}$/.test(item.key) && !/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(item.displayValue)).sort((a, b) => highlightRank(a.label) - highlightRank(b.label) || a.label.localeCompare(b.label)).slice(0, 3); }
+const CARD_HIGHLIGHT_PRIORITY = [/разрешение|resolution|rezolu/i, /передач.*данн|data.?transmission|network.?transmission|transmitere.?date/i, /светочувств|light.?sensitiv|sensibilitate.?lum/i, /аналитик|analytics|ivs|smd|analitic/i, /micro.?sd|карта.?памят|объем.?памят|volum.?memorie/i, /дальност.*ик|ir.?distance|infrared.?distance|distan.*ir/i, /объектив|фокус|lens|focal|obiectiv/i, /технолог|technology|tehnolog/i];
+function selectCardHighlights(attributes: CatalogProductAttribute[]): CatalogProductAttribute[] { return attributes.filter((item) => item.isVisible && item.isFilterable && item.resolutionStatus !== "unresolved" && item.displayValue.trim() && /^property_[0-9a-f-]{36}$/.test(item.key) && !/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(item.displayValue)).sort((a, b) => highlightRank(a.label) - highlightRank(b.label) || a.label.localeCompare(b.label)).slice(0, 5); }
 function highlightRank(label: string): number { const index = CARD_HIGHLIGHT_PRIORITY.findIndex((pattern) => pattern.test(label)); return index < 0 ? CARD_HIGHLIGHT_PRIORITY.length : index; }
 
 function createCategoryMap(

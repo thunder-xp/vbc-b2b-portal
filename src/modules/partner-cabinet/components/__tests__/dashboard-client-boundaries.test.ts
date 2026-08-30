@@ -27,4 +27,15 @@ describe("partner dashboard client boundaries", () => {
     expect(page).not.toContain('from "@/src/modules/service-center"');
     expect(layout).not.toContain('from "@/src/modules/partner-cabinet/actions"');
   });
+
+  it("keeps authoritative reorder selection without exposing purchase metadata on cards", () => {
+    const dashboard = read("src/modules/partner-cabinet/components/OperationalDashboard.tsx");
+    const service = read("src/modules/partner-cabinet/services/workspace-home.service.ts");
+
+    expect(dashboard).toContain('analyticsSurface="dashboard_reorder"');
+    expect(dashboard).not.toContain("purchaseContext(");
+    expect(dashboard).not.toContain("contextLine={analyticsSurface === \"dashboard_reorder\"");
+    expect(service).toContain("candidate.lastPurchasedAt");
+    expect(service).toContain("candidate.typicalQuantity");
+  });
 });

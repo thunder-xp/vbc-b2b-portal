@@ -95,6 +95,10 @@ const cardCharacteristicsMigration = readFileSync(
   join(process.cwd(), "supabase/migrations/20260830184347_expose_b2b_catalog_card_characteristics.sql"),
   "utf8",
 );
+const expandedCardCharacteristicsMigration = readFileSync(
+  join(process.cwd(), "supabase/migrations/20260830201824_expand_b2b_catalog_card_characteristics.sql"),
+  "utf8",
+);
 
 describe("catalog_partner_page_v3 page completeness", () => {
   it("uses one canonical eligible set for stable rows and total count", () => {
@@ -129,6 +133,31 @@ describe("catalog_partner_page_v4 card characteristics", () => {
     expect(cardCharacteristicsMigration).toContain("attribute.resolution_status in ('not_required', 'resolved')");
     expect(cardCharacteristicsMigration).toContain("from public, anon");
     expect(cardCharacteristicsMigration).not.toMatch(/grant execute[\s\S]*to anon/);
+  });
+});
+
+describe("catalog_partner_page_v5 card characteristics", () => {
+  it("keeps one bounded enrichment query and expands the governed cap to five", () => {
+    expect(expandedCardCharacteristicsMigration).toContain("base_result := public.catalog_partner_page_v3(");
+    expect(expandedCardCharacteristicsMigration).toContain("join public.catalog_product_attributes attribute");
+    expect(expandedCardCharacteristicsMigration).toContain("public.catalog_card_characteristic_priority(attribute.label)");
+    expect(expandedCardCharacteristicsMigration).toContain("characteristic.characteristic_rank <= 5");
+    expect(expandedCardCharacteristicsMigration).not.toContain("catalog_product_attributes attribute on true");
+  });
+
+  it("prioritizes governed light sensitivity and data transmission without rewriting values or units", () => {
+    expect(expandedCardCharacteristicsMigration).toContain("светочувств");
+    expect(expandedCardCharacteristicsMigration).toContain("передач.*данн");
+    expect(expandedCardCharacteristicsMigration).toContain("дальност.*ик");
+    expect(expandedCardCharacteristicsMigration).toContain("'value', characteristic.display_value");
+    expect(expandedCardCharacteristicsMigration).not.toMatch(/display_value\s*\|\|/);
+  });
+
+  it("retains the authenticated boundary and rejects unresolved identities", () => {
+    expect(expandedCardCharacteristicsMigration).toContain("set search_path = ''");
+    expect(expandedCardCharacteristicsMigration).toContain("attribute.resolution_status in ('not_required', 'resolved')");
+    expect(expandedCardCharacteristicsMigration).toContain("from public, anon");
+    expect(expandedCardCharacteristicsMigration).not.toMatch(/grant execute[\s\S]*to anon/);
   });
 });
 

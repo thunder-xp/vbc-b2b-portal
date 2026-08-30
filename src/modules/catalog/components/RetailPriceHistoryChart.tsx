@@ -1,14 +1,10 @@
 "use client";
 
-import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import { recordBehaviorInteraction } from "../../behavior-analytics/components/BehaviorViewEvent";
 import { getCatalogCopy, usePartnerLocale } from "../../partner-locale";
 import type { RetailPriceHistoryDto } from "../../pricing-inventory";
-import type { RetailPriceHistoryRange } from "../../pricing-inventory/repositories";
-
-const RANGES: RetailPriceHistoryRange[] = ["3m", "6m", "12m", "all"];
 const WIDTH = 720;
 const HEIGHT = 260;
 const PAD_X = 52;
@@ -34,34 +30,7 @@ export function RetailPriceHistoryChart({
 
   return (
     <div className="space-y-4">
-      <nav aria-label={copy.priceHistoryPeriod} className="flex flex-wrap gap-2">
-        {RANGES.map((range) => (
-          <Link
-            aria-current={history.range === range ? "page" : undefined}
-            className={`rounded-md border px-3 py-2 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 ${
-              history.range === range
-                ? "border-emerald-600 bg-emerald-50 text-emerald-800"
-                : "border-zinc-200 bg-white text-zinc-700 hover:border-zinc-300"
-            }`}
-            href={`?tab=pricing&range=${range}`}
-            key={range}
-            onClick={() =>
-              recordBehaviorInteraction({
-                eventName: "retail_price_history_range_changed",
-                metadataSafe: { range },
-                productId,
-                route: "/cabinet/catalog/[slug]",
-                sourceSurface: "product_pricing_tab",
-              })
-            }
-            prefetch={false}
-          >
-            {rangeLabel(range, copy)}
-          </Link>
-        ))}
-      </nav>
-
-      {history.points.length > 1 ? (
+      {history.points.length ? (
         <div
           className="relative h-[280px] w-full overflow-hidden rounded-md border border-zinc-200 bg-zinc-50/50 shadow-sm"
           data-testid="price-history-chart"
@@ -196,13 +165,6 @@ export function RetailPriceHistoryChart({
       </details>
     </div>
   );
-}
-
-function rangeLabel(range: RetailPriceHistoryRange, copy: ReturnType<typeof getCatalogCopy>): string {
-  if (range === "3m") return copy.threeMonths;
-  if (range === "6m") return copy.sixMonths;
-  if (range === "12m") return copy.twelveMonths;
-  return copy.allTime;
 }
 
 function createStepGeometry(points: ReturnType<typeof createGeometry>) {

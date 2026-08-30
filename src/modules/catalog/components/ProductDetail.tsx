@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ArrowLeft, FileText } from "lucide-react";
 import type { ReactNode } from "react";
 
 import type { FreshnessView } from "../../integration/freshness";
@@ -6,7 +7,7 @@ import type {
   ProductCommercialViewDto,
   RetailPriceHistoryDto,
 } from "../../pricing-inventory";
-import { buildCatalogHref, getCatalogCharacteristicFilterTarget, type CatalogProductDetailDto } from "../services";
+import { buildCatalogHref, buildProductDetailTabHref, getCatalogCharacteristicFilterTarget, parseCatalogReturnTarget, type CatalogProductDetailDto } from "../services";
 
 import { ExpandableDescription } from "./ExpandableDescription";
 import { ProductDetailContextRail } from "./ProductDetailContextRail";
@@ -36,6 +37,7 @@ type ProductDetailProps = {
   retailPriceHistoryError?: string | null;
   initialFavorite?: boolean;
   product: CatalogProductDetailDto;
+  returnTarget?: string;
   stockFreshness?: FreshnessView | null;
   userId?: string | null;
   hasAnalogs?: boolean;
@@ -58,6 +60,7 @@ export function ProductDetail({
   competitorPricing = [],
   priceFreshness,
   product,
+  returnTarget = "/cabinet/catalog",
   relationsContent,
   analyticsContent,
   retailPriceHistory,
@@ -67,6 +70,7 @@ export function ProductDetail({
   userId = null,
 }: ProductDetailProps) {
   const copy = getCatalogCopy(locale);
+  const catalogReturnTarget = parseCatalogReturnTarget(returnTarget);
   const tabs: Array<{ id: ProductDetailTab; label: string }> = [
     { id: "overview", label: copy.overview },
     { id: "description", label: copy.description },
@@ -78,6 +82,14 @@ export function ProductDetail({
   ];
   return (
     <article className="space-y-4">
+      <Link
+        className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-zinc-700 hover:text-emerald-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600"
+        href={catalogReturnTarget}
+        prefetch={false}
+      >
+        <ArrowLeft aria-hidden="true" className="size-4" />
+        {copy.returnToCatalog}
+      </Link>
       <nav
         aria-label={copy.productSections}
         className="overflow-x-auto border-b border-zinc-200"
@@ -87,7 +99,7 @@ export function ProductDetail({
             <Link
               aria-current={activeTab === tab.id ? "page" : undefined}
               className={`inline-flex min-h-11 items-center border-b-2 px-1 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 ${activeTab === tab.id ? "border-emerald-600 text-emerald-800" : "border-transparent text-zinc-500 hover:text-zinc-900"}`}
-              href={`?tab=${tab.id}`}
+              href={buildProductDetailTabHref(tab.id, catalogReturnTarget)}
               key={tab.id}
               prefetch={false}
             >
@@ -117,6 +129,7 @@ export function ProductDetail({
             hasAnalogs={hasAnalogs}
             locale={locale}
             priceFreshness={priceFreshness}
+            returnTarget={catalogReturnTarget}
             stockFreshness={stockFreshness}
           />
         ) : activeTab === "analytics" ? (
@@ -193,9 +206,10 @@ function OverviewTab({
   hasAnalogs,
   locale = "ru",
   priceFreshness,
+  returnTarget = "/cabinet/catalog",
   stockFreshness,
   competitorPricing = [],
-}: Pick<ProductDetailProps, "commercialView" | "hasAnalogs" | "locale" | "priceFreshness" | "stockFreshness" | "competitorPricing">) {
+}: Pick<ProductDetailProps, "commercialView" | "hasAnalogs" | "locale" | "priceFreshness" | "returnTarget" | "stockFreshness" | "competitorPricing">) {
   const copy = getCatalogCopy(locale);
   return (
     <section
@@ -215,10 +229,11 @@ function OverviewTab({
         freshness={stockFreshness}
         locale={locale}
       />
-      <ProductCompetitorPricing items={competitorPricing} locale={locale} />
+      <ProductCompetitorPricing analyticsHref={buildProductDetailTabHref("analytics", returnTarget)} items={competitorPricing} locale={locale} />
       <RelationPrompt
         hasAnalogs={hasAnalogs ?? false}
         locale={locale}
+        relationsHref={buildProductDetailTabHref("relations", returnTarget)}
         stock={commercialView?.stock}
       />
     </section>
@@ -228,10 +243,12 @@ function OverviewTab({
 function RelationPrompt({
   hasAnalogs,
   locale,
+  relationsHref,
   stock,
 }: {
   hasAnalogs: boolean;
   locale: PartnerLocale;
+  relationsHref: string;
   stock?: ProductCommercialViewDto["stock"];
 }) {
   const copy = getCatalogCopy(locale);
@@ -253,7 +270,7 @@ function RelationPrompt({
       <p className="text-sm text-amber-950">{message}</p>
       <Link
         className="mt-3 inline-flex min-h-11 items-center rounded-md border border-amber-300 bg-white px-4 text-sm font-semibold text-amber-950 hover:bg-amber-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600"
-        href="?tab=relations"
+        href={relationsHref}
         prefetch={false}
       >
         {copy.viewAnalogs}
@@ -301,7 +318,7 @@ function AvailabilityBlock({
   return (
     <section aria-label={copy.currentAvailability} className="mt-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-base font-semibold text-zinc-950">
+        <h2 className="text-base font-semibold leading-6 text-zinc-950">
           {copy.stockAndArrivals}
         </h2>
         <span
@@ -417,26 +434,20 @@ function DatasheetTab({
         <ul className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {product.documents.map((document) => (
             <li
-              className="flex min-h-48 min-w-0 flex-col rounded-md border border-zinc-200 bg-white p-4 text-sm"
+              className="flex min-h-64 min-w-0 flex-col overflow-hidden rounded-md border border-zinc-200 bg-white text-sm"
               data-testid="document-preview-card"
               key={document.id}
             >
               <div
                 aria-hidden="true"
-                className="flex h-20 items-center justify-center rounded border border-zinc-200 bg-zinc-50"
+                className="flex min-h-44 flex-1 items-center justify-center bg-zinc-50"
               >
-                <span className="border border-zinc-300 bg-white px-3 py-4 text-xs font-semibold uppercase text-zinc-500 shadow-sm">
-                  {document.documentType}
+                <span className="flex h-28 w-24 items-center justify-center border border-zinc-300 bg-white text-zinc-400 shadow-sm">
+                  <FileText className="size-10" />
                 </span>
               </div>
-              <p className="mt-3 break-words font-semibold text-zinc-950">
-                {document.title}
-              </p>
-              <p className="mt-1 text-xs text-zinc-500">
-                {document.documentType}
-              </p>
               <a
-                className="mt-auto inline-flex min-h-11 items-center justify-center rounded-md border border-zinc-300 px-3 text-sm font-semibold text-zinc-800 hover:border-emerald-600 hover:text-emerald-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600"
+                className="m-3 inline-flex min-h-11 items-center justify-center rounded-md border border-zinc-300 px-3 text-sm font-semibold text-zinc-800 hover:border-emerald-600 hover:text-emerald-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600"
                 href={document.url}
                 rel="noopener noreferrer"
                 target="_blank"
@@ -493,27 +504,13 @@ function PricingHistoryTab({
 
   return (
     <section aria-label={copy.retailHistory} className="space-y-5">
-      <header>
-        <h2 className="text-xl font-semibold text-zinc-950">
-          {copy.retailHistory}
-        </h2>
-        <dl className="mt-3 grid gap-3 rounded-md border border-zinc-200 bg-white p-4 sm:grid-cols-3">
-          <Metric
-            label={copy.currentPrice}
-            value={history.formattedCurrent ?? copy.unavailable}
-          />
-          <Metric label={copy.currency} value={history.current.currency} />
-          <Metric
-            label={copy.effectiveFrom}
-            value={formatHistoryDate(history.current.effectiveAt, locale)}
-          />
-        </dl>
-      </header>
-      {history.points.length > 1 ? (
-        <dl
-          className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5"
-          data-testid="price-history-metrics"
-        >
+      <h2 className="text-xl font-semibold text-zinc-950">
+        {copy.retailHistory}
+      </h2>
+      <dl
+        className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5"
+        data-testid="price-history-metrics"
+      >
           <HistoryMetric
             label={copy.currentPrice}
             value={history.formattedCurrent}
@@ -543,8 +540,7 @@ function PricingHistoryTab({
             value={history.formattedMaximum}
             unavailable={copy.unavailable}
           />
-        </dl>
-      ) : null}
+      </dl>
       <RetailPriceHistoryChart history={history} productId={productId} />
     </section>
   );
@@ -567,15 +563,6 @@ function HistoryMetric({
       </dd>
     </div>
   );
-}
-
-function formatHistoryDate(value: string, locale: PartnerLocale) {
-  return new Intl.DateTimeFormat(locale === "ro" ? "ro-MD" : "ru-MD", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-    timeZone: "UTC",
-  }).format(new Date(value));
 }
 
 function Metric({ label, value }: { label: string; value: string }) {

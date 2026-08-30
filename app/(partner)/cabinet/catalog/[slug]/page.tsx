@@ -10,6 +10,7 @@ import {
   ProductDetail,
   type ProductDetailTab,
 } from "@/src/modules/catalog/components/ProductDetail";
+import { parseCatalogReturnTarget } from "@/src/modules/catalog/services";
 import { evaluateFreshness } from "@/src/modules/integration/freshness";
 import {
   getProductCommercialViewsAction,
@@ -37,7 +38,7 @@ type ProductDetailPageProps = {
   }>;
   searchParams?: Promise<{
     tab?: string | string[];
-    range?: string | string[];
+    returnTo?: string | string[];
   }>;
 };
 
@@ -53,7 +54,7 @@ export default async function ProductDetailPage({
   const { slug } = resolvedParams;
   const copy = getCatalogCopy(locale);
   const activeTab = parseTab(resolvedSearchParams?.tab);
-  const historyRange = firstValue(resolvedSearchParams?.range);
+  const returnTarget = parseCatalogReturnTarget(resolvedSearchParams?.returnTo);
   const identityResult = await getCatalogProductRouteIdentityAction(slug);
 
   if (!identityResult.success) {
@@ -91,7 +92,7 @@ export default async function ProductDetailPage({
     getPartnerWorkspaceContextAction(),
     getProductMerchandisingLabelsAction(identityResult.data.id),
     activeTab === "pricing"
-      ? getRetailPriceHistoryAction(identityResult.data.id, historyRange)
+      ? getRetailPriceHistoryAction(identityResult.data.id, "all")
       : Promise.resolve(null),
     activeTab === "relations"
       ? getProductRelationSectionsAction(identityResult.data.id)
@@ -252,6 +253,7 @@ export default async function ProductDetailPage({
             ? retailHistoryResult.message
             : null
         }
+        returnTarget={returnTarget}
         stockFreshness={stockFreshness}
         showAnalyticsTab={canViewCompetitiveIntelligence}
         userId={userId}
@@ -280,10 +282,6 @@ function parseTab(value: string | string[] | undefined): ProductDetailTab {
     tab === "relations"
     ? tab
     : "overview";
-}
-
-function firstValue(value: string | string[] | undefined) {
-  return Array.isArray(value) ? value[0] : value;
 }
 
 function detailProjection(tab: ProductDetailTab) {

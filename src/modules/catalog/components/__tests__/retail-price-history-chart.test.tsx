@@ -7,12 +7,8 @@ const record = vi.fn();
 vi.mock("../../../behavior-analytics/components/BehaviorViewEvent", () => ({
   recordBehaviorInteraction: (...args: unknown[]) => record(...args),
 }));
-vi.mock("next/link", () => ({
-  default: ({ children, href, ...props }: React.ComponentProps<"a">) => <a href={href} {...props}>{children}</a>,
-}));
-
 describe("RetailPriceHistoryChart", () => {
-  it("renders actual points, bounded ranges, and an accessible data table", () => {
+  it("renders the complete supplied history without period controls and keeps the data table", () => {
     render(<RetailPriceHistoryChart history={history} productId="product-1" />);
     expect(screen.getByRole("group", { name: "График истории розничной цены" })).toBeInTheDocument();
     expect(screen.getAllByRole("button")).toHaveLength(2);
@@ -21,21 +17,21 @@ describe("RetailPriceHistoryChart", () => {
     expect(document.querySelectorAll("svg line").length).toBeGreaterThanOrEqual(7);
     expect(document.querySelector("svg path")?.getAttribute("fill")).toContain("price-history-fill-product-1");
     expect(document.querySelectorAll("svg circle")[1]).toHaveAttribute("r", "6");
-    expect(screen.getByRole("link", { name: "12 месяцев" })).toHaveAttribute("aria-current", "page");
-    expect(screen.getByRole("link", { name: "3 месяца" })).toHaveAttribute("href", "?tab=pricing&range=3m");
+    expect(screen.queryByRole("link", { name: /месяц|Всё время/ })).not.toBeInTheDocument();
     fireEvent.click(screen.getByText("Показать данные"));
     expect(screen.getByRole("columnheader", { name: "Розничная цена" })).toBeInTheDocument();
     expect(screen.getByText("2 399,00")).toBeInTheDocument();
   });
 
-  it("records only safe range metadata", () => {
-    render(<RetailPriceHistoryChart history={history} productId="product-1" />);
-    const rangeLink = screen.getByRole("link", { name: "6 месяцев" });
-    rangeLink.addEventListener("click", (event) => event.preventDefault());
-    fireEvent.click(rangeLink);
+  it("renders one truthful sparse point and records only the raw-data disclosure", () => {
+    render(<RetailPriceHistoryChart history={{ ...history, points: history.points.slice(0, 1) }} productId="product-1" />);
+    expect(screen.getByTestId("price-history-chart")).toBeInTheDocument();
+    expect(document.querySelectorAll("svg circle")).toHaveLength(1);
+    const details = screen.getByText("Показать данные").closest("details")!;
+    details.open = true;
+    fireEvent(details, new Event("toggle", { bubbles: true }));
     expect(record).toHaveBeenCalledWith(expect.objectContaining({
-      eventName: "retail_price_history_range_changed",
-      metadataSafe: { range: "6m" },
+      eventName: "retail_price_history_data_opened",
     }));
     expect(JSON.stringify(record.mock.calls)).not.toContain("2499");
     expect(JSON.stringify(record.mock.calls)).not.toContain("2399");

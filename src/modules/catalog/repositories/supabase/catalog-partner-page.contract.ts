@@ -131,7 +131,7 @@ export function mapCatalogPartnerPageRow(row: CatalogPartnerPageRow): CatalogPar
 
 function isKeyCharacteristics(value: unknown): value is CatalogPartnerPageCharacteristicRow[] {
   return Array.isArray(value)
-    && value.length <= 3
+    && value.length <= 5
     && value.every((item) => {
       if (!item || typeof item !== "object") return false;
       const characteristic = item as Record<string, unknown>;

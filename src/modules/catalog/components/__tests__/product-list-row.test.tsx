@@ -19,6 +19,7 @@ const catalogState = {
   availability: "in_stock" as const,
   categoryId: "category-1",
   explicitAll: true,
+  page: 3,
   search: "camera",
   sort: "price_desc" as const,
 };
@@ -72,6 +73,37 @@ describe("B2B catalog list row", () => {
     expect(url.searchParams.get(`attr.${existingFilterKey}`)).toBe("IP65");
     expect(url.searchParams.get(`attr.${filterKey}`)).toBe("256 GB");
     expect(screen.queryByRole("link", { name: /Unsupported|Not filterable/ })).not.toBeInTheDocument();
+  });
+
+  it("renders at most five governed chips and preserves governed display units", () => {
+    renderList({
+      ...product,
+      keyCharacteristics: [
+        { key: filterKey, label: "Resolution", value: "4 MP", isFilterable: true },
+        ...Array.from({ length: 5 }, (_, index) => ({
+          key: `property_${index + 2}1111111-1111-4111-8111-111111111111`,
+          label: index === 0 ? "Light sensitivity" : index === 1 ? "Data transmission" : `Feature ${index}`,
+          value: index === 2 ? "30 m" : `Value ${index}`,
+          isFilterable: true,
+        })),
+      ],
+    });
+
+    expect(screen.getAllByTestId("catalog-list-characteristics")[0]?.querySelectorAll("a")).toHaveLength(5);
+    expect(screen.getByRole("link", { name: "Feature 2: 30 m" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Feature 4: Value 4" })).not.toBeInTheDocument();
+  });
+
+  it("carries the exact catalog URL state into product links", () => {
+    renderList();
+    const productLink = screen.getByRole("link", { name: "Camera" });
+    const productUrl = new URL(productLink.getAttribute("href")!, "https://www.nsd.md");
+    const returnTarget = new URL(productUrl.searchParams.get("returnTo")!, "https://www.nsd.md");
+
+    expect(returnTarget.pathname).toBe("/cabinet/catalog");
+    expect(returnTarget.searchParams.get("page")).toBe("3");
+    expect(returnTarget.searchParams.get("sort")).toBe("price_desc");
+    expect(returnTarget.searchParams.get(`attr.${existingFilterKey}`)).toBe("IP65");
   });
 
   it("keeps cart and secondary controls in one top-aligned action group", () => {

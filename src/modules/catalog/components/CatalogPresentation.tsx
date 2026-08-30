@@ -37,6 +37,6 @@ export function CatalogPresentation({ capabilities, catalogState, commercialView
     <div className="flex justify-end"><CatalogViewSwitcher mode={mode} onChange={setMode} /></div>
     {mode === "list"
       ? <ProductList capabilities={capabilities} catalogState={catalogState} commercialViews={commercialViews} companyId={companyId} contextBadge={contextBadge} favoriteProductIds={favoriteProductIds} locale={locale} products={products} userId={userId} />
-      : <ProductGrid capabilities={capabilities} commercialViews={commercialViews} companyId={companyId} contextBadge={contextBadge} favoriteProductIds={favoriteProductIds} locale={locale} products={products} userId={userId} />}
+      : <ProductGrid capabilities={capabilities} catalogState={catalogState} commercialViews={commercialViews} companyId={companyId} contextBadge={contextBadge} favoriteProductIds={favoriteProductIds} locale={locale} products={products} userId={userId} />}
   </div>;
 }

@@ -8,13 +8,15 @@ vi.mock("next/link", () => ({ default: ({ children, href, ...props }: { children
 
 describe("ProductCompetitorPricing", () => {
   it("shows shared retail, own quantity, retail discount, and positive Novotech benefit", () => {
-    render(<ProductCompetitorPricing items={[item]} locale="ru" />);
+    const { container } = render(<ProductCompetitorPricing analyticsHref="?tab=analytics&returnTo=%2Fcabinet%2Fcatalog%3Fpage%3D3" items={[item]} locale="ru" />);
     expect(screen.getByText("Розничная цена конкурента")).toBeInTheDocument();
     expect(screen.getByText("1 777 MDL")).toBeInTheDocument();
     expect(screen.getByText("при 10 шт.")).toBeInTheDocument();
     expect(screen.getByText("Скидка от розничной")).toBeInTheDocument();
     expect(screen.getByText(/Ваша выгода с Novotech/)).toHaveClass("text-emerald-700");
-    expect(screen.getByRole("link", { name: "Обновить цену" })).toHaveAttribute("href", "?tab=analytics");
+    expect(screen.getByRole("link", { name: "Обновить цену" })).toHaveAttribute("href", expect.stringContaining("returnTo="));
+    expect(screen.getByRole("heading", { name: "Цены конкурентов" })).toHaveClass("text-base", "font-semibold", "leading-6");
+    expect(container.querySelector("section")).not.toHaveClass("border-t");
   });
 
   it("uses neutral wording when Novotech is more expensive", () => {

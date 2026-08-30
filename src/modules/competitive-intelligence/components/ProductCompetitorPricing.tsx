@@ -5,17 +5,19 @@ import { formatCompetitiveMoney, formatCompetitivePercent } from "../service";
 import type { ProductCompetitorPricingItem } from "../types";
 
 export function ProductCompetitorPricing({
+  analyticsHref = "?tab=analytics",
   items,
   locale,
 }: {
+  analyticsHref?: string;
   items: ProductCompetitorPricingItem[];
   locale: PartnerLocale;
 }) {
   if (!items.length) return null;
   const copy = pricingCopy(locale);
   return (
-    <section aria-labelledby="competitor-pricing-heading" className="mt-3 border-t border-zinc-200 pt-3">
-      <h2 className="text-sm font-semibold" id="competitor-pricing-heading">{copy.heading}</h2>
+    <section aria-labelledby="competitor-pricing-heading" className="mt-4">
+      <h2 className="text-base font-semibold leading-6 text-zinc-950" id="competitor-pricing-heading">{copy.heading}</h2>
       <div className="mt-2 space-y-2">
         {items.map((item) => (
           <article className="border border-zinc-200 bg-zinc-50 p-3" key={item.competitorId}>
@@ -43,7 +45,7 @@ export function ProductCompetitorPricing({
             ) : (
               <div className="mt-3 border-t border-zinc-200 pt-3 text-sm">
                 <p className="text-zinc-600">{copy.noOwnPrice}</p>
-                <Link className="mt-2 inline-flex min-h-11 items-center font-semibold text-emerald-800 underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600" href="?tab=analytics" prefetch={false}>
+                <Link className="mt-2 inline-flex min-h-11 items-center font-semibold text-emerald-800 underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600" href={analyticsHref} prefetch={false}>
                   {copy.addOwnPrice}
                 </Link>
               </div>
@@ -51,7 +53,7 @@ export function ProductCompetitorPricing({
             {item.ownObservationDate ? (
               <p className="mt-2 text-xs text-zinc-500">
                 {copy.observedAt} {formatPartnerDate(item.ownObservationDate, locale, { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" })}
-                {" · "}<Link className="font-medium text-emerald-800 hover:underline" href="?tab=analytics" prefetch={false}>{copy.updatePrice}</Link>
+                {" · "}<Link className="font-medium text-emerald-800 hover:underline" href={analyticsHref} prefetch={false}>{copy.updatePrice}</Link>
               </p>
             ) : null}
           </article>
