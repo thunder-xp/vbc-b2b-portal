@@ -76,6 +76,28 @@ describe("partner order history pages", () => {
     expect(screen.queryByText("№ NSUU-001")).not.toBeInTheDocument();
   });
 
+  it("keeps distinct row identities when two 1C refs share the same display number", async () => {
+    const second = {
+      ...summary,
+      id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    };
+    mocks.list.mockResolvedValue({
+      success: true,
+      data: { orders: [summary, second], filter: "all", search: "", page: 1, totalPages: 1, total: 2, syncState: null, freshness: summary.freshness },
+      errorCode: null,
+      message: "",
+    });
+
+    render(await OrdersPage({ searchParams: Promise.resolve({}) }));
+
+    const links = screen.getAllByRole("link", { name: /NSUU-001/ });
+    expect(links).toHaveLength(2);
+    expect(links.map((link) => link.getAttribute("href"))).toEqual([
+      `/cabinet/orders/${summary.id}`,
+      `/cabinet/orders/${second.id}`,
+    ]);
+  });
+
   it("distinguishes a failed empty refresh from a valid no-orders state", async () => {
     mocks.list.mockResolvedValue({
       success: true,

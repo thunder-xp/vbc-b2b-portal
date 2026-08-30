@@ -265,7 +265,7 @@ describe("DefaultPartnerOrderHistoryService", () => {
       external1cOrderRef: portalOrder.external1cRef!,
     });
     const repository = historyRepository([synchronized]);
-    repository.listVisibleIdentities = vi.fn().mockResolvedValue([{
+    repository.listMergeIdentities = vi.fn().mockResolvedValue([{
       external1cOrderRef: synchronized.external1cOrderRef,
       portalOrderId: portalOrder.id,
     }]);
@@ -285,10 +285,59 @@ describe("DefaultPartnerOrderHistoryService", () => {
     expect(result.total).toBe(1);
     expect(result.orders).toHaveLength(1);
     expect(result.orders[0]?.id).toBe(synchronized.id);
-    expect(repository.listVisibleIdentities).toHaveBeenCalledWith(COMPANY_ID, {
+    expect(repository.listMergeIdentities).toHaveBeenCalledWith(COMPANY_ID, {
       external1cRefs: [portalOrder.external1cRef],
       portalOrderIds: [portalOrder.id],
     });
+  });
+
+  it("does not resurrect a confirmed portal order after its linked 1C identity is hidden", async () => {
+    const portalOrder = confirmedPortalOrder();
+    const repository = historyRepository([]);
+    repository.listMergeIdentities = vi.fn().mockResolvedValue([{
+      external1cOrderRef: portalOrder.external1cRef!,
+      portalOrderId: portalOrder.id,
+    }]);
+    const portalRepository = {
+      listConfirmedByCompanyId: vi.fn().mockResolvedValue([portalOrder]),
+    } as unknown as PartnerOrderRepository;
+
+    const result = await service(
+      repository,
+      orderProvider(),
+      ["pricing.partner_price.view"],
+      portalRepository,
+    ).list("user-1", {});
+
+    expect(result.orders).toEqual([]);
+    expect(result.total).toBe(0);
+  });
+
+  it("keeps an existing ref visible when a different ref with the same order number is hidden", async () => {
+    const hiddenPortalOrder = confirmedPortalOrder();
+    const visibleHistory = history({
+      id: "abababab-abab-4bab-8bab-abababababab",
+      external1cOrderRef: "12121212-1212-4212-8212-121212121212",
+      external1cOrderNumber: hiddenPortalOrder.external1cNumber!,
+    });
+    const repository = historyRepository([visibleHistory]);
+    repository.listMergeIdentities = vi.fn().mockResolvedValue([{
+      external1cOrderRef: hiddenPortalOrder.external1cRef!,
+      portalOrderId: hiddenPortalOrder.id,
+    }]);
+    const portalRepository = {
+      listConfirmedByCompanyId: vi.fn().mockResolvedValue([hiddenPortalOrder]),
+    } as unknown as PartnerOrderRepository;
+
+    const result = await service(
+      repository,
+      orderProvider(),
+      ["pricing.partner_price.view"],
+      portalRepository,
+    ).list("user-1", {});
+
+    expect(result.orders).toHaveLength(1);
+    expect(result.orders[0]?.id).toBe(visibleHistory.id);
   });
 
   it("imports more than 100 orders through continuation pages", async () => {
@@ -488,7 +537,7 @@ function historyRepository(visible: PartnerOrderHistory[], auditRecord: PartnerO
   return {
     auditRecord,
     getReorderSource: vi.fn().mockResolvedValue(null),
-    listVisibleIdentities: vi.fn().mockResolvedValue([]),
+    listMergeIdentities: vi.fn().mockResolvedValue([]),
     listVisible: vi.fn().mockResolvedValue({ items: visible, total: visible.length }),
     findVisibleById: vi.fn().mockResolvedValue(visible[0] ?? null),
     listItemsByOrderIds: vi.fn().mockResolvedValue([]),

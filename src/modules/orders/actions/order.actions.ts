@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { refresh, revalidatePath } from "next/cache";
 import { type ActionResult, failureFromError, invalidInput, success } from "../../access-control/actions/action-result";
 import { createUserProfileService, getAuthenticatedUserId } from "../../access-control/actions/service-factory";
 import { ForbiddenError } from "../../access-control/services";
@@ -149,6 +149,7 @@ export async function refreshPartnerOrderHistoryAction(): Promise<ActionResult<P
     const result = await createPartnerOrderHistoryService().syncOwnCompany(await getAuthenticatedUserId(), "incremental");
     revalidatePath("/cabinet/orders");
     revalidatePath("/cabinet/orders/[id]", "page");
+    refresh();
     return success("История заказов обновлена.", result);
   } catch (error) {
     return failureFromError(error);

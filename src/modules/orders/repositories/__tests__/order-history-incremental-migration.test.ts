@@ -35,6 +35,12 @@ describe("partner order-history incremental migration", () => {
     expect(sql).toMatch(/if target\.pass_one_count[\s\S]+return jsonb_build_object\('status', 'integrity_failed', 'hidden', 0\);[\s\S]+update public\.partner_order_history history set/);
   });
 
+  it("hides only exact deletion or absence results and never lets status override visibility", () => {
+    expect(sql).toContain("source.status in ('deletion_marked', 'absent')");
+    expect(sql).toMatch(/partner_visible = case[\s\S]+source\.status in \('deletion_marked', 'absent'\) then false[\s\S]+else history\.partner_visible/);
+    expect(sql).toContain("history.external_1c_order_ref = source.external_ref");
+  });
+
   it("keeps internal tables private and privileged helpers server-only", () => {
     expect(sql).toContain("enable row level security");
     expect(sql).toContain("from public, anon, authenticated");

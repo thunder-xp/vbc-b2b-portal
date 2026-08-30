@@ -178,7 +178,7 @@ export class DefaultPartnerOrderHistoryService implements PartnerOrderHistorySer
       this.historyRepository.getSyncState(context.company.id),
       this.historyRepository.getBootstrapState?.(context.company.id) ?? Promise.resolve(null),
     ]);
-    const historyIdentities = await (this.historyRepository.listVisibleIdentities?.(
+    const historyIdentities = await (this.historyRepository.listMergeIdentities?.(
       context.company.id,
       {
         external1cRefs: portalOrders.flatMap((order) => order.external1cRef ? [order.external1cRef] : []),

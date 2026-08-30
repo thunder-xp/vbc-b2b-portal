@@ -96,7 +96,7 @@ export interface PartnerOrderHistoryRepository {
     offset?: number;
     limit?: number;
   }): Promise<{ items: PartnerOrderHistory[]; total: number }>;
-  listVisibleIdentities?(
+  listMergeIdentities?(
     companyId: string,
     candidates?: { external1cRefs: string[]; portalOrderIds: string[] },
   ): Promise<PartnerOrderHistoryIdentity[]>;

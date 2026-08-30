@@ -158,12 +158,12 @@ export class SupabasePartnerOrderHistoryRepository implements PartnerOrderHistor
     };
   }
 
-  async listVisibleIdentities(
+  async listMergeIdentities(
     companyId: string,
     candidates: { external1cRefs: string[]; portalOrderIds: string[] } = { external1cRefs: [], portalOrderIds: [] },
   ) {
     if (candidates.external1cRefs.length === 0 && candidates.portalOrderIds.length === 0) return [];
-    const { data, error } = await (await createClient()).rpc("get_partner_order_history_identity_matches", {
+    const { data, error } = await createAdminClient().rpc("get_partner_order_history_merge_identity_matches", {
       p_company_id: companyId,
       p_external_refs: candidates.external1cRefs,
       p_portal_order_ids: candidates.portalOrderIds,

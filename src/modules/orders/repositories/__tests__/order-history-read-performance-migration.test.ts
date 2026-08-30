@@ -26,4 +26,17 @@ describe("partner order-history read performance migration", () => {
     expect(migration).toContain("grant execute on function public.get_partner_order_history_page");
     expect(migration).not.toContain("grant execute on function public.get_partner_order_history_page(uuid, text, text, integer, integer) to anon");
   });
+
+  it("applies partner visibility before every search, status, and pagination result", () => {
+    const pageFunction = migration.slice(
+      migration.indexOf("create or replace function public.get_partner_order_history_page"),
+      migration.indexOf("revoke all on function public.get_partner_order_history_identity_matches"),
+    );
+
+    expect(pageFunction.match(/and history\.partner_visible/g)).toHaveLength(2);
+    expect(pageFunction).toContain("p_filter = 'processing'");
+    expect(pageFunction).toContain("history.external_1c_order_number ilike");
+    expect(pageFunction).toContain("offset p_offset");
+    expect(pageFunction).toContain("limit p_limit");
+  });
 });
