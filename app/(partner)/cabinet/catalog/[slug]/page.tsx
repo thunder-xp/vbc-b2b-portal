@@ -30,7 +30,6 @@ import { getPartnerLocale } from "@/src/modules/partner-locale/server";
 import { CompetitiveIntelligenceRepository } from "@/src/modules/competitive-intelligence";
 import { ProductCompetitiveIntelligence } from "@/src/modules/competitive-intelligence/components";
 import { CompetitorRetailPricingService } from "@/src/modules/competitive-intelligence/retail-pricing.service";
-import type { ProductCompetitorPricingItem } from "@/src/modules/competitive-intelligence/types";
 
 type ProductDetailPageProps = {
   params: Promise<{
@@ -70,8 +69,6 @@ export default async function ProductDetailPage({
     notFound();
   }
 
-  const needsWorkspaceContext =
-    activeTab === "overview" || activeTab === "relations" || activeTab === "analytics";
   const needsCommercialContext =
     activeTab === "overview" || activeTab === "relations";
   const [
@@ -91,9 +88,7 @@ export default async function ProductDetailPage({
     needsCommercialContext
       ? getProductCommercialViewsAction([identityResult.data.id])
       : Promise.resolve(null),
-    needsWorkspaceContext
-      ? getPartnerWorkspaceContextAction()
-      : Promise.resolve(null),
+    getPartnerWorkspaceContextAction(),
     getProductMerchandisingLabelsAction(identityResult.data.id),
     activeTab === "pricing"
       ? getRetailPriceHistoryAction(identityResult.data.id, historyRange)
@@ -119,59 +114,44 @@ export default async function ProductDetailPage({
   if (!productResult.data) notFound();
   const product = productResult.data;
 
-  let canAddToOrder = false;
-  let canManagePurchasingLists = false;
-  let companyId: string | null = null;
-  let userId: string | null = null;
-  let commercialView;
-  let initialFavorite = false;
-  let competitorPricing: ProductCompetitorPricingItem[] = [];
-  let canViewCompetitiveIntelligence = false;
-  if (needsWorkspaceContext) {
-    commercialView = commercialViewsResult?.success
-      ? commercialViewsResult.data[0]
-      : undefined;
-    canAddToOrder = Boolean(
-      workspaceResult?.success &&
-      workspaceResult.data.capabilities.productCard.canAddToOrder,
-    );
-    canManagePurchasingLists = Boolean(
-      workspaceResult?.success &&
-      workspaceResult.data.capabilities.productCard.canManagePurchasingLists,
-    );
-    companyId = workspaceResult?.success
-      ? workspaceResult.data.companyId
-      : null;
-    userId = workspaceResult?.success ? workspaceResult.data.userId : null;
-    canViewCompetitiveIntelligence = Boolean(
-      workspaceResult?.success &&
-      workspaceResult.data.capabilities.canViewCompetitiveIntelligence,
-    );
-    if (activeTab === "overview") {
-      const [favoriteResult, pricingResult] = await Promise.all([
-        canManagePurchasingLists
-          ? listFavoriteProductIdsAction([product.id])
-          : Promise.resolve(null),
-        companyId && canViewCompetitiveIntelligence
-          ? new CompetitorRetailPricingService()
-              .getProductPricing(companyId, product.id, commercialView)
-              .catch((error: unknown) => {
-                console.error({
-                  event: "product_competitor_pricing_read_failed",
-                  errorType: error instanceof Error ? error.name : typeof error,
-                  productId: product.id,
-                });
-                return [];
-              })
-          : Promise.resolve([]),
-      ]);
-      initialFavorite = Boolean(
-        favoriteResult?.success &&
-        favoriteResult.data.includes(product.id),
-      );
-      competitorPricing = pricingResult;
-    }
-  }
+  const commercialView = commercialViewsResult?.success
+    ? commercialViewsResult.data[0]
+    : undefined;
+  const canAddToOrder = Boolean(
+    workspaceResult.success &&
+    workspaceResult.data.capabilities.productCard.canAddToOrder,
+  );
+  const canManagePurchasingLists = Boolean(
+    workspaceResult.success &&
+    workspaceResult.data.capabilities.productCard.canManagePurchasingLists,
+  );
+  const companyId = workspaceResult.success ? workspaceResult.data.companyId : null;
+  const userId = workspaceResult.success ? workspaceResult.data.userId : null;
+  const canViewCompetitiveIntelligence = Boolean(
+    workspaceResult.success &&
+    workspaceResult.data.capabilities.canViewCompetitiveIntelligence,
+  );
+  const [favoriteResult, pricingResult] = await Promise.all([
+    canManagePurchasingLists
+      ? listFavoriteProductIdsAction([product.id])
+      : Promise.resolve(null),
+    activeTab === "overview" && companyId && canViewCompetitiveIntelligence
+      ? new CompetitorRetailPricingService()
+          .getProductPricing(companyId, product.id, commercialView)
+          .catch((error: unknown) => {
+            console.error({
+              event: "product_competitor_pricing_read_failed",
+              errorType: error instanceof Error ? error.name : typeof error,
+              productId: product.id,
+            });
+            return [];
+          })
+      : Promise.resolve([]),
+  ]);
+  const initialFavorite = Boolean(
+    favoriteResult?.success && favoriteResult.data.includes(product.id),
+  );
+  const competitorPricing = pricingResult;
   const competitiveIntelligence =
     activeTab === "analytics" && companyId && workspaceResult?.success &&
     canViewCompetitiveIntelligence

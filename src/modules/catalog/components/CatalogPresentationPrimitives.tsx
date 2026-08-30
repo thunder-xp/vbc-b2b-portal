@@ -8,7 +8,7 @@ export function CatalogProductGridFrame({ children, className = "" }: { children
 }
 
 export function CatalogToolbarFrame({ children }: { children: ReactNode }) {
-  return <div className="flex min-w-0 flex-col gap-3 md:flex-row md:items-center">{children}</div>;
+  return <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-[auto_minmax(0,1fr)] xl:grid-cols-[auto_minmax(16rem,1fr)_auto_auto] xl:items-center">{children}</div>;
 }
 
 export function CatalogResultsHeader({ action, countLabel, eyebrow, eyebrowTone = "default", title }: { action?: ReactNode; countLabel?: string; eyebrow?: string; eyebrowTone?: "default" | "retail"; title: string }) {

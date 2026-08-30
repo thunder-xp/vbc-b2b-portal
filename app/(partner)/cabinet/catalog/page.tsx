@@ -10,11 +10,13 @@ import { listCatalogCategoriesAction } from "@/src/modules/catalog/actions/list-
 import { listCatalogProductsAction } from "@/src/modules/catalog/actions/list-products.action";
 import { CatalogBreadcrumb } from "@/src/modules/catalog/components/CatalogBreadcrumb";
 import { CatalogSearch } from "@/src/modules/catalog/components/CatalogSearch";
+import { CatalogSortControl } from "@/src/modules/catalog/components/CatalogSortControl";
 import { CatalogToolbarFrame } from "@/src/modules/catalog/components/CatalogPresentationPrimitives";
 import { CategoryMegaMenu } from "@/src/modules/catalog/components/CategoryMegaMenu";
 import { EmptyCatalog } from "@/src/modules/catalog/components/EmptyCatalog";
 import {
   CATALOG_VIEW_COOKIE,
+  buildCatalogSortHiddenFields,
   parseCatalogRouteState,
   parseCatalogViewMode,
 } from "@/src/modules/catalog/services";
@@ -42,10 +44,22 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
     return <EmptyCatalog message={categoriesResult.message} title={copy.unavailableTitle} />;
   }
 
+  const sortHiddenFields = buildCatalogSortHiddenFields({
+    attributeFilters: routeState.attributeFilters,
+    availability: routeState.availability,
+    brandId: routeState.brandId,
+    categoryId: routeState.categoryId,
+    collection: routeState.collection,
+    explicitAll: routeState.explicitAll,
+    merchandisingLabel: routeState.merchandisingLabel,
+    search: routeState.search,
+  });
+
   return <div className="space-y-6">
     <CatalogToolbarFrame>
       <CategoryMegaMenu categories={categoriesResult.data} collection={routeState.collection} merchandisingLabel={routeState.merchandisingLabel} sort={routeState.sort} />
       <CatalogSearch categoryId={routeState.categoryId} collection={routeState.collection} explicitAll={routeState.explicitAll} initialSearch={routeState.search} merchandisingLabel={routeState.merchandisingLabel} sort={routeState.sort} />
+      {routeState.mode === "discovery" ? <CatalogSortControl hiddenFields={sortHiddenFields} locale={locale} sort={routeState.sort} /> : null}
       <CatalogModeLink curated={routeState.mode === "curated"} labels={{ allCatalog: copy.allCatalog, showcase: copy.showcase }} />
     </CatalogToolbarFrame>
     {routeState.mode === "discovery" ? <CatalogBreadcrumb categories={categoriesResult.data} locale={locale} selectedId={routeState.categoryId} /> : null}

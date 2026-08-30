@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   getRelationSummary: vi.fn(),
   getCompetitive: vi.fn(),
   getCompetitorPricing: vi.fn(),
+  listFavorites: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({ notFound: vi.fn() }));
@@ -21,7 +22,7 @@ vi.mock("@/src/modules/catalog/actions/product-page.action", () => ({
 }));
 vi.mock("@/src/modules/pricing-inventory/actions", () => ({ getProductCommercialViewsAction: mocks.getCommercial, getRetailPriceHistoryAction: mocks.getRetailHistory }));
 vi.mock("@/src/modules/partner-cabinet/actions", () => ({ getPartnerWorkspaceContextAction: mocks.getWorkspace }));
-vi.mock("@/src/modules/purchasing-lists/actions", () => ({ listFavoriteProductIdsAction: vi.fn() }));
+vi.mock("@/src/modules/purchasing-lists/actions", () => ({ listFavoriteProductIdsAction: mocks.listFavorites }));
 vi.mock("@/src/modules/product-relations", () => ({
   getProductRelationSectionsAction: mocks.getRelationSections,
   getProductRelationSummaryAction: mocks.getRelationSummary,
@@ -52,6 +53,7 @@ describe("product detail page data loading", () => {
     mocks.getWorkspace.mockResolvedValue({ success: true, data: { companyId: "company-1", capabilities: { productCard: { canAddToOrder: true }, canViewCompetitiveIntelligence: true } } });
     mocks.getCompetitive.mockResolvedValue({ canManage: true, competitors: [], observations: [], summary: { observationCount: 0 } });
     mocks.getCompetitorPricing.mockResolvedValue([]);
+    mocks.listFavorites.mockResolvedValue({ success: true, data: [] });
     mocks.getRelationSummary.mockResolvedValue({ success: true, data: { hasAnalogs: true, hasRelated: true } });
     mocks.getRelationSections.mockResolvedValue({ success: true, data: { analogs: [{ id: "analog-1" }], related: [{ id: "related-1" }], synchronizedAt: null } });
   });
@@ -104,7 +106,7 @@ describe("product detail page data loading", () => {
   it("loads only canonical RETAIL history for Pricing", async () => {
     render(await ProductDetailPage({ params: Promise.resolve({ slug: "ip-camera" }), searchParams: Promise.resolve({ tab: "pricing" }) }));
     expect(mocks.getCommercial).not.toHaveBeenCalled();
-    expect(mocks.getWorkspace).not.toHaveBeenCalled();
+    expect(mocks.getWorkspace).toHaveBeenCalledOnce();
     expect(mocks.getRelationSections).not.toHaveBeenCalled();
     expect(mocks.getRelationSummary).not.toHaveBeenCalled();
     expect(mocks.getRetailHistory).toHaveBeenCalledWith("product-1", undefined);
@@ -148,16 +150,45 @@ describe("product detail page data loading", () => {
     }));
 
     expect(mocks.getCommercial).not.toHaveBeenCalled();
-    expect(mocks.getWorkspace).not.toHaveBeenCalled();
+    expect(mocks.getWorkspace).toHaveBeenCalledOnce();
     expect(mocks.getProduct).toHaveBeenCalledWith("product-1", {
       includeAttributes: false,
       includeDocuments: false,
       includeImages: false,
     });
     expect(screen.getByText("Camera description")).toBeInTheDocument();
+    expect(screen.getByText("Gallery")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "В корзину" })).toBeInTheDocument();
     expect(
       screen.getAllByTestId("behavior-event").map((node) => node.dataset.eventName),
     ).toEqual(["product_viewed", "product_description_viewed"]);
+  });
+
+  it("loads one bounded favorite state for actions on non-overview tabs", async () => {
+    mocks.getWorkspace.mockResolvedValue({
+      success: true,
+      data: {
+        companyId: "company-1",
+        userId: "user-1",
+        capabilities: {
+          productCard: {
+            canAddToOrder: true,
+            canManagePurchasingLists: true,
+          },
+          canViewCompetitiveIntelligence: true,
+        },
+      },
+    });
+
+    render(await ProductDetailPage({
+      params: Promise.resolve({ slug: "ip-camera" }),
+      searchParams: Promise.resolve({ tab: "description" }),
+    }));
+
+    expect(mocks.getProduct).toHaveBeenCalledOnce();
+    expect(mocks.listFavorites).toHaveBeenCalledOnce();
+    expect(mocks.listFavorites).toHaveBeenCalledWith(["product-1"]);
+    expect(mocks.getCommercial).not.toHaveBeenCalled();
   });
 });
 

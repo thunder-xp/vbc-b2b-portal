@@ -10,8 +10,6 @@ import { CatalogPresentation } from "@/src/modules/catalog/components/CatalogPre
 import { RESTRICTED_PRODUCT_CARD_CAPABILITIES } from "@/src/modules/catalog/components/product-card.model";
 import {
   buildCatalogHref,
-  buildCatalogSortHiddenFields,
-  CATALOG_SORT_OPTIONS,
   type CatalogCategoryDto,
   type CatalogSort,
   type CatalogViewMode,
@@ -72,13 +70,13 @@ export async function CatalogResults({
 
   const commercialViews = createCommercialViewMap(productsResult.data.commercialViews ?? []);
   const selectedCategory = categories.find((category) => category.id === categoryId);
-  const sortHiddenFields = buildCatalogSortHiddenFields({ brandId, categoryId, collection, explicitAll, availability, merchandisingLabel, search, attributeFilters });
+  const resultsTitle = selectedCategory?.name ?? (collection === "replenishment" ? copy.latestArrival : null);
 
   return <div className="space-y-6">
     <BehaviorViewEvent brandId={brandId} categoryId={categoryId} dedupeKey={`catalog:${categoryId ?? "all"}:${search ?? ""}:${availability}:${collection ?? merchandisingLabel ?? ""}:${page}`} eventName="catalog_viewed" resultCount={productsResult.data.totalCount} route="/cabinet/catalog" searchQuery={search} sourceSurface={collection === "replenishment" ? "warehouse_replenishment" : explicitAll ? "full_catalog" : "catalog_discovery"} />
     {categoryId ? <BehaviorViewEvent categoryId={categoryId} dedupeKey={`category:${categoryId}`} eventName="category_viewed" resultCount={productsResult.data.totalCount} route="/cabinet/catalog" sourceSurface="category" /> : null}
     {search ? <BehaviorViewEvent dedupeKey={`search:${search}:${productsResult.data.totalCount}`} eventName={productsResult.data.totalCount ? "search_performed" : "search_no_results"} resultCount={productsResult.data.totalCount} route="/cabinet/catalog" searchQuery={search} sourceSurface="catalog_search" /> : null}
-    <CatalogResultsHeader action={<form action="/cabinet/catalog" className="w-full sm:w-auto">{sortHiddenFields.map((field) => <input key={field.name} name={field.name} type="hidden" value={field.value} />)}<label className="flex flex-wrap items-center gap-2 text-sm text-zinc-600">{copy.sort}<select className="h-10 min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-3 sm:flex-none" defaultValue={sort} name="sort">{CATALOG_SORT_OPTIONS.map((option) => <option key={option.value} value={option.value}>{sortLabel(option.value, copy)}</option>)}</select><button className="h-10 rounded-md border border-zinc-300 px-3 font-medium" type="submit">{copy.apply}</button></label></form>} countLabel={`${copy.found}: ${productsResult.data.totalCount}`} title={selectedCategory?.name ?? (collection === "replenishment" ? copy.latestArrival : copy.equipmentCatalog)} />
+    {resultsTitle ? <CatalogResultsHeader title={resultsTitle} /> : null}
     {(search || selectedCategory || collection || merchandisingLabel || availability !== "all" || Object.keys(attributeFilters).length > 0) && <div className="flex flex-wrap items-center gap-2 text-sm"><span className="text-zinc-500">{copy.activeFilters}:</span>{selectedCategory && <FilterChip href={buildCatalogHref({ brandId, collection, explicitAll, availability, merchandisingLabel, page: 1, search, sort, attributeFilters })} label={selectedCategory.name} />}{search && <FilterChip href={buildCatalogHref({ brandId, collection, explicitAll, availability, categoryId, merchandisingLabel, page: 1, sort, attributeFilters })} label={`${copy.searchFilter}: ${search}`} />}{collection && <FilterChip href={buildCatalogHref({ brandId, explicitAll, availability, categoryId, page: 1, search, sort, attributeFilters })} label={copy.replenishment} />}{merchandisingLabel && <FilterChip href={buildCatalogHref({ brandId, collection, explicitAll, availability, categoryId, page: 1, search, sort, attributeFilters })} label={merchandisingLabelName(merchandisingLabel, copy)} />}{availability !== "all" && <FilterChip href={buildCatalogHref({ brandId, collection, explicitAll, categoryId, merchandisingLabel, page: 1, search, sort, attributeFilters })} label={availability === "in_stock" ? copy.inStock : copy.expected} />}{Object.entries(attributeFilters).flatMap(([key, values]) => values.map((value) => <FilterChip href={buildCatalogHref({ brandId, collection, explicitAll, availability, categoryId, merchandisingLabel, page: 1, search, sort, attributeFilters: withoutAttributeValue(attributeFilters, key, value) })} key={`${key}:${value}`} label={`${copy.characteristicFilter}: ${value}`} />))}<Link className="text-sm font-medium text-emerald-700" href={explicitAll ? "/cabinet/catalog?view=all" : "/cabinet/catalog"} prefetch={false}>{copy.clearAll}</Link></div>}
     <div className="grid gap-6 lg:grid-cols-[260px_1fr]">
       <Suspense fallback={<CatalogFacetFallback copy={copy} />}>
@@ -137,9 +135,5 @@ function CatalogFacetFallback({ copy }: { copy: CatalogCopy }) {
 function withoutAttributeValue(filters: Record<string, string[]>, key: string, value: string): Record<string, string[]> { const next = Object.fromEntries(Object.entries(filters).map(([entryKey, values]) => [entryKey, values.filter((item) => entryKey !== key || item !== value)])); return Object.fromEntries(Object.entries(next).filter(([, values]) => values.length)); }
 function FilterChip({ href, label }: { href: string; label: string }) { return <Link className="rounded-full border border-zinc-300 bg-white px-3 py-1.5 text-zinc-700 hover:border-emerald-500" href={href} prefetch={false}>{label} ×</Link>; }
 function createCommercialViewMap(views: ProductCommercialViewDto[]): Record<string, ProductCommercialViewDto> { return Object.fromEntries(views.map((view) => [view.productId, view])); }
-type CatalogCopy = ReturnType<typeof getCatalogCopy>;
 function merchandisingLabelName(label: MerchandisingLabelCode, copy: CatalogCopy): string { return label === "TOP" ? copy.popular : label === "NEW" ? copy.newItems : copy.hotPrice; }
-function sortLabel(sort: CatalogSort, copy: CatalogCopy): string {
-  const labels: Record<CatalogSort, string> = { default: copy.sortDefault, availability_asc: copy.sortAvailabilityAsc, availability_desc: copy.sortAvailabilityDesc, price_asc: copy.sortPriceAsc, price_desc: copy.sortPriceDesc, markup_asc: copy.sortMarkupAsc, markup_desc: copy.sortMarkupDesc };
-  return labels[sort];
-}
+type CatalogCopy = ReturnType<typeof getCatalogCopy>;

@@ -31,7 +31,8 @@ describe("ProductDetail information architecture", () => {
     const text = container.textContent ?? "";
     expect(text.indexOf("Изображение товара product-1")).toBeLessThan(text.indexOf("IP Camera"));
     expect(screen.queryByText("Коммерческое предложение")).not.toBeInTheDocument();
-    expect(text.indexOf("Наличие и поступления")).toBeLessThan(text.indexOf("В корзину"));
+    expect(text.indexOf("Артикул: NV-100")).toBeLessThan(text.indexOf("В корзину"));
+    expect(text.indexOf("В корзину")).toBeLessThan(text.indexOf("Наличие и поступления"));
     expect(screen.queryByRole("heading", { name: "Ключевые характеристики" })).not.toBeInTheDocument();
   });
 
@@ -67,10 +68,11 @@ describe("ProductDetail information architecture", () => {
     expect(screen.queryByText("← Вернуться в каталог")).not.toBeInTheDocument();
   });
 
-  it("does not duplicate the main image on the relations tab", () => {
-    render(<ProductDetail activeTab="relations" product={product} relationsContent={<div>Relations</div>} />);
-    expect(screen.queryByTestId("product-detail-layout")).not.toBeInTheDocument();
-    expect(screen.queryByText("Изображение товара product-1")).not.toBeInTheDocument();
+  it("keeps the shared context rail on the relations tab", () => {
+    render(<ProductDetail activeTab="relations" canAddToOrder companyId="company-1" product={product} relationsContent={<div>Relations</div>} userId="user-1" />);
+    expect(screen.getByTestId("product-detail-layout")).toBeInTheDocument();
+    expect(screen.getByText("Изображение товара product-1")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "В корзину" })).toBeInTheDocument();
   });
 
   it("shows the partner-only analytics tab through the canonical product tabs", () => {
@@ -83,10 +85,12 @@ describe("ProductDetail information architecture", () => {
     expect(screen.getByText("Изображение товара product-1")).toBeInTheDocument();
   });
 
-  it("keeps title first and SKU directly below in Overview", () => {
+  it("places product identity directly below the image", () => {
     const { container } = render(<ProductDetail product={product} />);
     const text = container.textContent ?? "";
+    expect(text.indexOf("Изображение товара product-1")).toBeLessThan(text.indexOf("IP Camera"));
     expect(text.indexOf("IP Camera")).toBeLessThan(text.indexOf("Артикул: NV-100"));
+    expect(screen.getAllByRole("heading", { name: "IP Camera" })).toHaveLength(1);
   });
 
   it.each([
@@ -117,12 +121,12 @@ describe("ProductDetail information architecture", () => {
   });
 
   it("shows only long-form copy in Description and has an honest empty state", () => {
-    const { rerender } = render(<ProductDetail activeTab="description" product={product} />);
+    const { rerender } = render(<ProductDetail activeTab="description" canAddToOrder companyId="company-1" product={product} userId="user-1" />);
     expect(screen.getByText("Camera description")).toHaveClass("line-clamp-[9]", "text-sm", "leading-[1.5]");
     expect(screen.queryByText("Коммерческое предложение")).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "В корзину" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "В корзину" })).toBeInTheDocument();
 
-    rerender(<ProductDetail activeTab="description" product={{ ...product, description: null }} />);
+    rerender(<ProductDetail activeTab="description" canAddToOrder companyId="company-1" product={{ ...product, description: null }} userId="user-1" />);
     expect(screen.getByText("Описание товара пока не добавлено.")).toBeInTheDocument();
   });
 
@@ -179,6 +183,37 @@ describe("ProductDetail information architecture", () => {
     expect(screen.getByRole("link", { name: "Инструкции" })).toHaveAttribute("href", "?tab=datasheet");
     expect(screen.getByRole("link", { name: "Ценообразование" })).toHaveAttribute("href", "?tab=pricing");
     expect(screen.getByRole("link", { name: "Аналоги и сопутствующие" })).toHaveAttribute("href", "?tab=relations");
+  });
+
+  it.each([
+    "overview",
+    "description",
+    "characteristics",
+    "datasheet",
+    "pricing",
+    "analytics",
+    "relations",
+  ] as const)("renders one shared identity and all operational actions on %s", (activeTab) => {
+    render(
+      <ProductDetail
+        activeTab={activeTab}
+        analyticsContent={<div>Analytics</div>}
+        canAddToOrder
+        canManagePurchasingLists
+        companyId="company-1"
+        product={product}
+        relationsContent={<div>Relations</div>}
+        showAnalyticsTab
+        userId="user-1"
+      />,
+    );
+
+    expect(screen.getAllByRole("heading", { name: "IP Camera" })).toHaveLength(1);
+    expect(screen.getAllByText("Артикул: NV-100")).toHaveLength(1);
+    expect(screen.getByRole("button", { name: "В корзину" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "В избранное" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "В сравнение" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "В смету" })).toBeInTheDocument();
   });
 });
 

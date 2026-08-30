@@ -9,8 +9,7 @@ import type {
 import { buildCatalogHref, type CatalogProductDetailDto } from "../services";
 
 import { ExpandableDescription } from "./ExpandableDescription";
-import { ProductActions } from "./ProductActions";
-import { ProductImageGallery } from "./ProductImageGallery";
+import { ProductDetailContextRail } from "./ProductDetailContextRail";
 import { ProductPricingBlock } from "./ProductPricingBlock";
 import { RetailPriceHistoryChart } from "./RetailPriceHistoryChart";
 import { formatPartnerDate, getCatalogCopy, type PartnerLocale } from "../../partner-locale";
@@ -97,35 +96,30 @@ export function ProductDetail({
           ))}
         </div>
       </nav>
-      {activeTab === "overview" ? (
-        <>
-          <ProductTabLayout locale={locale} product={product}>
-            <OverviewTab
-              canAddToOrder={canAddToOrder}
-              canManagePurchasingLists={canManagePurchasingLists}
-              companyId={companyId}
-              commercialView={commercialView}
-              hasAnalogs={hasAnalogs}
-              initialFavorite={initialFavorite}
-              locale={locale}
-              priceFreshness={priceFreshness}
-              product={product}
-              stockFreshness={stockFreshness}
-              userId={userId}
-              competitorPricing={competitorPricing}
-            />
-          </ProductTabLayout>
-        </>
-      ) : activeTab === "relations" ? (
-        <div className="min-w-0" data-testid="product-detail-content">
-          {relationsContent}
-        </div>
-      ) : activeTab === "analytics" ? (
-        <ProductTabLayout locale={locale} product={product}>
-          {analyticsContent}
-        </ProductTabLayout>
-      ) : (
-        <ProductTabLayout locale={locale} product={product}>
+      <ProductTabLayout
+        canAddToOrder={canAddToOrder}
+        canManagePurchasingLists={canManagePurchasingLists}
+        companyId={companyId}
+        initialFavorite={initialFavorite}
+        locale={locale}
+        product={product}
+        userId={userId}
+      >
+        {activeTab === "overview" ? (
+          <OverviewTab
+            commercialView={commercialView}
+            competitorPricing={competitorPricing}
+            hasAnalogs={hasAnalogs}
+            locale={locale}
+            priceFreshness={priceFreshness}
+            stockFreshness={stockFreshness}
+          />
+        ) : activeTab === "relations" ? (
+          relationsContent
+        ) : activeTab === "analytics" ? (
+          analyticsContent
+        ) : (
+          <>
           {activeTab === "description" ? (
             <DescriptionTab locale={locale} product={product} />
           ) : null}
@@ -143,36 +137,46 @@ export function ProductDetail({
               productId={product.id}
             />
           ) : null}
-        </ProductTabLayout>
-      )}
+          </>
+        )}
+      </ProductTabLayout>
     </article>
   );
 }
 
 function ProductTabLayout({
+  canAddToOrder,
+  canManagePurchasingLists,
   children,
+  companyId,
+  initialFavorite,
   locale,
   product,
+  userId,
 }: {
+  canAddToOrder: boolean;
+  canManagePurchasingLists: boolean;
   children: ReactNode;
+  companyId: string | null;
+  initialFavorite: boolean;
   locale: PartnerLocale;
   product: CatalogProductDetailDto;
+  userId: string | null;
 }) {
   return (
     <div
       className="grid gap-4 md:grid-cols-[minmax(0,340px)_minmax(0,1fr)] md:items-start lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)] lg:gap-5"
       data-testid="product-detail-layout"
     >
-      <div data-testid="product-detail-image">
-        <ProductImageGallery
-          fallbackImageUrl={product.imageUrl}
-          images={product.images}
-          locale={locale}
-          merchandisingLabels={product.merchandisingLabels}
-          productId={product.id}
-          productName={product.name}
-        />
-      </div>
+      <ProductDetailContextRail
+        canAddToOrder={canAddToOrder}
+        canManagePurchasingLists={canManagePurchasingLists}
+        companyId={companyId}
+        initialFavorite={initialFavorite}
+        locale={locale}
+        product={product}
+        userId={userId}
+      />
       <div className="min-w-0" data-testid="product-detail-content">
         {children}
       </div>
@@ -181,38 +185,20 @@ function ProductTabLayout({
 }
 
 function OverviewTab({
-  canAddToOrder,
-  canManagePurchasingLists,
-  companyId,
   commercialView,
   hasAnalogs,
-  initialFavorite,
   locale = "ru",
   priceFreshness,
-  product,
   stockFreshness,
-  userId,
   competitorPricing = [],
-}: Omit<ProductDetailProps, "activeTab" | "relationsContent">) {
+}: Pick<ProductDetailProps, "commercialView" | "hasAnalogs" | "locale" | "priceFreshness" | "stockFreshness" | "competitorPricing">) {
   const copy = getCatalogCopy(locale);
   return (
     <section
       aria-label={copy.productOverview}
       data-testid="product-overview-tab"
     >
-      <h1 className="break-words text-2xl font-semibold text-zinc-950">
-        {product.name}
-      </h1>
-      <p className="mt-1.5 text-sm font-medium text-zinc-600">
-        {copy.sku}: {product.sku}
-      </p>
-      {product.brand?.name ? (
-        <p className="mt-1.5 text-sm font-medium text-emerald-700">
-          {product.brand.name}
-        </p>
-      ) : null}
-
-      <section aria-label={copy.currentCommercial} className="mt-3">
+      <section aria-label={copy.currentCommercial}>
         <ProductPricingBlock
           commercialView={commercialView}
           freshness={priceFreshness}
@@ -231,18 +217,6 @@ function OverviewTab({
         locale={locale}
         stock={commercialView?.stock}
       />
-      {companyId || canAddToOrder ? (
-        <ProductActions
-          canAddToOrder={canAddToOrder ?? false}
-          canManagePurchasingLists={canManagePurchasingLists}
-          categoryId={product.category?.id ?? null}
-          companyId={companyId ?? null}
-          initialFavorite={initialFavorite}
-          locale={locale}
-          productId={product.id}
-          userId={userId ?? null}
-        />
-      ) : null}
     </section>
   );
 }
@@ -299,9 +273,9 @@ function DescriptionTab({
       aria-label={copy.productDescription}
       data-testid="product-description-tab"
     >
-      <h1 className="text-xl font-semibold text-zinc-950">
+      <h2 className="text-xl font-semibold text-zinc-950">
         {copy.productDescription}
-      </h1>
+      </h2>
       <div className="mt-4 border-y border-zinc-200 py-5">
         <ExpandableDescription text={description} />
       </div>
@@ -381,9 +355,9 @@ function CharacteristicsTab({
   const copy = getCatalogCopy(locale);
   return (
     <section aria-label={copy.technicalCharacteristics}>
-      <h1 className="text-xl font-semibold text-zinc-950">
+      <h2 className="text-xl font-semibold text-zinc-950">
         {copy.technicalCharacteristics}
-      </h1>
+      </h2>
       {product.keyCharacteristics.length ? (
         <dl className="mt-3 divide-y divide-zinc-100 border-y border-zinc-200">
           {product.keyCharacteristics.map((item) => (
@@ -445,9 +419,9 @@ function DatasheetTab({
   const copy = getCatalogCopy(locale);
   return (
     <section aria-label={copy.productDocuments}>
-      <h1 className="text-xl font-semibold text-zinc-950">
+      <h2 className="text-xl font-semibold text-zinc-950">
         {copy.instructions}
-      </h1>
+      </h2>
       {product.documents.length ? (
         <ul className="mt-3 divide-y divide-zinc-100">
           {product.documents.map((document) => (
@@ -494,9 +468,9 @@ function PricingHistoryTab({
   if (error)
     return (
       <section aria-label={copy.retailHistory}>
-        <h1 className="text-xl font-semibold text-zinc-950">
+        <h2 className="text-xl font-semibold text-zinc-950">
           {copy.retailHistory}
-        </h1>
+        </h2>
         <div className="mt-3 border-y border-zinc-200 py-8 text-center">
           <p className="text-sm text-zinc-600">{copy.historyLoadError}</p>
           <p className="mt-2 text-xs text-zinc-500">{error}</p>
@@ -506,9 +480,9 @@ function PricingHistoryTab({
   if (!history?.current)
     return (
       <section aria-label={copy.retailHistory}>
-        <h1 className="text-xl font-semibold text-zinc-950">
+        <h2 className="text-xl font-semibold text-zinc-950">
           {copy.retailHistory}
-        </h1>
+        </h2>
         <div className="mt-3 border-y border-zinc-200 py-8 text-center">
           <p className="text-sm text-zinc-600">{copy.historyUnavailable}</p>
         </div>
@@ -518,9 +492,9 @@ function PricingHistoryTab({
   return (
     <section aria-label={copy.retailHistory} className="space-y-5">
       <header>
-        <h1 className="text-xl font-semibold text-zinc-950">
+        <h2 className="text-xl font-semibold text-zinc-950">
           {copy.retailHistory}
-        </h1>
+        </h2>
         <dl className="mt-3 grid gap-3 rounded-md border border-zinc-200 bg-white p-4 sm:grid-cols-3">
           <Metric
             label={copy.currentPrice}

@@ -18,7 +18,7 @@ describe("catalog freshness messaging cleanup", () => {
     expect(catalogResults).not.toContain("evaluateFreshness");
     expect(catalogResults).toContain("productsResult.data.products");
     expect(catalogResults).toContain("productsResult.data.totalCount");
-    expect(catalogResults).toContain("copy.equipmentCatalog");
+    expect(catalogResults).not.toContain("copy.equipmentCatalog");
     expect(readFileSync(join(process.cwd(), "src/modules/partner-locale/catalog-copy.ts"), "utf8"))
       .toContain('equipmentCatalog: "Каталог оборудования"');
   });
