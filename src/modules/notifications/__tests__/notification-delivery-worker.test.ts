@@ -25,6 +25,7 @@ describe("NotificationDeliveryWorkerService", () => {
     expect(dependencies.adapter.send).toHaveBeenCalledOnce();
     expect(dependencies.adapter.send).toHaveBeenCalledWith(expect.objectContaining({
       messageId: `<notification-${delivery.deliveryId}@nsd.md>`,
+      subject: "Comanda NSUU-1 a fost confirmată — expediere 30 august",
     }));
     expect(dependencies.repository.completeBatch).toHaveBeenCalledWith([expect.objectContaining({
       deliveryId: delivery.deliveryId,
@@ -69,13 +70,28 @@ describe("NotificationDeliveryWorkerService", () => {
     expect(dependencies.adapter.send).toHaveBeenCalledOnce();
   });
 
+  it("keeps already-claimed legacy v1 deliveries compatible without false confirmation", async () => {
+    const legacyDelivery = {
+      ...delivery,
+      payloadVersion: 1,
+      templateVersion: 1,
+      payload: { ...(delivery.payload as Record<string, unknown>), locale: undefined },
+    };
+    const dependencies = makeDependencies(legacyDelivery);
+    await dependencies.worker.run();
+    expect(dependencies.adapter.send).toHaveBeenCalledWith(expect.objectContaining({
+      subject: "Заказ NSUU-1 подтверждён",
+      text: expect.stringContaining("Планируемая отгрузка"),
+    }));
+  });
+
   it("persists a bounded batch in one repository call", async () => {
     const second = {
       ...delivery,
       deliveryId: "77777777-7777-4777-8777-777777777777",
       eventId: "88888888-8888-4888-8888-888888888888",
       partnerOrderId: "99999999-9999-4999-8999-999999999999",
-      idempotencyKey: "order.registered_in_1c:order-2:email:buyer@example.com:v1",
+      idempotencyKey: "order.registered_in_1c:order-2:email:buyer@example.com:v2",
     };
     const dependencies = makeDependencies();
     dependencies.repository.claim.mockResolvedValue([delivery, second]);
@@ -110,8 +126,10 @@ const delivery: ClaimedNotificationDelivery = {
   companyId: "33333333-3333-4333-8333-333333333333",
   partnerOrderId: "44444444-4444-4444-8444-444444444444",
   correlationId: "55555555-5555-4555-8555-555555555555",
-  payloadVersion: 1,
+  payloadVersion: 2,
   payload: {
+    locale: "ro",
+    customerName: "Vasili",
     companyName: "Partner SRL",
     portalOrderId: "44444444-4444-4444-8444-444444444444",
     oneCOrderNumber: "NSUU-1",
@@ -126,10 +144,10 @@ const delivery: ClaimedNotificationDelivery = {
   },
   channel: "email",
   recipient: "buyer@example.com",
-  templateVersion: 1,
+  templateVersion: 2,
   attempt: 1,
   leaseToken: "66666666-6666-4666-8666-666666666666",
-  idempotencyKey: "order.registered_in_1c:order:email:buyer@example.com:v1",
+  idempotencyKey: "order.registered_in_1c:order:email:buyer@example.com:v2",
 };
 
 function completion(status: CompleteNotificationDeliveryResult["status"]) {

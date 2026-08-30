@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   authenticatedUserId: vi.fn(),
+  getPartnerLocale: vi.fn(),
   revalidatePath: vi.fn(),
   submit: vi.fn(),
 }));
@@ -11,6 +12,9 @@ vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidatePath }));
 vi.mock("../../../access-control/actions/service-factory", () => ({
   createUserProfileService: vi.fn(),
   getAuthenticatedUserId: mocks.authenticatedUserId,
+}));
+vi.mock("../../../partner-locale/server", () => ({
+  getPartnerLocale: mocks.getPartnerLocale,
 }));
 vi.mock("../service-factory", () => ({
   createPartnerOrderHistoryService: vi.fn(),
@@ -28,6 +32,7 @@ describe("confirmed checkout redirect contract", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.authenticatedUserId.mockResolvedValue("user-1");
+    mocks.getPartnerLocale.mockResolvedValue("ro");
     mocks.submit.mockResolvedValue({
       external1cNumber: "NSUU-001",
       id: orderId,
@@ -50,6 +55,7 @@ describe("confirmed checkout redirect contract", () => {
       expect(mocks.submit).toHaveBeenCalledOnce();
       expect(mocks.submit).toHaveBeenCalledWith("user-1", expect.objectContaining({
         paymentMethod,
+        notificationLocale: "ro",
       }));
     },
   );

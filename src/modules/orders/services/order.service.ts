@@ -71,6 +71,7 @@ export interface PartnerOrderService {
     paymentDate?: string;
     fulfillmentMethod?: CheckoutFulfillmentMethod;
     carrierId?: string | null;
+    notificationLocale?: "ru" | "ro";
   }): Promise<PartnerOrder>;
   listOwnCompanyOrders(userId: string): Promise<PartnerOrderSummaryDto[]>;
   getOrder(userId: string, orderId: string): Promise<PartnerOrderDetailDto>;
@@ -115,6 +116,7 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
     paymentDate?: string;
     fulfillmentMethod?: CheckoutFulfillmentMethod;
     carrierId?: string | null;
+    notificationLocale?: "ru" | "ro";
   }): Promise<PartnerOrder> {
     const preflightStartedAt = Date.now();
     const submittedCartId = requireUuid(input.cartId, "Cart");
@@ -673,7 +675,10 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
         fulfillmentMethod: resolvedCheckout.fulfillmentMethod,
         carrierId: resolvedCheckout.carrierId,
         requestFingerprint,
-        payloadSnapshot: toJsonRecord(salesOrder),
+        payloadSnapshot: {
+          ...toJsonRecord(salesOrder),
+          notificationLocale: input.notificationLocale === "ro" ? "ro" : "ru",
+        },
         items: snapshots,
       });
     } catch (error) {

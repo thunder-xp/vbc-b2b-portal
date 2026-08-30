@@ -4,7 +4,7 @@ import type {
   CompleteNotificationDeliveryInput,
   NotificationDeliveryRepository,
 } from "./notification-delivery.repository";
-import { renderOrderRegisteredInOneCEmail } from "./order-registered-in-one-c.email";
+import { renderOrderConfirmedEmail } from "./order-confirmed.email";
 import {
   NotificationDeliveryError,
   type ClaimedNotificationDelivery,
@@ -82,12 +82,17 @@ export class NotificationDeliveryWorkerService {
     try {
       if (!adapter) throw new NotificationDeliveryError("unsupported_channel", false);
       if (delivery.eventType !== "order.registered_in_1c"
-        || delivery.payloadVersion !== 1
-        || delivery.templateVersion !== 1) {
+        || ![1, 2].includes(delivery.payloadVersion)
+        || ![1, 2].includes(delivery.templateVersion)) {
         throw new NotificationDeliveryError("invalid_payload", false);
       }
       const message = {
-        ...renderOrderRegisteredInOneCEmail(delivery.payload, delivery.recipient),
+        ...renderOrderConfirmedEmail(
+          delivery.payload,
+          delivery.recipient,
+          undefined,
+          delivery.payloadVersion,
+        ),
         messageId: `<notification-${delivery.deliveryId}@nsd.md>`,
       };
       const providerStartedAt = performance.now();

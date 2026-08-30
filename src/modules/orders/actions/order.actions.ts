@@ -5,6 +5,7 @@ import { type ActionResult, failureFromError, invalidInput, success } from "../.
 import { createUserProfileService, getAuthenticatedUserId } from "../../access-control/actions/service-factory";
 import { ForbiddenError } from "../../access-control/services";
 import { UserType } from "../../access-control/types";
+import { getPartnerLocale } from "../../partner-locale/server";
 import { type PartnerOrderHistoryDetailDto, type PartnerOrderHistorySyncResult, type PartnerOrderDetailDto, type PartnerOrderSummaryDto, type PlannedShipmentDto } from "../services";
 import type { PartnerOrder } from "../types";
 import type { CheckoutFulfillmentMethod, CheckoutPaymentMethod } from "../repositories";
@@ -37,8 +38,12 @@ export async function submitCartOrderAction(
     return invalidInput("Проверьте корзину и дату отгрузки.");
   }
   try {
+    const [userId, notificationLocale] = await Promise.all([
+      getAuthenticatedUserId(),
+      getPartnerLocale(),
+    ]);
     const order = await createPartnerOrderService().submit(
-      await getAuthenticatedUserId(),
+      userId,
       {
         cartId,
         expectedIntentVersion,
@@ -48,6 +53,7 @@ export async function submitCartOrderAction(
         paymentDate,
         fulfillmentMethod,
         carrierId,
+        notificationLocale,
       },
     );
     revalidatePath("/cabinet", "layout"); revalidatePath("/cabinet/cart"); revalidatePath("/cabinet/orders");

@@ -13,6 +13,7 @@
     "sync:commercial-rate": "tsx --no-cache scripts/sync-commercial-exchange-rate.ts",
     "sync:onboarding-directory": "tsx --conditions=react-server --no-cache scripts/sync-onboarding-directory.ts",
     "publish:public-retail": "tsx --conditions=react-server --no-cache scripts/publish-public-retail-projection.ts",
+    "preview:order-confirmation-email": "tsx --no-cache scripts/render-order-confirmation-email-previews.ts",
     "test": "vitest run"
   },
   "dependencies": {

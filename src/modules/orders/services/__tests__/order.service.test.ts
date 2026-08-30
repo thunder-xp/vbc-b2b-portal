@@ -672,12 +672,17 @@ describe("DefaultPartnerOrderService", () => {
       },
     });
 
-    await dependencies.service.submit("user-1", { ...input(), paymentMethod: "cash" });
+    await dependencies.service.submit("user-1", {
+      ...input(),
+      paymentMethod: "cash",
+      notificationLocale: "ro",
+    });
 
     expect(dependencies.orderRepository.beginSubmission).toHaveBeenCalledWith(
       expect.objectContaining({
         paymentMethod: "cash",
         payloadSnapshot: expect.objectContaining({
+          notificationLocale: "ro",
           contractReference: expect.objectContaining({
             externalId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
           }),
