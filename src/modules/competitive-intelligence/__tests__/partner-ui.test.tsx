@@ -23,6 +23,8 @@ describe("partner competitive intelligence UI", () => {
     expect(screen.getAllByText(/2[\s ]?450 MDL/).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/70 MDL/)).toHaveLength(2);
     expect(screen.getByRole("button", { name: "Сохранить цену" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Конкурентные цены" })).toHaveClass("text-xl");
+    expect(screen.getByText(/Сохраняйте цены конкурентов по каждой модели/)).not.toHaveClass("max-w-3xl");
   });
 
   it("keeps the five-field fast path and optional conditions collapsed", () => {
@@ -32,6 +34,8 @@ describe("partner competitive intelligence UI", () => {
     expect(screen.queryByLabelText("НДС")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Действительно до")).not.toBeInTheDocument();
     expect(screen.getByText("Дополнительные условия").closest("details")).not.toHaveAttribute("open");
+    expect(screen.getByText("Дополнительные условия").closest("details")).not.toHaveClass("border-t");
+    expect(screen.getByRole("button", { name: "Сохранить цену" }).closest("form")).not.toHaveClass("border-y");
   });
 
   it.each([

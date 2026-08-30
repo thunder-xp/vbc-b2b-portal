@@ -1,5 +1,3 @@
-import { Check } from "lucide-react";
-
 import {
   CATALOG_SORT_OPTIONS,
   type CatalogSort,
@@ -9,6 +7,7 @@ import {
   getCatalogCopy,
   type PartnerLocale,
 } from "../../partner-locale";
+import { AutoSubmitCatalogSort } from "./AutoSubmitCatalogSort";
 
 export function CatalogSortControl({
   hiddenFields,
@@ -37,7 +36,7 @@ export function CatalogSortControl({
       ))}
       <label className="min-w-0 flex-1">
         <span className="sr-only">{copy.sort}</span>
-        <select
+        <AutoSubmitCatalogSort
           aria-label={copy.sort}
           className="h-11 w-full min-w-0 rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-800 outline-none focus:border-emerald-700 focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 sm:w-48"
           defaultValue={sort}
@@ -48,16 +47,8 @@ export function CatalogSortControl({
               {sortLabel(option.value, copy)}
             </option>
           ))}
-        </select>
+        </AutoSubmitCatalogSort>
       </label>
-      <button
-        aria-label={copy.apply}
-        className="inline-flex size-11 shrink-0 items-center justify-center rounded-md border border-zinc-300 bg-white text-zinc-700 hover:border-emerald-600 hover:text-emerald-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600"
-        title={copy.apply}
-        type="submit"
-      >
-        <Check aria-hidden="true" className="size-4" />
-      </button>
     </form>
   );
 }

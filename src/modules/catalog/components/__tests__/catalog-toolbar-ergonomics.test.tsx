@@ -1,8 +1,8 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 
 import { CatalogSortControl } from "../CatalogSortControl";
 
@@ -27,7 +27,10 @@ describe("B2B catalog toolbar ergonomics", () => {
     expect(results).not.toContain("countLabel={`${copy.found}");
   });
 
-  it("preserves canonical catalog state in the toolbar sort form", () => {
+  it("preserves canonical catalog state and submits immediately when sorting changes", () => {
+    const requestSubmit = vi
+      .spyOn(HTMLFormElement.prototype, "requestSubmit")
+      .mockImplementation(() => undefined);
     render(
       <CatalogSortControl
         hiddenFields={[
@@ -41,13 +44,17 @@ describe("B2B catalog toolbar ergonomics", () => {
       />,
     );
 
-    expect(screen.getByRole("combobox", { name: "Сортировка" })).toHaveValue("price_desc");
-    expect(screen.getByRole("button", { name: "Применить" })).toHaveAttribute("type", "submit");
+    const sort = screen.getByRole("combobox", { name: "Сортировка" });
+    expect(sort).toHaveValue("price_desc");
+    fireEvent.change(sort, { target: { value: "price_asc" } });
+    expect(requestSubmit).toHaveBeenCalledOnce();
+    expect(screen.queryByRole("button", { name: "Применить" })).not.toBeInTheDocument();
     expect(document.querySelector('input[name="category"]')).toHaveValue("cameras");
     expect(document.querySelector('input[name="search"]')).toHaveValue("DH-C4K-P");
     expect(document.querySelector('input[name="view"]')).toHaveValue("all");
     expect(document.querySelector('input[name="availability"]')).toHaveValue("in_stock");
     expect(document.querySelector('input[name^="attr."]')).toHaveValue("4 MP");
+    requestSubmit.mockRestore();
   });
 
   it("uses bounded responsive controls without horizontal-width assumptions", () => {

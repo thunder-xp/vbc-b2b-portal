@@ -96,16 +96,21 @@ export function ProductDetail({
           ))}
         </div>
       </nav>
-      <ProductTabLayout
-        canAddToOrder={canAddToOrder}
-        canManagePurchasingLists={canManagePurchasingLists}
-        companyId={companyId}
-        initialFavorite={initialFavorite}
-        locale={locale}
-        product={product}
-        userId={userId}
-      >
-        {activeTab === "overview" ? (
+      {activeTab === "relations" ? (
+        <div className="min-w-0" data-testid="product-detail-content">
+          {relationsContent}
+        </div>
+      ) : (
+        <ProductTabLayout
+          canAddToOrder={canAddToOrder}
+          canManagePurchasingLists={canManagePurchasingLists}
+          companyId={companyId}
+          initialFavorite={initialFavorite}
+          locale={locale}
+          product={product}
+          userId={userId}
+        >
+          {activeTab === "overview" ? (
           <OverviewTab
             commercialView={commercialView}
             competitorPricing={competitorPricing}
@@ -114,8 +119,6 @@ export function ProductDetail({
             priceFreshness={priceFreshness}
             stockFreshness={stockFreshness}
           />
-        ) : activeTab === "relations" ? (
-          relationsContent
         ) : activeTab === "analytics" ? (
           analyticsContent
         ) : (
@@ -139,7 +142,8 @@ export function ProductDetail({
           ) : null}
           </>
         )}
-      </ProductTabLayout>
+        </ProductTabLayout>
+      )}
     </article>
   );
 }
@@ -423,18 +427,29 @@ function DatasheetTab({
         {copy.instructions}
       </h2>
       {product.documents.length ? (
-        <ul className="mt-3 divide-y divide-zinc-100">
+        <ul className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {product.documents.map((document) => (
             <li
-              className="flex flex-wrap items-center justify-between gap-3 py-3 text-sm"
+              className="flex min-h-48 min-w-0 flex-col rounded-md border border-zinc-200 bg-white p-4 text-sm"
+              data-testid="document-preview-card"
               key={document.id}
             >
-              <div>
-                <p className="font-medium text-zinc-950">{document.title}</p>
-                <p className="text-zinc-500">{document.documentType}</p>
+              <div
+                aria-hidden="true"
+                className="flex h-20 items-center justify-center rounded border border-zinc-200 bg-zinc-50"
+              >
+                <span className="border border-zinc-300 bg-white px-3 py-4 text-xs font-semibold uppercase text-zinc-500 shadow-sm">
+                  {document.documentType}
+                </span>
               </div>
+              <p className="mt-3 break-words font-semibold text-zinc-950">
+                {document.title}
+              </p>
+              <p className="mt-1 text-xs text-zinc-500">
+                {document.documentType}
+              </p>
               <a
-                className="inline-flex min-h-11 items-center font-medium text-emerald-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600"
+                className="mt-auto inline-flex min-h-11 items-center justify-center rounded-md border border-zinc-300 px-3 text-sm font-semibold text-zinc-800 hover:border-emerald-600 hover:text-emerald-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600"
                 href={document.url}
                 rel="noopener noreferrer"
                 target="_blank"
@@ -507,20 +522,11 @@ function PricingHistoryTab({
           />
         </dl>
       </header>
-      {history.mode === "baseline_only" ? (
-        <p className="rounded-md bg-zinc-50 p-4 text-sm text-zinc-600">
-          {copy.baselineHistory}
-        </p>
-      ) : null}
-      {history.mode === "accumulated" ? (
-        <p className="text-sm text-zinc-600">{copy.accumulatedHistory}</p>
-      ) : null}
-      {history.mode === "historical_verified" ? (
-        <p className="text-sm text-zinc-600">{copy.verifiedHistory}</p>
-      ) : null}
-      <RetailPriceHistoryChart history={history} productId={productId} />
       {history.points.length > 1 ? (
-        <dl className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <dl
+          className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5"
+          data-testid="price-history-metrics"
+        >
           <HistoryMetric
             label={copy.currentPrice}
             value={history.formattedCurrent}
@@ -552,6 +558,7 @@ function PricingHistoryTab({
           />
         </dl>
       ) : null}
+      <RetailPriceHistoryChart history={history} productId={productId} />
     </section>
   );
 }

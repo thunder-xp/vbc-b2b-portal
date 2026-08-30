@@ -132,7 +132,7 @@ export default async function ProductDetailPage({
     workspaceResult.data.capabilities.canViewCompetitiveIntelligence,
   );
   const [favoriteResult, pricingResult] = await Promise.all([
-    canManagePurchasingLists
+    activeTab !== "relations" && canManagePurchasingLists
       ? listFavoriteProductIdsAction([product.id])
       : Promise.resolve(null),
     activeTab === "overview" && companyId && canViewCompetitiveIntelligence

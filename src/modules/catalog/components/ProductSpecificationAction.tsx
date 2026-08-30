@@ -53,7 +53,7 @@ export function ProductSpecificationAction({
 
   const triggerClass = `inline-flex items-center justify-center gap-2 rounded-md border text-xs font-semibold outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 ${open ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-50"}`;
   return (
-    <div className="relative">
+    <div className={compact ? "relative inline-flex h-11 items-center" : "relative"}>
       {compact ? (
         <IconActionTooltip label={copy.addToEstimate}>
           <button

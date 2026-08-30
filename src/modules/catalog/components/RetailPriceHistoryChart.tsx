@@ -13,6 +13,7 @@ const WIDTH = 720;
 const HEIGHT = 260;
 const PAD_X = 52;
 const PAD_Y = 28;
+const GRID_LINES = [0, 0.25, 0.5, 0.75, 1];
 
 export function RetailPriceHistoryChart({
   history,
@@ -29,6 +30,7 @@ export function RetailPriceHistoryChart({
     [history.points, locale],
   );
   const stepGeometry = useMemo(() => createStepGeometry(geometry), [geometry]);
+  const areaPath = useMemo(() => createAreaPath(stepGeometry), [stepGeometry]);
 
   return (
     <div className="space-y-4">
@@ -60,7 +62,10 @@ export function RetailPriceHistoryChart({
       </nav>
 
       {history.points.length > 1 ? (
-        <div className="relative h-[280px] w-full overflow-hidden rounded-md border border-zinc-200 bg-white">
+        <div
+          className="relative h-[280px] w-full overflow-hidden rounded-md border border-zinc-200 bg-zinc-50/50 shadow-sm"
+          data-testid="price-history-chart"
+        >
           <svg
             aria-label={copy.priceHistoryChart}
             className="h-full w-full"
@@ -68,19 +73,45 @@ export function RetailPriceHistoryChart({
             role="group"
             viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
           >
+            <defs>
+              <linearGradient id={`price-history-fill-${productId}`} x1="0" x2="0" y1="0" y2="1">
+                <stop offset="0%" stopColor="#059669" stopOpacity="0.14" />
+                <stop offset="100%" stopColor="#059669" stopOpacity="0.02" />
+              </linearGradient>
+            </defs>
+            {GRID_LINES.map((position) => {
+              const y = PAD_Y + position * (HEIGHT - PAD_Y * 2);
+              return (
+                <line
+                  className="stroke-zinc-200"
+                  key={position}
+                  vectorEffect="non-scaling-stroke"
+                  x1={PAD_X}
+                  x2={WIDTH - PAD_X}
+                  y1={y}
+                  y2={y}
+                />
+              );
+            })}
             <line
-              className="stroke-zinc-200"
+              className="stroke-zinc-300"
+              vectorEffect="non-scaling-stroke"
               x1={PAD_X}
               x2={PAD_X}
               y1={PAD_Y}
               y2={HEIGHT - PAD_Y}
             />
             <line
-              className="stroke-zinc-200"
+              className="stroke-zinc-300"
+              vectorEffect="non-scaling-stroke"
               x1={PAD_X}
               x2={WIDTH - PAD_X}
               y1={HEIGHT - PAD_Y}
               y2={HEIGHT - PAD_Y}
+            />
+            <path
+              d={areaPath}
+              fill={`url(#price-history-fill-${productId})`}
             />
             <polyline
               className="fill-none stroke-emerald-600 motion-reduce:transition-none"
@@ -90,6 +121,7 @@ export function RetailPriceHistoryChart({
                 .join(" ")}
               strokeLinejoin="round"
               strokeWidth="3"
+              vectorEffect="non-scaling-stroke"
             />
             {geometry.map((point, index) => (
               <circle
@@ -100,10 +132,11 @@ export function RetailPriceHistoryChart({
                 key={`${point.effectiveAt}:${point.amount}`}
                 onBlur={() => setFocusedIndex(null)}
                 onFocus={() => setFocusedIndex(index)}
-                r="5"
+                r={index === geometry.length - 1 ? "6" : "4.5"}
                 role="button"
                 strokeWidth="3"
                 tabIndex={0}
+                vectorEffect="non-scaling-stroke"
               >
                 <title>{point.label}</title>
               </circle>
@@ -181,6 +214,18 @@ function createStepGeometry(points: ReturnType<typeof createGeometry>) {
       { x: point.x, y: point.y },
     ];
   });
+}
+
+function createAreaPath(points: ReturnType<typeof createStepGeometry>) {
+  if (!points.length) return "";
+  const baseline = HEIGHT - PAD_Y;
+  return [
+    `M ${points[0].x} ${baseline}`,
+    `L ${points[0].x} ${points[0].y}`,
+    ...points.slice(1).map((point) => `L ${point.x} ${point.y}`),
+    `L ${points[points.length - 1].x} ${baseline}`,
+    "Z",
+  ].join(" ");
 }
 
 function createGeometry(points: RetailPriceHistoryDto["points"], locale: "ru" | "ro") {

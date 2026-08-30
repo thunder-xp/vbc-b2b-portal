@@ -78,7 +78,7 @@ export function ProductComparisonAction({
   const label = selected ? copy.compareSelected : copy.compareAdd;
 
   return (
-    <div className="space-y-1">
+    <div className={compact ? "relative inline-flex h-11 items-center" : "space-y-1"}>
       {compact ? (
         <IconActionTooltip
           label={`${label} (${ids.length}/${COMPARISON_LIMIT})`}

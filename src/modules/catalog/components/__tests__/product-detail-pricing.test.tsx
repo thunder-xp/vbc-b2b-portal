@@ -10,7 +10,7 @@ vi.mock("../ProductImageGallery", () => ({ ProductImageGallery: ({ productId }: 
 vi.mock("../../../orders/components", () => ({ AddToCartButton: () => <button type="button">В корзину</button> }));
 vi.mock("../ProductActions", () => ({ ProductActions: () => <div><button type="button">В корзину</button><button type="button">В смету</button><button type="button">В сравнение</button><button type="button">В избранное</button></div> }));
 vi.mock("../ExpandableDescription", () => ({ ExpandableDescription: ({ text }: { text: string }) => <p className="line-clamp-[9] text-sm leading-[1.5]">{text}</p> }));
-vi.mock("../RetailPriceHistoryChart", () => ({ RetailPriceHistoryChart: () => <div>Retail chart</div> }));
+vi.mock("../RetailPriceHistoryChart", () => ({ RetailPriceHistoryChart: () => <div data-testid="retail-chart">Retail chart</div> }));
 
 describe("ProductDetail information architecture", () => {
   it("keeps identity, cart, commercial summary, and availability in the default overview", () => {
@@ -68,11 +68,13 @@ describe("ProductDetail information architecture", () => {
     expect(screen.queryByText("← Вернуться в каталог")).not.toBeInTheDocument();
   });
 
-  it("keeps the shared context rail on the relations tab", () => {
+  it("renders relations without the current-product context rail", () => {
     render(<ProductDetail activeTab="relations" canAddToOrder companyId="company-1" product={product} relationsContent={<div>Relations</div>} userId="user-1" />);
-    expect(screen.getByTestId("product-detail-layout")).toBeInTheDocument();
-    expect(screen.getByText("Изображение товара product-1")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "В корзину" })).toBeInTheDocument();
+    expect(screen.queryByTestId("product-detail-layout")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("product-detail-context")).not.toBeInTheDocument();
+    expect(screen.queryByText("Изображение товара product-1")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "В корзину" })).not.toBeInTheDocument();
+    expect(screen.getByText("Relations")).toBeInTheDocument();
   });
 
   it("shows the partner-only analytics tab through the canonical product tabs", () => {
@@ -160,17 +162,43 @@ describe("ProductDetail information architecture", () => {
     expect(screen.queryByText("Партнёрская цена")).not.toBeInTheDocument();
     expect(screen.queryByText("Наличие и поступления")).not.toBeInTheDocument();
     expect(screen.getByTestId("product-detail-content")).toContainElement(screen.getByRole("link", { name: "Открыть документ" }));
+    const card = screen.getByTestId("document-preview-card");
+    expect(card).toContainElement(screen.getByText("Datasheet"));
+    expect(card).toContainElement(screen.getByRole("link", { name: "Открыть документ" }));
+    expect(screen.getByRole("link", { name: "Открыть документ" })).toHaveClass("mt-auto", "justify-center");
   });
 
   it("shows canonical RETAIL baseline without confidential partner pricing", () => {
     render(<ProductDetail activeTab="pricing" commercialView={commercialView} product={product} retailPriceHistory={retailHistory} />);
     expect(screen.getByRole("heading", { name: "История розничной цены" })).toBeInTheDocument();
     expect(screen.getByText("2 399,00 MDL")).toBeInTheDocument();
-    expect(screen.getByText("История изменений накапливается. Сейчас доступна только текущая розничная цена.")).toBeInTheDocument();
+    expect(screen.queryByText("История изменений накапливается. Сейчас доступна только текущая розничная цена.")).not.toBeInTheDocument();
     expect(screen.queryByText("Партнёрская цена")).not.toBeInTheDocument();
     expect(screen.queryByText("Розничная цена")).not.toBeInTheDocument();
     expect(screen.queryByText("Наличие и поступления")).not.toBeInTheDocument();
     expect(screen.getByTestId("product-detail-content")).toContainElement(screen.getByText("Retail chart"));
+  });
+
+  it("places compact history metrics before the chart and removes source-system clutter", () => {
+    render(
+      <ProductDetail
+        activeTab="pricing"
+        product={product}
+        retailPriceHistory={retailHistoryAccumulated}
+      />,
+    );
+
+    const metrics = screen.getByTestId("price-history-metrics");
+    const chart = screen.getByTestId("retail-chart");
+    expect(
+      metrics.compareDocumentPosition(chart) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(metrics).toHaveTextContent("Текущая цена");
+    expect(metrics).toHaveTextContent("Предыдущая цена");
+    expect(metrics).toHaveTextContent("Изменение");
+    expect(metrics).toHaveTextContent("Минимум");
+    expect(metrics).toHaveTextContent("Максимум");
+    expect(screen.queryByText("История сформирована по данным 1С.")).not.toBeInTheDocument();
   });
 
   it("renders all six compact tab destinations in the required order", () => {
@@ -192,7 +220,6 @@ describe("ProductDetail information architecture", () => {
     "datasheet",
     "pricing",
     "analytics",
-    "relations",
   ] as const)("renders one shared identity and all operational actions on %s", (activeTab) => {
     render(
       <ProductDetail
@@ -221,3 +248,20 @@ const product = { id: "product-1", sku: "NV-100", name: "IP Camera", slug: "ip-c
 const datasheetDocument = { id: "datasheet-1", title: "Datasheet", documentType: "datasheet", url: "https://example.com/camera.pdf" };
 const commercialView = { productId: "product-1", partnerPrice: { currencyCode: "USD", amount: 48.95, formattedAmount: "$48.95", lastUpdatedAt: "2026-07-15T02:00:00Z" }, partnerPriceMdl: { currencyCode: "MDL", amount: 839, formattedAmount: "839 MDL", lastUpdatedAt: "2026-07-15T02:00:00Z" }, msrpPriceUsd: { currencyCode: "USD", amount: 89, formattedAmount: "$89.00", lastUpdatedAt: "2026-07-15T02:00:00Z" }, retailPrice: { currencyCode: "MDL", amount: 1526, formattedAmount: "1 526 MDL", lastUpdatedAt: "2026-07-15T02:00:00Z" }, commercialOpportunity: { reversePartnerUsd: 48.95, reverseRetailUsd: 89, grossProfitUsd: 40.05, grossProfitMdl: 687, markupPercent: 81.82, formattedGrossProfit: "$40.05", formattedGrossProfitMdl: "687 MDL", formattedMarkup: "81.82%" }, stock: { status: "in_stock" as const, label: "В наличии: 8 шт.", exactAvailableQuantity: 8, exactPhysicalQuantity: 10, exactReservedQuantity: 2, exactIncomingQuantity: 91, expectedArrival: { expectedQuantity: 24, expectedDate: "2026-07-28", formattedExpectedDate: "28 июля 2026 г.", sourceStatus: "confirmed_supply" as const }, hasVariantStock: false, lastUpdatedAt: "2026-07-15T02:00:00Z" }, isDemoData: false };
 const retailHistory = { current: { amount: 2399, currency: "MDL", effectiveAt: "2026-07-12T00:00:00Z" }, points: [{ amount: 2399, currency: "MDL", effectiveAt: "2026-07-12T00:00:00Z", source: "initial_baseline" as const }], firstAt: "2026-07-12T00:00:00Z", lastAt: "2026-07-12T00:00:00Z", previousAmount: null, minimumAmount: 2399, maximumAmount: 2399, mode: "baseline_only" as const, range: "12m" as const, truncated: false, formattedCurrent: "2 399,00 MDL", formattedPrevious: null, formattedMinimum: "2 399,00 MDL", formattedMaximum: "2 399,00 MDL", formattedAbsoluteChange: null, formattedPercentageChange: null };
+const retailHistoryAccumulated = {
+  ...retailHistory,
+  current: { amount: 2499, currency: "MDL", effectiveAt: "2026-07-20T00:00:00Z" },
+  points: [
+    ...retailHistory.points,
+    { amount: 2499, currency: "MDL", effectiveAt: "2026-07-20T00:00:00Z", source: "price_sync_snapshot" as const },
+  ],
+  lastAt: "2026-07-20T00:00:00Z",
+  previousAmount: 2399,
+  maximumAmount: 2499,
+  mode: "historical_verified" as const,
+  formattedCurrent: "2 499,00 MDL",
+  formattedPrevious: "2 399,00 MDL",
+  formattedMaximum: "2 499,00 MDL",
+  formattedAbsoluteChange: "+100,00 MDL",
+  formattedPercentageChange: "+4,17%",
+};

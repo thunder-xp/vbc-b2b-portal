@@ -9,8 +9,8 @@ export function ProductCompetitiveIntelligence({ data, locale, productId }: { da
   return (
     <section aria-labelledby="competitive-intelligence-title" className="min-w-0 space-y-5" data-testid="product-competitive-intelligence">
       <header>
-        <h1 className="text-xl font-semibold text-zinc-950" id="competitive-intelligence-title">{copy.title}</h1>
-        <p className="mt-1 max-w-3xl text-sm text-zinc-600">{copy.benefit}</p>
+        <h2 className="text-xl font-semibold text-zinc-950" id="competitive-intelligence-title">{copy.title}</h2>
+        <p className="mt-1 text-sm leading-6 text-zinc-600">{copy.benefit}</p>
       </header>
       <ComparisonSummary data={data} locale={locale} />
       {data.canManage ? <CompetitiveObservationForm competitors={data.competitors} locale={locale} productId={productId} today={new Date().toISOString().slice(0, 10)} /> : null}
@@ -27,7 +27,7 @@ export function ProductCompetitiveIntelligence({ data, locale, productId }: { da
             </div>
           </section>
         </>
-      ) : <div className="border-y border-zinc-200 py-8 text-center"><p className="text-sm text-zinc-600">{copy.noHistory}</p></div>}
+      ) : <div className="py-5 text-center"><p className="text-sm text-zinc-600">{copy.noHistory}</p></div>}
     </section>
   );
 }

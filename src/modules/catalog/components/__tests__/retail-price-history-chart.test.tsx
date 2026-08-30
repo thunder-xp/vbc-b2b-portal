@@ -17,6 +17,10 @@ describe("RetailPriceHistoryChart", () => {
     expect(screen.getByRole("group", { name: "График истории розничной цены" })).toBeInTheDocument();
     expect(screen.getAllByRole("button")).toHaveLength(2);
     expect(document.querySelector("[data-line-shape='step-after']")).toBeInTheDocument();
+    expect(screen.getByTestId("price-history-chart")).toHaveClass("bg-zinc-50/50", "shadow-sm");
+    expect(document.querySelectorAll("svg line").length).toBeGreaterThanOrEqual(7);
+    expect(document.querySelector("svg path")?.getAttribute("fill")).toContain("price-history-fill-product-1");
+    expect(document.querySelectorAll("svg circle")[1]).toHaveAttribute("r", "6");
     expect(screen.getByRole("link", { name: "12 месяцев" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: "3 месяца" })).toHaveAttribute("href", "?tab=pricing&range=3m");
     fireEvent.click(screen.getByText("Показать данные"));

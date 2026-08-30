@@ -37,7 +37,7 @@ export function CompetitiveObservationForm({
   }, [competitors, router, state]);
 
   return (
-    <form action={action} className="border-y border-zinc-200 py-4" ref={formRef}>
+    <form action={action} className="py-1" ref={formRef}>
       <input name="productId" type="hidden" value={productId} />
       <input name="idempotencyKey" type="hidden" value={idempotencyKey} />
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 xl:items-end">
@@ -60,7 +60,7 @@ export function CompetitiveObservationForm({
           {pending ? copy.saving : copy.save}
         </button>
       </div>
-      <details className="mt-3 border-t border-zinc-100 pt-3">
+      <details className="mt-3">
         <summary className="min-h-11 cursor-pointer py-3 text-sm font-semibold text-zinc-700">{copy.details}</summary>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <Field label={copy.source}><select className={controlClass} defaultValue="verbal" name="sourceType">{Object.entries(copy.sourceLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></Field>

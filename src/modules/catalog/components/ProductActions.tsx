@@ -32,7 +32,7 @@ export function ProductActions({
       {canAddToOrder ? <AddToCartButton productId={productId} /> : null}
       <div
         aria-label={copy.additionalActions}
-        className="flex flex-wrap items-end gap-2"
+        className="flex min-h-11 flex-wrap items-center gap-2"
       >
         {canManagePurchasingLists ? (
           <FavoriteProductButton

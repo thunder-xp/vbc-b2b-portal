@@ -21,6 +21,7 @@ describe("ProductActions layout", () => {
     render(<ProductActions canAddToOrder canManagePurchasingLists categoryId="category-1" companyId="company-1" productId="product-1" userId="user-1" />);
 
     expect(screen.getByLabelText("Действия с товаром")).toHaveClass("flex", "flex-wrap", "items-end");
+    expect(screen.getByLabelText("Дополнительные действия")).toHaveClass("min-h-11", "items-center");
     expect(screen.getByRole("button", { name: "Добавить в корзину" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Избранное" })).toHaveAttribute("data-compact", "true");
     expect(screen.getByRole("button", { name: "В смету" })).toHaveAttribute("data-compact", "true");

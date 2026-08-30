@@ -79,7 +79,9 @@ describe("product detail page data loading", () => {
     expect(mocks.getRelationSummary).not.toHaveBeenCalled();
     expect(mocks.getCommercial).toHaveBeenCalledWith(["product-1"]);
     expect(mocks.getWorkspace).toHaveBeenCalledOnce();
+    expect(mocks.listFavorites).not.toHaveBeenCalled();
     expect(screen.getByText("Relations 1/1")).toBeInTheDocument();
+    expect(screen.queryByText("Gallery")).not.toBeInTheDocument();
     expect(screen.queryByTestId("product-overview-tab")).not.toBeInTheDocument();
     expect(screen.getAllByTestId("behavior-event").map((node) => node.dataset.eventName)).toEqual(["product_viewed", "product_relations_tab_viewed"]);
   });
