@@ -32,6 +32,7 @@ describe("B2B catalog toolbar ergonomics", () => {
     const presentation = source("src/modules/catalog/components/CatalogPresentation.tsx");
 
     expect(results).toContain("quickLinks={<CatalogQuickLinks");
+    expect(results).toContain('<section className="min-w-0 space-y-5">');
     expect(presentation.indexOf("{quickLinks}")).toBeLessThan(presentation.indexOf("<CatalogViewSwitcher"));
     expect(presentation).toContain('data-testid="catalog-results-toolbar"');
   });
