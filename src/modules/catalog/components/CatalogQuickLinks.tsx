@@ -17,14 +17,14 @@ export function CatalogQuickLinks({
   if (!links.length) return null;
 
   return (
-    <nav aria-label={locale === "ro" ? "Acces rapid la categorii" : "Быстрый выбор категории"} className="overflow-x-auto pb-1">
-      <div className="flex min-w-max gap-2">
+    <nav aria-label={locale === "ro" ? "Acces rapid la categorii" : "Быстрый выбор категории"} className="min-w-0 overflow-x-auto py-0.5" data-testid="catalog-quick-links">
+      <div className="flex min-w-max gap-1.5">
         {links.map((link) => {
           const active = state.categorySet === link.code;
           return (
             <Link
               aria-current={active ? "page" : undefined}
-              className={`inline-flex min-h-11 items-center justify-center rounded-md border px-4 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 ${active ? "border-emerald-700 bg-emerald-700 text-white" : "border-zinc-300 bg-white text-zinc-800 hover:border-emerald-600 hover:text-emerald-800"}`}
+              className={`inline-flex h-9 items-center justify-center rounded border px-3 text-xs font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 ${active ? "border-emerald-700 bg-emerald-700 text-white" : "border-zinc-300 bg-white text-zinc-800 hover:border-emerald-600 hover:text-emerald-800"}`}
               href={buildCatalogHref({
                 availability: state.availability,
                 brandId: state.brandId,

@@ -27,6 +27,15 @@ describe("B2B catalog toolbar ergonomics", () => {
     expect(results).not.toContain("countLabel={`${copy.found}");
   });
 
+  it("places quick categories in the results toolbar before the view controls", () => {
+    const results = source("app/(partner)/cabinet/catalog/CatalogResults.tsx");
+    const presentation = source("src/modules/catalog/components/CatalogPresentation.tsx");
+
+    expect(results).toContain("quickLinks={<CatalogQuickLinks");
+    expect(presentation.indexOf("{quickLinks}")).toBeLessThan(presentation.indexOf("<CatalogViewSwitcher"));
+    expect(presentation).toContain('data-testid="catalog-results-toolbar"');
+  });
+
   it("preserves canonical catalog state and submits immediately when sorting changes", () => {
     const requestSubmit = vi
       .spyOn(HTMLFormElement.prototype, "requestSubmit")

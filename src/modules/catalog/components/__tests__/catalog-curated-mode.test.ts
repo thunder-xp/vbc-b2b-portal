@@ -24,12 +24,14 @@ describe("catalog curated mode boundaries", () => {
     expect(curated).not.toContain("CatalogPresentation");
     expect(curated).not.toContain("totalCount");
     expect(curated).not.toContain("CatalogPagination");
+    expect(page).not.toContain("<CatalogQuickLinks");
   });
 
   it("keeps merchandising reads out of discovery results", () => {
     expect(discovery).toContain("listCatalogFacetsAction");
     expect(discovery).not.toContain("listCatalogMerchandisingSectionsAction");
     expect(discovery).not.toContain("CatalogMerchandisingSections");
+    expect(discovery).toContain("quickLinks={<CatalogQuickLinks");
   });
 
   it("exposes a stable unfiltered full-catalog entry", () => {

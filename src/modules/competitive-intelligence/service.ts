@@ -57,6 +57,16 @@ export function formatCompetitivePercent(value: number | null, locale: "ru" | "r
   return `${new Intl.NumberFormat(locale === "ro" ? "ro-MD" : "ru-MD", { maximumFractionDigits: 2 }).format(value)}%`;
 }
 
+export function formatCompetitiveDifferenceMoney(value: number | null, currency: string | null, locale: "ru" | "ro") {
+  const formatted = formatCompetitiveMoney(value, currency, locale);
+  return value !== null && value > 0 ? `+${formatted}` : formatted;
+}
+
+export function formatCompetitiveDifferencePercent(value: number | null, locale: "ru" | "ro") {
+  const formatted = formatCompetitivePercent(value, locale);
+  return value !== null && value > 0 ? `+${formatted}` : formatted;
+}
+
 type ProductPricingRead = {
   items: Array<{
     competitorId: string;

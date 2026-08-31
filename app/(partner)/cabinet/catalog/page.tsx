@@ -10,7 +10,6 @@ import { listCatalogCategoriesAction } from "@/src/modules/catalog/actions/list-
 import { listCatalogProductsAction } from "@/src/modules/catalog/actions/list-products.action";
 import { CatalogBreadcrumb } from "@/src/modules/catalog/components/CatalogBreadcrumb";
 import { CatalogSearch } from "@/src/modules/catalog/components/CatalogSearch";
-import { CatalogQuickLinks } from "@/src/modules/catalog/components/CatalogQuickLinks";
 import { CatalogSortControl } from "@/src/modules/catalog/components/CatalogSortControl";
 import { CatalogToolbarFrame } from "@/src/modules/catalog/components/CatalogPresentationPrimitives";
 import { CategoryMegaMenu } from "@/src/modules/catalog/components/CategoryMegaMenu";
@@ -71,7 +70,6 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
       <CatalogModeLink curated={routeState.mode === "curated"} labels={{ allCatalog: copy.allCatalog, showcase: copy.showcase }} />
     </CatalogToolbarFrame>
     {routeState.mode === "discovery" ? <CatalogBreadcrumb categories={categoriesResult.data} locale={locale} selectedId={routeState.categoryId} /> : null}
-    <CatalogQuickLinks categories={categoriesResult.data} locale={locale} state={routeState} />
     <Suspense fallback={<CatalogResultsFallback ariaLabel={copy.loading} curated={routeState.mode === "curated"} />}>
       {routeState.mode === "curated"
         ? <CuratedCatalogResults locale={locale} merchandisingPromise={listCatalogMerchandisingSectionsAction()} workspacePromise={getPartnerWorkspaceContextAction()} />

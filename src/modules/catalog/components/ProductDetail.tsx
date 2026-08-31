@@ -296,9 +296,7 @@ function DescriptionTab({
       aria-label={copy.productDescription}
       data-testid="product-description-tab"
     >
-      <div className="border-y border-zinc-200 py-5">
-        <ExpandableDescription text={description} />
-      </div>
+      <ExpandableDescription text={description} />
     </section>
   );
 }
@@ -376,7 +374,7 @@ function CharacteristicsTab({
   return (
     <section aria-label={copy.technicalCharacteristics}>
       {product.keyCharacteristics.length ? (
-        <dl className="divide-y divide-zinc-100 border-y border-zinc-200">
+        <dl className="divide-y divide-zinc-100">
           {product.keyCharacteristics.map((item) => (
             <div
               className="grid gap-1 py-3 text-sm sm:grid-cols-[minmax(10rem,0.7fr)_minmax(0,1.3fr)] sm:gap-5"
@@ -427,7 +425,7 @@ function DatasheetTab({
         <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {product.documents.map((document) => (
             <li
-              className="flex min-h-64 min-w-0 flex-col overflow-hidden rounded-md border border-zinc-200 bg-white text-sm"
+              className="flex min-h-64 min-w-0 flex-col overflow-hidden rounded-md border border-zinc-200 bg-white text-sm md:h-[255px] lg:h-[285px]"
               data-testid="document-preview-card"
               key={document.id}
             >
@@ -472,10 +470,7 @@ function PricingHistoryTab({
   if (error)
     return (
       <section aria-label={copy.retailHistory}>
-        <h2 className="text-xl font-semibold text-zinc-950">
-          {copy.retailHistory}
-        </h2>
-        <div className="mt-3 border-y border-zinc-200 py-8 text-center">
+        <div className="border-y border-zinc-200 py-8 text-center">
           <p className="text-sm text-zinc-600">{copy.historyLoadError}</p>
           <p className="mt-2 text-xs text-zinc-500">{error}</p>
         </div>
@@ -484,10 +479,7 @@ function PricingHistoryTab({
   if (!history?.current)
     return (
       <section aria-label={copy.retailHistory}>
-        <h2 className="text-xl font-semibold text-zinc-950">
-          {copy.retailHistory}
-        </h2>
-        <div className="mt-3 border-y border-zinc-200 py-8 text-center">
+        <div className="border-y border-zinc-200 py-8 text-center">
           <p className="text-sm text-zinc-600">{copy.historyUnavailable}</p>
         </div>
       </section>
@@ -495,9 +487,6 @@ function PricingHistoryTab({
 
   return (
     <section aria-label={copy.retailHistory} className="space-y-5">
-      <h2 className="text-xl font-semibold text-zinc-950">
-        {copy.retailHistory}
-      </h2>
       <dl
         className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5"
         data-testid="price-history-metrics"

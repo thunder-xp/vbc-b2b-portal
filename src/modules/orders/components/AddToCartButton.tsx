@@ -8,7 +8,7 @@ import { recordBehaviorInteraction } from "../../behavior-analytics/components/B
 import { getCatalogCopy, usePartnerLocale } from "../../partner-locale";
 import { addToCartAction } from "../actions/cart.actions";
 
-export function AddToCartButton({ productId }: { productId: string }) {
+export function AddToCartButton({ productId, showQuantityLabel = true }: { productId: string; showQuantityLabel?: boolean }) {
   const copy = getCatalogCopy(usePartnerLocale());
   const [quantity, setQuantity] = useState(1);
   const [message, setMessage] = useState<string | null>(null);
@@ -16,7 +16,7 @@ export function AddToCartButton({ productId }: { productId: string }) {
   const router = useRouter();
   return <div className="space-y-1.5">
     <div className="flex flex-wrap gap-2">
-    <label className="grid gap-1 text-xs font-medium text-zinc-600">{copy.quantity}
+    <label className="grid gap-1 text-xs font-medium text-zinc-600"><span className={showQuantityLabel ? undefined : "sr-only"}>{copy.quantity}</span>
       <input aria-label={copy.quantity} className="h-11 w-24 rounded-md border border-zinc-300 px-3 text-center text-sm" max={9999} min={1} onChange={(event) => setQuantity(normalizeQuantity(event.target.valueAsNumber))} type="number" value={quantity} />
     </label>
     <button className="mt-auto inline-flex h-11 items-center gap-2 rounded-md bg-emerald-700 px-5 text-sm font-semibold text-white hover:bg-emerald-800 focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:opacity-60" disabled={pending} onClick={() => startTransition(async () => {

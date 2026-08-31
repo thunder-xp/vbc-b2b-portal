@@ -28,7 +28,7 @@ import { getProductKnowledgeAction } from "@/src/modules/knowledge-base/actions"
 import { KnowledgeCardView } from "@/src/modules/knowledge-base/landing-components";
 import { getCatalogCopy } from "@/src/modules/partner-locale";
 import { getPartnerLocale } from "@/src/modules/partner-locale/server";
-import { CompetitiveIntelligenceRepository } from "@/src/modules/competitive-intelligence";
+import { PartnerProductCompetitiveIntelligenceService } from "@/src/modules/competitive-intelligence";
 import { ProductCompetitiveIntelligence } from "@/src/modules/competitive-intelligence/components";
 import { CompetitorRetailPricingService } from "@/src/modules/competitive-intelligence/retail-pricing.service";
 
@@ -156,7 +156,7 @@ export default async function ProductDetailPage({
   const competitiveIntelligence =
     activeTab === "analytics" && companyId && workspaceResult?.success &&
     canViewCompetitiveIntelligence
-      ? await new CompetitiveIntelligenceRepository().getPartnerProduct(companyId, productResult.data.id)
+      ? await new PartnerProductCompetitiveIntelligenceService().getPartnerProduct(companyId, productResult.data.id)
       : null;
   const priceUpdatedAt = latestTimestamp([
     commercialView?.partnerPrice?.lastUpdatedAt,

@@ -65,8 +65,9 @@ describe("ProductDetail information architecture", () => {
   });
 
   it("localizes the shared return action in Romanian", () => {
-    render(<ProductDetail locale="ro" product={product} />);
+    render(<ProductDetail activeTab="pricing" locale="ro" product={product} />);
     expect(screen.getByRole("link", { name: "ÎNAPOI" })).toHaveAttribute("href", "/cabinet/catalog");
+    expect(screen.getByRole("link", { name: "Istoricul prețului cu amănuntul" })).toHaveAttribute("aria-current", "page");
   });
 
   it.each(["description", "characteristics", "datasheet", "pricing"] as const)("uses the shared image/content layout for %s", (activeTab) => {
@@ -136,6 +137,7 @@ describe("ProductDetail information architecture", () => {
     expect(screen.queryByRole("heading", { name: "Описание товара" })).not.toBeInTheDocument();
     expect(screen.queryByText("Коммерческое предложение")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "В корзину" })).toBeInTheDocument();
+    expect(screen.getByText("Camera description").parentElement).not.toHaveClass("border-y");
 
     rerender(<ProductDetail activeTab="description" canAddToOrder companyId="company-1" product={{ ...product, description: null }} userId="user-1" />);
     expect(screen.getByText("Описание товара пока не добавлено.")).toBeInTheDocument();
@@ -150,6 +152,8 @@ describe("ProductDetail information architecture", () => {
     expect(screen.queryByText("Наличие и поступления")).not.toBeInTheDocument();
     expect(screen.queryByText("Открыть документ")).not.toBeInTheDocument();
     expect(screen.getByTestId("product-detail-content")).toContainElement(screen.getByText("Resolution"));
+    expect(screen.getByText("Resolution").closest("dl")).toHaveClass("divide-y");
+    expect(screen.getByText("Resolution").closest("dl")).not.toHaveClass("border-y");
   });
 
   it("links only approved filterable characteristics to the structured catalog filter", () => {
@@ -179,11 +183,13 @@ describe("ProductDetail information architecture", () => {
     expect(card).toHaveTextContent("DATASHEET");
     expect(card).toContainElement(screen.getByRole("link", { name: "Открыть документ" }));
     expect(screen.getByRole("link", { name: "Открыть документ" })).toHaveClass("m-3", "justify-center");
+    expect(card).toHaveClass("md:h-[255px]", "lg:h-[285px]");
   });
 
   it("shows canonical RETAIL baseline without confidential partner pricing", () => {
     render(<ProductDetail activeTab="pricing" commercialView={commercialView} product={product} retailPriceHistory={retailHistory} />);
-    expect(screen.getByRole("heading", { name: "История розничной цены" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "История розничной цены" })).toHaveAttribute("aria-current", "page");
+    expect(screen.queryByRole("heading", { name: "История розничной цены" })).not.toBeInTheDocument();
     expect(screen.getAllByText("2 399,00 MDL")).not.toHaveLength(0);
     expect(screen.queryByText("История изменений накапливается. Сейчас доступна только текущая розничная цена.")).not.toBeInTheDocument();
     expect(screen.queryByText("Партнёрская цена")).not.toBeInTheDocument();
@@ -219,12 +225,12 @@ describe("ProductDetail information architecture", () => {
   it("renders the return action first and all seven compact tab destinations in the required order", () => {
     render(<ProductDetail product={product} />);
     const tabs = screen.getByRole("navigation", { name: "Разделы товара" });
-    expect(tabs.textContent).toMatch(/^НАЗАДОбзорОписаниеХарактеристикиИнструкцииЦенообразованиеАналогиСопутствующие$/);
+    expect(tabs.textContent).toMatch(/^НАЗАДОбзорОписаниеХарактеристикиИнструкцииИстория розничной ценыАналогиСопутствующие$/);
     expect(screen.getByRole("link", { name: "Обзор" })).toHaveAttribute("href", expect.stringContaining("tab=overview"));
     expect(screen.getByRole("link", { name: "Описание" })).toHaveAttribute("href", expect.stringContaining("tab=description"));
     expect(screen.getByRole("link", { name: "Характеристики" })).toHaveAttribute("href", expect.stringContaining("tab=characteristics"));
     expect(screen.getByRole("link", { name: "Инструкции" })).toHaveAttribute("href", expect.stringContaining("tab=datasheet"));
-    expect(screen.getByRole("link", { name: "Ценообразование" })).toHaveAttribute("href", expect.stringContaining("tab=pricing"));
+    expect(screen.getByRole("link", { name: "История розничной цены" })).toHaveAttribute("href", expect.stringContaining("tab=pricing"));
     expect(screen.getByRole("link", { name: "Аналоги" })).toHaveAttribute("href", expect.stringContaining("tab=analogs"));
     expect(screen.getByRole("link", { name: "Сопутствующие" })).toHaveAttribute("href", expect.stringContaining("tab=related"));
   });

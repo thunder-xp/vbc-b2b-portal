@@ -12,18 +12,20 @@ const data: PartnerProductCompetitiveIntelligence = {
   canManage: true,
   windowDays: 30,
   competitors: [{ id: "11111111-1111-4111-8111-111111111111", name: "Exterior" }],
-  summary: { observationCount: 1, latestDate: "2026-08-24", latestCompetitorPrice: 2450, latestCurrency: "MDL", latestNovotechPrice: 2520, latestNovotechCurrency: "MDL", latestDeltaAmount: 70, latestDeltaPercent: 2.8571 },
-  observations: [{ id: "o1", date: "2026-08-24", competitorName: "Exterior", price: 2450, currency: "MDL", vatMode: "not_specified", quantity: 1, quantityCohort: "single", sourceType: "quotation", confidence: "medium", possibleOutlier: false, novotechPrice: 2520, novotechCurrency: "MDL", comparisonBasis: "partner_price", comparisonStatus: "comparable", deltaAmount: 70, deltaPercent: 2.8571, hasEvidence: false, evidenceId: null, supersedesObservationId: null, isSuperseded: false, createdAt: "2026-08-24T10:00:00Z" }],
+  summary: { observationCount: 1, latestDate: "2026-08-24", latestCompetitorPrice: 58, latestCurrency: "USD", latestNovotechPrice: 49.06, latestNovotechCurrency: "USD", latestDeltaAmount: 8.94, latestDeltaPercent: 15.4138 },
+  observations: [{ id: "o1", date: "2026-08-24", competitorName: "Exterior", price: 58, currency: "USD", vatMode: "included", quantity: 1, quantityCohort: "single", sourceType: "quotation", confidence: "medium", possibleOutlier: false, novotechPrice: 49.06, novotechCurrency: "USD", comparisonBasis: "partner_price", comparisonStatus: "comparable", deltaAmount: 8.94, deltaPercent: 15.4138, hasEvidence: false, evidenceId: null, supersedesObservationId: null, isSuperseded: false, createdAt: "2026-08-24T10:00:00Z" }],
 };
 
 describe("partner competitive intelligence UI", () => {
   it("renders only the supplied company history and immediate comparison", () => {
     render(<ProductCompetitiveIntelligence data={data} locale="ru" productId="22222222-2222-4222-8222-222222222222" />);
     expect(screen.getAllByText("Exterior")).toHaveLength(2);
-    expect(screen.getAllByText(/2[\s ]?450 MDL/).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/70 MDL/)).toHaveLength(2);
+    expect(screen.getAllByText("58 USD").length).toBeGreaterThan(0);
+    expect(screen.getByLabelText("Последнее сравнение")).toHaveTextContent("+8,94 USD · +15,41%");
+    expect(screen.getByRole("table")).toHaveTextContent("+8,94 USD+15,41%");
     expect(screen.getByRole("button", { name: "Сохранить цену" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Конкурентные цены" })).toHaveClass("text-xl");
+    expect(screen.queryByRole("heading", { name: "Конкурентные цены" })).not.toBeInTheDocument();
+    expect(screen.getByTestId("product-competitive-intelligence")).toHaveAccessibleName("Конкурентные цены");
     expect(screen.getByText(/Сохраняйте цены конкурентов по каждой модели/)).not.toHaveClass("max-w-3xl");
   });
 
@@ -49,7 +51,7 @@ describe("partner competitive intelligence UI", () => {
   it("keeps historical observations with legacy VAT modes readable", () => {
     render(<ProductCompetitiveIntelligence data={data} locale="ru" productId="22222222-2222-4222-8222-222222222222" />);
     expect(screen.getByRole("table")).toHaveTextContent("Exterior");
-    expect(screen.getByRole("table")).toHaveTextContent("2 450 MDL");
+    expect(screen.getByRole("table")).toHaveTextContent("58 USD");
   });
 
   it("renders a concise empty state and hides mutation controls for read-only access", () => {

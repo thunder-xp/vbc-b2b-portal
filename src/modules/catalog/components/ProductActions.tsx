@@ -29,7 +29,7 @@ export function ProductActions({
       aria-label={copy.productActions}
       className="mt-3 flex flex-wrap items-end gap-2"
     >
-      {canAddToOrder ? <AddToCartButton productId={productId} /> : null}
+      {canAddToOrder ? <AddToCartButton productId={productId} showQuantityLabel={false} /> : null}
       <div
         aria-label={copy.additionalActions}
         className="flex min-h-11 flex-wrap items-center gap-2"

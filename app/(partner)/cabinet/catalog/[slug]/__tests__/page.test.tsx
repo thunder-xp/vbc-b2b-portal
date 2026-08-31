@@ -37,7 +37,7 @@ vi.mock("@/src/modules/catalog/components/ProductImageGallery", () => ({ Product
 vi.mock("@/src/modules/orders/components/AddToCartButton", () => ({ AddToCartButton: () => <button type="button">В корзину</button> }));
 vi.mock("@/src/modules/catalog/components/ProductActions", () => ({ ProductActions: () => <button type="button">В корзину</button> }));
 vi.mock("@/src/modules/catalog/components/ExpandableDescription", () => ({ ExpandableDescription: ({ text }: { text: string }) => <p>{text}</p> }));
-vi.mock("@/src/modules/competitive-intelligence", () => ({ CompetitiveIntelligenceRepository: class { getPartnerProduct = mocks.getCompetitive; } }));
+vi.mock("@/src/modules/competitive-intelligence", () => ({ PartnerProductCompetitiveIntelligenceService: class { getPartnerProduct = mocks.getCompetitive; } }));
 vi.mock("@/src/modules/competitive-intelligence/components", () => ({ ProductCompetitiveIntelligence: () => <div>Own competitive observations</div> }));
 vi.mock("@/src/modules/competitive-intelligence/retail-pricing.service", () => ({ CompetitorRetailPricingService: class { getProductPricing = mocks.getCompetitorPricing; } }));
 

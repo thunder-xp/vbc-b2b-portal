@@ -28,6 +28,8 @@ describe("CatalogQuickLinks", () => {
     for (const label of ["ВИДЕО", "СКУД", "ОПС", "ЗВУК", "СЕТЬ", "ДОМОФОН", "IT", "МАТЕРИАЛЫ", "ПИТАНИЕ"]) {
       expect(screen.getByRole("link", { name: label })).toBeInTheDocument();
     }
+    expect(screen.getByTestId("catalog-quick-links")).toHaveClass("overflow-x-auto");
+    expect(screen.getByRole("link", { name: "ВИДЕО" })).toHaveClass("h-9", "px-3", "text-xs");
   });
 
   it("resolves multi-group shortcuts deterministically and excludes lookalike categories", () => {

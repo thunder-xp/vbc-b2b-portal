@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { ProductActions } from "../ProductActions";
 
 vi.mock("../../../orders/components/AddToCartButton", () => ({
-  AddToCartButton: () => <button type="button">Добавить в корзину</button>,
+  AddToCartButton: ({ showQuantityLabel }: { showQuantityLabel?: boolean }) => <button data-show-quantity-label={String(showQuantityLabel)} type="button">Добавить в корзину</button>,
 }));
 vi.mock("../../../purchasing-lists/components/FavoriteProductButton", () => ({
   FavoriteProductButton: ({ compact }: { compact?: boolean }) => <button data-compact={compact} type="button">Избранное</button>,
@@ -23,6 +23,7 @@ describe("ProductActions layout", () => {
     expect(screen.getByLabelText("Действия с товаром")).toHaveClass("flex", "flex-wrap", "items-end");
     expect(screen.getByLabelText("Дополнительные действия")).toHaveClass("min-h-11", "items-center");
     expect(screen.getByRole("button", { name: "Добавить в корзину" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Добавить в корзину" })).toHaveAttribute("data-show-quantity-label", "false");
     expect(screen.getByRole("button", { name: "Избранное" })).toHaveAttribute("data-compact", "true");
     expect(screen.getByRole("button", { name: "В смету" })).toHaveAttribute("data-compact", "true");
     expect(screen.getByRole("button", { name: "В сравнение" })).toHaveAttribute("data-compact", "true");

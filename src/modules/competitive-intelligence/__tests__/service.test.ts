@@ -8,6 +8,7 @@ import {
   STRONG_RECOMMENDATION_MIN_COMPANIES,
   STRONG_RECOMMENDATION_MIN_OBSERVATIONS,
 } from "../service";
+import { compareHistoricalPartnerPrices, projectPartnerProductCompetitiveIntelligence } from "../partner-product-comparison";
 
 describe("competitive intelligence rules", () => {
   it("normalizes governed competitor aliases without fuzzy identity guessing", () => {
@@ -58,6 +59,46 @@ describe("competitive intelligence rules", () => {
     const [unsupported] = buildProductCompetitorPricing(read({ retailPrice: 100, retailCurrency: "EUR", ownPrice: 1590 }), commercial(836));
     expect(unsupported.retailDiscountAmount).toBeNull();
     expect(unsupported.retailDiscountPercent).toBeNull();
+  });
+
+  it("calculates the historical Novotech benefit from immutable same-currency snapshots", () => {
+    expect(compareHistoricalPartnerPrices({
+      competitorPrice: 58,
+      competitorCurrency: "USD",
+      novotechPrice: 49.06,
+      novotechCurrency: "USD",
+    })).toEqual({ status: "comparable", deltaAmount: 8.94, deltaPercent: 15.4138 });
+  });
+
+  it("keeps an unfavorable historical comparison negative", () => {
+    expect(compareHistoricalPartnerPrices({
+      competitorPrice: 49.06,
+      competitorCurrency: "USD",
+      novotechPrice: 58,
+      novotechCurrency: "USD",
+    })).toEqual({ status: "comparable", deltaAmount: -8.94, deltaPercent: -18.2226 });
+  });
+
+  it("fails closed for currency mismatch or missing historical snapshots", () => {
+    expect(compareHistoricalPartnerPrices({ competitorPrice: 58, competitorCurrency: "USD", novotechPrice: 900, novotechCurrency: "MDL" }))
+      .toEqual({ status: "currency_mismatch", deltaAmount: null, deltaPercent: null });
+    expect(compareHistoricalPartnerPrices({ competitorPrice: 58, competitorCurrency: "USD", novotechPrice: null, novotechCurrency: null }))
+      .toEqual({ status: "price_unavailable", deltaAmount: null, deltaPercent: null });
+  });
+
+  it("repairs the legacy empty-delta read projection without mutating snapshot prices", () => {
+    const read = {
+      canManage: true,
+      windowDays: 30 as const,
+      competitors: [],
+      summary: { observationCount: 1, latestDate: "2026-08-31", latestCompetitorPrice: 58, latestCurrency: "USD", latestNovotechPrice: 49.06, latestNovotechCurrency: "USD", latestDeltaAmount: null, latestDeltaPercent: null },
+      observations: [{ id: "observation-1", date: "2026-08-31", competitorName: "Exterior", price: 58, currency: "USD", vatMode: "included" as const, quantity: 1, quantityCohort: "single" as const, sourceType: "verbal" as const, confidence: "low" as const, possibleOutlier: false, novotechPrice: 49.06, novotechCurrency: "USD", comparisonBasis: "partner_price" as const, comparisonStatus: "vat_not_comparable" as const, deltaAmount: null, deltaPercent: null, hasEvidence: false, evidenceId: null, supersedesObservationId: null, isSuperseded: false, createdAt: "2026-08-31T10:00:00Z" }],
+    };
+
+    const projected = projectPartnerProductCompetitiveIntelligence(read);
+    expect(projected.summary).toMatchObject({ latestDeltaAmount: 8.94, latestDeltaPercent: 15.4138 });
+    expect(projected.observations[0]).toMatchObject({ price: 58, novotechPrice: 49.06, comparisonStatus: "comparable", deltaAmount: 8.94, deltaPercent: 15.4138 });
+    expect(read.observations[0]).toMatchObject({ comparisonStatus: "vat_not_comparable", deltaAmount: null, deltaPercent: null });
   });
 });
 
