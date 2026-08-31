@@ -44,8 +44,17 @@ describe("historical migration replay", () => {
   });
 
   it("retains tracked DDL needed by later nomenclature and CCTV migrations", () => {
-    expect(migration("20260809190000_partner_external_nomenclature_library.sql")).toContain(
+    const nomenclatureLibrary = migration("20260809190000_partner_external_nomenclature_library.sql");
+
+    expect(nomenclatureLibrary).toContain(
       "create table public.partner_external_nomenclature_library",
+    );
+    expect(nomenclatureLibrary).toContain(
+      "create table public.partner_external_nomenclature_events",
+    );
+    expect(nomenclatureLibrary).not.toMatch(/^-- Applied from tracked migration[^\n]*;\s*$/);
+    expect(migration("20260810100000_external_nomenclature_governance.sql")).toContain(
+      "alter table public.partner_external_nomenclature_library",
     );
     expect(migration("20260814091424_decouple_cctv_service_tariffs_from_legacy_b2b.sql")).toContain(
       "lower(service.name) = lower(definition.label_ru)",
