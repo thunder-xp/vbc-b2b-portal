@@ -13,6 +13,7 @@ describe("parseCatalogRouteState", () => {
   for (const [label, params] of Object.entries({
     search: { search: "camera" },
     category: { category: "category-id" },
+    "category set": { categorySet: "security" },
     brand: { brand: "brand-id" },
     availability: { availability: "in_stock" },
     label: { label: "TOP" },
@@ -58,6 +59,7 @@ describe("parseCatalogRouteState", () => {
       brandId: undefined,
       collection: undefined,
       categoryId: "category-id",
+      categorySet: undefined,
       explicitAll: false,
       merchandisingLabel: undefined,
       mode: "discovery",
@@ -65,6 +67,12 @@ describe("parseCatalogRouteState", () => {
       search: "dome",
       sort: "default",
     });
+  });
+
+  it("accepts only canonical category-set codes and gives a direct category precedence", () => {
+    expect(parseCatalogRouteState({ categorySet: "network" })).toMatchObject({ categorySet: "network", mode: "discovery" });
+    expect(parseCatalogRouteState({ categorySet: "unknown" }).categorySet).toBeUndefined();
+    expect(parseCatalogRouteState({ category: "category-id", categorySet: "network" })).toMatchObject({ categoryId: "category-id", categorySet: undefined });
   });
 
   it("treats replenishment as a first-class collection and ignores a conflicting label", () => {

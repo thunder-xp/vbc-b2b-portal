@@ -3,6 +3,7 @@ import type { CatalogCollection } from "../types";
 import type { CatalogAvailability } from "../components/CatalogFilters";
 import { parseCatalogAttributeFilters } from "./catalog-sort-state";
 import { parseCatalogSort, type CatalogSort } from "./catalog-sorting";
+import { parseCatalogQuickLinkCode, type CatalogQuickLinkCode } from "./catalog-quick-links";
 
 export type CatalogRouteMode = "curated" | "discovery";
 
@@ -12,6 +13,7 @@ export type CatalogRouteState = {
   brandId?: string;
   collection?: CatalogCollection;
   categoryId?: string;
+  categorySet?: CatalogQuickLinkCode;
   explicitAll: boolean;
   merchandisingLabel?: MerchandisingLabelCode;
   mode: CatalogRouteMode;
@@ -24,6 +26,7 @@ type CatalogSearchParams = Record<string, string | string[] | undefined> | undef
 
 export function parseCatalogRouteState(params: CatalogSearchParams): CatalogRouteState {
   const categoryId = parseIdentifier(single(params?.category));
+  const categorySet = categoryId ? undefined : parseCatalogQuickLinkCode(single(params?.categorySet));
   const brandId = parseIdentifier(single(params?.brand));
   const search = parseSearch(single(params?.search));
   const availability = parseAvailability(single(params?.availability));
@@ -35,6 +38,7 @@ export function parseCatalogRouteState(params: CatalogSearchParams): CatalogRout
   const hasDiscoveryConstraint = Boolean(
     explicitAll
       || categoryId
+      || categorySet
       || brandId
       || collection
       || search
@@ -50,6 +54,7 @@ export function parseCatalogRouteState(params: CatalogSearchParams): CatalogRout
     brandId,
     collection,
     categoryId,
+    categorySet,
     explicitAll,
     merchandisingLabel,
     mode: hasDiscoveryConstraint ? "discovery" : "curated",

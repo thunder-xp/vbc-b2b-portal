@@ -8,9 +8,10 @@ import { catalogFacetQueryFields } from "../services/catalog-facet-state";
 import { CatalogTechnicalFacetGroups } from "./CatalogTechnicalFacetGroups";
 import type { CatalogCollection } from "../types";
 import { getCatalogCopy, type PartnerLocale } from "../../partner-locale";
+import type { CatalogQuickLinkCode } from "../services";
 
 export type CatalogAvailability = "all" | "in_stock" | "expected";
-type Props = { availability?: CatalogAvailability; facets?: CatalogFacetDto[]; attributeFilters?: Record<string, string[]>; brandId?: string; categoryId?: string; collection?: CatalogCollection; explicitAll?: boolean; locale?: PartnerLocale; merchandisingLabel?: MerchandisingLabelCode; search?: string; sort?: string };
+type Props = { availability?: CatalogAvailability; facets?: CatalogFacetDto[]; attributeFilters?: Record<string, string[]>; brandId?: string; categoryId?: string; categorySet?: CatalogQuickLinkCode; collection?: CatalogCollection; explicitAll?: boolean; locale?: PartnerLocale; merchandisingLabel?: MerchandisingLabelCode; search?: string; sort?: string };
 export function CatalogFilters(props: Props) {
   const copy = getCatalogCopy(props.locale ?? "ru");
   const attributeFilters = props.attributeFilters ?? {};
@@ -36,9 +37,9 @@ export function CatalogFilters(props: Props) {
   </CatalogFilterPanel>;
   return <CatalogFilterShell selectedCount={selectedCount}>{content}</CatalogFilterShell>;
 }
-function persistentParams(props: Props) { return { brand: props.brandId, category: props.categoryId, collection: props.collection, label: props.merchandisingLabel, search: props.search, sort: props.sort && props.sort !== "default" ? props.sort : undefined, view: props.explicitAll ? "all" : undefined }; }
+function persistentParams(props: Props) { return { brand: props.brandId, category: props.categoryId, categorySet: props.categorySet, collection: props.collection, label: props.merchandisingLabel, search: props.search, sort: props.sort && props.sort !== "default" ? props.sort : undefined, view: props.explicitAll ? "all" : undefined }; }
 function baseParams(props: Props) { return { ...persistentParams(props), availability: props.availability && props.availability !== "all" ? props.availability : undefined }; }
-function selectionBaseParams(props: Props) { return { brand: props.brandId, category: props.categoryId, search: props.search, sort: props.sort && props.sort !== "default" ? props.sort : undefined, view: props.explicitAll ? "all" : undefined, availability: props.availability && props.availability !== "all" ? props.availability : undefined }; }
-function clearParams(props: Props) { return { brand: props.brandId, category: props.categoryId, search: props.search, sort: props.sort && props.sort !== "default" ? props.sort : undefined, view: props.explicitAll ? "all" : undefined }; }
+function selectionBaseParams(props: Props) { return { brand: props.brandId, category: props.categoryId, categorySet: props.categorySet, search: props.search, sort: props.sort && props.sort !== "default" ? props.sort : undefined, view: props.explicitAll ? "all" : undefined, availability: props.availability && props.availability !== "all" ? props.availability : undefined }; }
+function clearParams(props: Props) { return { brand: props.brandId, category: props.categoryId, categorySet: props.categorySet, search: props.search, sort: props.sort && props.sort !== "default" ? props.sort : undefined, view: props.explicitAll ? "all" : undefined }; }
 const attributeParams = catalogFacetQueryFields;
 export function catalogHref(values: Record<string, string | undefined>) { const params = new URLSearchParams(); Object.entries(values).forEach(([key, value]) => { if (value) params.set(key, value); }); const query = params.toString(); return query ? `/cabinet/catalog?${query}` : "/cabinet/catalog"; }

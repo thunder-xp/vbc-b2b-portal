@@ -1,6 +1,7 @@
 import type { CatalogSort } from "./catalog-sorting";
 import type { MerchandisingLabelCode } from "../../merchandising/types";
 import type { CatalogCollection } from "../types";
+import type { CatalogQuickLinkCode } from "./catalog-quick-links";
 
 export type CatalogSortHiddenField = { name: string; value: string };
 
@@ -19,6 +20,7 @@ export function parseCatalogAttributeFilters(params: Record<string, string | str
 
 export function buildCatalogSortHiddenFields(input: {
   categoryId?: string;
+  categorySet?: CatalogQuickLinkCode;
   brandId?: string;
   collection?: CatalogCollection;
   explicitAll?: boolean;
@@ -30,6 +32,7 @@ export function buildCatalogSortHiddenFields(input: {
   const fields: CatalogSortHiddenField[] = [];
   addTextField(fields, "brand", input.brandId);
   addTextField(fields, "category", input.categoryId);
+  addTextField(fields, "categorySet", input.categorySet);
   addTextField(fields, "collection", input.collection);
   addTextField(fields, "search", input.search);
   addTextField(fields, "label", input.merchandisingLabel);
@@ -47,6 +50,7 @@ export function buildCatalogSortHiddenFields(input: {
 
 export function buildCatalogHref(input: {
   categoryId?: string;
+  categorySet?: CatalogQuickLinkCode;
   brandId?: string;
   collection?: CatalogCollection;
   explicitAll?: boolean;
@@ -60,6 +64,7 @@ export function buildCatalogHref(input: {
   const searchParams = new URLSearchParams();
   for (const field of buildCatalogSortHiddenFields({
     categoryId: input.categoryId,
+    categorySet: input.categorySet,
     brandId: input.brandId,
     collection: input.collection,
     explicitAll: input.explicitAll,

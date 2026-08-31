@@ -35,6 +35,13 @@ export {
 } from "./catalog-sorting";
 export { CATALOG_VIEW_COOKIE, parseCatalogViewMode, type CatalogViewMode } from "./catalog-view-preference";
 export {
+  CATALOG_QUICK_LINK_CODES,
+  parseCatalogQuickLinkCode,
+  resolveCatalogQuickLinks,
+  type CatalogQuickLink,
+  type CatalogQuickLinkCode,
+} from "./catalog-quick-links";
+export {
   parseCatalogRouteState,
   type CatalogRouteMode,
   type CatalogRouteState,

@@ -18,6 +18,7 @@ import type {
 import { DefaultCatalogService } from "../services";
 import {
   normalizeCatalogAvailability,
+  normalizeCatalogCategoryIds,
   normalizeCatalogCollection,
   normalizeCatalogFilters,
   normalizeMerchandisingLabel,
@@ -34,6 +35,7 @@ export async function listCatalogProductsAction(
     const pricingInventoryService = createPricingInventoryService();
     const products = await measurePerformanceStage("catalog", "catalog_results", () => createCatalogService(pricingInventoryService).listProducts(userId, {
       categoryId: normalizeCatalogOptionalText(input.categoryId),
+      categoryIds: normalizeCatalogCategoryIds(input.categoryIds),
       brandId: normalizeCatalogOptionalText(input.brandId),
       search: normalizeCatalogOptionalText(input.search),
       page: input.page,

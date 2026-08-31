@@ -4,7 +4,7 @@ import type { ProductCardCapabilityModel } from "../../partner-cabinet/services"
 import type { ProductCommercialViewDto } from "../../pricing-inventory";
 import type { MerchandisingLabelCode } from "../../merchandising/types";
 import { FavoriteProductButton } from "../../purchasing-lists/components/FavoriteProductButton";
-import type { CatalogProductCardDto } from "../services";
+import type { CatalogProductCardDto, CatalogQuickLinkCode } from "../services";
 import { getCatalogCharacteristicFilterTarget } from "../services/catalog-characteristic-filter";
 import { updateCatalogFacetSelection } from "../services/catalog-facet-state";
 import { buildCatalogHref } from "../services/catalog-sort-state";
@@ -26,6 +26,7 @@ export type ProductListCatalogState = {
   availability: "all" | "in_stock" | "expected";
   brandId?: string;
   categoryId?: string;
+  categorySet?: CatalogQuickLinkCode;
   collection?: CatalogCollection;
   explicitAll: boolean;
   merchandisingLabel?: MerchandisingLabelCode;

@@ -38,3 +38,9 @@ export function normalizeCatalogOptionalText(value: string | undefined): string 
   const normalized = value?.trim();
   return normalized || undefined;
 }
+
+export function normalizeCatalogCategoryIds(values: string[] | undefined): string[] | undefined {
+  if (!values) return undefined;
+  const normalized = [...new Set(values.filter((value) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)))].slice(0, 3);
+  return normalized.length ? normalized : undefined;
+}

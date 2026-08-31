@@ -15,6 +15,7 @@ type Props = {
   companyId?: string | null;
   userId?: string | null;
   locale?: PartnerLocale;
+  type?: "analog" | "related";
 };
 
 export function ProductRelationSectionsView({
@@ -26,9 +27,11 @@ export function ProductRelationSectionsView({
   sourceStock,
   userId,
   locale = "ru",
+  type,
 }: Props) {
   const copy = getCatalogCopy(locale);
-  if (!sections.analogs.length && !sections.related.length) {
+  const visibleCards = type === "analog" ? sections.analogs : type === "related" ? sections.related : null;
+  if (visibleCards ? !visibleCards.length : !sections.analogs.length && !sections.related.length) {
     return (
       <section aria-label={copy.relations} className="rounded-md border border-zinc-200 bg-zinc-50 p-6 text-center" data-testid="product-relations-empty-state">
         <p className="text-sm text-zinc-600">{copy.relationsEmpty}</p>
@@ -38,7 +41,7 @@ export function ProductRelationSectionsView({
   const promotion = relationPromotionMessage(sourceStock?.status, sections.analogs.length, locale);
   return (
     <div className="space-y-8" data-testid="product-relations-tab-content">
-      {sections.analogs.length ? (
+      {(!type || type === "analog") && sections.analogs.length ? (
         <RelationSection
           cards={sections.analogs}
           capabilities={capabilities}
@@ -47,12 +50,13 @@ export function ProductRelationSectionsView({
           sourceProductId={sourceProductId}
           sourceSlug={sourceSlug}
           locale={locale}
+          hideTitle={Boolean(type)}
           title={copy.analogProducts}
           type="analog"
           userId={userId}
         />
       ) : null}
-      {sections.related.length ? (
+      {(!type || type === "related") && sections.related.length ? (
         <RelationSection
           cards={sections.related}
           capabilities={capabilities}
@@ -60,6 +64,7 @@ export function ProductRelationSectionsView({
           sourceProductId={sourceProductId}
           sourceSlug={sourceSlug}
           locale={locale}
+          hideTitle={Boolean(type)}
           title={copy.relatedProducts}
           type="related"
           userId={userId}
@@ -91,6 +96,7 @@ function RelationSection({
   cards,
   companyId,
   description,
+  hideTitle = false,
   sourceProductId,
   sourceSlug,
   title,
@@ -102,6 +108,7 @@ function RelationSection({
   cards: ProductRelationCard[];
   companyId?: string | null;
   description?: string | null;
+  hideTitle?: boolean;
   sourceProductId: string;
   sourceSlug: string;
   title: string;
@@ -111,11 +118,11 @@ function RelationSection({
 }) {
   const surface = type === "analog" ? "product_analog" : "product_related";
   return (
-    <section aria-labelledby={`${type}-products-heading`}>
-      <div className="mb-4">
-        <h2 className="text-xl font-semibold text-zinc-950" id={`${type}-products-heading`}>{title}</h2>
+    <section aria-label={hideTitle ? title : undefined} aria-labelledby={hideTitle ? undefined : `${type}-products-heading`}>
+      {!hideTitle || description ? <div className="mb-4">
+        {!hideTitle ? <h2 className="text-xl font-semibold text-zinc-950" id={`${type}-products-heading`}>{title}</h2> : null}
         {description ? <p className="mt-2 border-l-4 border-amber-500 bg-amber-50 p-3 text-sm text-amber-950">{description}</p> : null}
-      </div>
+      </div> : null}
       <BehaviorViewEvent
         dedupeKey={`relations:${type}:${sourceProductId}`}
         eventName={type === "analog" ? "product_analog_section_viewed" : "product_related_section_viewed"}

@@ -4,7 +4,7 @@ import { Search } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
-import type { CatalogSearchSuggestionDto, CatalogSort } from "../services";
+import type { CatalogQuickLinkCode, CatalogSearchSuggestionDto, CatalogSort } from "../services";
 import { ProductThumbnail } from "./ProductThumbnail";
 import type { MerchandisingLabelCode } from "../../merchandising/types";
 import type { CatalogCollection } from "../types";
@@ -14,7 +14,7 @@ type SearchResponse =
   | { success: true; data: CatalogSearchSuggestionDto[] }
   | { success: false };
 
-export function CatalogSearch({ categoryId, collection, explicitAll, initialSearch, merchandisingLabel, sort = "default" }: { categoryId?: string; collection?: CatalogCollection; explicitAll?: boolean; initialSearch?: string; merchandisingLabel?: MerchandisingLabelCode; sort?: CatalogSort }) {
+export function CatalogSearch({ categoryId, categorySet, collection, explicitAll, initialSearch, merchandisingLabel, sort = "default" }: { categoryId?: string; categorySet?: CatalogQuickLinkCode; collection?: CatalogCollection; explicitAll?: boolean; initialSearch?: string; merchandisingLabel?: MerchandisingLabelCode; sort?: CatalogSort }) {
   const copy = getCatalogCopy(usePartnerLocale());
   const [query, setQuery] = useState(initialSearch ?? "");
   const [results, setResults] = useState<CatalogSearchSuggestionDto[]>([]);
@@ -62,6 +62,7 @@ export function CatalogSearch({ categoryId, collection, explicitAll, initialSear
   return <div className="relative min-w-0 flex-1">
     <form action="/cabinet/catalog" className="relative">
       {categoryId && <input name="category" type="hidden" value={categoryId} />}
+      {categorySet && <input name="categorySet" type="hidden" value={categorySet} />}
       {collection && <input name="collection" type="hidden" value={collection} />}
       {explicitAll && <input name="view" type="hidden" value="all" />}
       {merchandisingLabel && <input name="label" type="hidden" value={merchandisingLabel} />}

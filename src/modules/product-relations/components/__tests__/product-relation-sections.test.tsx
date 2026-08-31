@@ -28,6 +28,17 @@ describe("ProductRelationSectionsView", () => {
     expect(text.indexOf("Product analog")).toBeLessThan(text.indexOf("Product related"));
   });
 
+  it("projects analogs and related products into separate tab content without another read", () => {
+    const sections = { analogs: [card("analog")], related: [card("related")], synchronizedAt: null };
+    const { rerender } = render(<ProductRelationSectionsView capabilities={capabilities} sections={sections} sourceProductId="source" sourceSlug="source" type="analog" />);
+    expect(screen.getByText("Product analog")).toBeInTheDocument();
+    expect(screen.queryByText("Product related")).not.toBeInTheDocument();
+
+    rerender(<ProductRelationSectionsView capabilities={capabilities} sections={sections} sourceProductId="source" sourceSlug="source" type="related" />);
+    expect(screen.queryByText("Product analog")).not.toBeInTheDocument();
+    expect(screen.getByText("Product related")).toBeInTheDocument();
+  });
+
   it("promotes analogs only for canonical constrained stock states", () => {
     expect(relationPromotionMessage("low_stock", 2)).toContain("заканчивается");
     expect(relationPromotionMessage("out_of_stock", 2)).toContain("временно недоступен");

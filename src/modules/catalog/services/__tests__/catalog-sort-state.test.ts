@@ -25,6 +25,14 @@ describe("buildCatalogSortHiddenFields", () => {
     ]);
   });
 
+  it("preserves an allowlisted category set through sorting and pagination", () => {
+    expect(buildCatalogSortHiddenFields({ categorySet: "security", search: "detector", attributeFilters: {} })).toEqual([
+      { name: "categorySet", value: "security" },
+      { name: "search", value: "detector" },
+    ]);
+    expect(buildCatalogHref({ categorySet: "security", page: 2, sort: "price_desc" })).toBe("/cabinet/catalog?categorySet=security&sort=price_desc&page=2");
+  });
+
   it("preserves multiple groups and deduplicates values", () => {
     expect(buildCatalogSortHiddenFields({ attributeFilters: { [keyB]: ["Да"], [keyA]: ["4 MP", "4 MP", "8 MP"] } })).toEqual([
       { name: `attr.${keyA}`, value: "4 MP,8 MP" }, { name: `attr.${keyB}`, value: "Да" },

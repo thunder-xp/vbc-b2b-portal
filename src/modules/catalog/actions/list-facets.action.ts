@@ -14,6 +14,7 @@ import type { CatalogFacetDto, CatalogFacetListInput } from "../services";
 import { DefaultCatalogService } from "../services";
 import {
   normalizeCatalogAvailability,
+  normalizeCatalogCategoryIds,
   normalizeCatalogCollection,
   normalizeCatalogFilters,
   normalizeMerchandisingLabel,
@@ -31,6 +32,7 @@ export async function listCatalogFacetsAction(
       createCompanyAccessService(),
     ).listFacets(userId, {
       categoryId: normalizeCatalogOptionalText(input.categoryId),
+      categoryIds: normalizeCatalogCategoryIds(input.categoryIds),
       brandId: normalizeCatalogOptionalText(input.brandId),
       search: normalizeCatalogOptionalText(input.search),
       availability: normalizeCatalogAvailability(input.availability),

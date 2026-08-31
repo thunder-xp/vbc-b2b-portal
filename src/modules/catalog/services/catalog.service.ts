@@ -28,6 +28,7 @@ import {
 
 export type CatalogCategoryDto = {
   id: string;
+  external1cId?: string | null;
   parentId: string | null;
   name: string;
   slug: string;
@@ -44,6 +45,7 @@ export type CatalogBrandDto = {
 
 export type CatalogProductListInput = {
   categoryId?: string;
+  categoryIds?: string[];
   brandId?: string;
   search?: string;
   page?: number;
@@ -58,7 +60,7 @@ export type CatalogProductListInput = {
 
 export type CatalogFacetListInput = Pick<
   CatalogProductListInput,
-  "categoryId" | "brandId" | "search" | "attributeFilters" | "availability" | "collection" | "merchandisingLabel"
+  "categoryId" | "categoryIds" | "brandId" | "search" | "attributeFilters" | "availability" | "collection" | "merchandisingLabel"
 >;
 
 export type CatalogFacetDto = { key: string; label: string; values: Array<{ value: string; count: number; selected: boolean }> };
@@ -414,6 +416,7 @@ export class DefaultCatalogService implements CatalogService, ProductReferenceSe
       () => this.catalogRepository.listPartnerFacets?.({
         companyId,
         categoryId: input.categoryId,
+        categoryIds: input.categoryIds,
         brandId: input.brandId,
         search: input.search,
         availability: input.availability ?? "all",
@@ -441,6 +444,7 @@ export class DefaultCatalogService implements CatalogService, ProductReferenceSe
       () => this.catalogRepository.listPartnerPage!({
         companyId,
         categoryId: input.categoryId,
+        categoryIds: input.categoryIds,
         brandId: input.brandId,
         search: input.search,
         availability: input.availability ?? "all",
@@ -1004,6 +1008,7 @@ function normalizePageSize(pageSize: number | undefined): number {
 function toCategoryDto(category: CatalogCategory): CatalogCategoryDto {
   return {
     id: category.id,
+    external1cId: category.external1cId,
     parentId: category.parentId,
     name: category.name,
     slug: category.slug,

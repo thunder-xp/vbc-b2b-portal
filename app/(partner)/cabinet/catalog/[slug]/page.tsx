@@ -71,7 +71,7 @@ export default async function ProductDetailPage({
   }
 
   const needsCommercialContext =
-    activeTab === "overview" || activeTab === "relations";
+    activeTab === "overview" || activeTab === "analogs" || activeTab === "related";
   const [
     productResult,
     commercialViewsResult,
@@ -94,7 +94,7 @@ export default async function ProductDetailPage({
     activeTab === "pricing"
       ? getRetailPriceHistoryAction(identityResult.data.id, "all")
       : Promise.resolve(null),
-    activeTab === "relations"
+    activeTab === "analogs" || activeTab === "related"
       ? getProductRelationSectionsAction(identityResult.data.id)
       : Promise.resolve(null),
     activeTab === "overview"
@@ -133,7 +133,7 @@ export default async function ProductDetailPage({
     workspaceResult.data.capabilities.canViewCompetitiveIntelligence,
   );
   const [favoriteResult, pricingResult] = await Promise.all([
-    activeTab !== "relations" && canManagePurchasingLists
+    activeTab !== "analogs" && activeTab !== "related" && canManagePurchasingLists
       ? listFavoriteProductIdsAction([product.id])
       : Promise.resolve(null),
     activeTab === "overview" && companyId && canViewCompetitiveIntelligence
@@ -207,7 +207,7 @@ export default async function ProductDetailPage({
             : false
         }
         relationsContent={
-          activeTab === "relations" &&
+          (activeTab === "analogs" || activeTab === "related") &&
           relationResult?.success &&
           workspaceResult?.success ? (
             <ProductRelationSectionsView
@@ -215,12 +215,13 @@ export default async function ProductDetailPage({
               companyId={companyId}
               locale={locale}
               sections={relationResult.data}
+              type={activeTab === "analogs" ? "analog" : "related"}
               sourceProductId={productResult.data.id}
               sourceSlug={productResult.data.slug}
               sourceStock={commercialView?.stock}
               userId={userId}
             />
-          ) : activeTab === "relations" ? (
+          ) : activeTab === "analogs" || activeTab === "related" ? (
             <p className="rounded-md border border-zinc-200 bg-zinc-50 p-6 text-sm text-zinc-600">
               {copy.relationsLoadError}
             </p>
@@ -279,8 +280,11 @@ function parseTab(value: string | string[] | undefined): ProductDetailTab {
     tab === "datasheet" ||
     tab === "pricing" ||
     tab === "analytics" ||
-    tab === "relations"
+    tab === "analogs" ||
+    tab === "related"
     ? tab
+    : tab === "relations"
+      ? "analogs"
     : "overview";
 }
 
@@ -305,7 +309,8 @@ function tabViewEvent(tab: ProductDetailTab) {
       return "product_datasheet_viewed" as const;
     case "pricing":
       return "product_pricing_tab_viewed" as const;
-    case "relations":
+    case "analogs":
+    case "related":
       return "product_relations_tab_viewed" as const;
     case "analytics":
       return null;

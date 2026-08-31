@@ -24,7 +24,8 @@ export type ProductDetailTab =
   | "datasheet"
   | "pricing"
   | "analytics"
-  | "relations";
+  | "analogs"
+  | "related";
 
 type ProductDetailProps = {
   activeTab?: ProductDetailTab;
@@ -78,23 +79,24 @@ export function ProductDetail({
     { id: "datasheet", label: copy.instructions },
     { id: "pricing", label: copy.pricing },
     ...(showAnalyticsTab ? [{ id: "analytics" as const, label: locale === "ro" ? "Analiză" : "Аналитика" }] : []),
-    { id: "relations", label: copy.relations },
+    { id: "analogs", label: copy.analogs },
+    { id: "related", label: copy.related },
   ];
   return (
     <article className="space-y-4">
-      <Link
-        className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-zinc-700 hover:text-emerald-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600"
-        href={catalogReturnTarget}
-        prefetch={false}
-      >
-        <ArrowLeft aria-hidden="true" className="size-4" />
-        {copy.returnToCatalog}
-      </Link>
       <nav
         aria-label={copy.productSections}
         className="overflow-x-auto border-b border-zinc-200"
       >
         <div className="flex min-w-max gap-6">
+          <Link
+            className="inline-flex min-h-11 items-center gap-2 border-b-2 border-transparent px-1 text-sm font-semibold text-zinc-700 hover:text-emerald-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600"
+            href={catalogReturnTarget}
+            prefetch={false}
+          >
+            <ArrowLeft aria-hidden="true" className="size-4" />
+            {copy.backTab}
+          </Link>
           {tabs.map((tab) => (
             <Link
               aria-current={activeTab === tab.id ? "page" : undefined}
@@ -108,7 +110,7 @@ export function ProductDetail({
           ))}
         </div>
       </nav>
-      {activeTab === "relations" ? (
+      {activeTab === "analogs" || activeTab === "related" ? (
         <div className="min-w-0" data-testid="product-detail-content">
           {relationsContent}
         </div>
@@ -233,7 +235,7 @@ function OverviewTab({
       <RelationPrompt
         hasAnalogs={hasAnalogs ?? false}
         locale={locale}
-        relationsHref={buildProductDetailTabHref("relations", returnTarget)}
+        relationsHref={buildProductDetailTabHref("analogs", returnTarget)}
         stock={commercialView?.stock}
       />
     </section>
@@ -294,10 +296,7 @@ function DescriptionTab({
       aria-label={copy.productDescription}
       data-testid="product-description-tab"
     >
-      <h2 className="text-xl font-semibold text-zinc-950">
-        {copy.productDescription}
-      </h2>
-      <div className="mt-4 border-y border-zinc-200 py-5">
+      <div className="border-y border-zinc-200 py-5">
         <ExpandableDescription text={description} />
       </div>
     </section>
@@ -376,11 +375,8 @@ function CharacteristicsTab({
   const copy = getCatalogCopy(locale);
   return (
     <section aria-label={copy.technicalCharacteristics}>
-      <h2 className="text-xl font-semibold text-zinc-950">
-        {copy.technicalCharacteristics}
-      </h2>
       {product.keyCharacteristics.length ? (
-        <dl className="mt-3 divide-y divide-zinc-100 border-y border-zinc-200">
+        <dl className="divide-y divide-zinc-100 border-y border-zinc-200">
           {product.keyCharacteristics.map((item) => (
             <div
               className="grid gap-1 py-3 text-sm sm:grid-cols-[minmax(10rem,0.7fr)_minmax(0,1.3fr)] sm:gap-5"
@@ -427,23 +423,18 @@ function DatasheetTab({
   const copy = getCatalogCopy(locale);
   return (
     <section aria-label={copy.productDocuments}>
-      <h2 className="text-xl font-semibold text-zinc-950">
-        {copy.instructions}
-      </h2>
       {product.documents.length ? (
-        <ul className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {product.documents.map((document) => (
             <li
               className="flex min-h-64 min-w-0 flex-col overflow-hidden rounded-md border border-zinc-200 bg-white text-sm"
               data-testid="document-preview-card"
               key={document.id}
             >
-              <div
-                aria-hidden="true"
-                className="flex min-h-44 flex-1 items-center justify-center bg-zinc-50"
-              >
-                <span className="flex h-28 w-24 items-center justify-center border border-zinc-300 bg-white text-zinc-400 shadow-sm">
-                  <FileText className="size-10" />
+              <div aria-hidden="true" className="flex min-h-40 flex-1 items-center justify-center bg-zinc-50 p-5">
+                <span className="relative flex h-28 w-24 flex-col items-center justify-center border border-zinc-300 bg-white text-zinc-400 shadow-sm">
+                  <FileText className="size-9" />
+                  <span className="absolute inset-x-2 bottom-3 border-t border-zinc-200 pt-1 text-center text-[10px] font-semibold tracking-[0.12em] text-zinc-500">DATASHEET</span>
                 </span>
               </div>
               <a

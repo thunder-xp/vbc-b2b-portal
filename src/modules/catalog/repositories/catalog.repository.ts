@@ -27,6 +27,7 @@ export type CatalogFacetValueRecord = { key: string; label: string; value: strin
 export type CatalogPartnerPageInput = {
   companyId: string;
   categoryId?: string;
+  categoryIds?: string[];
   brandId?: string;
   search?: string;
   availability: "all" | "in_stock" | "expected";
@@ -74,7 +75,7 @@ export type CatalogSearchSuggestion = {
 
 export type CatalogPartnerFacetInput = Pick<
   CatalogPartnerPageInput,
-  "companyId" | "categoryId" | "brandId" | "search" | "availability" | "attributeFilters" | "collection" | "merchandisingLabel"
+  "companyId" | "categoryId" | "categoryIds" | "brandId" | "search" | "availability" | "attributeFilters" | "collection" | "merchandisingLabel"
 >;
 
 export type CatalogProductDetailAggregate = {
