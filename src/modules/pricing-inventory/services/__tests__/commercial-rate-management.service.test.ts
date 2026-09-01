@@ -49,6 +49,22 @@ describe("CommercialRateManagementService", () => {
     expect(view.rates[1]?.verificationStatus).toBe("NOT_VERIFIED");
   });
 
+  it("derives current comparison from latest evidence and the active portal rate", async () => {
+    const staleMatch = verificationRow({
+      activePortalRate: 17.095,
+      observed1cRate: 17.095,
+      verificationStatus: "MATCHES_1C",
+    });
+    const repository = createRepository([
+      rate("partner-current", "partner_price_usd_to_mdl", 17.3504, true),
+    ], [staleMatch]);
+
+    const view = await new CommercialRateManagementService(repository, profiles(UserType.Admin)).getAdminView("admin-1");
+
+    expect(view.rates[0]?.latestVerification).toBe(staleMatch);
+    expect(view.rates[0]?.verificationStatus).toBe("DIFFERS_FROM_1C");
+  });
+
   it("keeps verify-only and publish-observed commands separate", async () => {
     const repository = createRepository();
     const service = new CommercialRateManagementService(repository, profiles(UserType.Admin));
@@ -126,12 +142,12 @@ function rate(id: string, purpose: CommercialRate["purpose"], value: number, isA
   return { id, purpose, rate: value, effectiveAt: "2026-07-18T00:00:00Z", publishedAt: "2026-07-18T09:00:00Z", publishedBy: "server-user", publisherName: "Manager", publisherEmail: null, sourceType: "manual_from_1c", sourceNote: "1C", evidenceComment: null, previousRateId, isActive };
 }
 
-function createRepository(history: CommercialRate[] = []) {
+function createRepository(history: CommercialRate[] = [], verifications: CommercialRateVerification[] = []) {
   const verification = verificationRow();
   return {
     canManageCommercialRates: vi.fn(async () => true),
     listCommercialRateHistory: vi.fn(async () => history),
-    listCommercialRateVerifications: vi.fn(async () => []),
+    listCommercialRateVerifications: vi.fn(async () => verifications),
     publishManualCommercialRate: vi.fn(async (value: PublishCommercialRateInput) => rate("new-rate", value.purpose, Number(value.rate), true)),
     saveManualCommercialRateVerification: vi.fn(async () => ({ verification, verificationOutcome: "saved" as const })),
     publishVerifiedCommercialRate: vi.fn(async () => ({ verification, verificationOutcome: "saved" as const, publicationOutcome: "published" as const })),
@@ -143,7 +159,7 @@ function createRepository(history: CommercialRate[] = []) {
 }
 
 function verificationInput(): VerifyCommercialRateInput { return { purpose: "partner_price_usd_to_mdl", observed1cRate: "17.7712", observed1cEffectiveDate: "2026-07-18", evidenceNote: "Проверено в 1С", verificationComment: null }; }
-function verificationRow(): CommercialRateVerification { return { id: "verification-1", purpose: "partner_price_usd_to_mdl", portalRateId: "rate-1", activePortalRate: 17.7712, activePortalEffectiveDate: "2026-07-18", observed1cRate: 17.7712, observed1cEffectiveDate: "2026-07-18", evidenceNote: "Проверено в 1С", verificationComment: null, verificationStatus: "VERIFIED_NO_CHANGE_REQUIRED", verifiedBy: "server-user", verifiedAt: "2026-07-18T10:00:00Z", verifierName: "Manager", verifierEmail: null }; }
+function verificationRow(overrides: Partial<CommercialRateVerification> = {}): CommercialRateVerification { return { id: "verification-1", purpose: "partner_price_usd_to_mdl", portalRateId: "rate-1", activePortalRate: 17.7712, activePortalEffectiveDate: "2026-07-18", observed1cRate: 17.7712, observed1cEffectiveDate: "2026-07-18", evidenceNote: "Проверено в 1С", verificationComment: null, verificationStatus: "VERIFIED_NO_CHANGE_REQUIRED", verifiedBy: "server-user", verifiedAt: "2026-07-18T10:00:00Z", verifierName: "Manager", verifierEmail: null, ...overrides }; }
 
 function profiles(userType: UserType): UserProfileService {
   return {

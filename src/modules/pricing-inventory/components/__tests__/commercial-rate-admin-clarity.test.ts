@@ -13,11 +13,14 @@ describe("commercial-rate manual verification", () => {
     for (const label of ["Не проверено", "Соответствует 1С", "Не соответствует 1С", "Проверено вручную, изменений не требуется"]) expect(panel).toContain(label);
   });
 
-  it("shows the comparison and exactly two explicit control actions", () => {
-    for (const label of ["Текущий курс портала", "Наблюдаемый курс 1С", "Разница", "Последняя проверка", "Проверил"]) expect(panel).toContain(label);
-    expect(panel).toContain("Проверить и сохранить контроль");
-    expect(panel).toContain("Опубликовать значение из 1С");
-    expect(panel.match(/type="submit"/g)).toHaveLength(2);
+  it("shows a prominent live comparison and one governed control action", () => {
+    for (const label of ["Портал", "Наблюдаемый курс 1С", "Разница", "Проверка 1С", "Проверил", "Статус"]) expect(panel).toContain(label);
+    expect(panel).toContain("Применить значение 1С");
+    expect(panel).toContain("Перепроверить данные");
+    expect(panel).not.toContain("Проверить и сохранить контроль");
+    expect(panel).not.toContain("Опубликовать значение из 1С");
+    expect(panel.match(/type="submit"/g)).toHaveLength(1);
+    expect(panel).toContain('name="intent" type="hidden" value="publish"');
   });
 
   it("keeps verification and publication histories separate", () => {
@@ -30,5 +33,6 @@ describe("commercial-rate manual verification", () => {
     expect(action).toContain('result.verificationOutcome !== "unchanged"');
     expect(action).toContain('result.publicationOutcome === "published"');
     expect(action).toContain("Новая версия не создана");
+    expect(action).toContain('revalidatePath("/admin/commercial/rates")');
   });
 });

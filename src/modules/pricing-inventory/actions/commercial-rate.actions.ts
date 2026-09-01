@@ -48,7 +48,7 @@ export async function controlCommercialRateAction(
       ? await service.publishObserved(actorId, input)
       : await service.verify(actorId, input);
     const changed = result.verificationOutcome !== "unchanged" || result.publicationOutcome === "published";
-    if (changed) revalidatePath("/admin/commercial-rates");
+    if (changed) revalidatePath("/admin/commercial/rates");
     if (result.publicationOutcome === "published") revalidatePath("/cabinet/catalog/[slug]", "page");
     return success(
       result.publicationOutcome === "unchanged"

@@ -90,6 +90,11 @@ export class CommercialRateManagementService {
     const purposeHistory = history.filter((rate) => rate.purpose === purpose);
     const current = purposeHistory.find((rate) => rate.isActive) ?? null;
     const latestVerification = verifications.find((verification) => verification.purpose === purpose) ?? null;
+    const verificationStatus: CommercialRateVerificationStatus = !latestVerification || !current
+      ? "NOT_VERIFIED"
+      : new Decimal(latestVerification.observed1cRate).equals(current.rate)
+        ? "MATCHES_1C"
+        : "DIFFERS_FROM_1C";
     return {
       purpose,
       label: purpose === "partner_price_usd_to_mdl"
@@ -97,7 +102,7 @@ export class CommercialRateManagementService {
         : "Курс розничной цены RTL 999, USD → MDL",
       current,
       latestVerification,
-      verificationStatus: latestVerification?.verificationStatus ?? "NOT_VERIFIED",
+      verificationStatus,
     };
   }
 }
