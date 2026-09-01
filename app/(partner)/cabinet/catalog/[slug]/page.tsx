@@ -200,6 +200,7 @@ export default async function ProductDetailPage({
         commercialView={commercialView}
         priceFreshness={priceFreshness}
         initialFavorite={initialFavorite}
+        key={`${productResult.data.id}:${activeTab}`}
         locale={locale}
         hasAnalogs={
           activeTab === "overview" && relationSummaryResult?.success

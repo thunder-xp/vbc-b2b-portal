@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ArrowLeft, FileText } from "lucide-react";
-import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
 
 import type { FreshnessView } from "../../integration/freshness";
 import type {
@@ -79,7 +79,12 @@ export function ProductDetail({
   const [historyError, setHistoryError] = useState(retailPriceHistoryError);
   const [pendingTab, setPendingTab] = useState<ProductDetailTab | null>(null);
   const [transportError, setTransportError] = useState(false);
-  const previousServerProps = useRef({ initialActiveTab, product, retailPriceHistory, retailPriceHistoryError });
+  const [transportMeasurement, setTransportMeasurement] = useState<{
+    activationMs: number;
+    jsonBytes: number;
+    serverMs: number;
+    tab: ProductDetailTab;
+  } | null>(null);
   const requestGeneration = useRef(0);
   const abortController = useRef<AbortController | null>(null);
   const copy = getCatalogCopy(locale);
@@ -95,18 +100,44 @@ export function ProductDetail({
     { id: "related", label: copy.related },
   ];
 
-  if (
-    previousServerProps.current.initialActiveTab !== initialActiveTab ||
-    previousServerProps.current.product !== product ||
-    previousServerProps.current.retailPriceHistory !== retailPriceHistory ||
-    previousServerProps.current.retailPriceHistoryError !== retailPriceHistoryError
-  ) {
-    previousServerProps.current = { initialActiveTab, product, retailPriceHistory, retailPriceHistoryError };
-    setActiveTab(initialActiveTab);
-    setTabProduct(product);
-    setHistory(retailPriceHistory);
-    setHistoryError(retailPriceHistoryError);
-  }
+  const loadTransportedTab = useCallback(async (tab: ProductDetailTab, pushHistory: boolean) => {
+    if (!isTransportedProductTab(tab)) return;
+    const activationStartedAt = performance.now();
+    const generation = ++requestGeneration.current;
+    abortController.current?.abort();
+    const controller = new AbortController();
+    abortController.current = controller;
+    setPendingTab(tab);
+    setTransportError(false);
+    try {
+      const response = await fetch(`/api/cabinet/catalog/${encodeURIComponent(product.id)}/tab?tab=${tab}`, {
+        headers: { Accept: "application/json" },
+        signal: controller.signal,
+      });
+      if (!response.ok) throw new Error("TAB_TRANSPORT_FAILED");
+      const rawPayload = await response.text();
+      const payload = JSON.parse(rawPayload) as ProductTabTransportResponse;
+      if (generation !== requestGeneration.current) return;
+      if ("product" in payload.data) setTabProduct(payload.data.product);
+      if (payload.data.tab === "pricing") {
+        setHistory(payload.data.history);
+        setHistoryError(payload.data.error);
+      }
+      setTransportMeasurement({
+        activationMs: Math.round((performance.now() - activationStartedAt) * 10) / 10,
+        jsonBytes: new TextEncoder().encode(rawPayload).byteLength,
+        serverMs: payload.serverDurationMs,
+        tab,
+      });
+      setActiveTab(tab);
+      if (pushHistory) window.history.pushState({ productTab: tab }, "", buildProductDetailTabHref(tab, catalogReturnTarget));
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      if (generation === requestGeneration.current) setTransportError(true);
+    } finally {
+      if (generation === requestGeneration.current) setPendingTab(null);
+    }
+  }, [catalogReturnTarget, product.id]);
 
   useEffect(() => {
     const onPopState = () => {
@@ -120,38 +151,7 @@ export function ProductDetail({
       window.removeEventListener("popstate", onPopState);
       abortController.current?.abort();
     };
-  });
-
-  async function loadTransportedTab(tab: ProductDetailTab, pushHistory: boolean) {
-    if (!isTransportedProductTab(tab)) return;
-    const generation = ++requestGeneration.current;
-    abortController.current?.abort();
-    const controller = new AbortController();
-    abortController.current = controller;
-    setPendingTab(tab);
-    setTransportError(false);
-    try {
-      const response = await fetch(`/api/cabinet/catalog/${encodeURIComponent(product.id)}/tab?tab=${tab}`, {
-        headers: { Accept: "application/json" },
-        signal: controller.signal,
-      });
-      if (!response.ok) throw new Error("TAB_TRANSPORT_FAILED");
-      const payload = await response.json() as ProductTabTransportResponse;
-      if (generation !== requestGeneration.current) return;
-      if ("product" in payload.data) setTabProduct(payload.data.product);
-      if (payload.data.tab === "pricing") {
-        setHistory(payload.data.history);
-        setHistoryError(payload.data.error);
-      }
-      setActiveTab(tab);
-      if (pushHistory) window.history.pushState({ productTab: tab }, "", buildProductDetailTabHref(tab, catalogReturnTarget));
-    } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") return;
-      if (generation === requestGeneration.current) setTransportError(true);
-    } finally {
-      if (generation === requestGeneration.current) setPendingTab(null);
-    }
-  }
+  }, [loadTransportedTab]);
 
   function onTabClick(event: MouseEvent<HTMLAnchorElement>, tab: ProductDetailTab) {
     if (!isTransportedProductTab(tab) || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
@@ -159,7 +159,14 @@ export function ProductDetail({
     void loadTransportedTab(tab, true);
   }
   return (
-    <article className="space-y-4">
+    <article
+      className="space-y-4"
+      data-tab-activation-ms={transportMeasurement?.activationMs}
+      data-tab-json-bytes={transportMeasurement?.jsonBytes}
+      data-tab-measured={transportMeasurement?.tab}
+      data-tab-server-ms={transportMeasurement?.serverMs}
+      data-testid="product-detail"
+    >
       <nav
         aria-label={copy.productSections}
         className="overflow-x-auto border-b border-zinc-200"

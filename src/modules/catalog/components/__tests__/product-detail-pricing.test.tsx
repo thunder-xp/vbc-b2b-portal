@@ -87,9 +87,9 @@ describe("ProductDetail information architecture", () => {
   });
 
   it("shows the partner-only analytics tab through the canonical product tabs", () => {
-    const { rerender } = render(<ProductDetail product={product} />);
+    const { rerender } = render(<ProductDetail key="overview" product={product} />);
     expect(screen.queryByRole("link", { name: "Аналитика" })).not.toBeInTheDocument();
-    rerender(<ProductDetail activeTab="analytics" analyticsContent={<div>Own observations</div>} product={product} showAnalyticsTab />);
+    rerender(<ProductDetail activeTab="analytics" analyticsContent={<div>Own observations</div>} key="analytics" product={product} showAnalyticsTab />);
     expect(screen.getByRole("link", { name: "Аналитика" })).toHaveAttribute("href", expect.stringContaining("tab=analytics"));
     expect(screen.getByText("Own observations")).toBeInTheDocument();
     expect(screen.getByTestId("product-detail-layout")).toBeInTheDocument();
@@ -124,22 +124,22 @@ describe("ProductDetail information architecture", () => {
 
   it("renders relation content only in the active relations tab", () => {
     const relations = <div>Relation card grid</div>;
-    const { rerender } = render(<ProductDetail product={product} relationsContent={relations} />);
+    const { rerender } = render(<ProductDetail key="overview" product={product} relationsContent={relations} />);
     expect(screen.queryByText("Relation card grid")).not.toBeInTheDocument();
-    rerender(<ProductDetail activeTab="analogs" product={product} relationsContent={relations} />);
+    rerender(<ProductDetail activeTab="analogs" key="analogs" product={product} relationsContent={relations} />);
     expect(screen.getByText("Relation card grid")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Аналоги" })).toHaveAttribute("aria-current", "page");
   });
 
   it("shows only long-form copy in Description and has an honest empty state", () => {
-    const { rerender } = render(<ProductDetail activeTab="description" canAddToOrder companyId="company-1" product={product} userId="user-1" />);
+    const { rerender } = render(<ProductDetail activeTab="description" canAddToOrder companyId="company-1" key="with-description" product={product} userId="user-1" />);
     expect(screen.getByText("Camera description")).toHaveClass("line-clamp-[9]", "text-sm", "leading-[1.5]");
     expect(screen.queryByRole("heading", { name: "Описание товара" })).not.toBeInTheDocument();
     expect(screen.queryByText("Коммерческое предложение")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "В корзину" })).toBeInTheDocument();
     expect(screen.getByText("Camera description").parentElement).not.toHaveClass("border-y");
 
-    rerender(<ProductDetail activeTab="description" canAddToOrder companyId="company-1" product={{ ...product, description: null }} userId="user-1" />);
+    rerender(<ProductDetail activeTab="description" canAddToOrder companyId="company-1" key="without-description" product={{ ...product, description: null }} userId="user-1" />);
     expect(screen.getByText("Описание товара пока не добавлено.")).toBeInTheDocument();
   });
 
