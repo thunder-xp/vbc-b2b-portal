@@ -1,6 +1,8 @@
+"use client";
+
 import Link from "next/link";
 import { ArrowLeft, FileText } from "lucide-react";
-import type { ReactNode } from "react";
+import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
 
 import type { FreshnessView } from "../../integration/freshness";
 import type {
@@ -16,6 +18,7 @@ import { RetailPriceHistoryChart } from "./RetailPriceHistoryChart";
 import { formatPartnerDate, getCatalogCopy, type PartnerLocale } from "../../partner-locale";
 import { ProductCompetitorPricing } from "../../competitive-intelligence/components/ProductCompetitorPricing";
 import type { ProductCompetitorPricingItem } from "../../competitive-intelligence/types";
+import { isTransportedProductTab, type ProductTabTransportResponse } from "../contracts/product-tab-transport";
 
 export type ProductDetailTab =
   | "overview"
@@ -50,7 +53,7 @@ type ProductDetailProps = {
 };
 
 export function ProductDetail({
-  activeTab = "overview",
+  activeTab: initialActiveTab = "overview",
   canAddToOrder = false,
   canManagePurchasingLists = false,
   companyId = null,
@@ -70,6 +73,15 @@ export function ProductDetail({
   showAnalyticsTab = false,
   userId = null,
 }: ProductDetailProps) {
+  const [activeTab, setActiveTab] = useState<ProductDetailTab>(initialActiveTab);
+  const [tabProduct, setTabProduct] = useState(product);
+  const [history, setHistory] = useState(retailPriceHistory);
+  const [historyError, setHistoryError] = useState(retailPriceHistoryError);
+  const [pendingTab, setPendingTab] = useState<ProductDetailTab | null>(null);
+  const [transportError, setTransportError] = useState(false);
+  const previousServerProps = useRef({ initialActiveTab, product, retailPriceHistory, retailPriceHistoryError });
+  const requestGeneration = useRef(0);
+  const abortController = useRef<AbortController | null>(null);
   const copy = getCatalogCopy(locale);
   const catalogReturnTarget = parseCatalogReturnTarget(returnTarget);
   const tabs: Array<{ id: ProductDetailTab; label: string }> = [
@@ -82,6 +94,70 @@ export function ProductDetail({
     { id: "analogs", label: copy.analogs },
     { id: "related", label: copy.related },
   ];
+
+  if (
+    previousServerProps.current.initialActiveTab !== initialActiveTab ||
+    previousServerProps.current.product !== product ||
+    previousServerProps.current.retailPriceHistory !== retailPriceHistory ||
+    previousServerProps.current.retailPriceHistoryError !== retailPriceHistoryError
+  ) {
+    previousServerProps.current = { initialActiveTab, product, retailPriceHistory, retailPriceHistoryError };
+    setActiveTab(initialActiveTab);
+    setTabProduct(product);
+    setHistory(retailPriceHistory);
+    setHistoryError(retailPriceHistoryError);
+  }
+
+  useEffect(() => {
+    const onPopState = () => {
+      const requested = new URL(window.location.href).searchParams.get("tab");
+      const tab = requested === "relations" ? "analogs" : requested ?? "overview";
+      if (isTransportedProductTab(tab)) void loadTransportedTab(tab, false);
+      else window.location.reload();
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => {
+      window.removeEventListener("popstate", onPopState);
+      abortController.current?.abort();
+    };
+  });
+
+  async function loadTransportedTab(tab: ProductDetailTab, pushHistory: boolean) {
+    if (!isTransportedProductTab(tab)) return;
+    const generation = ++requestGeneration.current;
+    abortController.current?.abort();
+    const controller = new AbortController();
+    abortController.current = controller;
+    setPendingTab(tab);
+    setTransportError(false);
+    try {
+      const response = await fetch(`/api/cabinet/catalog/${encodeURIComponent(product.id)}/tab?tab=${tab}`, {
+        headers: { Accept: "application/json" },
+        signal: controller.signal,
+      });
+      if (!response.ok) throw new Error("TAB_TRANSPORT_FAILED");
+      const payload = await response.json() as ProductTabTransportResponse;
+      if (generation !== requestGeneration.current) return;
+      if ("product" in payload.data) setTabProduct(payload.data.product);
+      if (payload.data.tab === "pricing") {
+        setHistory(payload.data.history);
+        setHistoryError(payload.data.error);
+      }
+      setActiveTab(tab);
+      if (pushHistory) window.history.pushState({ productTab: tab }, "", buildProductDetailTabHref(tab, catalogReturnTarget));
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      if (generation === requestGeneration.current) setTransportError(true);
+    } finally {
+      if (generation === requestGeneration.current) setPendingTab(null);
+    }
+  }
+
+  function onTabClick(event: MouseEvent<HTMLAnchorElement>, tab: ProductDetailTab) {
+    if (!isTransportedProductTab(tab) || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
+    event.preventDefault();
+    void loadTransportedTab(tab, true);
+  }
   return (
     <article className="space-y-4">
       <nav
@@ -103,6 +179,7 @@ export function ProductDetail({
               className={`inline-flex min-h-11 items-center border-b-2 px-1 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 ${activeTab === tab.id ? "border-emerald-600 text-emerald-800" : "border-transparent text-zinc-500 hover:text-zinc-900"}`}
               href={buildProductDetailTabHref(tab.id, catalogReturnTarget)}
               key={tab.id}
+              onClick={(event) => onTabClick(event, tab.id)}
               prefetch={false}
             >
               {tab.label}
@@ -124,6 +201,8 @@ export function ProductDetail({
           product={product}
           userId={userId}
         >
+          {pendingTab ? <div aria-live="polite" className="mb-3 h-1 overflow-hidden rounded bg-zinc-100" role="status"><div className="h-full w-1/2 animate-pulse bg-emerald-500" /><span className="sr-only">{copy.loading}</span></div> : null}
+          {transportError ? <p className="mb-3 rounded border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800" role="alert">{copy.unavailableMessage}</p> : null}
           {activeTab === "overview" ? (
           <OverviewTab
             commercialView={commercialView}
@@ -139,18 +218,18 @@ export function ProductDetail({
         ) : (
           <>
           {activeTab === "description" ? (
-            <DescriptionTab locale={locale} product={product} />
+            <DescriptionTab locale={locale} product={tabProduct} />
           ) : null}
           {activeTab === "characteristics" ? (
-            <CharacteristicsTab locale={locale} product={product} />
+            <CharacteristicsTab locale={locale} product={tabProduct} />
           ) : null}
           {activeTab === "datasheet" ? (
-            <DatasheetTab locale={locale} product={product} />
+            <DatasheetTab locale={locale} product={tabProduct} />
           ) : null}
           {activeTab === "pricing" ? (
             <PricingHistoryTab
-              error={retailPriceHistoryError}
-              history={retailPriceHistory}
+              error={historyError}
+              history={history}
               locale={locale}
               productId={product.id}
             />
