@@ -280,9 +280,18 @@ async function executeProbe(
       };
     }
     const payload = (await response.json()) as unknown;
-    const rows = array(record(payload).value)
-      .slice(0, MAX_ROWS)
+    const safeRows = array(record(payload).value)
+      .slice(
+        0,
+        plan.kind === "price_type_snapshot"
+          ? MAX_EXACT_FALLBACK_ROWS
+          : MAX_ROWS,
+      )
       .map((row) => safeRow(record(row), select));
+    const rows =
+      plan.kind === "price_type_snapshot"
+        ? safeRows.filter(isCommercialRateCandidate)
+        : safeRows;
     return {
       entity: plan.entity.entity,
       kind: plan.kind,
@@ -303,6 +312,22 @@ async function executeProbe(
       requestCount: 1,
     };
   }
+}
+
+function isCommercialRateCandidate(
+  row: Record<string, string | number | boolean | null>,
+): boolean {
+  const reference = typeof row.Ref_Key === "string" ? row.Ref_Key : "";
+  const code = typeof row.Code === "string" ? row.Code : "";
+  const description =
+    typeof row.Description === "string" ? row.Description : "";
+  const numericCode = code.match(/(\d+)$/u)?.[1]?.replace(/^0+/u, "") ?? "";
+  return (
+    reference === BCRU_REF ||
+    numericCode === "113" ||
+    numericCode === "999" ||
+    /(bcru|rtl|retail|рознич|рекоменд|msrp)/iu.test(description)
+  );
 }
 
 async function executeExactFallback(
