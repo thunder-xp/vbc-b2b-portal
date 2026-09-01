@@ -33,3 +33,45 @@ export type PublishCommercialRateInput = {
   sourceNote: string;
   evidenceComment?: string | null;
 };
+
+export const COMMERCIAL_RATE_VERIFICATION_STATUSES = [
+  "NOT_VERIFIED",
+  "MATCHES_1C",
+  "DIFFERS_FROM_1C",
+  "VERIFIED_NO_CHANGE_REQUIRED",
+] as const;
+
+export type CommercialRateVerificationStatus =
+  (typeof COMMERCIAL_RATE_VERIFICATION_STATUSES)[number];
+
+export type CommercialRateVerification = {
+  id: string;
+  purpose: CommercialRatePurpose;
+  portalRateId: string;
+  activePortalRate: number;
+  activePortalEffectiveDate: string;
+  observed1cRate: number;
+  observed1cEffectiveDate: string;
+  evidenceNote: string;
+  verificationComment: string | null;
+  verificationStatus: Exclude<CommercialRateVerificationStatus, "NOT_VERIFIED">;
+  verifiedBy: string;
+  verifiedAt: string;
+  verifierName: string | null;
+  verifierEmail: string | null;
+};
+
+export type VerifyCommercialRateInput = {
+  purpose: CommercialRatePurpose;
+  observed1cRate: string;
+  observed1cEffectiveDate: string;
+  evidenceNote: string;
+  verificationComment?: string | null;
+};
+
+export type CommercialRateVerificationResult = {
+  verification: CommercialRateVerification;
+  verificationOutcome: "saved" | "unchanged";
+  publicationOutcome?: "published" | "unchanged";
+  rate?: CommercialRate;
+};

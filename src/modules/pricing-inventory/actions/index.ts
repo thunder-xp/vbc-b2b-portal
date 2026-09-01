@@ -2,5 +2,6 @@ export { getProductCommercialViewsAction } from "./product-commercial-views.acti
 export { getRetailPriceHistoryAction } from "./retail-price-history.action";
 export {
   getCommercialRateAdminViewAction,
+  controlCommercialRateAction,
   publishCommercialRateAction,
 } from "./commercial-rate.actions";

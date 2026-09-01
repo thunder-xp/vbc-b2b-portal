@@ -7,7 +7,7 @@ import type { UserProfileService } from "../../../access-control/services";
 import { ForbiddenError } from "../../../access-control/services";
 import { UserStatus, UserType } from "../../../access-control/types";
 import type { PricingInventoryRepository } from "../../repositories";
-import type { CommercialRate, PublishCommercialRateInput } from "../../types";
+import type { CommercialRate, CommercialRateVerification, PublishCommercialRateInput, VerifyCommercialRateInput } from "../../types";
 import {
   CommercialRateManagementService,
   CommercialRateValidationError,
@@ -35,7 +35,7 @@ describe("CommercialRateManagementService", () => {
     await expect(service.publish("partner-1", input())).rejects.toBeInstanceOf(ForbiddenError);
   });
 
-  it("keeps both purposes and computes previous-value change independently", async () => {
+  it("keeps both purposes and projects verification independently", async () => {
     const repository = createRepository([
       rate("partner-current", "partner_price_usd_to_mdl", 17.3504, true, "partner-old"),
       rate("retail-current", "retail_price_usd_to_mdl", 17.7712, true, "retail-old"),
@@ -45,8 +45,18 @@ describe("CommercialRateManagementService", () => {
     const view = await new CommercialRateManagementService(repository, profiles(UserType.Admin)).getAdminView("admin-1");
 
     expect(view.rates.map((row) => row.current?.rate)).toEqual([17.3504, 17.7712]);
-    expect(view.rates[0]?.previous?.id).toBe("partner-old");
-    expect(view.rates[1]?.previous?.id).toBe("retail-old");
+    expect(view.rates[0]?.verificationStatus).toBe("NOT_VERIFIED");
+    expect(view.rates[1]?.verificationStatus).toBe("NOT_VERIFIED");
+  });
+
+  it("keeps verify-only and publish-observed commands separate", async () => {
+    const repository = createRepository();
+    const service = new CommercialRateManagementService(repository, profiles(UserType.Admin));
+    await service.verify("admin-1", verificationInput());
+    expect(repository.saveManualCommercialRateVerification).toHaveBeenCalledOnce();
+    expect(repository.publishVerifiedCommercialRate).not.toHaveBeenCalled();
+    await service.publishObserved("admin-1", verificationInput());
+    expect(repository.publishVerifiedCommercialRate).toHaveBeenCalledOnce();
   });
 
   it.each(["0", "-1", "NaN", "17.123456789"])("rejects unsafe rate %s", (value) => {
@@ -117,14 +127,23 @@ function rate(id: string, purpose: CommercialRate["purpose"], value: number, isA
 }
 
 function createRepository(history: CommercialRate[] = []) {
+  const verification = verificationRow();
   return {
     canManageCommercialRates: vi.fn(async () => true),
     listCommercialRateHistory: vi.fn(async () => history),
+    listCommercialRateVerifications: vi.fn(async () => []),
     publishManualCommercialRate: vi.fn(async (value: PublishCommercialRateInput) => rate("new-rate", value.purpose, Number(value.rate), true)),
+    saveManualCommercialRateVerification: vi.fn(async () => ({ verification, verificationOutcome: "saved" as const })),
+    publishVerifiedCommercialRate: vi.fn(async () => ({ verification, verificationOutcome: "saved" as const, publicationOutcome: "published" as const })),
   } as unknown as PricingInventoryRepository & {
     publishManualCommercialRate: ReturnType<typeof vi.fn>;
+    saveManualCommercialRateVerification: ReturnType<typeof vi.fn>;
+    publishVerifiedCommercialRate: ReturnType<typeof vi.fn>;
   };
 }
+
+function verificationInput(): VerifyCommercialRateInput { return { purpose: "partner_price_usd_to_mdl", observed1cRate: "17.7712", observed1cEffectiveDate: "2026-07-18", evidenceNote: "Проверено в 1С", verificationComment: null }; }
+function verificationRow(): CommercialRateVerification { return { id: "verification-1", purpose: "partner_price_usd_to_mdl", portalRateId: "rate-1", activePortalRate: 17.7712, activePortalEffectiveDate: "2026-07-18", observed1cRate: 17.7712, observed1cEffectiveDate: "2026-07-18", evidenceNote: "Проверено в 1С", verificationComment: null, verificationStatus: "VERIFIED_NO_CHANGE_REQUIRED", verifiedBy: "server-user", verifiedAt: "2026-07-18T10:00:00Z", verifierName: "Manager", verifierEmail: null }; }
 
 function profiles(userType: UserType): UserProfileService {
   return {

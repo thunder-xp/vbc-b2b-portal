@@ -17,6 +17,8 @@ import type {
 import {
   COMMERCIAL_RATE_PURPOSES,
   type CommercialRate,
+  type CommercialRateVerification,
+  type CommercialRateVerificationResult,
   type CommercialRatePurpose,
   type ProductPrice,
   type ProductStockBalance,
@@ -155,6 +157,47 @@ export class SupabasePricingInventoryRepository
     });
     if (error || !data) throw new PricingInventoryRepositoryUnexpectedError();
     return mapCommercialRateRow(data as CommercialRateRow);
+  }
+
+  async listCommercialRateVerifications(limit: number): Promise<CommercialRateVerification[]> {
+    const { data, error } = await (await createClient()).rpc("list_commercial_rate_verifications", {
+      p_limit: Math.max(1, Math.min(100, Math.trunc(limit))),
+    });
+    if (error) throw new PricingInventoryRepositoryUnexpectedError({ code: error.code, message: error.message });
+    return ((data ?? []) as CommercialRateVerificationRow[]).map(mapCommercialRateVerificationRow);
+  }
+
+  async saveManualCommercialRateVerification(
+    input: import("../../types").VerifyCommercialRateInput,
+  ): Promise<CommercialRateVerificationResult> {
+    return this.runCommercialRateVerificationRpc("save_manual_commercial_rate_verification", input);
+  }
+
+  async publishVerifiedCommercialRate(
+    input: import("../../types").VerifyCommercialRateInput,
+  ): Promise<CommercialRateVerificationResult> {
+    return this.runCommercialRateVerificationRpc("publish_verified_commercial_exchange_rate", input);
+  }
+
+  private async runCommercialRateVerificationRpc(
+    rpc: "save_manual_commercial_rate_verification" | "publish_verified_commercial_exchange_rate",
+    input: import("../../types").VerifyCommercialRateInput,
+  ): Promise<CommercialRateVerificationResult> {
+    const { data, error } = await (await createClient()).rpc(rpc, {
+      p_purpose: input.purpose,
+      p_observed_1c_rate: input.observed1cRate,
+      p_observed_1c_effective_date: input.observed1cEffectiveDate,
+      p_evidence_note: input.evidenceNote,
+      p_verification_comment: input.verificationComment ?? null,
+    });
+    if (error || !data) throw new PricingInventoryRepositoryUnexpectedError({ code: error?.code, message: error?.message });
+    const payload = data as Record<string, unknown>;
+    return {
+      verification: mapCommercialRateVerificationRow(payload.verification as CommercialRateVerificationRow),
+      verificationOutcome: payload.verificationOutcome === "unchanged" || payload.outcome === "unchanged" ? "unchanged" : "saved",
+      publicationOutcome: payload.publicationOutcome === "published" || payload.publicationOutcome === "unchanged" ? payload.publicationOutcome : undefined,
+      rate: payload.rate ? mapCommercialRateRow(payload.rate as CommercialRateRow) : undefined,
+    };
   }
 
   async listAvailableCurrencyCodes(companyId: string): Promise<string[]> {
@@ -453,6 +496,30 @@ type CommercialRateRow = {
   previous_rate_id: string | null;
   is_active: boolean;
 };
+
+type CommercialRateVerificationRow = {
+  id: string; purpose: string; portal_rate_id: string; active_portal_rate: number | string;
+  active_portal_effective_date: string; observed_1c_rate: number | string;
+  observed_1c_effective_date: string; evidence_note: string; verification_comment: string | null;
+  verification_status: string; verified_by: string; verified_at: string;
+  verifier_name?: string | null; verifier_email?: string | null;
+};
+
+function mapCommercialRateVerificationRow(row: CommercialRateVerificationRow): CommercialRateVerification {
+  if (!COMMERCIAL_RATE_PURPOSES.includes(row.purpose as CommercialRatePurpose)
+    || !["MATCHES_1C", "DIFFERS_FROM_1C", "VERIFIED_NO_CHANGE_REQUIRED"].includes(row.verification_status)) {
+    throw new PricingInventoryRepositoryUnexpectedError();
+  }
+  return {
+    id: row.id, purpose: row.purpose as CommercialRatePurpose, portalRateId: row.portal_rate_id,
+    activePortalRate: Number(row.active_portal_rate), activePortalEffectiveDate: row.active_portal_effective_date,
+    observed1cRate: Number(row.observed_1c_rate), observed1cEffectiveDate: row.observed_1c_effective_date,
+    evidenceNote: row.evidence_note, verificationComment: row.verification_comment,
+    verificationStatus: row.verification_status as CommercialRateVerification["verificationStatus"],
+    verifiedBy: row.verified_by, verifiedAt: row.verified_at,
+    verifierName: row.verifier_name ?? null, verifierEmail: row.verifier_email ?? null,
+  };
+}
 
 function mapCommercialRateRow(
   row: CommercialRateRow,

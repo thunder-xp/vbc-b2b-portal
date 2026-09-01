@@ -3,13 +3,16 @@ import Decimal from "decimal.js";
 import type { UserProfileService } from "../../access-control/services";
 import { ForbiddenError } from "../../access-control/services";
 import { UserType } from "../../access-control/types";
-import { evaluateFreshness, type FreshnessView } from "../../integration/freshness";
 import type { PricingInventoryRepository } from "../repositories";
 import {
   COMMERCIAL_RATE_PURPOSES,
   type CommercialRate,
+  type CommercialRateVerification,
+  type CommercialRateVerificationResult,
+  type CommercialRateVerificationStatus,
   type CommercialRatePurpose,
   type PublishCommercialRateInput,
+  type VerifyCommercialRateInput,
 } from "../types";
 
 const HISTORY_LIMIT = 40;
@@ -18,14 +21,14 @@ export type CommercialRateAdminRowDto = {
   purpose: CommercialRatePurpose;
   label: string;
   current: CommercialRate | null;
-  previous: CommercialRate | null;
-  changePercent: number | null;
-  freshness: FreshnessView;
+  latestVerification: CommercialRateVerification | null;
+  verificationStatus: CommercialRateVerificationStatus;
 };
 
 export type CommercialRateAdminDto = {
   rates: CommercialRateAdminRowDto[];
   history: CommercialRate[];
+  verificationHistory: CommercialRateVerification[];
 };
 
 export class CommercialRateValidationError extends Error {
@@ -43,12 +46,28 @@ export class CommercialRateManagementService {
 
   async getAdminView(actorUserId: string): Promise<CommercialRateAdminDto> {
     await this.ensureManager(actorUserId);
-    if (!this.repository.listCommercialRateHistory) throw new ForbiddenError();
-    const history = await this.repository.listCommercialRateHistory(HISTORY_LIMIT);
+    if (!this.repository.listCommercialRateHistory || !this.repository.listCommercialRateVerifications) throw new ForbiddenError();
+    const [history, verificationHistory] = await Promise.all([
+      this.repository.listCommercialRateHistory(HISTORY_LIMIT),
+      this.repository.listCommercialRateVerifications(HISTORY_LIMIT),
+    ]);
     return {
       history,
-      rates: COMMERCIAL_RATE_PURPOSES.map((purpose) => this.toAdminRow(purpose, history)),
+      verificationHistory,
+      rates: COMMERCIAL_RATE_PURPOSES.map((purpose) => this.toAdminRow(purpose, history, verificationHistory)),
     };
+  }
+
+  async verify(actorUserId: string, input: VerifyCommercialRateInput): Promise<CommercialRateVerificationResult> {
+    await this.ensureManager(actorUserId);
+    if (!this.repository.saveManualCommercialRateVerification) throw new ForbiddenError();
+    return this.repository.saveManualCommercialRateVerification(validateVerification(input));
+  }
+
+  async publishObserved(actorUserId: string, input: VerifyCommercialRateInput): Promise<CommercialRateVerificationResult> {
+    await this.ensureManager(actorUserId);
+    if (!this.repository.publishVerifiedCommercialRate) throw new ForbiddenError();
+    return this.repository.publishVerifiedCommercialRate(validateVerification(input));
   }
 
   async publish(actorUserId: string, input: PublishCommercialRateInput): Promise<CommercialRate> {
@@ -67,25 +86,37 @@ export class CommercialRateManagementService {
     }
   }
 
-  private toAdminRow(purpose: CommercialRatePurpose, history: CommercialRate[]): CommercialRateAdminRowDto {
+  private toAdminRow(purpose: CommercialRatePurpose, history: CommercialRate[], verifications: CommercialRateVerification[]): CommercialRateAdminRowDto {
     const purposeHistory = history.filter((rate) => rate.purpose === purpose);
     const current = purposeHistory.find((rate) => rate.isActive) ?? null;
-    const previous = current
-      ? purposeHistory.find((rate) => rate.id === current.previousRateId) ?? purposeHistory.find((rate) => rate.id !== current.id) ?? null
-      : null;
+    const latestVerification = verifications.find((verification) => verification.purpose === purpose) ?? null;
     return {
       purpose,
       label: purpose === "partner_price_usd_to_mdl"
         ? "Курс партнёрской цены BCRU 113, USD → MDL"
         : "Курс розничной цены RTL 999, USD → MDL",
       current,
-      previous,
-      changePercent: current && previous
-        ? new Decimal(current.rate).minus(previous.rate).div(previous.rate).times(100).toDecimalPlaces(4).toNumber()
-        : null,
-      freshness: evaluateFreshness(current?.publishedAt, "price", "Коммерческие курсы"),
+      latestVerification,
+      verificationStatus: latestVerification?.verificationStatus ?? "NOT_VERIFIED",
     };
   }
+}
+
+export function validateVerification(input: VerifyCommercialRateInput): VerifyCommercialRateInput {
+  const normalized = validatePublication({
+    purpose: input.purpose,
+    rate: input.observed1cRate,
+    effectiveDate: input.observed1cEffectiveDate,
+    sourceNote: input.evidenceNote,
+    evidenceComment: input.verificationComment,
+  });
+  return {
+    purpose: normalized.purpose,
+    observed1cRate: normalized.rate,
+    observed1cEffectiveDate: normalized.effectiveDate,
+    evidenceNote: normalized.sourceNote,
+    verificationComment: normalized.evidenceComment,
+  };
 }
 
 export function validatePublication(input: PublishCommercialRateInput): PublishCommercialRateInput {

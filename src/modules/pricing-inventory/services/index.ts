@@ -24,6 +24,7 @@ export {
   CommercialRateManagementService,
   CommercialRateValidationError,
   validatePublication,
+  validateVerification,
   type CommercialRateAdminDto,
   type CommercialRateAdminRowDto,
 } from "./commercial-rate-management.service";

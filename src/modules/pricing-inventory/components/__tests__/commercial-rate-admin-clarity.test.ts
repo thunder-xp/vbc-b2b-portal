@@ -1,35 +1,34 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-
 import { describe, expect, it } from "vitest";
 
 const panel = readFileSync(resolve(process.cwd(), "src/modules/pricing-inventory/components/CommercialRateAdminPanel.tsx"), "utf8");
 const action = readFileSync(resolve(process.cwd(), "src/modules/pricing-inventory/actions/commercial-rate.actions.ts"), "utf8");
+const migration = readFileSync(resolve(process.cwd(), "supabase/migrations/20260901175950_commercial_rate_manual_verification.sql"), "utf8");
 
-describe("commercial-rate admin clarity", () => {
-  it("describes governed manual confirmation without future-sync or freshness claims", () => {
-    expect(panel).toContain("Коммерческие курсы подтверждаются вручную по данным 1С");
-    expect(panel).toContain("Текущий стандартный OData 1С не предоставляет конечный BCRU/RTL курс");
-    expect(panel).not.toContain("Автоматическая синхронизация станет доступна");
+describe("commercial-rate manual verification", () => {
+  it("uses truthful copy and renders every verification state", () => {
+    expect(panel).toContain("Коммерческие курсы проверяются вручную по данным 1С");
     expect(panel).not.toContain("Свежесть");
-    expect(panel).not.toContain("Ожидание API");
+    for (const label of ["Не проверено", "Соответствует 1С", "Не соответствует 1С", "Проверено вручную, изменений не требуется"]) expect(panel).toContain(label);
   });
 
-  it("prioritizes current value, effective date, publication time, source, and status", () => {
-    for (const label of ["Текущий курс", "Дата действия", "Опубликовано", "Источник", "Активен"]) {
-      expect(panel).toContain(label);
-    }
-    expect(panel).toContain("Подтверждающие сведения");
-    expect(panel).toContain("История подтверждений");
-    expect(panel).toContain('timeZone: "Europe/Chisinau"');
+  it("shows the comparison and exactly two explicit control actions", () => {
+    for (const label of ["Текущий курс портала", "Наблюдаемый курс 1С", "Разница", "Последняя проверка", "Проверил"]) expect(panel).toContain(label);
+    expect(panel).toContain("Проверить и сохранить контроль");
+    expect(panel).toContain("Опубликовать значение из 1С");
+    expect(panel.match(/type="submit"/g)).toHaveLength(2);
   });
 
-  it("distinguishes semantic replay from a new immutable publication without another read", () => {
-    const publishAction = action.slice(action.indexOf("export async function publishCommercialRateAction"));
-    expect(panel).toContain('name="currentRateId"');
-    expect(publishAction).toContain('rate.id === text(formData, "currentRateId")');
-    expect(publishAction).toContain("Курс уже актуален. Новая версия не создана.");
-    expect(publishAction).toContain("Новый курс опубликован.");
-    expect(publishAction).not.toContain("getAdminView");
+  it("keeps verification and publication histories separate", () => {
+    expect(panel).toContain("История проверок по 1С");
+    expect(panel).toContain("История публикаций в портал");
+    expect(migration).toContain("prevent_commercial_rate_verification_mutation");
+  });
+
+  it("avoids revalidation for semantic no-ops", () => {
+    expect(action).toContain('result.verificationOutcome !== "unchanged"');
+    expect(action).toContain('result.publicationOutcome === "published"');
+    expect(action).toContain("Новая версия не создана");
   });
 });

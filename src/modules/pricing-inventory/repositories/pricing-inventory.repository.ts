@@ -1,7 +1,10 @@
 import type {
   CommercialRate,
+  CommercialRateVerification,
+  CommercialRateVerificationResult,
   CommercialRateSnapshot,
   PublishCommercialRateInput,
+  VerifyCommercialRateInput,
   ProductPrice,
   ProductStockBalance,
 } from "../types";
@@ -75,6 +78,9 @@ export interface PricingInventoryRepository {
   listCommercialRateHistory?(limit: number): Promise<CommercialRate[]>;
   canManageCommercialRates?(): Promise<boolean>;
   publishManualCommercialRate?(input: PublishCommercialRateInput): Promise<CommercialRate>;
+  listCommercialRateVerifications?(limit: number): Promise<CommercialRateVerification[]>;
+  saveManualCommercialRateVerification?(input: VerifyCommercialRateInput): Promise<CommercialRateVerificationResult>;
+  publishVerifiedCommercialRate?(input: VerifyCommercialRateInput): Promise<CommercialRateVerificationResult>;
   upsertPriceType?(input: { externalRef: string; externalCode: string; name: string; currencyCode: string | null; currencyStatus: "resolved" | "unresolved"; sourceUpdatedAt: string | null }): Promise<void>;
   listPricesForProducts(input: ListProductPricesInput): Promise<ProductPrice[]>;
   listAuthoritativePricesForProducts?(
