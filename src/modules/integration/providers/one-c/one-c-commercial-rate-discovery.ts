@@ -16,6 +16,7 @@ const MAX_METADATA_ENTITIES = 25;
 const MAX_PROPERTIES = 18;
 const MAX_PROBES = 36;
 const MAX_ROWS = 10;
+const MAX_EXACT_FALLBACK_ROWS = 200;
 const RELEVANT =
   /(курс|валют|цен|рознич|bcru|rtl|msrp|обмен|коммерч|rate|currency|price)/iu;
 const HIGH_SIGNAL_ENTITY =
@@ -52,6 +53,7 @@ type ProbeResult = {
   rows: Array<Record<string, string | number | boolean | null>>;
   status: "ok" | "unsupported" | "failed";
   statusCode: number;
+  requestCount: number;
 };
 
 export async function discoverOneCCommercialRateSources(
@@ -97,7 +99,8 @@ export async function discoverOneCCommercialRateSources(
       truncated: relevant.length < allRelevant.length,
     },
     probes,
-    requestCount: 1 + plans.length,
+    requestCount:
+      1 + probes.reduce((total, probe) => total + probe.requestCount, 0),
     durationMs: Math.round(performance.now() - startedAt),
   };
 }
@@ -246,7 +249,9 @@ async function executeProbe(
       "application/json",
       connection.timeoutMs,
     );
-    if (!response.ok)
+    if (!response.ok) {
+      const fallback = await executeExactFallback(plan, connection, select);
+      if (fallback) return fallback;
       return {
         entity: plan.entity.entity,
         kind: plan.kind,
@@ -254,7 +259,9 @@ async function executeProbe(
         rows: [],
         status: response.status === 400 ? "unsupported" : "failed",
         statusCode: response.status,
+        requestCount: 1,
       };
+    }
     const payload = (await response.json()) as unknown;
     const rows = array(record(payload).value)
       .slice(0, MAX_ROWS)
@@ -266,6 +273,7 @@ async function executeProbe(
       rows,
       status: "ok",
       statusCode: response.status,
+      requestCount: 1,
     };
   } catch {
     return {
@@ -275,7 +283,55 @@ async function executeProbe(
       rows: [],
       status: "failed",
       statusCode: 0,
+      requestCount: 1,
     };
+  }
+}
+
+async function executeExactFallback(
+  plan: ProbePlan,
+  connection: Connection,
+  select: string[],
+): Promise<ProbeResult | null> {
+  if (
+    plan.kind === "recent_candidate" ||
+    !HIGH_SIGNAL_ENTITY.test(plan.entity.entity)
+  )
+    return null;
+  const url = new URL(`${connection.baseUrl}/${plan.entity.entity}`);
+  url.searchParams.set("$select", select.join(","));
+  url.searchParams.set("$top", String(MAX_EXACT_FALLBACK_ROWS));
+  url.searchParams.set("$format", "json");
+  try {
+    const response = await authorizedFetch(
+      url.toString(),
+      connection.authorization,
+      "application/json",
+      connection.timeoutMs,
+    );
+    if (!response.ok) return null;
+    const expected =
+      plan.kind === "known_ref"
+        ? BCRU_REF
+        : plan.kind === "code_113"
+          ? "113"
+          : "999";
+    const property = plan.kind === "known_ref" ? "Ref_Key" : "Code";
+    const rows = array(record(await response.json()).value)
+      .map((row) => safeRow(record(row), select))
+      .filter((row) => row[property] === expected)
+      .slice(0, 1);
+    return {
+      entity: plan.entity.entity,
+      kind: plan.kind,
+      rowCount: rows.length,
+      rows,
+      status: "ok",
+      statusCode: response.status,
+      requestCount: 2,
+    };
+  } catch {
+    return null;
   }
 }
 
