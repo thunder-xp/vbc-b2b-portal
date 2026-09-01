@@ -16,7 +16,6 @@ import { RetailPriceHistoryChart } from "./RetailPriceHistoryChart";
 import { formatPartnerDate, getCatalogCopy, type PartnerLocale } from "../../partner-locale";
 import { ProductCompetitorPricing } from "../../competitive-intelligence/components/ProductCompetitorPricing";
 import type { ProductCompetitorPricingItem } from "../../competitive-intelligence/types";
-import { DiagnosticProductTabLink, ProductNavigationDiagnostics } from "./ProductNavigationDiagnostics";
 
 export type ProductDetailTab =
   | "overview"
@@ -99,19 +98,18 @@ export function ProductDetail({
             {copy.backTab}
           </Link>
           {tabs.map((tab) => (
-            <DiagnosticProductTabLink
-              active={activeTab === tab.id}
+            <Link
+              aria-current={activeTab === tab.id ? "page" : undefined}
               className={`inline-flex min-h-11 items-center border-b-2 px-1 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 ${activeTab === tab.id ? "border-emerald-600 text-emerald-800" : "border-transparent text-zinc-500 hover:text-zinc-900"}`}
               href={buildProductDetailTabHref(tab.id, catalogReturnTarget)}
               key={tab.id}
-              tab={tab.id}
+              prefetch={false}
             >
               {tab.label}
-            </DiagnosticProductTabLink>
+            </Link>
           ))}
         </div>
       </nav>
-      <ProductNavigationDiagnostics activeTab={activeTab} />
       {activeTab === "analogs" || activeTab === "related" ? (
         <div className="min-w-0" data-testid="product-detail-content">
           {relationsContent}
