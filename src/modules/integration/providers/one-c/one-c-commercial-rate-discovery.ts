@@ -18,8 +18,10 @@ const MAX_PROBES = 36;
 const MAX_ROWS = 10;
 const RELEVANT =
   /(курс|валют|цен|рознич|bcru|rtl|msrp|обмен|коммерч|rate|currency|price)/iu;
+const HIGH_SIGNAL_ENTITY =
+  /(видыцен|ценыноменклатуры|курс.*валют|валют.*курс|обмен.*курс|bcru|rtl|msrp|exchange.*rate|price.*type)/iu;
 const VALUE_FIELD =
-  /(курс|кратност|ставк|процент|нацен|скидк|значен|сумм|rate|value|amount|percent)/iu;
+  /(курс|кратност|ставк|процент|нацен|скидк|значен|сумм|цен|rate|value|amount|percent|price)/iu;
 const SAFE_IDENTITY =
   /^(Ref_Key|Code|Description|DeletionMark|DataVersion|Period|Date|Number|Posted|Active)$/u;
 
@@ -69,9 +71,10 @@ export async function discoverOneCCommercialRateSources(
     );
   const metadataXml = await metadataResponse.text();
   const entities = parseMetadata(metadataXml);
-  const relevant = entities
+  const allRelevant = entities
     .filter(isRelevantEntity)
-    .slice(0, MAX_METADATA_ENTITIES);
+    .sort((left, right) => relevanceScore(right) - relevanceScore(left));
+  const relevant = allRelevant.slice(0, MAX_METADATA_ENTITIES);
   const plans = buildProbePlans(relevant).slice(0, MAX_PROBES);
   const probes: ProbeResult[] = [];
 
@@ -91,7 +94,7 @@ export async function discoverOneCCommercialRateSources(
     metadata: {
       entityCount: entities.length,
       relevantEntities: relevant.map(safeMetadataEntity),
-      truncated: relevant.length < entities.filter(isRelevantEntity).length,
+      truncated: relevant.length < allRelevant.length,
     },
     probes,
     requestCount: 1 + plans.length,
@@ -176,6 +179,20 @@ function isRelevantEntity(entity: MetadataEntity): boolean {
     RELEVANT.test(entity.entity) ||
     entity.properties.some((property) => RELEVANT.test(property.name))
   );
+}
+
+function relevanceScore(entity: MetadataEntity): number {
+  let score = HIGH_SIGNAL_ENTITY.test(entity.entity)
+    ? 100
+    : RELEVANT.test(entity.entity)
+      ? 20
+      : 0;
+  const names = new Set(entity.properties.map(({ name }) => name));
+  if (names.has("Ref_Key")) score += 10;
+  if (names.has("Code")) score += 10;
+  if (names.has("Description")) score += 5;
+  if (entity.properties.some(({ name }) => VALUE_FIELD.test(name))) score += 5;
+  return score;
 }
 
 function buildProbePlans(entities: MetadataEntity[]): ProbePlan[] {

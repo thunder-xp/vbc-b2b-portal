@@ -38,9 +38,15 @@ const metadata = `<?xml version="1.0" encoding="utf-8"?>
         <Property Name="Ref_Key" Type="Edm.Guid" />
         <Property Name="Description" Type="Edm.String" />
       </EntityType>
+      <EntityType Name="InformationRegister_ЦеныНоменклатуры">
+        <Property Name="Period" Type="Edm.DateTime" />
+        <Property Name="ВидЦен_Key" Type="Edm.Guid" />
+        <Property Name="Цена" Type="Edm.Double" />
+      </EntityType>
       <EntityContainer Name="Container">
         <EntitySet Name="Catalog_ВидыЦен" EntityType="StandardODATA.Catalog_ВидыЦен" />
         <EntitySet Name="Catalog_Контрагенты" EntityType="StandardODATA.Catalog_Контрагенты" />
+        <EntitySet Name="InformationRegister_ЦеныНоменклатуры" EntityType="StandardODATA.InformationRegister_ЦеныНоменклатуры" />
       </EntityContainer>
     </Schema>
   </edmx:DataServices>
@@ -77,7 +83,7 @@ describe("discoverOneCCommercialRateSources", () => {
 
     const result = await discoverOneCCommercialRateSources(env);
 
-    expect(result.metadata.relevantEntities).toHaveLength(1);
+    expect(result.metadata.relevantEntities).toHaveLength(2);
     expect(result.metadata.relevantEntities[0]?.entity).toBe("Catalog_ВидыЦен");
     expect(
       result.metadata.relevantEntities[0]?.properties.map(({ name }) => name),
@@ -86,13 +92,14 @@ describe("discoverOneCCommercialRateSources", () => {
       "code_113",
       "code_999",
       "known_ref",
+      "recent_candidate",
     ]);
     expect(
       result.probes.every(({ rows }) =>
         rows.every((row) => !("Password" in row)),
       ),
     ).toBe(true);
-    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(fetchMock).toHaveBeenCalledTimes(5);
     expect(
       fetchMock.mock.calls.every(([, init]) => init?.cache === "no-store"),
     ).toBe(true);
