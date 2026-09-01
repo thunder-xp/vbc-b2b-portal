@@ -7,7 +7,7 @@ import type {
   ProductCommercialViewDto,
   RetailPriceHistoryDto,
 } from "../../pricing-inventory";
-import { buildCatalogHref, buildProductDetailTabHref, getCatalogCharacteristicFilterTarget, parseCatalogReturnTarget, type CatalogProductDetailDto } from "../services";
+import { buildCatalogHref, buildProductDetailTabHref, getCatalogCharacteristicFilterTarget, parseCatalogReturnTarget, type CatalogProductDetailDto, type ProductDetailTab } from "../services";
 
 import { ExpandableDescription } from "./ExpandableDescription";
 import { ProductDetailContextRail } from "./ProductDetailContextRail";
@@ -17,17 +17,9 @@ import { formatPartnerDate, getCatalogCopy, type PartnerLocale } from "../../par
 import { ProductCompetitorPricing } from "../../competitive-intelligence/components/ProductCompetitorPricing";
 import type { ProductCompetitorPricingItem } from "../../competitive-intelligence/types";
 
-export type ProductDetailTab =
-  | "overview"
-  | "description"
-  | "characteristics"
-  | "datasheet"
-  | "pricing"
-  | "analytics"
-  | "analogs"
-  | "related";
+export type { ProductDetailTab } from "../services";
 
-type ProductDetailProps = {
+export type ProductDetailProps = {
   activeTab?: ProductDetailTab;
   canAddToOrder?: boolean;
   canManagePurchasingLists?: boolean;
@@ -47,6 +39,7 @@ type ProductDetailProps = {
   locale?: PartnerLocale;
   competitorPricing?: ProductCompetitorPricingItem[];
   showAnalyticsTab?: boolean;
+  supplementalContent?: ReactNode;
 };
 
 export function ProductDetail({
@@ -125,7 +118,7 @@ export function ProductDetail({
           userId={userId}
         >
           {activeTab === "overview" ? (
-          <OverviewTab
+          <ProductOverviewTab
             commercialView={commercialView}
             competitorPricing={competitorPricing}
             hasAnalogs={hasAnalogs}
@@ -139,16 +132,16 @@ export function ProductDetail({
         ) : (
           <>
           {activeTab === "description" ? (
-            <DescriptionTab locale={locale} product={product} />
+            <ProductDescriptionTab locale={locale} product={product} />
           ) : null}
           {activeTab === "characteristics" ? (
-            <CharacteristicsTab locale={locale} product={product} />
+            <ProductCharacteristicsTab locale={locale} product={product} />
           ) : null}
           {activeTab === "datasheet" ? (
-            <DatasheetTab locale={locale} product={product} />
+            <ProductDatasheetTab locale={locale} product={product} />
           ) : null}
           {activeTab === "pricing" ? (
-            <PricingHistoryTab
+            <ProductPricingHistoryTab
               error={retailPriceHistoryError}
               history={retailPriceHistory}
               locale={locale}
@@ -203,7 +196,7 @@ function ProductTabLayout({
   );
 }
 
-function OverviewTab({
+export function ProductOverviewTab({
   commercialView,
   hasAnalogs,
   locale = "ru",
@@ -211,7 +204,8 @@ function OverviewTab({
   returnTarget = "/cabinet/catalog",
   stockFreshness,
   competitorPricing = [],
-}: Pick<ProductDetailProps, "commercialView" | "hasAnalogs" | "locale" | "priceFreshness" | "returnTarget" | "stockFreshness" | "competitorPricing">) {
+  supplementalContent,
+}: Pick<ProductDetailProps, "commercialView" | "hasAnalogs" | "locale" | "priceFreshness" | "returnTarget" | "stockFreshness" | "competitorPricing" | "supplementalContent">) {
   const copy = getCatalogCopy(locale);
   return (
     <section
@@ -231,18 +225,20 @@ function OverviewTab({
         freshness={stockFreshness}
         locale={locale}
       />
-      <ProductCompetitorPricing analyticsHref={buildProductDetailTabHref("analytics", returnTarget)} items={competitorPricing} locale={locale} />
-      <RelationPrompt
-        hasAnalogs={hasAnalogs ?? false}
-        locale={locale}
-        relationsHref={buildProductDetailTabHref("analogs", returnTarget)}
-        stock={commercialView?.stock}
-      />
+      {supplementalContent ?? <>
+        <ProductCompetitorPricing analyticsHref={buildProductDetailTabHref("analytics", returnTarget)} items={competitorPricing} locale={locale} />
+        <ProductRelationPrompt
+          hasAnalogs={hasAnalogs ?? false}
+          locale={locale}
+          relationsHref={buildProductDetailTabHref("analogs", returnTarget)}
+          stock={commercialView?.stock}
+        />
+      </>}
     </section>
   );
 }
 
-function RelationPrompt({
+export function ProductRelationPrompt({
   hasAnalogs,
   locale,
   relationsHref,
@@ -281,7 +277,7 @@ function RelationPrompt({
   );
 }
 
-function DescriptionTab({
+export function ProductDescriptionTab({
   locale,
   product,
 }: {
@@ -363,7 +359,7 @@ function AvailabilityBlock({
     </section>
   );
 }
-function CharacteristicsTab({
+export function ProductCharacteristicsTab({
   locale,
   product,
 }: {
@@ -411,7 +407,7 @@ function CharacteristicsTab({
   );
 }
 
-function DatasheetTab({
+export function ProductDatasheetTab({
   locale,
   product,
 }: {
@@ -455,7 +451,7 @@ function DatasheetTab({
   );
 }
 
-function PricingHistoryTab({
+export function ProductPricingHistoryTab({
   error,
   history,
   locale,
