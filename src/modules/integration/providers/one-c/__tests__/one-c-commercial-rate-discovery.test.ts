@@ -33,6 +33,7 @@ const metadata = `<?xml version="1.0" encoding="utf-8"?>
         <Property Name="Description" Type="Edm.String" />
         <Property Name="Курс" Type="Edm.Decimal" />
         <Property Name="Password" Type="Edm.String" />
+        <Property Name="ЦеновыеГруппы" Type="Collection(StandardODATA.PriceGroup)" />
       </EntityType>
       <EntityType Name="Catalog_Контрагенты">
         <Property Name="Ref_Key" Type="Edm.Guid" />
@@ -88,6 +89,9 @@ describe("discoverOneCCommercialRateSources", () => {
     expect(
       result.metadata.relevantEntities[0]?.properties.map(({ name }) => name),
     ).not.toContain("Password");
+    expect(
+      result.metadata.relevantEntities[0]?.properties.map(({ name }) => name),
+    ).not.toContain("ЦеновыеГруппы");
     expect(result.probes.map(({ kind }) => kind).sort()).toEqual([
       "code_113",
       "code_999",

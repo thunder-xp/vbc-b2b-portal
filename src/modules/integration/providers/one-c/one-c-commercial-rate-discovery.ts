@@ -280,13 +280,16 @@ async function executeProbe(
 }
 
 function selectedProperties(entity: MetadataEntity): string[] {
-  const relevant = entity.properties.filter(
+  const scalarProperties = entity.properties.filter(
+    ({ type }) => !type.startsWith("Collection("),
+  );
+  const relevant = scalarProperties.filter(
     (property) =>
       SAFE_IDENTITY.test(property.name) ||
       RELEVANT.test(property.name) ||
       VALUE_FIELD.test(property.name),
   );
-  const references = entity.properties.filter((property) =>
+  const references = scalarProperties.filter((property) =>
     /(?:_Key|Ref_Key)$/u.test(property.name),
   );
   const selected = [
@@ -294,7 +297,7 @@ function selectedProperties(entity: MetadataEntity): string[] {
   ].slice(0, MAX_PROPERTIES);
   return selected.length > 0
     ? selected
-    : entity.properties.slice(0, 1).map(({ name }) => name);
+    : scalarProperties.slice(0, 1).map(({ name }) => name);
 }
 
 function safeMetadataEntity(entity: MetadataEntity): MetadataEntity {
