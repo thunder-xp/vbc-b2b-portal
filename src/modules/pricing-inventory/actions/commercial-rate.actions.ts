@@ -40,9 +40,17 @@ export async function publishCommercialRateAction(
       sourceNote: text(formData, "sourceNote"),
       evidenceComment: text(formData, "evidenceComment") || null,
     });
-    revalidatePath("/admin/commercial-rates");
-    revalidatePath("/cabinet/catalog/[slug]", "page");
-    return success("Курс опубликован.", rate);
+    const unchanged = rate.id === text(formData, "currentRateId");
+    if (!unchanged) {
+      revalidatePath("/admin/commercial-rates");
+      revalidatePath("/cabinet/catalog/[slug]", "page");
+    }
+    return success(
+      unchanged
+        ? "Курс уже актуален. Новая версия не создана."
+        : "Новый курс опубликован.",
+      rate,
+    );
   } catch (error) {
     if (error instanceof CommercialRateValidationError) return invalidInput(error.message);
     return failureFromError(error);
