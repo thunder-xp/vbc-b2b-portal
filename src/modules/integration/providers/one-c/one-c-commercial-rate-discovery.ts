@@ -48,7 +48,12 @@ type MetadataEntity = {
 
 type ProbeResult = {
   entity: string;
-  kind: "known_ref" | "code_113" | "code_999" | "recent_candidate";
+  kind:
+    | "known_ref"
+    | "code_113"
+    | "code_999"
+    | "recent_candidate"
+    | "price_type_snapshot";
   rowCount: number;
   rows: Array<Record<string, string | number | boolean | null>>;
   status: "ok" | "unsupported" | "failed";
@@ -223,6 +228,12 @@ function buildProbePlans(entities: MetadataEntity[]): ProbePlan[] {
           : undefined;
       plans.push({ entity, kind: "recent_candidate", orderby });
     }
+    if (
+      entity.entity === "Catalog_ВидыЦен" ||
+      entity.entity === "Catalog_ВидыЦенКонтрагентов"
+    ) {
+      plans.push({ entity, kind: "price_type_snapshot" });
+    }
   }
   return plans;
 }
@@ -236,7 +247,13 @@ async function executeProbe(
   url.searchParams.set("$select", select.join(","));
   url.searchParams.set(
     "$top",
-    String(plan.kind === "known_ref" ? 1 : MAX_ROWS),
+    String(
+      plan.kind === "known_ref"
+        ? 1
+        : plan.kind === "price_type_snapshot"
+          ? MAX_EXACT_FALLBACK_ROWS
+          : MAX_ROWS,
+    ),
   );
   url.searchParams.set("$format", "json");
   if (plan.filter) url.searchParams.set("$filter", plan.filter);
@@ -295,6 +312,7 @@ async function executeExactFallback(
 ): Promise<ProbeResult | null> {
   if (
     plan.kind === "recent_candidate" ||
+    plan.kind === "price_type_snapshot" ||
     !HIGH_SIGNAL_ENTITY.test(plan.entity.entity)
   )
     return null;

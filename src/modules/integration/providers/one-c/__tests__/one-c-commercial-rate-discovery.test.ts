@@ -96,6 +96,7 @@ describe("discoverOneCCommercialRateSources", () => {
       "code_113",
       "code_999",
       "known_ref",
+      "price_type_snapshot",
       "recent_candidate",
     ]);
     expect(
@@ -103,7 +104,7 @@ describe("discoverOneCCommercialRateSources", () => {
         rows.every((row) => !("Password" in row)),
       ),
     ).toBe(true);
-    expect(fetchMock).toHaveBeenCalledTimes(5);
+    expect(fetchMock).toHaveBeenCalledTimes(6);
     expect(
       fetchMock.mock.calls.every(([, init]) => init?.cache === "no-store"),
     ).toBe(true);
