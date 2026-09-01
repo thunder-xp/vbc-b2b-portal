@@ -21,6 +21,7 @@ describe("commercial-rate admin clarity", () => {
     }
     expect(panel).toContain("Подтверждающие сведения");
     expect(panel).toContain("История подтверждений");
+    expect(panel).toContain('timeZone: "Europe/Chisinau"');
   });
 
   it("distinguishes semantic replay from a new immutable publication without another read", () => {

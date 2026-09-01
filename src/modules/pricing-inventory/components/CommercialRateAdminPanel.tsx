@@ -108,5 +108,5 @@ function purposeDirection(purpose: CommercialRate["purpose"]) { return purpose =
 function purposeDescription(purpose: CommercialRate["purpose"]) { return purpose === "partner_price_usd_to_mdl" ? "Коммерческий курс партнёрской цены" : "Коммерческий курс розничной цены"; }
 function formatRate(rate: number) { return new Intl.NumberFormat("ru-RU", { minimumFractionDigits: 4, maximumFractionDigits: 8 }).format(rate); }
 function formatDate(value: string) { return new Intl.DateTimeFormat("ru-RU", { dateStyle: "medium", timeZone: "UTC" }).format(new Date(value)); }
-function formatDateTime(value: string) { return new Intl.DateTimeFormat("ru-RU", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value)); }
+function formatDateTime(value: string) { return new Intl.DateTimeFormat("ru-MD", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Chisinau" }).format(new Date(value)); }
 function today() { return new Date().toISOString().slice(0, 10); }
