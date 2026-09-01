@@ -58,6 +58,7 @@ describe("manual commercial-rate publication migration", () => {
   const sql = readFileSync(resolve(process.cwd(), "supabase/migrations/20260718120000_manual_commercial_rate_publication.sql"), "utf8");
   const repairSql = readFileSync(resolve(process.cwd(), "supabase/migrations/20260718123000_manual_commercial_rate_purpose_repair.sql"), "utf8");
   const directionSql = readFileSync(resolve(process.cwd(), "supabase/migrations/20260718160000_commercial_rate_direction_correction.sql"), "utf8");
+  const idempotencySql = readFileSync(resolve(process.cwd(), "supabase/migrations/20260901162149_make_manual_commercial_rate_publication_idempotent.sql"), "utf8");
 
   it("isolates purposes, serializes publication, and rejects older effective dates", () => {
     expect(sql).toContain("commercial_exchange_rates_one_active_purpose_idx");
@@ -83,6 +84,27 @@ describe("manual commercial-rate publication migration", () => {
     expect(directionSql).toContain("clock_timestamp()");
     expect(repairSql).toMatch(/effective_date,\s+purpose,\s+effective_at/);
     expect(repairSql).toMatch(/p_effective_at::date,\s+p_purpose,\s+p_effective_at/);
+  });
+
+  it("returns the active version for a semantic replay before writing history", () => {
+    expect(idempotencySql).toContain("current_rate.rate = p_rate::numeric(18, 6)");
+    expect(idempotencySql).toContain("current_rate.effective_at::date = p_effective_at::date");
+    expect(idempotencySql).toContain("current_rate.source_note = normalized_source_note");
+    expect(idempotencySql).toContain("current_rate.evidence_comment is not distinct from normalized_evidence_comment");
+
+    const replayReturn = idempotencySql.indexOf("return to_jsonb(current_rate)");
+    const supersede = idempotencySql.indexOf("update public.commercial_exchange_rates", replayReturn);
+    const insertAudit = idempotencySql.indexOf("insert into public.commercial_exchange_rate_audit_events", replayReturn);
+    expect(replayReturn).toBeGreaterThan(0);
+    expect(supersede).toBeGreaterThan(replayReturn);
+    expect(insertAudit).toBeGreaterThan(replayReturn);
+  });
+
+  it("keeps material rate or evidence changes on the immutable publication path", () => {
+    expect(idempotencySql).toContain("insert into public.commercial_exchange_rates");
+    expect(idempotencySql).toContain("previous_rate_id");
+    expect(idempotencySql).toContain("'published'");
+    expect(idempotencySql).toContain("pg_advisory_xact_lock");
   });
 });
 
