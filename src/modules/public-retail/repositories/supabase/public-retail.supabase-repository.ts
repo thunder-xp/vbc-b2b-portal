@@ -18,10 +18,42 @@ import {
 import type { PublicRetailLocale } from "../../types";
 
 export class PublicRetailRepositoryError extends Error {
-  constructor() {
+  readonly operation: string | null;
+  readonly rpcName: string | null;
+  readonly sqlState: string | null;
+  readonly constraint: string | null;
+  readonly publicationId: string | null;
+  readonly entityContext: Readonly<Record<string, string>> | null;
+  readonly databaseMessage: string | null;
+  readonly databaseDetails: string | null;
+  readonly candidateFailureRecorded: boolean;
+
+  constructor(context: {
+    operation?: string;
+    rpcName?: string;
+    publicationId?: string | null;
+    entityContext?: Readonly<Record<string, string>>;
+    databaseError?: { code?: string | null; message?: string | null; details?: string | null } | null;
+    sqlState?: string | null;
+    candidateFailureRecorded?: boolean;
+  } = {}) {
     super("Public Retail projection is temporarily unavailable.");
     this.name = "PublicRetailRepositoryError";
+    this.operation = context.operation ?? null;
+    this.rpcName = context.rpcName ?? null;
+    this.sqlState = context.databaseError?.code ?? context.sqlState ?? null;
+    this.constraint = extractConstraint(context.databaseError);
+    this.publicationId = context.publicationId ?? null;
+    this.entityContext = context.entityContext ?? null;
+    this.databaseMessage = context.databaseError?.message ?? null;
+    this.databaseDetails = context.databaseError?.details ?? null;
+    this.candidateFailureRecorded = context.candidateFailureRecorded ?? false;
   }
+}
+
+function extractConstraint(error?: { message?: string | null; details?: string | null } | null): string | null {
+  const match = `${error?.message ?? ""} ${error?.details ?? ""}`.match(/constraint ["']?([A-Za-z0-9_.-]+)["']?/i);
+  return match?.[1] ?? null;
 }
 
 export class SupabasePublicRetailReadRepository implements PublicRetailReadRepository {

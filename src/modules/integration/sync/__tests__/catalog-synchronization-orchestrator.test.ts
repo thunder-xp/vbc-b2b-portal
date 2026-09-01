@@ -30,12 +30,32 @@ describe("CatalogSynchronizationOrchestrator", () => {
   });
 
   it("reports Public Retail failure as partial success without changing B2B source success", async () => {
-    publisher.publishCurrentProjection.mockRejectedValueOnce(Object.assign(new Error("failed"), { name: "ProjectionFailure" }));
+    const errorLog = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    publisher.publishCurrentProjection.mockRejectedValueOnce(Object.assign(new Error("failed"), {
+      name: "PublicRetailRepositoryError",
+      operation: "candidate_build",
+      rpcName: "build_public_retail_candidate",
+      sqlState: "57014",
+      constraint: null,
+      publicationId,
+      entityContext: { entity: "public_retail_publication", publicationId },
+    }));
     const result = await service.completeSourceSync(sourceCompletion);
     expect(repository.completeSource).toHaveBeenCalledOnce();
-    expect(repository.failProjection).toHaveBeenCalledWith(expect.objectContaining({ runId, safeErrorCode: "PUBLIC_RETAIL_PUBLICATION_PROJECTIONFAILURE" }));
+    expect(repository.failProjection).toHaveBeenCalledWith(expect.objectContaining({ runId, safeErrorCode: "PUBLIC_RETAIL_PUBLICATION_PUBLICRETAILREPOSITORYERROR" }));
     expect(cache.invalidateAfterPublication).not.toHaveBeenCalled();
     expect(result.status).toBe("partial_success");
+    expect(errorLog).toHaveBeenCalledWith({
+      event: "catalog_public_projection_failed",
+      runId,
+      publicationId,
+      operation: "candidate_build",
+      rpcName: "build_public_retail_candidate",
+      sqlState: "57014",
+      constraint: null,
+      entityContext: { entity: "public_retail_publication", publicationId },
+      errorType: "PublicRetailRepositoryError",
+    });
   });
 
   it("does not relabel a completed B2B source when orchestration persistence fails", async () => {

@@ -38,4 +38,35 @@ describe("PublicRetailPublicationService", () => {
     expect(repository.fail).toHaveBeenCalledOnce();
     expect(repository.publish).not.toHaveBeenCalled();
   });
+
+  it("does not overwrite database-recorded candidate diagnostics", async () => {
+    const failure = Object.assign(new Error("candidate failed"), { candidateFailureRecorded: true });
+    const repository = {
+      start: vi.fn().mockResolvedValue(publicationId),
+      build: vi.fn().mockRejectedValue(failure),
+      publish: vi.fn(),
+      fail: vi.fn(),
+    } satisfies PublicRetailPublicationRepository;
+
+    await expect(new PublicRetailPublicationService(repository).publishCurrentProjection()).rejects.toBe(failure);
+    expect(repository.fail).not.toHaveBeenCalled();
+  });
+
+  it("preserves the original publication failure when failure recording also fails", async () => {
+    const errorLog = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const original = new Error("build failed");
+    const repository = {
+      start: vi.fn().mockResolvedValue(publicationId),
+      build: vi.fn().mockRejectedValue(original),
+      publish: vi.fn(),
+      fail: vi.fn().mockRejectedValue(Object.assign(new Error("audit failed"), { name: "FailureRecordingError" })),
+    } satisfies PublicRetailPublicationRepository;
+
+    await expect(new PublicRetailPublicationService(repository).publishCurrentProjection()).rejects.toBe(original);
+    expect(errorLog).toHaveBeenCalledWith(expect.objectContaining({
+      event: "public_retail_candidate_failure_recording_failed",
+      publicationId,
+      errorType: "FailureRecordingError",
+    }));
+  });
 });

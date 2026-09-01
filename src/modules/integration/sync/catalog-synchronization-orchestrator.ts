@@ -156,6 +156,7 @@ export class CatalogSynchronizationOrchestrator {
     } catch (error) {
       const durationMs = Math.max(0, Math.round(performance.now() - startedAt));
       const safeErrorCode = safeProjectionErrorCode(error);
+      logProjectionFailure(claim.runId, error);
       try {
         await this.repository.failProjection({ runId: claim.runId, safeErrorCode, durationMs });
       } catch (persistenceError) {
@@ -200,4 +201,28 @@ function partialOutcome(
 
 function logOrchestrationFailure(event: string, error: unknown): void {
   console.error({ event, errorType: error instanceof Error ? error.name : typeof error });
+}
+
+function logProjectionFailure(runId: string, error: unknown): void {
+  const context = error && typeof error === "object" ? error as Record<string, unknown> : {};
+  console.error({
+    event: "catalog_public_projection_failed",
+    runId,
+    publicationId: stringOrNull(context.publicationId),
+    operation: stringOrNull(context.operation),
+    rpcName: stringOrNull(context.rpcName),
+    sqlState: stringOrNull(context.sqlState),
+    constraint: stringOrNull(context.constraint),
+    entityContext: safeStringRecord(context.entityContext),
+    errorType: error instanceof Error ? error.name : typeof error,
+  });
+}
+
+function stringOrNull(value: unknown): string | null {
+  return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+function safeStringRecord(value: unknown): Record<string, string> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return Object.fromEntries(Object.entries(value).filter((entry): entry is [string, string] => typeof entry[1] === "string"));
 }
