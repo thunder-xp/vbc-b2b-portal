@@ -24,7 +24,6 @@ export {
 } from "./catalog-comparison";
 export { buildCatalogHref, buildCatalogSortHiddenFields, parseCatalogAttributeFilters, type CatalogSortHiddenField } from "./catalog-sort-state";
 export { buildCatalogProductHref, buildProductDetailTabHref, parseCatalogReturnTarget } from "./catalog-return-target";
-export { parseProductDetailTab, type ProductDetailTab } from "./product-detail-tab";
 export { getCatalogCharacteristicFilterTarget, type CatalogCharacteristicFilterTarget } from "./catalog-characteristic-filter";
 export { buildCatalogPaginationItems, getCatalogTotalPages, type CatalogPaginationItem } from "./catalog-pagination";
 export {
