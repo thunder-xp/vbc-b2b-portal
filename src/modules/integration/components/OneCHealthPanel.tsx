@@ -3,13 +3,11 @@
 import { useState, useTransition } from "react";
 
 import {
-  runOneCCommercialRateDiscoveryAction,
   runOneCHealthCheckAction,
   runOneCRelationMetadataAuditAction,
   runOneCServiceMetadataAuditAction,
   runOneCServiceSourceAuditAction,
 } from "../actions";
-import type { OneCCommercialRateDiscovery } from "../providers/one-c/one-c-commercial-rate-discovery";
 import type { OneCRelationMetadataAudit } from "../providers/one-c/one-c-relation-metadata-audit";
 import type { OneCServiceMetadataAudit } from "../providers/one-c/one-c-service-metadata-audit";
 import type { OneCServiceSourceAudit } from "../providers/one-c/one-c-service-metadata-audit";
@@ -31,8 +29,6 @@ export function OneCHealthPanel({
   };
 }) {
   const [report, setReport] = useState<OneCHealthReport | null>(null);
-  const [rateDiscovery, setRateDiscovery] =
-    useState<OneCCommercialRateDiscovery | null>(null);
   const [relationAudit, setRelationAudit] = useState<OneCRelationMetadataAudit | null>(null);
   const [serviceAudit, setServiceAudit] = useState<OneCServiceMetadataAudit | null>(null);
   const [serviceSourceAudit, setServiceSourceAudit] = useState<OneCServiceSourceAudit | null>(null);
@@ -49,19 +45,6 @@ export function OneCHealthPanel({
         return;
       }
       setReport(result.data);
-    });
-  }
-
-  function runRateDiscovery() {
-    setError(null);
-    startTransition(async () => {
-      const result = await runOneCCommercialRateDiscoveryAction();
-      if (!result.success) {
-        setRateDiscovery(null);
-        setError(result.message);
-        return;
-      }
-      setRateDiscovery(result.data);
     });
   }
 
@@ -126,14 +109,6 @@ export function OneCHealthPanel({
             </p>
           </div>
           <button
-            className="rounded-md border border-amber-400 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-950 disabled:cursor-not-allowed disabled:opacity-60"
-            disabled={isPending}
-            onClick={runRateDiscovery}
-            type="button"
-          >
-            {isPending ? "Проверка..." : "Временно: найти источники курсов"}
-          </button>
-          <button
             className="rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
             disabled={isPending}
             onClick={runDiagnostic}
@@ -174,37 +149,10 @@ export function OneCHealthPanel({
       </section>
 
       {report ? <DiagnosticReport report={report} /> : null}
-      {rateDiscovery ? (
-        <CommercialRateDiscovery discovery={rateDiscovery} />
-      ) : null}
       {relationAudit ? <RelationMetadataAudit audit={relationAudit} /> : null}
       {serviceAudit ? <ServiceMetadataAudit audit={serviceAudit} /> : null}
       {serviceSourceAudit ? <ServiceSourceAudit audit={serviceSourceAudit} /> : null}
     </div>
-  );
-}
-
-function CommercialRateDiscovery({
-  discovery,
-}: {
-  discovery: OneCCommercialRateDiscovery;
-}) {
-  return (
-    <section
-      className="rounded-lg border border-amber-300 bg-amber-50 p-5"
-      data-testid="one-c-commercial-rate-discovery"
-    >
-      <h2 className="font-semibold text-zinc-950">
-        Временная диагностика источников курсов
-      </h2>
-      <p className="mt-2 text-sm text-zinc-700">
-        Корреляция: {discovery.correlationId}; запросов:{" "}
-        {discovery.requestCount}; {discovery.durationMs} ms
-      </p>
-      <pre className="mt-4 max-h-[42rem] overflow-auto rounded-md bg-zinc-950 p-4 text-xs text-zinc-100">
-        {JSON.stringify(discovery, null, 2)}
-      </pre>
-    </section>
   );
 }
 

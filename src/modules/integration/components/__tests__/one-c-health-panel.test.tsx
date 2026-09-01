@@ -4,19 +4,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   runOneCHealthCheckAction: vi.fn(),
-  runOneCCommercialRateDiscoveryAction: vi.fn(),
-  runOneCRelationMetadataAuditAction: vi.fn(),
-  runOneCServiceMetadataAuditAction: vi.fn(),
-  runOneCServiceSourceAuditAction: vi.fn(),
 }));
 
 vi.mock("../../actions", () => ({
   runOneCHealthCheckAction: mocks.runOneCHealthCheckAction,
-  runOneCCommercialRateDiscoveryAction:
-    mocks.runOneCCommercialRateDiscoveryAction,
-  runOneCRelationMetadataAuditAction: mocks.runOneCRelationMetadataAuditAction,
-  runOneCServiceMetadataAuditAction: mocks.runOneCServiceMetadataAuditAction,
-  runOneCServiceSourceAuditAction: mocks.runOneCServiceSourceAuditAction,
 }));
 
 import type { OneCHealthReport } from "../../providers/one-c/one-c-health-check";
@@ -91,19 +82,6 @@ describe("OneCHealthPanel", () => {
       message: "done",
       data: report,
     });
-    mocks.runOneCCommercialRateDiscoveryAction.mockResolvedValue({
-      success: true,
-      errorCode: null,
-      message: "done",
-      data: {
-        correlationId: "correlation",
-        generatedAt: "2026-09-01T00:00:00.000Z",
-        metadata: { entityCount: 1, relevantEntities: [], truncated: false },
-        probes: [],
-        requestCount: 1,
-        durationMs: 10,
-      },
-    });
   });
 
   it("does not run live diagnostics while rendering", () => {
@@ -126,21 +104,6 @@ describe("OneCHealthPanel", () => {
     expect(mocks.runOneCHealthCheckAction).toHaveBeenCalledTimes(1);
     expect(
       await screen.findByTestId("one-c-live-diagnostic-result"),
-    ).toBeInTheDocument();
-  });
-
-  it("runs commercial-rate discovery only after the explicit internal action", async () => {
-    const user = userEvent.setup();
-    renderPanel();
-
-    expect(mocks.runOneCCommercialRateDiscoveryAction).not.toHaveBeenCalled();
-    await user.click(
-      screen.getByRole("button", { name: "Временно: найти источники курсов" }),
-    );
-
-    expect(mocks.runOneCCommercialRateDiscoveryAction).toHaveBeenCalledTimes(1);
-    expect(
-      await screen.findByTestId("one-c-commercial-rate-discovery"),
     ).toBeInTheDocument();
   });
 });

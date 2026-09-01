@@ -9,10 +9,6 @@ import { requireAdminPermission } from "../../admin/services";
 import { getOneCEnv } from "../../../lib/env";
 import { recordOneCHealthAudit } from "../providers/one-c/one-c-health-audit.repository";
 import {
-  discoverOneCCommercialRateSources,
-  type OneCCommercialRateDiscovery,
-} from "../providers/one-c/one-c-commercial-rate-discovery";
-import {
   runOneCODataHealthCheck,
   type OneCHealthReport,
 } from "../providers/one-c/one-c-health-check";
@@ -45,20 +41,6 @@ export async function runOneCHealthCheckAction(): Promise<ActionResult<OneCHealt
     );
 
     return success("1C OData diagnostics completed.", report);
-  } catch (error) {
-    return failureFromError(error);
-  }
-}
-
-export async function runOneCCommercialRateDiscoveryAction(): Promise<
-  ActionResult<OneCCommercialRateDiscovery>
-> {
-  try {
-    await requireAdminPermission("admin.diagnostics.run");
-    return success(
-      "1C commercial-rate source discovery completed.",
-      await discoverOneCCommercialRateSources(getOneCEnv()),
-    );
   } catch (error) {
     return failureFromError(error);
   }
