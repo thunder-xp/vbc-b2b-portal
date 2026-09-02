@@ -73,6 +73,7 @@ export default async function ProductDetailPage({
   if (!identityResult.data) {
     notFound();
   }
+  const productIdentity = identityResult.data;
 
   const needsCommercialContext =
     activeTab === "overview" || activeTab === "analogs" || activeTab === "related";
@@ -88,32 +89,32 @@ export default async function ProductDetailPage({
   ] = await Promise.all([
     tracePhase(trace, "product_detail", () =>
       getCatalogProductDetailByIdAction(
-        identityResult.data.id,
+        productIdentity.id,
         detailProjection(activeTab),
       ),
     ),
     needsCommercialContext
       ? tracePhase(trace, "commercial_views", () =>
-          getProductCommercialViewsAction([identityResult.data.id]))
+          getProductCommercialViewsAction([productIdentity.id]))
       : Promise.resolve(null),
     tracePhase(trace, "workspace", () => getPartnerWorkspaceContextAction()),
     tracePhase(trace, "merchandising", () =>
-      getProductMerchandisingLabelsAction(identityResult.data.id)),
+      getProductMerchandisingLabelsAction(productIdentity.id)),
     activeTab === "pricing"
       ? tracePhase(trace, "retail_history", () =>
-          getRetailPriceHistoryAction(identityResult.data.id, "all"))
+          getRetailPriceHistoryAction(productIdentity.id, "all"))
       : Promise.resolve(null),
     activeTab === "analogs" || activeTab === "related"
       ? tracePhase(trace, "relations", () =>
-          getProductRelationSectionsAction(identityResult.data.id))
+          getProductRelationSectionsAction(productIdentity.id))
       : Promise.resolve(null),
     activeTab === "overview"
       ? tracePhase(trace, "relation_summary", () =>
-          getProductRelationSummaryAction(identityResult.data.id))
+          getProductRelationSummaryAction(productIdentity.id))
       : Promise.resolve(null),
     activeTab === "overview"
       ? tracePhase(trace, "knowledge", () =>
-          getProductKnowledgeAction(identityResult.data.id))
+          getProductKnowledgeAction(productIdentity.id))
       : Promise.resolve(null),
   ]);
 
@@ -169,7 +170,7 @@ export default async function ProductDetailPage({
     activeTab === "analytics" && companyId && workspaceResult?.success &&
     canViewCompetitiveIntelligence
       ? await tracePhase(trace, "competitive_intelligence", () =>
-          new PartnerProductCompetitiveIntelligenceService().getPartnerProduct(companyId, productResult.data.id))
+          new PartnerProductCompetitiveIntelligenceService().getPartnerProduct(companyId, product.id))
       : null;
   const priceUpdatedAt = latestTimestamp([
     commercialView?.partnerPrice?.lastUpdatedAt,
