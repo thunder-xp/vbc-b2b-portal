@@ -29,7 +29,7 @@ describe("B2B catalog toolbar ergonomics", () => {
 
   it("places quick categories in the results toolbar before the view controls", () => {
     const results = source("app/(partner)/cabinet/catalog/CatalogResults.tsx");
-    const presentation = source("src/modules/catalog/components/CatalogPresentation.tsx");
+    const presentation = source("src/modules/catalog/components/CatalogViewModeShell.tsx");
 
     expect(results).toContain("quickLinks={<CatalogQuickLinks");
     expect(results).toContain('<section className="min-w-0 space-y-5">');
