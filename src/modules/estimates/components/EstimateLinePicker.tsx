@@ -47,6 +47,9 @@ export function EstimateLinePicker({ estimate, services, onResult, disabled, mod
     const query = serviceSearch.trim().toLocaleLowerCase("ru");
     return query ? services.filter((service) => `${service.name} ${service.category}`.toLocaleLowerCase("ru").includes(query)) : services;
   }, [serviceSearch, services]);
+  const allProductsSelected =
+    products.products.length > 0 &&
+    products.products.every((product) => productSelection[product.id] !== undefined);
 
   const requestKeyFor = (payload: unknown) => {
     const signature = JSON.stringify(payload);
@@ -113,6 +116,19 @@ export function EstimateLinePicker({ estimate, services, onResult, disabled, mod
         <button className={buttonClass} disabled={disabled || pending} type="submit"><Search className="size-4" />{copy.find}</button>
       </form>
       {recentSearches.length > 0 && <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-500"><span>{copy.recent}:</span>{recentSearches.map((query) => <span className="rounded bg-zinc-100 px-2 py-1" key={query}>{query}</span>)}</div>}
+      {products.products.length > 0 && <div className="flex justify-end">
+        <button
+          className={buttonClass}
+          data-testid="estimate-select-all-products"
+          disabled={disabled || pending}
+          onClick={() => setProductSelection(allProductsSelected
+            ? {}
+            : Object.fromEntries(products.products.map((product) => [product.id, productSelection[product.id] ?? 1])))}
+          type="button"
+        >
+          {allProductsSelected ? copy.clearSelection : copy.selectAllResults}
+        </button>
+      </div>}
       <div className="max-h-[28rem] divide-y divide-zinc-100 overflow-y-auto border-y border-zinc-200">
         {products.products.map((product) => {
           const selected = productSelection[product.id] !== undefined;

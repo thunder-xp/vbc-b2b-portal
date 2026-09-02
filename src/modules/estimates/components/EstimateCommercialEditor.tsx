@@ -131,7 +131,10 @@ export function EstimateCommercialEditor({
   const [checkedLineIds, setCheckedLineIds] = useState<Set<string>>(new Set());
   const [dirty, setDirty] = useState(false);
   const [pickerMode, setPickerMode] = useState<EstimateLinePickerMode | null>(
-    null,
+    () =>
+      initialEstimate.status === "draft" && initialEstimate.lines.length === 0
+        ? "product"
+        : null,
   );
   const [targetSectionId, setTargetSectionId] = useState(
     () => canonicalTargetSectionId(initialEstimate.sections, "equipment") ?? "",

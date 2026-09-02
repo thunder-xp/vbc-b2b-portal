@@ -64,6 +64,20 @@ describe("EstimateLinePicker", () => {
     expect(screen.getByText("Добавление: Монтажные материалы")).toBeInTheDocument();
   });
 
+  it("selects all visible product results in one action", async () => {
+    const user = userEvent.setup();
+    vi.mocked(searchEstimateProductsAction).mockResolvedValue({ success: true, data: products, message: "Loaded", errorCode: null });
+    render(<EstimateLinePicker allowedModes={["product"]} contextLabel="Equipment" disabled={false} estimate={estimate} externalItemType="material" mode="product" onModeChange={vi.fn()} onResult={vi.fn()} services={services} targetSectionId="section-1" />);
+
+    await user.type(screen.getByLabelText(/SKU/), "camera");
+    await user.click(screen.getByRole("button", { name: "Найти" }));
+    await screen.findByText("Camera Pro");
+    await user.click(screen.getByTestId("estimate-select-all-products"));
+
+    expect(screen.getByRole("checkbox", { name: /Camera Pro/ })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: /Recorder/ })).toBeChecked();
+  });
+
   it("adds multiple controlled services through one mutation", async () => {
     const user = userEvent.setup();
     vi.mocked(addEstimateServicesAction).mockResolvedValue({ success: true, data: estimate, message: "Добавлено", errorCode: null });
