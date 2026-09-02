@@ -1,5 +1,4 @@
 import type { CatalogFacetSelection } from "../services/catalog-facet-state";
-import { updateCatalogFacetSelection } from "../services/catalog-facet-state";
 import { CatalogTechnicalFacetGroupsClient } from "./CatalogTechnicalFacetGroupsClient";
 
 type Facet = {
@@ -24,9 +23,8 @@ export function CatalogTechnicalFacetGroups({
     label: facet.label,
     values: facet.values.map((value) => {
       const selected = value.selected ?? selection[facet.key]?.includes(value.value) ?? false;
-      const next = updateCatalogFacetSelection(selection, facet.key, value.value);
-      return { count: value.count, href: hrefForSelection(next), selected, value: value.value };
+      return { count: value.count, selected, value: value.value };
     }),
   }));
-  return <CatalogTechnicalFacetGroupsClient groups={groups} tone={tone} />;
+  return <CatalogTechnicalFacetGroupsClient baseHref={hrefForSelection({})} groups={groups} selection={selection} tone={tone} />;
 }
