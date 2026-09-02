@@ -7,6 +7,7 @@ const productCard = source("ProductCard.tsx");
 const productImage = source("CatalogCardImage.tsx");
 const filterLink = source("CatalogFilterLink.tsx");
 const filterShell = source("CatalogFilterShell.tsx");
+const technicalFacets = source("CatalogTechnicalFacetGroups.tsx");
 const cartAction = readFileSync(
   join(process.cwd(), "src/modules/orders/components/AddToCartButton.tsx"),
   "utf8",
@@ -39,6 +40,8 @@ describe("catalog client boundaries", () => {
     expect(filterShell).not.toContain('"use client"');
     expect(filterShell).toContain("{children}");
     expect(filterShell).toContain("CatalogFilterToggle");
+    expect(technicalFacets).toContain("CatalogTechnicalFacetGroupsClient");
+    expect(technicalFacets).toContain("href: hrefForSelection(next)");
   });
 });
 
