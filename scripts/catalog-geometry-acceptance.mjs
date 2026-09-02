@@ -46,6 +46,10 @@ try {
     });
     page.on("pageerror", (error) => consoleErrors.push(error.message));
 
+    if (process.env.CATALOG_ACCEPTANCE_SHARE_TOKEN) {
+      await page.goto(`${baseUrl}/?_vercel_share=${process.env.CATALOG_ACCEPTANCE_SHARE_TOKEN}`, { waitUntil: "networkidle" });
+    }
+
     for (const [name, route] of publicRoutes) {
       await verifyCatalogGeometry(page, `${baseUrl}${route}`, name, viewport, consoleErrors);
     }
