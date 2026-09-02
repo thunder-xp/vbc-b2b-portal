@@ -57,6 +57,9 @@ export default async function ProductDetailPage({
   const activeTab = parseTab(resolvedSearchParams?.tab);
   trace.tab = activeTab;
   const returnTarget = parseCatalogReturnTarget(resolvedSearchParams?.returnTo);
+  const workspacePromise = tracePhase(trace, "workspace", () =>
+    getPartnerWorkspaceContextAction(),
+  );
   const identityResult = await tracePhase(trace, "route_identity", () =>
     getCatalogProductRouteIdentityAction(slug),
   );
@@ -86,6 +89,8 @@ export default async function ProductDetailPage({
     relationResult,
     relationSummaryResult,
     knowledgeResult,
+    favoriteResult,
+    competitiveIntelligence,
   ] = await Promise.all([
     tracePhase(trace, "product_detail", () =>
       getCatalogProductDetailByIdAction(
@@ -97,7 +102,7 @@ export default async function ProductDetailPage({
       ? tracePhase(trace, "commercial_views", () =>
           getProductCommercialViewsAction([productIdentity.id]))
       : Promise.resolve(null),
-    tracePhase(trace, "workspace", () => getPartnerWorkspaceContextAction()),
+    workspacePromise,
     tracePhase(trace, "merchandising", () =>
       getProductMerchandisingLabelsAction(productIdentity.id)),
     activeTab === "pricing"
@@ -115,6 +120,23 @@ export default async function ProductDetailPage({
     activeTab === "overview"
       ? tracePhase(trace, "knowledge", () =>
           getProductKnowledgeAction(productIdentity.id))
+      : Promise.resolve(null),
+    activeTab !== "analogs" && activeTab !== "related"
+      ? workspacePromise.then((workspace) =>
+          workspace.success && workspace.data.capabilities.productCard.canManagePurchasingLists
+            ? tracePhase(trace, "favorites", () =>
+                listFavoriteProductIdsAction([productIdentity.id]))
+            : null)
+      : Promise.resolve(null),
+    activeTab === "analytics"
+      ? workspacePromise.then((workspace) => {
+          if (!workspace.success || !workspace.data.companyId ||
+              !workspace.data.capabilities.canViewCompetitiveIntelligence) return null;
+          const workspaceCompanyId = workspace.data.companyId;
+          return tracePhase(trace, "competitive_intelligence", () =>
+            new PartnerProductCompetitiveIntelligenceService()
+              .getPartnerProduct(workspaceCompanyId, productIdentity.id));
+        })
       : Promise.resolve(null),
   ]);
 
@@ -145,33 +167,22 @@ export default async function ProductDetailPage({
     workspaceResult.success &&
     workspaceResult.data.capabilities.canViewCompetitiveIntelligence,
   );
-  const [favoriteResult, pricingResult] = await Promise.all([
-    activeTab !== "analogs" && activeTab !== "related" && canManagePurchasingLists
-      ? tracePhase(trace, "favorites", () => listFavoriteProductIdsAction([product.id]))
-      : Promise.resolve(null),
-    activeTab === "overview" && companyId && canViewCompetitiveIntelligence
-      ? tracePhase(trace, "competitor_pricing", () => new CompetitorRetailPricingService()
-          .getProductPricing(companyId, product.id, commercialView)
-          .catch((error: unknown) => {
-            console.error({
-              event: "product_competitor_pricing_read_failed",
-              errorType: error instanceof Error ? error.name : typeof error,
-              productId: product.id,
-            });
-            return [];
-          }))
-      : Promise.resolve([]),
-  ]);
+  const pricingResult = activeTab === "overview" && companyId && canViewCompetitiveIntelligence
+    ? await tracePhase(trace, "competitor_pricing", () => new CompetitorRetailPricingService()
+        .getProductPricing(companyId, product.id, commercialView)
+        .catch((error: unknown) => {
+          console.error({
+            event: "product_competitor_pricing_read_failed",
+            errorType: error instanceof Error ? error.name : typeof error,
+            productId: product.id,
+          });
+          return [];
+        }))
+    : [];
   const initialFavorite = Boolean(
     favoriteResult?.success && favoriteResult.data.includes(product.id),
   );
   const competitorPricing = pricingResult;
-  const competitiveIntelligence =
-    activeTab === "analytics" && companyId && workspaceResult?.success &&
-    canViewCompetitiveIntelligence
-      ? await tracePhase(trace, "competitive_intelligence", () =>
-          new PartnerProductCompetitiveIntelligenceService().getPartnerProduct(companyId, product.id))
-      : null;
   const priceUpdatedAt = latestTimestamp([
     commercialView?.partnerPrice?.lastUpdatedAt,
     commercialView?.retailPrice?.lastUpdatedAt,
