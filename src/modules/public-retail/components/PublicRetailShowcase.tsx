@@ -14,7 +14,7 @@ export function PublicRetailShowcase({ categories, locale, showcase }: { categor
   return <div className="mx-auto max-w-[1440px] px-4 py-8 sm:px-6 lg:px-8">
     <CatalogResultsHeader eyebrow="Novotech Retail" eyebrowTone="retail" title={copy.showcase} />
     <div className="mt-5"><CatalogToolbarFrame>
-        <PublicRetailCategoryMenu categories={publicRetailVisibleCategories(categories)} locale={locale} />
+        <PublicRetailCategoryMenu categories={publicRetailVisibleCategories(categories).map((category) => ({ id: category.id, name: category.name, parentId: category.parentId, slug: category.slug }))} locale={locale} />
         <PublicRetailSearchForm id="showcase" locale={locale} />
         <Link className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 border border-zinc-300 px-4 text-sm font-semibold hover:border-blue-700 hover:text-blue-800" href={publicRetailFullCatalogHref(locale)}><LayoutGrid aria-hidden="true" className="size-4" />{locale === "ro" ? "Echipamente" : "Оборудование"}</Link>
     </CatalogToolbarFrame></div>
