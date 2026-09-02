@@ -14,14 +14,14 @@ export type CatalogFacetGroupViewModel = {
 export function CatalogTechnicalFacetGroupsClient({ baseHref, groups, selection, tone }: { baseHref: string; groups: CatalogFacetGroupViewModel[]; selection: CatalogFacetSelection; tone: "default" | "retail" }) {
   return <>{groups.map((facet) => <CatalogFilterGroup key={facet.key} title={facet.label}>
     {facet.values.map((item) => <Link
-      className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-zinc-50"
+      className="catalog-facet-option"
       href={facetHref(baseHref, updateCatalogFacetSelection(selection, facet.key, item.value))}
       key={item.value}
       prefetch={false}
     >
-      <span aria-hidden className={`size-4 rounded border ${item.selected ? tone === "retail" ? "border-blue-700 bg-blue-700" : "border-emerald-700 bg-emerald-700" : "border-zinc-300"}`} />
-      <span className="min-w-0 flex-1 break-words">{item.value}</span>
-      <span className="text-xs text-zinc-400">{item.count}</span>
+      <span aria-hidden className={`catalog-facet-check ${item.selected ? tone === "retail" ? "catalog-facet-check-retail" : "catalog-facet-check-partner" : "border-zinc-300"}`} />
+      <span className="catalog-facet-value">{item.value}</span>
+      <span className="catalog-facet-count">{item.count}</span>
     </Link>)}
   </CatalogFilterGroup>)}</>;
 }

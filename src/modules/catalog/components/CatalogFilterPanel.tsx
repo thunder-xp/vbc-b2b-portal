@@ -12,8 +12,8 @@ export function CatalogFilterPanel({ children, clearAction, selectedCount, selec
 }
 
 export function CatalogFilterGroup({ children, defaultOpen = false, title }: { children: ReactNode; defaultOpen?: boolean; title: string }) {
-  return <details className="group border-t border-zinc-100 pt-4 first:border-t-0 first:pt-0" open={defaultOpen || undefined}>
-    <summary className="flex min-h-9 cursor-pointer list-none items-center justify-between text-sm font-semibold text-zinc-900">{title}<ChevronDown aria-hidden="true" className="size-4 text-zinc-400 transition-transform group-open:rotate-180" /></summary>
-    <div className="mt-2 max-h-64 space-y-1 overflow-auto">{children}</div>
+  return <details className="catalog-filter-group" open={defaultOpen || undefined}>
+    <summary className="catalog-filter-group-summary">{title}<ChevronDown aria-hidden="true" className="catalog-filter-group-chevron" /></summary>
+    <div className="catalog-filter-group-options">{children}</div>
   </details>;
 }
