@@ -1,5 +1,3 @@
-import { Suspense } from "react";
-
 import { getFinanceOverviewAction } from "@/src/modules/finance/actions";
 import {
   FinanceOverview,
@@ -14,9 +12,9 @@ import { getPartnerLocale } from "@/src/modules/partner-locale/server";
 export const dynamic = "force-dynamic";
 
 export default async function FinancePage() {
-  const documentsPromise = listPartnerDocumentsAction({ section: "accounting", pageSize: 6 });
-  const [result, locale] = await Promise.all([
+  const [result, documentsResult, locale] = await Promise.all([
     getFinanceOverviewAction(),
+    listPartnerDocumentsAction({ section: "accounting", pageSize: 6 }),
     getPartnerLocale(),
   ]);
   const copy = getFinanceCopy(locale);
@@ -51,57 +49,11 @@ export default async function FinancePage() {
         <FinanceRefreshButton />
       </header>
       <FinanceOverview locale={locale} overview={result.data} />
-      <Suspense fallback={<FinanceDocumentsLoading locale={locale} />}>
-        <FinanceDocuments locale={locale} promise={documentsPromise} />
-      </Suspense>
+      <RelatedDocuments
+        documents={documentsResult.success ? documentsResult.data.items : []}
+        emptyMessage={copy.documentsEmpty}
+        title={copy.documents}
+      />
     </main>
-  );
-}
-
-async function FinanceDocuments({
-  locale,
-  promise,
-}: {
-  locale: Awaited<ReturnType<typeof getPartnerLocale>>;
-  promise: ReturnType<typeof listPartnerDocumentsAction>;
-}) {
-  const documentsResult = await promise;
-  const copy = getFinanceCopy(locale);
-  if (!documentsResult.success) {
-    return (
-      <section className="min-h-40 border-t border-zinc-200 pt-6">
-        <h2 className="text-lg font-semibold text-zinc-950">{copy.documents}</h2>
-        <p className="mt-3 text-sm text-zinc-600">
-          {locale === "ro"
-            ? "Documentele financiare sunt temporar indisponibile. Reîncărcați pagina mai târziu."
-            : "Финансовые документы временно недоступны. Обновите страницу позже."}
-        </p>
-      </section>
-    );
-  }
-  return (
-    <RelatedDocuments
-      documents={documentsResult.data.items}
-      emptyMessage={copy.documentsEmpty}
-      title={copy.documents}
-    />
-  );
-}
-
-function FinanceDocumentsLoading({
-  locale,
-}: {
-  locale: Awaited<ReturnType<typeof getPartnerLocale>>;
-}) {
-  const copy = getFinanceCopy(locale);
-  return (
-    <section aria-busy="true" aria-label={copy.documents} className="min-h-40 border-t border-zinc-200 pt-6">
-      <h2 className="text-lg font-semibold text-zinc-950">{copy.documents}</h2>
-      <div aria-hidden="true" className="mt-4 space-y-3">
-        <div className="h-4 w-2/3 animate-pulse rounded bg-zinc-100" />
-        <div className="h-4 w-1/2 animate-pulse rounded bg-zinc-100" />
-        <div className="h-4 w-3/5 animate-pulse rounded bg-zinc-100" />
-      </div>
-    </section>
   );
 }
