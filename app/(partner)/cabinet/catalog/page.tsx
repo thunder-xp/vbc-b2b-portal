@@ -64,7 +64,7 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
 
   return <div className="space-y-6">
     <CatalogToolbarFrame>
-      <CategoryMegaMenu categories={categoriesResult.data} collection={routeState.collection} merchandisingLabel={routeState.merchandisingLabel} sort={routeState.sort} />
+      <CategoryMegaMenu categories={categoriesResult.data.map(({ id, name, parentId }) => ({ id, name, parentId }))} collection={routeState.collection} merchandisingLabel={routeState.merchandisingLabel} sort={routeState.sort} />
       <CatalogSearch categoryId={routeState.categoryId} categorySet={routeState.categorySet} collection={routeState.collection} explicitAll={routeState.explicitAll} initialSearch={routeState.search} merchandisingLabel={routeState.merchandisingLabel} sort={routeState.sort} />
       {routeState.mode === "discovery" ? <CatalogSortControl hiddenFields={sortHiddenFields} locale={locale} sort={routeState.sort} /> : null}
       <CatalogModeLink curated={routeState.mode === "curated"} labels={{ allCatalog: copy.allCatalog, showcase: copy.showcase }} />

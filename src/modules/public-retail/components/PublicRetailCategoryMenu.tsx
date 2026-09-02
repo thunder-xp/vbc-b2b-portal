@@ -1,9 +1,11 @@
 "use client";
 
 import { CatalogCategoryMenu } from "../../catalog/components/CatalogCategoryMenu";
-import type { PublicRetailCategoryDto, PublicRetailLocale } from "../types";
+import type { PublicRetailLocale } from "../types";
 
-export function PublicRetailCategoryMenu({ categories, locale }: { categories: PublicRetailCategoryDto[]; locale: PublicRetailLocale }) {
+export type PublicRetailMenuCategory = { id: string; name: string; parentId: string | null; slug: string };
+
+export function PublicRetailCategoryMenu({ categories, locale }: { categories: PublicRetailMenuCategory[]; locale: PublicRetailLocale }) {
   const ro = locale === "ro";
   return <CatalogCategoryMenu
     categories={categories}
