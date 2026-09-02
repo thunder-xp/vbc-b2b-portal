@@ -13,6 +13,7 @@ import { DefaultCatalogService } from "../../catalog/services";
 import { SupabaseCatalogRepository } from "../../catalog/repositories/supabase";
 import { SupabasePartnerSupportRepository } from "../../partner-support";
 import { createPartnerWorkspaceContextService } from "./workspace-context.factory";
+import { PartnerSalesWorkspaceService, SupabaseEstimateSalesOpportunityRepository } from "../../partner-sales-workspace";
 
 export { createPartnerWorkspaceContextService } from "./workspace-context.factory";
 
@@ -33,5 +34,6 @@ export function createWorkspaceHomeService(): DefaultWorkspaceHomeService {
     catalogService,
     undefined,
     new SupabasePartnerSupportRepository(),
+    new PartnerSalesWorkspaceService(new SupabaseEstimateSalesOpportunityRepository()),
   );
 }

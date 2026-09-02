@@ -29,6 +29,7 @@ export function OperationalDashboard({
   return (
     <div className="space-y-7">
       <AttentionSection items={workspace.attentionItems} locale={locale} />
+      <EstimateSalesSection items={workspace.estimateSalesOpportunities} locale={locale} />
       <SupportDashboardBlock items={workspace.supportTickets ?? []} locale={locale} />
       <div className="grid gap-5 xl:grid-cols-2">
         <OrdersSection locale={locale} summary={workspace.orderSummary} />
@@ -51,6 +52,25 @@ export function OperationalDashboard({
       />
     </div>
   );
+}
+
+function EstimateSalesSection({ items = [], locale }: { items: WorkspaceHomeDto["estimateSalesOpportunities"]; locale: PartnerLocale }) {
+  if (!items.length) return null;
+  return <section aria-labelledby="dashboard-estimate-sales">
+    <SectionHeading actionHref="/cabinet/estimates" actionLabel={partnerText(locale, "dashboard.allEstimates")} id="dashboard-estimate-sales" title={partnerText(locale, "dashboard.salesOpportunities")} />
+    <ul className="mt-3 divide-y divide-zinc-200 border border-zinc-200 bg-white">
+      {items.map((item) => <li className="grid gap-3 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center" key={item.id}>
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1"><p className="font-semibold text-zinc-950">{item.customerName || item.proposalName}</p><span className="text-xs text-zinc-500">{item.estimateNumber}</span></div>
+          <p className="mt-1 text-sm font-medium text-emerald-800">{partnerText(locale, item.type === "ready_to_send" ? "dashboard.proposalReadyToSend" : "dashboard.awaitingCustomer")}</p>
+          <p className="mt-1 text-xs text-zinc-500">{formatPartnerMoney(item.amount, item.currency, locale)} · {item.projectName || item.proposalName} · {item.type === "awaiting_customer" ? partnerText(locale, "dashboard.sent") : partnerText(locale, "dashboard.prepared")} {formatPartnerRelativeDate(item.waitingSince, locale)}</p>
+        </div>
+        <DashboardTrackedLink className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-emerald-700 focus-visible:ring-2 focus-visible:ring-emerald-500" eventName="dashboard_continue_work_clicked" href={item.href} metadataSafe={{ opportunityType: item.type }} sourceSurface="dashboard_estimate_sales">
+          {partnerText(locale, item.type === "ready_to_send" ? "dashboard.openAndSend" : "dashboard.returnToProposal")}<ArrowRight aria-hidden="true" className="size-4" />
+        </DashboardTrackedLink>
+      </li>)}
+    </ul>
+  </section>;
 }
 
 function NovotechOffersSection({ campaigns = [], locale, products = [], workspace }: {

@@ -56,6 +56,8 @@ export type WorkspaceCapabilityModel = {
   navigation: WorkspaceNavigationItem[];
   productCard: ProductCardCapabilityModel;
   canCreateCommercialProposal: boolean;
+  canViewEstimates: boolean;
+  canSendProposal: boolean;
   canUseWarranty: boolean;
   canViewKnowledgeBase: boolean;
   canViewDashboardDocuments: boolean;
@@ -160,6 +162,8 @@ export function resolveWorkspaceCapabilities(
       canAddToProject: false,
     },
     canCreateCommercialProposal: configuration.commercialProposalAccess !== false && hasPermission("estimates.manage"),
+    canViewEstimates: hasPermission("estimates.view"),
+    canSendProposal: hasPermission("proposal.send"),
     canUseWarranty: configuration.warrantyAccess !== false && hasPermission("service.view"),
     canViewKnowledgeBase: configuration.knowledgeBaseAccess !== false && hasPermission("knowledge.view"),
     canViewDashboardDocuments: [

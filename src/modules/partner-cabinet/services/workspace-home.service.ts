@@ -29,6 +29,7 @@ import type { PartnerDocumentListItem } from "../../documents/types";
 import type { PartnerMomentumRepository } from "../../partner-momentum/repositories";
 import type { PartnerMomentumSummary } from "../../partner-momentum/types";
 import type { PartnerSupportRepository, SupportDashboardItem } from "../../partner-support";
+import type { PartnerEstimateSalesOpportunity, PartnerSalesWorkspaceService } from "../../partner-sales-workspace";
 
 export type WorkspaceQuickActionDto = {
   key: string;
@@ -154,6 +155,7 @@ export type WorkspaceHomeDto = {
     freshness: FreshnessView;
   }>;
   supportTickets?: SupportDashboardItem[];
+  estimateSalesOpportunities?: PartnerEstimateSalesOpportunity[];
 };
 
 export interface WorkspaceHomeService {
@@ -174,6 +176,7 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
     private readonly productReferenceService?: ProductReferenceService,
     private readonly momentumRepository?: PartnerMomentumRepository,
     private readonly supportRepository?: PartnerSupportRepository,
+    private readonly salesWorkspaceService?: PartnerSalesWorkspaceService,
   ) {}
 
   async dismissAttention(
@@ -203,7 +206,7 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
     }
     const companyId = context.companyId;
 
-    const [freshness, dashboard, selections, opportunityPage, campaignPage, supportTickets] = await Promise.all([
+    const [freshness, dashboard, selections, opportunityPage, campaignPage, supportTickets, estimateSalesOpportunities] = await Promise.all([
       timedDashboardRead("commercial_freshness", () => this.commercialFreshnessReadModel.getFreshness()),
       timedDashboardRead("dashboard_aggregate", () => this.dashboardRepository.getDashboard(companyId)),
       timedDashboardRead("product_selections", () => this.dashboardRepository.getProductSelections?.(userId, companyId, loginGeneration) ?? Promise.resolve(null)),
@@ -212,6 +215,10 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
       timedDashboardRead("campaigns", () => this.campaignRepository?.listPartner({ companyId, filter: "active", limit: 2, offset: 0 })
         ?? Promise.resolve({ items: [], totalCount: 0 })),
       timedDashboardRead("support_tickets", () => this.supportRepository?.dashboard(companyId) ?? Promise.resolve([])),
+      timedDashboardRead("estimate_sales_opportunities", () => this.salesWorkspaceService?.listEstimateOpportunities(companyId, {
+        canView: context.capabilities.canViewEstimates,
+        canSend: context.capabilities.canSendProposal,
+      }, 6) ?? Promise.resolve([])),
     ]);
     const reorderCandidates = sessionOrder(
       selections?.previousProducts ?? dashboard.reorderProducts,
@@ -350,6 +357,7 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
         ),
       ],
       supportTickets,
+      estimateSalesOpportunities,
     };
   }
 }
