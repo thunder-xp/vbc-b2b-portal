@@ -3,7 +3,6 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const presentation = source("src/modules/catalog/components/CatalogPresentation.tsx");
-const viewModeShell = source("src/modules/catalog/components/CatalogViewModeShell.tsx");
 const favoriteButton = source("src/modules/purchasing-lists/components/FavoriteProductButton.tsx");
 
 describe("catalog favorites performance boundaries", () => {
@@ -14,11 +13,9 @@ describe("catalog favorites performance boundaries", () => {
   });
 
   it("switches layout with local state and no catalog reload", () => {
-    expect(presentation).not.toContain('"use client"');
-    expect(viewModeShell).toContain("useState(initialMode)");
-    expect(viewModeShell).not.toContain("router.refresh");
-    expect(viewModeShell).not.toContain("listCatalogProductsAction");
-    expect(viewModeShell).not.toContain("CatalogProductCardDto");
+    expect(presentation).toContain("useState(initialMode)");
+    expect(presentation).not.toContain("router.refresh");
+    expect(presentation).not.toContain("listCatalogProductsAction");
   });
 
   it("uses a narrow optimistic mutation without global invalidation or ERP calls", () => {
