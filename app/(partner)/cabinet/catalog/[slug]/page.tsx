@@ -46,7 +46,6 @@ export default async function ProductDetailPage({
   params,
   searchParams,
 }: ProductDetailPageProps) {
-  const trace = createPreviewTrace();
   const [resolvedParams, resolvedSearchParams, locale] = await Promise.all([
     params,
     searchParams,
@@ -55,14 +54,8 @@ export default async function ProductDetailPage({
   const { slug } = resolvedParams;
   const copy = getCatalogCopy(locale);
   const activeTab = parseTab(resolvedSearchParams?.tab);
-  trace.tab = activeTab;
   const returnTarget = parseCatalogReturnTarget(resolvedSearchParams?.returnTo);
-  const workspacePromise = tracePhase(trace, "workspace", () =>
-    getPartnerWorkspaceContextAction(),
-  );
-  const identityResult = await tracePhase(trace, "route_identity", () =>
-    getCatalogProductRouteIdentityAction(slug),
-  );
+  const identityResult = await getCatalogProductRouteIdentityAction(slug);
 
   if (!identityResult.success) {
     return (
@@ -76,7 +69,6 @@ export default async function ProductDetailPage({
   if (!identityResult.data) {
     notFound();
   }
-  const productIdentity = identityResult.data;
 
   const needsCommercialContext =
     activeTab === "overview" || activeTab === "analogs" || activeTab === "related";
@@ -89,54 +81,27 @@ export default async function ProductDetailPage({
     relationResult,
     relationSummaryResult,
     knowledgeResult,
-    favoriteResult,
-    competitiveIntelligence,
   ] = await Promise.all([
-    tracePhase(trace, "product_detail", () =>
-      getCatalogProductDetailByIdAction(
-        productIdentity.id,
-        detailProjection(activeTab),
-      ),
+    getCatalogProductDetailByIdAction(
+      identityResult.data.id,
+      detailProjection(activeTab),
     ),
     needsCommercialContext
-      ? tracePhase(trace, "commercial_views", () =>
-          getProductCommercialViewsAction([productIdentity.id]))
+      ? getProductCommercialViewsAction([identityResult.data.id])
       : Promise.resolve(null),
-    workspacePromise,
-    tracePhase(trace, "merchandising", () =>
-      getProductMerchandisingLabelsAction(productIdentity.id)),
+    getPartnerWorkspaceContextAction(),
+    getProductMerchandisingLabelsAction(identityResult.data.id),
     activeTab === "pricing"
-      ? tracePhase(trace, "retail_history", () =>
-          getRetailPriceHistoryAction(productIdentity.id, "all"))
+      ? getRetailPriceHistoryAction(identityResult.data.id, "all")
       : Promise.resolve(null),
     activeTab === "analogs" || activeTab === "related"
-      ? tracePhase(trace, "relations", () =>
-          getProductRelationSectionsAction(productIdentity.id))
+      ? getProductRelationSectionsAction(identityResult.data.id)
       : Promise.resolve(null),
     activeTab === "overview"
-      ? tracePhase(trace, "relation_summary", () =>
-          getProductRelationSummaryAction(productIdentity.id))
+      ? getProductRelationSummaryAction(identityResult.data.id)
       : Promise.resolve(null),
     activeTab === "overview"
-      ? tracePhase(trace, "knowledge", () =>
-          getProductKnowledgeAction(productIdentity.id))
-      : Promise.resolve(null),
-    activeTab !== "analogs" && activeTab !== "related"
-      ? workspacePromise.then((workspace) =>
-          workspace.success && workspace.data.capabilities.productCard.canManagePurchasingLists
-            ? tracePhase(trace, "favorites", () =>
-                listFavoriteProductIdsAction([productIdentity.id]))
-            : null)
-      : Promise.resolve(null),
-    activeTab === "analytics"
-      ? workspacePromise.then((workspace) => {
-          if (!workspace.success || !workspace.data.companyId ||
-              !workspace.data.capabilities.canViewCompetitiveIntelligence) return null;
-          const workspaceCompanyId = workspace.data.companyId;
-          return tracePhase(trace, "competitive_intelligence", () =>
-            new PartnerProductCompetitiveIntelligenceService()
-              .getPartnerProduct(workspaceCompanyId, productIdentity.id));
-        })
+      ? getProductKnowledgeAction(identityResult.data.id)
       : Promise.resolve(null),
   ]);
 
@@ -167,22 +132,32 @@ export default async function ProductDetailPage({
     workspaceResult.success &&
     workspaceResult.data.capabilities.canViewCompetitiveIntelligence,
   );
-  const pricingResult = activeTab === "overview" && companyId && canViewCompetitiveIntelligence
-    ? await tracePhase(trace, "competitor_pricing", () => new CompetitorRetailPricingService()
-        .getProductPricing(companyId, product.id, commercialView)
-        .catch((error: unknown) => {
-          console.error({
-            event: "product_competitor_pricing_read_failed",
-            errorType: error instanceof Error ? error.name : typeof error,
-            productId: product.id,
-          });
-          return [];
-        }))
-    : [];
+  const [favoriteResult, pricingResult] = await Promise.all([
+    activeTab !== "analogs" && activeTab !== "related" && canManagePurchasingLists
+      ? listFavoriteProductIdsAction([product.id])
+      : Promise.resolve(null),
+    activeTab === "overview" && companyId && canViewCompetitiveIntelligence
+      ? new CompetitorRetailPricingService()
+          .getProductPricing(companyId, product.id, commercialView)
+          .catch((error: unknown) => {
+            console.error({
+              event: "product_competitor_pricing_read_failed",
+              errorType: error instanceof Error ? error.name : typeof error,
+              productId: product.id,
+            });
+            return [];
+          })
+      : Promise.resolve([]),
+  ]);
   const initialFavorite = Boolean(
     favoriteResult?.success && favoriteResult.data.includes(product.id),
   );
   const competitorPricing = pricingResult;
+  const competitiveIntelligence =
+    activeTab === "analytics" && companyId && workspaceResult?.success &&
+    canViewCompetitiveIntelligence
+      ? await new PartnerProductCompetitiveIntelligenceService().getPartnerProduct(companyId, productResult.data.id)
+      : null;
   const priceUpdatedAt = latestTimestamp([
     commercialView?.partnerPrice?.lastUpdatedAt,
     commercialView?.retailPrice?.lastUpdatedAt,
@@ -193,7 +168,6 @@ export default async function ProductDetailPage({
   const stockFreshness = commercialView?.stock?.lastUpdatedAt
     ? evaluateFreshness(commercialView.stock.lastUpdatedAt, "stock", "Остатки")
     : null;
-  emitPreviewTrace(trace);
 
   return (
     <>
@@ -297,50 +271,6 @@ export default async function ProductDetailPage({
       ) : null}
     </>
   );
-}
-
-type PreviewTrace = {
-  enabled: boolean;
-  phases: Record<string, { duration: number; end: number; start: number }>;
-  startedAt: number;
-  tab: ProductDetailTab;
-  traceId: string;
-};
-
-function createPreviewTrace(): PreviewTrace {
-  return {
-    enabled: process.env.VERCEL_ENV === "preview",
-    phases: {},
-    startedAt: performance.now(),
-    tab: "overview",
-    traceId: crypto.randomUUID(),
-  };
-}
-
-async function tracePhase<T>(trace: PreviewTrace, name: string, work: () => Promise<T>): Promise<T> {
-  if (!trace.enabled) return work();
-  const startedAt = performance.now();
-  try {
-    return await work();
-  } finally {
-    const completedAt = performance.now();
-    trace.phases[name] = {
-      duration: Number((completedAt - startedAt).toFixed(1)),
-      end: Number((completedAt - trace.startedAt).toFixed(1)),
-      start: Number((startedAt - trace.startedAt).toFixed(1)),
-    };
-  }
-}
-
-function emitPreviewTrace(trace: PreviewTrace) {
-  if (!trace.enabled) return;
-  console.info(JSON.stringify({
-    event: "pdp_flight_stream_trace",
-    phases: trace.phases,
-    routeReady: Number((performance.now() - trace.startedAt).toFixed(1)),
-    tab: trace.tab,
-    traceId: trace.traceId,
-  }));
 }
 
 function parseTab(value: string | string[] | undefined): ProductDetailTab {

@@ -105,39 +105,6 @@ describe("product detail page data loading", () => {
     render(await page);
   });
 
-  it("starts workspace before identity and does not serialize favorites behind product detail", async () => {
-    let resolveIdentity!: (value: { success: true; data: { id: string; slug: string } }) => void;
-    let resolveProduct!: (value: { success: true; data: typeof product }) => void;
-    mocks.getIdentity.mockReturnValue(new Promise((resolve) => { resolveIdentity = resolve; }));
-    mocks.getProduct.mockReturnValue(new Promise((resolve) => { resolveProduct = resolve; }));
-    mocks.getWorkspace.mockResolvedValue({
-      success: true,
-      data: {
-        companyId: "company-1",
-        userId: "user-1",
-        capabilities: {
-          productCard: { canAddToOrder: true, canManagePurchasingLists: true },
-          canViewCompetitiveIntelligence: true,
-        },
-      },
-    });
-
-    const page = ProductDetailPage({
-      params: Promise.resolve({ slug: "ip-camera" }),
-      searchParams: Promise.resolve({ tab: "description" }),
-    });
-
-    await vi.waitFor(() => expect(mocks.getWorkspace).toHaveBeenCalledOnce());
-    expect(mocks.getProduct).not.toHaveBeenCalled();
-    resolveIdentity({ success: true, data: { id: "product-1", slug: "ip-camera" } });
-    await vi.waitFor(() => {
-      expect(mocks.getProduct).toHaveBeenCalledOnce();
-      expect(mocks.listFavorites).toHaveBeenCalledWith(["product-1"]);
-    });
-    resolveProduct({ success: true, data: product });
-    render(await page);
-  });
-
   it("loads only canonical RETAIL history for Pricing", async () => {
     render(await ProductDetailPage({ params: Promise.resolve({ slug: "ip-camera" }), searchParams: Promise.resolve({ tab: "pricing" }) }));
     expect(mocks.getCommercial).not.toHaveBeenCalled();
