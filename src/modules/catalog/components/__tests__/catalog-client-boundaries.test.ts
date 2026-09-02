@@ -5,6 +5,8 @@ import { describe, expect, it } from "vitest";
 
 const productCard = source("ProductCard.tsx");
 const productImage = source("CatalogCardImage.tsx");
+const filterLink = source("CatalogFilterLink.tsx");
+const filterShell = source("CatalogFilterShell.tsx");
 const cartAction = readFileSync(
   join(process.cwd(), "src/modules/orders/components/AddToCartButton.tsx"),
   "utf8",
@@ -19,7 +21,7 @@ describe("catalog client boundaries", () => {
 
   it("passes only primitive identity into the cart action island", () => {
     expect(productCard).toContain("<CatalogQuantityCartAction productId={product.id}");
-    expect(cartAction).toContain("{ productId }: { productId: string }");
+    expect(cartAction).toContain("{ productId, showQuantityLabel = true }: { productId: string;");
     expect(cartAction).not.toContain("CatalogProduct");
     expect(cartAction).not.toContain("ProductCommercial");
   });
@@ -30,6 +32,13 @@ describe("catalog client boundaries", () => {
     expect(productCard).toContain("ProductSpecificationAction");
     expect(productCard).toContain("ProductComparisonAction");
     expect(productCard).not.toContain("AddToPurchasingListButton");
+  });
+
+  it("keeps catalog filter content outside client transport boundaries", () => {
+    expect(filterLink).not.toContain('"use client"');
+    expect(filterShell).not.toContain('"use client"');
+    expect(filterShell).toContain("{children}");
+    expect(filterShell).toContain("CatalogFilterToggle");
   });
 });
 
