@@ -28,6 +28,7 @@ type NavigationSample = {
   firstFrame: number;
   flight: ResourceSample | null;
   longTasks: Array<{ duration: number; startTime: number }>;
+  timeOrigin: number;
   visible: number;
 };
 
@@ -109,6 +110,7 @@ export function ProductNavigationDiagnostics({ activeTab }: { activeTab: Product
           firstFrame,
           flight,
           longTasks: pending.longTasks.filter((entry) => entry.startTime >= pending.click && entry.startTime <= visible),
+          timeOrigin: performance.timeOrigin,
           visible,
         };
         store.samples.push(sample);
