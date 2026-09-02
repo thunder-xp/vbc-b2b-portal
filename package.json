@@ -14,6 +14,7 @@
     "sync:onboarding-directory": "tsx --conditions=react-server --no-cache scripts/sync-onboarding-directory.ts",
     "publish:public-retail": "tsx --conditions=react-server --no-cache scripts/publish-public-retail-projection.ts",
     "preview:order-confirmation-email": "tsx --no-cache scripts/render-order-confirmation-email-previews.ts",
+    "test:catalog-geometry": "node scripts/catalog-geometry-acceptance.mjs",
     "test": "vitest run"
   },
   "dependencies": {
@@ -46,6 +47,7 @@
     "eslint-config-next": "16.3.0",
     "jsdom": "^29.1.1",
     "pdfjs-dist": "^5.4.296",
+    "playwright-core": "^1.62.1",
     "tailwindcss": "^4",
     "tsx": "^4.23.1",
     "typescript": "^5",
