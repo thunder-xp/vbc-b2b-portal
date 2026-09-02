@@ -11,7 +11,7 @@ import { getCatalogCopy, usePartnerLocale } from "../../partner-locale";
 export { buildCategoryTree };
 export type { CatalogCategoryNode };
 
-export function CategoryMegaMenu({ categories, collection, merchandisingLabel, sort = "default" }: { categories: Array<Pick<CatalogCategoryDto, "id" | "name" | "parentId">>; collection?: CatalogCollection; merchandisingLabel?: MerchandisingLabelCode; sort?: CatalogSort }) {
+export function CategoryMegaMenu({ categories, collection, merchandisingLabel, sort = "default" }: { categories: CatalogCategoryDto[]; collection?: CatalogCollection; merchandisingLabel?: MerchandisingLabelCode; sort?: CatalogSort }) {
   const copy = getCatalogCopy(usePartnerLocale());
   return <CatalogCategoryMenu
     categories={categories}

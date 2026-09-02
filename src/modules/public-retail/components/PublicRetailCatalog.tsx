@@ -37,7 +37,7 @@ export function PublicRetailCatalog({ blogArticles = [], breadcrumbs, categories
     </div> : <CatalogResultsHeader action={state.mode ? undefined : <SortForm locale={locale} state={state} />} eyebrow="Novotech Retail" eyebrowTone="retail" title={pageTitle} />}
     <div className="mt-5">
       <CatalogToolbarFrame>
-        <PublicRetailCategoryMenu categories={visibleCategories.map(publicRetailMenuCategory)} locale={locale} />
+        <PublicRetailCategoryMenu categories={visibleCategories} locale={locale} />
         <PublicRetailSearchForm defaultValue={state.q} id="catalog" locale={locale} />
         <Link className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 border border-zinc-300 px-4 text-sm font-semibold hover:border-blue-700 hover:text-blue-800" href={publicRetailShowcaseHref(locale)}><Sparkles aria-hidden="true" className="size-4" />{copy.showcase}</Link>
       </CatalogToolbarFrame>
@@ -61,10 +61,6 @@ export function PublicRetailCatalog({ blogArticles = [], breadcrumbs, categories
     </div>
     <PublicBlogInlineLinks articles={blogArticles} locale={locale} title={locale === "ro" ? "Ghiduri pentru această categorie" : "Материалы по этой категории"} />
   </div>;
-}
-
-function publicRetailMenuCategory(category: PublicRetailCategoryDto) {
-  return { id: category.id, name: category.name, parentId: category.parentId, slug: category.slug };
 }
 
 function CategoryTaxonomyLinks({ content, locale }: { content: PublicCategoryContent; locale: PublicRetailLocale }) {
