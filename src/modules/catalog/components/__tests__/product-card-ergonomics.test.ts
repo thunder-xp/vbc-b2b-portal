@@ -10,6 +10,7 @@ const grid = source("src/modules/catalog/components/ProductGrid.tsx");
 const presentation = source("src/modules/catalog/components/CatalogPresentationPrimitives.tsx");
 const pricing = source("src/modules/catalog/components/ProductPricingBlock.tsx");
 const availability = source("src/modules/catalog/components/ProductAvailabilityBlock.tsx");
+const globals = source("app/globals.css");
 
 describe("product card ergonomics contracts", () => {
   it("keeps deterministic identity, commercial, availability, and action zones", () => {
@@ -22,9 +23,9 @@ describe("product card ergonomics contracts", () => {
   });
 
   it("uses restrained hover and visible focus without changing border geometry", () => {
-    expect(cardFrame).toContain("transition-shadow hover:shadow-md");
-    expect(cardFrame).toContain("focus-within:ring-2");
-    expect(cardFrame).not.toContain("hover:border-emerald");
+    expect(globals).toContain("transition-shadow hover:shadow-md");
+    expect(globals).toContain("focus-within:ring-2");
+    expect(`${cardFrame}${globals}`).not.toContain("hover:border-emerald");
   });
 
   it("keeps price and stock missing-data states stable and explicit", () => {

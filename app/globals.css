@@ -6,7 +6,28 @@
   .public-primary-action { @apply bg-blue-700 text-white hover:bg-blue-800; }
   .public-brand-link { @apply text-blue-700 hover:text-blue-800; }
   .public-brand-eyebrow { @apply text-blue-700; }
+  .catalog-card { @apply flex h-full min-w-0 flex-col overflow-hidden border border-zinc-200 bg-white shadow-sm transition-shadow hover:shadow-md focus-within:ring-2 focus-within:ring-offset-2; }
+  .catalog-card-retail { @apply focus-within:ring-blue-500; }
+  .catalog-card-partner { @apply focus-within:ring-emerald-500; }
+  .catalog-card-body { @apply flex flex-1 flex-col; }
+  .catalog-card-metadata { @apply h-4 min-w-0; }
+  .catalog-card-title { @apply mt-1 h-10 min-w-0; }
+  .catalog-card-commercial-stack { @apply grid text-sm; }
+  .public-catalog-card-actions { @apply grid grid-cols-[minmax(0,1fr)_2.75rem] items-start gap-2; }
+  .public-catalog-card-detail { @apply grid size-11 place-items-center border border-zinc-300 hover:border-blue-700 hover:text-blue-800; }
+  .public-catalog-card-availability { @apply flex min-h-5 items-center gap-2 text-xs font-semibold; }
+  .public-catalog-card-price { @apply text-lg font-semibold tabular-nums; }
+  .public-catalog-card-price-label { @apply text-[11px] text-zinc-500; }
+  .public-catalog-card-facets { @apply flex h-5 min-w-0 gap-1 overflow-hidden; }
+  .public-catalog-card-facet { @apply block max-w-28 truncate border border-zinc-200 px-1.5 text-[11px] leading-[18px] text-zinc-600 hover:border-blue-600 hover:text-blue-800 focus-visible:outline-2 focus-visible:outline-blue-600; }
+  .public-catalog-card-media { @apply relative block aspect-[4/3] w-full min-w-0 max-w-full overflow-hidden bg-zinc-50 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-600; }
+  .public-catalog-card-image { @apply size-full max-h-full max-w-full object-contain p-3 transition-transform duration-200; }
+  .public-catalog-card-placeholder { @apply grid size-full max-h-full max-w-full place-items-center overflow-hidden text-zinc-300; }
+  .public-catalog-card-sku { @apply truncate text-[11px] font-medium uppercase text-zinc-500; }
+  .public-catalog-card-title { @apply line-clamp-2 h-10 rounded-sm text-sm font-semibold leading-5 text-zinc-950 outline-none hover:text-blue-700 focus-visible:ring-2 focus-visible:ring-blue-500; }
 }
+
+.public-catalog-card-media:hover .public-catalog-card-image { transform: scale(1.02); }
 
 :root {
   --background: #ffffff;
