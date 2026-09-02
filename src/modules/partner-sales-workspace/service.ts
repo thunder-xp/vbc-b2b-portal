@@ -14,6 +14,7 @@ export class PartnerSalesWorkspaceService {
     const latestByEstimate = new Map<string, (typeof sources)[number]>();
     for (const source of sources) if (!latestByEstimate.has(source.estimateId)) latestByEstimate.set(source.estimateId, source);
     return [...latestByEstimate.values()].flatMap((source): PartnerEstimateSalesOpportunity[] => {
+      if (source.estimateStatus === "archived") return [];
       if (permissions.canSend && source.versionStatus === "prepared" && source.estimateLifecycleStatus === "draft" && source.readyDocumentId) {
         return [toOpportunity(source, "ready_to_send", 1, source.createdAt)];
       }

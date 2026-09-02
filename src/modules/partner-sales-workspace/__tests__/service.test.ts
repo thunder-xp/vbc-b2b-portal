@@ -7,7 +7,7 @@ import type { EstimateSalesOpportunitySource } from "../types";
 const base: EstimateSalesOpportunitySource = {
   versionId: "version-1", estimateId: "estimate-1", estimateNumber: "KP-1", proposalName: "Office CCTV", customerName: "Client SRL",
   projectName: "Office", amount: 38400, currency: "MDL", versionStatus: "prepared", estimateLifecycleStatus: "draft", sentAt: null,
-  createdAt: "2026-09-01T10:00:00Z", readyDocumentId: "document-1",
+  estimateStatus: "ready", createdAt: "2026-09-01T10:00:00Z", readyDocumentId: "document-1",
 };
 
 function repository(rows: EstimateSalesOpportunitySource[]): EstimateSalesOpportunityRepository {
@@ -77,4 +77,12 @@ describe("PartnerSalesWorkspaceService", () => {
       )).resolves.toEqual([]);
     },
   );
+
+  it("excludes archived estimates even when legacy lifecycle fields still look actionable", async () => {
+    const archived = { ...base, estimateStatus: "archived" as const };
+    await expect(new PartnerSalesWorkspaceService(repository([archived])).listEstimateOpportunities(
+      "company-1",
+      { canView: true, canSend: true },
+    )).resolves.toEqual([]);
+  });
 });

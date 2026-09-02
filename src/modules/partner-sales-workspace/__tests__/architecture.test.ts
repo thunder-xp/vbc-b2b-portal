@@ -12,6 +12,7 @@ describe("estimate sales workspace boundaries", () => {
   it("uses one bounded company-scoped server read with no browser Supabase access", () => {
     expect(repository).toContain('import "server-only"');
     expect(repository).toContain('.eq("company_id", companyId)');
+    expect(repository).toContain('.neq("estimate.status", "archived")');
     expect(repository).toContain(".limit(");
     expect(repository.match(/\.from\(/g)).toHaveLength(1);
     expect(dashboard).not.toMatch(/supabase|createClient/);

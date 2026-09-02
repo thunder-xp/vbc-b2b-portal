@@ -1,4 +1,4 @@
-import type { EstimateLifecycleStatus, EstimateVersionStatus } from "../estimates/types";
+import type { EstimateLifecycleStatus, EstimateStatus, EstimateVersionStatus } from "../estimates/types";
 
 export type EstimateSalesOpportunityType = "ready_to_send" | "awaiting_customer";
 
@@ -12,6 +12,7 @@ export type EstimateSalesOpportunitySource = {
   amount: number;
   currency: string;
   versionStatus: EstimateVersionStatus;
+  estimateStatus: EstimateStatus;
   estimateLifecycleStatus: EstimateLifecycleStatus;
   sentAt: string | null;
   createdAt: string;
