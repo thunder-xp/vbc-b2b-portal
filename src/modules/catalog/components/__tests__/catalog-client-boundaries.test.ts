@@ -41,7 +41,7 @@ describe("catalog client boundaries", () => {
     expect(filterShell).toContain("{children}");
     expect(filterShell).toContain("CatalogFilterToggle");
     expect(technicalFacets).toContain("CatalogTechnicalFacetGroupsClient");
-    expect(technicalFacets).toContain("href: hrefForSelection(next)");
+    expect(technicalFacets).toContain("baseHref={hrefForSelection({})}");
   });
 });
 
