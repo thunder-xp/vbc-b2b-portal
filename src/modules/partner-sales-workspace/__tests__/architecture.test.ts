@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const repository = readFileSync(resolve("src/modules/partner-sales-workspace/supabase.repository.ts"), "utf8");
+const service = readFileSync(resolve("src/modules/partner-sales-workspace/service.ts"), "utf8");
 const dashboard = readFileSync(resolve("src/modules/partner-cabinet/components/OperationalDashboard.tsx"), "utf8");
 const copy = readFileSync(resolve("src/modules/partner-locale/copy.ts"), "utf8");
 const workspace = readFileSync(resolve("src/modules/partner-cabinet/services/workspace-home.service.ts"), "utf8");
@@ -19,6 +20,10 @@ describe("estimate sales workspace boundaries", () => {
     expect(repository).toContain('.neq("estimate.status", "archived")');
     expect(repository).toContain(".limit(");
     expect(repository.match(/\.from\(/g)).toHaveLength(1);
+    expect(repository).toContain("product_requirements:snapshot->items");
+    expect(repository).toContain("estimate_cart_conversions!estimate_cart_conversions_estimate_id_fkey");
+    expect(repository).toContain("carts!estimate_cart_conversions_cart_id_fkey");
+    expect(repository).toContain("cart_items!cart_items_cart_id_fkey");
     expect(dashboard).not.toMatch(/supabase|createClient/);
     expect(workspace).toContain("context.capabilities.canViewEstimates");
     expect(workspace).toContain("context.capabilities.canSendProposal");
@@ -33,6 +38,14 @@ describe("estimate sales workspace boundaries", () => {
     expect(dashboard).toContain('href={item.href}');
     expect(dashboard).toContain('eventName="dashboard_continue_work_clicked"');
     expect(dashboard).not.toMatch(/addEstimateEquipmentToCartAction|mergeEstimateProducts/);
+    expect(service).toContain('type === "resume_checkout" ? "/cabinet/cart"');
+    expect(service).toContain('conversion.createdBy !== userId');
+    expect(service).toContain('cart.createdBy !== userId');
+    expect(service).toContain('cart.companyId !== companyId');
+    expect(service).toContain('cart.status !== "active"');
+    expect(service).toContain("cartQuantities.get(productId)");
+    expect(copy).toContain('"dashboard.proposalInCart"');
+    expect(copy).toContain('"dashboard.resumeCheckout"');
     expect(estimateWorkflow).toContain('id="estimate-order-conversion"');
     for (const value of ["КП готово к отправке", "Ожидается решение клиента", "КП принято клиентом", "Продолжить оформление", "Oferta este gata de trimis", "Se așteaptă decizia clientului", "Oferta a fost acceptată de client", "Continuă perfectarea"]) expect(copy).toContain(value);
     for (const value of ["Подготовка корзины к заказу", "Pregătirea coșului pentru comandă"]) expect(estimateCopy).toContain(value);

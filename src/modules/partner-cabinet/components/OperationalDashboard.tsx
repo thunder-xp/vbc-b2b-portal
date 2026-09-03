@@ -76,16 +76,18 @@ function EstimateSalesSection({ items = [], locale }: { items: WorkspaceHomeDto[
 type EstimateSalesOpportunityType = NonNullable<WorkspaceHomeDto["estimateSalesOpportunities"]>[number]["type"];
 
 function opportunityStateKey(type: EstimateSalesOpportunityType) {
+  if (type === "resume_checkout") return "dashboard.proposalInCart" as const;
   if (type === "accepted_ready_to_order") return "dashboard.proposalAccepted" as const;
   return type === "ready_to_send" ? "dashboard.proposalReadyToSend" as const : "dashboard.awaitingCustomer" as const;
 }
 
 function opportunityDateKey(type: EstimateSalesOpportunityType) {
-  if (type === "accepted_ready_to_order") return "dashboard.accepted" as const;
+  if (type === "resume_checkout" || type === "accepted_ready_to_order") return "dashboard.accepted" as const;
   return type === "awaiting_customer" ? "dashboard.sent" as const : "dashboard.prepared" as const;
 }
 
 function opportunityActionKey(type: EstimateSalesOpportunityType) {
+  if (type === "resume_checkout") return "dashboard.resumeCheckout" as const;
   if (type === "accepted_ready_to_order") return "dashboard.continueOrder" as const;
   return type === "ready_to_send" ? "dashboard.openAndSend" as const : "dashboard.returnToProposal" as const;
 }

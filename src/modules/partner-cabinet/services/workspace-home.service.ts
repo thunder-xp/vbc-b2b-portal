@@ -215,7 +215,7 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
       timedDashboardRead("campaigns", () => this.campaignRepository?.listPartner({ companyId, filter: "active", limit: 2, offset: 0 })
         ?? Promise.resolve({ items: [], totalCount: 0 })),
       timedDashboardRead("support_tickets", () => this.supportRepository?.dashboard(companyId) ?? Promise.resolve([])),
-      timedDashboardRead("estimate_sales_opportunities", () => this.salesWorkspaceService?.listEstimateOpportunities(companyId, {
+      timedDashboardRead("estimate_sales_opportunities", () => this.salesWorkspaceService?.listEstimateOpportunities(companyId, userId, {
         canView: context.capabilities.canViewEstimates,
         canSend: context.capabilities.canSendProposal,
         canConvert: context.capabilities.canConvertEstimates,

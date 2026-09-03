@@ -40,7 +40,7 @@ describe("DefaultWorkspaceHomeService", () => {
       salesWorkspace as never,
     ).getWorkspaceHome("partner-1");
 
-    expect(salesWorkspace.listEstimateOpportunities).toHaveBeenCalledWith("company-1", {
+    expect(salesWorkspace.listEstimateOpportunities).toHaveBeenCalledWith("company-1", "partner-1", {
       canView: true,
       canSend: true,
       canConvert: true,
