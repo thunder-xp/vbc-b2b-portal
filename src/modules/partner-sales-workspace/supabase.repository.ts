@@ -5,7 +5,7 @@ import { z } from "zod";
 
 import type { EstimateSalesOpportunityRepository } from "./repository";
 
-const cartSchema = z.object({
+const activeCartSchema = z.object({
   id: z.string().uuid(),
   company_id: z.string().uuid(),
   created_by: z.string().uuid(),
@@ -15,12 +15,12 @@ const cartSchema = z.object({
     quantity: z.union([z.number(), z.string()]),
   })),
 });
-const conversionRowSchema = z.object({
+const conversionSchema = z.object({
   version_id: z.string().uuid().nullable(),
   request_key: z.string().uuid(),
   created_by: z.string().uuid(),
   direction: z.enum(["cart_to_estimate", "estimate_to_cart"]),
-  cart: z.union([cartSchema, z.array(cartSchema).length(1)]).nullable(),
+  cart_id: z.string().uuid(),
 });
 const estimateSchema = z.object({
   name: z.string(),
@@ -29,6 +29,7 @@ const estimateSchema = z.object({
   status: z.enum(["draft", "ready", "sent", "accepted", "rejected", "archived"]),
   lifecycle_status: z.enum(["draft", "sent", "accepted"]),
   accepted_version_id: z.string().uuid().nullable(),
+  conversions: z.array(conversionSchema),
 });
 const rowSchema = z.object({
   id: z.string().uuid(), estimate_id: z.string().uuid(), estimate_number: z.string(), currency_code: z.string(),
@@ -43,43 +44,34 @@ const rowSchema = z.object({
 });
 
 export class SupabaseEstimateSalesOpportunityRepository implements EstimateSalesOpportunityRepository {
-  async listCurrent(companyId: string, _userId: string, limit: number) {
+  async listCurrent(companyId: string, userId: string, limit: number) {
     const client = await createClient();
-    const { data, error } = await client.from("estimate_versions")
-      .select("id, estimate_id, estimate_number, currency_code, total_amount, status, sent_at, accepted_at, created_at, product_requirements:snapshot->items, estimate:estimates!estimate_versions_estimate_id_fkey!inner(name, customer_name, project_name, status, lifecycle_status, accepted_version_id), documents:generated_estimate_documents!generated_estimate_documents_version_id_fkey(id, status, created_at)")
-      .eq("company_id", companyId)
-      .in("status", ["prepared", "sent", "accepted"])
-      .neq("estimate.status", "archived")
-      .in("estimate.lifecycle_status", ["draft", "sent", "accepted"])
-      .order("created_at", { ascending: false })
-      .limit(Math.min(32, Math.max(limit, limit * 4)));
+    const [versionResult, cartResult] = await Promise.all([
+      client.from("estimate_versions")
+        .select("id, estimate_id, estimate_number, currency_code, total_amount, status, sent_at, accepted_at, created_at, product_requirements:snapshot->items, estimate:estimates!estimate_versions_estimate_id_fkey!inner(name, customer_name, project_name, status, lifecycle_status, accepted_version_id, conversions:estimate_cart_conversions!estimate_cart_conversions_estimate_id_fkey(version_id, request_key, created_by, direction, cart_id)), documents:generated_estimate_documents!generated_estimate_documents_version_id_fkey(id, status, created_at)")
+        .eq("company_id", companyId)
+        .in("status", ["prepared", "sent", "accepted"])
+        .neq("estimate.status", "archived")
+        .in("estimate.lifecycle_status", ["draft", "sent", "accepted"])
+        .order("created_at", { ascending: false })
+        .limit(Math.min(32, Math.max(limit, limit * 4))),
+      client.from("carts")
+        .select("id, company_id, created_by, status, items:cart_items!cart_items_cart_id_fkey(product_id, quantity)")
+        .eq("company_id", companyId)
+        .eq("created_by", userId)
+        .eq("status", "active")
+        .maybeSingle(),
+    ]);
+    const { data, error } = versionResult;
     const parsed = z.array(rowSchema).safeParse(data ?? []);
     if (error || !parsed.success) {
       console.error({ event: "estimate_sales_opportunity_projection_failed", databaseCode: error?.code ?? null, schemaPaths: parsed.success ? [] : parsed.error.issues.map((issue) => issue.path.join(".")) });
       throw new Error("Estimate sales opportunity projection failed.");
     }
-    const acceptedVersionIds = parsed.data
-      .filter((row) => {
-        const estimate = Array.isArray(row.estimate) ? row.estimate[0] : row.estimate;
-        return row.status === "accepted" && estimate.lifecycle_status === "accepted";
-      })
-      .map((row) => row.id);
-    const conversionResult = acceptedVersionIds.length
-      ? await client.from("estimate_cart_conversions")
-        .select("version_id, request_key, created_by, direction, cart:carts!estimate_cart_conversions_cart_id_fkey(id, company_id, created_by, status, items:cart_items!cart_items_cart_id_fkey(product_id, quantity))")
-        .eq("company_id", companyId)
-        .eq("direction", "estimate_to_cart")
-        .in("version_id", acceptedVersionIds)
-        .order("created_at", { ascending: true })
-      : { data: [], error: null };
-    const conversions = z.array(conversionRowSchema).safeParse(conversionResult.data ?? []);
-    if (conversionResult.error || !conversions.success) {
-      console.error({ event: "estimate_cart_conversion_projection_failed", databaseCode: conversionResult.error?.code ?? null, schemaPaths: conversions.success ? [] : conversions.error.issues.map((issue) => issue.path.join(".")) });
-      throw new Error("Estimate cart conversion projection failed.");
-    }
-    const conversionsByVersion = new Map<string | null, (typeof conversions.data)[number][]>();
-    for (const conversion of conversions.data) {
-      conversionsByVersion.set(conversion.version_id, [...(conversionsByVersion.get(conversion.version_id) ?? []), conversion]);
+    const activeCart = activeCartSchema.nullable().safeParse(cartResult.data);
+    if (cartResult.error || !activeCart.success) {
+      console.error({ event: "estimate_active_cart_projection_failed", databaseCode: cartResult.error?.code ?? null, schemaPaths: activeCart.success ? [] : activeCart.error.issues.map((issue) => issue.path.join(".")) });
+      throw new Error("Estimate active cart projection failed.");
     }
     return parsed.data.map((row) => {
       const estimate = Array.isArray(row.estimate) ? row.estimate[0] : row.estimate;
@@ -92,8 +84,8 @@ export class SupabaseEstimateSalesOpportunityRepository implements EstimateSales
       productRequirements: row.product_requirements.flatMap((item) => item.line_type === "product" && item.product_id && Number(item.quantity) > 0
         ? [{ productId: item.product_id, quantity: Number(item.quantity) }]
         : []),
-      cartConversions: (conversionsByVersion.get(row.id) ?? []).map((conversion) => {
-        const cart = Array.isArray(conversion.cart) ? conversion.cart[0] : conversion.cart;
+      cartConversions: estimate.conversions.map((conversion) => {
+        const cart = activeCart.data?.id === conversion.cart_id ? activeCart.data : null;
         return {
           versionId: conversion.version_id,
           requestKey: conversion.request_key,

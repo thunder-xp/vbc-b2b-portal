@@ -15,16 +15,17 @@ const versionIdempotencyMigration = readFileSync(resolve("supabase/migrations/20
 const lifecycleMigration = readFileSync(resolve("supabase/migrations/20260809007000_estimate_business_lifecycle.sql"), "utf8");
 
 describe("estimate sales workspace boundaries", () => {
-  it("uses one bounded Estimate read plus one accepted-version conversion batch with no N+1 or browser Supabase access", () => {
+  it("uses one bounded Estimate read plus one parallel user-cart snapshot with no N+1 or browser Supabase access", () => {
     expect(repository).toContain('import "server-only"');
     expect(repository).toContain('.eq("company_id", companyId)');
     expect(repository).toContain('.neq("estimate.status", "archived")');
     expect(repository).toContain(".limit(");
     expect(repository.match(/\.from\(/g)).toHaveLength(2);
-    expect(repository).toContain('.in("version_id", acceptedVersionIds)');
+    expect(repository).toContain("await Promise.all([");
     expect(repository).toContain("product_requirements:snapshot->items");
-    expect(repository).toContain('.from("estimate_cart_conversions")');
-    expect(repository).toContain("carts!estimate_cart_conversions_cart_id_fkey");
+    expect(repository).toContain("estimate_cart_conversions!estimate_cart_conversions_estimate_id_fkey");
+    expect(repository).toContain('.from("carts")');
+    expect(repository).toContain('.eq("created_by", userId)');
     expect(repository).toContain("cart_items!cart_items_cart_id_fkey");
     expect(dashboard).not.toMatch(/supabase|createClient/);
     expect(workspace).toContain("context.capabilities.canViewEstimates");
