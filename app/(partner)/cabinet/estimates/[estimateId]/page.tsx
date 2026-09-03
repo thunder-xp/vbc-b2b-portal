@@ -18,9 +18,9 @@ export default async function EstimateEditorPage({
   searchParams,
 }: {
   params: Promise<{ estimateId: string }>;
-  searchParams: Promise<{ generatorSession?: string }>;
+  searchParams: Promise<{ generatorSession?: string; proposalAction?: string; version?: string }>;
 }) {
-  const [{ estimateId }, { generatorSession }, locale] = await Promise.all([
+  const [{ estimateId }, { generatorSession, proposalAction, version }, locale] = await Promise.all([
     params,
     searchParams,
     getPartnerLocale(),
@@ -65,6 +65,7 @@ export default async function EstimateEditorPage({
         workflow={workflow.data}
       />
       <EstimateWorkflowPanel
+        initialProposalAction={proposalAction === "resend" && version ? { kind: "resend", versionId: version } : null}
         initialWorkflow={workflow.data}
         key={workflowKey}
         revision={estimate.data.revision}

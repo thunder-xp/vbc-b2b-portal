@@ -1,6 +1,17 @@
 import type { EstimateLifecycleStatus, EstimateStatus, EstimateVersionStatus } from "../estimates/types";
 
 export type EstimateSalesOpportunityType = "resume_checkout" | "accepted_ready_to_order" | "ready_to_send" | "awaiting_customer";
+export type EstimateFollowUpState = "sent" | "sent_not_opened" | "sent_opened_no_response" | "expired_sent";
+export type EstimateOpportunityAction = "resume_checkout" | "continue_order" | "open_and_send" | "resend" | "review" | "update";
+
+export type EstimateDeliveryEvidence = {
+  status: "queued" | "sending" | "sent" | "delivered" | "failed" | "revoked" | "responded";
+  sentAt: string | null;
+  openedAt: string | null;
+  expiresAt: string;
+  response: "accepted" | "rejected" | null;
+  createdAt: string;
+};
 
 export type EstimateCartConversionEvidence = {
   versionId: string | null;
@@ -30,11 +41,13 @@ export type EstimateSalesOpportunitySource = {
   estimateLifecycleStatus: EstimateLifecycleStatus;
   acceptedVersionId: string | null;
   sentAt: string | null;
+  lifecycleExpiresAt: string | null;
   acceptedAt: string | null;
   createdAt: string;
   readyDocumentId: string | null;
   productRequirements: Array<{ productId: string; quantity: number }>;
   cartConversions: EstimateCartConversionEvidence[];
+  latestDelivery: EstimateDeliveryEvidence | null;
 };
 
 export type EstimateSalesOpportunityPermissions = {
@@ -57,5 +70,8 @@ export type PartnerEstimateSalesOpportunity = {
   amount: number;
   currency: string;
   waitingSince: string;
+  validUntil: string | null;
+  followUpState: EstimateFollowUpState | null;
+  action: EstimateOpportunityAction;
   href: string;
 };

@@ -9,19 +9,20 @@ import { revokeProposalDeliveryAction, sendProposalDeliveryAction } from "../act
 import type { ProposalDeliverySummaryDto } from "../types";
 import { formatPartnerDateTime, getEstimatesCopy, usePartnerLocale, type EstimatesCopy } from "../../partner-locale";
 
-export function SendProposalDialog({ versionId, versionLabel, deliveries, canSend, emailAvailable, pdfReady, defaults }: {
+export function SendProposalDialog({ versionId, versionLabel, deliveries, canSend, emailAvailable, pdfReady, initialOpen = false, defaults }: {
   versionId: string;
   versionLabel: string;
   deliveries: ProposalDeliverySummaryDto[];
   canSend: boolean;
   emailAvailable: boolean;
   pdfReady: boolean;
+  initialOpen?: boolean;
   defaults?: { recipientName: string; subject: string; message: string };
 }) {
   const locale = usePartnerLocale();
   const copy = getEstimatesCopy(locale);
   const router = useRouter();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(Boolean(initialOpen && canSend));
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
   const [publicUrl, setPublicUrl] = useState<string | null>(null);

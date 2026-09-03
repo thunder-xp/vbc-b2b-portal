@@ -23,6 +23,8 @@ describe("estimate sales workspace boundaries", () => {
     expect(repository.match(/\.from\(/g)).toHaveLength(2);
     expect(repository).toContain("await Promise.all([");
     expect(repository).toContain("product_requirements:snapshot->items");
+    expect(repository).toContain("estimate_proposal_deliveries!estimate_proposal_deliveries_version_id_fkey");
+    expect(repository).toContain('.limit(1, { referencedTable: "deliveries" })');
     expect(repository).toContain("estimate_cart_conversions!estimate_cart_conversions_estimate_id_fkey");
     expect(repository).toContain('.from("carts")');
     expect(repository).toContain('.eq("created_by", userId)');
@@ -41,11 +43,14 @@ describe("estimate sales workspace boundaries", () => {
     expect(dashboard).toContain('href={item.href}');
     expect(dashboard).toContain('eventName="dashboard_continue_work_clicked"');
     expect(dashboard).not.toMatch(/addEstimateEquipmentToCartAction|mergeEstimateProducts/);
-    expect(service).toContain('type === "resume_checkout" ? "/cabinet/cart"');
+    expect(dashboard).not.toMatch(/sendProposalDeliveryAction|createDraftFromEstimateVersionAction/);
+    expect(service).toContain('if (type === "resume_checkout") return "/cabinet/cart"');
     expect(service).toContain('conversion.createdBy !== userId');
     expect(service).toContain('cart.createdBy !== userId');
     expect(service).toContain('cart.companyId !== companyId');
     expect(service).toContain('cart.status !== "active"');
+    expect(service).toContain('followUpState === "expired_sent" ? "update"');
+    expect(service).toContain('action === "resend"');
     expect(service).toContain("cartQuantities.get(productId)");
     expect(copy).toContain('"dashboard.proposalInCart"');
     expect(copy).toContain('"dashboard.resumeCheckout"');

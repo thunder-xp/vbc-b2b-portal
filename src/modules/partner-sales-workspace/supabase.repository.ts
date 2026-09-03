@@ -27,13 +27,22 @@ const estimateSchema = z.object({
   customer_name: z.string().nullable(),
   project_name: z.string().nullable(),
   status: z.enum(["draft", "ready", "sent", "accepted", "rejected", "archived"]),
-  lifecycle_status: z.enum(["draft", "sent", "accepted"]),
+  lifecycle_status: z.enum(["draft", "sent", "accepted", "rejected", "expired", "converted_to_order"]),
+  lifecycle_expires_at: z.string().nullable(),
   accepted_version_id: z.string().uuid().nullable(),
   conversions: z.array(conversionSchema),
 });
+const deliverySchema = z.object({
+  status: z.enum(["queued", "sending", "sent", "delivered", "failed", "revoked", "responded"]),
+  sent_at: z.string().nullable(),
+  first_opened_at: z.string().nullable(),
+  token_expires_at: z.string(),
+  response: z.enum(["accepted", "rejected"]).nullable(),
+  created_at: z.string(),
+});
 const rowSchema = z.object({
   id: z.string().uuid(), estimate_id: z.string().uuid(), estimate_number: z.string(), currency_code: z.string(),
-  total_amount: z.union([z.number(), z.string()]), status: z.enum(["prepared", "sent", "accepted"]), sent_at: z.string().nullable(), accepted_at: z.string().nullable(), created_at: z.string(),
+  total_amount: z.union([z.number(), z.string()]), status: z.enum(["prepared", "sent", "accepted", "rejected", "archived"]), sent_at: z.string().nullable(), accepted_at: z.string().nullable(), created_at: z.string(),
   product_requirements: z.array(z.object({
     line_type: z.string(),
     product_id: z.string().uuid().nullable().optional(),
@@ -41,6 +50,7 @@ const rowSchema = z.object({
   }).passthrough()),
   estimate: z.union([estimateSchema, z.array(estimateSchema).length(1)]),
   documents: z.array(z.object({ id: z.string().uuid(), status: z.string(), created_at: z.string() })),
+  deliveries: z.array(deliverySchema).max(1),
 });
 
 export class SupabaseEstimateSalesOpportunityRepository implements EstimateSalesOpportunityRepository {
@@ -48,11 +58,13 @@ export class SupabaseEstimateSalesOpportunityRepository implements EstimateSales
     const client = await createClient();
     const [versionResult, cartResult] = await Promise.all([
       client.from("estimate_versions")
-        .select("id, estimate_id, estimate_number, currency_code, total_amount, status, sent_at, accepted_at, created_at, product_requirements:snapshot->items, estimate:estimates!estimate_versions_estimate_id_fkey!inner(name, customer_name, project_name, status, lifecycle_status, accepted_version_id, conversions:estimate_cart_conversions!estimate_cart_conversions_estimate_id_fkey(version_id, request_key, created_by, direction, cart_id)), documents:generated_estimate_documents!generated_estimate_documents_version_id_fkey(id, status, created_at)")
+        .select("id, estimate_id, estimate_number, currency_code, total_amount, status, sent_at, accepted_at, created_at, product_requirements:snapshot->items, estimate:estimates!estimate_versions_estimate_id_fkey!inner(name, customer_name, project_name, status, lifecycle_status, lifecycle_expires_at, accepted_version_id, conversions:estimate_cart_conversions!estimate_cart_conversions_estimate_id_fkey(version_id, request_key, created_by, direction, cart_id)), documents:generated_estimate_documents!generated_estimate_documents_version_id_fkey(id, status, created_at), deliveries:estimate_proposal_deliveries!estimate_proposal_deliveries_version_id_fkey(status, sent_at, first_opened_at, token_expires_at, response, created_at)")
         .eq("company_id", companyId)
-        .in("status", ["prepared", "sent", "accepted"])
+        .in("status", ["prepared", "sent", "accepted", "rejected", "archived"])
         .neq("estimate.status", "archived")
-        .in("estimate.lifecycle_status", ["draft", "sent", "accepted"])
+        .in("estimate.lifecycle_status", ["draft", "sent", "accepted", "rejected", "expired", "converted_to_order"])
+        .order("created_at", { ascending: false, referencedTable: "deliveries" })
+        .limit(1, { referencedTable: "deliveries" })
         .order("created_at", { ascending: false })
         .limit(Math.min(32, Math.max(limit, limit * 4))),
       client.from("carts")
@@ -79,11 +91,19 @@ export class SupabaseEstimateSalesOpportunityRepository implements EstimateSales
       versionId: row.id, estimateId: row.estimate_id, estimateNumber: row.estimate_number, proposalName: estimate.name,
       customerName: estimate.customer_name, projectName: estimate.project_name, amount: Number(row.total_amount), currency: row.currency_code,
       versionStatus: row.status, estimateStatus: estimate.status, estimateLifecycleStatus: estimate.lifecycle_status, acceptedVersionId: estimate.accepted_version_id,
-      sentAt: row.sent_at, acceptedAt: row.accepted_at, createdAt: row.created_at,
+      sentAt: row.sent_at, lifecycleExpiresAt: estimate.lifecycle_expires_at, acceptedAt: row.accepted_at, createdAt: row.created_at,
       readyDocumentId: row.documents.filter((document) => document.status === "ready").sort((a, b) => b.created_at.localeCompare(a.created_at))[0]?.id ?? null,
       productRequirements: row.product_requirements.flatMap((item) => item.line_type === "product" && item.product_id && Number(item.quantity) > 0
         ? [{ productId: item.product_id, quantity: Number(item.quantity) }]
         : []),
+      latestDelivery: row.deliveries[0] ? {
+        status: row.deliveries[0].status,
+        sentAt: row.deliveries[0].sent_at,
+        openedAt: row.deliveries[0].first_opened_at,
+        expiresAt: row.deliveries[0].token_expires_at,
+        response: row.deliveries[0].response,
+        createdAt: row.deliveries[0].created_at,
+      } : null,
       cartConversions: estimate.conversions.map((conversion) => {
         const cart = activeCart.data?.id === conversion.cart_id ? activeCart.data : null;
         return {

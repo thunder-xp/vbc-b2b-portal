@@ -9,6 +9,7 @@ import { recordBehaviorInteraction } from "../../behavior-analytics/components";
 import { ConfirmationDialog } from "../../platform-ui";
 import {
   addEstimateEquipmentToCartAction,
+  createDraftFromEstimateVersionAction,
   duplicateEstimateAction,
   markEstimateReadyAction,
   saveEstimateAsTemplateAction,
@@ -20,7 +21,11 @@ import { SendProposalDialog } from "./SendProposalDialog";
 import { EstimateStatusBadge } from "./EstimateStatusBadge";
 import { formatPartnerDateTime, getEstimatesCopy, usePartnerLocale, type EstimatesCopy } from "../../partner-locale";
 
-export function EstimateWorkflowPanel({ initialWorkflow, revision }: { initialWorkflow: EstimateWorkflowDto; revision: number }) {
+export function EstimateWorkflowPanel({ initialWorkflow, revision, initialProposalAction }: {
+  initialWorkflow: EstimateWorkflowDto;
+  revision: number;
+  initialProposalAction?: { kind: "resend"; versionId: string } | null;
+}) {
   const locale = usePartnerLocale();
   const copy = getEstimatesCopy(locale);
   const router = useRouter();
@@ -33,6 +38,7 @@ export function EstimateWorkflowPanel({ initialWorkflow, revision }: { initialWo
   const [generatedDocument, setGeneratedDocument] = useState<GeneratedEstimateDocument | null>(null);
   const pdfStatus = generatedDocument?.status ?? proposal?.pdfStatus ?? null;
   const pdfDocumentId = generatedDocument?.id ?? proposal?.pdfDocumentId ?? null;
+  const proposalExpired = initialWorkflow.lifecycleStatus === "expired";
   const run = (operation: () => Promise<{ success: boolean; message: string }>, after?: () => void) => startTransition(async () => {
     const result = await operation();
     setMessage(result.success ? copy.operationSucceeded : copy.operationFailed);
@@ -79,7 +85,8 @@ export function EstimateWorkflowPanel({ initialWorkflow, revision }: { initialWo
       {pdfStatus !== "ready" ? <button aria-describedby={pdfPending ? "estimate-pdf-progress" : undefined} className={secondary} disabled={pdfPending} onClick={generatePdf} type="button"><Download className="size-4" />{pdfPending ? copy.preparing : copy.generatePdf}</button> : null}
       {pdfPending ? <span aria-live="polite" className="text-sm text-zinc-600" id="estimate-pdf-progress" role="status">{copy.preparing}</span> : null}
       {pdfDocumentId && pdfStatus === "ready" ? <Link className={secondary} href={`/api/estimates/documents/${pdfDocumentId}`}><Download className="size-4" />{copy.downloadPdf}</Link> : null}
-      <SendProposalDialog canSend={initialWorkflow.emailDeliveryAvailable && (proposal.status === "prepared" || proposal.status === "sent") && pdfStatus === "ready"} defaults={proposal.deliveryDefaults} deliveries={proposal.deliveries} emailAvailable={initialWorkflow.emailDeliveryAvailable} pdfReady={pdfStatus === "ready"} versionId={proposal.id} versionLabel={copy.commercialProposal} />
+      <SendProposalDialog canSend={!proposalExpired && initialWorkflow.emailDeliveryAvailable && (proposal.status === "prepared" || proposal.status === "sent") && pdfStatus === "ready"} defaults={proposal.deliveryDefaults} deliveries={proposal.deliveries} emailAvailable={initialWorkflow.emailDeliveryAvailable} initialOpen={initialProposalAction?.kind === "resend" && initialProposalAction.versionId === proposal.id} pdfReady={pdfStatus === "ready"} versionId={proposal.id} versionLabel={copy.commercialProposal} />
+      {proposal.status === "sent" && proposalExpired ? <button className={primary} disabled={pending} onClick={() => run(() => createDraftFromEstimateVersionAction(proposal.id))} type="button">{copy.updateProposal}</button> : null}
       {proposal.status === "prepared" && pdfStatus === "ready" && initialWorkflow.lifecycleStatus === "draft" ? <button className={secondary} disabled={pending} onClick={() => run(() => transitionEstimateVersionAction(proposal.id, "sent", "other"))} type="button"><Send className="size-4" />{copy.sentToCustomer}</button> : null}
       {proposal.status === "sent" && initialWorkflow.lifecycleStatus === "sent" ? <><button className={primary} disabled={pending} onClick={() => run(() => transitionEstimateVersionAction(proposal.id, "accepted"))} type="button"><CheckCircle2 className="size-4" />{copy.acceptedByCustomerAction}</button><label className="sr-only" htmlFor="estimate-rejection-reason">{copy.rejectionReason}</label><select className={`${input} w-auto min-w-44`} id="estimate-rejection-reason" onChange={(event) => setRejectionReason(event.target.value as typeof rejectionReason)} value={rejectionReason}><option value="">{copy.rejectionReason}</option><option value="price">{copy.rejectionPrice}</option><option value="no_budget">{copy.rejectionNoBudget}</option><option value="other_supplier">{copy.rejectionOtherSupplier}</option><option value="project_changed">{copy.rejectionProjectChanged}</option><option value="postponed">{copy.rejectionPostponed}</option><option value="other">{copy.rejectionOther}</option></select><button className={secondary} disabled={pending || !rejectionReason} onClick={() => run(() => transitionEstimateVersionAction(proposal.id, "rejected", null, "", rejectionReason || undefined))} type="button"><XCircle className="size-4" />{copy.rejectedAction}</button></> : null}
       {proposal.status === "accepted" ? <button className={primary} disabled={pending} onClick={() => setConversionOpen(true)} type="button"><ShoppingCart className="size-4" />{copy.continueOrder}</button> : <button className={secondary} disabled={pending} onClick={() => setConversionOpen(true)} type="button"><ShoppingCart className="size-4" />{copy.checkForOrder}</button>}

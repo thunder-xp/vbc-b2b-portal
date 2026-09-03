@@ -9,8 +9,8 @@ const userId = "user-1";
 const base: EstimateSalesOpportunitySource = {
   versionId: "version-1", estimateId: "estimate-1", estimateNumber: "KP-1", proposalName: "Office CCTV", customerName: "Client SRL",
   projectName: "Office", amount: 38400, currency: "MDL", versionStatus: "prepared", estimateLifecycleStatus: "draft", acceptedVersionId: null,
-  sentAt: null, acceptedAt: null, estimateStatus: "ready", createdAt: "2026-09-01T10:00:00Z", readyDocumentId: "document-1",
-  productRequirements: [{ productId: "product-1", quantity: 2 }], cartConversions: [],
+  sentAt: null, lifecycleExpiresAt: null, acceptedAt: null, estimateStatus: "ready", createdAt: "2026-09-01T10:00:00Z", readyDocumentId: "document-1",
+  productRequirements: [{ productId: "product-1", quantity: 2 }], cartConversions: [], latestDelivery: null,
 };
 const allowed: EstimateSalesOpportunityPermissions = { canView: true, canSend: true, canConvert: true, canManageOrders: true };
 
@@ -56,7 +56,7 @@ describe("PartnerSalesWorkspaceService", () => {
     const repo = repository([
       accepted(),
       { ...base, versionId: "version-2", estimateId: "estimate-2", estimateNumber: "KP-2" },
-      { ...base, versionId: "version-3", estimateId: "estimate-3", estimateNumber: "KP-3", versionStatus: "sent", estimateLifecycleStatus: "sent", sentAt: "2026-08-28T10:00:00Z", readyDocumentId: null },
+      { ...base, versionId: "version-3", estimateId: "estimate-3", estimateNumber: "KP-3", versionStatus: "sent", estimateLifecycleStatus: "sent", sentAt: "2026-08-28T10:00:00Z", lifecycleExpiresAt: "2026-09-20T10:00:00Z", readyDocumentId: "document-3" },
     ]);
     const result = await new PartnerSalesWorkspaceService(repo).listEstimateOpportunities(companyId, userId, allowed);
 
@@ -64,7 +64,7 @@ describe("PartnerSalesWorkspaceService", () => {
     expect(result).toEqual([
       expect.objectContaining({ id: "accepted_ready_to_order:version-1", type: "accepted_ready_to_order", priority: 2, amount: 38400, currency: "MDL", customerName: "Client SRL", href: "/cabinet/estimates/estimate-1#estimate-order-conversion" }),
       expect.objectContaining({ id: "ready_to_send:version-2", type: "ready_to_send", priority: 3, href: "/cabinet/estimates/estimate-2" }),
-      expect.objectContaining({ id: "awaiting_customer:version-3", type: "awaiting_customer", priority: 4, href: "/cabinet/estimates/estimate-3" }),
+      expect.objectContaining({ id: "awaiting_customer:version-3", type: "awaiting_customer", priority: 4, followUpState: "sent", action: "resend", href: "/cabinet/estimates/estimate-3?proposalAction=resend&version=version-3#estimate-order-conversion" }),
     ]);
   });
 
@@ -160,6 +160,56 @@ describe("PartnerSalesWorkspaceService", () => {
   it("keeps only the latest version and never revives accepted work after a restored draft", async () => {
     const restoredDraft = { ...base, versionId: "version-2", createdAt: "2026-09-03T10:00:00Z", readyDocumentId: null };
     await expect(list([restoredDraft, accepted({ createdAt: "2026-09-02T10:00:00Z", cartConversions: [conversion()] })])).resolves.toEqual([]);
+  });
+
+  it("derives opened and not-opened context only from the latest governed email delivery", async () => {
+    const sent = { ...base, versionStatus: "sent" as const, estimateLifecycleStatus: "sent" as const, sentAt: "2026-09-01T10:00:00Z", lifecycleExpiresAt: "2026-09-20T10:00:00Z", readyDocumentId: "document-1" };
+    const delivery = { status: "sent" as const, sentAt: "2026-09-01T10:00:05Z", openedAt: null, expiresAt: "2026-09-15T10:00:05Z", response: null, createdAt: "2026-09-01T10:00:00Z" };
+
+    await expect(list([{ ...sent, latestDelivery: delivery }])).resolves.toEqual([
+      expect.objectContaining({ followUpState: "sent_not_opened", action: "resend", customerName: "Client SRL", amount: 38400 }),
+    ]);
+    await expect(list([{ ...sent, latestDelivery: { ...delivery, openedAt: "2026-09-02T08:00:00Z" } }])).resolves.toEqual([
+      expect.objectContaining({ followUpState: "sent_opened_no_response", action: "resend" }),
+    ]);
+    await expect(list([{ ...sent, latestDelivery: { ...delivery, status: "failed", openedAt: null } }])).resolves.toEqual([
+      expect.objectContaining({ followUpState: "sent" }),
+    ]);
+  });
+
+  it("routes expired sent proposals to governed update instead of resending an immutable version", async () => {
+    const service = new PartnerSalesWorkspaceService(repository([{ ...base, versionStatus: "sent", estimateLifecycleStatus: "expired", sentAt: "2026-08-10T10:00:00Z", lifecycleExpiresAt: "2026-08-24T10:00:00Z", readyDocumentId: "document-1" }]));
+    await expect(service.listEstimateOpportunities(companyId, userId, allowed)).resolves.toEqual([
+      expect.objectContaining({ followUpState: "expired_sent", action: "update", href: "/cabinet/estimates/estimate-1#estimate-order-conversion" }),
+    ]);
+  });
+
+  it("uses review rather than resend when the partner lacks send permission", async () => {
+    const sent = { ...base, versionStatus: "sent" as const, estimateLifecycleStatus: "sent" as const, sentAt: "2026-09-01T10:00:00Z", lifecycleExpiresAt: "2026-09-20T10:00:00Z", readyDocumentId: "document-1" };
+    await expect(list([sent], { ...allowed, canSend: false })).resolves.toEqual([
+      expect.objectContaining({ type: "awaiting_customer", action: "review", href: "/cabinet/estimates/estimate-1#estimate-order-conversion" }),
+    ]);
+  });
+
+  it("ranks expired, opened, not-opened, then channel-unknown awaiting work deterministically", async () => {
+    const delivery = { status: "sent" as const, sentAt: "2026-09-01T10:00:05Z", openedAt: null, expiresAt: "2026-09-15T10:00:05Z", response: null, createdAt: "2026-09-01T10:00:00Z" };
+    const sent = { ...base, versionStatus: "sent" as const, estimateLifecycleStatus: "sent" as const, sentAt: "2026-09-01T10:00:00Z", lifecycleExpiresAt: "2026-09-20T10:00:00Z", readyDocumentId: "document-1" };
+    const rows = [
+      { ...sent, versionId: "unknown", estimateId: "unknown", latestDelivery: null },
+      { ...sent, versionId: "not-opened", estimateId: "not-opened", latestDelivery: delivery },
+      { ...sent, versionId: "opened", estimateId: "opened", latestDelivery: { ...delivery, openedAt: "2026-09-02T08:00:00Z" } },
+      { ...sent, versionId: "expired", estimateId: "expired", estimateLifecycleStatus: "expired" as const, lifecycleExpiresAt: "2026-08-20T10:00:00Z" },
+    ];
+    await expect(list(rows)).resolves.toEqual([
+      expect.objectContaining({ versionId: "expired" }),
+      expect.objectContaining({ versionId: "opened" }),
+      expect.objectContaining({ versionId: "not-opened" }),
+      expect.objectContaining({ versionId: "unknown" }),
+    ]);
+  });
+
+  it.each(["accepted", "rejected"] as const)("never revives %s as awaiting follow-up", async (versionStatus) => {
+    await expect(list([{ ...base, versionStatus, estimateLifecycleStatus: versionStatus, sentAt: "2026-09-01T10:00:00Z" }])).resolves.toEqual([]);
   });
 
   it("ranks resume checkout closest to revenue, then value, and keeps six deterministic opportunities", async () => {

@@ -67,6 +67,14 @@ describe("proposal delivery UI", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
+  it("opens the existing delivery workflow from a governed direct action and fails closed without permission", () => {
+    const { unmount } = render(<SendProposalDialog canSend deliveries={[]} emailAvailable initialOpen pdfReady versionId="version-1" versionLabel="KP-1" />);
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    unmount();
+    render(<SendProposalDialog canSend={false} deliveries={[]} emailAvailable initialOpen pdfReady versionId="version-1" versionLabel="KP-1" />);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
   it("requires confirmation and records one Romanian customer response", async () => {
     const user = userEvent.setup();
     render(<PublicProposalResponse initialResponse={null} locale="ro" token={"a".repeat(43)} />);

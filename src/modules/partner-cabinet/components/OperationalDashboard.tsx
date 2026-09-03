@@ -54,7 +54,7 @@ export function OperationalDashboard({
   );
 }
 
-function EstimateSalesSection({ items = [], locale }: { items: WorkspaceHomeDto["estimateSalesOpportunities"]; locale: PartnerLocale }) {
+export function EstimateSalesSection({ items = [], locale }: { items: WorkspaceHomeDto["estimateSalesOpportunities"]; locale: PartnerLocale }) {
   if (!items.length) return null;
   return <section aria-labelledby="dashboard-estimate-sales">
     <SectionHeading actionHref="/cabinet/estimates" actionLabel={partnerText(locale, "dashboard.allEstimates")} id="dashboard-estimate-sales" title={partnerText(locale, "dashboard.salesOpportunities")} />
@@ -62,11 +62,11 @@ function EstimateSalesSection({ items = [], locale }: { items: WorkspaceHomeDto[
       {items.map((item) => <li className="grid gap-3 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center" key={item.id}>
         <div className="min-w-0">
           <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1"><p className="font-semibold text-zinc-950">{item.customerName || item.proposalName}</p><span className="text-xs text-zinc-500">{item.estimateNumber}</span></div>
-          <p className="mt-1 text-sm font-medium text-emerald-800">{partnerText(locale, opportunityStateKey(item.type))}</p>
-          <p className="mt-1 text-xs text-zinc-500">{formatPartnerMoney(item.amount, item.currency, locale)} · {item.projectName || item.proposalName} · {partnerText(locale, opportunityDateKey(item.type))} {formatPartnerRelativeDate(item.waitingSince, locale)}</p>
+          <p className="mt-1 text-sm font-medium text-emerald-800">{partnerText(locale, opportunityStateKey(item))} · {partnerText(locale, opportunityDateKey(item.type))} {formatPartnerRelativeDate(item.waitingSince, locale)}</p>
+          <p className="mt-1 text-xs text-zinc-500">{formatPartnerMoney(item.amount, item.currency, locale)} · {item.projectName || item.proposalName}{item.validUntil && item.followUpState !== "expired_sent" ? ` · ${partnerText(locale, "dashboard.proposalValidUntil")} ${formatDate(item.validUntil, locale)}` : ""}</p>
         </div>
         <DashboardTrackedLink className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-emerald-700 focus-visible:ring-2 focus-visible:ring-emerald-500" eventName="dashboard_continue_work_clicked" href={item.href} metadataSafe={{ opportunityType: item.type }} sourceSurface="dashboard_estimate_sales">
-          {partnerText(locale, opportunityActionKey(item.type))}<ArrowRight aria-hidden="true" className="size-4" />
+          {partnerText(locale, opportunityActionKey(item.action))}<ArrowRight aria-hidden="true" className="size-4" />
         </DashboardTrackedLink>
       </li>)}
     </ul>
@@ -75,10 +75,13 @@ function EstimateSalesSection({ items = [], locale }: { items: WorkspaceHomeDto[
 
 type EstimateSalesOpportunityType = NonNullable<WorkspaceHomeDto["estimateSalesOpportunities"]>[number]["type"];
 
-function opportunityStateKey(type: EstimateSalesOpportunityType) {
-  if (type === "resume_checkout") return "dashboard.proposalInCart" as const;
-  if (type === "accepted_ready_to_order") return "dashboard.proposalAccepted" as const;
-  return type === "ready_to_send" ? "dashboard.proposalReadyToSend" as const : "dashboard.awaitingCustomer" as const;
+function opportunityStateKey(item: NonNullable<WorkspaceHomeDto["estimateSalesOpportunities"]>[number]) {
+  if (item.followUpState === "expired_sent") return "dashboard.proposalExpired" as const;
+  if (item.followUpState === "sent_opened_no_response") return "dashboard.proposalOpened" as const;
+  if (item.followUpState === "sent_not_opened") return "dashboard.proposalNotOpened" as const;
+  if (item.type === "resume_checkout") return "dashboard.proposalInCart" as const;
+  if (item.type === "accepted_ready_to_order") return "dashboard.proposalAccepted" as const;
+  return item.type === "ready_to_send" ? "dashboard.proposalReadyToSend" as const : "dashboard.awaitingCustomer" as const;
 }
 
 function opportunityDateKey(type: EstimateSalesOpportunityType) {
@@ -86,10 +89,12 @@ function opportunityDateKey(type: EstimateSalesOpportunityType) {
   return type === "awaiting_customer" ? "dashboard.sent" as const : "dashboard.prepared" as const;
 }
 
-function opportunityActionKey(type: EstimateSalesOpportunityType) {
-  if (type === "resume_checkout") return "dashboard.resumeCheckout" as const;
-  if (type === "accepted_ready_to_order") return "dashboard.continueOrder" as const;
-  return type === "ready_to_send" ? "dashboard.openAndSend" as const : "dashboard.returnToProposal" as const;
+function opportunityActionKey(action: NonNullable<WorkspaceHomeDto["estimateSalesOpportunities"]>[number]["action"]) {
+  if (action === "resume_checkout") return "dashboard.resumeCheckout" as const;
+  if (action === "continue_order") return "dashboard.continueOrder" as const;
+  if (action === "resend") return "dashboard.sendAgain" as const;
+  if (action === "update") return "dashboard.updateProposal" as const;
+  return action === "open_and_send" ? "dashboard.openAndSend" as const : "dashboard.returnToProposal" as const;
 }
 
 function NovotechOffersSection({ campaigns = [], locale, products = [], workspace }: {

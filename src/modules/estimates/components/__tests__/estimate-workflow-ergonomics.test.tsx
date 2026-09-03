@@ -2,7 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { generateEstimateVersionPdfAction } from "../../actions/proposal.actions";
-import { addEstimateEquipmentToCartAction } from "../../actions/lifecycle.actions";
+import { addEstimateEquipmentToCartAction, createDraftFromEstimateVersionAction } from "../../actions/lifecycle.actions";
 import { EstimateWorkflowPanel } from "../EstimateWorkflowPanel";
 
 const refreshMock = vi.fn();
@@ -11,6 +11,7 @@ vi.mock("next/navigation", () => ({
 }));
 vi.mock("../../actions/lifecycle.actions", () => ({
   addEstimateEquipmentToCartAction: vi.fn(),
+  createDraftFromEstimateVersionAction: vi.fn(),
   duplicateEstimateAction: vi.fn(),
   markEstimateReadyAction: vi.fn(),
   saveEstimateAsTemplateAction: vi.fn(),
@@ -117,5 +118,22 @@ describe("EstimateWorkflowPanel ergonomics", () => {
     expect(await screen.findByRole("link", { name: "Скачать PDF" })).toHaveAttribute("href", "/api/estimates/documents/document-1");
     expect(screen.getByRole("button", { name: "Отправить" })).toBeEnabled();
     expect(refreshMock).not.toHaveBeenCalled();
+  });
+
+  it("restores an expired immutable version to the governed draft workflow without exposing resend", async () => {
+    const { default: userEvent } = await import("@testing-library/user-event");
+    const user = userEvent.setup();
+    vi.mocked(createDraftFromEstimateVersionAction).mockResolvedValue({ success: true, message: "Updated", errorCode: null, data: { estimateId: "estimate-1" } });
+    render(<EstimateWorkflowPanel initialProposalAction={{ kind: "resend", versionId: "version-1" }} initialWorkflow={{
+      estimateId: "estimate-1", estimateStatus: "ready", lifecycleStatus: "expired", lifecycleExpiresAt: "2026-08-20T10:00:00Z",
+      acceptedVersionId: null, emailDeliveryAvailable: true, readiness: { ready: true, checks: [] },
+      versions: [{ id: "version-1", versionNumber: 1, label: "Proposal", status: "sent", statusLabel: "Sent", total: "1 000,00 USD", currencyCode: "USD", note: null, createdAt: "2026-08-01T09:00:00Z", createdByName: "Manager", sentAt: "2026-08-06T10:00:00Z", acceptedAt: null, rejectedAt: null, pdfDocumentId: "pdf-1", pdfStatus: "ready", deliveries: [] }],
+    }} revision={3} />);
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Отправить" })).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: "Обновить предложение" }));
+    await waitFor(() => expect(createDraftFromEstimateVersionAction).toHaveBeenCalledWith("version-1"));
+    expect(refreshMock).toHaveBeenCalled();
   });
 });
