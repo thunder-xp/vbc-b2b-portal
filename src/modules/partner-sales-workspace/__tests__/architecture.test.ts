@@ -11,6 +11,7 @@ const capabilities = readFileSync(resolve("src/modules/partner-cabinet/services/
 const estimateWorkflow = readFileSync(resolve("src/modules/estimates/components/EstimateWorkflowPanel.tsx"), "utf8");
 const estimateCopy = readFileSync(resolve("src/modules/partner-locale/estimates-copy.ts"), "utf8");
 const conversionMigration = readFileSync(resolve("supabase/migrations/20260716190000_estimate_versions_workflow.sql"), "utf8");
+const versionIdempotencyMigration = readFileSync(resolve("supabase/migrations/20260903093000_estimate_cart_version_idempotency.sql"), "utf8");
 const lifecycleMigration = readFileSync(resolve("supabase/migrations/20260809007000_estimate_business_lifecycle.sql"), "utf8");
 
 describe("estimate sales workspace boundaries", () => {
@@ -57,6 +58,12 @@ describe("estimate sales workspace boundaries", () => {
     expect(conversionMigration).toContain("where source_version.id = target_version_id");
     expect(conversionMigration).toContain("public.can_access_estimates(target_company_id, 'estimates.convert_to_cart')");
     expect(conversionMigration).toContain("public.can_manage_partner_order_company(target_company_id)");
+    expect(versionIdempotencyMigration).toContain("from public.estimate_versions version");
+    expect(versionIdempotencyMigration).toContain("for update");
+    expect(versionIdempotencyMigration).toContain("conversion.version_id = target_version_id");
+    expect(versionIdempotencyMigration).toContain("conversion.created_at, conversion.id");
+    expect(versionIdempotencyMigration).toContain("prior.created_by <> auth.uid()");
+    expect(versionIdempotencyMigration).toContain("return prior.cart_id");
     expect(lifecycleMigration).toContain("estimate.accepted_version_id = version.id");
     expect(lifecycleMigration).toContain("estimate.lifecycle_status = 'accepted'");
     expect(lifecycleMigration).toContain("'converted_to_order'");
