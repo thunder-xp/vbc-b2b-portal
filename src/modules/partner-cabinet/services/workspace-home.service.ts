@@ -218,6 +218,8 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
       timedDashboardRead("estimate_sales_opportunities", () => this.salesWorkspaceService?.listEstimateOpportunities(companyId, {
         canView: context.capabilities.canViewEstimates,
         canSend: context.capabilities.canSendProposal,
+        canConvert: context.capabilities.canConvertEstimates,
+        canManageOrders: context.capabilities.productCard.canAddToOrder,
       }, 6) ?? Promise.resolve([])),
     ]);
     const reorderCandidates = sessionOrder(

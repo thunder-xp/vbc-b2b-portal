@@ -7,6 +7,10 @@ const dashboard = readFileSync(resolve("src/modules/partner-cabinet/components/O
 const copy = readFileSync(resolve("src/modules/partner-locale/copy.ts"), "utf8");
 const workspace = readFileSync(resolve("src/modules/partner-cabinet/services/workspace-home.service.ts"), "utf8");
 const capabilities = readFileSync(resolve("src/modules/partner-cabinet/services/workspace-capability.service.ts"), "utf8");
+const estimateWorkflow = readFileSync(resolve("src/modules/estimates/components/EstimateWorkflowPanel.tsx"), "utf8");
+const estimateCopy = readFileSync(resolve("src/modules/partner-locale/estimates-copy.ts"), "utf8");
+const conversionMigration = readFileSync(resolve("supabase/migrations/20260716190000_estimate_versions_workflow.sql"), "utf8");
+const lifecycleMigration = readFileSync(resolve("supabase/migrations/20260809007000_estimate_business_lifecycle.sql"), "utf8");
 
 describe("estimate sales workspace boundaries", () => {
   it("uses one bounded company-scoped server read with no browser Supabase access", () => {
@@ -18,13 +22,30 @@ describe("estimate sales workspace boundaries", () => {
     expect(dashboard).not.toMatch(/supabase|createClient/);
     expect(workspace).toContain("context.capabilities.canViewEstimates");
     expect(workspace).toContain("context.capabilities.canSendProposal");
+    expect(workspace).toContain("context.capabilities.canConvertEstimates");
+    expect(workspace).toContain("context.capabilities.productCard.canAddToOrder");
     expect(capabilities).toContain('canViewEstimates: hasPermission("estimates.view")');
     expect(capabilities).toContain('canSendProposal: hasPermission("proposal.send")');
+    expect(capabilities).toContain('canConvertEstimates: hasPermission("estimates.convert_to_cart")');
   });
 
-  it("keeps one direct governed route and full RU/RO sales copy", () => {
+  it("keeps one direct governed route, a non-mutating Dashboard action, and full RU/RO sales copy", () => {
     expect(dashboard).toContain('href={item.href}');
     expect(dashboard).toContain('eventName="dashboard_continue_work_clicked"');
-    for (const value of ["КП готово к отправке", "Ожидается решение клиента", "Oferta este gata de trimis", "Se așteaptă decizia clientului"]) expect(copy).toContain(value);
+    expect(dashboard).not.toMatch(/addEstimateEquipmentToCartAction|mergeEstimateProducts/);
+    expect(estimateWorkflow).toContain('id="estimate-order-conversion"');
+    for (const value of ["КП готово к отправке", "Ожидается решение клиента", "КП принято клиентом", "Продолжить оформление", "Oferta este gata de trimis", "Se așteaptă decizia clientului", "Oferta a fost acceptată de client", "Continuă perfectarea"]) expect(copy).toContain(value);
+    for (const value of ["Подготовка корзины к заказу", "Pregătirea coșului pentru comandă"]) expect(estimateCopy).toContain(value);
+  });
+
+  it("reuses immutable-version cart idempotency and confirmed-order lifecycle truth", () => {
+    expect(conversionMigration).toContain("unique (company_id, request_key)");
+    expect(conversionMigration).toContain("prior.version_id is distinct from target_version_id");
+    expect(conversionMigration).toContain("where source_version.id = target_version_id");
+    expect(conversionMigration).toContain("public.can_access_estimates(target_company_id, 'estimates.convert_to_cart')");
+    expect(conversionMigration).toContain("public.can_manage_partner_order_company(target_company_id)");
+    expect(lifecycleMigration).toContain("estimate.accepted_version_id = version.id");
+    expect(lifecycleMigration).toContain("estimate.lifecycle_status = 'accepted'");
+    expect(lifecycleMigration).toContain("'converted_to_order'");
   });
 });

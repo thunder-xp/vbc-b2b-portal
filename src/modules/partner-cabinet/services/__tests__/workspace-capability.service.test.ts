@@ -16,6 +16,7 @@ describe("resolveWorkspaceCapabilities", () => {
       "specifications.manage",
       "estimates.view",
       "estimates.manage",
+      "estimates.convert_to_cart",
       "documents.view_company",
       "service.view",
       "knowledge.view",
@@ -47,6 +48,7 @@ describe("resolveWorkspaceCapabilities", () => {
     expect(model.navigation.find((item) => item.key === "nomenclature")).toMatchObject({ href: "/cabinet/nomenclature", availability: "available" });
     expect(model.navigation.find((item) => item.key === "proposal_generator")).toMatchObject({ href: "/cabinet/estimates/generator", availability: "available" });
     expect(model.canCreateCommercialProposal).toBe(true);
+    expect(model.canConvertEstimates).toBe(true);
     expect(model.productCard.canAddToSpecification).toBe(true);
     expect(model.productCard.canAddToOrder).toBe(true);
     expect(model.productCard.canManagePurchasingLists).toBe(true);
@@ -69,6 +71,7 @@ describe("resolveWorkspaceCapabilities", () => {
     expect(model.productCard.showPrice).toBe(false);
     expect(model.productCard.showStock).toBe(false);
     expect(model.canCreateCommercialProposal).toBe(false);
+    expect(model.canConvertEstimates).toBe(false);
   });
 
   it("shows finance only with the company finance permission", () => {

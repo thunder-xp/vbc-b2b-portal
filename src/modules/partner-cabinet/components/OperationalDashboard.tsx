@@ -62,15 +62,32 @@ function EstimateSalesSection({ items = [], locale }: { items: WorkspaceHomeDto[
       {items.map((item) => <li className="grid gap-3 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center" key={item.id}>
         <div className="min-w-0">
           <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1"><p className="font-semibold text-zinc-950">{item.customerName || item.proposalName}</p><span className="text-xs text-zinc-500">{item.estimateNumber}</span></div>
-          <p className="mt-1 text-sm font-medium text-emerald-800">{partnerText(locale, item.type === "ready_to_send" ? "dashboard.proposalReadyToSend" : "dashboard.awaitingCustomer")}</p>
-          <p className="mt-1 text-xs text-zinc-500">{formatPartnerMoney(item.amount, item.currency, locale)} · {item.projectName || item.proposalName} · {item.type === "awaiting_customer" ? partnerText(locale, "dashboard.sent") : partnerText(locale, "dashboard.prepared")} {formatPartnerRelativeDate(item.waitingSince, locale)}</p>
+          <p className="mt-1 text-sm font-medium text-emerald-800">{partnerText(locale, opportunityStateKey(item.type))}</p>
+          <p className="mt-1 text-xs text-zinc-500">{formatPartnerMoney(item.amount, item.currency, locale)} · {item.projectName || item.proposalName} · {partnerText(locale, opportunityDateKey(item.type))} {formatPartnerRelativeDate(item.waitingSince, locale)}</p>
         </div>
         <DashboardTrackedLink className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-emerald-700 focus-visible:ring-2 focus-visible:ring-emerald-500" eventName="dashboard_continue_work_clicked" href={item.href} metadataSafe={{ opportunityType: item.type }} sourceSurface="dashboard_estimate_sales">
-          {partnerText(locale, item.type === "ready_to_send" ? "dashboard.openAndSend" : "dashboard.returnToProposal")}<ArrowRight aria-hidden="true" className="size-4" />
+          {partnerText(locale, opportunityActionKey(item.type))}<ArrowRight aria-hidden="true" className="size-4" />
         </DashboardTrackedLink>
       </li>)}
     </ul>
   </section>;
+}
+
+type EstimateSalesOpportunityType = NonNullable<WorkspaceHomeDto["estimateSalesOpportunities"]>[number]["type"];
+
+function opportunityStateKey(type: EstimateSalesOpportunityType) {
+  if (type === "accepted_ready_to_order") return "dashboard.proposalAccepted" as const;
+  return type === "ready_to_send" ? "dashboard.proposalReadyToSend" as const : "dashboard.awaitingCustomer" as const;
+}
+
+function opportunityDateKey(type: EstimateSalesOpportunityType) {
+  if (type === "accepted_ready_to_order") return "dashboard.accepted" as const;
+  return type === "awaiting_customer" ? "dashboard.sent" as const : "dashboard.prepared" as const;
+}
+
+function opportunityActionKey(type: EstimateSalesOpportunityType) {
+  if (type === "accepted_ready_to_order") return "dashboard.continueOrder" as const;
+  return type === "ready_to_send" ? "dashboard.openAndSend" as const : "dashboard.returnToProposal" as const;
 }
 
 function NovotechOffersSection({ campaigns = [], locale, products = [], workspace }: {

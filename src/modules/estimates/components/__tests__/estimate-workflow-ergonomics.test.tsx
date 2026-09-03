@@ -75,8 +75,8 @@ describe("EstimateWorkflowPanel ergonomics", () => {
       }],
     }} revision={3} />);
 
-    await user.click(screen.getByRole("button", { name: "Создать заказ" }));
-    expect(screen.getByRole("dialog", { name: "Создание заказа" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Продолжить оформление" }));
+    expect(screen.getByRole("dialog", { name: "Подготовка корзины к заказу" })).toBeInTheDocument();
     expect(screen.getByText(/только позиции оборудования/)).toBeInTheDocument();
     expect(screen.getByText(/заказ в 1С на этом шаге не создаётся/i)).toBeInTheDocument();
     await user.keyboard("{Escape}");

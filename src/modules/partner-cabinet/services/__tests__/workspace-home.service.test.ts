@@ -14,6 +14,40 @@ import { resolveWorkspaceCapabilities } from "../workspace-capability.service";
 import { DefaultWorkspaceHomeService } from "../workspace-home.service";
 
 describe("DefaultWorkspaceHomeService", () => {
+  it("passes the server-derived Estimate, conversion, and order capabilities to the shared sales provider", async () => {
+    const salesWorkspace = {
+      listEstimateOpportunities: vi.fn().mockResolvedValue([]),
+    };
+    await new DefaultWorkspaceHomeService(
+      fakeContextService({
+        capabilities: resolveWorkspaceCapabilities(new Set([
+          "estimates.view",
+          "proposal.send",
+          "estimates.convert_to_cart",
+          "orders.manage",
+        ])),
+      }),
+      fakeFreshness(),
+      fakeDashboardRepository(),
+      fakePricingInventoryService(),
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      salesWorkspace as never,
+    ).getWorkspaceHome("partner-1");
+
+    expect(salesWorkspace.listEstimateOpportunities).toHaveBeenCalledWith("company-1", {
+      canView: true,
+      canSend: true,
+      canConvert: true,
+      canManageOrders: true,
+    }, 6);
+  });
+
   it("builds an operational dashboard from one aggregate and one commercial batch", async () => {
     const dashboardRepository = fakeDashboardRepository({
       reorderProducts: [{
