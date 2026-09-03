@@ -1,7 +1,8 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { generateEstimateVersionPdfAction } from "../../actions/proposal.actions";
+import { addEstimateEquipmentToCartAction } from "../../actions/lifecycle.actions";
 import { EstimateWorkflowPanel } from "../EstimateWorkflowPanel";
 
 const refreshMock = vi.fn();
@@ -60,6 +61,9 @@ describe("EstimateWorkflowPanel ergonomics", () => {
   it("reviews eligible equipment before converting an accepted version", async () => {
     const { default: userEvent } = await import("@testing-library/user-event");
     const user = userEvent.setup();
+    vi.mocked(addEstimateEquipmentToCartAction).mockResolvedValue({ success: true, message: "Added", errorCode: null, data: {
+      cartId: "cart-1", added: 1, updated: 0, unavailable: 0, inactive: 0, missingPrice: 0, skipped: 0, changedPrice: 0,
+    } });
     render(<EstimateWorkflowPanel initialWorkflow={{
       estimateId: "estimate-1",
       estimateStatus: "ready",
@@ -79,8 +83,13 @@ describe("EstimateWorkflowPanel ergonomics", () => {
     expect(screen.getByRole("dialog", { name: "Подготовка корзины к заказу" })).toBeInTheDocument();
     expect(screen.getByText(/только позиции оборудования/)).toBeInTheDocument();
     expect(screen.getByText(/заказ в 1С на этом шаге не создаётся/i)).toBeInTheDocument();
-    await user.keyboard("{Escape}");
-    expect(screen.queryByRole("dialog", { name: "Создание заказа" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Добавить оборудование в корзину" }));
+    await waitFor(() => expect(addEstimateEquipmentToCartAction).toHaveBeenCalledOnce());
+    await user.click(screen.getByRole("button", { name: "Продолжить оформление" }));
+    await user.click(screen.getByRole("button", { name: "Добавить оборудование в корзину" }));
+    await waitFor(() => expect(addEstimateEquipmentToCartAction).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(addEstimateEquipmentToCartAction).mock.calls[0]?.slice(0, 2)).toEqual(["estimate-1", "version-1"]);
+    expect(vi.mocked(addEstimateEquipmentToCartAction).mock.calls[1]?.[2]).toBe(vi.mocked(addEstimateEquipmentToCartAction).mock.calls[0]?.[2]);
   });
 
   it("acknowledges generation immediately and exposes the ready artifact without an RSC refresh", async () => {
