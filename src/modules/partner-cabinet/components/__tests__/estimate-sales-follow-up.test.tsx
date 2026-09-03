@@ -26,6 +26,11 @@ const base: Opportunity = {
 };
 
 describe("EstimateSalesSection follow-up context", () => {
+  it("does not add follow-up validity context to existing opportunity types", () => {
+    render(<EstimateSalesSection items={[{ ...base, type: "ready_to_send", priority: 3, followUpState: null, action: "open_and_send", validUntil: "2035-12-31T10:00:00Z" }]} locale="ru" />);
+    expect(document.body.textContent).not.toContain("2035");
+  });
+
   it("renders compact truthful opened and not-opened signals without delivery PII", () => {
     const { rerender } = render(<EstimateSalesSection items={[base]} locale="ru" />);
     expect(screen.getByText(/Клиент открыл предложение/)).toBeInTheDocument();
