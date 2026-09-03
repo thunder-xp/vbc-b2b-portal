@@ -981,3 +981,5 @@ comment on column public.one_c_counterparty_directory_syncs.commercial_candidate
   'Affected active companies selected from material counterparty, contract and price-profile changes in this directory publication.';
 
 commit;
+
+
