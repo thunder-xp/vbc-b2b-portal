@@ -88,8 +88,8 @@ describe("EstimateWorkflowPanel ergonomics", () => {
     await user.click(screen.getByRole("button", { name: "Продолжить оформление" }));
     await user.click(screen.getByRole("button", { name: "Добавить оборудование в корзину" }));
     await waitFor(() => expect(addEstimateEquipmentToCartAction).toHaveBeenCalledTimes(2));
-    expect(vi.mocked(addEstimateEquipmentToCartAction).mock.calls[0]?.slice(0, 2)).toEqual(["estimate-1", "version-1"]);
-    expect(vi.mocked(addEstimateEquipmentToCartAction).mock.calls[1]?.[2]).toBe(vi.mocked(addEstimateEquipmentToCartAction).mock.calls[0]?.[2]);
+    expect(vi.mocked(addEstimateEquipmentToCartAction).mock.calls[0]).toEqual(["estimate-1", "version-1", "version-1"]);
+    expect(vi.mocked(addEstimateEquipmentToCartAction).mock.calls[1]).toEqual(["estimate-1", "version-1", "version-1"]);
   });
 
   it("acknowledges generation immediately and exposes the ready artifact without an RSC refresh", async () => {

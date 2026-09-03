@@ -3,7 +3,7 @@
 import { CheckCircle2, Copy, Download, Send, ShoppingCart, XCircle } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useRef, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 
 import { recordBehaviorInteraction } from "../../behavior-analytics/components";
 import { ConfirmationDialog } from "../../platform-ui";
@@ -27,7 +27,6 @@ export function EstimateWorkflowPanel({ initialWorkflow, revision }: { initialWo
   const [message, setMessage] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState<EstimateRejectionReason | "">("");
   const [conversionOpen, setConversionOpen] = useState(false);
-  const conversionRequest = useRef({ context: "", requestKey: "" });
   const [pending, startTransition] = useTransition();
   const [pdfPending, startPdfTransition] = useTransition();
   const proposal = initialWorkflow.versions.find((item) => item.id === initialWorkflow.acceptedVersionId) ?? initialWorkflow.versions[0] ?? null;
@@ -45,9 +44,8 @@ export function EstimateWorkflowPanel({ initialWorkflow, revision }: { initialWo
     if (result.success) router.push(`/cabinet/estimates/${result.data.estimateId}`);
   });
   const addToCart = () => startTransition(async () => {
-    const context = `${initialWorkflow.estimateId}:${proposal?.id ?? "current"}`;
-    if (conversionRequest.current.context !== context) conversionRequest.current = { context, requestKey: crypto.randomUUID() };
-    const result = await addEstimateEquipmentToCartAction(initialWorkflow.estimateId, proposal?.id ?? null, conversionRequest.current.requestKey);
+    const requestKey = proposal?.id ?? crypto.randomUUID();
+    const result = await addEstimateEquipmentToCartAction(initialWorkflow.estimateId, proposal?.id ?? null, requestKey);
     if (!result.success) return setMessage(copy.operationFailed);
     setMessage(copy.cartResult.replace("{added}", String(result.data.added)).replace("{updated}", String(result.data.updated)).replace("{changed}", String(result.data.changedPrice)).replace("{unavailable}", String(result.data.unavailable + result.data.inactive)).replace("{missing}", String(result.data.missingPrice)).replace("{skipped}", String(result.data.skipped)));
   });
