@@ -24,6 +24,11 @@ describe("cart commercial integrity UX", () => {
     expect(recheckAction).not.toMatch(/OneC|ONEC|fetch\(/);
   });
 
+  it("removes the manual commercial recheck control without deleting its server capability", () => {
+    expect(page).not.toContain("CartCommercialRecheck");
+    expect(recheckAction).toContain("recheckCartCommercialDataAction");
+  });
+
   it("preserves the cart while unresolved values await background sync", () => {
     expect(recheckAction).toContain("корзина сохранена");
     expect(recheckAction).not.toMatch(/delete|clearCart|removeItem/);
@@ -36,10 +41,15 @@ describe("cart commercial integrity UX", () => {
   });
 
   it("aligns the two cart persistence actions as one responsive group", () => {
+    expect(page).toContain("grid grid-cols-2 gap-2");
     expect(page).toContain("[&>button]:h-11");
     expect(page).toContain("[&>button]:w-full");
     expect(page).toContain("<SaveAsPurchasingListButton label={copy.saveToFavorites} source=\"cart\" />");
     expect(page).toContain("<SaveAsPurchaseTemplateButton label={copy.saveToTemplate} source={{ type: \"cart\" }} />");
+  });
+
+  it("uses concise persistence labels and omits the visible checkout heading", () => {
+    expect(page).not.toContain("<h2 className=\"font-semibold text-zinc-950\">{copy.checkoutReview}</h2>");
   });
 
   it("returns a price-free receipt from the checkout server action", () => {

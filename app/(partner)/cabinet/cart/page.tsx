@@ -4,7 +4,6 @@ import { ProductLineThumbnail } from "@/src/modules/catalog/components/ProductLi
 import { getCartAction } from "@/src/modules/orders/actions";
 import { CartItemActions } from "@/src/modules/orders/components/CartItemActions";
 import { CartCheckoutCoordinator } from "@/src/modules/orders/components/CartCheckoutCoordinator";
-import { CartCommercialRecheck } from "@/src/modules/orders/components/CartCommercialRecheck";
 import { OrderSubmitForm } from "@/src/modules/orders/components/OrderSubmitForm";
 import { CreateEstimateFromCartButton } from "@/src/modules/estimates/components/CreateEstimateFromCartButton";
 import { SaveAsPurchasingListButton } from "@/src/modules/purchasing-lists/components";
@@ -209,11 +208,10 @@ export default async function CartPage() {
                   </p>
                 ) : null}
               </div>
-              <CartCommercialRecheck />
               <CreateEstimateFromCartButton />
               <div
                 aria-label={copy.additionalCartActions}
-                className="grid gap-2 [&>button]:h-11 [&>button]:w-full [&>button]:justify-center"
+                className="grid grid-cols-2 gap-2 [&>button]:h-11 [&>button]:min-w-0 [&>button]:w-full [&>button]:justify-center [&>button]:px-2"
               >
                 <SaveAsPurchasingListButton label={copy.saveToFavorites} source="cart" />
                 <SaveAsPurchaseTemplateButton label={copy.saveToTemplate} source={{ type: "cart" }} />

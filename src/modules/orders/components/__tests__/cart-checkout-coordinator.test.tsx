@@ -65,10 +65,12 @@ describe("cart checkout mutation barrier", () => {
     fireEvent.change(screen.getByRole("spinbutton", { name: "Количество товара" }), {
       target: { value: "5" },
     });
-    fireEvent.change(screen.getByLabelText(/Дата оплаты/), {
+    fireEvent.click(screen.getByRole("radio", { name: /Безналичный/ }));
+    fireEvent.change(screen.getByLabelText("Дата оплаты", { exact: true }), {
       target: { value: "2099-01-09" },
     });
-    fireEvent.change(screen.getByLabelText("Дата планируемой отгрузки"), {
+    fireEvent.click(screen.getByRole("radio", { name: "Самовывоз" }));
+    fireEvent.change(screen.getByLabelText("Дата резервации"), {
       target: { value: "2099-01-10" },
     });
     fireEvent.submit(screen.getByRole("form", { name: "Проверка заказа" }));
@@ -104,10 +106,12 @@ describe("cart checkout mutation barrier", () => {
     fireEvent.change(screen.getByRole("spinbutton", { name: "Количество товара" }), {
       target: { value: "9" },
     });
-    fireEvent.change(screen.getByLabelText(/Дата оплаты/), {
+    fireEvent.click(screen.getByRole("radio", { name: /Безналичный/ }));
+    fireEvent.change(screen.getByLabelText("Дата оплаты", { exact: true }), {
       target: { value: "2099-01-09" },
     });
-    fireEvent.change(screen.getByLabelText("Дата планируемой отгрузки"), {
+    fireEvent.click(screen.getByRole("radio", { name: "Самовывоз" }));
+    fireEvent.change(screen.getByLabelText("Дата резервации"), {
       target: { value: "2099-01-10" },
     });
     fireEvent.submit(screen.getByRole("form", { name: "Проверка заказа" }));
@@ -135,10 +139,12 @@ describe("cart checkout mutation barrier", () => {
     fireEvent.change(screen.getByRole("spinbutton", { name: "Количество товара" }), {
       target: { value: "5" },
     });
-    fireEvent.change(screen.getByLabelText(/Дата оплаты/), {
+    fireEvent.click(screen.getByRole("radio", { name: /Безналичный/ }));
+    fireEvent.change(screen.getByLabelText("Дата оплаты", { exact: true }), {
       target: { value: "2099-01-09" },
     });
-    const date = screen.getByLabelText("Дата планируемой отгрузки");
+    fireEvent.click(screen.getByRole("radio", { name: "Самовывоз" }));
+    const date = screen.getByLabelText("Дата резервации");
     fireEvent.change(date, { target: { value: "2099-01-10" } });
     fireEvent.submit(screen.getByRole("form", { name: "Проверка заказа" }));
     fireEvent.change(date, { target: { value: "" } });

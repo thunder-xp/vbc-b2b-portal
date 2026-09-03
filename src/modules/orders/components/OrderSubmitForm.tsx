@@ -2,6 +2,7 @@
 
 import {
   type FormEvent,
+  type ReactNode,
   useRef,
   useState,
   useTransition,
@@ -47,11 +48,10 @@ export function OrderSubmitForm({
   const locale = usePartnerLocale();
   const copy = getOrdersCopy(locale);
   const options = checkoutOptions ?? defaultCheckoutOptions();
-  const initialPaymentMethod = options.paymentMethods.find((option) => option.enabled)?.value ?? "";
   const [deliveryDate, setDeliveryDate] = useState("");
   const [paymentDate, setPaymentDate] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState<"cashless" | "cash" | "">(initialPaymentMethod);
-  const [fulfillmentMethod, setFulfillmentMethod] = useState<"pickup" | "delivery">("pickup");
+  const [paymentMethod, setPaymentMethod] = useState<"cashless" | "cash" | "">("");
+  const [fulfillmentMethod, setFulfillmentMethod] = useState<"pickup" | "delivery" | "">("");
   const [carrierId, setCarrierId] = useState("");
   const [phase, setPhase] = useState<CheckoutPhase>("idle");
   const [barrierError, setBarrierError] = useState("");
@@ -125,18 +125,34 @@ export function OrderSubmitForm({
     (option) => option.value === paymentMethod,
   );
   const checkoutUnavailable = !selectedPaymentOption?.enabled;
+  const paymentMethodsUnavailable = !options.paymentMethods.some(
+    (option) => option.enabled,
+  );
   const deliveryUnavailable = options.carriers.length === 0;
+  const paymentComplete = selectedPaymentOption?.enabled === true;
+  const paymentDateComplete = paymentComplete && isSelectableDate(paymentDate);
+  const fulfillmentComplete = paymentDateComplete && Boolean(
+    fulfillmentMethod === "pickup"
+    || (fulfillmentMethod === "delivery" && carrierId),
+  );
+  const reservationComplete = fulfillmentComplete && isSelectableDate(deliveryDate);
   const checkoutReady = Boolean(
     selectedPaymentOption?.enabled
     && isSelectableDate(paymentDate)
     && isSelectableDate(deliveryDate)
     && (fulfillmentMethod === "pickup" || carrierId),
   );
+  const failureMessage = !state.success
+    ? orderFailureMessage(state.errorCode, copy, state.message)
+    : "";
+  const failedStep = checkoutFailureStep(state.errorCode);
+  const paymentDateInvalid = paymentDate !== "" && !isSelectableDate(paymentDate);
+  const deliveryDateInvalid = deliveryDate !== "" && !isSelectableDate(deliveryDate);
 
   return (
     <form
       aria-label={copy.checkoutReview}
-      className="space-y-3 rounded-lg border border-zinc-200 bg-white p-4"
+      className="space-y-2 rounded-lg border border-zinc-200 bg-white p-3"
       onSubmit={handleSubmit}
       ref={formRef}
     >
@@ -151,9 +167,16 @@ export function OrderSubmitForm({
         type="hidden"
         value={currentSubmissionKey}
       />
-      <h2 className="font-semibold text-zinc-950">{copy.checkoutReview}</h2>
-      <fieldset className="space-y-2">
-        <legend className="text-sm font-medium text-zinc-800">{copy.paymentMethod}</legend>
+      <CheckoutStep
+        copy={copy}
+        label={copy.paymentMethod}
+        number={1}
+        state={failedStep === 1 || paymentMethodsUnavailable
+          ? "error"
+          : paymentComplete ? "complete" : "active"}
+      >
+        <fieldset>
+          <legend className="sr-only">{copy.paymentMethod}</legend>
         <div className="grid grid-cols-2 gap-2">
           {options.paymentMethods.map((option) => (
             <label
@@ -175,24 +198,38 @@ export function OrderSubmitForm({
                 value={option.value}
               />
               {option.value === "cashless" ? copy.cashless : copy.cash}
+              {!option.enabled ? (
+                <span className="sr-only">. {unavailableReason(option.value, copy)}</span>
+              ) : null}
             </label>
           ))}
         </div>
-        {options.paymentMethods.filter((option) => !option.enabled).map((option) => (
-          <p className="text-xs text-zinc-600" key={`${option.value}-reason`}>
-            {unavailableReason(option.value, copy)}
-          </p>
-        ))}
-        {selectedPaymentOption?.contractLabel ? (
-          <p className="text-xs text-zinc-600">
-            {copy.contract}: {selectedPaymentOption.contractLabel}
+        </fieldset>
+        {paymentMethodsUnavailable ? (
+          <p aria-live="polite" className="mt-2 text-sm text-amber-800">
+            {copy.checkoutUnavailable}
           </p>
         ) : null}
-      </fieldset>
-      <label className="block text-sm font-medium text-zinc-800">
-        {copy.paymentDate}
+        {failedStep === 1 && failureMessage ? (
+          <StepError message={failureMessage} />
+        ) : null}
+      </CheckoutStep>
+      <CheckoutStep
+        copy={copy}
+        label={copy.paymentDate}
+        number={2}
+        state={failedStep === 2 || paymentDateInvalid
+          ? "error"
+          : paymentDateComplete
+            ? "complete"
+            : paymentComplete ? "active" : "inactive"}
+      >
+        <label className="sr-only" htmlFor="checkout-payment-date">{copy.paymentDate}</label>
         <input
-          className="mt-1 block h-10 w-full rounded-md border border-zinc-300 px-3"
+          aria-invalid={paymentDateInvalid || undefined}
+          className="block h-10 w-full rounded-md border border-zinc-300 bg-white px-3 disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:text-zinc-400"
+          disabled={!paymentComplete}
+          id="checkout-payment-date"
           min={chisinauBusinessDate()}
           name="paymentDate"
           onChange={(event) => setPaymentDate(event.target.value)}
@@ -200,65 +237,97 @@ export function OrderSubmitForm({
           type="date"
           value={paymentDate}
         />
-        {!paymentDate ? (
-          <span className="mt-1 block text-xs text-zinc-600">{copy.paymentDateRequired}</span>
+        {paymentDateInvalid ? (
+          <StepError message={copy.orderInvalidPaymentDate} />
+        ) : failedStep === 2 && failureMessage ? (
+          <StepError message={failureMessage} />
         ) : null}
-      </label>
-      <fieldset className="space-y-2">
-        <legend className="text-sm font-medium text-zinc-800">{copy.fulfillmentMethod}</legend>
+      </CheckoutStep>
+      <CheckoutStep
+        copy={copy}
+        label={copy.fulfillmentMethod}
+        number={3}
+        state={failedStep === 3
+          ? "error"
+          : fulfillmentComplete
+            ? "complete"
+            : paymentDateComplete ? "active" : "inactive"}
+      >
+        <fieldset>
+          <legend className="sr-only">{copy.fulfillmentMethod}</legend>
         <div className="grid grid-cols-2 gap-2">
-          {(["pickup", "delivery"] as const).map((method) => (
-            <label
-              className={`flex min-h-11 items-center justify-center rounded-md border px-2 text-center text-sm font-medium ${
-                method === "delivery" && deliveryUnavailable
-                  ? "cursor-not-allowed border-zinc-200 bg-zinc-50 text-zinc-400"
-                  : "cursor-pointer border-zinc-300 has-[:checked]:border-emerald-700 has-[:checked]:bg-emerald-50"
-              }`}
-              key={method}
-            >
-              <input
-                checked={fulfillmentMethod === method}
-                className="sr-only"
-                disabled={method === "delivery" && deliveryUnavailable}
-                name="fulfillmentMethod"
-                onChange={() => {
-                  setFulfillmentMethod(method);
-                  if (method === "pickup") setCarrierId("");
-                }}
-                type="radio"
-                value={method}
-              />
-              {method === "pickup" ? copy.pickup : copy.delivery}
-            </label>
-          ))}
+          {(["pickup", "delivery"] as const).map((method) => {
+            const disabled = !paymentDateComplete
+              || (method === "delivery" && deliveryUnavailable);
+            return (
+              <label
+                className={`flex min-h-11 items-center justify-center rounded-md border px-2 text-center text-sm font-medium ${
+                  disabled
+                    ? "cursor-not-allowed border-zinc-200 bg-zinc-50 text-zinc-400"
+                    : "cursor-pointer border-zinc-300 has-[:checked]:border-emerald-700 has-[:checked]:bg-emerald-50"
+                }`}
+                key={method}
+              >
+                <input
+                  checked={fulfillmentMethod === method}
+                  className="sr-only"
+                  disabled={disabled}
+                  name="fulfillmentMethod"
+                  onChange={() => {
+                    setFulfillmentMethod(method);
+                    if (method === "pickup") setCarrierId("");
+                  }}
+                  type="radio"
+                  value={method}
+                />
+                {method === "pickup" ? copy.pickup : copy.delivery}
+                {method === "delivery" && deliveryUnavailable ? (
+                  <span className="sr-only">. {copy.deliveryUnavailable}</span>
+                ) : null}
+              </label>
+            );
+          })}
         </div>
-        {deliveryUnavailable ? (
-          <p className="text-xs text-zinc-600">{copy.deliveryUnavailable}</p>
+        </fieldset>
+        {fulfillmentMethod === "delivery" ? (
+          <label className="mt-2 block text-sm font-medium text-zinc-700">
+            {copy.carrier}
+            <select
+              className="mt-1 block h-10 w-full rounded-md border border-zinc-300 bg-white px-3"
+              name="carrierId"
+              onChange={(event) => setCarrierId(event.target.value)}
+              required
+              value={carrierId}
+            >
+              <option value="">{copy.selectCarrier}</option>
+              {options.carriers.map((carrier) => (
+                <option key={carrier.id} value={carrier.id}>{carrier.name}</option>
+              ))}
+            </select>
+          </label>
+        ) : (
+          <input name="carrierId" type="hidden" value="" />
+        )}
+        {failedStep === 3 && failureMessage ? (
+          <StepError message={failureMessage} />
         ) : null}
-      </fieldset>
-      {fulfillmentMethod === "delivery" ? (
-        <label className="block text-sm font-medium text-zinc-800">
-          {copy.carrier}
-          <select
-            className="mt-1 block h-10 w-full rounded-md border border-zinc-300 bg-white px-3"
-            name="carrierId"
-            onChange={(event) => setCarrierId(event.target.value)}
-            required
-            value={carrierId}
-          >
-            <option value="">{copy.selectCarrier}</option>
-            {options.carriers.map((carrier) => (
-              <option key={carrier.id} value={carrier.id}>{carrier.name}</option>
-            ))}
-          </select>
-        </label>
-      ) : (
-        <input name="carrierId" type="hidden" value="" />
-      )}
-      <label className="block text-sm font-medium text-zinc-800">
-        {copy.requestedDeliveryDate}
+      </CheckoutStep>
+      <CheckoutStep
+        copy={copy}
+        label={copy.requestedDeliveryDate}
+        number={4}
+        state={failedStep === 4 || deliveryDateInvalid
+          ? "error"
+          : reservationComplete
+            ? "complete"
+            : fulfillmentComplete ? "active" : "inactive"}
+      >
+        <label className="sr-only" htmlFor="checkout-reservation-date">{copy.requestedDeliveryDate}</label>
         <input
-          className="mt-1 block h-10 w-full rounded-md border border-zinc-300 px-3"
+          aria-invalid={deliveryDateInvalid || undefined}
+          className="block h-10 w-full rounded-md border border-zinc-300 bg-white px-3 disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:text-zinc-400"
+          disabled={!fulfillmentComplete}
+          id="checkout-reservation-date"
           min={chisinauBusinessDate()}
           name="requestedDeliveryDate"
           onChange={(event) => setDeliveryDate(event.target.value)}
@@ -266,25 +335,19 @@ export function OrderSubmitForm({
           type="date"
           value={deliveryDate}
         />
-      </label>
-      {deliveryDate ? (
-        <p className="text-xs font-medium text-zinc-700">
-          {copy.selected}: {formatBusinessDate(deliveryDate, locale)}
-        </p>
-      ) : null}
-      <p className="text-xs leading-5 text-zinc-600">{copy.shipmentDateHint}</p>
+        {deliveryDateInvalid ? (
+          <StepError message={copy.orderInvalidShipmentDate} />
+        ) : failedStep === 4 && failureMessage ? (
+          <StepError message={failureMessage} />
+        ) : null}
+      </CheckoutStep>
       <button
-        className="h-11 w-full rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white hover:bg-emerald-800 focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+        className="mt-3 h-11 w-full rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white hover:bg-emerald-800 focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
         disabled={busy || retryBlocked || checkoutUnavailable || !checkoutReady}
         type="submit"
       >
         {submitLabel(phase, actionPending, hasPendingMutations, copy)}
       </button>
-      {checkoutUnavailable ? (
-        <p aria-live="polite" className="text-sm text-amber-800">
-          {copy.checkoutUnavailable}
-        </p>
-      ) : null}
       {hasPendingMutations ? (
         <p aria-live="polite" className="text-sm text-amber-800">
           {copy.savingCart}
@@ -295,17 +358,89 @@ export function OrderSubmitForm({
           {barrierError}
         </p>
       ) : null}
-      {state.message ? (
+      {(state.success && state.message) || (!state.success && failedStep === null) ? (
         <p
           aria-live="polite"
           className={`text-sm ${
             state.success ? "text-emerald-700" : "text-rose-700"
           }`}
         >
-          {state.success ? state.message : orderFailureMessage(state.errorCode, copy, state.message)}
+          {state.success ? state.message : failureMessage}
         </p>
       ) : null}
     </form>
+  );
+}
+
+type CheckoutStepState = "inactive" | "active" | "complete" | "error";
+
+function CheckoutStep({
+  children,
+  copy,
+  label,
+  number,
+  state,
+}: {
+  children: ReactNode;
+  copy: ReturnType<typeof getOrdersCopy>;
+  label: string;
+  number: 1 | 2 | 3 | 4;
+  state: CheckoutStepState;
+}) {
+  const stateLabel = {
+    inactive: copy.checkoutStepInactive,
+    active: copy.checkoutStepActive,
+    complete: copy.checkoutStepComplete,
+    error: copy.checkoutStepError,
+  }[state];
+  const shellClass = {
+    inactive: "border-zinc-200 bg-zinc-50/70 text-zinc-500",
+    active: "border-emerald-300 bg-white text-zinc-950 shadow-sm",
+    complete: "border-zinc-200 bg-white text-zinc-950",
+    error: "border-rose-300 bg-rose-50/40 text-zinc-950",
+  }[state];
+  const numberClass = {
+    inactive: "border-zinc-300 bg-zinc-100 text-zinc-500",
+    active: "border-emerald-700 bg-emerald-700 text-white",
+    complete: "border-emerald-600 bg-emerald-50 text-emerald-800",
+    error: "border-rose-600 bg-rose-50 text-rose-800",
+  }[state];
+
+  return (
+    <section
+      aria-current={state === "active" ? "step" : undefined}
+      aria-label={`${copy.checkoutStep} ${number}: ${label}, ${stateLabel}`}
+      className={`rounded-md border p-3 transition-colors ${shellClass}`}
+      data-checkout-step={number}
+      data-state={state}
+    >
+      <div className="mb-2 flex min-w-0 items-center gap-2">
+        <span
+          aria-hidden="true"
+          className={`grid size-6 shrink-0 place-items-center rounded-full border text-xs font-bold ${numberClass}`}
+        >
+          {number}
+        </span>
+        <h2 className="min-w-0 text-sm font-semibold leading-5">
+          {label}
+          <span className="sr-only"> — {stateLabel}</span>
+        </h2>
+        {state === "complete" ? (
+          <span aria-hidden="true" className="ml-auto text-sm font-bold text-emerald-700">✓</span>
+        ) : state === "error" ? (
+          <span aria-hidden="true" className="ml-auto text-sm font-bold text-rose-700">!</span>
+        ) : null}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function StepError({ message }: { message: string }) {
+  return (
+    <p aria-live="polite" className="mt-2 text-sm text-rose-700">
+      {message}
+    </p>
   );
 }
 
@@ -385,6 +520,27 @@ function isDefinitiveRecoverableFailure(code: string | null): boolean {
       "ORDER_READBACK_FAILED",
     ].includes(code)
   );
+}
+
+function checkoutFailureStep(code: string | null): 1 | 2 | 3 | 4 | null {
+  switch (code) {
+    case "ORDER_CONTRACT_MAPPING_MISSING":
+    case "ORDER_PAYMENT_METHOD_UNAVAILABLE":
+    case "ORDER_COUNTERPARTY_TYPE_UNSUPPORTED":
+    case "ORDER_CONTRACT_INVALID":
+      return 1;
+    case "ORDER_INVALID_PAYMENT_DATE":
+    case "ORDER_PAYMENT_CONFIGURATION_INVALID":
+      return 2;
+    case "ORDER_FULFILLMENT_INVALID":
+    case "ORDER_CARRIER_REQUIRED":
+    case "ORDER_FULFILLMENT_CONFIGURATION_INVALID":
+      return 3;
+    case "ORDER_INVALID_SHIPMENT_DATE":
+      return 4;
+    default:
+      return null;
+  }
 }
 
 function orderFailureMessage(

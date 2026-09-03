@@ -34,8 +34,10 @@ describe("OrderSubmitForm", () => {
     mocks.submit.mockResolvedValue({ success: false, errorCode: "ORDER_CONTRACT_MAPPING_MISSING", message: "Не удалось определить договор компании. Обратитесь к менеджеру Novotech.", data: null });
     const user = userEvent.setup();
     const view = render(<OrderSubmitForm checkoutOptions={governedCashlessOptions} submissionKey="55555555-5555-4555-8555-555555555555" />);
-    await user.type(screen.getByLabelText(/Дата оплаты/), "2099-01-09");
-    const date = screen.getByLabelText("Дата планируемой отгрузки");
+    await user.click(screen.getByRole("radio", { name: /Безналичный/ }));
+    await user.type(screen.getByLabelText("Дата оплаты", { exact: true }), "2099-01-09");
+    await user.click(screen.getByRole("radio", { name: "Самовывоз" }));
+    const date = screen.getByLabelText("Дата резервации");
     await user.type(date, "2099-01-10");
     await user.click(screen.getByRole("button", { name: "Отправить заказ" }));
     expect(await screen.findByText(/договор компании/)).toBeInTheDocument();
@@ -48,7 +50,10 @@ describe("OrderSubmitForm", () => {
   it("preserves the date when the parent refreshes after a quantity update", async () => {
     const user = userEvent.setup();
     const view = render(<OrderSubmitForm checkoutOptions={governedCashlessOptions} submissionKey="55555555-5555-4555-8555-555555555555" />);
-    const date = screen.getByLabelText("Дата планируемой отгрузки");
+    await user.click(screen.getByRole("radio", { name: /Безналичный/ }));
+    await user.type(screen.getByLabelText("Дата оплаты", { exact: true }), "2099-01-09");
+    await user.click(screen.getByRole("radio", { name: "Самовывоз" }));
+    const date = screen.getByLabelText("Дата резервации");
     await user.type(date, "2099-01-10");
     view.rerender(<OrderSubmitForm checkoutOptions={governedCashlessOptions} submissionKey="55555555-5555-4555-8555-555555555555" />);
     expect(date).toHaveValue("2099-01-10");
@@ -58,8 +63,10 @@ describe("OrderSubmitForm", () => {
     mocks.submit.mockResolvedValue({ success: false, errorCode: "ORDER_RECONCILIATION_REQUIRED", message: "Статус отправки заказа уточняется. Не отправляйте заказ повторно.", data: null });
     const user = userEvent.setup();
     render(<OrderSubmitForm checkoutOptions={governedCashlessOptions} submissionKey="55555555-5555-4555-8555-555555555555" />);
-    await user.type(screen.getByLabelText(/Дата оплаты/), "2099-01-09");
-    await user.type(screen.getByLabelText("Дата планируемой отгрузки"), "2099-01-10");
+    await user.click(screen.getByRole("radio", { name: /Безналичный/ }));
+    await user.type(screen.getByLabelText("Дата оплаты", { exact: true }), "2099-01-09");
+    await user.click(screen.getByRole("radio", { name: "Самовывоз" }));
+    await user.type(screen.getByLabelText("Дата резервации"), "2099-01-10");
     await user.click(screen.getByRole("button", { name: "Отправить заказ" }));
     await waitFor(() => expect(screen.getByRole("button", { name: "Отправить заказ" })).toBeDisabled());
   });
@@ -74,8 +81,10 @@ describe("OrderSubmitForm", () => {
     const user = userEvent.setup();
     const view = render(<OrderSubmitForm checkoutOptions={governedCashlessOptions} submissionKey="55555555-5555-4555-8555-555555555555" />);
 
-    await user.type(screen.getByLabelText(/Дата оплаты/), "2099-01-09");
-    await user.type(screen.getByLabelText("Дата планируемой отгрузки"), "2099-01-10");
+    await user.click(screen.getByRole("radio", { name: /Безналичный/ }));
+    await user.type(screen.getByLabelText("Дата оплаты", { exact: true }), "2099-01-09");
+    await user.click(screen.getByRole("radio", { name: "Самовывоз" }));
+    await user.type(screen.getByLabelText("Дата резервации"), "2099-01-10");
     await user.click(screen.getByRole("button", { name: "Отправить заказ" }));
 
     await waitFor(() => expect(mocks.replace).toHaveBeenCalledWith("/cabinet/orders/order-1?submitted=1"));
@@ -89,8 +98,10 @@ describe("OrderSubmitForm", () => {
     mocks.submit.mockReturnValue(new Promise((resolve) => { resolveSubmission = resolve; }));
     const user = userEvent.setup();
     const view = render(<OrderSubmitForm checkoutOptions={governedCashlessOptions} submissionKey="55555555-5555-4555-8555-555555555555" />);
-    await user.type(screen.getByLabelText(/Дата оплаты/), "2099-01-09");
-    await user.type(screen.getByLabelText("Дата планируемой отгрузки"), "2099-01-10");
+    await user.click(screen.getByRole("radio", { name: /Безналичный/ }));
+    await user.type(screen.getByLabelText("Дата оплаты", { exact: true }), "2099-01-09");
+    await user.click(screen.getByRole("radio", { name: "Самовывоз" }));
+    await user.type(screen.getByLabelText("Дата резервации"), "2099-01-10");
     await user.click(screen.getByRole("button", { name: "Отправить заказ" }));
 
     view.rerender(<div>Корзина пуста</div>);
@@ -111,8 +122,10 @@ describe("OrderSubmitForm", () => {
     mocks.submit.mockReturnValue(new Promise((resolve) => { resolveSubmission = resolve; }));
     const user = userEvent.setup();
     render(<OrderSubmitForm checkoutOptions={governedCashlessOptions} submissionKey="55555555-5555-4555-8555-555555555555" />);
-    await user.type(screen.getByLabelText(/Дата оплаты/), "2099-01-09");
-    await user.type(screen.getByLabelText("Дата планируемой отгрузки"), "2099-01-10");
+    await user.click(screen.getByRole("radio", { name: /Безналичный/ }));
+    await user.type(screen.getByLabelText("Дата оплаты", { exact: true }), "2099-01-09");
+    await user.click(screen.getByRole("radio", { name: "Самовывоз" }));
+    await user.type(screen.getByLabelText("Дата резервации"), "2099-01-10");
 
     const button = screen.getByRole("button", { name: "Отправить заказ" });
     await user.click(button);
@@ -124,13 +137,15 @@ describe("OrderSubmitForm", () => {
     await screen.findByText("Заказ уже отправляется. Подождите завершения операции.");
   });
 
-  it("explains the operational meaning of the planned shipment date", () => {
+  it("removes redundant happy-path checkout helper copy", () => {
     render(<OrderSubmitForm submissionKey="55555555-5555-4555-8555-555555555555" />);
-    expect(screen.getByText("До этой даты оборудование резервируется под заказ.")).toBeInTheDocument();
+    expect(screen.queryByText("До этой даты оборудование резервируется под заказ.")).not.toBeInTheDocument();
+    expect(screen.queryByText("Укажите дату оплаты.")).not.toBeInTheDocument();
     expect(screen.queryByText(/Заказ будет передан в 1С Novotech/)).not.toBeInTheDocument();
   });
 
-  it("submits semantic checkout choices without raw 1C references", () => {
+  it("submits semantic checkout choices without exposing contract or raw 1C references", async () => {
+    const user = userEvent.setup();
     const { container } = render(<OrderSubmitForm
       checkoutOptions={{
         counterpartyKind: "legal_entity",
@@ -142,8 +157,9 @@ describe("OrderSubmitForm", () => {
       }}
       submissionKey="55555555-5555-4555-8555-555555555555"
     />);
-    expect(screen.getByRole("radio", { name: "Безналичный" })).toBeChecked();
-    expect(screen.getByText("Договор: NS-67/2104/22")).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Безналичный" })).not.toBeChecked();
+    expect(screen.queryByText("Договор: NS-67/2104/22")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("radio", { name: "Безналичный" }));
     expect(container.querySelector('input[name="paymentMethod"][value="cashless"]')).toBeChecked();
     expect(container.innerHTML).not.toContain("Ref_Key");
   });
@@ -151,8 +167,9 @@ describe("OrderSubmitForm", () => {
   it("starts with an empty mandatory payment date and blocks submit", () => {
     render(<OrderSubmitForm submissionKey="55555555-5555-4555-8555-555555555555" />);
 
-    expect(screen.getByLabelText(/Дата оплаты/)).toHaveValue("");
-    expect(screen.getByText("Укажите дату оплаты.")).toBeInTheDocument();
+    expect(screen.getByLabelText("Дата оплаты", { exact: true })).toHaveValue("");
+    expect(screen.getByLabelText("Дата оплаты", { exact: true })).toBeDisabled();
+    expect(screen.getByRole("region", { name: /Шаг 1: Форма оплаты, требует исправления/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Отправить заказ" })).toBeDisabled();
   });
 
@@ -160,13 +177,15 @@ describe("OrderSubmitForm", () => {
     const user = userEvent.setup();
     render(<OrderSubmitForm checkoutOptions={governedCashlessOptions} submissionKey="55555555-5555-4555-8555-555555555555" />);
 
-    await user.type(screen.getByLabelText(/Дата оплаты/), "2000-01-01");
-    await user.type(screen.getByLabelText("Дата планируемой отгрузки"), "2099-01-10");
+    await user.click(screen.getByRole("radio", { name: /Безналичный/ }));
+    await user.type(screen.getByLabelText("Дата оплаты", { exact: true }), "2000-01-01");
 
+    expect(screen.getByRole("region", { name: /Шаг 2: Дата оплаты, требует исправления/ })).toBeInTheDocument();
+    expect(screen.getByText("Проверьте дату оплаты и повторите отправку.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Отправить заказ" })).toBeDisabled();
   });
 
-  it("preselects the only governed cash method and explains cashless unavailability", () => {
+  it("requires an explicit governed payment choice and keeps unavailable methods disabled", () => {
     render(<OrderSubmitForm
       checkoutOptions={{
         counterpartyKind: "legal_entity",
@@ -179,9 +198,8 @@ describe("OrderSubmitForm", () => {
       submissionKey="55555555-5555-4555-8555-555555555555"
     />);
 
-    expect(screen.getByRole("radio", { name: "Наличный" })).toBeChecked();
-    expect(screen.getByRole("radio", { name: "Безналичный" })).toBeDisabled();
-    expect(screen.getByText("Нет активного договора для безналичной оплаты.")).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Наличный" })).not.toBeChecked();
+    expect(screen.getByRole("radio", { name: /Безналичный/ })).toBeDisabled();
   });
 
   it("selects no payment method when both governed mappings are unavailable", () => {
