@@ -23,6 +23,7 @@ export {
   type AdminCompanyAccess,
   type AdminCompanyCapability,
   type AdminCompanyContractMappingProjection,
+  type AdminCommercialReadinessProjection,
   type AdminCommercialProfileSyncResult,
   type AdminContractCandidate,
   type AdminContractMappingResult,

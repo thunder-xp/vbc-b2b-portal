@@ -122,10 +122,17 @@ export class SupabaseAdminCompanyRepository implements AdminCompanyRepository {
   }
 
   async getContractMapping(companyId: string): Promise<AdminCompanyContractMappingProjection | null> {
-    return this.call<AdminCompanyContractMappingProjection | null>(
-      "get_admin_partner_contract_mapping",
-      { p_company_id: companyId },
-    );
+    const [mapping, readiness] = await Promise.all([
+      this.call<Omit<AdminCompanyContractMappingProjection, "readiness"> | null>(
+        "get_admin_partner_contract_mapping",
+        { p_company_id: companyId },
+      ),
+      this.call<AdminCompanyContractMappingProjection["readiness"] | null>(
+        "get_admin_partner_commercial_readiness",
+        { p_company_id: companyId },
+      ),
+    ]);
+    return mapping && readiness ? { ...mapping, readiness } : null;
   }
 
   async mapContract(input: {

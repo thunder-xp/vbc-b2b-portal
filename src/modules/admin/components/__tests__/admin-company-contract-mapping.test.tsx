@@ -27,6 +27,18 @@ const mapping: AdminCompanyContractMappingProjection = {
   suggestedContractRef: "e5baa428-8919-11ee-129a-7239d3b7bd5c",
   suggestedCashContractRef: null,
   defaultContractAmbiguous: false,
+  readiness: {
+    class: "MISSING_CANONICAL_CONTRACT",
+    paymentPathClass: "NO_PAYMENT_PATH",
+    ready: false,
+    repairable: false,
+    severity: "high",
+    activeCartItemCount: 3,
+    lastOrderAt: null,
+    lastVerifiedAt: null,
+    commercialConsequence: "Partner cannot reliably submit an order until commercial readiness is restored.",
+    requiredAction: "Create and publish one canonical default customer contract in 1C, then synchronize the directory.",
+  },
   cashMapping: {
     contractRole: "cash",
     contractRef: null,
@@ -77,6 +89,13 @@ describe("AdminCompanyContractMapping", () => {
     render(<AdminCompanyContractMapping mapping={mapping} />);
     expect(screen.queryByRole("textbox", { name: /GUID/i })).not.toBeInTheDocument();
     expect(screen.getAllByRole("radio")).toHaveLength(mapping.candidates.length);
+  });
+
+  it("shows the governed readiness problem and prioritizes a blocked non-empty cart", () => {
+    render(<AdminCompanyContractMapping mapping={mapping} />);
+
+    expect(screen.getByTestId("commercial-readiness-status")).toHaveTextContent("Приоритет: высокий");
+    expect(screen.getByTestId("commercial-readiness-status")).toHaveTextContent("3 позиций — покупатель заблокирован");
   });
 
   it("offers only the governed 1C apply action for a mapped mismatch", () => {

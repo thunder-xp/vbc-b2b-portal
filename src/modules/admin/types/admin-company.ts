@@ -176,8 +176,29 @@ export type AdminCompanyContractMappingProjection = {
   suggestedContractRef: string | null;
   suggestedCashContractRef: string | null;
   defaultContractAmbiguous: boolean;
+  readiness: AdminCommercialReadinessProjection;
   cashMapping: AdminCashContractMapping;
   candidates: AdminContractCandidate[];
+};
+
+export type AdminCommercialReadinessProjection = {
+  class:
+    | "READY"
+    | "REPAIRABLE_STALE_PROFILE"
+    | "MISSING_CANONICAL_CONTRACT"
+    | "UNKNOWN_PRICE_TYPE"
+    | "UNVERIFIED_PROFILE"
+    | "NO_PAYMENT_PATH"
+    | "DIRECTORY_CONFLICT";
+  paymentPathClass: "PAYMENT_PATH_READY" | "NO_PAYMENT_PATH";
+  ready: boolean;
+  repairable: boolean;
+  severity: "none" | "high" | "medium" | "low";
+  activeCartItemCount: number;
+  lastOrderAt: string | null;
+  lastVerifiedAt: string | null;
+  commercialConsequence: string;
+  requiredAction: string;
 };
 
 export const COMMERCIAL_PROFILE_SYNC_RESULT_CODES = [

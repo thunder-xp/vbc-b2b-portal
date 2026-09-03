@@ -61,6 +61,10 @@
       "schedule": "15 0 * * *"
     },
     {
+      "path": "/api/cron/commercial-readiness",
+      "schedule": "45 0 * * *"
+    },
+    {
       "path": "/api/cron/commercial-opportunities",
       "schedule": "*/5 * * * *"
     },

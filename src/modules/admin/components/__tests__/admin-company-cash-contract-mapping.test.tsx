@@ -81,6 +81,18 @@ function mapping(): AdminCompanyContractMappingProjection {
     suggestedContractRef: null,
     suggestedCashContractRef: null,
     defaultContractAmbiguous: false,
+    readiness: {
+      class: "MISSING_CANONICAL_CONTRACT",
+      paymentPathClass: "NO_PAYMENT_PATH",
+      ready: false,
+      repairable: false,
+      severity: "medium",
+      activeCartItemCount: 0,
+      lastOrderAt: null,
+      lastVerifiedAt: null,
+      commercialConsequence: "Partner cannot reliably submit an order until commercial readiness is restored.",
+      requiredAction: "Create and publish one canonical default customer contract in 1C, then synchronize the directory.",
+    },
     cashMapping: {
       contractRole: "cash",
       contractRef: null,

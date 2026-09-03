@@ -60,6 +60,7 @@ export function AdminCompanyContractMapping({
         </div>
       </div>
 
+      <CommercialReadinessStatus mapping={mapping} />
       <CommercialProfileFacts mapping={mapping} />
 
       {mapping.canSync && mapping.currentContractRef ? (
@@ -208,6 +209,45 @@ export function AdminCompanyContractMapping({
   );
 }
 
+function CommercialReadinessStatus({ mapping }: { mapping: AdminCompanyContractMappingProjection }) {
+  const readiness = mapping.readiness;
+  const tone = readiness.ready
+    ? "border-emerald-200 bg-emerald-50 text-emerald-950"
+    : readiness.severity === "high"
+      ? "border-red-300 bg-red-50 text-red-950"
+      : "border-amber-300 bg-amber-50 text-amber-950";
+  return (
+    <div className={`mt-5 border p-4 ${tone}`} data-testid="commercial-readiness-status">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="font-semibold">Готовность к оформлению: {readinessClassLabel(readiness.class)}</p>
+        {!readiness.ready ? (
+          <span className="border border-current px-2 py-0.5 text-xs font-semibold uppercase">
+            Приоритет: {severityLabel(readiness.severity)}
+          </span>
+        ) : null}
+      </div>
+      {!readiness.ready ? (
+        <dl className="mt-3 grid gap-3 text-sm md:grid-cols-2">
+          <Fact label="Коммерческое последствие" value={commercialConsequenceLabel(readiness.class)} />
+          <Fact label="Требуемое действие" value={requiredActionLabel(readiness.class)} />
+          <Fact
+            label="Последняя проверка"
+            value={readiness.lastVerifiedAt ? formatDate(readiness.lastVerifiedAt) : "Профиль ещё не подтверждён"}
+          />
+          <Fact
+            label="Активная корзина"
+            value={readiness.activeCartItemCount > 0
+              ? `${readiness.activeCartItemCount} позиций — покупатель заблокирован`
+              : "Пустая"}
+          />
+        </dl>
+      ) : (
+        <p className="mt-2 text-sm">Коммерческий профиль и доступный способ оплаты подтверждены.</p>
+      )}
+    </div>
+  );
+}
+
 function CommercialProfileFacts({ mapping }: { mapping: AdminCompanyContractMappingProjection }) {
   const contract = mapping.candidates.find(
     (candidate) => candidate.external1cId.toLowerCase() === mapping.currentContractRef?.toLowerCase(),
@@ -297,4 +337,42 @@ function profileStateLabel(state: AdminCompanyContractMappingProjection["commerc
     price_type_unknown: "Вид цены не распознан",
     price_data_stale: "Цены требуют обновления",
   }[state];
+}
+
+function readinessClassLabel(value: AdminCompanyContractMappingProjection["readiness"]["class"]): string {
+  return {
+    READY: "готов",
+    REPAIRABLE_STALE_PROFILE: "ожидает автоматического восстановления",
+    MISSING_CANONICAL_CONTRACT: "в 1С отсутствует основной договор",
+    UNKNOWN_PRICE_TYPE: "в 1С не определён вид цены",
+    UNVERIFIED_PROFILE: "профиль не подтверждён",
+    NO_PAYMENT_PATH: "нет доступного способа оплаты",
+    DIRECTORY_CONFLICT: "конфликт данных 1С",
+  }[value];
+}
+
+function severityLabel(value: AdminCompanyContractMappingProjection["readiness"]["severity"]): string {
+  return ({ high: "высокий", medium: "средний", low: "низкий", none: "нет" })[value];
+}
+
+function commercialConsequenceLabel(
+  value: AdminCompanyContractMappingProjection["readiness"]["class"],
+): string {
+  return value === "READY"
+    ? "Оформление заказа доступно."
+    : "Партнёр не сможет надёжно оформить заказ до восстановления коммерческой готовности.";
+}
+
+function requiredActionLabel(
+  value: AdminCompanyContractMappingProjection["readiness"]["class"],
+): string {
+  return {
+    READY: "Действие не требуется.",
+    REPAIRABLE_STALE_PROFILE: "Дождаться автоматического восстановления или запустить регламентную проверку.",
+    MISSING_CANONICAL_CONTRACT: "Создать и опубликовать в 1С единственный основной договор с покупателем, затем синхронизировать справочник.",
+    UNKNOWN_PRICE_TYPE: "Назначить основному договору в 1С действующий вид цены и корректную валюту расчётов.",
+    UNVERIFIED_PROFILE: "Запустить регламентную локальную сверку с текущим снимком справочника.",
+    NO_PAYMENT_PATH: "Настроить минимум один допустимый договор оплаты через управляемый коммерческий процесс.",
+    DIRECTORY_CONFLICT: "Устранить конфликт контрагента или основного договора в 1С, затем синхронизировать справочник.",
+  }[value];
 }
