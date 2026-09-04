@@ -39,7 +39,9 @@ export function OpportunityCard({
   const product = opportunity.product;
   const template = opportunity.template;
   const repeatPurchase = opportunity.type === "repeat_purchase_available";
-  const alreadyInCart = repeatPurchase && (product?.alreadyInCart || addedToCart);
+  const relatedProduct = opportunity.type === "related_product";
+  const partnerPriceOnly = repeatPurchase || relatedProduct;
+  const alreadyInCart = partnerPriceOnly && (product?.alreadyInCart || addedToCart);
   const title =
     product?.name ??
     template?.name ??
@@ -151,7 +153,7 @@ export function OpportunityCard({
 
         {product ? (
           <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
-            <div>{priceLabel(product, locale, repeatPurchase)}</div>
+            <div>{priceLabel(product, locale, partnerPriceOnly)}</div>
             <div>{availabilityLabel(product, locale)}</div>
           </div>
         ) : null}
@@ -161,7 +163,10 @@ export function OpportunityCard({
             <div className="min-w-[15rem] flex-1">
               <CatalogQuantityCartAction
                 initialQuantity={suggestedQuantity(opportunity)}
-                onSuccess={() => setAddedToCart(true)}
+                onSuccess={() => {
+                  setAddedToCart(true);
+                  if (relatedProduct) router.refresh();
+                }}
                 productId={product.id}
                 sourceSurface="opportunity_card"
                 successEventName="opportunity_added_to_cart"
@@ -236,6 +241,7 @@ function opportunityLabel(
     relevant_merchandising_offer: "Предложение Novotech",
     relevant_product_low_stock: "Осталось немного",
     source_product_low_stock_with_available_analog: "Доступен аналог",
+    related_product: "Дополняющий товар",
   } satisfies Record<CommercialOpportunity["type"], string>;
   const ro = {
     repeat_purchase_available: "Cumpărați regulat",
@@ -247,6 +253,7 @@ function opportunityLabel(
     relevant_merchandising_offer: "Ofertă Novotech",
     relevant_product_low_stock: "Stoc limitat",
     source_product_low_stock_with_available_analog: "Analog disponibil",
+    related_product: "Produs complementar",
   } satisfies Record<CommercialOpportunity["type"], string>;
   return (locale === "ro" ? ro : ru)[type];
 }
@@ -257,6 +264,8 @@ function primaryReason(
 ): string {
   const value = opportunity.reasonMetadata;
   if (locale === "ro") {
+    if (opportunity.reasonCode === "related_to_regular_purchase")
+      return `Selectat ca produs complementar pentru ${textValue(value.sourceProductName)}: ${numberValue(value.sourcePurchaseCount, locale)} comenzi confirmate ale companiei.`;
     if (opportunity.reasonCode === "back_in_stock")
       return "Produsul din lista dvs. este din nou disponibil.";
     if (opportunity.reasonCode === "confirmed_arrival")
@@ -279,6 +288,8 @@ function primaryReason(
       return "Ofertă actuală pentru un produs asociat activității dvs. de achiziție.";
     return "Condițiile comerciale pentru un produs relevant s-au modificat.";
   }
+  if (opportunity.reasonCode === "related_to_regular_purchase")
+    return `Подобран как дополнение к ${textValue(value.sourceProductName)}: ${numberValue(value.sourcePurchaseCount, locale)} подтверждённых закупок компанией.`;
   if (opportunity.reasonCode === "back_in_stock")
     return "Товар из вашего списка снова доступен.";
   if (opportunity.reasonCode === "confirmed_arrival")
@@ -404,7 +415,10 @@ function canAddProduct(
 ): boolean {
   const product = opportunity.product;
   if (!product) return false;
-  if (opportunity.type !== "repeat_purchase_available") {
+  if (
+    opportunity.type !== "repeat_purchase_available"
+    && opportunity.type !== "related_product"
+  ) {
     return Boolean(product.partnerPrice || product.retailPrice);
   }
   return Boolean(
@@ -413,6 +427,9 @@ function canAddProduct(
       && !product.alreadyInCart
       && !addedToCart,
   );
+}
+function textValue(value: unknown): string {
+  return typeof value === "string" && value.trim() ? value.trim() : "—";
 }
 function daysAgo(value: unknown, locale: PartnerLocale): string {
   const parsed = Math.max(0, Math.round(Number(value)));

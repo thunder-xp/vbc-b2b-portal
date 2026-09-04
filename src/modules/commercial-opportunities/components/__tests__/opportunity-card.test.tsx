@@ -1,13 +1,19 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { CommercialOpportunity } from "../../types";
 import { PartnerLocaleProvider } from "../../../partner-locale";
 import { OpportunityCard } from "../OpportunityCard";
 
-vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
+const { addToCartActionMock, routerRefresh } = vi.hoisted(() => ({
+  addToCartActionMock: vi.fn(),
+  routerRefresh: vi.fn(),
+}));
+
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: routerRefresh }) }));
 vi.mock("../../actions", () => ({ dismissCommercialOpportunityAction: vi.fn() }));
-vi.mock("../../../orders/actions", () => ({ addToCartAction: vi.fn() }));
+vi.mock("../../../orders/actions/cart.actions", () => ({ addToCartAction: addToCartActionMock }));
 vi.mock("../../../behavior-analytics/components/BehaviorViewEvent", () => ({ recordBehaviorInteraction: vi.fn() }));
 
 const base: CommercialOpportunity = {
@@ -17,7 +23,28 @@ const base: CommercialOpportunity = {
   product: { id: "product-1", sku: "400123", name: "Camera", slug: "camera", imageUrl: null, categoryName: "Cameras", partnerPrice: { amount: 97.44, currency: "USD" }, retailPrice: { amount: 2399, currency: "MDL" }, availableQuantity: 12, expectedArrivalDate: null, expectedArrivalQuantity: null }, template: null,
 };
 
+const related: CommercialOpportunity = {
+  ...base,
+  type: "related_product",
+  priority: 55,
+  reasonCode: "related_to_regular_purchase",
+  reasonMetadata: {
+    sourceProductId: "source-product-1",
+    sourceProductSku: "400198",
+    sourceProductName: "DH-IPC-HFW2531SP-S-0280B-S2",
+    sourcePurchaseCount: 4,
+    relationCoOrderCount: 12,
+  },
+  fingerprint: "b".repeat(64),
+  sourceId: "source-product-1",
+};
+
 describe("OpportunityCard", () => {
+  beforeEach(() => {
+    addToCartActionMock.mockReset();
+    routerRefresh.mockReset();
+  });
+
   it("explains relevance and keeps the canonical primary action", () => {
     render(<OpportunityCard opportunity={base} />);
     expect(screen.getByText("Вы покупаете регулярно")).toBeInTheDocument();
@@ -40,6 +67,36 @@ describe("OpportunityCard", () => {
     expect(screen.getByText("Cumpărați regulat")).toBeInTheDocument();
     expect(screen.getByText("Ultima achiziție — acum 32 de zile. De obicei: 2 buc.")).toBeInTheDocument();
     expect(screen.getByRole("spinbutton", { name: "Cantitatea produsului" })).toHaveValue(2);
+  });
+
+  it("explains a related target factually in Russian and defaults quantity to one", () => {
+    render(<OpportunityCard opportunity={related} />);
+    expect(screen.getByText("Дополняющий товар")).toBeInTheDocument();
+    expect(screen.getByText("Подобран как дополнение к DH-IPC-HFW2531SP-S-0280B-S2: 4 подтверждённых закупок компанией.")).toBeInTheDocument();
+    expect(screen.getByRole("spinbutton", { name: "Количество товара" })).toHaveValue(1);
+    expect(screen.getByText("Ваша цена")).toBeInTheDocument();
+    expect(screen.queryByText("Розничная цена")).not.toBeInTheDocument();
+  });
+
+  it("uses equally factual Romanian related-product wording", () => {
+    render(<PartnerLocaleProvider locale="ro"><OpportunityCard locale="ro" opportunity={related} /></PartnerLocaleProvider>);
+    expect(screen.getByText("Produs complementar")).toBeInTheDocument();
+    expect(screen.getByText("Selectat ca produs complementar pentru DH-IPC-HFW2531SP-S-0280B-S2: 4 comenzi confirmate ale companiei.")).toBeInTheDocument();
+    expect(screen.getByRole("spinbutton", { name: "Cantitatea produsului" })).toHaveValue(1);
+  });
+
+  it("uses the canonical cart mutation and refreshes related-product suppression", async () => {
+    addToCartActionMock.mockResolvedValue({ success: true, message: "Added" });
+    const user = userEvent.setup();
+    render(<OpportunityCard opportunity={related} />);
+
+    await user.click(screen.getByRole("button", { name: "В корзину" }));
+
+    await waitFor(() => {
+      expect(addToCartActionMock).toHaveBeenCalledWith(related.product!.id, 1);
+      expect(routerRefresh).toHaveBeenCalledOnce();
+    });
+    expect(screen.getByText("Уже в корзине")).toBeInTheDocument();
   });
 
   it("prevents a duplicate repeat action when the product is already in the active cart", () => {
