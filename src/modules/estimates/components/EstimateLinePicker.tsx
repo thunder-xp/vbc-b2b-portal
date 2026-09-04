@@ -110,7 +110,7 @@ export function EstimateLinePicker({ estimate, services, onResult, disabled, mod
     {mode === "product" && <div className="space-y-3 border-t border-zinc-200 p-3 sm:p-4">
       <form className="grid gap-2 lg:grid-cols-[minmax(14rem,1fr)_12rem_12rem_auto]" onSubmit={(event) => { event.preventDefault(); if (!disabled) searchProducts(event.currentTarget); }}>
         <label className="sr-only" htmlFor="estimate-product-search">{copy.productSearchPlaceholder}</label>
-        <input className={inputClass} disabled={disabled} id="estimate-product-search" name="query" placeholder={copy.productSearchPlaceholder} />
+        <input autoCapitalize="characters" autoComplete="off" autoCorrect="off" className={inputClass} disabled={disabled} enterKeyHint="search" id="estimate-product-search" inputMode="search" name="query" placeholder={copy.productSearchPlaceholder} spellCheck={false} type="search" />
         <select aria-label={copy.category} className={inputClass} disabled={disabled} name="categoryId"><option value="">{copy.allCategories}</option>{products.categories.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>
         <select aria-label={copy.brand} className={inputClass} disabled={disabled} name="brandId"><option value="">{copy.allBrands}</option>{products.brands.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>
         <button className={buttonClass} disabled={disabled || pending} type="submit"><Search className="size-4" />{copy.find}</button>
@@ -133,17 +133,17 @@ export function EstimateLinePicker({ estimate, services, onResult, disabled, mod
         {products.products.map((product) => {
           const selected = productSelection[product.id] !== undefined;
           return <article className="grid items-center gap-3 py-3 sm:grid-cols-[auto_3rem_minmax(12rem,1fr)_8rem]" key={product.id}>
-            <input aria-label={`${copy.select} ${product.name}`} checked={selected} onChange={(event) => setProductSelection((current) => {
+            <input aria-label={`${copy.select} ${product.name}`} checked={selected} className="size-11 shrink-0 accent-emerald-700" onChange={(event) => setProductSelection((current) => {
               if (event.target.checked) return { ...current, [product.id]: 1 };
               const next = { ...current }; delete next[product.id]; return next;
             })} type="checkbox" />
             <div className="relative flex size-12 items-center justify-center overflow-hidden rounded border border-zinc-200 bg-zinc-50"><ProductThumbnail alt={product.name} className="object-contain p-1" sizes="48px" src={product.imageUrl} variant="xs" /></div>
-            <div className="min-w-0"><p className="truncate text-sm font-semibold text-zinc-900">{product.name}</p><p className="mt-1 text-xs text-zinc-500">SKU {product.sku} · {[product.brandName, product.categoryName].filter(Boolean).join(" · ")}</p><p className="mt-1 text-xs"><span className="font-semibold">{copy.retailPrice}: {product.retailPrice ?? copy.pricePending}</span> · {pickerStockLabel(product, catalogCopy)}{product.expectedArrival ? ` · ${copy.arrival} ${product.expectedArrival}` : ""}</p></div>
+            <div className="min-w-0"><p className="truncate text-sm font-semibold text-zinc-900">{product.name}</p><p className="mt-1 text-xs text-zinc-500">SKU {product.sku} · {[product.brandName, product.categoryName].filter(Boolean).join(" · ")}</p><p className="mt-1 text-xs"><span className="font-semibold">{copy.partnerNovotechPrice}: {product.partnerPrice ?? copy.pricePending}</span> · {pickerStockLabel(product, catalogCopy)}{product.expectedArrival ? ` · ${copy.arrival} ${product.expectedArrival}` : ""}</p></div>
             <label className="text-xs text-zinc-600">{copy.quantity}<input aria-label={`${copy.quantity} ${product.name}`} className={`${inputClass} mt-1 w-full`} disabled={!selected} min="0.001" onChange={(event) => setProductSelection((current) => ({ ...current, [product.id]: Number(event.target.value) }))} step="0.001" type="number" value={productSelection[product.id] ?? 1} /></label>
           </article>;
         })}
       </div>
-      <div className="flex justify-end"><button className="inline-flex min-h-11 items-center gap-2 rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white disabled:opacity-45" disabled={disabled || pending || !Object.keys(productSelection).length} onClick={() => { const selections = Object.entries(productSelection).map(([productId, quantity]) => ({ productId, quantity })); const insertion = { targetSectionId, requestKey: requestKeyFor({ targetSectionId, selections }) }; run(() => addEstimateProductsAction(estimate.id, estimate.revision, selections, insertion), "estimate_product_added"); }} type="button"><PackagePlus className="size-4" />{copy.addSelected} ({Object.keys(productSelection).length})</button></div>
+      <div className="sticky bottom-16 z-10 flex justify-end bg-white py-2 xl:static xl:py-0"><button className="inline-flex min-h-11 items-center gap-2 rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white disabled:opacity-45" disabled={disabled || pending || !Object.keys(productSelection).length} onClick={() => { const selections = Object.entries(productSelection).map(([productId, quantity]) => ({ productId, quantity })); const insertion = { targetSectionId, requestKey: requestKeyFor({ targetSectionId, selections }) }; run(() => addEstimateProductsAction(estimate.id, estimate.revision, selections, insertion), "estimate_product_added"); }} type="button"><PackagePlus className="size-4" />{copy.addSelected} ({Object.keys(productSelection).length})</button></div>
     </div>}
 
     {mode === "service" && <div className="space-y-3 border-t border-zinc-200 p-3 sm:p-4">
