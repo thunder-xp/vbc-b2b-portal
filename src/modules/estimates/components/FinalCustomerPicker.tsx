@@ -57,7 +57,7 @@ export function FinalCustomerPicker({ disabled = false, initialName, onChange, v
     <input name="finalCustomerId" type="hidden" value={value ?? ""} />
     {value ? <div className="flex min-h-11 min-w-0 max-w-full flex-wrap items-center justify-between gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3">
       <span className="min-w-0 truncate text-sm font-medium text-zinc-900">{selectedName}</span>
-      {!disabled && <span className="flex min-w-0 flex-wrap gap-3">{selectedCustomer && <button className="min-h-9 text-sm font-semibold text-emerald-800" onClick={() => setCreating(true)} type="button">{copy.editCustomerAction}</button>}<button className="min-h-9 text-sm font-semibold text-emerald-800" onClick={() => { setQuery(""); setSelectedName(""); setSelectedCustomer(null); onChange?.(null); }} type="button">{copy.chooseAnother}</button></span>}
+      {!disabled && <span className="flex min-w-0 flex-wrap gap-3">{selectedCustomer && <button className="min-h-11 text-sm font-semibold text-emerald-800" onClick={() => setCreating(true)} type="button">{copy.editCustomerAction}</button>}<button className="min-h-11 text-sm font-semibold text-emerald-800" onClick={() => { setQuery(""); setSelectedName(""); setSelectedCustomer(null); onChange?.(null); }} type="button">{copy.chooseAnother}</button></span>}
     </div> : <div className="relative">
       <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-3.5 size-4 text-zinc-400" />
       <input

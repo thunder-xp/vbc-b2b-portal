@@ -69,7 +69,7 @@ export function EstimateWorkflowPanel({ initialWorkflow, revision, initialPropos
     });
   };
 
-  return <section className="space-y-4 border-y border-zinc-200 bg-white px-4 py-5 sm:px-5" id="estimate-order-conversion">
+  return <section className="scroll-mt-24 space-y-4 border-y border-zinc-200 bg-white px-4 py-5 sm:px-5" id="estimate-order-conversion">
     <header className="flex flex-wrap items-start justify-between gap-3">
       <div><div className="flex flex-wrap items-center gap-2"><p className="text-xs font-semibold uppercase text-emerald-700">{copy.commercialProposal}</p><EstimateStatusBadge locale={locale} status={initialWorkflow.lifecycleStatus} /></div><h2 className="mt-1 text-lg font-semibold">{copy.sendingAndStatus}</h2>{initialWorkflow.lifecycleStatus === "sent" && initialWorkflow.lifecycleExpiresAt ? <p className="mt-1 text-xs text-zinc-500">{copy.validUntil} {formatPartnerDateTime(initialWorkflow.lifecycleExpiresAt, locale)}</p> : null}</div>
       <div className="flex flex-wrap gap-2">

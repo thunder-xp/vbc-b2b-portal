@@ -9,6 +9,7 @@ import {
 } from "../../access-control/services";
 import { MembershipStatus } from "../../access-control/types";
 import type { CatalogService } from "../../catalog/services";
+import { rankQuickProductResults } from "../../catalog/services/quick-product-search";
 import type { PricingInventoryService } from "../../pricing-inventory/services";
 import { evaluateFreshness } from "../../integration/freshness";
 import type { AddEstimateLineInput, EstimateRepository, ExternalNomenclatureItemType, ExternalNomenclatureRecord, PartnerNomenclatureRecord, SaveEstimateCommercialInput } from "../repositories";
@@ -625,7 +626,7 @@ export class DefaultEstimateService implements EstimateService {
     const commercialResolvedAt = performance.now();
     const commercialByProduct = new Map(commercial.map((view) => [view.productId, view]));
     const dto: EstimateProductPickerDto = {
-      products: result.products.map((product) => {
+      products: rankQuickProductResults(input.search ?? "", result.products).map((product) => {
         const view = commercialByProduct.get(product.id);
         return {
           id: product.id,

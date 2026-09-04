@@ -24,6 +24,15 @@ describe("estimate workspace architecture", () => {
     expect(editor).not.toContain("md:grid-cols-[1.5rem_2.5rem_minmax(12rem,1fr)");
   });
 
+  it("protects the mobile Estimate action geometry without a parallel domain", () => {
+    expect(editor).toContain('data-testid="estimate-mobile-action-bar"');
+    expect(editor).toContain('data-testid="estimate-mobile-action-sheet"');
+    expect(editor).toContain('maxHeight: "calc(100dvh - max(1rem, env(safe-area-inset-top)))"');
+    expect(editor).toContain('paddingBottom: "max(1rem, env(safe-area-inset-bottom))"');
+    expect(editor).toContain('className="hidden flex-wrap items-center gap-2 xl:flex"');
+    expect(editor).not.toMatch(/mobile_(estimates|pricing|lifecycle)/);
+  });
+
   it("renders only the canonical partner section projection", () => {
     expect(editor).toContain("buildCanonicalEstimateSectionPresentation");
     expect(editor).not.toContain("Исторический раздел");

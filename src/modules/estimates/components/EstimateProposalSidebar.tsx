@@ -19,7 +19,7 @@ export function EstimateProposalSidebar({ workflow, revision, disabled = false, 
   const latestProposal = workflow.versions[0] ?? null;
 
   const blockers = readiness.checks.filter((check) => !check.passed);
-  return <section aria-labelledby="proposal-actions-title" className="border-t border-zinc-200 pt-5">
+  return <section aria-labelledby="proposal-actions-title" className="scroll-mt-24 border-t border-zinc-200 pt-5" id="estimate-proposal-actions">
     <h2 className="text-sm font-semibold text-zinc-950" id="proposal-actions-title">{copy.commercialProposal}</h2>
     {blockers.length ? <details className="mt-3 text-xs text-amber-900"><summary className="cursor-pointer font-medium">{copy.needsReview}: {blockers.length}</summary><ul className="mt-2 space-y-1">{blockers.map((check) => <li key={check.label}>• {check.label}</li>)}</ul></details> : null}
 
