@@ -46,6 +46,7 @@ export {
   ONE_C_CONTRACT_FIELDS,
   ONE_C_PARTNER_FIELDS,
   ONE_C_PRICE_TYPE_FIELDS,
+  ONE_C_PRICE_TYPE_VAT_INCLUDED_FIELD,
   ONE_C_RESOURCES,
 } from "./one-c-odata-identifiers";
 export {

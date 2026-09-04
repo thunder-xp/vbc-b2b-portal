@@ -32,7 +32,7 @@ describe("ProductCompetitorPricing", () => {
   });
 
   it("explains a currency mismatch without a misleading delta and has natural RO copy", () => {
-    render(<ProductCompetitorPricing items={[{ ...item, retailDiscountAmount: null, retailDiscountPercent: null, novotechDifferenceAmount: null, novotechDifferencePercent: null, comparisonStatus: "currency_mismatch" }]} locale="ro" />);
+    render(<ProductCompetitorPricing items={[{ ...item, retailDiscountAmount: null, retailDiscountPercent: null, retailComparisonStatus: "currency_mismatch", novotechDifferenceAmount: null, novotechDifferencePercent: null, comparisonStatus: "currency_mismatch" }]} locale="ro" />);
     expect(screen.getByRole("heading", { name: "Prețurile concurenților" })).toBeInTheDocument();
     expect(screen.getAllByText("Comparația nu este disponibilă — monede diferite.")).toHaveLength(2);
   });
@@ -41,7 +41,7 @@ describe("ProductCompetitorPricing", () => {
 const item: ProductCompetitorPricingItem = {
   competitorId: "competitor-1", competitorName: "Exterior", retailPrice: 1777, retailCurrency: "MDL",
   retailEffectiveDate: "2026-08-08", ownPrice: 1590, ownCurrency: "MDL", ownObservationDate: "2026-08-20",
-  ownQuantity: 10, retailDiscountAmount: 187, retailDiscountPercent: 10.5234, novotechPrice: 836,
+  ownQuantity: 10, retailDiscountAmount: 187, retailDiscountPercent: 10.5234, retailComparisonStatus: "comparable", novotechPrice: 836,
   novotechCurrency: "MDL", novotechDifferenceAmount: 754, novotechDifferencePercent: 47.4214,
   comparisonStatus: "comparable",
 };

@@ -3,7 +3,6 @@ import type {
   CompetitiveVatMode,
   ProductCompetitorPricingItem,
 } from "./types";
-import type { ProductCommercialViewDto } from "../pricing-inventory";
 
 export const COMPETITIVE_INTELLIGENCE_MAX_EVIDENCE_BYTES = 10 * 1024 * 1024;
 export const COMPETITIVE_INTELLIGENCE_MIME_TYPES = [
@@ -78,57 +77,19 @@ type ProductPricingRead = {
     ownCurrency: string | null;
     ownObservationDate: string | null;
     ownQuantity: number | null;
+    retailDiscountAmount: number | null;
+    retailDiscountPercent: number | null;
+    retailComparisonStatus: ProductCompetitorPricingItem["retailComparisonStatus"];
+    novotechPrice: number | null;
+    novotechCurrency: string | null;
+    novotechDifferenceAmount: number | null;
+    novotechDifferencePercent: number | null;
+    comparisonStatus: ProductCompetitorPricingItem["comparisonStatus"];
   }>;
-  rates: { partnerUsdMdl: number | null; retailUsdMdl: number | null; effectiveDate: string | null };
 };
 
 export function buildProductCompetitorPricing(
   read: ProductPricingRead,
-  commercialView?: ProductCommercialViewDto,
 ): ProductCompetitorPricingItem[] {
-  const novotech = commercialView?.partnerPriceMdl ?? commercialView?.partnerPrice;
-  return read.items.map((item) => {
-    const retailToOwn = item.ownPrice === null || !item.ownCurrency
-      ? null
-      : comparableAmount(item.retailPrice, item.retailCurrency, item.ownCurrency, read.rates.retailUsdMdl);
-    const retailDiscountAmount = retailToOwn === null || item.ownPrice === null ? null : round(retailToOwn - item.ownPrice);
-    const retailDiscountPercent = retailDiscountAmount === null || retailToOwn === null || retailToOwn <= 0
-      ? null
-      : round(retailDiscountAmount / retailToOwn * 100);
-    const ownToNovotech = item.ownPrice === null || !item.ownCurrency || !novotech?.currencyCode
-      ? null
-      : comparableAmount(item.ownPrice, item.ownCurrency, novotech.currencyCode, read.rates.partnerUsdMdl);
-    const novotechDifferenceAmount = ownToNovotech === null || !novotech
-      ? null
-      : round(ownToNovotech - novotech.amount);
-    const novotechDifferencePercent = novotechDifferenceAmount === null || ownToNovotech === null || ownToNovotech <= 0
-      ? null
-      : round(novotechDifferenceAmount / ownToNovotech * 100);
-    return {
-      ...item,
-      retailDiscountAmount,
-      retailDiscountPercent,
-      novotechPrice: novotech?.amount ?? null,
-      novotechCurrency: novotech?.currencyCode ?? null,
-      novotechDifferenceAmount,
-      novotechDifferencePercent,
-      comparisonStatus: item.ownPrice === null || !novotech
-        ? "price_unavailable"
-        : ownToNovotech === null
-          ? "currency_mismatch"
-          : "comparable",
-    };
-  });
-}
-
-function comparableAmount(amount: number, source: string, target: string, mdlPerUsd: number | null) {
-  if (source === target) return amount;
-  if (!mdlPerUsd || !Number.isFinite(mdlPerUsd) || mdlPerUsd <= 0) return null;
-  if (source === "USD" && target === "MDL") return round(amount * mdlPerUsd);
-  if (source === "MDL" && target === "USD") return round(amount / mdlPerUsd);
-  return null;
-}
-
-function round(value: number) {
-  return Math.round((value + Number.EPSILON) * 10000) / 10000;
+  return read.items;
 }

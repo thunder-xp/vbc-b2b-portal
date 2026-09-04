@@ -65,7 +65,7 @@ describe("product detail page data loading", () => {
     expect(mocks.getRelationSummary).toHaveBeenCalledWith("product-1");
     expect(mocks.getRelationSections).not.toHaveBeenCalled();
     expect(mocks.getCompetitorPricing).toHaveBeenCalledOnce();
-    expect(mocks.getCompetitorPricing).toHaveBeenCalledWith("company-1", "product-1", commercialView);
+    expect(mocks.getCompetitorPricing).toHaveBeenCalledWith("company-1", "product-1");
     expect(screen.getByText("Ваша цена")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "В корзину" })).toBeInTheDocument();
     expect(

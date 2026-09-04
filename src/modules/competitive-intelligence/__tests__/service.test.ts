@@ -8,7 +8,8 @@ import {
   STRONG_RECOMMENDATION_MIN_COMPANIES,
   STRONG_RECOMMENDATION_MIN_OBSERVATIONS,
 } from "../service";
-import { compareHistoricalPartnerPrices, projectPartnerProductCompetitiveIntelligence } from "../partner-product-comparison";
+import { projectPartnerProductCompetitiveIntelligence } from "../partner-product-comparison";
+import type { ProductCompetitorPricingItem } from "../types";
 
 describe("competitive intelligence rules", () => {
   it("normalizes governed competitor aliases without fuzzy identity guessing", () => {
@@ -34,59 +35,20 @@ describe("competitive intelligence rules", () => {
     expect(STRONG_RECOMMENDATION_MIN_OBSERVATIONS).toBe(5);
   });
 
-  it("calculates retail discount and positive Novotech benefit centrally", () => {
-    const [item] = buildProductCompetitorPricing(read({ retailPrice: 1777, ownPrice: 1590 }), commercial(836));
+  it("renders only the database-governed comparison result without FX or client recomputation", () => {
+    const [item] = buildProductCompetitorPricing(read({
+      comparisonStatus: "vat_unknown",
+      novotechDifferenceAmount: null,
+      novotechDifferencePercent: null,
+    }));
     expect(item).toMatchObject({
-      retailDiscountAmount: 187,
-      retailDiscountPercent: 10.5234,
-      novotechPrice: 836,
-      novotechDifferenceAmount: 754,
-      novotechDifferencePercent: 47.4214,
-      comparisonStatus: "comparable",
-      ownQuantity: 10,
+      comparisonStatus: "vat_unknown",
+      novotechDifferenceAmount: null,
+      novotechDifferencePercent: null,
     });
   });
 
-  it("keeps an unfavorable Novotech difference negative", () => {
-    const [item] = buildProductCompetitorPricing(read({ retailPrice: 1000, ownPrice: 800 }), commercial(836));
-    expect(item.novotechDifferenceAmount).toBe(-36);
-    expect(item.novotechDifferencePercent).toBe(-4.5);
-  });
-
-  it("uses governed FX only and refuses an unsupported currency comparison", () => {
-    const [converted] = buildProductCompetitorPricing(read({ retailPrice: 100, retailCurrency: "USD", ownPrice: 1590 }), commercial(836));
-    expect(converted.retailDiscountAmount).toBe(187);
-    const [unsupported] = buildProductCompetitorPricing(read({ retailPrice: 100, retailCurrency: "EUR", ownPrice: 1590 }), commercial(836));
-    expect(unsupported.retailDiscountAmount).toBeNull();
-    expect(unsupported.retailDiscountPercent).toBeNull();
-  });
-
-  it("calculates the historical Novotech benefit from immutable same-currency snapshots", () => {
-    expect(compareHistoricalPartnerPrices({
-      competitorPrice: 58,
-      competitorCurrency: "USD",
-      novotechPrice: 49.06,
-      novotechCurrency: "USD",
-    })).toEqual({ status: "comparable", deltaAmount: 8.94, deltaPercent: 15.4138 });
-  });
-
-  it("keeps an unfavorable historical comparison negative", () => {
-    expect(compareHistoricalPartnerPrices({
-      competitorPrice: 49.06,
-      competitorCurrency: "USD",
-      novotechPrice: 58,
-      novotechCurrency: "USD",
-    })).toEqual({ status: "comparable", deltaAmount: -8.94, deltaPercent: -18.2226 });
-  });
-
-  it("fails closed for currency mismatch or missing historical snapshots", () => {
-    expect(compareHistoricalPartnerPrices({ competitorPrice: 58, competitorCurrency: "USD", novotechPrice: 900, novotechCurrency: "MDL" }))
-      .toEqual({ status: "currency_mismatch", deltaAmount: null, deltaPercent: null });
-    expect(compareHistoricalPartnerPrices({ competitorPrice: 58, competitorCurrency: "USD", novotechPrice: null, novotechCurrency: null }))
-      .toEqual({ status: "price_unavailable", deltaAmount: null, deltaPercent: null });
-  });
-
-  it("repairs the legacy empty-delta read projection without mutating snapshot prices", () => {
+  it("preserves fail-closed historical truth without presentation reclassification", () => {
     const read = {
       canManage: true,
       windowDays: 30 as const,
@@ -96,20 +58,24 @@ describe("competitive intelligence rules", () => {
     };
 
     const projected = projectPartnerProductCompetitiveIntelligence(read);
-    expect(projected.summary).toMatchObject({ latestDeltaAmount: 8.94, latestDeltaPercent: 15.4138 });
-    expect(projected.observations[0]).toMatchObject({ price: 58, novotechPrice: 49.06, comparisonStatus: "comparable", deltaAmount: 8.94, deltaPercent: 15.4138 });
+    expect(projected.summary).toMatchObject({ latestDeltaAmount: null, latestDeltaPercent: null });
+    expect(projected.observations[0]).toMatchObject({ price: 58, novotechPrice: 49.06, comparisonStatus: "vat_not_comparable", deltaAmount: null, deltaPercent: null });
     expect(read.observations[0]).toMatchObject({ comparisonStatus: "vat_not_comparable", deltaAmount: null, deltaPercent: null });
   });
 });
 
-function read(overrides: { retailPrice: number; retailCurrency?: string; ownPrice: number | null }) {
+function read(overrides: Partial<ProductCompetitorPricingItem> = {}) {
   return {
-    items: [{ competitorId: "competitor-1", competitorName: "Exterior", retailPrice: overrides.retailPrice,
-      retailCurrency: overrides.retailCurrency ?? "MDL", retailEffectiveDate: "2026-08-08", ownPrice: overrides.ownPrice,
-      ownCurrency: overrides.ownPrice === null ? null : "MDL", ownObservationDate: "2026-08-20", ownQuantity: 10 }],
-    rates: { partnerUsdMdl: 17.77, retailUsdMdl: 17.77, effectiveDate: "2026-08-25" },
+    items: [{ ...item(), ...overrides }],
   };
 }
-function commercial(amount: number) {
-  return { partnerPriceMdl: { amount, currencyCode: "MDL", formattedAmount: `${amount} MDL`, lastUpdatedAt: "2026-08-25T00:00:00Z" } } as never;
+function item(): ProductCompetitorPricingItem {
+  return {
+    competitorId: "competitor-1", competitorName: "Exterior", retailPrice: 1777,
+    retailCurrency: "MDL", retailEffectiveDate: "2026-08-08", ownPrice: 1590,
+    ownCurrency: "MDL", ownObservationDate: "2026-08-20", ownQuantity: 10,
+    retailDiscountAmount: null, retailDiscountPercent: null, retailComparisonStatus: "incompatible_price_basis",
+    novotechPrice: 836, novotechCurrency: "MDL", novotechDifferenceAmount: 754,
+    novotechDifferencePercent: 47.4214, comparisonStatus: "comparable",
+  };
 }

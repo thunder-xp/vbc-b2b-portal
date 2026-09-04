@@ -2,7 +2,6 @@ import "server-only";
 
 import { createHash } from "node:crypto";
 
-import type { ProductCommercialViewDto } from "../pricing-inventory";
 import { matchExternalPriceRows } from "../external-prices/matching";
 import { analyzeExternalPriceSpreadsheet, ExternalPriceSpreadsheetError } from "../external-prices/spreadsheet-parser";
 import type { ExternalPriceColumnMapping, ExternalPriceFileFormat } from "../external-prices/types";
@@ -37,9 +36,9 @@ export class CompetitorRetailPricingService {
     }
   }
 
-  async getProductPricing(companyId: string, productId: string, commercialView?: ProductCommercialViewDto) {
+  async getProductPricing(companyId: string, productId: string) {
     const read = await this.repository.getProductPricing(companyId, productId);
-    return buildProductCompetitorPricing(read as never, commercialView);
+    return buildProductCompetitorPricing(read as never);
   }
 
   async processNextImport() {

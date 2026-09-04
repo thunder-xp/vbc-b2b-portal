@@ -31,7 +31,7 @@ describe("central competitor retail pricing", () => {
     expect(fn).toContain("from public.current_competitor_retail_prices current");
     expect(fn).toContain("left join lateral");
     expect(fn).not.toContain("competitor_retail_price_import_rows");
-    expect(page).toContain("getProductPricing(companyId, product.id, commercialView)");
+    expect(page).toContain("getProductPricing(companyId, product.id)");
     expect(page).not.toMatch(/ExternalPriceRepository|OneC|integration\/providers/);
   });
 

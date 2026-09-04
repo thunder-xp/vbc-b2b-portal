@@ -6,6 +6,8 @@ export const ONE_C_RESOURCES = {
   deliveryCarriers: "Catalog_СлужбыДоставки",
 } as const;
 
+export const ONE_C_PRICE_TYPE_VAT_INCLUDED_FIELD = "ЦенаВключаетНДС";
+
 export const ONE_C_DEFAULT_PARTNER_CONTRACT_FIELDS = [
   "Организация_Key",
   "Контрагент_Key",
@@ -57,8 +59,9 @@ export const ONE_C_PRICE_TYPE_FIELDS = [
   "Ref_Key",
   "Code",
   "Description",
+  "DataVersion",
   "ВалютаЦены_Key",
-  "ЦенаВключаетНДС",
+  ONE_C_PRICE_TYPE_VAT_INCLUDED_FIELD,
   "ТипВидаЦен",
   "ЦеныАктуальны",
   "DeletionMark",

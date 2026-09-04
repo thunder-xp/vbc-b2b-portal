@@ -16,6 +16,7 @@ import type {
   OneCReferencePayload,
 } from "./one-c-provider.types";
 import { parseOptionalOneCGuid } from "./one-c-guid";
+import { ONE_C_PRICE_TYPE_VAT_INCLUDED_FIELD } from "./one-c-odata-identifiers";
 
 export type OneCPartnerMapper = ERPMapper<OneCPartnerCompanySyncPayload, PartnerCompanyDTO>;
 
@@ -94,7 +95,7 @@ export class DefaultOneCPartnerMapper implements OneCPartnerMapper {
       reference: mapRawReference(payload.Ref_Key, "price-type"),
       name: payload.Description,
       currency: parseOptionalOneCGuid(payload["ВалютаЦены_Key"]),
-      includesVat: payload["ЦенаВключаетНДС"] ?? null,
+      includesVat: payload[ONE_C_PRICE_TYPE_VAT_INCLUDED_FIELD] ?? null,
       type: payload["ТипВидаЦен"] ?? null,
       active: !payload.DeletionMark && payload["ЦеныАктуальны"] !== false,
       isDefault: index === 0,

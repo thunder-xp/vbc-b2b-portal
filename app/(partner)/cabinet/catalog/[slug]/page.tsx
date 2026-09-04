@@ -138,7 +138,7 @@ export default async function ProductDetailPage({
       : Promise.resolve(null),
     activeTab === "overview" && companyId && canViewCompetitiveIntelligence
       ? new CompetitorRetailPricingService()
-          .getProductPricing(companyId, product.id, commercialView)
+          .getProductPricing(companyId, product.id)
           .catch((error: unknown) => {
             console.error({
               event: "product_competitor_pricing_read_failed",

@@ -14,6 +14,29 @@ describe("OneCPriceChunkProvider", () => {
     expect(request.searchParams.get("$filter")).toBeNull();
     expect(result).toMatchObject({ rowCount: 1, items: [{ amount: 125, isCurrent: false }] });
   });
+
+  it.each([
+    [true, true],
+    [false, false],
+    [undefined, null],
+  ])("projects authoritative price-type VAT %s as %s", async (source, expected) => {
+    const row = {
+      Ref_Key: "11111111-1111-4111-8111-111111111111",
+      Code: "PT",
+      Description: "Partner",
+      DataVersion: "v1",
+      "ВалютаЦены_Key": "22222222-2222-4222-8222-222222222222",
+      DeletionMark: false,
+      ...(source === undefined ? {} : { "ЦенаВключаетНДС": source }),
+    };
+    const fetchMock = vi.fn<(input: URL | RequestInfo, init?: RequestInit) => Promise<Response>>(async () => new Response(JSON.stringify({ value: [row] }), { headers: { "content-type": "application/json" } }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await provider().fetchPriceTypes(0, 500);
+    const request = new URL(String(fetchMock.mock.calls[0][0]));
+    expect(request.searchParams.get("$select")).toContain("ЦенаВключаетНДС");
+    expect(result.items[0]).toMatchObject({ vatIncluded: expected });
+  });
 });
 
 function provider() { return new OneCPriceChunkProvider({ baseUrl: "https://erp.example/odata/", username: "user", password: "secret", requestTimeoutMs: 10000 }); }

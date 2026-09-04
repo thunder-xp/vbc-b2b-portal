@@ -65,7 +65,7 @@ export function ProductCompetitorPricing({
 
 function RetailDifference({ copy, item, locale }: { copy: ReturnType<typeof pricingCopy>; item: ProductCompetitorPricingItem; locale: PartnerLocale }) {
   if (item.retailDiscountAmount === null || item.retailDiscountPercent === null) {
-    return <p className="text-xs text-zinc-600">{copy.currencyMismatch}</p>;
+    return <p className="text-xs text-zinc-600">{comparisonMessage(item.retailComparisonStatus, copy)}</p>;
   }
   const isDiscount = item.retailDiscountAmount >= 0;
   return <div><p className="text-xs font-medium text-zinc-500">{isDiscount ? copy.retailDiscount : copy.retailDifference}</p><p className="mt-1 text-sm font-semibold tabular-nums">{isDiscount ? "−" : "+"}{money(Math.abs(item.retailDiscountAmount), item.ownCurrency ?? item.retailCurrency, locale)} / {isDiscount ? "−" : "+"}{formatCompetitivePercent(Math.abs(item.retailDiscountPercent), locale)}</p></div>;
@@ -73,7 +73,15 @@ function RetailDifference({ copy, item, locale }: { copy: ReturnType<typeof pric
 
 function NovotechDifference({ copy, item, locale }: { copy: ReturnType<typeof pricingCopy>; item: ProductCompetitorPricingItem; locale: PartnerLocale }) {
   if (item.novotechPrice === null || !item.novotechCurrency) return <p className="text-xs text-zinc-600">{copy.novotechUnavailable}</p>;
-  return <div><p className="text-xs font-medium text-zinc-500">{copy.novotechPrice}</p><p className="mt-1 text-sm font-semibold tabular-nums">{money(item.novotechPrice, item.novotechCurrency, locale)}</p>{item.comparisonStatus === "currency_mismatch" ? <p className="mt-1 text-xs text-zinc-600">{copy.currencyMismatch}</p> : item.comparisonStatus === "comparable" && item.novotechDifferenceAmount !== null && item.novotechDifferencePercent !== null ? <p className={`mt-1 text-xs font-semibold ${item.novotechDifferenceAmount >= 0 ? "text-emerald-700" : "text-amber-800"}`}>{item.novotechDifferenceAmount >= 0 ? copy.novotechBenefit : copy.novotechHigher}: {money(Math.abs(item.novotechDifferenceAmount), item.novotechCurrency, locale)} / {formatCompetitivePercent(Math.abs(item.novotechDifferencePercent), locale)}</p> : null}</div>;
+  return <div><p className="text-xs font-medium text-zinc-500">{copy.novotechPrice}</p><p className="mt-1 text-sm font-semibold tabular-nums">{money(item.novotechPrice, item.novotechCurrency, locale)}</p>{item.comparisonStatus === "comparable" && item.novotechDifferenceAmount !== null && item.novotechDifferencePercent !== null ? <p className={`mt-1 text-xs font-semibold ${item.novotechDifferenceAmount >= 0 ? "text-emerald-700" : "text-amber-800"}`}>{item.novotechDifferenceAmount >= 0 ? copy.novotechBenefit : copy.novotechHigher}: {money(Math.abs(item.novotechDifferenceAmount), item.novotechCurrency, locale)} / {formatCompetitivePercent(Math.abs(item.novotechDifferencePercent), locale)}</p> : <p className="mt-1 text-xs text-zinc-600">{comparisonMessage(item.comparisonStatus, copy)}</p>}</div>;
+}
+
+function comparisonMessage(status: ProductCompetitorPricingItem["comparisonStatus"], copy: ReturnType<typeof pricingCopy>) {
+  if (status === "currency_mismatch") return copy.currencyMismatch;
+  if (status === "vat_unknown") return copy.vatUnknown;
+  if (status === "vat_mismatch" || status === "vat_not_comparable") return copy.vatMismatch;
+  if (status === "stale_novotech_price" || status === "stale_competitor_price") return copy.stalePrice;
+  return copy.comparisonUnavailable;
 }
 
 function PriceValue({ detail, label, value }: { detail?: string; label: string; value: string }) {
@@ -92,7 +100,8 @@ function pricingCopy(locale: PartnerLocale) {
     ownPrice: "Prețul dvs. la", forQuantity: "pentru", pieces: "buc.", retailDiscount: "Reducere față de retail",
     retailDifference: "Preț peste retail", novotechPrice: "Prețul dvs. Novotech", novotechBenefit: "Avantajul dvs. cu Novotech",
     novotechHigher: "Novotech este mai scump cu", currencyMismatch: "Comparația nu este disponibilă — monede diferite.",
-    novotechUnavailable: "Prețul Novotech nu este disponibil pentru comparație.",
+    novotechUnavailable: "Prețul Novotech nu este disponibil pentru comparație.", vatUnknown: "Comparația nu este disponibilă — baza TVA nu este confirmată.",
+    vatMismatch: "Comparația nu este disponibilă — bazele TVA diferă.", stalePrice: "Comparația nu este disponibilă — unul dintre prețuri nu este actual.", comparisonUnavailable: "Valorile au baze diferite și nu sunt comparabile exact.",
     noOwnPrice: "Ați primit un preț individual? Salvați-l în «Analiză» — comparația cu prețul dvs. Novotech va apărea aici.",
     addOwnPrice: "Adăugați prețul dvs.", observedAt: "Preț observat la", updatePrice: "Actualizați prețul",
   } : {
@@ -100,7 +109,8 @@ function pricingCopy(locale: PartnerLocale) {
     ownPrice: "Ваша цена у", forQuantity: "при", pieces: "шт.", retailDiscount: "Скидка от розничной",
     retailDifference: "Цена выше розничной", novotechPrice: "Ваша цена Novotech", novotechBenefit: "Ваша выгода с Novotech",
     novotechHigher: "Novotech выше на", currencyMismatch: "Сравнение недоступно — разные валюты.",
-    novotechUnavailable: "Цена Novotech недоступна для сравнения.",
+    novotechUnavailable: "Цена Novotech недоступна для сравнения.", vatUnknown: "Сравнение недоступно — база НДС не подтверждена.",
+    vatMismatch: "Сравнение недоступно — базы НДС не совпадают.", stalePrice: "Сравнение недоступно — одна из цен устарела.", comparisonUnavailable: "Значения имеют разные базы и точно несравнимы.",
     noOwnPrice: "Получили индивидуальную цену? Сохраните её в разделе «Аналитика» — здесь появится сравнение с вашей ценой Novotech.",
     addOwnPrice: "Добавить свою цену", observedAt: "Цена получена", updatePrice: "Обновить цену",
   };

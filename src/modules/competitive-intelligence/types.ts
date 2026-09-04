@@ -2,6 +2,17 @@ export type CompetitiveWindowDays = 7 | 30 | 90 | 36500;
 export type CompetitiveVatMode = "included" | "excluded" | "not_applicable" | "not_specified";
 export type CompetitiveSourceType = "verbal" | "message" | "quotation" | "order" | "invoice" | "other";
 export type CompetitiveConfidence = "low" | "medium" | "high";
+export type CompetitiveComparisonStatus =
+  | "comparable"
+  | "currency_mismatch"
+  | "vat_not_comparable"
+  | "vat_unknown"
+  | "vat_mismatch"
+  | "stale_novotech_price"
+  | "stale_competitor_price"
+  | "incompatible_price_basis"
+  | "private_observation_not_authorized"
+  | "price_unavailable";
 
 export type CompetitorOption = { id: string; name: string };
 
@@ -20,7 +31,7 @@ export type PartnerCompetitiveObservation = {
   novotechPrice: number | null;
   novotechCurrency: string | null;
   comparisonBasis: "partner_price" | "retail_price" | null;
-  comparisonStatus: "comparable" | "currency_mismatch" | "vat_not_comparable" | "price_unavailable";
+  comparisonStatus: CompetitiveComparisonStatus;
   deltaAmount: number | null;
   deltaPercent: number | null;
   hasEvidence: boolean;
@@ -239,11 +250,12 @@ export type ProductCompetitorPricingItem = {
   ownQuantity: number | null;
   retailDiscountAmount: number | null;
   retailDiscountPercent: number | null;
+  retailComparisonStatus: CompetitiveComparisonStatus;
   novotechPrice: number | null;
   novotechCurrency: string | null;
   novotechDifferenceAmount: number | null;
   novotechDifferencePercent: number | null;
-  comparisonStatus: "comparable" | "currency_mismatch" | "price_unavailable";
+  comparisonStatus: CompetitiveComparisonStatus;
 };
 
 export type CompetitiveEvidenceDescriptor = {
