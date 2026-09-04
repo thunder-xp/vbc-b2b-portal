@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { CommercialOpportunity } from "../../types";
+import { PartnerLocaleProvider } from "../../../partner-locale";
 import { OpportunityCard } from "../OpportunityCard";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
@@ -11,7 +12,7 @@ vi.mock("../../../behavior-analytics/components/BehaviorViewEvent", () => ({ rec
 
 const base: CommercialOpportunity = {
   id: "7f243182-f24b-4f0a-a4b0-f8b291564dc9", type: "repeat_purchase_available", priority: 60,
-  reasonCode: "repeat_purchase", reasonMetadata: { purchaseCount: 4, lastPurchasedAt: "2026-07-20T00:00:00Z", typicalQuantity: 2 },
+  reasonCode: "repeat_purchase", reasonMetadata: { purchaseCount: 4, lastPurchasedAt: "2026-07-20T00:00:00Z", typicalQuantity: 2, daysSinceLastPurchase: 32, typicalIntervalDays: 30 },
   secondaryReasons: ["relevant_merchandising"], fingerprint: "a".repeat(64), firstDetectedAt: "2026-07-31T00:00:00Z", lastConfirmedAt: "2026-07-31T00:00:00Z", sourceType: "product", sourceId: "product-1",
   product: { id: "product-1", sku: "400123", name: "Camera", slug: "camera", imageUrl: null, categoryName: "Cameras", partnerPrice: { amount: 97.44, currency: "USD" }, retailPrice: { amount: 2399, currency: "MDL" }, availableQuantity: 12, expectedArrivalDate: null, expectedArrivalQuantity: null }, template: null,
 };
@@ -19,8 +20,8 @@ const base: CommercialOpportunity = {
 describe("OpportunityCard", () => {
   it("explains relevance and keeps the canonical primary action", () => {
     render(<OpportunityCard opportunity={base} />);
-    expect(screen.getByText("Можно повторить закупку")).toBeInTheDocument();
-    expect(screen.getByText(/Вы покупали этот товар 4/)).toBeInTheDocument();
+    expect(screen.getByText("Вы покупаете регулярно")).toBeInTheDocument();
+    expect(screen.getByText("Последняя покупка — 32 дня назад. Обычно: 2 шт.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "В корзину" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Не показывать/ })).toBeInTheDocument();
   });
@@ -28,8 +29,33 @@ describe("OpportunityCard", () => {
   it("renders only the permitted price serialized by the server", () => {
     const retailOnly = { ...base, product: { ...base.product!, partnerPrice: null } };
     render(<OpportunityCard opportunity={retailOnly} />);
-    expect(screen.getByText("Розничная цена")).toBeInTheDocument();
+    expect(screen.queryByText("Розничная цена")).not.toBeInTheDocument();
     expect(screen.queryByText("Ваша цена")).not.toBeInTheDocument();
+    expect(screen.getByText("Цена уточняется")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "В корзину" })).not.toBeInTheDocument();
+  });
+
+  it("uses natural Romanian repeat language and a controlled quantity suggestion", () => {
+    render(<PartnerLocaleProvider locale="ro"><OpportunityCard locale="ro" opportunity={base} /></PartnerLocaleProvider>);
+    expect(screen.getByText("Cumpărați regulat")).toBeInTheDocument();
+    expect(screen.getByText("Ultima achiziție — acum 32 de zile. De obicei: 2 buc.")).toBeInTheDocument();
+    expect(screen.getByRole("spinbutton", { name: "Cantitatea produsului" })).toHaveValue(2);
+  });
+
+  it("prevents a duplicate repeat action when the product is already in the active cart", () => {
+    render(<OpportunityCard opportunity={{ ...base, product: { ...base.product!, alreadyInCart: true } }} />);
+    expect(screen.getByText("Уже в корзине")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "В корзину" })).not.toBeInTheDocument();
+  });
+
+  it("does not offer an unavailable repeat product as an actionable purchase", () => {
+    render(<OpportunityCard opportunity={{ ...base, product: { ...base.product!, availableQuantity: 0 } }} />);
+    expect(screen.queryByRole("button", { name: "В корзину" })).not.toBeInTheDocument();
+  });
+
+  it("shows low stock as factual availability context", () => {
+    render(<OpportunityCard opportunity={{ ...base, product: { ...base.product!, availableQuantity: 3 } }} />);
+    expect(screen.getByText("Мало: 3 шт.")).toBeInTheDocument();
   });
 
   it("renders confirmed arrival without relying on color", () => {

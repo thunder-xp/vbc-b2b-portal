@@ -34,9 +34,12 @@ export function OpportunityCard({
 }) {
   const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
+  const [addedToCart, setAddedToCart] = useState(false);
   const [pending, startTransition] = useTransition();
   const product = opportunity.product;
   const template = opportunity.template;
+  const repeatPurchase = opportunity.type === "repeat_purchase_available";
+  const alreadyInCart = repeatPurchase && (product?.alreadyInCart || addedToCart);
   const title =
     product?.name ??
     template?.name ??
@@ -148,23 +151,27 @@ export function OpportunityCard({
 
         {product ? (
           <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
-            <div>{priceLabel(product, locale)}</div>
+            <div>{priceLabel(product, locale, repeatPurchase)}</div>
             <div>{availabilityLabel(product, locale)}</div>
           </div>
         ) : null}
 
         <div className="mt-4 flex flex-wrap items-start gap-2">
-          {product &&
-          canAddToOrder &&
-          (product.partnerPrice || product.retailPrice) ? (
+          {product && canAddToOrder && canAddProduct(opportunity, addedToCart) ? (
             <div className="min-w-[15rem] flex-1">
               <CatalogQuantityCartAction
                 initialQuantity={suggestedQuantity(opportunity)}
+                onSuccess={() => setAddedToCart(true)}
                 productId={product.id}
                 sourceSurface="opportunity_card"
                 successEventName="opportunity_added_to_cart"
               />
             </div>
+          ) : null}
+          {alreadyInCart ? (
+            <p className="inline-flex min-h-11 items-center rounded-md bg-emerald-50 px-4 text-sm font-semibold text-emerald-800">
+              {locale === "ro" ? "Deja în coș" : "Уже в корзине"}
+            </p>
           ) : null}
           {product && canManagePurchasingLists ? (
             <FavoriteProductButton
@@ -220,7 +227,7 @@ function opportunityLabel(
   locale: PartnerLocale,
 ): string {
   const ru = {
-    repeat_purchase_available: "Можно повторить закупку",
+    repeat_purchase_available: "Вы покупаете регулярно",
     watched_product_back_in_stock: "Снова в наличии",
     relevant_product_arrival_confirmed: "Ожидается поступление",
     relevant_product_price_decreased: "Цена стала ниже",
@@ -231,7 +238,7 @@ function opportunityLabel(
     source_product_low_stock_with_available_analog: "Доступен аналог",
   } satisfies Record<CommercialOpportunity["type"], string>;
   const ro = {
-    repeat_purchase_available: "Achiziția poate fi repetată",
+    repeat_purchase_available: "Cumpărați regulat",
     watched_product_back_in_stock: "Din nou în stoc",
     relevant_product_arrival_confirmed: "Recepție estimată",
     relevant_product_price_decreased: "Preț redus",
@@ -257,7 +264,7 @@ function primaryReason(
     if (opportunity.reasonCode === "price_decreased")
       return `Prețul actual este cu ${numberValue(value.decreasePercent, locale)}% mai mic decât ultimul preț confirmat.`;
     if (opportunity.reasonCode === "repeat_purchase")
-      return `Ați cumpărat acest produs de ${numberValue(value.purchaseCount, locale)} ori. Ultima achiziție: ${dateValue(value.lastPurchasedAt, locale)}.`;
+      return `Ultima achiziție — acum ${daysAgo(value.daysSinceLastPurchase, locale)}. De obicei: ${numberValue(value.typicalQuantity, locale)} buc.`;
     if (opportunity.reasonCode === "low_stock")
       return "Produsul cumpărat regulat are stoc redus.";
     if (opportunity.reasonCode === "available_analog")
@@ -279,7 +286,7 @@ function primaryReason(
   if (opportunity.reasonCode === "price_decreased")
     return `Текущая цена на ${numberValue(value.decreasePercent, locale)}% ниже предыдущей подтверждённой цены.`;
   if (opportunity.reasonCode === "repeat_purchase")
-    return `Вы покупали этот товар ${numberValue(value.purchaseCount, locale)} раз. Последняя покупка — ${dateValue(value.lastPurchasedAt, locale)}.`;
+    return `Последняя покупка — ${daysAgo(value.daysSinceLastPurchase, locale)} назад. Обычно: ${numberValue(value.typicalQuantity, locale)} шт.`;
   if (opportunity.reasonCode === "low_stock")
     return "Товар, который вы регулярно покупаете, заканчивается на складе.";
   if (opportunity.reasonCode === "available_analog")
@@ -315,8 +322,9 @@ function secondaryReason(reason: string, locale: PartnerLocale): string {
 function priceLabel(
   product: NonNullable<CommercialOpportunity["product"]>,
   locale: PartnerLocale,
+  partnerOnly = false,
 ) {
-  const price = product.partnerPrice ?? product.retailPrice;
+  const price = product.partnerPrice ?? (partnerOnly ? null : product.retailPrice);
   return price ? (
     <p>
       <span className="block text-xs text-zinc-500">
@@ -342,6 +350,18 @@ function availabilityLabel(
   product: NonNullable<CommercialOpportunity["product"]>,
   locale: PartnerLocale,
 ) {
+  if ((product.availableQuantity ?? 0) > 0 && (product.availableQuantity ?? 0) <= 5)
+    return (
+      <p>
+        <span className="block text-xs text-zinc-500">
+          {locale === "ro" ? "Disponibilitate" : "Наличие"}
+        </span>
+        <strong>
+          {locale === "ro" ? "Stoc redus" : "Мало"}: {product.availableQuantity}{" "}
+          {locale === "ro" ? "buc." : "шт."}
+        </strong>
+      </p>
+    );
   if ((product.availableQuantity ?? 0) > 0)
     return (
       <p>
@@ -377,6 +397,35 @@ function availabilityLabel(
 function suggestedQuantity(opportunity: CommercialOpportunity): number {
   const raw = Number(opportunity.reasonMetadata.typicalQuantity ?? 1);
   return Number.isInteger(raw) && raw >= 1 && raw <= 9999 ? raw : 1;
+}
+function canAddProduct(
+  opportunity: CommercialOpportunity,
+  addedToCart: boolean,
+): boolean {
+  const product = opportunity.product;
+  if (!product) return false;
+  if (opportunity.type !== "repeat_purchase_available") {
+    return Boolean(product.partnerPrice || product.retailPrice);
+  }
+  return Boolean(
+    product.partnerPrice
+      && (product.availableQuantity ?? 0) > 0
+      && !product.alreadyInCart
+      && !addedToCart,
+  );
+}
+function daysAgo(value: unknown, locale: PartnerLocale): string {
+  const parsed = Math.max(0, Math.round(Number(value)));
+  if (!Number.isFinite(parsed)) return "—";
+  if (locale === "ro") return `${formatPartnerNumber(parsed, locale)} ${parsed === 1 ? "zi" : "de zile"}`;
+  const mod10 = parsed % 10;
+  const mod100 = parsed % 100;
+  const unit = mod10 === 1 && mod100 !== 11
+    ? "день"
+    : mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)
+      ? "дня"
+      : "дней";
+  return `${formatPartnerNumber(parsed, locale)} ${unit}`;
 }
 function numberValue(value: unknown, locale: PartnerLocale): string {
   const parsed = Number(value);

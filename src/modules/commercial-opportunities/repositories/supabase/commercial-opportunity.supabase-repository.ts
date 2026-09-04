@@ -63,6 +63,7 @@ function mapProduct(value: unknown): OpportunityProduct | null {
     availableQuantity: nullableNumber(value.availableQuantity),
     expectedArrivalDate: nullableText(value.expectedArrivalDate),
     expectedArrivalQuantity: nullableNumber(value.expectedArrivalQuantity),
+    alreadyInCart: value.alreadyInCart === true,
   };
 }
 

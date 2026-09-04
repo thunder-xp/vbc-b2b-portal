@@ -13,11 +13,13 @@ export function CatalogQuantityCartAction({
   productId,
   sourceSurface = "product_card",
   successEventName,
+  onSuccess,
 }: {
   initialQuantity?: number;
   productId: string;
   sourceSurface?: string;
   successEventName?: BehaviorEventName;
+  onSuccess?: () => void;
 }) {
   const locale = usePartnerLocale();
   const copy = getCatalogCopy(locale);
@@ -96,6 +98,7 @@ export function CatalogQuantityCartAction({
                       detail: { quantityAdded: quantity },
                     }),
                   );
+                  onSuccess?.();
                 }
               } catch {
                 setFeedback({ message: copy.addFailed, success: false });

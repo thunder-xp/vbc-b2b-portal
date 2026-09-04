@@ -28,6 +28,7 @@ export type OpportunityProduct = {
   availableQuantity: number | null;
   expectedArrivalDate: string | null;
   expectedArrivalQuantity: number | null;
+  alreadyInCart?: boolean;
 };
 
 export type CommercialOpportunity = {
