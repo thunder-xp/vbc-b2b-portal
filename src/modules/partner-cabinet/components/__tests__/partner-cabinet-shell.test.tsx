@@ -175,6 +175,13 @@ describe("Partner workspace shell", () => {
     expect(screen.getByTestId("partner-header-actions")).toHaveClass("gap-2");
   });
 
+  it("exposes the governed mobile product shortcut without adding a navigation item", () => {
+    render(<PartnerHeader context={context} />);
+
+    expect(screen.getByRole("link", { name: "Найти товар" })).toHaveAttribute("href", "/cabinet/quick-order");
+    expect(navigation.some((item) => item.href === "/cabinet/quick-order")).toBe(false);
+  });
+
   it("hydrates only the mobile navigation island and dismisses its drawer", async () => {
     const user = userEvent.setup();
     render(<PartnerMobileNavigation hasWorkspaceAccess navigation={navigation} />);
