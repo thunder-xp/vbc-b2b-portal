@@ -348,6 +348,34 @@ describe("DefaultWorkspaceHomeService", () => {
     });
   });
 
+  it("preserves commercial priority before session rotation in the Dashboard cap", async () => {
+    const opportunityRepository = {
+      list: vi.fn().mockResolvedValue({
+        totalCount: 6,
+        items: [
+          { ...opportunity("lower-1"), priority: 80 },
+          { ...opportunity("higher-1"), priority: 20 },
+          { ...opportunity("related-1"), priority: 55 },
+          { ...opportunity("lower-2"), priority: 80 },
+          { ...opportunity("related-2"), priority: 55 },
+          { ...opportunity("related-3"), priority: 55 },
+        ],
+      }),
+      dismiss: vi.fn(),
+    };
+
+    const workspace = await new DefaultWorkspaceHomeService(
+      fakeContextService(),
+      fakeFreshness(),
+      fakeDashboardRepository(),
+      fakePricingInventoryService(),
+      undefined,
+      opportunityRepository as never,
+    ).getWorkspaceHome("partner-1", "login-a");
+
+    expect(workspace.opportunities.map((item) => item.priority)).toEqual([20, 55, 55, 55]);
+  });
+
   it("enriches all dashboard opportunities in the existing product-reference batch", async () => {
     const opportunityRepository = {
       list: vi.fn().mockResolvedValue({

@@ -228,7 +228,7 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
       "previous-purchases",
     );
     const merchandisingCandidates = selections?.merchandisingProducts ?? dashboard.merchandisingProducts;
-    const opportunityCandidates = sessionOrder(
+    const opportunityCandidates = sessionOrderByPriority(
       opportunityPage.items,
       loginGeneration,
       "opportunities",
@@ -618,6 +618,15 @@ function sessionOrder<T extends { id: string }>(
       .digest("hex");
     return leftRank.localeCompare(rightRank) || left.id.localeCompare(right.id);
   });
+}
+
+function sessionOrderByPriority<T extends { id: string; priority: number }>(
+  items: readonly T[],
+  loginGeneration: string,
+  scope: string,
+): T[] {
+  const sessionRanked = sessionOrder(items, loginGeneration, scope);
+  return sessionRanked.sort((left, right) => left.priority - right.priority);
 }
 
 function isCurrentlySellable(
