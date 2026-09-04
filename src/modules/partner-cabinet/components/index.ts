@@ -4,6 +4,7 @@ export { DashboardCard } from "./DashboardCard";
 export { EmptyState } from "./EmptyState";
 export { MembershipCard } from "./MembershipCard";
 export { PartnerHeader } from "./PartnerHeader";
+export { PartnerCartLink } from "./PartnerCartLink";
 export { UserMenu } from "./UserMenu";
 export { PartnerLayout } from "./PartnerLayout";
 export { PartnerSidebar } from "./PartnerSidebar";

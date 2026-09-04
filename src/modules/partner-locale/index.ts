@@ -21,5 +21,6 @@ export * from "./workspace-copy";
 export * from "./external-prices-copy";
 export * from "./navigation";
 export * from "./notification-copy";
+export * from "./quick-product-copy";
 export * from "./PartnerLanguageSwitch";
 export * from "./PartnerLocaleProvider";

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { type ActionResult, failureFromError, invalidInput, success } from "../../access-control/actions/action-result";
 import { getAuthenticatedUserId } from "../../access-control/actions/service-factory";
-import type { CartDetailDto } from "../services";
+import type { CartDetailDto, QuickOrderCartStateDto } from "../services";
 import { createCartService } from "./service-factory";
 
 export type CartCommercialRecheckResult = {
@@ -18,6 +18,11 @@ export async function getCartAction(): Promise<ActionResult<CartDetailDto>> {
 
 export async function getCartItemCountAction(): Promise<ActionResult<number>> {
   try { return success("Cart count loaded.", await createCartService().getItemCount(await getAuthenticatedUserId())); }
+  catch (error) { return failureFromError(error); }
+}
+
+export async function getQuickOrderCartStateAction(): Promise<ActionResult<QuickOrderCartStateDto>> {
+  try { return success("Quick order cart state loaded.", await createCartService().getQuickOrderState(await getAuthenticatedUserId())); }
   catch (error) { return failureFromError(error); }
 }
 

@@ -56,6 +56,11 @@ export type CartEstimateSourceDto = {
   }>;
 };
 
+export type QuickOrderCartStateDto = {
+  productQuantities: Record<string, number>;
+  totalUnitCount: number;
+};
+
 export type EstimateToCartSourceLine = {
   productId: string;
   quantity: number;
@@ -196,6 +201,17 @@ export class DefaultCartService implements CartService {
   async getItemCount(userId: string): Promise<number> {
     const companyId = await this.resolveCompanyId(userId);
     return this.repository.getActiveItemCount(companyId);
+  }
+
+  async getQuickOrderState(userId: string): Promise<QuickOrderCartStateDto> {
+    const companyId = await this.resolveCompanyId(userId);
+    const cart = await this.repository.findActive(companyId, userId);
+    if (!cart) return { productQuantities: {}, totalUnitCount: 0 };
+    const items = await this.repository.listItems(cart.id);
+    return {
+      productQuantities: Object.fromEntries(items.map((item) => [item.productId, item.quantity])),
+      totalUnitCount: items.reduce((sum, item) => sum + item.quantity, 0),
+    };
   }
 
   async addItem(userId: string, productId: string, quantity: number): Promise<void> {

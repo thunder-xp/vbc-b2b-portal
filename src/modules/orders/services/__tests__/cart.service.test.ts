@@ -120,6 +120,20 @@ describe("DefaultCartService", () => {
     expect(dependencies.pricingService.getProductCommercialViews).not.toHaveBeenCalled();
   });
 
+  it("loads quick-order quantities without product, pricing, or checkout reads", async () => {
+    const dependencies = makeDependencies();
+
+    await expect(dependencies.service.getQuickOrderState("user-1")).resolves.toEqual({
+      productQuantities: { "product-1": 2 },
+      totalUnitCount: 2,
+    });
+
+    expect(dependencies.repository.findActive).toHaveBeenCalledOnce();
+    expect(dependencies.repository.listItems).toHaveBeenCalledWith("cart-1");
+    expect(dependencies.catalogService.getProductsByIds).not.toHaveBeenCalled();
+    expect(dependencies.pricingService.getProductCommercialViews).not.toHaveBeenCalled();
+  });
+
   it("returns the canonical checkout intent without commercial reads", async () => {
     const dependencies = makeDependencies();
 

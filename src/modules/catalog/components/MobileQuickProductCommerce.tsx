@@ -1,0 +1,271 @@
+"use client";
+
+import { ChevronRight, Minus, Plus, Search, ShoppingCart, X } from "lucide-react";
+import Link from "next/link";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+
+import { recordBehaviorInteraction } from "../../behavior-analytics/components/BehaviorViewEvent";
+import { addToCartAction } from "../../orders/actions/cart.actions";
+import { getQuickProductCopy, type PartnerLocale } from "../../partner-locale";
+import type { QuickProductSearchResultDto } from "../services/quick-product-search";
+import { ProductAvailabilityBlock } from "./ProductAvailabilityBlock";
+import { ProductThumbnail } from "./ProductThumbnail";
+
+type SearchResponse =
+  | { success: true; data: QuickProductSearchResultDto[] }
+  | { success: false; message?: string };
+
+export function MobileQuickProductCommerce({
+  canAddToOrder,
+  initialCartQuantities,
+  initialCartUnitCount,
+  locale,
+}: {
+  canAddToOrder: boolean;
+  initialCartQuantities: Record<string, number>;
+  initialCartUnitCount: number;
+  locale: PartnerLocale;
+}) {
+  const copy = getQuickProductCopy(locale);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const controllerRef = useRef<AbortController | null>(null);
+  const requestSequenceRef = useRef(0);
+  const lastRequestedRef = useRef<string | null>(null);
+  const pastedQueryRef = useRef<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<QuickProductSearchResultDto[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [searchFailed, setSearchFailed] = useState(false);
+  const [requestCount, setRequestCount] = useState(0);
+  const [cartQuantities, setCartQuantities] = useState(initialCartQuantities);
+  const [cartUnitCount, setCartUnitCount] = useState(initialCartUnitCount);
+  const [quantities, setQuantities] = useState<Record<string, number>>({});
+  const [feedback, setFeedback] = useState<Record<string, { success: boolean; message: string }>>({});
+  const [pendingProductId, setPendingProductId] = useState<string | null>(null);
+  const [, startTransition] = useTransition();
+
+  const runSearch = useCallback(async (rawQuery: string) => {
+    const normalized = rawQuery.trim();
+    if (normalized.length < 2 || normalized.length > 100) return;
+    const requestKey = normalized.toLocaleLowerCase("en");
+    if (lastRequestedRef.current === requestKey) return;
+    lastRequestedRef.current = requestKey;
+    controllerRef.current?.abort();
+    const controller = new AbortController();
+    controllerRef.current = controller;
+    const sequence = ++requestSequenceRef.current;
+    setLoading(true);
+    setSearchFailed(false);
+    setRequestCount((count) => count + 1);
+    try {
+      const response = await fetch(`/api/catalog/quick-search?q=${encodeURIComponent(normalized)}`, {
+        cache: "no-store",
+        signal: controller.signal,
+      });
+      const payload = await response.json() as SearchResponse;
+      if (controller.signal.aborted || sequence !== requestSequenceRef.current) return;
+      if (!response.ok || !payload.success) {
+        setSearchFailed(true);
+        setResults([]);
+        lastRequestedRef.current = null;
+        return;
+      }
+      setResults(payload.data);
+    } catch {
+      if (controller.signal.aborted || sequence !== requestSequenceRef.current) return;
+      setSearchFailed(true);
+      setResults([]);
+      lastRequestedRef.current = null;
+    } finally {
+      if (!controller.signal.aborted && sequence === requestSequenceRef.current) setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const normalized = query.trim();
+    if (normalized.length < 2 || normalized.length > 100) return;
+    const pasted = pastedQueryRef.current === normalized.toLocaleLowerCase("en");
+    pastedQueryRef.current = null;
+    const delay = pasted ? 0 : isLikelyExactIdentifier(normalized) ? 90 : 240;
+    const timer = window.setTimeout(() => void runSearch(normalized), delay);
+    return () => window.clearTimeout(timer);
+  }, [query, runSearch]);
+
+  useEffect(() => () => controllerRef.current?.abort(), []);
+
+  function updateSearchQuery(value: string) {
+    setQuery(value);
+    const normalized = value.trim();
+    if (normalized.length >= 2 && normalized.length <= 100) {
+      setLoading(true);
+      setSearchFailed(false);
+      return;
+    }
+    controllerRef.current?.abort();
+    lastRequestedRef.current = null;
+    setResults([]);
+    setLoading(false);
+    setSearchFailed(false);
+  }
+
+  function updateQuantity(productId: string, value: number) {
+    setQuantities((current) => ({ ...current, [productId]: Math.min(9999, Math.max(1, Math.trunc(value) || 1)) }));
+    setFeedback((current) => ({ ...current, [productId]: { success: true, message: "" } }));
+  }
+
+  function addProduct(product: QuickProductSearchResultDto) {
+    const quantity = quantities[product.id] ?? 1;
+    if (pendingProductId || !canAddToOrder || !product.commercialView?.partnerPrice) return;
+    setPendingProductId(product.id);
+    startTransition(async () => {
+      try {
+        const result = await addToCartAction(product.id, quantity);
+        if (!result.success) {
+          setFeedback((current) => ({ ...current, [product.id]: { success: false, message: result.message } }));
+          return;
+        }
+        setCartQuantities((current) => ({ ...current, [product.id]: (current[product.id] ?? 0) + quantity }));
+        setCartUnitCount((count) => count + quantity);
+        setFeedback((current) => ({
+          ...current,
+          [product.id]: { success: true, message: `${copy.added}: ${quantity} ${copy.units}` },
+        }));
+        recordBehaviorInteraction({
+          eventName: "product_added_to_cart",
+          productId: product.id,
+          quantity,
+          route: "/cabinet/quick-order",
+          sourceSurface: "mobile_quick_product",
+        });
+        window.dispatchEvent(new CustomEvent("novotech:cart-updated", { detail: { quantityAdded: quantity } }));
+        inputRef.current?.focus();
+        inputRef.current?.select();
+        setQuantities((current) => ({ ...current, [product.id]: 1 }));
+      } catch {
+        setFeedback((current) => ({ ...current, [product.id]: { success: false, message: copy.addFailed } }));
+      } finally {
+        setPendingProductId(null);
+      }
+    });
+  }
+
+  return (
+    <section className="mx-auto max-w-3xl space-y-4" data-search-request-count={requestCount}>
+      <div className="space-y-1">
+        <h1 className="text-xl font-semibold tracking-tight text-zinc-950 sm:text-2xl">{copy.title}</h1>
+        <p className="text-sm leading-5 text-zinc-600">{copy.subtitle}</p>
+      </div>
+
+      <div className="sticky top-0 z-20 -mx-4 border-y border-zinc-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur sm:mx-0 sm:rounded-lg sm:border">
+        <div className="flex items-center gap-2">
+          <form
+            className="min-w-0 flex-1"
+            onSubmit={(event) => {
+              event.preventDefault();
+              lastRequestedRef.current = null;
+              void runSearch(query);
+            }}
+            role="search"
+          >
+            <div className="relative">
+              <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-3.5 size-4 text-zinc-500" />
+              <input
+                aria-label={copy.searchLabel}
+                autoCapitalize="characters"
+                autoComplete="off"
+                autoCorrect="off"
+                autoFocus
+                className="h-12 w-full rounded-lg border border-zinc-300 bg-white pl-10 pr-12 text-base font-medium uppercase outline-none focus:border-emerald-700 focus:ring-2 focus:ring-emerald-100"
+                enterKeyHint="search"
+                inputMode="search"
+                maxLength={100}
+                onChange={(event) => updateSearchQuery(event.target.value)}
+                onPaste={(event) => {
+                  const value = event.clipboardData.getData("text").trim();
+                  if (!value) return;
+                  event.preventDefault();
+                  pastedQueryRef.current = value.toLocaleLowerCase("en");
+                  updateSearchQuery(value);
+                }}
+                placeholder={copy.searchPlaceholder}
+                ref={inputRef}
+                spellCheck={false}
+                type="search"
+                value={query}
+              />
+              {query ? <button aria-label={copy.clear} className="absolute right-0 top-0 inline-flex h-12 w-12 items-center justify-center rounded-r-lg text-zinc-500 hover:text-zinc-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-600" onClick={() => { updateSearchQuery(""); inputRef.current?.focus(); }} type="button"><X aria-hidden="true" className="size-5" /></button> : null}
+            </div>
+          </form>
+          <Link aria-label={`${copy.cart}: ${cartUnitCount}`} className="relative inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-zinc-300 bg-white text-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600" href="/cabinet/cart" prefetch={false}>
+            <ShoppingCart aria-hidden="true" className="size-5" />
+            {cartUnitCount > 0 ? <span className="absolute -right-1.5 -top-1.5 min-w-5 rounded-full bg-emerald-700 px-1 text-center text-[11px] font-semibold leading-5 text-white">{cartUnitCount > 99 ? "99+" : cartUnitCount}</span> : null}
+          </Link>
+        </div>
+        {loading ? <p aria-live="polite" className="mt-2 text-xs font-medium text-emerald-800">{copy.searching}</p> : null}
+      </div>
+
+      <div aria-busy={loading} className="space-y-3">
+        {!query.trim() ? <EmptyState title={copy.start} detail={copy.startHint} /> : null}
+        {query.trim().length >= 2 && !loading && !searchFailed && results.length === 0 ? <EmptyState title={copy.noResults} detail={copy.noResultsHint} /> : null}
+        {searchFailed ? <EmptyState title={copy.noResults} detail={copy.addFailed} /> : null}
+        {results.map((product) => {
+          const quantity = quantities[product.id] ?? 1;
+          const inCart = cartQuantities[product.id] ?? 0;
+          const priced = Boolean(product.commercialView?.partnerPrice);
+          const exact = product.matchKind !== "partial";
+          const itemFeedback = feedback[product.id];
+          return <article className={`overflow-hidden rounded-xl border bg-white shadow-sm transition-opacity ${loading ? "pointer-events-none opacity-55" : "border-zinc-200"}`} key={product.id}>
+            <div className="grid grid-cols-[5.5rem_minmax(0,1fr)] gap-3 p-3">
+              <Link aria-label={copy.details} className="relative flex aspect-square items-center justify-center overflow-hidden rounded-lg bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600" href={`/cabinet/catalog/${product.slug}?returnTo=%2Fcabinet%2Fquick-order`} prefetch={false}>
+                <ProductThumbnail alt={product.name} className="object-contain p-2" sizes="88px" src={product.imageUrl} variant="sm" />
+              </Link>
+              <div className="min-w-0">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">SKU {product.sku}</p>
+                    <Link className="mt-0.5 line-clamp-2 block text-sm font-semibold leading-5 text-zinc-950 hover:text-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600" href={`/cabinet/catalog/${product.slug}?returnTo=%2Fcabinet%2Fquick-order`} prefetch={false}>{product.name}</Link>
+                    {product.categoryName ? <p className="mt-0.5 truncate text-xs text-zinc-500">{product.categoryName}</p> : null}
+                  </div>
+                  <ChevronRight aria-hidden="true" className="mt-1 size-4 shrink-0 text-zinc-400" />
+                </div>
+                {exact ? <span className="mt-2 inline-flex rounded-full bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-800">{copy.exact}</span> : null}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 border-y border-zinc-200">
+              <div className="min-w-0 px-3 py-2.5">
+                <p className="text-[11px] font-semibold text-zinc-500">{copy.price}</p>
+                <p className={`mt-0.5 truncate text-lg font-semibold ${priced ? "text-zinc-950" : "text-amber-800"}`}>{product.commercialView?.partnerPrice?.formattedAmount ?? copy.priceUnavailable}</p>
+                {product.commercialView?.partnerPriceMdl?.formattedAmount ? <p className="text-xs font-medium text-zinc-500">{product.commercialView.partnerPriceMdl.formattedAmount}</p> : null}
+              </div>
+              <ProductAvailabilityBlock locale={locale} stock={product.commercialView?.stock} />
+            </div>
+
+            <div className="space-y-2 p-3">
+              {inCart > 0 ? <p className="text-xs font-semibold text-emerald-800">{copy.inCart}: {inCart} {copy.units}</p> : null}
+              <div className="grid grid-cols-[8.75rem_minmax(0,1fr)] gap-2">
+                <div aria-label={copy.quantity} className="grid grid-cols-[2.75rem_3.25rem_2.75rem]" role="group">
+                  <button aria-label={copy.decrease} className="inline-flex h-11 items-center justify-center rounded-l-lg border border-zinc-300 bg-zinc-50 text-zinc-800 disabled:opacity-40" disabled={quantity <= 1 || pendingProductId === product.id} onClick={() => updateQuantity(product.id, quantity - 1)} type="button"><Minus aria-hidden="true" className="size-4" /></button>
+                  <input aria-label={copy.quantity} className="h-11 min-w-0 border-y border-zinc-300 bg-white px-1 text-center text-base font-semibold outline-none focus:ring-2 focus:ring-inset focus:ring-emerald-600" inputMode="numeric" max={9999} min={1} onChange={(event) => updateQuantity(product.id, Number(event.target.value))} pattern="[0-9]*" type="number" value={quantity} />
+                  <button aria-label={copy.increase} className="inline-flex h-11 items-center justify-center rounded-r-lg border border-zinc-300 bg-zinc-50 text-zinc-800 disabled:opacity-40" disabled={quantity >= 9999 || pendingProductId === product.id} onClick={() => updateQuantity(product.id, quantity + 1)} type="button"><Plus aria-hidden="true" className="size-4" /></button>
+                </div>
+                <button className="inline-flex h-11 min-w-0 items-center justify-center gap-2 rounded-lg bg-emerald-700 px-3 text-sm font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:bg-zinc-300 disabled:text-zinc-600" disabled={loading || Boolean(pendingProductId) || !canAddToOrder || !priced} onClick={() => addProduct(product)} title={!canAddToOrder || !priced ? copy.unavailableAction : undefined} type="button">
+                  {pendingProductId === product.id ? copy.adding : copy.add}
+                </button>
+              </div>
+              <p aria-live="polite" className={`min-h-4 text-xs font-medium ${itemFeedback?.success === false ? "text-red-700" : "text-emerald-700"}`}>{itemFeedback?.message ?? ""}</p>
+            </div>
+          </article>;
+        })}
+      </div>
+    </section>
+  );
+}
+
+function EmptyState({ detail, title }: { detail: string; title: string }) {
+  return <div className="rounded-xl border border-dashed border-zinc-300 bg-white px-4 py-10 text-center"><p className="font-semibold text-zinc-900">{title}</p><p className="mt-1 text-sm text-zinc-500">{detail}</p></div>;
+}
+
+function isLikelyExactIdentifier(value: string): boolean {
+  return /^\d{5,}$/.test(value) || /^(?=.*[a-z])(?=.*\d)[a-z0-9()[\]./_-]{5,}$/i.test(value);
+}
