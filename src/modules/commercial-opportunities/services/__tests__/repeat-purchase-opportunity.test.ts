@@ -9,6 +9,12 @@ const migration = readFileSync(
   ),
   "utf8",
 );
+const stockAcceptance = readFileSync(
+  resolve(
+    "supabase/migrations/20260904104517_repeat_purchase_stock_projection_acceptance.sql",
+  ),
+  "utf8",
+);
 const dashboard = readFileSync(
   resolve("src/modules/partner-cabinet/services/workspace-home.service.ts"),
   "utf8",
@@ -59,6 +65,9 @@ describe("high-confidence repeat-purchase opportunities", () => {
   it("requires fresh authoritative stock and suppresses active-cart products", () => {
     expect(migration).toContain("stock.freshness_state = 'authoritative'");
     expect(migration).toContain("stock.synced_at >= now() - interval '5 hours'");
+    expect(stockAcceptance).toContain("interval '24 hours'");
+    expect(stockAcceptance).toContain("interval '5 hours'");
+    expect(stockAcceptance).toContain("pg_get_functiondef");
     expect(migration).toContain("stock.available_quantity > 0");
     expect(migration).toContain("cart.created_by = member.user_id");
     expect(migration).toContain("cart.status in ('active', 'submitting')");
