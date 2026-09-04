@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 
 import { ProductLineThumbnail } from "../../catalog/components/ProductLineThumbnail";
 import { recordBehaviorInteraction } from "../../behavior-analytics/components";
@@ -135,6 +135,7 @@ export function EstimateCommercialEditor({
   const [dirty, setDirty] = useState(false);
   const [saveState, setSaveState] = useState<"saved" | "dirty" | "saving" | "error">("saved");
   const [mobileActionsOpen, setMobileActionsOpen] = useState(false);
+  const mobileActionsTriggerRef = useRef<HTMLButtonElement>(null);
   const [pickerMode, setPickerMode] = useState<EstimateLinePickerMode | null>(
     () =>
       initialEstimate.status === "draft" && initialEstimate.lines.length === 0
@@ -389,12 +390,16 @@ export function EstimateCommercialEditor({
   const proposalPreviewHref = latestProposal
     ? `/cabinet/estimates/${workflow.estimateId}/versions/${latestProposal.id}/preview`
     : `/cabinet/estimates/${workflow.estimateId}/preview`;
+  const closeMobileActions = useCallback(() => {
+    setMobileActionsOpen(false);
+    requestAnimationFrame(() => mobileActionsTriggerRef.current?.focus());
+  }, []);
 
   useEffect(() => {
     if (!mobileActionsOpen) return;
     const previousOverflow = document.body.style.overflow;
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setMobileActionsOpen(false);
+      if (event.key === "Escape") closeMobileActions();
     };
     document.body.style.overflow = "hidden";
     window.addEventListener("keydown", closeOnEscape);
@@ -402,7 +407,7 @@ export function EstimateCommercialEditor({
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", closeOnEscape);
     };
-  }, [mobileActionsOpen]);
+  }, [closeMobileActions, mobileActionsOpen]);
 
   const undoChanges = () => {
     setDraft(toDraft(estimate));
@@ -1162,6 +1167,7 @@ export function EstimateCommercialEditor({
             className={buttonClass}
             data-testid="estimate-mobile-actions-trigger"
             onClick={() => setMobileActionsOpen(true)}
+            ref={mobileActionsTriggerRef}
             type="button"
           >
             <MoreHorizontal className="size-5" />
@@ -1173,7 +1179,7 @@ export function EstimateCommercialEditor({
           className="fixed inset-0 z-50 flex items-end bg-black/45 xl:hidden"
           data-testid="estimate-mobile-action-overlay"
           onMouseDown={(event) => {
-            if (event.currentTarget === event.target) setMobileActionsOpen(false);
+            if (event.currentTarget === event.target) closeMobileActions();
           }}
           role="presentation"
         >
@@ -1182,6 +1188,24 @@ export function EstimateCommercialEditor({
             aria-modal="true"
             className="w-full overflow-y-auto rounded-t-2xl bg-white px-4 pt-3 shadow-2xl"
             data-testid="estimate-mobile-action-sheet"
+            onKeyDown={(event) => {
+              if (event.key !== "Tab") return;
+              const controls = Array.from(
+                event.currentTarget.querySelectorAll<HTMLElement>(
+                  "a[href], button:not([disabled])",
+                ),
+              );
+              const first = controls[0];
+              const last = controls.at(-1);
+              if (!first || !last) return;
+              if (event.shiftKey && document.activeElement === first) {
+                event.preventDefault();
+                last.focus();
+              } else if (!event.shiftKey && document.activeElement === last) {
+                event.preventDefault();
+                first.focus();
+              }
+            }}
             role="dialog"
             style={{
               maxHeight: "calc(100dvh - max(1rem, env(safe-area-inset-top)))",
@@ -1197,7 +1221,7 @@ export function EstimateCommercialEditor({
                 aria-label={copy.closeActions}
                 autoFocus
                 className="inline-flex size-11 items-center justify-center rounded-md text-zinc-600 focus-visible:ring-2 focus-visible:ring-emerald-500"
-                onClick={() => setMobileActionsOpen(false)}
+                onClick={closeMobileActions}
                 type="button"
               >
                 <X className="size-5" />

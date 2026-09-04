@@ -173,8 +173,11 @@ describe("EstimateCommercialEditor", () => {
     ]) {
       expect(within(sheet).getByRole(/Предпросмотр|PDF/.test(name) ? "link" : "button", { name })).toBeInTheDocument();
     }
+    await user.tab({ shift: true });
+    expect(within(sheet).getByRole("button", { name: "Архивировать" })).toHaveFocus();
     await user.click(within(sheet).getByRole("button", { name: "Закрыть действия" }));
     expect(screen.queryByTestId("estimate-mobile-action-sheet")).not.toBeInTheDocument();
+    expect(screen.getByTestId("estimate-mobile-actions-trigger")).toHaveFocus();
   });
 
   it("renders exactly the four governed sections without structural controls", () => {
