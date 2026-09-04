@@ -66,7 +66,7 @@ export default async function AdminCompanyPage({
   ]);
 
   return (
-    <div className="space-y-6">
+    <div className="app-content-wide space-y-6">
       <AdminPageHeader
         description="Идентификация, доступ и состояние read-моделей компании."
         eyebrow="Компания"

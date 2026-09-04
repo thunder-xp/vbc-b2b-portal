@@ -35,11 +35,11 @@ export function PartnerLayout({
 
   return (
     <PartnerLocaleProvider locale={context.locale}>
-    <div className="min-h-screen bg-zinc-50 text-zinc-950" lang={context.locale}>
-      <div className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:block lg:w-72">
+    <div className="app-shell min-h-screen bg-zinc-50 text-zinc-950" lang={context.locale}>
+      <div className="app-shell-sidebar hidden lg:fixed lg:inset-y-0 lg:block">
         <PartnerSidebar companyName={context.companyName} hasWorkspaceAccess={hasWorkspaceAccess} navigation={context.navigation} />
       </div>
-      <div className="lg:pl-72">
+      <div className="app-shell-frame">
         <PartnerHeader
           context={context}
           mobileNavigation={(
@@ -50,7 +50,7 @@ export function PartnerLayout({
             />
           )}
         />
-        <main className="px-4 py-6 lg:px-8">{children}</main>
+        <main className="app-workspace">{children}</main>
       </div>
     </div>
     </PartnerLocaleProvider>

@@ -10,7 +10,7 @@ export default async function AdminCommercialRatesPage() {
   const result = await getCommercialRateAdminViewAction();
 
   return (
-    <div className="space-y-6">
+    <div className="app-content-wide space-y-6">
       <AdminPageHeader
         description="История и управляемая публикация коммерческих курсов."
         eyebrow="Коммерческие данные"

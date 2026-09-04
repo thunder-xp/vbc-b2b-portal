@@ -15,8 +15,8 @@ const initialState: OnboardingWorkflowActionState = { success: true, errorCode: 
 export function PartnerOnboardingStatusCenter({ center }: { center: StatusCenter }) {
   const [state, action, pending] = useActionState(cancelOwnOnboardingRequestAction, initialState);
   return (
-    <main className="min-h-screen bg-zinc-50 px-4 py-8 text-zinc-950 sm:px-6 sm:py-12">
-      <div className="mx-auto w-full max-w-3xl space-y-6">
+    <main className="app-responsive-surface min-h-screen bg-zinc-50 px-4 py-8 text-zinc-950 sm:px-6 sm:py-12">
+      <div className="app-onboarding-flow mx-auto w-full space-y-6">
         <header className="border-b border-zinc-200 pb-5">
           <p className="text-sm font-semibold uppercase text-emerald-700">Партнёрская заявка</p>
           <h1 className="mt-2 text-2xl font-semibold">{ONBOARDING_STATUS_LABELS[center.status]}</h1>

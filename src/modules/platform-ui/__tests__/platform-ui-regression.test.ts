@@ -36,4 +36,19 @@ describe("platform UI regression boundaries", () => {
     ].map(source).join("\n");
     expect(platformFiles).not.toMatch(/revalidatePath|fetch\(|supabase|one-c|1c/i);
   });
+
+  it("keeps one bounded responsive shell and CSS-only 4K tiers", () => {
+    const css = source("app/globals.css");
+    const partnerShell = source("src/modules/partner-cabinet/components/PartnerLayout.tsx");
+    const adminShell = source("src/modules/admin/components/AdminShell.tsx");
+
+    expect(partnerShell).toContain('className="app-shell');
+    expect(adminShell).toContain('className="app-shell');
+    expect(partnerShell).toContain('className="app-shell-frame"');
+    expect(adminShell).toContain('className="app-shell-frame"');
+    expect(css).toContain("@media (min-width: 120rem)");
+    expect(css).toContain("@media (min-width: 160rem)");
+    expect(css).toContain("--app-shell-max-width: 168rem");
+    expect(css).not.toMatch(/(?:^|[;{\s])zoom\s*:|transform\s*:\s*scale\(/);
+  });
 });

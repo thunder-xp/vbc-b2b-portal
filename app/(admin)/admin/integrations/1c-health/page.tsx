@@ -13,7 +13,7 @@ export default async function OneCHealthPage() {
   await requireAdminPagePermission("admin.integrations.view");
 
   return (
-    <div className="space-y-6">
+    <div className="app-content-wide space-y-6">
       <AdminPageHeader
         description="Безопасная проверка конфигурации и явно запускаемая диагностика подключения. Секреты и данные 1С не отображаются."
         eyebrow="Интеграции"

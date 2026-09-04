@@ -29,7 +29,7 @@ export default async function CustomersPage({
   });
 
   return (
-    <div className="space-y-5">
+    <div className="app-content-wide space-y-5">
       <header className="flex flex-wrap items-end justify-between gap-4 border-b border-zinc-200 pb-5">
         <div>
           <p className="text-xs font-semibold uppercase text-emerald-700">

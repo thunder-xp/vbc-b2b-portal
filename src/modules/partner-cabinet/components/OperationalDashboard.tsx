@@ -27,7 +27,7 @@ export function OperationalDashboard({
   workspace: WorkspaceHomeDto;
 }) {
   return (
-    <div className="space-y-7">
+    <div className="app-section-stack">
       <AttentionSection items={workspace.attentionItems} locale={locale} />
       <EstimateSalesSection items={workspace.estimateSalesOpportunities} locale={locale} />
       <SupportDashboardBlock items={workspace.supportTickets ?? []} locale={locale} />
@@ -114,7 +114,7 @@ function NovotechOffersSection({ campaigns = [], locale, products = [], workspac
     <section aria-labelledby="dashboard-novotech-offers">
       <SectionHeading actionHref="/cabinet/offers" actionLabel={partnerText(locale, "dashboard.allOffers")} id="dashboard-novotech-offers" title={partnerText(locale, "dashboard.novotechOffers")} />
       {campaigns.length ? <div className="mt-3 grid gap-3 xl:grid-cols-2">{campaigns.slice(0, 2).map((campaign) => <CampaignCard campaign={campaign} key={campaign.id} locale={locale} />)}</div> : null}
-      {products.length ? <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">{products.slice(0, 5).map((item) => <ProductCard analyticsEventName="dashboard_novotech_offer_opened" analyticsSurface="dashboard_offers" capabilities={workspace.capabilities.productCard} commercialView={item.commercialView} key={item.product.id} locale={locale} product={item.product} />)}</div> : null}
+      {products.length ? <div className="app-product-grid mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">{products.slice(0, 5).map((item) => <ProductCard analyticsEventName="dashboard_novotech_offer_opened" analyticsSurface="dashboard_offers" capabilities={workspace.capabilities.productCard} commercialView={item.commercialView} key={item.product.id} locale={locale} product={item.product} />)}</div> : null}
     </section>
   );
 }
@@ -123,7 +123,7 @@ function OpportunitySection({ locale, opportunities = [], workspace }: { locale:
   if (!opportunities.length) return null;
   return <section aria-labelledby="dashboard-opportunities">
     <SectionHeading actionHref="/cabinet/opportunities" actionLabel={partnerText(locale, "dashboard.allOpportunities")} id="dashboard-opportunities" title={partnerText(locale, "dashboard.opportunities")} />
-    <div className="mt-3 grid gap-3 xl:grid-cols-2">{opportunities.slice(0, 4).map((opportunity) => <OpportunityCard canAddToOrder={workspace.capabilities.productCard.canAddToOrder} canAddToSpecification={workspace.capabilities.productCard.canAddToSpecification} canManagePurchasingLists={workspace.capabilities.productCard.canManagePurchasingLists} key={opportunity.id} locale={locale} opportunity={opportunity} />)}</div>
+    <div className="mt-3 grid gap-3 xl:grid-cols-2 min-[2560px]:grid-cols-4">{opportunities.slice(0, 4).map((opportunity) => <OpportunityCard canAddToOrder={workspace.capabilities.productCard.canAddToOrder} canAddToSpecification={workspace.capabilities.productCard.canAddToSpecification} canManagePurchasingLists={workspace.capabilities.productCard.canManagePurchasingLists} key={opportunity.id} locale={locale} opportunity={opportunity} />)}</div>
   </section>;
 }
 
@@ -344,7 +344,7 @@ function ProductSection({
         id={`dashboard-${analyticsSurface}`}
         title={title}
       />
-      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+      <div className="app-product-grid mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
         {products.slice(0, 5).map((item) => (
           <ProductCard
               analyticsEventName={

@@ -64,8 +64,8 @@ export default async function OnboardingPage() {
 
 function OnboardingShell({ children }: { children: React.ReactNode }) {
   return (
-    <main className="min-h-screen bg-zinc-50 px-6 py-12 text-zinc-950">
-      <div className="mx-auto w-full max-w-3xl">{children}</div>
+    <main className="app-responsive-surface min-h-screen bg-zinc-50 px-6 py-12 text-zinc-950">
+      <div className="app-onboarding-flow mx-auto w-full">{children}</div>
     </main>
   );
 }

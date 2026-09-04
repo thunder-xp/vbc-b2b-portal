@@ -20,7 +20,7 @@ export default async function FinancePage() {
   const copy = getFinanceCopy(locale);
   if (!result.success) {
     return (
-      <section className="mx-auto max-w-6xl px-4 py-8">
+      <section className="app-content-readable py-8">
         <h1 className="text-2xl font-semibold">{copy.title}</h1>
         <p className="mt-4 text-sm text-zinc-600">
           {copy.unavailable}
@@ -29,7 +29,7 @@ export default async function FinancePage() {
     );
   }
   return (
-    <main className="mx-auto max-w-6xl px-4 py-8">
+    <main className="app-content-readable py-8">
       <BehaviorViewEvent
         dedupeKey="finance"
         eventName="finance_viewed"

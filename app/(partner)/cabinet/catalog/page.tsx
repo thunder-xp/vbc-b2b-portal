@@ -124,7 +124,7 @@ function CatalogResultsFallback({ ariaLabel, curated }: { ariaLabel: string; cur
   return <div aria-busy="true" aria-label={ariaLabel} className="space-y-6">
     <div className="h-16 animate-pulse border-b border-zinc-200 bg-zinc-100" />
     {curated
-      ? <div className="grid min-h-[300px] grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">{Array.from({ length: 5 }, (_, index) => <div className="h-[300px] animate-pulse rounded-md bg-zinc-100" key={index} />)}</div>
-      : <div className="grid gap-6 lg:grid-cols-[260px_1fr]"><div className="h-80 animate-pulse rounded-lg bg-zinc-100" /><div className="grid min-h-[620px] grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">{Array.from({ length: 10 }, (_, index) => <div className="h-[300px] animate-pulse rounded-md bg-zinc-100" key={index} />)}</div></div>}
+      ? <div className="app-product-grid grid min-h-[300px] grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">{Array.from({ length: 5 }, (_, index) => <div className="h-[300px] animate-pulse rounded-md bg-zinc-100" key={index} />)}</div>
+      : <div className="grid gap-6 lg:grid-cols-[260px_1fr] min-[2560px]:grid-cols-[288px_1fr]"><div className="h-80 animate-pulse rounded-lg bg-zinc-100" /><div className="app-product-grid grid min-h-[620px] grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">{Array.from({ length: 10 }, (_, index) => <div className="h-[300px] animate-pulse rounded-md bg-zinc-100" key={index} />)}</div></div>}
   </div>;
 }

@@ -21,8 +21,8 @@ export function OnboardingCorrectionForm({ center }: { center: PartnerOnboarding
   const values = center.currentValues;
 
   return (
-    <main className="min-h-screen bg-zinc-50 px-4 py-8 text-zinc-950 sm:px-6 sm:py-12">
-      <div className="mx-auto w-full max-w-3xl">
+    <main className="app-responsive-surface min-h-screen bg-zinc-50 px-4 py-8 text-zinc-950 sm:px-6 sm:py-12">
+      <div className="app-onboarding-flow mx-auto w-full">
         <header className="border-b border-zinc-200 pb-5">
           <p className="text-sm font-semibold uppercase text-emerald-700">Уточнение заявки</p>
           <h1 className="mt-2 text-2xl font-semibold">Дополнить заявку</h1>

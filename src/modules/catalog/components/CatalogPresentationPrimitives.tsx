@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 
 export const CATALOG_PRODUCT_GRID_CLASS =
-  "grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-5";
+  "app-product-grid grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-5";
 
 export function CatalogProductGridFrame({ children, className = "" }: { children: ReactNode; className?: string }) {
   return <div className={`${CATALOG_PRODUCT_GRID_CLASS} ${className}`.trim()}>{children}</div>;

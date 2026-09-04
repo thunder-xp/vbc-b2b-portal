@@ -94,7 +94,7 @@ export function AdminShell({
   );
 
   return (
-    <div className="min-h-screen bg-zinc-50 text-zinc-950">
+    <div className="app-shell min-h-screen bg-zinc-50 text-zinc-950">
       {mobileOpen ? (
         <button
           aria-label="Закрыть навигацию"
@@ -106,7 +106,7 @@ export function AdminShell({
       ) : null}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-72 flex-col border-r border-zinc-200 bg-white transition-transform lg:translate-x-0 ${
+        className={`app-shell-sidebar fixed inset-y-0 left-0 z-50 flex flex-col border-r border-zinc-200 bg-white transition-transform lg:translate-x-0 ${
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
@@ -148,7 +148,7 @@ export function AdminShell({
         </div>
       </aside>
 
-      <div className="lg:pl-72">
+      <div className="app-shell-frame">
         <header className="sticky top-0 z-30 flex min-h-16 items-center gap-4 border-b border-zinc-200 bg-white/95 px-4 backdrop-blur sm:px-6">
           <button
             aria-label="Открыть навигацию"
@@ -171,7 +171,7 @@ export function AdminShell({
             {ENVIRONMENT_LABELS[context.environment]}
           </span>
         </header>
-        <main className="mx-auto w-full max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8">
+        <main className="app-workspace mx-auto w-full max-w-[1600px] min-[1920px]:max-w-none">
           {children}
         </main>
       </div>

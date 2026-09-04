@@ -6,6 +6,118 @@
   .public-primary-action { @apply bg-blue-700 text-white hover:bg-blue-800; }
   .public-brand-link { @apply text-blue-700 hover:text-blue-800; }
   .public-brand-eyebrow { @apply text-blue-700; }
+
+  /* Authenticated application geometry. Public retail pages intentionally do not inherit it. */
+  .app-shell {
+    --app-shell-max-width: 100vw;
+    --app-sidebar-width: 18rem;
+    --app-workspace-gutter: 1rem;
+    --app-workspace-block: 1.5rem;
+    --app-font-size-body: 0.875rem;
+    --app-font-size-label: 0.75rem;
+    --app-font-size-heading: 1.5rem;
+    --app-control-height: 2.75rem;
+    --app-card-padding: 1rem;
+    --app-section-gap: 1.75rem;
+    --app-dialog-width: 32rem;
+    --app-dialog-wide-width: 42rem;
+    min-width: 0;
+  }
+
+  .app-shell-frame {
+    margin-inline: auto;
+    min-width: 0;
+    width: 100%;
+    max-width: var(--app-shell-max-width);
+  }
+
+  .app-shell-sidebar { width: var(--app-sidebar-width); }
+
+  .app-workspace {
+    min-width: 0;
+    padding: var(--app-workspace-block) var(--app-workspace-gutter);
+  }
+
+  .app-content-readable,
+  .app-content-wide {
+    margin-inline: auto;
+    width: 100%;
+  }
+
+  .app-content-readable { max-width: 72rem; }
+  .app-content-wide { max-width: 80rem; }
+  .app-section-stack { display: grid; gap: var(--app-section-gap); }
+  .app-auth-panel-md { max-width: 28rem; }
+  .app-auth-panel-lg { max-width: 32rem; }
+  .app-onboarding-flow { max-width: 48rem; }
+  .app-dialog { max-width: var(--app-dialog-width); }
+  .app-dialog-wide { max-width: var(--app-dialog-wide-width); }
+}
+
+@media (min-width: 40rem) {
+  .app-shell { --app-workspace-gutter: 1.5rem; }
+}
+
+@media (min-width: 64rem) {
+  .app-shell { --app-workspace-gutter: 2rem; }
+  .app-shell-frame { padding-left: var(--app-sidebar-width); }
+  .app-shell .app-shell-sidebar {
+    left: max(0px, calc((100vw - var(--app-shell-max-width)) / 2));
+  }
+}
+
+@media (min-width: 120rem) {
+  .app-shell {
+    --app-shell-max-width: 120rem;
+    --app-workspace-gutter: 2.5rem;
+    --app-workspace-block: 2rem;
+    --app-section-gap: 2rem;
+  }
+
+  .app-content-readable { max-width: 80rem; }
+  .app-content-wide { max-width: 92rem; }
+}
+
+@media (min-width: 160rem) {
+  .app-shell {
+    --app-shell-max-width: 168rem;
+    --app-sidebar-width: 19rem;
+    --app-workspace-gutter: 3rem;
+    --app-workspace-block: 2.25rem;
+    --app-font-size-body: 1rem;
+    --app-font-size-label: 0.875rem;
+    --app-font-size-heading: 1.75rem;
+    --app-control-height: 3rem;
+    --app-card-padding: 1.125rem;
+    --app-section-gap: 2.125rem;
+    --app-dialog-width: 40rem;
+    --app-dialog-wide-width: 45rem;
+  }
+
+  .app-content-readable { max-width: 90rem; }
+  .app-content-wide { max-width: 104rem; }
+  .app-auth-panel-md { max-width: 34rem; }
+  .app-auth-panel-lg { max-width: 40rem; }
+  .app-onboarding-flow { max-width: 60rem; }
+
+  .app-shell :where(.text-xs), .app-responsive-surface :where(.text-xs) { font-size: var(--app-font-size-label, 0.875rem); line-height: 1.25rem; }
+  .app-shell :where(.text-sm), .app-responsive-surface :where(.text-sm) { font-size: var(--app-font-size-body, 1rem); line-height: 1.5rem; }
+  .app-shell :where(.text-base), .app-responsive-surface :where(.text-base) { font-size: 1.125rem; line-height: 1.75rem; }
+  .app-shell :where(.text-lg), .app-responsive-surface :where(.text-lg) { font-size: 1.25rem; line-height: 1.75rem; }
+  .app-shell :where(.text-xl), .app-responsive-surface :where(.text-xl) { font-size: 1.375rem; line-height: 1.875rem; }
+  .app-shell :where(.text-2xl), .app-responsive-surface :where(.text-2xl) { font-size: var(--app-font-size-heading, 1.75rem); line-height: 2.125rem; }
+  .app-shell :where(.text-3xl), .app-responsive-surface :where(.text-3xl) { font-size: 2.125rem; line-height: 2.5rem; }
+  .app-shell :where(.min-h-10, .h-10), .app-responsive-surface :where(.min-h-10, .h-10) { min-height: 2.75rem; height: auto; }
+  .app-shell :where(.min-h-11, .h-11), .app-responsive-surface :where(.min-h-11, .h-11) { min-height: var(--app-control-height, 3rem); height: auto; }
+  .app-shell :where(.size-11), .app-responsive-surface :where(.size-11) { width: 3rem; height: 3rem; }
+
+  .app-shell .app-product-grid {
+    grid-template-columns: repeat(auto-fill, minmax(16.5rem, 1fr));
+    gap: 1rem;
+  }
+
+  .app-shell :where(.p-4) { padding: var(--app-card-padding); }
+  .app-shell :where(input[type="checkbox"], input[type="radio"]) { min-width: 1.25rem; min-height: 1.25rem; }
 }
 
 :root {

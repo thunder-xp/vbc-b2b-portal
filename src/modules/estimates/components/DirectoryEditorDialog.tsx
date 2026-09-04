@@ -32,7 +32,7 @@ export function DirectoryEditorDialog({ children, description, onClose, title }:
     onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}
     role="dialog"
   >
-    <div className="max-h-[calc(100dvh-2rem)] w-full max-w-2xl overflow-y-auto rounded-md bg-white shadow-xl" ref={panelRef}>
+    <div className="app-dialog-wide max-h-[calc(100dvh-2rem)] w-full overflow-y-auto rounded-md bg-white shadow-xl" ref={panelRef}>
       <header className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-zinc-200 bg-white px-5 py-4">
         <div className="min-w-0"><h2 className="text-lg font-semibold text-zinc-950" id="directory-dialog-title">{title}</h2>{description ? <p className="mt-1 text-sm text-zinc-500" id="directory-dialog-description">{description}</p> : null}</div>
         <button aria-label="Закрыть" className="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-zinc-500 hover:bg-zinc-100 focus-visible:ring-2 focus-visible:ring-emerald-500" onClick={onClose} type="button"><X className="size-5" /></button>

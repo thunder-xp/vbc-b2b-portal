@@ -83,7 +83,7 @@ export function ProductDetail({
     { id: "related", label: copy.related },
   ];
   return (
-    <article className="space-y-4">
+    <article className="app-content-wide space-y-4">
       <nav
         aria-label={copy.productSections}
         className="overflow-x-auto border-b border-zinc-200"

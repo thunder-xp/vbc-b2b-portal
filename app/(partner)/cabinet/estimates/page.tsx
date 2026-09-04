@@ -58,7 +58,7 @@ export default async function EstimatesPage({
   });
 
   return (
-    <div className="space-y-5">
+    <div className="app-content-wide space-y-5">
       <BehaviorViewEvent
         dedupeKey={`estimates:${query.status ?? "all"}:${query.lifecycleStatus ?? "all"}:${query.page ?? "1"}`}
         eventName="estimates_viewed"

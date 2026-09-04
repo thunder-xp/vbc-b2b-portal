@@ -62,7 +62,7 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
   }
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6">
+    <div className="app-content-wide space-y-6">
       <BehaviorViewEvent
         dedupeKey={`orders:${result.data.filter}:${result.data.search}:${result.data.page}`}
         eventName="order_list_viewed"

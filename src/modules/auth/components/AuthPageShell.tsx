@@ -17,8 +17,8 @@ export function AuthPageShell({
   title,
 }: AuthPageShellProps) {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-zinc-50 px-6 py-12 text-zinc-950">
-      <section className={`w-full rounded-lg border border-zinc-200 bg-white p-6 shadow-sm ${maxWidth === "lg" ? "max-w-lg" : "max-w-md"}`}>
+    <main className="app-responsive-surface flex min-h-screen items-center justify-center bg-zinc-50 px-6 py-12 text-zinc-950">
+      <section className={`w-full rounded-lg border border-zinc-200 bg-white p-6 shadow-sm min-[2560px]:p-8 ${maxWidth === "lg" ? "app-auth-panel-lg" : "app-auth-panel-md"}`}>
         <Link className="text-sm font-medium text-emerald-700" href="/">
           {eyebrow}
         </Link>
@@ -32,8 +32,8 @@ export function AuthPageShell({
 
 export function AuthPageLoading() {
   return (
-    <main aria-busy="true" className="flex min-h-screen items-center justify-center bg-zinc-50 px-6 py-12">
-      <div aria-hidden="true" className="h-80 w-full max-w-md animate-pulse rounded-lg border border-zinc-200 bg-white" />
+    <main aria-busy="true" className="app-responsive-surface flex min-h-screen items-center justify-center bg-zinc-50 px-6 py-12">
+      <div aria-hidden="true" className="app-auth-panel-md h-80 w-full animate-pulse rounded-lg border border-zinc-200 bg-white" />
     </main>
   );
 }

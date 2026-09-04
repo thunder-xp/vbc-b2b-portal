@@ -48,7 +48,7 @@ export default async function CartPage() {
 
   const cart = result.data;
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
+    <div className="app-content-readable space-y-6">
       <header>
         <p className="text-xs font-semibold uppercase text-emerald-700">
           {copy.checkoutEyebrow}

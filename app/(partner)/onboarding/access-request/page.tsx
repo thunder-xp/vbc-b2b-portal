@@ -38,8 +38,8 @@ export default async function OnboardingAccessRequestPage() {
   }
 
   return (
-    <main className="min-h-screen bg-zinc-50 px-6 py-12 text-zinc-950">
-      <div className="mx-auto grid w-full max-w-3xl gap-6">
+    <main className="app-responsive-surface min-h-screen bg-zinc-50 px-6 py-12 text-zinc-950">
+      <div className="app-onboarding-flow mx-auto grid w-full gap-6">
         {!canRequestAccess && (
           <OnboardingStateCard
             message="Your profile state does not allow partner access requests."
