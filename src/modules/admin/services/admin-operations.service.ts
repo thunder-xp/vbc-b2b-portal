@@ -5,6 +5,7 @@ import { SupabaseAdminOperationsRepository } from "../repositories";
 import type {
   AdminCommercialSummary,
   AdminCommercialIntegrity,
+  AdminGovernedPriceCoverage,
   AdminStockReconciliation,
   AdminRetailHistoryAbsenceFilters,
   AdminRetailHistoryAbsencePage,
@@ -49,6 +50,10 @@ export class AdminOperationsService {
 
   getCommercialIntegrity(): Promise<AdminCommercialIntegrity> {
     return this.repository.getCommercialIntegrity();
+  }
+
+  getGovernedPriceCoverage(): Promise<AdminGovernedPriceCoverage> {
+    return this.repository.getGovernedPriceCoverage();
   }
 
   getStockReconciliation(): Promise<AdminStockReconciliation> {

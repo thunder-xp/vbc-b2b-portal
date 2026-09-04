@@ -73,6 +73,43 @@ export interface AdminCommercialIntegritySyncState {
   updatedAt: string;
 }
 
+export interface AdminGovernedPriceCoverage {
+  generatedAt: string;
+  summary: {
+    activeOrderCapableCompanies: number;
+    activeCarts: number;
+    nonEmptyActiveCarts: number;
+    totalCartLines: number;
+    linesWithProductMapping: number;
+    linesWithGovernedPrice: number;
+    missingGovernedPriceLines: number;
+    uniqueAffectedCompanies: number;
+    uniqueAffectedProducts: number;
+    activeCartsBlocked: number;
+    governedValueExposureByCurrency: readonly { currency: string; amount: number }[];
+  };
+  catalogCoverage: {
+    publishedActiveProducts: number;
+    currentlyUsedPartnerPriceTypes: number;
+    potentialProductPriceTypePairs: number;
+    observedEligiblePairs: number;
+    meaningfulBuyingContextPairs: number;
+    meaningfulMissingPairs: number;
+    theoreticalGapsTreatedAsIssues: false;
+  };
+  issues: readonly {
+    companyId: string;
+    companyName: string;
+    productId: string;
+    sku: string;
+    productName: string;
+    governedPriceType: string;
+    severity: "high" | "medium";
+    classification: "source_gap_after_complete_sync" | "unverified_projection_gap";
+    requiredAction: string;
+  }[];
+}
+
 export interface AdminStockReconciliation {
   latest: {
     syncId: string;

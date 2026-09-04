@@ -7,6 +7,7 @@ import type { AdminOperationsRepository } from "../admin-operations.repository";
 import type {
   AdminCommercialSummary,
   AdminCommercialIntegrity,
+  AdminGovernedPriceCoverage,
   AdminStockReconciliation,
   AdminRetailHistoryAbsenceFilters,
   AdminRetailHistoryAbsencePage,
@@ -66,6 +67,10 @@ export class SupabaseAdminOperationsRepository
 
   getCommercialIntegrity(): Promise<AdminCommercialIntegrity> {
     return this.call("get_admin_commercial_integrity");
+  }
+
+  getGovernedPriceCoverage(): Promise<AdminGovernedPriceCoverage> {
+    return this.call("get_admin_governed_price_coverage");
   }
 
   getStockReconciliation(): Promise<AdminStockReconciliation> {

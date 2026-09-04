@@ -65,6 +65,10 @@
       "schedule": "45 0 * * *"
     },
     {
+      "path": "/api/cron/price-coverage",
+      "schedule": "40 * * * *"
+    },
+    {
       "path": "/api/cron/commercial-opportunities",
       "schedule": "*/5 * * * *"
     },

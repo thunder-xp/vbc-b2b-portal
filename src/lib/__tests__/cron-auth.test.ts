@@ -12,6 +12,7 @@ const scheduledRoutes = [
   "app/api/cron/order-history-integrity/route.ts",
   "app/api/cron/order-history-refresh/route.ts",
   "app/api/cron/partner-notification-deadlines/route.ts",
+  "app/api/cron/price-coverage/route.ts",
   "app/api/cron/price-sync-resume/route.ts",
   "app/api/cron/price-sync-start/route.ts",
   "app/api/cron/stock-sync-resume/route.ts",

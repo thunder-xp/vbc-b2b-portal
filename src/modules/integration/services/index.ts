@@ -10,6 +10,7 @@ export { createChunkedStockSyncService } from "./chunked-stock-sync.factory";
 export { createPartnerLookupService } from "./partner-lookup.factory";
 export { createStockSyncEngine } from "./stock-sync.factory";
 export { createExchangeRateSyncService } from "./exchange-rate-sync.factory";
+export { createPriceCoverageAuditService } from "./price-coverage-audit.factory";
 export { createCatalogSynchronizationOrchestrator } from "./catalog-synchronization.factory";
 export {
   validateCommercialCurrencyContext,
