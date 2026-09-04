@@ -11,7 +11,7 @@ import { PublicRetailSearchForm } from "./PublicRetailSearchForm";
 
 export function PublicRetailShowcase({ categories, locale, showcase }: { categories: PublicRetailCategoryDto[]; locale: PublicRetailLocale; showcase: PublicRetailShowcaseDto }) {
   const copy = retailCopy[locale];
-  return <div className="mx-auto max-w-[1440px] px-4 py-8 sm:px-6 lg:px-8">
+  return <div className="public-retail-container px-4 py-8 sm:px-6 lg:px-8">
     <CatalogResultsHeader eyebrow="Novotech Retail" eyebrowTone="retail" title={copy.showcase} />
     <div className="mt-5"><CatalogToolbarFrame>
         <PublicRetailCategoryMenu categories={publicRetailVisibleCategories(categories).map((category) => ({ id: category.id, name: category.name, parentId: category.parentId, slug: category.slug }))} locale={locale} />
@@ -35,6 +35,6 @@ function ShowcaseSection({ href, locale, mode, products, title }: { href: string
       <h2 className="text-xl font-semibold" id={`showcase-${href.split("=").at(-1)}`}>{title}</h2>
       <Link className="inline-flex min-h-11 shrink-0 items-center gap-2 text-sm font-semibold text-blue-800 hover:text-blue-950" href={href}>{copy.showAll}<ArrowRight aria-hidden="true" className="size-4" /></Link>
     </div>
-    {products.length ? <CatalogProductGridFrame>{products.map((product) => <PublicRetailProductCard badge={badge.label} badgeVariant={badge.variant} key={product.id} locale={locale} product={product} />)}</CatalogProductGridFrame> : <p className="border border-dashed border-zinc-300 px-6 py-10 text-center text-sm text-zinc-600">{copy.emptyShowcase}</p>}
+    {products.length ? <CatalogProductGridFrame className="public-retail-product-grid">{products.map((product) => <PublicRetailProductCard badge={badge.label} badgeVariant={badge.variant} key={product.id} locale={locale} product={product} />)}</CatalogProductGridFrame> : <p className="border border-dashed border-zinc-300 px-6 py-10 text-center text-sm text-zinc-600">{copy.emptyShowcase}</p>}
   </section>;
 }

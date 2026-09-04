@@ -28,7 +28,7 @@ export function PublicRetailCatalog({ blogArticles = [], breadcrumbs, categories
   const collectionBadge = state.mode ? publicRetailMerchandisingBadge(locale, state.mode) : undefined;
   const visibleCategories = publicRetailVisibleCategories(categories);
   const filterableFacetKeys = new Set(facets.map((facet) => facet.key));
-  return <div className="mx-auto max-w-[1440px] px-4 py-8 sm:px-6 lg:px-8">
+  return <div className="public-retail-container px-4 py-8 sm:px-6 lg:px-8">
     {categoryContent && breadcrumbs ? <PublicBreadcrumbs items={breadcrumbs} label={locale === "ro" ? "Navigare ierarhică" : "Хлебные крошки"} /> : null}
     {categoryContent ? <div className="mt-4" data-content-source={categoryContent.source}>
       <CatalogResultsHeader action={state.mode ? undefined : <SortForm locale={locale} state={state} />} eyebrow="Novotech Retail" eyebrowTone="retail" title={pageTitle} />
@@ -52,10 +52,10 @@ export function PublicRetailCatalog({ blogArticles = [], breadcrumbs, categories
         <ShowcaseLink active={state.mode === "replenishment"} href={publicRetailMerchandisingHref(locale, "replenishment", state)} label={copy.replenishment} />
       </nav>
     </section>
-    <div className="mt-5 grid items-start gap-7 lg:grid-cols-[260px_minmax(0,1fr)]">
+    <div className="mt-5 grid items-start gap-7 lg:grid-cols-[var(--public-retail-catalog-sidebar-width)_minmax(0,1fr)]">
       <PublicCatalogFilters facets={facets} locale={locale} state={state} />
       <section aria-label={copy.products} className="min-w-0">
-        {products.items.length ? <CatalogProductGridFrame>{products.items.map((product) => <PublicRetailProductCard badge={collectionBadge?.label} badgeVariant={collectionBadge?.variant} catalogState={state} filterableFacetKeys={filterableFacetKeys} key={product.id} locale={locale} product={product} showFacetShortcuts />)}</CatalogProductGridFrame> : <EmptyCatalog message={copy.noProducts} title={pageTitle} />}
+        {products.items.length ? <CatalogProductGridFrame className="public-retail-product-grid">{products.items.map((product) => <PublicRetailProductCard badge={collectionBadge?.label} badgeVariant={collectionBadge?.variant} catalogState={state} filterableFacetKeys={filterableFacetKeys} key={product.id} locale={locale} product={product} showFacetShortcuts />)}</CatalogProductGridFrame> : <EmptyCatalog message={copy.noProducts} title={pageTitle} />}
         <Pagination locale={locale} products={products} state={state} />
       </section>
     </div>

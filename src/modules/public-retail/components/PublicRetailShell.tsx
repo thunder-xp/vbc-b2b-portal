@@ -26,7 +26,7 @@ export function PublicRetailShell({ children, locale, cartQuantity }: Props) {
 
   return <div className="public-retail min-h-screen bg-white text-zinc-950" lang={locale}>
     <header className="sticky top-0 z-50 border-b border-zinc-200 bg-white/95 backdrop-blur">
-      <div className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-8">
+      <div className="public-retail-container px-4 sm:px-6 lg:px-8">
         <div className="flex min-h-16 items-center gap-3">
           <Link className="flex min-h-12 shrink-0 items-center gap-2" href={`/?lang=${locale}`} prefetch={false}>
             <PublicBrandLockup background="light" priority />
@@ -52,7 +52,7 @@ export function PublicRetailShell({ children, locale, cartQuantity }: Props) {
     </header>
     {children}
     <footer className="border-t border-zinc-800 bg-zinc-950 text-zinc-400" id="support">
-      <div className="mx-auto grid max-w-[1440px] gap-x-7 gap-y-8 px-4 py-9 sm:grid-cols-2 sm:px-6 lg:grid-cols-3 lg:px-8 xl:grid-cols-[1.3fr_.75fr_.75fr_.85fr_1.3fr]">
+      <div className="public-retail-container grid gap-x-7 gap-y-8 px-4 py-9 sm:grid-cols-2 sm:px-6 lg:grid-cols-3 lg:px-8 xl:grid-cols-[1.3fr_.75fr_.75fr_.85fr_1.3fr]">
         <div><PublicBrandLockup background="dark" /><p className="mt-4 max-w-sm text-xs leading-5">{publicCompanyContent.slogan[locale]}</p></div>
         <FooterGroup title={catalogLabel}><FooterLink href={`/catalog?lang=${locale}&view=all`}>{catalogLabel}</FooterLink><FooterLink href={`/calculator/cctv?lang=${locale}`}>{copy.chooseSystem}</FooterLink></FooterGroup>
         <FooterGroup title={ru ? "Услуги" : "Servicii"}><FooterLink href={`/installation?lang=${locale}`}>{copy.services}</FooterLink><FooterLink href={`/?lang=${locale}#delivery`}>{copy.delivery}</FooterLink></FooterGroup>
@@ -64,7 +64,7 @@ export function PublicRetailShell({ children, locale, cartQuantity }: Props) {
           <p className="text-xs leading-5 text-zinc-400">{publicCompanyContent.hours.weekdays[locale]} · {publicCompanyContent.hours.saturday[locale]}</p>
         </FooterGroup>
       </div>
-      <div className="mx-auto max-w-[1440px] border-t border-zinc-800 px-4 py-4 text-xs text-zinc-400 sm:px-6 lg:px-8">© 2010–{new Date().getFullYear()} Novotech. {ru ? "Все права защищены." : "Toate drepturile rezervate."}</div>
+      <div className="public-retail-container border-t border-zinc-800 px-4 py-4 text-xs text-zinc-400 sm:px-6 lg:px-8">© 2010–{new Date().getFullYear()} Novotech. {ru ? "Все права защищены." : "Toate drepturile rezervate."}</div>
     </footer>
   </div>;
 }

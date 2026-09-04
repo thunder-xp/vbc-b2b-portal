@@ -43,9 +43,28 @@ body {
   --retail-border: #d4d4d8;
   --retail-muted: #71717a;
   --retail-focus: #1769c2;
+  --public-retail-shell-max-width: 90rem;
+  --public-retail-catalog-sidebar-width: 16.25rem;
+  --public-retail-product-grid-gap: 0.75rem;
+}
+
+.public-retail-container {
+  width: 100%;
+  max-width: var(--public-retail-shell-max-width);
+  margin-inline: auto;
+}
+
+.public-retail-product-grid {
+  gap: var(--public-retail-product-grid-gap);
 }
 
 .public-retail :where(a, button, input, summary):focus-visible {
   outline: 2px solid var(--retail-focus);
   outline-offset: 2px;
+}
+
+@media (min-width: 120rem) {
+  .public-retail .public-retail-product-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
 }
