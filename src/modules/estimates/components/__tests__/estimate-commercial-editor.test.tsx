@@ -125,7 +125,7 @@ describe("EstimateCommercialEditor", () => {
     vi.mocked(saveEstimateCommercialAction).mockResolvedValue({ success: true, data: { ...detail, revision: 4 }, message: "Saved", errorCode: null });
     renderEditor();
 
-    const price = screen.getByRole("spinbutton", { name: "Цена" });
+    const price = screen.getByRole("spinbutton", { name: "Цена клиенту" });
     await user.clear(price);
     await user.type(price, "101");
     const save = screen.getByRole("button", { name: "Сохранить" });
@@ -149,6 +149,32 @@ describe("EstimateCommercialEditor", () => {
     const summary = screen.getByRole("heading", { name: "Коммерческий расчёт" }).closest("aside");
     expect(summary).not.toBeNull();
     expect(within(summary!).getByText(/27,10/)).toBeInTheDocument();
+  });
+
+  it("exposes every governed action in a viewport-bounded mobile sheet", async () => {
+    const user = userEvent.setup();
+    renderEditor();
+
+    await user.click(screen.getByTestId("estimate-mobile-actions-trigger"));
+
+    const sheet = screen.getByTestId("estimate-mobile-action-sheet");
+    expect(sheet).toHaveAttribute("role", "dialog");
+    expect(sheet).toHaveStyle({
+      maxHeight: "calc(100dvh - max(1rem, env(safe-area-inset-top)))",
+      paddingBottom: "max(1rem, env(safe-area-inset-bottom))",
+    });
+    for (const name of [
+      "Отменить изменения",
+      "Проверить розничные цены",
+      "Предпросмотр КП",
+      "PDF и отправка",
+      "Дублировать смету",
+      "Архивировать",
+    ]) {
+      expect(within(sheet).getByRole(/Предпросмотр|PDF/.test(name) ? "link" : "button", { name })).toBeInTheDocument();
+    }
+    await user.click(within(sheet).getByRole("button", { name: "Закрыть действия" }));
+    expect(screen.queryByTestId("estimate-mobile-action-sheet")).not.toBeInTheDocument();
   });
 
   it("renders exactly the four governed sections without structural controls", () => {

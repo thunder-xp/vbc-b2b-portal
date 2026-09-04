@@ -5,11 +5,14 @@ import {
   ChevronDown,
   ChevronRight,
   Copy,
+  Eye,
+  FileText,
   MoreHorizontal,
   Plus,
   RotateCcw,
   Save,
   Trash2,
+  X,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -130,6 +133,8 @@ export function EstimateCommercialEditor({
     useState<EstimateCommercialCheckDto | null>(null);
   const [checkedLineIds, setCheckedLineIds] = useState<Set<string>>(new Set());
   const [dirty, setDirty] = useState(false);
+  const [saveState, setSaveState] = useState<"saved" | "dirty" | "saving" | "error">("saved");
+  const [mobileActionsOpen, setMobileActionsOpen] = useState(false);
   const [pickerMode, setPickerMode] = useState<EstimateLinePickerMode | null>(
     () =>
       initialEstimate.status === "draft" && initialEstimate.lines.length === 0
@@ -262,12 +267,14 @@ export function EstimateCommercialEditor({
   const update = (next: (current: Draft) => Draft) => {
     setDraft(next);
     setDirty(true);
+    setSaveState("dirty");
     setMessage(null);
   };
   const acceptServer = (next: EstimateDetailDto, nextMessage: string) => {
     setEstimate(next);
     setDraft(toDraft(next));
     setDirty(false);
+    setSaveState("saved");
     setMessage(nextMessage);
     setTargetSectionId((current) =>
       next.sections.some((section) => section.id === current)
@@ -322,7 +329,15 @@ export function EstimateCommercialEditor({
         sortOrder,
       })),
     };
-    mutate(() => saveEstimateCommercialAction(estimate.id, payload));
+    setSaveState("saving");
+    startTransition(async () => {
+      const result = await saveEstimateCommercialAction(estimate.id, payload);
+      if (result.success) acceptServer(result.data, result.message);
+      else {
+        setMessage(result.message);
+        setSaveState("error");
+      }
+    });
   };
   const checkCommercialState = () =>
     startCheck(async () => {
@@ -366,10 +381,128 @@ export function EstimateCommercialEditor({
       }),
     [draft, preview.value],
   );
+  const equipmentSectionId = canonicalTargetSectionId(
+    draft.sections,
+    "equipment",
+  );
+  const latestProposal = workflow.versions[0] ?? null;
+  const proposalPreviewHref = latestProposal
+    ? `/cabinet/estimates/${workflow.estimateId}/versions/${latestProposal.id}/preview`
+    : `/cabinet/estimates/${workflow.estimateId}/preview`;
+
+  useEffect(() => {
+    if (!mobileActionsOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMobileActionsOpen(false);
+    };
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [mobileActionsOpen]);
+
+  const undoChanges = () => {
+    setDraft(toDraft(estimate));
+    setDirty(false);
+    setSaveState("saved");
+    setMobileActionsOpen(false);
+  };
+  const duplicateEstimate = () =>
+    startTransition(async () => {
+      const result = await duplicateEstimateAction(estimate.id);
+      setMessage(result.message);
+      if (result.success)
+        router.push(`/cabinet/estimates/${result.data.estimateId}`);
+    });
+  const archiveEstimate = () =>
+    startTransition(async () => {
+      const result = await archiveEstimateAction(
+        estimate.id,
+        estimate.revision,
+      );
+      setMessage(result.message);
+      if (result.success) router.push("/cabinet/estimates");
+    });
+  const secondaryActions = (mobile = false) => (
+    <>
+      <button
+        className={`${buttonClass} justify-start border-0 ${mobile ? "w-full" : ""}`}
+        disabled={!dirty || pending || !isDraft}
+        onClick={undoChanges}
+        type="button"
+      >
+        <RotateCcw className="size-4" />
+        {copy.undoChanges}
+      </button>
+      <button
+        className={`${buttonClass} justify-start border-0 ${mobile ? "w-full" : ""}`}
+        disabled={checking || !isDraft || dirty}
+        onClick={() => {
+          setMobileActionsOpen(false);
+          checkCommercialState();
+        }}
+        type="button"
+      >
+        <RotateCcw className={`size-4 ${checking ? "animate-spin" : ""}`} />
+        {checking ? copy.checking : copy.checkPrices}
+      </button>
+      {mobile ? (
+        <>
+          <Link
+            className={`${buttonClass} w-full justify-start border-0`}
+            href={proposalPreviewHref}
+            onClick={() => setMobileActionsOpen(false)}
+            prefetch={false}
+          >
+            <Eye className="size-4" />
+            {copy.proposalPreview}
+          </Link>
+          <a
+            className={`${buttonClass} w-full justify-start border-0`}
+            href="#estimate-proposal-actions"
+            onClick={() => setMobileActionsOpen(false)}
+          >
+            <FileText className="size-4" />
+            {copy.proposalOutputActions}
+          </a>
+        </>
+      ) : null}
+      <button
+        className={`${buttonClass} justify-start border-0 ${mobile ? "w-full" : ""}`}
+        disabled={pending || dirty}
+        onClick={duplicateEstimate}
+        type="button"
+      >
+        <Copy className="size-4" />
+        {copy.duplicate}
+      </button>
+      {isDraft ? (
+        <button
+          className={`${buttonClass} justify-start border-0 text-red-700 ${mobile ? "mt-2 w-full border-t border-zinc-200 pt-3" : ""}`}
+          disabled={pending || dirty}
+          onClick={archiveEstimate}
+          type="button"
+        >
+          <Archive className="size-4" />
+          {copy.archiveAction}
+        </button>
+      ) : null}
+    </>
+  );
+  const saveLabel = saveState === "saving"
+    ? copy.saving
+    : saveState === "error"
+      ? copy.saveError
+    : !dirty && saveState === "saved"
+      ? copy.saved
+      : copy.save;
 
   return (
     <div
-      className="min-w-0 space-y-5"
+      className="min-w-0 space-y-4 pb-24 xl:space-y-5 xl:pb-0"
       data-testid="estimate-workspace"
       onKeyDown={(event) => {
         if (
@@ -381,8 +514,8 @@ export function EstimateCommercialEditor({
         }
       }}
     >
-      <header className="sticky top-0 z-20 -mx-4 border-b border-zinc-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur lg:-mx-8 lg:px-8">
-        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+      <header className="sticky top-0 z-20 -mx-4 border-b border-zinc-200 bg-white/95 px-4 py-2 shadow-sm backdrop-blur lg:-mx-8 lg:px-8 xl:py-3">
+        <div className="flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between xl:gap-3">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <Link
@@ -415,7 +548,7 @@ export function EstimateCommercialEditor({
             >
               {draft.name || copy.unnamed}
             </h1>
-            <dl className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-600">
+            <dl className="mt-1 hidden flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-600 sm:flex">
               <Meta
                 label={copy.customer}
                 value={draft.customerName ?? copy.notSelected}
@@ -434,74 +567,14 @@ export function EstimateCommercialEditor({
               />
             </dl>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="hidden flex-wrap items-center gap-2 xl:flex">
             <details className="relative">
               <summary className={`${buttonClass} cursor-pointer list-none`}>
                 <MoreHorizontal className="size-4" />
                 {copy.actionsMenu}
               </summary>
               <div className="absolute right-0 z-30 mt-2 grid w-72 gap-1 rounded-md border border-zinc-200 bg-white p-2 shadow-lg">
-                <button
-                  className={`${buttonClass} justify-start border-0`}
-                  disabled={!dirty || pending || !isDraft}
-                  onClick={() => {
-                    setDraft(toDraft(estimate));
-                    setDirty(false);
-                  }}
-                  type="button"
-                >
-                  <RotateCcw className="size-4" />
-                  {copy.undoChanges}
-                </button>
-                <button
-                  className={`${buttonClass} justify-start border-0`}
-                  disabled={checking || !isDraft || dirty}
-                  onClick={checkCommercialState}
-                  type="button"
-                >
-                  <RotateCcw
-                    className={`size-4 ${checking ? "animate-spin" : ""}`}
-                  />
-                  {checking ? copy.checking : copy.checkPrices}
-                </button>
-                <button
-                  className={`${buttonClass} justify-start border-0`}
-                  disabled={pending || dirty}
-                  onClick={() =>
-                    startTransition(async () => {
-                      const result = await duplicateEstimateAction(estimate.id);
-                      setMessage(result.message);
-                      if (result.success)
-                        router.push(
-                          `/cabinet/estimates/${result.data.estimateId}`,
-                        );
-                    })
-                  }
-                  type="button"
-                >
-                  <Copy className="size-4" />
-                  {copy.duplicate}
-                </button>
-                {isDraft ? (
-                  <button
-                    className={`${buttonClass} justify-start border-0 text-red-700`}
-                    disabled={pending || dirty}
-                    onClick={() =>
-                      startTransition(async () => {
-                        const result = await archiveEstimateAction(
-                          estimate.id,
-                          estimate.revision,
-                        );
-                        setMessage(result.message);
-                        if (result.success) router.push("/cabinet/estimates");
-                      })
-                    }
-                    type="button"
-                  >
-                    <Archive className="size-4" />
-                    {copy.archiveAction}
-                  </button>
-                ) : null}
+                {secondaryActions()}
               </div>
             </details>
             <button
@@ -513,7 +586,7 @@ export function EstimateCommercialEditor({
               type="button"
             >
               <Save className="size-4" />
-              {pending ? copy.saving : copy.save}
+              {saveLabel}
             </button>
           </div>
         </div>
@@ -866,7 +939,7 @@ export function EstimateCommercialEditor({
                                   <Field
                                     label={
                                       line.pricingMode === "direct"
-                                        ? copy.price
+                                        ? copy.customerSellingPrice
                                         : line.pricingMode === "markup"
                                           ? copy.markup
                                           : copy.margin
@@ -887,6 +960,12 @@ export function EstimateCommercialEditor({
                                       }
                                       value={line.pricingInputValue}
                                     />
+                                    {line.lineType === "product" &&
+                                    line.sourcePrice ? (
+                                      <span aria-hidden="true" className="mt-1 block text-[11px] font-normal text-zinc-500">
+                                        {copy.partnerNovotechPrice}: {line.sourcePrice}
+                                      </span>
+                                    ) : null}
                                   </Field>
                                   <Field
                                     label={copy.lineDiscount}
@@ -958,21 +1037,26 @@ export function EstimateCommercialEditor({
                           );
                         })
                       ) : (
-                        <p className="p-5 text-sm text-zinc-500">
+                        <p className="hidden px-3 py-2 text-sm text-zinc-500 sm:block">
                           {copy.emptySection}
                         </p>
                       )}
                     </div>
-                    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-zinc-200 px-3 py-2">
+                    <div className={`flex flex-wrap items-center justify-between gap-2 border-t border-zinc-200 px-3 ${sectionLines.length ? "py-2" : "py-1"}`}>
                       <span className="text-xs text-zinc-500">
-                        {copy.subtotal}{" "}
-                        {localizedSectionName.toLocaleLowerCase()}:{" "}
-                        <strong className="text-zinc-800">
-                          {money(section.total, draft.currencyCode, locale)}
-                        </strong>
+                        {sectionLines.length ? (
+                          <>
+                            {copy.subtotal}{" "}
+                            {localizedSectionName.toLocaleLowerCase()}:{" "}
+                            <strong className="text-zinc-800">
+                              {money(section.total, draft.currencyCode, locale)}
+                            </strong>
+                          </>
+                        ) : copy.emptySection}
                       </span>
                       {isDraft ? (
                         <button
+                          aria-label={sectionAddLabel(canonical.key, copy)}
                           className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-emerald-700 outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-45"
                           disabled={dirty || !section.targetSectionId}
                           onClick={() =>
@@ -985,7 +1069,10 @@ export function EstimateCommercialEditor({
                           type="button"
                         >
                           <Plus className="size-4" />
-                          {sectionAddLabel(canonical.key, copy)}
+                          <span className="sm:hidden">{copy.add}</span>
+                          <span className="hidden sm:inline">
+                            {sectionAddLabel(canonical.key, copy)}
+                          </span>
                         </button>
                       ) : null}
                     </div>
@@ -1040,6 +1127,88 @@ export function EstimateCommercialEditor({
           />
         </aside>
       </div>
+      <div
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-zinc-200 bg-white/95 px-3 pt-2 shadow-[0_-4px_16px_rgba(0,0,0,0.08)] backdrop-blur xl:hidden"
+        data-testid="estimate-mobile-action-bar"
+        style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}
+      >
+        <div className="mx-auto grid max-w-lg grid-cols-[minmax(0,1fr)_minmax(0,1fr)_3rem] gap-2">
+          <button
+            aria-label={copy.mobileAddProduct}
+            className={buttonClass}
+            disabled={!isDraft || dirty || !equipmentSectionId}
+            onClick={() =>
+              equipmentSectionId &&
+              openPickerForSection(equipmentSectionId, "product")
+            }
+            type="button"
+          >
+            <Plus className="size-4" />
+            {copy.add}
+          </button>
+          <button
+            aria-keyshortcuts="Control+S Meta+S"
+            aria-label={copy.mobileSave}
+            className="inline-flex min-h-11 min-w-0 items-center justify-center gap-2 rounded-md bg-emerald-700 px-2 text-sm font-semibold text-white disabled:bg-zinc-200 disabled:text-zinc-600"
+            disabled={!dirty || pending || !isDraft || !preview.value}
+            onClick={save}
+            type="button"
+          >
+            <Save className="size-4 shrink-0" />
+            <span className="truncate">{saveLabel}</span>
+          </button>
+          <button
+            aria-label={copy.actionsMenu}
+            className={buttonClass}
+            data-testid="estimate-mobile-actions-trigger"
+            onClick={() => setMobileActionsOpen(true)}
+            type="button"
+          >
+            <MoreHorizontal className="size-5" />
+          </button>
+        </div>
+      </div>
+      {mobileActionsOpen ? (
+        <div
+          className="fixed inset-0 z-50 flex items-end bg-black/45 xl:hidden"
+          data-testid="estimate-mobile-action-overlay"
+          onMouseDown={(event) => {
+            if (event.currentTarget === event.target) setMobileActionsOpen(false);
+          }}
+          role="presentation"
+        >
+          <section
+            aria-labelledby="estimate-mobile-actions-title"
+            aria-modal="true"
+            className="w-full overflow-y-auto rounded-t-2xl bg-white px-4 pt-3 shadow-2xl"
+            data-testid="estimate-mobile-action-sheet"
+            role="dialog"
+            style={{
+              maxHeight: "calc(100dvh - max(1rem, env(safe-area-inset-top)))",
+              paddingBottom: "max(1rem, env(safe-area-inset-bottom))",
+            }}
+          >
+            <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-zinc-300" />
+            <header className="flex min-h-11 items-center justify-between gap-3 border-b border-zinc-200">
+              <h2 className="text-base font-semibold" id="estimate-mobile-actions-title">
+                {copy.actionsMenu}
+              </h2>
+              <button
+                aria-label={copy.closeActions}
+                autoFocus
+                className="inline-flex size-11 items-center justify-center rounded-md text-zinc-600 focus-visible:ring-2 focus-visible:ring-emerald-500"
+                onClick={() => setMobileActionsOpen(false)}
+                type="button"
+              >
+                <X className="size-5" />
+              </button>
+            </header>
+            <div className="grid gap-1 py-2">
+              {secondaryActions(true)}
+            </div>
+          </section>
+        </div>
+      ) : null}
       {currencyChoice && (
         <CurrencyDialog
           affectedLines={draft.lines.length}
