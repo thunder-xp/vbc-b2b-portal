@@ -3,6 +3,11 @@ import "server-only";
 import { createAdminClient } from "@/src/lib/supabase/admin";
 import { createClient } from "@/src/lib/supabase/server";
 import { resolveProductImageFit } from "@/src/modules/catalog/components/product-image-source";
+import {
+  isCatalogPartnerPageRow,
+  mapCatalogPartnerPageRow,
+  type CatalogPartnerPageRow,
+} from "@/src/modules/catalog/repositories/supabase/catalog-partner-page.contract";
 import type { PartnerDocumentListItem } from "@/src/modules/documents/types";
 
 import type { SalesOrderHistoryDTO } from "../../../integration/dto";
@@ -26,6 +31,46 @@ const SYNC_COLUMNS = "company_id, counterparty_ref, status, sync_mode, active_sy
 type Row = Record<string, unknown>;
 
 export class SupabasePartnerOrderHistoryRepository implements PartnerOrderHistoryRepository {
+  async listPreviouslyPurchasedProducts(input: {
+    companyId: string;
+    limit: number;
+    offset: number;
+  }) {
+    const startedAt = performance.now();
+    const { data, error } = await (await createClient()).rpc(
+      "get_partner_previously_purchased_products_v1",
+      {
+        p_company_id: input.companyId,
+        p_limit: input.limit,
+        p_offset: input.offset,
+      },
+    );
+    if (error || !isRecord(data) || !Array.isArray(data.items)) {
+      throw new OrderHistoryRepositoryError();
+    }
+
+    const items = data.items.map((value) => {
+      if (!isPreviouslyPurchasedRow(value)) throw new OrderHistoryRepositoryError();
+      return {
+        product: mapCatalogPartnerPageRow(value),
+        purchaseCount: value.purchase_count,
+        totalQuantity: value.total_quantity,
+        lastPurchasedAt: value.last_purchased_at,
+        lastQuantity: value.last_quantity,
+        repeatPurchaseDue: value.repeat_purchase_due,
+      };
+    });
+    const totalCount = numberValue(data.totalCount);
+    console.info(JSON.stringify({
+      event: "partner_previously_purchased_products_loaded",
+      durationMs: Math.round((performance.now() - startedAt) * 100) / 100,
+      itemCount: items.length,
+      totalCount,
+      databaseCallCount: 1,
+    }));
+    return { items, totalCount };
+  }
+
   async getDetailAggregate(orderId: string) {
     const startedAt = performance.now();
     const { data, error } = await (await createClient()).rpc(
@@ -511,3 +556,24 @@ function numberValue(value: unknown): number { const number = Number(value); ret
 function nullableNumber(value: unknown): number | null { return value === null || value === undefined ? null : numberValue(value); }
 function isRecord(value: unknown): value is Record<string, unknown> { return typeof value === "object" && value !== null && !Array.isArray(value); }
 function records(value: unknown): Row[] { return Array.isArray(value) ? value.filter(isRecord) : []; }
+
+type PreviouslyPurchasedRow = CatalogPartnerPageRow & {
+  purchase_count: number;
+  total_quantity: number;
+  last_purchased_at: string;
+  last_quantity: number;
+  repeat_purchase_due: boolean;
+};
+
+function isPreviouslyPurchasedRow(value: unknown): value is PreviouslyPurchasedRow {
+  if (!isCatalogPartnerPageRow(value) || !isRecord(value)) return false;
+  const row = value as Record<string, unknown>;
+  return typeof row.purchase_count === "number"
+    && Number.isFinite(row.purchase_count)
+    && typeof row.total_quantity === "number"
+    && Number.isFinite(row.total_quantity)
+    && typeof row.last_purchased_at === "string"
+    && typeof row.last_quantity === "number"
+    && Number.isFinite(row.last_quantity)
+    && typeof row.repeat_purchase_due === "boolean";
+}

@@ -484,6 +484,56 @@ describe("DefaultPartnerOrderHistoryService", () => {
     const provider = orderProvider().mockResolvedValueOnce(historyPage([], null));
     await expect(service(repository, provider).syncOwnCompany("user-1", "full")).resolves.toMatchObject({ received: 0 });
   });
+
+  it("projects a bounded previously-purchased page with current commercial truth", async () => {
+    const listPreviouslyPurchasedProducts = vi.fn().mockResolvedValue({
+      items: [{
+        product: {
+          id: "product-1",
+          sku: "400540",
+          name: "Camera",
+          slug: "camera",
+          imageUrl: null,
+          brand: null,
+          category: { id: "category-1", parentId: null, name: "Video", slug: "video" },
+          keyCharacteristics: [],
+          merchandisingLabels: [],
+          commercialSnapshot: {
+            productId: "product-1",
+            canViewStock: true,
+            partnerPrice: { priceAmount: 50.6, currency: "USD", currencyStatus: "resolved", updatedAt: "2026-09-05T10:00:00Z" },
+            msrpPrice: null,
+            stock: { productId: "product-1", physicalQuantity: 10, reservedQuantity: 2, availableQuantity: 8, incomingQuantity: 0, hasVariantStock: false, syncedAt: "2026-09-05T10:00:00Z" },
+            supplierArrival: null,
+            partnerRate: null,
+            retailRate: null,
+          },
+        },
+        purchaseCount: 4,
+        totalQuantity: 12,
+        lastPurchasedAt: "2026-08-12T10:00:00Z",
+        lastQuantity: 3,
+        repeatPurchaseDue: true,
+      }],
+      totalCount: 1,
+    });
+    const repository = { ...historyRepository([]), listPreviouslyPurchasedProducts };
+
+    const result = await service(repository).listPreviouslyPurchasedProducts("user-1", { limit: 5, offset: 0 });
+
+    expect(listPreviouslyPurchasedProducts).toHaveBeenCalledWith({ companyId: COMPANY_ID, limit: 5, offset: 0 });
+    expect(result.items[0]).toMatchObject({
+      id: "product-1",
+      categoryName: "Video",
+      purchaseCount: 4,
+      repeatPurchaseDue: true,
+      commercialView: {
+        partnerPrice: { amount: 50.6, currencyCode: "USD" },
+        stock: { status: "in_stock", exactAvailableQuantity: 8 },
+      },
+    });
+    expect(JSON.stringify(result)).not.toContain("retailPrice");
+  });
 });
 
 function service(

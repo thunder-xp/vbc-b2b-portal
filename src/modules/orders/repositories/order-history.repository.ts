@@ -1,5 +1,6 @@
 import type { SalesOrderHistoryDTO } from "../../integration/dto";
 import type { ProductReferenceDto } from "../../catalog/types";
+import type { CatalogPartnerPageRecord } from "../../catalog/repositories/catalog.repository";
 import type { PartnerDocumentListItem } from "../../documents/types";
 import type {
   PartnerOrderHistory,
@@ -54,6 +55,20 @@ export type PartnerOrderHistoryIdentity = {
   portalOrderId: string | null;
 };
 
+export type PreviouslyPurchasedProductRecord = {
+  product: CatalogPartnerPageRecord;
+  purchaseCount: number;
+  totalQuantity: number;
+  lastPurchasedAt: string;
+  lastQuantity: number;
+  repeatPurchaseDue: boolean;
+};
+
+export type PreviouslyPurchasedProductPage = {
+  items: PreviouslyPurchasedProductRecord[];
+  totalCount: number;
+};
+
 export type PartnerOrderHistoryDetailAggregate = {
   order: PartnerOrderHistory;
   companyName: string;
@@ -78,6 +93,11 @@ export type PartnerOrderHistoryDetailAggregate = {
 };
 
 export interface PartnerOrderHistoryRepository {
+  listPreviouslyPurchasedProducts?(input: {
+    companyId: string;
+    limit: number;
+    offset: number;
+  }): Promise<PreviouslyPurchasedProductPage>;
   getReorderSource(orderId: string): Promise<OrderReorderSource | null>;
   getDetailAggregate?(
     orderId: string,
