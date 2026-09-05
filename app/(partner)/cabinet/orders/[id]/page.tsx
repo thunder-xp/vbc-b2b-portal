@@ -105,17 +105,12 @@ export default async function OrderDetailPage({
         <div className="mt-5 flex flex-wrap gap-2">
           <Link
             className="rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800"
-            href={`/cabinet/orders/${order.id}/reorder`}
+            href={order.posted && order.statusCode === "completed"
+              ? `/cabinet/quick-order?repeatOrder=${encodeURIComponent(order.id)}`
+              : `/cabinet/orders/${order.id}/reorder`}
             prefetch={false}
           >
             {copy.buyAgain}
-          </Link>
-          <Link
-            className="rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-800 hover:bg-zinc-50"
-            href={`/cabinet/orders/${order.id}/reorder`}
-            prefetch={false}
-          >
-            {copy.selectItems}
           </Link>
           <SaveAsPurchasingListButton orderId={order.id} source="order" />
           <SaveAsPurchaseTemplateButton

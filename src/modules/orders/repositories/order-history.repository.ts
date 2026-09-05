@@ -69,6 +69,14 @@ export type PreviouslyPurchasedProductPage = {
   totalCount: number;
 };
 
+export type RepeatOrderSummaryRecord = {
+  id: string;
+  orderNumber: string | null;
+  documentDate: string;
+  positionCount: number;
+  totalUnitCount: number;
+};
+
 export type PartnerOrderHistoryDetailAggregate = {
   order: PartnerOrderHistory;
   companyName: string;
@@ -93,6 +101,11 @@ export type PartnerOrderHistoryDetailAggregate = {
 };
 
 export interface PartnerOrderHistoryRepository {
+  listRecentRepeatableOrders?(input: {
+    companyId: string;
+    limit: number;
+  }): Promise<RepeatOrderSummaryRecord[]>;
+  getRepeatOrderSelectionSource?(orderId: string): Promise<OrderReorderSource | null>;
   listPreviouslyPurchasedProducts?(input: {
     companyId: string;
     limit: number;

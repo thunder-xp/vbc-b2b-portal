@@ -147,6 +147,29 @@ describe("partner order history pages", () => {
     expect(screen.getByRole("link", { name: "Купить снова" })).toHaveAttribute("href", `/cabinet/orders/${summary.id}/reorder`);
   });
 
+  it("opens the shared Live Commerce Selection flow from an eligible completed order", async () => {
+    mocks.get.mockResolvedValue({
+      success: true,
+      data: {
+        ...summary,
+        statusCode: "completed",
+        companyName: "ALERT-SS SRL",
+        originLabel: null,
+        lines: [],
+        timeline: [],
+        portalSnapshot: null,
+        documents: [],
+      },
+    });
+
+    render(await OrderDetailPage({ params: Promise.resolve({ id: summary.id }) }));
+
+    expect(screen.getByRole("link", { name: "Купить снова" })).toHaveAttribute(
+      "href",
+      `/cabinet/quick-order?repeatOrder=${summary.id}`,
+    );
+  });
+
   it("returns safe not-found behavior for an inaccessible deleted order", async () => {
     mocks.get.mockResolvedValue({ success: false, data: null, errorCode: "NOT_FOUND", message: "" });
     mocks.notFound.mockImplementation(() => { throw new Error("NEXT_NOT_FOUND"); });

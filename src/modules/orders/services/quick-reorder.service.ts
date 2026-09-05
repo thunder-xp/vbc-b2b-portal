@@ -4,6 +4,11 @@ import Decimal from "decimal.js";
 import type { CompanyAccessService, PermissionService } from "../../access-control/services";
 import { InvalidStateError, NotFoundError } from "../../access-control/services";
 import { MembershipStatus } from "../../access-control/types";
+import {
+  toLiveCommerceSelectionProduct,
+  type LiveCommerceSelectionAddDetail,
+  type LiveCommerceSelectionProduct,
+} from "../../catalog/services/live-commerce-selection";
 import { isStale } from "../../integration/freshness";
 import type { ProductCommercialViewDto, PricingInventoryService } from "../../pricing-inventory/services";
 import type { CartRepository, PartnerOrderHistoryRepository } from "../repositories";
@@ -59,6 +64,47 @@ export type QuickReorderPriceDifferenceDto = {
   formattedPercentageDifference: string | null;
 };
 
+export type RepeatOrderSummaryDto = {
+  id: string;
+  orderLabel: string;
+  documentDate: string;
+  productCount: number;
+  unitCount: number;
+};
+
+export type RepeatOrderSelectionStatus =
+  | "READY"
+  | "PRICE_UNAVAILABLE"
+  | "PRODUCT_INACTIVE"
+  | "UNAVAILABLE";
+
+export type RepeatOrderSelectionLineDto = {
+  lineId: string;
+  productId: string | null;
+  productName: string;
+  sku: string;
+  imageUrl: string | null;
+  historicalQuantity: number;
+  status: RepeatOrderSelectionStatus;
+  currentPrice: string | null;
+  currentStock: number | null;
+  product: LiveCommerceSelectionProduct | null;
+};
+
+export type RepeatOrderSelectionPreviewDto = {
+  orderId: string;
+  orderLabel: string;
+  lines: RepeatOrderSelectionLineDto[];
+  readyCount: number;
+  attentionCount: number;
+};
+
+export type RepeatOrderSelectionBatchDto = {
+  items: LiveCommerceSelectionAddDetail[];
+  readyCount: number;
+  attentionCount: number;
+};
+
 export type QuickReorderSelectionInput = { lineId: string; quantity: number };
 export type QuickReorderConversionItemDto = {
   lineId: string;
@@ -97,8 +143,52 @@ export class QuickReorderService {
     private readonly cartRepository?: CartRepository,
   ) {}
 
+  async listRecentRepeatableOrders(userId: string, limit = 3): Promise<RepeatOrderSummaryDto[]> {
+    const companyId = await this.resolveCompany(userId, ["orders.view", "catalog.view"]);
+    if (!this.historyRepository.listRecentRepeatableOrders) {
+      throw new InvalidStateError("Repeat order selection is unavailable.");
+    }
+    const boundedLimit = Number.isInteger(limit) && limit >= 1 && limit <= 5 ? limit : 3;
+    const records = await measureQuickReorderStage("selection_summaries", () =>
+      this.historyRepository.listRecentRepeatableOrders!({ companyId, limit: boundedLimit }),
+    );
+    return records.map((record) => ({
+      id: record.id,
+      orderLabel: record.orderNumber ? `№ ${record.orderNumber}` : "Заказ из истории",
+      documentDate: record.documentDate,
+      productCount: record.positionCount,
+      unitCount: record.totalUnitCount,
+    }));
+  }
+
+  async previewForSelection(userId: string, orderId: string): Promise<RepeatOrderSelectionPreviewDto> {
+    return this.loadRepeatOrderSelection(userId, orderId, false);
+  }
+
+  async prepareSelection(userId: string, input: {
+    orderId: string;
+    lines: QuickReorderSelectionInput[];
+  }): Promise<RepeatOrderSelectionBatchDto> {
+    const selected = normalizeSelection(input.lines);
+    if (selected.length > 50) throw new InvalidStateError("Select no more than 50 order lines.");
+    const preview = await this.loadRepeatOrderSelection(userId, input.orderId, true);
+    const byLineId = new Map(preview.lines.map((line) => [line.lineId, line]));
+    if (selected.some((line) => !byLineId.has(line.lineId))) {
+      throw new NotFoundError("Order line was not found.");
+    }
+    const items = selected.flatMap(({ lineId, quantity }) => {
+      const line = byLineId.get(lineId)!;
+      return line.status === "READY" && line.product ? [{ product: line.product, quantity }] : [];
+    });
+    return {
+      items,
+      readyCount: items.length,
+      attentionCount: selected.length - items.length,
+    };
+  }
+
   async preview(userId: string, orderId: string): Promise<QuickReorderPreviewDto> {
-    const companyId = await this.resolveCompany(userId);
+    const companyId = await this.resolveCompany(userId, ["orders.view", "cart.manage"]);
     const source = await measureQuickReorderStage("preview_source", () => this.historyRepository.getReorderSource(requirePortalUuid(orderId)));
     if (!source || source.companyId !== companyId) throw new NotFoundError("Order was not found.");
 
@@ -141,7 +231,7 @@ export class QuickReorderService {
     lines: QuickReorderSelectionInput[];
   }): Promise<QuickReorderConversionResultDto> {
     if (!this.cartRepository) throw new InvalidStateError("Quick reorder is unavailable.");
-    const companyId = await this.resolveCompany(userId);
+    const companyId = await this.resolveCompany(userId, ["orders.view", "cart.manage"]);
     const source = await measureQuickReorderStage("conversion_source", () => this.historyRepository.getReorderSource(requirePortalUuid(input.orderId)));
     if (!source || source.companyId !== companyId) throw new NotFoundError("Order was not found.");
     const requestKey = requirePortalUuid(input.requestKey);
@@ -228,16 +318,100 @@ export class QuickReorderService {
     };
   }
 
-  private async resolveCompany(userId: string): Promise<string> {
+  private async loadRepeatOrderSelection(
+    userId: string,
+    orderId: string,
+    authoritative: boolean,
+  ): Promise<RepeatOrderSelectionPreviewDto> {
+    const companyId = await this.resolveCompany(userId, ["orders.view", "catalog.view"]);
+    if (!this.historyRepository.getRepeatOrderSelectionSource) {
+      throw new InvalidStateError("Repeat order selection is unavailable.");
+    }
+    const source = await measureQuickReorderStage("selection_source", () =>
+      this.historyRepository.getRepeatOrderSelectionSource!(requirePortalUuid(orderId)),
+    );
+    if (!source || source.companyId !== companyId) throw new NotFoundError("Order was not found.");
+    const productIds = [...new Set(source.lines.flatMap((line) => line.productId ? [line.productId] : []))];
+    const commercialViews = await measureQuickReorderStage("selection_commercial", () =>
+      authoritative && this.pricingInventoryService.getAuthoritativeProductCommercialViews
+        ? this.pricingInventoryService.getAuthoritativeProductCommercialViews(userId, productIds)
+        : this.pricingInventoryService.getProductCommercialViews(userId, productIds),
+    );
+    const commercialByProduct = new Map(commercialViews.map((view) => [view.productId, view]));
+    const lines = source.lines.map((line) => toRepeatSelectionLine(
+      line,
+      commercialByProduct.get(line.productId ?? ""),
+    ));
+    const readyCount = lines.filter((line) => line.status === "READY").length;
+    return {
+      orderId: source.orderId,
+      orderLabel: source.orderNumber ? `№ ${source.orderNumber}` : "Заказ из истории",
+      lines,
+      readyCount,
+      attentionCount: lines.length - readyCount,
+    };
+  }
+
+  private async resolveCompany(userId: string, permissions: string[]): Promise<string> {
     const memberships = await this.companyAccessService.getOwnMemberships(userId);
     const membership = memberships.find((item) => item.status === MembershipStatus.Active);
     const context = await this.companyAccessService.getActiveCompanyContext(userId, membership?.companyId ?? "");
-    await Promise.all([
-      this.permissionService.ensurePermission(userId, context.company.id, "orders.view"),
-      this.permissionService.ensurePermission(userId, context.company.id, "cart.manage"),
-    ]);
+    await Promise.all(permissions.map((permission) =>
+      this.permissionService.ensurePermission(userId, context.company.id, permission),
+    ));
     return context.company.id;
   }
+}
+
+function toRepeatSelectionLine(
+  line: OrderReorderSourceLine,
+  commercial: ProductCommercialViewDto | undefined,
+): RepeatOrderSelectionLineDto {
+  const currentPrice = commercial?.isDemoData ? null : commercial?.partnerPrice ?? null;
+  const validIdentity = isValidOneCReference(line.currentExternalProductRef);
+  const priceCurrent = Boolean(currentPrice) && !isStale(currentPrice?.lastUpdatedAt, "price");
+  const stockAvailable = (commercial?.stock?.exactAvailableQuantity ?? 0) > 0;
+  const status: RepeatOrderSelectionStatus = !line.productExists
+    ? "UNAVAILABLE"
+    : !line.currentIsActive
+      ? "PRODUCT_INACTIVE"
+      : !line.currentIsVisible || !validIdentity
+        ? "UNAVAILABLE"
+        : !priceCurrent
+          ? "PRICE_UNAVAILABLE"
+          : !stockAvailable
+            ? "UNAVAILABLE"
+            : "READY";
+  const product = status === "READY"
+    && line.productId
+    && line.currentSlug
+    && line.currentName
+    && line.currentSku
+    ? toLiveCommerceSelectionProduct({
+        id: line.productId,
+        sku: line.currentSku,
+        name: line.currentName,
+        slug: line.currentSlug,
+        imageUrl: line.currentImageUrl,
+        commercialView: commercial,
+      })
+    : null;
+  return {
+    lineId: line.lineId,
+    productId: line.productId,
+    productName: line.currentName ?? line.historicalProductName ?? "Товар из истории",
+    sku: line.currentSku ?? line.historicalSku ?? "Без артикула",
+    imageUrl: line.currentImageUrl,
+    historicalQuantity: normalizeHistoricalQuantity(line.historicalQuantity),
+    status,
+    currentPrice: currentPrice?.formattedAmount ?? null,
+    currentStock: commercial?.stock?.exactAvailableQuantity ?? null,
+    product,
+  };
+}
+
+function normalizeHistoricalQuantity(quantity: number): number {
+  return Math.min(9999, Math.max(1, Math.trunc(quantity) || 1));
 }
 
 function normalizeSelection(lines: QuickReorderSelectionInput[]): QuickReorderSelectionInput[] {

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { listPreviouslyPurchasedProductsAction } from "../../orders/actions/previously-purchased-products.action";
+import type { RepeatOrderSummaryDto } from "../../orders/services/quick-reorder.service";
 import type { PreviouslyPurchasedProductDto } from "../../orders/services/order-history.service";
 import { getQuickProductCopy, type PartnerLocale } from "../../partner-locale";
 import { emitLiveCommerceSelectionAdd, toLiveCommerceSelectionProduct } from "../services/live-commerce-selection";
@@ -12,6 +13,7 @@ import type { QuickProductSearchResultDto } from "../services/quick-product-sear
 import { useLiveCommerceSelection } from "./LiveCommerceSelectionProvider";
 import { ProductAvailabilityBlock } from "./ProductAvailabilityBlock";
 import { ProductThumbnail } from "./ProductThumbnail";
+import { RepeatOrderSelectionSection } from "./RepeatOrderSelectionSection";
 
 type SearchResponse =
   | { success: true; data: QuickProductSearchResultDto[] }
@@ -24,10 +26,14 @@ export function MobileQuickProductCommerce({
   canSelectProducts,
   locale,
   previouslyPurchased = { items: [], totalCount: 0 },
+  recentOrders = [],
+  initialRepeatOrderId = null,
 }: {
   canSelectProducts: boolean;
   locale: PartnerLocale;
   previouslyPurchased?: PreviousPage;
+  recentOrders?: RepeatOrderSummaryDto[];
+  initialRepeatOrderId?: string | null;
 }) {
   const copy = getQuickProductCopy(locale);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -182,8 +188,15 @@ export function MobileQuickProductCommerce({
 
       {!query.trim() ? <PreviouslyPurchasedSection canSelectProducts={canSelectProducts} copy={copy} feedback={feedback} items={previouslyPurchased.items} locale={locale} onAdd={addProduct} onOpenAll={() => void openAllPrevious()} onQuantity={updateQuantity} quantities={quantities} selectedQuantity={selectedQuantity} totalCount={previouslyPurchased.totalCount} /> : null}
 
+      {!query.trim() ? <RepeatOrderSelectionSection
+        canSelectProducts={canSelectProducts}
+        initialOrderId={initialRepeatOrderId}
+        locale={locale}
+        orders={recentOrders}
+      /> : null}
+
       <div aria-busy={loading} className="mx-auto max-w-3xl space-y-3">
-        {!query.trim() && previouslyPurchased.items.length === 0 ? <EmptyState title={copy.previousEmpty} detail={copy.startHint} /> : null}
+        {!query.trim() && previouslyPurchased.items.length === 0 && recentOrders.length === 0 ? <EmptyState title={copy.previousEmpty} detail={copy.startHint} /> : null}
         {query.trim().length >= 2 && !loading && !searchFailed && results.length === 0 ? <EmptyState title={copy.noResults} detail={copy.noResultsHint} /> : null}
         {searchFailed ? <EmptyState title={copy.noResults} detail={copy.addFailed} /> : null}
         {results.map((product) => <ProductCard canSelectProducts={canSelectProducts} copy={copy} feedback={feedback[product.id]} key={product.id} loading={loading} locale={locale} onAdd={addProduct} onQuantity={updateQuantity} product={product} quantity={quantities[product.id] ?? 1} selectedQuantity={selectedQuantity(product.id)} />)}

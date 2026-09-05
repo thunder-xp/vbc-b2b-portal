@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { mergeLiveCommerceSelection, normalizeStoredLiveCommerceSelection, type LiveCommerceSelectionProduct } from "../live-commerce-selection";
+import { mergeLiveCommerceSelection, mergeLiveCommerceSelectionBatch, normalizeStoredLiveCommerceSelection, type LiveCommerceSelectionProduct } from "../live-commerce-selection";
 
 const product: LiveCommerceSelectionProduct = {
   id: "11111111-1111-4111-8111-111111111111",
@@ -22,5 +22,13 @@ describe("live commerce working selection", () => {
   it("restores only bounded valid session data without trusting unknown fields", () => {
     expect(normalizeStoredLiveCommerceSelection([{ ...product, quantity: 4 }, { id: "broken" }])).toEqual([{ ...product, quantity: 4 }]);
     expect(normalizeStoredLiveCommerceSelection("not-an-array")).toEqual([]);
+  });
+
+  it("merges an order composition additively in one deterministic batch", () => {
+    const second = { ...product, id: "22222222-2222-4222-8222-222222222222", sku: "400541" };
+    expect(mergeLiveCommerceSelectionBatch(
+      [{ ...product, quantity: 4 }],
+      [{ product, quantity: 3 }, { product: second, quantity: 2 }],
+    )).toEqual([{ ...product, quantity: 7 }, { ...second, quantity: 2 }]);
   });
 });

@@ -9,11 +9,14 @@ import { addSelectionToCartAction } from "../../orders/actions/cart.actions";
 import { getQuickProductCopy, usePartnerLocale } from "../../partner-locale";
 import {
   LIVE_COMMERCE_SELECTION_ADD_EVENT,
+  LIVE_COMMERCE_SELECTION_ADD_BATCH_EVENT,
   LIVE_COMMERCE_SELECTION_STORAGE_KEY,
   mergeLiveCommerceSelection,
+  mergeLiveCommerceSelectionBatch,
   normalizeSelectionQuantity,
   normalizeStoredLiveCommerceSelection,
   type LiveCommerceSelectionAddDetail,
+  type LiveCommerceSelectionAddBatchDetail,
   type LiveCommerceSelectionItem,
 } from "../services/live-commerce-selection";
 import { ProductThumbnail } from "./ProductThumbnail";
@@ -71,7 +74,17 @@ export function LiveCommerceSelectionProvider({
       setMessage(null);
     };
     window.addEventListener(LIVE_COMMERCE_SELECTION_ADD_EVENT, add);
-    return () => window.removeEventListener(LIVE_COMMERCE_SELECTION_ADD_EVENT, add);
+    const addBatch = (event: Event) => {
+      const detail = (event as CustomEvent<LiveCommerceSelectionAddBatchDetail>).detail;
+      if (!Array.isArray(detail?.items) || !detail.items.length) return;
+      setItems((current) => mergeLiveCommerceSelectionBatch(current, detail.items));
+      setMessage(null);
+    };
+    window.addEventListener(LIVE_COMMERCE_SELECTION_ADD_BATCH_EVENT, addBatch);
+    return () => {
+      window.removeEventListener(LIVE_COMMERCE_SELECTION_ADD_EVENT, add);
+      window.removeEventListener(LIVE_COMMERCE_SELECTION_ADD_BATCH_EVENT, addBatch);
+    };
   }, []);
 
   useEffect(() => {

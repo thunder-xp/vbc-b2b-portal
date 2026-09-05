@@ -66,6 +66,73 @@ describe("QuickReorderService preview", () => {
   });
 });
 
+describe("repeat order to Live Commerce Selection", () => {
+  it("loads only bounded completed-order summaries for the active company", async () => {
+    const dependencies = makeDependencies();
+    dependencies.repository.listRecentRepeatableOrders.mockResolvedValue([{
+      id: ORDER_ID,
+      orderNumber: "NSUU-001",
+      documentDate: "2026-08-12T00:00:00Z",
+      positionCount: 2,
+      totalUnitCount: 5,
+    }]);
+
+    const result = await dependencies.service.listRecentRepeatableOrders("user-1", 3);
+
+    expect(dependencies.repository.listRecentRepeatableOrders).toHaveBeenCalledWith({ companyId: "company-1", limit: 3 });
+    expect(dependencies.permission.ensurePermission).toHaveBeenCalledWith("user-1", "company-1", "orders.view");
+    expect(dependencies.permission.ensurePermission).toHaveBeenCalledWith("user-1", "company-1", "catalog.view");
+    expect(result[0]).toMatchObject({ orderLabel: "№ NSUU-001", productCount: 2, unitCount: 5 });
+  });
+
+  it("classifies current truth per line without exposing historical prices", async () => {
+    const dependencies = makeDependencies();
+    const value = source();
+    value.lines.push({ ...value.lines[0], lineId: "line-3", productId: "product-3", currentIsActive: false });
+    value.lines.push({ ...value.lines[0], lineId: "line-4", productId: "product-4" });
+    dependencies.repository.getRepeatOrderSelectionSource.mockResolvedValue(value);
+    dependencies.pricing.getProductCommercialViews.mockResolvedValue([
+      commercial("product-1", 10, 5),
+      commercial("product-2", 20, 0),
+      commercial("product-3", 30, 5),
+      commercial("product-4", null, 5),
+    ]);
+
+    const result = await dependencies.service.previewForSelection("user-1", ORDER_ID);
+
+    expect(result.lines.map((line) => line.status)).toEqual(["READY", "UNAVAILABLE", "PRODUCT_INACTIVE", "PRICE_UNAVAILABLE"]);
+    expect(result).toMatchObject({ readyCount: 1, attentionCount: 3 });
+    expect(JSON.stringify(result)).not.toContain("historicalUnitPrice");
+  });
+
+  it("re-resolves one bounded batch and returns only currently ready products", async () => {
+    const dependencies = makeDependencies();
+    const value = source();
+    value.lines[0].lineId = "11111111-1111-4111-8111-111111111111";
+    value.lines[1].lineId = "22222222-2222-4222-8222-222222222222";
+    dependencies.repository.getRepeatOrderSelectionSource.mockResolvedValue(value);
+    const authoritative = vi.fn().mockResolvedValue([
+      commercial("product-1", 10, 5),
+      commercial("product-2", 20, 0),
+    ]);
+    dependencies.pricing.getAuthoritativeProductCommercialViews = authoritative;
+
+    const result = await dependencies.service.prepareSelection("user-1", {
+      orderId: ORDER_ID,
+      lines: [
+        { lineId: value.lines[0].lineId, quantity: 4 },
+        { lineId: value.lines[1].lineId, quantity: 2 },
+      ],
+    });
+
+    expect(authoritative).toHaveBeenCalledOnce();
+    expect(authoritative).toHaveBeenCalledWith("user-1", ["product-1", "product-2"]);
+    expect(result).toMatchObject({ readyCount: 1, attentionCount: 1 });
+    expect(result.items).toEqual([expect.objectContaining({ product: expect.objectContaining({ id: "product-1" }), quantity: 4 })]);
+    expect(dependencies.cart.mergeOrderReorderItems).not.toHaveBeenCalled();
+  });
+});
+
 describe("quick reorder commercial difference", () => {
   it.each([
     [10, 12, "increased", 2, 20],
@@ -166,7 +233,13 @@ describe("QuickReorderService cart conversion", () => {
 function makeDependencies() {
   const repository = {
     getReorderSource: vi.fn().mockResolvedValue(source()),
-  } as unknown as PartnerOrderHistoryRepository & { getReorderSource: ReturnType<typeof vi.fn> };
+    getRepeatOrderSelectionSource: vi.fn().mockResolvedValue(source()),
+    listRecentRepeatableOrders: vi.fn().mockResolvedValue([]),
+  } as unknown as PartnerOrderHistoryRepository & {
+    getReorderSource: ReturnType<typeof vi.fn>;
+    getRepeatOrderSelectionSource: ReturnType<typeof vi.fn>;
+    listRecentRepeatableOrders: ReturnType<typeof vi.fn>;
+  };
   const companyAccess = {
     getOwnMemberships: vi.fn().mockResolvedValue([{ companyId: "company-1", status: "active" }]),
     getActiveCompanyContext: vi.fn().mockResolvedValue({ company: { id: "company-1" } }),
@@ -177,6 +250,7 @@ function makeDependencies() {
       commercial("product-1", 10, 5),
       commercial("product-2", 20, 0),
     ]),
+    getAuthoritativeProductCommercialViews: undefined as ReturnType<typeof vi.fn> | undefined,
   };
   const cart = {
     mergeOrderReorderItems: vi.fn().mockResolvedValue({ cartId: "cart-1", repeated: false, addedProductIds: ["product-1"], updatedProductIds: [] }),

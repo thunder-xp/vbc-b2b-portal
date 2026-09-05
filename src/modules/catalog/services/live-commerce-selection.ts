@@ -2,6 +2,7 @@ import type { ProductCommercialViewDto } from "../../pricing-inventory";
 
 export const LIVE_COMMERCE_SELECTION_STORAGE_KEY = "novotech:live-commerce-selection:v1";
 export const LIVE_COMMERCE_SELECTION_ADD_EVENT = "novotech:live-selection-add";
+export const LIVE_COMMERCE_SELECTION_ADD_BATCH_EVENT = "novotech:live-selection-add-batch";
 export const LIVE_COMMERCE_SELECTION_MAX_PRODUCTS = 50;
 
 export type LiveCommerceSelectionProduct = {
@@ -21,6 +22,10 @@ export type LiveCommerceSelectionItem = LiveCommerceSelectionProduct & {
 export type LiveCommerceSelectionAddDetail = {
   product: LiveCommerceSelectionProduct;
   quantity: number;
+};
+
+export type LiveCommerceSelectionAddBatchDetail = {
+  items: LiveCommerceSelectionAddDetail[];
 };
 
 export function toLiveCommerceSelectionProduct(input: {
@@ -58,6 +63,23 @@ export function toLiveCommerceSelectionProduct(input: {
 
 export function emitLiveCommerceSelectionAdd(detail: LiveCommerceSelectionAddDetail): void {
   window.dispatchEvent(new CustomEvent<LiveCommerceSelectionAddDetail>(LIVE_COMMERCE_SELECTION_ADD_EVENT, { detail }));
+}
+
+export function emitLiveCommerceSelectionAddBatch(items: LiveCommerceSelectionAddDetail[]): void {
+  window.dispatchEvent(new CustomEvent<LiveCommerceSelectionAddBatchDetail>(
+    LIVE_COMMERCE_SELECTION_ADD_BATCH_EVENT,
+    { detail: { items } },
+  ));
+}
+
+export function mergeLiveCommerceSelectionBatch(
+  current: LiveCommerceSelectionItem[],
+  details: LiveCommerceSelectionAddDetail[],
+): LiveCommerceSelectionItem[] {
+  return details.slice(0, LIVE_COMMERCE_SELECTION_MAX_PRODUCTS).reduce(
+    mergeLiveCommerceSelection,
+    current,
+  );
 }
 
 export function mergeLiveCommerceSelection(

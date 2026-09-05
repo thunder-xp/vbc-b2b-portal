@@ -31,6 +31,30 @@ const SYNC_COLUMNS = "company_id, counterparty_ref, status, sync_mode, active_sy
 type Row = Record<string, unknown>;
 
 export class SupabasePartnerOrderHistoryRepository implements PartnerOrderHistoryRepository {
+  async listRecentRepeatableOrders(input: { companyId: string; limit: number }) {
+    const { data, error } = await (await createClient()).rpc(
+      "get_partner_repeat_order_summaries_v1",
+      { p_company_id: input.companyId, p_limit: input.limit },
+    );
+    if (error || !Array.isArray(data)) throw new OrderHistoryRepositoryError();
+    return data.map((row) => {
+      if (!isRecord(row)) throw new OrderHistoryRepositoryError();
+      return {
+        id: text(row.id),
+        orderNumber: nullableText(row.order_number),
+        documentDate: text(row.document_date),
+        positionCount: numberValue(row.position_count),
+        totalUnitCount: numberValue(row.total_unit_count),
+      };
+    });
+  }
+
+  async getRepeatOrderSelectionSource(orderId: string): Promise<OrderReorderSource | null> {
+    return this.loadReorderSource("get_partner_repeat_order_selection_source_v1", {
+      p_order_id: orderId,
+    });
+  }
+
   async listPreviouslyPurchasedProducts(input: {
     companyId: string;
     limit: number;
@@ -132,9 +156,16 @@ export class SupabasePartnerOrderHistoryRepository implements PartnerOrderHistor
   }
 
   async getReorderSource(orderId: string): Promise<OrderReorderSource | null> {
-    const { data, error } = await (await createClient()).rpc("get_partner_order_reorder_source", {
+    return this.loadReorderSource("get_partner_order_reorder_source", {
       target_order_id: orderId,
     });
+  }
+
+  private async loadReorderSource(
+    rpcName: "get_partner_order_reorder_source" | "get_partner_repeat_order_selection_source_v1",
+    parameters: Record<string, string>,
+  ): Promise<OrderReorderSource | null> {
+    const { data, error } = await (await createClient()).rpc(rpcName, parameters);
     if (error) throw new OrderHistoryRepositoryError();
     if (!isRecord(data)) return null;
     const order = isRecord(data.order) ? data.order : null;
