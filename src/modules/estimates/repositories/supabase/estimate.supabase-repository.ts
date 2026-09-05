@@ -132,7 +132,7 @@ export class SupabaseEstimateRepository implements EstimateRepository {
     const supabase = await createClient();
     const { data, error } = await supabase
       .from("estimates")
-      .select(`${ESTIMATE_COLUMNS}, estimate_sections(${SECTION_COLUMNS}), estimate_items(${ITEM_COLUMNS}), estimate_charges(${CHARGE_COLUMNS})`)
+      .select(`${ESTIMATE_COLUMNS}, final_customer:partner_final_customers(id, display_name, primary_email, revision), estimate_sections(${SECTION_COLUMNS}), estimate_items(${ITEM_COLUMNS}), estimate_charges(${CHARGE_COLUMNS})`)
       .eq("id", estimateId)
       .is("deleted_at", null)
       .maybeSingle();
@@ -241,6 +241,17 @@ export class SupabaseEstimateRepository implements EstimateRepository {
       target_fiscal_code: input.fiscalCode ?? "",
       target_locality: input.locality ?? "",
       target_industry_code: input.industryCode,
+    });
+    if (error || !data) throw mapRepositoryError(error?.code);
+    return mapFinalCustomerRow(data as Record<string, unknown>);
+  }
+
+  async updateFinalCustomerEmail(input: Parameters<NonNullable<EstimateRepository["updateFinalCustomerEmail"]>>[0]): Promise<FinalCustomer> {
+    const { data, error } = await (await createClient()).rpc("update_estimate_final_customer_email", {
+      target_estimate_id: input.estimateId,
+      target_customer_id: input.customerId,
+      expected_revision: input.expectedRevision,
+      target_primary_email: input.primaryEmail,
     });
     if (error || !data) throw mapRepositoryError(error?.code);
     return mapFinalCustomerRow(data as Record<string, unknown>);
@@ -611,6 +622,7 @@ function mapFinalCustomerRow(row: Record<string, unknown>): FinalCustomer {
     locality: typeof row.locality === "string" ? row.locality : null,
     industry: typeof row.industry === "string" ? row.industry : null,
     industryCode: typeof row.industry_code === "string" ? row.industry_code as FinalCustomer["industryCode"] : null,
+    primaryEmail: typeof row.primary_email === "string" ? row.primary_email : null,
     revision: Number(row.revision),
     archivedAt: typeof row.archived_at === "string" ? row.archived_at : null,
     createdAt: String(row.created_at),

@@ -219,6 +219,12 @@ export interface EstimateRepository {
     locality: string | null;
     industryCode: FinalCustomerIndustryCode | null;
   }): Promise<FinalCustomer>;
+  updateFinalCustomerEmail?(input: {
+    estimateId: string;
+    customerId: string;
+    expectedRevision: number;
+    primaryEmail: string;
+  }): Promise<FinalCustomer>;
   archiveFinalCustomer?(customerId: string, expectedRevision: number): Promise<void>;
   searchExternalNomenclature?(companyId: string, query: string, itemType: ExternalNomenclatureItemType, scope: "own" | "shared", limit: number): Promise<ExternalNomenclatureRecord[]>;
   listPartnerNomenclature?(input: PartnerNomenclatureListInput): Promise<{ records: PartnerNomenclatureRecord[]; totalCount: number }>;

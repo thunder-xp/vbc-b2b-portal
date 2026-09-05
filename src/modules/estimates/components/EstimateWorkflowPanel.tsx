@@ -3,7 +3,7 @@
 import { CheckCircle2, Copy, Download, Send, ShoppingCart, XCircle } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 
 import { recordBehaviorInteraction } from "../../behavior-analytics/components";
 import { ConfirmationDialog } from "../../platform-ui";
@@ -20,6 +20,7 @@ import type { EstimateRejectionReason, EstimateWorkflowDto, GeneratedEstimateDoc
 import { SendProposalDialog } from "./SendProposalDialog";
 import { EstimateStatusBadge } from "./EstimateStatusBadge";
 import { notifyEstimatePdfReady } from "./EstimatePdfShareAction";
+import { ESTIMATE_DIRTY_STATE_EVENT, type EstimateDirtyStateDetail } from "./estimate-client-events";
 import { formatPartnerDateTime, getEstimatesCopy, usePartnerLocale, type EstimatesCopy } from "../../partner-locale";
 
 export function EstimateWorkflowPanel({ initialWorkflow, revision, initialProposalAction }: {
@@ -33,6 +34,7 @@ export function EstimateWorkflowPanel({ initialWorkflow, revision, initialPropos
   const [message, setMessage] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState<EstimateRejectionReason | "">("");
   const [conversionOpen, setConversionOpen] = useState(false);
+  const [unsavedChanges, setUnsavedChanges] = useState(false);
   const [pending, startTransition] = useTransition();
   const [pdfPending, startPdfTransition] = useTransition();
   const proposal = initialWorkflow.versions.find((item) => item.id === initialWorkflow.acceptedVersionId) ?? initialWorkflow.versions[0] ?? null;
@@ -40,6 +42,16 @@ export function EstimateWorkflowPanel({ initialWorkflow, revision, initialPropos
   const pdfStatus = generatedDocument?.status ?? proposal?.pdfStatus ?? null;
   const pdfDocumentId = generatedDocument?.id ?? proposal?.pdfDocumentId ?? null;
   const proposalExpired = initialWorkflow.lifecycleStatus === "expired";
+  const currentVersion = Boolean(proposal && proposal.estimateRevision === revision);
+
+  useEffect(() => {
+    const receiveDirtyState = (event: Event) => {
+      const detail = (event as CustomEvent<EstimateDirtyStateDetail>).detail;
+      if (detail.estimateId === initialWorkflow.estimateId) setUnsavedChanges(detail.dirty);
+    };
+    window.addEventListener(ESTIMATE_DIRTY_STATE_EVENT, receiveDirtyState);
+    return () => window.removeEventListener(ESTIMATE_DIRTY_STATE_EVENT, receiveDirtyState);
+  }, [initialWorkflow.estimateId]);
   const run = (operation: () => Promise<{ success: boolean; message: string }>, after?: () => void) => startTransition(async () => {
     const result = await operation();
     setMessage(result.success ? copy.operationSucceeded : copy.operationFailed);
@@ -87,7 +99,22 @@ export function EstimateWorkflowPanel({ initialWorkflow, revision, initialPropos
       {pdfStatus !== "ready" ? <button aria-describedby={pdfPending ? "estimate-pdf-progress" : undefined} className={secondary} disabled={pdfPending} onClick={generatePdf} type="button"><Download className="size-4" />{pdfPending ? copy.preparing : copy.generatePdf}</button> : null}
       {pdfPending ? <span aria-live="polite" className="text-sm text-zinc-600" id="estimate-pdf-progress" role="status">{copy.preparing}</span> : null}
       {pdfDocumentId && pdfStatus === "ready" ? <Link className={secondary} href={`/api/estimates/documents/${pdfDocumentId}`}><Download className="size-4" />{copy.downloadPdf}</Link> : null}
-      <SendProposalDialog canSend={!proposalExpired && initialWorkflow.emailDeliveryAvailable && (proposal.status === "prepared" || proposal.status === "sent") && pdfStatus === "ready"} defaults={proposal.deliveryDefaults} deliveries={proposal.deliveries} emailAvailable={initialWorkflow.emailDeliveryAvailable} initialOpen={initialProposalAction?.kind === "resend" && initialProposalAction.versionId === proposal.id} pdfReady={pdfStatus === "ready"} versionId={proposal.id} versionLabel={copy.commercialProposal} />
+      <SendProposalDialog
+        canSend={!proposalExpired && (proposal.status === "prepared" || proposal.status === "sent")}
+        currentVersion={currentVersion}
+        customer={initialWorkflow.customer ?? null}
+        defaults={proposal.deliveryDefaults}
+        deliveries={proposal.deliveries}
+        emailAvailable={initialWorkflow.emailDeliveryAvailable}
+        estimateId={initialWorkflow.estimateId}
+        initialOpen={initialProposalAction?.kind === "resend" && initialProposalAction.versionId === proposal.id}
+        pdfFilename={`${proposal.estimateNumber ?? proposal.label.split(" / ")[0]}.pdf`}
+        pdfReady={pdfStatus === "ready"}
+        proposalNumber={proposal.estimateNumber ?? proposal.label.split(" / ")[0]}
+        proposalTotal={proposal.total}
+        unsavedChanges={unsavedChanges}
+        versionId={proposal.id}
+      />
       {proposal.status === "sent" && proposalExpired ? <button className={primary} disabled={pending} onClick={() => run(() => createDraftFromEstimateVersionAction(proposal.id))} type="button">{copy.updateProposal}</button> : null}
       {proposal.status === "prepared" && pdfStatus === "ready" && initialWorkflow.lifecycleStatus === "draft" ? <button className={secondary} disabled={pending} onClick={() => run(() => transitionEstimateVersionAction(proposal.id, "sent", "other"))} type="button"><Send className="size-4" />{copy.sentToCustomer}</button> : null}
       {proposal.status === "sent" && initialWorkflow.lifecycleStatus === "sent" ? <><button className={primary} disabled={pending} onClick={() => run(() => transitionEstimateVersionAction(proposal.id, "accepted"))} type="button"><CheckCircle2 className="size-4" />{copy.acceptedByCustomerAction}</button><label className="sr-only" htmlFor="estimate-rejection-reason">{copy.rejectionReason}</label><select className={`${input} w-auto min-w-44`} id="estimate-rejection-reason" onChange={(event) => setRejectionReason(event.target.value as typeof rejectionReason)} value={rejectionReason}><option value="">{copy.rejectionReason}</option><option value="price">{copy.rejectionPrice}</option><option value="no_budget">{copy.rejectionNoBudget}</option><option value="other_supplier">{copy.rejectionOtherSupplier}</option><option value="project_changed">{copy.rejectionProjectChanged}</option><option value="postponed">{copy.rejectionPostponed}</option><option value="other">{copy.rejectionOther}</option></select><button className={secondary} disabled={pending || !rejectionReason} onClick={() => run(() => transitionEstimateVersionAction(proposal.id, "rejected", null, "", rejectionReason || undefined))} type="button"><XCircle className="size-4" />{copy.rejectedAction}</button></> : null}

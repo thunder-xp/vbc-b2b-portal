@@ -43,7 +43,7 @@ describe("estimate directories", () => {
     const user = userEvent.setup();
     vi.mocked(createFinalCustomerAction).mockResolvedValue({ success: true, data: {
       id: "customer-1", companyId: "company-1", displayName: "Customer SRL", customerType: "company",
-      fiscalCode: null, locality: null, industry: null, industryCode: null, revision: 1, archivedAt: null,
+      fiscalCode: null, locality: null, industry: null, industryCode: null, primaryEmail: null, revision: 1, archivedAt: null,
       createdAt: "2026-08-09T10:00:00Z", updatedAt: "2026-08-09T10:00:00Z",
     }, message: "Заказчик создан.", errorCode: null });
     render(<FinalCustomerDialog />);

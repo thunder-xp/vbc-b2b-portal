@@ -1,9 +1,10 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { generateEstimateVersionPdfAction } from "../../actions/proposal.actions";
 import { addEstimateEquipmentToCartAction, createDraftFromEstimateVersionAction } from "../../actions/lifecycle.actions";
 import { EstimateWorkflowPanel } from "../EstimateWorkflowPanel";
+import { ESTIMATE_DIRTY_STATE_EVENT } from "../estimate-client-events";
 
 const refreshMock = vi.fn();
 vi.mock("next/navigation", () => ({
@@ -25,6 +26,19 @@ vi.mock("../../actions/delivery.actions", () => ({
 }));
 
 describe("EstimateWorkflowPanel ergonomics", () => {
+  it("disables governed email delivery as soon as the Estimate has unsaved edits", () => {
+    render(<EstimateWorkflowPanel initialWorkflow={{
+      estimateId: "estimate-1", estimateStatus: "draft", lifecycleStatus: "draft", acceptedVersionId: null,
+      emailDeliveryAvailable: true, readiness: { ready: true, checks: [] },
+      customer: { id: "customer-1", displayName: "Customer", primaryEmail: "client@example.com", revision: 1 },
+      versions: [{ id: "version-1", estimateNumber: "KP-1", versionNumber: 1, estimateRevision: 3, label: "KP-1", status: "prepared", statusLabel: "Prepared", total: "100 USD", currencyCode: "USD", note: null, createdAt: "2026-09-05T08:00:00Z", createdByName: "Manager", sentAt: null, acceptedAt: null, rejectedAt: null, pdfDocumentId: "pdf-1", pdfStatus: "ready", deliveries: [] }],
+    }} revision={3} />);
+    const send = screen.getByRole("button", { name: "Отправить клиенту" });
+    expect(send).toBeEnabled();
+    act(() => window.dispatchEvent(new CustomEvent(ESTIMATE_DIRTY_STATE_EVENT, { detail: { estimateId: "estimate-1", dirty: true } })));
+    expect(send).toBeDisabled();
+    expect(screen.getByText("Сначала сохраните изменения сметы.")).toBeInTheDocument();
+  });
   it("renders proposal actions without exposing snapshot version management", () => {
     render(<EstimateWorkflowPanel initialWorkflow={{
       estimateId: "estimate-1",
@@ -118,7 +132,7 @@ describe("EstimateWorkflowPanel ergonomics", () => {
     resolveGeneration(readyResult);
     await click;
     expect(await screen.findByRole("link", { name: "Скачать PDF" })).toHaveAttribute("href", "/api/estimates/documents/document-1");
-    expect(screen.getByRole("button", { name: "Отправить" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Добавить email" })).toBeEnabled();
     expect(refreshMock).not.toHaveBeenCalled();
   });
 
@@ -133,7 +147,7 @@ describe("EstimateWorkflowPanel ergonomics", () => {
     }} revision={3} />);
 
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Отправить" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Добавить email" })).toBeDisabled();
     await user.click(screen.getByRole("button", { name: "Обновить предложение" }));
     await waitFor(() => expect(createDraftFromEstimateVersionAction).toHaveBeenCalledWith("version-1"));
     expect(refreshMock).toHaveBeenCalled();

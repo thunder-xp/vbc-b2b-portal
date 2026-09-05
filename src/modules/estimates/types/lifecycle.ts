@@ -40,6 +40,7 @@ export type EstimateVersionSnapshot = {
 
 export type EstimateVersionListItemDto = {
   id: string;
+  estimateNumber?: string;
   versionNumber: number;
   estimateRevision: number;
   label: string;
@@ -61,6 +62,7 @@ export type EstimateVersionListItemDto = {
 
 export type EstimateWorkflowDto = {
   estimateId: string;
+  customer?: { id: string; displayName: string; primaryEmail: string | null; revision: number } | null;
   estimateStatus: "draft" | "ready" | "archived";
   lifecycleStatus?: EstimateLifecycleStatus;
   lifecycleExpiresAt?: string | null;

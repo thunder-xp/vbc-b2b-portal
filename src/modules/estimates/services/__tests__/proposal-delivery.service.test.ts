@@ -21,7 +21,10 @@ describe("ProposalDeliveryService", () => {
     repository = {
       listByVersionIds: vi.fn(),
       claim: vi.fn(async (input) => {
-        if (claimed) return claimed;
+        if (claimed) {
+          if (claimed.status === "failed") claimed = delivery({ ...claimed, status: "queued", tokenHash: input.tokenHash, tokenExpiresAt: input.expiresAt });
+          return claimed;
+        }
         claimed = delivery({ tokenHash: input.tokenHash, tokenExpiresAt: input.expiresAt, idempotencyKey: input.idempotencyKey });
         return claimed;
       }),
@@ -72,6 +75,18 @@ describe("ProposalDeliveryService", () => {
     await expect(service.send("user-1", sendInput())).rejects.toBeInstanceOf(InvalidStateError);
     expect(repository.fail).toHaveBeenCalledWith("delivery-1", expect.any(String), "timeout");
     expect(repository.complete).not.toHaveBeenCalled();
+  });
+
+  it("retries one failed delivery record with the same idempotency key", async () => {
+    sendEmail
+      .mockRejectedValueOnce(new ProposalEmailProviderError("timeout"))
+      .mockResolvedValueOnce({ messageId: "smtp-2", category: "accepted" });
+    const input = sendInput();
+    await expect(service.send("user-1", input)).rejects.toBeInstanceOf(InvalidStateError);
+    await expect(service.send("user-1", input)).resolves.toEqual(expect.objectContaining({ status: "sent" }));
+    expect(repository.claim).toHaveBeenCalledTimes(2);
+    expect(repository.start).toHaveBeenCalledTimes(2);
+    expect(sendEmail).toHaveBeenCalledTimes(2);
   });
 
   it("rejects malformed recipients and header injection before persistence", async () => {

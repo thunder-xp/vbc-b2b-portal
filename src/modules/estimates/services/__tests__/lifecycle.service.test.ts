@@ -11,6 +11,7 @@ describe("EstimateLifecycleService", () => {
     const workflow = await dependencies.service.getWorkflow("user-1", "estimate-1");
     expect(workflow.versions).toHaveLength(1);
     expect(workflow.versions[0]?.estimateRevision).toBe(3);
+    expect(workflow.customer).toEqual({ id: "customer-1", displayName: "Customer", primaryEmail: "client@example.com", revision: 2 });
     expect(dependencies.lifecycle.listLatestDocuments).toHaveBeenCalledOnce();
     expect(dependencies.deliveryRepository.listByVersionIds).toHaveBeenCalledOnce();
     expect(dependencies.deliveryRepository.listByVersionIds).toHaveBeenCalledWith(["version-1"]);
@@ -111,6 +112,7 @@ function makeDependencies(lineCount = 1) {
   const version = makeVersion(proposal);
   const aggregate = {
     estimate,
+    finalCustomer: { id: "customer-1", displayName: "Customer", primaryEmail: "client@example.com", revision: 2 },
     sections: [{ id: "section-1", estimateId: estimate.id, name: "Equipment", sortOrder: 0, showSubtotal: true, discountPercent: 0, createdAt: estimate.createdAt, updatedAt: estimate.updatedAt }],
     items: Array.from({ length: lineCount }, (_, index) => ({ id: `item-${index}`, estimateId: estimate.id, sectionId: "section-1", lineType: index ? "service" : "product", productId: index ? null : "product-1", serviceId: null, position: index + 1, skuSnapshot: index ? null : "SKU-1", productNameSnapshot: index ? null : "Camera", sourceUnitPrice: index ? null : 10, sourceCurrencyCode: index ? null : "USD", sourceSnapshotAt: estimate.updatedAt, pricingMode: "direct", pricingInputValue: 10, internalCostUnitPrice: 10, convertedCostUnitPrice: 10, exchangeRate: 1, exchangeRateEffectiveDate: "2026-07-16", lineDiscountPercent: 0, description: "Line", quantity: 2, unit: "pcs", sellingUnitPrice: 10, lineTotal: 20, lineSubtotal: 20, lineDiscountAmount: 0, createdAt: estimate.createdAt, updatedAt: estimate.updatedAt })),
     charges: [],

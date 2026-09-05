@@ -317,6 +317,7 @@ export interface EstimateService {
     locality?: string | null;
     industryCode?: FinalCustomerIndustryCode | null;
   }): Promise<import("../types").FinalCustomer>;
+  updateFinalCustomerEmail(userId: string, estimateId: string, customerId: string, expectedRevision: number, primaryEmail: string): Promise<import("../types").FinalCustomer>;
   checkCurrentProductState(userId: string, estimateId: string): Promise<EstimateCommercialCheckDto>;
   createDraft(userId: string, input: CreateEstimateCommand): Promise<Estimate>;
   createDraftWithProduct(userId: string, input: CreateEstimateWithProductCommand): Promise<{ estimateId: string; repeated: boolean }>;
@@ -584,6 +585,17 @@ export class DefaultEstimateService implements EstimateService {
       }
       throw error;
     }
+  }
+
+  async updateFinalCustomerEmail(userId: string, estimateId: string, customerId: string, expectedRevision: number, primaryEmail: string) {
+    await this.resolveCompany(userId, MANAGE_PERMISSION);
+    if (!this.repository.updateFinalCustomerEmail) throw new InvalidStateError("Изменение email заказчика временно недоступно.");
+    return this.repository.updateFinalCustomerEmail({
+      estimateId: normalizeUuid(estimateId, "Смета некорректна."),
+      customerId: normalizeUuid(customerId, "Заказчик некорректен."),
+      expectedRevision: normalizeRevision(expectedRevision),
+      primaryEmail: normalizeCustomerEmail(primaryEmail),
+    });
   }
 
   async listServices(userId: string): Promise<EstimateServiceDto[]> {
@@ -1478,6 +1490,14 @@ function normalizeOptional(value: string | undefined, maxLength: number): string
   const normalized = value?.trim();
   if (!normalized) return undefined;
   if (normalized.length > maxLength) throw new InvalidStateError("Submitted text is too long.");
+  return normalized;
+}
+
+function normalizeCustomerEmail(value: string): string {
+  const normalized = value.trim().toLowerCase();
+  if (normalized.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized) || /[\r\n]/.test(normalized)) {
+    throw new InvalidStateError("Укажите корректный email заказчика.");
+  }
   return normalized;
 }
 

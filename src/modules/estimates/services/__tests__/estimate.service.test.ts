@@ -71,7 +71,8 @@ describe("DefaultEstimateService", () => {
       searchFinalCustomers: vi.fn().mockResolvedValue([]),
       listFinalCustomers: vi.fn().mockResolvedValue({ records: [], totalCount: 0 }),
       getFinalCustomerDetail: vi.fn().mockResolvedValue(null),
-      createFinalCustomer: vi.fn().mockResolvedValue({ id: "customer-1", companyId: "company-1", displayName: "Customer", customerType: "company", fiscalCode: null, locality: null, industry: null, industryCode: null, revision: 1, archivedAt: null, createdAt: "2026-08-08T10:00:00Z", updatedAt: "2026-08-08T10:00:00Z" }),
+      createFinalCustomer: vi.fn().mockResolvedValue({ id: "customer-1", companyId: "company-1", displayName: "Customer", customerType: "company", fiscalCode: null, locality: null, industry: null, industryCode: null, primaryEmail: null, revision: 1, archivedAt: null, createdAt: "2026-08-08T10:00:00Z", updatedAt: "2026-08-08T10:00:00Z" }),
+      updateFinalCustomerEmail: vi.fn().mockResolvedValue({ id: "customer-1", companyId: "company-1", displayName: "Customer", customerType: "company", fiscalCode: null, locality: null, industry: null, industryCode: null, primaryEmail: "client@example.com", revision: 2, archivedAt: null, createdAt: "2026-08-08T10:00:00Z", updatedAt: "2026-09-05T10:00:00Z" }),
       searchExternalNomenclature: vi.fn().mockResolvedValue([]),
       listPartnerNomenclature: vi.fn().mockResolvedValue({ records: [], totalCount: 0 }),
       createPartnerNomenclature: vi.fn().mockResolvedValue("11111111-1111-4111-8111-111111111111"),
@@ -182,6 +183,29 @@ describe("DefaultEstimateService", () => {
     expect(repository.listFinalCustomers).toHaveBeenCalledWith({
       companyId: "company-1", search: "Nad", industryCode: "security_integrator", limit: 20, offset: 20,
     });
+  });
+
+  it("normalizes a bounded email-only update through the attached Estimate boundary", async () => {
+    await service.updateFinalCustomerEmail(
+      "user-1",
+      "11111111-1111-4111-8111-111111111111",
+      "22222222-2222-4222-8222-222222222222",
+      4,
+      " Client@Example.COM ",
+    );
+    expect(repository.updateFinalCustomerEmail).toHaveBeenCalledWith({
+      estimateId: "11111111-1111-4111-8111-111111111111",
+      customerId: "22222222-2222-4222-8222-222222222222",
+      expectedRevision: 4,
+      primaryEmail: "client@example.com",
+    });
+    await expect(service.updateFinalCustomerEmail(
+      "user-1",
+      "11111111-1111-4111-8111-111111111111",
+      "22222222-2222-4222-8222-222222222222",
+      4,
+      "invalid",
+    )).rejects.toBeInstanceOf(InvalidStateError);
   });
 
   it("warns before creating an obvious duplicate final customer", async () => {

@@ -100,7 +100,7 @@ describe("estimate UI", () => {
     const user = userEvent.setup();
     vi.mocked(searchFinalCustomersAction).mockResolvedValue({ success: true, errorCode: null, message: "Заказчики найдены.", data: [{
       id: "11111111-1111-1111-1111-111111111111", companyId: "company-1", displayName: "NADZOR SRL",
-      customerType: "company", fiscalCode: "0200046888", locality: "Chișinău", industry: null, industryCode: null,
+      customerType: "company", fiscalCode: "0200046888", locality: "Chișinău", industry: null, industryCode: null, primaryEmail: null,
       revision: 1, archivedAt: null, createdAt: "2026-08-08T10:00:00Z", updatedAt: "2026-08-08T10:00:00Z",
     }] });
     render(<EstimateCreateForm currencies={["USD"]} />);
@@ -116,7 +116,7 @@ describe("estimate UI", () => {
     vi.mocked(createEstimateAction).mockResolvedValue({ success: true, errorCode: null, message: "Created", data: { id: "estimate-2" } });
     vi.mocked(searchFinalCustomersAction).mockResolvedValue({ success: true, errorCode: null, message: "Found", data: [{
       id: "11111111-1111-1111-1111-111111111111", companyId: "company-1", displayName: "NADZOR SRL",
-      customerType: "company", fiscalCode: null, locality: null, industry: null, industryCode: null,
+      customerType: "company", fiscalCode: null, locality: null, industry: null, industryCode: null, primaryEmail: null,
       revision: 1, archivedAt: null, createdAt: "2026-08-08T10:00:00Z", updatedAt: "2026-08-08T10:00:00Z",
     }] });
     render(<EstimateCreateForm currencies={["USD", "MDL"]} />);
