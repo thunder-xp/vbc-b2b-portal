@@ -52,6 +52,12 @@ export type EstimateRow = {
   archived_at: string | null;
   created_at: string;
   updated_at: string;
+  final_customer?: {
+    id: string;
+    display_name: string;
+    primary_email: string | null;
+    revision: number;
+  } | null;
 };
 
 export type EstimateSectionRow = {
@@ -261,6 +267,12 @@ export function mapEstimateAggregateRow(
 ): EstimateAggregate {
   return {
     estimate: mapEstimateRow(row),
+    finalCustomer: row.final_customer ? {
+      id: row.final_customer.id,
+      displayName: row.final_customer.display_name,
+      primaryEmail: row.final_customer.primary_email,
+      revision: Number(row.final_customer.revision),
+    } : null,
     sections: row.estimate_sections.map(mapEstimateSectionRow).sort((left, right) => left.sortOrder - right.sortOrder),
     items: row.estimate_items.map(mapEstimateItemRow).sort((left, right) => left.position - right.position),
     charges: row.estimate_charges.map(mapEstimateChargeRow).sort((left, right) => left.sortOrder - right.sortOrder),

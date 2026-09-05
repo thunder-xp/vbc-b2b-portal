@@ -56,6 +56,7 @@ export class EstimateLifecycleService {
     const deliveriesByVersion = summarizeDeliveries(deliveries);
     return {
       estimateId: estimate.id,
+      customer: aggregate.finalCustomer ?? null,
       estimateStatus: normalizeEstimateStatus(estimate.status),
       lifecycleStatus: estimate.lifecycleStatus ?? "draft",
       lifecycleExpiresAt: estimate.lifecycleExpiresAt ?? null,
@@ -67,6 +68,7 @@ export class EstimateLifecycleService {
         const document = documents.get(version.id);
         return {
           id: version.id,
+          estimateNumber: version.estimateNumber,
           versionNumber: version.versionNumber,
           estimateRevision: version.estimateRevision,
           label: `${version.estimateNumber} / версия ${version.versionNumber}`,
