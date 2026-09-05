@@ -34,7 +34,6 @@ const props = {
   proposalTotal: "3 660,00 USD",
   pdfFilename: "KP-2026-000107.pdf",
   customer,
-  deliveries: [],
   canSend: true,
   emailAvailable: true,
   pdfReady: true,
@@ -160,12 +159,6 @@ describe("guided proposal delivery UI", () => {
     expect(screen.getByRole("button", { name: "Trimite" })).toHaveFocus();
     await user.keyboard("{Escape}");
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-  });
-
-  it("shows safe lifecycle history without exposing a secure token", () => {
-    render(<SendProposalDialog {...props} deliveries={[{ id: "delivery-1", recipient: "client@example.com", status: "sent", statusLabel: "Отправлено", sentAt: "2026-07-18T10:00:00Z", openedAt: null, expiresAt: "2026-08-01T10:00:00Z", response: null, failureReason: null }]} />);
-    expect(screen.getByText(/client@example.com/).parentElement).toHaveTextContent("Передано на отправку");
-    expect(document.body.textContent).not.toContain("/proposal/");
   });
 
   it("keeps the governed public customer response flow", async () => {

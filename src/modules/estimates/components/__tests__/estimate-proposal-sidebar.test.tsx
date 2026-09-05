@@ -16,6 +16,8 @@ const workflow: EstimateWorkflowDto = {
   lifecycleStatus: "draft",
   acceptedVersionId: null,
   emailDeliveryAvailable: false,
+  guidedState: { state: "draft", primaryAction: null, secondaryActions: [], resumeCartId: null },
+  permissions: { canManage: true, canSend: true, canConvert: true, canManageOrders: true },
   versions: [],
   readiness: { ready: true, checks: [{ label: "Есть позиции", passed: true }] },
 };

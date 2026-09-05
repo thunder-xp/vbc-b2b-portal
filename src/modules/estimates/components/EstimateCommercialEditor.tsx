@@ -118,11 +118,13 @@ export function EstimateCommercialEditor({
   services,
   commercialOptions,
   workflow,
+  workflowPanel,
 }: {
   initialEstimate: EstimateDetailDto;
   services: EstimateServiceDto[];
   commercialOptions: EstimateCommercialOptionsDto;
   workflow: EstimateWorkflowDto;
+  workflowPanel?: React.ReactNode;
 }) {
   const locale = usePartnerLocale();
   const copy = getEstimatesCopy(locale);
@@ -633,6 +635,7 @@ export function EstimateCommercialEditor({
           </div>
         </div>
       </header>
+      {workflowPanel}
       {message && (
         <p
           aria-live="polite"

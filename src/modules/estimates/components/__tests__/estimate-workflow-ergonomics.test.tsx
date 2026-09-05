@@ -7,6 +7,7 @@ import { EstimateWorkflowPanel } from "../EstimateWorkflowPanel";
 import { ESTIMATE_DIRTY_STATE_EVENT } from "../estimate-client-events";
 
 const refreshMock = vi.fn();
+const fullPermissions = { canManage: true, canSend: true, canConvert: true, canManageOrders: true } as const;
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), refresh: refreshMock }),
 }));
@@ -30,11 +31,13 @@ describe("EstimateWorkflowPanel ergonomics", () => {
     render(<EstimateWorkflowPanel initialWorkflow={{
       estimateId: "estimate-1", estimateStatus: "draft", lifecycleStatus: "sent", lifecycleExpiresAt: "2026-09-19T08:00:00Z", acceptedVersionId: null,
       emailDeliveryAvailable: true, readiness: { ready: true, checks: [] },
+      guidedState: { state: "awaiting_customer", primaryAction: null, secondaryActions: ["preview", "pdf", "resend", "duplicate", "save_template", "mark_ready", "record_response"], resumeCartId: null }, permissions: fullPermissions,
       customer: { id: "customer-1", displayName: "Customer", primaryEmail: "client@example.com", revision: 1 },
       versions: [{ id: "version-1", estimateNumber: "KP-1", versionNumber: 1, estimateRevision: 3, label: "KP-1", status: "sent", statusLabel: "Sent", total: "100 USD", currencyCode: "USD", note: null, createdAt: "2026-09-05T08:00:00Z", createdByName: "Manager", sentAt: "2026-09-05T08:05:00Z", acceptedAt: null, rejectedAt: null, pdfDocumentId: "pdf-1", pdfStatus: "ready", deliveries: [] }],
     }} revision={4} />);
 
-    expect(screen.getByRole("button", { name: /клиенту/i })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Отправить повторно" })).toBeEnabled();
+    expect(screen.getByRole("heading", { name: "КП отправлено" })).toBeInTheDocument();
     expect(screen.queryByText(/Смета изменилась/i)).not.toBeInTheDocument();
   });
 
@@ -42,6 +45,7 @@ describe("EstimateWorkflowPanel ergonomics", () => {
     render(<EstimateWorkflowPanel initialWorkflow={{
       estimateId: "estimate-1", estimateStatus: "draft", lifecycleStatus: "draft", acceptedVersionId: null,
       emailDeliveryAvailable: true, readiness: { ready: true, checks: [] },
+      guidedState: { state: "ready_to_send", primaryAction: "send", secondaryActions: ["preview", "pdf", "duplicate", "save_template", "mark_ready", "mark_sent"], resumeCartId: null }, permissions: fullPermissions,
       customer: { id: "customer-1", displayName: "Customer", primaryEmail: "client@example.com", revision: 1 },
       versions: [{ id: "version-1", estimateNumber: "KP-1", versionNumber: 1, estimateRevision: 3, label: "KP-1", status: "prepared", statusLabel: "Prepared", total: "100 USD", currencyCode: "USD", note: null, createdAt: "2026-09-05T08:00:00Z", createdByName: "Manager", sentAt: null, acceptedAt: null, rejectedAt: null, pdfDocumentId: "pdf-1", pdfStatus: "ready", deliveries: [] }],
     }} revision={3} />);
@@ -57,6 +61,7 @@ describe("EstimateWorkflowPanel ergonomics", () => {
       estimateStatus: "draft",
       acceptedVersionId: null,
       emailDeliveryAvailable: false,
+      guidedState: { state: "draft", primaryAction: null, secondaryActions: ["preview", "pdf", "send", "duplicate", "save_template", "mark_ready"], resumeCartId: null }, permissions: fullPermissions,
       readiness: { ready: true, checks: [] },
       versions: [{
         id: "version-1",
@@ -79,7 +84,7 @@ describe("EstimateWorkflowPanel ergonomics", () => {
       }],
     }} revision={3} />);
 
-    expect(screen.getByRole("heading", { name: "Отправка и статус" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Смета в работе" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Предпросмотр" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Сформировать PDF" })).toBeInTheDocument();
     expect(screen.queryByText(/версия/i)).not.toBeInTheDocument();
@@ -97,6 +102,7 @@ describe("EstimateWorkflowPanel ergonomics", () => {
       estimateStatus: "ready",
       acceptedVersionId: "version-1",
       emailDeliveryAvailable: false,
+      guidedState: { state: "accepted_ready_to_order", primaryAction: "continue_order", secondaryActions: ["preview", "pdf", "duplicate", "save_template"], resumeCartId: null }, permissions: fullPermissions,
       readiness: { ready: true, checks: [] },
       versions: [{
         id: "version-1", versionNumber: 1, label: "KP-2026-1 / версия 1", status: "accepted",
@@ -108,13 +114,13 @@ describe("EstimateWorkflowPanel ergonomics", () => {
       }],
     }} revision={3} />);
 
-    await user.click(screen.getByRole("button", { name: "Продолжить оформление" }));
+    await user.click(screen.getByRole("button", { name: "Оформить заказ" }));
     expect(screen.getByRole("dialog", { name: "Подготовка корзины к заказу" })).toBeInTheDocument();
     expect(screen.getByText(/только позиции оборудования/)).toBeInTheDocument();
     expect(screen.getByText(/заказ в 1С на этом шаге не создаётся/i)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Добавить оборудование в корзину" }));
     await waitFor(() => expect(addEstimateEquipmentToCartAction).toHaveBeenCalledOnce());
-    await user.click(screen.getByRole("button", { name: "Продолжить оформление" }));
+    await user.click(screen.getByRole("button", { name: "Оформить заказ" }));
     await user.click(screen.getByRole("button", { name: "Добавить оборудование в корзину" }));
     await waitFor(() => expect(addEstimateEquipmentToCartAction).toHaveBeenCalledTimes(2));
     expect(vi.mocked(addEstimateEquipmentToCartAction).mock.calls[0]).toEqual(["estimate-1", "version-1", "version-1"]);
@@ -135,6 +141,7 @@ describe("EstimateWorkflowPanel ergonomics", () => {
     render(<EstimateWorkflowPanel initialWorkflow={{
       estimateId: "estimate-1", estimateStatus: "draft", lifecycleStatus: "draft", lifecycleExpiresAt: null,
       acceptedVersionId: null, emailDeliveryAvailable: true, readiness: { ready: true, checks: [] },
+      guidedState: { state: "draft", primaryAction: null, secondaryActions: ["preview", "pdf", "send", "duplicate", "save_template", "mark_ready"], resumeCartId: null }, permissions: fullPermissions,
       versions: [{ id: "version-1", versionNumber: 1, estimateRevision: 3, label: "Proposal", status: "prepared", statusLabel: "Prepared", total: "1 000,00 USD", currencyCode: "USD", note: null, createdAt: "2026-09-02T09:00:00Z", createdByName: "Manager", sentAt: null, acceptedAt: null, rejectedAt: null, pdfDocumentId: null, pdfStatus: null, deliveries: [] }],
     }} revision={3} />);
 
@@ -155,13 +162,36 @@ describe("EstimateWorkflowPanel ergonomics", () => {
     render(<EstimateWorkflowPanel initialProposalAction={{ kind: "resend", versionId: "version-1" }} initialWorkflow={{
       estimateId: "estimate-1", estimateStatus: "ready", lifecycleStatus: "expired", lifecycleExpiresAt: "2026-08-20T10:00:00Z",
       acceptedVersionId: null, emailDeliveryAvailable: true, readiness: { ready: true, checks: [] },
+      guidedState: { state: "expired", primaryAction: "update", secondaryActions: ["preview", "pdf", "duplicate", "save_template"], resumeCartId: null }, permissions: fullPermissions,
       versions: [{ id: "version-1", versionNumber: 1, estimateRevision: 3, label: "Proposal", status: "sent", statusLabel: "Sent", total: "1 000,00 USD", currencyCode: "USD", note: null, createdAt: "2026-08-01T09:00:00Z", createdByName: "Manager", sentAt: "2026-08-06T10:00:00Z", acceptedAt: null, rejectedAt: null, pdfDocumentId: "pdf-1", pdfStatus: "ready", deliveries: [] }],
     }} revision={3} />);
 
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Добавить email" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: /Отправить|Добавить email/ })).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Обновить предложение" }));
     await waitFor(() => expect(createDraftFromEstimateVersionAction).toHaveBeenCalledWith("version-1"));
     expect(refreshMock).toHaveBeenCalled();
+  });
+
+  it("shows only the latest sent context and mounts complete history on disclosure", async () => {
+    const { default: userEvent } = await import("@testing-library/user-event");
+    const user = userEvent.setup();
+    render(<EstimateWorkflowPanel initialWorkflow={{
+      estimateId: "estimate-1", estimateStatus: "ready", lifecycleStatus: "sent", acceptedVersionId: null,
+      emailDeliveryAvailable: true, readiness: { ready: true, checks: [] },
+      guidedState: { state: "awaiting_customer_opened", primaryAction: null, secondaryActions: ["preview", "pdf", "resend", "delivery_history"], resumeCartId: null }, permissions: fullPermissions,
+      versions: [{ id: "version-1", estimateNumber: "KP-1", versionNumber: 1, estimateRevision: 3, label: "KP-1", status: "sent", statusLabel: "Sent", total: "100 USD", currencyCode: "USD", note: null, createdAt: "2026-09-05T08:00:00Z", createdByName: "Manager", sentAt: "2026-09-05T08:05:00Z", acceptedAt: null, rejectedAt: null, pdfDocumentId: "pdf-1", pdfStatus: "ready", deliveries: [
+        { id: "delivery-2", recipient: "latest@example.com", status: "delivered", statusLabel: "Delivered", sentAt: "2026-09-05T09:05:00Z", openedAt: "2026-09-05T09:10:00Z", expiresAt: "2026-09-19T09:05:00Z", response: null, failureReason: null },
+        { id: "delivery-1", recipient: "older@example.com", status: "sent", statusLabel: "Sent", sentAt: "2026-09-05T08:05:00Z", openedAt: null, expiresAt: "2026-09-19T08:05:00Z", response: null, failureReason: null },
+      ] }],
+    }} revision={4} />);
+
+    expect(screen.getByRole("heading", { name: "Клиент открыл КП" })).toBeInTheDocument();
+    expect(screen.getByText("latest@example.com")).toBeInTheDocument();
+    expect(screen.queryByText("older@example.com")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("estimate-primary-next-action")).not.toBeInTheDocument();
+    await user.click(screen.getByText("История отправок (2)"));
+    expect(await screen.findByText(/older@example.com/)).toBeInTheDocument();
+    expect(screen.getAllByText(/latest@example.com/)).toHaveLength(2);
   });
 });
