@@ -88,6 +88,13 @@ describe("EstimateCommercialEditor", () => {
     expect(screen.getByRole("tab", { name: "Каталог Novotech" })).toHaveAttribute("aria-selected", "true");
     expect(screen.queryByRole("combobox", { name: "Фильтр разделов" })).not.toBeInTheDocument();
     expect(screen.queryByRole("combobox", { name: "Раздел назначения" })).not.toBeInTheDocument();
+    const filters = screen.getByText("Фильтры").closest("details");
+    expect(filters).not.toHaveAttribute("open");
+    expect(within(filters!).getByRole("combobox", { name: "Категория" })).toBeInTheDocument();
+    expect(within(filters!).getByRole("combobox", { name: "Бренд" })).toBeInTheDocument();
+    await user.click(screen.getByText("Фильтры"));
+    expect(screen.getByRole("combobox", { name: "Категория" })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Бренд" })).toBeInTheDocument();
   });
 
   it("keeps clean totals, preview, and proposal preparation together", () => {
@@ -108,9 +115,38 @@ describe("EstimateCommercialEditor", () => {
     const serviceLine = { ...detail.lines[0], id: "service-line", lineType: "service" as const, productId: null, sku: null, imageUrl: null, description: "Installation" };
     render(<EstimateCommercialEditor commercialOptions={{ currencies: ["USD"], usdMdlRate: 17.5, rateEffectiveDate: "2026-07-16" }} initialEstimate={{ ...detail, lines: [detail.lines[0], serviceLine], itemCount: 2 }} services={[]} workflow={workflow} />);
     expect(screen.getAllByTestId("product-line-thumbnail")).toHaveLength(1);
-    const productInput = screen.getByDisplayValue("Camera");
-    expect(screen.getByTestId("product-line-thumbnail").compareDocumentPosition(productInput) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const productDescription = screen.getByText("Camera");
+    expect(screen.getByTestId("product-line-thumbnail").compareDocumentPosition(productDescription) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getByDisplayValue("Installation")).toBeInTheDocument();
+  });
+
+  it("keeps catalog-known product fields behind line details while quantity and customer price stay primary", async () => {
+    const user = userEvent.setup();
+    vi.mocked(saveEstimateCommercialAction).mockResolvedValue({ success: true, data: { ...detail, revision: 4 }, message: "Saved", errorCode: null });
+    renderEditor();
+
+    expect(screen.getByText("Camera")).toBeInTheDocument();
+    expect(screen.getByRole("spinbutton", { name: "Кол-во" })).toBeInTheDocument();
+    expect(screen.getByRole("spinbutton", { name: "Цена клиенту" })).toBeInTheDocument();
+    const lineDetails = screen.getByTestId("estimate-line-advanced");
+    expect(lineDetails).not.toHaveAttribute("open");
+    expect(within(lineDetails).getByRole("textbox", { name: "Описание" })).toHaveValue("Camera");
+    expect(within(lineDetails).getByRole("combobox", { name: "Ед." })).toHaveValue("pcs");
+    expect(within(lineDetails).getByRole("spinbutton", { name: "Скидка, %" })).toHaveValue(0);
+
+    await user.click(screen.getByText("Описание, единица и скидка"));
+    const description = screen.getByRole("textbox", { name: "Описание" });
+    await user.clear(description);
+    await user.type(description, "Camera set");
+    await user.selectOptions(screen.getByRole("combobox", { name: "Ед." }), "set");
+    const discount = screen.getByRole("spinbutton", { name: "Скидка, %" });
+    await user.clear(discount);
+    await user.type(discount, "5");
+    await user.click(screen.getByRole("button", { name: "Сохранить" }));
+
+    expect(saveEstimateCommercialAction).toHaveBeenCalledWith("estimate-1", expect.objectContaining({
+      lines: [expect.objectContaining({ description: "Camera set", unit: "set", lineDiscountPercent: 5 })],
+    }));
   });
 
   it("updates the line draft locally and sends one batch only on Save", async () => {
@@ -269,7 +305,7 @@ describe("EstimateCommercialEditor", () => {
     expect(screen.getAllByRole("heading", { level: 3 })).toHaveLength(4);
     expect(screen.queryByRole("heading", { name: "Оборудование и услуги" })).not.toBeInTheDocument();
     expect(screen.queryByText("Исторический раздел")).not.toBeInTheDocument();
-    expect(screen.getByDisplayValue("Camera").closest("section")).toHaveAttribute("data-section-key", "equipment");
+    expect(screen.getByText("Camera").closest("section")).toHaveAttribute("data-section-key", "equipment");
     expect(screen.getByDisplayValue("Монтаж").closest("section")).toHaveAttribute("data-section-key", "installation_works");
   });
 

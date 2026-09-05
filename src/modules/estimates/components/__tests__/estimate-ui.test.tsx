@@ -1,9 +1,9 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import type { EstimateDetailDto, EstimateProductPickerDto } from "../../services";
-import { searchEstimateProductsAction, searchFinalCustomersAction } from "../../actions/estimate.actions";
+import { createEstimateAction, createFinalCustomerAction, searchEstimateProductsAction, searchFinalCustomersAction } from "../../actions/estimate.actions";
 import { EstimateCreateForm } from "../EstimateCreateForm";
 import { EstimateEditor } from "../EstimateEditor";
 
@@ -82,12 +82,18 @@ const products: EstimateProductPickerDto = {
 };
 
 describe("estimate UI", () => {
-  it("keeps estimate creation compact and limited to published currencies", () => {
+  it("shows only the customer and optional title before additional settings", async () => {
+    const user = userEvent.setup();
     render(<EstimateCreateForm currencies={["MDL", "USD"]} />);
-    expect(screen.getByRole("textbox", { name: "Название" })).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Название (необязательно)" })).toBeInTheDocument();
+    const additional = screen.getByText("Дополнительно").closest("details");
+    expect(additional).not.toHaveAttribute("open");
+    expect(within(additional!).getByRole("combobox", { name: "Валюта" })).toHaveValue("MDL");
+    expect(within(additional!).getByRole("spinbutton", { name: /Срок, дней/ })).toHaveValue(14);
+    await user.click(screen.getByText("Дополнительно"));
     expect(screen.getByRole("combobox", { name: "Валюта" })).toHaveValue("MDL");
     expect(screen.getByRole("combobox", { name: /Заказчик/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Создать смету" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Создать и добавить товары" })).toBeDisabled();
   });
 
   it("does not preload final customers and enables creation after a bounded selection", async () => {
@@ -102,7 +108,59 @@ describe("estimate UI", () => {
     await user.type(screen.getByRole("combobox", { name: /Заказчик/ }), "NA");
     await waitFor(() => expect(searchFinalCustomersAction).toHaveBeenCalledWith("NA"));
     await user.click(await screen.findByRole("option", { name: /NADZOR SRL/ }));
-    expect(screen.getByRole("button", { name: "Создать смету" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Создать и добавить товары" })).toBeEnabled();
+  });
+
+  it("uses the existing safe defaults and derives the omitted title", async () => {
+    const user = userEvent.setup();
+    vi.mocked(createEstimateAction).mockResolvedValue({ success: true, errorCode: null, message: "Created", data: { id: "estimate-2" } });
+    vi.mocked(searchFinalCustomersAction).mockResolvedValue({ success: true, errorCode: null, message: "Found", data: [{
+      id: "11111111-1111-1111-1111-111111111111", companyId: "company-1", displayName: "NADZOR SRL",
+      customerType: "company", fiscalCode: null, locality: null, industry: null, industryCode: null,
+      revision: 1, archivedAt: null, createdAt: "2026-08-08T10:00:00Z", updatedAt: "2026-08-08T10:00:00Z",
+    }] });
+    render(<EstimateCreateForm currencies={["USD", "MDL"]} />);
+    await user.type(screen.getByRole("combobox", { name: /Заказчик/ }), "NA");
+    await user.click(await screen.findByRole("option", { name: /NADZOR SRL/ }));
+    await user.click(screen.getByRole("button", { name: "Создать и добавить товары" }));
+    await waitFor(() => expect(createEstimateAction).toHaveBeenCalledWith(expect.objectContaining({
+      name: "Без названия",
+      finalCustomerId: "11111111-1111-1111-1111-111111111111",
+      currencyCode: "USD",
+      validityDays: 14,
+    })));
+  });
+
+  it("keeps inline customer creation to one required field until requested", async () => {
+    const user = userEvent.setup();
+    render(<EstimateCreateForm currencies={["USD"]} />);
+    await user.click(screen.getByRole("button", { name: "Создать заказчика" }));
+    expect(screen.getByRole("textbox", { name: "Название / имя" })).toBeRequired();
+    const customerType = document.querySelector<HTMLSelectElement>('select[name="newCustomerType"]');
+    const customerAdditional = customerType?.closest("details");
+    expect(customerAdditional).not.toHaveAttribute("open");
+    expect(customerType).toHaveValue("company");
+    expect(screen.getByRole("button", { name: "Создать и выбрать" })).toBeInTheDocument();
+    await user.click(within(customerAdditional!).getByText("Дополнительно"));
+    expect(screen.getByRole("combobox", { name: "Тип" })).toHaveValue("company");
+    expect(screen.getByRole("textbox", { name: "IDNO" })).toBeInTheDocument();
+  });
+
+  it("preserves inline customer input when contextual validation fails", async () => {
+    const user = userEvent.setup();
+    vi.mocked(createFinalCustomerAction).mockResolvedValue({ success: false, data: null, errorCode: "VALIDATION_ERROR", message: "Проверьте IDNO." });
+    render(<EstimateCreateForm currencies={["USD"]} />);
+    await user.click(screen.getByRole("button", { name: "Создать заказчика" }));
+    const customerType = document.querySelector<HTMLSelectElement>('select[name="newCustomerType"]');
+    const customerAdditional = customerType?.closest("details");
+    await user.click(within(customerAdditional!).getByText("Дополнительно"));
+    await user.type(screen.getByRole("textbox", { name: "Название / имя" }), "Customer SRL");
+    await user.type(screen.getByRole("textbox", { name: "IDNO" }), "1234567890123");
+    await user.click(screen.getByRole("button", { name: "Создать и выбрать" }));
+
+    expect(await screen.findByText("Проверьте IDNO.")).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Название / имя" })).toHaveValue("Customer SRL");
+    expect(screen.getByRole("textbox", { name: "IDNO" })).toHaveValue("1234567890123");
   });
 
   it("keeps an empty customer autocomplete quiet and leaves creation available", async () => {
