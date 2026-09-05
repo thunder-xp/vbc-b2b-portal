@@ -101,13 +101,16 @@ function CustomerCreateFields({ copy, customer, disabled, initialName, locale, o
   const [pending, startTransition] = useTransition();
   return <fieldset className="grid gap-3 rounded-md border border-zinc-200 bg-zinc-50 p-4" disabled={disabled || pending}>
     <legend className="px-1 text-sm font-semibold">{customer ? copy.customerDetails : copy.newCustomer}</legend>
-    <label className="text-xs font-medium text-zinc-600">{copy.type}<select className={inputClass} name="newCustomerType" onChange={(event) => setCustomerType(event.target.value as FinalCustomerType)} value={customerType}><option value="company">{copy.companyType}</option><option value="individual">{copy.individualType}</option></select></label>
     <label className="text-xs font-medium text-zinc-600">{copy.customerName}<input className={inputClass} defaultValue={customer?.displayName ?? initialName} maxLength={200} name="newCustomerName" required /></label>
-    <div className="grid gap-3 sm:grid-cols-3">
-      <label className="text-xs font-medium text-zinc-600">IDNO<input className={inputClass} defaultValue={customer?.fiscalCode ?? ""} maxLength={32} name="newCustomerFiscalCode" /></label>
-      <label className="text-xs font-medium text-zinc-600">{copy.locality}<input className={inputClass} defaultValue={customer?.locality ?? ""} maxLength={120} name="newCustomerLocality" /></label>
-      <label className="text-xs font-medium text-zinc-600">{copy.industry}<select className={inputClass} name="newCustomerIndustryCode" onChange={(event) => setIndustryCode(event.target.value as FinalCustomerIndustryCode | "")} value={industryCode}><option value="">{copy.notSpecifiedFeminine}</option>{FINAL_CUSTOMER_INDUSTRIES.map((industry) => <option key={industry.code} value={industry.code}>{finalCustomerIndustryLabelForLocale(locale, industry.code, industry.label)}</option>)}</select></label>
-    </div>
+    <details className="rounded-md border border-zinc-200 bg-white" open={customer ? true : undefined}>
+      <summary className="flex min-h-11 cursor-pointer items-center px-3 text-sm font-semibold text-zinc-700">{copy.additionalSettings}</summary>
+      <div className="grid gap-3 border-t border-zinc-200 p-3 sm:grid-cols-2">
+        <label className="text-xs font-medium text-zinc-600">{copy.type}<select className={inputClass} name="newCustomerType" onChange={(event) => setCustomerType(event.target.value as FinalCustomerType)} value={customerType}><option value="company">{copy.companyType}</option><option value="individual">{copy.individualType}</option></select></label>
+        <label className="text-xs font-medium text-zinc-600">IDNO<input className={inputClass} defaultValue={customer?.fiscalCode ?? ""} maxLength={32} name="newCustomerFiscalCode" /></label>
+        <label className="text-xs font-medium text-zinc-600">{copy.locality}<input className={inputClass} defaultValue={customer?.locality ?? ""} maxLength={120} name="newCustomerLocality" /></label>
+        <label className="text-xs font-medium text-zinc-600">{copy.industry}<select className={inputClass} name="newCustomerIndustryCode" onChange={(event) => setIndustryCode(event.target.value as FinalCustomerIndustryCode | "")} value={industryCode}><option value="">{copy.notSpecifiedFeminine}</option>{FINAL_CUSTOMER_INDUSTRIES.map((industry) => <option key={industry.code} value={industry.code}>{finalCustomerIndustryLabelForLocale(locale, industry.code, industry.label)}</option>)}</select></label>
+      </div>
+    </details>
     <div className="flex flex-wrap justify-end gap-2">
       <button className="min-h-11 rounded-md border border-zinc-300 bg-white px-4 text-sm font-semibold" onClick={onCancel} type="button">{copy.cancel}</button>
       <button className="min-h-11 rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white" onClick={(event) => {
@@ -119,9 +122,9 @@ function CustomerCreateFields({ copy, customer, disabled, initialName, locale, o
           const result = customer
             ? await updateFinalCustomerAction(customer.id, customer.revision, payload)
             : await createFinalCustomerAction(payload);
-          if (result.success) onCreated(result.data); else onMessage(copy.customerSaveError);
+          if (result.success) onCreated(result.data); else onMessage(result.message || copy.customerSaveError);
         });
-      }} type="button">{pending ? copy.savingShort : customer ? copy.save : copy.create}</button>
+      }} type="button">{pending ? copy.savingShort : customer ? copy.save : copy.createAndSelectCustomer}</button>
     </div>
   </fieldset>;
 }
