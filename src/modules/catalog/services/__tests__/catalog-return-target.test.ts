@@ -18,11 +18,21 @@ describe("catalog return target", () => {
     expect(tabUrl.searchParams.get("returnTo")).toBe(exactState);
   });
 
+  it("preserves the live commerce workspace across product and tab links", () => {
+    const productUrl = new URL(buildCatalogProductHref("camera", "/cabinet/quick-order"), "https://www.nsd.md");
+    expect(productUrl.searchParams.get("returnTo")).toBe("/cabinet/quick-order");
+
+    const tabUrl = new URL(buildProductDetailTabHref("overview", "/cabinet/quick-order"), "https://www.nsd.md/cabinet/catalog/camera");
+    expect(tabUrl.searchParams.get("returnTo")).toBe("/cabinet/quick-order");
+  });
+
   it.each([
     "https://attacker.example/cabinet/catalog",
     "//attacker.example/cabinet/catalog",
     "/cabinet/catalog/product",
     "/cabinet/catalog#fragment",
+    "/cabinet/quick-order?unexpected=true",
+    "/cabinet/quick-order/product",
     "/cabinet\\catalog",
   ])("rejects unsafe or non-catalog target %s", (target) => {
     expect(parseCatalogReturnTarget(target)).toBe("/cabinet/catalog");
