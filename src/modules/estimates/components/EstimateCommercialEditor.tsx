@@ -67,6 +67,12 @@ import {
   type EstimateLinePickerMode,
 } from "./EstimateLinePicker";
 import { EstimateProposalSidebar } from "./EstimateProposalSidebar";
+import {
+  canonicalEstimatePdfFileName,
+  ESTIMATE_PDF_READY_EVENT,
+  EstimatePdfShareAction,
+  type EstimatePdfReadyDetail,
+} from "./EstimatePdfShareAction";
 import { FinalCustomerPicker } from "./FinalCustomerPicker";
 import { duplicateEstimateAction } from "../actions/lifecycle.actions";
 
@@ -135,6 +141,8 @@ export function EstimateCommercialEditor({
   const [dirty, setDirty] = useState(false);
   const [saveState, setSaveState] = useState<"saved" | "dirty" | "saving" | "error">("saved");
   const [mobileActionsOpen, setMobileActionsOpen] = useState(false);
+  const [generatedSharePdf, setGeneratedSharePdf] =
+    useState<EstimatePdfReadyDetail | null>(null);
   const mobileActionsTriggerRef = useRef<HTMLButtonElement>(null);
   const [pickerMode, setPickerMode] = useState<EstimateLinePickerMode | null>(
     () =>
@@ -387,6 +395,30 @@ export function EstimateCommercialEditor({
     "equipment",
   );
   const latestProposal = workflow.versions[0] ?? null;
+  useEffect(() => {
+    const receiveReadyPdf = (event: Event) => {
+      const detail = (event as CustomEvent<EstimatePdfReadyDetail>).detail;
+      if (
+        detail.estimateId === estimate.id &&
+        detail.versionId === latestProposal?.id &&
+        detail.estimateRevision === estimate.revision
+      ) {
+        setGeneratedSharePdf(detail);
+      }
+    };
+    window.addEventListener(ESTIMATE_PDF_READY_EVENT, receiveReadyPdf);
+    return () =>
+      window.removeEventListener(ESTIMATE_PDF_READY_EVENT, receiveReadyPdf);
+  }, [estimate.id, estimate.revision, latestProposal?.id]);
+  const mobileShareDocumentId =
+    !dirty && latestProposal?.estimateRevision === estimate.revision
+      ? latestProposal.pdfStatus === "ready" && latestProposal.pdfDocumentId
+        ? latestProposal.pdfDocumentId
+        : generatedSharePdf?.versionId === latestProposal.id &&
+            generatedSharePdf.estimateRevision === estimate.revision
+          ? generatedSharePdf.id
+          : null
+      : null;
   const proposalPreviewHref = latestProposal
     ? `/cabinet/estimates/${workflow.estimateId}/versions/${latestProposal.id}/preview`
     : `/cabinet/estimates/${workflow.estimateId}/preview`;
@@ -1137,7 +1169,13 @@ export function EstimateCommercialEditor({
         data-testid="estimate-mobile-action-bar"
         style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}
       >
-        <div className="mx-auto grid max-w-lg grid-cols-[minmax(0,1fr)_minmax(0,1fr)_3rem] gap-2">
+        <div
+          className={`mx-auto grid max-w-lg gap-2 ${
+            mobileShareDocumentId
+              ? "grid-cols-[repeat(3,minmax(0,1fr))_3rem]"
+              : "grid-cols-[minmax(0,1fr)_minmax(0,1fr)_3rem]"
+          }`}
+        >
           <button
             aria-label={copy.mobileAddProduct}
             className={buttonClass}
@@ -1162,6 +1200,20 @@ export function EstimateCommercialEditor({
             <Save className="size-4 shrink-0" />
             <span className="truncate">{saveLabel}</span>
           </button>
+          {mobileShareDocumentId ? (
+            <EstimatePdfShareAction
+              className="inline-flex min-h-11 min-w-0 items-center justify-center gap-1 rounded-md border border-emerald-700 bg-white px-2 text-xs font-semibold text-emerald-800 outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-45"
+              documentId={mobileShareDocumentId}
+              downloadLabel={copy.downloadPdf}
+              errorMessage={copy.shareFailed}
+              fallbackMessage={copy.shareFallback}
+              fileName={canonicalEstimatePdfFileName(estimate.estimateNumber)}
+              preparingLabel={copy.sharePreparing}
+              shareLabel={copy.sharePdf}
+              text={`${copy.commercialProposal} ${estimate.estimateNumber}`}
+              title={copy.commercialProposal}
+            />
+          ) : null}
           <button
             aria-label={copy.actionsMenu}
             className={buttonClass}
