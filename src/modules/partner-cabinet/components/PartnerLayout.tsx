@@ -7,6 +7,7 @@ import { PartnerHeader } from "./PartnerHeader";
 import { PartnerMobileNavigation } from "./PartnerMobileNavigation";
 import { PartnerSidebar } from "./PartnerSidebar";
 import { PartnerLocaleProvider, type PartnerLocale } from "../../partner-locale";
+import { LiveCommerceSelectionProvider } from "../../catalog/components/LiveCommerceSelectionProvider";
 
 export type PartnerWorkspaceShellContext = {
   locale: PartnerLocale;
@@ -22,6 +23,8 @@ export type PartnerWorkspaceShellContext = {
   navigation: WorkspaceNavigationItem[];
   cartItemCount: number;
   notificationSummary: NotificationSummary;
+  canAddSelectionToCart?: boolean;
+  canCreateEstimateFromSelection?: boolean;
 };
 
 export function PartnerLayout({
@@ -35,6 +38,7 @@ export function PartnerLayout({
 
   return (
     <PartnerLocaleProvider locale={context.locale}>
+    <LiveCommerceSelectionProvider canAddToCart={Boolean(context.canAddSelectionToCart)} canCreateEstimate={Boolean(context.canCreateEstimateFromSelection)}>
     <div className="min-h-screen bg-zinc-50 text-zinc-950" lang={context.locale}>
       <div className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:block lg:w-72">
         <PartnerSidebar companyName={context.companyName} hasWorkspaceAccess={hasWorkspaceAccess} navigation={context.navigation} />
@@ -53,6 +57,7 @@ export function PartnerLayout({
         <main className="px-4 py-6 lg:px-8">{children}</main>
       </div>
     </div>
+    </LiveCommerceSelectionProvider>
     </PartnerLocaleProvider>
   );
 }

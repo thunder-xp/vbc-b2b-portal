@@ -3,8 +3,8 @@ import { describe, expect, it, vi } from "vitest";
 
 import { ProductActions } from "../ProductActions";
 
-vi.mock("../../../orders/components/AddToCartButton", () => ({
-  AddToCartButton: ({ showQuantityLabel }: { showQuantityLabel?: boolean }) => <button data-show-quantity-label={String(showQuantityLabel)} type="button">Добавить в корзину</button>,
+vi.mock("../CatalogQuantityCartAction", () => ({
+  CatalogQuantityCartAction: () => <button type="button">В подборку</button>,
 }));
 vi.mock("../../../purchasing-lists/components/FavoriteProductButton", () => ({
   FavoriteProductButton: ({ compact }: { compact?: boolean }) => <button data-compact={compact} type="button">Избранное</button>,
@@ -18,12 +18,11 @@ vi.mock("../ProductComparisonAction", () => ({
 
 describe("ProductActions layout", () => {
   it("keeps the primary action and compact secondary actions in one wrapping row", () => {
-    render(<ProductActions canAddToOrder canManagePurchasingLists categoryId="category-1" companyId="company-1" productId="product-1" userId="user-1" />);
+    render(<ProductActions canAddToOrder canManagePurchasingLists categoryId="category-1" companyId="company-1" product={{ id: "product-1", sku: "400540", name: "Camera", slug: "camera", imageUrl: null } as never} userId="user-1" />);
 
     expect(screen.getByLabelText("Действия с товаром")).toHaveClass("flex", "flex-wrap", "items-end");
     expect(screen.getByLabelText("Дополнительные действия")).toHaveClass("min-h-11", "items-center");
-    expect(screen.getByRole("button", { name: "Добавить в корзину" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Добавить в корзину" })).toHaveAttribute("data-show-quantity-label", "false");
+    expect(screen.getByRole("button", { name: "В подборку" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Избранное" })).toHaveAttribute("data-compact", "true");
     expect(screen.getByRole("button", { name: "В смету" })).toHaveAttribute("data-compact", "true");
     expect(screen.getByRole("button", { name: "В сравнение" })).toHaveAttribute("data-compact", "true");

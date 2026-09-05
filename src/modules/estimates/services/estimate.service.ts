@@ -230,6 +230,11 @@ export type CreateEstimateWithProductCommand = CreateEstimateCommand & {
   lineRequestKey: string;
 };
 
+export type CreateEstimateWithProductsCommand = CreateEstimateCommand & {
+  selections: Array<{ productId: string; quantity: number }>;
+  lineRequestKey: string;
+};
+
 export type EstimateLineInsertion = {
   targetSectionId: string;
   requestKey: string;
@@ -321,6 +326,7 @@ export interface EstimateService {
   checkCurrentProductState(userId: string, estimateId: string): Promise<EstimateCommercialCheckDto>;
   createDraft(userId: string, input: CreateEstimateCommand): Promise<Estimate>;
   createDraftWithProduct(userId: string, input: CreateEstimateWithProductCommand): Promise<{ estimateId: string; repeated: boolean }>;
+  createDraftWithProducts(userId: string, input: CreateEstimateWithProductsCommand): Promise<{ estimateId: string; repeated: boolean }>;
   createFromPurchasingList(userId: string, input: { listId: string; name: string; requestKey: string; items: Array<{ itemId: string; productId: string; quantity: number }> }): Promise<{ estimateId: string; repeated: boolean; added: number; skipped: number }>;
   getDetail(userId: string, estimateId: string): Promise<EstimateDetailDto>;
   saveDraft(userId: string, estimateId: string, input: SaveEstimateCommand): Promise<EstimateDetailDto>;
@@ -800,6 +806,13 @@ export class DefaultEstimateService implements EstimateService {
   }
 
   async createDraftWithProduct(userId: string, input: CreateEstimateWithProductCommand): Promise<{ estimateId: string; repeated: boolean }> {
+    return this.createDraftWithProducts(userId, {
+      ...input,
+      selections: [{ productId: input.productId, quantity: input.quantity }],
+    });
+  }
+
+  async createDraftWithProducts(userId: string, input: CreateEstimateWithProductsCommand): Promise<{ estimateId: string; repeated: boolean }> {
     const companyId = await this.resolveCompany(userId, MANAGE_PERMISSION);
     await this.permissionService.ensurePermission(userId, companyId, PRICING_PERMISSION);
     const normalized = normalizeMetadata(input);
@@ -807,7 +820,7 @@ export class DefaultEstimateService implements EstimateService {
     if (!finalCustomerId) throw new InvalidStateError("Выберите или создайте заказчика.");
     const currencies = await this.pricingInventoryService.listAvailableCurrencyCodes?.(userId) ?? [];
     if (!currencies.includes(normalized.currencyCode)) throw new InvalidStateError("Estimate currency is not available in published commercial data.");
-    const lines = await this.buildProductLines(userId, { companyId, currencyCode: normalized.currencyCode }, [{ productId: input.productId, quantity: input.quantity }]);
+    const lines = await this.buildProductLines(userId, { companyId, currencyCode: normalized.currencyCode }, input.selections);
     const requestFingerprint = createHash("sha256").update(JSON.stringify({ companyId, finalCustomerId, ...normalized, lines })).digest("hex");
     return this.repository.createWithProduct({
       companyId,

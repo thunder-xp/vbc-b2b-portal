@@ -61,6 +61,20 @@ export type QuickOrderCartStateDto = {
   totalUnitCount: number;
 };
 
+export type LiveSelectionCartInput = {
+  productId: string;
+  quantity: number;
+  snapshotPartnerPrice: number | null;
+};
+
+export type LiveSelectionCartResult = {
+  cartId: string;
+  added: number;
+  updated: number;
+  priceChanged: number;
+  missingPrice: number;
+};
+
 export type EstimateToCartSourceLine = {
   productId: string;
   quantity: number;
@@ -86,6 +100,7 @@ export interface CartService {
   }>;
   getItemCount(userId: string): Promise<number>;
   addItem(userId: string, productId: string, quantity: number): Promise<void>;
+  addItems(userId: string, selections: LiveSelectionCartInput[]): Promise<LiveSelectionCartResult>;
   updateQuantity(userId: string, itemId: string, quantity: number): Promise<void>;
   removeItem(userId: string, itemId: string): Promise<void>;
   getEstimateSource(userId: string): Promise<CartEstimateSourceDto>;
@@ -222,6 +237,45 @@ export class DefaultCartService implements CartService {
       throw new NotFoundError("Catalog product was not found.");
     }
     await this.repository.addItem(companyId, normalizedProductId, quantity);
+  }
+
+  async addItems(userId: string, selections: LiveSelectionCartInput[]): Promise<LiveSelectionCartResult> {
+    const companyId = await this.resolveCompanyId(userId);
+    if (!Array.isArray(selections) || selections.length < 1 || selections.length > 50) {
+      throw new InvalidStateError("Select between 1 and 50 products.");
+    }
+    const grouped = new Map<string, LiveSelectionCartInput>();
+    for (const selection of selections) {
+      const productId = selection.productId.trim();
+      const quantity = normalizeQuantity(selection.quantity);
+      if (!productId) throw new InvalidStateError("Product is required.");
+      const current = grouped.get(productId);
+      const mergedQuantity = (current?.quantity ?? 0) + quantity;
+      if (mergedQuantity > 9999) throw new InvalidStateError("Quantity must be a whole number between 1 and 9999.");
+      grouped.set(productId, { productId, quantity: mergedQuantity, snapshotPartnerPrice: selection.snapshotPartnerPrice });
+    }
+    const items = [...grouped.values()];
+    const productIds = items.map((item) => item.productId);
+    const [identities, commercialViews] = await Promise.all([
+      this.catalogService.getProductOrderIdentities(userId, productIds),
+      this.pricingInventoryService.getAuthoritativeProductCommercialViews
+        ? this.pricingInventoryService.getAuthoritativeProductCommercialViews(userId, productIds)
+        : this.pricingInventoryService.getProductCommercialViews(userId, productIds),
+    ]);
+    if (identities.length !== productIds.length) throw new NotFoundError("One or more catalog products were not found.");
+    const commercialById = new Map(commercialViews.map((view) => [view.productId, view]));
+    let priceChanged = 0;
+    let missingPrice = 0;
+    for (const item of items) {
+      const currentPrice = commercialById.get(item.productId)?.partnerPrice?.amount;
+      if (!Number.isFinite(currentPrice)) missingPrice += 1;
+      else if (item.snapshotPartnerPrice !== null && Math.abs(Number(currentPrice) - item.snapshotPartnerPrice) >= 0.005) priceChanged += 1;
+    }
+    const result = await this.repository.addItems(
+      companyId,
+      items.map(({ productId, quantity }) => ({ productId, quantity })),
+    );
+    return { ...result, priceChanged, missingPrice };
   }
 
   async updateQuantity(userId: string, itemId: string, quantity: number): Promise<void> {

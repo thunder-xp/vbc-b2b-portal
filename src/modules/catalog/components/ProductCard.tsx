@@ -15,6 +15,7 @@ import { CatalogProductCardFrame } from "./CatalogProductCardFrame";
 import { BehaviorTrackedLink } from "../../behavior-analytics/components/BehaviorViewEvent";
 import type { BehaviorEventName } from "../../behavior-analytics/types";
 import { getCatalogCopy, type PartnerLocale } from "../../partner-locale";
+import { toLiveCommerceSelectionProduct } from "../services/live-commerce-selection";
 
 type ProductCardProps = { product: CatalogProductCardDto; analyticsEventName?: BehaviorEventName; analyticsSurface?: string; cartSuccessEventName?: BehaviorEventName; commercialView?: ProductCommercialViewDto; capabilities: ProductCardCapabilityModel; companyId?: string | null; contextBadge?: string; contextLine?: string; detailHref?: string; favorite?: boolean; imagePriority?: boolean; locale?: PartnerLocale; userId?: string | null };
 
@@ -29,7 +30,7 @@ export function ProductCard({ analyticsEventName, analyticsSurface, cartSuccessE
   </>;
 
   return <CatalogProductCardFrame
-    actions={capabilities.canAddToOrder ? <CatalogQuantityCartAction productId={product.id} sourceSurface={analyticsSurface} successEventName={cartSuccessEventName} /> : <Link className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-emerald-700 text-sm font-semibold text-emerald-700" href={productHref} prefetch={false}>{copy.details}</Link>}
+    actions={capabilities.canAddToOrder ? <CatalogQuantityCartAction productId={product.id} selectionProduct={toLiveCommerceSelectionProduct({ ...product, commercialView })} sourceSurface={analyticsSurface} successEventName={cartSuccessEventName} /> : <Link className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-emerald-700 text-sm font-semibold text-emerald-700" href={productHref} prefetch={false}>{copy.details}</Link>}
     availability={capabilities.showStock ? <ProductAvailabilityBlock locale={locale} stock={commercialView?.stock} /> : null}
     commercial={capabilities.showPrice ? <ProductPricingBlock commercialView={commercialView} locale={locale} showPartnerPrice={capabilities.showPartnerPrice} showRetailPrice={capabilities.showRetailPrice} /> : null}
     context={contextLine ? <p className="line-clamp-2 min-h-8 text-xs text-zinc-500">{contextLine}</p> : null}

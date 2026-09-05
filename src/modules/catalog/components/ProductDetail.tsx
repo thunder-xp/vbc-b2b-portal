@@ -122,6 +122,7 @@ export function ProductDetail({
           initialFavorite={initialFavorite}
           locale={locale}
           product={product}
+          commercialView={commercialView}
           userId={userId}
         >
           {activeTab === "overview" ? (
@@ -167,6 +168,7 @@ function ProductTabLayout({
   canAddToOrder,
   canManagePurchasingLists,
   children,
+  commercialView,
   companyId,
   initialFavorite,
   locale,
@@ -176,6 +178,7 @@ function ProductTabLayout({
   canAddToOrder: boolean;
   canManagePurchasingLists: boolean;
   children: ReactNode;
+  commercialView?: ProductCommercialViewDto;
   companyId: string | null;
   initialFavorite: boolean;
   locale: PartnerLocale;
@@ -194,6 +197,7 @@ function ProductTabLayout({
         initialFavorite={initialFavorite}
         locale={locale}
         product={product}
+        commercialView={commercialView}
         userId={userId}
       />
       <div className="min-w-0" data-testid="product-detail-content">

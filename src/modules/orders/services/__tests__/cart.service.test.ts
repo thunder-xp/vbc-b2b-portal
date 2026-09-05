@@ -18,6 +18,18 @@ describe("DefaultCartService", () => {
     expect(repository.addItem).not.toHaveBeenCalled();
   });
 
+  it("merges a working selection with one catalog read, one commercial read, and one Cart RPC", async () => {
+    const dependencies = makeDependencies();
+    const result = await dependencies.service.addItems("user-1", [
+      { productId: "product-1", quantity: 2, snapshotPartnerPrice: 9 },
+      { productId: "product-1", quantity: 3, snapshotPartnerPrice: 9 },
+    ]);
+    expect(dependencies.catalogService.getProductOrderIdentities).toHaveBeenCalledOnce();
+    expect(dependencies.pricingService.getProductCommercialViews).toHaveBeenCalledOnce();
+    expect(dependencies.repository.addItems).toHaveBeenCalledWith("company-1", [{ productId: "product-1", quantity: 5 }]);
+    expect(result).toMatchObject({ cartId: "cart-1", added: 1, updated: 0, priceChanged: 1, missingPrice: 0 });
+  });
+
   it("uses one bulk catalog read and one bulk commercial read for cart totals", async () => {
     const dependencies = makeDependencies();
     const cart = await dependencies.service.getCart("user-1");
@@ -168,7 +180,7 @@ function makeDependencies() {
     findReconciliationLock: vi.fn().mockResolvedValue(null),
     findReconciliationLockForItem: vi.fn().mockResolvedValue(null),
     listItems: vi.fn().mockResolvedValue([{ id: "item-1", cartId: "cart-1", productId: "product-1", quantity: 2, createdAt: "2026-01-01", updatedAt: "2026-01-01" }]),
-    addItem: vi.fn(), updateItemQuantity: vi.fn(), removeItem: vi.fn(), mergeEstimateProducts: vi.fn(), mergeOrderReorderItems: vi.fn(),
+    addItem: vi.fn(), addItems: vi.fn().mockResolvedValue({ cartId: "cart-1", added: 1, updated: 0 }), updateItemQuantity: vi.fn(), removeItem: vi.fn(), mergeEstimateProducts: vi.fn(), mergeOrderReorderItems: vi.fn(),
   } satisfies CartRepository;
   const companyAccessService = {
     getOwnMemberships: vi.fn().mockResolvedValue([{ companyId: "company-1", status: "active" }]),

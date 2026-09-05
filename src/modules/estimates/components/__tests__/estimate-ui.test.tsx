@@ -3,13 +3,14 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import type { EstimateDetailDto, EstimateProductPickerDto } from "../../services";
-import { createEstimateAction, createFinalCustomerAction, searchEstimateProductsAction, searchFinalCustomersAction } from "../../actions/estimate.actions";
+import { createEstimateAction, createEstimateFromSelectionAction, createFinalCustomerAction, searchEstimateProductsAction, searchFinalCustomersAction } from "../../actions/estimate.actions";
 import { EstimateCreateForm } from "../EstimateCreateForm";
 import { EstimateEditor } from "../EstimateEditor";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 vi.mock("../../actions/estimate.actions", () => ({
   createEstimateAction: vi.fn(),
+  createEstimateFromSelectionAction: vi.fn(),
   createFinalCustomerAction: vi.fn(),
   searchFinalCustomersAction: vi.fn(),
   addEstimateCustomLineAction: vi.fn(),
@@ -23,6 +24,16 @@ vi.mock("../../actions/estimate.actions", () => ({
   updateEstimateLineAction: vi.fn(),
 }));
 vi.mock("../../actions/demand.actions", () => ({ setExternalDemandAction: vi.fn() }));
+
+const workingSelection = vi.hoisted(() => ({
+  items: [] as Array<{ id: string; quantity: number }>,
+  hydrated: true,
+  clear: vi.fn(),
+}));
+
+vi.mock("../../../catalog/components/LiveCommerceSelectionProvider", () => ({
+  useLiveCommerceSelection: () => workingSelection,
+}));
 
 const detail: EstimateDetailDto = {
   id: "estimate-1",
@@ -129,6 +140,33 @@ describe("estimate UI", () => {
       currencyCode: "USD",
       validityDays: 14,
     })));
+  });
+
+  it("creates one standard Estimate from the complete working selection", async () => {
+    const user = userEvent.setup();
+    workingSelection.items = [
+      { id: "product-1", quantity: 2 },
+      { id: "product-2", quantity: 3 },
+    ];
+    vi.mocked(createEstimateFromSelectionAction).mockResolvedValue({ success: true, errorCode: null, message: "Created", data: { id: "estimate-3" } });
+    vi.mocked(searchFinalCustomersAction).mockResolvedValue({ success: true, errorCode: null, message: "Found", data: [{
+      id: "11111111-1111-1111-1111-111111111111", companyId: "company-1", displayName: "NADZOR SRL",
+      customerType: "company", fiscalCode: null, locality: null, industry: null, industryCode: null, primaryEmail: null,
+      revision: 1, archivedAt: null, createdAt: "2026-08-08T10:00:00Z", updatedAt: "2026-08-08T10:00:00Z",
+    }] });
+
+    render(<EstimateCreateForm currencies={["USD"]} fromWorkingSelection />);
+    expect(screen.getByTestId("estimate-selection-summary")).toHaveTextContent("Подборка: 2 товаров · 5 шт.");
+    await user.type(screen.getByRole("combobox", { name: /Заказчик/ }), "NA");
+    await user.click(await screen.findByRole("option", { name: /NADZOR SRL/ }));
+    await user.click(screen.getByRole("button", { name: "Создать и добавить товары" }));
+
+    await waitFor(() => expect(createEstimateFromSelectionAction).toHaveBeenCalledWith(expect.objectContaining({
+      finalCustomerId: "11111111-1111-1111-1111-111111111111",
+      selections: [{ productId: "product-1", quantity: 2 }, { productId: "product-2", quantity: 3 }],
+    })));
+    expect(workingSelection.clear).toHaveBeenCalledOnce();
+    workingSelection.items = [];
   });
 
   it("keeps inline customer creation to one required field until requested", async () => {

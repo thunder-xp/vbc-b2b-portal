@@ -1,12 +1,11 @@
 "use client";
 
-import { ChevronRight, Minus, Plus, Search, ShoppingCart, X } from "lucide-react";
+import { ChevronRight, LayoutGrid, Minus, Plus, Search, X } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
-import { recordBehaviorInteraction } from "../../behavior-analytics/components/BehaviorViewEvent";
-import { addToCartAction } from "../../orders/actions/cart.actions";
 import { getQuickProductCopy, type PartnerLocale } from "../../partner-locale";
+import { emitLiveCommerceSelectionAdd, toLiveCommerceSelectionProduct } from "../services/live-commerce-selection";
 import type { QuickProductSearchResultDto } from "../services/quick-product-search";
 import { ProductAvailabilityBlock } from "./ProductAvailabilityBlock";
 import { ProductThumbnail } from "./ProductThumbnail";
@@ -16,14 +15,10 @@ type SearchResponse =
   | { success: false; message?: string };
 
 export function MobileQuickProductCommerce({
-  canAddToOrder,
-  initialCartQuantities,
-  initialCartUnitCount,
+  canSelectProducts,
   locale,
 }: {
-  canAddToOrder: boolean;
-  initialCartQuantities: Record<string, number>;
-  initialCartUnitCount: number;
+  canSelectProducts: boolean;
   locale: PartnerLocale;
 }) {
   const copy = getQuickProductCopy(locale);
@@ -37,12 +32,20 @@ export function MobileQuickProductCommerce({
   const [loading, setLoading] = useState(false);
   const [searchFailed, setSearchFailed] = useState(false);
   const [requestCount, setRequestCount] = useState(0);
-  const [cartQuantities, setCartQuantities] = useState(initialCartQuantities);
-  const [cartUnitCount, setCartUnitCount] = useState(initialCartUnitCount);
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [feedback, setFeedback] = useState<Record<string, { success: boolean; message: string }>>({});
-  const [pendingProductId, setPendingProductId] = useState<string | null>(null);
-  const [, startTransition] = useTransition();
+
+  useEffect(() => {
+    const saved = sessionStorage.getItem("novotech:live-commerce-search:v1") ?? "";
+    if (saved.length < 2 || saved.length > 100) return;
+    const restoreTimer = window.setTimeout(() => setQuery(saved), 0);
+    return () => window.clearTimeout(restoreTimer);
+  }, []);
+
+  useEffect(() => {
+    if (query.trim()) sessionStorage.setItem("novotech:live-commerce-search:v1", query);
+    else sessionStorage.removeItem("novotech:live-commerce-search:v1");
+  }, [query]);
 
   const runSearch = useCallback(async (rawQuery: string) => {
     const normalized = rawQuery.trim();
@@ -115,38 +118,12 @@ export function MobileQuickProductCommerce({
 
   function addProduct(product: QuickProductSearchResultDto) {
     const quantity = quantities[product.id] ?? 1;
-    if (pendingProductId || !canAddToOrder || !product.commercialView?.partnerPrice) return;
-    setPendingProductId(product.id);
-    startTransition(async () => {
-      try {
-        const result = await addToCartAction(product.id, quantity);
-        if (!result.success) {
-          setFeedback((current) => ({ ...current, [product.id]: { success: false, message: result.message } }));
-          return;
-        }
-        setCartQuantities((current) => ({ ...current, [product.id]: (current[product.id] ?? 0) + quantity }));
-        setCartUnitCount((count) => count + quantity);
-        setFeedback((current) => ({
-          ...current,
-          [product.id]: { success: true, message: `${copy.added}: ${quantity} ${copy.units}` },
-        }));
-        recordBehaviorInteraction({
-          eventName: "product_added_to_cart",
-          productId: product.id,
-          quantity,
-          route: "/cabinet/quick-order",
-          sourceSurface: "mobile_quick_product",
-        });
-        window.dispatchEvent(new CustomEvent("novotech:cart-updated", { detail: { quantityAdded: quantity } }));
-        inputRef.current?.focus();
-        inputRef.current?.select();
-        setQuantities((current) => ({ ...current, [product.id]: 1 }));
-      } catch {
-        setFeedback((current) => ({ ...current, [product.id]: { success: false, message: copy.addFailed } }));
-      } finally {
-        setPendingProductId(null);
-      }
-    });
+    if (!canSelectProducts) return;
+    emitLiveCommerceSelectionAdd({ product: toLiveCommerceSelectionProduct({ ...product, commercialView: product.commercialView }), quantity });
+    setFeedback((current) => ({ ...current, [product.id]: { success: true, message: `${copy.added}: ${quantity} ${copy.units}` } }));
+    inputRef.current?.focus();
+    inputRef.current?.select();
+    setQuantities((current) => ({ ...current, [product.id]: 1 }));
   }
 
   return (
@@ -154,6 +131,11 @@ export function MobileQuickProductCommerce({
       <div className="space-y-1">
         <h1 className="text-xl font-semibold tracking-tight text-zinc-950 sm:text-2xl">{copy.title}</h1>
         <p className="text-sm leading-5 text-zinc-600">{copy.subtitle}</p>
+        <nav aria-label={copy.title} className="flex flex-wrap gap-x-4 gap-y-1 pt-2 text-sm font-semibold text-emerald-800">
+          <Link href="/cabinet/catalog?view=all" prefetch={false}>{copy.browseCatalog}</Link>
+          <Link href="/cabinet/opportunities" prefetch={false}>{copy.recentlyPurchased}</Link>
+          <Link href="/cabinet/purchasing-lists" prefetch={false}>{copy.favorites}</Link>
+        </nav>
       </div>
 
       <div className="sticky top-0 z-20 -mx-4 border-y border-zinc-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur sm:mx-0 sm:rounded-lg sm:border">
@@ -196,9 +178,8 @@ export function MobileQuickProductCommerce({
               {query ? <button aria-label={copy.clear} className="absolute right-0 top-0 inline-flex h-12 w-12 items-center justify-center rounded-r-lg text-zinc-500 hover:text-zinc-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-600" onClick={() => { updateSearchQuery(""); inputRef.current?.focus(); }} type="button"><X aria-hidden="true" className="size-5" /></button> : null}
             </div>
           </form>
-          <Link aria-label={`${copy.cart}: ${cartUnitCount}`} className="relative inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-zinc-300 bg-white text-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600" href="/cabinet/cart" prefetch={false}>
-            <ShoppingCart aria-hidden="true" className="size-5" />
-            {cartUnitCount > 0 ? <span className="absolute -right-1.5 -top-1.5 min-w-5 rounded-full bg-emerald-700 px-1 text-center text-[11px] font-semibold leading-5 text-white">{cartUnitCount > 99 ? "99+" : cartUnitCount}</span> : null}
+          <Link aria-label={copy.browseCatalog} className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-zinc-300 bg-white text-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600" href="/cabinet/catalog?view=all" prefetch={false} title={copy.browseCatalog}>
+            <LayoutGrid aria-hidden="true" className="size-5" />
           </Link>
         </div>
         {loading ? <p aria-live="polite" className="mt-2 text-xs font-medium text-emerald-800">{copy.searching}</p> : null}
@@ -210,7 +191,6 @@ export function MobileQuickProductCommerce({
         {searchFailed ? <EmptyState title={copy.noResults} detail={copy.addFailed} /> : null}
         {results.map((product) => {
           const quantity = quantities[product.id] ?? 1;
-          const inCart = cartQuantities[product.id] ?? 0;
           const priced = Boolean(product.commercialView?.partnerPrice);
           const exact = product.matchKind !== "partial";
           const itemFeedback = feedback[product.id];
@@ -242,15 +222,14 @@ export function MobileQuickProductCommerce({
             </div>
 
             <div className="space-y-2 p-3">
-              {inCart > 0 ? <p className="text-xs font-semibold text-emerald-800">{copy.inCart}: {inCart} {copy.units}</p> : null}
               <div className="grid grid-cols-[8.75rem_minmax(0,1fr)] gap-2">
                 <div aria-label={copy.quantity} className="grid grid-cols-[2.75rem_3.25rem_2.75rem]" role="group">
-                  <button aria-label={copy.decrease} className="inline-flex h-11 items-center justify-center rounded-l-lg border border-zinc-300 bg-zinc-50 text-zinc-800 disabled:opacity-40" disabled={quantity <= 1 || pendingProductId === product.id} onClick={() => updateQuantity(product.id, quantity - 1)} type="button"><Minus aria-hidden="true" className="size-4" /></button>
+                  <button aria-label={copy.decrease} className="inline-flex h-11 items-center justify-center rounded-l-lg border border-zinc-300 bg-zinc-50 text-zinc-800 disabled:opacity-40" disabled={quantity <= 1} onClick={() => updateQuantity(product.id, quantity - 1)} type="button"><Minus aria-hidden="true" className="size-4" /></button>
                   <input aria-label={copy.quantity} className="h-11 min-w-0 border-y border-zinc-300 bg-white px-1 text-center text-base font-semibold outline-none focus:ring-2 focus:ring-inset focus:ring-emerald-600" inputMode="numeric" max={9999} min={1} onChange={(event) => updateQuantity(product.id, Number(event.target.value))} pattern="[0-9]*" type="number" value={quantity} />
-                  <button aria-label={copy.increase} className="inline-flex h-11 items-center justify-center rounded-r-lg border border-zinc-300 bg-zinc-50 text-zinc-800 disabled:opacity-40" disabled={quantity >= 9999 || pendingProductId === product.id} onClick={() => updateQuantity(product.id, quantity + 1)} type="button"><Plus aria-hidden="true" className="size-4" /></button>
+                  <button aria-label={copy.increase} className="inline-flex h-11 items-center justify-center rounded-r-lg border border-zinc-300 bg-zinc-50 text-zinc-800 disabled:opacity-40" disabled={quantity >= 9999} onClick={() => updateQuantity(product.id, quantity + 1)} type="button"><Plus aria-hidden="true" className="size-4" /></button>
                 </div>
-                <button className="inline-flex h-11 min-w-0 items-center justify-center gap-2 rounded-lg bg-emerald-700 px-3 text-sm font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:bg-zinc-300 disabled:text-zinc-600" disabled={loading || Boolean(pendingProductId) || !canAddToOrder || !priced} onClick={() => addProduct(product)} title={!canAddToOrder || !priced ? copy.unavailableAction : undefined} type="button">
-                  {pendingProductId === product.id ? copy.adding : copy.add}
+                <button className="inline-flex h-11 min-w-0 items-center justify-center gap-2 rounded-lg bg-emerald-700 px-3 text-sm font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:bg-zinc-300 disabled:text-zinc-600" disabled={loading || !canSelectProducts} onClick={() => addProduct(product)} title={!canSelectProducts ? copy.unavailableAction : undefined} type="button">
+                  {copy.add}
                 </button>
               </div>
               <p aria-live="polite" className={`min-h-4 text-xs font-medium ${itemFeedback?.success === false ? "text-red-700" : "text-emerald-700"}`}>{itemFeedback?.message ?? ""}</p>
