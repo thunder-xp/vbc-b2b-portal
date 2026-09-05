@@ -1,19 +1,22 @@
 import { act, render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { generateEstimateVersionPdfAction } from "../../actions/proposal.actions";
-import { addEstimateEquipmentToCartAction, createDraftFromEstimateVersionAction } from "../../actions/lifecycle.actions";
+import { addEstimateEquipmentToCartAction, createDraftFromEstimateVersionAction, createEstimateVersionAction } from "../../actions/lifecycle.actions";
+import type { EstimateDraftReadinessDto } from "../../types";
 import { EstimateWorkflowPanel } from "../EstimateWorkflowPanel";
 import { ESTIMATE_DIRTY_STATE_EVENT } from "../estimate-client-events";
 
 const refreshMock = vi.fn();
 const fullPermissions = { canManage: true, canSend: true, canConvert: true, canManageOrders: true } as const;
+const inactiveDraftReadiness: EstimateDraftReadinessDto = { state: "not_applicable", primaryAction: null, target: null, linePosition: null, ready: true, checks: [] };
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), refresh: refreshMock }),
 }));
 vi.mock("../../actions/lifecycle.actions", () => ({
   addEstimateEquipmentToCartAction: vi.fn(),
   createDraftFromEstimateVersionAction: vi.fn(),
+  createEstimateVersionAction: vi.fn(),
   duplicateEstimateAction: vi.fn(),
   markEstimateReadyAction: vi.fn(),
   saveEstimateAsTemplateAction: vi.fn(),
@@ -27,10 +30,42 @@ vi.mock("../../actions/delivery.actions", () => ({
 }));
 
 describe("EstimateWorkflowPanel ergonomics", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("renders and executes exactly one governed draft next action", async () => {
+    const { default: userEvent } = await import("@testing-library/user-event");
+    const user = userEvent.setup();
+    vi.mocked(createEstimateVersionAction).mockResolvedValue({
+      success: true,
+      message: "Created",
+      errorCode: null,
+      data: {
+        id: "version-1", estimateId: "estimate-1", versionNumber: 1, status: "prepared", estimateNumber: "KP-1",
+        currencyCode: "USD", totalAmount: 100, note: null, createdAt: "2026-09-05T10:00:00Z", createdByName: "Manager",
+      },
+    });
+    render(<EstimateWorkflowPanel initialWorkflow={{
+      estimateId: "estimate-1", estimateStatus: "draft", lifecycleStatus: "draft", acceptedVersionId: null,
+      emailDeliveryAvailable: false, draftReadiness: inactiveDraftReadiness, readiness: { ready: true, checks: [] },
+      guidedState: { state: "draft", primaryAction: null, secondaryActions: ["duplicate"], resumeCartId: null },
+      permissions: fullPermissions, versions: [],
+    }} revision={3} draftReadiness={{
+      state: "prepare_proposal", primaryAction: "prepare_proposal", target: null, linePosition: null, ready: true, checks: [],
+    }} />);
+
+    expect(screen.getByTestId("estimate-guided-workflow")).toHaveAttribute("data-draft-readiness-state", "prepare_proposal");
+    const primary = screen.getByTestId("estimate-primary-next-action");
+    expect(primary).toHaveTextContent("Подготовить КП");
+    expect(primary.querySelectorAll("button, a")).toHaveLength(1);
+    await user.click(primary.querySelector("button")!);
+    expect(createEstimateVersionAction).toHaveBeenCalledWith("estimate-1", 3, expect.any(String), "");
+    expect(refreshMock).toHaveBeenCalled();
+  });
+
   it("keeps the just-sent immutable proposal current after its lifecycle-only revision bump", () => {
     render(<EstimateWorkflowPanel initialWorkflow={{
       estimateId: "estimate-1", estimateStatus: "draft", lifecycleStatus: "sent", lifecycleExpiresAt: "2026-09-19T08:00:00Z", acceptedVersionId: null,
-      emailDeliveryAvailable: true, readiness: { ready: true, checks: [] },
+      emailDeliveryAvailable: true, draftReadiness: inactiveDraftReadiness, readiness: { ready: true, checks: [] },
       guidedState: { state: "awaiting_customer", primaryAction: null, secondaryActions: ["preview", "pdf", "resend", "duplicate", "save_template", "mark_ready", "record_response"], resumeCartId: null }, permissions: fullPermissions,
       customer: { id: "customer-1", displayName: "Customer", primaryEmail: "client@example.com", revision: 1 },
       versions: [{ id: "version-1", estimateNumber: "KP-1", versionNumber: 1, estimateRevision: 3, label: "KP-1", status: "sent", statusLabel: "Sent", total: "100 USD", currencyCode: "USD", note: null, createdAt: "2026-09-05T08:00:00Z", createdByName: "Manager", sentAt: "2026-09-05T08:05:00Z", acceptedAt: null, rejectedAt: null, pdfDocumentId: "pdf-1", pdfStatus: "ready", deliveries: [] }],
@@ -44,7 +79,7 @@ describe("EstimateWorkflowPanel ergonomics", () => {
   it("disables governed email delivery as soon as the Estimate has unsaved edits", () => {
     render(<EstimateWorkflowPanel initialWorkflow={{
       estimateId: "estimate-1", estimateStatus: "draft", lifecycleStatus: "draft", acceptedVersionId: null,
-      emailDeliveryAvailable: true, readiness: { ready: true, checks: [] },
+      emailDeliveryAvailable: true, draftReadiness: inactiveDraftReadiness, readiness: { ready: true, checks: [] },
       guidedState: { state: "ready_to_send", primaryAction: "send", secondaryActions: ["preview", "pdf", "duplicate", "save_template", "mark_ready", "mark_sent"], resumeCartId: null }, permissions: fullPermissions,
       customer: { id: "customer-1", displayName: "Customer", primaryEmail: "client@example.com", revision: 1 },
       versions: [{ id: "version-1", estimateNumber: "KP-1", versionNumber: 1, estimateRevision: 3, label: "KP-1", status: "prepared", statusLabel: "Prepared", total: "100 USD", currencyCode: "USD", note: null, createdAt: "2026-09-05T08:00:00Z", createdByName: "Manager", sentAt: null, acceptedAt: null, rejectedAt: null, pdfDocumentId: "pdf-1", pdfStatus: "ready", deliveries: [] }],
@@ -61,6 +96,7 @@ describe("EstimateWorkflowPanel ergonomics", () => {
       estimateStatus: "draft",
       acceptedVersionId: null,
       emailDeliveryAvailable: false,
+      draftReadiness: inactiveDraftReadiness,
       guidedState: { state: "draft", primaryAction: null, secondaryActions: ["preview", "pdf", "send", "duplicate", "save_template", "mark_ready"], resumeCartId: null }, permissions: fullPermissions,
       readiness: { ready: true, checks: [] },
       versions: [{
@@ -102,6 +138,7 @@ describe("EstimateWorkflowPanel ergonomics", () => {
       estimateStatus: "ready",
       acceptedVersionId: "version-1",
       emailDeliveryAvailable: false,
+      draftReadiness: inactiveDraftReadiness,
       guidedState: { state: "accepted_ready_to_order", primaryAction: "continue_order", secondaryActions: ["preview", "pdf", "duplicate", "save_template"], resumeCartId: null }, permissions: fullPermissions,
       readiness: { ready: true, checks: [] },
       versions: [{
@@ -140,7 +177,7 @@ describe("EstimateWorkflowPanel ergonomics", () => {
 
     render(<EstimateWorkflowPanel initialWorkflow={{
       estimateId: "estimate-1", estimateStatus: "draft", lifecycleStatus: "draft", lifecycleExpiresAt: null,
-      acceptedVersionId: null, emailDeliveryAvailable: true, readiness: { ready: true, checks: [] },
+      acceptedVersionId: null, emailDeliveryAvailable: true, draftReadiness: inactiveDraftReadiness, readiness: { ready: true, checks: [] },
       guidedState: { state: "draft", primaryAction: null, secondaryActions: ["preview", "pdf", "send", "duplicate", "save_template", "mark_ready"], resumeCartId: null }, permissions: fullPermissions,
       versions: [{ id: "version-1", versionNumber: 1, estimateRevision: 3, label: "Proposal", status: "prepared", statusLabel: "Prepared", total: "1 000,00 USD", currencyCode: "USD", note: null, createdAt: "2026-09-02T09:00:00Z", createdByName: "Manager", sentAt: null, acceptedAt: null, rejectedAt: null, pdfDocumentId: null, pdfStatus: null, deliveries: [] }],
     }} revision={3} />);
@@ -161,7 +198,7 @@ describe("EstimateWorkflowPanel ergonomics", () => {
     vi.mocked(createDraftFromEstimateVersionAction).mockResolvedValue({ success: true, message: "Updated", errorCode: null, data: { estimateId: "estimate-1" } });
     render(<EstimateWorkflowPanel initialProposalAction={{ kind: "resend", versionId: "version-1" }} initialWorkflow={{
       estimateId: "estimate-1", estimateStatus: "ready", lifecycleStatus: "expired", lifecycleExpiresAt: "2026-08-20T10:00:00Z",
-      acceptedVersionId: null, emailDeliveryAvailable: true, readiness: { ready: true, checks: [] },
+      acceptedVersionId: null, emailDeliveryAvailable: true, draftReadiness: inactiveDraftReadiness, readiness: { ready: true, checks: [] },
       guidedState: { state: "expired", primaryAction: "update", secondaryActions: ["preview", "pdf", "duplicate", "save_template"], resumeCartId: null }, permissions: fullPermissions,
       versions: [{ id: "version-1", versionNumber: 1, estimateRevision: 3, label: "Proposal", status: "sent", statusLabel: "Sent", total: "1 000,00 USD", currencyCode: "USD", note: null, createdAt: "2026-08-01T09:00:00Z", createdByName: "Manager", sentAt: "2026-08-06T10:00:00Z", acceptedAt: null, rejectedAt: null, pdfDocumentId: "pdf-1", pdfStatus: "ready", deliveries: [] }],
     }} revision={3} />);
@@ -178,7 +215,7 @@ describe("EstimateWorkflowPanel ergonomics", () => {
     const user = userEvent.setup();
     render(<EstimateWorkflowPanel initialWorkflow={{
       estimateId: "estimate-1", estimateStatus: "ready", lifecycleStatus: "sent", acceptedVersionId: null,
-      emailDeliveryAvailable: true, readiness: { ready: true, checks: [] },
+      emailDeliveryAvailable: true, draftReadiness: inactiveDraftReadiness, readiness: { ready: true, checks: [] },
       guidedState: { state: "awaiting_customer_opened", primaryAction: null, secondaryActions: ["preview", "pdf", "resend", "delivery_history"], resumeCartId: null }, permissions: fullPermissions,
       versions: [{ id: "version-1", estimateNumber: "KP-1", versionNumber: 1, estimateRevision: 3, label: "KP-1", status: "sent", statusLabel: "Sent", total: "100 USD", currencyCode: "USD", note: null, createdAt: "2026-09-05T08:00:00Z", createdByName: "Manager", sentAt: "2026-09-05T08:05:00Z", acceptedAt: null, rejectedAt: null, pdfDocumentId: "pdf-1", pdfStatus: "ready", deliveries: [
         { id: "delivery-2", recipient: "latest@example.com", status: "delivered", statusLabel: "Delivered", sentAt: "2026-09-05T09:05:00Z", openedAt: "2026-09-05T09:10:00Z", expiresAt: "2026-09-19T09:05:00Z", response: null, failureReason: null },

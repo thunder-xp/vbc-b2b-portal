@@ -5,7 +5,11 @@ import type { EstimatePricingMode, EstimateVatMode } from "../types";
 Decimal.set({ precision: 28, rounding: Decimal.ROUND_HALF_UP });
 
 export class EstimateCalculationError extends Error {
-  constructor(public readonly code: string, message: string) {
+  constructor(
+    public readonly code: string,
+    message: string,
+    public readonly target: { kind: "line"; lineId: string } | { kind: "settings" } | { kind: "charges" } | null = null,
+  ) {
     super(message);
     this.name = "EstimateCalculationError";
   }
@@ -68,10 +72,10 @@ export function calculateEstimateCommercials(input: {
   vatMode: EstimateVatMode;
   vatRatePercent: number;
 }): EstimateCommercialTotals {
-  const globalDiscount = percentage(input.globalDiscountPercent, "Глобальная скидка должна быть от 0 до 100%.");
-  const vatRate = percentage(input.vatRatePercent, "Ставка НДС должна быть от 0 до 100%.");
-  const sectionById = new Map(input.sections.map((section) => [section.id, percentage(section.discountPercent, "Скидка раздела должна быть от 0 до 100%.")]));
-  const lines = input.lines.map(calculateCommercialLine);
+  const globalDiscount = withTarget({ kind: "settings" }, () => percentage(input.globalDiscountPercent, "Глобальная скидка должна быть от 0 до 100%."));
+  const vatRate = withTarget({ kind: "settings" }, () => percentage(input.vatRatePercent, "Ставка НДС должна быть от 0 до 100%."));
+  const sectionById = new Map(input.sections.map((section) => [section.id, withTarget({ kind: "settings" }, () => percentage(section.discountPercent, "Скидка раздела должна быть от 0 до 100%."))]));
+  const lines = input.lines.map((line) => withTarget({ kind: "line", lineId: line.id }, () => calculateCommercialLine(line)));
   const lineSectionById = new Map(input.lines.map((line) => [line.id, line.sectionId]));
 
   const sectionTotals = input.sections.map((section) => {
@@ -86,7 +90,7 @@ export function calculateEstimateCommercials(input: {
   const sectionDiscountTotal = sum(sectionTotals.map((section) => section.discountAmount));
   const globalDiscountAmount = money(afterSections.mul(globalDiscount).div(100));
   const globalSubtotal = money(afterSections.minus(globalDiscountAmount));
-  const chargesTotal = sum(input.charges.map((charge) => nonNegative(charge.amount, "Сумма начисления некорректна.")));
+  const chargesTotal = sum(input.charges.map((charge) => withTarget({ kind: "charges" }, () => nonNegative(charge.amount, "Сумма начисления некорректна."))));
   const taxableCharges = sum(input.charges.filter((charge) => charge.vatApplicable).map((charge) => charge.amount));
   const beforeVat = money(globalSubtotal.plus(chargesTotal));
   const taxableBase = money(globalSubtotal.plus(taxableCharges));
@@ -103,10 +107,10 @@ export function calculateEstimateCommercials(input: {
   }
 
   const hasMissingCost = input.lines.some((line) => line.convertedCostUnitPrice === null);
-  const totalCost = sum(input.lines.map((line) => {
+  const totalCost = sum(input.lines.map((line) => withTarget({ kind: "line", lineId: line.id }, () => {
     const cost = line.convertedCostUnitPrice === null ? new Decimal(0) : nonNegative(line.convertedCostUnitPrice, "Себестоимость некорректна.");
     return cost.mul(positive(line.quantity, "Количество должно быть больше нуля."));
-  }));
+  })));
   const grossProfit = hasMissingCost ? null : money(excludingVat.minus(totalCost));
   const overallMargin = grossProfit !== null && excludingVat.gt(0) ? percentValue(grossProfit.div(excludingVat).mul(100)) : null;
 
@@ -127,6 +131,20 @@ export function calculateEstimateCommercials(input: {
     overallMarginPercent: overallMargin,
     incompletePricing: lines.some((line) => line.incomplete),
   };
+}
+
+function withTarget<T>(
+  target: NonNullable<EstimateCalculationError["target"]>,
+  operation: () => T,
+): T {
+  try {
+    return operation();
+  } catch (error) {
+    if (error instanceof EstimateCalculationError && !error.target) {
+      throw new EstimateCalculationError(error.code, error.message, target);
+    }
+    throw error;
+  }
 }
 
 export function calculateCommercialLine(line: CommercialLineInput): CalculatedCommercialLine {

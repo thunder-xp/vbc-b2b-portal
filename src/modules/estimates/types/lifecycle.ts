@@ -71,6 +71,7 @@ export type EstimateWorkflowDto = {
   acceptedVersionId: string | null;
   emailDeliveryAvailable: boolean;
   guidedState: EstimateGuidedStateDto;
+  draftReadiness: EstimateDraftReadinessDto;
   permissions: {
     canManage: boolean;
     canSend: boolean;
@@ -78,7 +79,60 @@ export type EstimateWorkflowDto = {
     canManageOrders: boolean;
   };
   versions: EstimateVersionListItemDto[];
-  readiness: { ready: boolean; checks: Array<{ label: string; passed: boolean }> };
+  readiness: EstimateReadinessDto;
+};
+
+export type EstimateReadinessCheckCode =
+  | "has_lines"
+  | "valid_quantities"
+  | "complete_prices"
+  | "valid_currency"
+  | "calculated_total";
+
+export type EstimateReadinessCheck = {
+  code: EstimateReadinessCheckCode;
+  label: string;
+  passed: boolean;
+  lineId?: string | null;
+};
+
+export type EstimateReadinessDto = {
+  ready: boolean;
+  checks: EstimateReadinessCheck[];
+};
+
+export type EstimateDraftReadinessState =
+  | "not_applicable"
+  | "add_product"
+  | "fix_quantity"
+  | "fix_price"
+  | "fix_line"
+  | "fix_settings"
+  | "save_changes"
+  | "prepare_proposal"
+  | "prepare_pdf"
+  | "handoff";
+
+export type EstimateDraftReadinessPrimaryAction =
+  | "add_product"
+  | "focus_line"
+  | "open_settings"
+  | "save"
+  | "prepare_proposal"
+  | "generate_pdf";
+
+export type EstimateDraftReadinessTarget =
+  | { kind: "product_picker" }
+  | { kind: "line"; lineId: string; field: "quantity" | "price" | "details" }
+  | { kind: "settings"; field: "currency" | "commercial" }
+  | { kind: "charges" }
+  | null;
+
+export type EstimateDraftReadinessDto = EstimateReadinessDto & {
+  state: EstimateDraftReadinessState;
+  primaryAction: EstimateDraftReadinessPrimaryAction | null;
+  target: EstimateDraftReadinessTarget;
+  linePosition: number | null;
 };
 
 export type EstimateGuidedState =

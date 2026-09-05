@@ -8,7 +8,6 @@ import {
   listEstimateServicesAction,
 } from "@/src/modules/estimates/actions";
 import { EstimateCommercialEditor } from "@/src/modules/estimates/components/EstimateCommercialEditor";
-import { EstimateWorkflowPanel } from "@/src/modules/estimates/components/EstimateWorkflowPanel";
 import { ProposalGeneratorFeedback } from "@/src/modules/estimates/components/ProposalGeneratorFeedback";
 import { getEstimatesCopy } from "@/src/modules/partner-locale";
 import { getPartnerLocale } from "@/src/modules/partner-locale/server";
@@ -46,7 +45,6 @@ export default async function EstimateEditorPage({
         {copy.loadEditorFailed}
       </p>
     );
-  const workflowKey = `${estimate.data.revision}:${workflow.data.estimateStatus}:${workflow.data.lifecycleStatus}:${workflow.data.guidedState.state}:${workflow.data.versions[0]?.id ?? "none"}:${workflow.data.versions[0]?.status ?? "none"}:${workflow.data.versions[0]?.pdfStatus ?? "none"}`;
   const showGeneratorFeedback = generatorSession
     ? await canPromptProposalGeneratorFeedbackAction(
         generatorSession,
@@ -61,14 +59,9 @@ export default async function EstimateEditorPage({
       <EstimateCommercialEditor
         commercialOptions={commercialOptions.data}
         initialEstimate={estimate.data}
+        initialProposalAction={proposalAction === "resend" && version ? { kind: "resend", versionId: version } : null}
         services={services.data}
         workflow={workflow.data}
-        workflowPanel={<EstimateWorkflowPanel
-          initialProposalAction={proposalAction === "resend" && version ? { kind: "resend", versionId: version } : null}
-          initialWorkflow={workflow.data}
-          key={workflowKey}
-          revision={estimate.data.revision}
-        />}
       />
     </div>
   );

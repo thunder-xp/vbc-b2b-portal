@@ -18,6 +18,7 @@ import type {
   ProposalTemplate,
 } from "../types";
 import { convertMoney, resolveCurrencyRate } from "./commercial-calculation";
+import { deriveEstimateDraftReadiness, deriveEstimateReadiness } from "./draft-readiness";
 import { deriveEstimateGuidedState } from "./guided-state";
 import { isProposalEmailConfigured } from "./proposal-email.provider";
 import type { DefaultProposalService } from "./proposal.service";
@@ -94,6 +95,27 @@ export class EstimateLifecycleService {
       userId,
       permissions,
     });
+    const readiness = readinessFromAggregate(aggregate);
+    const draftReadiness = deriveEstimateDraftReadiness({
+      applicable: (estimate.lifecycleStatus ?? "draft") === "draft" && estimate.status === "draft",
+      dirty: false,
+      estimateRevision: estimate.revision,
+      canManage: permissions.canManage,
+      lines: aggregate.items.map((item) => ({
+        id: item.id,
+        position: item.position,
+        quantity: item.quantity,
+        sellingUnitPrice: item.sellingUnitPrice,
+      })),
+      currencyCode: estimate.currencyCode,
+      totalAmount: estimate.totalAmount,
+      hasIncompletePricing: estimate.hasIncompletePricing,
+      latestProposal: guidedVersion ? {
+        estimateRevision: guidedVersion.estimateRevision,
+        status: guidedVersion.status,
+        pdfStatus: documents.get(guidedVersion.id)?.status ?? null,
+      } : null,
+    });
     return {
       estimateId: estimate.id,
       customer: aggregate.finalCustomer ?? null,
@@ -105,6 +127,7 @@ export class EstimateLifecycleService {
       acceptedVersionId: estimate.acceptedVersionId ?? null,
       emailDeliveryAvailable: isProposalEmailConfigured(),
       guidedState,
+      draftReadiness,
       permissions,
       versions: versions.map((version) => {
         const document = documents.get(version.id);
@@ -134,7 +157,7 @@ export class EstimateLifecycleService {
           },
         };
       }),
-      readiness: readinessFromAggregate(aggregate),
+      readiness,
     };
   }
 
@@ -343,30 +366,27 @@ function deliveryStatusLabel(status: ProposalDelivery["status"]) {
 }
 
 function readinessFromAggregate(aggregate: NonNullable<Awaited<ReturnType<EstimateRepository["findAggregateById"]>>>) {
-  const invalidQuantityCount = aggregate.items.filter((item) => !Number.isFinite(item.quantity) || item.quantity <= 0).length;
-  const missingPriceCount = aggregate.items.filter((item) => item.sellingUnitPrice === null || !Number.isFinite(item.sellingUnitPrice)).length;
-  const checks = [
-    { label: "Добавлена хотя бы одна позиция", passed: aggregate.items.length > 0 },
-    { label: invalidQuantityCount ? `У ${invalidQuantityCount} позиций указано некорректное количество` : "Количество по всем позициям указано", passed: invalidQuantityCount === 0 },
-    { label: missingPriceCount ? `У ${missingPriceCount} позиций не указана цена` : "Цены по всем позициям указаны", passed: !aggregate.estimate.hasIncompletePricing && missingPriceCount === 0 },
-    { label: "Валюта сметы определена", passed: /^[A-Z]{3}$/.test(aggregate.estimate.currencyCode) },
-    { label: "Итоговая сумма рассчитана", passed: Number.isFinite(aggregate.estimate.totalAmount) && aggregate.estimate.totalAmount >= 0 },
-  ];
-  return { ready: checks.every((check) => check.passed), checks };
+  return deriveEstimateReadiness({
+    lines: aggregate.items.map((item) => ({ id: item.id, position: item.position, quantity: item.quantity, sellingUnitPrice: item.sellingUnitPrice })),
+    currencyCode: aggregate.estimate.currencyCode,
+    totalAmount: aggregate.estimate.totalAmount,
+    hasIncompletePricing: aggregate.estimate.hasIncompletePricing,
+  });
 }
 
 function readinessFromProposal(proposal: import("../types").CustomerProposalDto) {
-  const lines = proposal.sections.flatMap((section) => section.lines);
-  const invalidQuantityCount = lines.filter((line) => !Number.isFinite(line.quantity) || line.quantity <= 0).length;
-  const missingPriceCount = lines.filter((line) => !Number.isFinite(line.unitPrice) || !Number.isFinite(line.lineTotal)).length;
-  const checks = [
-    { label: "Добавлена хотя бы одна позиция", passed: lines.length > 0 },
-    { label: invalidQuantityCount ? `У ${invalidQuantityCount} позиций указано некорректное количество` : "Количество по всем позициям указано", passed: invalidQuantityCount === 0 },
-    { label: missingPriceCount ? `У ${missingPriceCount} позиций не указана цена` : "Цены по всем позициям указаны", passed: missingPriceCount === 0 },
-    { label: "Валюта сметы определена", passed: /^[A-Z]{3}$/.test(proposal.currencyCode) },
-    { label: "Итоговая сумма рассчитана", passed: Number.isFinite(proposal.totals.total) && proposal.totals.total >= 0 },
-  ];
-  return { ready: checks.every((check) => check.passed), checks };
+  const lines = proposal.sections.flatMap((section) => section.lines).map((line, index) => ({
+    id: `proposal-line-${index + 1}`,
+    position: index + 1,
+    quantity: line.quantity,
+    sellingUnitPrice: Number.isFinite(line.unitPrice) && Number.isFinite(line.lineTotal) ? line.unitPrice : null,
+  }));
+  return deriveEstimateReadiness({
+    lines,
+    currencyCode: proposal.currencyCode,
+    totalAmount: proposal.totals.total,
+    hasIncompletePricing: lines.some((line) => line.sellingUnitPrice === null),
+  });
 }
 
 function versionProductLines(version: EstimateVersion): Array<{ productId: string; quantity: number; snapshotPartnerPrice: number | null }> {

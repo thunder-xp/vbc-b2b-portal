@@ -41,6 +41,7 @@ import {
   EstimateCalculationError,
   resolveCurrencyRate,
 } from "../services/commercial-calculation";
+import { deriveEstimateDraftReadiness } from "../services/draft-readiness";
 import type {
   EstimateCommercialCheckDto,
   EstimateCommercialOptionsDto,
@@ -59,6 +60,7 @@ import type {
   EstimateSectionSystemKey,
   EstimateUnit,
   EstimateVatMode,
+  EstimateDraftReadinessDto,
   EstimateWorkflowDto,
 } from "../types";
 import { EstimateStatusBadge } from "./EstimateStatusBadge";
@@ -66,7 +68,7 @@ import {
   EstimateLinePicker,
   type EstimateLinePickerMode,
 } from "./EstimateLinePicker";
-import { EstimateProposalSidebar } from "./EstimateProposalSidebar";
+import { EstimateWorkflowPanel } from "./EstimateWorkflowPanel";
 import {
   canonicalEstimatePdfFileName,
   ESTIMATE_PDF_READY_EVENT,
@@ -118,13 +120,13 @@ export function EstimateCommercialEditor({
   services,
   commercialOptions,
   workflow,
-  workflowPanel,
+  initialProposalAction,
 }: {
   initialEstimate: EstimateDetailDto;
   services: EstimateServiceDto[];
   commercialOptions: EstimateCommercialOptionsDto;
   workflow: EstimateWorkflowDto;
-  workflowPanel?: React.ReactNode;
+  initialProposalAction?: { kind: "resend"; versionId: string } | null;
 }) {
   const locale = usePartnerLocale();
   const copy = getEstimatesCopy(locale);
@@ -147,17 +149,15 @@ export function EstimateCommercialEditor({
   const [generatedSharePdf, setGeneratedSharePdf] =
     useState<EstimatePdfReadyDetail | null>(null);
   const mobileActionsTriggerRef = useRef<HTMLButtonElement>(null);
-  const [pickerMode, setPickerMode] = useState<EstimateLinePickerMode | null>(
-    () =>
-      initialEstimate.status === "draft" && initialEstimate.lines.length === 0
-        ? "product"
-        : null,
-  );
+  const settingsRef = useRef<HTMLDetailsElement>(null);
+  const chargesRef = useRef<HTMLDetailsElement>(null);
+  const [pickerMode, setPickerMode] = useState<EstimateLinePickerMode | null>(null);
   const [targetSectionId, setTargetSectionId] = useState(
     () => canonicalTargetSectionId(initialEstimate.sections, "equipment") ?? "",
   );
   const isDraft = estimate.status === "draft";
   const retailOnly = estimate.commercialMode === "retail_only";
+  const latestProposal = workflow.versions[0] ?? null;
 
   const preview = useMemo(() => {
     try {
@@ -179,6 +179,7 @@ export function EstimateCommercialEditor({
           vatRatePercent: draft.vatRatePercent,
         }),
         error: null,
+        errorTarget: null,
       };
     } catch (error) {
       return {
@@ -187,46 +188,41 @@ export function EstimateCommercialEditor({
           error instanceof EstimateCalculationError
             ? error.message
             : copy.loadError,
+        errorTarget: error instanceof EstimateCalculationError
+          ? error.target?.kind === "line"
+            ? { kind: "line" as const, lineId: error.target.lineId, field: "details" as const }
+            : error.target?.kind === "charges"
+              ? { kind: "charges" as const }
+              : { kind: "settings" as const, field: "commercial" as const }
+          : { kind: "settings" as const, field: "commercial" as const },
       };
     }
   }, [copy.loadError, draft]);
   const draftReadiness = useMemo(() => {
-    const invalidQuantityCount = draft.lines.filter(
-      (line) => !Number.isFinite(line.quantity) || line.quantity <= 0,
-    ).length;
-    const missingPriceCount = draft.lines.filter(
-      (line) =>
-        line.pricingInputValue === null ||
-        !Number.isFinite(line.pricingInputValue),
-    ).length;
-    const checks = [
-      {
-        label: copy.readinessAddLine,
-        passed: draft.lines.length > 0,
-      },
-      {
-        label: invalidQuantityCount
-          ? `${copy.invalidQuantities}: ${invalidQuantityCount}`
-          : copy.quantitiesComplete,
-        passed: invalidQuantityCount === 0,
-      },
-      {
-        label: missingPriceCount
-          ? `${copy.missingPrices}: ${missingPriceCount}`
-          : copy.pricesComplete,
-        passed: missingPriceCount === 0,
-      },
-      {
-        label: copy.currencyDefined,
-        passed: /^[A-Z]{3}$/.test(draft.currencyCode),
-      },
-      {
-        label: preview.error ?? copy.totalCalculated,
-        passed: preview.value !== null,
-      },
-    ];
-    return { ready: checks.every((check) => check.passed), checks };
-  }, [copy, draft.currencyCode, draft.lines, preview]);
+    const calculatedById = new Map(preview.value?.lines.map((line) => [line.id, line]) ?? []);
+    return deriveEstimateDraftReadiness({
+      applicable: isDraft && (estimate.lifecycleStatus ?? "draft") === "draft",
+      dirty,
+      estimateRevision: estimate.revision,
+      canManage: workflow.permissions.canManage,
+      lines: draft.lines.map((line) => ({
+        id: line.id,
+        position: line.position,
+        quantity: line.quantity,
+        sellingUnitPrice: calculatedById.get(line.id)?.sellingUnitPrice
+          ?? (line.pricingInputValue !== null && Number.isFinite(line.pricingInputValue) ? line.pricingInputValue : null),
+      })),
+      currencyCode: draft.currencyCode,
+      totalAmount: preview.value?.finalTotal ?? null,
+      hasIncompletePricing: draft.lines.some((line) => line.pricingInputValue === null || !Number.isFinite(line.pricingInputValue)),
+      calculationError: preview.error ? { target: preview.errorTarget } : null,
+      latestProposal: latestProposal ? {
+        estimateRevision: latestProposal.estimateRevision,
+        status: latestProposal.status,
+        pdfStatus: latestProposal.pdfStatus,
+      } : null,
+    });
+  }, [dirty, draft.currencyCode, draft.lines, estimate.lifecycleStatus, estimate.revision, isDraft, latestProposal, preview, workflow.permissions.canManage]);
 
   useEffect(() => {
     if (!dirty) return;
@@ -401,7 +397,43 @@ export function EstimateCommercialEditor({
     draft.sections,
     "equipment",
   );
-  const latestProposal = workflow.versions[0] ?? null;
+  const runDraftPrimaryAction = (readiness: EstimateDraftReadinessDto) => {
+    if (readiness.primaryAction === "save") return save();
+    if (readiness.primaryAction === "add_product") {
+      if (equipmentSectionId) openPickerForSection(equipmentSectionId, "product");
+      return;
+    }
+    const target = readiness.target;
+    if (target?.kind === "settings") {
+      if (settingsRef.current) settingsRef.current.open = true;
+      requestAnimationFrame(() => document.getElementById(
+        target.field === "currency" ? "estimate-currency" : "estimate-global-discount",
+      )?.focus());
+      return;
+    }
+    if (target?.kind === "charges") {
+      if (chargesRef.current) chargesRef.current.open = true;
+      requestAnimationFrame(() => document.getElementById("estimate-charges")?.scrollIntoView?.({ behavior: "smooth", block: "center" }));
+      return;
+    }
+    if (target?.kind === "line") {
+      const section = presentationSections.find((item) => item.lines.some((line) => line.id === target.lineId));
+      if (section) setCollapsed((current) => {
+        const next = new Set(current);
+        next.delete(section.config.key);
+        return next;
+      });
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        const lineDetails = document.getElementById(`estimate-line-${target.lineId}-details`) as HTMLDetailsElement | null;
+        if (target.field === "details" && lineDetails) lineDetails.open = true;
+        const control = document.getElementById(`estimate-line-${target.lineId}-${target.field}`)
+          ?? lineDetails?.querySelector<HTMLElement>("input,select")
+          ?? document.getElementById(`estimate-line-${target.lineId}`);
+        control?.scrollIntoView?.({ behavior: "smooth", block: "center" });
+        control?.focus();
+      }));
+    }
+  };
   useEffect(() => {
     const receiveReadyPdf = (event: Event) => {
       const detail = (event as CustomEvent<EstimatePdfReadyDetail>).detail;
@@ -426,6 +458,9 @@ export function EstimateCommercialEditor({
           ? generatedSharePdf.id
           : null
       : null;
+  const guidedDraftActive = draftReadiness.state !== "not_applicable"
+    && draftReadiness.state !== "handoff"
+    && !mobileShareDocumentId;
   const proposalPreviewHref = latestProposal
     ? `/cabinet/estimates/${workflow.estimateId}/versions/${latestProposal.id}/preview`
     : `/cabinet/estimates/${workflow.estimateId}/preview`;
@@ -621,7 +656,7 @@ export function EstimateCommercialEditor({
                 {secondaryActions()}
               </div>
             </details>
-            <button
+            {!guidedDraftActive ? <button
               aria-keyshortcuts="Control+S Meta+S"
               aria-label={copy.save}
               className="inline-flex min-h-11 items-center gap-2 rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white disabled:opacity-45"
@@ -631,11 +666,17 @@ export function EstimateCommercialEditor({
             >
               <Save className="size-4" />
               {saveLabel}
-            </button>
+            </button> : null}
           </div>
         </div>
       </header>
-      {workflowPanel}
+      <EstimateWorkflowPanel
+        draftReadiness={draftReadiness}
+        initialProposalAction={initialProposalAction}
+        initialWorkflow={workflow}
+        onDraftPrimaryAction={runDraftPrimaryAction}
+        revision={estimate.revision}
+      />
       {message && (
         <p
           aria-live="polite"
@@ -650,7 +691,7 @@ export function EstimateCommercialEditor({
         </p>
       )}
 
-      <details className="border-y border-zinc-200 bg-white">
+      <details className="border-y border-zinc-200 bg-white" id="estimate-settings" ref={settingsRef}>
         <summary className="flex min-h-11 cursor-pointer items-center justify-between px-4 py-3 text-sm font-semibold text-zinc-800">
           <span>{copy.settings}</span>
           <span className="text-xs font-normal text-zinc-500">
@@ -695,6 +736,7 @@ export function EstimateCommercialEditor({
             <select
               className={`${inputClass} w-full`}
               disabled={!isDraft || retailOnly}
+              id="estimate-currency"
               onChange={(e) =>
                 e.target.value !== draft.currencyCode &&
                 setCurrencyChoice(e.target.value)
@@ -730,6 +772,7 @@ export function EstimateCommercialEditor({
           <Field label={copy.discount}>
             <NumberInput
               disabled={!isDraft}
+              inputId="estimate-global-discount"
               onValue={(value) =>
                 update((d) => ({ ...d, globalDiscountPercent: value ?? 0 }))
               }
@@ -874,6 +917,7 @@ export function EstimateCommercialEditor({
                               className="p-3"
                               data-line-type={line.lineType}
                               data-testid="estimate-line-row"
+                              id={`estimate-line-${line.id}`}
                               key={line.id}
                             >
                               <div
@@ -937,6 +981,7 @@ export function EstimateCommercialEditor({
                                   >
                                     <NumberInput
                                       disabled={!isDraft}
+                                      inputId={`estimate-line-${line.id}-quantity`}
                                       onValue={(value) =>
                                         updateLine(
                                           draft,
@@ -988,6 +1033,7 @@ export function EstimateCommercialEditor({
                                   >
                                     <NumberInput
                                       disabled={!isDraft}
+                                      inputId={`estimate-line-${line.id}-price`}
                                       nullable
                                       onValue={(value) =>
                                         updateLine(
@@ -1077,7 +1123,7 @@ export function EstimateCommercialEditor({
                                   </button>
                                 </div>
                                 {line.lineType === "product" ? (
-                                  <details className="col-span-2 rounded-md border border-zinc-200 bg-zinc-50 xl:col-span-full" data-testid="estimate-line-advanced">
+                                  <details className="col-span-2 rounded-md border border-zinc-200 bg-zinc-50 xl:col-span-full" data-testid="estimate-line-advanced" id={`estimate-line-${line.id}-details`}>
                                     <summary className="flex min-h-11 cursor-pointer items-center px-3 text-xs font-semibold text-zinc-700">
                                       {copy.lineDetails}
                                     </summary>
@@ -1182,7 +1228,7 @@ export function EstimateCommercialEditor({
             );
           })}
           {isDraft || draft.charges.length ? (
-            <details className="border-y border-zinc-200 bg-white">
+            <details className="border-y border-zinc-200 bg-white" id="estimate-charges" ref={chargesRef}>
               <summary className="flex min-h-11 cursor-pointer items-center px-4 text-sm font-semibold">
                 {copy.extraCharges}
               </summary>
@@ -1200,12 +1246,6 @@ export function EstimateCommercialEditor({
             vatMode={draft.vatMode}
             vatRatePercent={draft.vatRatePercent}
           />
-          <EstimateProposalSidebar
-            disabled={dirty || pending}
-            readiness={draftReadiness}
-            revision={estimate.revision}
-            workflow={workflow}
-          />
         </aside>
       </div>
       <div
@@ -1214,13 +1254,15 @@ export function EstimateCommercialEditor({
         style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}
       >
         <div
-          className={`mx-auto grid max-w-lg gap-2 ${
-            mobileShareDocumentId
+          className={`mx-auto max-w-lg gap-2 ${
+            guidedDraftActive
+              ? "flex justify-end"
+              : mobileShareDocumentId
               ? "grid-cols-[repeat(3,minmax(0,1fr))_3rem]"
               : "grid-cols-[minmax(0,1fr)_minmax(0,1fr)_3rem]"
-          }`}
+          } ${guidedDraftActive ? "" : "grid"}`}
         >
-          <button
+          {!guidedDraftActive ? <button
             aria-label={copy.mobileAddProduct}
             className={buttonClass}
             disabled={!isDraft || dirty || !equipmentSectionId}
@@ -1232,8 +1274,8 @@ export function EstimateCommercialEditor({
           >
             <Plus className="size-4" />
             {copy.add}
-          </button>
-          <button
+          </button> : null}
+          {!guidedDraftActive ? <button
             aria-keyshortcuts="Control+S Meta+S"
             aria-label={copy.mobileSave}
             className="inline-flex min-h-11 min-w-0 items-center justify-center gap-2 rounded-md bg-emerald-700 px-2 text-sm font-semibold text-white disabled:bg-zinc-200 disabled:text-zinc-600"
@@ -1243,8 +1285,8 @@ export function EstimateCommercialEditor({
           >
             <Save className="size-4 shrink-0" />
             <span className="truncate">{saveLabel}</span>
-          </button>
-          {mobileShareDocumentId ? (
+          </button> : null}
+          {!guidedDraftActive && mobileShareDocumentId ? (
             <EstimatePdfShareAction
               className="inline-flex min-h-11 min-w-0 items-center justify-center gap-1 rounded-md border border-emerald-700 bg-white px-2 text-xs font-semibold text-emerald-800 outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-45"
               documentId={mobileShareDocumentId}
@@ -1260,13 +1302,14 @@ export function EstimateCommercialEditor({
           ) : null}
           <button
             aria-label={copy.actionsMenu}
-            className={buttonClass}
+            className={`${buttonClass} ${guidedDraftActive ? "px-4" : ""}`}
             data-testid="estimate-mobile-actions-trigger"
             onClick={() => setMobileActionsOpen(true)}
             ref={mobileActionsTriggerRef}
             type="button"
           >
             <MoreHorizontal className="size-5" />
+            {guidedDraftActive ? copy.actionsMenu : null}
           </button>
         </div>
       </div>
@@ -1768,11 +1811,13 @@ function NumberInput({
   onValue,
   disabled,
   nullable = false,
+  inputId,
 }: {
   value: number | null;
   onValue: (value: number | null) => void;
   disabled?: boolean;
   nullable?: boolean;
+  inputId?: string;
 }) {
   const [editor, setEditor] = useState({
     sourceValue: value,
@@ -1797,6 +1842,7 @@ function NumberInput({
     <input
       className={`${inputClass} w-full`}
       disabled={disabled}
+      id={inputId}
       min="0"
       onBlur={(event) => commit(event.currentTarget.value)}
       onChange={(event) => edit(event.currentTarget.value)}

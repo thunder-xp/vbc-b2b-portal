@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, Copy, Download, Send, ShoppingCart, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Copy, Download, FilePlus2, Plus, Save, Send, ShoppingCart, XCircle } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
@@ -11,6 +11,7 @@ import { ConfirmationDialog } from "../../platform-ui";
 import { revokeProposalDeliveryAction } from "../actions/delivery.actions";
 import {
   addEstimateEquipmentToCartAction,
+  createEstimateVersionAction,
   createDraftFromEstimateVersionAction,
   duplicateEstimateAction,
   markEstimateReadyAction,
@@ -19,20 +20,23 @@ import {
 } from "../actions/lifecycle.actions";
 import { generateEstimateVersionPdfAction } from "../actions/proposal.actions";
 import type {
+  EstimateDraftReadinessDto,
+  EstimateDraftReadinessState,
   EstimateGuidedState,
   EstimateRejectionReason,
   EstimateWorkflowDto,
-  GeneratedEstimateDocument,
   ProposalDeliverySummaryDto,
 } from "../types";
 import { ESTIMATE_DIRTY_STATE_EVENT, type EstimateDirtyStateDetail } from "./estimate-client-events";
-import { notifyEstimatePdfReady } from "./EstimatePdfShareAction";
+import { ESTIMATE_PDF_READY_EVENT, notifyEstimatePdfReady, type EstimatePdfReadyDetail } from "./EstimatePdfShareAction";
 import { SendProposalDialog } from "./SendProposalDialog";
 
-export function EstimateWorkflowPanel({ initialWorkflow, revision, initialProposalAction }: {
+export function EstimateWorkflowPanel({ initialWorkflow, revision, initialProposalAction, draftReadiness = initialWorkflow.draftReadiness ?? inactiveDraftReadiness, onDraftPrimaryAction = () => undefined }: {
   initialWorkflow: EstimateWorkflowDto;
   revision: number;
   initialProposalAction?: { kind: "resend"; versionId: string } | null;
+  draftReadiness?: EstimateDraftReadinessDto;
+  onDraftPrimaryAction?: (readiness: EstimateDraftReadinessDto) => void;
 }) {
   const locale = usePartnerLocale();
   const copy = getEstimatesCopy(locale);
@@ -42,13 +46,24 @@ export function EstimateWorkflowPanel({ initialWorkflow, revision, initialPropos
   const [conversionOpen, setConversionOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [unsavedChanges, setUnsavedChanges] = useState(false);
+  const [requestKey, setRequestKey] = useState(() => crypto.randomUUID());
   const [pending, startTransition] = useTransition();
   const [pdfPending, startPdfTransition] = useTransition();
   const proposal = initialWorkflow.versions.find((item) => item.id === initialWorkflow.acceptedVersionId) ?? initialWorkflow.versions[0] ?? null;
-  const [generatedDocument, setGeneratedDocument] = useState<GeneratedEstimateDocument | null>(null);
-  const pdfStatus = generatedDocument?.status ?? proposal?.pdfStatus ?? null;
+  const [generatedDocument, setGeneratedDocument] = useState<EstimatePdfReadyDetail | null>(null);
+  const pdfStatus = generatedDocument ? "ready" : proposal?.pdfStatus ?? null;
   const pdfDocumentId = generatedDocument?.id ?? proposal?.pdfDocumentId ?? null;
-  const guided = initialWorkflow.guidedState;
+  const locallyReadyPdf = draftReadiness.state === "prepare_pdf" && pdfStatus === "ready";
+  const draftGuide = draftReadiness.state !== "not_applicable"
+    && draftReadiness.state !== "handoff"
+    && !locallyReadyPdf
+    ? draftReadiness
+    : null;
+  const guided = locallyReadyPdf ? {
+    ...initialWorkflow.guidedState,
+    state: "ready_to_send" as const,
+    primaryAction: initialWorkflow.permissions.canSend ? "send" as const : null,
+  } : initialWorkflow.guidedState;
   const latestDelivery = proposal?.deliveries[0] ?? null;
 
   useEffect(() => {
@@ -59,6 +74,17 @@ export function EstimateWorkflowPanel({ initialWorkflow, revision, initialPropos
     window.addEventListener(ESTIMATE_DIRTY_STATE_EVENT, receiveDirtyState);
     return () => window.removeEventListener(ESTIMATE_DIRTY_STATE_EVENT, receiveDirtyState);
   }, [initialWorkflow.estimateId]);
+
+  useEffect(() => {
+    const receiveReadyPdf = (event: Event) => {
+      const detail = (event as CustomEvent<EstimatePdfReadyDetail>).detail;
+      if (detail.estimateId === initialWorkflow.estimateId && detail.versionId === proposal?.id && detail.estimateRevision === revision) {
+        setGeneratedDocument(detail);
+      }
+    };
+    window.addEventListener(ESTIMATE_PDF_READY_EVENT, receiveReadyPdf);
+    return () => window.removeEventListener(ESTIMATE_PDF_READY_EVENT, receiveReadyPdf);
+  }, [initialWorkflow.estimateId, proposal?.id, revision]);
 
   const run = (operation: () => Promise<{ success: boolean; message: string }>, after?: () => void) => startTransition(async () => {
     const result = await operation();
@@ -88,6 +114,14 @@ export function EstimateWorkflowPanel({ initialWorkflow, revision, initialPropos
       recordBehaviorInteraction({ eventName: "proposal_pdf_generated", route: "/cabinet/estimates/detail", sourceSurface: "proposal_workflow" });
     });
   };
+  const prepareProposal = () => startTransition(async () => {
+    const result = await createEstimateVersionAction(initialWorkflow.estimateId, revision, requestKey, "");
+    setMessage(result.success ? copy.operationSucceeded : copy.operationFailed);
+    if (result.success || result.errorCode === "ESTIMATE_VERSION_CONFLICT") {
+      setRequestKey(crypto.randomUUID());
+      router.refresh();
+    }
+  });
   const revoke = (deliveryId: string) => run(() => revokeProposalDeliveryAction(deliveryId));
 
   const sendDialog = proposal ? <SendProposalDialog
@@ -108,14 +142,20 @@ export function EstimateWorkflowPanel({ initialWorkflow, revision, initialPropos
     versionId={proposal.id}
   /> : null;
 
-  return <section className="scroll-mt-24 border-y border-zinc-200 bg-white px-4 py-4 sm:px-5" data-testid="estimate-guided-workflow" id="estimate-order-conversion">
+  return <section className="scroll-mt-24 border-y border-zinc-200 bg-white px-4 py-4 sm:px-5" data-draft-readiness-state={draftGuide?.state} data-testid="estimate-guided-workflow" id="estimate-order-conversion">
     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0">
         <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">{copy.guidedCurrentState}</p>
-        <h2 className="mt-1 text-lg font-semibold text-zinc-950">{guidedStateLabel(guided.state, copy)}</h2>
-        <GuidedContext copy={copy} latestDelivery={latestDelivery} locale={locale} proposalSentAt={proposal?.sentAt ?? null} state={guided.state} />
+        <h2 className="mt-1 text-lg font-semibold text-zinc-950">{draftGuide ? draftStateLabel(draftGuide.state, draftGuide.linePosition, copy) : guidedStateLabel(guided.state, copy)}</h2>
+        {draftGuide
+          ? <DraftGuidedContext copy={copy} state={draftGuide.state} />
+          : <GuidedContext copy={copy} latestDelivery={latestDelivery} locale={locale} proposalSentAt={proposal?.sentAt ?? null} state={guided.state} />}
       </div>
-      {guided.primaryAction ? <div className="w-full shrink-0 sm:w-auto" data-testid="estimate-primary-next-action">
+      {draftGuide?.primaryAction ? <div className="w-full shrink-0 sm:w-auto" data-testid="estimate-primary-next-action">
+        {draftGuide.primaryAction === "prepare_proposal" ? <button className={`${primary} w-full sm:w-auto`} disabled={pending} onClick={prepareProposal} type="button"><FilePlus2 className="size-4" />{pending ? copy.preparing : copy.prepareProposal}</button> : null}
+        {draftGuide.primaryAction === "generate_pdf" ? <button className={`${primary} w-full sm:w-auto`} disabled={pdfPending} onClick={generatePdf} type="button"><Download className="size-4" />{pdfPending ? copy.preparing : copy.prepareProposal}</button> : null}
+        {!["prepare_proposal", "generate_pdf"].includes(draftGuide.primaryAction) ? <button aria-keyshortcuts={draftGuide.primaryAction === "save" ? "Control+S Meta+S" : undefined} className={`${primary} w-full sm:w-auto`} disabled={pending} onClick={() => onDraftPrimaryAction(draftGuide)} type="button">{draftPrimaryIcon(draftGuide.primaryAction)}{draftPrimaryLabel(draftGuide.state, copy)}</button> : null}
+      </div> : guided.primaryAction ? <div className="w-full shrink-0 sm:w-auto" data-testid="estimate-primary-next-action">
         {guided.primaryAction === "send" ? sendDialog : null}
         {guided.primaryAction === "update" && proposal ? <button className={`${primary} w-full sm:w-auto`} disabled={pending} onClick={() => run(() => createDraftFromEstimateVersionAction(proposal.id))} type="button">{copy.updateProposal}</button> : null}
         {guided.primaryAction === "continue_order" ? <button className={`${primary} w-full sm:w-auto`} disabled={pending} onClick={() => setConversionOpen(true)} type="button"><ShoppingCart className="size-4" />{copy.placeOrder}</button> : null}
@@ -126,7 +166,7 @@ export function EstimateWorkflowPanel({ initialWorkflow, revision, initialPropos
 
     {message ? <p aria-live="polite" className="mt-3 border-l-4 border-emerald-600 bg-emerald-50 px-3 py-2 text-sm">{message}</p> : null}
 
-    {proposal && guided.secondaryActions.some((action) => ["preview", "pdf", "send", "resend"].includes(action)) ? <div aria-label={copy.proposalOutputActions} className="mt-3 flex flex-wrap items-center gap-2 border-t border-zinc-100 pt-3">
+    {!draftGuide && proposal && guided.secondaryActions.some((action) => ["preview", "pdf", "send", "resend"].includes(action)) ? <div aria-label={copy.proposalOutputActions} className="mt-3 flex flex-wrap items-center gap-2 border-t border-zinc-100 pt-3">
       {guided.secondaryActions.includes("preview") ? <Link className={quiet} href={`/cabinet/estimates/${initialWorkflow.estimateId}/versions/${proposal.id}/preview`} prefetch={false}>{copy.preview}</Link> : null}
       {guided.secondaryActions.includes("pdf") && pdfStatus !== "ready" ? <button aria-describedby={pdfPending ? "estimate-pdf-progress" : undefined} className={quiet} disabled={pdfPending} onClick={generatePdf} type="button"><Download className="size-4" />{pdfPending ? copy.preparing : copy.generatePdf}</button> : null}
       {pdfPending ? <span aria-live="polite" className="text-sm text-zinc-600" id="estimate-pdf-progress" role="status">{copy.preparing}</span> : null}
@@ -175,6 +215,51 @@ function GuidedContext({ copy, latestDelivery, locale, proposalSentAt, state }: 
   </div>;
 }
 
+function DraftGuidedContext({ copy, state }: { copy: EstimatesCopy; state: EstimateDraftReadinessState }) {
+  const hint = ({
+    add_product: copy.draftAddProductHint,
+    fix_quantity: copy.draftFixQuantityHint,
+    fix_price: copy.draftFixPriceHint,
+    fix_line: copy.draftFixLineHint,
+    fix_settings: copy.draftFixSettingsHint,
+    save_changes: copy.draftSaveHint,
+    prepare_proposal: copy.draftPrepareHint,
+    prepare_pdf: copy.draftPdfHint,
+    handoff: "",
+    not_applicable: "",
+  })[state];
+  return hint ? <p className="mt-1 text-sm text-zinc-600">{hint}</p> : null;
+}
+
+function draftStateLabel(state: EstimateDraftReadinessState, linePosition: number | null, copy: EstimatesCopy): string {
+  const position = String(linePosition ?? 1);
+  return ({
+    add_product: copy.draftAddProductTitle,
+    fix_quantity: copy.draftFixQuantityTitle.replace("{position}", position),
+    fix_price: copy.draftFixPriceTitle.replace("{position}", position),
+    fix_line: copy.draftFixLineTitle.replace("{position}", position),
+    fix_settings: copy.draftFixSettingsTitle,
+    save_changes: copy.draftSaveTitle,
+    prepare_proposal: copy.draftPrepareTitle,
+    prepare_pdf: copy.draftPdfTitle,
+    handoff: copy.guidedReadyToSend,
+    not_applicable: copy.guidedDraft,
+  })[state];
+}
+
+function draftPrimaryLabel(state: EstimateDraftReadinessState, copy: EstimatesCopy): string {
+  if (state === "add_product") return copy.mobileAddProduct;
+  if (state === "save_changes") return copy.save;
+  if (state === "fix_settings") return copy.draftOpenSettingsAction;
+  return copy.draftFixLineAction;
+}
+
+function draftPrimaryIcon(action: NonNullable<EstimateDraftReadinessDto["primaryAction"]>) {
+  if (action === "add_product") return <Plus className="size-4" />;
+  if (action === "save") return <Save className="size-4" />;
+  return <AlertTriangle className="size-4" />;
+}
+
 function DeliveryRow({ copy, delivery, locale, onRevoke, pending }: {
   copy: EstimatesCopy;
   delivery: ProposalDeliverySummaryDto;
@@ -213,3 +298,4 @@ const input = "min-h-11 w-full border border-zinc-300 bg-white px-3 text-sm outl
 const primary = "inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white outline-none hover:bg-emerald-800 focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-45";
 const secondary = "inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-700 outline-none hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-45";
 const quiet = "inline-flex min-h-11 items-center justify-center gap-2 px-2 text-sm font-semibold text-zinc-600 underline-offset-4 hover:text-zinc-950 hover:underline focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-45";
+const inactiveDraftReadiness: EstimateDraftReadinessDto = { state: "not_applicable", primaryAction: null, target: null, linePosition: null, ready: true, checks: [] };
