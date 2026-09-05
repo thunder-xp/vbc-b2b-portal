@@ -68,6 +68,7 @@ export class EstimateLifecycleService {
         return {
           id: version.id,
           versionNumber: version.versionNumber,
+          estimateRevision: version.estimateRevision,
           label: `${version.estimateNumber} / версия ${version.versionNumber}`,
           status: version.status,
           statusLabel: versionStatusLabel(version.status),

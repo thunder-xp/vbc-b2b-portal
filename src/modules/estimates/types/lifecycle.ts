@@ -41,6 +41,7 @@ export type EstimateVersionSnapshot = {
 export type EstimateVersionListItemDto = {
   id: string;
   versionNumber: number;
+  estimateRevision: number;
   label: string;
   status: EstimateVersionStatus;
   statusLabel: string;
