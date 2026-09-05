@@ -100,6 +100,11 @@ export function MobileQuickProductCommerce({
     setQuery(value);
     const normalized = value.trim();
     if (normalized.length >= 2 && normalized.length <= 100) {
+      if (lastRequestedRef.current === normalized.toLocaleLowerCase("en")) {
+        setLoading(false);
+        setSearchFailed(false);
+        return;
+      }
       setLoading(true);
       setSearchFailed(false);
       return;

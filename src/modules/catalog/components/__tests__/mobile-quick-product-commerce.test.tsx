@@ -96,6 +96,10 @@ describe("mobile quick product commerce", () => {
     expect(input).toHaveValue("400540");
     expect(screen.getAllByRole("link", { name: "Открыть каталог и категории" }))
       .toEqual(expect.arrayContaining([expect.objectContaining({ href: expect.stringContaining("/cabinet/catalog?view=all") })]));
+
+    fireEvent.paste(input, { clipboardData: { getData: () => "400540" } });
+    expect(screen.getByRole("button", { name: "В подборку" })).toBeEnabled();
+    expect(fetch).toHaveBeenCalledOnce();
     window.removeEventListener("novotech:live-selection-add", added);
   });
 
