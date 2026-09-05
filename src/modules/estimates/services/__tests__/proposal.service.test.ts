@@ -12,7 +12,7 @@ const template: ProposalTemplate = { id: "template-1", companyId: null, key: "eq
 const readyDocument: GeneratedEstimateDocument = { id: "doc-1", companyId: "company-1", estimateId: "estimate-1", estimateRevision: 3, versionId: null, templateId: "template-1", generationFingerprint: "a".repeat(64), status: "ready", storageBucket: "estimate-proposals", storageKey: "company-1/estimate-1/doc-1.pdf", pageCount: 1, fileSizeBytes: 4, checksumSha256: "b".repeat(64), safeError: null, createdAt: "2026-07-16T10:00:00Z" };
 
 describe("DefaultProposalService", () => {
-  let estimates: EstimateRepository; let proposals: ProposalRepository; let service: DefaultProposalService;
+  let estimates: EstimateRepository; let proposals: ProposalRepository; let service: DefaultProposalService; let ensurePermission: ReturnType<typeof vi.fn>;
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-07-16T10:00:00Z"));
@@ -25,7 +25,8 @@ describe("DefaultProposalService", () => {
       claimGeneration: vi.fn().mockResolvedValue(readyDocument), markGenerating: vi.fn(), markReady: vi.fn(), markFailed: vi.fn(), findDocument: vi.fn().mockResolvedValue(readyDocument), uploadPdf: vi.fn(), downloadPdf: vi.fn(),
       findVersionProposal: vi.fn(), claimVersionGeneration: vi.fn(),
     };
-    service = new DefaultProposalService(estimates, proposals, { getOwnMemberships: vi.fn().mockResolvedValue([{ companyId: "company-1", status: "active" }]), getActiveCompanyContext: vi.fn().mockResolvedValue({ company: { id: "company-1", displayName: "Partner SRL", logoAssetPath: "company-1/logo mark.png" }, user: { fullName: "Ivan", email: "ivan@example.com", phone: "+373" } }) } as never, { ensurePermission: vi.fn().mockResolvedValue({ isAllowed: true }) } as never);
+    ensurePermission = vi.fn().mockResolvedValue({ isAllowed: true });
+    service = new DefaultProposalService(estimates, proposals, { getOwnMemberships: vi.fn().mockResolvedValue([{ companyId: "company-1", status: "active" }]), getActiveCompanyContext: vi.fn().mockResolvedValue({ company: { id: "company-1", displayName: "Partner SRL", logoAssetPath: "company-1/logo mark.png" }, user: { fullName: "Ivan", email: "ivan@example.com", phone: "+373" } }) } as never, { ensurePermission } as never);
   });
   afterEach(() => { vi.useRealTimers(); vi.unstubAllEnvs(); });
 
@@ -89,6 +90,41 @@ describe("DefaultProposalService", () => {
   it("blocks PDF generation from a mutable draft", async () => {
     await expect(service.generatePdf("user-1", "estimate-1")).rejects.toBeInstanceOf(InvalidStateError);
     expect(proposals.claimGeneration).not.toHaveBeenCalled();
+  });
+
+  it("downloads the private ready PDF only after the Estimate view permission", async () => {
+    vi.mocked(proposals.downloadPdf).mockResolvedValue(new Uint8Array([37, 80, 68, 70, 45]));
+
+    const result = await service.downloadPdf("user-1", "doc-1");
+
+    expect(ensurePermission).toHaveBeenCalledWith("user-1", "company-1", "estimates.view");
+    expect(result).toEqual({
+      bytes: new Uint8Array([37, 80, 68, 70, 45]),
+      filename: "commercial-proposal.pdf",
+    });
+    expect(proposals.downloadPdf).toHaveBeenCalledWith(
+      "estimate-proposals",
+      "company-1/estimate-1/doc-1.pdf",
+    );
+  });
+
+  it("denies arbitrary cross-company document IDs before storage download", async () => {
+    vi.mocked(proposals.findDocument).mockResolvedValue({
+      ...readyDocument,
+      companyId: "company-2",
+      storageKey: "company-2/estimate-2/doc-1.pdf",
+    });
+
+    await expect(service.downloadPdf("user-1", "doc-1")).rejects.toBeInstanceOf(NotFoundError);
+    expect(proposals.downloadPdf).not.toHaveBeenCalled();
+  });
+
+  it("does not resolve a document when Estimate view permission is denied", async () => {
+    ensurePermission.mockRejectedValueOnce(new Error("permission denied"));
+
+    await expect(service.downloadPdf("user-1", "doc-1")).rejects.toThrow("permission denied");
+    expect(proposals.findDocument).not.toHaveBeenCalled();
+    expect(proposals.downloadPdf).not.toHaveBeenCalled();
   });
 
   it("reuses a ready immutable version PDF without rendering or uploading it again", async () => {

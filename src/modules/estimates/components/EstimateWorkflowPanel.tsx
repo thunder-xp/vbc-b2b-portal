@@ -19,6 +19,7 @@ import { generateEstimateVersionPdfAction } from "../actions/proposal.actions";
 import type { EstimateRejectionReason, EstimateWorkflowDto, GeneratedEstimateDocument } from "../types";
 import { SendProposalDialog } from "./SendProposalDialog";
 import { EstimateStatusBadge } from "./EstimateStatusBadge";
+import { notifyEstimatePdfReady } from "./EstimatePdfShareAction";
 import { formatPartnerDateTime, getEstimatesCopy, usePartnerLocale, type EstimatesCopy } from "../../partner-locale";
 
 export function EstimateWorkflowPanel({ initialWorkflow, revision, initialProposalAction }: {
@@ -64,6 +65,7 @@ export function EstimateWorkflowPanel({ initialWorkflow, revision, initialPropos
         return;
       }
       setGeneratedDocument(result.data);
+      notifyEstimatePdfReady(result.data);
       setMessage(copy.pdfReady);
       recordBehaviorInteraction({ eventName: "proposal_pdf_generated", route: "/cabinet/estimates/detail", sourceSurface: "proposal_workflow" });
     });
