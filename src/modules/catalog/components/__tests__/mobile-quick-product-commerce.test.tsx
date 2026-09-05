@@ -103,13 +103,63 @@ describe("mobile quick product commerce", () => {
     window.removeEventListener("novotech:live-selection-add", added);
   });
 
-  it("keeps a missing-price product selectable and has Romanian parity", async () => {
+  it("shows a missing current price truthfully, blocks invalid selection, and has Romanian parity", async () => {
     vi.useRealTimers();
     vi.stubGlobal("fetch", vi.fn(() => fetchResponse([{ ...pricedProduct, commercialView: { ...pricedProduct.commercialView, partnerPrice: null, partnerPriceMdl: null } }])));
     const user = userEvent.setup();
     render(<MobileQuickProductCommerce canSelectProducts locale="ro" />);
     await user.type(screen.getByRole("searchbox", { name: "Caută produs după cod sau model" }), "400540");
     expect(await screen.findByText("Preț indisponibil")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "În selecție" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "În selecție" })).toBeDisabled();
+  });
+
+  it("starts with bounded purchased-before products and distinguishes the repeat signal", async () => {
+    const previous = [1, 2, 3, 4, 5].map((index) => ({
+      ...pricedProduct,
+      id: `previous-${index}`,
+      sku: `40054${index}`,
+      slug: `previous-${index}`,
+      matchKind: undefined,
+      purchaseCount: index,
+      totalQuantity: index * 2,
+      lastQuantity: 2,
+      lastPurchasedAt: "2026-08-12T10:00:00Z",
+      repeatPurchaseDue: index === 1,
+    }));
+    render(<MobileQuickProductCommerce
+      canSelectProducts
+      locale="ru"
+      previouslyPurchased={{ items: previous, totalCount: 9 }}
+    />);
+
+    expect(screen.getByTestId("previously-purchased-section")).toBeInTheDocument();
+    expect(screen.getAllByTestId("previously-purchased-card")).toHaveLength(5);
+    expect(screen.getAllByText("Пора повторить")).toHaveLength(1);
+    expect(screen.getByText("+8 товаров")).toBeInTheDocument();
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("removes purchased products while searching and restores them when cleared", async () => {
+    const previous = [{
+      ...pricedProduct,
+      id: "previous-1",
+      matchKind: undefined,
+      purchaseCount: 3,
+      totalQuantity: 6,
+      lastQuantity: 2,
+      lastPurchasedAt: "2026-08-12T10:00:00Z",
+      repeatPurchaseDue: false,
+    }];
+    render(<MobileQuickProductCommerce
+      canSelectProducts
+      locale="ru"
+      previouslyPurchased={{ items: previous, totalCount: 1 }}
+    />);
+    const input = screen.getByRole("searchbox");
+    fireEvent.change(input, { target: { value: "400540" } });
+    expect(screen.queryByTestId("previously-purchased-section")).not.toBeInTheDocument();
+    await act(() => vi.advanceTimersByTimeAsync(100));
+    fireEvent.click(screen.getByRole("button", { name: "Очистить поиск" }));
+    expect(screen.getByTestId("previously-purchased-section")).toBeInTheDocument();
   });
 });

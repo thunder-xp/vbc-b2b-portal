@@ -3,6 +3,10 @@ import type { ProductReferenceService } from "../../catalog/services";
 import type { ProductReferenceDto } from "../../catalog/types";
 import type { PartnerDocumentListItem } from "../../documents/types";
 import {
+  projectProductCommercialSnapshot,
+  type ProductCommercialViewDto,
+} from "../../pricing-inventory/services";
+import {
   InvalidStateError,
   NotFoundError,
   resolveCommercialVisibility,
@@ -107,6 +111,21 @@ export type PlannedShipmentDto = PartnerOrderHistorySummaryDto & {
   } | null;
 };
 
+export type PreviouslyPurchasedProductDto = {
+  id: string;
+  sku: string;
+  name: string;
+  slug: string;
+  imageUrl: string | null;
+  categoryName: string | null;
+  commercialView: Pick<ProductCommercialViewDto, "partnerPrice" | "partnerPriceMdl" | "stock">;
+  purchaseCount: number;
+  totalQuantity: number;
+  lastPurchasedAt: string;
+  lastQuantity: number;
+  repeatPurchaseDue: boolean;
+};
+
 export type PartnerOrderHistorySyncResult = {
   syncId: string;
   pagesFetched: number;
@@ -132,6 +151,10 @@ export type PartnerOrderHistorySyncResult = {
 };
 
 export interface PartnerOrderHistoryService {
+  listPreviouslyPurchasedProducts?(userId: string, input?: {
+    limit?: number;
+    offset?: number;
+  }): Promise<{ items: PreviouslyPurchasedProductDto[]; totalCount: number }>;
   listPlannedShipments(userId: string, input?: { page?: number | string | null }): Promise<{
     shipments: PlannedShipmentDto[];
     page: number;
@@ -165,6 +188,50 @@ export class DefaultPartnerOrderHistoryService implements PartnerOrderHistorySer
     private readonly dateChangeRepository?: OrderDateChangeRequestRepository,
     private readonly productReferenceService?: ProductReferenceService,
   ) {}
+
+  async listPreviouslyPurchasedProducts(
+    userId: string,
+    input: { limit?: number; offset?: number } = {},
+  ): Promise<{ items: PreviouslyPurchasedProductDto[]; totalCount: number }> {
+    const context = await this.resolveContext(userId, ORDERS_VIEW_PERMISSION);
+    if (!this.historyRepository.listPreviouslyPurchasedProducts) {
+      throw new InvalidStateError("Previously purchased products are unavailable.");
+    }
+    const limit = boundedInteger(input.limit, 5, 1, 20);
+    const offset = boundedInteger(input.offset, 0, 0, 500);
+    const result = await this.historyRepository.listPreviouslyPurchasedProducts({
+      companyId: context.company.id,
+      limit,
+      offset,
+    });
+    return {
+      items: result.items.map((record) => {
+        const commercial = projectProductCommercialSnapshot(
+          record.product.commercialSnapshot,
+          { canViewPartnerPrice: true, canViewRetailPrice: false },
+        );
+        return {
+          id: record.product.id,
+          sku: record.product.sku,
+          name: record.product.name,
+          slug: record.product.slug,
+          imageUrl: record.product.imageUrl,
+          categoryName: record.product.category?.name ?? null,
+          commercialView: {
+            partnerPrice: commercial.partnerPrice,
+            partnerPriceMdl: commercial.partnerPriceMdl,
+            stock: commercial.stock,
+          },
+          purchaseCount: record.purchaseCount,
+          totalQuantity: record.totalQuantity,
+          lastPurchasedAt: record.lastPurchasedAt,
+          lastQuantity: record.lastQuantity,
+          repeatPurchaseDue: record.repeatPurchaseDue,
+        };
+      }),
+      totalCount: result.totalCount,
+    };
+  }
 
   async list(userId: string, input: { filter?: string | null; search?: string | null; page?: number | string | null }) {
     const context = await this.resolveContext(userId, ORDERS_VIEW_PERMISSION);
@@ -1115,6 +1182,17 @@ function normalizeSearch(value: string | null | undefined): string {
 function parsePage(value: number | string | null | undefined): number {
   const parsed = Number(value);
   return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : 1;
+}
+
+function boundedInteger(
+  value: number | undefined,
+  fallback: number,
+  minimum: number,
+  maximum: number,
+): number {
+  return Number.isSafeInteger(value) && value! >= minimum && value! <= maximum
+    ? value!
+    : fallback;
 }
 
 function requirePortalUuid(value: string): string {
