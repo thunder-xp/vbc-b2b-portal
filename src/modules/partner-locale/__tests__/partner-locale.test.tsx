@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { PartnerLanguageSwitch } from "../PartnerLanguageSwitch";
 import { partnerText } from "../copy";
+import { formatPartnerDateTime } from "../format";
 import { isPartnerLocale, partnerLocaleTag } from "../locale";
 
 const { setLocale } = vi.hoisted(() => ({ setLocale: vi.fn() }));
@@ -19,6 +20,10 @@ describe("partner locale", () => {
   it("uses locale-aware formatter tags", () => {
     expect(partnerLocaleTag("ru")).toBe("ru-RU");
     expect(partnerLocaleTag("ro")).toBe("ro-RO");
+  });
+
+  it("formats date-times in the governed partner timezone", () => {
+    expect(formatPartnerDateTime("2026-09-05T08:01:00Z", "ru")).toContain("11:01");
   });
 
   it("renders the inverse language and switches without constructing a route", async () => {
