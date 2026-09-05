@@ -42,7 +42,10 @@ export function EstimateWorkflowPanel({ initialWorkflow, revision, initialPropos
   const pdfStatus = generatedDocument?.status ?? proposal?.pdfStatus ?? null;
   const pdfDocumentId = generatedDocument?.id ?? proposal?.pdfDocumentId ?? null;
   const proposalExpired = initialWorkflow.lifecycleStatus === "expired";
-  const currentVersion = Boolean(proposal && proposal.estimateRevision === revision);
+  const currentVersion = Boolean(proposal && (
+    proposal.estimateRevision === revision
+    || (proposal.status === "sent" && proposal.estimateRevision + 1 === revision)
+  ));
 
   useEffect(() => {
     const receiveDirtyState = (event: Event) => {
