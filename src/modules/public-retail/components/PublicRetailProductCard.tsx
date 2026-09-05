@@ -19,6 +19,7 @@ export function PublicRetailProductCard({ product, locale, badge, badgeVariant, 
   return <CatalogProductCardFrame
     actions={<div className="grid grid-cols-[minmax(0,1fr)_2.75rem] items-start gap-2"><PublicRetailAddToCartButton compact locale={locale} publicProductId={product.id} source="catalog" /><Link aria-label={locale === "ro" ? `Mai multe detalii despre produsul ${product.name}` : `Подробнее о товаре ${product.name}`} className="grid size-11 place-items-center border border-zinc-300 hover:border-blue-700 hover:text-blue-800" href={`/products/${product.slug}?lang=${locale}`} title={copy.details}><ArrowRight aria-hidden="true" className="size-4" /></Link></div>}
     availability={<p className={`flex min-h-5 items-center gap-2 text-xs font-semibold ${availabilityTone(product.availability)}`}><span aria-hidden="true" className="size-1.5 shrink-0 rounded-full bg-current" />{availabilityCopy[locale][product.availability]}</p>}
+    className="w-full min-w-0"
     commercial={<div><p className="text-lg font-semibold tabular-nums">{formatRetailCardPrice(product.price.amount, product.price.currency, locale)}</p><p className="text-[11px] text-zinc-500">{copy.price}</p></div>}
     context={showFacetShortcuts && facetShortcuts.length ? <ul aria-label={copy.specifications} className="flex h-5 min-w-0 gap-1 overflow-hidden">{facetShortcuts.map((item) => <li className="min-w-0" key={item.key}><Link aria-label={`${item.label}: ${item.value}`} className="block max-w-28 truncate border border-zinc-200 px-1.5 text-[11px] leading-[18px] text-zinc-600 hover:border-blue-600 hover:text-blue-800 focus-visible:outline-2 focus-visible:outline-blue-600" href={publicRetailFilterHref(locale, facetState, { facet: { key: item.key, value: item.value }, facetMode: "include" })} prefetch={false} title={`${item.label}: ${item.value}`}>{item.value}</Link></li>)}</ul> : null}
     density="compact"
@@ -29,6 +30,6 @@ export function PublicRetailProductCard({ product, locale, badge, badgeVariant, 
     metadata={<p className="truncate text-[11px] font-medium uppercase text-zinc-500" title={metadata}>{metadata}</p>}
     square
     tone="retail"
-    title={<Link aria-label={product.name} className="line-clamp-2 h-10 rounded-sm text-sm font-semibold leading-5 text-zinc-950 outline-none hover:text-blue-700 focus-visible:ring-2 focus-visible:ring-blue-500" href={`/products/${product.slug}?lang=${locale}`} title={product.name}>{product.name}</Link>}
+    title={<Link aria-label={product.name} className="line-clamp-2 h-10 min-w-0 overflow-hidden [overflow-wrap:anywhere] rounded-sm text-sm font-semibold leading-5 text-zinc-950 outline-none hover:text-blue-700 focus-visible:ring-2 focus-visible:ring-blue-500" href={`/products/${product.slug}?lang=${locale}`} title={product.name}>{product.name}</Link>}
   />;
 }

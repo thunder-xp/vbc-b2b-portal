@@ -52,10 +52,10 @@ export function PublicRetailCatalog({ blogArticles = [], breadcrumbs, categories
         <ShowcaseLink active={state.mode === "replenishment"} href={publicRetailMerchandisingHref(locale, "replenishment", state)} label={copy.replenishment} />
       </nav>
     </section>
-    <div className="mt-5 grid items-start gap-7 lg:grid-cols-[260px_minmax(0,1fr)]">
+    <div className="mt-5 grid min-w-0 items-start gap-5 lg:grid-cols-[240px_minmax(0,1fr)]">
       <PublicCatalogFilters facets={facets} locale={locale} state={state} />
       <section aria-label={copy.products} className="min-w-0">
-        {products.items.length ? <CatalogProductGridFrame>{products.items.map((product) => <PublicRetailProductCard badge={collectionBadge?.label} badgeVariant={collectionBadge?.variant} catalogState={state} filterableFacetKeys={filterableFacetKeys} key={product.id} locale={locale} product={product} showFacetShortcuts />)}</CatalogProductGridFrame> : <EmptyCatalog message={copy.noProducts} title={pageTitle} />}
+        {products.items.length ? <CatalogProductGridFrame layout="public-retail">{products.items.map((product) => <PublicRetailProductCard badge={collectionBadge?.label} badgeVariant={collectionBadge?.variant} catalogState={state} filterableFacetKeys={filterableFacetKeys} key={product.id} locale={locale} product={product} showFacetShortcuts />)}</CatalogProductGridFrame> : <EmptyCatalog message={copy.noProducts} title={pageTitle} />}
         <Pagination locale={locale} products={products} state={state} />
       </section>
     </div>

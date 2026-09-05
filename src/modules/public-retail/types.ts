@@ -69,6 +69,12 @@ export type PublicRetailShowcaseDto = {
   new: PublicRetailProductSummaryDto[];
   hot: PublicRetailProductSummaryDto[];
   replenishment: PublicRetailProductSummaryDto[];
+  totalCounts: {
+    popular: number;
+    new: number;
+    hot: number;
+    replenishment: number;
+  };
 };
 
 export type PublicRetailCalculatorProductResolutionDto = {

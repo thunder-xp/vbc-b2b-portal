@@ -10,6 +10,7 @@ type CatalogProductCardFrameProps = {
   secondaryActions?: ReactNode;
   title: ReactNode;
   density?: "comfortable" | "compact";
+  className?: string;
   square?: boolean;
   tone?: "default" | "retail";
 };
@@ -24,11 +25,12 @@ export function CatalogProductCardFrame({
   secondaryActions,
   title,
   density = "comfortable",
+  className = "",
   square = false,
   tone = "default",
 }: CatalogProductCardFrameProps) {
   const compact = density === "compact";
-  return <article className={`flex h-full min-w-0 flex-col overflow-hidden border border-zinc-200 bg-white shadow-sm transition-shadow hover:shadow-md focus-within:ring-2 focus-within:ring-offset-2 ${tone === "retail" ? "focus-within:ring-blue-500" : "focus-within:ring-emerald-500"} ${square ? "" : "rounded-md"}`}>
+  return <article className={`flex h-full min-w-0 flex-col overflow-hidden border border-zinc-200 bg-white shadow-sm transition-shadow hover:shadow-md focus-within:ring-2 focus-within:ring-offset-2 ${tone === "retail" ? "focus-within:ring-blue-500" : "focus-within:ring-emerald-500"} ${square ? "" : "rounded-md"} ${className}`.trim()}>
     {media}
     <div className={`flex flex-1 flex-col ${compact ? "p-2.5" : "p-3"}`}>
       <div className="h-4 min-w-0">{metadata}</div>

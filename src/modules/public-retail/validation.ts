@@ -142,12 +142,27 @@ export function parsePublicRetailProductSummaries(value: unknown) {
 }
 
 export function parsePublicRetailShowcase(value: unknown): PublicRetailShowcaseDto {
-  return z.object({
+  const parsed = z.object({
     popular: z.array(summary).max(5),
     new: z.array(summary).max(5),
     hot: z.array(summary).max(5),
     replenishment: z.array(summary).max(5),
+    totalCounts: z.object({
+      popular: z.coerce.number().int().nonnegative(),
+      new: z.coerce.number().int().nonnegative(),
+      hot: z.coerce.number().int().nonnegative(),
+      replenishment: z.coerce.number().int().nonnegative(),
+    }).strict().optional(),
   }).strict().parse(value);
+  return {
+    ...parsed,
+    totalCounts: parsed.totalCounts ?? {
+      popular: parsed.popular.length,
+      new: parsed.new.length,
+      hot: parsed.hot.length,
+      replenishment: parsed.replenishment.length,
+    },
+  };
 }
 
 export function parsePublicRetailProduct(value: unknown): PublicRetailProductDetailDto {
