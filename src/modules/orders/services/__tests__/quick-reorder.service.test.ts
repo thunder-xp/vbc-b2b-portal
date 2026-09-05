@@ -131,6 +131,36 @@ describe("repeat order to Live Commerce Selection", () => {
     expect(result.items).toEqual([expect.objectContaining({ product: expect.objectContaining({ id: "product-1" }), quantity: 4 })]);
     expect(dependencies.cart.mergeOrderReorderItems).not.toHaveBeenCalled();
   });
+
+  it.each([5, 20, 50])("keeps a %i-line selection to one source read and one commercial read", async (lineCount) => {
+    const dependencies = makeDependencies();
+    const lines = Array.from({ length: lineCount }, (_, index) => {
+      const sequence = (index + 1).toString(16).padStart(12, "0");
+      return {
+        ...line(`11111111-1111-4111-8111-${sequence}`, `product-${index + 1}`, index + 1),
+        lineNumber: index + 1,
+        currentSku: `SKU-${index + 1}`,
+        currentSlug: `camera-${index + 1}`,
+      };
+    });
+    dependencies.repository.getRepeatOrderSelectionSource.mockResolvedValue({ ...source(), lines });
+    const authoritative = vi.fn().mockResolvedValue(
+      lines.map((item) => commercial(item.productId, 10, 100)),
+    );
+    dependencies.pricing.getAuthoritativeProductCommercialViews = authoritative;
+
+    const result = await dependencies.service.prepareSelection("user-1", {
+      orderId: ORDER_ID,
+      lines: lines.map((item) => ({ lineId: item.lineId, quantity: item.historicalQuantity })),
+    });
+
+    expect(dependencies.repository.getRepeatOrderSelectionSource).toHaveBeenCalledOnce();
+    expect(authoritative).toHaveBeenCalledOnce();
+    expect(authoritative).toHaveBeenCalledWith("user-1", lines.map((item) => item.productId));
+    expect(result.items).toHaveLength(lineCount);
+    expect(result).toMatchObject({ readyCount: lineCount, attentionCount: 0 });
+    expect(dependencies.cart.mergeOrderReorderItems).not.toHaveBeenCalled();
+  });
 });
 
 describe("quick reorder commercial difference", () => {
