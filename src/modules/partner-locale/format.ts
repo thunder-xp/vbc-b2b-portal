@@ -5,7 +5,11 @@ export function formatPartnerDate(value: string | Date, locale: PartnerLocale, o
 }
 
 export function formatPartnerDateTime(value: string | Date, locale: PartnerLocale): string {
-  return formatPartnerDate(value, locale, { dateStyle: "medium", timeStyle: "short" });
+  return formatPartnerDate(value, locale, {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "Europe/Chisinau",
+  });
 }
 
 export function formatPartnerNumber(value: number, locale: PartnerLocale, options?: Intl.NumberFormatOptions): string {
