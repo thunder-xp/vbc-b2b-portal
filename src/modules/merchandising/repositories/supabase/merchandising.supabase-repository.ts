@@ -19,6 +19,7 @@ type PublishedRow = {
   starts_at: string;
   ends_at: string | null;
   source: "manual" | "one_c";
+  matching_product_count?: number;
 };
 
 export class SupabaseMerchandisingRepository
@@ -74,7 +75,7 @@ export class SupabaseMerchandisingRepository
   }): Promise<PublishedMerchandisingAssignment[]> {
     const supabase = await createClient();
     const { data, error } = await supabase.rpc(
-      "get_published_product_merchandising",
+      "get_published_product_merchandising_v2",
       {
         p_company_id: input.companyId,
         p_label_code: input.labelCode ?? null,
@@ -158,6 +159,9 @@ function mapPublishedRow(row: PublishedRow): PublishedMerchandisingAssignment {
     startsAt: row.starts_at,
     endsAt: row.ends_at,
     source: row.source,
+    matchingProductCount: typeof row.matching_product_count === "number"
+      ? row.matching_product_count
+      : undefined,
   };
 }
 

@@ -54,11 +54,11 @@ export function QuickActionsMenu({ actions }: { actions: WorkspaceQuickActionDto
 
   if (!actions.length) return null;
   return (
-    <div className="relative" ref={rootRef}>
-      <button aria-controls="partner-quick-actions" aria-expanded={open} aria-haspopup="menu" aria-label={t("quick.title")} className="inline-flex size-11 items-center justify-center rounded-md border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600" onClick={() => setOpen((value) => !value)} ref={triggerRef} title={t("quick.title")} type="button">
+    <div className="relative shrink-0" ref={rootRef}>
+      <button aria-controls="partner-quick-actions" aria-expanded={open} aria-haspopup="menu" aria-label={t("quick.title")} className="inline-flex size-11 shrink-0 items-center justify-center rounded-md border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600" data-header-control="quick-action" onClick={() => setOpen((value) => !value)} ref={triggerRef} title={t("quick.title")} type="button">
         <Zap aria-hidden="true" className="size-[19px]" />
       </button>
-      {open ? <nav aria-label={t("quick.title")} className="fixed inset-x-3 top-28 z-50 rounded-md border border-zinc-200 bg-white p-1.5 shadow-xl sm:absolute sm:inset-x-auto sm:right-0 sm:top-12 sm:w-72" id="partner-quick-actions" lang={locale} role="menu">
+      {open ? <nav aria-label={t("quick.title")} className="fixed inset-x-3 top-[7.5rem] z-50 rounded-md border border-zinc-200 bg-white p-1.5 shadow-xl sm:left-auto sm:right-3 sm:w-72 sm:max-w-[calc(100vw-1.5rem)] lg:absolute lg:inset-x-auto lg:right-0 lg:top-[calc(100%+0.5rem)]" id="partner-quick-actions" lang={locale} role="menu">
         {actions.map((action) => {
           const Icon = icons[action.key as keyof typeof icons] ?? FileSearch;
           const translationKey = actionKeys[action.key];

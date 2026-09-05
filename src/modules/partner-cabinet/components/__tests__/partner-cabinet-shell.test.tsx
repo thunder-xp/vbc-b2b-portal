@@ -160,6 +160,21 @@ describe("Partner workspace shell", () => {
     expect(screen.getByRole("menuitem", { name: "Выйти" })).toBeInTheDocument();
   });
 
+  it("keeps operational header controls at stable 44px geometry", () => {
+    render(<PartnerHeader context={{
+      ...context,
+      cartItemCount: 125,
+      quickActions: [{ key: "cart", label: "Открыть корзину", href: "/cabinet/cart" }],
+      notificationSummary: { unreadCount: 125, items: [] },
+    }} />);
+
+    for (const control of document.querySelectorAll("[data-header-control]")) {
+      expect(control).toHaveClass("size-11", "shrink-0");
+    }
+    expect(screen.getByRole("link", { name: "Корзина: 125 позиций" })).toHaveClass("size-11", "shrink-0");
+    expect(screen.getByTestId("partner-header-actions")).toHaveClass("gap-2");
+  });
+
   it("hydrates only the mobile navigation island and dismisses its drawer", async () => {
     const user = userEvent.setup();
     render(<PartnerMobileNavigation hasWorkspaceAccess navigation={navigation} />);

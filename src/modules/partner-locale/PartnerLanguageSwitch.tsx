@@ -20,6 +20,7 @@ export function PartnerLanguageSwitch({ locale }: { locale: PartnerLocale }) {
       aria-label={accessibleLabel}
       className="inline-flex size-11 shrink-0 items-center justify-center rounded-md border border-zinc-300 bg-white text-xs font-semibold text-zinc-700 transition hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 disabled:cursor-wait disabled:opacity-60"
       disabled={pending}
+      data-header-control="language"
       onClick={() => {
         const event = new CustomEvent("novotech:before-locale-change", {
           cancelable: true,

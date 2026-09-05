@@ -29,7 +29,7 @@ export type CatalogMerchandisingSection = {
   products: CatalogProductCardDto[];
   href?: string;
   contextBadge?: string;
-  maxProducts?: number;
+  totalCount: number;
 };
 
 export type CatalogMerchandisingSectionsResult = {
@@ -52,7 +52,7 @@ export async function listCatalogMerchandisingSectionsAction(): Promise<
   try {
     const userId = await getAuthenticatedUserId();
     const [assignments, context] = await Promise.all([
-      createMerchandisingService().listPublished(userId, undefined, 10),
+      createMerchandisingService().listPublished(userId, undefined, 5),
       createPartnerWorkspaceContextService().getWorkspaceContext(userId),
     ]);
     const replenishment = context.accessState === "active" && context.companyId
@@ -99,7 +99,13 @@ export async function listCatalogMerchandisingSectionsAction(): Promise<
           return product ? [product] : [];
         });
       return sectionProducts.length
-        ? [{ labelCode, title, products: sectionProducts }]
+        ? [{
+          labelCode,
+          title,
+          products: sectionProducts,
+          totalCount: assignments.find((assignment) => assignment.labelCode === labelCode)?.matchingProductCount
+            ?? sectionProducts.length,
+        }]
         : [];
     });
     const replenishmentProducts = replenishment
@@ -118,7 +124,7 @@ export async function listCatalogMerchandisingSectionsAction(): Promise<
         products: replenishmentProducts,
         href: "/cabinet/catalog?collection=replenishment",
         contextBadge: "Пополнение",
-        maxProducts: 5,
+        totalCount: replenishmentProducts.length,
       });
     }
 

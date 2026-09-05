@@ -36,13 +36,13 @@ export function UserMenu({ context }: { context: PartnerWorkspaceShellContext })
   const initial = (displayName || "P").slice(0, 1).toUpperCase();
 
   return (
-    <div className="relative" ref={rootRef}>
+    <div className="relative shrink-0" ref={rootRef}>
       <button
         aria-controls="partner-user-menu"
         aria-expanded={open}
         aria-haspopup="menu"
         aria-label={t("shell.openUserMenu")}
-        className="inline-flex min-h-11 items-center gap-2 rounded-md border border-zinc-300 bg-white p-1.5 pr-2 text-zinc-700 transition hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
+        className="inline-flex h-11 shrink-0 items-center gap-2 rounded-md border border-zinc-300 bg-white p-1.5 pr-2 text-zinc-700 transition hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
         onClick={() => setOpen((value) => !value)}
         ref={triggerRef}
         type="button"
@@ -61,7 +61,7 @@ export function UserMenu({ context }: { context: PartnerWorkspaceShellContext })
       {open ? (
         <div
           aria-label={t("shell.userMenu")}
-          className="fixed inset-x-3 top-28 z-50 overflow-hidden rounded-md border border-zinc-200 bg-white shadow-xl sm:absolute sm:inset-x-auto sm:right-0 sm:top-12 sm:w-72"
+          className="fixed inset-x-3 top-[7.5rem] z-50 overflow-hidden rounded-md border border-zinc-200 bg-white shadow-xl sm:left-auto sm:right-3 sm:w-72 sm:max-w-[calc(100vw-1.5rem)] lg:absolute lg:inset-x-auto lg:right-0 lg:top-[calc(100%+0.5rem)]"
           id="partner-user-menu"
           role="menu"
         >
