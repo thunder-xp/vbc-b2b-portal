@@ -17,6 +17,11 @@ describe("EstimateLifecycleService", () => {
     expect(dependencies.deliveryRepository.listByVersionIds).toHaveBeenCalledWith(["version-1"]);
     expect(dependencies.lifecycle.listVersionCartConversions).not.toHaveBeenCalled();
     expect(workflow.guidedState).toEqual(expect.objectContaining({ state: "draft", primaryAction: null }));
+    expect(workflow.draftReadiness).toEqual(expect.objectContaining({
+      state: "prepare_pdf",
+      primaryAction: "generate_pdf",
+      ready: true,
+    }));
   });
 
   it("loads one accepted-version conversion projection only when order guidance needs it", async () => {

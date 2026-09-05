@@ -2,6 +2,7 @@ export * from "./estimate.service";
 export * from "./proposal.service";
 export * from "./lifecycle.service";
 export * from "./guided-state";
+export * from "./draft-readiness";
 export * from "./demand.service";
 export * from "./proposal-delivery.service";
 export * from "./proposal-email.provider";

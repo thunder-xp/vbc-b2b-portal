@@ -44,7 +44,7 @@ const detail: EstimateDetailDto = {
     sellingUnitPrice: 100, formattedSellingUnitPrice: "$100.00", lineTotal: "$100.00", imageUrl: null,
   }], charges: [],
 };
-const workflow: EstimateWorkflowDto = { estimateId: "estimate-1", estimateStatus: "draft", lifecycleStatus: "draft", acceptedVersionId: null, emailDeliveryAvailable: false, guidedState: { state: "draft", primaryAction: null, secondaryActions: ["duplicate"], resumeCartId: null }, permissions: { canManage: true, canSend: true, canConvert: true, canManageOrders: true }, versions: [], readiness: { ready: true, checks: [] } };
+const workflow: EstimateWorkflowDto = { estimateId: "estimate-1", estimateStatus: "draft", lifecycleStatus: "draft", acceptedVersionId: null, emailDeliveryAvailable: false, guidedState: { state: "draft", primaryAction: null, secondaryActions: ["duplicate"], resumeCartId: null }, draftReadiness: { state: "prepare_proposal", primaryAction: "prepare_proposal", target: null, linePosition: null, ready: true, checks: [] }, permissions: { canManage: true, canSend: true, canConvert: true, canManageOrders: true }, versions: [], readiness: { ready: true, checks: [] } };
 const currentPdfWorkflow: EstimateWorkflowDto = {
   ...workflow,
   versions: [{
@@ -73,8 +73,46 @@ describe("EstimateCommercialEditor", () => {
     expect(screen.getByTitle("Заказчик: Customer")).toBeInTheDocument();
     expect(screen.getByTitle("Проект: Site")).toBeInTheDocument();
     expect(screen.getByText("Параметры сметы").closest("details")).not.toHaveAttribute("open");
-    expect(screen.getByRole("button", { name: "Сохранить" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Подготовить КП" })).toBeEnabled();
     expect(screen.queryByRole("button", { name: "Сохранить и выйти" })).not.toBeInTheDocument();
+  });
+
+  it("shows one add-product action for an empty draft without auto-opening the picker", async () => {
+    const user = userEvent.setup();
+    render(<EstimateCommercialEditor
+      commercialOptions={{ currencies: ["USD"], usdMdlRate: 17.5, rateEffectiveDate: "2026-07-16" }}
+      initialEstimate={{ ...detail, customerName: null, lines: [], itemCount: 0, total: "$0.00", totals: { ...detail.totals, subtotal: 0, totalExcludingVat: 0, finalTotal: 0 } }}
+      services={[]}
+      workflow={{ ...workflow, customer: null }}
+    />);
+
+    expect(screen.getByTestId("estimate-guided-workflow")).toHaveAttribute("data-draft-readiness-state", "add_product");
+    expect(screen.getByTestId("estimate-primary-next-action").querySelectorAll("button, a")).toHaveLength(1);
+    expect(screen.queryByLabelText("SKU, модель или название")).not.toBeInTheDocument();
+    await user.click(within(screen.getByTestId("estimate-primary-next-action")).getByRole("button"));
+    expect(screen.getByLabelText("SKU, модель или название")).toBeInTheDocument();
+  });
+
+  it("does not make customer or email an early proposal-readiness blocker", () => {
+    render(<EstimateCommercialEditor
+      commercialOptions={{ currencies: ["USD"], usdMdlRate: 17.5, rateEffectiveDate: "2026-07-16" }}
+      initialEstimate={{ ...detail, customerName: null }}
+      services={[]}
+      workflow={{ ...workflow, customer: null }}
+    />);
+    expect(screen.getByTestId("estimate-guided-workflow")).toHaveAttribute("data-draft-readiness-state", "prepare_proposal");
+    expect(screen.getByRole("button", { name: "Подготовить КП" })).toBeEnabled();
+  });
+
+  it("focuses the exact invalid quantity before allowing a save", async () => {
+    const user = userEvent.setup();
+    renderEditor();
+    const quantity = screen.getByRole("spinbutton", { name: "Кол-во" });
+    await user.clear(quantity);
+    await user.type(quantity, "0");
+    expect(screen.getByTestId("estimate-guided-workflow")).toHaveAttribute("data-draft-readiness-state", "fix_quantity");
+    await user.click(within(screen.getByTestId("estimate-primary-next-action")).getByRole("button"));
+    await waitFor(() => expect(quantity).toHaveFocus());
   });
 
   it("opens a contextual picker from its governed section", async () => {
@@ -97,17 +135,17 @@ describe("EstimateCommercialEditor", () => {
     expect(screen.getByRole("combobox", { name: "Бренд" })).toBeInTheDocument();
   });
 
-  it("keeps clean totals, preview, and proposal preparation together", () => {
+  it("keeps one proposal-preparation action above clean totals", () => {
     renderEditor();
     const summary = screen.getByRole("heading", { name: "Коммерческий расчёт" });
-    const proposal = screen.getByRole("heading", { name: "Коммерческое предложение" });
-    expect(summary.compareDocumentPosition(proposal) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const proposal = screen.getByRole("heading", { name: "Подготовьте КП" });
+    expect(proposal.compareDocumentPosition(summary) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
     const sidebar = summary.closest("aside");
     expect(sidebar).not.toBeNull();
     expect(within(sidebar!).queryByText("НДС")).not.toBeInTheDocument();
     expect(within(sidebar!).queryByText("КП / ИТОГ")).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Предпросмотр КП" })).toHaveAttribute("href", "/cabinet/estimates/estimate-1/preview");
+    expect(screen.queryByRole("link", { name: "Предпросмотр КП" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Подготовить КП" })).toBeEnabled();
   });
 
@@ -169,6 +207,21 @@ describe("EstimateCommercialEditor", () => {
     }));
     expect(screen.queryByText("Не сохранено")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Добавить оборудование" })).toBeEnabled();
+  });
+
+  it("preserves entered data and the same retryable blocker when save fails", async () => {
+    const user = userEvent.setup();
+    vi.mocked(saveEstimateCommercialAction).mockResolvedValue({ success: false, data: null, message: "Сохранение временно недоступно.", errorCode: "UNKNOWN" });
+    renderEditor();
+    const quantity = screen.getByRole("spinbutton", { name: "Кол-во" });
+    await user.clear(quantity);
+    await user.type(quantity, "2");
+    await user.click(screen.getByRole("button", { name: "Сохранить" }));
+
+    expect(quantity).toHaveValue(2);
+    expect(screen.getByText("Сохранение временно недоступно.")).toBeInTheDocument();
+    expect(screen.getByTestId("estimate-guided-workflow")).toHaveAttribute("data-draft-readiness-state", "save_changes");
+    expect(screen.getByRole("button", { name: "Сохранить" })).toBeEnabled();
   });
 
   it("enables Save as soon as a numeric value changes", async () => {
@@ -359,12 +412,12 @@ describe("EstimateCommercialEditor", () => {
     const user = userEvent.setup();
     vi.mocked(saveEstimateCommercialAction).mockResolvedValue({ success: true, data: { ...detail, revision: 4 }, message: "Saved", errorCode: null });
     renderEditor();
-    expect(screen.getByRole("button", { name: "Сохранить" })).toHaveAttribute("aria-keyshortcuts", "Control+S Meta+S");
 
     const quantity = screen.getByRole("spinbutton", { name: "Кол-во" });
     await user.clear(quantity);
     await user.type(quantity, "2");
     await user.tab();
+    expect(screen.getByRole("button", { name: "Сохранить" })).toHaveAttribute("aria-keyshortcuts", "Control+S Meta+S");
     await user.keyboard("{Control>}s{/Control}");
     expect(saveEstimateCommercialAction).toHaveBeenCalledTimes(1);
   });

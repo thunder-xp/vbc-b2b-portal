@@ -17,9 +17,10 @@ const workflow: EstimateWorkflowDto = {
   acceptedVersionId: null,
   emailDeliveryAvailable: false,
   guidedState: { state: "draft", primaryAction: null, secondaryActions: [], resumeCartId: null },
+  draftReadiness: { state: "prepare_proposal", primaryAction: "prepare_proposal", target: null, linePosition: null, ready: true, checks: [] },
   permissions: { canManage: true, canSend: true, canConvert: true, canManageOrders: true },
   versions: [],
-  readiness: { ready: true, checks: [{ label: "Есть позиции", passed: true }] },
+  readiness: { ready: true, checks: [{ code: "has_lines", label: "Есть позиции", passed: true }] },
 };
 
 describe("EstimateProposalSidebar", () => {
