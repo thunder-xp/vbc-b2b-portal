@@ -1,4 +1,5 @@
 const CATALOG_PATH = "/cabinet/catalog";
+const QUICK_ORDER_PATH = "/cabinet/quick-order";
 const INTERNAL_ORIGIN = "https://portal.novotech.invalid";
 const MAX_RETURN_TARGET_LENGTH = 4096;
 
@@ -19,7 +20,8 @@ export function parseCatalogReturnTarget(value: string | string[] | undefined): 
     const target = new URL(candidate, INTERNAL_ORIGIN);
     if (
       target.origin !== INTERNAL_ORIGIN
-      || target.pathname !== CATALOG_PATH
+      || (target.pathname !== CATALOG_PATH && target.pathname !== QUICK_ORDER_PATH)
+      || (target.pathname === QUICK_ORDER_PATH && target.search)
       || target.hash
       || target.username
       || target.password
