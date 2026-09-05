@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const sql = readFileSync(resolve("supabase/migrations/20260905101500_partner_final_customer_primary_email.sql"), "utf8");
+const sentRevisionSql = readFileSync(resolve("supabase/migrations/20260905103000_partner_proposal_delivery_sent_revision.sql"), "utf8");
 const deliveryFoundationSql = readFileSync(resolve("supabase/migrations/20260718100000_proposal_delivery_foundation.sql"), "utf8");
 
 describe("guided Estimate email migration", () => {
@@ -31,6 +32,16 @@ describe("guided Estimate email migration", () => {
     expect(sql).toContain("document.company_id = version.company_id");
     expect(sql).toContain("Delivery rate limit exceeded");
     expect(sql).toContain("Recipient delivery rate limit exceeded");
+  });
+
+  it("permits only the single governed lifecycle revision added by the first successful send", () => {
+    expect(sentRevisionSql).toContain("version.status = 'sent'");
+    expect(sentRevisionSql).toContain("estimate.lifecycle_status = 'sent'");
+    expect(sentRevisionSql).toContain("estimate.revision = version.estimate_revision + 1");
+    expect(sentRevisionSql).toContain("event.source_version_id = version.id");
+    expect(sentRevisionSql).toContain("event.to_status = 'sent'");
+    expect(sentRevisionSql).toContain("set search_path = ''");
+    expect(sentRevisionSql).not.toMatch(/grant execute[^;]+to anon/i);
   });
 
   it("reuses a failed delivery record for a bounded retry with a fresh private token", () => {
