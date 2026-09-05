@@ -26,6 +26,18 @@ vi.mock("../../actions/delivery.actions", () => ({
 }));
 
 describe("EstimateWorkflowPanel ergonomics", () => {
+  it("keeps the just-sent immutable proposal current after its lifecycle-only revision bump", () => {
+    render(<EstimateWorkflowPanel initialWorkflow={{
+      estimateId: "estimate-1", estimateStatus: "draft", lifecycleStatus: "sent", lifecycleExpiresAt: "2026-09-19T08:00:00Z", acceptedVersionId: null,
+      emailDeliveryAvailable: true, readiness: { ready: true, checks: [] },
+      customer: { id: "customer-1", displayName: "Customer", primaryEmail: "client@example.com", revision: 1 },
+      versions: [{ id: "version-1", estimateNumber: "KP-1", versionNumber: 1, estimateRevision: 3, label: "KP-1", status: "sent", statusLabel: "Sent", total: "100 USD", currencyCode: "USD", note: null, createdAt: "2026-09-05T08:00:00Z", createdByName: "Manager", sentAt: "2026-09-05T08:05:00Z", acceptedAt: null, rejectedAt: null, pdfDocumentId: "pdf-1", pdfStatus: "ready", deliveries: [] }],
+    }} revision={4} />);
+
+    expect(screen.getByRole("button", { name: /клиенту/i })).toBeEnabled();
+    expect(screen.queryByText(/Смета изменилась/i)).not.toBeInTheDocument();
+  });
+
   it("disables governed email delivery as soon as the Estimate has unsaved edits", () => {
     render(<EstimateWorkflowPanel initialWorkflow={{
       estimateId: "estimate-1", estimateStatus: "draft", lifecycleStatus: "draft", acceptedVersionId: null,
