@@ -10,6 +10,7 @@ describe("EstimateLifecycleService", () => {
     const dependencies = makeDependencies(300);
     const workflow = await dependencies.service.getWorkflow("user-1", "estimate-1");
     expect(workflow.versions).toHaveLength(1);
+    expect(workflow.versions[0]?.estimateRevision).toBe(3);
     expect(dependencies.lifecycle.listLatestDocuments).toHaveBeenCalledOnce();
     expect(dependencies.deliveryRepository.listByVersionIds).toHaveBeenCalledOnce();
     expect(dependencies.deliveryRepository.listByVersionIds).toHaveBeenCalledWith(["version-1"]);

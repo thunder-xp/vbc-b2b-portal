@@ -35,6 +35,7 @@ describe("EstimateWorkflowPanel ergonomics", () => {
       versions: [{
         id: "version-1",
         versionNumber: 1,
+        estimateRevision: 3,
         label: "KP-2026-1 / версия 1",
         status: "prepared",
         statusLabel: "Подготовлено",
@@ -73,6 +74,7 @@ describe("EstimateWorkflowPanel ergonomics", () => {
       readiness: { ready: true, checks: [] },
       versions: [{
         id: "version-1", versionNumber: 1, label: "KP-2026-1 / версия 1", status: "accepted",
+        estimateRevision: 3,
         statusLabel: "Принято", total: "1 000,00 USD", currencyCode: "USD", note: null,
         createdAt: "2026-07-29T08:00:00Z", createdByName: "Менеджер", sentAt: null,
         acceptedAt: "2026-07-29T09:00:00Z", rejectedAt: null, pdfDocumentId: "pdf-1",
@@ -107,7 +109,7 @@ describe("EstimateWorkflowPanel ergonomics", () => {
     render(<EstimateWorkflowPanel initialWorkflow={{
       estimateId: "estimate-1", estimateStatus: "draft", lifecycleStatus: "draft", lifecycleExpiresAt: null,
       acceptedVersionId: null, emailDeliveryAvailable: true, readiness: { ready: true, checks: [] },
-      versions: [{ id: "version-1", versionNumber: 1, label: "Proposal", status: "prepared", statusLabel: "Prepared", total: "1 000,00 USD", currencyCode: "USD", note: null, createdAt: "2026-09-02T09:00:00Z", createdByName: "Manager", sentAt: null, acceptedAt: null, rejectedAt: null, pdfDocumentId: null, pdfStatus: null, deliveries: [] }],
+      versions: [{ id: "version-1", versionNumber: 1, estimateRevision: 3, label: "Proposal", status: "prepared", statusLabel: "Prepared", total: "1 000,00 USD", currencyCode: "USD", note: null, createdAt: "2026-09-02T09:00:00Z", createdByName: "Manager", sentAt: null, acceptedAt: null, rejectedAt: null, pdfDocumentId: null, pdfStatus: null, deliveries: [] }],
     }} revision={3} />);
 
     const click = user.click(screen.getByRole("button", { name: "Сформировать PDF" }));
@@ -127,7 +129,7 @@ describe("EstimateWorkflowPanel ergonomics", () => {
     render(<EstimateWorkflowPanel initialProposalAction={{ kind: "resend", versionId: "version-1" }} initialWorkflow={{
       estimateId: "estimate-1", estimateStatus: "ready", lifecycleStatus: "expired", lifecycleExpiresAt: "2026-08-20T10:00:00Z",
       acceptedVersionId: null, emailDeliveryAvailable: true, readiness: { ready: true, checks: [] },
-      versions: [{ id: "version-1", versionNumber: 1, label: "Proposal", status: "sent", statusLabel: "Sent", total: "1 000,00 USD", currencyCode: "USD", note: null, createdAt: "2026-08-01T09:00:00Z", createdByName: "Manager", sentAt: "2026-08-06T10:00:00Z", acceptedAt: null, rejectedAt: null, pdfDocumentId: "pdf-1", pdfStatus: "ready", deliveries: [] }],
+      versions: [{ id: "version-1", versionNumber: 1, estimateRevision: 3, label: "Proposal", status: "sent", statusLabel: "Sent", total: "1 000,00 USD", currencyCode: "USD", note: null, createdAt: "2026-08-01T09:00:00Z", createdByName: "Manager", sentAt: "2026-08-06T10:00:00Z", acceptedAt: null, rejectedAt: null, pdfDocumentId: "pdf-1", pdfStatus: "ready", deliveries: [] }],
     }} revision={3} />);
 
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
