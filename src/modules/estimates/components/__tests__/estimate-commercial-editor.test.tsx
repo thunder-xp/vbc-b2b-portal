@@ -1,11 +1,13 @@
-import { render, screen, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { checkEstimateCommercialStateAction, removeEstimateLineAction, saveEstimateCommercialAction } from "../../actions/estimate.actions";
 import type { EstimateDetailDto } from "../../services";
 import type { EstimateWorkflowDto } from "../../types";
+import { PartnerLocaleProvider } from "../../../partner-locale";
 import { EstimateCommercialEditor } from "../EstimateCommercialEditor";
+import { notifyEstimatePdfReady } from "../EstimatePdfShareAction";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
 vi.mock("../../actions/estimate.actions", () => ({
@@ -43,6 +45,15 @@ const detail: EstimateDetailDto = {
   }], charges: [],
 };
 const workflow: EstimateWorkflowDto = { estimateId: "estimate-1", estimateStatus: "draft", lifecycleStatus: "draft", acceptedVersionId: null, emailDeliveryAvailable: false, versions: [], readiness: { ready: true, checks: [] } };
+const currentPdfWorkflow: EstimateWorkflowDto = {
+  ...workflow,
+  versions: [{
+    id: "version-1", versionNumber: 1, estimateRevision: 3, label: "KP-2026-000001 / версия 1",
+    status: "prepared", statusLabel: "Подготовлено", total: "100,00 USD", currencyCode: "USD", note: null,
+    createdAt: "2026-09-05T10:00:00Z", createdByName: "Manager", sentAt: null, acceptedAt: null,
+    rejectedAt: null, pdfDocumentId: "document-1", pdfStatus: "ready", deliveries: [],
+  }],
+};
 
 function renderEditor() {
   return render(<EstimateCommercialEditor commercialOptions={{ currencies: ["USD", "MDL"], usdMdlRate: 17.5, rateEffectiveDate: "2026-07-16" }} initialEstimate={detail} services={[]} workflow={workflow} />);
@@ -50,6 +61,10 @@ function renderEditor() {
 
 describe("EstimateCommercialEditor", () => {
   beforeEach(() => vi.clearAllMocks());
+  afterEach(() => {
+    Reflect.deleteProperty(navigator, "share");
+    Reflect.deleteProperty(navigator, "canShare");
+  });
 
   it("renders the compact workspace header and keeps detailed settings collapsed", () => {
     renderEditor();
@@ -180,6 +195,59 @@ describe("EstimateCommercialEditor", () => {
     expect(screen.getByTestId("estimate-mobile-actions-trigger")).toHaveFocus();
   });
 
+  it("shows one-tap native Share only for the current saved PDF and removes it after an unsaved edit", async () => {
+    const user = userEvent.setup();
+    enableNativeShare();
+    render(<EstimateCommercialEditor commercialOptions={{ currencies: ["USD", "MDL"], usdMdlRate: 17.5, rateEffectiveDate: "2026-07-16" }} initialEstimate={detail} services={[]} workflow={currentPdfWorkflow} />);
+
+    const actionBar = screen.getByTestId("estimate-mobile-action-bar");
+    expect(await within(actionBar).findByRole("button", { name: "Поделиться" })).toBeInTheDocument();
+    expect(actionBar.firstElementChild).toHaveClass("grid-cols-[repeat(3,minmax(0,1fr))_3rem]");
+
+    const quantity = screen.getByRole("spinbutton", { name: "Кол-во" });
+    await user.clear(quantity);
+    await user.type(quantity, "2");
+    await waitFor(() =>
+      expect(within(actionBar).queryByRole("button", { name: "Поделиться" })).not.toBeInTheDocument(),
+    );
+    expect(within(actionBar).queryByRole("link", { name: "Скачать PDF" })).not.toBeInTheDocument();
+  });
+
+  it("does not silently expose a stale proposal and adopts a newly ready current PDF", async () => {
+    enableNativeShare();
+    const staleWorkflow: EstimateWorkflowDto = {
+      ...currentPdfWorkflow,
+      versions: [{ ...currentPdfWorkflow.versions[0]!, estimateRevision: 2 }],
+    };
+    const { unmount } = render(<EstimateCommercialEditor commercialOptions={{ currencies: ["USD"], usdMdlRate: 17.5, rateEffectiveDate: "2026-07-16" }} initialEstimate={detail} services={[]} workflow={staleWorkflow} />);
+    expect(screen.queryByRole("button", { name: "Поделиться" })).not.toBeInTheDocument();
+    unmount();
+
+    const awaitingPdf: EstimateWorkflowDto = {
+      ...currentPdfWorkflow,
+      versions: [{ ...currentPdfWorkflow.versions[0]!, pdfDocumentId: null, pdfStatus: null }],
+    };
+    render(<EstimateCommercialEditor commercialOptions={{ currencies: ["USD"], usdMdlRate: 17.5, rateEffectiveDate: "2026-07-16" }} initialEstimate={detail} services={[]} workflow={awaitingPdf} />);
+    expect(screen.queryByRole("button", { name: "Поделиться" })).not.toBeInTheDocument();
+    act(() => notifyEstimatePdfReady({
+      id: "document-2", companyId: "company-1", estimateId: "estimate-1", estimateRevision: 3,
+      versionId: "version-1", templateId: null, generationFingerprint: "fingerprint", status: "ready",
+      storageBucket: "estimate-proposals", storageKey: "company-1/document-2.pdf", pageCount: 1,
+      fileSizeBytes: 5, checksumSha256: "checksum", safeError: null, createdAt: "2026-09-05T10:00:00Z",
+    }));
+    expect(await screen.findByRole("button", { name: "Поделиться" })).toBeInTheDocument();
+  });
+
+  it("uses the exact Romanian mobile Share label", async () => {
+    enableNativeShare();
+    render(
+      <PartnerLocaleProvider locale="ro">
+        <EstimateCommercialEditor commercialOptions={{ currencies: ["USD"], usdMdlRate: 17.5, rateEffectiveDate: "2026-07-16" }} initialEstimate={detail} services={[]} workflow={currentPdfWorkflow} />
+      </PartnerLocaleProvider>,
+    );
+    expect(await screen.findByRole("button", { name: "Distribuie" })).toBeInTheDocument();
+  });
+
   it("renders exactly the four governed sections without structural controls", () => {
     renderEditor();
     for (const name of ["Оборудование", "Монтажные материалы", "Монтажные работы", "Пусконаладочные работы"]) {
@@ -303,3 +371,14 @@ describe("EstimateCommercialEditor", () => {
     expect(screen.getByRole("button", { name: "Сохранить" })).toBeEnabled();
   });
 });
+
+function enableNativeShare() {
+  Object.defineProperty(navigator, "share", {
+    configurable: true,
+    value: vi.fn().mockResolvedValue(undefined),
+  });
+  Object.defineProperty(navigator, "canShare", {
+    configurable: true,
+    value: vi.fn().mockReturnValue(true),
+  });
+}
