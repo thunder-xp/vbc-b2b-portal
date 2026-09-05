@@ -22,6 +22,7 @@ export interface FinalCustomer {
   locality: string | null;
   industry: string | null;
   industryCode: FinalCustomerIndustryCode | null;
+  primaryEmail: string | null;
   revision: number;
   archivedAt: string | null;
   createdAt: string;
@@ -169,6 +170,7 @@ export interface EstimateCharge {
 
 export interface EstimateAggregate {
   estimate: Estimate;
+  finalCustomer?: Pick<FinalCustomer, "id" | "displayName" | "primaryEmail" | "revision"> | null;
   sections: EstimateSection[];
   items: EstimateItem[];
   charges: EstimateCharge[];

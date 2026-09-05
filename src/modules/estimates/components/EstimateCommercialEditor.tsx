@@ -75,6 +75,7 @@ import {
 } from "./EstimatePdfShareAction";
 import { FinalCustomerPicker } from "./FinalCustomerPicker";
 import { duplicateEstimateAction } from "../actions/lifecycle.actions";
+import { notifyEstimateDirtyState } from "./estimate-client-events";
 
 const inputClass =
   "min-h-11 min-w-0 rounded-md border border-zinc-300 bg-white px-2 text-sm outline-none focus:border-emerald-600 focus-visible:ring-2 focus-visible:ring-emerald-200 disabled:bg-zinc-100";
@@ -257,6 +258,10 @@ export function EstimateCommercialEditor({
       document.removeEventListener("click", preventLinkNavigation, true);
     };
   }, [copy.unsavedLeaveWarning, dirty]);
+
+  useEffect(() => {
+    notifyEstimateDirtyState({ estimateId: estimate.id, dirty });
+  }, [dirty, estimate.id]);
 
   useEffect(() => {
     if (!dirty) return;

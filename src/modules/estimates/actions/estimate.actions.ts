@@ -89,6 +89,32 @@ export async function updateFinalCustomerAction(customerId: string, expectedRevi
   }
 }
 
+export async function updateFinalCustomerEmailAction(input: {
+  estimateId: string;
+  customerId: string;
+  expectedRevision: number;
+  primaryEmail: string;
+}) {
+  try {
+    const userId = await getAuthenticatedUserId();
+    const customer = await createEstimateService().updateFinalCustomerEmail(
+      userId,
+      input.estimateId,
+      input.customerId,
+      input.expectedRevision,
+      input.primaryEmail,
+    );
+    revalidatePath(`/cabinet/estimates/${input.estimateId}`);
+    return success("Email заказчика сохранён.", {
+      customerId: customer.id,
+      primaryEmail: customer.primaryEmail!,
+      revision: customer.revision,
+    });
+  } catch (error) {
+    return failureFromError(error);
+  }
+}
+
 export async function listFinalCustomersAction(filters: { search?: string; industryCode?: string; page?: number } = {}) {
   try {
     const userId = await getAuthenticatedUserId();
