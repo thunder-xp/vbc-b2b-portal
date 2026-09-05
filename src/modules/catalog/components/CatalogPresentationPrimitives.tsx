@@ -3,8 +3,12 @@ import type { ReactNode } from "react";
 export const CATALOG_PRODUCT_GRID_CLASS =
   "grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-5";
 
-export function CatalogProductGridFrame({ children, className = "" }: { children: ReactNode; className?: string }) {
-  return <div className={`${CATALOG_PRODUCT_GRID_CLASS} ${className}`.trim()}>{children}</div>;
+export const PUBLIC_RETAIL_PRODUCT_GRID_CLASS =
+  "public-retail-product-grid grid min-w-0 gap-3";
+
+export function CatalogProductGridFrame({ children, className = "", layout = "default" }: { children: ReactNode; className?: string; layout?: "default" | "public-retail" }) {
+  const gridClassName = layout === "public-retail" ? PUBLIC_RETAIL_PRODUCT_GRID_CLASS : CATALOG_PRODUCT_GRID_CLASS;
+  return <div className={`${gridClassName} ${className}`.trim()} data-product-grid={layout}>{children}</div>;
 }
 
 export function CatalogToolbarFrame({ children }: { children: ReactNode }) {
