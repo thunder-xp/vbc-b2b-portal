@@ -21,6 +21,7 @@ import {
 } from "../services/live-commerce-selection";
 import { ProductThumbnail } from "./ProductThumbnail";
 import { refreshLiveCommerceSelectionAction } from "../actions/live-commerce-selection.action";
+import { SaveLiveSelectionAsKitButton } from "../../purchasing-lists/components/SaveLiveSelectionAsKitButton";
 
 type SelectionContextValue = {
   items: LiveCommerceSelectionItem[];
@@ -37,10 +38,12 @@ export function useLiveCommerceSelection(): SelectionContextValue {
 export function LiveCommerceSelectionProvider({
   canAddToCart,
   canCreateEstimate,
+  canSaveAsKit,
   children,
 }: {
   canAddToCart: boolean;
   canCreateEstimate: boolean;
+  canSaveAsKit: boolean;
   children: ReactNode;
 }) {
   const locale = usePartnerLocale();
@@ -172,6 +175,7 @@ export function LiveCommerceSelectionProvider({
           </div>
           <footer className="space-y-2 border-t border-zinc-200 bg-white p-4">
             {message ? <p aria-live="polite" className="text-sm text-red-700">{message}</p> : null}
+            {canSaveAsKit ? <SaveLiveSelectionAsKitButton items={items} /> : null}
             {canCreateEstimate
               ? <Link className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white" href="/cabinet/estimates/new?source=selection" onClick={() => setOpen(false)} prefetch={false}>{copy.createEstimate}</Link>
               : <span aria-disabled="true" className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-zinc-200 px-4 text-sm font-semibold text-zinc-500">{copy.createEstimate}</span>}

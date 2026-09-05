@@ -9,6 +9,49 @@ import { createPurchasingListService, getAuthenticatedUserId } from "./service-f
 const metadataSchema = z.object({ name: z.string().trim().min(1).max(120), description: z.string().trim().max(1000).nullable().optional(), visibility: z.enum(["private", "company"]) });
 const uuid = z.string().uuid();
 const selectionSchema = z.array(z.object({ itemId: uuid, quantity: z.number().int().min(1).max(9999).optional() })).max(200);
+const liveSelectionItemsSchema = z.array(z.object({ productId: uuid, quantity: z.number().int().min(1).max(9999) })).min(1).max(50);
+const kitItemsSchema = z.array(z.object({ itemId: uuid, quantity: z.number().int().min(1).max(9999) })).min(1).max(50);
+
+export async function listLiveCommerceKitsAction() {
+  try { return success("Live Commerce kits loaded.", await createPurchasingListService().listLiveCommerceKits(await getAuthenticatedUserId())); }
+  catch (error) { return failureFromError(error); }
+}
+
+export async function createLiveCommerceKitAction(input: { name: string; items: Array<{ productId: string; quantity: number }> }) {
+  const parsed = z.object({ name: z.string().trim().min(1).max(120), items: liveSelectionItemsSchema }).safeParse(input);
+  if (!parsed.success) return invalidInput("Check the kit name and products.");
+  try {
+    const result = await createPurchasingListService().createFromLiveCommerceSelection(await getAuthenticatedUserId(), parsed.data);
+    revalidateLists(result.list.id);
+    revalidatePath("/cabinet/quick-order");
+    return success("Kit saved.", { id: result.list.id, saved: result.saved, skipped: result.skipped });
+  } catch (error) { return failureFromError(error); }
+}
+
+export async function getLiveCommerceKitAction(listId: string) {
+  const parsed = uuid.safeParse(listId);
+  if (!parsed.success) return invalidInput("Invalid kit.");
+  try { return success("Kit loaded.", await createPurchasingListService().getLiveCommerceKit(await getAuthenticatedUserId(), parsed.data)); }
+  catch (error) { return failureFromError(error); }
+}
+
+export async function prepareLiveCommerceKitSelectionAction(input: { listId: string; items: Array<{ itemId: string; quantity: number }> }) {
+  const parsed = z.object({ listId: uuid, items: kitItemsSchema }).safeParse(input);
+  if (!parsed.success) return invalidInput("Check the selected kit products.");
+  try { return success("Current kit products prepared.", await createPurchasingListService().prepareLiveCommerceKitSelection(await getAuthenticatedUserId(), parsed.data)); }
+  catch (error) { return failureFromError(error); }
+}
+
+export async function updateLiveCommerceKitAction(input: { listId: string; expectedRevision: number; items: Array<{ itemId: string; quantity: number }> }) {
+  const parsed = z.object({ listId: uuid, expectedRevision: z.number().int().positive(), items: kitItemsSchema }).safeParse(input);
+  if (!parsed.success) return invalidInput("Check the kit quantities.");
+  try {
+    const list = await createPurchasingListService().updateLiveCommerceKit(await getAuthenticatedUserId(), parsed.data);
+    revalidateLists(list.id);
+    revalidatePath("/cabinet/quick-order");
+    return success("Kit updated.", { id: list.id, revision: list.revision });
+  } catch (error) { return failureFromError(error); }
+}
 
 export async function listPurchasingListsAction(input: { search?: string; filter?: "all" | "private" | "company" | "mine" | "archived"; page?: number } = {}) {
   try { return success("Списки закупок загружены.", await createPurchasingListService().list(await getAuthenticatedUserId(), input)); }

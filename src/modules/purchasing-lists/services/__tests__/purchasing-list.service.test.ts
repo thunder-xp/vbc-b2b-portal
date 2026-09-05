@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { NotFoundError } from "../../../access-control/services";
 
 import type { CatalogService } from "../../../catalog/services";
 import type { CartService } from "../../../orders/services";
@@ -58,6 +59,121 @@ describe("PurchasingListService", () => {
   it("creates from Quick Reorder selected quantities without mutating cart", async () => {
     await service.createFromOrder(USER, { orderId: ORDER, name: "Selected", visibility: "private", selections: [{ lineId: LINE, quantity: 7 }] });
     expect(repository.create).toHaveBeenCalledWith(expect.objectContaining({ sourceType: "quick_reorder", items: [expect.objectContaining({ quantity: 7 })] })); expect(repository.mergeIntoCart).not.toHaveBeenCalled();
+  });
+
+  it("saves a Live Commerce selection as a private purchasing list without price or stock snapshots", async () => {
+    const result = await service.createFromLiveCommerceSelection(USER, { name: "  CCTV kit  ", items: [{ productId: PRODUCT, quantity: 7 }] });
+    expect(repository.create).toHaveBeenCalledWith({
+      companyId: COMPANY,
+      name: "CCTV kit",
+      description: null,
+      visibility: "private",
+      sourceType: "manual",
+      sourceReferenceId: null,
+      items: [{ productId: PRODUCT, quantity: 7 }],
+    });
+    expect(JSON.stringify(vi.mocked(repository.create).mock.calls[0]?.[0])).not.toMatch(/price|stock/i);
+    expect(result).toMatchObject({ saved: 1, skipped: 0 });
+  });
+
+  it("validates the only required user input: kit name", async () => {
+    await expect(service.createFromLiveCommerceSelection(USER, { name: "   ", items: [{ productId: PRODUCT, quantity: 2 }] })).rejects.toThrow(/list name/i);
+    expect(repository.create).not.toHaveBeenCalled();
+  });
+
+  it("partially saves only current catalog products and rejects duplicate input", async () => {
+    const missingProduct = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const result = await service.createFromLiveCommerceSelection(USER, { name: "Partial", items: [{ productId: PRODUCT, quantity: 2 }, { productId: missingProduct, quantity: 3 }] });
+    expect(result).toMatchObject({ saved: 1, skipped: 1 });
+    expect(repository.create).toHaveBeenCalledWith(expect.objectContaining({ items: [{ productId: PRODUCT, quantity: 2 }] }));
+    await expect(service.createFromLiveCommerceSelection(USER, { name: "Duplicate", items: [{ productId: PRODUCT, quantity: 1 }, { productId: PRODUCT, quantity: 2 }] })).rejects.toThrow(/more than once/);
+  });
+
+  it("loads bounded kit summaries without eager product, price, or stock reads", async () => {
+    const result = await service.listLiveCommerceKits(USER);
+    expect(repository.list).toHaveBeenCalledWith(expect.objectContaining({ companyId: COMPANY, limit: 4, archived: false }));
+    expect(catalog.getProductsByIds).not.toHaveBeenCalled();
+    expect(pricing.getProductCommercialViews).not.toHaveBeenCalled();
+    expect(result[0]).toMatchObject({ id: LIST, itemCount: 1, totalQuantity: 2 });
+  });
+
+  it("lazily resolves current partner price and stock in one batch and never returns historical price", async () => {
+    vi.mocked(repository.findById).mockResolvedValue(record({ items: [{ ...record().items[0], sourceUnitPrice: 3, sourceCurrencyCode: "USD" }] }));
+    const result = await service.getLiveCommerceKit(USER, LIST);
+    expect(catalog.getProductsByIds).toHaveBeenCalledOnce();
+    expect(pricing.getProductCommercialViews).toHaveBeenCalledOnce();
+    expect(result.lines[0]).toMatchObject({ status: "READY", currentPrice: "$10.00", currentStock: 5, quantity: 2 });
+    expect(JSON.stringify(result)).not.toContain("sourceUnitPrice");
+    expect(JSON.stringify(result)).not.toContain("currentRetailPrice");
+  });
+
+  it.each([
+    ["PRODUCT_INACTIVE", [], [commercial()]],
+    ["PRICE_UNAVAILABLE", [product()], [{ ...commercial(), partnerPrice: null }]],
+    ["UNAVAILABLE", [product()], [{ ...commercial(), stock: { ...commercial().stock, exactAvailableQuantity: 0 } }]],
+  ] as const)("classifies %s kit lines for problem-first partial handling", async (status, products, commercialViews) => {
+    vi.mocked(catalog.getProductsByIds).mockResolvedValue(products as never);
+    vi.mocked(pricing.getProductCommercialViews).mockResolvedValue(commercialViews as never);
+    const result = await service.getLiveCommerceKit(USER, LIST);
+    expect(result.lines[0].status).toBe(status);
+    expect(result).toMatchObject({ readyCount: 0, attentionCount: 1 });
+  });
+
+  it("keeps a partially ready kit usable and orders its issue first", async () => {
+    const secondItem = { ...record().items[0], id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", productId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", position: 2 };
+    vi.mocked(repository.findById).mockResolvedValue(record({ items: [record().items[0], secondItem] }));
+    vi.mocked(catalog.getProductsByIds).mockResolvedValue([product(), { ...product(), id: secondItem.productId, sku: "400692" }]);
+    vi.mocked(pricing.getProductCommercialViews).mockResolvedValue([commercial(), { ...commercial(), productId: secondItem.productId, partnerPrice: null }]);
+    const result = await service.getLiveCommerceKit(USER, LIST);
+    expect(result).toMatchObject({ readyCount: 1, attentionCount: 1 });
+    expect(result.lines.map((line) => line.status)).toEqual(["PRICE_UNAVAILABLE", "READY"]);
+  });
+
+  it("re-resolves authoritative commercial truth once and prepares one selection batch", async () => {
+    const authoritative = vi.fn().mockResolvedValue([commercial()]);
+    pricing.getAuthoritativeProductCommercialViews = authoritative;
+    const result = await service.prepareLiveCommerceKitSelection(USER, { listId: LIST, items: [{ itemId: ITEM, quantity: 8 }] });
+    expect(authoritative).toHaveBeenCalledOnce();
+    expect(authoritative).toHaveBeenCalledWith(USER, [PRODUCT]);
+    expect(result).toMatchObject({ readyCount: 1, attentionCount: 0 });
+    expect(result.items[0]).toMatchObject({ product: { id: PRODUCT, partnerPrice: { amount: 10 }, stock: { exactAvailableQuantity: 5 } }, quantity: 8 });
+  });
+
+  it("preserves a non-empty client selection contract by returning additive items only", async () => {
+    const result = await service.prepareLiveCommerceKitSelection(USER, { listId: LIST, items: [{ itemId: ITEM, quantity: 2 }] });
+    expect(result.items).toEqual([expect.objectContaining({ product: expect.objectContaining({ id: PRODUCT }), quantity: 2 })]);
+    expect(result).not.toHaveProperty("replace");
+    expect(result).not.toHaveProperty("clear");
+  });
+
+  it("deliberately updates all kit quantities in one revision-bound mutation without commercial reads", async () => {
+    const result = await service.updateLiveCommerceKit(USER, { listId: LIST, expectedRevision: 1, items: [{ itemId: ITEM, quantity: 9 }] });
+    expect(repository.updateItems).toHaveBeenCalledOnce();
+    expect(repository.updateItems).toHaveBeenCalledWith(expect.objectContaining({ expectedRevision: 1, items: [expect.objectContaining({ itemId: ITEM, quantity: 9 })] }));
+    expect(pricing.getProductCommercialViews).not.toHaveBeenCalled();
+    expect(result.id).toBe(LIST);
+  });
+
+  it("denies a cross-company kit before product or commercial resolution", async () => {
+    vi.mocked(repository.findById).mockResolvedValue(record({ companyId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" }));
+    await expect(service.getLiveCommerceKit(USER, LIST)).rejects.toBeInstanceOf(NotFoundError);
+    expect(catalog.getProductsByIds).not.toHaveBeenCalled();
+    expect(pricing.getProductCommercialViews).not.toHaveBeenCalled();
+  });
+
+  it("enforces Purchasing List and catalog permissions for kit reads and writes", async () => {
+    await service.listLiveCommerceKits(USER);
+    expect(permission.ensurePermission).toHaveBeenCalledWith(USER, COMPANY, "purchasing_lists.view");
+    expect(permission.ensurePermission).toHaveBeenCalledWith(USER, COMPANY, "catalog.view");
+    permission.ensurePermission.mockClear();
+    await service.createFromLiveCommerceSelection(USER, { name: "Secure kit", items: [{ productId: PRODUCT, quantity: 1 }] });
+    expect(permission.ensurePermission).toHaveBeenCalledWith(USER, COMPANY, "purchasing_lists.manage");
+    expect(permission.ensurePermission).toHaveBeenCalledWith(USER, COMPANY, "catalog.view");
+  });
+
+  it("keeps deletion explicit by reusing exact-ID archive semantics", async () => {
+    await service.setArchived(USER, LIST, 1, true);
+    expect(repository.setArchived).toHaveBeenCalledWith({ listId: LIST, expectedRevision: 1, archived: true });
   });
 
   it.each(["increase", "replace", "keep"] as const)("uses explicit %s duplicate behavior", async (mergeMode) => {

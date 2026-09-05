@@ -14,6 +14,8 @@ import { useLiveCommerceSelection } from "./LiveCommerceSelectionProvider";
 import { ProductAvailabilityBlock } from "./ProductAvailabilityBlock";
 import { ProductThumbnail } from "./ProductThumbnail";
 import { RepeatOrderSelectionSection } from "./RepeatOrderSelectionSection";
+import { SavedKitsSection } from "../../purchasing-lists/components/SavedKitsSection";
+import type { LiveCommerceKitSummaryDto } from "../../purchasing-lists/types";
 
 type SearchResponse =
   | { success: true; data: QuickProductSearchResultDto[] }
@@ -28,12 +30,20 @@ export function MobileQuickProductCommerce({
   previouslyPurchased = { items: [], totalCount: 0 },
   recentOrders = [],
   initialRepeatOrderId = null,
+  canManageKits = false,
+  canViewKits = false,
+  initialKitId = null,
+  savedKits = [],
 }: {
   canSelectProducts: boolean;
   locale: PartnerLocale;
   previouslyPurchased?: PreviousPage;
   recentOrders?: RepeatOrderSummaryDto[];
   initialRepeatOrderId?: string | null;
+  canManageKits?: boolean;
+  canViewKits?: boolean;
+  initialKitId?: string | null;
+  savedKits?: LiveCommerceKitSummaryDto[];
 }) {
   const copy = getQuickProductCopy(locale);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -169,6 +179,7 @@ export function MobileQuickProductCommerce({
           <Link href="/cabinet/catalog?view=all" prefetch={false}>{copy.browseCatalog}</Link>
           <Link href="/cabinet/opportunities" prefetch={false}>{copy.recentlyPurchased}</Link>
           <Link href="/cabinet/purchasing-lists" prefetch={false}>{copy.favorites}</Link>
+          {canViewKits ? <Link href="#saved-kits">{locale === "ro" ? "Seturile mele" : "Мои комплекты"}</Link> : null}
         </nav>
       </div>
 
@@ -195,8 +206,16 @@ export function MobileQuickProductCommerce({
         orders={recentOrders}
       /> : null}
 
+      {!query.trim() && canViewKits ? <SavedKitsSection
+        canManage={canManageKits}
+        canSelectProducts={canSelectProducts}
+        initialKitId={initialKitId}
+        initialKits={savedKits}
+        locale={locale}
+      /> : null}
+
       <div aria-busy={loading} className="mx-auto max-w-3xl space-y-3">
-        {!query.trim() && previouslyPurchased.items.length === 0 && recentOrders.length === 0 ? <EmptyState title={copy.previousEmpty} detail={copy.startHint} /> : null}
+        {!query.trim() && previouslyPurchased.items.length === 0 && recentOrders.length === 0 && savedKits.length === 0 ? <EmptyState title={copy.previousEmpty} detail={copy.startHint} /> : null}
         {query.trim().length >= 2 && !loading && !searchFailed && results.length === 0 ? <EmptyState title={copy.noResults} detail={copy.noResultsHint} /> : null}
         {searchFailed ? <EmptyState title={copy.noResults} detail={copy.addFailed} /> : null}
         {results.map((product) => <ProductCard canSelectProducts={canSelectProducts} copy={copy} feedback={feedback[product.id]} key={product.id} loading={loading} locale={locale} onAdd={addProduct} onQuantity={updateQuantity} product={product} quantity={quantities[product.id] ?? 1} selectedQuantity={selectedQuantity(product.id)} />)}

@@ -25,6 +25,7 @@ export type PartnerWorkspaceShellContext = {
   notificationSummary: NotificationSummary;
   canAddSelectionToCart?: boolean;
   canCreateEstimateFromSelection?: boolean;
+  canManagePurchasingLists?: boolean;
 };
 
 export function PartnerLayout({
@@ -38,7 +39,7 @@ export function PartnerLayout({
 
   return (
     <PartnerLocaleProvider locale={context.locale}>
-    <LiveCommerceSelectionProvider canAddToCart={Boolean(context.canAddSelectionToCart)} canCreateEstimate={Boolean(context.canCreateEstimateFromSelection)}>
+    <LiveCommerceSelectionProvider canAddToCart={Boolean(context.canAddSelectionToCart)} canCreateEstimate={Boolean(context.canCreateEstimateFromSelection)} canSaveAsKit={Boolean(context.canManagePurchasingLists)}>
     <div className="min-h-screen bg-zinc-50 text-zinc-950" lang={context.locale}>
       <div className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:block lg:w-72">
         <PartnerSidebar companyName={context.companyName} hasWorkspaceAccess={hasWorkspaceAccess} navigation={context.navigation} />

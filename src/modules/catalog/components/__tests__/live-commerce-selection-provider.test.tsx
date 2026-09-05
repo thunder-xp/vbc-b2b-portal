@@ -6,10 +6,12 @@ const mocks = vi.hoisted(() => ({
   addToCart: vi.fn(),
   refresh: vi.fn(),
   push: vi.fn(),
+  createKit: vi.fn(),
 }));
 
 vi.mock("../../../orders/actions/cart.actions", () => ({ addSelectionToCartAction: mocks.addToCart }));
 vi.mock("../../actions/live-commerce-selection.action", () => ({ refreshLiveCommerceSelectionAction: mocks.refresh }));
+vi.mock("../../../purchasing-lists/actions", () => ({ createLiveCommerceKitAction: mocks.createKit }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: mocks.push }) }));
 vi.mock("next/link", () => ({ default: ({ children, href, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { href: string }) => <a href={href} {...props}>{children}</a> }));
 vi.mock("../ProductThumbnail", () => ({ ProductThumbnail: ({ alt }: { alt: string }) => <span aria-label={alt} role="img" /> }));
@@ -28,7 +30,7 @@ const product: LiveCommerceSelectionProduct = {
 };
 
 function Workspace() {
-  return <LiveCommerceSelectionProvider canAddToCart canCreateEstimate><button onClick={() => emitLiveCommerceSelectionAdd({ product, quantity: 2 })} type="button">Add camera</button></LiveCommerceSelectionProvider>;
+  return <LiveCommerceSelectionProvider canAddToCart canCreateEstimate canSaveAsKit><button onClick={() => emitLiveCommerceSelectionAdd({ product, quantity: 2 })} type="button">Add camera</button></LiveCommerceSelectionProvider>;
 }
 
 describe("LiveCommerceSelectionProvider", () => {
@@ -37,6 +39,7 @@ describe("LiveCommerceSelectionProvider", () => {
     mocks.addToCart.mockReset().mockResolvedValue({ success: true, data: { cartId: "cart-1", added: 1, updated: 0, priceChanged: 0, missingPrice: 0 }, message: "ok" });
     mocks.refresh.mockReset().mockResolvedValue({ success: true, data: [product], message: "ok" });
     mocks.push.mockReset();
+    mocks.createKit.mockReset().mockResolvedValue({ success: true, data: { id: "kit-1", saved: 1, skipped: 0 } });
   });
 
   it("persists, merges, edits, and removes a temporary selection", async () => {
@@ -74,5 +77,17 @@ describe("LiveCommerceSelectionProvider", () => {
     expect(screen.getByTestId("live-selection-bar")).toHaveClass("bottom-[max(0.75rem,env(safe-area-inset-bottom))]");
     await user.click(screen.getByRole("button", { name: "Открыть" }));
     expect(await screen.findByRole("link", { name: "Создать КП" })).toHaveAttribute("href", "/cabinet/estimates/new?source=selection");
+  });
+
+  it("saves the current selection with quantities and asks only for a kit name", async () => {
+    const user = userEvent.setup();
+    render(<Workspace />);
+    await user.click(screen.getByRole("button", { name: "Add camera" }));
+    await user.click(screen.getByRole("button", { name: "Открыть" }));
+    await user.click(await screen.findByRole("button", { name: "Сохранить подборку" }));
+    expect(screen.getAllByRole("textbox")).toHaveLength(1);
+    await user.type(screen.getByRole("textbox", { name: "Название комплекта" }), "CCTV test kit");
+    await user.click(screen.getByRole("button", { name: "Сохранить комплект" }));
+    await waitFor(() => expect(mocks.createKit).toHaveBeenCalledWith({ name: "CCTV test kit", items: [{ productId: product.id, quantity: 2 }] }));
   });
 });

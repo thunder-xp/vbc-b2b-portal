@@ -1,4 +1,5 @@
 import type { CommercialProductState } from "../pricing-inventory/services";
+import type { LiveCommerceSelectionAddDetail, LiveCommerceSelectionProduct } from "../catalog/services/live-commerce-selection";
 
 export type PurchasingListVisibility = "private" | "company";
 export type PurchasingListSourceType = "manual" | "catalog" | "cart" | "order" | "quick_reorder" | "duplicate" | "favorite" | "legacy_favorite";
@@ -29,3 +30,41 @@ export type PurchasingListLineDto = Omit<
 export type PurchasingListDetailDto = PurchasingList & { ownerName: string; canManage: boolean; lines: PurchasingListLineDto[] };
 export type PurchasingListPageDto = { records: PurchasingListSummaryDto[]; page: number; totalPages: number; totalCount: number };
 export type PurchasingListConversionResultDto = { repeated: boolean; destinationId: string | null; added: number; skipped: number; missingPrice: number; inactive: number; unavailable: number };
+
+export type LiveCommerceKitSummaryDto = {
+  id: string;
+  name: string;
+  itemCount: number;
+  totalQuantity: number;
+  updatedAt: string;
+  revision: number;
+  canManage: boolean;
+};
+
+export type LiveCommerceKitLineStatus = "READY" | "PRICE_UNAVAILABLE" | "PRODUCT_INACTIVE" | "UNAVAILABLE";
+
+export type LiveCommerceKitLineDto = {
+  itemId: string;
+  productId: string;
+  productName: string;
+  sku: string;
+  imageUrl: string | null;
+  quantity: number;
+  position: number;
+  status: LiveCommerceKitLineStatus;
+  currentPrice: string | null;
+  currentStock: number | null;
+  product: LiveCommerceSelectionProduct | null;
+};
+
+export type LiveCommerceKitDetailDto = LiveCommerceKitSummaryDto & {
+  lines: LiveCommerceKitLineDto[];
+  readyCount: number;
+  attentionCount: number;
+};
+
+export type LiveCommerceKitBatchDto = {
+  items: LiveCommerceSelectionAddDetail[];
+  readyCount: number;
+  attentionCount: number;
+};

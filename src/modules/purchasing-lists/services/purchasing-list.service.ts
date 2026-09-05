@@ -4,17 +4,20 @@ import type { CompanyAccessService, PermissionService } from "../../access-contr
 import { DomainConflictError, InvalidStateError, NotFoundError } from "../../access-control/services";
 import { MembershipStatus } from "../../access-control/types";
 import type { CatalogService } from "../../catalog/services";
+import { toLiveCommerceSelectionProduct } from "../../catalog/services/live-commerce-selection";
 import type { CartService } from "../../orders/services";
 import type { PartnerOrderHistoryRepository } from "../../orders/repositories";
 import { classifyCommercialProductState, commercialProductStateLabels, type PricingInventoryService } from "../../pricing-inventory/services";
 import { PurchasingListRepositoryError, type PurchasingListRepository } from "../repositories";
-import type { PurchasingList, PurchasingListConversionResultDto, PurchasingListDetailDto, PurchasingListPageDto, PurchasingListVisibility } from "../types";
+import type { LiveCommerceKitBatchDto, LiveCommerceKitDetailDto, LiveCommerceKitLineDto, LiveCommerceKitSummaryDto, PurchasingList, PurchasingListConversionResultDto, PurchasingListDetailDto, PurchasingListPageDto, PurchasingListVisibility } from "../types";
 
 const VIEW_PERMISSION = "purchasing_lists.view";
 const MANAGE_PERMISSION = "purchasing_lists.manage";
 const PAGE_SIZE = 20;
 const MAX_ITEMS = 200;
 const MAX_FAVORITE_PROJECTION = 100;
+const LIVE_COMMERCE_KIT_LIMIT = 3;
+const LIVE_COMMERCE_SELECTION_LIMIT = 50;
 
 export interface PurchasingListEstimateGateway {
   createFromPurchasingList(userId: string, input: {
@@ -76,6 +79,109 @@ export class PurchasingListService {
     const companyId = await this.resolveCompany(userId, MANAGE_PERMISSION);
     const result = await this.repository.list({ companyId, search: null, visibility: null, mine: false, archived: false, limit: 100, offset: 0 });
     return result.records.filter((record) => !record.isSystemFavorites && (record.visibility === "company" || record.createdBy === userId)).map(({ id, name, revision }) => ({ id, name, revision }));
+  }
+
+  async listLiveCommerceKits(userId: string): Promise<LiveCommerceKitSummaryDto[]> {
+    const companyId = await this.resolveCompany(userId, VIEW_PERMISSION);
+    await this.permissionService.ensurePermission(userId, companyId, "catalog.view");
+    const [result, canManage] = await Promise.all([
+      measureLiveCommerceKitStage("summary_list", () => this.repository.list({
+        companyId,
+        search: null,
+        visibility: null,
+        mine: false,
+        archived: false,
+        limit: LIVE_COMMERCE_KIT_LIMIT + 1,
+        offset: 0,
+      })),
+      this.permissionService.hasPermission(userId, companyId, MANAGE_PERMISSION),
+    ]);
+    return result.records
+      .filter((record) => !record.isSystemFavorites)
+      .slice(0, LIVE_COMMERCE_KIT_LIMIT)
+      .map((record) => ({
+        id: record.id,
+        name: record.name,
+        itemCount: record.itemCount,
+        totalQuantity: record.totalQuantity,
+        updatedAt: record.updatedAt,
+        revision: record.revision,
+        canManage: canManage && (record.visibility === "company" || record.createdBy === userId),
+      }));
+  }
+
+  async createFromLiveCommerceSelection(userId: string, input: {
+    name: string;
+    items: Array<{ productId: string; quantity: number }>;
+  }) {
+    const companyId = await this.resolveCompany(userId, MANAGE_PERMISSION);
+    await this.permissionService.ensurePermission(userId, companyId, "catalog.view");
+    const name = normalizeRequired(input.name, 120);
+    const items = normalizeLiveCommerceProducts(input.items);
+    const products = await measureLiveCommerceKitStage("save_catalog_validation", () =>
+      this.catalogService.getProductsByIds(userId, items.map((item) => item.productId)),
+    );
+    const visibleIds = new Set(products.map((product) => product.id));
+    const validItems = items.filter((item) => visibleIds.has(item.productId));
+    if (!validItems.length) throw new InvalidStateError("No current catalog products can be saved.");
+    const list = await measureLiveCommerceKitStage("save_mutation", () => this.repository.create({
+      companyId,
+      name,
+      description: null,
+      visibility: "private",
+      sourceType: "manual",
+      sourceReferenceId: null,
+      items: validItems,
+    }));
+    return { list, saved: validItems.length, skipped: items.length - validItems.length };
+  }
+
+  async getLiveCommerceKit(userId: string, listId: string): Promise<LiveCommerceKitDetailDto> {
+    return this.loadLiveCommerceKit(userId, listId, false);
+  }
+
+  async prepareLiveCommerceKitSelection(userId: string, input: {
+    listId: string;
+    items: Array<{ itemId: string; quantity: number }>;
+  }): Promise<LiveCommerceKitBatchDto> {
+    const selected = normalizeKitItems(input.items);
+    const detail = await this.loadLiveCommerceKit(userId, input.listId, true);
+    const byItemId = new Map(detail.lines.map((line) => [line.itemId, line]));
+    if (selected.some((item) => !byItemId.has(item.itemId))) throw new NotFoundError("Kit product was not found.");
+    const items = selected.flatMap(({ itemId, quantity }) => {
+      const line = byItemId.get(itemId)!;
+      return line.status === "READY" && line.product ? [{ product: line.product, quantity }] : [];
+    });
+    return { items, readyCount: items.length, attentionCount: selected.length - items.length };
+  }
+
+  async updateLiveCommerceKit(userId: string, input: {
+    listId: string;
+    expectedRevision: number;
+    items: Array<{ itemId: string; quantity: number }>;
+  }) {
+    const companyId = await this.resolveCompany(userId, MANAGE_PERMISSION);
+    const record = await this.repository.findById(requireUuid(input.listId));
+    if (!record || record.companyId !== companyId) throw new NotFoundError("Purchasing list was not found.");
+    if (record.isSystemFavorites || record.archivedAt || (record.visibility === "private" && record.createdBy !== userId)) {
+      throw new InvalidStateError("Purchasing list cannot be changed.");
+    }
+    if (record.revision !== input.expectedRevision) throw new InvalidStateError("Purchasing list changed. Reload it.");
+    const selected = normalizeKitItems(input.items);
+    const byId = new Map(selected.map((item) => [item.itemId, item.quantity]));
+    if (record.items.length !== selected.length || record.items.some((item) => !byId.has(item.id))) {
+      throw new NotFoundError("Kit product was not found.");
+    }
+    return listMutation(() => this.repository.updateItems({
+      listId: record.id,
+      expectedRevision: record.revision,
+      items: record.items.map((item) => ({
+        itemId: item.id,
+        quantity: byId.get(item.id)!,
+        position: item.position,
+        note: item.note,
+      })),
+    }));
   }
 
   async listFavoriteProductIds(userId: string, productIds: string[]): Promise<string[]> {
@@ -266,6 +372,40 @@ export class PurchasingListService {
     return detail;
   }
 
+  private async loadLiveCommerceKit(userId: string, listId: string, authoritative: boolean): Promise<LiveCommerceKitDetailDto> {
+    const companyId = await this.resolveCompany(userId, VIEW_PERMISSION);
+    await this.permissionService.ensurePermission(userId, companyId, "catalog.view");
+    const record = await measureLiveCommerceKitStage("detail_source", () => this.repository.findById(requireUuid(listId)));
+    if (!record || record.companyId !== companyId || record.archivedAt || record.isSystemFavorites) {
+      throw new NotFoundError("Purchasing list was not found.");
+    }
+    const productIds = [...new Set(record.items.map((item) => item.productId))];
+    const [products, commercial, canManage] = await Promise.all([
+      measureLiveCommerceKitStage("detail_catalog", () => this.catalogService.getProductsByIds(userId, productIds)),
+      measureLiveCommerceKitStage("detail_commercial", () => authoritative && this.pricingInventoryService.getAuthoritativeProductCommercialViews
+        ? this.pricingInventoryService.getAuthoritativeProductCommercialViews(userId, productIds)
+        : this.pricingInventoryService.getProductCommercialViews(userId, productIds)),
+      this.permissionService.hasPermission(userId, companyId, MANAGE_PERMISSION),
+    ]);
+    const productById = new Map(products.map((product) => [product.id, product]));
+    const commercialById = new Map(commercial.map((view) => [view.productId, view]));
+    const lines = record.items.map((item) => toLiveCommerceKitLine(item, productById.get(item.productId), commercialById.get(item.productId)))
+      .sort((left, right) => Number(left.status === "READY") - Number(right.status === "READY") || left.position - right.position);
+    const readyCount = lines.filter((line) => line.status === "READY").length;
+    return {
+      id: record.id,
+      name: record.name,
+      itemCount: record.items.length,
+      totalQuantity: record.items.reduce((sum, item) => sum + item.quantity, 0),
+      updatedAt: record.updatedAt,
+      revision: record.revision,
+      canManage: canManage && (record.visibility === "company" || record.createdBy === userId),
+      lines,
+      readyCount,
+      attentionCount: lines.length - readyCount,
+    };
+  }
+
   private async resolveCompany(userId: string, permission: string) {
     const memberships = await this.companyAccessService.getOwnMemberships(userId);
     const membership = memberships.find((item) => item.status === MembershipStatus.Active);
@@ -298,3 +438,71 @@ function normalizePosition(value: number) { if (!Number.isInteger(value) || valu
 function normalizePage(value?: number) { return Number.isInteger(value) && value! > 0 ? value! : 1; }
 function normalizeFilter(value?: string): "all" | "private" | "company" | "mine" | "archived" { return (["private", "company", "mine", "archived"] as const).includes(value as never) ? value as never : "all"; }
 function requireUuid(value: string) { const normalized = value.trim().toLowerCase(); if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(normalized)) throw new InvalidStateError("Identifier is invalid."); return normalized; }
+
+function normalizeLiveCommerceProducts(items: Array<{ productId: string; quantity: number }>) {
+  if (!Array.isArray(items) || !items.length || items.length > LIVE_COMMERCE_SELECTION_LIMIT) {
+    throw new InvalidStateError("Select between 1 and 50 products.");
+  }
+  const normalized = items.map((item) => ({ productId: requireUuid(item.productId), quantity: normalizeQuantity(item.quantity) }));
+  if (new Set(normalized.map((item) => item.productId)).size !== normalized.length) {
+    throw new InvalidStateError("A product was selected more than once.");
+  }
+  return normalized;
+}
+
+function normalizeKitItems(items: Array<{ itemId: string; quantity: number }>) {
+  if (!Array.isArray(items) || !items.length || items.length > LIVE_COMMERCE_SELECTION_LIMIT) {
+    throw new InvalidStateError("Select between 1 and 50 kit products.");
+  }
+  const normalized = items.map((item) => ({ itemId: requireUuid(item.itemId), quantity: normalizeQuantity(item.quantity) }));
+  if (new Set(normalized.map((item) => item.itemId)).size !== normalized.length) {
+    throw new InvalidStateError("A kit product was selected more than once.");
+  }
+  return normalized;
+}
+
+function toLiveCommerceKitLine(
+  item: import("../types").PurchasingListItem,
+  product: Awaited<ReturnType<CatalogService["getProductsByIds"]>>[number] | undefined,
+  commercial: Awaited<ReturnType<PricingInventoryService["getProductCommercialViews"]>>[number] | undefined,
+): LiveCommerceKitLineDto {
+  const currentPrice = commercial?.isDemoData ? null : commercial?.partnerPrice ?? null;
+  const stockAvailable = (commercial?.stock?.exactAvailableQuantity ?? 0) > 0;
+  const status = !product
+    ? "PRODUCT_INACTIVE"
+    : !currentPrice
+      ? "PRICE_UNAVAILABLE"
+      : !stockAvailable
+        ? "UNAVAILABLE"
+        : "READY";
+  return {
+    itemId: item.id,
+    productId: item.productId,
+    productName: product?.name ?? item.productNameSnapshot ?? "Unavailable product",
+    sku: product?.sku ?? "—",
+    imageUrl: product?.imageUrl ?? item.productImageUrlSnapshot ?? null,
+    quantity: item.quantity,
+    position: item.position,
+    status,
+    currentPrice: currentPrice?.formattedAmount ?? null,
+    currentStock: commercial?.stock?.exactAvailableQuantity ?? null,
+    product: status === "READY" && product
+      ? toLiveCommerceSelectionProduct({ ...product, commercialView: commercial })
+      : null,
+  };
+}
+
+async function measureLiveCommerceKitStage<T>(stage: string, operation: () => Promise<T>): Promise<T> {
+  if (process.env.PERFORMANCE_DIAGNOSTICS_ENABLED !== "true") return operation();
+  const startedAt = performance.now();
+  try {
+    return await operation();
+  } finally {
+    console.info(JSON.stringify({
+      event: "live_commerce_kit_performance",
+      stage,
+      durationMs: Math.round((performance.now() - startedAt) * 100) / 100,
+      deployedCommitSha: process.env.VERCEL_GIT_COMMIT_SHA ?? "local",
+    }));
+  }
+}
