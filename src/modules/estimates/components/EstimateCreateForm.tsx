@@ -6,22 +6,27 @@ import { useRef, useState, useTransition } from "react";
 import { recordBehaviorInteraction } from "../../behavior-analytics/components";
 import { ActionFeedback, actionClassName, FormField } from "../../platform-ui";
 import { getEstimatesCopy, usePartnerLocale } from "../../partner-locale";
-import { createEstimateAction } from "../actions/estimate.actions";
+import { createEstimateAction, createEstimateFromSelectionAction } from "../actions/estimate.actions";
+import { useLiveCommerceSelection } from "../../catalog/components/LiveCommerceSelectionProvider";
 import { FinalCustomerPicker } from "./FinalCustomerPicker";
 
 export function EstimateCreateForm({
   currencies,
+  fromWorkingSelection = false,
   initialProductId = null,
 }: {
   currencies: string[];
+  fromWorkingSelection?: boolean;
   initialProductId?: string | null;
 }) {
-  const copy = getEstimatesCopy(usePartnerLocale());
+  const locale = usePartnerLocale();
+  const copy = getEstimatesCopy(locale);
   const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
   const [messageKind, setMessageKind] = useState<"success" | "error">("error");
   const [pending, startTransition] = useTransition();
   const [finalCustomerId, setFinalCustomerId] = useState<string | null>(null);
+  const workingSelection = useLiveCommerceSelection();
   const requestKey = useRef(crypto.randomUUID());
   const lineRequestKey = useRef(crypto.randomUUID());
 
@@ -36,19 +41,29 @@ export function EstimateCreateForm({
         event.preventDefault();
         const form = new FormData(event.currentTarget);
         startTransition(async () => {
-          const result = await createEstimateAction({
+          const baseInput = {
             name: String(form.get("name") ?? "").trim() || copy.unnamed,
             finalCustomerId,
             projectName: String(form.get("projectName") ?? ""),
             currencyCode: String(form.get("currencyCode") ?? ""),
             validityDays: Number(form.get("validityDays")),
             requestKey: requestKey.current,
+            lineRequestKey: lineRequestKey.current,
+          };
+          const result = fromWorkingSelection
+            ? await createEstimateFromSelectionAction({
+                ...baseInput,
+                selections: workingSelection.items.map((item) => ({ productId: item.id, quantity: item.quantity })),
+              })
+            : await createEstimateAction({
+            ...baseInput,
             productId: initialProductId,
             lineRequestKey: initialProductId ? lineRequestKey.current : null,
           });
           setMessageKind(result.success ? "success" : "error");
           setMessage(result.success ? copy.operationSucceeded : `${copy.operationFailed} ${copy.savedValuesKept}`);
           if (result.success) {
+            if (fromWorkingSelection) workingSelection.clear();
             recordBehaviorInteraction({
               eventName: "estimate_created",
               route: "/cabinet/estimates/new",
@@ -59,6 +74,10 @@ export function EstimateCreateForm({
         });
       }}
     >
+      {fromWorkingSelection ? <div className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 sm:col-span-2" data-testid="estimate-selection-summary">
+        <p className="text-sm font-semibold text-emerald-950">{localeSummary(locale, workingSelection.items.length, workingSelection.items.reduce((sum, item) => sum + item.quantity, 0))}</p>
+        {!workingSelection.hydrated || !workingSelection.items.length ? <p className="mt-1 text-sm text-amber-800">{locale === "ro" ? "Selecția este goală. Reveniți în catalog și adăugați produse." : "Подборка пуста. Вернитесь в каталог и добавьте товары."}</p> : null}
+      </div> : null}
       <div className="min-w-0 sm:col-span-2">
         <FinalCustomerPicker
           onChange={(customer) => setFinalCustomerId(customer?.id ?? null)}
@@ -129,7 +148,7 @@ export function EstimateCreateForm({
       <div className="flex flex-wrap items-center gap-3 border-t border-zinc-200 pt-4 sm:col-span-2">
         <button
           className={actionClassName.primary}
-          disabled={pending || !currencies.length || !finalCustomerId}
+          disabled={pending || !currencies.length || !finalCustomerId || (fromWorkingSelection && (!workingSelection.hydrated || !workingSelection.items.length))}
           type="submit"
         >
           {pending ? copy.saving : initialProductId ? copy.create : copy.createAndContinue}
@@ -143,6 +162,10 @@ export function EstimateCreateForm({
       </div>
     </form>
   );
+}
+
+function localeSummary(locale: "ru" | "ro", products: number, quantity: number): string {
+  return locale === "ro" ? `Selecție: ${products} produse · ${quantity} buc.` : `Подборка: ${products} товаров · ${quantity} шт.`;
 }
 
 function Field({

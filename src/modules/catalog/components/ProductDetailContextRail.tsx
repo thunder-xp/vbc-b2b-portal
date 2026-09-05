@@ -1,4 +1,5 @@
 import type { CatalogProductDetailDto } from "../services";
+import type { ProductCommercialViewDto } from "../../pricing-inventory";
 import { getCatalogCopy, type PartnerLocale } from "../../partner-locale";
 
 import { ProductActions } from "./ProductActions";
@@ -8,6 +9,7 @@ export function ProductDetailContextRail({
   canAddToOrder,
   canManagePurchasingLists,
   companyId,
+  commercialView,
   initialFavorite,
   locale,
   product,
@@ -16,6 +18,7 @@ export function ProductDetailContextRail({
   canAddToOrder: boolean;
   canManagePurchasingLists: boolean;
   companyId: string | null;
+  commercialView?: ProductCommercialViewDto;
   initialFavorite: boolean;
   locale: PartnerLocale;
   product: CatalogProductDetailDto;
@@ -61,9 +64,10 @@ export function ProductDetailContextRail({
             canManagePurchasingLists={canManagePurchasingLists}
             categoryId={product.category?.id ?? null}
             companyId={companyId}
+            commercialView={commercialView}
             initialFavorite={initialFavorite}
             locale={locale}
-            productId={product.id}
+            product={product}
             userId={userId}
           />
         ) : null}

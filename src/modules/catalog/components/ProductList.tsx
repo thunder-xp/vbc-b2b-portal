@@ -20,6 +20,7 @@ import { ProductSpecificationAction } from "./ProductSpecificationAction";
 import { MerchandisingBadge, MerchandisingBadgeOverlay } from "./MerchandisingBadges";
 import { ProductListMerchandisingBadges } from "./ProductListMerchandisingBadges";
 import { getCatalogCopy, type PartnerLocale } from "../../partner-locale";
+import { toLiveCommerceSelectionProduct } from "../services/live-commerce-selection";
 
 export type ProductListCatalogState = {
   attributeFilters: Record<string, string[]>;
@@ -66,7 +67,7 @@ export function ProductList({ capabilities, catalogState, commercialViews = {}, 
         {capabilities.showPrice ? <div className="col-span-2 h-[5.25rem] xl:col-span-1"><ProductPricingBlock commercialView={commercialView} locale={locale} showPartnerPrice={capabilities.showPartnerPrice} showRetailPrice={capabilities.showRetailPrice} /></div> : null}
         {capabilities.showStock ? <div className="col-span-2 h-[3.25rem] min-w-0 xl:col-span-1"><ProductAvailabilityBlock locale={locale} stock={commercialView?.stock} /></div> : null}
         <div className="col-span-2 flex flex-wrap items-start justify-end gap-2 xl:col-span-4 2xl:col-span-1" data-testid="catalog-list-actions">
-          {capabilities.canAddToOrder ? <CatalogQuantityCartAction productId={product.id} /> : null}
+          {capabilities.canAddToOrder ? <CatalogQuantityCartAction productId={product.id} selectionProduct={toLiveCommerceSelectionProduct({ ...product, commercialView })} /> : null}
           {capabilities.canManagePurchasingLists ? <FavoriteProductButton compact initialSaved={favorites.has(product.id)} productId={product.id} withListChooser /> : null}
           {capabilities.canAddToSpecification ? <ProductSpecificationAction compact productId={product.id} /> : null}
           {companyId && userId ? <ProductComparisonAction categoryId={product.category?.id ?? null} companyId={companyId} compact productId={product.id} userId={userId} /> : null}

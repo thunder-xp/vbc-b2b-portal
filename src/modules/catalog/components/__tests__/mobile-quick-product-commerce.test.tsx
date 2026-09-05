@@ -2,13 +2,6 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { addToCart, recordInteraction } = vi.hoisted(() => ({
-  addToCart: vi.fn(),
-  recordInteraction: vi.fn(),
-}));
-
-vi.mock("../../../orders/actions/cart.actions", () => ({ addToCartAction: addToCart }));
-vi.mock("../../../behavior-analytics/components/BehaviorViewEvent", () => ({ recordBehaviorInteraction: recordInteraction }));
 vi.mock("next/link", () => ({ default: ({ children, href, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { href: string }) => <a href={href} {...props}>{children}</a> }));
 vi.mock("../ProductThumbnail", () => ({ ProductThumbnail: ({ alt }: { alt: string }) => <span aria-label={alt} role="img" /> }));
 
@@ -40,8 +33,7 @@ describe("mobile quick product commerce", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.stubGlobal("fetch", vi.fn(() => fetchResponse([pricedProduct])));
-    addToCart.mockReset();
-    addToCart.mockResolvedValue({ success: true, data: null, message: "ok" });
+    sessionStorage.clear();
   });
   afterEach(() => {
     vi.useRealTimers();
@@ -49,7 +41,7 @@ describe("mobile quick product commerce", () => {
   });
 
   it("debounces representative typing into one request and shows governed commerce data", async () => {
-    render(<MobileQuickProductCommerce canAddToOrder initialCartQuantities={{}} initialCartUnitCount={0} locale="ru" />);
+    render(<MobileQuickProductCommerce canSelectProducts locale="ru" />);
     const input = screen.getByRole("searchbox", { name: "Найти товар по SKU или модели" });
     for (const value of ["P", "PF", "PFA", "PFA1", "PFA13", "PFA130-E"]) {
       fireEvent.change(input, { target: { value } });
@@ -70,7 +62,7 @@ describe("mobile quick product commerce", () => {
     vi.stubGlobal("fetch", vi.fn()
       .mockReturnValueOnce(first)
       .mockReturnValueOnce(fetchResponse([{ ...pricedProduct, id: "product-2", sku: "400545", name: "NEW-MODEL" }])));
-    render(<MobileQuickProductCommerce canAddToOrder initialCartQuantities={{}} initialCartUnitCount={0} locale="ru" />);
+    render(<MobileQuickProductCommerce canSelectProducts locale="ru" />);
     const input = screen.getByRole("searchbox");
 
     fireEvent.change(input, { target: { value: "400540" } });
@@ -85,30 +77,35 @@ describe("mobile quick product commerce", () => {
     expect(screen.queryByText("DH-C4K-P")).not.toBeInTheDocument();
   });
 
-  it("increments an existing cart line through the canonical action and keeps search ready", async () => {
+  it("adds the visible quantity to the shared selection and keeps search ready", async () => {
     vi.useRealTimers();
     const user = userEvent.setup();
-    render(<MobileQuickProductCommerce canAddToOrder initialCartQuantities={{ "product-1": 3 }} initialCartUnitCount={3} locale="ru" />);
+    const added = vi.fn();
+    window.addEventListener("novotech:live-selection-add", added);
+    render(<MobileQuickProductCommerce canSelectProducts locale="ru" />);
     const input = screen.getByRole("searchbox");
     await user.type(input, "400540");
-    expect(await screen.findByText("В корзине: 3 шт.")).toBeInTheDocument();
+    await screen.findByText("$50.60");
     await user.click(screen.getByRole("button", { name: "Увеличить количество" }));
-    await user.click(screen.getByRole("button", { name: "В корзину" }));
+    await user.click(screen.getByRole("button", { name: "В подборку" }));
 
-    expect(addToCart).toHaveBeenCalledWith("product-1", 2);
-    expect(await screen.findByText("В корзине: 5 шт.")).toBeInTheDocument();
+    expect(added).toHaveBeenCalledOnce();
+    expect((added.mock.calls[0]?.[0] as CustomEvent).detail).toMatchObject({ product: { id: "product-1", sku: "400540" }, quantity: 2 });
+    expect(await screen.findByText("Добавлено: 2 шт.")).toBeInTheDocument();
     expect(input).toHaveFocus();
     expect(input).toHaveValue("400540");
-    expect(screen.getByRole("link", { name: "Корзина: 5" })).toHaveAttribute("href", "/cabinet/cart");
+    expect(screen.getAllByRole("link", { name: "Открыть каталог и категории" }))
+      .toEqual(expect.arrayContaining([expect.objectContaining({ href: expect.stringContaining("/cabinet/catalog?view=all") })]));
+    window.removeEventListener("novotech:live-selection-add", added);
   });
 
-  it("shows missing price without enabling a false-priced add and has Romanian parity", async () => {
+  it("keeps a missing-price product selectable and has Romanian parity", async () => {
     vi.useRealTimers();
     vi.stubGlobal("fetch", vi.fn(() => fetchResponse([{ ...pricedProduct, commercialView: { ...pricedProduct.commercialView, partnerPrice: null, partnerPriceMdl: null } }])));
     const user = userEvent.setup();
-    render(<MobileQuickProductCommerce canAddToOrder initialCartQuantities={{}} initialCartUnitCount={0} locale="ro" />);
+    render(<MobileQuickProductCommerce canSelectProducts locale="ro" />);
     await user.type(screen.getByRole("searchbox", { name: "Caută produs după cod sau model" }), "400540");
     expect(await screen.findByText("Preț indisponibil")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "În coș" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "În selecție" })).toBeEnabled();
   });
 });

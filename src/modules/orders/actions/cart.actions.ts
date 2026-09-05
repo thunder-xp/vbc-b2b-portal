@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { type ActionResult, failureFromError, invalidInput, success } from "../../access-control/actions/action-result";
 import { getAuthenticatedUserId } from "../../access-control/actions/service-factory";
-import type { CartDetailDto, QuickOrderCartStateDto } from "../services";
+import type { CartDetailDto, LiveSelectionCartInput, LiveSelectionCartResult, QuickOrderCartStateDto } from "../services";
 import { createCartService } from "./service-factory";
 
 export type CartCommercialRecheckResult = {
@@ -75,6 +75,15 @@ export async function addToCartAction(productId: string, quantity = 1): Promise<
     await createCartService().addItem(await getAuthenticatedUserId(), productId, quantity);
     revalidateCart();
     return success("Товар добавлен в корзину.", null);
+  } catch (error) { return failureFromError(error); }
+}
+
+export async function addSelectionToCartAction(selections: LiveSelectionCartInput[]): Promise<ActionResult<LiveSelectionCartResult>> {
+  if (!Array.isArray(selections) || selections.length < 1 || selections.length > 50) return invalidInput("Выберите от 1 до 50 товаров.");
+  try {
+    const result = await createCartService().addItems(await getAuthenticatedUserId(), selections);
+    revalidateCart();
+    return success(result.priceChanged ? "Корзина обновлена по текущим ценам." : "Подборка добавлена в корзину.", result);
   } catch (error) { return failureFromError(error); }
 }
 

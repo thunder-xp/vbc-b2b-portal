@@ -14,6 +14,7 @@ import {
 import { recordBehaviorInteraction } from "../../behavior-analytics/components/BehaviorViewEvent";
 import { CatalogCardImage } from "../../catalog/components/CatalogCardImage";
 import { CatalogQuantityCartAction } from "../../catalog/components/CatalogQuantityCartAction";
+import type { LiveCommerceSelectionProduct } from "../../catalog/services/live-commerce-selection";
 import { ProductSpecificationAction } from "../../catalog/components/ProductSpecificationAction";
 import { FavoriteProductButton } from "../../purchasing-lists/components/FavoriteProductButton";
 import { dismissCommercialOpportunityAction } from "../actions/commercial-opportunity.actions";
@@ -34,14 +35,14 @@ export function OpportunityCard({
 }) {
   const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
-  const [addedToCart, setAddedToCart] = useState(false);
+  const [addedToSelection, setAddedToSelection] = useState(false);
   const [pending, startTransition] = useTransition();
   const product = opportunity.product;
   const template = opportunity.template;
   const repeatPurchase = opportunity.type === "repeat_purchase_available";
   const relatedProduct = opportunity.type === "related_product";
   const partnerPriceOnly = repeatPurchase || relatedProduct;
-  const alreadyInCart = partnerPriceOnly && (product?.alreadyInCart || addedToCart);
+  const alreadyInCart = partnerPriceOnly && product?.alreadyInCart;
   const title =
     product?.name ??
     template?.name ??
@@ -159,15 +160,15 @@ export function OpportunityCard({
         ) : null}
 
         <div className="mt-4 flex flex-wrap items-start gap-2">
-          {product && canAddToOrder && canAddProduct(opportunity, addedToCart) ? (
+          {product && canAddToOrder && canAddProduct(opportunity, addedToSelection) ? (
             <div className="min-w-[15rem] flex-1">
               <CatalogQuantityCartAction
                 initialQuantity={suggestedQuantity(opportunity)}
                 onSuccess={() => {
-                  setAddedToCart(true);
-                  if (relatedProduct) router.refresh();
+                  setAddedToSelection(true);
                 }}
                 productId={product.id}
+                selectionProduct={opportunitySelectionProduct(opportunity, locale)}
                 sourceSurface="opportunity_card"
                 successEventName="opportunity_added_to_cart"
               />
@@ -176,6 +177,11 @@ export function OpportunityCard({
           {alreadyInCart ? (
             <p className="inline-flex min-h-11 items-center rounded-md bg-emerald-50 px-4 text-sm font-semibold text-emerald-800">
               {locale === "ro" ? "Deja în coș" : "Уже в корзине"}
+            </p>
+          ) : null}
+          {addedToSelection ? (
+            <p className="inline-flex min-h-11 items-center rounded-md bg-emerald-50 px-4 text-sm font-semibold text-emerald-800">
+              {locale === "ro" ? "În selecție" : "В подборке"}
             </p>
           ) : null}
           {product && canManagePurchasingLists ? (
@@ -424,9 +430,32 @@ function canAddProduct(
   return Boolean(
     product.partnerPrice
       && (product.availableQuantity ?? 0) > 0
-      && !product.alreadyInCart
       && !addedToCart,
   );
+}
+function opportunitySelectionProduct(opportunity: CommercialOpportunity, locale: PartnerLocale): LiveCommerceSelectionProduct {
+  const product = opportunity.product!;
+  const price = product.partnerPrice;
+  const available = product.availableQuantity;
+  return {
+    id: product.id,
+    sku: product.sku,
+    name: product.name,
+    slug: product.slug,
+    imageUrl: product.reference?.thumbnail ?? product.imageUrl,
+    partnerPrice: price ? {
+      amount: price.amount,
+      currencyCode: price.currency,
+      formattedAmount: formatPartnerMoney(price.amount, price.currency, locale),
+      lastUpdatedAt: null,
+    } : null,
+    stock: {
+      status: typeof available === "number" && available > 5 ? "in_stock" : typeof available === "number" && available > 0 ? "low_stock" : product.expectedArrivalDate ? "expected" : "out_of_stock",
+      label: typeof available === "number" && available > 0 ? String(available) : product.expectedArrivalDate ? "expected" : "unavailable",
+      exactAvailableQuantity: available,
+      lastUpdatedAt: null,
+    },
+  };
 }
 function textValue(value: unknown): string {
   return typeof value === "string" && value.trim() ? value.trim() : "—";

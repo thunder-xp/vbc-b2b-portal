@@ -4,6 +4,7 @@ import {
   ArrowDown,
   ArrowUp,
   Calculator,
+  ListPlus,
   Save,
   ShoppingCart,
   Trash2,
@@ -13,6 +14,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 
 import { CatalogCardImage } from "../../catalog/components/CatalogCardImage";
+import { emitLiveCommerceSelectionAdd, type LiveCommerceSelectionProduct } from "../../catalog/services/live-commerce-selection";
 import {
   formatPartnerDate,
   procurementCopy,
@@ -153,6 +155,23 @@ export function PurchasingListEditor({
       )}
 
       <div className="flex flex-wrap items-center gap-2">
+        {!initial.archivedAt ? (
+          <button
+            className="text-action"
+            disabled={!selected.size}
+            onClick={() => {
+              lines.filter((line) => selected.has(line.id)).forEach((line) => emitLiveCommerceSelectionAdd({
+                product: purchasingListSelectionProduct(line),
+                quantity: line.quantity,
+              }));
+              setMessage(locale === "ro" ? "Produsele au fost adăugate în selecție." : "Товары добавлены в подборку.");
+            }}
+            type="button"
+          >
+            <ListPlus className="size-4" />
+            {locale === "ro" ? "În selecție" : "В подборку"}
+          </button>
+        ) : null}
         {!initial.archivedAt ? (
           <button
             className="text-action"
@@ -411,4 +430,29 @@ export function PurchasingListEditor({
       )}
     </div>
   );
+}
+
+function purchasingListSelectionProduct(line: PurchasingListDetailDto["lines"][number]): LiveCommerceSelectionProduct {
+  const price = typeof line.currentPartnerPriceAmount === "number" && line.currentPartnerCurrencyCode
+    ? {
+        amount: line.currentPartnerPriceAmount,
+        currencyCode: line.currentPartnerCurrencyCode,
+        formattedAmount: line.currentPartnerPrice ?? `${line.currentPartnerPriceAmount} ${line.currentPartnerCurrencyCode}`,
+        lastUpdatedAt: null,
+      }
+    : null;
+  return {
+    id: line.productId,
+    sku: line.sku,
+    name: line.productName,
+    slug: line.slug ?? "",
+    imageUrl: line.imageUrl,
+    partnerPrice: price,
+    stock: {
+      status: (line.availableStock ?? 0) > 5 ? "in_stock" : (line.availableStock ?? 0) > 0 ? "low_stock" : line.expectedArrivalDate ? "expected" : "out_of_stock",
+      label: line.stateLabel,
+      exactAvailableQuantity: line.availableStock,
+      lastUpdatedAt: null,
+    },
+  };
 }

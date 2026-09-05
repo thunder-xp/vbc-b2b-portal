@@ -64,6 +64,21 @@ export class SupabaseCartRepository implements CartRepository {
     return mapCartItem(data as Row);
   }
 
+  async addItems(companyId: string, items: Array<{ productId: string; quantity: number }>) {
+    const { data, error } = await (await createClient()).rpc("add_partner_cart_items", {
+      target_company_id: companyId,
+      target_items: items.map((item) => ({ product_id: item.productId, quantity: item.quantity })),
+    });
+    if (error || typeof data !== "object" || data === null || Array.isArray(data)) {
+      throw new OrderRepositoryError(error?.code ?? null, error?.message ?? null);
+    }
+    return {
+      cartId: typeof data.cart_id === "string" ? data.cart_id : "",
+      added: Number(data.added ?? 0),
+      updated: Number(data.updated ?? 0),
+    };
+  }
+
   async updateItemQuantity(itemId: string, quantity: number): Promise<CartItem> {
     const { data, error } = await (await createClient()).rpc("set_partner_cart_item_quantity", {
       target_item_id: itemId, target_quantity: quantity,

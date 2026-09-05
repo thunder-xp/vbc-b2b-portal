@@ -33,6 +33,7 @@ export interface CartRepository {
   findReconciliationLockForItem(itemId: string): Promise<CartReconciliationLock | null>;
   listItems(cartId: string): Promise<CartItem[]>;
   addItem(companyId: string, productId: string, quantity: number): Promise<CartItem>;
+  addItems(companyId: string, items: Array<{ productId: string; quantity: number }>): Promise<{ cartId: string; added: number; updated: number }>;
   updateItemQuantity(itemId: string, quantity: number): Promise<CartItem>;
   removeItem(itemId: string): Promise<void>;
   mergeEstimateProducts(input: {

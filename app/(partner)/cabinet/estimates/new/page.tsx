@@ -8,9 +8,9 @@ import { getPartnerLocale } from "@/src/modules/partner-locale/server";
 export default async function NewEstimatePage({
   searchParams,
 }: {
-  searchParams: Promise<{ productId?: string }>;
+  searchParams: Promise<{ productId?: string; source?: string }>;
 }) {
-  const [{ productId }, locale] = await Promise.all([
+  const [{ productId, source }, locale] = await Promise.all([
     searchParams,
     getPartnerLocale(),
   ]);
@@ -40,6 +40,7 @@ export default async function NewEstimatePage({
         <section className="border-y border-zinc-200 bg-white px-4 py-5 sm:px-6">
           <EstimateCreateForm
             currencies={currencies.data}
+            fromWorkingSelection={source === "selection"}
             initialProductId={initialProductId}
           />
         </section>

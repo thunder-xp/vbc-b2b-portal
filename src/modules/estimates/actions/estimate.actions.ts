@@ -210,6 +210,33 @@ export async function createEstimateAction(input: CreateEstimateActionInput): Pr
   }
 }
 
+export type CreateEstimateFromSelectionActionInput = Omit<CreateEstimateActionInput, "productId"> & {
+  selections: Array<{ productId: string; quantity: number }>;
+};
+
+export async function createEstimateFromSelectionAction(input: CreateEstimateFromSelectionActionInput): Promise<ActionResult<{ id: string }>> {
+  if (!input.name?.trim() || !input.currencyCode?.trim() || !Array.isArray(input.selections) || input.selections.length < 1 || input.selections.length > 50) {
+    return invalidInput("Укажите заказчика и выберите от 1 до 50 товаров.");
+  }
+  try {
+    const estimate = await createEstimateService().createDraftWithProducts(await getAuthenticatedUserId(), {
+      name: input.name,
+      finalCustomerId: input.finalCustomerId,
+      customerName: input.customerName,
+      projectName: input.projectName,
+      currencyCode: input.currencyCode,
+      validityDays: input.validityDays,
+      requestKey: input.requestKey,
+      lineRequestKey: input.lineRequestKey ?? "",
+      selections: input.selections,
+    });
+    revalidatePath("/cabinet/estimates");
+    return success("КП создано из подборки.", { id: estimate.estimateId });
+  } catch (error) {
+    return estimateFailure(error, "live_selection_estimate_create");
+  }
+}
+
 export async function searchExternalNomenclatureAction(input: { query: string; itemType: ExternalNomenclatureItemType; scope?: "own" | "shared" }) {
   const query = input.query.trim();
   if (query.trim().length < 2) return success("Введите минимум два символа.", []);

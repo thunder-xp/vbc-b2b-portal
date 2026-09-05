@@ -155,6 +155,34 @@ describe("DefaultEstimateService", () => {
     await expect(service.createDraft("user-1", { name: "Estimate", currencyCode: "USD", validityDays: 14 })).rejects.toBeInstanceOf(InvalidStateError);
   });
 
+  it("creates a standard Estimate from a bounded product selection with bulk reads and one atomic repository call", async () => {
+    vi.mocked(catalog.getProductsByIds).mockResolvedValue([
+      { id: "product-1", sku: "400691", name: "Camera", slug: "camera", shortDescription: null, imageUrl: null, brand: null, category: null, keyCharacteristics: [], datasheet: null },
+      { id: "product-2", sku: "400692", name: "Recorder", slug: "recorder", shortDescription: null, imageUrl: null, brand: null, category: null, keyCharacteristics: [], datasheet: null },
+    ]);
+    vi.mocked(pricing.getProductCommercialViews).mockResolvedValue([
+      { productId: "product-1", partnerPrice: { amount: 50, currencyCode: "USD", formattedAmount: "$50", lastUpdatedAt: "2026-09-05" }, retailPrice: { amount: 70, currencyCode: "USD", formattedAmount: "$70", lastUpdatedAt: "2026-09-05" }, stock: null, isDemoData: false, retailBelowPartnerPrice: false },
+      { productId: "product-2", partnerPrice: { amount: 100, currencyCode: "USD", formattedAmount: "$100", lastUpdatedAt: "2026-09-05" }, retailPrice: { amount: 140, currencyCode: "USD", formattedAmount: "$140", lastUpdatedAt: "2026-09-05" }, stock: null, isDemoData: false, retailBelowPartnerPrice: false },
+    ]);
+    const result = await service.createDraftWithProducts("user-1", {
+      name: "Live selection",
+      finalCustomerId: "11111111-1111-1111-1111-111111111111",
+      currencyCode: "USD",
+      validityDays: 14,
+      requestKey: "22222222-2222-4222-8222-222222222222",
+      lineRequestKey: "33333333-3333-4333-8333-333333333333",
+      selections: [{ productId: "product-1", quantity: 2 }, { productId: "product-2", quantity: 1 }],
+    });
+    expect(catalog.getProductsByIds).toHaveBeenCalledOnce();
+    expect(pricing.getProductCommercialViews).toHaveBeenCalledOnce();
+    expect(repository.createWithProduct).toHaveBeenCalledWith(expect.objectContaining({
+      companyId: "company-1",
+      finalCustomerId: "11111111-1111-1111-1111-111111111111",
+      lines: [expect.objectContaining({ productId: "product-1", quantity: 2 }), expect.objectContaining({ productId: "product-2", quantity: 1 })],
+    }));
+    expect(result).toEqual({ estimateId: estimate.id, repeated: false });
+  });
+
   it("deletes only an archived estimate through the governed repository operation", async () => {
     vi.mocked(repository.findById).mockResolvedValue({ ...estimate, status: "archived", archivedAt: "2026-08-09T10:00:00Z" });
     await service.deleteArchived("user-1", estimate.id, estimate.revision, "33333333-3333-4333-8333-333333333333");

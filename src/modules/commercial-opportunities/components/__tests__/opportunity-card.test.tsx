@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -49,7 +49,7 @@ describe("OpportunityCard", () => {
     render(<OpportunityCard opportunity={base} />);
     expect(screen.getByText("Вы покупаете регулярно")).toBeInTheDocument();
     expect(screen.getByText("Последняя покупка — 32 дня назад. Обычно: 2 шт.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "В корзину" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "В подборку" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Не показывать/ })).toBeInTheDocument();
   });
 
@@ -59,7 +59,7 @@ describe("OpportunityCard", () => {
     expect(screen.queryByText("Розничная цена")).not.toBeInTheDocument();
     expect(screen.queryByText("Ваша цена")).not.toBeInTheDocument();
     expect(screen.getByText("Цена уточняется")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "В корзину" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "В подборку" })).not.toBeInTheDocument();
   });
 
   it("uses natural Romanian repeat language and a controlled quantity suggestion", () => {
@@ -85,29 +85,31 @@ describe("OpportunityCard", () => {
     expect(screen.getByRole("spinbutton", { name: "Cantitatea produsului" })).toHaveValue(1);
   });
 
-  it("uses the canonical cart mutation and refreshes related-product suppression", async () => {
-    addToCartActionMock.mockResolvedValue({ success: true, message: "Added" });
+  it("adds a governed related product to the shared working selection without a server mutation", async () => {
+    const added = vi.fn();
+    window.addEventListener("novotech:live-selection-add", added);
     const user = userEvent.setup();
     render(<OpportunityCard opportunity={related} />);
 
-    await user.click(screen.getByRole("button", { name: "В корзину" }));
+    await user.click(screen.getByRole("button", { name: "В подборку" }));
 
-    await waitFor(() => {
-      expect(addToCartActionMock).toHaveBeenCalledWith(related.product!.id, 1);
-      expect(routerRefresh).toHaveBeenCalledOnce();
-    });
-    expect(screen.getByText("Уже в корзине")).toBeInTheDocument();
+    expect(added).toHaveBeenCalledOnce();
+    expect((added.mock.calls[0]?.[0] as CustomEvent).detail).toMatchObject({ product: { id: related.product!.id }, quantity: 1 });
+    expect(addToCartActionMock).not.toHaveBeenCalled();
+    expect(routerRefresh).not.toHaveBeenCalled();
+    expect(screen.getByText("В подборке")).toBeInTheDocument();
+    window.removeEventListener("novotech:live-selection-add", added);
   });
 
-  it("prevents a duplicate repeat action when the product is already in the active cart", () => {
+  it("keeps an existing Cart line visible while allowing it into a separate working selection", () => {
     render(<OpportunityCard opportunity={{ ...base, product: { ...base.product!, alreadyInCart: true } }} />);
     expect(screen.getByText("Уже в корзине")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "В корзину" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "В подборку" })).toBeInTheDocument();
   });
 
   it("does not offer an unavailable repeat product as an actionable purchase", () => {
     render(<OpportunityCard opportunity={{ ...base, product: { ...base.product!, availableQuantity: 0 } }} />);
-    expect(screen.queryByRole("button", { name: "В корзину" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "В подборку" })).not.toBeInTheDocument();
   });
 
   it("shows low stock as factual availability context", () => {

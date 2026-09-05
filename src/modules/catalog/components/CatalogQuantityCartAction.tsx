@@ -1,22 +1,23 @@
 "use client";
 
-import { ShoppingCart } from "lucide-react";
-import { useRef, useState, useTransition } from "react";
+import { ListPlus } from "lucide-react";
+import { useState } from "react";
 
-import { recordBehaviorInteraction } from "../../behavior-analytics/components/BehaviorViewEvent";
 import type { BehaviorEventName } from "../../behavior-analytics/types";
-import { addToCartAction } from "../../orders/actions/cart.actions";
 import { getCatalogCopy, usePartnerLocale } from "../../partner-locale";
+import { emitLiveCommerceSelectionAdd, type LiveCommerceSelectionProduct } from "../services/live-commerce-selection";
 
 export function CatalogQuantityCartAction({
   initialQuantity = 1,
   productId,
+  selectionProduct,
   sourceSurface = "product_card",
   successEventName,
   onSuccess,
 }: {
   initialQuantity?: number;
   productId: string;
+  selectionProduct: LiveCommerceSelectionProduct;
   sourceSurface?: string;
   successEventName?: BehaviorEventName;
   onSuccess?: () => void;
@@ -28,8 +29,6 @@ export function CatalogQuantityCartAction({
     message: string;
     success: boolean;
   } | null>(null);
-  const [pending, startTransition] = useTransition();
-  const submissionInFlight = useRef(false);
   const quantity = Number(quantityInput);
   const quantityError = validateQuantity(quantityInput, copy);
   const feedbackId = `catalog-cart-feedback-${productId}`;
@@ -58,60 +57,22 @@ export function CatalogQuantityCartAction({
           value={quantityInput}
         />
         <button
-          aria-label={copy.addToCart}
+          aria-label={getQuickSelectionLabel(locale)}
           className="inline-flex h-11 min-w-0 items-center justify-center gap-2 rounded-md bg-emerald-700 px-2 text-sm font-semibold leading-tight text-white outline-none hover:bg-emerald-800 focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:opacity-60"
-          disabled={pending || Boolean(quantityError)}
+          disabled={Boolean(quantityError)}
           onClick={() => {
-            if (submissionInFlight.current || quantityError) return;
-            submissionInFlight.current = true;
-            startTransition(async () => {
-              try {
-                const result = await addToCartAction(productId, quantity);
-                setFeedback({
-                  message: result.success
-                    ? `${copy.addedToCart}: ${quantity} ${locale === "ro" ? "buc." : "шт."}`
-                    : result.message,
-                  success: result.success,
-                });
-                if (result.success) {
-                  recordBehaviorInteraction({
-                    eventName: "product_added_to_cart",
-                    productId,
-                    quantity,
-                    route: "/cabinet/catalog",
-                    sourceSurface,
-                  });
-                  if (
-                    successEventName &&
-                    successEventName !== "product_added_to_cart"
-                  ) {
-                    recordBehaviorInteraction({
-                      eventName: successEventName,
-                      productId,
-                      quantity,
-                      route: "/cabinet",
-                      sourceSurface,
-                    });
-                  }
-                  window.dispatchEvent(
-                    new CustomEvent("novotech:cart-updated", {
-                      detail: { quantityAdded: quantity },
-                    }),
-                  );
-                  onSuccess?.();
-                }
-              } catch {
-                setFeedback({ message: copy.addFailed, success: false });
-              } finally {
-                submissionInFlight.current = false;
-              }
-            });
+            if (quantityError) return;
+            emitLiveCommerceSelectionAdd({ product: selectionProduct, quantity });
+            setFeedback({ message: `${locale === "ro" ? "Adăugat" : "Добавлено"}: ${quantity} ${locale === "ro" ? "buc." : "шт."}`, success: true });
+            void sourceSurface;
+            void successEventName;
+            onSuccess?.();
           }}
           type="button"
         >
-          <ShoppingCart aria-hidden="true" className="size-4 shrink-0" />
+          <ListPlus aria-hidden="true" className="size-4 shrink-0" />
           <span className="whitespace-nowrap">
-            {pending ? copy.adding : copy.addToCart}
+            {getQuickSelectionLabel(locale)}
           </span>
         </button>
       </div>
@@ -124,6 +85,10 @@ export function CatalogQuantityCartAction({
       </p>
     </div>
   );
+}
+
+function getQuickSelectionLabel(locale: "ru" | "ro"): string {
+  return locale === "ro" ? "În selecție" : "В подборку";
 }
 
 function validateQuantity(

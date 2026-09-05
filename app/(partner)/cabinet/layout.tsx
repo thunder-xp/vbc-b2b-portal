@@ -48,6 +48,8 @@ export default async function CabinetLayout({ children }: { children: ReactNode 
     notificationSummary: notificationSummaryResult.success
       ? notificationSummaryResult.data
       : { unreadCount: 0, items: [] },
+    canAddSelectionToCart: context.capabilities.productCard.canAddToOrder,
+    canCreateEstimateFromSelection: context.capabilities.canCreateCommercialProposal,
   };
 
   if (context.accessState === "suspended") {
