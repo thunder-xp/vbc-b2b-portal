@@ -24,6 +24,7 @@ describe("CatalogMerchandisingSections accessibility", () => {
         labelCode: "TOP",
         title: "Популярные товары",
         products: [{ id: "product", name: "Camera" } as never],
+        totalCount: 1,
       }]}
       userId={null}
     />);
@@ -46,6 +47,7 @@ describe("CatalogMerchandisingSections accessibility", () => {
         labelCode: "REPLENISHMENT",
         title: "Последнее поступление",
         products: [{ id: "product", name: "Camera" } as never],
+        totalCount: 1,
       }]}
       userId={null}
     />);

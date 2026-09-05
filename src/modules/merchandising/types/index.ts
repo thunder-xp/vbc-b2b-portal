@@ -12,6 +12,7 @@ export type PublishedMerchandisingAssignment = {
   startsAt: string;
   endsAt: string | null;
   source: Exclude<MerchandisingSource, "analytics_recommendation">;
+  matchingProductCount?: number;
 };
 
 export type AdminMerchandisingAssignment = {

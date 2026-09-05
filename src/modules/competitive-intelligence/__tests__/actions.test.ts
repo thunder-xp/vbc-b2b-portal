@@ -61,4 +61,54 @@ describe("createCompetitiveObservationAction", () => {
       p_valid_until: null,
     }));
   });
+
+  it("persists a normalized custom competitor name when Other is selected", async () => {
+    const formData = validForm();
+    formData.set("competitorId", "other");
+    formData.set("otherCompetitorName", "  ＡＢＣ Security  ");
+
+    const result = await createCompetitiveObservationAction(null, formData);
+
+    expect(result.success).toBe(true);
+    expect(mocks.createObservation).toHaveBeenCalledWith(expect.objectContaining({
+      p_competitor_id: null,
+      p_submitted_competitor_name: "ABC Security",
+    }));
+  });
+
+  it("requires a custom name for Other", async () => {
+    const formData = validForm();
+    formData.set("competitorId", "other");
+
+    const result = await createCompetitiveObservationAction(null, formData);
+
+    expect(result.success).toBe(false);
+    expect(mocks.createObservation).not.toHaveBeenCalled();
+  });
+
+  it("ignores stale custom input for a fixed competitor", async () => {
+    const formData = validForm();
+    formData.set("otherCompetitorName", "Stale custom value");
+
+    const result = await createCompetitiveObservationAction(null, formData);
+
+    expect(result.success).toBe(true);
+    expect(mocks.createObservation).toHaveBeenCalledWith(expect.objectContaining({
+      p_competitor_id: "55555555-5555-4555-8555-555555555555",
+      p_submitted_competitor_name: null,
+    }));
+  });
 });
+
+function validForm() {
+  const formData = new FormData();
+  formData.set("productId", "22222222-2222-4222-8222-222222222222");
+  formData.set("idempotencyKey", "44444444-4444-4444-8444-444444444444");
+  formData.set("competitorId", "55555555-5555-4555-8555-555555555555");
+  formData.set("price", "2450");
+  formData.set("currency", "MDL");
+  formData.set("quantity", "1");
+  formData.set("observationDate", "2026-08-24");
+  formData.set("sourceType", "quotation");
+  return formData;
+}

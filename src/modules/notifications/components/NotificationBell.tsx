@@ -75,13 +75,14 @@ export function NotificationBell({ initialSummary }: { initialSummary: Notificat
   const items = summary.items.map((item) => presentPartnerNotification(item, locale));
 
   return (
-    <div className="relative" ref={rootRef}>
+    <div className="relative shrink-0" ref={rootRef}>
       <button
         aria-controls="partner-notification-popover"
         aria-expanded={open}
         aria-haspopup="dialog"
         aria-label={`${copy.title}: ${copy.unreadCount} ${summary.unreadCount}`}
-        className="relative inline-flex h-11 w-11 items-center justify-center rounded-md border border-zinc-300 bg-white text-zinc-700 transition hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
+        className="relative inline-flex size-11 shrink-0 items-center justify-center rounded-md border border-zinc-300 bg-white text-zinc-700 transition hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
+        data-header-control="notifications"
         onClick={() => setOpen((value) => {
           const next = !value;
           if (next) {
@@ -107,7 +108,7 @@ export function NotificationBell({ initialSummary }: { initialSummary: Notificat
       {open && (
         <section
           aria-label={copy.latest}
-          className="fixed inset-x-3 top-28 z-50 max-h-[min(34rem,calc(100vh-8rem))] overflow-y-auto rounded-md border border-zinc-200 bg-white shadow-xl sm:absolute sm:inset-x-auto sm:right-0 sm:top-12 sm:w-[25rem]"
+          className="fixed inset-x-3 top-[7.5rem] z-50 max-h-[min(34rem,calc(100vh-8rem))] overflow-y-auto rounded-md border border-zinc-200 bg-white shadow-xl sm:left-auto sm:right-3 sm:w-[25rem] sm:max-w-[calc(100vw-1.5rem)] lg:absolute lg:inset-x-auto lg:right-0 lg:top-[calc(100%+0.5rem)]"
           id="partner-notification-popover"
           role="dialog"
         >

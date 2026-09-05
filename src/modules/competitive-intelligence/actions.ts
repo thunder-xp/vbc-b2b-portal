@@ -46,10 +46,12 @@ export async function createCompetitiveObservationAction(
     const productId = uuid(formData, "productId");
     const idempotencyKey = uuid(formData, "idempotencyKey");
     const competitorSelection = text(formData, "competitorId");
-    const otherCompetitorName = optionalText(formData, "otherCompetitorName", 120);
     const competitorId = competitorSelection === "other" ? null : validateUuid(competitorSelection);
-    if ((competitorId === null) === (otherCompetitorName === null)) {
-      return invalidInput(locale === "ro" ? "Selectați concurentul." : "Выберите конкурента.");
+    const otherCompetitorName = competitorId === null
+      ? normalizedDisplayText(formData, "otherCompetitorName", 120)
+      : null;
+    if (competitorId === null && otherCompetitorName === null) {
+      return invalidInput(locale === "ro" ? "Introduceți denumirea concurentului." : "Введите название конкурента.");
     }
 
     const observedPrice = positiveNumber(formData, "price", 4);
@@ -179,6 +181,11 @@ function optionalText(formData: FormData, key: string, max: number) {
   const value = text(formData, key);
   if (value.length > max) throw new Error("INVALID_INPUT");
   return value || null;
+}
+function normalizedDisplayText(formData: FormData, key: string, max: number) {
+  const value = text(formData, key).normalize("NFKC");
+  if (!value || value.length > max) return null;
+  return value;
 }
 function positiveNumber(formData: FormData, key: string, precision: number) {
   const raw = text(formData, key).replace(",", ".");

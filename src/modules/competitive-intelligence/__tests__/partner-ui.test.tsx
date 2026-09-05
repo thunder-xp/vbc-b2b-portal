@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("../actions", () => ({ createCompetitiveObservationAction: vi.fn() }));
@@ -38,6 +38,27 @@ describe("partner competitive intelligence UI", () => {
     expect(screen.getByText("Дополнительные условия").closest("details")).not.toHaveAttribute("open");
     expect(screen.getByText("Дополнительные условия").closest("details")).not.toHaveClass("border-t");
     expect(screen.getByRole("button", { name: "Сохранить цену" }).closest("form")).not.toHaveClass("border-y");
+  });
+
+  it("shows the governed fixed competitors plus a required Other name", () => {
+    const competitors = [
+      { id: "11111111-1111-4111-8111-111111111111", name: "Exterior" },
+      { id: "33333333-3333-4333-8333-333333333333", name: "Victiana" },
+      { id: "44444444-4444-4444-8444-444444444444", name: "Mellitax" },
+    ];
+    render(<CompetitiveObservationForm competitors={competitors} locale="ru" productId="22222222-2222-4222-8222-222222222222" today="2026-08-24" />);
+    const selector = screen.getByLabelText("Конкурент");
+    expect(selector).toHaveTextContent("Exterior");
+    expect(selector).toHaveTextContent("Victiana");
+    expect(selector).toHaveTextContent("Mellitax");
+    fireEvent.change(selector, { target: { value: "other" } });
+    expect(screen.getByRole("textbox", { name: /Название конкурента/i })).toBeRequired();
+    expect(selector).toHaveTextContent("Другой конкурент");
+  });
+
+  it.each(["Victiana", "Mellitax", "ABC Security"])("renders %s as the actual history identity", (competitorName) => {
+    render(<ProductCompetitiveIntelligence data={{ ...data, observations: [{ ...data.observations[0], competitorName }] }} locale="ru" productId="22222222-2222-4222-8222-222222222222" />);
+    expect(screen.getByRole("table")).toHaveTextContent(competitorName);
   });
 
   it.each([

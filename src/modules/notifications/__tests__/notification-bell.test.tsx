@@ -66,6 +66,28 @@ describe("NotificationBell", () => {
     expect(screen.getAllByRole("listitem")).toHaveLength(1);
   });
 
+  it.each([0, 1, 5, 100])("keeps the trigger geometry independent of unread count %i", (unreadCount) => {
+    render(<NotificationBell initialSummary={{ ...summary, unreadCount }} />);
+    const trigger = screen.getByRole("button", { name: new RegExp(`Уведомления: непрочитано ${unreadCount}`) });
+    expect(trigger).toHaveClass("size-11", "shrink-0");
+    if (unreadCount > 0) {
+      const badge = trigger.querySelector("span");
+      expect(badge).toHaveClass("absolute");
+      expect(badge).toHaveTextContent(unreadCount > 99 ? "99+" : String(unreadCount));
+    }
+  });
+
+  it("anchors the desktop popover below its trigger and bounds it to the viewport", () => {
+    render(<NotificationBell initialSummary={summary} />);
+    fireEvent.click(screen.getByRole("button", { name: /Уведомления/ }));
+    expect(screen.getByRole("dialog")).toHaveClass(
+      "sm:right-3",
+      "lg:right-0",
+      "lg:top-[calc(100%+0.5rem)]",
+      "sm:max-w-[calc(100vw-1.5rem)]",
+    );
+  });
+
   it("updates the badge and popover immediately after mark-all succeeds", async () => {
     markAllRead.mockResolvedValueOnce({
       success: true,
