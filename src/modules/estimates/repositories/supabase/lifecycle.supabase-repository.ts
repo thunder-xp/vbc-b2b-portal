@@ -4,7 +4,7 @@ import { createClient } from "@/src/lib/supabase/server";
 import { withBoundedSerializationRetry } from "@/src/lib/database/serialization-retry";
 
 import type { EstimateVersion, ProposalSettings, ProposalTemplate } from "../../types";
-import type { EstimateLifecycleRepository } from "../lifecycle.repository";
+import type { EstimateCartConversionEvidence, EstimateLifecycleRepository } from "../lifecycle.repository";
 import { EstimateLifecycleRepositoryError } from "../lifecycle.repository";
 import { mapEstimateRow, type EstimateRow } from "./mappers";
 
@@ -35,6 +35,24 @@ type VersionRow = {
 };
 
 type TemplateRow = { id: string; company_id: string | null; template_key: string; name: string; configuration: ProposalSettings; is_system: boolean };
+type ConversionRow = {
+  version_id: string | null;
+  created_by: string;
+  direction: EstimateCartConversionEvidence["direction"];
+  cart: null | {
+    id: string;
+    company_id: string;
+    created_by: string;
+    status: NonNullable<EstimateCartConversionEvidence["cart"]>["status"];
+    items: Array<{ product_id: string; quantity: number | string }>;
+  } | Array<{
+    id: string;
+    company_id: string;
+    created_by: string;
+    status: NonNullable<EstimateCartConversionEvidence["cart"]>["status"];
+    items: Array<{ product_id: string; quantity: number | string }>;
+  }>;
+};
 
 const VERSION_COLUMNS = "id, estimate_id, company_id, version_number, estimate_revision, status, estimate_number, currency_code, total_amount, snapshot, customer_proposal_snapshot, proposal_template_id, note, change_reason, created_by, created_at, sent_at, sent_channel, accepted_at, rejected_at, rejection_reason, rejection_reason_code";
 const VERSION_LIST_COLUMNS = `${VERSION_COLUMNS}, creator:user_profiles!estimate_versions_created_by_fkey(full_name)`;
@@ -62,6 +80,31 @@ export class SupabaseEstimateLifecycleRepository implements EstimateLifecycleRep
     const result = new Map<string, { id: string; status: "queued" | "generating" | "ready" | "failed" }>();
     for (const row of data ?? []) if (row.version_id && !result.has(row.version_id)) result.set(row.version_id, { id: row.id, status: row.status });
     return result;
+  }
+
+  async listVersionCartConversions(estimateId: string, versionId: string): Promise<EstimateCartConversionEvidence[]> {
+    const { data, error } = await (await createClient()).from("estimate_cart_conversions")
+      .select("version_id, created_by, direction, cart:carts!estimate_cart_conversions_cart_id_fkey(id, company_id, created_by, status, items:cart_items!cart_items_cart_id_fkey(product_id, quantity))")
+      .eq("estimate_id", estimateId)
+      .eq("version_id", versionId)
+      .eq("direction", "estimate_to_cart")
+      .order("created_at", { ascending: false });
+    if (error) throw new EstimateLifecycleRepositoryError(error.code);
+    return ((data ?? []) as unknown as ConversionRow[]).map((row) => {
+      const cart = Array.isArray(row.cart) ? row.cart[0] ?? null : row.cart;
+      return {
+        versionId: row.version_id,
+        createdBy: row.created_by,
+        direction: row.direction,
+        cart: cart ? {
+          id: cart.id,
+          companyId: cart.company_id,
+          createdBy: cart.created_by,
+          status: cart.status,
+          items: cart.items.map((item) => ({ productId: item.product_id, quantity: Number(item.quantity) })),
+        } : null,
+      };
+    });
   }
 
   async createVersion(input: Parameters<EstimateLifecycleRepository["createVersion"]>[0]) {

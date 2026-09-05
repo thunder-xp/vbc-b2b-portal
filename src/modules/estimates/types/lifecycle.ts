@@ -70,8 +70,53 @@ export type EstimateWorkflowDto = {
   lifecycleOrderId?: string | null;
   acceptedVersionId: string | null;
   emailDeliveryAvailable: boolean;
+  guidedState: EstimateGuidedStateDto;
+  permissions: {
+    canManage: boolean;
+    canSend: boolean;
+    canConvert: boolean;
+    canManageOrders: boolean;
+  };
   versions: EstimateVersionListItemDto[];
   readiness: { ready: boolean; checks: Array<{ label: string; passed: boolean }> };
+};
+
+export type EstimateGuidedState =
+  | "draft"
+  | "ready_to_send"
+  | "awaiting_customer"
+  | "awaiting_customer_opened"
+  | "expired"
+  | "accepted_ready_to_order"
+  | "resume_checkout"
+  | "accepted_already_converted"
+  | "rejected"
+  | "converted_to_order";
+
+export type EstimateGuidedPrimaryAction =
+  | "send"
+  | "update"
+  | "continue_order"
+  | "resume_checkout"
+  | "open_order";
+
+export type EstimateGuidedSecondaryAction =
+  | "preview"
+  | "pdf"
+  | "send"
+  | "resend"
+  | "delivery_history"
+  | "mark_ready"
+  | "duplicate"
+  | "save_template"
+  | "mark_sent"
+  | "record_response";
+
+export type EstimateGuidedStateDto = {
+  state: EstimateGuidedState;
+  primaryAction: EstimateGuidedPrimaryAction | null;
+  secondaryActions: EstimateGuidedSecondaryAction[];
+  resumeCartId: string | null;
 };
 
 export type EstimateCartConversionSummary = {

@@ -22,10 +22,24 @@ export type EstimateVersionCreationResult =
   | { status: "created"; version: EstimateVersion; repeated: boolean }
   | { status: "conflict"; currentRevision: number; code: "ESTIMATE_VERSION_CONFLICT" };
 
+export type EstimateCartConversionEvidence = {
+  versionId: string | null;
+  createdBy: string;
+  direction: "cart_to_estimate" | "estimate_to_cart";
+  cart: null | {
+    id: string;
+    companyId: string;
+    createdBy: string;
+    status: "active" | "submitting" | "converted" | "abandoned";
+    items: Array<{ productId: string; quantity: number }>;
+  };
+};
+
 export interface EstimateLifecycleRepository {
   listVersions(estimateId: string): Promise<EstimateVersion[]>;
   findVersion(versionId: string): Promise<EstimateVersion | null>;
   listLatestDocuments(versionIds: string[]): Promise<Map<string, { id: string; status: "queued" | "generating" | "ready" | "failed" }>>;
+  listVersionCartConversions(estimateId: string, versionId: string): Promise<EstimateCartConversionEvidence[]>;
   createVersion(input: {
     estimateId: string;
     expectedRevision: number;

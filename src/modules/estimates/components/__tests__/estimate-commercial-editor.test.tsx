@@ -44,7 +44,7 @@ const detail: EstimateDetailDto = {
     sellingUnitPrice: 100, formattedSellingUnitPrice: "$100.00", lineTotal: "$100.00", imageUrl: null,
   }], charges: [],
 };
-const workflow: EstimateWorkflowDto = { estimateId: "estimate-1", estimateStatus: "draft", lifecycleStatus: "draft", acceptedVersionId: null, emailDeliveryAvailable: false, versions: [], readiness: { ready: true, checks: [] } };
+const workflow: EstimateWorkflowDto = { estimateId: "estimate-1", estimateStatus: "draft", lifecycleStatus: "draft", acceptedVersionId: null, emailDeliveryAvailable: false, guidedState: { state: "draft", primaryAction: null, secondaryActions: ["duplicate"], resumeCartId: null }, permissions: { canManage: true, canSend: true, canConvert: true, canManageOrders: true }, versions: [], readiness: { ready: true, checks: [] } };
 const currentPdfWorkflow: EstimateWorkflowDto = {
   ...workflow,
   versions: [{

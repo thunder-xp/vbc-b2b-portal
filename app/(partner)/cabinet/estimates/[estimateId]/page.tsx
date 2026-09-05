@@ -46,7 +46,7 @@ export default async function EstimateEditorPage({
         {copy.loadEditorFailed}
       </p>
     );
-  const workflowKey = `${estimate.data.revision}:${workflow.data.estimateStatus}:${workflow.data.lifecycleStatus}:${workflow.data.versions[0]?.id ?? "none"}:${workflow.data.versions[0]?.status ?? "none"}:${workflow.data.versions[0]?.pdfStatus ?? "none"}`;
+  const workflowKey = `${estimate.data.revision}:${workflow.data.estimateStatus}:${workflow.data.lifecycleStatus}:${workflow.data.guidedState.state}:${workflow.data.versions[0]?.id ?? "none"}:${workflow.data.versions[0]?.status ?? "none"}:${workflow.data.versions[0]?.pdfStatus ?? "none"}`;
   const showGeneratorFeedback = generatorSession
     ? await canPromptProposalGeneratorFeedbackAction(
         generatorSession,
@@ -63,12 +63,12 @@ export default async function EstimateEditorPage({
         initialEstimate={estimate.data}
         services={services.data}
         workflow={workflow.data}
-      />
-      <EstimateWorkflowPanel
-        initialProposalAction={proposalAction === "resend" && version ? { kind: "resend", versionId: version } : null}
-        initialWorkflow={workflow.data}
-        key={workflowKey}
-        revision={estimate.data.revision}
+        workflowPanel={<EstimateWorkflowPanel
+          initialProposalAction={proposalAction === "resend" && version ? { kind: "resend", versionId: version } : null}
+          initialWorkflow={workflow.data}
+          key={workflowKey}
+          revision={estimate.data.revision}
+        />}
       />
     </div>
   );

@@ -5,10 +5,9 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { recordBehaviorInteraction } from "../../behavior-analytics/components";
-import { formatPartnerDateTime, getEstimatesCopy, usePartnerLocale, type EstimatesCopy } from "../../partner-locale";
-import { revokeProposalDeliveryAction, sendProposalDeliveryAction } from "../actions/delivery.actions";
+import { getEstimatesCopy, usePartnerLocale } from "../../partner-locale";
+import { sendProposalDeliveryAction } from "../actions/delivery.actions";
 import { updateFinalCustomerEmailAction } from "../actions/estimate.actions";
-import type { ProposalDeliverySummaryDto } from "../types";
 
 type CustomerRecipient = {
   id: string;
@@ -24,13 +23,14 @@ export function SendProposalDialog({
   proposalTotal,
   pdfFilename,
   customer,
-  deliveries,
   canSend,
   emailAvailable,
   pdfReady,
   currentVersion,
   unsavedChanges,
   initialOpen = false,
+  triggerLabel,
+  triggerTone = "primary",
   defaults,
 }: {
   estimateId: string;
@@ -39,13 +39,14 @@ export function SendProposalDialog({
   proposalTotal: string;
   pdfFilename: string;
   customer: CustomerRecipient | null;
-  deliveries: ProposalDeliverySummaryDto[];
   canSend: boolean;
   emailAvailable: boolean;
   pdfReady: boolean;
   currentVersion: boolean;
   unsavedChanges: boolean;
   initialOpen?: boolean;
+  triggerLabel?: string;
+  triggerTone?: "primary" | "secondary";
   defaults?: { recipientName: string; subject: string; message: string };
 }) {
   const locale = usePartnerLocale();
@@ -143,9 +144,9 @@ export function SendProposalDialog({
 
   return <>
     <div className="flex flex-col items-start gap-1">
-      <button className={primary} disabled={!triggerAllowed} onClick={() => { setResultMessage(null); setResultState("idle"); setOpen(true); }} ref={triggerRef} type="button">
+      <button className={triggerTone === "primary" ? primary : secondary} disabled={!triggerAllowed} onClick={() => { setResultMessage(null); setResultState("idle"); setOpen(true); }} ref={triggerRef} type="button">
         <Mail className="size-4" />
-        {customer?.primaryEmail || recipientEmail ? copy.sendToCustomer : copy.addEmail}
+        {customer?.primaryEmail || recipientEmail ? triggerLabel ?? copy.sendToCustomer : copy.addEmail}
       </button>
       {!emailAvailable ? <span className={hint}>{copy.emailUnavailable}</span> : null}
       {emailAvailable && !pdfReady ? <span className={hint}>{copy.generatePdfFirst}</span> : null}
@@ -211,17 +212,10 @@ export function SendProposalDialog({
       </form>
     </div> : null}
 
-    {deliveries.length > 0 ? <div className="mt-3 w-full space-y-2">
-      {deliveries.map((delivery) => <div className="flex flex-wrap items-center justify-between gap-2 border-l-2 border-emerald-600 bg-zinc-50 px-3 py-2 text-xs" key={delivery.id}>
-        <span><strong>{delivery.recipient}</strong> · {deliveryStatusLabel(delivery.status, copy)}{delivery.sentAt ? ` · ${formatPartnerDateTime(delivery.sentAt, locale)}` : ""}{delivery.openedAt ? ` · ${copy.opened} ${formatPartnerDateTime(delivery.openedAt, locale)}` : ""}{delivery.response ? ` · ${delivery.response === "accepted" ? copy.acceptedShort : copy.rejectedShort}` : ""}{delivery.failureReason ? ` · ${copy.deliveryFailed}` : ""}</span>
-        {!delivery.response && delivery.status !== "revoked" ? <button className="min-h-11 font-semibold text-red-700" disabled={pending} onClick={() => startTransition(async () => { const result = await revokeProposalDeliveryAction(delivery.id); setResultMessage(result.success ? copy.operationSucceeded : copy.operationFailed); if (result.success) router.refresh(); })} type="button">{copy.revokeLink}</button> : null}
-      </div>)}
-    </div> : null}
   </>;
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) { return <label className="grid gap-1 text-sm font-medium">{label}{children}</label>; }
-function deliveryStatusLabel(status: ProposalDeliverySummaryDto["status"], copy: EstimatesCopy): string { return ({ queued: copy.deliveryQueued, sending: copy.deliverySending, sent: copy.deliverySent, delivered: copy.deliveryDelivered, failed: copy.deliveryFailed, revoked: copy.deliveryRevoked, responded: copy.deliveryResponded })[status]; }
 function isValidEmail(value: string) { return value.length > 0 && value.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) && !/[\r\n]/.test(value); }
 const input = "min-h-11 w-full rounded-md border border-zinc-300 bg-white px-3 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100";
 const primary = "inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white outline-none hover:bg-emerald-800 focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-45";

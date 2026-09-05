@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 const repository = readFileSync(resolve("src/modules/partner-sales-workspace/supabase.repository.ts"), "utf8");
 const service = readFileSync(resolve("src/modules/partner-sales-workspace/service.ts"), "utf8");
+const guidedState = readFileSync(resolve("src/modules/estimates/services/guided-state.ts"), "utf8");
 const dashboard = readFileSync(resolve("src/modules/partner-cabinet/components/OperationalDashboard.tsx"), "utf8");
 const copy = readFileSync(resolve("src/modules/partner-locale/copy.ts"), "utf8");
 const workspace = readFileSync(resolve("src/modules/partner-cabinet/services/workspace-home.service.ts"), "utf8");
@@ -45,13 +46,14 @@ describe("estimate sales workspace boundaries", () => {
     expect(dashboard).not.toMatch(/addEstimateEquipmentToCartAction|mergeEstimateProducts/);
     expect(dashboard).not.toMatch(/sendProposalDeliveryAction|createDraftFromEstimateVersionAction/);
     expect(service).toContain('if (type === "resume_checkout") return "/cabinet/cart"');
-    expect(service).toContain('conversion.createdBy !== userId');
-    expect(service).toContain('cart.createdBy !== userId');
-    expect(service).toContain('cart.companyId !== companyId');
-    expect(service).toContain('cart.status !== "active"');
+    expect(service).toContain("deriveEstimateGuidedState");
+    expect(guidedState).toContain('conversion.createdBy !== input.userId');
+    expect(guidedState).toContain('cart.createdBy !== input.userId');
+    expect(guidedState).toContain('cart.companyId !== input.companyId');
+    expect(guidedState).toContain('cart.status !== "active"');
     expect(service).toContain('followUpState === "expired_sent" ? "update"');
     expect(service).toContain('action === "resend"');
-    expect(service).toContain("cartQuantities.get(productId)");
+    expect(guidedState).toContain("cartQuantities.get(productId)");
     expect(copy).toContain('"dashboard.proposalInCart"');
     expect(copy).toContain('"dashboard.resumeCheckout"');
     expect(estimateWorkflow).toContain('id="estimate-order-conversion"');

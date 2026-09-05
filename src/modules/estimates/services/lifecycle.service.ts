@@ -18,6 +18,7 @@ import type {
   ProposalTemplate,
 } from "../types";
 import { convertMoney, resolveCurrencyRate } from "./commercial-calculation";
+import { deriveEstimateGuidedState } from "./guided-state";
 import { isProposalEmailConfigured } from "./proposal-email.provider";
 import type { DefaultProposalService } from "./proposal.service";
 
@@ -25,6 +26,8 @@ const VIEW_PERMISSION = "estimates.view";
 const MANAGE_PERMISSION = "estimates.manage";
 const TEMPLATE_PERMISSION = "proposal_templates.manage";
 const CONVERT_PERMISSION = "estimates.convert_to_cart";
+const SEND_PERMISSION = "proposal.send";
+const ORDERS_PERMISSION = "orders.manage";
 
 export class EstimateLifecycleService {
   constructor(
@@ -49,11 +52,48 @@ export class EstimateLifecycleService {
     if (!aggregate || aggregate.estimate.companyId !== companyId) throw new NotFoundError("Смета не найдена.");
     const estimate = aggregate.estimate;
     const versionIds = versions.map((version) => version.id);
-    const [documents, deliveries] = await Promise.all([
+    const guidedVersion = versions.find((version) => version.id === estimate.acceptedVersionId) ?? versions[0] ?? null;
+    const [documents, deliveries, permissionContext, cartConversions] = await Promise.all([
       this.lifecycleRepository.listLatestDocuments(versionIds),
       this.deliveryRepository.listByVersionIds(versionIds),
+      this.permissionService.getEffectivePermissionContext(userId, companyId),
+      estimate.lifecycleStatus === "accepted" && guidedVersion && estimate.acceptedVersionId === guidedVersion.id
+        ? this.lifecycleRepository.listVersionCartConversions(estimate.id, guidedVersion.id)
+        : Promise.resolve([]),
     ]);
     const deliveriesByVersion = summarizeDeliveries(deliveries);
+    const permissionCodes = new Set(permissionContext.effectivePermissionCodes);
+    const permissions = {
+      canManage: permissionCodes.has(MANAGE_PERMISSION),
+      canSend: permissionCodes.has(SEND_PERMISSION),
+      canConvert: permissionCodes.has(CONVERT_PERMISSION),
+      canManageOrders: permissionCodes.has(ORDERS_PERMISSION),
+    };
+    const guidedDeliveries = guidedVersion ? deliveriesByVersion.get(guidedVersion.id) ?? [] : [];
+    const guidedState = deriveEstimateGuidedState({
+      lifecycleStatus: estimate.lifecycleStatus ?? "draft",
+      estimateStatus: normalizeEstimateStatus(estimate.status),
+      lifecycleOrderId: estimate.lifecycleOrderId ?? null,
+      versionId: guidedVersion?.id ?? null,
+      versionStatus: guidedVersion?.status ?? null,
+      acceptedVersionId: estimate.acceptedVersionId ?? null,
+      readyDocumentId: guidedVersion ? documents.get(guidedVersion.id)?.id ?? null : null,
+      currentVersion: Boolean(guidedVersion && (
+        guidedVersion.estimateRevision === estimate.revision
+        || (guidedVersion.status === "sent" && guidedVersion.estimateRevision + 1 === estimate.revision)
+      )),
+      hasDeliveryHistory: guidedDeliveries.length > 0,
+      latestDelivery: guidedDeliveries[0] ? {
+        status: guidedDeliveries[0].status,
+        openedAt: guidedDeliveries[0].openedAt,
+        response: guidedDeliveries[0].response,
+      } : null,
+      productRequirements: guidedVersion ? versionProductLines(guidedVersion).map((line) => ({ productId: line.productId, quantity: line.quantity })) : [],
+      cartConversions,
+      companyId,
+      userId,
+      permissions,
+    });
     return {
       estimateId: estimate.id,
       customer: aggregate.finalCustomer ?? null,
@@ -64,6 +104,8 @@ export class EstimateLifecycleService {
       lifecycleOrderId: estimate.lifecycleOrderId ?? null,
       acceptedVersionId: estimate.acceptedVersionId ?? null,
       emailDeliveryAvailable: isProposalEmailConfigured(),
+      guidedState,
+      permissions,
       versions: versions.map((version) => {
         const document = documents.get(version.id);
         return {

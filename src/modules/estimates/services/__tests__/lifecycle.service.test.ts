@@ -15,6 +15,31 @@ describe("EstimateLifecycleService", () => {
     expect(dependencies.lifecycle.listLatestDocuments).toHaveBeenCalledOnce();
     expect(dependencies.deliveryRepository.listByVersionIds).toHaveBeenCalledOnce();
     expect(dependencies.deliveryRepository.listByVersionIds).toHaveBeenCalledWith(["version-1"]);
+    expect(dependencies.lifecycle.listVersionCartConversions).not.toHaveBeenCalled();
+    expect(workflow.guidedState).toEqual(expect.objectContaining({ state: "draft", primaryAction: null }));
+  });
+
+  it("loads one accepted-version conversion projection only when order guidance needs it", async () => {
+    const dependencies = makeDependencies();
+    const acceptedEstimate = { ...dependencies.estimate, status: "accepted" as const, lifecycleStatus: "accepted" as const, acceptedVersionId: "version-1" };
+    const acceptedVersion = { ...dependencies.version, status: "accepted" as const, acceptedAt: "2026-09-05T10:00:00Z" };
+    vi.mocked(dependencies.estimates.findAggregateById).mockResolvedValue({ ...dependencies.aggregate, estimate: acceptedEstimate });
+    vi.mocked(dependencies.lifecycle.listVersions).mockResolvedValue([acceptedVersion]);
+    vi.mocked(dependencies.lifecycle.listVersionCartConversions).mockResolvedValue([{ versionId: "version-1", createdBy: "user-1", direction: "estimate_to_cart", cart: { id: "cart-1", companyId: "company-1", createdBy: "user-1", status: "active", items: [{ productId: "product-1", quantity: 2 }] } }]);
+
+    const workflow = await dependencies.service.getWorkflow("user-1", "estimate-1");
+
+    expect(dependencies.lifecycle.listVersionCartConversions).toHaveBeenCalledOnce();
+    expect(dependencies.lifecycle.listVersionCartConversions).toHaveBeenCalledWith("estimate-1", "version-1");
+    expect(workflow.guidedState).toEqual(expect.objectContaining({ state: "resume_checkout", primaryAction: "resume_checkout", resumeCartId: "cart-1" }));
+  });
+
+  it("fails closed before delivery or conversion evidence is returned across companies", async () => {
+    const dependencies = makeDependencies();
+    vi.mocked(dependencies.estimates.findAggregateById).mockResolvedValue({ ...dependencies.aggregate, estimate: { ...dependencies.estimate, companyId: "company-2" } });
+    await expect(dependencies.service.getWorkflow("user-1", "estimate-1")).rejects.toBeInstanceOf(NotFoundError);
+    expect(dependencies.deliveryRepository.listByVersionIds).not.toHaveBeenCalled();
+    expect(dependencies.lifecycle.listVersionCartConversions).not.toHaveBeenCalled();
   });
 
   it.each([20, 100, 300])("creates one exact %i-line version without per-line writes", async (lineCount) => {
@@ -110,7 +135,7 @@ function makeDependencies(lineCount = 1) {
   const estimate = makeEstimate();
   const proposal = makeProposal(lineCount);
   const version = makeVersion(proposal);
-  const aggregate = {
+  const aggregate: NonNullable<Awaited<ReturnType<EstimateRepository["findAggregateById"]>>> = {
     estimate,
     finalCustomer: { id: "customer-1", displayName: "Customer", primaryEmail: "client@example.com", revision: 2 },
     sections: [{ id: "section-1", estimateId: estimate.id, name: "Equipment", sortOrder: 0, showSubtotal: true, discountPercent: 0, createdAt: estimate.createdAt, updatedAt: estimate.updatedAt }],
@@ -118,7 +143,7 @@ function makeDependencies(lineCount = 1) {
     charges: [],
   };
   const lifecycle = {
-    listVersions: vi.fn().mockResolvedValue([version]), findVersion: vi.fn().mockResolvedValue(version), listLatestDocuments: vi.fn().mockResolvedValue(new Map()),
+    listVersions: vi.fn().mockResolvedValue([version]), findVersion: vi.fn().mockResolvedValue(version), listLatestDocuments: vi.fn().mockResolvedValue(new Map()), listVersionCartConversions: vi.fn().mockResolvedValue([]),
     createVersion: vi.fn().mockResolvedValue({ status: "created", version, repeated: false }), markReady: vi.fn().mockResolvedValue(estimate), transitionVersion: vi.fn().mockResolvedValue(version),
     restoreDraft: vi.fn().mockResolvedValue(estimate), duplicate: vi.fn().mockResolvedValue({ ...estimate, id: "estimate-copy" }), createTemplate: vi.fn(), createFromCart: vi.fn().mockResolvedValue(estimate),
   } satisfies EstimateLifecycleRepository;
@@ -133,8 +158,8 @@ function makeDependencies(lineCount = 1) {
   const deliveryRepository = { listByVersionIds: vi.fn().mockResolvedValue([]) };
   const service = new EstimateLifecycleService(lifecycle, deliveryRepository as never, estimates, proposalService as never, cart as never,
     { getOwnMemberships: vi.fn().mockResolvedValue([{ companyId: "company-1", status: "active" }]), getActiveCompanyContext: vi.fn().mockResolvedValue({ company: { id: "company-1" } }) } as never,
-    { ensurePermission: vi.fn().mockResolvedValue({ isAllowed: true }) } as never, catalog as never, pricing as never);
-  return { service, lifecycle, deliveryRepository, estimates, proposal, proposalService, estimate, cart, catalog, pricing };
+    { ensurePermission: vi.fn().mockResolvedValue({ isAllowed: true }), getEffectivePermissionContext: vi.fn().mockResolvedValue({ effectivePermissionCodes: ["estimates.view", "estimates.manage", "proposal.send", "estimates.convert_to_cart", "orders.manage"] }) } as never, catalog as never, pricing as never);
+  return { service, lifecycle, deliveryRepository, estimates, proposal, proposalService, estimate, version, aggregate, cart, catalog, pricing };
 }
 
 function makeEstimate(): Estimate {
