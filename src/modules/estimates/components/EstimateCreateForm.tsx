@@ -37,7 +37,7 @@ export function EstimateCreateForm({
         const form = new FormData(event.currentTarget);
         startTransition(async () => {
           const result = await createEstimateAction({
-            name: String(form.get("name") ?? ""),
+            name: String(form.get("name") ?? "").trim() || copy.unnamed,
             finalCustomerId,
             projectName: String(form.get("projectName") ?? ""),
             currencyCode: String(form.get("currencyCode") ?? ""),
@@ -59,14 +59,6 @@ export function EstimateCreateForm({
         });
       }}
     >
-      <div className="sm:col-span-2">
-        <Field
-          label={copy.name}
-          name="name"
-          placeholder={copy.unnamed}
-          required
-        />
-      </div>
       <div className="min-w-0 sm:col-span-2">
         <FinalCustomerPicker
           onChange={(customer) => setFinalCustomerId(customer?.id ?? null)}
@@ -75,46 +67,60 @@ export function EstimateCreateForm({
       </div>
       <div className="sm:col-span-2">
         <Field
-          label={copy.projectObject}
-          name="projectName"
-          placeholder={copy.notSpecified}
+          label={`${copy.name} (${copy.optional})`}
+          name="name"
+          placeholder={copy.unnamed}
         />
       </div>
-      <FormField label={copy.currency} required>
-        {(props) => (
-          <select
-            {...props}
-            className="h-11 w-full rounded-md border border-zinc-300 bg-white px-3 outline-none focus:border-emerald-600"
-            disabled={!currencies.length}
-            name="currencyCode"
+      <details className="rounded-md border border-zinc-200 bg-zinc-50 sm:col-span-2">
+        <summary className="flex min-h-11 cursor-pointer items-center px-3 text-sm font-semibold text-zinc-700">
+          {copy.additionalSettings}
+        </summary>
+        <div className="grid gap-3 border-t border-zinc-200 p-3 sm:grid-cols-2">
+          <div className="sm:col-span-2">
+            <Field
+              label={copy.projectObject}
+              name="projectName"
+              placeholder={copy.notSpecified}
+            />
+          </div>
+          <FormField label={copy.currency} required>
+            {(props) => (
+              <select
+                {...props}
+                className="h-11 w-full rounded-md border border-zinc-300 bg-white px-3 outline-none focus:border-emerald-600"
+                disabled={!currencies.length}
+                name="currencyCode"
+                required
+              >
+                {currencies.map((currency) => (
+                  <option key={currency} value={currency}>
+                    {currency}
+                  </option>
+                ))}
+              </select>
+            )}
+          </FormField>
+          <FormField
+            helperText={copy.validityRange}
+            label={copy.validityDays}
             required
           >
-            {currencies.map((currency) => (
-              <option key={currency} value={currency}>
-                {currency}
-              </option>
-            ))}
-          </select>
-        )}
-      </FormField>
-      <FormField
-        helperText={copy.validityRange}
-        label={copy.validityDays}
-        required
-      >
-        {(props) => (
-          <input
-            {...props}
-            className="h-11 w-full rounded-md border border-zinc-300 px-3 outline-none focus:border-emerald-600"
-            defaultValue={14}
-            max={365}
-            min={1}
-            name="validityDays"
-            required
-            type="number"
-          />
-        )}
-      </FormField>
+            {(props) => (
+              <input
+                {...props}
+                className="h-11 w-full rounded-md border border-zinc-300 px-3 outline-none focus:border-emerald-600"
+                defaultValue={14}
+                max={365}
+                min={1}
+                name="validityDays"
+                required
+                type="number"
+              />
+            )}
+          </FormField>
+        </div>
+      </details>
       {!currencies.length && (
         <p className="text-sm text-amber-800 sm:col-span-2">
           {copy.noPublishedCurrency}
@@ -126,7 +132,7 @@ export function EstimateCreateForm({
           disabled={pending || !currencies.length || !finalCustomerId}
           type="submit"
         >
-          {pending ? copy.saving : copy.create}
+          {pending ? copy.saving : initialProductId ? copy.create : copy.createAndContinue}
         </button>
         {message && (
           <ActionFeedback

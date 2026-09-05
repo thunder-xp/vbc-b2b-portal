@@ -59,7 +59,7 @@ export function FinalCustomerEditForm({
         });
       }}
     >
-      <label className="text-sm font-medium text-zinc-700">
+      <label className="text-sm font-medium text-zinc-700 md:col-span-2">
         {copy.customer}
         <input
           className={controlClass}
@@ -69,60 +69,67 @@ export function FinalCustomerEditForm({
           required
         />
       </label>
-      <label className="text-sm font-medium text-zinc-700">
-        {copy.type}
-        <select
-          className={controlClass}
-          onChange={(event) =>
-            setCustomerType(event.target.value as FinalCustomerType)
-          }
-          value={customerType}
-        >
-          <option value="company">{copy.companyType}</option>
-          <option value="individual">{copy.individualType}</option>
-        </select>
-      </label>
-      <label className="text-sm font-medium text-zinc-700">
-        IDNO
-        <input
-          className={controlClass}
-          defaultValue={customer.fiscalCode ?? ""}
-          maxLength={32}
-          name="fiscalCode"
-        />
-      </label>
-      <label className="text-sm font-medium text-zinc-700">
-        {copy.cityRegion}
-        <input
-          className={controlClass}
-          defaultValue={customer.locality ?? ""}
-          maxLength={120}
-          name="locality"
-        />
-      </label>
-      <label className="text-sm font-medium text-zinc-700 md:col-span-2">
-        {copy.industry}
-        <select
-          className={controlClass}
-          onChange={(event) =>
-            setIndustryCode(
-              event.target.value as FinalCustomerIndustryCode | "",
-            )
-          }
-          value={industryCode}
-        >
-          <option value="">{copy.notSpecifiedFeminine}</option>
-          {FINAL_CUSTOMER_INDUSTRIES.map((industry) => (
-            <option key={industry.code} value={industry.code}>
-              {finalCustomerIndustryLabelForLocale(
-                locale,
-                industry.code,
-                copy.notSpecifiedFeminine,
-              )}
-            </option>
-          ))}
-        </select>
-      </label>
+      <details className="rounded-md border border-zinc-200 bg-zinc-50 md:col-span-2">
+        <summary className="flex min-h-11 cursor-pointer items-center px-3 text-sm font-semibold text-zinc-700">
+          {copy.additionalSettings}
+        </summary>
+        <div className="grid gap-4 border-t border-zinc-200 p-3 md:grid-cols-2">
+          <label className="text-sm font-medium text-zinc-700">
+            {copy.type}
+            <select
+              className={controlClass}
+              onChange={(event) =>
+                setCustomerType(event.target.value as FinalCustomerType)
+              }
+              value={customerType}
+            >
+              <option value="company">{copy.companyType}</option>
+              <option value="individual">{copy.individualType}</option>
+            </select>
+          </label>
+          <label className="text-sm font-medium text-zinc-700">
+            IDNO
+            <input
+              className={controlClass}
+              defaultValue={customer.fiscalCode ?? ""}
+              maxLength={32}
+              name="fiscalCode"
+            />
+          </label>
+          <label className="text-sm font-medium text-zinc-700">
+            {copy.cityRegion}
+            <input
+              className={controlClass}
+              defaultValue={customer.locality ?? ""}
+              maxLength={120}
+              name="locality"
+            />
+          </label>
+          <label className="text-sm font-medium text-zinc-700">
+            {copy.industry}
+            <select
+              className={controlClass}
+              onChange={(event) =>
+                setIndustryCode(
+                  event.target.value as FinalCustomerIndustryCode | "",
+                )
+              }
+              value={industryCode}
+            >
+              <option value="">{copy.notSpecifiedFeminine}</option>
+              {FINAL_CUSTOMER_INDUSTRIES.map((industry) => (
+                <option key={industry.code} value={industry.code}>
+                  {finalCustomerIndustryLabelForLocale(
+                    locale,
+                    industry.code,
+                    copy.notSpecifiedFeminine,
+                  )}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      </details>
       <div className="flex flex-wrap items-center gap-3 md:col-span-2">
         <button
           className="min-h-11 rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white disabled:opacity-50"

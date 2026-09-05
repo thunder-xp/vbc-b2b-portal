@@ -887,43 +887,42 @@ export function EstimateCommercialEditor({
                                     />
                                   )}
                                 </div>
-                                <Field
-                                  label={copy.position}
-                                  labelClassName="xl:sr-only"
-                                >
-                                  <input
-                                    className={`${inputClass} w-full`}
-                                    disabled={!isDraft}
-                                    onChange={(e) =>
-                                      updateLine(
-                                        draft,
-                                        setDraft,
-                                        setDirty,
-                                        line.id,
-                                        { description: e.target.value },
-                                      )
-                                    }
-                                    required={
-                                      line.lineType === "custom" ||
-                                      line.lineType === "external"
-                                    }
-                                    title={line.description}
-                                    value={line.description}
-                                  />
-                                  <div className="mt-1 flex min-h-4 flex-wrap items-center gap-2">
-                                    <span
-                                      className={lineTypeTone(line.lineType)}
-                                    >
-                                      {lineTypeLabel(line.lineType, copy)}
-                                    </span>
-                                    {line.sku && (
-                                      <span className="text-[10px] text-zinc-500">
-                                        SKU {line.sku}
-                                      </span>
-                                    )}
+                                {line.lineType === "product" ? (
+                                  <div className="min-w-0 py-1">
+                                    <p className="truncate text-sm font-semibold text-zinc-900" title={line.description}>{line.description}</p>
+                                    <div className="mt-1 flex min-h-4 flex-wrap items-center gap-2">
+                                      <span className={lineTypeTone(line.lineType)}>{lineTypeLabel(line.lineType, copy)}</span>
+                                      {line.sku ? <span className="text-[10px] text-zinc-500">SKU {line.sku}</span> : null}
+                                    </div>
                                   </div>
-                                </Field>
-                                <div className="col-span-2 grid grid-cols-2 gap-2 sm:grid-cols-5 xl:contents">
+                                ) : (
+                                  <Field
+                                    label={copy.position}
+                                    labelClassName="xl:sr-only"
+                                  >
+                                    <input
+                                      className={`${inputClass} w-full`}
+                                      disabled={!isDraft}
+                                      onChange={(e) =>
+                                        updateLine(
+                                          draft,
+                                          setDraft,
+                                          setDirty,
+                                          line.id,
+                                          { description: e.target.value },
+                                        )
+                                      }
+                                      required={line.lineType === "custom" || line.lineType === "external"}
+                                      title={line.description}
+                                      value={line.description}
+                                    />
+                                    <div className="mt-1 flex min-h-4 flex-wrap items-center gap-2">
+                                      <span className={lineTypeTone(line.lineType)}>{lineTypeLabel(line.lineType, copy)}</span>
+                                      {line.sku ? <span className="text-[10px] text-zinc-500">SKU {line.sku}</span> : null}
+                                    </div>
+                                  </Field>
+                                )}
+                                <div className={`col-span-2 grid grid-cols-2 gap-2 xl:contents ${line.lineType === "product" ? "sm:grid-cols-3" : "sm:grid-cols-5"}`}>
                                   <Field
                                     label={copy.quantity}
                                     labelClassName="xl:sr-only"
@@ -942,37 +941,33 @@ export function EstimateCommercialEditor({
                                       value={line.quantity}
                                     />
                                   </Field>
-                                  <Field
-                                    label={copy.unit}
-                                    labelClassName="xl:sr-only"
-                                  >
-                                    <select
-                                      className={`${inputClass} w-full`}
-                                      disabled={!isDraft}
-                                      onChange={(e) =>
-                                        updateLine(
-                                          draft,
-                                          setDraft,
-                                          setDirty,
-                                          line.id,
-                                          {
-                                            unit: e.target
-                                              .value as EstimateUnit,
-                                          },
-                                        )
-                                      }
-                                      value={line.unit}
+                                  {line.lineType === "product" ? (
+                                    <span className="hidden min-h-11 items-center text-sm text-zinc-600 xl:flex">{unitLabel(line.unit, locale)}</span>
+                                  ) : (
+                                    <Field
+                                      label={copy.unit}
+                                      labelClassName="xl:sr-only"
                                     >
-                                      {units.map((unit) => (
-                                        <option
-                                          key={unit}
-                                          value={unit}
-                                        >
-                                          {unitLabel(unit, locale)}
-                                        </option>
-                                      ))}
-                                    </select>
-                                  </Field>
+                                      <select
+                                        className={`${inputClass} w-full`}
+                                        disabled={!isDraft}
+                                        onChange={(e) =>
+                                          updateLine(
+                                            draft,
+                                            setDraft,
+                                            setDirty,
+                                            line.id,
+                                            { unit: e.target.value as EstimateUnit },
+                                          )
+                                        }
+                                        value={line.unit}
+                                      >
+                                        {units.map((unit) => (
+                                          <option key={unit} value={unit}>{unitLabel(unit, locale)}</option>
+                                        ))}
+                                      </select>
+                                    </Field>
+                                  )}
                                   <Field
                                     label={
                                       line.pricingMode === "direct"
@@ -1004,24 +999,28 @@ export function EstimateCommercialEditor({
                                       </span>
                                     ) : null}
                                   </Field>
-                                  <Field
-                                    label={copy.lineDiscount}
-                                    labelClassName="xl:sr-only"
-                                  >
-                                    <NumberInput
-                                      disabled={!isDraft}
-                                      onValue={(value) =>
-                                        updateLine(
-                                          draft,
-                                          setDraft,
-                                          setDirty,
-                                          line.id,
-                                          { lineDiscountPercent: value ?? 0 },
-                                        )
-                                      }
-                                      value={line.lineDiscountPercent}
-                                    />
-                                  </Field>
+                                  {line.lineType === "product" ? (
+                                    <span className="hidden min-h-11 items-center text-sm text-zinc-600 xl:flex">{line.lineDiscountPercent ? `${line.lineDiscountPercent}%` : "—"}</span>
+                                  ) : (
+                                    <Field
+                                      label={copy.lineDiscount}
+                                      labelClassName="xl:sr-only"
+                                    >
+                                      <NumberInput
+                                        disabled={!isDraft}
+                                        onValue={(value) =>
+                                          updateLine(
+                                            draft,
+                                            setDraft,
+                                            setDirty,
+                                            line.id,
+                                            { lineDiscountPercent: value ?? 0 },
+                                          )
+                                        }
+                                        value={line.lineDiscountPercent}
+                                      />
+                                    </Field>
+                                  )}
                                   <div className="min-w-0">
                                     <p className="text-xs font-medium text-zinc-500 xl:sr-only">
                                       {copy.lineTotal}
@@ -1069,19 +1068,56 @@ export function EstimateCommercialEditor({
                                     <Trash2 className="size-4" />
                                   </button>
                                 </div>
+                                {line.lineType === "product" ? (
+                                  <details className="col-span-2 rounded-md border border-zinc-200 bg-zinc-50 xl:col-span-full" data-testid="estimate-line-advanced">
+                                    <summary className="flex min-h-11 cursor-pointer items-center px-3 text-xs font-semibold text-zinc-700">
+                                      {copy.lineDetails}
+                                    </summary>
+                                    <div className="grid gap-2 border-t border-zinc-200 p-3 sm:grid-cols-3">
+                                      <Field label={copy.description}>
+                                        <input
+                                          className={`${inputClass} w-full`}
+                                          disabled={!isDraft}
+                                          maxLength={500}
+                                          onChange={(event) =>
+                                            updateLine(draft, setDraft, setDirty, line.id, { description: event.target.value })
+                                          }
+                                          value={line.description}
+                                        />
+                                      </Field>
+                                      <Field label={copy.unit}>
+                                        <select
+                                          className={`${inputClass} w-full`}
+                                          disabled={!isDraft}
+                                          onChange={(event) =>
+                                            updateLine(draft, setDraft, setDirty, line.id, { unit: event.target.value as EstimateUnit })
+                                          }
+                                          value={line.unit}
+                                        >
+                                          {units.map((unit) => <option key={unit} value={unit}>{unitLabel(unit, locale)}</option>)}
+                                        </select>
+                                      </Field>
+                                      <Field label={copy.lineDiscount}>
+                                        <NumberInput
+                                          disabled={!isDraft}
+                                          onValue={(value) =>
+                                            updateLine(draft, setDraft, setDirty, line.id, { lineDiscountPercent: value ?? 0 })
+                                          }
+                                          value={line.lineDiscountPercent}
+                                        />
+                                      </Field>
+                                    </div>
+                                  </details>
+                                ) : null}
                               </div>
                             </div>
                           );
                         })
-                      ) : (
-                        <p className="hidden px-3 py-2 text-sm text-zinc-500 sm:block">
-                          {copy.emptySection}
-                        </p>
-                      )}
+                      ) : null}
                     </div>
                     <div className={`flex flex-wrap items-center justify-between gap-2 border-t border-zinc-200 px-3 ${sectionLines.length ? "py-2" : "py-1"}`}>
-                      <span className="text-xs text-zinc-500">
-                        {sectionLines.length ? (
+                      {sectionLines.length ? (
+                        <span className="text-xs text-zinc-500">
                           <>
                             {copy.subtotal}{" "}
                             {localizedSectionName.toLocaleLowerCase()}:{" "}
@@ -1089,8 +1125,8 @@ export function EstimateCommercialEditor({
                               {money(section.total, draft.currencyCode, locale)}
                             </strong>
                           </>
-                        ) : copy.emptySection}
-                      </span>
+                        </span>
+                      ) : <span />}
                       {isDraft ? (
                         <button
                           aria-label={sectionAddLabel(canonical.key, copy)}

@@ -97,7 +97,7 @@ export function FinalCustomerDialog({
               });
             }}
           >
-            <Field label={copy.customer}>
+            <Field className="sm:col-span-2" label={copy.customer}>
               <input
                 className={controlClass}
                 defaultValue={customer?.displayName ?? ""}
@@ -106,56 +106,63 @@ export function FinalCustomerDialog({
                 required
               />
             </Field>
-            <Field label={copy.type}>
-              <select
-                className={controlClass}
-                onChange={(event) =>
-                  setCustomerType(event.target.value as FinalCustomerType)
-                }
-                value={customerType}
-              >
-                <option value="company">{copy.companyType}</option>
-                <option value="individual">{copy.individualType}</option>
-              </select>
-            </Field>
-            <Field label="IDNO">
-              <input
-                className={controlClass}
-                defaultValue={customer?.fiscalCode ?? ""}
-                maxLength={32}
-                name="fiscalCode"
-              />
-            </Field>
-            <Field label={copy.cityRegion}>
-              <input
-                className={controlClass}
-                defaultValue={customer?.locality ?? ""}
-                maxLength={120}
-                name="locality"
-              />
-            </Field>
-            <Field className="sm:col-span-2" label={copy.industry}>
-              <select
-                className={controlClass}
-                onChange={(event) =>
-                  setIndustryCode(
-                    event.target.value as FinalCustomerIndustryCode | "",
-                  )
-                }
-                value={industryCode}
-              >
-                <option value="">{copy.notSpecifiedFeminine}</option>
-                {FINAL_CUSTOMER_INDUSTRIES.map((industry) => (
-                  <option key={industry.code} value={industry.code}>
-                    {finalCustomerIndustryLabelForLocale(
-                      locale,
-                      industry.code,
-                      copy.notSpecifiedFeminine,
-                    )}
-                  </option>
-                ))}
-              </select>
-            </Field>
+            <details className="rounded-md border border-zinc-200 bg-zinc-50 sm:col-span-2" open={customer ? true : undefined}>
+              <summary className="flex min-h-11 cursor-pointer items-center px-3 text-sm font-semibold text-zinc-700">
+                {copy.additionalSettings}
+              </summary>
+              <div className="grid gap-4 border-t border-zinc-200 p-3 sm:grid-cols-2">
+                <Field label={copy.type}>
+                  <select
+                    className={controlClass}
+                    onChange={(event) =>
+                      setCustomerType(event.target.value as FinalCustomerType)
+                    }
+                    value={customerType}
+                  >
+                    <option value="company">{copy.companyType}</option>
+                    <option value="individual">{copy.individualType}</option>
+                  </select>
+                </Field>
+                <Field label="IDNO">
+                  <input
+                    className={controlClass}
+                    defaultValue={customer?.fiscalCode ?? ""}
+                    maxLength={32}
+                    name="fiscalCode"
+                  />
+                </Field>
+                <Field label={copy.cityRegion}>
+                  <input
+                    className={controlClass}
+                    defaultValue={customer?.locality ?? ""}
+                    maxLength={120}
+                    name="locality"
+                  />
+                </Field>
+                <Field label={copy.industry}>
+                  <select
+                    className={controlClass}
+                    onChange={(event) =>
+                      setIndustryCode(
+                        event.target.value as FinalCustomerIndustryCode | "",
+                      )
+                    }
+                    value={industryCode}
+                  >
+                    <option value="">{copy.notSpecifiedFeminine}</option>
+                    {FINAL_CUSTOMER_INDUSTRIES.map((industry) => (
+                      <option key={industry.code} value={industry.code}>
+                        {finalCustomerIndustryLabelForLocale(
+                          locale,
+                          industry.code,
+                          copy.notSpecifiedFeminine,
+                        )}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              </div>
+            </details>
             {message ? (
               <p
                 aria-live="polite"

@@ -108,12 +108,19 @@ export function EstimateLinePicker({ estimate, services, onResult, disabled, mod
     {disabled && <p className="mt-3 text-xs text-amber-800">{copy.saveBeforeAdding}</p>}
 
     {mode === "product" && <div className="space-y-3 border-t border-zinc-200 p-3 sm:p-4">
-      <form className="grid gap-2 lg:grid-cols-[minmax(14rem,1fr)_12rem_12rem_auto]" onSubmit={(event) => { event.preventDefault(); if (!disabled) searchProducts(event.currentTarget); }}>
-        <label className="sr-only" htmlFor="estimate-product-search">{copy.productSearchPlaceholder}</label>
-        <input autoCapitalize="characters" autoComplete="off" autoCorrect="off" className={inputClass} disabled={disabled} enterKeyHint="search" id="estimate-product-search" inputMode="search" name="query" placeholder={copy.productSearchPlaceholder} spellCheck={false} type="search" />
-        <select aria-label={copy.category} className={inputClass} disabled={disabled} name="categoryId"><option value="">{copy.allCategories}</option>{products.categories.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>
-        <select aria-label={copy.brand} className={inputClass} disabled={disabled} name="brandId"><option value="">{copy.allBrands}</option>{products.brands.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>
-        <button className={buttonClass} disabled={disabled || pending} type="submit"><Search className="size-4" />{copy.find}</button>
+      <form className="space-y-2" onSubmit={(event) => { event.preventDefault(); if (!disabled) searchProducts(event.currentTarget); }}>
+        <div className="grid gap-2 sm:grid-cols-[minmax(14rem,1fr)_auto]">
+          <label className="sr-only" htmlFor="estimate-product-search">{copy.productSearchPlaceholder}</label>
+          <input autoCapitalize="characters" autoComplete="off" autoCorrect="off" className={inputClass} disabled={disabled} enterKeyHint="search" id="estimate-product-search" inputMode="search" name="query" placeholder={copy.productSearchPlaceholder} spellCheck={false} type="search" />
+          <button className={buttonClass} disabled={disabled || pending} type="submit"><Search className="size-4" />{copy.find}</button>
+        </div>
+        <details className="rounded-md border border-zinc-200 bg-zinc-50">
+          <summary className="flex min-h-11 cursor-pointer items-center px-3 text-sm font-semibold text-zinc-700">{copy.productFilters}</summary>
+          <div className="grid gap-2 border-t border-zinc-200 p-3 sm:grid-cols-2">
+            <select aria-label={copy.category} className={inputClass} disabled={disabled} name="categoryId"><option value="">{copy.allCategories}</option>{products.categories.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>
+            <select aria-label={copy.brand} className={inputClass} disabled={disabled} name="brandId"><option value="">{copy.allBrands}</option>{products.brands.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>
+          </div>
+        </details>
       </form>
       {recentSearches.length > 0 && <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-500"><span>{copy.recent}:</span>{recentSearches.map((query) => <span className="rounded bg-zinc-100 px-2 py-1" key={query}>{query}</span>)}</div>}
       {products.products.length > 0 && <div className="flex justify-end">
