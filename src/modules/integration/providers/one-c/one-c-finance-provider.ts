@@ -297,7 +297,15 @@ export class OneCFinanceProvider implements FinanceProvider {
     }
     if (response.status === 401) throw new IntegrationUnauthorizedError();
     if (response.status === 403) throw new IntegrationForbiddenError();
-    if (!response.ok) throw new IntegrationHttpError();
+    if (!response.ok) {
+      console.error({
+        event: "finance_odata_request_failed",
+        requestKind,
+        resourceName: resource,
+        statusCode: response.status,
+      });
+      throw new IntegrationHttpError();
+    }
     const payload: unknown = await response.json();
     if (!isRecord(payload) || !Array.isArray(payload.value)) throw new IntegrationValidationError(`1C ${requestKind} response is invalid.`);
     return payload.value.filter(isRecord);
