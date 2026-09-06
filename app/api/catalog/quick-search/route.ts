@@ -47,6 +47,8 @@ export async function GET(request: Request) {
         commercialView: commercialView ? {
           partnerPrice: commercialView.partnerPrice,
           partnerPriceMdl: commercialView.partnerPriceMdl,
+          retailPriceMdl: commercialView.retailPrice,
+          retailPriceUsd: commercialView.msrpPriceUsd,
           stock: commercialView.stock,
         } : null,
         matchKind: quickProductMatchKind(query, product),

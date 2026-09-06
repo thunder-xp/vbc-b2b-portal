@@ -19,7 +19,8 @@ const pricedProduct = {
     productId: "product-1",
     partnerPrice: { currencyCode: "USD", amount: 50.6, formattedAmount: "$50.60" },
     partnerPriceMdl: { currencyCode: "MDL", amount: 865, formattedAmount: "865 MDL" },
-    retailPrice: null,
+    retailPriceMdl: { currencyCode: "MDL", amount: 1_332, formattedAmount: "1 332 MDL" },
+    retailPriceUsd: { currencyCode: "USD", amount: 75, formattedAmount: "$75.00" },
     stock: { status: "in_stock" as const, exactAvailableQuantity: 492, exactPhysicalQuantity: 500, exactReservedQuantity: 8, exactIncomingQuantity: 0, expectedArrival: null, hasVariantStock: false, lastUpdatedAt: "2026-09-04T00:00:00Z", label: "" },
     isDemoData: false,
   },
@@ -52,6 +53,9 @@ describe("mobile quick product commerce", () => {
     expect(fetch).toHaveBeenCalledTimes(1);
     expect(screen.getByText("$50.60")).toBeInTheDocument();
     expect(screen.getByText("865 MDL")).toBeInTheDocument();
+    expect(screen.getByText("Розничная цена")).toBeInTheDocument();
+    expect(screen.getByText("$75.00")).toBeInTheDocument();
+    expect(screen.getByText(/1\s332 MDL/)).toBeInTheDocument();
     expect(screen.getByText("В наличии: 492 шт.")).toBeInTheDocument();
     expect(screen.getByText("Точное совпадение")).toBeInTheDocument();
   });
@@ -111,6 +115,43 @@ describe("mobile quick product commerce", () => {
     await user.type(screen.getByRole("searchbox", { name: "Caută produs după cod sau model" }), "400540");
     expect(await screen.findByText("Preț indisponibil")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "În selecție" })).toBeDisabled();
+  });
+
+  it("shows retail MDL alone when the server cannot safely resolve retail USD", async () => {
+    vi.useRealTimers();
+    vi.stubGlobal("fetch", vi.fn(() => fetchResponse([{
+      ...pricedProduct,
+      commercialView: { ...pricedProduct.commercialView, retailPriceUsd: null },
+    }])));
+    const user = userEvent.setup();
+    render(<MobileQuickProductCommerce canSelectProducts locale="ru" />);
+    await user.type(screen.getByRole("searchbox"), "400540");
+
+    const pricing = await screen.findByTestId("quick-search-pricing");
+    expect(pricing).toHaveTextContent("Розничная цена");
+    expect(pricing).toHaveTextContent(/1\s332 MDL/);
+    expect(pricing).not.toHaveTextContent("$75.00");
+    expect(screen.getByText("В наличии: 492 шт.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "В подборку" })).toBeEnabled();
+  });
+
+  it("shows a truthful retail-missing state without blocking product selection", async () => {
+    vi.useRealTimers();
+    vi.stubGlobal("fetch", vi.fn(() => fetchResponse([{
+      ...pricedProduct,
+      commercialView: {
+        ...pricedProduct.commercialView,
+        retailPriceMdl: null,
+        retailPriceUsd: null,
+      },
+    }])));
+    const user = userEvent.setup();
+    render(<MobileQuickProductCommerce canSelectProducts locale="ru" />);
+    await user.type(screen.getByRole("searchbox"), "400540");
+
+    expect(await screen.findByText("Розничная цена не указана")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "В подборку" })).toBeEnabled();
+    expect(screen.getByRole("spinbutton", { name: "Количество" })).toHaveValue(1);
   });
 
   it("starts with bounded purchased-before products and distinguishes the repeat signal", async () => {

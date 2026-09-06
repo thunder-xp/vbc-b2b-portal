@@ -21,4 +21,13 @@ describe("mobile quick product geometry and boundaries", () => {
     expect(component).not.toContain("supabase");
     expect(component).not.toMatch(/barcode|BarcodeDetector|EAN|UPC|OCR/);
   });
+
+  it("renders server-projected retail values without React-side rate calculation", () => {
+    expect(route).toContain("retailPriceMdl: commercialView.retailPrice");
+    expect(route).toContain("retailPriceUsd: commercialView.msrpPriceUsd");
+    expect(component).toContain("quickProduct?.commercialView?.retailPriceMdl?.formattedAmount");
+    expect(component).toContain("quickProduct?.commercialView?.retailPriceUsd?.formattedAmount");
+    expect(component).not.toContain("retail_price_usd_to_mdl");
+    expect(component).not.toMatch(/retailPriceMdl\.amount\s*\/|retailPriceMdl\.amount\s*\*/);
+  });
 });

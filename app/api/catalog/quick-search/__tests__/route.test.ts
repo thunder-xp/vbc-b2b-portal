@@ -20,7 +20,14 @@ const result = {
     keyCharacteristics: [],
     datasheet: null,
   }],
-  commercialViews: [{ productId: "product-1", partnerPrice: { formattedAmount: "$50.60" }, stock: { exactAvailableQuantity: 492 } }],
+  commercialViews: [{
+    productId: "product-1",
+    partnerPrice: { currencyCode: "USD", amount: 50.6, formattedAmount: "$50.60" },
+    partnerPriceMdl: { currencyCode: "MDL", amount: 865, formattedAmount: "865 MDL" },
+    msrpPriceUsd: { currencyCode: "USD", amount: 75, formattedAmount: "$75.00" },
+    retailPrice: { currencyCode: "MDL", amount: 1_332, formattedAmount: "1 332 MDL" },
+    stock: { exactAvailableQuantity: 492 },
+  }],
   page: 1,
   pageSize: 8,
   hasNextPage: false,
@@ -40,6 +47,13 @@ describe("quick product search route", () => {
     expect(listProducts).toHaveBeenCalledWith({ page: 1, pageSize: 8, search: "400540", sort: "default" });
     expect(listProducts.mock.calls[0][0]).not.toHaveProperty("companyId");
     expect(body.data[0]).toMatchObject({ id: "product-1", matchKind: "exact_sku" });
+    expect(body.data[0].commercialView).toMatchObject({
+      partnerPrice: { formattedAmount: "$50.60" },
+      partnerPriceMdl: { formattedAmount: "865 MDL" },
+      retailPriceMdl: { formattedAmount: "1 332 MDL" },
+      retailPriceUsd: { formattedAmount: "$75.00" },
+      stock: { exactAvailableQuantity: 492 },
+    });
     expect(response.headers.get("cache-control")).toBe("private, no-store");
     expect(response.headers.get("server-timing")).toMatch(/^quick-product-search;dur=/);
   });
@@ -54,5 +68,29 @@ describe("quick product search route", () => {
     expect(listProducts).toHaveBeenNthCalledWith(2, { page: 1, pageSize: 24, search: "pfa130", sort: "default" });
     expect(body.data[0].matchKind).toBe("normalized_model");
     expect(body.data).toHaveLength(1);
+  });
+
+  it("projects retail prices for a full result page without per-product calls", async () => {
+    const products = Array.from({ length: 8 }, (_, index) => ({
+      ...result.products[0],
+      id: `product-${index + 1}`,
+      sku: `40054${index}`,
+    }));
+    const commercialViews = products.map((product) => ({
+      ...result.commercialViews[0],
+      productId: product.id,
+    }));
+    listProducts.mockResolvedValue({
+      success: true,
+      data: { ...result, products, commercialViews, totalCount: products.length },
+    });
+
+    const response = await GET(new Request("https://portal.test/api/catalog/quick-search?q=40054"));
+    const body = await response.json();
+
+    expect(listProducts).toHaveBeenCalledTimes(1);
+    expect(body.data).toHaveLength(8);
+    expect(body.data.every((item: { commercialView: { retailPriceMdl: unknown; retailPriceUsd: unknown } }) =>
+      item.commercialView.retailPriceMdl && item.commercialView.retailPriceUsd)).toBe(true);
   });
 });

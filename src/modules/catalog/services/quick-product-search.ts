@@ -7,7 +7,10 @@ export type QuickProductSearchResultDto = {
   slug: string;
   imageUrl: string | null;
   categoryName: string | null;
-  commercialView: Pick<ProductCommercialViewDto, "partnerPrice" | "partnerPriceMdl" | "stock"> | null;
+  commercialView: Pick<ProductCommercialViewDto, "partnerPrice" | "partnerPriceMdl" | "stock"> & {
+    retailPriceMdl: ProductCommercialViewDto["retailPrice"];
+    retailPriceUsd: ProductCommercialViewDto["msrpPriceUsd"];
+  } | null;
   matchKind: "exact_sku" | "exact_model" | "normalized_model" | "partial";
 };
 
