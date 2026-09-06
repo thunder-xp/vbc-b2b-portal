@@ -10,7 +10,10 @@ import { resolveWorkspaceCapabilities } from "../../services";
 
 let pathname = "/cabinet";
 
-vi.mock("next/navigation", () => ({ usePathname: () => pathname }));
+vi.mock("next/navigation", () => ({
+  usePathname: () => pathname,
+  useRouter: () => ({ refresh: vi.fn() }),
+}));
 vi.mock("@/src/modules/auth/actions/auth.actions", () => ({ signOutAction: vi.fn() }));
 
 const context = {
