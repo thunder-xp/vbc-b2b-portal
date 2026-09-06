@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
-import { formatBusinessAmount } from "../../platform-ui";
+import { actionClassName, formatBusinessAmount } from "../../platform-ui";
 import {
   formatPartnerDate,
   getFinanceCopy,
@@ -28,7 +28,7 @@ export function FinanceOverview({
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-4">
       <PaymentCalendarOverview locale={locale} overview={overview} />
       <section
         aria-label={copy.contractSummary}
@@ -135,23 +135,21 @@ function PaymentCalendarOverview({ locale, overview }: { locale: PartnerLocale; 
     ["overdue", copy.overdueGroup], ["today", copy.todayGroup], ["upcoming", copy.upcomingGroup], ["later", copy.laterGroup],
   ] as const;
   return <>
-    <section className={`border p-4 sm:p-5 ${hasOverdue ? "border-amber-300 bg-amber-50" : "border-emerald-200 bg-emerald-50"}`} aria-labelledby="finance-current-status">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+    <section className={`rounded-md border p-3 ${hasOverdue ? "border-amber-300 bg-amber-50" : "border-emerald-200 bg-emerald-50"}`} aria-labelledby="finance-current-status">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-zinc-600">{copy.currentStatus}</p>
-          <h2 className="mt-1 text-xl font-semibold text-zinc-950" id="finance-current-status">{hasOverdue ? copy.paymentAttention : copy.noUrgentPayments}</h2>
-          <p className={`mt-2 text-sm font-medium ${calendar.freshness === "FINANCE_DATA_FRESH" ? "text-emerald-800" : "text-amber-800"}`}>
+          <h2 className="text-lg font-semibold text-zinc-950" id="finance-current-status">{hasOverdue ? copy.paymentAttention : copy.noUrgentPayments}</h2>
+          <p className={`mt-1 text-xs font-medium ${calendar.freshness === "FINANCE_DATA_FRESH" ? "text-emerald-800" : "text-amber-800"}`}>
             {calendar.freshness === "FINANCE_DATA_FRESH" ? copy.dataFresh : copy.dataStale}
           </p>
         </div>
-        <a className="inline-flex min-h-11 items-center justify-center rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white" href="#payment-calendar">{copy.openCalendar}</a>
+        <a className={actionClassName.primary} href="#payment-calendar">{copy.openCalendar}</a>
       </div>
-      <div className="mt-4 grid gap-px overflow-hidden border border-zinc-200 bg-zinc-200 sm:grid-cols-2 lg:grid-cols-3">
-        {calendar.summaries.length ? calendar.summaries.map((summary) => <div className="bg-white p-4" key={summary.currency}>
-          <p className="text-xs font-semibold text-zinc-500">{summary.currency}</p>
-          <p className="mt-2 text-xs text-zinc-500">{copy.amountDue}</p>
-          <p className="text-xl font-semibold tabular-nums text-zinc-950">{formatFinanceAmount(summary.outstanding, summary.currency, locale)}</p>
-          <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+      <div className="mt-3 grid gap-2">
+        {calendar.summaries.length ? calendar.summaries.map((summary) => <div className="grid gap-3 rounded bg-white p-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] sm:items-end" key={summary.currency}>
+          <div><p className="text-xs text-zinc-500">{copy.amountDue} · {summary.currency}</p>
+          <p className="text-xl font-semibold tabular-nums text-zinc-950">{formatFinanceAmount(summary.outstanding, summary.currency, locale)}</p></div>
+          <div className="grid grid-cols-2 gap-3 text-sm">
             <div><p className="text-xs text-zinc-500">{copy.overdue}</p><p className="mt-1 font-semibold text-amber-800">{formatFinanceAmount(summary.overdue, summary.currency, locale)}</p></div>
             <div><p className="text-xs text-zinc-500">{copy.nearestPayment}</p><p className="mt-1 font-semibold text-zinc-900">{summary.nextPaymentDueDate && summary.nextPaymentAmount ? `${formatFinanceAmount(summary.nextPaymentAmount, summary.currency, locale)} · ${formatPartnerDate(summary.nextPaymentDueDate, locale)}` : "—"}</p></div>
           </div>
@@ -159,12 +157,11 @@ function PaymentCalendarOverview({ locale, overview }: { locale: PartnerLocale; 
       </div>
     </section>
     <section id="payment-calendar" aria-labelledby="payment-calendar-title">
-      <div className="border-b border-zinc-200 pb-3">
+      <div>
         <h2 className="text-xl font-semibold text-zinc-950" id="payment-calendar-title">{copy.paymentCalendar}</h2>
-        <p className="mt-1 text-sm text-zinc-600">{copy.calendarDescription}</p>
       </div>
-      {calendar.unavailableCount > 0 ? <p className="mt-3 border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-700">{copy.unavailableRows}</p> : null}
-      {calendar.current.length ? <div className="space-y-6 pt-4">{groups.map(([timing, label]) => {
+      {calendar.unavailableCount > 0 ? <p className="mt-2 rounded bg-amber-50 px-3 py-2 text-xs text-amber-900" role="status" data-finance-warning>{copy.unavailableRows}</p> : null}
+      {calendar.current.length ? <div className="space-y-4 pt-3">{groups.map(([timing, label]) => {
         const items = calendar.current.filter((item) => item.timing === timing);
         return items.length ? <div key={timing}><h3 className={`text-xs font-semibold uppercase tracking-wide ${timing === "overdue" ? "text-amber-800" : "text-zinc-600"}`}>{label}</h3><ul className="mt-2 divide-y divide-zinc-200 border border-zinc-200 bg-white">{items.map((item) => <PaymentItem item={item} key={item.id} locale={locale} />)}</ul></div> : null;
       })}</div> : <p className="py-8 text-sm text-zinc-600">{copy.noCurrentObligations}</p>}
@@ -180,10 +177,10 @@ function PaymentItem({ item, locale }: { item: FinanceOverviewModel["paymentCale
   const timing = item.paymentStatus === "SETTLED" ? copy.settled : item.daysFromDue < 0
     ? copy.daysOverdue.replace("{count}", String(Math.abs(item.daysFromDue)))
     : item.daysFromDue === 0 ? copy.dueToday : copy.daysUntil.replace("{count}", String(item.daysFromDue));
-  return <li className="grid gap-4 p-4 md:grid-cols-[minmax(0,1fr)_minmax(220px,auto)_auto] md:items-center">
+  return <li className="grid min-w-0 gap-3 p-3 xl:grid-cols-[minmax(0,1fr)_408px_164px] xl:items-center" data-payment-row>
     <div className="min-w-0"><p className="font-semibold text-zinc-950">{copy.order} {item.orderNumber}</p><p className="mt-1 text-sm text-zinc-600">{copy.dueDate}: {formatPartnerDate(item.dueDate, locale)}</p><p className={`mt-1 text-xs font-semibold ${item.daysFromDue < 0 && item.paymentStatus !== "SETTLED" ? "text-amber-800" : "text-zinc-500"}`}>{paymentState}{item.paymentStatus !== "SETTLED" ? ` · ${timing}` : ""}</p></div>
-    <dl className="grid grid-cols-3 gap-3 text-sm"><div><dt className="text-xs text-zinc-500">{copy.remaining}</dt><dd className="mt-1 font-semibold tabular-nums text-zinc-950">{formatFinanceAmount(item.remainingAmount, item.currency, locale)}</dd></div><div><dt className="text-xs text-zinc-500">{copy.paid}</dt><dd className="mt-1 tabular-nums text-zinc-700">{formatFinanceAmount(item.paidAmount, item.currency, locale)}</dd></div><div><dt className="text-xs text-zinc-500">{copy.planned}</dt><dd className="mt-1 tabular-nums text-zinc-700">{formatFinanceAmount(item.plannedAmount, item.currency, locale)}</dd></div></dl>
-    <Link className="inline-flex min-h-11 items-center justify-center rounded-md border border-zinc-300 px-3 text-sm font-semibold text-emerald-700" href={`/cabinet/orders?query=${encodeURIComponent(item.orderNumber)}`} prefetch={false}>{copy.openOrder}</Link>
+    <dl className="grid min-w-0 grid-cols-3 gap-3 text-sm xl:text-right"><div data-payment-amount="remaining"><dt className="text-xs text-zinc-500">{copy.remaining}</dt><dd className="mt-1 font-semibold tabular-nums text-zinc-950">{formatFinanceAmount(item.remainingAmount, item.currency, locale)}</dd></div><div data-payment-amount="paid"><dt className="text-xs text-zinc-500">{copy.paid}</dt><dd className="mt-1 tabular-nums text-zinc-700">{formatFinanceAmount(item.paidAmount, item.currency, locale)}</dd></div><div data-payment-amount="planned"><dt className="text-xs text-zinc-500">{copy.planned}</dt><dd className="mt-1 tabular-nums text-zinc-700">{formatFinanceAmount(item.plannedAmount, item.currency, locale)}</dd></div></dl>
+    <Link className={`${actionClassName.secondary} min-w-0 text-center`} href={`/cabinet/orders?query=${encodeURIComponent(item.orderNumber)}`} prefetch={false}>{copy.openOrder}</Link>
   </li>;
 }
 
@@ -216,10 +213,10 @@ function EmptyFinanceState({
               text: copy.temporarilyUnavailableText,
             };
   return (
-    <section className="border-t border-zinc-200 py-12 text-center">
+    <section className="py-4" data-compact-empty>
       <WalletCards
         aria-hidden="true"
-        className="mx-auto size-8 text-zinc-400"
+        className="size-5 text-zinc-400"
       />
       <h2 className="mt-3 text-lg font-semibold text-zinc-900">
         {content.title}

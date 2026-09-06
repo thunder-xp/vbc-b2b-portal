@@ -174,15 +174,15 @@ export function MobileQuickProductCommerce({
   return (
     <section className="mx-auto max-w-[90rem] space-y-4" data-search-request-count={requestCount}>
       <div className="mx-auto max-w-3xl space-y-1">
-        <h1 className="text-xl font-semibold tracking-tight text-zinc-950 sm:text-2xl">{copy.title}</h1>
-        <nav aria-label={copy.title} className="flex flex-wrap gap-x-4 gap-y-1 pt-1 text-sm font-semibold text-emerald-800">
+        <h1 className="text-2xl font-semibold text-zinc-950">{copy.title}</h1>
+        <nav aria-label={copy.title} className="flex flex-wrap gap-x-4 gap-y-1 text-sm font-semibold text-emerald-800 [&>a]:inline-flex [&>a]:min-h-11 [&>a]:items-center">
           <Link href="/cabinet/opportunities" prefetch={false}>{copy.recentlyPurchased}</Link>
           <Link href="/cabinet/purchasing-lists?filter=favorites" prefetch={false}>{copy.favorites}</Link>
           {canViewKits ? <Link href="#saved-kits">{locale === "ro" ? "Seturile mele" : "Мои комплекты"}</Link> : null}
         </nav>
       </div>
 
-      <div className="sticky top-0 z-20 mx-auto max-w-3xl border-y border-zinc-200 bg-white/95 py-3 shadow-sm backdrop-blur sm:rounded-lg sm:border sm:px-4">
+      <div className="sticky top-0 z-20 mx-auto max-w-3xl bg-white/95 py-1 backdrop-blur">
         <form onSubmit={(event) => { event.preventDefault(); lastRequestedRef.current = null; void runSearch(query); }} role="search">
           <div className="relative">
             <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-3.5 size-4 text-zinc-500" />

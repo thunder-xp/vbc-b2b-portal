@@ -47,7 +47,20 @@ describe("FinanceOverview states", () => {
     expect(screen.getByText(/Achitate/)).toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: /Deschide comanda/ })[0]).toHaveAttribute("href", "/cabinet/orders?query=CO-PARTIAL");
     expect(container.querySelector("table")).toBeNull();
-    expect(container.innerHTML).toContain("md:grid-cols-");
+    expect(container.querySelector('[data-payment-row]')).toHaveClass("xl:grid-cols-[minmax(0,1fr)_408px_164px]");
+    expect(container.querySelectorAll('[data-payment-row] [data-payment-amount]')).toHaveLength(9);
+    expect(container.querySelector('[data-finance-warning]')).toHaveAttribute("role", "status");
+    expect(container.querySelector('[data-finance-warning]')).not.toHaveClass("border");
+    expect(container.textContent).not.toContain("Obligațiile curente conform datelor 1C");
+  });
+
+  it("does not show an unsupported-data warning when all current rows are supported", () => {
+    const model = overview("synchronized_nonzero");
+    model.paymentCalendar.current = [payment("ready", "READY", "2026-09-03", "MDL", "100", "0", "100", "OPEN", -3, "overdue")];
+    const { container } = render(<FinanceOverview overview={model} />);
+    expect(container.querySelector('[data-finance-warning]')).toBeNull();
+    expect(screen.queryByText(/Текущие обязательства по данным/)).toBeNull();
+    expect(screen.getByRole("link", { name: "Открыть заказ" })).toHaveClass("min-h-11");
   });
 });
 

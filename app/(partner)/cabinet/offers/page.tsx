@@ -6,6 +6,7 @@ import { CampaignCard } from "@/src/modules/commercial-campaigns/components";
 import type { CampaignFilter } from "@/src/modules/commercial-campaigns/types";
 import { secondaryCopy } from "@/src/modules/partner-locale";
 import { getPartnerLocale } from "@/src/modules/partner-locale/server";
+import { PageHeader, actionClassName } from "@/src/modules/platform-ui";
 
 export default async function OffersPage({
   searchParams,
@@ -36,18 +37,8 @@ export default async function OffersPage({
   if (!result.success && result.message.includes("вход"))
     redirect("/auth/sign-in");
   return (
-    <div className="space-y-6">
-      <header className="border-b border-zinc-200 pb-5">
-        <p className="text-xs font-semibold uppercase text-emerald-700">
-          {copy.offersEyebrow}
-        </p>
-        <h1 className="mt-1 text-2xl font-semibold text-zinc-950 sm:text-3xl">
-          {copy.offersTitle}
-        </h1>
-        <p className="mt-2 max-w-3xl text-sm text-zinc-600">
-          {copy.offersDescription}
-        </p>
-      </header>
+    <div className="min-w-0 space-y-3">
+      <PageHeader compact title={copy.offersTitle} />
       <nav
         aria-label={copy.offersFilters}
         className="flex max-w-full gap-2 overflow-x-auto pb-1"
@@ -85,15 +76,14 @@ export default async function OffersPage({
           ))}
         </div>
       ) : (
-        <section className="border border-dashed border-zinc-300 bg-white px-6 py-12 text-center">
+        <section className="py-4" data-compact-empty>
           <h2 className="font-semibold">{copy.offersEmpty}</h2>
-          <p className="mt-1 text-sm text-zinc-600">{copy.offersEmptyHint}</p>
         </section>
       )}
-      {result.success ? (
-        <nav className="flex items-center justify-between border-t border-zinc-200 pt-4 text-sm">
+      {result.success && result.data.totalPages > 1 ? (
+        <nav className="flex flex-wrap items-center justify-between gap-2 text-sm">
           {page > 1 ? (
-            <Link href={`/cabinet/offers?filter=${filter}&page=${page - 1}`}>
+            <Link className={actionClassName.secondary} href={`/cabinet/offers?filter=${filter}&page=${page - 1}`}>
               {copy.back}
             </Link>
           ) : (
@@ -103,7 +93,7 @@ export default async function OffersPage({
             {copy.page} {page} {copy.of} {result.data.totalPages}
           </span>
           {page < result.data.totalPages ? (
-            <Link href={`/cabinet/offers?filter=${filter}&page=${page + 1}`}>
+            <Link className={actionClassName.secondary} href={`/cabinet/offers?filter=${filter}&page=${page + 1}`}>
               {copy.next}
             </Link>
           ) : (

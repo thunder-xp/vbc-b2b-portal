@@ -4,6 +4,13 @@ import { describe, expect, it } from "vitest";
 import { PageHeader } from "../PageHeader";
 
 describe("PageHeader", () => {
+  it("supports a compact working header without changing the default contract", () => {
+    const { container, rerender } = render(<PageHeader compact title="Финансы" />);
+    expect(container.querySelector('header')).not.toHaveClass("border-b", "pb-5");
+    expect(container.querySelector('p')).toBeNull();
+    rerender(<PageHeader title="Финансы" />);
+    expect(container.querySelector('header')).toHaveClass("border-b", "pb-5");
+  });
   it("renders one page heading with description and actions", () => {
     render(
       <PageHeader

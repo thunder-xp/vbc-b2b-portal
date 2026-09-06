@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, CalendarClock, EyeOff, ShoppingCart } from "lucide-react";
+import { ArrowRight, CalendarClock, EyeOff } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
@@ -19,6 +19,7 @@ import { ProductSpecificationAction } from "../../catalog/components/ProductSpec
 import { FavoriteProductButton } from "../../purchasing-lists/components/FavoriteProductButton";
 import { dismissCommercialOpportunityAction } from "../actions/commercial-opportunity.actions";
 import type { CommercialOpportunity } from "../types";
+import { actionClassName } from "../../platform-ui/action-styles";
 
 export function OpportunityCard({
   canAddToOrder = true,
@@ -76,26 +77,22 @@ export function OpportunityCard({
   }
 
   return (
-    <article className="grid min-w-0 gap-4 border border-zinc-200 bg-white p-4 sm:grid-cols-[7rem_minmax(0,1fr)]">
+    <article className={`grid min-w-0 self-start gap-3 rounded-md border border-zinc-200 bg-white p-3 ${product ? "sm:grid-cols-[4rem_minmax(0,1fr)]" : ""}`} data-opportunity-card>
       {product ? (
         <Link
           aria-label={`${locale === "ro" ? "Deschide produsul" : "Открыть товар"} ${product.name}`}
-          className="relative flex aspect-[4/3] items-center justify-center overflow-hidden rounded-md bg-zinc-100 outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+          className="relative flex size-16 items-center justify-center overflow-hidden rounded-md bg-zinc-100 outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
           href={href}
           prefetch={false}
         >
           <CatalogCardImage
             alt={`${product.name}, ${product.sku}`}
-            sizes="112px"
+            sizes="64px"
             src={product.reference?.thumbnail ?? product.imageUrl}
             variant="md"
           />
         </Link>
-      ) : (
-        <div className="relative flex aspect-[4/3] items-center justify-center overflow-hidden rounded-md bg-zinc-100">
-          <ShoppingCart aria-hidden="true" className="size-8 text-zinc-400" />
-        </div>
-      )}
+      ) : null}
       <div className="min-w-0">
         <div className="flex min-w-0 items-start justify-between gap-3">
           <div className="min-w-0">
@@ -136,7 +133,7 @@ export function OpportunityCard({
           </button>
         </div>
 
-        <p className="mt-3 text-sm font-medium text-zinc-800">
+        <p className="mt-2 text-sm text-zinc-700">
           {primaryReason(opportunity, locale)}
         </p>
         {opportunity.secondaryReasons.length ? (
@@ -153,15 +150,15 @@ export function OpportunityCard({
         ) : null}
 
         {product ? (
-          <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
+          <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
             <div>{priceLabel(product, locale, partnerPriceOnly)}</div>
             <div>{availabilityLabel(product, locale)}</div>
           </div>
         ) : null}
 
-        <div className="mt-4 flex flex-wrap items-start gap-2">
+        <div className="mt-3 flex flex-wrap items-start gap-2">
           {product && canAddToOrder && canAddProduct(opportunity, addedToSelection) ? (
-            <div className="min-w-[15rem] flex-1">
+            <div className="min-w-0 basis-full">
               <CatalogQuantityCartAction
                 initialQuantity={suggestedQuantity(opportunity)}
                 onSuccess={() => {
@@ -195,7 +192,7 @@ export function OpportunityCard({
           ) : null}
           {!product ? (
             <Link
-              className="inline-flex min-h-11 items-center gap-2 rounded-md border border-zinc-300 px-4 text-sm font-semibold text-zinc-800 focus-visible:ring-2 focus-visible:ring-emerald-500"
+              className={actionClassName.primary}
               href={href}
               onClick={() =>
                 recordBehaviorInteraction({
@@ -271,7 +268,7 @@ function primaryReason(
   const value = opportunity.reasonMetadata;
   if (locale === "ro") {
     if (opportunity.reasonCode === "related_to_regular_purchase")
-      return `Selectat ca produs complementar pentru ${textValue(value.sourceProductName)}: ${numberValue(value.sourcePurchaseCount, locale)} comenzi confirmate ale companiei.`;
+      return `Completează ${textValue(value.sourceProductName)} · ${numberValue(value.sourcePurchaseCount, locale)} achiziții confirmate.`;
     if (opportunity.reasonCode === "back_in_stock")
       return "Produsul din lista dvs. este din nou disponibil.";
     if (opportunity.reasonCode === "confirmed_arrival")
@@ -287,7 +284,7 @@ function primaryReason(
     if (opportunity.reasonCode === "template_fully_ready")
       return `Toate cele ${numberValue(value.itemCount, locale)} poziții din set sunt disponibile.`;
     if (opportunity.reasonCode === "template_mostly_ready")
-      return `${numberValue(value.availableCount, locale)} din ${numberValue(value.itemCount, locale)} poziții sunt disponibile, iar ${numberValue(value.expectedCount, locale)} sunt așteptate.`;
+      return `${numberValue(value.availableCount, locale)} din ${numberValue(value.itemCount, locale)} poziții disponibile${Number(value.expectedCount) > 0 ? ` · ${numberValue(value.expectedCount, locale)} așteptate` : ""}`;
     if (opportunity.reasonCode === "previous_order_repeatable")
       return `${numberValue(value.eligibleCount, locale)} din ${numberValue(value.itemCount, locale)} poziții ale comenzii sunt din nou disponibile.`;
     if (opportunity.reasonCode === "relevant_merchandising")
@@ -295,7 +292,7 @@ function primaryReason(
     return "Condițiile comerciale pentru un produs relevant s-au modificat.";
   }
   if (opportunity.reasonCode === "related_to_regular_purchase")
-    return `Подобран как дополнение к ${textValue(value.sourceProductName)}: ${numberValue(value.sourcePurchaseCount, locale)} подтверждённых закупок компанией.`;
+    return `Дополнение к ${textValue(value.sourceProductName)} · ${numberValue(value.sourcePurchaseCount, locale)} подтверждённых закупок.`;
   if (opportunity.reasonCode === "back_in_stock")
     return "Товар из вашего списка снова доступен.";
   if (opportunity.reasonCode === "confirmed_arrival")
@@ -311,7 +308,7 @@ function primaryReason(
   if (opportunity.reasonCode === "template_fully_ready")
     return `Все ${numberValue(value.itemCount, locale)} позиций комплекта доступны.`;
   if (opportunity.reasonCode === "template_mostly_ready")
-    return `${numberValue(value.availableCount, locale)} из ${numberValue(value.itemCount, locale)} позиций доступны, ещё ${numberValue(value.expectedCount, locale)} ожидаются.`;
+    return `${numberValue(value.availableCount, locale)} из ${numberValue(value.itemCount, locale)} позиций доступны${Number(value.expectedCount) > 0 ? ` · ${numberValue(value.expectedCount, locale)} ожидаются` : ""}`;
   if (opportunity.reasonCode === "previous_order_repeatable")
     return `Снова доступны ${numberValue(value.eligibleCount, locale)} из ${numberValue(value.itemCount, locale)} позиций заказа.`;
   if (opportunity.reasonCode === "relevant_merchandising")

@@ -36,7 +36,8 @@ describe("dashboard attention localization", () => {
 
   it("uses locale-aware relative days for overdue test equipment", () => {
     const item = presentDashboardAttention(fixture("test_return_overdue"), "ro", NOW);
-    expect(item.consequence).toBe("Perioada de testare s-a încheiat acum 52 de zile. Vă rugăm să returnați echipamentul în stare comercială la depozitul Novotech.");
+    expect(item.consequence).toBe("acum 52 de zile · Returnați echipamentul în stare comercială la depozitul Novotech.");
+    expect(item.consequence).not.toContain(item.title);
   });
 
   it("uses the approved Romanian relative-day glossary", () => {

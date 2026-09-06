@@ -54,8 +54,8 @@ export function presentDashboardAttention<T extends AttentionPresentationInput>(
         ? formatPartnerRelativeDate(item.plannedDate, locale, now)
         : null;
       const consequence = locale === "ro"
-        ? `Perioada de testare s-a încheiat${relative ? ` ${relative}` : ""}. Vă rugăm să returnați echipamentul în stare comercială la depozitul Novotech.`
-        : `Тестовый период завершён${relative ? ` ${relative}` : ""}. Просим вернуть оборудование в товарном виде на склад Novotech.`;
+        ? `${relative ? `${relative} · ` : ""}Returnați echipamentul în stare comercială la depozitul Novotech.`
+        : `${relative ? `${relative} · ` : ""}Верните оборудование в товарном виде на склад Novotech.`;
       return withPresentation(item, locale === "ro"
         ? ["Perioada de testare s-a încheiat", consequence, openOrder]
         : ["Тестовый период завершён", consequence, openOrder]);

@@ -125,6 +125,23 @@ describe("Partner Workspace operational home", () => {
     expect(attention?.textContent).not.toMatch(/[\u0400-\u04ff]|�/u);
   });
 
+  it.each(["ru", "ro"])("keeps %s test-return attention compact without duplicated state or timestamp", async (locale) => {
+    mocks.getPartnerLocale.mockResolvedValue(locale);
+    mocks.getWorkspaceHomeAction.mockResolvedValue({ success: true, data: { ...workspaceData(), attentionItems: [{
+      id: "test-order", kind: "test_return_overdue", title: "Old title", consequence: "Old body", href: "/cabinet/orders/test-order",
+      occurredAt: "2026-06-30T08:00:00Z", sourceFingerprint: "a".repeat(64), dismissPolicy: "until_source_change", severity: "warning",
+      orderNumber: "TEST-1", plannedDate: "2026-06-30", isTest: true, ctaLabel: "Open",
+    }] } });
+    const { container } = render(await CabinetPage());
+    const card = container.querySelector('[data-attention-card]');
+    expect(card).toHaveClass("p-3", "grid-cols-[20px_minmax(0,1fr)_44px]");
+    expect(screen.getAllByText(locale === "ru" ? "Тестовый период завершён" : "Perioada de testare s-a încheiat")).toHaveLength(1);
+    expect(screen.queryByText(locale === "ru" ? "Тестовый" : "Test", { exact: true })).toBeNull();
+    expect(card?.querySelector('a')).toHaveClass("min-h-11");
+    expect(card?.querySelector('form input[name="sourceFingerprint"]')).toHaveValue("a".repeat(64));
+    expect(card?.querySelector('button')).toHaveClass("size-11");
+  });
+
   it("redirects unauthenticated users", async () => {
     mocks.getWorkspaceHomeAction.mockResolvedValue({
       success: false,

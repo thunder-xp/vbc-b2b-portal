@@ -51,6 +51,8 @@ describe("mobile quick product commerce", () => {
     expect(screen.getByRole("link", { name: purchased })).toHaveAttribute("href", "/cabinet/opportunities");
     expect(screen.getByRole("link", { name: favorites })).toHaveAttribute("href", "/cabinet/purchasing-lists?filter=favorites");
     expect(screen.queryByText(/Находите товары|Găsiți produse/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Введите или вставьте|Introduceți sau lipiți/)).not.toBeInTheDocument();
+    expect(screen.getByRole("navigation", { name: title })).toHaveClass("[&>a]:min-h-11");
     expect(screen.queryByRole("link", { name: /Открыть каталог|Категории|Deschide catalogul|Categorii/i })).not.toBeInTheDocument();
     expect(screen.queryByText(/Живой подбор товаров|Selecție live de produse/)).not.toBeInTheDocument();
   });

@@ -72,7 +72,7 @@ describe("OpportunityCard", () => {
   it("explains a related target factually in Russian and defaults quantity to one", () => {
     render(<OpportunityCard opportunity={related} />);
     expect(screen.getByText("Дополняющий товар")).toBeInTheDocument();
-    expect(screen.getByText("Подобран как дополнение к DH-IPC-HFW2531SP-S-0280B-S2: 4 подтверждённых закупок компанией.")).toBeInTheDocument();
+    expect(screen.getByText("Дополнение к DH-IPC-HFW2531SP-S-0280B-S2 · 4 подтверждённых закупок.")).toBeInTheDocument();
     expect(screen.getByRole("spinbutton", { name: "Количество товара" })).toHaveValue(1);
     expect(screen.getByText("Ваша цена")).toBeInTheDocument();
     expect(screen.queryByText("Розничная цена")).not.toBeInTheDocument();
@@ -81,7 +81,7 @@ describe("OpportunityCard", () => {
   it("uses equally factual Romanian related-product wording", () => {
     render(<PartnerLocaleProvider locale="ro"><OpportunityCard locale="ro" opportunity={related} /></PartnerLocaleProvider>);
     expect(screen.getByText("Produs complementar")).toBeInTheDocument();
-    expect(screen.getByText("Selectat ca produs complementar pentru DH-IPC-HFW2531SP-S-0280B-S2: 4 comenzi confirmate ale companiei.")).toBeInTheDocument();
+    expect(screen.getByText("Completează DH-IPC-HFW2531SP-S-0280B-S2 · 4 achiziții confirmate.")).toBeInTheDocument();
     expect(screen.getByRole("spinbutton", { name: "Cantitatea produsului" })).toHaveValue(1);
   });
 
@@ -128,6 +128,17 @@ describe("OpportunityCard", () => {
     expect(screen.getByText("Все 8 позиций комплекта доступны.")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Открыть комплекты/ })).toHaveAttribute("href", "/cabinet/purchasing-lists");
     expect(screen.queryByRole("img")).not.toBeInTheDocument();
+  });
+
+  it.each(["ru", "ro"] as const)("suppresses only zero expected counts and keeps compact kit geometry in %s", (locale) => {
+    const opportunity = { ...base, product: null, template: { id: "template-1", name: "test" }, type: "purchase_template_ready" as const, reasonCode: "template_mostly_ready", reasonMetadata: { itemCount: 14, availableCount: 13, expectedCount: 0 } };
+    const { container, rerender } = render(<OpportunityCard locale={locale} opportunity={opportunity} />);
+    expect(screen.getByText(locale === "ru" ? "13 из 14 позиций доступны" : "13 din 14 poziții disponibile")).toBeInTheDocument();
+    expect(container.textContent).not.toMatch(/0 ожидаются|0 așteptate/);
+    expect(container.querySelector('[data-opportunity-card]')).toHaveClass("self-start", "p-3");
+    expect(container.querySelector('.aspect-\\[4\\/3\\]')).toBeNull();
+    rerender(<OpportunityCard locale={locale} opportunity={{ ...opportunity, reasonMetadata: { ...opportunity.reasonMetadata, expectedCount: 1 } }} />);
+    expect(screen.getByText(locale === "ru" ? /1 ожидаются/ : /1 așteptate/)).toBeInTheDocument();
   });
 
   it("renders the canonical medium thumbnail from the product reference", () => {

@@ -6,7 +6,7 @@ import { listCommercialOpportunitiesAction } from "@/src/modules/commercial-oppo
 import { OpportunityCard } from "@/src/modules/commercial-opportunities/components";
 import type { CommercialOpportunityFilter } from "@/src/modules/commercial-opportunities/types";
 import { getPartnerWorkspaceContextAction } from "@/src/modules/partner-cabinet/actions";
-import { NumberedPagination } from "@/src/modules/platform-ui";
+import { NumberedPagination, PageHeader, actionClassName } from "@/src/modules/platform-ui";
 import { secondaryCopy } from "@/src/modules/partner-locale";
 import { getPartnerLocale } from "@/src/modules/partner-locale/server";
 import type { PartnerLocale } from "@/src/modules/partner-locale";
@@ -61,7 +61,7 @@ export default async function OpportunitiesPage({
     );
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 space-y-3">
       <BehaviorViewEvent
         dedupeKey={`opportunities:${filter}:${page}`}
         eventName="opportunities_opened"
@@ -69,17 +69,7 @@ export default async function OpportunitiesPage({
         route="/cabinet/opportunities"
         sourceSurface="opportunity_center"
       />
-      <header className="border-b border-zinc-200 pb-5">
-        <p className="text-xs font-semibold uppercase text-emerald-700">
-          {copy.opportunitiesEyebrow}
-        </p>
-        <h1 className="mt-1 text-2xl font-semibold text-zinc-950 sm:text-3xl">
-          {copy.opportunitiesTitle}
-        </h1>
-        <p className="mt-2 max-w-3xl text-sm text-zinc-600">
-          {copy.opportunitiesDescription}
-        </p>
-      </header>
+      <PageHeader compact title={copy.opportunitiesTitle} />
       <nav
         aria-label={copy.opportunitiesFilters}
         className="flex max-w-full gap-2 overflow-x-auto pb-1"
@@ -97,7 +87,7 @@ export default async function OpportunitiesPage({
         ))}
       </nav>
       {result.data.items.length ? (
-        <div className="grid gap-4 xl:grid-cols-2">
+        <div className="grid items-start gap-3 xl:grid-cols-2" data-opportunity-grid>
           {result.data.items.map((opportunity) => (
             <OpportunityCard
               canAddToOrder={
@@ -121,15 +111,12 @@ export default async function OpportunitiesPage({
           ))}
         </div>
       ) : (
-        <section className="border border-dashed border-zinc-300 bg-white px-6 py-12 text-center">
+        <section className="py-4" data-compact-empty>
           <h2 className="font-semibold text-zinc-950">
             {copy.opportunitiesEmpty}
           </h2>
-          <p className="mt-1 text-sm text-zinc-600">
-            {copy.opportunitiesEmptyHint}
-          </p>
           <Link
-            className="mt-4 inline-flex min-h-11 items-center rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white"
+            className={`${actionClassName.primary} mt-3`}
             href="/cabinet/catalog"
           >
             {copy.openCatalog}

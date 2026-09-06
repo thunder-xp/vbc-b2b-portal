@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 export function PageHeader({
   actions,
   breadcrumbs,
+  compact = false,
   description,
   eyebrow,
   filters,
@@ -11,6 +12,7 @@ export function PageHeader({
 }: {
   actions?: ReactNode;
   breadcrumbs?: ReactNode;
+  compact?: boolean;
   description?: ReactNode;
   eyebrow?: string;
   filters?: ReactNode;
@@ -18,7 +20,7 @@ export function PageHeader({
   title: ReactNode;
 }) {
   return (
-    <header className="border-b border-zinc-200 pb-5">
+    <header className={compact ? "min-w-0" : "border-b border-zinc-200 pb-5"} data-page-header>
       {breadcrumbs ? <nav aria-label="Хлебные крошки" className="mb-3 text-sm text-zinc-600">{breadcrumbs}</nav> : null}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">

@@ -142,16 +142,16 @@ function AttentionSection({
             const presentation = presentDashboardAttention(item, locale);
             return (
             <li
-              className="grid gap-3 px-4 py-4 sm:grid-cols-[auto_minmax(0,1fr)_auto_auto] sm:items-center"
+              className="grid grid-cols-[20px_minmax(0,1fr)_44px] gap-x-2 gap-y-2 p-3 sm:grid-cols-[20px_minmax(0,1fr)_auto_44px] sm:items-center"
+              data-attention-card
               key={`${item.kind}:${item.id}`}
             >
-              <span className="flex size-10 items-center justify-center rounded-md bg-amber-50 text-amber-700">
+              <span className="flex size-5 items-center justify-center text-amber-700">
                 <AlertTriangle aria-hidden="true" className="size-5" />
               </span>
               <div className="min-w-0">
                 {item.isTest ? (
                   <p className="mb-1 flex flex-wrap items-center gap-2 text-xs text-zinc-600">
-                    <span className="inline-flex rounded bg-amber-100 px-1.5 py-0.5 font-semibold text-amber-900">{partnerText(locale, "dashboard.test")}</span>
                     {item.orderNumber ? <span>{item.orderNumber}</span> : null}
                     {item.plannedDate ? <span>{partnerText(locale, "dashboard.until")} {formatDate(item.plannedDate, locale)}</span> : null}
                   </p>
@@ -160,12 +160,9 @@ function AttentionSection({
                 <p className="mt-1 text-sm text-zinc-600">
                   {presentation.consequence}
                 </p>
-                <p className="mt-1 text-xs text-zinc-500">
-                  {relativeDate(item.occurredAt, locale)}
-                </p>
               </div>
               <DashboardTrackedLink
-                className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-emerald-700 focus-visible:ring-2 focus-visible:ring-emerald-500"
+                className="col-start-2 inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-emerald-700 px-3 text-center text-sm font-semibold text-white focus-visible:ring-2 focus-visible:ring-emerald-500 sm:col-start-auto"
                 eventName="dashboard_attention_opened"
                 href={item.href}
                 metadataSafe={{ kind: item.kind }}
@@ -174,7 +171,7 @@ function AttentionSection({
                 {presentation.ctaLabel}
                 <ArrowRight aria-hidden="true" className="size-4" />
               </DashboardTrackedLink>
-              <form action={dismissDashboardAttentionAction}>
+              <form action={dismissDashboardAttentionAction} className="col-start-3 row-start-1 self-start sm:col-start-4">
                 <input name="itemId" type="hidden" value={item.id} />
                 <input name="sourceFingerprint" type="hidden" value={item.sourceFingerprint} />
                 <button aria-label={partnerText(locale, "dashboard.hideMessage")} className="inline-flex size-11 items-center justify-center rounded-md text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600" title={partnerText(locale, "dashboard.hideMessage")} type="submit">
@@ -525,10 +522,6 @@ function metricIcon(icon: "calendar" | "clock" | "confirmed") {
     return <PackageCheck aria-hidden="true" className={className} />;
   }
   return <Clock3 aria-hidden="true" className={className} />;
-}
-
-function relativeDate(value: string, locale: PartnerLocale): string {
-  return formatPartnerRelativeDate(value, locale) || partnerText(locale, "dashboard.datePending");
 }
 
 function shipmentDistance(value: string, locale: PartnerLocale): string {
