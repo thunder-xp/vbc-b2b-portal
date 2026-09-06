@@ -110,7 +110,13 @@ describe("B2B catalog list row", () => {
     renderList();
 
     const actions = screen.getByTestId("catalog-list-actions");
-    expect(actions).toHaveClass("items-center", "flex-wrap", "min-[1360px]:flex-nowrap");
+    expect(actions).toHaveClass(
+      "items-center",
+      "flex-wrap",
+      "xl:max-[1359px]:col-span-4",
+      "min-[1360px]:col-span-1",
+      "min-[1360px]:flex-nowrap",
+    );
     expect(actions).toContainElement(screen.getByTestId("quantity-cart"));
     for (const label of ["Favorite", "Estimate", "Compare"]) {
       expect(actions).toContainElement(screen.getByRole("button", { name: label }));
