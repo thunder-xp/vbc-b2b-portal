@@ -213,6 +213,10 @@ export class SupabaseFinanceRepository implements FinanceRepository {
         balanceRows: input.rows.length,
         obligationRows: input.obligations.length,
         exclusionRows: input.exclusions.length,
+        negativePlannedAmounts: input.obligations.filter((row) => Number(row.plannedAmount) < 0).length,
+        negativePaidAmounts: input.obligations.filter((row) => Number(row.paidAmount) < 0).length,
+        negativeRemainingAmounts: input.obligations.filter((row) => Number(row.remainingAmount) < 0).length,
+        invalidCurrencyCodes: input.obligations.filter((row) => !/^[A-Z0-9]{3,16}$/.test(row.currency)).length,
       });
       throw new FinanceRepositoryError();
     }
