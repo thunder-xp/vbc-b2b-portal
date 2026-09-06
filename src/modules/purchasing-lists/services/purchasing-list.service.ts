@@ -199,6 +199,20 @@ export class PurchasingListService {
     return this.repository.setFavorite(companyId, normalizedProductId, saved);
   }
 
+  /** Identity-preserving legacy recoveries use the original UUID in the canonical domain.
+   * Resolve only on legacy navigation; never add this lookup to Dashboard rendering.
+   */
+  async resolveLegacyKit(userId: string, sourceId: string): Promise<string | null> {
+    const companyId = await this.resolveCompany(userId, VIEW_PERMISSION);
+    const record = await this.repository.findById(requireUuid(sourceId));
+    if (!record || record.companyId !== companyId || record.archivedAt || record.isSystemFavorites
+      || (record.visibility === "private" && record.createdBy !== userId)) return null;
+    // Require explicit recovery provenance, not an unrelated coincidentally matching ID.
+    if (!record.items.length || record.items.some((item) =>
+      item.sourceType !== "duplicate" || item.sourceReferenceId !== sourceId)) return null;
+    return record.id;
+  }
+
   async getDetail(userId: string, listId: string): Promise<PurchasingListDetailDto> {
     const companyId = await this.resolveCompany(userId, VIEW_PERMISSION);
     const record = await this.repository.findById(requireUuid(listId));

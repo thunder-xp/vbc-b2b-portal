@@ -58,6 +58,13 @@ export async function listPurchasingListsAction(input: { search?: string; filter
   catch (error) { return failureFromError(error); }
 }
 
+export async function resolveLegacyPurchasingListAction(sourceId: string) {
+  const parsed = uuid.safeParse(sourceId);
+  if (!parsed.success) return invalidInput("Invalid kit.");
+  try { return success("Kit reference resolved.", await createPurchasingListService().resolveLegacyKit(await getAuthenticatedUserId(), parsed.data)); }
+  catch (error) { return failureFromError(error); }
+}
+
 export async function getPurchasingListAction(listId: string) {
   try { return success("Список закупок загружен.", await createPurchasingListService().getDetail(await getAuthenticatedUserId(), uuid.parse(listId))); }
   catch (error) { return failureFromError(error); }

@@ -41,6 +41,33 @@ describe("PurchasingListService", () => {
 
   afterEach(() => vi.useRealTimers());
 
+  it("resolves a recovered legacy kit without loading prices or catalog again", async () => {
+    const recovered = record();
+    recovered.items[0].sourceType = "duplicate";
+    recovered.items[0].sourceReferenceId = LIST;
+    vi.mocked(repository.findById).mockResolvedValue(recovered);
+    expect(await service.resolveLegacyKit(USER, LIST)).toBe(LIST);
+    expect(repository.findById).toHaveBeenCalledOnce();
+    expect(permission.ensurePermission).toHaveBeenCalledWith(USER, COMPANY, "purchasing_lists.view");
+    expect(catalog.getProductsByIds).not.toHaveBeenCalled();
+    expect(pricing.getProductCommercialViews).not.toHaveBeenCalled();
+    expect(repository.create).not.toHaveBeenCalled();
+  });
+
+  it.each(["missing", "company", "owner", "archive", "provenance", "favorites"] as const)("does not redirect an inaccessible or unrelated legacy identity: %s", async (reason) => {
+    const recovered = record();
+    recovered.items[0].sourceType = "duplicate";
+    recovered.items[0].sourceReferenceId = LIST;
+    if (reason === "company") recovered.companyId = ORDER;
+    if (reason === "owner") { recovered.visibility = "private"; recovered.createdBy = ORDER; }
+    if (reason === "archive") recovered.archivedAt = "2026-09-01T00:00:00Z";
+    if (reason === "provenance") recovered.items[0].sourceReferenceId = ORDER;
+    if (reason === "favorites") recovered.isSystemFavorites = true;
+    vi.mocked(repository.findById).mockResolvedValue(reason === "missing" ? null : recovered);
+    expect(await service.resolveLegacyKit(USER, LIST)).toBeNull();
+    expect(repository.create).not.toHaveBeenCalled();
+  });
+
   it.each(["private", "company"] as const)("creates a %s list with server-resolved company", async (visibility) => {
     await service.createManual(USER, { name: "  Cameras  ", visibility });
     expect(repository.create).toHaveBeenCalledWith(expect.objectContaining({ companyId: COMPANY, name: "Cameras", visibility, items: [] }));

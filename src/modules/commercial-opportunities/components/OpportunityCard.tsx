@@ -51,7 +51,7 @@ export function OpportunityCard({
   const href = product
     ? `/cabinet/catalog/${product.slug}`
     : template
-      ? "/cabinet/purchasing-lists"
+      ? `/cabinet/purchase-templates/${encodeURIComponent(template.id)}`
       : opportunity.type === "previous_order_repeatable"
         ? `/cabinet/orders/${opportunity.sourceId}`
         : "/cabinet/opportunities";
