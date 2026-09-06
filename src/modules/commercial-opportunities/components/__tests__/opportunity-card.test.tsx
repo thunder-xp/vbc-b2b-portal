@@ -60,6 +60,8 @@ describe("OpportunityCard", () => {
     const { container } = render(<OpportunityCard companyId="company-1" opportunity={base} userId="user-1" />);
     const actions = container.querySelector("[data-opportunity-actions]");
     expect(actions).not.toBeNull();
+    expect(actions).toHaveClass("flex-wrap", "sm:flex-nowrap");
+    expect(actions?.firstElementChild).toHaveClass("w-full", "sm:flex-1");
     expect(within(actions as HTMLElement).getAllByRole("button").map((button) => button.getAttribute("aria-label") ?? button.textContent?.trim())).toEqual([
       "В подборку",
       "Добавить в избранное",

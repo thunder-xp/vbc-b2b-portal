@@ -161,9 +161,9 @@ export function OpportunityCard({
           </div>
         ) : null}
 
-        <div className="mt-3 flex flex-nowrap items-start gap-2" data-opportunity-actions>
+        <div className="mt-3 flex flex-wrap items-start gap-2 sm:flex-nowrap" data-opportunity-actions>
           {product && canAddToOrder && canAddProduct(opportunity, addedToSelection) ? (
-            <div className="min-w-[11rem] flex-1">
+            <div className="w-full flex-none sm:min-w-[11rem] sm:flex-1">
               <CatalogQuantityCartAction
                 initialQuantity={suggestedQuantity(opportunity)}
                 onSuccess={() => {
