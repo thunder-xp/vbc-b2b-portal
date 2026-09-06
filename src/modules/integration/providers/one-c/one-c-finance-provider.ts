@@ -132,7 +132,7 @@ export class OneCFinanceProvider implements FinanceProvider {
     requireTimestamp(input.synchronizedAt);
     const startDate = validObservationStartDate(input.observationStartDate);
     const sourceFilter = `Контрагент_Key eq guid'${counterpartyRef}' and Организация_Key eq guid'${organizationRef}' and Date ge datetime'${startDate}T00:00:00'`;
-    const orderFilter = `${sourceFilter} and ЗапланироватьОплату eq true`;
+    const orderFilter = sourceFilter;
     const balanceCondition = `Организация_Key eq guid'${organizationRef}' and Контрагент_Key eq guid'${counterpartyRef}'`;
 
     const [ordersPage, bankPage, cashPage, balanceRows] = await Promise.all([

@@ -123,6 +123,9 @@ describe("OneCFinanceProvider", () => {
     expect(result.items[0]?.allocations).toEqual([expect.objectContaining({ paymentType: "bank", posted: true, deletionMarked: false, settlementAmount: 615.6 })]);
     expect(result.diagnostics).toMatchObject({ ordersReceived: 1, bankPaymentsReceived: 2, cashPaymentsReceived: 1, oneCCallCount: 6 });
     expect(fetchMock).toHaveBeenCalledTimes(6);
+    const orderRequest = fetchMock.mock.calls.map(([input]) => decodeURIComponent(String(input)))
+      .find((url) => url.includes("Document_ЗаказПокупателя?"));
+    expect(orderRequest).not.toContain("ЗапланироватьОплату eq true");
   });
 
   it("does not infer settlement when the authoritative order balance is absent", async () => {
