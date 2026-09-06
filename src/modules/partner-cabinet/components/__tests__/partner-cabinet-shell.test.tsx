@@ -246,7 +246,10 @@ describe("Partner workspace shell", () => {
 
     expect(screen.getByText("GOLD")).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "Partner Company" })).toHaveTextContent("PC");
-    expect(screen.getByRole("menuitem", { name: "Переключить интерфейс на румынский" })).toBeInTheDocument();
+    const languageAction = screen.getByRole("menuitem", { name: "Переключить интерфейс на румынский" });
+    expect(within(languageAction).getByText("Язык")).toBeInTheDocument();
+    expect(within(languageAction).getByText("Русский")).toBeInTheDocument();
+    expect(within(languageAction).getByText("Română")).toBeInTheDocument();
     expect(document.querySelector('[data-header-control="language"]')).toBeNull();
   });
 

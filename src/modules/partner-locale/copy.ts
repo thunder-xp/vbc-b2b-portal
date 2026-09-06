@@ -49,6 +49,9 @@ const ru = {
   "shell.notifications": "Уведомления",
   "shell.profile": "Профиль",
   "shell.signOut": "Выйти",
+  "shell.language": "Язык",
+  "shell.russian": "Русский",
+  "shell.romanian": "Română",
   "shell.switchToRomanian": "Переключить интерфейс на румынский",
   "shell.switchToRussian": "Переключить интерфейс на русский",
   "shell.unsavedChanges":
@@ -225,6 +228,9 @@ const ro: Record<PartnerTranslationKey, string> = {
   "shell.notifications": "Notificări",
   "shell.profile": "Profil",
   "shell.signOut": "Ieșire",
+  "shell.language": "Limbă",
+  "shell.russian": "Русский",
+  "shell.romanian": "Română",
   "shell.switchToRomanian": "Comută interfața în limba română",
   "shell.switchToRussian": "Comută interfața în limba rusă",
   "shell.unsavedChanges":

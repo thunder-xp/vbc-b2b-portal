@@ -13,6 +13,14 @@ export function PartnerLanguageSwitch({ locale, variant = "header" }: { locale: 
   const [pending, startTransition] = useTransition();
   const nextLocale = locale === "ru" ? "ro" : "ru";
   const label = locale === "ru" ? "RO" : "RU";
+  const currentLanguage = partnerText(
+    locale,
+    locale === "ru" ? "shell.russian" : "shell.romanian",
+  );
+  const nextLanguage = partnerText(
+    locale,
+    locale === "ru" ? "shell.romanian" : "shell.russian",
+  );
   const accessibleLabel = partnerText(
     locale,
     locale === "ru" ? "shell.switchToRomanian" : "shell.switchToRussian",
@@ -40,7 +48,7 @@ export function PartnerLanguageSwitch({ locale, variant = "header" }: { locale: 
       type="button"
       role={variant === "menu" ? "menuitem" : undefined}
     >
-      {variant === "menu" ? <><Languages aria-hidden="true" className="size-4" /><span className="flex-1 text-left">{accessibleLabel}</span><span className="text-xs font-semibold">{label}</span></> : label}
+      {variant === "menu" ? <><Languages aria-hidden="true" className="size-4" /><span className="flex flex-1 flex-col text-left leading-tight"><span>{partnerText(locale, "shell.language")}</span><span className="text-xs font-normal text-zinc-500">{currentLanguage}</span></span><span className="text-xs font-semibold">{nextLanguage}</span></> : label}
     </button>
   );
 }
