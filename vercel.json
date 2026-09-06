@@ -46,7 +46,7 @@
     },
     {
       "path": "/api/cron/finance-contract-balances",
-      "schedule": "32 11 6 9 *"
+      "schedule": "5 * * * *"
     },
     {
       "path": "/api/cron/partner-notification-deadlines",

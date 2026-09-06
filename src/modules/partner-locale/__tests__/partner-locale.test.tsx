@@ -7,7 +7,8 @@ import { partnerText } from "../copy";
 import { formatPartnerDateTime } from "../format";
 import { isPartnerLocale, partnerLocaleTag } from "../locale";
 
-const { setLocale } = vi.hoisted(() => ({ setLocale: vi.fn() }));
+const { refresh, setLocale } = vi.hoisted(() => ({ refresh: vi.fn(), setLocale: vi.fn() }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
 vi.mock("../actions", () => ({ setPartnerLocaleAction: (locale: string) => setLocale(locale) }));
 
 describe("partner locale", () => {
@@ -31,6 +32,7 @@ describe("partner locale", () => {
     const { rerender } = render(<PartnerLanguageSwitch locale="ru" />);
     await user.click(screen.getByRole("button", { name: "Переключить интерфейс на румынский" }));
     expect(setLocale).toHaveBeenCalledWith("ro");
+    expect(refresh).toHaveBeenCalledOnce();
 
     rerender(<PartnerLanguageSwitch locale="ro" />);
     expect(screen.getByRole("button", { name: "Comută interfața în limba rusă" })).toHaveTextContent("RU");

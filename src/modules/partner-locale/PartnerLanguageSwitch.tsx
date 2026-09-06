@@ -1,12 +1,14 @@
 "use client";
 
 import { useTransition } from "react";
+import { useRouter } from "next/navigation";
 
 import { setPartnerLocaleAction } from "./actions";
 import { partnerText } from "./copy";
 import type { PartnerLocale } from "./locale";
 
 export function PartnerLanguageSwitch({ locale }: { locale: PartnerLocale }) {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const nextLocale = locale === "ru" ? "ro" : "ru";
   const label = locale === "ru" ? "RO" : "RU";
@@ -26,7 +28,10 @@ export function PartnerLanguageSwitch({ locale }: { locale: PartnerLocale }) {
           cancelable: true,
         });
         if (!window.dispatchEvent(event)) return;
-        startTransition(() => setPartnerLocaleAction(nextLocale));
+        startTransition(async () => {
+          await setPartnerLocaleAction(nextLocale);
+          router.refresh();
+        });
       }}
       title={accessibleLabel}
       type="button"
