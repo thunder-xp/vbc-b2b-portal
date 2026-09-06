@@ -26,8 +26,51 @@ describe("FinanceOverview states", () => {
     expect(screen.getByText("NS-1")).toBeInTheDocument();
     expect(screen.getAllByText(/Обновлено/).length).toBeGreaterThan(0);
   });
+  it("renders the mobile-first chronological payment calendar, partial amounts, history and order navigation in RO", () => {
+    const model = overview("synchronized_nonzero");
+    model.paymentCalendar = {
+      freshness: "FINANCE_DATA_FRESH", synchronizedAt: "2026-09-06T08:00:00Z", unavailableCount: 1,
+      summaries: [
+        { currency: "MDL", outstanding: "1750.40", overdue: "1750.40", nextPaymentAmount: "1750.40", nextPaymentDueDate: "2026-09-03" },
+        { currency: "USD", outstanding: "50.00", overdue: "0.00", nextPaymentAmount: "50.00", nextPaymentDueDate: "2026-09-09" },
+      ],
+      current: [payment("partial", "CO-PARTIAL", "2026-09-03", "MDL", "2366", "615.60", "1750.40", "PARTIAL", -3, "overdue"), payment("future", "CO-FUTURE", "2026-09-09", "USD", "50", "0", "50", "OPEN", 3, "upcoming")],
+      settled: [payment("settled", "CO-SETTLED", "2026-09-01", "MDL", "100", "100", "0", "SETTLED", -5, "settled")],
+    };
+    const { container } = render(<FinanceOverview locale="ro" overview={model} />);
+    expect(screen.getByRole("heading", { name: "Calendar de plăți" })).toBeInTheDocument();
+    expect(screen.getByText("CO-PARTIAL", { exact: false })).toBeInTheDocument();
+    expect(screen.getAllByText("1.750,40 MDL").length).toBeGreaterThan(0);
+    expect(screen.getByText(/nu sunt afișate/)).toBeInTheDocument();
+    expect(screen.getByText(/Achitate/)).toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: /Deschide comanda/ })[0]).toHaveAttribute("href", "/cabinet/orders?query=CO-PARTIAL");
+    expect(container.querySelector("table")).toBeNull();
+    expect(container.innerHTML).toContain("md:grid-cols-");
+  });
 });
 
 function overview(state: Model["state"]): Model {
-  return { summaries: [], contracts: [], synchronizedAt: null, state, showLastConfirmedNotice: false };
+  return {
+    summaries: [],
+    contracts: [],
+    synchronizedAt: null,
+    state,
+    showLastConfirmedNotice: false,
+    paymentCalendar: {
+      summaries: [], current: [], settled: [], freshness: "FINANCE_DATA_STALE",
+      synchronizedAt: null, unavailableCount: 0,
+    },
+  };
+}
+
+function payment(id: string, orderNumber: string, dueDate: string, currency: string, plannedAmount: string, paidAmount: string, remainingAmount: string, paymentStatus: Model["paymentCalendar"]["current"][number]["paymentStatus"], daysFromDue: number, timing: Model["paymentCalendar"]["current"][number]["timing"]): Model["paymentCalendar"]["current"][number] {
+  return {
+    id, companyId: "company", oneCOrderId: crypto.randomUUID(), orderNumber, orderDate: "2026-09-01",
+    oneCCounterpartyId: null, oneCContractId: null, oneCOrganizationId: null, scheduleLineNumber: 1,
+    sourceOrderDataVersion: "v1", paymentPercent: "100", plannedAmount, vatAmount: "0", currency,
+    dueDate, paymentMethod: "bank", bankAccountId: null, bankAccountName: null, paidAmount, remainingAmount,
+    paymentStatus, settlementLastPaymentAt: null, orderPosted: true, orderDeletionMark: false, orderStatus: null,
+    reconciliationStatus: "READY", unsupportedReason: null, sourceModifiedAt: null,
+    sourceObservedAt: "2026-09-06T08:00:00Z", syncedAt: "2026-09-06T08:00:00Z", daysFromDue, timing,
+  };
 }

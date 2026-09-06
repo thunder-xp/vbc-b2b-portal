@@ -9,7 +9,8 @@ describe("finance contract-balance scheduled route", () => {
   it("uses cron authentication and global overlap protection", () => {
     expect(route).toContain("await authorizeCronRequest(request)");
     expect(route).toContain('acquireSyncRunLock("scheduled_finance_contract_balances"');
-    expect(route).toContain("createFinanceSyncCoordinator().synchronizeCompanies");
+    expect(route).toContain("createFinanceSyncCoordinator().synchronizeAllCompanies");
+    expect(route).toContain("createFinanceReminderDryRunService().run()");
   });
 
   it("runs hourly and never synchronizes during page rendering", () => {

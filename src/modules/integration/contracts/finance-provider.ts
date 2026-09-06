@@ -5,6 +5,7 @@ import type {
   IntegrationSyncWindowDTO,
   InvoiceDTO,
   ContractBalanceDTO,
+  PaymentObligationSourceDTO,
 } from "../dto";
 
 export type FinanceFetchRequestDTO = IntegrationSyncWindowDTO & {
@@ -36,10 +37,31 @@ export type ContractBalanceFetchResultDTO = IntegrationPageResultDTO<ContractBal
   diagnostics?: ContractBalanceFetchDiagnosticsDTO;
 };
 
+export type PaymentObligationFetchRequestDTO = ContractBalanceFetchRequestDTO & {
+  observationStartDate?: string;
+};
+
+export type PaymentObligationFetchDiagnosticsDTO = {
+  ordersReceived: number;
+  paymentCalendarOrders: number;
+  emptyCalendarOrders: number;
+  bankPaymentsReceived: number;
+  cashPaymentsReceived: number;
+  balanceRowsReceived: number;
+  oneCCallCount: number;
+};
+
+export type PaymentObligationFetchResultDTO = IntegrationPageResultDTO<PaymentObligationSourceDTO> & {
+  diagnostics: PaymentObligationFetchDiagnosticsDTO;
+};
+
 export interface FinanceProvider {
   fetchContractBalances(
     input: ContractBalanceFetchRequestDTO,
   ): Promise<ContractBalanceFetchResultDTO>;
+  fetchPaymentObligations(
+    input: PaymentObligationFetchRequestDTO,
+  ): Promise<PaymentObligationFetchResultDTO>;
   fetchFinanceSnapshots(
     input: FinanceFetchRequestDTO,
   ): Promise<IntegrationPageResultDTO<FinanceSnapshotDTO>>;

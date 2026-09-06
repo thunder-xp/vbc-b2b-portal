@@ -2,7 +2,7 @@ import { after, NextResponse } from "next/server";
 
 import { authorizeCronRequest } from "@/src/lib/cron-auth";
 import { acquireSyncRunLock, releaseSyncRunLock } from "@/src/modules/integration/sync";
-import { createFinanceSyncCoordinator } from "@/src/modules/finance/actions/service-factory";
+import { createFinanceReminderDryRunService, createFinanceSyncCoordinator } from "@/src/modules/finance/actions/service-factory";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -15,7 +15,8 @@ export async function GET(request: Request) {
 
   after(async () => {
     try {
-      const result = await createFinanceSyncCoordinator().synchronizeCompanies({ trigger: "scheduled", actorUserId: null });
+      const result = await createFinanceSyncCoordinator().synchronizeAllCompanies({ trigger: "scheduled", actorUserId: null });
+      const reminderDryRun = await createFinanceReminderDryRunService().run();
       console.info({
         event: result.failed ? "sync_completed_with_warnings" : "sync_completed",
         domain: "finance_contract_balances",
@@ -27,8 +28,15 @@ export async function GET(request: Request) {
         failed: result.failed,
         locked: result.locked,
         publishedRows: result.publishedRows,
+        publishedObligations: result.publishedObligations,
+        publishedExclusions: result.publishedExclusions,
         oneCCallCount: result.oneCCallCount,
         durationMs: result.durationMs,
+        reminderPolicy: reminderDryRun.policyVersion,
+        reminderOutboundMode: reminderDryRun.outboundMode,
+        reminderEligibleCompanies: reminderDryRun.eligibleCompanyCount,
+        reminderProjectedEmails: reminderDryRun.projectedEmailCount,
+        reminderProjectedInApp: reminderDryRun.projectedInAppCount,
         deployedCommitSha: process.env.VERCEL_GIT_COMMIT_SHA?.trim() || "local",
       });
     } catch (error) {

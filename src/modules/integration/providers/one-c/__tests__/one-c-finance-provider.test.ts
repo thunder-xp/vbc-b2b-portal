@@ -82,6 +82,69 @@ describe("OneCFinanceProvider", () => {
     expect(fetchMock).toHaveBeenCalledTimes(3);
     expect(result.diagnostics?.oneCCallCount).toBe(3);
   });
+
+  it("batch-loads payment obligations and excludes unposted or deleted payment allocations", async () => {
+    const order = "33333333-3333-4333-8333-333333333333";
+    const postedPayment = "44444444-4444-4444-8444-444444444444";
+    const ignoredPayment = "55555555-5555-4555-8555-555555555555";
+    const fetchMock = vi.fn<(input: URL | RequestInfo) => Promise<Response>>().mockImplementation(async (input) => {
+      const url = decodeURIComponent(String(input));
+      if (url.includes("Document_ЗаказПокупателя?")) return json({ value: [{
+        Ref_Key: order, DataVersion: "order-v1", Number: "CO-100", Date: "2026-09-01T00:00:00",
+        DeletionMark: false, Posted: true, БанковскийСчет_Key: "00000000-0000-0000-0000-000000000000",
+        ВалютаДокумента_Key: currency, ДатаИзменения: "2026-09-05T08:00:00", Договор_Key: contract,
+        ЗапланироватьОплату: true, Контрагент_Key: counterparty, Организация_Key: organization,
+        СуммаДокумента: 2366, ТипДенежныхСредств: "Безналичные", СостояниеЗаказа_Key: "accepted",
+        ПлатежныйКалендарь: [{ LineNumber: 1, ДатаОплаты: "2026-09-09T00:00:00", ПроцентОплаты: 100, СуммаОплаты: 2366, СуммаНДСОплаты: 394.33 }],
+      }] });
+      if (url.includes("Document_ПоступлениеНаСчет?")) return json({ value: [
+        payment(postedPayment, order, 615.6, true, false),
+        payment(ignoredPayment, order, 500, false, false),
+      ] });
+      if (url.includes("Document_ПоступлениеВКассу?")) return json({ value: [payment(crypto.randomUUID(), order, 250, true, true)] });
+      if (url.includes("Dimensions='Договор,Заказ'")) return json({ value: [{ Заказ: order, Заказ_Type: "StandardODATA.Document_ЗаказПокупателя", СуммаBalance: 1750.4 }] });
+      if (url.includes("Catalog_ДоговорыКонтрагентов?")) return json({ value: [contractRow(contract)] });
+      if (url.includes("Catalog_Валюты?")) return json({ value: [{ Ref_Key: currency, Code: "498", Description: "MDL", DeletionMark: false }] });
+      throw new Error(`Unexpected test URL: ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await new OneCFinanceProvider(config()).fetchPaymentObligations({
+      counterpartyReference: ref(counterparty, "counterparty"),
+      organizationReference: ref(organization, "organization"),
+      synchronizedAt: "2026-09-06T08:00:00.000Z",
+    });
+
+    expect(result.items).toEqual([expect.objectContaining({
+      orderNumber: "CO-100", sourceOrderDataVersion: "order-v1", paidAmount: 615.6,
+      remainingAmount: 1750.4, latestPaymentAt: "2026-09-05T07:00:00.000Z",
+      calendarRows: [{ lineNumber: 1, dueDate: "2026-09-09", paymentPercent: 100, plannedAmount: 2366, vatAmount: 394.33 }],
+    })]);
+    expect(result.items[0]?.allocations).toEqual([expect.objectContaining({ paymentType: "bank", posted: true, deletionMarked: false, settlementAmount: 615.6 })]);
+    expect(result.diagnostics).toMatchObject({ ordersReceived: 1, bankPaymentsReceived: 2, cashPaymentsReceived: 1, oneCCallCount: 6 });
+    expect(fetchMock).toHaveBeenCalledTimes(6);
+  });
+
+  it("does not infer settlement when the authoritative order balance is absent", async () => {
+    const order = "33333333-3333-4333-8333-333333333333";
+    const fetchMock = vi.fn<(input: URL | RequestInfo) => Promise<Response>>().mockImplementation(async (input) => {
+      const url = decodeURIComponent(String(input));
+      if (url.includes("Document_ЗаказПокупателя?")) return json({ value: [{
+        Ref_Key: order, DataVersion: "v", Number: "CO-101", Date: "2026-09-01T00:00:00", DeletionMark: false, Posted: true,
+        БанковскийСчет_Key: "00000000-0000-0000-0000-000000000000", ВалютаДокумента_Key: currency,
+        Договор_Key: contract, Контрагент_Key: counterparty, Организация_Key: organization,
+        ПлатежныйКалендарь: [{ LineNumber: 1, ДатаОплаты: "2026-09-09T00:00:00", ПроцентОплаты: 100, СуммаОплаты: 100, СуммаНДСОплаты: 16.67 }],
+      }] });
+      if (url.includes("Document_ПоступлениеНаСчет?")) return json({ value: [payment(crypto.randomUUID(), order, 100, true, false)] });
+      if (url.includes("Document_ПоступлениеВКассу?") || url.includes("Dimensions='Договор,Заказ'")) return json({ value: [] });
+      if (url.includes("Catalog_ДоговорыКонтрагентов?")) return json({ value: [contractRow(contract)] });
+      if (url.includes("Catalog_Валюты?")) return json({ value: [{ Ref_Key: currency, Code: "498", Description: "MDL", DeletionMark: false }] });
+      throw new Error(`Unexpected test URL: ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const result = await new OneCFinanceProvider(config()).fetchPaymentObligations({ counterpartyReference: ref(counterparty, "counterparty"), organizationReference: ref(organization, "organization"), synchronizedAt: "2026-09-06T08:00:00Z" });
+    expect(result.items[0]).toMatchObject({ paidAmount: 100, remainingAmount: null });
+  });
 });
 
 function json(value: unknown) {
@@ -94,6 +157,13 @@ function ref(externalId: string, externalType: string) {
 
 function contractRow(reference: string) {
   return { Ref_Key: reference, Code: "C", Description: "Contract", Owner: counterparty, Owner_Type: "StandardODATA.Catalog_Контрагенты", НомерДоговора: "C", ВалютаРасчетов_Key: currency, Организация_Key: organization, ВидДоговора: "СПокупателем", DeletionMark: false, Недействителен: false };
+}
+
+function payment(reference: string, order: string, amount: number, posted: boolean, deletionMark: boolean) {
+  return {
+    Ref_Key: reference, DataVersion: "payment-v1", Date: "2026-09-05T10:00:00", Posted: posted, DeletionMark: deletionMark,
+    РасшифровкаПлатежа: [{ Заказ: order, Заказ_Type: "StandardODATA.Document_ЗаказПокупателя", СуммаРасчетов: amount }],
+  };
 }
 
 function config(): OneCProviderConfig {

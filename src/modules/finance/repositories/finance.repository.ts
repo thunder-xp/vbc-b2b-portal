@@ -1,5 +1,17 @@
 import type { ContractBalanceDTO } from "../../integration/dto";
-import type { FinanceSyncCompany, FinanceSyncState, PartnerContractBalance } from "../types";
+import type {
+  FinanceSyncCompany,
+  FinanceSyncState,
+  PartnerContractBalance,
+  PartnerPaymentObligation,
+  PaymentObligationExclusion,
+  PublishPaymentObligation,
+  FinanceReminderCandidate,
+  FinanceReminderDryRun,
+  FinanceReminderProjection,
+  FinanceReminderSuppression,
+  AdminFinanceOperations,
+} from "../types";
 import type { ContractBalanceFetchDiagnosticsDTO } from "../../integration/contracts";
 
 export type PublishContractBalanceSnapshotInput = {
@@ -9,10 +21,33 @@ export type PublishContractBalanceSnapshotInput = {
   rows: ContractBalanceDTO[];
 };
 
+export type PublishFinanceSnapshotInput = PublishContractBalanceSnapshotInput & {
+  obligations: PublishPaymentObligation[];
+  exclusions: PaymentObligationExclusion[];
+  durationMs: number;
+  obligationDiagnostics: {
+    ordersReceived: number;
+    paymentCalendarOrders: number;
+    emptyCalendarOrders: number;
+    bankPaymentsReceived: number;
+    cashPaymentsReceived: number;
+    balanceRowsReceived: number;
+    oneCCallCount: number;
+  };
+  balanceDiagnostics: ContractBalanceFetchDiagnosticsDTO;
+  trigger: "manual" | "scheduled";
+  actorUserId: string | null;
+};
+
 export interface FinanceRepository {
   canRunFinanceSync(): Promise<boolean>;
   listActiveContractBalances(companyId: string): Promise<PartnerContractBalance[]>;
-  getOverviewData(companyId: string): Promise<{ balances: PartnerContractBalance[]; syncState: FinanceSyncState | null }>;
+  getOverviewData(companyId: string): Promise<{
+    balances: PartnerContractBalance[];
+    obligations: PartnerPaymentObligation[];
+    unavailableCount: number;
+    syncState: FinanceSyncState | null;
+  }>;
   getSyncCompany(companyId: string): Promise<FinanceSyncCompany | null>;
   listSyncCompanies(input: { afterCompanyId?: string; limit: number }): Promise<FinanceSyncCompany[]>;
   publishContractBalanceSnapshot(input: PublishContractBalanceSnapshotInput): Promise<number>;
@@ -22,6 +57,15 @@ export interface FinanceRepository {
     trigger: "manual" | "scheduled";
     actorUserId: string | null;
   }): Promise<number>;
+  publishFinanceSnapshot(input: PublishFinanceSnapshotInput): Promise<{ balances: number; obligations: number; exclusions: number }>;
+  getReminderDryRunInput(): Promise<FinanceReminderCandidate[]>;
+  publishReminderDryRun(input: {
+    businessDate: string;
+    durationMs: number;
+    projections: FinanceReminderProjection[];
+    suppressions: FinanceReminderSuppression[];
+  }): Promise<FinanceReminderDryRun>;
+  getAdminFinanceOperations(): Promise<AdminFinanceOperations>;
   recordSyncResult(input: {
     companyId: string;
     status: "running" | "failed" | "mapping_missing" | "locked";

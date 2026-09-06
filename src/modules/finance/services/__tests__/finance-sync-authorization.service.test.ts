@@ -22,5 +22,5 @@ function profiles(userType: UserType): UserProfileService {
 }
 
 function repo(allowed: boolean): FinanceRepository {
-  return { canRunFinanceSync: vi.fn().mockResolvedValue(allowed), listActiveContractBalances: vi.fn(), getOverviewData: vi.fn(), getSyncCompany: vi.fn(), listSyncCompanies: vi.fn(), publishContractBalanceSnapshot: vi.fn(), publishContractBalanceSnapshotV2: vi.fn(), recordSyncResult: vi.fn() };
+  return { canRunFinanceSync: vi.fn().mockResolvedValue(allowed), listActiveContractBalances: vi.fn(), getOverviewData: vi.fn(), getSyncCompany: vi.fn(), listSyncCompanies: vi.fn(), publishContractBalanceSnapshot: vi.fn(), publishContractBalanceSnapshotV2: vi.fn(), publishFinanceSnapshot: vi.fn(), getReminderDryRunInput: vi.fn(), publishReminderDryRun: vi.fn(), getAdminFinanceOperations: vi.fn(), recordSyncResult: vi.fn() };
 }

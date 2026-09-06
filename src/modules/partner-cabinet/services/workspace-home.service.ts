@@ -30,6 +30,8 @@ import type { PartnerMomentumRepository } from "../../partner-momentum/repositor
 import type { PartnerMomentumSummary } from "../../partner-momentum/types";
 import type { PartnerSupportRepository, SupportDashboardItem } from "../../partner-support";
 import type { PartnerEstimateSalesOpportunity, PartnerSalesWorkspaceService } from "../../partner-sales-workspace";
+import type { FinanceRepository } from "../../finance/repositories";
+import { financeBusinessDate } from "../../finance/services/finance.service";
 
 export type WorkspaceQuickActionDto = {
   key: string;
@@ -138,6 +140,12 @@ export type WorkspaceHomeDto = {
     lastSuccessfulAt: string | null;
     stale: boolean;
   };
+  financeGuidance: null | {
+    state: "overdue" | "due_soon" | "healthy" | "unavailable";
+    totals: Array<{ currency: string; outstanding: number; overdue: number }>;
+    nextDueDate: string | null;
+    fresh: boolean;
+  };
   companySummary: null | {
     activeEmployees: number;
     pendingInvitations: number;
@@ -177,6 +185,7 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
     private readonly momentumRepository?: PartnerMomentumRepository,
     private readonly supportRepository?: PartnerSupportRepository,
     private readonly salesWorkspaceService?: PartnerSalesWorkspaceService,
+    private readonly financeRepository?: FinanceRepository,
   ) {}
 
   async dismissAttention(
@@ -206,7 +215,8 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
     }
     const companyId = context.companyId;
 
-    const [freshness, dashboard, selections, opportunityPage, campaignPage, supportTickets, estimateSalesOpportunities] = await Promise.all([
+    const canViewFinance = context.capabilities.navigation.some((item) => item.key === "finance" && item.availability === "available");
+    const [freshness, dashboard, selections, opportunityPage, campaignPage, supportTickets, estimateSalesOpportunities, financeData] = await Promise.all([
       timedDashboardRead("commercial_freshness", () => this.commercialFreshnessReadModel.getFreshness()),
       timedDashboardRead("dashboard_aggregate", () => this.dashboardRepository.getDashboard(companyId)),
       timedDashboardRead("product_selections", () => this.dashboardRepository.getProductSelections?.(userId, companyId, loginGeneration) ?? Promise.resolve(null)),
@@ -221,6 +231,9 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
         canConvert: context.capabilities.canConvertEstimates,
         canManageOrders: context.capabilities.productCard.canAddToOrder,
       }, 6) ?? Promise.resolve([])),
+      timedDashboardRead("finance_guidance", () => canViewFinance && this.financeRepository
+        ? this.financeRepository.getOverviewData(companyId)
+        : Promise.resolve(null)),
     ]);
     const reorderCandidates = sessionOrder(
       selections?.previousProducts ?? dashboard.reorderProducts,
@@ -345,6 +358,7 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
       campaigns: campaignPage.items,
       recentDocuments: [],
       financeSummary: dashboard.financeSummary,
+      financeGuidance: financeData ? buildFinanceGuidance(financeData.obligations, financeData.syncState?.lastSuccessAt ?? null) : null,
       companySummary: dashboard.companySummary,
       commercialConfigurationMissing: context.accessState === "missing_price_type",
       purchasingDynamics: null,
@@ -362,6 +376,34 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
       estimateSalesOpportunities,
     };
   }
+}
+
+function buildFinanceGuidance(
+  obligations: Awaited<ReturnType<FinanceRepository["getOverviewData"]>>["obligations"],
+  synchronizedAt: string | null,
+): NonNullable<WorkspaceHomeDto["financeGuidance"]> {
+  const today = financeBusinessDate(new Date());
+  const current = obligations.filter((row) => row.reconciliationStatus === "READY" && row.paymentStatus !== "SETTLED" && Number(row.remainingAmount) > 0);
+  const totals = new Map<string, { outstanding: number; overdue: number }>();
+  for (const row of current) {
+    const total = totals.get(row.currency) ?? { outstanding: 0, overdue: 0 };
+    total.outstanding += Number(row.remainingAmount);
+    if (row.dueDate < today) total.overdue += Number(row.remainingAmount);
+    totals.set(row.currency, total);
+  }
+  const nextDueDate = current.map((row) => row.dueDate).sort()[0] ?? null;
+  const fresh = Boolean(synchronizedAt && Date.now() - Date.parse(synchronizedAt) <= 3 * 60 * 60 * 1000);
+  return {
+    state: !fresh ? "unavailable" : [...totals.values()].some((row) => row.overdue > 0)
+      ? "overdue" : nextDueDate && nextDueDate <= addDays(today, 7) ? "due_soon" : "healthy",
+    totals: [...totals.entries()].sort(([left], [right]) => left.localeCompare(right)).map(([currency, value]) => ({ currency, ...value })),
+    nextDueDate,
+    fresh,
+  };
+}
+
+function addDays(date: string, days: number): string {
+  return new Date(Date.parse(`${date}T00:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
 }
 
 function logDashboardShortage(section: string, eligibleCount: number, targetCount: number): void {

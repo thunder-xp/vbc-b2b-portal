@@ -45,6 +45,7 @@ export const notificationCopy = definePartnerCopy(
     groupService: "Сервисные заявки",
     groupSupport: "Техническая поддержка",
     groupInstallation: "Монтаж",
+    groupFinance: "Финансы и платежи",
     groupDescription: "Системные уведомления помогают не пропустить важные изменения.",
     optional: "Необязательные уведомления",
     enabled: "В приложении включено",
@@ -102,6 +103,7 @@ export const notificationCopy = definePartnerCopy(
     groupService: "Solicitări de service",
     groupSupport: "Suport tehnic",
     groupInstallation: "Instalare",
+    groupFinance: "Finanțe și plăți",
     groupDescription: "Notificările de sistem vă ajută să urmăriți modificările importante.",
     optional: "Notificări opționale",
     enabled: "Activate în aplicație",
@@ -184,6 +186,7 @@ const roEvents: Record<PartnerNotificationEventCode, EventPresentation> = {
   service_history_ready_for_pickup: serviceHistoryEvent("Produsul este gata de ridicare"),
   service_history_issued: serviceHistoryEvent("Produsul a fost eliberat din service"),
   installation_offer: event("Comandă nouă pentru instalare", "Este disponibilă o ofertă nouă pentru instalarea sistemului CCTV.", "Deschide ofertele"),
+  finance_payment_due: event("Plată care necesită atenție", "Verificați termenul și soldul curent în calendarul de plăți.", "Deschide finanțele"),
 };
 
 export function presentPartnerNotification(

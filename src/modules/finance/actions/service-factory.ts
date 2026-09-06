@@ -4,8 +4,9 @@ import { createCompanyAccessService, createPermissionService, createUserProfileS
 import { OneCProvider } from "../../integration/providers/one-c";
 import { getOneCEnv } from "../../../lib/env";
 import { SupabaseFinanceRepository } from "../repositories";
-import { ContractBalanceSyncService, DefaultFinanceService } from "../services";
+import { ContractBalanceSyncService, DefaultFinanceService, FinanceOperationsService } from "../services";
 import { FinanceSyncAuthorizationService, FinanceSyncCoordinator } from "../services";
+import { FinanceReminderDryRunService } from "../services";
 import { acquireSyncRunLock, releaseSyncRunLock } from "../../integration/sync";
 
 export function createFinanceService(): DefaultFinanceService {
@@ -47,4 +48,12 @@ export function createFinanceSyncCoordinator(): FinanceSyncCoordinator {
 
 export function createFinanceSyncAuthorizationService(): FinanceSyncAuthorizationService {
   return new FinanceSyncAuthorizationService(createUserProfileService(), new SupabaseFinanceRepository());
+}
+
+export function createFinanceReminderDryRunService(): FinanceReminderDryRunService {
+  return new FinanceReminderDryRunService(new SupabaseFinanceRepository());
+}
+
+export function createFinanceOperationsService(): FinanceOperationsService {
+  return new FinanceOperationsService(new SupabaseFinanceRepository());
 }

@@ -6,6 +6,7 @@ import type { ContractBalanceSyncService } from "./finance.service";
 
 const COMPANY_BATCH_LIMIT = 10;
 const COMPANY_LOCK_TTL_SECONDS = 300;
+const MAX_COMPANIES_PER_SCHEDULED_RUN = 100;
 
 export type FinanceSyncTrigger = "manual" | "scheduled";
 export type FinanceCompanySyncResult = {
@@ -14,6 +15,8 @@ export type FinanceCompanySyncResult = {
   status: "succeeded" | "zero_balance" | "mapping_missing" | "failed" | "locked";
   received: number;
   published: number;
+  obligationsPublished: number;
+  exclusionsPublished: number;
   excludedDeleted: number;
   oneCCallCount: number;
   durationMs: number;
@@ -30,6 +33,8 @@ export type FinanceSyncBatchResult = {
   failed: number;
   locked: number;
   publishedRows: number;
+  publishedObligations: number;
+  publishedExclusions: number;
   oneCCallCount: number;
   durationMs: number;
 };
@@ -69,6 +74,19 @@ export class FinanceSyncCoordinator {
     return summarizeBatch(companies, targets.length === limit ? targets.at(-1)?.companyId ?? null : null, this.now() - startedAt);
   }
 
+  async synchronizeAllCompanies(input: { trigger: FinanceSyncTrigger; actorUserId: string | null }): Promise<FinanceSyncBatchResult> {
+    const startedAt = this.now();
+    const companies: FinanceCompanySyncResult[] = [];
+    let afterCompanyId: string | undefined;
+    while (companies.length < MAX_COMPANIES_PER_SCHEDULED_RUN) {
+      const batch = await this.synchronizeCompanies({ ...input, afterCompanyId, limit: COMPANY_BATCH_LIMIT });
+      companies.push(...batch.companies);
+      if (!batch.nextCursor) return summarizeBatch(companies, null, this.now() - startedAt);
+      afterCompanyId = batch.nextCursor;
+    }
+    throw new Error("Finance synchronization exceeded its bounded company limit.");
+  }
+
   private async synchronizeTarget(target: FinanceSyncCompany, input: { trigger: FinanceSyncTrigger; actorUserId: string | null }): Promise<FinanceCompanySyncResult> {
     const startedAt = this.now();
     const mappingError = !parseRequiredOneCGuid(target.counterpartyRef)
@@ -103,16 +121,20 @@ export class FinanceSyncCoordinator {
         status,
         received: synchronized.received,
         published: synchronized.published,
+        obligationsPublished: synchronized.obligationsPublished,
+        exclusionsPublished: synchronized.exclusionsPublished,
         excludedDeleted: synchronized.diagnostics.deletedContractCount,
-        oneCCallCount: synchronized.diagnostics.oneCCallCount,
+        oneCCallCount: synchronized.diagnostics.oneCCallCount + synchronized.obligationDiagnostics.oneCCallCount,
         durationMs: synchronized.durationMs,
         publicationDurationMs: synchronized.publicationDurationMs,
       });
       return result(target, status, this.now() - startedAt, {
         received: synchronized.received,
         published: synchronized.published,
+        obligationsPublished: synchronized.obligationsPublished,
+        exclusionsPublished: synchronized.exclusionsPublished,
         excludedDeleted: synchronized.diagnostics.deletedContractCount,
-        oneCCallCount: synchronized.diagnostics.oneCCallCount,
+        oneCCallCount: synchronized.diagnostics.oneCCallCount + synchronized.obligationDiagnostics.oneCCallCount,
       });
     } catch (error) {
       const errorCode = safeErrorCode(error);
@@ -126,7 +148,7 @@ export class FinanceSyncCoordinator {
 }
 
 function result(target: FinanceSyncCompany, status: FinanceCompanySyncResult["status"], durationMs: number, values: Partial<FinanceCompanySyncResult> = {}): FinanceCompanySyncResult {
-  return { companyId: target.companyId, companyName: target.companyName, status, received: 0, published: 0, excludedDeleted: 0, oneCCallCount: 0, durationMs: Math.max(0, Math.round(durationMs)), errorCode: null, ...values };
+  return { companyId: target.companyId, companyName: target.companyName, status, received: 0, published: 0, obligationsPublished: 0, exclusionsPublished: 0, excludedDeleted: 0, oneCCallCount: 0, durationMs: Math.max(0, Math.round(durationMs)), errorCode: null, ...values };
 }
 
 function failedResult(target: FinanceSyncCompany, error: unknown): FinanceCompanySyncResult {
@@ -142,6 +164,8 @@ function summarizeBatch(companies: FinanceCompanySyncResult[], nextCursor: strin
     failed: companies.filter((row) => row.status === "failed").length,
     locked: companies.filter((row) => row.status === "locked").length,
     publishedRows: companies.reduce((sum, row) => sum + row.published, 0),
+    publishedObligations: companies.reduce((sum, row) => sum + row.obligationsPublished, 0),
+    publishedExclusions: companies.reduce((sum, row) => sum + row.exclusionsPublished, 0),
     oneCCallCount: companies.reduce((sum, row) => sum + row.oneCCallCount, 0),
     durationMs: Math.max(0, Math.round(durationMs)),
   };

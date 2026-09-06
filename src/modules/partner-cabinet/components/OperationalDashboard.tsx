@@ -42,7 +42,7 @@ export function OperationalDashboard({
         title={partnerText(locale, "dashboard.previouslyPurchased")}
         workspace={workspace}
       />
-      <FinanceSection locale={locale} summary={workspace.financeSummary} />
+      <FinanceSection guidance={workspace.financeGuidance} locale={locale} summary={workspace.financeSummary} />
       <OpportunitySection locale={locale} opportunities={workspace.opportunities} workspace={workspace} />
       <NovotechOffersSection
         campaigns={workspace.campaigns}
@@ -372,13 +372,15 @@ function ProductSection({
 }
 
 function FinanceSection({
+  guidance,
   locale,
   summary,
 }: {
+  guidance: WorkspaceHomeDto["financeGuidance"];
   locale: PartnerLocale;
   summary: WorkspaceHomeDto["financeSummary"];
 }) {
-  if (!summary) return null;
+  if (!summary && !guidance) return null;
   return (
     <section aria-labelledby="dashboard-finance">
       <SectionHeading
@@ -388,7 +390,12 @@ function FinanceSection({
         title={partnerText(locale, "dashboard.finance")}
       />
       <div className="mt-3 border border-zinc-200 bg-white p-4">
-        {summary.lastSuccessfulAt ? <p className="mb-3 text-xs text-zinc-500">{partnerText(locale, "dashboard.updated")}: {formatDate(summary.lastSuccessfulAt, locale)}</p> : null}
+        {guidance ? <p className={`mb-3 text-sm font-semibold ${guidance.state === "overdue" ? "text-amber-800" : guidance.state === "unavailable" ? "text-zinc-600" : "text-emerald-800"}`}>{partnerText(locale, financeStateKey(guidance.state))}</p> : null}
+        {summary?.lastSuccessfulAt ? <p className="mb-3 text-xs text-zinc-500">{partnerText(locale, "dashboard.updated")}: {formatDate(summary.lastSuccessfulAt, locale)}</p> : null}
+        {guidance ? <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {guidance.totals.map((total) => <div className="bg-zinc-50 p-3" key={total.currency}><p className="text-xs font-semibold text-zinc-500">{total.currency}</p><p className="mt-2 text-sm text-zinc-700">{partnerText(locale, "dashboard.amountDue")}: <strong className="text-zinc-950">{formatAmount(total.outstanding, total.currency, locale)}</strong></p><p className="mt-1 text-sm text-zinc-700">{partnerText(locale, "dashboard.financeOverdue")}: <strong className="text-amber-800">{formatAmount(total.overdue, total.currency, locale)}</strong></p></div>)}
+          <div className="flex items-center gap-3 bg-zinc-50 p-3"><CircleDollarSign aria-hidden="true" className="size-6 text-emerald-700" /><div><p className="text-xs text-zinc-500">{partnerText(locale, "dashboard.financeNext")}</p><p className="font-semibold text-zinc-950">{guidance.nextDueDate ? formatDate(guidance.nextDueDate, locale) : "—"}</p></div></div>
+        </div> : summary ?
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {summary.totals.map((total) => (
             <div className="bg-zinc-50 p-3" key={total.currency}>
@@ -421,10 +428,17 @@ function FinanceSection({
               </p>
             </div>
           </div>
-        </div>
+        </div> : null}
       </div>
     </section>
   );
+}
+
+function financeStateKey(state: NonNullable<WorkspaceHomeDto["financeGuidance"]>["state"]) {
+  if (state === "overdue") return "dashboard.financeState.overdue" as const;
+  if (state === "due_soon") return "dashboard.financeState.due_soon" as const;
+  if (state === "unavailable") return "dashboard.financeState.unavailable" as const;
+  return "dashboard.financeState.healthy" as const;
 }
 
 function SectionHeading({

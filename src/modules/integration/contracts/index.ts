@@ -10,6 +10,9 @@ export type {
   ContractBalanceFetchResultDTO,
   FinanceFetchRequestDTO,
   FinanceProvider,
+  PaymentObligationFetchDiagnosticsDTO,
+  PaymentObligationFetchRequestDTO,
+  PaymentObligationFetchResultDTO,
 } from "./finance-provider";
 export type {
   InventoryProvider,

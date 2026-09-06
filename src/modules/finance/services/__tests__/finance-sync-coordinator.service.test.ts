@@ -65,6 +65,24 @@ describe("FinanceSyncCoordinator", () => {
     expect(lock.acquire).toHaveBeenCalledWith(`finance_contract_balance:${COMPANY_A}`, expect.any(String), 300);
     expect(lock.release).not.toHaveBeenCalled();
   });
+
+  it("walks bounded company pages so the scheduled run does not stop after the first ten", async () => {
+    const companies = Array.from({ length: 12 }, (_, index) => company(
+      `${String(index + 1).padStart(8, "0")}-1111-4111-8111-111111111111`,
+      `Company ${index + 1}`,
+      crypto.randomUUID(),
+    ));
+    const repository = repo(companies);
+    repository.listSyncCompanies = vi.fn().mockImplementation(async ({ afterCompanyId }) => {
+      const start = afterCompanyId ? companies.findIndex((row) => row.companyId === afterCompanyId) + 1 : 0;
+      return companies.slice(start, start + 10);
+    });
+    const synchronize = vi.fn().mockResolvedValue(syncResult(1));
+    const result = await coordinator(repository, synchronize).synchronizeAllCompanies({ trigger: "scheduled", actorUserId: null });
+    expect(result.succeeded).toBe(12);
+    expect(result.publishedRows).toBe(12);
+    expect(repository.listSyncCompanies).toHaveBeenCalledTimes(2);
+  });
 });
 
 function coordinator(repository: FinanceRepository, synchronize: ReturnType<typeof vi.fn>) {
@@ -77,12 +95,12 @@ function company(companyId: string, companyName: string, counterpartyRef: string
 }
 
 function syncResult(published: number) {
-  return { received: published, published, synchronizedAt: new Date().toISOString(), durationMs: 20, publicationDurationMs: 2, diagnostics: { rawBalanceCount: published, zeroBalanceCount: 0, invalidBalanceCount: 0, missingContractCount: 0, deletedContractCount: 0, inactiveContractCount: 0, wrongCounterpartyCount: 0, wrongOrganizationCount: 0, wrongContractTypeCount: 0, missingCurrencyCount: 0, deletedCurrencyCount: 0, oneCCallCount: 3 } };
+  return { received: published, published, obligationsPublished: 0, exclusionsPublished: 0, synchronizedAt: new Date().toISOString(), durationMs: 20, publicationDurationMs: 2, diagnostics: { rawBalanceCount: published, zeroBalanceCount: 0, invalidBalanceCount: 0, missingContractCount: 0, deletedContractCount: 0, inactiveContractCount: 0, wrongCounterpartyCount: 0, wrongOrganizationCount: 0, wrongContractTypeCount: 0, missingCurrencyCount: 0, deletedCurrencyCount: 0, oneCCallCount: 3 }, obligationDiagnostics: { ordersReceived: 0, paymentCalendarOrders: 0, emptyCalendarOrders: 0, bankPaymentsReceived: 0, cashPaymentsReceived: 0, balanceRowsReceived: 0, oneCCallCount: 4 } };
 }
 
 function repo(companies: ReturnType<typeof company>[]): FinanceRepository {
   return {
     canRunFinanceSync: vi.fn(), listActiveContractBalances: vi.fn(), getOverviewData: vi.fn(), getSyncCompany: vi.fn().mockImplementation(async (id) => companies.find((row) => row.companyId === id) ?? null),
-    listSyncCompanies: vi.fn().mockResolvedValue(companies), publishContractBalanceSnapshot: vi.fn(), publishContractBalanceSnapshotV2: vi.fn(), recordSyncResult: vi.fn(),
+    listSyncCompanies: vi.fn().mockResolvedValue(companies), publishContractBalanceSnapshot: vi.fn(), publishContractBalanceSnapshotV2: vi.fn(), publishFinanceSnapshot: vi.fn(), getReminderDryRunInput: vi.fn(), publishReminderDryRun: vi.fn(), getAdminFinanceOperations: vi.fn(), recordSyncResult: vi.fn(),
   };
 }

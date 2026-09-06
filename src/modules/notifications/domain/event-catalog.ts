@@ -60,6 +60,7 @@ export const PARTNER_NOTIFICATION_EVENT_CODES = [
   "service_history_ready_for_pickup",
   "service_history_issued",
   "installation_offer",
+  "finance_payment_due",
 ] as const;
 
 export type PartnerNotificationEventCode =
@@ -75,6 +76,7 @@ export const PARTNER_NOTIFICATION_GROUPS = [
   "service",
   "support",
   "installation",
+  "finance",
 ] as const;
 
 export type PartnerNotificationGroup =
@@ -109,7 +111,8 @@ type EventDefinition = {
     | "service_case"
     | "support_ticket"
     | "service_history"
-    | "installation_assignment_attempt";
+    | "installation_assignment_attempt"
+    | "payment_obligation";
   expiryDays: number;
 };
 
@@ -181,6 +184,7 @@ export const PARTNER_NOTIFICATION_EVENT_CATALOG = {
   service_history_ready_for_pickup: definition("service", "success", false, "service_history", 90),
   service_history_issued: definition("service", "success", false, "service_history", 90),
   installation_offer: definition("installation", "information", false, "installation_assignment_attempt", 30),
+  finance_payment_due: definition("finance", "warning", false, "payment_obligation", 90),
 } satisfies Record<PartnerNotificationEventCode, EventDefinition>;
 
 function definition(

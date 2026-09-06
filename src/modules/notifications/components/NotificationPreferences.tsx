@@ -19,6 +19,7 @@ const groupKeys = {
   service: "groupService",
   support: "groupSupport",
   installation: "groupInstallation",
+  finance: "groupFinance",
 } as const;
 
 export function NotificationPreferences({ preferences }: { preferences: NotificationPreference[] }) {
