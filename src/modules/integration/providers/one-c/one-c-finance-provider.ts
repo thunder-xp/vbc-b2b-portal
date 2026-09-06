@@ -43,7 +43,7 @@ const SOURCE_MAX_PAGES = 30;
 const DEFAULT_OBSERVATION_START_DATE = "2025-01-01";
 const CONTRACT_SELECT = "Ref_Key,Code,Description,Owner,Owner_Type,НомерДоговора,ВалютаРасчетов_Key,Организация_Key,ВидДоговора,DeletionMark,Недействителен";
 const CURRENCY_SELECT = "Ref_Key,Code,Description,DeletionMark";
-const ORDER_SELECT = "Ref_Key,DataVersion,Number,Date,DeletionMark,Posted,БанковскийСчет_Key,ВалютаДокумента_Key,ДатаИзменения,Договор_Key,ЗапланироватьОплату,Контрагент_Key,Организация_Key,СуммаДокумента,ТипДенежныхСредств,СостояниеЗаказа_Key,ПлатежныйКалендарь";
+const ORDER_SELECT = "Ref_Key,DataVersion,Number,Date,DeletionMark,Posted,БанковскийСчет_Key,ВалютаДокумента_Key,Договор_Key,ЗапланироватьОплату,Контрагент_Key,Организация_Key,СуммаДокумента,ТипДенежныхСредств,СостояниеЗаказа_Key,ПлатежныйКалендарь";
 const PAYMENT_SELECT = "Ref_Key,DataVersion,Date,DeletionMark,Posted,Контрагент_Key,Организация_Key,РасшифровкаПлатежа";
 const BANK_ACCOUNT_SELECT = "Ref_Key,Description,Code,DeletionMark,НомерСчета,ВалютаДенежныхСредств_Key,Недействителен";
 
