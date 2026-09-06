@@ -2,6 +2,10 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const sql = readFileSync("supabase/migrations/20260906130000_partner_payment_obligation_v1.sql", "utf8");
+const signedBalanceAmendment = readFileSync(
+  "supabase/migrations/20260906132500_allow_unsupported_negative_finance_balance.sql",
+  "utf8",
+);
 
 describe("partner payment obligation migration contract", () => {
   it("creates a company-scoped current projection with one-order identity and atomic replacement", () => {
@@ -33,6 +37,14 @@ describe("partner payment obligation migration contract", () => {
     expect(sql).toContain("on conflict (fingerprint) do nothing");
     expect(sql).toContain("'DUPLICATE'");
     expect(sql).not.toMatch(/smtp|send_mail|send_email/i);
+  });
+
+  it("keeps READY balances nonnegative while retaining signed fail-closed source evidence", () => {
+    expect(signedBalanceAmendment).toContain("remaining_amount >= 0");
+    expect(signedBalanceAmendment).toContain(
+      "reconciliation_status in ('UNSUPPORTED', 'NON_RECONCILING')",
+    );
+    expect(signedBalanceAmendment).not.toContain("reconciliation_status = 'READY'");
   });
 
   it("gates the internal operational view and allows only the finance deep link", () => {
