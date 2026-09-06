@@ -1,6 +1,6 @@
 "use client";
 
-import { FileSearch, FilePlus2, History, ListRestart, ShoppingCart, Wrench, Zap } from "lucide-react";
+import { FileSearch, FilePlus2, History, ListRestart, Search, ShoppingCart, Wrench, Zap } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
@@ -15,6 +15,7 @@ const icons = {
   it_support: Wrench,
   purchase_templates: ListRestart,
   documents: FileSearch,
+  quick_product_selection: Search,
 } as const;
 
 const actionKeys: Partial<Record<string, PartnerTranslationKey>> = {
@@ -23,6 +24,7 @@ const actionKeys: Partial<Record<string, PartnerTranslationKey>> = {
   estimate: "quick.estimate",
   it_support: "quick.it_support",
   purchase_templates: "quick.purchase_templates",
+  quick_product_selection: "quick.quick_product_selection",
   register_warranty: "quick.register_warranty",
   repeat_order: "quick.repeat_order",
 };

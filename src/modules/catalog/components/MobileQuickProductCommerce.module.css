@@ -1,0 +1,9 @@
+.searchInput::-webkit-search-decoration,
+.searchInput::-webkit-search-cancel-button {
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.searchInput::-ms-clear {
+  display: none;
+}

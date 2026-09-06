@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronRight, LayoutGrid, Minus, Plus, Search, X } from "lucide-react";
+import { ChevronRight, Minus, Plus, Search, X } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -16,6 +16,7 @@ import { ProductThumbnail } from "./ProductThumbnail";
 import { RepeatOrderSelectionSection } from "./RepeatOrderSelectionSection";
 import { SavedKitsSection } from "../../purchasing-lists/components/SavedKitsSection";
 import type { LiveCommerceKitSummaryDto } from "../../purchasing-lists/types";
+import styles from "./MobileQuickProductCommerce.module.css";
 
 type SearchResponse =
   | { success: true; data: QuickProductSearchResultDto[] }
@@ -174,9 +175,7 @@ export function MobileQuickProductCommerce({
     <section className="mx-auto max-w-[90rem] space-y-4" data-search-request-count={requestCount}>
       <div className="mx-auto max-w-3xl space-y-1">
         <h1 className="text-xl font-semibold tracking-tight text-zinc-950 sm:text-2xl">{copy.title}</h1>
-        <p className="text-sm leading-5 text-zinc-600">{copy.subtitle}</p>
-        <nav aria-label={copy.title} className="flex flex-wrap gap-x-4 gap-y-1 pt-2 text-sm font-semibold text-emerald-800">
-          <Link href="/cabinet/catalog?view=all" prefetch={false}>{copy.browseCatalog}</Link>
+        <nav aria-label={copy.title} className="flex flex-wrap gap-x-4 gap-y-1 pt-1 text-sm font-semibold text-emerald-800">
           <Link href="/cabinet/opportunities" prefetch={false}>{copy.recentlyPurchased}</Link>
           <Link href="/cabinet/purchasing-lists" prefetch={false}>{copy.favorites}</Link>
           {canViewKits ? <Link href="#saved-kits">{locale === "ro" ? "Seturile mele" : "Мои комплекты"}</Link> : null}
@@ -184,16 +183,13 @@ export function MobileQuickProductCommerce({
       </div>
 
       <div className="sticky top-0 z-20 mx-auto max-w-3xl border-y border-zinc-200 bg-white/95 py-3 shadow-sm backdrop-blur sm:rounded-lg sm:border sm:px-4">
-        <div className="flex items-center gap-2">
-          <form className="min-w-0 flex-1" onSubmit={(event) => { event.preventDefault(); lastRequestedRef.current = null; void runSearch(query); }} role="search">
-            <div className="relative">
-              <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-3.5 size-4 text-zinc-500" />
-              <input aria-label={copy.searchLabel} autoCapitalize="characters" autoComplete="off" autoCorrect="off" autoFocus className="h-12 w-full rounded-lg border border-zinc-300 bg-white pl-10 pr-12 text-base font-medium uppercase outline-none focus:border-emerald-700 focus:ring-2 focus:ring-emerald-100" enterKeyHint="search" inputMode="search" maxLength={100} onChange={(event) => updateSearchQuery(event.target.value)} onPaste={(event) => { const value = event.clipboardData.getData("text").trim(); if (!value) return; event.preventDefault(); pastedQueryRef.current = value.toLocaleLowerCase("en"); updateSearchQuery(value); }} placeholder={copy.searchPlaceholder} ref={inputRef} spellCheck={false} type="search" value={query} />
-              {query ? <button aria-label={copy.clear} className="absolute right-0 top-0 inline-flex h-12 w-12 items-center justify-center rounded-r-lg text-zinc-500 hover:text-zinc-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-600" onClick={() => { updateSearchQuery(""); inputRef.current?.focus(); }} type="button"><X aria-hidden="true" className="size-5" /></button> : null}
-            </div>
-          </form>
-          <Link aria-label={copy.browseCatalog} className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-zinc-300 bg-white text-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600" href="/cabinet/catalog?view=all" prefetch={false} title={copy.browseCatalog}><LayoutGrid aria-hidden="true" className="size-5" /></Link>
-        </div>
+        <form onSubmit={(event) => { event.preventDefault(); lastRequestedRef.current = null; void runSearch(query); }} role="search">
+          <div className="relative">
+            <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-3.5 size-4 text-zinc-500" />
+            <input aria-label={copy.searchLabel} autoCapitalize="characters" autoComplete="off" autoCorrect="off" autoFocus className={`${styles.searchInput} h-12 w-full rounded-lg border border-zinc-300 bg-white pl-10 pr-12 text-base font-medium uppercase outline-none focus:border-emerald-700 focus:ring-2 focus:ring-emerald-100`} enterKeyHint="search" inputMode="search" maxLength={100} onChange={(event) => updateSearchQuery(event.target.value)} onPaste={(event) => { const value = event.clipboardData.getData("text").trim(); if (!value) return; event.preventDefault(); pastedQueryRef.current = value.toLocaleLowerCase("en"); updateSearchQuery(value); }} placeholder={copy.searchPlaceholder} ref={inputRef} spellCheck={false} type="search" value={query} />
+            {query ? <button aria-label={copy.clear} className="absolute right-0 top-0 inline-flex h-12 w-12 items-center justify-center rounded-r-lg text-zinc-500 hover:text-zinc-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-600" onClick={() => { updateSearchQuery(""); inputRef.current?.focus(); }} type="button"><X aria-hidden="true" className="size-5" /></button> : null}
+          </div>
+        </form>
         {loading ? <p aria-live="polite" className="mt-2 text-xs font-medium text-emerald-800">{copy.searching}</p> : null}
       </div>
 
@@ -273,10 +269,11 @@ function ProductCard({ canSelectProducts, compact = false, copy, feedback, loadi
   const history = "purchaseCount" in product ? product : null;
   const quickProduct = "matchKind" in product ? product : null;
   const exact = "matchKind" in product && product.matchKind !== "partial";
+  const productHref = `/cabinet/catalog/${product.slug}?returnTo=%2Fcabinet%2Fquick-order`;
   return <article className={`overflow-hidden rounded-xl border bg-white shadow-sm transition-opacity ${loading ? "pointer-events-none opacity-55" : "border-zinc-200"}`} data-testid={history ? "previously-purchased-card" : "quick-search-card"}>
     <div className={`grid grid-cols-[5.5rem_minmax(0,1fr)] gap-3 p-3 ${compact ? "xl:grid-cols-[4rem_minmax(0,1fr)] xl:gap-2" : ""}`}>
-      <Link aria-label={copy.details} className="relative flex aspect-square items-center justify-center overflow-hidden rounded-lg bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600" href={`/cabinet/catalog/${product.slug}?returnTo=%2Fcabinet%2Fquick-order`} prefetch={false}><ProductThumbnail alt={product.name} className="object-contain p-2" sizes="88px" src={product.imageUrl} variant="sm" /></Link>
-      <div className="min-w-0"><div className="flex items-start justify-between gap-2"><div className="min-w-0"><p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">SKU {product.sku}</p><Link className="mt-0.5 line-clamp-2 block text-sm font-semibold leading-5 text-zinc-950 hover:text-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600" href={`/cabinet/catalog/${product.slug}?returnTo=%2Fcabinet%2Fquick-order`} prefetch={false}>{product.name}</Link>{product.categoryName ? <p className="mt-0.5 truncate text-xs text-zinc-500">{product.categoryName}</p> : null}</div><ChevronRight aria-hidden="true" className="mt-1 size-4 shrink-0 text-zinc-400" /></div>{exact ? <span className="mt-2 inline-flex rounded-full bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-800">{copy.exact}</span> : null}{history?.repeatPurchaseDue ? <span className="mt-2 inline-flex rounded-full bg-amber-100 px-2 py-1 text-[11px] font-semibold text-amber-900">{copy.repeatDue}</span> : null}</div>
+      <Link aria-label={copy.details} className="relative flex aspect-square items-center justify-center overflow-hidden rounded-lg bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600" href={productHref} prefetch={false}><ProductThumbnail alt={product.name} className="object-contain p-2" sizes="88px" src={product.imageUrl} variant="sm" /></Link>
+      <div className="min-w-0"><div className="flex items-start justify-between gap-2"><div className="min-w-0"><p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">SKU {product.sku}</p><Link className="mt-0.5 line-clamp-2 block text-sm font-semibold leading-5 text-zinc-950 hover:text-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600" href={productHref} prefetch={false}>{product.name}</Link>{product.categoryName ? <p className="mt-0.5 truncate text-xs text-zinc-500">{product.categoryName}</p> : null}</div><Link aria-label={copy.openProduct} className="-mr-2 -mt-2 inline-flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-lg text-zinc-500 hover:bg-zinc-100 hover:text-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600" href={productHref} prefetch={false}><ChevronRight aria-hidden="true" className="size-5" /></Link></div>{exact ? <span className="mt-1 inline-flex rounded-full bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-800">{copy.exact}</span> : null}{history?.repeatPurchaseDue ? <span className="mt-1 inline-flex rounded-full bg-amber-100 px-2 py-1 text-[11px] font-semibold text-amber-900">{copy.repeatDue}</span> : null}</div>
     </div>
     {history ? <div className="border-t border-zinc-100 px-3 py-2 text-[11px] text-zinc-600"><span className="font-semibold">{copy.purchasedTimes}: {history.purchaseCount}</span><span aria-hidden="true"> · </span><span>{copy.lastPurchase}: {formatPurchaseDate(history.lastPurchasedAt, locale)}</span></div> : null}
     <ProductCardCommercialSummary
@@ -305,21 +302,20 @@ function ProductCardCommercialSummary({ copy, locale, partnerPrice, partnerPrice
   showRetail: boolean;
   stock: NonNullable<QuickProductSearchResultDto["commercialView"]>["stock"] | null | undefined;
 }) {
-  return <div className="grid grid-cols-2 border-y border-zinc-200">
-    <div className="min-w-0 px-3 py-2.5" data-testid={showRetail ? "quick-search-pricing" : undefined}>
-      <p className="text-[11px] font-semibold text-zinc-500">{copy.price}</p>
-      <p className={`mt-0.5 truncate text-lg font-semibold ${priced ? "text-zinc-950" : "text-amber-800"}`}>{partnerPrice ?? copy.priceUnavailable}</p>
-      {partnerPriceMdl ? <p className="text-xs font-medium text-zinc-500">{partnerPriceMdl}</p> : null}
-      {showRetail ? <div className="mt-2 border-t border-zinc-100 pt-2">
-        <p className="text-[11px] font-medium text-zinc-500">{retailPriceMdl ? copy.retailPrice : copy.retailPriceUnavailable}</p>
-        {retailPriceMdl ? <p className="mt-0.5 truncate text-sm font-semibold text-zinc-700">{retailPriceMdl}</p> : null}
-        {msrpPriceUsd ? <div className="mt-1">
-          <p className="text-[11px] font-medium text-zinc-500">{copy.msrp}</p>
-          <p className="truncate text-xs font-semibold text-zinc-700">{msrpPriceUsd}</p>
-        </div> : null}
+  return <div className="grid border-y border-zinc-200 sm:grid-cols-[minmax(0,2fr)_minmax(8rem,1fr)]">
+    <div className={`grid min-w-0 ${showRetail ? "grid-cols-2 divide-x divide-zinc-200" : "grid-cols-1"}`} data-testid={showRetail ? "quick-search-pricing" : undefined}>
+      <div className="min-w-0 px-3 py-2.5">
+        <p className="text-[11px] font-semibold text-zinc-500">{copy.price}</p>
+        <p className={`mt-0.5 truncate text-lg font-semibold ${priced ? "text-zinc-950" : "text-amber-800"}`}>{partnerPrice ?? copy.priceUnavailable}</p>
+        {partnerPriceMdl ? <p className="truncate text-xs font-medium text-zinc-500">{partnerPriceMdl}</p> : null}
+      </div>
+      {showRetail ? <div className="min-w-0 px-3 py-2.5">
+        <p className="text-[11px] font-semibold text-zinc-500">{copy.retailPrice}</p>
+        {retailPriceMdl ? <p className="mt-0.5 truncate text-lg font-semibold text-zinc-950">{retailPriceMdl}</p> : <p className="mt-0.5 text-xs font-semibold leading-5 text-amber-800">{copy.retailPriceUnavailable}</p>}
+        {msrpPriceUsd ? <p className="truncate text-xs font-medium text-zinc-500">{msrpPriceUsd}</p> : null}
       </div> : null}
     </div>
-    <ProductAvailabilityBlock locale={locale} stock={stock} />
+    <div className="min-h-11 border-t border-zinc-200 sm:border-t-0"><ProductAvailabilityBlock locale={locale} stock={stock} /></div>
   </div>;
 }
 

@@ -6,6 +6,7 @@ import {
   FolderPlus,
   PackageSearch,
   RefreshCw,
+  Search,
   ListRestart,
   ShoppingCart,
   ShieldPlus,
@@ -28,6 +29,7 @@ const icons = {
   cart: ShoppingCart,
   register_warranty: ShieldPlus,
   it_support: ShieldPlus,
+  quick_product_selection: Search,
 } as const;
 
 const actionKeys: Partial<Record<string, PartnerTranslationKey>> = {
@@ -39,6 +41,7 @@ const actionKeys: Partial<Record<string, PartnerTranslationKey>> = {
   it_support: "quick.it_support",
   orders: "quick.orders",
   purchase_templates: "quick.purchase_templates",
+  quick_product_selection: "quick.quick_product_selection",
   register_warranty: "quick.register_warranty",
   repeat_order: "quick.repeat_order",
   shipments: "quick.shipments",

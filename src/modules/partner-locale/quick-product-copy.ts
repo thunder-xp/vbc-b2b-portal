@@ -3,8 +3,7 @@ import { definePartnerCopy } from "./define-copy";
 export const getQuickProductCopy = definePartnerCopy(
   {
     entry: "Найти товар",
-    title: "Живой подбор товаров",
-    subtitle: "Находите товары, сразу видьте вашу цену и наличие, собирайте подборку для КП или корзины.",
+    title: "Быстрый подбор товаров",
     searchLabel: "Найти товар по SKU или модели",
     searchPlaceholder: "SKU или модель",
     clear: "Очистить поиск",
@@ -30,6 +29,7 @@ export const getQuickProductCopy = definePartnerCopy(
     units: "шт.",
     cart: "Корзина",
     details: "Открыть характеристики товара",
+    openProduct: "Открыть товар",
     unavailableAction: "Добавление в корзину недоступно",
     selection: "Подборка",
     productsShort: "товаров",
@@ -58,8 +58,7 @@ export const getQuickProductCopy = definePartnerCopy(
   } as const,
   {
     entry: "Caută produs",
-    title: "Selecție live de produse",
-    subtitle: "Găsiți produse, vedeți imediat prețul și stocul dvs. și creați o selecție pentru ofertă sau coș.",
+    title: "Selecție rapidă de produse",
     searchLabel: "Caută produs după cod sau model",
     searchPlaceholder: "Cod sau model",
     clear: "Șterge căutarea",
@@ -85,6 +84,7 @@ export const getQuickProductCopy = definePartnerCopy(
     units: "buc.",
     cart: "Coș",
     details: "Deschide caracteristicile produsului",
+    openProduct: "Deschide produsul",
     unavailableAction: "Adăugarea în coș nu este disponibilă",
     selection: "Selecție",
     productsShort: "produse",

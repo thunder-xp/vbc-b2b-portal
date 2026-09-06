@@ -216,13 +216,17 @@ describe("Partner workspace shell", () => {
     const user = userEvent.setup();
     render(<div><PartnerHeader context={{
       ...context,
-      quickActions: [{ key: "cart", label: "Открыть корзину", href: "/cabinet/cart" }],
+      quickActions: [
+        { key: "cart", label: "Открыть корзину", href: "/cabinet/cart" },
+        { key: "quick_product_selection", label: "Быстрый подбор товаров", href: "/cabinet/quick-order" },
+      ],
     }} /><button type="button">Снаружи</button></div>);
     const trigger = screen.getByRole("button", { name: "Быстрые действия" });
 
     await user.click(trigger);
     expect(trigger).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByRole("menuitem", { name: "Открыть корзину" })).toHaveAttribute("href", "/cabinet/cart");
+    expect(screen.getByRole("menuitem", { name: "Быстрый подбор товаров" })).toHaveAttribute("href", "/cabinet/quick-order");
     fireEvent.pointerDown(screen.getByRole("button", { name: "Снаружи" }));
     expect(screen.queryByRole("menuitem", { name: "Открыть корзину" })).not.toBeInTheDocument();
 

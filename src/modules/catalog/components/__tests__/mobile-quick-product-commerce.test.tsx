@@ -41,6 +41,20 @@ describe("mobile quick product commerce", () => {
     vi.unstubAllGlobals();
   });
 
+  it.each([
+    ["ru", "Быстрый подбор товаров", "Покупали ранее", "Избранное"],
+    ["ro", "Selecție rapidă de produse", "Cumpărate anterior", "Favorite"],
+  ] as const)("renders the concise %s workspace header without competing catalog shortcuts", (locale, title, purchased, favorites) => {
+    render(<MobileQuickProductCommerce canSelectProducts locale={locale} />);
+
+    expect(screen.getByRole("heading", { level: 1, name: title })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: purchased })).toHaveAttribute("href", "/cabinet/opportunities");
+    expect(screen.getByRole("link", { name: favorites })).toHaveAttribute("href", "/cabinet/purchasing-lists");
+    expect(screen.queryByText(/Находите товары|Găsiți produse/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Открыть каталог|Категории|Deschide catalogul|Categorii/i })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Живой подбор товаров|Selecție live de produse/)).not.toBeInTheDocument();
+  });
+
   it("debounces representative typing into one request and shows governed commerce data", async () => {
     render(<MobileQuickProductCommerce canSelectProducts locale="ru" />);
     const input = screen.getByRole("searchbox", { name: "Найти товар по SKU или модели" });
@@ -54,11 +68,16 @@ describe("mobile quick product commerce", () => {
     expect(screen.getByText("$50.60")).toBeInTheDocument();
     expect(screen.getByText("865 MDL")).toBeInTheDocument();
     expect(screen.getByText("Розничная цена")).toBeInTheDocument();
-    expect(screen.getByText("MSRP")).toBeInTheDocument();
+    expect(screen.queryByText("MSRP")).not.toBeInTheDocument();
     expect(screen.getByText("$75.00")).toBeInTheDocument();
     expect(screen.getByText(/1\s332 MDL/)).toBeInTheDocument();
     expect(screen.getByText("В наличии: 492 шт.")).toBeInTheDocument();
     expect(screen.getByText("Точное совпадение")).toBeInTheDocument();
+    const arrow = screen.getByRole("link", { name: "Открыть товар" });
+    expect(arrow).toHaveAttribute("href", "/cabinet/catalog/dh-c4k-p?returnTo=%2Fcabinet%2Fquick-order");
+    expect(arrow).toHaveClass("size-11", "cursor-pointer");
+    arrow.focus();
+    expect(arrow).toHaveFocus();
   });
 
   it("ignores an obsolete response after a newer search wins", async () => {
@@ -99,8 +118,7 @@ describe("mobile quick product commerce", () => {
     expect(await screen.findByText("Добавлено: 2 шт.")).toBeInTheDocument();
     expect(input).toHaveFocus();
     expect(input).toHaveValue("400540");
-    expect(screen.getAllByRole("link", { name: "Открыть каталог и категории" }))
-      .toEqual(expect.arrayContaining([expect.objectContaining({ href: expect.stringContaining("/cabinet/catalog?view=all") })]));
+    expect(screen.queryByRole("link", { name: "Открыть каталог и категории" })).not.toBeInTheDocument();
 
     fireEvent.paste(input, { clipboardData: { getData: () => "400540" } });
     expect(screen.getByRole("button", { name: "В подборку" })).toBeEnabled();
@@ -148,7 +166,7 @@ describe("mobile quick product commerce", () => {
 
     const pricing = await screen.findByTestId("quick-search-pricing");
     expect(pricing).toHaveTextContent("Prețul cu amănuntul nu este indicat");
-    expect(pricing).toHaveTextContent("MSRP");
+    expect(pricing).not.toHaveTextContent("MSRP");
     expect(pricing).toHaveTextContent("$75.00");
     expect(pricing.textContent).not.toMatch(/\$75\.00\s*\/\s*.*MDL/);
   });
@@ -218,7 +236,12 @@ describe("mobile quick product commerce", () => {
     fireEvent.change(input, { target: { value: "400540" } });
     expect(screen.queryByTestId("previously-purchased-section")).not.toBeInTheDocument();
     await act(() => vi.advanceTimersByTimeAsync(100));
-    fireEvent.click(screen.getByRole("button", { name: "Очистить поиск" }));
+    expect(screen.getAllByRole("button", { name: "Очистить поиск" })).toHaveLength(1);
+    const clear = screen.getByRole("button", { name: "Очистить поиск" });
+    expect(clear).toHaveClass("h-12", "w-12");
+    fireEvent.click(clear);
+    expect(input).toHaveValue("");
+    expect(input).toHaveFocus();
     expect(screen.getByTestId("previously-purchased-section")).toBeInTheDocument();
   });
 });

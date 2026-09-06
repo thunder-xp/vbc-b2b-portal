@@ -54,6 +54,7 @@ const ru = {
   "shell.unsavedChanges":
     "Есть несохранённые изменения. Переключить язык и потерять их?",
   "quick.title": "Быстрые действия",
+  "quick.quick_product_selection": "Быстрый подбор товаров",
   "quick.cart": "Открыть корзину",
   "quick.repeat_order": "Повторить заказ",
   "quick.estimate": "Создать смету",
@@ -228,6 +229,7 @@ const ro: Record<PartnerTranslationKey, string> = {
   "shell.unsavedChanges":
     "Există modificări nesalvate. Schimbați limba și le pierdeți?",
   "quick.title": "Acțiuni rapide",
+  "quick.quick_product_selection": "Selecție rapidă de produse",
   "quick.cart": "Deschide coșul",
   "quick.repeat_order": "Repetă comanda",
   "quick.estimate": "Creează un deviz",

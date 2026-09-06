@@ -11,7 +11,7 @@ import type {
 } from "../../repositories/workspace-dashboard.repository";
 import type { PartnerWorkspaceContextService } from "../workspace-context.service";
 import { resolveWorkspaceCapabilities } from "../workspace-capability.service";
-import { DefaultWorkspaceHomeService } from "../workspace-home.service";
+import { buildQuickActions, DefaultWorkspaceHomeService } from "../workspace-home.service";
 
 describe("DefaultWorkspaceHomeService", () => {
   it("passes the server-derived Estimate, conversion, and order capabilities to the shared sales provider", async () => {
@@ -86,11 +86,24 @@ describe("DefaultWorkspaceHomeService", () => {
     });
     expect(workspace.quickActions.map((action) => action.key)).toEqual([
       "cart",
+      "quick_product_selection",
       "repeat_order",
       "estimate",
       "documents",
     ]);
     expect(JSON.stringify(workspace)).not.toMatch(/f7df2069|33333333/);
+  });
+
+  it("exposes Quick Product Selection only when the governed Catalog capability is available", () => {
+    const available = resolveWorkspaceCapabilities(new Set(["catalog.view", "orders.manage"])).navigation;
+    const catalogOnly = resolveWorkspaceCapabilities(new Set(["catalog.view"])).navigation;
+
+    expect(buildQuickActions(available)).toContainEqual({
+      key: "quick_product_selection",
+      label: "Быстрый подбор товаров",
+      href: "/cabinet/quick-order",
+    });
+    expect(buildQuickActions(catalogOnly).some((action) => action.key === "quick_product_selection")).toBe(false);
   });
 
   it("does not expose the partner tier without partner-price permission", async () => {

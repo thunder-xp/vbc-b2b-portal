@@ -599,6 +599,7 @@ export function buildQuickActions(
   );
   const candidates: Array<readonly [string, string, string | undefined]> = [
     ["cart", "Открыть корзину", hrefs.get("cart")],
+    ["quick_product_selection", "Быстрый подбор товаров", hrefs.get("catalog") && hrefs.get("cart") ? "/cabinet/quick-order" : undefined],
     ["repeat_order", "Повторить заказ", hrefs.get("orders")],
     ["estimate", "Создать смету", hrefs.get("proposals") ? `${hrefs.get("proposals")}/new` : undefined],
     ["register_warranty", "Создать сервисную заявку", hrefs.get("warranty") ? `${hrefs.get("warranty")}/new` : undefined],
@@ -609,7 +610,7 @@ export function buildQuickActions(
 
   return candidates.flatMap(([key, label, href]) =>
     href ? [{ key, label, href }] : [],
-  ).slice(0, 7);
+  ).slice(0, 8);
 }
 
 function toProduct(

@@ -2,14 +2,28 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const component = readFileSync("src/modules/catalog/components/MobileQuickProductCommerce.tsx", "utf8");
+const componentCss = readFileSync("src/modules/catalog/components/MobileQuickProductCommerce.module.css", "utf8");
 const route = readFileSync("app/api/catalog/quick-search/route.ts", "utf8");
 
 describe("mobile quick product geometry and boundaries", () => {
   it("keeps search, selection, quantity, and add controls at least 44px high", () => {
     expect(component).toContain("h-12 w-full");
     expect(component).toContain("h-12 w-12");
+    expect(component).toContain("size-11 shrink-0 cursor-pointer");
     expect(component.match(/h-11/g)?.length).toBeGreaterThanOrEqual(4);
     expect(component).toContain("grid-cols-[8.75rem_minmax(0,1fr)]");
+  });
+
+  it("keeps one project-controlled clear target and suppresses the native search decoration", () => {
+    expect(component.match(/aria-label=\{copy\.clear\}/g)).toHaveLength(1);
+    expect(componentCss).toContain("::-webkit-search-cancel-button");
+    expect(componentCss).toContain("::-ms-clear");
+  });
+
+  it("uses equal price columns on mobile and a price-plus-stock layout on wider screens", () => {
+    expect(component).toContain('showRetail ? "grid-cols-2 divide-x divide-zinc-200"');
+    expect(component).toContain("sm:grid-cols-[minmax(0,2fr)_minmax(8rem,1fr)]");
+    expect(component).toContain("sm:border-t-0");
   });
 
   it("uses bounded server catalog results and local working-selection state without browser database access", () => {
@@ -27,7 +41,8 @@ describe("mobile quick product geometry and boundaries", () => {
     expect(route).toContain("msrpPriceUsd: prices.msrpPriceUsd");
     expect(component).toContain("quickProduct?.commercialView?.retailPriceMdl?.formattedAmount");
     expect(component).toContain("quickProduct?.commercialView?.msrpPriceUsd?.formattedAmount");
-    expect(component).toContain("{copy.msrp}");
+    expect(component).not.toContain("{copy.msrp}");
+    expect(component).toContain("{msrpPriceUsd}");
     expect(component).not.toMatch(/retailPriceMdl\s*[/*]\s*msrpPriceUsd/);
     expect(component).not.toContain("retail_price_usd_to_mdl");
     expect(component).not.toMatch(/retailPriceMdl\.amount\s*\/|retailPriceMdl\.amount\s*\*/);
