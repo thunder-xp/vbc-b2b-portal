@@ -40,6 +40,8 @@ describe("FinanceOverview states", () => {
     const { container } = render(<FinanceOverview locale="ro" overview={model} />);
     expect(screen.getByRole("heading", { name: "Calendar de plăți" })).toBeInTheDocument();
     expect(screen.getByText("CO-PARTIAL", { exact: false })).toBeInTheDocument();
+    expect(screen.getByText(/Achitat parțial/)).toBeInTheDocument();
+    expect(screen.getByText(/În așteptarea plății/)).toBeInTheDocument();
     expect(screen.getAllByText("1.750,40 MDL").length).toBeGreaterThan(0);
     expect(screen.getByText(/nu sunt afișate/)).toBeInTheDocument();
     expect(screen.getByText(/Achitate/)).toBeInTheDocument();

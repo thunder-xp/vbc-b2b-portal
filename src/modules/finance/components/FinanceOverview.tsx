@@ -175,11 +175,13 @@ function PaymentCalendarOverview({ locale, overview }: { locale: PartnerLocale; 
 
 function PaymentItem({ item, locale }: { item: FinanceOverviewModel["paymentCalendar"]["current"][number]; locale: PartnerLocale }) {
   const copy = getFinanceCopy(locale);
+  const paymentState = item.paymentStatus === "PARTIAL" ? copy.partialStatus
+    : item.paymentStatus === "OPEN" ? copy.openStatus : copy.settled;
   const timing = item.paymentStatus === "SETTLED" ? copy.settled : item.daysFromDue < 0
     ? copy.daysOverdue.replace("{count}", String(Math.abs(item.daysFromDue)))
     : item.daysFromDue === 0 ? copy.dueToday : copy.daysUntil.replace("{count}", String(item.daysFromDue));
   return <li className="grid gap-4 p-4 md:grid-cols-[minmax(0,1fr)_minmax(220px,auto)_auto] md:items-center">
-    <div className="min-w-0"><p className="font-semibold text-zinc-950">{copy.order} {item.orderNumber}</p><p className="mt-1 text-sm text-zinc-600">{copy.dueDate}: {formatPartnerDate(item.dueDate, locale)}</p><p className={`mt-1 text-xs font-semibold ${item.daysFromDue < 0 && item.paymentStatus !== "SETTLED" ? "text-amber-800" : "text-zinc-500"}`}>{timing}</p></div>
+    <div className="min-w-0"><p className="font-semibold text-zinc-950">{copy.order} {item.orderNumber}</p><p className="mt-1 text-sm text-zinc-600">{copy.dueDate}: {formatPartnerDate(item.dueDate, locale)}</p><p className={`mt-1 text-xs font-semibold ${item.daysFromDue < 0 && item.paymentStatus !== "SETTLED" ? "text-amber-800" : "text-zinc-500"}`}>{paymentState}{item.paymentStatus !== "SETTLED" ? ` · ${timing}` : ""}</p></div>
     <dl className="grid grid-cols-3 gap-3 text-sm"><div><dt className="text-xs text-zinc-500">{copy.remaining}</dt><dd className="mt-1 font-semibold tabular-nums text-zinc-950">{formatFinanceAmount(item.remainingAmount, item.currency, locale)}</dd></div><div><dt className="text-xs text-zinc-500">{copy.paid}</dt><dd className="mt-1 tabular-nums text-zinc-700">{formatFinanceAmount(item.paidAmount, item.currency, locale)}</dd></div><div><dt className="text-xs text-zinc-500">{copy.planned}</dt><dd className="mt-1 tabular-nums text-zinc-700">{formatFinanceAmount(item.plannedAmount, item.currency, locale)}</dd></div></dl>
     <Link className="inline-flex min-h-11 items-center justify-center rounded-md border border-zinc-300 px-3 text-sm font-semibold text-emerald-700" href={`/cabinet/orders?query=${encodeURIComponent(item.orderNumber)}`} prefetch={false}>{copy.openOrder}</Link>
   </li>;
