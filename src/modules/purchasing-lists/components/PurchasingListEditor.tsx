@@ -1,24 +1,25 @@
 "use client";
 
 import {
-  ArrowDown,
-  ArrowUp,
   Calculator,
   Layers3,
   Save,
   ShoppingCart,
   Trash2,
+  X,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 
-import { CatalogCardImage } from "../../catalog/components/CatalogCardImage";
+import { PurchasingListProductRow } from "./PurchasingListProductRow";
+import { PurchasingListActions } from "./PurchasingListActions";
+import { listPrimaryButton, listSecondaryButton, listIconButton, listInput } from "./purchasing-list-presentation";
+import { purchasingListEditorCopy } from "../../partner-locale/purchasing-list-editor-copy";
 import { emitLiveCommerceSelectionAdd, type LiveCommerceSelectionProduct } from "../../catalog/services/live-commerce-selection";
 import {
-  formatPartnerDate,
+  getSavedKitCopy,
   procurementCopy,
-  procurementProductStateLabel,
   usePartnerLocale,
 } from "../../partner-locale";
 import type { PurchasingListDetailDto } from "../types";
@@ -38,6 +39,9 @@ export function PurchasingListEditor({
   const router = useRouter();
   const locale = usePartnerLocale();
   const copy = procurementCopy(locale);
+  const editorCopy = purchasingListEditorCopy(locale);
+  const kitCopy = getSavedKitCopy(locale);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState("");
   const [lines, setLines] = useState(initial.lines);
@@ -49,7 +53,7 @@ export function PurchasingListEditor({
     crypto.randomUUID(),
   );
   const editable =
-    (initial.canManage || initial.isSystemFavorites) && !initial.archivedAt;
+    Boolean(initial.canManage || initial.isSystemFavorites) && !initial.archivedAt;
   const selections = useMemo(
     () => [...selected].map((itemId) => ({ itemId })),
     [selected],
@@ -78,358 +82,92 @@ export function PurchasingListEditor({
       [next[index], next[target]] = [next[target], next[index]];
       return next;
     });
-  return (
-    <div className="space-y-5">
-      {!initial.isSystemFavorites ? (
-        <>
-          <form
-            className="grid gap-3 border-b border-zinc-200 pb-5 md:grid-cols-[1fr_1fr_160px_auto] md:items-end"
-            onSubmit={(event) => {
-              event.preventDefault();
-              const data = new FormData(event.currentTarget);
-              mutate(() =>
-                updatePurchasingListMetadataAction(
-                  initial.id,
-                  initial.revision,
-                  {
-                    name: String(data.get("name")),
-                    description: String(data.get("description")),
-                    visibility: String(data.get("visibility")) as
-                      "private" | "company",
-                  },
-                ),
-              );
-            }}
-          >
-            <label className="text-sm">
-              {copy.name}
-              <input
-                className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2"
-                defaultValue={initial.name}
-                disabled={!editable}
-                name="name"
-              />
-            </label>
-            <label className="text-sm">
-              {copy.description}
-              <input
-                className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2"
-                defaultValue={initial.description ?? ""}
-                disabled={!editable}
-                name="description"
-              />
-            </label>
-            <label className="text-sm">
-              {copy.access}
-              <select
-                className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2"
-                defaultValue={initial.visibility}
-                disabled={!editable}
-                name="visibility"
-              >
-                <option value="private">{copy.private}</option>
-                <option value="company">{copy.company}</option>
-              </select>
-            </label>
-            {editable ? (
-              <button
-                className="inline-flex items-center justify-center gap-2 rounded-md bg-zinc-900 px-3 py-2 text-sm font-semibold text-white"
-                disabled={pending}
-                type="submit"
-              >
-                <Save className="size-4" />
-                {copy.saveChanges}
-              </button>
-            ) : null}
-          </form>
-        </>
-      ) : (
-        <div className="border-b border-zinc-200 pb-4">
-          <p className="text-sm font-semibold text-zinc-950">
-            {copy.favorites}
-          </p>
-          <p className="mt-1 text-xs text-zinc-500">
-            {copy.systemFavoritesHint}
-          </p>
-        </div>
-      )}
-
-      <div className="flex flex-wrap items-center gap-2">
-        {!initial.archivedAt ? (
-          <button
-            className="text-action"
-            disabled={!selected.size}
-            onClick={() => {
-              lines.filter((line) => selected.has(line.id)).forEach((line) => emitLiveCommerceSelectionAdd({
-                product: purchasingListSelectionProduct(line),
-                quantity: line.quantity,
-              }));
-              setMessage(locale === "ro" ? "Produsele au fost adăugate în selecție." : "Товары добавлены в подборку.");
-            }}
-            type="button"
-          >
-            <Layers3 className="size-4" />
-            {locale === "ro" ? "Adaugă în selecție" : "Добавить в подборку"}
-          </button>
-        ) : null}
-        {!initial.archivedAt ? (
-          <button
-            className="text-action"
-            disabled={!selected.size || pending}
-            onClick={() =>
-              mutate(
-                () =>
-                  addPurchasingListToCartAction({
-                    listId: initial.id,
-                    requestKey: cartRequestKey,
-                    selections,
-                  }),
-                undefined,
-                () => setCartRequestKey(crypto.randomUUID()),
-              )
-            }
-            type="button"
-          >
-            <ShoppingCart className="size-4" />
-            {copy.selectedToCart}
-          </button>
-        ) : null}
-        {!initial.archivedAt ? (
-          <button
-            className="text-action"
-            disabled={!lines.some((line) => line.canConvert) || pending}
-            onClick={() =>
-              mutate(
-                () =>
-                  addPurchasingListToCartAction({
-                    listId: initial.id,
-                    requestKey: cartRequestKey,
-                  }),
-                undefined,
-                () => setCartRequestKey(crypto.randomUUID()),
-              )
-            }
-            type="button"
-          >
-            <ShoppingCart className="size-4" />
-            {copy.allAvailableToCart}
-          </button>
-        ) : null}
-        {!initial.archivedAt ? (
-          <button
-            className="text-action"
-            disabled={!selected.size || pending}
-            onClick={() =>
-              mutate(
-                () =>
-                  createEstimateFromPurchasingListAction({
-                    listId: initial.id,
-                    name: `${copy.estimatePrefix} — ${initial.name}`,
-                    requestKey: estimateRequestKey,
-                    selections,
-                  }),
-                (data) =>
-                  `/cabinet/estimates/${(data as { estimateId: string }).estimateId}`,
-                () => setEstimateRequestKey(crypto.randomUUID()),
-              )
-            }
-            type="button"
-          >
-            <Calculator className="size-4" />
-            {copy.createEstimate}
-          </button>
-        ) : null}
-        {editable ? (
-          <button
-            className="text-action text-rose-700"
-            disabled={!selected.size || pending}
-            onClick={() =>
-              mutate(() =>
-                removePurchasingListItemsAction(initial.id, initial.revision, [
-                  ...selected,
-                ]),
-              )
-            }
-            type="button"
-          >
-            <Trash2 className="size-4" />
-            {copy.removeSelected}
-          </button>
-        ) : null}
-        {editable && lines.length ? (
-          <button
-            className="ml-auto text-action"
-            disabled={pending}
-            onClick={() =>
-              mutate(() =>
-                updatePurchasingListItemsAction(
-                  initial.id,
-                  initial.revision,
-                  lines.map((line, index) => ({
-                    itemId: line.id,
-                    quantity: line.quantity,
-                    position: index + 1,
-                    note: line.note,
-                  })),
-                ),
-              )
-            }
-            type="button"
-          >
-            <Save className="size-4" />
-            {copy.savePositions}
-          </button>
-        ) : null}
-      </div>
-      {message ? (
-        <p className="rounded-md bg-zinc-100 px-3 py-2 text-sm" role="status">
-          {message}
-        </p>
-      ) : null}
-      {!lines.length ? (
-        <section className="border border-dashed border-zinc-300 bg-white px-6 py-12 text-center">
-          <h2 className="font-semibold">{copy.emptyList}</h2>
-          <Link
-            className="mt-4 inline-flex rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white"
-            href="/cabinet/catalog"
-          >
-            {copy.addProducts}
-          </Link>
-        </section>
-      ) : (
-        <ul className="divide-y divide-zinc-200 overflow-hidden rounded-md border border-zinc-200 bg-white">
-          {lines.map((line, index) => (
-            <li
-              className="grid gap-3 p-4 md:grid-cols-[28px_64px_minmax(220px,1fr)_120px_150px_130px_80px] md:items-center"
-              key={line.id}
-            >
-              <input
-                aria-label={`${copy.select}: ${line.productName}`}
-                checked={selected.has(line.id)}
-                className="size-4 accent-emerald-700"
-                onChange={(event) =>
-                  setSelected((current) => {
-                    const next = new Set(current);
-                    if (event.target.checked) next.add(line.id);
-                    else next.delete(line.id);
-                    return next;
-                  })
-                }
-                type="checkbox"
-              />
-              <div className="relative aspect-square overflow-hidden rounded border border-zinc-200 bg-zinc-50">
-                <CatalogCardImage
-                  alt={line.productName}
-                  sizes="96px"
-                  src={line.imageUrl}
-                />
-              </div>
-              <div className="min-w-0">
-                <Link
-                  className="font-semibold text-zinc-950 hover:text-emerald-700"
-                  href={
-                    line.slug
-                      ? `/cabinet/catalog/${line.slug}`
-                      : "/cabinet/catalog"
-                  }
-                >
-                  {line.productName}
-                </Link>
-                <p className="text-xs text-zinc-500">{line.sku}</p>
-                <p
-                  className={`mt-1 text-xs font-semibold ${line.canConvert ? "text-emerald-700" : "text-amber-700"}`}
-                >
-                  {procurementProductStateLabel(locale, line.state)}
-                </p>
-                <label className="mt-2 block text-xs text-zinc-500">
-                  {copy.note}
-                  <input
-                    className="mt-1 w-full rounded border border-zinc-300 px-2 py-1.5 text-sm"
-                    disabled={!editable}
-                    maxLength={500}
-                    onChange={(event) =>
-                      setLines((current) =>
-                        current.map((item) =>
-                          item.id === line.id
-                            ? { ...item, note: event.target.value || null }
-                            : item,
-                        ),
-                      )
-                    }
-                    value={line.note ?? ""}
-                  />
-                </label>
-              </div>
-              <label className="text-xs text-zinc-500">
-                {copy.quantity}
-                <input
-                  className="mt-1 w-full rounded-md border border-zinc-300 px-2 py-2 text-sm"
-                  disabled={!editable}
-                  max={9999}
-                  min={1}
-                  onChange={(event) =>
-                    setLines((current) =>
-                      current.map((item) =>
-                        item.id === line.id
-                          ? { ...item, quantity: Number(event.target.value) }
-                          : item,
-                      ),
-                    )
-                  }
-                  type="number"
-                  value={line.quantity}
-                />
-              </label>
-              <div className="text-sm">
-                <span className="text-xs text-zinc-500">
-                  {line.currentPartnerPrice
-                    ? copy.partnerPrice
-                    : copy.retailPrice}
-                </span>
-                <p className="font-semibold">
-                  {line.currentPartnerPrice ??
-                    line.currentRetailPrice ??
-                    copy.priceUnavailable}
-                </p>
-              </div>
-              <div className="text-sm">
-                <span className="text-xs text-zinc-500">
-                  {copy.availability}
-                </span>
-                <p>{line.availableStock ?? copy.pending}</p>
-                {line.expectedArrivalDate ? (
-                  <p className="text-xs text-zinc-500">
-                    {copy.arrival}:{" "}
-                    {formatPartnerDate(line.expectedArrivalDate, locale)}
-                  </p>
-                ) : null}
-              </div>
-              {editable ? (
-                <div className="flex">
-                  <button
-                    aria-label={copy.moveUp}
-                    disabled={index === 0}
-                    onClick={() => move(index, -1)}
-                    type="button"
-                  >
-                    <ArrowUp className="size-4" />
-                  </button>
-                  <button
-                    aria-label={copy.moveDown}
-                    disabled={index === lines.length - 1}
-                    onClick={() => move(index, 1)}
-                    type="button"
-                  >
-                    <ArrowDown className="size-4" />
-                  </button>
-                </div>
-              ) : null}
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
+  const dirty = lines.length !== initial.lines.length || lines.some((line, index) =>
+    line.id !== initial.lines[index]?.id || line.quantity !== initial.lines[index]?.quantity);
+  const attentionCount = lines.filter((line) => !line.canConvert).length;
+  const cart = (selectedOnly: boolean) => mutate(
+    () => addPurchasingListToCartAction({
+      listId: initial.id,
+      requestKey: cartRequestKey,
+      ...(selectedOnly ? { selections } : {}),
+    }), undefined, () => setCartRequestKey(crypto.randomUUID()),
   );
+  const estimate = (selectedOnly: boolean) => mutate(
+    () => createEstimateFromPurchasingListAction({
+      listId: initial.id,
+      name: `${copy.estimatePrefix} — ${initial.name}`,
+      requestKey: estimateRequestKey,
+      ...(selectedOnly ? { selections } : {}),
+    }),
+    (data) => `/cabinet/estimates/${(data as { estimateId: string }).estimateId}`,
+    () => setEstimateRequestKey(crypto.randomUUID()),
+  );
+
+  return <div className="space-y-3" data-list-editor>
+    <header className="space-y-2" data-list-header>
+      <Link className="inline-flex min-h-11 items-center text-sm font-semibold text-emerald-700" href={initial.isSystemFavorites ? "/cabinet/purchasing-lists?filter=favorites" : "/cabinet/purchasing-lists"}>← {initial.isSystemFavorites ? copy.selection : kitCopy.title}</Link>
+      <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+        <div className="min-w-0">
+          <h1 className="break-words text-2xl font-semibold">{initial.isSystemFavorites ? copy.favorites : initial.name}</h1>
+          {!initial.isSystemFavorites || initial.archivedAt ? <p className="mt-1 text-xs text-zinc-500" data-list-metadata>{initial.archivedAt ? copy.archive : initial.visibility === "private" ? copy.private : copy.company}</p> : null}
+        </div>
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center" data-page-actions>
+          {!initial.archivedAt && !initial.isSystemFavorites ? <Link className={`${dirty ? listSecondaryButton : listPrimaryButton} col-span-2`} href={`/cabinet/quick-order?kit=${encodeURIComponent(initial.id)}#saved-kits`}><Layers3 aria-hidden="true" className="size-4 shrink-0" />{kitCopy.useKit}</Link> : null}
+          {!initial.archivedAt && !selected.size ? <>
+            <button className={initial.isSystemFavorites && !dirty ? listPrimaryButton : listSecondaryButton} disabled={pending} onClick={() => cart(false)} type="button"><ShoppingCart aria-hidden="true" className="size-4 shrink-0" />{editorCopy.cart}</button>
+            <button className={listSecondaryButton} disabled={pending} onClick={() => estimate(false)} type="button"><Calculator aria-hidden="true" className="size-4 shrink-0" />{editorCopy.estimate}</button>
+          </> : null}
+          {editable && dirty ? <button className={`${listPrimaryButton} col-span-2`} disabled={pending} onClick={() => mutate(() => updatePurchasingListItemsAction(initial.id, initial.revision, lines.map((line, index) => ({
+            itemId: line.id, quantity: line.quantity, position: index + 1, note: line.note,
+          }))))} type="button"><Save aria-hidden="true" className="size-4 shrink-0" />{copy.saveChanges}</button> : null}
+          <PurchasingListActions archived={Boolean(initial.archivedAt)} canManage={initial.canManage} disabled={pending || dirty} isSystemFavorites={Boolean(initial.isSystemFavorites)} listId={initial.id} onEdit={() => setSettingsOpen((value) => !value)} revision={initial.revision} />
+        </div>
+      </div>
+      {dirty || attentionCount ? <p className="text-xs text-amber-800" role="status">{dirty ? editorCopy.unsaved : null}{dirty && attentionCount ? " · " : null}{attentionCount ? `${editorCopy.attention}: ${attentionCount}. ${editorCopy.availableOnly}.` : null}</p> : null}
+    </header>
+
+    {settingsOpen && !initial.isSystemFavorites && editable ? <section className="rounded-md border border-zinc-200 bg-zinc-50 p-3" data-list-settings>
+      <div className="mb-2 flex items-center justify-between gap-2"><h2 className="text-sm font-semibold">{editorCopy.settings}</h2><button aria-label={copy.close} className={listIconButton} onClick={() => setSettingsOpen(false)} title={copy.close} type="button"><X aria-hidden="true" className="size-4" /></button></div>
+      <form className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[1fr_1fr_160px_auto] xl:items-end" onSubmit={(event) => {
+        event.preventDefault();
+        const data = new FormData(event.currentTarget);
+        mutate(() => updatePurchasingListMetadataAction(initial.id, initial.revision, {
+          name: String(data.get("name")), description: String(data.get("description")), visibility: String(data.get("visibility")) as "private" | "company",
+        }), undefined, () => setSettingsOpen(false));
+      }}>
+        <label className="text-xs text-zinc-500">{copy.name}<input className={`${listInput} mt-1`} defaultValue={initial.name} maxLength={120} name="name" required /></label>
+        <label className="text-xs text-zinc-500">{copy.description}<input className={`${listInput} mt-1`} defaultValue={initial.description ?? ""} maxLength={1000} name="description" /></label>
+        <label className="text-xs text-zinc-500">{copy.access}<select className={`${listInput} mt-1`} defaultValue={initial.visibility} name="visibility"><option value="private">{copy.private}</option><option value="company">{copy.company}</option></select></label>
+        <button className={listSecondaryButton} disabled={pending} type="submit">{copy.apply}</button>
+      </form>
+    </section> : null}
+
+    {selected.size ? <section aria-label={editorCopy.selected} className="rounded-md border border-emerald-200 bg-emerald-50 p-2" data-selection-toolbar>
+      <div className="flex items-center justify-between gap-2"><p className="px-1 text-sm font-semibold text-emerald-900">{editorCopy.selected}: {selected.size}</p><button aria-label={editorCopy.clearSelection} className={listIconButton} onClick={() => setSelected(new Set())} title={editorCopy.clearSelection} type="button"><X aria-hidden="true" className="size-4" /></button></div>
+      <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+        {!initial.archivedAt ? <>
+          <button className={listSecondaryButton} onClick={() => {
+            lines.filter((line) => selected.has(line.id)).forEach((line) => emitLiveCommerceSelectionAdd({ product: purchasingListSelectionProduct(line), quantity: line.quantity }));
+            setMessage(editorCopy.selectionAdded);
+          }} type="button"><Layers3 aria-hidden="true" className="size-4 shrink-0" />{editorCopy.addToSelection}</button>
+          <button className={listSecondaryButton} disabled={pending} onClick={() => cart(true)} type="button"><ShoppingCart aria-hidden="true" className="size-4 shrink-0" />{editorCopy.cart}</button>
+          <button className={listSecondaryButton} disabled={pending} onClick={() => estimate(true)} type="button"><Calculator aria-hidden="true" className="size-4 shrink-0" />{editorCopy.estimate}</button>
+        </> : null}
+        {editable ? <button className={`${listSecondaryButton} text-rose-700`} disabled={pending} onClick={() => mutate(() => removePurchasingListItemsAction(initial.id, initial.revision, [...selected]))} type="button"><Trash2 aria-hidden="true" className="size-4 shrink-0" />{copy.removeSelected}</button> : null}
+      </div>
+    </section> : null}
+    {message ? <p className="rounded-md bg-zinc-100 px-3 py-2 text-sm" role="status">{message}</p> : null}
+    {!lines.length ? <section className="rounded-md border border-dashed border-zinc-300 bg-white px-4 py-6 text-center">
+      <h2 className="font-semibold">{initial.isSystemFavorites ? copy.favoritesEmpty : copy.emptyList}</h2>
+      <Link className={`${listPrimaryButton} mt-3`} href="/cabinet/catalog">{copy.addProducts}</Link>
+    </section> : <ul className="divide-y divide-zinc-200 rounded-md border border-zinc-200 bg-white">
+      {lines.map((line, index) => <PurchasingListProductRow editable={editable} first={index === 0} key={line.id} last={index === lines.length - 1} line={line} locale={locale}
+        onMove={(direction) => move(index, direction)}
+        onQuantity={(quantity) => setLines((current) => current.map((item) => item.id === line.id ? { ...item, quantity } : item))}
+        onSelect={(checked) => setSelected((current) => { const next = new Set(current); if (checked) next.add(line.id); else next.delete(line.id); return next; })}
+        selected={selected.has(line.id)} />)}
+    </ul>}
+  </div>;
 }
 
 function purchasingListSelectionProduct(line: PurchasingListDetailDto["lines"][number]): LiveCommerceSelectionProduct {

@@ -1,51 +1,43 @@
 "use client";
 
-import { Archive, Copy, Pencil, RotateCcw, ShoppingCart } from "lucide-react";
+import { Archive, Copy, MoreHorizontal, Pencil, RotateCcw } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 
 import {
-  addPurchasingListToCartAction,
-  createEstimateFromPurchasingListAction,
   duplicatePurchasingListAction,
   setPurchasingListArchivedAction,
-  updatePurchasingListMetadataAction,
 } from "../actions";
 import { getSavedKitCopy, procurementCopy, usePartnerLocale } from "../../partner-locale";
 
+import { purchasingListEditorCopy } from "../../partner-locale/purchasing-list-editor-copy";
+import { listIconButton } from "./purchasing-list-presentation";
+
 export function PurchasingListActions({
   listId,
-  name,
   revision,
   archived,
   canManage,
   isSystemFavorites = false,
-  description,
-  visibility,
+  onEdit,
+  disabled = false,
 }: {
   listId: string;
-  name: string;
   revision: number;
   archived: boolean;
   canManage: boolean;
   isSystemFavorites?: boolean;
-  description?: string | null;
-  visibility?: "private" | "company";
+  onEdit: () => void;
+  disabled?: boolean;
 }) {
   const router = useRouter();
   const locale = usePartnerLocale();
   const copy = procurementCopy(locale);
   const kitCopy = getSavedKitCopy(locale);
+  const editorCopy = purchasingListEditorCopy(locale);
+  const menu = useRef<HTMLDetailsElement>(null);
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState("");
-  const [renaming, setRenaming] = useState(false);
-  const [nextName, setNextName] = useState(name);
-  const [cartRequestKey, setCartRequestKey] = useState(() =>
-    crypto.randomUUID(),
-  );
-  const [estimateRequestKey, setEstimateRequestKey] = useState(() =>
-    crypto.randomUUID(),
-  );
   const run = (
     operation: () => Promise<{
       success: boolean;
@@ -62,111 +54,17 @@ export function PurchasingListActions({
       if (result.success && destination) router.push(destination(result.data));
       else router.refresh();
     });
-  return (
-    <div className="flex flex-wrap gap-2">
-      {!archived ? (
-        <button
-          aria-label={copy.addListToCart}
-          className="icon-action"
-          disabled={pending}
-          onClick={() =>
-            run(
-              () =>
-                addPurchasingListToCartAction({
-                  listId,
-                  requestKey: cartRequestKey,
-                }),
-              undefined,
-              () => setCartRequestKey(crypto.randomUUID()),
-            )
-          }
-          title={copy.addToCart}
-          type="button"
-        >
-          <ShoppingCart className="size-4" />
-        </button>
-      ) : null}
-      {!archived ? (
-        <button
-          className="text-action"
-          disabled={pending}
-          onClick={() =>
-            run(
-              () =>
-                createEstimateFromPurchasingListAction({
-                  listId,
-                  name: `${copy.estimatePrefix} — ${name}`,
-                  requestKey: estimateRequestKey,
-                }),
-              (data) =>
-                `/cabinet/estimates/${(data as { estimateId: string }).estimateId}`,
-              () => setEstimateRequestKey(crypto.randomUUID()),
-            )
-          }
-          type="button"
-        >
-          {copy.createEstimate}
-        </button>
-      ) : null}
-      {canManage && !archived && !isSystemFavorites && visibility ? (
-        <button
-          aria-label={kitCopy.rename}
-          className="icon-action"
-          disabled={pending}
-          onClick={() => setRenaming((value) => !value)}
-          title={kitCopy.rename}
-          type="button"
-        >
-          <Pencil className="size-4" />
-        </button>
-      ) : null}
-      {canManage ? (
-        <button
-          aria-label={kitCopy.saveAsNew}
-          className="icon-action"
-          disabled={pending}
-          onClick={() =>
-            run(
-              () => duplicatePurchasingListAction(listId),
-              (data) =>
-                `/cabinet/purchasing-lists/${(data as { id: string }).id}`,
-            )
-          }
-          title={kitCopy.saveAsNew}
-          type="button"
-        >
-          <Copy className="size-4" />
-        </button>
-      ) : null}
-      {canManage && !isSystemFavorites ? (
-        <button
-          aria-label={archived ? copy.restoreList : copy.archiveList}
-          className="icon-action"
-          disabled={pending}
-          onClick={() =>
-            run(() =>
-              setPurchasingListArchivedAction(listId, revision, !archived),
-            )
-          }
-          title={archived ? copy.restore : copy.archiveAction}
-          type="button"
-        >
-          {archived ? (
-            <RotateCcw className="size-4" />
-          ) : (
-            <Archive className="size-4" />
-          )}
-        </button>
-      ) : null}
-      {message ? (
-        <span className="w-full text-xs text-zinc-600" role="status">
-          {message}
-        </span>
-      ) : null}
-      {renaming && visibility ? <form className="flex w-full flex-col gap-2 sm:flex-row" onSubmit={(event) => { event.preventDefault(); run(() => updatePurchasingListMetadataAction(listId, revision, { name: nextName, description, visibility }), undefined, () => setRenaming(false)); }}>
-        <input aria-label={kitCopy.rename} className="h-11 min-w-0 flex-1 rounded-md border border-zinc-300 px-3 text-sm" maxLength={120} onChange={(event) => setNextName(event.target.value)} value={nextName} />
-        <button className="min-h-11 rounded-md bg-zinc-900 px-4 text-sm font-semibold text-white disabled:bg-zinc-300" disabled={!nextName.trim() || pending} type="submit">{kitCopy.save}</button>
-      </form> : null}
-    </div>
-  );
+  if (!canManage) return null;
+  const menuButton = "flex min-h-11 w-full items-center gap-2 rounded px-3 py-2 text-left text-sm font-medium hover:bg-zinc-100 focus-visible:ring-2 focus-visible:ring-emerald-600 disabled:opacity-40";
+  return <div className="col-span-2 justify-self-end sm:justify-self-auto">
+    <details className="relative" ref={menu} onKeyDown={(event) => { if (event.key === "Escape" && menu.current) { menu.current.open = false; menu.current.querySelector("summary")?.focus(); } }}>
+      <summary aria-label={editorCopy.management} className={`${listIconButton} cursor-pointer list-none border border-zinc-300 bg-white [&::-webkit-details-marker]:hidden`} title={editorCopy.management}><MoreHorizontal aria-hidden="true" className="size-4" /></summary>
+      <div className="absolute right-0 top-full z-20 mt-1 w-60 max-w-[calc(100vw-32px)] rounded-md border border-zinc-200 bg-white p-1 shadow-lg">
+        {!archived && !isSystemFavorites ? <button className={menuButton} disabled={pending || disabled} onClick={() => { if (menu.current) menu.current.open = false; onEdit(); }} type="button"><Pencil aria-hidden="true" className="size-4 shrink-0" />{kitCopy.rename}</button> : null}
+        <button className={menuButton} disabled={pending || disabled} onClick={() => run(() => duplicatePurchasingListAction(listId), (data) => `/cabinet/purchasing-lists/${(data as { id: string }).id}`)} type="button"><Copy aria-hidden="true" className="size-4 shrink-0" />{kitCopy.saveAsNew}</button>
+        {!isSystemFavorites ? <button className={`${menuButton} text-rose-700`} disabled={pending || disabled} onClick={() => run(() => setPurchasingListArchivedAction(listId, revision, !archived))} type="button">{archived ? <RotateCcw aria-hidden="true" className="size-4 shrink-0" /> : <Archive aria-hidden="true" className="size-4 shrink-0" />}{archived ? copy.restore : kitCopy.archive}</button> : null}
+      </div>
+    </details>
+    {message ? <p className="mt-1 text-xs text-zinc-600" role="status">{message}</p> : null}
+  </div>;
 }
