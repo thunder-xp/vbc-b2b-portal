@@ -4,7 +4,7 @@ import {
   ArrowDown,
   ArrowUp,
   Calculator,
-  ListPlus,
+  Layers3,
   Save,
   ShoppingCart,
   Trash2,
@@ -138,7 +138,7 @@ export function PurchasingListEditor({
                 type="submit"
               >
                 <Save className="size-4" />
-                {copy.save}
+                {copy.saveChanges}
               </button>
             ) : null}
           </form>
@@ -168,8 +168,8 @@ export function PurchasingListEditor({
             }}
             type="button"
           >
-            <ListPlus className="size-4" />
-            {locale === "ro" ? "În selecție" : "В подборку"}
+            <Layers3 className="size-4" />
+            {locale === "ro" ? "Adaugă în selecție" : "Добавить в подборку"}
           </button>
         ) : null}
         {!initial.archivedAt ? (

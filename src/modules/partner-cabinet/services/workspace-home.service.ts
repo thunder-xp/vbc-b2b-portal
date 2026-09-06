@@ -580,7 +580,7 @@ function toContinuation(
   return {
     id: item.id,
     kind: item.kind,
-    title: item.name || "Список закупок",
+    title: item.name || "Комплект",
     detail: `${item.positionCount} поз. · ${item.totalUnits} шт.`,
     updatedAt: item.updatedAt,
     href: `/cabinet/purchasing-lists/${item.id}`,
@@ -604,7 +604,6 @@ export function buildQuickActions(
     ["estimate", "Создать смету", hrefs.get("proposals") ? `${hrefs.get("proposals")}/new` : undefined],
     ["register_warranty", "Создать сервисную заявку", hrefs.get("warranty") ? `${hrefs.get("warranty")}/new` : undefined],
     ["it_support", "Обратиться в IT-поддержку", hrefs.get("support") ? `${hrefs.get("support")}/new` : undefined],
-    ["purchase_templates", "Открыть шаблоны закупок", hrefs.get("purchase_templates")],
     ["documents", "Найти документ", hrefs.get("documents")],
   ];
 

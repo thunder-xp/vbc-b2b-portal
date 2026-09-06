@@ -4,7 +4,6 @@ import { notFound } from "next/navigation";
 import { BehaviorViewEvent } from "@/src/modules/behavior-analytics/components";
 import { getPartnerOrderHistoryAction } from "@/src/modules/orders/actions";
 import { SaveAsPurchasingListButton } from "@/src/modules/purchasing-lists/components";
-import { SaveAsPurchaseTemplateButton } from "@/src/modules/purchase-templates/components";
 import { RelatedDocuments } from "@/src/modules/documents/components";
 import { ProductLineThumbnail } from "@/src/modules/catalog/components";
 import {
@@ -113,9 +112,6 @@ export default async function OrderDetailPage({
             {copy.buyAgain}
           </Link>
           <SaveAsPurchasingListButton orderId={order.id} source="order" />
-          <SaveAsPurchaseTemplateButton
-            source={{ type: "order", id: order.id }}
-          />
         </div>
       </section>
 

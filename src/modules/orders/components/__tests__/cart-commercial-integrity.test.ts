@@ -40,12 +40,11 @@ describe("cart commercial integrity UX", () => {
     expect(page).toContain("cart.retailReferenceTotal");
   });
 
-  it("aligns the two cart persistence actions as one responsive group", () => {
-    expect(page).toContain("grid grid-cols-2 gap-2");
+  it("keeps one canonical kit persistence action", () => {
     expect(page).toContain("[&>button]:h-11");
     expect(page).toContain("[&>button]:w-full");
-    expect(page).toContain("<SaveAsPurchasingListButton label={copy.saveToFavorites} source=\"cart\" />");
-    expect(page).toContain("<SaveAsPurchaseTemplateButton label={copy.saveToTemplate} source={{ type: \"cart\" }} />");
+    expect(page).toContain("<SaveAsPurchasingListButton label={locale === \"ro\" ? \"Salvează setul\" : \"Сохранить комплект\"} source=\"cart\" />");
+    expect(page).not.toContain("SaveAsPurchaseTemplateButton");
   });
 
   it("uses concise persistence labels and omits the visible checkout heading", () => {

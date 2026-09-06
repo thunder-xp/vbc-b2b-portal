@@ -125,8 +125,8 @@ describe("OpportunityCard", () => {
 
   it("renders template readiness as a separate actionable opportunity", () => {
     render(<OpportunityCard opportunity={{ ...base, product: null, template: { id: "template-1", name: "Monthly CCTV" }, type: "purchase_template_ready", reasonCode: "template_fully_ready", reasonMetadata: { itemCount: 8 }, sourceType: "purchase_template", sourceId: "template-1" }} />);
-    expect(screen.getByText("Все 8 позиций шаблона доступны.")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Проверить шаблон/ })).toHaveAttribute("href", "/cabinet/purchase-templates/template-1");
+    expect(screen.getByText("Все 8 позиций комплекта доступны.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Открыть комплекты/ })).toHaveAttribute("href", "/cabinet/purchasing-lists");
     expect(screen.queryByRole("img")).not.toBeInTheDocument();
   });
 

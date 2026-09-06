@@ -10,7 +10,6 @@ import {
 } from "lucide-react";
 
 import { ProductCard } from "../../catalog/components/ProductCard";
-import { DashboardPurchaseTemplateButton } from "../../purchase-templates/components/DashboardPurchaseTemplateButton";
 import type { WorkspaceHomeDto } from "../services";
 import { DashboardTrackedLink } from "./DashboardTrackedLink";
 import { OpportunityCard } from "../../commercial-opportunities/components/OpportunityCard";
@@ -366,7 +365,6 @@ function ProductSection({
           />
         ))}
       </div>
-      {analyticsSurface === "dashboard_reorder" ? <DashboardPurchaseTemplateButton items={products.slice(0, 5).map((item) => ({ productId: item.product.id, quantity: Math.max(1, Math.trunc(item.typicalQuantity ?? 1)) }))} /> : null}
     </section>
   );
 }

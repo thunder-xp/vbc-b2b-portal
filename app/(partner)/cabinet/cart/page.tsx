@@ -7,7 +7,6 @@ import { CartCheckoutCoordinator } from "@/src/modules/orders/components/CartChe
 import { OrderSubmitForm } from "@/src/modules/orders/components/OrderSubmitForm";
 import { CreateEstimateFromCartButton } from "@/src/modules/estimates/components/CreateEstimateFromCartButton";
 import { SaveAsPurchasingListButton } from "@/src/modules/purchasing-lists/components";
-import { SaveAsPurchaseTemplateButton } from "@/src/modules/purchase-templates/components";
 import type { CartLineDto } from "@/src/modules/orders/services";
 import { getOrdersCopy } from "@/src/modules/partner-locale";
 import { getPartnerLocale } from "@/src/modules/partner-locale/server";
@@ -209,12 +208,8 @@ export default async function CartPage() {
                 ) : null}
               </div>
               <CreateEstimateFromCartButton />
-              <div
-                aria-label={copy.additionalCartActions}
-                className="grid grid-cols-2 gap-2 [&>button]:h-11 [&>button]:min-w-0 [&>button]:w-full [&>button]:justify-center [&>button]:px-2"
-              >
-                <SaveAsPurchasingListButton label={copy.saveToFavorites} source="cart" />
-                <SaveAsPurchaseTemplateButton label={copy.saveToTemplate} source={{ type: "cart" }} />
+              <div aria-label={copy.additionalCartActions} className="[&>button]:h-11 [&>button]:w-full [&>button]:justify-center">
+                <SaveAsPurchasingListButton label={locale === "ro" ? "Salvează setul" : "Сохранить комплект"} source="cart" />
               </div>
               <OrderSubmitForm
                 cartId={cart.id!}

@@ -9,6 +9,7 @@ describe("saved kit responsive geometry", () => {
     expect(section).toContain("min-h-11");
     expect(section).toContain("inset-x-0 bottom-0");
     expect(section).toContain("sm:inset-y-0 sm:left-auto sm:right-0");
+    expect(section).toContain("flex flex-col gap-2 sm:grid sm:grid-cols-2");
     expect(section).not.toContain("<table");
     expect(save).toContain("min-h-11");
   });

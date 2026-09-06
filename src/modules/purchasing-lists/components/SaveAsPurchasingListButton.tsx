@@ -1,6 +1,6 @@
 "use client";
 
-import { BookmarkPlus, X } from "lucide-react";
+import { Save, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
@@ -33,7 +33,7 @@ export function SaveAsPurchasingListButton({
         onClick={() => setOpen(true)}
         type="button"
       >
-        <BookmarkPlus className="size-4" />
+        <Save className="size-4" />
         {label ?? copy.saveAsList}
       </button>
       {open ? (

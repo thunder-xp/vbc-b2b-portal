@@ -105,8 +105,8 @@ describe("Partner workspace shell", () => {
     const selectionButton = screen.getByRole("button", { name: "Подбор товаров" });
     await user.click(selectionButton);
     const selectionGroup = within(document.getElementById("product-selection-navigation")!);
-    expect(selectionGroup.getByRole("link", { name: "Избранное" })).toHaveAttribute("href", "/cabinet/purchasing-lists");
-    expect(selectionGroup.getByRole("link", { name: "Шаблоны закупок" })).toHaveAttribute("href", "/cabinet/purchase-templates");
+    expect(selectionGroup.getByRole("link", { name: "Избранное" })).toHaveAttribute("href", "/cabinet/purchasing-lists?filter=favorites");
+    expect(selectionGroup.getByRole("link", { name: "Мои комплекты" })).toHaveAttribute("href", "/cabinet/purchasing-lists");
     expect(selectionGroup.getByRole("link", { name: "Сравнение" })).toHaveAttribute("href", "/cabinet/compare");
 
     const projectButton = screen.getByRole("button", { name: "Проектная защита" });
@@ -344,10 +344,10 @@ describe("Partner workspace shell", () => {
     expect(screen.getByRole("link", { name: "Спецификации" })).toHaveAttribute("aria-current", "page");
     unmount();
 
-    pathname = "/cabinet/purchase-templates/template-1";
+    pathname = "/cabinet/purchasing-lists/kit-1";
     render(<PartnerSidebar hasWorkspaceAccess navigation={navigation} />);
     expect(screen.getByRole("button", { name: "Подбор товаров" })).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByRole("link", { name: "Шаблоны закупок" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "Мои комплекты" })).toHaveAttribute("aria-current", "page");
   });
 
   it("does not link commercial modules when workspace access is blocked", () => {

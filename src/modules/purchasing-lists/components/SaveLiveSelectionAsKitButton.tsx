@@ -1,6 +1,6 @@
 "use client";
 
-import { BookmarkPlus } from "lucide-react";
+import { Save } from "lucide-react";
 import { useState, useTransition } from "react";
 
 import type { LiveCommerceSelectionItem } from "../../catalog/services/live-commerce-selection";
@@ -35,7 +35,7 @@ export function SaveLiveSelectionAsKitButton({ items }: { items: LiveCommerceSel
   }
 
   if (!editing) return <div>
-    <button className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-zinc-300 bg-white px-4 text-sm font-semibold text-zinc-800" onClick={() => { setEditing(true); setMessage(null); }} type="button"><BookmarkPlus aria-hidden="true" className="size-4" />{copy.saveSelection}</button>
+    <button className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-zinc-300 bg-white px-4 text-sm font-semibold text-zinc-800" onClick={() => { setEditing(true); setMessage(null); }} type="button"><Save aria-hidden="true" className="size-4" />{copy.saveSelection}</button>
     {message ? <p aria-live="polite" className="mt-1 text-sm font-medium text-emerald-800">{message}</p> : null}
   </div>;
 

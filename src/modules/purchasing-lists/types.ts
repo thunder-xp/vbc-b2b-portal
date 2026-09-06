@@ -58,6 +58,8 @@ export type LiveCommerceKitLineDto = {
 };
 
 export type LiveCommerceKitDetailDto = LiveCommerceKitSummaryDto & {
+  description: string | null;
+  visibility: PurchasingListVisibility;
   lines: LiveCommerceKitLineDto[];
   readyCount: number;
   attentionCount: number;

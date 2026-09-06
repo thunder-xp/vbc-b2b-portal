@@ -395,6 +395,8 @@ export class PurchasingListService {
     return {
       id: record.id,
       name: record.name,
+      description: record.description,
+      visibility: record.visibility,
       itemCount: record.items.length,
       totalQuantity: record.items.reduce((sum, item) => sum + item.quantity, 0),
       updatedAt: record.updatedAt,

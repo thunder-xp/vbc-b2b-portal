@@ -50,7 +50,7 @@ export function OpportunityCard({
   const href = product
     ? `/cabinet/catalog/${product.slug}`
     : template
-      ? `/cabinet/purchase-templates/${template.id}`
+      ? "/cabinet/purchasing-lists"
       : opportunity.type === "previous_order_repeatable"
         ? `/cabinet/orders/${opportunity.sourceId}`
         : "/cabinet/opportunities";
@@ -211,8 +211,8 @@ export function OpportunityCard({
             >
               {template
                 ? locale === "ro"
-                  ? "Verifică șablonul"
-                  : "Проверить шаблон"
+                  ? "Deschide seturile"
+                  : "Открыть комплекты"
                 : locale === "ro"
                   ? "Repetă achiziția"
                   : "Повторить закупку"}
@@ -242,7 +242,7 @@ function opportunityLabel(
     watched_product_back_in_stock: "Снова в наличии",
     relevant_product_arrival_confirmed: "Ожидается поступление",
     relevant_product_price_decreased: "Цена стала ниже",
-    purchase_template_ready: "Шаблон готов к заказу",
+    purchase_template_ready: "Комплект готов к заказу",
     previous_order_repeatable: "Можно повторить закупку",
     relevant_merchandising_offer: "Предложение Novotech",
     relevant_product_low_stock: "Осталось немного",
@@ -254,7 +254,7 @@ function opportunityLabel(
     watched_product_back_in_stock: "Din nou în stoc",
     relevant_product_arrival_confirmed: "Recepție estimată",
     relevant_product_price_decreased: "Preț redus",
-    purchase_template_ready: "Șablon gata de comandă",
+    purchase_template_ready: "Set gata de comandă",
     previous_order_repeatable: "Achiziția poate fi repetată",
     relevant_merchandising_offer: "Ofertă Novotech",
     relevant_product_low_stock: "Stoc limitat",
@@ -285,7 +285,7 @@ function primaryReason(
     if (opportunity.reasonCode === "available_analog")
       return "Produsul are stoc redus. Este disponibil un analog.";
     if (opportunity.reasonCode === "template_fully_ready")
-      return `Toate cele ${numberValue(value.itemCount, locale)} poziții din șablon sunt disponibile.`;
+      return `Toate cele ${numberValue(value.itemCount, locale)} poziții din set sunt disponibile.`;
     if (opportunity.reasonCode === "template_mostly_ready")
       return `${numberValue(value.availableCount, locale)} din ${numberValue(value.itemCount, locale)} poziții sunt disponibile, iar ${numberValue(value.expectedCount, locale)} sunt așteptate.`;
     if (opportunity.reasonCode === "previous_order_repeatable")
@@ -309,7 +309,7 @@ function primaryReason(
   if (opportunity.reasonCode === "available_analog")
     return "Товар заканчивается. Доступен аналог.";
   if (opportunity.reasonCode === "template_fully_ready")
-    return `Все ${numberValue(value.itemCount, locale)} позиций шаблона доступны.`;
+    return `Все ${numberValue(value.itemCount, locale)} позиций комплекта доступны.`;
   if (opportunity.reasonCode === "template_mostly_ready")
     return `${numberValue(value.availableCount, locale)} из ${numberValue(value.itemCount, locale)} позиций доступны, ещё ${numberValue(value.expectedCount, locale)} ожидаются.`;
   if (opportunity.reasonCode === "previous_order_repeatable")

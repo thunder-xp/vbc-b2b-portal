@@ -177,7 +177,7 @@ export function MobileQuickProductCommerce({
         <h1 className="text-xl font-semibold tracking-tight text-zinc-950 sm:text-2xl">{copy.title}</h1>
         <nav aria-label={copy.title} className="flex flex-wrap gap-x-4 gap-y-1 pt-1 text-sm font-semibold text-emerald-800">
           <Link href="/cabinet/opportunities" prefetch={false}>{copy.recentlyPurchased}</Link>
-          <Link href="/cabinet/purchasing-lists" prefetch={false}>{copy.favorites}</Link>
+          <Link href="/cabinet/purchasing-lists?filter=favorites" prefetch={false}>{copy.favorites}</Link>
           {canViewKits ? <Link href="#saved-kits">{locale === "ro" ? "Seturile mele" : "Мои комплекты"}</Link> : null}
         </nav>
       </div>

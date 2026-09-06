@@ -23,7 +23,7 @@ const GROUP_LABELS: Record<PartnerSearchDocumentType, string> = {
   proposal: "Коммерческие предложения",
   manual_line: "Ручные позиции смет",
   template: "Шаблоны",
-  purchase_template: "Шаблоны закупок",
+  purchase_template: "Мои комплекты",
   commercial_campaign: "Специальные предложения",
   document: "Документы",
   service_case: "Сервисные заявки",

@@ -84,10 +84,10 @@ describe("LiveCommerceSelectionProvider", () => {
     render(<Workspace />);
     await user.click(screen.getByRole("button", { name: "Add camera" }));
     await user.click(screen.getByRole("button", { name: "Открыть" }));
-    await user.click(await screen.findByRole("button", { name: "Сохранить подборку" }));
+    await user.click(await screen.findByRole("button", { name: "Сохранить комплект" }));
     expect(screen.getAllByRole("textbox")).toHaveLength(1);
     await user.type(screen.getByRole("textbox", { name: "Название комплекта" }), "CCTV test kit");
-    await user.click(screen.getByRole("button", { name: "Сохранить комплект" }));
+    await user.click(screen.getByRole("button", { name: "Сохранить" }));
     await waitFor(() => expect(mocks.createKit).toHaveBeenCalledWith({ name: "CCTV test kit", items: [{ productId: product.id, quantity: 2 }] }));
   });
 });

@@ -88,34 +88,34 @@ export async function setFavoriteProductAction(productId: string, saved: boolean
 }
 
 export async function createPurchasingListAction(input: z.input<typeof metadataSchema>) {
-  const parsed = metadataSchema.safeParse(input); if (!parsed.success) return invalidInput("Проверьте название и доступ списка.");
-  try { const list = await createPurchasingListService().createManual(await getAuthenticatedUserId(), parsed.data); revalidateLists(list.id); return success("Список закупок создан.", { id: list.id }); }
+  const parsed = metadataSchema.safeParse(input); if (!parsed.success) return invalidInput("Проверьте название и доступ комплекта.");
+  try { const list = await createPurchasingListService().createManual(await getAuthenticatedUserId(), parsed.data); revalidateLists(list.id); return success("Комплект сохранён.", { id: list.id }); }
   catch (error) { return failureFromError(error); }
 }
 
 export async function createPurchasingListFromCartAction(input: z.input<typeof metadataSchema>) {
-  const parsed = metadataSchema.safeParse(input); if (!parsed.success) return invalidInput("Проверьте название списка.");
-  try { const result = await createPurchasingListService().createFromCart(await getAuthenticatedUserId(), parsed.data); revalidateLists(result.list.id); return success("Корзина сохранена как список закупок.", { id: result.list.id, skipped: result.skipped }); }
+  const parsed = metadataSchema.safeParse(input); if (!parsed.success) return invalidInput("Проверьте название комплекта.");
+  try { const result = await createPurchasingListService().createFromCart(await getAuthenticatedUserId(), parsed.data); revalidateLists(result.list.id); return success("Комплект сохранён.", { id: result.list.id, skipped: result.skipped }); }
   catch (error) { return failureFromError(error); }
 }
 
 export async function createPurchasingListFromOrderAction(input: z.input<typeof metadataSchema> & { orderId: string; selections?: Array<{ lineId: string; quantity: number }> }) {
   const parsed = metadataSchema.extend({ orderId: uuid, selections: z.array(z.object({ lineId: uuid, quantity: z.number().int().min(1).max(9999) })).max(200).optional() }).safeParse(input);
   if (!parsed.success) return invalidInput("Проверьте выбранные позиции.");
-  try { const result = await createPurchasingListService().createFromOrder(await getAuthenticatedUserId(), parsed.data); revalidateLists(result.list.id); return success("Заказ сохранён как список закупок.", { id: result.list.id, skipped: result.skipped }); }
+  try { const result = await createPurchasingListService().createFromOrder(await getAuthenticatedUserId(), parsed.data); revalidateLists(result.list.id); return success("Комплект сохранён.", { id: result.list.id, skipped: result.skipped }); }
   catch (error) { return failureFromError(error); }
 }
 
 export async function addCatalogProductToPurchasingListAction(input: { listId: string; productId: string; quantity: number; mergeMode: "increase" | "replace" | "keep" }) {
   const parsed = z.object({ listId: uuid, productId: uuid, quantity: z.number().int().min(1).max(9999), mergeMode: z.enum(["increase", "replace", "keep"]) }).safeParse(input);
   if (!parsed.success) return invalidInput("Проверьте товар и количество.");
-  try { const list = await createPurchasingListService().addProduct(await getAuthenticatedUserId(), parsed.data); revalidateLists(list.id); return success("Товар добавлен в список.", { id: list.id }); }
+  try { const list = await createPurchasingListService().addProduct(await getAuthenticatedUserId(), parsed.data); revalidateLists(list.id); return success("Товар добавлен в комплект.", { id: list.id }); }
   catch (error) { return failureFromError(error); }
 }
 
 export async function updatePurchasingListMetadataAction(listId: string, expectedRevision: number, input: z.input<typeof metadataSchema>) {
-  const parsed = metadataSchema.safeParse(input); if (!parsed.success) return invalidInput("Проверьте данные списка.");
-  try { const list = await createPurchasingListService().updateMetadata(await getAuthenticatedUserId(), uuid.parse(listId), expectedRevision, parsed.data); revalidateLists(list.id); return success("Список обновлён.", { revision: list.revision }); }
+  const parsed = metadataSchema.safeParse(input); if (!parsed.success) return invalidInput("Проверьте данные комплекта.");
+  try { const list = await createPurchasingListService().updateMetadata(await getAuthenticatedUserId(), uuid.parse(listId), expectedRevision, parsed.data); revalidateLists(list.id); return success("Комплект обновлён.", { revision: list.revision }); }
   catch (error) { return failureFromError(error); }
 }
 
@@ -133,12 +133,12 @@ export async function removePurchasingListItemsAction(listId: string, expectedRe
 }
 
 export async function setPurchasingListArchivedAction(listId: string, expectedRevision: number, archived: boolean) {
-  try { const list = await createPurchasingListService().setArchived(await getAuthenticatedUserId(), uuid.parse(listId), expectedRevision, archived); revalidateLists(list.id); return success(archived ? "Список архивирован." : "Список восстановлен.", { revision: list.revision }); }
+  try { const list = await createPurchasingListService().setArchived(await getAuthenticatedUserId(), uuid.parse(listId), expectedRevision, archived); revalidateLists(list.id); return success(archived ? "Комплект архивирован." : "Комплект восстановлен.", { revision: list.revision }); }
   catch (error) { return failureFromError(error); }
 }
 
 export async function duplicatePurchasingListAction(listId: string, name?: string) {
-  try { const list = await createPurchasingListService().duplicate(await getAuthenticatedUserId(), uuid.parse(listId), name); revalidateLists(list.id); return success("Копия списка создана.", { id: list.id }); }
+  try { const list = await createPurchasingListService().duplicate(await getAuthenticatedUserId(), uuid.parse(listId), name); revalidateLists(list.id); return success("Комплект сохранён как новый.", { id: list.id }); }
   catch (error) { return failureFromError(error); }
 }
 
