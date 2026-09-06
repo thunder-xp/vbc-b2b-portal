@@ -4,7 +4,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { CommercialOpportunity } from "../../types";
 import { PartnerLocaleProvider } from "../../../partner-locale";
-import { OpportunityCard, opportunityPresentationVariant } from "../OpportunityCard";
+import { OpportunityCard } from "../OpportunityCard";
+import { opportunityPresentationVariant } from "../../presentation";
 
 const { addToCartActionMock, routerRefresh } = vi.hoisted(() => ({
   addToCartActionMock: vi.fn(),

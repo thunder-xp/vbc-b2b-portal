@@ -239,10 +239,6 @@ export function OpportunityCard({
   );
 }
 
-export function opportunityPresentationVariant(opportunity: CommercialOpportunity): "wide" | "compact" {
-  return opportunity.product ? "wide" : "compact";
-}
-
 function opportunityLabel(
   type: CommercialOpportunity["type"],
   locale: PartnerLocale,

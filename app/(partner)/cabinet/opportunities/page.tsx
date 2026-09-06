@@ -4,7 +4,8 @@ import type { CSSProperties } from "react";
 
 import { BehaviorViewEvent } from "@/src/modules/behavior-analytics/components";
 import { listCommercialOpportunitiesAction } from "@/src/modules/commercial-opportunities/actions";
-import { OpportunityCard, opportunityPresentationVariant } from "@/src/modules/commercial-opportunities/components";
+import { OpportunityCard } from "@/src/modules/commercial-opportunities/components";
+import { opportunityPresentationVariant } from "@/src/modules/commercial-opportunities/presentation";
 import type { CommercialOpportunityFilter } from "@/src/modules/commercial-opportunities/types";
 import { getPartnerWorkspaceContextAction } from "@/src/modules/partner-cabinet/actions";
 import { NumberedPagination, PageHeader, actionClassName } from "@/src/modules/platform-ui";
