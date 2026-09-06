@@ -31,7 +31,7 @@ describe("partner platform visual unification contract", () => {
     expect(opportunities).toContain('data-opportunity-lane="compact"');
     expect(opportunities).toContain("--business-order");
     const list = read("src/modules/catalog/components/ProductList.tsx");
-    expect(list).toContain("min-[1360px]:flex-nowrap");
+    expect(list).toContain("min-[1440px]:flex-nowrap");
     expect(list.match(/h-\[5\.25rem\]/g)?.length).toBeGreaterThanOrEqual(2);
   });
 
