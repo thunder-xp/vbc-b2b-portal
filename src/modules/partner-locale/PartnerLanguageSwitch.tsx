@@ -8,7 +8,7 @@ import { setPartnerLocaleAction } from "./actions";
 import { partnerText } from "./copy";
 import type { PartnerLocale } from "./locale";
 
-export function PartnerLanguageSwitch({ locale, variant = "header" }: { locale: PartnerLocale; variant?: "header" | "menu" }) {
+export function PartnerLanguageSwitch({ locale, onSelect, variant = "header" }: { locale: PartnerLocale; onSelect?: () => void; variant?: "header" | "menu" }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const nextLocale = locale === "ru" ? "ro" : "ru";
@@ -39,6 +39,7 @@ export function PartnerLanguageSwitch({ locale, variant = "header" }: { locale: 
           cancelable: true,
         });
         if (!window.dispatchEvent(event)) return;
+        onSelect?.();
         startTransition(async () => {
           await setPartnerLocaleAction(nextLocale);
           router.refresh();

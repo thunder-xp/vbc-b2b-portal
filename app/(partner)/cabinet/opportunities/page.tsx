@@ -45,7 +45,7 @@ export default async function OpportunitiesPage({
   const filter = normalizeFilter(single(params.filter), availableFilters);
   const page = Math.max(1, Number(single(params.page)) || 1);
   const [result, contextResult] = await Promise.all([
-    listCommercialOpportunitiesAction({ filter, page }),
+    listCommercialOpportunitiesAction({ filter, page: 1, pageSize: 50 }),
     getPartnerWorkspaceContextAction(),
   ]);
   if (!result.success && result.errorCode === "AUTH_REQUIRED")
@@ -62,8 +62,12 @@ export default async function OpportunitiesPage({
       </section>
     );
   const indexedOpportunities = result.data.items.map((opportunity, businessOrder) => ({ opportunity, businessOrder }));
-  const wideOpportunities = indexedOpportunities.filter(({ opportunity }) => opportunityPresentationVariant(opportunity) === "wide");
-  const compactOpportunities = indexedOpportunities.filter(({ opportunity }) => opportunityPresentationVariant(opportunity) === "compact");
+  const allWideOpportunities = indexedOpportunities.filter(({ opportunity }) => opportunityPresentationVariant(opportunity) === "wide");
+  const allCompactOpportunities = indexedOpportunities.filter(({ opportunity }) => opportunityPresentationVariant(opportunity) === "compact");
+  const totalPages = Math.max(1, Math.ceil(allCompactOpportunities.length / 3), Math.ceil(allWideOpportunities.length / 2));
+  const presentationPage = Math.min(page, totalPages);
+  const compactOpportunities = allCompactOpportunities.slice((presentationPage - 1) * 3, presentationPage * 3);
+  const wideOpportunities = allWideOpportunities.slice((presentationPage - 1) * 2, presentationPage * 2);
   const companyId = contextResult.success ? contextResult.data.companyId : null;
   const userId = contextResult.success ? contextResult.data.userId : null;
 
@@ -94,7 +98,22 @@ export default async function OpportunitiesPage({
         ))}
       </nav>
       {result.data.items.length ? (
-        <div className="flex flex-col gap-3 xl:grid xl:grid-cols-[minmax(0,2fr)_minmax(17rem,1fr)] xl:items-start" data-opportunity-grid>
+        <div className="flex flex-col gap-3 xl:grid xl:grid-cols-[minmax(17rem,1fr)_minmax(0,2fr)] xl:items-start" data-opportunity-grid>
+          <div className="contents xl:flex xl:flex-col xl:gap-3" data-opportunity-lane="compact">
+          {compactOpportunities.map(({ opportunity, businessOrder }) => (
+            <div className="order-[var(--business-order)] xl:order-none" key={opportunity.id} style={{ "--business-order": businessOrder } as CSSProperties}>
+              <OpportunityCard
+                canAddToOrder={contextResult.success && contextResult.data.capabilities.productCard.canAddToOrder}
+                canAddToSpecification={contextResult.success && contextResult.data.capabilities.productCard.canAddToSpecification}
+                canManagePurchasingLists={contextResult.success && contextResult.data.capabilities.productCard.canManagePurchasingLists}
+                companyId={companyId}
+                locale={locale}
+                opportunity={opportunity}
+                userId={userId}
+              />
+            </div>
+          ))}
+          </div>
           <div className="contents xl:flex xl:flex-col xl:gap-3" data-opportunity-lane="wide">
           {wideOpportunities.map(({ opportunity, businessOrder }) => (
             <div className="order-[var(--business-order)] xl:order-none" key={opportunity.id} style={{ "--business-order": businessOrder } as CSSProperties}>
@@ -121,21 +140,6 @@ export default async function OpportunitiesPage({
             </div>
           ))}
           </div>
-          <div className="contents xl:flex xl:flex-col xl:gap-3" data-opportunity-lane="compact">
-          {compactOpportunities.map(({ opportunity, businessOrder }) => (
-            <div className="order-[var(--business-order)] xl:order-none" key={opportunity.id} style={{ "--business-order": businessOrder } as CSSProperties}>
-              <OpportunityCard
-                canAddToOrder={contextResult.success && contextResult.data.capabilities.productCard.canAddToOrder}
-                canAddToSpecification={contextResult.success && contextResult.data.capabilities.productCard.canAddToSpecification}
-                canManagePurchasingLists={contextResult.success && contextResult.data.capabilities.productCard.canManagePurchasingLists}
-                companyId={companyId}
-                locale={locale}
-                opportunity={opportunity}
-                userId={userId}
-              />
-            </div>
-          ))}
-          </div>
         </div>
       ) : (
         <section className="py-4" data-compact-empty>
@@ -152,10 +156,10 @@ export default async function OpportunitiesPage({
       )}
       <NumberedPagination
         ariaLabel={copy.opportunitiesPages}
-        currentPage={result.data.page}
+        currentPage={presentationPage}
         hrefForPage={(targetPage) => pageHref(filter, targetPage)}
         locale={locale}
-        totalPages={result.data.totalPages}
+        totalPages={totalPages}
       />
     </div>
   );

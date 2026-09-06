@@ -19,6 +19,8 @@ describe("product card ergonomics contracts", () => {
     expect(cardFrame).toContain('compact ? "h-8" : "h-[3.25rem]"');
     expect(cardFrame).toContain('compact ? "pt-2" : "pt-3"');
     expect(cardFrame).toContain("min-h-11 justify-end");
+    expect(cardFrame).toContain("grid overflow-hidden rounded-md");
+    expect(cardFrame).not.toContain('mt-3 gap-2');
   });
 
   it("uses restrained hover and visible focus without changing border geometry", () => {
@@ -30,17 +32,20 @@ describe("product card ergonomics contracts", () => {
   it("keeps price and stock missing-data states stable and explicit", () => {
     expect(pricing).toContain("missingValue={copy.pricePending}");
     expect(pricing).toContain("h-full");
+    expect(pricing).toContain('variant === "list"');
     expect(availability).toContain("if (!stock) return copy.availabilityPending");
     expect(availability).toContain("stock.exactAvailableQuantity");
     expect(availability).toContain("line-clamp-2");
+    expect(availability).not.toContain("border-l-2");
   });
 
   it("keeps the cart row narrow-safe without broad catalog invalidation", () => {
     expect(cartAction).toContain("grid-cols-[4.5rem_minmax(0,1fr)]");
     expect(cartAction).toContain('className="whitespace-nowrap"');
-    expect(cartAction).toContain("copy.addToCart");
+    expect(cartAction).toContain("getQuickSelectionLabel(locale)");
     expect(cartAction).not.toContain("router.refresh");
     expect(cartAction).not.toContain("fetch(");
+    expect(cartAction).not.toContain("min-h-4");
   });
 
   it("preserves responsive one-to-five-column density", () => {

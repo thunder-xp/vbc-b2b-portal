@@ -25,14 +25,20 @@ describe("partner platform visual unification contract", () => {
   });
 
   it("uses deterministic dashboard, opportunity, and catalog working geometry", () => {
-    expect(read("src/modules/partner-cabinet/components/OperationalDashboard.tsx")).toContain("data-dashboard-priority-work");
+    const dashboard = read("src/modules/partner-cabinet/components/OperationalDashboard.tsx");
+    expect(dashboard).toContain("data-dashboard-priority-work");
+    expect(dashboard).toContain("grid items-stretch");
+    expect(dashboard).not.toContain("dismissDashboardAttentionAction");
     const opportunities = read("app/(partner)/cabinet/opportunities/page.tsx");
-    expect(opportunities).toContain('data-opportunity-lane="wide"');
     expect(opportunities).toContain('data-opportunity-lane="compact"');
+    expect(opportunities.indexOf('data-opportunity-lane="compact"')).toBeLessThan(opportunities.indexOf('data-opportunity-lane="wide"'));
+    expect(opportunities).toContain("presentationPage * 3");
+    expect(opportunities).toContain("presentationPage * 2");
     expect(opportunities).toContain("--business-order");
     const list = read("src/modules/catalog/components/ProductList.tsx");
     expect(list).toContain("min-[1440px]:flex-nowrap");
-    expect(list.match(/h-\[5\.25rem\]/g)?.length).toBeGreaterThanOrEqual(2);
+    expect(list).toContain('variant="list"');
+    expect(list).toContain("flex-nowrap gap-1 overflow-hidden");
   });
 
   it("persists only a governed self-profile locale with no anonymous grant", () => {

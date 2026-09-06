@@ -6,11 +6,16 @@ import {
 } from "../../pricing-inventory";
 import { getCatalogCopy, type PartnerLocale } from "../../partner-locale";
 
-export function ProductPricingBlock({ commercialView, locale = "ru", showPartnerPrice: showPartnerPriceProp, showRetailPrice = true, variant = "card" }: { commercialView?: ProductCommercialViewDto; freshness?: FreshnessView | null; locale?: PartnerLocale; showPartnerPrice?: boolean; showRetailPrice?: boolean; variant?: "card" | "detail" }) {
+export function ProductPricingBlock({ commercialView, locale = "ru", showPartnerPrice: showPartnerPriceProp, showRetailPrice = true, variant = "card" }: { commercialView?: ProductCommercialViewDto; freshness?: FreshnessView | null; locale?: PartnerLocale; showPartnerPrice?: boolean; showRetailPrice?: boolean; variant?: "card" | "detail" | "list" }) {
   const copy = getCatalogCopy(locale);
   const prices = projectRetailPricePresentation(commercialView);
   const showPartnerPrice = showPartnerPriceProp ?? Boolean(prices.partnerPrice);
-  if (variant === "card") return <div className="flex h-full min-w-0 flex-col justify-center rounded-md bg-zinc-50 px-3 py-2">
+  if (variant === "list") return <div className="grid h-full min-w-0 content-center gap-0.5 bg-zinc-50 px-2 py-1.5">
+    {showPartnerPrice ? <ListPrice emphasized label={copy.partnerPrice} missingValue={copy.pricePending} secondaryValue={partnerMdlEquivalent(commercialView, copy.mdlUnavailable)} value={prices.partnerPrice?.formattedAmount} /> : null}
+    {showRetailPrice ? <ListPrice emphasized={!showPartnerPrice} label={copy.retailPrice} missingValue={copy.pricePending} value={prices.retailPriceMdl?.formattedAmount} /> : null}
+    {showRetailPrice && prices.msrpPriceUsd ? <ListPrice label={copy.msrp} missingValue={copy.pricePending} value={prices.msrpPriceUsd.formattedAmount} /> : null}
+  </div>;
+  if (variant === "card") return <div className="flex h-full min-w-0 flex-col justify-center bg-zinc-50 px-3 py-2">
     {showPartnerPrice ? <CardPrice emphasized label={copy.partnerPrice} mdlEquivalentLabel={copy.mdlEquivalent} missingValue={copy.pricePending} secondaryValue={partnerMdlEquivalent(commercialView, copy.mdlUnavailable)} value={prices.partnerPrice?.formattedAmount} /> : null}
     {showRetailPrice ? <CardPrice emphasized={!showPartnerPrice} label={copy.retailPrice} missingValue={copy.pricePending} secondary={showPartnerPrice} value={prices.retailPriceMdl?.formattedAmount} /> : null}
     {showRetailPrice && prices.msrpPriceUsd ? <CardPrice label={copy.msrp} missingValue={copy.pricePending} secondary value={prices.msrpPriceUsd.formattedAmount} /> : null}
@@ -39,6 +44,17 @@ function CardPrice({ emphasized = false, label, mdlEquivalentLabel = "MDL", miss
       <p aria-label={`${label}: ${displayValue}`} className={`truncate font-semibold text-zinc-950 ${emphasized ? secondaryValue ? "text-lg leading-5" : "mt-0.5 text-lg leading-5" : "text-xs"}`} title={displayValue}>{displayValue}</p>
       {secondaryValue ? <p aria-label={`${mdlEquivalentLabel}: ${secondaryValue}`} className="max-w-[52%] shrink-0 truncate text-right text-xs font-medium text-zinc-500" title={secondaryValue}>{secondaryValue}</p> : null}
     </div>
+  </div>;
+}
+
+function ListPrice({ emphasized = false, label, missingValue, secondaryValue, value }: { emphasized?: boolean; label: string; missingValue: string; secondaryValue?: string | null; value?: string | null }) {
+  const displayValue = value ?? missingValue;
+  return <div className="min-w-0 leading-tight">
+    <div className="flex min-w-0 items-baseline justify-between gap-1.5">
+      <p className="min-w-0 truncate text-[9px] font-semibold text-zinc-500" title={label}>{label}</p>
+      <p aria-label={`${label}: ${displayValue}`} className={`shrink-0 whitespace-nowrap font-semibold text-zinc-950 ${emphasized ? "text-xs" : "text-[10px]"}`} title={displayValue}>{displayValue}</p>
+    </div>
+    {secondaryValue ? <p className="truncate text-right text-[9px] font-medium text-zinc-500" title={secondaryValue}>{secondaryValue}</p> : null}
   </div>;
 }
 

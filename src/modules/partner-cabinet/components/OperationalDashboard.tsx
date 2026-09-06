@@ -6,7 +6,6 @@ import {
   CircleDollarSign,
   Clock3,
   PackageCheck,
-  X,
 } from "lucide-react";
 
 import { ProductCard } from "../../catalog/components/ProductCard";
@@ -14,7 +13,6 @@ import type { WorkspaceHomeDto } from "../services";
 import { DashboardTrackedLink } from "./DashboardTrackedLink";
 import { OpportunityCard } from "../../commercial-opportunities/components/OpportunityCard";
 import { CampaignCard } from "../../commercial-campaigns/components/CampaignCard";
-import { dismissDashboardAttentionAction } from "../actions";
 import { SupportDashboardBlock } from "../../partner-support";
 import { formatPartnerDate, formatPartnerMoney, formatPartnerRelativeDate, partnerText, presentDashboardAttention, type PartnerLocale } from "../../partner-locale";
 
@@ -27,7 +25,7 @@ export function OperationalDashboard({
 }) {
   return (
     <div className="space-y-5">
-      <div className={`grid items-start gap-4 ${workspace.attentionItems.length && workspace.estimateSalesOpportunities?.length ? "xl:grid-cols-2" : ""}`} data-dashboard-priority-work>
+      <div className={`grid items-stretch gap-4 ${workspace.attentionItems.length && workspace.estimateSalesOpportunities?.length ? "xl:grid-cols-2" : ""}`} data-dashboard-priority-work>
         <AttentionSection items={workspace.attentionItems} locale={locale} />
         <EstimateSalesSection items={workspace.estimateSalesOpportunities} locale={locale} />
       </div>
@@ -57,7 +55,7 @@ export function OperationalDashboard({
 
 export function EstimateSalesSection({ items = [], locale }: { items: WorkspaceHomeDto["estimateSalesOpportunities"]; locale: PartnerLocale }) {
   if (!items.length) return null;
-  return <section aria-labelledby="dashboard-estimate-sales">
+  return <section aria-labelledby="dashboard-estimate-sales" className="h-full min-w-0">
     <SectionHeading actionHref="/cabinet/estimates" actionLabel={partnerText(locale, "dashboard.allEstimates")} id="dashboard-estimate-sales" title={partnerText(locale, "dashboard.salesOpportunities")} />
     <ul className="mt-2 divide-y divide-zinc-200 border border-zinc-200 bg-white">
       {items.map((item) => <li className="grid gap-2 px-3 py-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center" key={item.id}>
@@ -136,7 +134,7 @@ function AttentionSection({
   locale: PartnerLocale;
 }) {
   return (
-    <section aria-labelledby="dashboard-attention">
+    <section aria-labelledby="dashboard-attention" className="h-full min-w-0">
       <SectionHeading id="dashboard-attention" title={partnerText(locale, "dashboard.attention")} />
       {items.length ? (
         <ul className="mt-2 divide-y divide-zinc-200 border border-zinc-200 bg-white">
@@ -144,7 +142,7 @@ function AttentionSection({
             const presentation = presentDashboardAttention(item, locale);
             return (
             <li
-              className="grid grid-cols-[20px_minmax(0,1fr)_44px] gap-x-2 gap-y-1 px-3 py-2 sm:grid-cols-[20px_minmax(0,1fr)_auto_44px] sm:items-center"
+              className="grid grid-cols-[20px_minmax(0,1fr)] gap-x-2 gap-y-1 px-3 py-2 sm:grid-cols-[20px_minmax(0,1fr)_auto] sm:items-center"
               data-attention-card
               key={`${item.kind}:${item.id}`}
             >
@@ -164,7 +162,7 @@ function AttentionSection({
                 </p>
               </div>
               <DashboardTrackedLink
-                className="col-start-2 inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-emerald-700 px-3 text-center text-sm font-semibold text-white focus-visible:ring-2 focus-visible:ring-emerald-500 sm:col-start-auto"
+                className="col-start-2 inline-flex min-h-11 items-center justify-center justify-self-end gap-2 rounded-md bg-emerald-700 px-3 text-center text-sm font-semibold text-white focus-visible:ring-2 focus-visible:ring-emerald-500 sm:col-start-3 sm:row-start-1 sm:self-center"
                 eventName="dashboard_attention_opened"
                 href={item.href}
                 metadataSafe={{ kind: item.kind }}
@@ -173,13 +171,6 @@ function AttentionSection({
                 {presentation.ctaLabel}
                 <ArrowRight aria-hidden="true" className="size-4" />
               </DashboardTrackedLink>
-              <form action={dismissDashboardAttentionAction} className="col-start-3 row-start-1 self-start sm:col-start-4">
-                <input name="itemId" type="hidden" value={item.id} />
-                <input name="sourceFingerprint" type="hidden" value={item.sourceFingerprint} />
-                <button aria-label={partnerText(locale, "dashboard.hideMessage")} className="inline-flex size-11 items-center justify-center rounded-md text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600" title={partnerText(locale, "dashboard.hideMessage")} type="submit">
-                  <X aria-hidden="true" className="size-4" />
-                </button>
-              </form>
             </li>
             );
           })}

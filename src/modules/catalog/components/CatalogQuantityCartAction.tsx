@@ -40,7 +40,7 @@ export function CatalogQuantityCartAction({
           {copy.quantity}
         </label>
         <input
-          aria-describedby={feedbackId}
+          aria-describedby={quantityError || feedback ? feedbackId : undefined}
           aria-invalid={Boolean(quantityError)}
           aria-label={copy.productQuantity}
           className="h-11 w-full rounded-md border border-zinc-300 px-2 text-center text-sm outline-none focus:border-emerald-600 focus-visible:ring-2 focus-visible:ring-emerald-200"
@@ -76,13 +76,13 @@ export function CatalogQuantityCartAction({
           </span>
         </button>
       </div>
-      <p
+      {quantityError || feedback ? <p
         aria-live="polite"
-        className={`min-h-4 text-xs font-medium ${quantityError || feedback?.success === false ? "text-red-700" : "text-emerald-700"}`}
+        className={`text-xs font-medium ${quantityError || feedback?.success === false ? "text-red-700" : "text-emerald-700"}`}
         id={feedbackId}
       >
-        {quantityError ?? feedback?.message ?? ""}
-      </p>
+        {quantityError ?? feedback?.message}
+      </p> : null}
     </div>
   );
 }

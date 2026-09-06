@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -47,6 +47,17 @@ describe("partner locale", () => {
     await user.click(screen.getByRole("button", { name: "Переключить интерфейс на румынский" }));
     expect(setLocale).not.toHaveBeenCalled();
     window.removeEventListener("novotech:before-locale-change", guard);
+  });
+
+  it("closes the containing menu synchronously before locale persistence finishes", () => {
+    const onSelect = vi.fn();
+    setLocale.mockImplementationOnce(() => new Promise(() => undefined));
+    render(<PartnerLanguageSwitch locale="ru" onSelect={onSelect} variant="menu" />);
+
+    fireEvent.click(screen.getByRole("menuitem"));
+
+    expect(onSelect).toHaveBeenCalledOnce();
+    expect(setLocale).toHaveBeenCalledWith("ro");
   });
 
   it("keeps RU as the canonical fallback dictionary", () => {

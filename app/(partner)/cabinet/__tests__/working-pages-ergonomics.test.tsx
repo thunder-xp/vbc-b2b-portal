@@ -7,7 +7,7 @@ vi.mock("@/src/modules/partner-locale/server", () => ({ getPartnerLocale: mocks.
 vi.mock("@/src/modules/commercial-campaigns/actions", () => ({ listPartnerCampaignsAction: mocks.offers }));
 vi.mock("@/src/modules/commercial-campaigns/components", () => ({ CampaignCard: () => <article>Offer</article> }));
 vi.mock("@/src/modules/commercial-opportunities/actions", () => ({ listCommercialOpportunitiesAction: mocks.opportunities }));
-vi.mock("@/src/modules/commercial-opportunities/components", () => ({ OpportunityCard: () => <article>Opportunity</article> }));
+vi.mock("@/src/modules/commercial-opportunities/components", () => ({ OpportunityCard: ({ opportunity }: { opportunity: { id: string } }) => <article data-opportunity-id={opportunity.id}>Opportunity</article> }));
 vi.mock("@/src/modules/partner-cabinet/actions", () => ({ getPartnerWorkspaceContextAction: mocks.context }));
 vi.mock("@/src/modules/behavior-analytics/components", () => ({ BehaviorViewEvent: () => null }));
 import OffersPage from "../offers/page";
@@ -44,7 +44,35 @@ describe("compact partner working pages", () => {
     expect(container.querySelector('header p')).toBeNull();
     expect(container.textContent).not.toMatch(/Объяснимые сигналы|Semnale explicabile/);
     expect(container.querySelectorAll('nav a.min-h-11')).toHaveLength(6);
-    expect(mocks.opportunities).toHaveBeenCalledExactlyOnceWith({ filter: "all", page: 1 });
+    expect(mocks.opportunities).toHaveBeenCalledExactlyOnceWith({ filter: "all", page: 1, pageSize: 50 });
     expect(mocks.context).toHaveBeenCalledOnce();
+  });
+
+  it("paginates deterministic compact-left and wide-right lane capacities", async () => {
+    mocks.opportunities.mockResolvedValue({
+      success: true,
+      data: {
+        items: [
+          { id: "compact-1", product: null },
+          { id: "wide-1", product: { id: "product-1" } },
+          { id: "compact-2", product: null },
+          { id: "wide-2", product: { id: "product-2" } },
+          { id: "compact-3", product: null },
+          { id: "wide-3", product: { id: "product-3" } },
+          { id: "compact-4", product: null },
+        ],
+        totalCount: 7,
+        page: 1,
+        totalPages: 1,
+      },
+    });
+
+    const { container } = render(await OpportunitiesPage({ searchParams: Promise.resolve({}) }));
+    const lanes = container.querySelectorAll("[data-opportunity-lane]");
+    expect(lanes[0]).toHaveAttribute("data-opportunity-lane", "compact");
+    expect(lanes[0]?.children).toHaveLength(3);
+    expect(lanes[1]).toHaveAttribute("data-opportunity-lane", "wide");
+    expect(lanes[1]?.children).toHaveLength(2);
+    expect(screen.getByRole("link", { name: "Следующая страница" })).toHaveAttribute("href", "/cabinet/opportunities?page=2");
   });
 });

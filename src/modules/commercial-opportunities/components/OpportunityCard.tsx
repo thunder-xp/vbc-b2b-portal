@@ -155,13 +155,13 @@ export function OpportunityCard({
         ) : null}
 
         {product ? (
-          <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
-            <div>{priceLabel(product, locale, partnerPriceOnly)}</div>
-            <div>{availabilityLabel(product, locale)}</div>
+          <div className="mt-2 grid grid-cols-2 overflow-hidden rounded-md bg-zinc-50 text-sm">
+            <div className="min-w-0 px-2 py-1.5">{priceLabel(product, locale, partnerPriceOnly)}</div>
+            <div className="min-w-0 px-2 py-1.5">{availabilityLabel(product, locale)}</div>
           </div>
         ) : null}
 
-        <div className="mt-3 flex flex-wrap items-start gap-2 sm:flex-nowrap" data-opportunity-actions>
+        <div className="mt-3 flex flex-wrap items-center gap-2 sm:flex-nowrap" data-opportunity-actions>
           {product && canAddToOrder && canAddProduct(opportunity, addedToSelection) ? (
             <div className="w-full flex-none sm:min-w-[11rem] sm:flex-1">
               <CatalogQuantityCartAction
