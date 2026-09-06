@@ -26,7 +26,7 @@ export default async function PurchasingListsPage({ searchParams }: { searchPara
   const Icon = favoritesView ? Heart : Layers3;
 
   return <div className="mx-auto max-w-7xl space-y-5">
-    <header className="border-b border-zinc-200 pb-5">
+    <header className={favoritesView ? "pb-5" : "border-b border-zinc-200 pb-5"}>
       <p className="text-xs font-semibold uppercase text-emerald-700">{copy.selection}</p>
       <h1 className="mt-1 text-2xl font-semibold">{favoritesView ? copy.favorites : kitCopy.title}</h1>
       {favoritesView ? <p className="mt-1 text-sm text-zinc-500">{copy.favoritesHint}</p> : null}

@@ -16,7 +16,7 @@ import {
   Gift,
   LifeBuoy,
   ListChecks,
-  ListPlus,
+  Heart,
   Layers3,
   Wrench,
   Lightbulb,
@@ -27,10 +27,11 @@ import {
   WandSparkles,
 } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import type { WorkspaceCapabilityKey, WorkspaceNavigationItem } from "../services";
+import { activeNavigationKey } from "./active-navigation";
 import { NavigationPendingIndicator } from "./NavigationPendingIndicator";
 import { partnerNavigationLabel, usePartnerLocale, usePartnerText } from "../../partner-locale";
 
@@ -40,7 +41,7 @@ const icons = {
   opportunities: Lightbulb,
   offers: Megaphone,
   cart: ShoppingCart,
-  purchasing_lists: ListPlus,
+  purchasing_lists: Heart,
   purchase_templates: Layers3,
   comparison: Columns3,
   solution_selection: SearchCheck,
@@ -81,25 +82,19 @@ const commercialNavigationOrder: readonly WorkspaceCapabilityKey[] = ["orders", 
 const installationNavigationOrder: readonly WorkspaceCapabilityKey[] = ["installation_orders"];
 const loyaltyNavigationOrder: readonly WorkspaceCapabilityKey[] = ["loyalty_affiliate", "loyalty_bonus"];
 
-function isRouteActive(pathname: string, href: string | null): boolean {
-  if (!href) return false;
-  if (href === "/cabinet") return pathname === href;
-  return pathname === href || pathname.startsWith(`${href}/`);
-}
-
 function NavigationItem({
   expanded = true,
   hasWorkspaceAccess,
   item,
   onNavigate,
-  pathname,
+  activeKey,
   submenu = false,
 }: {
   expanded?: boolean;
   hasWorkspaceAccess: boolean;
   item: WorkspaceNavigationItem;
   onNavigate?: () => void;
-  pathname: string;
+  activeKey: string | undefined;
   submenu?: boolean;
 }) {
   const t = usePartnerText();
@@ -107,7 +102,7 @@ function NavigationItem({
   const hoverTimer = useRef<ReturnType<typeof setTimeout>>(null);
   const Icon = icons[item.icon];
   const enabled = Boolean(hasWorkspaceAccess && item.availability === "available" && item.href);
-  const active = enabled && isRouteActive(pathname, item.href);
+  const active = enabled && activeKey === item.key;
   const spacing = submenu ? "min-h-11 py-2 pl-3 pr-2" : "min-h-11 px-3 py-2";
 
   useEffect(() => () => {
@@ -170,7 +165,7 @@ function ExpandableNavigationGroup({
   label,
   onNavigate,
   onToggle,
-  pathname,
+  activeKey,
 }: {
   icon: typeof Gauge;
   expanded: boolean;
@@ -180,9 +175,9 @@ function ExpandableNavigationGroup({
   label: string;
   onNavigate?: () => void;
   onToggle: () => void;
-  pathname: string;
+  activeKey: string | undefined;
 }) {
-  const routeActive = items.some((item) => isRouteActive(pathname, item.href));
+  const routeActive = items.some((item) => activeKey === item.key);
   const Chevron = expanded ? ChevronDown : ChevronRight;
 
   if (items.length === 0) return null;
@@ -218,7 +213,7 @@ function ExpandableNavigationGroup({
                 item={item}
                 key={item.key}
                 onNavigate={onNavigate}
-                pathname={pathname}
+                activeKey={activeKey}
                 submenu
               />
             ))}
@@ -241,6 +236,8 @@ export function PartnerSidebar({
   onNavigate?: () => void;
 }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const activeKey = activeNavigationKey(pathname, searchParams, navigation.filter((item) => item.availability === "available"));
   const locale = usePartnerLocale();
   const t = usePartnerText();
   const navigationByKey = new Map(navigation.map((item) => [item.key, { ...item, label: partnerNavigationLabel(locale, item.key) }]));
@@ -288,7 +285,7 @@ export function PartnerSidebar({
     ["orders-finance-navigation", commercialNavigation],
     ["loyalty-navigation", loyaltyNavigation],
     ["support-navigation", supportNavigation],
-  ].find(([, items]) => (items as WorkspaceNavigationItem[]).some((item) => isRouteActive(pathname, item.href)))?.[0] as string | undefined;
+  ].find(([, items]) => (items as WorkspaceNavigationItem[]).some((item) => activeKey === item.key))?.[0] as string | undefined;
   const [openGroupId, setOpenGroupId] = useState<string | null>(() => activeGroupId ?? null);
   const [previousActiveGroupId, setPreviousActiveGroupId] = useState(activeGroupId);
   if (activeGroupId !== previousActiveGroupId) {
@@ -312,14 +309,14 @@ export function PartnerSidebar({
       <nav aria-label={t("shell.workspaceNavigation")} className="min-h-0 flex-1 overflow-y-auto px-2 py-3">
         <div className="space-y-1">
           {primaryNavigation.map((item) => (
-            <NavigationItem hasWorkspaceAccess={hasWorkspaceAccess} item={item} key={item.key} onNavigate={onNavigate} pathname={pathname} />
+            <NavigationItem hasWorkspaceAccess={hasWorkspaceAccess} item={item} key={item.key} onNavigate={onNavigate} activeKey={activeKey} />
           ))}
 
           {businessNavigation.map((item) => (
-            <NavigationItem hasWorkspaceAccess={hasWorkspaceAccess} item={item} key={item.key} onNavigate={onNavigate} pathname={pathname} />
+            <NavigationItem hasWorkspaceAccess={hasWorkspaceAccess} item={item} key={item.key} onNavigate={onNavigate} activeKey={activeKey} />
           ))}
 
-          <ExpandableNavigationGroup {...groupProps("product-selection-navigation")} hasWorkspaceAccess={hasWorkspaceAccess} icon={SearchCheck} id="product-selection-navigation" items={selectionNavigation} label={t("nav.group.productSelection")} onNavigate={onNavigate} pathname={pathname} />
+          <ExpandableNavigationGroup {...groupProps("product-selection-navigation")} hasWorkspaceAccess={hasWorkspaceAccess} icon={SearchCheck} id="product-selection-navigation" items={selectionNavigation} label={t("nav.group.productSelection")} onNavigate={onNavigate} activeKey={activeKey} />
 
           <ExpandableNavigationGroup
             hasWorkspaceAccess={hasWorkspaceAccess}
@@ -328,19 +325,19 @@ export function PartnerSidebar({
             items={estimatesNavigation}
             label={t("nav.group.estimates")}
             onNavigate={onNavigate}
-            pathname={pathname}
+            activeKey={activeKey}
             {...groupProps("estimates-navigation")}
           />
-          <ExpandableNavigationGroup {...groupProps("orders-finance-navigation")} hasWorkspaceAccess={hasWorkspaceAccess} icon={ListChecks} id="orders-finance-navigation" items={commercialNavigation} label={t("nav.group.ordersFinance")} onNavigate={onNavigate} pathname={pathname} />
+          <ExpandableNavigationGroup {...groupProps("orders-finance-navigation")} hasWorkspaceAccess={hasWorkspaceAccess} icon={ListChecks} id="orders-finance-navigation" items={commercialNavigation} label={t("nav.group.ordersFinance")} onNavigate={onNavigate} activeKey={activeKey} />
 
           {installationNavigation.map((item) => (
-            <NavigationItem hasWorkspaceAccess={hasWorkspaceAccess} item={item} key={item.key} onNavigate={onNavigate} pathname={pathname} />
+            <NavigationItem hasWorkspaceAccess={hasWorkspaceAccess} item={item} key={item.key} onNavigate={onNavigate} activeKey={activeKey} />
           ))}
 
-          <ExpandableNavigationGroup {...groupProps("loyalty-navigation")} hasWorkspaceAccess={hasWorkspaceAccess} icon={Gift} id="loyalty-navigation" items={loyaltyNavigation} label={t("nav.group.loyalty")} onNavigate={onNavigate} pathname={pathname} />
+          <ExpandableNavigationGroup {...groupProps("loyalty-navigation")} hasWorkspaceAccess={hasWorkspaceAccess} icon={Gift} id="loyalty-navigation" items={loyaltyNavigation} label={t("nav.group.loyalty")} onNavigate={onNavigate} activeKey={activeKey} />
 
-          <ExpandableNavigationGroup {...groupProps("project-protection-navigation")} hasWorkspaceAccess={hasWorkspaceAccess} icon={ShieldCheck} id="project-protection-navigation" items={projectNavigation} label={t("nav.group.projectProtection")} onNavigate={onNavigate} pathname={pathname} />
-          <ExpandableNavigationGroup {...groupProps("support-navigation")} hasWorkspaceAccess={hasWorkspaceAccess} icon={LifeBuoy} id="support-navigation" items={supportNavigation} label={t("nav.group.support")} onNavigate={onNavigate} pathname={pathname} />
+          <ExpandableNavigationGroup {...groupProps("project-protection-navigation")} hasWorkspaceAccess={hasWorkspaceAccess} icon={ShieldCheck} id="project-protection-navigation" items={projectNavigation} label={t("nav.group.projectProtection")} onNavigate={onNavigate} activeKey={activeKey} />
+          <ExpandableNavigationGroup {...groupProps("support-navigation")} hasWorkspaceAccess={hasWorkspaceAccess} icon={LifeBuoy} id="support-navigation" items={supportNavigation} label={t("nav.group.support")} onNavigate={onNavigate} activeKey={activeKey} />
         </div>
       </nav>
 

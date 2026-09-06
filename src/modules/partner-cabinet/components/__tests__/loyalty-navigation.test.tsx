@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { PartnerSidebar } from "../PartnerSidebar";
 
-vi.mock("next/navigation", () => ({ usePathname: () => "/cabinet/loyalty/affiliate" }));
+vi.mock("next/navigation", () => ({ usePathname: () => "/cabinet/loyalty/affiliate", useSearchParams: () => new URLSearchParams() }));
 vi.mock("next/link", () => ({ useLinkStatus: () => ({ pending: false }), default: ({ children, href, prefetch, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { href: string; prefetch?: boolean }) => {
   void prefetch;
   return <a href={href} {...props}>{children}</a>;

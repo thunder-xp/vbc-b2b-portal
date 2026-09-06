@@ -10,7 +10,7 @@ vi.mock("next/link", async () => {
     useLinkStatus: () => ({ pending: false }),
   };
 });
-vi.mock("next/navigation", () => ({ usePathname: () => "/cabinet" }));
+vi.mock("next/navigation", () => ({ usePathname: () => "/cabinet", useSearchParams: () => new URLSearchParams() }));
 
 import { resolveWorkspaceCapabilities } from "../../services";
 import { PartnerSidebar } from "../PartnerSidebar";

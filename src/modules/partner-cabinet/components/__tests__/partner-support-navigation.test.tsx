@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-vi.mock("next/navigation", () => ({ usePathname: () => "/cabinet/support/new" }));
+vi.mock("next/navigation", () => ({ usePathname: () => "/cabinet/support/new", useSearchParams: () => new URLSearchParams() }));
 import { PartnerSidebar } from "../PartnerSidebar";
 import { resolveWorkspaceCapabilities } from "../../services/workspace-capability.service";
 

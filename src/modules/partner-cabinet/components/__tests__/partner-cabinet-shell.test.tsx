@@ -9,9 +9,11 @@ import { CompanyCard } from "../CompanyCard";
 import { resolveWorkspaceCapabilities } from "../../services";
 
 let pathname = "/cabinet";
+let query = "";
 
 vi.mock("next/navigation", () => ({
   usePathname: () => pathname,
+  useSearchParams: () => new URLSearchParams(query),
   useRouter: () => ({ refresh: vi.fn() }),
 }));
 vi.mock("@/src/modules/auth/actions/auth.actions", () => ({ signOutAction: vi.fn() }));
@@ -37,6 +39,7 @@ const navigation = context.navigation;
 describe("Partner workspace shell", () => {
   beforeEach(() => {
     pathname = "/cabinet";
+    query = "";
   });
 
   it("renders business identity without raw role IDs", async () => {
@@ -348,6 +351,57 @@ describe("Partner workspace shell", () => {
     render(<PartnerSidebar hasWorkspaceAccess navigation={navigation} />);
     expect(screen.getByRole("button", { name: "Подбор товаров" })).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByRole("link", { name: "Мои комплекты" })).toHaveAttribute("aria-current", "page");
+  });
+
+  it.each([
+    ["/cabinet/purchasing-lists", "filter=favorites", "Избранное"],
+    ["/cabinet/purchasing-lists", "page=2&filter=favorites&search=test", "Избранное"],
+    ["/cabinet/purchasing-lists", "", "Мои комплекты"],
+    ["/cabinet/purchasing-lists", "filter=company", "Мои комплекты"],
+    ["/cabinet/compare", "", "Сравнение"],
+  ])("selects only the intended child for %s?%s", (path, search, label) => {
+    pathname = path;
+    query = search;
+    render(<PartnerSidebar hasWorkspaceAccess navigation={navigation} />);
+    const selected = document.querySelectorAll('#product-selection-navigation a[aria-current="page"]');
+    expect(selected).toHaveLength(1);
+    expect(selected[0]).toHaveTextContent(label);
+    expect(selected[0]).toHaveClass("bg-emerald-500/15");
+    for (const other of ["Избранное", "Мои комплекты", "Сравнение"].filter((name) => name !== label)) {
+      expect(screen.getByRole("link", { name: other })).not.toHaveAttribute("aria-current");
+      expect(screen.getByRole("link", { name: other })).not.toHaveClass("bg-emerald-500/15");
+    }
+    const heart = screen.getByRole("link", { name: "Избранное" }).querySelector("svg");
+    expect(heart).toHaveClass("lucide-heart", "size-4", "shrink-0");
+    expect(heart).toHaveAttribute("fill", "none");
+    expect(heart).toHaveAttribute("stroke-width", "2");
+  });
+
+  it("updates active selection on query-only navigation without remounting", () => {
+    pathname = "/cabinet/purchasing-lists";
+    const { rerender } = render(<PartnerSidebar navigation={navigation} />);
+    query = "filter=favorites";
+    rerender(<PartnerSidebar navigation={navigation} />);
+    expect(screen.getByRole("link", { name: "Избранное" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "Мои комплекты" })).not.toHaveAttribute("aria-current");
+    query = "";
+    rerender(<PartnerSidebar navigation={navigation} />);
+    expect(screen.getByRole("link", { name: "Мои комплекты" })).toHaveAttribute("aria-current", "page");
+  });
+
+  it("preserves Favorites selection and group interaction in the mobile drawer", async () => {
+    pathname = "/cabinet/purchasing-lists";
+    query = "filter=favorites";
+    const user = userEvent.setup();
+    render(<PartnerMobileNavigation hasWorkspaceAccess navigation={navigation} />);
+    await user.click(screen.getByRole("button", { name: "Открыть навигацию" }));
+    expect(screen.getByRole("link", { name: "Избранное" })).toHaveAttribute("aria-current", "page");
+    await user.click(screen.getByRole("button", { name: "Сметы и КП" }));
+    expect(screen.getByRole("button", { name: "Подбор товаров" })).toHaveAttribute("aria-expanded", "false");
+    await user.click(screen.getByRole("button", { name: "Подбор товаров" }));
+    expect(screen.getByRole("button", { name: "Подбор товаров" })).toHaveAttribute("aria-expanded", "true");
+    await user.click(screen.getByRole("link", { name: "Избранное" }));
+    expect(screen.queryByRole("navigation", { name: "Рабочие разделы" })).not.toBeInTheDocument();
   });
 
   it("does not link commercial modules when workspace access is blocked", () => {
