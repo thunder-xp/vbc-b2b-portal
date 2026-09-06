@@ -106,11 +106,11 @@ describe("B2B catalog list row", () => {
     expect(returnTarget.searchParams.get(`attr.${existingFilterKey}`)).toBe("IP65");
   });
 
-  it("keeps cart and secondary controls in one top-aligned action group", () => {
+  it("keeps selection and secondary controls in one deterministic action row", () => {
     renderList();
 
     const actions = screen.getByTestId("catalog-list-actions");
-    expect(actions).toHaveClass("items-start", "flex-wrap");
+    expect(actions).toHaveClass("items-center", "flex-wrap", "min-[1360px]:flex-nowrap");
     expect(actions).toContainElement(screen.getByTestId("quantity-cart"));
     for (const label of ["Favorite", "Estimate", "Compare"]) {
       expect(actions).toContainElement(screen.getByRole("button", { name: label }));

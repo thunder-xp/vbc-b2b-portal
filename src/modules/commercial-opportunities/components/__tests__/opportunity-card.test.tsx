@@ -1,10 +1,10 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { CommercialOpportunity } from "../../types";
 import { PartnerLocaleProvider } from "../../../partner-locale";
-import { OpportunityCard } from "../OpportunityCard";
+import { OpportunityCard, opportunityPresentationVariant } from "../OpportunityCard";
 
 const { addToCartActionMock, routerRefresh } = vi.hoisted(() => ({
   addToCartActionMock: vi.fn(),
@@ -51,6 +51,20 @@ describe("OpportunityCard", () => {
     expect(screen.getByText("Последняя покупка — 32 дня назад. Обычно: 2 шт.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "В подборку" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Не показывать/ })).toBeInTheDocument();
+  });
+
+  it("classifies lane geometry from content and keeps the wide-card action order", () => {
+    expect(opportunityPresentationVariant(base)).toBe("wide");
+    expect(opportunityPresentationVariant({ ...base, product: null, template: { id: "kit-1", name: "Kit" } })).toBe("compact");
+    const { container } = render(<OpportunityCard companyId="company-1" opportunity={base} userId="user-1" />);
+    const actions = container.querySelector("[data-opportunity-actions]");
+    expect(actions).not.toBeNull();
+    expect(within(actions as HTMLElement).getAllByRole("button").map((button) => button.getAttribute("aria-label") ?? button.textContent?.trim())).toEqual([
+      "В подборку",
+      "Добавить в избранное",
+      "Добавить в смету",
+      "В сравнение",
+    ]);
   });
 
   it("renders only the permitted price serialized by the server", () => {

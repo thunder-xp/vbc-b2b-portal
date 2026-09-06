@@ -5,6 +5,7 @@ import { listNotificationsAction } from "@/src/modules/notifications/actions";
 import {
   MarkAllNotificationsReadButton,
   NotificationActions,
+  NotificationItemShell,
   NotificationSeverityLabel,
   ProductNotificationLink,
 } from "@/src/modules/notifications/components";
@@ -81,13 +82,13 @@ export default async function CabinetNotificationsPage({ searchParams }: { searc
         <>
           <ul className="space-y-3">
             {items.map((item) => (
-              <li key={item.id}>
+              <NotificationItemShell key={item.id} notificationId={item.id}>
                 <article className={`rounded-md border bg-white p-4 sm:p-5 ${item.readAt ? "border-zinc-200" : "border-emerald-300"}`}>
                   <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         <NotificationSeverityLabel severity={item.severity} />
-                        {!item.readAt && <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800">{copy.unread}</span>}
+                        {!item.readAt && <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800" data-partner-radius="semantic">{copy.unread}</span>}
                       </div>
                       <h2 className="mt-2 text-base font-semibold text-zinc-950">{item.title}</h2>
                       <p className="mt-1 text-sm leading-6 text-zinc-600">{item.message}</p>
@@ -107,7 +108,7 @@ export default async function CabinetNotificationsPage({ searchParams }: { searc
                     ))}
                   </div>
                 </article>
-              </li>
+              </NotificationItemShell>
             ))}
           </ul>
           {result.data.nextCursor && <Link className="inline-flex min-h-11 items-center rounded-md border border-zinc-300 bg-white px-4 text-sm font-medium text-zinc-700 hover:bg-zinc-50" href={nextPageUrl(selected, result.data.nextCursor)} prefetch={false}>{copy.showMore}</Link>}

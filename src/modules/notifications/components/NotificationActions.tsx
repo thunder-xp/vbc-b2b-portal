@@ -7,7 +7,7 @@ import { useState, useTransition } from "react";
 import { dismissNotificationAction, markAllNotificationsReadAction, markNotificationReadAction } from "../actions/notification.actions";
 import { recordBehaviorInteraction } from "../../behavior-analytics/components";
 import { notificationCopy, usePartnerLocale } from "../../partner-locale";
-import { notifyAllNotificationsRead } from "./notification-client-events";
+import { notifyAllNotificationsRead, notifyNotificationDismissed } from "./notification-client-events";
 
 export function NotificationActions({ notificationId, read, dismissible }: { notificationId: string; read: boolean; dismissible: boolean }) {
   const copy = notificationCopy(usePartnerLocale());
@@ -24,6 +24,7 @@ export function NotificationActions({ notificationId, read, dismissible }: { not
         return;
       }
       recordBehaviorInteraction({ eventName, route: "/cabinet/notifications", sourceSurface: "notification_page" });
+      if (eventName === "notification_dismissed") notifyNotificationDismissed(notificationId);
       router.refresh();
     });
   };

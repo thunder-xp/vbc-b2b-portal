@@ -26,9 +26,11 @@ export function OperationalDashboard({
   workspace: WorkspaceHomeDto;
 }) {
   return (
-    <div className="space-y-7">
-      <AttentionSection items={workspace.attentionItems} locale={locale} />
-      <EstimateSalesSection items={workspace.estimateSalesOpportunities} locale={locale} />
+    <div className="space-y-5">
+      <div className={`grid items-start gap-4 ${workspace.attentionItems.length && workspace.estimateSalesOpportunities?.length ? "xl:grid-cols-2" : ""}`} data-dashboard-priority-work>
+        <AttentionSection items={workspace.attentionItems} locale={locale} />
+        <EstimateSalesSection items={workspace.estimateSalesOpportunities} locale={locale} />
+      </div>
       <SupportDashboardBlock items={workspace.supportTickets ?? []} locale={locale} />
       <div className="grid gap-5 xl:grid-cols-2">
         <OrdersSection locale={locale} summary={workspace.orderSummary} />
@@ -57,8 +59,8 @@ export function EstimateSalesSection({ items = [], locale }: { items: WorkspaceH
   if (!items.length) return null;
   return <section aria-labelledby="dashboard-estimate-sales">
     <SectionHeading actionHref="/cabinet/estimates" actionLabel={partnerText(locale, "dashboard.allEstimates")} id="dashboard-estimate-sales" title={partnerText(locale, "dashboard.salesOpportunities")} />
-    <ul className="mt-3 divide-y divide-zinc-200 border border-zinc-200 bg-white">
-      {items.map((item) => <li className="grid gap-3 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center" key={item.id}>
+    <ul className="mt-2 divide-y divide-zinc-200 border border-zinc-200 bg-white">
+      {items.map((item) => <li className="grid gap-2 px-3 py-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center" key={item.id}>
         <div className="min-w-0">
           <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1"><p className="font-semibold text-zinc-950">{item.customerName || item.proposalName}</p><span className="text-xs text-zinc-500">{item.estimateNumber}</span></div>
           <p className="mt-1 text-sm font-medium text-emerald-800">{partnerText(locale, opportunityStateKey(item))}{item.type === "awaiting_customer" ? ` · ${partnerText(locale, opportunityDateKey(item.type))} ${formatPartnerRelativeDate(item.waitingSince, locale)}` : ""}</p>
@@ -122,7 +124,7 @@ function OpportunitySection({ locale, opportunities = [], workspace }: { locale:
   if (!opportunities.length) return null;
   return <section aria-labelledby="dashboard-opportunities">
     <SectionHeading actionHref="/cabinet/opportunities" actionLabel={partnerText(locale, "dashboard.allOpportunities")} id="dashboard-opportunities" title={partnerText(locale, "dashboard.opportunities")} />
-    <div className="mt-3 grid gap-3 xl:grid-cols-2">{opportunities.slice(0, 4).map((opportunity) => <OpportunityCard canAddToOrder={workspace.capabilities.productCard.canAddToOrder} canAddToSpecification={workspace.capabilities.productCard.canAddToSpecification} canManagePurchasingLists={workspace.capabilities.productCard.canManagePurchasingLists} key={opportunity.id} locale={locale} opportunity={opportunity} />)}</div>
+    <div className="mt-3 grid gap-3 xl:grid-cols-2">{opportunities.slice(0, 4).map((opportunity) => <OpportunityCard canAddToOrder={workspace.capabilities.productCard.canAddToOrder} canAddToSpecification={workspace.capabilities.productCard.canAddToSpecification} canManagePurchasingLists={workspace.capabilities.productCard.canManagePurchasingLists} companyId={workspace.viewer?.companyId} key={opportunity.id} locale={locale} opportunity={opportunity} userId={workspace.viewer?.userId} />)}</div>
   </section>;
 }
 
@@ -137,12 +139,12 @@ function AttentionSection({
     <section aria-labelledby="dashboard-attention">
       <SectionHeading id="dashboard-attention" title={partnerText(locale, "dashboard.attention")} />
       {items.length ? (
-        <ul className="mt-3 divide-y divide-zinc-200 border border-zinc-200 bg-white">
+        <ul className="mt-2 divide-y divide-zinc-200 border border-zinc-200 bg-white">
           {items.map((item) => {
             const presentation = presentDashboardAttention(item, locale);
             return (
             <li
-              className="grid grid-cols-[20px_minmax(0,1fr)_44px] gap-x-2 gap-y-2 p-3 sm:grid-cols-[20px_minmax(0,1fr)_auto_44px] sm:items-center"
+              className="grid grid-cols-[20px_minmax(0,1fr)_44px] gap-x-2 gap-y-1 px-3 py-2 sm:grid-cols-[20px_minmax(0,1fr)_auto_44px] sm:items-center"
               data-attention-card
               key={`${item.kind}:${item.id}`}
             >

@@ -99,7 +99,7 @@ export function NotificationBell({ initialSummary }: { initialSummary: Notificat
       >
         <Bell aria-hidden="true" size={19} />
         {summary.unreadCount > 0 && (
-          <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-rose-600 px-1 text-center text-[11px] font-semibold leading-5 text-white">
+          <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-rose-600 px-1 text-center text-[11px] font-semibold leading-5 text-white" data-partner-radius="semantic">
             {summary.unreadCount > 99 ? "99+" : summary.unreadCount}
           </span>
         )}

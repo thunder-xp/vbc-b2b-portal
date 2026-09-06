@@ -228,10 +228,10 @@ describe("Partner workspace shell", () => {
 
     await user.click(trigger);
     expect(trigger).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByRole("menuitem", { name: "Открыть корзину" })).toHaveAttribute("href", "/cabinet/cart");
+    expect(screen.getByRole("menuitem", { name: "Открыть подборку" })).toBeDisabled();
     expect(screen.getByRole("menuitem", { name: "Быстрый подбор товаров" })).toHaveAttribute("href", "/cabinet/quick-order");
     fireEvent.pointerDown(screen.getByRole("button", { name: "Снаружи" }));
-    expect(screen.queryByRole("menuitem", { name: "Открыть корзину" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: "Открыть подборку" })).not.toBeInTheDocument();
 
     await user.click(trigger);
     await user.keyboard("{Escape}");
@@ -246,6 +246,8 @@ describe("Partner workspace shell", () => {
 
     expect(screen.getByText("GOLD")).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "Partner Company" })).toHaveTextContent("PC");
+    expect(screen.getByRole("menuitem", { name: "Переключить интерфейс на румынский" })).toBeInTheDocument();
+    expect(document.querySelector('[data-header-control="language"]')).toBeNull();
   });
 
   it("automatically expands the commercial group for an active child route", () => {

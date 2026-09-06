@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { signOutAction } from "@/src/modules/auth/actions/auth.actions";
 import type { PartnerWorkspaceShellContext } from "./PartnerLayout";
-import { usePartnerText } from "../../partner-locale";
+import { PartnerLanguageSwitch, usePartnerText } from "../../partner-locale";
 
 export function UserMenu({ context }: { context: PartnerWorkspaceShellContext }) {
   const t = usePartnerText();
@@ -79,6 +79,7 @@ export function UserMenu({ context }: { context: PartnerWorkspaceShellContext })
             <MenuLink href="/cabinet/company" icon={Building2} label={t("shell.myCompany")} onSelect={() => setOpen(false)} />
             <MenuLink href="/cabinet/notifications" icon={Bell} label={t("shell.notifications")} onSelect={() => setOpen(false)} />
             <MenuLink href="/cabinet/profile" icon={UserRound} label={t("shell.profile")} onSelect={() => setOpen(false)} />
+            <PartnerLanguageSwitch locale={context.locale} variant="menu" />
           </nav>
           <form action={signOutAction} className="border-t border-zinc-200 p-1.5">
             <button className="flex min-h-11 w-full items-center gap-3 rounded px-3 text-sm font-medium text-zinc-700 hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600" role="menuitem" type="submit">

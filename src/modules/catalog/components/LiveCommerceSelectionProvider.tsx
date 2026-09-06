@@ -27,9 +27,10 @@ type SelectionContextValue = {
   items: LiveCommerceSelectionItem[];
   hydrated: boolean;
   clear: () => void;
+  openSelection: () => void;
 };
 
-const SelectionContext = createContext<SelectionContextValue>({ items: [], hydrated: false, clear: () => undefined });
+const SelectionContext = createContext<SelectionContextValue>({ items: [], hydrated: false, clear: () => undefined, openSelection: () => undefined });
 
 export function useLiveCommerceSelection(): SelectionContextValue {
   return useContext(SelectionContext);
@@ -52,6 +53,7 @@ export function LiveCommerceSelectionProvider({
   const [items, setItems] = useState<LiveCommerceSelectionItem[]>([]);
   const [hydrated, setHydrated] = useState(false);
   const [open, setOpen] = useState(false);
+  const [barVisible, setBarVisible] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -64,6 +66,7 @@ export function LiveCommerceSelectionProvider({
     }
     const restoreTimer = window.setTimeout(() => {
       setItems(restored);
+      setBarVisible(restored.length > 0);
       setHydrated(true);
     }, 0);
     return () => window.clearTimeout(restoreTimer);
@@ -74,6 +77,7 @@ export function LiveCommerceSelectionProvider({
       const detail = (event as CustomEvent<LiveCommerceSelectionAddDetail>).detail;
       if (!detail?.product?.id) return;
       setItems((current) => mergeLiveCommerceSelection(current, detail));
+      setBarVisible(true);
       setMessage(null);
     };
     window.addEventListener(LIVE_COMMERCE_SELECTION_ADD_EVENT, add);
@@ -81,6 +85,7 @@ export function LiveCommerceSelectionProvider({
       const detail = (event as CustomEvent<LiveCommerceSelectionAddBatchDetail>).detail;
       if (!Array.isArray(detail?.items) || !detail.items.length) return;
       setItems((current) => mergeLiveCommerceSelectionBatch(current, detail.items));
+      setBarVisible(true);
       setMessage(null);
     };
     window.addEventListener(LIVE_COMMERCE_SELECTION_ADD_BATCH_EVENT, addBatch);
@@ -99,11 +104,26 @@ export function LiveCommerceSelectionProvider({
   const clear = useCallback(() => {
     setItems([]);
     setOpen(false);
+    setBarVisible(false);
     setMessage(null);
     sessionStorage.removeItem(LIVE_COMMERCE_SELECTION_STORAGE_KEY);
   }, []);
+  const openSelection = useCallback(() => {
+    setOpen(true);
+    setBarVisible(true);
+    setMessage(null);
+    startTransition(async () => {
+      const result = await refreshLiveCommerceSelectionAction(items.map((item) => item.id));
+      if (!result.success) {
+        setMessage(result.message);
+        return;
+      }
+      const currentQuantity = new Map(items.map((item) => [item.id, item.quantity]));
+      setItems(result.data.map((product) => ({ ...product, quantity: currentQuantity.get(product.id) ?? 1 })));
+    });
+  }, [items]);
   const summary = useMemo(() => selectionSummary(items, locale, copy.totalUnavailable), [copy.totalUnavailable, items, locale]);
-  const context = useMemo(() => ({ items, hydrated, clear }), [clear, hydrated, items]);
+  const context = useMemo(() => ({ items, hydrated, clear, openSelection }), [clear, hydrated, items, openSelection]);
 
   function updateQuantity(productId: string, quantity: number) {
     setItems((current) => current.map((item) => item.id === productId ? { ...item, quantity: normalizeSelectionQuantity(quantity) } : item));
@@ -134,29 +154,16 @@ export function LiveCommerceSelectionProvider({
     });
   }
 
-  function openSelection() {
-    setOpen(true);
-    setMessage(null);
-    startTransition(async () => {
-      const result = await refreshLiveCommerceSelectionAction(items.map((item) => item.id));
-      if (!result.success) {
-        setMessage(result.message);
-        return;
-      }
-      const currentQuantity = new Map(items.map((item) => [item.id, item.quantity]));
-      setItems(result.data.map((product) => ({ ...product, quantity: currentQuantity.get(product.id) ?? 1 })));
-    });
-  }
-
   return <SelectionContext value={context}>
     {children}
     {hydrated && items.length ? <>
-      <aside className="fixed inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-40 mx-auto flex max-w-xl items-center gap-3 rounded-xl border border-emerald-700 bg-zinc-950 px-4 py-3 text-white shadow-2xl lg:left-auto lg:right-6 lg:mx-0 lg:w-[26rem]" data-testid="live-selection-bar">
+      {barVisible ? <aside className="fixed inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-40 mx-auto flex max-w-xl items-center gap-2 rounded-xl border border-emerald-700 bg-zinc-950 px-3 py-2 text-white shadow-2xl lg:left-auto lg:right-6 lg:mx-0 lg:w-[26rem]" data-testid="live-selection-bar">
         <button className="flex min-h-11 min-w-0 flex-1 items-center text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400" onClick={openSelection} type="button">
           <span className="min-w-0"><span className="block text-sm font-semibold">{copy.selection} · {summary.productCount} {copy.productsShort}</span><span className="block truncate text-xs text-zinc-300">{summary.quantity} {copy.units} · {summary.total}</span></span>
         </button>
         <button className="inline-flex min-h-11 shrink-0 items-center rounded-md bg-emerald-600 px-4 text-sm font-semibold" onClick={openSelection} type="button">{copy.openSelection}</button>
-      </aside>
+        <button aria-label={copy.closeSelection} className="inline-flex size-11 shrink-0 items-center justify-center text-zinc-300 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400" onClick={() => setBarVisible(false)} title={copy.closeSelection} type="button"><X aria-hidden="true" className="size-5" /></button>
+      </aside> : null}
       {open ? <div className="fixed inset-0 z-50 bg-black/45" role="presentation">
         <section aria-label={copy.selection} aria-modal="true" className="absolute inset-x-0 bottom-0 flex max-h-[88dvh] flex-col rounded-t-2xl bg-white pb-[env(safe-area-inset-bottom)] shadow-2xl sm:inset-y-0 sm:left-auto sm:right-0 sm:max-h-none sm:w-[28rem] sm:rounded-none" data-testid="live-selection-panel" role="dialog">
           <header className="flex items-center justify-between border-b border-zinc-200 px-4 py-3">

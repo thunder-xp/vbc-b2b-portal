@@ -101,7 +101,14 @@ export async function dismissNotificationAction(
       await getAuthenticatedUserId(),
       notificationId,
     );
-    revalidatePath("/cabinet/notifications");
+    try {
+      revalidatePath("/cabinet/notifications");
+    } catch (error) {
+      console.warn({
+        event: "notification_dismiss_revalidation_failed",
+        safeErrorType: error instanceof Error ? error.name : typeof error,
+      });
+    }
     return success("Уведомление скрыто.", dismissedAt);
   } catch (error) {
     return failureFromError(error);

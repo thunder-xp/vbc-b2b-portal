@@ -35,6 +35,15 @@ body {
   font-family: var(--font-app-sans);
 }
 
+/* Partner operations use the same square geometry as the public retail shell. */
+[data-partner-portal] :where([class*="rounded"]) {
+  border-radius: 0 !important;
+}
+
+[data-partner-portal] :where([data-partner-radius="semantic"], input[type="radio"]) {
+  border-radius: 9999px !important;
+}
+
 .public-retail {
   --retail-primary: #1769c2;
   --retail-primary-hover: #10549d;

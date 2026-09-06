@@ -16,7 +16,7 @@ import {
 } from "../index";
 
 const USER_PROFILE_COLUMNS =
-  "id, email, full_name, phone, status, user_type, created_at, updated_at";
+  "id, email, full_name, phone, preferred_locale, status, user_type, created_at, updated_at";
 
 export class SupabaseUserProfileRepository implements UserProfileRepository {
   async findById(userId: string): Promise<UserProfile | null> {
@@ -98,6 +98,7 @@ export class SupabaseUserProfileRepository implements UserProfileRepository {
     const updatePayload: {
       full_name?: string | null;
       phone?: string | null;
+      preferred_locale?: "ru" | "ro" | null;
     } = {};
 
     if (input.fullName !== undefined) {
@@ -106,6 +107,10 @@ export class SupabaseUserProfileRepository implements UserProfileRepository {
 
     if (input.phone !== undefined) {
       updatePayload.phone = input.phone;
+    }
+
+    if (input.preferredLocale !== undefined) {
+      updatePayload.preferred_locale = input.preferredLocale;
     }
 
     const { data, error } = await supabase

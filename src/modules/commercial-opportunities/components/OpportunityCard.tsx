@@ -16,6 +16,7 @@ import { CatalogCardImage } from "../../catalog/components/CatalogCardImage";
 import { CatalogQuantityCartAction } from "../../catalog/components/CatalogQuantityCartAction";
 import type { LiveCommerceSelectionProduct } from "../../catalog/services/live-commerce-selection";
 import { ProductSpecificationAction } from "../../catalog/components/ProductSpecificationAction";
+import { ProductComparisonAction } from "../../catalog/components/ProductComparisonAction";
 import { FavoriteProductButton } from "../../purchasing-lists/components/FavoriteProductButton";
 import { dismissCommercialOpportunityAction } from "../actions/commercial-opportunity.actions";
 import type { CommercialOpportunity } from "../types";
@@ -25,14 +26,18 @@ export function OpportunityCard({
   canAddToOrder = true,
   canAddToSpecification = true,
   canManagePurchasingLists = true,
+  companyId = null,
   opportunity,
   locale = "ru",
+  userId = null,
 }: {
   canAddToOrder?: boolean;
   canAddToSpecification?: boolean;
   canManagePurchasingLists?: boolean;
+  companyId?: string | null;
   opportunity: CommercialOpportunity;
   locale?: PartnerLocale;
+  userId?: string | null;
 }) {
   const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
@@ -156,9 +161,9 @@ export function OpportunityCard({
           </div>
         ) : null}
 
-        <div className="mt-3 flex flex-wrap items-start gap-2">
+        <div className="mt-3 flex flex-nowrap items-start gap-2" data-opportunity-actions>
           {product && canAddToOrder && canAddProduct(opportunity, addedToSelection) ? (
-            <div className="min-w-0 basis-full">
+            <div className="min-w-[11rem] flex-1">
               <CatalogQuantityCartAction
                 initialQuantity={suggestedQuantity(opportunity)}
                 onSuccess={() => {
@@ -183,12 +188,16 @@ export function OpportunityCard({
           ) : null}
           {product && canManagePurchasingLists ? (
             <FavoriteProductButton
+              compact
               initialSaved={false}
               productId={product.id}
             />
           ) : null}
           {product && canAddToSpecification ? (
-            <ProductSpecificationAction productId={product.id} />
+            <ProductSpecificationAction compact productId={product.id} />
+          ) : null}
+          {product && companyId && userId ? (
+            <ProductComparisonAction categoryId={null} companyId={companyId} compact productId={product.id} userId={userId} />
           ) : null}
           {!product ? (
             <Link
@@ -228,6 +237,10 @@ export function OpportunityCard({
       </div>
     </article>
   );
+}
+
+export function opportunityPresentationVariant(opportunity: CommercialOpportunity): "wide" | "compact" {
+  return opportunity.product ? "wide" : "compact";
 }
 
 function opportunityLabel(

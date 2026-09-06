@@ -41,6 +41,7 @@ export function StatusBadge({
     <span
       aria-label={accessibleLabel ?? `Статус: ${displayedLabel}`}
       className={`inline-flex w-fit items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold ${categoryClassName[status.category]}`}
+      data-partner-radius="semantic"
     >
       <Icon
         aria-hidden="true"

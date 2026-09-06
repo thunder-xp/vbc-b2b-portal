@@ -1,14 +1,15 @@
 "use client";
 
-import { FileSearch, FilePlus2, History, ListRestart, Search, ShoppingCart, Wrench, Zap } from "lucide-react";
+import { FileSearch, FilePlus2, History, ListPlus, ListRestart, Search, Wrench, Zap } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
 import { usePartnerLocale, usePartnerText, type PartnerTranslationKey } from "../../partner-locale";
 import type { WorkspaceQuickActionDto } from "../services";
+import { useLiveCommerceSelection } from "../../catalog/components/LiveCommerceSelectionProvider";
 
 const icons = {
-  cart: ShoppingCart,
+  cart: ListPlus,
   repeat_order: History,
   estimate: FilePlus2,
   register_warranty: Wrench,
@@ -19,7 +20,7 @@ const icons = {
 } as const;
 
 const actionKeys: Partial<Record<string, PartnerTranslationKey>> = {
-  cart: "quick.cart",
+  cart: "quick.selection",
   documents: "quick.documents",
   estimate: "quick.estimate",
   it_support: "quick.it_support",
@@ -33,6 +34,7 @@ export function QuickActionsMenu({ actions }: { actions: WorkspaceQuickActionDto
   const locale = usePartnerLocale();
   const t = usePartnerText();
   const [open, setOpen] = useState(false);
+  const selection = useLiveCommerceSelection();
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
 
@@ -64,6 +66,9 @@ export function QuickActionsMenu({ actions }: { actions: WorkspaceQuickActionDto
         {actions.map((action) => {
           const Icon = icons[action.key as keyof typeof icons] ?? FileSearch;
           const translationKey = actionKeys[action.key];
+          if (action.key === "cart") {
+            return <button className="flex min-h-11 w-full items-center gap-3 rounded px-3 text-left text-sm font-medium text-zinc-700 hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 disabled:cursor-not-allowed disabled:text-zinc-400 disabled:hover:bg-white" disabled={!selection.hydrated || selection.items.length === 0} key={action.key} onClick={() => { selection.openSelection(); setOpen(false); }} role="menuitem" type="button"><Icon aria-hidden="true" className="size-4" />{t("quick.selection")}</button>;
+          }
           return <Link className="flex min-h-11 items-center gap-3 rounded px-3 text-sm font-medium text-zinc-700 hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600" href={action.href} key={action.key} onClick={() => setOpen(false)} prefetch={false} role="menuitem"><Icon aria-hidden="true" className="size-4" />{translationKey ? t(translationKey) : action.label}</Link>;
         })}
       </nav> : null}

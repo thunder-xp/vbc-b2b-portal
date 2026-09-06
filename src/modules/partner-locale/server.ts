@@ -9,3 +9,13 @@ export const getPartnerLocale = cache(async (): Promise<PartnerLocale> => {
   const value = (await cookies()).get(PARTNER_LOCALE_COOKIE)?.value;
   return isPartnerLocale(value) ? value : DEFAULT_PARTNER_LOCALE;
 });
+
+export async function setPartnerLocaleCookie(locale: PartnerLocale): Promise<void> {
+  (await cookies()).set(PARTNER_LOCALE_COOKIE, locale, {
+    httpOnly: true,
+    maxAge: 60 * 60 * 24 * 365,
+    path: "/",
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+  });
+}

@@ -10,6 +10,7 @@ export interface CreateUserProfileInput {
 export interface UpdateOwnSafeUserProfileFieldsInput {
   fullName?: string | null;
   phone?: string | null;
+  preferredLocale?: "ru" | "ro" | null;
 }
 
 export interface UserProfileRepository {

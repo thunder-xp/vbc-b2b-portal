@@ -3,7 +3,9 @@
 import { redirect } from "next/navigation";
 
 import { createClient } from "@/src/lib/supabase/server";
-import { createCompanyUserManagementService } from "@/src/modules/access-control/actions/service-factory";
+import { createCompanyUserManagementService, createUserProfileService } from "@/src/modules/access-control/actions/service-factory";
+import { isPartnerLocale } from "@/src/modules/partner-locale";
+import { setPartnerLocaleCookie } from "@/src/modules/partner-locale/server";
 
 export type AuthActionState = {
   error: string | null;
@@ -22,10 +24,21 @@ export async function signInAction(
   }
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
     return { error: "Email or password is incorrect." };
+  }
+
+  if (data.user?.id) {
+    try {
+      const profile = await createUserProfileService().getCurrentProfile(data.user.id);
+      if (isPartnerLocale(profile?.preferredLocale)) {
+        await setPartnerLocaleCookie(profile.preferredLocale);
+      }
+    } catch {
+      // Authentication must remain available if the optional preference read fails.
+    }
   }
 
   const invitationToken = tokenFromInvitationPath(nextPath);

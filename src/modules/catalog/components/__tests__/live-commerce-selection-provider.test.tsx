@@ -18,6 +18,7 @@ vi.mock("../ProductThumbnail", () => ({ ProductThumbnail: ({ alt }: { alt: strin
 
 import { emitLiveCommerceSelectionAdd, LIVE_COMMERCE_SELECTION_STORAGE_KEY, type LiveCommerceSelectionProduct } from "../../services/live-commerce-selection";
 import { LiveCommerceSelectionProvider } from "../LiveCommerceSelectionProvider";
+import { QuickActionsMenu } from "../../../partner-cabinet/components/QuickActionsMenu";
 
 const product: LiveCommerceSelectionProduct = {
   id: "11111111-1111-4111-8111-111111111111",
@@ -29,8 +30,8 @@ const product: LiveCommerceSelectionProduct = {
   stock: { status: "in_stock", label: "Available", exactAvailableQuantity: 487, lastUpdatedAt: null },
 };
 
-function Workspace() {
-  return <LiveCommerceSelectionProvider canAddToCart canCreateEstimate canSaveAsKit><button onClick={() => emitLiveCommerceSelectionAdd({ product, quantity: 2 })} type="button">Add camera</button></LiveCommerceSelectionProvider>;
+function Workspace({ withQuickActions = false }: { withQuickActions?: boolean }) {
+  return <LiveCommerceSelectionProvider canAddToCart canCreateEstimate canSaveAsKit><button onClick={() => emitLiveCommerceSelectionAdd({ product, quantity: 2 })} type="button">Add camera</button>{withQuickActions ? <QuickActionsMenu actions={[{ key: "cart", href: "/cabinet/cart", label: "Открыть корзину" }]} /> : null}</LiveCommerceSelectionProvider>;
 }
 
 describe("LiveCommerceSelectionProvider", () => {
@@ -77,6 +78,21 @@ describe("LiveCommerceSelectionProvider", () => {
     expect(screen.getByTestId("live-selection-bar")).toHaveClass("bottom-[max(0.75rem,env(safe-area-inset-bottom))]");
     await user.click(screen.getByRole("button", { name: "Открыть" }));
     expect(await screen.findByRole("link", { name: "Создать КП" })).toHaveAttribute("href", "/cabinet/estimates/new?source=selection");
+  });
+
+  it("hides the overlay without clearing and reopens it from local Quick Actions state", async () => {
+    const user = userEvent.setup();
+    render(<Workspace withQuickActions />);
+    await user.click(screen.getByRole("button", { name: "Add camera" }));
+    await user.click(screen.getByRole("button", { name: "Закрыть подборку" }));
+    expect(screen.queryByTestId("live-selection-bar")).not.toBeInTheDocument();
+    expect(JSON.parse(sessionStorage.getItem(LIVE_COMMERCE_SELECTION_STORAGE_KEY) ?? "[]")).toHaveLength(1);
+
+    await user.click(screen.getByRole("button", { name: "Быстрые действия" }));
+    const openSelection = screen.getByRole("menuitem", { name: "Открыть подборку" });
+    expect(openSelection).toBeEnabled();
+    await user.click(openSelection);
+    expect(await screen.findByTestId("live-selection-panel")).toBeInTheDocument();
   });
 
   it("saves the current selection with quantities and asks only for a kit name", async () => {

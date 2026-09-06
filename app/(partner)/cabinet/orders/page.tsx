@@ -62,7 +62,7 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
   }
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6">
+    <div className="mx-auto max-w-7xl space-y-4">
       <BehaviorViewEvent
         dedupeKey={`orders:${result.data.filter}:${result.data.search}:${result.data.page}`}
         eventName="order_list_viewed"
@@ -70,14 +70,10 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
         route="/cabinet/orders"
         sourceSurface="order_history"
       />
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase text-emerald-700">
-            {copy.eyebrow}
-          </p>
-          <h1 className="mt-1 text-2xl font-semibold">{copy.title}</h1>
-          <p className="mt-2 text-sm text-zinc-600">{copy.description}</p>
-          <p className="mt-1 text-xs text-zinc-500">
+          <h1 className="text-2xl font-semibold">{copy.title}</h1>
+          <p className="mt-0.5 text-xs text-zinc-500">
             {result.data.freshness.updatedAt
               ? `${copy.ordersUpdated} ${formatPartnerRelativeAge(result.data.freshness.updatedAt, locale)}`
               : copy.updateTimeUnknown}
@@ -105,9 +101,9 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
         </div>
       ) : null}
 
-      <div className="space-y-3 border-y border-zinc-200 py-4">
+      <div className="flex min-w-0 flex-col gap-2 lg:flex-row lg:items-center">
         <div
-          className="flex gap-2 overflow-x-auto pb-1"
+          className="flex min-w-0 gap-2 overflow-x-auto pb-1 lg:flex-1"
           aria-label={copy.state}
         >
           {filters.map(([value, label]) => (
@@ -125,17 +121,17 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
             </Link>
           ))}
         </div>
-        <form className="flex max-w-lg gap-2" method="get">
+        <form className="flex min-w-0 gap-2 lg:w-[28rem]" method="get">
           <input name="status" type="hidden" value={result.data.filter} />
           <input
-            className="min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+            className="h-11 min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-3 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
             defaultValue={result.data.search}
             name="query"
             placeholder={copy.searchPlaceholder}
             type="search"
           />
           <button
-            className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-800"
+            className="h-11 rounded-md bg-zinc-900 px-4 text-sm font-semibold text-white hover:bg-zinc-800"
             type="submit"
           >
             {copy.search}

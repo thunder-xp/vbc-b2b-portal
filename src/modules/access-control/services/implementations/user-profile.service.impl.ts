@@ -58,6 +58,7 @@ export class DefaultUserProfileService implements UserProfileService {
       return await this.userProfileRepository.updateOwnSafeFields(userId, {
         fullName: input.fullName,
         phone: input.phone,
+        preferredLocale: input.preferredLocale,
       });
     } catch (error) {
       throw this.mapRepositoryError(error);

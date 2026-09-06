@@ -106,7 +106,20 @@ describe("DefaultUserProfileService", () => {
       input: {
         fullName: "Partner User",
         phone: "+359 1 234",
+        preferredLocale: undefined,
       },
+    });
+  });
+
+  it("persists the governed locale through the existing self-profile boundary", async () => {
+    const repository = new FakeUserProfileRepository();
+    const service = new DefaultUserProfileService(repository);
+
+    await service.updateOwnProfile("user-1", { preferredLocale: "ro" });
+
+    expect(repository.lastUpdateInput).toEqual({
+      userId: "user-1",
+      input: { fullName: undefined, phone: undefined, preferredLocale: "ro" },
     });
   });
 

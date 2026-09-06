@@ -98,6 +98,7 @@ export type WorkspaceProductDto = {
 };
 
 export type WorkspaceHomeDto = {
+  viewer?: { companyId: string; userId: string };
   identity: {
     firstName: string;
     greeting: string;
@@ -307,6 +308,7 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
     logDashboardShortage("novotech_offers", merchandisingProducts.length, 5);
 
     return {
+      viewer: { companyId, userId },
       identity: {
         firstName: firstName(context.userDisplayName),
         greeting: greeting(),

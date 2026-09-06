@@ -7,7 +7,7 @@ import type { PartnerWorkspaceShellContext } from "./PartnerLayout";
 import { UserMenu } from "./UserMenu";
 import { QuickActionsMenu } from "./QuickActionsMenu";
 import { PartnerCartLink } from "./PartnerCartLink";
-import { getQuickProductCopy, PartnerLanguageSwitch, partnerText, type PartnerTranslationKey } from "../../partner-locale";
+import { getQuickProductCopy, partnerText, type PartnerTranslationKey } from "../../partner-locale";
 
 export function PartnerHeader({ context, mobileNavigation }: { context: PartnerWorkspaceShellContext; mobileNavigation?: ReactNode }) {
   const t = (key: PartnerTranslationKey) => partnerText(context.locale, key);
@@ -31,7 +31,6 @@ export function PartnerHeader({ context, mobileNavigation }: { context: PartnerW
         </div>
       </form>
       <div className="flex min-w-0 items-center justify-end gap-2" data-testid="partner-header-actions">
-        <PartnerLanguageSwitch locale={context.locale} />
         <QuickActionsMenu actions={context.quickActions} />
         <NotificationBell
           initialSummary={context.notificationSummary}

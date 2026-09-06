@@ -20,6 +20,7 @@ export interface UserProfile {
   email: string;
   fullName: string | null;
   phone: string | null;
+  preferredLocale?: "ru" | "ro" | null;
   status: UserStatus;
   userType: UserType;
   createdAt: string;

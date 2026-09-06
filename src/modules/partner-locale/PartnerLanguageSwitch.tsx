@@ -1,5 +1,6 @@
 "use client";
 
+import { Languages } from "lucide-react";
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 
@@ -7,7 +8,7 @@ import { setPartnerLocaleAction } from "./actions";
 import { partnerText } from "./copy";
 import type { PartnerLocale } from "./locale";
 
-export function PartnerLanguageSwitch({ locale }: { locale: PartnerLocale }) {
+export function PartnerLanguageSwitch({ locale, variant = "header" }: { locale: PartnerLocale; variant?: "header" | "menu" }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const nextLocale = locale === "ru" ? "ro" : "ru";
@@ -20,9 +21,11 @@ export function PartnerLanguageSwitch({ locale }: { locale: PartnerLocale }) {
   return (
     <button
       aria-label={accessibleLabel}
-      className="inline-flex size-11 shrink-0 items-center justify-center rounded-md border border-zinc-300 bg-white text-xs font-semibold text-zinc-700 transition hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 disabled:cursor-wait disabled:opacity-60"
+      className={variant === "menu"
+        ? "flex min-h-11 w-full items-center gap-3 rounded px-3 text-sm font-medium text-zinc-700 hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 disabled:cursor-wait disabled:opacity-60"
+        : "inline-flex size-11 shrink-0 items-center justify-center rounded-md border border-zinc-300 bg-white text-xs font-semibold text-zinc-700 transition hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 disabled:cursor-wait disabled:opacity-60"}
       disabled={pending}
-      data-header-control="language"
+      data-header-control={variant === "header" ? "language" : undefined}
       onClick={() => {
         const event = new CustomEvent("novotech:before-locale-change", {
           cancelable: true,
@@ -35,8 +38,9 @@ export function PartnerLanguageSwitch({ locale }: { locale: PartnerLocale }) {
       }}
       title={accessibleLabel}
       type="button"
+      role={variant === "menu" ? "menuitem" : undefined}
     >
-      {label}
+      {variant === "menu" ? <><Languages aria-hidden="true" className="size-4" /><span className="flex-1 text-left">{accessibleLabel}</span><span className="text-xs font-semibold">{label}</span></> : label}
     </button>
   );
 }

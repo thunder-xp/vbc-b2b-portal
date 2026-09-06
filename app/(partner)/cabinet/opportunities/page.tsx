@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import type { CSSProperties } from "react";
 
 import { BehaviorViewEvent } from "@/src/modules/behavior-analytics/components";
 import { listCommercialOpportunitiesAction } from "@/src/modules/commercial-opportunities/actions";
-import { OpportunityCard } from "@/src/modules/commercial-opportunities/components";
+import { OpportunityCard, opportunityPresentationVariant } from "@/src/modules/commercial-opportunities/components";
 import type { CommercialOpportunityFilter } from "@/src/modules/commercial-opportunities/types";
 import { getPartnerWorkspaceContextAction } from "@/src/modules/partner-cabinet/actions";
 import { NumberedPagination, PageHeader, actionClassName } from "@/src/modules/platform-ui";
@@ -59,6 +60,11 @@ export default async function OpportunitiesPage({
         </p>
       </section>
     );
+  const indexedOpportunities = result.data.items.map((opportunity, businessOrder) => ({ opportunity, businessOrder }));
+  const wideOpportunities = indexedOpportunities.filter(({ opportunity }) => opportunityPresentationVariant(opportunity) === "wide");
+  const compactOpportunities = indexedOpportunities.filter(({ opportunity }) => opportunityPresentationVariant(opportunity) === "compact");
+  const companyId = contextResult.success ? contextResult.data.companyId : null;
+  const userId = contextResult.success ? contextResult.data.userId : null;
 
   return (
     <div className="min-w-0 space-y-3">
@@ -87,8 +93,10 @@ export default async function OpportunitiesPage({
         ))}
       </nav>
       {result.data.items.length ? (
-        <div className="grid items-start gap-3 xl:grid-cols-2" data-opportunity-grid>
-          {result.data.items.map((opportunity) => (
+        <div className="flex flex-col gap-3 xl:grid xl:grid-cols-[minmax(0,2fr)_minmax(17rem,1fr)] xl:items-start" data-opportunity-grid>
+          <div className="contents xl:flex xl:flex-col xl:gap-3" data-opportunity-lane="wide">
+          {wideOpportunities.map(({ opportunity, businessOrder }) => (
+            <div className="order-[var(--business-order)] xl:order-none" key={opportunity.id} style={{ "--business-order": businessOrder } as CSSProperties}>
             <OpportunityCard
               canAddToOrder={
                 contextResult.success &&
@@ -104,11 +112,29 @@ export default async function OpportunitiesPage({
                 contextResult.data.capabilities.productCard
                   .canManagePurchasingLists
               }
-              key={opportunity.id}
+              companyId={companyId}
               locale={locale}
               opportunity={opportunity}
+              userId={userId}
             />
+            </div>
           ))}
+          </div>
+          <div className="contents xl:flex xl:flex-col xl:gap-3" data-opportunity-lane="compact">
+          {compactOpportunities.map(({ opportunity, businessOrder }) => (
+            <div className="order-[var(--business-order)] xl:order-none" key={opportunity.id} style={{ "--business-order": businessOrder } as CSSProperties}>
+              <OpportunityCard
+                canAddToOrder={contextResult.success && contextResult.data.capabilities.productCard.canAddToOrder}
+                canAddToSpecification={contextResult.success && contextResult.data.capabilities.productCard.canAddToSpecification}
+                canManagePurchasingLists={contextResult.success && contextResult.data.capabilities.productCard.canManagePurchasingLists}
+                companyId={companyId}
+                locale={locale}
+                opportunity={opportunity}
+                userId={userId}
+              />
+            </div>
+          ))}
+          </div>
         </div>
       ) : (
         <section className="py-4" data-compact-empty>

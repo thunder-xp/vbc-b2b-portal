@@ -22,6 +22,7 @@ export interface UserProfileRow {
   email: string;
   full_name: string | null;
   phone: string | null;
+  preferred_locale: "ru" | "ro" | null;
   status: UserStatus;
   user_type: UserType;
   created_at: string;
@@ -118,6 +119,7 @@ export function mapUserProfileRow(row: UserProfileRow): UserProfile {
     email: row.email,
     fullName: row.full_name,
     phone: row.phone,
+    preferredLocale: row.preferred_locale,
     status: row.status,
     userType: row.user_type,
     createdAt: row.created_at,
