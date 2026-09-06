@@ -286,7 +286,7 @@ function ProductCard({ canSelectProducts, compact = false, copy, feedback, loadi
       partnerPriceMdl={product.commercialView?.partnerPriceMdl?.formattedAmount ?? null}
       priced={priced}
       retailPriceMdl={quickProduct?.commercialView?.retailPriceMdl?.formattedAmount ?? null}
-      retailPriceUsd={quickProduct?.commercialView?.retailPriceUsd?.formattedAmount ?? null}
+      msrpPriceUsd={quickProduct?.commercialView?.msrpPriceUsd?.formattedAmount ?? null}
       showRetail={Boolean(quickProduct)}
       stock={product.commercialView?.stock}
     />
@@ -294,14 +294,14 @@ function ProductCard({ canSelectProducts, compact = false, copy, feedback, loadi
   </article>;
 }
 
-function ProductCardCommercialSummary({ copy, locale, partnerPrice, partnerPriceMdl, priced, retailPriceMdl, retailPriceUsd, showRetail, stock }: {
+function ProductCardCommercialSummary({ copy, locale, partnerPrice, partnerPriceMdl, priced, retailPriceMdl, msrpPriceUsd, showRetail, stock }: {
   copy: ReturnType<typeof getQuickProductCopy>;
   locale: PartnerLocale;
   partnerPrice: string | null;
   partnerPriceMdl: string | null;
   priced: boolean;
   retailPriceMdl: string | null;
-  retailPriceUsd: string | null;
+  msrpPriceUsd: string | null;
   showRetail: boolean;
   stock: NonNullable<QuickProductSearchResultDto["commercialView"]>["stock"] | null | undefined;
 }) {
@@ -312,10 +312,11 @@ function ProductCardCommercialSummary({ copy, locale, partnerPrice, partnerPrice
       {partnerPriceMdl ? <p className="text-xs font-medium text-zinc-500">{partnerPriceMdl}</p> : null}
       {showRetail ? <div className="mt-2 border-t border-zinc-100 pt-2">
         <p className="text-[11px] font-medium text-zinc-500">{retailPriceMdl ? copy.retailPrice : copy.retailPriceUnavailable}</p>
-        {retailPriceMdl ? <>
-          <p className="mt-0.5 truncate text-sm font-semibold text-zinc-700">{retailPriceUsd ?? retailPriceMdl}</p>
-          {retailPriceUsd ? <p className="text-xs font-medium text-zinc-500">{retailPriceMdl}</p> : null}
-        </> : null}
+        {retailPriceMdl ? <p className="mt-0.5 truncate text-sm font-semibold text-zinc-700">{retailPriceMdl}</p> : null}
+        {msrpPriceUsd ? <div className="mt-1">
+          <p className="text-[11px] font-medium text-zinc-500">{copy.msrp}</p>
+          <p className="truncate text-xs font-semibold text-zinc-700">{msrpPriceUsd}</p>
+        </div> : null}
       </div> : null}
     </div>
     <ProductAvailabilityBlock locale={locale} stock={stock} />

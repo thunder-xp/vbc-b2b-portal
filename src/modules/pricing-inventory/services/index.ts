@@ -29,3 +29,7 @@ export {
   type CommercialRateAdminRowDto,
 } from "./commercial-rate-management.service";
 export * from "./commercial-product-state";
+export {
+  projectRetailPricePresentation,
+  type RetailPricePresentationDto,
+} from "./retail-price-presentation";

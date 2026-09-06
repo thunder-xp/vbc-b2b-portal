@@ -104,6 +104,8 @@ describe("ProductComparisonView", () => {
     const { unmount } = renderView();
     expect(await screen.findByText("Ваша цена")).toBeInTheDocument();
     expect(screen.getByText("Розничная цена")).toBeInTheDocument();
+    expect(screen.getByText("MSRP")).toBeInTheDocument();
+    expect(screen.getByText("$7.00")).toBeInTheDocument();
     unmount();
 
     getComparison.mockResolvedValueOnce(success({
@@ -224,6 +226,7 @@ function commercialView(productId: string, partnerVisible: boolean) {
       ? { formattedAmount: "100 MDL", amount: 100, currencyCode: "MDL" }
       : null,
     retailPrice: { formattedAmount: "120 MDL", amount: 120, currencyCode: "MDL" },
+    msrpPriceUsd: { formattedAmount: "$7.00", amount: 7, currencyCode: "USD" },
     stock: null,
   } as CatalogComparisonDto["commercialViews"][number];
 }

@@ -13,6 +13,7 @@ export type ListProductPricesInput = {
   productIds: string[];
   companyId: string;
   external1cPriceTypeId?: string;
+  external1cPriceTypeIds?: string[];
 };
 export type ProductStockTotal = { productId:string; physicalQuantity:number; reservedQuantity:number; availableQuantity:number; incomingQuantity:number; hasVariantStock:boolean; syncedAt:string };
 export type ProductSupplierArrival = { productId:string; externalCharacteristicRef:string; expectedDate:string; expectedQuantity:number; publishedAt:string };

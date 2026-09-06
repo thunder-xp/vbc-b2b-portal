@@ -23,6 +23,8 @@ describe("ProductDetail information architecture", () => {
     expect(screen.getByText("839 MDL")).toBeInTheDocument();
     expect(screen.getByText("$48.95 USD")).toBeInTheDocument();
     expect(screen.getByText("$89.00")).toBeInTheDocument();
+    expect(screen.getByText("Розничная цена")).toBeInTheDocument();
+    expect(screen.getByText("MSRP")).toBeInTheDocument();
     expect(screen.getByText("687 MDL")).toBeInTheDocument();
     expect(screen.getByText("Валовая прибыль")).toBeInTheDocument();
     expect(screen.getByText("Наличие и поступления")).toBeInTheDocument();
@@ -45,11 +47,21 @@ describe("ProductDetail information architecture", () => {
     expect(screen.queryByText("839 MDL")).not.toBeInTheDocument();
   });
 
-  it("keeps source MSRP USD visible when its independent MDL rate is unavailable", () => {
+  it("keeps MSRP USD separate when governed RETAIL MDL is missing", () => {
     render(<ProductDetail commercialView={{ ...commercialView, retailPrice: null, commercialOpportunity: null }} product={product} />);
-    expect(screen.getAllByText("$89.00")).toHaveLength(2);
-    expect(screen.getByText("Цена в MDL временно недоступна")).toBeInTheDocument();
+    expect(screen.getByText("$89.00")).toBeInTheDocument();
+    expect(screen.getByText("MSRP")).toBeInTheDocument();
+    expect(screen.getByText("Розничная цена")).toBeInTheDocument();
+    expect(screen.getAllByText("Цена уточняется").length).toBeGreaterThan(0);
     expect(screen.queryByText("1 526 MDL")).not.toBeInTheDocument();
+  });
+
+  it("uses the same independent RETAIL and MSRP labels in Romanian", () => {
+    render(<ProductDetail commercialView={commercialView} locale="ro" product={product} />);
+    expect(screen.getByText("Preț cu amănuntul")).toBeInTheDocument();
+    expect(screen.getByText("MSRP")).toBeInTheDocument();
+    expect(screen.getByText(/1\s526 MDL/)).toBeInTheDocument();
+    expect(screen.getByText("$89.00")).toBeInTheDocument();
   });
 
   it("shows a safe catalog return action and places tabs above the shared image/content layout", () => {

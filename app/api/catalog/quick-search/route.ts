@@ -7,6 +7,7 @@ import {
   rankQuickProductResults,
   type QuickProductSearchResultDto,
 } from "@/src/modules/catalog/services/quick-product-search";
+import { projectRetailPricePresentation } from "@/src/modules/pricing-inventory";
 
 const RESULT_LIMIT = 8;
 
@@ -37,6 +38,7 @@ export async function GET(request: Request) {
     .slice(0, RESULT_LIMIT)
     .map((product) => {
       const commercialView = commercialByProduct.get(product.id);
+      const prices = projectRetailPricePresentation(commercialView);
       return {
         id: product.id,
         sku: product.sku,
@@ -45,10 +47,10 @@ export async function GET(request: Request) {
         imageUrl: product.imageUrl,
         categoryName: product.category?.name ?? null,
         commercialView: commercialView ? {
-          partnerPrice: commercialView.partnerPrice,
-          partnerPriceMdl: commercialView.partnerPriceMdl,
-          retailPriceMdl: commercialView.retailPrice,
-          retailPriceUsd: commercialView.msrpPriceUsd,
+          partnerPrice: prices.partnerPrice,
+          partnerPriceMdl: prices.partnerPriceMdl,
+          retailPriceMdl: prices.retailPriceMdl,
+          msrpPriceUsd: prices.msrpPriceUsd,
           stock: commercialView.stock,
         } : null,
         matchKind: quickProductMatchKind(query, product),

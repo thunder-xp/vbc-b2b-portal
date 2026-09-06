@@ -91,7 +91,8 @@ describe("DefaultCatalogService listing projection", () => {
     expect(result.totalCount).toBe(3);
     expect(result.hasNextPage).toBe(true);
     expect(result.commercialViews?.[0]?.partnerPrice?.amount).toBe(30);
-    expect(result.commercialViews?.[0]?.retailPrice?.formattedAmount).toBe("1 770 MDL");
+    expect(result.commercialViews?.[0]?.retailPrice?.formattedAmount).toBe("1 700 MDL");
+    expect(result.commercialViews?.[0]?.msrpPriceUsd?.formattedAmount).toBe("$100.00");
     expect(result.products[0]?.imageUrl).toBe("https://example.test/product-high.png");
     expect(result.products[0]).toMatchObject({
       shortDescription: null,
@@ -241,6 +242,7 @@ function aggregateProduct(id: string, sku: string, name: string, amount: number)
       productId: id,
       canViewStock: false,
       partnerPrice: { currency: "USD", currencyStatus: "resolved" as const, priceAmount: amount, updatedAt: now },
+      retailPrice: { currency: "MDL", currencyStatus: "resolved" as const, priceAmount: 1_700, updatedAt: now },
       msrpPrice: { currency: "USD", currencyStatus: "resolved" as const, priceAmount: 100, updatedAt: now },
       stock: null,
       supplierArrival: null,

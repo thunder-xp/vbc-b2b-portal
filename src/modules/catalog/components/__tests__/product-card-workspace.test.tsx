@@ -23,7 +23,7 @@ vi.mock("next/link", () => ({ default: ({ children, href, ...props }: React.Anch
 vi.mock("../../../orders/components", () => ({ AddToCartButton: () => <button type="button">В корзину</button> }));
 
 const product = { id: "product-1", sku: "NV-100", name: "IP Camera", slug: "ip-camera", shortDescription: "Professional camera", imageUrl: null, brand: null, category: { id: "category-1", parentId: null, name: "4-5 MPX", slug: "4-5-mpx", description: null }, keyCharacteristics: [{ label: "Channels", value: "4" }, { label: "Enabled", value: "Да" }], datasheet: null };
-const commercialView = { productId: "product-1", partnerPrice: { currencyCode: "USD", amount: 45.81, formattedAmount: "$45.81" }, partnerPriceMdl: { currencyCode: "MDL", amount: 800, formattedAmount: "800 MDL" }, retailPrice: { currencyCode: "MDL", amount: 39.2, formattedAmount: "39.20 MDL" }, stock: { status: "expected" as const, label: "Ожидается", exactAvailableQuantity:0,exactPhysicalQuantity:0,exactReservedQuantity:0,exactIncomingQuantity:12,expectedArrival:null,hasVariantStock:false,lastUpdatedAt: "2026-07-11T00:00:00.000Z" }, isDemoData: false };
+const commercialView = { productId: "product-1", partnerPrice: { currencyCode: "USD", amount: 45.81, formattedAmount: "$45.81" }, partnerPriceMdl: { currencyCode: "MDL", amount: 800, formattedAmount: "800 MDL" }, retailPrice: { currencyCode: "MDL", amount: 920, formattedAmount: "920 MDL" }, msrpPriceUsd: { currencyCode: "USD", amount: 60, formattedAmount: "$60.00" }, stock: { status: "expected" as const, label: "Ожидается", exactAvailableQuantity:0,exactPhysicalQuantity:0,exactReservedQuantity:0,exactIncomingQuantity:12,expectedArrival:null,hasVariantStock:false,lastUpdatedAt: "2026-07-11T00:00:00.000Z" }, isDemoData: false };
 
 describe("ProductCard workspace context", () => {
   it("presents scoped and retail prices with public business labels", () => {
@@ -34,7 +34,9 @@ describe("ProductCard workspace context", () => {
     expect(screen.getByText("800 MDL")).toHaveClass("text-zinc-500", "text-right");
     expect(screen.getByLabelText("Эквивалент вашей цены в MDL: 800 MDL")).toBeInTheDocument();
     expect(screen.getByText("Розничная цена")).toBeInTheDocument();
-    expect(screen.getByText("39.20 MDL")).toHaveClass("text-xs");
+    expect(screen.getByText("920 MDL")).toHaveClass("text-xs");
+    expect(screen.getByText("MSRP")).toBeInTheDocument();
+    expect(screen.getByText("$60.00")).toBeInTheDocument();
     expect(container.textContent).not.toContain("GOLD");
     expect(container.textContent).not.toContain("999");
   });
@@ -42,7 +44,7 @@ describe("ProductCard workspace context", () => {
   it("does not use retail as fallback when partner price is missing", () => {
     const capabilities = resolveWorkspaceCapabilities(new Set(["catalog.view", "pricing.partner_price.view", "pricing.retail_price.view"])).productCard;
     render(<ProductCard capabilities={capabilities} commercialView={{ ...commercialView, partnerPrice: null }} product={product} />);
-    expect(screen.getByText("39.20 MDL")).toBeInTheDocument();
+    expect(screen.getByText("920 MDL")).toBeInTheDocument();
     expect(screen.getByText("Цена уточняется")).toBeInTheDocument();
     expect(screen.queryByText("$45.81")).not.toBeInTheDocument();
     expect(screen.queryByText("800 MDL")).not.toBeInTheDocument();
@@ -55,7 +57,7 @@ describe("ProductCard workspace context", () => {
     expect(screen.queryByText("$45.81")).not.toBeInTheDocument();
     expect(screen.queryByText("800 MDL")).not.toBeInTheDocument();
     expect(screen.getByText("Розничная цена")).toBeInTheDocument();
-    expect(screen.getByText("39.20 MDL")).toHaveClass("text-lg");
+    expect(screen.getByText("920 MDL")).toHaveClass("text-lg");
   });
 
   it("does not duplicate an already-MDL partner price", () => {

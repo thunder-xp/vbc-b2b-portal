@@ -15,6 +15,10 @@ export const CATALOG_PARTNER_PAGE_FIELDS = [
   "partner_price_currency",
   "partner_price_currency_status",
   "partner_price_updated_at",
+  "retail_price_amount",
+  "retail_price_currency",
+  "retail_price_currency_status",
+  "retail_price_updated_at",
   "msrp_price_amount",
   "msrp_price_currency",
   "msrp_price_currency_status",
@@ -63,6 +67,10 @@ export type CatalogPartnerPageRow = {
   partner_price_currency: string | null;
   partner_price_currency_status: "resolved" | "unresolved" | null;
   partner_price_updated_at: string | null;
+  retail_price_amount: number | null;
+  retail_price_currency: string | null;
+  retail_price_currency_status: "resolved" | "unresolved" | null;
+  retail_price_updated_at: string | null;
   msrp_price_amount: number | null;
   msrp_price_currency: string | null;
   msrp_price_currency_status: "resolved" | "unresolved" | null;
@@ -97,6 +105,8 @@ export function isCatalogPartnerPageRow(value: unknown): value is CatalogPartner
     && nullableString(row.image_url)
     && nullableNumber(row.partner_price_amount)
     && nullableString(row.partner_price_currency)
+    && nullableNumber(row.retail_price_amount)
+    && nullableString(row.retail_price_currency)
     && nullableNumber(row.msrp_price_amount)
     && nullableString(row.msrp_price_currency)
     && nullableNumber(row.available_quantity)
@@ -187,6 +197,7 @@ function mapCommercialSnapshot(row: CatalogPartnerPageRow): ProductCommercialSna
     productId: row.id,
     canViewStock: row.can_view_stock,
     partnerPrice: price(row.partner_price_amount, row.partner_price_currency, row.partner_price_currency_status, row.partner_price_updated_at),
+    retailPrice: price(row.retail_price_amount, row.retail_price_currency, row.retail_price_currency_status, row.retail_price_updated_at),
     msrpPrice: price(row.msrp_price_amount, row.msrp_price_currency, row.msrp_price_currency_status, row.msrp_price_updated_at),
     stock,
     supplierArrival,

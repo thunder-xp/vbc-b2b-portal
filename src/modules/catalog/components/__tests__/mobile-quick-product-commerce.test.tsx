@@ -20,7 +20,7 @@ const pricedProduct = {
     partnerPrice: { currencyCode: "USD", amount: 50.6, formattedAmount: "$50.60" },
     partnerPriceMdl: { currencyCode: "MDL", amount: 865, formattedAmount: "865 MDL" },
     retailPriceMdl: { currencyCode: "MDL", amount: 1_332, formattedAmount: "1 332 MDL" },
-    retailPriceUsd: { currencyCode: "USD", amount: 75, formattedAmount: "$75.00" },
+    msrpPriceUsd: { currencyCode: "USD", amount: 75, formattedAmount: "$75.00" },
     stock: { status: "in_stock" as const, exactAvailableQuantity: 492, exactPhysicalQuantity: 500, exactReservedQuantity: 8, exactIncomingQuantity: 0, expectedArrival: null, hasVariantStock: false, lastUpdatedAt: "2026-09-04T00:00:00Z", label: "" },
     isDemoData: false,
   },
@@ -54,6 +54,7 @@ describe("mobile quick product commerce", () => {
     expect(screen.getByText("$50.60")).toBeInTheDocument();
     expect(screen.getByText("865 MDL")).toBeInTheDocument();
     expect(screen.getByText("Розничная цена")).toBeInTheDocument();
+    expect(screen.getByText("MSRP")).toBeInTheDocument();
     expect(screen.getByText("$75.00")).toBeInTheDocument();
     expect(screen.getByText(/1\s332 MDL/)).toBeInTheDocument();
     expect(screen.getByText("В наличии: 492 шт.")).toBeInTheDocument();
@@ -117,11 +118,11 @@ describe("mobile quick product commerce", () => {
     expect(screen.getByRole("button", { name: "În selecție" })).toBeDisabled();
   });
 
-  it("shows retail MDL alone when the server cannot safely resolve retail USD", async () => {
+  it("shows RETAIL MDL alone when MSRP USD is missing", async () => {
     vi.useRealTimers();
     vi.stubGlobal("fetch", vi.fn(() => fetchResponse([{
       ...pricedProduct,
-      commercialView: { ...pricedProduct.commercialView, retailPriceUsd: null },
+      commercialView: { ...pricedProduct.commercialView, msrpPriceUsd: null },
     }])));
     const user = userEvent.setup();
     render(<MobileQuickProductCommerce canSelectProducts locale="ru" />);
@@ -135,6 +136,23 @@ describe("mobile quick product commerce", () => {
     expect(screen.getByRole("button", { name: "В подборку" })).toBeEnabled();
   });
 
+  it("shows MSRP USD separately while preserving the truthful missing-RETAIL state in Romanian", async () => {
+    vi.useRealTimers();
+    vi.stubGlobal("fetch", vi.fn(() => fetchResponse([{
+      ...pricedProduct,
+      commercialView: { ...pricedProduct.commercialView, retailPriceMdl: null },
+    }])));
+    const user = userEvent.setup();
+    render(<MobileQuickProductCommerce canSelectProducts locale="ro" />);
+    await user.type(screen.getByRole("searchbox"), "400540");
+
+    const pricing = await screen.findByTestId("quick-search-pricing");
+    expect(pricing).toHaveTextContent("Prețul cu amănuntul nu este indicat");
+    expect(pricing).toHaveTextContent("MSRP");
+    expect(pricing).toHaveTextContent("$75.00");
+    expect(pricing.textContent).not.toMatch(/\$75\.00\s*\/\s*.*MDL/);
+  });
+
   it("shows a truthful retail-missing state without blocking product selection", async () => {
     vi.useRealTimers();
     vi.stubGlobal("fetch", vi.fn(() => fetchResponse([{
@@ -142,7 +160,7 @@ describe("mobile quick product commerce", () => {
       commercialView: {
         ...pricedProduct.commercialView,
         retailPriceMdl: null,
-        retailPriceUsd: null,
+        msrpPriceUsd: null,
       },
     }])));
     const user = userEvent.setup();

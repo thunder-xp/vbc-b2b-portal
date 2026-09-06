@@ -258,6 +258,16 @@ export function ProductComparisonView({
                   ?? copy.pricePending,
               )}
             />
+            {comparison.commercialViews.some((view) => Boolean(view.msrpPriceUsd)) ? (
+              <ComparisonRow
+                label={catalogCopy.msrp}
+                values={comparison.products.map(
+                  (product) =>
+                    views.get(product.id)?.msrpPriceUsd?.formattedAmount
+                    ?? copy.pricePending,
+                )}
+              />
+            ) : null}
             <ComparisonRow
               label={copy.availability}
               values={comparison.products.map(

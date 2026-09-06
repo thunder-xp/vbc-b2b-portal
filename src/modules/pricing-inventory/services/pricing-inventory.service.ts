@@ -76,6 +76,7 @@ export type ProductCommercialSnapshot = {
   productId: string;
   canViewStock: boolean;
   partnerPrice: Pick<ProductPrice, "currency" | "currencyStatus" | "priceAmount" | "updatedAt"> | null;
+  retailPrice: Pick<ProductPrice, "currency" | "currencyStatus" | "priceAmount" | "updatedAt"> | null;
   msrpPrice: Pick<ProductPrice, "currency" | "currencyStatus" | "priceAmount" | "updatedAt"> | null;
   stock: ProductStockTotal | null;
   supplierArrival: ProductSupplierArrival | null;
@@ -131,6 +132,7 @@ const STOCK_PERMISSION = "stock.view";
 const LOW_STOCK_THRESHOLD = 5;
 const ZERO_CHARACTERISTIC = "00000000-0000-0000-0000-000000000000";
 export const MSRP_PRICE_TYPE_EXTERNAL_REF = "d9c92519-658b-11e8-80d3-000c29a58b59";
+export const RETAIL_PRICE_TYPE_EXTERNAL_REF = "e181c772-93fc-11e9-94cb-000c2988d323";
 
 export class DefaultPricingInventoryService implements PricingInventoryService {
   constructor(
@@ -218,7 +220,7 @@ export class DefaultPricingInventoryService implements PricingInventoryService {
       authoritativePartnerPricing || visibility.canViewPartnerPrice;
     const canViewRetailPrice = visibility.canViewRetailPrice;
     const governedPriceTypeRef = externalPriceTypeRef ?? company.external1cPriceTypeId;
-    const [partnerPrices, msrpPrices, stockBalances, supplierArrivals, commercialRates] = await Promise.all([
+    const [partnerPrices, retailReferencePrices, stockBalances, supplierArrivals, commercialRates] = await Promise.all([
       canViewPartnerPrice && governedPriceTypeRef
         ? (
           authoritativePartnerPricing
@@ -236,7 +238,11 @@ export class DefaultPricingInventoryService implements PricingInventoryService {
         )
         : Promise.resolve<ProductPrice[]>([]),
       canViewRetailPrice
-        ? this.pricingInventoryRepository.listPricesForProducts({ productIds: normalizedProductIds, companyId, external1cPriceTypeId: MSRP_PRICE_TYPE_EXTERNAL_REF })
+        ? this.pricingInventoryRepository.listPricesForProducts({
+            productIds: normalizedProductIds,
+            companyId,
+            external1cPriceTypeIds: [RETAIL_PRICE_TYPE_EXTERNAL_REF, MSRP_PRICE_TYPE_EXTERNAL_REF],
+          })
         : Promise.resolve<ProductPrice[]>([]),
       canViewStock && this.pricingInventoryRepository.listStockTotalsForProducts
         ? this.pricingInventoryRepository.listStockTotalsForProducts(normalizedProductIds)
@@ -262,8 +268,11 @@ export class DefaultPricingInventoryService implements PricingInventoryService {
       const partnerPrice = canViewPartnerPrice
         ? selectPriceForProduct(partnerPrices, productId, companyId)
         : null;
+      const retailPrice = canViewRetailPrice
+        ? selectPriceForProduct(retailReferencePrices, productId, companyId, RETAIL_PRICE_TYPE_EXTERNAL_REF)
+        : null;
       const msrpPrice = canViewRetailPrice
-        ? selectPriceForProduct(msrpPrices, productId, companyId)
+        ? selectPriceForProduct(retailReferencePrices, productId, companyId, MSRP_PRICE_TYPE_EXTERNAL_REF)
         : null;
       const stock = canViewStock
         ? stockAvailabilityForProduct(stockBalances, supplierArrivals, productId)
@@ -289,17 +298,17 @@ export class DefaultPricingInventoryService implements PricingInventoryService {
           )
         : null;
       const msrpPriceUsd = createMsrpPriceUsdView(msrpPrice);
-      const retailPrice = createRetailPriceMdlView(msrpPrice, commercialRates.retailPriceUsdToMdl);
+      const retailPriceMdl = createRetailPriceMdlView(retailPrice);
       return {
         productId,
         partnerPrice: partnerPrice ? toPriceView(partnerPrice) : null,
         partnerPriceMdl,
         msrpPriceUsd,
-        retailPrice,
+        retailPrice: retailPriceMdl,
         commercialOpportunity: canViewPartnerPrice
           ? createCommercialOpportunity(
               partnerPriceMdl,
-              retailPrice,
+              retailPriceMdl,
               commercialRates.partnerPriceUsdToMdl,
               commercialRates.retailPriceUsdToMdl,
             )
@@ -308,7 +317,7 @@ export class DefaultPricingInventoryService implements PricingInventoryService {
         stock,
         isDemoData: false,
         retailBelowPartnerPrice: canViewPartnerPrice
-          && Boolean(partnerPriceMdl && retailPrice && retailPrice.amount < partnerPriceMdl.amount),
+          && Boolean(partnerPriceMdl && retailPriceMdl && retailPriceMdl.amount < partnerPriceMdl.amount),
       };
     });
     return { commercialMode: visibility.mode, views };
@@ -493,23 +502,26 @@ export function projectProductCommercialSnapshot(
   const msrpPrice = canViewRetailPrice && snapshot.msrpPrice
     ? snapshotPrice(snapshot.productId, MSRP_PRICE_TYPE_EXTERNAL_REF, snapshot.msrpPrice)
     : null;
+  const retailPrice = canViewRetailPrice && snapshot.retailPrice
+    ? snapshotPrice(snapshot.productId, RETAIL_PRICE_TYPE_EXTERNAL_REF, snapshot.retailPrice)
+    : null;
   const commercialRates: CommercialRateSnapshot = {
     partnerPriceUsdToMdl: snapshotRate("partner_price_usd_to_mdl", snapshot.partnerRate),
     retailPriceUsdToMdl: snapshotRate("retail_price_usd_to_mdl", snapshot.retailRate),
   };
   const partnerPriceMdl = createPartnerPriceMdlView(partnerPrice, commercialRates.partnerPriceUsdToMdl);
-  const retailPrice = createRetailPriceMdlView(msrpPrice, commercialRates.retailPriceUsdToMdl);
+  const retailPriceMdl = createRetailPriceMdlView(retailPrice);
 
   return {
     productId: snapshot.productId,
     partnerPrice: partnerPrice ? toPriceView(partnerPrice) : null,
     partnerPriceMdl,
     msrpPriceUsd: createMsrpPriceUsdView(msrpPrice),
-    retailPrice,
+    retailPrice: retailPriceMdl,
     commercialOpportunity: canViewPartnerPrice
       ? createCommercialOpportunity(
           partnerPriceMdl,
-          retailPrice,
+          retailPriceMdl,
           commercialRates.partnerPriceUsdToMdl,
           commercialRates.retailPriceUsdToMdl,
         )
@@ -523,7 +535,7 @@ export function projectProductCommercialSnapshot(
         )
       : null,
     isDemoData: false,
-    retailBelowPartnerPrice: Boolean(partnerPriceMdl && retailPrice && retailPrice.amount < partnerPriceMdl.amount),
+    retailBelowPartnerPrice: Boolean(partnerPriceMdl && retailPriceMdl && retailPriceMdl.amount < partnerPriceMdl.amount),
   };
 }
 
@@ -584,11 +596,16 @@ function selectPriceForProduct(
   prices: ProductPrice[],
   productId: string,
   companyId: string,
+  external1cPriceTypeId?: string,
 ): ProductPrice | null {
   const currentTime = Date.now();
   const productPrices = prices
     .filter((price) => {
-      if (price.productId !== productId || !price.isActive) {
+      if (
+        price.productId !== productId
+        || !price.isActive
+        || (external1cPriceTypeId && price.external1cPriceTypeId !== external1cPriceTypeId)
+      ) {
         return false;
       }
 
@@ -676,18 +693,21 @@ function createMsrpPriceUsdView(msrpPrice: ProductPrice | null): ProductPriceVie
 }
 
 function createRetailPriceMdlView(
-  msrpPrice: ProductPrice | null,
-  exchangeRate: CommercialRate | null,
+  retailPrice: ProductPrice | null,
 ): ProductPriceViewDto | null {
-  const source = createMsrpPriceUsdView(msrpPrice);
-  if (!source) return null;
-  const amount = convertUsdToWholeMdl(source.amount, exchangeRate?.rate ?? null);
-  if (amount === null) return null;
+  if (
+    !retailPrice
+    || retailPrice.external1cPriceTypeId !== RETAIL_PRICE_TYPE_EXTERNAL_REF
+    || retailPrice.currencyStatus !== "resolved"
+    || normalizeOneCCurrencyCode(retailPrice.currency) !== "MDL"
+    || !Number.isFinite(retailPrice.priceAmount)
+    || retailPrice.priceAmount <= 0
+  ) return null;
   return {
     currencyCode: "MDL",
-    amount,
-    formattedAmount: formatWholeMdl(amount),
-    lastUpdatedAt: exchangeRate?.publishedAt,
+    amount: retailPrice.priceAmount,
+    formattedAmount: formatWholeMdl(retailPrice.priceAmount),
+    lastUpdatedAt: retailPrice.updatedAt,
   };
 }
 

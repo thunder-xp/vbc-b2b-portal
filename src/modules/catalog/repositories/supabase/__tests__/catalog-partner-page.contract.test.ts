@@ -12,7 +12,7 @@ describe("catalog partner page contract", () => {
     expect(isCatalogPartnerPageRow(productionCardRow())).toBe(true);
   });
 
-  it.each(["image_url", "partner_price_amount", "msrp_price_amount", "available_quantity"])(
+  it.each(["image_url", "partner_price_amount", "retail_price_amount", "msrp_price_amount", "available_quantity"])(
     "rejects a row when required field %s is removed",
     (field) => {
       const row = productionCardRow();
@@ -25,16 +25,18 @@ describe("catalog partner page contract", () => {
     expect(new Set(CATALOG_PARTNER_PAGE_FIELDS).size).toBe(CATALOG_PARTNER_PAGE_FIELDS.length);
     expect(CATALOG_PARTNER_PAGE_FIELDS).toContain("image_url");
     expect(CATALOG_PARTNER_PAGE_FIELDS).toContain("partner_price_amount");
+    expect(CATALOG_PARTNER_PAGE_FIELDS).toContain("retail_price_amount");
     expect(CATALOG_PARTNER_PAGE_FIELDS).toContain("msrp_price_amount");
     expect(CATALOG_PARTNER_PAGE_FIELDS).toContain("available_quantity");
     expect(CATALOG_PARTNER_PAGE_FIELDS).toContain("key_characteristics");
   });
 
-  it("maps image, partner price, and MSRP without silently dropping fields", () => {
+  it("maps image, partner price, canonical RETAIL, and MSRP without silently dropping fields", () => {
     const mapped = mapCatalogPartnerPageRow(productionCardRow() as CatalogPartnerPageRow);
 
     expect(mapped.imageUrl).toBe("https://example.test/products/400691.png");
     expect(mapped.commercialSnapshot.partnerPrice).toMatchObject({ priceAmount: 102.08, currency: "USD" });
+    expect(mapped.commercialSnapshot.retailPrice).toMatchObject({ priceAmount: 3_200, currency: "MDL" });
     expect(mapped.commercialSnapshot.msrpPrice).toMatchObject({ priceAmount: 177, currency: "USD" });
     expect(mapped.commercialSnapshot.stock?.availableQuantity).toBe(22);
     expect(mapped.keyCharacteristics).toEqual([
@@ -61,6 +63,10 @@ function productionCardRow(): Record<string, unknown> {
     partner_price_currency: "USD",
     partner_price_currency_status: "resolved",
     partner_price_updated_at: "2026-07-19T02:21:15Z",
+    retail_price_amount: 3_200,
+    retail_price_currency: "MDL",
+    retail_price_currency_status: "resolved",
+    retail_price_updated_at: "2026-07-19T02:21:15Z",
     msrp_price_amount: 177,
     msrp_price_currency: "USD",
     msrp_price_currency_status: "resolved",

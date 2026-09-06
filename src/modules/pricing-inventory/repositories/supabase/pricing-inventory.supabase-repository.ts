@@ -259,17 +259,26 @@ export class SupabasePricingInventoryRepository
     input: ListProductPricesInput,
   ): Promise<ProductPrice[]> {
     const productIds = normalizeProductIds(input.productIds);
+    const priceTypeIds = Array.from(new Set(
+      (input.external1cPriceTypeIds ?? [input.external1cPriceTypeId])
+        .map((value) => value?.trim())
+        .filter((value): value is string => Boolean(value)),
+    ));
 
-    if (productIds.length === 0 || !input.external1cPriceTypeId) {
+    if (productIds.length === 0 || priceTypeIds.length === 0) {
       return [];
     }
 
     const { data, error } = await (await createClient()).rpc(
-      "get_product_price_projection",
+      priceTypeIds.length === 1
+        ? "get_product_price_projection"
+        : "get_product_price_projection_v2",
       {
         p_company_id: input.companyId,
         p_product_ids: productIds,
-        p_external_price_type_id: input.external1cPriceTypeId,
+        ...(priceTypeIds.length === 1
+          ? { p_external_price_type_id: priceTypeIds[0] }
+          : { p_external_price_type_ids: priceTypeIds }),
       },
     );
 

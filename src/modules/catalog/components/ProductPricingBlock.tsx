@@ -1,19 +1,26 @@
 import type { FreshnessView } from "../../integration/freshness";
-import type { ProductCommercialViewDto, ProductPriceViewDto } from "../../pricing-inventory";
+import {
+  projectRetailPricePresentation,
+  type ProductCommercialViewDto,
+  type ProductPriceViewDto,
+} from "../../pricing-inventory";
 import { getCatalogCopy, type PartnerLocale } from "../../partner-locale";
 
 export function ProductPricingBlock({ commercialView, locale = "ru", showPartnerPrice: showPartnerPriceProp, showRetailPrice = true, variant = "card" }: { commercialView?: ProductCommercialViewDto; freshness?: FreshnessView | null; locale?: PartnerLocale; showPartnerPrice?: boolean; showRetailPrice?: boolean; variant?: "card" | "detail" }) {
   const copy = getCatalogCopy(locale);
-  const showPartnerPrice = showPartnerPriceProp ?? Boolean(commercialView?.partnerPrice);
+  const prices = projectRetailPricePresentation(commercialView);
+  const showPartnerPrice = showPartnerPriceProp ?? Boolean(prices.partnerPrice);
   if (variant === "card") return <div className="flex h-full min-w-0 flex-col justify-center rounded-md bg-zinc-50 px-3 py-2">
-    {showPartnerPrice ? <CardPrice emphasized label={copy.partnerPrice} mdlEquivalentLabel={copy.mdlEquivalent} missingValue={copy.pricePending} secondaryValue={partnerMdlEquivalent(commercialView, copy.mdlUnavailable)} value={commercialView?.partnerPrice?.formattedAmount} /> : null}
-    {showRetailPrice ? <CardPrice emphasized={!showPartnerPrice} label={copy.retailPrice} missingValue={copy.pricePending} secondary={showPartnerPrice} value={commercialView?.retailPrice?.formattedAmount} /> : null}
+    {showPartnerPrice ? <CardPrice emphasized label={copy.partnerPrice} mdlEquivalentLabel={copy.mdlEquivalent} missingValue={copy.pricePending} secondaryValue={partnerMdlEquivalent(commercialView, copy.mdlUnavailable)} value={prices.partnerPrice?.formattedAmount} /> : null}
+    {showRetailPrice ? <CardPrice emphasized={!showPartnerPrice} label={copy.retailPrice} missingValue={copy.pricePending} secondary={showPartnerPrice} value={prices.retailPriceMdl?.formattedAmount} /> : null}
+    {showRetailPrice && prices.msrpPriceUsd ? <CardPrice label={copy.msrp} missingValue={copy.pricePending} secondary value={prices.msrpPriceUsd.formattedAmount} /> : null}
   </div>;
 
   return <div className="overflow-hidden border border-zinc-200 bg-white">
-    <div className={`grid ${showPartnerPrice ? "sm:grid-cols-2 xl:grid-cols-4" : "sm:grid-cols-1"}`}>
-      {showPartnerPrice ? <DetailMetric emphasized label={copy.partnerPrice} missingValue={copy.pricePending} price={commercialView?.partnerPriceMdl} secondaryValue={commercialView?.partnerPriceMdl ? formatSecondaryUsd(commercialView?.partnerPrice) : null} value={!commercialView?.partnerPriceMdl ? formatSecondaryUsd(commercialView?.partnerPrice) : null} warning={!commercialView?.partnerPriceMdl && commercialView?.partnerPrice?.currencyCode === "USD" ? copy.mdlUnavailable : undefined} /> : null}
-      <DetailMetric label={copy.retailPrice} missingValue={copy.pricePending} price={commercialView?.retailPrice} secondaryValue={commercialView?.msrpPriceUsd?.formattedAmount} value={!commercialView?.retailPrice ? commercialView?.msrpPriceUsd?.formattedAmount : null} warning={!commercialView?.retailPrice && commercialView?.msrpPriceUsd ? copy.mdlUnavailable : undefined} />
+    <div className={`grid ${showPartnerPrice ? "sm:grid-cols-2 xl:grid-cols-5" : "sm:grid-cols-2"}`}>
+      {showPartnerPrice ? <DetailMetric emphasized label={copy.partnerPrice} missingValue={copy.pricePending} price={prices.partnerPriceMdl} secondaryValue={prices.partnerPriceMdl ? formatSecondaryUsd(prices.partnerPrice) : null} value={!prices.partnerPriceMdl ? formatSecondaryUsd(prices.partnerPrice) : null} warning={!prices.partnerPriceMdl && prices.partnerPrice?.currencyCode === "USD" ? copy.mdlUnavailable : undefined} /> : null}
+      <DetailMetric label={copy.retailPrice} missingValue={copy.pricePending} price={prices.retailPriceMdl} />
+      <DetailMetric label={copy.msrp} missingValue={copy.pricePending} price={prices.msrpPriceUsd} />
       {showPartnerPrice ? <DetailMetric label={copy.grossProfit} missingValue={copy.pricePending} value={commercialView?.commercialOpportunity?.formattedGrossProfitMdl} /> : null}
       {showPartnerPrice ? <DetailMetric label={copy.markup} missingValue={copy.pricePending} value={commercialView?.commercialOpportunity?.formattedMarkup} /> : null}
     </div>

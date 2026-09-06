@@ -51,7 +51,7 @@ describe("quick product search route", () => {
       partnerPrice: { formattedAmount: "$50.60" },
       partnerPriceMdl: { formattedAmount: "865 MDL" },
       retailPriceMdl: { formattedAmount: "1 332 MDL" },
-      retailPriceUsd: { formattedAmount: "$75.00" },
+      msrpPriceUsd: { formattedAmount: "$75.00" },
       stock: { exactAvailableQuantity: 492 },
     });
     expect(response.headers.get("cache-control")).toBe("private, no-store");
@@ -90,7 +90,7 @@ describe("quick product search route", () => {
 
     expect(listProducts).toHaveBeenCalledTimes(1);
     expect(body.data).toHaveLength(8);
-    expect(body.data.every((item: { commercialView: { retailPriceMdl: unknown; retailPriceUsd: unknown } }) =>
-      item.commercialView.retailPriceMdl && item.commercialView.retailPriceUsd)).toBe(true);
+    expect(body.data.every((item: { commercialView: { retailPriceMdl: unknown; msrpPriceUsd: unknown } }) =>
+      item.commercialView.retailPriceMdl && item.commercialView.msrpPriceUsd)).toBe(true);
   });
 });
