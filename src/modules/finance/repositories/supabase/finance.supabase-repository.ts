@@ -206,7 +206,16 @@ export class SupabaseFinanceRepository implements FinanceRepository {
       p_trigger: input.trigger,
       p_actor_user_id: input.actorUserId,
     });
-    if (error || !isRecord(data)) throw new FinanceRepositoryError();
+    if (error || !isRecord(data)) {
+      console.error({
+        event: "finance_snapshot_publish_failed",
+        ...safePostgrestDiagnostic(error),
+        balanceRows: input.rows.length,
+        obligationRows: input.obligations.length,
+        exclusionRows: input.exclusions.length,
+      });
+      throw new FinanceRepositoryError();
+    }
     return {
       balances: Number(data.balances ?? 0),
       obligations: Number(data.obligations ?? 0),
@@ -359,6 +368,16 @@ function mapObligationRow(row: ObligationRow): PartnerPaymentObligation {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+function safePostgrestDiagnostic(error: unknown): { databaseCode: string | null; constraint: string | null } {
+  if (!isRecord(error)) return { databaseCode: null, constraint: null };
+  const code = typeof error.code === "string" && /^[A-Z0-9_]{1,20}$/i.test(error.code)
+    ? error.code
+    : null;
+  const message = typeof error.message === "string" ? error.message : "";
+  const constraint = message.match(/constraint\s+"([a-z0-9_]{1,100})"/i)?.[1] ?? null;
+  return { databaseCode: code, constraint };
 }
 
 function isSyncStateRow(value: unknown): value is SyncStateRow {
