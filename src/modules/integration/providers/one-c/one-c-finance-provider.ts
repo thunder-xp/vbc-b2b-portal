@@ -43,7 +43,7 @@ const SOURCE_MAX_PAGES = 30;
 const DEFAULT_OBSERVATION_START_DATE = "2025-01-01";
 const CONTRACT_SELECT = "Ref_Key,Code,Description,Owner,Owner_Type,НомерДоговора,ВалютаРасчетов_Key,Организация_Key,ВидДоговора,DeletionMark,Недействителен";
 const CURRENCY_SELECT = "Ref_Key,Code,Description,DeletionMark";
-const ORDER_SELECT = "Ref_Key,DataVersion,Number,Date,DeletionMark,Posted,БанковскийСчет_Key,ВалютаДокумента_Key,Договор_Key,ЗапланироватьОплату,Контрагент_Key,Организация_Key,СуммаДокумента,ТипДенежныхСредств,СостояниеЗаказа_Key,ПлатежныйКалендарь";
+const ORDER_SELECT = "Ref_Key,DataVersion,Number,Date,DeletionMark,Posted,БанковскийСчет_Key,ВалютаДокумента_Key,ДатаИзменения,Договор_Key,ЗапланироватьОплату,Контрагент_Key,Организация_Key,СуммаДокумента,ТипДенежныхСредств,СостояниеЗаказа,СостояниеЗаказа_Type,ПлатежныйКалендарь";
 const PAYMENT_SELECT = "Ref_Key,DataVersion,Date,DeletionMark,Posted,Контрагент_Key,Организация_Key,РасшифровкаПлатежа";
 const BANK_ACCOUNT_SELECT = "Ref_Key,Description,Code,DeletionMark,НомерСчета,ВалютаДенежныхСредств_Key,Недействителен";
 
@@ -132,7 +132,7 @@ export class OneCFinanceProvider implements FinanceProvider {
     requireTimestamp(input.synchronizedAt);
     const startDate = validObservationStartDate(input.observationStartDate);
     const sourceFilter = `Контрагент_Key eq guid'${counterpartyRef}' and Организация_Key eq guid'${organizationRef}' and Date ge datetime'${startDate}T00:00:00'`;
-    const orderFilter = sourceFilter;
+    const orderFilter = `${sourceFilter} and ЗапланироватьОплату eq true`;
     const balanceCondition = `Организация_Key eq guid'${organizationRef}' and Контрагент_Key eq guid'${counterpartyRef}'`;
 
     const [ordersPage, bankPage, cashPage, balanceRows] = await Promise.all([
@@ -516,7 +516,7 @@ function mapPaymentObligationSource(input: {
     sourceModifiedAt: isoTimestamp(input.row["ДатаИзменения"]),
     orderPosted: input.row.Posted,
     orderDeletionMarked: input.row.DeletionMark,
-    orderStatus: text(input.row["СостояниеЗаказа_Key"]) || null,
+    orderStatus: text(input.row["СостояниеЗаказа"]) || null,
     paymentMethod: text(input.row["ТипДенежныхСредств"]),
     bankAccountReference: accountRef ? reference(accountRef, "bank-account") : null,
     bankAccountName: account ? text(account.Description) || text(account.Code) || null : null,

@@ -125,7 +125,9 @@ describe("OneCFinanceProvider", () => {
     expect(fetchMock).toHaveBeenCalledTimes(6);
     const orderRequest = fetchMock.mock.calls.map(([input]) => decodeURIComponent(String(input)))
       .find((url) => url.includes("Document_ЗаказПокупателя?"));
-    expect(orderRequest).not.toContain("ЗапланироватьОплату eq true");
+    expect(orderRequest).toContain("ЗапланироватьОплату eq true");
+    expect(orderRequest).toContain("СостояниеЗаказа,СостояниеЗаказа_Type");
+    expect(orderRequest).not.toContain("СостояниеЗаказа_Key");
   });
 
   it("does not infer settlement when the authoritative order balance is absent", async () => {
