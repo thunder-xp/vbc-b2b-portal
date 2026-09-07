@@ -26,6 +26,15 @@ describe("catalog return target", () => {
     expect(tabUrl.searchParams.get("returnTo")).toBe("/cabinet/quick-order");
   });
 
+  it("preserves repeat-purchase history state across product and tab links", () => {
+    const historyState = "/cabinet/repeat-purchase?category=11111111-1111-4111-8111-111111111111&search=400448&page=2";
+    const productUrl = new URL(buildCatalogProductHref("camera", historyState), "https://www.nsd.md");
+    expect(productUrl.searchParams.get("returnTo")).toBe(historyState);
+
+    const tabUrl = new URL(buildProductDetailTabHref("pricing", historyState), "https://www.nsd.md/cabinet/catalog/camera");
+    expect(tabUrl.searchParams.get("returnTo")).toBe(historyState);
+  });
+
   it.each([
     "https://attacker.example/cabinet/catalog",
     "//attacker.example/cabinet/catalog",
@@ -33,6 +42,7 @@ describe("catalog return target", () => {
     "/cabinet/catalog#fragment",
     "/cabinet/quick-order?unexpected=true",
     "/cabinet/quick-order/product",
+    "/cabinet/repeat-purchase/product",
     "/cabinet\\catalog",
   ])("rejects unsafe or non-catalog target %s", (target) => {
     expect(parseCatalogReturnTarget(target)).toBe("/cabinet/catalog");

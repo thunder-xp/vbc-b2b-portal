@@ -49,4 +49,31 @@ describe("B2B catalog card return state", () => {
     expect(returnUrl.searchParams.get("sort")).toBe("price_asc");
     expect(returnUrl.searchParams.get("attr.property_11111111-1111-4111-8111-111111111111")).toBe("4 MP");
   });
+
+  it("uses a dedicated repeat-purchase return target when supplied", () => {
+    render(
+      <ProductGrid
+        capabilities={RESTRICTED_PRODUCT_CARD_CAPABILITIES}
+        catalogState={{ attributeFilters: {}, availability: "all", explicitAll: true, page: 1, sort: "default" }}
+        companyId="company-1"
+        products={[{
+          id: "product-1",
+          sku: "400540",
+          name: "Camera",
+          slug: "camera",
+          shortDescription: null,
+          imageUrl: null,
+          brand: null,
+          category: null,
+          keyCharacteristics: [],
+          datasheet: null,
+        }]}
+        returnTargetOverride="/cabinet/repeat-purchase?search=400540&page=2"
+        userId="user-1"
+      />,
+    );
+
+    const detailUrl = new URL(screen.getByRole("link", { name: "Camera" }).getAttribute("href")!, "https://www.nsd.md");
+    expect(detailUrl.searchParams.get("returnTo")).toBe("/cabinet/repeat-purchase?search=400540&page=2");
+  });
 });
