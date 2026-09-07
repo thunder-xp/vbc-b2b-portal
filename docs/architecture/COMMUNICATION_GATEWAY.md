@@ -2,7 +2,7 @@
 
 ## Current classification
 
-`OMNICHANNEL_GATEWAY_STATUS = DURABLE_CORE_READY_EXTERNAL_ACTIVATION_BLOCKED`
+`OMNICHANNEL_GATEWAY_STATUS = GOVERNED_SANDBOX_READY_EXTERNAL_ACTIVATION_BLOCKED`
 
 The platform has one shared durable intent/delivery core, while external activation remains deliberately narrow:
 
@@ -29,7 +29,25 @@ In-app is represented by an independent durable channel delivery, but its first-
 
 The service-layer contract records intent and correlation identities, business event/entity references, server-governed company and recipient evidence, locale, template key/version, per-channel `DISABLED | DRY_RUN | LIVE` policy, structured variables/CTA, business date/priority, business idempotency identity, and sensitivity.
 
-Channel delivery identity is deterministic over business identity, channel, governed user, and normalized channel address. A retry reuses the same identity. Database uniqueness uses `(delivery_identity, channel_mode)`, so DRY_RUN evidence cannot consume a later LIVE identity.
+Channel delivery identity is deterministic over business identity, channel, governed user, and normalized channel address. A retry reuses the same identity. Database uniqueness uses `(delivery_identity, channel_mode)`, so DRY_RUN, SANDBOX, and LIVE remain distinct durable identities.
+
+## Purpose and activation governance
+
+Every application-owned flow is classified independently from its channel and mode. Current mappings are: confirmed order, proposal delivery, and company invitation = `TRANSACTIONAL`; Finance payment reminder = `FINANCE`; `security.*`, `support.*`, and `marketing.*`/`commercial.*` map to `SECURITY`, `SUPPORT`, and `MARKETING`. Unknown or mismatched mappings fail closed.
+
+The explicit production activation matrix is purpose + channel scoped. `TRANSACTIONAL.EMAIL` retains approved `LIVE` compatibility; `FINANCE.EMAIL` and `FINANCE.IN_APP` remain `DRY_RUN`; every SMS entry and currently unused Security/Support/Marketing gateway entry is `DISABLED`. There is no switch that can make all purposes live.
+
+The central server policy evaluator applies deterministic precedence across channel/mode activation, kill switches, recipient/company/capability evidence, technical preference outcome, durable rate-limit outcome, duplicate identity, sandbox allowlist, and provider availability. Business eligibility such as settled Finance obligations remains outside the gateway.
+
+Existing stored preferences remain company + user + event-group scoped. Production currently stores only a single `products` preference; the governed UI exposes orders, shipments, company access, products, documents, and service, while support/installation/finance groups are schema-only and email remains reserved/disabled. Product projections honor `products`; several first-party projection functions honor their matching group; confirmed-order/proposal/invitation SMTP and Finance email do not treat the reserved email flag as consent. Finance in-app governance recognizes an explicit `finance` preference when present and otherwise preserves the existing enabled default. Transactional and Security compatibility are explicitly `NOT_APPLICABLE`, rather than borrowing Marketing settings. These are technical controls, not legal-consent assertions.
+
+## Durable burst protection
+
+Provider-bound LIVE/SANDBOX claims reserve an idempotent PostgreSQL rate-limit row before transport. Transaction-scoped advisory locks serialize a fixed recipient-then-company lock order across parallel workers and deployments. A delivery has one reservation, so retries do not multiply usage. Limits are 10 accepted reservations per recipient/channel/hour and 100 per company/purpose/channel/hour; current 30-day maxima were 1 and 3 respectively. The existing worker remains 20 by default and 50 maximum. Finance cadence (`D-7`, `D-3`, `D0`, `D+1`, `D+3`, `D+7`, weekly overdue) is unchanged; a transport burst suppression is recorded distinctly as `RATE_LIMITED`.
+
+## Sandbox
+
+`SANDBOX` is implemented inside the same durable mode identity and adapter boundary. Email requires a server-only `COMMUNICATION_SANDBOX_EMAIL_RECIPIENT` that is also present in `COMMUNICATION_SANDBOX_EMAIL_ALLOWLIST`; the intended address is never used for provider transport. Subject/body are marked `[SANDBOX]`, while audit retains the original recipient fingerprint and the protected actual recipient. Missing or unapproved configuration fails closed. SMS sandbox is `BLOCKED_NO_PROVIDER`. No real sandbox send is authorized or performed by this task.
 
 ## Durable entity and state mapping
 
@@ -96,4 +114,4 @@ External Finance activation remains blocked pending owner-governed decisions for
 5. the Supabase Auth emergency-stop gap, if required;
 6. SMS vendor, credentials, sender identity, error/retry contract, and sandbox capability.
 
-No sandbox mode, preference redesign, rate-limit policy, SMS provider, or Auth rewrite is implemented here.
+Supabase Auth email remains provider-managed outside this gateway. `AUTH_EMAIL_EMERGENCY_STOP_STATUS = PROVIDER_MANAGED_NO_APPLICATION_KILL_SWITCH`; the remaining risk is that application kill switches cannot stop Auth-generated mail. No Auth setting is changed without separate owner authorization.

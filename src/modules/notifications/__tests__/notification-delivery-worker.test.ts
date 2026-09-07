@@ -36,12 +36,12 @@ describe("NotificationDeliveryWorkerService", () => {
       vi.stubEnv("COMMUNICATION_EMAIL_KILL_SWITCH", "ON");
       return [delivery];
     });
-    dependencies.repository.completeBatch.mockResolvedValue([completion("failed")]);
+    dependencies.repository.completeBatch.mockResolvedValue([completion("suppressed")]);
 
-    await expect(dependencies.worker.run()).resolves.toMatchObject({ claimed: 1, failed: 1 });
+    await expect(dependencies.worker.run()).resolves.toMatchObject({ claimed: 1, suppressed: 1, failed: 0 });
     expect(dependencies.adapter.send).not.toHaveBeenCalled();
     expect(dependencies.repository.completeBatch).toHaveBeenCalledWith([
-      expect.objectContaining({ retryable: true, errorCategory: "channel_kill_switch" }),
+      expect.objectContaining({ retryable: false, errorCategory: "CHANNEL_KILL_SWITCH" }),
     ]);
   });
 
@@ -82,9 +82,9 @@ describe("NotificationDeliveryWorkerService", () => {
   it("dead-letters permanent provider failures", async () => {
     const dependencies = makeDependencies();
     dependencies.adapter.send.mockRejectedValue(new NotificationDeliveryError("rejected", false));
-    dependencies.repository.completeBatch.mockResolvedValue([completion("dead_letter")]);
+    dependencies.repository.completeBatch.mockResolvedValue([completion("suppressed")]);
     const result = await dependencies.worker.run();
-    expect(result.deadLetter).toBe(1);
+    expect(result.suppressed).toBe(1);
     expect(dependencies.repository.completeBatch).toHaveBeenCalledWith([expect.objectContaining({
       retryable: false,
       errorCategory: "rejected",
@@ -144,7 +144,7 @@ describe("NotificationDeliveryWorkerService", () => {
     expect(result.deadLetter).toBe(1);
     expect(dependencies.adapter.send).not.toHaveBeenCalled();
     expect(dependencies.repository.completeBatch).toHaveBeenCalledWith([expect.objectContaining({
-      errorCategory: "unsupported_channel",
+      errorCategory: "CHANNEL_KILL_SWITCH",
       retryable: false,
     })]);
   });
@@ -188,6 +188,12 @@ function completion(status: CompleteNotificationDeliveryResult["status"]) {
 function makeDependencies(claimed = delivery) {
   const repository = {
     claim: vi.fn().mockResolvedValue([claimed]),
+    reserveRateLimits: vi.fn().mockImplementation(async (
+      claims: ReadonlyArray<{ deliveryId: string; leaseToken: string }>,
+    ) => claims.map((claim) => ({
+      deliveryId: claim.deliveryId, outcome: "ALLOWED" as const,
+      recipientCount: 1, companyCount: 1, recipientLimit: 10, companyLimit: 100,
+    }))),
     completeBatch: vi.fn<(input: CompleteNotificationDeliveryInput[]) => Promise<CompleteNotificationDeliveryResult[]>>()
       .mockResolvedValue([completion("sent")]),
   } satisfies NotificationDeliveryRepository;

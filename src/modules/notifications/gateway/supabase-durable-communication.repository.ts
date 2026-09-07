@@ -17,7 +17,7 @@ const persistedSchema = z.object({
     deliveryId: z.string().uuid(),
     deliveryIdentity: z.string().regex(/^[0-9a-f]{64}$/),
     channel: z.enum(["email", "in_app", "sms"]),
-    channelMode: z.enum(["DISABLED", "DRY_RUN", "LIVE"]),
+    channelMode: z.enum(["DISABLED", "DRY_RUN", "SANDBOX", "LIVE"]),
     state: z.enum(["PROJECTED", "SUPPRESSED", "READY", "QUEUED"]),
   })),
 });
@@ -38,6 +38,7 @@ implements DurableCommunicationRepository {
     const { data, error } = await createAdminClient().rpc("persist_communication_intent", {
       p_intent: {
         intentId: intent.intentId,
+        purpose: intent.purpose,
         businessEventType: intent.businessEventType,
         businessEntityReferences: intent.businessEntityReferences,
         companyId: intent.companyId,
@@ -51,7 +52,18 @@ implements DurableCommunicationRepository {
         deliveryIdentity: projection.deliveryIdentity,
         channel: projection.channel,
         channelMode: projection.mode,
-        state: projection.state === "ACCEPTED"
+        requestedMode: projection.requestedMode,
+        effectiveMode: projection.effectiveMode,
+        policyDecision: projection.policyDecision,
+        preferenceOutcome: projection.preferenceOutcome,
+        rateLimitOutcome: projection.rateLimitOutcome,
+        sandboxOutcome: projection.sandboxOutcome,
+        sandboxActualRecipient: projection.sandboxActualRecipient,
+        originalRecipientFingerprint: projection.originalRecipientFingerprint,
+        state: projection.state === "ACCEPTED" || (
+          projection.policyDecision === "ALLOW"
+          && (projection.mode === "LIVE" || projection.mode === "SANDBOX")
+        )
           ? "READY"
           : projection.state,
         suppressionReason: projection.suppressionReason,

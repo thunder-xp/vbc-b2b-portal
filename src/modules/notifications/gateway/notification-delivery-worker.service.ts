@@ -8,6 +8,12 @@ import type {
 } from "./notification-delivery.repository";
 import { renderOrderConfirmedEmail } from "./order-confirmed.email";
 import {
+  communicationActivationPolicyFromEnvironment,
+  evaluateCommunicationPolicy,
+  markSandboxEmail,
+  type CommunicationActivationPolicy,
+} from "./communication-policy.service";
+import {
   NotificationDeliveryError,
   type ClaimedNotificationDelivery,
   type NotificationChannelAdapter,
@@ -28,6 +34,7 @@ export class NotificationDeliveryWorkerService {
       batchSize?: number;
       concurrency?: number;
       leaseSeconds?: number;
+      activationPolicy?: CommunicationActivationPolicy;
     } = {},
   ) {
     this.adapters = new Map(adapters.map((adapter) => [adapter.channel, adapter]));
@@ -36,16 +43,23 @@ export class NotificationDeliveryWorkerService {
   async run(): Promise<NotificationWorkerResult> {
     const startedAt = performance.now();
     if (externalEmailBlockReason()) {
-      return { claimed: 0, sent: 0, failed: 0, deadLetter: 0, durationMs: 0, providerDurationMs: 0 };
+      return { claimed: 0, sent: 0, suppressed: 0, failed: 0, deadLetter: 0, durationMs: 0, providerDurationMs: 0 };
     }
     const deliveries = await this.repository.claim(
       this.options.batchSize ?? DEFAULT_BATCH_SIZE,
       this.options.leaseSeconds ?? DEFAULT_LEASE_SECONDS,
     );
+    const rateLimits = deliveries.length
+      ? await this.repository.reserveRateLimits(deliveries.map((delivery) => ({
+        deliveryId: delivery.deliveryId,
+        leaseToken: delivery.leaseToken,
+      })))
+      : [];
+    const rateLimitByDelivery = new Map(rateLimits.map((result) => [result.deliveryId, result.outcome]));
     const attempts = await mapWithConcurrency(
       deliveries,
       this.options.concurrency ?? DEFAULT_CONCURRENCY,
-      (delivery) => this.deliver(delivery),
+      (delivery) => this.deliver(delivery, rateLimitByDelivery.get(delivery.deliveryId) ?? "RATE_LIMITED"),
     );
     const persisted = attempts.length
       ? await this.repository.completeBatch(attempts.map((attempt) => attempt.completion))
@@ -58,6 +72,8 @@ export class NotificationDeliveryWorkerService {
       const delivery = deliveries[index]!;
       const event = outcome.status === "sent"
         ? "notification_delivery_sent"
+        : outcome.status === "suppressed"
+          ? "notification_delivery_suppressed"
         : outcome.status === "dead_letter"
           ? "notification_delivery_dead_letter"
           : "notification_delivery_failed";
@@ -71,8 +87,9 @@ export class NotificationDeliveryWorkerService {
     const result = {
       claimed: deliveries.length,
       sent: outcomes.filter((outcome) => outcome.status === "sent").length,
+      suppressed: outcomes.filter((outcome) => outcome.status === "suppressed").length,
       failed: outcomes.filter((outcome) =>
-        outcome.status !== "sent" && outcome.status !== "dead_letter").length,
+        outcome.status !== "sent" && outcome.status !== "suppressed" && outcome.status !== "dead_letter").length,
       deadLetter: outcomes.filter((outcome) => outcome.status === "dead_letter").length,
       durationMs: Math.max(0, Math.round(performance.now() - startedAt)),
       providerDurationMs: outcomes.reduce((sum, outcome) => sum + outcome.providerDurationMs, 0),
@@ -80,18 +97,72 @@ export class NotificationDeliveryWorkerService {
     return result;
   }
 
-  private async deliver(delivery: ClaimedNotificationDelivery) {
+  private async deliver(delivery: ClaimedNotificationDelivery, rateLimitOutcome: "ALLOWED" | "RATE_LIMITED") {
     const startedAt = performance.now();
     const adapter = this.adapters.get(delivery.channel);
     console.info(logFields("notification_delivery_claimed", delivery));
     try {
+      const purpose = delivery.purpose ?? (delivery.eventType === "order.registered_in_1c" ? "TRANSACTIONAL" : undefined);
+      if (!purpose) return this.policySuppression(delivery, "PURPOSE_DISABLED", startedAt);
+      const activation = this.options.activationPolicy ?? communicationActivationPolicyFromEnvironment();
+      const beforeLimit = evaluateCommunicationPolicy({
+        intent: {
+          purpose,
+          businessEventType: delivery.eventType,
+          companyId: delivery.companyId,
+          recipient: {
+            userId: "governed-recipient",
+            companyId: delivery.companyId,
+            locale: delivery.recipientLocale ?? "ru",
+            email: delivery.channel === "email" ? delivery.recipient : null,
+            phone: delivery.channel === "sms" ? delivery.recipient : null,
+            identityVerified: true,
+            membershipActive: true,
+            capabilityAuthorized: true,
+          },
+        },
+        channel: delivery.channel === "telegram" ? "sms" : delivery.channel,
+        mode: delivery.channelMode ?? "LIVE",
+        activation,
+        preferenceOutcome: delivery.preferenceOutcome,
+        providerAvailable: Boolean(adapter),
+      });
+      if (beforeLimit.decision === "SUPPRESS") {
+        return this.policySuppression(delivery, beforeLimit.reason!, startedAt);
+      }
+      const finalPolicy = evaluateCommunicationPolicy({
+        intent: {
+          purpose,
+          businessEventType: delivery.eventType,
+          companyId: delivery.companyId,
+          recipient: {
+            userId: "governed-recipient",
+            companyId: delivery.companyId,
+            locale: delivery.recipientLocale ?? "ru",
+            email: delivery.channel === "email" ? delivery.recipient : null,
+            phone: delivery.channel === "sms" ? delivery.recipient : null,
+            identityVerified: true,
+            membershipActive: true,
+            capabilityAuthorized: true,
+          },
+        },
+        channel: delivery.channel === "telegram" ? "sms" : delivery.channel,
+        mode: delivery.channelMode ?? "LIVE",
+        activation,
+        preferenceOutcome: delivery.preferenceOutcome,
+        rateLimitOutcome,
+        providerAvailable: Boolean(adapter),
+      });
+      if (finalPolicy.decision === "SUPPRESS") {
+        return this.policySuppression(delivery, finalPolicy.reason!, startedAt);
+      }
       if (!adapter) throw new NotificationDeliveryError("unsupported_channel", false);
       if (delivery.eventType !== "order.registered_in_1c"
         || ![1, 2].includes(delivery.payloadVersion)
         || ![1, 2].includes(delivery.templateVersion)) {
         throw new NotificationDeliveryError("invalid_payload", false);
       }
-      const message = {
+      let message = {
         ...renderOrderConfirmedEmail(
           delivery.payload,
           delivery.recipient,
@@ -100,6 +171,21 @@ export class NotificationDeliveryWorkerService {
         ),
         messageId: `<notification-${delivery.deliveryId}@nsd.md>`,
       };
+      if (delivery.channelMode === "SANDBOX") {
+        const marked = markSandboxEmail({
+          purpose,
+          companyId: delivery.companyId,
+          originalRecipientFingerprint: finalPolicy.originalRecipientFingerprint,
+          subject: message.subject,
+          text: message.text,
+          html: message.html,
+        });
+        message = {
+          ...message,
+          ...marked,
+          recipient: finalPolicy.sandboxActualRecipient!,
+        };
+      }
       const safetyBlock = externalEmailBlockReason();
       if (safetyBlock) {
         throw new NotificationDeliveryError(
@@ -134,6 +220,25 @@ export class NotificationDeliveryWorkerService {
       };
       return { completion, providerDurationMs };
     }
+  }
+
+  private policySuppression(
+    delivery: ClaimedNotificationDelivery,
+    reason: string,
+    startedAt: number,
+  ) {
+    const providerDurationMs = Math.max(0, Math.round(performance.now() - startedAt));
+    return {
+      completion: {
+        deliveryId: delivery.deliveryId,
+        leaseToken: delivery.leaseToken,
+        succeeded: false,
+        retryable: false,
+        errorCategory: reason,
+        durationMs: providerDurationMs,
+      } satisfies CompleteNotificationDeliveryInput,
+      providerDurationMs,
+    };
   }
 }
 

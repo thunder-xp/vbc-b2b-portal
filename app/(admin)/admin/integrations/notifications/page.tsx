@@ -101,6 +101,7 @@ export default async function NotificationHealthPage() {
           <Detail label="Глобальный внешний стоп" value={communicationPolicy.globalExternalKillSwitch ? "ON" : "OFF"} />
           <Detail label="Email стоп" value={communicationPolicy.channelKillSwitches.email ? "ON" : "OFF"} />
           <Detail label="SMS стоп" value={communicationPolicy.channelKillSwitches.sms ? "ON" : "OFF"} />
+          <Detail label="Sandbox email" value={communicationPolicy.sandboxEmailRecipient && communicationPolicy.sandboxEmailAllowlist.has(communicationPolicy.sandboxEmailRecipient) ? "CONFIGURED" : "BLOCKED"} />
           <Detail label="Финансы · email" value={`${FINANCE_REMINDER_OUTBOUND_MODE} · LIVE ${FINANCE_REMINDER_EMAIL_LIVE ? "ON" : "OFF"}`} />
           <Detail label="Финансы · в приложении" value={`${FINANCE_REMINDER_OUTBOUND_MODE} · LIVE ${FINANCE_REMINDER_IN_APP_LIVE ? "ON" : "OFF"}`} />
           <Detail label="Финансы · SMS" value={FINANCE_REMINDER_SMS_ENABLED ? "ENABLED" : "DISABLED"} />
@@ -119,6 +120,11 @@ export default async function NotificationHealthPage() {
           {Object.entries(health.gateway.stateCounts).map(([state, count]) => (
             <Detail key={state} label={state} value={String(count)} />
           ))}
+        </dl>
+        <dl className="mt-4 grid gap-4 text-sm sm:grid-cols-3">
+          <Detail label="Recipient / hour" value={String(health.gateway.rateLimits.recipientPerHour)} />
+          <Detail label="Company + purpose + channel / hour" value={String(health.gateway.rateLimits.companyPurposeChannelPerHour)} />
+          <Detail label="Allowed / limited (24h)" value={`${health.gateway.rateLimits.allowedLast24Hours} / ${health.gateway.rateLimits.limitedLast24Hours}`} />
         </dl>
         {health.gateway.recentDeliveries.length ? (
           <div className="mt-5 overflow-x-auto">
@@ -142,6 +148,7 @@ export default async function NotificationHealthPage() {
                   <tr key={delivery.deliveryId ?? delivery.eventId}>
                     <td className="py-3 font-mono text-xs text-zinc-900">
                       <span className="block">{delivery.eventType}</span>
+                      <span className="mt-1 block text-zinc-500">{delivery.purpose}</span>
                       <span className="mt-1 block text-zinc-500">
                         {delivery.templateKey} · {delivery.templateVersion}
                       </span>
@@ -151,10 +158,13 @@ export default async function NotificationHealthPage() {
                       <span>{delivery.orderNumber ?? delivery.partnerOrderId ?? "—"}</span>
                     </td>
                     <td className="py-3 text-zinc-700">
-                      <span className="block">{delivery.channel} · {delivery.mode}</span>
+                      <span className="block">{delivery.channel} · {delivery.requestedMode} → {delivery.effectiveMode}</span>
                       <span>{delivery.recipient}</span>
                     </td>
-                    <td className="py-3 text-zinc-700">{delivery.state}</td>
+                    <td className="py-3 text-zinc-700">
+                      <span className="block">{delivery.state} · {delivery.policyDecision}</span>
+                      <span className="mt-1 block text-zinc-500">pref {delivery.preferenceResult} · rate {delivery.rateLimitResult} · sandbox {delivery.sandboxResult}</span>
+                    </td>
                     <td className="py-3 text-zinc-700">{delivery.attempts}</td>
                     <td className="py-3 text-zinc-700">
                       <span className="block">{delivery.createdAt}</span>

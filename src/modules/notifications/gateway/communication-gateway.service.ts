@@ -10,14 +10,18 @@ import type {
   CommunicationSuppressionReason,
   RenderedCommunication,
 } from "./communication-intent";
+import {
+  communicationActivationPolicyFromEnvironment,
+  evaluateCommunicationPolicy,
+  markSandboxEmail,
+  type CommunicationActivationPolicy,
+  type CommunicationPolicyDecision,
+} from "./communication-policy.service";
 import { CommunicationTemplateRegistry } from "./communication-template.registry";
 
 export const COMMUNICATION_EXTERNAL_CHANNELS = ["email", "sms"] as const;
 
-export type CommunicationRuntimePolicy = Readonly<{
-  globalExternalKillSwitch: boolean;
-  channelKillSwitches: Readonly<Record<"email" | "sms", boolean>>;
-}>;
+export type CommunicationRuntimePolicy = CommunicationActivationPolicy;
 
 export type CommunicationProviderAdapter = {
   readonly channel: "email" | "sms";
@@ -31,13 +35,7 @@ export type CommunicationProviderAdapter = {
 export function communicationRuntimePolicyFromEnvironment(
   environment: Readonly<Record<string, string | undefined>> = process.env,
 ): CommunicationRuntimePolicy {
-  return Object.freeze({
-    globalExternalKillSwitch: environment.COMMUNICATION_OUTBOUND_KILL_SWITCH === "ON",
-    channelKillSwitches: Object.freeze({
-      email: environment.COMMUNICATION_EMAIL_KILL_SWITCH === "ON",
-      sms: environment.COMMUNICATION_SMS_KILL_SWITCH !== "OFF",
-    }),
-  });
+  return communicationActivationPolicyFromEnvironment(environment);
 }
 
 export class CommunicationGatewayService {
@@ -53,67 +51,65 @@ export class CommunicationGatewayService {
 
   project(intent: CommunicationIntent, channel: CommunicationChannel): CommunicationProjection {
     const mode = intent.channelPolicy[channel] ?? "DISABLED";
-    const recipientFailure = recipientSuppression(intent, channel);
-    if (recipientFailure) return suppressed(intent, channel, mode, recipientFailure);
+    const decision = evaluateCommunicationPolicy({
+      intent,
+      channel,
+      mode,
+      activation: {
+        ...this.runtimePolicy,
+        globalExternalKillSwitch: false,
+        channelKillSwitches: { email: false, sms: false },
+      },
+      preferenceOutcome: intent.preferencePolicy?.[channel],
+    });
+    if (decision.decision === "SUPPRESS" && decision.reason !== "CHANNEL_DISABLED") {
+      return suppressed(intent, channel, mode, decision);
+    }
 
     const rendered = this.templates.render(intent, channel);
-    if (mode === "DISABLED") return suppressed(intent, channel, mode, "CHANNEL_DISABLED", rendered);
-    return baseProjection(intent, channel, mode, "PROJECTED", null, rendered, null);
+    if (decision.decision === "SUPPRESS") return suppressed(intent, channel, mode, decision, rendered);
+    return baseProjection(intent, channel, mode, "PROJECTED", null, rendered, null, decision);
   }
 
   async dispatch(intent: CommunicationIntent, channel: CommunicationChannel): Promise<CommunicationProjection> {
     const projection = this.project(intent, channel);
     if (projection.state === "SUPPRESSED") return projection;
 
-    const safetyFailure = policySuppression(channel, projection.mode, this.runtimePolicy);
-    if (safetyFailure) return suppressed(intent, channel, projection.mode, safetyFailure, projection.rendered);
     if (projection.mode === "DRY_RUN" || channel === "in_app") return projection;
 
     const adapter = this.adapters.get(channel);
-    if (!adapter) return suppressed(intent, channel, projection.mode, "PROVIDER_UNAVAILABLE", projection.rendered);
-    const result = await adapter.send({
-      deliveryIdentity: projection.deliveryIdentity,
-      recipient: projection.recipient,
-      rendered: projection.rendered!,
+    const decision = evaluateCommunicationPolicy({
+      intent,
+      channel,
+      mode: projection.mode,
+      activation: this.runtimePolicy,
+      preferenceOutcome: projection.preferenceOutcome,
+      providerAvailable: Boolean(adapter),
     });
-    return baseProjection(intent, channel, projection.mode, "ACCEPTED", null, projection.rendered, result.providerRequestId);
+    if (decision.decision === "SUPPRESS") return suppressed(intent, channel, projection.mode, decision, projection.rendered);
+    const rendered = projection.mode === "SANDBOX" && channel === "email"
+      ? sandboxRendered(projection.rendered!, decision, intent)
+      : projection.rendered!;
+    const recipient = projection.mode === "SANDBOX" && channel === "email"
+      ? { ...projection.recipient, email: decision.sandboxActualRecipient }
+      : projection.recipient;
+    const result = await adapter!.send({
+      deliveryIdentity: projection.deliveryIdentity,
+      recipient,
+      rendered,
+    });
+    return baseProjection(intent, channel, projection.mode, "ACCEPTED", null, rendered, result.providerRequestId, decision);
   }
-}
-
-function recipientSuppression(
-  intent: CommunicationIntent,
-  channel: CommunicationChannel,
-): CommunicationSuppressionReason | null {
-  if (intent.recipient.companyId !== intent.companyId) return "COMPANY_MISMATCH";
-  if (!intent.recipient.identityVerified) return "IDENTITY_NOT_VERIFIED";
-  if (!intent.recipient.membershipActive) return "INACTIVE_MEMBERSHIP";
-  if (!intent.recipient.capabilityAuthorized) return "CAPABILITY_NOT_AUTHORIZED";
-  if (!intent.recipient.userId) return "INVALID_RECIPIENT";
-  if (channel === "email" && !validEmail(intent.recipient.email)) return "INVALID_RECIPIENT";
-  if (channel === "sms" && intent.channelPolicy.sms === "LIVE" && !validPhone(intent.recipient.phone)) return "INVALID_RECIPIENT";
-  return null;
-}
-
-function policySuppression(
-  channel: CommunicationChannel,
-  mode: CommunicationChannelMode,
-  policy: CommunicationRuntimePolicy,
-): CommunicationSuppressionReason | null {
-  if (mode === "DISABLED") return "CHANNEL_DISABLED";
-  if (channel === "in_app") return null;
-  if (policy.globalExternalKillSwitch) return "GLOBAL_KILL_SWITCH";
-  if (policy.channelKillSwitches[channel]) return "CHANNEL_KILL_SWITCH";
-  return null;
 }
 
 function suppressed(
   intent: CommunicationIntent,
   channel: CommunicationChannel,
   mode: CommunicationChannelMode,
-  reason: CommunicationSuppressionReason,
+  decision: CommunicationPolicyDecision,
   rendered: RenderedCommunication | null = null,
 ): CommunicationProjection {
-  return baseProjection(intent, channel, mode, "SUPPRESSED", reason, rendered, null);
+  return baseProjection(intent, channel, mode, "SUPPRESSED", decision.reason, rendered, null, decision);
 }
 
 function baseProjection(
@@ -124,9 +120,11 @@ function baseProjection(
   suppressionReason: CommunicationSuppressionReason | null,
   rendered: RenderedCommunication | null,
   providerRequestId: string | null,
+  decision: CommunicationPolicyDecision,
 ): CommunicationProjection {
   return Object.freeze({
     intentId: intent.intentId,
+    purpose: intent.purpose,
     deliveryIdentity: deliveryIdentity(intent, channel),
     businessEventType: intent.businessEventType,
     businessEntityReferences: Object.freeze([...intent.businessEntityReferences]),
@@ -134,6 +132,14 @@ function baseProjection(
     recipient: Object.freeze({ ...intent.recipient }),
     channel,
     mode,
+    requestedMode: decision.requestedMode,
+    effectiveMode: decision.effectiveMode,
+    policyDecision: decision.decision,
+    preferenceOutcome: decision.preferenceOutcome,
+    rateLimitOutcome: decision.rateLimitOutcome,
+    sandboxOutcome: decision.sandboxOutcome,
+    sandboxActualRecipient: decision.sandboxActualRecipient,
+    originalRecipientFingerprint: decision.originalRecipientFingerprint,
     templateKey: intent.templateKey,
     templateVersion: intent.templateVersion,
     locale: intent.recipient.locale,
@@ -158,10 +164,23 @@ export function deliveryIdentity(intent: CommunicationIntent, channel: Communica
     .digest("hex");
 }
 
-function validEmail(value: string | null | undefined): value is string {
-  return Boolean(value && value.length <= 320 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value));
-}
-
-function validPhone(value: string | null | undefined): value is string {
-  return Boolean(value && /^\+[1-9]\d{7,14}$/.test(value.replace(/[\s()-]/g, "")));
+function sandboxRendered(
+  rendered: RenderedCommunication,
+  decision: CommunicationPolicyDecision,
+  intent: CommunicationIntent,
+): RenderedCommunication {
+  const marked = markSandboxEmail({
+    purpose: intent.purpose,
+    companyId: intent.companyId,
+    originalRecipientFingerprint: decision.originalRecipientFingerprint,
+    subject: rendered.subject,
+    text: rendered.textBody,
+    html: rendered.htmlBody ?? "",
+  });
+  return Object.freeze({
+    ...rendered,
+    subject: marked.subject,
+    textBody: marked.text,
+    htmlBody: marked.html,
+  });
 }

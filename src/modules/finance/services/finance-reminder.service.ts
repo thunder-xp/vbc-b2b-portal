@@ -169,6 +169,7 @@ function toProjection(
   const intentId = hash(["INTENT", ...intentIdentityParts]);
   const intent: CommunicationIntent<FinancePaymentReminderTemplateVariables> = Object.freeze({
     intentId,
+    purpose: "FINANCE",
     businessEventType: "finance.payment_reminder",
     businessEntityReferences: Object.freeze(ordered.map((item) => item.obligation.id)),
     companyId: first.obligation.companyId,
@@ -214,10 +215,17 @@ function toProjection(
     ...content.providerPayload,
     communication: {
       intentId: projected.intentId,
+      purpose: projected.purpose,
       businessEventType: projected.businessEventType,
       businessEntityReferences: projected.businessEntityReferences,
       channel: projected.channel,
       mode: projected.mode,
+      requestedMode: projected.requestedMode,
+      effectiveMode: projected.effectiveMode,
+      policyDecision: projected.policyDecision,
+      preferenceOutcome: projected.preferenceOutcome,
+      rateLimitOutcome: projected.rateLimitOutcome,
+      sandboxOutcome: projected.sandboxOutcome,
       templateKey: projected.templateKey,
       templateVersion: projected.templateVersion,
       locale: projected.locale,

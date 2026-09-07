@@ -13,14 +13,14 @@ import {
 
 describe("CommunicationGatewayService", () => {
   it("defaults future SMS to stopped while preserving independent email control", () => {
-    expect(communicationRuntimePolicyFromEnvironment({})).toEqual({
+    expect(communicationRuntimePolicyFromEnvironment({})).toMatchObject({
       globalExternalKillSwitch: false,
       channelKillSwitches: { email: false, sms: true },
     });
     expect(communicationRuntimePolicyFromEnvironment({
       COMMUNICATION_EMAIL_KILL_SWITCH: "ON",
       COMMUNICATION_SMS_KILL_SWITCH: "OFF",
-    })).toEqual({
+    })).toMatchObject({
       globalExternalKillSwitch: false,
       channelKillSwitches: { email: true, sms: false },
     });
@@ -46,10 +46,10 @@ describe("CommunicationGatewayService", () => {
 
   it("blocks every external provider when the global kill switch is on", async () => {
     const adapter = emailAdapter();
-    const gateway = new CommunicationGatewayService(registry(), [adapter], {
+    const gateway = new CommunicationGatewayService(registry(), [adapter], runtimePolicy({
       globalExternalKillSwitch: true,
       channelKillSwitches: { email: false, sms: false },
-    });
+    }));
     const result = await gateway.dispatch(intent({ email: "LIVE" }), "email");
 
     expect(result).toMatchObject({ state: "SUPPRESSED", suppressionReason: "GLOBAL_KILL_SWITCH" });
@@ -59,10 +59,10 @@ describe("CommunicationGatewayService", () => {
 
   it("blocks email at the independent channel switch", async () => {
     const adapter = emailAdapter();
-    const gateway = new CommunicationGatewayService(registry(), [adapter], {
+    const gateway = new CommunicationGatewayService(registry(), [adapter], runtimePolicy({
       globalExternalKillSwitch: false,
       channelKillSwitches: { email: true, sms: true },
-    });
+    }));
     const result = await gateway.dispatch(intent({ email: "LIVE" }), "email");
 
     expect(result).toMatchObject({ state: "SUPPRESSED", suppressionReason: "CHANNEL_KILL_SWITCH" });
@@ -112,12 +112,83 @@ describe("CommunicationGatewayService", () => {
   });
 
   it("keeps in-app first-party projection separate from external kill switches", async () => {
-    const gateway = new CommunicationGatewayService(registry(), [], {
+    const basePolicy = runtimePolicy({
       globalExternalKillSwitch: true,
       channelKillSwitches: { email: true, sms: true },
     });
+    const gateway = new CommunicationGatewayService(registry(), [], {
+      ...basePolicy,
+      purposeChannelModes: {
+        ...basePolicy.purposeChannelModes,
+        TRANSACTIONAL: { ...basePolicy.purposeChannelModes.TRANSACTIONAL, in_app: "DRY_RUN" },
+      },
+    });
     const result = await gateway.dispatch(intent({ in_app: "DRY_RUN" }), "in_app");
     expect(result).toMatchObject({ state: "PROJECTED", channel: "in_app", mode: "DRY_RUN" });
+  });
+
+  it("redirects SANDBOX email only to the server allowlist and marks the payload", async () => {
+    const adapter = emailAdapter();
+    const base = openRuntimePolicy();
+    const gateway = new CommunicationGatewayService(registry(), [adapter], {
+      ...base,
+      purposeChannelModes: {
+        ...base.purposeChannelModes,
+        TRANSACTIONAL: { ...base.purposeChannelModes.TRANSACTIONAL, email: "SANDBOX" },
+      },
+      sandboxEmailRecipient: "internal@novotech.test",
+      sandboxEmailAllowlist: new Set(["internal@novotech.test"]),
+    });
+    const result = await gateway.dispatch(intent({ email: "SANDBOX" }), "email");
+
+    expect(result).toMatchObject({ state: "ACCEPTED", mode: "SANDBOX", sandboxOutcome: "ALLOWED" });
+    expect(adapter.send).toHaveBeenCalledWith(expect.objectContaining({
+      recipient: expect.objectContaining({ email: "internal@novotech.test" }),
+      rendered: expect.objectContaining({ subject: "[SANDBOX] ru:email" }),
+    }));
+    expect(adapter.send).not.toHaveBeenCalledWith(expect.objectContaining({
+      recipient: expect.objectContaining({ email: "partner@example.test" }),
+    }));
+  });
+
+  it("fails SANDBOX closed when the configured target is outside the server allowlist", async () => {
+    const adapter = emailAdapter();
+    const base = openRuntimePolicy();
+    const gateway = new CommunicationGatewayService(registry(), [adapter], {
+      ...base,
+      purposeChannelModes: {
+        ...base.purposeChannelModes,
+        TRANSACTIONAL: { ...base.purposeChannelModes.TRANSACTIONAL, email: "SANDBOX" },
+      },
+      sandboxEmailRecipient: "unapproved@example.test",
+      sandboxEmailAllowlist: new Set(["internal@novotech.test"]),
+    });
+
+    await expect(gateway.dispatch(intent({ email: "SANDBOX" }), "email")).resolves.toMatchObject({
+      state: "SUPPRESSED",
+      suppressionReason: "SANDBOX_RECIPIENT_NOT_ALLOWED",
+    });
+    expect(adapter.send).not.toHaveBeenCalled();
+  });
+
+  it("fails an unknown or mismatched purpose closed", async () => {
+    const input = { ...intent(), businessEventType: "unknown.future_flow" };
+    const gateway = new CommunicationGatewayService(registry(), [emailAdapter()], openRuntimePolicy());
+    await expect(gateway.dispatch(input, "email")).resolves.toMatchObject({
+      state: "SUPPRESSED",
+      suppressionReason: "PURPOSE_DISABLED",
+    });
+  });
+
+  it("honors a purpose-specific preference suppression without invoking a provider", async () => {
+    const adapter = emailAdapter();
+    const input = { ...intent({ email: "LIVE" }), preferencePolicy: { email: "SUPPRESSED" as const } };
+    const gateway = new CommunicationGatewayService(registry(), [adapter], openRuntimePolicy());
+    await expect(gateway.dispatch(input, "email")).resolves.toMatchObject({
+      policyDecision: "SUPPRESS",
+      suppressionReason: "PREFERENCE_DISABLED",
+    });
+    expect(adapter.send).not.toHaveBeenCalled();
   });
 });
 
@@ -144,7 +215,8 @@ function intent(
 ): CommunicationIntent {
   return Object.freeze({
     intentId: "intent-1",
-    businessEventType: "test.transactional",
+    purpose: "TRANSACTIONAL",
+    businessEventType: "proposal.delivery",
     businessEntityReferences: Object.freeze(["entity-1"]),
     companyId: "company-1",
     recipient: Object.freeze({
@@ -178,5 +250,9 @@ function emailAdapter() {
 }
 
 function openRuntimePolicy() {
-  return { globalExternalKillSwitch: false, channelKillSwitches: { email: false, sms: false } } as const;
+  return communicationRuntimePolicyFromEnvironment({ COMMUNICATION_SMS_KILL_SWITCH: "OFF" });
+}
+
+function runtimePolicy(input: { globalExternalKillSwitch: boolean; channelKillSwitches: { email: boolean; sms: boolean } }) {
+  return { ...openRuntimePolicy(), ...input };
 }

@@ -48,7 +48,12 @@ export type ClaimedNotificationDelivery = {
   payloadVersion: number;
   payload: unknown;
   channel: NotificationChannel;
-  channelMode?: "DISABLED" | "DRY_RUN" | "LIVE";
+  channelMode?: "DISABLED" | "DRY_RUN" | "SANDBOX" | "LIVE";
+  purpose?: "TRANSACTIONAL" | "FINANCE" | "SECURITY" | "SUPPORT" | "MARKETING";
+  policyDecision?: "ALLOW" | "SUPPRESS";
+  preferenceOutcome?: "ALLOWED" | "SUPPRESSED" | "NOT_APPLICABLE" | "NOT_CONFIGURED";
+  rateLimitOutcome?: "ALLOWED" | "RATE_LIMITED" | "NOT_EVALUATED";
+  sandboxOutcome?: "NOT_APPLICABLE" | "ALLOWED" | "RECIPIENT_NOT_ALLOWED" | "PROVIDER_UNAVAILABLE";
   recipient: string;
   recipientLocale?: "ru" | "ro";
   templateKey?: string;
@@ -65,6 +70,7 @@ export type ClaimedNotificationDelivery = {
 export type NotificationWorkerResult = {
   claimed: number;
   sent: number;
+  suppressed: number;
   failed: number;
   deadLetter: number;
   durationMs: number;

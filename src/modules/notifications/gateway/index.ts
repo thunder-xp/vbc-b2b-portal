@@ -1,5 +1,6 @@
 export * from "./communication-gateway.service";
 export * from "./communication-intent";
+export * from "./communication-policy.service";
 export * from "./communication-template.registry";
 export * from "./durable-communication.repository";
 export * from "./durable-communication.service";

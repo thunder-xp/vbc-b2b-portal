@@ -130,9 +130,26 @@ export type NotificationHealth = {
       failedFinal: number;
       cancelled: number;
     };
+    rateLimits: {
+      recipientPerHour: number;
+      companyPurposeChannelPerHour: number;
+      workerBatchDefault: number;
+      workerBatchMaximum: number;
+      allowedLast24Hours: number;
+      limitedLast24Hours: number;
+    };
+    governanceCounts: Array<{
+      purpose: string;
+      channel: "email" | "in_app" | "sms" | "telegram";
+      decision: "ALLOW" | "SUPPRESS";
+      reason: string;
+      count: number;
+    }>;
     byCommunicationTypeChannel: Array<{
       eventType: string;
+      purpose: string;
       channel: "email" | "in_app" | "sms" | "telegram";
+      mode: "DISABLED" | "DRY_RUN" | "SANDBOX" | "LIVE";
       state: "PROJECTED" | "SUPPRESSED" | "READY" | "QUEUED" | "PROCESSING" | "ACCEPTED" | "FAILED_RETRYABLE" | "FAILED_FINAL" | "CANCELLED";
       count: number;
     }>;
@@ -140,12 +157,19 @@ export type NotificationHealth = {
       deliveryId: string | null;
       eventId: string;
       eventType: string;
+      purpose: string;
       companyId: string;
       companyName: string;
       partnerOrderId: string | null;
       orderNumber: string | null;
       channel: "email" | "in_app" | "sms" | "telegram";
-      mode: "DISABLED" | "DRY_RUN" | "LIVE";
+      mode: "DISABLED" | "DRY_RUN" | "SANDBOX" | "LIVE";
+      requestedMode: "DISABLED" | "DRY_RUN" | "SANDBOX" | "LIVE";
+      effectiveMode: "DISABLED" | "DRY_RUN" | "SANDBOX" | "LIVE";
+      policyDecision: "ALLOW" | "SUPPRESS";
+      preferenceResult: "ALLOWED" | "SUPPRESSED" | "NOT_APPLICABLE" | "NOT_CONFIGURED";
+      rateLimitResult: "ALLOWED" | "RATE_LIMITED" | "NOT_EVALUATED";
+      sandboxResult: "NOT_APPLICABLE" | "ALLOWED" | "RECIPIENT_NOT_ALLOWED" | "PROVIDER_UNAVAILABLE";
       recipient: string;
       status: "projected" | "suppressed" | "queued" | "processing" | "sent" | "failed" | "dead_letter";
       state: "PROJECTED" | "SUPPRESSED" | "READY" | "QUEUED" | "PROCESSING" | "ACCEPTED" | "FAILED_RETRYABLE" | "FAILED_FINAL" | "CANCELLED";

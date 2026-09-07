@@ -83,6 +83,7 @@ function repositoryMock(input: CommunicationIntent) {
 function intent(): CommunicationIntent {
   return {
     intentId: "finance-intent-1",
+    purpose: "FINANCE",
     businessEventType: "finance.payment_reminder",
     businessEntityReferences: ["obligation-1"],
     companyId: "company-1",
