@@ -111,7 +111,7 @@ export default async function NotificationHealthPage() {
         <dl className="mt-4 grid gap-4 text-sm sm:grid-cols-5">
           <Detail label="В очереди" value={String(health.gateway.queued)} />
           <Detail label="Обрабатывается" value={String(health.gateway.processing)} />
-          <Detail label="Отправлено за 24 часа" value={String(health.gateway.sentLast24Hours)} />
+          <Detail label="Принято провайдером за 24 часа" value={String(health.gateway.sentLast24Hours)} />
           <Detail label="Ожидает повтора" value={String(health.gateway.failed)} />
           <Detail label="Требует внимания" value={String(health.gateway.deadLetter)} />
         </dl>
@@ -130,7 +130,8 @@ export default async function NotificationHealthPage() {
                   <th className="pb-2 font-medium">Канал / получатель</th>
                   <th className="pb-2 font-medium">Статус</th>
                   <th className="pb-2 font-medium">Попытки</th>
-                  <th className="pb-2 font-medium">Отправлено</th>
+                  <th className="pb-2 font-medium">Создано / попытка</th>
+                  <th className="pb-2 font-medium">Принято провайдером</th>
                   <th className="pb-2 font-medium">Безопасная ошибка</th>
                   <th className="pb-2 font-medium">Correlation ID</th>
                   <th className="pb-2"><span className="sr-only">Действия</span></th>
@@ -139,7 +140,12 @@ export default async function NotificationHealthPage() {
               <tbody className="divide-y divide-zinc-100">
                 {health.gateway.recentDeliveries.map((delivery) => (
                   <tr key={delivery.deliveryId ?? delivery.eventId}>
-                    <td className="py-3 font-mono text-xs text-zinc-900">{delivery.eventType}</td>
+                    <td className="py-3 font-mono text-xs text-zinc-900">
+                      <span className="block">{delivery.eventType}</span>
+                      <span className="mt-1 block text-zinc-500">
+                        {delivery.templateKey} · {delivery.templateVersion}
+                      </span>
+                    </td>
                     <td className="py-3 text-zinc-700">
                       <span className="block font-medium text-zinc-900">{delivery.companyName}</span>
                       <span>{delivery.orderNumber ?? delivery.partnerOrderId ?? "—"}</span>
@@ -150,6 +156,10 @@ export default async function NotificationHealthPage() {
                     </td>
                     <td className="py-3 text-zinc-700">{delivery.state}</td>
                     <td className="py-3 text-zinc-700">{delivery.attempts}</td>
+                    <td className="py-3 text-zinc-700">
+                      <span className="block">{delivery.createdAt}</span>
+                      <span className="mt-1 block text-zinc-500">{delivery.attemptedAt ?? "—"}</span>
+                    </td>
                     <td className="py-3 text-zinc-700">{delivery.sentAt ?? "—"}</td>
                     <td className="py-3 text-zinc-700">{delivery.safeError ?? "—"}</td>
                     <td className="py-3 font-mono text-xs text-zinc-700">{delivery.correlationId}</td>

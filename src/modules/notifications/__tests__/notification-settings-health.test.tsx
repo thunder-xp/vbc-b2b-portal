@@ -77,5 +77,11 @@ describe("notification preferences and health", () => {
     expect(page).toContain("Безопасность каналов");
     expect(page).toContain("communicationRuntimePolicyFromEnvironment");
     expect(page).toContain("FINANCE_REMINDER_OUTBOUND_MODE");
+    expect(page).toContain("Принято провайдером за 24 часа");
+    expect(page).not.toContain("Отправлено за 24 часа");
+    expect(page).toContain("delivery.templateKey");
+    expect(page).toContain("delivery.templateVersion");
+    expect(page).toContain("delivery.createdAt");
+    expect(page).toContain("delivery.attemptedAt");
   });
 });
