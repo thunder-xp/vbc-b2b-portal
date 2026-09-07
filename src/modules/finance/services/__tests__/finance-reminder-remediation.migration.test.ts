@@ -5,6 +5,10 @@ const sql = readFileSync(
   "supabase/migrations/20260907051025_finance_reminder_go_live_remediation.sql",
   "utf8",
 );
+const receiptGrantSql = readFileSync(
+  "supabase/migrations/20260907060500_finance_reminder_delivery_receipt_grants.sql",
+  "utf8",
+);
 
 describe("finance reminder go-live remediation migration", () => {
   it("separates per-run review identity from append-only LIVE delivery receipts", () => {
@@ -35,6 +39,12 @@ describe("finance reminder go-live remediation migration", () => {
     expect(sql).toContain("set search_path = ''");
     expect(sql).not.toMatch(/grant .*partner_finance_reminder_delivery_receipts.*authenticated/i);
     expect(sql).not.toMatch(/smtp|send_mail|send_email/i);
+    expect(receiptGrantSql).toContain(
+      "revoke all on table public.partner_finance_reminder_delivery_receipts from service_role",
+    );
+    expect(receiptGrantSql).toContain(
+      "grant select, insert on table public.partner_finance_reminder_delivery_receipts to service_role",
+    );
   });
 
   it("counts only duplicate rows inside the same review input", () => {
