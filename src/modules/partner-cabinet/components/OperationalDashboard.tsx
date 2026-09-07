@@ -114,7 +114,7 @@ function NovotechOffersSection({ campaigns = [], locale, products = [], workspac
   if (!campaigns.length && !products.length) return null;
   return (
     <section aria-labelledby="dashboard-novotech-offers" data-dashboard-section="novotech-offers">
-      <SectionHeading actionHref="/cabinet/offers" actionLabel={partnerText(locale, "dashboard.allOffers")} count={hiddenDashboardProductCount(workspace.merchandisingProductTotalCount, products.length)} id="dashboard-novotech-offers" title={partnerText(locale, "dashboard.novotechOffers")} />
+      <SectionHeading actionHref="/cabinet/catalog" actionLabel={partnerText(locale, "dashboard.allOffers")} count={hiddenDashboardProductCount(workspace.merchandisingProductTotalCount, products.length)} id="dashboard-novotech-offers" title={partnerText(locale, "dashboard.novotechOffers")} />
       {campaigns.length ? <div className="mt-3 grid gap-3 xl:grid-cols-2">{campaigns.slice(0, 2).map((campaign) => <CampaignCard campaign={campaign} key={campaign.id} locale={locale} />)}</div> : null}
       {products.length ? <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">{products.slice(0, 5).map((item) => <ProductCard analyticsEventName="dashboard_novotech_offer_opened" analyticsSurface="dashboard_offers" capabilities={workspace.capabilities.productCard} commercialView={item.commercialView} contextBadge={item.sourceCodes?.includes("ARRIVAL") ? partnerText(locale, "dashboard.arrival") : undefined} key={item.product.id} locale={locale} product={item.product} />)}</div> : null}
     </section>
@@ -437,7 +437,7 @@ function PaymentGraph({
   locale: PartnerLocale;
 }) {
   return (
-    <div className="mt-4 border-t border-zinc-200 pt-4">
+    <div className="mt-4 border-t border-zinc-200 pt-4" data-payment-calendar>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-sm font-semibold text-zinc-950">{partnerText(locale, "dashboard.paymentCalendar")}</h3>
         <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-zinc-600" aria-label={partnerText(locale, "dashboard.paymentLegend")}>
@@ -450,7 +450,7 @@ function PaymentGraph({
       {guidance.paymentGraph.length ? (
         <div
           aria-label={partnerText(locale, "dashboard.paymentCalendar")}
-          className="mt-3 grid h-28 items-end gap-0.5 border-b border-zinc-300 px-0.5 sm:gap-1"
+          className="mt-3 grid h-28 items-end gap-1 border-b border-zinc-300 px-0.5 sm:gap-2"
           role="img"
           style={{ gridTemplateColumns: `repeat(${guidance.paymentGraph.length}, minmax(0, 1fr))` }}
         >
@@ -458,11 +458,11 @@ function PaymentGraph({
             const state = partnerText(locale, payment.timing === "overdue" ? "dashboard.paymentOverdue" : payment.timing === "today" ? "dashboard.paymentToday" : payment.timing === "paid" ? "dashboard.paymentPaid" : "dashboard.paymentUpcoming");
             const label = `${payment.orderNumber} · ${formatDate(payment.eventDate, locale)} · ${formatAmount(payment.amount, payment.currency, locale)} · ${state}`;
             return (
-              <button aria-label={label} className="flex h-full min-w-0 flex-col justify-end outline-none focus-visible:ring-2 focus-visible:ring-emerald-500" key={payment.id} title={label} type="button">
+              <button aria-label={label} className="flex h-full min-w-0 flex-col justify-end outline-none focus-visible:ring-2 focus-visible:ring-emerald-500" data-payment-bar key={payment.id} title={label} type="button">
                 <span className="sr-only">{label}</span>
                 <span
                   aria-hidden="true"
-                  className={`mx-auto min-h-5 w-full max-w-8 rounded-t-sm ${payment.timing === "overdue" ? "bg-rose-500" : payment.timing === "today" ? "bg-amber-500" : payment.timing === "paid" ? "bg-zinc-400" : "bg-emerald-600"}`}
+                  className={`mx-auto min-h-5 w-full rounded-t-sm ${guidance.paymentGraph.length <= 12 ? "max-w-14" : "max-w-8"} ${payment.timing === "overdue" ? "bg-rose-500" : payment.timing === "today" ? "bg-amber-500" : payment.timing === "paid" ? "bg-zinc-400" : "bg-emerald-600"}`}
                   style={{ height: `${payment.relativeHeight}%` }}
                 />
                 <span aria-hidden="true" className="mt-1 truncate text-center text-[10px] leading-3 text-zinc-500">
@@ -513,7 +513,7 @@ function SectionHeading({
           href={actionHref}
           sourceSurface={id}
         >
-          {count && count > 0 ? <span aria-label={`${count}`} className="inline-flex size-5 min-w-5 items-center justify-center rounded bg-zinc-200 px-1 text-[11px] font-bold tabular-nums text-zinc-700" data-dashboard-hidden-count>{count}</span> : null}
+          {count && count > 0 ? <span aria-label={`${count}`} className="inline-flex size-5 min-w-5 items-center justify-center rounded bg-emerald-700 px-1 text-[11px] font-bold tabular-nums text-white" data-dashboard-hidden-count>{count}</span> : null}
           {actionLabel}
           <ArrowRight aria-hidden="true" className="size-4" />
         </DashboardTrackedLink>

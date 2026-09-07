@@ -15,12 +15,13 @@ import type { PreviouslyPurchasedProductDto } from "../services/order-history.se
 import { createPartnerOrderHistoryListService } from "./order-history-list.factory";
 
 export async function listPreviouslyPurchasedProductsAction(input: {
-  categoryId?: string | null;
+  categoryIds?: string[];
   limit?: number;
   offset?: number;
   search?: string | null;
 } = {}): Promise<ActionResult<{
   categories: Array<{ id: string; name: string; slug: string; productCount: number }>;
+  allCount: number;
   items: PreviouslyPurchasedProductDto[];
   totalCount: number;
 }>> {

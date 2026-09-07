@@ -56,7 +56,7 @@ export class SupabasePartnerOrderHistoryRepository implements PartnerOrderHistor
   }
 
   async listPreviouslyPurchasedProducts(input: {
-    categoryId: string | null;
+    categoryIds: string[];
     companyId: string;
     limit: number;
     offset: number;
@@ -64,9 +64,9 @@ export class SupabasePartnerOrderHistoryRepository implements PartnerOrderHistor
   }) {
     const startedAt = performance.now();
     const { data, error } = await (await createClient()).rpc(
-      "get_partner_previously_purchased_products_v2",
+      "get_partner_previously_purchased_products_v3",
       {
-        p_category_id: input.categoryId,
+        p_category_ids: input.categoryIds,
         p_company_id: input.companyId,
         p_limit: input.limit,
         p_offset: input.offset,
@@ -89,6 +89,7 @@ export class SupabasePartnerOrderHistoryRepository implements PartnerOrderHistor
       };
     });
     const totalCount = numberValue(data.totalCount);
+    const allCount = numberValue(data.allCount);
     const categories = records(data.categories).map((row) => ({
       id: text(row.id),
       name: text(row.name),
@@ -102,7 +103,7 @@ export class SupabasePartnerOrderHistoryRepository implements PartnerOrderHistor
       totalCount,
       databaseCallCount: 1,
     }));
-    return { categories, items, totalCount };
+    return { allCount, categories, items, totalCount };
   }
 
   async getDetailAggregate(orderId: string) {

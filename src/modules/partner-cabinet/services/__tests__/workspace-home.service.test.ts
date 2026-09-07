@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { PricingInventoryService } from "../../../pricing-inventory";
 import type { NotificationRepository } from "../../../notifications";
 import type { DocumentRepository } from "../../../documents/repositories";
+import { financeBusinessDate } from "../../../finance/services/finance.service";
 import type { CommercialFreshnessReadModel } from "../../repositories/commercial-freshness.repository";
 import type {
   WorkspaceDashboardProjection,
@@ -11,9 +12,59 @@ import type {
 } from "../../repositories/workspace-dashboard.repository";
 import type { PartnerWorkspaceContextService } from "../workspace-context.service";
 import { resolveWorkspaceCapabilities } from "../workspace-capability.service";
-import { buildQuickActions, DefaultWorkspaceHomeService } from "../workspace-home.service";
+import { buildFinanceGuidance, buildQuickActions, DefaultWorkspaceHomeService } from "../workspace-home.service";
 
 describe("DefaultWorkspaceHomeService", () => {
+  it("keeps unpaid obligations through 12 months, limits paid history to 180 days, and never lets paid crowd out unpaid", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-07T10:00:00Z"));
+    try {
+      const unpaid = Array.from({ length: 24 }, (_, index) => ({
+        id: `unpaid-${index}`,
+        reconciliationStatus: "READY",
+        paymentStatus: "OPEN",
+        remainingAmount: "100",
+        paidAmount: "0",
+        currency: "MDL",
+        dueDate: index === 0 ? "2026-08-01" : index === 1 ? "2026-09-07" : "2027-08-01",
+        settlementLastPaymentAt: null,
+        orderNumber: `ORDER-${index}`,
+      }));
+      const rows = [
+        ...unpaid,
+        { ...unpaid[0], id: "outside-horizon", dueDate: "2027-10-01", orderNumber: "OUTSIDE" },
+        { ...unpaid[0], id: "recent-paid", paymentStatus: "SETTLED", remainingAmount: "0", paidAmount: "50", settlementLastPaymentAt: "2026-06-01T00:00:00Z", orderNumber: "PAID" },
+        { ...unpaid[0], id: "old-paid", paymentStatus: "SETTLED", remainingAmount: "0", paidAmount: "50", settlementLastPaymentAt: "2026-01-01T00:00:00Z", orderNumber: "OLD" },
+      ];
+      const result = buildFinanceGuidance(rows as never, "2026-09-07T09:00:00Z");
+      expect(result.paymentGraph).toHaveLength(24);
+      expect(result.paymentGraph.map((item) => item.id)).toContain("unpaid-0");
+      expect(result.paymentGraph.map((item) => item.id)).toContain("unpaid-1");
+      expect(result.paymentGraph.map((item) => item.id)).toContain("unpaid-23");
+      expect(result.paymentGraph.map((item) => item.id)).not.toContain("outside-horizon");
+      expect(result.paymentGraph.map((item) => item.id)).not.toContain("recent-paid");
+      expect(result.paymentGraph.map((item) => item.id)).not.toContain("old-paid");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("uses recent paid rows only as secondary calendar fill", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-07T10:00:00Z"));
+    try {
+      const base = { reconciliationStatus: "READY", currency: "MDL", orderNumber: "ORDER" };
+      const rows = [
+        { ...base, id: "future", paymentStatus: "OPEN", remainingAmount: "100", paidAmount: "0", dueDate: "2027-08-01", settlementLastPaymentAt: null },
+        { ...base, id: "recent-paid", paymentStatus: "SETTLED", remainingAmount: "0", paidAmount: "50", dueDate: "2026-01-01", settlementLastPaymentAt: "2026-06-01T00:00:00Z" },
+        { ...base, id: "old-paid", paymentStatus: "SETTLED", remainingAmount: "0", paidAmount: "50", dueDate: "2026-01-01", settlementLastPaymentAt: "2026-01-01T00:00:00Z" },
+      ];
+      const result = buildFinanceGuidance(rows as never, "2026-09-07T09:00:00Z");
+      expect(result.paymentGraph.map((item) => item.id)).toEqual(["future", "recent-paid"]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
   it("passes the server-derived Estimate, conversion, and order capabilities to the shared sales provider", async () => {
     const salesWorkspace = {
       listEstimateOpportunities: vi.fn().mockResolvedValue([]),
@@ -453,8 +504,8 @@ describe("DefaultWorkspaceHomeService", () => {
     expect(workspace.campaigns.map((item) => item.type)).toEqual(["product_offer", "arrival_promotion"]);
   });
 
-  it("derives the 30-day payment graph from the already loaded local Finance obligations", async () => {
-    const today = new Date().toISOString().slice(0, 10);
+  it("derives the 12-month payment graph from the already loaded local Finance obligations", async () => {
+    const today = financeBusinessDate(new Date());
     const financeRepository = {
       getOverviewData: vi.fn().mockResolvedValue({
         balances: [],
@@ -488,10 +539,10 @@ describe("DefaultWorkspaceHomeService", () => {
     ).getWorkspaceHome("partner-1");
 
     expect(financeRepository.getOverviewData).toHaveBeenCalledOnce();
-    expect(workspace.financeGuidance?.paymentGraph.map((item) => item.timing)).toEqual(["paid", "overdue", "today", "upcoming"]);
+    expect(workspace.financeGuidance?.paymentGraph.map((item) => item.timing)).toEqual(["overdue", "today", "upcoming", "upcoming", "paid"]);
     expect(workspace.financeGuidance?.paymentGraph.find((item) => item.id === "settled")).toMatchObject({ amount: 300, orderNumber: "settled", timing: "paid" });
     expect(workspace.financeGuidance?.paymentGraph.map((item) => item.id)).not.toContain("settled-old");
-    expect(workspace.financeGuidance?.paymentGraph.map((item) => item.id)).not.toContain("later");
+    expect(workspace.financeGuidance?.paymentGraph.map((item) => item.id)).toContain("later");
     expect(workspace.financeGuidance?.paymentGraph.every((item) => item.relativeHeight >= 18 && item.relativeHeight <= 100)).toBe(true);
   });
 

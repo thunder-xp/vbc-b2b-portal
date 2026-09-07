@@ -15,9 +15,18 @@ describe("dashboard commerce and history UX", () => {
     const page = readFileSync(resolve(process.cwd(), "app/(partner)/cabinet/repeat-purchase/page.tsx"), "utf8");
     expect(page).toContain("<CatalogPresentation");
     expect(page).toContain("parseCatalogViewMode");
-    expect(page).toContain("data-repeat-purchase-categories");
+    expect(page).toContain("<RepeatPurchaseCategoryFilters");
+    expect(readFileSync(resolve(process.cwd(), "src/modules/orders/components/RepeatPurchaseCategoryFilters.tsx"), "utf8")).toContain("data-repeat-purchase-categories");
     expect(page).toContain("<NumberedPagination");
     expect(page).toContain("detailReturnHref={currentHref}");
     expect(page).not.toContain("companyId={single(params");
+  });
+
+  it("uses green compact count badges and routes all offers to the storefront", () => {
+    const dashboard = readFileSync(resolve(process.cwd(), "src/modules/partner-cabinet/components/OperationalDashboard.tsx"), "utf8");
+    expect(dashboard).toContain('actionHref="/cabinet/catalog" actionLabel={partnerText(locale, "dashboard.allOffers")}');
+    expect(dashboard).toContain("bg-emerald-700");
+    expect(dashboard).toContain("text-white");
+    expect(dashboard).not.toContain('actionHref="/cabinet/offers" actionLabel={partnerText(locale, "dashboard.allOffers")}');
   });
 });

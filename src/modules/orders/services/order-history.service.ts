@@ -154,11 +154,11 @@ export type PartnerOrderHistorySyncResult = {
 
 export interface PartnerOrderHistoryService {
   listPreviouslyPurchasedProducts?(userId: string, input?: {
-    categoryId?: string | null;
+    categoryIds?: string[];
     limit?: number;
     offset?: number;
     search?: string | null;
-  }): Promise<{ categories: Array<{ id: string; name: string; slug: string; productCount: number }>; items: PreviouslyPurchasedProductDto[]; totalCount: number }>;
+  }): Promise<{ allCount: number; categories: Array<{ id: string; name: string; slug: string; productCount: number }>; items: PreviouslyPurchasedProductDto[]; totalCount: number }>;
   listPlannedShipments(userId: string, input?: { page?: number | string | null }): Promise<{
     shipments: PlannedShipmentDto[];
     page: number;
@@ -195,8 +195,8 @@ export class DefaultPartnerOrderHistoryService implements PartnerOrderHistorySer
 
   async listPreviouslyPurchasedProducts(
     userId: string,
-    input: { categoryId?: string | null; limit?: number; offset?: number; search?: string | null } = {},
-  ): Promise<{ categories: Array<{ id: string; name: string; slug: string; productCount: number }>; items: PreviouslyPurchasedProductDto[]; totalCount: number }> {
+    input: { categoryIds?: string[]; limit?: number; offset?: number; search?: string | null } = {},
+  ): Promise<{ allCount: number; categories: Array<{ id: string; name: string; slug: string; productCount: number }>; items: PreviouslyPurchasedProductDto[]; totalCount: number }> {
     const context = await this.resolveContext(userId, ORDERS_VIEW_PERMISSION);
     if (!this.historyRepository.listPreviouslyPurchasedProducts) {
       throw new InvalidStateError("Previously purchased products are unavailable.");
@@ -204,13 +204,14 @@ export class DefaultPartnerOrderHistoryService implements PartnerOrderHistorySer
     const limit = boundedInteger(input.limit, 20, 1, 24);
     const offset = boundedInteger(input.offset, 0, 0, 5000);
     const result = await this.historyRepository.listPreviouslyPurchasedProducts({
-      categoryId: normalizeOptionalUuid(input.categoryId),
+      categoryIds: normalizeUuidList(input.categoryIds),
       companyId: context.company.id,
       limit,
       offset,
       search: normalizeProductSearch(input.search),
     });
     return {
+      allCount: result.allCount,
       items: result.items.map((record) => {
         const commercial = projectProductCommercialSnapshot(
           record.product.commercialSnapshot,
@@ -1194,6 +1195,10 @@ function normalizeOptionalUuid(value: string | null | undefined): string | null 
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(normalized)
     ? normalized
     : null;
+}
+
+function normalizeUuidList(values: string[] | undefined): string[] {
+  return [...new Set((values ?? []).map(normalizeOptionalUuid).filter((value): value is string => Boolean(value)))].slice(0, 50);
 }
 
 function parsePage(value: number | string | null | undefined): number {

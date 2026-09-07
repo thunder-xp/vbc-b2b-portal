@@ -395,7 +395,7 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
   }
 }
 
-function buildFinanceGuidance(
+export function buildFinanceGuidance(
   obligations: Awaited<ReturnType<FinanceRepository["getOverviewData"]>>["obligations"],
   synchronizedAt: string | null,
 ): NonNullable<WorkspaceHomeDto["financeGuidance"]> {
@@ -419,20 +419,21 @@ function buildFinanceGuidance(
   const nextDueDate = current.map((row) => row.dueDate).sort()[0] ?? null;
   const fresh = Boolean(synchronizedAt && Date.now() - Date.parse(synchronizedAt) <= 3 * 60 * 60 * 1000);
   const currentGraphCandidates = current
-    .filter((row) => row.dueDate <= addDays(today, 30))
+    .filter((row) => row.dueDate <= addDays(today, 365))
     .sort((left, right) => {
-      const leftDistance = Math.abs(daysBetween(today, left.dueDate));
-      const rightDistance = Math.abs(daysBetween(today, right.dueDate));
-      return leftDistance - rightDistance || left.dueDate.localeCompare(right.dueDate);
+      const timingRank = (dueDate: string) => dueDate < today ? 0 : dueDate === today ? 1 : 2;
+      return timingRank(left.dueDate) - timingRank(right.dueDate)
+        || left.dueDate.localeCompare(right.dueDate)
+        || left.id.localeCompare(right.id);
     })
-    .slice(0, 16);
+    .slice(0, 24);
   const paidGraphCandidates = recentlyPaid
     .sort((left, right) => (right.settlementLastPaymentAt ?? "").localeCompare(left.settlementLastPaymentAt ?? ""))
     .slice(0, Math.max(0, 24 - currentGraphCandidates.length));
   const graphCandidates = [
     ...currentGraphCandidates.map((row) => ({ row, eventDate: row.dueDate, timing: row.dueDate < today ? "overdue" as const : row.dueDate === today ? "today" as const : "upcoming" as const, amount: Number(row.remainingAmount) })),
     ...paidGraphCandidates.map((row) => ({ row, eventDate: row.settlementLastPaymentAt!.slice(0, 10), timing: "paid" as const, amount: Number(row.paidAmount) })),
-  ].sort((left, right) => left.eventDate.localeCompare(right.eventDate) || left.row.id.localeCompare(right.row.id));
+  ];
   const maximaByCurrency = new Map<string, number>();
   for (const item of graphCandidates) {
     maximaByCurrency.set(
@@ -456,10 +457,6 @@ function buildFinanceGuidance(
       relativeHeight: Math.max(18, Math.round((item.amount / (maximaByCurrency.get(item.row.currency) || 1)) * 100)),
     })),
   };
-}
-
-function daysBetween(from: string, to: string): number {
-  return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);
 }
 
 function selectDashboardCampaigns(campaigns: PartnerCampaign[]): PartnerCampaign[] {

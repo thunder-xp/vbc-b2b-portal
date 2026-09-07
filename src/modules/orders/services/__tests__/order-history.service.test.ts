@@ -487,6 +487,7 @@ describe("DefaultPartnerOrderHistoryService", () => {
 
   it("projects a bounded previously-purchased page with current commercial truth", async () => {
     const listPreviouslyPurchasedProducts = vi.fn().mockResolvedValue({
+      allCount: 1,
       items: [{
         product: {
           id: "product-1",
@@ -523,7 +524,8 @@ describe("DefaultPartnerOrderHistoryService", () => {
 
     const result = await service(repository).listPreviouslyPurchasedProducts("user-1", { limit: 5, offset: 0 });
 
-    expect(listPreviouslyPurchasedProducts).toHaveBeenCalledWith({ categoryId: null, companyId: COMPANY_ID, limit: 5, offset: 0, search: null });
+    expect(listPreviouslyPurchasedProducts).toHaveBeenCalledWith({ categoryIds: [], companyId: COMPANY_ID, limit: 5, offset: 0, search: null });
+    expect(result.allCount).toBe(1);
     expect(result.items[0]).toMatchObject({
       id: "product-1",
       categoryName: "Video",
