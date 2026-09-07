@@ -37,8 +37,8 @@ export function CatalogProductCardFrame({
       <div className="mt-1 h-10 min-w-0">{title}</div>
       {context ? <div className={compact ? "mt-1 min-h-4" : "mt-2 min-h-8"}>{context}</div> : null}
       <div className={`${compact ? "mt-2" : "mt-3"} grid overflow-hidden rounded-md text-sm`}>
-        <div className={compact ? "h-12" : "h-[5.25rem]"}>{commercial}</div>
-        <div className={compact ? "h-8" : "h-[3.25rem]"}>{availability}</div>
+        <div className={compact ? "h-12" : "h-[5.75rem]"}>{commercial}</div>
+        <div className={compact ? "h-8" : "h-9"}>{availability}</div>
       </div>
       <div className={`mt-auto ${compact ? "pt-2" : "pt-3"}`}>
         {actions}

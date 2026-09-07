@@ -15,8 +15,8 @@ describe("product card ergonomics contracts", () => {
   it("keeps deterministic identity, commercial, availability, and action zones", () => {
     expect(card).toContain("aspect-[4/3]");
     expect(card).toContain("line-clamp-2 h-10");
-    expect(cardFrame).toContain('compact ? "h-12" : "h-[5.25rem]"');
-    expect(cardFrame).toContain('compact ? "h-8" : "h-[3.25rem]"');
+    expect(cardFrame).toContain('compact ? "h-12" : "h-[5.75rem]"');
+    expect(cardFrame).toContain('compact ? "h-8" : "h-9"');
     expect(cardFrame).toContain('compact ? "pt-2" : "pt-3"');
     expect(cardFrame).toContain("min-h-11 justify-end");
     expect(cardFrame).toContain("grid overflow-hidden rounded-md");
@@ -35,7 +35,9 @@ describe("product card ergonomics contracts", () => {
     expect(pricing).toContain('variant === "list"');
     expect(availability).toContain("if (!stock) return copy.availabilityPending");
     expect(availability).toContain("stock.exactAvailableQuantity");
-    expect(availability).toContain("line-clamp-2");
+    expect(availability).toContain("truncate whitespace-nowrap");
+    expect(availability).toContain("title={label}");
+    expect(availability).not.toContain("line-clamp-2");
     expect(availability).not.toContain("border-l-2");
   });
 

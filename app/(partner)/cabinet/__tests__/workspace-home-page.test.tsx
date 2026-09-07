@@ -1,4 +1,6 @@
 import { render, screen } from "@testing-library/react";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -52,6 +54,25 @@ describe("Partner Workspace operational home", () => {
     expect(screen.getAllByRole("heading", { level: 2 })[0]).toHaveTextContent("Требует внимания");
   });
 
+  it("keeps the authoritative commercial section order", () => {
+    const source = readFileSync(join(process.cwd(), "src/modules/partner-cabinet/components/OperationalDashboard.tsx"), "utf8");
+    const dashboard = source.slice(
+      source.indexOf("export function OperationalDashboard"),
+      source.indexOf("export function EstimateSalesSection"),
+    );
+    const markers = [
+      "<ProductSection",
+      'data-dashboard-section="priority-work"',
+      "<OpportunitySection",
+      "<FinanceSection",
+      'data-dashboard-section="fulfilment"',
+      "<NovotechOffersSection",
+    ];
+    const positions = markers.map((marker) => dashboard.indexOf(marker));
+    expect(positions.every((position) => position >= 0)).toBe(true);
+    expect(positions).toEqual([...positions].sort((left, right) => left - right));
+  });
+
   it("keeps quick actions out of the dashboard body and shows no invented metrics", async () => {
     const { container } = render(await CabinetPage());
 
@@ -62,7 +83,55 @@ describe("Partner Workspace operational home", () => {
     expect(container.textContent).not.toMatch(/1C integration|f7df2069|33333333/);
   });
 
-  it("renders canonical dismissible attention", async () => {
+  it.each([
+    ["ru", "Платёжный календарь", "Просрочено", "Сегодня", "В ближайшие 30 дней"],
+    ["ro", "Calendarul plăților", "Restante", "Astăzi", "În următoarele 30 de zile"],
+  ])("renders the local Finance payment graph in %s", async (locale, heading, overdue, today, upcoming) => {
+    mocks.getPartnerLocale.mockResolvedValue(locale);
+    mocks.getWorkspaceHomeAction.mockResolvedValue({
+      success: true,
+      data: {
+        ...workspaceData(),
+        financeGuidance: {
+          state: "overdue",
+          totals: [{ currency: "MDL", outstanding: 600, overdue: 100 }],
+          nextDueDate: "2026-09-05",
+          fresh: true,
+          paymentGraph: [
+            { id: "overdue", dueDate: "2026-09-05", remainingAmount: 100, currency: "MDL", timing: "overdue", relativeHeight: 25 },
+            { id: "today", dueDate: "2026-09-07", remainingAmount: 200, currency: "MDL", timing: "today", relativeHeight: 50 },
+            { id: "upcoming", dueDate: "2026-09-20", remainingAmount: 400, currency: "MDL", timing: "upcoming", relativeHeight: 100 },
+          ],
+        },
+      },
+    });
+
+    render(await CabinetPage());
+    expect(screen.getByRole("heading", { name: heading })).toBeInTheDocument();
+    expect(screen.getByText(overdue, { selector: "span" })).toBeInTheDocument();
+    expect(screen.getByText(today, { selector: "span" })).toBeInTheDocument();
+    expect(screen.getByText(upcoming, { selector: "span" })).toBeInTheDocument();
+  });
+
+  it("renders a truthful empty payment-graph state", async () => {
+    mocks.getWorkspaceHomeAction.mockResolvedValue({
+      success: true,
+      data: {
+        ...workspaceData(),
+        financeGuidance: {
+          state: "healthy",
+          totals: [],
+          nextDueDate: null,
+          fresh: true,
+          paymentGraph: [],
+        },
+      },
+    });
+    render(await CabinetPage());
+    expect(screen.getByText("В ближайшие 30 дней платежей нет.")).toBeInTheDocument();
+  });
+
+  it("renders canonical attention without a dismiss control", async () => {
     mocks.getWorkspaceHomeAction.mockResolvedValue({
       success: true,
       errorCode: null,
@@ -89,7 +158,7 @@ describe("Partner Workspace operational home", () => {
 
     render(await CabinetPage());
     expect(screen.getByText("Отгрузка заказа NSUU-1 просрочена")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Скрыть сообщение" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Скрыть сообщение" })).not.toBeInTheDocument();
   });
 
   it("renders governed attention in Romanian without persisted mojibake", async () => {
@@ -134,12 +203,12 @@ describe("Partner Workspace operational home", () => {
     }] } });
     const { container } = render(await CabinetPage());
     const card = container.querySelector('[data-attention-card]');
-    expect(card).toHaveClass("p-3", "grid-cols-[20px_minmax(0,1fr)_44px]");
+    expect(card).toHaveClass("px-3", "py-2", "grid-cols-[20px_minmax(0,1fr)]", "sm:grid-cols-[20px_minmax(0,1fr)_auto]");
     expect(screen.getAllByText(locale === "ru" ? "Тестовый период завершён" : "Perioada de testare s-a încheiat")).toHaveLength(1);
     expect(screen.queryByText(locale === "ru" ? "Тестовый" : "Test", { exact: true })).toBeNull();
     expect(card?.querySelector('a')).toHaveClass("min-h-11");
-    expect(card?.querySelector('form input[name="sourceFingerprint"]')).toHaveValue("a".repeat(64));
-    expect(card?.querySelector('button')).toHaveClass("size-11");
+    expect(card?.querySelector("form")).toBeNull();
+    expect(card?.querySelector("button")).toBeNull();
   });
 
   it("redirects unauthenticated users", async () => {

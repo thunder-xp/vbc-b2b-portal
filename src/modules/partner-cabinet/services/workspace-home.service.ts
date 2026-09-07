@@ -146,6 +146,14 @@ export type WorkspaceHomeDto = {
     totals: Array<{ currency: string; outstanding: number; overdue: number }>;
     nextDueDate: string | null;
     fresh: boolean;
+    paymentGraph: Array<{
+      id: string;
+      dueDate: string;
+      remainingAmount: number;
+      currency: string;
+      timing: "overdue" | "today" | "upcoming";
+      relativeHeight: number;
+    }>;
   };
   companySummary: null | {
     activeEmployees: number;
@@ -223,7 +231,7 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
       timedDashboardRead("product_selections", () => this.dashboardRepository.getProductSelections?.(userId, companyId, loginGeneration) ?? Promise.resolve(null)),
       timedDashboardRead("opportunities", () => this.opportunityRepository?.list({ companyId, filter: "all", limit: 12, offset: 0 })
         ?? Promise.resolve({ items: [], totalCount: 0 })),
-      timedDashboardRead("campaigns", () => this.campaignRepository?.listPartner({ companyId, filter: "active", limit: 2, offset: 0 })
+      timedDashboardRead("campaigns", () => this.campaignRepository?.listPartner({ companyId, filter: "active", limit: 12, offset: 0 })
         ?? Promise.resolve({ items: [], totalCount: 0 })),
       timedDashboardRead("support_tickets", () => this.supportRepository?.dashboard(companyId) ?? Promise.resolve([])),
       timedDashboardRead("estimate_sales_opportunities", () => this.salesWorkspaceService?.listEstimateOpportunities(companyId, userId, {
@@ -243,7 +251,7 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
     );
     const merchandisingCandidates = selections?.merchandisingProducts ?? dashboard.merchandisingProducts;
     const opportunityCandidates = sessionOrderByPriority(
-      opportunityPage.items,
+      opportunityPage.items.filter((item) => item.product),
       loginGeneration,
       "opportunities",
     ).slice(0, 4);
@@ -357,7 +365,7 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
       reorderProducts,
       merchandisingProducts,
       opportunities,
-      campaigns: campaignPage.items,
+      campaigns: selectDashboardCampaigns(campaignPage.items),
       recentDocuments: [],
       financeSummary: dashboard.financeSummary,
       financeGuidance: financeData ? buildFinanceGuidance(financeData.obligations, financeData.syncState?.lastSuccessAt ?? null) : null,
@@ -395,13 +403,48 @@ function buildFinanceGuidance(
   }
   const nextDueDate = current.map((row) => row.dueDate).sort()[0] ?? null;
   const fresh = Boolean(synchronizedAt && Date.now() - Date.parse(synchronizedAt) <= 3 * 60 * 60 * 1000);
+  const graphCandidates = current
+    .filter((row) => row.dueDate <= addDays(today, 30))
+    .sort((left, right) => {
+      const leftDistance = Math.abs(daysBetween(today, left.dueDate));
+      const rightDistance = Math.abs(daysBetween(today, right.dueDate));
+      return leftDistance - rightDistance || left.dueDate.localeCompare(right.dueDate);
+    })
+    .slice(0, 12)
+    .sort((left, right) => left.dueDate.localeCompare(right.dueDate));
+  const maximaByCurrency = new Map<string, number>();
+  for (const row of graphCandidates) {
+    maximaByCurrency.set(
+      row.currency,
+      Math.max(maximaByCurrency.get(row.currency) ?? 0, Number(row.remainingAmount)),
+    );
+  }
   return {
     state: !fresh ? "unavailable" : [...totals.values()].some((row) => row.overdue > 0)
       ? "overdue" : nextDueDate && nextDueDate <= addDays(today, 7) ? "due_soon" : "healthy",
     totals: [...totals.entries()].sort(([left], [right]) => left.localeCompare(right)).map(([currency, value]) => ({ currency, ...value })),
     nextDueDate,
     fresh,
+    paymentGraph: graphCandidates.map((row) => ({
+      id: row.id,
+      dueDate: row.dueDate,
+      remainingAmount: Number(row.remainingAmount),
+      currency: row.currency,
+      timing: row.dueDate < today ? "overdue" : row.dueDate === today ? "today" : "upcoming",
+      relativeHeight: Math.max(18, Math.round((Number(row.remainingAmount) / (maximaByCurrency.get(row.currency) || 1)) * 100)),
+    })),
   };
+}
+
+function daysBetween(from: string, to: string): number {
+  return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);
+}
+
+function selectDashboardCampaigns(campaigns: PartnerCampaign[]): PartnerCampaign[] {
+  const visible = campaigns.slice(0, 2);
+  const arrival = campaigns.find((campaign) => campaign.type === "arrival_promotion");
+  if (!arrival || visible.some((campaign) => campaign.id === arrival.id)) return visible;
+  return [visible[0], arrival].filter((campaign): campaign is PartnerCampaign => Boolean(campaign));
 }
 
 function addDays(date: string, days: number): string {

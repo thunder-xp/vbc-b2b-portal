@@ -24,7 +24,7 @@ describe("compact catalog layout", () => {
   it("reuses the canonical grid and card for bounded merchandising sections", () => {
     expect(merchandising).toContain("CATALOG_PRODUCT_GRID_CLASS");
     expect(merchandising).toContain("<ProductCard");
-    expect(merchandising).toContain("slice(0, section.maxProducts ?? 10)");
+    expect(merchandising).toContain("slice(0, 5)");
     expect(merchandising).not.toContain("grid-cols-4");
   });
 
@@ -36,8 +36,8 @@ describe("compact catalog layout", () => {
     expect(card).toContain("CatalogCardImage");
     expect(card).toContain('className="truncate');
     expect(card).toContain("line-clamp-2 h-10");
-    expect(cardFrame).toContain('compact ? "h-12" : "h-[5.25rem]"');
-    expect(cardFrame).toContain('compact ? "h-8" : "h-[3.25rem]"');
+    expect(cardFrame).toContain('compact ? "h-12" : "h-[5.75rem]"');
+    expect(cardFrame).toContain('compact ? "h-8" : "h-9"');
     expect(card).toContain("MerchandisingBadgeOverlay");
     expect(badges).toContain("absolute left-2 top-2");
     expect(card).not.toContain("min-h-8 items-center px-3 pt-2");

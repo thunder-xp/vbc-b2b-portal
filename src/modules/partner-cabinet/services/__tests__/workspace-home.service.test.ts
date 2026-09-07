@@ -389,6 +389,126 @@ describe("DefaultWorkspaceHomeService", () => {
     expect(workspace.opportunities.map((item) => item.priority)).toEqual([20, 55, 55, 55]);
   });
 
+  it("keeps only product-backed opportunities in the bounded Dashboard lane", async () => {
+    const opportunityRepository = {
+      list: vi.fn().mockResolvedValue({
+        totalCount: 6,
+        items: [
+          { ...opportunity("product-1"), priority: 10 },
+          { ...opportunity("template-1"), priority: 20, product: null, template: { id: "template-1" } },
+          { ...opportunity("product-2"), priority: 30 },
+          { ...opportunity("product-3"), priority: 40 },
+          { ...opportunity("product-4"), priority: 50 },
+          { ...opportunity("product-5"), priority: 60 },
+        ],
+      }),
+      dismiss: vi.fn(),
+    };
+
+    const workspace = await new DefaultWorkspaceHomeService(
+      fakeContextService(),
+      fakeFreshness(),
+      fakeDashboardRepository(),
+      fakePricingInventoryService(),
+      undefined,
+      opportunityRepository as never,
+    ).getWorkspaceHome("partner-1", "login-a");
+
+    expect(workspace.opportunities).toHaveLength(4);
+    expect(workspace.opportunities.every((item) => Boolean(item.product))).toBe(true);
+    expect(workspace.opportunities.map((item) => item.priority)).toEqual([10, 30, 40, 50]);
+  });
+
+  it("keeps an authoritative arrival campaign in the existing bounded campaign read", async () => {
+    const campaignRepository = {
+      listPartner: vi.fn().mockResolvedValue({
+        totalCount: 3,
+        items: [
+          campaign("hot", "product_offer", 1),
+          campaign("popular", "category_campaign", 2),
+          campaign("arrival", "arrival_promotion", 3),
+        ],
+      }),
+    };
+
+    const workspace = await new DefaultWorkspaceHomeService(
+      fakeContextService(),
+      fakeFreshness(),
+      fakeDashboardRepository(),
+      fakePricingInventoryService(),
+      undefined,
+      undefined,
+      campaignRepository as never,
+    ).getWorkspaceHome("partner-1");
+
+    expect(campaignRepository.listPartner).toHaveBeenCalledOnce();
+    expect(campaignRepository.listPartner).toHaveBeenCalledWith({
+      companyId: "company-1",
+      filter: "active",
+      limit: 12,
+      offset: 0,
+    });
+    expect(workspace.campaigns.map((item) => item.type)).toEqual(["product_offer", "arrival_promotion"]);
+  });
+
+  it("derives the 30-day payment graph from the already loaded local Finance obligations", async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    const financeRepository = {
+      getOverviewData: vi.fn().mockResolvedValue({
+        balances: [],
+        obligations: [
+          paymentObligation("overdue", addTestDays(today, -2), "100"),
+          paymentObligation("today", today, "200"),
+          paymentObligation("upcoming", addTestDays(today, 15), "400"),
+          paymentObligation("later", addTestDays(today, 31), "800"),
+          { ...paymentObligation("settled", addTestDays(today, 2), "0"), paymentStatus: "SETTLED" },
+        ],
+        unavailableCount: 0,
+        syncState: { lastSuccessAt: new Date().toISOString() },
+      }),
+    };
+
+    const workspace = await new DefaultWorkspaceHomeService(
+      fakeContextService(),
+      fakeFreshness(),
+      fakeDashboardRepository(),
+      fakePricingInventoryService(),
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      financeRepository as never,
+    ).getWorkspaceHome("partner-1");
+
+    expect(financeRepository.getOverviewData).toHaveBeenCalledOnce();
+    expect(workspace.financeGuidance?.paymentGraph.map((item) => item.timing)).toEqual(["overdue", "today", "upcoming"]);
+    expect(workspace.financeGuidance?.paymentGraph.map((item) => item.id)).not.toContain("later");
+    expect(workspace.financeGuidance?.paymentGraph.every((item) => item.relativeHeight >= 18 && item.relativeHeight <= 100)).toBe(true);
+  });
+
+  it("returns a truthful empty Finance graph without adding another read", async () => {
+    const financeRepository = {
+      getOverviewData: vi.fn().mockResolvedValue({
+        balances: [],
+        obligations: [],
+        unavailableCount: 0,
+        syncState: { lastSuccessAt: new Date().toISOString() },
+      }),
+    };
+    const workspace = await new DefaultWorkspaceHomeService(
+      fakeContextService(), fakeFreshness(), fakeDashboardRepository(), fakePricingInventoryService(),
+      undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined,
+      financeRepository as never,
+    ).getWorkspaceHome("partner-1");
+
+    expect(workspace.financeGuidance?.paymentGraph).toEqual([]);
+    expect(financeRepository.getOverviewData).toHaveBeenCalledOnce();
+  });
+
   it("enriches all dashboard opportunities in the existing product-reference batch", async () => {
     const opportunityRepository = {
       list: vi.fn().mockResolvedValue({
@@ -487,6 +607,61 @@ function opportunity(productId: string) {
     product: { id: productId, sku: productId, name: productId, slug: productId, imageUrl: null, categoryName: null, partnerPrice: null, retailPrice: null, availableQuantity: 1, expectedArrivalDate: null, expectedArrivalQuantity: null },
     template: null,
   };
+}
+
+function campaign(id: string, type: "product_offer" | "category_campaign" | "arrival_promotion", priority: number) {
+  return {
+    id,
+    code: id,
+    title: id,
+    description: id,
+    type,
+    startsAt: "2026-09-01T00:00:00Z",
+    endsAt: "2026-09-30T00:00:00Z",
+    priority,
+    imageAssetPath: null,
+    termsSummary: "Test terms",
+    products: [],
+  };
+}
+
+function paymentObligation(id: string, dueDate: string, remainingAmount: string) {
+  return {
+    id,
+    companyId: "company-1",
+    oneCOrderId: id,
+    orderNumber: id,
+    orderDate: dueDate,
+    oneCCounterpartyId: null,
+    oneCContractId: null,
+    oneCOrganizationId: null,
+    scheduleLineNumber: 1,
+    sourceOrderDataVersion: null,
+    paymentPercent: "100",
+    plannedAmount: remainingAmount,
+    vatAmount: "0",
+    currency: "MDL",
+    dueDate,
+    paymentMethod: "bank",
+    bankAccountId: null,
+    bankAccountName: null,
+    paidAmount: "0",
+    remainingAmount,
+    paymentStatus: "OPEN" as const,
+    settlementLastPaymentAt: null,
+    orderPosted: true,
+    orderDeletionMark: false,
+    orderStatus: null,
+    reconciliationStatus: "READY" as const,
+    unsupportedReason: null,
+    sourceModifiedAt: null,
+    sourceObservedAt: new Date().toISOString(),
+    syncedAt: new Date().toISOString(),
+  };
+}
+
+function addTestDays(date: string, days: number): string {
+  return new Date(Date.parse(`${date}T00:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
 }
 
 function productReference(productId: string, thumbnail: string) {

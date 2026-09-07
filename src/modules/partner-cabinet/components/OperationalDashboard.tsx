@@ -25,15 +25,6 @@ export function OperationalDashboard({
 }) {
   return (
     <div className="space-y-5">
-      <div className={`grid items-stretch gap-4 ${workspace.attentionItems.length && workspace.estimateSalesOpportunities?.length ? "xl:grid-cols-2" : ""}`} data-dashboard-priority-work>
-        <AttentionSection items={workspace.attentionItems} locale={locale} />
-        <EstimateSalesSection items={workspace.estimateSalesOpportunities} locale={locale} />
-      </div>
-      <SupportDashboardBlock items={workspace.supportTickets ?? []} locale={locale} />
-      <div className="grid gap-5 xl:grid-cols-2">
-        <OrdersSection locale={locale} summary={workspace.orderSummary} />
-        <ShipmentsSection locale={locale} summary={workspace.shipmentSummary} />
-      </div>
       <ProductSection
         analyticsSurface="dashboard_reorder"
         locale={locale}
@@ -41,8 +32,19 @@ export function OperationalDashboard({
         title={partnerText(locale, "dashboard.previouslyPurchased")}
         workspace={workspace}
       />
-      <FinanceSection guidance={workspace.financeGuidance} locale={locale} summary={workspace.financeSummary} />
+      <div className="space-y-4" data-dashboard-section="priority-work">
+        <div className={`grid items-stretch gap-4 ${workspace.attentionItems.length && workspace.estimateSalesOpportunities?.length ? "xl:grid-cols-2" : ""}`} data-dashboard-priority-work>
+          <AttentionSection items={workspace.attentionItems} locale={locale} />
+          <EstimateSalesSection items={workspace.estimateSalesOpportunities} locale={locale} />
+        </div>
+        <SupportDashboardBlock items={workspace.supportTickets ?? []} locale={locale} />
+      </div>
       <OpportunitySection locale={locale} opportunities={workspace.opportunities} workspace={workspace} />
+      <FinanceSection guidance={workspace.financeGuidance} locale={locale} summary={workspace.financeSummary} />
+      <div className="grid gap-5 xl:grid-cols-2" data-dashboard-section="fulfilment">
+        <OrdersSection locale={locale} summary={workspace.orderSummary} />
+        <ShipmentsSection locale={locale} summary={workspace.shipmentSummary} />
+      </div>
       <NovotechOffersSection
         campaigns={workspace.campaigns}
         locale={locale}
@@ -110,7 +112,7 @@ function NovotechOffersSection({ campaigns = [], locale, products = [], workspac
 }) {
   if (!campaigns.length && !products.length) return null;
   return (
-    <section aria-labelledby="dashboard-novotech-offers">
+    <section aria-labelledby="dashboard-novotech-offers" data-dashboard-section="novotech-offers">
       <SectionHeading actionHref="/cabinet/offers" actionLabel={partnerText(locale, "dashboard.allOffers")} id="dashboard-novotech-offers" title={partnerText(locale, "dashboard.novotechOffers")} />
       {campaigns.length ? <div className="mt-3 grid gap-3 xl:grid-cols-2">{campaigns.slice(0, 2).map((campaign) => <CampaignCard campaign={campaign} key={campaign.id} locale={locale} />)}</div> : null}
       {products.length ? <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">{products.slice(0, 5).map((item) => <ProductCard analyticsEventName="dashboard_novotech_offer_opened" analyticsSurface="dashboard_offers" capabilities={workspace.capabilities.productCard} commercialView={item.commercialView} key={item.product.id} locale={locale} product={item.product} />)}</div> : null}
@@ -120,7 +122,7 @@ function NovotechOffersSection({ campaigns = [], locale, products = [], workspac
 
 function OpportunitySection({ locale, opportunities = [], workspace }: { locale: PartnerLocale; opportunities?: WorkspaceHomeDto["opportunities"]; workspace: WorkspaceHomeDto }) {
   if (!opportunities.length) return null;
-  return <section aria-labelledby="dashboard-opportunities">
+  return <section aria-labelledby="dashboard-opportunities" data-dashboard-section="purchase-opportunities">
     <SectionHeading actionHref="/cabinet/opportunities" actionLabel={partnerText(locale, "dashboard.allOpportunities")} id="dashboard-opportunities" title={partnerText(locale, "dashboard.opportunities")} />
     <div className="mt-3 grid gap-3 xl:grid-cols-2">{opportunities.slice(0, 4).map((opportunity) => <OpportunityCard canAddToOrder={workspace.capabilities.productCard.canAddToOrder} canAddToSpecification={workspace.capabilities.productCard.canAddToSpecification} canManagePurchasingLists={workspace.capabilities.productCard.canManagePurchasingLists} companyId={workspace.viewer?.companyId} key={opportunity.id} locale={locale} opportunity={opportunity} userId={workspace.viewer?.userId} />)}</div>
   </section>;
@@ -326,7 +328,7 @@ function ProductSection({
 }) {
   if (!products.length) return null;
   return (
-    <section aria-label={title}>
+    <section aria-labelledby={`dashboard-${analyticsSurface}`} data-dashboard-section="repeat-purchase">
       <SectionHeading
         actionHref="/cabinet/catalog"
         actionLabel={partnerText(locale, "dashboard.openCatalog")}
@@ -370,7 +372,7 @@ function FinanceSection({
 }) {
   if (!summary && !guidance) return null;
   return (
-    <section aria-labelledby="dashboard-finance">
+    <section aria-labelledby="dashboard-finance" data-dashboard-section="finance">
       <SectionHeading
         actionHref="/cabinet/finance"
         actionLabel={partnerText(locale, "dashboard.openFinance")}
@@ -417,9 +419,60 @@ function FinanceSection({
             </div>
           </div>
         </div> : null}
+        {guidance ? <PaymentGraph guidance={guidance} locale={locale} /> : null}
       </div>
     </section>
   );
+}
+
+function PaymentGraph({
+  guidance,
+  locale,
+}: {
+  guidance: NonNullable<WorkspaceHomeDto["financeGuidance"]>;
+  locale: PartnerLocale;
+}) {
+  return (
+    <div className="mt-4 border-t border-zinc-200 pt-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold text-zinc-950">{partnerText(locale, "dashboard.paymentCalendar")}</h3>
+        <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-zinc-600" aria-label={partnerText(locale, "dashboard.paymentLegend")}>
+          <GraphLegend className="bg-rose-500" label={partnerText(locale, "dashboard.paymentOverdue")} />
+          <GraphLegend className="bg-amber-500" label={partnerText(locale, "dashboard.paymentToday")} />
+          <GraphLegend className="bg-emerald-600" label={partnerText(locale, "dashboard.paymentUpcoming")} />
+        </div>
+      </div>
+      {guidance.paymentGraph.length ? (
+        <div
+          aria-label={partnerText(locale, "dashboard.paymentCalendar")}
+          className="mt-3 grid h-32 items-end gap-1 border-b border-zinc-300 px-1 sm:gap-2"
+          role="img"
+          style={{ gridTemplateColumns: `repeat(${guidance.paymentGraph.length}, minmax(0, 1fr))` }}
+        >
+          {guidance.paymentGraph.map((payment) => {
+            const label = `${formatDate(payment.dueDate, locale)} · ${formatAmount(payment.remainingAmount, payment.currency, locale)}`;
+            return (
+              <div className="flex h-full min-w-0 flex-col justify-end" key={payment.id} title={label}>
+                <span className="sr-only">{label}</span>
+                <span
+                  aria-hidden="true"
+                  className={`min-h-5 w-full rounded-t-sm ${payment.timing === "overdue" ? "bg-rose-500" : payment.timing === "today" ? "bg-amber-500" : "bg-emerald-600"}`}
+                  style={{ height: `${payment.relativeHeight}%` }}
+                />
+                <span aria-hidden="true" className="mt-1 truncate text-center text-[10px] leading-3 text-zinc-500">
+                  {formatPartnerDate(payment.dueDate, locale, { day: "2-digit", month: "2-digit", timeZone: "UTC" })}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      ) : <p className="mt-3 bg-zinc-50 px-3 py-2 text-sm text-zinc-600">{partnerText(locale, "dashboard.paymentGraphEmpty")}</p>}
+    </div>
+  );
+}
+
+function GraphLegend({ className, label }: { className: string; label: string }) {
+  return <span className="inline-flex items-center gap-1.5"><span aria-hidden="true" className={`size-2 rounded-sm ${className}`} />{label}</span>;
 }
 
 function financeStateKey(state: NonNullable<WorkspaceHomeDto["financeGuidance"]>["state"]) {

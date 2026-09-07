@@ -5,12 +5,13 @@ type StockView = ProductCommercialViewDto["stock"];
 
 export function ProductAvailabilityBlock({ locale = "ru", stock }: { locale?: PartnerLocale; stock?: StockView | null }) {
   const tone = getAvailabilityTone(stock?.status);
+  const label = availabilityLabel(stock, locale);
 
   return (
     <div className={`flex h-full min-w-0 items-center gap-2 px-2 py-1.5 ${tone.container}`}>
       <span aria-hidden="true" className={`size-2 shrink-0 rounded-full ${tone.indicator}`} />
-      <span className={`line-clamp-2 whitespace-pre-line text-xs font-semibold leading-4 ${tone.text}`}>
-        {availabilityLabel(stock, locale)}
+      <span className={`truncate whitespace-nowrap text-xs font-semibold leading-4 ${tone.text}`} title={label}>
+        {label}
       </span>
     </div>
   );
@@ -29,7 +30,7 @@ function availabilityLabel(stock: StockView | null | undefined, locale: PartnerL
     case "expected": {
       const date = stock.expectedArrival?.expectedDate;
       return date
-        ? `${copy.expectedArrival}\n${formatPartnerDate(date, locale, { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" })}`
+        ? `${copy.expectedArrival} · ${formatPartnerDate(date, locale, { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" })}`
         : copy.expectedArrival;
     }
     case "out_of_stock":
