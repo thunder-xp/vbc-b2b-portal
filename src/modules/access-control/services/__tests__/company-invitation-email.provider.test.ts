@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const smtp = vi.hoisted(() => ({
   close: vi.fn(),
@@ -26,6 +26,10 @@ describe("SmtpCompanyInvitationEmailProvider", () => {
     smtp.createTransport.mockReturnValue({ close: smtp.close, sendMail: smtp.sendMail });
   });
 
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it.each([
     ["EAUTH", "authentication"],
     ["ETIMEDOUT", "timeout"],
@@ -48,6 +52,15 @@ describe("SmtpCompanyInvitationEmailProvider", () => {
       expect.objectContaining({ category: "configuration" }),
     );
     expect(smtp.createTransport).not.toHaveBeenCalled();
+  });
+
+  it("does not open SMTP when the email kill switch is on", async () => {
+    vi.stubEnv("COMMUNICATION_EMAIL_KILL_SWITCH", "ON");
+    await expect(new SmtpCompanyInvitationEmailProvider().send(message())).rejects.toEqual(
+      expect.objectContaining({ category: "configuration" }),
+    );
+    expect(smtp.createTransport).not.toHaveBeenCalled();
+    expect(smtp.sendMail).not.toHaveBeenCalled();
   });
 });
 

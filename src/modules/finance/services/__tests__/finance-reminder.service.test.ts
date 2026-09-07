@@ -4,6 +4,8 @@ import type { FinanceRepository } from "../../repositories";
 import type { FinanceReminderCandidate, PartnerPaymentObligation } from "../../types";
 import {
   FINANCE_REMINDER_CTA_TARGET,
+  FINANCE_REMINDER_EMAIL_LIVE,
+  FINANCE_REMINDER_IN_APP_LIVE,
   FINANCE_REMINDER_OUTBOUND_MODE,
   FINANCE_REMINDER_SMS_ENABLED,
   FinanceReminderDryRunService,
@@ -44,6 +46,17 @@ describe("FINANCE_REMINDER_V1", () => {
     });
     expect(inApp.contentPayload).toMatchObject({ kind: "finance_reminder_in_app", ctaTarget: "/cabinet/finance" });
     expect(sms.contentPayload).toMatchObject({ kind: "finance_reminder_sms_preview", smsEnabled: false });
+    expect(email.contentPayload).toMatchObject({
+      communication: {
+        businessEventType: "finance.payment_reminder",
+        channel: "email",
+        mode: "DRY_RUN",
+        templateKey: "finance.payment_reminder",
+        templateVersion: "v1",
+        sensitivity: "FINANCIAL_PRIVATE",
+        state: "PROJECTED",
+      },
+    });
     expect(inApp.body).not.toContain("Заказ CO-1");
     expect(sms.body).not.toBe(email.body);
     expect(new Set(result.projections.map((row) => row.deliveryIdentity)).size).toBe(3);
@@ -160,6 +173,8 @@ describe("FINANCE_REMINDER_V1", () => {
 
   it("preserves explicit dry-run and SMS-off safety", () => {
     expect(FINANCE_REMINDER_OUTBOUND_MODE).toBe("DRY_RUN");
+    expect(FINANCE_REMINDER_EMAIL_LIVE).toBe(false);
+    expect(FINANCE_REMINDER_IN_APP_LIVE).toBe(false);
     expect(FINANCE_REMINDER_SMS_ENABLED).toBe(false);
   });
 });

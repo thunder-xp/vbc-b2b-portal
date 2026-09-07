@@ -1,3 +1,7 @@
+export * from "./communication-gateway.service";
+export * from "./communication-intent";
+export * from "./communication-template.registry";
+export * from "./finance-payment-reminder.template";
 export * from "./notification-channel.adapter";
 export * from "./notification-delivery.repository";
 export * from "./notification-delivery-worker.service";

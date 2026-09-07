@@ -8,6 +8,16 @@ import {
   getSmtpSenderIdentity,
   type SmtpSenderIdentity,
 } from "@/src/lib/email/runtime-email-config";
+import {
+  CommunicationGatewayService,
+  createFinanceReminderTemplateRegistry,
+  FINANCE_PAYMENT_REMINDER_TEMPLATE_KEY,
+  FINANCE_PAYMENT_REMINDER_TEMPLATE_VERSION,
+  ruPlural,
+  type CommunicationChannel,
+  type CommunicationIntent,
+  type FinancePaymentReminderTemplateVariables,
+} from "@/src/modules/notifications/gateway";
 
 import type { FinanceRepository } from "../repositories";
 import type {
@@ -22,6 +32,8 @@ import type {
 
 export const FINANCE_REMINDER_POLICY_VERSION = "FINANCE_REMINDER_V1" as const;
 export const FINANCE_REMINDER_OUTBOUND_MODE = "DRY_RUN" as const;
+export const FINANCE_REMINDER_EMAIL_LIVE = false as const;
+export const FINANCE_REMINDER_IN_APP_LIVE = false as const;
 export const FINANCE_REMINDER_SMS_ENABLED = false as const;
 export const FINANCE_REMINDER_CTA_TARGET = "/cabinet/finance" as const;
 
@@ -124,14 +136,7 @@ export function reminderMilestone(businessDate: string, dueDate: string): string
   return daysOverdue > 7 && (daysOverdue - 7) % 7 === 0 ? `WEEKLY_D+${daysOverdue}` : null;
 }
 
-export function ruPlural(value: number, one: string, few: string, many: string): string {
-  const absolute = Math.abs(value) % 100;
-  const last = absolute % 10;
-  if (absolute > 10 && absolute < 20) return many;
-  if (last === 1) return one;
-  if (last >= 2 && last <= 4) return few;
-  return many;
-}
+export { ruPlural };
 
 function suppressionReason(candidate: FinanceReminderCandidate, businessDate: string): FinanceReminderSuppression["reason"] | null {
   const obligation = candidate.obligation;
@@ -154,21 +159,75 @@ function toProjection(
   const totalsByCurrency = sumCurrencies(ordered);
   const milestone = [...new Set(ordered.map((item) => item.milestone))].sort().join("+");
   const timingStates = orderedTimingStates(ordered);
-  const content = channel === "email"
-    ? renderEmail(first.locale, ordered, totalsByCurrency, context.applicationOrigin)
-    : channel === "in_app"
-      ? renderInApp(first.locale, ordered, totalsByCurrency)
-      : renderSms(first.locale, ordered, totalsByCurrency, context.applicationOrigin);
-  const identityParts = [
+  const gatewayChannel: CommunicationChannel = channel === "sms_future" ? "sms" : channel;
+  const intentIdentityParts = [
     FINANCE_REMINDER_POLICY_VERSION,
     first.obligation.companyId,
-    channel,
     first.recipientUserId,
-    channel === "email" ? first.recipientEmail?.trim().toLowerCase() : "",
     ...ordered.flatMap((item) => [item.obligation.oneCOrderId, item.obligation.dueDate, item.milestone, item.obligation.reconciliationFingerprint]),
   ];
-  const deliveryIdentity = hash(["LIVE", ...identityParts]);
-  const fingerprint = hash(["DRY_RUN", businessDate, deliveryIdentity, content.subject, content.body]);
+  const intentId = hash(["INTENT", ...intentIdentityParts]);
+  const intent: CommunicationIntent<FinancePaymentReminderTemplateVariables> = Object.freeze({
+    intentId,
+    businessEventType: "finance.payment_reminder",
+    businessEntityReferences: Object.freeze(ordered.map((item) => item.obligation.id)),
+    companyId: first.obligation.companyId,
+    recipient: Object.freeze({
+      userId: first.recipientUserId!,
+      companyId: first.obligation.companyId,
+      locale: first.locale,
+      email: first.recipientEmail,
+      phone: null,
+      identityVerified: true,
+      membershipActive: first.recipientRole !== null,
+      capabilityAuthorized: first.recipientRole !== null,
+    }),
+    templateKey: FINANCE_PAYMENT_REMINDER_TEMPLATE_KEY,
+    templateVersion: FINANCE_PAYMENT_REMINDER_TEMPLATE_VERSION,
+    channelPolicy: Object.freeze({ email: "DRY_RUN", in_app: "DRY_RUN", sms: "DISABLED" }),
+    variables: Object.freeze({
+      items: Object.freeze(ordered.map((item) => Object.freeze({
+        orderNumber: item.obligation.orderNumber,
+        dueDate: item.obligation.dueDate,
+        remainingAmount: item.obligation.remainingAmount,
+        paidAmount: item.obligation.paidAmount,
+        plannedAmount: item.obligation.plannedAmount,
+        currency: item.obligation.currency,
+        paymentStatus: item.obligation.paymentStatus,
+        timing: item.timing,
+        daysFromDue: item.daysFromDue,
+      }))),
+      totalsByCurrency: Object.freeze({ ...totalsByCurrency }),
+      applicationOrigin: context.applicationOrigin,
+    }),
+    cta: Object.freeze({ label: first.locale === "ro" ? "Deschide finanțele" : "Открыть финансы", target: FINANCE_REMINDER_CTA_TARGET }),
+    priority: "normal",
+    scheduledBusinessDate: businessDate,
+    correlationId: intentId,
+    idempotencyIdentity: hash(intentIdentityParts),
+    sensitivity: "FINANCIAL_PRIVATE",
+  });
+  const projected = new CommunicationGatewayService(createFinanceReminderTemplateRegistry()).project(intent, gatewayChannel);
+  const content = projected.rendered!;
+  const ctaLabel = typeof content.providerPayload.ctaLabel === "string" ? content.providerPayload.ctaLabel : intent.cta.label;
+  const contentPayload = {
+    ...content.providerPayload,
+    communication: {
+      intentId: projected.intentId,
+      businessEventType: projected.businessEventType,
+      businessEntityReferences: projected.businessEntityReferences,
+      channel: projected.channel,
+      mode: projected.mode,
+      templateKey: projected.templateKey,
+      templateVersion: projected.templateVersion,
+      locale: projected.locale,
+      sensitivity: projected.sensitivity,
+      correlationId: projected.correlationId,
+      deliveryIdentity: projected.deliveryIdentity,
+      state: projected.state,
+    },
+  };
+  const fingerprint = hash(["DRY_RUN", businessDate, projected.deliveryIdentity, content.subject, content.textBody]);
   return {
     companyId: first.obligation.companyId,
     channel,
@@ -180,134 +239,15 @@ function toProjection(
     obligationIds: ordered.map((item) => item.obligation.id),
     totalsByCurrency,
     subject: content.subject,
-    body: content.body,
+    body: content.textBody,
     fromName: channel === "email" ? context.sender.fromName : null,
     fromEmail: channel === "email" ? context.sender.fromEmail : null,
-    ctaLabel: content.ctaLabel,
+    ctaLabel,
     ctaTarget: FINANCE_REMINDER_CTA_TARGET,
-    contentPayload: content.payload,
-    deliveryIdentity,
+    contentPayload,
+    deliveryIdentity: projected.deliveryIdentity,
     fingerprint,
   };
-}
-
-function renderEmail(locale: "ru" | "ro", items: Eligible[], totals: Record<string, string>, applicationOrigin: string) {
-  const counts = timingCounts(items);
-  const ctaLabel = locale === "ro" ? "Deschideți calendarul de plăți" : "Открыть платёжный календарь";
-  const subject = subjectFor(locale, counts, "email");
-  const sections = buildSections(locale, items);
-  const paymentCount = locale === "ro" ? roCount(items.length, "plată", "plăți") : `${items.length} ${ruPlural(items.length, "платёж", "платежа", "платежей")}`;
-  const orderCount = locale === "ro" ? roCount(items.length, "comandă", "comenzi") : `${items.length} ${ruPlural(items.length, "заказ", "заказа", "заказов")}`;
-  const intro = locale === "ro"
-    ? `Calendarul de plăți: ${paymentCount}, ${orderCount}. Verificați termenele și soldurile curente.`
-    : `Платёжный календарь: ${paymentCount}, ${orderCount}. Проверьте актуальные сроки и остатки.`;
-  const ctaUrl = new URL(FINANCE_REMINDER_CTA_TARGET, `${applicationOrigin}/`).toString();
-  const body = [
-    locale === "ro" ? "Bună ziua." : "Здравствуйте.",
-    intro,
-    ...sections.flatMap((section) => [section.title, ...section.lines]),
-    `${ctaLabel}: ${ctaUrl}`,
-  ].join("\n\n");
-  return {
-    subject,
-    body,
-    ctaLabel,
-    payload: { kind: "finance_reminder_email", counts, totalsByCurrency: totals, sections, ctaLabel, ctaTarget: FINANCE_REMINDER_CTA_TARGET, ctaUrl },
-  };
-}
-
-function renderInApp(locale: "ru" | "ro", items: Eligible[], totals: Record<string, string>) {
-  const counts = timingCounts(items);
-  const ctaLabel = locale === "ro" ? "Deschide finanțele" : "Открыть финансы";
-  const fragments = locale === "ro"
-    ? [counts.overdue ? `restante: ${counts.overdue}` : "", counts.dueToday ? `scadente astăzi: ${counts.dueToday}` : "", counts.upcoming ? `viitoare: ${counts.upcoming}` : ""]
-    : [counts.overdue ? `просрочено: ${counts.overdue}` : "", counts.dueToday ? `сегодня: ${counts.dueToday}` : "", counts.upcoming ? `ближайшие: ${counts.upcoming}` : ""];
-  const body = `${fragments.filter(Boolean).join(", ")}. ${locale === "ro" ? "Sold rămas" : "Остаток"}: ${formatTotals(totals, locale)}.`;
-  return {
-    subject: subjectFor(locale, counts, "in_app"),
-    body,
-    ctaLabel,
-    payload: { kind: "finance_reminder_in_app", title: subjectFor(locale, counts, "in_app"), body, ctaLabel, ctaTarget: FINANCE_REMINDER_CTA_TARGET, counts, totalsByCurrency: totals },
-  };
-}
-
-function renderSms(locale: "ru" | "ro", items: Eligible[], totals: Record<string, string>, applicationOrigin: string) {
-  const counts = timingCounts(items);
-  const ctaLabel = locale === "ro" ? "Detalii" : "Подробнее";
-  const ctaUrl = new URL(FINANCE_REMINDER_CTA_TARGET, `${applicationOrigin}/`).toString();
-  const states = locale === "ro"
-    ? [`restante ${counts.overdue}`, `astăzi ${counts.dueToday}`, `viitoare ${counts.upcoming}`]
-    : [`просрочено ${counts.overdue}`, `сегодня ${counts.dueToday}`, `ближайшие ${counts.upcoming}`];
-  const body = `Novotech: ${states.join(", ")}. ${locale === "ro" ? "Sold" : "Остаток"} ${formatTotals(totals, locale)}. ${ctaLabel}: ${ctaUrl}`;
-  return {
-    subject: locale === "ro" ? "Plăți Novotech" : "Платежи Novotech",
-    body,
-    ctaLabel,
-    payload: { kind: "finance_reminder_sms_preview", body, ctaLabel, ctaTarget: FINANCE_REMINDER_CTA_TARGET, ctaUrl, counts, totalsByCurrency: totals, smsEnabled: false },
-  };
-}
-
-function buildSections(locale: "ru" | "ro", items: Eligible[]) {
-  const definitions: Array<{ timing: FinanceReminderTiming; ru: string; ro: string }> = [
-    { timing: "OVERDUE", ru: "Просрочено", ro: "Plăți restante" },
-    { timing: "DUE_TODAY", ru: "Сегодня к оплате", ro: "Scadente astăzi" },
-    { timing: "UPCOMING", ru: "Ближайшие платежи", ro: "Plăți viitoare" },
-  ];
-  return definitions.flatMap((definition) => {
-    const sectionItems = items.filter((item) => item.timing === definition.timing);
-    return sectionItems.length ? [{
-      timing: definition.timing,
-      title: locale === "ro" ? definition.ro : definition.ru,
-      lines: sectionItems.map((item) => orderLine(locale, item)),
-      orders: sectionItems.map((item) => ({
-        orderNumber: item.obligation.orderNumber,
-        dueDate: item.obligation.dueDate,
-        remainingAmount: item.obligation.remainingAmount,
-        paidAmount: item.obligation.paymentStatus === "PARTIAL" ? item.obligation.paidAmount : null,
-        currency: item.obligation.currency,
-        paymentStatus: item.obligation.paymentStatus,
-        timing: item.timing,
-        daysFromDue: item.daysFromDue,
-      })),
-    }] : [];
-  });
-}
-
-function orderLine(locale: "ru" | "ro", item: Eligible): string {
-  const obligation = item.obligation;
-  const remaining = `${formatAmount(obligation.remainingAmount, locale)} ${obligation.currency}`;
-  const paid = `${formatAmount(obligation.paidAmount, locale)} ${obligation.currency}`;
-  const date = formatDate(obligation.dueDate, locale);
-  if (locale === "ro") {
-    const timing = item.timing === "DUE_TODAY"
-      ? "scadentă astăzi"
-      : item.timing === "UPCOMING"
-        ? `scadentă la ${date}, peste ${roCount(Math.abs(item.daysFromDue), "zi", "zile")}`
-        : `scadentă la ${date}, întârziere de ${roCount(item.daysFromDue, "zi", "zile")}`;
-    const amount = obligation.paymentStatus === "PARTIAL" ? `achitat ${paid}; sold rămas ${remaining}` : `sold rămas ${remaining}`;
-    return `Comanda ${obligation.orderNumber} — ${timing}; ${amount}.`;
-  }
-  const timing = item.timing === "DUE_TODAY"
-    ? "срок сегодня"
-    : item.timing === "UPCOMING"
-      ? `срок ${date}, через ${Math.abs(item.daysFromDue)} ${ruPlural(Math.abs(item.daysFromDue), "день", "дня", "дней")}`
-      : `срок ${date}, просрочено на ${item.daysFromDue} ${ruPlural(item.daysFromDue, "день", "дня", "дней")}`;
-  const amount = obligation.paymentStatus === "PARTIAL" ? `оплачено ${paid}; осталось ${remaining}` : `осталось ${remaining}`;
-  return `Заказ ${obligation.orderNumber} — ${timing}; ${amount}.`;
-}
-
-function subjectFor(locale: "ru" | "ro", counts: ReturnType<typeof timingCounts>, channel: "email" | "in_app") {
-  const populated = [counts.overdue, counts.dueToday, counts.upcoming].filter(Boolean).length;
-  if (locale === "ro") {
-    if (populated > 1) return channel === "email" ? "Plăți care necesită atenție — Novotech" : "Plăți care necesită atenție";
-    if (counts.overdue) return channel === "email" ? "Plăți restante — Novotech" : "Aveți plăți restante";
-    if (counts.dueToday) return channel === "email" ? "Plăți scadente astăzi — Novotech" : "Plăți scadente astăzi";
-    return channel === "email" ? "Plăți viitoare — Novotech" : "Plăți viitoare";
-  }
-  if (populated > 1) return channel === "email" ? "Платежи требуют внимания — Novotech" : "Платежи требуют внимания";
-  if (counts.overdue) return channel === "email" ? "Просроченные платежи — Novotech" : "Есть просроченные платежи";
-  if (counts.dueToday) return channel === "email" ? "Платежи на сегодня — Novotech" : "Платежи на сегодня";
-  return channel === "email" ? "Ближайшие платежи — Novotech" : "Ближайшие платежи";
 }
 
 function toCurrentReview(
@@ -347,26 +287,10 @@ function orderedTimingStates(items: Eligible[]): FinanceReminderTiming[] {
   return (["OVERDUE", "DUE_TODAY", "UPCOMING"] as const).filter((timing) => items.some((item) => item.timing === timing));
 }
 
-function timingCounts(items: Eligible[]) {
-  return {
-    overdue: items.filter((item) => item.timing === "OVERDUE").length,
-    dueToday: items.filter((item) => item.timing === "DUE_TODAY").length,
-    upcoming: items.filter((item) => item.timing === "UPCOMING").length,
-  };
-}
-
 function sumCurrencies(items: Eligible[]): Record<string, string> {
   const totals = new Map<string, Decimal>();
   for (const item of items) totals.set(item.obligation.currency, (totals.get(item.obligation.currency) ?? new Decimal(0)).plus(item.obligation.remainingAmount));
   return Object.fromEntries([...totals.entries()].sort(([left], [right]) => left.localeCompare(right)).map(([currency, total]) => [currency, total.toFixed(2)]));
-}
-
-function formatTotals(totals: Record<string, string>, locale: "ru" | "ro"): string {
-  return Object.entries(totals).map(([currency, value]) => `${formatAmount(value, locale)} ${currency}`).join(", ");
-}
-
-function roCount(value: number, one: string, many: string): string {
-  return `${value} ${value === 1 ? one : many}`;
 }
 
 function runtimeRenderContext(): FinanceReminderRenderContext {
@@ -389,14 +313,6 @@ function chisinauBusinessDate(now: Date): string {
   const parts = new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", day: "2-digit", timeZone: "Europe/Chisinau" }).formatToParts(now);
   const value = Object.fromEntries(parts.map((part) => [part.type, part.value]));
   return `${value.year}-${value.month}-${value.day}`;
-}
-
-function formatAmount(value: string, locale: "ru" | "ro"): string {
-  return new Intl.NumberFormat(locale === "ro" ? "ro-MD" : "ru-MD", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(value));
-}
-
-function formatDate(value: string, locale: "ru" | "ro"): string {
-  return new Intl.DateTimeFormat(locale === "ro" ? "ro-MD" : "ru-MD", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" }).format(new Date(`${value}T00:00:00Z`));
 }
 
 function hash(parts: Array<string | null | undefined>): string {

@@ -7,6 +7,8 @@ export {
 } from "./payment-obligation.service";
 export {
   FinanceReminderDryRunService,
+  FINANCE_REMINDER_EMAIL_LIVE,
+  FINANCE_REMINDER_IN_APP_LIVE,
   FINANCE_REMINDER_OUTBOUND_MODE,
   FINANCE_REMINDER_POLICY_VERSION,
   FINANCE_REMINDER_SMS_ENABLED,

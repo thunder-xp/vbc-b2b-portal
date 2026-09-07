@@ -74,5 +74,8 @@ describe("notification preferences and health", () => {
     expect(page).toContain("Коммерческие публикации");
     expect(page).toContain("getPriceSyncStateAction");
     expect(page).toContain("getStockSyncStateAction");
+    expect(page).toContain("Безопасность каналов");
+    expect(page).toContain("communicationRuntimePolicyFromEnvironment");
+    expect(page).toContain("FINANCE_REMINDER_OUTBOUND_MODE");
   });
 });

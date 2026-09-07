@@ -2,6 +2,7 @@ import "server-only";
 
 import nodemailer from "nodemailer";
 
+import { externalEmailBlockReason } from "@/src/lib/email/external-email-safety";
 import { getSmtpSenderIdentity } from "@/src/lib/email/runtime-email-config";
 
 export type CompanyInvitationEmail = {
@@ -29,6 +30,7 @@ export class SmtpCompanyInvitationEmailProvider
   implements CompanyInvitationEmailProvider
 {
   async send(message: CompanyInvitationEmail): Promise<void> {
+    if (externalEmailBlockReason()) throw new CompanyInvitationEmailProviderError("configuration");
     let config: ReturnType<typeof smtpConfig>;
     try {
       config = smtpConfig();

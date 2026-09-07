@@ -73,4 +73,13 @@ describe("SmtpProposalEmailProvider", () => {
       attachments: [expect.objectContaining({ filename: "предложение.pdf", contentType: "application/pdf" })],
     }));
   });
+
+  it("does not open SMTP when the global outbound kill switch is on", async () => {
+    vi.stubEnv("COMMUNICATION_OUTBOUND_KILL_SWITCH", "ON");
+    await expect(new SmtpProposalEmailProvider().send({
+      to: "customer@example.com", subject: "Subject", text: "Text", html: "<p>Text</p>",
+    })).rejects.toEqual(expect.objectContaining({ category: "configuration" }));
+    expect(smtp.createTransport).not.toHaveBeenCalled();
+    expect(smtp.sendMail).not.toHaveBeenCalled();
+  });
 });

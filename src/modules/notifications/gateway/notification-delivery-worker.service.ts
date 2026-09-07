@@ -1,5 +1,7 @@
 import "server-only";
 
+import { externalEmailBlockReason } from "@/src/lib/email/external-email-safety";
+
 import type {
   CompleteNotificationDeliveryInput,
   NotificationDeliveryRepository,
@@ -33,6 +35,9 @@ export class NotificationDeliveryWorkerService {
 
   async run(): Promise<NotificationWorkerResult> {
     const startedAt = performance.now();
+    if (externalEmailBlockReason()) {
+      return { claimed: 0, sent: 0, failed: 0, deadLetter: 0, durationMs: 0, providerDurationMs: 0 };
+    }
     const deliveries = await this.repository.claim(
       this.options.batchSize ?? DEFAULT_BATCH_SIZE,
       this.options.leaseSeconds ?? DEFAULT_LEASE_SECONDS,

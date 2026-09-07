@@ -2,6 +2,7 @@ import "server-only";
 
 import nodemailer from "nodemailer";
 
+import { externalEmailBlockReason } from "@/src/lib/email/external-email-safety";
 import { getSmtpSenderIdentity } from "@/src/lib/email/runtime-email-config";
 
 export type ProposalEmailMessage = {
@@ -55,6 +56,7 @@ export class SmtpProposalEmailProvider implements ProposalEmailProvider {
   }
 
   async send(message: ProposalEmailMessage) {
+    if (externalEmailBlockReason()) throw new ProposalEmailProviderError("configuration");
     const config = smtpConfig();
     const transporter = createSmtpTransport(config);
     try {

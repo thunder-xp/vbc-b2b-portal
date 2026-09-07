@@ -196,6 +196,7 @@ Future schema documentation should be created before SQL implementation.
 - `docs/architecture/ONE_C_PARTNER_SEARCH_BINDING_DESIGN.md` - Partner approval search implementation reference for Server Actions, Integration Service, provider search, and UI binding.
 - `docs/architecture/SYNC_ENGINE_DESIGN.md` - Sync Engine implementation reference for catalog read-model updates, manual triggers, queues, workers, and scheduled synchronization.
 - `docs/architecture/COMMERCIAL_RATE_MANUAL_PUBLICATION.md` - Temporary purpose-based manual 1C rate publication, immutable audit history, product formulas, and the required permanent 1C API contract.
+- `docs/architecture/COMMUNICATION_GATEWAY.md` - Current omnichannel inventory, neutral intent boundary, channel safety controls, Finance dry-run integration, and external-activation blockers.
 - `docs/architecture/MODULE_COMMUNICATION.md` - Module wiring and dependency rules.
 - `docs/architecture/REPOSITORY_PATTERN.md` - Persistence and service implementation pattern.
 - `docs/architecture/EVENT_FLOWS.md` - Workflow implementation reference.

@@ -7,6 +7,13 @@ import {
   getPriceSyncStateAction,
   getStockSyncStateAction,
 } from "@/src/modules/integration/actions";
+import {
+  FINANCE_REMINDER_EMAIL_LIVE,
+  FINANCE_REMINDER_IN_APP_LIVE,
+  FINANCE_REMINDER_OUTBOUND_MODE,
+  FINANCE_REMINDER_SMS_ENABLED,
+} from "@/src/modules/finance/services";
+import { communicationRuntimePolicyFromEnvironment } from "@/src/modules/notifications/gateway";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +25,7 @@ export default async function NotificationHealthPage() {
     getStockSyncStateAction(),
   ]);
   const run = health.lastShipmentWorkerRun;
+  const communicationPolicy = communicationRuntimePolicyFromEnvironment();
   return (
     <section className="space-y-6">
       <header>
@@ -85,6 +93,17 @@ export default async function NotificationHealthPage() {
             label="Последний запуск"
             value={health.lastProductProjectionRun?.status ?? "Нет"}
           />
+        </dl>
+      </section>
+      <section className="rounded-md border border-zinc-200 bg-white p-5">
+        <h2 className="font-semibold text-zinc-950">Безопасность каналов</h2>
+        <dl className="mt-4 grid gap-4 text-sm sm:grid-cols-3">
+          <Detail label="Глобальный внешний стоп" value={communicationPolicy.globalExternalKillSwitch ? "ON" : "OFF"} />
+          <Detail label="Email стоп" value={communicationPolicy.channelKillSwitches.email ? "ON" : "OFF"} />
+          <Detail label="SMS стоп" value={communicationPolicy.channelKillSwitches.sms ? "ON" : "OFF"} />
+          <Detail label="Финансы · email" value={`${FINANCE_REMINDER_OUTBOUND_MODE} · LIVE ${FINANCE_REMINDER_EMAIL_LIVE ? "ON" : "OFF"}`} />
+          <Detail label="Финансы · в приложении" value={`${FINANCE_REMINDER_OUTBOUND_MODE} · LIVE ${FINANCE_REMINDER_IN_APP_LIVE ? "ON" : "OFF"}`} />
+          <Detail label="Финансы · SMS" value={FINANCE_REMINDER_SMS_ENABLED ? "ENABLED" : "DISABLED"} />
         </dl>
       </section>
       <section className="rounded-md border border-zinc-200 bg-white p-5">

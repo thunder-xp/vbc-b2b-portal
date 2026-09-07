@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type {
   CompleteNotificationDeliveryInput,
@@ -18,6 +18,18 @@ describe("NotificationDeliveryWorkerService", () => {
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
   });
 
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("does not claim or call a provider while the global kill switch is on", async () => {
+    vi.stubEnv("COMMUNICATION_OUTBOUND_KILL_SWITCH", "ON");
+    const dependencies = makeDependencies();
+    await expect(dependencies.worker.run()).resolves.toMatchObject({ claimed: 0, sent: 0, failed: 0, deadLetter: 0 });
+    expect(dependencies.repository.claim).not.toHaveBeenCalled();
+    expect(dependencies.adapter.send).not.toHaveBeenCalled();
+  });
+
   it("delivers one claimed event and records provider timing", async () => {
     const dependencies = makeDependencies();
     const result = await dependencies.worker.run();
@@ -33,6 +45,10 @@ describe("NotificationDeliveryWorkerService", () => {
       succeeded: true,
       retryable: false,
     })]);
+    const logs = JSON.stringify(vi.mocked(console.info).mock.calls);
+    expect(logs).not.toContain("buyer@example.com");
+    expect(logs).not.toContain("paymentCalendar");
+    expect(logs).not.toContain("orderTotal");
   });
 
   it("persists transient failures for bounded retry without throwing", async () => {

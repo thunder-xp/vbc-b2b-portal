@@ -110,6 +110,16 @@ SMTP_TIMEOUT_MS=10000
 PUBLIC_APP_URL=https://www.nsd.md
 ```
 
+Application-owned outbound can be stopped server-side without exposing provider controls to the browser:
+
+```bash
+COMMUNICATION_OUTBOUND_KILL_SWITCH=ON
+COMMUNICATION_EMAIL_KILL_SWITCH=ON
+COMMUNICATION_SMS_KILL_SWITCH=ON
+```
+
+The global switch blocks every application-owned external adapter. Channel switches are independent. Unset/`OFF` email switches preserve approved transactional email; SMS defaults to blocked until an explicitly governed integration enables it. Finance reminder intents remain `DRY_RUN` in code and are not activated by these switches.
+
 `SMTP_USER`, `SMTP_PASSWORD`, and provider responses remain server-only. Public proposal links contain a one-time generated high-entropy token; the database stores only its SHA-256 hash.
 
 SMTP connectivity can be verified without sending a message by calling `POST /api/internal/smtp-verify` with `Authorization: Bearer <secret>`. The route uses `SMTP_DIAGNOSTIC_SECRET` when configured, otherwise the existing server-only `CRON_SECRET`. It returns only configuration, connection, authentication, safe error category, and duration fields.
