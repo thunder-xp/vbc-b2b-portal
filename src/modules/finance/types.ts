@@ -124,6 +124,7 @@ export type FinanceReminderCandidate = {
 };
 
 export type FinanceReminderChannel = "email" | "in_app" | "sms_future";
+export type FinanceReminderTiming = "UPCOMING" | "DUE_TODAY" | "OVERDUE";
 export type FinanceReminderSuppressionReason =
   | "SETTLED"
   | "NO_OUTSTANDING_BALANCE"
@@ -141,10 +142,17 @@ export type FinanceReminderProjection = {
   recipientEmail: string | null;
   locale: "ru" | "ro";
   milestone: string;
+  timingStates: FinanceReminderTiming[];
   obligationIds: string[];
   totalsByCurrency: Record<string, string>;
   subject: string;
   body: string;
+  fromName: string | null;
+  fromEmail: string | null;
+  ctaLabel: string;
+  ctaTarget: "/cabinet/finance";
+  contentPayload: Record<string, unknown>;
+  deliveryIdentity: string;
   fingerprint: string;
 };
 
@@ -167,6 +175,24 @@ export type FinanceReminderDryRun = {
   suppressedCount: number;
   duplicateCount: number;
   durationMs: number;
+};
+
+export type FinanceReminderCurrentLiveEligibleReview = {
+  businessDate: string;
+  policyVersion: "FINANCE_REMINDER_V1";
+  outboundMode: "DRY_RUN";
+  smsEnabled: false;
+  eligibleCompanyCount: number;
+  obligationCount: number;
+  totalsByCurrency: Record<string, string>;
+  ageing: {
+    upcomingOrDueToday: number;
+    overdue1To7: number;
+    overdue8To30: number;
+    overdue30Plus: number;
+  };
+  projections: FinanceReminderProjection[];
+  suppressions: FinanceReminderSuppression[];
 };
 
 export type AdminFinanceOperations = {

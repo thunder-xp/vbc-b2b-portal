@@ -245,6 +245,15 @@ export class SupabaseFinanceRepository implements FinanceRepository {
     });
   }
 
+  async listDeliveredReminderIdentities(deliveryIdentities: string[]): Promise<string[]> {
+    if (deliveryIdentities.length === 0) return [];
+    const { data, error } = await createAdminClient().rpc("get_finance_reminder_delivered_identities", {
+      p_delivery_identities: [...new Set(deliveryIdentities)],
+    });
+    if (error || !Array.isArray(data)) throw new FinanceRepositoryError();
+    return data.flatMap((value) => typeof value === "string" ? [value] : []);
+  }
+
   async publishReminderDryRun(input: {
     businessDate: string;
     durationMs: number;
@@ -257,8 +266,11 @@ export class SupabaseFinanceRepository implements FinanceRepository {
       p_projections: input.projections.map((row) => ({
         company_id: row.companyId, channel: row.channel, recipient_user_id: row.recipientUserId,
         recipient_email: row.recipientEmail, locale: row.locale, milestone: row.milestone,
+        timing_states: row.timingStates,
         obligation_ids: row.obligationIds, totals_by_currency: row.totalsByCurrency,
-        subject: row.subject, body: row.body, fingerprint: row.fingerprint,
+        subject: row.subject, body: row.body, from_name: row.fromName, from_email: row.fromEmail,
+        cta_label: row.ctaLabel, cta_target: row.ctaTarget, content_payload: row.contentPayload,
+        delivery_identity: row.deliveryIdentity, fingerprint: row.fingerprint,
       })),
       p_suppressions: input.suppressions.map((row) => ({
         company_id: row.companyId, obligation_id: row.obligationId, reason: row.reason,

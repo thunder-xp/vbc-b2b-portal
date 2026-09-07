@@ -89,6 +89,7 @@ function repositoryWith(rows: PartnerContractBalance[], syncState: FinanceSyncSt
     publishContractBalanceSnapshotV2: vi.fn(),
     publishFinanceSnapshot: vi.fn(),
     getReminderDryRunInput: vi.fn(),
+    listDeliveredReminderIdentities: vi.fn(),
     publishReminderDryRun: vi.fn(),
     getAdminFinanceOperations: vi.fn(),
     recordSyncResult: vi.fn(),

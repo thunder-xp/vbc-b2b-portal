@@ -2,6 +2,8 @@ import "server-only";
 
 import nodemailer from "nodemailer";
 
+import { getSmtpSenderIdentity } from "@/src/lib/email/runtime-email-config";
+
 export type ProposalEmailMessage = {
   to: string;
   subject: string;
@@ -112,7 +114,7 @@ function verificationResult(
 }
 
 function smtpConfig() {
-  const required = (name: "SMTP_HOST" | "SMTP_USER" | "SMTP_PASSWORD" | "SMTP_FROM_EMAIL") => {
+  const required = (name: "SMTP_HOST" | "SMTP_USER" | "SMTP_PASSWORD") => {
     const value = process.env[name]?.trim();
     if (!value) throw new ProposalEmailProviderError("configuration");
     return value;
@@ -122,9 +124,11 @@ function smtpConfig() {
   if (!Number.isInteger(port) || port < 1 || port > 65535 || !Number.isInteger(timeoutMs) || timeoutMs < 1000 || timeoutMs > 30000) {
     throw new ProposalEmailProviderError("configuration");
   }
+  let sender: ReturnType<typeof getSmtpSenderIdentity>;
+  try { sender = getSmtpSenderIdentity(); } catch { throw new ProposalEmailProviderError("configuration"); }
   return {
     host: required("SMTP_HOST"), user: required("SMTP_USER"), password: required("SMTP_PASSWORD"),
-    fromEmail: required("SMTP_FROM_EMAIL"), fromName: process.env.SMTP_FROM_NAME?.trim() || "Novotech Partner",
+    ...sender,
     port, timeoutMs, secure: (process.env.SMTP_SECURE ?? "false").toLowerCase() === "true",
   };
 }

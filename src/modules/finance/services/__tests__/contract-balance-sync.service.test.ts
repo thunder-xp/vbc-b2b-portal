@@ -43,5 +43,5 @@ function providerWithBalances(items: ReturnType<typeof item>[]): FinanceProvider
 }
 
 function repo(): FinanceRepository {
-  return { canRunFinanceSync: vi.fn(), listActiveContractBalances: vi.fn(), getOverviewData: vi.fn(), getSyncCompany: vi.fn(), listSyncCompanies: vi.fn(), publishContractBalanceSnapshot: vi.fn(), publishContractBalanceSnapshotV2: vi.fn(), publishFinanceSnapshot: vi.fn(), getReminderDryRunInput: vi.fn(), publishReminderDryRun: vi.fn(), getAdminFinanceOperations: vi.fn(), recordSyncResult: vi.fn() };
+  return { canRunFinanceSync: vi.fn(), listActiveContractBalances: vi.fn(), getOverviewData: vi.fn(), getSyncCompany: vi.fn(), listSyncCompanies: vi.fn(), publishContractBalanceSnapshot: vi.fn(), publishContractBalanceSnapshotV2: vi.fn(), publishFinanceSnapshot: vi.fn(), getReminderDryRunInput: vi.fn(), listDeliveredReminderIdentities: vi.fn(), publishReminderDryRun: vi.fn(), getAdminFinanceOperations: vi.fn(), recordSyncResult: vi.fn() };
 }

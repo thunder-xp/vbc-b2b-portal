@@ -59,6 +59,7 @@ export interface FinanceRepository {
   }): Promise<number>;
   publishFinanceSnapshot(input: PublishFinanceSnapshotInput): Promise<{ balances: number; obligations: number; exclusions: number }>;
   getReminderDryRunInput(): Promise<FinanceReminderCandidate[]>;
+  listDeliveredReminderIdentities(deliveryIdentities: string[]): Promise<string[]>;
   publishReminderDryRun(input: {
     businessDate: string;
     durationMs: number;

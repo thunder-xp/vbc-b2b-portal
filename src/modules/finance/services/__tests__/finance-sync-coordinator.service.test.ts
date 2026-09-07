@@ -101,6 +101,6 @@ function syncResult(published: number) {
 function repo(companies: ReturnType<typeof company>[]): FinanceRepository {
   return {
     canRunFinanceSync: vi.fn(), listActiveContractBalances: vi.fn(), getOverviewData: vi.fn(), getSyncCompany: vi.fn().mockImplementation(async (id) => companies.find((row) => row.companyId === id) ?? null),
-    listSyncCompanies: vi.fn().mockResolvedValue(companies), publishContractBalanceSnapshot: vi.fn(), publishContractBalanceSnapshotV2: vi.fn(), publishFinanceSnapshot: vi.fn(), getReminderDryRunInput: vi.fn(), publishReminderDryRun: vi.fn(), getAdminFinanceOperations: vi.fn(), recordSyncResult: vi.fn(),
+    listSyncCompanies: vi.fn().mockResolvedValue(companies), publishContractBalanceSnapshot: vi.fn(), publishContractBalanceSnapshotV2: vi.fn(), publishFinanceSnapshot: vi.fn(), getReminderDryRunInput: vi.fn(), listDeliveredReminderIdentities: vi.fn(), publishReminderDryRun: vi.fn(), getAdminFinanceOperations: vi.fn(), recordSyncResult: vi.fn(),
   };
 }
