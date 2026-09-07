@@ -41,7 +41,7 @@ function CardPrice({ emphasized = false, hideLabel = false, label, mdlEquivalent
   return <div className={`min-w-0 ${secondary ? "mt-1 flex items-baseline justify-between gap-2 border-t border-zinc-200/80 pt-1" : ""}`}>
     {hideLabel ? null : <p className={`truncate font-semibold text-zinc-500 ${secondary ? "text-[10px]" : "text-[11px]"}`}>{label}</p>}
     <div className={`min-w-0 ${secondaryValue ? "mt-0.5 flex items-baseline justify-between gap-2" : ""}`}>
-      <p aria-label={`${label}: ${displayValue}`} className={`truncate font-semibold ${emphasized ? hideLabel ? `font-bold text-emerald-700 ${secondaryValue ? "text-xl leading-6" : "mt-0.5 text-xl leading-6"}` : secondaryValue ? "text-lg leading-5 text-zinc-950" : "mt-0.5 text-lg leading-5 text-zinc-950" : "text-xs text-zinc-950"}`} title={displayValue}>{displayValue}</p>
+      <p aria-label={`${label}: ${displayValue}`} className={`truncate ${emphasized ? hideLabel ? `font-bold text-emerald-700 ${secondaryValue ? "text-xl leading-6" : "mt-0.5 text-xl leading-6"}` : secondaryValue ? "text-lg font-semibold leading-5 text-zinc-950" : "mt-0.5 text-lg font-semibold leading-5 text-zinc-950" : "text-xs font-semibold text-zinc-950"}`} title={displayValue}>{displayValue}</p>
       {secondaryValue ? <p aria-label={`${mdlEquivalentLabel}: ${secondaryValue}`} className="max-w-[52%] shrink-0 truncate text-right text-xs font-medium text-zinc-500" title={secondaryValue}>{secondaryValue}</p> : null}
     </div>
   </div>;
@@ -52,7 +52,7 @@ function ListPrice({ emphasized = false, hideLabel = false, label, missingValue,
   return <div className="min-w-0 leading-tight">
     <div className="flex min-w-0 items-baseline justify-between gap-1.5">
       {hideLabel ? null : <p className="min-w-0 truncate text-[9px] font-semibold text-zinc-500" title={label}>{label}</p>}
-      <p aria-label={`${label}: ${displayValue}`} className={`shrink-0 whitespace-nowrap font-semibold ${emphasized ? hideLabel ? "text-sm font-bold text-emerald-700" : "text-xs text-zinc-950" : "text-[10px] text-zinc-950"}`} title={displayValue}>{displayValue}</p>
+      <p aria-label={`${label}: ${displayValue}`} className={`shrink-0 whitespace-nowrap ${emphasized ? hideLabel ? "text-sm font-bold text-emerald-700" : "text-xs font-semibold text-zinc-950" : "text-[10px] font-semibold text-zinc-950"}`} title={displayValue}>{displayValue}</p>
     </div>
     {secondaryValue ? <p className="truncate text-right text-[9px] font-medium text-zinc-500" title={secondaryValue}>{secondaryValue}</p> : null}
   </div>;

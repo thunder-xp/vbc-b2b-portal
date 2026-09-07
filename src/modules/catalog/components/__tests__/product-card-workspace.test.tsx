@@ -32,6 +32,7 @@ describe("ProductCard workspace context", () => {
     expect(screen.queryByText("Ваша цена")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Ваша цена: $45.81")).toBeInTheDocument();
     expect(screen.getByText("$45.81")).toHaveClass("text-xl", "font-bold", "text-emerald-700");
+    expect(screen.getByText("$45.81")).not.toHaveClass("font-semibold");
     expect(screen.getByText("800 MDL")).toHaveClass("text-zinc-500", "text-right");
     expect(screen.getByLabelText("Эквивалент вашей цены в MDL: 800 MDL")).toBeInTheDocument();
     expect(screen.getByText("Розничная цена")).toBeInTheDocument();
