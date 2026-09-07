@@ -4,10 +4,10 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const enumMigration = readFileSync(resolve(
-  "supabase/migrations/20260907113903_omnichannel_durable_delivery_core.sql",
+  "supabase/migrations/20260907125602_omnichannel_durable_delivery_core.sql",
 ), "utf8");
 const schemaMigration = readFileSync(resolve(
-  "supabase/migrations/20260907113934_omnichannel_durable_delivery_schema.sql",
+  "supabase/migrations/20260907125612_omnichannel_durable_delivery_schema.sql",
 ), "utf8");
 
 describe("omnichannel durable delivery migration", () => {
