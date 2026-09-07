@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
-const sql = readFileSync(resolve(process.cwd(), "supabase/migrations/20260907193638_partner_dashboard_commerce_cards_history_ux.sql"), "utf8");
+const sql = readFileSync(resolve(process.cwd(), "supabase/migrations/20260907195640_partner_dashboard_commerce_cards_history_ux.sql"), "utf8");
 
 describe("dashboard commerce history migration", () => {
   it("keeps repeat history bounded, company-scoped, and current-commercial in one RPC", () => {
