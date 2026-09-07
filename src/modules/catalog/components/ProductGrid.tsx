@@ -17,14 +17,15 @@ type ProductGridProps = {
   favoriteProductIds?: string[];
   locale?: PartnerLocale;
   products: CatalogProductCardDto[];
+  returnTargetOverride?: string;
   userId: string | null;
 };
 
 export { CATALOG_PRODUCT_GRID_CLASS };
 
-export function ProductGrid({ capabilities, catalogState, commercialViews = {}, companyId, contextBadge, favoriteProductIds = [], locale = "ru", products, userId }: ProductGridProps) {
+export function ProductGrid({ capabilities, catalogState, commercialViews = {}, companyId, contextBadge, favoriteProductIds = [], locale = "ru", products, returnTargetOverride, userId }: ProductGridProps) {
   const favorites = new Set(favoriteProductIds);
-  const returnTarget = buildCatalogHref(catalogState);
+  const returnTarget = returnTargetOverride ?? buildCatalogHref(catalogState);
   return (
     <CatalogProductGridFrame>
       {products.map((product, index) => (

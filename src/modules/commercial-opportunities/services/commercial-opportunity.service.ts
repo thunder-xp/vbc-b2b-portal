@@ -23,7 +23,7 @@ export class CommercialOpportunityService {
       limit: pageSize,
       offset: (page - 1) * pageSize,
     });
-    const productIds = result.items.flatMap((item) => item.product ? [item.product.id] : []);
+    const productIds = opportunityProductReferenceIds(result.items);
     const references = this.productReferences && productIds.length
       ? await this.productReferences.getProductReferencesByIds(userId, productIds)
       : [];
@@ -50,16 +50,35 @@ export function enrichOpportunityProductReferences(
 ): CommercialOpportunity[] {
   const byProduct = new Map(references.map((reference) => [reference.productId, reference]));
   return items.map((item) => {
-    if (!item.product) return item;
-    const reference = byProduct.get(item.product.id);
-    return reference ? {
+    const reference = item.product ? byProduct.get(item.product.id) : undefined;
+    const sourceProductId = structuredSourceProductId(item);
+    const sourceProduct = sourceProductId ? byProduct.get(sourceProductId) : undefined;
+    return reference || sourceProduct ? {
       ...item,
-      product: {
+      ...(item.product && reference ? { product: {
         ...item.product,
         reference,
         imageUrl: reference.thumbnail,
         thumbnailFit: reference.thumbnailFit,
-      },
+      } } : {}),
+      ...(sourceProduct ? { sourceProduct } : {}),
     } : item;
   });
+}
+
+export function opportunityProductReferenceIds(items: CommercialOpportunity[]): string[] {
+  return [...new Set(items.flatMap((item) => {
+    const sourceProductId = structuredSourceProductId(item);
+    return [
+      ...(item.product ? [item.product.id] : []),
+      ...(sourceProductId ? [sourceProductId] : []),
+    ];
+  }))];
+}
+
+function structuredSourceProductId(item: CommercialOpportunity): string | null {
+  const value = item.reasonMetadata.sourceProductId;
+  return item.reasonCode === "related_to_regular_purchase" && typeof value === "string" && value.trim()
+    ? value.trim()
+    : null;
 }

@@ -87,4 +87,29 @@ describe("product secondary actions", () => {
     );
     expect(screen.getByText("Товар добавлен в смету.")).toBeVisible();
   });
+
+  it("keeps the estimate popover open for inner interaction and closes only on outside or Escape", async () => {
+    listEstimates.mockResolvedValue({
+      success: true,
+      data: [{ id: "estimate-1", name: "Site", estimateNumber: "KP-1", revision: 3 }],
+    });
+    render(<ProductSpecificationAction compact productId="product-1" />);
+    const trigger = screen.getByRole("button", { name: "Добавить в смету" });
+
+    fireEvent.click(trigger);
+    const dialog = await screen.findByRole("dialog", { name: "Добавить в смету" });
+    fireEvent.pointerDown(screen.getByLabelText("Количество"));
+    fireEvent.change(screen.getByLabelText("Количество"), { target: { value: "2" } });
+    expect(dialog).toBeInTheDocument();
+    expect(trigger).toHaveAttribute("aria-expanded", "true");
+
+    fireEvent.pointerDown(document.body);
+    expect(screen.queryByRole("dialog", { name: "Добавить в смету" })).not.toBeInTheDocument();
+
+    fireEvent.click(trigger);
+    await screen.findByRole("dialog", { name: "Добавить в смету" });
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("dialog", { name: "Добавить в смету" })).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+  });
 });

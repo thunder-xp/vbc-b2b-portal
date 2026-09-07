@@ -78,7 +78,7 @@ export function CatalogQuantityCartAction({
       </div>
       {quantityError || feedback ? <p
         aria-live="polite"
-        className={`text-xs font-medium ${quantityError || feedback?.success === false ? "text-red-700" : "text-emerald-700"}`}
+        className={quantityError || feedback?.success === false ? "text-xs font-medium text-red-700" : "sr-only"}
         id={feedbackId}
       >
         {quantityError ?? feedback?.message}

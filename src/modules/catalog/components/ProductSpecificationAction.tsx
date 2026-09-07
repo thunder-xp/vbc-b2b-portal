@@ -2,7 +2,8 @@
 
 import { ClipboardList, X } from "lucide-react";
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useTransition } from "react";
+import { createPortal } from "react-dom";
 
 import {
   addCatalogProductToEstimateAction,
@@ -32,6 +33,60 @@ export function ProductSpecificationAction({
   const [quantity, setQuantity] = useState(1);
   const [message, setMessage] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
+  const [popoverPosition, setPopoverPosition] = useState({ left: 8, top: 8, maxHeight: 320 });
+  const popoverId = `product-estimate-popover-${productId}`;
+
+  useEffect(() => {
+    if (!open) return;
+    const closeOnOutsidePointer = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (triggerRef.current?.contains(target) || popoverRef.current?.contains(target)) return;
+      setOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      setOpen(false);
+      triggerRef.current?.focus();
+    };
+    document.addEventListener("pointerdown", closeOnOutsidePointer, true);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOnOutsidePointer, true);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [open]);
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    const position = () => {
+      const trigger = triggerRef.current;
+      if (!trigger) return;
+      const triggerBox = trigger.getBoundingClientRect();
+      const width = Math.min(288, window.innerWidth - 16);
+      const measuredHeight = popoverRef.current?.offsetHeight ?? 320;
+      const spaceBelow = window.innerHeight - triggerBox.bottom - 8;
+      const openAbove = spaceBelow < Math.min(measuredHeight, 280) && triggerBox.top > spaceBelow;
+      const top = openAbove
+        ? Math.max(8, triggerBox.top - Math.min(measuredHeight, window.innerHeight - 16) - 8)
+        : triggerBox.bottom + 8;
+      setPopoverPosition({
+        left: Math.max(8, Math.min(triggerBox.right - width, window.innerWidth - width - 8)),
+        top,
+        maxHeight: Math.max(160, openAbove ? triggerBox.top - 16 : window.innerHeight - top - 8),
+      });
+    };
+    position();
+    window.addEventListener("resize", position);
+    window.addEventListener("scroll", position, true);
+    return () => {
+      window.removeEventListener("resize", position);
+      window.removeEventListener("scroll", position, true);
+    };
+  }, [open]);
 
   const toggle = () => {
     if (open) {
@@ -58,9 +113,11 @@ export function ProductSpecificationAction({
         <IconActionTooltip label={copy.addToEstimate}>
           <button
             aria-label={copy.addToEstimate}
+            aria-controls={open ? popoverId : undefined}
             aria-expanded={open}
             className={`${triggerClass} size-11`}
-            onClick={toggle}
+            onClick={(event) => { event.stopPropagation(); toggle(); }}
+            ref={triggerRef}
             type="button"
           >
             <ClipboardList aria-hidden="true" className="size-4" />
@@ -68,18 +125,27 @@ export function ProductSpecificationAction({
         </IconActionTooltip>
       ) : (
         <button
+          aria-controls={open ? popoverId : undefined}
           aria-expanded={open}
           className={`${triggerClass} h-11 px-3`}
-          onClick={toggle}
+          onClick={(event) => { event.stopPropagation(); toggle(); }}
+          ref={triggerRef}
           type="button"
         >
           <ClipboardList aria-hidden="true" className="size-4" />
           {copy.toEstimate}
         </button>
       )}
-      {open ? (
+      {open && typeof document !== "undefined" ? createPortal(
         <div
-          className={`absolute z-20 mt-2 w-[min(18rem,calc(100vw-2rem))] rounded-md border border-zinc-200 bg-white p-4 shadow-lg ${compact ? "right-0" : "left-0"}`}
+          aria-label={copy.addToEstimate}
+          className="fixed z-[80] w-72 overflow-y-auto rounded-md border border-zinc-200 bg-white p-4 shadow-xl"
+          id={popoverId}
+          onClick={(event) => event.stopPropagation()}
+          onPointerDown={(event) => event.stopPropagation()}
+          ref={popoverRef}
+          role="dialog"
+          style={{ left: popoverPosition.left, maxHeight: popoverPosition.maxHeight, top: popoverPosition.top }}
         >
           <div className="flex items-center justify-between gap-3">
             <p className="text-sm font-semibold text-zinc-950">
@@ -174,7 +240,8 @@ export function ProductSpecificationAction({
           ) : (
             <p className="mt-3 text-sm text-zinc-600">{copy.loading}</p>
           )}
-        </div>
+        </div>,
+        document.body,
       ) : null}
       {message ? (
         <p

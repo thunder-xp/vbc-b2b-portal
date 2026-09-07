@@ -91,7 +91,8 @@ describe("OpportunityCard", () => {
     expect(screen.getByText("Дополняющий товар")).toBeInTheDocument();
     expect(screen.getByText("Дополнение к DH-IPC-HFW2531SP-S-0280B-S2 · 4 подтверждённых закупок.")).toBeInTheDocument();
     expect(screen.getByRole("spinbutton", { name: "Количество товара" })).toHaveValue(1);
-    expect(screen.getByText("Ваша цена")).toBeInTheDocument();
+    expect(screen.queryByText("Ваша цена")).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/Партнёрская цена/)).toHaveClass("text-lg", "font-bold", "text-emerald-700");
     expect(screen.queryByText("Розничная цена")).not.toBeInTheDocument();
   });
 
@@ -109,13 +110,30 @@ describe("OpportunityCard", () => {
     render(<OpportunityCard opportunity={related} />);
 
     await user.click(screen.getByRole("button", { name: "В подборку" }));
+    await user.click(screen.getByRole("button", { name: "В подборку" }));
 
-    expect(added).toHaveBeenCalledOnce();
+    expect(added).toHaveBeenCalledTimes(2);
     expect((added.mock.calls[0]?.[0] as CustomEvent).detail).toMatchObject({ product: { id: related.product!.id }, quantity: 1 });
     expect(addToCartActionMock).not.toHaveBeenCalled();
     expect(routerRefresh).not.toHaveBeenCalled();
-    expect(screen.getByText("В подборке")).toBeInTheDocument();
+    expect(screen.queryByText("В подборке")).not.toBeInTheDocument();
     window.removeEventListener("novotech:live-selection-add", added);
+  });
+
+  it("links only a resolved structured source product to its canonical PDP", () => {
+    render(<OpportunityCard opportunity={{
+      ...related,
+      sourceProduct: {
+        productId: "source-product-1",
+        slug: "dh-ipc-hfw2531sp-s-0280b-s2",
+        sku: "400198",
+        name: "DH-IPC-HFW2531SP-S-0280B-S2",
+        thumbnail: null,
+        thumbnailFit: "contain",
+        publicationState: "published",
+      },
+    }} />);
+    expect(screen.getByRole("link", { name: "DH-IPC-HFW2531SP-S-0280B-S2" })).toHaveAttribute("href", "/cabinet/catalog/dh-ipc-hfw2531sp-s-0280b-s2");
   });
 
   it("keeps an existing Cart line visible while allowing it into a separate working selection", () => {

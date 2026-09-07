@@ -7,6 +7,7 @@ export type WorkspaceDashboardProductCandidate = {
   categoryId: string | null;
   categoryName: string | null;
   labelCodes: Array<"TOP" | "NEW" | "HOT">;
+  sourceCodes?: Array<"TOP" | "NEW" | "HOT" | "ARRIVAL">;
   purchaseCount?: number;
   completedPurchaseCount?: number;
   lastPurchasedAt?: string;

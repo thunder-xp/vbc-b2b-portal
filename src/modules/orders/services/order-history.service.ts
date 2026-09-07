@@ -117,8 +117,10 @@ export type PreviouslyPurchasedProductDto = {
   name: string;
   slug: string;
   imageUrl: string | null;
+  categoryId: string | null;
   categoryName: string | null;
-  commercialView: Pick<ProductCommercialViewDto, "partnerPrice" | "partnerPriceMdl" | "stock">;
+  categorySlug: string | null;
+  commercialView: ProductCommercialViewDto;
   purchaseCount: number;
   totalQuantity: number;
   lastPurchasedAt: string;
@@ -152,9 +154,11 @@ export type PartnerOrderHistorySyncResult = {
 
 export interface PartnerOrderHistoryService {
   listPreviouslyPurchasedProducts?(userId: string, input?: {
+    categoryId?: string | null;
     limit?: number;
     offset?: number;
-  }): Promise<{ items: PreviouslyPurchasedProductDto[]; totalCount: number }>;
+    search?: string | null;
+  }): Promise<{ categories: Array<{ id: string; name: string; slug: string; productCount: number }>; items: PreviouslyPurchasedProductDto[]; totalCount: number }>;
   listPlannedShipments(userId: string, input?: { page?: number | string | null }): Promise<{
     shipments: PlannedShipmentDto[];
     page: number;
@@ -191,24 +195,26 @@ export class DefaultPartnerOrderHistoryService implements PartnerOrderHistorySer
 
   async listPreviouslyPurchasedProducts(
     userId: string,
-    input: { limit?: number; offset?: number } = {},
-  ): Promise<{ items: PreviouslyPurchasedProductDto[]; totalCount: number }> {
+    input: { categoryId?: string | null; limit?: number; offset?: number; search?: string | null } = {},
+  ): Promise<{ categories: Array<{ id: string; name: string; slug: string; productCount: number }>; items: PreviouslyPurchasedProductDto[]; totalCount: number }> {
     const context = await this.resolveContext(userId, ORDERS_VIEW_PERMISSION);
     if (!this.historyRepository.listPreviouslyPurchasedProducts) {
       throw new InvalidStateError("Previously purchased products are unavailable.");
     }
-    const limit = boundedInteger(input.limit, 5, 1, 20);
-    const offset = boundedInteger(input.offset, 0, 0, 500);
+    const limit = boundedInteger(input.limit, 20, 1, 24);
+    const offset = boundedInteger(input.offset, 0, 0, 5000);
     const result = await this.historyRepository.listPreviouslyPurchasedProducts({
+      categoryId: normalizeOptionalUuid(input.categoryId),
       companyId: context.company.id,
       limit,
       offset,
+      search: normalizeProductSearch(input.search),
     });
     return {
       items: result.items.map((record) => {
         const commercial = projectProductCommercialSnapshot(
           record.product.commercialSnapshot,
-          { canViewPartnerPrice: true, canViewRetailPrice: false },
+          { canViewPartnerPrice: true, canViewRetailPrice: true },
         );
         return {
           id: record.product.id,
@@ -216,12 +222,10 @@ export class DefaultPartnerOrderHistoryService implements PartnerOrderHistorySer
           name: record.product.name,
           slug: record.product.slug,
           imageUrl: record.product.imageUrl,
+          categoryId: record.product.category?.id ?? null,
           categoryName: record.product.category?.name ?? null,
-          commercialView: {
-            partnerPrice: commercial.partnerPrice,
-            partnerPriceMdl: commercial.partnerPriceMdl,
-            stock: commercial.stock,
-          },
+          categorySlug: record.product.category?.slug ?? null,
+          commercialView: commercial,
           purchaseCount: record.purchaseCount,
           totalQuantity: record.totalQuantity,
           lastPurchasedAt: record.lastPurchasedAt,
@@ -229,6 +233,7 @@ export class DefaultPartnerOrderHistoryService implements PartnerOrderHistorySer
           repeatPurchaseDue: record.repeatPurchaseDue,
         };
       }),
+      categories: result.categories,
       totalCount: result.totalCount,
     };
   }
@@ -1177,6 +1182,18 @@ function sameHistoryRecord(left: SalesOrderHistoryDTO, right: SalesOrderHistoryD
 
 function normalizeSearch(value: string | null | undefined): string {
   return (value ?? "").trim().slice(0, 100);
+}
+
+function normalizeProductSearch(value: string | null | undefined): string | null {
+  const normalized = normalizeSearch(value);
+  return normalized || null;
+}
+
+function normalizeOptionalUuid(value: string | null | undefined): string | null {
+  const normalized = (value ?? "").trim().toLowerCase();
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(normalized)
+    ? normalized
+    : null;
 }
 
 function parsePage(value: number | string | null | undefined): number {

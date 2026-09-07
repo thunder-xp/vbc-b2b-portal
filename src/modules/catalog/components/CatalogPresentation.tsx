@@ -13,12 +13,13 @@ import type { ProductListCatalogState } from "./ProductList";
 import { CatalogViewSwitcher } from "./CatalogViewSwitcher";
 import { usePartnerLocale } from "../../partner-locale";
 
-export function CatalogPresentation({ capabilities, catalogState, commercialViews, companyId, contextBadge, emptyState, initialMode, products, quickLinks, userId }: {
+export function CatalogPresentation({ capabilities, catalogState, commercialViews, companyId, contextBadge, detailReturnHref, emptyState, initialMode, products, quickLinks, userId }: {
   capabilities: ProductCardCapabilityModel;
   catalogState: ProductListCatalogState;
   commercialViews: Record<string, ProductCommercialViewDto>;
   companyId: string | null;
   contextBadge?: string;
+  detailReturnHref?: string;
   emptyState?: ReactNode;
   initialMode: CatalogViewMode;
   products: CatalogProductCardDto[];
@@ -42,7 +43,7 @@ export function CatalogPresentation({ capabilities, catalogState, commercialView
       <div className="shrink-0"><CatalogViewSwitcher mode={mode} onChange={setMode} /></div>
     </div>
     {!products.length ? emptyState : mode === "list"
-      ? <ProductList capabilities={capabilities} catalogState={catalogState} commercialViews={commercialViews} companyId={companyId} contextBadge={contextBadge} favoriteProductIds={favoriteProductIds} locale={locale} products={products} userId={userId} />
-      : <ProductGrid capabilities={capabilities} catalogState={catalogState} commercialViews={commercialViews} companyId={companyId} contextBadge={contextBadge} favoriteProductIds={favoriteProductIds} locale={locale} products={products} userId={userId} />}
+      ? <ProductList capabilities={capabilities} catalogState={catalogState} commercialViews={commercialViews} companyId={companyId} contextBadge={contextBadge} favoriteProductIds={favoriteProductIds} locale={locale} products={products} returnTargetOverride={detailReturnHref} userId={userId} />
+      : <ProductGrid capabilities={capabilities} catalogState={catalogState} commercialViews={commercialViews} companyId={companyId} contextBadge={contextBadge} favoriteProductIds={favoriteProductIds} locale={locale} products={products} returnTargetOverride={detailReturnHref} userId={userId} />}
   </div>;
 }

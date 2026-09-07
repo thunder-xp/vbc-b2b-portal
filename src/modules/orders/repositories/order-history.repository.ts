@@ -67,6 +67,7 @@ export type PreviouslyPurchasedProductRecord = {
 export type PreviouslyPurchasedProductPage = {
   items: PreviouslyPurchasedProductRecord[];
   totalCount: number;
+  categories: Array<{ id: string; name: string; slug: string; productCount: number }>;
 };
 
 export type RepeatOrderSummaryRecord = {
@@ -107,9 +108,11 @@ export interface PartnerOrderHistoryRepository {
   }): Promise<RepeatOrderSummaryRecord[]>;
   getRepeatOrderSelectionSource?(orderId: string): Promise<OrderReorderSource | null>;
   listPreviouslyPurchasedProducts?(input: {
+    categoryId: string | null;
     companyId: string;
     limit: number;
     offset: number;
+    search: string | null;
   }): Promise<PreviouslyPurchasedProductPage>;
   getReorderSource(orderId: string): Promise<OrderReorderSource | null>;
   getDetailAggregate?(

@@ -45,6 +45,7 @@ export type CommercialOpportunity = {
   sourceType: string;
   sourceId: string;
   product: OpportunityProduct | null;
+  sourceProduct?: import("../catalog/types").ProductReferenceDto;
   template: { id: string; name: string } | null;
 };
 

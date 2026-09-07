@@ -36,7 +36,7 @@ export type ProductListCatalogState = {
   sort: CatalogSort;
 };
 
-export function ProductList({ capabilities, catalogState, commercialViews = {}, companyId, contextBadge, favoriteProductIds = [], locale = "ru", products, userId }: {
+export function ProductList({ capabilities, catalogState, commercialViews = {}, companyId, contextBadge, favoriteProductIds = [], locale = "ru", products, returnTargetOverride, userId }: {
   capabilities: ProductCardCapabilityModel;
   catalogState: ProductListCatalogState;
   commercialViews?: Record<string, ProductCommercialViewDto>;
@@ -45,11 +45,12 @@ export function ProductList({ capabilities, catalogState, commercialViews = {}, 
   favoriteProductIds?: string[];
   locale?: PartnerLocale;
   products: CatalogProductCardDto[];
+  returnTargetOverride?: string;
   userId: string | null;
 }) {
   const copy = getCatalogCopy(locale);
   const favorites = new Set(favoriteProductIds);
-  const returnTarget = buildCatalogHref(catalogState);
+  const returnTarget = returnTargetOverride ?? buildCatalogHref(catalogState);
   return <div className="divide-y divide-zinc-200 overflow-hidden rounded-md border border-zinc-200 bg-white">
     {products.map((product, index) => {
       const commercialView = commercialViews[product.id];

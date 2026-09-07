@@ -19,6 +19,7 @@ const productCandidateSchema = z.object({
   categoryId: z.string().uuid().nullable(),
   categoryName: z.string().nullable(),
   labelCodes: z.array(z.enum(["TOP", "NEW", "HOT"])),
+  sourceCodes: z.array(z.enum(["TOP", "NEW", "HOT", "ARRIVAL"])).optional(),
   purchaseCount: z.number().int().nonnegative().optional(),
   completedPurchaseCount: z.number().int().nonnegative().optional(),
   lastPurchasedAt: z.string().optional(),
@@ -177,7 +178,7 @@ export class SupabaseWorkspaceDashboardRepository
   ): Promise<WorkspaceDashboardSelections> {
     const startedAt = performance.now();
     const { data, error } = await createAdminClient().rpc(
-      "get_or_refresh_partner_dashboard_selections",
+      "get_or_refresh_partner_dashboard_selections_v2",
       {
         p_user_id: userId,
         p_company_id: companyId,

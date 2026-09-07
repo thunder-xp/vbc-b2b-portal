@@ -303,6 +303,8 @@ describe("DefaultWorkspaceHomeService", () => {
     );
     expect(workspace.reorderProducts).toHaveLength(5);
     expect(workspace.merchandisingProducts).toHaveLength(5);
+    expect(workspace.reorderProductTotalCount).toBe(6);
+    expect(workspace.merchandisingProductTotalCount).toBe(5);
     expect(new Set(workspace.reorderProducts.map((item) => item.product.id)).size).toBe(5);
     expect(productReferences.getProductReferencesByIds).toHaveBeenCalledOnce();
     expect(workspace.reorderProducts.every((item) =>
@@ -461,7 +463,8 @@ describe("DefaultWorkspaceHomeService", () => {
           paymentObligation("today", today, "200"),
           paymentObligation("upcoming", addTestDays(today, 15), "400"),
           paymentObligation("later", addTestDays(today, 31), "800"),
-          { ...paymentObligation("settled", addTestDays(today, 2), "0"), paymentStatus: "SETTLED" },
+          { ...paymentObligation("settled", addTestDays(today, -10), "0"), paidAmount: "300", paymentStatus: "SETTLED", settlementLastPaymentAt: `${addTestDays(today, -10)}T10:00:00Z` },
+          { ...paymentObligation("settled-old", addTestDays(today, -181), "0"), paidAmount: "500", paymentStatus: "SETTLED", settlementLastPaymentAt: `${addTestDays(today, -181)}T10:00:00Z` },
         ],
         unavailableCount: 0,
         syncState: { lastSuccessAt: new Date().toISOString() },
@@ -485,7 +488,9 @@ describe("DefaultWorkspaceHomeService", () => {
     ).getWorkspaceHome("partner-1");
 
     expect(financeRepository.getOverviewData).toHaveBeenCalledOnce();
-    expect(workspace.financeGuidance?.paymentGraph.map((item) => item.timing)).toEqual(["overdue", "today", "upcoming"]);
+    expect(workspace.financeGuidance?.paymentGraph.map((item) => item.timing)).toEqual(["paid", "overdue", "today", "upcoming"]);
+    expect(workspace.financeGuidance?.paymentGraph.find((item) => item.id === "settled")).toMatchObject({ amount: 300, orderNumber: "settled", timing: "paid" });
+    expect(workspace.financeGuidance?.paymentGraph.map((item) => item.id)).not.toContain("settled-old");
     expect(workspace.financeGuidance?.paymentGraph.map((item) => item.id)).not.toContain("later");
     expect(workspace.financeGuidance?.paymentGraph.every((item) => item.relativeHeight >= 18 && item.relativeHeight <= 100)).toBe(true);
   });

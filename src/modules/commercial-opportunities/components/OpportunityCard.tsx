@@ -41,7 +41,6 @@ export function OpportunityCard({
 }) {
   const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
-  const [addedToSelection, setAddedToSelection] = useState(false);
   const [pending, startTransition] = useTransition();
   const product = opportunity.product;
   const template = opportunity.template;
@@ -162,13 +161,10 @@ export function OpportunityCard({
         ) : null}
 
         <div className="mt-3 flex flex-wrap items-center gap-2 sm:flex-nowrap" data-opportunity-actions>
-          {product && canAddToOrder && canAddProduct(opportunity, addedToSelection) ? (
+          {product && canAddToOrder && canAddProduct(opportunity) ? (
             <div className="w-full flex-none sm:min-w-[11rem] sm:flex-1">
               <CatalogQuantityCartAction
                 initialQuantity={suggestedQuantity(opportunity)}
-                onSuccess={() => {
-                  setAddedToSelection(true);
-                }}
                 productId={product.id}
                 selectionProduct={opportunitySelectionProduct(opportunity, locale)}
                 sourceSurface="opportunity_card"
@@ -179,11 +175,6 @@ export function OpportunityCard({
           {alreadyInCart ? (
             <p className="inline-flex min-h-11 items-center rounded-md bg-emerald-50 px-4 text-sm font-semibold text-emerald-800">
               {locale === "ro" ? "Deja în coș" : "Уже в корзине"}
-            </p>
-          ) : null}
-          {addedToSelection ? (
-            <p className="inline-flex min-h-11 items-center rounded-md bg-emerald-50 px-4 text-sm font-semibold text-emerald-800">
-              {locale === "ro" ? "În selecție" : "В подборке"}
             </p>
           ) : null}
           {product && canManagePurchasingLists ? (
@@ -273,11 +264,11 @@ function opportunityLabel(
 function primaryReason(
   opportunity: CommercialOpportunity,
   locale: PartnerLocale,
-): string {
+) {
   const value = opportunity.reasonMetadata;
   if (locale === "ro") {
     if (opportunity.reasonCode === "related_to_regular_purchase")
-      return `Completează ${textValue(value.sourceProductName)} · ${numberValue(value.sourcePurchaseCount, locale)} achiziții confirmate.`;
+      return <RelatedProductReason locale={locale} opportunity={opportunity} />;
     if (opportunity.reasonCode === "back_in_stock")
       return "Produsul din lista dvs. este din nou disponibil.";
     if (opportunity.reasonCode === "confirmed_arrival")
@@ -301,7 +292,7 @@ function primaryReason(
     return "Condițiile comerciale pentru un produs relevant s-au modificat.";
   }
   if (opportunity.reasonCode === "related_to_regular_purchase")
-    return `Дополнение к ${textValue(value.sourceProductName)} · ${numberValue(value.sourcePurchaseCount, locale)} подтверждённых закупок.`;
+    return <RelatedProductReason locale={locale} opportunity={opportunity} />;
   if (opportunity.reasonCode === "back_in_stock")
     return "Товар из вашего списка снова доступен.";
   if (opportunity.reasonCode === "confirmed_arrival")
@@ -323,6 +314,20 @@ function primaryReason(
   if (opportunity.reasonCode === "relevant_merchandising")
     return `Актуальное предложение по товару, связанному с вашей закупочной активностью.`;
   return "Коммерческие условия по релевантному товару изменились.";
+}
+
+function RelatedProductReason({ locale, opportunity }: { locale: PartnerLocale; opportunity: CommercialOpportunity }) {
+  const value = opportunity.reasonMetadata;
+  const sourceName = textValue(value.sourceProductName);
+  const sourceId = typeof value.sourceProductId === "string" ? value.sourceProductId : null;
+  const governedSource = sourceId && opportunity.sourceProduct?.productId === sourceId
+    ? opportunity.sourceProduct
+    : null;
+  const model = governedSource?.name || sourceName;
+  const modelView = governedSource
+    ? <Link className="font-semibold text-emerald-800 underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500" href={`/cabinet/catalog/${governedSource.slug}`} prefetch={false}>{model}</Link>
+    : model;
+  return <>{locale === "ro" ? "Completează " : "Дополнение к "}{modelView} · {numberValue(value.sourcePurchaseCount, locale)} {locale === "ro" ? "achiziții confirmate." : "подтверждённых закупок."}</>;
 }
 
 function secondaryReason(reason: string, locale: PartnerLocale): string {
@@ -350,16 +355,12 @@ function priceLabel(
   const price = product.partnerPrice ?? (partnerOnly ? null : product.retailPrice);
   return price ? (
     <p>
-      <span className="block text-xs text-zinc-500">
-        {product.partnerPrice
-          ? locale === "ro"
-            ? "Prețul dvs."
-            : "Ваша цена"
-          : locale === "ro"
+      {!product.partnerPrice ? <span className="block text-xs text-zinc-500">
+        {locale === "ro"
             ? "Preț cu amănuntul"
             : "Розничная цена"}
-      </span>
-      <strong>
+      </span> : null}
+      <strong aria-label={`${product.partnerPrice ? locale === "ro" ? "Preț de partener" : "Партнёрская цена" : locale === "ro" ? "Preț cu amănuntul" : "Розничная цена"}: ${formatPartnerMoney(price.amount, price.currency, locale)}`} className={product.partnerPrice ? "text-lg font-bold text-emerald-700" : undefined}>
         {formatPartnerMoney(price.amount, price.currency, locale)}
       </strong>
     </p>
@@ -421,10 +422,7 @@ function suggestedQuantity(opportunity: CommercialOpportunity): number {
   const raw = Number(opportunity.reasonMetadata.typicalQuantity ?? 1);
   return Number.isInteger(raw) && raw >= 1 && raw <= 9999 ? raw : 1;
 }
-function canAddProduct(
-  opportunity: CommercialOpportunity,
-  addedToCart: boolean,
-): boolean {
+function canAddProduct(opportunity: CommercialOpportunity): boolean {
   const product = opportunity.product;
   if (!product) return false;
   if (
@@ -436,7 +434,6 @@ function canAddProduct(
   return Boolean(
     product.partnerPrice
       && (product.availableQuantity ?? 0) > 0
-      && !addedToCart,
   );
 }
 function opportunitySelectionProduct(opportunity: CommercialOpportunity, locale: PartnerLocale): LiveCommerceSelectionProduct {

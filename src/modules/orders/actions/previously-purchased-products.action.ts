@@ -15,20 +15,23 @@ import type { PreviouslyPurchasedProductDto } from "../services/order-history.se
 import { createPartnerOrderHistoryListService } from "./order-history-list.factory";
 
 export async function listPreviouslyPurchasedProductsAction(input: {
+  categoryId?: string | null;
   limit?: number;
   offset?: number;
+  search?: string | null;
 } = {}): Promise<ActionResult<{
+  categories: Array<{ id: string; name: string; slug: string; productCount: number }>;
   items: PreviouslyPurchasedProductDto[];
   totalCount: number;
 }>> {
   try {
     const userId = await measurePerformanceStage(
-      "live-reorder",
+      "repeat-purchase",
       "auth",
       getAuthenticatedUserId,
     );
     const page = await measurePerformanceStage(
-      "live-reorder",
+      "repeat-purchase",
       "previously_purchased_products",
       () => createPartnerOrderHistoryListService()
         .listPreviouslyPurchasedProducts(userId, input),
@@ -37,6 +40,6 @@ export async function listPreviouslyPurchasedProductsAction(input: {
   } catch (error) {
     return failureFromError(error);
   } finally {
-    emitRequestTotal("live-reorder");
+    emitRequestTotal("repeat-purchase");
   }
 }

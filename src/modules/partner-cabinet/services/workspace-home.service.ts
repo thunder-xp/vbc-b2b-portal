@@ -21,7 +21,7 @@ import type {
   PartnerWorkspaceContextService,
 } from "./workspace-context.service";
 import type { CommercialOpportunity, CommercialOpportunityRepository } from "../../commercial-opportunities";
-import { enrichOpportunityProductReferences } from "../../commercial-opportunities/services";
+import { enrichOpportunityProductReferences, opportunityProductReferenceIds } from "../../commercial-opportunities/services";
 import type { CommercialCampaignRepository } from "../../commercial-campaigns/repositories/commercial-campaign.repository";
 import type { PartnerCampaign } from "../../commercial-campaigns/types";
 import type { DocumentRepository } from "../../documents/repositories";
@@ -95,6 +95,7 @@ export type WorkspaceProductDto = {
   purchaseCount?: number;
   lastPurchasedAt?: string;
   typicalQuantity?: number;
+  sourceCodes?: Array<"TOP" | "NEW" | "HOT" | "ARRIVAL">;
 };
 
 export type WorkspaceHomeDto = {
@@ -127,7 +128,9 @@ export type WorkspaceHomeDto = {
   quickActions: WorkspaceQuickActionDto[];
   continuationItems: WorkspaceContinuationDto[];
   reorderProducts: WorkspaceProductDto[];
+  reorderProductTotalCount: number;
   merchandisingProducts: WorkspaceProductDto[];
+  merchandisingProductTotalCount: number;
   opportunities: CommercialOpportunity[];
   campaigns: PartnerCampaign[];
   recentDocuments: PartnerDocumentListItem[];
@@ -148,10 +151,11 @@ export type WorkspaceHomeDto = {
     fresh: boolean;
     paymentGraph: Array<{
       id: string;
-      dueDate: string;
-      remainingAmount: number;
+      eventDate: string;
+      orderNumber: string;
+      amount: number;
       currency: string;
-      timing: "overdue" | "today" | "upcoming";
+      timing: "overdue" | "today" | "upcoming" | "paid";
       relativeHeight: number;
     }>;
   };
@@ -259,7 +263,7 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
       ...reorderCandidates,
       ...merchandisingCandidates,
     ]);
-    const opportunityProductIds = [...new Set(opportunityCandidates.flatMap((item) => item.product ? [item.product.id] : []))];
+    const opportunityProductIds = opportunityProductReferenceIds(opportunityCandidates);
     const referenceProductIds = [...new Set([
       ...candidates.map((candidate) => candidate.id),
       ...opportunityProductIds,
@@ -309,6 +313,7 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
       .map((candidate) => ({
         product: toProduct(candidate, referenceByProduct.get(candidate.id)),
         commercialView: commercialByProduct.get(candidate.id),
+        sourceCodes: candidate.sourceCodes,
       }));
 
     logDashboardShortage("previous_purchases", reorderProducts.length, 5);
@@ -363,7 +368,9 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
       ),
       continuationItems: dashboard.continuationItems.map(toContinuation),
       reorderProducts,
+      reorderProductTotalCount: selections?.previousCandidateCount ?? reorderProducts.length,
       merchandisingProducts,
+      merchandisingProductTotalCount: selections?.offerCandidateCount ?? merchandisingProducts.length,
       opportunities,
       campaigns: selectDashboardCampaigns(campaignPage.items),
       recentDocuments: [],
@@ -394,6 +401,14 @@ function buildFinanceGuidance(
 ): NonNullable<WorkspaceHomeDto["financeGuidance"]> {
   const today = financeBusinessDate(new Date());
   const current = obligations.filter((row) => row.reconciliationStatus === "READY" && row.paymentStatus !== "SETTLED" && Number(row.remainingAmount) > 0);
+  const paidWindowStart = addDays(today, -180);
+  const recentlyPaid = obligations.filter((row) => {
+    const settledDate = row.settlementLastPaymentAt?.slice(0, 10);
+    return row.reconciliationStatus === "READY"
+      && row.paymentStatus === "SETTLED"
+      && Number(row.paidAmount) > 0
+      && Boolean(settledDate && settledDate >= paidWindowStart && settledDate <= today);
+  });
   const totals = new Map<string, { outstanding: number; overdue: number }>();
   for (const row of current) {
     const total = totals.get(row.currency) ?? { outstanding: 0, overdue: 0 };
@@ -403,20 +418,26 @@ function buildFinanceGuidance(
   }
   const nextDueDate = current.map((row) => row.dueDate).sort()[0] ?? null;
   const fresh = Boolean(synchronizedAt && Date.now() - Date.parse(synchronizedAt) <= 3 * 60 * 60 * 1000);
-  const graphCandidates = current
+  const currentGraphCandidates = current
     .filter((row) => row.dueDate <= addDays(today, 30))
     .sort((left, right) => {
       const leftDistance = Math.abs(daysBetween(today, left.dueDate));
       const rightDistance = Math.abs(daysBetween(today, right.dueDate));
       return leftDistance - rightDistance || left.dueDate.localeCompare(right.dueDate);
     })
-    .slice(0, 12)
-    .sort((left, right) => left.dueDate.localeCompare(right.dueDate));
+    .slice(0, 16);
+  const paidGraphCandidates = recentlyPaid
+    .sort((left, right) => (right.settlementLastPaymentAt ?? "").localeCompare(left.settlementLastPaymentAt ?? ""))
+    .slice(0, Math.max(0, 24 - currentGraphCandidates.length));
+  const graphCandidates = [
+    ...currentGraphCandidates.map((row) => ({ row, eventDate: row.dueDate, timing: row.dueDate < today ? "overdue" as const : row.dueDate === today ? "today" as const : "upcoming" as const, amount: Number(row.remainingAmount) })),
+    ...paidGraphCandidates.map((row) => ({ row, eventDate: row.settlementLastPaymentAt!.slice(0, 10), timing: "paid" as const, amount: Number(row.paidAmount) })),
+  ].sort((left, right) => left.eventDate.localeCompare(right.eventDate) || left.row.id.localeCompare(right.row.id));
   const maximaByCurrency = new Map<string, number>();
-  for (const row of graphCandidates) {
+  for (const item of graphCandidates) {
     maximaByCurrency.set(
-      row.currency,
-      Math.max(maximaByCurrency.get(row.currency) ?? 0, Number(row.remainingAmount)),
+      item.row.currency,
+      Math.max(maximaByCurrency.get(item.row.currency) ?? 0, item.amount),
     );
   }
   return {
@@ -425,13 +446,14 @@ function buildFinanceGuidance(
     totals: [...totals.entries()].sort(([left], [right]) => left.localeCompare(right)).map(([currency, value]) => ({ currency, ...value })),
     nextDueDate,
     fresh,
-    paymentGraph: graphCandidates.map((row) => ({
-      id: row.id,
-      dueDate: row.dueDate,
-      remainingAmount: Number(row.remainingAmount),
-      currency: row.currency,
-      timing: row.dueDate < today ? "overdue" : row.dueDate === today ? "today" : "upcoming",
-      relativeHeight: Math.max(18, Math.round((Number(row.remainingAmount) / (maximaByCurrency.get(row.currency) || 1)) * 100)),
+    paymentGraph: graphCandidates.map((item) => ({
+      id: item.row.id,
+      eventDate: item.eventDate,
+      orderNumber: item.row.orderNumber,
+      amount: item.amount,
+      currency: item.row.currency,
+      timing: item.timing,
+      relativeHeight: Math.max(18, Math.round((item.amount / (maximaByCurrency.get(item.row.currency) || 1)) * 100)),
     })),
   };
 }

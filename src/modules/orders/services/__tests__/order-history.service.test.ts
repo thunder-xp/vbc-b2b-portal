@@ -502,7 +502,8 @@ describe("DefaultPartnerOrderHistoryService", () => {
             productId: "product-1",
             canViewStock: true,
             partnerPrice: { priceAmount: 50.6, currency: "USD", currencyStatus: "resolved", updatedAt: "2026-09-05T10:00:00Z" },
-            msrpPrice: null,
+            retailPrice: { priceAmount: 1_332, currency: "MDL", currencyStatus: "resolved", updatedAt: "2026-09-05T10:00:00Z" },
+            msrpPrice: { priceAmount: 75, currency: "USD", currencyStatus: "resolved", updatedAt: "2026-09-05T10:00:00Z" },
             stock: { productId: "product-1", physicalQuantity: 10, reservedQuantity: 2, availableQuantity: 8, incomingQuantity: 0, hasVariantStock: false, syncedAt: "2026-09-05T10:00:00Z" },
             supplierArrival: null,
             partnerRate: null,
@@ -515,13 +516,14 @@ describe("DefaultPartnerOrderHistoryService", () => {
         lastQuantity: 3,
         repeatPurchaseDue: true,
       }],
+      categories: [{ id: "category-1", name: "Video", slug: "video", productCount: 1 }],
       totalCount: 1,
     });
     const repository = { ...historyRepository([]), listPreviouslyPurchasedProducts };
 
     const result = await service(repository).listPreviouslyPurchasedProducts("user-1", { limit: 5, offset: 0 });
 
-    expect(listPreviouslyPurchasedProducts).toHaveBeenCalledWith({ companyId: COMPANY_ID, limit: 5, offset: 0 });
+    expect(listPreviouslyPurchasedProducts).toHaveBeenCalledWith({ categoryId: null, companyId: COMPANY_ID, limit: 5, offset: 0, search: null });
     expect(result.items[0]).toMatchObject({
       id: "product-1",
       categoryName: "Video",
@@ -529,10 +531,12 @@ describe("DefaultPartnerOrderHistoryService", () => {
       repeatPurchaseDue: true,
       commercialView: {
         partnerPrice: { amount: 50.6, currencyCode: "USD" },
+        retailPrice: { amount: 1_332, currencyCode: "MDL" },
+        msrpPriceUsd: { amount: 75, currencyCode: "USD" },
         stock: { status: "in_stock", exactAvailableQuantity: 8 },
       },
     });
-    expect(JSON.stringify(result)).not.toContain("retailPrice");
+    expect(result.categories).toEqual([{ id: "category-1", name: "Video", slug: "video", productCount: 1 }]);
   });
 });
 
