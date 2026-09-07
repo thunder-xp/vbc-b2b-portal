@@ -115,6 +115,11 @@ export default async function NotificationHealthPage() {
           <Detail label="Ожидает повтора" value={String(health.gateway.failed)} />
           <Detail label="Требует внимания" value={String(health.gateway.deadLetter)} />
         </dl>
+        <dl className="mt-4 grid gap-4 text-sm sm:grid-cols-4 lg:grid-cols-9">
+          {Object.entries(health.gateway.stateCounts).map(([state, count]) => (
+            <Detail key={state} label={state} value={String(count)} />
+          ))}
+        </dl>
         {health.gateway.recentDeliveries.length ? (
           <div className="mt-5 overflow-x-auto">
             <table className="w-full min-w-[1100px] text-left text-sm">
@@ -137,13 +142,13 @@ export default async function NotificationHealthPage() {
                     <td className="py-3 font-mono text-xs text-zinc-900">{delivery.eventType}</td>
                     <td className="py-3 text-zinc-700">
                       <span className="block font-medium text-zinc-900">{delivery.companyName}</span>
-                      <span>{delivery.orderNumber ?? delivery.partnerOrderId}</span>
+                      <span>{delivery.orderNumber ?? delivery.partnerOrderId ?? "—"}</span>
                     </td>
                     <td className="py-3 text-zinc-700">
-                      <span className="block">{delivery.channel}</span>
+                      <span className="block">{delivery.channel} · {delivery.mode}</span>
                       <span>{delivery.recipient}</span>
                     </td>
-                    <td className="py-3 text-zinc-700">{delivery.status}</td>
+                    <td className="py-3 text-zinc-700">{delivery.state}</td>
                     <td className="py-3 text-zinc-700">{delivery.attempts}</td>
                     <td className="py-3 text-zinc-700">{delivery.sentAt ?? "—"}</td>
                     <td className="py-3 text-zinc-700">{delivery.safeError ?? "—"}</td>
@@ -151,7 +156,8 @@ export default async function NotificationHealthPage() {
                     <td className="py-3 text-right">
                       {delivery.deliveryId
                         && delivery.safeError !== "recipient_unavailable"
-                        && (delivery.status === "failed" || delivery.status === "dead_letter") ? (
+                        && delivery.mode === "LIVE"
+                        && (delivery.state === "FAILED_RETRYABLE" || delivery.state === "FAILED_FINAL") ? (
                         <form action={retryNotificationDeliveryAction}>
                           <input type="hidden" name="deliveryId" value={delivery.deliveryId} />
                           <button

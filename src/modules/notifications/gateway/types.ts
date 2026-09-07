@@ -1,4 +1,4 @@
-export type NotificationChannel = "email" | "sms" | "telegram";
+export type NotificationChannel = "email" | "in_app" | "sms" | "telegram";
 
 export type NotificationMessage = {
   recipient: string;
@@ -14,6 +14,8 @@ export type NotificationDeliveryResult = {
 
 export type NotificationDeliveryErrorCategory =
   | "configuration"
+  | "global_kill_switch"
+  | "channel_kill_switch"
   | "timeout"
   | "authentication"
   | "rejected"
@@ -41,14 +43,21 @@ export type ClaimedNotificationDelivery = {
   eventId: string;
   eventType: string;
   companyId: string;
-  partnerOrderId: string;
+  partnerOrderId: string | null;
   correlationId: string;
   payloadVersion: number;
   payload: unknown;
   channel: NotificationChannel;
+  channelMode?: "DISABLED" | "DRY_RUN" | "LIVE";
   recipient: string;
+  recipientLocale?: "ru" | "ro";
+  templateKey?: string;
   templateVersion: number;
+  templateRevision?: string;
+  sensitivity?: "PUBLIC" | "PARTNER_PRIVATE" | "FINANCIAL_PRIVATE" | "SECURITY_SENSITIVE";
+  renderedSnapshot?: unknown;
   attempt: number;
+  attemptSequence?: number;
   leaseToken: string;
   idempotencyKey: string;
 };

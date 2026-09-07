@@ -223,8 +223,10 @@ function toProjection(
       locale: projected.locale,
       sensitivity: projected.sensitivity,
       correlationId: projected.correlationId,
+      businessIdentity: intent.idempotencyIdentity,
       deliveryIdentity: projected.deliveryIdentity,
       state: projected.state,
+      suppressionReason: projected.suppressionReason,
     },
   };
   const fingerprint = hash(["DRY_RUN", businessDate, projected.deliveryIdentity, content.subject, content.textBody]);

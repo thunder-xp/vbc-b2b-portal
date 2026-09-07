@@ -57,6 +57,18 @@ describe("CommunicationGatewayService", () => {
     expect(adapter.send).not.toHaveBeenCalled();
   });
 
+  it("blocks email at the independent channel switch", async () => {
+    const adapter = emailAdapter();
+    const gateway = new CommunicationGatewayService(registry(), [adapter], {
+      globalExternalKillSwitch: false,
+      channelKillSwitches: { email: true, sms: true },
+    });
+    const result = await gateway.dispatch(intent({ email: "LIVE" }), "email");
+
+    expect(result).toMatchObject({ state: "SUPPRESSED", suppressionReason: "CHANNEL_KILL_SWITCH" });
+    expect(adapter.send).not.toHaveBeenCalled();
+  });
+
   it("blocks a disabled channel after preserving an internal preview", async () => {
     const adapter = emailAdapter();
     const gateway = new CommunicationGatewayService(registry(), [adapter], openRuntimePolicy());

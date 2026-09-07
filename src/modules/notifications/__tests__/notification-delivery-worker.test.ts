@@ -30,6 +30,21 @@ describe("NotificationDeliveryWorkerService", () => {
     expect(dependencies.adapter.send).not.toHaveBeenCalled();
   });
 
+  it("rechecks the kill switch after claim and immediately before SMTP invocation", async () => {
+    const dependencies = makeDependencies();
+    dependencies.repository.claim.mockImplementationOnce(async () => {
+      vi.stubEnv("COMMUNICATION_EMAIL_KILL_SWITCH", "ON");
+      return [delivery];
+    });
+    dependencies.repository.completeBatch.mockResolvedValue([completion("failed")]);
+
+    await expect(dependencies.worker.run()).resolves.toMatchObject({ claimed: 1, failed: 1 });
+    expect(dependencies.adapter.send).not.toHaveBeenCalled();
+    expect(dependencies.repository.completeBatch).toHaveBeenCalledWith([
+      expect.objectContaining({ retryable: true, errorCategory: "channel_kill_switch" }),
+    ]);
+  });
+
   it("delivers one claimed event and records provider timing", async () => {
     const dependencies = makeDependencies();
     const result = await dependencies.worker.run();

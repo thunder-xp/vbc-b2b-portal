@@ -100,6 +100,13 @@ export class NotificationDeliveryWorkerService {
         ),
         messageId: `<notification-${delivery.deliveryId}@nsd.md>`,
       };
+      const safetyBlock = externalEmailBlockReason();
+      if (safetyBlock) {
+        throw new NotificationDeliveryError(
+          safetyBlock === "GLOBAL_KILL_SWITCH" ? "global_kill_switch" : "channel_kill_switch",
+          true,
+        );
+      }
       const providerStartedAt = performance.now();
       const providerResult = await adapter.send(message);
       const providerDurationMs = Math.max(0, Math.round(performance.now() - providerStartedAt));

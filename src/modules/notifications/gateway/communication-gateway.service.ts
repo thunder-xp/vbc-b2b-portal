@@ -57,6 +57,7 @@ export class CommunicationGatewayService {
     if (recipientFailure) return suppressed(intent, channel, mode, recipientFailure);
 
     const rendered = this.templates.render(intent, channel);
+    if (mode === "DISABLED") return suppressed(intent, channel, mode, "CHANNEL_DISABLED", rendered);
     return baseProjection(intent, channel, mode, "PROJECTED", null, rendered, null);
   }
 
@@ -101,7 +102,7 @@ function policySuppression(
   if (mode === "DISABLED") return "CHANNEL_DISABLED";
   if (channel === "in_app") return null;
   if (policy.globalExternalKillSwitch) return "GLOBAL_KILL_SWITCH";
-  if (policy.channelKillSwitches[channel]) return "PER_CHANNEL_KILL_SWITCH";
+  if (policy.channelKillSwitches[channel]) return "CHANNEL_KILL_SWITCH";
   return null;
 }
 

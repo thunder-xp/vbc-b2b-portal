@@ -42,6 +42,7 @@ export type CommunicationIntent<TVariables extends Record<string, unknown> = Rec
 export type CommunicationSuppressionReason =
   | "BUSINESS_ROLLOUT_HOLD"
   | "CAPABILITY_NOT_AUTHORIZED"
+  | "CHANNEL_KILL_SWITCH"
   | "CHANNEL_DISABLED"
   | "COMPANY_MISMATCH"
   | "DUPLICATE"

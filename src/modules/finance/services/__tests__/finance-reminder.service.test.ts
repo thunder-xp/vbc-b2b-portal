@@ -61,6 +61,9 @@ describe("FINANCE_REMINDER_V1", () => {
     expect(sms.body).not.toBe(email.body);
     expect(new Set(result.projections.map((row) => row.deliveryIdentity)).size).toBe(3);
     expect(new Set(result.projections.map((row) => row.fingerprint)).size).toBe(3);
+    expect(sms.contentPayload).toMatchObject({
+      communication: { mode: "DISABLED", state: "SUPPRESSED", suppressionReason: "CHANNEL_DISABLED" },
+    });
   });
 
   it("separates overdue, due-today, and upcoming obligations without exposing milestone codes", () => {

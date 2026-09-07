@@ -119,21 +119,43 @@ export type NotificationHealth = {
     sentLast24Hours: number;
     failed: number;
     deadLetter: number;
+    stateCounts: {
+      projected: number;
+      suppressed: number;
+      ready: number;
+      queued: number;
+      processing: number;
+      accepted: number;
+      failedRetryable: number;
+      failedFinal: number;
+      cancelled: number;
+    };
+    byCommunicationTypeChannel: Array<{
+      eventType: string;
+      channel: "email" | "in_app" | "sms" | "telegram";
+      state: "PROJECTED" | "SUPPRESSED" | "READY" | "QUEUED" | "PROCESSING" | "ACCEPTED" | "FAILED_RETRYABLE" | "FAILED_FINAL" | "CANCELLED";
+      count: number;
+    }>;
     recentDeliveries: Array<{
       deliveryId: string | null;
       eventId: string;
       eventType: string;
       companyId: string;
       companyName: string;
-      partnerOrderId: string;
+      partnerOrderId: string | null;
       orderNumber: string | null;
-      channel: "email" | "sms" | "telegram";
+      channel: "email" | "in_app" | "sms" | "telegram";
+      mode: "DISABLED" | "DRY_RUN" | "LIVE";
       recipient: string;
-      status: "queued" | "processing" | "sent" | "failed" | "dead_letter";
+      status: "projected" | "suppressed" | "queued" | "processing" | "sent" | "failed" | "dead_letter";
+      state: "PROJECTED" | "SUPPRESSED" | "READY" | "QUEUED" | "PROCESSING" | "ACCEPTED" | "FAILED_RETRYABLE" | "FAILED_FINAL" | "CANCELLED";
       attempts: number;
       sentAt: string | null;
+      attemptedAt: string | null;
       safeError: string | null;
       correlationId: string;
+      templateKey: string;
+      templateVersion: string;
       createdAt: string;
     }>;
   };
