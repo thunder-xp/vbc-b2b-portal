@@ -9,6 +9,10 @@ const receiptGrantSql = readFileSync(
   "supabase/migrations/20260907060500_finance_reminder_delivery_receipt_grants.sql",
   "utf8",
 );
+const receiptIndexSql = readFileSync(
+  "supabase/migrations/20260907061000_finance_reminder_delivery_receipt_recipient_index.sql",
+  "utf8",
+);
 
 describe("finance reminder go-live remediation migration", () => {
   it("separates per-run review identity from append-only LIVE delivery receipts", () => {
@@ -44,6 +48,9 @@ describe("finance reminder go-live remediation migration", () => {
     );
     expect(receiptGrantSql).toContain(
       "grant select, insert on table public.partner_finance_reminder_delivery_receipts to service_role",
+    );
+    expect(receiptIndexSql).toContain(
+      "on public.partner_finance_reminder_delivery_receipts(recipient_user_id)",
     );
   });
 
