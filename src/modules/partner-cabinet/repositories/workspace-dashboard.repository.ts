@@ -84,6 +84,21 @@ export type WorkspaceDashboardProjection = {
     lastSuccessfulAt: string | null;
     stale: boolean;
   };
+  salesAnalytics: {
+    periodStart: string;
+    periodEnd: string;
+    series: Array<{
+      currency: string;
+      total: number;
+      orderCount: number;
+      averageOrder: number;
+      points: Array<{
+        month: string;
+        amount: number;
+        orderCount: number;
+      }>;
+    }>;
+  };
   companySummary: null | {
     activeEmployees: number;
     pendingInvitations: number;

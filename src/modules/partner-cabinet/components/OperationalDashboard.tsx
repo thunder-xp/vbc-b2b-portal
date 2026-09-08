@@ -6,6 +6,7 @@ import {
   CircleDollarSign,
   Clock3,
   PackageCheck,
+  TrendingUp,
 } from "lucide-react";
 
 import { ProductCard } from "../../catalog/components/ProductCard";
@@ -41,7 +42,10 @@ export function OperationalDashboard({
         <SupportDashboardBlock items={workspace.supportTickets ?? []} locale={locale} />
       </div>
       <OpportunitySection locale={locale} opportunities={workspace.opportunities} workspace={workspace} />
-      <FinanceSection guidance={workspace.financeGuidance} locale={locale} summary={workspace.financeSummary} />
+      <div className="grid items-stretch gap-5 xl:grid-cols-2" data-dashboard-finance-sales>
+        <FinanceSection guidance={workspace.financeGuidance} locale={locale} summary={workspace.financeSummary} />
+        <SalesSection analytics={workspace.salesAnalytics} locale={locale} />
+      </div>
       <div className="grid gap-5 xl:grid-cols-2" data-dashboard-section="fulfilment">
         <OrdersSection locale={locale} summary={workspace.orderSummary} />
         <ShipmentsSection locale={locale} summary={workspace.shipmentSummary} />
@@ -376,14 +380,14 @@ function FinanceSection({
 }) {
   if (!summary && !guidance) return null;
   return (
-    <section aria-labelledby="dashboard-finance" data-dashboard-section="finance">
+    <section aria-labelledby="dashboard-finance" className="flex h-full min-w-0 flex-col" data-dashboard-section="finance">
       <SectionHeading
         actionHref="/cabinet/finance"
         actionLabel={partnerText(locale, "dashboard.openFinance")}
         id="dashboard-finance"
         title={partnerText(locale, "dashboard.finance")}
       />
-      <div className="mt-3 border border-zinc-200 bg-white p-4">
+      <div className="mt-3 flex-1 border border-zinc-200 bg-white p-4">
         {guidance ? <p className={`mb-3 text-sm font-semibold ${guidance.state === "overdue" ? "text-amber-800" : guidance.state === "unavailable" ? "text-zinc-600" : "text-emerald-800"}`}>{partnerText(locale, financeStateKey(guidance.state))}</p> : null}
         {summary?.lastSuccessfulAt ? <p className="mb-3 text-xs text-zinc-500">{partnerText(locale, "dashboard.updated")}: {formatDate(summary.lastSuccessfulAt, locale)}</p> : null}
         {guidance ? <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -429,6 +433,115 @@ function FinanceSection({
   );
 }
 
+function SalesSection({
+  analytics,
+  locale,
+}: {
+  analytics: WorkspaceHomeDto["salesAnalytics"];
+  locale: PartnerLocale;
+}) {
+  if (!analytics) return null;
+  return (
+    <section aria-labelledby="dashboard-sales" className="flex h-full min-w-0 flex-col" data-dashboard-section="sales">
+      <SectionHeading
+        actionHref="/cabinet/orders"
+        actionLabel={partnerText(locale, "dashboard.openSales")}
+        id="dashboard-sales"
+        title={partnerText(locale, "dashboard.sales")}
+      />
+      <div className="mt-3 flex-1 border border-zinc-200 bg-white p-4" data-sales-panel>
+        <p className="text-xs font-medium tabular-nums text-zinc-500" data-sales-period>
+          {formatDate(analytics.periodStart, locale)} — {formatDate(analytics.periodEnd, locale)}
+        </p>
+        {analytics.series.length ? (
+          <>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2" data-sales-metrics>
+              {analytics.series.map((series) => (
+                <div className="border border-zinc-200 bg-zinc-50 p-3" data-sales-currency-summary={series.currency} key={series.currency}>
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-xs font-semibold text-zinc-500">{series.currency}</p>
+                    <TrendingUp aria-hidden="true" className="size-4 text-emerald-700" />
+                  </div>
+                  <p className="mt-1 text-xs text-zinc-500">{partnerText(locale, "dashboard.salesForPeriod")}</p>
+                  <p className="mt-0.5 text-lg font-semibold tabular-nums text-zinc-950">{formatAmount(series.total, series.currency, locale)}</p>
+                  <dl className="mt-2 grid grid-cols-2 gap-2 border-t border-zinc-200 pt-2 text-xs">
+                    <div><dt className="text-zinc-500">{partnerText(locale, "dashboard.salesOrders")}</dt><dd className="mt-0.5 font-semibold tabular-nums text-zinc-900">{series.orderCount}</dd></div>
+                    <div><dt className="text-zinc-500">{partnerText(locale, "dashboard.salesAverageOrder")}</dt><dd className="mt-0.5 font-semibold tabular-nums text-zinc-900">{formatAmount(series.averageOrder, series.currency, locale)}</dd></div>
+                  </dl>
+                </div>
+              ))}
+            </div>
+            <SalesLineCharts analytics={analytics} locale={locale} />
+          </>
+        ) : (
+          <div className="mt-3 border border-dashed border-zinc-300 bg-zinc-50 p-5 text-sm text-zinc-600" data-sales-empty>
+            {partnerText(locale, "dashboard.salesEmpty")}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function SalesLineCharts({
+  analytics,
+  locale,
+}: {
+  analytics: NonNullable<WorkspaceHomeDto["salesAnalytics"]>;
+  locale: PartnerLocale;
+}) {
+  return (
+    <div className="mt-4 border-t border-zinc-200 pt-4" data-dashboard-chart-type="line">
+      <h3 className="text-sm font-semibold text-zinc-950">{partnerText(locale, "dashboard.salesDynamics")}</h3>
+      <div className="mt-2 space-y-3">
+        {analytics.series.map((series) => (
+          <div className="min-w-0 border border-zinc-200 bg-zinc-50/70" data-sales-line-chart={series.currency} key={series.currency}>
+            <div className="flex items-center justify-between gap-2 border-b border-zinc-200 bg-white px-2 py-1.5 text-xs">
+              <span className="font-semibold text-zinc-700">{series.currency}</span>
+              <span className="tabular-nums text-zinc-500">{series.orderCount} · {formatAmount(series.total, series.currency, locale)}</span>
+            </div>
+            <div className="relative h-24">
+              <svg aria-label={`${partnerText(locale, "dashboard.salesDynamics")}: ${series.currency}`} className="absolute inset-0 h-full w-full" preserveAspectRatio="none" role="img" viewBox="0 0 100 100">
+                {[20, 55, 90].map((y) => <line key={y} stroke="rgb(228 228 231)" strokeWidth="0.5" vectorEffect="non-scaling-stroke" x1="0" x2="100" y1={y} y2={y} />)}
+                <polyline
+                  fill="none"
+                  points={series.points.map((point) => `${point.xPercent},${point.yPercent}`).join(" ")}
+                  stroke="rgb(4 120 87)"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  vectorEffect="non-scaling-stroke"
+                />
+              </svg>
+              {series.points.map((point) => (
+                <span
+                  aria-hidden="true"
+                  className="absolute size-2 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-emerald-700 bg-white"
+                  data-sales-point={point.month}
+                  key={point.month}
+                  style={{ left: `${point.xPercent}%`, top: `${point.yPercent}%` }}
+                  title={`${formatSalesMonth(point.month, locale)} · ${formatAmount(point.amount, series.currency, locale)} · ${point.orderCount}`}
+                />
+              ))}
+            </div>
+            <div aria-hidden="true" className="relative h-6 border-t border-zinc-200 bg-white" data-sales-axis>
+              {series.points.filter((point) => point.showLabel).map((point) => (
+                <span
+                  className={`absolute top-1 whitespace-nowrap text-[10px] font-medium text-zinc-500 ${point.showLabelOnMobile ? "" : "hidden sm:block"} ${point.labelAlign === "start" ? "" : point.labelAlign === "end" ? "-translate-x-full" : "-translate-x-1/2"}`}
+                  data-sales-month={point.month}
+                  key={point.month}
+                  style={{ left: `${point.xPercent}%` }}
+                >
+                  {formatSalesMonth(point.month, locale)}
+                </span>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function PaymentGraph({
   guidance,
   locale,
@@ -452,8 +565,9 @@ function PaymentGraph({
       </p>
       <div
         aria-label={`${partnerText(locale, "dashboard.paymentCalendar")}: ${formatDate(guidance.calendar.startDate, locale)} — ${formatDate(guidance.calendar.endDate, locale)}`}
-        className="relative mt-2 overflow-hidden rounded-md border border-zinc-200 bg-white shadow-sm"
+        className="relative mt-2 overflow-hidden border border-zinc-200 bg-white shadow-sm"
         data-payment-scale-maximum={guidance.calendar.amountScaleMaximum}
+        data-dashboard-chart-type="bar-timeline"
         role="img"
       >
         <div className="relative h-24 overflow-hidden bg-zinc-50/70" data-payment-plot>
@@ -516,6 +630,13 @@ function PaymentGraph({
 
 function GraphLegend({ className, label }: { className: string; label: string }) {
   return <span className="inline-flex items-center gap-1.5"><span aria-hidden="true" className={`size-1.5 rounded-sm ${className}`} />{label}</span>;
+}
+
+function formatSalesMonth(value: string, locale: PartnerLocale) {
+  return new Intl.DateTimeFormat(locale === "ro" ? "ro-RO" : "ru-RU", {
+    month: "short",
+    timeZone: "UTC",
+  }).format(new Date(`${value.slice(0, 10)}T00:00:00Z`)).replaceAll(".", "");
 }
 
 function financeStateKey(state: NonNullable<WorkspaceHomeDto["financeGuidance"]>["state"]) {

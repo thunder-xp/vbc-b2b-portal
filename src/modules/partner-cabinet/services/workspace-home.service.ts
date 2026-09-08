@@ -10,6 +10,7 @@ import type {
 import type { CommercialFreshnessReadModel } from "../repositories/commercial-freshness.repository";
 import type {
   WorkspaceDashboardProductCandidate,
+  WorkspaceDashboardProjection,
   WorkspaceDashboardRepository,
 } from "../repositories/workspace-dashboard.repository";
 import type { WorkspaceNavigationItem } from "./workspace-capability.service";
@@ -177,6 +178,27 @@ export type WorkspaceHomeDto = {
       stackCount: number;
     }>;
   };
+  salesAnalytics: null | {
+    periodStart: string;
+    periodEnd: string;
+    totalOrderCount: number;
+    series: Array<{
+      currency: string;
+      total: number;
+      orderCount: number;
+      averageOrder: number;
+      points: Array<{
+        month: string;
+        amount: number;
+        orderCount: number;
+        xPercent: number;
+        yPercent: number;
+        showLabel: boolean;
+        showLabelOnMobile: boolean;
+        labelAlign: "start" | "center" | "end";
+      }>;
+    }>;
+  };
   companySummary: null | {
     activeEmployees: number;
     pendingInvitations: number;
@@ -247,6 +269,7 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
     const companyId = context.companyId;
 
     const canViewFinance = context.capabilities.navigation.some((item) => item.key === "finance" && item.availability === "available");
+    const canViewSales = context.capabilities.navigation.some((item) => item.key === "orders" && item.availability === "available");
     const [freshness, dashboard, selections, opportunityPage, campaignPage, supportTickets, estimateSalesOpportunities, financeData] = await Promise.all([
       timedDashboardRead("commercial_freshness", () => this.commercialFreshnessReadModel.getFreshness()),
       timedDashboardRead("dashboard_aggregate", () => this.dashboardRepository.getDashboard(companyId)),
@@ -394,6 +417,7 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
       recentDocuments: [],
       financeSummary: dashboard.financeSummary,
       financeGuidance: financeData ? buildFinanceGuidance(financeData.obligations, financeData.syncState?.lastSuccessAt ?? null) : null,
+      salesAnalytics: canViewSales ? buildSalesAnalytics(dashboard.salesAnalytics) : null,
       companySummary: dashboard.companySummary,
       commercialConfigurationMissing: context.accessState === "missing_price_type",
       purchasingDynamics: null,
@@ -411,6 +435,39 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
       estimateSalesOpportunities,
     };
   }
+}
+
+export function buildSalesAnalytics(
+  analytics: WorkspaceDashboardProjection["salesAnalytics"],
+): NonNullable<WorkspaceHomeDto["salesAnalytics"]> {
+  return {
+    periodStart: analytics.periodStart,
+    periodEnd: analytics.periodEnd,
+    totalOrderCount: analytics.series.reduce((total, series) => total + series.orderCount, 0),
+    series: analytics.series.map((series) => {
+      const maximum = Math.max(0, ...series.points.map((point) => point.amount));
+      const lastIndex = Math.max(0, series.points.length - 1);
+      return {
+        currency: series.currency,
+        total: series.total,
+        orderCount: series.orderCount,
+        averageOrder: series.averageOrder,
+        points: series.points.map((point, index) => {
+          const relativeHeight = point.amount > 0 && maximum > 0
+            ? Math.max(12, Math.round((point.amount / maximum) * 100))
+            : 0;
+          return {
+            ...point,
+            xPercent: lastIndex === 0 ? 50 : 2.5 + (index / lastIndex) * 95,
+            yPercent: 90 - relativeHeight * 0.7,
+            showLabel: index === 0 || index === lastIndex || index % 3 === 0,
+            showLabelOnMobile: index === 0 || index === Math.floor(lastIndex / 2) || index === lastIndex,
+            labelAlign: index === 0 ? "start" : index === lastIndex ? "end" : "center",
+          };
+        }),
+      };
+    }),
+  };
 }
 
 export function buildFinanceGuidance(

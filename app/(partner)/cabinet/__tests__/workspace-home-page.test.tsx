@@ -162,6 +162,49 @@ describe("Partner Workspace operational home", () => {
     expect(screen.getByRole("separator", { name: /Сегодня/ })).toBeInTheDocument();
   });
 
+  it.each([
+    ["ru", "Финансы", "Продажи", "Открыть финансы", "Открыть продажи", "Динамика продаж"],
+    ["ro", "Finanțe", "Vânzări", "Deschide finanțele", "Deschide vânzările", "Dinamica vânzărilor"],
+  ])("renders aligned Finance bars and Sales lines with complete %s copy", async (locale, finance, sales, openFinance, openSales, dynamics) => {
+    mocks.getPartnerLocale.mockResolvedValue(locale);
+    mocks.getWorkspaceHomeAction.mockResolvedValue({
+      success: true,
+      data: {
+        ...workspaceData(),
+        financeGuidance: financeGuidanceData(),
+        salesAnalytics: salesAnalyticsData(),
+      },
+    });
+
+    const { container } = render(await CabinetPage());
+    const split = container.querySelector("[data-dashboard-finance-sales]");
+    expect(split).toHaveClass("grid", "items-stretch", "xl:grid-cols-2");
+    expect(screen.getByRole("heading", { name: finance })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: sales })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: new RegExp(openFinance) })).toHaveAttribute("href", "/cabinet/finance");
+    expect(screen.getByRole("link", { name: new RegExp(openSales) })).toHaveAttribute("href", "/cabinet/orders");
+    expect(screen.getByRole("heading", { name: dynamics })).toBeInTheDocument();
+    expect(container.querySelector('[data-dashboard-chart-type="bar-timeline"]')).toBeInTheDocument();
+    expect(container.querySelector('[data-dashboard-chart-type="line"] svg polyline')).toBeInTheDocument();
+    expect(container.querySelector('[data-sales-currency-summary="MDL"]')?.textContent).toMatch(locale === "ro" ? /75\.000,00\sMDL/ : /75\s000,00\sMDL/);
+    expect(container.querySelectorAll("[data-sales-month]")).toHaveLength(5);
+  });
+
+  it.each([
+    ["ru", "За этот период подтверждённых продаж нет."],
+    ["ro", "Nu există vânzări confirmate în această perioadă."],
+  ])("renders a truthful Sales empty state in %s", async (locale, message) => {
+    mocks.getPartnerLocale.mockResolvedValue(locale);
+    mocks.getWorkspaceHomeAction.mockResolvedValue({
+      success: true,
+      data: { ...workspaceData(), salesAnalytics: { ...salesAnalyticsData(), totalOrderCount: 0, series: [] } },
+    });
+
+    render(await CabinetPage());
+    expect(screen.getByText(message)).toHaveAttribute("data-sales-empty");
+    expect(screen.queryByRole("img", { name: /Динамика продаж|Dinamica vânzărilor/ })).not.toBeInTheDocument();
+  });
+
   it("renders canonical attention without a dismiss control", async () => {
     mocks.getWorkspaceHomeAction.mockResolvedValue({
       success: true,
@@ -318,9 +361,55 @@ function workspaceData() {
     campaigns: [],
     recentDocuments: [],
     financeSummary: null,
+    salesAnalytics: null,
     companySummary: null,
     commercialConfigurationMissing: false,
     purchasingDynamics: null,
     commercialFreshness: [],
+  };
+}
+
+function financeGuidanceData() {
+  return {
+    state: "healthy",
+    totals: [],
+    nextDueDate: null,
+    fresh: true,
+    calendar: {
+      startDate: "2026-05-11",
+      endDate: "2026-09-08",
+      today: "2026-09-08",
+      todayPosition: 100,
+      amountScaleMaximum: 0,
+      axisLabels: [
+        { date: "2026-05-11", kind: "start", positionPercent: 0, track: 0, showOnMobile: true, align: "start" },
+        { date: "2026-09-08", kind: "today", positionPercent: 100, track: 0, showOnMobile: true, align: "end" },
+      ],
+    },
+    paymentGraph: [],
+  };
+}
+
+function salesAnalyticsData() {
+  return {
+    periodStart: "2025-10-01",
+    periodEnd: "2026-09-08",
+    totalOrderCount: 3,
+    series: [{
+      currency: "MDL",
+      total: 75_000,
+      orderCount: 3,
+      averageOrder: 25_000,
+      points: Array.from({ length: 12 }, (_, index) => ({
+        month: new Date(Date.UTC(2025, 9 + index, 1)).toISOString().slice(0, 10),
+        amount: index === 9 ? 25_000 : index === 11 ? 50_000 : 0,
+        orderCount: index === 9 ? 1 : index === 11 ? 2 : 0,
+        xPercent: 2.5 + (index / 11) * 95,
+        yPercent: index === 9 ? 55 : index === 11 ? 20 : 90,
+        showLabel: index === 0 || index === 11 || index % 3 === 0,
+        showLabelOnMobile: index === 0 || index === 5 || index === 11,
+        labelAlign: index === 0 ? "start" : index === 11 ? "end" : "center",
+      })),
+    }],
   };
 }

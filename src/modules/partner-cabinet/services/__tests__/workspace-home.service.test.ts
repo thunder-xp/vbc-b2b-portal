@@ -599,6 +599,64 @@ describe("DefaultWorkspaceHomeService", () => {
     expect(workspace.campaigns.map((item) => item.type)).toEqual(["product_offer", "arrival_promotion"]);
   });
 
+  it("projects twelve-month company sales as separate currency line series without another read", async () => {
+    const dashboardRepository = fakeDashboardRepository({
+      salesAnalytics: {
+        periodStart: "2025-10-01",
+        periodEnd: "2026-09-08",
+        series: [
+          {
+            currency: "MDL",
+            total: 75_000,
+            orderCount: 3,
+            averageOrder: 25_000,
+            points: salesMonths([0, 0, 0, 0, 0, 0, 0, 0, 0, 25_000, 0, 50_000]),
+          },
+          {
+            currency: "USD",
+            total: 2_000,
+            orderCount: 1,
+            averageOrder: 2_000,
+            points: salesMonths([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2_000]),
+          },
+        ],
+      },
+    });
+
+    const workspace = await new DefaultWorkspaceHomeService(
+      fakeContextService(),
+      fakeFreshness(),
+      dashboardRepository,
+      fakePricingInventoryService(),
+    ).getWorkspaceHome("partner-1");
+
+    expect(dashboardRepository.getDashboard).toHaveBeenCalledOnce();
+    expect(workspace.salesAnalytics).toMatchObject({
+      periodStart: "2025-10-01",
+      periodEnd: "2026-09-08",
+      totalOrderCount: 4,
+      series: [
+        { currency: "MDL", total: 75_000, orderCount: 3, averageOrder: 25_000 },
+        { currency: "USD", total: 2_000, orderCount: 1, averageOrder: 2_000 },
+      ],
+    });
+    expect(workspace.salesAnalytics?.series[0].points).toHaveLength(12);
+    expect(workspace.salesAnalytics?.series[0].points[9]).toMatchObject({ amount: 25_000, yPercent: 55 });
+    expect(workspace.salesAnalytics?.series[0].points[11]).toMatchObject({ amount: 50_000, xPercent: 97.5, yPercent: 20, labelAlign: "end" });
+    expect(workspace.salesAnalytics?.series[1].points[11]).toMatchObject({ amount: 2_000, yPercent: 20 });
+  });
+
+  it("does not expose Sales analytics without the existing Orders capability", async () => {
+    const workspace = await new DefaultWorkspaceHomeService(
+      fakeContextService({ capabilities: resolveWorkspaceCapabilities(new Set(["catalog.view"])) }),
+      fakeFreshness(),
+      fakeDashboardRepository(),
+      fakePricingInventoryService(),
+    ).getWorkspaceHome("partner-1");
+
+    expect(workspace.salesAnalytics).toBeNull();
+  });
+
   it("derives the dynamic 120-day payment graph from the already loaded local Finance obligations", async () => {
     const today = financeBusinessDate(new Date());
     const previousYear = `${Number(today.slice(0, 4)) - 1}-12-31`;
@@ -825,6 +883,14 @@ function addTestDays(date: string, days: number): string {
   return new Date(Date.parse(`${date}T00:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
 }
 
+function salesMonths(amounts: number[]) {
+  return amounts.map((amount, index) => ({
+    month: new Date(Date.UTC(2025, 9 + index, 1)).toISOString().slice(0, 10),
+    amount,
+    orderCount: amount > 0 ? 1 : 0,
+  }));
+}
+
 function productReference(productId: string, thumbnail: string) {
   return {
     productId,
@@ -967,6 +1033,11 @@ function fakeDashboardRepository(
       reorderProducts: [],
       merchandisingProducts: [],
       financeSummary: null,
+      salesAnalytics: {
+        periodStart: "2025-10-01",
+        periodEnd: "2026-09-08",
+        series: [],
+      },
       companySummary: null,
       freshness: { ordersUpdatedAt: null, financeUpdatedAt: null },
       ...overrides,
