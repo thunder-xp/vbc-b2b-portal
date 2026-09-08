@@ -30,7 +30,7 @@ describe("SupabaseWorkspaceDashboardRepository", () => {
     ).resolves.toMatchObject({ attentionItems: [], reorderProducts: [] });
     expect(mocks.rpc).toHaveBeenCalledOnce();
     expect(mocks.rpc).toHaveBeenCalledWith(
-      "get_partner_workspace_dashboard_v6",
+      "get_partner_workspace_dashboard_v7",
       { p_company_id: "11111111-1111-4111-8111-111111111111" },
     );
   });
@@ -99,6 +99,7 @@ function validProjection() {
     merchandisingProducts: [],
     financeSummary: null,
     salesAnalytics: {
+      businessDate: "2026-09-08",
       periodStart: "2025-10-01",
       periodEnd: "2026-09-08",
       series: [],

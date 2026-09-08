@@ -602,6 +602,7 @@ describe("DefaultWorkspaceHomeService", () => {
   it("projects twelve-month company sales as separate currency line series without another read", async () => {
     const dashboardRepository = fakeDashboardRepository({
       salesAnalytics: {
+        businessDate: "2026-09-08",
         periodStart: "2025-10-01",
         periodEnd: "2026-09-08",
         series: [
@@ -610,6 +611,7 @@ describe("DefaultWorkspaceHomeService", () => {
             total: 75_000,
             orderCount: 3,
             averageOrder: 25_000,
+            comparisons: salesComparisons(75_000, 60_000, 3, 2),
             points: salesMonths([0, 0, 0, 0, 0, 0, 0, 0, 0, 25_000, 0, 50_000]),
           },
           {
@@ -617,6 +619,7 @@ describe("DefaultWorkspaceHomeService", () => {
             total: 2_000,
             orderCount: 1,
             averageOrder: 2_000,
+            comparisons: salesComparisons(2_000, 0, 1, 0),
             points: salesMonths([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2_000]),
           },
         ],
@@ -1035,6 +1038,7 @@ function fakeDashboardRepository(
       merchandisingProducts: [],
       financeSummary: null,
       salesAnalytics: {
+        businessDate: "2026-09-08",
         periodStart: "2025-10-01",
         periodEnd: "2026-09-08",
         series: [],
@@ -1044,6 +1048,25 @@ function fakeDashboardRepository(
       ...overrides,
     })),
   };
+}
+
+function salesComparisons(
+  currentAmount: number,
+  previousAmount: number,
+  currentOrderCount: number,
+  previousOrderCount: number,
+): WorkspaceDashboardProjection["salesAnalytics"]["series"][number]["comparisons"] {
+  return ([30, 60, 90, 180] as const).map((days) => ({
+    days,
+    currentStart: days === 30 ? "2026-08-10" : "2026-03-13",
+    currentEnd: "2026-09-08",
+    previousStart: days === 30 ? "2025-08-10" : "2025-03-13",
+    previousEnd: "2025-09-08",
+    currentAmount,
+    previousAmount,
+    currentOrderCount,
+    previousOrderCount,
+  }));
 }
 
 function fakePricingInventoryService(): PricingInventoryService & {

@@ -179,6 +179,7 @@ export type WorkspaceHomeDto = {
     }>;
   };
   salesAnalytics: null | {
+    businessDate: string;
     periodStart: string;
     periodEnd: string;
     totalOrderCount: number;
@@ -187,6 +188,7 @@ export type WorkspaceHomeDto = {
       total: number;
       orderCount: number;
       averageOrder: number;
+      comparisons: SalesTrendComparisonDto[];
       points: Array<{
         month: string;
         amount: number;
@@ -217,6 +219,30 @@ export type WorkspaceHomeDto = {
   }>;
   supportTickets?: SupportDashboardItem[];
   estimateSalesOpportunities?: PartnerEstimateSalesOpportunity[];
+};
+
+export type SalesTrendPeriod = 30 | 60 | 90 | 180;
+
+export type SalesTrendState =
+  | "INCREASE"
+  | "DECREASE"
+  | "UNCHANGED"
+  | "NEW_ACTIVITY"
+  | "NO_ACTIVITY";
+
+export type SalesTrendComparisonDto = {
+  days: SalesTrendPeriod;
+  currentStart: string;
+  currentEnd: string;
+  previousStart: string;
+  previousEnd: string;
+  currentAmount: number;
+  previousAmount: number;
+  currentOrderCount: number;
+  previousOrderCount: number;
+  currentAverageOrder: number;
+  changePercent: number | null;
+  state: SalesTrendState;
 };
 
 export interface WorkspaceHomeService {
@@ -441,6 +467,7 @@ export function buildSalesAnalytics(
   analytics: WorkspaceDashboardProjection["salesAnalytics"],
 ): NonNullable<WorkspaceHomeDto["salesAnalytics"]> {
   return {
+    businessDate: analytics.businessDate,
     periodStart: analytics.periodStart,
     periodEnd: analytics.periodEnd,
     totalOrderCount: analytics.series.reduce((total, series) => total + series.orderCount, 0),
@@ -452,6 +479,7 @@ export function buildSalesAnalytics(
         total: series.total,
         orderCount: series.orderCount,
         averageOrder: series.averageOrder,
+        comparisons: series.comparisons.map(buildSalesTrendComparison),
         points: series.points.map((point, index) => {
           const relativeHeight = point.amount > 0 && maximum > 0
             ? Math.max(12, Math.round((point.amount / maximum) * 100))
@@ -467,6 +495,33 @@ export function buildSalesAnalytics(
         }),
       };
     }),
+  };
+}
+
+export function buildSalesTrendComparison(
+  comparison: WorkspaceDashboardProjection["salesAnalytics"]["series"][number]["comparisons"][number],
+): SalesTrendComparisonDto {
+  const { currentAmount, previousAmount, currentOrderCount } = comparison;
+  let state: SalesTrendState;
+  let changePercent: number | null;
+
+  if (previousAmount === 0) {
+    state = currentAmount > 0 ? "NEW_ACTIVITY" : "NO_ACTIVITY";
+    changePercent = null;
+  } else {
+    changePercent = Math.round((((currentAmount - previousAmount) / previousAmount) * 100) * 10) / 10;
+    state = currentAmount > previousAmount
+      ? "INCREASE"
+      : currentAmount < previousAmount
+        ? "DECREASE"
+        : "UNCHANGED";
+  }
+
+  return {
+    ...comparison,
+    currentAverageOrder: currentOrderCount > 0 ? currentAmount / currentOrderCount : 0,
+    changePercent,
+    state,
   };
 }
 

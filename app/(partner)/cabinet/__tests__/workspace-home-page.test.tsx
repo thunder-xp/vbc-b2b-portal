@@ -392,6 +392,7 @@ function financeGuidanceData() {
 
 function salesAnalyticsData() {
   return {
+    businessDate: "2026-09-08",
     periodStart: "2025-10-01",
     periodEnd: "2026-09-08",
     totalOrderCount: 3,
@@ -400,6 +401,20 @@ function salesAnalyticsData() {
       total: 75_000,
       orderCount: 3,
       averageOrder: 25_000,
+      comparisons: [30, 60, 90, 180].map((days) => ({
+        days,
+        currentStart: days === 30 ? "2026-08-10" : "2026-03-13",
+        currentEnd: "2026-09-08",
+        previousStart: days === 30 ? "2025-08-10" : "2025-03-13",
+        previousEnd: "2025-09-08",
+        currentAmount: 75_000,
+        previousAmount: 60_000,
+        currentOrderCount: 3,
+        previousOrderCount: 2,
+        currentAverageOrder: 25_000,
+        changePercent: 25,
+        state: "INCREASE",
+      })),
       points: Array.from({ length: 12 }, (_, index) => ({
         month: new Date(Date.UTC(2025, 9 + index, 1)).toISOString().slice(0, 10),
         amount: index === 9 ? 25_000 : index === 11 ? 50_000 : 0,

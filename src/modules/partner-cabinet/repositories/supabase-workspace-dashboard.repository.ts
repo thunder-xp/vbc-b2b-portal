@@ -106,6 +106,7 @@ const dashboardSchema = z.object({
     stale: z.boolean(),
   }).nullable(),
   salesAnalytics: z.object({
+    businessDate: z.string(),
     periodStart: z.string(),
     periodEnd: z.string(),
     series: z.array(z.object({
@@ -113,6 +114,17 @@ const dashboardSchema = z.object({
       total: z.number().nonnegative(),
       orderCount: z.number().int().nonnegative(),
       averageOrder: z.number().nonnegative(),
+      comparisons: z.array(z.object({
+        days: z.union([z.literal(30), z.literal(60), z.literal(90), z.literal(180)]),
+        currentStart: z.string(),
+        currentEnd: z.string(),
+        previousStart: z.string(),
+        previousEnd: z.string(),
+        currentAmount: z.number().nonnegative(),
+        previousAmount: z.number().nonnegative(),
+        currentOrderCount: z.number().int().nonnegative(),
+        previousOrderCount: z.number().int().nonnegative(),
+      })).length(4),
       points: z.array(z.object({
         month: z.string(),
         amount: z.number().nonnegative(),
@@ -158,7 +170,7 @@ export class SupabaseWorkspaceDashboardRepository
 {
   async getDashboard(companyId: string): Promise<WorkspaceDashboardProjection> {
     const { data, error } = await (await createClient()).rpc(
-      "get_partner_workspace_dashboard_v6",
+      "get_partner_workspace_dashboard_v7",
       { p_company_id: companyId },
     );
 

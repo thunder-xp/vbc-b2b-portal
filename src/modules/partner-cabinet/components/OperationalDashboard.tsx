@@ -6,7 +6,6 @@ import {
   CircleDollarSign,
   Clock3,
   PackageCheck,
-  TrendingUp,
 } from "lucide-react";
 
 import { ProductCard } from "../../catalog/components/ProductCard";
@@ -16,6 +15,7 @@ import { OpportunityCard } from "../../commercial-opportunities/components/Oppor
 import { CampaignCard } from "../../commercial-campaigns/components/CampaignCard";
 import { SupportDashboardBlock } from "../../partner-support";
 import { formatPartnerDate, formatPartnerMoney, formatPartnerRelativeDate, partnerText, presentDashboardAttention, type PartnerLocale } from "../../partner-locale";
+import { SalesTrendSummary } from "./SalesTrendSummary";
 
 export function OperationalDashboard({
   locale,
@@ -450,26 +450,10 @@ function SalesSection({
         title={partnerText(locale, "dashboard.sales")}
       />
       <div className="mt-3 flex-1 border border-zinc-200 bg-white p-4" data-sales-panel>
-        <p className="text-xs font-medium tabular-nums text-zinc-500" data-sales-period>
-          {formatDate(analytics.periodStart, locale)} — {formatDate(analytics.periodEnd, locale)}
-        </p>
         {analytics.series.length ? (
           <>
-            <div className="mt-3 grid gap-2 sm:grid-cols-2" data-sales-metrics>
-              {analytics.series.map((series) => (
-                <div className="border border-zinc-200 bg-zinc-50 p-3" data-sales-currency-summary={series.currency} key={series.currency}>
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-xs font-semibold text-zinc-500">{series.currency}</p>
-                    <TrendingUp aria-hidden="true" className="size-4 text-emerald-700" />
-                  </div>
-                  <p className="mt-1 text-xs text-zinc-500">{partnerText(locale, "dashboard.salesForPeriod")}</p>
-                  <p className="mt-0.5 text-lg font-semibold tabular-nums text-zinc-950">{formatAmount(series.total, series.currency, locale)}</p>
-                  <dl className="mt-2 grid grid-cols-2 gap-2 border-t border-zinc-200 pt-2 text-xs">
-                    <div><dt className="text-zinc-500">{partnerText(locale, "dashboard.salesOrders")}</dt><dd className="mt-0.5 font-semibold tabular-nums text-zinc-900">{series.orderCount}</dd></div>
-                    <div><dt className="text-zinc-500">{partnerText(locale, "dashboard.salesAverageOrder")}</dt><dd className="mt-0.5 font-semibold tabular-nums text-zinc-900">{formatAmount(series.averageOrder, series.currency, locale)}</dd></div>
-                  </dl>
-                </div>
-              ))}
+            <div className="mt-3">
+              <SalesTrendSummary locale={locale} series={analytics.series} />
             </div>
             <SalesLineCharts analytics={analytics} locale={locale} />
           </>
@@ -492,7 +476,12 @@ function SalesLineCharts({
 }) {
   return (
     <div className="mt-4 border-t border-zinc-200 pt-4" data-dashboard-chart-type="line">
-      <h3 className="text-sm font-semibold text-zinc-950">{partnerText(locale, "dashboard.salesDynamics")}</h3>
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h3 className="text-sm font-semibold text-zinc-950">{partnerText(locale, "dashboard.salesDynamics")}</h3>
+        <p className="text-xs font-medium tabular-nums text-zinc-500" data-sales-context-period>
+          {formatDate(analytics.periodStart, locale)} — {formatDate(analytics.periodEnd, locale)}
+        </p>
+      </div>
       <div className="mt-2 space-y-3">
         {analytics.series.map((series) => (
           <div className="min-w-0 border border-zinc-200 bg-zinc-50/70" data-sales-line-chart={series.currency} key={series.currency}>

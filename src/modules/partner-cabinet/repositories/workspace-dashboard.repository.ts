@@ -85,6 +85,7 @@ export type WorkspaceDashboardProjection = {
     stale: boolean;
   };
   salesAnalytics: {
+    businessDate: string;
     periodStart: string;
     periodEnd: string;
     series: Array<{
@@ -92,6 +93,17 @@ export type WorkspaceDashboardProjection = {
       total: number;
       orderCount: number;
       averageOrder: number;
+      comparisons: Array<{
+        days: 30 | 60 | 90 | 180;
+        currentStart: string;
+        currentEnd: string;
+        previousStart: string;
+        previousEnd: string;
+        currentAmount: number;
+        previousAmount: number;
+        currentOrderCount: number;
+        previousOrderCount: number;
+      }>;
       points: Array<{
         month: string;
         amount: number;
