@@ -27,6 +27,7 @@ export type ProductListCatalogState = {
   availability: "all" | "in_stock" | "expected";
   brandId?: string;
   categoryId?: string;
+  categoryIds?: string[];
   categorySet?: CatalogQuickLinkCode;
   collection?: CatalogCollection;
   explicitAll: boolean;

@@ -92,10 +92,12 @@ export class SupabasePartnerOrderHistoryRepository implements PartnerOrderHistor
     const allCount = numberValue(data.allCount);
     const categories = records(data.categories).map((row) => ({
       id: text(row.id),
+      external1cId: nullableText(row.external1cId),
+      parentId: null as null,
       name: text(row.name),
       slug: text(row.slug),
       productCount: numberValue(row.productCount),
-    })).filter((category) => category.id && category.name && category.slug && category.productCount > 0);
+    })).filter((category) => category.id && category.name && category.slug);
     console.info(JSON.stringify({
       event: "partner_previously_purchased_products_loaded",
       durationMs: Math.round((performance.now() - startedAt) * 100) / 100,

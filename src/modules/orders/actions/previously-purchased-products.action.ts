@@ -20,7 +20,7 @@ export async function listPreviouslyPurchasedProductsAction(input: {
   offset?: number;
   search?: string | null;
 } = {}): Promise<ActionResult<{
-  categories: Array<{ id: string; name: string; slug: string; productCount: number }>;
+  categories: Array<{ id: string; external1cId: string | null; parentId: null; name: string; slug: string; productCount: number }>;
   allCount: number;
   items: PreviouslyPurchasedProductDto[];
   totalCount: number;

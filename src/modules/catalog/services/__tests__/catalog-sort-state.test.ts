@@ -33,6 +33,12 @@ describe("buildCatalogSortHiddenFields", () => {
     expect(buildCatalogHref({ categorySet: "security", page: 2, sort: "price_desc" })).toBe("/cabinet/catalog?categorySet=security&sort=price_desc&page=2");
   });
 
+  it("preserves a bounded canonical root-category union through search, sorting, and pagination", () => {
+    const categoryIds = ["22222222-2222-4222-8222-222222222222", "11111111-1111-4111-8111-111111111111"];
+    expect(buildCatalogHref({ categoryIds, search: "Dahua", sort: "price_desc", page: 2 }))
+      .toBe("/cabinet/catalog?categories=11111111-1111-4111-8111-111111111111%2C22222222-2222-4222-8222-222222222222&search=Dahua&sort=price_desc&page=2");
+  });
+
   it("preserves multiple groups and deduplicates values", () => {
     expect(buildCatalogSortHiddenFields({ attributeFilters: { [keyB]: ["Да"], [keyA]: ["4 MP", "4 MP", "8 MP"] } })).toEqual([
       { name: `attr.${keyA}`, value: "4 MP,8 MP" }, { name: `attr.${keyB}`, value: "Да" },

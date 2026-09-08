@@ -14,7 +14,7 @@ type SearchResponse =
   | { success: true; data: CatalogSearchSuggestionDto[] }
   | { success: false };
 
-export function CatalogSearch({ categoryId, categorySet, collection, explicitAll, initialSearch, merchandisingLabel, sort = "default" }: { categoryId?: string; categorySet?: CatalogQuickLinkCode; collection?: CatalogCollection; explicitAll?: boolean; initialSearch?: string; merchandisingLabel?: MerchandisingLabelCode; sort?: CatalogSort }) {
+export function CatalogSearch({ categoryId, categoryIds, categorySet, collection, explicitAll, initialSearch, merchandisingLabel, sort = "default" }: { categoryId?: string; categoryIds?: string[]; categorySet?: CatalogQuickLinkCode; collection?: CatalogCollection; explicitAll?: boolean; initialSearch?: string; merchandisingLabel?: MerchandisingLabelCode; sort?: CatalogSort }) {
   const copy = getCatalogCopy(usePartnerLocale());
   const [query, setQuery] = useState(initialSearch ?? "");
   const [results, setResults] = useState<CatalogSearchSuggestionDto[]>([]);
@@ -62,6 +62,7 @@ export function CatalogSearch({ categoryId, categorySet, collection, explicitAll
   return <div className="relative min-w-0 flex-1">
     <form action="/cabinet/catalog" className="relative">
       {categoryId && <input name="category" type="hidden" value={categoryId} />}
+      {categoryIds?.length ? <input name="categories" type="hidden" value={categoryIds.join(",")} /> : null}
       {categorySet && <input name="categorySet" type="hidden" value={categorySet} />}
       {collection && <input name="collection" type="hidden" value={collection} />}
       {explicitAll && <input name="view" type="hidden" value="all" />}

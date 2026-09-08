@@ -20,6 +20,7 @@ export function parseCatalogAttributeFilters(params: Record<string, string | str
 
 export function buildCatalogSortHiddenFields(input: {
   categoryId?: string;
+  categoryIds?: string[];
   categorySet?: CatalogQuickLinkCode;
   brandId?: string;
   collection?: CatalogCollection;
@@ -32,6 +33,7 @@ export function buildCatalogSortHiddenFields(input: {
   const fields: CatalogSortHiddenField[] = [];
   addTextField(fields, "brand", input.brandId);
   addTextField(fields, "category", input.categoryId);
+  addTextField(fields, "categories", normalizedCategoryIds(input.categoryIds));
   addTextField(fields, "categorySet", input.categorySet);
   addTextField(fields, "collection", input.collection);
   addTextField(fields, "search", input.search);
@@ -50,6 +52,7 @@ export function buildCatalogSortHiddenFields(input: {
 
 export function buildCatalogHref(input: {
   categoryId?: string;
+  categoryIds?: string[];
   categorySet?: CatalogQuickLinkCode;
   brandId?: string;
   collection?: CatalogCollection;
@@ -64,6 +67,7 @@ export function buildCatalogHref(input: {
   const searchParams = new URLSearchParams();
   for (const field of buildCatalogSortHiddenFields({
     categoryId: input.categoryId,
+    categoryIds: input.categoryIds,
     categorySet: input.categorySet,
     brandId: input.brandId,
     collection: input.collection,
@@ -80,6 +84,11 @@ export function buildCatalogHref(input: {
 
   const query = searchParams.toString();
   return query ? `/cabinet/catalog?${query}` : "/cabinet/catalog";
+}
+
+function normalizedCategoryIds(values: string[] | undefined): string | undefined {
+  const normalized = [...new Set(values?.filter((value) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)) ?? [])].sort().slice(0, 24);
+  return normalized.length ? normalized.join(",") : undefined;
 }
 
 function addTextField(fields: CatalogSortHiddenField[], name: string, value: string | undefined): void {

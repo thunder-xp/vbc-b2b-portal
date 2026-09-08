@@ -49,12 +49,17 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
   if (routeState.categorySet && !selectedQuickLink) {
     return <EmptyCatalog message={copy.noCategoryProducts} title={copy.notFoundTitle} />;
   }
+  const allowedTopCategoryIds = new Set(quickLinks.flatMap((link) => link.categoryIds));
+  const selectedTopCategoryIds = routeState.categoryIds.length
+    ? routeState.categoryIds.filter((id) => allowedTopCategoryIds.has(id))
+    : selectedQuickLink?.categoryIds ?? [];
 
   const sortHiddenFields = buildCatalogSortHiddenFields({
     attributeFilters: routeState.attributeFilters,
     availability: routeState.availability,
     brandId: routeState.brandId,
     categoryId: routeState.categoryId,
+    categoryIds: selectedTopCategoryIds,
     categorySet: routeState.categorySet,
     collection: routeState.collection,
     explicitAll: routeState.explicitAll,
@@ -65,7 +70,7 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
   return <div className="space-y-6">
     <CatalogToolbarFrame>
       <CategoryMegaMenu categories={categoriesResult.data.map(({ id, name, parentId }) => ({ id, name, parentId }))} collection={routeState.collection} merchandisingLabel={routeState.merchandisingLabel} sort={routeState.sort} />
-      <CatalogSearch categoryId={routeState.categoryId} categorySet={routeState.categorySet} collection={routeState.collection} explicitAll={routeState.explicitAll} initialSearch={routeState.search} merchandisingLabel={routeState.merchandisingLabel} sort={routeState.sort} />
+      <CatalogSearch categoryId={routeState.categoryId} categoryIds={selectedTopCategoryIds} categorySet={routeState.categorySet} collection={routeState.collection} explicitAll={routeState.explicitAll} initialSearch={routeState.search} merchandisingLabel={routeState.merchandisingLabel} sort={routeState.sort} />
       {routeState.mode === "discovery" ? <CatalogSortControl hiddenFields={sortHiddenFields} locale={locale} sort={routeState.sort} /> : null}
       <CatalogModeLink curated={routeState.mode === "curated"} labels={{ allCatalog: copy.allCatalog, showcase: copy.showcase }} />
     </CatalogToolbarFrame>
@@ -79,7 +84,7 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
             brandId={routeState.brandId}
             categories={categoriesResult.data}
             categoryId={routeState.categoryId}
-            categoryIds={selectedQuickLink?.categoryIds}
+            categoryIds={selectedTopCategoryIds}
             categorySet={routeState.categorySet}
             collection={routeState.collection}
             explicitAll={routeState.explicitAll}
@@ -92,7 +97,7 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
               availability: routeState.availability,
               brandId: routeState.brandId,
               categoryId: routeState.categoryId,
-              categoryIds: selectedQuickLink?.categoryIds,
+              categoryIds: selectedTopCategoryIds,
               collection: routeState.collection,
               merchandisingLabel: routeState.merchandisingLabel,
               page: routeState.page,

@@ -68,7 +68,7 @@ export type PreviouslyPurchasedProductPage = {
   allCount: number;
   items: PreviouslyPurchasedProductRecord[];
   totalCount: number;
-  categories: Array<{ id: string; name: string; slug: string; productCount: number }>;
+  categories: Array<{ id: string; external1cId: string | null; parentId: null; name: string; slug: string; productCount: number }>;
 };
 
 export type RepeatOrderSummaryRecord = {

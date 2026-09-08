@@ -13,6 +13,7 @@ describe("parseCatalogRouteState", () => {
   for (const [label, params] of Object.entries({
     search: { search: "camera" },
     category: { category: "category-id" },
+    categories: { categories: "11111111-1111-4111-8111-111111111111,22222222-2222-4222-8222-222222222222" },
     "category set": { categorySet: "security" },
     brand: { brand: "brand-id" },
     availability: { availability: "in_stock" },
@@ -59,6 +60,7 @@ describe("parseCatalogRouteState", () => {
       brandId: undefined,
       collection: undefined,
       categoryId: "category-id",
+      categoryIds: [],
       categorySet: undefined,
       explicitAll: false,
       merchandisingLabel: undefined,
@@ -73,6 +75,16 @@ describe("parseCatalogRouteState", () => {
     expect(parseCatalogRouteState({ categorySet: "network" })).toMatchObject({ categorySet: "network", mode: "discovery" });
     expect(parseCatalogRouteState({ categorySet: "unknown" }).categorySet).toBeUndefined();
     expect(parseCatalogRouteState({ category: "category-id", categorySet: "network" })).toMatchObject({ categoryId: "category-id", categorySet: undefined });
+  });
+
+  it("parses, deduplicates, and sorts bounded canonical root category IDs", () => {
+    const first = "11111111-1111-4111-8111-111111111111";
+    const second = "22222222-2222-4222-8222-222222222222";
+    expect(parseCatalogRouteState({ categories: `${second},bad,${first},${second}` })).toMatchObject({
+      categoryIds: [first, second],
+      categorySet: undefined,
+      mode: "discovery",
+    });
   });
 
   it("treats replenishment as a first-class collection and ignores a conflicting label", () => {

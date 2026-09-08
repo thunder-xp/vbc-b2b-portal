@@ -26,6 +26,7 @@ export type CatalogQuickLink = {
   code: CatalogQuickLinkCode;
   label: string;
   categoryIds: string[];
+  productCount?: number;
 };
 
 const DEFINITIONS: readonly CatalogQuickLinkDefinition[] = [
@@ -44,7 +45,7 @@ export function parseCatalogQuickLinkCode(value: string | undefined): CatalogQui
   return CATALOG_QUICK_LINK_CODES.find((code) => code === value);
 }
 export function resolveCatalogQuickLinks(
-  categories: CatalogCategoryDto[],
+  categories: Array<Pick<CatalogCategoryDto, "id" | "external1cId"> & { productCount?: number }>,
   locale: PartnerLocale,
 ): CatalogQuickLink[] {
   const byExternal1cId = new Map(
@@ -60,6 +61,9 @@ export function resolveCatalogQuickLinks(
       code: definition.code,
       label: definition.labels[locale],
       categoryIds: resolved.map((category) => category!.id),
+      productCount: resolved.every((category) => typeof category?.productCount === "number")
+        ? resolved.reduce((sum, category) => sum + category!.productCount!, 0)
+        : undefined,
     }];
   });
 }

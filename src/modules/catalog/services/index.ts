@@ -42,6 +42,7 @@ export {
   type CatalogQuickLinkCode,
 } from "./catalog-quick-links";
 export {
+  parseCategoryIds,
   parseCatalogRouteState,
   type CatalogRouteMode,
   type CatalogRouteState,

@@ -158,7 +158,7 @@ export interface PartnerOrderHistoryService {
     limit?: number;
     offset?: number;
     search?: string | null;
-  }): Promise<{ allCount: number; categories: Array<{ id: string; name: string; slug: string; productCount: number }>; items: PreviouslyPurchasedProductDto[]; totalCount: number }>;
+  }): Promise<{ allCount: number; categories: Array<{ id: string; external1cId: string | null; parentId: null; name: string; slug: string; productCount: number }>; items: PreviouslyPurchasedProductDto[]; totalCount: number }>;
   listPlannedShipments(userId: string, input?: { page?: number | string | null }): Promise<{
     shipments: PlannedShipmentDto[];
     page: number;
@@ -196,7 +196,7 @@ export class DefaultPartnerOrderHistoryService implements PartnerOrderHistorySer
   async listPreviouslyPurchasedProducts(
     userId: string,
     input: { categoryIds?: string[]; limit?: number; offset?: number; search?: string | null } = {},
-  ): Promise<{ allCount: number; categories: Array<{ id: string; name: string; slug: string; productCount: number }>; items: PreviouslyPurchasedProductDto[]; totalCount: number }> {
+  ): Promise<{ allCount: number; categories: Array<{ id: string; external1cId: string | null; parentId: null; name: string; slug: string; productCount: number }>; items: PreviouslyPurchasedProductDto[]; totalCount: number }> {
     const context = await this.resolveContext(userId, ORDERS_VIEW_PERMISSION);
     if (!this.historyRepository.listPreviouslyPurchasedProducts) {
       throw new InvalidStateError("Previously purchased products are unavailable.");

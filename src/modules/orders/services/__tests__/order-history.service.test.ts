@@ -517,7 +517,7 @@ describe("DefaultPartnerOrderHistoryService", () => {
         lastQuantity: 3,
         repeatPurchaseDue: true,
       }],
-      categories: [{ id: "category-1", name: "Video", slug: "video", productCount: 1 }],
+      categories: [{ id: "category-1", external1cId: "video-1c", parentId: null, name: "Video", slug: "video", productCount: 1 }],
       totalCount: 1,
     });
     const repository = { ...historyRepository([]), listPreviouslyPurchasedProducts };
@@ -538,7 +538,7 @@ describe("DefaultPartnerOrderHistoryService", () => {
         stock: { status: "in_stock", exactAvailableQuantity: 8 },
       },
     });
-    expect(result.categories).toEqual([{ id: "category-1", name: "Video", slug: "video", productCount: 1 }]);
+    expect(result.categories).toEqual([{ id: "category-1", external1cId: "video-1c", parentId: null, name: "Video", slug: "video", productCount: 1 }]);
   });
 });
 

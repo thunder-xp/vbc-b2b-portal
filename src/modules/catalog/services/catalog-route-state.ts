@@ -13,6 +13,7 @@ export type CatalogRouteState = {
   brandId?: string;
   collection?: CatalogCollection;
   categoryId?: string;
+  categoryIds: string[];
   categorySet?: CatalogQuickLinkCode;
   explicitAll: boolean;
   merchandisingLabel?: MerchandisingLabelCode;
@@ -26,7 +27,8 @@ type CatalogSearchParams = Record<string, string | string[] | undefined> | undef
 
 export function parseCatalogRouteState(params: CatalogSearchParams): CatalogRouteState {
   const categoryId = parseIdentifier(single(params?.category));
-  const categorySet = categoryId ? undefined : parseCatalogQuickLinkCode(single(params?.categorySet));
+  const categoryIds = categoryId ? [] : parseCategoryIds(params?.categories);
+  const categorySet = categoryId || categoryIds.length ? undefined : parseCatalogQuickLinkCode(single(params?.categorySet));
   const brandId = parseIdentifier(single(params?.brand));
   const search = parseSearch(single(params?.search));
   const availability = parseAvailability(single(params?.availability));
@@ -38,6 +40,7 @@ export function parseCatalogRouteState(params: CatalogSearchParams): CatalogRout
   const hasDiscoveryConstraint = Boolean(
     explicitAll
       || categoryId
+      || categoryIds.length
       || categorySet
       || brandId
       || collection
@@ -54,6 +57,7 @@ export function parseCatalogRouteState(params: CatalogSearchParams): CatalogRout
     brandId,
     collection,
     categoryId,
+    categoryIds,
     categorySet,
     explicitAll,
     merchandisingLabel,
@@ -62,6 +66,11 @@ export function parseCatalogRouteState(params: CatalogSearchParams): CatalogRout
     search,
     sort,
   };
+}
+
+export function parseCategoryIds(value: string | string[] | undefined): string[] {
+  const values = (Array.isArray(value) ? value : value ? [value] : []).flatMap((item) => item.split(","));
+  return [...new Set(values.map((item) => item.trim().toLowerCase()).filter((item) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(item)))].sort().slice(0, 24);
 }
 
 function parseCollection(value: string | undefined): CatalogCollection | undefined {

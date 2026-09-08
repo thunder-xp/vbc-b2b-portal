@@ -15,6 +15,7 @@ type CatalogPaginationProps = {
   attributeFilters: Record<string, string[]>;
   brandId?: string;
   categoryId?: string;
+  categoryIds?: string[];
   categorySet?: CatalogQuickLinkCode;
   collection?: CatalogCollection;
   explicitAll: boolean;
@@ -27,11 +28,11 @@ type CatalogPaginationProps = {
   totalCount: number;
 };
 
-export function CatalogPagination({ availability, attributeFilters, brandId, categoryId, categorySet, collection, explicitAll, merchandisingLabel, locale = "ru", page, pageSize, search, sort, totalCount }: CatalogPaginationProps) {
+export function CatalogPagination({ availability, attributeFilters, brandId, categoryId, categoryIds, categorySet, collection, explicitAll, merchandisingLabel, locale = "ru", page, pageSize, search, sort, totalCount }: CatalogPaginationProps) {
   const totalPages = getCatalogTotalPages(totalCount, pageSize);
   if (totalPages <= 1) return null;
   const currentPage = Math.min(Math.max(1, page), totalPages);
-  const hrefForPage = (targetPage: number) => buildCatalogHref({ availability, attributeFilters, brandId, categoryId, categorySet, collection, explicitAll, merchandisingLabel, page: targetPage, search, sort });
+  const hrefForPage = (targetPage: number) => buildCatalogHref({ availability, attributeFilters, brandId, categoryId, categoryIds, categorySet, collection, explicitAll, merchandisingLabel, page: targetPage, search, sort });
 
   return <NumberedPagination ariaLabel={locale === "ro" ? "Paginarea catalogului" : "Пагинация каталога"} currentPage={currentPage} hrefForPage={hrefForPage} locale={locale} totalPages={totalPages} />;
 }
