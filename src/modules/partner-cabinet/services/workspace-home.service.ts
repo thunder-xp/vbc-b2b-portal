@@ -154,6 +154,15 @@ export type WorkspaceHomeDto = {
       endDate: string;
       today: string;
       todayPosition: number;
+      amountScaleMaximum: number;
+      axisLabels: Array<{
+        date: string;
+        kind: "start" | "today" | "payment" | "end";
+        positionPercent: number;
+        track: 0 | 1;
+        showOnMobile: boolean;
+        align: "start" | "center" | "end";
+      }>;
     };
     paymentGraph: Array<{
       id: string;
@@ -448,13 +457,13 @@ export function buildFinanceGuidance(
     stackCounts.set(item.eventDate, (stackCounts.get(item.eventDate) ?? 0) + 1);
   }
   const stackIndexes = new Map<string, number>();
-  const maximaByCurrency = new Map<string, number>();
-  for (const item of graphCandidates) {
-    maximaByCurrency.set(
-      item.row.currency,
-      Math.max(maximaByCurrency.get(item.row.currency) ?? 0, item.amount),
-    );
-  }
+  const amountScaleMaximum = Math.max(0, ...graphCandidates.map((item) => item.amount));
+  const axisLabels = buildPaymentCalendarAxisLabels(
+    graphCandidates.map((item) => ({ date: item.eventDate, amount: item.amount })),
+    calendarWindow.rangeStart,
+    calendarWindow.rangeEnd,
+    today,
+  );
   return {
     state: !fresh ? "unavailable" : [...totals.values()].some((row) => row.overdue > 0)
       ? "overdue" : nextDueDate && nextDueDate <= addDays(today, 7) ? "due_soon" : "healthy",
@@ -466,6 +475,8 @@ export function buildFinanceGuidance(
       endDate: calendarWindow.rangeEnd,
       today,
       todayPosition: timelinePosition(today, calendarWindow.rangeStart, calendarWindow.rangeEnd),
+      amountScaleMaximum,
+      axisLabels,
     },
     paymentGraph: graphCandidates.map((item) => {
       const stackIndex = stackIndexes.get(item.eventDate) ?? 0;
@@ -477,7 +488,7 @@ export function buildFinanceGuidance(
         amount: item.amount,
         currency: item.row.currency,
         timing: item.timing,
-        relativeHeight: Math.max(22, Math.round((item.amount / (maximaByCurrency.get(item.row.currency) || 1)) * 100)),
+        relativeHeight: Math.max(22, Math.min(100, Math.round((item.amount / (amountScaleMaximum || 1)) * 100))),
         positionPercent: Math.max(2.5, Math.min(97.5, timelinePosition(item.eventDate, calendarWindow.rangeStart, calendarWindow.rangeEnd))),
         stackIndex,
         stackCount: stackCounts.get(item.eventDate) ?? 1,
@@ -507,7 +518,7 @@ export function getPaymentCalendarWindow(
   const rangeEnd = latestRelevantPaymentDate && latestRelevantPaymentDate > today
     ? latestRelevantPaymentDate
     : today;
-  const nominalRangeStart = addDays(rangeEnd, -180);
+  const nominalRangeStart = addDays(rangeEnd, -120);
 
   return {
     rangeStart: nominalRangeStart > today ? today : nominalRangeStart,
@@ -515,6 +526,70 @@ export function getPaymentCalendarWindow(
     today,
     latestRelevantPaymentDate,
   };
+}
+
+function buildPaymentCalendarAxisLabels(
+  payments: Array<{ date: string; amount: number }>,
+  rangeStart: string,
+  rangeEnd: string,
+  today: string,
+): NonNullable<WorkspaceHomeDto["financeGuidance"]>["calendar"]["axisLabels"] {
+  const labels: Array<Omit<NonNullable<WorkspaceHomeDto["financeGuidance"]>["calendar"]["axisLabels"][number], "track">> = [];
+  const addAnchor = (date: string, kind: "start" | "today" | "end", align: "start" | "center" | "end") => {
+    const existing = labels.find((label) => label.date === date);
+    if (existing) {
+      if (kind === "today") {
+        existing.kind = "today";
+        existing.align = align;
+      }
+      return;
+    }
+    labels.push({
+      date,
+      kind,
+      positionPercent: timelinePosition(date, rangeStart, rangeEnd),
+      showOnMobile: true,
+      align,
+    });
+  };
+
+  addAnchor(rangeStart, "start", "start");
+  addAnchor(rangeEnd, "end", "end");
+  addAnchor(today, "today", today === rangeStart ? "start" : today === rangeEnd ? "end" : "center");
+
+  const amountByDate = new Map<string, number>();
+  for (const payment of payments) {
+    amountByDate.set(payment.date, Math.max(amountByDate.get(payment.date) ?? 0, payment.amount));
+  }
+  const internalDates = [...amountByDate.keys()]
+    .filter((date) => date !== rangeStart && date !== rangeEnd && date !== today)
+    .sort();
+  const significantDates = [...internalDates].sort((left, right) =>
+    (amountByDate.get(right) ?? 0) - (amountByDate.get(left) ?? 0)
+      || left.localeCompare(right));
+  for (const date of [...new Set([...significantDates, internalDates[0], internalDates.at(-1)])]) {
+    if (!date || labels.filter((label) => label.kind === "payment").length >= 2) break;
+    const positionPercent = timelinePosition(date, rangeStart, rangeEnd);
+    if (labels.some((label) => Math.abs(label.positionPercent - positionPercent) < 15)) continue;
+    labels.push({
+      date,
+      kind: "payment",
+      positionPercent,
+      showOnMobile: false,
+      align: "center",
+    });
+  }
+
+  const lastPositionByTrack = [-Infinity, -Infinity];
+  return labels
+    .sort((left, right) => left.positionPercent - right.positionPercent)
+    .map((label) => {
+      const trackZeroGap = label.positionPercent - lastPositionByTrack[0];
+      const trackOneGap = label.positionPercent - lastPositionByTrack[1];
+      const track = (trackZeroGap >= 18 ? 0 : trackOneGap >= 18 ? 1 : trackZeroGap >= trackOneGap ? 0 : 1) as 0 | 1;
+      lastPositionByTrack[track] = label.positionPercent;
+      return { ...label, track };
+    });
 }
 
 function isIsoDate(value: string): boolean {

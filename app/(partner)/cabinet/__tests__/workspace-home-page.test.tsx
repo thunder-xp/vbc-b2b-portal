@@ -97,7 +97,19 @@ describe("Partner Workspace operational home", () => {
           totals: [{ currency: "MDL", outstanding: 600, overdue: 100 }],
           nextDueDate: "2026-09-05",
           fresh: true,
-          calendar: { startDate: "2026-04-11", endDate: "2026-10-08", today: "2026-09-08", todayPosition: 83.33 },
+          calendar: {
+            startDate: "2026-06-10",
+            endDate: "2026-10-08",
+            today: "2026-09-08",
+            todayPosition: 75,
+            amountScaleMaximum: 400,
+            axisLabels: [
+              { date: "2026-06-10", kind: "start", positionPercent: 0, track: 0, showOnMobile: true, align: "start" },
+              { date: "2026-08-20", kind: "payment", positionPercent: 59.17, track: 0, showOnMobile: false, align: "center" },
+              { date: "2026-09-08", kind: "today", positionPercent: 75, track: 1, showOnMobile: true, align: "center" },
+              { date: "2026-10-08", kind: "end", positionPercent: 100, track: 0, showOnMobile: true, align: "end" },
+            ],
+          },
           paymentGraph: [
             { id: "overdue", eventDate: "2026-09-05", orderNumber: "NS-1", amount: 100, currency: "MDL", timing: "overdue", relativeHeight: 25, positionPercent: 67.9, stackIndex: 0, stackCount: 1 },
             { id: "today", eventDate: "2026-09-08", orderNumber: "NS-2", amount: 200, currency: "MDL", timing: "today", relativeHeight: 50, positionPercent: 68.68, stackIndex: 0, stackCount: 1 },
@@ -115,6 +127,9 @@ describe("Partner Workspace operational home", () => {
     expect(screen.getByText(upcoming, { selector: "span" })).toBeInTheDocument();
     expect(screen.getByRole("separator", { name: new RegExp(today) })).toHaveAttribute("data-payment-today-marker");
     expect(document.querySelector('[data-payment-state="paid"] span[aria-hidden="true"]')).toHaveClass("bg-zinc-400");
+    expect(document.querySelectorAll("[data-payment-axis-date]")).toHaveLength(4);
+    expect(document.querySelector('[data-payment-axis-kind="today"]')).toHaveTextContent(locale === "ro" ? "08 sept" : "08 сент");
+    expect(document.querySelector("[data-payment-scale-maximum]")).toHaveAttribute("data-payment-scale-maximum", "400");
   });
 
   it("renders a truthful empty payment-graph state", async () => {
@@ -127,7 +142,17 @@ describe("Partner Workspace operational home", () => {
           totals: [],
           nextDueDate: null,
           fresh: true,
-          calendar: { startDate: "2026-03-12", endDate: "2026-09-08", today: "2026-09-08", todayPosition: 100 },
+          calendar: {
+            startDate: "2026-05-11",
+            endDate: "2026-09-08",
+            today: "2026-09-08",
+            todayPosition: 100,
+            amountScaleMaximum: 0,
+            axisLabels: [
+              { date: "2026-05-11", kind: "start", positionPercent: 0, track: 0, showOnMobile: true, align: "start" },
+              { date: "2026-09-08", kind: "today", positionPercent: 100, track: 0, showOnMobile: true, align: "end" },
+            ],
+          },
           paymentGraph: [],
         },
       },
