@@ -1,6 +1,9 @@
-import { render, screen, within } from "@testing-library/react";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import type { WorkspaceHomeDto } from "../../services";
 import { SalesTrendSummary } from "../SalesTrendSummary";
@@ -12,27 +15,25 @@ describe("SalesTrendSummary", () => {
   ] as const)("renders one active default and complete %s copy", (locale, groupName, defaultLabel, comparisonCopy) => {
     render(<SalesTrendSummary locale={locale} series={series()} />);
 
-    const group = screen.getByRole("group", { name: groupName });
-    expect(within(group).getByRole("button", { name: defaultLabel })).toHaveAttribute("aria-pressed", "true");
-    expect(within(group).getAllByRole("button").filter((button) => button.getAttribute("aria-pressed") === "true")).toHaveLength(1);
-    expect(screen.getByText(new RegExp(comparisonCopy))).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: groupName })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: defaultLabel })).toBeChecked();
+    expect(screen.getAllByRole("radio").filter((radio) => (radio as HTMLInputElement).checked)).toHaveLength(1);
+    expect(screen.getAllByText(new RegExp(comparisonCopy))).toHaveLength(4);
   });
 
-  it("switches precomputed periods locally without fetch and updates all selected metrics", async () => {
+  it("switches the native presentation state locally without a client/network boundary", async () => {
     const user = userEvent.setup();
-    const fetchSpy = vi.spyOn(globalThis, "fetch");
-    render(<SalesTrendSummary locale="ru" series={series()} />);
+    const { container } = render(<SalesTrendSummary locale="ru" series={series()} />);
 
-    expect(screen.getByText(/1\s000,00\sMDL/)).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "180 дн." }));
+    await user.click(screen.getByRole("radio", { name: "180 дн." }));
 
-    expect(screen.getByRole("button", { name: "180 дн." })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByRole("button", { name: "30 дн." })).toHaveAttribute("aria-pressed", "false");
-    expect(screen.getByText(/8\s000,00\sMDL/)).toBeInTheDocument();
-    expect(screen.getByText("8")).toBeInTheDocument();
-    expect(screen.getByText("+100,0% · Рост")).toBeInTheDocument();
-    expect(fetchSpy).not.toHaveBeenCalled();
-    fetchSpy.mockRestore();
+    expect(screen.getByRole("radio", { name: "180 дн." })).toBeChecked();
+    expect(screen.getByRole("radio", { name: "30 дн." })).not.toBeChecked();
+    expect(container.querySelector('[data-sales-period-panel="180"]')).toHaveTextContent(/8\s000,00\sMDL/);
+    expect(container.querySelector('[data-sales-period-panel="180"]')).toHaveTextContent("+100,0% · Рост");
+    const source = readFileSync(resolve(process.cwd(), "src/modules/partner-cabinet/components/SalesTrendSummary.tsx"), "utf8");
+    expect(source).not.toContain('"use client"');
+    expect(source).not.toMatch(/useState|onClick|fetch\(/);
   });
 
   it("keeps currencies isolated and exposes semantic no-baseline states", () => {

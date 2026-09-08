@@ -1,7 +1,4 @@
-"use client";
-
 import { ArrowDownRight, ArrowUpRight, Minus, Sparkles } from "lucide-react";
-import { useState } from "react";
 
 import {
   formatPartnerMoney,
@@ -28,51 +25,64 @@ export function SalesTrendSummary({
   locale: PartnerLocale;
   series: SalesSeries[];
 }) {
-  const [selectedPeriod, setSelectedPeriod] = useState<SalesTrendPeriod>(30);
-  const selectedRange = series[0]?.comparisons.find(({ days }) => days === selectedPeriod);
-
   return (
-    <div data-sales-trend-summary>
+    <fieldset className="min-w-0" data-sales-trend-summary>
+      <legend className="sr-only">{partnerText(locale, "dashboard.salesPeriodSelector")}</legend>
+      {PERIODS.map((days) => (
+        <input
+          aria-label={partnerText(locale, "dashboard.salesDays").replace("{count}", String(days))}
+          className="sr-only"
+          data-sales-period-option={days}
+          defaultChecked={days === 30}
+          id={`dashboard-sales-period-${days}`}
+          key={days}
+          name="dashboard-sales-period"
+          type="radio"
+          value={days}
+        />
+      ))}
       <div
-        aria-label={partnerText(locale, "dashboard.salesPeriodSelector")}
         className="grid grid-cols-4 gap-1 rounded-md bg-zinc-100 p-1"
-        role="group"
+        data-sales-period-selector
       >
         {PERIODS.map((days) => (
-          <button
-            aria-pressed={selectedPeriod === days}
-            className="min-h-11 rounded px-2 text-xs font-semibold tabular-nums text-zinc-600 transition-colors hover:bg-white hover:text-zinc-950 aria-pressed:bg-white aria-pressed:text-emerald-800 aria-pressed:shadow-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700"
-            data-sales-period-option={days}
+          <label
+            className="flex min-h-11 cursor-pointer items-center justify-center rounded px-2 text-xs font-semibold tabular-nums text-zinc-600 transition-colors hover:bg-white hover:text-zinc-950"
+            data-sales-period-label={days}
+            htmlFor={`dashboard-sales-period-${days}`}
             key={days}
-            onClick={() => setSelectedPeriod(days)}
-            type="button"
           >
             {partnerText(locale, "dashboard.salesDays").replace("{count}", String(days))}
-          </button>
+          </label>
         ))}
       </div>
 
-      {selectedRange ? (
-        <p className="mt-2 text-xs font-medium tabular-nums text-zinc-500" data-sales-period>
-          {formatPeriodDate(selectedRange.currentStart, locale)} — {formatPeriodDate(selectedRange.currentEnd, locale)}
-        </p>
-      ) : null}
-
-      <div aria-live="polite" className="mt-3 grid gap-2 sm:grid-cols-2" data-sales-metrics>
-        {series.map((currencySeries) => {
-          const comparison = currencySeries.comparisons.find(({ days }) => days === selectedPeriod);
-          if (!comparison) return null;
-          return (
-            <CurrencyTrendCard
-              comparison={comparison}
-              currency={currencySeries.currency}
-              key={currencySeries.currency}
-              locale={locale}
-            />
-          );
-        })}
-      </div>
-    </div>
+      {PERIODS.map((days) => {
+        const selectedRange = series[0]?.comparisons.find((comparison) => comparison.days === days);
+        if (!selectedRange) return null;
+        return (
+          <div className="sales-trend-period-panel mt-2" data-sales-period-panel={days} key={days}>
+            <p className="text-xs font-medium tabular-nums text-zinc-500" data-sales-period>
+              {formatPeriodDate(selectedRange.currentStart, locale)} — {formatPeriodDate(selectedRange.currentEnd, locale)}
+            </p>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2" data-sales-metrics>
+              {series.map((currencySeries) => {
+                const comparison = currencySeries.comparisons.find((candidate) => candidate.days === days);
+                if (!comparison) return null;
+                return (
+                  <CurrencyTrendCard
+                    comparison={comparison}
+                    currency={currencySeries.currency}
+                    key={currencySeries.currency}
+                    locale={locale}
+                  />
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </fieldset>
   );
 }
 

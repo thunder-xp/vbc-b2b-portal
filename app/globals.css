@@ -44,6 +44,34 @@ body {
   border-radius: 9999px !important;
 }
 
+.sales-trend-period-panel {
+  display: none;
+}
+
+[data-sales-period-option="30"]:checked ~ [data-sales-period-selector] [data-sales-period-label="30"],
+[data-sales-period-option="60"]:checked ~ [data-sales-period-selector] [data-sales-period-label="60"],
+[data-sales-period-option="90"]:checked ~ [data-sales-period-selector] [data-sales-period-label="90"],
+[data-sales-period-option="180"]:checked ~ [data-sales-period-selector] [data-sales-period-label="180"] {
+  background: white;
+  color: #047857;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.08);
+}
+
+[data-sales-period-option="30"]:focus-visible ~ [data-sales-period-selector] [data-sales-period-label="30"],
+[data-sales-period-option="60"]:focus-visible ~ [data-sales-period-selector] [data-sales-period-label="60"],
+[data-sales-period-option="90"]:focus-visible ~ [data-sales-period-selector] [data-sales-period-label="90"],
+[data-sales-period-option="180"]:focus-visible ~ [data-sales-period-selector] [data-sales-period-label="180"] {
+  outline: 2px solid #047857;
+  outline-offset: 2px;
+}
+
+[data-sales-period-option="30"]:checked ~ [data-sales-period-panel="30"],
+[data-sales-period-option="60"]:checked ~ [data-sales-period-panel="60"],
+[data-sales-period-option="90"]:checked ~ [data-sales-period-panel="90"],
+[data-sales-period-option="180"]:checked ~ [data-sales-period-panel="180"] {
+  display: block;
+}
+
 .public-retail {
   --retail-primary: #1769c2;
   --retail-primary-hover: #10549d;
