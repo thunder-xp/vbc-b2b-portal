@@ -81,8 +81,10 @@ export class SupabaseEstimateRepository implements EstimateRepository {
           .select("id, estimate_id, version_number, status").in("estimate_id", estimateIds).order("version_number", { ascending: false }),
         input.status === "archived"
           ? Promise.all([
-            supabase.from("estimate_cart_conversions").select("estimate_id").in("estimate_id", estimateIds),
-            supabase.from("estimate_proposal_deliveries").select("estimate_id").in("estimate_id", estimateIds),
+            supabase.from("estimate_proposal_deliveries")
+              .select("estimate_id")
+              .in("estimate_id", estimateIds)
+              .or("sent_at.not.is.null,first_opened_at.not.is.null,responded_at.not.is.null,status.in.(sent,delivered,responded)"),
             supabase.from("estimate_lifecycle_events").select("estimate_id, to_status").in("estimate_id", estimateIds).neq("to_status", "draft"),
           ])
           : Promise.resolve(null),
@@ -117,7 +119,8 @@ export class SupabaseEstimateRepository implements EstimateRepository {
         latestVersionId: versionMetadata.get(row.id)?.latestVersionId ?? null,
         latestPdfDocumentId: latestPdfByVersion.get(versionMetadata.get(row.id)?.latestVersionId ?? "") ?? null,
         hasAcceptedVersion: Boolean(row.accepted_version_id),
-        canDeleteArchived: row.status === "archived"
+        canDeleteArchived: input.status === "archived"
+          && row.status === "archived"
           && row.lifecycle_status === "draft"
           && !row.lifecycle_order_id
           && !row.accepted_version_id
@@ -550,7 +553,7 @@ export class SupabaseEstimateRepository implements EstimateRepository {
       target_request_key: requestKey,
       target_reason: reason,
     });
-    if (error) throw mapRepositoryError(error.code);
+    if (error) throw mapRepositoryError(error.code, error.message);
   }
 
   async listServices(companyId: string): Promise<PartnerService[]> {
@@ -604,12 +607,12 @@ function mapExternalNomenclatureRow(row: Record<string, unknown>): import("../es
   };
 }
 
-function mapRepositoryError(code: string | undefined): EstimateRepositoryError {
-  if (code === "PT409") return new EstimateRepositoryError("conflict", code);
-  if (code === "P0002") return new EstimateRepositoryError("not_found", code);
-  if (code === "23505") return new EstimateRepositoryError("duplicate", code);
-  if (code === "22023" || code === "23514") return new EstimateRepositoryError("invalid", code);
-  return new EstimateRepositoryError("persistence", code ?? null);
+function mapRepositoryError(code: string | undefined, message: string | null = null): EstimateRepositoryError {
+  if (code === "PT409") return new EstimateRepositoryError("conflict", code, message);
+  if (code === "P0002") return new EstimateRepositoryError("not_found", code, message);
+  if (code === "23505") return new EstimateRepositoryError("duplicate", code, message);
+  if (code === "22023" || code === "23514") return new EstimateRepositoryError("invalid", code, message);
+  return new EstimateRepositoryError("persistence", code ?? null, message);
 }
 
 function mapFinalCustomerRow(row: Record<string, unknown>): FinalCustomer {

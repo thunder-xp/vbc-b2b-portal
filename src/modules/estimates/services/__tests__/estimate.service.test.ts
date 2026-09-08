@@ -184,14 +184,24 @@ describe("DefaultEstimateService", () => {
   });
 
   it("deletes only an archived estimate through the governed repository operation", async () => {
-    vi.mocked(repository.findById).mockResolvedValue({ ...estimate, status: "archived", archivedAt: "2026-08-09T10:00:00Z" });
     await service.deleteArchived("user-1", estimate.id, estimate.revision, "33333333-3333-4333-8333-333333333333");
     expect(repository.deleteArchived).toHaveBeenCalledWith(estimate.id, estimate.revision, "33333333-3333-4333-8333-333333333333", "Удалено пользователем из архива.");
+    expect(repository.findById).not.toHaveBeenCalled();
   });
 
-  it("rejects deletion before the estimate is archived", async () => {
-    await expect(service.deleteArchived("user-1", estimate.id, estimate.revision, "33333333-3333-4333-8333-333333333333")).rejects.toThrow("Удалить можно только архивную смету");
-    expect(repository.deleteArchived).not.toHaveBeenCalled();
+  it.each([
+    ["23514", "ESTIMATE_DELETE_BLOCKED_PROPOSAL", "ESTIMATE_DELETE_PROTECTED_PROPOSAL"],
+    ["23514", "ESTIMATE_DELETE_BLOCKED_ORDER", "ESTIMATE_DELETE_PROTECTED_ORDER"],
+    ["PT409", "ESTIMATE_DELETE_STALE_REVISION", "ESTIMATE_DELETE_STALE_REVISION"],
+    ["P0002", "ESTIMATE_DELETE_NOT_AVAILABLE", "ESTIMATE_DELETE_NOT_FOUND"],
+    ["22023", "ESTIMATE_DELETE_NOT_ARCHIVED", "ESTIMATE_DELETE_INVALID_STATE"],
+    ["23505", "Estimate deletion request was already used.", "ESTIMATE_DELETE_REQUEST_CONFLICT"],
+  ])("maps delete database error %s to typed UI contract %s", async (databaseCode, databaseMessage, expectedCode) => {
+    const repositoryCode = databaseCode === "PT409" ? "conflict" : databaseCode === "P0002" ? "not_found" : databaseCode === "23505" ? "duplicate" : "invalid";
+    vi.mocked(repository.deleteArchived).mockRejectedValue(new EstimateRepositoryError(repositoryCode, databaseCode, databaseMessage));
+
+    await expect(service.deleteArchived("user-1", estimate.id, estimate.revision, "33333333-3333-4333-8333-333333333333"))
+      .rejects.toMatchObject({ code: expectedCode });
   });
 
   it("searches and creates final customers only through the active company boundary", async () => {

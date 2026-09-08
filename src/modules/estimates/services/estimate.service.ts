@@ -3,6 +3,7 @@ import Decimal from "decimal.js";
 
 import type { CompanyAccessService, PermissionService } from "../../access-control/services";
 import {
+  DomainConflictError,
   InvalidStateError,
   NotFoundError,
   resolveCommercialVisibility,
@@ -1290,19 +1291,17 @@ export class DefaultEstimateService implements EstimateService {
   }
 
   async deleteArchived(userId: string, estimateId: string, expectedRevision: number, requestKey: string): Promise<void> {
-    const companyId = await this.resolveCompany(userId, MANAGE_PERMISSION);
+    await this.resolveCompany(userId, MANAGE_PERMISSION);
     const normalizedEstimateId = normalizeId(estimateId);
-    const estimate = await this.repository.findById(normalizedEstimateId);
-    if (!estimate || estimate.companyId !== companyId) throw new NotFoundError("Estimate was not found.");
-    if (estimate.status !== "archived") throw new InvalidStateError("Удалить можно только архивную смету.");
-    if (estimate.revision !== normalizeRevision(expectedRevision)) throw new InvalidStateError("Смета была изменена. Обновите архив и повторите действие.");
     try {
-      await this.repository.deleteArchived(normalizedEstimateId, estimate.revision, normalizeUuid(requestKey, "Ключ удаления некорректен."), "Удалено пользователем из архива.");
+      await this.repository.deleteArchived(
+        normalizedEstimateId,
+        normalizeRevision(expectedRevision),
+        normalizeUuid(requestKey, "Ключ удаления некорректен."),
+        "Удалено пользователем из архива.",
+      );
     } catch (error) {
-      if (error instanceof EstimateRepositoryError && error.code === "invalid") {
-        throw new InvalidStateError("Смету нельзя удалить: у неё есть защищённая история предложения или заказа.");
-      }
-      handleRepositoryConflict(error);
+      handleArchivedEstimateDeleteError(error);
     }
   }
 
@@ -1755,5 +1754,34 @@ function handleRepositoryConflict(error: unknown): never {
     throw new InvalidStateError("Estimate was changed in another session. Reload before saving.");
   }
   if (error instanceof EstimateRepositoryError && error.code === "not_found") throw new NotFoundError("Estimate was not found.");
+  throw error;
+}
+
+function handleArchivedEstimateDeleteError(error: unknown): never {
+  if (!(error instanceof EstimateRepositoryError)) throw error;
+
+  if (error.databaseCode === "23514") {
+    const code = error.databaseMessage?.includes("ESTIMATE_DELETE_BLOCKED_ORDER")
+      ? "ESTIMATE_DELETE_PROTECTED_ORDER"
+      : "ESTIMATE_DELETE_PROTECTED_PROPOSAL";
+    throw new DomainConflictError(code, "Archived estimate has protected commercial history.");
+  }
+
+  if (error.databaseCode === "PT409") {
+    throw new DomainConflictError("ESTIMATE_DELETE_STALE_REVISION", "Archived estimate changed before deletion.");
+  }
+
+  if (error.databaseCode === "P0002") {
+    throw new DomainConflictError("ESTIMATE_DELETE_NOT_FOUND", "Archived estimate is no longer available.");
+  }
+
+  if (error.databaseCode === "22023") {
+    throw new DomainConflictError("ESTIMATE_DELETE_INVALID_STATE", "Estimate is not eligible for archived deletion.");
+  }
+
+  if (error.databaseCode === "23505") {
+    throw new DomainConflictError("ESTIMATE_DELETE_REQUEST_CONFLICT", "Deletion request key was already used.");
+  }
+
   throw error;
 }

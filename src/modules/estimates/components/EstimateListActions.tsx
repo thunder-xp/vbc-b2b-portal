@@ -23,6 +23,7 @@ export function EstimateListActions({ estimateId, revision, archived, canDeleteA
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const duplicate = () => startTransition(async () => {
     const result = await duplicateEstimateAction(estimateId);
@@ -35,9 +36,16 @@ export function EstimateListActions({ estimateId, revision, archived, canDeleteA
     if (result.success) router.refresh();
   });
   const removeArchived = () => startTransition(async () => {
+    setDeleteError(null);
     const result = await deleteArchivedEstimateAction(estimateId, revision, crypto.randomUUID());
-    setMessage(result.success ? copy.operationSucceeded : copy.operationFailed);
-    if (result.success) { setDeleteOpen(false); router.refresh(); }
+    if (!result.success) {
+      setDeleteError(deleteFailureMessage(result.errorCode, copy));
+      return;
+    }
+    setMessage(copy.operationSucceeded);
+    setDeleteOpen(false);
+    hideEstimateRows(estimateId);
+    router.refresh();
   });
 
   return <div>
@@ -46,9 +54,27 @@ export function EstimateListActions({ estimateId, revision, archived, canDeleteA
       {latestPdfDocumentId ? <IconActionTooltip label={copy.openLatestPdf}><Link aria-label={copy.openLatestPdf} className={buttonClass} href={`/api/estimates/documents/${latestPdfDocumentId}`}><Download className="size-4" /></Link></IconActionTooltip> : null}
       <IconActionTooltip label={copy.duplicateEstimate}><button aria-label={copy.duplicateEstimate} className={buttonClass} disabled={pending} onClick={duplicate} type="button"><Copy className="size-4" /></button></IconActionTooltip>
       {!archived && <IconActionTooltip label={copy.archiveEstimate}><button aria-label={copy.archiveEstimate} className={buttonClass} disabled={pending} onClick={archive} type="button"><Archive className="size-4" /></button></IconActionTooltip>}
-      {archived && canDeleteArchived ? <IconActionTooltip label={copy.deleteEstimate}><button aria-label={copy.deleteEstimate} className={`${buttonClass} text-red-700`} disabled={pending} onClick={() => setDeleteOpen(true)} type="button"><Trash2 className="size-4" /></button></IconActionTooltip> : null}
+      {archived && canDeleteArchived ? <IconActionTooltip label={copy.deleteEstimate}><button aria-label={copy.deleteEstimate} className={`${buttonClass} text-red-700`} disabled={pending} onClick={() => { setDeleteError(null); setDeleteOpen(true); }} type="button"><Trash2 className="size-4" /></button></IconActionTooltip> : null}
     </div>
     {message && <span aria-live="polite" className="sr-only">{message}</span>}
-    <ConfirmationDialog confirmLabel={copy.deleteEstimate} consequence={copy.deleteArchivedConsequence} destructive onCancel={() => setDeleteOpen(false)} onConfirm={removeArchived} open={deleteOpen} pending={pending} title={copy.deleteArchivedEstimate} />
+    <ConfirmationDialog confirmLabel={copy.deleteEstimate} consequence={copy.deleteArchivedConsequence} destructive onCancel={() => setDeleteOpen(false)} onConfirm={removeArchived} open={deleteOpen} pending={pending} title={copy.deleteArchivedEstimate}>
+      {deleteError ? <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800" role="alert">{deleteError}</p> : null}
+    </ConfirmationDialog>
   </div>;
+}
+
+function deleteFailureMessage(errorCode: string, copy: ReturnType<typeof getEstimatesCopy>): string {
+  if (errorCode === "ESTIMATE_DELETE_PROTECTED_PROPOSAL") return copy.deleteArchivedProtectedProposal;
+  if (errorCode === "ESTIMATE_DELETE_PROTECTED_ORDER") return copy.deleteArchivedProtectedOrder;
+  if (errorCode === "ESTIMATE_DELETE_STALE_REVISION") return copy.deleteArchivedStale;
+  if (errorCode === "ESTIMATE_DELETE_NOT_FOUND" || errorCode === "NOT_FOUND") return copy.deleteArchivedNotFound;
+  if (errorCode === "ESTIMATE_DELETE_INVALID_STATE" || errorCode === "INVALID_STATE") return copy.deleteArchivedInvalidState;
+  if (errorCode === "ESTIMATE_DELETE_REQUEST_CONFLICT" || errorCode === "DUPLICATE_REQUEST") return copy.deleteArchivedRequestConflict;
+  return copy.operationFailed;
+}
+
+function hideEstimateRows(estimateId: string): void {
+  document.querySelectorAll<HTMLElement>(`[data-estimate-row-id="${estimateId}"]`).forEach((row) => {
+    row.hidden = true;
+  });
 }

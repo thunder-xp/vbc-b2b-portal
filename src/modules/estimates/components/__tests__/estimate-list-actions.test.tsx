@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { archiveEstimateAction, deleteArchivedEstimateAction } from "../../actions/estimate.actions";
 import { duplicateEstimateAction } from "../../actions/lifecycle.actions";
+import { PartnerLocaleProvider } from "../../../partner-locale";
 import { EstimateListActions } from "../EstimateListActions";
 
 const push = vi.fn();
@@ -37,13 +38,39 @@ describe("EstimateListActions", () => {
   it("exposes governed deletion only for archived estimates", async () => {
     const user = userEvent.setup();
     vi.mocked(deleteArchivedEstimateAction).mockResolvedValue({ success: true, data: null, message: "Удалено", errorCode: null });
-    render(<EstimateListActions archived canDeleteArchived estimateId="estimate-1" latestPdfDocumentId={null} revision={3} />);
+    render(<div data-estimate-row-id="estimate-1"><EstimateListActions archived canDeleteArchived estimateId="estimate-1" latestPdfDocumentId={null} revision={3} /></div>);
     expect(screen.queryByRole("button", { name: "Архивировать смету" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Удалить смету" }));
     expect(screen.getByRole("dialog", { name: "Удалить архивную смету?" })).toBeInTheDocument();
     await user.click(screen.getAllByRole("button", { name: "Удалить смету" })[1]);
     expect(deleteArchivedEstimateAction).toHaveBeenCalledWith("estimate-1", 3, expect.any(String));
     expect(refresh).toHaveBeenCalledOnce();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(document.querySelector<HTMLElement>('[data-estimate-row-id="estimate-1"]')).toHaveAttribute("hidden");
+  });
+
+  it("keeps the modal open and shows the specific protected-proposal rejection", async () => {
+    const user = userEvent.setup();
+    vi.mocked(deleteArchivedEstimateAction).mockResolvedValue({ success: false, data: null, message: "safe server fallback", errorCode: "ESTIMATE_DELETE_PROTECTED_PROPOSAL" });
+    render(<EstimateListActions archived canDeleteArchived estimateId="estimate-1" latestPdfDocumentId={null} revision={3} />);
+
+    await user.click(screen.getByRole("button", { name: "Удалить смету" }));
+    await user.click(screen.getAllByRole("button", { name: "Удалить смету" })[1]);
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Эту смету нельзя удалить: по ней уже было отправлено коммерческое предложение.");
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it("renders typed rejection copy in Romanian", async () => {
+    const user = userEvent.setup();
+    vi.mocked(deleteArchivedEstimateAction).mockResolvedValue({ success: false, data: null, message: "safe server fallback", errorCode: "ESTIMATE_DELETE_PROTECTED_ORDER" });
+    render(<PartnerLocaleProvider locale="ro"><EstimateListActions archived canDeleteArchived estimateId="estimate-1" latestPdfDocumentId={null} revision={3} /></PartnerLocaleProvider>);
+
+    await user.click(screen.getByRole("button", { name: "Șterge devizul" }));
+    await user.click(screen.getAllByRole("button", { name: "Șterge devizul" })[1]);
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Acest deviz nu poate fi șters: este asociat unei comenzi.");
   });
 
   it("does not expose deletion for active estimates", () => {

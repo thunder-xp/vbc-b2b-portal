@@ -307,6 +307,7 @@ export class EstimateRepositoryError extends Error {
   constructor(
     public readonly code: "conflict" | "not_found" | "duplicate" | "invalid" | "persistence" = "persistence",
     public readonly databaseCode: string | null = null,
+    public readonly databaseMessage: string | null = null,
   ) {
     super("Estimate persistence failed.");
     this.name = "EstimateRepositoryError";

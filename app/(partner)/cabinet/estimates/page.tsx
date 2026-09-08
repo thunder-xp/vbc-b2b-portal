@@ -171,6 +171,7 @@ export default async function EstimatesPage({
             {result.data.records.map((estimate) => (
               <article
                 className="min-w-0 max-w-full border-y border-zinc-200 bg-white px-4 py-4"
+                data-estimate-row-id={estimate.id}
                 key={estimate.id}
               >
                 <div className="flex items-start justify-between gap-3">
@@ -237,7 +238,7 @@ export default async function EstimatesPage({
               </thead>
               <tbody className="divide-y divide-zinc-100">
                 {result.data.records.map((estimate) => (
-                  <tr className="hover:bg-zinc-50" key={estimate.id}>
+                  <tr className="hover:bg-zinc-50" data-estimate-row-id={estimate.id} key={estimate.id}>
                     <td className="px-4 py-4">
                       <Link
                         className="font-semibold text-zinc-950 hover:text-emerald-700"
