@@ -97,7 +97,7 @@ describe("Partner Workspace operational home", () => {
           totals: [{ currency: "MDL", outstanding: 600, overdue: 100 }],
           nextDueDate: "2026-09-05",
           fresh: true,
-          calendar: { startDate: "2026-01-01", endDate: "2026-12-31", today: "2026-09-08", todayPosition: 68.68 },
+          calendar: { startDate: "2026-04-11", endDate: "2026-10-08", today: "2026-09-08", todayPosition: 83.33 },
           paymentGraph: [
             { id: "overdue", eventDate: "2026-09-05", orderNumber: "NS-1", amount: 100, currency: "MDL", timing: "overdue", relativeHeight: 25, positionPercent: 67.9, stackIndex: 0, stackCount: 1 },
             { id: "today", eventDate: "2026-09-08", orderNumber: "NS-2", amount: 200, currency: "MDL", timing: "today", relativeHeight: 50, positionPercent: 68.68, stackIndex: 0, stackCount: 1 },
@@ -127,13 +127,13 @@ describe("Partner Workspace operational home", () => {
           totals: [],
           nextDueDate: null,
           fresh: true,
-          calendar: { startDate: "2026-01-01", endDate: "2026-12-31", today: "2026-09-08", todayPosition: 68.68 },
+          calendar: { startDate: "2026-03-12", endDate: "2026-09-08", today: "2026-09-08", todayPosition: 100 },
           paymentGraph: [],
         },
       },
     });
     render(await CabinetPage());
-    expect(screen.getByText("В текущем году платежей нет.")).toBeInTheDocument();
+    expect(screen.getByText("В выбранном периоде платежей нет.")).toBeInTheDocument();
     expect(screen.getByRole("separator", { name: /Сегодня/ })).toBeInTheDocument();
   });
 

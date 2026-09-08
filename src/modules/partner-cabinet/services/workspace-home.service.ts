@@ -409,15 +409,14 @@ export function buildFinanceGuidance(
   synchronizedAt: string | null,
 ): NonNullable<WorkspaceHomeDto["financeGuidance"]> {
   const today = financeBusinessDate(new Date());
-  const calendarStart = `${today.slice(0, 4)}-01-01`;
-  const calendarEnd = `${today.slice(0, 4)}-12-31`;
+  const calendarWindow = getPaymentCalendarWindow(obligations, today);
   const current = obligations.filter((row) => row.reconciliationStatus === "READY" && row.paymentStatus !== "SETTLED" && Number(row.remainingAmount) > 0);
   const recentlyPaid = obligations.filter((row) => {
     const settledDate = row.settlementLastPaymentAt?.slice(0, 10);
     return row.reconciliationStatus === "READY"
       && row.paymentStatus === "SETTLED"
       && Number(row.paidAmount) > 0
-      && Boolean(settledDate && settledDate >= calendarStart && settledDate <= calendarEnd);
+      && Boolean(settledDate && settledDate >= calendarWindow.rangeStart && settledDate <= calendarWindow.rangeEnd);
   });
   const totals = new Map<string, { outstanding: number; overdue: number }>();
   for (const row of current) {
@@ -429,7 +428,7 @@ export function buildFinanceGuidance(
   const nextDueDate = current.map((row) => row.dueDate).sort()[0] ?? null;
   const fresh = Boolean(synchronizedAt && Date.now() - Date.parse(synchronizedAt) <= 3 * 60 * 60 * 1000);
   const currentGraphCandidates = current
-    .filter((row) => row.dueDate <= calendarEnd)
+    .filter((row) => row.dueDate >= calendarWindow.rangeStart && row.dueDate <= calendarWindow.rangeEnd)
     .sort((left, right) => {
       const timingRank = (dueDate: string) => dueDate < today ? 0 : dueDate === today ? 1 : 2;
       return timingRank(left.dueDate) - timingRank(right.dueDate)
@@ -463,10 +462,10 @@ export function buildFinanceGuidance(
     nextDueDate,
     fresh,
     calendar: {
-      startDate: calendarStart,
-      endDate: calendarEnd,
+      startDate: calendarWindow.rangeStart,
+      endDate: calendarWindow.rangeEnd,
       today,
-      todayPosition: timelinePosition(today, calendarStart, calendarEnd),
+      todayPosition: timelinePosition(today, calendarWindow.rangeStart, calendarWindow.rangeEnd),
     },
     paymentGraph: graphCandidates.map((item) => {
       const stackIndex = stackIndexes.get(item.eventDate) ?? 0;
@@ -479,12 +478,47 @@ export function buildFinanceGuidance(
         currency: item.row.currency,
         timing: item.timing,
         relativeHeight: Math.max(22, Math.round((item.amount / (maximaByCurrency.get(item.row.currency) || 1)) * 100)),
-        positionPercent: Math.max(2.5, Math.min(97.5, timelinePosition(item.eventDate, calendarStart, calendarEnd))),
+        positionPercent: Math.max(2.5, Math.min(97.5, timelinePosition(item.eventDate, calendarWindow.rangeStart, calendarWindow.rangeEnd))),
         stackIndex,
         stackCount: stackCounts.get(item.eventDate) ?? 1,
       };
     }),
   };
+}
+
+export function getPaymentCalendarWindow(
+  payments: Awaited<ReturnType<FinanceRepository["getOverviewData"]>>["obligations"],
+  today: string,
+): {
+  rangeStart: string;
+  rangeEnd: string;
+  today: string;
+  latestRelevantPaymentDate: string | null;
+} {
+  const relevantDates = payments.flatMap((payment) => {
+    if (payment.reconciliationStatus !== "READY") return [];
+    if (payment.paymentStatus === "SETTLED") {
+      const paidDate = payment.settlementLastPaymentAt?.slice(0, 10);
+      return Number(payment.paidAmount) > 0 && paidDate ? [paidDate] : [];
+    }
+    return Number(payment.remainingAmount) > 0 ? [payment.dueDate] : [];
+  }).filter(isIsoDate);
+  const latestRelevantPaymentDate = relevantDates.sort().at(-1) ?? null;
+  const rangeEnd = latestRelevantPaymentDate && latestRelevantPaymentDate > today
+    ? latestRelevantPaymentDate
+    : today;
+  const nominalRangeStart = addDays(rangeEnd, -180);
+
+  return {
+    rangeStart: nominalRangeStart > today ? today : nominalRangeStart,
+    rangeEnd,
+    today,
+    latestRelevantPaymentDate,
+  };
+}
+
+function isIsoDate(value: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(`${value}T00:00:00Z`));
 }
 
 function timelinePosition(value: string, start: string, end: string): number {

@@ -12,10 +12,10 @@ import type {
 } from "../../repositories/workspace-dashboard.repository";
 import type { PartnerWorkspaceContextService } from "../workspace-context.service";
 import { resolveWorkspaceCapabilities } from "../workspace-capability.service";
-import { buildFinanceGuidance, buildQuickActions, DefaultWorkspaceHomeService } from "../workspace-home.service";
+import { buildFinanceGuidance, buildQuickActions, DefaultWorkspaceHomeService, getPaymentCalendarWindow } from "../workspace-home.service";
 
 describe("DefaultWorkspaceHomeService", () => {
-  it("keeps current-year unpaid obligations primary and never lets paid crowd them out", () => {
+  it("keeps in-window unpaid obligations primary and never lets paid crowd them out", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-09-07T10:00:00Z"));
     try {
@@ -32,7 +32,7 @@ describe("DefaultWorkspaceHomeService", () => {
       }));
       const rows = [
         ...unpaid,
-        { ...unpaid[0], id: "outside-horizon", dueDate: "2027-01-01", orderNumber: "OUTSIDE" },
+        { ...unpaid[0], id: "outside-horizon", dueDate: "2026-01-01", orderNumber: "OUTSIDE" },
         { ...unpaid[0], id: "recent-paid", paymentStatus: "SETTLED", remainingAmount: "0", paidAmount: "50", settlementLastPaymentAt: "2026-06-01T00:00:00Z", orderNumber: "PAID" },
         { ...unpaid[0], id: "old-paid", paymentStatus: "SETTLED", remainingAmount: "0", paidAmount: "50", settlementLastPaymentAt: "2025-12-31T00:00:00Z", orderNumber: "OLD" },
       ];
@@ -49,18 +49,85 @@ describe("DefaultWorkspaceHomeService", () => {
     }
   });
 
-  it("uses current-year paid rows only as secondary calendar fill", () => {
+  it("uses paid rows inside the dynamic window only as secondary calendar fill", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-09-07T10:00:00Z"));
     try {
       const base = { reconciliationStatus: "READY", currency: "MDL", orderNumber: "ORDER" };
       const rows = [
         { ...base, id: "future", paymentStatus: "OPEN", remainingAmount: "100", paidAmount: "0", dueDate: "2026-12-01", settlementLastPaymentAt: null },
-        { ...base, id: "recent-paid", paymentStatus: "SETTLED", remainingAmount: "0", paidAmount: "50", dueDate: "2026-01-01", settlementLastPaymentAt: "2026-06-01T00:00:00Z" },
+        { ...base, id: "recent-paid", paymentStatus: "SETTLED", remainingAmount: "0", paidAmount: "50", dueDate: "2026-01-01", settlementLastPaymentAt: "2026-07-01T00:00:00Z" },
         { ...base, id: "old-paid", paymentStatus: "SETTLED", remainingAmount: "0", paidAmount: "50", dueDate: "2025-12-31", settlementLastPaymentAt: "2025-12-31T00:00:00Z" },
       ];
       const result = buildFinanceGuidance(rows as never, "2026-09-07T09:00:00Z");
       expect(result.paymentGraph.map((item) => item.id)).toEqual(["future", "recent-paid"]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it.each([
+    ["30 days", [30], "2026-10-07", "2026-04-10"],
+    ["120 days", [120], "2027-01-05", "2026-07-09"],
+    ["multiple future payments", [10, 30, 120], "2027-01-05", "2026-07-09"],
+  ])("anchors the 180-day payment window to the latest %s payment", (_case, offsets, expectedEnd, expectedStart) => {
+    const today = "2026-09-07";
+    const rows = offsets.map((offset, index) => paymentObligation(`future-${index}`, addTestDays(today, offset), "100"));
+
+    expect(getPaymentCalendarWindow(rows, today)).toEqual({
+      rangeStart: expectedStart,
+      rangeEnd: expectedEnd,
+      today,
+      latestRelevantPaymentDate: expectedEnd,
+    });
+  });
+
+  it("ends at today when all relevant payments are overdue", () => {
+    const today = "2026-09-07";
+
+    expect(getPaymentCalendarWindow([
+      paymentObligation("old", "2026-01-01", "100"),
+      paymentObligation("recent", "2026-09-01", "100"),
+    ], today)).toEqual({
+      rangeStart: "2026-03-11",
+      rangeEnd: today,
+      today,
+      latestRelevantPaymentDate: "2026-09-01",
+    });
+  });
+
+  it("uses the trailing 180 days ending today when there are no payments", () => {
+    expect(getPaymentCalendarWindow([], "2026-09-07")).toEqual({
+      rangeStart: "2026-03-11",
+      rangeEnd: "2026-09-07",
+      today: "2026-09-07",
+      latestRelevantPaymentDate: null,
+    });
+  });
+
+  it("includes paid and unpaid items on inclusive window boundaries and excludes older paid items", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-07T10:00:00Z"));
+    try {
+      const rows = [
+        paymentObligation("end", "2026-10-07", "100"),
+        paymentObligation("start", "2026-04-10", "100"),
+        { ...paymentObligation("paid-start", "2026-01-01", "0"), paymentStatus: "SETTLED" as const, paidAmount: "50", settlementLastPaymentAt: "2026-04-10T10:00:00Z" },
+        { ...paymentObligation("paid-inside", "2026-01-01", "0"), paymentStatus: "SETTLED" as const, paidAmount: "50", settlementLastPaymentAt: "2026-08-01T10:00:00Z" },
+        { ...paymentObligation("paid-outside", "2026-01-01", "0"), paymentStatus: "SETTLED" as const, paidAmount: "50", settlementLastPaymentAt: "2026-04-09T10:00:00Z" },
+      ];
+      const result = buildFinanceGuidance(rows, "2026-09-07T09:00:00Z");
+
+      expect(result.calendar).toEqual({
+        startDate: "2026-04-10",
+        endDate: "2026-10-07",
+        today: "2026-09-07",
+        todayPosition: expect.any(Number),
+      });
+      expect(result.calendar.todayPosition).toBeCloseTo(83.33, 1);
+      expect(result.paymentGraph.map((item) => item.id)).toEqual(["start", "end", "paid-inside", "paid-start"]);
+      expect(result.paymentGraph.filter((item) => item.timing === "paid")).toHaveLength(2);
+      expect(result.paymentGraph.map((item) => item.id)).not.toContain("paid-outside");
     } finally {
       vi.useRealTimers();
     }
@@ -504,7 +571,7 @@ describe("DefaultWorkspaceHomeService", () => {
     expect(workspace.campaigns.map((item) => item.type)).toEqual(["product_offer", "arrival_promotion"]);
   });
 
-  it("derives the current-year payment graph from the already loaded local Finance obligations", async () => {
+  it("derives the dynamic 180-day payment graph from the already loaded local Finance obligations", async () => {
     const today = financeBusinessDate(new Date());
     const previousYear = `${Number(today.slice(0, 4)) - 1}-12-31`;
     const financeRepository = {
@@ -546,8 +613,8 @@ describe("DefaultWorkspaceHomeService", () => {
     expect(workspace.financeGuidance?.paymentGraph.map((item) => item.id)).toContain("later");
     expect(workspace.financeGuidance?.paymentGraph.every((item) => item.relativeHeight >= 22 && item.relativeHeight <= 100)).toBe(true);
     expect(workspace.financeGuidance?.calendar).toEqual({
-      startDate: `${today.slice(0, 4)}-01-01`,
-      endDate: `${today.slice(0, 4)}-12-31`,
+      startDate: addTestDays(addTestDays(today, 31), -180),
+      endDate: addTestDays(today, 31),
       today,
       todayPosition: expect.any(Number),
     });
