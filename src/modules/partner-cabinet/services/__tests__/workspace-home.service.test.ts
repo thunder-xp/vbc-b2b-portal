@@ -641,6 +641,7 @@ describe("DefaultWorkspaceHomeService", () => {
       ],
     });
     expect(workspace.salesAnalytics?.series[0].points).toHaveLength(12);
+    expect(workspace.salesAnalytics?.series[0].points[6]).toMatchObject({ showLabel: true, showLabelOnMobile: true });
     expect(workspace.salesAnalytics?.series[0].points[9]).toMatchObject({ amount: 25_000, yPercent: 55 });
     expect(workspace.salesAnalytics?.series[0].points[11]).toMatchObject({ amount: 50_000, xPercent: 97.5, yPercent: 20, labelAlign: "end" });
     expect(workspace.salesAnalytics?.series[1].points[11]).toMatchObject({ amount: 2_000, yPercent: 20 });

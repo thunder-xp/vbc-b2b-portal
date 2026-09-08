@@ -407,7 +407,7 @@ function salesAnalyticsData() {
         xPercent: 2.5 + (index / 11) * 95,
         yPercent: index === 9 ? 55 : index === 11 ? 20 : 90,
         showLabel: index === 0 || index === 11 || index % 3 === 0,
-        showLabelOnMobile: index === 0 || index === 5 || index === 11,
+        showLabelOnMobile: index === 0 || index === 6 || index === 11,
         labelAlign: index === 0 ? "start" : index === 11 ? "end" : "center",
       })),
     }],

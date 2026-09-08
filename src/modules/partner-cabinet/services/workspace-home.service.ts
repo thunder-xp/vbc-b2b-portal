@@ -461,7 +461,7 @@ export function buildSalesAnalytics(
             xPercent: lastIndex === 0 ? 50 : 2.5 + (index / lastIndex) * 95,
             yPercent: 90 - relativeHeight * 0.7,
             showLabel: index === 0 || index === lastIndex || index % 3 === 0,
-            showLabelOnMobile: index === 0 || index === Math.floor(lastIndex / 2) || index === lastIndex,
+            showLabelOnMobile: index === 0 || index === Math.ceil(lastIndex / 2) || index === lastIndex,
             labelAlign: index === 0 ? "start" : index === lastIndex ? "end" : "center",
           };
         }),
