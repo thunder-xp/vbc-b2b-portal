@@ -1,15 +1,8 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { render, screen } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
 
 import { resolveCatalogQuickLinks, type CatalogCategoryDto, type CatalogRouteState } from "../../services";
 import { CatalogQuickLinks } from "../CatalogQuickLinks";
-
-const push = vi.fn();
-vi.mock("next/navigation", () => ({
-  usePathname: () => "/cabinet/catalog",
-  useRouter: () => ({ push }),
-  useSearchParams: () => new URLSearchParams("view=all&search=dahua&page=4"),
-}));
 
 const categories: CatalogCategoryDto[] = [
   category("video", "772c9d50-3298-11e9-a216-000c29411cbe", "Видеонаблюдение"),
@@ -33,10 +26,10 @@ describe("CatalogQuickLinks", () => {
   it("renders every required shortcut from exact governed 1C identities", () => {
     render(<CatalogQuickLinks categories={categories} locale="ru" state={routeState()} />);
     for (const label of ["ВИДЕО", "СКУД", "ОПС", "ЗВУК", "СЕТЬ", "ДОМОФОН", "IT", "МАТЕРИАЛЫ", "ПИТАНИЕ"]) {
-      expect(screen.getByRole("button", { name: label })).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: label })).toBeInTheDocument();
     }
     expect(screen.getByTestId("catalog-quick-links").querySelector("nav")).toHaveClass("overflow-x-auto");
-    expect(screen.getByRole("button", { name: "ВИДЕО" })).toHaveClass("min-h-11", "px-3");
+    expect(screen.getByRole("link", { name: "ВИДЕО" })).toHaveClass("min-h-11", "px-3");
   });
 
   it("resolves multi-group shortcuts deterministically and excludes lookalike categories", () => {
@@ -50,11 +43,9 @@ describe("CatalogQuickLinks", () => {
 
   it("keeps compatible catalog state, resets paging, and marks the active shortcut", () => {
     render(<CatalogQuickLinks categories={categories} locale="ru" state={routeState({ categoryIds: ["security", "fire"], page: 4, search: "dahua", sort: "price_desc" })} />);
-    const button = screen.getByRole("button", { name: "ОПС" });
-    expect(button).toHaveAttribute("aria-pressed", "true");
-    fireEvent.click(screen.getByRole("button", { name: "СКУД" }));
-    expect(push).toHaveBeenCalledWith(expect.stringContaining("categories="));
-    expect(push).toHaveBeenCalledWith(expect.stringContaining("search=dahua"));
+    expect(screen.getByRole("link", { name: "ОПС" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "СКУД" }).getAttribute("href")).toContain("categories=");
+    expect(screen.getByRole("link", { name: "СКУД" }).getAttribute("href")).toContain("search=dahua");
   });
 });
 

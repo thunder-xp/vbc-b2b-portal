@@ -107,7 +107,7 @@ export default async function RepeatPurchasePage({ searchParams }: { searchParam
       emptyState={<section className="border border-zinc-200 bg-white p-6"><h2 className="font-semibold text-zinc-950">{copy.emptyTitle}</h2><p className="mt-1 text-sm text-zinc-600">{copy.emptyMessage}</p></section>}
       initialMode={parseCatalogViewMode(cookieStore.get(CATALOG_VIEW_COOKIE)?.value)}
       products={products}
-      quickLinks={<PartnerTopCategoryFilterBar allCount={data.allCount} allLabel={copy.allCategories} categories={topCategories} selectedCategoryIds={selectedCategoryIds} />}
+      quickLinks={<PartnerTopCategoryFilterBar allCount={data.allCount} allLabel={copy.allCategories} categories={topCategories} currentHref={currentHref} selectedCategoryIds={selectedCategoryIds} />}
       userId={workspaceResult.data.userId}
     />
     <NumberedPagination ariaLabel={copy.pages} currentPage={Math.min(page, totalPages)} hrefForPage={(target) => repeatPurchaseHref({ categoryIds: selectedCategoryIds, page: target, search })} locale={locale} totalPages={totalPages} />
