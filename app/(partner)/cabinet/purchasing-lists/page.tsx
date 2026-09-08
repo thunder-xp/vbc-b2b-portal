@@ -1,4 +1,4 @@
-import { ArrowRight, Heart, Layers3 } from "lucide-react";
+import { ArrowRight, Layers3, Star } from "lucide-react";
 import Link from "next/link";
 
 import { listPurchasingListsAction } from "@/src/modules/purchasing-lists/actions";
@@ -23,7 +23,7 @@ export default async function PurchasingListsPage({ searchParams }: { searchPara
 
   const page = result.data;
   const records = page.records.filter((record) => favoritesView ? record.isSystemFavorites : !record.isSystemFavorites);
-  const Icon = favoritesView ? Heart : Layers3;
+  const Icon = favoritesView ? Star : Layers3;
 
   return <div className="mx-auto max-w-7xl space-y-5">
     <header className={favoritesView ? "pb-5" : "border-b border-zinc-200 pb-5"}>

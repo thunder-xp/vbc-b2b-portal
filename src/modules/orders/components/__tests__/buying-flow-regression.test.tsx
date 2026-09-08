@@ -18,7 +18,7 @@ describe("partner buying-flow interaction boundaries", () => {
   it("uses labelled touch-sized quantity and cart controls", () => {
     render(<CatalogQuantityCartAction productId={selectionProduct.id} selectionProduct={selectionProduct} />);
     expect(screen.getByRole("spinbutton", { name: "Количество товара" })).toHaveClass("h-11");
-    expect(screen.getByRole("button", { name: "В подборку" })).toHaveClass("h-11");
+    expect(screen.getByRole("button", { name: "В набор" })).toHaveClass("h-11");
   });
 
   it("validates direct quantity entry without silently replacing it", () => {
@@ -28,7 +28,7 @@ describe("partner buying-flow interaction boundaries", () => {
     expect(quantity).toHaveValue(0);
     expect(quantity).toHaveAttribute("aria-invalid", "true");
     expect(screen.getByText("Введите целое количество от 1 до 9999.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "В подборку" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "В набор" })).toBeDisabled();
   });
 
   it("uses the visible quantity and emits a local selection update", () => {
@@ -36,7 +36,7 @@ describe("partner buying-flow interaction boundaries", () => {
     window.addEventListener("novotech:live-selection-add", added);
     render(<CatalogQuantityCartAction productId={selectionProduct.id} selectionProduct={selectionProduct} />);
     fireEvent.change(screen.getByRole("spinbutton", { name: "Количество товара" }), { target: { value: "3" } });
-    const button = screen.getByRole("button", { name: "В подборку" });
+    const button = screen.getByRole("button", { name: "В набор" });
     fireEvent.click(button);
     expect(added).toHaveBeenCalledOnce();
     expect((added.mock.calls[0]?.[0] as CustomEvent).detail).toMatchObject({ quantity: 3 });

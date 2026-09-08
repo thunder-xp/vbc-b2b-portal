@@ -116,7 +116,7 @@ describe("mobile quick product commerce", () => {
     await user.type(input, "400540");
     await screen.findByText("$50.60");
     await user.click(screen.getByRole("button", { name: "Увеличить количество" }));
-    await user.click(screen.getByRole("button", { name: "В подборку" }));
+    await user.click(screen.getByRole("button", { name: "В набор" }));
 
     expect(added).toHaveBeenCalledOnce();
     expect((added.mock.calls[0]?.[0] as CustomEvent).detail).toMatchObject({ product: { id: "product-1", sku: "400540" }, quantity: 2 });
@@ -126,7 +126,7 @@ describe("mobile quick product commerce", () => {
     expect(screen.queryByRole("link", { name: "Открыть каталог и категории" })).not.toBeInTheDocument();
 
     fireEvent.paste(input, { clipboardData: { getData: () => "400540" } });
-    expect(screen.getByRole("button", { name: "В подборку" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "В набор" })).toBeEnabled();
     expect(fetch).toHaveBeenCalledOnce();
     window.removeEventListener("novotech:live-selection-add", added);
   });
@@ -156,7 +156,7 @@ describe("mobile quick product commerce", () => {
     expect(pricing).toHaveTextContent(/1\s332 MDL/);
     expect(pricing).not.toHaveTextContent("$75.00");
     expect(screen.getByText("В наличии: 492 шт.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "В подборку" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "В набор" })).toBeEnabled();
   });
 
   it("shows MSRP USD separately while preserving the truthful missing-RETAIL state in Romanian", async () => {
@@ -191,7 +191,7 @@ describe("mobile quick product commerce", () => {
     await user.type(screen.getByRole("searchbox"), "400540");
 
     expect(await screen.findByText("Розничная цена не указана")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "В подборку" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "В набор" })).toBeEnabled();
     expect(screen.getByRole("spinbutton", { name: "Количество" })).toHaveValue(1);
   });
 

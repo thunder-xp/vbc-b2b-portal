@@ -149,6 +149,12 @@ export type WorkspaceHomeDto = {
     totals: Array<{ currency: string; outstanding: number; overdue: number }>;
     nextDueDate: string | null;
     fresh: boolean;
+    calendar: {
+      startDate: string;
+      endDate: string;
+      today: string;
+      todayPosition: number;
+    };
     paymentGraph: Array<{
       id: string;
       eventDate: string;
@@ -157,6 +163,9 @@ export type WorkspaceHomeDto = {
       currency: string;
       timing: "overdue" | "today" | "upcoming" | "paid";
       relativeHeight: number;
+      positionPercent: number;
+      stackIndex: number;
+      stackCount: number;
     }>;
   };
   companySummary: null | {
@@ -400,14 +409,15 @@ export function buildFinanceGuidance(
   synchronizedAt: string | null,
 ): NonNullable<WorkspaceHomeDto["financeGuidance"]> {
   const today = financeBusinessDate(new Date());
+  const calendarStart = `${today.slice(0, 4)}-01-01`;
+  const calendarEnd = `${today.slice(0, 4)}-12-31`;
   const current = obligations.filter((row) => row.reconciliationStatus === "READY" && row.paymentStatus !== "SETTLED" && Number(row.remainingAmount) > 0);
-  const paidWindowStart = addDays(today, -180);
   const recentlyPaid = obligations.filter((row) => {
     const settledDate = row.settlementLastPaymentAt?.slice(0, 10);
     return row.reconciliationStatus === "READY"
       && row.paymentStatus === "SETTLED"
       && Number(row.paidAmount) > 0
-      && Boolean(settledDate && settledDate >= paidWindowStart && settledDate <= today);
+      && Boolean(settledDate && settledDate >= calendarStart && settledDate <= calendarEnd);
   });
   const totals = new Map<string, { outstanding: number; overdue: number }>();
   for (const row of current) {
@@ -419,7 +429,7 @@ export function buildFinanceGuidance(
   const nextDueDate = current.map((row) => row.dueDate).sort()[0] ?? null;
   const fresh = Boolean(synchronizedAt && Date.now() - Date.parse(synchronizedAt) <= 3 * 60 * 60 * 1000);
   const currentGraphCandidates = current
-    .filter((row) => row.dueDate <= addDays(today, 365))
+    .filter((row) => row.dueDate <= calendarEnd)
     .sort((left, right) => {
       const timingRank = (dueDate: string) => dueDate < today ? 0 : dueDate === today ? 1 : 2;
       return timingRank(left.dueDate) - timingRank(right.dueDate)
@@ -434,6 +444,11 @@ export function buildFinanceGuidance(
     ...currentGraphCandidates.map((row) => ({ row, eventDate: row.dueDate, timing: row.dueDate < today ? "overdue" as const : row.dueDate === today ? "today" as const : "upcoming" as const, amount: Number(row.remainingAmount) })),
     ...paidGraphCandidates.map((row) => ({ row, eventDate: row.settlementLastPaymentAt!.slice(0, 10), timing: "paid" as const, amount: Number(row.paidAmount) })),
   ];
+  const stackCounts = new Map<string, number>();
+  for (const item of graphCandidates) {
+    stackCounts.set(item.eventDate, (stackCounts.get(item.eventDate) ?? 0) + 1);
+  }
+  const stackIndexes = new Map<string, number>();
   const maximaByCurrency = new Map<string, number>();
   for (const item of graphCandidates) {
     maximaByCurrency.set(
@@ -447,16 +462,37 @@ export function buildFinanceGuidance(
     totals: [...totals.entries()].sort(([left], [right]) => left.localeCompare(right)).map(([currency, value]) => ({ currency, ...value })),
     nextDueDate,
     fresh,
-    paymentGraph: graphCandidates.map((item) => ({
-      id: item.row.id,
-      eventDate: item.eventDate,
-      orderNumber: item.row.orderNumber,
-      amount: item.amount,
-      currency: item.row.currency,
-      timing: item.timing,
-      relativeHeight: Math.max(18, Math.round((item.amount / (maximaByCurrency.get(item.row.currency) || 1)) * 100)),
-    })),
+    calendar: {
+      startDate: calendarStart,
+      endDate: calendarEnd,
+      today,
+      todayPosition: timelinePosition(today, calendarStart, calendarEnd),
+    },
+    paymentGraph: graphCandidates.map((item) => {
+      const stackIndex = stackIndexes.get(item.eventDate) ?? 0;
+      stackIndexes.set(item.eventDate, stackIndex + 1);
+      return {
+        id: item.row.id,
+        eventDate: item.eventDate,
+        orderNumber: item.row.orderNumber,
+        amount: item.amount,
+        currency: item.row.currency,
+        timing: item.timing,
+        relativeHeight: Math.max(22, Math.round((item.amount / (maximaByCurrency.get(item.row.currency) || 1)) * 100)),
+        positionPercent: Math.max(2.5, Math.min(97.5, timelinePosition(item.eventDate, calendarStart, calendarEnd))),
+        stackIndex,
+        stackCount: stackCounts.get(item.eventDate) ?? 1,
+      };
+    }),
   };
+}
+
+function timelinePosition(value: string, start: string, end: string): number {
+  const startMs = Date.parse(`${start}T00:00:00Z`);
+  const endMs = Date.parse(`${end}T00:00:00Z`);
+  const valueMs = Date.parse(`${value}T00:00:00Z`);
+  if (!Number.isFinite(valueMs) || endMs <= startMs) return 0;
+  return Math.max(0, Math.min(100, ((valueMs - startMs) / (endMs - startMs)) * 100));
 }
 
 function selectDashboardCampaigns(campaigns: PartnerCampaign[]): PartnerCampaign[] {

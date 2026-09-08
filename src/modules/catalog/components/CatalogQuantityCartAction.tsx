@@ -88,7 +88,7 @@ export function CatalogQuantityCartAction({
 }
 
 function getQuickSelectionLabel(locale: "ru" | "ro"): string {
-  return locale === "ro" ? "În selecție" : "В подборку";
+  return locale === "ro" ? "În selecție" : "В набор";
 }
 
 function validateQuantity(

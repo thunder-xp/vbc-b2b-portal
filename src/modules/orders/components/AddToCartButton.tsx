@@ -7,6 +7,7 @@ import { useState, useTransition } from "react";
 import { recordBehaviorInteraction } from "../../behavior-analytics/components/BehaviorViewEvent";
 import { getCatalogCopy, usePartnerLocale } from "../../partner-locale";
 import { addToCartAction } from "../actions/cart.actions";
+import { notifyAuthoritativeCartCount } from "./cart-badge-events";
 
 export function AddToCartButton({ productId, showQuantityLabel = true }: { productId: string; showQuantityLabel?: boolean }) {
   const copy = getCatalogCopy(usePartnerLocale());
@@ -23,6 +24,7 @@ export function AddToCartButton({ productId, showQuantityLabel = true }: { produ
       const result = await addToCartAction(productId, quantity);
       setMessage(result.success ? copy.addedToCart : copy.addFailed);
       if (result.success) {
+        notifyAuthoritativeCartCount(result.data);
         recordBehaviorInteraction({ eventName: "product_added_to_cart", productId, quantity, route: "/cabinet/catalog/product", sourceSurface: "product_detail" });
         router.refresh();
       }

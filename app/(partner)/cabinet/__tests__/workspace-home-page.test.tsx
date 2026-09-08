@@ -84,8 +84,8 @@ describe("Partner Workspace operational home", () => {
   });
 
   it.each([
-    ["ru", "Платёжный календарь", "Просрочено", "Сегодня", "В ближайшие 30 дней"],
-    ["ro", "Calendarul plăților", "Restante", "Astăzi", "În următoarele 30 de zile"],
+    ["ru", "Платёжный календарь", "Просрочено", "Сегодня", "В ближайшее время"],
+    ["ro", "Calendarul plăților", "Restante", "Astăzi", "În perioada următoare"],
   ])("renders the local Finance payment graph in %s", async (locale, heading, overdue, today, upcoming) => {
     mocks.getPartnerLocale.mockResolvedValue(locale);
     mocks.getWorkspaceHomeAction.mockResolvedValue({
@@ -97,10 +97,12 @@ describe("Partner Workspace operational home", () => {
           totals: [{ currency: "MDL", outstanding: 600, overdue: 100 }],
           nextDueDate: "2026-09-05",
           fresh: true,
+          calendar: { startDate: "2026-01-01", endDate: "2026-12-31", today: "2026-09-08", todayPosition: 68.68 },
           paymentGraph: [
-            { id: "overdue", dueDate: "2026-09-05", remainingAmount: 100, currency: "MDL", timing: "overdue", relativeHeight: 25 },
-            { id: "today", dueDate: "2026-09-07", remainingAmount: 200, currency: "MDL", timing: "today", relativeHeight: 50 },
-            { id: "upcoming", dueDate: "2026-09-20", remainingAmount: 400, currency: "MDL", timing: "upcoming", relativeHeight: 100 },
+            { id: "overdue", eventDate: "2026-09-05", orderNumber: "NS-1", amount: 100, currency: "MDL", timing: "overdue", relativeHeight: 25, positionPercent: 67.9, stackIndex: 0, stackCount: 1 },
+            { id: "today", eventDate: "2026-09-08", orderNumber: "NS-2", amount: 200, currency: "MDL", timing: "today", relativeHeight: 50, positionPercent: 68.68, stackIndex: 0, stackCount: 1 },
+            { id: "upcoming", eventDate: "2026-09-20", orderNumber: "NS-3", amount: 400, currency: "MDL", timing: "upcoming", relativeHeight: 100, positionPercent: 72, stackIndex: 0, stackCount: 1 },
+            { id: "paid", eventDate: "2026-08-20", orderNumber: "NS-4", amount: 300, currency: "MDL", timing: "paid", relativeHeight: 75, positionPercent: 63.7, stackIndex: 0, stackCount: 1 },
           ],
         },
       },
@@ -109,8 +111,10 @@ describe("Partner Workspace operational home", () => {
     render(await CabinetPage());
     expect(screen.getByRole("heading", { name: heading })).toBeInTheDocument();
     expect(screen.getByText(overdue, { selector: "span" })).toBeInTheDocument();
-    expect(screen.getByText(today, { selector: "span" })).toBeInTheDocument();
+    expect(screen.getAllByText(today, { selector: "span" })).toHaveLength(2);
     expect(screen.getByText(upcoming, { selector: "span" })).toBeInTheDocument();
+    expect(screen.getByRole("separator", { name: new RegExp(today) })).toHaveAttribute("data-payment-today-marker");
+    expect(document.querySelector('[data-payment-state="paid"] span[aria-hidden="true"]')).toHaveClass("bg-zinc-400");
   });
 
   it("renders a truthful empty payment-graph state", async () => {
@@ -123,12 +127,14 @@ describe("Partner Workspace operational home", () => {
           totals: [],
           nextDueDate: null,
           fresh: true,
+          calendar: { startDate: "2026-01-01", endDate: "2026-12-31", today: "2026-09-08", todayPosition: 68.68 },
           paymentGraph: [],
         },
       },
     });
     render(await CabinetPage());
-    expect(screen.getByText("В ближайшие 30 дней платежей нет.")).toBeInTheDocument();
+    expect(screen.getByText("В текущем году платежей нет.")).toBeInTheDocument();
+    expect(screen.getByRole("separator", { name: /Сегодня/ })).toBeInTheDocument();
   });
 
   it("renders canonical attention without a dismiss control", async () => {
@@ -159,6 +165,28 @@ describe("Partner Workspace operational home", () => {
     render(await CabinetPage());
     expect(screen.getByText("Отгрузка заказа NSUU-1 просрочена")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Скрыть сообщение" })).not.toBeInTheDocument();
+  });
+
+  it("gives attention and sales columns the same heading and first-row baseline contract", async () => {
+    mocks.getWorkspaceHomeAction.mockResolvedValue({ success: true, data: {
+      ...workspaceData(),
+      attentionItems: [{
+        id: "order-1", kind: "shipment_overdue", title: "Attention", consequence: "Check order", href: "/cabinet/orders/order-1",
+        occurredAt: "2026-09-08T08:00:00Z", sourceFingerprint: "a".repeat(64), dismissPolicy: "never", severity: "warning",
+        orderNumber: "NS-1", plannedDate: "2026-09-08", isTest: false, ctaLabel: "Открыть заказ",
+      }],
+      estimateSalesOpportunities: [{
+        id: "estimate-1", type: "awaiting_customer", customerName: "Customer", proposalName: "Proposal", estimateNumber: "KP-1",
+        amount: 100, currency: "MDL", projectName: null, followUpState: "sent_not_opened", waitingSince: "2026-09-07",
+        href: "/cabinet/estimates/estimate-1", action: "open",
+      }],
+    } });
+
+    const { container } = render(await CabinetPage());
+    const headings = container.querySelectorAll('[data-dashboard-priority-work] [data-dashboard-section-heading]');
+    expect(headings).toHaveLength(2);
+    expect([...headings].every((heading) => heading.classList.contains("min-h-11"))).toBe(true);
+    expect(container.querySelectorAll('[data-dashboard-priority-work] ul.mt-2')).toHaveLength(2);
   });
 
   it("renders governed attention in Romanian without persisted mojibake", async () => {

@@ -8,6 +8,7 @@ type NotificationMetric = {
   unreadCount?: number;
   correlationId?: string;
   safeErrorType?: string;
+  safeErrorCode?: string;
 };
 
 export function emitNotificationMetric(metric: NotificationMetric): void {

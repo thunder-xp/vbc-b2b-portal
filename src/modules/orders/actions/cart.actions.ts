@@ -70,11 +70,11 @@ export async function getCartCheckoutIntentAction(
   }
 }
 
-export async function addToCartAction(productId: string, quantity = 1): Promise<ActionResult<null>> {
+export async function addToCartAction(productId: string, quantity = 1): Promise<ActionResult<number>> {
   try {
-    await createCartService().addItem(await getAuthenticatedUserId(), productId, quantity);
+    const totalUnitCount = await createCartService().addItem(await getAuthenticatedUserId(), productId, quantity);
     revalidateCart();
-    return success("Товар добавлен в корзину.", null);
+    return success("Товар добавлен в корзину.", totalUnitCount);
   } catch (error) { return failureFromError(error); }
 }
 
@@ -88,29 +88,29 @@ export async function addSelectionToCartAction(selections: LiveSelectionCartInpu
 }
 
 export async function updateCartItemAction(
-  _state: ActionResult<null>,
+  _state: ActionResult<number>,
   formData: FormData,
-): Promise<ActionResult<null>> {
+): Promise<ActionResult<number>> {
   const itemId = text(formData, "itemId");
   const quantity = Number(text(formData, "quantity"));
   if (!itemId || !Number.isInteger(quantity)) return invalidInput("Укажите корректное количество.");
   try {
-    await createCartService().updateQuantity(await getAuthenticatedUserId(), itemId, quantity);
+    const totalUnitCount = await createCartService().updateQuantity(await getAuthenticatedUserId(), itemId, quantity);
     revalidateCart();
-    return success("Количество обновлено.", null);
+    return success("Количество обновлено.", totalUnitCount);
   } catch (error) { return failureFromError(error); }
 }
 
 export async function removeCartItemAction(
-  _state: ActionResult<null>,
+  _state: ActionResult<number>,
   formData: FormData,
-): Promise<ActionResult<null>> {
+): Promise<ActionResult<number>> {
   const itemId = text(formData, "itemId");
   if (!itemId) return invalidInput();
   try {
-    await createCartService().removeItem(await getAuthenticatedUserId(), itemId);
+    const totalUnitCount = await createCartService().removeItem(await getAuthenticatedUserId(), itemId);
     revalidateCart();
-    return success("Товар удалён из корзины.", null);
+    return success("Товар удалён из корзины.", totalUnitCount);
   } catch (error) { return failureFromError(error); }
 }
 

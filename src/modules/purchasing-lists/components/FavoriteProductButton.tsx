@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, Heart } from "lucide-react";
+import { ChevronDown, Star } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useState, useTransition } from "react";
 
@@ -58,7 +58,7 @@ export function FavoriteProductButton({
       }}
       type="button"
     >
-      <Heart
+      <Star
         aria-hidden="true"
         className={`size-4 ${saved ? "fill-current" : ""}`}
       />

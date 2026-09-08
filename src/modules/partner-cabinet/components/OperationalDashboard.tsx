@@ -447,32 +447,56 @@ function PaymentGraph({
           <GraphLegend className="bg-zinc-400" label={partnerText(locale, "dashboard.paymentPaid")} />
         </div>
       </div>
-      {guidance.paymentGraph.length ? (
+      <p className="mt-2 text-xs font-medium tabular-nums text-zinc-500" data-payment-calendar-range>
+        {formatDate(guidance.calendar.startDate, locale)} — {formatDate(guidance.calendar.endDate, locale)}
+      </p>
+      <div
+        aria-label={`${partnerText(locale, "dashboard.paymentCalendar")}: ${formatDate(guidance.calendar.startDate, locale)} — ${formatDate(guidance.calendar.endDate, locale)}`}
+        className="relative mt-2 h-24 overflow-hidden border-y border-zinc-200 bg-zinc-50/50"
+        role="img"
+      >
+        <div aria-hidden="true" className="absolute inset-0 grid grid-cols-12 divide-x divide-zinc-200/70" />
         <div
-          aria-label={partnerText(locale, "dashboard.paymentCalendar")}
-          className="mt-3 grid h-28 items-end gap-1 border-b border-zinc-300 px-0.5 sm:gap-2"
-          role="img"
-          style={{ gridTemplateColumns: `repeat(${guidance.paymentGraph.length}, minmax(0, 1fr))` }}
+          aria-label={`${partnerText(locale, "dashboard.paymentToday")}: ${formatDate(guidance.calendar.today, locale)}`}
+          className="absolute inset-y-0 z-20 border-l-2 border-amber-600"
+          data-payment-today-marker
+          role="separator"
+          style={{ left: `${guidance.calendar.todayPosition}%` }}
+          title={`${partnerText(locale, "dashboard.paymentToday")}: ${formatDate(guidance.calendar.today, locale)}`}
         >
+          <span className={`absolute top-0 whitespace-nowrap bg-amber-50 px-1 text-[10px] font-semibold leading-4 text-amber-900 ${guidance.calendar.todayPosition > 90 ? "-translate-x-full" : guidance.calendar.todayPosition > 10 ? "-translate-x-1/2" : ""}`}>
+            {partnerText(locale, "dashboard.paymentToday")}
+          </span>
+        </div>
+        {guidance.paymentGraph.length ? (
+          <>
           {guidance.paymentGraph.map((payment) => {
             const state = partnerText(locale, payment.timing === "overdue" ? "dashboard.paymentOverdue" : payment.timing === "today" ? "dashboard.paymentToday" : payment.timing === "paid" ? "dashboard.paymentPaid" : "dashboard.paymentUpcoming");
             const label = `${payment.orderNumber} · ${formatDate(payment.eventDate, locale)} · ${formatAmount(payment.amount, payment.currency, locale)} · ${state}`;
+            const stackOffset = (payment.stackIndex - (payment.stackCount - 1) / 2) * 8;
             return (
-              <button aria-label={label} className="flex h-full min-w-0 flex-col justify-end outline-none focus-visible:ring-2 focus-visible:ring-emerald-500" data-payment-bar key={payment.id} title={label} type="button">
+              <button
+                aria-label={label}
+                className="absolute bottom-0 z-10 flex h-[4.75rem] w-4 items-end justify-center outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 sm:w-5"
+                data-payment-bar
+                data-payment-state={payment.timing}
+                key={payment.id}
+                style={{ left: `${payment.positionPercent}%`, transform: `translateX(calc(-50% + ${stackOffset}px))` }}
+                title={label}
+                type="button"
+              >
                 <span className="sr-only">{label}</span>
                 <span
                   aria-hidden="true"
-                  className={`mx-auto min-h-5 w-full rounded-t-sm ${guidance.paymentGraph.length <= 12 ? "max-w-14" : "max-w-8"} ${payment.timing === "overdue" ? "bg-rose-500" : payment.timing === "today" ? "bg-amber-500" : payment.timing === "paid" ? "bg-zinc-400" : "bg-emerald-600"}`}
+                  className={`min-h-5 w-full rounded-t-sm ${payment.timing === "overdue" ? "bg-rose-500" : payment.timing === "today" ? "bg-amber-500" : payment.timing === "paid" ? "bg-zinc-400" : "bg-emerald-600"}`}
                   style={{ height: `${payment.relativeHeight}%` }}
                 />
-                <span aria-hidden="true" className="mt-1 truncate text-center text-[10px] leading-3 text-zinc-500">
-                  {formatPartnerDate(payment.eventDate, locale, { day: "2-digit", month: "2-digit", timeZone: "UTC" })}
-                </span>
               </button>
             );
           })}
-        </div>
-      ) : <p className="mt-3 bg-zinc-50 px-3 py-2 text-sm text-zinc-600">{partnerText(locale, "dashboard.paymentGraphEmpty")}</p>}
+          </>
+        ) : <p className="absolute inset-x-3 bottom-3 z-10 text-sm text-zinc-600">{partnerText(locale, "dashboard.paymentGraphEmpty")}</p>}
+      </div>
     </div>
   );
 }
@@ -502,7 +526,7 @@ function SectionHeading({
   title: string;
 }) {
   return (
-    <div className="flex items-center justify-between gap-3">
+    <div className="flex min-h-11 items-center justify-between gap-3" data-dashboard-section-heading>
       <h2 className="text-lg font-semibold text-zinc-950" id={id}>
         {title}
       </h2>

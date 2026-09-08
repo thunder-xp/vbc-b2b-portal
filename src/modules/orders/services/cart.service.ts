@@ -73,6 +73,7 @@ export type LiveSelectionCartResult = {
   updated: number;
   priceChanged: number;
   missingPrice: number;
+  totalUnitCount: number;
 };
 
 export type EstimateToCartSourceLine = {
@@ -99,10 +100,10 @@ export interface CartService {
     intentVersion: number;
   }>;
   getItemCount(userId: string): Promise<number>;
-  addItem(userId: string, productId: string, quantity: number): Promise<void>;
+  addItem(userId: string, productId: string, quantity: number): Promise<number>;
   addItems(userId: string, selections: LiveSelectionCartInput[]): Promise<LiveSelectionCartResult>;
-  updateQuantity(userId: string, itemId: string, quantity: number): Promise<void>;
-  removeItem(userId: string, itemId: string): Promise<void>;
+  updateQuantity(userId: string, itemId: string, quantity: number): Promise<number>;
+  removeItem(userId: string, itemId: string): Promise<number>;
   getEstimateSource(userId: string): Promise<CartEstimateSourceDto>;
   mergeEstimateProducts(userId: string, input: {
     estimateId: string;
@@ -229,7 +230,7 @@ export class DefaultCartService implements CartService {
     };
   }
 
-  async addItem(userId: string, productId: string, quantity: number): Promise<void> {
+  async addItem(userId: string, productId: string, quantity: number): Promise<number> {
     const companyId = await this.resolveCompanyId(userId);
     const normalizedProductId = productId.trim();
     normalizeQuantity(quantity);
@@ -237,6 +238,7 @@ export class DefaultCartService implements CartService {
       throw new NotFoundError("Catalog product was not found.");
     }
     await this.repository.addItem(companyId, normalizedProductId, quantity);
+    return this.repository.getActiveItemCount(companyId);
   }
 
   async addItems(userId: string, selections: LiveSelectionCartInput[]): Promise<LiveSelectionCartResult> {
@@ -275,27 +277,30 @@ export class DefaultCartService implements CartService {
       companyId,
       items.map(({ productId, quantity }) => ({ productId, quantity })),
     );
-    return { ...result, priceChanged, missingPrice };
+    const totalUnitCount = await this.repository.getActiveItemCount(companyId);
+    return { ...result, priceChanged, missingPrice, totalUnitCount };
   }
 
-  async updateQuantity(userId: string, itemId: string, quantity: number): Promise<void> {
-    await this.resolveCompanyId(userId);
+  async updateQuantity(userId: string, itemId: string, quantity: number): Promise<number> {
+    const companyId = await this.resolveCompanyId(userId);
     const normalizedItemId = itemId.trim();
     try {
       await this.repository.updateItemQuantity(normalizedItemId, normalizeQuantity(quantity));
     } catch (error) {
       await this.rethrowCartMutationError(normalizedItemId, error);
     }
+    return this.repository.getActiveItemCount(companyId);
   }
 
-  async removeItem(userId: string, itemId: string): Promise<void> {
-    await this.resolveCompanyId(userId);
+  async removeItem(userId: string, itemId: string): Promise<number> {
+    const companyId = await this.resolveCompanyId(userId);
     const normalizedItemId = itemId.trim();
     try {
       await this.repository.removeItem(normalizedItemId);
     } catch (error) {
       await this.rethrowCartMutationError(normalizedItemId, error);
     }
+    return this.repository.getActiveItemCount(companyId);
   }
 
   async getEstimateSource(userId: string): Promise<CartEstimateSourceDto> {

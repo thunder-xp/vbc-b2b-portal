@@ -15,7 +15,7 @@ import { resolveWorkspaceCapabilities } from "../workspace-capability.service";
 import { buildFinanceGuidance, buildQuickActions, DefaultWorkspaceHomeService } from "../workspace-home.service";
 
 describe("DefaultWorkspaceHomeService", () => {
-  it("keeps unpaid obligations through 12 months, limits paid history to 180 days, and never lets paid crowd out unpaid", () => {
+  it("keeps current-year unpaid obligations primary and never lets paid crowd them out", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-09-07T10:00:00Z"));
     try {
@@ -26,15 +26,15 @@ describe("DefaultWorkspaceHomeService", () => {
         remainingAmount: "100",
         paidAmount: "0",
         currency: "MDL",
-        dueDate: index === 0 ? "2026-08-01" : index === 1 ? "2026-09-07" : "2027-08-01",
+        dueDate: index === 0 ? "2026-08-01" : index === 1 ? "2026-09-07" : `2026-10-${String(index).padStart(2, "0")}`,
         settlementLastPaymentAt: null,
         orderNumber: `ORDER-${index}`,
       }));
       const rows = [
         ...unpaid,
-        { ...unpaid[0], id: "outside-horizon", dueDate: "2027-10-01", orderNumber: "OUTSIDE" },
+        { ...unpaid[0], id: "outside-horizon", dueDate: "2027-01-01", orderNumber: "OUTSIDE" },
         { ...unpaid[0], id: "recent-paid", paymentStatus: "SETTLED", remainingAmount: "0", paidAmount: "50", settlementLastPaymentAt: "2026-06-01T00:00:00Z", orderNumber: "PAID" },
-        { ...unpaid[0], id: "old-paid", paymentStatus: "SETTLED", remainingAmount: "0", paidAmount: "50", settlementLastPaymentAt: "2026-01-01T00:00:00Z", orderNumber: "OLD" },
+        { ...unpaid[0], id: "old-paid", paymentStatus: "SETTLED", remainingAmount: "0", paidAmount: "50", settlementLastPaymentAt: "2025-12-31T00:00:00Z", orderNumber: "OLD" },
       ];
       const result = buildFinanceGuidance(rows as never, "2026-09-07T09:00:00Z");
       expect(result.paymentGraph).toHaveLength(24);
@@ -49,15 +49,15 @@ describe("DefaultWorkspaceHomeService", () => {
     }
   });
 
-  it("uses recent paid rows only as secondary calendar fill", () => {
+  it("uses current-year paid rows only as secondary calendar fill", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-09-07T10:00:00Z"));
     try {
       const base = { reconciliationStatus: "READY", currency: "MDL", orderNumber: "ORDER" };
       const rows = [
-        { ...base, id: "future", paymentStatus: "OPEN", remainingAmount: "100", paidAmount: "0", dueDate: "2027-08-01", settlementLastPaymentAt: null },
+        { ...base, id: "future", paymentStatus: "OPEN", remainingAmount: "100", paidAmount: "0", dueDate: "2026-12-01", settlementLastPaymentAt: null },
         { ...base, id: "recent-paid", paymentStatus: "SETTLED", remainingAmount: "0", paidAmount: "50", dueDate: "2026-01-01", settlementLastPaymentAt: "2026-06-01T00:00:00Z" },
-        { ...base, id: "old-paid", paymentStatus: "SETTLED", remainingAmount: "0", paidAmount: "50", dueDate: "2026-01-01", settlementLastPaymentAt: "2026-01-01T00:00:00Z" },
+        { ...base, id: "old-paid", paymentStatus: "SETTLED", remainingAmount: "0", paidAmount: "50", dueDate: "2025-12-31", settlementLastPaymentAt: "2025-12-31T00:00:00Z" },
       ];
       const result = buildFinanceGuidance(rows as never, "2026-09-07T09:00:00Z");
       expect(result.paymentGraph.map((item) => item.id)).toEqual(["future", "recent-paid"]);
@@ -504,8 +504,9 @@ describe("DefaultWorkspaceHomeService", () => {
     expect(workspace.campaigns.map((item) => item.type)).toEqual(["product_offer", "arrival_promotion"]);
   });
 
-  it("derives the 12-month payment graph from the already loaded local Finance obligations", async () => {
+  it("derives the current-year payment graph from the already loaded local Finance obligations", async () => {
     const today = financeBusinessDate(new Date());
+    const previousYear = `${Number(today.slice(0, 4)) - 1}-12-31`;
     const financeRepository = {
       getOverviewData: vi.fn().mockResolvedValue({
         balances: [],
@@ -515,7 +516,7 @@ describe("DefaultWorkspaceHomeService", () => {
           paymentObligation("upcoming", addTestDays(today, 15), "400"),
           paymentObligation("later", addTestDays(today, 31), "800"),
           { ...paymentObligation("settled", addTestDays(today, -10), "0"), paidAmount: "300", paymentStatus: "SETTLED", settlementLastPaymentAt: `${addTestDays(today, -10)}T10:00:00Z` },
-          { ...paymentObligation("settled-old", addTestDays(today, -181), "0"), paidAmount: "500", paymentStatus: "SETTLED", settlementLastPaymentAt: `${addTestDays(today, -181)}T10:00:00Z` },
+          { ...paymentObligation("settled-old", previousYear, "0"), paidAmount: "500", paymentStatus: "SETTLED", settlementLastPaymentAt: `${previousYear}T10:00:00Z` },
         ],
         unavailableCount: 0,
         syncState: { lastSuccessAt: new Date().toISOString() },
@@ -543,7 +544,14 @@ describe("DefaultWorkspaceHomeService", () => {
     expect(workspace.financeGuidance?.paymentGraph.find((item) => item.id === "settled")).toMatchObject({ amount: 300, orderNumber: "settled", timing: "paid" });
     expect(workspace.financeGuidance?.paymentGraph.map((item) => item.id)).not.toContain("settled-old");
     expect(workspace.financeGuidance?.paymentGraph.map((item) => item.id)).toContain("later");
-    expect(workspace.financeGuidance?.paymentGraph.every((item) => item.relativeHeight >= 18 && item.relativeHeight <= 100)).toBe(true);
+    expect(workspace.financeGuidance?.paymentGraph.every((item) => item.relativeHeight >= 22 && item.relativeHeight <= 100)).toBe(true);
+    expect(workspace.financeGuidance?.calendar).toEqual({
+      startDate: `${today.slice(0, 4)}-01-01`,
+      endDate: `${today.slice(0, 4)}-12-31`,
+      today,
+      todayPosition: expect.any(Number),
+    });
+    expect(workspace.financeGuidance?.paymentGraph.every((item) => item.positionPercent >= 2.5 && item.positionPercent <= 97.5)).toBe(true);
   });
 
   it("returns a truthful empty Finance graph without adding another read", async () => {

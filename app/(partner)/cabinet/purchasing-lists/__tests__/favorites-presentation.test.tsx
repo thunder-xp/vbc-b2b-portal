@@ -25,4 +25,10 @@ describe("Favorites heading presentation", () => {
     expect(container.querySelector("header")).toHaveClass("border-b", "pb-5");
     expect(screen.getByRole("heading", { name: "Test kit" })).toBeInTheDocument();
   });
+
+  it("uses the shared star vocabulary for a Favorites card", async () => {
+    listAction.mockResolvedValue({ success: true, data: { records: [{ id: "favorites-1", name: "Избранное", isSystemFavorites: true, itemCount: 2, totalQuantity: 3, updatedAt: "2026-09-08" }], page: 1, totalPages: 1 } });
+    const { container } = render(await PurchasingListsPage({ searchParams: Promise.resolve({ filter: "favorites" }) }));
+    expect(container.querySelector(".lucide-star")).toBeInTheDocument();
+  });
 });

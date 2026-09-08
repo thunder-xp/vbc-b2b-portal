@@ -15,10 +15,12 @@ describe("FavoriteProductButton", () => {
   it("optimistically adds a product and exposes pressed state", async () => {
     render(<FavoriteProductButton initialSaved={false} productId={PRODUCT_ID} />);
     const button = screen.getByRole("button", { name: "Добавить в избранное" });
+    expect(button.querySelector("svg")).toHaveClass("lucide-star");
     await userEvent.click(button);
     expect(setFavoriteProductAction).toHaveBeenCalledWith(PRODUCT_ID, true);
     expect(await screen.findByRole("button", { name: "Удалить из избранного" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("button", { name: "Удалить из избранного" })).toHaveClass("bg-emerald-50");
+    expect(screen.getByRole("button", { name: "Удалить из избранного" }).querySelector("svg")).toHaveClass("fill-current");
   });
 
   it("rolls back optimistic state when persistence fails", async () => {

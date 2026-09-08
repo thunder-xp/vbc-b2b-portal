@@ -50,7 +50,7 @@ describe("OpportunityCard", () => {
     render(<OpportunityCard opportunity={base} />);
     expect(screen.getByText("Вы покупаете регулярно")).toBeInTheDocument();
     expect(screen.getByText("Последняя покупка — 32 дня назад. Обычно: 2 шт.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "В подборку" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "В набор" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Не показывать/ })).toBeInTheDocument();
   });
 
@@ -63,7 +63,7 @@ describe("OpportunityCard", () => {
     expect(actions).toHaveClass("flex-wrap", "sm:flex-nowrap");
     expect(actions?.firstElementChild).toHaveClass("w-full", "sm:flex-1");
     expect(within(actions as HTMLElement).getAllByRole("button").map((button) => button.getAttribute("aria-label") ?? button.textContent?.trim())).toEqual([
-      "В подборку",
+      "В набор",
       "Добавить в избранное",
       "Добавить в смету",
       "В сравнение",
@@ -76,7 +76,7 @@ describe("OpportunityCard", () => {
     expect(screen.queryByText("Розничная цена")).not.toBeInTheDocument();
     expect(screen.queryByText("Ваша цена")).not.toBeInTheDocument();
     expect(screen.getByText("Цена уточняется")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "В подборку" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "В набор" })).not.toBeInTheDocument();
   });
 
   it("uses natural Romanian repeat language and a controlled quantity suggestion", () => {
@@ -109,8 +109,8 @@ describe("OpportunityCard", () => {
     const user = userEvent.setup();
     render(<OpportunityCard opportunity={related} />);
 
-    await user.click(screen.getByRole("button", { name: "В подборку" }));
-    await user.click(screen.getByRole("button", { name: "В подборку" }));
+    await user.click(screen.getByRole("button", { name: "В набор" }));
+    await user.click(screen.getByRole("button", { name: "В набор" }));
 
     expect(added).toHaveBeenCalledTimes(2);
     expect((added.mock.calls[0]?.[0] as CustomEvent).detail).toMatchObject({ product: { id: related.product!.id }, quantity: 1 });
@@ -139,12 +139,12 @@ describe("OpportunityCard", () => {
   it("keeps an existing Cart line visible while allowing it into a separate working selection", () => {
     render(<OpportunityCard opportunity={{ ...base, product: { ...base.product!, alreadyInCart: true } }} />);
     expect(screen.getByText("Уже в корзине")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "В подборку" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "В набор" })).toBeInTheDocument();
   });
 
   it("does not offer an unavailable repeat product as an actionable purchase", () => {
     render(<OpportunityCard opportunity={{ ...base, product: { ...base.product!, availableQuantity: 0 } }} />);
-    expect(screen.queryByRole("button", { name: "В подборку" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "В набор" })).not.toBeInTheDocument();
   });
 
   it("shows low stock as factual availability context", () => {

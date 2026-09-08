@@ -7,9 +7,10 @@ import { DefaultCartService } from "../cart.service";
 describe("DefaultCartService", () => {
   it("adds an accessible catalog product through the scoped repository", async () => {
     const dependencies = makeDependencies();
-    await dependencies.service.addItem("user-1", " product-1 ", 2);
+    await expect(dependencies.service.addItem("user-1", " product-1 ", 2)).resolves.toBe(2);
     expect(dependencies.repository.addItem).toHaveBeenCalledWith("company-1", "product-1", 2);
     expect(dependencies.permissionService.ensurePermission).toHaveBeenCalledWith("user-1", "company-1", "orders.manage");
+    expect(dependencies.repository.getActiveItemCount).toHaveBeenCalledWith("company-1");
   });
 
   it.each([0, -1, 1.5, 10000])("rejects invalid quantity %s", async (quantity) => {
@@ -27,7 +28,7 @@ describe("DefaultCartService", () => {
     expect(dependencies.catalogService.getProductOrderIdentities).toHaveBeenCalledOnce();
     expect(dependencies.pricingService.getProductCommercialViews).toHaveBeenCalledOnce();
     expect(dependencies.repository.addItems).toHaveBeenCalledWith("company-1", [{ productId: "product-1", quantity: 5 }]);
-    expect(result).toMatchObject({ cartId: "cart-1", added: 1, updated: 0, priceChanged: 1, missingPrice: 0 });
+    expect(result).toMatchObject({ cartId: "cart-1", added: 1, updated: 0, priceChanged: 1, missingPrice: 0, totalUnitCount: 2 });
   });
 
   it("uses one bulk catalog read and one bulk commercial read for cart totals", async () => {
@@ -74,6 +75,17 @@ describe("DefaultCartService", () => {
       code: "CART_RECONCILIATION_STALE",
       message: "correlation-1",
     } satisfies Partial<DomainConflictError>);
+  });
+
+  it("returns the authoritative aggregate after quantity and remove mutations", async () => {
+    const dependencies = makeDependencies();
+    dependencies.repository.getActiveItemCount.mockResolvedValueOnce(7).mockResolvedValueOnce(0);
+
+    await expect(dependencies.service.updateQuantity("user-1", "item-1", 7)).resolves.toBe(7);
+    await expect(dependencies.service.removeItem("user-1", "item-1")).resolves.toBe(0);
+
+    expect(dependencies.repository.getActiveItemCount).toHaveBeenNthCalledWith(1, "company-1");
+    expect(dependencies.repository.getActiveItemCount).toHaveBeenNthCalledWith(2, "company-1");
   });
 
   it("redacts partner prices and totals for a retail-only employee", async () => {

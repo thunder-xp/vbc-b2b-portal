@@ -18,6 +18,7 @@ import type {
 } from "../types";
 import { createNotificationService } from "./service-factory";
 import { emitNotificationMetric } from "./notification-observability";
+import { NotificationRepositoryError } from "../repositories";
 
 export async function getNotificationSummaryAction(): Promise<ActionResult<NotificationSummary>> {
   const startedAt = performance.now();
@@ -88,6 +89,9 @@ export async function markAllNotificationsReadAction(): Promise<
       event: "notification_mark_all_failed",
       durationMs: performance.now() - startedAt,
       safeErrorType: error instanceof Error ? error.name : "unknown",
+      safeErrorCode: error instanceof NotificationRepositoryError
+        ? error.safeCode
+        : undefined,
     });
     return failureFromError(error);
   }

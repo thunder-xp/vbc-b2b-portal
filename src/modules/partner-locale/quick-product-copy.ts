@@ -21,7 +21,7 @@ export const getQuickProductCopy = definePartnerCopy(
     quantity: "Количество",
     decrease: "Уменьшить количество",
     increase: "Увеличить количество",
-    add: "В подборку",
+    add: "В набор",
     adding: "Добавляем…",
     added: "Добавлено",
     addFailed: "Не удалось добавить товар. Попробуйте ещё раз.",

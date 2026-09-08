@@ -11,12 +11,13 @@ import {
 } from "../actions/cart.actions";
 import { useCartCheckoutCoordinator } from "./CartCheckoutCoordinator";
 import { getOrdersCopy, usePartnerLocale } from "../../partner-locale";
+import { notifyAuthoritativeCartCount } from "./cart-badge-events";
 
-const initial: ActionResult<null> = {
+const initial: ActionResult<number> = {
   success: true,
   errorCode: null,
   message: "",
-  data: null,
+  data: 0,
 };
 
 export function CartItemActions({
@@ -72,6 +73,7 @@ export function CartItemActions({
           return false;
         }
         confirmedRef.current = next;
+        notifyAuthoritativeCartCount(result.data);
         setMessage(`${copy.quantitySaved}: ${next} ${copy.units}`);
         recordBehaviorInteraction({
           eventName: "cart_quantity_changed",
@@ -123,6 +125,7 @@ export function CartItemActions({
           : (reconciliationMessage(result, copy) ?? copy.removeProductError),
       );
       if (result.success) {
+        notifyAuthoritativeCartCount(result.data);
         recordBehaviorInteraction({
           eventName: "product_removed_from_cart",
           route: "/cabinet/cart",
@@ -204,7 +207,7 @@ export function CartItemActions({
 }
 
 function reconciliationMessage(
-  result: ActionResult<null>,
+  result: ActionResult<number>,
   copy: ReturnType<typeof getOrdersCopy>,
 ): string | null {
   if (result.success) return null;

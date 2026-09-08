@@ -376,10 +376,10 @@ describe("Partner workspace shell", () => {
       expect(screen.getByRole("link", { name: other })).not.toHaveAttribute("aria-current");
       expect(screen.getByRole("link", { name: other })).not.toHaveClass("bg-emerald-500/15");
     }
-    const heart = screen.getByRole("link", { name: "Избранное" }).querySelector("svg");
-    expect(heart).toHaveClass("lucide-heart", "size-4", "shrink-0");
-    expect(heart).toHaveAttribute("fill", "none");
-    expect(heart).toHaveAttribute("stroke-width", "2");
+    const star = screen.getByRole("link", { name: "Избранное" }).querySelector("svg");
+    expect(star).toHaveClass("lucide-star", "size-4", "shrink-0");
+    expect(star).toHaveAttribute("fill", "none");
+    expect(star).toHaveAttribute("stroke-width", "2");
   });
 
   it("updates active selection on query-only navigation without remounting", () => {

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, useTransition, type ReactNode } from "react";
 
 import { addSelectionToCartAction } from "../../orders/actions/cart.actions";
+import { notifyAuthoritativeCartCount } from "../../orders/components/cart-badge-events";
 import { getQuickProductCopy, usePartnerLocale } from "../../partner-locale";
 import {
   LIVE_COMMERCE_SELECTION_ADD_EVENT,
@@ -147,9 +148,8 @@ export function LiveCommerceSelectionProvider({
         setMessage(result.message);
         return;
       }
-      const quantityAdded = items.reduce((sum, item) => sum + item.quantity, 0);
       clear();
-      window.dispatchEvent(new CustomEvent("novotech:cart-updated", { detail: { quantityAdded } }));
+      notifyAuthoritativeCartCount(result.data.totalUnitCount);
       router.push("/cabinet/cart");
     });
   }
