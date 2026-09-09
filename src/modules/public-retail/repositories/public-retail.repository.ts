@@ -25,7 +25,7 @@ export type ListPublicRetailProductsInput = {
 export interface PublicRetailReadRepository {
   listCategories(locale: PublicRetailLocale): Promise<PublicRetailCategoryDto[]>;
   listProducts(input: ListPublicRetailProductsInput): Promise<PublicRetailProductPageDto>;
-  getShowcase(locale: PublicRetailLocale): Promise<PublicRetailShowcaseDto>;
+  getShowcase(locale: PublicRetailLocale, rotationSeed: string): Promise<PublicRetailShowcaseDto>;
   getProduct(slug: string, locale: PublicRetailLocale): Promise<PublicRetailProductDetailDto | null>;
   listRelatedProducts(slug: string, locale: PublicRetailLocale, limit: number): Promise<PublicRetailProductSummaryDto[]>;
   listFacets(input: Pick<ListPublicRetailProductsInput, "availability" | "categorySlug" | "facets" | "locale" | "search">): Promise<PublicRetailFacetDto[]>;

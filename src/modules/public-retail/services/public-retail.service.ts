@@ -25,8 +25,11 @@ export class PublicRetailService {
     return this.repository.listCategories(normalizeLocale(locale));
   }
 
-  getRetailShowcase(locale?: string) {
-    return this.repository.getShowcase(normalizeLocale(locale));
+  getRetailShowcase(locale: string | undefined, rotationSeed: string) {
+    return this.repository.getShowcase(
+      normalizeLocale(locale),
+      normalizeRotationSeed(rotationSeed),
+    );
   }
 
   async getRetailCategory(slug: string, locale?: string) {
@@ -136,4 +139,12 @@ function normalizeSearch(value: string | undefined): string | undefined {
 
 function integerInRange(value: number | undefined, fallback: number, minimum: number, maximum: number): number {
   return Number.isInteger(value) && value! >= minimum && value! <= maximum ? value! : fallback;
+}
+
+function normalizeRotationSeed(value: string): string {
+  const normalized = value.trim().toLowerCase();
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(normalized)) {
+    throw new Error("Invalid Public Retail rotation session.");
+  }
+  return normalized;
 }

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 
 import { PublicRetailCatalog } from "@/src/modules/public-retail/components/PublicRetailCatalog";
 import { PublicRetailShowcase } from "@/src/modules/public-retail/components/PublicRetailShowcase";
@@ -52,8 +53,9 @@ export default async function PublicCatalogPage({ searchParams }: { searchParams
   const attributeFilters = parseCatalogAttributeFilters(params);
   const service = getPublicRetailService();
   if (!hasListingIntent(params)) {
+    const rotationSeed = (await headers()).get("x-novotech-popular-session") ?? "";
     const [showcase, categories] = await Promise.all([
-      service.getRetailShowcase(locale),
+      service.getRetailShowcase(locale, rotationSeed),
       getPublicRetailCategories(locale),
     ]);
     const schema = [

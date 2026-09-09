@@ -28,6 +28,21 @@ function summary() {
 }
 
 describe("PublicRetailService", () => {
+  it("validates and forwards only a server-issued showcase rotation seed", async () => {
+    const getShowcase = vi.fn().mockResolvedValue({});
+    const repository = {
+      listCategories: vi.fn(), listProducts: vi.fn(), getShowcase, getProduct: vi.fn(),
+      listRelatedProducts: vi.fn(), listFacets: vi.fn(), resolveCalculatorProducts: vi.fn(),
+    } as PublicRetailReadRepository;
+    const service = new PublicRetailService(repository);
+    const seed = "11111111-1111-4111-8111-111111111111";
+    await service.getRetailShowcase("ro", seed);
+    expect(getShowcase).toHaveBeenCalledWith("ro", seed);
+    expect(() => service.getRetailShowcase("ru", "browser-value")).toThrow(
+      "Invalid Public Retail rotation session.",
+    );
+  });
+
   it("uses one bounded repository call without partner context", async () => {
     const listProducts = vi.fn().mockResolvedValue({ items: [], totalCount: 0, limit: 48, offset: 96 });
     const repository = {

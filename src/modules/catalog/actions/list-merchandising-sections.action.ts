@@ -7,7 +7,7 @@ import {
 } from "../../access-control/actions/action-result";
 import {
   createCompanyAccessService,
-  getAuthenticatedUserId,
+  getAuthenticatedUser,
 } from "../../access-control/actions/service-factory";
 import {
   createMerchandisingService,
@@ -50,9 +50,15 @@ export async function listCatalogMerchandisingSectionsAction(): Promise<
   ActionResult<CatalogMerchandisingSectionsResult>
 > {
   try {
-    const userId = await getAuthenticatedUserId();
+    const user = await getAuthenticatedUser();
+    const userId = user.id;
     const [assignments, context] = await Promise.all([
-      createMerchandisingService().listPublished(userId, undefined, 5),
+      createMerchandisingService().listPublished(
+        userId,
+        undefined,
+        5,
+        user.loginGeneration,
+      ),
       createPartnerWorkspaceContextService().getWorkspaceContext(userId),
     ]);
     const replenishment = context.accessState === "active" && context.companyId

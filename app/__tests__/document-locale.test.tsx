@@ -30,4 +30,31 @@ describe("document locale and canonical host", () => {
     expect(response.status).toBe(308);
     expect(response.headers.get("location")).toBe("https://www.nsd.md/catalog?lang=ro&category=cameras");
   });
+
+  it("issues one private Popular session and forwards it on the first catalog request", () => {
+    const response = proxy(new NextRequest("https://www.nsd.md/catalog"));
+    const upstream = response.headers.get("x-middleware-request-x-novotech-popular-session");
+    expect(upstream).toMatch(/^[0-9a-f-]{36}$/);
+    expect(response.cookies.get("novotech_popular_session")?.value).toBe(upstream);
+    expect(response.headers.get("set-cookie")).toContain("HttpOnly");
+    expect(response.headers.get("set-cookie")).not.toContain("Max-Age");
+  });
+
+  it("keeps the same Popular subset seed for the same browser session", () => {
+    const seed = "11111111-1111-4111-8111-111111111111";
+    const response = proxy(new NextRequest("https://www.nsd.md/catalog?lang=ro", {
+      headers: { cookie: `novotech_popular_session=${seed}` },
+    }));
+    expect(response.headers.get("x-middleware-request-x-novotech-popular-session")).toBe(seed);
+    expect(response.cookies.get("novotech_popular_session")).toBeUndefined();
+  });
+
+  it("does not trust a browser-supplied Popular session header", () => {
+    const response = proxy(new NextRequest("https://www.nsd.md/catalog", {
+      headers: { "x-novotech-popular-session": "attacker-controlled" },
+    }));
+    const upstream = response.headers.get("x-middleware-request-x-novotech-popular-session");
+    expect(upstream).toMatch(/^[0-9a-f-]{36}$/);
+    expect(upstream).not.toBe("attacker-controlled");
+  });
 });

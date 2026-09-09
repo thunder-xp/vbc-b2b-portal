@@ -70,6 +70,23 @@ describe("MerchandisingService", () => {
       limitPerLabel: 8,
     });
   });
+
+  it("passes a bounded login generation only for stable preview rotation", async () => {
+    const repository = repositoryStub();
+    const service = createService(repository);
+    await service.listPublished(
+      "user-1",
+      undefined,
+      5,
+      "2026-09-09T08:30:00.000Z",
+    );
+    expect(repository.listPublished).toHaveBeenCalledWith({
+      companyId: "company-1",
+      labelCode: undefined,
+      limitPerLabel: 5,
+      rotationSeed: "2026-09-09T08:30:00.000Z",
+    });
+  });
 });
 
 function createService(repository = repositoryStub()) {

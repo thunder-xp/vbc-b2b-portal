@@ -86,8 +86,11 @@ export class SupabasePublicRetailReadRepository implements PublicRetailReadRepos
     return parsePublicRetailProductPage(data);
   }
 
-  async getShowcase(locale: PublicRetailLocale) {
-    const { data, error } = await createPublicReadClient().rpc("get_public_retail_showcase_v2", { p_locale: locale });
+  async getShowcase(locale: PublicRetailLocale, rotationSeed: string) {
+    const { data, error } = await createPublicReadClient().rpc("get_public_retail_showcase_v3", {
+      p_locale: locale,
+      p_rotation_seed: rotationSeed,
+    });
     if (error) throw new PublicRetailRepositoryError();
     return parsePublicRetailShowcase(data);
   }

@@ -72,6 +72,7 @@ const summary = z.object({
   availability,
   highlights: z.array(specification).max(3),
   calculatorEligible: z.boolean(),
+  isPopular: z.boolean().default(false),
 }).strict();
 
 const detailPayload = summary.omit({ category: true, highlights: true }).extend({

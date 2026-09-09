@@ -152,7 +152,7 @@ function merchandisingErrorMessage(
     case "MERCHANDISING_DATABASE_CONSTRAINT":
       return `Данные не прошли проверку. Проверьте параметры. Код: ${correlationId}.`;
     case "MERCHANDISING_POPULAR_SYSTEM_MANAGED":
-      return "Популярные товары формируются автоматически по B2B-спросу.";
+      return "Популярные товары формируются автоматически по частоте покупок за последние 365 дней.";
     default:
       return `Не удалось обновить витрину. Сообщите администратору код ${correlationId}.`;
   }

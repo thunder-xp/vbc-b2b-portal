@@ -86,14 +86,16 @@ export class SupabaseMerchandisingRepository
     companyId: string;
     labelCode?: MerchandisingLabelCode;
     limitPerLabel: number;
+    rotationSeed?: string;
   }): Promise<PublishedMerchandisingAssignment[]> {
     const supabase = await createClient();
     const { data, error } = await supabase.rpc(
-      "get_published_product_merchandising_v2",
+      "get_published_product_merchandising_v3",
       {
         p_company_id: input.companyId,
         p_label_code: input.labelCode ?? null,
         p_limit_per_label: input.limitPerLabel,
+        p_rotation_seed: input.rotationSeed ?? null,
       },
     );
 
@@ -211,10 +213,13 @@ function isPopularityRefreshResult(
   return (
     typeof result.refreshId === "string" &&
     typeof result.refreshedAt === "string" &&
+    typeof result.businessDate === "string" &&
+    typeof result.windowStart === "string" &&
+    typeof result.windowEnd === "string" &&
     typeof result.eligibleProductCount === "number" &&
     typeof result.popularSetSize === "number" &&
-    (typeof result.top40ThresholdQuantity === "number" ||
-      result.top40ThresholdQuantity === null) &&
+    (typeof result.top40ThresholdFrequency === "number" ||
+      result.top40ThresholdFrequency === null) &&
     typeof result.unresolvedSourceLineCount === "number" &&
     typeof result.durationMs === "number"
   );

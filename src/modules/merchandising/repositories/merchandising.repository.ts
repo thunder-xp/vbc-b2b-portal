@@ -20,6 +20,7 @@ export interface MerchandisingRepository {
     companyId: string;
     labelCode?: MerchandisingLabelCode;
     limitPerLabel: number;
+    rotationSeed?: string;
   }): Promise<PublishedMerchandisingAssignment[]>;
   listPublishedForProducts(input: {
     companyId: string;

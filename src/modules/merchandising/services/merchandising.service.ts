@@ -35,6 +35,10 @@ export class MerchandisingService {
       event: "b2b_product_demand_ranking_refreshed",
       eligibleProductCount: result.eligibleProductCount,
       popularSetSize: result.popularSetSize,
+      businessDate: result.businessDate,
+      windowStart: result.windowStart,
+      windowEnd: result.windowEnd,
+      top40ThresholdFrequency: result.top40ThresholdFrequency,
       unresolvedSourceLineCount: result.unresolvedSourceLineCount,
       durationMs: result.durationMs,
       deployedCommitSha: process.env.VERCEL_GIT_COMMIT_SHA?.trim() || "local",
@@ -64,6 +68,7 @@ export class MerchandisingService {
     userId: string,
     labelCode?: MerchandisingLabelCode,
     limitPerLabel = 8,
+    rotationSeed?: string,
   ): Promise<PublishedMerchandisingAssignment[]> {
     if (labelCode && !LABEL_CODES.has(labelCode)) {
       throw new MerchandisingValidationError("MERCHANDISING_LABEL_INVALID");
@@ -81,10 +86,12 @@ export class MerchandisingService {
       userId,
       membership.companyId,
     );
+    const normalizedRotationSeed = validRotationSeed(rotationSeed);
     return this.repository.listPublished({
       companyId: membership.companyId,
       labelCode,
       limitPerLabel: Math.min(Math.max(Math.floor(limitPerLabel), 1), 24),
+      ...(normalizedRotationSeed ? { rotationSeed: normalizedRotationSeed } : {}),
     });
   }
 
@@ -190,4 +197,13 @@ function isUuid(value: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
     value,
   );
+}
+
+function validRotationSeed(value: string | undefined): string | undefined {
+  const normalized = value?.trim();
+  if (!normalized) return undefined;
+  if (normalized.length > 128) {
+    throw new MerchandisingValidationError("MERCHANDISING_INPUT_INVALID");
+  }
+  return normalized;
 }

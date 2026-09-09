@@ -75,9 +75,12 @@ export type ManageMerchandisingResult = {
 export type B2bPopularityRefreshResult = {
   refreshId: string;
   refreshedAt: string;
+  businessDate: string;
+  windowStart: string;
+  windowEnd: string;
   eligibleProductCount: number;
   popularSetSize: number;
-  top40ThresholdQuantity: number | null;
+  top40ThresholdFrequency: number | null;
   unresolvedSourceLineCount: number;
   sourceOrderCount: number;
   sourceLineCount: number;

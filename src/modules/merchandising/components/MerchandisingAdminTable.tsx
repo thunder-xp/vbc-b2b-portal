@@ -256,7 +256,7 @@ function sourceText(
   labelCode: MerchandisingLabelCode,
 ): string {
   if (source === "one_c" && labelCode === "TOP") {
-    return "B2B спрос · автоматически";
+    return "Частота покупок · 365 дней · Top 40";
   }
   if (source === "one_c") return "Сигнал 1С";
   if (source === "analytics_recommendation") return "Рекомендация";
