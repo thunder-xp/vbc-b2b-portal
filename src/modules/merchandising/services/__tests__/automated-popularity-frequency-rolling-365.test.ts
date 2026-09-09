@@ -5,7 +5,11 @@ import { describe, expect, it } from "vitest";
 const root = process.cwd();
 const migration = readFileSync(join(
   root,
-  "supabase/migrations/20260909173846_automated_popularity_frequency_rolling_365.sql",
+  "supabase/migrations/20260909181812_automated_popularity_frequency_rolling_365.sql",
+), "utf8");
+const compatibilityMigration = readFileSync(join(
+  root,
+  "supabase/migrations/20260909182500_public_popularity_contract_v3.sql",
 ), "utf8");
 const publicRepository = readFileSync(join(
   root,
@@ -65,11 +69,23 @@ describe("rolling-365 purchase-frequency Popular contract", () => {
     expect(migration).not.toContain("'purchaseFrequency'");
     expect(migration).not.toContain("'distinctCompanyCount'");
     expect(publicRepository).toContain('"get_public_retail_showcase_v3"');
+    expect(publicRepository).toContain('"list_public_retail_products_v3"');
+    expect(publicRepository).toContain('"list_public_retail_hot_products_v2"');
     expect(catalogRepository).toContain('"catalog_partner_page_v8"');
     expect(publicRepository).not.toContain("b2b_product_demand_ranking");
     expect(catalogRepository).not.toContain("partner_order_history");
     expect(dashboardRepository).not.toContain("partner_order_history");
     expect(migration).toContain("public.with_current_public_popularity");
+  });
+
+  it("keeps v2 wire responses backward-compatible while v3 carries isPopular", () => {
+    expect(compatibilityMigration).toContain("rename to list_public_retail_products_current_v2");
+    expect(compatibilityMigration).toContain("source.item - 'isPopular'");
+    expect(compatibilityMigration).toContain("create function public.list_public_retail_products_v3");
+    expect(compatibilityMigration).toContain("create function public.list_public_retail_hot_products_v2");
+    expect(compatibilityMigration).toContain("public.list_public_retail_products_v3(");
+    expect(compatibilityMigration).toContain("public.list_public_retail_hot_products_v2(");
+    expect(compatibilityMigration).toMatch(/revoke all on function public\.list_public_retail_products_current_v2[\s\S]*service_role/);
   });
 
   it("rotates only bounded previews and keeps full Popular listings ranked", () => {

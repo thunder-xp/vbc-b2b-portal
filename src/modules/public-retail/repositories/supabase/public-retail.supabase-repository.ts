@@ -66,12 +66,12 @@ export class SupabasePublicRetailReadRepository implements PublicRetailReadRepos
   async listProducts(input: ListPublicRetailProductsInput) {
     const client = createPublicReadClient();
     const request = input.mode === "hot"
-      ? client.rpc("list_public_retail_hot_products", {
+      ? client.rpc("list_public_retail_hot_products_v2", {
           p_locale: input.locale,
           p_limit: input.limit,
           p_offset: input.offset,
         })
-      : client.rpc("list_public_retail_products_v2", {
+      : client.rpc("list_public_retail_products_v3", {
       p_locale: input.locale,
       p_category_slug: input.categorySlug ?? null,
       p_search: input.search ?? null,
