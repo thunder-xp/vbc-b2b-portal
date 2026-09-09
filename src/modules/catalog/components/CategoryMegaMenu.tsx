@@ -7,12 +7,12 @@ import type { CatalogCollection } from "../types";
 import { recordBehaviorInteraction } from "../../behavior-analytics/components/BehaviorViewEvent";
 import { CatalogCategoryMenu, buildCategoryTree, type CatalogCategoryNode } from "./CatalogCategoryMenu";
 import { getCatalogCopy, usePartnerLocale } from "../../partner-locale";
-import type { RollingPeriod } from "../../commerce-period";
+import type { NewRollingPeriod } from "../../commerce-period";
 
 export { buildCategoryTree };
 export type { CatalogCategoryNode };
 
-export function CategoryMegaMenu({ categories, collection, merchandisingLabel, period, sort = "default" }: { categories: Array<Pick<CatalogCategoryDto, "id" | "name" | "parentId">>; collection?: CatalogCollection; merchandisingLabel?: MerchandisingLabelCode; period?: RollingPeriod; sort?: CatalogSort }) {
+export function CategoryMegaMenu({ categories, collection, merchandisingLabel, period, sort = "default" }: { categories: Array<Pick<CatalogCategoryDto, "id" | "name" | "parentId">>; collection?: CatalogCollection; merchandisingLabel?: MerchandisingLabelCode; period?: NewRollingPeriod; sort?: CatalogSort }) {
   const copy = getCatalogCopy(usePartnerLocale());
   return <CatalogCategoryMenu
     categories={categories}

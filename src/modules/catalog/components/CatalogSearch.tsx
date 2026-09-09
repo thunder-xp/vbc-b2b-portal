@@ -9,13 +9,13 @@ import { ProductThumbnail } from "./ProductThumbnail";
 import type { MerchandisingLabelCode } from "../../merchandising/types";
 import type { CatalogCollection } from "../types";
 import { getCatalogCopy, usePartnerLocale } from "../../partner-locale";
-import type { RollingPeriod } from "../../commerce-period";
+import type { NewRollingPeriod } from "../../commerce-period";
 
 type SearchResponse =
   | { success: true; data: CatalogSearchSuggestionDto[] }
   | { success: false };
 
-export function CatalogSearch({ categoryId, categoryIds, categorySet, collection, explicitAll, initialSearch, merchandisingLabel, period, sort = "default" }: { categoryId?: string; categoryIds?: string[]; categorySet?: CatalogQuickLinkCode; collection?: CatalogCollection; explicitAll?: boolean; initialSearch?: string; merchandisingLabel?: MerchandisingLabelCode; period?: RollingPeriod; sort?: CatalogSort }) {
+export function CatalogSearch({ categoryId, categoryIds, categorySet, collection, explicitAll, initialSearch, merchandisingLabel, period, sort = "default" }: { categoryId?: string; categoryIds?: string[]; categorySet?: CatalogQuickLinkCode; collection?: CatalogCollection; explicitAll?: boolean; initialSearch?: string; merchandisingLabel?: MerchandisingLabelCode; period?: NewRollingPeriod; sort?: CatalogSort }) {
   const copy = getCatalogCopy(usePartnerLocale());
   const [query, setQuery] = useState(initialSearch ?? "");
   const [results, setResults] = useState<CatalogSearchSuggestionDto[]>([]);

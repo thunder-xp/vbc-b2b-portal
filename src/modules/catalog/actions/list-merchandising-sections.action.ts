@@ -41,9 +41,10 @@ export type CatalogMerchandisingSectionsResult = {
 const SECTION_ORDER: Array<{
   labelCode: MerchandisingLabelCode;
   title: string;
+  href?: string;
 }> = [
   { labelCode: "TOP", title: "Популярное" },
-  { labelCode: "NEW", title: "Новинки" },
+  { labelCode: "NEW", title: "Новинки", href: "/cabinet/catalog?label=NEW&period=365" },
   { labelCode: "HOT", title: "Горячие предложения" },
 ];
 
@@ -100,7 +101,7 @@ export async function listCatalogMerchandisingSectionsAction(requestedPeriod: Ro
     const commercialByProduct = new Map(commercialViews.map((view) => [view.productId, view]));
     const sourceOrder = new Map(replenishment.map((item) => [item.productId, item.sourceLineNumber]));
 
-    const sections: CatalogMerchandisingSection[] = SECTION_ORDER.flatMap(({ labelCode, title }) => {
+    const sections: CatalogMerchandisingSection[] = SECTION_ORDER.flatMap(({ href, labelCode, title }) => {
       const sectionProducts = assignments
         .filter((assignment) => assignment.labelCode === labelCode)
         .flatMap((assignment) => {
@@ -112,6 +113,7 @@ export async function listCatalogMerchandisingSectionsAction(requestedPeriod: Ro
           labelCode,
           title,
           products: sectionProducts,
+          ...(href ? { href } : {}),
           totalCount: assignments.find((assignment) => assignment.labelCode === labelCode)?.matchingProductCount
             ?? sectionProducts.length,
           ...(labelCode === "TOP" ? { href: `/cabinet/catalog?label=TOP&period=${period}` } : {}),

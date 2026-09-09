@@ -10,7 +10,7 @@ import type {
   PublicRetailPublicationMetrics,
   PublicRetailShowcaseDto,
 } from "../types";
-import type { RollingPeriod } from "../../commerce-period";
+import type { NewRollingPeriod, RollingPeriod } from "../../commerce-period";
 
 export type ListPublicRetailProductsInput = {
   locale: PublicRetailLocale;
@@ -21,7 +21,7 @@ export type ListPublicRetailProductsInput = {
   mode?: PublicRetailCatalogMode;
   limit: number;
   offset: number;
-  period: RollingPeriod;
+  period: NewRollingPeriod;
 };
 
 export interface PublicRetailReadRepository {

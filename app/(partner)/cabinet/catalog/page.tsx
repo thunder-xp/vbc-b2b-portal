@@ -21,6 +21,7 @@ import {
   parseCatalogViewMode,
   resolveCatalogQuickLinks,
 } from "@/src/modules/catalog/services";
+import { parseRollingPeriod } from "@/src/modules/commerce-period";
 import { getPartnerWorkspaceContextAction } from "@/src/modules/partner-cabinet/actions/workspace-context.action";
 import { getCatalogCopy } from "@/src/modules/partner-locale";
 import { getPartnerLocale } from "@/src/modules/partner-locale/server";
@@ -78,7 +79,7 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
     {routeState.mode === "discovery" ? <CatalogBreadcrumb categories={categoriesResult.data} locale={locale} selectedId={routeState.categoryId} /> : null}
     <Suspense fallback={<CatalogResultsFallback ariaLabel={copy.loading} curated={routeState.mode === "curated"} />}>
       {routeState.mode === "curated"
-        ? <CuratedCatalogResults locale={locale} merchandisingPromise={listCatalogMerchandisingSectionsAction(routeState.period)} period={routeState.period} workspacePromise={getPartnerWorkspaceContextAction()} />
+        ? <CuratedCatalogResults locale={locale} merchandisingPromise={listCatalogMerchandisingSectionsAction(parseRollingPeriod(routeState.period))} period={parseRollingPeriod(routeState.period)} workspacePromise={getPartnerWorkspaceContextAction()} />
         : <CatalogResults
             attributeFilters={routeState.attributeFilters}
             availability={routeState.availability}

@@ -48,13 +48,13 @@ describe("partner catalog showcase contract", () => {
     expect(screen.getByLabelText("Ещё товаров: 16")).toHaveClass("sm:inline-flex", "xl:hidden");
     expect(screen.getByLabelText("Ещё товаров: 14")).toHaveClass("xl:inline-flex", "2xl:hidden");
     expect(screen.getByLabelText("Ещё товаров: 13")).toHaveClass("2xl:inline-flex");
-    expect(screen.getByRole("link", { name: "Показать все: Популярные товары" })).toHaveAttribute("href", "/cabinet/catalog?label=TOP");
+    expect(screen.getByRole("link", { name: "Показать все: Популярное" })).toHaveAttribute("href", "/cabinet/catalog?label=TOP&period=30");
   });
 
   it("renders Romanian remainder copy without changing the destination", () => {
     renderShowcase(6, "ro");
     expect(screen.getByLabelText("Încă 1 produse")).toHaveClass("2xl:inline-flex");
-    expect(screen.getByRole("link", { name: "Afișează toate: Populare" })).toHaveAttribute("href", "/cabinet/catalog?label=TOP");
+    expect(screen.getByRole("link", { name: "Afișează toate: Populare" })).toHaveAttribute("href", "/cabinet/catalog?label=TOP&period=30");
   });
 });
 

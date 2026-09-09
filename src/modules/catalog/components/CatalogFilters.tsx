@@ -9,10 +9,10 @@ import { CatalogTechnicalFacetGroups } from "./CatalogTechnicalFacetGroups";
 import type { CatalogCollection } from "../types";
 import { getCatalogCopy, type PartnerLocale } from "../../partner-locale";
 import type { CatalogQuickLinkCode } from "../services";
-import type { RollingPeriod } from "../../commerce-period";
+import type { NewRollingPeriod } from "../../commerce-period";
 
 export type CatalogAvailability = "all" | "in_stock" | "expected";
-type Props = { availability?: CatalogAvailability; facets?: CatalogFacetDto[]; attributeFilters?: Record<string, string[]>; brandId?: string; categoryId?: string; categoryIds?: string[]; categorySet?: CatalogQuickLinkCode; collection?: CatalogCollection; explicitAll?: boolean; locale?: PartnerLocale; merchandisingLabel?: MerchandisingLabelCode; period?: RollingPeriod; search?: string; sort?: string };
+type Props = { availability?: CatalogAvailability; facets?: CatalogFacetDto[]; attributeFilters?: Record<string, string[]>; brandId?: string; categoryId?: string; categoryIds?: string[]; categorySet?: CatalogQuickLinkCode; collection?: CatalogCollection; explicitAll?: boolean; locale?: PartnerLocale; merchandisingLabel?: MerchandisingLabelCode; period?: NewRollingPeriod; search?: string; sort?: string };
 export function CatalogFilters(props: Props) {
   const copy = getCatalogCopy(props.locale ?? "ru");
   const attributeFilters = props.attributeFilters ?? {};

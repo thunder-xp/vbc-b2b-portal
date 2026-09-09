@@ -12,6 +12,7 @@ export { ChunkedStockSyncService, SupabaseStockSyncStore, type StockSyncState, t
 export { CATALOG_SYNC_CRON, CATALOG_SYNC_INTERVAL_HOURS } from "./catalog-schedule";
 export { acquireSyncRunLock, releaseSyncRunLock, type SyncLockResult } from "./sync-run-lock";
 export { DailyCatalogSyncService, type DailyCatalogSyncResult } from "./daily-catalog-sync.service";
+export { SupabaseProductNewFactsWriter, type ProductNewFactsPublicationResult, type ProductNewFactsWriter } from "./product-new-facts-writer";
 export {
   CatalogSynchronizationOrchestrator,
   type CatalogProjectionOutcome,

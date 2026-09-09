@@ -4,7 +4,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { RollingPeriodSelector } from "../RollingPeriodSelector";
-import { parseRollingPeriod } from "../rolling-period";
+import { NEW_ROLLING_PERIODS, parseNewRollingPeriod, parseRollingPeriod } from "../rolling-period";
 import { repeatPurchaseHref } from "../../orders/components/repeat-purchase-query";
 import { buildCatalogHref } from "../../catalog/services/catalog-sort-state";
 
@@ -19,6 +19,14 @@ describe("rolling commerce periods", () => {
     expect(parseRollingPeriod("60")).toBe(60);
     expect(parseRollingPeriod(90)).toBe(90);
     expect(parseRollingPeriod("365")).toBe(30);
+  });
+
+  it("defaults NEW to 365 and supports the shared 30/60/90/365 slices", () => {
+    expect(parseNewRollingPeriod(undefined)).toBe(365);
+    expect(parseNewRollingPeriod("30")).toBe(30);
+    expect(parseNewRollingPeriod(365)).toBe(365);
+    expect(parseNewRollingPeriod("180")).toBe(365);
+    expect(NEW_ROLLING_PERIODS).toEqual([30, 60, 90, 365]);
   });
 
   it("renders one underlined active period with stable navigation", () => {
@@ -43,7 +51,7 @@ describe("rolling commerce periods", () => {
     })).toBe("/cabinet/repeat-purchase?period=90&categories=22222222-2222-4222-8222-222222222222&search=camera&page=3");
   });
 
-  it("preserves the selected period across Popular catalog state only", () => {
+  it("preserves the selected period across Popular and NEW catalog state", () => {
     expect(buildCatalogHref({
       availability: "in_stock",
       merchandisingLabel: "TOP",
@@ -53,8 +61,8 @@ describe("rolling commerce periods", () => {
     })).toBe("/cabinet/catalog?search=camera&label=TOP&period=90&availability=in_stock&page=2");
     expect(buildCatalogHref({
       merchandisingLabel: "NEW",
-      period: 90,
-    })).toBe("/cabinet/catalog?label=NEW");
+      period: 365,
+    })).toBe("/cabinet/catalog?label=NEW&period=365");
   });
 
   it("defines inclusive business-date windows and independent frequency rankings", () => {

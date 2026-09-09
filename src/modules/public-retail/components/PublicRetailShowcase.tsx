@@ -21,7 +21,7 @@ export function PublicRetailShowcase({ categories, locale, period = 30, showcase
     </CatalogToolbarFrame></div>
     <div className="divide-y divide-zinc-200">
       <ShowcaseSection href={`/catalog?lang=${locale}&view=popular&period=${period}`} locale={locale} mode="popular" period={period} products={showcase.popular} title={copy.popularProducts} totalCount={showcase.totalCounts.popular} />
-      <ShowcaseSection href={`/catalog?lang=${locale}&view=new`} locale={locale} mode="new" products={showcase.new} title={copy.newProducts} totalCount={showcase.totalCounts.new} />
+      <ShowcaseSection href={`/catalog?lang=${locale}&view=new&period=365`} locale={locale} mode="new" products={showcase.new} title={copy.newProducts} totalCount={showcase.totalCounts.new} />
       <ShowcaseSection href={`/catalog?lang=${locale}&view=hot`} locale={locale} mode="hot" products={showcase.hot} title={copy.hotPrice} totalCount={showcase.totalCounts.hot} />
       <ShowcaseSection href={`/catalog?lang=${locale}&view=replenishment`} locale={locale} mode="replenishment" products={showcase.replenishment} title={copy.replenishmentCollection} totalCount={showcase.totalCounts.replenishment} />
     </div>

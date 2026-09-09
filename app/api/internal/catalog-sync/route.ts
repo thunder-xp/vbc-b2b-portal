@@ -13,5 +13,5 @@ export async function GET(request: Request) {
   }
 
   const result = await createDailyCatalogSyncService(getOneCEnv()).runFullSync("scheduled");
-  return NextResponse.json({ status: result.state.status, rootFound: Boolean(result.state.rootName), pagesProcessed: result.state.pagesProcessed, foldersReceived: result.state.foldersReceived, productsReceived: result.state.productsReceived, rowsDeactivated: result.state.rowsDeactivated, skippedBecauseRunning: result.skippedBecauseRunning, publicRetail: result.projection?.status ?? "not_started", publicationId: result.projection?.publicationId ?? null });
+  return NextResponse.json({ status: result.state.status, rootFound: Boolean(result.state.rootName), pagesProcessed: result.state.pagesProcessed, foldersReceived: result.state.foldersReceived, productsReceived: result.state.productsReceived, rowsDeactivated: result.state.rowsDeactivated, skippedBecauseRunning: result.skippedBecauseRunning, publicRetail: result.projection?.status ?? "not_started", publicationId: result.projection?.publicationId ?? null, automatedNew: result.newProduct });
 }

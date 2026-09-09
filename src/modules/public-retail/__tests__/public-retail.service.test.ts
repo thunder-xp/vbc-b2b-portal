@@ -37,7 +37,7 @@ describe("PublicRetailService", () => {
     const service = new PublicRetailService(repository);
     const seed = "11111111-1111-4111-8111-111111111111";
     await service.getRetailShowcase("ro", seed);
-    expect(getShowcase).toHaveBeenCalledWith("ro", seed);
+    expect(getShowcase).toHaveBeenCalledWith("ro", seed, 30);
     expect(() => service.getRetailShowcase("ru", "browser-value")).toThrow(
       "Invalid Public Retail rotation session.",
     );
@@ -75,6 +75,7 @@ describe("PublicRetailService", () => {
       mode: undefined,
       limit: 48,
       offset: 96,
+      period: 30,
     });
     expect(listProducts.mock.calls[0]?.[0]).not.toHaveProperty("companyId");
     expect(listProducts.mock.calls[0]?.[0]).not.toHaveProperty("userId");
@@ -111,6 +112,19 @@ describe("PublicRetailService", () => {
     await service.listRetailProducts({ mode: "popular", search: "camera" });
 
     expect(listProducts.mock.calls.map(([input]) => input.mode)).toEqual(["popular", "new", "special", "price_asc", undefined]);
+  });
+
+  it("defaults only the NEW listing to 365 while preserving shorter slices", async () => {
+    const listProducts = vi.fn().mockResolvedValue({ items: [], totalCount: 0, limit: 24, offset: 0 });
+    const repository = {
+      listCategories: vi.fn(), listProducts, getShowcase: vi.fn(), getProduct: vi.fn(),
+      listRelatedProducts: vi.fn(), listFacets: vi.fn(), resolveCalculatorProducts: vi.fn(),
+    } as PublicRetailReadRepository;
+    const service = new PublicRetailService(repository);
+    await service.listRetailProducts({ mode: "new" });
+    expect(listProducts).toHaveBeenLastCalledWith(expect.objectContaining({ mode: "new", period: 365 }));
+    await service.listRetailProducts({ mode: "new", period: 60 });
+    expect(listProducts).toHaveBeenLastCalledWith(expect.objectContaining({ mode: "new", period: 60 }));
   });
 
   it("passes the same bounded active filters to contextual facet aggregation", async () => {

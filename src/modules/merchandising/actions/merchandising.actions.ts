@@ -153,6 +153,8 @@ function merchandisingErrorMessage(
       return `Данные не прошли проверку. Проверьте параметры. Код: ${correlationId}.`;
     case "MERCHANDISING_POPULAR_SYSTEM_MANAGED":
       return "Популярные товары формируются автоматически по частоте покупок за последние 365 дней.";
+    case "MERCHANDISING_NEW_SYSTEM_MANAGED":
+      return "Новинки формируются автоматически по первой импортной приходной накладной из 1С.";
     default:
       return `Не удалось обновить витрину. Сообщите администратору код ${correlationId}.`;
   }

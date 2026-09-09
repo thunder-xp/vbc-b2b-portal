@@ -1,6 +1,6 @@
 import type { PublicRetailLocale, PublicRetailMerchandisingMode, PublicRetailPriceSort } from "./types";
 import { catalogFacetQueryFields, updateCatalogFacetSelection } from "../catalog/services/catalog-facet-state";
-import type { RollingPeriod } from "../commerce-period";
+import type { NewRollingPeriod } from "../commerce-period";
 
 export type PublicRetailCatalogState = {
   q?: string;
@@ -11,7 +11,7 @@ export type PublicRetailCatalogState = {
   sort?: PublicRetailPriceSort;
   returnHref?: string;
   page: number;
-  period?: RollingPeriod;
+  period?: NewRollingPeriod;
 };
 
 export function publicRetailFilterHref(
@@ -27,7 +27,7 @@ export function publicRetailFilterHref(
   if (availability) query.set("availability", availability);
   if (state.sort) query.set("sort", state.sort);
   if (state.mode) query.set("view", state.mode);
-  if (state.mode === "popular") query.set("period", String(state.period ?? 30));
+  if (state.mode === "popular" || state.mode === "new") query.set("period", String(state.period ?? (state.mode === "new" ? 365 : 30)));
   const nextFacets = change.facet
     ? updateCatalogFacetSelection(state.attributeFilters, change.facet.key, change.facet.value, change.facetMode)
     : state.attributeFilters;
@@ -57,7 +57,7 @@ export function publicRetailMerchandisingHref(
     view: target,
     return: state.returnHref ?? publicRetailPlainCatalogHref(locale, state),
   });
-  if (target === "popular") query.set("period", String(state.period ?? 30));
+  if (target === "popular" || target === "new") query.set("period", String(target === "new" ? 365 : state.period ?? 30));
   return `/catalog?${query}`;
 }
 

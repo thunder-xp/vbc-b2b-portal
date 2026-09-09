@@ -46,6 +46,7 @@ export type AdminMerchandisingProduct = {
 
 export type AdminMerchandisingPage = {
   items: AdminMerchandisingProduct[];
+  newSystemManaged: boolean;
   totalCount: number;
   page: number;
   pageSize: number;

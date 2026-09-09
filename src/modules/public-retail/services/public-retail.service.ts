@@ -6,7 +6,7 @@ import {
   type PublicRetailCatalogMode,
   type PublicRetailLocale,
 } from "../types";
-import { parseRollingPeriod, type RollingPeriod } from "../../commerce-period";
+import { parseNewRollingPeriod, parseRollingPeriod, type NewRollingPeriod, type RollingPeriod } from "../../commerce-period";
 
 export type PublicRetailListInput = {
   locale?: string;
@@ -17,7 +17,7 @@ export type PublicRetailListInput = {
   page?: number;
   pageSize?: number;
   mode?: string;
-  period?: RollingPeriod;
+  period?: NewRollingPeriod;
 };
 
 export class PublicRetailService {
@@ -44,16 +44,17 @@ export class PublicRetailService {
   listRetailProducts(input: PublicRetailListInput = {}) {
     const pageSize = integerInRange(input.pageSize, 24, 1, 48);
     const page = integerInRange(input.page, 1, 1, 209);
+    const mode = normalizeMode(input.mode, Boolean(normalizeSearch(input.search)));
     return this.repository.listProducts({
       locale: normalizeLocale(input.locale),
       categorySlug: optionalSlug(input.categorySlug),
       search: normalizeSearch(input.search),
       availability: normalizeAvailability(input.availability),
       facets: normalizeFacets(input.facets),
-      mode: normalizeMode(input.mode, Boolean(normalizeSearch(input.search))),
+      mode,
       limit: pageSize,
       offset: (page - 1) * pageSize,
-      period: parseRollingPeriod(input.period),
+      period: mode === "new" ? parseNewRollingPeriod(input.period) : parseRollingPeriod(input.period),
     });
   }
 
