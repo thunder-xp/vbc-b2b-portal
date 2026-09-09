@@ -26,6 +26,7 @@ export function publicRetailFilterHref(
   if (category) query.set("category", category);
   if (availability) query.set("availability", availability);
   if (state.sort) query.set("sort", state.sort);
+  if (state.mode) query.set("view", state.mode);
   if (state.mode === "popular") query.set("period", String(state.period ?? 30));
   const nextFacets = change.facet
     ? updateCatalogFacetSelection(state.attributeFilters, change.facet.key, change.facet.value, change.facetMode)

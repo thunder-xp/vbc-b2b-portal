@@ -116,6 +116,20 @@ describe("public retail UX", () => {
     expect(href).not.toContain("facet_");
   });
 
+  it("keeps the selected Popular period while filtering the public list", () => {
+    const href = publicRetailFilterHref("ru", {
+      attributeFilters: {},
+      mode: "popular",
+      page: 1,
+      period: 60,
+    }, { availability: "in_stock" });
+    const query = new URL(href, "https://www.nsd.md").searchParams;
+
+    expect(query.get("view")).toBe("popular");
+    expect(query.get("period")).toBe("60");
+    expect(query.get("availability")).toBe("in_stock");
+  });
+
   it("renders technical filters, search result and pagination without a duplicate category block", () => {
     render(<PublicRetailCatalog categories={[{ id: "20000000-0000-4000-8000-000000000001", parentId: null, slug: "video", name: "Видеонаблюдение", description: null, productCount: 25 }]} facets={[{ key: "property_11111111-1111-1111-1111-111111111111", label: "Разрешение", values: [{ value: "4 Мп", count: 12 }], coverage: 12 }]} locale="ru" products={{ items: [product], totalCount: 25, limit: 24, offset: 0 }} state={{ category: "video", attributeFilters: { "property_11111111-1111-1111-1111-111111111111": ["4 Мп"] }, sort: "price_asc", page: 1 }} />);
     expect(screen.getByRole("heading", { name: "Каталог" })).toBeInTheDocument();
