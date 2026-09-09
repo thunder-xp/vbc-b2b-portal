@@ -24,7 +24,7 @@ import {
   normalizeMerchandisingLabel,
   normalizeCatalogOptionalText,
 } from "./catalog-action-input";
-import { parseRollingPeriod } from "../../commerce-period";
+import { parseNewRollingPeriod, parseRollingPeriod } from "../../commerce-period";
 import { emitRequestTotal, measurePerformanceStage } from "@/src/lib/performance/request-diagnostics";
 
 export async function listCatalogProductsAction(
@@ -34,6 +34,7 @@ export async function listCatalogProductsAction(
     const userId = await getAuthenticatedUserId();
     const availability = normalizeCatalogAvailability(input.availability);
     const pricingInventoryService = createPricingInventoryService();
+    const merchandisingLabel = normalizeMerchandisingLabel(input.merchandisingLabel);
     const products = await measurePerformanceStage("catalog", "catalog_results", () => createCatalogService(pricingInventoryService).listProducts(userId, {
       categoryId: normalizeCatalogOptionalText(input.categoryId),
       categoryIds: normalizeCatalogCategoryIds(input.categoryIds),
@@ -45,8 +46,8 @@ export async function listCatalogProductsAction(
       attributeFilters: normalizeCatalogFilters(input.attributeFilters),
       availability,
       collection: normalizeCatalogCollection(input.collection),
-      merchandisingLabel: normalizeMerchandisingLabel(input.merchandisingLabel),
-      period: parseRollingPeriod(input.period),
+      merchandisingLabel,
+      period: merchandisingLabel === "NEW" ? parseNewRollingPeriod(input.period) : parseRollingPeriod(input.period),
     }));
 
     return success("Catalog products loaded.", products);

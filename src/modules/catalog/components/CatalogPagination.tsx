@@ -9,7 +9,7 @@ import {
 import type { CatalogAvailability } from "./CatalogFilters";
 import type { CatalogCollection } from "../types";
 import type { PartnerLocale } from "../../partner-locale";
-import type { RollingPeriod } from "../../commerce-period";
+import type { NewRollingPeriod } from "../../commerce-period";
 
 type CatalogPaginationProps = {
   availability: CatalogAvailability;
@@ -23,7 +23,7 @@ type CatalogPaginationProps = {
   merchandisingLabel?: MerchandisingLabelCode;
   locale?: PartnerLocale;
   page: number;
-  period?: RollingPeriod;
+  period?: NewRollingPeriod;
   pageSize: number;
   search?: string;
   sort: CatalogSort;

@@ -99,7 +99,7 @@ export class SupabaseCatalogRepository implements CatalogRepository {
 
   async listPartnerFacets(input: CatalogPartnerFacetInput): Promise<CatalogFacetValueRecord[]> {
     const supabase = await createClient();
-    const { data, error } = await supabase.rpc("catalog_partner_facets_v4", {
+    const { data, error } = await supabase.rpc("catalog_partner_facets_v5", {
       p_company_id: input.companyId,
       p_category_id: input.categoryId ?? null,
       p_category_ids: input.categoryIds ?? null,
@@ -129,7 +129,7 @@ export class SupabaseCatalogRepository implements CatalogRepository {
 
   async listPartnerPage(input: CatalogPartnerPageInput): Promise<CatalogPartnerPage> {
     const supabase = await createClient();
-    const { data, error } = await supabase.rpc("catalog_partner_page_v9", {
+    const { data, error } = await supabase.rpc("catalog_partner_page_v10", {
       p_company_id: input.companyId,
       p_category_id: input.categoryId ?? null,
       p_category_ids: input.categoryIds ?? null,

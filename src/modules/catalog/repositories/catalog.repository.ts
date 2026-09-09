@@ -9,7 +9,7 @@ import type {
 import type { ProductCommercialSnapshot } from "../../pricing-inventory/services";
 import type { MerchandisingLabelCode } from "../../merchandising/types";
 import type { CatalogCollection } from "../types";
-import type { RollingPeriod } from "../../commerce-period";
+import type { NewRollingPeriod } from "../../commerce-period";
 
 export type ListCatalogProductsInput = {
   categoryId?: string;
@@ -38,7 +38,7 @@ export type CatalogPartnerPageInput = {
   sort: "default" | "availability_asc" | "availability_desc" | "price_asc" | "price_desc" | "markup_asc" | "markup_desc";
   limit: number;
   offset: number;
-  period: RollingPeriod;
+  period: NewRollingPeriod;
 };
 
 export type CatalogPartnerPageRecord = {

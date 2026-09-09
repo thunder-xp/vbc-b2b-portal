@@ -1,10 +1,11 @@
 import type { CatalogSnapshotDTO } from "../dto";
-import type { OneCNomenclatureODataProvider } from "../providers/one-c";
+import type { OneCNomenclatureODataProvider, OneCProductNewProvider } from "../providers/one-c";
 import type { CatalogSnapshotWriter, CatalogSyncState } from "./catalog-snapshot-writer";
 import type { CatalogProjectionOutcome, CatalogSynchronizationOrchestrator, CatalogSynchronizationTrigger } from "./catalog-synchronization-orchestrator";
 import { CatalogPersistenceError } from "./catalog-persistence-error";
+import type { ProductNewFactsPublicationResult, ProductNewFactsWriter } from "./product-new-facts-writer";
 
-export type DailyCatalogSyncResult = { state: CatalogSyncState; skippedBecauseRunning: boolean; projection: CatalogProjectionOutcome | null };
+export type DailyCatalogSyncResult = { state: CatalogSyncState; skippedBecauseRunning: boolean; projection: CatalogProjectionOutcome | null; newProduct: ProductNewFactsPublicationResult | null };
 
 export class CatalogEmptySubtreeError extends Error {
   readonly failedStage = "subtree_resolution";
@@ -17,6 +18,8 @@ export class DailyCatalogSyncService {
     private readonly provider: Pick<OneCNomenclatureODataProvider, "fetchFullSnapshot">,
     private readonly writer: CatalogSnapshotWriter,
     private readonly orchestrator?: CatalogSynchronizationOrchestrator,
+    private readonly newProductProvider?: Pick<OneCProductNewProvider, "fetchSnapshot">,
+    private readonly newProductWriter?: ProductNewFactsWriter,
   ) {}
 
   async runFullSync(trigger: CatalogSynchronizationTrigger = "scheduled"): Promise<DailyCatalogSyncResult> {
@@ -24,7 +27,7 @@ export class DailyCatalogSyncService {
     const startedAt = new Date().toISOString();
     log({ event: "catalog_daily_sync_started", stage: "lock" });
     const acquired = await this.writer.acquireLock(syncId, startedAt);
-    if (!acquired) return { state: await this.writer.getState(), skippedBecauseRunning: true, projection: null };
+    if (!acquired) return { state: await this.writer.getState(), skippedBecauseRunning: true, projection: null, newProduct: null };
 
     let stage = "root_discovery";
     let orchestrationRegistered = false;
@@ -39,6 +42,13 @@ export class DailyCatalogSyncService {
       if (snapshot.pagesProcessed > 0 && snapshot.categories.length === 0 && snapshot.products.length === 0) throw new CatalogEmptySubtreeError();
       stage = "batch_persistence";
       const writeResult = await this.writer.writeSnapshot(snapshot, syncId);
+      let newProduct: ProductNewFactsPublicationResult | null = null;
+      if (this.newProductProvider && this.newProductWriter) {
+        stage = "automated_new_source_scan";
+        const newProductSnapshot = await this.newProductProvider.fetchSnapshot(snapshot.products.map((product) => product.reference.externalId));
+        stage = "automated_new_publication";
+        newProduct = await this.newProductWriter.publish(syncId, newProductSnapshot, snapshot.pagesProcessed);
+      }
       const finishedAt = new Date().toISOString();
       await this.writer.markSucceeded(syncId, snapshot, writeResult, startedAt, finishedAt);
       const state = await this.writer.getState();
@@ -58,7 +68,7 @@ export class DailyCatalogSyncService {
           })
         : null;
       log({ event: "catalog_daily_sync_completed", stage: "completed", folderCount: snapshot.categories.length, productCount: snapshot.products.length });
-      return { state, skippedBecauseRunning: false, projection };
+      return { state, skippedBecauseRunning: false, projection, newProduct };
     } catch (error) {
       const finishedAt = new Date().toISOString();
       const errorCategory = safeErrorCategory(error);
@@ -67,7 +77,7 @@ export class DailyCatalogSyncService {
       else await this.writer.markFailed(syncId, errorCategory, failedStage, startedAt, finishedAt);
       if (orchestrationRegistered && this.orchestrator) await this.orchestrator.failSourceSync(syncId, "catalog", errorCategory);
       log({ event: "catalog_daily_sync_failed", stage: failedStage, errorCategory, ...(error instanceof CatalogPersistenceError ? { databaseErrorCode: error.metadata.code ?? undefined, databaseConstraint: error.metadata.constraint ?? undefined, failedBatch: error.metadata.batchIndex ?? undefined } : {}) });
-      return { state: await this.writer.getState(), skippedBecauseRunning: false, projection: null };
+      return { state: await this.writer.getState(), skippedBecauseRunning: false, projection: null, newProduct: null };
     }
   }
 }

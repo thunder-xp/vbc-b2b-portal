@@ -19,7 +19,7 @@ import type {
 import type { ProductReferenceDto } from "../types";
 import type { CatalogCollection } from "../types";
 import { resolveProductImageFit } from "../components/product-image-source";
-import type { RollingPeriod } from "../../commerce-period";
+import type { NewRollingPeriod } from "../../commerce-period";
 import {
   parseCatalogSort,
   requiresCommercialCatalogSort,
@@ -57,7 +57,7 @@ export type CatalogProductListInput = {
   availabilityProductIds?: string[];
   collection?: CatalogCollection;
   merchandisingLabel?: MerchandisingLabelCode;
-  period?: RollingPeriod;
+  period?: NewRollingPeriod;
 };
 
 export type CatalogFacetListInput = Pick<

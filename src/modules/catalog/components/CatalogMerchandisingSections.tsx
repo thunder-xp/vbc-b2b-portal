@@ -7,7 +7,7 @@ import { ProductCard } from "./ProductCard";
 import { CATALOG_PRODUCT_GRID_CLASS } from "./ProductGrid";
 import { BehaviorTrackedCatalogLink, BehaviorViewEvent } from "../../behavior-analytics/components/BehaviorViewEvent";
 import { getCatalogCopy, type PartnerLocale } from "../../partner-locale";
-import { RollingPeriodSelector, type RollingPeriod } from "../../commerce-period";
+import { NEW_ROLLING_PERIODS, RollingPeriodSelector, type RollingPeriod } from "../../commerce-period";
 
 export function CatalogMerchandisingSections({
   capabilities,
@@ -43,13 +43,13 @@ export function CatalogMerchandisingSections({
           <div className="mb-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
             <div className="flex min-w-0 flex-wrap items-center gap-x-3"><h2 className="text-lg font-semibold text-zinc-950" id={`section-${section.labelCode}`}>
               {visibleTitle}
-            </h2>{section.labelCode === "TOP" ? <RollingPeriodSelector activePeriod={period} hrefForPeriod={(target) => `/cabinet/catalog?period=${target}`} locale={locale} /> : null}</div>
+            </h2>{section.labelCode === "TOP" ? <RollingPeriodSelector activePeriod={period} hrefForPeriod={(target) => `/cabinet/catalog?period=${target}`} locale={locale} /> : section.labelCode === "NEW" ? <RollingPeriodSelector activePeriod={365} hrefForPeriod={(target) => `/cabinet/catalog?label=NEW&period=${target}`} locale={locale} periods={NEW_ROLLING_PERIODS} /> : null}</div>
             <div className="inline-flex shrink-0 items-center gap-2">
               <ResponsiveRemainderBadge locale={locale} totalCount={section.totalCount} />
               <BehaviorTrackedCatalogLink
                 ariaLabel={`${copy.showAll}: ${visibleTitle}`}
                 className="shrink-0 text-sm font-semibold text-emerald-700 hover:text-emerald-800"
-                href={section.href ?? `/cabinet/catalog?label=${section.labelCode}${section.labelCode === "TOP" ? `&period=${period}` : ""}`}
+                href={section.href ?? `/cabinet/catalog?label=${section.labelCode}${section.labelCode === "TOP" ? `&period=${period}` : section.labelCode === "NEW" ? "&period=365" : ""}`}
                 sourceSurface={section.labelCode}
               >
                 {copy.showAll}

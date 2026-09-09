@@ -71,7 +71,7 @@ export class SupabasePublicRetailReadRepository implements PublicRetailReadRepos
           p_limit: input.limit,
           p_offset: input.offset,
         })
-      : client.rpc("list_public_retail_products_v4", {
+      : client.rpc("list_public_retail_products_v5", {
       p_locale: input.locale,
       p_category_slug: input.categorySlug ?? null,
       p_search: input.search ?? null,
@@ -88,7 +88,7 @@ export class SupabasePublicRetailReadRepository implements PublicRetailReadRepos
   }
 
   async getShowcase(locale: PublicRetailLocale, rotationSeed: string, period: import("@/src/modules/commerce-period").RollingPeriod) {
-    const { data, error } = await createPublicReadClient().rpc("get_public_retail_showcase_v4", {
+    const { data, error } = await createPublicReadClient().rpc("get_public_retail_showcase_v5", {
       p_locale: locale,
       p_period_days: period,
       p_rotation_seed: rotationSeed,

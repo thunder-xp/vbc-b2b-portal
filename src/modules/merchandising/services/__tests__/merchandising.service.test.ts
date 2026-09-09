@@ -68,6 +68,7 @@ describe("MerchandisingService", () => {
       companyId: "company-1",
       labelCode: "TOP",
       limitPerLabel: 8,
+      period: 30,
     });
   });
 
@@ -84,6 +85,7 @@ describe("MerchandisingService", () => {
       companyId: "company-1",
       labelCode: undefined,
       limitPerLabel: 5,
+      period: 30,
       rotationSeed: "2026-09-09T08:30:00.000Z",
     });
   });

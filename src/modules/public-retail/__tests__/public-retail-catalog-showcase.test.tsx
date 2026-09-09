@@ -34,7 +34,7 @@ describe("Public Retail catalog showcase", () => {
       "Популярное", "Новинки", "Горячая цена", "Последнее поступление",
     ]);
     expect(screen.getAllByRole("link", { name: /Показать все/ }).map((link) => link.getAttribute("href"))).toEqual([
-      "/catalog?lang=ru&view=popular&period=30", "/catalog?lang=ru&view=new", "/catalog?lang=ru&view=hot", "/catalog?lang=ru&view=replenishment",
+      "/catalog?lang=ru&view=popular&period=30", "/catalog?lang=ru&view=new&period=365", "/catalog?lang=ru&view=hot", "/catalog?lang=ru&view=replenishment",
     ]);
     expect(screen.getAllByText("Популярное").length).toBeGreaterThanOrEqual(2);
     expect(getMerchandisingBadge("Новинки")).toBeInTheDocument();
@@ -104,7 +104,7 @@ describe("Public Retail catalog showcase", () => {
   });
 
   it("preserves all four existing list totals in the same hardened RPC", () => {
-    const sql = readFileSync(join(process.cwd(), "supabase/migrations/20260905143226_preserve_public_retail_showcase_totals.sql"), "utf8");
+    const sql = readFileSync(join(process.cwd(), "supabase/migrations/20260905145134_preserve_public_retail_showcase_totals.sql"), "utf8");
     expect(sql).toContain("create or replace function public.get_public_retail_showcase_v2");
     expect(sql).toContain("'totalCounts', jsonb_build_object(");
     expect(sql).toContain("'popular', coalesce((popular->>'totalCount')::integer, 0)");

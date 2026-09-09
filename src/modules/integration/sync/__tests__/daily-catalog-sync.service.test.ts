@@ -31,6 +31,25 @@ describe("DailyCatalogSyncService", () => {
     expect(result.projection).toEqual(projection);
   });
 
+  it("publishes complete automated NEW facts before the shared Public Retail projection", async () => {
+    const writer = writerFixture();
+    const orchestrator = {
+      registerSourceRun: vi.fn(async () => undefined),
+      completeSourceSync: vi.fn(async () => projection),
+      failSourceSync: vi.fn(async () => undefined),
+    };
+    const newProductProvider = { fetchSnapshot: vi.fn(async () => newProductSnapshot) };
+    const newProductWriter = { publish: vi.fn(async () => newProductPublication) };
+    const result = await new DailyCatalogSyncService(
+      { fetchFullSnapshot: vi.fn(async () => snapshot) }, writer,
+      orchestrator as never, newProductProvider as never, newProductWriter,
+    ).runFullSync();
+    expect(newProductProvider.fetchSnapshot).toHaveBeenCalledWith(["product"]);
+    expect(newProductWriter.publish).toHaveBeenCalledWith(expect.any(String), newProductSnapshot, 1);
+    expect(newProductWriter.publish.mock.invocationCallOrder[0]).toBeLessThan(orchestrator.completeSourceSync.mock.invocationCallOrder[0]!);
+    expect(result.newProduct).toEqual(newProductPublication);
+  });
+
   it("persists failed root_discovery when root lookup fails", async () => {
     const writer = writerFixture({ state: { ...succeededState, status: "failed", errorCategory: "IntegrationValidationError", failedStage: "root_discovery" } });
     const provider = { fetchFullSnapshot: vi.fn(async () => { throw Object.assign(new Error("missing"), { name: "IntegrationValidationError" }); }) };
@@ -63,6 +82,8 @@ describe("DailyCatalogSyncService", () => {
 const snapshot = { rootReference: { providerCode: "one-c", externalId: "root", externalType: "catalog-category" }, rootName: "SECURITYPARK DISTRIBUTION", categories: [], products: [{ reference: { providerCode: "one-c", externalId: "product", externalType: "catalog-product" }, categoryReference: null, brandReference: null, sku: "SKU", name: "Product", slug: null, shortDescription: null, description: null, imageUrl: null, isActive: true, isVisible: true, metadata: { sourceReference: { providerCode: "one-c", externalId: "product", externalType: "catalog-product" }, sourceUpdatedAt: null, importedAt: null } }], pagesProcessed: 1, rowsReceived: 1 };
 const succeededState: CatalogSyncState = { status: "succeeded", rootName: "SECURITYPARK DISTRIBUTION", lastSuccessfulSyncAt: "2026-07-12T02:00:00.000Z", durationMs: 10, pagesProcessed: 1, foldersReceived: 0, productsReceived: 0, foldersUpserted: 0, productsUpserted: 0, rowsDeactivated: 0, errorCategory: null, failedStage: null, nextScheduledRun: "2026-07-13T02:00:00.000Z" };
 const projection = { runId: "11111111-1111-4111-8111-111111111111", sourceDomain: "catalog" as const, trigger: "manual" as const, status: "succeeded" as const, publicationId: "22222222-2222-4222-8222-222222222222", checksum: "a".repeat(64), durationMs: 10, safeErrorCode: null };
+const newProductSnapshot = { facts: [], businessDate: "2026-09-10", totalCatalogProducts: 1, totalCreationRequisiteRows: 0, totalEligibleReceipts: 0, totalEligibleReceiptLines: 0, creationRequisitePageCount: 1, receiptHeaderPageCount: 1, receiptLinePageCount: 0 };
+const newProductPublication = { businessDate: "2026-09-10", totalProducts: 1, withSourceCreatedAt: 0, withoutSourceCreatedAt: 1, invalidSourceCreatedAt: 0, withMarketEntryAt: 0, withoutMarketEntryAt: 1, marketEntryBeforeCreationAnomalies: 0, futureMarketEntryCount: 0, new30: 0, new60: 0, new90: 0, new365: 0, automatedNewActivated: false };
 function writerFixture(options: { state?: CatalogSyncState } = {}) {
   return { acquireLock: vi.fn(async () => true), writeSnapshot: vi.fn(async () => ({ foldersUpserted: 0, productsUpserted: 0, rowsDeactivated: 0 })), markSucceeded: vi.fn(async () => undefined), markFailed: vi.fn(async () => undefined), getState: vi.fn(async () => options.state ?? succeededState) } satisfies CatalogSnapshotWriter;
 }

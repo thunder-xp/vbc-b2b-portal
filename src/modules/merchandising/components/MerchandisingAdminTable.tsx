@@ -21,7 +21,7 @@ export function MerchandisingAdminTable({
 }) {
   const router = useRouter();
   const [selected, setSelected] = useState<string[]>([]);
-  const [labelCode, setLabelCode] = useState<MerchandisingLabelCode>("NEW");
+  const [labelCode, setLabelCode] = useState<MerchandisingLabelCode>(page.newSystemManaged ? "HOT" : "NEW");
   const [operation, setOperation] =
     useState<MerchandisingOperation>("assign");
   const [priority, setPriority] = useState(100);
@@ -88,7 +88,7 @@ export function MerchandisingAdminTable({
               }
               value={labelCode}
             >
-              <option value="NEW">Новинка</option>
+              {!page.newSystemManaged ? <option value="NEW">Новинка</option> : null}
               <option value="HOT">Горячая цена</option>
               <option value="SPECIAL_OFFER">Спецпредложение Retail</option>
             </select>

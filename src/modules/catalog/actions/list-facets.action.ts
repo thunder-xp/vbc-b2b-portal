@@ -21,13 +21,14 @@ import {
   normalizeCatalogOptionalText,
 } from "./catalog-action-input";
 import { measurePerformanceStage } from "@/src/lib/performance/request-diagnostics";
-import { parseRollingPeriod } from "../../commerce-period";
+import { parseNewRollingPeriod, parseRollingPeriod } from "../../commerce-period";
 
 export async function listCatalogFacetsAction(
   input: CatalogFacetListInput,
 ): Promise<ActionResult<CatalogFacetDto[]>> {
   try {
     const userId = await getAuthenticatedUserId();
+    const merchandisingLabel = normalizeMerchandisingLabel(input.merchandisingLabel);
     const facets = await measurePerformanceStage("catalog", "catalog_facets", () => new DefaultCatalogService(
       new SupabaseCatalogRepository(),
       createCompanyAccessService(),
@@ -38,8 +39,8 @@ export async function listCatalogFacetsAction(
       search: normalizeCatalogOptionalText(input.search),
       availability: normalizeCatalogAvailability(input.availability),
       collection: normalizeCatalogCollection(input.collection),
-      merchandisingLabel: normalizeMerchandisingLabel(input.merchandisingLabel),
-      period: parseRollingPeriod(input.period),
+      merchandisingLabel,
+      period: merchandisingLabel === "NEW" ? parseNewRollingPeriod(input.period) : parseRollingPeriod(input.period),
       attributeFilters: normalizeCatalogFilters(input.attributeFilters),
     }));
     return success("Catalog facets loaded.", facets);

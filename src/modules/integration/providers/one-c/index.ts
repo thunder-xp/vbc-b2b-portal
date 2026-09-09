@@ -38,6 +38,7 @@ export {
   type OneCODataProbeOptions,
   type OneCODataProbeResult,
 } from "./one-c-odata-client";
+export * from "./one-c-product-new-provider";
 export {
   getOneCSafeDiagnostic,
   type OneCSafeDiagnostic,

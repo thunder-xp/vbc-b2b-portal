@@ -1,16 +1,18 @@
 import Link from "next/link";
 
-import { ROLLING_PERIODS, type RollingPeriod } from "./rolling-period";
+import { ROLLING_PERIODS, type NewRollingPeriod } from "./rolling-period";
 
-export function RollingPeriodSelector({
+export function RollingPeriodSelector<TPeriod extends NewRollingPeriod>({
   activePeriod,
   hrefForPeriod,
   locale,
+  periods = ROLLING_PERIODS as unknown as readonly TPeriod[],
   tone = "partner",
 }: {
-  activePeriod: RollingPeriod;
-  hrefForPeriod: (period: RollingPeriod) => string;
+  activePeriod: TPeriod;
+  hrefForPeriod: (period: TPeriod) => string;
   locale: "ru" | "ro";
+  periods?: readonly TPeriod[];
   tone?: "partner" | "retail";
 }) {
   const activeClass = tone === "retail"
@@ -26,7 +28,7 @@ export function RollingPeriodSelector({
       className="inline-flex shrink-0 items-end gap-1"
       data-rolling-period-selector
     >
-      {ROLLING_PERIODS.map((period) => {
+      {periods.map((period) => {
         const active = period === activePeriod;
         return (
           <Link

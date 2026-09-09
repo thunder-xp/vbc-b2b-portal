@@ -47,7 +47,7 @@ export class SupabaseMerchandisingRepository
   }): Promise<AdminMerchandisingPage> {
     const supabase = await createClient();
     const { data, error } = await supabase.rpc(
-      "get_admin_merchandising_page",
+      "get_admin_merchandising_page_v2",
       {
         p_search: input.search ?? null,
         p_limit: input.pageSize,
@@ -61,6 +61,7 @@ export class SupabaseMerchandisingRepository
 
     return {
       items: data.items,
+      newSystemManaged: data.newSystemManaged,
       totalCount: data.totalCount,
       page: input.page,
       pageSize: input.pageSize,
@@ -92,7 +93,7 @@ export class SupabaseMerchandisingRepository
   }): Promise<PublishedMerchandisingAssignment[]> {
     const supabase = await createClient();
     const { data, error } = await supabase.rpc(
-      "get_published_product_merchandising_v4",
+      "get_published_product_merchandising_v5",
       {
         p_company_id: input.companyId,
         p_label_code: input.labelCode ?? null,
@@ -141,7 +142,7 @@ export class SupabaseMerchandisingRepository
   }): Promise<ManageMerchandisingResult> {
     const supabase = await createClient();
     const { data, error } = await supabase.rpc(
-      "manage_product_merchandising_v2",
+      "manage_product_merchandising_v3",
       {
         p_request_id: input.requestId,
         p_operation: input.operation,
@@ -158,7 +159,7 @@ export class SupabaseMerchandisingRepository
       if (error) {
         console.error({
           event: "catalog_merchandising_rpc_failed",
-          rpc: "manage_product_merchandising_v2",
+          rpc: "manage_product_merchandising_v3",
           databaseCode: error.code,
           safeCode: safeDatabaseErrorCode(error.message, error.code),
         });
@@ -186,11 +187,12 @@ function mapPublishedRow(row: PublishedRow): PublishedMerchandisingAssignment {
 
 function isAdminPage(value: unknown): value is {
   items: AdminMerchandisingPage["items"];
+  newSystemManaged: boolean;
   totalCount: number;
 } {
   if (!value || typeof value !== "object") return false;
-  const page = value as { items?: unknown; totalCount?: unknown };
-  return Array.isArray(page.items) && typeof page.totalCount === "number";
+  const page = value as { items?: unknown; newSystemManaged?: unknown; totalCount?: unknown };
+  return Array.isArray(page.items) && typeof page.newSystemManaged === "boolean" && typeof page.totalCount === "number";
 }
 
 function isAdminPreview(value: unknown): value is AdminMerchandisingPreview {
@@ -252,6 +254,7 @@ function safeDatabaseErrorCode(
     "MERCHANDISING_AUDIT_FAILURE",
     "MERCHANDISING_DATABASE_CONSTRAINT",
     "MERCHANDISING_POPULAR_SYSTEM_MANAGED",
+    "MERCHANDISING_NEW_SYSTEM_MANAGED",
   ];
   const matched = knownCodes.find((code) => message?.includes(code));
   if (matched) return matched;
