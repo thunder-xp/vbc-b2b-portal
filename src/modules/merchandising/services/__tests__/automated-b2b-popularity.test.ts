@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 
 const root = process.cwd();
 const migration = read("supabase/migrations/20260909164852_automated_b2b_popular_product_ranking.sql");
+const b2cRepair = read("supabase/migrations/20260909170726_preserve_immutable_b2c_popularity_snapshot.sql");
 const admin = read("src/modules/merchandising/components/MerchandisingAdminTable.tsx");
 const service = read("src/modules/merchandising/services/merchandising.service.ts");
 const catalogRepository = read("src/modules/catalog/repositories/supabase/catalog.supabase-repository.ts");
@@ -40,6 +41,8 @@ describe("automated B2B Popular contract", () => {
     expect(catalogRepository).not.toContain("b2b_product_demand_ranking");
     expect(dashboardRepository).not.toContain("b2b_product_demand_ranking");
     expect(migration).toContain("hydrate_public_retail_product_presentation");
+    expect(b2cRepair).toContain("publication.status in ('published', 'superseded')");
+    expect(b2cRepair).toContain("hydrate_public_retail_product_presentation_building");
   });
 
   it("removes manual Popular while preserving valid manual campaign types", () => {
