@@ -586,7 +586,7 @@ describe("DefaultPartnerOrderHistoryService", () => {
 
     const result = await service(repository).listPreviouslyPurchasedProducts("user-1", { limit: 5, offset: 0 });
 
-    expect(listPreviouslyPurchasedProducts).toHaveBeenCalledWith({ categoryIds: [], companyId: COMPANY_ID, limit: 5, offset: 0, search: null });
+    expect(listPreviouslyPurchasedProducts).toHaveBeenCalledWith({ categoryIds: [], companyId: COMPANY_ID, limit: 5, offset: 0, period: 30, search: null });
     expect(result.allCount).toBe(1);
     expect(result.items[0]).toMatchObject({
       id: "product-1",

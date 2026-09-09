@@ -1,3 +1,5 @@
+import type { RollingPeriod } from "../../commerce-period";
+
 export type WorkspaceDashboardProductCandidate = {
   id: string;
   sku: string;
@@ -143,6 +145,7 @@ export interface WorkspaceDashboardRepository {
     userId: string,
     companyId: string,
     loginGeneration: string,
+    period?: RollingPeriod,
   ): Promise<WorkspaceDashboardSelections>;
   dismissAttention?(
     companyId: string,

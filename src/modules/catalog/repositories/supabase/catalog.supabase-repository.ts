@@ -99,7 +99,7 @@ export class SupabaseCatalogRepository implements CatalogRepository {
 
   async listPartnerFacets(input: CatalogPartnerFacetInput): Promise<CatalogFacetValueRecord[]> {
     const supabase = await createClient();
-    const { data, error } = await supabase.rpc("catalog_partner_facets_v3", {
+    const { data, error } = await supabase.rpc("catalog_partner_facets_v4", {
       p_company_id: input.companyId,
       p_category_id: input.categoryId ?? null,
       p_category_ids: input.categoryIds ?? null,
@@ -109,6 +109,7 @@ export class SupabaseCatalogRepository implements CatalogRepository {
       p_filters: input.attributeFilters,
       p_selection: input.collection === "replenishment" ? "REPLENISHMENT" : input.merchandisingLabel ?? null,
       p_max_values: 12,
+      p_period_days: input.period,
     });
     if (error) throw new CatalogRepositoryUnexpectedError();
     return ((data ?? []) as Array<{
@@ -128,7 +129,7 @@ export class SupabaseCatalogRepository implements CatalogRepository {
 
   async listPartnerPage(input: CatalogPartnerPageInput): Promise<CatalogPartnerPage> {
     const supabase = await createClient();
-    const { data, error } = await supabase.rpc("catalog_partner_page_v8", {
+    const { data, error } = await supabase.rpc("catalog_partner_page_v9", {
       p_company_id: input.companyId,
       p_category_id: input.categoryId ?? null,
       p_category_ids: input.categoryIds ?? null,
@@ -140,6 +141,7 @@ export class SupabaseCatalogRepository implements CatalogRepository {
       p_sort: input.sort,
       p_limit: input.limit,
       p_offset: input.offset,
+      p_period_days: input.period,
     });
 
     if (error || !isCatalogPartnerPagePayload(data)) {

@@ -8,8 +8,9 @@ import { PublicRetailProductCard } from "./PublicRetailProductCard";
 import { PublicRetailCategoryMenu } from "./PublicRetailCategoryMenu";
 import { CatalogProductGridFrame, CatalogResultsHeader, CatalogToolbarFrame } from "../../catalog/components/CatalogPresentationPrimitives";
 import { PublicRetailSearchForm } from "./PublicRetailSearchForm";
+import { RollingPeriodSelector, type RollingPeriod } from "../../commerce-period";
 
-export function PublicRetailShowcase({ categories, locale, showcase }: { categories: PublicRetailCategoryDto[]; locale: PublicRetailLocale; showcase: PublicRetailShowcaseDto }) {
+export function PublicRetailShowcase({ categories, locale, period = 30, showcase }: { categories: PublicRetailCategoryDto[]; locale: PublicRetailLocale; period?: RollingPeriod; showcase: PublicRetailShowcaseDto }) {
   const copy = retailCopy[locale];
   return <div className="mx-auto max-w-[1440px] px-4 py-8 sm:px-6 lg:px-8">
     <CatalogResultsHeader eyebrow="Novotech Retail" eyebrowTone="retail" title={copy.showcase} />
@@ -19,7 +20,7 @@ export function PublicRetailShowcase({ categories, locale, showcase }: { categor
         <Link className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 border border-zinc-300 px-4 text-sm font-semibold hover:border-blue-700 hover:text-blue-800" href={publicRetailFullCatalogHref(locale)}><LayoutGrid aria-hidden="true" className="size-4" />{locale === "ro" ? "Echipamente" : "Оборудование"}</Link>
     </CatalogToolbarFrame></div>
     <div className="divide-y divide-zinc-200">
-      <ShowcaseSection href={`/catalog?lang=${locale}&view=popular`} locale={locale} mode="popular" products={showcase.popular} title={copy.popularProducts} totalCount={showcase.totalCounts.popular} />
+      <ShowcaseSection href={`/catalog?lang=${locale}&view=popular&period=${period}`} locale={locale} mode="popular" period={period} products={showcase.popular} title={copy.popularProducts} totalCount={showcase.totalCounts.popular} />
       <ShowcaseSection href={`/catalog?lang=${locale}&view=new`} locale={locale} mode="new" products={showcase.new} title={copy.newProducts} totalCount={showcase.totalCounts.new} />
       <ShowcaseSection href={`/catalog?lang=${locale}&view=hot`} locale={locale} mode="hot" products={showcase.hot} title={copy.hotPrice} totalCount={showcase.totalCounts.hot} />
       <ShowcaseSection href={`/catalog?lang=${locale}&view=replenishment`} locale={locale} mode="replenishment" products={showcase.replenishment} title={copy.replenishmentCollection} totalCount={showcase.totalCounts.replenishment} />
@@ -27,14 +28,14 @@ export function PublicRetailShowcase({ categories, locale, showcase }: { categor
   </div>;
 }
 
-function ShowcaseSection({ href, locale, mode, products, title, totalCount }: { href: string; locale: PublicRetailLocale; mode: PublicRetailMerchandisingMode; products: PublicRetailProductSummaryDto[]; title: string; totalCount: number }) {
+function ShowcaseSection({ href, locale, mode, period, products, title, totalCount }: { href: string; locale: PublicRetailLocale; mode: PublicRetailMerchandisingMode; period?: RollingPeriod; products: PublicRetailProductSummaryDto[]; title: string; totalCount: number }) {
   const copy = retailCopy[locale];
   const badge = publicRetailMerchandisingBadge(locale, mode);
   const visibleProducts = products.slice(0, 5);
   const hiddenCount = Math.max(totalCount - 5, 0);
-  return <section className="py-5" aria-labelledby={`showcase-${href.split("=").at(-1)}`} data-hidden-count={hiddenCount}>
+  return <section className="py-5" aria-labelledby={`showcase-${mode}`} data-hidden-count={hiddenCount}>
     <div className="mb-3 flex items-center justify-between gap-4">
-      <h2 className="text-xl font-semibold" id={`showcase-${href.split("=").at(-1)}`}>{title}</h2>
+      <div className="flex min-w-0 flex-wrap items-center gap-x-3"><h2 className="text-xl font-semibold" id={`showcase-${mode}`}>{title}</h2>{mode === "popular" && period ? <RollingPeriodSelector activePeriod={period} hrefForPeriod={(target) => `/catalog?lang=${locale}&period=${target}`} locale={locale} tone="retail" /> : null}</div>
       <div className="inline-flex shrink-0 items-center gap-2">
         {hiddenCount > 0 ? <span aria-label={remainingProductsLabel(locale, hiddenCount)} className="inline-flex min-h-5 min-w-5 items-center justify-center rounded-full bg-blue-700 px-1.5 text-[11px] font-bold tabular-nums text-white">{hiddenCount}</span> : null}
         <Link className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-blue-800 hover:text-blue-950" href={href}>{copy.showAll}<ArrowRight aria-hidden="true" className="size-4" /></Link>

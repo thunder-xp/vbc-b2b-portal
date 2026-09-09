@@ -7,6 +7,7 @@ import {
   Clock3,
   PackageCheck,
 } from "lucide-react";
+import type { ReactNode } from "react";
 
 import { ProductCard } from "../../catalog/components/ProductCard";
 import type { WorkspaceHomeDto } from "../services";
@@ -16,12 +17,15 @@ import { CampaignCard } from "../../commercial-campaigns/components/CampaignCard
 import { SupportDashboardBlock } from "../../partner-support";
 import { formatPartnerDate, formatPartnerMoney, formatPartnerRelativeDate, partnerText, presentDashboardAttention, type PartnerLocale } from "../../partner-locale";
 import { SalesTrendSummary } from "./SalesTrendSummary";
+import { RollingPeriodSelector, type RollingPeriod } from "../../commerce-period";
 
 export function OperationalDashboard({
   locale,
+  period,
   workspace,
 }: {
   locale: PartnerLocale;
+  period: RollingPeriod;
   workspace: WorkspaceHomeDto;
 }) {
   return (
@@ -30,6 +34,7 @@ export function OperationalDashboard({
         analyticsSurface="dashboard_reorder"
         eligibleCount={workspace.reorderProductTotalCount}
         locale={locale}
+        period={period}
         products={workspace.reorderProducts}
         title={partnerText(locale, "dashboard.previouslyPurchased")}
         workspace={workspace}
@@ -322,6 +327,7 @@ function ProductSection({
   analyticsSurface,
   eligibleCount,
   locale,
+  period,
   products,
   title,
   workspace,
@@ -329,6 +335,7 @@ function ProductSection({
   analyticsSurface: string;
   eligibleCount: number;
   locale: PartnerLocale;
+  period: RollingPeriod;
   products: WorkspaceHomeDto["reorderProducts"];
   title: string;
   workspace: WorkspaceHomeDto;
@@ -337,11 +344,12 @@ function ProductSection({
   return (
     <section aria-labelledby={`dashboard-${analyticsSurface}`} data-dashboard-section="repeat-purchase">
       <SectionHeading
-        actionHref="/cabinet/repeat-purchase"
+        actionHref={`/cabinet/repeat-purchase?period=${period}`}
         actionLabel={partnerText(locale, "dashboard.openAll")}
         count={hiddenDashboardProductCount(eligibleCount, products.length)}
         id={`dashboard-${analyticsSurface}`}
         title={title}
+        titleAccessory={<RollingPeriodSelector activePeriod={period} hrefForPeriod={(target) => `/cabinet?period=${target}`} locale={locale} />}
       />
       <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
         {products.slice(0, 5).map((item) => (
@@ -641,18 +649,18 @@ function SectionHeading({
   count,
   id,
   title,
+  titleAccessory,
 }: {
   actionHref?: string;
   actionLabel?: string;
   count?: number;
   id: string;
   title: string;
+  titleAccessory?: ReactNode;
 }) {
   return (
     <div className="flex min-h-11 items-center justify-between gap-3" data-dashboard-section-heading>
-      <h2 className="text-lg font-semibold text-zinc-950" id={id}>
-        {title}
-      </h2>
+      <div className="flex min-w-0 flex-wrap items-center gap-x-3"><h2 className="text-lg font-semibold text-zinc-950" id={id}>{title}</h2>{titleAccessory}</div>
       {actionHref && actionLabel ? (
         <DashboardTrackedLink
           className="inline-flex min-h-11 items-center gap-1 text-sm font-semibold text-emerald-700 focus-visible:ring-2 focus-visible:ring-emerald-500"

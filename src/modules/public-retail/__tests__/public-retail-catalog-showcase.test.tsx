@@ -21,6 +21,7 @@ const product: PublicRetailProductSummaryDto = {
   availability: "in_stock",
   highlights: [],
   calculatorEligible: false,
+  isPopular: true,
 };
 const categories = [{ id: "20000000-0000-4000-8000-000000000001", parentId: null, slug: "video", name: "Видеонаблюдение", description: null, productCount: 12 }];
 const totalCounts = { popular: 1, new: 1, hot: 1, replenishment: 1 };
@@ -30,16 +31,16 @@ describe("Public Retail catalog showcase", () => {
     render(<PublicRetailShowcase categories={categories} locale="ru" showcase={{ popular: [product], new: [product], hot: [product], replenishment: [product], totalCounts }} />);
     expect(screen.getByRole("heading", { level: 1, name: "Витрина" })).toBeInTheDocument();
     expect(screen.getAllByRole("heading", { level: 2 }).map((heading) => heading.textContent)).toEqual([
-      "Популярные товары", "Новинки", "Горячая цена", "Последнее поступление",
+      "Популярное", "Новинки", "Горячая цена", "Последнее поступление",
     ]);
     expect(screen.getAllByRole("link", { name: /Показать все/ }).map((link) => link.getAttribute("href"))).toEqual([
-      "/catalog?lang=ru&view=popular", "/catalog?lang=ru&view=new", "/catalog?lang=ru&view=hot", "/catalog?lang=ru&view=replenishment",
+      "/catalog?lang=ru&view=popular&period=30", "/catalog?lang=ru&view=new", "/catalog?lang=ru&view=hot", "/catalog?lang=ru&view=replenishment",
     ]);
-    expect(screen.getByText("Популярное")).toBeInTheDocument();
+    expect(screen.getAllByText("Популярное").length).toBeGreaterThanOrEqual(2);
     expect(getMerchandisingBadge("Новинки")).toBeInTheDocument();
     expect(screen.getAllByText("Горячая цена")).toHaveLength(2);
     expect(screen.getByRole("link", { name: "Оборудование" })).toHaveAttribute("href", "/catalog?lang=ru&view=all");
-    expect(screen.getByText("Популярное")).toHaveClass("text-amber-900");
+    expect(screen.getAllByText("Популярное").find((element) => element.tagName === "SPAN")).toHaveClass("text-amber-900");
     expect(getMerchandisingBadge("Новинки")).toHaveClass("text-sky-800");
     expect(screen.getAllByText("Горячая цена")[1]).toHaveClass("text-rose-800");
     expect(screen.getByText("Пополнение")).toHaveClass("border-emerald-700", "bg-emerald-50", "text-emerald-900", "rounded-sm", "text-[11px]");
@@ -47,7 +48,7 @@ describe("Public Retail catalog showcase", () => {
 
   it("localizes section-derived merchandising badges in Romanian", () => {
     render(<PublicRetailShowcase categories={categories} locale="ro" showcase={{ popular: [product], new: [product], hot: [product], replenishment: [product], totalCounts }} />);
-    expect(screen.getByText("Popular")).toBeInTheDocument();
+    expect(screen.getAllByText("Popular").length).toBeGreaterThan(0);
     expect(screen.getByText("Noutate")).toBeInTheDocument();
     expect(screen.getAllByText("Preț special")).toHaveLength(2);
   });
@@ -74,7 +75,7 @@ describe("Public Retail catalog showcase", () => {
     expect(screen.getByLabelText("Ещё 3 товара")).toHaveTextContent("3");
     expect(screen.getByRole("link", { name: "Камера Model 5" })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Камера Model 6" })).not.toBeInTheDocument();
-    expect(screen.getAllByRole("link", { name: /Показать все/ }).find((link) => link.getAttribute("href") === "/catalog?lang=ru&view=popular")).toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: /Показать все/ }).find((link) => link.getAttribute("href") === "/catalog?lang=ru&view=popular&period=30")).toBeInTheDocument();
   });
 
   it("does not render a remaining-item badge when the collection has five products", () => {

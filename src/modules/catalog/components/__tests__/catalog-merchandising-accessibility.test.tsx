@@ -28,10 +28,10 @@ describe("CatalogMerchandisingSections accessibility", () => {
       }]}
       userId={null}
     />);
-    expect(screen.getByRole("heading", { name: "Популярные товары" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Показать все: Популярные товары" })).toHaveAttribute(
+    expect(screen.getByRole("heading", { name: "Популярное" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Показать все: Популярное" })).toHaveAttribute(
       "href",
-      "/cabinet/catalog?label=TOP",
+      "/cabinet/catalog?label=TOP&period=30",
     );
   });
 

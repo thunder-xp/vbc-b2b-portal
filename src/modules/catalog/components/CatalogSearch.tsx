@@ -9,12 +9,13 @@ import { ProductThumbnail } from "./ProductThumbnail";
 import type { MerchandisingLabelCode } from "../../merchandising/types";
 import type { CatalogCollection } from "../types";
 import { getCatalogCopy, usePartnerLocale } from "../../partner-locale";
+import type { RollingPeriod } from "../../commerce-period";
 
 type SearchResponse =
   | { success: true; data: CatalogSearchSuggestionDto[] }
   | { success: false };
 
-export function CatalogSearch({ categoryId, categoryIds, categorySet, collection, explicitAll, initialSearch, merchandisingLabel, sort = "default" }: { categoryId?: string; categoryIds?: string[]; categorySet?: CatalogQuickLinkCode; collection?: CatalogCollection; explicitAll?: boolean; initialSearch?: string; merchandisingLabel?: MerchandisingLabelCode; sort?: CatalogSort }) {
+export function CatalogSearch({ categoryId, categoryIds, categorySet, collection, explicitAll, initialSearch, merchandisingLabel, period, sort = "default" }: { categoryId?: string; categoryIds?: string[]; categorySet?: CatalogQuickLinkCode; collection?: CatalogCollection; explicitAll?: boolean; initialSearch?: string; merchandisingLabel?: MerchandisingLabelCode; period?: RollingPeriod; sort?: CatalogSort }) {
   const copy = getCatalogCopy(usePartnerLocale());
   const [query, setQuery] = useState(initialSearch ?? "");
   const [results, setResults] = useState<CatalogSearchSuggestionDto[]>([]);
@@ -67,6 +68,7 @@ export function CatalogSearch({ categoryId, categoryIds, categorySet, collection
       {collection && <input name="collection" type="hidden" value={collection} />}
       {explicitAll && <input name="view" type="hidden" value="all" />}
       {merchandisingLabel && <input name="label" type="hidden" value={merchandisingLabel} />}
+      {merchandisingLabel === "TOP" && <input name="period" type="hidden" value={period ?? 30} />}
       {sort !== "default" && <input name="sort" type="hidden" value={sort} />}
       <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-3.5 size-4 text-zinc-400" />
       <input aria-label={copy.searchLabel} autoComplete="off" className="h-11 w-full rounded-md border border-zinc-300 bg-white pl-10 pr-24 text-sm outline-none focus:border-emerald-700" name="search" onChange={(event) => updateQuery(event.target.value)} placeholder={copy.searchPlaceholder} type="search" value={query} />

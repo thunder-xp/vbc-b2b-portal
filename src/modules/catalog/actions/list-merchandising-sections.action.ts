@@ -16,6 +16,7 @@ import type { MerchandisingLabelCode } from "../../merchandising/types";
 import { createPartnerWorkspaceContextService } from "../../partner-cabinet/actions/service-factory";
 import { createPricingInventoryService } from "../../pricing-inventory/actions/service-factory";
 import type { ProductCommercialViewDto } from "../../pricing-inventory";
+import { parseRollingPeriod, type RollingPeriod } from "../../commerce-period";
 import { SupabaseWarehouseArrivalRepository } from "../../warehouse-arrivals/repositories";
 import { SupabaseCatalogRepository } from "../repositories/supabase";
 import {
@@ -41,15 +42,16 @@ const SECTION_ORDER: Array<{
   labelCode: MerchandisingLabelCode;
   title: string;
 }> = [
-  { labelCode: "TOP", title: "Популярные товары" },
+  { labelCode: "TOP", title: "Популярное" },
   { labelCode: "NEW", title: "Новинки" },
   { labelCode: "HOT", title: "Горячие предложения" },
 ];
 
-export async function listCatalogMerchandisingSectionsAction(): Promise<
+export async function listCatalogMerchandisingSectionsAction(requestedPeriod: RollingPeriod = 30): Promise<
   ActionResult<CatalogMerchandisingSectionsResult>
 > {
   try {
+    const period = parseRollingPeriod(requestedPeriod);
     const user = await getAuthenticatedUser();
     const userId = user.id;
     const [assignments, context] = await Promise.all([
@@ -58,6 +60,7 @@ export async function listCatalogMerchandisingSectionsAction(): Promise<
         undefined,
         5,
         user.loginGeneration,
+        period,
       ),
       createPartnerWorkspaceContextService().getWorkspaceContext(userId),
     ]);
@@ -111,6 +114,7 @@ export async function listCatalogMerchandisingSectionsAction(): Promise<
           products: sectionProducts,
           totalCount: assignments.find((assignment) => assignment.labelCode === labelCode)?.matchingProductCount
             ?? sectionProducts.length,
+          ...(labelCode === "TOP" ? { href: `/cabinet/catalog?label=TOP&period=${period}` } : {}),
         }]
         : [];
     });

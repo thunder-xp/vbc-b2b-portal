@@ -4,6 +4,7 @@ import type { CatalogAvailability } from "../components/CatalogFilters";
 import { parseCatalogAttributeFilters } from "./catalog-sort-state";
 import { parseCatalogSort, type CatalogSort } from "./catalog-sorting";
 import { parseCatalogQuickLinkCode, type CatalogQuickLinkCode } from "./catalog-quick-links";
+import { parseRollingPeriod, type RollingPeriod } from "../../commerce-period";
 
 export type CatalogRouteMode = "curated" | "discovery";
 
@@ -19,6 +20,7 @@ export type CatalogRouteState = {
   merchandisingLabel?: MerchandisingLabelCode;
   mode: CatalogRouteMode;
   page: number;
+  period: RollingPeriod;
   search?: string;
   sort: CatalogSort;
 };
@@ -37,6 +39,7 @@ export function parseCatalogRouteState(params: CatalogSearchParams): CatalogRout
   const sort = parseCatalogSort(single(params?.sort));
   const attributeFilters = parseCatalogAttributeFilters(params);
   const explicitAll = single(params?.view) === "all";
+  const period = parseRollingPeriod(single(params?.period));
   const hasDiscoveryConstraint = Boolean(
     explicitAll
       || categoryId
@@ -63,6 +66,7 @@ export function parseCatalogRouteState(params: CatalogSearchParams): CatalogRout
     merchandisingLabel,
     mode: hasDiscoveryConstraint ? "discovery" : "curated",
     page: hasDiscoveryConstraint ? parsePage(single(params?.page)) : 1,
+    period,
     search,
     sort,
   };

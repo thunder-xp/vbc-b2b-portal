@@ -12,6 +12,7 @@ import type {
   MerchandisingLabelCode,
   PublishedMerchandisingAssignment,
 } from "../types";
+import { parseRollingPeriod, type RollingPeriod } from "../../commerce-period";
 
 const LABEL_CODES = new Set<MerchandisingLabelCode>(["NEW", "TOP", "HOT", "SPECIAL_OFFER"]);
 const OPERATIONS = new Set(["assign", "revoke", "hide", "show"]);
@@ -69,6 +70,7 @@ export class MerchandisingService {
     labelCode?: MerchandisingLabelCode,
     limitPerLabel = 8,
     rotationSeed?: string,
+    requestedPeriod: RollingPeriod = 30,
   ): Promise<PublishedMerchandisingAssignment[]> {
     if (labelCode && !LABEL_CODES.has(labelCode)) {
       throw new MerchandisingValidationError("MERCHANDISING_LABEL_INVALID");
@@ -91,6 +93,7 @@ export class MerchandisingService {
       companyId: membership.companyId,
       labelCode,
       limitPerLabel: Math.min(Math.max(Math.floor(limitPerLabel), 1), 24),
+      period: parseRollingPeriod(requestedPeriod),
       ...(normalizedRotationSeed ? { rotationSeed: normalizedRotationSeed } : {}),
     });
   }

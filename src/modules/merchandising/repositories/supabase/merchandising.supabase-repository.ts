@@ -13,6 +13,7 @@ import type {
   MerchandisingLabelCode,
   PublishedMerchandisingAssignment,
 } from "../../types";
+import type { RollingPeriod } from "../../../commerce-period";
 
 type PublishedRow = {
   product_id: string;
@@ -86,15 +87,17 @@ export class SupabaseMerchandisingRepository
     companyId: string;
     labelCode?: MerchandisingLabelCode;
     limitPerLabel: number;
+    period: RollingPeriod;
     rotationSeed?: string;
   }): Promise<PublishedMerchandisingAssignment[]> {
     const supabase = await createClient();
     const { data, error } = await supabase.rpc(
-      "get_published_product_merchandising_v3",
+      "get_published_product_merchandising_v4",
       {
         p_company_id: input.companyId,
         p_label_code: input.labelCode ?? null,
         p_limit_per_label: input.limitPerLabel,
+        p_period_days: input.period,
         p_rotation_seed: input.rotationSeed ?? null,
       },
     );

@@ -2,6 +2,7 @@ import type { CatalogSort } from "./catalog-sorting";
 import type { MerchandisingLabelCode } from "../../merchandising/types";
 import type { CatalogCollection } from "../types";
 import type { CatalogQuickLinkCode } from "./catalog-quick-links";
+import type { RollingPeriod } from "../../commerce-period";
 
 export type CatalogSortHiddenField = { name: string; value: string };
 
@@ -27,6 +28,7 @@ export function buildCatalogSortHiddenFields(input: {
   explicitAll?: boolean;
   availability?: "all" | "in_stock" | "expected";
   merchandisingLabel?: MerchandisingLabelCode;
+  period?: RollingPeriod;
   search?: string;
   attributeFilters: Record<string, string[]>;
 }): CatalogSortHiddenField[] {
@@ -38,6 +40,7 @@ export function buildCatalogSortHiddenFields(input: {
   addTextField(fields, "collection", input.collection);
   addTextField(fields, "search", input.search);
   addTextField(fields, "label", input.merchandisingLabel);
+  if (input.merchandisingLabel === "TOP") addTextField(fields, "period", String(input.period ?? 30));
   if (input.explicitAll) fields.push({ name: "view", value: "all" });
   if (input.availability === "in_stock" || input.availability === "expected") {
     fields.push({ name: "availability", value: input.availability });
@@ -60,6 +63,7 @@ export function buildCatalogHref(input: {
   search?: string;
   availability?: "all" | "in_stock" | "expected";
   merchandisingLabel?: MerchandisingLabelCode;
+  period?: RollingPeriod;
   sort?: CatalogSort;
   attributeFilters?: Record<string, string[]>;
   page?: number;
@@ -75,6 +79,7 @@ export function buildCatalogHref(input: {
     search: input.search,
     availability: input.availability,
     merchandisingLabel: input.merchandisingLabel,
+    period: input.period,
     attributeFilters: input.attributeFilters ?? {},
   })) {
     searchParams.set(field.name, field.value);

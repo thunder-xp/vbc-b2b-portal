@@ -7,6 +7,7 @@ import type {
   MerchandisingLabelCode,
   PublishedMerchandisingAssignment,
 } from "../types";
+import type { RollingPeriod } from "../../commerce-period";
 
 export interface MerchandisingRepository {
   refreshB2bPopularity(): Promise<B2bPopularityRefreshResult>;
@@ -20,6 +21,7 @@ export interface MerchandisingRepository {
     companyId: string;
     labelCode?: MerchandisingLabelCode;
     limitPerLabel: number;
+    period: RollingPeriod;
     rotationSeed?: string;
   }): Promise<PublishedMerchandisingAssignment[]>;
   listPublishedForProducts(input: {

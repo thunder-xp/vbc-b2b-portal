@@ -60,6 +60,7 @@ function routeState(overrides: Partial<CatalogRouteState> = {}): CatalogRouteSta
     explicitAll: false,
     mode: "discovery",
     page: 1,
+    period: 30,
     sort: "default",
     ...overrides,
   };

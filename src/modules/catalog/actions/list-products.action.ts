@@ -24,6 +24,7 @@ import {
   normalizeMerchandisingLabel,
   normalizeCatalogOptionalText,
 } from "./catalog-action-input";
+import { parseRollingPeriod } from "../../commerce-period";
 import { emitRequestTotal, measurePerformanceStage } from "@/src/lib/performance/request-diagnostics";
 
 export async function listCatalogProductsAction(
@@ -45,6 +46,7 @@ export async function listCatalogProductsAction(
       availability,
       collection: normalizeCatalogCollection(input.collection),
       merchandisingLabel: normalizeMerchandisingLabel(input.merchandisingLabel),
+      period: parseRollingPeriod(input.period),
     }));
 
     return success("Catalog products loaded.", products);

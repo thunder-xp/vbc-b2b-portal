@@ -446,6 +446,7 @@ describe("DefaultWorkspaceHomeService", () => {
       "partner-1",
       "company-1",
       "2026-08-01T10:00:00Z",
+      30,
     );
     expect(workspace.reorderProducts).toHaveLength(5);
     expect(workspace.merchandisingProducts).toHaveLength(5);

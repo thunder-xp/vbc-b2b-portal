@@ -13,11 +13,13 @@ import {
 import { getAuthenticatedUserId } from "../../access-control/actions/service-factory";
 import type { PreviouslyPurchasedProductDto } from "../services/order-history.service";
 import { createPartnerOrderHistoryListService } from "./order-history-list.factory";
+import type { RollingPeriod } from "../../commerce-period";
 
 export async function listPreviouslyPurchasedProductsAction(input: {
   categoryIds?: string[];
   limit?: number;
   offset?: number;
+  period?: RollingPeriod;
   search?: string | null;
 } = {}): Promise<ActionResult<{
   categories: Array<{ id: string; external1cId: string | null; parentId: null; name: string; slug: string; productCount: number }>;

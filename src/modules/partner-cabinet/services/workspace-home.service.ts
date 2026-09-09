@@ -33,6 +33,7 @@ import type { PartnerSupportRepository, SupportDashboardItem } from "../../partn
 import type { PartnerEstimateSalesOpportunity, PartnerSalesWorkspaceService } from "../../partner-sales-workspace";
 import type { FinanceRepository } from "../../finance/repositories";
 import { financeBusinessDate } from "../../finance/services/finance.service";
+import { parseRollingPeriod, type RollingPeriod } from "../../commerce-period";
 
 export type WorkspaceQuickActionDto = {
   key: string;
@@ -246,7 +247,7 @@ export type SalesTrendComparisonDto = {
 };
 
 export interface WorkspaceHomeService {
-  getWorkspaceHome(userId: string, loginGeneration?: string): Promise<WorkspaceHomeDto>;
+  getWorkspaceHome(userId: string, loginGeneration?: string, period?: RollingPeriod): Promise<WorkspaceHomeDto>;
   dismissAttention(userId: string, itemId: string, sourceFingerprint: string): Promise<void>;
 }
 
@@ -283,7 +284,8 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
     );
   }
 
-  async getWorkspaceHome(userId: string, loginGeneration = "legacy-session"): Promise<WorkspaceHomeDto> {
+  async getWorkspaceHome(userId: string, loginGeneration = "legacy-session", requestedPeriod: RollingPeriod = 30): Promise<WorkspaceHomeDto> {
+    const period = parseRollingPeriod(requestedPeriod);
     const context = await this.workspaceContextService.getWorkspaceContext(userId);
     if (
       (context.accessState !== "active"
@@ -299,7 +301,7 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
     const [freshness, dashboard, selections, opportunityPage, campaignPage, supportTickets, estimateSalesOpportunities, financeData] = await Promise.all([
       timedDashboardRead("commercial_freshness", () => this.commercialFreshnessReadModel.getFreshness()),
       timedDashboardRead("dashboard_aggregate", () => this.dashboardRepository.getDashboard(companyId)),
-      timedDashboardRead("product_selections", () => this.dashboardRepository.getProductSelections?.(userId, companyId, loginGeneration) ?? Promise.resolve(null)),
+      timedDashboardRead("product_selections", () => this.dashboardRepository.getProductSelections?.(userId, companyId, loginGeneration, period) ?? Promise.resolve(null)),
       timedDashboardRead("opportunities", () => this.opportunityRepository?.list({ companyId, filter: "all", limit: 12, offset: 0 })
         ?? Promise.resolve({ items: [], totalCount: 0 })),
       timedDashboardRead("campaigns", () => this.campaignRepository?.listPartner({ companyId, filter: "active", limit: 12, offset: 0 })

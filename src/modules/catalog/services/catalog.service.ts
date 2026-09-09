@@ -19,6 +19,7 @@ import type {
 import type { ProductReferenceDto } from "../types";
 import type { CatalogCollection } from "../types";
 import { resolveProductImageFit } from "../components/product-image-source";
+import type { RollingPeriod } from "../../commerce-period";
 import {
   parseCatalogSort,
   requiresCommercialCatalogSort,
@@ -56,11 +57,12 @@ export type CatalogProductListInput = {
   availabilityProductIds?: string[];
   collection?: CatalogCollection;
   merchandisingLabel?: MerchandisingLabelCode;
+  period?: RollingPeriod;
 };
 
 export type CatalogFacetListInput = Pick<
   CatalogProductListInput,
-  "categoryId" | "categoryIds" | "brandId" | "search" | "attributeFilters" | "availability" | "collection" | "merchandisingLabel"
+  "categoryId" | "categoryIds" | "brandId" | "search" | "attributeFilters" | "availability" | "collection" | "merchandisingLabel" | "period"
 >;
 
 export type CatalogFacetDto = { key: string; label: string; values: Array<{ value: string; count: number; selected: boolean }> };
@@ -423,6 +425,7 @@ export class DefaultCatalogService implements CatalogService, ProductReferenceSe
         attributeFilters,
         collection: input.collection,
         merchandisingLabel: input.merchandisingLabel,
+        period: input.period ?? 30,
       }) ?? Promise.resolve([]),
     );
     return buildFacets(rows, attributeFilters);
@@ -454,6 +457,7 @@ export class DefaultCatalogService implements CatalogService, ProductReferenceSe
         sort: input.sort,
         limit: input.pageSize,
         offset: (input.page - 1) * input.pageSize,
+        period: input.period ?? 30,
       }),
     );
     const visibility = this.pricingInventoryService?.getCommercialVisibility

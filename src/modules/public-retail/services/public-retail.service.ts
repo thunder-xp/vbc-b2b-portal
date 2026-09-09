@@ -6,6 +6,7 @@ import {
   type PublicRetailCatalogMode,
   type PublicRetailLocale,
 } from "../types";
+import { parseRollingPeriod, type RollingPeriod } from "../../commerce-period";
 
 export type PublicRetailListInput = {
   locale?: string;
@@ -16,6 +17,7 @@ export type PublicRetailListInput = {
   page?: number;
   pageSize?: number;
   mode?: string;
+  period?: RollingPeriod;
 };
 
 export class PublicRetailService {
@@ -25,10 +27,11 @@ export class PublicRetailService {
     return this.repository.listCategories(normalizeLocale(locale));
   }
 
-  getRetailShowcase(locale: string | undefined, rotationSeed: string) {
+  getRetailShowcase(locale: string | undefined, rotationSeed: string, requestedPeriod: RollingPeriod = 30) {
     return this.repository.getShowcase(
       normalizeLocale(locale),
       normalizeRotationSeed(rotationSeed),
+      parseRollingPeriod(requestedPeriod),
     );
   }
 
@@ -50,6 +53,7 @@ export class PublicRetailService {
       mode: normalizeMode(input.mode, Boolean(normalizeSearch(input.search))),
       limit: pageSize,
       offset: (page - 1) * pageSize,
+      period: parseRollingPeriod(input.period),
     });
   }
 

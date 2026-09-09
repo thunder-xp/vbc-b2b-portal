@@ -3,6 +3,7 @@ import Link from "next/link";
 import type { ProductCardCapabilityModel } from "../../partner-cabinet/services";
 import type { ProductCommercialViewDto } from "../../pricing-inventory";
 import type { MerchandisingLabelCode } from "../../merchandising/types";
+import type { RollingPeriod } from "../../commerce-period";
 import { FavoriteProductButton } from "../../purchasing-lists/components/FavoriteProductButton";
 import type { CatalogProductCardDto, CatalogQuickLinkCode } from "../services";
 import { getCatalogCharacteristicFilterTarget } from "../services/catalog-characteristic-filter";
@@ -33,6 +34,7 @@ export type ProductListCatalogState = {
   explicitAll: boolean;
   merchandisingLabel?: MerchandisingLabelCode;
   page: number;
+  period?: RollingPeriod;
   search?: string;
   sort: CatalogSort;
 };

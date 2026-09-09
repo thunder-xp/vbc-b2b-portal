@@ -3,6 +3,7 @@ import "server-only";
 import { createClient } from "@/src/lib/supabase/server";
 import { createAdminClient } from "@/src/lib/supabase/admin";
 import { z } from "zod";
+import type { RollingPeriod } from "../../commerce-period";
 
 import type {
   WorkspaceDashboardProjection,
@@ -202,14 +203,16 @@ export class SupabaseWorkspaceDashboardRepository
     userId: string,
     companyId: string,
     loginGeneration: string,
+    period: RollingPeriod = 30,
   ): Promise<WorkspaceDashboardSelections> {
     const startedAt = performance.now();
     const { data, error } = await createAdminClient().rpc(
-      "get_or_refresh_partner_dashboard_selections_v2",
+      "get_or_refresh_partner_dashboard_selections_v3",
       {
         p_user_id: userId,
         p_company_id: companyId,
         p_login_generation: loginGeneration,
+        p_period_days: period,
       },
     );
     const parsed = selectionsSchema.safeParse(data);

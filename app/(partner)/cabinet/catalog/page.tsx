@@ -64,20 +64,21 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
     collection: routeState.collection,
     explicitAll: routeState.explicitAll,
     merchandisingLabel: routeState.merchandisingLabel,
+    period: routeState.period,
     search: routeState.search,
   });
 
   return <div className="space-y-6">
     <CatalogToolbarFrame>
-      <CategoryMegaMenu categories={categoriesResult.data.map(({ id, name, parentId }) => ({ id, name, parentId }))} collection={routeState.collection} merchandisingLabel={routeState.merchandisingLabel} sort={routeState.sort} />
-      <CatalogSearch categoryId={routeState.categoryId} categoryIds={selectedTopCategoryIds} categorySet={routeState.categorySet} collection={routeState.collection} explicitAll={routeState.explicitAll} initialSearch={routeState.search} merchandisingLabel={routeState.merchandisingLabel} sort={routeState.sort} />
+      <CategoryMegaMenu categories={categoriesResult.data.map(({ id, name, parentId }) => ({ id, name, parentId }))} collection={routeState.collection} merchandisingLabel={routeState.merchandisingLabel} period={routeState.period} sort={routeState.sort} />
+      <CatalogSearch categoryId={routeState.categoryId} categoryIds={selectedTopCategoryIds} categorySet={routeState.categorySet} collection={routeState.collection} explicitAll={routeState.explicitAll} initialSearch={routeState.search} merchandisingLabel={routeState.merchandisingLabel} period={routeState.period} sort={routeState.sort} />
       {routeState.mode === "discovery" ? <CatalogSortControl hiddenFields={sortHiddenFields} locale={locale} sort={routeState.sort} /> : null}
       <CatalogModeLink curated={routeState.mode === "curated"} labels={{ allCatalog: copy.allCatalog, showcase: copy.showcase }} />
     </CatalogToolbarFrame>
     {routeState.mode === "discovery" ? <CatalogBreadcrumb categories={categoriesResult.data} locale={locale} selectedId={routeState.categoryId} /> : null}
     <Suspense fallback={<CatalogResultsFallback ariaLabel={copy.loading} curated={routeState.mode === "curated"} />}>
       {routeState.mode === "curated"
-        ? <CuratedCatalogResults locale={locale} merchandisingPromise={listCatalogMerchandisingSectionsAction()} workspacePromise={getPartnerWorkspaceContextAction()} />
+        ? <CuratedCatalogResults locale={locale} merchandisingPromise={listCatalogMerchandisingSectionsAction(routeState.period)} period={routeState.period} workspacePromise={getPartnerWorkspaceContextAction()} />
         : <CatalogResults
             attributeFilters={routeState.attributeFilters}
             availability={routeState.availability}
@@ -92,6 +93,7 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
             locale={locale}
             merchandisingLabel={routeState.merchandisingLabel}
             page={routeState.page}
+            period={routeState.period}
             productsPromise={listCatalogProductsAction({
               attributeFilters: routeState.attributeFilters,
               availability: routeState.availability,
@@ -102,6 +104,7 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
               merchandisingLabel: routeState.merchandisingLabel,
               page: routeState.page,
               pageSize: PAGE_SIZE,
+              period: routeState.period,
               search: routeState.search,
               sort: routeState.sort,
             })}

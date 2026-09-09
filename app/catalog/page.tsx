@@ -13,6 +13,7 @@ import { parseCatalogAttributeFilters } from "@/src/modules/catalog/services/cat
 import { publicRetailCatalogReturnHref } from "@/src/modules/public-retail/catalog-links";
 import type { PublicRetailMerchandisingMode, PublicRetailPriceSort } from "@/src/modules/public-retail/types";
 import { getPublicBlogForCategory } from "@/src/modules/public-blog/server";
+import { parseRollingPeriod } from "@/src/modules/commerce-period";
 
 type Params = Record<string, string | string[] | undefined>;
 
@@ -50,12 +51,13 @@ export default async function PublicCatalogPage({ searchParams }: { searchParams
   const sort = single(params.sort)?.trim();
   const returnHref = publicRetailCatalogReturnHref(locale, single(params.return));
   const page = Math.max(1, Number(single(params.page)) || 1);
+  const period = parseRollingPeriod(single(params.period));
   const attributeFilters = parseCatalogAttributeFilters(params);
   const service = getPublicRetailService();
   if (!hasListingIntent(params)) {
     const rotationSeed = (await headers()).get("x-novotech-popular-session") ?? "";
     const [showcase, categories] = await Promise.all([
-      service.getRetailShowcase(locale, rotationSeed),
+      service.getRetailShowcase(locale, rotationSeed, period),
       getPublicRetailCategories(locale),
     ]);
     const schema = [
@@ -65,7 +67,7 @@ export default async function PublicCatalogPage({ searchParams }: { searchParams
         { name: locale === "ro" ? "Catalog" : "Каталог", url: publicLocalizedUrl("/catalog", locale) },
       ]),
     ];
-    return <PublicRetailShell languagePath="/catalog" locale={locale}><PublicStructuredData data={schema} /><main><PublicRetailShowcase categories={categories} locale={locale} showcase={showcase} /></main></PublicRetailShell>;
+    return <PublicRetailShell languagePath="/catalog" locale={locale}><PublicStructuredData data={schema} /><main><PublicRetailShowcase categories={categories} locale={locale} period={period} showcase={showcase} /></main></PublicRetailShell>;
   }
   const merchandisingMode: PublicRetailMerchandisingMode | undefined = q ? undefined : view === "replenishment" ? "replenishment" : view === "special" ? "special" : view === "new" ? "new" : view === "hot" ? "hot" : view === "popular" ? "popular" : undefined;
   const priceSort: PublicRetailPriceSort | undefined = sort === "price_desc" ? "price_desc" : sort === "price_asc" ? "price_asc" : undefined;
@@ -75,7 +77,7 @@ export default async function PublicCatalogPage({ searchParams }: { searchParams
     : service.listRetailFacets({ categorySlug: category, search: q, availability, facets: attributeFilters, locale });
   const [categories, products, categoryFacets] = await Promise.all([
     getPublicRetailCategories(locale),
-    service.listRetailProducts({ locale, categorySlug: category, search: q, availability, facets: attributeFilters, mode, page, pageSize: 24 }),
+    service.listRetailProducts({ locale, categorySlug: category, search: q, availability, facets: attributeFilters, mode, page, pageSize: 24, period }),
     categoryFacetRead,
   ]);
 
@@ -108,7 +110,7 @@ export default async function PublicCatalogPage({ searchParams }: { searchParams
     },
     publicBreadcrumbSchema(breadcrumbItems),
   ];
-  return <PublicRetailShell languagePath="/catalog" locale={locale}><PublicStructuredData data={schema} /><main><PublicRetailCatalog blogArticles={usefulMaterials} breadcrumbs={breadcrumbItems} categories={categories} categoryContent={categoryContent} facets={categoryFacets} locale={locale} products={products} state={{ q, category, availability, attributeFilters, mode: merchandisingMode, sort: priceSort, returnHref, page }} /></main></PublicRetailShell>;
+  return <PublicRetailShell languagePath="/catalog" locale={locale}><PublicStructuredData data={schema} /><main><PublicRetailCatalog blogArticles={usefulMaterials} breadcrumbs={breadcrumbItems} categories={categories} categoryContent={categoryContent} facets={categoryFacets} locale={locale} products={products} state={{ q, category, availability, attributeFilters, mode: merchandisingMode, sort: priceSort, returnHref, page, period }} /></main></PublicRetailShell>;
 }
 
 function publicCategoryBreadcrumbs(content: PublicCategoryContent | null, locale: "ru" | "ro") {

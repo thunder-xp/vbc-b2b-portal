@@ -9,6 +9,7 @@ import {
   type CatalogPartnerPageRow,
 } from "@/src/modules/catalog/repositories/supabase/catalog-partner-page.contract";
 import type { PartnerDocumentListItem } from "@/src/modules/documents/types";
+import type { RollingPeriod } from "@/src/modules/commerce-period";
 
 import type { SalesOrderHistoryDTO } from "../../../integration/dto";
 import type {
@@ -60,16 +61,18 @@ export class SupabasePartnerOrderHistoryRepository implements PartnerOrderHistor
     companyId: string;
     limit: number;
     offset: number;
+    period: RollingPeriod;
     search: string | null;
   }) {
     const startedAt = performance.now();
     const { data, error } = await (await createClient()).rpc(
-      "get_partner_previously_purchased_products_v3",
+      "get_partner_previously_purchased_products_v4",
       {
         p_category_ids: input.categoryIds,
         p_company_id: input.companyId,
         p_limit: input.limit,
         p_offset: input.offset,
+        p_period_days: input.period,
         p_search: input.search,
       },
     );

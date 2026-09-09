@@ -66,6 +66,7 @@ describe("parseCatalogRouteState", () => {
       merchandisingLabel: undefined,
       mode: "discovery",
       page: 3,
+      period: 30,
       search: "dome",
       sort: "default",
     });

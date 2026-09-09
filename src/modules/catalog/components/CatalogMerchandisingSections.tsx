@@ -7,12 +7,14 @@ import { ProductCard } from "./ProductCard";
 import { CATALOG_PRODUCT_GRID_CLASS } from "./ProductGrid";
 import { BehaviorTrackedCatalogLink, BehaviorViewEvent } from "../../behavior-analytics/components/BehaviorViewEvent";
 import { getCatalogCopy, type PartnerLocale } from "../../partner-locale";
+import { RollingPeriodSelector, type RollingPeriod } from "../../commerce-period";
 
 export function CatalogMerchandisingSections({
   capabilities,
   commercialViews,
   companyId,
   locale = "ru",
+  period = 30,
   sections,
   userId,
 }: {
@@ -20,6 +22,7 @@ export function CatalogMerchandisingSections({
   commercialViews: Record<string, ProductCommercialViewDto>;
   companyId: string | null;
   locale?: PartnerLocale;
+  period?: RollingPeriod;
   sections: CatalogMerchandisingSection[];
   userId: string | null;
 }) {
@@ -28,24 +31,25 @@ export function CatalogMerchandisingSections({
 
   return (
     <div className="space-y-7" data-testid="catalog-merchandising-sections">
-      {sections.map((section) => (
-        <section aria-labelledby={`section-${section.labelCode}`} key={section.labelCode}>
+      {sections.map((section) => {
+        const visibleTitle = section.labelCode === "TOP" ? copy.popular : section.labelCode === "REPLENISHMENT" ? copy.latestArrival : section.title;
+        return <section aria-labelledby={`section-${section.labelCode}`} key={section.labelCode}>
           <BehaviorViewEvent
             dedupeKey={`merchandising-section:${section.labelCode}`}
             eventName="merchandising_section_viewed"
             route="/cabinet/catalog"
             sourceSurface={section.labelCode}
           />
-          <div className="mb-3 flex items-center justify-between gap-4">
-            <h2 className="text-lg font-semibold text-zinc-950" id={`section-${section.labelCode}`}>
-              {section.labelCode === "REPLENISHMENT" ? copy.latestArrival : section.title}
-            </h2>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+            <div className="flex min-w-0 flex-wrap items-center gap-x-3"><h2 className="text-lg font-semibold text-zinc-950" id={`section-${section.labelCode}`}>
+              {visibleTitle}
+            </h2>{section.labelCode === "TOP" ? <RollingPeriodSelector activePeriod={period} hrefForPeriod={(target) => `/cabinet/catalog?period=${target}`} locale={locale} /> : null}</div>
             <div className="inline-flex shrink-0 items-center gap-2">
               <ResponsiveRemainderBadge locale={locale} totalCount={section.totalCount} />
               <BehaviorTrackedCatalogLink
-                ariaLabel={`${copy.showAll}: ${section.labelCode === "REPLENISHMENT" ? copy.latestArrival : section.title}`}
+                ariaLabel={`${copy.showAll}: ${visibleTitle}`}
                 className="shrink-0 text-sm font-semibold text-emerald-700 hover:text-emerald-800"
-                href={section.href ?? `/cabinet/catalog?label=${section.labelCode}`}
+                href={section.href ?? `/cabinet/catalog?label=${section.labelCode}${section.labelCode === "TOP" ? `&period=${period}` : ""}`}
                 sourceSurface={section.labelCode}
               >
                 {copy.showAll}
@@ -68,8 +72,8 @@ export function CatalogMerchandisingSections({
               </div>
             ))}
           </div>
-        </section>
-      ))}
+        </section>;
+      })}
     </div>
   );
 }
