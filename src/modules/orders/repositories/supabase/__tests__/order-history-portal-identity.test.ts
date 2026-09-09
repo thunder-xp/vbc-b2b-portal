@@ -6,6 +6,10 @@ const source = readFileSync(
   resolve("src/modules/orders/repositories/supabase/order-history.supabase-repository.ts"),
   "utf8",
 );
+const orderSource = readFileSync(
+  resolve("src/modules/orders/repositories/supabase/order.supabase-repository.ts"),
+  "utf8",
+);
 
 describe("order history portal identity resolution", () => {
   it("resolves a synchronized order by history or linked portal order id", () => {
@@ -20,5 +24,16 @@ describe("order history portal identity resolution", () => {
     expect(source).toContain("p_external_refs: candidates.external1cRefs");
     expect(source).toContain('.rpc("get_partner_order_history_page"');
     expect(source).not.toContain('.select("external_1c_order_ref, portal_order_id")');
+  });
+
+  it("uses the unified authority candidate and atomic apply RPCs", () => {
+    expect(source).toContain('.rpc("get_partner_order_authority_candidates"');
+    expect(source).toContain('.rpc("apply_partner_order_authority_batch"');
+    expect(source).not.toContain('.rpc("get_partner_order_history_existence_candidates"');
+  });
+
+  it("suppresses only authoritative-missing confirmed portal fallbacks in the existing read", () => {
+    expect(orderSource).toMatch(/authoritative_presence,\s*last_authority_verified_at,\s*last_authority_result/);
+    expect(orderSource).toContain('.neq("authoritative_presence", "confirmed_missing_from_1c")');
   });
 });

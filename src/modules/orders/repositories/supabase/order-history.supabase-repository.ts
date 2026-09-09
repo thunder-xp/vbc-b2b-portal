@@ -375,16 +375,25 @@ export class SupabasePartnerOrderHistoryRepository implements PartnerOrderHistor
   }
 
   async listExistenceVerificationCandidates(input: { companyId: string; limit: number }) {
-    const { data, error } = await createAdminClient().rpc("get_partner_order_history_existence_candidates", {
+    const { data, error } = await createAdminClient().rpc("get_partner_order_authority_candidates", {
       p_company_id: input.companyId,
       p_limit: input.limit,
     });
     if (error) throw new OrderHistoryRepositoryError();
-    return ((data ?? []) as Row[]).map(mapHistory);
+    return ((data ?? []) as Row[]).map((row) => ({
+      sourceKind: row.source_kind === "portal_order" ? "portal_order" as const : "history" as const,
+      portalOrderId: nullableText(row.portal_order_id),
+      external1cOrderRef: text(row.external_1c_order_ref),
+      oneCSourceVersion: nullableText(row.one_c_source_version),
+      partnerVisible: row.partner_visible === true,
+      hiddenReason: nullableText(row.hidden_reason),
+      oneCDeletionMark: row.one_c_deletion_mark === true,
+      currencyCode: nullableText(row.currency_code),
+    }));
   }
 
   async applyExistenceResults(input: Parameters<NonNullable<PartnerOrderHistoryRepository["applyExistenceResults"]>>[0]) {
-    const { data, error } = await createAdminClient().rpc("apply_partner_order_history_existence_batch", {
+    const { data, error } = await createAdminClient().rpc("apply_partner_order_authority_batch", {
       p_company_id: input.companyId,
       p_sync_id: input.syncId,
       p_verified_at: input.verifiedAt,

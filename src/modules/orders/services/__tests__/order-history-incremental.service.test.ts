@@ -63,6 +63,22 @@ describe("partner order-history true incremental synchronization", () => {
       results: expect.arrayContaining([{ external1cOrderRef: ORDER_REF, status: "exists" }]),
     }));
   });
+
+  it("reconciles an unmatched confirmed portal order in the same bounded exact-reference batch", async () => {
+    const repository = repo({ portalCandidate: true });
+    const provider = source({ existenceStatus: "absent" });
+
+    await service(repository, provider).syncCompany(COMPANY_ID, COUNTERPARTY, "incremental");
+
+    expect(provider.verifySalesOrderHistoryReferences).toHaveBeenCalledTimes(1);
+    expect(provider.verifySalesOrderHistoryReferences).toHaveBeenCalledWith(expect.objectContaining({
+      orderReferences: [expect.objectContaining({ externalId: ORDER_REF })],
+    }));
+    expect(repository.applyExistenceResults).toHaveBeenCalledWith(expect.objectContaining({
+      companyId: COMPANY_ID,
+      results: [{ external1cOrderRef: ORDER_REF, status: "absent" }],
+    }));
+  });
 });
 
 const COMPANY_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
@@ -79,7 +95,7 @@ function service(repository: ReturnType<typeof repo>, provider: ReturnType<typeo
   );
 }
 
-function repo(options: { knownVersion?: string; verificationVersion?: string; hidden?: boolean } = {}) {
+function repo(options: { knownVersion?: string; verificationVersion?: string; hidden?: boolean; portalCandidate?: boolean } = {}) {
   const candidate = history({
     oneCSourceVersion: options.verificationVersion ?? options.knownVersion ?? "v1",
     partnerVisible: !options.hidden,
@@ -97,7 +113,16 @@ function repo(options: { knownVersion?: string; verificationVersion?: string; hi
       oneCDeletionMark: false,
       currencyCode: "MDL",
     }]),
-    listExistenceVerificationCandidates: vi.fn().mockResolvedValue([candidate]),
+    listExistenceVerificationCandidates: vi.fn().mockResolvedValue([options.portalCandidate ? {
+      ...candidate,
+      sourceKind: "portal_order",
+      portalOrderId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+      oneCSourceVersion: null,
+    } : {
+      ...candidate,
+      sourceKind: "history",
+      portalOrderId: null,
+    }]),
     applyExistenceResults: vi.fn().mockImplementation(async (input: { results: Array<{ status: string }> }) => ({
       updated: input.results.length,
       hidden: input.results.filter((item) => item.status === "absent" || item.status === "deletion_marked").length,
@@ -109,7 +134,7 @@ function repo(options: { knownVersion?: string; verificationVersion?: string; hi
   } as unknown as PartnerOrderHistoryRepository & Record<string, ReturnType<typeof vi.fn>>;
 }
 
-function source(options: { headerVersion?: string; detailVersion?: string; existenceStatus?: "exists" | "unknown" } = {}) {
+function source(options: { headerVersion?: string; detailVersion?: string; existenceStatus?: "exists" | "absent" | "unknown" } = {}) {
   const header = dto(options.headerVersion ?? "v1", []);
   const detail = dto(options.detailVersion ?? options.headerVersion ?? "v1", [{
     lineNumber: 1,

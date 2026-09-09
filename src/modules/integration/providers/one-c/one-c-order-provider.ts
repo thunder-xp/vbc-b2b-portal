@@ -441,7 +441,7 @@ export class OneCCustomerOrderProvider implements OrderProvider {
       throw new IntegrationValidationError("1C order existence batch is invalid.");
     }
 
-    let requestCount = 1;
+    const requestCount = 1;
     const referenceFilter = references.map((reference) => `Ref_Key eq guid'${reference}'`).join(" or ");
     const query = `$filter=Контрагент_Key eq guid'${partnerRef}' and (${referenceFilter})&$select=${HISTORY_ORDER_FIELDS}&$top=${references.length}&$format=json`;
     const requestUrl = `${requiredBaseUrl(this.config)}/${CUSTOMER_ORDER_RESOURCE}?${query}`;
@@ -473,39 +473,16 @@ export class OneCCustomerOrderProvider implements OrderProvider {
       else found.set(reference, parsed);
     }
 
-    const missing = references.filter((reference) => !found.has(reference));
-    const singletonResults = await mapWithConcurrency(missing, HISTORY_LINE_CONCURRENCY, async (reference) => {
-      requestCount += 1;
-      const exactUrl = new URL(`${requiredBaseUrl(this.config)}/${CUSTOMER_ORDER_RESOURCE}(guid'${reference}')`);
-      exactUrl.searchParams.set("$select", HISTORY_ORDER_FIELDS);
-      exactUrl.searchParams.set("$format", "json");
-      try {
-        const exactResponse = await fetchOneC(this.config, exactUrl, "1C order existence verification is unavailable.");
-        const exactBody = await exactResponse.text();
-        if (exactResponse.status === 404) return [reference, { status: "absent" as const, header: null }] as const;
-        if (exactResponse.status === 401 || exactResponse.status === 403) throw historyHttpError(exactResponse.status);
-        if (!exactResponse.ok) return [reference, { status: "unknown" as const, header: null }] as const;
-        const value = JSON.parse(exactBody) as unknown;
-        const parsed = parseHistoryRow(value, partnerRef);
-        if (!parsed || parsed.dto.reference.externalId.toLowerCase() !== reference) {
-          return [reference, { status: "unknown" as const, header: null }] as const;
-        }
-        return [reference, existenceFromRow(parsed)] as const;
-      } catch (error) {
-        if (error instanceof IntegrationUnauthorizedError || error instanceof IntegrationForbiddenError) throw error;
-        return [reference, { status: "unknown" as const, header: null }] as const;
-      }
-    });
-    const singletonByReference = new Map<string, {
-      status: "exists" | "deletion_marked" | "absent" | "unknown";
-      header: SalesOrderHistoryDTO | null;
-    }>();
-    for (const [reference, value] of singletonResults) singletonByReference.set(reference, value);
+    const envelopeRecord = envelope as Record<string, unknown>;
+    const hasContinuation = typeof envelopeRecord["@odata.nextLink"] === "string"
+      || typeof envelopeRecord["odata.nextLink"] === "string";
     return {
       results: references.map((reference) => {
         if (conflicted.has(reference)) return { reference: externalReference(reference, "customer-order"), status: "unknown" as const, header: null };
         const row = found.get(reference);
-        const value = row ? existenceFromRow(row) : singletonByReference.get(reference) ?? { status: "unknown" as const, header: null };
+        const value = row
+          ? existenceFromRow(row)
+          : { status: hasContinuation ? "unknown" as const : "absent" as const, header: null };
         return { reference: externalReference(reference, "customer-order"), ...value };
       }),
       requestCount,

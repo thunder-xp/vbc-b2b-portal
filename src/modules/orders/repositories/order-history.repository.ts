@@ -27,6 +27,10 @@ export type ActiveOrderRefreshCandidate = { order: PartnerOrderHistory; counterp
 export type OrderHistoryKnownHeader = Pick<PartnerOrderHistory,
   "external1cOrderRef" | "oneCSourceVersion" | "partnerVisible" | "hiddenReason" | "oneCDeletionMark" | "currencyCode"
 >;
+export type OrderHistoryExistenceCandidate = OrderHistoryKnownHeader & {
+  sourceKind: "history" | "portal_order";
+  portalOrderId: string | null;
+};
 export type OrderHistoryExistenceResult = {
   external1cOrderRef: string;
   status: "exists" | "deletion_marked" | "absent" | "unknown";
@@ -152,7 +156,7 @@ export interface PartnerOrderHistoryRepository {
   listSyncCompanies?(limit: number): Promise<OrderHistorySyncCompany[]>;
   listActiveRefreshCandidates?(input: { olderThan: string; limit: number }): Promise<ActiveOrderRefreshCandidate[]>;
   listKnownHeaders?(companyId: string, orderRefs: string[]): Promise<OrderHistoryKnownHeader[]>;
-  listExistenceVerificationCandidates?(input: { companyId: string; limit: number }): Promise<PartnerOrderHistory[]>;
+  listExistenceVerificationCandidates?(input: { companyId: string; limit: number }): Promise<OrderHistoryExistenceCandidate[]>;
   applyExistenceResults?(input: {
     companyId: string;
     syncId: string;

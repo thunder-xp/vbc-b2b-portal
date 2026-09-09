@@ -467,6 +467,7 @@ export class DefaultPartnerOrderHistoryService implements PartnerOrderHistorySer
       || order.companyId !== companyId
       || order.status !== PartnerOrderStatus.Submitted
       || order.integrationStatus !== PartnerOrderIntegrationStatus.Confirmed
+      || order.authoritativePresence === "confirmed_missing_from_1c"
       || !order.external1cNumber
       || !order.external1cDate
     ) {
@@ -1058,6 +1059,7 @@ function selectUnmergedConfirmedOrders(
     .filter((order) =>
       order.status === PartnerOrderStatus.Submitted
       && order.integrationStatus === PartnerOrderIntegrationStatus.Confirmed
+      && order.authoritativePresence !== "confirmed_missing_from_1c"
       && !linkedPortalOrders.has(order.id)
       && (!order.external1cRef || !historyRefs.has(order.external1cRef.toLowerCase())))
     .sort((left, right) => portalOrderDate(right).localeCompare(portalOrderDate(left)));

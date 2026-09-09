@@ -21,6 +21,18 @@ export enum PartnerOrderIntegrationStatus {
   ManualReviewRequired = "manual_review_required",
 }
 
+export type PartnerOrderAuthoritativePresence =
+  | "pending_initial_confirmation"
+  | "confirmed_present_in_1c"
+  | "confirmed_missing_from_1c"
+  | "unknown";
+
+export type PartnerOrderAuthorityResult =
+  | "exists"
+  | "deletion_marked"
+  | "absent"
+  | "unknown";
+
 export type Cart = {
   id: string;
   companyId: string;
@@ -55,6 +67,9 @@ export type PartnerOrder = {
   external1cRef: string | null;
   external1cNumber: string | null;
   external1cDate: string | null;
+  authoritativePresence?: PartnerOrderAuthoritativePresence;
+  lastAuthorityVerifiedAt?: string | null;
+  lastAuthorityResult?: PartnerOrderAuthorityResult | null;
   payloadSnapshot: Record<string, unknown>;
   safeErrorCode: string | null;
   safeErrorMessage: string | null;

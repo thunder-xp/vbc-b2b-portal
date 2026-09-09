@@ -6,7 +6,7 @@ import { OrderRepositoryError, type CartReconciliationLock, type CartRepository,
 
 const CART_COLUMNS = "id, company_id, created_by, status, intent_version, created_at, updated_at";
 const CART_ITEM_COLUMNS = "id, cart_id, product_id, quantity, created_at, updated_at";
-const ORDER_COLUMNS = "id, company_id, submitted_by, cart_id, submission_key, submission_attempt_id, request_fingerprint, status, integration_status, one_c_order_status, requested_delivery_date, external_1c_ref, external_1c_number, external_1c_date, payload_snapshot, safe_error_code, safe_error_message, document_total, currency_code, contract_number, confirmed_at, last_reconciled_at, reconciliation_attempt_count, reconciliation_last_attempt_at, reconciliation_correlation_id, submitted_at, created_at, updated_at";
+const ORDER_COLUMNS = "id, company_id, submitted_by, cart_id, submission_key, submission_attempt_id, request_fingerprint, status, integration_status, one_c_order_status, requested_delivery_date, external_1c_ref, external_1c_number, external_1c_date, authoritative_presence, last_authority_verified_at, last_authority_result, payload_snapshot, safe_error_code, safe_error_message, document_total, currency_code, contract_number, confirmed_at, last_reconciled_at, reconciliation_attempt_count, reconciliation_last_attempt_at, reconciliation_correlation_id, submitted_at, created_at, updated_at";
 const ORDER_ITEM_COLUMNS = "id, order_id, product_id, external_product_ref, product_name, sku, quantity, partner_unit_price, currency_code, line_total, available_stock, nearest_arrival_date, nearest_arrival_quantity, snapshot_at";
 
 type Row = Record<string, unknown>;
@@ -166,6 +166,7 @@ export class SupabasePartnerOrderRepository implements PartnerOrderRepository {
       .eq("company_id", companyId)
       .eq("status", PartnerOrderStatus.Submitted)
       .eq("integration_status", PartnerOrderIntegrationStatus.Confirmed)
+      .neq("authoritative_presence", "confirmed_missing_from_1c")
       .order("created_at", { ascending: false });
     if (error) throw new OrderRepositoryError();
     return ((data ?? []) as Row[]).map(mapOrder);
@@ -321,6 +322,9 @@ function mapOrder(row: Row): PartnerOrder {
     integrationStatus: row.integration_status as PartnerOrderIntegrationStatus, oneCOrderStatus: nullableText(row.one_c_order_status),
     requestedDeliveryDate: text(row.requested_delivery_date), external1cRef: nullableText(row.external_1c_ref),
     external1cNumber: nullableText(row.external_1c_number), external1cDate: nullableText(row.external_1c_date),
+    authoritativePresence: (nullableText(row.authoritative_presence) ?? "unknown") as PartnerOrder["authoritativePresence"],
+    lastAuthorityVerifiedAt: nullableText(row.last_authority_verified_at),
+    lastAuthorityResult: nullableText(row.last_authority_result) as PartnerOrder["lastAuthorityResult"],
     payloadSnapshot: isRecord(row.payload_snapshot) ? row.payload_snapshot : {}, safeErrorCode: nullableText(row.safe_error_code),
     safeErrorMessage: nullableText(row.safe_error_message), documentTotal: nullableNumber(row.document_total), currencyCode: nullableText(row.currency_code),
     contractNumber: nullableText(row.contract_number), confirmedAt: nullableText(row.confirmed_at), lastReconciledAt: nullableText(row.last_reconciled_at),

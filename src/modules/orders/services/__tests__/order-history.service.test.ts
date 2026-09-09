@@ -9,6 +9,7 @@ import type { PartnerOrderHistoryRepository, PartnerOrderRepository } from "../.
 import {
   PartnerOrderIntegrationStatus,
   PartnerOrderStatus,
+  type PartnerOrder,
   type PartnerOrderHistory,
 } from "../../types";
 import { DefaultPartnerOrderHistoryService } from "../order-history.service";
@@ -256,6 +257,67 @@ describe("DefaultPartnerOrderHistoryService", () => {
         totalUnitCount: 2,
       }],
     });
+  });
+
+  it.each(["absent", "deletion_marked"] as const)(
+    "hides an unmatched confirmed portal fallback after the exact 1C result is %s",
+    async (lastAuthorityResult) => {
+      const portalOrder = confirmedPortalOrder({
+        authoritativePresence: "confirmed_missing_from_1c",
+        lastAuthorityResult,
+      });
+      const portalRepository = {
+        listConfirmedByCompanyId: vi.fn().mockResolvedValue([portalOrder]),
+      } as unknown as PartnerOrderRepository;
+
+      const result = await service(
+        historyRepository([]),
+        orderProvider(),
+        ["pricing.partner_price.view"],
+        portalRepository,
+      ).list("user-1", {});
+
+      expect(result.orders).toEqual([]);
+      expect(result.total).toBe(0);
+    },
+  );
+
+  it("preserves an unmatched confirmed portal fallback when exact 1C verification is unknown", async () => {
+    const portalOrder = confirmedPortalOrder({
+      authoritativePresence: "unknown",
+      lastAuthorityResult: "unknown",
+    });
+    const portalRepository = {
+      listConfirmedByCompanyId: vi.fn().mockResolvedValue([portalOrder]),
+    } as unknown as PartnerOrderRepository;
+
+    const result = await service(
+      historyRepository([]),
+      orderProvider(),
+      ["pricing.partner_price.view"],
+      portalRepository,
+    ).list("user-1", {});
+
+    expect(result.orders).toHaveLength(1);
+    expect(result.orders[0]?.id).toBe(portalOrder.id);
+  });
+
+  it("does not open a suppressed portal fallback by its retained audit id", async () => {
+    const portalOrder = confirmedPortalOrder({
+      authoritativePresence: "confirmed_missing_from_1c",
+      lastAuthorityResult: "absent",
+    });
+    const portalRepository = {
+      findById: vi.fn().mockResolvedValue(portalOrder),
+      listItems: vi.fn().mockResolvedValue([]),
+    } as unknown as PartnerOrderRepository;
+
+    await expect(service(
+      historyRepository([]),
+      orderProvider(),
+      ["pricing.partner_price.view"],
+      portalRepository,
+    ).get("user-1", portalOrder.id)).rejects.toBeInstanceOf(NotFoundError);
   });
 
   it("merges a confirmed portal order when the synchronized 1C identity exists", async () => {
@@ -607,7 +669,7 @@ function historyRepository(visible: PartnerOrderHistory[], auditRecord: PartnerO
   } satisfies PartnerOrderHistoryRepository & { auditRecord: PartnerOrderHistory | null };
 }
 
-function confirmedPortalOrder() {
+function confirmedPortalOrder(override: Partial<PartnerOrder> = {}): PartnerOrder {
   return {
     id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
     companyId: COMPANY_ID,
@@ -633,6 +695,7 @@ function confirmedPortalOrder() {
     submittedAt: "2026-07-29T11:40:04Z",
     createdAt: "2026-07-29T11:40:03Z",
     updatedAt: "2026-07-29T11:40:04Z",
+    ...override,
   };
 }
 

@@ -297,31 +297,43 @@ describe("OneCCustomerOrderProvider history", () => {
     expect(result.requestCount).toBe(1);
   });
 
-  it("classifies absence only after an authoritative singleton 404", async () => {
-    const fetchMock = vi.fn((input: string | URL | Request) => {
-      const url = decodeURIComponent(String(input));
-      return Promise.resolve(url.includes("Document_ЗаказПокупателя(guid'") ? json({}, 404) : json({ value: [] }));
-    });
+  it("classifies absence from one complete exact-reference batch without per-order requests", async () => {
+    const fetchMock = vi.fn(() => Promise.resolve(json({ value: [] })));
     vi.stubGlobal("fetch", fetchMock);
     const result = await provider().orders.verifySalesOrderHistoryReferences!({
       partnerCompanyReference: { providerCode: "one-c", externalId: COUNTERPARTY, externalType: "counterparty" },
-      orderReferences: [{ providerCode: "one-c", externalId: ORDER, externalType: "customer-order" }],
+      orderReferences: [
+        { providerCode: "one-c", externalId: ORDER, externalType: "customer-order" },
+        { providerCode: "one-c", externalId: "22222222-2222-4222-8222-222222222222", externalType: "customer-order" },
+      ],
     });
-    expect(result.results[0]?.status).toBe("absent");
-    expect(result.requestCount).toBe(2);
+    expect(result.results.map((item) => item.status)).toEqual(["absent", "absent"]);
+    expect(result.requestCount).toBe(1);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
-  it("classifies a partial or failed exact verification as unknown instead of absent", async () => {
-    const fetchMock = vi.fn((input: string | URL | Request) => {
-      const url = decodeURIComponent(String(input));
-      return Promise.resolve(url.includes("Document_ЗаказПокупателя(guid'") ? json({}, 500) : json({ value: [] }));
-    });
+  it("classifies a failed exact-reference batch as unknown instead of absent", async () => {
+    const fetchMock = vi.fn(() => Promise.resolve(json({}, 500)));
     vi.stubGlobal("fetch", fetchMock);
     const result = await provider().orders.verifySalesOrderHistoryReferences!({
       partnerCompanyReference: { providerCode: "one-c", externalId: COUNTERPARTY, externalType: "counterparty" },
       orderReferences: [{ providerCode: "one-c", externalId: ORDER, externalType: "customer-order" }],
     });
     expect(result.results[0]?.status).toBe("unknown");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    { value: [], "@odata.nextLink": "https://erp.example/next" },
+    { unexpected: [] },
+  ])("classifies an incomplete or malformed exact-reference batch as unknown: %o", async (body) => {
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(json(body))));
+    const result = await provider().orders.verifySalesOrderHistoryReferences!({
+      partnerCompanyReference: { providerCode: "one-c", externalId: COUNTERPARTY, externalType: "counterparty" },
+      orderReferences: [{ providerCode: "one-c", externalId: ORDER, externalType: "customer-order" }],
+    });
+    expect(result.results[0]?.status).toBe("unknown");
+    expect(result.requestCount).toBe(1);
   });
 });
 
