@@ -4,7 +4,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 const sql = fs.readFileSync(
-  path.join(process.cwd(), "supabase/migrations/20260909114000_order_history_1c_authority_portal_fallback.sql"),
+  path.join(process.cwd(), "supabase/migrations/20260909120257_order_history_1c_authority_portal_fallback.sql"),
   "utf8",
 );
 
