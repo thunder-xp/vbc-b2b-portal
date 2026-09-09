@@ -6,6 +6,7 @@ import type { MerchandisingRepository } from "../repositories";
 import type {
   AdminMerchandisingPage,
   AdminMerchandisingPreview,
+  B2bPopularityRefreshResult,
   ManageMerchandisingInput,
   ManageMerchandisingResult,
   MerchandisingLabelCode,
@@ -27,6 +28,19 @@ export class MerchandisingService {
     private readonly repository: MerchandisingRepository,
     private readonly companyAccessService: CompanyAccessService,
   ) {}
+
+  async refreshB2bPopularity(): Promise<B2bPopularityRefreshResult> {
+    const result = await this.repository.refreshB2bPopularity();
+    console.info({
+      event: "b2b_product_demand_ranking_refreshed",
+      eligibleProductCount: result.eligibleProductCount,
+      popularSetSize: result.popularSetSize,
+      unresolvedSourceLineCount: result.unresolvedSourceLineCount,
+      durationMs: result.durationMs,
+      deployedCommitSha: process.env.VERCEL_GIT_COMMIT_SHA?.trim() || "local",
+    });
+    return result;
+  }
 
   listAdminProducts(input: {
     search?: string;
@@ -104,6 +118,11 @@ export class MerchandisingService {
   }
 
   manage(input: ManageMerchandisingInput): Promise<ManageMerchandisingResult> {
+    if (input.labelCode === "TOP") {
+      throw new MerchandisingValidationError(
+        "MERCHANDISING_POPULAR_SYSTEM_MANAGED",
+      );
+    }
     const productIds = [...new Set(input.productIds.map((id) => id.trim()))];
     const reason = input.reason.trim();
     const priority = input.priority ?? 100;

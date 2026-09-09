@@ -72,6 +72,20 @@ export type ManageMerchandisingResult = {
   }>;
 };
 
+export type B2bPopularityRefreshResult = {
+  refreshId: string;
+  refreshedAt: string;
+  eligibleProductCount: number;
+  popularSetSize: number;
+  top40ThresholdQuantity: number | null;
+  unresolvedSourceLineCount: number;
+  sourceOrderCount: number;
+  sourceLineCount: number;
+  sourceHistoryFrom: string | null;
+  sourceHistoryThrough: string | null;
+  durationMs: number;
+};
+
 export type AdminMerchandisingPreviewProduct = {
   id: string;
   sku: string;

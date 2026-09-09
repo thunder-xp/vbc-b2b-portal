@@ -1,12 +1,14 @@
 import "server-only";
 
 import { createClient } from "@/src/lib/supabase/server";
+import { createAdminClient } from "@/src/lib/supabase/admin";
 
 import type { MerchandisingRepository } from "../merchandising.repository";
 import { MerchandisingRepositoryError } from "../merchandising.repository";
 import type {
   AdminMerchandisingPage,
   AdminMerchandisingPreview,
+  B2bPopularityRefreshResult,
   ManageMerchandisingResult,
   MerchandisingLabelCode,
   PublishedMerchandisingAssignment,
@@ -25,6 +27,18 @@ type PublishedRow = {
 export class SupabaseMerchandisingRepository
   implements MerchandisingRepository
 {
+  async refreshB2bPopularity(): Promise<B2bPopularityRefreshResult> {
+    const { data, error } = await createAdminClient().rpc(
+      "refresh_b2b_product_demand_ranking",
+    );
+
+    if (error || !isPopularityRefreshResult(data)) {
+      throw repositoryError(error);
+    }
+
+    return data;
+  }
+
   async listAdminProducts(input: {
     search?: string;
     page: number;
@@ -189,6 +203,23 @@ function isManageResult(value: unknown): value is ManageMerchandisingResult {
   );
 }
 
+function isPopularityRefreshResult(
+  value: unknown,
+): value is B2bPopularityRefreshResult {
+  if (!value || typeof value !== "object") return false;
+  const result = value as Partial<B2bPopularityRefreshResult>;
+  return (
+    typeof result.refreshId === "string" &&
+    typeof result.refreshedAt === "string" &&
+    typeof result.eligibleProductCount === "number" &&
+    typeof result.popularSetSize === "number" &&
+    (typeof result.top40ThresholdQuantity === "number" ||
+      result.top40ThresholdQuantity === null) &&
+    typeof result.unresolvedSourceLineCount === "number" &&
+    typeof result.durationMs === "number"
+  );
+}
+
 function repositoryError(error: {
   code?: string;
   message?: string;
@@ -212,6 +243,7 @@ function safeDatabaseErrorCode(
     "MERCHANDISING_DUPLICATE_ASSIGNMENT",
     "MERCHANDISING_AUDIT_FAILURE",
     "MERCHANDISING_DATABASE_CONSTRAINT",
+    "MERCHANDISING_POPULAR_SYSTEM_MANAGED",
   ];
   const matched = knownCodes.find((code) => message?.includes(code));
   if (matched) return matched;

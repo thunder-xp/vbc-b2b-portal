@@ -21,7 +21,7 @@ export function MerchandisingAdminTable({
 }) {
   const router = useRouter();
   const [selected, setSelected] = useState<string[]>([]);
-  const [labelCode, setLabelCode] = useState<MerchandisingLabelCode>("TOP");
+  const [labelCode, setLabelCode] = useState<MerchandisingLabelCode>("NEW");
   const [operation, setOperation] =
     useState<MerchandisingOperation>("assign");
   const [priority, setPriority] = useState(100);
@@ -89,7 +89,6 @@ export function MerchandisingAdminTable({
               value={labelCode}
             >
               <option value="NEW">Новинка</option>
-              <option value="TOP">Популярный</option>
               <option value="HOT">Горячая цена</option>
               <option value="SPECIAL_OFFER">Спецпредложение Retail</option>
             </select>
@@ -218,7 +217,7 @@ export function MerchandisingAdminTable({
                         >
                           <span className="font-semibold">{labelText(assignment.labelCode)}</span>
                           <span className="block text-zinc-500">
-                            {sourceText(assignment.source)} · приоритет {assignment.priority}
+                            {sourceText(assignment.source, assignment.labelCode)} · приоритет {assignment.priority}
                           </span>
                           <span className="block text-zinc-500">
                             {formatValidity(assignment.startsAt, assignment.endsAt)}
@@ -252,7 +251,13 @@ export function MerchandisingAdminTable({
   );
 }
 
-function sourceText(source: AdminMerchandisingPage["items"][number]["assignments"][number]["source"]): string {
+function sourceText(
+  source: AdminMerchandisingPage["items"][number]["assignments"][number]["source"],
+  labelCode: MerchandisingLabelCode,
+): string {
+  if (source === "one_c" && labelCode === "TOP") {
+    return "B2B спрос · автоматически";
+  }
   if (source === "one_c") return "Сигнал 1С";
   if (source === "analytics_recommendation") return "Рекомендация";
   return "Ручная";

@@ -6,6 +6,7 @@ import { createUserProfileService, getAuthenticatedUserId } from "../../access-c
 import { ForbiddenError } from "../../access-control/services";
 import { UserType } from "../../access-control/types";
 import { getPartnerLocale } from "../../partner-locale/server";
+import { createMerchandisingService } from "../../merchandising/actions/service-factory";
 import { type PartnerOrderHistoryDetailDto, type PartnerOrderHistorySyncResult, type PartnerOrderDetailDto, type PartnerOrderSummaryDto, type PlannedShipmentDto } from "../services";
 import type { PartnerOrder } from "../types";
 import type { CheckoutFulfillmentMethod, CheckoutPaymentMethod } from "../repositories";
@@ -153,12 +154,28 @@ export async function cancelOrderDateChangeRequestAction(requestId: string): Pro
 export async function refreshPartnerOrderHistoryAction(): Promise<ActionResult<PartnerOrderHistorySyncResult>> {
   try {
     const result = await createPartnerOrderHistoryService().syncOwnCompany(await getAuthenticatedUserId(), "incremental");
+    await refreshPopularityProjection("partner_manual_order_history_refresh");
     revalidatePath("/cabinet/orders");
     revalidatePath("/cabinet/orders/[id]", "page");
+    revalidatePath("/cabinet/catalog");
+    revalidatePath("/cabinet");
     refresh();
     return success("История заказов обновлена.", result);
   } catch (error) {
     return failureFromError(error);
+  }
+}
+
+async function refreshPopularityProjection(trigger: string): Promise<void> {
+  try {
+    await createMerchandisingService().refreshB2bPopularity();
+  } catch (error) {
+    console.error({
+      event: "b2b_product_demand_ranking_refresh_failed",
+      trigger,
+      errorType: error instanceof Error ? error.name : typeof error,
+      deployedCommitSha: process.env.VERCEL_GIT_COMMIT_SHA?.trim() || "local",
+    });
   }
 }
 

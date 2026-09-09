@@ -1,6 +1,7 @@
 import type {
   AdminMerchandisingPage,
   AdminMerchandisingPreview,
+  B2bPopularityRefreshResult,
   ManageMerchandisingInput,
   ManageMerchandisingResult,
   MerchandisingLabelCode,
@@ -8,6 +9,7 @@ import type {
 } from "../types";
 
 export interface MerchandisingRepository {
+  refreshB2bPopularity(): Promise<B2bPopularityRefreshResult>;
   listAdminProducts(input: {
     search?: string;
     page: number;

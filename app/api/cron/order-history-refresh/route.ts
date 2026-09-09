@@ -3,6 +3,7 @@ import { after, NextResponse } from "next/server";
 import { authorizeCronRequest } from "@/src/lib/cron-auth";
 import { acquireSyncRunLock, releaseSyncRunLock } from "@/src/modules/integration/sync";
 import { createPartnerOrderHistoryAutomationService } from "@/src/modules/orders/actions/service-factory";
+import { createMerchandisingService } from "@/src/modules/merchandising/actions/service-factory";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -16,7 +17,8 @@ export async function GET(request: Request) {
   after(async () => {
     try {
       const result = await createPartnerOrderHistoryAutomationService().refreshCompanyHistories();
-      console.info({ event: result.failed ? "sync_completed_with_warnings" : "sync_completed", domain: "order_history", runId, ...result, deployedCommitSha: process.env.VERCEL_GIT_COMMIT_SHA?.trim() || "local" });
+      const popularity = await createMerchandisingService().refreshB2bPopularity();
+      console.info({ event: result.failed ? "sync_completed_with_warnings" : "sync_completed", domain: "order_history", runId, ...result, popularityRefreshId: popularity.refreshId, deployedCommitSha: process.env.VERCEL_GIT_COMMIT_SHA?.trim() || "local" });
     } catch (error) { console.error({ event: "sync_failed", domain: "order_history", runId, errorType: error instanceof Error ? error.name : typeof error, deployedCommitSha: process.env.VERCEL_GIT_COMMIT_SHA?.trim() || "local" }); }
     finally { await releaseSyncRunLock("daily_order_history", runId); }
   });

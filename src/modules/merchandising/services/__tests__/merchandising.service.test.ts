@@ -34,16 +34,16 @@ describe("MerchandisingService", () => {
     })).toThrowError("MERCHANDISING_EXPIRY_REQUIRED");
   });
 
-  it("supports multiple labels and bulk products through independent calls", async () => {
+  it("keeps Popular system-managed while other manual labels remain editable", async () => {
     const repository = repositoryStub();
     const service = createService(repository);
-    await service.manage({
+    expect(() => service.manage({
       requestId: REQUEST_ID,
       operation: "assign",
       productIds: [PRODUCT_ID],
       labelCode: "TOP",
       reason: "Спрос",
-    });
+    })).toThrowError("MERCHANDISING_POPULAR_SYSTEM_MANAGED");
     await service.manage({
       requestId: "33333333-3333-4333-8333-333333333333",
       operation: "assign",
@@ -52,7 +52,7 @@ describe("MerchandisingService", () => {
       endsAt: "2026-08-30T00:00:00.000Z",
       reason: "Промо",
     });
-    expect(repository.manage).toHaveBeenCalledTimes(2);
+    expect(repository.manage).toHaveBeenCalledTimes(1);
   });
 
   it("derives company context before published reads", async () => {
@@ -78,6 +78,7 @@ function createService(repository = repositoryStub()) {
 
 function repositoryStub(): MerchandisingRepository {
   return {
+    refreshB2bPopularity: vi.fn(),
     listAdminProducts: vi.fn(),
     getAdminPreview: vi.fn().mockResolvedValue({ sections: [] }),
     listPublished: vi.fn().mockResolvedValue([]),
