@@ -6,13 +6,12 @@ import { describe, expect, it } from "vitest";
 const source = readFileSync(resolve("src/modules/estimates/repositories/supabase/estimate.supabase-repository.ts"), "utf8");
 
 describe("archived estimate deletion projection", () => {
-  it("loads protected dependencies in bounded batches for the current page", () => {
+  it("does not load historical dependencies to decide creator/owner deletion rights", () => {
     expect(source).not.toContain('supabase.from("estimate_cart_conversions").select("estimate_id").in("estimate_id", estimateIds)');
-    expect(source).toContain('supabase.from("estimate_proposal_deliveries")');
-    expect(source).toContain('sent_at.not.is.null,first_opened_at.not.is.null,responded_at.not.is.null,status.in.(sent,delivered,responded)');
-    expect(source).toContain('supabase.from("estimate_lifecycle_events").select("estimate_id, to_status").in("estimate_id", estimateIds).neq("to_status", "draft")');
-    expect(source).toContain('canDeleteArchived: input.status === "archived"');
-    expect(source).toContain("!protectedEstimateIds.has(row.id)");
+    expect(source).not.toContain('supabase.from("estimate_proposal_deliveries")');
+    expect(source).not.toContain('supabase.from("estimate_lifecycle_events")');
+    expect(source).not.toContain("protectedEstimateIds");
+    expect(source).not.toContain("canDeleteArchived:");
   });
 
   it("does not rely on embedded aggregate counts for deletion eligibility", () => {

@@ -23,6 +23,8 @@ export function EstimateListActions({ estimateId, revision, archived, canDeleteA
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
+  const [archiveError, setArchiveError] = useState<string | null>(null);
+  const [archiveOpen, setArchiveOpen] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const duplicate = () => startTransition(async () => {
@@ -31,9 +33,15 @@ export function EstimateListActions({ estimateId, revision, archived, canDeleteA
     if (result.success) router.push(`/cabinet/estimates/${result.data.estimateId}`);
   });
   const archive = () => startTransition(async () => {
+    setArchiveError(null);
     const result = await archiveEstimateAction(estimateId, revision);
-    setMessage(result.success ? copy.operationSucceeded : copy.operationFailed);
-    if (result.success) router.refresh();
+    if (!result.success) {
+      setArchiveError(copy.operationFailed);
+      return;
+    }
+    setMessage(copy.operationSucceeded);
+    setArchiveOpen(false);
+    router.refresh();
   });
   const removeArchived = () => startTransition(async () => {
     setDeleteError(null);
@@ -53,10 +61,14 @@ export function EstimateListActions({ estimateId, revision, archived, canDeleteA
       <IconActionTooltip label={copy.openEstimate}><Link aria-label={copy.openEstimate} className={buttonClass} href={`/cabinet/estimates/${estimateId}`} prefetch={false}><ExternalLink className="size-4" /></Link></IconActionTooltip>
       {latestPdfDocumentId ? <IconActionTooltip label={copy.openLatestPdf}><Link aria-label={copy.openLatestPdf} className={buttonClass} href={`/api/estimates/documents/${latestPdfDocumentId}`}><Download className="size-4" /></Link></IconActionTooltip> : null}
       <IconActionTooltip label={copy.duplicateEstimate}><button aria-label={copy.duplicateEstimate} className={buttonClass} disabled={pending} onClick={duplicate} type="button"><Copy className="size-4" /></button></IconActionTooltip>
-      {!archived && <IconActionTooltip label={copy.archiveEstimate}><button aria-label={copy.archiveEstimate} className={buttonClass} disabled={pending} onClick={archive} type="button"><Archive className="size-4" /></button></IconActionTooltip>}
+      {!archived && <IconActionTooltip label={copy.archiveEstimate}><button aria-label={copy.archiveEstimate} className={buttonClass} disabled={pending} onClick={() => { setArchiveError(null); setArchiveOpen(true); }} type="button"><Archive className="size-4" /></button></IconActionTooltip>}
       {archived && canDeleteArchived ? <IconActionTooltip label={copy.deleteEstimate}><button aria-label={copy.deleteEstimate} className={`${buttonClass} text-red-700`} disabled={pending} onClick={() => { setDeleteError(null); setDeleteOpen(true); }} type="button"><Trash2 className="size-4" /></button></IconActionTooltip> : null}
+      {archived && !canDeleteArchived ? <IconActionTooltip label={copy.deleteArchivedNotAllowed}><button aria-label={copy.deleteEstimate} className={`${buttonClass} cursor-not-allowed text-red-700`} disabled title={copy.deleteArchivedNotAllowed} type="button"><Trash2 className="size-4" /></button></IconActionTooltip> : null}
     </div>
     {message && <span aria-live="polite" className="sr-only">{message}</span>}
+    <ConfirmationDialog confirmLabel={copy.archiveEstimate} consequence={copy.archiveEstimateConsequence} onCancel={() => setArchiveOpen(false)} onConfirm={archive} open={archiveOpen} pending={pending} title={copy.archiveEstimateTitle}>
+      {archiveError ? <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800" role="alert">{archiveError}</p> : null}
+    </ConfirmationDialog>
     <ConfirmationDialog confirmLabel={copy.deleteEstimate} consequence={copy.deleteArchivedConsequence} destructive onCancel={() => setDeleteOpen(false)} onConfirm={removeArchived} open={deleteOpen} pending={pending} title={copy.deleteArchivedEstimate}>
       {deleteError ? <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800" role="alert">{deleteError}</p> : null}
     </ConfirmationDialog>
@@ -64,6 +76,7 @@ export function EstimateListActions({ estimateId, revision, archived, canDeleteA
 }
 
 function deleteFailureMessage(errorCode: string, copy: ReturnType<typeof getEstimatesCopy>): string {
+  if (errorCode === "ESTIMATE_DELETE_NOT_ALLOWED") return copy.deleteArchivedNotAllowed;
   if (errorCode === "ESTIMATE_DELETE_PROTECTED_PROPOSAL") return copy.deleteArchivedProtectedProposal;
   if (errorCode === "ESTIMATE_DELETE_PROTECTED_ORDER") return copy.deleteArchivedProtectedOrder;
   if (errorCode === "ESTIMATE_DELETE_STALE_REVISION") return copy.deleteArchivedStale;

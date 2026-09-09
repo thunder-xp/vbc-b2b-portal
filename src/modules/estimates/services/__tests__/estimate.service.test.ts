@@ -189,6 +189,43 @@ describe("DefaultEstimateService", () => {
     expect(repository.findById).not.toHaveBeenCalled();
   });
 
+  it("archives through the view boundary without a draft pre-read", async () => {
+    await service.archive("user-1", estimate.id, estimate.revision);
+
+    expect(repository.archive).toHaveBeenCalledWith(estimate.id, estimate.revision);
+    expect(repository.findById).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["user-1", "partner_manager", true],
+    ["user-2", "partner_owner", true],
+    ["user-2", "partner_manager", false],
+  ])("projects archived delete eligibility from creator/owner identity for %s as %s", async (userId, roleCode, expected) => {
+    const permission = Reflect.get(service, "permissionService") as {
+      getEffectivePermissionContext: ReturnType<typeof vi.fn>;
+    };
+    permission.getEffectivePermissionContext.mockResolvedValue({ roleCode, effectivePermissionCodes: ["estimates.view"] });
+    vi.mocked(repository.list).mockResolvedValue({
+      records: [{
+        ...estimate,
+        status: "archived",
+        archivedAt: "2026-09-09T08:00:00Z",
+        itemCount: 1,
+        createdByName: "Creator",
+        versionCount: 1,
+        latestVersionStatus: "sent",
+        latestVersionId: "version-1",
+        latestPdfDocumentId: "document-1",
+        hasAcceptedVersion: true,
+      }],
+      totalCount: 1,
+    });
+
+    const result = await service.list(userId, { status: "archived" });
+
+    expect(result.records[0].canDeleteArchived).toBe(expected);
+  });
+
   it.each([
     ["23514", "ESTIMATE_DELETE_BLOCKED_PROPOSAL", "ESTIMATE_DELETE_PROTECTED_PROPOSAL"],
     ["23514", "ESTIMATE_DELETE_BLOCKED_ORDER", "ESTIMATE_DELETE_PROTECTED_ORDER"],
@@ -196,6 +233,7 @@ describe("DefaultEstimateService", () => {
     ["P0002", "ESTIMATE_DELETE_NOT_AVAILABLE", "ESTIMATE_DELETE_NOT_FOUND"],
     ["22023", "ESTIMATE_DELETE_NOT_ARCHIVED", "ESTIMATE_DELETE_INVALID_STATE"],
     ["23505", "Estimate deletion request was already used.", "ESTIMATE_DELETE_REQUEST_CONFLICT"],
+    ["42501", "ESTIMATE_DELETE_NOT_ALLOWED", "ESTIMATE_DELETE_NOT_ALLOWED"],
   ])("maps delete database error %s to typed UI contract %s", async (databaseCode, databaseMessage, expectedCode) => {
     const repositoryCode = databaseCode === "PT409" ? "conflict" : databaseCode === "P0002" ? "not_found" : databaseCode === "23505" ? "duplicate" : "invalid";
     vi.mocked(repository.deleteArchived).mockRejectedValue(new EstimateRepositoryError(repositoryCode, databaseCode, databaseMessage));

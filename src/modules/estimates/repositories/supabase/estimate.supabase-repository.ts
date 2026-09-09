@@ -72,34 +72,16 @@ export class SupabaseEstimateRepository implements EstimateRepository {
 
     const rows = data as unknown as EstimateListRow[];
     const estimateIds = rows.map((row) => row.id);
-    const versionMetadata = new Map<string, { count: number; latest: import("../../types").EstimateVersionStatus | null; latestVersionId: string | null; hasProtectedVersion: boolean }>();
+    const versionMetadata = new Map<string, { count: number; latest: import("../../types").EstimateVersionStatus | null; latestVersionId: string | null }>();
     const latestPdfByVersion = new Map<string, string>();
-    const protectedEstimateIds = new Set<string>();
     if (estimateIds.length) {
-      const [versionResult, deletionGuardResults] = await Promise.all([
-        supabase.from("estimate_versions")
-          .select("id, estimate_id, version_number, status").in("estimate_id", estimateIds).order("version_number", { ascending: false }),
-        input.status === "archived"
-          ? Promise.all([
-            supabase.from("estimate_proposal_deliveries")
-              .select("estimate_id")
-              .in("estimate_id", estimateIds)
-              .or("sent_at.not.is.null,first_opened_at.not.is.null,responded_at.not.is.null,status.in.(sent,delivered,responded)"),
-            supabase.from("estimate_lifecycle_events").select("estimate_id, to_status").in("estimate_id", estimateIds).neq("to_status", "draft"),
-          ])
-          : Promise.resolve(null),
-      ]);
+      const versionResult = await supabase.from("estimate_versions")
+        .select("id, estimate_id, version_number, status").in("estimate_id", estimateIds).order("version_number", { ascending: false });
       const { data: versions, error: versionError } = versionResult;
       if (versionError) throw mapRepositoryError(versionError.code);
-      if (deletionGuardResults) {
-        for (const result of deletionGuardResults) {
-          if (result.error) throw mapRepositoryError(result.error.code);
-          for (const dependency of result.data ?? []) protectedEstimateIds.add(dependency.estimate_id);
-        }
-      }
       for (const version of versions ?? []) {
-        const current = versionMetadata.get(version.estimate_id) ?? { count: 0, latest: null, latestVersionId: null, hasProtectedVersion: false };
-        versionMetadata.set(version.estimate_id, { count: current.count + 1, latest: current.latest ?? version.status, latestVersionId: current.latestVersionId ?? version.id, hasProtectedVersion: current.hasProtectedVersion || version.status !== "prepared" });
+        const current = versionMetadata.get(version.estimate_id) ?? { count: 0, latest: null, latestVersionId: null };
+        versionMetadata.set(version.estimate_id, { count: current.count + 1, latest: current.latest ?? version.status, latestVersionId: current.latestVersionId ?? version.id });
       }
       const versionIds = [...versionMetadata.values()].map((metadata) => metadata.latestVersionId).filter((id): id is string => Boolean(id));
       if (versionIds.length) {
@@ -119,13 +101,6 @@ export class SupabaseEstimateRepository implements EstimateRepository {
         latestVersionId: versionMetadata.get(row.id)?.latestVersionId ?? null,
         latestPdfDocumentId: latestPdfByVersion.get(versionMetadata.get(row.id)?.latestVersionId ?? "") ?? null,
         hasAcceptedVersion: Boolean(row.accepted_version_id),
-        canDeleteArchived: input.status === "archived"
-          && row.status === "archived"
-          && row.lifecycle_status === "draft"
-          && !row.lifecycle_order_id
-          && !row.accepted_version_id
-          && !versionMetadata.get(row.id)?.hasProtectedVersion
-          && !protectedEstimateIds.has(row.id),
       })),
       totalCount: count ?? 0,
     };
@@ -542,7 +517,7 @@ export class SupabaseEstimateRepository implements EstimateRepository {
       target_estimate_id: estimateId,
       expected_revision: expectedRevision,
     });
-    if (error) throw mapRepositoryError(error.code);
+    if (error) throw mapRepositoryError(error.code, error.message);
   }
 
   async deleteArchived(estimateId: string, expectedRevision: number, requestKey: string, reason: string): Promise<void> {

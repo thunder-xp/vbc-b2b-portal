@@ -36,7 +36,6 @@ export type EstimateListRecord = Estimate & {
   latestVersionId: string | null;
   latestPdfDocumentId: string | null;
   hasAcceptedVersion: boolean;
-  canDeleteArchived: boolean;
 };
 
 export type CreateEstimateInput = {

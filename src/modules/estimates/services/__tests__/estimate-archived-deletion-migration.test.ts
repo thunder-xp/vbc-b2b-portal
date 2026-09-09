@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 
 const sql = readFileSync(resolve("supabase/migrations/20260809134000_estimate_archived_deletion.sql"), "utf8");
 const semantics = readFileSync(resolve("supabase/migrations/20260908202147_archived_estimate_delete_semantics.sql"), "utf8");
+const unified = readFileSync(resolve("supabase/migrations/20260909080511_estimate_archive_delete_unified_lifecycle.sql"), "utf8");
 
 describe("archived estimate deletion migration", () => {
   it("uses a governed tombstone and immutable idempotent audit event", () => {
@@ -29,6 +30,35 @@ describe("archived estimate deletion migration", () => {
     expect(sql).toContain("estimate.deleted_at is null");
     expect(sql).toContain("revoke all on table public.estimate_deletion_events from public, anon, authenticated");
     expect(sql).toContain("set search_path = public");
+  });
+});
+
+describe("unified estimate archive/delete lifecycle", () => {
+  it("archives any visible non-deleted estimate idempotently and preserves commercial lifecycle columns", () => {
+    expect(unified).toContain("public.can_access_estimates(target.company_id, 'estimates.view')");
+    expect(unified).toContain("if target.status = 'archived' then");
+    expect(unified).toContain("'ESTIMATE_ARCHIVE_STALE_REVISION' using errcode = 'PT409'");
+    expect(unified).toMatch(/set status = 'archived',\s+archived_at = statement_timestamp\(\)/);
+    expect(unified).not.toMatch(/set[\s\S]{0,200}lifecycle_status\s*=/);
+  });
+
+  it("allows soft deletion only for the creator or active same-company partner owner", () => {
+    expect(unified).toContain("target.created_by <> auth.uid() and not actor_is_owner");
+    expect(unified).toContain("membership.company_id = target.company_id");
+    expect(unified).toContain("membership.status = 'active'");
+    expect(unified).toContain("role.code = 'partner_owner'");
+    expect(unified).toContain("'ESTIMATE_DELETE_NOT_ALLOWED' using errcode = '42501'");
+    expect(unified).not.toContain("'estimates.manage'");
+  });
+
+  it("preserves all references and the hardened privileged function boundary", () => {
+    expect(unified).not.toMatch(/delete\s+from/i);
+    expect(unified).not.toContain("ESTIMATE_DELETE_BLOCKED_PROPOSAL");
+    expect(unified).not.toContain("ESTIMATE_DELETE_BLOCKED_ORDER");
+    expect(unified).toContain("set search_path = public");
+    expect(unified).toContain("revoke all on function public.archive_estimate(uuid, integer) from public, anon");
+    expect(unified).toContain("revoke all on function public.delete_archived_estimate(uuid, integer, uuid, text) from public, anon");
+    expect(unified).toContain("grant execute on function public.delete_archived_estimate(uuid, integer, uuid, text) to authenticated");
   });
 });
 

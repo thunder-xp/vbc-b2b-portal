@@ -21,7 +21,7 @@ describe("EstimateListActions", () => {
     expect(screen.getByRole("link", { name: "Открыть последний PDF" })).toHaveAttribute("href", "/api/estimates/documents/document-1");
   });
 
-  it("duplicates and archives through the existing server actions", async () => {
+  it("duplicates and archives through confirmation while preserving history copy", async () => {
     const user = userEvent.setup();
     vi.mocked(duplicateEstimateAction).mockResolvedValue({ success: true, data: { estimateId: "copy-1" }, message: "Копия создана", errorCode: null });
     vi.mocked(archiveEstimateAction).mockResolvedValue({ success: true, data: null, message: "Архивировано", errorCode: null });
@@ -31,8 +31,24 @@ describe("EstimateListActions", () => {
     expect(duplicateEstimateAction).toHaveBeenCalledWith("estimate-1");
     expect(push).toHaveBeenCalledWith("/cabinet/estimates/copy-1");
     await user.click(screen.getByRole("button", { name: "Архивировать смету" }));
+    expect(screen.getByRole("dialog", { name: "Архивировать смету?" })).toHaveTextContent("Смета будет перемещена в архив. История и связанные документы сохранятся.");
+    expect(archiveEstimateAction).not.toHaveBeenCalled();
+    await user.click(screen.getAllByRole("button", { name: "Архивировать смету" })[1]);
     expect(archiveEstimateAction).toHaveBeenCalledWith("estimate-1", 3);
     expect(refresh).toHaveBeenCalledOnce();
+  });
+
+  it("keeps archive confirmation open and displays a failed operation", async () => {
+    const user = userEvent.setup();
+    vi.mocked(archiveEstimateAction).mockResolvedValue({ success: false, data: null, message: "safe fallback", errorCode: "INVALID_STATE" });
+    render(<EstimateListActions archived={false} estimateId="estimate-1" latestPdfDocumentId={null} revision={3} />);
+
+    await user.click(screen.getByRole("button", { name: "Архивировать смету" }));
+    await user.click(screen.getAllByRole("button", { name: "Архивировать смету" })[1]);
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Действие не выполнено. Обновите данные и повторите попытку.");
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(refresh).not.toHaveBeenCalled();
   });
 
   it("exposes governed deletion only for archived estimates", async () => {
@@ -42,6 +58,7 @@ describe("EstimateListActions", () => {
     expect(screen.queryByRole("button", { name: "Архивировать смету" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Удалить смету" }));
     expect(screen.getByRole("dialog", { name: "Удалить архивную смету?" })).toBeInTheDocument();
+    expect(screen.getByRole("dialog")).toHaveTextContent("Смета исчезнет из рабочего архива. История предложений, заказов и связанные записи сохранятся.");
     await user.click(screen.getAllByRole("button", { name: "Удалить смету" })[1]);
     expect(deleteArchivedEstimateAction).toHaveBeenCalledWith("estimate-1", 3, expect.any(String));
     expect(refresh).toHaveBeenCalledOnce();
@@ -78,8 +95,21 @@ describe("EstimateListActions", () => {
     expect(screen.queryByRole("button", { name: "Удалить смету" })).not.toBeInTheDocument();
   });
 
-  it("does not offer deletion when immutable commercial history protects an archived estimate", () => {
+  it("shows a deterministic disabled delete action when the actor is neither creator nor owner", () => {
     render(<EstimateListActions archived canDeleteArchived={false} estimateId="estimate-1" latestPdfDocumentId={null} revision={3} />);
-    expect(screen.queryByRole("button", { name: "Удалить смету" })).not.toBeInTheDocument();
+    const button = screen.getByRole("button", { name: "Удалить смету" });
+    expect(button).toBeDisabled();
+    expect(button).toHaveAttribute("title", "Удалить может создатель сметы или владелец компании.");
+    expect(screen.getByRole("tooltip", { name: "Удалить может создатель сметы или владелец компании." })).toBeInTheDocument();
+  });
+
+  it("renders Romanian archive and disabled-delete lifecycle copy", async () => {
+    const user = userEvent.setup();
+    render(<PartnerLocaleProvider locale="ro"><EstimateListActions archived={false} estimateId="estimate-1" latestPdfDocumentId={null} revision={3} /></PartnerLocaleProvider>);
+    await user.click(screen.getByRole("button", { name: "Arhivează devizul" }));
+    expect(screen.getByRole("dialog", { name: "Arhivați devizul?" })).toHaveTextContent("Devizul va fi mutat în arhivă. Istoricul și documentele asociate se păstrează.");
+
+    render(<PartnerLocaleProvider locale="ro"><EstimateListActions archived canDeleteArchived={false} estimateId="estimate-2" latestPdfDocumentId={null} revision={2} /></PartnerLocaleProvider>);
+    expect(screen.getByRole("button", { name: "Șterge devizul" })).toHaveAttribute("title", "Devizul poate fi șters de creator sau de proprietarul companiei.");
   });
 });

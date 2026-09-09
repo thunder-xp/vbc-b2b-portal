@@ -373,6 +373,7 @@ export class DefaultEstimateService implements EstimateService {
 
   async list(userId: string, filters: EstimateListFilters) {
     const companyId = await this.resolveCompany(userId, VIEW_PERMISSION);
+    const access = await this.permissionService.getEffectivePermissionContext(userId, companyId);
     const page = normalizePage(filters.page);
     const result = await this.repository.list({
       companyId,
@@ -405,7 +406,8 @@ export class DefaultEstimateService implements EstimateService {
         latestVersionId: record.latestVersionId,
         latestPdfDocumentId: record.latestPdfDocumentId,
         hasAcceptedVersion: record.hasAcceptedVersion,
-        canDeleteArchived: record.canDeleteArchived,
+        canDeleteArchived: record.status === "archived"
+          && (record.createdBy === userId || access.roleCode === "partner_owner"),
       })),
       page,
       totalPages: Math.max(1, Math.ceil(result.totalCount / PAGE_SIZE)),
@@ -1103,9 +1105,9 @@ export class DefaultEstimateService implements EstimateService {
   }
 
   async archive(userId: string, estimateId: string, expectedRevision: number): Promise<void> {
-    await this.ensureDraft(userId, estimateId, MANAGE_PERMISSION, expectedRevision);
+    await this.resolveCompany(userId, VIEW_PERMISSION);
     try {
-      await this.repository.archive(estimateId, expectedRevision);
+      await this.repository.archive(normalizeId(estimateId), normalizeRevision(expectedRevision));
     } catch (error) {
       handleRepositoryConflict(error);
     }
@@ -1291,7 +1293,7 @@ export class DefaultEstimateService implements EstimateService {
   }
 
   async deleteArchived(userId: string, estimateId: string, expectedRevision: number, requestKey: string): Promise<void> {
-    await this.resolveCompany(userId, MANAGE_PERMISSION);
+    await this.resolveCompany(userId, VIEW_PERMISSION);
     const normalizedEstimateId = normalizeId(estimateId);
     try {
       await this.repository.deleteArchived(
@@ -1781,6 +1783,10 @@ function handleArchivedEstimateDeleteError(error: unknown): never {
 
   if (error.databaseCode === "23505") {
     throw new DomainConflictError("ESTIMATE_DELETE_REQUEST_CONFLICT", "Deletion request key was already used.");
+  }
+
+  if (error.databaseCode === "42501") {
+    throw new DomainConflictError("ESTIMATE_DELETE_NOT_ALLOWED", "Only the estimate creator or active company owner can delete it.");
   }
 
   throw error;
