@@ -8,6 +8,8 @@ const refreshRepairSql = readFileSync(join(process.cwd(),
   "supabase/migrations/20260910163625_commerce_unified_hidden_365_refresh_result_repair.sql"), "utf8");
 const dashboardSql = readFileSync(join(process.cwd(),
   "supabase/migrations/20260910165425_commerce_dashboard_selection_single_pass.sql"), "utf8");
+const editorialGuardSql = readFileSync(join(process.cwd(),
+  "supabase/migrations/20260910171105_commerce_dashboard_editorial_regression_guard.sql"), "utf8");
 
 describe("unified hidden-365 selection migration", () => {
   it("keeps one inclusive periodized frequency projection with the governed rank", () => {
@@ -41,5 +43,11 @@ describe("unified hidden-365 selection migration", () => {
     expect(sql).toContain("catalog_product_new_facts");
     expect(sql).not.toContain("http_");
     expect(sql).not.toContain("cron.schedule");
+  });
+
+  it("keeps the legacy effective editorial capacity without restoring dashboard fanout", () => {
+    expect(editorialGuardSql).toContain("limit 1");
+    expect(editorialGuardSql).toContain("editorial_count := jsonb_array_length(editorial_products)");
+    expect(editorialGuardSql).not.toContain("get_or_refresh_partner_dashboard_selections_v2(");
   });
 });
