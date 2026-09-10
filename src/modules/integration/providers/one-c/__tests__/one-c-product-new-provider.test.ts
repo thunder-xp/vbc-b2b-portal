@@ -31,9 +31,17 @@ describe("OneCProductNewProvider", () => {
           PS_ЭтоИмпортТМЦ: true, ВидОперации: "ПоступлениеОтПоставщика",
         })) };
       }
-      return { value: receipts.map(([Ref_Key], index) => ({
-        Ref_Key, LineNumber: index + 1, Номенклатура_Key: DHI, Количество: 1,
-      })) };
+      return { value: [
+        ...receipts.map(([Ref_Key], index) => ({
+          Ref_Key, LineNumber: index + 1, Номенклатура_Key: DHI, Количество: 1,
+        })),
+        {
+          Ref_Key: "77777777-7777-4777-8777-777777777777",
+          LineNumber: 1,
+          Номенклатура_Key: DHI,
+          Количество: 1,
+        },
+      ] };
     });
     const snapshot = await new OneCProductNewProvider({ get }).fetchSnapshot(
       [DHI], new Date("2026-09-10T08:00:00Z"),
@@ -61,6 +69,9 @@ describe("OneCProductNewProvider", () => {
     expect(creationRequest?.[1].$select).toContain("Свойство_Key");
     expect(get.mock.calls.find(([resource]) => resource === "Document_ПриходнаяНакладная")?.[1].$filter)
       .toBe("Posted eq true and DeletionMark eq false and PS_ЭтоИмпортТМЦ eq true and ВидОперации eq 'ПоступлениеОтПоставщика'");
+    const lineRequest = get.mock.calls.find(([resource]) => resource === "Document_ПриходнаяНакладная_Запасы");
+    expect(lineRequest?.[1]).not.toHaveProperty("$filter");
+    expect(lineRequest?.[1].$orderby).toBe("Ref_Key asc,LineNumber asc");
   });
 
   it("does not activate NEW from creation alone and excludes ineligible headers", async () => {

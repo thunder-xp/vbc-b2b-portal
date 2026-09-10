@@ -21,7 +21,6 @@ const CREATION_REQUISITE_REF = "cb442472-ac8c-11f1-639c-bc2411369b92";
 const RECEIPT_OPERATION = "ПоступлениеОтПоставщика";
 const PAGE_SIZE = 500;
 const MAX_PAGES = 2_000;
-const RECEIPT_BATCH_SIZE = 20;
 
 type ODataReader = Pick<OneCODataClient, "get">;
 type ODataProbeReader = Pick<
@@ -299,27 +298,25 @@ export class OneCProductNewProvider {
     receipts: readonly ReceiptHeader[],
     productRefs: ReadonlySet<string>,
   ): Promise<{ items: Row[]; pageCount: number; totalRows: number }> {
+    if (receipts.length === 0) return { items: [], pageCount: 0, totalRows: 0 };
+    const eligibleReceiptRefs = new Set(receipts.map((receipt) => receipt.reference));
+    const result = await this.fetchPages(
+      RECEIPT_LINE_RESOURCE,
+      {
+        "$select": "Ref_Key,LineNumber,Номенклатура_Key,Количество",
+        "$orderby": "Ref_Key asc,LineNumber asc",
+      },
+      "automated_new_receipt_line_scan",
+      "eligible_receipt_client_filter",
+    );
     const rows: Row[] = [];
-    let pageCount = 0;
     let totalRows = 0;
-    for (const receiptBatch of chunks(receipts.map((receipt) => receipt.reference), RECEIPT_BATCH_SIZE)) {
-      const result = await this.fetchPages(
-        RECEIPT_LINE_RESOURCE,
-        {
-          "$filter": receiptBatch.map((reference) => `Ref_Key eq guid'${reference}'`).join(" or "),
-          "$select": "Ref_Key,LineNumber,Номенклатура_Key,Количество",
-          "$orderby": "Ref_Key asc,LineNumber asc",
-        },
-        "automated_new_receipt_line_scan",
-        "receipt_reference_batch",
-      );
-      pageCount += result.pageCount;
-      totalRows += result.items.length;
-      for (const row of result.items) {
-        if (productRefs.has(text(row["Номенклатура_Key"]).toLowerCase())) rows.push(row);
-      }
+    for (const row of result.items) {
+      if (!eligibleReceiptRefs.has(text(row.Ref_Key).toLowerCase())) continue;
+      totalRows += 1;
+      if (productRefs.has(text(row["Номенклатура_Key"]).toLowerCase())) rows.push(row);
     }
-    return { items: rows, pageCount, totalRows };
+    return { items: rows, pageCount: result.pageCount, totalRows };
   }
 
   private async fetchPages(
@@ -515,12 +512,6 @@ function parseContinuationParams(value: string): Record<string, string> {
     throw new IntegrationValidationError("1C automated NEW continuation has no cursor.");
   }
   return params;
-}
-
-function chunks<T>(items: T[], size: number): T[][] {
-  const result: T[][] = [];
-  for (let index = 0; index < items.length; index += size) result.push(items.slice(index, index + size));
-  return result;
 }
 
 function text(value: unknown): string { return typeof value === "string" ? value.trim() : ""; }
