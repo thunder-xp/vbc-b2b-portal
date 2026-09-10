@@ -27,6 +27,18 @@ const categories = [{ id: "20000000-0000-4000-8000-000000000001", parentId: null
 const totalCounts = { popular: 1, new: 1, hot: 1, replenishment: 1 };
 
 describe("Public Retail catalog showcase", () => {
+  it("accepts the safe automated HOT merchandising flag", () => {
+    const parsed = parsePublicRetailShowcase({
+      popular: [],
+      new: [],
+      hot: [{ ...product, isHot: true }],
+      replenishment: [],
+      totalCounts: { popular: 0, new: 0, hot: 1, replenishment: 0 },
+    });
+
+    expect(parsed.hot[0]?.isHot).toBe(true);
+  });
+
   it("renders the governed sections in order with exact listing links", () => {
     render(<PublicRetailShowcase categories={categories} locale="ru" showcase={{ popular: [product], new: [product], hot: [product], replenishment: [product], totalCounts }} />);
     expect(screen.getByRole("heading", { level: 1, name: "Витрина" })).toBeInTheDocument();

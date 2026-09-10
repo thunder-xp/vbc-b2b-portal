@@ -46,6 +46,7 @@ export type PublicRetailProductSummaryDto = {
   highlights: PublicRetailSpecificationDto[];
   calculatorEligible: boolean;
   isPopular?: boolean;
+  isHot?: boolean;
 };
 
 export type PublicRetailProductDetailDto = PublicRetailProductSummaryDto & {
