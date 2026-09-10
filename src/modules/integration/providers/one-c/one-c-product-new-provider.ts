@@ -18,6 +18,7 @@ const CREATION_REQUISITE_RESOURCE = "Catalog_Номенклатура_Допол
 const RECEIPT_RESOURCE = "Document_ПриходнаяНакладная";
 const RECEIPT_LINE_RESOURCE = "Document_ПриходнаяНакладная_Запасы";
 const CREATION_REQUISITE_REF = "cb442472-ac8c-11f1-639c-bc2411369b92";
+const CONTROL_PRODUCT_EXTERNAL_ID = "4b7d580e-02a3-11ed-6a9e-7239d3b7bd5c";
 const RECEIPT_OPERATION = "ПоступлениеОтПоставщика";
 const PAGE_SIZE = 500;
 const MAX_PAGES = 2_000;
@@ -58,7 +59,7 @@ export type OneCProductNewSnapshot = {
   receiptLinePageCount: number;
 };
 
-type ReceiptHeader = { reference: string; date: string };
+type ReceiptHeader = { reference: string; number: string; date: string };
 
 export type ProductNewSourceRequestDiagnostic = {
   resourceName: string;
@@ -147,6 +148,15 @@ export class OneCProductNewProvider {
     const lines = await this.fetchEligibleReceiptLines(receipts.items, productRefs);
     const creationByProduct = collectCreationDates(creation.items, productRefs);
     const marketEntryByProduct = collectMarketEntries(lines.items, receipts.items, productRefs);
+    const controlProduct = marketEntryByProduct.get(CONTROL_PRODUCT_EXTERNAL_ID);
+    console.info({
+      event: "automated_new_control_product_resolved",
+      productExternalId: CONTROL_PRODUCT_EXTERNAL_ID,
+      marketEntryAt: controlProduct?.date ?? null,
+      marketEntryReceiptRef: controlProduct?.receiptRef ?? null,
+      marketEntryReceiptNumber: controlProduct?.receiptNumber ?? null,
+      eligibleReceiptCount: controlProduct?.receiptRefs.size ?? 0,
+    });
 
     return {
       facts: [...productRefs].sort().map((productExternalId) => {
@@ -289,7 +299,11 @@ export class OneCProductNewProvider {
     const items = result.items.flatMap((row): ReceiptHeader[] => {
       if (!isEligibleReceipt(row)) return [];
       const date = parseOneCLocalDateTime(row.Date);
-      return date ? [{ reference: String(row.Ref_Key).toLowerCase(), date }] : [];
+      return date ? [{
+        reference: String(row.Ref_Key).toLowerCase(),
+        number: text(row.Number),
+        date,
+      }] : [];
     });
     return { items, pageCount: result.pageCount };
   }
@@ -410,7 +424,12 @@ function collectMarketEntries(
   productRefs: ReadonlySet<string>,
 ) {
   const receiptByRef = new Map(receipts.map((receipt) => [receipt.reference, receipt]));
-  const result = new Map<string, { date: string; receiptRef: string; receiptRefs: Set<string> }>();
+  const result = new Map<string, {
+    date: string;
+    receiptRef: string;
+    receiptNumber: string;
+    receiptRefs: Set<string>;
+  }>();
   for (const row of rows) {
     const receiptRef = text(row.Ref_Key).toLowerCase();
     const productRef = text(row["Номенклатура_Key"]).toLowerCase();
@@ -418,13 +437,19 @@ function collectMarketEntries(
     if (!receipt || !productRefs.has(productRef)) continue;
     const current = result.get(productRef);
     if (!current) {
-      result.set(productRef, { date: receipt.date, receiptRef, receiptRefs: new Set([receiptRef]) });
+      result.set(productRef, {
+        date: receipt.date,
+        receiptRef,
+        receiptNumber: receipt.number,
+        receiptRefs: new Set([receiptRef]),
+      });
       continue;
     }
     current.receiptRefs.add(receiptRef);
     if (receipt.date < current.date || (receipt.date === current.date && receiptRef < current.receiptRef)) {
       current.date = receipt.date;
       current.receiptRef = receiptRef;
+      current.receiptNumber = receipt.number;
     }
   }
   return result;

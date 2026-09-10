@@ -19,6 +19,7 @@ const receipts = [
 
 describe("OneCProductNewProvider", () => {
   it("paginates every source and keeps the earliest eligible import as DHI market entry", async () => {
+    const infoLog = vi.spyOn(console, "info").mockImplementation(() => undefined);
     const get = vi.fn(async (resource: string, params: Record<string, string>) => {
       if (resource.startsWith("Catalog_")) {
         return { value: params.$skip === "0"
@@ -27,7 +28,7 @@ describe("OneCProductNewProvider", () => {
       }
       if (resource === "Document_ПриходнаяНакладная") {
         return { value: receipts.map(([Ref_Key, Date]) => ({
-          Ref_Key, Date, Posted: true, DeletionMark: false,
+          Ref_Key, Number: Ref_Key === receipts[0][0] ? "NSUU-000463" : "LATER", Date, Posted: true, DeletionMark: false,
           PS_ЭтоИмпортТМЦ: true, ВидОперации: "ПоступлениеОтПоставщика",
         })) };
       }
@@ -72,6 +73,14 @@ describe("OneCProductNewProvider", () => {
     const lineRequest = get.mock.calls.find(([resource]) => resource === "Document_ПриходнаяНакладная_Запасы");
     expect(lineRequest?.[1]).not.toHaveProperty("$filter");
     expect(lineRequest?.[1].$orderby).toBe("Ref_Key asc,LineNumber asc");
+    expect(infoLog).toHaveBeenCalledWith(expect.objectContaining({
+      event: "automated_new_control_product_resolved",
+      productExternalId: DHI,
+      marketEntryAt: "2022-11-14T09:00:00",
+      marketEntryReceiptNumber: "NSUU-000463",
+      eligibleReceiptCount: 6,
+    }));
+    infoLog.mockRestore();
   });
 
   it("does not activate NEW from creation alone and excludes ineligible headers", async () => {
