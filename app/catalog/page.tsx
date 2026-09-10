@@ -43,7 +43,7 @@ export async function generateMetadata({ searchParams }: { searchParams: Promise
 
 export default async function PublicCatalogPage({ searchParams }: { searchParams: Promise<Params> }) {
   const params = await searchParams;
-  const canonicalHref = canonicalizeLegacyRollingPeriodParams("/catalog", params, ["period", "newPeriod"]);
+  const canonicalHref = canonicalizeLegacyRollingPeriodParams("/catalog", params, ["period", "newPeriod", "hotPeriod"]);
   if (canonicalHref) redirect(canonicalHref);
   const locale = publicRetailLocale(params.lang);
   const single = (value: string | string[] | undefined) => Array.isArray(value) ? value[0] : value;
@@ -59,13 +59,14 @@ export default async function PublicCatalogPage({ searchParams }: { searchParams
   const showcasePeriods = {
     popular: parseRollingPeriodState(single(params.period)),
     new: parseRollingPeriodState(single(params.newPeriod)),
+    hot: parseRollingPeriodState(single(params.hotPeriod)),
   };
   const attributeFilters = parseCatalogAttributeFilters(params);
   const service = getPublicRetailService();
   if (!hasListingIntent(params)) {
     const rotationSeed = (await headers()).get("x-novotech-popular-session") ?? "";
     const [showcase, categories] = await Promise.all([
-      service.getRetailShowcase(locale, rotationSeed, { popular: resolveRollingPeriod(showcasePeriods.popular), new: resolveRollingPeriod(showcasePeriods.new) }),
+      service.getRetailShowcase(locale, rotationSeed, { popular: resolveRollingPeriod(showcasePeriods.popular), new: resolveRollingPeriod(showcasePeriods.new), hot: resolveRollingPeriod(showcasePeriods.hot) }),
       getPublicRetailCategories(locale),
     ]);
     const schema = [
@@ -77,7 +78,7 @@ export default async function PublicCatalogPage({ searchParams }: { searchParams
     ];
     return <PublicRetailShell languagePath="/catalog" locale={locale}><PublicStructuredData data={schema} /><main><PublicRetailShowcase categories={categories} locale={locale} periods={showcasePeriods} showcase={showcase} /></main></PublicRetailShell>;
   }
-  const merchandisingMode: PublicRetailMerchandisingMode | undefined = q ? undefined : view === "replenishment" ? "replenishment" : view === "special" ? "special" : view === "new" ? "new" : view === "hot" ? "hot" : view === "popular" ? "popular" : undefined;
+  const merchandisingMode: PublicRetailMerchandisingMode | undefined = q && view !== "hot" ? undefined : view === "replenishment" ? "replenishment" : view === "special" ? "special" : view === "new" ? "new" : view === "hot" ? "hot" : view === "popular" ? "popular" : undefined;
   const priceSort: PublicRetailPriceSort | undefined = sort === "price_desc" ? "price_desc" : sort === "price_asc" ? "price_asc" : undefined;
   const mode = merchandisingMode ?? priceSort;
   const categoryFacetRead = category && !q && !availability && Object.keys(attributeFilters).length === 0

@@ -47,8 +47,8 @@ describe("automated B2B Popular contract", () => {
 
   it("removes manual Popular while preserving valid manual campaign types", () => {
     expect(admin).not.toContain('<option value="TOP">');
-    expect(admin).toContain('<option value="NEW">');
-    expect(admin).toContain('<option value="HOT">');
+    expect(admin).not.toContain('<option value="NEW">');
+    expect(admin).not.toContain('<option value="HOT">');
     expect(admin).toContain('<option value="SPECIAL_OFFER">');
     expect(service).toContain("MERCHANDISING_POPULAR_SYSTEM_MANAGED");
     expect(migration).toContain("prevent_manual_popular_management");

@@ -57,10 +57,12 @@ describe("SupabaseWorkspaceDashboardRepository", () => {
         previousProducts: [],
         popularProducts: [],
         newProducts: [],
+        hotProducts: [],
         merchandisingProducts: [],
         previousCandidateCount: 0,
         popularCandidateCount: 0,
         newCandidateCount: 0,
+        hotCandidateCount: 0,
         offerCandidateCount: 0,
         rotationBucket: 1,
       },
@@ -73,13 +75,14 @@ describe("SupabaseWorkspaceDashboardRepository", () => {
       "2026-08-01T10:00:00Z",
     )).resolves.toMatchObject({ snapshotHit: true });
     expect(mocks.rpc).toHaveBeenCalledOnce();
-    expect(mocks.rpc).toHaveBeenCalledWith("get_or_refresh_partner_dashboard_selections_v5", {
+    expect(mocks.rpc).toHaveBeenCalledWith("get_or_refresh_partner_dashboard_selections_v6", {
       p_user_id: "11111111-1111-4111-8111-111111111111",
       p_company_id: "22222222-2222-4222-8222-222222222222",
       p_login_generation: "2026-08-01T10:00:00Z",
       p_repeat_period_days: 365,
       p_popular_period_days: 365,
       p_new_period_days: 365,
+      p_hot_period_days: 365,
     });
   });
 });

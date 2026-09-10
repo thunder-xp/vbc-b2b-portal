@@ -228,6 +228,12 @@ export class SupabasePriceSyncStateStore implements PriceSyncStateStore {
     const publicationStartedAt = performance.now();
     const { error } = await client.rpc("publish_product_prices_with_retail_history", { p_sync_id: syncId });
     if (error) throw Object.assign(persistenceError(error), { errorCategory: "publication_failure" });
+    const hotRefresh = await client.rpc("refresh_automated_hot_product_ranking");
+    if (hotRefresh.error) {
+      console.warn(observation("automated_hot_refresh_warning", syncId, "completed", {
+        databaseCode: hotRefresh.error.code ?? null,
+      }));
+    }
     await projectPartnerProductTransitions(syncId);
     await client.from("retail_price_history_source_stage").delete().eq("sync_id", syncId);
     const publicationDurationMs = Math.round(performance.now() - publicationStartedAt);

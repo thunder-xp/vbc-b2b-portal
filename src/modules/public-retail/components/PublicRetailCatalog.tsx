@@ -25,7 +25,7 @@ type CatalogState = PublicRetailCatalogState;
 
 export function PublicRetailCatalog({ blogArticles = [], breadcrumbs, categories, categoryContent, facets, locale, products, state }: { blogArticles?: PublicBlogCard[]; breadcrumbs?: PublicBreadcrumbItem[]; categories: PublicRetailCategoryDto[]; categoryContent?: PublicCategoryContent | null; facets: PublicRetailFacetDto[]; locale: PublicRetailLocale; products: PublicRetailProductPageDto; state: CatalogState }) {
   const copy = retailCopy[locale];
-  const pageTitle = categoryContent?.heading ?? (state.mode === "popular" ? copy.popularProducts : state.mode === "new" ? copy.newProducts : state.mode === "replenishment" ? copy.replenishmentCollection : copy.catalog);
+  const pageTitle = categoryContent?.heading ?? (state.mode === "popular" ? copy.popularProducts : state.mode === "new" ? copy.newProducts : state.mode === "hot" ? copy.hotPrice : state.mode === "replenishment" ? copy.replenishmentCollection : copy.catalog);
   const collectionBadge = state.mode ? publicRetailMerchandisingBadge(locale, state.mode) : undefined;
   const visibleCategories = publicRetailVisibleCategories(categories);
   const filterableFacetKeys = new Set(facets.map((facet) => facet.key));
@@ -35,11 +35,11 @@ export function PublicRetailCatalog({ blogArticles = [], breadcrumbs, categories
       <CatalogResultsHeader action={state.mode ? undefined : <SortForm locale={locale} state={state} />} eyebrow="Novotech Retail" eyebrowTone="retail" title={pageTitle} />
       <p className="mt-3 max-w-3xl text-sm leading-6 text-zinc-600">{categoryContent.intro}</p>
       <CategoryTaxonomyLinks content={categoryContent} locale={locale} />
-    </div> : <CatalogResultsHeader action={state.mode === "popular" || state.mode === "new" ? <RollingPeriodSelector activePeriod={state.periodState ?? null} hrefForPeriod={(period) => `/catalog?lang=${locale}&view=${state.mode}&period=${period}`} locale={locale} tone="retail" /> : state.mode ? undefined : <SortForm locale={locale} state={state} />} eyebrow="Novotech Retail" eyebrowTone="retail" title={pageTitle} />}
+    </div> : <CatalogResultsHeader action={state.mode === "popular" || state.mode === "new" || state.mode === "hot" ? <RollingPeriodSelector activePeriod={state.periodState ?? null} hrefForPeriod={(period) => `/catalog?lang=${locale}&view=${state.mode}&period=${period}`} locale={locale} tone="retail" /> : state.mode ? undefined : <SortForm locale={locale} state={state} />} eyebrow="Novotech Retail" eyebrowTone="retail" title={pageTitle} />}
     <div className="mt-5">
       <CatalogToolbarFrame>
         <PublicRetailCategoryMenu categories={visibleCategories.map(publicRetailMenuCategory)} locale={locale} />
-        <PublicRetailSearchForm defaultValue={state.q} id="catalog" locale={locale} />
+        <PublicRetailSearchForm defaultValue={state.q} id="catalog" locale={locale} mode={state.mode} periodState={state.periodState} />
         <Link className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 border border-zinc-300 px-4 text-sm font-semibold hover:border-blue-700 hover:text-blue-800" href={publicRetailShowcaseHref(locale)}><Sparkles aria-hidden="true" className="size-4" />{copy.showcase}</Link>
       </CatalogToolbarFrame>
     </div>
@@ -97,7 +97,7 @@ function SortForm({ locale, state }: { locale: PublicRetailLocale; state: Catalo
 
 function Pagination({ locale, products, state }: { locale: PublicRetailLocale; products: PublicRetailProductPageDto; state: CatalogState }) {
   const totalPages = Math.max(1, Math.ceil(products.totalCount / products.limit));
-  const hrefForPage = (target: number) => { const query = new URLSearchParams({ lang: locale, page: String(target) }); if (state.q) query.set("q", state.q); if (state.category) query.set("category", state.category); if (state.availability) query.set("availability", state.availability); if (state.sort) query.set("sort", state.sort); if (state.mode) query.set("view", state.mode); if ((state.mode === "popular" || state.mode === "new") && state.periodState) query.set("period", String(state.periodState)); if (state.returnHref) query.set("return", state.returnHref); Object.entries(catalogFacetQueryFields(state.attributeFilters)).forEach(([key, value]) => query.set(key, value)); return `/catalog?${query}`; };
+  const hrefForPage = (target: number) => { const query = new URLSearchParams({ lang: locale, page: String(target) }); if (state.q) query.set("q", state.q); if (state.category) query.set("category", state.category); if (state.availability) query.set("availability", state.availability); if (state.sort) query.set("sort", state.sort); if (state.mode) query.set("view", state.mode); if ((state.mode === "popular" || state.mode === "new" || state.mode === "hot") && state.periodState) query.set("period", String(state.periodState)); if (state.returnHref) query.set("return", state.returnHref); Object.entries(catalogFacetQueryFields(state.attributeFilters)).forEach(([key, value]) => query.set(key, value)); return `/catalog?${query}`; };
   return <div className="mt-8"><NumberedPagination ariaLabel={locale === "ro" ? "Paginare catalog" : "Пагинация каталога"} currentPage={state.page} hrefForPage={hrefForPage} nextAriaLabel={locale === "ro" ? "Pagina următoare" : "Следующая страница"} nextLabel={retailCopy[locale].next} previousAriaLabel={locale === "ro" ? "Pagina precedentă" : "Предыдущая страница"} previousLabel={retailCopy[locale].previous} square tone="retail" totalPages={totalPages} /></div>;
 }
 

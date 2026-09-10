@@ -2,13 +2,16 @@ import { Search } from "lucide-react";
 
 import { retailCopy } from "../presentation";
 import type { PublicRetailLocale } from "../types";
+import type { PublicRetailMerchandisingMode } from "../types";
+import type { RollingPeriodState } from "../../commerce-period";
 
-export function PublicRetailSearchForm({ locale, prominent = false, defaultValue, id = "header" }: { locale: PublicRetailLocale; prominent?: boolean; defaultValue?: string; id?: string }) {
+export function PublicRetailSearchForm({ locale, prominent = false, defaultValue, id = "header", mode, periodState }: { locale: PublicRetailLocale; prominent?: boolean; defaultValue?: string; id?: string; mode?: PublicRetailMerchandisingMode; periodState?: RollingPeriodState }) {
   const copy = retailCopy[locale];
 
   return <form action="/catalog" className={`flex min-w-0 flex-1 bg-white ${prominent ? "border-2 border-blue-700" : "border border-zinc-300"}`} method="get" role="search">
     <input name="lang" type="hidden" value={locale} />
-    <input name="view" type="hidden" value="all" />
+    <input name="view" type="hidden" value={mode === "hot" ? "hot" : "all"} />
+    {mode === "hot" && periodState ? <input name="period" type="hidden" value={periodState} /> : null}
     <label className="sr-only" htmlFor={`public-retail-search-${id}`}>{copy.search}</label>
     <Search aria-hidden="true" className="ml-3 size-5 shrink-0 self-center text-zinc-500" />
     <input

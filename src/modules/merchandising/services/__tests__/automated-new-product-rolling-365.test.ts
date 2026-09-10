@@ -40,7 +40,7 @@ describe("automated first-import NEW contract", () => {
     expect(migration).toContain("timestamp '2022-11-14 09:00:00'");
     expect(migration).toContain("fact.eligible_receipt_count = 6");
     expect(migration).toContain("MERCHANDISING_NEW_SYSTEM_MANAGED");
-    expect(adminUi).toContain('useState<MerchandisingLabelCode>("HOT")');
+    expect(adminUi).toContain('useState<MerchandisingLabelCode>("SPECIAL_OFFER")');
     expect(adminUi).not.toContain('<option value="NEW"');
     expect(merchandisingRepository).toContain('"manage_product_merchandising_v3"');
   });
@@ -55,9 +55,9 @@ describe("automated first-import NEW contract", () => {
     expect(migration).toContain("get_public_retail_showcase_v5");
     expect(migration).toContain("count(*) over ()::integer as total_count");
     expect(migration).not.toContain("'new', 48, 0, 365");
-    expect(catalogRepository).toContain('"catalog_partner_page_v11"');
+    expect(catalogRepository).toContain('"catalog_partner_page_v12"');
     expect(publicRepository).toContain('"list_public_retail_products_v6"');
-    expect(publicRepository).toContain('"get_public_retail_showcase_v6"');
+    expect(publicRepository).toContain('"get_public_retail_showcase_v7"');
     expect(publicRepository).not.toContain("market_entry_source_ref");
     expect(publicRepository).not.toContain("eligible_receipt_count");
   });

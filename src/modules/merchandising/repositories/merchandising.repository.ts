@@ -23,6 +23,7 @@ export interface MerchandisingRepository {
     limitPerLabel: number;
     popularPeriod: EffectiveRollingPeriod;
     newPeriod: EffectiveRollingPeriod;
+    hotPeriod: EffectiveRollingPeriod;
     rotationSeed?: string;
   }): Promise<PublishedMerchandisingAssignment[]>;
   listPublishedForProducts(input: {

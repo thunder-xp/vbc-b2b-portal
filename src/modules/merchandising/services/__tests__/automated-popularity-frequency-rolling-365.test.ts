@@ -68,10 +68,10 @@ describe("rolling-365 purchase-frequency Popular contract", () => {
     expect(migration).toContain("'isPopular', ranking.product_id is not null");
     expect(migration).not.toContain("'purchaseFrequency'");
     expect(migration).not.toContain("'distinctCompanyCount'");
-    expect(publicRepository).toContain('"get_public_retail_showcase_v6"');
+    expect(publicRepository).toContain('"get_public_retail_showcase_v7"');
     expect(publicRepository).toContain('"list_public_retail_products_v6"');
-    expect(publicRepository).toContain('"list_public_retail_hot_products_v2"');
-    expect(catalogRepository).toContain('"catalog_partner_page_v11"');
+    expect(publicRepository).toContain('"list_public_retail_hot_products_v3"');
+    expect(catalogRepository).toContain('"catalog_partner_page_v12"');
     expect(publicRepository).not.toContain("b2b_product_demand_ranking");
     expect(catalogRepository).not.toContain("partner_order_history");
     expect(dashboardRepository).not.toContain("partner_order_history");

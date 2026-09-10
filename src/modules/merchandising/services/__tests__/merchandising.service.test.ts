@@ -34,7 +34,7 @@ describe("MerchandisingService", () => {
     })).toThrowError("MERCHANDISING_EXPIRY_REQUIRED");
   });
 
-  it("keeps Popular system-managed while other manual labels remain editable", async () => {
+  it("keeps Popular and HOT system-managed while SPECIAL_OFFER remains editable", async () => {
     const repository = repositoryStub();
     const service = createService(repository);
     expect(() => service.manage({
@@ -44,13 +44,21 @@ describe("MerchandisingService", () => {
       labelCode: "TOP",
       reason: "Спрос",
     })).toThrowError("MERCHANDISING_POPULAR_SYSTEM_MANAGED");
-    await service.manage({
+    expect(() => service.manage({
       requestId: "33333333-3333-4333-8333-333333333333",
       operation: "assign",
       productIds: [PRODUCT_ID],
       labelCode: "HOT",
       endsAt: "2026-08-30T00:00:00.000Z",
       reason: "Промо",
+    })).toThrowError("MERCHANDISING_HOT_SYSTEM_MANAGED");
+    await service.manage({
+      requestId: "44444444-4444-4444-8444-444444444444",
+      operation: "assign",
+      productIds: [PRODUCT_ID],
+      labelCode: "SPECIAL_OFFER",
+      endsAt: "2026-08-30T00:00:00.000Z",
+      reason: "Retail campaign",
     });
     expect(repository.manage).toHaveBeenCalledTimes(1);
   });
@@ -70,6 +78,7 @@ describe("MerchandisingService", () => {
       limitPerLabel: 8,
       popularPeriod: 365,
       newPeriod: 365,
+      hotPeriod: 365,
     });
   });
 
@@ -88,6 +97,7 @@ describe("MerchandisingService", () => {
       limitPerLabel: 5,
       popularPeriod: 365,
       newPeriod: 365,
+      hotPeriod: 365,
       rotationSeed: "2026-09-09T08:30:00.000Z",
     });
   });

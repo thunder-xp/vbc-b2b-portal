@@ -135,10 +135,12 @@ export type WorkspaceDashboardSelections = {
   previousProducts: WorkspaceDashboardProductCandidate[];
   popularProducts?: WorkspaceDashboardProductCandidate[];
   newProducts?: WorkspaceDashboardProductCandidate[];
+  hotProducts?: WorkspaceDashboardProductCandidate[];
   merchandisingProducts: WorkspaceDashboardProductCandidate[];
   previousCandidateCount: number;
   popularCandidateCount?: number;
   newCandidateCount?: number;
+  hotCandidateCount?: number;
   offerCandidateCount: number;
   rotationBucket: number;
 };
@@ -153,6 +155,7 @@ export interface WorkspaceDashboardRepository {
       repeat: EffectiveRollingPeriod;
       popular: EffectiveRollingPeriod;
       new: EffectiveRollingPeriod;
+      hot: EffectiveRollingPeriod;
     },
   ): Promise<WorkspaceDashboardSelections>;
   dismissAttention?(

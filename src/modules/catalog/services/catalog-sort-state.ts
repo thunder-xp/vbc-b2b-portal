@@ -40,7 +40,7 @@ export function buildCatalogSortHiddenFields(input: {
   addTextField(fields, "collection", input.collection);
   addTextField(fields, "search", input.search);
   addTextField(fields, "label", input.merchandisingLabel);
-  if (input.merchandisingLabel === "TOP" || input.merchandisingLabel === "NEW") {
+  if (input.merchandisingLabel === "TOP" || input.merchandisingLabel === "NEW" || input.merchandisingLabel === "HOT") {
     if (input.period && input.period !== 365) addTextField(fields, "period", String(input.period));
   }
   if (input.explicitAll) fields.push({ name: "view", value: "all" });

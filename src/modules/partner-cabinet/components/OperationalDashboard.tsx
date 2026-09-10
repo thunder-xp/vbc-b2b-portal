@@ -25,7 +25,7 @@ export function OperationalDashboard({
   workspace,
 }: {
   locale: PartnerLocale;
-  periods: { repeat: RollingPeriodState; popular: RollingPeriodState; new: RollingPeriodState };
+  periods: { repeat: RollingPeriodState; popular: RollingPeriodState; new: RollingPeriodState; hot: RollingPeriodState };
   workspace: WorkspaceHomeDto;
 }) {
   return (
@@ -42,6 +42,7 @@ export function OperationalDashboard({
       />
       <ProductSection analyticsSurface="dashboard_popular" eligibleCount={workspace.popularProductTotalCount} locale={locale} periodKey="popular" periods={periods} products={workspace.popularProducts} title={partnerText(locale, "dashboard.popularProducts")} workspace={workspace} />
       <ProductSection analyticsSurface="dashboard_new" eligibleCount={workspace.newProductTotalCount} locale={locale} periodKey="new" periods={periods} products={workspace.newProducts} title={partnerText(locale, "dashboard.newProducts")} workspace={workspace} />
+      <ProductSection analyticsSurface="dashboard_hot" eligibleCount={workspace.hotProductTotalCount} locale={locale} periodKey="hot" periods={periods} products={workspace.hotProducts} title={partnerText(locale, "dashboard.hotProducts")} workspace={workspace} />
       <div className="space-y-4" data-dashboard-section="priority-work">
         <div className={`grid items-stretch gap-4 ${workspace.attentionItems.length && workspace.estimateSalesOpportunities?.length ? "xl:grid-cols-2" : ""}`} data-dashboard-priority-work>
           <AttentionSection items={workspace.attentionItems} locale={locale} />
@@ -339,8 +340,8 @@ function ProductSection({
   analyticsSurface: string;
   eligibleCount: number;
   locale: PartnerLocale;
-  periodKey: "repeat" | "popular" | "new";
-  periods: { repeat: RollingPeriodState; popular: RollingPeriodState; new: RollingPeriodState };
+  periodKey: "repeat" | "popular" | "new" | "hot";
+  periods: { repeat: RollingPeriodState; popular: RollingPeriodState; new: RollingPeriodState; hot: RollingPeriodState };
   products: WorkspaceHomeDto["reorderProducts"];
   title: string;
   workspace: WorkspaceHomeDto;
@@ -383,21 +384,21 @@ function ProductSection({
 }
 
 function dashboardPeriodHref(
-  states: { repeat: RollingPeriodState; popular: RollingPeriodState; new: RollingPeriodState },
-  key: "repeat" | "popular" | "new",
+  states: { repeat: RollingPeriodState; popular: RollingPeriodState; new: RollingPeriodState; hot: RollingPeriodState },
+  key: "repeat" | "popular" | "new" | "hot",
   target: RollingPeriod,
 ): string {
   const query = new URLSearchParams();
-  const names = { repeat: "period", popular: "popularPeriod", new: "newPeriod" } as const;
-  for (const stateKey of ["repeat", "popular", "new"] as const) {
+  const names = { repeat: "period", popular: "popularPeriod", new: "newPeriod", hot: "hotPeriod" } as const;
+  for (const stateKey of ["repeat", "popular", "new", "hot"] as const) {
     const value = stateKey === key ? target : states[stateKey];
     if (value) query.set(names[stateKey], String(value));
   }
   return `/cabinet?${query}`;
 }
 
-function selectionFullHref(key: "repeat" | "popular" | "new", state: RollingPeriodState): string {
-  const base = key === "repeat" ? "/cabinet/repeat-purchase" : `/cabinet/catalog?label=${key === "popular" ? "TOP" : "NEW"}`;
+function selectionFullHref(key: "repeat" | "popular" | "new" | "hot", state: RollingPeriodState): string {
+  const base = key === "repeat" ? "/cabinet/repeat-purchase" : `/cabinet/catalog?label=${key === "popular" ? "TOP" : key === "new" ? "NEW" : "HOT"}`;
   if (!state) return base;
   return `${base}${base.includes("?") ? "&" : "?"}period=${state}`;
 }

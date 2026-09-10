@@ -24,6 +24,7 @@ export type CatalogRouteState = {
   periodState?: RollingPeriodState;
   popularPeriodState?: RollingPeriodState;
   newPeriodState?: RollingPeriodState;
+  hotPeriodState?: RollingPeriodState;
   search?: string;
   sort: CatalogSort;
 };
@@ -45,6 +46,7 @@ export function parseCatalogRouteState(params: CatalogSearchParams): CatalogRout
   const periodState = parseRollingPeriodState(single(params?.period));
   const popularPeriodState = merchandisingLabel ? periodState : parseRollingPeriodState(single(params?.period));
   const newPeriodState = merchandisingLabel ? periodState : parseRollingPeriodState(single(params?.newPeriod));
+  const hotPeriodState = merchandisingLabel ? periodState : parseRollingPeriodState(single(params?.hotPeriod));
   const period = resolveRollingPeriod(periodState);
   const hasDiscoveryConstraint = Boolean(
     explicitAll
@@ -76,6 +78,7 @@ export function parseCatalogRouteState(params: CatalogSearchParams): CatalogRout
     periodState,
     popularPeriodState,
     newPeriodState,
+    hotPeriodState,
     search,
     sort,
   };

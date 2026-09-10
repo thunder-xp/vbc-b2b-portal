@@ -90,17 +90,19 @@ export class SupabaseMerchandisingRepository
     limitPerLabel: number;
     popularPeriod: EffectiveRollingPeriod;
     newPeriod: EffectiveRollingPeriod;
+    hotPeriod: EffectiveRollingPeriod;
     rotationSeed?: string;
   }): Promise<PublishedMerchandisingAssignment[]> {
     const supabase = await createClient();
     const { data, error } = await supabase.rpc(
-      "get_published_product_merchandising_v6",
+      "get_published_product_merchandising_v7",
       {
         p_company_id: input.companyId,
         p_label_code: input.labelCode ?? null,
         p_limit_per_label: input.limitPerLabel,
         p_popular_period_days: input.popularPeriod,
         p_new_period_days: input.newPeriod,
+        p_hot_period_days: input.hotPeriod,
         p_rotation_seed: input.rotationSeed ?? null,
       },
     );
@@ -118,7 +120,7 @@ export class SupabaseMerchandisingRepository
   }): Promise<PublishedMerchandisingAssignment[]> {
     const supabase = await createClient();
     const { data, error } = await supabase.rpc(
-      "get_published_product_labels",
+      "get_published_product_labels_v2",
       {
         p_company_id: input.companyId,
         p_product_ids: input.productIds,
@@ -255,6 +257,7 @@ function safeDatabaseErrorCode(
     "MERCHANDISING_DATABASE_CONSTRAINT",
     "MERCHANDISING_POPULAR_SYSTEM_MANAGED",
     "MERCHANDISING_NEW_SYSTEM_MANAGED",
+    "MERCHANDISING_HOT_SYSTEM_MANAGED",
   ];
   const matched = knownCodes.find((code) => message?.includes(code));
   if (matched) return matched;

@@ -66,10 +66,15 @@ export class SupabasePublicRetailReadRepository implements PublicRetailReadRepos
   async listProducts(input: ListPublicRetailProductsInput) {
     const client = createPublicReadClient();
     const request = input.mode === "hot"
-      ? client.rpc("list_public_retail_hot_products_v2", {
+      ? client.rpc("list_public_retail_hot_products_v3", {
           p_locale: input.locale,
+          p_category_slug: input.categorySlug ?? null,
+          p_search: input.search ?? null,
+          p_availability: input.availability ?? null,
+          p_facets: input.facets ?? {},
           p_limit: input.limit,
           p_offset: input.offset,
+          p_period_days: input.period,
         })
       : client.rpc("list_public_retail_products_v6", {
       p_locale: input.locale,
@@ -87,11 +92,12 @@ export class SupabasePublicRetailReadRepository implements PublicRetailReadRepos
     return parsePublicRetailProductPage(data);
   }
 
-  async getShowcase(locale: PublicRetailLocale, rotationSeed: string, periods: { popular: import("@/src/modules/commerce-period").EffectiveRollingPeriod; new: import("@/src/modules/commerce-period").EffectiveRollingPeriod }) {
-    const { data, error } = await createPublicReadClient().rpc("get_public_retail_showcase_v6", {
+  async getShowcase(locale: PublicRetailLocale, rotationSeed: string, periods: { popular: import("@/src/modules/commerce-period").EffectiveRollingPeriod; new: import("@/src/modules/commerce-period").EffectiveRollingPeriod; hot: import("@/src/modules/commerce-period").EffectiveRollingPeriod }) {
+    const { data, error } = await createPublicReadClient().rpc("get_public_retail_showcase_v7", {
       p_locale: locale,
       p_popular_period_days: periods.popular,
       p_new_period_days: periods.new,
+      p_hot_period_days: periods.hot,
       p_rotation_seed: rotationSeed,
     });
     if (error) throw new PublicRetailRepositoryError();

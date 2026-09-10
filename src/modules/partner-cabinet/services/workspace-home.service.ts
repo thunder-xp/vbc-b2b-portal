@@ -135,6 +135,8 @@ export type WorkspaceHomeDto = {
   popularProductTotalCount: number;
   newProducts: WorkspaceProductDto[];
   newProductTotalCount: number;
+  hotProducts: WorkspaceProductDto[];
+  hotProductTotalCount: number;
   merchandisingProducts: WorkspaceProductDto[];
   merchandisingProductTotalCount: number;
   opportunities: CommercialOpportunity[];
@@ -250,7 +252,7 @@ export type SalesTrendComparisonDto = {
   state: SalesTrendState;
 };
 
-export type WorkspaceSelectionPeriods = { repeat: EffectiveRollingPeriod; popular: EffectiveRollingPeriod; new: EffectiveRollingPeriod };
+export type WorkspaceSelectionPeriods = { repeat: EffectiveRollingPeriod; popular: EffectiveRollingPeriod; new: EffectiveRollingPeriod; hot: EffectiveRollingPeriod };
 
 export interface WorkspaceHomeService {
   getWorkspaceHome(userId: string, loginGeneration?: string, periods?: WorkspaceSelectionPeriods): Promise<WorkspaceHomeDto>;
@@ -290,7 +292,7 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
     );
   }
 
-  async getWorkspaceHome(userId: string, loginGeneration = "legacy-session", periods: WorkspaceSelectionPeriods = { repeat: 365, popular: 365, new: 365 }): Promise<WorkspaceHomeDto> {
+  async getWorkspaceHome(userId: string, loginGeneration = "legacy-session", periods: WorkspaceSelectionPeriods = { repeat: 365, popular: 365, new: 365, hot: 365 }): Promise<WorkspaceHomeDto> {
     const context = await this.workspaceContextService.getWorkspaceContext(userId);
     if (
       (context.accessState !== "active"
@@ -330,6 +332,7 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
     const merchandisingCandidates = selections?.merchandisingProducts ?? dashboard.merchandisingProducts;
     const popularCandidates = selections?.popularProducts ?? [];
     const newCandidates = selections?.newProducts ?? [];
+    const hotCandidates = selections?.hotProducts ?? [];
     const opportunityCandidates = sessionOrderByPriority(
       opportunityPage.items.filter((item) => item.product),
       loginGeneration,
@@ -339,6 +342,8 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
       ...reorderCandidates,
       ...merchandisingCandidates,
       ...popularCandidates,
+      ...newCandidates,
+      ...hotCandidates,
       ...newCandidates,
     ]);
     const opportunityProductIds = opportunityProductReferenceIds(opportunityCandidates);
@@ -400,6 +405,7 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
     }));
     const popularProducts = toWorkspaceProducts(popularCandidates);
     const newProducts = toWorkspaceProducts(newCandidates);
+    const hotProducts = toWorkspaceProducts(hotCandidates);
 
     logDashboardShortage("previous_purchases", reorderProducts.length, 5);
     logDashboardShortage("opportunities", opportunities.length, 4);
@@ -458,6 +464,8 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
       popularProductTotalCount: selections?.popularCandidateCount ?? popularProducts.length,
       newProducts,
       newProductTotalCount: selections?.newCandidateCount ?? newProducts.length,
+      hotProducts,
+      hotProductTotalCount: selections?.hotCandidateCount ?? hotProducts.length,
       merchandisingProducts,
       merchandisingProductTotalCount: selections?.offerCandidateCount ?? merchandisingProducts.length,
       opportunities,

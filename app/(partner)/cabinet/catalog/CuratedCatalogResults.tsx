@@ -16,7 +16,7 @@ export async function CuratedCatalogResults({
 }: {
   merchandisingPromise: ReturnType<typeof listCatalogMerchandisingSectionsAction>;
   locale: PartnerLocale;
-  periods: { popular: RollingPeriodState; new: RollingPeriodState };
+  periods: { popular: RollingPeriodState; new: RollingPeriodState; hot: RollingPeriodState };
   workspacePromise: ReturnType<typeof getPartnerWorkspaceContextAction>;
 }) {
   const copy = getCatalogCopy(locale);

@@ -66,7 +66,11 @@ describe("parseCatalogRouteState", () => {
       merchandisingLabel: undefined,
       mode: "discovery",
       page: 3,
-      period: 30,
+      period: 365,
+      periodState: null,
+      popularPeriodState: null,
+      newPeriodState: null,
+      hotPeriodState: null,
       search: "dome",
       sort: "default",
     });
@@ -97,9 +101,11 @@ describe("parseCatalogRouteState", () => {
     });
   });
 
-  it("defaults NEW to 365 and accepts its shorter governed slices", () => {
+  it("defaults all automated selections to hidden 365 and accepts shorter slices", () => {
     expect(parseCatalogRouteState({ label: "NEW" })).toMatchObject({ period: 365 });
     expect(parseCatalogRouteState({ label: "NEW", period: "60" })).toMatchObject({ period: 60 });
-    expect(parseCatalogRouteState({ label: "TOP", period: "365" })).toMatchObject({ period: 30 });
+    expect(parseCatalogRouteState({ label: "TOP", period: "365" })).toMatchObject({ period: 365, periodState: null });
+    expect(parseCatalogRouteState({ label: "HOT" })).toMatchObject({ period: 365, periodState: null });
+    expect(parseCatalogRouteState({ label: "HOT", period: "90" })).toMatchObject({ period: 90, periodState: 90 });
   });
 });

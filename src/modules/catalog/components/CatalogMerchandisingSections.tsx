@@ -14,7 +14,7 @@ export function CatalogMerchandisingSections({
   commercialViews,
   companyId,
   locale = "ru",
-  periods = { popular: null, new: null },
+  periods = { popular: null, new: null, hot: null },
   sections,
   userId,
 }: {
@@ -22,7 +22,7 @@ export function CatalogMerchandisingSections({
   commercialViews: Record<string, ProductCommercialViewDto>;
   companyId: string | null;
   locale?: PartnerLocale;
-  periods?: { popular: RollingPeriodState; new: RollingPeriodState };
+  periods?: { popular: RollingPeriodState; new: RollingPeriodState; hot: RollingPeriodState };
   sections: CatalogMerchandisingSection[];
   userId: string | null;
 }) {
@@ -32,10 +32,10 @@ export function CatalogMerchandisingSections({
   return (
     <div className="space-y-7" data-testid="catalog-merchandising-sections">
       {sections.map((section) => {
-        const visibleTitle = section.labelCode === "TOP" ? copy.popular : section.labelCode === "REPLENISHMENT" ? copy.latestArrival : section.title;
+        const visibleTitle = section.labelCode === "TOP" ? copy.popular : section.labelCode === "HOT" ? copy.hotPrice : section.labelCode === "REPLENISHMENT" ? copy.latestArrival : section.title;
         return <section aria-labelledby={`section-${section.labelCode}`} key={section.labelCode}>
           <BehaviorViewEvent
-            dedupeKey={`merchandising-section:${section.labelCode}:${section.labelCode === "TOP" ? periods.popular ?? 365 : section.labelCode === "NEW" ? periods.new ?? 365 : "editorial"}`}
+            dedupeKey={`merchandising-section:${section.labelCode}:${section.labelCode === "TOP" ? periods.popular ?? 365 : section.labelCode === "NEW" ? periods.new ?? 365 : section.labelCode === "HOT" ? periods.hot ?? 365 : "editorial"}`}
             eventName="merchandising_section_viewed"
             route="/cabinet/catalog"
             sourceSurface={section.labelCode}
@@ -43,7 +43,7 @@ export function CatalogMerchandisingSections({
           <div className="mb-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
             <div className="flex min-w-0 flex-wrap items-center gap-x-3"><h2 className="text-lg font-semibold text-zinc-950" id={`section-${section.labelCode}`}>
               {visibleTitle}
-            </h2>{section.labelCode === "TOP" ? <RollingPeriodSelector activePeriod={periods.popular} hrefForPeriod={(target) => curatedPeriodHref(periods, "popular", target)} locale={locale} /> : section.labelCode === "NEW" ? <RollingPeriodSelector activePeriod={periods.new} hrefForPeriod={(target) => curatedPeriodHref(periods, "new", target)} locale={locale} /> : null}</div>
+            </h2>{section.labelCode === "TOP" ? <RollingPeriodSelector activePeriod={periods.popular} hrefForPeriod={(target) => curatedPeriodHref(periods, "popular", target)} locale={locale} /> : section.labelCode === "NEW" ? <RollingPeriodSelector activePeriod={periods.new} hrefForPeriod={(target) => curatedPeriodHref(periods, "new", target)} locale={locale} /> : section.labelCode === "HOT" ? <RollingPeriodSelector activePeriod={periods.hot} hrefForPeriod={(target) => curatedPeriodHref(periods, "hot", target)} locale={locale} /> : null}</div>
             <div className="inline-flex shrink-0 items-center gap-2">
               <ResponsiveRemainderBadge locale={locale} totalCount={section.totalCount} />
               <BehaviorTrackedCatalogLink
@@ -78,12 +78,14 @@ export function CatalogMerchandisingSections({
   );
 }
 
-function curatedPeriodHref(states: { popular: RollingPeriodState; new: RollingPeriodState }, key: "popular" | "new", target: RollingPeriod): string {
+function curatedPeriodHref(states: { popular: RollingPeriodState; new: RollingPeriodState; hot: RollingPeriodState }, key: "popular" | "new" | "hot", target: RollingPeriod): string {
   const query = new URLSearchParams();
   const popular = key === "popular" ? target : states.popular;
   const fresh = key === "new" ? target : states.new;
+  const hot = key === "hot" ? target : states.hot;
   if (popular) query.set("period", String(popular));
   if (fresh) query.set("newPeriod", String(fresh));
+  if (hot) query.set("hotPeriod", String(hot));
   return `/cabinet/catalog?${query}`;
 }
 

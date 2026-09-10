@@ -27,11 +27,11 @@ export class PublicRetailService {
     return this.repository.listCategories(normalizeLocale(locale));
   }
 
-  getRetailShowcase(locale: string | undefined, rotationSeed: string, requestedPeriods: { popular: EffectiveRollingPeriod; new: EffectiveRollingPeriod } = { popular: 365, new: 365 }) {
+  getRetailShowcase(locale: string | undefined, rotationSeed: string, requestedPeriods: { popular: EffectiveRollingPeriod; new: EffectiveRollingPeriod; hot: EffectiveRollingPeriod } = { popular: 365, new: 365, hot: 365 }) {
     return this.repository.getShowcase(
       normalizeLocale(locale),
       normalizeRotationSeed(rotationSeed),
-      { popular: resolveRollingPeriod(requestedPeriods.popular), new: resolveRollingPeriod(requestedPeriods.new) },
+      { popular: resolveRollingPeriod(requestedPeriods.popular), new: resolveRollingPeriod(requestedPeriods.new), hot: resolveRollingPeriod(requestedPeriods.hot) },
     );
   }
 
@@ -95,7 +95,7 @@ export class PublicRetailService {
 }
 
 function normalizeMode(value: string | undefined, searchActive: boolean): PublicRetailCatalogMode | undefined {
-  if (searchActive) return undefined;
+  if (searchActive && value !== "hot") return undefined;
   return (["popular", "new", "hot", "special", "replenishment", "price_asc", "price_desc"] as const).find((candidate) => candidate === value);
 }
 

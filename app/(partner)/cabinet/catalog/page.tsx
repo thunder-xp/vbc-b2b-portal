@@ -38,7 +38,7 @@ const PAGE_SIZE = 20;
 
 export default async function CatalogPage({ searchParams }: CatalogPageProps) {
   const [params, cookieStore, locale] = await Promise.all([searchParams, cookies(), getPartnerLocale()]);
-  const canonicalHref = canonicalizeLegacyRollingPeriodParams("/cabinet/catalog", params ?? {}, ["period", "newPeriod"]);
+  const canonicalHref = canonicalizeLegacyRollingPeriodParams("/cabinet/catalog", params ?? {}, ["period", "newPeriod", "hotPeriod"]);
   if (canonicalHref) redirect(canonicalHref);
   const copy = getCatalogCopy(locale);
   const routeState = parseCatalogRouteState(params);
@@ -82,7 +82,7 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
     {routeState.mode === "discovery" ? <CatalogBreadcrumb categories={categoriesResult.data} locale={locale} selectedId={routeState.categoryId} /> : null}
     <Suspense fallback={<CatalogResultsFallback ariaLabel={copy.loading} curated={routeState.mode === "curated"} />}>
       {routeState.mode === "curated"
-        ? <CuratedCatalogResults locale={locale} merchandisingPromise={listCatalogMerchandisingSectionsAction({ popular: resolveRollingPeriod(routeState.popularPeriodState), new: resolveRollingPeriod(routeState.newPeriodState) })} periods={{ popular: routeState.popularPeriodState ?? null, new: routeState.newPeriodState ?? null }} workspacePromise={getPartnerWorkspaceContextAction()} />
+        ? <CuratedCatalogResults locale={locale} merchandisingPromise={listCatalogMerchandisingSectionsAction({ popular: resolveRollingPeriod(routeState.popularPeriodState), new: resolveRollingPeriod(routeState.newPeriodState), hot: resolveRollingPeriod(routeState.hotPeriodState) })} periods={{ popular: routeState.popularPeriodState ?? null, new: routeState.newPeriodState ?? null, hot: routeState.hotPeriodState ?? null }} workspacePromise={getPartnerWorkspaceContextAction()} />
         : <CatalogResults
             attributeFilters={routeState.attributeFilters}
             availability={routeState.availability}

@@ -48,11 +48,11 @@ const SECTION_ORDER: Array<{
   { labelCode: "HOT", title: "Горячие предложения" },
 ];
 
-export async function listCatalogMerchandisingSectionsAction(requestedPeriods: { popular: EffectiveRollingPeriod; new: EffectiveRollingPeriod } = { popular: 365, new: 365 }): Promise<
+export async function listCatalogMerchandisingSectionsAction(requestedPeriods: { popular: EffectiveRollingPeriod; new: EffectiveRollingPeriod; hot: EffectiveRollingPeriod } = { popular: 365, new: 365, hot: 365 }): Promise<
   ActionResult<CatalogMerchandisingSectionsResult>
 > {
   try {
-    const periods = { popular: resolveRollingPeriod(requestedPeriods.popular), new: resolveRollingPeriod(requestedPeriods.new) };
+    const periods = { popular: resolveRollingPeriod(requestedPeriods.popular), new: resolveRollingPeriod(requestedPeriods.new), hot: resolveRollingPeriod(requestedPeriods.hot) };
     const user = await getAuthenticatedUser();
     const userId = user.id;
     const [assignments, context] = await Promise.all([
@@ -63,6 +63,7 @@ export async function listCatalogMerchandisingSectionsAction(requestedPeriods: {
         user.loginGeneration,
         periods.popular,
         periods.new,
+        periods.hot,
       ),
       createPartnerWorkspaceContextService().getWorkspaceContext(userId),
     ]);
@@ -119,6 +120,7 @@ export async function listCatalogMerchandisingSectionsAction(requestedPeriods: {
             ?? sectionProducts.length,
           ...(labelCode === "TOP" ? { href: `/cabinet/catalog?label=TOP${periods.popular === 365 ? "" : `&period=${periods.popular}`}` } : {}),
           ...(labelCode === "NEW" ? { href: `/cabinet/catalog?label=NEW${periods.new === 365 ? "" : `&period=${periods.new}`}` } : {}),
+          ...(labelCode === "HOT" ? { href: `/cabinet/catalog?label=HOT${periods.hot === 365 ? "" : `&period=${periods.hot}`}` } : {}),
         }]
         : [];
     });
