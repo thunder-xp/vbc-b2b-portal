@@ -8,7 +8,10 @@ import {
   IntegrationValidationError,
 } from "../../errors";
 import { isOneCGuid } from "./one-c-guid";
-import { OneCODataClient } from "./one-c-odata-client";
+import {
+  OneCODataClient,
+  type OneCODataProbeResult,
+} from "./one-c-odata-client";
 import { getOneCSafeDiagnostic } from "./one-c-safe-diagnostic";
 
 const CREATION_REQUISITE_RESOURCE = "Catalog_Номенклатура_ДополнительныеРеквизиты";
@@ -21,6 +24,10 @@ const MAX_PAGES = 2_000;
 const RECEIPT_BATCH_SIZE = 20;
 
 type ODataReader = Pick<OneCODataClient, "get">;
+type ODataProbeReader = Pick<
+  OneCODataClient,
+  "probe" | "readProbeResult" | "probeMetadataEntitySets"
+>;
 type Row = Record<string, unknown>;
 
 export type ProductNewSourceStatus =
@@ -97,6 +104,7 @@ export class ProductNewSourceScanIncompleteError extends IntegrationValidationEr
 
 export class OneCProductNewProvider {
   private readonly client: ODataReader;
+  private readonly probeClient: ODataProbeReader | null;
   private readonly endpointBase: string | null;
   private readonly timeoutMs: number | null;
   private readonly authMode: "basic" | "unknown";
@@ -107,7 +115,14 @@ export class OneCProductNewProvider {
     password: string | null;
     requestTimeoutMs: number;
   }) {
-    this.client = "get" in input ? input : new OneCODataClient(input);
+    if ("get" in input) {
+      this.client = input;
+      this.probeClient = null;
+    } else {
+      const client = new OneCODataClient(input);
+      this.client = client;
+      this.probeClient = client;
+    }
     this.endpointBase = "get" in input ? null : sanitizedBaseEndpoint(input.baseUrl);
     this.timeoutMs = "get" in input ? null : input.requestTimeoutMs;
     this.authMode = "get" in input ? "unknown" : input.username && input.password ? "basic" : "unknown";
@@ -127,6 +142,7 @@ export class OneCProductNewProvider {
       pageSize: PAGE_SIZE,
       paginationMode: "odata_next_link_or_skip",
     });
+    await this.runConnectivityProbes();
     const creation = await this.fetchCreationRequisites();
     const receipts = await this.fetchEligibleReceipts();
     const lines = await this.fetchEligibleReceiptLines(receipts.items, productRefs);
@@ -166,13 +182,97 @@ export class OneCProductNewProvider {
     return this.fetchPages(
       CREATION_REQUISITE_RESOURCE,
       {
-        "$filter": `Свойство_Key eq guid'${CREATION_REQUISITE_REF}'`,
         "$select": "Ref_Key,LineNumber,Свойство_Key,Значение,ТекстоваяСтрока,Значение_Type",
         "$orderby": "Ref_Key asc,LineNumber asc",
       },
       "automated_new_creation_requisite_scan",
-      "creation_requisite_ref",
+      "creation_requisite_client_filter",
     );
+  }
+
+  private async runConnectivityProbes(): Promise<void> {
+    if (!this.probeClient) return;
+
+    const requiredResources = [
+      CREATION_REQUISITE_RESOURCE,
+      RECEIPT_RESOURCE,
+      RECEIPT_LINE_RESOURCE,
+    ] as const;
+    const metadata = await this.probeClient.probeMetadataEntitySets(requiredResources);
+    console.info({
+      event: "automated_new_source_metadata_probe_completed",
+      success: metadata.statusCode >= 200 && metadata.statusCode < 300 && metadata.missingEntitySets.length === 0,
+      httpStatus: metadata.statusCode,
+      elapsedMs: metadata.durationMs,
+      responseContentType: metadata.contentType,
+      responseLength: metadata.bodyLength,
+      presentEntitySets: metadata.presentEntitySets,
+      missingEntitySets: metadata.missingEntitySets,
+    });
+    if (metadata.statusCode < 200 || metadata.statusCode >= 300 || metadata.missingEntitySets.length > 0) {
+      throw new IntegrationValidationError("Required 1C automated NEW entity sets are unavailable in metadata.");
+    }
+
+    const probes = [
+      {
+        resource: CREATION_REQUISITE_RESOURCE,
+        select: "Ref_Key,LineNumber,Свойство_Key,Значение,Значение_Type",
+      },
+      {
+        resource: RECEIPT_RESOURCE,
+        select: "Ref_Key,Number,Date,Posted,DeletionMark,PS_ЭтоИмпортТМЦ,ВидОперации",
+      },
+      {
+        resource: RECEIPT_LINE_RESOURCE,
+        select: "Ref_Key,LineNumber,Номенклатура_Key,Количество",
+      },
+    ] as const;
+
+    for (const probe of probes) {
+      let result: OneCODataProbeResult | undefined;
+      try {
+        result = await this.probeClient.probe(probe.resource, {
+          "$top": "1",
+          "$select": probe.select,
+        }, { requestKind: "automated_new_source_connectivity_probe" });
+        console.info({
+          event: "automated_new_source_probe_completed",
+          resourceName: probe.resource,
+          success: result.statusCode >= 200 && result.statusCode < 300 && result.jsonParsed,
+          httpStatus: result.statusCode,
+          elapsedMs: result.durationMs,
+          responseContentType: result.contentType,
+          errorCategory: probeErrorCategory(result),
+        });
+        this.probeClient.readProbeResult(result);
+      } catch (error) {
+        this.attachProbeDiagnostic(error, probe.resource, result);
+        throw error;
+      }
+    }
+  }
+
+  private attachProbeDiagnostic(
+    error: unknown,
+    resource: string,
+    result?: OneCODataProbeResult,
+  ): void {
+    if (!error || typeof error !== "object") return;
+    const diagnostic = getOneCSafeDiagnostic(error);
+    sourceRequestDiagnostics.set(error, {
+      resourceName: resource,
+      requestMethod: "GET",
+      sanitizedEndpoint: joinSanitizedEndpoint(this.endpointBase, resource),
+      httpStatus: result?.statusCode ?? diagnostic?.statusCode ?? null,
+      responseContentType: result?.contentType ?? diagnostic?.receivedContentType ?? null,
+      responseLength: result?.bodyLength ?? diagnostic?.bodyLength ?? null,
+      networkCategory: sourceNetworkCategory(error),
+      pageNumber: 1,
+      pageSize: 1,
+      odataFilterName: "minimal_resource_probe",
+      elapsedMs: result?.durationMs ?? 0,
+      safeErrorExcerpt: diagnostic?.safeErrorSummary?.slice(0, 180) ?? null,
+    });
   }
 
   private async fetchEligibleReceipts(): Promise<{ items: ReceiptHeader[]; pageCount: number }> {
@@ -454,6 +554,14 @@ function sourceNetworkCategory(error: unknown): string {
     return "network_route";
   }
   return error instanceof IntegrationValidationError ? "invalid_response" : "unknown";
+}
+
+function probeErrorCategory(result: OneCODataProbeResult): string | null {
+  if (result.statusCode >= 200 && result.statusCode < 300 && result.jsonParsed) return null;
+  if (result.statusCode === 401) return "authorization_unauthorized";
+  if (result.statusCode === 403) return "authorization_forbidden";
+  if (!result.jsonParsed) return "invalid_response";
+  return result.statusCode >= 500 ? "server_error" : "http_error";
 }
 
 function networkCode(error: unknown): string | null {

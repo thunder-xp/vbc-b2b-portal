@@ -35,6 +35,37 @@ describe("OneCODataClient", () => {
     expect(url.searchParams.getAll("$format")).toEqual(["json"]);
   });
 
+  it("probes exact published entity-set names through bounded metadata", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(
+      `<edmx:Edmx><Schema><EntityContainer>
+        <EntitySet Name="Catalog_Номенклатура_ДополнительныеРеквизиты" />
+        <EntitySet Name="Document_ПриходнаяНакладная" />
+      </EntityContainer></Schema></edmx:Edmx>`,
+      { status: 200, headers: { "content-type": "application/xml;charset=utf-8" } },
+    ));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await client().probeMetadataEntitySets([
+      "Catalog_Номенклатура_ДополнительныеРеквизиты",
+      "Document_ПриходнаяНакладная",
+      "Document_ПриходнаяНакладная_Запасы",
+    ]);
+
+    expect(result).toMatchObject({
+      statusCode: 200,
+      contentType: "application/xml;charset=utf-8",
+      presentEntitySets: [
+        "Catalog_Номенклатура_ДополнительныеРеквизиты",
+        "Document_ПриходнаяНакладная",
+      ],
+      missingEntitySets: ["Document_ПриходнаяНакладная_Запасы"],
+    });
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("https://erp-api.nsd.md/novotech/odata/standard.odata/$metadata");
+    expect(new Headers(init.headers).get("Accept")).toBe("application/xml");
+    expect(new Headers(init.headers).get("Authorization")).toMatch(/^Basic /);
+  });
+
   it("preserves a bounded literal GUID batch query for the 1C serial catalog", async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ value: [] }));
     vi.stubGlobal("fetch", fetchMock);

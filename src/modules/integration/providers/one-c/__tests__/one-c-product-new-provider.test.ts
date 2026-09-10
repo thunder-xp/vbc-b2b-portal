@@ -56,6 +56,9 @@ describe("OneCProductNewProvider", () => {
       receiptLinePageCount: 1,
     });
     expect(get.mock.calls.some(([, params]) => params.$skip === "500")).toBe(true);
+    const creationRequest = get.mock.calls.find(([resource]) => resource.startsWith("Catalog_"));
+    expect(creationRequest?.[1]).not.toHaveProperty("$filter");
+    expect(creationRequest?.[1].$select).toContain("Свойство_Key");
     expect(get.mock.calls.find(([resource]) => resource === "Document_ПриходнаяНакладная")?.[1].$filter)
       .toBe("Posted eq true and DeletionMark eq false and PS_ЭтоИмпортТМЦ eq true and ВидОперации eq 'ПоступлениеОтПоставщика'");
   });
@@ -100,9 +103,18 @@ describe("OneCProductNewProvider", () => {
   });
 
   it("attaches bounded source context without credentials or query values", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({
-      "odata.error": { message: { value: "Unknown field 'secret-value'" } },
-    }), { status: 400, headers: { "content-type": "application/json;charset=utf-8" } })));
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(metadata(), {
+        status: 200,
+        headers: { "content-type": "application/xml;charset=utf-8" },
+      }))
+      .mockResolvedValueOnce(jsonResponse({ value: [] }))
+      .mockResolvedValueOnce(jsonResponse({ value: [] }))
+      .mockResolvedValueOnce(jsonResponse({ value: [] }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        "odata.error": { message: { value: "Unknown field 'secret-value'" } },
+      }), { status: 400, headers: { "content-type": "application/json;charset=utf-8" } }));
+    vi.stubGlobal("fetch", fetchMock);
     const provider = new OneCProductNewProvider({
       baseUrl: "https://embedded-user:embedded-password@erp-api.nsd.md:8443/novotech/odata/standard.odata/",
       username: "service-user",
@@ -127,11 +139,15 @@ describe("OneCProductNewProvider", () => {
       networkCategory: "odata_error",
       pageNumber: 1,
       pageSize: 500,
-      odataFilterName: "creation_requisite_ref",
+      odataFilterName: "creation_requisite_client_filter",
       safeErrorExcerpt: "Unknown field '[redacted]'",
     });
     expect(JSON.stringify(getProductNewSourceRequestDiagnostic(failure))).not.toContain("embedded-password");
     expect(JSON.stringify(getProductNewSourceRequestDiagnostic(failure))).not.toContain("service-password");
+    const probeUrls = fetchMock.mock.calls.slice(1, 4).map(([url]) => new URL(String(url)));
+    expect(probeUrls.map((url) => url.searchParams.get("$top"))).toEqual(["1", "1", "1"]);
+    expect(probeUrls.every((url) => url.searchParams.has("$select"))).toBe(true);
+    expect(decodeURIComponent(String(fetchMock.mock.calls[1]?.[0]))).toContain("Свойство_Key");
   });
 });
 
@@ -141,4 +157,19 @@ function creation(LineNumber: number) {
     Значение: "2022-07-13T00:00:00", ТекстоваяСтрока: "",
     Значение_Type: "Edm.DateTime",
   };
+}
+
+function jsonResponse(payload: unknown): Response {
+  return new Response(JSON.stringify(payload), {
+    status: 200,
+    headers: { "content-type": "application/json;charset=utf-8" },
+  });
+}
+
+function metadata(): string {
+  return `<Schema><EntityContainer>
+    <EntitySet Name="Catalog_Номенклатура_ДополнительныеРеквизиты" />
+    <EntitySet Name="Document_ПриходнаяНакладная" />
+    <EntitySet Name="Document_ПриходнаяНакладная_Запасы" />
+  </EntityContainer></Schema>`;
 }

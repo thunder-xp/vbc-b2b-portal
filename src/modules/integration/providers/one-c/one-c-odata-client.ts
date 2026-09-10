@@ -42,6 +42,15 @@ export type OneCODataProbeOptions = {
   requestKind?: string;
 };
 
+export type OneCODataMetadataProbeResult = {
+  statusCode: number;
+  contentType: string | null;
+  durationMs: number;
+  bodyLength: number;
+  presentEntitySets: string[];
+  missingEntitySets: string[];
+};
+
 export type OneCODataSafeDiagnostic = {
   failedStage: string;
   receivedContentType: string | null;
@@ -63,6 +72,7 @@ export type OneCODataSafeDiagnostic = {
 };
 
 const errorResponseBodies = new WeakMap<object, string | null>();
+const MAX_METADATA_BYTES = 16 * 1024 * 1024;
 
 export class OneCODataResponseValidationError extends IntegrationValidationError {
   readonly failedStage = "odata_response" as const;
@@ -123,6 +133,60 @@ export class OneCODataClient {
     options: OneCODataProbeOptions = {},
   ): Promise<unknown> {
     return this.readResult(await this.probe(resource, params, options));
+  }
+
+  readProbeResult(result: OneCODataProbeResult): unknown {
+    return this.readResult(result);
+  }
+
+  async probeMetadataEntitySets(
+    requiredEntitySets: readonly string[],
+  ): Promise<OneCODataMetadataProbeResult> {
+    const { baseUrl, username, password } = this.config;
+    if (!baseUrl || !username || !password) {
+      throw new IntegrationProviderUnavailableError("1C OData is not configured.");
+    }
+    if (requiredEntitySets.length === 0 || requiredEntitySets.some((name) =>
+      !/^[A-Za-zА-Яа-яЁё0-9_]+$/u.test(name)
+    )) {
+      throw new IntegrationValidationError("1C metadata entity-set probe is invalid.");
+    }
+
+    const startedAt = performance.now();
+    let response: Response;
+    try {
+      response = await fetch(`${baseUrl.replace(/\/$/, "")}/$metadata`, {
+        method: "GET",
+        headers: {
+          Accept: "application/xml",
+          Authorization: `Basic ${Buffer.from(`${username}:${password}`, "utf8").toString("base64")}`,
+        },
+        signal: AbortSignal.timeout(this.config.requestTimeoutMs),
+      });
+    } catch (error) {
+      if (isAbortError(error)) {
+        throw Object.assign(new IntegrationTimeoutError("1C OData metadata request timed out."), { cause: error });
+      }
+      throw Object.assign(new IntegrationProviderUnavailableError("1C OData metadata is unavailable."), {
+        cause: error,
+        networkCode: safeNetworkCode(error),
+      });
+    }
+
+    const body = await response.text();
+    const bodyLength = new TextEncoder().encode(body).byteLength;
+    if (bodyLength === 0 || bodyLength > MAX_METADATA_BYTES) {
+      throw new IntegrationValidationError("1C metadata response size is invalid.");
+    }
+    const entitySets = extractMetadataEntitySets(body);
+    return {
+      statusCode: response.status,
+      contentType: response.headers.get("content-type"),
+      durationMs: Math.max(0, Math.round(performance.now() - startedAt)),
+      bodyLength,
+      presentEntitySets: requiredEntitySets.filter((name) => entitySets.has(name)),
+      missingEntitySets: requiredEntitySets.filter((name) => !entitySets.has(name)),
+    };
   }
 
   async getLiteral(
@@ -486,6 +550,15 @@ function safeErrorName(error: unknown): string {
 function isODataErrorEnvelope(value: unknown): boolean {
   return typeof value === "object" && value !== null &&
     ("error" in value || "odata.error" in value);
+}
+
+function extractMetadataEntitySets(metadata: string): Set<string> {
+  const result = new Set<string>();
+  for (const match of metadata.matchAll(/<(?:[\w.-]+:)?EntitySet\b[^>]*\bName=(?:"([^"]+)"|'([^']+)')/gu)) {
+    const name = match[1] ?? match[2];
+    if (name) result.add(name);
+  }
+  return result;
 }
 
 function isExplicitlyNonJsonContentType(contentType: string | null): boolean {

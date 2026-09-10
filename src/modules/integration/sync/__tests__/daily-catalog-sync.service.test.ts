@@ -124,7 +124,7 @@ describe("DailyCatalogSyncService", () => {
       networkCategory: "odata_error",
       pageNumber: 1,
       pageSize: 500,
-      odataFilterName: "creation_requisite_ref",
+      odataFilterName: "creation_requisite_client_filter",
       safeErrorExcerpt: "Unsupported query",
     }));
   });
