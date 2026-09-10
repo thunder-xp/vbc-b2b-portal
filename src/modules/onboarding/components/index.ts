@@ -4,6 +4,7 @@ export { OnboardingCorrectionForm } from "./OnboardingCorrectionForm";
 export { OnboardingDecisionForms } from "./OnboardingDecisionForms";
 export { OnboardingHealthView } from "./OnboardingHealthView";
 export { OnboardingQueueView } from "./OnboardingQueueView";
+export { FailedRegistrationPurgeControl } from "./FailedRegistrationPurgeControl";
 export { PartnerOnboardingStatusCenter } from "./PartnerOnboardingStatusCenter";
 export {
   INITIAL_ACCESS_LABELS,

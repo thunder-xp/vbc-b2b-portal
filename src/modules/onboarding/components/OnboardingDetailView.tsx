@@ -7,7 +7,12 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
-import type { OnboardingDetail, OnboardingStatus } from "../types";
+import type {
+  FailedRegistrationPurgeReadiness,
+  OnboardingDetail,
+  OnboardingStatus,
+} from "../types";
+import { FailedRegistrationPurgeControl } from "./FailedRegistrationPurgeControl";
 import { ONBOARDING_STATUS_LABELS } from "./onboarding-labels";
 import { OnboardingApprovalWizard } from "./OnboardingApprovalWizard";
 import { OnboardingDecisionForms } from "./OnboardingDecisionForms";
@@ -18,6 +23,7 @@ type Props = {
   assignAction: (formData: FormData) => Promise<void>;
   unassignAction: (formData: FormData) => Promise<void>;
   transitionAction: (formData: FormData) => Promise<void>;
+  purgeReadiness?: FailedRegistrationPurgeReadiness | null;
 };
 
 export function OnboardingDetailView({
@@ -25,6 +31,7 @@ export function OnboardingDetailView({
   assignAction,
   unassignAction,
   transitionAction,
+  purgeReadiness,
 }: Props) {
   const duplicateWarnings = duplicateMessages(detail);
   const terminal = (["approved", "rejected", "cancelled"] as OnboardingStatus[]).includes(
@@ -163,6 +170,12 @@ export function OnboardingDetailView({
               managers={detail.managers}
               isPlatformAdmin={detail.workflow.isPlatformAdmin}
             />
+          ) : null}
+
+          {purgeReadiness?.eligible ? (
+            <Section title="Сброс регистрации">
+              <FailedRegistrationPurgeControl readiness={purgeReadiness} />
+            </Section>
           ) : null}
 
           {!terminal ? (

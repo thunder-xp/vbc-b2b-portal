@@ -10,6 +10,13 @@ export {
 } from "./commercial-readiness-audit.service";
 export { OnboardingApplicationService } from "./onboarding-application.service";
 export {
+  createFailedRegistrationPurgeService,
+  FAILED_REGISTRATION_PURGE_PERMISSION,
+  FailedRegistrationPurgeError,
+  FailedRegistrationPurgeService,
+  type FailedRegistrationPurgeErrorCode,
+} from "./failed-registration-purge.service";
+export {
   ONBOARDING_APPLICATION_ERROR_CODES,
   OnboardingApplicationError,
   type OnboardingApplicationErrorCode,

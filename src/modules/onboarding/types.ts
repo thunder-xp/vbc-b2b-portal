@@ -12,6 +12,54 @@ export const ONBOARDING_STATUSES = [
 
 export type OnboardingStatus = (typeof ONBOARDING_STATUSES)[number];
 
+export type FailedRegistrationPurgeBlocker = {
+  code: string;
+  count: number;
+  relation?: string;
+  column?: string;
+};
+
+export type FailedRegistrationPurgeCounts = Record<string, number>;
+
+export type FailedRegistrationPurgeReadiness = {
+  eligible: boolean;
+  state:
+    | "ready"
+    | "blocked"
+    | "not_found"
+    | "local_purged"
+    | "auth_delete_failed"
+    | "completed";
+  requestId: string;
+  userId: string | null;
+  email: string | null;
+  applicationName: string | null;
+  receiptId: string | null;
+  blockers: FailedRegistrationPurgeBlocker[];
+  counts: FailedRegistrationPurgeCounts;
+};
+
+export type FailedRegistrationPurgeLocalResult = {
+  receiptId: string;
+  status: "local_purged" | "auth_delete_failed" | "completed";
+  requestId: string;
+  userId: string;
+  deletedCounts: FailedRegistrationPurgeCounts;
+};
+
+export type FailedRegistrationPurgeCompletion = {
+  receiptId: string;
+  status: "completed";
+  deletedCounts: FailedRegistrationPurgeCounts;
+  remainingCounts: FailedRegistrationPurgeCounts;
+};
+
+export type FailedRegistrationPurgeResult =
+  FailedRegistrationPurgeCompletion & {
+    authDeletion: "deleted" | "already_missing";
+    idempotent: boolean;
+  };
+
 export const ONBOARDING_COMPANY_VERIFICATION_OUTCOMES = [
   "exact_match_found",
   "no_match",

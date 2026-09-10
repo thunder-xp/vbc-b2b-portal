@@ -8,6 +8,10 @@ import {
   unassignOnboardingRequestFormAction,
 } from "@/src/modules/onboarding/actions";
 import { OnboardingDetailView } from "@/src/modules/onboarding/components";
+import {
+  createFailedRegistrationPurgeService,
+  FAILED_REGISTRATION_PURGE_PERMISSION,
+} from "@/src/modules/onboarding/services";
 import { createAdminPartnerIntegrityService, requireAdminPagePermission } from "@/src/modules/admin";
 
 export default async function AdminOnboardingDetailPage({
@@ -32,6 +36,21 @@ export default async function AdminOnboardingDetailPage({
   const integrity = result.data.request.status === "approved"
     ? await createAdminPartnerIntegrityService().diagnose(requestId)
     : null;
+  let purgeReadiness = null;
+  if (
+    result.data.request.status !== "approved"
+    && context.permissions.includes(FAILED_REGISTRATION_PURGE_PERMISSION)
+  ) {
+    try {
+      purgeReadiness = await createFailedRegistrationPurgeService().getReadiness(requestId);
+    } catch (error) {
+      console.error({
+        event: "failed_registration_purge_readiness_unavailable",
+        requestId,
+        errorType: error instanceof Error ? error.name : typeof error,
+      });
+    }
+  }
   return (
     <div className="bg-zinc-50 text-zinc-950">
       <div className="mx-auto max-w-6xl">
@@ -40,6 +59,7 @@ export default async function AdminOnboardingDetailPage({
           assignAction={assignOnboardingRequestFormAction}
           unassignAction={unassignOnboardingRequestFormAction}
           transitionAction={transitionOnboardingRequestFormAction}
+          purgeReadiness={purgeReadiness}
         />
         {integrity ? (
           <section className="mx-4 mb-8 border border-zinc-200 bg-white p-5 sm:mx-0">

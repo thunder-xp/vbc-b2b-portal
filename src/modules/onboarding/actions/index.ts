@@ -31,3 +31,7 @@ export type {
   OnboardingCandidateRematchActionState,
   OnboardingWorkflowActionState,
 } from "./onboarding.actions";
+export {
+  purgeFailedRegistrationAction,
+  type FailedRegistrationPurgeActionState,
+} from "./failed-registration-purge.actions";
