@@ -19,7 +19,7 @@ import { getPartnerLocale } from "@/src/modules/partner-locale/server";
 import { repeatPurchaseCopy } from "@/src/modules/partner-locale";
 import { NumberedPagination } from "@/src/modules/platform-ui";
 import type { ProductCommercialViewDto } from "@/src/modules/pricing-inventory";
-import { parseRollingPeriod, RollingPeriodSelector } from "@/src/modules/commerce-period";
+import { canonicalizeLegacyRollingPeriodParams, parseRollingPeriodState, resolveRollingPeriod, RollingPeriodSelector } from "@/src/modules/commerce-period";
 
 const PAGE_SIZE = 20;
 
@@ -38,10 +38,13 @@ export default async function RepeatPurchasePage({ searchParams }: { searchParam
     getPartnerWorkspaceContextAction(),
   ]);
   if (!workspaceResult.success && workspaceResult.errorCode === "AUTH_REQUIRED") redirect("/auth/sign-in");
+  const canonicalHref = canonicalizeLegacyRollingPeriodParams("/cabinet/repeat-purchase", params);
+  if (canonicalHref) redirect(canonicalHref);
 
   const copy = repeatPurchaseCopy(locale);
   const page = positivePage(single(params.page));
-  const period = parseRollingPeriod(single(params.period));
+  const periodState = parseRollingPeriodState(single(params.period));
+  const period = resolveRollingPeriod(periodState);
   const search = single(params.search).trim().slice(0, 100);
   const categoryIds = parseCategoryIds(params.categories);
   const result = await listPreviouslyPurchasedProductsAction({
@@ -90,13 +93,13 @@ export default async function RepeatPurchasePage({ searchParams }: { searchParam
   return <div className="min-w-0 space-y-4" data-repeat-purchase-page>
     <BehaviorViewEvent dedupeKey={`repeat-purchase:${period}:${selectedCategoryIds.join(",") || "all"}:${search}:${page}`} eventName="catalog_viewed" resultCount={data.totalCount} route="/cabinet/repeat-purchase" searchQuery={search || undefined} sourceSurface="repeat_purchase_history" />
     <header className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-      <div className="flex min-w-0 flex-wrap items-center gap-x-4"><h1 className="text-2xl font-semibold text-zinc-950">{copy.title}</h1><RollingPeriodSelector activePeriod={period} hrefForPeriod={(target) => repeatPurchaseHref({ categoryIds: selectedCategoryIds, page: 1, period: target, search })} locale={locale} /></div>
+      <div className="flex min-w-0 flex-wrap items-center gap-x-4"><h1 className="text-2xl font-semibold text-zinc-950">{copy.title}</h1><RollingPeriodSelector activePeriod={periodState} hrefForPeriod={(target) => repeatPurchaseHref({ categoryIds: selectedCategoryIds, page: 1, period: target, search })} locale={locale} /></div>
       <p className="text-sm font-medium text-zinc-600" data-repeat-purchase-total><strong className="text-zinc-950">{data.totalCount}</strong> {copy.products}</p>
     </header>
     <div className="border-y border-zinc-200 bg-white py-3">
       <form action="/cabinet/repeat-purchase" className="flex min-w-0 flex-wrap gap-2" method="get" role="search">
         {selectedCategoryIds.length ? <input name="categories" type="hidden" value={selectedCategoryIds.join(",")} /> : null}
-        <input name="period" type="hidden" value={period} />
+        {periodState ? <input name="period" type="hidden" value={periodState} /> : null}
         <label className="min-w-[12rem] flex-[1_1_24rem]"><span className="sr-only">{copy.searchLabel}</span><input className="h-11 w-full rounded border border-zinc-300 px-3 text-sm outline-none focus:border-emerald-600 focus-visible:ring-2 focus-visible:ring-emerald-200" defaultValue={search} name="search" placeholder={copy.searchPlaceholder} type="search" /></label>
         <button className="inline-flex h-11 items-center justify-center rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white" type="submit">{copy.search}</button>
         <Link className="inline-flex h-11 items-center justify-center rounded-none border border-zinc-300 bg-white px-4 text-sm font-semibold text-zinc-800 hover:border-emerald-600 hover:text-emerald-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600" href="/cabinet/catalog" prefetch={false}>{copy.wholeCatalog}</Link>

@@ -2,7 +2,7 @@ import type { SalesOrderHistoryDTO } from "../../integration/dto";
 import type { ProductReferenceDto } from "../../catalog/types";
 import type { CatalogPartnerPageRecord } from "../../catalog/repositories/catalog.repository";
 import type { PartnerDocumentListItem } from "../../documents/types";
-import type { RollingPeriod } from "../../commerce-period";
+import type { EffectiveRollingPeriod } from "../../commerce-period";
 import type {
   PartnerOrderHistory,
   PartnerOrderHistoryEvent,
@@ -118,7 +118,7 @@ export interface PartnerOrderHistoryRepository {
     companyId: string;
     limit: number;
     offset: number;
-    period: RollingPeriod;
+    period: EffectiveRollingPeriod;
     search: string | null;
   }): Promise<PreviouslyPurchasedProductPage>;
   getReorderSource(orderId: string): Promise<OrderReorderSource | null>;

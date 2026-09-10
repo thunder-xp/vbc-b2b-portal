@@ -34,7 +34,7 @@ describe("Public Retail catalog showcase", () => {
       "Популярное", "Новинки", "Горячая цена", "Последнее поступление",
     ]);
     expect(screen.getAllByRole("link", { name: /Показать все/ }).map((link) => link.getAttribute("href"))).toEqual([
-      "/catalog?lang=ru&view=popular&period=30", "/catalog?lang=ru&view=new&period=365", "/catalog?lang=ru&view=hot", "/catalog?lang=ru&view=replenishment",
+      "/catalog?lang=ru&view=popular", "/catalog?lang=ru&view=new", "/catalog?lang=ru&view=hot", "/catalog?lang=ru&view=replenishment",
     ]);
     expect(screen.getAllByText("Популярное").length).toBeGreaterThanOrEqual(2);
     expect(getMerchandisingBadge("Новинки")).toBeInTheDocument();
@@ -75,7 +75,7 @@ describe("Public Retail catalog showcase", () => {
     expect(screen.getByLabelText("Ещё 3 товара")).toHaveTextContent("3");
     expect(screen.getByRole("link", { name: "Камера Model 5" })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Камера Model 6" })).not.toBeInTheDocument();
-    expect(screen.getAllByRole("link", { name: /Показать все/ }).find((link) => link.getAttribute("href") === "/catalog?lang=ru&view=popular&period=30")).toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: /Показать все/ }).find((link) => link.getAttribute("href") === "/catalog?lang=ru&view=popular")).toBeInTheDocument();
   });
 
   it("does not render a remaining-item badge when the collection has five products", () => {

@@ -16,7 +16,7 @@ import type { MerchandisingLabelCode } from "../../merchandising/types";
 import { createPartnerWorkspaceContextService } from "../../partner-cabinet/actions/service-factory";
 import { createPricingInventoryService } from "../../pricing-inventory/actions/service-factory";
 import type { ProductCommercialViewDto } from "../../pricing-inventory";
-import { parseRollingPeriod, type RollingPeriod } from "../../commerce-period";
+import { resolveRollingPeriod, type EffectiveRollingPeriod } from "../../commerce-period";
 import { SupabaseWarehouseArrivalRepository } from "../../warehouse-arrivals/repositories";
 import { SupabaseCatalogRepository } from "../repositories/supabase";
 import {
@@ -44,15 +44,15 @@ const SECTION_ORDER: Array<{
   href?: string;
 }> = [
   { labelCode: "TOP", title: "Популярное" },
-  { labelCode: "NEW", title: "Новинки", href: "/cabinet/catalog?label=NEW&period=365" },
+  { labelCode: "NEW", title: "Новинки", href: "/cabinet/catalog?label=NEW" },
   { labelCode: "HOT", title: "Горячие предложения" },
 ];
 
-export async function listCatalogMerchandisingSectionsAction(requestedPeriod: RollingPeriod = 30): Promise<
+export async function listCatalogMerchandisingSectionsAction(requestedPeriods: { popular: EffectiveRollingPeriod; new: EffectiveRollingPeriod } = { popular: 365, new: 365 }): Promise<
   ActionResult<CatalogMerchandisingSectionsResult>
 > {
   try {
-    const period = parseRollingPeriod(requestedPeriod);
+    const periods = { popular: resolveRollingPeriod(requestedPeriods.popular), new: resolveRollingPeriod(requestedPeriods.new) };
     const user = await getAuthenticatedUser();
     const userId = user.id;
     const [assignments, context] = await Promise.all([
@@ -61,7 +61,8 @@ export async function listCatalogMerchandisingSectionsAction(requestedPeriod: Ro
         undefined,
         5,
         user.loginGeneration,
-        period,
+        periods.popular,
+        periods.new,
       ),
       createPartnerWorkspaceContextService().getWorkspaceContext(userId),
     ]);
@@ -116,7 +117,8 @@ export async function listCatalogMerchandisingSectionsAction(requestedPeriod: Ro
           ...(href ? { href } : {}),
           totalCount: assignments.find((assignment) => assignment.labelCode === labelCode)?.matchingProductCount
             ?? sectionProducts.length,
-          ...(labelCode === "TOP" ? { href: `/cabinet/catalog?label=TOP&period=${period}` } : {}),
+          ...(labelCode === "TOP" ? { href: `/cabinet/catalog?label=TOP${periods.popular === 365 ? "" : `&period=${periods.popular}`}` } : {}),
+          ...(labelCode === "NEW" ? { href: `/cabinet/catalog?label=NEW${periods.new === 365 ? "" : `&period=${periods.new}`}` } : {}),
         }]
         : [];
     });

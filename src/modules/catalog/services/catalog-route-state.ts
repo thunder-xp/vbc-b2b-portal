@@ -4,7 +4,7 @@ import type { CatalogAvailability } from "../components/CatalogFilters";
 import { parseCatalogAttributeFilters } from "./catalog-sort-state";
 import { parseCatalogSort, type CatalogSort } from "./catalog-sorting";
 import { parseCatalogQuickLinkCode, type CatalogQuickLinkCode } from "./catalog-quick-links";
-import { parseNewRollingPeriod, parseRollingPeriod, type NewRollingPeriod } from "../../commerce-period";
+import { parseRollingPeriodState, resolveRollingPeriod, type NewRollingPeriod, type RollingPeriodState } from "../../commerce-period";
 
 export type CatalogRouteMode = "curated" | "discovery";
 
@@ -21,6 +21,9 @@ export type CatalogRouteState = {
   mode: CatalogRouteMode;
   page: number;
   period: NewRollingPeriod;
+  periodState?: RollingPeriodState;
+  popularPeriodState?: RollingPeriodState;
+  newPeriodState?: RollingPeriodState;
   search?: string;
   sort: CatalogSort;
 };
@@ -39,9 +42,10 @@ export function parseCatalogRouteState(params: CatalogSearchParams): CatalogRout
   const sort = parseCatalogSort(single(params?.sort));
   const attributeFilters = parseCatalogAttributeFilters(params);
   const explicitAll = single(params?.view) === "all";
-  const period = merchandisingLabel === "NEW"
-    ? parseNewRollingPeriod(single(params?.period))
-    : parseRollingPeriod(single(params?.period));
+  const periodState = parseRollingPeriodState(single(params?.period));
+  const popularPeriodState = merchandisingLabel ? periodState : parseRollingPeriodState(single(params?.period));
+  const newPeriodState = merchandisingLabel ? periodState : parseRollingPeriodState(single(params?.newPeriod));
+  const period = resolveRollingPeriod(periodState);
   const hasDiscoveryConstraint = Boolean(
     explicitAll
       || categoryId
@@ -69,6 +73,9 @@ export function parseCatalogRouteState(params: CatalogSearchParams): CatalogRout
     mode: hasDiscoveryConstraint ? "discovery" : "curated",
     page: hasDiscoveryConstraint ? parsePage(single(params?.page)) : 1,
     period,
+    periodState,
+    popularPeriodState,
+    newPeriodState,
     search,
     sort,
   };

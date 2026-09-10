@@ -13,7 +13,7 @@ import type {
   MerchandisingLabelCode,
   PublishedMerchandisingAssignment,
 } from "../../types";
-import type { RollingPeriod } from "../../../commerce-period";
+import type { EffectiveRollingPeriod } from "../../../commerce-period";
 
 type PublishedRow = {
   product_id: string;
@@ -88,17 +88,19 @@ export class SupabaseMerchandisingRepository
     companyId: string;
     labelCode?: MerchandisingLabelCode;
     limitPerLabel: number;
-    period: RollingPeriod;
+    popularPeriod: EffectiveRollingPeriod;
+    newPeriod: EffectiveRollingPeriod;
     rotationSeed?: string;
   }): Promise<PublishedMerchandisingAssignment[]> {
     const supabase = await createClient();
     const { data, error } = await supabase.rpc(
-      "get_published_product_merchandising_v5",
+      "get_published_product_merchandising_v6",
       {
         p_company_id: input.companyId,
         p_label_code: input.labelCode ?? null,
         p_limit_per_label: input.limitPerLabel,
-        p_period_days: input.period,
+        p_popular_period_days: input.popularPeriod,
+        p_new_period_days: input.newPeriod,
         p_rotation_seed: input.rotationSeed ?? null,
       },
     );
@@ -223,8 +225,6 @@ function isPopularityRefreshResult(
     typeof result.windowEnd === "string" &&
     typeof result.eligibleProductCount === "number" &&
     typeof result.popularSetSize === "number" &&
-    (typeof result.top40ThresholdFrequency === "number" ||
-      result.top40ThresholdFrequency === null) &&
     typeof result.unresolvedSourceLineCount === "number" &&
     typeof result.durationMs === "number"
   );

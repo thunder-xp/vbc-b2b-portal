@@ -21,7 +21,7 @@ import {
   normalizeCatalogOptionalText,
 } from "./catalog-action-input";
 import { measurePerformanceStage } from "@/src/lib/performance/request-diagnostics";
-import { parseNewRollingPeriod, parseRollingPeriod } from "../../commerce-period";
+import { resolveRollingPeriod } from "../../commerce-period";
 
 export async function listCatalogFacetsAction(
   input: CatalogFacetListInput,
@@ -40,7 +40,7 @@ export async function listCatalogFacetsAction(
       availability: normalizeCatalogAvailability(input.availability),
       collection: normalizeCatalogCollection(input.collection),
       merchandisingLabel,
-      period: merchandisingLabel === "NEW" ? parseNewRollingPeriod(input.period) : parseRollingPeriod(input.period),
+      period: resolveRollingPeriod(input.period),
       attributeFilters: normalizeCatalogFilters(input.attributeFilters),
     }));
     return success("Catalog facets loaded.", facets);

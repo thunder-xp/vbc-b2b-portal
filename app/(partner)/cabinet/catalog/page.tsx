@@ -1,6 +1,7 @@
 import { LayoutGrid, Sparkles } from "lucide-react";
 import { cookies } from "next/headers";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
 import {
@@ -21,7 +22,7 @@ import {
   parseCatalogViewMode,
   resolveCatalogQuickLinks,
 } from "@/src/modules/catalog/services";
-import { parseRollingPeriod } from "@/src/modules/commerce-period";
+import { canonicalizeLegacyRollingPeriodParams, resolveRollingPeriod } from "@/src/modules/commerce-period";
 import { getPartnerWorkspaceContextAction } from "@/src/modules/partner-cabinet/actions/workspace-context.action";
 import { getCatalogCopy } from "@/src/modules/partner-locale";
 import { getPartnerLocale } from "@/src/modules/partner-locale/server";
@@ -37,6 +38,8 @@ const PAGE_SIZE = 20;
 
 export default async function CatalogPage({ searchParams }: CatalogPageProps) {
   const [params, cookieStore, locale] = await Promise.all([searchParams, cookies(), getPartnerLocale()]);
+  const canonicalHref = canonicalizeLegacyRollingPeriodParams("/cabinet/catalog", params ?? {}, ["period", "newPeriod"]);
+  if (canonicalHref) redirect(canonicalHref);
   const copy = getCatalogCopy(locale);
   const routeState = parseCatalogRouteState(params);
   const initialViewMode = parseCatalogViewMode(cookieStore.get(CATALOG_VIEW_COOKIE)?.value);
@@ -79,7 +82,7 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
     {routeState.mode === "discovery" ? <CatalogBreadcrumb categories={categoriesResult.data} locale={locale} selectedId={routeState.categoryId} /> : null}
     <Suspense fallback={<CatalogResultsFallback ariaLabel={copy.loading} curated={routeState.mode === "curated"} />}>
       {routeState.mode === "curated"
-        ? <CuratedCatalogResults locale={locale} merchandisingPromise={listCatalogMerchandisingSectionsAction(parseRollingPeriod(routeState.period))} period={parseRollingPeriod(routeState.period)} workspacePromise={getPartnerWorkspaceContextAction()} />
+        ? <CuratedCatalogResults locale={locale} merchandisingPromise={listCatalogMerchandisingSectionsAction({ popular: resolveRollingPeriod(routeState.popularPeriodState), new: resolveRollingPeriod(routeState.newPeriodState) })} periods={{ popular: routeState.popularPeriodState ?? null, new: routeState.newPeriodState ?? null }} workspacePromise={getPartnerWorkspaceContextAction()} />
         : <CatalogResults
             attributeFilters={routeState.attributeFilters}
             availability={routeState.availability}
@@ -95,6 +98,7 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
             merchandisingLabel={routeState.merchandisingLabel}
             page={routeState.page}
             period={routeState.period}
+            periodState={routeState.periodState}
             productsPromise={listCatalogProductsAction({
               attributeFilters: routeState.attributeFilters,
               availability: routeState.availability,

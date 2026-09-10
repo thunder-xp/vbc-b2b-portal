@@ -6,7 +6,7 @@ import {
   type PublicRetailCatalogMode,
   type PublicRetailLocale,
 } from "../types";
-import { parseNewRollingPeriod, parseRollingPeriod, type NewRollingPeriod, type RollingPeriod } from "../../commerce-period";
+import { resolveRollingPeriod, type EffectiveRollingPeriod, type NewRollingPeriod } from "../../commerce-period";
 
 export type PublicRetailListInput = {
   locale?: string;
@@ -27,11 +27,11 @@ export class PublicRetailService {
     return this.repository.listCategories(normalizeLocale(locale));
   }
 
-  getRetailShowcase(locale: string | undefined, rotationSeed: string, requestedPeriod: RollingPeriod = 30) {
+  getRetailShowcase(locale: string | undefined, rotationSeed: string, requestedPeriods: { popular: EffectiveRollingPeriod; new: EffectiveRollingPeriod } = { popular: 365, new: 365 }) {
     return this.repository.getShowcase(
       normalizeLocale(locale),
       normalizeRotationSeed(rotationSeed),
-      parseRollingPeriod(requestedPeriod),
+      { popular: resolveRollingPeriod(requestedPeriods.popular), new: resolveRollingPeriod(requestedPeriods.new) },
     );
   }
 
@@ -54,7 +54,7 @@ export class PublicRetailService {
       mode,
       limit: pageSize,
       offset: (page - 1) * pageSize,
-      period: mode === "new" ? parseNewRollingPeriod(input.period) : parseRollingPeriod(input.period),
+      period: resolveRollingPeriod(input.period),
     });
   }
 

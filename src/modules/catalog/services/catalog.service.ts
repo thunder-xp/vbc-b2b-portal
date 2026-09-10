@@ -425,7 +425,7 @@ export class DefaultCatalogService implements CatalogService, ProductReferenceSe
         attributeFilters,
         collection: input.collection,
         merchandisingLabel: input.merchandisingLabel,
-        period: input.period ?? 30,
+        period: input.period ?? 365,
       }) ?? Promise.resolve([]),
     );
     return buildFacets(rows, attributeFilters);
@@ -457,7 +457,7 @@ export class DefaultCatalogService implements CatalogService, ProductReferenceSe
         sort: input.sort,
         limit: input.pageSize,
         offset: (input.page - 1) * input.pageSize,
-        period: input.period ?? 30,
+        period: input.period ?? 365,
       }),
     );
     const visibility = this.pricingInventoryService?.getCommercialVisibility

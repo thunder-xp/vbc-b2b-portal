@@ -24,7 +24,7 @@ import {
   normalizeMerchandisingLabel,
   normalizeCatalogOptionalText,
 } from "./catalog-action-input";
-import { parseNewRollingPeriod, parseRollingPeriod } from "../../commerce-period";
+import { resolveRollingPeriod } from "../../commerce-period";
 import { emitRequestTotal, measurePerformanceStage } from "@/src/lib/performance/request-diagnostics";
 
 export async function listCatalogProductsAction(
@@ -47,7 +47,7 @@ export async function listCatalogProductsAction(
       availability,
       collection: normalizeCatalogCollection(input.collection),
       merchandisingLabel,
-      period: merchandisingLabel === "NEW" ? parseNewRollingPeriod(input.period) : parseRollingPeriod(input.period),
+      period: resolveRollingPeriod(input.period),
     }));
 
     return success("Catalog products loaded.", products);

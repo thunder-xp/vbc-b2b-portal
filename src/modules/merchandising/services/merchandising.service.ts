@@ -12,7 +12,7 @@ import type {
   MerchandisingLabelCode,
   PublishedMerchandisingAssignment,
 } from "../types";
-import { parseRollingPeriod, type RollingPeriod } from "../../commerce-period";
+import { resolveRollingPeriod, type EffectiveRollingPeriod } from "../../commerce-period";
 
 const LABEL_CODES = new Set<MerchandisingLabelCode>(["NEW", "TOP", "HOT", "SPECIAL_OFFER"]);
 const OPERATIONS = new Set(["assign", "revoke", "hide", "show"]);
@@ -39,7 +39,6 @@ export class MerchandisingService {
       businessDate: result.businessDate,
       windowStart: result.windowStart,
       windowEnd: result.windowEnd,
-      top40ThresholdFrequency: result.top40ThresholdFrequency,
       unresolvedSourceLineCount: result.unresolvedSourceLineCount,
       durationMs: result.durationMs,
       deployedCommitSha: process.env.VERCEL_GIT_COMMIT_SHA?.trim() || "local",
@@ -70,7 +69,8 @@ export class MerchandisingService {
     labelCode?: MerchandisingLabelCode,
     limitPerLabel = 8,
     rotationSeed?: string,
-    requestedPeriod: RollingPeriod = 30,
+    requestedPeriod: EffectiveRollingPeriod = 365,
+    requestedNewPeriod: EffectiveRollingPeriod = requestedPeriod,
   ): Promise<PublishedMerchandisingAssignment[]> {
     if (labelCode && !LABEL_CODES.has(labelCode)) {
       throw new MerchandisingValidationError("MERCHANDISING_LABEL_INVALID");
@@ -93,7 +93,8 @@ export class MerchandisingService {
       companyId: membership.companyId,
       labelCode,
       limitPerLabel: Math.min(Math.max(Math.floor(limitPerLabel), 1), 24),
-      period: parseRollingPeriod(requestedPeriod),
+      popularPeriod: resolveRollingPeriod(requestedPeriod),
+      newPeriod: resolveRollingPeriod(requestedNewPeriod),
       ...(normalizedRotationSeed ? { rotationSeed: normalizedRotationSeed } : {}),
     });
   }
@@ -133,6 +134,11 @@ export class MerchandisingService {
         "MERCHANDISING_POPULAR_SYSTEM_MANAGED",
       );
     }
+    if (input.labelCode === "NEW") {
+      throw new MerchandisingValidationError(
+        "MERCHANDISING_NEW_SYSTEM_MANAGED",
+      );
+    }
     const productIds = [...new Set(input.productIds.map((id) => id.trim()))];
     const reason = input.reason.trim();
     const priority = input.priority ?? 100;
@@ -157,7 +163,7 @@ export class MerchandisingService {
     const endsAt = validTimestamp(input.endsAt);
     if (
       input.operation === "assign" &&
-      ((input.labelCode === "HOT" || input.labelCode === "NEW" || input.labelCode === "SPECIAL_OFFER") && !endsAt)
+      ((input.labelCode === "HOT" || input.labelCode === "SPECIAL_OFFER") && !endsAt)
     ) {
       throw new MerchandisingValidationError(
         "MERCHANDISING_EXPIRY_REQUIRED",

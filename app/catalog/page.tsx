@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 
 import { PublicRetailCatalog } from "@/src/modules/public-retail/components/PublicRetailCatalog";
 import { PublicRetailShowcase } from "@/src/modules/public-retail/components/PublicRetailShowcase";
@@ -13,7 +14,7 @@ import { parseCatalogAttributeFilters } from "@/src/modules/catalog/services/cat
 import { publicRetailCatalogReturnHref } from "@/src/modules/public-retail/catalog-links";
 import type { PublicRetailMerchandisingMode, PublicRetailPriceSort } from "@/src/modules/public-retail/types";
 import { getPublicBlogForCategory } from "@/src/modules/public-blog/server";
-import { parseNewRollingPeriod, parseRollingPeriod } from "@/src/modules/commerce-period";
+import { canonicalizeLegacyRollingPeriodParams, parseRollingPeriodState, resolveRollingPeriod } from "@/src/modules/commerce-period";
 
 type Params = Record<string, string | string[] | undefined>;
 
@@ -42,6 +43,8 @@ export async function generateMetadata({ searchParams }: { searchParams: Promise
 
 export default async function PublicCatalogPage({ searchParams }: { searchParams: Promise<Params> }) {
   const params = await searchParams;
+  const canonicalHref = canonicalizeLegacyRollingPeriodParams("/catalog", params, ["period", "newPeriod"]);
+  if (canonicalHref) redirect(canonicalHref);
   const locale = publicRetailLocale(params.lang);
   const single = (value: string | string[] | undefined) => Array.isArray(value) ? value[0] : value;
   const q = single(params.q)?.trim() || undefined;
@@ -51,14 +54,18 @@ export default async function PublicCatalogPage({ searchParams }: { searchParams
   const sort = single(params.sort)?.trim();
   const returnHref = publicRetailCatalogReturnHref(locale, single(params.return));
   const page = Math.max(1, Number(single(params.page)) || 1);
-  const period = view === "new" ? parseNewRollingPeriod(single(params.period)) : parseRollingPeriod(single(params.period));
-  const showcasePeriod = parseRollingPeriod(single(params.period));
+  const periodState = parseRollingPeriodState(single(params.period));
+  const period = resolveRollingPeriod(periodState);
+  const showcasePeriods = {
+    popular: parseRollingPeriodState(single(params.period)),
+    new: parseRollingPeriodState(single(params.newPeriod)),
+  };
   const attributeFilters = parseCatalogAttributeFilters(params);
   const service = getPublicRetailService();
   if (!hasListingIntent(params)) {
     const rotationSeed = (await headers()).get("x-novotech-popular-session") ?? "";
     const [showcase, categories] = await Promise.all([
-      service.getRetailShowcase(locale, rotationSeed, showcasePeriod),
+      service.getRetailShowcase(locale, rotationSeed, { popular: resolveRollingPeriod(showcasePeriods.popular), new: resolveRollingPeriod(showcasePeriods.new) }),
       getPublicRetailCategories(locale),
     ]);
     const schema = [
@@ -68,7 +75,7 @@ export default async function PublicCatalogPage({ searchParams }: { searchParams
         { name: locale === "ro" ? "Catalog" : "Каталог", url: publicLocalizedUrl("/catalog", locale) },
       ]),
     ];
-    return <PublicRetailShell languagePath="/catalog" locale={locale}><PublicStructuredData data={schema} /><main><PublicRetailShowcase categories={categories} locale={locale} period={showcasePeriod} showcase={showcase} /></main></PublicRetailShell>;
+    return <PublicRetailShell languagePath="/catalog" locale={locale}><PublicStructuredData data={schema} /><main><PublicRetailShowcase categories={categories} locale={locale} periods={showcasePeriods} showcase={showcase} /></main></PublicRetailShell>;
   }
   const merchandisingMode: PublicRetailMerchandisingMode | undefined = q ? undefined : view === "replenishment" ? "replenishment" : view === "special" ? "special" : view === "new" ? "new" : view === "hot" ? "hot" : view === "popular" ? "popular" : undefined;
   const priceSort: PublicRetailPriceSort | undefined = sort === "price_desc" ? "price_desc" : sort === "price_asc" ? "price_asc" : undefined;
@@ -111,7 +118,7 @@ export default async function PublicCatalogPage({ searchParams }: { searchParams
     },
     publicBreadcrumbSchema(breadcrumbItems),
   ];
-  return <PublicRetailShell languagePath="/catalog" locale={locale}><PublicStructuredData data={schema} /><main><PublicRetailCatalog blogArticles={usefulMaterials} breadcrumbs={breadcrumbItems} categories={categories} categoryContent={categoryContent} facets={categoryFacets} locale={locale} products={products} state={{ q, category, availability, attributeFilters, mode: merchandisingMode, sort: priceSort, returnHref, page, period }} /></main></PublicRetailShell>;
+  return <PublicRetailShell languagePath="/catalog" locale={locale}><PublicStructuredData data={schema} /><main><PublicRetailCatalog blogArticles={usefulMaterials} breadcrumbs={breadcrumbItems} categories={categories} categoryContent={categoryContent} facets={categoryFacets} locale={locale} products={products} state={{ q, category, availability, attributeFilters, mode: merchandisingMode, sort: priceSort, returnHref, page, period, periodState }} /></main></PublicRetailShell>;
 }
 
 function publicCategoryBreadcrumbs(content: PublicCategoryContent | null, locale: "ru" | "ro") {

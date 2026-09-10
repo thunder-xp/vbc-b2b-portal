@@ -33,7 +33,7 @@ import type { PartnerSupportRepository, SupportDashboardItem } from "../../partn
 import type { PartnerEstimateSalesOpportunity, PartnerSalesWorkspaceService } from "../../partner-sales-workspace";
 import type { FinanceRepository } from "../../finance/repositories";
 import { financeBusinessDate } from "../../finance/services/finance.service";
-import { parseRollingPeriod, type RollingPeriod } from "../../commerce-period";
+import { type EffectiveRollingPeriod } from "../../commerce-period";
 
 export type WorkspaceQuickActionDto = {
   key: string;
@@ -131,6 +131,10 @@ export type WorkspaceHomeDto = {
   continuationItems: WorkspaceContinuationDto[];
   reorderProducts: WorkspaceProductDto[];
   reorderProductTotalCount: number;
+  popularProducts: WorkspaceProductDto[];
+  popularProductTotalCount: number;
+  newProducts: WorkspaceProductDto[];
+  newProductTotalCount: number;
   merchandisingProducts: WorkspaceProductDto[];
   merchandisingProductTotalCount: number;
   opportunities: CommercialOpportunity[];
@@ -246,8 +250,10 @@ export type SalesTrendComparisonDto = {
   state: SalesTrendState;
 };
 
+export type WorkspaceSelectionPeriods = { repeat: EffectiveRollingPeriod; popular: EffectiveRollingPeriod; new: EffectiveRollingPeriod };
+
 export interface WorkspaceHomeService {
-  getWorkspaceHome(userId: string, loginGeneration?: string, period?: RollingPeriod): Promise<WorkspaceHomeDto>;
+  getWorkspaceHome(userId: string, loginGeneration?: string, periods?: WorkspaceSelectionPeriods): Promise<WorkspaceHomeDto>;
   dismissAttention(userId: string, itemId: string, sourceFingerprint: string): Promise<void>;
 }
 
@@ -284,8 +290,7 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
     );
   }
 
-  async getWorkspaceHome(userId: string, loginGeneration = "legacy-session", requestedPeriod: RollingPeriod = 30): Promise<WorkspaceHomeDto> {
-    const period = parseRollingPeriod(requestedPeriod);
+  async getWorkspaceHome(userId: string, loginGeneration = "legacy-session", periods: WorkspaceSelectionPeriods = { repeat: 365, popular: 365, new: 365 }): Promise<WorkspaceHomeDto> {
     const context = await this.workspaceContextService.getWorkspaceContext(userId);
     if (
       (context.accessState !== "active"
@@ -301,7 +306,7 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
     const [freshness, dashboard, selections, opportunityPage, campaignPage, supportTickets, estimateSalesOpportunities, financeData] = await Promise.all([
       timedDashboardRead("commercial_freshness", () => this.commercialFreshnessReadModel.getFreshness()),
       timedDashboardRead("dashboard_aggregate", () => this.dashboardRepository.getDashboard(companyId)),
-      timedDashboardRead("product_selections", () => this.dashboardRepository.getProductSelections?.(userId, companyId, loginGeneration, period) ?? Promise.resolve(null)),
+      timedDashboardRead("product_selections", () => this.dashboardRepository.getProductSelections?.(userId, companyId, loginGeneration, periods) ?? Promise.resolve(null)),
       timedDashboardRead("opportunities", () => this.opportunityRepository?.list({ companyId, filter: "all", limit: 12, offset: 0 })
         ?? Promise.resolve({ items: [], totalCount: 0 })),
       timedDashboardRead("campaigns", () => this.campaignRepository?.listPartner({ companyId, filter: "active", limit: 12, offset: 0 })
@@ -323,6 +328,8 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
       "previous-purchases",
     );
     const merchandisingCandidates = selections?.merchandisingProducts ?? dashboard.merchandisingProducts;
+    const popularCandidates = selections?.popularProducts ?? [];
+    const newCandidates = selections?.newProducts ?? [];
     const opportunityCandidates = sessionOrderByPriority(
       opportunityPage.items.filter((item) => item.product),
       loginGeneration,
@@ -331,6 +338,8 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
     const candidates = uniqueCandidates([
       ...reorderCandidates,
       ...merchandisingCandidates,
+      ...popularCandidates,
+      ...newCandidates,
     ]);
     const opportunityProductIds = opportunityProductReferenceIds(opportunityCandidates);
     const referenceProductIds = [...new Set([
@@ -384,6 +393,13 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
         commercialView: commercialByProduct.get(candidate.id),
         sourceCodes: candidate.sourceCodes,
       }));
+    const toWorkspaceProducts = (source: typeof popularCandidates) => source.slice(0, 5).map((candidate) => ({
+      product: toProduct(candidate, referenceByProduct.get(candidate.id)),
+      commercialView: commercialByProduct.get(candidate.id),
+      sourceCodes: candidate.sourceCodes,
+    }));
+    const popularProducts = toWorkspaceProducts(popularCandidates);
+    const newProducts = toWorkspaceProducts(newCandidates);
 
     logDashboardShortage("previous_purchases", reorderProducts.length, 5);
     logDashboardShortage("opportunities", opportunities.length, 4);
@@ -438,6 +454,10 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
       continuationItems: dashboard.continuationItems.map(toContinuation),
       reorderProducts,
       reorderProductTotalCount: selections?.previousCandidateCount ?? reorderProducts.length,
+      popularProducts,
+      popularProductTotalCount: selections?.popularCandidateCount ?? popularProducts.length,
+      newProducts,
+      newProductTotalCount: selections?.newCandidateCount ?? newProducts.length,
       merchandisingProducts,
       merchandisingProductTotalCount: selections?.offerCandidateCount ?? merchandisingProducts.length,
       opportunities,

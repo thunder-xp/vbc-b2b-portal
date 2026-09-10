@@ -11,6 +11,7 @@ export {
   type WorkspaceProductDto,
   type WorkspaceQuickActionDto,
   type WorkspaceShipmentDto,
+  type WorkspaceSelectionPeriods,
   buildQuickActions,
 } from "./workspace-home.service";
 export {

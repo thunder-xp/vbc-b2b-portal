@@ -10,7 +10,7 @@ import type {
   PublicRetailPublicationMetrics,
   PublicRetailShowcaseDto,
 } from "../types";
-import type { NewRollingPeriod, RollingPeriod } from "../../commerce-period";
+import type { EffectiveRollingPeriod, NewRollingPeriod } from "../../commerce-period";
 
 export type ListPublicRetailProductsInput = {
   locale: PublicRetailLocale;
@@ -27,7 +27,7 @@ export type ListPublicRetailProductsInput = {
 export interface PublicRetailReadRepository {
   listCategories(locale: PublicRetailLocale): Promise<PublicRetailCategoryDto[]>;
   listProducts(input: ListPublicRetailProductsInput): Promise<PublicRetailProductPageDto>;
-  getShowcase(locale: PublicRetailLocale, rotationSeed: string, period: RollingPeriod): Promise<PublicRetailShowcaseDto>;
+  getShowcase(locale: PublicRetailLocale, rotationSeed: string, periods: { popular: EffectiveRollingPeriod; new: EffectiveRollingPeriod }): Promise<PublicRetailShowcaseDto>;
   getProduct(slug: string, locale: PublicRetailLocale): Promise<PublicRetailProductDetailDto | null>;
   listRelatedProducts(slug: string, locale: PublicRetailLocale, limit: number): Promise<PublicRetailProductSummaryDto[]>;
   listFacets(input: Pick<ListPublicRetailProductsInput, "availability" | "categorySlug" | "facets" | "locale" | "search">): Promise<PublicRetailFacetDto[]>;

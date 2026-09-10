@@ -21,7 +21,7 @@ export function MerchandisingAdminTable({
 }) {
   const router = useRouter();
   const [selected, setSelected] = useState<string[]>([]);
-  const [labelCode, setLabelCode] = useState<MerchandisingLabelCode>(page.newSystemManaged ? "HOT" : "NEW");
+  const [labelCode, setLabelCode] = useState<MerchandisingLabelCode>("HOT");
   const [operation, setOperation] =
     useState<MerchandisingOperation>("assign");
   const [priority, setPriority] = useState(100);
@@ -88,7 +88,6 @@ export function MerchandisingAdminTable({
               }
               value={labelCode}
             >
-              {!page.newSystemManaged ? <option value="NEW">Новинка</option> : null}
               <option value="HOT">Горячая цена</option>
               <option value="SPECIAL_OFFER">Спецпредложение Retail</option>
             </select>
@@ -256,7 +255,7 @@ function sourceText(
   labelCode: MerchandisingLabelCode,
 ): string {
   if (source === "one_c" && labelCode === "TOP") {
-    return "Частота покупок · 365 дней · Top 40";
+    return "Частота покупок · периодический рейтинг";
   }
   if (source === "one_c") return "Сигнал 1С";
   if (source === "analytics_recommendation") return "Рекомендация";

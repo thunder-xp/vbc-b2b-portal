@@ -17,15 +17,15 @@ import { CampaignCard } from "../../commercial-campaigns/components/CampaignCard
 import { SupportDashboardBlock } from "../../partner-support";
 import { formatPartnerDate, formatPartnerMoney, formatPartnerRelativeDate, partnerText, presentDashboardAttention, type PartnerLocale } from "../../partner-locale";
 import { SalesTrendSummary } from "./SalesTrendSummary";
-import { RollingPeriodSelector, type RollingPeriod } from "../../commerce-period";
+import { RollingPeriodSelector, type RollingPeriod, type RollingPeriodState } from "../../commerce-period";
 
 export function OperationalDashboard({
   locale,
-  period,
+  periods,
   workspace,
 }: {
   locale: PartnerLocale;
-  period: RollingPeriod;
+  periods: { repeat: RollingPeriodState; popular: RollingPeriodState; new: RollingPeriodState };
   workspace: WorkspaceHomeDto;
 }) {
   return (
@@ -34,11 +34,14 @@ export function OperationalDashboard({
         analyticsSurface="dashboard_reorder"
         eligibleCount={workspace.reorderProductTotalCount}
         locale={locale}
-        period={period}
+        periodKey="repeat"
+        periods={periods}
         products={workspace.reorderProducts}
         title={partnerText(locale, "dashboard.previouslyPurchased")}
         workspace={workspace}
       />
+      <ProductSection analyticsSurface="dashboard_popular" eligibleCount={workspace.popularProductTotalCount} locale={locale} periodKey="popular" periods={periods} products={workspace.popularProducts} title={partnerText(locale, "dashboard.popularProducts")} workspace={workspace} />
+      <ProductSection analyticsSurface="dashboard_new" eligibleCount={workspace.newProductTotalCount} locale={locale} periodKey="new" periods={periods} products={workspace.newProducts} title={partnerText(locale, "dashboard.newProducts")} workspace={workspace} />
       <div className="space-y-4" data-dashboard-section="priority-work">
         <div className={`grid items-stretch gap-4 ${workspace.attentionItems.length && workspace.estimateSalesOpportunities?.length ? "xl:grid-cols-2" : ""}`} data-dashboard-priority-work>
           <AttentionSection items={workspace.attentionItems} locale={locale} />
@@ -327,7 +330,8 @@ function ProductSection({
   analyticsSurface,
   eligibleCount,
   locale,
-  period,
+  periodKey,
+  periods,
   products,
   title,
   workspace,
@@ -335,21 +339,22 @@ function ProductSection({
   analyticsSurface: string;
   eligibleCount: number;
   locale: PartnerLocale;
-  period: RollingPeriod;
+  periodKey: "repeat" | "popular" | "new";
+  periods: { repeat: RollingPeriodState; popular: RollingPeriodState; new: RollingPeriodState };
   products: WorkspaceHomeDto["reorderProducts"];
   title: string;
   workspace: WorkspaceHomeDto;
 }) {
   if (!products.length) return null;
   return (
-    <section aria-labelledby={`dashboard-${analyticsSurface}`} data-dashboard-section="repeat-purchase">
+    <section aria-labelledby={`dashboard-${analyticsSurface}`} data-dashboard-section={periodKey === "repeat" ? "repeat-purchase" : periodKey}>
       <SectionHeading
-        actionHref={`/cabinet/repeat-purchase?period=${period}`}
+        actionHref={selectionFullHref(periodKey, periods[periodKey])}
         actionLabel={partnerText(locale, "dashboard.openAll")}
         count={hiddenDashboardProductCount(eligibleCount, products.length)}
         id={`dashboard-${analyticsSurface}`}
         title={title}
-        titleAccessory={<RollingPeriodSelector activePeriod={period} hrefForPeriod={(target) => `/cabinet?period=${target}`} locale={locale} />}
+        titleAccessory={<RollingPeriodSelector activePeriod={periods[periodKey]} hrefForPeriod={(target) => dashboardPeriodHref(periods, periodKey, target)} locale={locale} />}
       />
       <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
         {products.slice(0, 5).map((item) => (
@@ -375,6 +380,26 @@ function ProductSection({
       </div>
     </section>
   );
+}
+
+function dashboardPeriodHref(
+  states: { repeat: RollingPeriodState; popular: RollingPeriodState; new: RollingPeriodState },
+  key: "repeat" | "popular" | "new",
+  target: RollingPeriod,
+): string {
+  const query = new URLSearchParams();
+  const names = { repeat: "period", popular: "popularPeriod", new: "newPeriod" } as const;
+  for (const stateKey of ["repeat", "popular", "new"] as const) {
+    const value = stateKey === key ? target : states[stateKey];
+    if (value) query.set(names[stateKey], String(value));
+  }
+  return `/cabinet?${query}`;
+}
+
+function selectionFullHref(key: "repeat" | "popular" | "new", state: RollingPeriodState): string {
+  const base = key === "repeat" ? "/cabinet/repeat-purchase" : `/cabinet/catalog?label=${key === "popular" ? "TOP" : "NEW"}`;
+  if (!state) return base;
+  return `${base}${base.includes("?") ? "&" : "?"}period=${state}`;
 }
 
 function FinanceSection({

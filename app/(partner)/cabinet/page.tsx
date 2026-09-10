@@ -5,12 +5,16 @@ import { OperationalDashboard } from "@/src/modules/partner-cabinet/components/O
 import { WorkspaceEmptyState } from "@/src/modules/partner-cabinet/components/WorkspaceEmptyState";
 import { getPartnerLocale } from "@/src/modules/partner-locale/server";
 import { partnerText } from "@/src/modules/partner-locale";
-import { parseRollingPeriod } from "@/src/modules/commerce-period";
+import { canonicalizeLegacyRollingPeriodParams, parseRollingPeriodState, resolveRollingPeriod } from "@/src/modules/commerce-period";
 
-export default async function CabinetPage({ searchParams = Promise.resolve({}) }: { searchParams?: Promise<{ period?: string | string[] }> } = {}) {
+export default async function CabinetPage({ searchParams = Promise.resolve({}) }: { searchParams?: Promise<{ period?: string | string[]; popularPeriod?: string | string[]; newPeriod?: string | string[] }> } = {}) {
   const params = await searchParams;
-  const period = parseRollingPeriod(Array.isArray(params.period) ? params.period[0] : params.period);
-  const [result, locale] = await Promise.all([getWorkspaceHomeAction(period), getPartnerLocale()]);
+  const canonicalHref = canonicalizeLegacyRollingPeriodParams("/cabinet", params, ["period", "popularPeriod", "newPeriod"]);
+  if (canonicalHref) redirect(canonicalHref);
+  const repeatState = parseRollingPeriodState(single(params.period));
+  const popularState = parseRollingPeriodState(single(params.popularPeriod));
+  const newState = parseRollingPeriodState(single(params.newPeriod));
+  const [result, locale] = await Promise.all([getWorkspaceHomeAction({ repeat: resolveRollingPeriod(repeatState), popular: resolveRollingPeriod(popularState), new: resolveRollingPeriod(newState) }), getPartnerLocale()]);
   if (!result.success && result.errorCode === "AUTH_REQUIRED") redirect("/auth/sign-in");
   if (!result.success) {
     return <WorkspaceEmptyState actionLabel={partnerText(locale, "dashboard.refreshPage")} message={partnerText(locale, "dashboard.loadErrorMessage")} title={partnerText(locale, "dashboard.loadErrorTitle")} />;
@@ -25,7 +29,11 @@ export default async function CabinetPage({ searchParams = Promise.resolve({}) }
         route="/cabinet"
         sourceSurface="partner_dashboard"
       />
-      <OperationalDashboard locale={locale} period={period} workspace={workspace} />
+      <OperationalDashboard locale={locale} periods={{ repeat: repeatState, popular: popularState, new: newState }} workspace={workspace} />
     </div>
   );
+}
+
+function single(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
 }

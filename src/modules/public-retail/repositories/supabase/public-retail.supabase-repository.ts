@@ -71,7 +71,7 @@ export class SupabasePublicRetailReadRepository implements PublicRetailReadRepos
           p_limit: input.limit,
           p_offset: input.offset,
         })
-      : client.rpc("list_public_retail_products_v5", {
+      : client.rpc("list_public_retail_products_v6", {
       p_locale: input.locale,
       p_category_slug: input.categorySlug ?? null,
       p_search: input.search ?? null,
@@ -87,10 +87,11 @@ export class SupabasePublicRetailReadRepository implements PublicRetailReadRepos
     return parsePublicRetailProductPage(data);
   }
 
-  async getShowcase(locale: PublicRetailLocale, rotationSeed: string, period: import("@/src/modules/commerce-period").RollingPeriod) {
-    const { data, error } = await createPublicReadClient().rpc("get_public_retail_showcase_v5", {
+  async getShowcase(locale: PublicRetailLocale, rotationSeed: string, periods: { popular: import("@/src/modules/commerce-period").EffectiveRollingPeriod; new: import("@/src/modules/commerce-period").EffectiveRollingPeriod }) {
+    const { data, error } = await createPublicReadClient().rpc("get_public_retail_showcase_v6", {
       p_locale: locale,
-      p_period_days: period,
+      p_popular_period_days: periods.popular,
+      p_new_period_days: periods.new,
       p_rotation_seed: rotationSeed,
     });
     if (error) throw new PublicRetailRepositoryError();

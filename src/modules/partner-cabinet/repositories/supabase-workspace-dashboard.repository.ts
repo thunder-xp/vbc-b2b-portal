@@ -3,7 +3,7 @@ import "server-only";
 import { createClient } from "@/src/lib/supabase/server";
 import { createAdminClient } from "@/src/lib/supabase/admin";
 import { z } from "zod";
-import type { RollingPeriod } from "../../commerce-period";
+import type { EffectiveRollingPeriod } from "../../commerce-period";
 
 import type {
   WorkspaceDashboardProjection,
@@ -153,8 +153,12 @@ const selectionsSchema = z.object({
   previousSourceFingerprint: z.string(),
   offerSourceFingerprint: z.string(),
   previousProducts: z.array(productCandidateSchema).max(12),
+  popularProducts: z.array(productCandidateSchema).max(5),
+  newProducts: z.array(productCandidateSchema).max(5),
   merchandisingProducts: z.array(productCandidateSchema).max(12),
   previousCandidateCount: z.number().int().nonnegative(),
+  popularCandidateCount: z.number().int().nonnegative(),
+  newCandidateCount: z.number().int().nonnegative(),
   offerCandidateCount: z.number().int().nonnegative(),
   rotationBucket: z.number().int().nonnegative(),
 });
@@ -203,16 +207,18 @@ export class SupabaseWorkspaceDashboardRepository
     userId: string,
     companyId: string,
     loginGeneration: string,
-    period: RollingPeriod = 30,
+    periods: { repeat: EffectiveRollingPeriod; popular: EffectiveRollingPeriod; new: EffectiveRollingPeriod } = { repeat: 365, popular: 365, new: 365 },
   ): Promise<WorkspaceDashboardSelections> {
     const startedAt = performance.now();
     const { data, error } = await createAdminClient().rpc(
-      "get_or_refresh_partner_dashboard_selections_v3",
+      "get_or_refresh_partner_dashboard_selections_v4",
       {
         p_user_id: userId,
         p_company_id: companyId,
         p_login_generation: loginGeneration,
-        p_period_days: period,
+        p_repeat_period_days: periods.repeat,
+        p_popular_period_days: periods.popular,
+        p_new_period_days: periods.new,
       },
     );
     const parsed = selectionsSchema.safeParse(data);

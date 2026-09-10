@@ -81,7 +81,6 @@ export type B2bPopularityRefreshResult = {
   windowEnd: string;
   eligibleProductCount: number;
   popularSetSize: number;
-  top40ThresholdFrequency: number | null;
   unresolvedSourceLineCount: number;
   sourceOrderCount: number;
   sourceLineCount: number;

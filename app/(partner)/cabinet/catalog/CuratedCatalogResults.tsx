@@ -6,17 +6,17 @@ import { RESTRICTED_PRODUCT_CARD_CAPABILITIES } from "@/src/modules/catalog/comp
 import type { getPartnerWorkspaceContextAction } from "@/src/modules/partner-cabinet/actions/workspace-context.action";
 import type { ProductCommercialViewDto } from "@/src/modules/pricing-inventory";
 import { getCatalogCopy, type PartnerLocale } from "@/src/modules/partner-locale";
-import type { RollingPeriod } from "@/src/modules/commerce-period";
+import type { RollingPeriodState } from "@/src/modules/commerce-period";
 
 export async function CuratedCatalogResults({
   merchandisingPromise,
   locale,
-  period,
+  periods,
   workspacePromise,
 }: {
   merchandisingPromise: ReturnType<typeof listCatalogMerchandisingSectionsAction>;
   locale: PartnerLocale;
-  period: RollingPeriod;
+  periods: { popular: RollingPeriodState; new: RollingPeriodState };
   workspacePromise: ReturnType<typeof getPartnerWorkspaceContextAction>;
 }) {
   const copy = getCatalogCopy(locale);
@@ -42,7 +42,7 @@ export async function CuratedCatalogResults({
       commercialViews={createCommercialViewMap(merchandisingResult.data.commercialViews)}
       companyId={workspaceResult.success ? workspaceResult.data.companyId : null}
       locale={locale}
-      period={period}
+      periods={periods}
       sections={merchandisingResult.data.sections}
       userId={workspaceResult.success ? workspaceResult.data.userId : null}
     />

@@ -1,4 +1,4 @@
-import type { RollingPeriod } from "../../commerce-period";
+import type { EffectiveRollingPeriod } from "../../commerce-period";
 
 export type WorkspaceDashboardProductCandidate = {
   id: string;
@@ -133,8 +133,12 @@ export type WorkspaceDashboardSelections = {
   previousSourceFingerprint: string;
   offerSourceFingerprint: string;
   previousProducts: WorkspaceDashboardProductCandidate[];
+  popularProducts?: WorkspaceDashboardProductCandidate[];
+  newProducts?: WorkspaceDashboardProductCandidate[];
   merchandisingProducts: WorkspaceDashboardProductCandidate[];
   previousCandidateCount: number;
+  popularCandidateCount?: number;
+  newCandidateCount?: number;
   offerCandidateCount: number;
   rotationBucket: number;
 };
@@ -145,7 +149,11 @@ export interface WorkspaceDashboardRepository {
     userId: string,
     companyId: string,
     loginGeneration: string,
-    period?: RollingPeriod,
+    periods?: {
+      repeat: EffectiveRollingPeriod;
+      popular: EffectiveRollingPeriod;
+      new: EffectiveRollingPeriod;
+    },
   ): Promise<WorkspaceDashboardSelections>;
   dismissAttention?(
     companyId: string,

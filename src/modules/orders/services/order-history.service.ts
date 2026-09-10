@@ -2,7 +2,7 @@ import type { CompanyAccessService, PermissionService } from "../../access-contr
 import type { ProductReferenceService } from "../../catalog/services";
 import type { ProductReferenceDto } from "../../catalog/types";
 import type { PartnerDocumentListItem } from "../../documents/types";
-import { parseRollingPeriod, type RollingPeriod } from "../../commerce-period";
+import { resolveRollingPeriod, type EffectiveRollingPeriod } from "../../commerce-period";
 import {
   projectProductCommercialSnapshot,
   type ProductCommercialViewDto,
@@ -201,7 +201,7 @@ export class DefaultPartnerOrderHistoryService implements PartnerOrderHistorySer
 
   async listPreviouslyPurchasedProducts(
     userId: string,
-    input: { categoryIds?: string[]; limit?: number; offset?: number; period?: RollingPeriod; search?: string | null } = {},
+    input: { categoryIds?: string[]; limit?: number; offset?: number; period?: EffectiveRollingPeriod; search?: string | null } = {},
   ): Promise<{ allCount: number; categories: Array<{ id: string; external1cId: string | null; parentId: null; name: string; slug: string; productCount: number }>; items: PreviouslyPurchasedProductDto[]; totalCount: number }> {
     const context = await this.resolveContext(userId, ORDERS_VIEW_PERMISSION);
     if (!this.historyRepository.listPreviouslyPurchasedProducts) {
@@ -214,7 +214,7 @@ export class DefaultPartnerOrderHistoryService implements PartnerOrderHistorySer
       companyId: context.company.id,
       limit,
       offset,
-      period: parseRollingPeriod(input.period),
+      period: resolveRollingPeriod(input.period),
       search: normalizeProductSearch(input.search),
     });
     return {

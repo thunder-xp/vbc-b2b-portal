@@ -4,7 +4,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { RollingPeriodSelector } from "../RollingPeriodSelector";
-import { NEW_ROLLING_PERIODS, parseNewRollingPeriod, parseRollingPeriod } from "../rolling-period";
+import { NEW_ROLLING_PERIODS, canonicalizeLegacyRollingPeriodParams, parseNewRollingPeriod, parseRollingPeriod, parseRollingPeriodState, resolveRollingPeriod } from "../rolling-period";
 import { repeatPurchaseHref } from "../../orders/components/repeat-purchase-query";
 import { buildCatalogHref } from "../../catalog/services/catalog-sort-state";
 
@@ -27,6 +27,19 @@ describe("rolling commerce periods", () => {
     expect(parseNewRollingPeriod(365)).toBe(365);
     expect(parseNewRollingPeriod("180")).toBe(365);
     expect(NEW_ROLLING_PERIODS).toEqual([30, 60, 90, 365]);
+  });
+
+  it("uses hidden 365 when no explicit selector state exists", () => {
+    expect(parseRollingPeriodState(undefined)).toBeNull();
+    expect(parseRollingPeriodState("365")).toBeNull();
+    expect(resolveRollingPeriod(parseRollingPeriodState(undefined))).toBe(365);
+    const { rerender } = render(<RollingPeriodSelector activePeriod={null} hrefForPeriod={(period) => `?period=${period}`} locale="ru" />);
+    expect(screen.getAllByRole("link")).toHaveLength(3);
+    expect(screen.queryByRole("link", { current: "page" })).not.toBeInTheDocument();
+    expect(screen.queryByText("365")).not.toBeInTheDocument();
+    rerender(<RollingPeriodSelector activePeriod={30} hrefForPeriod={(period) => `?period=${period}`} locale="ru" />);
+    expect(screen.getByRole("link", { name: "30" })).toHaveAttribute("aria-current", "page");
+    expect(canonicalizeLegacyRollingPeriodParams("/catalog", { lang: "ru", period: "365" })).toBe("/catalog?lang=ru");
   });
 
   it("renders one underlined active period with stable navigation", () => {
@@ -62,7 +75,8 @@ describe("rolling commerce periods", () => {
     expect(buildCatalogHref({
       merchandisingLabel: "NEW",
       period: 365,
-    })).toBe("/cabinet/catalog?label=NEW&period=365");
+    })).toBe("/cabinet/catalog?label=NEW");
+    expect(repeatPurchaseHref({ period: 365 })).toBe("/cabinet/repeat-purchase");
   });
 
   it("defines inclusive business-date windows and independent frequency rankings", () => {

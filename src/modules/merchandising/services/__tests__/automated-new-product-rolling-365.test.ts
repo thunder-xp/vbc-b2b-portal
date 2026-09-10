@@ -28,7 +28,7 @@ describe("automated first-import NEW contract", () => {
     expect(provider).toContain("ПоступлениеОтПоставщика");
     expect(provider).toContain('"$skip": String((page + 1) * PAGE_SIZE)');
     expect(provider).toContain('"$skiptoken" in params');
-    expect(provider).toContain("RECEIPT_BATCH_SIZE = 20");
+    expect(provider).toContain("eligible_receipt_client_filter");
   });
 
   it("keeps facts private, atomically publishes a complete snapshot and gates activation on DHI", () => {
@@ -40,8 +40,8 @@ describe("automated first-import NEW contract", () => {
     expect(migration).toContain("timestamp '2022-11-14 09:00:00'");
     expect(migration).toContain("fact.eligible_receipt_count = 6");
     expect(migration).toContain("MERCHANDISING_NEW_SYSTEM_MANAGED");
-    expect(adminUi).toContain('page.newSystemManaged ? "HOT" : "NEW"');
-    expect(adminUi).toContain('!page.newSystemManaged ? <option value="NEW"');
+    expect(adminUi).toContain('useState<MerchandisingLabelCode>("HOT")');
+    expect(adminUi).not.toContain('<option value="NEW"');
     expect(merchandisingRepository).toContain('"manage_product_merchandising_v3"');
   });
 
@@ -55,9 +55,9 @@ describe("automated first-import NEW contract", () => {
     expect(migration).toContain("get_public_retail_showcase_v5");
     expect(migration).toContain("count(*) over ()::integer as total_count");
     expect(migration).not.toContain("'new', 48, 0, 365");
-    expect(catalogRepository).toContain('"catalog_partner_page_v10"');
-    expect(publicRepository).toContain('"list_public_retail_products_v5"');
-    expect(publicRepository).toContain('"get_public_retail_showcase_v5"');
+    expect(catalogRepository).toContain('"catalog_partner_page_v11"');
+    expect(publicRepository).toContain('"list_public_retail_products_v6"');
+    expect(publicRepository).toContain('"get_public_retail_showcase_v6"');
     expect(publicRepository).not.toContain("market_entry_source_ref");
     expect(publicRepository).not.toContain("eligible_receipt_count");
   });

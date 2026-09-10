@@ -9,7 +9,7 @@ const PRODUCT_ID = "11111111-1111-4111-8111-111111111111";
 const REQUEST_ID = "22222222-2222-4222-8222-222222222222";
 
 describe("MerchandisingService", () => {
-  it("requires expiry for HOT, manual NEW and Retail special offers", () => {
+  it("rejects system-managed NEW and requires expiry for editable timed labels", () => {
     const service = createService();
     expect(() => service.manage({
       requestId: REQUEST_ID,
@@ -24,7 +24,7 @@ describe("MerchandisingService", () => {
       productIds: [PRODUCT_ID],
       labelCode: "NEW",
       reason: "Новинка",
-    })).toThrowError("MERCHANDISING_EXPIRY_REQUIRED");
+    })).toThrowError("MERCHANDISING_NEW_SYSTEM_MANAGED");
     expect(() => service.manage({
       requestId: REQUEST_ID,
       operation: "assign",
@@ -68,7 +68,8 @@ describe("MerchandisingService", () => {
       companyId: "company-1",
       labelCode: "TOP",
       limitPerLabel: 8,
-      period: 30,
+      popularPeriod: 365,
+      newPeriod: 365,
     });
   });
 
@@ -85,7 +86,8 @@ describe("MerchandisingService", () => {
       companyId: "company-1",
       labelCode: undefined,
       limitPerLabel: 5,
-      period: 30,
+      popularPeriod: 365,
+      newPeriod: 365,
       rotationSeed: "2026-09-09T08:30:00.000Z",
     });
   });

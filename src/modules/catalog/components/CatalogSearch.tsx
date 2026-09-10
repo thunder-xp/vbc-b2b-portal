@@ -68,7 +68,7 @@ export function CatalogSearch({ categoryId, categoryIds, categorySet, collection
       {collection && <input name="collection" type="hidden" value={collection} />}
       {explicitAll && <input name="view" type="hidden" value="all" />}
       {merchandisingLabel && <input name="label" type="hidden" value={merchandisingLabel} />}
-      {merchandisingLabel === "TOP" && <input name="period" type="hidden" value={period ?? 30} />}
+      {(merchandisingLabel === "TOP" || merchandisingLabel === "NEW") && period && period !== 365 ? <input name="period" type="hidden" value={period} /> : null}
       {sort !== "default" && <input name="sort" type="hidden" value={sort} />}
       <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-3.5 size-4 text-zinc-400" />
       <input aria-label={copy.searchLabel} autoComplete="off" className="h-11 w-full rounded-md border border-zinc-300 bg-white pl-10 pr-24 text-sm outline-none focus:border-emerald-700" name="search" onChange={(event) => updateQuery(event.target.value)} placeholder={copy.searchPlaceholder} type="search" value={query} />
