@@ -1,6 +1,15 @@
-import { IntegrationValidationError } from "../../errors";
+import {
+  IntegrationForbiddenError,
+  IntegrationHttpError,
+  IntegrationODataError,
+  IntegrationProviderUnavailableError,
+  IntegrationTimeoutError,
+  IntegrationUnauthorizedError,
+  IntegrationValidationError,
+} from "../../errors";
 import { isOneCGuid } from "./one-c-guid";
 import { OneCODataClient } from "./one-c-odata-client";
+import { getOneCSafeDiagnostic } from "./one-c-safe-diagnostic";
 
 const CREATION_REQUISITE_RESOURCE = "Catalog_Номенклатура_ДополнительныеРеквизиты";
 const RECEIPT_RESOURCE = "Document_ПриходнаяНакладная";
@@ -45,6 +54,37 @@ export type OneCProductNewSnapshot = {
 
 type ReceiptHeader = { reference: string; date: string };
 
+export type ProductNewSourceRequestDiagnostic = {
+  resourceName: string;
+  requestMethod: "GET";
+  sanitizedEndpoint: string | null;
+  httpStatus: number | null;
+  responseContentType: string | null;
+  responseLength: number | null;
+  networkCategory: string;
+  pageNumber: number;
+  pageSize: number;
+  odataFilterName: string;
+  elapsedMs: number;
+  safeErrorExcerpt: string | null;
+};
+
+const sourceRequestDiagnostics = new WeakMap<object, ProductNewSourceRequestDiagnostic>();
+
+export function getProductNewSourceRequestDiagnostic(
+  error: unknown,
+): ProductNewSourceRequestDiagnostic | null {
+  let current: unknown = error;
+  const visited = new Set<object>();
+  while (current && typeof current === "object" && !visited.has(current)) {
+    visited.add(current);
+    const diagnostic = sourceRequestDiagnostics.get(current);
+    if (diagnostic) return diagnostic;
+    current = "cause" in current ? current.cause : null;
+  }
+  return null;
+}
+
 export class ProductNewSourceScanIncompleteError extends IntegrationValidationError {
   readonly failedStage = "automated_new_source_scan";
   readonly errorCategory = "scan_incomplete";
@@ -57,6 +97,9 @@ export class ProductNewSourceScanIncompleteError extends IntegrationValidationEr
 
 export class OneCProductNewProvider {
   private readonly client: ODataReader;
+  private readonly endpointBase: string | null;
+  private readonly timeoutMs: number | null;
+  private readonly authMode: "basic" | "unknown";
 
   constructor(input: ODataReader | {
     baseUrl: string | null;
@@ -65,6 +108,9 @@ export class OneCProductNewProvider {
     requestTimeoutMs: number;
   }) {
     this.client = "get" in input ? input : new OneCODataClient(input);
+    this.endpointBase = "get" in input ? null : sanitizedBaseEndpoint(input.baseUrl);
+    this.timeoutMs = "get" in input ? null : input.requestTimeoutMs;
+    this.authMode = "get" in input ? "unknown" : input.username && input.password ? "basic" : "unknown";
   }
 
   async fetchSnapshot(
@@ -73,6 +119,14 @@ export class OneCProductNewProvider {
   ): Promise<OneCProductNewSnapshot> {
     const productRefs = normalizeProductReferences(productExternalIds);
     const businessDate = chisinauBusinessDate(now);
+    console.info({
+      event: "automated_new_source_scan_started",
+      endpointBase: this.endpointBase,
+      authMode: this.authMode,
+      timeoutMs: this.timeoutMs,
+      pageSize: PAGE_SIZE,
+      paginationMode: "odata_next_link_or_skip",
+    });
     const creation = await this.fetchCreationRequisites();
     const receipts = await this.fetchEligibleReceipts();
     const lines = await this.fetchEligibleReceiptLines(receipts.items, productRefs);
@@ -117,6 +171,7 @@ export class OneCProductNewProvider {
         "$orderby": "Ref_Key asc,LineNumber asc",
       },
       "automated_new_creation_requisite_scan",
+      "creation_requisite_ref",
     );
   }
 
@@ -129,6 +184,7 @@ export class OneCProductNewProvider {
         "$orderby": "Date asc,Ref_Key asc",
       },
       "automated_new_receipt_header_scan",
+      "eligible_imported_supplier_receipts",
     );
 
     const items = result.items.flatMap((row): ReceiptHeader[] => {
@@ -155,6 +211,7 @@ export class OneCProductNewProvider {
           "$orderby": "Ref_Key asc,LineNumber asc",
         },
         "automated_new_receipt_line_scan",
+        "receipt_reference_batch",
       );
       pageCount += result.pageCount;
       totalRows += result.items.length;
@@ -169,6 +226,7 @@ export class OneCProductNewProvider {
     resource: string,
     params: Record<string, string>,
     requestKind: string,
+    odataFilterName: string,
   ): Promise<{ items: Row[]; pageCount: number }> {
     const items: Row[] = [];
     const seenContinuations = new Set<string>();
@@ -178,7 +236,30 @@ export class OneCProductNewProvider {
       "$skip": "0",
     };
     for (let page = 0; page < MAX_PAGES; page += 1) {
-      const payload = await this.client.get(resource, nextParams, { requestKind });
+      const startedAt = performance.now();
+      let payload: unknown;
+      try {
+        payload = await this.client.get(resource, nextParams, { requestKind });
+      } catch (error) {
+        if (error && typeof error === "object") {
+          const diagnostic = getOneCSafeDiagnostic(error);
+          sourceRequestDiagnostics.set(error, {
+            resourceName: resource,
+            requestMethod: "GET",
+            sanitizedEndpoint: joinSanitizedEndpoint(this.endpointBase, resource),
+            httpStatus: diagnostic?.statusCode ?? null,
+            responseContentType: diagnostic?.receivedContentType ?? null,
+            responseLength: diagnostic?.bodyLength ?? null,
+            networkCategory: sourceNetworkCategory(error),
+            pageNumber: page + 1,
+            pageSize: PAGE_SIZE,
+            odataFilterName,
+            elapsedMs: Math.max(0, Math.round(performance.now() - startedAt)),
+            safeErrorExcerpt: diagnostic?.safeErrorSummary?.slice(0, 180) ?? null,
+          });
+        }
+        throw error;
+      }
       const { continuationParams, values } = parseEnvelope(payload);
       items.push(...values);
       if (continuationParams) {
@@ -344,3 +425,45 @@ function chunks<T>(items: T[], size: number): T[][] {
 
 function text(value: unknown): string { return typeof value === "string" ? value.trim() : ""; }
 function isRecord(value: unknown): value is Row { return typeof value === "object" && value !== null && !Array.isArray(value); }
+
+function sanitizedBaseEndpoint(baseUrl: string | null): string | null {
+  try {
+    if (!baseUrl) return null;
+    const url = new URL(baseUrl);
+    const port = url.port ? `:${url.port}` : "";
+    return `${url.protocol}//${url.hostname}${port}${url.pathname.replace(/\/$/, "")}`;
+  } catch {
+    return null;
+  }
+}
+
+function joinSanitizedEndpoint(base: string | null, resource: string): string | null {
+  return base ? `${base}/${resource.replace(/^\//, "")}` : null;
+}
+
+function sourceNetworkCategory(error: unknown): string {
+  if (error instanceof IntegrationTimeoutError) return "timeout";
+  if (error instanceof IntegrationUnauthorizedError) return "authorization_unauthorized";
+  if (error instanceof IntegrationForbiddenError) return "authorization_forbidden";
+  if (error instanceof IntegrationODataError) return "odata_error";
+  if (error instanceof IntegrationHttpError) return "http_error";
+  if (error instanceof IntegrationProviderUnavailableError) {
+    const code = networkCode(error);
+    if (code === "ENOTFOUND" || code === "EAI_AGAIN") return "dns";
+    if (code?.startsWith("ECONN")) return "connection";
+    return "network_route";
+  }
+  return error instanceof IntegrationValidationError ? "invalid_response" : "unknown";
+}
+
+function networkCode(error: unknown): string | null {
+  let current: unknown = error;
+  const visited = new Set<object>();
+  while (current && typeof current === "object" && !visited.has(current)) {
+    visited.add(current);
+    if ("networkCode" in current && typeof current.networkCode === "string") return current.networkCode;
+    if ("code" in current && typeof current.code === "string") return current.code;
+    current = "cause" in current ? current.cause : null;
+  }
+  return null;
+}

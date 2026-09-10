@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { OneCProductNewProvider } from "../one-c-product-new-provider";
+import { OneCODataProviderError } from "../one-c-odata-client";
+import {
+  getProductNewSourceRequestDiagnostic,
+  OneCProductNewProvider,
+} from "../one-c-product-new-provider";
 
 const DHI = "4b7d580e-02a3-11ed-6a9e-7239d3b7bd5c";
 const CREATION_REF = "cb442472-ac8c-11f1-639c-bc2411369b92";
@@ -93,6 +97,41 @@ describe("OneCProductNewProvider", () => {
     const snapshot = await new OneCProductNewProvider({ get }).fetchSnapshot([DHI]);
     expect(snapshot.creationRequisitePageCount).toBe(2);
     expect(get.mock.calls.some(([, params]) => params.$skiptoken === "opaque-cursor")).toBe(true);
+  });
+
+  it("attaches bounded source context without credentials or query values", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      "odata.error": { message: { value: "Unknown field 'secret-value'" } },
+    }), { status: 400, headers: { "content-type": "application/json;charset=utf-8" } })));
+    const provider = new OneCProductNewProvider({
+      baseUrl: "https://embedded-user:embedded-password@erp-api.nsd.md:8443/novotech/odata/standard.odata/",
+      username: "service-user",
+      password: "service-password",
+      requestTimeoutMs: 10_000,
+    });
+
+    let failure: unknown;
+    try {
+      await provider.fetchSnapshot([DHI]);
+    } catch (error) {
+      failure = error;
+    }
+
+    expect(failure).toBeInstanceOf(OneCODataProviderError);
+    expect(getProductNewSourceRequestDiagnostic(failure)).toMatchObject({
+      resourceName: expect.stringMatching(/^Catalog_/),
+      requestMethod: "GET",
+      sanitizedEndpoint: expect.stringMatching(/^https:\/\/erp-api\.nsd\.md:8443\/novotech\/odata\/standard\.odata\/Catalog_/),
+      httpStatus: 400,
+      responseContentType: "application/json;charset=utf-8",
+      networkCategory: "odata_error",
+      pageNumber: 1,
+      pageSize: 500,
+      odataFilterName: "creation_requisite_ref",
+      safeErrorExcerpt: "Unknown field '[redacted]'",
+    });
+    expect(JSON.stringify(getProductNewSourceRequestDiagnostic(failure))).not.toContain("embedded-password");
+    expect(JSON.stringify(getProductNewSourceRequestDiagnostic(failure))).not.toContain("service-password");
   });
 });
 

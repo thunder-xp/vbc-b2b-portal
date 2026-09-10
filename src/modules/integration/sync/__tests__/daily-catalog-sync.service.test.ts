@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { OneCODataProviderError, OneCProductNewProvider } from "../../providers/one-c";
 import type { CatalogSnapshotWriter, CatalogSyncState } from "../catalog-snapshot-writer";
 import { DailyCatalogSyncService } from "../daily-catalog-sync.service";
 
@@ -76,6 +77,56 @@ describe("DailyCatalogSyncService", () => {
     expect(writer.writeSnapshot).not.toHaveBeenCalled();
     expect(writer.markSucceeded).not.toHaveBeenCalled();
     expect(writer.markFailed).toHaveBeenCalledWith(expect.any(String), "duplicate_page_rows", "nomenclature_scan", expect.any(String), expect.any(String));
+  });
+
+  it("logs bounded automated NEW request diagnostics with the cron request id", async () => {
+    const writer = writerFixture({ state: { ...succeededState, status: "failed", errorCategory: "OneCODataProviderError", failedStage: "automated_new_source_scan" } });
+    const upstreamError = new OneCODataProviderError({
+      failedStage: "automated_new_creation_requisite_scan",
+      receivedContentType: "application/json",
+      requestKind: "automated_new_creation_requisite_scan",
+      resourceName: "Catalog_Source",
+      queryParameterNames: ["$filter", "$select", "$top", "$skip", "$format"],
+      statusCode: 400,
+      jsonParseFailure: false,
+      parseErrorName: null,
+      bodyLength: 96,
+      bomDetected: false,
+      emptyBody: false,
+      safeErrorSummary: "Unsupported query",
+    });
+    const newProductProvider = new OneCProductNewProvider({
+      get: vi.fn(async () => { throw upstreamError; }),
+    });
+    const errorLog = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const catalogSnapshot = {
+      ...snapshot,
+      products: [{ ...snapshot.products[0]!, reference: { ...snapshot.products[0]!.reference, externalId: "4b7d580e-02a3-11ed-6a9e-7239d3b7bd5c" } }],
+    };
+
+    await new DailyCatalogSyncService(
+      { fetchFullSnapshot: vi.fn(async () => catalogSnapshot) },
+      writer,
+      undefined,
+      newProductProvider,
+      { publish: vi.fn() },
+    ).runFullSync("scheduled", { requestId: "iad1::safe-request-id" });
+
+    expect(errorLog).toHaveBeenCalledWith(expect.objectContaining({
+      event: "catalog_daily_sync_failed",
+      stage: "automated_new_source_scan",
+      errorCategory: "OneCODataProviderError",
+      requestId: "iad1::safe-request-id",
+      resourceName: expect.stringMatching(/^Catalog_/),
+      httpStatus: 400,
+      responseContentType: "application/json",
+      responseLength: 96,
+      networkCategory: "odata_error",
+      pageNumber: 1,
+      pageSize: 500,
+      odataFilterName: "creation_requisite_ref",
+      safeErrorExcerpt: "Unsupported query",
+    }));
   });
 });
 

@@ -1,5 +1,9 @@
 import type { CatalogSnapshotDTO } from "../dto";
-import type { OneCNomenclatureODataProvider, OneCProductNewProvider } from "../providers/one-c";
+import {
+  getProductNewSourceRequestDiagnostic,
+  type OneCNomenclatureODataProvider,
+  type OneCProductNewProvider,
+} from "../providers/one-c";
 import type { CatalogSnapshotWriter, CatalogSyncState } from "./catalog-snapshot-writer";
 import type { CatalogProjectionOutcome, CatalogSynchronizationOrchestrator, CatalogSynchronizationTrigger } from "./catalog-synchronization-orchestrator";
 import { CatalogPersistenceError } from "./catalog-persistence-error";
@@ -22,7 +26,10 @@ export class DailyCatalogSyncService {
     private readonly newProductWriter?: ProductNewFactsWriter,
   ) {}
 
-  async runFullSync(trigger: CatalogSynchronizationTrigger = "scheduled"): Promise<DailyCatalogSyncResult> {
+  async runFullSync(
+    trigger: CatalogSynchronizationTrigger = "scheduled",
+    context: { requestId?: string } = {},
+  ): Promise<DailyCatalogSyncResult> {
     const syncId = crypto.randomUUID();
     const startedAt = new Date().toISOString();
     log({ event: "catalog_daily_sync_started", stage: "lock" });
@@ -73,16 +80,47 @@ export class DailyCatalogSyncService {
       const finishedAt = new Date().toISOString();
       const errorCategory = safeErrorCategory(error);
       const failedStage = safeFailedStage(error, stage);
+      const sourceDiagnostic = getProductNewSourceRequestDiagnostic(error);
       if (error instanceof CatalogPersistenceError) await this.writer.markFailed(syncId, errorCategory, failedStage, startedAt, finishedAt, error.metadata);
       else await this.writer.markFailed(syncId, errorCategory, failedStage, startedAt, finishedAt);
       if (orchestrationRegistered && this.orchestrator) await this.orchestrator.failSourceSync(syncId, "catalog", errorCategory);
-      log({ event: "catalog_daily_sync_failed", stage: failedStage, errorCategory, ...(error instanceof CatalogPersistenceError ? { databaseErrorCode: error.metadata.code ?? undefined, databaseConstraint: error.metadata.constraint ?? undefined, failedBatch: error.metadata.batchIndex ?? undefined } : {}) });
+      log({
+        event: "catalog_daily_sync_failed",
+        stage: failedStage,
+        errorCategory,
+        requestId: context.requestId,
+        ...(sourceDiagnostic ?? {}),
+        ...(error instanceof CatalogPersistenceError ? { databaseErrorCode: error.metadata.code ?? undefined, databaseConstraint: error.metadata.constraint ?? undefined, failedBatch: error.metadata.batchIndex ?? undefined } : {}),
+      });
       return { state: await this.writer.getState(), skippedBecauseRunning: false, projection: null, newProduct: null };
     }
   }
 }
 
-type SafeCatalogSyncEvent = { event: string; stage: string; pageNumber?: number; rowCount?: number; folderCount?: number; productCount?: number; errorCategory?: string; databaseErrorCode?: string; databaseConstraint?: string; failedBatch?: number };
+type SafeCatalogSyncEvent = {
+  event: string;
+  stage: string;
+  pageNumber?: number;
+  rowCount?: number;
+  folderCount?: number;
+  productCount?: number;
+  errorCategory?: string;
+  databaseErrorCode?: string;
+  databaseConstraint?: string;
+  failedBatch?: number;
+  requestId?: string;
+  resourceName?: string;
+  requestMethod?: "GET";
+  sanitizedEndpoint?: string | null;
+  httpStatus?: number | null;
+  responseContentType?: string | null;
+  responseLength?: number | null;
+  networkCategory?: string;
+  pageSize?: number;
+  odataFilterName?: string;
+  elapsedMs?: number;
+  safeErrorExcerpt?: string | null;
+};
 function log(event: SafeCatalogSyncEvent) { if (event.event === "catalog_daily_sync_failed") console.error(event); else console.info(event); }
 function safeErrorCategory(error: unknown): string { return hasStringProperty(error, "errorCategory") ? error.errorCategory : error instanceof Error ? error.name : "unknown_error"; }
 function safeFailedStage(error: unknown, fallback: string): string { return hasStringProperty(error, "failedStage") ? error.failedStage : fallback; }
