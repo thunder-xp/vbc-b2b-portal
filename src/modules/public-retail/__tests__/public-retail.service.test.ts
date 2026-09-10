@@ -37,7 +37,11 @@ describe("PublicRetailService", () => {
     const service = new PublicRetailService(repository);
     const seed = "11111111-1111-4111-8111-111111111111";
     await service.getRetailShowcase("ro", seed);
-    expect(getShowcase).toHaveBeenCalledWith("ro", seed, 30);
+    expect(getShowcase).toHaveBeenCalledWith("ro", seed, {
+      popular: 365,
+      new: 365,
+      hot: 365,
+    });
     expect(() => service.getRetailShowcase("ru", "browser-value")).toThrow(
       "Invalid Public Retail rotation session.",
     );
@@ -75,7 +79,7 @@ describe("PublicRetailService", () => {
       mode: undefined,
       limit: 48,
       offset: 96,
-      period: 30,
+      period: 365,
     });
     expect(listProducts.mock.calls[0]?.[0]).not.toHaveProperty("companyId");
     expect(listProducts.mock.calls[0]?.[0]).not.toHaveProperty("userId");
