@@ -236,6 +236,7 @@ export function MerchandisingAdminTable({
                       {new Intl.DateTimeFormat("ru-RU", {
                         dateStyle: "short",
                         timeStyle: "short",
+                        timeZone: "Europe/Chisinau",
                       }).format(new Date(product.assignments[0].updatedAt))}
                     </p>
                   ) : null}
@@ -265,8 +266,9 @@ function formatValidity(startsAt: string, endsAt: string | null): string {
   const format = new Intl.DateTimeFormat("ru-RU", {
     dateStyle: "short",
     timeStyle: "short",
+    timeZone: "Europe/Chisinau",
   });
-  return `${format.format(new Date(startsAt))} — ${endsAt ? format.format(new Date(endsAt)) : "без срока"} (локальное время)`;
+  return `${format.format(new Date(startsAt))} — ${endsAt ? format.format(new Date(endsAt)) : "без срока"} (время Кишинёва)`;
 }
 
 function labelText(code: MerchandisingLabelCode): string {
