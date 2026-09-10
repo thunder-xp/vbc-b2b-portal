@@ -35,6 +35,7 @@ export type CartDetailDto = {
   commercialMode: "full" | "retail_only" | "hidden";
   submitting: boolean;
   reconciliationLock: {
+    orderId: string;
     stale: boolean;
     correlationId: string | null;
     attemptCount: number;
@@ -191,6 +192,7 @@ export class DefaultCartService implements CartService {
       submitting: cart.status === "submitting",
       reconciliationLock: reconciliation
         ? {
+            orderId: reconciliation.orderId,
             stale: Date.now() - new Date(reconciliation.startedAt).getTime() >= STALE_RECONCILIATION_MS,
             correlationId: reconciliation.correlationId,
             attemptCount: reconciliation.attemptCount,

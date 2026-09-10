@@ -60,7 +60,7 @@ describe("OrderSubmitForm", () => {
   });
 
   it("blocks another submission while reconciliation is required", async () => {
-    mocks.submit.mockResolvedValue({ success: false, errorCode: "ORDER_RECONCILIATION_REQUIRED", message: "Статус отправки заказа уточняется. Не отправляйте заказ повторно.", data: null });
+    mocks.submit.mockResolvedValue({ success: false, errorCode: "ORDER_RECONCILIATION_REQUIRED", message: "Проверяем создание заказа в 1С…", data: null });
     const user = userEvent.setup();
     render(<OrderSubmitForm checkoutOptions={governedCashlessOptions} submissionKey="55555555-5555-4555-8555-555555555555" />);
     await user.click(screen.getByRole("radio", { name: /Безналичный/ }));
@@ -68,7 +68,9 @@ describe("OrderSubmitForm", () => {
     await user.click(screen.getByRole("radio", { name: "Самовывоз" }));
     await user.type(screen.getByLabelText("Дата резервации"), "2099-01-10");
     await user.click(screen.getByRole("button", { name: "Отправить заказ" }));
-    await waitFor(() => expect(screen.getByRole("button", { name: "Отправить заказ" })).toBeDisabled());
+    await waitFor(() => expect(screen.getByRole("button", { name: "Проверяем заказ…" })).toBeDisabled());
+    expect(screen.getByText(/Корзина сохранена, проверка выполняется автоматически/)).toBeInTheDocument();
+    expect(mocks.refresh).toHaveBeenCalledOnce();
   });
 
   it("redirects a confirmed result to the immutable order detail without resubmitting", async () => {

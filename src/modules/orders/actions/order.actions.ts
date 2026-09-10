@@ -7,7 +7,7 @@ import { ForbiddenError } from "../../access-control/services";
 import { UserType } from "../../access-control/types";
 import { getPartnerLocale } from "../../partner-locale/server";
 import { createMerchandisingService } from "../../merchandising/actions/service-factory";
-import { type PartnerOrderHistoryDetailDto, type PartnerOrderHistorySyncResult, type PartnerOrderDetailDto, type PartnerOrderSummaryDto, type PlannedShipmentDto } from "../services";
+import { type PartnerOrderHistoryDetailDto, type PartnerOrderHistorySyncResult, type PartnerOrderDetailDto, type PartnerOrderReconciliationStateDto, type PartnerOrderSummaryDto, type PlannedShipmentDto } from "../services";
 import type { PartnerOrder } from "../types";
 import type { CheckoutFulfillmentMethod, CheckoutPaymentMethod } from "../repositories";
 import { partnerOrderRedirectTo } from "../order-navigation";
@@ -86,6 +86,20 @@ export async function listPartnerOrdersAction(): Promise<ActionResult<PartnerOrd
 export async function getPartnerOrderAction(orderId: string): Promise<ActionResult<PartnerOrderDetailDto>> {
   try { return success("Order loaded.", await createPartnerOrderService().getOrder(await getAuthenticatedUserId(), orderId)); }
   catch (error) { return failureFromError(error); }
+}
+
+export async function getPartnerOrderReconciliationStateAction(
+  orderId: string,
+): Promise<ActionResult<PartnerOrderReconciliationStateDto>> {
+  try {
+    const userId = await getAuthenticatedUserId();
+    return success(
+      "Order reconciliation state loaded.",
+      await createPartnerOrderService().getReconciliationState(userId, orderId),
+    );
+  } catch (error) {
+    return failureFromError(error);
+  }
 }
 
 export async function getPartnerOrderHistoryAction(orderId: string): Promise<ActionResult<PartnerOrderHistoryDetailDto>> {

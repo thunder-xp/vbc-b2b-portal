@@ -12,7 +12,7 @@ export function orderSubmissionFailure(error: unknown): FailedActionResult | nul
   if (error instanceof OrderReconciliationRequiredError) {
     return failure(
       "ORDER_RECONCILIATION_REQUIRED",
-      "Статус отправки заказа уточняется. Не отправляйте заказ повторно.",
+      "Проверяем создание заказа в 1С… Пожалуйста, не отправляйте заказ повторно. Корзина сохранена, проверка выполняется автоматически.",
     );
   }
   if (error instanceof RecoverableOrderSubmissionError) {
@@ -60,7 +60,7 @@ function recoverableMessage(error: RecoverableOrderSubmissionError): string {
     case "ORDER_1C_TIMEOUT":
     case "ORDER_1C_ALREADY_CREATED":
     case "ORDER_READBACK_FAILED":
-      return "Статус отправки заказа уточняется. Не отправляйте заказ повторно.";
+      return "Проверяем создание заказа в 1С… Пожалуйста, не отправляйте заказ повторно. Корзина сохранена, проверка выполняется автоматически.";
     case "ORDER_SUBMISSION_INFRASTRUCTURE_FAILURE":
       return `Заказ не был отправлен. Корзина сохранена. Код события: ${error.correlationId}.`;
     default:

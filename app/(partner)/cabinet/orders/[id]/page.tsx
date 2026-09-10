@@ -6,6 +6,7 @@ import { getPartnerOrderHistoryAction } from "@/src/modules/orders/actions";
 import { SaveAsPurchasingListButton } from "@/src/modules/purchasing-lists/components";
 import { RelatedDocuments } from "@/src/modules/documents/components";
 import { ProductLineThumbnail } from "@/src/modules/catalog/components";
+import { OrderReconciliationStatus } from "@/src/modules/orders/components/OrderReconciliationStatus";
 import {
   formatPartnerDate,
   formatPartnerRelativeAge,
@@ -42,6 +43,11 @@ export default async function OrderDetailPage({
     );
   }
   const order = result.data;
+  const portalSubmissionState = order.portalSubmissionState;
+  const showAccepted = (submitted || !order.posted)
+    && (!portalSubmissionState || portalSubmissionState === "confirmed_created");
+  const portalAttemptUnresolved = portalSubmissionState
+    && portalSubmissionState !== "confirmed_created";
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -51,7 +57,17 @@ export default async function OrderDetailPage({
         route="/cabinet/orders/detail"
         sourceSurface="order_detail"
       />
-      {submitted || !order.posted ? (
+      {portalAttemptUnresolved ? (
+        <OrderReconciliationStatus
+          initialState={{
+            orderId: order.id,
+            state: portalSubmissionState,
+            external1cNumber: null,
+          }}
+          surface="order"
+        />
+      ) : null}
+      {showAccepted ? (
         <div
           className="rounded-md border border-emerald-200 bg-emerald-50 p-4 text-emerald-950"
           role="status"
@@ -101,6 +117,7 @@ export default async function OrderDetailPage({
             <Metric label={copy.total} value={order.documentTotal} />
           ) : null}
         </dl>
+        {!portalAttemptUnresolved ? (
         <div className="mt-5 flex flex-wrap gap-2">
           <Link
             className="rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800"
@@ -113,10 +130,15 @@ export default async function OrderDetailPage({
           </Link>
           <SaveAsPurchasingListButton orderId={order.id} source="order" />
         </div>
+        ) : null}
       </section>
 
       <section>
-        <h2 className="text-lg font-semibold">{copy.currentOneCComposition}</h2>
+        <h2 className="text-lg font-semibold">
+          {portalAttemptUnresolved
+            ? copy.preservedCartComposition
+            : copy.currentOneCComposition}
+        </h2>
         <div className="mt-3 overflow-hidden rounded-md border border-zinc-200 bg-white">
           <ul className="divide-y divide-zinc-200">
             {order.lines.map((line, index) => (
@@ -246,11 +268,13 @@ export default async function OrderDetailPage({
         </section>
       ) : null}
 
-      <RelatedDocuments
-        documents={order.documents}
-        emptyMessage={copy.documentsPending}
-        title={copy.orderDocuments}
-      />
+      {!portalAttemptUnresolved ? (
+        <RelatedDocuments
+          documents={order.documents}
+          emptyMessage={copy.documentsPending}
+          title={copy.orderDocuments}
+        />
+      ) : null}
 
       {order.timeline.length ? (
         <section className="border-t border-zinc-200 pt-6">

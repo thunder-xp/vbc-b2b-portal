@@ -5,6 +5,7 @@ import { getCartAction } from "@/src/modules/orders/actions";
 import { CartItemActions } from "@/src/modules/orders/components/CartItemActions";
 import { CartCheckoutCoordinator } from "@/src/modules/orders/components/CartCheckoutCoordinator";
 import { OrderSubmitForm } from "@/src/modules/orders/components/OrderSubmitForm";
+import { OrderReconciliationStatus } from "@/src/modules/orders/components/OrderReconciliationStatus";
 import { CreateEstimateFromCartButton } from "@/src/modules/estimates/components/CreateEstimateFromCartButton";
 import { SaveAsPurchasingListButton } from "@/src/modules/purchasing-lists/components";
 import type { CartLineDto } from "@/src/modules/orders/services";
@@ -71,22 +72,17 @@ export default async function CartPage() {
         </div>
       ) : (
         <CartCheckoutCoordinator>
-          {cart.reconciliationLock ? (
-            <div
-              aria-live="polite"
-              className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950"
-              role="status"
-            >
-              {cart.reconciliationLock.stale
-                ? copy.cartReconciliationStale
-                : copy.cartReconciliationLocked}
-              {cart.reconciliationLock.stale && cart.reconciliationLock.correlationId ? (
-                <span className="mt-1 block font-mono text-xs">
-                  {copy.correlationCode}: {cart.reconciliationLock.correlationId}
-                </span>
-              ) : null}
-            </div>
-          ) : null}
+          <OrderReconciliationStatus
+            initialState={cart.reconciliationLock ? {
+              orderId: cart.reconciliationLock.orderId,
+              state: cart.reconciliationLock.attemptCount > 0
+                ? "unknown_retrying"
+                : "checking",
+              external1cNumber: null,
+            } : null}
+            stale={cart.reconciliationLock?.stale}
+            surface="cart"
+          />
           <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
             <div className="space-y-4">
               {groups.map((group) => {

@@ -129,6 +129,17 @@ export const getOrdersCopy = definePartnerCopy(
     removeProductError: "Не удалось удалить товар. Повторите попытку.",
     cartReconciliationLocked:
       "Корзина временно заблокирована: проверяем результат предыдущей отправки заказа в 1С.",
+    orderReconciliationChecking: "Проверяем создание заказа в 1С…",
+    orderReconciliationCheckingMessage:
+      "Пожалуйста, не отправляйте заказ повторно. Корзина сохранена, проверка выполняется автоматически.",
+    orderReconciliationUsuallyTakesMinutes:
+      "Проверка обычно занимает несколько минут.",
+    orderConfirmedNotCreated:
+      "Заказ не был создан в 1С. Корзина сохранена — можно повторить отправку.",
+    orderManualReviewRequired:
+      "Автоматическая проверка не завершилась. Корзина сохранена и защищена от повторной отправки — обратитесь к менеджеру Novotech.",
+    returnToCart: "Вернуться в корзину",
+    preservedCartComposition: "Состав сохранённой корзины",
     cartReconciliationStale:
       "Проверка заказа задержалась. Обратитесь к администратору.",
     correlationCode: "Код обращения",
@@ -179,7 +190,7 @@ export const getOrdersCopy = definePartnerCopy(
       "Не удалось сохранить изменения корзины. Проверьте количество в отмеченной позиции и повторите попытку.",
     orderInProgress: "Заказ уже отправляется. Подождите завершения операции.",
     orderReconciliationRequired:
-      "Статус отправки заказа уточняется. Не отправляйте заказ повторно.",
+      "Проверяем создание заказа в 1С… Пожалуйста, не отправляйте заказ повторно. Корзина сохранена, проверка выполняется автоматически.",
     orderCompanyMappingMissing:
       "Не удалось определить данные компании в 1С. Обратитесь к менеджеру Novotech.",
     orderContractMappingMissing:
@@ -395,6 +406,17 @@ export const getOrdersCopy = definePartnerCopy(
     removeProductError: "Produsul nu a putut fi eliminat. Încercați din nou.",
     cartReconciliationLocked:
       "Coșul este blocat temporar: verificăm rezultatul trimiterii anterioare a comenzii în 1C.",
+    orderReconciliationChecking: "Verificăm crearea comenzii în 1C…",
+    orderReconciliationCheckingMessage:
+      "Vă rugăm să nu trimiteți comanda din nou. Coșul este păstrat, iar verificarea se efectuează automat.",
+    orderReconciliationUsuallyTakesMinutes:
+      "Verificarea durează de obicei câteva minute.",
+    orderConfirmedNotCreated:
+      "Comanda nu a fost creată în 1C. Coșul este păstrat — puteți încerca din nou.",
+    orderManualReviewRequired:
+      "Verificarea automată nu s-a încheiat. Coșul este păstrat și protejat împotriva retrimiterii — contactați managerul Novotech.",
+    returnToCart: "Înapoi la coș",
+    preservedCartComposition: "Conținutul coșului păstrat",
     cartReconciliationStale:
       "Verificarea comenzii întârzie. Contactați administratorul.",
     correlationCode: "Cod de referință",
@@ -445,7 +467,7 @@ export const getOrdersCopy = definePartnerCopy(
       "Modificările coșului nu au putut fi salvate. Verificați cantitatea poziției marcate și încercați din nou.",
     orderInProgress: "Comanda este deja în curs de trimitere. Așteptați finalizarea operațiunii.",
     orderReconciliationRequired:
-      "Statutul trimiterii comenzii se verifică. Nu trimiteți comanda din nou.",
+      "Verificăm crearea comenzii în 1C… Vă rugăm să nu trimiteți comanda din nou. Coșul este păstrat, iar verificarea se efectuează automat.",
     orderCompanyMappingMissing:
       "Datele companiei nu au putut fi identificate în 1C. Contactați managerul Novotech.",
     orderContractMappingMissing:

@@ -220,6 +220,49 @@ describe("DefaultPartnerOrderHistoryService", () => {
     });
   });
 
+  it("renders a confirmed-not-created portal attempt with its preserved cart composition", async () => {
+    const portalOrder = confirmedPortalOrder({
+      id: "944d1410-c695-4fc8-ac16-601d92b8115f",
+      status: PartnerOrderStatus.Failed,
+      integrationStatus: PartnerOrderIntegrationStatus.ConfirmedNotCreated,
+      external1cRef: null,
+      external1cNumber: null,
+      external1cDate: null,
+      confirmedAt: null,
+      lastReconciledAt: "2026-09-10T07:00:00Z",
+    });
+    const portalRepository = {
+      findById: vi.fn().mockResolvedValue(portalOrder),
+      listItems: vi.fn().mockResolvedValue([{
+        productId: "product-1",
+        productName: "DHL43-F600",
+        sku: "900005",
+        quantity: 4,
+        partnerUnitPrice: 100,
+        lineTotal: 400,
+        currencyCode: "USD",
+      }]),
+    } as unknown as PartnerOrderRepository;
+
+    const result = await service(
+      historyRepository([]),
+      orderProvider(),
+      ["pricing.partner_price.view"],
+      portalRepository,
+    ).get("user-1", portalOrder.id);
+
+    expect(result).toMatchObject({
+      id: portalOrder.id,
+      portalSubmissionState: "confirmed_not_created",
+      statusCode: "unknown",
+      positionCount: 1,
+      totalUnitCount: 4,
+      lines: [{ sku: "900005", quantity: 4 }],
+      portalSnapshot: null,
+      documents: [],
+    });
+  });
+
   it("returns the canonical history identity when a linked portal order id is opened", async () => {
     const portalOrder = confirmedPortalOrder();
     const synchronized = history({ portalOrderId: portalOrder.id });

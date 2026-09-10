@@ -47,7 +47,7 @@ describe("orderSubmissionFailure", () => {
     [
       new OrderReconciliationRequiredError(),
       "ORDER_RECONCILIATION_REQUIRED",
-      "Статус отправки заказа уточняется. Не отправляйте заказ повторно.",
+      "Проверяем создание заказа в 1С… Пожалуйста, не отправляйте заказ повторно. Корзина сохранена, проверка выполняется автоматически.",
     ],
   ])("maps %s to a safe Russian action result", (error, code, message) => {
     expect(orderSubmissionFailure(error)).toEqual({

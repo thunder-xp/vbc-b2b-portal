@@ -38,6 +38,10 @@ import {
   PartnerOrderStatus,
 } from "../types";
 import { classifyOrderHistorySyncError, OrderHistorySyncError } from "./order-history.errors";
+import {
+  projectPartnerOrderReconciliationState,
+  type PartnerOrderReconciliationStateDto,
+} from "./order-reconciliation-state";
 
 const ORDERS_VIEW_PERMISSION = "orders.view";
 const ORDERS_MANAGE_PERMISSION = "orders.manage";
@@ -71,6 +75,7 @@ export type PartnerOrderHistorySummaryDto = {
 };
 
 export type PartnerOrderHistoryDetailDto = PartnerOrderHistorySummaryDto & {
+  portalSubmissionState?: PartnerOrderReconciliationStateDto["state"];
   companyName: string;
   originLabel: string | null;
   lines: Array<{
@@ -413,7 +418,7 @@ export class DefaultPartnerOrderHistoryService implements PartnerOrderHistorySer
     );
     const order = await this.historyRepository.findVisibleById(normalizedOrderId);
     if (!order || order.companyId !== context.company.id || order.oneCDeletionMark || !order.partnerVisible) {
-      const receipt = await this.loadConfirmedPortalReceipt(
+      const receipt = await this.loadPortalOrderAttempt(
         userId,
         normalizedOrderId,
         context.company.id,
@@ -456,7 +461,7 @@ export class DefaultPartnerOrderHistoryService implements PartnerOrderHistorySer
     };
   }
 
-  private async loadConfirmedPortalReceipt(
+  private async loadPortalOrderAttempt(
     userId: string,
     orderId: string,
     companyId: string,
@@ -464,17 +469,21 @@ export class DefaultPartnerOrderHistoryService implements PartnerOrderHistorySer
     canViewPartnerPrice: boolean,
   ): Promise<PartnerOrderHistoryDetailDto | null> {
     const order = await this.portalOrderRepository.findById(orderId);
-    if (
-      !order
-      || order.companyId !== companyId
-      || order.status !== PartnerOrderStatus.Submitted
-      || order.integrationStatus !== PartnerOrderIntegrationStatus.Confirmed
-      || order.authoritativePresence === "confirmed_missing_from_1c"
-      || !order.external1cNumber
-      || !order.external1cDate
-    ) {
+    if (!order || order.companyId !== companyId) {
       return null;
     }
+
+    const portalSubmissionState = projectPartnerOrderReconciliationState(order).state;
+    const confirmed = portalSubmissionState === "confirmed_created";
+    if (
+      (confirmed && (
+        order.authoritativePresence === "confirmed_missing_from_1c"
+        || !order.external1cNumber
+        || !order.external1cDate
+      ))
+      || (!confirmed && portalSubmissionState === "failed"
+        && order.integrationStatus !== PartnerOrderIntegrationStatus.ConfirmedNotCreated)
+    ) return null;
 
     const items = await this.portalOrderRepository.listItems(order.id);
     const synchronizedAt = order.confirmedAt ?? order.submittedAt ?? order.updatedAt;
@@ -499,11 +508,13 @@ export class DefaultPartnerOrderHistoryService implements PartnerOrderHistorySer
 
     return {
       id: order.id,
-      primaryLabel: `№ ${order.external1cNumber}`,
-      statusLabel: "Обрабатывается",
-      statusCode: "processing",
+      primaryLabel: order.external1cNumber
+        ? `№ ${order.external1cNumber}`
+        : "Заказ партнёра",
+      statusLabel: confirmed ? "Обрабатывается" : "Статус уточняется",
+      statusCode: confirmed ? "processing" : "unknown",
       posted: false,
-      documentDate: order.external1cDate,
+      documentDate: order.external1cDate ?? order.createdAt,
       deliveryDate: order.requestedDeliveryDate,
       ...(formattedTotal ? { documentTotal: formattedTotal } : {}),
       positionCount: items.length,
@@ -516,16 +527,17 @@ export class DefaultPartnerOrderHistoryService implements PartnerOrderHistorySer
       ),
       companyName,
       originLabel: null,
+      portalSubmissionState,
       lines,
-      timeline: [{
+      timeline: confirmed ? [{
         eventType: "received_by_one_c",
         label: "Заказ получен 1С",
         occurredAt: synchronizedAt,
-      }],
-      portalSnapshot: {
+      }] : [],
+      portalSnapshot: confirmed ? {
         ...(formattedTotal ? { total: formattedTotal } : {}),
         lines,
-      },
+      } : null,
       documents: [],
     };
   }

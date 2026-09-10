@@ -5,7 +5,15 @@ import OrderDetailPage from "../[id]/page";
 import OrdersPage from "../page";
 import { getOrdersCopy } from "@/src/modules/partner-locale";
 
-const mocks = vi.hoisted(() => ({ list: vi.fn(), get: vi.fn(), refresh: vi.fn(), notFound: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  list: vi.fn(),
+  get: vi.fn(),
+  getReconciliationState: vi.fn(),
+  refresh: vi.fn(),
+  routerRefresh: vi.fn(),
+  replace: vi.fn(),
+  notFound: vi.fn(),
+}));
 
 vi.mock("@/src/modules/orders/actions", () => ({
   getPartnerOrderHistoryAction: mocks.get,
@@ -14,14 +22,20 @@ vi.mock("@/src/modules/orders/actions", () => ({
 vi.mock("@/src/modules/orders/actions/order-history-list.actions", () => ({
   listPartnerOrderHistoryAction: mocks.list,
 }));
-vi.mock("@/src/modules/orders/actions/order.actions", () => ({ refreshPartnerOrderHistoryAction: mocks.refresh }));
+vi.mock("@/src/modules/orders/actions/order.actions", () => ({
+  getPartnerOrderReconciliationStateAction: mocks.getReconciliationState,
+  refreshPartnerOrderHistoryAction: mocks.refresh,
+}));
 vi.mock("@/src/modules/purchasing-lists/components", () => ({
   SaveAsPurchasingListButton: () => <button type="button">Save as list</button>,
 }));
 vi.mock("@/src/modules/purchase-templates/components", () => ({
   SaveAsPurchaseTemplateButton: () => <button type="button">Save as template</button>,
 }));
-vi.mock("next/navigation", () => ({ notFound: mocks.notFound }));
+vi.mock("next/navigation", () => ({
+  notFound: mocks.notFound,
+  useRouter: () => ({ refresh: mocks.routerRefresh, replace: mocks.replace }),
+}));
 
 const summary = {
   id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
@@ -145,6 +159,40 @@ describe("partner order history pages", () => {
     expect(screen.queryByText("Снимок при отправке из платформы")).not.toBeInTheDocument();
     expect(screen.getByText("Планируемая отгрузка")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Купить снова" })).toHaveAttribute("href", `/cabinet/orders/${summary.id}/reorder`);
+  });
+
+  it("renders a confirmed-not-created attempt as a preserved-cart recovery state", async () => {
+    mocks.get.mockResolvedValue({
+      success: true,
+      data: {
+        ...summary,
+        id: "944d1410-c695-4fc8-ac16-601d92b8115f",
+        primaryLabel: "Заказ партнёра",
+        statusLabel: "Статус уточняется",
+        statusCode: "unknown",
+        posted: false,
+        portalSubmissionState: "confirmed_not_created",
+        companyName: "IACUBOI VASILE",
+        originLabel: null,
+        lines: [{ productName: "Camera", sku: "400691", quantity: 4, unitPrice: "500,00 MDL", lineTotal: "2 000,00 MDL" }],
+        timeline: [],
+        portalSnapshot: null,
+        documents: [],
+      },
+      errorCode: null,
+      message: "",
+    });
+
+    render(await OrderDetailPage({
+      params: Promise.resolve({ id: "944d1410-c695-4fc8-ac16-601d92b8115f" }),
+    }));
+
+    expect(screen.getByText("Заказ не был создан в 1С. Корзина сохранена — можно повторить отправку.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Вернуться в корзину" }))
+      .toHaveAttribute("href", "/cabinet/cart");
+    expect(screen.getByRole("heading", { name: "Состав сохранённой корзины" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Заказ принят" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Купить снова" })).not.toBeInTheDocument();
   });
 
   it("opens the shared Live Commerce Selection flow from an eligible completed order", async () => {

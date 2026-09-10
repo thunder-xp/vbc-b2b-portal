@@ -23,6 +23,10 @@ import {
   type RecoverableOrderSubmissionCode,
 } from "./order-submission.errors";
 import {
+  projectPartnerOrderReconciliationState,
+  type PartnerOrderReconciliationStateDto,
+} from "./order-reconciliation-state";
+import {
   OrderPriceDataMissingError,
   OrderPriceRefreshFailedError,
   type OrderPriceRefreshService,
@@ -75,6 +79,7 @@ export interface PartnerOrderService {
   }): Promise<PartnerOrder>;
   listOwnCompanyOrders(userId: string): Promise<PartnerOrderSummaryDto[]>;
   getOrder(userId: string, orderId: string): Promise<PartnerOrderDetailDto>;
+  getReconciliationState(userId: string, orderId: string): Promise<PartnerOrderReconciliationStateDto>;
   reconcileInternal(orderId: string): Promise<PartnerOrder>;
 }
 
@@ -862,6 +867,18 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
     })) };
   }
 
+  async getReconciliationState(
+    userId: string,
+    orderId: string,
+  ): Promise<PartnerOrderReconciliationStateDto> {
+    const context = await this.resolveContext(userId);
+    const order = await this.orderRepository.findById(orderId.trim());
+    if (!order || order.companyId !== context.company.id) {
+      throw new NotFoundError("Order was not found.");
+    }
+    return projectPartnerOrderReconciliationState(order);
+  }
+
   async reconcileInternal(orderId: string): Promise<PartnerOrder> {
     const order = await this.orderRepository.findById(requireUuid(orderId.trim(), "Order ID"));
     if (!order) throw new NotFoundError("Order was not found.");
@@ -1116,6 +1133,7 @@ function toSummary(
     totalUnitCount: items.reduce((sum, item) => sum + item.quantity, 0),
   };
 }
+
 function formatMoney(amount: number, currency: string): string { return new Intl.NumberFormat("ru-RU", { style: "currency", currency }).format(amount); }
 
 function groupItemsByOrder(items: PartnerOrderItem[]): Map<string, PartnerOrderItem[]> {

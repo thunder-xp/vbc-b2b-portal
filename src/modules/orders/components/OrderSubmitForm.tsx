@@ -98,6 +98,9 @@ export function OrderSubmitForm({
           if (result.errorCode === "ORDER_CART_VERSION_CONFLICT") {
             router.refresh();
           }
+          if (isReconciliationPendingFailure(result.errorCode)) {
+            router.refresh();
+          }
           if (
             isDefinitiveRecoverableFailure(result.errorCode)
           ) {
@@ -117,6 +120,8 @@ export function OrderSubmitForm({
       ["ORDER_IN_PROGRESS", "ORDER_RECONCILIATION_REQUIRED"].includes(
         state.errorCode,
       ));
+  const reconciliationPending = reconciliationLocked
+    || (!state.success && isReconciliationPendingFailure(state.errorCode));
   const busy =
     actionPending ||
     hasPendingMutations ||
@@ -346,7 +351,13 @@ export function OrderSubmitForm({
         disabled={busy || retryBlocked || checkoutUnavailable || !checkoutReady}
         type="submit"
       >
-        {submitLabel(phase, actionPending, hasPendingMutations, copy)}
+        {submitLabel(
+          phase,
+          actionPending,
+          hasPendingMutations,
+          reconciliationPending,
+          copy,
+        )}
       </button>
       {hasPendingMutations ? (
         <p aria-live="polite" className="text-sm text-amber-800">
@@ -362,7 +373,9 @@ export function OrderSubmitForm({
         <p
           aria-live="polite"
           className={`text-sm ${
-            state.success ? "text-emerald-700" : "text-rose-700"
+            state.success
+              ? "text-emerald-700"
+              : reconciliationPending ? "text-amber-800" : "text-rose-700"
           }`}
         >
           {state.success ? state.message : failureMessage}
@@ -500,13 +513,25 @@ function submitLabel(
   phase: CheckoutPhase,
   actionPending: boolean,
   hasPendingMutations: boolean,
+  reconciliationPending: boolean,
   copy: ReturnType<typeof getOrdersCopy>,
 ): string {
   if (actionPending) return copy.sendingOrder;
+  if (reconciliationPending) return copy.validatingOrder;
   if (phase === "cart_update_pending" || hasPendingMutations) {
     return copy.savingCartShort;
   }
   return copy.sendOrder;
+}
+
+function isReconciliationPendingFailure(code: string | null): boolean {
+  return [
+    "ORDER_IN_PROGRESS",
+    "ORDER_RECONCILIATION_REQUIRED",
+    "ORDER_1C_TIMEOUT",
+    "ORDER_1C_ALREADY_CREATED",
+    "ORDER_READBACK_FAILED",
+  ].includes(code ?? "");
 }
 
 function isDefinitiveRecoverableFailure(code: string | null): boolean {

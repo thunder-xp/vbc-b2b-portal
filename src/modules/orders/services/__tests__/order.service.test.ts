@@ -821,6 +821,38 @@ describe("DefaultPartnerOrderService", () => {
     await expect(dependencies.service.getOrder("user-1", "order-1")).rejects.toThrow("Order was not found.");
     expect(dependencies.orderRepository.listItems).not.toHaveBeenCalled();
   });
+
+  it.each([
+    [PartnerOrderStatus.Unknown, PartnerOrderIntegrationStatus.ReconciliationRequired, 0, "checking"],
+    [PartnerOrderStatus.Unknown, PartnerOrderIntegrationStatus.ReconciliationRequired, 2, "unknown_retrying"],
+    [PartnerOrderStatus.Submitted, PartnerOrderIntegrationStatus.Confirmed, 0, "confirmed_created"],
+    [PartnerOrderStatus.Failed, PartnerOrderIntegrationStatus.ConfirmedNotCreated, 3, "confirmed_not_created"],
+  ] as const)(
+    "maps %s/%s after %s attempts to the partner reconciliation state %s",
+    async (status, integrationStatus, reconciliationAttemptCount, expected) => {
+      const dependencies = makeDependencies();
+      dependencies.orderRepository.findById.mockResolvedValue(order({
+        status,
+        integrationStatus,
+        reconciliationAttemptCount,
+      }));
+
+      const result = await dependencies.service.getReconciliationState("user-1", "order-1");
+
+      expect(result).toMatchObject({ orderId: "order-1", state: expected });
+      expect(dependencies.orderRepository.listItems).not.toHaveBeenCalled();
+      expect(dependencies.orderProvider.findExportedSalesOrders).not.toHaveBeenCalled();
+    },
+  );
+
+  it("does not expose another company's reconciliation state", async () => {
+    const dependencies = makeDependencies();
+    dependencies.orderRepository.findById.mockResolvedValue(order({ companyId: "other-company" }));
+
+    await expect(
+      dependencies.service.getReconciliationState("user-1", "order-1"),
+    ).rejects.toThrow("Order was not found.");
+  });
 });
 
 function makeDependencies(options: {
