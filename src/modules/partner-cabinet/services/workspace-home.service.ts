@@ -344,7 +344,6 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
       ...popularCandidates,
       ...newCandidates,
       ...hotCandidates,
-      ...newCandidates,
     ]);
     const opportunityProductIds = opportunityProductReferenceIds(opportunityCandidates);
     const referenceProductIds = [...new Set([
