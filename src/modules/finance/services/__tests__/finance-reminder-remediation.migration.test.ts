@@ -2,15 +2,15 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const sql = readFileSync(
-  "supabase/migrations/20260907051025_finance_reminder_go_live_remediation.sql",
+  "supabase/migrations/20260907052735_finance_reminder_go_live_remediation.sql",
   "utf8",
 );
 const receiptGrantSql = readFileSync(
-  "supabase/migrations/20260907060500_finance_reminder_delivery_receipt_grants.sql",
+  "supabase/migrations/20260907053821_finance_reminder_delivery_receipt_grants.sql",
   "utf8",
 );
 const receiptIndexSql = readFileSync(
-  "supabase/migrations/20260907061000_finance_reminder_delivery_receipt_recipient_index.sql",
+  "supabase/migrations/20260907054152_finance_reminder_delivery_receipt_recipient_index.sql",
   "utf8",
 );
 
