@@ -211,7 +211,7 @@ export class SupabaseWorkspaceDashboardRepository
   ): Promise<WorkspaceDashboardSelections> {
     const startedAt = performance.now();
     const { data, error } = await createAdminClient().rpc(
-      "get_or_refresh_partner_dashboard_selections_v4",
+      "get_or_refresh_partner_dashboard_selections_v5",
       {
         p_user_id: userId,
         p_company_id: companyId,

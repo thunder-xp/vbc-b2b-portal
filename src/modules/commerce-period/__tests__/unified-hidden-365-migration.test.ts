@@ -6,6 +6,8 @@ const sql = readFileSync(join(process.cwd(),
   "supabase/migrations/20260910163146_commerce_unified_hidden_365_data_driven_selections.sql"), "utf8");
 const refreshRepairSql = readFileSync(join(process.cwd(),
   "supabase/migrations/20260910163625_commerce_unified_hidden_365_refresh_result_repair.sql"), "utf8");
+const dashboardSql = readFileSync(join(process.cwd(),
+  "supabase/migrations/20260910165425_commerce_dashboard_selection_single_pass.sql"), "utf8");
 
 describe("unified hidden-365 selection migration", () => {
   it("keeps one inclusive periodized frequency projection with the governed rank", () => {
@@ -27,6 +29,9 @@ describe("unified hidden-365 selection migration", () => {
     expect(sql).toContain("get_public_retail_showcase_v6");
     expect(sql).toContain("count(*) over ()::integer total_count");
     expect(sql).toContain("limit 5");
+    expect(dashboardSql).toContain("get_or_refresh_partner_dashboard_selections_v5");
+    expect(dashboardSql).not.toContain("get_or_refresh_partner_dashboard_selections_v2(");
+    expect(dashboardSql).toContain("limit 5");
   });
 
   it("retains shared Repeat, Popular and NEW sources without live integration work", () => {
