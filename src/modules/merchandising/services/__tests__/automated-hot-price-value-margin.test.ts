@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 const root = process.cwd();
 const migration = read("supabase/migrations/20260910193509_automated_hot_price_value_margin.sql");
 const activation = read("supabase/migrations/20260910195130_activate_automated_hot_system_management.sql");
+const catalogRepair = read("supabase/migrations/20260910202800_automated_hot_partner_catalog_projection_repair.sql");
 const admin = read("src/modules/merchandising/components/MerchandisingAdminTable.tsx");
 const service = read("src/modules/merchandising/services/merchandising.service.ts");
 const dashboard = read("src/modules/partner-cabinet/components/OperationalDashboard.tsx");
@@ -58,6 +59,12 @@ describe("automated HOT price-value margin contract", () => {
     expect(migration).toContain("order by hot_rank limit 15");
     expect(migration).toMatch(/list_public_retail_hot_products_v3[\s\S]*order by hot_rank,\(product_row\)\.sku/);
     expect(migration).toMatch(/p_merchandising_label = 'HOT' and effective_sort = 'default'[\s\S]*hot\.hot_rank/);
+  });
+
+  it("preserves the complete partner catalog card projection", () => {
+    expect(catalogRepair).toContain("catalog_partner_page_automated_hot_v6");
+    expect(catalogRepair).toContain("catalog_partner_page_automated_hot_v7");
+    expect(catalogRepair).toContain("catalog_partner_page_automated_hot_v7(p_company_id");
   });
 
   it("retires manual HOT only after refresh and preserves editorial concepts", () => {
