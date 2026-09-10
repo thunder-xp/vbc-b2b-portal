@@ -36,7 +36,12 @@ export function CatalogFilters(props: Props) {
     </CatalogFilterGroup>
     <CatalogTechnicalFacetGroups facets={props.facets ?? []} hrefForSelection={(selection) => catalogHref({ ...baseParams(props), ...catalogFacetQueryFields(selection) })} selection={attributeFilters} />
   </CatalogFilterPanel>;
-  return <CatalogFilterShell selectedCount={selectedCount}>{content}</CatalogFilterShell>;
+  return <CatalogFilterShell
+    closeLabel={props.locale === "ro" ? "Închide filtrele" : "Закрыть фильтры"}
+    panelLabel={props.locale === "ro" ? "Filtre catalog" : "Фильтры каталога"}
+    selectedCount={selectedCount}
+    triggerLabel={copy.filters}
+  >{content}</CatalogFilterShell>;
 }
 function persistentParams(props: Props) { return { brand: props.brandId, category: props.categoryId, categories: categoryParam(props.categoryIds), categorySet: props.categorySet, collection: props.collection, label: props.merchandisingLabel, period: props.merchandisingLabel === "TOP" ? String(props.period ?? 30) : undefined, search: props.search, sort: props.sort && props.sort !== "default" ? props.sort : undefined, view: props.explicitAll ? "all" : undefined }; }
 function baseParams(props: Props) { return { ...persistentParams(props), availability: props.availability && props.availability !== "all" ? props.availability : undefined }; }

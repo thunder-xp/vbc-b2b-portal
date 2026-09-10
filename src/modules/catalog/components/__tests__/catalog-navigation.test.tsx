@@ -98,6 +98,13 @@ describe("catalog navigation", () => {
     expect(screen.getByRole("link", { name: /Все/ })).toContainElement(screen.getByLabelText("Выбрано"));
   });
 
+  it("localizes the mobile filter shell for Romanian", () => {
+    render(<CatalogFilters locale="ro" />);
+    expect(screen.getByRole("button", { name: "Filtre" })).toBeInTheDocument();
+    expect(screen.getByRole("complementary", { name: "Filtre catalog" })).toBeInTheDocument();
+    expect(screen.queryByText("Фильтры")).not.toBeInTheDocument();
+  });
+
   it("preserves category, search, availability, and attributes in filter links", () => {
     const key = "property_11111111-1111-4111-8111-111111111111";
     render(<CatalogFilters attributeFilters={{ [key]: ["4 MP"] }} availability="expected" categoryId="category" search="camera" sort="price_desc" />);
