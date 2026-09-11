@@ -413,7 +413,7 @@ describe("DefaultWorkspaceHomeService", () => {
       popularProducts: candidates.slice(0, 3),
       newProducts: candidates.slice(3, 5),
       hotProducts: candidates.slice(5),
-      merchandisingProducts: [{ ...dashboardProduct(7), sourceCodes: ["ARRIVAL"] }],
+      merchandisingProducts: [],
       previousSourceFingerprint: "orders-v1",
       offerSourceFingerprint: "offers-v1",
       previousCandidateCount: 6,
@@ -432,6 +432,9 @@ describe("DefaultWorkspaceHomeService", () => {
           publicationState: "published" as const,
         }))),
     };
+    const warehouseArrivalRepository = {
+      getCurrentReplenishment: vi.fn().mockResolvedValue([{ productId: dashboardProduct(7).id, sourceLineNumber: 1 }]),
+    };
 
     const workspace = await new DefaultWorkspaceHomeService(
       fakeContextService(),
@@ -443,6 +446,11 @@ describe("DefaultWorkspaceHomeService", () => {
       undefined,
       undefined,
       productReferences,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      warehouseArrivalRepository as never,
     ).getWorkspaceHome("partner-1", "2026-08-01T10:00:00Z");
 
     expect(dashboardRepository.getProductSelections).toHaveBeenCalledWith(
@@ -466,6 +474,7 @@ describe("DefaultWorkspaceHomeService", () => {
     expect(workspace.discoveryProducts.find((item) => item.primaryDiscoverySignal === "ARRIVAL")?.product.merchandisingLabels).toEqual([]);
     expect(new Set(workspace.reorderProducts.map((item) => item.product.id)).size).toBe(5);
     expect(productReferences.getProductReferencesByIds).toHaveBeenCalledOnce();
+    expect(warehouseArrivalRepository.getCurrentReplenishment).toHaveBeenCalledWith("company-1");
     expect(workspace.reorderProducts.every((item) =>
       item.product.imageUrl === `/products/${item.product.id}.jpg`)).toBe(true);
   });

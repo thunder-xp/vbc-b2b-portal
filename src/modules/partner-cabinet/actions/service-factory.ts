@@ -14,6 +14,7 @@ import { SupabasePartnerSupportRepository } from "../../partner-support";
 import { createPartnerWorkspaceContextService } from "./workspace-context.factory";
 import { PartnerSalesWorkspaceService, SupabaseEstimateSalesOpportunityRepository } from "../../partner-sales-workspace";
 import { SupabaseFinanceRepository } from "../../finance/repositories";
+import { SupabaseWarehouseArrivalRepository } from "../../warehouse-arrivals/repositories";
 
 export { createPartnerWorkspaceContextService } from "./workspace-context.factory";
 
@@ -36,5 +37,6 @@ export function createWorkspaceHomeService(): DefaultWorkspaceHomeService {
     new SupabasePartnerSupportRepository(),
     new PartnerSalesWorkspaceService(new SupabaseEstimateSalesOpportunityRepository()),
     new SupabaseFinanceRepository(),
+    new SupabaseWarehouseArrivalRepository(),
   );
 }

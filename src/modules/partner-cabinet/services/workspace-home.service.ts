@@ -31,6 +31,7 @@ import type { PartnerMomentumSummary } from "../../partner-momentum/types";
 import type { PartnerSupportRepository, SupportDashboardItem } from "../../partner-support";
 import type { PartnerEstimateSalesOpportunity, PartnerSalesWorkspaceService } from "../../partner-sales-workspace";
 import type { FinanceRepository } from "../../finance/repositories";
+import type { WarehouseArrivalRepository } from "../../warehouse-arrivals/repositories";
 import { financeBusinessDate } from "../../finance/services/finance.service";
 import { type EffectiveRollingPeriod } from "../../commerce-period";
 
@@ -268,6 +269,7 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
     private readonly supportRepository?: PartnerSupportRepository,
     private readonly salesWorkspaceService?: PartnerSalesWorkspaceService,
     private readonly financeRepository?: FinanceRepository,
+    private readonly warehouseArrivalRepository?: WarehouseArrivalRepository,
   ) {}
 
   async dismissAttention(
@@ -299,7 +301,7 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
 
     const canViewFinance = context.capabilities.navigation.some((item) => item.key === "finance" && item.availability === "available");
     const canViewSales = context.capabilities.navigation.some((item) => item.key === "orders" && item.availability === "available");
-    const [freshness, dashboard, selections, opportunityPage, supportTickets, estimateSalesOpportunities, financeData] = await Promise.all([
+    const [freshness, dashboard, selections, opportunityPage, supportTickets, estimateSalesOpportunities, financeData, currentReplenishment] = await Promise.all([
       timedDashboardRead("commercial_freshness", () => this.commercialFreshnessReadModel.getFreshness()),
       timedDashboardRead("dashboard_aggregate", () => this.dashboardRepository.getDashboard(companyId)),
       timedDashboardRead("product_selections", () => this.dashboardRepository.getProductSelections?.(userId, companyId, loginGeneration, {
@@ -320,6 +322,7 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
       timedDashboardRead("finance_guidance", () => canViewFinance && this.financeRepository
         ? this.financeRepository.getOverviewData(companyId)
         : Promise.resolve(null)),
+      timedDashboardRead("current_replenishment", () => this.warehouseArrivalRepository?.getCurrentReplenishment(companyId) ?? Promise.resolve([])),
     ]);
     const reorderCandidates = sessionOrder(
       selections?.previousProducts ?? dashboard.reorderProducts,
@@ -330,8 +333,21 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
     const popularCandidates = selections?.popularProducts ?? [];
     const newCandidates = selections?.newProducts ?? [];
     const hotCandidates = selections?.hotProducts ?? [];
+    const arrivalCandidates: WorkspaceDashboardProductCandidate[] = currentReplenishment.map((item) => ({
+      id: item.productId,
+      sku: "",
+      name: "",
+      slug: "",
+      imageUrl: null,
+      categoryId: null,
+      categoryName: null,
+      labelCodes: [],
+      sourceCodes: ["ARRIVAL"],
+    }));
     const discoveryCandidates = mixDashboardDiscoveryCandidates({
-      arrival: merchandisingCandidates.filter((candidate) => candidate.sourceCodes?.includes("ARRIVAL")),
+      arrival: arrivalCandidates.length
+        ? arrivalCandidates
+        : merchandisingCandidates.filter((candidate) => candidate.sourceCodes?.includes("ARRIVAL")),
       hot: hotCandidates,
       new: newCandidates,
       popular: popularCandidates,
@@ -945,9 +961,9 @@ function toProduct(
 ): CatalogProductCardDto {
   return {
     id: candidate.id,
-    sku: candidate.sku,
-    name: candidate.name,
-    slug: candidate.slug,
+    sku: reference?.sku ?? candidate.sku,
+    name: reference?.name ?? candidate.name,
+    slug: reference?.slug ?? candidate.slug,
     shortDescription: null,
     imageUrl: reference?.thumbnail ?? candidate.imageUrl,
     brand: null,
