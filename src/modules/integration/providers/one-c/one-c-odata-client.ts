@@ -42,6 +42,13 @@ export type OneCODataProbeOptions = {
   requestKind?: string;
 };
 
+export type OneCODataFilteredCollectionInput = {
+  select: string;
+  filter: string;
+  top: number;
+  skip?: number;
+};
+
 export type OneCODataMetadataProbeResult = {
   statusCode: number;
   contentType: string | null;
@@ -210,6 +217,40 @@ export class OneCODataClient {
       requestKind,
       resource,
       queryParameterNames,
+      options,
+    ));
+  }
+
+  async getFilteredCollection(
+    resource: string,
+    input: OneCODataFilteredCollectionInput,
+    options: OneCODataProbeOptions = {},
+  ): Promise<unknown> {
+    const { baseUrl, username, password } = this.config;
+    if (!baseUrl || !username || !password) {
+      throw new IntegrationProviderUnavailableError("1C OData is not configured.");
+    }
+    if (
+      !/^[\p{L}\p{N}_]+$/u.test(resource)
+      || !/^[\p{L}\p{N}_,]+$/u.test(input.select)
+      || input.filter.length < 1
+      || input.filter.length > 4_000
+      || /[&#?\r\n]/.test(input.filter)
+      || !Number.isSafeInteger(input.top)
+      || input.top < 1
+      || input.top > 100
+      || (input.skip !== undefined && (!Number.isSafeInteger(input.skip) || input.skip < 0 || input.skip > 100_000))
+    ) {
+      throw new IntegrationValidationError("1C filtered collection query is invalid.");
+    }
+    const skip = input.skip === undefined ? "" : `&$skip=${input.skip}`;
+    const literalQuery = `$select=${input.select}&$filter=${input.filter}&$top=${input.top}${skip}&$format=json`;
+    const exactUrl = `${baseUrl.replace(/\/$/, "")}/${resource}?${literalQuery}`;
+    return this.readResult(await this.probeRequest(
+      exactUrl,
+      options.requestKind ?? "collection",
+      resource,
+      ["$select", "$filter", "$top", ...(input.skip === undefined ? [] : ["$skip"]), "$format"],
       options,
     ));
   }

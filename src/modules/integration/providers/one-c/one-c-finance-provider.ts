@@ -16,11 +16,8 @@ import type {
   PaymentObligationSourceDTO,
 } from "../../dto";
 import {
-  IntegrationForbiddenError,
-  IntegrationHttpError,
   IntegrationProviderUnavailableError,
   IntegrationTimeoutError,
-  IntegrationUnauthorizedError,
   IntegrationUnsupportedOperationError,
   IntegrationValidationError,
 } from "../../errors";
@@ -40,6 +37,8 @@ const CUSTOMER_ORDER_TYPE = "StandardODATA.Document_ЗаказПокупател
 const CONTRACT_BATCH_SIZE = 40;
 const SOURCE_PAGE_SIZE = 100;
 const SOURCE_MAX_PAGES = 30;
+const SOURCE_MAX_RETRIES = 2;
+const SOURCE_RETRY_DELAYS_MS = [500, 1_500] as const;
 const DEFAULT_OBSERVATION_START_DATE = "2025-01-01";
 const CONTRACT_SELECT = "Ref_Key,Code,Description,Owner,Owner_Type,НомерДоговора,ВалютаРасчетов_Key,Организация_Key,ВидДоговора,DeletionMark,Недействителен";
 const CURRENCY_SELECT = "Ref_Key,Code,Description,DeletionMark";
@@ -54,9 +53,17 @@ type OrderSettlementBalanceRow = { Заказ?: unknown; Заказ_Type?: unkno
 
 export class OneCFinanceProvider implements FinanceProvider {
   private readonly client: OneCODataClient;
+  private readonly retry: { sleep: (ms: number) => Promise<void>; random: () => number };
 
-  constructor(private readonly config: OneCProviderConfig) {
+  constructor(
+    config: OneCProviderConfig,
+    retry: Partial<{ sleep: (ms: number) => Promise<void>; random: () => number }> = {},
+  ) {
     this.client = new OneCODataClient(config);
+    this.retry = {
+      sleep: retry.sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms))),
+      random: retry.random ?? Math.random,
+    };
   }
 
   async fetchContractBalances(
@@ -214,27 +221,7 @@ export class OneCFinanceProvider implements FinanceProvider {
   }
 
   private async literalContractBatch(filter: string): Promise<ContractRow[]> {
-    const { baseUrl, username, password } = this.config;
-    if (!baseUrl || !username || !password) throw new IntegrationProviderUnavailableError("1C OData is not configured.");
-    const url = `${baseUrl.replace(/\/$/, "")}/${CONTRACTS}?$select=${CONTRACT_SELECT}&$filter=${filter}&$top=${CONTRACT_BATCH_SIZE}&$format=json`;
-    let response: Response;
-    try {
-      response = await fetch(url, {
-        headers: { Accept: "application/json", Authorization: `Basic ${Buffer.from(`${username}:${password}`, "utf8").toString("base64")}` },
-        signal: AbortSignal.timeout(this.config.requestTimeoutMs),
-      });
-    } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") throw new IntegrationTimeoutError("1C contract lookup timed out.");
-      throw new IntegrationProviderUnavailableError("1C contract lookup is unavailable.");
-    }
-    if (response.status === 401) throw new IntegrationUnauthorizedError();
-    if (response.status === 403) throw new IntegrationForbiddenError();
-    if (!response.ok) throw new IntegrationHttpError();
-    const payload: unknown = await response.json();
-    if (!payload || typeof payload !== "object" || !Array.isArray((payload as { value?: unknown }).value)) {
-      throw new IntegrationValidationError("1C contract lookup response is invalid.");
-    }
-    return (payload as { value: ContractRow[] }).value;
+    return this.filteredCollection<ContractRow>(CONTRACTS, CONTRACT_SELECT, filter, CONTRACT_BATCH_SIZE, undefined, "finance_contract_lookup");
   }
 
   private async findCurrencies(required: Set<string>): Promise<{ rows: Map<string, CurrencyRow>; callCount: number }> {
@@ -282,66 +269,98 @@ export class OneCFinanceProvider implements FinanceProvider {
   }
 
   private async literalCollection(resource: string, select: string, filter: string, top: number, skip: number, requestKind: string): Promise<Record<string, unknown>[]> {
-    const { baseUrl, username, password } = this.config;
-    if (!baseUrl || !username || !password) throw new IntegrationProviderUnavailableError("1C OData is not configured.");
-    const url = `${baseUrl.replace(/\/$/, "")}/${resource}?$select=${select}&$filter=${filter}&$top=${top}&$skip=${skip}&$format=json`;
-    let response: Response;
-    try {
-      response = await fetch(url, {
-        headers: { Accept: "application/json", Authorization: `Basic ${Buffer.from(`${username}:${password}`, "utf8").toString("base64")}` },
-        signal: AbortSignal.timeout(this.config.requestTimeoutMs),
-      });
-    } catch (error) {
-      if (error instanceof Error && (error.name === "AbortError" || error.name === "TimeoutError")) throw new IntegrationTimeoutError(`1C ${requestKind} timed out.`);
-      throw new IntegrationProviderUnavailableError(`1C ${requestKind} is unavailable.`);
-    }
-    if (response.status === 401) throw new IntegrationUnauthorizedError();
-    if (response.status === 403) throw new IntegrationForbiddenError();
-    if (!response.ok) {
-      console.error({
-        event: "finance_odata_request_failed",
-        requestKind,
-        resourceName: resource,
-        statusCode: response.status,
-      });
-      throw new IntegrationHttpError();
-    }
-    const payload: unknown = await response.json();
-    if (!isRecord(payload) || !Array.isArray(payload.value)) throw new IntegrationValidationError(`1C ${requestKind} response is invalid.`);
-    return payload.value.filter(isRecord);
+    const rows = await this.filteredCollection<Record<string, unknown>>(resource, select, filter, top, skip, requestKind);
+    return rows.filter(isRecord);
   }
 
   private async literalCurrencyBatch(filter: string): Promise<CurrencyRow[]> {
-    const { baseUrl, username, password } = this.config;
-    if (!baseUrl || !username || !password) throw new IntegrationProviderUnavailableError("1C OData is not configured.");
-    const url = `${baseUrl.replace(/\/$/, "")}/${CURRENCIES}?$select=${CURRENCY_SELECT}&$filter=${filter}&$top=${CONTRACT_BATCH_SIZE}&$format=json`;
-    let response: Response;
-    try {
-      response = await fetch(url, {
-        headers: { Accept: "application/json", Authorization: `Basic ${Buffer.from(`${username}:${password}`, "utf8").toString("base64")}` },
-        signal: AbortSignal.timeout(this.config.requestTimeoutMs),
-      });
-    } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") throw new IntegrationTimeoutError("1C currency lookup timed out.");
-      throw new IntegrationProviderUnavailableError("1C currency lookup is unavailable.");
-    }
-    if (response.status === 401) throw new IntegrationUnauthorizedError();
-    if (response.status === 403) throw new IntegrationForbiddenError();
-    if (!response.ok) throw new IntegrationHttpError();
-    const payload: unknown = await response.json();
-    if (!payload || typeof payload !== "object" || !Array.isArray((payload as { value?: unknown }).value)) {
-      throw new IntegrationValidationError("1C currency lookup response is invalid.");
-    }
-    return (payload as { value: CurrencyRow[] }).value;
+    return this.filteredCollection<CurrencyRow>(CURRENCIES, CURRENCY_SELECT, filter, CONTRACT_BATCH_SIZE, undefined, "finance_currency_lookup");
   }
 
   private async collection<T>(resource: string, params: Record<string, string>, requestKind: string): Promise<T[]> {
-    const payload = await this.client.get(resource, params, { requestKind });
+    const payload = await this.readWithRetry(
+      () => this.client.get(resource, params, { requestKind }),
+      resource,
+      requestKind,
+    );
     if (!payload || typeof payload !== "object" || !Array.isArray((payload as { value?: unknown }).value)) {
       throw new IntegrationValidationError("1C contract balance response is invalid.");
     }
     return (payload as { value: T[] }).value;
   }
+
+  private async filteredCollection<T>(
+    resource: string,
+    select: string,
+    filter: string,
+    top: number,
+    skip: number | undefined,
+    requestKind: string,
+  ): Promise<T[]> {
+    const payload = await this.readWithRetry(
+      () => this.client.getFilteredCollection(resource, { select, filter, top, skip }, { requestKind }),
+      resource,
+      requestKind,
+    );
+    if (!isRecord(payload) || !Array.isArray(payload.value)) {
+      throw new IntegrationValidationError(`1C ${requestKind} response is invalid.`);
+    }
+    return payload.value as T[];
+  }
+
+  private async readWithRetry(
+    read: () => Promise<unknown>,
+    resource: string,
+    requestKind: string,
+  ): Promise<unknown> {
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        return await read();
+      } catch (error) {
+        if (attempt >= SOURCE_MAX_RETRIES || !isRetryableSourceError(error)) throw error;
+        const delayMs = financeRetryDelayMs(attempt, this.retry.random());
+        const diagnostic = sourceDiagnostic(error);
+        console.warn({
+          event: "finance_odata_request_retry",
+          requestKind,
+          resourceName: resource,
+          retryAttempt: attempt + 1,
+          delayMs,
+          statusCode: diagnostic?.statusCode ?? null,
+          safeErrorSummary: diagnostic?.safeErrorSummary ?? null,
+        });
+        await this.retry.sleep(delayMs);
+      }
+    }
+  }
+}
+
+function isRetryableSourceError(error: unknown): boolean {
+  if (error instanceof IntegrationTimeoutError) return true;
+  if (error instanceof IntegrationProviderUnavailableError) {
+    const networkCode = isRecord(error) && typeof error.networkCode === "string" ? error.networkCode : null;
+    if (networkCode === null) return isRecord(error) && "cause" in error && error.cause !== null;
+    return [
+      "ECONNRESET", "ETIMEDOUT", "ECONNREFUSED", "EPIPE", "UND_ERR_SOCKET",
+      "UND_ERR_CONNECT_TIMEOUT", "UND_ERR_HEADERS_TIMEOUT",
+    ].includes(networkCode);
+  }
+  const statusCode = sourceDiagnostic(error)?.statusCode;
+  return statusCode !== undefined && [429, 500, 502, 503, 504].includes(statusCode);
+}
+
+function financeRetryDelayMs(retryIndex: number, random: number): number {
+  const base = SOURCE_RETRY_DELAYS_MS[retryIndex] ?? SOURCE_RETRY_DELAYS_MS.at(-1) ?? 1_500;
+  return base + Math.round(base * 0.2 * Math.max(0, Math.min(1, random)));
+}
+
+function sourceDiagnostic(error: unknown): { statusCode?: number; safeErrorSummary?: string | null } | null {
+  if (!isRecord(error) || !isRecord(error.diagnostic)) return null;
+  const statusCode = typeof error.diagnostic.statusCode === "number" ? error.diagnostic.statusCode : undefined;
+  const safeErrorSummary = typeof error.diagnostic.safeErrorSummary === "string"
+    ? error.diagnostic.safeErrorSummary.slice(0, 180)
+    : null;
+  return { statusCode, safeErrorSummary };
 }
 
 function requireReference(value: string, label: string): string {

@@ -83,6 +83,23 @@ describe("OneCODataClient", () => {
     expect(exactUrl).not.toContain("+eq+");
   });
 
+  it("preserves literal spaces in a validated filtered collection query", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ value: [] }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await client().getFilteredCollection("Document_CustomerOrder", {
+      select: "Ref_Key,Date,Posted",
+      filter: "Counterparty_Key eq guid'11111111-1111-1111-1111-111111111111' and Posted eq true",
+      top: 100,
+      skip: 0,
+    }, { requestKind: "finance_payment_orders" });
+
+    const exactUrl = String(fetchMock.mock.calls[0]![0]);
+    expect(exactUrl).toContain("$filter=Counterparty_Key eq guid'11111111-1111-1111-1111-111111111111' and Posted eq true");
+    expect(exactUrl).not.toContain("+eq+");
+    expect(exactUrl).toContain("&$top=100&$skip=0&$format=json");
+  });
+
   it("rejects a successful Atom response before provider mapping", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("<feed />", {
       status: 200,

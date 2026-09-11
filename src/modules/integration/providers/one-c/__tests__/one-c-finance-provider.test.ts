@@ -56,6 +56,46 @@ describe("OneCFinanceProvider", () => {
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
+  it("retries a transient finance OData failure through the shared validated transport", async () => {
+    const sleep = vi.fn(async () => undefined);
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ error: { message: { value: "Temporary overload" } } }), {
+        status: 500,
+        headers: { "content-type": "application/json" },
+      }))
+      .mockResolvedValueOnce(json({ value: [{ Договор_Key: contract, СуммаBalance: 12983 }] }))
+      .mockResolvedValueOnce(json({ value: [contractRow(contract)] }))
+      .mockResolvedValueOnce(json({ value: [{ Ref_Key: currency, Code: "498", Description: "MDL", DeletionMark: false }] }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await new OneCFinanceProvider(config(), { sleep, random: () => 0 }).fetchContractBalances({
+      counterpartyReference: ref(counterparty, "counterparty"),
+      organizationReference: ref(organization, "organization"),
+      synchronizedAt: "2026-09-11T10:00:00.000Z",
+    });
+
+    expect(result.items).toEqual([expect.objectContaining({ signedBalance: 12983, currencyCode: "MDL" })]);
+    expect(sleep).toHaveBeenCalledWith(500);
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+  });
+
+  it("does not retry a permanent finance OData filter failure", async () => {
+    const sleep = vi.fn(async () => undefined);
+    const fetchMock = vi.fn().mockResolvedValue(new Response("not-an-odata-envelope", {
+      status: 400,
+      headers: { "content-type": "text/plain" },
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(new OneCFinanceProvider(config(), { sleep }).fetchContractBalances({
+      counterpartyReference: ref(counterparty, "counterparty"),
+      organizationReference: ref(organization, "organization"),
+      synchronizedAt: "2026-09-11T10:00:00.000Z",
+    })).rejects.toMatchObject({ name: "OneCODataFilterUnsupportedError" });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(sleep).not.toHaveBeenCalled();
+  });
+
   it("excludes deleted contracts instead of publishing stale contract identity", async () => {
     vi.stubGlobal("fetch", vi.fn()
       .mockResolvedValueOnce(json({ value: [{ Договор_Key: contract, СуммаBalance: -12000 }] }))
