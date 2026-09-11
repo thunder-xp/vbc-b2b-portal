@@ -16,6 +16,7 @@ describe("admin partner integrity UI", () => {
   it("uses the canonical route and explicit internal permission", () => {
     expect(route).toContain('requireAdminPagePermission("admin.users.view")');
     expect(route).toContain("admin.partner_integrity.manage");
+    expect(route).toContain("canOfferPasswordChange(detail)");
   });
 
   it("renders identity, active memberships, membership history, requests, and audit", () => {
@@ -35,5 +36,11 @@ describe("admin partner integrity UI", () => {
     expect(component).toContain("minLength={20}");
     expect(component).toContain("repairApprovedOnboardingAction");
     expect(component).toContain("moveOrAddPartnerMembershipAction");
+  });
+
+  it("renders the password control only from the server-derived eligibility flag", () => {
+    expect(component).toContain("passwordChangeAvailable ?");
+    expect(component).toContain("AdminPartnerPasswordControl");
+    expect(component).not.toContain("createAdminClient");
   });
 });

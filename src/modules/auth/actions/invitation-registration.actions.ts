@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 
 import { createClient } from "@/src/lib/supabase/server";
 import { createCompanyUserManagementService } from "@/src/modules/access-control/actions/service-factory";
+import { passwordPolicyIssue } from "@/src/modules/auth/password-policy";
 
 import type { AuthActionState } from "./auth.actions";
 
@@ -27,7 +28,7 @@ export async function registerFromCompanyInvitationAction(
     return { error: "Complete all fields." };
   }
   if (password !== confirmPassword) return { error: "Passwords do not match." };
-  if (password.length < 8) return { error: "Password must contain at least 8 characters." };
+  if (passwordPolicyIssue(password)) return { error: "Password must contain at least 8 characters." };
 
   const invitationPath = `/auth/invitations/${encodeURIComponent(token)}`;
   const callbackUrl = new URL("/auth/callback", applicationUrl());

@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import type { PartnerLocale } from "../../partner-locale";
 
 import {
   moveOrAddPartnerMembershipAction,
@@ -9,6 +10,8 @@ import {
 } from "../actions";
 import { partitionAdminMemberships } from "../services/admin-membership-projection";
 import type { AdminPartnerMembership, AdminPartnerUserIntegrity, PartnerIntegrityTargetCompany } from "../types";
+import { adminPartnerPasswordCopy } from "../password-change-copy";
+import { AdminPartnerPasswordControl } from "./AdminPartnerPasswordControl";
 
 const INITIAL: PartnerIntegrityActionState = { status: "idle", message: "", correlationId: null };
 
@@ -16,15 +19,20 @@ export function AdminPartnerIntegrityDetail({
   detail,
   targetCompanies,
   genericOperationKey,
+  locale,
+  passwordChangeAvailable,
   requestOperationKeys,
 }: {
   detail: AdminPartnerUserIntegrity;
   targetCompanies: PartnerIntegrityTargetCompany[];
   genericOperationKey: string;
+  locale: PartnerLocale;
+  passwordChangeAvailable: boolean;
   requestOperationKeys: Record<string, string>;
 }) {
   const memberships = partitionAdminMemberships(detail.memberships);
   const activeMembership = memberships.active[0] ?? null;
+  const passwordCopy = adminPartnerPasswordCopy(locale);
   return (
     <div className="space-y-6">
       <header className="border-b border-zinc-200 pb-5">
@@ -40,6 +48,12 @@ export function AdminPartnerIntegrityDetail({
           <Field label="Профиль" value={detail.identity.id} mono />
         </dl>
       </Section>
+
+      {passwordChangeAvailable ? (
+        <Section title={passwordCopy.sectionTitle}>
+          <AdminPartnerPasswordControl locale={locale} targetProfileId={detail.identity.id} />
+        </Section>
+      ) : null}
 
       <Section title="Активные членства">
         <div className="divide-y divide-zinc-200">

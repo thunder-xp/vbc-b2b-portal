@@ -45,6 +45,13 @@ export {
   createAdminPartnerIntegrityService,
 } from "./admin-partner-integrity.service";
 export {
+  AdminPartnerPasswordChangeError,
+  AdminPartnerPasswordService,
+  createAdminPartnerPasswordService,
+  type AdminPartnerPasswordChangeInput,
+  type AdminPartnerPasswordChangeResult,
+} from "./admin-partner-password.service";
+export {
   AdminPublicPartnerDirectoryService,
   createAdminPublicPartnerDirectoryService,
 } from "./admin-public-partner-directory.service";

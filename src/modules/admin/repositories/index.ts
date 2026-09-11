@@ -26,5 +26,12 @@ export type {
   PartnerIntegrityRepairInput,
   PartnerMembershipMutationInput,
 } from "./admin-partner-integrity.repository";
+export {
+  AdminPartnerPasswordProviderFailure,
+  type AdminPartnerAuthIdentity,
+  type AdminPartnerPasswordAuditInput,
+  type AdminPartnerPasswordProviderFailureCode,
+  type AdminPartnerPasswordRepository,
+} from "./admin-partner-password.repository";
 export type { AdminPublicPartnerDirectoryRepository } from "./admin-public-partner-directory.repository";
 export * from "./supabase";
