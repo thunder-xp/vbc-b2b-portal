@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
-import { hiddenDashboardProductCount } from "../OperationalDashboard";
+import { discoveryProductVisibilityClass, hiddenDashboardProductCount } from "../OperationalDashboard";
 
 describe("dashboard commerce and history UX", () => {
   it("computes hidden eligible cards and suppresses a zero badge", () => {
@@ -31,5 +31,16 @@ describe("dashboard commerce and history UX", () => {
     expect(dashboard).toContain("bg-emerald-700");
     expect(dashboard).toContain("text-white");
     expect(dashboard).not.toContain("CampaignCard");
+  });
+
+  it("keeps the mixed teaser bounded at responsive preview capacities", () => {
+    expect(Array.from({ length: 6 }, (_, index) => discoveryProductVisibilityClass(index))).toEqual([
+      "min-w-0",
+      "hidden min-w-0 sm:block",
+      "hidden min-w-0 lg:block",
+      "hidden min-w-0 xl:block",
+      "hidden min-w-0 2xl:block",
+      "hidden min-w-0 2xl:block",
+    ]);
   });
 });

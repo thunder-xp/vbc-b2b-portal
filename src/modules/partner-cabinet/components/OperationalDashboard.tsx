@@ -118,10 +118,18 @@ function DiscoverySection({ locale, products = [], workspace }: {
     <section aria-labelledby="dashboard-discovery" data-dashboard-section="discovery">
       <SectionHeading actionHref="/cabinet/catalog" actionLabel={partnerText(locale, "dashboard.openShowcase")} id="dashboard-discovery" title={partnerText(locale, "dashboard.forYou")} />
       <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6">
-        {products.slice(0, 6).map((item) => <ProductCard analyticsEventName="dashboard_novotech_offer_opened" analyticsSurface="dashboard_discovery" capabilities={workspace.capabilities.productCard} commercialView={item.commercialView} contextBadge={item.primaryDiscoverySignal === "ARRIVAL" ? partnerText(locale, "dashboard.arrival") : undefined} key={item.product.id} locale={locale} product={item.product} />)}
+        {products.slice(0, 6).map((item, index) => <div className={discoveryProductVisibilityClass(index)} data-dashboard-discovery-product={index + 1} key={item.product.id}><ProductCard analyticsEventName="dashboard_novotech_offer_opened" analyticsSurface="dashboard_discovery" capabilities={workspace.capabilities.productCard} commercialView={item.commercialView} contextBadge={item.primaryDiscoverySignal === "ARRIVAL" ? partnerText(locale, "dashboard.arrival") : undefined} locale={locale} product={item.product} /></div>)}
       </div>
     </section>
   );
+}
+
+export function discoveryProductVisibilityClass(index: number): string {
+  if (index === 0) return "min-w-0";
+  if (index === 1) return "hidden min-w-0 sm:block";
+  if (index === 2) return "hidden min-w-0 lg:block";
+  if (index < 4) return "hidden min-w-0 xl:block";
+  return "hidden min-w-0 2xl:block";
 }
 
 function OpportunitySection({ locale, opportunities = [], workspace }: { locale: PartnerLocale; opportunities?: WorkspaceHomeDto["opportunities"]; workspace: WorkspaceHomeDto }) {
