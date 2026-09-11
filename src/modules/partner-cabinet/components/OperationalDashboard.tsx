@@ -13,7 +13,6 @@ import { ProductCard } from "../../catalog/components/ProductCard";
 import type { WorkspaceHomeDto } from "../services";
 import { DashboardTrackedLink } from "./DashboardTrackedLink";
 import { OpportunityCard } from "../../commercial-opportunities/components/OpportunityCard";
-import { CampaignCard } from "../../commercial-campaigns/components/CampaignCard";
 import { SupportDashboardBlock } from "../../partner-support";
 import { formatPartnerDate, formatPartnerMoney, formatPartnerRelativeDate, partnerText, presentDashboardAttention, type PartnerLocale } from "../../partner-locale";
 import { SalesTrendSummary } from "./SalesTrendSummary";
@@ -25,24 +24,21 @@ export function OperationalDashboard({
   workspace,
 }: {
   locale: PartnerLocale;
-  periods: { repeat: RollingPeriodState; popular: RollingPeriodState; new: RollingPeriodState; hot: RollingPeriodState };
+  periods: { repeat: RollingPeriodState };
   workspace: WorkspaceHomeDto;
 }) {
   return (
     <div className="space-y-5">
-      <ProductSection
+      <RepeatPurchaseSection
         analyticsSurface="dashboard_reorder"
         eligibleCount={workspace.reorderProductTotalCount}
         locale={locale}
-        periodKey="repeat"
         periods={periods}
         products={workspace.reorderProducts}
         title={partnerText(locale, "dashboard.previouslyPurchased")}
         workspace={workspace}
       />
-      <ProductSection analyticsSurface="dashboard_popular" eligibleCount={workspace.popularProductTotalCount} locale={locale} periodKey="popular" periods={periods} products={workspace.popularProducts} title={partnerText(locale, "dashboard.popularProducts")} workspace={workspace} />
-      <ProductSection analyticsSurface="dashboard_new" eligibleCount={workspace.newProductTotalCount} locale={locale} periodKey="new" periods={periods} products={workspace.newProducts} title={partnerText(locale, "dashboard.newProducts")} workspace={workspace} />
-      <ProductSection analyticsSurface="dashboard_hot" eligibleCount={workspace.hotProductTotalCount} locale={locale} periodKey="hot" periods={periods} products={workspace.hotProducts} title={partnerText(locale, "dashboard.hotProducts")} workspace={workspace} />
+      <DiscoverySection locale={locale} products={workspace.discoveryProducts} workspace={workspace} />
       <div className="space-y-4" data-dashboard-section="priority-work">
         <div className={`grid items-stretch gap-4 ${workspace.attentionItems.length && workspace.estimateSalesOpportunities?.length ? "xl:grid-cols-2" : ""}`} data-dashboard-priority-work>
           <AttentionSection items={workspace.attentionItems} locale={locale} />
@@ -59,12 +55,6 @@ export function OperationalDashboard({
         <OrdersSection locale={locale} summary={workspace.orderSummary} />
         <ShipmentsSection locale={locale} summary={workspace.shipmentSummary} />
       </div>
-      <NovotechOffersSection
-        campaigns={workspace.campaigns}
-        locale={locale}
-        products={workspace.merchandisingProducts}
-        workspace={workspace}
-      />
     </div>
   );
 }
@@ -118,18 +108,18 @@ function opportunityActionKey(action: NonNullable<WorkspaceHomeDto["estimateSale
   return action === "open_and_send" ? "dashboard.openAndSend" as const : "dashboard.returnToProposal" as const;
 }
 
-function NovotechOffersSection({ campaigns = [], locale, products = [], workspace }: {
-  campaigns?: WorkspaceHomeDto["campaigns"];
+function DiscoverySection({ locale, products = [], workspace }: {
   locale: PartnerLocale;
-  products?: WorkspaceHomeDto["merchandisingProducts"];
+  products?: WorkspaceHomeDto["discoveryProducts"];
   workspace: WorkspaceHomeDto;
 }) {
-  if (!campaigns.length && !products.length) return null;
+  if (!products.length) return null;
   return (
-    <section aria-labelledby="dashboard-novotech-offers" data-dashboard-section="novotech-offers">
-      <SectionHeading actionHref="/cabinet/catalog" actionLabel={partnerText(locale, "dashboard.allOffers")} count={hiddenDashboardProductCount(workspace.merchandisingProductTotalCount, products.length)} id="dashboard-novotech-offers" title={partnerText(locale, "dashboard.novotechOffers")} />
-      {campaigns.length ? <div className="mt-3 grid gap-3 xl:grid-cols-2">{campaigns.slice(0, 2).map((campaign) => <CampaignCard campaign={campaign} key={campaign.id} locale={locale} />)}</div> : null}
-      {products.length ? <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">{products.slice(0, 5).map((item) => <ProductCard analyticsEventName="dashboard_novotech_offer_opened" analyticsSurface="dashboard_offers" capabilities={workspace.capabilities.productCard} commercialView={item.commercialView} contextBadge={item.sourceCodes?.includes("ARRIVAL") ? partnerText(locale, "dashboard.arrival") : undefined} key={item.product.id} locale={locale} product={item.product} />)}</div> : null}
+    <section aria-labelledby="dashboard-discovery" data-dashboard-section="discovery">
+      <SectionHeading actionHref="/cabinet/catalog" actionLabel={partnerText(locale, "dashboard.openShowcase")} id="dashboard-discovery" title={partnerText(locale, "dashboard.forYou")} />
+      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6">
+        {products.slice(0, 6).map((item) => <ProductCard analyticsEventName="dashboard_novotech_offer_opened" analyticsSurface="dashboard_discovery" capabilities={workspace.capabilities.productCard} commercialView={item.commercialView} contextBadge={item.primaryDiscoverySignal === "ARRIVAL" ? partnerText(locale, "dashboard.arrival") : undefined} key={item.product.id} locale={locale} product={item.product} />)}
+      </div>
     </section>
   );
 }
@@ -327,11 +317,10 @@ function ShipmentsSection({
   );
 }
 
-function ProductSection({
+function RepeatPurchaseSection({
   analyticsSurface,
   eligibleCount,
   locale,
-  periodKey,
   periods,
   products,
   title,
@@ -340,22 +329,21 @@ function ProductSection({
   analyticsSurface: string;
   eligibleCount: number;
   locale: PartnerLocale;
-  periodKey: "repeat" | "popular" | "new" | "hot";
-  periods: { repeat: RollingPeriodState; popular: RollingPeriodState; new: RollingPeriodState; hot: RollingPeriodState };
+  periods: { repeat: RollingPeriodState };
   products: WorkspaceHomeDto["reorderProducts"];
   title: string;
   workspace: WorkspaceHomeDto;
 }) {
   if (!products.length) return null;
   return (
-    <section aria-labelledby={`dashboard-${analyticsSurface}`} data-dashboard-section={periodKey === "repeat" ? "repeat-purchase" : periodKey}>
+    <section aria-labelledby={`dashboard-${analyticsSurface}`} data-dashboard-section="repeat-purchase">
       <SectionHeading
-        actionHref={selectionFullHref(periodKey, periods[periodKey])}
+        actionHref={selectionFullHref(periods.repeat)}
         actionLabel={partnerText(locale, "dashboard.openAll")}
         count={hiddenDashboardProductCount(eligibleCount, products.length)}
         id={`dashboard-${analyticsSurface}`}
         title={title}
-        titleAccessory={<RollingPeriodSelector activePeriod={periods[periodKey]} hrefForPeriod={(target) => dashboardPeriodHref(periods, periodKey, target)} locale={locale} />}
+        titleAccessory={<RollingPeriodSelector activePeriod={periods.repeat} hrefForPeriod={dashboardPeriodHref} locale={locale} />}
       />
       <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
         {products.slice(0, 5).map((item) => (
@@ -383,24 +371,12 @@ function ProductSection({
   );
 }
 
-function dashboardPeriodHref(
-  states: { repeat: RollingPeriodState; popular: RollingPeriodState; new: RollingPeriodState; hot: RollingPeriodState },
-  key: "repeat" | "popular" | "new" | "hot",
-  target: RollingPeriod,
-): string {
-  const query = new URLSearchParams();
-  const names = { repeat: "period", popular: "popularPeriod", new: "newPeriod", hot: "hotPeriod" } as const;
-  for (const stateKey of ["repeat", "popular", "new", "hot"] as const) {
-    const value = stateKey === key ? target : states[stateKey];
-    if (value) query.set(names[stateKey], String(value));
-  }
-  return `/cabinet?${query}`;
+function dashboardPeriodHref(target: RollingPeriod): string {
+  return `/cabinet?period=${target}`;
 }
 
-function selectionFullHref(key: "repeat" | "popular" | "new" | "hot", state: RollingPeriodState): string {
-  const base = key === "repeat" ? "/cabinet/repeat-purchase" : `/cabinet/catalog?label=${key === "popular" ? "TOP" : key === "new" ? "NEW" : "HOT"}`;
-  if (!state) return base;
-  return `${base}${base.includes("?") ? "&" : "?"}period=${state}`;
+function selectionFullHref(state: RollingPeriodState): string {
+  return state ? `/cabinet/repeat-purchase?period=${state}` : "/cabinet/repeat-purchase";
 }
 
 function FinanceSection({

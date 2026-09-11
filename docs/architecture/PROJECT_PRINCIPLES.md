@@ -131,3 +131,15 @@ Auditability is part of the product design, not an afterthought.
 Domain and architecture documents are implementation inputs.
 
 When the system behavior changes, update the relevant documents so future development remains consistent.
+
+## PARTNER_POSITIVE_EXPERIENCE
+
+The platform follows `SYSTEM LEADS, USER ACTS`. Local actions must preserve the partner's working context whenever possible.
+
+1. Preserve user context after local actions.
+2. Do not require the user to repeat navigation they already performed.
+3. A filter change should update content, not relocate the user.
+4. Reduce unnecessary clicks and scrolling.
+5. Treat observed partner friction as product evidence.
+6. Anticipate the immediate next action whenever reasonably predictable.
+7. Do not optimize technical routing at the expense of workflow continuity.

@@ -53,6 +53,7 @@ describe("rolling commerce periods", () => {
     expect(screen.getByRole("link", { name: "60" })).toHaveClass("border-emerald-700");
     expect(screen.getByRole("link", { name: "30" })).toHaveClass("border-transparent");
     expect(screen.getByRole("link", { name: "90" })).toHaveAttribute("href", "/cabinet?period=90");
+    expect(readFileSync(join(process.cwd(), "src/modules/commerce-period/RollingPeriodSelector.tsx"), "utf8")).toContain("scroll={false}");
   });
 
   it("preserves period with Repeat Purchase filters and pagination", () => {

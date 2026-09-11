@@ -8,7 +8,6 @@ import { SupabaseCommercialFreshnessReadModel } from "../repositories/supabase-c
 import { SupabaseWorkspaceDashboardRepository } from "../repositories/supabase-workspace-dashboard.repository";
 import { createPricingInventoryService } from "../../pricing-inventory/actions/service-factory";
 import { SupabaseCommercialOpportunityRepository } from "../../commercial-opportunities";
-import { SupabaseCommercialCampaignRepository } from "../../commercial-campaigns/repositories/supabase-commercial-campaign.repository";
 import { DefaultCatalogService } from "../../catalog/services";
 import { SupabaseCatalogRepository } from "../../catalog/repositories/supabase";
 import { SupabasePartnerSupportRepository } from "../../partner-support";
@@ -30,7 +29,7 @@ export function createWorkspaceHomeService(): DefaultWorkspaceHomeService {
     createPricingInventoryService(),
     undefined,
     new SupabaseCommercialOpportunityRepository(),
-    new SupabaseCommercialCampaignRepository(),
+    undefined,
     undefined,
     catalogService,
     undefined,

@@ -78,7 +78,7 @@ export function CatalogMerchandisingSections({
   );
 }
 
-function curatedPeriodHref(states: { popular: RollingPeriodState; new: RollingPeriodState; hot: RollingPeriodState }, key: "popular" | "new" | "hot", target: RollingPeriod): string {
+export function curatedPeriodHref(states: { popular: RollingPeriodState; new: RollingPeriodState; hot: RollingPeriodState }, key: "popular" | "new" | "hot", target: RollingPeriod): string {
   const query = new URLSearchParams();
   const popular = key === "popular" ? target : states.popular;
   const fresh = key === "new" ? target : states.new;

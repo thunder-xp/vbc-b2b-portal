@@ -11,12 +11,20 @@ vi.mock("../ProductCard", () => ({
 
 import {
   CatalogMerchandisingSections,
+  curatedPeriodHref,
   responsiveShowcaseRemainders,
   showcaseProductVisibilityClass,
 } from "../CatalogMerchandisingSections";
 import { RESTRICTED_PRODUCT_CARD_CAPABILITIES } from "../product-card.model";
 
 describe("partner catalog showcase contract", () => {
+  it("preserves independent Popular, New, and Hot period state in each local navigation", () => {
+    const states = { popular: 30, new: 60, hot: 90 } as const;
+    expect(curatedPeriodHref(states, "popular", 60)).toBe("/cabinet/catalog?period=60&newPeriod=60&hotPeriod=90");
+    expect(curatedPeriodHref(states, "new", 90)).toBe("/cabinet/catalog?period=30&newPeriod=90&hotPeriod=90");
+    expect(curatedPeriodHref(states, "hot", 30)).toBe("/cabinet/catalog?period=30&newPeriod=60&hotPeriod=30");
+  });
+
   it.each([
     [0, { mobile: 0, tablet: 0, desktop: 0, wide: 0 }],
     [2, { mobile: 1, tablet: 0, desktop: 0, wide: 0 }],

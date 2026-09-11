@@ -24,7 +24,6 @@ import type {
 import type { CommercialOpportunity, CommercialOpportunityRepository } from "../../commercial-opportunities";
 import { enrichOpportunityProductReferences, opportunityProductReferenceIds } from "../../commercial-opportunities/services";
 import type { CommercialCampaignRepository } from "../../commercial-campaigns/repositories/commercial-campaign.repository";
-import type { PartnerCampaign } from "../../commercial-campaigns/types";
 import type { DocumentRepository } from "../../documents/repositories";
 import type { PartnerDocumentListItem } from "../../documents/types";
 import type { PartnerMomentumRepository } from "../../partner-momentum/repositories";
@@ -98,7 +97,10 @@ export type WorkspaceProductDto = {
   lastPurchasedAt?: string;
   typicalQuantity?: number;
   sourceCodes?: Array<"TOP" | "NEW" | "HOT" | "ARRIVAL">;
+  primaryDiscoverySignal?: DashboardDiscoverySignal;
 };
+
+export type DashboardDiscoverySignal = "HOT" | "NEW" | "TOP" | "ARRIVAL";
 
 export type WorkspaceHomeDto = {
   viewer?: { companyId: string; userId: string };
@@ -131,16 +133,8 @@ export type WorkspaceHomeDto = {
   continuationItems: WorkspaceContinuationDto[];
   reorderProducts: WorkspaceProductDto[];
   reorderProductTotalCount: number;
-  popularProducts: WorkspaceProductDto[];
-  popularProductTotalCount: number;
-  newProducts: WorkspaceProductDto[];
-  newProductTotalCount: number;
-  hotProducts: WorkspaceProductDto[];
-  hotProductTotalCount: number;
-  merchandisingProducts: WorkspaceProductDto[];
-  merchandisingProductTotalCount: number;
+  discoveryProducts: WorkspaceProductDto[];
   opportunities: CommercialOpportunity[];
-  campaigns: PartnerCampaign[];
   recentDocuments: PartnerDocumentListItem[];
   financeSummary: null | {
     totals: Array<{
@@ -252,7 +246,7 @@ export type SalesTrendComparisonDto = {
   state: SalesTrendState;
 };
 
-export type WorkspaceSelectionPeriods = { repeat: EffectiveRollingPeriod; popular: EffectiveRollingPeriod; new: EffectiveRollingPeriod; hot: EffectiveRollingPeriod };
+export type WorkspaceSelectionPeriods = { repeat: EffectiveRollingPeriod };
 
 export interface WorkspaceHomeService {
   getWorkspaceHome(userId: string, loginGeneration?: string, periods?: WorkspaceSelectionPeriods): Promise<WorkspaceHomeDto>;
@@ -267,7 +261,7 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
     private readonly pricingInventoryService: PricingInventoryService,
     private readonly notificationRepository?: NotificationRepository,
     private readonly opportunityRepository?: CommercialOpportunityRepository,
-    private readonly campaignRepository?: CommercialCampaignRepository,
+    _campaignRepository?: CommercialCampaignRepository,
     private readonly documentRepository?: DocumentRepository,
     private readonly productReferenceService?: ProductReferenceService,
     private readonly momentumRepository?: PartnerMomentumRepository,
@@ -292,7 +286,7 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
     );
   }
 
-  async getWorkspaceHome(userId: string, loginGeneration = "legacy-session", periods: WorkspaceSelectionPeriods = { repeat: 365, popular: 365, new: 365, hot: 365 }): Promise<WorkspaceHomeDto> {
+  async getWorkspaceHome(userId: string, loginGeneration = "legacy-session", periods: WorkspaceSelectionPeriods = { repeat: 365 }): Promise<WorkspaceHomeDto> {
     const context = await this.workspaceContextService.getWorkspaceContext(userId);
     if (
       (context.accessState !== "active"
@@ -305,13 +299,16 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
 
     const canViewFinance = context.capabilities.navigation.some((item) => item.key === "finance" && item.availability === "available");
     const canViewSales = context.capabilities.navigation.some((item) => item.key === "orders" && item.availability === "available");
-    const [freshness, dashboard, selections, opportunityPage, campaignPage, supportTickets, estimateSalesOpportunities, financeData] = await Promise.all([
+    const [freshness, dashboard, selections, opportunityPage, supportTickets, estimateSalesOpportunities, financeData] = await Promise.all([
       timedDashboardRead("commercial_freshness", () => this.commercialFreshnessReadModel.getFreshness()),
       timedDashboardRead("dashboard_aggregate", () => this.dashboardRepository.getDashboard(companyId)),
-      timedDashboardRead("product_selections", () => this.dashboardRepository.getProductSelections?.(userId, companyId, loginGeneration, periods) ?? Promise.resolve(null)),
+      timedDashboardRead("product_selections", () => this.dashboardRepository.getProductSelections?.(userId, companyId, loginGeneration, {
+        repeat: periods.repeat,
+        popular: 365,
+        new: 365,
+        hot: 365,
+      }) ?? Promise.resolve(null)),
       timedDashboardRead("opportunities", () => this.opportunityRepository?.list({ companyId, filter: "all", limit: 12, offset: 0 })
-        ?? Promise.resolve({ items: [], totalCount: 0 })),
-      timedDashboardRead("campaigns", () => this.campaignRepository?.listPartner({ companyId, filter: "active", limit: 12, offset: 0 })
         ?? Promise.resolve({ items: [], totalCount: 0 })),
       timedDashboardRead("support_tickets", () => this.supportRepository?.dashboard(companyId) ?? Promise.resolve([])),
       timedDashboardRead("estimate_sales_opportunities", () => this.salesWorkspaceService?.listEstimateOpportunities(companyId, userId, {
@@ -333,6 +330,12 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
     const popularCandidates = selections?.popularProducts ?? [];
     const newCandidates = selections?.newProducts ?? [];
     const hotCandidates = selections?.hotProducts ?? [];
+    const discoveryCandidates = mixDashboardDiscoveryCandidates({
+      arrival: merchandisingCandidates.filter((candidate) => candidate.sourceCodes?.includes("ARRIVAL")),
+      hot: hotCandidates,
+      new: newCandidates,
+      popular: popularCandidates,
+    });
     const opportunityCandidates = sessionOrderByPriority(
       opportunityPage.items.filter((item) => item.product),
       loginGeneration,
@@ -340,10 +343,7 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
     ).slice(0, 4);
     const candidates = uniqueCandidates([
       ...reorderCandidates,
-      ...merchandisingCandidates,
-      ...popularCandidates,
-      ...newCandidates,
-      ...hotCandidates,
+      ...discoveryCandidates.map((item) => item.candidate),
     ]);
     const opportunityProductIds = opportunityProductReferenceIds(opportunityCandidates);
     const referenceProductIds = [...new Set([
@@ -363,9 +363,6 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
     );
     const referenceByProduct = new Map(references.map((reference) => [reference.productId, reference]));
     const opportunities = enrichOpportunityProductReferences(opportunityCandidates, references);
-    const opportunityProductIdsSet = new Set(
-      opportunities.flatMap((item) => item.product ? [item.product.id] : []),
-    );
     console.info({
       event: "dashboard_opportunity_image_enrichment_completed",
       productReferences: opportunityProductIds.length,
@@ -389,26 +386,20 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
           }]
         : [];
     }).slice(0, 5);
-    const merchandisingProducts = merchandisingCandidates
-      .filter((candidate) => !opportunityProductIdsSet.has(candidate.id))
-      .slice(0, 5)
-      .map((candidate) => ({
-        product: toProduct(candidate, referenceByProduct.get(candidate.id)),
-        commercialView: commercialByProduct.get(candidate.id),
-        sourceCodes: candidate.sourceCodes,
-      }));
-    const toWorkspaceProducts = (source: typeof popularCandidates) => source.slice(0, 5).map((candidate) => ({
-      product: toProduct(candidate, referenceByProduct.get(candidate.id)),
+    const discoveryProducts = discoveryCandidates.map(({ candidate, signal }) => ({
+      product: toProduct(
+        candidate,
+        referenceByProduct.get(candidate.id),
+        signal === "ARRIVAL" ? [] : [signal],
+      ),
       commercialView: commercialByProduct.get(candidate.id),
       sourceCodes: candidate.sourceCodes,
+      primaryDiscoverySignal: signal,
     }));
-    const popularProducts = toWorkspaceProducts(popularCandidates);
-    const newProducts = toWorkspaceProducts(newCandidates);
-    const hotProducts = toWorkspaceProducts(hotCandidates);
 
     logDashboardShortage("previous_purchases", reorderProducts.length, 5);
     logDashboardShortage("opportunities", opportunities.length, 4);
-    logDashboardShortage("novotech_offers", merchandisingProducts.length, 5);
+    logDashboardShortage("discovery", discoveryProducts.length, 6);
 
     return {
       viewer: { companyId, userId },
@@ -459,16 +450,8 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
       continuationItems: dashboard.continuationItems.map(toContinuation),
       reorderProducts,
       reorderProductTotalCount: selections?.previousCandidateCount ?? reorderProducts.length,
-      popularProducts,
-      popularProductTotalCount: selections?.popularCandidateCount ?? popularProducts.length,
-      newProducts,
-      newProductTotalCount: selections?.newCandidateCount ?? newProducts.length,
-      hotProducts,
-      hotProductTotalCount: selections?.hotCandidateCount ?? hotProducts.length,
-      merchandisingProducts,
-      merchandisingProductTotalCount: selections?.offerCandidateCount ?? merchandisingProducts.length,
+      discoveryProducts,
       opportunities,
-      campaigns: selectDashboardCampaigns(campaignPage.items),
       recentDocuments: [],
       financeSummary: dashboard.financeSummary,
       financeGuidance: financeData ? buildFinanceGuidance(financeData.obligations, financeData.syncState?.lastSuccessAt ?? null) : null,
@@ -745,13 +728,6 @@ function timelinePosition(value: string, start: string, end: string): number {
   return Math.max(0, Math.min(100, ((valueMs - startMs) / (endMs - startMs)) * 100));
 }
 
-function selectDashboardCampaigns(campaigns: PartnerCampaign[]): PartnerCampaign[] {
-  const visible = campaigns.slice(0, 2);
-  const arrival = campaigns.find((campaign) => campaign.type === "arrival_promotion");
-  if (!arrival || visible.some((campaign) => campaign.id === arrival.id)) return visible;
-  return [visible[0], arrival].filter((campaign): campaign is PartnerCampaign => Boolean(campaign));
-}
-
 function addDays(date: string, days: number): string {
   return new Date(Date.parse(`${date}T00:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
 }
@@ -965,6 +941,7 @@ export function buildQuickActions(
 function toProduct(
   candidate: WorkspaceDashboardProductCandidate,
   reference?: ProductReferenceDto,
+  merchandisingLabels = candidate.labelCodes,
 ): CatalogProductCardDto {
   return {
     id: candidate.id,
@@ -985,8 +962,58 @@ function toProduct(
       : null,
     keyCharacteristics: [],
     datasheet: null,
-    merchandisingLabels: candidate.labelCodes,
+    merchandisingLabels,
   };
+}
+
+export function mixDashboardDiscoveryCandidates(
+  sources: {
+    hot: WorkspaceDashboardProductCandidate[];
+    new: WorkspaceDashboardProductCandidate[];
+    popular: WorkspaceDashboardProductCandidate[];
+    arrival: WorkspaceDashboardProductCandidate[];
+  },
+  limit = 6,
+): Array<{ candidate: WorkspaceDashboardProductCandidate; signal: DashboardDiscoverySignal }> {
+  const pools: Array<{
+    signal: DashboardDiscoverySignal;
+    candidates: WorkspaceDashboardProductCandidate[];
+  }> = [
+    { signal: "HOT", candidates: sources.hot },
+    { signal: "NEW", candidates: sources.new },
+    { signal: "TOP", candidates: sources.popular },
+    { signal: "ARRIVAL", candidates: sources.arrival },
+  ];
+  const selected: Array<{ candidate: WorkspaceDashboardProductCandidate; signal: DashboardDiscoverySignal }> = [];
+  const selectedIds = new Set<string>();
+  const cursorBySignal = new Map<DashboardDiscoverySignal, number>();
+
+  const takeNext = (pool: (typeof pools)[number]): boolean => {
+    let cursor = cursorBySignal.get(pool.signal) ?? 0;
+    while (cursor < pool.candidates.length) {
+      const candidate = pool.candidates[cursor++];
+      cursorBySignal.set(pool.signal, cursor);
+      if (selectedIds.has(candidate.id)) continue;
+      selectedIds.add(candidate.id);
+      selected.push({ candidate, signal: pool.signal });
+      return true;
+    }
+    return false;
+  };
+
+  for (const pool of pools) {
+    if (selected.length >= limit) break;
+    takeNext(pool);
+  }
+  while (selected.length < limit) {
+    let added = false;
+    for (const pool of pools) {
+      if (selected.length >= limit) break;
+      added = takeNext(pool) || added;
+    }
+    if (!added) break;
+  }
+  return selected;
 }
 
 function uniqueCandidates(

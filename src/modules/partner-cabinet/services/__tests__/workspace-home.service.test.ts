@@ -12,7 +12,7 @@ import type {
 } from "../../repositories/workspace-dashboard.repository";
 import type { PartnerWorkspaceContextService } from "../workspace-context.service";
 import { resolveWorkspaceCapabilities } from "../workspace-capability.service";
-import { buildFinanceGuidance, buildQuickActions, DefaultWorkspaceHomeService, getPaymentCalendarWindow } from "../workspace-home.service";
+import { buildFinanceGuidance, buildQuickActions, DefaultWorkspaceHomeService, getPaymentCalendarWindow, mixDashboardDiscoveryCandidates } from "../workspace-home.service";
 
 describe("DefaultWorkspaceHomeService", () => {
   it("keeps in-window unpaid obligations primary and never lets paid crowd them out", () => {
@@ -410,7 +410,10 @@ describe("DefaultWorkspaceHomeService", () => {
     dashboardRepository.getProductSelections = vi.fn().mockResolvedValue({
       snapshotHit: true,
       previousProducts: candidates,
-      merchandisingProducts: candidates,
+      popularProducts: candidates.slice(0, 3),
+      newProducts: candidates.slice(3, 5),
+      hotProducts: candidates.slice(5),
+      merchandisingProducts: [{ ...dashboardProduct(7), sourceCodes: ["ARRIVAL"] }],
       previousSourceFingerprint: "orders-v1",
       offerSourceFingerprint: "offers-v1",
       previousCandidateCount: 6,
@@ -449,9 +452,18 @@ describe("DefaultWorkspaceHomeService", () => {
       { repeat: 365, popular: 365, new: 365, hot: 365 },
     );
     expect(workspace.reorderProducts).toHaveLength(5);
-    expect(workspace.merchandisingProducts).toHaveLength(5);
+    expect(workspace.discoveryProducts).toHaveLength(6);
     expect(workspace.reorderProductTotalCount).toBe(6);
-    expect(workspace.merchandisingProductTotalCount).toBe(5);
+    expect(new Set(workspace.discoveryProducts.map((item) => item.product.id)).size).toBe(6);
+    expect(workspace.discoveryProducts.map((item) => item.primaryDiscoverySignal)).toEqual([
+      "HOT",
+      "NEW",
+      "TOP",
+      "ARRIVAL",
+      "NEW",
+      "TOP",
+    ]);
+    expect(workspace.discoveryProducts.find((item) => item.primaryDiscoverySignal === "ARRIVAL")?.product.merchandisingLabels).toEqual([]);
     expect(new Set(workspace.reorderProducts.map((item) => item.product.id)).size).toBe(5);
     expect(productReferences.getProductReferencesByIds).toHaveBeenCalledOnce();
     expect(workspace.reorderProducts.every((item) =>
@@ -464,7 +476,10 @@ describe("DefaultWorkspaceHomeService", () => {
     dashboardRepository.getProductSelections = vi.fn().mockResolvedValue({
       snapshotHit: true,
       previousProducts: candidates,
-      merchandisingProducts: candidates.slice(0, 5),
+      popularProducts: candidates.slice(0, 5),
+      newProducts: candidates.slice(5),
+      hotProducts: [],
+      merchandisingProducts: [],
       previousSourceFingerprint: "orders-v1",
       offerSourceFingerprint: "offers-v1",
       previousCandidateCount: 10,
@@ -491,17 +506,18 @@ describe("DefaultWorkspaceHomeService", () => {
     const same = await service.getWorkspaceHome("partner-1", "login-a");
     const next = await service.getWorkspaceHome("partner-1", "login-b");
     const ids = (workspace: typeof first) => workspace.reorderProducts.map((item) => item.product.id);
+    const discoveryIds = (workspace: typeof first) => workspace.discoveryProducts.map((item) => item.product.id);
     const opportunityIds = (workspace: typeof first) => workspace.opportunities.map((item) => item.id);
 
     expect(ids(same)).toEqual(ids(first));
+    expect(discoveryIds(same)).toEqual(discoveryIds(first));
     expect(opportunityIds(same)).toEqual(opportunityIds(first));
     expect(ids(next)).not.toEqual(ids(first));
     expect(opportunityIds(next)).not.toEqual(opportunityIds(first));
     expect(first.reorderProducts).toHaveLength(5);
     expect(first.opportunities).toHaveLength(4);
-    expect(first.merchandisingProducts.some((item) =>
-      first.opportunities.some((opportunityItem) =>
-        opportunityItem.product?.id === item.product.id))).toBe(false);
+    expect(first.discoveryProducts).toHaveLength(6);
+    expect(new Set(first.discoveryProducts.map((item) => item.product.id)).size).toBe(6);
     expect(opportunityRepository.list).toHaveBeenCalledWith({
       companyId: "company-1",
       filter: "all",
@@ -568,7 +584,7 @@ describe("DefaultWorkspaceHomeService", () => {
     expect(workspace.opportunities.map((item) => item.priority)).toEqual([10, 30, 40, 50]);
   });
 
-  it("keeps an authoritative arrival campaign in the existing bounded campaign read", async () => {
+  it("removes the campaign request from Dashboard composition", async () => {
     const campaignRepository = {
       listPartner: vi.fn().mockResolvedValue({
         totalCount: 3,
@@ -590,14 +606,28 @@ describe("DefaultWorkspaceHomeService", () => {
       campaignRepository as never,
     ).getWorkspaceHome("partner-1");
 
-    expect(campaignRepository.listPartner).toHaveBeenCalledOnce();
-    expect(campaignRepository.listPartner).toHaveBeenCalledWith({
-      companyId: "company-1",
-      filter: "active",
-      limit: 12,
-      offset: 0,
+    expect(campaignRepository.listPartner).not.toHaveBeenCalled();
+    expect(workspace.discoveryProducts).toEqual([]);
+  });
+
+  it("builds a bounded balanced mixed teaser with each available signal and no duplicate product", () => {
+    const shared = dashboardProduct(1);
+    const mixed = mixDashboardDiscoveryCandidates({
+      hot: [shared, dashboardProduct(2), dashboardProduct(3)],
+      new: [shared, dashboardProduct(4), dashboardProduct(5)],
+      popular: [dashboardProduct(6), dashboardProduct(7)],
+      arrival: [{ ...dashboardProduct(8), sourceCodes: ["ARRIVAL"] }],
     });
-    expect(workspace.campaigns.map((item) => item.type)).toEqual(["product_offer", "arrival_promotion"]);
+
+    expect(mixed).toHaveLength(6);
+    expect(new Set(mixed.map((item) => item.candidate.id)).size).toBe(6);
+    expect(new Set(mixed.map((item) => item.signal))).toEqual(new Set(["HOT", "NEW", "TOP", "ARRIVAL"]));
+    expect(mixDashboardDiscoveryCandidates({
+      hot: [shared, dashboardProduct(2), dashboardProduct(3)],
+      new: [shared, dashboardProduct(4), dashboardProduct(5)],
+      popular: [dashboardProduct(6), dashboardProduct(7)],
+      arrival: [{ ...dashboardProduct(8), sourceCodes: ["ARRIVAL"] }],
+    })).toEqual(mixed);
   });
 
   it("projects twelve-month company sales as separate currency line series without another read", async () => {

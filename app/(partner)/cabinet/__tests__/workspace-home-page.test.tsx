@@ -61,12 +61,12 @@ describe("Partner Workspace operational home", () => {
       source.indexOf("export function EstimateSalesSection"),
     );
     const markers = [
-      "<ProductSection",
+      "<RepeatPurchaseSection",
+      "<DiscoverySection",
       'data-dashboard-section="priority-work"',
       "<OpportunitySection",
       "<FinanceSection",
       'data-dashboard-section="fulfilment"',
-      "<NovotechOffersSection",
     ];
     const positions = markers.map((marker) => dashboard.indexOf(marker));
     expect(positions.every((position) => position >= 0)).toBe(true);
@@ -316,6 +316,14 @@ describe("Partner Workspace operational home", () => {
     });
     await expect(CabinetPage()).rejects.toThrow("NEXT_REDIRECT:/auth/sign-in");
   });
+
+  it("keeps only Repeat Purchase period state on the personal Dashboard", async () => {
+    await CabinetPage({ searchParams: Promise.resolve({ period: "60" }) });
+    expect(mocks.getWorkspaceHomeAction).toHaveBeenCalledWith({ repeat: 60 });
+
+    await expect(CabinetPage({ searchParams: Promise.resolve({ period: "90", hotPeriod: "30" }) }))
+      .rejects.toThrow("NEXT_REDIRECT:/cabinet?period=90");
+  });
 });
 
 function workspaceData() {
@@ -356,7 +364,7 @@ function workspaceData() {
     ],
     continuationItems: [],
     reorderProducts: [],
-    merchandisingProducts: [],
+    discoveryProducts: [],
     opportunities: [],
     campaigns: [],
     recentDocuments: [],

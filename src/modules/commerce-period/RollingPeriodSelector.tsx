@@ -36,6 +36,7 @@ export function RollingPeriodSelector({
             href={hrefForPeriod(period)}
             key={period}
             prefetch={false}
+            scroll={false}
           >
             {period}
           </Link>

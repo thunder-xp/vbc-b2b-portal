@@ -9,13 +9,13 @@ import { canonicalizeLegacyRollingPeriodParams, parseRollingPeriodState, resolve
 
 export default async function CabinetPage({ searchParams = Promise.resolve({}) }: { searchParams?: Promise<{ period?: string | string[]; popularPeriod?: string | string[]; newPeriod?: string | string[]; hotPeriod?: string | string[] }> } = {}) {
   const params = await searchParams;
-  const canonicalHref = canonicalizeLegacyRollingPeriodParams("/cabinet", params, ["period", "popularPeriod", "newPeriod", "hotPeriod"]);
-  if (canonicalHref) redirect(canonicalHref);
   const repeatState = parseRollingPeriodState(single(params.period));
-  const popularState = parseRollingPeriodState(single(params.popularPeriod));
-  const newState = parseRollingPeriodState(single(params.newPeriod));
-  const hotState = parseRollingPeriodState(single(params.hotPeriod));
-  const [result, locale] = await Promise.all([getWorkspaceHomeAction({ repeat: resolveRollingPeriod(repeatState), popular: resolveRollingPeriod(popularState), new: resolveRollingPeriod(newState), hot: resolveRollingPeriod(hotState) }), getPartnerLocale()]);
+  if (params.popularPeriod || params.newPeriod || params.hotPeriod) {
+    redirect(repeatState ? `/cabinet?period=${repeatState}` : "/cabinet");
+  }
+  const canonicalHref = canonicalizeLegacyRollingPeriodParams("/cabinet", params, ["period"]);
+  if (canonicalHref) redirect(canonicalHref);
+  const [result, locale] = await Promise.all([getWorkspaceHomeAction({ repeat: resolveRollingPeriod(repeatState) }), getPartnerLocale()]);
   if (!result.success && result.errorCode === "AUTH_REQUIRED") redirect("/auth/sign-in");
   if (!result.success) {
     return <WorkspaceEmptyState actionLabel={partnerText(locale, "dashboard.refreshPage")} message={partnerText(locale, "dashboard.loadErrorMessage")} title={partnerText(locale, "dashboard.loadErrorTitle")} />;
@@ -30,7 +30,7 @@ export default async function CabinetPage({ searchParams = Promise.resolve({}) }
         route="/cabinet"
         sourceSurface="partner_dashboard"
       />
-      <OperationalDashboard locale={locale} periods={{ repeat: repeatState, popular: popularState, new: newState, hot: hotState }} workspace={workspace} />
+      <OperationalDashboard locale={locale} periods={{ repeat: repeatState }} workspace={workspace} />
     </div>
   );
 }
