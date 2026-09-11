@@ -52,6 +52,7 @@ describe("onboarding mutation diagnostics", () => {
     ["stale_approval_draft", "PT409", "ONBOARDING_DRAFT_VERSION_CONFLICT"],
     ["onboarding_manager_invalid", "22023", "ONBOARDING_MANAGER_INVALID"],
     ["invalid_price_profile", "22023", "ONBOARDING_PARTNER_STATUS_INVALID"],
+    ["onboarding_partner_status_selection_required", "22023", "ONBOARDING_PARTNER_STATUS_SELECTION_REQUIRED"],
     ["onboarding_price_type_required", "22023", "ONBOARDING_PRICE_TYPE_REQUIRED"],
     ["onboarding_commercial_validation_failed", "22023", "ONBOARDING_COMMERCIAL_VALIDATION_FAILED"],
     ["invalid_status_transition", "55000", "ONBOARDING_STATE_TRANSITION_FAILED"],

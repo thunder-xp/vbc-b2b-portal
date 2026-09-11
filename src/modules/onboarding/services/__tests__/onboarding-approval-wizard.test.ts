@@ -35,6 +35,14 @@ const finalApprovalStabilization = readFileSync(
   resolve("supabase/migrations/20260803110000_onboarding_final_approval_stabilization.sql"),
   "utf8",
 );
+const physicalPersonStatusValidation = readFileSync(
+  resolve("supabase/migrations/20260911075130_onboarding_physical_person_status_validation.sql"),
+  "utf8",
+);
+const physicalPersonRuntime = readFileSync(
+  resolve("supabase/tests/onboarding_physical_person_status_validation_runtime.sql"),
+  "utf8",
+);
 
 describe("onboarding approval business profiles", () => {
   it("maps owner, manager, buyer, accounting, and retail-only to canonical roles", () => {
@@ -76,6 +84,30 @@ describe("onboarding approval draft and atomic v3 migration", () => {
     expect(commercialRepair).toContain("onboarding_manager_invalid");
     expect(commercialRepair).toContain("onboarding_partner_status_invalid");
     expect(commercialRepair).toContain("onboarding_commercial_validation_failed");
+  });
+
+  it("repairs a stale Step 3 commercial selection without conflating legal type and portal access", () => {
+    expect(physicalPersonStatusValidation).toContain("create or replace function public.save_onboarding_approval_draft(");
+    expect(physicalPersonStatusValidation).toContain("valid_price_profile_count = 1");
+    expect(physicalPersonStatusValidation).toContain("effective_price_profile_id := canonical_price_profile_id");
+    expect(physicalPersonStatusValidation).toContain("draft.selected_price_profile_id := canonical_price_profile_id");
+    expect(physicalPersonStatusValidation).toContain("onboarding_partner_status_selection_required");
+    expect(physicalPersonStatusValidation).toContain("onboarding_price_type_required");
+    expect(physicalPersonStatusValidation).toContain("price_profile.is_published and price_profile.is_active");
+    expect(physicalPersonStatusValidation).toContain("not price_profile.is_deleted");
+    expect(physicalPersonStatusValidation).not.toContain("counterparty_type_code");
+    expect(physicalPersonStatusValidation).not.toContain("ЮридическоеЛицо");
+    expect(physicalPersonStatusValidation).not.toContain("ФизическоеЛицо");
+    expect(physicalPersonStatusValidation).toContain("set selected_price_profile_id = draft.selected_price_profile_id");
+    expect(physicalPersonStatusValidation).toContain("initial_access_profile = draft.initial_business_profile");
+    expect(physicalPersonRuntime).toContain("'ФизическоеЛицо'");
+    expect(physicalPersonRuntime).toContain("'ЮридическоеЛицо'");
+    expect(physicalPersonRuntime).toContain("physical_person_final_approval_failed");
+    expect(physicalPersonRuntime).toContain("physical_person_counterparty_link_not_preserved");
+    expect(physicalPersonRuntime).toContain("inactive_counterparty_should_be_blocked");
+    expect(physicalPersonRuntime).toContain("deleted_counterparty_should_be_blocked");
+    expect(physicalPersonRuntime).toContain("stale_profile_was_not_repaired");
+    expect(physicalPersonRuntime).toContain("multiple_profiles_should_require_selection");
   });
   it("preserves v2 and adds a separately versioned approval RPC", () => {
     expect(migration).toContain("approve_partner_access_request_v3");
@@ -177,6 +209,8 @@ describe("onboarding approval draft and atomic v3 migration", () => {
     expect(wizard).toContain("grid-cols-2");
     expect(wizard).toContain("external1cId");
     expect(wizard).toContain("Код 1С");
+    expect(wizard).toContain("Тип цены из 1С");
+    expect(wizard).not.toContain("Статус партнёра");
     expect(wizard).not.toContain("permission.code");
   });
 

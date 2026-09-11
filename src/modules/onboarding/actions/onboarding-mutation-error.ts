@@ -4,6 +4,7 @@ export const ONBOARDING_MUTATION_ERROR_CODES = [
   "ONBOARDING_DRAFT_VERSION_CONFLICT",
   "ONBOARDING_MANAGER_INVALID",
   "ONBOARDING_PARTNER_STATUS_INVALID",
+  "ONBOARDING_PARTNER_STATUS_SELECTION_REQUIRED",
   "ONBOARDING_PRICE_TYPE_REQUIRED",
   "ONBOARDING_COMMERCIAL_VALIDATION_FAILED",
   "ONBOARDING_COMMERCIAL_PERSISTENCE_FAILED",
@@ -97,6 +98,9 @@ export function classifyOnboardingMutationError(
   }
   if (normalized.includes("onboarding_price_type_required")) {
     return "ONBOARDING_PRICE_TYPE_REQUIRED";
+  }
+  if (normalized.includes("onboarding_partner_status_selection_required")) {
+    return "ONBOARDING_PARTNER_STATUS_SELECTION_REQUIRED";
   }
   if (normalized.includes("invalid_price_profile") || normalized.includes("onboarding_partner_status_invalid")) {
     return "ONBOARDING_PARTNER_STATUS_INVALID";
