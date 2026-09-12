@@ -37,6 +37,7 @@ export type SalesOrderHistoryPageResult = IntegrationPageResultDTO<SalesOrderHis
 export type GlobalOrderHistoryPageResult<T> = IntegrationPageResultDTO<T> & {
   rawRowCount: number;
   rejectedRowCount: number;
+  excludedRowCount?: number;
   requestCount: number;
   requestDurationMs: number;
 };

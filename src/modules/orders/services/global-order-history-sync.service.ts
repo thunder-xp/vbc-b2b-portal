@@ -13,6 +13,9 @@ export type GlobalOrderHistorySyncResult = {
   dataPages: number;
   oneCRequests: number;
   oneCDurationMs: number;
+  sourceHeaderRows: number;
+  sourceItemRows: number;
+  excludedItemRows: number;
   durationMs: number;
 };
 
@@ -31,7 +34,8 @@ export class GlobalOrderHistorySyncService {
         status: checkpoint.status === "locked" ? "locked" : "already_completed",
         phase: checkpoint.status === "completed" ? "completed" : "headers",
         counterpartyPages: 0, dataPages: 0, oneCRequests: 0,
-        oneCDurationMs: 0, durationMs: this.now() - startedAt,
+        oneCDurationMs: 0, sourceHeaderRows: 0, sourceItemRows: 0,
+        excludedItemRows: 0, durationMs: this.now() - startedAt,
       };
     }
     const lockToken = checkpoint.lockToken;
@@ -43,6 +47,9 @@ export class GlobalOrderHistorySyncService {
     let oneCDurationMs = 0;
     let counterpartyPages = 0;
     let dataPages = 0;
+    let sourceHeaderRows = 0;
+    let sourceItemRows = 0;
+    let excludedItemRows = 0;
     let phase: "headers" | "items" = checkpoint.phase;
     let cursor = phase === "headers" ? checkpoint.headerCursor : checkpoint.itemCursor;
     const maxDataPages = Math.max(1, Math.min(input.maxDataPages ?? DEFAULT_MAX_DATA_PAGES, 200));
@@ -62,6 +69,7 @@ export class GlobalOrderHistorySyncService {
           assertCompletePage(page.rejectedRowCount, "header");
           oneCRequests += page.requestCount;
           oneCDurationMs += page.requestDurationMs;
+          sourceHeaderRows += page.rawRowCount;
           const headers = page.items.map((header) => {
             const classification = counterparties.byRef.get(header.partnerCompanyReference.externalId.toLowerCase());
             return {
@@ -92,6 +100,8 @@ export class GlobalOrderHistorySyncService {
         assertCompletePage(page.rejectedRowCount, "item");
         oneCRequests += page.requestCount;
         oneCDurationMs += page.requestDurationMs;
+        sourceItemRows += page.rawRowCount;
+        excludedItemRows += page.excludedRowCount ?? 0;
         const hasMore = page.nextCursor !== null;
         const persisted = await this.repository.persistItemPage({
           lockToken, cursor, nextCursor: page.nextCursor ?? cursor,
@@ -127,6 +137,7 @@ export class GlobalOrderHistorySyncService {
       return {
         status, phase: finalPhase, counterpartyPages, dataPages,
         oneCRequests, oneCDurationMs: Math.round(oneCDurationMs),
+        sourceHeaderRows, sourceItemRows, excludedItemRows,
         durationMs: Math.max(0, Math.round(Date.now() - startedAt)),
       };
     }

@@ -239,7 +239,7 @@ export class OneCCustomerOrderProvider implements OrderProvider {
       return isOneCGuid(orderRef) && item
         ? { ...item, orderReference: externalReference(orderRef, "customer-order") }
         : null;
-    });
+    }, isNonPositiveHistoryItem);
   }
 
   private async fetchGlobalPage<T>(
@@ -248,6 +248,7 @@ export class OneCCustomerOrderProvider implements OrderProvider {
     fields: string[],
     orderBy: string,
     map: (value: unknown) => T | null,
+    isExcluded: (value: unknown) => boolean = () => false,
   ): Promise<GlobalOrderHistoryPageResult<T>> {
     const startedAt = performance.now();
     const limit = parseGlobalHistoryLimit(input.page?.limit);
@@ -270,18 +271,22 @@ export class OneCCustomerOrderProvider implements OrderProvider {
     if (!isHistoryEnvelope(payload)) {
       throw new IntegrationValidationError("1C global order history returned an invalid response.");
     }
-    const items = payload.value.flatMap((value) => {
+    const items: T[] = [];
+    let excludedRowCount = 0;
+    for (const value of payload.value) {
       const mapped = map(value);
-      return mapped ? [mapped] : [];
-    });
-    if (payload.value.length > 0 && items.length === 0) {
+      if (mapped) items.push(mapped);
+      else if (isExcluded(value)) excludedRowCount += 1;
+    }
+    if (payload.value.length > 0 && items.length === 0 && excludedRowCount < payload.value.length) {
       throw new IntegrationValidationError("1C global order history page contains no valid rows.");
     }
     return {
       items,
       nextCursor: globalNextCursor(payload, cursor, limit),
       rawRowCount: payload.value.length,
-      rejectedRowCount: payload.value.length - items.length,
+      rejectedRowCount: payload.value.length - items.length - excludedRowCount,
+      excludedRowCount,
       requestCount: 1,
       requestDurationMs: Math.round((performance.now() - startedAt) * 100) / 100,
     };
@@ -915,13 +920,14 @@ function parseHistoryItem(value: unknown, fallbackLineNumber: number) {
 
 function invalidHistoryItemField(value: unknown): string {
   if (!isRecordValue(value)) return "row";
-  if (!isOneCGuid(stringValue(value["Номенклатура"]))) return "Номенклатура";
+  if (!isOneCGuid(stringValue(value["Номенклатура"]))) return "product";
   const quantity = finiteNumber(value["Количество"]);
-  if (quantity === null || quantity <= 0) return "Количество";
+  if (quantity === null) return "quantity";
   const unitPrice = finiteNumber(value["Цена"]);
-  if (unitPrice === null || unitPrice < 0) return "Цена";
+  if (unitPrice === null || unitPrice < 0) return "unit_price";
   const lineTotal = finiteNumber(value["Всего"] ?? value["Сумма"]);
-  if (lineTotal === null || lineTotal < 0) return "Всего";
+  if (lineTotal === null || lineTotal < 0) return "line_total";
+  if (quantity <= 0) return "non_positive_quantity";
   return "unknown";
 }
 
@@ -1189,6 +1195,12 @@ function parseHistoryLimit(value: number | undefined): number {
     throw new IntegrationValidationError("1C order history page size is invalid.");
   }
   return Math.min(limit, 250);
+}
+
+function isNonPositiveHistoryItem(value: unknown): boolean {
+  if (!isRecordValue(value)) return false;
+  return isOneCGuid(stringValue(value.Ref_Key))
+    && invalidHistoryItemField(value) === "non_positive_quantity";
 }
 
 function parseGlobalHistoryLimit(value: number | undefined): number {

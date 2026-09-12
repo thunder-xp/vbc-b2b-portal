@@ -102,6 +102,37 @@ describe("OneC global order-history feeds", () => {
     });
   });
 
+  it("classifies non-positive source positions as excluded while malformed rows still fail closed", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation((input) => {
+      const fields = new URL(String(input)).searchParams.get("$select")!.split(",");
+      const [reference, line, product, characteristic, quantity, price, sum, total] = fields;
+      const valid = {
+        [reference!]: ORDER,
+        [line!]: 1,
+        [product!]: PRODUCT,
+        [characteristic!]: "00000000-0000-0000-0000-000000000000",
+        [quantity!]: 2,
+        [price!]: 50,
+        [sum!]: 100,
+        [total!]: 100,
+      };
+      return Promise.resolve(json({ value: [
+        valid,
+        { ...valid, [line!]: 2, [quantity!]: 0, [sum!]: 0, [total!]: 0 },
+        { ...valid, [line!]: 3, [product!]: "not-a-guid" },
+      ] }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await provider().orders.fetchGlobalSalesOrderHistoryItems!({
+      page: { limit: 1000, cursor: "0" },
+    });
+
+    expect(result.items).toHaveLength(1);
+    expect(result.excludedRowCount).toBe(1);
+    expect(result.rejectedRowCount).toBe(1);
+  });
+
   it("follows a governed continuation URL and rejects a foreign origin", async () => {
     const continuation = "https://erp.example/odata/Catalog_Контрагенты?$skiptoken=next";
     const fetchMock = vi.fn<typeof fetch>()

@@ -48,6 +48,26 @@ describe("GlobalOrderHistorySyncService", () => {
     expect(repository.persistHeaderPage).not.toHaveBeenCalled();
     expect(repository.fail).toHaveBeenCalledWith("lock-1", "Error");
   });
+
+  it("continues when a source item is explicitly excluded for non-positive quantity", async () => {
+    const repository = repositoryMock();
+    const provider = providerMock();
+    vi.mocked(provider.fetchGlobalSalesOrderHistoryItems!).mockReset().mockResolvedValueOnce({
+      items: [], nextCursor: null, rawRowCount: 1, rejectedRowCount: 0, excludedRowCount: 1,
+      requestCount: 1, requestDurationMs: 1,
+    });
+    vi.mocked(repository.persistItemPage).mockReset().mockResolvedValue({
+      upserted: 0, eligible: 0, completed: true,
+    });
+    const service = new GlobalOrderHistorySyncService(repository, provider);
+
+    const result = await service.synchronize({ maxDataPages: 3 });
+
+    expect(result.status).toBe("completed");
+    expect(result).toMatchObject({ sourceHeaderRows: 2, sourceItemRows: 1, excludedItemRows: 1 });
+    expect(repository.persistItemPage).toHaveBeenCalledWith(expect.objectContaining({ items: [] }));
+    expect(repository.fail).not.toHaveBeenCalled();
+  });
 });
 
 function repositoryMock(): GlobalOrderHistoryRepository {
