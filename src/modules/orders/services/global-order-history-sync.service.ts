@@ -26,9 +26,16 @@ export class GlobalOrderHistorySyncService {
     private readonly now: () => number = Date.now,
   ) {}
 
-  async synchronize(input: { restart?: boolean; maxDataPages?: number } = {}): Promise<GlobalOrderHistorySyncResult> {
+  async synchronize(input: {
+    restart?: boolean;
+    restartCompleted?: boolean;
+    maxDataPages?: number;
+  } = {}): Promise<GlobalOrderHistorySyncResult> {
     const startedAt = this.now();
-    const checkpoint = await this.repository.acquire(input.restart === true);
+    let checkpoint = await this.repository.acquire(input.restart === true);
+    if (checkpoint.status === "completed" && input.restartCompleted === true) {
+      checkpoint = await this.repository.acquire(true);
+    }
     if (checkpoint.status === "locked" || checkpoint.status === "completed") {
       return {
         status: checkpoint.status === "locked" ? "locked" : "already_completed",

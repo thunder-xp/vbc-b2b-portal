@@ -35,6 +35,26 @@ describe("GlobalOrderHistorySyncService", () => {
     expect(provider.fetchGlobalSalesOrderHistoryItems).not.toHaveBeenCalled();
   });
 
+  it("starts a new scheduled scan only after a completed checkpoint", async () => {
+    const repository = repositoryMock();
+    vi.mocked(repository.acquire)
+      .mockResolvedValueOnce({
+        status: "completed", phase: "completed", lockToken: null,
+        headerCursor: "17000", itemCursor: "54000",
+      })
+      .mockResolvedValueOnce({
+        status: "running", phase: "headers", lockToken: "lock-2",
+        headerCursor: "0", itemCursor: "0",
+      });
+    const service = new GlobalOrderHistorySyncService(repository, providerMock());
+
+    const result = await service.synchronize({ restartCompleted: true, maxDataPages: 1 });
+
+    expect(result.status).toBe("continued");
+    expect(repository.acquire).toHaveBeenNthCalledWith(1, false);
+    expect(repository.acquire).toHaveBeenNthCalledWith(2, true);
+  });
+
   it("fails closed when any source page contains rejected rows", async () => {
     const repository = repositoryMock();
     const provider = providerMock();

@@ -16,7 +16,7 @@ export async function GET(request: Request) {
   if (lock === "locked") return NextResponse.json({ status: "locked", runId }, { status: 202 });
   after(async () => {
     try {
-      const globalHistory = await createGlobalOrderHistorySyncService().synchronize({ restart: true });
+      const globalHistory = await createGlobalOrderHistorySyncService().synchronize({ restartCompleted: true });
       const result = await createPartnerOrderHistoryAutomationService().refreshCompanyHistories();
       const popularity = await createMerchandisingService().refreshB2bPopularity();
       console.info({ event: result.failed ? "sync_completed_with_warnings" : "sync_completed", domain: "order_history", runId, ...result, globalHistory, popularityRefreshId: popularity.refreshId, deployedCommitSha: process.env.VERCEL_GIT_COMMIT_SHA?.trim() || "local" });
