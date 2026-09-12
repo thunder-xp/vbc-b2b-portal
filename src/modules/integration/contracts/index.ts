@@ -20,6 +20,7 @@ export type {
 } from "./inventory-provider";
 export type {
   OrderProvider,
+  GlobalOrderHistoryPageResult,
   SalesOrderHistoryExistenceResult,
   SalesOrderHistoryExistenceStatus,
   SalesOrderHistoryPageResult,

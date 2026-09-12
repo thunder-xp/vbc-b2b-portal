@@ -5,8 +5,8 @@ import { OneCProvider } from "../../integration/providers/one-c";
 import { getOneCEnv } from "../../../lib/env";
 import { createAdminClient } from "../../../lib/supabase/admin";
 import { createPricingInventoryService } from "../../pricing-inventory/actions/service-factory";
-import { SupabaseCartRepository, SupabaseCheckoutConfigurationRepository, SupabaseOrderDateChangeRequestRepository, SupabaseOrderHistoryBootstrapRepository, SupabaseOrderHistoryIntegrityRepository, SupabaseOrderPriceRefreshRepository, SupabaseOrderReconciliationRepository, SupabasePartnerOrderHistoryRepository, SupabasePartnerOrderRepository } from "../repositories/supabase";
-import { DefaultCartService, DefaultInternalOrderDateChangeService, DefaultOrderPriceRefreshService, DefaultPartnerOrderHistoryService, DefaultPartnerOrderService, OrderHistoryBootstrapService, OrderHistoryIntegrityService, OrderReconciliationWorkerService, PartnerOrderHistoryAutomationService, QuickReorderService } from "../services";
+import { SupabaseCartRepository, SupabaseCheckoutConfigurationRepository, SupabaseGlobalOrderHistoryAnalyticsRepository, SupabaseGlobalOrderHistoryRepository, SupabaseOrderDateChangeRequestRepository, SupabaseOrderHistoryBootstrapRepository, SupabaseOrderHistoryIntegrityRepository, SupabaseOrderPriceRefreshRepository, SupabaseOrderReconciliationRepository, SupabasePartnerOrderHistoryRepository, SupabasePartnerOrderRepository } from "../repositories/supabase";
+import { DefaultCartService, DefaultInternalOrderDateChangeService, DefaultOrderPriceRefreshService, DefaultPartnerOrderHistoryService, DefaultPartnerOrderService, GlobalOrderHistoryAnalyticsService, GlobalOrderHistorySyncService, OrderHistoryBootstrapService, OrderHistoryIntegrityService, OrderReconciliationWorkerService, PartnerOrderHistoryAutomationService, QuickReorderService } from "../services";
 
 function dependencies() {
   const companyAccessService = createCompanyAccessService();
@@ -100,6 +100,19 @@ export function createPartnerOrderHistoryAutomationService(): PartnerOrderHistor
     repository,
     createPartnerOrderHistoryProvider(),
     createPartnerOrderHistoryService(),
+  );
+}
+
+export function createGlobalOrderHistorySyncService(): GlobalOrderHistorySyncService {
+  return new GlobalOrderHistorySyncService(
+    new SupabaseGlobalOrderHistoryRepository(),
+    createPartnerOrderHistoryProvider(),
+  );
+}
+
+export function createGlobalOrderHistoryAnalyticsService(): GlobalOrderHistoryAnalyticsService {
+  return new GlobalOrderHistoryAnalyticsService(
+    new SupabaseGlobalOrderHistoryAnalyticsRepository(),
   );
 }
 

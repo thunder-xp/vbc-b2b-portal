@@ -3,6 +3,9 @@ import type {
   IntegrationPageResultDTO,
   IntegrationSyncWindowDTO,
   SalesOrderDTO,
+  GlobalOrderHistoryCounterpartyDTO,
+  GlobalSalesOrderHistoryHeaderDTO,
+  GlobalSalesOrderHistoryItemDTO,
   SalesOrderHistoryDTO,
   SalesOrderExportResultDTO,
 } from "../dto";
@@ -29,6 +32,13 @@ export type SalesOrderHistoryPageResult = IntegrationPageResultDTO<SalesOrderHis
   enrichmentWarningCount: number;
   requestCount?: number;
   requestDurationMs?: number;
+};
+
+export type GlobalOrderHistoryPageResult<T> = IntegrationPageResultDTO<T> & {
+  rawRowCount: number;
+  rejectedRowCount: number;
+  requestCount: number;
+  requestDurationMs: number;
 };
 
 export type SalesOrderHistoryExistenceStatus = "exists" | "deletion_marked" | "absent" | "unknown";
@@ -58,4 +68,13 @@ export interface OrderProvider {
   verifySalesOrderHistoryReferences?(
     input: SalesOrderStatusFetchRequestDTO & { orderReferences: ExternalReferenceDTO[] },
   ): Promise<SalesOrderHistoryExistenceResult>;
+  fetchGlobalOrderHistoryCounterparties?(
+    input: IntegrationSyncWindowDTO,
+  ): Promise<GlobalOrderHistoryPageResult<GlobalOrderHistoryCounterpartyDTO>>;
+  fetchGlobalSalesOrderHistoryHeaders?(
+    input: IntegrationSyncWindowDTO,
+  ): Promise<GlobalOrderHistoryPageResult<GlobalSalesOrderHistoryHeaderDTO>>;
+  fetchGlobalSalesOrderHistoryItems?(
+    input: IntegrationSyncWindowDTO,
+  ): Promise<GlobalOrderHistoryPageResult<GlobalSalesOrderHistoryItemDTO>>;
 }

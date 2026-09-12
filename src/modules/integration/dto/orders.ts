@@ -97,3 +97,20 @@ export type SalesOrderHistoryDTO = {
   sourceVersion: string | null;
   items: SalesOrderHistoryItemDTO[];
 };
+
+export type GlobalOrderHistoryCounterpartyDTO = {
+  reference: ExternalReferenceDTO;
+  deletionMark: boolean;
+  counterpartyTypeCode: string | null;
+  governmentBodyTypeCode: string | null;
+};
+
+export type GlobalSalesOrderHistoryHeaderDTO = SalesOrderHistoryDTO & {
+  sourceCounterpartyTypeCode: string | null;
+  sourceGovernmentBodyTypeCode: string | null;
+  sourceOperationCode: string | null;
+};
+
+export type GlobalSalesOrderHistoryItemDTO = SalesOrderHistoryItemDTO & {
+  orderReference: ExternalReferenceDTO;
+};

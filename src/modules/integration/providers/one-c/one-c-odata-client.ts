@@ -142,6 +142,31 @@ export class OneCODataClient {
     return this.readResult(await this.probe(resource, params, options));
   }
 
+  async getContinuation(
+    resource: string,
+    continuationUrl: string,
+    options: OneCODataProbeOptions = {},
+  ): Promise<unknown> {
+    const { baseUrl, username, password } = this.config;
+    if (!baseUrl || !username || !password) {
+      throw new IntegrationProviderUnavailableError("1C OData is not configured.");
+    }
+    const base = new URL(`${baseUrl.replace(/\/$/, "")}/`);
+    const target = new URL(continuationUrl, base);
+    const expected = new URL(resource.replace(/^\//, ""), base);
+    if (target.origin !== expected.origin || target.pathname !== expected.pathname) {
+      throw new IntegrationValidationError("1C continuation URL is outside the governed resource.");
+    }
+    const queryParameterNames = [...new Set([...target.searchParams.keys()])];
+    return this.readResult(await this.probeRequest(
+      target,
+      options.requestKind ?? "collection-continuation",
+      resource,
+      queryParameterNames,
+      options,
+    ));
+  }
+
   readProbeResult(result: OneCODataProbeResult): unknown {
     return this.readResult(result);
   }

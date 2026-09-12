@@ -6,6 +6,8 @@ export * from "./checkout-configuration.service";
 export * from "./order-history.service";
 export * from "./quick-reorder.service";
 export * from "./order-history-automation.service";
+export * from "./global-order-history-sync.service";
+export * from "./global-order-history-analytics.service";
 export * from "./internal-order-date-change.service";
 export * from "./order-submission.errors";
 export * from "./order-price-refresh.service";

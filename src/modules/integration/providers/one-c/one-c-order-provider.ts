@@ -1,5 +1,8 @@
-import type { OrderProvider, SalesOrderHistoryExistenceResult, SalesOrderHistoryPageResult } from "../../contracts";
+import type { GlobalOrderHistoryPageResult, OrderProvider, SalesOrderHistoryExistenceResult, SalesOrderHistoryPageResult } from "../../contracts";
 import type {
+  GlobalOrderHistoryCounterpartyDTO,
+  GlobalSalesOrderHistoryHeaderDTO,
+  GlobalSalesOrderHistoryItemDTO,
   IntegrationPageResultDTO,
   SalesOrderDTO,
   SalesOrderExportResultDTO,
@@ -16,6 +19,7 @@ import {
   IntegrationValidationError,
 } from "../../errors";
 import type { OneCProviderConfig } from "./one-c-provider.config";
+import { OneCODataClient } from "./one-c-odata-client";
 
 const CUSTOMER_ORDER_RESOURCE = "Document_ЗаказПокупателя";
 const CUSTOMER_ORDER_TYPE = "StandardODATA.Document_ЗаказПокупателя";
@@ -24,6 +28,8 @@ const UNIT_TYPE = "StandardODATA.Catalog_КлассификаторЕдиниц�
 const ORDER_STATE_RESOURCE = "Catalog_СостоянияЗаказовПокупателей";
 const ORDER_STATE_TYPE = `StandardODATA.${ORDER_STATE_RESOURCE}`;
 const CURRENCY_RESOURCE = "Catalog_Валюты";
+const GLOBAL_ORDER_ITEM_RESOURCE = "Document_ЗаказПокупателя_Запасы";
+const COUNTERPARTY_RESOURCE = "Catalog_Контрагенты";
 
 export type OneCCustomerOrderPayload =
   | ReturnType<typeof buildOneCCustomerOrderPayload>
@@ -164,6 +170,121 @@ export class OneCCustomerOrderProvider implements OrderProvider {
 
   async fetchSalesOrders(): Promise<IntegrationPageResultDTO<SalesOrderDTO>> {
     throw new IntegrationValidationError("1C customer order import is not implemented.");
+  }
+
+  async fetchGlobalOrderHistoryCounterparties(
+    input: Parameters<NonNullable<OrderProvider["fetchGlobalOrderHistoryCounterparties"]>>[0],
+  ): Promise<GlobalOrderHistoryPageResult<GlobalOrderHistoryCounterpartyDTO>> {
+    return this.fetchGlobalPage(input, COUNTERPARTY_RESOURCE, [
+      "Ref_Key", "DeletionMark", "ВидКонтрагента", "ВидГосударственногоОргана",
+    ], "Ref_Key asc", (value) => {
+      if (!isRecordValue(value)) return null;
+      const reference = stringValue(value.Ref_Key);
+      if (!isOneCGuid(reference) || typeof value.DeletionMark !== "boolean") return null;
+      return {
+        reference: externalReference(reference, "counterparty"),
+        deletionMark: value.DeletionMark,
+        counterpartyTypeCode: nullableString(value["ВидКонтрагента"]),
+        governmentBodyTypeCode: nullableString(value["ВидГосударственногоОргана"]),
+      };
+    });
+  }
+
+  async fetchGlobalSalesOrderHistoryHeaders(
+    input: Parameters<NonNullable<OrderProvider["fetchGlobalSalesOrderHistoryHeaders"]>>[0],
+  ): Promise<GlobalOrderHistoryPageResult<GlobalSalesOrderHistoryHeaderDTO>> {
+    const page = await this.fetchGlobalPage<{ parsed: ParsedHistoryRow; operationCode: string | null }>(input, CUSTOMER_ORDER_RESOURCE,
+      [...HISTORY_ORDER_FIELDS.split(","), "ВидОперации"],
+      "Date asc,Ref_Key asc", (value) => {
+        if (!isRecordValue(value)) return null;
+        const partnerRef = stringValue(value["Контрагент_Key"]);
+        const parsed = parseHistoryRow(value, partnerRef);
+        return parsed ? { parsed, operationCode: nullableString(value["ВидОперации"]) } : null;
+      });
+    const stateReferences = [...new Set(page.items.flatMap((item) => item.parsed.stateRef ? [item.parsed.stateRef] : []))];
+    const currencyReferences = [...new Set(page.items.flatMap((item) => item.parsed.currencyRef ? [item.parsed.currencyRef] : []))];
+    const context = { syncId: "global-order-history", page: globalPageNumber(input.page?.cursor, input.page?.limit) };
+    const [stateEntries, currencyEntries] = await Promise.all([
+      Promise.all(stateReferences.map(async (reference) => [reference, await this.resolveState(reference, context)] as const)),
+      Promise.all(currencyReferences.map(async (reference) => [reference, await this.resolveCurrency(reference, context)] as const)),
+    ]);
+    const states = new Map(stateEntries);
+    const currencies = new Map(currencyEntries);
+    return {
+      ...page,
+      items: page.items.map(({ parsed, operationCode }) => ({
+        ...parsed.dto,
+        stateReference: parsed.stateRef ? externalReference(parsed.stateRef, "customer-order-state") : null,
+        stateRaw: parsed.stateRef ? states.get(parsed.stateRef)?.description ?? null : null,
+        stateCode: parsed.stateRef ? states.get(parsed.stateRef)?.code ?? "unknown" : null,
+        currencyCode: parsed.currencyRef ? currencies.get(parsed.currencyRef)?.code ?? null : null,
+        items: [],
+        sourceCounterpartyTypeCode: null,
+        sourceGovernmentBodyTypeCode: null,
+        sourceOperationCode: operationCode,
+      })),
+    };
+  }
+
+  async fetchGlobalSalesOrderHistoryItems(
+    input: Parameters<NonNullable<OrderProvider["fetchGlobalSalesOrderHistoryItems"]>>[0],
+  ): Promise<GlobalOrderHistoryPageResult<GlobalSalesOrderHistoryItemDTO>> {
+    return this.fetchGlobalPage(input, GLOBAL_ORDER_ITEM_RESOURCE, [
+      "Ref_Key", "LineNumber", "Номенклатура", "Характеристика_Key",
+      "Количество", "Цена", "Сумма", "Всего",
+    ], "Ref_Key asc,LineNumber asc", (value) => {
+      if (!isRecordValue(value)) return null;
+      const orderRef = stringValue(value.Ref_Key);
+      const item = parseHistoryItem(value, 0);
+      return isOneCGuid(orderRef) && item
+        ? { ...item, orderReference: externalReference(orderRef, "customer-order") }
+        : null;
+    });
+  }
+
+  private async fetchGlobalPage<T>(
+    input: import("../../dto").IntegrationSyncWindowDTO,
+    resource: string,
+    fields: string[],
+    orderBy: string,
+    map: (value: unknown) => T | null,
+  ): Promise<GlobalOrderHistoryPageResult<T>> {
+    const startedAt = performance.now();
+    const limit = parseGlobalHistoryLimit(input.page?.limit);
+    const cursor = input.page?.cursor ?? "0";
+    const client = new OneCODataClient({
+      baseUrl: this.config.baseUrl,
+      username: this.config.username,
+      password: this.config.password,
+      requestTimeoutMs: this.config.requestTimeoutMs,
+    });
+    const payload = isContinuationCursor(cursor)
+      ? await client.getContinuation(resource, cursor, { requestKind: "global-order-history-continuation" })
+      : await client.get(resource, {
+          $select: fields.join(","),
+          $orderby: orderBy,
+          $top: String(limit),
+          $skip: String(parseHistoryCursor(cursor)),
+          $format: "json",
+        }, { requestKind: "global-order-history-page" });
+    if (!isHistoryEnvelope(payload)) {
+      throw new IntegrationValidationError("1C global order history returned an invalid response.");
+    }
+    const items = payload.value.flatMap((value) => {
+      const mapped = map(value);
+      return mapped ? [mapped] : [];
+    });
+    if (payload.value.length > 0 && items.length === 0) {
+      throw new IntegrationValidationError("1C global order history page contains no valid rows.");
+    }
+    return {
+      items,
+      nextCursor: globalNextCursor(payload, cursor, limit),
+      rawRowCount: payload.value.length,
+      rejectedRowCount: payload.value.length - items.length,
+      requestCount: 1,
+      requestDurationMs: Math.round((performance.now() - startedAt) * 100) / 100,
+    };
   }
 
   async fetchSalesOrderHistory(
@@ -779,9 +900,11 @@ function parseHistoryItem(value: unknown, fallbackLineNumber: number) {
     return null;
   }
   const characteristicRef = nullableOneCGuid(row["Характеристика_Key"]);
-  const sourceLine = Number.parseInt(stringValue(row.LineNumber), 10);
+  const sourceLine = finiteNumber(row.LineNumber);
   return {
-    lineNumber: Number.isFinite(sourceLine) && sourceLine > 0 ? sourceLine : fallbackLineNumber,
+    lineNumber: sourceLine !== null && Number.isInteger(sourceLine) && sourceLine > 0
+      ? sourceLine
+      : fallbackLineNumber,
     productReference: externalReference(productRef, "catalog-product"),
     characteristicReference: characteristicRef ? externalReference(characteristicRef, "product-characteristic") : null,
     quantity,
@@ -1066,6 +1189,43 @@ function parseHistoryLimit(value: number | undefined): number {
     throw new IntegrationValidationError("1C order history page size is invalid.");
   }
   return Math.min(limit, 250);
+}
+
+function parseGlobalHistoryLimit(value: number | undefined): number {
+  const limit = value ?? 1000;
+  if (!Number.isSafeInteger(limit) || limit <= 0 || limit > 1000) {
+    throw new IntegrationValidationError("1C global order history page size is invalid.");
+  }
+  return limit;
+}
+
+function isContinuationCursor(value: string): boolean {
+  return /^https?:\/\//i.test(value);
+}
+
+function globalNextCursor(
+  envelope: { value: unknown[] },
+  cursor: string,
+  limit: number,
+): string | null {
+  const record = envelope as Record<string, unknown>;
+  const continuation = record["@odata.nextLink"] ?? record["odata.nextLink"];
+  if (typeof continuation === "string" && continuation.trim()) return continuation.trim();
+  if (envelope.value.length < limit) return null;
+  return String(globalCursorOffset(cursor) + limit);
+}
+
+function globalCursorOffset(cursor: string | null | undefined): number {
+  if (!cursor) return 0;
+  if (isContinuationCursor(cursor)) {
+    const skip = new URL(cursor).searchParams.get("$skip");
+    return parseHistoryCursor(skip);
+  }
+  return parseHistoryCursor(cursor);
+}
+
+function globalPageNumber(cursor: string | null | undefined, limit: number | undefined): number {
+  return Math.floor(globalCursorOffset(cursor) / parseGlobalHistoryLimit(limit)) + 1;
 }
 
 function isHistoryEnvelope(value: unknown): value is { value: unknown[] } {
