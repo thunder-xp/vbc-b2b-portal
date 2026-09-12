@@ -8,6 +8,7 @@ type CatalogProductCardFrameProps = {
   media: ReactNode;
   metadata: ReactNode;
   secondaryActions?: ReactNode;
+  secondaryActionsLabel?: string;
   title: ReactNode;
   density?: "comfortable" | "compact";
   className?: string;
@@ -23,6 +24,7 @@ export function CatalogProductCardFrame({
   media,
   metadata,
   secondaryActions,
+  secondaryActionsLabel = "Дополнительные действия",
   title,
   density = "comfortable",
   className = "",
@@ -42,7 +44,7 @@ export function CatalogProductCardFrame({
       </div>
       <div className={`mt-auto ${compact ? "pt-2" : "pt-3"}`}>
         {actions}
-        {secondaryActions ? <div aria-label="Дополнительные действия" className="mt-2 flex min-h-11 justify-end gap-1.5">{secondaryActions}</div> : null}
+        {secondaryActions ? <div aria-label={secondaryActionsLabel} className="mt-2 flex min-h-11 justify-end gap-1.5">{secondaryActions}</div> : null}
       </div>
     </div>
   </article>;
