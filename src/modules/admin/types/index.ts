@@ -73,6 +73,7 @@ export type {
   AdminCommercialSummary,
   AdminCommercialIntegrity,
   AdminGovernedPriceCoverage,
+  AdminSducReadiness,
   AdminStockReconciliation,
   CommercialIntegrityReason,
   AdminRetailPriceHistoryHealth,

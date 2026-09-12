@@ -70,6 +70,7 @@ This index is the table of contents for the Novotech Partner Platform Architectu
 - `docs/architecture/SYSTEM_CONTEXT.md` - Actors, external systems, data directions, and responsibility boundaries.
 - `docs/architecture/EVENT_FLOWS.md` - Key business event flows with triggers, actors, steps, systems, data movement, failures, and logging.
 - `docs/architecture/DATA_OWNERSHIP_MATRIX.md` - Ownership matrix for every major entity and data type.
+- `docs/architecture/SDUC_DYNAMIC_PRICING.md` - DRY_RUN SDUC decrease authorization, pricing authority, lifecycle, security, and future order/estimate seams.
 - `docs/architecture/SECURITY_AND_DATABASE_ARCHITECTURE.md` - Security model, Supabase access rules, RLS principles, identity model, database design principles, and implementation gate.
 - `docs/architecture/ACCESS_CONTROL_RUNTIME_DESIGN.md` - First runtime design for user identity, company membership, roles, permissions, access states, server-side enforcement, and MVP access-control scope.
 - `docs/architecture/UNIFIED_ACCESS_CONTROL_DESIGN.md` - Canonical effective-permission projection, membership overrides, delegation metadata, partner-price permission split, retail-only UX contract, RLS, and phased rollout.

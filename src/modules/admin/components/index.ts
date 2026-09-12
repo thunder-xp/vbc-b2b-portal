@@ -21,6 +21,7 @@ export { AdminCommercialSummaryView } from "./AdminCommercialSummary";
 export { AdminCommercialPage } from "./AdminCommercialPage";
 export { AdminCommercialIntegrityView } from "./AdminCommercialIntegrity";
 export { AdminGovernedPriceCoverageView } from "./AdminGovernedPriceCoverage";
+export { AdminSducReadinessView } from "./AdminSducReadiness";
 export { AdminStockReconciliationView } from "./AdminStockReconciliation";
 export { AdminRetailPriceHistoryHealthView } from "./AdminRetailPriceHistoryHealth";
 export { AdminRetailPriceHistoryBackfill } from "./AdminRetailPriceHistoryBackfill";

@@ -1,6 +1,7 @@
 import { AdminCommercialSummaryView } from "./AdminCommercialSummary";
 import { AdminCommercialIntegrityView } from "./AdminCommercialIntegrity";
 import { AdminGovernedPriceCoverageView } from "./AdminGovernedPriceCoverage";
+import { AdminSducReadinessView } from "./AdminSducReadiness";
 import { AdminStockReconciliationView } from "./AdminStockReconciliation";
 import { AdminRetailPriceHistoryHealthView } from "./AdminRetailPriceHistoryHealth";
 import { AdminRetailPriceHistoryBackfill } from "./AdminRetailPriceHistoryBackfill";
@@ -47,7 +48,7 @@ export async function AdminCommercialPage({
   const config = CONFIG[domain];
   const context = await requireAdminPagePermission(config.permission);
   const service = createAdminOperationsService();
-  const [summary, retailHistoryHealth, retailHistoryAbsence, commercialIntegrity, stockReconciliation, priceCoverage] = await Promise.all([
+  const [summary, retailHistoryHealth, retailHistoryAbsence, commercialIntegrity, stockReconciliation, priceCoverage, sducReadiness] = await Promise.all([
     service.getCommercialSummary(domain, search),
     domain === "prices"
       ? service.getRetailPriceHistoryHealth()
@@ -64,6 +65,9 @@ export async function AdminCommercialPage({
     domain === "prices"
       ? service.getGovernedPriceCoverage()
       : Promise.resolve(null),
+    domain === "prices"
+      ? service.getSducReadiness()
+      : Promise.resolve(null),
   ]);
 
   return (
@@ -76,6 +80,7 @@ export async function AdminCommercialPage({
       <AdminCommercialSummaryView summary={summary} />
       {commercialIntegrity ? <AdminCommercialIntegrityView integrity={commercialIntegrity} /> : null}
       {priceCoverage ? <AdminGovernedPriceCoverageView coverage={priceCoverage} /> : null}
+      {sducReadiness ? <AdminSducReadinessView readiness={sducReadiness} /> : null}
       {stockReconciliation ? <AdminStockReconciliationView canRun={context.permissions.includes("admin.integrations.manage")} reconciliation={stockReconciliation} /> : null}
       {retailHistoryHealth ? <AdminRetailPriceHistoryHealthView health={retailHistoryHealth} /> : null}
       {retailHistoryHealth ? <AdminRetailPriceHistoryBackfill health={retailHistoryHealth} /> : null}

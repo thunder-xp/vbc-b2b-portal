@@ -110,6 +110,31 @@ export interface AdminGovernedPriceCoverage {
   }[];
 }
 
+export interface AdminSducReadiness {
+  generatedAt: string | null;
+  sourcePriceSyncedAt: string | null;
+  mode: "DRY_RUN";
+  active: false;
+  stopAuthorityStatus: "READY" | "BLOCKED";
+  enabledMechanismCount: number;
+  activeAuthorizationCount: number;
+  calibration: {
+    totalPairs?: number;
+    companyCount?: number;
+    productCount?: number;
+    missingBase?: number;
+    missingStop?: number;
+    currencyMismatch?: number;
+    noReserve?: number;
+    positiveReserve?: number;
+    support?: {
+      gte0_5?: number;
+      gte1?: number;
+      gte2?: number;
+    };
+  };
+}
+
 export interface AdminStockReconciliation {
   latest: {
     syncId: string;

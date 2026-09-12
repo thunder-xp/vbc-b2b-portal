@@ -6,6 +6,7 @@ import type {
   AdminCommercialSummary,
   AdminCommercialIntegrity,
   AdminGovernedPriceCoverage,
+  AdminSducReadiness,
   AdminStockReconciliation,
   AdminRetailHistoryAbsenceFilters,
   AdminRetailHistoryAbsencePage,
@@ -54,6 +55,10 @@ export class AdminOperationsService {
 
   getGovernedPriceCoverage(): Promise<AdminGovernedPriceCoverage> {
     return this.repository.getGovernedPriceCoverage();
+  }
+
+  getSducReadiness(): Promise<AdminSducReadiness> {
+    return this.repository.getSducReadiness();
   }
 
   getStockReconciliation(): Promise<AdminStockReconciliation> {
