@@ -7,6 +7,7 @@ import {
   CommunicationGatewayService,
   communicationRuntimePolicyFromEnvironment,
 } from "./communication-gateway.service";
+import { smsSandboxAllowlistFromEnvironment } from "./communication-policy.service";
 import { CommunicationTemplateRegistry } from "./communication-template.registry";
 import { DurableCommunicationService } from "./durable-communication.service";
 import type { DurableCommunicationRepository } from "./durable-communication.repository";
@@ -18,7 +19,7 @@ import {
   summarizeMoldcellConfiguration,
   type MoldcellConfigurationSummary,
 } from "./moldcell-sms.provider";
-import { maskPhone, normalizeE164Phone } from "./sms-phone";
+import { maskPhone } from "./sms-phone";
 import type { NotificationChannelAdapter } from "./types";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -207,10 +208,7 @@ function sandboxRegistry(): CommunicationTemplateRegistry {
 }
 
 function sandboxRecipients(environment: Readonly<Record<string, string | undefined>>): string[] {
-  return [...new Set((environment.COMMUNICATION_SANDBOX_SMS_ALLOWLIST ?? "")
-    .split(",")
-    .map((value) => normalizeE164Phone(value))
-    .filter((value): value is string => Boolean(value)))];
+  return [...smsSandboxAllowlistFromEnvironment(environment)];
 }
 
 function fingerprint(value: string): string {

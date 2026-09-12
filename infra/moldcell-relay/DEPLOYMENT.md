@@ -178,7 +178,7 @@ MOLDCELL_TRANSPORT_MODE=relay
 MOLDCELL_RELAY_URL=https://api.novotech.systems/internal/omnichannel/v1/sms/moldcell
 MOLDCELL_RELAY_AUTH_SECRET=<same secret as relay RELAY_AUTH_SECRET>
 MOLDCELL_RELAY_KEY_ID=<same key ID as relay RELAY_KEY_ID>
-SMS_SANDBOX_ALLOWED_RECIPIENTS=<explicitly approved canonical +373 E.164 list>
+SMS_SANDBOX_ALLOWED_RECIPIENTS=<single explicitly approved canonical +373 E.164 recipient>
 ```
 
 Do not place `MOLDCELL_GUID`, `MOLDCELL_PROVIDER_ID`, or `MOLDCELL_CUSTOMER_ID` in Vercel relay mode. Keep automated SMS producers disabled. A real sandbox SMS requires a separate explicit approval and receipt-confirmation acceptance step.

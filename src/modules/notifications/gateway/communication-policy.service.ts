@@ -49,8 +49,7 @@ export function communicationActivationPolicyFromEnvironment(
   const allowlist = new Set((environment.COMMUNICATION_SANDBOX_EMAIL_ALLOWLIST ?? "")
     .split(",").map(normalizeEmail).filter((value): value is string => Boolean(value)));
   const sandboxEmailRecipient = normalizeEmail(environment.COMMUNICATION_SANDBOX_EMAIL_RECIPIENT ?? "");
-  const sandboxSmsAllowlist = new Set((environment.COMMUNICATION_SANDBOX_SMS_ALLOWLIST ?? "")
-    .split(",").map((value) => normalizeE164Phone(value)).filter((value): value is string => Boolean(value)));
+  const sandboxSmsAllowlist = smsSandboxAllowlistFromEnvironment(environment);
   const purposeChannelModes = environment.SMS_MODE === "SANDBOX"
     ? Object.freeze({
       ...DEFAULT_PURPOSE_CHANNEL_MODES,
@@ -68,6 +67,16 @@ export function communicationActivationPolicyFromEnvironment(
     sandboxEmailAllowlist: allowlist,
     sandboxSmsAllowlist,
   });
+}
+
+export function smsSandboxAllowlistFromEnvironment(
+  environment: Readonly<Record<string, string | undefined>> = process.env,
+): ReadonlySet<string> {
+  const configured = environment.SMS_SANDBOX_ALLOWED_RECIPIENTS
+    ?? environment.COMMUNICATION_SANDBOX_SMS_ALLOWLIST
+    ?? "";
+  return new Set(configured
+    .split(",").map((value) => normalizeE164Phone(value)).filter((value): value is string => Boolean(value)));
 }
 
 export function classifyCommunicationPurpose(eventType: string): CommunicationPurpose | null {

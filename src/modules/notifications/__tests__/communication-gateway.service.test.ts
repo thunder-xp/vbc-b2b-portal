@@ -30,12 +30,21 @@ describe("CommunicationGatewayService", () => {
     const policy = communicationRuntimePolicyFromEnvironment({
       SMS_MODE: "SANDBOX",
       COMMUNICATION_SMS_KILL_SWITCH: "OFF",
-      COMMUNICATION_SANDBOX_SMS_ALLOWLIST: "+37369000000,37368000000,invalid",
+      SMS_SANDBOX_ALLOWED_RECIPIENTS: "+37369000000,37368000000,invalid",
     });
     expect(policy.purposeChannelModes.SUPPORT.sms).toBe("SANDBOX");
     expect(policy.purposeChannelModes.FINANCE.sms).toBe("DISABLED");
     expect(policy.purposeChannelModes.MARKETING.sms).toBe("DISABLED");
     expect([...policy.sandboxSmsAllowlist]).toEqual(["+37369000000"]);
+  });
+
+  it("keeps the legacy SMS allowlist name as a compatibility fallback", () => {
+    const policy = communicationRuntimePolicyFromEnvironment({
+      SMS_MODE: "SANDBOX",
+      COMMUNICATION_SANDBOX_SMS_ALLOWLIST: "+37368000000",
+    });
+
+    expect([...policy.sandboxSmsAllowlist]).toEqual(["+37368000000"]);
   });
 
   it("runs DRY_RUN through deterministic rendering without invoking a provider", async () => {
