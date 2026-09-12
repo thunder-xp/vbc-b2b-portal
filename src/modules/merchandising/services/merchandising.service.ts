@@ -32,6 +32,7 @@ export class MerchandisingService {
 
   async refreshB2bPopularity(): Promise<B2bPopularityRefreshResult> {
     const result = await this.repository.refreshB2bPopularity();
+    const coBuyResult = await this.repository.refreshPartnerCoBuy();
     console.info({
       event: "b2b_product_demand_ranking_refreshed",
       eligibleProductCount: result.eligibleProductCount,
@@ -41,6 +42,19 @@ export class MerchandisingService {
       windowEnd: result.windowEnd,
       unresolvedSourceLineCount: result.unresolvedSourceLineCount,
       durationMs: result.durationMs,
+      deployedCommitSha: process.env.VERCEL_GIT_COMMIT_SHA?.trim() || "local",
+    });
+    console.info({
+      event: "partner_product_cobuy_projection_refreshed",
+      refreshId: coBuyResult.refreshId,
+      businessDate: coBuyResult.businessDate,
+      windowStart: coBuyResult.windowStart,
+      windowEnd: coBuyResult.windowEnd,
+      totalOrderCount: coBuyResult.totalOrderCount,
+      eligibleSourceProductCount: coBuyResult.eligibleSourceProductCount,
+      associationCount: coBuyResult.associationCount,
+      minimumPairCompanyCount: coBuyResult.minimumPairCompanyCount,
+      durationMs: coBuyResult.durationMs,
       deployedCommitSha: process.env.VERCEL_GIT_COMMIT_SHA?.trim() || "local",
     });
     return result;

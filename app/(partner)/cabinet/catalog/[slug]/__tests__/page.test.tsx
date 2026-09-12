@@ -11,6 +11,8 @@ const mocks = vi.hoisted(() => ({
   getRelationSummary: vi.fn(),
   getCompetitive: vi.fn(),
   getCompetitorPricing: vi.fn(),
+  getCoBuy: vi.fn(),
+  getKnowledge: vi.fn(),
   listFavorites: vi.fn(),
 }));
 
@@ -27,6 +29,20 @@ vi.mock("@/src/modules/product-relations", () => ({
   getProductRelationSectionsAction: mocks.getRelationSections,
   getProductRelationSummaryAction: mocks.getRelationSummary,
   ProductRelationSectionsView: ({ sections }: { sections: { analogs: unknown[]; related: unknown[] } }) => <div>Relations {sections.analogs.length}/{sections.related.length}</div>,
+}));
+vi.mock("@/src/modules/product-cobuy", () => ({
+  getProductCoBuyRecommendationsAction: mocks.getCoBuy,
+  ProductCoBuySection: ({ cards }: { cards: unknown[] }) => (
+    <div data-testid="product-cobuy-section">Co-buy {cards.length}</div>
+  ),
+}));
+vi.mock("@/src/modules/knowledge-base/actions", () => ({
+  getProductKnowledgeAction: mocks.getKnowledge,
+}));
+vi.mock("@/src/modules/knowledge-base/landing-components", () => ({
+  KnowledgeCardView: ({ article }: { article: { id: string } }) => (
+    <div>Knowledge {article.id}</div>
+  ),
 }));
 vi.mock("@/src/modules/behavior-analytics/components", () => ({
   BehaviorViewEvent: ({ eventName }: { eventName: string }) => (
@@ -56,6 +72,8 @@ describe("product detail page data loading", () => {
     mocks.listFavorites.mockResolvedValue({ success: true, data: [] });
     mocks.getRelationSummary.mockResolvedValue({ success: true, data: { hasAnalogs: true, hasRelated: true } });
     mocks.getRelationSections.mockResolvedValue({ success: true, data: { analogs: [{ id: "analog-1" }], related: [{ id: "related-1" }], synchronizedAt: null } });
+    mocks.getCoBuy.mockResolvedValue({ success: true, data: [] });
+    mocks.getKnowledge.mockResolvedValue({ success: true, data: [] });
   });
 
   it("loads current commercial data once for the initial Overview render", async () => {
@@ -64,6 +82,7 @@ describe("product detail page data loading", () => {
     expect(mocks.getCommercial).toHaveBeenCalledWith(["product-1"]);
     expect(mocks.getRelationSummary).toHaveBeenCalledWith("product-1");
     expect(mocks.getRelationSections).not.toHaveBeenCalled();
+    expect(mocks.getCoBuy).toHaveBeenCalledWith("product-1");
     expect(mocks.getCompetitorPricing).toHaveBeenCalledOnce();
     expect(mocks.getCompetitorPricing).toHaveBeenCalledWith("company-1", "product-1", commercialView);
     expect(screen.getByText("Ваша цена")).toBeInTheDocument();
@@ -77,6 +96,7 @@ describe("product detail page data loading", () => {
     render(await ProductDetailPage({ params: Promise.resolve({ slug: "ip-camera" }), searchParams: Promise.resolve({ tab: "relations" }) }));
     expect(mocks.getRelationSections).toHaveBeenCalledWith("product-1");
     expect(mocks.getRelationSummary).not.toHaveBeenCalled();
+    expect(mocks.getCoBuy).not.toHaveBeenCalled();
     expect(mocks.getCommercial).toHaveBeenCalledWith(["product-1"]);
     expect(mocks.getWorkspace).toHaveBeenCalledOnce();
     expect(mocks.listFavorites).not.toHaveBeenCalled();
@@ -84,6 +104,32 @@ describe("product detail page data loading", () => {
     expect(screen.queryByText("Gallery")).not.toBeInTheDocument();
     expect(screen.queryByTestId("product-overview-tab")).not.toBeInTheDocument();
     expect(screen.getAllByTestId("behavior-event").map((node) => node.dataset.eventName)).toEqual(["product_viewed", "product_relations_tab_viewed"]);
+  });
+
+  it("places qualified co-buy cards after commerce and before reference content", async () => {
+    mocks.getCoBuy.mockResolvedValue({
+      success: true,
+      data: [{ id: "co-buy-1" }],
+    });
+    mocks.getKnowledge.mockResolvedValue({
+      success: true,
+      data: [{ id: "article-1" }],
+    });
+
+    render(await ProductDetailPage({
+      params: Promise.resolve({ slug: "ip-camera" }),
+      searchParams: Promise.resolve({}),
+    }));
+
+    const commerce = screen.getByTestId("product-overview-tab");
+    const coBuy = screen.getByTestId("product-cobuy-section");
+    const knowledge = screen.getByText("Knowledge article-1");
+    expect(
+      commerce.compareDocumentPosition(coBuy) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      coBuy.compareDocumentPosition(knowledge) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 
   it("starts detail, commercial, and workspace reads together after route identity", async () => {

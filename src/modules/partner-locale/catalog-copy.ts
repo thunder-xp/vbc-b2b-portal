@@ -150,6 +150,9 @@ export const getCatalogCopy = definePartnerCopy(
     expectedArrival: "Ожидается к поступлению",
     outOfStock: "Нет в наличии",
     usefulMaterials: "Полезные материалы",
+    partnerCoBuyTitle: "Другие партнёры с этим покупают",
+    partnerCoBuyPrivacyTooltip:
+      "Основано на обезличенной статистике совместных покупок партнёров Novotech.",
     relationsLoadError:
       "Не удалось загрузить связанные товары. Обновите страницу и попробуйте ещё раз.",
     productUnavailable: "Товар недоступен",
@@ -335,6 +338,10 @@ export const getCatalogCopy = definePartnerCopy(
     expectedArrival: "În curs de aprovizionare",
     outOfStock: "Stoc epuizat",
     usefulMaterials: "Materiale utile",
+    partnerCoBuyTitle:
+      "Alți parteneri cumpără împreună cu acest produs",
+    partnerCoBuyPrivacyTooltip:
+      "Bazat pe statistici anonimizate privind produsele cumpărate împreună de partenerii Novotech.",
     relationsLoadError:
       "Produsele asociate nu au putut fi încărcate. Actualizați pagina și încercați din nou.",
     productUnavailable: "Produs indisponibil",

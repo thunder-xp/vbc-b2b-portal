@@ -12,6 +12,7 @@ import type {
   ManageMerchandisingResult,
   MerchandisingLabelCode,
   PublishedMerchandisingAssignment,
+  PartnerCoBuyRefreshResult,
 } from "../../types";
 import type { EffectiveRollingPeriod } from "../../../commerce-period";
 
@@ -34,6 +35,18 @@ export class SupabaseMerchandisingRepository
     );
 
     if (error || !isPopularityRefreshResult(data)) {
+      throw repositoryError(error);
+    }
+
+    return data;
+  }
+
+  async refreshPartnerCoBuy(): Promise<PartnerCoBuyRefreshResult> {
+    const { data, error } = await createAdminClient().rpc(
+      "refresh_partner_product_cobuy_associations",
+    );
+
+    if (error || !isPartnerCoBuyRefreshResult(data)) {
       throw repositoryError(error);
     }
 
@@ -228,6 +241,28 @@ function isPopularityRefreshResult(
     typeof result.eligibleProductCount === "number" &&
     typeof result.popularSetSize === "number" &&
     typeof result.unresolvedSourceLineCount === "number" &&
+    typeof result.durationMs === "number"
+  );
+}
+
+function isPartnerCoBuyRefreshResult(
+  value: unknown,
+): value is PartnerCoBuyRefreshResult {
+  if (!value || typeof value !== "object") return false;
+  const result = value as Partial<PartnerCoBuyRefreshResult>;
+  return (
+    typeof result.refreshId === "string" &&
+    typeof result.refreshedAt === "string" &&
+    typeof result.businessDate === "string" &&
+    typeof result.windowStart === "string" &&
+    typeof result.windowEnd === "string" &&
+    typeof result.totalOrderCount === "number" &&
+    typeof result.eligibleSourceProductCount === "number" &&
+    typeof result.associationCount === "number" &&
+    typeof result.minimumPairOrderCount === "number" &&
+    typeof result.minimumPairCompanyCount === "number" &&
+    typeof result.minimumConfidence === "number" &&
+    typeof result.minimumLift === "number" &&
     typeof result.durationMs === "number"
   );
 }

@@ -89,6 +89,24 @@ export type B2bPopularityRefreshResult = {
   durationMs: number;
 };
 
+export type PartnerCoBuyRefreshResult = {
+  refreshId: string;
+  refreshedAt: string;
+  businessDate: string;
+  windowStart: string;
+  windowEnd: string;
+  totalOrderCount: number;
+  eligibleSourceProductCount: number;
+  associationCount: number;
+  sourceHistoryFrom: string | null;
+  sourceHistoryThrough: string | null;
+  minimumPairOrderCount: number;
+  minimumPairCompanyCount: number;
+  minimumConfidence: number;
+  minimumLift: number;
+  durationMs: number;
+};
+
 export type AdminMerchandisingPreviewProduct = {
   id: string;
   sku: string;
