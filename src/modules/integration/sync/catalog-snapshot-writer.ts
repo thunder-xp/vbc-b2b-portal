@@ -77,6 +77,8 @@ export class SupabaseCatalogSnapshotWriter implements CatalogSnapshotWriter {
 
       const { data: rowsDeactivated, error: deactivateError } = await client.rpc("finalize_catalog_sync_deactivation", { p_root_external_1c_id: snapshot.rootReference.externalId, p_sync_id: syncId });
       if (deactivateError) throw new Error("Catalog stale-row deactivation failed.");
+      const { error: replenishmentError } = await client.rpc("reconcile_current_warehouse_replenishment_day", { p_emit_notification: false });
+      if (replenishmentError) throw new Error("ARRIVAL projection reconciliation failed.");
       return { foldersUpserted, productsUpserted, rowsDeactivated: Number(rowsDeactivated ?? 0), attributesUpserted: publicationResult.published, attributesRemoved: publicationResult.removed, attributeUniquePairs: normalizedAttributes.uniquePairs, attributeDuplicatePairs: normalizedAttributes.duplicatePairs, attributeMultiValueMerges: normalizedAttributes.multiValueMerges, attributeBatchesStaged: attributeBatches.length, attributePublicationTransactionSucceeded: true };
     } catch (error) {
       await client.from("catalog_product_attribute_sync_stage").delete().eq("sync_id", syncId);

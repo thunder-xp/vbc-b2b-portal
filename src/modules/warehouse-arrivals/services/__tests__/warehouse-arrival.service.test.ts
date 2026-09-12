@@ -45,7 +45,7 @@ describe("WarehouseArrivalService", () => {
       { productId: secondProductId, partnerPrice: null, retailPrice: null, stock: { status: "in_stock" }, isDemoData: false },
     ]) };
     const result = await new WarehouseArrivalService(repository, workspace().service, catalog as never, pricing as never).getCurrentReplenishment(userId);
-    expect(result.products.map((product) => product.id)).toEqual([secondProductId, productId]);
+    expect(result.products.map((product) => product.id)).toEqual([productId, secondProductId]);
     expect(repository.getCurrentReplenishment).toHaveBeenCalledOnce();
     expect(catalog.getProductsByIds).toHaveBeenCalledOnce();
     expect(pricing.getProductCommercialViews).toHaveBeenCalledOnce();

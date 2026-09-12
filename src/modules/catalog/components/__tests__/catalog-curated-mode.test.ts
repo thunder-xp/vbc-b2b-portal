@@ -64,13 +64,13 @@ describe("catalog curated mode boundaries", () => {
   });
 
   it("keeps the replenishment collection title separate from its card badge", () => {
-    expect(sectionsAction).toContain('title: "Последнее поступление"');
-    expect(sectionsAction).toContain('contextBadge: "Пополнение"');
+    expect(sectionsAction).toContain('title: "Поступление"');
+    expect(sectionsAction).toContain('contextBadge: "Поступление"');
     expect(sectionsAction).not.toContain('contextBadge: "ПОПОЛНЕНИЕ"');
     expect(discovery).toContain('collection === "replenishment" ? copy.latestArrival');
     expect(discovery).toContain('collection === "replenishment" ? copy.replenishment');
-    expect(getCatalogCopy("ru").latestArrival).toBe("Последнее поступление");
-    expect(getCatalogCopy("ru").replenishment).toBe("Пополнение");
+    expect(getCatalogCopy("ru").latestArrival).toBe("Поступление");
+    expect(getCatalogCopy("ru").replenishment).toBe("Поступление");
   });
 });
 

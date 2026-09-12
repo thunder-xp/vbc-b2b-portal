@@ -198,8 +198,8 @@ describe("public retail UX", () => {
 
   it("names the full current replenishment collection explicitly", () => {
     render(<PublicRetailCatalog categories={[]} facets={[]} locale="ru" products={{ items: [], totalCount: 0, limit: 24, offset: 0 }} state={{ attributeFilters: {}, mode: "replenishment", page: 1 }} />);
-    expect(screen.getByRole("heading", { level: 1, name: "Последнее поступление" })).toBeInTheDocument();
-    const selector = screen.getByRole("link", { name: "Пополнение" });
+    expect(screen.getByRole("heading", { level: 1, name: "Поступление" })).toBeInTheDocument();
+    const selector = screen.getByRole("link", { name: "Поступление" });
     expect(selector).toHaveAttribute("aria-current", "page");
     expect(selector).toHaveClass("min-h-11", "px-4", "text-sm");
     expect(selector).not.toHaveClass("min-h-6", "text-[11px]", "rounded-sm");
@@ -210,7 +210,7 @@ describe("public retail UX", () => {
     ["new", "Новинки", "text-sky-800"],
     ["hot", "Горячая цена", "text-rose-800"],
     ["special", "Спецпредложения", "text-amber-900"],
-    ["replenishment", "Пополнение", "text-emerald-900"],
+    ["replenishment", "Поступление", "text-emerald-900"],
   ] as const)("shows the %s collection badge on every catalog card", (mode, label, tone) => {
     render(<PublicRetailCatalog categories={[]} facets={[]} locale="ru" products={{ items: [product], totalCount: 1, limit: 24, offset: 0 }} state={{ attributeFilters: {}, mode, page: 1 }} />);
     const badge = screen.getAllByText(label).find((element) => element.tagName === "SPAN");
