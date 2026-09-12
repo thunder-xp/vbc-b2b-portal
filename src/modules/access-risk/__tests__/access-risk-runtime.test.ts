@@ -24,6 +24,12 @@ describe("Partner Access Risk Radar runtime wiring", () => {
     expect(vercel.crons).toContainEqual({ path: "/api/cron/access-risk", schedule: "12 * * * *" });
   });
 
+  it("normalizes empty optional overview filters before the guarded RPC", () => {
+    const repository = read("src/modules/access-risk/repositories/supabase/access-risk.supabase-repository.ts");
+    expect(repository).toContain("p_risk_state: input.riskState || null");
+    expect(repository).toContain("p_mode: input.mode || null");
+  });
+
   it("adds Admin-only routes without any automated access mutation", () => {
     const overview = read("app/(admin)/admin/security/access-risk/page.tsx");
     const detail = read("app/(admin)/admin/security/access-risk/[companyId]/page.tsx");

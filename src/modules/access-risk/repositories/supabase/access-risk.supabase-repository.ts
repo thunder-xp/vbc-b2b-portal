@@ -50,8 +50,8 @@ export class SupabaseAccessRiskRepository implements AccessRiskRepository {
     const client = await createClient();
     const { data, error } = await client.rpc("get_admin_access_risk_overview", {
       p_query: input.query ?? null,
-      p_risk_state: input.riskState ?? null,
-      p_mode: input.mode ?? null,
+      p_risk_state: input.riskState || null,
+      p_mode: input.mode || null,
       p_sort: input.sort ?? "risk_desc",
       p_page: input.page,
       p_page_size: input.pageSize,
