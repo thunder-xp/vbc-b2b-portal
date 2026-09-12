@@ -34,9 +34,12 @@ describe("Partner Access Risk Radar runtime wiring", () => {
     const overview = read("app/(admin)/admin/security/access-risk/page.tsx");
     const detail = read("app/(admin)/admin/security/access-risk/[companyId]/page.tsx");
     const component = read("src/modules/access-risk/components/AccessRiskCompanyView.tsx");
+    const overviewComponent = read("src/modules/access-risk/components/AccessRiskOverviewView.tsx");
     expect(overview).toContain('requireAdminPagePermission("admin.security.view")');
     expect(detail).toContain('workspace.permissions.includes("admin.security.manage")');
     expect(component).toContain('href="/admin/security"');
     expect(component).not.toMatch(/revokeAccess|blockAccess|suspendAccess|requireMfa/i);
+    expect(overviewComponent).toContain("xl:grid-cols-[minmax(220px,1fr)_170px_170px_180px_auto]");
+    expect(overviewComponent).not.toContain("md:grid-cols-[minmax(220px,1fr)_170px_170px_180px_auto]");
   });
 });

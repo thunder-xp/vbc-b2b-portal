@@ -17,7 +17,7 @@ export function AccessRiskOverviewView({ data, filters }: {
       <Metric label="Расширенный" value={data.kpis.enhanced} tone="blue" />
       <Metric label="Всего компаний" value={data.kpis.total} />
     </div>
-    <form className="grid gap-3 border border-zinc-200 bg-white p-3 md:grid-cols-[minmax(220px,1fr)_170px_170px_180px_auto]" method="get">
+    <form className="grid gap-3 border border-zinc-200 bg-white p-3 xl:grid-cols-[minmax(220px,1fr)_170px_170px_180px_auto]" method="get">
       <label className="text-xs font-medium text-zinc-600">Компания<input name="q" defaultValue={filters.query} placeholder="Поиск" className="mt-1 h-10 w-full border border-zinc-300 px-3 text-sm" /></label>
       <Select label="Риск" name="risk" value={filters.riskState} options={[['','Все'],['HIGH','Высокий'],['ELEVATED','Повышенный'],['LOW','Низкий'],['LEARNING','Обучение']]} />
       <Select label="Режим" name="mode" value={filters.mode} options={[['','Все'],['NORMAL','Обычный'],['ENHANCED','Расширенный']]} />
