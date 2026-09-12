@@ -7,6 +7,8 @@ export * from "./durable-communication.service";
 export * from "./finance-payment-reminder.template";
 export * from "./notification-channel.adapter";
 export * from "./moldcell-sms.provider";
+export * from "./moldcell.transport";
+export * from "./sms-provider";
 export * from "./moldcell-sandbox.service";
 export * from "./sms-phone";
 export * from "./notification-delivery.repository";

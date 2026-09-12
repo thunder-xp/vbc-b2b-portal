@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { authorizeCronRequest } from "@/src/lib/cron-auth";
 import {
   NotificationDeliveryWorkerService,
-  MoldcellSmsProvider,
+  createMoldcellSmsChannelAdapter,
   SmtpNotificationChannelAdapter,
   SupabaseNotificationDeliveryRepository,
 } from "@/src/modules/notifications/gateway";
@@ -20,7 +20,7 @@ export async function GET(request: Request) {
   try {
     const result = await new NotificationDeliveryWorkerService(
       new SupabaseNotificationDeliveryRepository(),
-      [new SmtpNotificationChannelAdapter(), new MoldcellSmsProvider()],
+      [new SmtpNotificationChannelAdapter(), createMoldcellSmsChannelAdapter()],
     ).run();
     console.info({
       event: "notification_delivery_worker_completed",

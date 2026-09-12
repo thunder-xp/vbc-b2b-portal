@@ -26,7 +26,7 @@ describe("MoldcellSandboxService", () => {
     const dependencies = makeDependencies();
     const result = await dependencies.service.sendSandbox({
       operatorUserId: operatorId,
-      recipientToken: token("+99912345678"),
+      recipientToken: token("+37369000000"),
       message: "hello",
     });
 
@@ -36,7 +36,7 @@ describe("MoldcellSandboxService", () => {
       purpose: "SUPPORT",
       businessEventType: "support.sms_sandbox_test",
       companyId,
-      recipient: { userId, companyId, phone: "+99912345678" },
+      recipient: { userId, companyId, phone: "+37369000000" },
       channelPolicy: { sms: "SANDBOX" },
     });
     expect(projections).toEqual([expect.objectContaining({
@@ -50,7 +50,7 @@ describe("MoldcellSandboxService", () => {
       deliveryId, leaseToken, succeeded: true, providerCode: "0",
     })]);
     expect(result).toMatchObject({
-      deliveryId, attemptId, normalizedPhone: "+999*****678", providerStatus: "PROVIDER_ACCEPTED",
+      deliveryId, attemptId, normalizedPhone: "+373*****000", providerStatus: "PROVIDER_ACCEPTED",
     });
   });
 
@@ -58,7 +58,7 @@ describe("MoldcellSandboxService", () => {
     const dependencies = makeDependencies();
     await expect(dependencies.service.sendSandbox({
       operatorUserId: operatorId,
-      recipientToken: token("+99900000000"),
+      recipientToken: token("+37368000000"),
       message: "hello",
     })).rejects.toMatchObject({ safeCode: "SANDBOX_RECIPIENT_NOT_ALLOWED" });
     expect(dependencies.durable.persist).not.toHaveBeenCalled();
@@ -69,7 +69,7 @@ describe("MoldcellSandboxService", () => {
     const dependencies = makeDependencies({ SMS_MODE: "DISABLED" });
     await expect(dependencies.service.sendSandbox({
       operatorUserId: operatorId,
-      recipientToken: token("+99912345678"),
+      recipientToken: token("+37369000000"),
       message: "hello",
     })).rejects.toMatchObject({ safeCode: "SMS_SANDBOX_DISABLED" });
     expect(dependencies.durable.persist).not.toHaveBeenCalled();
@@ -81,10 +81,10 @@ describe("MoldcellSandboxService", () => {
     expect(readiness).toMatchObject({
       smsMode: "SANDBOX",
       identityConfigured: true,
-      allowedRecipients: [{ token: token("+99912345678"), maskedPhone: "+999*****678" }],
+      allowedRecipients: [{ token: token("+37369000000"), maskedPhone: "+373*****000" }],
       stored: { acceptedCount: 0, recipientLimitPerHour: 1, companyLimitPerHour: 5 },
     });
-    expect(JSON.stringify(readiness)).not.toContain("+99912345678");
+    expect(JSON.stringify(readiness)).not.toContain("+37369000000");
   });
 
   it("does not make a second provider call when the durable identity is already consumed", async () => {
@@ -92,7 +92,7 @@ describe("MoldcellSandboxService", () => {
     dependencies.delivery.claimSpecific
       .mockResolvedValueOnce(dependencies.claimed)
       .mockResolvedValueOnce(null);
-    const input = { operatorUserId: operatorId, recipientToken: token("+99912345678"), message: "hello" };
+    const input = { operatorUserId: operatorId, recipientToken: token("+37369000000"), message: "hello" };
     await dependencies.service.sendSandbox(input);
     await expect(dependencies.service.sendSandbox(input)).rejects.toMatchObject({
       safeCode: "SANDBOX_DELIVERY_NOT_CLAIMED",
@@ -105,15 +105,13 @@ function makeDependencies(overrides: Record<string, string> = {}) {
   const environment = {
     SMS_MODE: "SANDBOX",
     COMMUNICATION_SMS_KILL_SWITCH: "OFF",
-    COMMUNICATION_SANDBOX_SMS_ALLOWLIST: "+99912345678",
+    COMMUNICATION_SANDBOX_SMS_ALLOWLIST: "+37369000000",
     COMMUNICATION_SMS_SANDBOX_COMPANY_ID: companyId,
     COMMUNICATION_SMS_SANDBOX_USER_ID: userId,
-    MOLDCELL_TRANSPORT: "SECURE_RELAY",
-    MOLDCELL_RELAY_URL: "https://relay.example.com/internal/moldcell/sms",
+    MOLDCELL_TRANSPORT_MODE: "relay",
+    MOLDCELL_RELAY_URL: "https://relay.example.com/internal/omnichannel/v1/sms/moldcell",
     MOLDCELL_RELAY_KEY_ID: "key-1",
-    MOLDCELL_RELAY_SECRET: "not-a-real-secret",
-    MOLDCELL_SENDER: "NSD",
-    MOLDCELL_TEMPLATE: "NSD_NOTIFICATION",
+    MOLDCELL_RELAY_AUTH_SECRET: "not-a-real-secret-at-least-32-characters",
     ...overrides,
   };
   const durable = {
@@ -128,7 +126,7 @@ function makeDependencies(overrides: Record<string, string> = {}) {
     partnerOrderId: null, correlationId: "correlation", payloadVersion: 1, payload: {},
     channel: "sms", channelMode: "SANDBOX", purpose: "SUPPORT", policyDecision: "ALLOW",
     preferenceOutcome: "NOT_APPLICABLE", rateLimitOutcome: "NOT_EVALUATED", sandboxOutcome: "ALLOWED",
-    recipient: "+99912345678", recipientLocale: "ru", templateKey: "moldcell.sms_sandbox_test",
+    recipient: "+37369000000", recipientLocale: "ru", templateKey: "moldcell.sms_sandbox_test",
     templateVersion: 1, templateRevision: "v1", sensitivity: "SECURITY_SENSITIVE",
     renderedSnapshot: { subject: "Moldcell sandbox test", textBody: "NSD TEST: hello" },
     attempt: 1, attemptSequence: 1, attemptId, leaseToken, idempotencyKey: "delivery-key",

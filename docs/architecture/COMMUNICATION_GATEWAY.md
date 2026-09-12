@@ -2,7 +2,7 @@
 
 ## Current classification
 
-`OMNICHANNEL_GATEWAY_STATUS = MOLDCELL_SMS_SANDBOX_IMPLEMENTED_EXTERNAL_NETWORK_CONFIGURATION_BLOCKED`
+`OMNICHANNEL_GATEWAY_STATUS = PORTABLE_MOLDCELL_SMS_SANDBOX_IMPLEMENTED_STATIC_EGRESS_DEPLOYMENT_BLOCKED`
 
 The platform has one shared durable intent/delivery core, while external activation remains deliberately narrow:
 
@@ -11,7 +11,7 @@ The platform has one shared durable intent/delivery core, while external activat
 - proposal and company-invitation email retain their synchronous SMTP behavior and emergency kill-switch checks;
 - Supabase Auth owns registration/confirmation email outside the application gateway;
 - partner in-app notifications retain their existing first-party projection model;
-- Moldcell has a server-only adapter and a tightly permissioned `SUPPORT/SANDBOX` diagnostic path; normal, Finance, Marketing, bulk, and partner SMS remain disabled.
+- SMS has a provider-neutral channel/resolver, Moldcell is the first server-only provider, and a tightly permissioned `SUPPORT/SANDBOX` diagnostic path is the only active SMS path; normal, Finance, Marketing, bulk, and partner SMS remain disabled.
 
 The existing order outbox tables, lease worker, scheduler, retry policy, SMTP adapter, and diagnostics were generalized in place. No second queue, worker framework, scheduler, or event bus exists. `OUTBOX_STATUS = SHARED_DURABLE_CORE`.
 
@@ -19,7 +19,7 @@ The existing order outbox tables, lease worker, scheduler, retry policy, SMTP ad
 
 The dependency direction is:
 
-`business service → CommunicationIntent → gateway projection → durable delivery → lease worker → channel adapter → provider acceptance`
+`business service → CommunicationIntent → gateway projection → durable delivery → lease worker → SMS channel → provider resolver → provider → transport → provider acceptance`
 
 The gateway owns recipient safety validation, channel policy enforcement, deterministic template lookup, provider payload projection, delivery identity, transport state, adapter selection, and provider-acceptance semantics. It does not own Finance calculations, reminder cadence, Orders, Estimates, CRM, or commercial truth.
 
@@ -51,11 +51,11 @@ Provider-bound LIVE/SANDBOX claims reserve an idempotent PostgreSQL rate-limit r
 
 The known legacy browser-facing `POST https://api.novotech.systems/notification/moldcell-send/` endpoint accepted an unauthenticated malformed request without an authorization challenge and exposes Express through Cloudflare. CORS is not authentication, so it is classified `LEGACY_ENDPOINT_AUTH=UNAUTHENTICATED` and is explicitly rejected as a relay URL. No legacy source was available locally to prove an upstream middleware control. Moldcell historically required source-IP allowlisting; the Cloudflare-fronted legacy origin/egress and any Vercel allowlisting could not be proven. The current safe classification is `MOLDCELL_NETWORK_PATH=LEGACY_RELAY_REQUIRED`: the old network location may be retained only behind a new authenticated transport endpoint with HMAC-SHA256 signing, timestamp, nonce, body hash, idempotency key, strict schema validation, replay prevention, rate limiting, and correlation audit. Business rules, retries, templates, and recipient selection remain here in Omnichannel.
 
-Direct WSG transport is also implemented for an independently proven static allowlisted egress. It maps the established provider contract (`guid`, fixed `from`, fixed `template`, `to` without the internal E.164 `+`, and `customText`) and does not add unproven provider parameters. The relay and direct transports are mutually exclusive server-side configurations. Historical credentials are not reused or documented and should be rotated before activation.
+Direct WSG transport is also implemented for an independently proven static allowlisted egress. The provider maps the established contract (`guid`, fixed `from=NSD`, fixed `template=NSD_NOTIFICATION`, `to` without the internal E.164 `+`, and `customText`) and does not add unproven provider parameters. The relay and direct transports implement one network-only seam and are mutually exclusive server-side configurations. Historical credentials are not reused or documented and should be rotated before activation.
 
-Moldcell `resultCode="0"` maps to `PROVIDER_ACCEPTED`, never `DELIVERED`. Double-encoded legacy responses are normalized at the boundary but never propagated. HTTP 429/5xx, network failures, and timeouts are retryable through the existing three-attempt/2-and-15-minute durable policy; authentication/4xx and unknown nonzero provider codes fail final unless an operator configures a documented code classification. The provider timeout defaults to 10 seconds and is bounded to 1–30 seconds.
+Moldcell `resultCode="0"` maps to `PROVIDER_ACCEPTED`, never `DELIVERED`; `20001` maps to permanent `INVALID_MSISDN`, `20012` to permanent `OUTNET_NOT_ALLOWED`, and other nonzero codes to permanent `UNKNOWN_PROVIDER_FAILURE`. Double-encoded legacy responses are normalized at the boundary but never propagated. HTTP 429/5xx, network failures, and timeouts are retryable through the existing three-attempt/2-and-15-minute durable policy. The provider timeout defaults to 10 seconds and is bounded to 1–30 seconds.
 
-Official current GSM-7/UCS-2, concatenation, DLR, and provider error-code documentation was not available during implementation. The fail-safe default is therefore one nonempty message of at most 70 Unicode code points, no control characters, no truncation, and no delivery claim beyond provider acceptance. Sender and template are fixed server policy, never caller input.
+Official current GSM-7/UCS-2, concatenation, callback/polling DLR documentation was not available during implementation. The fail-safe default is therefore one nonempty message of at most 70 Unicode code points, no control characters, no truncation, and no delivery claim beyond provider acceptance. Sender and template are fixed provider policy, never caller input.
 
 ## Durable entity and state mapping
 

@@ -10,6 +10,7 @@ import type {
   DurableCommunicationRepository,
 } from "./durable-communication.repository";
 import { normalizeE164Phone } from "./sms-phone";
+import { resolveSmsProviderIdentity } from "./sms-provider";
 
 const persistedSchema = z.object({
   intentId: z.string(),
@@ -73,7 +74,8 @@ implements DurableCommunicationRepository {
         locale: projection.locale,
         templateKey: projection.templateKey,
         templateRevision: projection.templateVersion,
-        adapterIdentity: projection.channel === "email" ? "smtp" : projection.channel === "sms" ? "moldcell" : null,
+        adapterIdentity: projection.channel === "email" ? "smtp"
+          : projection.channel === "sms" ? resolveSmsProviderIdentity(normalizedRecipient(projection)) : null,
         renderSnapshot: projection.rendered,
       })),
     });

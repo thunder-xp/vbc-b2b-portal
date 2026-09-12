@@ -153,7 +153,7 @@ describe("NotificationDeliveryWorkerService", () => {
   it("sends only the exact SUPPORT SMS sandbox snapshot through a targeted durable claim", async () => {
     vi.stubEnv("SMS_MODE", "SANDBOX");
     vi.stubEnv("COMMUNICATION_SMS_KILL_SWITCH", "OFF");
-    vi.stubEnv("COMMUNICATION_SANDBOX_SMS_ALLOWLIST", "+99912345678");
+    vi.stubEnv("COMMUNICATION_SANDBOX_SMS_ALLOWLIST", "+37369000000");
     expect(communicationActivationPolicyFromEnvironment().purposeChannelModes.SUPPORT.sms).toBe("SANDBOX");
     const smsDelivery: ClaimedNotificationDelivery = {
       ...delivery,
@@ -163,7 +163,7 @@ describe("NotificationDeliveryWorkerService", () => {
       preferenceOutcome: "NOT_APPLICABLE",
       sandboxOutcome: "ALLOWED",
       eventType: "support.sms_sandbox_test",
-      recipient: "+99912345678",
+      recipient: "+37369000000",
       renderedSnapshot: { subject: "Moldcell sandbox test", textBody: "NSD TEST: hello" },
       attemptId: "88888888-8888-4888-8888-888888888888",
     };
@@ -173,7 +173,7 @@ describe("NotificationDeliveryWorkerService", () => {
     expect(dependencies.repository.completeBatch).toHaveBeenCalledWith([expect.objectContaining({ succeeded: true })]);
     expect(dependencies.repository.claimSpecific).toHaveBeenCalledWith(smsDelivery.deliveryId, 90);
     expect(dependencies.adapter.send).toHaveBeenCalledWith(expect.objectContaining({
-      recipient: "+99912345678", text: "NSD TEST: hello", idempotencyKey: smsDelivery.idempotencyKey,
+      recipient: "+37369000000", text: "NSD TEST: hello", idempotencyKey: smsDelivery.idempotencyKey,
     }));
     expect(result.attempts?.[0]).toMatchObject({ attemptId: smsDelivery.attemptId, status: "sent" });
   });
@@ -181,14 +181,14 @@ describe("NotificationDeliveryWorkerService", () => {
   it("fails a cross-purpose SMS sandbox snapshot closed", async () => {
     vi.stubEnv("SMS_MODE", "SANDBOX");
     vi.stubEnv("COMMUNICATION_SMS_KILL_SWITCH", "OFF");
-    vi.stubEnv("COMMUNICATION_SANDBOX_SMS_ALLOWLIST", "+99912345678");
+    vi.stubEnv("COMMUNICATION_SANDBOX_SMS_ALLOWLIST", "+37369000000");
     const smsDelivery: ClaimedNotificationDelivery = {
       ...delivery,
       channel: "sms",
       channelMode: "SANDBOX",
       purpose: "FINANCE",
       eventType: "finance.payment_reminder",
-      recipient: "+99912345678",
+      recipient: "+37369000000",
       renderedSnapshot: { subject: "unsafe", textBody: "unsafe" },
     };
     const dependencies = makeDependencies(smsDelivery);

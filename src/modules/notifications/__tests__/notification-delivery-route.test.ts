@@ -11,7 +11,7 @@ vi.mock("@/src/modules/notifications/gateway", () => ({
     run = mocks.run;
   },
   SmtpNotificationChannelAdapter: class {},
-  MoldcellSmsProvider: class {},
+  createMoldcellSmsChannelAdapter: vi.fn(() => ({ channel: "sms", send: vi.fn() })),
   SupabaseNotificationDeliveryRepository: class {},
 }));
 

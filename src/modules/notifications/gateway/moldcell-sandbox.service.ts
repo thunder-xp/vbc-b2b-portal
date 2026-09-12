@@ -13,7 +13,7 @@ import type { DurableCommunicationRepository } from "./durable-communication.rep
 import type { NotificationDeliveryRepository } from "./notification-delivery.repository";
 import { NotificationDeliveryWorkerService } from "./notification-delivery-worker.service";
 import {
-  MoldcellSmsProvider,
+  createMoldcellSmsChannelAdapter,
   moldcellConfigurationFromEnvironment,
   summarizeMoldcellConfiguration,
   type MoldcellConfigurationSummary,
@@ -75,7 +75,7 @@ export class MoldcellSandboxService {
     private readonly healthRepository: MoldcellSmsHealthRepository,
     private readonly environment: Readonly<Record<string, string | undefined>> = process.env,
     private readonly providerFactory: (configuration: ReturnType<typeof moldcellConfigurationFromEnvironment>) => NotificationChannelAdapter
-      = (configuration) => new MoldcellSmsProvider(configuration),
+      = () => createMoldcellSmsChannelAdapter(this.environment),
   ) {}
 
   async getReadiness(): Promise<MoldcellSmsReadiness> {

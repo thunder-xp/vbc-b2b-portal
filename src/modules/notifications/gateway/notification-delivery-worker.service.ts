@@ -110,7 +110,7 @@ export class NotificationDeliveryWorkerService {
         deliveryId: deliveries[index]!.deliveryId,
         attemptId: deliveries[index]!.attemptId ?? null,
         status: outcome.status,
-        provider: outcome.providerResult?.provider ?? (deliveries[index]!.channel === "sms" ? "moldcell" : null),
+        provider: outcome.providerResult?.provider ?? null,
         providerStatus: outcome.providerResult?.providerStatus ?? null,
         providerCode: outcome.providerResult?.providerCode ?? outcome.providerError?.providerCode ?? null,
         providerMessage: outcome.providerResult?.providerMessage ?? outcome.providerError?.providerMessage ?? null,
@@ -185,6 +185,7 @@ export class NotificationDeliveryWorkerService {
         ...renderDeliveryMessage(delivery),
         deliveryId: delivery.deliveryId,
         idempotencyKey: delivery.idempotencyKey,
+        locale: delivery.recipientLocale ?? "ru",
         messageId: `<notification-${delivery.deliveryId}@nsd.md>`,
       };
       if (delivery.channelMode === "SANDBOX" && delivery.channel === "email") {

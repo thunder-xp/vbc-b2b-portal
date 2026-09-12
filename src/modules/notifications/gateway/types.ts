@@ -8,6 +8,7 @@ export type NotificationMessage = {
   text: string;
   html: string;
   messageId?: string;
+  locale?: "ru" | "ro";
 };
 
 export type NotificationDeliveryResult = {
@@ -28,6 +29,7 @@ export type NotificationDeliveryErrorCategory =
   | "authentication"
   | "invalid_message"
   | "invalid_recipient"
+  | "no_sms_provider_for_destination"
   | "network"
   | "rate_limit"
   | "rejected"
