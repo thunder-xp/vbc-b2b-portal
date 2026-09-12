@@ -31,6 +31,10 @@ import { getPartnerLocale } from "@/src/modules/partner-locale/server";
 import { PartnerProductCompetitiveIntelligenceService } from "@/src/modules/competitive-intelligence";
 import { ProductCompetitiveIntelligence } from "@/src/modules/competitive-intelligence/components";
 import { CompetitorRetailPricingService } from "@/src/modules/competitive-intelligence/retail-pricing.service";
+import {
+  getProductCoBuyRecommendationsAction,
+  ProductCoBuySection,
+} from "@/src/modules/product-cobuy";
 
 type ProductDetailPageProps = {
   params: Promise<{
@@ -81,6 +85,7 @@ export default async function ProductDetailPage({
     relationResult,
     relationSummaryResult,
     knowledgeResult,
+    coBuyResult,
   ] = await Promise.all([
     getCatalogProductDetailByIdAction(
       identityResult.data.id,
@@ -102,6 +107,9 @@ export default async function ProductDetailPage({
       : Promise.resolve(null),
     activeTab === "overview"
       ? getProductKnowledgeAction(identityResult.data.id)
+      : Promise.resolve(null),
+    activeTab === "overview"
+      ? getProductCoBuyRecommendationsAction(identityResult.data.id)
       : Promise.resolve(null),
   ]);
 
@@ -180,18 +188,6 @@ export default async function ProductDetailPage({
         route={`/cabinet/catalog/${productResult.data.slug}`}
         sourceSurface="product_detail"
       />
-      {activeTab === "overview" &&
-      knowledgeResult?.success &&
-      knowledgeResult.data.length ? (
-        <section className="mx-auto max-w-7xl px-4 pb-10">
-          <h2 className="text-lg font-semibold">{copy.usefulMaterials}</h2>
-          <div className="mt-3 grid gap-3 md:grid-cols-3">
-            {knowledgeResult.data.map((article) => (
-              <KnowledgeCardView article={article} key={article.id} />
-            ))}
-          </div>
-        </section>
-      ) : null}
       <ProductDetail
         activeTab={activeTab}
         canAddToOrder={canAddToOrder}
@@ -260,6 +256,30 @@ export default async function ProductDetailPage({
         userId={userId}
         competitorPricing={competitorPricing}
       />
+      {activeTab === "overview" &&
+      coBuyResult?.success &&
+      coBuyResult.data.length &&
+      workspaceResult.success ? (
+        <ProductCoBuySection
+          capabilities={workspaceResult.data.capabilities.productCard}
+          cards={coBuyResult.data}
+          companyId={companyId}
+          locale={locale}
+          userId={userId}
+        />
+      ) : null}
+      {activeTab === "overview" &&
+      knowledgeResult?.success &&
+      knowledgeResult.data.length ? (
+        <section className="mx-auto max-w-7xl px-4 pb-10">
+          <h2 className="text-lg font-semibold">{copy.usefulMaterials}</h2>
+          <div className="mt-3 grid gap-3 md:grid-cols-3">
+            {knowledgeResult.data.map((article) => (
+              <KnowledgeCardView article={article} key={article.id} />
+            ))}
+          </div>
+        </section>
+      ) : null}
       {tabViewEvent(activeTab) ? (
         <BehaviorViewEvent
           dedupeKey={`product-tab:${activeTab}:${productResult.data.id}`}

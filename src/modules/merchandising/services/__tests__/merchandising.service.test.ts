@@ -110,6 +110,7 @@ function createService(repository = repositoryStub()) {
 function repositoryStub(): MerchandisingRepository {
   return {
     refreshB2bPopularity: vi.fn(),
+    refreshPartnerCoBuy: vi.fn(),
     listAdminProducts: vi.fn(),
     getAdminPreview: vi.fn().mockResolvedValue({ sections: [] }),
     listPublished: vi.fn().mockResolvedValue([]),

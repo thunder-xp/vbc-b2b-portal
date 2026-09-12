@@ -6,11 +6,13 @@ import type {
   ManageMerchandisingResult,
   MerchandisingLabelCode,
   PublishedMerchandisingAssignment,
+  PartnerCoBuyRefreshResult,
 } from "../types";
 import type { EffectiveRollingPeriod } from "../../commerce-period";
 
 export interface MerchandisingRepository {
   refreshB2bPopularity(): Promise<B2bPopularityRefreshResult>;
+  refreshPartnerCoBuy(): Promise<PartnerCoBuyRefreshResult>;
   listAdminProducts(input: {
     search?: string;
     page: number;
