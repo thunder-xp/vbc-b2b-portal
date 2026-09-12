@@ -199,6 +199,11 @@ export const ADMIN_NAVIGATION: readonly AdminNavigationGroup[] = [
         href: "/admin/security",
         permission: "admin.security.view",
       },
+      {
+        label: "Мониторинг рисков",
+        href: "/admin/security/access-risk",
+        permission: "admin.security.view",
+      },
     ],
   },
   {

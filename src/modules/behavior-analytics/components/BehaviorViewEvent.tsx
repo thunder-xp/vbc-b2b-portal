@@ -3,6 +3,8 @@
 import { useEffect, useRef } from "react";
 import Link from "next/link";
 
+import { enqueueAccessRiskTelemetry } from "@/src/modules/access-risk/client/access-risk-telemetry";
+
 import {
   recordBehaviorEventAction,
   recordBehaviorEventsAction,
@@ -57,6 +59,12 @@ export function BehaviorViewEvent({
     const sessionId = getSessionId();
     for (const event of events) {
       sessionStorage.setItem(`novotech-behavior-view:${navigationId}:${event.dedupeKey}`, "pending");
+      enqueueAccessRiskTelemetry({
+        eventName: event.eventName,
+        route: event.route,
+        productId: "productId" in event ? event.productId : undefined,
+        categoryId: "categoryId" in event ? event.categoryId : undefined,
+      });
     }
     void recordBehaviorEventsAction(events.map((event) => {
       const input: Omit<typeof event, "dedupeKey"> & {
@@ -169,6 +177,11 @@ type BehaviorInteractionInput = {
 };
 
 export function recordBehaviorInteraction(input: BehaviorInteractionInput): void {
+  enqueueAccessRiskTelemetry({
+    eventName: input.eventName,
+    route: input.route,
+    productId: input.productId,
+  });
   void recordBehaviorEventAction({
     ...input,
     sessionId: getSessionId(),
