@@ -120,6 +120,38 @@ COMMUNICATION_SMS_KILL_SWITCH=ON
 
 The global switch blocks every application-owned external adapter. Channel switches are independent. Unset/`OFF` email switches preserve approved transactional email; SMS defaults to blocked until an explicitly governed integration enables it. Finance reminder intents remain `DRY_RUN` in code and are not activated by these switches.
 
+Moldcell is available only through the server-side Omnichannel sandbox diagnostic. Keep normal outbound SMS disabled and configure exactly one transport outside source control:
+
+```bash
+SMS_MODE=SANDBOX
+COMMUNICATION_SMS_KILL_SWITCH=OFF
+COMMUNICATION_SANDBOX_SMS_ALLOWLIST=+99912345678
+COMMUNICATION_SMS_SANDBOX_COMPANY_ID=00000000-0000-4000-8000-000000000000
+COMMUNICATION_SMS_SANDBOX_USER_ID=00000000-0000-4000-8000-000000000000
+
+# Preferred when Moldcell requires fixed source IP: authenticated server-to-server relay
+MOLDCELL_TRANSPORT=SECURE_RELAY
+MOLDCELL_RELAY_URL=https://relay.example.com/internal/moldcell/sms
+MOLDCELL_RELAY_KEY_ID=rotatable-key-id
+MOLDCELL_RELAY_SECRET=replace-with-secret
+
+# Or direct WSG, only from a proven allowlisted stable egress
+# MOLDCELL_TRANSPORT=DIRECT
+# MOLDCELL_BASE_URL=https://wsg.moldcell.md
+# MOLDCELL_PROVIDER_ID=provider-identifier
+# MOLDCELL_CUSTOMER_ID=customer-identifier
+# MOLDCELL_GUID=replace-with-secret
+
+MOLDCELL_SENDER=approved-sender
+MOLDCELL_TEMPLATE=approved-template
+MOLDCELL_TIMEOUT_MS=10000
+MOLDCELL_SMS_MAX_CHARACTERS=70
+MOLDCELL_RETRYABLE_RESULT_CODES=
+MOLDCELL_PERMANENT_RESULT_CODES=
+```
+
+The allowlist uses strict `+` E.164 numbers. The UI receives only masked numbers and one-way selection tokens. Provider identifiers, credentials, full request URLs, and relay signing secrets stay server-only. A nonzero Moldcell result code is final/unknown unless explicitly classified from provider documentation; the adapter never truncates messages.
+
 `SMTP_USER`, `SMTP_PASSWORD`, and provider responses remain server-only. Public proposal links contain a one-time generated high-entropy token; the database stores only its SHA-256 hash.
 
 SMTP connectivity can be verified without sending a message by calling `POST /api/internal/smtp-verify` with `Authorization: Bearer <secret>`. The route uses `SMTP_DIAGNOSTIC_SECRET` when configured, otherwise the existing server-only `CRON_SECRET`. It returns only configuration, connection, authentication, safe error category, and duration fields.

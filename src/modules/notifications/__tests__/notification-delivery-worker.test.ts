@@ -8,6 +8,7 @@ import type {
 import {
   NotificationDeliveryError,
   NotificationDeliveryWorkerService,
+  communicationActivationPolicyFromEnvironment,
   type ClaimedNotificationDelivery,
   type NotificationChannelAdapter,
 } from "../gateway";
@@ -148,6 +149,54 @@ describe("NotificationDeliveryWorkerService", () => {
       retryable: false,
     })]);
   });
+
+  it("sends only the exact SUPPORT SMS sandbox snapshot through a targeted durable claim", async () => {
+    vi.stubEnv("SMS_MODE", "SANDBOX");
+    vi.stubEnv("COMMUNICATION_SMS_KILL_SWITCH", "OFF");
+    vi.stubEnv("COMMUNICATION_SANDBOX_SMS_ALLOWLIST", "+99912345678");
+    expect(communicationActivationPolicyFromEnvironment().purposeChannelModes.SUPPORT.sms).toBe("SANDBOX");
+    const smsDelivery: ClaimedNotificationDelivery = {
+      ...delivery,
+      channel: "sms",
+      channelMode: "SANDBOX",
+      purpose: "SUPPORT",
+      preferenceOutcome: "NOT_APPLICABLE",
+      sandboxOutcome: "ALLOWED",
+      eventType: "support.sms_sandbox_test",
+      recipient: "+99912345678",
+      renderedSnapshot: { subject: "Moldcell sandbox test", textBody: "NSD TEST: hello" },
+      attemptId: "88888888-8888-4888-8888-888888888888",
+    };
+    const dependencies = makeDependencies(smsDelivery);
+    const result = await dependencies.worker.runOne(smsDelivery.deliveryId);
+    expect(result).toMatchObject({ sent: 1, suppressed: 0, failed: 0 });
+    expect(dependencies.repository.completeBatch).toHaveBeenCalledWith([expect.objectContaining({ succeeded: true })]);
+    expect(dependencies.repository.claimSpecific).toHaveBeenCalledWith(smsDelivery.deliveryId, 90);
+    expect(dependencies.adapter.send).toHaveBeenCalledWith(expect.objectContaining({
+      recipient: "+99912345678", text: "NSD TEST: hello", idempotencyKey: smsDelivery.idempotencyKey,
+    }));
+    expect(result.attempts?.[0]).toMatchObject({ attemptId: smsDelivery.attemptId, status: "sent" });
+  });
+
+  it("fails a cross-purpose SMS sandbox snapshot closed", async () => {
+    vi.stubEnv("SMS_MODE", "SANDBOX");
+    vi.stubEnv("COMMUNICATION_SMS_KILL_SWITCH", "OFF");
+    vi.stubEnv("COMMUNICATION_SANDBOX_SMS_ALLOWLIST", "+99912345678");
+    const smsDelivery: ClaimedNotificationDelivery = {
+      ...delivery,
+      channel: "sms",
+      channelMode: "SANDBOX",
+      purpose: "FINANCE",
+      eventType: "finance.payment_reminder",
+      recipient: "+99912345678",
+      renderedSnapshot: { subject: "unsafe", textBody: "unsafe" },
+    };
+    const dependencies = makeDependencies(smsDelivery);
+    dependencies.repository.completeBatch.mockResolvedValue([completion("suppressed")]);
+    const result = await dependencies.worker.runOne(smsDelivery.deliveryId);
+    expect(result.suppressed).toBe(1);
+    expect(dependencies.adapter.send).not.toHaveBeenCalled();
+  });
 });
 
 const delivery: ClaimedNotificationDelivery = {
@@ -188,6 +237,7 @@ function completion(status: CompleteNotificationDeliveryResult["status"]) {
 function makeDependencies(claimed = delivery) {
   const repository = {
     claim: vi.fn().mockResolvedValue([claimed]),
+    claimSpecific: vi.fn().mockResolvedValue(claimed),
     reserveRateLimits: vi.fn().mockImplementation(async (
       claims: ReadonlyArray<{ deliveryId: string; leaseToken: string }>,
     ) => claims.map((claim) => ({
@@ -198,7 +248,7 @@ function makeDependencies(claimed = delivery) {
       .mockResolvedValue([completion("sent")]),
   } satisfies NotificationDeliveryRepository;
   const adapter = {
-    channel: "email" as const,
+    channel: claimed.channel === "sms" ? "sms" as const : "email" as const,
     send: vi.fn<NotificationChannelAdapter["send"]>()
       .mockResolvedValue({ providerMessageId: "message-1" }),
   };

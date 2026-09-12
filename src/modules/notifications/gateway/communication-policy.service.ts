@@ -12,6 +12,7 @@ import type {
   CommunicationSandboxOutcome,
   CommunicationSuppressionReason,
 } from "./communication-intent";
+import { normalizeE164Phone } from "./sms-phone";
 
 export type CommunicationPolicyDecision = Readonly<{
   decision: "ALLOW" | "SUPPRESS";
@@ -31,6 +32,7 @@ export type CommunicationActivationPolicy = Readonly<{
   purposeChannelModes: Readonly<Record<CommunicationPurpose, Readonly<Record<CommunicationChannel, CommunicationChannelMode>>>>;
   sandboxEmailRecipient: string | null;
   sandboxEmailAllowlist: ReadonlySet<string>;
+  sandboxSmsAllowlist: ReadonlySet<string>;
 }>;
 
 export const DEFAULT_PURPOSE_CHANNEL_MODES = Object.freeze({
@@ -47,15 +49,24 @@ export function communicationActivationPolicyFromEnvironment(
   const allowlist = new Set((environment.COMMUNICATION_SANDBOX_EMAIL_ALLOWLIST ?? "")
     .split(",").map(normalizeEmail).filter((value): value is string => Boolean(value)));
   const sandboxEmailRecipient = normalizeEmail(environment.COMMUNICATION_SANDBOX_EMAIL_RECIPIENT ?? "");
+  const sandboxSmsAllowlist = new Set((environment.COMMUNICATION_SANDBOX_SMS_ALLOWLIST ?? "")
+    .split(",").map((value) => normalizeE164Phone(value)).filter((value): value is string => Boolean(value)));
+  const purposeChannelModes = environment.SMS_MODE === "SANDBOX"
+    ? Object.freeze({
+      ...DEFAULT_PURPOSE_CHANNEL_MODES,
+      SUPPORT: Object.freeze({ ...DEFAULT_PURPOSE_CHANNEL_MODES.SUPPORT, sms: "SANDBOX" as const }),
+    })
+    : DEFAULT_PURPOSE_CHANNEL_MODES;
   return Object.freeze({
     globalExternalKillSwitch: environment.COMMUNICATION_OUTBOUND_KILL_SWITCH === "ON",
     channelKillSwitches: Object.freeze({
       email: environment.COMMUNICATION_EMAIL_KILL_SWITCH === "ON",
       sms: environment.COMMUNICATION_SMS_KILL_SWITCH !== "OFF",
     }),
-    purposeChannelModes: DEFAULT_PURPOSE_CHANNEL_MODES,
+    purposeChannelModes,
     sandboxEmailRecipient,
     sandboxEmailAllowlist: allowlist,
+    sandboxSmsAllowlist,
   });
 }
 
@@ -105,10 +116,16 @@ export function evaluateCommunicationPolicy(input: {
   else if (rateLimitOutcome === "RATE_LIMITED") reason = "RATE_LIMITED";
   else if (input.duplicate) reason = "DUPLICATE_DELIVERY";
   else if (mode === "SANDBOX") {
-    sandboxActualRecipient = activation.sandboxEmailRecipient;
+    sandboxActualRecipient = channel === "email"
+      ? activation.sandboxEmailRecipient
+      : channel === "sms" ? normalizeE164Phone(originalRecipient) : null;
     sandboxOutcome = channel === "email" && validEmail(sandboxActualRecipient)
       && activation.sandboxEmailAllowlist.has(sandboxActualRecipient)
-      ? "ALLOWED" : channel === "email" ? "RECIPIENT_NOT_ALLOWED" : "PROVIDER_UNAVAILABLE";
+      ? "ALLOWED"
+      : channel === "sms" && sandboxActualRecipient
+        && activation.sandboxSmsAllowlist.has(sandboxActualRecipient)
+        ? "ALLOWED"
+        : channel === "email" || channel === "sms" ? "RECIPIENT_NOT_ALLOWED" : "PROVIDER_UNAVAILABLE";
     if (sandboxOutcome === "RECIPIENT_NOT_ALLOWED") reason = "SANDBOX_RECIPIENT_NOT_ALLOWED";
     else if (sandboxOutcome === "PROVIDER_UNAVAILABLE") reason = "PROVIDER_UNAVAILABLE";
   }
@@ -160,7 +177,7 @@ function validEmail(value: string | null | undefined): value is string {
 }
 
 function validPhone(value: string | null | undefined): value is string {
-  return Boolean(value && /^\+[1-9]\d{7,14}$/.test(value.replace(/[\s()-]/g, "")));
+  return Boolean(value && normalizeE164Phone(value));
 }
 
 function fingerprint(value: string): string {

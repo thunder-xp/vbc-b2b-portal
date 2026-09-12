@@ -6,6 +6,9 @@ export type CompleteNotificationDeliveryInput = {
   succeeded: boolean;
   retryable: boolean;
   providerMessageId?: string | null;
+  providerCode?: string | null;
+  providerMessage?: string | null;
+  providerTimestamp?: string | null;
   errorCategory?: string | null;
   durationMs: number;
 };
@@ -27,6 +30,7 @@ export type NotificationRateLimitResult = Readonly<{
 
 export interface NotificationDeliveryRepository {
   claim(batchSize: number, leaseSeconds: number): Promise<ClaimedNotificationDelivery[]>;
+  claimSpecific(deliveryId: string, leaseSeconds: number): Promise<ClaimedNotificationDelivery | null>;
   reserveRateLimits(claims: ReadonlyArray<{ deliveryId: string; leaseToken: string }>): Promise<NotificationRateLimitResult[]>;
   completeBatch(
     inputs: CompleteNotificationDeliveryInput[],

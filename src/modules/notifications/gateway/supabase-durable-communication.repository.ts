@@ -9,6 +9,7 @@ import type {
   DurableCommunicationRecord,
   DurableCommunicationRepository,
 } from "./durable-communication.repository";
+import { normalizeE164Phone } from "./sms-phone";
 
 const persistedSchema = z.object({
   intentId: z.string(),
@@ -72,7 +73,7 @@ implements DurableCommunicationRepository {
         locale: projection.locale,
         templateKey: projection.templateKey,
         templateRevision: projection.templateVersion,
-        adapterIdentity: projection.channel === "email" ? "smtp" : null,
+        adapterIdentity: projection.channel === "email" ? "smtp" : projection.channel === "sms" ? "moldcell" : null,
         renderSnapshot: projection.rendered,
       })),
     });
@@ -85,7 +86,7 @@ implements DurableCommunicationRepository {
 function normalizedRecipient(projection: CommunicationProjection): string {
   if (projection.channel === "email") return projection.recipient.email!.trim().toLowerCase();
   if (projection.channel === "sms" && projection.recipient.phone) {
-    return projection.recipient.phone.replace(/[\s()-]/g, "");
+    return normalizeE164Phone(projection.recipient.phone)!;
   }
   return projection.recipient.userId;
 }

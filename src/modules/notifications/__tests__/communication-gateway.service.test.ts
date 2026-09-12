@@ -26,6 +26,18 @@ describe("CommunicationGatewayService", () => {
     });
   });
 
+  it("opens only SUPPORT SMS sandbox and only for strict allowlisted E.164 recipients", () => {
+    const policy = communicationRuntimePolicyFromEnvironment({
+      SMS_MODE: "SANDBOX",
+      COMMUNICATION_SMS_KILL_SWITCH: "OFF",
+      COMMUNICATION_SANDBOX_SMS_ALLOWLIST: "+99912345678,99900000000,invalid",
+    });
+    expect(policy.purposeChannelModes.SUPPORT.sms).toBe("SANDBOX");
+    expect(policy.purposeChannelModes.FINANCE.sms).toBe("DISABLED");
+    expect(policy.purposeChannelModes.MARKETING.sms).toBe("DISABLED");
+    expect([...policy.sandboxSmsAllowlist]).toEqual(["+99912345678"]);
+  });
+
   it("runs DRY_RUN through deterministic rendering without invoking a provider", async () => {
     const adapter = emailAdapter();
     const gateway = new CommunicationGatewayService(registry(), [adapter], openRuntimePolicy());

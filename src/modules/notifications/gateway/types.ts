@@ -1,6 +1,8 @@
 export type NotificationChannel = "email" | "in_app" | "sms" | "telegram";
 
 export type NotificationMessage = {
+  deliveryId?: string;
+  idempotencyKey?: string;
   recipient: string;
   subject: string;
   text: string;
@@ -10,6 +12,12 @@ export type NotificationMessage = {
 
 export type NotificationDeliveryResult = {
   providerMessageId: string | null;
+  provider?: string;
+  providerStatus?: "PROVIDER_ACCEPTED";
+  providerCode?: string | null;
+  providerMessage?: string | null;
+  providerTimestamp?: string | null;
+  rawReceiptReference?: string | null;
 };
 
 export type NotificationDeliveryErrorCategory =
@@ -18,7 +26,12 @@ export type NotificationDeliveryErrorCategory =
   | "channel_kill_switch"
   | "timeout"
   | "authentication"
+  | "invalid_message"
+  | "invalid_recipient"
+  | "network"
+  | "rate_limit"
   | "rejected"
+  | "unknown"
   | "unavailable"
   | "invalid_payload"
   | "unsupported_channel";
@@ -27,6 +40,9 @@ export class NotificationDeliveryError extends Error {
   constructor(
     readonly category: NotificationDeliveryErrorCategory,
     readonly retryable: boolean,
+    readonly providerCode: string | null = null,
+    readonly providerTimestamp: string | null = null,
+    readonly providerMessage: string | null = null,
   ) {
     super("Notification delivery failed.");
     this.name = "NotificationDeliveryError";
@@ -63,6 +79,7 @@ export type ClaimedNotificationDelivery = {
   renderedSnapshot?: unknown;
   attempt: number;
   attemptSequence?: number;
+  attemptId?: string;
   leaseToken: string;
   idempotencyKey: string;
 };
@@ -75,4 +92,17 @@ export type NotificationWorkerResult = {
   deadLetter: number;
   durationMs: number;
   providerDurationMs: number;
+  attempts?: readonly NotificationWorkerAttemptResult[];
 };
+
+export type NotificationWorkerAttemptResult = Readonly<{
+  deliveryId: string;
+  attemptId: string | null;
+  status: "sent" | "suppressed" | "failed" | "dead_letter" | "stale_claim";
+  provider: string | null;
+  providerStatus: "PROVIDER_ACCEPTED" | null;
+  providerCode: string | null;
+  providerMessage: string | null;
+  providerTimestamp: string | null;
+  durationMs: number;
+}>;

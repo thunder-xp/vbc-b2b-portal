@@ -11,7 +11,7 @@ import type {
 } from "./notification-delivery.repository";
 import type { ClaimedNotificationDelivery } from "./types";
 
-const claimedSchema = z.array(z.object({
+const claimedItemSchema = z.object({
   deliveryId: z.string().uuid(),
   eventId: z.string().uuid(),
   eventType: z.string(),
@@ -36,9 +36,11 @@ const claimedSchema = z.array(z.object({
   renderedSnapshot: z.unknown().optional(),
   attempt: z.number().int().min(1).max(3),
   attemptSequence: z.number().int().positive().optional(),
+  attemptId: z.string().uuid().optional(),
   leaseToken: z.string().uuid(),
   idempotencyKey: z.string(),
-}));
+});
+const claimedSchema = z.array(claimedItemSchema);
 
 const completionSchema = z.array(z.object({
   deliveryId: z.string().uuid(),
@@ -73,6 +75,16 @@ implements NotificationDeliveryRepository {
     if (error || !parsed.success) {
       throw new NotificationDeliveryRepositoryError(error?.code);
     }
+    return parsed.data;
+  }
+
+  async claimSpecific(deliveryId: string, leaseSeconds: number): Promise<ClaimedNotificationDelivery | null> {
+    const { data, error } = await createAdminClient().rpc(
+      "claim_moldcell_sandbox_delivery",
+      { p_delivery_id: deliveryId, p_lease_seconds: leaseSeconds },
+    );
+    const parsed = claimedItemSchema.nullable().safeParse(data);
+    if (error || !parsed.success) throw new NotificationDeliveryRepositoryError(error?.code);
     return parsed.data;
   }
 

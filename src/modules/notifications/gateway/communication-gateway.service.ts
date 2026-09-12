@@ -18,6 +18,7 @@ import {
   type CommunicationPolicyDecision,
 } from "./communication-policy.service";
 import { CommunicationTemplateRegistry } from "./communication-template.registry";
+import { normalizeE164Phone } from "./sms-phone";
 
 export const COMMUNICATION_EXTERNAL_CHANNELS = ["email", "sms"] as const;
 
@@ -157,7 +158,7 @@ export function deliveryIdentity(intent: CommunicationIntent, channel: Communica
   const address = channel === "email"
     ? intent.recipient.email?.trim().toLowerCase() ?? ""
     : channel === "sms"
-      ? intent.recipient.phone?.replace(/\s+/g, "") ?? ""
+      ? normalizeE164Phone(intent.recipient.phone ?? "") ?? ""
       : intent.recipient.userId;
   return createHash("sha256")
     .update([intent.idempotencyIdentity, channel, intent.recipient.userId, address].join("|"))

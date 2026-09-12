@@ -1,5 +1,6 @@
 import {
   getNotificationHealthAction,
+  getMoldcellSmsReadinessAction,
   retryNotificationDeliveryAction,
 } from "@/src/modules/notifications/actions";
 import { requireAdminPagePermission } from "@/src/modules/admin/services";
@@ -14,15 +15,17 @@ import {
   FINANCE_REMINDER_SMS_ENABLED,
 } from "@/src/modules/finance/services";
 import { communicationRuntimePolicyFromEnvironment } from "@/src/modules/notifications/gateway";
+import { MoldcellSandboxTestPanel } from "@/src/modules/notifications/components/MoldcellSandboxTestPanel";
 
 export const dynamic = "force-dynamic";
 
 export default async function NotificationHealthPage() {
   await requireAdminPagePermission("admin.integrations.view");
-  const [health, priceResult, stockResult] = await Promise.all([
+  const [health, priceResult, stockResult, moldcellReadiness] = await Promise.all([
     getNotificationHealthAction(),
     getPriceSyncStateAction(),
     getStockSyncStateAction(),
+    getMoldcellSmsReadinessAction(),
   ]);
   const run = health.lastShipmentWorkerRun;
   const communicationPolicy = communicationRuntimePolicyFromEnvironment();
@@ -57,6 +60,7 @@ export default async function NotificationHealthPage() {
           />
         </dl>
       </section>
+      <MoldcellSandboxTestPanel readiness={moldcellReadiness} />
       <section className="rounded-md border border-zinc-200 bg-white p-5">
         <h2 className="font-semibold text-zinc-950">Планировщик отгрузок</h2>
         {run ? (

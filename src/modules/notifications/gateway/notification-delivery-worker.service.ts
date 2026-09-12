@@ -17,6 +17,7 @@ import {
   NotificationDeliveryError,
   type ClaimedNotificationDelivery,
   type NotificationChannelAdapter,
+  type NotificationDeliveryResult,
   type NotificationWorkerResult,
 } from "./types";
 
@@ -35,20 +36,32 @@ export class NotificationDeliveryWorkerService {
       concurrency?: number;
       leaseSeconds?: number;
       activationPolicy?: CommunicationActivationPolicy;
+      environment?: Readonly<Record<string, string | undefined>>;
     } = {},
   ) {
     this.adapters = new Map(adapters.map((adapter) => [adapter.channel, adapter]));
   }
 
   async run(): Promise<NotificationWorkerResult> {
-    const startedAt = performance.now();
-    if (externalEmailBlockReason()) {
-      return { claimed: 0, sent: 0, suppressed: 0, failed: 0, deadLetter: 0, durationMs: 0, providerDurationMs: 0 };
-    }
+    if (this.environment().COMMUNICATION_OUTBOUND_KILL_SWITCH === "ON") return emptyResult();
     const deliveries = await this.repository.claim(
       this.options.batchSize ?? DEFAULT_BATCH_SIZE,
       this.options.leaseSeconds ?? DEFAULT_LEASE_SECONDS,
     );
+    return this.process(deliveries);
+  }
+
+  async runOne(deliveryId: string): Promise<NotificationWorkerResult> {
+    if (this.environment().COMMUNICATION_OUTBOUND_KILL_SWITCH === "ON") return emptyResult();
+    const delivery = await this.repository.claimSpecific(
+      deliveryId,
+      this.options.leaseSeconds ?? DEFAULT_LEASE_SECONDS,
+    );
+    return this.process(delivery ? [delivery] : []);
+  }
+
+  private async process(deliveries: ClaimedNotificationDelivery[]): Promise<NotificationWorkerResult> {
+    const startedAt = performance.now();
     const rateLimits = deliveries.length
       ? await this.repository.reserveRateLimits(deliveries.map((delivery) => ({
         deliveryId: delivery.deliveryId,
@@ -93,6 +106,17 @@ export class NotificationDeliveryWorkerService {
       deadLetter: outcomes.filter((outcome) => outcome.status === "dead_letter").length,
       durationMs: Math.max(0, Math.round(performance.now() - startedAt)),
       providerDurationMs: outcomes.reduce((sum, outcome) => sum + outcome.providerDurationMs, 0),
+      attempts: outcomes.map((outcome, index) => ({
+        deliveryId: deliveries[index]!.deliveryId,
+        attemptId: deliveries[index]!.attemptId ?? null,
+        status: outcome.status,
+        provider: outcome.providerResult?.provider ?? (deliveries[index]!.channel === "sms" ? "moldcell" : null),
+        providerStatus: outcome.providerResult?.providerStatus ?? null,
+        providerCode: outcome.providerResult?.providerCode ?? outcome.providerError?.providerCode ?? null,
+        providerMessage: outcome.providerResult?.providerMessage ?? outcome.providerError?.providerMessage ?? null,
+        providerTimestamp: outcome.providerResult?.providerTimestamp ?? outcome.providerError?.providerTimestamp ?? null,
+        durationMs: outcome.providerDurationMs,
+      })),
     };
     return result;
   }
@@ -104,7 +128,7 @@ export class NotificationDeliveryWorkerService {
     try {
       const purpose = delivery.purpose ?? (delivery.eventType === "order.registered_in_1c" ? "TRANSACTIONAL" : undefined);
       if (!purpose) return this.policySuppression(delivery, "PURPOSE_DISABLED", startedAt);
-      const activation = this.options.activationPolicy ?? communicationActivationPolicyFromEnvironment();
+      const activation = this.options.activationPolicy ?? communicationActivationPolicyFromEnvironment(this.environment());
       const beforeLimit = evaluateCommunicationPolicy({
         intent: {
           purpose,
@@ -157,21 +181,13 @@ export class NotificationDeliveryWorkerService {
         return this.policySuppression(delivery, finalPolicy.reason!, startedAt);
       }
       if (!adapter) throw new NotificationDeliveryError("unsupported_channel", false);
-      if (delivery.eventType !== "order.registered_in_1c"
-        || ![1, 2].includes(delivery.payloadVersion)
-        || ![1, 2].includes(delivery.templateVersion)) {
-        throw new NotificationDeliveryError("invalid_payload", false);
-      }
       let message = {
-        ...renderOrderConfirmedEmail(
-          delivery.payload,
-          delivery.recipient,
-          undefined,
-          delivery.payloadVersion,
-        ),
+        ...renderDeliveryMessage(delivery),
+        deliveryId: delivery.deliveryId,
+        idempotencyKey: delivery.idempotencyKey,
         messageId: `<notification-${delivery.deliveryId}@nsd.md>`,
       };
-      if (delivery.channelMode === "SANDBOX") {
+      if (delivery.channelMode === "SANDBOX" && delivery.channel === "email") {
         const marked = markSandboxEmail({
           purpose,
           companyId: delivery.companyId,
@@ -185,8 +201,12 @@ export class NotificationDeliveryWorkerService {
           ...marked,
           recipient: finalPolicy.sandboxActualRecipient!,
         };
+      } else if (delivery.channelMode === "SANDBOX" && delivery.channel === "sms") {
+        message = { ...message, recipient: finalPolicy.sandboxActualRecipient! };
       }
-      const safetyBlock = externalEmailBlockReason();
+      const safetyBlock = delivery.channel === "email"
+        ? externalEmailBlockReason()
+        : delivery.channel === "sms" ? externalSmsBlockReason(this.environment()) : "CHANNEL_KILL_SWITCH";
       if (safetyBlock) {
         throw new NotificationDeliveryError(
           safetyBlock === "GLOBAL_KILL_SWITCH" ? "global_kill_switch" : "channel_kill_switch",
@@ -202,9 +222,12 @@ export class NotificationDeliveryWorkerService {
         succeeded: true,
         retryable: false,
         providerMessageId: providerResult.providerMessageId,
+        providerCode: providerResult.providerCode,
+        providerMessage: providerResult.providerMessage,
+        providerTimestamp: providerResult.providerTimestamp,
         durationMs: providerDurationMs,
       };
-      return { completion, providerDurationMs };
+      return { completion, providerDurationMs, providerResult, providerError: null };
     } catch (error) {
       const normalized = error instanceof NotificationDeliveryError
         ? error
@@ -216,9 +239,12 @@ export class NotificationDeliveryWorkerService {
         succeeded: false,
         retryable: normalized.retryable,
         errorCategory: normalized.category,
+        providerCode: normalized.providerCode,
+        providerMessage: normalized.providerMessage,
+        providerTimestamp: normalized.providerTimestamp,
         durationMs: providerDurationMs,
       };
-      return { completion, providerDurationMs };
+      return { completion, providerDurationMs, providerResult: null, providerError: normalized };
     }
   }
 
@@ -238,8 +264,60 @@ export class NotificationDeliveryWorkerService {
         durationMs: providerDurationMs,
       } satisfies CompleteNotificationDeliveryInput,
       providerDurationMs,
+      providerResult: null as NotificationDeliveryResult | null,
+      providerError: null as NotificationDeliveryError | null,
     };
   }
+
+  private environment(): Readonly<Record<string, string | undefined>> {
+    return this.options.environment ?? process.env;
+  }
+}
+
+function renderDeliveryMessage(delivery: ClaimedNotificationDelivery) {
+  if (delivery.channel === "email"
+    && delivery.eventType === "order.registered_in_1c"
+    && [1, 2].includes(delivery.payloadVersion)
+    && [1, 2].includes(delivery.templateVersion)) {
+    return renderOrderConfirmedEmail(
+      delivery.payload,
+      delivery.recipient,
+      undefined,
+      delivery.payloadVersion,
+    );
+  }
+  if (delivery.channel === "sms"
+    && delivery.channelMode === "SANDBOX"
+    && delivery.purpose === "SUPPORT"
+    && delivery.eventType === "support.sms_sandbox_test") {
+    const snapshot = delivery.renderedSnapshot;
+    if (snapshot && typeof snapshot === "object" && !Array.isArray(snapshot)) {
+      const value = snapshot as Record<string, unknown>;
+      if (typeof value.textBody === "string" && typeof value.subject === "string") {
+        return {
+          recipient: delivery.recipient,
+          subject: value.subject,
+          text: value.textBody,
+          html: "",
+        };
+      }
+    }
+  }
+  throw new NotificationDeliveryError("invalid_payload", false);
+}
+
+function externalSmsBlockReason(
+  environment: Readonly<Record<string, string | undefined>>,
+): "GLOBAL_KILL_SWITCH" | "CHANNEL_KILL_SWITCH" | null {
+  if (environment.COMMUNICATION_OUTBOUND_KILL_SWITCH === "ON") return "GLOBAL_KILL_SWITCH";
+  if (environment.COMMUNICATION_SMS_KILL_SWITCH !== "OFF" || environment.SMS_MODE !== "SANDBOX") {
+    return "CHANNEL_KILL_SWITCH";
+  }
+  return null;
+}
+
+function emptyResult(): NotificationWorkerResult {
+  return { claimed: 0, sent: 0, suppressed: 0, failed: 0, deadLetter: 0, durationMs: 0, providerDurationMs: 0, attempts: [] };
 }
 
 function logFields(event: string, delivery: ClaimedNotificationDelivery) {

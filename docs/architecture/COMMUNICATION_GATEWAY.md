@@ -2,7 +2,7 @@
 
 ## Current classification
 
-`OMNICHANNEL_GATEWAY_STATUS = GOVERNED_SANDBOX_READY_EXTERNAL_ACTIVATION_BLOCKED`
+`OMNICHANNEL_GATEWAY_STATUS = MOLDCELL_SMS_SANDBOX_IMPLEMENTED_EXTERNAL_NETWORK_CONFIGURATION_BLOCKED`
 
 The platform has one shared durable intent/delivery core, while external activation remains deliberately narrow:
 
@@ -11,7 +11,7 @@ The platform has one shared durable intent/delivery core, while external activat
 - proposal and company-invitation email retain their synchronous SMTP behavior and emergency kill-switch checks;
 - Supabase Auth owns registration/confirmation email outside the application gateway;
 - partner in-app notifications retain their existing first-party projection model;
-- no SMS provider, adapter, credentials, or live delivery path exists.
+- Moldcell has a server-only adapter and a tightly permissioned `SUPPORT/SANDBOX` diagnostic path; normal, Finance, Marketing, bulk, and partner SMS remain disabled.
 
 The existing order outbox tables, lease worker, scheduler, retry policy, SMTP adapter, and diagnostics were generalized in place. No second queue, worker framework, scheduler, or event bus exists. `OUTBOX_STATUS = SHARED_DURABLE_CORE`.
 
@@ -35,7 +35,7 @@ Channel delivery identity is deterministic over business identity, channel, gove
 
 Every application-owned flow is classified independently from its channel and mode. Current mappings are: confirmed order, proposal delivery, and company invitation = `TRANSACTIONAL`; Finance payment reminder = `FINANCE`; `security.*`, `support.*`, and `marketing.*`/`commercial.*` map to `SECURITY`, `SUPPORT`, and `MARKETING`. Unknown or mismatched mappings fail closed.
 
-The explicit production activation matrix is purpose + channel scoped. `TRANSACTIONAL.EMAIL` retains approved `LIVE` compatibility; `FINANCE.EMAIL` and `FINANCE.IN_APP` remain `DRY_RUN`; every SMS entry and currently unused Security/Support/Marketing gateway entry is `DISABLED`. There is no switch that can make all purposes live.
+The explicit production activation matrix is purpose + channel scoped. `TRANSACTIONAL.EMAIL` retains approved `LIVE` compatibility; `FINANCE.EMAIL` and `FINANCE.IN_APP` remain `DRY_RUN`. When and only when `SMS_MODE=SANDBOX`, `SUPPORT.SMS` becomes `SANDBOX`; every other SMS entry remains `DISABLED`. There is no switch that can make all purposes live.
 
 The central server policy evaluator applies deterministic precedence across channel/mode activation, kill switches, recipient/company/capability evidence, technical preference outcome, durable rate-limit outcome, duplicate identity, sandbox allowlist, and provider availability. Business eligibility such as settled Finance obligations remains outside the gateway.
 
@@ -43,11 +43,19 @@ Existing stored preferences remain company + user + event-group scoped. Producti
 
 ## Durable burst protection
 
-Provider-bound LIVE/SANDBOX claims reserve an idempotent PostgreSQL rate-limit row before transport. Transaction-scoped advisory locks serialize a fixed recipient-then-company lock order across parallel workers and deployments. A delivery has one reservation, so retries do not multiply usage. Limits are 10 accepted reservations per recipient/channel/hour and 100 per company/purpose/channel/hour; current 30-day maxima were 1 and 3 respectively. The existing worker remains 20 by default and 50 maximum. Finance cadence (`D-7`, `D-3`, `D0`, `D+1`, `D+3`, `D+7`, weekly overdue) is unchanged; a transport burst suppression is recorded distinctly as `RATE_LIMITED`.
+Provider-bound LIVE/SANDBOX claims reserve an idempotent PostgreSQL rate-limit row before transport. Transaction-scoped advisory locks serialize a fixed recipient-then-company lock order across parallel workers and deployments. A delivery has one reservation, so retries do not multiply usage. Default limits remain 10 accepted reservations per recipient/channel/hour and 100 per company/purpose/channel/hour. A private provider policy overrides Moldcell SMS sandbox to 1 per recipient/hour and 5 per company/hour. The existing worker remains 20 by default and 50 maximum. Finance cadence is unchanged; a transport burst suppression is recorded distinctly as `RATE_LIMITED`.
 
 ## Sandbox
 
-`SANDBOX` is implemented inside the same durable mode identity and adapter boundary. Email requires a server-only `COMMUNICATION_SANDBOX_EMAIL_RECIPIENT` that is also present in `COMMUNICATION_SANDBOX_EMAIL_ALLOWLIST`; the intended address is never used for provider transport. Subject/body are marked `[SANDBOX]`, while audit retains the original recipient fingerprint and the protected actual recipient. Missing or unapproved configuration fails closed. SMS sandbox is `BLOCKED_NO_PROVIDER`. No real sandbox send is authorized or performed by this task.
+`SANDBOX` is implemented inside the same durable mode identity and adapter boundary. Email behavior is unchanged. Moldcell SMS accepts only strict E.164 numbers from the server-only `COMMUNICATION_SANDBOX_SMS_ALLOWLIST`; Admin receives masked values plus SHA-256 selection tokens and cannot type an arbitrary number. The diagnostic creates a governed `support.sms_sandbox_test` Communication Intent, persists it through the common outbox, and targets the common leased worker at that delivery. Missing mode, kill-switch, identity, recipient, or provider configuration fails closed.
+
+The known legacy browser-facing `POST https://api.novotech.systems/notification/moldcell-send/` endpoint accepted an unauthenticated malformed request without an authorization challenge and exposes Express through Cloudflare. CORS is not authentication, so it is classified `LEGACY_ENDPOINT_AUTH=UNAUTHENTICATED` and is explicitly rejected as a relay URL. No legacy source was available locally to prove an upstream middleware control. Moldcell historically required source-IP allowlisting; the Cloudflare-fronted legacy origin/egress and any Vercel allowlisting could not be proven. The current safe classification is `MOLDCELL_NETWORK_PATH=LEGACY_RELAY_REQUIRED`: the old network location may be retained only behind a new authenticated transport endpoint with HMAC-SHA256 signing, timestamp, nonce, body hash, idempotency key, strict schema validation, replay prevention, rate limiting, and correlation audit. Business rules, retries, templates, and recipient selection remain here in Omnichannel.
+
+Direct WSG transport is also implemented for an independently proven static allowlisted egress. It maps the established provider contract (`guid`, fixed `from`, fixed `template`, `to` without the internal E.164 `+`, and `customText`) and does not add unproven provider parameters. The relay and direct transports are mutually exclusive server-side configurations. Historical credentials are not reused or documented and should be rotated before activation.
+
+Moldcell `resultCode="0"` maps to `PROVIDER_ACCEPTED`, never `DELIVERED`. Double-encoded legacy responses are normalized at the boundary but never propagated. HTTP 429/5xx, network failures, and timeouts are retryable through the existing three-attempt/2-and-15-minute durable policy; authentication/4xx and unknown nonzero provider codes fail final unless an operator configures a documented code classification. The provider timeout defaults to 10 seconds and is bounded to 1–30 seconds.
+
+Official current GSM-7/UCS-2, concatenation, DLR, and provider error-code documentation was not available during implementation. The fail-safe default is therefore one nonempty message of at most 70 Unicode code points, no control characters, no truncation, and no delivery claim beyond provider acceptance. Sender and template are fixed server policy, never caller input.
 
 ## Durable entity and state mapping
 
@@ -65,7 +73,7 @@ The durable state contract is `PROJECTED | SUPPRESSED | READY | QUEUED | PROCESS
 
 SMTP `ACCEPTED` means provider acceptance only. It does not mean delivered or read.
 
-Every claim creates a service-only attempt row with a monotonic sequence, lease identity, channel, adapter, start/completion timestamps, duration, and safe classification. Successful LIVE completion inserts one immutable receipt with delivery identity, provider reference, accepted timestamp, template revision, and recipient fingerprint. Manual retry resets the bounded three-attempt window while preserving the historical attempt sequence.
+Every claim creates a service-only attempt row with a monotonic sequence, lease identity, channel, adapter, start/completion timestamps, duration, and safe classification. Bounded Moldcell code/message/timestamp metadata is recorded on the attempt and immutable provider-acceptance receipt; credentials and full recipient are excluded. Successful LIVE or SANDBOX completion inserts one immutable receipt with delivery identity, provider reference, accepted timestamp, template revision, and recipient fingerprint. Manual retry resets the bounded three-attempt window while preserving the historical attempt sequence.
 
 ## Safety controls
 
@@ -73,11 +81,11 @@ Application-owned external adapters are protected server-side:
 
 - `COMMUNICATION_OUTBOUND_KILL_SWITCH=ON` blocks all external adapters;
 - `COMMUNICATION_EMAIL_KILL_SWITCH=ON` blocks email independently;
-- `COMMUNICATION_SMS_KILL_SWITCH` defaults to blocked and requires explicit `OFF` before a future SMS adapter can be reached.
+- `COMMUNICATION_SMS_KILL_SWITCH` defaults to blocked and requires explicit `OFF` before the Moldcell sandbox adapter can be reached.
 
-The worker checks safety before claim and again after claim immediately before SMTP invocation, closing the configuration-race window. SMTP providers retain their own pre-transport check. Unset global/email switches preserve current approved order, proposal, and invitation behavior.
+The worker checks safety before claim and again after claim immediately before provider invocation, closing the configuration-race window. SMTP behavior remains unchanged. Unset global/email switches preserve current approved order, proposal, and invitation behavior. Moldcell additionally requires `SMS_MODE=SANDBOX`; there is no SMS `LIVE` activation path.
 
-`DRY_RUN` may persist an exact internal render snapshot, but claim SQL selects `LIVE` rows only, completion rejects non-`LIVE` rows, and receipts are created only inside successful LIVE completion.
+`DRY_RUN` may persist an exact internal render snapshot. Claims and completion accept only `LIVE` or `SANDBOX`; the only constructed SMS sandbox event is the permission-gated SUPPORT diagnostic. Finance SMS remains `DISABLED/SUPPRESSED` and cannot be claimed as Moldcell sandbox.
 
 ## Finance integration
 
@@ -112,6 +120,6 @@ External Finance activation remains blocked pending owner-governed decisions for
 3. per-recipient/company/type rate limits and provider capacity;
 4. provider sandbox allowlists and test identities;
 5. the Supabase Auth emergency-stop gap, if required;
-6. SMS vendor, credentials, sender identity, error/retry contract, and sandbox capability.
+6. current Moldcell credentials, approved sender/template, secure fixed-egress relay deployment, and documented provider error/segment/DLR contract.
 
 Supabase Auth email remains provider-managed outside this gateway. `AUTH_EMAIL_EMERGENCY_STOP_STATUS = PROVIDER_MANAGED_NO_APPLICATION_KILL_SWITCH`; the remaining risk is that application kill switches cannot stop Auth-generated mail. No Auth setting is changed without separate owner authorization.

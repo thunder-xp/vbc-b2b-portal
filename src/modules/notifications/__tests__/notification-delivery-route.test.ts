@@ -11,6 +11,7 @@ vi.mock("@/src/modules/notifications/gateway", () => ({
     run = mocks.run;
   },
   SmtpNotificationChannelAdapter: class {},
+  MoldcellSmsProvider: class {},
   SupabaseNotificationDeliveryRepository: class {},
 }));
 
