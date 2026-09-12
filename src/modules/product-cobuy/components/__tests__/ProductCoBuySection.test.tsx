@@ -122,6 +122,20 @@ describe("ProductCoBuySection", () => {
     );
     expect(screen.getAllByRole("article")).toHaveLength(5);
   });
+
+  it("left-aligns with the PDP container and never renders more than five cards", () => {
+    render(
+      <ProductCoBuySection
+        cards={[...cards, { ...cards[0], id: "71111111-1111-4111-8111-111111111111" }]}
+        capabilities={capabilities}
+      />,
+    );
+
+    const section = screen.getByTestId("product-cobuy-section");
+    expect(section).toHaveClass("pb-10");
+    expect(section).not.toHaveClass("mx-auto", "max-w-7xl", "px-4");
+    expect(screen.getAllByRole("article")).toHaveLength(5);
+  });
 });
 
 const cards = Array.from({ length: 5 }, (_, index) => ({

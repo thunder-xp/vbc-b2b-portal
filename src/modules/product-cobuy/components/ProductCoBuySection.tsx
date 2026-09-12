@@ -24,13 +24,14 @@ export function ProductCoBuySection({
   locale = "ru",
   userId = null,
 }: ProductCoBuySectionProps) {
-  if (!cards.length) return null;
+  const visibleCards = cards.slice(0, 5);
+  if (!visibleCards.length) return null;
   const copy = getCatalogCopy(locale);
 
   return (
     <section
       aria-labelledby="product-cobuy-heading"
-      className="mx-auto max-w-7xl px-4 pb-10"
+      className="pb-10"
       data-testid="product-cobuy-section"
     >
       <div className="mb-4 flex items-center gap-1">
@@ -56,7 +57,7 @@ export function ProductCoBuySection({
         </IconActionTooltip>
       </div>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-        {cards.map((card) => (
+        {visibleCards.map((card) => (
           <ProductCard
             capabilities={capabilities}
             commercialView={card.commercialView ?? undefined}

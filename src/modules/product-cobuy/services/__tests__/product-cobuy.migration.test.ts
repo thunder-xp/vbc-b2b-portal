@@ -25,6 +25,13 @@ const allTimeMigration = readFileSync(
   ),
   "utf8",
 );
+const lowerOrderThresholdMigration = readFileSync(
+  join(
+    root,
+    "supabase/migrations/20260912164022_partner_product_cobuy_lower_order_threshold.sql",
+  ),
+  "utf8",
+);
 const orderHistoryRefresh = readFileSync(
   join(root, "app/api/cron/order-history-refresh/route.ts"),
   "utf8",
@@ -122,5 +129,46 @@ describe("anonymous partner co-buy projection migration", () => {
     expect(allTimeMigration).not.toMatch(/join public\.catalog_products product[\s\S]*product\.is_active/);
     expect(allTimeMigration).toMatch(/force row level security/);
     expect(allTimeMigration).toMatch(/revoke all on table public\.partner_product_cobuy_associations[\s\S]*from public, anon, authenticated/);
+  });
+
+  it("lowers only the all-time pair-order threshold to three", () => {
+    expect(lowerOrderThresholdMigration).toContain(
+      "measured.pair_order_count >= 3",
+    );
+    expect(lowerOrderThresholdMigration).toContain(
+      "measured.pair_company_count >= 3",
+    );
+    expect(lowerOrderThresholdMigration).toContain(
+      "measured.confidence >= 0.10",
+    );
+    expect(lowerOrderThresholdMigration).toContain("measured.lift > 1");
+    expect(lowerOrderThresholdMigration).toContain(
+      "'historyMode', 'all_time_authoritative_history'",
+    );
+    expect(lowerOrderThresholdMigration).toContain(
+      "'minimumPairOrderCount', 3",
+    );
+    expect(lowerOrderThresholdMigration).toContain(
+      "pair_order_count >= 3",
+    );
+    expect(lowerOrderThresholdMigration).not.toMatch(
+      /governed_window_start|pg_cron|cron\.schedule/i,
+    );
+  });
+
+  it("preserves private aggregates and deterministic ranking after recalibration", () => {
+    expect(lowerOrderThresholdMigration).toMatch(
+      /partition by qualifying\.source_product_id[\s\S]*qualifying\.pair_company_count desc,[\s\S]*qualifying\.confidence desc,[\s\S]*qualifying\.lift desc,[\s\S]*qualifying\.pair_order_count desc,[\s\S]*qualifying\.latest_pair_at desc,[\s\S]*candidate\.sku,[\s\S]*qualifying\.candidate_product_id/,
+    );
+    expect(lowerOrderThresholdMigration).toContain("force row level security");
+    expect(lowerOrderThresholdMigration).toMatch(
+      /revoke all on table public\.partner_product_cobuy_associations[\s\S]*from public, anon, authenticated/,
+    );
+    expect(lowerOrderThresholdMigration).toMatch(
+      /revoke all on function public\.refresh_partner_product_cobuy_associations\(\)[\s\S]*from public, anon, authenticated/,
+    );
+    expect(lowerOrderThresholdMigration).toMatch(
+      /grant execute on function public\.refresh_partner_product_cobuy_associations\(\)[\s\S]*to service_role/,
+    );
   });
 });
