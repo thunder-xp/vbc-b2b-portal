@@ -41,5 +41,6 @@ describe("Partner Access Risk Radar runtime wiring", () => {
     expect(component).not.toMatch(/revokeAccess|blockAccess|suspendAccess|requireMfa/i);
     expect(overviewComponent).toContain("xl:grid-cols-[minmax(220px,1fr)_170px_170px_180px_auto]");
     expect(overviewComponent).not.toContain("md:grid-cols-[minmax(220px,1fr)_170px_170px_180px_auto]");
+    expect(overviewComponent).toContain("<Link prefetch={false}");
   });
 });

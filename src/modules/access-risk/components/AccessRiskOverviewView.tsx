@@ -34,7 +34,7 @@ export function AccessRiskOverviewView({ data, filters }: {
           <td className="px-3 py-3 tabular-nums">{item.affectedUserCount} / {item.activeUserCount}</td>
           <td className="px-3 py-3"><span className={item.mode === "ENHANCED" ? "font-semibold text-blue-700" : "text-zinc-600"}>{item.mode === "ENHANCED" ? "Расширенный" : "Обычный"}</span>{item.enhancedUntil && <div className="text-xs text-zinc-500">до {formatDate(item.enhancedUntil)}</div>}</td>
           <td className="px-3 py-3 text-xs text-zinc-600">{item.lastActivityAt ? formatDate(item.lastActivityAt) : "Нет данных"}</td>
-          <td className="px-3 py-3 text-right"><Link className="inline-flex h-10 items-center border border-zinc-300 px-3 font-semibold hover:bg-zinc-50" href={`/admin/security/access-risk/${item.id}`}>Открыть</Link></td>
+          <td className="px-3 py-3 text-right"><Link prefetch={false} className="inline-flex h-10 items-center border border-zinc-300 px-3 font-semibold hover:bg-zinc-50" href={`/admin/security/access-risk/${item.id}`}>Открыть</Link></td>
         </tr>)}</tbody>
       </table>
       {!data.items.length && <p className="p-6 text-center text-sm text-zinc-500">Компании не найдены.</p>}
