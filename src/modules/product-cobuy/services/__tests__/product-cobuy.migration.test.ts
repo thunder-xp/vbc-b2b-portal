@@ -11,6 +11,13 @@ const migration = readFileSync(
   ),
   "utf8",
 );
+const candidateFkIndexMigration = readFileSync(
+  join(
+    root,
+    "supabase/migrations/20260912100700_partner_product_cobuy_candidate_fk_index.sql",
+  ),
+  "utf8",
+);
 const orderHistoryRefresh = readFileSync(
   join(root, "app/api/cron/order-history-refresh/route.ts"),
   "utf8",
@@ -74,5 +81,12 @@ describe("anonymous partner co-buy projection migration", () => {
     expect(bootstrapRefresh).toContain("refreshB2bPopularity()");
     expect(merchandisingService).toContain("refreshPartnerCoBuy()");
     expect(migration).not.toMatch(/pg_cron|cron\.schedule/i);
+  });
+
+  it("covers the candidate product foreign key", () => {
+    expect(candidateFkIndexMigration).toContain(
+      "partner_product_cobuy_candidate_idx",
+    );
+    expect(candidateFkIndexMigration).toContain("(candidate_product_id)");
   });
 });
