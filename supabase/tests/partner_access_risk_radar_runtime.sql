@@ -1,6 +1,6 @@
 begin;
 
-select plan(19);
+select plan(20);
 
 insert into auth.users(id, aud, role, email, created_at, updated_at) values
   ('a1000000-0000-4000-8000-000000000001','authenticated','authenticated','risk-admin@example.test',now(),now()),
@@ -42,6 +42,13 @@ select is((select risk_state from public.access_risk_user_snapshots where user_i
 select isnt((select risk_state from public.access_risk_user_snapshots where user_id='a1000000-0000-4000-8000-000000000002'),'HIGH','new devices alone cannot create HIGH');
 select is((select risk_state from public.access_risk_user_snapshots where user_id='a1000000-0000-4000-8000-000000000003'),'HIGH','concurrency plus identity and velocity creates HIGH');
 select ok((select reason_codes @> array['CONCURRENT_SESSION_ANOMALY','NETWORK_CHURN','HIGH_VELOCITY_BROWSING'] from public.access_risk_user_snapshots where user_id='a1000000-0000-4000-8000-000000000003'),'HIGH snapshot is explainable');
+select ok(not exists(
+  select 1
+  from public.access_risk_user_snapshots snapshot
+  cross join lateral jsonb_array_elements(snapshot.reasons) reason
+  where snapshot.user_id='a1000000-0000-4000-8000-000000000003'
+    and (reason->>'observed')::integer < (reason->>'threshold')::integer
+),'every active reason displays an attained threshold');
 select is((select risk_state from public.access_risk_company_snapshots where company_id='c1000000-0000-4000-8000-000000000001'),'HIGH','company aggregates strongest user state');
 select is((select active_user_count from public.access_risk_company_snapshots where company_id='c1000000-0000-4000-8000-000000000001'),3,'multiple legitimate users remain distinct and are not themselves a signal');
 
