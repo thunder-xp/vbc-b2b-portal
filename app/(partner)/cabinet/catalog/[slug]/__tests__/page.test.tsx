@@ -32,8 +32,8 @@ vi.mock("@/src/modules/product-relations", () => ({
 }));
 vi.mock("@/src/modules/product-cobuy", () => ({
   getProductCoBuyRecommendationsAction: mocks.getCoBuy,
-  ProductCoBuySection: ({ cards }: { cards: unknown[] }) => (
-    <div data-testid="product-cobuy-section">Co-buy {cards.length}</div>
+  DeferredProductCoBuySection: () => (
+    <div data-testid="product-cobuy-section">Co-buy</div>
   ),
 }));
 vi.mock("@/src/modules/knowledge-base/actions", () => ({
@@ -122,7 +122,7 @@ describe("product detail page data loading", () => {
     }));
 
     const commerce = screen.getByTestId("product-overview-tab");
-    const coBuy = screen.getByTestId("product-cobuy-section");
+    const coBuy = await screen.findByTestId("product-cobuy-section");
     const knowledge = screen.getByText("Knowledge article-1");
     expect(
       commerce.compareDocumentPosition(coBuy) & Node.DOCUMENT_POSITION_FOLLOWING,
@@ -130,6 +130,23 @@ describe("product detail page data loading", () => {
     expect(
       coBuy.compareDocumentPosition(knowledge) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
+  });
+
+  it("does not block the primary PDP on the deferred co-buy read", async () => {
+    mocks.getCoBuy.mockReturnValue(new Promise(() => undefined));
+
+    const page = await Promise.race([
+      ProductDetailPage({
+        params: Promise.resolve({ slug: "ip-camera" }),
+        searchParams: Promise.resolve({}),
+      }),
+      new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error("PDP awaited the co-buy read")), 100);
+      }),
+    ]);
+
+    expect(page).toBeTruthy();
+    expect(mocks.getCoBuy).toHaveBeenCalledWith("product-1");
   });
 
   it("starts detail, commercial, and workspace reads together after route identity", async () => {

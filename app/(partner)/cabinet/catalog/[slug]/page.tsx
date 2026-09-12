@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
 
 import {
   getCatalogProductDetailByIdAction,
@@ -32,8 +33,8 @@ import { PartnerProductCompetitiveIntelligenceService } from "@/src/modules/comp
 import { ProductCompetitiveIntelligence } from "@/src/modules/competitive-intelligence/components";
 import { CompetitorRetailPricingService } from "@/src/modules/competitive-intelligence/retail-pricing.service";
 import {
+  DeferredProductCoBuySection,
   getProductCoBuyRecommendationsAction,
-  ProductCoBuySection,
 } from "@/src/modules/product-cobuy";
 
 type ProductDetailPageProps = {
@@ -76,6 +77,10 @@ export default async function ProductDetailPage({
 
   const needsCommercialContext =
     activeTab === "overview" || activeTab === "analogs" || activeTab === "related";
+  const coBuyResultPromise =
+    activeTab === "overview"
+      ? getProductCoBuyRecommendationsAction(identityResult.data.id)
+      : Promise.resolve(null);
   const [
     productResult,
     commercialViewsResult,
@@ -85,7 +90,6 @@ export default async function ProductDetailPage({
     relationResult,
     relationSummaryResult,
     knowledgeResult,
-    coBuyResult,
   ] = await Promise.all([
     getCatalogProductDetailByIdAction(
       identityResult.data.id,
@@ -107,9 +111,6 @@ export default async function ProductDetailPage({
       : Promise.resolve(null),
     activeTab === "overview"
       ? getProductKnowledgeAction(identityResult.data.id)
-      : Promise.resolve(null),
-    activeTab === "overview"
-      ? getProductCoBuyRecommendationsAction(identityResult.data.id)
       : Promise.resolve(null),
   ]);
 
@@ -256,17 +257,16 @@ export default async function ProductDetailPage({
         userId={userId}
         competitorPricing={competitorPricing}
       />
-      {activeTab === "overview" &&
-      coBuyResult?.success &&
-      coBuyResult.data.length &&
-      workspaceResult.success ? (
-        <ProductCoBuySection
-          capabilities={workspaceResult.data.capabilities.productCard}
-          cards={coBuyResult.data}
-          companyId={companyId}
-          locale={locale}
-          userId={userId}
-        />
+      {activeTab === "overview" && workspaceResult.success ? (
+        <Suspense fallback={null}>
+          <DeferredProductCoBuySection
+            capabilities={workspaceResult.data.capabilities.productCard}
+            companyId={companyId}
+            locale={locale}
+            resultPromise={coBuyResultPromise}
+            userId={userId}
+          />
+        </Suspense>
       ) : null}
       {activeTab === "overview" &&
       knowledgeResult?.success &&

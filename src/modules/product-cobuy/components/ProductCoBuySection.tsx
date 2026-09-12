@@ -1,10 +1,12 @@
 import { Info } from "lucide-react";
+import type { ComponentProps } from "react";
 
 import { ProductCard } from "../../catalog/components/ProductCard";
 import type { CatalogProductCardDto } from "../../catalog/services";
 import type { ProductCardCapabilityModel } from "../../partner-cabinet/services";
 import { getCatalogCopy, type PartnerLocale } from "../../partner-locale";
 import { IconActionTooltip } from "../../platform-ui/IconActionTooltip";
+import type { getProductCoBuyRecommendationsAction } from "../actions/product-cobuy.action";
 import type { ProductCoBuyCard } from "../types";
 
 type ProductCoBuySectionProps = {
@@ -68,6 +70,20 @@ export function ProductCoBuySection({
       </div>
     </section>
   );
+}
+
+export async function DeferredProductCoBuySection({
+  resultPromise,
+  ...sectionProps
+}: Omit<ComponentProps<typeof ProductCoBuySection>, "cards"> & {
+  resultPromise: Promise<
+    Awaited<ReturnType<typeof getProductCoBuyRecommendationsAction>> | null
+  >;
+}) {
+  const result = await resultPromise;
+  if (!result?.success || !result.data.length) return null;
+
+  return <ProductCoBuySection {...sectionProps} cards={result.data} />;
 }
 
 function toProductCard(card: ProductCoBuyCard): CatalogProductCardDto {
