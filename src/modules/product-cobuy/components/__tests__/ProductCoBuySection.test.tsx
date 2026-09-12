@@ -7,7 +7,10 @@ vi.mock("../../../catalog/components/ProductCard", () => ({
   ),
 }));
 
-import { ProductCoBuySection } from "../ProductCoBuySection";
+import {
+  DeferredProductCoBuySection,
+  ProductCoBuySection,
+} from "../ProductCoBuySection";
 
 const capabilities = {
   canAddToOrder: true,
@@ -32,6 +35,35 @@ describe("ProductCoBuySection", () => {
       <ProductCoBuySection cards={[]} capabilities={capabilities} />,
     );
     expect(container).toBeEmptyDOMElement();
+  });
+
+  it("resolves the deferred recommendation result outside the primary PDP", async () => {
+    const section = await DeferredProductCoBuySection({
+      capabilities,
+      resultPromise: Promise.resolve({
+        success: true,
+        errorCode: null,
+        message: "Recommendations loaded.",
+        data: cards.slice(0, 2),
+      }),
+    });
+
+    render(section);
+    expect(screen.getAllByRole("article")).toHaveLength(2);
+  });
+
+  it("keeps the deferred section absent for an empty result", async () => {
+    await expect(
+      DeferredProductCoBuySection({
+        capabilities,
+        resultPromise: Promise.resolve({
+          success: true,
+          errorCode: null,
+          message: "Recommendations loaded.",
+          data: [],
+        }),
+      }),
+    ).resolves.toBeNull();
   });
 
   it("renders the governed RU title, privacy tooltip, and actual card count", () => {
