@@ -2,8 +2,8 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("../../../catalog/components/ProductCard", () => ({
-  ProductCard: ({ product }: { product: { id: string; name: string } }) => (
-    <article data-product-id={product.id}>{product.name}</article>
+  ProductCard: ({ product, variant }: { product: { id: string; name: string }; variant?: string }) => (
+    <article data-product-id={product.id} data-variant={variant}>{product.name}</article>
   ),
 }));
 
@@ -89,6 +89,11 @@ describe("ProductCoBuySection", () => {
       "Основано на обезличенной статистике совместных покупок партнёров Novotech.",
     );
     expect(screen.getAllByRole("article")).toHaveLength(3);
+    expect(screen.getAllByRole("article")).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ dataset: expect.objectContaining({ variant: "cobuy" }) }),
+      ]),
+    );
     expect(screen.getByTestId("product-cobuy-section").innerHTML).not.toMatch(
       /confidence|lift|companyCount|orderCount/i,
     );

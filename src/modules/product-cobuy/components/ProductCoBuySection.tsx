@@ -65,6 +65,7 @@ export function ProductCoBuySection({
             locale={locale}
             product={toProductCard(card)}
             userId={userId}
+            variant="cobuy"
           />
         ))}
       </div>

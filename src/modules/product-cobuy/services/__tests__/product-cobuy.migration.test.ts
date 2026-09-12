@@ -18,6 +18,13 @@ const candidateFkIndexMigration = readFileSync(
   ),
   "utf8",
 );
+const allTimeMigration = readFileSync(
+  join(
+    root,
+    "supabase/migrations/20260912164021_partner_product_cobuy_all_time_history.sql",
+  ),
+  "utf8",
+);
 const orderHistoryRefresh = readFileSync(
   join(root, "app/api/cron/order-history-refresh/route.ts"),
   "utf8",
@@ -88,5 +95,32 @@ describe("anonymous partner co-buy projection migration", () => {
       "partner_product_cobuy_candidate_idx",
     );
     expect(candidateFkIndexMigration).toContain("(candidate_product_id)");
+  });
+
+  it("evolves the single projection to all authoritative B2B history", () => {
+    expect(allTimeMigration).toContain("history.global_analytics_eligible");
+    expect(allTimeMigration).toContain("history.source_counterparty_1c_id as source_counterparty_1c_id");
+    expect(allTimeMigration).toContain("count(distinct source.source_counterparty_1c_id)::integer");
+    expect(allTimeMigration).not.toContain("governed_window_start");
+    expect(allTimeMigration).not.toContain("history.partner_visible");
+    expect(allTimeMigration).not.toContain("source.company_id");
+    expect(allTimeMigration).toContain("drop column window_start");
+    expect(allTimeMigration).toContain("drop column window_end");
+    expect(allTimeMigration).toContain("'all_time_authoritative_history'");
+  });
+
+  it("uses the calibrated all-time quality and privacy thresholds", () => {
+    expect(allTimeMigration).toContain("measured.pair_order_count >= 5");
+    expect(allTimeMigration).toContain("measured.pair_company_count >= 3");
+    expect(allTimeMigration).toContain("measured.confidence >= 0.10");
+    expect(allTimeMigration).toContain("measured.lift > 1");
+  });
+
+  it("keeps current display filtering at the bounded partner RPC", () => {
+    expect(migration).toContain("candidate.is_active");
+    expect(migration).toContain("candidate.is_visible");
+    expect(allTimeMigration).not.toMatch(/join public\.catalog_products product[\s\S]*product\.is_active/);
+    expect(allTimeMigration).toMatch(/force row level security/);
+    expect(allTimeMigration).toMatch(/revoke all on table public\.partner_product_cobuy_associations[\s\S]*from public, anon, authenticated/);
   });
 });

@@ -254,8 +254,7 @@ function isPartnerCoBuyRefreshResult(
     typeof result.refreshId === "string" &&
     typeof result.refreshedAt === "string" &&
     typeof result.businessDate === "string" &&
-    typeof result.windowStart === "string" &&
-    typeof result.windowEnd === "string" &&
+    result.historyMode === "all_time_authoritative_history" &&
     typeof result.totalOrderCount === "number" &&
     typeof result.eligibleSourceProductCount === "number" &&
     typeof result.associationCount === "number" &&

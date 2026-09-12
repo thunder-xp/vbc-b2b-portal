@@ -43,6 +43,21 @@ describe("ProductCard workspace context", () => {
     expect(container.textContent).not.toContain("999");
   });
 
+  it("uses the compact partner-only price presentation only for co-buy cards", () => {
+    const capabilities = resolveWorkspaceCapabilities(new Set(["catalog.view", "pricing.partner_price.view", "pricing.retail_price.view", "stock.view"])).productCard;
+    const { container, rerender } = render(<ProductCard capabilities={capabilities} commercialView={commercialView} product={product} variant="cobuy" />);
+
+    expect(screen.getByText("$45.81")).toBeInTheDocument();
+    expect(screen.getByText("800 MDL")).toBeInTheDocument();
+    expect(screen.queryByText("920 MDL")).not.toBeInTheDocument();
+    expect(screen.queryByText("$60.00")).not.toBeInTheDocument();
+    expect(container.querySelector("article > div:last-child")).toHaveClass("p-2.5");
+
+    rerender(<ProductCard capabilities={capabilities} commercialView={commercialView} product={product} />);
+    expect(screen.getByText("920 MDL")).toBeInTheDocument();
+    expect(screen.getByText("$60.00")).toBeInTheDocument();
+  });
+
   it("does not use retail as fallback when partner price is missing", () => {
     const capabilities = resolveWorkspaceCapabilities(new Set(["catalog.view", "pricing.partner_price.view", "pricing.retail_price.view"])).productCard;
     render(<ProductCard capabilities={capabilities} commercialView={{ ...commercialView, partnerPrice: null }} product={product} />);

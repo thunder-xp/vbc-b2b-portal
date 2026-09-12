@@ -2,7 +2,7 @@ begin;
 
 set local search_path = public, extensions, pg_temp;
 
-select plan(18);
+select plan(21);
 
 insert into public.catalog_products (
   id,
@@ -28,9 +28,9 @@ insert into public.partner_companies (
   status
 )
 values
-  ('20000000-0000-4000-8000-000000000001', 'COBUY-COMPANY-1', 'Co-buy company 1', 'active'),
-  ('20000000-0000-4000-8000-000000000002', 'COBUY-COMPANY-2', 'Co-buy company 2', 'active'),
-  ('20000000-0000-4000-8000-000000000003', 'COBUY-COMPANY-3', 'Co-buy company 3', 'active');
+  ('20000000-0000-4000-8000-000000000001', '21000000-0000-4000-8000-000000000001', 'Co-buy company 1', 'active'),
+  ('20000000-0000-4000-8000-000000000002', '21000000-0000-4000-8000-000000000002', 'Co-buy company 2', 'active'),
+  ('20000000-0000-4000-8000-000000000003', '21000000-0000-4000-8000-000000000003', 'Co-buy historical company 3', 'suspended');
 
 insert into auth.users (id, aud, role, email, created_at, updated_at)
 values
@@ -73,14 +73,22 @@ insert into public.partner_order_history (
   document_total,
   position_count,
   total_unit_count
+  ,source_counterparty_1c_id
+  ,source_counterparty_type_code
+  ,source_operation_code
+  ,partner_visible
+  ,hidden_reason
 )
 values
-  ('30000000-0000-4000-8000-000000000001', '20000000-0000-4000-8000-000000000001', 'COBUY-ORDER-1', 'COBUY-1', true, false, 'completed', now() - interval '10 days', now(), 100, 6, 109),
-  ('30000000-0000-4000-8000-000000000002', '20000000-0000-4000-8000-000000000002', 'COBUY-ORDER-2', 'COBUY-2', true, false, 'completed', now() - interval '9 days', now(), 100, 5, 5),
-  ('30000000-0000-4000-8000-000000000003', '20000000-0000-4000-8000-000000000003', 'COBUY-ORDER-3', 'COBUY-3', true, false, 'completed', now() - interval '8 days', now(), 100, 4, 4),
-  ('30000000-0000-4000-8000-000000000004', '20000000-0000-4000-8000-000000000001', 'COBUY-ORDER-4', 'COBUY-4', true, false, 'completed', now() - interval '7 days', now(), 100, 1, 1),
-  ('30000000-0000-4000-8000-000000000005', '20000000-0000-4000-8000-000000000002', 'COBUY-ORDER-5', 'COBUY-5', true, false, 'completed', now() - interval '6 days', now(), 100, 1, 1),
-  ('30000000-0000-4000-8000-000000000006', '20000000-0000-4000-8000-000000000003', 'COBUY-ORDER-6', 'COBUY-6', true, false, 'completed', now() - interval '5 days', now(), 100, 1, 1);
+  ('30000000-0000-4000-8000-000000000001', '20000000-0000-4000-8000-000000000001', 'COBUY-ORDER-1', 'COBUY-1', true, false, 'completed', now() - interval '10 days', now(), 100, 6, 109, '21000000-0000-4000-8000-000000000001', 'ЮридическоеЛицо', 'ЗаказНаПродажу', true, null),
+  ('30000000-0000-4000-8000-000000000002', '20000000-0000-4000-8000-000000000002', 'COBUY-ORDER-2', 'COBUY-2', true, false, 'completed', now() - interval '9 days', now(), 100, 5, 5, '21000000-0000-4000-8000-000000000002', 'ЮридическоеЛицо', 'ЗаказНаПродажу', true, null),
+  ('30000000-0000-4000-8000-000000000003', '20000000-0000-4000-8000-000000000003', 'COBUY-ORDER-3', 'COBUY-3', true, false, 'completed', now() - interval '8 days', now(), 100, 4, 4, '21000000-0000-4000-8000-000000000003', 'ЮридическоеЛицо', 'ЗаказНаПродажу', true, null),
+  ('30000000-0000-4000-8000-000000000004', '20000000-0000-4000-8000-000000000001', 'COBUY-ORDER-4', 'COBUY-4', true, false, 'completed', now() - interval '7 days', now(), 100, 1, 1, '21000000-0000-4000-8000-000000000001', 'ЮридическоеЛицо', 'ЗаказНаПродажу', true, null),
+  ('30000000-0000-4000-8000-000000000005', '20000000-0000-4000-8000-000000000002', 'COBUY-ORDER-5', 'COBUY-5', true, false, 'completed', now() - interval '6 days', now(), 100, 1, 1, '21000000-0000-4000-8000-000000000002', 'ЮридическоеЛицо', 'ЗаказНаПродажу', true, null),
+  ('30000000-0000-4000-8000-000000000006', '20000000-0000-4000-8000-000000000003', 'COBUY-ORDER-6', 'COBUY-6', true, false, 'completed', now() - interval '5 days', now(), 100, 1, 1, '21000000-0000-4000-8000-000000000003', 'ЮридическоеЛицо', 'ЗаказНаПродажу', true, null),
+  ('30000000-0000-4000-8000-000000000007', null, 'COBUY-ORDER-7', 'COBUY-7', true, false, 'completed', now() - interval '900 days', now(), 100, 4, 4, '22000000-0000-4000-8000-000000000001', 'ЮридическоеЛицо', 'ЗаказНаПродажу', false, 'unmapped_counterparty'),
+  ('30000000-0000-4000-8000-000000000008', null, 'COBUY-ORDER-8', 'COBUY-8', true, false, 'completed', now() - interval '1200 days', now(), 100, 4, 4, '22000000-0000-4000-8000-000000000002', 'ИндивидуальныйПредприниматель', 'ЗаказНаПродажу', false, 'unmapped_counterparty'),
+  ('30000000-0000-4000-8000-000000000009', null, 'COBUY-ORDER-9', 'COBUY-9', true, false, 'completed', now() - interval '4 days', now(), 100, 2, 2, '22000000-0000-4000-8000-000000000003', 'ФизическоеЛицо', 'ЗаказНаПродажу', false, 'physical_person');
 
 insert into public.partner_order_history_items (
   order_history_id,
@@ -109,7 +117,17 @@ values
   ('30000000-0000-4000-8000-000000000003', 4, '10000000-0000-4000-8000-000000000006', 'COBUY-F', 1, 1, 1),
   ('30000000-0000-4000-8000-000000000004', 1, '10000000-0000-4000-8000-000000000004', 'COBUY-D', 1, 1, 1),
   ('30000000-0000-4000-8000-000000000005', 1, '10000000-0000-4000-8000-000000000004', 'COBUY-D', 1, 1, 1),
-  ('30000000-0000-4000-8000-000000000006', 1, '10000000-0000-4000-8000-000000000004', 'COBUY-D', 1, 1, 1);
+  ('30000000-0000-4000-8000-000000000006', 1, '10000000-0000-4000-8000-000000000004', 'COBUY-D', 1, 1, 1),
+  ('30000000-0000-4000-8000-000000000007', 1, '10000000-0000-4000-8000-000000000001', 'COBUY-A', 1, 1, 1),
+  ('30000000-0000-4000-8000-000000000007', 2, '10000000-0000-4000-8000-000000000002', 'COBUY-B', 1, 1, 1),
+  ('30000000-0000-4000-8000-000000000007', 3, '10000000-0000-4000-8000-000000000005', 'COBUY-E', 1, 1, 1),
+  ('30000000-0000-4000-8000-000000000007', 4, '10000000-0000-4000-8000-000000000006', 'COBUY-F', 1, 1, 1),
+  ('30000000-0000-4000-8000-000000000008', 1, '10000000-0000-4000-8000-000000000001', 'COBUY-A', 1, 1, 1),
+  ('30000000-0000-4000-8000-000000000008', 2, '10000000-0000-4000-8000-000000000002', 'COBUY-B', 1, 1, 1),
+  ('30000000-0000-4000-8000-000000000008', 3, '10000000-0000-4000-8000-000000000005', 'COBUY-E', 1, 1, 1),
+  ('30000000-0000-4000-8000-000000000008', 4, '10000000-0000-4000-8000-000000000006', 'COBUY-F', 1, 1, 1),
+  ('30000000-0000-4000-8000-000000000009', 1, '10000000-0000-4000-8000-000000000001', 'COBUY-A', 1, 1, 1),
+  ('30000000-0000-4000-8000-000000000009', 2, '10000000-0000-4000-8000-000000000002', 'COBUY-B', 1, 1, 1);
 
 select lives_ok(
   $$select public.refresh_partner_product_cobuy_associations()$$,
@@ -118,8 +136,14 @@ select lives_ok(
 
 select is(
   (select total_order_count from public.partner_product_cobuy_state),
-  6::bigint,
-  'all six governed orders form the transaction denominator'
+  8::bigint,
+  'all eight governed B2B orders form the all-time transaction denominator'
+);
+
+select is(
+  (select history_mode from public.partner_product_cobuy_state),
+  'all_time_authoritative_history',
+  'the active projection is explicitly all-time'
 );
 
 select ok(
@@ -136,7 +160,7 @@ select is(
   (select pair_order_count from public.partner_product_cobuy_associations
     where source_product_id = '10000000-0000-4000-8000-000000000001'
       and candidate_product_id = '10000000-0000-4000-8000-000000000002'),
-  3::bigint,
+  5::bigint,
   'duplicate source lines and large quantities count once per order'
 );
 
@@ -144,8 +168,8 @@ select is(
   (select pair_company_count from public.partner_product_cobuy_associations
     where source_product_id = '10000000-0000-4000-8000-000000000001'
       and candidate_product_id = '10000000-0000-4000-8000-000000000002'),
-  3,
-  'pair diversity counts distinct companies'
+  5,
+  'pair diversity counts mapped and unmapped source counterparties'
 );
 
 select is(
@@ -160,7 +184,7 @@ select is(
   (select lift from public.partner_product_cobuy_associations
     where source_product_id = '10000000-0000-4000-8000-000000000001'
       and candidate_product_id = '10000000-0000-4000-8000-000000000002'),
-  2.00000000::numeric,
+  1.60000000::numeric,
   'lift discounts global candidate prevalence'
 );
 
@@ -184,12 +208,12 @@ select ok(
 );
 
 select ok(
-  not exists (
+  exists (
     select 1
     from public.partner_product_cobuy_associations
     where candidate_product_id = '10000000-0000-4000-8000-000000000006'
   ),
-  'inactive candidates are excluded from the projection'
+  'inactive historical candidates remain in private analytical evidence'
 );
 
 select is(
@@ -211,8 +235,28 @@ select is(
 select is(
   (select count(*) from public.partner_product_cobuy_associations
     where source_product_id = '10000000-0000-4000-8000-000000000001'),
-  2::bigint,
+  3::bigint,
   'the full qualifying source set is persisted without synthetic fill'
+);
+
+select is(
+  (select count(distinct source_counterparty_1c_id)
+   from public.partner_order_history
+   where id in (
+     '30000000-0000-4000-8000-000000000001',
+     '30000000-0000-4000-8000-000000000002',
+     '30000000-0000-4000-8000-000000000003',
+     '30000000-0000-4000-8000-000000000007',
+     '30000000-0000-4000-8000-000000000008'
+   )),
+  5::bigint,
+  'nullable company mapping does not collapse independent historical buyers'
+);
+
+select ok(
+  not (select global_analytics_eligible from public.partner_order_history
+       where id = '30000000-0000-4000-8000-000000000009'),
+  'physical-person orders remain excluded from global co-buy analytics'
 );
 
 select ok(

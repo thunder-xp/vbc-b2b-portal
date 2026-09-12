@@ -93,8 +93,7 @@ export type PartnerCoBuyRefreshResult = {
   refreshId: string;
   refreshedAt: string;
   businessDate: string;
-  windowStart: string;
-  windowEnd: string;
+  historyMode: "all_time_authoritative_history";
   totalOrderCount: number;
   eligibleSourceProductCount: number;
   associationCount: number;
