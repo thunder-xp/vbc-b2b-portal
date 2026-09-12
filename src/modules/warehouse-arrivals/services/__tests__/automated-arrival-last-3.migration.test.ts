@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const migration = readFileSync(
-  resolve(process.cwd(), "supabase/migrations/20260912073302_automated_arrival_last_3_eligible_shipments.sql"),
+  resolve(process.cwd(), "supabase/migrations/20260912080603_automated_arrival_last_3_eligible_shipments.sql"),
   "utf8",
 );
 const reconcile = migration.slice(
