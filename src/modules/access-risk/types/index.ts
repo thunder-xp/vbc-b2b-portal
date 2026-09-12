@@ -16,6 +16,10 @@ export type AccessRiskOverviewItem = {
   affectedUserCount: number;
   activeUserCount: number;
   reasonCodes: string[];
+  devices24h: number;
+  networks24h: number;
+  uniqueSkus24h: number;
+  commercialIntents24h: number;
   lastActivityAt: string | null;
   evaluatedAt: string | null;
   mode: AccessRiskMonitoringMode;
@@ -23,7 +27,7 @@ export type AccessRiskOverviewItem = {
 };
 
 export type AccessRiskOverview = {
-  kpis: { high: number; elevated: number; learning: number; enhanced: number; total: number };
+  kpis: { high: number; elevated: number; low: number; learning: number; enhanced: number; total: number };
   items: AccessRiskOverviewItem[];
   total: number;
   page: number;

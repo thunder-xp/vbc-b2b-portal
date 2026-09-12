@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 const sql = readFileSync("supabase/migrations/20260912222922_partner_access_risk_radar_v1.sql", "utf8");
 const indexes = readFileSync("supabase/migrations/20260912223114_partner_access_risk_fk_indexes.sql", "utf8");
+const overviewMetrics = readFileSync("supabase/migrations/20260912225459_access_risk_overview_metrics.sql", "utf8");
 
 describe("Partner Access Risk Radar migration", () => {
   it("keeps NORMAL data aggregate-only and Enhanced detail bounded", () => {
@@ -50,5 +51,13 @@ describe("Partner Access Risk Radar migration", () => {
     for (const column of ["activated_by", "actor_user_id", "company_id", "user_id", "product_id", "category_id"]) {
       expect(indexes).toContain(`(${column}`);
     }
+  });
+
+  it("adds the required overview metrics in the existing bounded Admin RPC", () => {
+    for (const field of ["devices_24h", "networks_24h", "unique_skus_24h", "commercial_intents_24h"]) {
+      expect(overviewMetrics).toContain(field);
+    }
+    expect(overviewMetrics).toContain("left join lateral");
+    expect(overviewMetrics).toContain("'low',count(*) filter(where risk_state='LOW')");
   });
 });

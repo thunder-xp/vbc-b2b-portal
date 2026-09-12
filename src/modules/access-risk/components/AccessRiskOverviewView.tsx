@@ -10,9 +10,10 @@ export function AccessRiskOverviewView({ data, filters }: {
   const stale = !data.diagnostics || data.diagnostics.isStale;
   return <div className="space-y-5">
     {stale && <div role="status" className="border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">Проекция обновляется асинхронно. Последний снимок старше двух часов или ещё не создан.</div>}
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-6">
       <Metric label="Высокий" value={data.kpis.high} tone="red" />
       <Metric label="Повышенный" value={data.kpis.elevated} tone="amber" />
+      <Metric label="Низкий" value={data.kpis.low} />
       <Metric label="Обучение" value={data.kpis.learning} />
       <Metric label="Расширенный" value={data.kpis.enhanced} tone="blue" />
       <Metric label="Всего компаний" value={data.kpis.total} />
@@ -25,15 +26,19 @@ export function AccessRiskOverviewView({ data, filters }: {
       <button className="h-10 self-end bg-zinc-950 px-4 text-sm font-semibold text-white">Применить</button>
     </form>
     <div className="overflow-x-auto border border-zinc-200 bg-white">
-      <table className="min-w-[920px] w-full text-sm">
-        <thead className="bg-zinc-50 text-left text-xs uppercase tracking-wide text-zinc-500"><tr><th className="px-3 py-2">Компания</th><th className="px-3 py-2">Риск</th><th className="px-3 py-2">Причины</th><th className="px-3 py-2">Пользователи</th><th className="px-3 py-2">Режим</th><th className="px-3 py-2">Активность</th><th className="px-3 py-2"><span className="sr-only">Действие</span></th></tr></thead>
+      <table className="min-w-[1320px] w-full text-sm">
+        <thead className="bg-zinc-50 text-left text-xs uppercase tracking-wide text-zinc-500"><tr><th className="px-3 py-2">Компания</th><th className="px-3 py-2">Риск</th><th className="px-3 py-2">Причины</th><th className="px-3 py-2">Пользователи</th><th className="px-3 py-2">Устройства</th><th className="px-3 py-2">Сети</th><th className="px-3 py-2">SKU просмотры</th><th className="px-3 py-2">Коммерческие действия</th><th className="px-3 py-2">Активность</th><th className="px-3 py-2">Мониторинг</th><th className="px-3 py-2"><span className="sr-only">Действие</span></th></tr></thead>
         <tbody className="divide-y divide-zinc-100">{data.items.map((item) => <tr key={item.id}>
           <td className="px-3 py-3 font-semibold text-zinc-950">{item.displayName}</td>
           <td className="px-3 py-3"><AccessRiskBadge state={item.riskState} /> <span className="ml-2 tabular-nums text-zinc-500">{item.riskScore}</span></td>
           <td className="max-w-[280px] px-3 py-3 text-xs text-zinc-600">{item.reasonCodes.length ? item.reasonCodes.map(reasonLabel).join(" · ") : "Нет активных сигналов"}</td>
           <td className="px-3 py-3 tabular-nums">{item.affectedUserCount} / {item.activeUserCount}</td>
-          <td className="px-3 py-3"><span className={item.mode === "ENHANCED" ? "font-semibold text-blue-700" : "text-zinc-600"}>{item.mode === "ENHANCED" ? "Расширенный" : "Обычный"}</span>{item.enhancedUntil && <div className="text-xs text-zinc-500">до {formatDate(item.enhancedUntil)}</div>}</td>
+          <td className="px-3 py-3 tabular-nums">{item.devices24h}</td>
+          <td className="px-3 py-3 tabular-nums">{item.networks24h}</td>
+          <td className="px-3 py-3 tabular-nums">{item.uniqueSkus24h}</td>
+          <td className="px-3 py-3 tabular-nums">{item.commercialIntents24h}</td>
           <td className="px-3 py-3 text-xs text-zinc-600">{item.lastActivityAt ? formatDate(item.lastActivityAt) : "Нет данных"}</td>
+          <td className="px-3 py-3"><span className={item.mode === "ENHANCED" ? "font-semibold text-blue-700" : "text-zinc-600"}>{item.mode === "ENHANCED" ? "Расширенный" : "Обычный"}</span>{item.enhancedUntil && <div className="text-xs text-zinc-500">до {formatDate(item.enhancedUntil)}</div>}</td>
           <td className="px-3 py-3 text-right"><Link prefetch={false} className="inline-flex h-10 items-center border border-zinc-300 px-3 font-semibold hover:bg-zinc-50" href={`/admin/security/access-risk/${item.id}`}>Открыть</Link></td>
         </tr>)}</tbody>
       </table>

@@ -1,6 +1,6 @@
 begin;
 
-select plan(18);
+select plan(19);
 
 insert into auth.users(id, aud, role, email, created_at, updated_at) values
   ('a1000000-0000-4000-8000-000000000001','authenticated','authenticated','risk-admin@example.test',now(),now()),
@@ -46,6 +46,12 @@ select is((select risk_state from public.access_risk_company_snapshots where com
 select is((select active_user_count from public.access_risk_company_snapshots where company_id='c1000000-0000-4000-8000-000000000001'),3,'multiple legitimate users remain distinct and are not themselves a signal');
 
 select set_config('request.jwt.claim.sub','a1000000-0000-4000-8000-000000000001',true);
+select ok(
+  (public.get_admin_access_risk_overview(null,null,null,'risk_desc',1,25)->'kpis') ? 'low'
+  and (public.get_admin_access_risk_overview(null,null,null,'risk_desc',1,25)->'items'->0) ?&
+    array['devices_24h','networks_24h','unique_skus_24h','commercial_intents_24h'],
+  'Admin overview returns LOW KPI and the required bounded activity metrics'
+);
 select is(public.set_admin_access_risk_monitoring('c1000000-0000-4000-8000-000000000001','ENHANCED',14,'Runtime security acceptance')->>'mode','ENHANCED','authorized Admin activates Enhanced mode');
 select ok((select expires_at <= activated_at + interval '14 days 1 second' from public.access_risk_monitoring_profiles where company_id='c1000000-0000-4000-8000-000000000001'),'Enhanced duration is bounded');
 

@@ -87,7 +87,7 @@ function mapOverview(raw: Record<string, unknown>): AccessRiskOverview {
   const kpis = record(raw.kpis);
   return {
     kpis: {
-      high: integer(kpis.high), elevated: integer(kpis.elevated), learning: integer(kpis.learning),
+      high: integer(kpis.high), elevated: integer(kpis.elevated), low: integer(kpis.low), learning: integer(kpis.learning),
       enhanced: integer(kpis.enhanced), total: integer(kpis.total),
     },
     items: array(raw.items).map((item) => {
@@ -96,6 +96,8 @@ function mapOverview(raw: Record<string, unknown>): AccessRiskOverview {
         id: string(row.id), displayName: string(row.display_name), riskState: riskState(row.risk_state),
         riskScore: integer(row.risk_score), affectedUserCount: integer(row.affected_user_count),
         activeUserCount: integer(row.active_user_count), reasonCodes: stringArray(row.reason_codes),
+        devices24h: integer(row.devices_24h), networks24h: integer(row.networks_24h),
+        uniqueSkus24h: integer(row.unique_skus_24h), commercialIntents24h: integer(row.commercial_intents_24h),
         lastActivityAt: nullableString(row.last_activity_at), evaluatedAt: nullableString(row.evaluated_at),
         mode: row.mode === "ENHANCED" ? "ENHANCED" : "NORMAL",
         enhancedUntil: nullableString(row.enhanced_until),
