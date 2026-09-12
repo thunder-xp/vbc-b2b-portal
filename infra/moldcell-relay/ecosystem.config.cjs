@@ -1,0 +1,22 @@
+module.exports = {
+  apps: [{
+    name: "nsd-sms-relay",
+    cwd: "/var/www/nsd-sms-relay",
+    script: "src/server.mjs",
+    interpreter: "node",
+    node_args: "--env-file=/var/www/nsd-sms-relay/.env",
+    instances: 1,
+    exec_mode: "fork",
+    autorestart: true,
+    watch: false,
+    max_memory_restart: "128M",
+    restart_delay: 2_000,
+    max_restarts: 10,
+    min_uptime: "10s",
+    kill_timeout: 10_000,
+    out_file: "/var/log/nsd-sms-relay/out.log",
+    error_file: "/var/log/nsd-sms-relay/error.log",
+    merge_logs: true,
+    env: { NODE_ENV: "production" },
+  }],
+};
