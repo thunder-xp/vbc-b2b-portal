@@ -136,11 +136,14 @@ export type WorkspaceDashboardSelections = {
   popularProducts?: WorkspaceDashboardProductCandidate[];
   newProducts?: WorkspaceDashboardProductCandidate[];
   hotProducts?: WorkspaceDashboardProductCandidate[];
+  arrivalProducts?: WorkspaceDashboardProductCandidate[];
   merchandisingProducts: WorkspaceDashboardProductCandidate[];
   previousCandidateCount: number;
   popularCandidateCount?: number;
   newCandidateCount?: number;
   hotCandidateCount?: number;
+  arrivalCandidateCount?: number;
+  arrivalSourceFingerprint?: string;
   offerCandidateCount: number;
   rotationBucket: number;
 };

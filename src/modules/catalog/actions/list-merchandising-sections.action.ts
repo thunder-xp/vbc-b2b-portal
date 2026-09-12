@@ -67,9 +67,10 @@ export async function listCatalogMerchandisingSectionsAction(requestedPeriods: {
       ),
       createPartnerWorkspaceContextService().getWorkspaceContext(userId),
     ]);
-    const replenishment = context.accessState === "active" && context.companyId
-      ? await new SupabaseWarehouseArrivalRepository().getCurrentReplenishment(context.companyId)
-      : [];
+    const replenishmentPage = context.accessState === "active" && context.companyId
+      ? await new SupabaseWarehouseArrivalRepository().getCurrentReplenishmentPreview(context.companyId)
+      : { items: [], totalCount: 0 };
+    const replenishment = replenishmentPage.items;
     const productIds = [...new Set([
       ...assignments.map((item) => item.productId),
       ...replenishment.map((item) => item.productId),
@@ -100,9 +101,6 @@ export async function listCatalogMerchandisingSectionsAction(requestedPeriods: {
           .map((assignment) => assignment.labelCode),
       },
     ]));
-    const commercialByProduct = new Map(commercialViews.map((view) => [view.productId, view]));
-    const sourceOrder = new Map(replenishment.map((item) => [item.productId, item.sourceLineNumber]));
-
     const sections: CatalogMerchandisingSection[] = SECTION_ORDER.flatMap(({ href, labelCode, title }) => {
       const sectionProducts = assignments
         .filter((assignment) => assignment.labelCode === labelCode)
@@ -128,19 +126,15 @@ export async function listCatalogMerchandisingSectionsAction(requestedPeriods: {
       .flatMap((item) => {
         const product = productsById.get(item.productId);
         return product ? [product] : [];
-      })
-      .toSorted((left, right) => {
-        const stockDifference = stockRank(commercialByProduct.get(left.id)) - stockRank(commercialByProduct.get(right.id));
-        return stockDifference || (sourceOrder.get(left.id) ?? Number.MAX_SAFE_INTEGER) - (sourceOrder.get(right.id) ?? Number.MAX_SAFE_INTEGER) || left.id.localeCompare(right.id);
       });
     if (replenishmentProducts.length) {
       sections.push({
         labelCode: "REPLENISHMENT",
-        title: "Последнее поступление",
+        title: "Поступление",
         products: replenishmentProducts,
         href: "/cabinet/catalog?collection=replenishment",
-        contextBadge: "Пополнение",
-        totalCount: replenishmentProducts.length,
+        contextBadge: "Поступление",
+        totalCount: replenishmentPage.totalCount,
       });
     }
 
@@ -151,8 +145,4 @@ export async function listCatalogMerchandisingSectionsAction(requestedPeriods: {
   } catch (error) {
     return failureFromError(error);
   }
-}
-
-function stockRank(view: ProductCommercialViewDto | undefined): number {
-  return view?.stock?.status === "in_stock" || view?.stock?.status === "low_stock" ? 0 : 1;
 }

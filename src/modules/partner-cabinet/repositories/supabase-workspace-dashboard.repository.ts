@@ -156,11 +156,14 @@ const selectionsSchema = z.object({
   popularProducts: z.array(productCandidateSchema).max(5),
   newProducts: z.array(productCandidateSchema).max(5),
   hotProducts: z.array(productCandidateSchema).max(5),
+  arrivalProducts: z.array(productCandidateSchema).max(5),
   merchandisingProducts: z.array(productCandidateSchema).max(12),
   previousCandidateCount: z.number().int().nonnegative(),
   popularCandidateCount: z.number().int().nonnegative(),
   newCandidateCount: z.number().int().nonnegative(),
   hotCandidateCount: z.number().int().nonnegative(),
+  arrivalCandidateCount: z.number().int().nonnegative(),
+  arrivalSourceFingerprint: z.string(),
   offerCandidateCount: z.number().int().nonnegative(),
   rotationBucket: z.number().int().nonnegative(),
 });
@@ -213,7 +216,7 @@ export class SupabaseWorkspaceDashboardRepository
   ): Promise<WorkspaceDashboardSelections> {
     const startedAt = performance.now();
     const { data, error } = await createAdminClient().rpc(
-      "get_or_refresh_partner_dashboard_selections_v6",
+      "get_or_refresh_partner_dashboard_selections_v7",
       {
         p_user_id: userId,
         p_company_id: companyId,
