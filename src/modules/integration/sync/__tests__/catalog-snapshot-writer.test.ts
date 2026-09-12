@@ -29,7 +29,11 @@ describe("SupabaseCatalogSnapshotWriter attribute publication", () => {
 
     expect(client.stageInsert).toHaveBeenCalledTimes(2);
     expect(client.publish).toHaveBeenCalledOnce();
-    expect(client.api.rpc).toHaveBeenCalledTimes(2);
+    expect(client.api.rpc).toHaveBeenCalledTimes(3);
+    expect(client.api.rpc).toHaveBeenLastCalledWith(
+      "reconcile_current_warehouse_replenishment_day",
+      { p_emit_notification: false },
+    );
     expect(result).toMatchObject({ attributesUpserted: 201, attributesRemoved: 3, attributeUniquePairs: 201, attributeBatchesStaged: 2, attributePublicationTransactionSucceeded: true });
   });
 });

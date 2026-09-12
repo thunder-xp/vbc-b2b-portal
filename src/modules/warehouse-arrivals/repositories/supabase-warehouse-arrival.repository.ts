@@ -27,6 +27,11 @@ const currentReplenishmentSchema = z.object({
     sourceLineNumber: z.coerce.number().int().positive(),
   }).strict()).max(500),
 }).strict();
+const currentReplenishmentPageSchema = currentReplenishmentSchema.extend({
+  totalCount: z.coerce.number().int().nonnegative(),
+  limit: z.coerce.number().int().positive(),
+  offset: z.coerce.number().int().nonnegative(),
+}).strict();
 
 export class SupabaseWarehouseArrivalRepository implements WarehouseArrivalRepository {
   async list(companyId: string, input: Parameters<WarehouseArrivalRepository["list"]>[1]) {
@@ -74,5 +79,15 @@ export class SupabaseWarehouseArrivalRepository implements WarehouseArrivalRepos
     const parsed = currentReplenishmentSchema.safeParse(data);
     if (error || !parsed.success) throw new WarehouseArrivalRepositoryError();
     return parsed.data.items;
+  }
+
+  async getCurrentReplenishmentPreview(companyId: string, limit = 5) {
+    const { data, error } = await (await createClient()).rpc(
+      "get_partner_current_warehouse_replenishment_v2",
+      { p_company_id: companyId, p_limit: limit, p_offset: 0 },
+    );
+    const parsed = currentReplenishmentPageSchema.safeParse(data);
+    if (error || !parsed.success) throw new WarehouseArrivalRepositoryError();
+    return parsed.data;
   }
 }

@@ -51,9 +51,9 @@ describe("CatalogMerchandisingSections accessibility", () => {
       }]}
       userId={null}
     />);
-    expect(screen.getByRole("heading", { name: "Ultima aprovizionare" })).toBeInTheDocument();
-    expect(screen.getByText("Aprovizionare")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Afișează toate: Ultima aprovizionare" })).toHaveAttribute(
+    expect(screen.getByRole("heading", { name: "Aprovizionare" })).toBeInTheDocument();
+    expect(screen.getAllByText("Aprovizionare")).toHaveLength(2);
+    expect(screen.getByRole("link", { name: "Afișează toate: Aprovizionare" })).toHaveAttribute(
       "href",
       "/cabinet/catalog?collection=replenishment",
     );

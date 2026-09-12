@@ -43,7 +43,7 @@ describe("Public Retail catalog showcase", () => {
     render(<PublicRetailShowcase categories={categories} locale="ru" showcase={{ popular: [product], new: [product], hot: [product], replenishment: [product], totalCounts }} />);
     expect(screen.getByRole("heading", { level: 1, name: "Витрина" })).toBeInTheDocument();
     expect(screen.getAllByRole("heading", { level: 2 }).map((heading) => heading.textContent)).toEqual([
-      "Популярное", "Новинки", "Горячая цена", "Последнее поступление",
+      "Популярное", "Новинки", "Горячая цена", "Поступление",
     ]);
     expect(screen.getAllByRole("link", { name: /Показать все/ }).map((link) => link.getAttribute("href"))).toEqual([
       "/catalog?lang=ru&view=popular", "/catalog?lang=ru&view=new", "/catalog?lang=ru&view=hot", "/catalog?lang=ru&view=replenishment",
@@ -55,7 +55,9 @@ describe("Public Retail catalog showcase", () => {
     expect(screen.getAllByText("Популярное").find((element) => element.tagName === "SPAN")).toHaveClass("text-amber-900");
     expect(getMerchandisingBadge("Новинки")).toHaveClass("text-sky-800");
     expect(screen.getAllByText("Горячая цена")[1]).toHaveClass("text-rose-800");
-    expect(screen.getByText("Пополнение")).toHaveClass("border-emerald-700", "bg-emerald-50", "text-emerald-900", "rounded-sm", "text-[11px]");
+    const replenishmentBadge = screen.getAllByText("Поступление")
+      .find((element) => element.classList.contains("border-emerald-700"));
+    expect(replenishmentBadge).toHaveClass("border-emerald-700", "bg-emerald-50", "text-emerald-900", "rounded-sm", "text-[11px]");
   });
 
   it("localizes section-derived merchandising badges in Romanian", () => {

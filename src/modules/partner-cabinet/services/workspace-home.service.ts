@@ -269,8 +269,10 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
     private readonly supportRepository?: PartnerSupportRepository,
     private readonly salesWorkspaceService?: PartnerSalesWorkspaceService,
     private readonly financeRepository?: FinanceRepository,
-    private readonly warehouseArrivalRepository?: WarehouseArrivalRepository,
-  ) {}
+    _warehouseArrivalRepository?: WarehouseArrivalRepository,
+  ) {
+    void _warehouseArrivalRepository;
+  }
 
   async dismissAttention(
     userId: string,
@@ -301,7 +303,7 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
 
     const canViewFinance = context.capabilities.navigation.some((item) => item.key === "finance" && item.availability === "available");
     const canViewSales = context.capabilities.navigation.some((item) => item.key === "orders" && item.availability === "available");
-    const [freshness, dashboard, selections, opportunityPage, supportTickets, estimateSalesOpportunities, financeData, currentReplenishment] = await Promise.all([
+    const [freshness, dashboard, selections, opportunityPage, supportTickets, estimateSalesOpportunities, financeData] = await Promise.all([
       timedDashboardRead("commercial_freshness", () => this.commercialFreshnessReadModel.getFreshness()),
       timedDashboardRead("dashboard_aggregate", () => this.dashboardRepository.getDashboard(companyId)),
       timedDashboardRead("product_selections", () => this.dashboardRepository.getProductSelections?.(userId, companyId, loginGeneration, {
@@ -322,7 +324,6 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
       timedDashboardRead("finance_guidance", () => canViewFinance && this.financeRepository
         ? this.financeRepository.getOverviewData(companyId)
         : Promise.resolve(null)),
-      timedDashboardRead("current_replenishment", () => this.warehouseArrivalRepository?.getCurrentReplenishment(companyId) ?? Promise.resolve([])),
     ]);
     const reorderCandidates = sessionOrder(
       selections?.previousProducts ?? dashboard.reorderProducts,
@@ -333,21 +334,10 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
     const popularCandidates = selections?.popularProducts ?? [];
     const newCandidates = selections?.newProducts ?? [];
     const hotCandidates = selections?.hotProducts ?? [];
-    const arrivalCandidates: WorkspaceDashboardProductCandidate[] = currentReplenishment.map((item) => ({
-      id: item.productId,
-      sku: "",
-      name: "",
-      slug: "",
-      imageUrl: null,
-      categoryId: null,
-      categoryName: null,
-      labelCodes: [],
-      sourceCodes: ["ARRIVAL"],
-    }));
+    const arrivalCandidates = selections?.arrivalProducts
+      ?? merchandisingCandidates.filter((candidate) => candidate.sourceCodes?.includes("ARRIVAL"));
     const discoveryCandidates = mixDashboardDiscoveryCandidates({
-      arrival: arrivalCandidates.length
-        ? arrivalCandidates
-        : merchandisingCandidates.filter((candidate) => candidate.sourceCodes?.includes("ARRIVAL")),
+      arrival: arrivalCandidates,
       hot: hotCandidates,
       new: newCandidates,
       popular: popularCandidates,
