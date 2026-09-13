@@ -81,7 +81,19 @@ describe("catalog image orchestration", () => {
       stage: "public_retail_projection",
     });
     expect(repository.verifyTargetedImage).toHaveBeenCalledTimes(1);
+    expect(publicRetailPublisher.publishCurrentProjection).toHaveBeenCalledTimes(2);
     expect(repository.updateImageMutation).toHaveBeenCalledWith(expect.objectContaining({ status: "refresh_pending" }));
+  });
+
+  it("recovers a transient public retail candidate failure without repeating Firebase or 1C", async () => {
+    const { service, publicRetailPublisher, oneC } = fixture();
+    publicRetailPublisher.publishCurrentProjection
+      .mockRejectedValueOnce(new Error("statement timeout"))
+      .mockResolvedValueOnce(undefined);
+    await expect(run(service.instance)).resolves.toMatchObject({ correlationId });
+    expect(publicRetailPublisher.publishCurrentProjection).toHaveBeenCalledTimes(2);
+    expect(oneC.write).toHaveBeenCalledTimes(1);
+    expect(service.storage.upload).toHaveBeenCalledTimes(1);
   });
 
   it("deletes a prior managed object only after 1C read-back and local projection verification", async () => {

@@ -102,7 +102,7 @@ export class CatalogManagementService {
       throw new CatalogManagementValidationError("CATALOG_VISIBILITY_INPUT_INVALID");
     }
     const result = await this.repository.setVisibility({ ...input, reason: input.reason.trim() });
-    await this.publicRetailPublisher.publishCurrentProjection();
+    await publishPublicRetailProjection(this.publicRetailPublisher);
     return result;
   }
 
@@ -196,7 +196,7 @@ export class CatalogManagementService {
         throw new CatalogManagementRepositoryError("CATALOG_TARGETED_REFRESH_MISMATCH");
       }
       stage = "public_retail_projection";
-      await this.publicRetailPublisher.publishCurrentProjection();
+      await publishPublicRetailProjection(this.publicRetailPublisher);
 
       let cleanupStatus = "NOT_REQUIRED";
       const previousObjectPath = managedFirebaseObjectPathFromUrl(previousCanonicalUrl);
@@ -282,6 +282,18 @@ export class CatalogManagementService {
       }
       throw new CatalogImageMutationError(safeCode, stage, input.correlationId, cleanupStatus);
     }
+  }
+}
+
+async function publishPublicRetailProjection(publisher: {
+  publishCurrentProjection(): Promise<unknown>;
+}): Promise<void> {
+  try {
+    await publisher.publishCurrentProjection();
+  } catch {
+    // Candidate builds are bounded and occasionally hit a transient statement timeout;
+    // one immediate clean candidate retry preserves the existing atomic publication contract.
+    await publisher.publishCurrentProjection();
   }
 }
 
