@@ -8,13 +8,12 @@ import { SupabaseAuthSmsRateLimitRepository } from "./supabase-rate-limit.reposi
 
 const sendSmsPayloadSchema = z.object({
   user: z.object({
-    id: z.uuid(),
     phone: z.string(),
   }).passthrough(),
   sms: z.object({
     otp: z.string().regex(/^\d{6}$/),
-  }).strict(),
-}).strict();
+  }).passthrough(),
+}).passthrough();
 
 export class SendSmsHookVerificationError extends Error {
   constructor(readonly code: "SIGNATURE_INVALID" | "PAYLOAD_INVALID" | "CONFIGURATION_INVALID") {
