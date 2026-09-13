@@ -18,6 +18,23 @@ export type {
   CatalogScanDiagnosticsDTO,
 } from "./catalog";
 export type { DocumentDTO } from "./documents";
+export {
+  COMMISSION_SOURCE_CONTRACT_VERSION,
+  type CommissionSourceAdjustmentDTO,
+  type CommissionSourceAdjustmentType,
+  type CommissionSourceAllocationDirection,
+  type CommissionSourceContractVersion,
+  type CommissionSourceDecimal,
+  type CommissionSourceDiagnosticsDTO,
+  type CommissionSourceLineClassification,
+  type CommissionSourceLineDTO,
+  type CommissionSourcePageResultDTO,
+  type CommissionSourcePaymentAllocationDTO,
+  type CommissionSourcePaymentDTO,
+  type CommissionSourcePaymentType,
+  type CommissionSourceRealizationDTO,
+  type CommissionSourceTransactionFlagsDTO,
+} from "./commission-source";
 export type {
   ContractBalanceDTO,
   FinanceSnapshotDTO,

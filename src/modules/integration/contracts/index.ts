@@ -1,5 +1,9 @@
 export type { CatalogProvider } from "./catalog-provider";
 export type {
+  CommissionSourceListRequestDTO,
+  CommissionSourceProvider,
+} from "./commission-source-provider";
+export type {
   DocumentFetchRequestDTO,
   DocumentProvider,
 } from "./document-provider";
