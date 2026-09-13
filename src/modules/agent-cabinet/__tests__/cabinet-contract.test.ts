@@ -7,6 +7,7 @@ import { agentStatusCopy, referralStatusCopy } from "../copy";
 
 const root = process.cwd();
 const migration = readFileSync(join(root, "supabase/migrations/20260913144354_agent_cabinet_ui_v1.sql"), "utf8");
+const auditMigration = readFileSync(join(root, "supabase/migrations/20260913151458_agent_profile_update_audit.sql"), "utf8");
 const layout = readFileSync(join(root, "app/(agent)/agent/layout.tsx"), "utf8");
 const qrPage = readFileSync(join(root, "app/(agent)/agent/qr/page.tsx"), "utf8");
 const service = readFileSync(join(root, "src/modules/agent-cabinet/service.ts"), "utf8");
@@ -44,5 +45,11 @@ describe("Agent Cabinet V1 contract", () => {
   it("does not expose partner commercial or commission data", () => {
     expect(migration).not.toMatch(/partner_price|debt|credit_limit|commission_amount/i);
     expect(qrPage).not.toMatch(/company_id|agent\.id}/);
+  });
+
+  it("audits profile edits without persisting personal values in audit metadata", () => {
+    expect(auditMigration).toContain("AGENT_PROFILE_UPDATED");
+    expect(auditMigration).toContain("jsonb_build_object('fields', changed_fields)");
+    expect(auditMigration).not.toContain("jsonb_build_object('phone'");
   });
 });

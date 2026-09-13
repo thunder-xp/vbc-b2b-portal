@@ -39,6 +39,7 @@ do $$ begin
   if (select count(*) from public.agent_referral_tokens where agent_id='21000000-0000-4000-8000-000000000001') <> 1 then raise exception 'Token fanout'; end if;
   if exists(select 1 from public.agent_referral_tokens where agent_id='21000000-0000-4000-8000-000000000002') then raise exception 'Cross-agent token write'; end if;
   if (select status from public.commercial_agents where id='21000000-0000-4000-8000-000000000001') <> 'ACTIVE' then raise exception 'Protected status changed'; end if;
+  if not exists(select 1 from public.agent_domain_events where agent_id='21000000-0000-4000-8000-000000000001' and event_type='AGENT_PROFILE_UPDATED' and safe_metadata->'fields' ? 'locality') then raise exception 'Profile audit missing'; end if;
 end $$;
 
 set local role authenticated;
