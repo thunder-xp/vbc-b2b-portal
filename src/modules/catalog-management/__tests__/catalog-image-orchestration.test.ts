@@ -43,6 +43,28 @@ describe("catalog image orchestration", () => {
     expect(service.storage.deleteManagedObject).toHaveBeenCalledTimes(1);
   });
 
+  it("rejects any unrelated 1C requisite mutation before local publication", async () => {
+    const { service, oneC, repository } = fixture();
+    const acceptedUrl = "https://firebasestorage.googleapis.com/v0/b/novotech-systems-5449b.appspot.com/o/products%2Fnew.png?alt=media";
+    oneC.read.mockReset();
+    oneC.read
+      .mockResolvedValueOnce(oneCState(oldUrl, "preserved"))
+      .mockResolvedValueOnce(oneCState(acceptedUrl, "changed"));
+    service.storage.upload.mockResolvedValueOnce({
+      bucket: "novotech-systems-5449b.appspot.com",
+      objectPath: "products/new.png",
+      canonicalUrl: acceptedUrl,
+    });
+
+    await expect(run(service.instance)).rejects.toMatchObject({
+      safeCode: "ONEC_UNRELATED_REQUISITES_CHANGED",
+      stage: "one_c_readback",
+    });
+    expect(service.storage.deleteManagedObject).not.toHaveBeenCalled();
+    expect(repository.publishTargetedImage).not.toHaveBeenCalled();
+    expect(repository.updateImageMutation).toHaveBeenCalledWith(expect.objectContaining({ status: "refresh_pending" }));
+  });
+
   it("keeps the confirmed Firebase object and marks recovery pending when local refresh fails", async () => {
     const { service, repository } = fixture();
     repository.publishTargetedImage.mockRejectedValue(new CatalogManagementRepositoryError("CATALOG_TARGETED_REFRESH_FAILED"));
@@ -51,16 +73,32 @@ describe("catalog image orchestration", () => {
     expect(repository.updateImageMutation).toHaveBeenCalledWith(expect.objectContaining({ status: "refresh_pending" }));
   });
 
+  it("marks recovery pending when public retail publication fails after targeted local refresh", async () => {
+    const { service, publicRetailPublisher, repository } = fixture();
+    publicRetailPublisher.publishCurrentProjection.mockRejectedValue(new Error("projection failed"));
+    await expect(run(service.instance)).rejects.toMatchObject({
+      safeCode: "CATALOG_IMAGE_UNKNOWN_FAILURE",
+      stage: "public_retail_projection",
+    });
+    expect(repository.verifyTargetedImage).toHaveBeenCalledTimes(1);
+    expect(repository.updateImageMutation).toHaveBeenCalledWith(expect.objectContaining({ status: "refresh_pending" }));
+  });
+
   it("deletes a prior managed object only after 1C read-back and local projection verification", async () => {
     const events: string[] = [];
     const { service, oneC, repository } = fixture(events);
     const result = await run(service.instance);
     expect(result.replaced).toBe(true);
-    expect(events).toEqual(expect.arrayContaining(["one_c_write", "one_c_readback", "local_publish", "local_verify", "reference_check", "old_delete"]));
+    expect(events).toEqual(expect.arrayContaining(["one_c_write", "one_c_readback", "local_publish", "local_verify", "public_retail_publish", "reference_check", "old_delete"]));
+    expect(events.indexOf("public_retail_publish")).toBeGreaterThan(events.indexOf("local_verify"));
     expect(events.indexOf("old_delete")).toBeGreaterThan(events.indexOf("local_verify"));
     expect(events.indexOf("old_delete")).toBeGreaterThan(events.indexOf("reference_check"));
     expect(oneC.write).toHaveBeenCalledWith(productRef, expect.arrayContaining([expect.objectContaining({ "Свойство_Key": PRODUCT_IMAGE_PROPERTY_KEY })]));
     expect(repository.appendImageAudit).toHaveBeenCalledWith(expect.objectContaining({ eventType: "CATALOG_IMAGE_1C_WRITE_CONFIRMED" }));
+    expect(repository.appendImageAudit).toHaveBeenCalledWith(expect.objectContaining({
+      eventType: "CATALOG_IMAGE_1C_WRITE_CONFIRMED",
+      safeMetadata: expect.objectContaining({ unrelatedRequisitesUnchanged: true }),
+    }));
     expect(repository.appendImageAudit).toHaveBeenCalledWith(expect.objectContaining({ eventType: "CATALOG_IMAGE_REPLACED" }));
   });
 });
@@ -89,22 +127,39 @@ function fixture(events: string[] = []) {
       .mockImplementationOnce(async () => { events.push("one_c_readback"); return oneCState(newUrl); }),
     write: vi.fn(async () => { events.push("one_c_write"); }),
   };
+  const publicRetailPublisher = {
+    publishCurrentProjection: vi.fn(async () => { events.push("public_retail_publish"); }),
+  };
   return {
     repository,
     oneC,
+    publicRetailPublisher,
     service: {
       storage,
-      instance: new CatalogManagementService(repository as never, storage as never, oneC as never),
+      instance: new CatalogManagementService(
+        repository as never,
+        storage as never,
+        oneC as never,
+        publicRetailPublisher as never,
+      ),
     },
   };
 }
 
-function oneCState(imageUrl: string) {
+function oneCState(imageUrl: string, unrelatedValue?: string) {
   return {
     reference: productRef,
     dataVersion: "1",
     imageUrl,
-    requisites: [{ LineNumber: 1, "Свойство_Key": PRODUCT_IMAGE_PROPERTY_KEY, "Значение": imageUrl, "Значение_Type": "Edm.String" }],
+    requisites: [
+      { LineNumber: 1, "Свойство_Key": PRODUCT_IMAGE_PROPERTY_KEY, "Значение": imageUrl, "Значение_Type": "Edm.String" },
+      ...(unrelatedValue === undefined ? [] : [{
+        LineNumber: 2,
+        "Свойство_Key": "55555555-5555-5555-5555-555555555555",
+        "Значение": unrelatedValue,
+        "Значение_Type": "Edm.String",
+      }]),
+    ],
   };
 }
 

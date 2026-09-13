@@ -5,6 +5,8 @@ import { createHash } from "node:crypto";
 import sharp, { type Metadata } from "sharp";
 
 import { getOneCEnv } from "@/src/lib/env";
+import { SupabasePublicRetailPublicationRepository } from "@/src/modules/public-retail/repositories/supabase/public-retail-publication.supabase-repository";
+import { PublicRetailPublicationService } from "@/src/modules/public-retail/services/public-retail-publication.service";
 import {
   FirebaseProductImageStorage,
   FirebaseProductImageStorageError,
@@ -13,6 +15,7 @@ import {
 import {
   OneCProductImageGateway,
   OneCProductImageGatewayError,
+  PRODUCT_IMAGE_PROPERTY_KEY,
   withProductImageUrl,
 } from "./one-c-product-image-gateway";
 import {
@@ -69,6 +72,9 @@ export class CatalogManagementService {
     private readonly repository = new CatalogManagementRepository(),
     private readonly storage = new FirebaseProductImageStorage(),
     private readonly oneC = new OneCProductImageGateway(getOneCEnv()),
+    private readonly publicRetailPublisher = new PublicRetailPublicationService(
+      new SupabasePublicRetailPublicationRepository(),
+    ),
   ) {}
 
   list(input: {
@@ -85,7 +91,7 @@ export class CatalogManagementService {
     });
   }
 
-  setVisibility(input: {
+  async setVisibility(input: {
     productId: string;
     visible: boolean;
     reason: string;
@@ -95,7 +101,9 @@ export class CatalogManagementService {
       || input.reason.trim().length < 3 || input.reason.trim().length > 500) {
       throw new CatalogManagementValidationError("CATALOG_VISIBILITY_INPUT_INVALID");
     }
-    return this.repository.setVisibility({ ...input, reason: input.reason.trim() });
+    const result = await this.repository.setVisibility({ ...input, reason: input.reason.trim() });
+    await this.publicRetailPublisher.publishCurrentProjection();
+    return result;
   }
 
   async uploadProductImage(input: {
@@ -148,6 +156,7 @@ export class CatalogManagementService {
       stage = "one_c_read";
       const before = await this.oneC.read(product.external1cId);
       previousCanonicalUrl = before.imageUrl;
+      const unrelatedBefore = unrelatedRequisitesProof(before.requisites);
       stage = "one_c_patch";
       await this.oneC.write(product.external1cId, withProductImageUrl(before.requisites, stored.canonicalUrl));
       stage = "one_c_readback";
@@ -156,6 +165,11 @@ export class CatalogManagementService {
         throw new OneCProductImageGatewayError("ONEC_IMAGE_READBACK_MISMATCH");
       }
       oneCConfirmed = true;
+      const unrelatedAfter = unrelatedRequisitesProof(readBack.requisites);
+      if (unrelatedAfter.sha256 !== unrelatedBefore.sha256
+        || unrelatedAfter.count !== unrelatedBefore.count) {
+        throw new OneCProductImageGatewayError("ONEC_UNRELATED_REQUISITES_CHANGED");
+      }
       await this.repository.updateImageMutation({
         correlationId: input.correlationId,
         status: "one_c_confirmed",
@@ -169,6 +183,11 @@ export class CatalogManagementService {
         stage,
         oldUrl: previousCanonicalUrl,
         newUrl: stored.canonicalUrl,
+        safeMetadata: {
+          unrelatedRequisiteCount: unrelatedAfter.count,
+          unrelatedRequisitesSha256: unrelatedAfter.sha256,
+          unrelatedRequisitesUnchanged: true,
+        },
       });
 
       stage = "targeted_local_refresh";
@@ -176,6 +195,8 @@ export class CatalogManagementService {
       if (!await this.repository.verifyTargetedImage(product.id, stored.canonicalUrl)) {
         throw new CatalogManagementRepositoryError("CATALOG_TARGETED_REFRESH_MISMATCH");
       }
+      stage = "public_retail_projection";
+      await this.publicRetailPublisher.publishCurrentProjection();
 
       let cleanupStatus = "NOT_REQUIRED";
       const previousObjectPath = managedFirebaseObjectPathFromUrl(previousCanonicalUrl);
@@ -262,6 +283,30 @@ export class CatalogManagementService {
       throw new CatalogImageMutationError(safeCode, stage, input.correlationId, cleanupStatus);
     }
   }
+}
+
+function unrelatedRequisitesProof(requisites: ReadonlyArray<Record<string, unknown>>): {
+  count: number;
+  sha256: string;
+} {
+  const unrelated = requisites
+    .filter((requisite) => requisite["Свойство_Key"] !== PRODUCT_IMAGE_PROPERTY_KEY)
+    .map(stableJsonValue)
+    .sort((left, right) => JSON.stringify(left).localeCompare(JSON.stringify(right)));
+  return {
+    count: unrelated.length,
+    sha256: createHash("sha256").update(JSON.stringify(unrelated)).digest("hex"),
+  };
+}
+
+function stableJsonValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(stableJsonValue);
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, nested]) => [key, stableJsonValue(nested)]),
+  );
 }
 
 export async function validateProductImage(file: File): Promise<ValidatedProductImage> {

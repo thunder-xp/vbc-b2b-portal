@@ -17,10 +17,12 @@ describe("portal-owned catalog visibility", () => {
     };
     const storage = { verifyAccess: vi.fn() };
     const oneC = { read: vi.fn(), write: vi.fn() };
+    const publicRetailPublisher = { publishCurrentProjection: vi.fn(async () => undefined) };
     const service = new CatalogManagementService(
       repository as never,
       storage as never,
       oneC as never,
+      publicRetailPublisher as never,
     );
 
     await expect(service.setVisibility({
@@ -38,5 +40,6 @@ describe("portal-owned catalog visibility", () => {
     expect(storage.verifyAccess).not.toHaveBeenCalled();
     expect(oneC.read).not.toHaveBeenCalled();
     expect(oneC.write).not.toHaveBeenCalled();
+    expect(publicRetailPublisher.publishCurrentProjection).toHaveBeenCalledTimes(1);
   });
 });
