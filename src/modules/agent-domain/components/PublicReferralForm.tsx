@@ -18,7 +18,10 @@ export function PublicReferralForm({ token }: { token: string }) {
       <label className="text-sm font-medium">Email<input className="mt-1 h-11 w-full rounded-md border border-zinc-300 px-3" name="email" type="email" /></label>
       <label className="text-sm font-medium">IDNO / IDNP (если применимо)<input className="mt-1 h-11 w-full rounded-md border border-zinc-300 px-3" maxLength={32} name="legalIdentifier" /></label>
       <label className="text-sm font-medium">Населённый пункт<input className="mt-1 h-11 w-full rounded-md border border-zinc-300 px-3" maxLength={120} name="locality" /></label>
+      <label className="text-sm font-medium">Тип объекта<input className="mt-1 h-11 w-full rounded-md border border-zinc-300 px-3" maxLength={120} name="objectType" /></label>
+      <label className="text-sm font-medium">Срок проекта<input className="mt-1 h-11 w-full rounded-md border border-zinc-300 px-3" maxLength={160} name="projectTiming" /></label>
       <label className="text-sm font-medium sm:col-span-2">Что требуется<textarea className="mt-1 min-h-28 w-full rounded-md border border-zinc-300 p-3" maxLength={500} minLength={2} name="needSummary" required /></label>
+      <label className="text-sm font-medium sm:col-span-2">Краткое описание объекта<textarea className="mt-1 min-h-24 w-full rounded-md border border-zinc-300 p-3" maxLength={1500} name="shortDescription" /></label>
       <label className="flex min-h-11 items-start gap-3 text-sm sm:col-span-2"><input className="mt-1 size-5" name="consent" required type="checkbox" /><span>Согласен(на) на обработку указанных контактных данных для рассмотрения заявки и связи со мной.</span></label>
       {state.message ? <p className="text-sm text-red-700 sm:col-span-2" role="alert">{state.message}</p> : null}
       <button className="min-h-11 rounded-md bg-emerald-700 px-5 text-sm font-semibold text-white disabled:opacity-50 sm:col-span-2" disabled={pending} type="submit">Отправить заявку</button>
