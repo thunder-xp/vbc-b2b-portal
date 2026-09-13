@@ -112,4 +112,17 @@ describe("AdminOperationsService operational diagnostics", () => {
     expect(result?.historyHref).toBe("/admin/integrations/jobs");
     expect(result?.detailHref).toBe("/admin/operations/issues");
   });
+
+  it("turns the governed Prices timeout into an operator-readable reason", async () => {
+    const service = new AdminOperationsService(repository(failedPriceIssue({
+      safeErrorCode: "57014",
+      safeMessage: "canceling statement due to statement timeout",
+    })));
+    const result = await service.getOperationalIssue(
+      "prices:11111111-1111-1111-1111-111111111111",
+      new Date(NOW),
+    );
+    expect(result?.safeMessage).toBe("Публикация цен не завершилась за допустимое время.");
+    expect(result?.safeErrorCode).toBe("57014");
+  });
 });

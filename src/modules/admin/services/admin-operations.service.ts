@@ -170,8 +170,8 @@ function decodeIssueId(value: string): string {
 const UNSAFE_DIAGNOSTIC = /authorization|bearer|password|secret|credential|api[-_ ]?key|https?:\/\//i;
 
 function sanitizeOperationalIssue(issue: AdminOperationalIssue): AdminOperationalIssue {
-  const safeMessage = safeText(issue.safeMessage, "Техническая причина скрыта. Используйте Run ID для внутренней диагностики.");
   const safeCode = safeToken(issue.safeErrorCode);
+  const safeMessage = operatorMessage(issue, safeCode);
   return {
     ...issue,
     id: safeIdentity(issue.id),
@@ -195,6 +195,21 @@ function sanitizeOperationalIssue(issue: AdminOperationalIssue): AdminOperationa
     durationMs: issue.durationMs === null ? null : safeCount(issue.durationMs),
     failedPage: issue.failedPage == null ? null : safeCount(issue.failedPage),
   };
+}
+
+function operatorMessage(issue: AdminOperationalIssue, safeCode: string | null): string {
+  const sanitized = safeText(
+    issue.safeMessage,
+    "Техническая причина скрыта. Используйте Run ID для внутренней диагностики.",
+  );
+  if (
+    issue.domain === "prices"
+    && safeCode === "57014"
+    && /statement timeout/i.test(sanitized)
+  ) {
+    return "Публикация цен не завершилась за допустимое время.";
+  }
+  return sanitized;
 }
 
 function safeText(value: string | null | undefined, fallback: string): string {
