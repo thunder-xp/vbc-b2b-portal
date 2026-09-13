@@ -1,4 +1,4 @@
-import { AdminCommercialPage } from "@/src/modules/admin";
+import { redirect } from "next/navigation";
 
 export default async function AdminCatalogPage({
   searchParams,
@@ -6,5 +6,7 @@ export default async function AdminCatalogPage({
   searchParams: Promise<{ search?: string }>;
 }) {
   const { search } = await searchParams;
-  return <AdminCommercialPage domain="catalog" search={search} />;
+  const params = new URLSearchParams();
+  if (search?.trim()) params.set("q", search.trim());
+  redirect(params.size ? `/admin/catalog?${params}` : "/admin/catalog");
 }

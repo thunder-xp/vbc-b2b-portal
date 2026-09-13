@@ -20,7 +20,7 @@ export default async function AdminMerchandisingPreviewPage() {
       />
       <Link
         className="inline-flex rounded-md border border-zinc-300 px-3 py-2 text-sm font-semibold text-zinc-800 hover:border-emerald-500"
-        href="/admin/commercial/merchandising"
+        href="/admin/catalog"
       >
         Вернуться к управлению
       </Link>

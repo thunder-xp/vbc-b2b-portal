@@ -45,6 +45,7 @@ export async function manageMerchandisingAction(
 
     const result = await createMerchandisingService().manage(input);
     revalidatePath("/admin/commercial/merchandising");
+    revalidatePath("/admin/catalog");
     revalidatePath("/admin/commercial/merchandising/preview");
     revalidatePath("/cabinet/catalog");
     return success(

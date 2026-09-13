@@ -467,7 +467,7 @@ export class SupabaseCatalogRepository implements CatalogRepository {
   ): Promise<CatalogUpsertResult<CatalogProduct>> {
     const supabase = await createClient();
     const existing = await this.findProductByExternal1cId(input.external1cId);
-    const payload = {
+    const synchronizedPayload = {
       external_1c_id: input.external1cId,
       category_id: input.categoryId,
       brand_id: input.brandId,
@@ -479,14 +479,18 @@ export class SupabaseCatalogRepository implements CatalogRepository {
       image_url: input.imageUrl,
       sort_order: input.sortOrder ?? 0,
       is_active: input.isActive,
-      is_visible: input.isVisible,
     };
     const query = existing
       ? supabase
           .from("catalog_products")
-          .update(payload)
+          // Portal visibility is administered independently from 1C lifecycle
+          // state. Existing products must keep the explicit admin decision.
+          .update(synchronizedPayload)
           .eq("external_1c_id", input.external1cId)
-      : supabase.from("catalog_products").insert(payload);
+      : supabase.from("catalog_products").insert({
+          ...synchronizedPayload,
+          is_visible: input.isVisible,
+        });
     const { data, error } = await query
       .select(CATALOG_PRODUCT_COLUMNS)
       .single();

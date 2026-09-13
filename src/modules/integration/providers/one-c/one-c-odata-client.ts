@@ -58,6 +58,13 @@ export type OneCODataMetadataProbeResult = {
   missingEntitySets: string[];
 };
 
+export type OneCODataMutationResult = {
+  statusCode: number;
+  durationMs: number;
+  hostname: string;
+  resourceName: string;
+};
+
 export type OneCODataSafeDiagnostic = {
   failedStage: string;
   receivedContentType: string | null;
@@ -140,6 +147,82 @@ export class OneCODataClient {
     options: OneCODataProbeOptions = {},
   ): Promise<unknown> {
     return this.readResult(await this.probe(resource, params, options));
+  }
+
+  async patchExactGuid(
+    resource: string,
+    reference: string,
+    payload: Record<string, unknown>,
+    allowedProperties: readonly string[],
+  ): Promise<OneCODataMutationResult> {
+    const { baseUrl, username, password } = this.config;
+    if (!baseUrl || !username || !password) {
+      throw new IntegrationProviderUnavailableError("1C OData is not configured.");
+    }
+    const payloadProperties = Object.keys(payload);
+    if (
+      !/^[\p{L}\p{N}_]+$/u.test(resource)
+      || !/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(reference)
+      || reference === "00000000-0000-0000-0000-000000000000"
+      || payloadProperties.length === 0
+      || payloadProperties.some((property) => !allowedProperties.includes(property))
+    ) {
+      throw new IntegrationValidationError("1C exact GUID mutation is invalid.");
+    }
+
+    const url = new URL(
+      `${baseUrl.replace(/\/$/, "")}/${resource}(guid'${reference.toLowerCase()}')`,
+    );
+    const startedAt = performance.now();
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        method: "PATCH",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json; charset=utf-8",
+          Authorization: `Basic ${Buffer.from(`${username}:${password}`, "utf8").toString("base64")}`,
+        },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(this.config.requestTimeoutMs),
+      });
+    } catch (error) {
+      if (isAbortError(error)) {
+        throw Object.assign(new IntegrationTimeoutError("1C OData mutation timed out."), { cause: error });
+      }
+      throw Object.assign(new IntegrationProviderUnavailableError("1C OData mutation is unavailable."), {
+        cause: error,
+        networkCode: safeNetworkCode(error),
+      });
+    }
+
+    if (response.status === 401) throw new IntegrationUnauthorizedError();
+    if (response.status === 403) throw new IntegrationForbiddenError();
+    if (response.status < 200 || response.status >= 300) {
+      const responseBody = (await response.text()).slice(0, 4_096);
+      const diagnostic: OneCODataSafeDiagnostic = {
+        failedStage: "odata_mutation",
+        receivedContentType: response.headers.get("content-type"),
+        requestKind: "exact-guid-patch",
+        resourceName: resource,
+        queryParameterNames: [],
+        statusCode: response.status,
+        jsonParseFailure: false,
+        parseErrorName: null,
+        bodyLength: new TextEncoder().encode(responseBody).byteLength,
+        bomDetected: false,
+        emptyBody: responseBody.length === 0,
+        ...responseMetadata(response, null),
+      };
+      throw new OneCODataHttpError(diagnostic, responseBody);
+    }
+
+    return {
+      statusCode: response.status,
+      durationMs: Math.max(0, Math.round(performance.now() - startedAt)),
+      hostname: url.hostname,
+      resourceName: resource,
+    };
   }
 
   async getContinuation(

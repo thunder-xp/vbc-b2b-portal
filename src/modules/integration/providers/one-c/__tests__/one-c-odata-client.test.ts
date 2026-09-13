@@ -233,6 +233,37 @@ describe("OneCODataClient", () => {
       expect(JSON.stringify(getOneCSafeDiagnostic(error))).not.toContain("must-not-leak");
     }
   });
+
+  it("PATCHes only an allowlisted property on one exact GUID entity", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const reference = "11111111-1111-1111-1111-111111111111";
+
+    await client().patchExactGuid(
+      "Catalog_Номенклатура",
+      reference,
+      { "ДополнительныеРеквизиты": [{ LineNumber: 1 }] },
+      ["ДополнительныеРеквизиты"],
+    );
+
+    const [url, init] = fetchMock.mock.calls[0] as [URL, RequestInit];
+    expect(decodeURI(String(url))).toBe(`https://erp-api.nsd.md/novotech/odata/standard.odata/Catalog_Номенклатура(guid'${reference}')`);
+    expect(init.method).toBe("PATCH");
+    expect(JSON.parse(String(init.body))).toEqual({ "ДополнительныеРеквизиты": [{ LineNumber: 1 }] });
+    expect(new Headers(init.headers).get("Authorization")).toMatch(/^Basic /);
+  });
+
+  it("rejects fields outside the narrow mutation allowlist before network access", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(client().patchExactGuid(
+      "Catalog_Номенклатура",
+      "11111111-1111-1111-1111-111111111111",
+      { Description: "must not mutate" },
+      ["ДополнительныеРеквизиты"],
+    )).rejects.toMatchObject({ name: "IntegrationValidationError" });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
 });
 
 function client(): OneCODataClient {

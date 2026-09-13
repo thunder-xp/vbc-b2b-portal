@@ -94,6 +94,24 @@ ONEC_USE_MOCK_PARTNERS=false
 
 Never prefix these variables with `NEXT_PUBLIC_`. The browser receives only neutral partner, contract, and price-type DTOs.
 
+### Product Image Storage
+
+Original catalog product images use the governed Firebase Storage bucket
+`novotech-systems-5449b.appspot.com`. Configure a dedicated server-only service
+account with access limited to the managed `products/` object namespace:
+
+```bash
+FIREBASE_PRODUCT_IMAGES_CLIENT_EMAIL=service-account@example.iam.gserviceaccount.com
+FIREBASE_PRODUCT_IMAGES_PRIVATE_KEY=your-private-key
+FIREBASE_PRODUCT_IMAGES_BUCKET=novotech-systems-5449b.appspot.com
+```
+
+The bucket variable is optional, but if present it must match the canonical
+bucket exactly. Never prefix these variables with `NEXT_PUBLIC_` or expose the
+private key to Client Components. Firebase stores the original binary; 1C's
+product additional requisite remains the canonical URL owner, while Supabase
+contains only the synchronized URL/read-model state and existing derivatives.
+
 ### Proposal Email Delivery
 
 Commercial proposals use a server-only SMTP transport. Configure these variables locally and in the production deployment:
