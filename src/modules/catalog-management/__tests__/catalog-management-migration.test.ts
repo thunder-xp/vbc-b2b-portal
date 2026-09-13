@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-const sql = readFileSync("supabase/migrations/20260913122921_unified_catalog_management_firebase.sql", "utf8");
+const sql = readFileSync("supabase/migrations/20260913140557_unified_catalog_management_firebase.sql", "utf8");
 const catalogRepository = readFileSync(
   "src/modules/catalog/repositories/supabase/catalog.supabase-repository.ts",
   "utf8",
