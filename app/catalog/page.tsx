@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
-import { headers } from "next/headers";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { PublicRetailCatalog } from "@/src/modules/public-retail/components/PublicRetailCatalog";
 import { PublicRetailShowcase } from "@/src/modules/public-retail/components/PublicRetailShowcase";
@@ -9,10 +8,11 @@ import { PublicStructuredData } from "@/src/modules/public-retail/components/Pub
 import { publicRetailLocale, publicRetailVisibleCategories } from "@/src/modules/public-retail/presentation";
 import { buildPublicCategoryContent, type PublicCategoryContent } from "@/src/modules/public-retail/content";
 import { buildPublicMetadata, publicBreadcrumbSchema, publicCatalogSeoState, publicCategorySeoDescription, publicLocalizedUrl } from "@/src/modules/public-retail/seo";
-import { getPublicRetailCategories, getPublicRetailCategoryFacets, getPublicRetailService } from "@/src/modules/public-retail/server";
+import { getPublicRetailCategories, getPublicRetailCategoryFacets, getPublicRetailFacets, getPublicRetailProducts, getPublicRetailShowcase } from "@/src/modules/public-retail/server";
 import { parseCatalogAttributeFilters } from "@/src/modules/catalog/services/catalog-sort-state";
 import { publicRetailCatalogReturnHref } from "@/src/modules/public-retail/catalog-links";
 import type { PublicRetailMerchandisingMode, PublicRetailPriceSort } from "@/src/modules/public-retail/types";
+import { isValidPublicCatalogRequest, publicCatalogDailyRotationSeed } from "@/src/modules/public-retail/public-catalog-request";
 import { getPublicBlogForCategory } from "@/src/modules/public-blog/server";
 import { canonicalizeLegacyRollingPeriodParams, parseRollingPeriodState, resolveRollingPeriod } from "@/src/modules/commerce-period";
 
@@ -20,6 +20,7 @@ type Params = Record<string, string | string[] | undefined>;
 
 export async function generateMetadata({ searchParams }: { searchParams: Promise<Params> }): Promise<Metadata> {
   const params = await searchParams;
+  if (!isValidPublicCatalogRequest(params)) notFound();
   const locale = publicRetailLocale(params.lang);
   const requestedCategory = single(params.category)?.trim();
   const categories = requestedCategory ? publicRetailVisibleCategories(await getPublicRetailCategories(locale)) : [];
@@ -43,6 +44,7 @@ export async function generateMetadata({ searchParams }: { searchParams: Promise
 
 export default async function PublicCatalogPage({ searchParams }: { searchParams: Promise<Params> }) {
   const params = await searchParams;
+  if (!isValidPublicCatalogRequest(params)) notFound();
   const canonicalHref = canonicalizeLegacyRollingPeriodParams("/catalog", params, ["period", "newPeriod", "hotPeriod"]);
   if (canonicalHref) redirect(canonicalHref);
   const locale = publicRetailLocale(params.lang);
@@ -62,11 +64,10 @@ export default async function PublicCatalogPage({ searchParams }: { searchParams
     hot: parseRollingPeriodState(single(params.hotPeriod)),
   };
   const attributeFilters = parseCatalogAttributeFilters(params);
-  const service = getPublicRetailService();
   if (!hasListingIntent(params)) {
-    const rotationSeed = (await headers()).get("x-novotech-popular-session") ?? "";
+    const rotationSeed = publicCatalogDailyRotationSeed();
     const [showcase, categories] = await Promise.all([
-      service.getRetailShowcase(locale, rotationSeed, { popular: resolveRollingPeriod(showcasePeriods.popular), new: resolveRollingPeriod(showcasePeriods.new), hot: resolveRollingPeriod(showcasePeriods.hot) }),
+      getPublicRetailShowcase(locale, rotationSeed, { popular: resolveRollingPeriod(showcasePeriods.popular), new: resolveRollingPeriod(showcasePeriods.new), hot: resolveRollingPeriod(showcasePeriods.hot) }),
       getPublicRetailCategories(locale),
     ]);
     const schema = [
@@ -76,17 +77,17 @@ export default async function PublicCatalogPage({ searchParams }: { searchParams
         { name: locale === "ro" ? "Catalog" : "Каталог", url: publicLocalizedUrl("/catalog", locale) },
       ]),
     ];
-    return <PublicRetailShell languagePath="/catalog" locale={locale}><PublicStructuredData data={schema} /><main><PublicRetailShowcase categories={categories} locale={locale} periods={showcasePeriods} showcase={showcase} /></main></PublicRetailShell>;
+    return <PublicRetailShell deferCartSummary languagePath="/catalog" locale={locale}><PublicStructuredData data={schema} /><main><PublicRetailShowcase categories={categories} locale={locale} periods={showcasePeriods} showcase={showcase} /></main></PublicRetailShell>;
   }
   const merchandisingMode: PublicRetailMerchandisingMode | undefined = q && view !== "hot" ? undefined : view === "replenishment" ? "replenishment" : view === "special" ? "special" : view === "new" ? "new" : view === "hot" ? "hot" : view === "popular" ? "popular" : undefined;
   const priceSort: PublicRetailPriceSort | undefined = sort === "price_desc" ? "price_desc" : sort === "price_asc" ? "price_asc" : undefined;
   const mode = merchandisingMode ?? priceSort;
   const categoryFacetRead = category && !q && !availability && Object.keys(attributeFilters).length === 0
     ? getPublicRetailCategoryFacets(category, locale)
-    : service.listRetailFacets({ categorySlug: category, search: q, availability, facets: attributeFilters, locale });
+    : getPublicRetailFacets({ categorySlug: category, search: q, availability, facets: attributeFilters, locale });
   const [categories, products, categoryFacets] = await Promise.all([
     getPublicRetailCategories(locale),
-    service.listRetailProducts({ locale, categorySlug: category, search: q, availability, facets: attributeFilters, mode, page, pageSize: 24, period }),
+    getPublicRetailProducts({ locale, categorySlug: category, search: q, availability, facets: attributeFilters, mode, page, pageSize: 24, period }),
     categoryFacetRead,
   ]);
 
@@ -119,7 +120,7 @@ export default async function PublicCatalogPage({ searchParams }: { searchParams
     },
     publicBreadcrumbSchema(breadcrumbItems),
   ];
-  return <PublicRetailShell languagePath="/catalog" locale={locale}><PublicStructuredData data={schema} /><main><PublicRetailCatalog blogArticles={usefulMaterials} breadcrumbs={breadcrumbItems} categories={categories} categoryContent={categoryContent} facets={categoryFacets} locale={locale} products={products} state={{ q, category, availability, attributeFilters, mode: merchandisingMode, sort: priceSort, returnHref, page, period, periodState }} /></main></PublicRetailShell>;
+  return <PublicRetailShell deferCartSummary languagePath="/catalog" locale={locale}><PublicStructuredData data={schema} /><main><PublicRetailCatalog blogArticles={usefulMaterials} breadcrumbs={breadcrumbItems} categories={categories} categoryContent={categoryContent} facets={categoryFacets} locale={locale} products={products} state={{ q, category, availability, attributeFilters, mode: merchandisingMode, sort: priceSort, returnHref, page, period, periodState }} /></main></PublicRetailShell>;
 }
 
 function publicCategoryBreadcrumbs(content: PublicCategoryContent | null, locale: "ru" | "ro") {

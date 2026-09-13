@@ -38,14 +38,16 @@ export async function authorizeCronRequest(
     requestId,
   };
 
-  console.info({
-    event: "cron_authorization_checked",
-    route: new URL(request.url).pathname,
-    authorizationCategory: category,
-    callerType,
-    requestId,
-    deployedCommitSha: process.env.VERCEL_GIT_COMMIT_SHA?.trim() || "local",
-  });
+  if (!result.authorized) {
+    console.warn({
+      event: "cron_authorization_denied",
+      route: new URL(request.url).pathname,
+      authorizationCategory: category,
+      callerType,
+      requestId,
+      deployedCommitSha: process.env.VERCEL_GIT_COMMIT_SHA?.trim() || "local",
+    });
+  }
   await persistCronAuthorization(request, result);
   return result;
 }

@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@/src/modules/public-retail/components/PublicRetailCartBadge", () => ({
@@ -96,6 +96,21 @@ describe("Public Retail shell", () => {
     expect(cart).toHaveTextContent("Корзина");
     expect(cart).toHaveTextContent("99+");
     expect(cart).toHaveClass("min-h-11", "border");
+  });
+
+  it("loads private cart quantity separately for a cacheable public catalog shell", async () => {
+    const request = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({
+      distinctItemCount: 2,
+      totalQuantity: 7,
+    }), { status: 200, headers: { "Content-Type": "application/json" } }));
+    render(<PublicRetailCartBadgeClient deferSummary initialQuantity={0} locale="ru" />);
+
+    await waitFor(() => expect(screen.getByRole("link", { name: /: 7$/ })).toBeInTheDocument());
+    expect(request).toHaveBeenCalledWith("/api/public-retail/cart-summary", expect.objectContaining({
+      cache: "no-store",
+      credentials: "same-origin",
+    }));
+    request.mockRestore();
   });
 
   it("keeps public-shell contrast and prefetch policy explicit", () => {

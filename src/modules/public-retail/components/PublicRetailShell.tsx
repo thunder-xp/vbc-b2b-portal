@@ -9,9 +9,9 @@ import type { PublicRetailLocale } from "../types";
 import { PublicRetailCartBadge } from "./PublicRetailCartBadge";
 import { PublicLocaleSwitch } from "./PublicLocaleSwitch";
 
-type Props = { children: ReactNode; locale: PublicRetailLocale; languagePath: string; cartQuantity?: number };
+type Props = { children: ReactNode; locale: PublicRetailLocale; languagePath: string; cartQuantity?: number; deferCartSummary?: boolean };
 
-export function PublicRetailShell({ children, locale, cartQuantity }: Props) {
+export function PublicRetailShell({ children, locale, cartQuantity, deferCartSummary = false }: Props) {
   const copy = retailCopy[locale];
   const ru = locale === "ru";
   const catalogLabel = ru ? "Каталог" : "Catalog";
@@ -39,7 +39,7 @@ export function PublicRetailShell({ children, locale, cartQuantity }: Props) {
               <CircleUserRound aria-hidden="true" className="size-5" />
             </Link>
             <Suspense fallback={<span aria-hidden className="size-11" />}><PublicLocaleSwitch locale={locale} /></Suspense>
-            <PublicRetailCartBadge locale={locale} totalQuantity={cartQuantity} />
+            <PublicRetailCartBadge deferSummary={deferCartSummary} locale={locale} totalQuantity={cartQuantity} />
             <details className="relative xl:hidden">
               <summary aria-label={copy.menu} className="grid size-11 cursor-pointer list-none place-items-center rounded-sm hover:bg-zinc-100"><Menu aria-hidden="true" className="size-5" /></summary>
               <nav aria-label={ru ? "Мобильная навигация" : "Navigare mobilă"} className="absolute right-0 top-12 w-[min(22rem,calc(100vw-2rem))] border border-zinc-200 bg-white p-2 shadow-xl">

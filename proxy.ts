@@ -1,11 +1,8 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import { randomUUID } from "node:crypto";
 
 const CANONICAL_HOST = "www.nsd.md";
-const POPULAR_SESSION_COOKIE = "novotech_popular_session";
-const POPULAR_SESSION_HEADER = "x-novotech-popular-session";
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const NON_SEARCH_CATALOG_CRAWLER = /\b(?:ClaudeBot|GPTBot|Amazonbot|Bytespider|CCBot|meta-externalagent)\b/i;
 
 export function proxy(request: NextRequest) {
   if (request.nextUrl.hostname.toLowerCase() === "nsd.md") {
@@ -16,33 +13,23 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(target, 308);
   }
 
+  if (request.nextUrl.pathname === "/catalog" && NON_SEARCH_CATALOG_CRAWLER.test(request.headers.get("user-agent") ?? "")) {
+    return new NextResponse(null, {
+      status: 403,
+      headers: {
+        "Cache-Control": "private, no-store",
+        "X-Robots-Tag": "noindex, nofollow",
+      },
+    });
+  }
+
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set(
     "x-novotech-document-locale",
     request.nextUrl.searchParams.get("lang") === "ro" ? "ro" : "ru",
   );
-  const existingPopularSession = request.cookies.get(POPULAR_SESSION_COOKIE)?.value;
-  const shouldIssuePopularSession = request.nextUrl.pathname === "/catalog"
-    && !UUID.test(existingPopularSession ?? "");
-  const popularSession = shouldIssuePopularSession
-    ? randomUUID()
-    : existingPopularSession;
-  if (request.nextUrl.pathname === "/catalog" && popularSession) {
-    requestHeaders.set(POPULAR_SESSION_HEADER, popularSession.toLowerCase());
-  } else {
-    requestHeaders.delete(POPULAR_SESSION_HEADER);
-  }
-
-  const response = NextResponse.next({ request: { headers: requestHeaders } });
-  if (shouldIssuePopularSession && popularSession) {
-    response.cookies.set(POPULAR_SESSION_COOKIE, popularSession.toLowerCase(), {
-      httpOnly: true,
-      secure: request.nextUrl.protocol === "https:",
-      sameSite: "lax",
-      path: "/",
-    });
-  }
-  return response;
+  requestHeaders.delete("x-novotech-popular-session");
+  return NextResponse.next({ request: { headers: requestHeaders } });
 }
 
 export const config = {

@@ -21,7 +21,11 @@ export async function GET(request: Request) {
       transitions_created: result.transitions, failures: result.failures, order_rows_scanned: result.orderRowsScanned,
       duration_ms: result.durationMs, finished_at: new Date().toISOString(),
     }).eq("id", run.id);
-    console.info({ event: "partner_momentum_projection_completed", ...result, deployedCommitSha: process.env.VERCEL_GIT_COMMIT_SHA?.trim() || "local" });
+    if (result.failures > 0) {
+      console.warn({ event: "partner_momentum_projection_degraded", ...result, deployedCommitSha: process.env.VERCEL_GIT_COMMIT_SHA?.trim() || "local" });
+    } else if (result.processed > 0) {
+      console.info({ event: "partner_momentum_projection_completed", ...result, deployedCommitSha: process.env.VERCEL_GIT_COMMIT_SHA?.trim() || "local" });
+    }
     return NextResponse.json({ status, ...result }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     const durationMs = Math.round(performance.now() - startedAt);

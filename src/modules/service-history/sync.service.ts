@@ -48,7 +48,6 @@ export class ServiceHistorySyncService {
       });
       const conflict = getWorkerCoordinationResult(publication);
       if (conflict) return coordinationResult("history", claim.runId, claim.skip, conflict.code, started);
-      console.info({ event: "one_c_service_history_page_published", runId: claim.runId, skip: claim.skip, rowsReceived: page.rows.length, pageComplete: page.pageComplete, durationMs: elapsed(started) });
       return { status: page.pageComplete ? "completed" as const : "progressed" as const, runId: claim.runId, rowsReceived: page.rows.length, publication, durationMs: elapsed(started) };
     } catch (error) {
       const safeCode = (error instanceof Error ? error.name : typeof error).replace(/[^A-Za-z0-9_]/g, "_").slice(0, 100);
@@ -95,13 +94,6 @@ export class ServiceHistorySyncService {
         }
         return coordinationResult("serial_enrichment", claim.runId, null, conflict.code, started, 0);
       }
-      console.info({
-        event: "one_c_service_history_serial_enrichment_published",
-        runId: claim.runId,
-        rowsProcessed: rows.length,
-        pageComplete: claim.pageComplete,
-        durationMs: elapsed(started),
-      });
       return { status: claim.pageComplete ? "completed" as const : "progressed" as const, rowsProcessed: rows.length, publication, durationMs: elapsed(started) };
     } catch (error) {
       const safeCode = (error instanceof Error ? error.name : typeof error).replace(/[^A-Za-z0-9_]/g, "_").slice(0, 100);

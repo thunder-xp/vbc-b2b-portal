@@ -4,11 +4,13 @@ import { randomUUID } from "node:crypto";
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 
 import { createAdminClient } from "@/src/lib/supabase/admin";
 import { invalidInput, success, type ActionResult } from "../access-control/actions/action-result";
 import { requireAdminPermission } from "../admin/services";
 import { MAX_EXTERNAL_PRICE_FILE_SIZE } from "../external-prices/limits";
+import { processExternalPriceImportAfterUpload } from "../external-prices/import-worker";
 import { CompetitorRetailPricingRepository, CompetitorRetailPricingRepositoryError } from "./retail-pricing.repository";
 
 const BUCKET = "external-price-imports";
@@ -53,6 +55,7 @@ export async function finalizeCompetitorRetailImportAction(formData: FormData): 
       snapshotScope: enumValue(formData, "snapshotScope", ["full", "partial"] as const),
     });
     if (result.duplicate === true) await admin.storage.from(BUCKET).remove([storageKey]);
+    else after(processExternalPriceImportAfterUpload);
     revalidatePath("/admin/market-intelligence/price-lists");
     return success(result.duplicate === true ? "Этот файл уже зарегистрирован." : "Файл передан на анализ.", { id: String(result.id) });
   } catch (error) {

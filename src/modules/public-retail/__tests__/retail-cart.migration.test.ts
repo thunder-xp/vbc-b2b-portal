@@ -176,7 +176,7 @@ describe("governed anonymous Retail Cart migration", () => {
     expect(retailShell).toContain("novotech-logo-${background}-original.webp");
     expect(retailShell).not.toContain('src="/brand/novotech-symbol.webp"');
     expect(retailShell).not.toContain("ShieldCheck");
-    expect(retailShell).toContain('<PublicRetailCartBadge locale={locale} totalQuantity={cartQuantity} />');
+    expect(retailShell).toContain('<PublicRetailCartBadge deferSummary={deferCartSummary} locale={locale} totalQuantity={cartQuantity} />');
     expect(cartBadge).toContain('quantity > 99 ? "99+" : quantity');
   });
 });

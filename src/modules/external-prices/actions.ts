@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 
 import { type ActionResult, failureFromError, invalidInput, success } from "../access-control/actions/action-result";
 import { getPartnerWorkspaceContextAction } from "../partner-cabinet/actions";
@@ -12,6 +13,7 @@ import { MAX_EXTERNAL_PRICE_FILE_SIZE } from "./limits";
 import { ExternalPriceRepository, ExternalPriceRepositoryError } from "./repository";
 import { ExternalPriceService } from "./service";
 import type { ExternalPriceColumnMapping, ExternalPriceFileFormat } from "./types";
+import { processExternalPriceImportAfterUpload } from "./import-worker";
 
 const BUCKET = "external-price-imports";
 
@@ -77,6 +79,7 @@ export async function finalizeExternalPriceUploadAction(formData: FormData): Pro
       snapshotScope,
     });
     if (result.duplicate) await admin.storage.from(BUCKET).remove([uploadedKey]);
+    else after(processExternalPriceImportAfterUpload);
     revalidatePath("/cabinet/competitor-prices");
     return success("Файл принят и передан на анализ.", { id: result.id });
   } catch (error) {

@@ -15,10 +15,7 @@ export async function GET(request: Request) {
   after(async () => {
     try {
       const result = await createOrderHistoryBootstrapService().processOne();
-      const popularity = result.processed
-        ? await createMerchandisingService().refreshB2bPopularity()
-        : null;
-      console.info({ event: "partner_order_history_bootstrap_worker_finished", requestId, ...result, popularityRefreshId: popularity?.refreshId ?? null });
+      if (result.processed) await createMerchandisingService().refreshB2bPopularity();
     } catch (error) {
       console.error({ event: "partner_order_history_bootstrap_worker_failed", requestId, errorType: error instanceof Error ? error.name : typeof error });
     }
