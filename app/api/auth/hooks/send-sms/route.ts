@@ -33,7 +33,8 @@ export async function POST(request: Request): Promise<Response> {
   } catch (error) {
     if (error instanceof SendSmsHookVerificationError) {
       const status = error.code === "SIGNATURE_INVALID" ? 401 : error.code === "PAYLOAD_INVALID" ? 400 : 503;
-      return response(error.code, status);
+      const publicCode = error.code === "CONFIGURATION_INVALID" ? "DELIVERY_UNAVAILABLE" : error.code;
+      return response(publicCode, status);
     }
     if (error instanceof AuthSmsDeliveryError) {
       return response(error.code === "RATE_LIMITED" ? "RATE_LIMITED" : "DELIVERY_UNAVAILABLE", error.code === "RATE_LIMITED" ? 429 : 503);
