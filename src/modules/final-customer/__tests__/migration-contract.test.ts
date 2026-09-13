@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
-const sql = readFileSync(resolve("supabase/migrations/20260913190927_final_customer_auth_identity_foundation_v1.sql"), "utf8");
+const sql = readFileSync(resolve("supabase/migrations/20260913194046_final_customer_auth_identity_foundation_v1.sql"), "utf8");
 
 describe("Final Customer account migration", () => {
   it("creates one account link to auth and Shared Customer Identity without a new customer master", () => {
