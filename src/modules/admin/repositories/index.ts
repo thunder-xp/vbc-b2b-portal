@@ -16,6 +16,8 @@ export type {
 } from "./admin-history.repository";
 export type {
   AdminDashboardRepository,
+  AdminDashboardProjection,
+  AdminCommercialHealthProjection,
   AdminOperationalProjection,
   AdminPlatformHealthProjection,
   AdminRecentEventProjection,

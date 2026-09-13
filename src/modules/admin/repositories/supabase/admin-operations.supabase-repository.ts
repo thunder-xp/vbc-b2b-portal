@@ -15,6 +15,7 @@ import type {
   AdminRetailPriceHistoryHealth,
   AdminIntegrationCenter,
   AdminIntegrationIncident,
+  AdminOperationalIssue,
   AdminOperationalPage,
   AdminSyncJobFilters,
   AdminSyncJobPage,
@@ -42,6 +43,30 @@ export class SupabaseAdminOperationsRepository
 
   listIncidents(): Promise<readonly AdminIntegrationIncident[]> {
     return this.call("list_admin_integration_incidents");
+  }
+
+  listOperationalIssues(now: string): Promise<readonly AdminOperationalIssue[]> {
+    return this.call("list_admin_operational_issues", { p_now: now });
+  }
+
+  async getOperationalIssue(
+    issueId: string,
+    now: string,
+  ): Promise<AdminOperationalIssue | null> {
+    const supabase = await createClient();
+    const { data, error } = await supabase.rpc("get_admin_operational_issue", {
+      p_issue_id: issueId,
+      p_now: now,
+    });
+    if (error) {
+      throw new RepositoryUnexpectedError({
+        operation: "get_admin_operational_issue",
+        table: "admin_operations_projection",
+        payloadKeys: ["p_issue_id", "p_now"],
+        cause: error,
+      });
+    }
+    return data as AdminOperationalIssue | null;
   }
 
   recordSyncAction(

@@ -9,6 +9,7 @@ import type {
   AdminRetailPriceHistoryHealth,
   AdminIntegrationCenter,
   AdminIntegrationIncident,
+  AdminOperationalIssue,
   AdminOperationalPage,
   AdminSyncDomain,
   AdminSyncJobFilters,
@@ -20,6 +21,8 @@ export interface AdminOperationsRepository {
   getIntegrationCenter(): Promise<AdminIntegrationCenter>;
   listSyncJobs(input: AdminSyncJobFilters): Promise<AdminSyncJobPage>;
   listIncidents(): Promise<readonly AdminIntegrationIncident[]>;
+  listOperationalIssues(now: string): Promise<readonly AdminOperationalIssue[]>;
+  getOperationalIssue(issueId: string, now: string): Promise<AdminOperationalIssue | null>;
   recordSyncAction(input: {
     domain: AdminSyncDomain;
     reason: string;

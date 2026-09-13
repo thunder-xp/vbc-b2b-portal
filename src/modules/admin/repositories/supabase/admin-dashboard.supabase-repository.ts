@@ -4,32 +4,16 @@ import { createClient } from "@/src/lib/supabase/server";
 import { RepositoryUnexpectedError } from "@/src/modules/access-control/repositories";
 
 import type {
+  AdminDashboardProjection,
   AdminDashboardRepository,
-  AdminOperationalProjection,
-  AdminPlatformHealthProjection,
-  AdminRecentEventProjection,
 } from "../admin-dashboard.repository";
 
 export class SupabaseAdminDashboardRepository
   implements AdminDashboardRepository
 {
-  async getPlatformHealth(): Promise<AdminPlatformHealthProjection> {
-    return this.call<AdminPlatformHealthProjection>(
-      "get_admin_platform_health_summary",
-    );
-  }
-
-  async getOperationalSummary(): Promise<AdminOperationalProjection> {
-    return this.call<AdminOperationalProjection>(
-      "get_admin_operational_summary",
-    );
-  }
-
-  async listRecentEvents(
-    limit: number,
-  ): Promise<readonly AdminRecentEventProjection[]> {
-    return this.call<AdminRecentEventProjection[]>("get_admin_recent_events", {
-      p_limit: Math.min(Math.max(Math.trunc(limit), 1), 20),
+  async getDashboardProjection(now: string): Promise<AdminDashboardProjection> {
+    return this.call<AdminDashboardProjection>("get_admin_dashboard_projection", {
+      p_now: now,
     });
   }
 

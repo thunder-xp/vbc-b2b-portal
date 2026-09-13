@@ -1,5 +1,6 @@
 export { AdminShell } from "./AdminShell";
 export { AdminDashboardView } from "./AdminDashboardView";
+export { AdminOperationalIssueDetail, AdminOperationalIssueList } from "./AdminOperationalIssues";
 export { AdminPageHeader } from "./AdminPageHeader";
 export { AdminCompanyDirectory } from "./AdminCompanyDirectory";
 export { AdminCompanyOverviewView } from "./AdminCompanyOverview";

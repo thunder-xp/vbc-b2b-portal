@@ -36,6 +36,25 @@ describe("SupabaseCatalogSnapshotWriter attribute publication", () => {
     );
     expect(result).toMatchObject({ attributesUpserted: 201, attributesRemoved: 3, attributeUniquePairs: 201, attributeBatchesStaged: 2, attributePublicationTransactionSucceeded: true });
   });
+
+  it("retains the failed run identity for exact operational drilldown", async () => {
+    const client = clientFixture();
+    createAdminClient.mockReturnValue(client.api);
+
+    await new SupabaseCatalogSnapshotWriter().markFailed(
+      syncId,
+      "database_failure",
+      "publication",
+      "2026-09-13T08:00:00.000Z",
+      "2026-09-13T08:01:00.000Z",
+    );
+
+    expect(client.stateUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      status: "failed",
+      last_failed_sync_id: syncId,
+      active_sync_id: null,
+    }));
+  });
 });
 
 function clientFixture(options: { failStageBatch?: number } = {}) {
@@ -46,10 +65,11 @@ function clientFixture(options: { failStageBatch?: number } = {}) {
   });
   const publish = vi.fn(async () => ({ data: { published: 201, removed: 3 }, error: null }));
   const liveAttributeTables: string[] = [];
+  const stateUpdate = vi.fn(() => thenableChain({ error: null }));
   const api = {
     from: vi.fn((table: string) => {
       if (table === "catalog_product_attributes") liveAttributeTables.push(table);
-      if (table === "catalog_sync_state") return { update: () => thenableChain({ error: null }) };
+      if (table === "catalog_sync_state") return { update: stateUpdate };
       if (table === "catalog_products") return { upsert: () => ({ select: async () => ({ data: [{ id: productId, external_1c_id: "product-ref" }], error: null }) }) };
       if (table === "catalog_product_attribute_sync_stage") return {
         delete: () => thenableChain({ error: null }),
@@ -59,7 +79,7 @@ function clientFixture(options: { failStageBatch?: number } = {}) {
     }),
     rpc: vi.fn((name: string) => name === "publish_catalog_product_attributes" ? publish() : Promise.resolve({ data: 0, error: null })),
   };
-  return { api, stageInsert, publish, liveAttributeTables };
+  return { api, stageInsert, publish, stateUpdate, liveAttributeTables };
 }
 
 function thenableChain<T>(result: T) {

@@ -15,11 +15,13 @@ import type {
 } from "../types";
 
 const STATUS = {
-  healthy: { label: "Актуально", className: "text-emerald-700", icon: CheckCircle2 },
-  stale: { label: "Устарело", className: "text-amber-700", icon: Clock3 },
-  failed: { label: "Ошибка", className: "text-red-700", icon: AlertTriangle },
-  running: { label: "Выполняется", className: "text-sky-700", icon: RefreshCw },
-  never_run: { label: "Нет данных", className: "text-zinc-600", icon: Database },
+  HEALTHY: { label: "Актуально", className: "text-emerald-700", icon: CheckCircle2 },
+  RUNNING: { label: "Выполняется", className: "text-sky-700", icon: RefreshCw },
+  DEGRADED: { label: "Ограничено", className: "text-amber-700", icon: AlertTriangle },
+  FAILED: { label: "Ошибка", className: "text-red-700", icon: AlertTriangle },
+  STALE: { label: "Устарело", className: "text-amber-700", icon: Clock3 },
+  NEVER_SYNCED: { label: "Ещё не синхронизировано", className: "text-zinc-600", icon: Database },
+  SUCCESS_EMPTY: { label: "Нет данных в 1С", className: "text-emerald-700", icon: CheckCircle2 },
 } satisfies Record<
   AdminHealthStatus,
   { label: string; className: string; icon: typeof CheckCircle2 }
@@ -41,11 +43,18 @@ export function AdminDashboardView({ dashboard }: { dashboard: AdminDashboard })
       {dashboard.criticalCount > 0 ? (
         <section className="flex items-start gap-3 border border-red-200 bg-red-50 p-4 text-red-900">
           <AlertTriangle aria-hidden className="mt-0.5 h-5 w-5 shrink-0" />
-          <div>
+          <div className="flex-1">
             <p className="font-semibold">Требуется внимание: {dashboard.criticalCount}</p>
             <p className="mt-1 text-sm">
               Проверьте ошибки синхронизации и неподтверждённые результаты операций.
             </p>
+            <Link
+              className="mt-3 inline-flex min-h-11 items-center font-semibold underline-offset-4 hover:underline"
+              href="/admin/operations/issues"
+              prefetch={false}
+            >
+              Посмотреть проблемы →
+            </Link>
           </div>
         </section>
       ) : null}
@@ -57,7 +66,13 @@ export function AdminDashboardView({ dashboard }: { dashboard: AdminDashboard })
             const status = STATUS[item.status];
             const Icon = status.icon;
             return (
-              <article className="border border-zinc-200 bg-white p-4" key={item.key}>
+              <Link
+                aria-label={`${item.label}: ${status.label}. Открыть подробности`}
+                className="group block border border-zinc-200 bg-white p-4 transition-colors hover:border-emerald-500 hover:bg-emerald-50/30 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700"
+                href={item.href}
+                key={item.key}
+                prefetch={false}
+              >
                 <div className="flex items-center justify-between gap-3">
                   <p className="font-semibold">{item.label}</p>
                   <Icon aria-hidden className={`h-5 w-5 ${status.className}`} />
@@ -66,14 +81,19 @@ export function AdminDashboardView({ dashboard }: { dashboard: AdminDashboard })
                   {status.label}
                 </p>
                 <p className="mt-1 text-xs text-zinc-500">
-                  {item.lastSuccessAt
+                  {(item.status === "FAILED" ? item.lastAttemptAt : item.lastSuccessAt)
                     ? new Intl.DateTimeFormat("ru-RU", {
                         dateStyle: "short",
                         timeStyle: "short",
-                      }).format(new Date(item.lastSuccessAt))
+                      }).format(new Date((item.status === "FAILED" ? item.lastAttemptAt : item.lastSuccessAt)!))
                     : "Синхронизация не зафиксирована"}
                 </p>
-              </article>
+                <span className="mt-3 inline-flex text-sm font-semibold text-emerald-700 group-hover:text-emerald-800">
+                  {item.status === "HEALTHY" || item.status === "SUCCESS_EMPTY" || item.status === "RUNNING"
+                    ? "Открыть историю →"
+                    : "Подробнее →"}
+                </span>
+              </Link>
             );
           })}
         </div>

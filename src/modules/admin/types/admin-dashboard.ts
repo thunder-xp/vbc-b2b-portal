@@ -1,15 +1,19 @@
 export type AdminHealthStatus =
-  | "healthy"
-  | "stale"
-  | "failed"
-  | "running"
-  | "never_run";
+  | "HEALTHY"
+  | "RUNNING"
+  | "DEGRADED"
+  | "FAILED"
+  | "STALE"
+  | "NEVER_SYNCED"
+  | "SUCCESS_EMPTY";
 
 export interface AdminFreshnessItem {
   key: "catalog" | "prices" | "stock" | "arrivals" | "rates";
   label: string;
   status: AdminHealthStatus;
+  lastAttemptAt: string | null;
   lastSuccessAt: string | null;
+  href: string;
 }
 
 export interface AdminPartnerAccessSummary {

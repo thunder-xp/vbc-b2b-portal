@@ -74,3 +74,63 @@ export interface AdminSyncJobFilters {
   page?: number;
   pageSize?: number;
 }
+
+export type AdminOperationalHealthStatus =
+  | "HEALTHY"
+  | "RUNNING"
+  | "DEGRADED"
+  | "FAILED"
+  | "STALE"
+  | "NEVER_SYNCED"
+  | "SUCCESS_EMPTY";
+
+export type AdminOperationalRecoverability =
+  | "AUTOMATIC"
+  | "MANUAL_AVAILABLE"
+  | "MANUAL_REQUIRED";
+
+export type AdminAutomaticRetryState =
+  | "SCHEDULED"
+  | "RUNNING"
+  | "NOT_CONFIGURED"
+  | "NOT_REQUIRED";
+
+export interface AdminOperationalDiagnostic {
+  key?: "catalog" | "prices" | "stock" | "arrivals" | "rates";
+  id?: string;
+  domain: string;
+  severity?: "HIGH" | "MEDIUM";
+  status?: "ACTIVE";
+  healthStatus: AdminOperationalHealthStatus;
+  startedAt: string | null;
+  lastAttemptAt?: string | null;
+  lastSeenAt: string | null;
+  lastSuccessAt: string | null;
+  operation: string;
+  stage: string;
+  safeErrorCode: string | null;
+  safeMessage: string | null;
+  runId: string | null;
+  correlationId: string | null;
+  recoverability: AdminOperationalRecoverability;
+  automaticRetryState: AdminAutomaticRetryState;
+  affectedScope: string;
+  currentDataState: string;
+  received: number;
+  staged: number;
+  published: number;
+  durationMs: number | null;
+  sourceCalls: number;
+  retryCount: number;
+  technicalCode: string | null;
+  failedPage?: number | null;
+  historyHref: string;
+  detailHref?: string;
+}
+
+export interface AdminOperationalIssue extends AdminOperationalDiagnostic {
+  id: string;
+  severity: "HIGH" | "MEDIUM";
+  status: "ACTIVE";
+  detailHref: string;
+}

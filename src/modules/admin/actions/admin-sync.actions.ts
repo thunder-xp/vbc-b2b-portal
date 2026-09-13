@@ -96,6 +96,8 @@ export async function runAdminSyncAction(
     );
     revalidatePath("/admin/integrations");
     revalidatePath("/admin/integrations/jobs");
+    revalidatePath("/admin");
+    revalidatePath("/admin/operations/issues");
 
     return result.success
       ? success(result.message, { domain: normalizedDomain, catalog })

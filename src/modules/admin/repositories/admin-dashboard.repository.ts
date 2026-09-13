@@ -43,8 +43,45 @@ export interface AdminRecentEventProjection {
   subject: string | null;
 }
 
-export interface AdminDashboardRepository {
-  getPlatformHealth(): Promise<AdminPlatformHealthProjection>;
-  getOperationalSummary(): Promise<AdminOperationalProjection>;
-  listRecentEvents(limit: number): Promise<readonly AdminRecentEventProjection[]>;
+export interface AdminCommercialHealthProjection {
+  key: "catalog" | "prices" | "stock" | "arrivals" | "rates";
+  status: AdminHealthStatus;
+  lastAttemptAt: string | null;
+  lastSuccessAt: string | null;
+  lastSeenAt: string | null;
+  operation: string;
+  stage: string;
+  safeErrorCode: string | null;
+  safeMessage: string | null;
+  runId: string | null;
+  correlationId: string | null;
+  recoverability: "AUTOMATIC" | "MANUAL_AVAILABLE" | "MANUAL_REQUIRED";
+  automaticRetryState: "SCHEDULED" | "RUNNING" | "NOT_CONFIGURED" | "NOT_REQUIRED";
+  affectedScope: string;
+  currentDataState: string;
+  received: number;
+  staged: number;
+  published: number;
+  durationMs: number | null;
+  sourceCalls: number;
+  retryCount: number;
+  technicalCode: string | null;
+  failedPage?: number | null;
+  historyHref: string;
 }
+
+export interface AdminDashboardProjection {
+  health: readonly AdminCommercialHealthProjection[];
+  operational: AdminOperationalProjection;
+  recentEvents: readonly AdminRecentEventProjection[];
+  issues: readonly AdminOperationalIssue[];
+  criticalCount: number;
+}
+
+export interface AdminDashboardRepository {
+  getDashboardProjection(now: string): Promise<AdminDashboardProjection>;
+}
+import type {
+  AdminHealthStatus,
+  AdminOperationalIssue,
+} from "../types";
