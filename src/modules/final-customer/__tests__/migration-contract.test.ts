@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const sql = readFileSync(resolve("supabase/migrations/20260913194046_final_customer_auth_identity_foundation_v1.sql"), "utf8");
+const concurrencySql = readFileSync(resolve("supabase/migrations/20260913195356_final_customer_identity_concurrency_guard.sql"), "utf8");
 
 describe("Final Customer account migration", () => {
   it("creates one account link to auth and Shared Customer Identity without a new customer master", () => {
@@ -27,5 +28,13 @@ describe("Final Customer account migration", () => {
     expect(sql).not.toMatch(/\botp\s+(text|jsonb|varchar)|message_body|recipient_phone/i);
     expect(sql).toContain("p_limit integer default 5");
     expect(sql).toContain("p_window_minutes integer default 10");
+  });
+
+  it("serializes concurrent verified-evidence creation without duplicating identity roots", () => {
+    expect(concurrencySql).toContain("customer_identity_keys_verified_global_unique_idx");
+    expect(concurrencySql).toContain("where revoked_at is null and verified");
+    expect(concurrencySql).toContain("pg_advisory_xact_lock");
+    expect(concurrencySql).toContain("return existing_identity_ids[1]");
+    expect(concurrencySql).toContain("Conflicting verified customer identity evidence");
   });
 });
