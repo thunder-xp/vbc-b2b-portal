@@ -14,6 +14,8 @@ const MAX_INPUT_BYTES = 5 * 1024 * 1024;
 const MAX_INPUT_PIXELS = 20_000_000;
 const FETCH_TIMEOUT_MS = 5_000;
 const WORKER_CONCURRENCY = 4;
+const FIREBASE_PRODUCT_IMAGE_HOST = "firebasestorage.googleapis.com";
+const FIREBASE_PRODUCT_IMAGE_BUCKET = "novotech-systems-5449b.appspot.com";
 
 export type ImageNormalizationResult =
   | { status: "normalized"; bytes: Buffer; metadata: Record<string, number> }
@@ -94,6 +96,7 @@ export async function processCatalogProductImageNormalizationBatch(batchSize = 1
   return {
     claimed: jobs.length,
     normalized: results.filter((result) => result.status === "succeeded").length,
+    skipped: results.filter((result) => result.status === "skipped").length,
     reviewNeeded: results.filter((result) => result.status === "review_needed").length,
     failed: results.filter((result) => result.status === "failed").length,
     durationMs: Math.round(performance.now() - startedAt),
@@ -106,6 +109,17 @@ async function processJob(job: ClaimedJob, claimToken: string): Promise<{ status
   if (!sourceUrl || !sourceUrl.startsWith("https://")) {
     await complete(admin, job, claimToken, "review_needed", null, null, {}, "unsafe_source_url", null);
     return { status: "review_needed" };
+  }
+  if (isManagedFirebaseProductImageUrl(sourceUrl)) {
+    if (job.previousStorageKey) {
+      const { error: cleanupError } = await admin.storage.from(BUCKET).remove([job.previousStorageKey]);
+      if (cleanupError) {
+        await complete(admin, job, claimToken, "failed", null, null, {}, null, `NORMALIZED_CLEANUP_${cleanupError.name}`);
+        return { status: "failed" };
+      }
+    }
+    await complete(admin, job, claimToken, "skipped", null, null, {}, "firebase_canonical_binary", null);
+    return { status: "skipped" };
   }
 
   try {
@@ -138,9 +152,20 @@ async function processJob(job: ClaimedJob, claimToken: string): Promise<{ status
   }
 }
 
+export function isManagedFirebaseProductImageUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:"
+      && url.hostname === FIREBASE_PRODUCT_IMAGE_HOST
+      && url.pathname.startsWith(`/v0/b/${FIREBASE_PRODUCT_IMAGE_BUCKET}/o/products%2F`);
+  } catch {
+    return false;
+  }
+}
+
 async function complete(
   admin: ReturnType<typeof createAdminClient>, job: ClaimedJob, claimToken: string,
-  status: "succeeded" | "review_needed" | "failed", storageKey: string | null,
+  status: "succeeded" | "skipped" | "review_needed" | "failed", storageKey: string | null,
   publicUrl: string | null, metadata: Record<string, number>, reason: string | null, errorCode: string | null,
 ) {
   const { error } = await admin.rpc("complete_catalog_product_image_normalization_job", {

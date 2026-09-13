@@ -6,7 +6,10 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 vi.mock("@/src/lib/supabase/admin", () => ({ createAdminClient: vi.fn() }));
 
-import { normalizeCatalogProductImage } from "../product-image-normalization.service";
+import {
+  isManagedFirebaseProductImageUrl,
+  normalizeCatalogProductImage,
+} from "../product-image-normalization.service";
 
 describe("catalog product image normalization", () => {
   it("normalizes a whitespace-heavy image to a bounded square WebP", async () => {
@@ -60,6 +63,15 @@ describe("catalog product image normalization", () => {
     expect(migration).toContain("for update skip locked");
     expect(cron).toContain("authorizeCronRequest");
     expect(cron).toContain("processCatalogProductImageNormalizationBatch(12)");
+  });
+
+  it("keeps canonical Firebase product binaries out of Supabase derivative storage", () => {
+    expect(isManagedFirebaseProductImageUrl(
+      "https://firebasestorage.googleapis.com/v0/b/novotech-systems-5449b.appspot.com/o/products%2F83998eb0-a6dc-11e9-b792-000c2988d323%2Fhash.png?alt=media&token=test",
+    )).toBe(true);
+    expect(isManagedFirebaseProductImageUrl(
+      "https://firebasestorage.googleapis.com/v0/b/other.appspot.com/o/products%2Fhash.png?alt=media",
+    )).toBe(false);
   });
 });
 
