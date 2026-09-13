@@ -11,6 +11,7 @@ const allPermissions = [
   "admin.platform_health.view",
   "admin.companies.view",
   "admin.users.view",
+  "admin.agents.view",
   "admin.invitations.view",
   "admin.access_requests.view",
   "onboarding.requests.view",

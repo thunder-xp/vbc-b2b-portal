@@ -21,6 +21,7 @@ export const ADMIN_NAVIGATION: readonly AdminNavigationGroup[] = [
       { label: "Компании", href: "/admin/companies", permission: "admin.companies.view" },
       { label: "Публичный каталог", href: "/admin/partners/public-directory", permission: "admin.catalog.manage" },
       { label: "Пользователи", href: "/admin/users", permission: "admin.users.view" },
+      { label: "Коммерческие агенты", href: "/admin/agents", permission: "admin.agents.view" },
       { label: "Приглашения", href: "/admin/invitations", permission: "admin.invitations.view" },
       {
         label: "Онбординг партнёров",

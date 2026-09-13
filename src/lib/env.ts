@@ -58,6 +58,23 @@ export function getSupabaseAdminEnv() {
   };
 }
 
+export function getCustomerIdentityHashingEnv() {
+  const secret = process.env.CUSTOMER_IDENTITY_HMAC_SECRET;
+  if (!secret || secret.length < 32) {
+    throw new Error("Missing or invalid CUSTOMER_IDENTITY_HMAC_SECRET.");
+  }
+
+  const keyVersion = Number.parseInt(
+    process.env.CUSTOMER_IDENTITY_HMAC_KEY_VERSION ?? "1",
+    10,
+  );
+  if (!Number.isSafeInteger(keyVersion) || keyVersion < 1) {
+    throw new Error("Invalid CUSTOMER_IDENTITY_HMAC_KEY_VERSION.");
+  }
+
+  return { secret, keyVersion };
+}
+
 export function getSupabaseEnvStatus(): SupabaseEnvStatus {
   const missing = REQUIRED_SUPABASE_ENV.filter((name) => !process.env[name]);
 
