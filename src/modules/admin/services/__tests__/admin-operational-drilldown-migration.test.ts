@@ -7,6 +7,10 @@ const sql = readFileSync(
   join(process.cwd(), "supabase/migrations/20260913092304_admin_operations_error_drilldown.sql"),
   "utf8",
 );
+const repairSql = readFileSync(
+  join(process.cwd(), "supabase/migrations/20260913095735_repair_admin_operational_issue_json_paths.sql"),
+  "utf8",
+);
 
 describe("Admin operational drilldown migration", () => {
   it("defines the complete health taxonomy including successful empty", () => {
@@ -36,5 +40,11 @@ describe("Admin operational drilldown migration", () => {
     expect(sql).toContain("public.has_internal_permission('admin.integrations.view')");
     expect(sql).toContain("from public, anon");
     expect(sql).toContain("set search_path = ''");
+  });
+
+  it("builds issue identifiers and deep links without text/jsonb operator ambiguity", () => {
+    expect(repairSql).toContain("format('%s:%s', health.value->>'key'");
+    expect(repairSql).toContain("format('/admin/operations/issues/%s:%s', health.value->>'key'");
+    expect(repairSql).not.toContain("'/admin/operations/issues/' || health.value");
   });
 });
