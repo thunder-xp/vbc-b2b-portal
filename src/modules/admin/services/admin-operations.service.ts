@@ -52,7 +52,7 @@ export class AdminOperationsService {
     issueId: string,
     now = new Date(),
   ): Promise<AdminOperationalIssue | null> {
-    const normalized = issueId.trim();
+    const normalized = decodeIssueId(issueId);
     if (!/^[a-z0-9:_-]{1,160}$/.test(normalized)) return null;
     const issue = await this.repository.getOperationalIssue(normalized, now.toISOString());
     return issue ? sanitizeOperationalIssue(issue) : null;
@@ -157,6 +157,14 @@ function cleanAbsenceReason(
   value: AdminRetailHistoryAbsenceFilters["reason"],
 ): AdminRetailHistoryAbsenceFilters["reason"] {
   return value && ABSENCE_REASONS.has(value) ? value : undefined;
+}
+
+function decodeIssueId(value: string): string {
+  try {
+    return decodeURIComponent(value).trim();
+  } catch {
+    return "";
+  }
 }
 
 const UNSAFE_DIAGNOSTIC = /authorization|bearer|password|secret|credential|api[-_ ]?key|https?:\/\//i;

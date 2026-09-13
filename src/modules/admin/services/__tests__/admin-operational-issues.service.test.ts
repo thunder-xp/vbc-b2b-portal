@@ -85,6 +85,18 @@ describe("AdminOperationsService operational diagnostics", () => {
     expect(repo.getOperationalIssue).not.toHaveBeenCalled();
   });
 
+  it("normalizes the URL-encoded App Router segment before the exact lookup", async () => {
+    const repo = repository(failedPriceIssue());
+    await new AdminOperationsService(repo).getOperationalIssue(
+      "prices%3A11111111-1111-1111-1111-111111111111",
+      new Date(NOW),
+    );
+    expect(repo.getOperationalIssue).toHaveBeenCalledWith(
+      "prices:11111111-1111-1111-1111-111111111111",
+      NOW,
+    );
+  });
+
   it("redacts unsafe messages, tokens and links", async () => {
     const service = new AdminOperationsService(repository(failedPriceIssue({
       safeMessage: "Authorization: Bearer secret-token",
