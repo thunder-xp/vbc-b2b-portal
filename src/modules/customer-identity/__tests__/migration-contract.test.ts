@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
-const sql = readFileSync(resolve("supabase/migrations/20260913110249_shared_customer_identity_and_agent_domain_foundation.sql"), "utf8");
+const sql = readFileSync(resolve("supabase/migrations/20260913114432_shared_customer_identity_and_agent_domain_foundation.sql"), "utf8");
 
 describe("shared customer identity migration", () => {
   it("is additive and keeps existing customer runtime keys", () => {

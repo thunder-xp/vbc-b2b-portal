@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
-const sql = readFileSync(resolve("supabase/migrations/20260913110307_commercial_agent_domain_foundation.sql"), "utf8");
+const sql = readFileSync(resolve("supabase/migrations/20260913114439_commercial_agent_domain_foundation.sql"), "utf8");
 
 describe("Commercial Agent foundation migration", () => {
   it("uses shared identity and preserves a 90-day historical attribution", () => {
