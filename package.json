@@ -15,6 +15,8 @@
     "publish:public-retail": "tsx --conditions=react-server --no-cache scripts/publish-public-retail-projection.ts",
     "preview:order-confirmation-email": "tsx --no-cache scripts/render-order-confirmation-email-previews.ts",
     "test:catalog-geometry": "node scripts/catalog-geometry-acceptance.mjs",
+    "test:agent-cabinet-geometry": "node scripts/agent-cabinet-geometry-acceptance.mjs",
+    "test:agent-cabinet-performance": "node scripts/agent-cabinet-performance-acceptance.mjs",
     "test": "vitest run"
   },
   "dependencies": {
@@ -27,6 +29,7 @@
     "next": "16.3.0",
     "nodemailer": "^9.0.3",
     "pdfmake": "^0.3.11",
+    "qrcode": "^1.5.4",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "server-only": "^0.0.1",
@@ -41,6 +44,7 @@
     "@types/node": "^20",
     "@types/nodemailer": "^8.0.1",
     "@types/pdfmake": "^0.2.12",
+    "@types/qrcode": "^1.5.6",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",

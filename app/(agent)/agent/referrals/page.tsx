@@ -1,0 +1,9 @@
+import Link from "next/link";
+import { Plus } from "lucide-react";
+import { createAgentCabinetService } from "@/src/modules/agent-cabinet";
+import { AgentPageHeader, primaryButton } from "@/src/modules/agent-cabinet/components/PageHeader";
+import { ReferralStatusBadge } from "@/src/modules/agent-cabinet/components/StatusBadge";
+import { NumberedPagination } from "@/src/modules/platform-ui/NumberedPagination";
+
+export default async function AgentReferralsPage({searchParams}:{searchParams:Promise<{page?:string}>}){const page=Math.max(1,Number((await searchParams).page)||1);const result=await createAgentCabinetService().referrals(page);return <main className="mx-auto max-w-6xl space-y-5 px-4 py-6 sm:py-8"><AgentPageHeader title="Заявки" actions={<Link className={primaryButton} href="/agent/qr#referral-link"><Plus size={18}/>Добавить клиента</Link>}/>{result.items.length?<div className="border border-zinc-200 bg-white">{result.items.map(item=><Link className="grid min-h-20 gap-2 border-b border-zinc-100 p-4 last:border-0 hover:bg-zinc-50 md:grid-cols-[120px_1.4fr_1fr_160px] md:items-center" href={`/agent/referrals/${item.id}`} key={item.id}><span className="font-mono text-xs text-zinc-500">{item.id.slice(0,8).toUpperCase()}</span><span><strong className="block text-sm">{item.name}</strong><small className="text-zinc-500">{item.locality??item.objectType??"—"}</small></span><span className="text-sm tabular-nums">{date(item.submittedAt)}</span><ReferralStatusBadge status={item.status}/></Link>)}</div>:<section className="border border-zinc-200 bg-white p-6"><p className="text-sm text-zinc-600">У вас пока нет заявок.</p></section>}<NumberedPagination ariaLabel="Страницы заявок" currentPage={page} hrefForPage={p=>`/agent/referrals?page=${p}`} totalPages={Math.ceil(result.total/20)}/></main>}
+function date(v:string){return new Intl.DateTimeFormat("ru-MD",{day:"2-digit",month:"short",year:"numeric"}).format(new Date(v))}
