@@ -20,7 +20,60 @@ const ZERO_CHARACTERISTIC_REF = "00000000-0000-0000-0000-000000000000";
 
 export type PriceSyncStatus = "never_run" | "queued" | "running" | "succeeded" | "failed";
 export type PriceSyncStage = "price_type_scan" | "currency_scan" | "price_register_scan" | "price_aggregation" | "price_publication" | "continuation_launch" | "completed";
-export type PriceSyncState = { status: PriceSyncStatus; activeSyncId: string | null; lastFailedSyncId: string | null; startedAt: string | null; finishedAt: string | null; lastSuccessfulSyncAt: string | null; currentStage: PriceSyncStage | null; nextSkip: number; pageSize: number; pagesProcessed: number; rowsScanned: number; rowsStaged: number; priceRowsReceived: number; priceUniqueKeys: number; priceDuplicateKeys: number; priceRowsDeduplicated: number; latestPricesResolved: number; pricesPublished: number; pricesDeactivated: number; unmatchedProducts: number; unknownPriceTypes: number; scanComplete: boolean; errorCategory: string | null; failedStage: string | null; databaseErrorCode: string | null; safeError: string | null; failedPage: number | null; activeChunkToken: string | null; chunkStartedAt: string | null; lastPageStage: PriceSyncStage | null; lastPageNumber: number | null; lastPageFingerprint: string | null; lastPageFirstKey: string | null; lastPageLastKey: string | null; retryCount: number; odataRequestCount: number; odataRequestDurationMs: number; odataRequestDurationsMs: number[]; stagingDurationMs: number; validationDurationMs: number; publicationDurationMs: number; continuationCount: number; updatedAt: string };
+export type PriceSyncState = {
+  status: PriceSyncStatus;
+  activeSyncId: string | null;
+  lastFailedSyncId: string | null;
+  startedAt: string | null;
+  finishedAt: string | null;
+  lastSuccessfulSyncAt: string | null;
+  currentStage: PriceSyncStage | null;
+  nextSkip: number;
+  pageSize: number;
+  pagesProcessed: number;
+  rowsScanned: number;
+  rowsStaged: number;
+  priceRowsReceived: number;
+  priceUniqueKeys: number;
+  priceDuplicateKeys: number;
+  priceRowsDeduplicated: number;
+  latestPricesResolved: number;
+  pricesPublished: number;
+  pricesDeactivated: number;
+  deltaUnchanged: number;
+  deltaInserted: number;
+  deltaUpdated: number;
+  deltaRemoved: number;
+  publicationBatches: number;
+  publicationDbDurationMs: number;
+  publicationTimeoutBudgetMs: number;
+  publicationHeadroomPercent: number;
+  publicationWarning: boolean;
+  unmatchedProducts: number;
+  unknownPriceTypes: number;
+  scanComplete: boolean;
+  errorCategory: string | null;
+  failedStage: string | null;
+  databaseErrorCode: string | null;
+  safeError: string | null;
+  failedPage: number | null;
+  activeChunkToken: string | null;
+  chunkStartedAt: string | null;
+  lastPageStage: PriceSyncStage | null;
+  lastPageNumber: number | null;
+  lastPageFingerprint: string | null;
+  lastPageFirstKey: string | null;
+  lastPageLastKey: string | null;
+  retryCount: number;
+  odataRequestCount: number;
+  odataRequestDurationMs: number;
+  odataRequestDurationsMs: number[];
+  stagingDurationMs: number;
+  validationDurationMs: number;
+  publicationDurationMs: number;
+  continuationCount: number;
+  updatedAt: string;
+};
 export type PriceSyncChunkResult = { state: PriceSyncState; needsContinuation: boolean; pagesProcessedThisInvocation: number; projection?: CatalogProjectionOutcome | null };
 
 export interface PriceSyncStateStore {
@@ -176,7 +229,7 @@ export class SupabasePriceSyncStateStore implements PriceSyncStateStore {
     const syncId = crypto.randomUUID();
     await this.clearStages(current.activeSyncId ?? current.lastFailedSyncId);
     const now = new Date().toISOString();
-    const { error } = await client.from("price_sync_state").update({ status: "queued", active_sync_id: syncId, last_failed_sync_id: null, started_at: now, finished_at: null, current_stage: "price_type_scan", next_skip: 0, page_size: PRICE_SYNC_PAGE_SIZE, pages_processed: 0, rows_scanned: 0, rows_staged: 0, price_rows_received: 0, price_unique_keys: 0, price_duplicate_keys: 0, price_rows_deduplicated: 0, latest_prices_resolved: 0, prices_published: 0, prices_deactivated: 0, unmatched_products: 0, unknown_price_types: 0, scan_complete: false, error_category: null, failed_stage: null, database_error_code: null, safe_error: null, failed_page: null, last_page_stage: null, last_page_number: null, last_page_fingerprint: null, last_page_first_key: null, last_page_last_key: null, retry_count: 0, odata_request_count: 0, odata_request_duration_ms: 0, odata_request_durations_ms: [], staging_duration_ms: 0, validation_duration_ms: 0, publication_duration_ms: 0, continuation_count: 0, lock_acquired_at: now, active_chunk_token: null, chunk_started_at: null, updated_at: now }).eq("id", "product_prices");
+    const { error } = await client.from("price_sync_state").update({ status: "queued", active_sync_id: syncId, last_failed_sync_id: null, started_at: now, finished_at: null, current_stage: "price_type_scan", next_skip: 0, page_size: PRICE_SYNC_PAGE_SIZE, pages_processed: 0, rows_scanned: 0, rows_staged: 0, price_rows_received: 0, price_unique_keys: 0, price_duplicate_keys: 0, price_rows_deduplicated: 0, latest_prices_resolved: 0, prices_published: 0, prices_deactivated: 0, delta_unchanged: 0, delta_inserted: 0, delta_updated: 0, delta_removed: 0, publication_batches: 0, publication_db_duration_ms: 0, publication_headroom_percent: 100, publication_warning: false, publication_profile: {}, unmatched_products: 0, unknown_price_types: 0, scan_complete: false, error_category: null, failed_stage: null, database_error_code: null, safe_error: null, failed_page: null, last_page_stage: null, last_page_number: null, last_page_fingerprint: null, last_page_first_key: null, last_page_last_key: null, retry_count: 0, odata_request_count: 0, odata_request_duration_ms: 0, odata_request_durations_ms: [], staging_duration_ms: 0, validation_duration_ms: 0, publication_duration_ms: 0, continuation_count: 0, lock_acquired_at: now, active_chunk_token: null, chunk_started_at: null, updated_at: now }).eq("id", "product_prices");
     if (error) throw persistenceError(error);
     return { state: await this.getState(), started: true };
   }
@@ -312,7 +365,62 @@ function persistenceError(error: unknown): Error { const source = isRecord(error
 function safeDatabaseError(error: unknown): string | undefined { if (!isRecord(error)) return undefined; const fields = [error.databaseMessage, error.databaseDetails, error.databaseHint].filter((value): value is string => typeof value === "string" && value.length > 0); return fields.length ? fields.join(" ").slice(0, 500) : undefined; }
 function sanitizeDatabaseField(value: unknown): string | undefined { if (typeof value !== "string" || !value.trim()) return undefined; return value.trim().replace(/[0-9a-f]{8}-[0-9a-f-]{27,}/gi, "[redacted]").replace(/'[^']*'/g, "'[redacted]'").replace(/\b\d+(?:\.\d+)?\b/g, "[number]").slice(0, 180); }
 function isRecord(value: unknown): value is Record<string, unknown> { return typeof value === "object" && value !== null; }
-function mapState(row: Record<string, unknown>): PriceSyncState { return { status: row.status as PriceSyncStatus, activeSyncId: stringOrNull(row.active_sync_id), lastFailedSyncId: stringOrNull(row.last_failed_sync_id), startedAt: stringOrNull(row.started_at), finishedAt: stringOrNull(row.finished_at), lastSuccessfulSyncAt: stringOrNull(row.last_successful_sync_at), currentStage: row.current_stage as PriceSyncStage | null, nextSkip: number(row.next_skip), pageSize: number(row.page_size), pagesProcessed: number(row.pages_processed), rowsScanned: number(row.rows_scanned), rowsStaged: number(row.rows_staged), priceRowsReceived: number(row.price_rows_received), priceUniqueKeys: number(row.price_unique_keys), priceDuplicateKeys: number(row.price_duplicate_keys), priceRowsDeduplicated: number(row.price_rows_deduplicated), latestPricesResolved: number(row.latest_prices_resolved), pricesPublished: number(row.prices_published), pricesDeactivated: number(row.prices_deactivated), unmatchedProducts: number(row.unmatched_products), unknownPriceTypes: number(row.unknown_price_types), scanComplete: row.scan_complete === true, errorCategory: stringOrNull(row.error_category), failedStage: stringOrNull(row.failed_stage), databaseErrorCode: stringOrNull(row.database_error_code), safeError: stringOrNull(row.safe_error), failedPage: typeof row.failed_page === "number" ? row.failed_page : null, activeChunkToken: stringOrNull(row.active_chunk_token), chunkStartedAt: stringOrNull(row.chunk_started_at), lastPageStage: row.last_page_stage as PriceSyncStage | null, lastPageNumber: typeof row.last_page_number === "number" ? row.last_page_number : null, lastPageFingerprint: stringOrNull(row.last_page_fingerprint), lastPageFirstKey: stringOrNull(row.last_page_first_key), lastPageLastKey: stringOrNull(row.last_page_last_key), retryCount: number(row.retry_count), odataRequestCount: number(row.odata_request_count), odataRequestDurationMs: number(row.odata_request_duration_ms), odataRequestDurationsMs: numberArray(row.odata_request_durations_ms), stagingDurationMs: number(row.staging_duration_ms), validationDurationMs: number(row.validation_duration_ms), publicationDurationMs: number(row.publication_duration_ms), continuationCount: number(row.continuation_count), updatedAt: String(row.updated_at) }; }
+function mapState(row: Record<string, unknown>): PriceSyncState {
+  return {
+    status: row.status as PriceSyncStatus,
+    activeSyncId: stringOrNull(row.active_sync_id),
+    lastFailedSyncId: stringOrNull(row.last_failed_sync_id),
+    startedAt: stringOrNull(row.started_at),
+    finishedAt: stringOrNull(row.finished_at),
+    lastSuccessfulSyncAt: stringOrNull(row.last_successful_sync_at),
+    currentStage: row.current_stage as PriceSyncStage | null,
+    nextSkip: number(row.next_skip),
+    pageSize: number(row.page_size),
+    pagesProcessed: number(row.pages_processed),
+    rowsScanned: number(row.rows_scanned),
+    rowsStaged: number(row.rows_staged),
+    priceRowsReceived: number(row.price_rows_received),
+    priceUniqueKeys: number(row.price_unique_keys),
+    priceDuplicateKeys: number(row.price_duplicate_keys),
+    priceRowsDeduplicated: number(row.price_rows_deduplicated),
+    latestPricesResolved: number(row.latest_prices_resolved),
+    pricesPublished: number(row.prices_published),
+    pricesDeactivated: number(row.prices_deactivated),
+    deltaUnchanged: number(row.delta_unchanged),
+    deltaInserted: number(row.delta_inserted),
+    deltaUpdated: number(row.delta_updated),
+    deltaRemoved: number(row.delta_removed),
+    publicationBatches: number(row.publication_batches),
+    publicationDbDurationMs: number(row.publication_db_duration_ms),
+    publicationTimeoutBudgetMs: number(row.publication_timeout_budget_ms),
+    publicationHeadroomPercent: number(row.publication_headroom_percent),
+    publicationWarning: row.publication_warning === true,
+    unmatchedProducts: number(row.unmatched_products),
+    unknownPriceTypes: number(row.unknown_price_types),
+    scanComplete: row.scan_complete === true,
+    errorCategory: stringOrNull(row.error_category),
+    failedStage: stringOrNull(row.failed_stage),
+    databaseErrorCode: stringOrNull(row.database_error_code),
+    safeError: stringOrNull(row.safe_error),
+    failedPage: typeof row.failed_page === "number" ? row.failed_page : null,
+    activeChunkToken: stringOrNull(row.active_chunk_token),
+    chunkStartedAt: stringOrNull(row.chunk_started_at),
+    lastPageStage: row.last_page_stage as PriceSyncStage | null,
+    lastPageNumber: typeof row.last_page_number === "number" ? row.last_page_number : null,
+    lastPageFingerprint: stringOrNull(row.last_page_fingerprint),
+    lastPageFirstKey: stringOrNull(row.last_page_first_key),
+    lastPageLastKey: stringOrNull(row.last_page_last_key),
+    retryCount: number(row.retry_count),
+    odataRequestCount: number(row.odata_request_count),
+    odataRequestDurationMs: number(row.odata_request_duration_ms),
+    odataRequestDurationsMs: numberArray(row.odata_request_durations_ms),
+    stagingDurationMs: number(row.staging_duration_ms),
+    validationDurationMs: number(row.validation_duration_ms),
+    publicationDurationMs: number(row.publication_duration_ms),
+    continuationCount: number(row.continuation_count),
+    updatedAt: String(row.updated_at),
+  };
+}
 function stringOrNull(value: unknown): string | null { return typeof value === "string" ? value : null; }
 function stringValue(value: unknown): string | undefined { return typeof value === "string" && value ? value : undefined; }
 function number(value: unknown): number { return typeof value === "number" ? value : 0; }

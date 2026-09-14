@@ -83,7 +83,39 @@ export function CatalogSyncPanel() {
     </SyncSection>
     <SyncSection title="Партнёрские цены" description="Обновляет цены из 1С для доступных типов цен.">
       <div className="flex flex-wrap gap-2"><ActionButton pending={pricePending} onClick={runPrices}>Синхронизировать цены</ActionButton><ActionButton pending={pricePending} secondary onClick={runPrices}>Повторить синхронизацию цен</ActionButton></div>
-      <Report rows={priceState ? [["Status", priceStatus(priceState)], ["Current stage", priceState.currentStage ?? "-"], ["Started", priceState.startedAt ?? "Never"], ["Last successful run", priceState.lastSuccessfulSyncAt ?? "Never"], ["Pages processed", priceState.pagesProcessed], ["Rows scanned", priceState.rowsScanned], ["Rows staged", priceState.rowsStaged], ["Price rows received", priceState.priceRowsReceived], ["Unique price keys", priceState.priceUniqueKeys], ["Duplicate price keys", priceState.priceDuplicateKeys], ["Price rows deduplicated", priceState.priceRowsDeduplicated], ["Latest prices resolved", priceState.latestPricesResolved], ["Prices published", priceState.pricesPublished], ["Prices deactivated", priceState.pricesDeactivated], ["Unmatched products", priceState.unmatchedProducts], ["Unknown price types", priceState.unknownPriceTypes], ["Scan complete", String(priceState.scanComplete)], ["Failed page", priceState.failedPage ?? "None"], ["Failed stage", priceState.failedStage ?? "None"], ["Database error code", priceState.databaseErrorCode ?? "None"], ["Safe error", priceState.safeError ?? priceState.errorCategory ?? "None"], ["Last update", priceState.updatedAt]] : []} />
+      {priceState?.publicationWarning ? <p className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm font-medium text-amber-900" role="alert">Publication used more than 70% of the database timeout budget.</p> : null}
+      <Report rows={priceState ? [
+        ["Status", priceStatus(priceState)],
+        ["Current stage", priceState.currentStage ?? "-"],
+        ["Started", priceState.startedAt ?? "Never"],
+        ["Last successful run", priceState.lastSuccessfulSyncAt ?? "Never"],
+        ["Pages processed", priceState.pagesProcessed],
+        ["Rows scanned", priceState.rowsScanned],
+        ["Rows staged", priceState.rowsStaged],
+        ["Price rows received", priceState.priceRowsReceived],
+        ["Unique price keys", priceState.priceUniqueKeys],
+        ["Duplicate price keys", priceState.priceDuplicateKeys],
+        ["Price rows deduplicated", priceState.priceRowsDeduplicated],
+        ["Latest prices resolved", priceState.latestPricesResolved],
+        ["Delta unchanged", priceState.deltaUnchanged],
+        ["Delta inserts", priceState.deltaInserted],
+        ["Delta updates", priceState.deltaUpdated],
+        ["Delta removals", priceState.deltaRemoved],
+        ["Publication batches", priceState.publicationBatches],
+        ["Publication DB time", `${priceState.publicationDbDurationMs} ms`],
+        ["DB timeout budget", `${priceState.publicationTimeoutBudgetMs} ms`],
+        ["Runtime headroom", `${priceState.publicationHeadroomPercent}%`],
+        ["Prices published", priceState.pricesPublished],
+        ["Prices deactivated", priceState.pricesDeactivated],
+        ["Unmatched products", priceState.unmatchedProducts],
+        ["Unknown price types", priceState.unknownPriceTypes],
+        ["Scan complete", String(priceState.scanComplete)],
+        ["Failed page", priceState.failedPage ?? "None"],
+        ["Failed stage", priceState.failedStage ?? "None"],
+        ["Database error code", priceState.databaseErrorCode ?? "None"],
+        ["Safe error", priceState.safeError ?? priceState.errorCategory ?? "None"],
+        ["Last update", priceState.updatedAt],
+      ] : []} />
     </SyncSection>
     <SyncSection title="Остатки и наличие" description="Обновляет остатки и доступность товаров.">
       <div className="flex gap-2"><ActionButton pending={stockPending} onClick={runStock}>Синхронизировать остатки</ActionButton><ActionButton pending={stockPending} secondary onClick={runStock}>Повторить синхронизацию остатков</ActionButton></div>
