@@ -156,3 +156,43 @@ Follow-up waits for the committed enabled search before focusing and uses the pe
 explicit system keys in new proposal DTOs. Historical frozen versions remain unchanged.
 Focused regression added for an early animation frame and renamed proposal label/totals.
 These fixes and continuous 10/20-item cycles require fresh browser acceptance; no production app release yet.
+
+## Final candidate acceptance — 36507108
+
+Both follow-up fixes passed on the stable authenticated preview. Repeating SKU 170110 in
+KP-2026-000128 now preserves 22 rows, changes quantity 3 to 4, retains price 10.07, and
+returns focus to `estimate-quick-search`. Its preview renders the persisted custom section name.
+
+Created separate disposable KP-2026-000129 (`038e74ee-fe2d-49ae-9790-cdebdfb9f910`),
+named `Codex UX acceptance 20260914 continuous 20`, using existing ANTIBIR customer.
+No proposal was sent, no order/cart submitted, and no user estimate was deleted.
+
+Continuous entry reached 10 then 20 distinct catalog rows, using the same 20 SKUs as the
+baseline. No pointer clicks, modal transitions or scroll-to-toolbar actions were needed inside
+the composition loop after initial search focus. This is keyboard workflow evidence, not a
+claim that twenty separately searched items use fewer requests than a two-batch selection.
+The action contract is 20 search + 20 insertion actions for 20 distinct searches (10 + 10
+for ten); the retained batch path remains 2 + 2 for two ten-item batches. Counts are scoped
+Server Actions, not a browser-wide request/DB trace.
+
+Nineteen uninterrupted automation cycles were timed; the sixth cycle was excluded because
+the observer checked focus before the animation frame committed and interrupted measurement.
+After waiting for the actual `:focus` state, un-targeted Return confirmed the quantity and
+returned to search. Fourteen subsequent cycles verified both automatic focus transitions.
+Confirmation-to-search durations: 1184–1858 ms; complete search-to-next-search cycles:
+2109–3269 ms, including automation overhead. No fabricated human timing or speed percentage.
+
+Section-local Add Materials focused search in Materials. SKU 300002, quantity 10, was added
+there; Works added existing Mount Camera service, quantity 2, to installation. ArrowDown/Up,
+Enter, Escape, slash and Ctrl+K were exercised. Inline work price 30 and equipment quantity 2
+made Save dirty and disabled structural insertion until Ctrl+S completed. Reload preserved
+22 rows, quantities/prices and total USD 3075.00 (3005.30 + 9.70 + 60.00). Preview matched.
+The no-result external-nomenclature path opened the existing form at 390 and was cancelled
+without creating an external item. No captured console errors.
+
+Final five-size check: 390x844, 768x1024, 1440x900, 1920x1080, 3640x1440; no horizontal
+overflow, inspected quantity/price/search controls at least 44px high. Temporary viewport
+override reset. Prior comparable density and DOM/HTML measurements above remain applicable;
+no payload reduction is claimed. Final follow-up validation: 58 tests in four focused suites,
+TypeScript, focused ESLint and production build passed. No further runtime changes since
+the verified preview. Production integration/deployment is the next release gate.
