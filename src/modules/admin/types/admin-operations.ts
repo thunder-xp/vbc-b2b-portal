@@ -32,6 +32,27 @@ export interface AdminIntegrationState {
     headroomPercent: number;
     warning: boolean;
   };
+  stockPublication?: {
+    stockReceived: number;
+    arrivalsReceived: number;
+    sourceCalls: number;
+    stockStagedRows: number;
+    arrivalsStagedRows: number;
+    stockDelta: { unchanged: number; inserted: number; updated: number; removed: number };
+    arrivalsDelta: { unchanged: number; inserted: number; updated: number; removed: number };
+    databaseDurationMs: number | null;
+    applicationDurationMs: number | null;
+    timeoutBudgetMs: number;
+    headroomPercent: number | null;
+    lockWaitMs: number | null;
+    triggerRows: number;
+    triggerDurationMs: number | null;
+    sqlState: string | null;
+    failedStage: string | null;
+    recoveryState: string;
+    affectedDomains: readonly string[];
+    warning: boolean;
+  };
 }
 
 export interface AdminIntegrationCenter {

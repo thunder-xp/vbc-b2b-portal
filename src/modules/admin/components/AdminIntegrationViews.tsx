@@ -28,6 +28,9 @@ export function AdminIntegrationCenterView({
           {item.pricePublication ? (
             <PricePublicationDiagnostics diagnostics={item.pricePublication} />
           ) : null}
+          {item.stockPublication ? (
+            <StockPublicationDiagnostics diagnostics={item.stockPublication} />
+          ) : null}
           <p className="mt-3 text-xs text-zinc-500">
             {item.lastSuccessAt
               ? formatDate(item.lastSuccessAt)
@@ -36,6 +39,41 @@ export function AdminIntegrationCenterView({
         </article>
       ))}
     </div>
+  );
+}
+
+function StockPublicationDiagnostics({
+  diagnostics,
+}: {
+  diagnostics: NonNullable<AdminIntegrationState["stockPublication"]>;
+}) {
+  const delta = (value: typeof diagnostics.stockDelta) =>
+    `=${value.unchanged} +${value.inserted} ~${value.updated} -${value.removed}`;
+  const duration = (value: number | null) => value === null ? "—" : `${value} ms`;
+  return (
+    <section className="mt-4 border-t border-zinc-200 pt-3" aria-label="Диагностика публикации остатков и поступлений">
+      {diagnostics.warning ? (
+        <p className="mb-3 border border-amber-300 bg-amber-50 p-2 text-xs font-medium text-amber-900" role="alert">
+          Публикация использовала более 70% лимита времени БД.
+        </p>
+      ) : null}
+      <dl className="space-y-2 text-xs">
+        <Row label="Источник: остатки / поступления" value={`${diagnostics.stockReceived} / ${diagnostics.arrivalsReceived}`} />
+        <Row label="Вызовы источника" value={diagnostics.sourceCalls} />
+        <Row label="Staging: остатки / поступления" value={`${diagnostics.stockStagedRows} / ${diagnostics.arrivalsStagedRows}`} />
+        <Row label="Delta остатков" value={delta(diagnostics.stockDelta)} />
+        <Row label="Delta поступлений" value={delta(diagnostics.arrivalsDelta)} />
+        <Row label="Время БД / приложения" value={`${duration(diagnostics.databaseDurationMs)} / ${duration(diagnostics.applicationDurationMs)}`} />
+        <Row label="Лимит БД" value={`${diagnostics.timeoutBudgetMs} ms`} />
+        <Row label="Запас времени" value={diagnostics.headroomPercent === null ? "—" : `${diagnostics.headroomPercent}%`} />
+        <Row label="Ожидание блокировки" value={duration(diagnostics.lockWaitMs)} />
+        <Row label="Строки с триггерами" value={diagnostics.triggerRows} />
+        <Row label="Время триггеров" value={duration(diagnostics.triggerDurationMs)} />
+        <Row label="SQLSTATE / этап" value={`${diagnostics.sqlState ?? "—"} / ${diagnostics.failedStage ?? "—"}`} />
+        <Row label="Восстановление" value={diagnostics.recoveryState} />
+        <Row label="Затронутые домены" value={diagnostics.affectedDomains.join(", ")} />
+      </dl>
+    </section>
   );
 }
 

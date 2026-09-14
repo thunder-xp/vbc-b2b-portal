@@ -66,4 +66,49 @@ describe("AdminIntegrationCenterView", () => {
 
     expect(screen.getByRole("alert")).toHaveTextContent("более 70%");
   });
+
+  it("shows stock and arrivals publication deltas on the active admin surface", () => {
+    render(<AdminIntegrationCenterView center={{ locks: [], domains: [{
+      domain: "stock",
+      status: "succeeded",
+      lastAttemptAt: "2026-09-14T15:28:30.605Z",
+      lastSuccessAt: "2026-09-14T15:28:30.605Z",
+      durationMs: 577,
+      received: 1_253,
+      published: 7,
+      excluded: 652,
+      safeErrorCode: null,
+      runId: "ff780eff-44ba-42de-9c5b-fa5a0c7db02e",
+      stockPublication: {
+        stockReceived: 1_253,
+        arrivalsReceived: 159,
+        sourceCalls: 8,
+        stockStagedRows: 1_253,
+        arrivalsStagedRows: 130,
+        stockDelta: { unchanged: 549, inserted: 0, updated: 7, removed: 0 },
+        arrivalsDelta: { unchanged: 0, inserted: 0, updated: 0, removed: 0 },
+        databaseDurationMs: 415,
+        applicationDurationMs: 577,
+        timeoutBudgetMs: 8_000,
+        headroomPercent: 94.81,
+        lockWaitMs: 0,
+        triggerRows: 7,
+        triggerDurationMs: null,
+        sqlState: null,
+        failedStage: null,
+        recoveryState: "CONFIRMED_PUBLICATION_ACTIVE",
+        affectedDomains: ["stock", "arrivals"],
+        warning: false,
+      },
+    }] }} />);
+
+    const region = screen.getByRole("region", {
+      name: "Диагностика публикации остатков и поступлений",
+    });
+    expect(region).toHaveTextContent("1253 / 159");
+    expect(region).toHaveTextContent("=549 +0 ~7 -0");
+    expect(region).toHaveTextContent("415 ms / 577 ms");
+    expect(region).toHaveTextContent("94.81%");
+    expect(region).toHaveTextContent("stock, arrivals");
+  });
 });
