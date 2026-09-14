@@ -87,7 +87,7 @@ export function CatalogSyncPanel() {
     </SyncSection>
     <SyncSection title="Остатки и наличие" description="Обновляет остатки и доступность товаров.">
       <div className="flex gap-2"><ActionButton pending={stockPending} onClick={runStock}>Синхронизировать остатки</ActionButton><ActionButton pending={stockPending} secondary onClick={runStock}>Повторить синхронизацию остатков</ActionButton></div>
-      <Report rows={stockState?[["Status",stockState.status],["Current stage",stockState.currentStage??"-"],["Snapshot time",stockState.snapshotTime??"-"],["Pages processed",stockState.pagesProcessed],["Physical rows",stockState.physicalRows],["Reserved rows",stockState.reservedRows],["Incoming rows",stockState.incomingRows],["Warehouses loaded",stockState.warehousesLoaded],["Products matched",stockState.productsMatched],["Products unmatched",stockState.productsUnmatched],["Rows published",stockState.rowsPublished],["Rows deactivated",stockState.rowsDeactivated],["Safe error",stockState.safeError??"None"],["Last successful run",stockState.lastSuccessfulSyncAt??"Never"]]:[]} />
+      <Report rows={stockState?[["Status",stockState.status],["Current stage",stockState.currentStage??"-"],["Snapshot time",stockState.snapshotTime??"-"],["Source calls",stockState.pagesProcessed],["Stock received",stockState.physicalRows+stockState.reservedRows+stockState.incomingRows],["Arrivals received",stockState.supplierBalanceRows??0],["Stock staged",stockState.stockStagedRows??0],["Arrivals staged",stockState.arrivalsStagedRows??0],["Stock delta",deltaLabel(stockState.stockDeltaUnchanged,stockState.stockDeltaInserted,stockState.stockDeltaUpdated,stockState.stockDeltaRemoved)],["Arrivals delta",deltaLabel(stockState.arrivalsDeltaUnchanged,stockState.arrivalsDeltaInserted,stockState.arrivalsDeltaUpdated,stockState.arrivalsDeltaRemoved)],["Publication DB",durationLabel(stockState.publicationDbMs)],["Publication application",durationLabel(stockState.publicationApplicationMs)],["Timeout budget",durationLabel(stockState.publicationTimeoutBudgetMs)],["Headroom",stockState.publicationHeadroomPercent===null||stockState.publicationHeadroomPercent===undefined?"-":`${stockState.publicationHeadroomPercent}%`],["Lock wait",durationLabel(stockState.publicationLockWaitMs)],["Trigger rows",stockState.publicationTriggerRows??0],["Products matched",stockState.productsMatched],["Products unmatched",stockState.productsUnmatched],["Rows changed",stockState.rowsPublished],["Rows removed",stockState.rowsDeactivated],["Safe error",stockState.safeError??"None"],["Last successful run",stockState.lastSuccessfulSyncAt??"Never"]]:[]} />
     </SyncSection>
   </div>;
 }
@@ -120,3 +120,6 @@ function projectionLabel(status: CatalogProjectionOutcome["status"]): string {
   if (status === "partial_success") return "Failed after B2B update";
   return "Not started";
 }
+
+function deltaLabel(unchanged=0,inserted=0,updated=0,removed=0){return `=${unchanged} +${inserted} ~${updated} -${removed}`;}
+function durationLabel(value:number|null|undefined){return value===null||value===undefined?"-":`${value} ms`;}
