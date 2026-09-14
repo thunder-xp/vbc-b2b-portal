@@ -1,4 +1,5 @@
-const PRODUCT_FEATURES_HEADING = /(?:^|\s)ОСНОВНЫЕ\s+ХАРАКТЕРИСТИКИ\s+И\s+ПРЕИМУЩЕСТВА\s*:?(?=\s|$)/iu;
+const PRODUCT_DETAILS_HEADING = /(?:^|\s)(?:ОСНОВНЫЕ\s+ХАРАКТЕРИСТИКИ\s+И\s+ПРЕИМУЩЕСТВА|КЛЮЧЕВЫЕ\s+ПРЕИМУЩЕСТВА|ТЕХНИЧЕСКИЕ\s+ХАРАКТЕРИСТИКИ|ОБЛАСТЬ\s+ПРИМЕНЕНИЯ|ИНСТРУКЦИЯ)\s*:?(?=\s|[.!?]|$)/iu;
+const CITATION_ARTIFACT = /\[(?:cite|citation|source)\s*:\s*[^\]]+\]/giu;
 const MAX_SUMMARY_LENGTH = 500;
 const MAX_SENTENCES = 5;
 
@@ -8,7 +9,7 @@ export function deriveProductDescriptionSummary(
   fallback: string | null | undefined,
 ): string {
   const normalizedSource = normalizeRichText(source ?? "");
-  const heading = PRODUCT_FEATURES_HEADING.exec(normalizedSource);
+  const heading = PRODUCT_DETAILS_HEADING.exec(normalizedSource);
   const introduction = (heading ? normalizedSource.slice(0, heading.index) : normalizedSource).trim();
   const candidate = introduction || normalizeRichText(fallback ?? "");
   if (!candidate) return "";
@@ -41,6 +42,8 @@ function normalizeRichText(value: string): string {
     .replace(/&amp;/giu, "&")
     .replace(/&quot;/giu, '"')
     .replace(/&#39;|&apos;/giu, "'")
+    .replace(CITATION_ARTIFACT, "")
+    .replace(/\s+([,.;:!?])/gu, "$1")
     .replace(/\s*\.\s*\./gu, ". ")
     .replace(/\s+/gu, " ")
     .trim();

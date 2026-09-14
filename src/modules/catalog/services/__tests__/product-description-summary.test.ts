@@ -10,6 +10,13 @@ describe("deriveProductDescriptionSummary", () => {
     )).toBe("Первая фраза. Вторая фраза.");
   });
 
+  it("removes citation artifacts and stops before non-intro product sections", () => {
+    expect(deriveProductDescriptionSummary(
+      "Камера подходит для офиса[cite: 20]. Вторая вводная фраза [source: catalog]. КЛЮЧЕВЫЕ ПРЕИМУЩЕСТВА: - Не включать",
+      null,
+    )).toBe("Камера подходит для офиса. Вторая вводная фраза.");
+  });
+
   it("keeps at most five meaningful sentences and stays bounded", () => {
     const result = deriveProductDescriptionSummary(
       "Раз. Два предложения. Три предложения. Четыре предложения. Пять предложений. Шесть предложений.",
