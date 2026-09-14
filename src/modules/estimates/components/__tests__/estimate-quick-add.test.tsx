@@ -40,6 +40,21 @@ describe("continuous estimate Quick Add", () => {
     await waitFor(() => expect(search).toHaveFocus());
     expect(search).toHaveValue("");
   });
+  it("restores focus after enabled DOM commit even when animation frames run before the transition commits", async () => {
+    const { user } = setup();
+    const search = screen.getByRole("combobox");
+    await user.type(search, "cam");
+    await screen.findByRole("option", { name: /Camera/ });
+    await user.keyboard("{Enter}");
+    await waitFor(() => expect(screen.getByRole("spinbutton")).toHaveFocus());
+    const earlyFrame = vi.spyOn(window, "requestAnimationFrame").mockImplementation(callback => { callback(0); return 1; });
+    try {
+      await user.keyboard("{Enter}");
+      await waitFor(() => expect(search).toBeEnabled());
+      await waitFor(() => expect(search).toHaveFocus());
+      expect(search).toHaveValue("");
+    } finally { earlyFrame.mockRestore(); }
+  });
   it("shows same-section repeat handling and Escape performs no write", async () => {
     const { user } = setup({ estimate: { ...estimate, lines: [{ productId: "p1", sectionId: "section-1" }] } });
     await user.type(screen.getByRole("combobox"), "cam");

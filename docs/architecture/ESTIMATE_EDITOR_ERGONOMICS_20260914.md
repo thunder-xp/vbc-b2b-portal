@@ -117,3 +117,42 @@ Quick Add also retains the secondary batch selector on mobile as a named 44px ic
 Missing line/settings readiness opens the existing guided panel; clean composition keeps it collapsed.
 
 Production rollout and authenticated candidate/responsive acceptance remain pending.
+
+## Authenticated preview acceptance — 2026-09-14
+
+Partner NOVOTECH SYSTEMS / Vasili Culacov, existing disposable KP-2026-000128.
+Recovered Chrome connection now applies real viewport dimensions.
+
+| Width × height | Overflow | First row Y | Row height | Complete rows | Minimum inspected control height |
+|---|---|---|---|---|---|
+| 390 × 844 | No | 552 | 197.31 | 1 | 44 |
+| 768 × 1024 | No | 548 | 182.66 | 2 | 44 |
+| 1440 × 900 | No | 548.5 | 94.31 | 3 | 44 |
+| 1920 × 855 | No | 548.5 | 94.31 | 3 | 44 |
+| 3640 × 1440 | No | 548.5 | 94.31 | 9 | 44 |
+
+Desktop quantity columns share the same X across inspected rows. 390 and 1440 screenshots inspected;
+mobile uses stacked cards and 44px controls, with the existing bottom action bar.
+Comparable fresh production/preview reads of the same 22-row estimate at 1920×855, no success banner:
+first Y 615.5 → 548.5; row height 156.3125 → 94.3125; complete rows 1 → 3;
+header 103 → 213 (persistent composition controls); descendant DOM 1338 → 1453 (+8.6%);
+HTML characters 210946 → 232396 (+10.2%, not transferred bytes). No claim of payload reduction.
+
+Production migration 20260914181150 applied once via linked CLI; subsequent dry-run is up to date.
+Security advisors: zero errors; anon cannot execute the new RPC, authenticated can subject to its
+company/permission/revision checks. No policy/table changes.
+
+Read-only search finds SKU 170110 and indicates an existing same-section line. Enter focuses
+quantity. Confirming +2 preserves 22 lines, increases that exact line from 1 to 3, retains price 10.07,
+and recalculates total 3064.93 → 3085.07. Automated confirmation cycle 1657ms including tool overhead.
+Inline section rename and Ctrl+S persisted “Оборудование — тест UX”; exact DB read and reload confirm
+name, with unchanged equipment key/order and three other sections. External no-result path opens
+the existing external nomenclature picker. Works retains both installation/commissioning destinations.
+Preview opens and shows quantity 3 / line amount 30.21. No browser console errors observed.
+
+Runtime exposed two acceptance defects before release: focus attempted during a still-disabled
+React transition, and preview replaced a renamed system section label with its canonical default.
+Follow-up waits for the committed enabled search before focusing and uses the persisted label for
+explicit system keys in new proposal DTOs. Historical frozen versions remain unchanged.
+Focused regression added for an early animation frame and renamed proposal label/totals.
+These fixes and continuous 10/20-item cycles require fresh browser acceptance; no production app release yet.

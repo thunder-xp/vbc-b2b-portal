@@ -33,6 +33,7 @@ export function EstimateQuickAdd({ estimate, services, sectionId, serviceMode, d
   };
   const searchRef = useRef<HTMLInputElement>(null);
   const quantityRef = useRef<HTMLInputElement>(null);
+  const restoreSearchFocus = useRef(false);
   const request = useRef<{ signature: string; key: string } | null>(null);
   const [query, setQuery] = useState("");
   const [result, setResult] = useState<{ query: string; products: EstimateProductPickerDto["products"] }>({ query: "", products: [] });
@@ -43,6 +44,14 @@ export function EstimateQuickAdd({ estimate, services, sectionId, serviceMode, d
   const [message, setMessage] = useState<string | null>(null);
   const [searchingQuery, setSearchingQuery] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  useEffect(() => {
+    // Focus only after React commits the enabled search field. A frame scheduled
+    // inside the async transition can run while the input is still disabled.
+    if (!pending && !disabled && !choice && restoreSearchFocus.current) {
+      restoreSearchFocus.current = false;
+      searchRef.current?.focus();
+    }
+  }, [pending, disabled, choice]);
   const queryText = query.trim();
   const searching = searchingQuery === queryText;
   const choices: Choice[] = serviceMode
@@ -99,9 +108,9 @@ export function EstimateQuickAdd({ estimate, services, sectionId, serviceMode, d
           : await addEstimateProductsAction(estimate.id, estimate.revision, [{ productId: selected.id, quantity: amount }], insertion);
         if (!response.success) { setMessage(response.message); return; }
         request.current = null;
+        restoreSearchFocus.current = true;
         onResult(response.data, response.message);
         setChoice(null); setQuery(""); setResult({ query: "", products: [] }); setMessage(null);
-        requestAnimationFrame(() => searchRef.current?.focus());
       } catch { setMessage(copy.operationFailed); }
       finally { onPendingChange?.(false); }
     });
