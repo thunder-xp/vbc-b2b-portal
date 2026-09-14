@@ -153,6 +153,7 @@ export interface PartnerService {
   defaultSellingPrice: number | null;
   vatApplicable: boolean;
   category: string;
+  workSectionKey?: Extract<EstimateSectionSystemKey, "installation_works" | "commissioning_works"> | null;
 }
 
 export interface EstimateCharge {

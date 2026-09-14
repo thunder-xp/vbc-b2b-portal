@@ -26,6 +26,7 @@ import {
   sortCatalogProducts,
   type CatalogSort,
 } from "./catalog-sorting";
+import { deriveProductDescriptionSummary } from "./product-description-summary";
 
 export type CatalogCategoryDto = {
   id: string;
@@ -73,6 +74,7 @@ export type CatalogProductCardDto = {
   name: string;
   slug: string;
   shortDescription: string | null;
+  descriptionSummary?: string | null;
   imageUrl: string | null;
   brand: CatalogBrandDto | null;
   category: CatalogCategoryDto | null;
@@ -708,6 +710,7 @@ export class DefaultCatalogService implements CatalogService, ProductReferenceSe
         slug: product.slug,
         sku: product.sku,
         name: product.name,
+        descriptionSummary: deriveProductDescriptionSummary(product.fullDescription ?? product.description, product.shortDescription ?? product.name) || null,
         thumbnail,
         thumbnailFit: resolveProductImageFit(thumbnail),
         publicationState: "published" as const,
@@ -844,6 +847,7 @@ export class DefaultCatalogService implements CatalogService, ProductReferenceSe
       name: product.name,
       slug: product.slug,
       shortDescription: product.shortDescription,
+      descriptionSummary: deriveProductDescriptionSummary(product.fullDescription ?? product.description, product.shortDescription ?? product.name) || null,
       imageUrl: product.imageSourceUrl ?? product.imageUrl,
       brand: brand ? toBrandDto(brand) : null,
       category: category ? toCategoryDto(category) : null,

@@ -2,6 +2,7 @@ import "server-only";
 
 import { createAdminClient } from "@/src/lib/supabase/admin";
 import { createClient } from "@/src/lib/supabase/server";
+import { deriveProductDescriptionSummary } from "../../../catalog/services/product-description-summary";
 import type { CustomerProposalDto, GeneratedEstimateDocument, ProposalBranding, ProposalSettings, ProposalTemplate } from "../../types";
 import type { ProposalRepository } from "../proposal.repository";
 import { ProposalRepositoryError } from "../proposal.repository";
@@ -44,6 +45,23 @@ export class SupabaseProposalRepository implements ProposalRepository {
     const { data, error } = await supabase.from("catalog_products").select("id, image_source_url, image_url").in("id", [...new Set(productIds)]);
     if (error) throw new ProposalRepositoryError();
     return new Map((data ?? []).map((row) => [row.id, row.image_source_url ?? row.image_url]));
+  }
+
+  async getProductPresentation(productIds: string[]): Promise<Map<string, { imageUrl: string | null; descriptionSummary: string | null; name: string }>> {
+    if (!productIds.length) return new Map();
+    const supabase = await createClient();
+    const { data, error } = await supabase.from("catalog_products")
+      .select("id, name, image_source_url, image_url, full_description, description, short_description")
+      .in("id", [...new Set(productIds)]);
+    if (error) throw new ProposalRepositoryError();
+    return new Map((data ?? []).map((row) => [row.id, {
+      imageUrl: row.image_source_url ?? row.image_url,
+      name: row.name,
+      descriptionSummary: deriveProductDescriptionSummary(
+        row.full_description ?? row.description,
+        row.short_description ?? row.name,
+      ) || null,
+    }]));
   }
 
   async saveSettings(input: { estimateId: string; expectedRevision: number; templateId: string | null; settings: ProposalSettings }): Promise<number> {

@@ -117,6 +117,7 @@ export type PartnerServiceRow = {
   default_selling_price: number | string | null;
   vat_applicable: boolean;
   category: string;
+  estimate_work_section_key: PartnerService["workSectionKey"];
 };
 
 export type EstimateChargeRow = {
@@ -244,6 +245,7 @@ export function mapPartnerServiceRow(row: PartnerServiceRow): PartnerService {
     defaultSellingPrice: nullableNumber(row.default_selling_price),
     vatApplicable: row.vat_applicable,
     category: row.category,
+    workSectionKey: row.estimate_work_section_key,
   };
 }
 

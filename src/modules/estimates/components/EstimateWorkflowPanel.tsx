@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, CheckCircle2, Copy, Download, FilePlus2, Plus, Save, Send, ShoppingCart, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Download, FilePlus2, Plus, Save, Send, ShoppingCart, XCircle } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
@@ -13,9 +13,6 @@ import {
   addEstimateEquipmentToCartAction,
   createEstimateVersionAction,
   createDraftFromEstimateVersionAction,
-  duplicateEstimateAction,
-  markEstimateReadyAction,
-  saveEstimateAsTemplateAction,
   transitionEstimateVersionAction,
 } from "../actions/lifecycle.actions";
 import { generateEstimateVersionPdfAction } from "../actions/proposal.actions";
@@ -94,11 +91,6 @@ export function EstimateWorkflowPanel({ initialWorkflow, revision, initialPropos
     setMessage(result.success ? copy.operationSucceeded : copy.operationFailed);
     if (result.success) { after?.(); router.refresh(); }
   });
-  const duplicate = () => startTransition(async () => {
-    const result = await duplicateEstimateAction(initialWorkflow.estimateId);
-    setMessage(result.success ? copy.operationSucceeded : copy.operationFailed);
-    if (result.success) router.push(`/cabinet/estimates/${result.data.estimateId}`);
-  });
   const addToCart = () => startTransition(async () => {
     const requestKey = crypto.randomUUID();
     const result = await addEstimateEquipmentToCartAction(initialWorkflow.estimateId, proposal?.id ?? null, requestKey);
@@ -146,31 +138,32 @@ export function EstimateWorkflowPanel({ initialWorkflow, revision, initialPropos
     versionId={proposal.id}
   /> : null;
 
-  return <section className="scroll-mt-24 border-y border-zinc-200 bg-white px-4 py-4 sm:px-5" data-draft-readiness-state={draftGuide?.state} data-testid="estimate-guided-workflow" id="estimate-order-conversion">
-    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-      <div className="min-w-0">
-        <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">{copy.guidedCurrentState}</p>
-        <h2 className="mt-1 text-lg font-semibold text-zinc-950">{draftGuide ? draftStateLabel(draftGuide.state, draftGuide.linePosition, copy) : guidedStateLabel(guided.state, copy)}</h2>
-        {draftGuide
-          ? <DraftGuidedContext copy={copy} state={draftGuide.state} />
-          : <GuidedContext copy={copy} latestDelivery={latestDelivery} locale={locale} proposalSentAt={proposal?.sentAt ?? null} state={guided.state} />}
-      </div>
-      {draftGuide?.primaryAction ? <div className="w-full shrink-0 sm:w-auto" data-testid="estimate-primary-next-action">
-        {draftGuide.primaryAction === "prepare_proposal" ? <button className={`${primary} w-full sm:w-auto`} disabled={pending} onClick={prepareProposal} type="button"><FilePlus2 className="size-4" />{pending ? copy.preparing : copy.prepareProposal}</button> : null}
-        {draftGuide.primaryAction === "generate_pdf" ? <button className={`${primary} w-full sm:w-auto`} disabled={pdfPending} onClick={generatePdf} type="button"><Download className="size-4" />{pdfPending ? copy.preparing : copy.prepareProposal}</button> : null}
-        {!["prepare_proposal", "generate_pdf"].includes(draftGuide.primaryAction) && !(editorOwnsSave && draftGuide.primaryAction === "save") ? <button aria-keyshortcuts={draftGuide.primaryAction === "save" ? "Control+S Meta+S" : undefined} className={`${primary} w-full sm:w-auto`} disabled={pending} onClick={() => onDraftPrimaryAction(draftGuide)} type="button">{draftPrimaryIcon(draftGuide.primaryAction)}{draftPrimaryLabel(draftGuide.state, copy)}</button> : null}
-      </div> : guided.primaryAction ? <div className="w-full shrink-0 sm:w-auto" data-testid="estimate-primary-next-action">
+  return <section className="mt-3 border-t border-zinc-200 pt-3" data-draft-readiness-state={draftGuide?.state} data-testid="estimate-guided-workflow" id="estimate-order-conversion">
+    <div className="grid gap-2">
+      {draftGuide?.primaryAction ? <div className="w-full" data-testid="estimate-primary-next-action">
+        {draftGuide.primaryAction === "prepare_proposal" ? <button className={`${primary} w-full`} disabled={pending} onClick={prepareProposal} type="button"><FilePlus2 className="size-4" />{pending ? copy.preparing : copy.prepareProposal}</button> : null}
+        {draftGuide.primaryAction === "generate_pdf" ? <button className={`${primary} w-full`} disabled={pdfPending} onClick={generatePdf} type="button"><Download className="size-4" />{pdfPending ? copy.preparing : copy.prepareProposal}</button> : null}
+        {!["prepare_proposal", "generate_pdf"].includes(draftGuide.primaryAction) && !(editorOwnsSave && draftGuide.primaryAction === "save") ? <button aria-keyshortcuts={draftGuide.primaryAction === "save" ? "Control+S Meta+S" : undefined} className={`${primary} w-full`} disabled={pending} onClick={() => onDraftPrimaryAction(draftGuide)} type="button">{draftPrimaryIcon(draftGuide.primaryAction)}{draftPrimaryLabel(draftGuide.state, copy)}</button> : null}
+      </div> : guided.primaryAction ? <div className="w-full" data-testid="estimate-primary-next-action">
         {guided.primaryAction === "send" ? sendDialog : null}
-        {guided.primaryAction === "update" && proposal ? <button className={`${primary} w-full sm:w-auto`} disabled={pending} onClick={() => run(() => createDraftFromEstimateVersionAction(proposal.id))} type="button">{copy.updateProposal}</button> : null}
-        {guided.primaryAction === "continue_order" ? <button className={`${primary} w-full sm:w-auto`} disabled={pending} onClick={() => setConversionOpen(true)} type="button"><ShoppingCart className="size-4" />{copy.addEquipmentToCart}</button> : null}
-        {guided.primaryAction === "resume_checkout" ? <Link className={`${primary} w-full sm:w-auto`} href="/cabinet/cart"><ShoppingCart className="size-4" />{copy.resumeOrder}</Link> : null}
-        {guided.primaryAction === "open_order" && initialWorkflow.lifecycleOrderId ? <Link className={`${primary} w-full sm:w-auto`} href={`/cabinet/orders/${initialWorkflow.lifecycleOrderId}`}>{copy.openOrder}</Link> : null}
+        {guided.primaryAction === "update" && proposal ? <button className={`${primary} w-full`} disabled={pending} onClick={() => run(() => createDraftFromEstimateVersionAction(proposal.id))} type="button">{copy.updateProposal}</button> : null}
+        {guided.primaryAction === "continue_order" ? <button className={`${primary} w-full`} disabled={pending} onClick={() => setConversionOpen(true)} type="button"><ShoppingCart className="size-4" />{copy.addEquipmentToCart}</button> : null}
+        {guided.primaryAction === "resume_checkout" ? <Link className={`${primary} w-full`} href="/cabinet/cart"><ShoppingCart className="size-4" />{copy.resumeOrder}</Link> : null}
+        {guided.primaryAction === "open_order" && initialWorkflow.lifecycleOrderId ? <Link className={`${primary} w-full`} href={`/cabinet/orders/${initialWorkflow.lifecycleOrderId}`}>{copy.openOrder}</Link> : null}
       </div> : null}
     </div>
 
-    {initialWorkflow.permissions.canConvert && guided.primaryAction !== "continue_order" ? <div className="mt-3 flex justify-end">
-      <button className={`${secondary} w-full sm:w-auto`} data-testid="estimate-transfer-to-cart" disabled={pending} onClick={() => setConversionOpen(true)} type="button"><ShoppingCart className="size-4" />{copy.addEquipmentToCart}</button>
+    {initialWorkflow.permissions.canConvert && guided.primaryAction !== "continue_order" ? <div className="mt-2">
+      <button className={`${secondary} w-full`} data-testid="estimate-transfer-to-cart" disabled={pending} onClick={() => setConversionOpen(true)} type="button"><ShoppingCart className="size-4" />{copy.addEquipmentToCart}</button>
     </div> : null}
+
+    <div className="mt-3 min-w-0 border-t border-zinc-100 pt-3">
+      <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">{copy.guidedCurrentState}</p>
+      <h2 className="mt-1 text-sm font-semibold text-zinc-950">{draftGuide ? draftStateLabel(draftGuide.state, draftGuide.linePosition, copy) : guidedStateLabel(guided.state, copy)}</h2>
+      {draftGuide
+        ? <DraftGuidedContext copy={copy} state={draftGuide.state} />
+        : <GuidedContext copy={copy} latestDelivery={latestDelivery} locale={locale} proposalSentAt={proposal?.sentAt ?? null} state={guided.state} />}
+    </div>
 
     {message ? <p aria-live="polite" className="mt-3 border-l-4 border-emerald-600 bg-emerald-50 px-3 py-2 text-sm">{message}</p> : null}
 
@@ -186,8 +179,7 @@ export function EstimateWorkflowPanel({ initialWorkflow, revision, initialPropos
       <Link className="mt-3 inline-flex min-h-11 items-center gap-2 bg-zinc-950 px-4 font-semibold text-white" href="/cabinet/cart"><ShoppingCart className="size-4" />{copy.goToCart}</Link>
     </div> : null}
 
-    {!draftGuide && proposal && guided.secondaryActions.some((action) => ["preview", "pdf", "send", "resend"].includes(action)) ? <div aria-label={copy.proposalOutputActions} className="mt-3 flex flex-wrap items-center gap-2 border-t border-zinc-100 pt-3">
-      {guided.secondaryActions.includes("preview") ? <Link className={quiet} href={`/cabinet/estimates/${initialWorkflow.estimateId}/versions/${proposal.id}/preview`} prefetch={false}>{copy.preview}</Link> : null}
+    {!draftGuide && proposal && guided.secondaryActions.some((action) => ["pdf", "send", "resend"].includes(action)) ? <div className="mt-3 grid gap-2 border-t border-zinc-100 pt-3">
       {guided.secondaryActions.includes("pdf") && pdfStatus !== "ready" ? <button aria-describedby={pdfPending ? "estimate-pdf-progress" : undefined} className={quiet} disabled={pdfPending} onClick={generatePdf} type="button"><Download className="size-4" />{pdfPending ? copy.preparing : copy.generatePdf}</button> : null}
       {pdfPending ? <span aria-live="polite" className="text-sm text-zinc-600" id="estimate-pdf-progress" role="status">{copy.preparing}</span> : null}
       {guided.secondaryActions.includes("pdf") && pdfDocumentId && pdfStatus === "ready" ? <Link className={quiet} href={`/api/estimates/documents/${pdfDocumentId}`}><Download className="size-4" />{copy.downloadPdf}</Link> : null}
@@ -202,16 +194,10 @@ export function EstimateWorkflowPanel({ initialWorkflow, revision, initialPropos
       </div> : null}
     </details> : null}
 
-    {guided.secondaryActions.some((action) => ["mark_ready", "duplicate", "save_template", "mark_sent", "record_response"].includes(action)) ? <details className="mt-2 border-t border-zinc-100 pt-2">
-      <summary className="flex min-h-11 cursor-pointer items-center text-sm font-semibold text-zinc-700">{copy.otherActions}</summary>
-      <div className="flex flex-wrap items-center gap-2 pb-2">
-        {guided.secondaryActions.includes("mark_ready") ? <button className={secondary} disabled={pending || !initialWorkflow.readiness.ready} onClick={() => run(() => markEstimateReadyAction(initialWorkflow.estimateId, revision))} type="button"><CheckCircle2 className="size-4" />{copy.markReady}</button> : null}
-        {guided.secondaryActions.includes("duplicate") ? <button className={secondary} disabled={pending} onClick={duplicate} type="button"><Copy className="size-4" />{copy.duplicateEstimate}</button> : null}
-        {guided.secondaryActions.includes("save_template") ? <TemplateButton copy={copy} estimateId={initialWorkflow.estimateId} pending={pending} setMessage={setMessage} startTransition={startTransition} /> : null}
+    {guided.secondaryActions.some((action) => ["mark_sent", "record_response"].includes(action)) ? <div className="mt-2 grid gap-2 border-t border-zinc-100 pt-3">
         {guided.secondaryActions.includes("mark_sent") && proposal ? <button className={secondary} disabled={pending} onClick={() => run(() => transitionEstimateVersionAction(proposal.id, "sent", "other"))} type="button"><Send className="size-4" />{copy.sentToCustomer}</button> : null}
         {guided.secondaryActions.includes("record_response") && proposal ? <><button className={secondary} disabled={pending} onClick={() => run(() => transitionEstimateVersionAction(proposal.id, "accepted"))} type="button"><CheckCircle2 className="size-4" />{copy.acceptedByCustomerAction}</button><label className="sr-only" htmlFor="estimate-rejection-reason">{copy.rejectionReason}</label><select className={`${input} w-auto min-w-44`} id="estimate-rejection-reason" onChange={(event) => setRejectionReason(event.target.value as typeof rejectionReason)} value={rejectionReason}><option value="">{copy.rejectionReason}</option><option value="price">{copy.rejectionPrice}</option><option value="no_budget">{copy.rejectionNoBudget}</option><option value="other_supplier">{copy.rejectionOtherSupplier}</option><option value="project_changed">{copy.rejectionProjectChanged}</option><option value="postponed">{copy.rejectionPostponed}</option><option value="other">{copy.rejectionOther}</option></select><button className={secondary} disabled={pending || !rejectionReason} onClick={() => run(() => transitionEstimateVersionAction(proposal.id, "rejected", null, "", rejectionReason || undefined))} type="button"><XCircle className="size-4" />{copy.rejectedAction}</button></> : null}
-      </div>
-    </details> : null}
+    </div> : null}
 
     <ConfirmationDialog confirmLabel={copy.addEquipmentToCart} consequence={copy.cartConversionConsequence} open={conversionOpen} onCancel={() => setConversionOpen(false)} onConfirm={() => { setConversionOpen(false); addToCart(); }} pending={pending} title={copy.orderCreation}><p className="text-sm text-zinc-700">{copy.cartConversionHint}</p></ConfirmationDialog>
   </section>;
@@ -308,14 +294,9 @@ function guidedStateLabel(state: EstimateGuidedState, copy: EstimatesCopy): stri
   })[state];
 }
 
-function TemplateButton({ copy, estimateId, pending, setMessage, startTransition }: { copy: EstimatesCopy; estimateId: string; pending: boolean; setMessage: (message: string) => void; startTransition: ReturnType<typeof useTransition>[1] }) {
-  const [name, setName] = useState("");
-  return <details className="relative"><summary className={`${secondary} cursor-pointer list-none`}>{copy.saveAsTemplate}</summary><div className="absolute left-0 z-10 mt-2 w-72 border border-zinc-200 bg-white p-3 shadow-lg sm:left-auto sm:right-0"><label className="text-xs font-medium">{copy.templateName}<input className={`${input} mt-1`} maxLength={120} onChange={(event) => setName(event.target.value)} value={name} /></label><button className={`${primary} mt-3 w-full`} disabled={pending || !name.trim()} onClick={() => startTransition(async () => { const result = await saveEstimateAsTemplateAction(estimateId, name); setMessage(result.success ? copy.operationSucceeded : copy.operationFailed); if (result.success) setName(""); })} type="button">{copy.save}</button></div></details>;
-}
-
 function deliveryStatusLabel(status: ProposalDeliverySummaryDto["status"], copy: EstimatesCopy): string { return ({ queued: copy.deliveryQueued, sending: copy.deliverySending, sent: copy.deliverySent, delivered: copy.deliveryDelivered, failed: copy.deliveryFailed, revoked: copy.deliveryRevoked, responded: copy.deliveryResponded })[status]; }
 const input = "min-h-11 w-full border border-zinc-300 bg-white px-3 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100";
 const primary = "inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white outline-none hover:bg-emerald-800 focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-45";
 const secondary = "inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-700 outline-none hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-45";
-const quiet = "inline-flex min-h-11 items-center justify-center gap-2 px-2 text-sm font-semibold text-zinc-600 underline-offset-4 hover:text-zinc-950 hover:underline focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-45";
+const quiet = "inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-zinc-300 px-2 text-sm font-semibold text-zinc-700 hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-45";
 const inactiveDraftReadiness: EstimateDraftReadinessDto = { state: "not_applicable", primaryAction: null, target: null, linePosition: null, ready: true, checks: [] };

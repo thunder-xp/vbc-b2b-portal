@@ -52,6 +52,7 @@ const serviceRecord: PartnerService = {
   defaultSellingPrice: null,
   vatApplicable: true,
   category: "general",
+  workSectionKey: "installation_works",
 };
 
 describe("DefaultEstimateService", () => {
@@ -318,6 +319,7 @@ describe("DefaultEstimateService", () => {
   });
 
   it("adds controlled services and custom lines through server validation", async () => {
+    vi.mocked(repository.findAggregateById).mockResolvedValue(workAggregate([]));
     await service.addService("user-1", "estimate-1", 3, "service-1", 2, 15.555, insertion);
     expect(repository.addLines).toHaveBeenLastCalledWith(expect.objectContaining({ targetSectionId: insertion.targetSectionId, lines: [expect.objectContaining({ lineType: "service", serviceId: "service-1", quantity: 2, sellingUnitPrice: 15.56 })] }));
 
@@ -326,6 +328,7 @@ describe("DefaultEstimateService", () => {
   });
 
   it("adds several controlled services through one repository mutation", async () => {
+    vi.mocked(repository.findAggregateById).mockResolvedValue(workAggregate([]));
     const secondService = { ...serviceRecord, id: "service-2", name: "Настройка системы" };
     vi.mocked(repository.listServices).mockResolvedValue([serviceRecord, secondService]);
 
@@ -340,6 +343,23 @@ describe("DefaultEstimateService", () => {
       expect.objectContaining({ serviceId: "service-1", quantity: 2, sellingUnitPrice: 15.56 }),
       expect.objectContaining({ serviceId: "service-2", quantity: 1, sellingUnitPrice: 25 }),
     ] }));
+  });
+
+  it("rejects cross-destination and unclassified work on the server", async () => {
+    vi.mocked(repository.findAggregateById).mockResolvedValue(workAggregate([]));
+    vi.mocked(repository.listServices).mockResolvedValue([
+      { ...serviceRecord, workSectionKey: "commissioning_works" },
+    ]);
+    await expect(service.addServices("user-1", "estimate-1", 3, [
+      { serviceId: "service-1", quantity: 1, sellingUnitPrice: 10 },
+    ], insertion)).rejects.toBeInstanceOf(InvalidStateError);
+    expect(repository.addLines).not.toHaveBeenCalled();
+
+    vi.mocked(repository.listServices).mockResolvedValue([{ ...serviceRecord, workSectionKey: null }]);
+    await expect(service.addServices("user-1", "estimate-1", 3, [
+      { serviceId: "service-1", quantity: 1, sellingUnitPrice: 10 },
+    ], insertion)).rejects.toBeInstanceOf(InvalidStateError);
+    expect(repository.addLines).not.toHaveBeenCalled();
   });
 
   it("turns persistence revision conflicts into safe invalid-state errors", async () => {
@@ -741,6 +761,10 @@ describe("DefaultEstimateService", () => {
 
 function aggregate(items: EstimateItem[], overrides: Partial<Estimate> = {}): EstimateAggregate {
   return { estimate: { ...estimate, ...overrides }, sections: [{ id: "section-1", estimateId: estimate.id, name: "Equipment", sortOrder: 0, showSubtotal: true, discountPercent: 0, createdAt: estimate.createdAt, updatedAt: estimate.updatedAt }], items, charges: [] };
+}
+
+function workAggregate(items: EstimateItem[]): EstimateAggregate {
+  return { estimate, sections: [{ id: "11111111-1111-4111-8111-111111111111", estimateId: estimate.id, name: "Installation works", systemKey: "installation_works", sortOrder: 2, showSubtotal: true, discountPercent: 0, createdAt: estimate.createdAt, updatedAt: estimate.updatedAt }], items, charges: [] };
 }
 
 function item(position: number): EstimateItem {

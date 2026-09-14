@@ -12,6 +12,7 @@ import {
   searchEstimateProductsAction,
 } from "../actions/estimate.actions";
 import type { EstimateDetailDto, EstimateProductPickerDto, EstimateServiceDto } from "../services";
+import type { EstimateSectionSystemKey } from "../types";
 import type { ExternalNomenclatureItemType } from "../repositories";
 import { ExternalNomenclaturePicker } from "./ExternalNomenclaturePicker";
 import { estimateStockLabel as pickerStockLabel } from "./estimate-stock-label";
@@ -21,7 +22,7 @@ const inputClass = "min-h-11 min-w-0 rounded-md border border-zinc-300 bg-white 
 const buttonClass = "inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-700 outline-none hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-45";
 export type EstimateLinePickerMode = "product" | "service" | "external";
 
-export function EstimateLinePicker({ estimate, services, onResult, disabled, mode, onModeChange, targetSectionId, allowedModes, contextLabel, externalItemType }: {
+export function EstimateLinePicker({ estimate, services, onResult, disabled, mode, onModeChange, targetSectionId, targetSectionKey, allowedModes, contextLabel, externalItemType }: {
   estimate: EstimateDetailDto;
   services: EstimateServiceDto[];
   onResult: (next: EstimateDetailDto, message: string) => void;
@@ -29,6 +30,7 @@ export function EstimateLinePicker({ estimate, services, onResult, disabled, mod
   mode: EstimateLinePickerMode | null;
   onModeChange: (mode: EstimateLinePickerMode | null) => void;
   targetSectionId: string;
+  targetSectionKey: EstimateSectionSystemKey;
   allowedModes: ReadonlyArray<EstimateLinePickerMode>;
   contextLabel: string;
   externalItemType: ExternalNomenclatureItemType;
@@ -46,8 +48,9 @@ export function EstimateLinePicker({ estimate, services, onResult, disabled, mod
   const insertionRequest = useRef<{ signature: string; key: string } | null>(null);
   const filteredServices = useMemo(() => {
     const query = serviceSearch.trim().toLocaleLowerCase("ru");
-    return query ? services.filter((service) => `${service.name} ${service.category}`.toLocaleLowerCase("ru").includes(query)) : services;
-  }, [serviceSearch, services]);
+    const typed = services.filter((service) => service.workSectionKey === targetSectionKey);
+    return query ? typed.filter((service) => `${service.name} ${service.category}`.toLocaleLowerCase("ru").includes(query)) : typed;
+  }, [serviceSearch, services, targetSectionKey]);
   const allProductsSelected =
     products.products.length > 0 &&
     products.products.every((product) => productSelection[product.id] !== undefined);

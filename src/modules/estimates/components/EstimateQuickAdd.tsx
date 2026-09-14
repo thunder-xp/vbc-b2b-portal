@@ -4,17 +4,19 @@ import { ListPlus, Plus, Search, X } from "lucide-react";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { addEstimateProductsAction, addEstimateServicesAction, searchEstimateProductsAction } from "../actions/estimate.actions";
 import type { EstimateDetailDto, EstimateProductPickerDto, EstimateServiceDto } from "../services";
+import type { EstimateSectionSystemKey } from "../types";
 import { getCatalogCopy, getEstimatesCopy, usePartnerLocale } from "../../partner-locale";
 import { estimateStockLabel } from "./estimate-stock-label";
 
 type Choice = { id: string; name: string; sku: string | null; price: string | null; stock: string | null; servicePrice?: number };
 
 /** Keyboard selection is local; the explicit quantity confirmation is one structural command. */
-export function EstimateQuickAdd({ estimate, services, sectionId, serviceMode, disabled, onResult, onExternal, onBatch, onPendingChange }: {
+export function EstimateQuickAdd({ estimate, services, sectionId, serviceMode, serviceWorkSectionKey, disabled, onResult, onExternal, onBatch, onPendingChange }: {
   estimate: EstimateDetailDto;
   services: EstimateServiceDto[];
   sectionId: string;
   serviceMode: boolean;
+  serviceWorkSectionKey?: Extract<EstimateSectionSystemKey, "installation_works" | "commissioning_works">;
   disabled: boolean;
   onResult: (estimate: EstimateDetailDto, message: string) => void;
   onExternal: () => void;
@@ -55,7 +57,7 @@ export function EstimateQuickAdd({ estimate, services, sectionId, serviceMode, d
   const queryText = query.trim();
   const searching = searchingQuery === queryText;
   const choices: Choice[] = serviceMode
-    ? services.filter(item => `${item.name} ${item.category}`.toLocaleLowerCase().includes(queryText.toLocaleLowerCase())).slice(0, 12).map(item => ({ id: item.id, name: item.name, sku: null, price: item.defaultSellingPrice?.toString() ?? null, stock: null, servicePrice: item.defaultSellingPrice ?? 0 }))
+    ? services.filter(item => item.workSectionKey === serviceWorkSectionKey && `${item.name} ${item.category}`.toLocaleLowerCase().includes(queryText.toLocaleLowerCase())).slice(0, 12).map(item => ({ id: item.id, name: item.name, sku: null, price: item.defaultSellingPrice?.toString() ?? null, stock: null, servicePrice: item.defaultSellingPrice ?? 0 }))
     : result.query === queryText ? result.products.map(item => ({ id: item.id, name: item.name, sku: item.sku, price: item.partnerPrice ?? null, stock: estimateStockLabel(item, catalogCopy) })) : [];
 
   useEffect(() => {

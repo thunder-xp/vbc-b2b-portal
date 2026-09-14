@@ -6,7 +6,7 @@ import {
   ChevronRight,
   Copy,
   Eye,
-  FileText,
+  CheckCircle2,
   MoreHorizontal,
   Pencil,
   Plus,
@@ -20,6 +20,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 
 import { ProductLineThumbnail } from "../../catalog/components/ProductLineThumbnail";
+import { availabilityToneForStatus } from "../../catalog/components/ProductAvailabilityBlock";
 import { recordBehaviorInteraction } from "../../behavior-analytics/components";
 import {
   getEstimatesCopy,
@@ -80,7 +81,7 @@ import {
   type EstimatePdfReadyDetail,
 } from "./EstimatePdfShareAction";
 import { FinalCustomerPicker } from "./FinalCustomerPicker";
-import { duplicateEstimateAction } from "../actions/lifecycle.actions";
+import { duplicateEstimateAction, markEstimateReadyAction, saveEstimateAsTemplateAction } from "../actions/lifecycle.actions";
 import { notifyEstimateDirtyState } from "./estimate-client-events";
 
 const inputClass =
@@ -151,9 +152,14 @@ export function EstimateCommercialEditor({
   const [dirty, setDirty] = useState(false);
   const [saveState, setSaveState] = useState<"saved" | "dirty" | "saving" | "error">("saved");
   const [mobileActionsOpen, setMobileActionsOpen] = useState(false);
+  const [desktopActionsOpen, setDesktopActionsOpen] = useState(false);
+  const [templateFormOpen, setTemplateFormOpen] = useState(false);
+  const [templateName, setTemplateName] = useState("");
   const [generatedSharePdf, setGeneratedSharePdf] =
     useState<EstimatePdfReadyDetail | null>(null);
   const mobileActionsTriggerRef = useRef<HTMLButtonElement>(null);
+  const desktopActionsRef = useRef<HTMLDivElement>(null);
+  const desktopActionsTriggerRef = useRef<HTMLButtonElement>(null);
   const settingsRef = useRef<HTMLDetailsElement>(null);
   const chargesRef = useRef<HTMLDetailsElement>(null);
   const [pickerMode, setPickerMode] = useState<EstimateLinePickerMode | null>(null);
@@ -474,6 +480,30 @@ export function EstimateCommercialEditor({
     setMobileActionsOpen(false);
     requestAnimationFrame(() => mobileActionsTriggerRef.current?.focus());
   }, [setMobileActionsOpen]);
+  const closeActionMenus = useCallback(() => {
+    setDesktopActionsOpen(false);
+    setMobileActionsOpen(false);
+    setTemplateFormOpen(false);
+  }, [setDesktopActionsOpen, setMobileActionsOpen, setTemplateFormOpen]);
+
+  useEffect(() => {
+    if (!desktopActionsOpen) return;
+    const closeOutside = (event: PointerEvent) => {
+      if (event.target instanceof Node && !desktopActionsRef.current?.contains(event.target)) setDesktopActionsOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setDesktopActionsOpen(false);
+        desktopActionsTriggerRef.current?.focus();
+      }
+    };
+    document.addEventListener("pointerdown", closeOutside);
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOutside);
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [desktopActionsOpen]);
 
   useEffect(() => {
     if (!mobileActionsOpen) return;
@@ -493,16 +523,18 @@ export function EstimateCommercialEditor({
     setDraft(toDraft(estimate));
     setDirty(false);
     setSaveState("saved");
-    setMobileActionsOpen(false);
+    closeActionMenus();
   };
-  const duplicateEstimate = () =>
+  const duplicateEstimate = () => {
+    closeActionMenus();
     startTransition(async () => {
       const result = await duplicateEstimateAction(estimate.id);
       setMessage(result.message);
-      if (result.success)
-        router.push(`/cabinet/estimates/${result.data.estimateId}`);
+      if (result.success) router.push(`/cabinet/estimates/${result.data.estimateId}`);
     });
-  const archiveEstimate = () =>
+  };
+  const archiveEstimate = () => {
+    closeActionMenus();
     startTransition(async () => {
       const result = await archiveEstimateAction(
         estimate.id,
@@ -511,6 +543,17 @@ export function EstimateCommercialEditor({
       setMessage(result.message);
       if (result.success) router.push("/cabinet/estimates");
     });
+  };
+  const markReady = () => { closeActionMenus(); startTransition(async () => {
+    const result = await markEstimateReadyAction(estimate.id, estimate.revision);
+    setMessage(result.success ? copy.operationSucceeded : result.message);
+    if (result.success) router.refresh();
+  }); };
+  const saveAsTemplate = () => startTransition(async () => {
+    const result = await saveEstimateAsTemplateAction(estimate.id, templateName);
+    setMessage(result.success ? copy.operationSucceeded : result.message);
+    if (result.success) { setTemplateName(""); closeActionMenus(); }
+  });
   const secondaryActions = (mobile = false) => (
     <>
       <button
@@ -526,7 +569,7 @@ export function EstimateCommercialEditor({
         className={`${buttonClass} justify-start border-0 ${mobile ? "w-full" : ""}`}
         disabled={checking || controlsDisabled || dirty}
         onClick={() => {
-          setMobileActionsOpen(false);
+          closeActionMenus();
           checkCommercialState();
         }}
         type="button"
@@ -534,26 +577,36 @@ export function EstimateCommercialEditor({
         <RotateCcw className={`size-4 ${checking ? "animate-spin" : ""}`} />
         {checking ? copy.checking : copy.checkPrices}
       </button>
-      {mobile ? (
-        <>
-          <Link
+      {workflow.guidedState.secondaryActions.includes("mark_ready") ? (
+        <button
+          className={`${buttonClass} justify-start border-0 ${mobile ? "w-full" : ""}`}
+          disabled={pending || dirty || !workflow.readiness.ready}
+          onClick={markReady}
+          type="button"
+        >
+          <CheckCircle2 className="size-4" />
+          {copy.markReady}
+        </button>
+      ) : null}
+      {workflow.guidedState.secondaryActions.includes("save_template") ? (
+        <div className="min-w-0">
+          <button
+            aria-expanded={templateFormOpen}
             className={`${buttonClass} w-full justify-start border-0`}
-            href={proposalPreviewHref}
-            onClick={() => setMobileActionsOpen(false)}
-            prefetch={false}
+            disabled={pending || dirty}
+            onClick={() => setTemplateFormOpen((current) => !current)}
+            type="button"
           >
-            <Eye className="size-4" />
-            {copy.proposalPreview}
-          </Link>
-          <a
-            className={`${buttonClass} w-full justify-start border-0`}
-            href="#estimate-proposal-actions"
-            onClick={() => setMobileActionsOpen(false)}
-          >
-            <FileText className="size-4" />
-            {copy.proposalOutputActions}
-          </a>
-        </>
+            <Save className="size-4" />
+            {copy.saveAsTemplate}
+          </button>
+          {templateFormOpen ? <div className="grid gap-2 border-t border-zinc-100 p-2">
+            <label className="text-xs font-medium text-zinc-600">{copy.templateName}
+              <input autoFocus className={`${inputClass} mt-1 w-full`} maxLength={120} onChange={(event) => setTemplateName(event.target.value)} value={templateName} />
+            </label>
+            <button className="inline-flex min-h-11 items-center justify-center rounded-md bg-emerald-700 px-3 text-sm font-semibold text-white disabled:opacity-45" disabled={pending || !templateName.trim()} onClick={saveAsTemplate} type="button">{copy.save}</button>
+          </div> : null}
+        </div>
       ) : null}
       <button
         className={`${buttonClass} justify-start border-0 ${mobile ? "w-full" : ""}`}
@@ -652,15 +705,15 @@ export function EstimateCommercialEditor({
           </div>
           <div className="hidden flex-wrap items-center gap-2 xl:flex">
             <Link className={buttonClass} href={proposalPreviewHref} prefetch={false}><Eye className="size-4" />{copy.proposalPreview}</Link>
-            <details className="relative">
-              <summary className={`${buttonClass} cursor-pointer list-none`}>
+            <div className="relative" ref={desktopActionsRef}>
+              <button aria-expanded={desktopActionsOpen} aria-haspopup="menu" className={buttonClass} data-testid="estimate-desktop-actions-trigger" onClick={() => setDesktopActionsOpen((current) => !current)} ref={desktopActionsTriggerRef} type="button">
                 <MoreHorizontal className="size-4" />
                 {copy.actionsMenu}
-              </summary>
-              <div className="absolute right-0 z-30 mt-2 grid w-72 gap-1 rounded-md border border-zinc-200 bg-white p-2 shadow-lg">
+              </button>
+              {desktopActionsOpen ? <div className="absolute right-0 z-30 mt-2 grid w-72 gap-1 rounded-md border border-zinc-200 bg-white p-2 shadow-lg" data-testid="estimate-desktop-actions-menu" role="menu">
                 {secondaryActions()}
-              </div>
-            </details>
+              </div> : null}
+            </div>
             <button
               aria-keyshortcuts="Control+S Meta+S"
               aria-label={copy.save}
@@ -689,23 +742,12 @@ export function EstimateCommercialEditor({
               {presentationSections.filter(section => section.config.defaultMode === "service" && section.targetSectionId).map(section => <option key={section.targetSectionId} value={section.targetSectionId!}>{section.customName ?? sectionName(section.config.key, copy)}</option>)}
             </select> : <span className="truncate text-xs text-zinc-500">{insertionSection.customName ?? sectionName(insertionSection.config.key, copy)}</span>}
           </div>
-          <EstimateQuickAdd key={targetSectionId} estimate={estimate} services={services} sectionId={targetSectionId} serviceMode={insertionSection.config.defaultMode === "service"} disabled={dirty || pending} onPendingChange={setInserting} onResult={acceptServer} onExternal={() => setPickerMode("external")} onBatch={() => setPickerMode(insertionSection.config.defaultMode)} />
+          <EstimateQuickAdd key={targetSectionId} estimate={estimate} services={services} sectionId={targetSectionId} serviceMode={insertionSection.config.defaultMode === "service"} serviceWorkSectionKey={insertionSection.config.key === "installation_works" || insertionSection.config.key === "commissioning_works" ? insertionSection.config.key : undefined} disabled={dirty || pending} onPendingChange={setInserting} onResult={acceptServer} onExternal={() => setPickerMode("external")} onBatch={() => setPickerMode(insertionSection.config.defaultMode)} />
         </div> : null}
       </header>
-      <details open={!isDraft || Boolean(initialProposalAction) || draftReadiness.target?.kind === "line" || draftReadiness.target?.kind === "settings"} className="border-y border-zinc-200" data-testid="estimate-workflow-details">
-      <summary className="flex min-h-11 cursor-pointer items-center px-3 text-sm font-semibold">{copy.proposalOutputActions}</summary>
-      <EstimateWorkflowPanel
-        editorOwnsSave
-        draftReadiness={draftReadiness}
-        initialProposalAction={initialProposalAction}
-        initialWorkflow={workflow}
-        onDraftPrimaryAction={runDraftPrimaryAction}
-        revision={estimate.revision}
-      />
-      </details>
       {isDraft && insertionSection && pickerMode ? <section className="relative border border-zinc-200" aria-label={copy.add}>
         <button className="absolute right-2 top-2 z-10 inline-flex size-11 items-center justify-center bg-white" aria-label={copy.cancel} onClick={() => { setPickerMode(null); requestAnimationFrame(() => document.getElementById("estimate-quick-search")?.focus()); }} type="button"><X className="size-4" /></button>
-        <EstimateLinePicker allowedModes={insertionSection.config.allowedModes} contextLabel={insertionSection.customName ?? sectionName(insertionSection.config.key, copy)} disabled={dirty || pending || inserting} estimate={estimate} externalItemType={externalItemTypeForSection(insertionSection.config.key)} mode={pickerMode} onModeChange={setPickerMode} onResult={acceptServer} services={services} targetSectionId={targetSectionId} />
+        <EstimateLinePicker allowedModes={insertionSection.config.allowedModes} contextLabel={insertionSection.customName ?? sectionName(insertionSection.config.key, copy)} disabled={dirty || pending || inserting} estimate={estimate} externalItemType={externalItemTypeForSection(insertionSection.config.key)} mode={pickerMode} onModeChange={setPickerMode} onResult={acceptServer} services={services} targetSectionId={targetSectionId} targetSectionKey={insertionSection.config.key} />
       </section> : null}
       {message && (
         <p
@@ -738,7 +780,7 @@ export function EstimateCommercialEditor({
               value={draft.name}
             />
           </Field>
-          <div className="min-w-0 max-w-full sm:col-span-2">
+          <div className="min-w-0 max-w-full" data-testid="estimate-customer-field">
             <FinalCustomerPicker
               disabled={controlsDisabled}
               initialName={draft.customerName}
@@ -943,6 +985,10 @@ export function EstimateCommercialEditor({
                           const calculated = preview.value?.lines.find(
                             (item) => item.id === line.id,
                           );
+                          const productName = line.productName ?? line.description;
+                          const stockTone = availabilityToneForStatus(
+                            line.productUnavailable ? "out_of_stock" : line.currentStockStatus ?? undefined,
+                          );
                           return (
                             <div
                               className="px-3 py-2"
@@ -960,7 +1006,7 @@ export function EstimateCommercialEditor({
                                   line.lineType === "external" ? (
                                     <ProductLineThumbnail
                                       imageUrl={line.imageUrl ?? null}
-                                      productName={line.description}
+                                      productName={productName}
                                       size="compact"
                                     />
                                   ) : (
@@ -972,11 +1018,12 @@ export function EstimateCommercialEditor({
                                 </div>
                                 {line.lineType === "product" ? (
                                   <div className="min-w-0 py-1">
-                                    <p className="truncate text-sm font-semibold text-zinc-900" title={line.description}>{line.description}</p>
+                                    {line.productSlug && !line.productUnavailable ? <Link className="block truncate text-sm font-semibold text-zinc-900 underline-offset-2 hover:text-emerald-800 hover:underline focus-visible:ring-2 focus-visible:ring-emerald-500" href={`/cabinet/catalog/${line.productSlug}`} rel="noopener noreferrer" target="_blank" title={productName}>{productName}</Link> : <p className="truncate text-sm font-semibold text-zinc-900" title={productName}>{productName}</p>}
                                     <div className="mt-1 flex min-h-4 flex-wrap items-center gap-2">
                                       <span className={lineTypeTone(line.lineType)}>{lineTypeLabel(line.lineType, copy)}</span>
                                       {line.sku ? <span className="text-[10px] text-zinc-500">SKU {line.sku}</span> : null}
                                     </div>
+                                    {line.description && line.description !== productName ? <p className="mt-1 line-clamp-3 text-xs leading-4 text-zinc-600" title={line.description}>{line.description}</p> : null}
                                   </div>
                                 ) : (
                                   <Field
@@ -1005,7 +1052,7 @@ export function EstimateCommercialEditor({
                                     </div>
                                   </Field>
                                 )}
-                                <p className={`col-span-3 text-xs xl:col-span-1 xl:pt-3 ${line.productUnavailable || line.currentStockStatus === "out_of_stock" ? "text-amber-800" : "text-zinc-500"}`} data-testid="estimate-line-stock">{line.lineType === "product" ? line.productUnavailable ? (locale === "ro" ? "Produs indisponibil" : "Товар недоступен") : estimateStockLabel({ stockStatus: line.currentStockStatus, availableQuantity: line.currentAvailableQuantity }, catalogCopy) : "—"}</p>
+                                <p className={`col-span-3 flex items-center gap-2 text-xs xl:col-span-1 xl:min-h-11 ${stockTone.text}`} data-testid="estimate-line-stock">{line.lineType === "product" ? <><span aria-hidden="true" className={`size-2 shrink-0 rounded-full ${stockTone.indicator}`} /><span>{line.productUnavailable ? (locale === "ro" ? "Produs indisponibil" : "Товар недоступен") : estimateStockLabel({ stockStatus: line.currentStockStatus, availableQuantity: line.currentAvailableQuantity }, catalogCopy)}</span></> : "—"}</p>
                                 <div className="col-span-3 grid grid-cols-3 gap-2 xl:contents">
                                   <Field
                                     label={copy.quantity}
@@ -1054,7 +1101,7 @@ export function EstimateCommercialEditor({
                                     {line.lineType === "product" &&
                                     line.sourcePrice ? (
                                       <span aria-hidden="true" className="mt-1 block text-[11px] font-normal text-zinc-500">
-                                        {copy.partnerNovotechPrice}: {line.sourcePrice}
+                                        {copy.partnerNovotechPrice}: <strong className="font-semibold text-emerald-700">{line.sourcePrice}</strong>
                                       </span>
                                     ) : null}
                                   </Field>
@@ -1192,6 +1239,14 @@ export function EstimateCommercialEditor({
             vatRatePercent={draft.vatRatePercent}
           />
           <Link className={`${buttonClass} mt-3 w-full`} href={proposalPreviewHref} prefetch={false}><Eye className="size-4" />{copy.proposalPreview}</Link>
+          <EstimateWorkflowPanel
+            editorOwnsSave
+            draftReadiness={draftReadiness}
+            initialProposalAction={initialProposalAction}
+            initialWorkflow={workflow}
+            onDraftPrimaryAction={runDraftPrimaryAction}
+            revision={estimate.revision}
+          />
         </aside>
       </div>
       <div

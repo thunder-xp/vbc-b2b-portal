@@ -7,6 +7,7 @@ export type ProductReferenceDto = {
   slug: string;
   sku: string;
   name: string;
+  descriptionSummary?: string | null;
   thumbnail: string | null;
   thumbnailFit: ProductImageFit;
   publicationState: ProductPublicationState;

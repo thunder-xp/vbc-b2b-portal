@@ -10,12 +10,13 @@ import {
 } from "../../access-control/services";
 import { MembershipStatus } from "../../access-control/types";
 import type { CatalogService } from "../../catalog/services";
+import { isDefaultProductDescription } from "../../catalog/services/product-description-summary";
 import { rankQuickProductResults } from "../../catalog/services/quick-product-search";
 import type { PricingInventoryService } from "../../pricing-inventory/services";
 import { evaluateFreshness } from "../../integration/freshness";
 import type { AddEstimateLineInput, EstimateRepository, ExternalNomenclatureItemType, ExternalNomenclatureRecord, PartnerNomenclatureRecord, SaveEstimateCommercialInput } from "../repositories";
 import { EstimateRepositoryError } from "../repositories";
-import { isFinalCustomerIndustryCode, type Estimate, type EstimateAggregate, type EstimateChargeType, type EstimateCurrencyChangePolicy, type EstimateItem, type EstimateLifecycleStatus, type EstimatePricingMode, type EstimateStatus, type EstimateUnit, type EstimateVatMode, type FinalCustomerIndustryCode } from "../types";
+import { isFinalCustomerIndustryCode, type Estimate, type EstimateAggregate, type EstimateChargeType, type EstimateCurrencyChangePolicy, type EstimateItem, type EstimateLifecycleStatus, type EstimatePricingMode, type EstimateSectionSystemKey, type EstimateStatus, type EstimateUnit, type EstimateVatMode, type FinalCustomerIndustryCode } from "../types";
 import { calculateCommercialLine, calculateEstimateCommercials, convertMoney, resolveCurrencyRate } from "./commercial-calculation";
 import { CANONICAL_ESTIMATE_SECTION_BY_KEY, canonicalSectionOrder } from "./estimate-sections";
 
@@ -62,6 +63,8 @@ export type EstimateLineDto = {
   sectionId: string;
   lineType: EstimateItem["lineType"];
   productId: string | null;
+  productName?: string | null;
+  productSlug?: string | null;
   externalNomenclatureId?: string | null;
   externalDemand?: import("../types").ExternalDemandState | null;
   imageUrl?: string | null;
@@ -141,6 +144,7 @@ export type EstimateServiceDto = {
   defaultSellingPrice: number | null;
   vatApplicable: boolean;
   category: string;
+  workSectionKey?: Extract<EstimateSectionSystemKey, "installation_works" | "commissioning_works"> | null;
 };
 
 export type EstimateProductPickerDto = {
@@ -625,6 +629,7 @@ export class DefaultEstimateService implements EstimateService {
       defaultSellingPrice: service.defaultSellingPrice,
       vatApplicable: service.vatApplicable,
       category: service.category,
+      workSectionKey: service.workSectionKey,
     }));
   }
 
@@ -849,6 +854,7 @@ export class DefaultEstimateService implements EstimateService {
   private async projectDetailForCompany(userId: string, aggregate: EstimateAggregate | null, companyId: string, canViewPartnerPrice: boolean): Promise<EstimateDetailDto> {
     if (!aggregate || aggregate.estimate.companyId !== companyId) throw new NotFoundError("Estimate was not found.");
     const productIds = [...new Set(aggregate.items.flatMap((item) => item.productId ? [item.productId] : []))];
+    const references = new Map<string, Awaited<ReturnType<NonNullable<CatalogService["getProductReferencesByIds"]>>>[number]>();
     const images = new Map<string, string | null>();
     const unavailable = new Set<string>();
     const stockPromise = (productIds.length
@@ -860,7 +866,7 @@ export class DefaultEstimateService implements EstimateService {
       });
     if (productIds.length && this.catalogService.getProductReferencesByIds) {
       const products = await this.catalogService.getProductReferencesByIds(userId, productIds);
-      products.forEach((product) => images.set(product.productId, product.thumbnail));
+      products.forEach((product) => { images.set(product.productId, product.thumbnail); references.set(product.productId, product); });
       products.filter(product => product.publicationState !== "published").forEach(product => unavailable.add(product.productId));
     } else if (productIds.length) {
       const products = await this.catalogService.getProductsByIds(userId, productIds);
@@ -871,12 +877,20 @@ export class DefaultEstimateService implements EstimateService {
       toCommercialDetail(aggregate, images),
       canViewPartnerPrice,
     );
-    return { ...detail, lines: detail.lines.map(line => ({ ...line,
+    return { ...detail, lines: detail.lines.map(line => {
+      const reference = line.productId ? references.get(line.productId) : null;
+      const description = line.lineType === "product" && reference?.descriptionSummary && isDefaultProductDescription(line.description, line.productName)
+        ? reference.descriptionSummary
+        : line.description;
+      return { ...line,
+      productName: reference?.name ?? line.productName ?? null,
+      productSlug: reference?.slug ?? null,
+      description,
       currentStock: line.productId ? stocks.get(line.productId)?.label ?? null : null,
       currentAvailableQuantity: line.productId ? stocks.get(line.productId)?.exactAvailableQuantity ?? null : null,
       currentStockStatus: line.productId ? stocks.get(line.productId)?.status ?? null : null,
       productUnavailable: line.productId ? unavailable.has(line.productId) : false,
-    })) };
+    }; }) };
   }
 
   async saveCommercialDraft(userId: string, estimateId: string, input: SaveEstimateCommercialCommand): Promise<EstimateDetailDto> {
@@ -1014,7 +1028,7 @@ export class DefaultEstimateService implements EstimateService {
         exchangeRateEffectiveDate: canViewPartnerPrice
           ? costSameCurrency ? costPrice?.lastUpdatedAt?.slice(0, 10) ?? null : costRateSnapshot?.effectiveDate ?? null
           : null,
-        description: product.name,
+        description: product.descriptionSummary || product.shortDescription || product.name,
         quantity: quantityById.get(product.id) ?? 1,
         unit: "pcs",
         sellingUnitPrice: sellingPrice,
@@ -1033,6 +1047,11 @@ export class DefaultEstimateService implements EstimateService {
       throw new InvalidStateError("Select between 1 and 50 services.");
     }
     const services = await this.repository.listServices(estimate.companyId);
+    const aggregate = await this.repository.findAggregateById(estimateId);
+    const targetSection = aggregate?.sections.find((section) => section.id === insertion.targetSectionId);
+    if (!targetSection || targetSection.systemKey !== "installation_works" && targetSection.systemKey !== "commissioning_works") {
+      throw new InvalidStateError("Target work section is invalid.");
+    }
     const serviceById = new Map(services.map((service) => [service.id, service]));
     const selectionById = new Map<string, EstimateServiceSelection>();
     for (const selection of selections) {
@@ -1043,6 +1062,9 @@ export class DefaultEstimateService implements EstimateService {
     const lines = [...selectionById].map(([serviceId, selection]): AddEstimateLineInput => {
       const service = serviceById.get(serviceId);
       if (!service) throw new NotFoundError("Service was not found.");
+      if (!service.workSectionKey || service.workSectionKey !== targetSection.systemKey) {
+        throw new InvalidStateError("Service does not belong to the selected work section.");
+      }
       return {
         lineType: "service",
         productId: null,
@@ -1669,6 +1691,7 @@ function toCommercialDetail(aggregate: EstimateAggregate, images = new Map<strin
         sectionId: item.sectionId,
         lineType: item.lineType,
         productId: item.productId,
+        productName: item.productNameSnapshot,
         externalNomenclatureId: item.externalNomenclatureId,
         externalDemand: item.externalDemand ?? null,
         imageUrl: item.productId

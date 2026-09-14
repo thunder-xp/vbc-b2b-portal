@@ -121,7 +121,7 @@ describe("EstimateWorkflowPanel ergonomics", () => {
     }} revision={3} />);
 
     expect(screen.getByRole("heading", { name: "Смета в работе" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Предпросмотр" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Предпросмотр" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Сформировать PDF" })).toBeInTheDocument();
     expect(screen.queryByText(/версия/i)).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Создать новую версию" })).not.toBeInTheDocument();

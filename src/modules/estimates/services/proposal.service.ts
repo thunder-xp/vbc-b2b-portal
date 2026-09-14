@@ -4,6 +4,7 @@ import type { CompanyAccessService, PermissionService } from "../../access-contr
 import { InvalidStateError, NotFoundError } from "../../access-control/services";
 import { MembershipStatus } from "../../access-control/types";
 import { normalizeProductImageUrl } from "../../catalog/components/product-image-source";
+import { isDefaultProductDescription } from "../../catalog/services/product-description-summary";
 import { companyLogoUrl } from "../../partner-cabinet/services/company-logo-url";
 import type { EstimateRepository, ProposalRepository } from "../repositories";
 import type { CustomerProposalDto, GeneratedEstimateDocument, ProposalSettings, ProposalTemplate } from "../types";
@@ -61,16 +62,33 @@ export class DefaultProposalService {
     }
 
     const productIds = aggregate.items.flatMap((item) => item.productId ? [item.productId] : []);
-    const [templates, profile, images] = await Promise.all([
+    const [templates, profile, productPresentation] = await Promise.all([
       this.proposalRepository.listTemplates(context.company.id),
       this.proposalRepository.getBranding(context.company.id),
-      this.proposalRepository.getProductImages(productIds),
+      this.proposalRepository.getProductPresentation
+        ? this.proposalRepository.getProductPresentation(productIds)
+        : this.proposalRepository.getProductImages(productIds).then((images) => new Map(
+            [...images].map(([productId, imageUrl]) => [productId, { imageUrl, descriptionSummary: null, name: "" }]),
+          )),
     ]);
+    const images = new Map([...productPresentation].map(([productId, presentation]) => [productId, presentation.imageUrl]));
+    const enrichedAggregate = {
+      ...aggregate,
+      items: aggregate.items.map((item) => {
+        const presentation = item.productId ? productPresentation.get(item.productId) : null;
+        const description = item.lineType === "product"
+          && presentation?.descriptionSummary
+          && isDefaultProductDescription(item.description, item.productNameSnapshot)
+          ? presentation.descriptionSummary
+          : item.description;
+        return { ...item, description };
+      }),
+    };
     const stored = { templateId: aggregate.estimate.proposalTemplateId ?? null, settings: aggregate.estimate.proposalSettings ?? {} };
     const normalizedTemplates = templates.map((template) => ({ ...template, configuration: normalizeSettings({ ...DEFAULT_PROPOSAL_SETTINGS, ...template.configuration }) }));
     const selectedTemplate = normalizedTemplates.find((template) => template.id === stored.templateId) ?? normalizedTemplates.find((template) => template.key === "equipment_supply") ?? normalizedTemplates[0];
     const settings = normalizeSettings({ ...DEFAULT_PROPOSAL_SETTINGS, ...selectedTemplate?.configuration, ...stored.settings });
-    const dto = prepareCustomerProposal({ aggregate, settings, companyName: context.company.displayName, companyLogoUrl: companyLogoUrl(context.company.logoAssetPath ?? null), userName: context.user.fullName, userEmail: context.user.email, userPhone: context.user.phone, profile, images });
+    const dto = prepareCustomerProposal({ aggregate: enrichedAggregate, settings, companyName: context.company.displayName, companyLogoUrl: companyLogoUrl(context.company.logoAssetPath ?? null), userName: context.user.fullName, userEmail: context.user.email, userPhone: context.user.phone, profile, images });
     console.info({
       event: "estimate_proposal_preview_prepared",
       estimateId: aggregate.estimate.id,

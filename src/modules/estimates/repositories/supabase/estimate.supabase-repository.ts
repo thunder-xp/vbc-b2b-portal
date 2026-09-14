@@ -535,7 +535,7 @@ export class SupabaseEstimateRepository implements EstimateRepository {
     const supabase = await createClient();
     const { data, error } = await supabase
       .from("partner_services")
-      .select("id, company_id, name, default_unit, description, sort_order, default_cost, default_selling_price, vat_applicable, category")
+      .select("id, company_id, name, default_unit, description, sort_order, default_cost, default_selling_price, vat_applicable, category, estimate_work_section_key")
       .or(`company_id.is.null,company_id.eq.${companyId}`)
       .eq("is_active", true)
       .order("sort_order", { ascending: true });

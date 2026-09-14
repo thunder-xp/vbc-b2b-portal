@@ -4,6 +4,7 @@ export interface ProposalRepository {
   listTemplates(companyId: string): Promise<ProposalTemplate[]>;
   getBranding(companyId: string): Promise<Partial<ProposalBranding> | null>;
   getProductImages(productIds: string[]): Promise<Map<string, string | null>>;
+  getProductPresentation?(productIds: string[]): Promise<Map<string, { imageUrl: string | null; descriptionSummary: string | null; name: string }>>;
   saveSettings(input: { estimateId: string; expectedRevision: number; templateId: string | null; settings: ProposalSettings }): Promise<number>;
   copyTemplate(input: { companyId: string; sourceTemplateId: string; name: string }): Promise<ProposalTemplate>;
   claimGeneration(input: { estimateId: string; estimateRevision: number; templateId: string | null; fingerprint: string; dto: CustomerProposalDto }): Promise<GeneratedEstimateDocument>;

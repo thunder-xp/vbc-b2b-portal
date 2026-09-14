@@ -22,6 +22,18 @@ beforeEach(() => {
   vi.mocked(addEstimateProductsAction).mockResolvedValue({ success: true, data: { ...estimate, revision: 4 }, message: "saved", errorCode: null });
 });
 describe("continuous estimate Quick Add", () => {
+  it("filters quick service choices by governed work destination and fails unknown closed", async () => {
+    const services = [
+      { id: "s1", name: "Монтаж камеры", description: null, defaultUnit: "pcs", unitLabel: "шт.", defaultCost: null, defaultSellingPrice: 10, vatApplicable: true, category: "service", workSectionKey: "installation_works" as const },
+      { id: "s2", name: "Пусконаладка", description: null, defaultUnit: "service", unitLabel: "услуга", defaultCost: null, defaultSellingPrice: 20, vatApplicable: true, category: "service", workSectionKey: "commissioning_works" as const },
+      { id: "s3", name: "Не определено", description: null, defaultUnit: "service", unitLabel: "услуга", defaultCost: null, defaultSellingPrice: 5, vatApplicable: true, category: "service", workSectionKey: null },
+    ];
+    const { user } = setup({ services, serviceMode: true, serviceWorkSectionKey: "installation_works" });
+    await user.click(screen.getByRole("combobox"));
+    expect(screen.getByRole("option", { name: /Монтаж камеры/ })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: /Пусконаладка/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: /Не определено/ })).not.toBeInTheDocument();
+  });
   it("debounces search, selects with arrows, confirms quantity once and restores search focus", async () => {
     const { user, onResult } = setup();
     await user.keyboard("/");

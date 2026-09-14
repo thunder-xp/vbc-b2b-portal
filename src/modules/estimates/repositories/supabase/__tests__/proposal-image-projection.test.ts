@@ -8,4 +8,11 @@ describe("proposal image projection", () => {
     expect(source).toContain("row.image_source_url ?? row.image_url");
     expect(source).not.toMatch(/for\s*\([^)]*productIds[^)]*\)[\s\S]{0,200}\.from\("catalog_products"\)/);
   });
+
+  it("reuses one bounded catalog projection for proposal image and description", () => {
+    const source = readFileSync("src/modules/estimates/repositories/supabase/proposal.supabase-repository.ts", "utf8");
+    expect(source).toContain('select("id, name, image_source_url, image_url, full_description, description, short_description")');
+    expect(source).toContain("deriveProductDescriptionSummary");
+    expect(source).not.toMatch(/for\s*\([^)]*productIds[^)]*\)[\s\S]{0,200}getProductPresentation/);
+  });
 });

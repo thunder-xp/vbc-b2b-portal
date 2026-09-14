@@ -61,6 +61,25 @@ describe("DefaultProposalService", () => {
     expect((await service.preparePreview("user-1", "estimate-1")).proposal.sections[0].lines[0].imageUrl).toBe(image);
   });
 
+  it("reuses one bounded product presentation read for preview descriptions and preserves manual text", async () => {
+    proposals.getProductPresentation = vi.fn().mockResolvedValue(new Map([["product-1", {
+      imageUrl: "https://www.nsd.md/camera.png",
+      descriptionSummary: "Compact catalog introduction.",
+      name: "Camera",
+    }]]));
+    const untouched = aggregate();
+    untouched.items[0] = { ...untouched.items[0], description: "  Camera  " };
+    vi.mocked(estimates.findAggregateById).mockResolvedValue(untouched);
+    expect((await service.preparePreview("user-1", "estimate-1")).proposal.sections[0].lines[0].description).toBe("Compact catalog introduction.");
+    expect(proposals.getProductPresentation).toHaveBeenCalledTimes(1);
+    expect(proposals.getProductImages).not.toHaveBeenCalled();
+
+    const manual = aggregate();
+    manual.items[0] = { ...manual.items[0], description: "Customer-specific manual description." };
+    vi.mocked(estimates.findAggregateById).mockResolvedValue(manual);
+    expect((await service.preparePreview("user-1", "estimate-1")).proposal.sections[0].lines[0].description).toBe("Customer-specific manual description.");
+  });
+
   it("preserves mixed Unicode in the immutable customer proposal DTO", async () => {
     const source = aggregate({ name: "Тестовая смета №1", customerName: "Echipamente Chișinău", projectName: "Проект Chișinău 2026" });
     source.sections[0] = { ...source.sections[0], name: "Система видеонаблюдения" };

@@ -4,7 +4,7 @@ import { formatPartnerDate, getCatalogCopy, type PartnerLocale } from "../../par
 type StockView = ProductCommercialViewDto["stock"];
 
 export function ProductAvailabilityBlock({ locale = "ru", stock }: { locale?: PartnerLocale; stock?: StockView | null }) {
-  const tone = getAvailabilityTone(stock?.status);
+  const tone = availabilityToneForStatus(stock?.status);
   const label = availabilityLabel(stock, locale);
 
   return (
@@ -40,7 +40,7 @@ function availabilityLabel(stock: StockView | null | undefined, locale: PartnerL
   }
 }
 
-function getAvailabilityTone(status: StockView extends infer T ? T extends { status: infer S } ? S | undefined : undefined : undefined) {
+export function availabilityToneForStatus(status: StockView extends infer T ? T extends { status: infer S } ? S | undefined : undefined : undefined) {
   switch (status) {
     case "in_stock":
       return { container: "bg-emerald-50/60", indicator: "bg-emerald-600", text: "text-emerald-900" };

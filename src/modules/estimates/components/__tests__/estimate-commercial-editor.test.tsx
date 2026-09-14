@@ -38,7 +38,7 @@ const detail: EstimateDetailDto = {
     { id: "11111111-1111-1111-1111-111111111114", name: "Пусконаладочные работы", systemKey: "commissioning_works", sortOrder: 3, showSubtotal: true, discountPercent: 0, subtotal: 0, discountAmount: 0, total: 0 },
   ],
   lines: [{
-    id: "22222222-2222-2222-2222-222222222222", sectionId: "11111111-1111-1111-1111-111111111111", lineType: "product", productId: "product-1", position: 1, sku: "400691", description: "Camera", quantity: 1,
+    id: "22222222-2222-2222-2222-222222222222", sectionId: "11111111-1111-1111-1111-111111111111", lineType: "product", productId: "product-1", productName: "Camera", productSlug: "camera", position: 1, sku: "400691", description: "Camera", quantity: 1,
     unit: "pcs", unitLabel: "шт.", sourcePrice: "$80.00", sourceCurrencyCode: "USD", sourceSnapshotAt: "2026-07-16T09:00:00Z",
     pricingMode: "direct", pricingInputValue: 100, internalCostUnitPrice: null, convertedCostUnitPrice: 80, exchangeRate: 1,
     exchangeRateEffectiveDate: "2026-07-16", lineDiscountPercent: 0, markupPercent: 25, marginPercent: 20,
@@ -88,6 +88,8 @@ describe("EstimateCommercialEditor", () => {
     expect(screen.getByText("Параметры сметы").closest("details")).not.toHaveAttribute("open");
     expect(screen.getByRole("button", { name: "Подготовить КП" })).toBeEnabled();
     expect(screen.queryByRole("button", { name: "Сохранить и выйти" })).not.toBeInTheDocument();
+    expect(screen.getByTestId("estimate-customer-field")).not.toHaveClass("sm:col-span-2");
+    expect(within(screen.getByTestId("estimate-customer-field")).getByText("Заказчик")).toBeInTheDocument();
   });
 
   it("shows one add-product action for an empty draft without auto-opening the picker", async () => {
@@ -153,14 +155,19 @@ describe("EstimateCommercialEditor", () => {
     renderEditor();
     const summary = screen.getByRole("heading", { name: "Коммерческий расчёт" });
     const proposal = screen.getByRole("heading", { name: "Подготовьте КП" });
-    expect(proposal.compareDocumentPosition(summary) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(summary.compareDocumentPosition(proposal) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
     const sidebar = summary.closest("aside");
     expect(sidebar).not.toBeNull();
     expect(within(sidebar!).queryByText("НДС")).not.toBeInTheDocument();
     expect(within(sidebar!).queryByText("КП / ИТОГ")).not.toBeInTheDocument();
     expect(within(sidebar!).getByRole("link", { name: "Предпросмотр КП" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Подготовить КП" })).toBeEnabled();
+    const previewAction = within(sidebar!).getByRole("link", { name: "Предпросмотр КП" });
+    const prepareAction = within(sidebar!).getByRole("button", { name: "Подготовить КП" });
+    const cartAction = within(sidebar!).getByRole("button", { name: "Передать в корзину" });
+    expect(previewAction.compareDocumentPosition(prepareAction) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(prepareAction.compareDocumentPosition(cartAction) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(prepareAction).toBeEnabled();
   });
 
   it("renders thumbnails only for product lines before their description", () => {
@@ -284,18 +291,75 @@ describe("EstimateCommercialEditor", () => {
     for (const name of [
       "Отменить изменения",
       "Проверить розничные цены",
-      "Предпросмотр КП",
-      "PDF и отправка",
       "Дублировать смету",
       "Архивировать",
     ]) {
-      expect(within(sheet).getByRole(/Предпросмотр|PDF/.test(name) ? "link" : "button", { name })).toBeInTheDocument();
+      expect(within(sheet).getByRole("button", { name })).toBeInTheDocument();
     }
+    expect(within(sheet).queryByRole("link", { name: "Предпросмотр КП" })).not.toBeInTheDocument();
     await user.tab({ shift: true });
     expect(within(sheet).getByRole("button", { name: "Архивировать" })).toHaveFocus();
     await user.click(within(sheet).getByRole("button", { name: "Закрыть действия" }));
     expect(screen.queryByTestId("estimate-mobile-action-sheet")).not.toBeInTheDocument();
     expect(screen.getByTestId("estimate-mobile-actions-trigger")).toHaveFocus();
+  });
+
+  it("uses a safe PDP link, compact description, governed stock tone, and shortened source-price label", () => {
+    render(<EstimateCommercialEditor
+      commercialOptions={{ currencies: ["USD"], usdMdlRate: 17.5, rateEffectiveDate: "2026-07-16" }}
+      initialEstimate={{ ...detail, lines: [{ ...detail.lines[0], description: "Compact customer-facing product summary.", currentStockStatus: "out_of_stock", currentAvailableQuantity: 0 }] }}
+      services={[]}
+      workflow={workflow}
+    />);
+    const productLink = screen.getByRole("link", { name: "Camera" });
+    expect(productLink).toHaveAttribute("href", "/cabinet/catalog/camera");
+    expect(productLink).toHaveAttribute("target", "_blank");
+    expect(screen.getByText("Compact customer-facing product summary.")).toHaveClass("line-clamp-3");
+    expect(screen.getByText("Ваша цена:")).toBeInTheDocument();
+    expect(screen.queryByText(/Ваша цена Novotech/)).not.toBeInTheDocument();
+    expect(screen.getByText("$80.00")).toHaveClass("text-emerald-700");
+    expect(screen.getByTestId("estimate-line-stock")).toHaveClass("text-rose-950");
+    expect(screen.getByTestId("estimate-line-stock")).not.toHaveTextContent("уточняется");
+  });
+
+  it("does not generate a broken PDP link for an unavailable or external line", () => {
+    const unavailable = { ...detail.lines[0], productUnavailable: true };
+    const external = { ...detail.lines[0], id: "external", lineType: "external" as const, productId: null, productSlug: null, description: "External item" };
+    render(<EstimateCommercialEditor commercialOptions={{ currencies: ["USD"], usdMdlRate: 17.5, rateEffectiveDate: "2026-07-16" }} initialEstimate={{ ...detail, lines: [unavailable, external] }} services={[]} workflow={workflow} />);
+    expect(screen.queryByRole("link", { name: "Camera" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "External item" })).not.toBeInTheDocument();
+  });
+
+  it("closes the desktop Actions menu on outside click and Escape", async () => {
+    const user = userEvent.setup();
+    renderEditor();
+    const trigger = screen.getByTestId("estimate-desktop-actions-trigger");
+
+    await user.click(trigger);
+    expect(screen.getByTestId("estimate-desktop-actions-menu")).toBeInTheDocument();
+    await user.click(screen.getByRole("heading", { name: "CCTV" }));
+    expect(screen.queryByTestId("estimate-desktop-actions-menu")).not.toBeInTheDocument();
+
+    await user.click(trigger);
+    await user.keyboard("{Escape}");
+    expect(screen.queryByTestId("estimate-desktop-actions-menu")).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+  });
+
+  it("keeps governed ready and template actions only inside Actions", async () => {
+    const user = userEvent.setup();
+    render(<EstimateCommercialEditor
+      commercialOptions={{ currencies: ["USD"], usdMdlRate: 17.5, rateEffectiveDate: "2026-07-16" }}
+      initialEstimate={detail}
+      services={[]}
+      workflow={{ ...workflow, guidedState: { ...workflow.guidedState, secondaryActions: ["duplicate", "save_template", "mark_ready"] } }}
+    />);
+    expect(screen.queryByText("Другие действия")).not.toBeInTheDocument();
+    expect(screen.queryByText("PDF и отправка")).not.toBeInTheDocument();
+    await user.click(screen.getByTestId("estimate-desktop-actions-trigger"));
+    const menu = screen.getByTestId("estimate-desktop-actions-menu");
+    expect(within(menu).getByRole("button", { name: "Отметить как готово" })).toBeInTheDocument();
+    expect(within(menu).getByRole("button", { name: "Сохранить как шаблон" })).toBeInTheDocument();
   });
 
   it("shows one-tap native Share only for the current saved PDF and removes it after an unsaved edit", async () => {
@@ -465,7 +529,8 @@ describe("EstimateCommercialEditor", () => {
     });
     renderEditor();
 
-    await user.click(screen.getByRole("button", { name: "Проверить розничные цены" }));
+    await user.click(screen.getByTestId("estimate-desktop-actions-trigger"));
+    await user.click(within(screen.getByTestId("estimate-desktop-actions-menu")).getByRole("button", { name: "Проверить розничные цены" }));
     expect(checkEstimateCommercialStateAction).toHaveBeenCalledWith("estimate-1");
     expect(screen.getByText("В наличии: 8 шт.")).toBeInTheDocument();
     expect(saveEstimateCommercialAction).not.toHaveBeenCalled();

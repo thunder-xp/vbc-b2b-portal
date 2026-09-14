@@ -31,8 +31,9 @@ const products: EstimateProductPickerDto = {
   brands: [{ id: "brand-1", name: "Dahua" }],
 };
 const services: EstimateServiceDto[] = [
-  { id: "service-1", name: "Монтаж камеры", description: null, defaultUnit: "pcs", unitLabel: "шт.", defaultCost: 5, defaultSellingPrice: 10, vatApplicable: true, category: "Монтаж" },
-  { id: "service-2", name: "Настройка системы", description: null, defaultUnit: "service", unitLabel: "услуга", defaultCost: 10, defaultSellingPrice: 25, vatApplicable: true, category: "Настройка" },
+  { id: "service-1", name: "Монтаж камеры", description: null, defaultUnit: "pcs", unitLabel: "шт.", defaultCost: 5, defaultSellingPrice: 10, vatApplicable: true, category: "Монтаж", workSectionKey: "installation_works" },
+  { id: "service-2", name: "Настройка системы", description: null, defaultUnit: "service", unitLabel: "услуга", defaultCost: 10, defaultSellingPrice: 25, vatApplicable: true, category: "Настройка", workSectionKey: "commissioning_works" },
+  { id: "service-3", name: "Не классифицировано", description: null, defaultUnit: "service", unitLabel: "услуга", defaultCost: null, defaultSellingPrice: 5, vatApplicable: true, category: "service", workSectionKey: null },
 ];
 
 describe("EstimateLinePicker", () => {
@@ -42,7 +43,7 @@ describe("EstimateLinePicker", () => {
     const user = userEvent.setup();
     vi.mocked(searchEstimateProductsAction).mockResolvedValue({ success: true, data: products, message: "Загружено", errorCode: null });
     vi.mocked(addEstimateProductsAction).mockResolvedValue({ success: true, data: estimate, message: "Добавлено", errorCode: null });
-    render(<EstimateLinePicker allowedModes={["product", "external"]} contextLabel="Монтажные материалы" disabled={false} estimate={estimate} externalItemType="material" mode="product" onModeChange={vi.fn()} onResult={vi.fn()} services={services} targetSectionId="section-2" />);
+    render(<EstimateLinePicker allowedModes={["product", "external"]} contextLabel="Монтажные материалы" disabled={false} estimate={estimate} externalItemType="material" mode="product" onModeChange={vi.fn()} onResult={vi.fn()} services={services} targetSectionId="section-2" targetSectionKey="installation_materials" />);
 
     await user.type(screen.getByLabelText("SKU, модель или название"), "camera");
     await user.click(screen.getByRole("button", { name: "Найти" }));
@@ -67,7 +68,7 @@ describe("EstimateLinePicker", () => {
   it("selects all visible product results in one action", async () => {
     const user = userEvent.setup();
     vi.mocked(searchEstimateProductsAction).mockResolvedValue({ success: true, data: products, message: "Loaded", errorCode: null });
-    render(<EstimateLinePicker allowedModes={["product"]} contextLabel="Equipment" disabled={false} estimate={estimate} externalItemType="material" mode="product" onModeChange={vi.fn()} onResult={vi.fn()} services={services} targetSectionId="section-1" />);
+    render(<EstimateLinePicker allowedModes={["product"]} contextLabel="Equipment" disabled={false} estimate={estimate} externalItemType="material" mode="product" onModeChange={vi.fn()} onResult={vi.fn()} services={services} targetSectionId="section-1" targetSectionKey="equipment" />);
 
     await user.type(screen.getByLabelText(/SKU/), "camera");
     await user.click(screen.getByRole("button", { name: "Найти" }));
@@ -81,16 +82,23 @@ describe("EstimateLinePicker", () => {
   it("adds multiple controlled services through one mutation", async () => {
     const user = userEvent.setup();
     vi.mocked(addEstimateServicesAction).mockResolvedValue({ success: true, data: estimate, message: "Добавлено", errorCode: null });
-    render(<EstimateLinePicker allowedModes={["service"]} contextLabel="Монтажные работы" disabled={false} estimate={estimate} externalItemType="service" mode="service" onModeChange={vi.fn()} onResult={vi.fn()} services={services} targetSectionId="section-2" />);
+    render(<EstimateLinePicker allowedModes={["service"]} contextLabel="Монтажные работы" disabled={false} estimate={estimate} externalItemType="service" mode="service" onModeChange={vi.fn()} onResult={vi.fn()} services={services} targetSectionId="section-2" targetSectionKey="installation_works" />);
 
     await user.click(screen.getByRole("checkbox", { name: "Выбрать Монтаж камеры" }));
-    await user.click(screen.getByRole("checkbox", { name: "Выбрать Настройка системы" }));
-    await user.click(screen.getByRole("button", { name: "Добавить выбранные (2)" }));
+    expect(screen.queryByRole("checkbox", { name: "Выбрать Настройка системы" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: "Выбрать Не классифицировано" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Добавить выбранные (1)" }));
 
     expect(addEstimateServicesAction).toHaveBeenCalledTimes(1);
     expect(addEstimateServicesAction).toHaveBeenCalledWith("estimate-1", 3, [
       { serviceId: "service-1", quantity: 1, sellingUnitPrice: 10 },
-      { serviceId: "service-2", quantity: 1, sellingUnitPrice: 25 },
     ], expect.objectContaining({ targetSectionId: "section-2", requestKey: expect.any(String) }));
+  });
+
+  it("shows commissioning services only and fails closed for unknown classification", () => {
+    render(<EstimateLinePicker allowedModes={["service"]} contextLabel="Пусконаладочные работы" disabled={false} estimate={estimate} externalItemType="service" mode="service" onModeChange={vi.fn()} onResult={vi.fn()} services={services} targetSectionId="section-3" targetSectionKey="commissioning_works" />);
+    expect(screen.getByRole("checkbox", { name: "Выбрать Настройка системы" })).toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: "Выбрать Монтаж камеры" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: "Выбрать Не классифицировано" })).not.toBeInTheDocument();
   });
 });
