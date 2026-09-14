@@ -50,6 +50,12 @@ export type CartItem = {
   quantity: number;
   createdAt: string;
   updatedAt: string;
+  retainedProduct?: {
+    name: string;
+    sku: string;
+    slug: string;
+    imageUrl: string | null;
+  } | null;
 };
 
 export type PartnerOrder = {

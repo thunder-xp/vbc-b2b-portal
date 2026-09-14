@@ -5,7 +5,7 @@ import { CartStatus, PartnerOrderIntegrationStatus, PartnerOrderStatus, type Car
 import { OrderRepositoryError, type CartReconciliationLock, type CartRepository, type PartnerOrderRepository } from "../order.repository";
 
 const CART_COLUMNS = "id, company_id, created_by, status, intent_version, created_at, updated_at";
-const CART_ITEM_COLUMNS = "id, cart_id, product_id, quantity, created_at, updated_at";
+const CART_ITEM_COLUMNS = "id, cart_id, product_id, quantity, created_at, updated_at, cart_item_sources(product_name_snapshot, sku_snapshot, slug_snapshot, image_url_snapshot)";
 const ORDER_COLUMNS = "id, company_id, submitted_by, cart_id, submission_key, submission_attempt_id, request_fingerprint, status, integration_status, one_c_order_status, requested_delivery_date, external_1c_ref, external_1c_number, external_1c_date, authoritative_presence, last_authority_verified_at, last_authority_result, payload_snapshot, safe_error_code, safe_error_message, document_total, currency_code, contract_number, confirmed_at, last_reconciled_at, reconciliation_attempt_count, reconciliation_last_attempt_at, reconciliation_correlation_id, submitted_at, created_at, updated_at";
 const ORDER_ITEM_COLUMNS = "id, order_id, product_id, external_product_ref, product_name, sku, quantity, partner_unit_price, currency_code, line_total, available_stock, nearest_arrival_date, nearest_arrival_quantity, snapshot_at";
 
@@ -321,7 +321,17 @@ function mapCart(row: Row): Cart {
   };
 }
 function mapCartItem(row: Row): CartItem {
-  return { id: text(row.id), cartId: text(row.cart_id), productId: text(row.product_id), quantity: Number(row.quantity), createdAt: text(row.created_at), updatedAt: text(row.updated_at) };
+  const sources = Array.isArray(row.cart_item_sources) ? row.cart_item_sources as Row[] : [];
+  const source = sources.find((item) => typeof item.product_name_snapshot === "string" && typeof item.sku_snapshot === "string" && typeof item.slug_snapshot === "string");
+  return {
+    id: text(row.id), cartId: text(row.cart_id), productId: text(row.product_id), quantity: Number(row.quantity), createdAt: text(row.created_at), updatedAt: text(row.updated_at),
+    retainedProduct: source ? {
+      name: text(source.product_name_snapshot),
+      sku: text(source.sku_snapshot),
+      slug: text(source.slug_snapshot),
+      imageUrl: nullableText(source.image_url_snapshot),
+    } : null,
+  };
 }
 function mapReconciliationLock(row: Row): CartReconciliationLock {
   return {

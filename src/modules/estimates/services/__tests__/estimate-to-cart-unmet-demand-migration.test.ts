@@ -55,4 +55,16 @@ describe("Estimate-to-cart unmet demand migration", () => {
     expect(workflow).toContain('data-testid="estimate-transfer-to-cart"');
     expect(workflow).not.toMatch(/lifecycleStatus.*estimate-transfer-to-cart/);
   });
+
+  it("retains product identity when an Estimate-owned cart line leaves the active catalog", () => {
+    const retainedSql = readFileSync(
+      join(process.cwd(), "supabase/migrations/20260914174658_retain_unavailable_estimate_cart_identity.sql"),
+      "utf8",
+    );
+    expect(retainedSql).toContain("product_name_snapshot");
+    expect(retainedSql).toContain("sku_snapshot");
+    expect(retainedSql).toContain("slug_snapshot");
+    expect(retainedSql).toContain("populate_cart_item_source_product_snapshot");
+    expect(retainedSql).toContain("before insert or update on public.cart_item_sources");
+  });
 });

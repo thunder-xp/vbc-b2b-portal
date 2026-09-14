@@ -22,6 +22,7 @@ export type CartLineDto = {
   nearestArrivalDate: string | null;
   nearestArrivalQuantity: number | null;
   availabilityGroup: "available" | "expected" | "confirmation";
+  catalogVisible?: boolean;
 };
 
 export type CartDetailDto = {
@@ -153,8 +154,9 @@ export class DefaultCartService implements CartService {
     const productsById = new Map(products.map((product) => [product.id, product]));
     const viewsById = new Map(views.map((view) => [view.productId, view]));
     const lines = items.flatMap((item) => {
-      const product = productsById.get(item.productId);
-      return product ? [toLine(item.id, item.quantity, product, viewsById.get(item.productId))] : [];
+      const liveProduct = productsById.get(item.productId);
+      const product = liveProduct ?? retainedProductCard(item.productId, item.retainedProduct);
+      return product ? [toLine(item.id, item.quantity, product, viewsById.get(item.productId), Boolean(liveProduct))] : [];
     });
     return {
       id: cart.id,
@@ -415,6 +417,7 @@ function toLine(
   quantity: number,
   product: Awaited<ReturnType<CatalogService["getProductsByIds"]>>[number],
   view?: ProductCommercialViewDto,
+  catalogVisible = true,
 ): CartLineDto {
   return {
     id, productId: product.id, slug: product.slug, productName: product.name, sku: product.sku, imageUrl: product.imageUrl, quantity,
@@ -426,11 +429,30 @@ function toLine(
       : {}),
     retailUnitPrice: view?.retailPrice?.formattedAmount ?? null,
     retailLineTotal: formatLineTotal(view?.retailPrice, quantity),
-    availableStock: view?.stock?.exactAvailableQuantity ?? null,
-    nearestArrivalDate: view?.stock?.expectedArrival?.formattedExpectedDate ?? null,
-    nearestArrivalQuantity: view?.stock?.expectedArrival?.expectedQuantity ?? null,
-    availabilityGroup: resolveAvailabilityGroup(view),
+    availableStock: catalogVisible ? view?.stock?.exactAvailableQuantity ?? null : 0,
+    nearestArrivalDate: catalogVisible ? view?.stock?.expectedArrival?.formattedExpectedDate ?? null : null,
+    nearestArrivalQuantity: catalogVisible ? view?.stock?.expectedArrival?.expectedQuantity ?? null : null,
+    availabilityGroup: catalogVisible ? resolveAvailabilityGroup(view) : "confirmation",
+    catalogVisible,
   };
+}
+
+function retainedProductCard(
+  productId: string,
+  retained: import("../types").CartItem["retainedProduct"],
+): Awaited<ReturnType<CatalogService["getProductsByIds"]>>[number] | null {
+  return retained ? {
+    id: productId,
+    sku: retained.sku,
+    name: retained.name,
+    slug: retained.slug,
+    shortDescription: null,
+    imageUrl: retained.imageUrl,
+    brand: null,
+    category: null,
+    keyCharacteristics: [],
+    datasheet: null,
+  } : null;
 }
 
 function resolveAvailabilityGroup(view?: ProductCommercialViewDto): CartLineDto["availabilityGroup"] {

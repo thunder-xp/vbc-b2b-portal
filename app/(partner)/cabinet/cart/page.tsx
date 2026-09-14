@@ -115,13 +115,15 @@ export default async function CartPage() {
                               productName={line.productName}
                             />
                             <div className="min-w-0">
-                              <Link
-                                className="line-clamp-2 font-semibold text-zinc-950 hover:text-emerald-700"
-                                href={`/cabinet/catalog/${line.slug}`}
-                                prefetch={false}
-                              >
-                                {line.productName}
-                              </Link>
+                              {line.catalogVisible === false
+                                ? <p className="line-clamp-2 font-semibold text-zinc-950">{line.productName}</p>
+                                : <Link
+                                    className="line-clamp-2 font-semibold text-zinc-950 hover:text-emerald-700"
+                                    href={`/cabinet/catalog/${line.slug}`}
+                                    prefetch={false}
+                                  >
+                                    {line.productName}
+                                  </Link>}
                               <p className="mt-1 text-xs text-zinc-500">
                                 {copy.sku}: {line.sku}
                               </p>

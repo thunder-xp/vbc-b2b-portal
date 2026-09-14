@@ -132,6 +132,33 @@ describe("DefaultCartService", () => {
     expect(cart.lines[0]).not.toHaveProperty("partnerUnitPrice");
   });
 
+  it("renders retained Estimate identity when a cart product is no longer catalog-visible", async () => {
+    const dependencies = makeDependencies();
+    dependencies.repository.listItems.mockResolvedValueOnce([{
+      id: "item-1",
+      cartId: "cart-1",
+      productId: "product-1",
+      quantity: 2,
+      createdAt: "2026-01-01",
+      updatedAt: "2026-01-01",
+      retainedProduct: { name: "Retained camera", sku: "SKU-OLD", slug: "retained-camera", imageUrl: null },
+    }]);
+    dependencies.catalogService.getProductsByIds.mockResolvedValueOnce([]);
+
+    const cart = await dependencies.service.getCart("user-1");
+
+    expect(cart.lines).toEqual([expect.objectContaining({
+      productName: "Retained camera",
+      sku: "SKU-OLD",
+      quantity: 2,
+      availableStock: 0,
+      catalogVisible: false,
+      partnerUnitPrice: "$10.00",
+    })]);
+    expect(cart.positionCount).toBe(1);
+    expect(cart.totalUnitCount).toBe(2);
+  });
+
   it("loads the sidebar badge through the lightweight aggregate only", async () => {
     const dependencies = makeDependencies();
 
@@ -216,7 +243,7 @@ describe("DefaultCartService", () => {
       lines: [{ lineId: "line-1", productId: "product-1", quantity: 5, snapshotPartnerPrice: 8 }],
     });
     expect(dependencies.repository.mergeEstimateProducts).toHaveBeenCalledWith(expect.objectContaining({
-      items: [expect.objectContaining({ productId: "product-1", stockStatus: "NOT_STOCKED" })],
+      items: [expect.objectContaining({ productId: "product-1", availableQuantity: 0, stockStatus: "NOT_STOCKED" })],
     }));
   });
 });
