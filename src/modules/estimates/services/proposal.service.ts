@@ -204,7 +204,8 @@ function prepareCustomerProposal(input: {
       lineDiscountPercent: line.lineDiscountPercent,
       lineTotal: line.lineTotal,
     }));
-    return { name: section.name, subtotal: lines.reduce((sum, line) => sum + line.lineTotal, 0), lines };
+    const name = sections.find(persisted => persisted.systemKey === section.key)?.name ?? section.name;
+    return { name, subtotal: lines.reduce((sum, line) => sum + line.lineTotal, 0), lines };
   });
   const customerCharges = charges.filter((charge) => charge.customerVisible).sort((a, b) => a.sortOrder - b.sortOrder).map((charge) => ({ description: charge.description, amount: charge.amount }));
   const generatedForDate = new Date().toISOString().slice(0, 10);

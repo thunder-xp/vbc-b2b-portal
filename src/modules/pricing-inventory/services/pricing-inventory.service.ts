@@ -94,6 +94,7 @@ export type RetailPriceHistoryDto = RetailPriceHistoryRow & {
 };
 
 export interface PricingInventoryService {
+  getProductStockViews?(userId: string, productIds: string[]): Promise<Array<{ productId: string; stock: ProductStockViewDto }>>;
   getCommercialVisibility?(userId: string): Promise<CommercialVisibilityContext>;
   listAvailableCurrencyCodes?(userId: string): Promise<string[]>;
   getProductCommercialViews(
@@ -140,6 +141,19 @@ export class DefaultPricingInventoryService implements PricingInventoryService {
     private readonly companyAccessService: CompanyAccessService,
     private readonly permissionService: PermissionService,
   ) {}
+
+  /** Stock-only editor projection: reuse governed availability without loading price/rate data. */
+  async getProductStockViews(userId: string, productIds: string[]): Promise<Array<{ productId: string; stock: ProductStockViewDto }>> {
+    const ids = normalizeProductIds(productIds);
+    if (!ids.length) return [];
+    const company = await this.resolveActiveCompany(userId);
+    if (!await this.permissionService.hasPermission(userId, company.id, STOCK_PERMISSION)) return [];
+    const [totals, arrivals] = await Promise.all([
+      this.pricingInventoryRepository.listStockTotalsForProducts?.(ids) ?? [],
+      this.pricingInventoryRepository.listSupplierArrivalsForProducts?.(ids) ?? [],
+    ]);
+    return ids.map(productId => ({ productId, stock: stockAvailabilityForProduct(totals, arrivals, productId) }));
+  }
 
   async getCommercialVisibility(userId: string): Promise<CommercialVisibilityContext> {
     const company = await this.resolveActiveCompany(userId);

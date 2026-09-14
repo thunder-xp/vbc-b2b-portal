@@ -10,6 +10,7 @@ import { EstimateCommercialEditor } from "../EstimateCommercialEditor";
 import { notifyEstimatePdfReady } from "../EstimatePdfShareAction";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
+vi.mock("../../../behavior-analytics/components", () => ({ recordBehaviorInteraction: vi.fn() }));
 vi.mock("../../actions/estimate.actions", () => ({
   addEstimateCustomLineAction: vi.fn(),
   addEstimateProductsAction: vi.fn(),
@@ -60,6 +61,18 @@ function renderEditor() {
 }
 
 describe("EstimateCommercialEditor", () => {
+  it("edits a section label locally and preserves its stable identity on explicit Save", async () => {
+    const user = userEvent.setup();
+    vi.mocked(saveEstimateCommercialAction).mockResolvedValue({ success: true, data: { ...detail, revision: 4, sections: detail.sections.map((section, index) => index === 0 ? { ...section, name: "Камеры объекта" } : section) }, message: "Saved", errorCode: null });
+    renderEditor();
+    await user.click(screen.getByRole("button", { name: "Переименовать: Оборудование" }));
+    const name = screen.getByRole("textbox", { name: "Название раздела" });
+    await user.clear(name); await user.type(name, "Камеры объекта{Enter}");
+    expect(saveEstimateCommercialAction).not.toHaveBeenCalled();
+    expect(screen.getByRole("heading", { name: "Камеры объекта" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Сохранить" }));
+    expect(saveEstimateCommercialAction).toHaveBeenCalledWith(detail.id, expect.objectContaining({ sections: expect.arrayContaining([expect.objectContaining({ id: detail.sections[0].id, systemKey: "equipment", name: "Камеры объекта", sortOrder: 0, discountPercent: 0, showSubtotal: true })]) }));
+  });
   beforeEach(() => vi.clearAllMocks());
   afterEach(() => {
     Reflect.deleteProperty(navigator, "share");
@@ -90,7 +103,7 @@ describe("EstimateCommercialEditor", () => {
     expect(screen.getByTestId("estimate-primary-next-action").querySelectorAll("button, a")).toHaveLength(1);
     expect(screen.queryByLabelText("SKU, модель или название")).not.toBeInTheDocument();
     await user.click(within(screen.getByTestId("estimate-primary-next-action")).getByRole("button"));
-    expect(screen.getByLabelText("SKU, модель или название")).toBeInTheDocument();
+    expect(screen.getByLabelText("Код, модель или название")).toBeInTheDocument();
   });
 
   it("does not make customer or email an early proposal-readiness blocker", () => {
@@ -121,7 +134,8 @@ describe("EstimateCommercialEditor", () => {
     const addEquipment = screen.getByRole("button", { name: "Добавить оборудование" });
     expect(screen.queryByLabelText("SKU, модель или название")).not.toBeInTheDocument();
     await user.click(addEquipment);
-    expect(screen.getByLabelText("SKU, модель или название")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByLabelText("Код, модель или название")).toHaveFocus());
+    await user.click(screen.getByRole("button", { name: "Выбрать несколько" }));
     expect(screen.getByText("Добавление: Оборудование")).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Каталог Novotech" })).toHaveAttribute("aria-selected", "true");
     expect(screen.queryByRole("combobox", { name: "Фильтр разделов" })).not.toBeInTheDocument();
@@ -145,7 +159,7 @@ describe("EstimateCommercialEditor", () => {
     expect(sidebar).not.toBeNull();
     expect(within(sidebar!).queryByText("НДС")).not.toBeInTheDocument();
     expect(within(sidebar!).queryByText("КП / ИТОГ")).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Предпросмотр КП" })).not.toBeInTheDocument();
+    expect(within(sidebar!).getByRole("link", { name: "Предпросмотр КП" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Подготовить КП" })).toBeEnabled();
   });
 
@@ -172,7 +186,7 @@ describe("EstimateCommercialEditor", () => {
     expect(within(lineDetails).getByRole("combobox", { name: "Ед." })).toHaveValue("pcs");
     expect(within(lineDetails).getByRole("spinbutton", { name: "Скидка, %" })).toHaveValue(0);
 
-    await user.click(screen.getByText("Описание, единица и скидка"));
+    await user.click(screen.getByLabelText("Описание, единица и скидка"));
     const description = screen.getByRole("textbox", { name: "Описание" });
     await user.clear(description);
     await user.type(description, "Camera set");
@@ -197,7 +211,7 @@ describe("EstimateCommercialEditor", () => {
     await user.type(quantity, "2");
     await user.tab();
     expect(saveEstimateCommercialAction).not.toHaveBeenCalled();
-    expect(screen.getByText("Не сохранено")).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("Не сохранено");
     await user.click(screen.getByRole("button", { name: "Сохранить" }));
 
     expect(saveEstimateCommercialAction).toHaveBeenCalledTimes(1);
@@ -205,8 +219,8 @@ describe("EstimateCommercialEditor", () => {
       expectedRevision: 3,
       lines: [expect.objectContaining({ quantity: 2 })],
     }));
-    expect(screen.queryByText("Не сохранено")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Добавить оборудование" })).toBeEnabled();
+    expect(screen.getByRole("status")).not.toHaveTextContent("Не сохранено");
+    await waitFor(() => expect(screen.getByRole("button", { name: "Добавить оборудование" })).toBeEnabled());
   });
 
   it("preserves entered data and the same retryable blocker when save fails", async () => {
@@ -221,7 +235,7 @@ describe("EstimateCommercialEditor", () => {
     expect(quantity).toHaveValue(2);
     expect(screen.getByText("Сохранение временно недоступно.")).toBeInTheDocument();
     expect(screen.getByTestId("estimate-guided-workflow")).toHaveAttribute("data-draft-readiness-state", "save_changes");
-    expect(screen.getByRole("button", { name: "Сохранить" })).toBeEnabled();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Сохранить" })).toBeEnabled());
   });
 
   it("enables Save as soon as a numeric value changes", async () => {
@@ -375,9 +389,9 @@ describe("EstimateCommercialEditor", () => {
     expect(rows).toHaveLength(3);
     for (const row of rows) {
       expect(row.firstElementChild).toHaveAttribute("data-testid", "estimate-line-grid");
-      expect(row.firstElementChild).toHaveClass("xl:grid-cols-[3rem_minmax(9rem,1fr)_4.25rem_4.5rem_5.25rem_4.75rem_5.5rem_2.75rem]");
+      expect(row.firstElementChild).toHaveClass("xl:grid-cols-[3rem_minmax(0,1fr)_6rem_4.5rem_6.5rem_6rem_2.75rem]");
     }
-    expect(screen.getByTestId("estimate-line-header")).toHaveTextContent("ФотоПозицияКол-воЕд.Цена продажиСкидка, %Итого");
+    expect(screen.getByTestId("estimate-line-header")).toHaveTextContent("ФотоПозицияНаличиеКол-воЦена продажиИтого");
   });
 
   it("shows currency conversion confirmation and preserves manual-price choice", async () => {

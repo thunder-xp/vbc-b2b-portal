@@ -65,6 +65,10 @@ export type EstimateLineDto = {
   externalNomenclatureId?: string | null;
   externalDemand?: import("../types").ExternalDemandState | null;
   imageUrl?: string | null;
+  currentStock?: string | null;
+  currentAvailableQuantity?: number | null;
+  currentStockStatus?: "in_stock" | "low_stock" | "out_of_stock" | "expected" | "unknown" | null;
+  productUnavailable?: boolean;
   position: number;
   sku: string | null;
   description: string;
@@ -237,6 +241,7 @@ export type CreateEstimateWithProductsCommand = CreateEstimateCommand & {
 };
 
 export type EstimateLineInsertion = {
+  mergeExisting?: boolean;
   targetSectionId: string;
   requestKey: string;
 };
@@ -845,17 +850,33 @@ export class DefaultEstimateService implements EstimateService {
     if (!aggregate || aggregate.estimate.companyId !== companyId) throw new NotFoundError("Estimate was not found.");
     const productIds = [...new Set(aggregate.items.flatMap((item) => item.productId ? [item.productId] : []))];
     const images = new Map<string, string | null>();
+    const unavailable = new Set<string>();
+    const stockPromise = (productIds.length
+      ? this.pricingInventoryService.getProductStockViews?.(userId, productIds) ?? Promise.resolve([])
+      : Promise.resolve([])).catch(() => {
+        // Optional live presentation must not turn a committed Save into a false failure.
+        console.warn({ event: "estimate_stock_projection_unavailable", estimateId: aggregate.estimate.id, productCount: productIds.length });
+        return [];
+      });
     if (productIds.length && this.catalogService.getProductReferencesByIds) {
       const products = await this.catalogService.getProductReferencesByIds(userId, productIds);
       products.forEach((product) => images.set(product.productId, product.thumbnail));
+      products.filter(product => product.publicationState !== "published").forEach(product => unavailable.add(product.productId));
     } else if (productIds.length) {
       const products = await this.catalogService.getProductsByIds(userId, productIds);
       products.forEach((product) => images.set(product.id, product.imageUrl));
     }
-    return projectEstimateDetail(
+    const stocks = new Map((await stockPromise).map(item => [item.productId, item.stock]));
+    const detail = projectEstimateDetail(
       toCommercialDetail(aggregate, images),
       canViewPartnerPrice,
     );
+    return { ...detail, lines: detail.lines.map(line => ({ ...line,
+      currentStock: line.productId ? stocks.get(line.productId)?.label ?? null : null,
+      currentAvailableQuantity: line.productId ? stocks.get(line.productId)?.exactAvailableQuantity ?? null : null,
+      currentStockStatus: line.productId ? stocks.get(line.productId)?.status ?? null : null,
+      productUnavailable: line.productId ? unavailable.has(line.productId) : false,
+    })) };
   }
 
   async saveCommercialDraft(userId: string, estimateId: string, input: SaveEstimateCommercialCommand): Promise<EstimateDetailDto> {
@@ -1136,16 +1157,15 @@ export class DefaultEstimateService implements EstimateService {
       const existing = existingSectionsById.get(id);
       const canonical = existing?.systemKey ? CANONICAL_ESTIMATE_SECTION_BY_KEY.get(existing.systemKey) : null;
       if (canonical && (
-        section.name.trim() !== canonical.name
-        || index !== canonicalSectionOrder(existing!.systemKey ?? null)
+        index !== canonicalSectionOrder(existing!.systemKey ?? null)
         || section.showSubtotal !== true
         || Number(section.discountPercent) !== 0
       )) {
-        throw new InvalidStateError("Системные разделы сметы нельзя переименовывать, перемещать или изменять.");
+        throw new InvalidStateError("Порядок и коммерческие правила системных разделов сметы нельзя изменять.");
       }
       return {
         id,
-        name: canonical?.name ?? normalizeRequired(section.name, 120, "Название раздела некорректно."),
+        name: normalizeRequired(section.name, 120, "Название раздела некорректно."),
         sortOrder: canonical ? canonicalSectionOrder(existing!.systemKey ?? null) : index,
         showSubtotal: canonical ? true : section.showSubtotal,
         discountPercent: canonical ? 0 : normalizePercentage(section.discountPercent, "Скидка раздела должна быть от 0 до 100%."),
@@ -1267,9 +1287,9 @@ export class DefaultEstimateService implements EstimateService {
   private async addLinesSafely(estimateId: string, expectedRevision: number, lines: AddEstimateLineInput[], insertion: EstimateLineInsertion) {
     const targetSectionId = normalizeUuid(insertion.targetSectionId, "Раздел для добавления позиции некорректен.");
     const requestKey = normalizeUuid(insertion.requestKey, "Ключ добавления позиции некорректен.");
-    const requestFingerprint = createHash("sha256").update(JSON.stringify({ targetSectionId, lines })).digest("hex");
+    const requestFingerprint = createHash("sha256").update(JSON.stringify({ targetSectionId, lines, ...(insertion.mergeExisting ? { mergeExisting: true } : {}) })).digest("hex");
     try {
-      await this.repository.addLines({ estimateId, expectedRevision, targetSectionId, requestKey, requestFingerprint, lines });
+      await this.repository.addLines({ estimateId, expectedRevision, targetSectionId, requestKey, requestFingerprint, lines, ...(insertion.mergeExisting ? { mergeExisting: true } : {}) });
     } catch (error) {
       handleRepositoryConflict(error);
     }

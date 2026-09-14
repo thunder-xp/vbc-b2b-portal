@@ -41,6 +41,7 @@ export function resolveCanonicalLineSectionKey(
 export type EstimateSectionPresentation<TLine> = {
   config: (typeof CANONICAL_ESTIMATE_SECTIONS)[number];
   targetSectionId: string | null;
+  customName: string | null;
   lines: TLine[];
   total: number;
 };
@@ -86,6 +87,7 @@ export function buildCanonicalEstimateSectionPresentation<TLine extends {
   return CANONICAL_ESTIMATE_SECTIONS.map((config) => ({
     config,
     targetSectionId: input.sections.find((section) => resolveCanonicalSectionKey(section) === config.key)?.id ?? null,
+    customName: input.sections.find((section) => resolveCanonicalSectionKey(section) === config.key && section.name !== config.name)?.name ?? null,
     lines: linesByKey.get(config.key) ?? [],
     total: Math.round((totalsByKey.get(config.key) ?? 0) * 100) / 100,
   }));

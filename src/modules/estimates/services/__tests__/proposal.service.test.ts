@@ -81,6 +81,18 @@ describe("DefaultProposalService", () => {
     expect(Object.isFrozen(proposal)).toBe(true);
   });
 
+  it("preserves an approved canonical section label in a new preview without changing grouping or totals", async () => {
+    const source = aggregate({});
+    source.sections[0] = { ...source.sections[0], systemKey: "equipment", name: "Echipamente / Оборудование UX" };
+    vi.mocked(estimates.findAggregateById).mockResolvedValue(source);
+    const proposal = (await service.preparePreview("user-1", "estimate-1")).proposal;
+    expect(proposal.sections[0].name).toBe("Echipamente / Оборудование UX");
+    expect(proposal.sections[0].subtotal).toBe(200);
+    expect(proposal.sections[0].lines[0].lineTotal).toBe(200);
+    expect(proposal.sections).toHaveLength(4);
+    expect(Object.isFrozen(proposal)).toBe(true);
+  });
+
   it("saves one settings batch without touching estimate lines", async () => {
     await service.saveSettings("user-1", "estimate-1", 3, template.id, DEFAULT_PROPOSAL_SETTINGS);
     expect(proposals.saveSettings).toHaveBeenCalledTimes(1);

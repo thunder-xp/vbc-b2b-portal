@@ -132,6 +132,7 @@ export type AddEstimateLineInput = {
 };
 
 export type AddEstimateLineBatchInput = {
+  mergeExisting?: boolean;
   estimateId: string;
   expectedRevision: number;
   targetSectionId: string;
