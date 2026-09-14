@@ -1,10 +1,19 @@
 import type { PriceRegisterStageRow } from "../providers/one-c";
+import { classifyOneCPriceTypeRef, type OneCPriceDomain } from "../pricing/price-type-domain";
+
+export type PriceTypePageDiagnostics = {
+  externalPriceTypeRef: string;
+  priceDomain: OneCPriceDomain;
+  received: number;
+  prepared: number;
+};
 
 export type PricePageDiagnostics = {
   received: number;
   uniqueKeys: number;
   duplicateKeys: number;
   rowsDeduplicated: number;
+  byPriceType: PriceTypePageDiagnostics[];
 };
 
 export type NormalizedPricePage = {
@@ -25,7 +34,33 @@ export function normalizePricePage(rows: PriceRegisterStageRow[]): NormalizedPri
     .sort(([left], [right]) => left.localeCompare(right))
     .map(([, candidate]) => candidate.row);
   const duplicateKeys = [...occurrences.values()].filter((count) => count > 1).length;
-  return { rows: normalized, diagnostics: { received: rows.length, uniqueKeys: normalized.length, duplicateKeys, rowsDeduplicated: rows.length - normalized.length } };
+  const receivedByType = countByPriceType(rows);
+  const preparedByType = countByPriceType(normalized);
+  const typeRefs = [...new Set([...receivedByType.keys(), ...preparedByType.keys()])].sort();
+  return {
+    rows: normalized,
+    diagnostics: {
+      received: rows.length,
+      uniqueKeys: normalized.length,
+      duplicateKeys,
+      rowsDeduplicated: rows.length - normalized.length,
+      byPriceType: typeRefs.map((externalPriceTypeRef) => ({
+        externalPriceTypeRef,
+        priceDomain: classifyOneCPriceTypeRef(externalPriceTypeRef),
+        received: receivedByType.get(externalPriceTypeRef) ?? 0,
+        prepared: preparedByType.get(externalPriceTypeRef) ?? 0,
+      })),
+    },
+  };
+}
+
+function countByPriceType(rows: PriceRegisterStageRow[]): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const row of rows) {
+    const reference = row.externalPriceTypeRef.trim().toLowerCase();
+    counts.set(reference, (counts.get(reference) ?? 0) + 1);
+  }
+  return counts;
 }
 
 function logicalKey(row: PriceRegisterStageRow): string { return `${row.externalProductRef}:${row.externalPriceTypeRef}:${row.externalCharacteristicRef}`; }

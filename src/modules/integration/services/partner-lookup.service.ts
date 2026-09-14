@@ -11,6 +11,10 @@ import {
   logPipelineProgress,
   validatePartnerSearchPage,
 } from "./partner-search-validation";
+import {
+  isFinalCustomerRetailPriceType,
+  isGovernedPartnerContractPriceType,
+} from "../pricing/price-type-domain";
 
 export interface PartnerLookupService {
   searchPartners(
@@ -62,7 +66,13 @@ export class DefaultPartnerLookupService implements PartnerLookupService {
     if (!reference) {
       throw new IntegrationValidationError("Partner reference is required.");
     }
-    return this.partnerProvider.fetchPartnerContracts({ partnerReference: reference });
+    const result = await this.partnerProvider.fetchPartnerContracts({ partnerReference: reference });
+    return {
+      ...result,
+      items: result.items.filter((contract) =>
+        !contract.priceTypeReference
+        || !isFinalCustomerRetailPriceType(contract.priceTypeReference.externalId)),
+    };
   }
 
   async getPriceType(reference: string): Promise<PartnerPriceTypeDTO | null> {
@@ -70,11 +80,20 @@ export class DefaultPartnerLookupService implements PartnerLookupService {
     if (!normalizedReference) {
       throw new IntegrationValidationError("Price type reference is required.");
     }
-    return this.partnerProvider.fetchPriceType({ reference: normalizedReference });
+    if (isFinalCustomerRetailPriceType(normalizedReference)) return null;
+    const priceType = await this.partnerProvider.fetchPriceType({ reference: normalizedReference });
+    return priceType && !isFinalCustomerRetailPriceType(priceType.reference.externalId)
+      ? priceType
+      : null;
   }
 
   async listPriceTypes(): Promise<IntegrationPageResultDTO<PartnerPriceTypeDTO>> {
-    return this.partnerProvider.listPriceTypes();
+    const result = await this.partnerProvider.listPriceTypes();
+    return {
+      ...result,
+      items: result.items.filter((priceType) =>
+        isGovernedPartnerContractPriceType(priceType.reference.externalId)),
+    };
   }
 
   async validateApprovalBinding(

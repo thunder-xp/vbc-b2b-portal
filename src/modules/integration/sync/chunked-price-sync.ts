@@ -30,7 +30,7 @@ export interface PriceSyncStateStore {
   releaseChunk(syncId: string, chunkToken: string): Promise<void>;
   stagePriceTypes(syncId: string, rows: PriceTypeStageRow[]): Promise<number>;
   stageCurrencies(syncId: string, rows: CurrencyStageRow[]): Promise<number>;
-  stagePrices(syncId: string, rows: PriceRegisterStageRow[]): Promise<number>;
+  stagePrices(syncId: string, rows: PriceRegisterStageRow[], pageNumber: number, diagnostics: PricePageDiagnostics): Promise<number>;
   stageRetailHistory?(syncId: string, rows: PriceRegisterStageRow[], sourceOffset: number): Promise<number>;
   checkpoint(syncId: string, input: { stage: PriceSyncStage; processedStage?: PriceSyncStage; pageNumber?: number; pageIntegrity?: PricePageIntegrity; nextSkip: number; rowsScanned: number; rowsStaged: number; pageCompleted: boolean; scanComplete?: boolean; priceDiagnostics?: PricePageDiagnostics; retryCount?: number; requestCount?: number; requestDurationMs?: number; requestDurationsMs?: number[]; stagingDurationMs?: number }): Promise<void>;
   publish(syncId: string): Promise<void>;
@@ -69,7 +69,7 @@ export class ChunkedPriceSyncService {
         assertPageIntegrity(state, processedStage, pageNumber, page);
         const normalizedPricePage = processedStage === "price_register_scan" ? normalizePricePage(page.items as PriceRegisterStageRow[]) : null;
         const stagingStartedAt = performance.now();
-        const staged = await this.stagePage(syncId, processedStage, (normalizedPricePage?.rows ?? page.items) as PriceTypeStageRow[] | CurrencyStageRow[] | PriceRegisterStageRow[]);
+        const staged = await this.stagePage(syncId, processedStage, (normalizedPricePage?.rows ?? page.items) as PriceTypeStageRow[] | CurrencyStageRow[] | PriceRegisterStageRow[], pageNumber, normalizedPricePage?.diagnostics);
         if (processedStage === "price_register_scan" && this.store.stageRetailHistory) {
           await this.store.stageRetailHistory(
             syncId,
@@ -157,10 +157,11 @@ export class ChunkedPriceSyncService {
     if (stage === "price_register_scan") return this.provider.fetchPrices(skip, limit);
     throw new Error("Price sync stage cannot fetch pages.");
   }
-  private stagePage(syncId: string, stage: PriceSyncStage, rows: PriceTypeStageRow[] | CurrencyStageRow[] | PriceRegisterStageRow[]) {
+  private stagePage(syncId: string, stage: PriceSyncStage, rows: PriceTypeStageRow[] | CurrencyStageRow[] | PriceRegisterStageRow[], pageNumber: number, diagnostics?: PricePageDiagnostics) {
     if (stage === "price_type_scan") return this.store.stagePriceTypes(syncId, rows as PriceTypeStageRow[]);
     if (stage === "currency_scan") return this.store.stageCurrencies(syncId, rows as CurrencyStageRow[]);
-    return this.store.stagePrices(syncId, rows as PriceRegisterStageRow[]);
+    if (!diagnostics) throw new Error("Price page diagnostics are required for staging.");
+    return this.store.stagePrices(syncId, rows as PriceRegisterStageRow[], pageNumber, diagnostics);
   }
 }
 
@@ -184,7 +185,21 @@ export class SupabasePriceSyncStateStore implements PriceSyncStateStore {
   async releaseChunk(syncId: string, chunkToken: string) { const { error } = await createAdminClient().from("price_sync_state").update({ active_chunk_token: null, chunk_started_at: null, updated_at: new Date().toISOString() }).eq("id", "product_prices").eq("active_sync_id", syncId).eq("active_chunk_token", chunkToken); if (error) throw persistenceError(error); }
   async stagePriceTypes(syncId: string, rows: PriceTypeStageRow[]) { if (!rows.length) return 0; const { error } = await createAdminClient().from("product_price_type_sync_stage").upsert(rows.map((row) => ({ sync_id: syncId, external_ref: row.externalRef, external_code: row.externalCode, name: row.name, currency_ref: row.currencyRef, source_version: row.sourceVersion, is_active: row.isActive })), { onConflict: "sync_id,external_ref" }); if (error) throw persistenceError(error); return rows.length; }
   async stageCurrencies(syncId: string, rows: CurrencyStageRow[]) { if (!rows.length) return 0; const { error } = await createAdminClient().from("product_currency_sync_stage").upsert(rows.map((row) => ({ sync_id: syncId, external_ref: row.externalRef, code: row.code, name: row.name, is_active: row.isActive })), { onConflict: "sync_id,external_ref" }); if (error) throw persistenceError(error); return rows.length; }
-  async stagePrices(syncId: string, rows: PriceRegisterStageRow[]) { if (!rows.length) return 0; const { data, error } = await createAdminClient().rpc("stage_product_price_rows", { p_sync_id: syncId, p_rows: rows.map((row) => ({ external_product_ref: row.externalProductRef, external_price_type_ref: row.externalPriceTypeRef, external_characteristic_ref: row.externalCharacteristicRef, amount: row.amount, is_current: row.isCurrent, effective_at: row.effectiveAt, currency_code: null, currency_status: "unresolved" })) }); if (error) throw persistenceError(error); return Number(data ?? 0); }
+  async stagePrices(syncId: string, rows: PriceRegisterStageRow[], pageNumber: number, diagnostics: PricePageDiagnostics) {
+    if (!rows.length && !diagnostics.received) return 0;
+    const { data, error } = await createAdminClient().rpc("stage_product_price_rows", {
+      p_sync_id: syncId,
+      p_rows: rows.map((row) => ({ external_product_ref: row.externalProductRef, external_price_type_ref: row.externalPriceTypeRef, external_characteristic_ref: row.externalCharacteristicRef, amount: row.amount, is_current: row.isCurrent, effective_at: row.effectiveAt, currency_code: null, currency_status: "unresolved" })),
+      p_page_number: pageNumber,
+      p_type_metrics: diagnostics.byPriceType.map((metric) => ({
+        external_price_type_ref: metric.externalPriceTypeRef,
+        received_rows: metric.received,
+        prepared_rows: metric.prepared,
+      })),
+    });
+    if (error) throw persistenceError(error);
+    return Number(data ?? 0);
+  }
   async stageRetailHistory(syncId: string, rows: PriceRegisterStageRow[], sourceOffset: number) {
     const retailRows = rows
       .map((row, index) => ({ row, sourceOrdinal: sourceOffset + index }))

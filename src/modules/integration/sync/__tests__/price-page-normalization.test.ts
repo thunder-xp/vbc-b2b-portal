@@ -5,7 +5,18 @@ import { normalizePricePage } from "../price-page-normalization";
 describe("normalizePricePage", () => {
   it("deduplicates the production-shaped page-three fixture", () => {
     const result = normalizePricePage(productionPageThreeFixture);
-    expect(result.diagnostics).toEqual({ received: 5, uniqueKeys: 3, duplicateKeys: 2, rowsDeduplicated: 2 });
+    expect(result.diagnostics).toEqual({
+      received: 5,
+      uniqueKeys: 3,
+      duplicateKeys: 2,
+      rowsDeduplicated: 2,
+      byPriceType: [{
+        externalPriceTypeRef: "type",
+        priceDomain: "INTERNAL/OTHER",
+        received: 5,
+        prepared: 3,
+      }],
+    });
     expect(result.rows).toHaveLength(3);
   });
 
@@ -13,6 +24,20 @@ describe("normalizePricePage", () => {
   it("allows a later inactive row to suppress an earlier active row", () => { const result = normalizePricePage([row({ isCurrent: true }), row({ isCurrent: false })]); expect(result.rows[0].isCurrent).toBe(false); });
   it("collapses identical duplicates", () => { const value = row(); expect(normalizePricePage([value, { ...value }]).rows).toEqual([value]); });
   it("is deterministic for the same stable source order", () => { expect(normalizePricePage(productionPageThreeFixture)).toEqual(normalizePricePage([...productionPageThreeFixture])); });
+
+  it("reports exact received/prepared counts and the retail domain per 1C Ref_Key", () => {
+    const retailRef = "1668b73c-aea5-11f1-1b94-bc2411369b92";
+    const result = normalizePricePage([
+      row({ externalPriceTypeRef: retailRef, amount: 90 }),
+      row({ externalPriceTypeRef: retailRef, amount: 100, effectiveAt: "2026-02-01T00:00:00Z" }),
+      row({ externalProductRef: "gold-product", externalPriceTypeRef: "23cb93ec-3eb5-11f0-8d8a-7239d3b7bd5c" }),
+    ]);
+
+    expect(result.diagnostics.byPriceType).toEqual([
+      { externalPriceTypeRef: retailRef, priceDomain: "FINAL_CUSTOMER_RETAIL_PRICE", received: 2, prepared: 1 },
+      { externalPriceTypeRef: "23cb93ec-3eb5-11f0-8d8a-7239d3b7bd5c", priceDomain: "PARTNER_CONTRACT_PRICE", received: 1, prepared: 1 },
+    ]);
+  });
 });
 
 const productionPageThreeFixture = [
