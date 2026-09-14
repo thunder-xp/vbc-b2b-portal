@@ -16,6 +16,9 @@ export function ProposalDocument({ proposal }: { proposal: CustomerProposalDto }
       return <section className="break-inside-auto" key={section.name}>
         <h2 className="mb-1.5 break-after-avoid text-sm font-semibold text-emerald-800 sm:hidden print:hidden">{section.name}</h2>
         <div className="overflow-hidden"><table className="block w-full border-collapse text-xs sm:table sm:table-fixed print:table">
+          <colgroup><col className="w-8" />{showImage && <col className="w-12" />}<col />
+            <col className="w-16" />{settings.showUnitPrice && <col className="w-24" />}{settings.showLineDiscount && <col className="w-16" />}<col className="w-24" />
+          </colgroup>
           <thead className="hidden bg-emerald-50 text-left text-zinc-700 sm:table-header-group print:table-header-group"><tr><th className="px-2 py-1.5 text-sm font-semibold text-emerald-800" colSpan={showImage ? 3 : 2}>{section.name}</th><th className="w-16 px-2 py-1.5 text-right">Кол-во</th>{settings.showUnitPrice && <th className="w-24 px-2 py-1.5 text-right">Цена за ед.</th>}{settings.showLineDiscount && <th className="w-16 px-2 py-1.5 text-right">Скидка</th>}<th className="w-24 px-2 py-1.5 text-right">Сумма</th></tr></thead>
           <tbody className="block sm:table-row-group print:table-row-group">{section.lines.map((line, lineIndex) => <tr className="grid grid-cols-2 gap-x-3 border-b border-zinc-200 py-1.5 align-top sm:table-row sm:py-0 print:table-row" key={`${section.name}-${line.position}`}>
             <td className="hidden px-2 py-2 text-zinc-500 sm:table-cell print:table-cell">{proposalLineNumber(proposal.schemaVersion, lineIndex, line.position)}</td>

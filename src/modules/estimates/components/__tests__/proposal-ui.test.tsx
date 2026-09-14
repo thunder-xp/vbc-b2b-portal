@@ -105,6 +105,8 @@ describe("proposal UI", () => {
     expect(identity).toHaveClass("text-[11px]", "font-medium");
     expect(description).toHaveClass("text-[10px]", "font-normal");
     expect(identity.compareDocumentPosition(description) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(document.querySelectorAll("colgroup col")).toHaveLength(6);
+    expect(document.querySelectorAll("colgroup col")[1]).not.toHaveAttribute("class");
   });
 
   it("does not render a subtotal for an empty section and renders compact contact details", () => {
