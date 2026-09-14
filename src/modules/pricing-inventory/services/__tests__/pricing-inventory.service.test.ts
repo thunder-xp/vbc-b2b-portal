@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import type {
   CompanyAccessService,
@@ -25,6 +25,27 @@ import type { CommercialRate, ProductPrice, ProductStockBalance } from "../../ty
 import type { ProductSupplierArrival } from "../../repositories";
 
 describe("DefaultPricingInventoryService", () => {
+  it("loads stock-only editor data in two bounded reads without prices or rates", async () => {
+    const repository = new FakePricingInventoryRepository([]);
+    const totals = vi.spyOn(repository, "listStockTotalsForProducts");
+    const arrivals = vi.spyOn(repository, "listSupplierArrivalsForProducts");
+    const prices = vi.spyOn(repository, "listPricesForProducts");
+    const service = new DefaultPricingInventoryService(repository, new FakeCompanyAccessService(), new FakePermissionService(["stock.view"]));
+    expect(await service.getProductStockViews("user-1", ["product-1", "product-2", "product-1"])).toHaveLength(2);
+    expect(totals).toHaveBeenCalledTimes(1);
+    expect(arrivals).toHaveBeenCalledTimes(1);
+    expect(prices).not.toHaveBeenCalled();
+  });
+  it("makes no stock reads for an empty editor or without stock permission", async () => {
+    const repository = new FakePricingInventoryRepository([]);
+    const totals = vi.spyOn(repository, "listStockTotalsForProducts");
+    const arrivals = vi.spyOn(repository, "listSupplierArrivalsForProducts");
+    const service = new DefaultPricingInventoryService(repository, new FakeCompanyAccessService(), new FakePermissionService([]));
+    expect(await service.getProductStockViews("user-1", [])).toEqual([]);
+    expect(await service.getProductStockViews("user-1", ["product-1"])).toEqual([]);
+    expect(totals).not.toHaveBeenCalled();
+    expect(arrivals).not.toHaveBeenCalled();
+  });
   it("projects canonical retail history summaries through one bounded read", async () => {
     const repository = new FakePricingInventoryRepository([]);
     repository.retailHistory = makeRetailHistory();

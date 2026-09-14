@@ -482,12 +482,37 @@ describe("DefaultEstimateService", () => {
       vatMode: "none",
       vatRatePercent: 0,
       globalDiscountPercent: 0,
-      sections: [{ id: sectionId, name: "Переименованный раздел", sortOrder: 0, showSubtotal: true, discountPercent: 0 }],
+      sections: [{ id: sectionId, name: "Переименованный раздел", sortOrder: 0, showSubtotal: false, discountPercent: 0 }],
       lines: [{ id: itemId, sectionId, position: 1, description: "Line", quantity: 1, unit: "pcs", pricingMode: "direct", pricingInputValue: 10, internalCostUnitPrice: null, lineDiscountPercent: 0 }],
       charges: [],
-    })).rejects.toThrow("Системные разделы сметы нельзя переименовывать");
+    })).rejects.toThrow("Порядок и коммерческие правила системных разделов сметы нельзя изменять");
 
     expect(repository.saveCommercialDraft).not.toHaveBeenCalled();
+  });
+
+  it("allows a new label while preserving the canonical section's commercial structure", async () => {
+    const sectionId = "11111111-1111-1111-1111-111111111111";
+    const itemId = "22222222-2222-2222-2222-222222222222";
+    const source = aggregate([{ ...item(1), id: itemId, sectionId }]);
+    source.sections = [{ ...source.sections[0], id: sectionId, name: "Оборудование", systemKey: "equipment" }];
+    vi.mocked(repository.findAggregateById).mockResolvedValue(source);
+    await service.saveCommercialDraft("user-1", estimate.id, {
+      expectedRevision: 3, name: "Estimate", customerName: null, projectName: null, validityDays: 14,
+      currencyCode: "USD", currencyChangePolicy: "preserve_manual", vatMode: "none", vatRatePercent: 0, globalDiscountPercent: 0,
+      sections: [{ id: sectionId, name: "Камеры объекта", sortOrder: 0, showSubtotal: true, discountPercent: 0 }],
+      lines: [{ id: itemId, sectionId, position: 1, description: "Line", quantity: 1, unit: "pcs", pricingMode: "direct", pricingInputValue: 10, internalCostUnitPrice: null, lineDiscountPercent: 0 }], charges: [],
+    });
+    expect(repository.saveCommercialDraft).toHaveBeenCalledWith(expect.objectContaining({ sections: [expect.objectContaining({ id: sectionId, name: "Камеры объекта", sortOrder: 0, showSubtotal: true, discountPercent: 0 })] }));
+  });
+
+  it("does not report a failed detail response when optional stock presentation is unavailable", async () => {
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    pricing.getProductStockViews = vi.fn().mockRejectedValue(new Error("unavailable"));
+    vi.mocked(repository.findAggregateById).mockResolvedValue(aggregate([{ ...item(1), lineType: "product", productId: "product-1" }]));
+    const detail = await service.getDetail("user-1", estimate.id);
+    expect(detail.lines[0].currentStockStatus).toBeNull();
+    expect(warning).toHaveBeenCalledWith(expect.objectContaining({ event: "estimate_stock_projection_unavailable", productCount: 1 }));
+    warning.mockRestore();
   });
 
   it("reuses the catalog aggregate commercial projection in product search", async () => {

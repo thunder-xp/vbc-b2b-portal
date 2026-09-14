@@ -14,6 +14,7 @@ import {
 import type { EstimateDetailDto, EstimateProductPickerDto, EstimateServiceDto } from "../services";
 import type { ExternalNomenclatureItemType } from "../repositories";
 import { ExternalNomenclaturePicker } from "./ExternalNomenclaturePicker";
+import { estimateStockLabel as pickerStockLabel } from "./estimate-stock-label";
 import { getCatalogCopy, getEstimatesCopy, usePartnerLocale, type EstimatesCopy } from "../../partner-locale";
 
 const inputClass = "min-h-11 min-w-0 rounded-md border border-zinc-300 bg-white px-2 text-sm outline-none focus:border-emerald-600 focus-visible:ring-2 focus-visible:ring-emerald-200 disabled:bg-zinc-100";
@@ -77,7 +78,7 @@ export function EstimateLinePicker({ estimate, services, onResult, disabled, mod
         categoryId: String(data.get("categoryId") ?? "") || undefined,
         brandId: String(data.get("brandId") ?? "") || undefined,
       });
-      setMessage(result.success ? copy.operationSucceeded : copy.operationFailed);
+      setMessage(result.success ? null : copy.operationFailed);
       if (result.success) {
         setProducts(result.data);
         if (search) setRecentSearches((current) => [search, ...current.filter((item) => item !== search)].slice(0, 3));
@@ -182,12 +183,4 @@ function pickerModeLabel(mode: EstimateLinePickerMode, copy: EstimatesCopy): str
   if (mode === "product") return copy.catalogNovotech;
   if (mode === "service") return copy.worksAndServices;
   return copy.externalPosition;
-}
-
-function pickerStockLabel(product: EstimateProductPickerDto["products"][number], copy: ReturnType<typeof getCatalogCopy>): string {
-  if (product.stockStatus === "in_stock") return product.availableQuantity == null ? copy.inStock : `${copy.inStock}: ${product.availableQuantity}`;
-  if (product.stockStatus === "low_stock") return product.availableQuantity == null ? copy.lowStock : `${copy.lowStock}: ${product.availableQuantity}`;
-  if (product.stockStatus === "expected") return copy.expected;
-  if (product.stockStatus === "out_of_stock") return copy.outOfStock;
-  return copy.availabilityPending;
 }

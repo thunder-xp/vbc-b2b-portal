@@ -446,7 +446,7 @@ export class SupabaseEstimateRepository implements EstimateRepository {
 
   async addLines(input: import("../estimate.repository").AddEstimateLineBatchInput): Promise<void> {
     const supabase = await createClient();
-    const { error } = await supabase.rpc("add_estimate_items_v2", {
+    const { error } = await supabase.rpc(input.mergeExisting ? "quick_add_estimate_item" : "add_estimate_items_v2", {
       target_estimate_id: input.estimateId,
       expected_revision: input.expectedRevision,
       target_section_id: input.targetSectionId,

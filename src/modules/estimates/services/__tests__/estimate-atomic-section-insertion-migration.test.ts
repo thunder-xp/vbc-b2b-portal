@@ -14,7 +14,7 @@ describe("estimate atomic section insertion migration", () => {
     expect(sql).toContain("function public.add_estimate_external_item_v2(");
     expect(sql).not.toContain("function public.add_estimate_items(");
     expect(sql).not.toContain("function public.add_estimate_external_item(");
-    expect(repository).toContain('.rpc("add_estimate_items_v2"');
+    expect(repository).toContain('input.mergeExisting ? "quick_add_estimate_item" : "add_estimate_items_v2"');
     expect(nomenclatureSql).toContain("function public.add_estimate_external_item_v3(");
     expect(nomenclatureSql).not.toContain("drop function public.add_estimate_external_item_v2");
     expect(repository).toContain('.rpc("add_estimate_external_item_v3"');

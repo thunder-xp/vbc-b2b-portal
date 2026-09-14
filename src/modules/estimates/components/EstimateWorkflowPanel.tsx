@@ -32,12 +32,13 @@ import { ESTIMATE_DIRTY_STATE_EVENT, type EstimateDirtyStateDetail } from "./est
 import { ESTIMATE_PDF_READY_EVENT, notifyEstimatePdfReady, type EstimatePdfReadyDetail } from "./EstimatePdfShareAction";
 import { SendProposalDialog } from "./SendProposalDialog";
 
-export function EstimateWorkflowPanel({ initialWorkflow, revision, initialProposalAction, draftReadiness = initialWorkflow.draftReadiness ?? inactiveDraftReadiness, onDraftPrimaryAction = () => undefined }: {
+export function EstimateWorkflowPanel({ initialWorkflow, revision, initialProposalAction, draftReadiness = initialWorkflow.draftReadiness ?? inactiveDraftReadiness, onDraftPrimaryAction = () => undefined, editorOwnsSave = false }: {
   initialWorkflow: EstimateWorkflowDto;
   revision: number;
   initialProposalAction?: { kind: "resend"; versionId: string } | null;
   draftReadiness?: EstimateDraftReadinessDto;
   onDraftPrimaryAction?: (readiness: EstimateDraftReadinessDto) => void;
+  editorOwnsSave?: boolean;
 }) {
   const locale = usePartnerLocale();
   const copy = getEstimatesCopy(locale);
@@ -157,7 +158,7 @@ export function EstimateWorkflowPanel({ initialWorkflow, revision, initialPropos
       {draftGuide?.primaryAction ? <div className="w-full shrink-0 sm:w-auto" data-testid="estimate-primary-next-action">
         {draftGuide.primaryAction === "prepare_proposal" ? <button className={`${primary} w-full sm:w-auto`} disabled={pending} onClick={prepareProposal} type="button"><FilePlus2 className="size-4" />{pending ? copy.preparing : copy.prepareProposal}</button> : null}
         {draftGuide.primaryAction === "generate_pdf" ? <button className={`${primary} w-full sm:w-auto`} disabled={pdfPending} onClick={generatePdf} type="button"><Download className="size-4" />{pdfPending ? copy.preparing : copy.prepareProposal}</button> : null}
-        {!["prepare_proposal", "generate_pdf"].includes(draftGuide.primaryAction) ? <button aria-keyshortcuts={draftGuide.primaryAction === "save" ? "Control+S Meta+S" : undefined} className={`${primary} w-full sm:w-auto`} disabled={pending} onClick={() => onDraftPrimaryAction(draftGuide)} type="button">{draftPrimaryIcon(draftGuide.primaryAction)}{draftPrimaryLabel(draftGuide.state, copy)}</button> : null}
+        {!["prepare_proposal", "generate_pdf"].includes(draftGuide.primaryAction) && !(editorOwnsSave && draftGuide.primaryAction === "save") ? <button aria-keyshortcuts={draftGuide.primaryAction === "save" ? "Control+S Meta+S" : undefined} className={`${primary} w-full sm:w-auto`} disabled={pending} onClick={() => onDraftPrimaryAction(draftGuide)} type="button">{draftPrimaryIcon(draftGuide.primaryAction)}{draftPrimaryLabel(draftGuide.state, copy)}</button> : null}
       </div> : guided.primaryAction ? <div className="w-full shrink-0 sm:w-auto" data-testid="estimate-primary-next-action">
         {guided.primaryAction === "send" ? sendDialog : null}
         {guided.primaryAction === "update" && proposal ? <button className={`${primary} w-full sm:w-auto`} disabled={pending} onClick={() => run(() => createDraftFromEstimateVersionAction(proposal.id))} type="button">{copy.updateProposal}</button> : null}
