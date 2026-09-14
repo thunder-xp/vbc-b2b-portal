@@ -11,6 +11,10 @@ const optimizedSql = readFileSync(
   resolve(process.cwd(), "supabase/migrations/20260914121741_partner_price_publication_delta_headroom.sql"),
   "utf8",
 );
+const triggerHeadroomSql = readFileSync(
+  resolve(process.cwd(), "supabase/migrations/20260914135944_partner_price_insert_trigger_headroom.sql"),
+  "utf8",
+);
 
 describe("partner-price publication headroom migrations", () => {
   it("persists bounded operational diagnostics without exposing a new browser data path", () => {
@@ -26,6 +30,11 @@ describe("partner-price publication headroom migrations", () => {
     expect(optimizedSql).toMatch(/on conflict \(product_id, external_1c_price_type_id\) do nothing/i);
     expect(optimizedSql).toMatch(/update public\.product_prices current_price[\s\S]*?is distinct from row/i);
     expect(optimizedSql).not.toMatch(/last_seen_sync_id is distinct from p_sync_id/i);
+  });
+
+  it("excludes existing rows before INSERT trigger evaluation", () => {
+    expect(triggerHeadroomSql).toMatch(/left join public\.product_prices current_price[\s\S]*?current_price\.id is null[\s\S]*?on conflict/i);
+    expect(triggerHeadroomSql).toContain("unchanged rows are excluded before INSERT trigger evaluation");
   });
 
   it("deactivates only currently active prices that are absent from the governed stage", () => {
@@ -47,5 +56,7 @@ describe("partner-price publication headroom migrations", () => {
   it("retains service-role-only execution for the publication boundary", () => {
     expect(optimizedSql).toMatch(/revoke all on function public\.publish_product_prices_with_retail_history\(uuid\)[\s\S]*from public, anon, authenticated/i);
     expect(optimizedSql).toMatch(/grant execute on function public\.publish_product_prices_with_retail_history\(uuid\)[\s\S]*to service_role/i);
+    expect(triggerHeadroomSql).toMatch(/revoke all on function public\.publish_product_price_snapshot\(uuid\)[\s\S]*from public, anon, authenticated, service_role/i);
+    expect(triggerHeadroomSql).toMatch(/grant execute on function public\.publish_product_price_snapshot\(uuid\)[\s\S]*to service_role/i);
   });
 });
