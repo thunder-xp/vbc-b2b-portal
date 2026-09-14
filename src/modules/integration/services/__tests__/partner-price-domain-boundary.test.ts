@@ -6,6 +6,7 @@ import { DefaultPartnerLookupService } from "../partner-lookup.service";
 
 const GOLD = "23cb93ec-3eb5-11f0-8d8a-7239d3b7bd5c";
 const BCR_A = "1668b73c-aea5-11f1-1b94-bc2411369b92";
+const INTERNAL_ACCOUNTING = "7481362e-b5b8-11e4-8355-74d02b7dfd8c";
 
 describe("partner price-domain boundary", () => {
   it("does not expose A/B/C BCR in the partner price-type selector", async () => {
@@ -27,6 +28,14 @@ describe("partner price-domain boundary", () => {
   it("fails closed when final-customer retail Ref_Key is requested directly", async () => {
     const provider = providerFixture([priceType(BCR_A)]);
     await expect(new DefaultPartnerLookupService(provider).getPriceType(BCR_A)).resolves.toBeNull();
+    expect(provider.fetchPriceType).not.toHaveBeenCalled();
+  });
+
+  it("fails closed for unapproved internal price types", async () => {
+    const provider = providerFixture([priceType(INTERNAL_ACCOUNTING)]);
+    await expect(
+      new DefaultPartnerLookupService(provider).getPriceType(INTERNAL_ACCOUNTING),
+    ).resolves.toBeNull();
     expect(provider.fetchPriceType).not.toHaveBeenCalled();
   });
 });

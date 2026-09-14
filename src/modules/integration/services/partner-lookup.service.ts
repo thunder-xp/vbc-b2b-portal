@@ -80,9 +80,9 @@ export class DefaultPartnerLookupService implements PartnerLookupService {
     if (!normalizedReference) {
       throw new IntegrationValidationError("Price type reference is required.");
     }
-    if (isFinalCustomerRetailPriceType(normalizedReference)) return null;
+    if (!isGovernedPartnerContractPriceType(normalizedReference)) return null;
     const priceType = await this.partnerProvider.fetchPriceType({ reference: normalizedReference });
-    return priceType && !isFinalCustomerRetailPriceType(priceType.reference.externalId)
+    return priceType && isGovernedPartnerContractPriceType(priceType.reference.externalId)
       ? priceType
       : null;
   }
