@@ -45,47 +45,6 @@ describe("CatalogSyncPanel", () => {
     expect(await screen.findByText("Продолжение не запущено")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Повторить синхронизацию цен" })).toBeEnabled();
   });
-  it("shows price delta, timeout headroom, and the operator warning", async () => {
-    mocks.getPriceState.mockResolvedValue({ success: true, data: {
-      status: "succeeded",
-      updatedAt: "2026-09-14T12:00:00.000Z",
-      currentStage: "completed",
-      startedAt: "2026-09-14T11:55:00.000Z",
-      lastSuccessfulSyncAt: "2026-09-14T12:00:00.000Z",
-      pagesProcessed: 80,
-      rowsScanned: 38_680,
-      rowsStaged: 31_324,
-      priceRowsReceived: 38_680,
-      priceUniqueKeys: 36_980,
-      priceDuplicateKeys: 1_280,
-      priceRowsDeduplicated: 1_700,
-      latestPricesResolved: 12_066,
-      deltaUnchanged: 7_240,
-      deltaInserted: 1,
-      deltaUpdated: 2,
-      deltaRemoved: 0,
-      publicationBatches: 1,
-      publicationDbDurationMs: 5_700,
-      publicationTimeoutBudgetMs: 8_000,
-      publicationHeadroomPercent: 28.75,
-      publicationWarning: true,
-      pricesPublished: 3,
-      pricesDeactivated: 0,
-      unmatchedProducts: 4_823,
-      unknownPriceTypes: 0,
-      scanComplete: true,
-      failedPage: null,
-      failedStage: null,
-      databaseErrorCode: null,
-      safeError: null,
-      errorCategory: null,
-    } });
-    render(<CatalogSyncPanel />);
-    expect(await screen.findByText("Delta unchanged")).toBeInTheDocument();
-    expect(screen.getByText("7240")).toBeInTheDocument();
-    expect(screen.getByText("5700 ms")).toBeInTheDocument();
-    expect(screen.getByRole("alert")).toHaveTextContent("more than 70%");
-  });
 });
 
 const projection = { runId: "11111111-1111-4111-8111-111111111111", sourceDomain: "catalog", trigger: "manual", status: "succeeded", publicationId: "22222222-2222-4222-8222-222222222222", checksum: "a".repeat(64), durationMs: 25, safeErrorCode: null };

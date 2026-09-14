@@ -20,6 +20,18 @@ export interface AdminIntegrationState {
   excluded: number;
   safeErrorCode: string | null;
   runId: string | null;
+  pricePublication?: {
+    stagedRows: number;
+    unchanged: number;
+    inserted: number;
+    updated: number;
+    removed: number;
+    batches: number;
+    databaseDurationMs: number;
+    timeoutBudgetMs: number;
+    headroomPercent: number;
+    warning: boolean;
+  };
 }
 
 export interface AdminIntegrationCenter {

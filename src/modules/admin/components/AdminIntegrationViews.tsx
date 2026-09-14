@@ -3,6 +3,7 @@ import Link from "next/link";
 import type {
   AdminIntegrationCenter,
   AdminIntegrationIncident,
+  AdminIntegrationState,
   AdminSyncJobPage,
 } from "../types";
 
@@ -24,6 +25,9 @@ export function AdminIntegrationCenterView({
             <Row label="Опубликовано" value={item.published} />
             <Row label="Исключено" value={item.excluded} />
           </dl>
+          {item.pricePublication ? (
+            <PricePublicationDiagnostics diagnostics={item.pricePublication} />
+          ) : null}
           <p className="mt-3 text-xs text-zinc-500">
             {item.lastSuccessAt
               ? formatDate(item.lastSuccessAt)
@@ -32,6 +36,33 @@ export function AdminIntegrationCenterView({
         </article>
       ))}
     </div>
+  );
+}
+
+function PricePublicationDiagnostics({
+  diagnostics,
+}: {
+  diagnostics: NonNullable<AdminIntegrationState["pricePublication"]>;
+}) {
+  return (
+    <section className="mt-4 border-t border-zinc-200 pt-3" aria-label="Диагностика публикации цен">
+      {diagnostics.warning ? (
+        <p className="mb-3 border border-amber-300 bg-amber-50 p-2 text-xs font-medium text-amber-900" role="alert">
+          Публикация использовала более 70% лимита времени БД.
+        </p>
+      ) : null}
+      <dl className="space-y-2 text-xs">
+        <Row label="Подготовлено" value={diagnostics.stagedRows} />
+        <Row label="Без изменений" value={diagnostics.unchanged} />
+        <Row label="Добавлено" value={diagnostics.inserted} />
+        <Row label="Обновлено" value={diagnostics.updated} />
+        <Row label="Удалено" value={diagnostics.removed} />
+        <Row label="Пакеты публикации" value={diagnostics.batches} />
+        <Row label="Время БД" value={`${diagnostics.databaseDurationMs} ms`} />
+        <Row label="Лимит БД" value={`${diagnostics.timeoutBudgetMs} ms`} />
+        <Row label="Запас времени" value={`${diagnostics.headroomPercent}%`} />
+      </dl>
+    </section>
   );
 }
 
@@ -102,7 +133,7 @@ export function AdminIncidentList({
   );
 }
 
-function Row({ label, value }: { label: string; value: number }) {
+function Row({ label, value }: { label: string; value: number | string }) {
   return (
     <div className="flex justify-between gap-4">
       <dt className="text-zinc-600">{label}</dt>
