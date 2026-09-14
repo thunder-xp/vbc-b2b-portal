@@ -92,17 +92,35 @@ export class SupabaseCartRepository implements CartRepository {
     if (error) throw new OrderRepositoryError();
   }
 
-  async mergeEstimateProducts(input: Parameters<CartRepository["mergeEstimateProducts"]>[0]): Promise<string> {
-    const { data, error } = await (await createClient()).rpc("merge_estimate_products_into_cart", {
-      target_company_id: input.companyId,
+  async mergeEstimateProducts(input: Parameters<CartRepository["mergeEstimateProducts"]>[0]) {
+    const { data, error } = await (await createClient()).rpc("transfer_estimate_to_cart_v2", {
       target_estimate_id: input.estimateId,
-      target_version_id: input.versionId,
-      target_items: input.items.map((item) => ({ product_id: item.productId, quantity: item.quantity })),
       target_request_key: input.requestKey,
-      target_summary: input.summary,
+      target_items: input.items.map((item) => ({
+        line_id: item.lineId,
+        product_id: item.productId,
+        requested_quantity: item.quantity,
+        current_price: item.currentPrice,
+        currency_code: item.currencyCode,
+        available_quantity: item.availableQuantity,
+        stock_status: item.stockStatus,
+      })),
     });
-    if (error || !data) throw new OrderRepositoryError(error?.code ?? null, error?.message ?? null);
-    return String(data);
+    if (error || !isRecord(data)) throw new OrderRepositoryError(error?.code ?? null, error?.message ?? null);
+    return {
+      cartId: text(data.cartId),
+      totalLines: Number(data.totalLines ?? 0),
+      catalogLines: Number(data.catalogLines ?? 0),
+      fullyAvailable: Number(data.fullyAvailable ?? 0),
+      partiallyAvailable: Number(data.partiallyAvailable ?? 0),
+      unavailable: Number(data.unavailable ?? 0),
+      stockUnknown: Number(data.stockUnknown ?? 0),
+      externalLines: Number(data.externalLines ?? 0),
+      changedPrice: Number(data.changedPrice ?? 0),
+      demandCaptured: Number(data.demandCaptured ?? 0),
+      correlationId: text(data.correlationId),
+      repeated: data.repeated === true,
+    };
   }
 
   async mergeOrderReorderItems(input: Parameters<CartRepository["mergeOrderReorderItems"]>[0]) {

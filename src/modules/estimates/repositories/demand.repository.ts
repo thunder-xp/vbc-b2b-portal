@@ -1,4 +1,4 @@
-import type { ExternalDemandDetail, ExternalDemandResponseType, ExternalDemandState, ExternalDemandStatus, ExternalDemandSummary } from "../types";
+import type { ExternalDemandDetail, ExternalDemandResponseType, ExternalDemandState, ExternalDemandStatus, ExternalDemandSummary, UnmetDemandAnalytics, UnmetDemandEvidenceDetail, UnmetDemandWindow } from "../types";
 
 export interface ExternalDemandRepository {
   setPartnerRequest(estimateId: string, estimateItemId: string, action: "request" | "cancel"): Promise<ExternalDemandState>;
@@ -7,4 +7,6 @@ export interface ExternalDemandRepository {
   searchAdminProducts(query: string, limit: number): Promise<Array<{ id: string; sku: string; name: string }>>;
   transition(input: { requestId: string; expectedVersion: number; status: Exclude<ExternalDemandStatus, "new" | "cancelled">; responseType?: ExternalDemandResponseType; catalogProductId?: string }): Promise<ExternalDemandState>;
   curate(sourceItemId: string, canonicalItemId: string, reason: string): Promise<string>;
+  listUnmetDemand(input: { window: UnmetDemandWindow; search?: string; limit: number; offset: number }): Promise<UnmetDemandAnalytics>;
+  getUnmetDemandDetail(productId: string, window: UnmetDemandWindow, limit: number, offset: number): Promise<UnmetDemandEvidenceDetail | null>;
 }

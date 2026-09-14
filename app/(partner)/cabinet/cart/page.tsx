@@ -141,9 +141,11 @@ export default async function CartPage() {
                               <p className="mt-1 text-xs text-zinc-600">
                                 {line.availableStock === null
                                   ? copy.stockPending
-                                  : line.availableStock > 0
-                                    ? `${copy.inStock}: ${line.availableStock} ${copy.units}`
-                                    : copy.outOfStock}
+                                  : line.availableStock <= 0
+                                    ? copy.outOfStock
+                                    : line.availableStock < line.quantity
+                                      ? `${copy.availableOfRequested.replace("{available}", String(line.availableStock)).replace("{requested}", String(line.quantity))}`
+                                      : copy.inStock}
                               </p>
                               {line.nearestArrivalDate && (
                                 <p className="mt-1 text-xs text-zinc-600">

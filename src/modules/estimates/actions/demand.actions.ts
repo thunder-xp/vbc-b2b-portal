@@ -51,3 +51,11 @@ export async function getExternalDemandForAdmin(externalItemId: string) {
 export async function searchExternalDemandProductsForAdmin(query: string) {
   return service.searchAdminProducts(query);
 }
+
+export async function listUnmetDemandForAdmin(input: { window?: number; search?: string; page?: number }) {
+  return service.listUnmetDemand(input);
+}
+
+export async function getUnmetDemandDetailForAdmin(productId: string, window?: number, page?: number) {
+  return service.getUnmetDemandDetail(productId, window, page);
+}

@@ -26,6 +26,21 @@ export type CartReconciliationLock = {
   attemptCount: number;
 };
 
+export type EstimateCartTransferResult = {
+  cartId: string;
+  totalLines: number;
+  catalogLines: number;
+  fullyAvailable: number;
+  partiallyAvailable: number;
+  unavailable: number;
+  stockUnknown: number;
+  externalLines: number;
+  changedPrice: number;
+  demandCaptured: number;
+  correlationId: string;
+  repeated: boolean;
+};
+
 export interface CartRepository {
   getActiveItemCount(companyId: string): Promise<number>;
   findActive(companyId: string, userId: string): Promise<Cart | null>;
@@ -41,9 +56,16 @@ export interface CartRepository {
     estimateId: string;
     versionId: string | null;
     requestKey: string;
-    items: Array<{ productId: string; quantity: number }>;
-    summary: Record<string, number>;
-  }): Promise<string>;
+    items: Array<{
+      lineId: string;
+      productId: string;
+      quantity: number;
+      currentPrice: number | null;
+      currencyCode: string | null;
+      availableQuantity: number | null;
+      stockStatus: "FULLY_AVAILABLE" | "PARTIAL_STOCK" | "OUT_OF_STOCK" | "STOCK_UNKNOWN" | "NOT_STOCKED";
+    }>;
+  }): Promise<EstimateCartTransferResult>;
   mergeOrderReorderItems(input: {
     orderId: string;
     requestKey: string;

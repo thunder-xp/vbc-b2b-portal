@@ -24,6 +24,7 @@ import type {
   EstimateDraftReadinessState,
   EstimateGuidedState,
   EstimateRejectionReason,
+  EstimateCartConversionSummary,
   EstimateWorkflowDto,
   ProposalDeliverySummaryDto,
 } from "../types";
@@ -42,6 +43,7 @@ export function EstimateWorkflowPanel({ initialWorkflow, revision, initialPropos
   const copy = getEstimatesCopy(locale);
   const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
+  const [conversionResult, setConversionResult] = useState<EstimateCartConversionSummary | null>(null);
   const [rejectionReason, setRejectionReason] = useState<EstimateRejectionReason | "">("");
   const [conversionOpen, setConversionOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -97,11 +99,12 @@ export function EstimateWorkflowPanel({ initialWorkflow, revision, initialPropos
     if (result.success) router.push(`/cabinet/estimates/${result.data.estimateId}`);
   });
   const addToCart = () => startTransition(async () => {
-    const requestKey = proposal?.id ?? crypto.randomUUID();
+    const requestKey = crypto.randomUUID();
     const result = await addEstimateEquipmentToCartAction(initialWorkflow.estimateId, proposal?.id ?? null, requestKey);
     if (!result.success) return setMessage(copy.operationFailed);
-    setMessage(copy.cartResult.replace("{added}", String(result.data.added)).replace("{updated}", String(result.data.updated)).replace("{changed}", String(result.data.changedPrice)).replace("{unavailable}", String(result.data.unavailable + result.data.inactive)).replace("{missing}", String(result.data.missingPrice)).replace("{skipped}", String(result.data.skipped)));
-    router.push("/cabinet/cart");
+    setMessage(null);
+    setConversionResult(result.data);
+    router.refresh();
   });
   const generatePdf = () => {
     if (!proposal || pdfPending) return;
@@ -158,13 +161,29 @@ export function EstimateWorkflowPanel({ initialWorkflow, revision, initialPropos
       </div> : guided.primaryAction ? <div className="w-full shrink-0 sm:w-auto" data-testid="estimate-primary-next-action">
         {guided.primaryAction === "send" ? sendDialog : null}
         {guided.primaryAction === "update" && proposal ? <button className={`${primary} w-full sm:w-auto`} disabled={pending} onClick={() => run(() => createDraftFromEstimateVersionAction(proposal.id))} type="button">{copy.updateProposal}</button> : null}
-        {guided.primaryAction === "continue_order" ? <button className={`${primary} w-full sm:w-auto`} disabled={pending} onClick={() => setConversionOpen(true)} type="button"><ShoppingCart className="size-4" />{copy.placeOrder}</button> : null}
+        {guided.primaryAction === "continue_order" ? <button className={`${primary} w-full sm:w-auto`} disabled={pending} onClick={() => setConversionOpen(true)} type="button"><ShoppingCart className="size-4" />{copy.addEquipmentToCart}</button> : null}
         {guided.primaryAction === "resume_checkout" ? <Link className={`${primary} w-full sm:w-auto`} href="/cabinet/cart"><ShoppingCart className="size-4" />{copy.resumeOrder}</Link> : null}
         {guided.primaryAction === "open_order" && initialWorkflow.lifecycleOrderId ? <Link className={`${primary} w-full sm:w-auto`} href={`/cabinet/orders/${initialWorkflow.lifecycleOrderId}`}>{copy.openOrder}</Link> : null}
       </div> : null}
     </div>
 
+    {initialWorkflow.permissions.canConvert && guided.primaryAction !== "continue_order" ? <div className="mt-3 flex justify-end">
+      <button className={`${secondary} w-full sm:w-auto`} data-testid="estimate-transfer-to-cart" disabled={pending} onClick={() => setConversionOpen(true)} type="button"><ShoppingCart className="size-4" />{copy.addEquipmentToCart}</button>
+    </div> : null}
+
     {message ? <p aria-live="polite" className="mt-3 border-l-4 border-emerald-600 bg-emerald-50 px-3 py-2 text-sm">{message}</p> : null}
+
+    {conversionResult ? <div aria-live="polite" className="mt-3 border-l-4 border-emerald-600 bg-emerald-50 px-4 py-3 text-sm text-zinc-800" data-testid="estimate-cart-transfer-summary">
+      <p className="font-semibold text-zinc-950">{copy.cartTransferSuccess}</p>
+      <p className="mt-1">{copy.cartTransferSummary
+        .replace("{total}", String(conversionResult.totalLines))
+        .replace("{full}", String(conversionResult.fullyAvailable))
+        .replace("{partial}", String(conversionResult.partiallyAvailable))
+        .replace("{unavailable}", String(conversionResult.unavailable))}</p>
+      {conversionResult.stockUnknown > 0 ? <p className="mt-1 text-amber-800">{copy.cartTransferUnknown.replace("{count}", String(conversionResult.stockUnknown))}</p> : null}
+      {conversionResult.externalLines > 0 ? <p className="mt-1 text-zinc-600">{copy.cartTransferExternal.replace("{count}", String(conversionResult.externalLines))}</p> : null}
+      <Link className="mt-3 inline-flex min-h-11 items-center gap-2 bg-zinc-950 px-4 font-semibold text-white" href="/cabinet/cart"><ShoppingCart className="size-4" />{copy.goToCart}</Link>
+    </div> : null}
 
     {!draftGuide && proposal && guided.secondaryActions.some((action) => ["preview", "pdf", "send", "resend"].includes(action)) ? <div aria-label={copy.proposalOutputActions} className="mt-3 flex flex-wrap items-center gap-2 border-t border-zinc-100 pt-3">
       {guided.secondaryActions.includes("preview") ? <Link className={quiet} href={`/cabinet/estimates/${initialWorkflow.estimateId}/versions/${proposal.id}/preview`} prefetch={false}>{copy.preview}</Link> : null}

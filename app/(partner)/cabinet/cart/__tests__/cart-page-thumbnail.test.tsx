@@ -5,7 +5,8 @@ import CartPage from "../page";
 
 vi.mock("server-only", () => ({}));
 vi.mock("next/image", () => ({ default: ({ alt, src }: { alt: string; src: string }) => <span aria-label={alt || undefined} data-src={src} role={alt ? "img" : "presentation"} /> }));
-vi.mock("@/src/modules/orders/actions", () => ({ getCartAction: vi.fn().mockResolvedValue({ success: true, data: { id: "cart-1", positionCount: 1, totalUnitCount: 2, total: "$20.00", commercialMode: "full", submitting: false, lines: [{ id: "line-1", productId: "product-1", slug: "camera", productName: "Camera", sku: "400001", imageUrl: null, quantity: 2, partnerUnitPrice: "$10.00", partnerLineTotal: "$20.00", retailUnitPrice: null, retailLineTotal: null, availableStock: 3, nearestArrivalDate: null, nearestArrivalQuantity: null, availabilityGroup: "available" }] } }) }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
+vi.mock("@/src/modules/orders/actions", () => ({ getCartAction: vi.fn().mockResolvedValue({ success: true, data: { id: "cart-1", positionCount: 1, totalUnitCount: 2, total: "$20.00", commercialMode: "full", submitting: false, lines: [{ id: "line-1", productId: "product-1", slug: "camera", productName: "Camera", sku: "400001", imageUrl: null, quantity: 2, partnerUnitPrice: "$10.00", partnerLineTotal: "$20.00", retailUnitPrice: null, retailLineTotal: null, availableStock: 1, nearestArrivalDate: null, nearestArrivalQuantity: null, availabilityGroup: "available" }] } }) }));
 vi.mock("@/src/modules/orders/components/CartItemActions", () => ({ CartItemActions: () => <button type="button">Actions</button> }));
 vi.mock("@/src/modules/orders/components/OrderSubmitForm", () => ({ OrderSubmitForm: () => <button type="button">Submit</button> }));
 vi.mock("@/src/modules/estimates/components/CreateEstimateFromCartButton", () => ({ CreateEstimateFromCartButton: () => null }));
@@ -20,5 +21,6 @@ describe("cart product rows", () => {
     expect(thumbnail.compareDocumentPosition(product) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getAllByText("$20.00")).toHaveLength(2);
     expect(thumbnail.parentElement).toHaveClass("grid-cols-[3.5rem_minmax(0,1fr)]");
+    expect(screen.getByText("Доступно 1 из 2")).toBeInTheDocument();
   });
 });

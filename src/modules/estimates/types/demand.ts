@@ -43,3 +43,60 @@ export type ExternalDemandDetail = {
   requests: ExternalDemandRequestDetail[];
   possibleDuplicates: Array<{ id: string; manufacturer: string; model: string; name: string }>;
 };
+
+export type UnmetDemandWindow = 30 | 90 | 180;
+export type MoneyByCurrency = Record<string, number>;
+
+export type UnmetDemandAnalyticsItem = {
+  productId: string;
+  sku: string;
+  productName: string;
+  brandName: string | null;
+  categoryName: string | null;
+  partnerCount: number;
+  requests: number;
+  requestedQuantity: number;
+  shortageQuantity: number;
+  potentialValueByCurrency: MoneyByCurrency;
+  lastDemandAt: string;
+  trend: "up" | "down" | "stable";
+};
+
+export type UnmetDemandAnalytics = {
+  windowDays: UnmetDemandWindow;
+  summary: {
+    requests: number;
+    uniqueSku: number;
+    uniquePartners: number;
+    shortageUnits: number;
+    potentialValueByCurrency: MoneyByCurrency;
+  };
+  items: UnmetDemandAnalyticsItem[];
+  total: number;
+};
+
+export type UnmetDemandEvidenceDetail = {
+  product: {
+    productId: string;
+    sku: string;
+    productName: string;
+    brandName: string | null;
+    categoryName: string | null;
+  };
+  events: Array<{
+    id: string;
+    companyName: string;
+    partnerUserId: string;
+    estimateId: string;
+    estimateNumber: string;
+    finalCustomerId: string | null;
+    requestedQuantity: number;
+    availableQuantity: number;
+    shortageQuantity: number;
+    priceAtDemand: number | null;
+    currencyCode: string | null;
+    reason: "PARTIAL_STOCK" | "OUT_OF_STOCK" | "NOT_STOCKED" | "DISCONTINUED";
+    occurredAt: string;
+    correlationId: string;
+  }>;
+};

@@ -268,18 +268,11 @@ export class EstimateLifecycleService {
     const companyId = await this.resolveCompany(userId, CONVERT_PERMISSION);
     const estimate = await this.estimateRepository.findById(normalizeId(estimateId));
     if (!estimate || estimate.companyId !== companyId) throw new NotFoundError("Смета не найдена.");
-    let lines: Array<{ productId: string; quantity: number; snapshotPartnerPrice: number | null }>;
-    if (versionId) {
-      const version = await this.lifecycleRepository.findVersion(normalizeId(versionId));
-      if (!version || version.estimateId !== estimate.id || version.companyId !== companyId) throw new NotFoundError("Версия сметы не найдена.");
-      lines = versionProductLines(version);
-    } else {
-      const aggregate = await this.estimateRepository.findAggregateById(estimate.id);
-      if (!aggregate) throw new NotFoundError("Смета не найдена.");
-      lines = aggregate.items.flatMap((item) => item.lineType === "product" && item.productId
-        ? [{ productId: item.productId, quantity: item.quantity, snapshotPartnerPrice: item.sourceUnitPrice }]
-        : []);
-    }
+    const aggregate = await this.estimateRepository.findAggregateById(estimate.id);
+    if (!aggregate) throw new NotFoundError("Смета не найдена.");
+    const lines = aggregate.items.flatMap((item) => item.lineType === "product" && item.productId
+      ? [{ lineId: item.id, productId: item.productId, quantity: item.quantity, snapshotPartnerPrice: item.sourceUnitPrice }]
+      : []);
     const result = await this.cartService.mergeEstimateProducts(userId, {
       estimateId: estimate.id, versionId, requestKey: normalizeUuid(requestKey), lines,
     });

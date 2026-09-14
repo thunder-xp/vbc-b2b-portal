@@ -14,6 +14,8 @@ function repository(): ExternalDemandRepository {
     searchAdminProducts: vi.fn().mockResolvedValue([]),
     transition: vi.fn().mockResolvedValue({ id, status: "reviewing", version: 2 }),
     curate: vi.fn().mockResolvedValue(id),
+    listUnmetDemand: vi.fn().mockResolvedValue({ windowDays: 30, summary: { requests: 0, uniqueSku: 0, uniquePartners: 0, shortageUnits: 0, potentialValueByCurrency: {} }, items: [], total: 0 }),
+    getUnmetDemandDetail: vi.fn().mockResolvedValue(null),
   };
 }
 
@@ -40,5 +42,13 @@ describe("ExternalDemandService", () => {
   it("requires an auditable curation reason", async () => {
     const repo = repository(); const service = new ExternalDemandService(repo);
     expect(() => service.curate(id, other, "short")).toThrow();
+  });
+
+  it("bounds unmet-demand analytics to governed windows and pages", async () => {
+    const repo = repository(); const service = new ExternalDemandService(repo);
+    await service.listUnmetDemand({ window: 90, search: ` ${"x".repeat(120)} `, page: 2 });
+    expect(repo.listUnmetDemand).toHaveBeenCalledWith({ window: 90, search: "x".repeat(100), limit: 25, offset: 25 });
+    await service.listUnmetDemand({ window: 365, page: 0 });
+    expect(repo.listUnmetDemand).toHaveBeenLastCalledWith({ window: 30, search: undefined, limit: 25, offset: 0 });
   });
 });

@@ -1,5 +1,5 @@
 import type { ExternalDemandRepository } from "../repositories";
-import type { ExternalDemandResponseType, ExternalDemandStatus } from "../types";
+import type { ExternalDemandResponseType, ExternalDemandStatus, UnmetDemandWindow } from "../types";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const STATUSES = new Set<ExternalDemandStatus>(["new", "reviewing", "solution_proposed", "closed", "cancelled"]);
@@ -38,6 +38,27 @@ export class ExternalDemandService {
     const normalizedReason = reason.trim();
     if (normalizedReason.length < 10 || normalizedReason.length > 500) throw new Error("Curation reason is invalid.");
     return this.repository.curate(id(sourceItemId), id(canonicalItemId), normalizedReason);
+  }
+
+  listUnmetDemand(input: { window?: number; search?: string; page?: number }) {
+    const page = Number.isInteger(input.page) && Number(input.page) > 0 ? Number(input.page) : 1;
+    const window = ([30, 90, 180] as const).includes(input.window as UnmetDemandWindow)
+      ? input.window as UnmetDemandWindow
+      : 30;
+    return this.repository.listUnmetDemand({
+      window,
+      search: input.search?.trim().slice(0, 100) || undefined,
+      limit: 25,
+      offset: (page - 1) * 25,
+    });
+  }
+
+  getUnmetDemandDetail(productId: string, windowValue?: number, pageValue?: number) {
+    const window = ([30, 90, 180] as const).includes(windowValue as UnmetDemandWindow)
+      ? windowValue as UnmetDemandWindow
+      : 30;
+    const page = Number.isInteger(pageValue) && Number(pageValue) > 0 ? Number(pageValue) : 1;
+    return this.repository.getUnmetDemandDetail(id(productId), window, 50, (page - 1) * 50);
   }
 }
 

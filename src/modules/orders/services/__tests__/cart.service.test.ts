@@ -172,16 +172,52 @@ describe("DefaultCartService", () => {
     ).not.toHaveBeenCalled();
   });
 
-  it("merges duplicate estimate products once using current prices", async () => {
+  it("keeps estimate line identities while resolving current price and stock in bounded batches", async () => {
     const dependencies = makeDependencies();
     const result = await dependencies.service.mergeEstimateProducts("user-1", {
       estimateId: "estimate-1", versionId: "version-1", requestKey: "request-1",
-      lines: [{ productId: "product-1", quantity: 2, snapshotPartnerPrice: 8 }, { productId: "product-1", quantity: 3, snapshotPartnerPrice: 8 }],
+      lines: [{ lineId: "line-1", productId: "product-1", quantity: 2, snapshotPartnerPrice: 8 }, { lineId: "line-2", productId: "product-1", quantity: 3, snapshotPartnerPrice: 8 }],
     });
     expect(dependencies.catalogService.getProductsByIds).toHaveBeenCalledOnce();
     expect(dependencies.pricingService.getProductCommercialViews).toHaveBeenCalledOnce();
-    expect(dependencies.repository.mergeEstimateProducts).toHaveBeenCalledWith(expect.objectContaining({ items: [{ productId: "product-1", quantity: 5 }] }));
-    expect(result).toMatchObject({ updated: 1, changedPrice: 1 });
+    expect(dependencies.repository.mergeEstimateProducts).toHaveBeenCalledWith(expect.objectContaining({ items: [
+      expect.objectContaining({ lineId: "line-1", productId: "product-1", quantity: 2, currentPrice: 10, availableQuantity: 5, stockStatus: "FULLY_AVAILABLE" }),
+      expect.objectContaining({ lineId: "line-2", productId: "product-1", quantity: 3, currentPrice: 10, availableQuantity: 5, stockStatus: "FULLY_AVAILABLE" }),
+    ] }));
+    expect(result).toMatchObject({ cartId: "cart-1", fullyAvailable: 2 });
+  });
+
+  it.each([
+    [8, "FULLY_AVAILABLE"],
+    [3, "PARTIAL_STOCK"],
+    [0, "OUT_OF_STOCK"],
+    [null, "STOCK_UNKNOWN"],
+  ] as const)("classifies current available quantity %s as %s", async (availableQuantity, stockStatus) => {
+    const dependencies = makeDependencies();
+    dependencies.pricingService.getProductCommercialViews.mockResolvedValue([{
+      productId: "product-1",
+      partnerPrice: { amount: 12, currencyCode: "USD" },
+      stock: { exactAvailableQuantity: availableQuantity },
+    }]);
+    await dependencies.service.mergeEstimateProducts("user-1", {
+      estimateId: "estimate-1", versionId: null, requestKey: "request-1",
+      lines: [{ lineId: "line-1", productId: "product-1", quantity: 5, snapshotPartnerPrice: 8 }],
+    });
+    expect(dependencies.repository.mergeEstimateProducts).toHaveBeenCalledWith(expect.objectContaining({
+      items: [expect.objectContaining({ availableQuantity, stockStatus, currentPrice: 12, currencyCode: "USD" })],
+    }));
+  });
+
+  it("marks a retained catalog identity outside current visibility as not stocked instead of dropping it", async () => {
+    const dependencies = makeDependencies();
+    dependencies.catalogService.getProductsByIds.mockResolvedValue([]);
+    await dependencies.service.mergeEstimateProducts("user-1", {
+      estimateId: "estimate-1", versionId: null, requestKey: "request-1",
+      lines: [{ lineId: "line-1", productId: "product-1", quantity: 5, snapshotPartnerPrice: 8 }],
+    });
+    expect(dependencies.repository.mergeEstimateProducts).toHaveBeenCalledWith(expect.objectContaining({
+      items: [expect.objectContaining({ productId: "product-1", stockStatus: "NOT_STOCKED" })],
+    }));
   });
 });
 
@@ -192,7 +228,7 @@ function makeDependencies() {
     findReconciliationLock: vi.fn().mockResolvedValue(null),
     findReconciliationLockForItem: vi.fn().mockResolvedValue(null),
     listItems: vi.fn().mockResolvedValue([{ id: "item-1", cartId: "cart-1", productId: "product-1", quantity: 2, createdAt: "2026-01-01", updatedAt: "2026-01-01" }]),
-    addItem: vi.fn(), addItems: vi.fn().mockResolvedValue({ cartId: "cart-1", added: 1, updated: 0 }), updateItemQuantity: vi.fn(), removeItem: vi.fn(), mergeEstimateProducts: vi.fn(), mergeOrderReorderItems: vi.fn(),
+    addItem: vi.fn(), addItems: vi.fn().mockResolvedValue({ cartId: "cart-1", added: 1, updated: 0 }), updateItemQuantity: vi.fn(), removeItem: vi.fn(), mergeEstimateProducts: vi.fn().mockResolvedValue({ cartId: "cart-1", totalLines: 2, catalogLines: 2, fullyAvailable: 2, partiallyAvailable: 0, unavailable: 0, stockUnknown: 0, externalLines: 0, changedPrice: 2, demandCaptured: 0, correlationId: "correlation-1", repeated: false }), mergeOrderReorderItems: vi.fn(),
   } satisfies CartRepository;
   const companyAccessService = {
     getOwnMemberships: vi.fn().mockResolvedValue([{ companyId: "company-1", status: "active" }]),

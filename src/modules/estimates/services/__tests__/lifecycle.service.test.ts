@@ -131,8 +131,35 @@ describe("EstimateLifecycleService", () => {
     await dependencies.service.addEquipmentToCart("user-1", "estimate-1", "version-1", "22222222-2222-2222-2222-222222222222");
     expect(dependencies.cart.mergeEstimateProducts).toHaveBeenCalledWith("user-1", expect.objectContaining({
       estimateId: "estimate-1", versionId: "version-1",
-      lines: [{ productId: "product-1", quantity: 2, snapshotPartnerPrice: 10 }],
+      lines: [{ lineId: "item-0", productId: "product-1", quantity: 2, snapshotPartnerPrice: 10 }],
     }));
+  });
+
+  it.each([
+    ["draft", "draft"],
+    ["sent", "sent"],
+    ["accepted", "accepted"],
+    ["rejected", "rejected"],
+    ["sent", "expired"],
+    ["accepted", "converted_to_order"],
+    ["archived", "accepted"],
+  ] as const)("transfers a non-deleted %s/%s estimate without changing its evidence", async (status, lifecycleStatus) => {
+    const dependencies = makeDependencies();
+    const estimate = { ...dependencies.estimate, status, lifecycleStatus };
+    vi.mocked(dependencies.estimates.findById).mockResolvedValue(estimate);
+    vi.mocked(dependencies.estimates.findAggregateById).mockResolvedValue({ ...dependencies.aggregate, estimate });
+    const before = structuredClone(estimate);
+    await dependencies.service.addEquipmentToCart("user-1", "estimate-1", null, "22222222-2222-2222-2222-222222222222");
+    expect(estimate).toEqual(before);
+    expect(dependencies.cart.mergeEstimateProducts).toHaveBeenCalledOnce();
+  });
+
+  it("blocks a soft-deleted or otherwise unreadable estimate before cart mutation", async () => {
+    const dependencies = makeDependencies();
+    vi.mocked(dependencies.estimates.findById).mockResolvedValue(null);
+    await expect(dependencies.service.addEquipmentToCart("user-1", "estimate-1", null, "22222222-2222-2222-2222-222222222222"))
+      .rejects.toBeInstanceOf(NotFoundError);
+    expect(dependencies.cart.mergeEstimateProducts).not.toHaveBeenCalled();
   });
 });
 
@@ -156,7 +183,7 @@ function makeDependencies(lineCount = 1) {
   const proposalService = { preparePreview: vi.fn().mockResolvedValue({ proposal }) };
   const cart = {
     getEstimateSource: vi.fn().mockResolvedValue({ companyId: "company-1", cartId: "cart-1", lines: [{ productId: "product-1", sku: "SKU-1", productName: "Camera", quantity: 2, partnerPrice: 12, currencyCode: "USD", priceUpdatedAt: "2026-07-16T10:00:00Z" }] }),
-    mergeEstimateProducts: vi.fn().mockResolvedValue({ cartId: "cart-1", added: 1, updated: 0, unavailable: 0, inactive: 0, missingPrice: 0, skipped: 0, changedPrice: 1 }), addItem: vi.fn(),
+    mergeEstimateProducts: vi.fn().mockResolvedValue({ cartId: "cart-1", totalLines: 1, catalogLines: 1, fullyAvailable: 1, partiallyAvailable: 0, unavailable: 0, stockUnknown: 0, externalLines: 0, changedPrice: 1, demandCaptured: 0, correlationId: "correlation-1", repeated: false }), addItem: vi.fn(),
   };
   const catalog = { getProductsByIds: vi.fn().mockResolvedValue([{ id: "product-1" }]) };
   const pricing = { getProductCommercialViews: vi.fn().mockResolvedValue([{ productId: "product-1", partnerPrice: { amount: 12, currencyCode: "USD", lastUpdatedAt: "2026-07-16T10:00:00Z" } }]) };

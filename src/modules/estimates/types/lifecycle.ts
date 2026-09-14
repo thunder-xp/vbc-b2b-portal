@@ -175,11 +175,15 @@ export type EstimateGuidedStateDto = {
 
 export type EstimateCartConversionSummary = {
   cartId: string;
-  added: number;
-  updated: number;
+  totalLines: number;
+  catalogLines: number;
+  fullyAvailable: number;
+  partiallyAvailable: number;
   unavailable: number;
-  inactive: number;
-  missingPrice: number;
-  skipped: number;
+  stockUnknown: number;
+  externalLines: number;
   changedPrice: number;
+  demandCaptured: number;
+  correlationId: string;
+  repeated: boolean;
 };

@@ -4,7 +4,7 @@ import { createClient } from "@/src/lib/supabase/server";
 import { RepositoryUnexpectedError } from "@/src/modules/access-control/repositories";
 
 import type { ExternalDemandRepository } from "../demand.repository";
-import type { ExternalDemandDetail, ExternalDemandState, ExternalDemandSummary } from "../../types";
+import type { ExternalDemandDetail, ExternalDemandState, ExternalDemandSummary, UnmetDemandAnalytics, UnmetDemandEvidenceDetail } from "../../types";
 
 export class SupabaseExternalDemandRepository implements ExternalDemandRepository {
   async setPartnerRequest(estimateId: string, estimateItemId: string, action: "request" | "cancel") {
@@ -41,6 +41,24 @@ export class SupabaseExternalDemandRepository implements ExternalDemandRepositor
 
   curate(sourceItemId: string, canonicalItemId: string, reason: string) {
     return this.call<string>("curate_external_nomenclature_duplicate", { source_item_id: sourceItemId, target_canonical_item_id: canonicalItemId, curation_reason: reason });
+  }
+
+  listUnmetDemand(input: Parameters<ExternalDemandRepository["listUnmetDemand"]>[0]) {
+    return this.call<UnmetDemandAnalytics>("list_admin_unmet_assortment_demand", {
+      window_days: input.window,
+      search_query: input.search ?? null,
+      result_limit: input.limit,
+      result_offset: input.offset,
+    });
+  }
+
+  getUnmetDemandDetail(productId: string, window: 30 | 90 | 180, limit: number, offset: number) {
+    return this.call<UnmetDemandEvidenceDetail | null>("get_admin_unmet_assortment_demand_detail", {
+      target_product_id: productId,
+      window_days: window,
+      result_limit: limit,
+      result_offset: offset,
+    });
   }
 
   private async call<T>(operation: string, input: Record<string, unknown>): Promise<T> {

@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { generateEstimateVersionPdfAction } from "../../actions/proposal.actions";
@@ -131,7 +131,9 @@ describe("EstimateWorkflowPanel ergonomics", () => {
     const { default: userEvent } = await import("@testing-library/user-event");
     const user = userEvent.setup();
     vi.mocked(addEstimateEquipmentToCartAction).mockResolvedValue({ success: true, message: "Added", errorCode: null, data: {
-      cartId: "cart-1", added: 1, updated: 0, unavailable: 0, inactive: 0, missingPrice: 0, skipped: 0, changedPrice: 0,
+      cartId: "cart-1", totalLines: 4, catalogLines: 3, fullyAvailable: 1,
+      partiallyAvailable: 1, unavailable: 1, stockUnknown: 0, externalLines: 1,
+      changedPrice: 0, demandCaptured: 2, correlationId: "33333333-3333-3333-3333-333333333333", repeated: false,
     } });
     render(<EstimateWorkflowPanel initialWorkflow={{
       estimateId: "estimate-1",
@@ -151,17 +153,23 @@ describe("EstimateWorkflowPanel ergonomics", () => {
       }],
     }} revision={3} />);
 
-    await user.click(screen.getByRole("button", { name: "Оформить заказ" }));
+    await user.click(screen.getByRole("button", { name: "Передать в корзину" }));
     expect(screen.getByRole("dialog", { name: "Подготовка корзины к заказу" })).toBeInTheDocument();
-    expect(screen.getByText(/только позиции оборудования/)).toBeInTheDocument();
+    expect(screen.getByText(/все товарные позиции будут объединены/i)).toBeInTheDocument();
     expect(screen.getByText(/заказ в 1С на этом шаге не создаётся/i)).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Добавить оборудование в корзину" }));
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Передать в корзину" }));
     await waitFor(() => expect(addEstimateEquipmentToCartAction).toHaveBeenCalledOnce());
-    await user.click(screen.getByRole("button", { name: "Оформить заказ" }));
-    await user.click(screen.getByRole("button", { name: "Добавить оборудование в корзину" }));
+    expect(screen.getByText("КП добавлено в корзину")).toBeInTheDocument();
+    expect(screen.getByText(/4 позиций · 1 доступны · 1 доступны частично · 1 отсутствуют/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Перейти в корзину" })).toHaveAttribute("href", "/cabinet/cart");
+    await user.click(screen.getByRole("button", { name: "Передать в корзину" }));
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Передать в корзину" }));
     await waitFor(() => expect(addEstimateEquipmentToCartAction).toHaveBeenCalledTimes(2));
-    expect(vi.mocked(addEstimateEquipmentToCartAction).mock.calls[0]).toEqual(["estimate-1", "version-1", "version-1"]);
-    expect(vi.mocked(addEstimateEquipmentToCartAction).mock.calls[1]).toEqual(["estimate-1", "version-1", "version-1"]);
+    const [first, second] = vi.mocked(addEstimateEquipmentToCartAction).mock.calls;
+    expect(first?.slice(0, 2)).toEqual(["estimate-1", "version-1"]);
+    expect(second?.slice(0, 2)).toEqual(["estimate-1", "version-1"]);
+    expect(first?.[2]).toMatch(/^[0-9a-f-]{36}$/);
+    expect(second?.[2]).not.toBe(first?.[2]);
   });
 
   it("acknowledges generation immediately and exposes the ready artifact without an RSC refresh", async () => {

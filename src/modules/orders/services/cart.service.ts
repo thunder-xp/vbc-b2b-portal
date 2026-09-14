@@ -3,7 +3,7 @@ import { DomainConflictError, InvalidStateError, NotFoundError } from "../../acc
 import { MembershipStatus } from "../../access-control/types";
 import type { CatalogService } from "../../catalog/services";
 import type { PricingInventoryService, ProductCommercialViewDto } from "../../pricing-inventory/services";
-import type { CartRepository, CheckoutConfigurationRepository } from "../repositories";
+import type { CartRepository, CheckoutConfigurationRepository, EstimateCartTransferResult } from "../repositories";
 import { toPartnerCheckoutOptions, type PartnerCheckoutOptionsDto } from "./checkout-configuration.service";
 
 export type CartLineDto = {
@@ -78,21 +78,13 @@ export type LiveSelectionCartResult = {
 };
 
 export type EstimateToCartSourceLine = {
+  lineId: string;
   productId: string;
   quantity: number;
   snapshotPartnerPrice: number | null;
 };
 
-export type EstimateToCartResult = {
-  cartId: string;
-  added: number;
-  updated: number;
-  unavailable: number;
-  inactive: number;
-  missingPrice: number;
-  skipped: number;
-  changedPrice: number;
-};
+export type EstimateToCartResult = EstimateCartTransferResult;
 
 export interface CartService {
   getCart(userId: string): Promise<CartDetailDto>;
@@ -350,15 +342,10 @@ export class DefaultCartService implements CartService {
     lines: EstimateToCartSourceLine[];
   }): Promise<EstimateToCartResult> {
     const companyId = await this.resolveCompanyId(userId);
-    const grouped = new Map<string, EstimateToCartSourceLine>();
-    let skipped = 0;
-    for (const line of input.lines) {
-      if (!line.productId || !Number.isInteger(line.quantity) || line.quantity < 1 || line.quantity > 9999) { skipped += 1; continue; }
-      const previous = grouped.get(line.productId);
-      grouped.set(line.productId, { ...line, quantity: Math.min(9999, (previous?.quantity ?? 0) + line.quantity) });
-    }
-    const ids = [...grouped.keys()];
-    const [products, views, cart] = await Promise.all([
+    const lines = input.lines.filter((line) => line.lineId && line.productId && Number.isInteger(line.quantity) && line.quantity >= 1 && line.quantity <= 9999);
+    if (lines.length !== input.lines.length) throw new InvalidStateError("Estimate contains an invalid product quantity.");
+    const ids = [...new Set(lines.map((line) => line.productId))];
+    const [products, views] = await Promise.all([
       this.catalogService.getProductsByIds(userId, ids),
       this.pricingInventoryService.getAuthoritativeProductCommercialViews
         ? this.pricingInventoryService.getAuthoritativeProductCommercialViews(
@@ -366,28 +353,35 @@ export class DefaultCartService implements CartService {
             ids,
           )
         : this.pricingInventoryService.getProductCommercialViews(userId, ids),
-      this.repository.findActive(companyId, userId),
     ]);
     const productIds = new Set(products.map((product) => product.id));
     const viewById = new Map(views.map((view) => [view.productId, view]));
-    const existingItems = cart ? await this.repository.listItems(cart.id) : [];
-    const existingIds = new Set(existingItems.map((item) => item.productId));
-    const items: Array<{ productId: string; quantity: number }> = [];
-    let unavailable = 0; let missingPrice = 0; let changedPrice = 0; let added = 0; let updated = 0;
-    for (const [productId, line] of grouped) {
-      if (!productIds.has(productId)) { unavailable += 1; continue; }
-      const currentPrice = viewById.get(productId)?.partnerPrice?.amount;
-      if (!Number.isFinite(currentPrice)) { missingPrice += 1; continue; }
-      if (line.snapshotPartnerPrice !== null && Math.abs(line.snapshotPartnerPrice - Number(currentPrice)) >= 0.005) changedPrice += 1;
-      items.push({ productId, quantity: line.quantity });
-      if (existingIds.has(productId)) updated += 1; else added += 1;
-    }
-    const summary = { added, updated, unavailable, inactive: unavailable, missingPrice, skipped, changedPrice };
-    const cartId = await this.repository.mergeEstimateProducts({
+    return this.repository.mergeEstimateProducts({
       companyId, estimateId: input.estimateId, versionId: input.versionId,
-      requestKey: input.requestKey, items, summary,
+      requestKey: input.requestKey,
+      items: lines.map((line) => {
+        const view = viewById.get(line.productId);
+        const available = view?.stock?.exactAvailableQuantity ?? null;
+        const stockStatus = !productIds.has(line.productId)
+          ? "NOT_STOCKED" as const
+          : available === null
+            ? "STOCK_UNKNOWN" as const
+            : available >= line.quantity
+              ? "FULLY_AVAILABLE" as const
+              : available > 0
+                ? "PARTIAL_STOCK" as const
+                : "OUT_OF_STOCK" as const;
+        return {
+          lineId: line.lineId,
+          productId: line.productId,
+          quantity: line.quantity,
+          currentPrice: view?.partnerPrice?.amount ?? null,
+          currencyCode: view?.partnerPrice?.currencyCode ?? null,
+          availableQuantity: stockStatus === "NOT_STOCKED" ? 0 : available,
+          stockStatus,
+        };
+      }),
     });
-    return { cartId, ...summary };
   }
 
   private async resolveCompanyId(userId: string): Promise<string> {
