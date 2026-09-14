@@ -5,7 +5,7 @@ import pdfMake from "pdfmake/build/pdfmake";
 import robotoFonts from "pdfmake/build/vfs_fonts";
 
 import { normalizeProductImageUrl } from "../../catalog/components/product-image-source";
-import { conciseProposalDescription, proposalLineNumber, proposalVatLabels, sectionSubtotalLabel } from "./proposal-presentation";
+import { proposalLineNumber, proposalLinePresentation, proposalVatLabels, sectionSubtotalLabel } from "./proposal-presentation";
 import type { CustomerProposalDto, CustomerProposalLine } from "../types";
 
 type PdfMakeRuntime = { addVirtualFileSystem(vfs: unknown): void; setUrlAccessPolicy(callback: (url: string) => boolean): void; createPdf(definition: unknown): { getBuffer(): Promise<Buffer> } };
@@ -63,13 +63,10 @@ export async function renderProposalPdf(proposal: CustomerProposalDto): Promise<
 
 export function createDocumentDefinition(proposal: CustomerProposalDto, images = new Map<string, string>()): TDocumentDefinitions {
   const content: Array<Record<string, unknown>> = [
-    { columns: [brandingBlock(proposal, images), { text: proposal.settings.title, style: "title", alignment: "right" }], margin: [0, 0, 0, 14] },
-    { columns: [{ stack: [{ text: "ПОЛУЧАТЕЛЬ", style: "eyebrow" }, { text: proposal.customerName || "Не указан", style: "heading" }, proposal.projectName ? { text: proposal.projectName, color: "#52525b", margin: [0, 2, 0, 0] } : { text: "" }] }, { stack: documentMetadata(proposal) }], margin: [0, 0, 0, 12] },
+    { columns: [brandingBlock(proposal, images), { stack: [{ text: proposal.settings.title, style: "title" }, ...documentMetadata(proposal)], alignment: "right" }], margin: [0, 0, 0, 9] },
   ];
-  if (proposal.settings.introduction) content.push({ text: proposal.settings.introduction, margin: [0, 0, 0, 10], lineHeight: 1.15 });
 
   for (const section of proposal.sections) {
-    content.push({ text: section.name, style: "section", margin: [0, 9, 0, 4] });
     content.push(productTable(proposal, section.name, section.subtotal, section.lines, images));
   }
 
@@ -81,9 +78,8 @@ export function createDocumentDefinition(proposal: CustomerProposalDto, images =
 
   return {
     pageSize: "A4", pageMargins: [32, 32, 32, 40], content,
-    defaultStyle: { font: "Roboto", fontSize: 8.5, color: "#27272a" },
-    styles: { title: { fontSize: 18, bold: true, color: "#14532d" }, eyebrow: { fontSize: 7, bold: true, color: "#15803d", characterSpacing: 1 }, heading: { fontSize: 12, bold: true }, documentNumber: { fontSize: 10, bold: true, alignment: "right" }, section: { fontSize: 11, bold: true, color: "#14532d" } },
-    pageBreakBefore: (currentNode: { style?: string }, followingNodesOnPage: unknown[]) => currentNode.style === "section" && followingNodesOnPage.length === 0,
+    defaultStyle: { font: "Roboto", fontSize: 8.25, color: "#27272a" },
+    styles: { title: { fontSize: 18, bold: true, color: "#14532d", alignment: "right" }, documentNumber: { fontSize: 10, bold: true, alignment: "right", margin: [0, 3, 0, 0] }, section: { fontSize: 10, bold: true, color: "#14532d" } },
     footer: (currentPage: number, pageCount: number) => ({ columns: [{ text: proposal.settings.footerNote || proposal.branding.companyName, color: "#71717a", fontSize: 7 }, { text: `${currentPage} / ${pageCount}`, alignment: "right", color: "#71717a", fontSize: 7 }], margin: [38, 18, 38, 0] }),
     info: { title: `${proposal.settings.title} ${proposal.estimateNumber}`, author: proposal.branding.companyName, subject: "Коммерческое предложение" },
   } as unknown as TDocumentDefinitions;
@@ -98,17 +94,26 @@ function brandingBlock(proposal: CustomerProposalDto, images: Map<string, string
 
 function productTable(proposal: CustomerProposalDto, sectionName: string, sectionSubtotal: number, lines: ReadonlyArray<CustomerProposalLine>, images: Map<string, string>): Record<string, unknown> {
   const showImage = proposal.settings.showProductImages && lines.some((line) => isProductProposalLine(line) && Boolean(line.imageUrl && images.has(line.imageUrl)));
-  const showCodeColumn = proposal.schemaVersion === "2026-07-16-v1" || proposal.schemaVersion === "2026-08-08-v2";
-  const headers: Array<Record<string, unknown>> = [{ text: "№", bold: true }, ...(showImage ? [{ text: "", bold: true }] : []), ...(showCodeColumn ? [{ text: "Код / модель", bold: true }] : []), { text: "Описание", bold: true }, { text: "Ед.", bold: true }, { text: "Кол-во", bold: true, alignment: "right" }];
+  const descriptiveColumnCount = showImage ? 3 : 2;
+  const headers: Array<Record<string, unknown>> = [
+    { text: sectionName, style: "section", colSpan: descriptiveColumnCount },
+    ...Array.from({ length: descriptiveColumnCount - 1 }, () => ({ text: "" })),
+    { text: "Кол-во", bold: true, alignment: "right" },
+  ];
   if (proposal.settings.showUnitPrice) headers.push({ text: "Цена за ед.", bold: true, alignment: "right" });
   if (proposal.settings.showLineDiscount) headers.push({ text: "Скидка", bold: true, alignment: "right" });
   headers.push({ text: "Сумма", bold: true, alignment: "right" });
   const rows = lines.map((line, lineIndex) => {
-    const description: Record<string, unknown> = { text: showCodeColumn || !line.sku ? conciseProposalDescription(line.description) : [{ text: `${line.sku}\n`, fontSize: 7, color: "#52525b" }, { text: conciseProposalDescription(line.description), bold: true }], lineHeight: 1.08 };
+    const presentation = proposalLinePresentation(line);
+    const description: Record<string, unknown> = {
+      stack: [
+        { text: presentation.identity, fontSize: 7.4, bold: true, color: "#27272a", lineHeight: 1.02 },
+        ...(presentation.description ? [{ text: presentation.description, fontSize: 6.6, bold: false, color: "#52525b", lineHeight: 1.03, margin: [0, 1, 0, 0] }] : []),
+      ],
+    };
     const row: Array<Record<string, unknown>> = [{ text: String(proposalLineNumber(proposal.schemaVersion, lineIndex, line.position)), color: "#71717a" }];
     if (showImage) row.push(isProductProposalLine(line) ? line.imageUrl && images.has(line.imageUrl) ? { image: images.get(line.imageUrl)!, width: 26, height: 26, fit: [26, 26] } : { text: "—", color: "#a1a1aa", alignment: "center", margin: [0, 7, 0, 0] } : { text: "" });
-    if (showCodeColumn) row.push({ text: line.sku || "—", fontSize: 7, color: "#52525b" });
-    row.push(description, { text: line.unitLabel, noWrap: true }, { text: formatNumber(line.quantity), alignment: "right", noWrap: true });
+    row.push(description, { text: formatNumber(line.quantity), alignment: "right", noWrap: true });
     if (proposal.settings.showUnitPrice) row.push({ text: money(line.unitPrice, proposal.currencyCode), alignment: "right", noWrap: true });
     if (proposal.settings.showLineDiscount) row.push({ text: line.lineDiscountPercent ? `${formatNumber(line.lineDiscountPercent)}%` : "—", alignment: "right" });
     row.push({ text: money(line.lineTotal, proposal.currencyCode), alignment: "right", bold: true, noWrap: true });
@@ -117,8 +122,8 @@ function productTable(proposal: CustomerProposalDto, sectionName: string, sectio
   if (proposal.settings.showSectionSubtotals && lines.length > 0) {
     rows.push([{ text: sectionSubtotalLabel(sectionName), colSpan: headers.length - 1, alignment: "right", bold: true, fillColor: "#f4f4f5" }, ...Array.from({ length: headers.length - 2 }, () => ({ text: "", fillColor: "#f4f4f5" })), { text: money(sectionSubtotal, proposal.currencyCode), alignment: "right", bold: true, fillColor: "#f4f4f5", noWrap: true }]);
   }
-  const widths: Array<number | "*"> = [14, ...(showImage ? [28] : []), ...(showCodeColumn ? [54] : []), "*", 24, 30, ...(proposal.settings.showUnitPrice ? [58] : []), ...(proposal.settings.showLineDiscount ? [34] : []), 62];
-  return { table: { headerRows: 1, widths, dontBreakRows: true, body: [headers, ...rows] }, layout: { fillColor: (rowIndex: number) => rowIndex === 0 ? "#ecfdf5" : rowIndex % 2 === 0 ? "#fafafa" : null, hLineColor: () => "#d4d4d8", vLineColor: () => "#e4e4e7", paddingTop: () => 4, paddingBottom: () => 4, paddingLeft: () => 3, paddingRight: () => 3 } };
+  const widths: Array<number | "*"> = [14, ...(showImage ? [28] : []), "*", 30, ...(proposal.settings.showUnitPrice ? [58] : []), ...(proposal.settings.showLineDiscount ? [34] : []), 62];
+  return { margin: [0, 0, 0, 7], table: { headerRows: 1, widths, dontBreakRows: true, body: [headers, ...rows] }, layout: { fillColor: (rowIndex: number) => rowIndex === 0 ? "#ecfdf5" : rowIndex % 2 === 0 ? "#fafafa" : null, hLineColor: () => "#d4d4d8", vLineColor: () => "#e4e4e7", paddingTop: (rowIndex: number) => rowIndex === 0 ? 3 : 2.5, paddingBottom: (rowIndex: number) => rowIndex === 0 ? 3 : 2.5, paddingLeft: () => 3, paddingRight: () => 3 } };
 }
 
 function totalsBlock(proposal: CustomerProposalDto): Record<string, unknown> {

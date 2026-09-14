@@ -11,6 +11,24 @@ export function conciseProposalDescription(value: string): string {
   return `${candidate.slice(0, boundary > 160 ? boundary : MAX_VISIBLE_DESCRIPTION_LENGTH).trimEnd()}…`;
 }
 
+export function proposalLinePresentation(line: CustomerProposalDto["sections"][number]["lines"][number]): {
+  identity: string;
+  description: string | null;
+} {
+  const sku = line.sku?.trim();
+  const productName = line.productName?.trim();
+  const description = conciseProposalDescription(line.description);
+  const identity = [sku ? (/^sku(?:\s|-)/i.test(sku) ? sku : `SKU ${sku}`) : null, productName].filter(Boolean).join("  ");
+
+  if (!identity) return { identity: description, description: null };
+  return {
+    identity,
+    description: description && description.toLocaleLowerCase("ru-RU") !== productName?.toLocaleLowerCase("ru-RU")
+      ? description
+      : null,
+  };
+}
+
 export function sectionSubtotalLabel(sectionName: string): string {
   return `Итого за ${sectionName.trim().toLocaleLowerCase("ru-RU")}`;
 }
@@ -20,7 +38,7 @@ export function proposalLineNumber(
   sectionIndex: number,
   persistedPosition: number,
 ): number {
-  return schemaVersion === "2026-08-12-v4" ? sectionIndex + 1 : persistedPosition;
+  return schemaVersion === "2026-08-12-v4" || schemaVersion === "2026-09-14-v5" ? sectionIndex + 1 : persistedPosition;
 }
 
 export function proposalVatLabels(proposal: CustomerProposalDto): {
