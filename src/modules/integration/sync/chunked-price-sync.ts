@@ -294,15 +294,17 @@ export class SupabasePriceSyncStateStore implements PriceSyncStateStore {
     if (discovery.error) throw Object.assign(persistenceError(discovery.error), { errorCategory: "publication_failure" });
     const validationDurationMs = Math.round(performance.now() - validationStartedAt);
     const publicationStartedAt = performance.now();
-    const { error } = await client.rpc("publish_product_prices_with_retail_history", { p_sync_id: syncId });
+    const { data: publication, error } = await client.rpc("publish_product_prices_with_retail_history", { p_sync_id: syncId });
     if (error) throw Object.assign(persistenceError(error), { errorCategory: "publication_failure" });
-    const hotRefresh = await client.rpc("refresh_automated_hot_product_ranking");
-    if (hotRefresh.error) {
-      console.warn(observation("automated_hot_refresh_warning", syncId, "completed", {
-        databaseCode: hotRefresh.error.code ?? null,
-      }));
+    if (hasMaterialPriceDelta(publication)) {
+      const hotRefresh = await client.rpc("refresh_automated_hot_product_ranking");
+      if (hotRefresh.error) {
+        console.warn(observation("automated_hot_refresh_warning", syncId, "completed", {
+          databaseCode: hotRefresh.error.code ?? null,
+        }));
+      }
+      await projectPartnerProductTransitions(syncId);
     }
-    await projectPartnerProductTransitions(syncId);
     await client.from("retail_price_history_source_stage").delete().eq("sync_id", syncId);
     const publicationDurationMs = Math.round(performance.now() - publicationStartedAt);
     await client.from("price_sync_state").update({ validation_duration_ms: validationDurationMs, publication_duration_ms: publicationDurationMs }).eq("id", "product_prices");
@@ -420,6 +422,13 @@ function mapState(row: Record<string, unknown>): PriceSyncState {
     continuationCount: number(row.continuation_count),
     updatedAt: String(row.updated_at),
   };
+}
+
+export function hasMaterialPriceDelta(value: unknown): boolean {
+  if (!isRecord(value) || !isRecord(value.prices)) return true;
+  const fields = [value.prices.inserted, value.prices.updated, value.prices.removed];
+  if (!fields.every((field) => typeof field === "number" && Number.isFinite(field))) return true;
+  return fields.some((field) => Number(field) > 0);
 }
 function stringOrNull(value: unknown): string | null { return typeof value === "string" ? value : null; }
 function stringValue(value: unknown): string | undefined { return typeof value === "string" && value ? value : undefined; }

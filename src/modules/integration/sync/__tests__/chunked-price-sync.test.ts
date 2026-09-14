@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 import { IntegrationProviderUnavailableError, IntegrationTimeoutError } from "../../errors";
 import type { PriceChunkProvider, PriceRegisterStageRow } from "../../providers/one-c";
-import { ChunkedPriceSyncService, durationMetrics, isPriceSyncLockStale, PRICE_SYNC_PAGES_PER_INVOCATION, type PriceSyncStage, type PriceSyncState, type PriceSyncStateStore } from "../chunked-price-sync";
+import { ChunkedPriceSyncService, durationMetrics, hasMaterialPriceDelta, isPriceSyncLockStale, PRICE_SYNC_PAGES_PER_INVOCATION, type PriceSyncStage, type PriceSyncState, type PriceSyncStateStore } from "../chunked-price-sync";
 
 describe("ChunkedPriceSyncService", () => {
   it("processes only the bounded number of pages and persists continuation offset", async () => {
@@ -180,6 +180,13 @@ describe("ChunkedPriceSyncService", () => {
 
   it("calculates compact remote-duration aggregates", () => {
     expect(durationMetrics([100, 500, 200, 300, 400])).toEqual({ average: 300, p50: 300, p95: 500, max: 500 });
+  });
+
+  it("skips downstream publication work only for a proven no-change delta", () => {
+    expect(hasMaterialPriceDelta({ prices: { inserted: 0, updated: 0, removed: 0 } })).toBe(false);
+    expect(hasMaterialPriceDelta({ prices: { inserted: 0, updated: 1, removed: 0 } })).toBe(true);
+    expect(hasMaterialPriceDelta({ prices: { inserted: 0, updated: 0, removed: 1 } })).toBe(true);
+    expect(hasMaterialPriceDelta({})).toBe(true);
   });
 });
 
