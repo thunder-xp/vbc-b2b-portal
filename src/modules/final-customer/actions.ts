@@ -6,9 +6,12 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/src/lib/supabase/server";
 
 import { createFinalCustomerService, getFinalCustomerContext } from "./server";
+import { filesFromFormData, storeCustomerServiceAttachments } from "./service-attachments";
+import { SupabaseFinalCustomerRepository } from "./supabase.repository";
 
 export type CustomerProfileActionState = { error: string | null; saved: boolean };
 export type CustomerServiceActionState = { error: string | null; createdId: string | null };
+export type CustomerServiceReplyActionState = { error: string | null; sent: boolean; submissionId: number };
 
 export async function updateCustomerProfileAction(
   _state: CustomerProfileActionState,
@@ -48,12 +51,47 @@ export async function createCustomerServiceRequestAction(
       orderId: String(formData.get("orderId") ?? ""),
       orderLineId: String(formData.get("orderLineId") ?? ""),
     });
+    let attachmentError: string | null = null;
+    try {
+      await storeCustomerServiceAttachments({ repository: new SupabaseFinalCustomerRepository(), requestId: request.id,
+        messageId: null, actorKind: "CUSTOMER", actorUserId: context.account.authUserId,
+        customerIdentityId: context.account.customerIdentityId, visibility: "CUSTOMER_VISIBLE",
+        files: filesFromFormData(formData, "files") });
+    } catch { attachmentError = "ATTACHMENT_FAILED"; }
     revalidatePath("/account");
     revalidatePath("/account/service");
-    return { error: null, createdId: request.id };
+    return { error: attachmentError, createdId: request.id };
   } catch {
     return { error: "SERVICE_REQUEST_FAILED", createdId: null };
   }
+}
+
+export async function replyToCustomerServiceRequestAction(
+  state: CustomerServiceReplyActionState,
+  formData: FormData,
+): Promise<CustomerServiceReplyActionState> {
+  try {
+    const context = await getFinalCustomerContext();
+    const requestId = String(formData.get("requestId") ?? "");
+    const messageId = await createFinalCustomerService().replyToServiceRequest(
+      context.account, requestId, Number(formData.get("expectedVersion") ?? -1), String(formData.get("body") ?? ""),
+    );
+    let attachmentError: string | null = null;
+    try {
+      await storeCustomerServiceAttachments({ repository: new SupabaseFinalCustomerRepository(), requestId,
+        messageId, actorKind: "CUSTOMER", actorUserId: context.account.authUserId,
+        customerIdentityId: context.account.customerIdentityId, visibility: "CUSTOMER_VISIBLE",
+        files: filesFromFormData(formData, "files") });
+    } catch { attachmentError = "ATTACHMENT_FAILED"; }
+    revalidatePath("/account"); revalidatePath("/account/service"); revalidatePath(`/account/service/${requestId}`);
+    return { error: attachmentError, sent: true, submissionId: state.submissionId + 1 };
+  } catch { return { error: "SERVICE_REPLY_FAILED", sent: false, submissionId: state.submissionId }; }
+}
+
+export async function markCustomerServiceNotificationReadAction(formData: FormData) {
+  const context = await getFinalCustomerContext();
+  await createFinalCustomerService().markServiceNotificationRead(context.account, String(formData.get("notificationId") ?? ""));
+  revalidatePath("/account/service");
 }
 
 export async function cancelCustomerServiceRequestAction(formData: FormData) {

@@ -95,6 +95,53 @@ export type CustomerServiceRequest = Readonly<{
   version: number;
 }>;
 
+export type CustomerServiceMessage = Readonly<{
+  id: string;
+  authorType: "CUSTOMER" | "NOVOTECH";
+  visibility: "CUSTOMER_VISIBLE" | "INTERNAL";
+  body: string;
+  createdAt: string;
+}>;
+
+export type CustomerServiceAttachment = Readonly<{
+  id: string;
+  messageId: string | null;
+  uploadedByKind: "CUSTOMER" | "ADMIN";
+  visibility: "CUSTOMER_VISIBLE" | "INTERNAL";
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+  createdAt: string;
+}>;
+
+export type CustomerServiceTimelineEvent = Readonly<{
+  id: string;
+  actorKind: "CUSTOMER" | "ADMIN" | "SYSTEM";
+  eventType: string;
+  fromStatus: CustomerServiceRequestStatus | null;
+  toStatus: CustomerServiceRequestStatus | null;
+  createdAt: string;
+}>;
+
+export type CustomerServiceRequestDetail = CustomerServiceRequest & Readonly<{
+  messages: CustomerServiceMessage[];
+  attachments: CustomerServiceAttachment[];
+  timeline: CustomerServiceTimelineEvent[];
+  customerDisplayName?: string | null;
+  customerEmail?: string | null;
+  relatedOrderNumber?: string | null;
+  relatedProductName?: string | null;
+}>;
+
+export type CustomerServiceNotification = Readonly<{
+  id: string;
+  requestId: string;
+  eventCode: "CUSTOMER_SERVICE_NEED_INFO" | "CUSTOMER_SERVICE_REPLY_FROM_NOVOTECH" | "CUSTOMER_SERVICE_RESOLVED";
+  actionPath: string;
+  readAt: string | null;
+  createdAt: string;
+}>;
+
 export type FinalCustomerCommandCenter = Readonly<{
   displayName: string | null;
   latestOrder: FinalCustomerOrderSummary | null;
@@ -102,6 +149,8 @@ export type FinalCustomerCommandCenter = Readonly<{
   equipmentCount: number;
   documentCount: number;
   latestRequest: { id: string; number: string; status: CustomerServiceRequestStatus } | null;
+  serviceNeedsInfoCount: number;
+  activeServiceRequestCount: number;
 }>;
 
 export type FinalCustomerContext = Readonly<{

@@ -28,8 +28,8 @@ export function serviceTypeLabel(type: CustomerServiceRequestType, locale: Custo
 
 export function serviceStatusLabel(status: CustomerServiceRequestStatus, locale: CustomerLocale) {
   const labels: Record<CustomerServiceRequestStatus, [string, string]> = {
-    NEW: ["Новая", "Nouă"], IN_REVIEW: ["На рассмотрении", "În examinare"], NEED_INFO: ["Нужна информация", "Sunt necesare informații"],
-    ACCEPTED: ["Принята", "Acceptată"], RESOLVED: ["Решена", "Rezolvată"], CLOSED: ["Закрыта", "Închisă"], CANCELLED: ["Отменена", "Anulată"],
+    NEW: ["Получено", "Primită"], IN_REVIEW: ["На рассмотрении", "În examinare"], NEED_INFO: ["Нужна информация", "Sunt necesare informații"],
+    ACCEPTED: ["Принято в работу", "Acceptată spre lucru"], RESOLVED: ["Решено", "Rezolvată"], CLOSED: ["Закрыто", "Închisă"], CANCELLED: ["Отменено", "Anulată"],
   };
   return labels[status][locale === "ro" ? 1 : 0];
 }

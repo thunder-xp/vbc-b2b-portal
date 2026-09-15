@@ -11,12 +11,14 @@ function repository(): FinalCustomerRepository {
     findAccountByAuthUser: vi.fn(async () => null),
     createAccount: vi.fn(async (input): Promise<FinalCustomerAccount> => ({ id: "account", authUserId: input.authUserId, customerIdentityId: input.customerIdentityId, status: input.customerIdentityId ? "ACTIVE" : "IDENTITY_REVIEW_REQUIRED", identityResolutionStatus: input.resolutionStatus, displayName: null, email: null, createdAt: "now", lastLoginAt: "now" })),
     findDisplayName: vi.fn(async () => null), listOrders: vi.fn(async () => []), updateProfile: vi.fn(async () => undefined),
-    getCommandCenter: vi.fn(async () => ({ displayName: null, latestOrder: null, recentPurchases: [], equipmentCount: 0, documentCount: 0, latestRequest: null })),
+    getCommandCenter: vi.fn(async () => ({ displayName: null, latestOrder: null, recentPurchases: [], equipmentCount: 0, documentCount: 0, latestRequest: null, serviceNeedsInfoCount: 0, activeServiceRequestCount: 0 })),
     findOrder: vi.fn(async () => null), listConfirmedPurchases: vi.fn(async () => []), findPurchase: vi.fn(async () => null),
     listCurrentProducts: vi.fn(async () => []), listProductDocuments: vi.fn(async () => []),
     listServiceRequests: vi.fn(async () => []), findServiceRequest: vi.fn(async () => null),
     createServiceRequest: vi.fn(async () => { throw new Error("unused"); }), cancelServiceRequest: vi.fn(async () => undefined),
-    listAdminServiceRequests: vi.fn(async () => []), findAdminServiceRequest: vi.fn(async () => null), updateAdminServiceRequestStatus: vi.fn(async () => undefined),
+    listAdminServiceRequests: vi.fn(async () => []), findAdminServiceRequest: vi.fn(async () => null),
+    addCustomerServiceReply: vi.fn(async () => "message"), updateAdminServiceRequest: vi.fn(async () => ({ messageId: null })),
+    addServiceAttachment: vi.fn(async () => "attachment"), listServiceNotifications: vi.fn(async () => []), markServiceNotificationRead: vi.fn(async () => undefined),
   };
 }
 
@@ -78,5 +80,19 @@ describe("Final Customer account service", () => {
     expect(repo.listOrders).not.toHaveBeenCalled();
     expect(repo.listConfirmedPurchases).not.toHaveBeenCalled();
     expect(repo.listServiceRequests).not.toHaveBeenCalled();
+  });
+
+  it("returns NEED_INFO to review when a customer reply is accepted by the governed repository boundary", async () => {
+    const repo = repository();
+    vi.mocked(repo.findServiceRequest).mockResolvedValue({ id: "11111111-1111-4111-8111-111111111111", number: "CR-1", type: "OTHER", subject: "Help", description: "Need some help", preferredContact: "PHONE", status: "NEED_INFO", orderId: null, orderLineId: null, createdAt: "now", updatedAt: "now", version: 2, messages: [], attachments: [], timeline: [] });
+    const account = { id: "account", authUserId: "user", customerIdentityId: "identity", status: "ACTIVE", identityResolutionStatus: "MATCHED", displayName: null, email: null, createdAt: "now", lastLoginAt: "now" } as const;
+    await new FinalCustomerAccountService(repo).replyToServiceRequest(account, "11111111-1111-4111-8111-111111111111", 2, "Requested details");
+    expect(repo.addCustomerServiceReply).toHaveBeenCalledWith(expect.objectContaining({ customerIdentityId: "identity", expectedVersion: 2 }));
+  });
+
+  it("requires a customer-visible explanation for NEED_INFO", async () => {
+    const repo = repository();
+    await expect(new FinalCustomerAccountService(repo).updateAdminServiceRequest({ requestId: "11111111-1111-4111-8111-111111111111", expectedVersion: 0, status: "NEED_INFO", customerReply: "", internalNote: "private", actorUserId: "admin" })).rejects.toThrow("NEED_INFO_EXPLANATION_REQUIRED");
+    expect(repo.updateAdminServiceRequest).not.toHaveBeenCalled();
   });
 });

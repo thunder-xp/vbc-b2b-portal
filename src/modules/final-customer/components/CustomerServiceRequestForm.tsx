@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { createCustomerServiceRequestAction } from "../actions";
 import { CUSTOMER_SERVICE_REQUEST_TYPES } from "../types";
 import { serviceTypeLabel, type CustomerLocale } from "../presentation";
+import { ServiceAttachmentPicker } from "./ServiceAttachmentPicker";
 
 const initial = { error: null, createdId: null };
 const field = "min-h-11 w-full rounded-lg border border-zinc-300 bg-white px-3 text-sm outline-none focus:border-emerald-700 focus:ring-2 focus:ring-emerald-100";
@@ -21,6 +22,7 @@ export function CustomerServiceRequestForm({ locale, orderId = "", orderLineId =
     <label className="block text-sm font-medium">{ro ? "Subiect" : "Тема"}<input className={`${field} mt-1`} maxLength={160} minLength={3} name="subject" required /></label>
     <label className="block text-sm font-medium">{ro ? "Descriere" : "Описание"}<textarea className="mt-1 min-h-32 w-full rounded-lg border border-zinc-300 p-3 text-sm outline-none focus:border-emerald-700 focus:ring-2 focus:ring-emerald-100" maxLength={2000} minLength={10} name="description" required /></label>
     <label className="block text-sm font-medium">{ro ? "Contact preferat" : "Предпочтительный способ связи"}<select className={`${field} mt-1`} name="preferredContact"><option value="PHONE">{ro ? "Telefon" : "Телефон"}</option><option value="EMAIL">Email</option></select></label>
+    <ServiceAttachmentPicker locale={locale} />
     {state.error ? <p className="text-sm text-red-700" role="alert">{ro ? "Solicitarea nu a putut fi trimisă." : "Не удалось отправить обращение."}</p> : null}
     <button className="min-h-11 rounded-lg bg-emerald-700 px-5 text-sm font-semibold text-white disabled:opacity-60" disabled={pending}>{pending ? (ro ? "Se trimite…" : "Отправляем…") : (ro ? "Trimite solicitarea" : "Отправить обращение")}</button>
   </form>;

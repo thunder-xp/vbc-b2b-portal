@@ -13,6 +13,7 @@ import {
   CUSTOMER_SERVICE_REQUEST_STATUSES, CUSTOMER_SERVICE_REQUEST_TYPES,
   type CustomerServiceRequestStatus, type FinalCustomerAccount,
 } from "./types";
+import { customerServiceCancelAllowed, customerServiceReplyAllowed } from "./service-lifecycle";
 
 export class FinalCustomerAuthenticationError extends Error {
   constructor() {
@@ -66,7 +67,7 @@ export class FinalCustomerAccountService {
   }
 
   commandCenter(account: FinalCustomerAccount) {
-    return account.status === "ACTIVE" ? this.repository.getCommandCenter(account.customerIdentityId) : Promise.resolve({ displayName: account.displayName, latestOrder: null, recentPurchases: [], equipmentCount: 0, documentCount: 0, latestRequest: null });
+    return account.status === "ACTIVE" ? this.repository.getCommandCenter(account.customerIdentityId) : Promise.resolve({ displayName: account.displayName, latestOrder: null, recentPurchases: [], equipmentCount: 0, documentCount: 0, latestRequest: null, serviceNeedsInfoCount: 0, activeServiceRequestCount: 0 });
   }
 
   async orderDetail(account: FinalCustomerAccount, orderId: string) {
@@ -133,8 +134,25 @@ export class FinalCustomerAccountService {
   async cancelServiceRequest(account: FinalCustomerAccount, requestId: string, expectedVersion: number) {
     if (!account.customerIdentityId || !UUID.test(requestId) || !Number.isInteger(expectedVersion) || expectedVersion < 0) throw new Error("INVALID_SERVICE_REQUEST");
     const request = await this.repository.findServiceRequest(account.customerIdentityId, requestId);
-    if (!request || !["NEW", "IN_REVIEW", "NEED_INFO"].includes(request.status)) throw new Error("INVALID_SERVICE_TRANSITION");
+    if (!request || !customerServiceCancelAllowed(request.status)) throw new Error("INVALID_SERVICE_TRANSITION");
     return this.repository.cancelServiceRequest(account.customerIdentityId, requestId, expectedVersion, account.authUserId);
+  }
+
+  async replyToServiceRequest(account: FinalCustomerAccount, requestId: string, expectedVersion: number, bodyValue: string) {
+    if (!account.customerIdentityId || !UUID.test(requestId) || !Number.isInteger(expectedVersion) || expectedVersion < 0) throw new Error("INVALID_SERVICE_REQUEST");
+    const body = bounded(bodyValue, 1, 4000);
+    const request = await this.repository.findServiceRequest(account.customerIdentityId, requestId);
+    if (!request || !customerServiceReplyAllowed(request.status)) throw new Error("INVALID_SERVICE_TRANSITION");
+    return this.repository.addCustomerServiceReply({ customerIdentityId: account.customerIdentityId, requestId, expectedVersion, actorUserId: account.authUserId, body });
+  }
+
+  listServiceNotifications(account: FinalCustomerAccount) {
+    return account.status === "ACTIVE" ? this.repository.listServiceNotifications(account.id, 20) : Promise.resolve([]);
+  }
+
+  markServiceNotificationRead(account: FinalCustomerAccount, notificationId: string) {
+    if (!UUID.test(notificationId)) throw new Error("INVALID_NOTIFICATION");
+    return this.repository.markServiceNotificationRead(notificationId, account.authUserId);
   }
 
   listAdminServiceRequests(status: CustomerServiceRequestStatus | null) {
@@ -146,9 +164,12 @@ export class FinalCustomerAccountService {
     return UUID.test(requestId) ? this.repository.findAdminServiceRequest(requestId) : Promise.resolve(null);
   }
 
-  async updateAdminServiceRequestStatus(requestId: string, expectedVersion: number, status: CustomerServiceRequestStatus, actorUserId: string) {
-    if (!UUID.test(requestId) || !Number.isInteger(expectedVersion) || expectedVersion < 0 || !CUSTOMER_SERVICE_REQUEST_STATUSES.includes(status)) throw new Error("INVALID_SERVICE_STATUS");
-    return this.repository.updateAdminServiceRequestStatus(requestId, expectedVersion, status, actorUserId);
+  async updateAdminServiceRequest(input: { requestId: string; expectedVersion: number; status: CustomerServiceRequestStatus | null; customerReply: string; internalNote: string; actorUserId: string }) {
+    if (!UUID.test(input.requestId) || !Number.isInteger(input.expectedVersion) || input.expectedVersion < 0 || (input.status && !CUSTOMER_SERVICE_REQUEST_STATUSES.includes(input.status))) throw new Error("INVALID_SERVICE_STATUS");
+    const customerReply = optionalBounded(input.customerReply, 4000);
+    const internalNote = optionalBounded(input.internalNote, 4000);
+    if (input.status === "NEED_INFO" && !customerReply) throw new Error("NEED_INFO_EXPLANATION_REQUIRED");
+    return this.repository.updateAdminServiceRequest({ ...input, customerReply, internalNote });
   }
 
   async updateProfile(account: FinalCustomerAccount, input: { displayName: string; email: string }) {
@@ -168,3 +189,4 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 function unique(values: string[]) { return [...new Set(values)]; }
 function optionalUuid(value?: string) { const normalized = value?.trim() || null; if (normalized && !UUID.test(normalized)) throw new Error("INVALID_UUID"); return normalized; }
 function bounded(value: string | undefined, min: number, max: number) { const normalized = value?.trim().replace(/\s+/g, " ") ?? ""; if (normalized.length < min || normalized.length > max) throw new Error("INVALID_TEXT"); return normalized; }
+function optionalBounded(value: string | undefined, max: number) { const normalized = value?.trim() ?? ""; if (normalized.length > max) throw new Error("INVALID_TEXT"); return normalized; }

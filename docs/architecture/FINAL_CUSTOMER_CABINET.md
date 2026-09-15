@@ -12,7 +12,7 @@
 | Equipment | Non-service lines from confirmed purchases | Derived projection; no serial or warranty-expiry inference |
 | Current product, price, availability | Current published Public Retail projection | Used only for product links and Buy again |
 | Product documents | Active `catalog_product_documents` for purchased canonical products | Read-only links; no invented invoice or receipt |
-| Customer service intake | `customer_service_requests` | Portal-owned intake and status workflow |
+| Customer service lifecycle | `customer_service_requests`, messages, attachments, events and customer notifications | Portal-owned intake and customer-visible communication |
 | Partner Service Center / 1C service | Existing partner/company and integration domains | Not reused or redefined |
 
 ## Authentication and account ownership
@@ -37,9 +37,9 @@ The current Retail Order source does not expose authoritative return quantities,
 
 ## Service request boundary
 
-Final-customer service requests are a small Portal-owned intake because the existing Service Center is partner/company scoped. They do not create a 1C service document, installation assignment, warranty entitlement, outbound notification, or commercial state. Customer mutations are server-orchestrated and audit only creation, status changes and cancellation. Admin access reuses `admin.service.view` and `admin.service.manage`.
+Final-customer service requests are a bounded Portal-owned communication lifecycle because the existing Service Center is partner/company scoped. They do not create a 1C service document, installation assignment, warranty entitlement, or commercial state. Customer mutations are server-orchestrated; Admin access reuses `admin.service.view` and `admin.service.manage`. Customer in-app notifications are a customer-account projection and do not reuse B2B company membership.
 
-`customer_service_requests` and its event stream use enabled and forced RLS. Authenticated users receive read-only grants constrained through their `customer_accounts.auth_user_id`; all mutations pass through server-side identity and permission checks. Events are append-only.
+Requests, messages, attachment mappings, notifications and the event stream use enabled and forced RLS. Authenticated users receive read-only grants constrained through their `customer_accounts.auth_user_id`; INTERNAL messages and attachments are additionally excluded by policy. All mutations pass through server-side identity and permission checks. Messages, attachments and events are append-only.
 
 ## Performance contract
 
