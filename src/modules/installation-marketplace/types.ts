@@ -42,6 +42,63 @@ export type InstallationProjectDetail = InstallationProjectSummary & Readonly<{
 
 export type InstallationShortlistPartner = InstallationPartnerPublic & Readonly<{
   availability: "available" | "limited"; coverage: string; competencies: string[];
+  recommended: boolean; learningState: "ESTABLISHED" | "LEARNING" | "NEW_PARTNER";
+  typicalResponse: "FAST" | "SAME_DAY" | "LONGER" | null;
+}>;
+
+export const INSTALLATION_RANKING_REASON_CODES = [
+  "EXACT_SERVICE_AREA", "BROADER_SERVICE_AREA", "SERVICE_AREA_UNSPECIFIED", "EXACT_CAPABILITY",
+  "STRONG_VERIFIED_HISTORY", "FAST_RESPONSE", "HIGH_COMPLETION_CONFIDENCE",
+  "NEW_PARTNER_EXPLORATION", "UNDEREXPOSED_CANDIDATE", "LOW_SAMPLE_CONFIDENCE", "DISPUTE_SIGNAL",
+  "PARTNER_INACTIVE", "PARTNER_SUSPENDED", "PUBLIC_LISTING_DISABLED", "MARKETPLACE_DISABLED",
+  "PROFILE_UNPUBLISHED", "PARTNER_UNAVAILABLE", "CAPABILITY_MISMATCH", "SERVICE_AREA_MISMATCH",
+] as const;
+export type InstallationRankingReasonCode = typeof INSTALLATION_RANKING_REASON_CODES[number];
+
+export type InstallationRankingCandidateEvidence = Readonly<{
+  providerId: string; partnerCompanyId: string; displayName: string; description: string | null;
+  logoPath: string | null; availability: "available" | "limited" | "unavailable";
+  companyActive: boolean; publicListingEnabled: boolean; providerOperationalStatus: "active" | "inactive" | "suspended";
+  providerApproved: boolean; marketplaceEnabled: boolean; profilePublished: boolean;
+  exactCapability: boolean; hasAnyActiveRegion: boolean; geographyRank: number | null;
+  verifiedReviewCount: number; averageOverallRating: number | null; averageWorkmanshipRating: number | null;
+  averageCommunicationRating: number | null; averageAgreementRating: number | null;
+  assignmentCount: number; responseSampleCount: number; acceptedCount: number; declinedCount: number;
+  expiredCount: number; installedCount: number; customerConfirmedCount: number; disputeCount: number;
+  cancellationCount: number; medianResponseMinutes: number | null; eligibleImpressions30d: number;
+}>;
+
+export type InstallationRankingEvidence = Readonly<{
+  projectId: string; customerAccountId: string; systemType: string; locality: string;
+  regionCode: string | null; generatedAt: string; candidates: InstallationRankingCandidateEvidence[];
+}>;
+
+export type EligibilityResult = Readonly<{ eligible: boolean; excludedReasons: InstallationRankingReasonCode[] }>;
+export type RelevanceResult = Readonly<{ score: number; geographyTier: "EXACT" | "BROADER" | "UNSPECIFIED"; reasonCodes: InstallationRankingReasonCode[] }>;
+export type QualityResult = Readonly<{ score: number; adjustedRating: number; rawRating: number | null; sampleSize: number; confidence: number; evidenceState: "SUFFICIENT" | "LOW_SAMPLE" | "NO_HISTORY"; reasonCodes: InstallationRankingReasonCode[] }>;
+export type ReliabilityResult = Readonly<{ score: number; confidence: number; evidenceState: "SUFFICIENT" | "PARTIAL" | "NO_HISTORY"; acceptanceRate: number | null; completionRate: number | null; confirmationRate: number | null; medianResponseMinutes: number | null; reasonCodes: InstallationRankingReasonCode[] }>;
+export type ExposureResult = Readonly<{ score: number; impressions30d: number; learningState: "ESTABLISHED" | "LEARNING" | "NEW_PARTNER"; reasonCodes: InstallationRankingReasonCode[] }>;
+
+export type InstallationRankingCandidateDecision = Readonly<{
+  providerId: string; displayName: string; eligible: boolean; finalPosition: number | null;
+  internalScore: number | null; reasonCodes: InstallationRankingReasonCode[];
+  eligibility: EligibilityResult; relevance: RelevanceResult | null; quality: QualityResult | null;
+  reliability: ReliabilityResult | null; exposure: ExposureResult | null;
+}>;
+
+export type InstallationRankingDecision = Readonly<{
+  policyVersion: string; projectId: string; generatedAt: string; evidenceFingerprint: string;
+  candidates: InstallationRankingCandidateDecision[]; orderedProviderIds: string[];
+  shadowV1ProviderIds: string[]; shortlist: InstallationShortlistPartner[];
+}>;
+
+export type InstallationRankingAdminDiagnostics = Readonly<{
+  policyVersion: string; decisionCount: number; deduplicatedImpressions: number;
+  top1ImpressionShare: number; top3ImpressionShare: number; top5ImpressionShare: number;
+  exposureHhi: number; latestDecision: null | Readonly<{
+    id: string; projectId: string; policyVersion: string; candidateCount: number; createdAt: string;
+    orderedProviderIds: string[]; shadowV1ProviderIds: string[]; decision: { candidates: InstallationRankingCandidateDecision[] };
+  }>;
 }>;
 
 export type PartnerInstallationProject = Readonly<{

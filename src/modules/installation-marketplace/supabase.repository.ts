@@ -1,8 +1,9 @@
 import "server-only";
 
+import { createAdminClient } from "@/src/lib/supabase/admin";
 import { createClient } from "@/src/lib/supabase/server";
 import type { InstallationMarketplaceRepository } from "./repository";
-import type { InstallationMarketplaceAdminReport, InstallationProjectDetail, InstallationProjectSummary, InstallationShortlistPartner, PartnerInstallationProject } from "./types";
+import type { InstallationMarketplaceAdminReport, InstallationProjectDetail, InstallationProjectSummary, InstallationRankingAdminDiagnostics, InstallationRankingDecision, InstallationRankingEvidence, PartnerInstallationProject } from "./types";
 
 export class InstallationMarketplaceRepositoryError extends Error {
   constructor(readonly code: "invalid" | "conflict" | "forbidden" | "unavailable") {
@@ -39,8 +40,24 @@ export class SupabaseInstallationMarketplaceRepository implements InstallationMa
   getCustomerProject(projectId: string, locale: "ru" | "ro") {
     return rpc<InstallationProjectDetail | null>("customer_get_installation_project_v1", { p_project_id: projectId, p_locale: locale });
   }
-  listShortlist(projectId: string, locale: "ru" | "ro", limit: number) {
-    return rpc<InstallationShortlistPartner[]>("customer_list_installation_partner_shortlist_v1", { p_project_id: projectId, p_locale: locale, p_limit: limit });
+  async getRankingEvidence(projectId: string, customerAccountId: string, locale: "ru" | "ro") {
+    const { data, error } = await createAdminClient().rpc("service_get_installation_ranking_evidence_v2", { p_project_id: projectId, p_customer_account_id: customerAccountId, p_locale: locale });
+    if (error) fail(error.code);
+    return data as InstallationRankingEvidence;
+  }
+  async recordRankingDecision(decision: InstallationRankingDecision, customerAccountId: string, shortlistLimit: number) {
+    const generatedAt = new Date(decision.generatedAt);
+    const windowMs = 30 * 60 * 1000;
+    const windowStartedAt = new Date(Math.floor(generatedAt.getTime() / windowMs) * windowMs).toISOString();
+    const { data, error } = await createAdminClient().rpc("service_record_installation_ranking_decision_v2", {
+      p_customer_account_id: customerAccountId, p_project_id: decision.projectId,
+      p_policy_version: decision.policyVersion, p_evidence_fingerprint: decision.evidenceFingerprint,
+      p_decision: { candidates: decision.candidates }, p_ordered_provider_ids: decision.orderedProviderIds,
+      p_shadow_v1_provider_ids: decision.shadowV1ProviderIds, p_shortlist_limit: shortlistLimit,
+      p_window_started_at: windowStartedAt,
+    });
+    if (error) fail(error.code);
+    return data as { decisionId: string; countedImpressions: number };
   }
   selectPartner(input: Parameters<InstallationMarketplaceRepository["selectPartner"]>[0]) {
     return rpc<{ assignmentId: string; status: string; repeated: boolean }>("customer_select_installation_partner_v1", { p_project_id: input.projectId, p_provider_id: input.providerId, p_expected_revision: input.expectedRevision, p_idempotency_key: input.idempotencyKey });
@@ -62,6 +79,9 @@ export class SupabaseInstallationMarketplaceRepository implements InstallationMa
   }
   listAdmin(limit: number, status: string | null) {
     return rpc<InstallationMarketplaceAdminReport>("admin_list_installation_marketplace_v1", { p_limit: limit, p_status: status });
+  }
+  getAdminRankingDiagnostics(projectId: string | null) {
+    return rpc<InstallationRankingAdminDiagnostics>("admin_get_installation_ranking_diagnostics_v2", { p_project_id: projectId });
   }
   moderateReview(input: Parameters<InstallationMarketplaceRepository["moderateReview"]>[0]) {
     return rpc<{ reviewId: string; status: string; revision: number }>("admin_moderate_installation_review_v1", { p_review_id: input.reviewId, p_status: input.status, p_expected_revision: input.expectedRevision, p_reason: input.reason, p_correlation_id: input.correlationId });

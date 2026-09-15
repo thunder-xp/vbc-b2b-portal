@@ -1,6 +1,8 @@
 import "server-only";
 
+import { createHash } from "node:crypto";
 import type { InstallationMarketplaceRepository } from "./repository";
+import { rankInstallationPartners } from "./ranking";
 import { INSTALLATION_DECLINE_REASONS, INSTALLATION_NEED_TYPES, INSTALLATION_OBJECT_TYPES } from "./types";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -25,7 +27,15 @@ export class InstallationMarketplaceService {
   }
   listCustomer(locale: "ru" | "ro", limit = 20, offset = 0) { return this.repository.listCustomerProjects(pageLimit(limit), pageOffset(offset), locale); }
   getCustomer(projectId: string, locale: "ru" | "ro") { requireUuid(projectId); return this.repository.getCustomerProject(projectId, locale); }
-  shortlist(projectId: string, locale: "ru" | "ro") { requireUuid(projectId); return this.repository.listShortlist(projectId, locale, 5); }
+  async shortlist(projectId: string, customerAccountId: string, locale: "ru" | "ro") {
+    ids(projectId, customerAccountId);
+    const evidence = await this.repository.getRankingEvidence(projectId, customerAccountId, locale);
+    const fingerprintInput = { ...evidence, generatedAt: undefined };
+    const fingerprint = createHash("sha256").update(JSON.stringify(fingerprintInput)).digest("hex");
+    const decision = { ...rankInstallationPartners(evidence, 5), evidenceFingerprint: fingerprint };
+    await this.repository.recordRankingDecision(decision, customerAccountId, 5);
+    return decision.shortlist;
+  }
   select(input: { projectId: string; providerId: string; expectedRevision: number; idempotencyKey: string }) { ids(input.projectId, input.providerId, input.idempotencyKey); revision(input.expectedRevision); return this.repository.selectPartner(input); }
   transitionCustomer(input: { projectId: string; command: "CONFIRM" | "DISPUTE" | "CANCEL"; expectedRevision: number; idempotencyKey: string }) { ids(input.projectId, input.idempotencyKey); revision(input.expectedRevision); return this.repository.transitionCustomer(input); }
   review(input: { projectId: string; overall: number; workmanship: number; communication: number; agreement: number; comment?: string | null; idempotencyKey: string }) {
@@ -44,6 +54,7 @@ export class InstallationMarketplaceService {
     return this.repository.transitionPartner({ ...input, plannedFor });
   }
   listAdmin(status: string | null) { return this.repository.listAdmin(100,status?.trim()||null); }
+  getAdminRankingDiagnostics(projectId: string | null) { const normalized=optionalUuid(projectId); return this.repository.getAdminRankingDiagnostics(normalized); }
   moderate(input: { reviewId: string; status: "PUBLISHED" | "PENDING_REVIEW" | "HIDDEN"; expectedRevision: number; reason: string; correlationId: string }) { ids(input.reviewId,input.correlationId); revision(input.expectedRevision); if (!bounded(input.reason,5,500)) throw new InstallationMarketplaceInputError(); return this.repository.moderateReview({ ...input, reason: input.reason.trim() }); }
 }
 

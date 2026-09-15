@@ -39,7 +39,7 @@ The governed lifecycle is:
 
 ## Partner selection and reputation
 
-V1 filtering uses eligibility and relevance only: system competency, active region coverage, operational/public status, and bounded availability. A stable neutral name/ID order breaks ties. Ratings are display evidence and never affect V1 ordering.
+Ranking V2 replaces the customer-facing V1 neutral order with the versioned pipeline documented in `MARKETPLACE_RANKING_V2.md`. Eligibility remains a hard gate. The service then combines deterministic relevance, confidence-adjusted verified quality, sufficiently evidenced reliability and one bounded fair-exposure slot. V1 order is retained in every decision as a shadow comparator.
 
 A customer may publish exactly one `VERIFIED_INSTALLATION` review after confirming completion. Public reputation exposes the average, verified-review count, and customer-confirmed completion count. Zero-review Partners remain eligible and are labelled explicitly, avoiding a misleading small-sample rank.
 
@@ -56,7 +56,7 @@ Moderation changes visibility and records an append-only event; it does not sile
 ## Deliberately deferred
 
 - Partner pricing, bids, deposits, marketplace payments, refunds, payouts, and monetization.
-- Automatic/ranked assignment, paid placement, complex scoring, and rating-based eligibility.
+- Automatic assignment, paid placement, opaque scoring, and rating-based eligibility.
 - New SMS mechanisms or agent commission attribution.
 - Public Partner detail pages and broader non-CCTV competence taxonomy.
 - SLA/legal/warranty promises beyond existing governed policy.
