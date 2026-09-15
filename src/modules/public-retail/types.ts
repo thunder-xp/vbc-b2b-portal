@@ -17,7 +17,14 @@ export type PublicRetailPriceDto = {
 };
 
 export type PublicRetailMediaDto = { url: string; alt: string };
-export type PublicPartnerDirectoryEntryDto = { displayName: string; logoUrl: string | null };
+export type PublicPartnerDirectoryEntryDto = {
+  displayName: string;
+  logoUrl: string | null;
+  providerId: string | null;
+  verifiedReviewCount: number;
+  averageVerifiedRating: number | null;
+  completedVerifiedInstallations: number;
+};
 export type PublicRetailSpecificationDto = { key: string; label: string; value: string; filterable: boolean };
 export type PublicRetailDocumentDto = { type: "datasheet"; url: string };
 

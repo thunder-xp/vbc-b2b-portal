@@ -14,7 +14,7 @@ import PublicPartnersPage, { generateMetadata } from "../page";
 
 describe("public partners page", () => {
   it("renders only the strict public DTO and preserves localized navigation", async () => {
-    mocks.listPartners.mockResolvedValue([{ displayName: "Approved Partner", logoUrl: null }]);
+    mocks.listPartners.mockResolvedValue([{ displayName: "Approved Partner", logoUrl: null, providerId: null, verifiedReviewCount: 0, averageVerifiedRating: null, completedVerifiedInstallations: 0 }]);
     const { container } = render(await PublicPartnersPage({ searchParams: Promise.resolve({ lang: "ro" }) }));
 
     expect(screen.getByRole("heading", { name: "Partenerii noștri" })).toBeInTheDocument();

@@ -124,6 +124,10 @@ export function parsePublicRetailCategories(value: unknown): PublicRetailCategor
 const publicPartnerDirectoryRecord = z.object({
   displayName: localizedText,
   logoAssetPath: z.string().regex(/^[0-9a-f-]{36}\/[0-9a-f-]{36}\.(?:png|jpg|webp)$/).max(100).nullable(),
+  providerId: z.string().uuid().nullable(),
+  verifiedReviewCount: z.coerce.number().int().nonnegative(),
+  averageVerifiedRating: z.coerce.number().min(1).max(5).nullable(),
+  completedVerifiedInstallations: z.coerce.number().int().nonnegative(),
 }).strict();
 
 export function parsePublicPartnerDirectoryRecords(value: unknown) {

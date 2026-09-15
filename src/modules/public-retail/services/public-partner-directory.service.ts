@@ -9,6 +9,10 @@ export class PublicPartnerDirectoryService {
     return records.map((record) => ({
       displayName: record.displayName,
       logoUrl: publicPartnerLogoUrl(record.logoAssetPath),
+      providerId: record.providerId,
+      verifiedReviewCount: record.verifiedReviewCount,
+      averageVerifiedRating: record.averageVerifiedRating,
+      completedVerifiedInstallations: record.completedVerifiedInstallations,
     }));
   }
 }

@@ -98,7 +98,7 @@ function GovernanceRow({ record }: { record: AdminPublicPartnerDirectoryRecord }
     </form>
     <div>
       <p className="mb-2 text-xs font-semibold uppercase text-zinc-500">Предпросмотр карточки</p>
-      <PublicPartnerCard partner={{ displayName: previewName, logoUrl: useCurrentLogo ? record.currentLogoUrl : null }} />
+      <PublicPartnerCard locale="ru" partner={{ displayName: previewName, logoUrl: useCurrentLogo ? record.currentLogoUrl : null, providerId: null, verifiedReviewCount: 0, averageVerifiedRating: null, completedVerifiedInstallations: 0 }} />
     </div>
   </article>;
 }

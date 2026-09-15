@@ -18,8 +18,8 @@ describe("public partner directory", () => {
   it("uses one bounded repository call and maps only approved public fields", async () => {
     process.env.NEXT_PUBLIC_SUPABASE_URL = "https://project.supabase.co";
     const listPublished = vi.fn().mockResolvedValue([
-      { displayName: "Approved Partner", logoAssetPath: logoPath },
-      { displayName: "Partner Without Logo", logoAssetPath: null },
+      { displayName: "Approved Partner", logoAssetPath: logoPath, providerId: "10000000-0000-4000-8000-000000000003", verifiedReviewCount: 3, averageVerifiedRating: 4.67, completedVerifiedInstallations: 4 },
+      { displayName: "Partner Without Logo", logoAssetPath: null, providerId: null, verifiedReviewCount: 0, averageVerifiedRating: null, completedVerifiedInstallations: 0 },
     ]);
     const service = new PublicPartnerDirectoryService({ listPublished } satisfies PublicPartnerDirectoryRepository);
 
@@ -27,8 +27,12 @@ describe("public partner directory", () => {
       {
         displayName: "Approved Partner",
         logoUrl: `https://project.supabase.co/storage/v1/render/image/public/company-logos/${logoPath}?width=320&height=180&resize=contain&quality=75`,
+        providerId: "10000000-0000-4000-8000-000000000003",
+        verifiedReviewCount: 3,
+        averageVerifiedRating: 4.67,
+        completedVerifiedInstallations: 4,
       },
-      { displayName: "Partner Without Logo", logoUrl: null },
+      { displayName: "Partner Without Logo", logoUrl: null, providerId: null, verifiedReviewCount: 0, averageVerifiedRating: null, completedVerifiedInstallations: 0 },
     ]);
     expect(listPublished).toHaveBeenCalledOnce();
   });
@@ -36,21 +40,23 @@ describe("public partner directory", () => {
   it("strictly rejects private or internal company fields", () => {
     for (const field of ["companyId", "external_1c_id", "debt", "contract", "partnerPrice", "status"]) {
       expect(() => parsePublicPartnerDirectoryRecords([
-        { displayName: "Partner", logoAssetPath: null, [field]: "private" },
+        { displayName: "Partner", logoAssetPath: null, providerId: null, verifiedReviewCount: 0, averageVerifiedRating: null, completedVerifiedInstallations: 0, [field]: "private" },
       ])).toThrow();
     }
   });
 
   it("renders equal responsive cards and a bounded missing-logo fallback", () => {
     render(<PublicPartnerDirectory locale="ru" partners={[
-      { displayName: "Partner One", logoUrl: null },
-      { displayName: "Partner Two", logoUrl: "https://project.supabase.co/storage/v1/render/image/public/company-logos/approved.webp" },
+      { displayName: "Partner One", logoUrl: null, providerId: null, verifiedReviewCount: 0, averageVerifiedRating: null, completedVerifiedInstallations: 0 },
+      { displayName: "Partner Two", logoUrl: "https://project.supabase.co/storage/v1/render/image/public/company-logos/approved.webp", providerId: "10000000-0000-4000-8000-000000000003", verifiedReviewCount: 2, averageVerifiedRating: 4.5, completedVerifiedInstallations: 2 },
     ]} />);
 
     expect(screen.getByRole("heading", { name: "Наши партнёры" })).toBeInTheDocument();
     expect(screen.getByRole("list")).toHaveClass("grid-cols-1", "sm:grid-cols-2", "lg:grid-cols-3", "xl:grid-cols-4");
     expect(screen.getAllByRole("article")[0]).toHaveClass("grid-rows-[112px_auto]", "overflow-hidden");
     expect(screen.getByRole("img", { name: "Partner Two" })).toHaveClass("object-contain", "grayscale", "group-hover:grayscale-0");
+    expect(screen.getByText(/4\.5/)).toBeInTheDocument();
+    expect(screen.getByText("Пока нет проверенных отзывов")).toBeInTheDocument();
   });
 
   it("localizes Romanian copy and keeps the empty state safe", () => {
