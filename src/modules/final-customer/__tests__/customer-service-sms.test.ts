@@ -119,6 +119,10 @@ describe("Customer Service SMS sandbox", () => {
 
 describe("Customer Service SMS migration contract", () => {
   const sql = readFileSync(join(process.cwd(), "supabase/migrations/20260915093248_final_customer_service_sms_sandbox_v1.sql"), "utf8");
+  const phoneNormalizationSql = readFileSync(join(
+    process.cwd(),
+    "supabase/migrations/20260915132830_customer_service_sms_verified_phone_normalization.sql",
+  ), "utf8");
 
   it("adds a customer-account audience without manufacturing a partner company", () => {
     expect(sql).toContain("customer_account_id uuid null references public.customer_accounts");
@@ -138,5 +142,12 @@ describe("Customer Service SMS migration contract", () => {
     expect(sql).toContain("on conflict(delivery_identity,channel_mode) do nothing");
     expect(sql).toContain("v_event.communication_purpose='CUSTOMER_SERVICE'");
     expect(sql).toContain("v_recipient_limit:=3; v_audience_limit:=10");
+  });
+
+  it("compares the delivery recipient with a canonical Moldova Auth phone", () => {
+    expect(phoneNormalizationSql).toContain("v_expected_phone_digits := regexp_replace");
+    expect(phoneNormalizationSql).toContain("when v_expected_phone_digits ~ '^373[0-9]{8}$' then '+' || v_expected_phone_digits");
+    expect(phoneNormalizationSql).toContain("v_expected_phone_canonical <> btrim(p_delivery->>'recipient')");
+    expect(phoneNormalizationSql).not.toContain("btrim(v_expected_phone) <> btrim(p_delivery->>'recipient')");
   });
 });
