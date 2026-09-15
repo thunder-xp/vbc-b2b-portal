@@ -3,7 +3,11 @@ import "server-only";
 import { createAdminClient } from "@/src/lib/supabase/admin";
 
 import type { FinalCustomerRepository } from "./repository";
-import type { FinalCustomerAccount, FinalCustomerOrderSummary } from "./types";
+import type {
+  CustomerServiceRequest, CustomerServiceRequestStatus, FinalCustomerAccount,
+  FinalCustomerCurrentProduct, FinalCustomerOrderDetail, FinalCustomerOrderLine,
+  FinalCustomerOrderSummary, FinalCustomerProductDocument, FinalCustomerPurchase,
+} from "./types";
 
 const ACCOUNT_COLUMNS = "id,auth_user_id,customer_identity_id,status,identity_resolution_status,display_name,email,created_at,last_login_at";
 
@@ -78,7 +82,27 @@ export class SupabaseFinalCustomerRepository implements FinalCustomerRepository 
     return data?.name?.trim() || null;
   }
 
-  async listOrders(customerIdentityId: string | null, limit: number) {
+  async listOrders(customerIdentityId: string | null, limit: number, offset = 0) {
+    return this.listOrdersPage(customerIdentityId, limit, offset);
+  }
+
+  async getCommandCenter(customerIdentityId: string | null) {
+    if (!customerIdentityId) return { displayName: null, latestOrder: null, recentPurchases: [], equipmentCount: 0, documentCount: 0, latestRequest: null };
+    const { data, error } = await createAdminClient().rpc("get_final_customer_cabinet_overview_v1", { p_customer_identity_id: customerIdentityId });
+    if (error) throw repositoryError("read command center", error.code);
+    const value = (data ?? {}) as Record<string, unknown>;
+    const latestOrder = value.latestOrder as Record<string, unknown> | null;
+    const latestRequest = value.latestRequest as Record<string, unknown> | null;
+    return {
+      displayName: typeof value.displayName === "string" ? value.displayName : null,
+      latestOrder: latestOrder ? { id: String(latestOrder.id), number: String(latestOrder.number), status: String(latestOrder.status), createdAt: String(latestOrder.createdAt), total: Number(latestOrder.total), currency: String(latestOrder.currency), itemCount: Number(latestOrder.itemCount), paidAt: latestOrder.paidAt ? String(latestOrder.paidAt) : null } : null,
+      recentPurchases: Array.isArray(value.recentPurchases) ? value.recentPurchases.flatMap((item) => item && typeof item === "object" ? [{ id: String((item as Row).id), name: String((item as Row).name), sku: String((item as Row).sku) }] : []) : [],
+      equipmentCount: Number(value.equipmentCount ?? 0), documentCount: Number(value.documentCount ?? 0),
+      latestRequest: latestRequest ? { id: String(latestRequest.id), number: String(latestRequest.number), status: latestRequest.status as CustomerServiceRequestStatus } : null,
+    };
+  }
+
+  private async customerIds(customerIdentityId: string | null) {
     if (!customerIdentityId) return [];
     const admin = createAdminClient();
     const { data: customers, error: customerError } = await admin
@@ -87,24 +111,174 @@ export class SupabaseFinalCustomerRepository implements FinalCustomerRepository 
       .eq("customer_identity_id", customerIdentityId)
       .limit(100);
     if (customerError) throw repositoryError("resolve retail contexts", customerError.code);
-    const customerIds = (customers ?? []).map((row) => row.id);
+    return (customers ?? []).map((row) => row.id);
+  }
+
+  private async listOrdersPage(customerIdentityId: string | null, limit: number, offset: number) {
+    const admin = createAdminClient();
+    const customerIds = await this.customerIds(customerIdentityId);
     if (customerIds.length === 0) return [];
 
     const { data, error } = await admin
       .from("retail_orders")
-      .select("id,public_number,status,created_at,priced_scope_total,currency")
+      .select("id,public_number,status,created_at,priced_scope_total,currency,paid_at")
       .in("customer_id", customerIds)
       .order("created_at", { ascending: false })
-      .limit(Math.min(Math.max(limit, 1), 50));
+      .range(Math.max(offset, 0), Math.max(offset, 0) + Math.min(Math.max(limit, 1), 50) - 1);
     if (error) throw repositoryError("read retail orders", error.code);
-    return (data ?? []).map((row): FinalCustomerOrderSummary => ({
-      id: row.id,
-      number: row.public_number,
-      status: row.status,
-      createdAt: row.created_at,
-      total: Number(row.priced_scope_total),
-      currency: row.currency,
-    }));
+    const orderIds = (data ?? []).map((row) => row.id);
+    const counts = new Map<string, number>();
+    if (orderIds.length) {
+      const { data: lines, error: lineError } = await admin.from("retail_order_lines").select("order_id,quantity").in("order_id", orderIds);
+      if (lineError) throw repositoryError("count retail order lines", lineError.code);
+      for (const line of lines ?? []) counts.set(line.order_id, (counts.get(line.order_id) ?? 0) + Number(line.quantity));
+    }
+    return (data ?? []).map((row): FinalCustomerOrderSummary => mapOrder(row, counts.get(row.id) ?? 0));
+  }
+
+  async findOrder(customerIdentityId: string | null, orderId: string) {
+    const admin = createAdminClient();
+    const customerIds = await this.customerIds(customerIdentityId);
+    if (!customerIds.length) return null;
+    const { data: order, error } = await admin.from("retail_orders")
+      .select("id,public_number,status,created_at,priced_scope_total,currency,paid_at,delivery_address_snapshot")
+      .eq("id", orderId).in("customer_id", customerIds).maybeSingle();
+    if (error) throw repositoryError("read retail order", error.code);
+    if (!order) return null;
+    const [{ data: lines, error: lineError }, { data: events, error: eventError }] = await Promise.all([
+      admin.from("retail_order_lines").select("id,line_number,public_product_id,sku,product_name,slug_snapshot,image_url_snapshot,quantity,unit_code,unit_price,line_total,currency").eq("order_id", order.id).order("line_number"),
+      admin.from("retail_order_events").select("id,event_type,created_at").eq("order_id", order.id).order("created_at"),
+    ]);
+    if (lineError || eventError) throw repositoryError("read retail order detail", lineError?.code ?? eventError?.code);
+    const mappedLines = (lines ?? []).map(mapOrderLine);
+    return {
+      ...mapOrder(order, mappedLines.reduce((sum, line) => sum + line.quantity, 0)),
+      lines: mappedLines,
+      events: (events ?? []).map((row) => ({ id: row.id, type: row.event_type, createdAt: row.created_at })),
+      deliveryAddress: (order.delivery_address_snapshot ?? {}) as Record<string, unknown>,
+    } satisfies FinalCustomerOrderDetail;
+  }
+
+  async listConfirmedPurchases(customerIdentityId: string | null, limit: number, offset = 0) {
+    const admin = createAdminClient();
+    const customerIds = await this.customerIds(customerIdentityId);
+    if (!customerIds.length) return [];
+    const { data: orders, error } = await admin.from("retail_orders")
+      .select("id,public_number,paid_at,created_at").in("customer_id", customerIds).eq("status", "confirmed")
+      .not("paid_at", "is", null).order("paid_at", { ascending: false })
+      .range(Math.max(offset, 0), Math.max(offset, 0) + Math.min(Math.max(limit, 1), 50) - 1);
+    if (error) throw repositoryError("read confirmed purchases", error.code);
+    const orderIds = (orders ?? []).map((row) => row.id);
+    if (!orderIds.length) return [];
+    const { data: lines, error: lineError } = await admin.from("retail_order_lines")
+      .select("id,order_id,line_number,public_product_id,sku,product_name,slug_snapshot,image_url_snapshot,quantity,unit_code,unit_price,line_total,currency")
+      .in("order_id", orderIds).order("line_number");
+    if (lineError) throw repositoryError("read confirmed purchase lines", lineError.code);
+    const orderById = new Map((orders ?? []).map((row) => [row.id, row]));
+    return (lines ?? []).map((row): FinalCustomerPurchase => {
+      const order = orderById.get(row.order_id)!;
+      return { ...mapOrderLine(row), orderId: order.id, orderNumber: order.public_number, purchasedAt: order.paid_at ?? order.created_at, currentProduct: null };
+    });
+  }
+
+  async findPurchase(customerIdentityId: string | null, lineId: string) {
+    const admin = createAdminClient();
+    const customerIds = await this.customerIds(customerIdentityId);
+    if (!customerIds.length) return null;
+    const { data: line, error } = await admin.from("retail_order_lines")
+      .select("id,order_id,line_number,public_product_id,sku,product_name,slug_snapshot,image_url_snapshot,quantity,unit_code,unit_price,line_total,currency,retail_orders!inner(id,public_number,paid_at,created_at,status,customer_id)")
+      .eq("id", lineId).in("retail_orders.customer_id", customerIds).eq("retail_orders.status", "confirmed").not("retail_orders.paid_at", "is", null).maybeSingle();
+    if (error) throw repositoryError("read confirmed purchase", error.code);
+    if (!line) return null;
+    const orderValue = Array.isArray(line.retail_orders) ? line.retail_orders[0] : line.retail_orders;
+    if (!orderValue) return null;
+    const order = orderValue as { id: string; public_number: string; paid_at: string | null; created_at: string };
+    return { ...mapOrderLine(line), orderId: order.id, orderNumber: order.public_number, purchasedAt: order.paid_at ?? order.created_at, currentProduct: null };
+  }
+
+  async listCurrentProducts(publicProductIds: string[]) {
+    if (!publicProductIds.length) return [];
+    const admin = createAdminClient();
+    const { data: publication, error: publicationError } = await admin.from("public_retail_publications").select("id").eq("status", "published").maybeSingle();
+    if (publicationError || !publication) return [];
+    const [{ data: products, error }, { data: identities, error: identityError }] = await Promise.all([
+      admin.from("public_retail_products").select("public_id,slug,name_ru,retail_price_amount,retail_price_currency,availability,primary_image_url").eq("publication_id", publication.id).in("public_id", publicProductIds),
+      admin.from("public_retail_product_identities").select("public_id,source_product_id").in("public_id", publicProductIds),
+    ]);
+    if (error || identityError) throw repositoryError("read current retail products", error?.code ?? identityError?.code);
+    const sourceByPublic = new Map((identities ?? []).map((row) => [row.public_id, row.source_product_id]));
+    return (products ?? []).flatMap((row): FinalCustomerCurrentProduct[] => {
+      const sourceProductId = sourceByPublic.get(row.public_id);
+      return sourceProductId ? [{ publicProductId: row.public_id, sourceProductId, slug: row.slug, name: row.name_ru, price: Number(row.retail_price_amount), currency: row.retail_price_currency, availability: row.availability, imageUrl: row.primary_image_url }] : [];
+    });
+  }
+
+  async listProductDocuments(sourceProductIds: string[]) {
+    if (!sourceProductIds.length) return [];
+    const { data, error } = await createAdminClient().from("catalog_product_documents")
+      .select("id,product_id,title,document_type,url").in("product_id", sourceProductIds).eq("is_active", true).order("sort_order");
+    if (error) throw repositoryError("read product documents", error.code);
+    return (data ?? []).map((row): FinalCustomerProductDocument => ({ id: row.id, productId: row.product_id, title: row.title, type: row.document_type, url: row.url }));
+  }
+
+  async listServiceRequests(customerIdentityId: string | null, limit: number, offset = 0) {
+    if (!customerIdentityId) return [];
+    const { data, error } = await createAdminClient().from("customer_service_requests")
+      .select(SERVICE_REQUEST_COLUMNS).eq("customer_identity_id", customerIdentityId)
+      .order("created_at", { ascending: false }).range(Math.max(offset, 0), Math.max(offset, 0) + Math.min(Math.max(limit, 1), 50) - 1);
+    if (error) throw repositoryError("read customer service requests", error.code);
+    return (data ?? []).map(mapServiceRequest);
+  }
+
+  async findServiceRequest(customerIdentityId: string | null, requestId: string) {
+    if (!customerIdentityId) return null;
+    const { data, error } = await createAdminClient().from("customer_service_requests")
+      .select(SERVICE_REQUEST_COLUMNS).eq("id", requestId).eq("customer_identity_id", customerIdentityId).maybeSingle();
+    if (error) throw repositoryError("read customer service request", error.code);
+    return data ? mapServiceRequest(data) : null;
+  }
+
+  async createServiceRequest(input: Parameters<FinalCustomerRepository["createServiceRequest"]>[0]) {
+    const admin = createAdminClient();
+    const { data: requestId, error } = await admin.rpc("create_customer_service_request_v1", {
+      p_customer_account_id: input.accountId, p_customer_identity_id: input.customerIdentityId,
+      p_actor_user_id: input.actorUserId, p_request_type: input.type, p_subject: input.subject,
+      p_description: input.description, p_preferred_contact: input.preferredContact,
+      p_retail_order_id: input.orderId, p_retail_order_line_id: input.orderLineId,
+    });
+    if (error) throw repositoryError("create customer service request", error.code);
+    const { data, error: readError } = await admin.from("customer_service_requests").select(SERVICE_REQUEST_COLUMNS).eq("id", requestId).single();
+    if (readError) throw repositoryError("read created customer service request", readError.code);
+    return mapServiceRequest(data);
+  }
+
+  async cancelServiceRequest(customerIdentityId: string, requestId: string, expectedVersion: number, actorUserId: string) {
+    const { error } = await createAdminClient().rpc("cancel_customer_service_request_v1", {
+      p_customer_identity_id: customerIdentityId, p_request_id: requestId,
+      p_expected_version: expectedVersion, p_actor_user_id: actorUserId,
+    });
+    if (error) throw repositoryError("cancel customer service request", error.code);
+  }
+
+  async listAdminServiceRequests(limit: number, status: CustomerServiceRequestStatus | null) {
+    let query = createAdminClient().from("customer_service_requests").select(SERVICE_REQUEST_COLUMNS).order("created_at", { ascending: false }).limit(Math.min(Math.max(limit, 1), 100));
+    if (status) query = query.eq("status", status);
+    const { data, error } = await query;
+    if (error) throw repositoryError("read admin customer service requests", error.code);
+    return (data ?? []).map(mapServiceRequest);
+  }
+
+  async findAdminServiceRequest(requestId: string) {
+    const { data, error } = await createAdminClient().from("customer_service_requests").select(SERVICE_REQUEST_COLUMNS).eq("id", requestId).maybeSingle();
+    if (error) throw repositoryError("read admin customer service request", error.code);
+    return data ? mapServiceRequest(data) : null;
+  }
+
+  async updateAdminServiceRequestStatus(requestId: string, expectedVersion: number, status: CustomerServiceRequestStatus, actorUserId: string) {
+    const { error } = await createAdminClient().rpc("update_customer_service_request_status_v1", {
+      p_request_id: requestId, p_expected_version: expectedVersion, p_status: status, p_actor_user_id: actorUserId,
+    });
+    if (error) throw repositoryError("update admin service request", error.code);
   }
 
   async updateProfile(accountId: string, displayName: string | null, email: string | null) {
@@ -126,6 +300,8 @@ export class SupabaseFinalCustomerRepository implements FinalCustomerRepository 
   }
 }
 
+const SERVICE_REQUEST_COLUMNS = "id,public_number,request_type,subject,description,preferred_contact,status,retail_order_id,retail_order_line_id,created_at,updated_at,version";
+
 type Row = Record<string, unknown>;
 
 function mapAccount(row: Row): FinalCustomerAccount {
@@ -140,6 +316,18 @@ function mapAccount(row: Row): FinalCustomerAccount {
     createdAt: String(row.created_at),
     lastLoginAt: String(row.last_login_at),
   };
+}
+
+function mapOrder(row: Row, itemCount: number): FinalCustomerOrderSummary {
+  return { id: String(row.id), number: String(row.public_number), status: String(row.status), createdAt: String(row.created_at), total: Number(row.priced_scope_total), currency: String(row.currency), itemCount, paidAt: row.paid_at ? String(row.paid_at) : null };
+}
+
+function mapOrderLine(row: Row): FinalCustomerOrderLine {
+  return { id: String(row.id), lineNumber: Number(row.line_number), publicProductId: String(row.public_product_id), sku: String(row.sku), name: String(row.product_name), slug: String(row.slug_snapshot), imageUrl: row.image_url_snapshot ? String(row.image_url_snapshot) : null, quantity: Number(row.quantity), unitCode: String(row.unit_code), unitPrice: Number(row.unit_price), lineTotal: Number(row.line_total), currency: String(row.currency) };
+}
+
+function mapServiceRequest(row: Row): CustomerServiceRequest {
+  return { id: String(row.id), number: String(row.public_number), type: row.request_type as CustomerServiceRequest["type"], subject: String(row.subject), description: String(row.description), preferredContact: row.preferred_contact as CustomerServiceRequest["preferredContact"], status: row.status as CustomerServiceRequest["status"], orderId: row.retail_order_id ? String(row.retail_order_id) : null, orderLineId: row.retail_order_line_id ? String(row.retail_order_line_id) : null, createdAt: String(row.created_at), updatedAt: String(row.updated_at), version: Number(row.version) };
 }
 
 function repositoryError(operation: string, code?: string) {

@@ -11,7 +11,7 @@ import type { PublicRetailCheckoutDto, PublicRetailLocale } from "../types";
 
 const inputClass = "mt-1 min-h-11 w-full border border-zinc-300 bg-white px-3 text-sm outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-100";
 
-export function PublicRetailCheckoutForm({ checkout, locale }: { checkout: PublicRetailCheckoutDto; locale: PublicRetailLocale }) {
+export function PublicRetailCheckoutForm({ checkout, locale, initialCustomer }: { checkout: PublicRetailCheckoutDto; locale: PublicRetailLocale; initialCustomer?: { name: string; phone: string; email: string; lockedIdentity: boolean } }) {
   const ru = locale === "ru";
   const router = useRouter();
   const errorRef = useRef<HTMLDivElement>(null);
@@ -57,9 +57,9 @@ export function PublicRetailCheckoutForm({ checkout, locale }: { checkout: Publi
       {message ? <div aria-live="assertive" className="flex gap-3 border-l-4 border-red-600 bg-red-50 p-4 text-sm text-red-900" ref={errorRef} tabIndex={-1}><AlertCircle aria-hidden="true" className="size-5 shrink-0" />{message}</div> : null}
       {checkout.priceChanged ? <div className="border-l-4 border-amber-500 bg-amber-50 p-4 text-sm text-amber-950">{ru ? "Цена одной или нескольких позиций изменилась. Ниже показаны актуальные цены; подтвердите именно их." : "Prețul uneia sau mai multor poziții s-a modificat. Mai jos sunt prețurile actuale; confirmați-le pe acestea."}</div> : null}
       <fieldset className="border border-zinc-200 bg-white p-5"><legend className="px-1 text-lg font-semibold">{ru ? "Контактные данные" : "Date de contact"}</legend><div className="mt-3 grid gap-4 sm:grid-cols-2">
-        <Field label={ru ? "Имя и фамилия" : "Nume și prenume"}><input autoComplete="name" className={inputClass} maxLength={160} name="name" required /></Field>
-        <Field label={ru ? "Телефон" : "Telefon"}><input autoComplete="tel" className={inputClass} inputMode="tel" name="phone" placeholder="+373 60 000 000" required /></Field>
-        <Field label={ru ? "Email (необязательно)" : "Email (opțional)"}><input autoComplete="email" className={inputClass} inputMode="email" maxLength={254} name="email" type="email" /></Field>
+        <Field label={ru ? "Имя и фамилия" : "Nume și prenume"}><input autoComplete="name" className={inputClass} defaultValue={initialCustomer?.name} maxLength={160} name="name" required /></Field>
+        <Field label={ru ? "Телефон" : "Telefon"}><input autoComplete="tel" className={inputClass} defaultValue={initialCustomer?.phone} inputMode="tel" name="phone" placeholder="+373 60 000 000" readOnly={initialCustomer?.lockedIdentity} required /></Field>
+        <Field label={ru ? "Email (необязательно)" : "Email (opțional)"}><input autoComplete="email" className={inputClass} defaultValue={initialCustomer?.email} inputMode="email" maxLength={254} name="email" type="email" /></Field>
       </div></fieldset>
       <AddressFields locale={locale} prefix="delivery" title={ru ? "Адрес доставки" : "Adresa de livrare"} />
       {installationRequested ? <><section className="border border-zinc-200 bg-white p-5"><div className="flex items-center gap-3"><MapPin aria-hidden="true" className="size-5 text-blue-700" /><h2 className="text-lg font-semibold">{ru ? "Адрес монтажа" : "Adresa instalării"}</h2></div><label className="mt-4 flex min-h-11 items-center gap-3 text-sm"><input checked={installationSame} className="size-5 accent-blue-700" onChange={(event) => setInstallationSame(event.target.checked)} type="checkbox" />{ru ? "Адрес монтажа совпадает с адресом доставки" : "Adresa instalării coincide cu adresa de livrare"}</label>{!installationSame ? <div className="mt-5"><AddressFields embedded locale={locale} prefix="installation" /></div> : null}</section>

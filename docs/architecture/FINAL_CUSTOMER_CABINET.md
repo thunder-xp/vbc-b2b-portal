@@ -1,46 +1,60 @@
 # Final Customer Cabinet
 
-## Ownership
+## Ownership and source matrix
+
+| Cabinet capability | Canonical source | Cabinet role |
+| --- | --- | --- |
+| Customer identity | `customer_identities` linked through `customer_accounts` | Authenticated projection; no historical claiming |
+| Orders and lines | `retail_orders`, `retail_order_lines`, `retail_order_events` | Read-only customer-scoped history |
+| Payment state | Retail payment activation boundary and `retail_orders.paid_at` | Display only when confirmed by the existing boundary |
+| Delivery/fulfillment | No general Retail Order source currently exists | Omitted; never inferred |
+| Purchases | Confirmed Retail Orders with `paid_at` | Derived projection, not duplicated storage |
+| Equipment | Non-service lines from confirmed purchases | Derived projection; no serial or warranty-expiry inference |
+| Current product, price, availability | Current published Public Retail projection | Used only for product links and Buy again |
+| Product documents | Active `catalog_product_documents` for purchased canonical products | Read-only links; no invented invoice or receipt |
+| Customer service intake | `customer_service_requests` | Portal-owned intake and status workflow |
+| Partner Service Center / 1C service | Existing partner/company and integration domains | Not reused or redefined |
+
+## Authentication and account ownership
 
 The Final Customer Cabinet is a third private platform surface at `/account`, separate from Partner (`/cabinet`), Commercial Agent (`/agent`), and Admin. Supabase Auth owns passwordless phone authentication, sessions, JWT refresh, and Authenticator Assurance Level (AAL). A Final Customer principal exists only through `customer_accounts.auth_user_id = auth.uid()`; Partner, Agent, or Admin membership is neither required nor granted.
 
 `customer_identities` remains the canonical correlation root. `customer_accounts` is a lightweight access/profile relation, not another customer master. `retail_customers`, Partner customer records, Agent referrals, and future 1C external references remain context-owned records linked to the shared root.
 
-## First verified login
+After Supabase verifies a phone OTP, the protected account layout calls the existing `CustomerIdentityResolutionService` with verified Auth evidence. `MATCHED` links the account to one deterministic root; `NEW` creates one governed root; `AMBIGUOUS` and `CONFLICT` restrict history and expose no candidate identity IDs.
 
-After Supabase verifies a phone OTP, the protected account layout obtains the authenticated user from Supabase and calls the existing `CustomerIdentityResolutionService` with the phone marked as verified Auth evidence:
+## Identity and authorization path
 
-- `MATCHED`: link the account to the one deterministic root.
-- `NEW`: create one root and verified HMAC phone key through the existing governed service, then link it.
-- `AMBIGUOUS` or `CONFLICT`: create the account with `IDENTITY_REVIEW_REQUIRED`, expose no candidate IDs, and hide historical cross-context data. New account actions remain possible.
+Every private read resolves `auth.user -> customer_accounts -> customer_identity_id -> retail_customers -> retail_orders`. Route parameters never establish ownership. Order, line, equipment and service-request lookups always include the server-resolved customer identity. Ambiguous or conflicting identities remain in `IDENTITY_REVIEW_REQUIRED` and receive no historical order projection.
 
-The raw phone remains in Supabase Auth. Shared Identity stores only the existing versioned keyed-HMAC evidence. Carrier phone reassignment is therefore not treated as perpetual proof for arbitrary historical data; review and future step-up verification remain available.
+Authenticated checkout reuses the verified account phone server-side. The existing shared-customer-identity resolver remains responsible for linking the new `retail_customers` context to the same canonical identity. Guest checkout is unchanged. Existing orders are never claimed by a user-supplied ID or unverified profile field.
 
-## Authorization and data access
+## Purchase, equipment and warranty rules
 
-`customer_accounts`, its audit table, and the Auth SMS rate buckets use `ENABLE RLS` plus `FORCE RLS`. Authenticated browser reads of `customer_accounts` are limited to `auth.uid()`. The browser has no grants on shared identity keys, reconciliation records, account audit events, or rate buckets.
+A purchase is eligible only when the existing Retail Order is `confirmed` and has authoritative `paid_at` evidence. Equipment is a projection of eligible immutable order lines. Current catalog state may determine whether Buy again is offered, but never rewrites the purchase snapshot.
 
-Cabinet repositories resolve `auth_user_id → customer_account → customer_identity_id` server-side. Browser-supplied identity/customer/order IDs are never authorization inputs. Retail order reads are bounded local projection reads: the repository resolves the authorized `retail_customers` contexts, then fetches their orders in one bounded query. Ambiguous/conflicted accounts receive no historical orders.
+The current Retail Order source does not expose authoritative return quantities, shipment fulfillment, serial assignment, or personal warranty expiry. The cabinet therefore does not display or calculate those facts. Product-level warranty documents may be shown when they are already published in the Catalog documents source.
 
-## Cabinet V1
+## Service request boundary
 
-Only working areas are exposed:
+Final-customer service requests are a small Portal-owned intake because the existing Service Center is partner/company scoped. They do not create a 1C service document, installation assignment, warranty entitlement, outbound notification, or commercial state. Customer mutations are server-orchestrated and audit only creation, status changes and cancellation. Admin access reuses `admin.service.view` and `admin.service.manage`.
 
-- Overview: known customer name, latest authorized Retail order, and account/security state.
-- Orders: existing Retail/B2C orders authorized through Shared Customer Identity; no copies are created.
-- Profile: optional cabinet display name/email and read-only verified phone.
-- Security: accurate “SMS code login” copy and the actual Supabase session AAL. Phone OTP is not labelled 2FA.
+`customer_service_requests` and its event stream use enabled and forced RLS. Authenticated users receive read-only grants constrained through their `customer_accounts.auth_user_id`; all mutations pass through server-side identity and permission checks. Events are append-only.
 
-Changing the verified phone is deliberately not a plain profile edit. A future governed flow must reverify the new phone and review identity impact. Future sensitive actions can require `aal2` through an independent TOTP, phone MFA after an independent first factor, or another governed step-up method. V1 does not auto-enrol a second SMS factor.
+## Performance contract
 
-## Retail and future 1C contexts
+Reads are bounded and batched: orders and lines are fetched per page, current products are resolved in one publication query, and documents are fetched in one product-ID query. The cabinet performs no live 1C request, persistent polling, per-card query, or new background schedule. Empty-state reads have a fast no-op path.
 
-Existing anonymous Retail history is not claimed by an unverified matching phone or email. Only deterministic Shared Identity evidence authorizes history. The existing `customer_external_refs(system='1C', entity_type='COUNTERPARTY')` seam is preserved; this task adds no 1C calls or writes.
+The command center uses `get_final_customer_cabinet_overview_v1`, one bounded local database aggregate for its order, recent-purchase, equipment, document, and request cards. It does not fan out one request per card.
 
 ## Session and recovery
 
-Supabase SSR cookies and the existing platform Supabase clients are reused. Current-session logout is supported. Session diagnostics use Supabase AAL without forging claims. Future recovery or sensitive history linking must use stronger governed verification when phone ownership alone is insufficient.
+Supabase SSR cookies and the existing platform clients are reused. Current-session logout remains supported. Session diagnostics use actual Supabase AAL without forging claims. Changing the verified phone remains outside ordinary profile editing because it requires reverification and identity-impact review.
 
-## Performance and cost
+## Deferred capabilities
 
-Login loads without 1C. OTP causes one Supabase Auth request, one signed hook request, one bounded privacy-preserving rate reservation, and one Moldcell relay call. Cabinet pages use local database projections with bounded queries and no N+1. No background job, cron, polling, or per-page audit was added.
+- General fulfillment tracking until an authoritative Retail Order fulfillment source exists.
+- Returns/refunds until explicit line-level authoritative facts exist.
+- Serial and personal warranty expiry until deterministic order-line linkage exists.
+- Accounting documents until a legitimate customer-visible document source exists.
+- 1C service synchronization and outbound notification activation as separate governed work.

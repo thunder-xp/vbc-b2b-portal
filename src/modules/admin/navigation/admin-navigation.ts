@@ -153,6 +153,7 @@ export const ADMIN_NAVIGATION: readonly AdminNavigationGroup[] = [
     items: [
       { label: "Заказы", href: "/admin/orders", permission: "admin.orders.view" },
       { label: "Сервис", href: "/admin/service", permission: "admin.service.view" },
+      { label: "Обращения частных клиентов", href: "/admin/service/customers", permission: "admin.service.view" },
       { label: "Проверка серийного номера", href: "/admin/service/serial-verification", permission: "admin.service.serial.verify" },
       { label: "IT-поддержка", href: "/admin/support", permission: "support.view_all" },
       { label: "База знаний", href: "/admin/knowledge", permission: "knowledge.edit" },

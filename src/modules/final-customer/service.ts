@@ -9,7 +9,10 @@ import {
 import { canonicalMoldovaE164 } from "@/src/modules/final-customer-auth/auth-phone";
 
 import type { FinalCustomerRepository } from "./repository";
-import type { FinalCustomerAccount } from "./types";
+import {
+  CUSTOMER_SERVICE_REQUEST_STATUSES, CUSTOMER_SERVICE_REQUEST_TYPES,
+  type CustomerServiceRequestStatus, type FinalCustomerAccount,
+} from "./types";
 
 export class FinalCustomerAuthenticationError extends Error {
   constructor() {
@@ -56,10 +59,96 @@ export class FinalCustomerAccountService {
     return { displayName: resolvedName, orders, latestOrder: orders[0] ?? null };
   }
 
-  listOrders(account: FinalCustomerAccount) {
+  listOrders(account: FinalCustomerAccount, limit = 20, offset = 0) {
     return account.status === "ACTIVE"
-      ? this.repository.listOrders(account.customerIdentityId, 50)
+      ? this.repository.listOrders(account.customerIdentityId, limit, offset)
       : Promise.resolve([]);
+  }
+
+  commandCenter(account: FinalCustomerAccount) {
+    return account.status === "ACTIVE" ? this.repository.getCommandCenter(account.customerIdentityId) : Promise.resolve({ displayName: account.displayName, latestOrder: null, recentPurchases: [], equipmentCount: 0, documentCount: 0, latestRequest: null });
+  }
+
+  async orderDetail(account: FinalCustomerAccount, orderId: string) {
+    if (account.status !== "ACTIVE" || !UUID.test(orderId)) return null;
+    return this.repository.findOrder(account.customerIdentityId, orderId);
+  }
+
+  async purchases(account: FinalCustomerAccount, limit = 20, offset = 0) {
+    if (account.status !== "ACTIVE") return [];
+    const purchases = await this.repository.listConfirmedPurchases(account.customerIdentityId, limit, offset);
+    const current = await this.repository.listCurrentProducts(unique(purchases.map((line) => line.publicProductId)));
+    const byId = new Map(current.map((product) => [product.publicProductId, product]));
+    return purchases.map((line) => ({ ...line, currentProduct: byId.get(line.publicProductId) ?? null }));
+  }
+
+  async equipment(account: FinalCustomerAccount, limit = 20, offset = 0) {
+    return (await this.purchases(account, limit, offset)).filter((line) => line.unitCode !== "service");
+  }
+
+  async equipmentDetail(account: FinalCustomerAccount, lineId: string) {
+    if (account.status !== "ACTIVE" || !UUID.test(lineId)) return null;
+    const purchase = await this.repository.findPurchase(account.customerIdentityId, lineId);
+    if (!purchase || purchase.unitCode === "service") return null;
+    const current = (await this.repository.listCurrentProducts([purchase.publicProductId]))[0] ?? null;
+    const documents = current ? await this.repository.listProductDocuments([current.sourceProductId]) : [];
+    return { ...purchase, currentProduct: current, documents };
+  }
+
+  async documents(account: FinalCustomerAccount) {
+    const purchases = await this.purchases(account, 50);
+    const sourceIds = unique(purchases.flatMap((line) => line.currentProduct ? [line.currentProduct.sourceProductId] : []));
+    const documents = await this.repository.listProductDocuments(sourceIds);
+    const productBySource = new Map(purchases.flatMap((line) => line.currentProduct ? [[line.currentProduct.sourceProductId, line]] as const : []));
+    return documents.map((document) => ({ ...document, purchase: productBySource.get(document.productId) ?? null }));
+  }
+
+  listServiceRequests(account: FinalCustomerAccount, limit = 20, offset = 0) {
+    return account.status === "ACTIVE" ? this.repository.listServiceRequests(account.customerIdentityId, limit, offset) : Promise.resolve([]);
+  }
+
+  async serviceRequest(account: FinalCustomerAccount, requestId: string) {
+    if (account.status !== "ACTIVE" || !UUID.test(requestId)) return null;
+    return this.repository.findServiceRequest(account.customerIdentityId, requestId);
+  }
+
+  async createServiceRequest(account: FinalCustomerAccount, input: Record<string, string>) {
+    if (account.status !== "ACTIVE" || !account.customerIdentityId) throw new Error("CUSTOMER_IDENTITY_REQUIRED");
+    const type = input.type as (typeof CUSTOMER_SERVICE_REQUEST_TYPES)[number];
+    if (!CUSTOMER_SERVICE_REQUEST_TYPES.includes(type)) throw new Error("INVALID_SERVICE_REQUEST");
+    const subject = bounded(input.subject, 3, 160);
+    const description = bounded(input.description, 10, 2000);
+    const preferredContact = input.preferredContact === "EMAIL" ? "EMAIL" : "PHONE";
+    if (preferredContact === "EMAIL" && !account.email) throw new Error("CUSTOMER_EMAIL_REQUIRED");
+    const orderId = optionalUuid(input.orderId);
+    const orderLineId = optionalUuid(input.orderLineId);
+    if (orderLineId && !orderId) throw new Error("INVALID_SERVICE_REQUEST");
+    if (orderId) {
+      const order = await this.repository.findOrder(account.customerIdentityId, orderId);
+      if (!order || (orderLineId && !order.lines.some((line) => line.id === orderLineId))) throw new Error("INVALID_SERVICE_REFERENCE");
+    }
+    return this.repository.createServiceRequest({ accountId: account.id, actorUserId: account.authUserId, customerIdentityId: account.customerIdentityId, type, subject, description, preferredContact, orderId, orderLineId });
+  }
+
+  async cancelServiceRequest(account: FinalCustomerAccount, requestId: string, expectedVersion: number) {
+    if (!account.customerIdentityId || !UUID.test(requestId) || !Number.isInteger(expectedVersion) || expectedVersion < 0) throw new Error("INVALID_SERVICE_REQUEST");
+    const request = await this.repository.findServiceRequest(account.customerIdentityId, requestId);
+    if (!request || !["NEW", "IN_REVIEW", "NEED_INFO"].includes(request.status)) throw new Error("INVALID_SERVICE_TRANSITION");
+    return this.repository.cancelServiceRequest(account.customerIdentityId, requestId, expectedVersion, account.authUserId);
+  }
+
+  listAdminServiceRequests(status: CustomerServiceRequestStatus | null) {
+    if (status && !CUSTOMER_SERVICE_REQUEST_STATUSES.includes(status)) throw new Error("INVALID_SERVICE_STATUS");
+    return this.repository.listAdminServiceRequests(100, status);
+  }
+
+  findAdminServiceRequest(requestId: string) {
+    return UUID.test(requestId) ? this.repository.findAdminServiceRequest(requestId) : Promise.resolve(null);
+  }
+
+  async updateAdminServiceRequestStatus(requestId: string, expectedVersion: number, status: CustomerServiceRequestStatus, actorUserId: string) {
+    if (!UUID.test(requestId) || !Number.isInteger(expectedVersion) || expectedVersion < 0 || !CUSTOMER_SERVICE_REQUEST_STATUSES.includes(status)) throw new Error("INVALID_SERVICE_STATUS");
+    return this.repository.updateAdminServiceRequestStatus(requestId, expectedVersion, status, actorUserId);
   }
 
   async updateProfile(account: FinalCustomerAccount, input: { displayName: string; email: string }) {
@@ -74,3 +163,8 @@ export class FinalCustomerAccountService {
     await this.repository.updateProfile(account.id, displayName, email);
   }
 }
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+function unique(values: string[]) { return [...new Set(values)]; }
+function optionalUuid(value?: string) { const normalized = value?.trim() || null; if (normalized && !UUID.test(normalized)) throw new Error("INVALID_UUID"); return normalized; }
+function bounded(value: string | undefined, min: number, max: number) { const normalized = value?.trim().replace(/\s+/g, " ") ?? ""; if (normalized.length < min || normalized.length > max) throw new Error("INVALID_TEXT"); return normalized; }

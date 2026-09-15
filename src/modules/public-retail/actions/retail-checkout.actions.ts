@@ -8,6 +8,7 @@ import { getRetailCheckoutService, hasRetailCheckoutAccess } from "../retail-che
 import { deriveRetailOrderAccessToken } from "../retail-order-token";
 import { hashRetailOrderAccessToken } from "../retail-order-token";
 import { RetailCheckoutConflictError, RetailCheckoutInputError, RetailCheckoutUnavailableError, type RetailCheckoutInput } from "../services/retail-checkout.service";
+import { getFinalCustomerContext } from "@/src/modules/final-customer/server";
 
 export type RetailCheckoutActionResult = { success: boolean; message: string; orderToken: string | null; conflict: boolean };
 export type RetailOfferActionResult = { success: boolean; message: string; offer: Awaited<ReturnType<ReturnType<typeof getRetailCheckoutService>["createCommercialOffer"]>> | null };
@@ -35,7 +36,14 @@ export async function createPublicRetailOrderAction(input: RetailCheckoutInput):
   if (!credential) return failure(ru ? "Корзина больше недоступна. Вернитесь в корзину." : "Coșul nu mai este disponibil. Reveniți în coș.");
   const access = deriveRetailOrderAccessToken(credential.token, input.submissionKey);
   try {
-    await getRetailCheckoutService().createOrder(credential.hash, access.hash, input);
+    const customerContext = await getFinalCustomerContext().catch(() => null);
+    const governedInput = customerContext?.account.status === "ACTIVE" ? {
+      ...input,
+      name: customerContext.displayName ?? input.name,
+      phone: customerContext.verifiedPhone,
+      email: customerContext.account.email ?? input.email,
+    } : input;
+    await getRetailCheckoutService().createOrder(credential.hash, access.hash, governedInput);
     console.info({ event: "public_retail_order_locked", installerSelection: input.installationSelectionMode ?? "not_applicable", commercialOfferApplied: Boolean(input.commercialOfferId) });
     await rotateRetailCartTokenHash();
     return { success: true, message: ru ? "Заказ подготовлен." : "Comanda a fost pregătită.", orderToken: access.token, conflict: false };

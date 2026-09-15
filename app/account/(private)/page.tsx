@@ -1,41 +1,20 @@
 import Link from "next/link";
-import { ArrowRight, LockKeyhole, ReceiptText } from "lucide-react";
-
+import { ArrowRight, FileText, Headphones, PackageCheck, ReceiptText, ShoppingBag } from "lucide-react";
 import { createFinalCustomerService, getFinalCustomerContext } from "@/src/modules/final-customer/server";
-import { finalCustomerCopy, getFinalCustomerLocale } from "@/src/modules/final-customer/locale";
+import { getFinalCustomerLocale } from "@/src/modules/final-customer/locale";
+import { customerMoney, orderStatus, serviceStatusLabel } from "@/src/modules/final-customer/presentation";
 
 export default async function FinalCustomerOverviewPage() {
   const [context, locale] = await Promise.all([getFinalCustomerContext(), getFinalCustomerLocale()]);
-  const overview = await createFinalCustomerService().overview(context.account);
-  const copy = finalCustomerCopy[locale];
-  return (
-    <main className="mx-auto max-w-5xl space-y-5 px-4 py-6 sm:py-8">
-      <div>
-        <p className="text-sm text-zinc-500">{copy.greeting}</p>
-        <h1 className="text-2xl font-semibold tracking-tight">{overview.displayName ?? copy.cabinet}</h1>
-      </div>
-      <div className="grid gap-4 md:grid-cols-2">
-        <section className="rounded-xl border border-zinc-200 bg-white p-5">
-          <div className="flex items-center gap-2 text-zinc-700"><ReceiptText aria-hidden size={18} /><h2 className="font-semibold">{copy.recentOrder}</h2></div>
-          {overview.latestOrder ? (
-            <div className="mt-4">
-              <p className="font-mono text-sm font-semibold">{overview.latestOrder.number}</p>
-              <p className="mt-1 text-lg font-semibold tabular-nums">{money(overview.latestOrder.total, overview.latestOrder.currency, locale)}</p>
-              <Link className="mt-4 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-emerald-700" href="/account/orders">{copy.orders}<ArrowRight aria-hidden size={16} /></Link>
-            </div>
-          ) : <p className="mt-4 text-sm leading-6 text-zinc-500">{context.account.status === "ACTIVE" ? copy.noOrders : copy.review}</p>}
-        </section>
-        <section className="rounded-xl border border-zinc-200 bg-white p-5">
-          <div className="flex items-center gap-2 text-zinc-700"><LockKeyhole aria-hidden size={18} /><h2 className="font-semibold">{copy.security}</h2></div>
-          <p className="mt-4 text-sm leading-6 text-zinc-600">{copy.accountReady}</p>
-          <p className="mt-2 font-mono text-sm font-semibold">{context.verifiedPhone}</p>
-          <Link className="mt-4 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-emerald-700" href="/account/security">{copy.security}<ArrowRight aria-hidden size={16} /></Link>
-        </section>
-      </div>
-    </main>
-  );
-}
-
-function money(value: number, currency: string, locale: "ru" | "ro") {
-  return new Intl.NumberFormat(locale === "ro" ? "ro-MD" : "ru-MD", { style: "currency", currency }).format(value);
+  const service = createFinalCustomerService();
+  const overview = await service.commandCenter(context.account);
+  const ro = locale === "ro";
+  const cards = [
+    { href: "/account/orders", title: ro ? "Comenzi" : "Заказы", Icon: ReceiptText, body: overview.latestOrder ? `${overview.latestOrder.number} · ${orderStatus(overview.latestOrder.status, locale)} · ${customerMoney(overview.latestOrder.total, overview.latestOrder.currency, locale)}` : (ro ? "Nu există comenzi asociate" : "Связанных заказов нет") },
+    { href: "/account/purchases", title: ro ? "Cumpărături" : "Покупки", Icon: ShoppingBag, body: overview.recentPurchases.length ? `${ro ? "Ultimele produse" : "Последние товары"}: ${overview.recentPurchases.map((item) => item.name).slice(0, 2).join(", ")}` : (ro ? "Nu există cumpărături confirmate" : "Нет подтверждённых покупок") },
+    { href: "/account/equipment", title: ro ? "Echipamente și garanție" : "Оборудование и гарантия", Icon: PackageCheck, body: overview.equipmentCount ? `${overview.equipmentCount} ${ro ? "poziții confirmate" : "подтверждённых позиций"}` : (ro ? "Echipamentele vor apărea după cumpărare" : "Оборудование появится после покупки") },
+    { href: "/account/documents", title: ro ? "Documente" : "Документы", Icon: FileText, body: `${overview.documentCount} ${ro ? "documente disponibile" : "доступных документов"}` },
+    { href: "/account/service", title: ro ? "Service" : "Сервис", Icon: Headphones, body: overview.latestRequest ? `${overview.latestRequest.number} · ${serviceStatusLabel(overview.latestRequest.status, locale)}` : (ro ? "Creați o solicitare de service" : "Создать сервисное обращение") },
+  ];
+  return <main className="mx-auto max-w-5xl space-y-5 px-4 py-6 sm:py-8"><header><p className="text-sm text-zinc-500">{ro ? "Bună ziua" : "Здравствуйте"}</p><h1 className="text-2xl font-semibold tracking-tight">{overview.displayName ?? (ro ? "Cont personal" : "Личный кабинет")}</h1></header><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{cards.map(({ href, title, Icon, body }) => <Link className="group flex min-h-36 flex-col rounded-xl border border-zinc-200 bg-white p-5 hover:border-emerald-300" href={href} key={href}><div className="flex items-center gap-2"><Icon aria-hidden className="size-5 text-emerald-700" /><h2 className="font-semibold">{title}</h2></div><p className="mt-3 flex-1 text-sm leading-6 text-zinc-600">{body}</p><span className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-emerald-700">{ro ? "Deschide" : "Открыть"}<ArrowRight aria-hidden className="size-4 transition-transform group-hover:translate-x-0.5" /></span></Link>)}</div></main>;
 }
