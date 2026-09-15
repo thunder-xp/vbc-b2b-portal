@@ -1,21 +1,32 @@
 import { randomUUID } from "node:crypto";
 import Link from "next/link";
-import { getFinalCustomerContext } from "@/src/modules/final-customer/server";
+import { notFound } from "next/navigation";
+import { createFinalCustomerService, getFinalCustomerContext } from "@/src/modules/final-customer/server";
 import { getFinalCustomerLocale } from "@/src/modules/final-customer/locale";
 import { createInstallationProjectAction } from "@/src/modules/installation-marketplace/actions";
 import { getInstallationMarketplaceService } from "@/src/modules/installation-marketplace/server";
 import { INSTALLATION_NEED_TYPES, INSTALLATION_OBJECT_TYPES } from "@/src/modules/installation-marketplace/types";
 import { marketplaceCopy, needLabels, objectLabels } from "@/src/modules/installation-marketplace/copy";
+import { getPublicRetailProduct } from "@/src/modules/public-retail/server";
 
-type Query={productId?:string;orderId?:string};
+type Query={productId?:string;productSlug?:string;orderId?:string};
 export default async function NewCustomerInstallationPage({searchParams}:{searchParams:Promise<Query>}){
-  const [,locale,query]=await Promise.all([getFinalCustomerContext(),getFinalCustomerLocale(),searchParams]);
+  const [context,locale,query]=await Promise.all([getFinalCustomerContext(),getFinalCustomerLocale(),searchParams]);
   const copy=marketplaceCopy[locale];
-  const sourceType=query.orderId?"ORDER":query.productId?"PRODUCT":"CUSTOM";
-  const regions=await getInstallationMarketplaceService().listRegions(locale);
+  const [regions,product,order]=await Promise.all([
+    getInstallationMarketplaceService().listRegions(locale),
+    query.productId&&query.productSlug?getPublicRetailProduct(query.productSlug,locale):Promise.resolve(null),
+    query.orderId?createFinalCustomerService().orderDetail(context.account,query.orderId):Promise.resolve(null),
+  ]);
+  if ((query.productId&&(!product||product.id!==query.productId||!product.calculatorEligible))||(query.orderId&&!order)) notFound();
+  const sourceType=order?"ORDER":product?"PRODUCT":"CUSTOM";
+  const sourceContext=product
+    ? {label:locale==="ro"?"Echipament selectat":"Выбранное оборудование",title:product.name,meta:`SKU ${product.sku}`}
+    : order?{label:locale==="ro"?"Comandă selectată":"Выбранный заказ",title:order.number,meta:`${order.lines.length} ${locale==="ro"?"poziții":"позиций"}`}:null;
   return <main className="mx-auto max-w-2xl px-4 py-6 sm:py-8"><Link className="text-sm font-semibold text-emerald-700" href="/account/installations">← {copy.projects}</Link><h1 className="mt-3 text-2xl font-semibold">{copy.newProject}</h1><p className="mt-2 text-sm text-zinc-600">{locale==="ro"?"Datele de contact vor fi comunicate numai partenerului care acceptă cererea.":"Контактные данные будут переданы только партнёру, который примет заявку."}</p>
+    {sourceContext?<section aria-label={sourceContext.label} className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50/60 p-4"><p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">{sourceContext.label}</p><p className="mt-1 font-semibold text-zinc-950">{sourceContext.title}</p><p className="mt-1 text-xs text-zinc-600">{sourceContext.meta}</p></section>:null}
     <form action={createInstallationProjectAction} className="mt-6 grid gap-4 rounded-xl border border-zinc-200 bg-white p-4 sm:p-6">
-      <input name="sourceType" type="hidden" value={sourceType}/><input name="sourceOrderId" type="hidden" value={query.orderId??""}/><input name="sourcePublicProductId" type="hidden" value={query.productId??""}/><input name="creationKey" type="hidden" value={randomUUID()}/>
+      <input name="sourceType" type="hidden" value={sourceType}/><input name="sourceOrderId" type="hidden" value={order?.id??""}/><input name="sourcePublicProductId" type="hidden" value={product?.id??""}/><input name="creationKey" type="hidden" value={randomUUID()}/>
       <label className="grid gap-1 text-sm font-medium">{copy.objectType}<select className="min-h-11 rounded-md border border-zinc-300 px-3" name="objectType" required>{INSTALLATION_OBJECT_TYPES.map(value=><option key={value} value={value}>{objectLabels[locale][value]}</option>)}</select></label>
       <label className="grid gap-1 text-sm font-medium">{copy.needType}<select className="min-h-11 rounded-md border border-zinc-300 px-3" name="needType" required>{INSTALLATION_NEED_TYPES.map(value=><option key={value} value={value}>{needLabels[locale][value]}</option>)}</select></label>
       <label className="grid gap-1 text-sm font-medium">{locale==="ro"?"Regiunea de deservire":"Зона обслуживания"}<select className="min-h-11 rounded-md border border-zinc-300 px-3" name="regionCode"><option value="">{locale==="ro"?"Orice zonă disponibilă":"Любая доступная зона"}</option>{regions.map(region=><option key={region.code} value={region.code}>{region.name}</option>)}</select></label>
