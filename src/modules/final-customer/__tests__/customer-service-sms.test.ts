@@ -121,7 +121,7 @@ describe("Customer Service SMS migration contract", () => {
   const sql = readFileSync(join(process.cwd(), "supabase/migrations/20260915093248_final_customer_service_sms_sandbox_v1.sql"), "utf8");
   const phoneNormalizationSql = readFileSync(join(
     process.cwd(),
-    "supabase/migrations/20260915132830_customer_service_sms_verified_phone_normalization.sql",
+    "supabase/migrations/20260915113530_customer_service_sms_verified_phone_normalization.sql",
   ), "utf8");
 
   it("adds a customer-account audience without manufacturing a partner company", () => {
