@@ -159,6 +159,10 @@ describe("Customer Service SMS migration contract", () => {
     process.cwd(),
     "supabase/migrations/20260915113530_customer_service_sms_verified_phone_normalization.sql",
   ), "utf8");
+  const productionModeSql = readFileSync(join(
+    process.cwd(),
+    "supabase/migrations/20260915180114_customer_service_sms_production_mode.sql",
+  ), "utf8");
 
   it("adds a customer-account audience without manufacturing a partner company", () => {
     expect(sql).toContain("customer_account_id uuid null references public.customer_accounts");
@@ -185,5 +189,14 @@ describe("Customer Service SMS migration contract", () => {
     expect(phoneNormalizationSql).toContain("when v_expected_phone_digits ~ '^373[0-9]{8}$' then '+' || v_expected_phone_digits");
     expect(phoneNormalizationSql).toContain("v_expected_phone_canonical <> btrim(p_delivery->>'recipient')");
     expect(phoneNormalizationSql).not.toContain("btrim(v_expected_phone) <> btrim(p_delivery->>'recipient')");
+  });
+
+  it("allows LIVE persistence without weakening event, recipient, or service-role checks", () => {
+    expect(productionModeSql.match(/not in \('DISABLED','SANDBOX','LIVE'\)/g)).toHaveLength(2);
+    expect(productionModeSql).toContain("coalesce(auth.role(), '') <> 'service_role'");
+    expect(productionModeSql).toContain("v_expected_phone_canonical <> btrim(p_delivery->>'recipient')");
+    expect(productionModeSql).toContain("source_event.event_type in (");
+    expect(productionModeSql).toContain("revoke all on function public.persist_customer_service_sms_intent(jsonb,jsonb) from public,anon,authenticated");
+    expect(productionModeSql).toContain("grant execute on function public.persist_customer_service_sms_intent(jsonb,jsonb) to service_role");
   });
 });
