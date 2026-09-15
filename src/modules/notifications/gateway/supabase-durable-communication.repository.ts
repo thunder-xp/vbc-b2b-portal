@@ -88,7 +88,10 @@ function deliveryPayload(projection: CommunicationProjection) {
         templateRevision: projection.templateVersion,
         adapterIdentity: projection.channel === "email" ? "smtp"
           : projection.channel === "sms" ? resolveSmsProviderIdentity(normalizedRecipient(projection)) : null,
-        renderSnapshot: projection.rendered,
+        // Omit an absent snapshot instead of serializing JSON null. Postgres treats
+        // JSON null as a value, so it would violate the object-or-SQL-null check on
+        // safely suppressed deliveries before their reason can be persisted.
+        renderSnapshot: projection.rendered ?? undefined,
       customerAccountId: projection.customerAccountId,
     };
 }
