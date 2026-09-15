@@ -221,6 +221,29 @@ describe("NotificationDeliveryWorkerService", () => {
       text: "NSD: Нужна информация по обращению. Откройте личный кабинет.",
     }));
   });
+
+  it("delivers a CUSTOMER_SERVICE production snapshot without applying the sandbox allowlist", async () => {
+    vi.stubEnv("SMS_MODE", "SANDBOX");
+    vi.stubEnv("COMMUNICATION_SMS_KILL_SWITCH", "OFF");
+    vi.stubEnv("CUSTOMER_SERVICE_SMS_ENABLED", "true");
+    vi.stubEnv("CUSTOMER_SERVICE_SMS_MODE", "PRODUCTION");
+    vi.stubEnv("SMS_SANDBOX_ALLOWED_RECIPIENTS", "+37368000000");
+    const smsDelivery: ClaimedNotificationDelivery = {
+      ...delivery, companyId: null, customerAccountId: "77777777-7777-4777-8777-777777777777",
+      payload: { customerAccountId: "77777777-7777-4777-8777-777777777777" },
+      channel: "sms", channelMode: "LIVE", purpose: "CUSTOMER_SERVICE",
+      preferenceOutcome: "NOT_APPLICABLE", sandboxOutcome: "NOT_APPLICABLE",
+      eventType: "customer_service.need_info", recipient: "+37369000000",
+      renderedSnapshot: { subject: "NSD Customer Service", textBody: "NSD: Нужна информация по обращению. Откройте личный кабинет." },
+    };
+    const dependencies = makeDependencies(smsDelivery);
+    const result = await dependencies.worker.runOne(smsDelivery.deliveryId);
+    expect(result).toMatchObject({ sent: 1, failed: 0, suppressed: 0 });
+    expect(dependencies.adapter.send).toHaveBeenCalledOnce();
+    expect(dependencies.adapter.send).toHaveBeenCalledWith(expect.objectContaining({
+      recipient: "+37369000000",
+    }));
+  });
 });
 
 const delivery: ClaimedNotificationDelivery = {

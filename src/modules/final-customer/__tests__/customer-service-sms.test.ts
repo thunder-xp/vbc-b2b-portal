@@ -117,6 +117,42 @@ describe("Customer Service SMS sandbox", () => {
   });
 });
 
+describe("Customer Service SMS production", () => {
+  it("projects the verified customer recipient as LIVE without the sandbox allowlist", async () => {
+    const persist = vi.fn<DurableCommunicationRepository["persist"]>().mockImplementation(async (intent, projections) => ({
+      intentId: intent.intentId,
+      eventId,
+      deliveries: projections.map((projection) => ({
+        deliveryId: "55555555-5555-4555-8555-555555555555",
+        deliveryIdentity: projection.deliveryIdentity,
+        channel: projection.channel,
+        channelMode: projection.mode,
+        state: projection.state === "SUPPRESSED" ? "SUPPRESSED" : "READY",
+      })),
+    }));
+    const service = new CustomerServiceSmsNotificationService({ findByEvent: async () => ({
+      requestId, eventId, eventCode: "CUSTOMER_SERVICE_NEED_INFO", customerAccountId: accountId,
+      authUserId, verifiedPhone: phone, locale: "ro",
+    }) }, { persist }, {
+      SMS_MODE: "SANDBOX",
+      COMMUNICATION_SMS_KILL_SWITCH: "OFF",
+      CUSTOMER_SERVICE_SMS_ENABLED: "true",
+      CUSTOMER_SERVICE_SMS_MODE: "PRODUCTION",
+    });
+
+    await service.project({ eventId, eventCode: "CUSTOMER_SERVICE_NEED_INFO" });
+
+    const [intent, projections] = persist.mock.calls[0];
+    expect(intent).toMatchObject({
+      purpose: "CUSTOMER_SERVICE",
+      recipient: { userId: authUserId, customerAccountId: accountId, phone, locale: "ro" },
+    });
+    expect(projections[0]).toMatchObject({
+      state: "PROJECTED", mode: "LIVE", sandboxOutcome: "NOT_APPLICABLE",
+    });
+  });
+});
+
 describe("Customer Service SMS migration contract", () => {
   const sql = readFileSync(join(process.cwd(), "supabase/migrations/20260915093248_final_customer_service_sms_sandbox_v1.sql"), "utf8");
   const phoneNormalizationSql = readFileSync(join(

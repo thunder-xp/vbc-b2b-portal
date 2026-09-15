@@ -23,6 +23,7 @@ export function isCustomerServiceSmsEvent(value: string | null | undefined): val
 }
 
 function normalizeMode(value: string | undefined): CustomerServiceNotificationMode {
-  return ["DISABLED", "DRY_RUN", "SANDBOX", "LIVE"].includes(value ?? "")
+  if (value === "PRODUCTION") return "LIVE";
+  return ["DISABLED", "DRY_RUN", "SANDBOX"].includes(value ?? "")
     ? value as CustomerServiceNotificationMode : "DISABLED";
 }

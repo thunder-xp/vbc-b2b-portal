@@ -318,7 +318,7 @@ function renderDeliveryMessage(delivery: ClaimedNotificationDelivery) {
     }
   }
   if (delivery.channel === "sms"
-    && delivery.channelMode === "SANDBOX"
+    && (delivery.channelMode === "SANDBOX" || delivery.channelMode === "LIVE")
     && delivery.purpose === "CUSTOMER_SERVICE"
     && [
       "customer_service.need_info",
@@ -341,15 +341,14 @@ function externalSmsBlockReason(
   purpose: string,
 ): "GLOBAL_KILL_SWITCH" | "CHANNEL_KILL_SWITCH" | null {
   if (environment.COMMUNICATION_OUTBOUND_KILL_SWITCH === "ON") return "GLOBAL_KILL_SWITCH";
-  if (environment.COMMUNICATION_SMS_KILL_SWITCH !== "OFF" || environment.SMS_MODE !== "SANDBOX") {
+  if (environment.COMMUNICATION_SMS_KILL_SWITCH !== "OFF") return "CHANNEL_KILL_SWITCH";
+  if (purpose === "CUSTOMER_SERVICE") {
+    if (environment.CUSTOMER_SERVICE_SMS_ENABLED !== "true") return "CHANNEL_KILL_SWITCH";
+    if (environment.CUSTOMER_SERVICE_SMS_MODE === "PRODUCTION") return null;
+    if (environment.CUSTOMER_SERVICE_SMS_MODE === "SANDBOX" && environment.SMS_MODE === "SANDBOX") return null;
     return "CHANNEL_KILL_SWITCH";
   }
-  if (purpose === "CUSTOMER_SERVICE"
-    && (environment.CUSTOMER_SERVICE_SMS_ENABLED !== "true"
-      || environment.CUSTOMER_SERVICE_SMS_MODE !== "SANDBOX")) {
-    return "CHANNEL_KILL_SWITCH";
-  }
-  return null;
+  return environment.SMS_MODE === "SANDBOX" ? null : "CHANNEL_KILL_SWITCH";
 }
 
 function emptyResult(): NotificationWorkerResult {

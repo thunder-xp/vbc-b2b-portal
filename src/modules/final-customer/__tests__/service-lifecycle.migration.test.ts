@@ -28,5 +28,7 @@ describe("Final Customer service lifecycle migration", () => {
   it("keeps customer-service SMS disabled unless independently activated", () => {
     expect(customerServiceNotificationPolicy({ CUSTOMER_SERVICE_SMS_ENABLED: "false", CUSTOMER_SERVICE_SMS_MODE: "LIVE" }).sms).toBe("DISABLED");
     expect(customerServiceNotificationPolicy({ CUSTOMER_SERVICE_SMS_ENABLED: "true", CUSTOMER_SERVICE_SMS_MODE: "SANDBOX" }).sms).toBe("SANDBOX");
+    expect(customerServiceNotificationPolicy({ CUSTOMER_SERVICE_SMS_ENABLED: "true", CUSTOMER_SERVICE_SMS_MODE: "PRODUCTION" }).sms).toBe("LIVE");
+    expect(customerServiceNotificationPolicy({ CUSTOMER_SERVICE_SMS_ENABLED: "true", CUSTOMER_SERVICE_SMS_MODE: "LIVE" }).sms).toBe("DISABLED");
   });
 });

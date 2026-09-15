@@ -52,6 +52,13 @@ export function communicationActivationPolicyFromEnvironment(
   const sandboxEmailRecipient = normalizeEmail(environment.COMMUNICATION_SANDBOX_EMAIL_RECIPIENT ?? "");
   const sandboxSmsAllowlist = smsSandboxAllowlistFromEnvironment(environment);
   const smsSandbox = environment.SMS_MODE === "SANDBOX";
+  const customerServiceSmsMode = environment.CUSTOMER_SERVICE_SMS_ENABLED !== "true"
+    ? "DISABLED" as const
+    : environment.CUSTOMER_SERVICE_SMS_MODE === "PRODUCTION"
+      ? "LIVE" as const
+      : environment.CUSTOMER_SERVICE_SMS_MODE === "SANDBOX" && smsSandbox
+        ? "SANDBOX" as const
+        : "DISABLED" as const;
   const purposeChannelModes = Object.freeze({
     ...DEFAULT_PURPOSE_CHANNEL_MODES,
     SUPPORT: Object.freeze({
@@ -60,10 +67,7 @@ export function communicationActivationPolicyFromEnvironment(
     }),
     CUSTOMER_SERVICE: Object.freeze({
       ...DEFAULT_PURPOSE_CHANNEL_MODES.CUSTOMER_SERVICE,
-      sms: smsSandbox
-        && environment.CUSTOMER_SERVICE_SMS_ENABLED === "true"
-        && environment.CUSTOMER_SERVICE_SMS_MODE === "SANDBOX"
-        ? "SANDBOX" as const : "DISABLED" as const,
+      sms: customerServiceSmsMode,
     }),
   });
   return Object.freeze({

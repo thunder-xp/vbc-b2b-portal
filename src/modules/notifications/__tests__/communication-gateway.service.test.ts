@@ -52,6 +52,20 @@ describe("CommunicationGatewayService", () => {
     expect(policy.purposeChannelModes.MARKETING.sms).toBe("DISABLED");
   });
 
+  it("opens only CUSTOMER_SERVICE SMS live behind its dedicated production policy", () => {
+    const policy = communicationRuntimePolicyFromEnvironment({
+      SMS_MODE: "SANDBOX",
+      COMMUNICATION_SMS_KILL_SWITCH: "OFF",
+      CUSTOMER_SERVICE_SMS_ENABLED: "true",
+      CUSTOMER_SERVICE_SMS_MODE: "PRODUCTION",
+      SMS_SANDBOX_ALLOWED_RECIPIENTS: "+37369000000",
+    });
+    expect(policy.purposeChannelModes.CUSTOMER_SERVICE.sms).toBe("LIVE");
+    expect(policy.purposeChannelModes.SUPPORT.sms).toBe("SANDBOX");
+    expect(policy.purposeChannelModes.FINANCE.sms).toBe("DISABLED");
+    expect(policy.purposeChannelModes.MARKETING.sms).toBe("DISABLED");
+  });
+
   it("keeps the legacy SMS allowlist name as a compatibility fallback", () => {
     const policy = communicationRuntimePolicyFromEnvironment({
       SMS_MODE: "SANDBOX",

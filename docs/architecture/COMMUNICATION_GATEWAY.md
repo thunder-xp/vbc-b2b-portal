@@ -37,7 +37,7 @@ Channel delivery identity is deterministic over business identity, channel, gove
 
 Every application-owned flow is classified independently from its channel and mode. Current mappings are: confirmed order, proposal delivery, and company invitation = `TRANSACTIONAL`; Finance payment reminder = `FINANCE`; `security.*`, `support.*`, and `marketing.*`/`commercial.*` map to `SECURITY`, `SUPPORT`, and `MARKETING`. Unknown or mismatched mappings fail closed.
 
-The explicit production activation matrix is purpose + channel scoped. `TRANSACTIONAL.EMAIL` retains approved `LIVE` compatibility; `FINANCE.EMAIL` and `FINANCE.IN_APP` remain `DRY_RUN`. When and only when `SMS_MODE=SANDBOX`, `SUPPORT.SMS` becomes `SANDBOX`; every other SMS entry remains `DISABLED`. There is no switch that can make all purposes live.
+The explicit production activation matrix is purpose + channel scoped. `TRANSACTIONAL.EMAIL` retains approved `LIVE` compatibility; `FINANCE.EMAIL` and `FINANCE.IN_APP` remain `DRY_RUN`. When and only when `SMS_MODE=SANDBOX`, `SUPPORT.SMS` becomes `SANDBOX`. Customer Service SMS remains independently disabled unless its dedicated enable flag and mode select `SANDBOX` or `PRODUCTION`; production maps only that purpose to `LIVE`. Finance, Security, and Marketing SMS remain `DISABLED`. There is no switch that can make all purposes live.
 
 The central server policy evaluator applies deterministic precedence across channel/mode activation, kill switches, recipient/company/capability evidence, technical preference outcome, durable rate-limit outcome, duplicate identity, sandbox allowlist, and provider availability. Business eligibility such as settled Finance obligations remains outside the gateway.
 
@@ -85,7 +85,7 @@ Application-owned external adapters are protected server-side:
 - `COMMUNICATION_EMAIL_KILL_SWITCH=ON` blocks email independently;
 - `COMMUNICATION_SMS_KILL_SWITCH` defaults to blocked and requires explicit `OFF` before the Moldcell sandbox adapter can be reached.
 
-The worker checks safety before claim and again after claim immediately before provider invocation, closing the configuration-race window. SMTP behavior remains unchanged. Unset global/email switches preserve current approved order, proposal, and invitation behavior. Moldcell additionally requires `SMS_MODE=SANDBOX`; there is no SMS `LIVE` activation path.
+The worker checks safety before claim and again after claim immediately before provider invocation, closing the configuration-race window. SMTP behavior remains unchanged. Unset global/email switches preserve current approved order, proposal, and invitation behavior. Moldcell sandbox support requires `SMS_MODE=SANDBOX`; the only SMS `LIVE` path is the dedicated Customer Service activation guarded by `CUSTOMER_SERVICE_SMS_ENABLED=true` and `CUSTOMER_SERVICE_SMS_MODE=PRODUCTION`.
 
 `DRY_RUN` may persist an exact internal render snapshot. Claims and completion accept only `LIVE` or `SANDBOX`; the only constructed SMS sandbox event is the permission-gated SUPPORT diagnostic. Finance SMS remains `DISABLED/SUPPRESSED` and cannot be claimed as Moldcell sandbox.
 

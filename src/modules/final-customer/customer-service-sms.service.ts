@@ -40,7 +40,7 @@ export class CustomerServiceSmsNotificationService {
   async project(input: Readonly<{ eventId: string | null; eventCode: string | null }>): Promise<CustomerServiceSmsProjectionResult> {
     if (!input.eventId || !isCustomerServiceSmsEvent(input.eventCode)) return skipped();
     const channelPolicy = customerServiceNotificationPolicy(this.environment);
-    if (channelPolicy.sms !== "SANDBOX") return skipped(input.eventCode);
+    if (channelPolicy.sms !== "SANDBOX" && channelPolicy.sms !== "LIVE") return skipped(input.eventCode);
     const recipient = await this.recipients.findByEvent(input.eventId);
     if (!recipient || recipient.eventCode !== input.eventCode) return skipped(input.eventCode);
 
@@ -70,7 +70,7 @@ export class CustomerServiceSmsNotificationService {
       }),
       templateKey: definition.templateKey,
       templateVersion: CUSTOMER_SERVICE_SMS_TEMPLATE_VERSION,
-      channelPolicy: Object.freeze({ sms: "SANDBOX" }),
+      channelPolicy: Object.freeze({ sms: channelPolicy.sms }),
       preferencePolicy: Object.freeze({ sms: "NOT_APPLICABLE" }),
       variables: Object.freeze({ eventCode: input.eventCode }),
       cta: Object.freeze({ label: "Open customer service", target: `/account/service/${recipient.requestId}` }),
