@@ -9,7 +9,7 @@ export function ProposalDocument({ proposal }: { proposal: CustomerProposalDto }
   return <article aria-label={`Коммерческое предложение ${proposal.estimateNumber}`} className="mx-auto min-h-[297mm] w-full max-w-[210mm] overflow-hidden bg-white px-4 py-6 text-zinc-800 shadow-sm sm:px-8 sm:py-8" role="document">
     <header className="flex flex-col justify-between gap-3 border-b-2 border-emerald-700 pb-3 sm:flex-row">
       <div className="flex gap-3">{settings.showPartnerLogo && proposal.branding.logoUrl && <Image alt="" className="size-14 object-contain" height={56} referrerPolicy="no-referrer" src={proposal.branding.logoUrl} unoptimized width={56} />}<div><p className="text-xl font-bold text-emerald-800">{proposal.branding.companyName}</p>{proposal.branding.legalName && <p className="mt-1 text-xs text-zinc-500">{proposal.branding.legalName}</p>}<BrandingLines proposal={proposal} /></div></div>
-      <div className="sm:text-right"><h1 className="text-xl font-semibold text-zinc-950">{settings.title}</h1><p className="mt-1.5 font-mono text-sm font-semibold">{proposal.estimateNumber}</p><dl className="mt-1.5 space-y-0.5 text-xs text-zinc-500"><Meta label="Дата" value={formatDate(proposal.generatedForDate)} />{proposal.validUntilDate && <Meta label="Действительно до" value={formatDate(proposal.validUntilDate)} />}</dl></div>
+      <div className="sm:max-w-[48%] sm:text-right">{settings.showHeadingGreeting !== false && <><h1 className="text-xl font-semibold text-zinc-950">{settings.title}</h1>{settings.introduction && <p className="mt-1 text-[10px] font-normal leading-[1.25] text-zinc-600">{settings.introduction}</p>}</>}<p className={`${settings.showHeadingGreeting === false ? "" : "mt-1.5 "}font-mono text-sm font-semibold`}>{proposal.estimateNumber}</p><dl className="mt-1.5 space-y-0.5 text-xs text-zinc-500"><Meta label="Дата" value={formatDate(proposal.generatedForDate)} />{proposal.validUntilDate && <Meta label="Действительно до" value={formatDate(proposal.validUntilDate)} />}</dl></div>
     </header>
     <div className="space-y-3 py-3">{proposal.sections.map((section) => {
       const showImage = settings.showProductImages && section.lines.some((line) => isProductProposalLine(line) && Boolean(line.imageUrl));
@@ -22,8 +22,8 @@ export function ProposalDocument({ proposal }: { proposal: CustomerProposalDto }
           <thead className="hidden bg-emerald-50 text-left text-zinc-700 sm:table-header-group print:table-header-group"><tr><th className="px-2 py-1.5 text-sm font-semibold text-emerald-800" colSpan={showImage ? 3 : 2}>{section.name}</th><th className="w-16 px-2 py-1.5 text-right">Кол-во</th>{settings.showUnitPrice && <th className="w-24 px-2 py-1.5 text-right">Цена за ед.</th>}{settings.showLineDiscount && <th className="w-16 px-2 py-1.5 text-right">Скидка</th>}<th className="w-24 px-2 py-1.5 text-right">Сумма</th></tr></thead>
           <tbody className="block sm:table-row-group print:table-row-group">{section.lines.map((line, lineIndex) => <tr className="grid grid-cols-2 gap-x-3 border-b border-zinc-200 py-1.5 align-top sm:table-row sm:py-0 print:table-row" key={`${section.name}-${line.position}`}>
             <td className="hidden px-2 py-2 text-zinc-500 sm:table-cell print:table-cell">{proposalLineNumber(proposal.schemaVersion, lineIndex, line.position)}</td>
-            {showImage && <td className="hidden px-1 py-1 sm:table-cell print:table-cell">{isProductProposalLine(line) ? <ProductLineThumbnail imageUrl={line.imageUrl} productName={line.description} size="compact" /> : null}</td>}
-            <td className="col-span-2 min-w-0 break-words px-2 py-1 sm:table-cell sm:py-1.5 print:table-cell"><ProposalLineDescription line={line} /></td>
+            {showImage && <td className="hidden px-1 py-1 sm:table-cell print:table-cell">{isProductProposalLine(line) ? <ProductLineThumbnail imageUrl={line.imageUrl} productName={proposalLineAccessibleLabel(line, settings)} size="compact" /> : null}</td>}
+            <td className="col-span-2 min-w-0 break-words px-2 py-1 sm:table-cell sm:py-1.5 print:table-cell"><ProposalLineDescription line={line} settings={settings} /></td>
             <td className="px-2 py-1 text-right sm:table-cell sm:py-2 print:table-cell"><MobileLabel>Количество</MobileLabel>{formatNumber(line.quantity)}</td>
             {settings.showUnitPrice && <td className="px-2 py-1 text-right sm:table-cell sm:py-2 print:table-cell"><MobileLabel>Цена за единицу</MobileLabel>{money(line.unitPrice, proposal.currencyCode)}</td>}
             {settings.showLineDiscount && <td className="px-2 py-1 text-right sm:table-cell sm:py-2 print:table-cell"><MobileLabel>Скидка</MobileLabel>{line.lineDiscountPercent ? `${formatNumber(line.lineDiscountPercent)}%` : "—"}</td>}
@@ -38,12 +38,18 @@ export function ProposalDocument({ proposal }: { proposal: CustomerProposalDto }
   </article>;
 }
 
-function ProposalLineDescription({ line }: { line: CustomerProposalDto["sections"][number]["lines"][number] }) {
-  const presentation = proposalLinePresentation(line);
-  return <div aria-label={line.description} title={line.description}>
-    <p className="text-[11px] font-medium leading-[1.2] text-zinc-950">{presentation.identity}</p>
-    {presentation.description && <p className="mt-0.5 text-[10px] font-normal leading-[1.25] text-zinc-600">{presentation.description}</p>}
+function ProposalLineDescription({ line, settings }: { line: CustomerProposalDto["sections"][number]["lines"][number]; settings: CustomerProposalDto["settings"] }) {
+  const presentation = proposalLinePresentation(line, settings);
+  const visibleLabel = [presentation.sku, presentation.productName, presentation.description].filter(Boolean).join(" ");
+  return <div aria-label={visibleLabel || undefined} title={visibleLabel || undefined}>
+    {(presentation.sku || presentation.productName) && <p className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 leading-[1.15]">{presentation.sku && <span className="text-[9px] font-normal text-zinc-500">{presentation.sku}</span>}{presentation.productName && <span className="text-[11px] font-medium text-zinc-950">{presentation.productName}</span>}</p>}
+    {presentation.description && <p className={`${presentation.sku || presentation.productName ? "mt-0.5 " : ""}[text-align:justify] text-[9px] font-normal leading-[1.2] text-zinc-600`}>{presentation.description}</p>}
   </div>;
+}
+
+function proposalLineAccessibleLabel(line: CustomerProposalDto["sections"][number]["lines"][number], settings: CustomerProposalDto["settings"]): string {
+  const presentation = proposalLinePresentation(line, settings);
+  return [presentation.sku, presentation.productName, presentation.description].filter(Boolean).join(" ") || "Изображение товара";
 }
 
 function BrandingLines({ proposal }: { proposal: CustomerProposalDto }) { const values = [proposal.branding.contactName ? `Ответственный: ${proposal.branding.contactName}` : null, proposal.branding.phone, proposal.branding.email, proposal.branding.address, proposal.branding.fiscalInformation, proposal.branding.website].filter(Boolean); return <div className="mt-2 space-y-0.5 text-xs text-zinc-500">{values.map((value) => <p key={value}>{value}</p>)}</div>; }

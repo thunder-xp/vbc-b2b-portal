@@ -14,7 +14,7 @@ const VIEW_PERMISSION = "estimates.view";
 const MANAGE_PERMISSION = "estimates.manage";
 const PDF_PERMISSION = "estimates.generate_pdf";
 const STORAGE_BUCKET = "estimate-proposals";
-const PROPOSAL_PDF_RENDERER_VERSION = "2026-09-14-density-v1";
+const PROPOSAL_PDF_RENDERER_VERSION = "2026-09-15-controls-v2";
 
 export type ProposalPreviewDto = {
   proposal: CustomerProposalDto;
@@ -39,7 +39,8 @@ export const DEFAULT_PROPOSAL_SETTINGS: ProposalSettings = {
   warrantyTerms: "Гарантия предоставляется в соответствии с условиями производителя.",
   validityText: "Предложение действительно в течение срока, указанного в смете.",
   installationNotes: "", exclusions: "", customerNote: "", footerNote: "",
-  showProductImages: true, showSku: true, showUnitPrice: true, showLineDiscount: true,
+  showProductImages: true, showSku: true, showProductName: true, showDescription: true, showHeadingGreeting: true,
+  showUnitPrice: true, showLineDiscount: true,
   showSectionSubtotals: true, showVatBreakdown: true, showPartnerLogo: true,
 };
 
@@ -231,7 +232,7 @@ function prepareCustomerProposal(input: {
   const customerCharges = charges.filter((charge) => charge.customerVisible).sort((a, b) => a.sortOrder - b.sortOrder).map((charge) => ({ description: charge.description, amount: charge.amount }));
   const generatedForDate = new Date().toISOString().slice(0, 10);
   return deepFreeze({
-    schemaVersion: "2026-09-14-v5" as const, estimateNumber: estimate.estimateNumber,
+    schemaVersion: "2026-09-15-v6" as const, estimateNumber: estimate.estimateNumber,
     generatedForDate, validUntilDate: addUtcDays(generatedForDate, estimate.validityDays), customerName: estimate.customerName, projectName: estimate.projectName,
     currencyCode: estimate.currencyCode, vatMode: estimate.vatMode, vatRatePercent: estimate.vatRatePercent, settings: { ...input.settings },
     branding: { companyName: input.companyName, legalName: input.profile?.legalName ?? null, contactName: input.profile?.contactName ?? input.userName, phone: input.profile?.phone ?? input.userPhone, email: input.profile?.email ?? input.userEmail, website: input.profile?.website ?? null, fiscalInformation: input.profile?.fiscalInformation ?? null, address: input.profile?.address ?? null, logoUrl: normalizePortalImageUrl(input.profile?.logoUrl ?? null) ?? normalizePortalImageUrl(input.companyLogoUrl) },
@@ -245,7 +246,7 @@ export function normalizeSettings(input: Partial<ProposalSettings>): ProposalSet
   const flag = (key: keyof ProposalSettings) => typeof input[key] === "boolean" ? Boolean(input[key]) : Boolean(DEFAULT_PROPOSAL_SETTINGS[key]);
   const title = text("title", 200);
   if (!title) throw new InvalidStateError("Укажите заголовок предложения.");
-  return { title, introduction: text("introduction", 4000), deliveryTerms: text("deliveryTerms", 2000), paymentTerms: text("paymentTerms", 2000), warrantyTerms: text("warrantyTerms", 2000), validityText: text("validityText", 1000), installationNotes: text("installationNotes", 2000), exclusions: text("exclusions", 2000), customerNote: text("customerNote", 2000), footerNote: text("footerNote", 1000), showProductImages: flag("showProductImages"), showSku: flag("showSku"), showUnitPrice: flag("showUnitPrice"), showLineDiscount: flag("showLineDiscount"), showSectionSubtotals: flag("showSectionSubtotals"), showVatBreakdown: flag("showVatBreakdown"), showPartnerLogo: flag("showPartnerLogo") };
+  return { title, introduction: text("introduction", 4000), deliveryTerms: text("deliveryTerms", 2000), paymentTerms: text("paymentTerms", 2000), warrantyTerms: text("warrantyTerms", 2000), validityText: text("validityText", 1000), installationNotes: text("installationNotes", 2000), exclusions: text("exclusions", 2000), customerNote: text("customerNote", 2000), footerNote: text("footerNote", 1000), showProductImages: flag("showProductImages"), showSku: flag("showSku"), showProductName: flag("showProductName"), showDescription: flag("showDescription"), showHeadingGreeting: flag("showHeadingGreeting"), showUnitPrice: flag("showUnitPrice"), showLineDiscount: flag("showLineDiscount"), showSectionSubtotals: flag("showSectionSubtotals"), showVatBreakdown: flag("showVatBreakdown"), showPartnerLogo: flag("showPartnerLogo") };
 }
 
 export function stableJson(value: unknown): string {

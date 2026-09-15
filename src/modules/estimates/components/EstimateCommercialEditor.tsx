@@ -153,6 +153,7 @@ export function EstimateCommercialEditor({
   const [saveState, setSaveState] = useState<"saved" | "dirty" | "saving" | "error">("saved");
   const [mobileActionsOpen, setMobileActionsOpen] = useState(false);
   const [desktopActionsOpen, setDesktopActionsOpen] = useState(false);
+  const [openLineMenuId, setOpenLineMenuId] = useState<string | null>(null);
   const [templateFormOpen, setTemplateFormOpen] = useState(false);
   const [templateName, setTemplateName] = useState("");
   const [generatedSharePdf, setGeneratedSharePdf] =
@@ -160,6 +161,8 @@ export function EstimateCommercialEditor({
   const mobileActionsTriggerRef = useRef<HTMLButtonElement>(null);
   const desktopActionsRef = useRef<HTMLDivElement>(null);
   const desktopActionsTriggerRef = useRef<HTMLButtonElement>(null);
+  const lineMenuRef = useRef<HTMLDivElement>(null);
+  const lineMenuTriggerRef = useRef<HTMLButtonElement>(null);
   const settingsRef = useRef<HTMLDetailsElement>(null);
   const chargesRef = useRef<HTMLDetailsElement>(null);
   const [pickerMode, setPickerMode] = useState<EstimateLinePickerMode | null>(null);
@@ -505,6 +508,27 @@ export function EstimateCommercialEditor({
     };
   }, [desktopActionsOpen]);
 
+  const closeLineMenu = useCallback((restoreFocus = false) => {
+    setOpenLineMenuId(null);
+    if (restoreFocus) requestAnimationFrame(() => lineMenuTriggerRef.current?.focus());
+  }, []);
+
+  useEffect(() => {
+    if (!openLineMenuId) return;
+    const closeOutside = (event: PointerEvent) => {
+      if (event.target instanceof Node && !lineMenuRef.current?.contains(event.target)) closeLineMenu();
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeLineMenu(true);
+    };
+    document.addEventListener("pointerdown", closeOutside);
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOutside);
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [closeLineMenu, openLineMenuId]);
+
   useEffect(() => {
     if (!mobileActionsOpen) return;
     const previousOverflow = document.body.style.overflow;
@@ -770,8 +794,9 @@ export function EstimateCommercialEditor({
             {copy.settingsHint}
           </span>
         </summary>
-        <div className="grid min-w-0 gap-3 border-t border-zinc-200 p-4 sm:grid-cols-2 xl:grid-cols-4">
-          <Field label={copy.name}>
+        <div className="min-w-0 space-y-3 border-t border-zinc-200 p-4">
+          <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,1fr)]" data-testid="estimate-parameters-primary-row">
+            <Field label={copy.name}>
             <input
               className={`${inputClass} w-full`}
               disabled={controlsDisabled}
@@ -779,8 +804,8 @@ export function EstimateCommercialEditor({
               onChange={(e) => update((d) => ({ ...d, name: e.target.value }))}
               value={draft.name}
             />
-          </Field>
-          <div className="min-w-0 max-w-full" data-testid="estimate-customer-field">
+            </Field>
+            <div className="min-w-0 max-w-full" data-testid="estimate-customer-field">
             <FinalCustomerPicker
               disabled={controlsDisabled}
               initialName={draft.customerName}
@@ -793,8 +818,8 @@ export function EstimateCommercialEditor({
               }
               value={draft.finalCustomerId}
             />
-          </div>
-          <Field label={copy.projectObject}>
+            </div>
+            <Field label={copy.projectObject}>
             <input
               className={`${inputClass} w-full`}
               disabled={controlsDisabled}
@@ -803,24 +828,10 @@ export function EstimateCommercialEditor({
               }
               value={draft.projectName ?? ""}
             />
-          </Field>
-          <Field label={copy.currency}>
-            <select
-              className={`${inputClass} w-full`}
-              disabled={!isDraft || retailOnly}
-              id="estimate-currency"
-              onChange={(e) =>
-                e.target.value !== draft.currencyCode &&
-                setCurrencyChoice(e.target.value)
-              }
-              value={draft.currencyCode}
-            >
-              {commercialOptions.currencies.map((currency) => (
-                <option key={currency}>{currency}</option>
-              ))}
-            </select>
-          </Field>
-          <Field label={copy.vat}>
+            </Field>
+          </div>
+          <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4" data-testid="estimate-parameters-commercial-row">
+            <Field label={copy.vat}>
             <select
               className={`${inputClass} w-full`}
               disabled={controlsDisabled}
@@ -840,28 +851,45 @@ export function EstimateCommercialEditor({
               </option>
               <option value="none">{copy.vatNotApplies}</option>
             </select>
-          </Field>
-          <Field label={copy.discount}>
-            <NumberInput
-              disabled={controlsDisabled}
-              inputId="estimate-global-discount"
-              onValue={(value) =>
-                update((d) => ({ ...d, globalDiscountPercent: value ?? 0 }))
+            </Field>
+            <Field label={copy.discount}>
+              <NumberInput
+                disabled={controlsDisabled}
+                inputId="estimate-global-discount"
+                onValue={(value) =>
+                  update((d) => ({ ...d, globalDiscountPercent: value ?? 0 }))
+                }
+                value={draft.globalDiscountPercent}
+              />
+            </Field>
+            <Field label={copy.validityDays}>
+              <NumberInput
+                disabled={controlsDisabled}
+                onValue={(value) =>
+                  update((d) => ({ ...d, validityDays: value ?? 1 }))
+                }
+                value={draft.validityDays}
+              />
+            </Field>
+            <Field label={copy.currency}>
+            <select
+              className={`${inputClass} w-full`}
+              disabled={!isDraft || retailOnly}
+              id="estimate-currency"
+              onChange={(e) =>
+                e.target.value !== draft.currencyCode &&
+                setCurrencyChoice(e.target.value)
               }
-              value={draft.globalDiscountPercent}
-            />
-          </Field>
-          <Field label={copy.validityDays}>
-            <NumberInput
-              disabled={controlsDisabled}
-              onValue={(value) =>
-                update((d) => ({ ...d, validityDays: value ?? 1 }))
-              }
-              value={draft.validityDays}
-            />
-          </Field>
+              value={draft.currencyCode}
+            >
+              {commercialOptions.currencies.map((currency) => (
+                <option key={currency}>{currency}</option>
+              ))}
+            </select>
+            </Field>
+          </div>
           {commercialOptions.rateFreshness ? (
-            <div className="text-xs text-zinc-500 sm:col-span-2 xl:col-span-4">
+            <div className="text-xs text-zinc-500">
               <p>{commercialOptions.rateFreshness.label}</p>
               {commercialOptions.rateFreshness.staleNotice ? (
                 <p className="mt-1 text-amber-800">
@@ -1133,12 +1161,16 @@ export function EstimateCommercialEditor({
                                     </p>
                                   </div>
                                 </div>
-                                  <details className="relative col-start-3 row-start-1 justify-self-end xl:col-auto xl:row-auto" data-testid="estimate-line-advanced" id={`estimate-line-${line.id}-details`}>
-                                    <summary aria-label={copy.lineDetails} title={copy.lineDetails} className="flex size-11 cursor-pointer list-none items-center justify-center rounded text-zinc-600 hover:bg-zinc-100">
+                                  <div className="relative col-start-3 row-start-1 justify-self-end xl:col-auto xl:row-auto" data-testid="estimate-line-advanced" id={`estimate-line-${line.id}-details`} ref={openLineMenuId === line.id ? lineMenuRef : undefined}>
+                                    <button aria-expanded={openLineMenuId === line.id} aria-haspopup="dialog" aria-label={copy.lineDetails} title={copy.lineDetails} className="flex size-11 items-center justify-center rounded text-zinc-600 hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500" onClick={(event) => {
+                                      if (openLineMenuId === line.id) return closeLineMenu(true);
+                                      lineMenuTriggerRef.current = event.currentTarget;
+                                      setOpenLineMenuId(line.id);
+                                    }} type="button">
                                       <MoreHorizontal className="size-4" />
-                                    </summary>
-                                    <div className="absolute right-0 z-10 grid w-64 max-w-[calc(100vw-3rem)] gap-2 rounded border border-zinc-200 bg-white p-3 shadow-lg">
-                                      <button aria-label={copy.deleteLine} className={`${buttonClass} justify-start text-red-700`} disabled={controlsDisabled || dirty} onClick={() => mutate(() => removeEstimateLineAction(estimate.id, line.id, estimate.revision))} type="button"><Trash2 className="size-4" />{copy.deleteLine}</button>
+                                    </button>
+                                    {openLineMenuId === line.id ? <div aria-label={copy.lineDetails} className="absolute right-0 z-10 grid w-64 max-w-[calc(100vw-3rem)] gap-2 rounded border border-zinc-200 bg-white p-3 shadow-lg" role="dialog">
+                                      <button aria-label={copy.deleteLine} className="inline-flex min-h-11 items-center justify-start gap-2 rounded px-3 text-sm font-semibold text-red-700 outline-none hover:bg-red-50 focus-visible:ring-2 focus-visible:ring-red-500 disabled:opacity-45" disabled={controlsDisabled || dirty} onClick={() => { closeLineMenu(); mutate(() => removeEstimateLineAction(estimate.id, line.id, estimate.revision)); }} type="button"><Trash2 className="size-4 text-red-700" />{copy.deleteLine}</button>
                                       {line.lineType === "product" ? <Field label={copy.description}>
                                         <input
                                           className={`${inputClass} w-full`}
@@ -1171,8 +1203,8 @@ export function EstimateCommercialEditor({
                                           value={line.lineDiscountPercent}
                                         />
                                       </Field>
-                                    </div>
-                                  </details>
+                                    </div> : null}
+                                  </div>
                               </div>
                             </div>
                           );
@@ -1227,7 +1259,7 @@ export function EstimateCommercialEditor({
             </details>
           ) : null}
         </main>
-        <aside className="min-w-0 border-y border-zinc-200 bg-white p-4 xl:sticky xl:top-56">
+        <aside className="min-w-0 border-y border-zinc-200 bg-white p-4 xl:sticky xl:top-56 xl:border-l">
           <p className="mb-2 text-xs text-zinc-500">{copy.positions}: {draft.lines.length}</p>
           <Summary
             copy={copy}

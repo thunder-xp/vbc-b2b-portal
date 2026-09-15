@@ -34,11 +34,33 @@ describe("DefaultProposalService", () => {
     const preview = await service.preparePreview("user-1", "estimate-1");
     const serialized = JSON.stringify(preview.proposal);
     expect(preview.proposal.sections[0].lines[0]).toEqual(expect.objectContaining({ lineType: "product", sku: "400691", productName: "Camera", unitPrice: 100, lineTotal: 200 }));
-    expect(preview.proposal).toEqual(expect.objectContaining({ schemaVersion: "2026-09-14-v5", validUntilDate: "2026-07-30", vatMode: "separate", vatRatePercent: 20 }));
+    expect(preview.proposal).toEqual(expect.objectContaining({ schemaVersion: "2026-09-15-v6", validUntilDate: "2026-07-30", vatMode: "separate", vatRatePercent: 20, settings: expect.objectContaining({ showSku: true, showProductName: true, showDescription: true, showHeadingGreeting: true }) }));
     expect(preview.proposal.branding).toEqual(expect.objectContaining({ contactName: "Ivan", logoUrl: "https://project.supabase.co/storage/v1/render/image/public/company-logos/company-1/logo%20mark.png?width=128&height=96&resize=contain&quality=70" }));
     for (const forbidden of ["companyId", "productId", "external1c", "internalCost", "marginPercent", "permission", "roleId"]) expect(serialized).not.toContain(forbidden);
     expect(Object.isFrozen(preview.proposal)).toBe(true);
     expect(proposals.getProductImages).toHaveBeenCalledTimes(1);
+  });
+
+  it("persists disabled display options in the new immutable proposal contract", async () => {
+    vi.mocked(estimates.findAggregateById).mockResolvedValue(aggregate({
+      proposalSettings: {
+        ...DEFAULT_PROPOSAL_SETTINGS,
+        showSku: false,
+        showProductName: false,
+        showDescription: false,
+        showHeadingGreeting: false,
+      },
+    }));
+
+    const preview = await service.preparePreview("user-1", "estimate-1");
+
+    expect(preview.proposal.schemaVersion).toBe("2026-09-15-v6");
+    expect(preview.proposal.settings).toEqual(expect.objectContaining({
+      showSku: false,
+      showProductName: false,
+      showDescription: false,
+      showHeadingGreeting: false,
+    }));
   });
 
   it("enforces company boundary and complete pricing", async () => {

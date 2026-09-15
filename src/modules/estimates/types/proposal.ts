@@ -14,6 +14,9 @@ export type ProposalSettings = {
   footerNote: string;
   showProductImages: boolean;
   showSku: boolean;
+  showProductName?: boolean;
+  showDescription?: boolean;
+  showHeadingGreeting?: boolean;
   showUnitPrice: boolean;
   showLineDiscount: boolean;
   showSectionSubtotals: boolean;
@@ -63,7 +66,7 @@ export type CustomerProposalSection = Readonly<{
 }>;
 
 export type CustomerProposalDto = Readonly<{
-  schemaVersion: "2026-07-16-v1" | "2026-08-08-v2" | "2026-08-11-v3" | "2026-08-12-v4" | "2026-09-14-v5";
+  schemaVersion: "2026-07-16-v1" | "2026-08-08-v2" | "2026-08-11-v3" | "2026-08-12-v4" | "2026-09-14-v5" | "2026-09-15-v6";
   estimateNumber: string;
   generatedForDate: string;
   validUntilDate?: string | null;

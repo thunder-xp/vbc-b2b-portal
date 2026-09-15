@@ -133,7 +133,7 @@ export function EstimateWorkflowPanel({ initialWorkflow, revision, initialPropos
     proposalNumber={proposal.estimateNumber ?? proposal.label.split(" / ")[0]}
     proposalTotal={proposal.total}
     triggerLabel={guided.secondaryActions.includes("resend") ? copy.sendAgain : copy.sendToCustomer}
-    triggerTone={guided.primaryAction === "send" ? "primary" : "secondary"}
+    triggerTone={initialWorkflow.customer?.primaryEmail && guided.primaryAction === "send" ? "primary" : "secondary"}
     unsavedChanges={unsavedChanges}
     versionId={proposal.id}
   /> : null;
@@ -144,8 +144,7 @@ export function EstimateWorkflowPanel({ initialWorkflow, revision, initialPropos
         {draftGuide.primaryAction === "prepare_proposal" ? <button className={`${primary} w-full`} disabled={pending} onClick={prepareProposal} type="button"><FilePlus2 className="size-4" />{pending ? copy.preparing : copy.prepareProposal}</button> : null}
         {draftGuide.primaryAction === "generate_pdf" ? <button className={`${primary} w-full`} disabled={pdfPending} onClick={generatePdf} type="button"><Download className="size-4" />{pdfPending ? copy.preparing : copy.prepareProposal}</button> : null}
         {!["prepare_proposal", "generate_pdf"].includes(draftGuide.primaryAction) && !(editorOwnsSave && draftGuide.primaryAction === "save") ? <button aria-keyshortcuts={draftGuide.primaryAction === "save" ? "Control+S Meta+S" : undefined} className={`${primary} w-full`} disabled={pending} onClick={() => onDraftPrimaryAction(draftGuide)} type="button">{draftPrimaryIcon(draftGuide.primaryAction)}{draftPrimaryLabel(draftGuide.state, copy)}</button> : null}
-      </div> : guided.primaryAction ? <div className="w-full" data-testid="estimate-primary-next-action">
-        {guided.primaryAction === "send" ? sendDialog : null}
+      </div> : guided.primaryAction && guided.primaryAction !== "send" ? <div className="w-full" data-testid="estimate-primary-next-action">
         {guided.primaryAction === "update" && proposal ? <button className={`${primary} w-full`} disabled={pending} onClick={() => run(() => createDraftFromEstimateVersionAction(proposal.id))} type="button">{copy.updateProposal}</button> : null}
         {guided.primaryAction === "continue_order" ? <button className={`${primary} w-full`} disabled={pending} onClick={() => setConversionOpen(true)} type="button"><ShoppingCart className="size-4" />{copy.addEquipmentToCart}</button> : null}
         {guided.primaryAction === "resume_checkout" ? <Link className={`${primary} w-full`} href="/cabinet/cart"><ShoppingCart className="size-4" />{copy.resumeOrder}</Link> : null}
@@ -154,7 +153,7 @@ export function EstimateWorkflowPanel({ initialWorkflow, revision, initialPropos
     </div>
 
     {initialWorkflow.permissions.canConvert && guided.primaryAction !== "continue_order" ? <div className="mt-2">
-      <button className={`${secondary} w-full`} data-testid="estimate-transfer-to-cart" disabled={pending} onClick={() => setConversionOpen(true)} type="button"><ShoppingCart className="size-4" />{copy.addEquipmentToCart}</button>
+      <button className={`${primary} w-full`} data-testid="estimate-transfer-to-cart" disabled={pending} onClick={() => setConversionOpen(true)} type="button"><ShoppingCart className="size-4" />{copy.addEquipmentToCart}</button>
     </div> : null}
 
     <div className="mt-3 min-w-0 border-t border-zinc-100 pt-3">
@@ -179,11 +178,14 @@ export function EstimateWorkflowPanel({ initialWorkflow, revision, initialPropos
       <Link className="mt-3 inline-flex min-h-11 items-center gap-2 bg-zinc-950 px-4 font-semibold text-white" href="/cabinet/cart"><ShoppingCart className="size-4" />{copy.goToCart}</Link>
     </div> : null}
 
-    {!draftGuide && proposal && guided.secondaryActions.some((action) => ["pdf", "send", "resend"].includes(action)) ? <div className="mt-3 grid gap-2 border-t border-zinc-100 pt-3">
+    {!draftGuide && proposal && (guided.primaryAction === "send" || guided.secondaryActions.some((action) => ["pdf", "send", "resend", "mark_sent", "record_response"].includes(action))) ? <div className="mt-3 grid gap-2 border-t border-zinc-100 pt-3" data-testid="estimate-stage-actions">
+      {guided.primaryAction === "send" ? sendDialog : null}
       {guided.secondaryActions.includes("pdf") && pdfStatus !== "ready" ? <button aria-describedby={pdfPending ? "estimate-pdf-progress" : undefined} className={quiet} disabled={pdfPending} onClick={generatePdf} type="button"><Download className="size-4" />{pdfPending ? copy.preparing : copy.generatePdf}</button> : null}
       {pdfPending ? <span aria-live="polite" className="text-sm text-zinc-600" id="estimate-pdf-progress" role="status">{copy.preparing}</span> : null}
       {guided.secondaryActions.includes("pdf") && pdfDocumentId && pdfStatus === "ready" ? <Link className={quiet} href={`/api/estimates/documents/${pdfDocumentId}`}><Download className="size-4" />{copy.downloadPdf}</Link> : null}
       {guided.primaryAction !== "send" && (guided.secondaryActions.includes("send") || guided.secondaryActions.includes("resend")) ? sendDialog : null}
+      {guided.secondaryActions.includes("mark_sent") ? <button className={`${secondary} w-full`} disabled={pending} onClick={() => run(() => transitionEstimateVersionAction(proposal.id, "sent", "other"))} type="button"><Send className="size-4" />{copy.sentToCustomer}</button> : null}
+      {guided.secondaryActions.includes("record_response") ? <><button className={`${secondary} w-full`} disabled={pending} onClick={() => run(() => transitionEstimateVersionAction(proposal.id, "accepted"))} type="button"><CheckCircle2 className="size-4" />{copy.acceptedByCustomerAction}</button><label className="sr-only" htmlFor="estimate-rejection-reason">{copy.rejectionReason}</label><select className={`${input} w-full`} id="estimate-rejection-reason" onChange={(event) => setRejectionReason(event.target.value as typeof rejectionReason)} value={rejectionReason}><option value="">{copy.rejectionReason}</option><option value="price">{copy.rejectionPrice}</option><option value="no_budget">{copy.rejectionNoBudget}</option><option value="other_supplier">{copy.rejectionOtherSupplier}</option><option value="project_changed">{copy.rejectionProjectChanged}</option><option value="postponed">{copy.rejectionPostponed}</option><option value="other">{copy.rejectionOther}</option></select><button className={`${secondary} w-full`} disabled={pending || !rejectionReason} onClick={() => run(() => transitionEstimateVersionAction(proposal.id, "rejected", null, "", rejectionReason || undefined))} type="button"><XCircle className="size-4" />{copy.rejectedAction}</button></> : null}
     </div> : null}
 
     {proposal && guided.secondaryActions.includes("delivery_history") ? <details className="mt-3 border-t border-zinc-100 pt-2" onToggle={(event) => setHistoryOpen(event.currentTarget.open)}>
@@ -193,11 +195,6 @@ export function EstimateWorkflowPanel({ initialWorkflow, revision, initialPropos
         {proposal.deliveries.map((delivery) => <DeliveryRow copy={copy} delivery={delivery} key={delivery.id} locale={locale} onRevoke={revoke} pending={pending} />)}
       </div> : null}
     </details> : null}
-
-    {guided.secondaryActions.some((action) => ["mark_sent", "record_response"].includes(action)) ? <div className="mt-2 grid gap-2 border-t border-zinc-100 pt-3">
-        {guided.secondaryActions.includes("mark_sent") && proposal ? <button className={secondary} disabled={pending} onClick={() => run(() => transitionEstimateVersionAction(proposal.id, "sent", "other"))} type="button"><Send className="size-4" />{copy.sentToCustomer}</button> : null}
-        {guided.secondaryActions.includes("record_response") && proposal ? <><button className={secondary} disabled={pending} onClick={() => run(() => transitionEstimateVersionAction(proposal.id, "accepted"))} type="button"><CheckCircle2 className="size-4" />{copy.acceptedByCustomerAction}</button><label className="sr-only" htmlFor="estimate-rejection-reason">{copy.rejectionReason}</label><select className={`${input} w-auto min-w-44`} id="estimate-rejection-reason" onChange={(event) => setRejectionReason(event.target.value as typeof rejectionReason)} value={rejectionReason}><option value="">{copy.rejectionReason}</option><option value="price">{copy.rejectionPrice}</option><option value="no_budget">{copy.rejectionNoBudget}</option><option value="other_supplier">{copy.rejectionOtherSupplier}</option><option value="project_changed">{copy.rejectionProjectChanged}</option><option value="postponed">{copy.rejectionPostponed}</option><option value="other">{copy.rejectionOther}</option></select><button className={secondary} disabled={pending || !rejectionReason} onClick={() => run(() => transitionEstimateVersionAction(proposal.id, "rejected", null, "", rejectionReason || undefined))} type="button"><XCircle className="size-4" />{copy.rejectedAction}</button></> : null}
-    </div> : null}
 
     <ConfirmationDialog confirmLabel={copy.addEquipmentToCart} consequence={copy.cartConversionConsequence} open={conversionOpen} onCancel={() => setConversionOpen(false)} onConfirm={() => { setConversionOpen(false); addToCart(); }} pending={pending} title={copy.orderCreation}><p className="text-sm text-zinc-700">{copy.cartConversionHint}</p></ConfirmationDialog>
   </section>;

@@ -188,12 +188,13 @@ describe("EstimateCommercialEditor", () => {
     expect(screen.getByRole("spinbutton", { name: "Кол-во" })).toBeInTheDocument();
     expect(screen.getByRole("spinbutton", { name: "Цена клиенту" })).toBeInTheDocument();
     const lineDetails = screen.getByTestId("estimate-line-advanced");
-    expect(lineDetails).not.toHaveAttribute("open");
+    expect(within(lineDetails).queryByRole("dialog")).not.toBeInTheDocument();
+
+    await user.click(screen.getByLabelText("Описание, единица и скидка"));
+    expect(within(lineDetails).getByRole("dialog", { name: "Описание, единица и скидка" })).toBeInTheDocument();
     expect(within(lineDetails).getByRole("textbox", { name: "Описание" })).toHaveValue("Camera");
     expect(within(lineDetails).getByRole("combobox", { name: "Ед." })).toHaveValue("pcs");
     expect(within(lineDetails).getByRole("spinbutton", { name: "Скидка, %" })).toHaveValue(0);
-
-    await user.click(screen.getByLabelText("Описание, единица и скидка"));
     const description = screen.getByRole("textbox", { name: "Описание" });
     await user.clear(description);
     await user.type(description, "Camera set");
@@ -346,6 +347,47 @@ describe("EstimateCommercialEditor", () => {
     expect(trigger).toHaveFocus();
   });
 
+  it("uses one controlled row menu with toggle, outside-click, Escape, and destructive styling", async () => {
+    const user = userEvent.setup();
+    renderEditor();
+    const trigger = screen.getByRole("button", { name: "Описание, единица и скидка" });
+
+    await user.click(trigger);
+    expect(screen.getByRole("dialog", { name: "Описание, единица и скидка" })).toBeInTheDocument();
+    const deleteAction = screen.getByRole("button", { name: "Удалить позицию" });
+    expect(deleteAction).toHaveClass("text-red-700");
+    expect(deleteAction.querySelector("svg")).toHaveClass("text-red-700");
+    expect(screen.getByRole("dialog", { name: "Описание, единица и скидка" })).not.toHaveClass("text-red-700");
+
+    await user.click(trigger);
+    expect(screen.queryByRole("dialog", { name: "Описание, единица и скидка" })).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+
+    await user.click(trigger);
+    await user.click(screen.getByRole("heading", { name: "CCTV" }));
+    expect(screen.queryByRole("dialog", { name: "Описание, единица и скидка" })).not.toBeInTheDocument();
+
+    await user.click(trigger);
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog", { name: "Описание, единица и скидка" })).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+  });
+
+  it("uses the governed two-row parameter geometry with a wider customer field", () => {
+    renderEditor();
+    const primaryRow = screen.getByTestId("estimate-parameters-primary-row");
+    const commercialRow = screen.getByTestId("estimate-parameters-commercial-row");
+    expect(primaryRow).toHaveClass("xl:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,1fr)]");
+    expect(within(primaryRow).getByText("Название")).toBeInTheDocument();
+    expect(within(primaryRow).getByText("Заказчик")).toBeInTheDocument();
+    expect(within(primaryRow).getByText("Проект / объект")).toBeInTheDocument();
+    expect(commercialRow).toHaveClass("xl:grid-cols-4");
+    for (const label of ["НДС", "Скидка на всю смету, %", "Срок, дней", "Валюта"]) {
+      expect(within(commercialRow).getByText(label)).toBeInTheDocument();
+    }
+    expect(within(screen.getByTestId("estimate-customer-field")).getByRole("combobox")).toHaveClass("min-h-11");
+  });
+
   it("keeps governed ready and template actions only inside Actions", async () => {
     const user = userEvent.setup();
     render(<EstimateCommercialEditor
@@ -480,10 +522,12 @@ describe("EstimateCommercialEditor", () => {
     vi.mocked(removeEstimateLineAction).mockResolvedValue({ success: true, data: { ...detail, lines: [], revision: 4 }, message: "Removed", errorCode: null });
     renderEditor();
 
+    await user.click(screen.getByRole("button", { name: "Описание, единица и скидка" }));
     await user.click(screen.getByRole("button", { name: "Удалить позицию" }));
 
     expect(removeEstimateLineAction).toHaveBeenCalledTimes(1);
     expect(removeEstimateLineAction).toHaveBeenCalledWith("estimate-1", "22222222-2222-2222-2222-222222222222", 3);
+    expect(screen.queryByRole("dialog", { name: "Описание, единица и скидка" })).not.toBeInTheDocument();
   });
 
   it("exposes and executes the editor save shortcut without a global listener", async () => {
@@ -500,7 +544,8 @@ describe("EstimateCommercialEditor", () => {
     expect(saveEstimateCommercialAction).toHaveBeenCalledTimes(1);
   });
 
-  it("renders a 120-line estimate without the removed top-level search", () => {
+  it("renders a 120-line estimate without the removed top-level search", async () => {
+    const user = userEvent.setup();
     const lines = Array.from({ length: 120 }, (_, index) => ({
       ...detail.lines[0],
       id: `line-${index}`,
@@ -511,7 +556,10 @@ describe("EstimateCommercialEditor", () => {
 
     expect(screen.queryByPlaceholderText("Поиск по позициям")).not.toBeInTheDocument();
     expect(screen.getByTitle("Position 119")).toBeInTheDocument();
+    const lineMenus = screen.getAllByRole("button", { name: "Описание, единица и скидка" });
+    await user.click(lineMenus[0]);
     expect(screen.getByDisplayValue("Position 1")).toBeInTheDocument();
+    await user.click(lineMenus[119]);
     expect(screen.getByDisplayValue("Position 120")).toBeInTheDocument();
     expect(saveEstimateCommercialAction).not.toHaveBeenCalled();
   });

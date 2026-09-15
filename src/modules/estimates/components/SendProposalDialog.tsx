@@ -143,8 +143,8 @@ export function SendProposalDialog({
   };
 
   return <>
-    <div className="flex flex-col items-start gap-1">
-      <button className={triggerTone === "primary" ? primary : secondary} disabled={!triggerAllowed} onClick={() => { setResultMessage(null); setResultState("idle"); setOpen(true); }} ref={triggerRef} type="button">
+    <div className="flex w-full flex-col items-start gap-1">
+      <button className={`${triggerTone === "primary" ? primary : secondary} w-full`} disabled={!triggerAllowed} onClick={() => { setResultMessage(null); setResultState("idle"); setOpen(true); }} ref={triggerRef} type="button">
         <Mail className="size-4" />
         {customer?.primaryEmail || recipientEmail ? triggerLabel ?? copy.sendToCustomer : copy.addEmail}
       </button>

@@ -153,7 +153,9 @@ describe("EstimateWorkflowPanel ergonomics", () => {
       }],
     }} revision={3} />);
 
-    await user.click(screen.getByRole("button", { name: "Передать в корзину" }));
+    const transferAction = screen.getByRole("button", { name: "Передать в корзину" });
+    expect(transferAction).toHaveClass("bg-emerald-700");
+    await user.click(transferAction);
     expect(screen.getByRole("dialog", { name: "Подготовка корзины к заказу" })).toBeInTheDocument();
     expect(screen.getByText(/все товарные позиции будут объединены/i)).toBeInTheDocument();
     expect(screen.getByText(/заказ в 1С на этом шаге не создаётся/i)).toBeInTheDocument();
@@ -196,7 +198,13 @@ describe("EstimateWorkflowPanel ergonomics", () => {
     resolveGeneration(readyResult);
     await click;
     expect(await screen.findByRole("link", { name: "Скачать PDF" })).toHaveAttribute("href", "/api/estimates/documents/document-1");
-    expect(screen.getByRole("button", { name: "Добавить email" })).toBeEnabled();
+    const stageActions = screen.getByTestId("estimate-stage-actions");
+    const addEmail = within(stageActions).getByRole("button", { name: "Добавить email" });
+    expect(addEmail).toBeEnabled();
+    expect(addEmail).toHaveClass("w-full", "border-zinc-300");
+    expect(addEmail).not.toHaveClass("bg-emerald-700");
+    expect(screen.getAllByRole("button", { name: "Добавить email" })).toHaveLength(1);
+    expect(screen.getByText("Текущий этап").compareDocumentPosition(stageActions) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(refreshMock).not.toHaveBeenCalled();
   });
 

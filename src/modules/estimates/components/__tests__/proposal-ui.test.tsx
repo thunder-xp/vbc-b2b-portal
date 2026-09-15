@@ -11,7 +11,7 @@ import { ProposalDocument } from "../ProposalDocument";
 vi.mock("../../actions/proposal.actions", () => ({ saveEstimateProposalSettingsAction: vi.fn(), generateEstimateProposalPdfAction: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 
-const settings: ProposalSettings = { title: "Коммерческое предложение", introduction: "Предложение", deliveryTerms: "Поставка", paymentTerms: "Оплата", warrantyTerms: "Гарантия", validityText: "14 дней", installationNotes: "", exclusions: "", customerNote: "", footerNote: "", showProductImages: true, showSku: true, showUnitPrice: true, showLineDiscount: true, showSectionSubtotals: true, showVatBreakdown: true, showPartnerLogo: true };
+const settings: ProposalSettings = { title: "Коммерческое предложение", introduction: "Предложение", deliveryTerms: "Поставка", paymentTerms: "Оплата", warrantyTerms: "Гарантия", validityText: "14 дней", installationNotes: "", exclusions: "", customerNote: "", footerNote: "", showProductImages: true, showSku: true, showProductName: true, showDescription: true, showHeadingGreeting: true, showUnitPrice: true, showLineDiscount: true, showSectionSubtotals: true, showVatBreakdown: true, showPartnerLogo: true };
 const template: ProposalTemplate = { id: "template-1", companyId: null, key: "equipment_supply", name: "Поставка оборудования", configuration: settings, isSystem: true };
 
 describe("proposal UI", () => {
@@ -28,7 +28,7 @@ describe("proposal UI", () => {
     expect(screen.getByText("Ответственный: Ivan Partner")).toBeInTheDocument();
     expect(screen.queryByText("Customer")).not.toBeInTheDocument();
     expect(screen.queryByText("Site")).not.toBeInTheDocument();
-    expect(screen.queryByText("Предложение")).not.toBeInTheDocument();
+    expect(screen.getByText("Предложение")).toBeInTheDocument();
     expect(screen.queryByText("шт.")).not.toBeInTheDocument();
     expect(screen.queryByText("начисляется отдельно, 20%")).not.toBeInTheDocument();
     expect(screen.queryByText("Условия предложения")).not.toBeInTheDocument();
@@ -90,23 +90,64 @@ describe("proposal UI", () => {
     }
     expect(screen.queryByText("Ед.")).not.toBeInTheDocument();
     expect(screen.queryByText("шт.")).not.toBeInTheDocument();
-    const description = document.querySelector("[title]");
+    const description = screen.getByText((content) => content.startsWith("Камера с подробным") && content.endsWith("…")).parentElement;
     expect(description).not.toBeNull();
-    expect(description!).toHaveAttribute("title", longDescription);
+    expect(description!).toHaveAttribute("title", expect.stringContaining("SKU 4000 Dahua DHI-ARA11 Камера с подробным"));
     expect(description!.textContent?.endsWith("…")).toBe(true);
-    expect(description!.textContent!.length).toBeLessThanOrEqual(245);
-    expect(description!.querySelector("p:last-child")).toHaveClass("font-normal", "text-[10px]", "leading-[1.25]");
+    expect(description!.textContent!.length).toBeLessThanOrEqual(270);
+    expect(description!.querySelector("p:last-child")).toHaveClass("font-normal", "text-[9px]", "leading-[1.2]", "[text-align:justify]");
   });
 
   it("keeps SKU and immutable product name together above the compact description", () => {
     render(<ProposalDocument proposal={proposal()} />);
-    const identity = screen.getByText("SKU 4000 Dahua DHI-ARA11");
+    const sku = screen.getByText("SKU 4000");
+    const name = screen.getByText("Dahua DHI-ARA11");
     const description = screen.getByText("Камера 1");
-    expect(identity).toHaveClass("text-[11px]", "font-medium");
-    expect(description).toHaveClass("text-[10px]", "font-normal");
-    expect(identity.compareDocumentPosition(description) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(sku).toHaveClass("text-[9px]", "font-normal", "text-zinc-500");
+    expect(name).toHaveClass("text-[11px]", "font-medium", "text-zinc-950");
+    expect(description).toHaveClass("text-[9px]", "font-normal");
+    expect(name.compareDocumentPosition(description) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(document.querySelectorAll("colgroup col")).toHaveLength(6);
     expect(document.querySelectorAll("colgroup col")[1]).not.toHaveAttribute("class");
+  });
+
+  it.each([
+    ["showSku", "SKU 4000"],
+    ["showProductName", "Dahua DHI-ARA11"],
+    ["showDescription", "Камера 1"],
+    ["showHeadingGreeting", "Коммерческое предложение"],
+  ] as const)("removes %s content instead of visually hiding it", (setting, text) => {
+    const value = proposal();
+    render(<ProposalDocument proposal={{ ...value, settings: { ...value.settings, [setting]: false } }} />);
+    expect(screen.queryByText(text)).not.toBeInTheDocument();
+  });
+
+  it("supports independent SKU, name, and description combinations without reserved identity blocks", () => {
+    const value = proposal();
+    const { rerender } = render(<ProposalDocument proposal={{ ...value, settings: { ...value.settings, showSku: false } }} />);
+    expect(screen.queryByText("SKU 4000")).not.toBeInTheDocument();
+    expect(screen.getByText("Dahua DHI-ARA11")).toBeInTheDocument();
+    expect(screen.getByText("Камера 1")).toBeInTheDocument();
+
+    rerender(<ProposalDocument proposal={{ ...value, settings: { ...value.settings, showProductName: false, showDescription: false } }} />);
+    expect(screen.getByText("SKU 4000")).toBeInTheDocument();
+    expect(screen.queryByText("Dahua DHI-ARA11")).not.toBeInTheDocument();
+    expect(screen.queryByText("Камера 1")).not.toBeInTheDocument();
+
+    rerender(<ProposalDocument proposal={{ ...value, settings: { ...value.settings, showSku: false, showProductName: false, showDescription: false, showProductImages: false } }} />);
+    expect(screen.queryByText(/SKU 4000|Dahua DHI-ARA11|Камера 1/)).not.toBeInTheDocument();
+  });
+
+  it("keeps new display options enabled for historical immutable snapshots that predate them", () => {
+    const value = proposal();
+    const historicalSettings = { ...value.settings };
+    delete historicalSettings.showProductName;
+    delete historicalSettings.showDescription;
+    delete historicalSettings.showHeadingGreeting;
+    render(<ProposalDocument proposal={{ ...value, schemaVersion: "2026-09-14-v5", settings: historicalSettings }} />);
+    expect(screen.getByText("Коммерческое предложение")).toBeInTheDocument();
+    expect(screen.getByText("Dahua DHI-ARA11")).toBeInTheDocument();
+    expect(screen.getByText("Камера 1")).toBeInTheDocument();
   });
 
   it("does not render a subtotal for an empty section and renders compact contact details", () => {
@@ -135,6 +176,7 @@ describe("proposal UI", () => {
     expect(screen.getByRole("combobox", { name: "Шаблон" })).toHaveValue(template.id);
     expect(screen.queryByRole("textbox", { name: "Условия поставки" })).not.toBeInTheDocument();
     expect(screen.queryByRole("textbox", { name: "Условия оплаты" })).not.toBeInTheDocument();
+    for (const label of ["Артикулы SKU", "Наименование", "Описание", "Заголовок и обращение"]) expect(screen.getByRole("checkbox", { name: label })).toBeChecked();
     await user.click(screen.getByRole("button", { name: "Сохранить" }));
     expect(saveEstimateProposalSettingsAction).toHaveBeenCalledTimes(1);
     expect(saveEstimateProposalSettingsAction).toHaveBeenCalledWith("estimate-1", expect.objectContaining({ expectedRevision: 3, templateId: template.id, settings: expect.objectContaining({ showSku: true }) }));
@@ -149,4 +191,4 @@ describe("proposal UI", () => {
   });
 });
 
-function proposal(lineCount = 1): CustomerProposalDto { const total = lineCount * 100; return { schemaVersion: "2026-09-14-v5", estimateNumber: "KP-1", generatedForDate: "2026-07-16", validUntilDate: "2026-07-30", customerName: "Customer", projectName: "Site", currencyCode: "USD", vatMode: "separate", vatRatePercent: 20, settings, branding: { companyName: "Partner SRL", legalName: null, contactName: "Ivan Partner", phone: null, email: null, website: null, fiscalInformation: null, address: null, logoUrl: null }, sections: [{ name: "Оборудование", subtotal: total, lines: Array.from({ length: lineCount }, (_, index) => ({ position: index + 1, lineType: "product", description: `Камера ${index + 1}`, sku: `400${index}`, productName: index === 0 ? "Dahua DHI-ARA11" : `Dahua Model ${index + 1}`, imageUrl: null, quantity: 1, unitLabel: "шт.", unitPrice: 100, lineDiscountPercent: 0, lineTotal: 100 })) }], charges: [], totals: { subtotal: total, discounts: 0, charges: 0, totalExcludingVat: total, vat: 0, total } }; }
+function proposal(lineCount = 1): CustomerProposalDto { const total = lineCount * 100; return { schemaVersion: "2026-09-15-v6", estimateNumber: "KP-1", generatedForDate: "2026-07-16", validUntilDate: "2026-07-30", customerName: "Customer", projectName: "Site", currencyCode: "USD", vatMode: "separate", vatRatePercent: 20, settings, branding: { companyName: "Partner SRL", legalName: null, contactName: "Ivan Partner", phone: null, email: null, website: null, fiscalInformation: null, address: null, logoUrl: null }, sections: [{ name: "Оборудование", subtotal: total, lines: Array.from({ length: lineCount }, (_, index) => ({ position: index + 1, lineType: "product", description: `Камера ${index + 1}`, sku: `400${index}`, productName: index === 0 ? "Dahua DHI-ARA11" : `Dahua Model ${index + 1}`, imageUrl: null, quantity: 1, unitLabel: "шт.", unitPrice: 100, lineDiscountPercent: 0, lineTotal: 100 })) }], charges: [], totals: { subtotal: total, discounts: 0, charges: 0, totalExcludingVat: total, vat: 0, total } }; }

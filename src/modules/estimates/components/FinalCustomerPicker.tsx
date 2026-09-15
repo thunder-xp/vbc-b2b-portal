@@ -52,7 +52,7 @@ export function FinalCustomerPicker({ disabled = false, initialName, onChange, v
     onChange?.(customer);
   };
 
-  return <div className="min-w-0 max-w-full space-y-2">
+  return <div className="min-w-0 max-w-full space-y-1">
     <label className="block text-sm font-medium text-zinc-700" htmlFor={`${listId}-input`}>{copy.customer} <span aria-hidden="true" className="text-red-600">*</span></label>
     <input name="finalCustomerId" type="hidden" value={value ?? ""} />
     {value ? <div className="flex min-h-11 min-w-0 max-w-full flex-wrap items-center justify-between gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3">

@@ -63,7 +63,7 @@ export async function renderProposalPdf(proposal: CustomerProposalDto): Promise<
 
 export function createDocumentDefinition(proposal: CustomerProposalDto, images = new Map<string, string>()): TDocumentDefinitions {
   const content: Array<Record<string, unknown>> = [
-    { columns: [brandingBlock(proposal, images), { stack: [{ text: proposal.settings.title, style: "title" }, ...documentMetadata(proposal)], alignment: "right" }], margin: [0, 0, 0, 9] },
+    { columns: [brandingBlock(proposal, images), documentHeadingBlock(proposal)], margin: [0, 0, 0, 9] },
   ];
 
   for (const section of proposal.sections) {
@@ -104,12 +104,16 @@ function productTable(proposal: CustomerProposalDto, sectionName: string, sectio
   if (proposal.settings.showLineDiscount) headers.push({ text: "Скидка", bold: true, alignment: "right" });
   headers.push({ text: "Сумма", bold: true, alignment: "right" });
   const rows = lines.map((line, lineIndex) => {
-    const presentation = proposalLinePresentation(line);
+    const presentation = proposalLinePresentation(line, proposal.settings);
+    const identity: Array<Record<string, unknown>> = [];
+    if (presentation.sku) identity.push({ text: presentation.sku, fontSize: 6.4, bold: false, color: "#71717a" });
+    if (presentation.sku && presentation.productName) identity.push({ text: "  " });
+    if (presentation.productName) identity.push({ text: presentation.productName, fontSize: 7.4, bold: false, color: "#18181b" });
+    const descriptionStack: Array<Record<string, unknown>> = [];
+    if (identity.length) descriptionStack.push({ text: identity, lineHeight: 1.02 });
+    if (presentation.description) descriptionStack.push({ text: presentation.description, fontSize: 6.2, bold: false, color: "#52525b", lineHeight: 1.02, alignment: "justify", margin: [0, identity.length ? 1 : 0, 0, 0] });
     const description: Record<string, unknown> = {
-      stack: [
-        { text: presentation.identity, fontSize: 7.4, bold: true, color: "#27272a", lineHeight: 1.02 },
-        ...(presentation.description ? [{ text: presentation.description, fontSize: 6.6, bold: false, color: "#52525b", lineHeight: 1.03, margin: [0, 1, 0, 0] }] : []),
-      ],
+      stack: descriptionStack.length ? descriptionStack : [{ text: "" }],
     };
     const row: Array<Record<string, unknown>> = [{ text: String(proposalLineNumber(proposal.schemaVersion, lineIndex, line.position)), color: "#71717a" }];
     if (showImage) row.push(isProductProposalLine(line) ? line.imageUrl && images.has(line.imageUrl) ? { image: images.get(line.imageUrl)!, width: 26, height: 26, fit: [26, 26] } : { text: "—", color: "#a1a1aa", alignment: "center", margin: [0, 7, 0, 0] } : { text: "" });
@@ -144,6 +148,16 @@ function documentMetadata(proposal: CustomerProposalDto): Array<Record<string, u
   ];
   if (proposal.validUntilDate) rows.push({ text: `Действительно до: ${formatDate(proposal.validUntilDate)}`, alignment: "right", color: "#71717a" });
   return rows;
+}
+
+function documentHeadingBlock(proposal: CustomerProposalDto): Record<string, unknown> {
+  const stack: Array<Record<string, unknown>> = [];
+  if (proposal.settings.showHeadingGreeting !== false) {
+    stack.push({ text: proposal.settings.title, style: "title" });
+    if (proposal.settings.introduction) stack.push({ text: proposal.settings.introduction, fontSize: 6.5, bold: false, color: "#52525b", lineHeight: 1.04, margin: [0, 2, 0, 0] });
+  }
+  stack.push(...documentMetadata(proposal));
+  return { stack, alignment: "right" };
 }
 
 export async function loadProposalImages(proposal: CustomerProposalDto, options?: { timeoutMs?: number }): Promise<Map<string, string>> {

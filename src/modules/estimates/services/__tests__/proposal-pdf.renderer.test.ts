@@ -12,10 +12,56 @@ describe("proposal PDF renderer", () => {
     const current = JSON.stringify(createDocumentDefinition({ ...fixture(1), schemaVersion: "2026-08-12-v4" }));
     const historical = JSON.stringify(createDocumentDefinition({ ...fixture(1), schemaVersion: "2026-08-08-v2" }));
     expect(current).not.toContain("Код / модель");
-    expect(current).toContain("SKU-1  Dahua DHI-ARA11");
+    expect(current).toContain('"text":"SKU-1"');
+    expect(current).toContain('"text":"Dahua DHI-ARA11"');
+    expect(current.indexOf('"text":"SKU-1"')).toBeLessThan(current.indexOf('"text":"Dahua DHI-ARA11"'));
     expect(current).not.toContain('"text":"Ед."');
     expect(current).not.toContain('"text":"шт."');
     expect(historical).not.toContain("Код / модель");
+  });
+  it.each([
+    ["showSku", "SKU-1"],
+    ["showProductName", "Dahua DHI-ARA11"],
+    ["showDescription", "Камера видеонаблюдения 1"],
+    ["showHeadingGreeting", DEFAULT_PROPOSAL_SETTINGS.introduction],
+  ] as const)("removes %s content from the PDF definition", (setting, text) => {
+    const value = fixture(1);
+    const definition = JSON.stringify(createDocumentDefinition({ ...value, settings: { ...value.settings, [setting]: false } }));
+    expect(definition).not.toContain(text);
+  });
+
+  it("keeps PDF option combinations structurally aligned with preview semantics", () => {
+    const value = fixture(1);
+    const onlyName = JSON.stringify(createDocumentDefinition({ ...value, settings: { ...value.settings, showSku: false, showDescription: false } }));
+    expect(onlyName).toContain("Dahua DHI-ARA11");
+    expect(onlyName).not.toContain("SKU-1");
+    expect(onlyName).not.toContain("Камера видеонаблюдения 1");
+
+    const noIdentity = JSON.stringify(createDocumentDefinition({ ...value, settings: { ...value.settings, showSku: false, showProductName: false, showDescription: false, showProductImages: false } }));
+    expect(noIdentity).not.toContain("SKU-1");
+    expect(noIdentity).not.toContain("Dahua DHI-ARA11");
+    expect(noIdentity).not.toContain("Камера видеонаблюдения 1");
+    expect(noIdentity).toContain('"stack":[{"text":""}]');
+  });
+
+  it("renders valid compact PDFs for each newly governed option disabled", async () => {
+    for (const setting of ["showSku", "showProductName", "showDescription", "showHeadingGreeting"] as const) {
+      const value = fixture(3);
+      const rendered = await renderProposalPdf({ ...value, settings: { ...value.settings, [setting]: false } });
+      if (process.env.WRITE_PROPOSAL_PDF_FIXTURE) {
+        mkdirSync("tmp/pdfs", { recursive: true });
+        writeFileSync(`tmp/pdfs/proposal-${setting}-off.pdf`, rendered.bytes);
+      }
+      expect(rendered.bytes.byteLength).toBeGreaterThan(1_000);
+      expect(rendered.pageCount).toBeGreaterThanOrEqual(1);
+    }
+  }, 20_000);
+
+  it("uses compact hierarchical typography and justified descriptions", () => {
+    const definition = JSON.stringify(createDocumentDefinition(fixture(1)));
+    expect(definition).toContain('"fontSize":6.4,"bold":false,"color":"#71717a"');
+    expect(definition).toContain('"fontSize":7.4,"bold":false,"color":"#18181b"');
+    expect(definition).toContain('"fontSize":6.2,"bold":false,"color":"#52525b","lineHeight":1.02,"alignment":"justify"');
   });
   it("matches HTML semantics by restarting new-snapshot numbering per section", () => {
     const base = fixture(1);
@@ -199,4 +245,4 @@ describe("proposal PDF renderer", () => {
   });
 });
 
-function fixture(lineCount: number): CustomerProposalDto { return { schemaVersion: "2026-09-14-v5", estimateNumber: "KP-2026-000001", generatedForDate: "2026-07-16", validUntilDate: "2026-07-30", customerName: "Клиент SRL", projectName: "Объект", currencyCode: "USD", vatMode: "separate", vatRatePercent: 20, settings: { ...DEFAULT_PROPOSAL_SETTINGS, deliveryTerms: "Condiții de livrare" }, branding: { companyName: "Партнёр SRL", legalName: null, contactName: "Ivan Partner", phone: null, email: null, website: null, fiscalInformation: null, address: null, logoUrl: null }, sections: [{ name: "Оборудование", subtotal: lineCount * 100, lines: Array.from({ length: lineCount }, (_, index) => ({ position: index + 1, lineType: "product", description: `Камера видеонаблюдения ${index + 1}`, sku: `SKU-${index + 1}`, productName: index === 0 ? "Dahua DHI-ARA11" : `Dahua Model ${index + 1}`, imageUrl: null, quantity: 1, unitLabel: "шт.", unitPrice: 100, lineDiscountPercent: 0, lineTotal: 100 })) }], charges: [], totals: { subtotal: lineCount * 100, discounts: 0, charges: 0, totalExcludingVat: lineCount * 100, vat: 0, total: lineCount * 100 } }; }
+function fixture(lineCount: number): CustomerProposalDto { return { schemaVersion: "2026-09-15-v6", estimateNumber: "KP-2026-000001", generatedForDate: "2026-07-16", validUntilDate: "2026-07-30", customerName: "Клиент SRL", projectName: "Объект", currencyCode: "USD", vatMode: "separate", vatRatePercent: 20, settings: { ...DEFAULT_PROPOSAL_SETTINGS, deliveryTerms: "Condiții de livrare" }, branding: { companyName: "Партнёр SRL", legalName: null, contactName: "Ivan Partner", phone: null, email: null, website: null, fiscalInformation: null, address: null, logoUrl: null }, sections: [{ name: "Оборудование", subtotal: lineCount * 100, lines: Array.from({ length: lineCount }, (_, index) => ({ position: index + 1, lineType: "product", description: `Камера видеонаблюдения ${index + 1}`, sku: `SKU-${index + 1}`, productName: index === 0 ? "Dahua DHI-ARA11" : `Dahua Model ${index + 1}`, imageUrl: null, quantity: 1, unitLabel: "шт.", unitPrice: 100, lineDiscountPercent: 0, lineTotal: 100 })) }], charges: [], totals: { subtotal: lineCount * 100, discounts: 0, charges: 0, totalExcludingVat: lineCount * 100, vat: 0, total: lineCount * 100 } }; }
